@@ -1,7 +1,8 @@
 # pyright: reportAttributeAccessIssue=false, reportReturnType=false, reportArgumentType=false
+"""Tests for SkyPilot cloud readiness detection across API versions."""
+
 import enum
 import types
-import unittest
 from contextlib import contextmanager
 from unittest.mock import patch
 
@@ -76,10 +77,7 @@ def _build_fake_sky_modules(
 
 
 @contextmanager
-def _patch_sky(
-    modules: dict, sky_mod: object, check_mod: object, cloud_capability: object
-):
-    """Patch module-level sky references in server.py for testing."""
+def _patch_sky(modules, sky_mod, check_mod, cloud_capability):
     with (
         patch.object(_server_mod, "sky", sky_mod),
         patch.object(_server_mod, "sky_check", check_mod),
@@ -88,69 +86,63 @@ def _patch_sky(
         yield
 
 
-class CloudReadinessCompatibilityTests(unittest.TestCase):
-    def test_new_skypilot_api_with_cloud_objects(self) -> None:
-        modules, sky_mod, check_mod, cloud_capability = _build_fake_sky_modules(
-            require_capability=True,
-            enabled_values=[_FakeCloud("AWS")],
-            include_cloud_capability=True,
-            include_check_capability=True,
-            check_capability_values=["AWS"],
-        )
-        with _patch_sky(modules, sky_mod, check_mod, cloud_capability):
-            errors, warnings, readiness = check_cloud_readiness(target_cloud="aws")
+def test_new_skypilot_api_with_cloud_objects():
+    modules, sky_mod, check_mod, cloud_capability = _build_fake_sky_modules(
+        require_capability=True,
+        enabled_values=[_FakeCloud("AWS")],
+        include_cloud_capability=True,
+        include_check_capability=True,
+        check_capability_values=["AWS"],
+    )
+    with _patch_sky(modules, sky_mod, check_mod, cloud_capability):
+        errors, warnings, readiness = check_cloud_readiness(target_cloud="aws")
 
-        self.assertEqual(errors, [])
-        self.assertEqual(warnings, [])
-        self.assertEqual(readiness["enabled_clouds"], ["AWS"])
-        self.assertTrue(readiness["target_cloud_ready"])
-
-    def test_api_mismatch_is_warning_for_non_targeted_check(self) -> None:
-        modules, sky_mod, check_mod, cloud_capability = _build_fake_sky_modules(
-            require_capability=True,
-            enabled_values=["AWS"],
-            include_cloud_capability=False,
-            include_check_capability=False,
-        )
-        with _patch_sky(modules, sky_mod, check_mod, cloud_capability):
-            errors, warnings, readiness = check_cloud_readiness()
-
-        self.assertEqual(errors, [])
-        self.assertEqual(readiness["target_cloud_ready"], None)
-        self.assertTrue(
-            any("SkyPilot API compatibility issue" in warning for warning in warnings)
-        )
-
-    def test_api_mismatch_is_blocking_for_targeted_check(self) -> None:
-        modules, sky_mod, check_mod, cloud_capability = _build_fake_sky_modules(
-            require_capability=True,
-            enabled_values=["AWS"],
-            include_cloud_capability=False,
-            include_check_capability=False,
-        )
-        with _patch_sky(modules, sky_mod, check_mod, cloud_capability):
-            errors, warnings, readiness = check_cloud_readiness(target_cloud="aws")
-
-        self.assertEqual(warnings, [])
-        self.assertFalse(readiness["target_cloud_ready"])
-        self.assertTrue(
-            any("SkyPilot API compatibility error" in error for error in errors)
-        )
-
-    def test_string_cloud_names_are_normalized(self) -> None:
-        modules, sky_mod, check_mod, cloud_capability = _build_fake_sky_modules(
-            require_capability=False,
-            enabled_values=["gcp", "AWS"],
-            include_cloud_capability=True,
-            include_check_capability=True,
-        )
-        with _patch_sky(modules, sky_mod, check_mod, cloud_capability):
-            errors, warnings, readiness = check_cloud_readiness()
-
-        self.assertEqual(errors, [])
-        self.assertEqual(warnings, [])
-        self.assertEqual(readiness["enabled_clouds"], ["AWS", "GCP"])
+    assert errors == []
+    assert warnings == []
+    assert readiness["enabled_clouds"] == ["AWS"]
+    assert readiness["target_cloud_ready"]
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_api_mismatch_warning_non_targeted():
+    modules, sky_mod, check_mod, cloud_capability = _build_fake_sky_modules(
+        require_capability=True,
+        enabled_values=["AWS"],
+        include_cloud_capability=False,
+        include_check_capability=False,
+    )
+    with _patch_sky(modules, sky_mod, check_mod, cloud_capability):
+        errors, warnings, readiness = check_cloud_readiness()
+
+    assert errors == []
+    assert readiness["target_cloud_ready"] is None
+    assert any("SkyPilot API compatibility issue" in w for w in warnings)
+
+
+def test_api_mismatch_blocking_targeted():
+    modules, sky_mod, check_mod, cloud_capability = _build_fake_sky_modules(
+        require_capability=True,
+        enabled_values=["AWS"],
+        include_cloud_capability=False,
+        include_check_capability=False,
+    )
+    with _patch_sky(modules, sky_mod, check_mod, cloud_capability):
+        errors, warnings, readiness = check_cloud_readiness(target_cloud="aws")
+
+    assert warnings == []
+    assert not readiness["target_cloud_ready"]
+    assert any("SkyPilot API compatibility error" in e for e in errors)
+
+
+def test_string_cloud_names_normalized():
+    modules, sky_mod, check_mod, cloud_capability = _build_fake_sky_modules(
+        require_capability=False,
+        enabled_values=["gcp", "AWS"],
+        include_cloud_capability=True,
+        include_check_capability=True,
+    )
+    with _patch_sky(modules, sky_mod, check_mod, cloud_capability):
+        errors, warnings, readiness = check_cloud_readiness()
+
+    assert errors == []
+    assert warnings == []
+    assert readiness["enabled_clouds"] == ["AWS", "GCP"]

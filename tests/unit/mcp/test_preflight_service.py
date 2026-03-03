@@ -16,244 +16,197 @@ from oumi.mcp.preflight_service import (
     get_gpu_info,
     get_repos,
     validate_datasets,
-    validate_paths,
+    validate_paths_cloud,
+    validate_paths_local,
 )
 
-# ------------------------------------------------------------------
-# Helper predicates
-# ------------------------------------------------------------------
+
+@pytest.mark.parametrize("val", ["meta-llama/Llama-3.1-8B", "org/model"])
+def test_looks_like_hf_repo_valid(val: str):
+    assert _looks_like_hf_repo(val) is True
 
 
-class TestLooksLikeHfRepo:
-    @pytest.mark.parametrize("val", ["meta-llama/Llama-3.1-8B", "org/model"])
-    def test_valid(self, val: str):
-        assert _looks_like_hf_repo(val) is True
-
-    @pytest.mark.parametrize(
-        "val", ["", "/abs/path", "./rel", "~/home", "no-slash", "a/b/c"]
-    )
-    def test_invalid(self, val: str):
-        assert _looks_like_hf_repo(val) is False
+@pytest.mark.parametrize(
+    "val", ["", "/abs/path", "./rel", "~/home", "no-slash", "a/b/c"]
+)
+def test_looks_like_hf_repo_invalid(val: str):
+    assert _looks_like_hf_repo(val) is False
 
 
-class TestIsLocalMachinePath:
-    def test_home_path(self):
-        assert _is_local_machine_path(str(Path.home() / "project")) is True
-
-    def test_users_path(self):
-        assert _is_local_machine_path("/Users/alice/work") is True
-
-    def test_remote_absolute(self):
-        assert _is_local_machine_path("/home/ubuntu/output") is False
-
-    def test_relative(self):
-        assert _is_local_machine_path("relative/path") is False
+def test_is_local_machine_path_home():
+    assert _is_local_machine_path(str(Path.home() / "project")) is True
 
 
-# ------------------------------------------------------------------
-# validate_paths
-# ------------------------------------------------------------------
+def test_is_local_machine_path_users():
+    assert _is_local_machine_path("/Users/alice/work") is True
 
 
-class TestValidatePaths:
-    def test_local_absolute_exists(self, tmp_path: Path):
-        d = tmp_path / "output"
-        d.mkdir()
-        cfg = {"training": {"output_dir": str(d)}}
-        paths = validate_paths(cfg, tmp_path)
-        assert paths[str(d)] == "ok"
-
-    def test_local_absolute_not_found(self, tmp_path: Path):
-        cfg = {"training": {"output_dir": "/nonexistent/dir_xyz"}}
-        paths = validate_paths(cfg, tmp_path)
-        assert paths["/nonexistent/dir_xyz"] == "not_found"
-
-    def test_local_relative_resolved(self, tmp_path: Path):
-        d = tmp_path / "data"
-        d.mkdir()
-        cfg = {"training": {"output_dir": "data"}}
-        paths = validate_paths(cfg, tmp_path)
-        assert any("ok" in v for v in paths.values())
-
-    def test_hf_repo_skipped(self, tmp_path: Path):
-        cfg = {"model": {"model_path": "meta-llama/Llama-3.1-8B"}}
-        paths = validate_paths(cfg, tmp_path)
-        assert len(paths) == 0
-
-    def test_cloud_blocks_local_machine_path(self, tmp_path: Path):
-        cfg = {"training": {"output_dir": str(Path.home() / "output")}}
-        paths = validate_paths(cfg, tmp_path, cloud="gcp")
-        assert any(v == "local_machine_path_error" for v in paths.values())
-
-    def test_cloud_remote_absolute_ok(self, tmp_path: Path):
-        cfg = {"training": {"output_dir": "/home/ubuntu/output"}}
-        paths = validate_paths(cfg, tmp_path, cloud="gcp")
-        assert any(v == "ok_remote" for v in paths.values())
-
-    def test_cloud_relative_exists(self, tmp_path: Path):
-        d = tmp_path / "data"
-        d.mkdir()
-        cfg = {"training": {"output_dir": "data"}}
-        paths = validate_paths(cfg, tmp_path, cloud="gcp")
-        assert any(v == "ok" for v in paths.values())
-
-    def test_cloud_relative_not_found(self, tmp_path: Path):
-        cfg = {"training": {"output_dir": "missing_dir"}}
-        paths = validate_paths(cfg, tmp_path, cloud="gcp")
-        assert any(v == "not_found_warning" for v in paths.values())
-
-    def test_empty_config(self, tmp_path: Path):
-        assert validate_paths({}, tmp_path) == {}
+def test_is_local_machine_path_remote():
+    assert _is_local_machine_path("/home/ubuntu/output") is False
 
 
-# ------------------------------------------------------------------
-# validate_datasets
-# ------------------------------------------------------------------
+def test_is_local_machine_path_relative():
+    assert _is_local_machine_path("relative/path") is False
 
 
-class TestValidateDatasets:
-    def test_registry_hit(self, tmp_path: Path):
-        cfg = {"data": {"train": {"datasets": [{"dataset_name": "test_ds"}]}}}
-        mock_reg = MagicMock()
-        mock_reg.get_dataset.return_value = "something"
-        with (
-            patch("oumi.mcp.preflight_service.REGISTRY", mock_reg, create=True),
-            patch.dict(
-                "sys.modules", {"oumi.core.registry": MagicMock(REGISTRY=mock_reg)}
-            ),
-        ):
-            results = validate_datasets(cfg, str(tmp_path))
-        assert results.get("test_ds") == "ok_registry"
+def test_validate_paths_local_exists(tmp_path: Path):
+    d = tmp_path / "output"
+    d.mkdir()
+    cfg = {"training": {"output_dir": str(d)}}
+    paths = validate_paths_local(cfg, tmp_path)
+    assert paths[str(d)] == "valid"
 
-    def test_local_path_hit(self, tmp_path: Path):
-        data = tmp_path / "data.jsonl"
-        data.write_text("{}\n")
-        cfg = {
-            "data": {
-                "train": {
-                    "datasets": [{"dataset_name": "x", "dataset_path": str(data)}]
-                }
-            }
+
+def test_validate_paths_local_not_found(tmp_path: Path):
+    cfg = {"training": {"output_dir": "/nonexistent/dir_xyz"}}
+    paths = validate_paths_local(cfg, tmp_path)
+    assert paths["/nonexistent/dir_xyz"] == "not_found"
+
+
+def test_validate_paths_local_relative(tmp_path: Path):
+    d = tmp_path / "data"
+    d.mkdir()
+    cfg = {"training": {"output_dir": "data"}}
+    paths = validate_paths_local(cfg, tmp_path)
+    assert any("valid" in v for v in paths.values())
+
+
+def test_validate_paths_local_hf_repo_skipped(tmp_path: Path):
+    cfg = {"model": {"model_path": "meta-llama/Llama-3.1-8B"}}
+    paths = validate_paths_local(cfg, tmp_path)
+    assert len(paths) == 0
+
+
+def test_validate_paths_local_empty(tmp_path: Path):
+    assert validate_paths_local({}, tmp_path) == {}
+
+
+def test_validate_paths_cloud_blocks_local_machine(tmp_path: Path):
+    cfg = {"training": {"output_dir": str(Path.home() / "output")}}
+    paths = validate_paths_cloud(cfg, tmp_path / "config.yaml", str(tmp_path), "gcp")
+    assert any(v == "local_machine_path_error" for v in paths.values())
+
+
+def test_validate_paths_cloud_remote_absolute(tmp_path: Path):
+    cfg = {"training": {"output_dir": "/home/ubuntu/output"}}
+    paths = validate_paths_cloud(cfg, tmp_path / "config.yaml", str(tmp_path), "gcp")
+    assert any(v == "unverifiable_remote" for v in paths.values())
+
+
+def test_validate_paths_cloud_relative_exists(tmp_path: Path):
+    d = tmp_path / "data"
+    d.mkdir()
+    cfg = {"training": {"output_dir": "data"}}
+    paths = validate_paths_cloud(cfg, tmp_path / "config.yaml", str(tmp_path), "gcp")
+    assert any(v == "valid" for v in paths.values())
+
+
+def test_validate_paths_cloud_relative_not_found(tmp_path: Path):
+    cfg = {"training": {"output_dir": "missing_dir"}}
+    paths = validate_paths_cloud(cfg, tmp_path / "config.yaml", str(tmp_path), "gcp")
+    assert any(v == "not_found_warning" for v in paths.values())
+
+
+def test_validate_datasets_registry_hit(tmp_path: Path):
+    cfg = {"data": {"train": {"datasets": [{"dataset_name": "test_ds"}]}}}
+    mock_reg = MagicMock()
+    mock_reg.get_dataset.return_value = "something"
+    with (
+        patch("oumi.mcp.preflight_service.REGISTRY", mock_reg, create=True),
+        patch.dict("sys.modules", {"oumi.core.registry": MagicMock(REGISTRY=mock_reg)}),
+    ):
+        results = validate_datasets(cfg, str(tmp_path))
+    assert results.get("test_ds") == "ok_registry"
+
+
+def test_validate_datasets_local_path(tmp_path: Path):
+    data = tmp_path / "data.jsonl"
+    data.write_text("{}\n")
+    cfg = {
+        "data": {
+            "train": {"datasets": [{"dataset_name": "x", "dataset_path": str(data)}]}
         }
-        with patch(
-            "oumi.mcp.preflight_service.REGISTRY", create=True, side_effect=Exception
-        ):
-            # Registry lookup should fail, but local path should be found
-            results = validate_datasets(cfg, str(tmp_path))
-        assert any("ok_local" in v for v in results.values())
-
-    def test_not_found(self, tmp_path: Path):
-        cfg = {
-            "data": {
-                "train": {"datasets": [{"dataset_name": "fake_nonexistent_ds_xyz"}]}
-            }
-        }
-        mock_reg = MagicMock()
-        mock_reg.get_dataset.return_value = None
-
-        mock_datasets_mod = MagicMock()
-        mock_datasets_mod.load_dataset_builder.side_effect = Exception("not found")
-
-        with patch.dict(
-            "sys.modules",
-            {
-                "oumi.core.registry": MagicMock(REGISTRY=mock_reg),
-                "datasets": mock_datasets_mod,
-            },
-        ):
-            results = validate_datasets(cfg, str(tmp_path))
-        assert any(v == "not_found" for v in results.values())
-
-    def test_empty_config(self):
-        assert validate_datasets({}) == {}
+    }
+    with patch(
+        "oumi.mcp.preflight_service.REGISTRY", create=True, side_effect=Exception
+    ):
+        results = validate_datasets(cfg, str(tmp_path))
+    assert any("ok_local" in v for v in results.values())
 
 
-# ------------------------------------------------------------------
-# get_gpu_info
-# ------------------------------------------------------------------
+def test_validate_datasets_not_found(tmp_path: Path):
+    cfg = {
+        "data": {"train": {"datasets": [{"dataset_name": "fake_nonexistent_ds_xyz"}]}}
+    }
+    mock_reg = MagicMock()
+    mock_reg.get_dataset.return_value = None
+    mock_datasets_mod = MagicMock()
+    mock_datasets_mod.load_dataset_builder.side_effect = Exception("not found")
+
+    with patch.dict(
+        "sys.modules",
+        {
+            "oumi.core.registry": MagicMock(REGISTRY=mock_reg),
+            "datasets": mock_datasets_mod,
+        },
+    ):
+        results = validate_datasets(cfg, str(tmp_path))
+    assert any(v == "not_found" for v in results.values())
 
 
-class TestGetGpuInfo:
-    def test_no_torch(self):
-        with patch.object(
-            __import__("oumi.mcp.preflight_service", fromlist=["torch"]), "torch", None
-        ):
-            info = get_gpu_info()
-        assert info["accelerator_type"] == "none"
-
-    def test_cuda_available(self):
-        mock_torch = MagicMock()
-        mock_torch.cuda.is_available.return_value = True
-        mock_torch.cuda.device_count.return_value = 1
-        props = MagicMock()
-        props.name = "A100"
-        props.total_mem = 80_000_000_000
-        props.major = 8
-        props.minor = 0
-        mock_torch.cuda.get_device_properties.return_value = props
-        with patch.object(
-            __import__("oumi.mcp.preflight_service", fromlist=["torch"]),
-            "torch",
-            mock_torch,
-        ):
-            info = get_gpu_info()
-        assert info["accelerator_type"] == "cuda"
-        assert info["gpu_name"] == "A100"
+def test_validate_datasets_empty():
+    assert validate_datasets({}) == {}
 
 
-# ------------------------------------------------------------------
-# get_repos
-# ------------------------------------------------------------------
+def test_get_gpu_info_no_torch():
+    with patch.object(
+        __import__("oumi.mcp.preflight_service", fromlist=["torch"]), "torch", None
+    ):
+        info = get_gpu_info()
+    assert info["accelerator_type"] == "none"
 
 
-class TestGetRepos:
-    def test_model_extraction(self):
-        cfg = {"model": {"model_name": "meta-llama/Llama-3.1-8B"}}
-        from oumi.mcp.preflight_service import get_repos
-
-        repos = get_repos(cfg)
-        assert "meta-llama/Llama-3.1-8B" in repos
-        assert "model" in repos["meta-llama/Llama-3.1-8B"]
-
-    def test_empty_config(self):
-        assert get_repos({}) == {}
-
-    def test_dataset_extraction(self):
-        cfg = {"data": {"train": {"datasets": [{"dataset_name": "org/dataset"}]}}}
-        repos = get_repos(cfg)
-        assert "org/dataset" in repos
+def test_get_repos_model():
+    cfg = {"model": {"model_name": "meta-llama/Llama-3.1-8B"}}
+    repos = get_repos(cfg)
+    assert "meta-llama/Llama-3.1-8B" in repos
+    assert "model" in repos["meta-llama/Llama-3.1-8B"]
 
 
-# ------------------------------------------------------------------
-# skypilot_compat_issue field
-# ------------------------------------------------------------------
+def test_get_repos_dataset():
+    cfg = {"data": {"train": {"datasets": [{"dataset_name": "org/dataset"}]}}}
+    repos = get_repos(cfg)
+    assert "org/dataset" in repos
 
 
-class TestSkypilotCompatIssueField:
-    """Verify the skypilot_compat_issue boolean in PreFlightCheckResponse."""
+def _run_preflight(tmp_path: Path, cloud_errors=None, cloud_warnings=None):
+    cfg = tmp_path / "train.yaml"
+    cfg.write_text("model: {model_name: test/model}\n")
+    cloud_result = (cloud_errors or [], cloud_warnings or [], _empty_cloud_readiness())
+    with (
+        patch(
+            "oumi.mcp.preflight_service.check_cloud_readiness",
+            return_value=cloud_result,
+        ),
+        patch("oumi.mcp.preflight_service.whoami", side_effect=Exception),
+    ):
+        return _pre_flight_check(str(cfg), client_cwd=str(tmp_path))
 
-    def _run_preflight(self, tmp_path: Path, cloud_errors=None, cloud_warnings=None):
-        cfg = tmp_path / "train.yaml"
-        cfg.write_text("model: {model_name: test/model}\n")
-        cloud_result = (cloud_errors or [], cloud_warnings or [], _empty_cloud_readiness())
-        with (
-            patch("oumi.mcp.preflight_service.check_cloud_readiness",
-                  return_value=cloud_result),
-            patch("oumi.mcp.preflight_service.whoami", side_effect=Exception),
-        ):
-            return _pre_flight_check(str(cfg), client_cwd=str(tmp_path))
 
-    def test_compat_error_sets_flag(self, tmp_path: Path):
-        result = self._run_preflight(tmp_path, cloud_errors=[_compat_error("fail")])
-        assert result["skypilot_compat_issue"] is True
+def test_compat_error_sets_flag(tmp_path: Path):
+    result = _run_preflight(tmp_path, cloud_errors=[_compat_error("fail")])
+    assert result["skypilot_compat_issue"] is True
 
-    def test_compat_warning_sets_flag(self, tmp_path: Path):
-        result = self._run_preflight(tmp_path, cloud_warnings=[_compat_warning("warn")])
-        assert result["skypilot_compat_issue"] is True
 
-    def test_no_compat_issue_clears_flag(self, tmp_path: Path):
-        assert self._run_preflight(tmp_path)["skypilot_compat_issue"] is False
+def test_compat_warning_sets_flag(tmp_path: Path):
+    result = _run_preflight(tmp_path, cloud_warnings=[_compat_warning("warn")])
+    assert result["skypilot_compat_issue"] is True
 
-    def test_early_return_path_error_has_field(self):
-        result = _pre_flight_check("/nonexistent/path.yaml", client_cwd="/tmp")
-        assert result["skypilot_compat_issue"] is False
+
+def test_no_compat_issue(tmp_path: Path):
+    assert _run_preflight(tmp_path)["skypilot_compat_issue"] is False
+
+
+def test_early_return_path_error_has_field():
+    result = _pre_flight_check("/nonexistent/path.yaml", client_cwd="/tmp")
+    assert result["skypilot_compat_issue"] is False

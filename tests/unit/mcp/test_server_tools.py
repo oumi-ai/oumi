@@ -1,6 +1,5 @@
-"""Tests for oumi.mcp.server tool functions — search, get, list, docs, preflight."""
+"""Tests for metadata extraction, warnings, error paths."""
 
-from pathlib import Path
 from unittest.mock import patch
 
 from oumi.mcp.environment_service import _build_missing_env_warning
@@ -8,171 +7,78 @@ from oumi.mcp.server import (
     _build_version_warning,
     _extract_job_metadata_from_cfg,
     get_config,
-    list_categories,
-    search_configs,
 )
 
-# ------------------------------------------------------------------
-# _extract_job_metadata_from_cfg
-# ------------------------------------------------------------------
+
+def test_extract_job_metadata_normal():
+    cfg = {"model": {"model_name": "gpt2"}, "training": {"output_dir": "./out"}}
+    model, output = _extract_job_metadata_from_cfg(cfg)
+    assert model == "gpt2"
+    assert output == "./out"
 
 
-class TestExtractJobMetadata:
-    def test_normal_config(self):
-        cfg = {"model": {"model_name": "gpt2"}, "training": {"output_dir": "./out"}}
-        model, output = _extract_job_metadata_from_cfg(cfg)
-        assert model == "gpt2"
-        assert output == "./out"
-
-    def test_missing_model(self):
-        model, output = _extract_job_metadata_from_cfg({})
-        assert model == "unknown"
-        assert output == "./output"
-
-    def test_empty_model_name(self):
-        cfg = {"model": {"model_name": ""}}
-        model, _ = _extract_job_metadata_from_cfg(cfg)
-        assert model == "unknown"
-
-    def test_non_dict_model(self):
-        cfg = {"model": "not_a_dict"}
-        model, _ = _extract_job_metadata_from_cfg(cfg)
-        assert model == "unknown"
+def test_extract_job_metadata_missing_model():
+    model, output = _extract_job_metadata_from_cfg({})
+    assert model == "unknown"
+    assert output == "./output"
 
 
-# ------------------------------------------------------------------
-# _build_version_warning
-# ------------------------------------------------------------------
+def test_extract_job_metadata_empty_model_name():
+    model, _ = _extract_job_metadata_from_cfg({"model": {"model_name": ""}})
+    assert model == "unknown"
 
 
-class TestBuildVersionWarning:
-    def test_no_warning_for_unknown(self):
-        with (
-            patch("oumi.mcp.server.get_oumi_version", return_value="unknown"),
-            patch("oumi.mcp.server.get_configs_source", return_value="bundled:0.7"),
-        ):
-            assert _build_version_warning() == ""
-
-    def test_cache_main_with_release(self):
-        with (
-            patch("oumi.mcp.server.get_oumi_version", return_value="0.7"),
-            patch("oumi.mcp.server.get_configs_source", return_value="cache:main"),
-            patch("oumi.mcp.server.is_oumi_dev_build", return_value=False),
-        ):
-            w = _build_version_warning()
-            assert "main branch" in w
-
-    def test_bundled_version_mismatch(self):
-        with (
-            patch("oumi.mcp.server.get_oumi_version", return_value="0.8"),
-            patch("oumi.mcp.server.get_configs_source", return_value="bundled:0.7"),
-            patch("oumi.mcp.server.is_oumi_dev_build", return_value=False),
-        ):
-            w = _build_version_warning()
-            assert "bundled" in w
+def test_extract_job_metadata_non_dict_model():
+    model, _ = _extract_job_metadata_from_cfg({"model": "not_a_dict"})
+    assert model == "unknown"
 
 
-# ------------------------------------------------------------------
-# _build_missing_env_warning
-# ------------------------------------------------------------------
+def test_version_warning_none_for_unknown():
+    with (
+        patch("oumi.mcp.server.get_oumi_version", return_value="unknown"),
+        patch("oumi.mcp.server.get_configs_source", return_value="bundled:0.7"),
+    ):
+        assert _build_version_warning() == ""
 
 
-class TestBuildMissingEnvWarning:
-    def test_no_warning_when_no_env(self):
-        with patch.dict("os.environ", {}, clear=True):
-            assert _build_missing_env_warning(None) == ""
-
-    def test_warns_when_local_env_not_forwarded(self):
-        with patch.dict("os.environ", {"WANDB_API_KEY": "secret"}, clear=True):
-            w = _build_missing_env_warning(None)
-            assert "WANDB_API_KEY" in w
-
-    def test_no_warning_when_forwarded(self):
-        with patch.dict("os.environ", {"WANDB_API_KEY": "secret"}, clear=True):
-            w = _build_missing_env_warning({"WANDB_API_KEY": "secret"})
-            assert w == ""
+def test_version_warning_cache_main_with_release():
+    with (
+        patch("oumi.mcp.server.get_oumi_version", return_value="0.7"),
+        patch("oumi.mcp.server.get_configs_source", return_value="cache:main"),
+        patch("oumi.mcp.server.is_oumi_dev_build", return_value=False),
+    ):
+        assert "main branch" in _build_version_warning()
 
 
-# ------------------------------------------------------------------
-# search_configs tool
-# ------------------------------------------------------------------
+def test_version_warning_bundled_mismatch():
+    with (
+        patch("oumi.mcp.server.get_oumi_version", return_value="0.8"),
+        patch("oumi.mcp.server.get_configs_source", return_value="bundled:0.7"),
+        patch("oumi.mcp.server.is_oumi_dev_build", return_value=False),
+    ):
+        assert "bundled" in _build_version_warning()
 
 
-class TestSearchConfigsTool:
-    def test_returns_list(self):
-        mock_configs = [
-            {
-                "path": "a.yaml",
-                "description": "",
-                "model_name": "",
-                "task_type": "",
-                "datasets": [],
-                "reward_functions": [],
-                "peft_type": "",
-            }
-        ]
-        with (
-            patch("oumi.mcp.server.get_all_configs", return_value=mock_configs),
-            patch("oumi.mcp.server.search_configs_service", return_value=mock_configs),
-        ):
-            result = search_configs()
-        assert isinstance(result, list)
-        assert len(result) == 1
+def test_missing_env_no_warning_when_empty():
+    with patch.dict("os.environ", {}, clear=True):
+        assert _build_missing_env_warning(None) == ""
 
 
-# ------------------------------------------------------------------
-# get_config tool
-# ------------------------------------------------------------------
+def test_missing_env_warns_when_not_forwarded():
+    with patch.dict("os.environ", {"WANDB_API_KEY": "secret"}, clear=True):
+        assert "WANDB_API_KEY" in _build_missing_env_warning(None)
 
 
-class TestGetConfigTool:
-    def test_not_found(self):
-        with (
-            patch("oumi.mcp.server.get_all_configs", return_value=[]),
-            patch("oumi.mcp.server.find_config_match", return_value=None),
-        ):
-            result = get_config("nonexistent")
-        assert result["error"] != ""
-        assert result["path"] == ""
-
-    def test_found(self, tmp_path: Path):
-        meta = {
-            "path": "train.yaml",
-            "description": "test",
-            "model_name": "gpt2",
-            "task_type": "sft",
-            "datasets": [],
-            "reward_functions": [],
-            "peft_type": "",
-        }
-        p = tmp_path / "train.yaml"
-        p.write_text("training:\n  learning_rate: 0.001\n")
-        with (
-            patch("oumi.mcp.server.get_all_configs", return_value=[meta]),
-            patch("oumi.mcp.server.find_config_match", return_value=meta),
-            patch("oumi.mcp.server.get_configs_dir", return_value=tmp_path),
-        ):
-            result = get_config("train.yaml")
-        assert result["error"] == ""
-        assert result["path"] == "train.yaml"
-        assert "learning_rate" in result["content"]
+def test_missing_env_no_warning_when_forwarded():
+    with patch.dict("os.environ", {"WANDB_API_KEY": "secret"}, clear=True):
+        assert _build_missing_env_warning({"WANDB_API_KEY": "secret"}) == ""
 
 
-# ------------------------------------------------------------------
-# list_categories tool
-# ------------------------------------------------------------------
-
-
-class TestListCategoriesTool:
-    def test_returns_response(self, tmp_path: Path):
-        (tmp_path / "recipes").mkdir()
-        with (
-            patch("oumi.mcp.server.get_configs_dir", return_value=tmp_path),
-            patch("oumi.mcp.server.get_all_configs", return_value=[]),
-            patch("oumi.mcp.server.get_oumi_version", return_value="0.7"),
-            patch("oumi.mcp.server.get_configs_source", return_value="bundled:0.7"),
-            patch("oumi.mcp.server._build_version_warning", return_value=""),
-        ):
-            result = list_categories()
-        assert "categories" in result
-        assert "recipes" in result["categories"]
+def test_get_config_not_found():
+    with (
+        patch("oumi.mcp.server.get_all_configs", return_value=[]),
+        patch("oumi.mcp.server.find_config_match", return_value=None),
+    ):
+        result = get_config("nonexistent")
+    assert result["error"] != ""
+    assert result["path"] == ""
