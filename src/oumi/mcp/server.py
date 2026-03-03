@@ -363,13 +363,13 @@ def validate_config(
     """
     config_path, path_error = resolve_config_path(config, client_cwd)
     if path_error:
-        return {"ok": False, "error": path_error}
+        return {"valid": False, "error": path_error}
     try:
         cfg = TASK_MAPPING[task_type].from_yaml(config_path)
         cfg.finalize_and_validate()
-        return {"ok": True, "error": None}
+        return {"valid": True, "error": None}
     except Exception as e:
-        return {"ok": False, "error": str(e)}
+        return {"valid": False, "error": str(e)}
 
 
 @mcp.tool()

@@ -128,18 +128,12 @@ def _is_local_machine_path(path_str: str) -> bool:
     return False
 
 
-def validate_paths(cfg: dict, base_dir: Path, *, cloud: str = "") -> dict[str, str]:
-    """Extract all local paths from config and validate they exist.
+def validate_paths_local(cfg: dict, base_dir: Path) -> dict[str, str]:
+    """Validate config paths for local jobs.
 
-    For **local** jobs (``cloud == ""``): resolves relative paths against
-    *base_dir* and reports ``"ok"`` or ``"not_found"``.
-
-    For **cloud** jobs (``cloud != ""``): applies cloud path sanitization —
-    blocks local machine paths, accepts repo-relative and remote absolute paths.
-    Return values: ``"ok"``, ``"ok_remote"``, ``"not_found_warning"``,
-    ``"local_machine_path_error"``.
+    Walks ``_dir``/``_path``/``_file``/``_folder`` keys, resolves relative
+    paths against *base_dir*, returns ``"valid"`` or ``"not_found"``.
     """
-    is_cloud = bool(cloud)
     paths: dict[str, str] = {}
 
     def _extract(obj: Any) -> None:
@@ -150,35 +144,100 @@ def validate_paths(cfg: dict, base_dir: Path, *, cloud: str = "") -> dict[str, s
                 ):
                     if _looks_like_hf_repo(val):
                         continue
-                    if is_cloud:
-                        _check_cloud_path(val)
-                    else:
-                        _check_local_path(val)
+                    _check(val)
                 else:
                     _extract(val)
         elif isinstance(obj, list):
             for item in obj:
                 _extract(item)
 
-    def _check_local_path(val: str) -> None:
+    def _check(val: str) -> None:
         p = Path(val).expanduser()
         if not p.is_absolute():
             p = base_dir / p
-            paths[f"{val} (resolved to {p})"] = "ok" if p.exists() else "not_found"
+            paths[f"{val} (resolved to {p})"] = "valid" if p.exists() else "not_found"
         else:
-            paths[val] = "ok" if p.exists() else "not_found"
-
-    def _check_cloud_path(val: str) -> None:
-        if _is_local_machine_path(val):
-            paths[val] = "local_machine_path_error"
-        elif Path(val).is_absolute():
-            paths[val] = "ok_remote"
-        else:
-            resolved = base_dir / val
-            paths[val] = "ok" if resolved.exists() else "not_found_warning"
+            paths[val] = "valid" if p.exists() else "not_found"
 
     _extract(cfg)
     return paths
+
+
+def validate_paths_cloud(
+    cfg: dict,
+    config_path: Path,
+    client_cwd: str,
+    cloud: str,
+) -> dict[str, str]:
+    """Validate config paths for cloud jobs.
+
+    For **job configs** (has ``resources``/``setup``/``run`` keys): validates
+    ``file_mounts`` local sources and ``working_dir``.
+
+    For **training configs**: walks ``_dir``/``_path``/``_file``/``_folder``
+    keys and classifies each path.
+
+    Statuses: ``"valid"``, ``"valid_remote"``, ``"not_found_warning"``,
+    ``"local_machine_path_error"``, ``"missing_local_source"``,
+    ``"unverifiable_remote"``, ``"working_dir_suspicious"``.
+    """
+    if not cloud or cloud == "local":
+        return {}
+
+    results: dict[str, str] = {}
+    base_dir = Path(client_cwd)
+    job_keys = {"resources", "setup", "run"}
+    is_job_cfg = bool(job_keys.intersection(cfg.keys()))
+
+    if is_job_cfg:
+        for _remote, local_src in (cfg.get("file_mounts") or {}).items():
+            if not isinstance(local_src, str):
+                continue
+            expanded = Path(local_src).expanduser()
+            if not expanded.is_absolute():
+                expanded = base_dir / expanded
+            results[local_src] = "valid" if expanded.exists() else "missing_local_source"
+
+        wd = cfg.get("working_dir")
+        if wd is not None and str(wd) != ".":
+            wd_path = Path(str(wd)).expanduser()
+            if not wd_path.is_absolute():
+                wd_path = base_dir / wd_path
+            if not wd_path.exists():
+                results[f"working_dir: {wd}"] = "working_dir_suspicious"
+    else:
+
+        def _extract(obj: object) -> None:
+            if isinstance(obj, dict):
+                for key, val in obj.items():
+                    if isinstance(val, str) and key.endswith(
+                        ("_dir", "_path", "_file", "_folder")
+                    ):
+                        _classify(val)
+                    else:
+                        _extract(val)
+            elif isinstance(obj, list):
+                for item in obj:
+                    _extract(item)
+
+        def _classify(val: str) -> None:
+            if not val or val.isspace():
+                return
+            if _looks_like_hf_repo(val) and not _FILE_EXT_RE.search(val):
+                return
+            p = Path(val)
+            if p.is_absolute():
+                if _is_local_machine_path(val):
+                    results[val] = "local_machine_path_error"
+                else:
+                    results[val] = "unverifiable_remote"
+            else:
+                resolved = base_dir / val
+                results[val] = "valid" if resolved.exists() else "not_found_warning"
+
+        _extract(cfg)
+
+    return results
 
 
 def validate_datasets(cfg: dict, client_cwd: str = "") -> dict[str, str]:
@@ -302,104 +361,6 @@ def _check_skyignore(config_dir: Path, path_results: dict[str, str]) -> list[str
                 break
 
     return warnings
-
-
-def _check_cloud_files(
-    cfg: dict, config_path: Path, cloud: str, client_cwd: Path | None = None
-) -> dict[str, str]:
-    """Validate that files referenced in config will be available on the remote VM.
-
-    For **job-config passthrough** (has ``resources``/``setup``/``run`` keys):
-    validates ``file_mounts`` local sources exist and ``working_dir`` resolves
-    correctly.
-
-    For **training-config wrapping**: scans ``_dir``/``_path``/``_file`` values
-    and flags paths that have no delivery mechanism to the VM.
-
-    Returns a dict mapping paths to status strings.
-    """
-    if not cloud or cloud == "local":
-        return {}
-
-    results: dict[str, str] = {}
-    job_keys = {"resources", "setup", "run"}
-    is_job_cfg = bool(job_keys.intersection(cfg.keys()))
-
-    if is_job_cfg:
-        _check_job_config_files(cfg, config_path, results, client_cwd=client_cwd)
-    else:
-        _check_training_config_files(cfg, results)
-
-    return results
-
-
-def _check_job_config_files(
-    cfg: dict,
-    config_path: Path,
-    results: dict[str, str],
-    client_cwd: Path | None = None,
-) -> None:
-    """Validate file_mounts sources and working_dir for job-config passthrough."""
-    base_dir = client_cwd or config_path.parent
-    file_mounts = cfg.get("file_mounts") or {}
-    for _, local_src in file_mounts.items():
-        if not isinstance(local_src, str):
-            continue
-        expanded = Path(local_src).expanduser()
-        if not expanded.is_absolute():
-            expanded = base_dir / expanded
-        if expanded.exists():
-            results[local_src] = "ok"
-        else:
-            results[local_src] = "missing_local_source"
-
-    working_dir = cfg.get("working_dir")
-    if working_dir is not None:
-        wd_str = str(working_dir)
-        if wd_str != ".":
-            wd_path = Path(wd_str).expanduser()
-            if not wd_path.is_absolute():
-                wd_path = config_path.parent / wd_path
-            if not wd_path.exists():
-                results[f"working_dir: {wd_str}"] = "working_dir_suspicious"
-
-
-def _check_training_config_files(cfg: dict, results: dict[str, str]) -> None:
-    """Flag training config paths that won't be delivered to the VM.
-
-    In wrapping mode, only config.yaml is staged. Any relative or local-absolute
-    path referencing data files will not exist on the remote VM.
-    """
-
-    def _extract_paths(obj: object) -> None:
-        if isinstance(obj, dict):
-            for key, val in obj.items():
-                if isinstance(val, str) and key.endswith(
-                    ("_dir", "_path", "_file", "_folder")
-                ):
-                    _classify(val)
-                else:
-                    _extract_paths(val)
-        elif isinstance(obj, list):
-            for item in obj:
-                _extract_paths(item)
-
-    def _classify(val: str) -> None:
-        if not val or val.isspace():
-            return
-        if _looks_like_hf_repo(val) and not _FILE_EXT_RE.search(val):
-            return
-
-        p = Path(val)
-        if p.is_absolute():
-            if _is_local_machine_path(val):
-                results[val] = "not_reachable_on_vm"
-            else:
-                results[val] = "unverifiable_remote"
-        else:
-            results[val] = "not_reachable_on_vm"
-
-    _extract_paths(cfg)
 
 
 def get_repos(cfg: dict) -> dict[str, set[str]]:
@@ -535,7 +496,6 @@ def _target_cloud_ready(
             return target_name in ready_clouds
         return False
 
-    # Legacy fallback for older SkyPilot APIs.
     check_one_cloud = getattr(sky_check, "check_one_cloud", None)
     if callable(check_one_cloud):
         cloud_obj = sky.CLOUD_REGISTRY.from_str(target_cloud)  # type: ignore[attr-defined]
@@ -576,7 +536,6 @@ def check_cloud_readiness(
 
     result["sky_installed"] = True
 
-    # Broad check: get all enabled clouds (uses cache, refreshes if empty).
     try:
         enabled = _get_enabled_clouds(sky, sky_check)
     except RuntimeError as exc:
@@ -818,7 +777,7 @@ def _pre_flight_check(
                         auth_check, repo_id, repo_type=repo_type, token=hf_token
                     )
                     future.result(timeout=HF_API_TIMEOUT_SECONDS)
-                repo_access[repo_id] = "ok"
+                repo_access[repo_id] = "valid"
             except GatedRepoError:
                 repo_access[repo_id] = "gated"
                 errors.append(f"Gated {repo_type} requires access grant: {repo_id}")
@@ -865,7 +824,11 @@ def _pre_flight_check(
         elif ds_status == "warning_timeout":
             warnings.append(f"HF Hub probe for dataset '{ds_key}' timed out (5s)")
 
-    path_results = validate_paths(cfg, Path(client_cwd), cloud=target_cloud)
+    if target_cloud:
+        path_results = validate_paths_cloud(cfg, config_path, client_cwd, target_cloud)
+    else:
+        path_results = validate_paths_local(cfg, Path(client_cwd))
+
     for path_key, path_status in path_results.items():
         if path_status == "local_machine_path_error":
             errors.append(
@@ -873,44 +836,31 @@ def _pre_flight_check(
                 "Use a repo-relative path (e.g., 'data/...') that resolves from "
                 "your working_dir."
             )
-        elif path_status == "not_found_warning":
+        elif path_status == "missing_local_source":
+            errors.append(
+                f"file_mounts source '{path_key}' does not exist locally. "
+                "The file won't be copied to the remote VM."
+            )
+        elif path_status == "not_found" or path_status == "not_found_warning":
             warnings.append(
                 f"Path '{path_key}' not found locally. "
                 "Verify it will be available on the VM via file_mounts, "
                 "working_dir, or setup_script."
             )
+        elif path_status == "working_dir_suspicious":
+            warnings.append(
+                f"'{path_key}' does not exist locally. Use 'working_dir: .' "
+                "(resolved to client_cwd at launch) or verify the path."
+            )
+        elif path_status == "unverifiable_remote":
+            warnings.append(
+                f"Remote path '{path_key}' can't be validated locally. "
+                "Ensure it exists on the VM via setup_script or storage_mounts."
+            )
 
     if target_cloud:
         skyignore_warnings = _check_skyignore(config_path.parent, path_results)
         warnings.extend(skyignore_warnings)
-
-    cloud_file_checks: dict[str, str] = {}
-    if target_cloud:
-        cloud_file_checks = _check_cloud_files(
-            cfg, config_path, target_cloud, client_cwd=Path(client_cwd)
-        )
-        for path_key, check_status in cloud_file_checks.items():
-            if check_status == "missing_local_source":
-                errors.append(
-                    f"file_mounts source '{path_key}' does not exist locally. "
-                    "The file won't be copied to the remote VM."
-                )
-            elif check_status == "not_reachable_on_vm":
-                errors.append(
-                    f"Path '{path_key}' has no delivery mechanism to the remote VM. "
-                    "Use a job config with file_mounts, add it to working_dir, "
-                    "or download it in setup_script."
-                )
-            elif check_status == "working_dir_suspicious":
-                warnings.append(
-                    f"'{path_key}' does not exist locally. Use 'working_dir: .' "
-                    "(resolved to client_cwd at launch) or verify the path."
-                )
-            elif check_status == "unverifiable_remote":
-                warnings.append(
-                    f"Remote path '{path_key}' can't be validated locally. "
-                    "Ensure it exists on the VM via setup_script or storage_mounts."
-                )
 
     is_blocking = len(errors) > 0
     if is_blocking:
@@ -940,8 +890,6 @@ def _pre_flight_check(
 
     if dataset_checks:
         result["dataset_checks"] = dataset_checks
-    if cloud_file_checks:
-        result["cloud_file_checks"] = cloud_file_checks
 
     if target_cloud:
         all_cfgs = get_all_configs()
