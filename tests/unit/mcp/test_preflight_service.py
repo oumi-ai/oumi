@@ -1,3 +1,4 @@
+# pyright: reportTypedDictNotRequiredAccess=false
 """Tests for oumi.mcp.preflight_service — path/dataset/hardware validation."""
 
 from pathlib import Path
@@ -6,8 +7,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from oumi.mcp.preflight_service import (
+    _compat_error,
+    _compat_warning,
+    _empty_cloud_readiness,
     _is_local_machine_path,
     _looks_like_hf_repo,
+    _pre_flight_check,
     get_gpu_info,
     get_repos,
     validate_datasets,
@@ -217,3 +222,75 @@ class TestGetRepos:
         cfg = {"data": {"train": {"datasets": [{"dataset_name": "org/dataset"}]}}}
         repos = get_repos(cfg)
         assert "org/dataset" in repos
+
+
+# ------------------------------------------------------------------
+# skypilot_compat_issue field
+# ------------------------------------------------------------------
+
+
+class TestSkypilotCompatIssueField:
+    """Verify the skypilot_compat_issue boolean in PreFlightCheckResponse."""
+
+    def _make_cloud_readiness(
+        self,
+        errors: list[str] | None = None,
+        warnings: list[str] | None = None,
+    ):
+        """Return (errors, warnings, cloud_readiness) tuple for mocking."""
+        return (
+            errors or [],
+            warnings or [],
+            _empty_cloud_readiness(),
+        )
+
+    def test_compat_error_sets_flag(self, tmp_path: Path):
+        cfg = tmp_path / "train.yaml"
+        cfg.write_text("model: {model_name: test/model}\n")
+
+        compat_err = _compat_error("cloud check failed")
+        with (
+            patch(
+                "oumi.mcp.preflight_service.check_cloud_readiness",
+                return_value=self._make_cloud_readiness(errors=[compat_err]),
+            ),
+            patch("oumi.mcp.preflight_service.whoami", side_effect=Exception("no token")),
+        ):
+            result = _pre_flight_check(str(cfg), client_cwd=str(tmp_path))
+
+        assert result["skypilot_compat_issue"] is True
+
+    def test_compat_warning_sets_flag(self, tmp_path: Path):
+        cfg = tmp_path / "train.yaml"
+        cfg.write_text("model: {model_name: test/model}\n")
+
+        compat_warn = _compat_warning("minor version mismatch")
+        with (
+            patch(
+                "oumi.mcp.preflight_service.check_cloud_readiness",
+                return_value=self._make_cloud_readiness(warnings=[compat_warn]),
+            ),
+            patch("oumi.mcp.preflight_service.whoami", side_effect=Exception("no token")),
+        ):
+            result = _pre_flight_check(str(cfg), client_cwd=str(tmp_path))
+
+        assert result["skypilot_compat_issue"] is True
+
+    def test_no_compat_issue_clears_flag(self, tmp_path: Path):
+        cfg = tmp_path / "train.yaml"
+        cfg.write_text("model: {model_name: test/model}\n")
+
+        with (
+            patch(
+                "oumi.mcp.preflight_service.check_cloud_readiness",
+                return_value=self._make_cloud_readiness(),
+            ),
+            patch("oumi.mcp.preflight_service.whoami", side_effect=Exception("no token")),
+        ):
+            result = _pre_flight_check(str(cfg), client_cwd=str(tmp_path))
+
+        assert result["skypilot_compat_issue"] is False
+
+    def test_early_return_path_error_has_field(self):
+        result = _pre_flight_check("/nonexistent/path.yaml", client_cwd="/tmp")
+        assert result["skypilot_compat_issue"] is False

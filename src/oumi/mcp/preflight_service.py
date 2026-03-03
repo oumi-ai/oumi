@@ -813,6 +813,7 @@ def _pre_flight_check(
             "errors": errors,
             "warnings": [],
             "paths": {},
+            "skypilot_compat_issue": False,
         }
 
     cfg, load_error = load_yaml_strict(config_path)
@@ -828,6 +829,7 @@ def _pre_flight_check(
             "errors": errors,
             "warnings": [],
             "paths": {},
+            "skypilot_compat_issue": False,
         }
     assert cfg is not None
     hf_authenticated = False
@@ -887,6 +889,11 @@ def _pre_flight_check(
     )
     errors.extend(cloud_errors)
     warnings.extend(cloud_warnings)
+
+    has_compat_issue = any(
+        "SkyPilot API compatibility" in msg
+        for msg in [*cloud_errors, *cloud_warnings]
+    )
 
     dataset_checks = validate_datasets(cfg, client_cwd=client_cwd)
     for ds_key, ds_status in dataset_checks.items():
@@ -968,6 +975,7 @@ def _pre_flight_check(
         "errors": errors,
         "warnings": warnings,
         "paths": path_results,
+        "skypilot_compat_issue": has_compat_issue,
     }
 
     if dataset_checks:

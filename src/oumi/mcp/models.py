@@ -164,9 +164,28 @@ class PreFlightCheckResponse(TypedDict):
     errors: list[str]
     warnings: list[str]
     paths: dict[str, str]
+    skypilot_compat_issue: NotRequired[bool]
     dataset_checks: NotRequired[dict[str, str]]
     suggested_configs: NotRequired[list[str]]
     cloud_file_checks: NotRequired[dict[str, str]]
+
+
+class PreFlightSummary(TypedDict):
+    """Subset of preflight results embedded in job submission responses.
+
+    Only included for cloud jobs when preflight checks actually ran.
+
+    Attributes:
+        summary: One-line human-readable verdict.
+        blocking: True when errors contain hard blockers.
+        errors: Issues that will cause the run to crash.
+        warnings: Potential issues that may be fine for remote clusters.
+    """
+
+    summary: str
+    blocking: bool
+    errors: list[str]
+    warnings: list[str]
 
 
 class JobSubmissionResponse(TypedDict):
@@ -187,10 +206,7 @@ class JobSubmissionResponse(TypedDict):
         message: Human-readable summary of what happened or will happen.
         error: Error message if success is False.
         launch_confirmed: True if the launch was confirmed (cloud only).
-        preflight_summary: One-line pre-flight verdict (cloud only).
-        preflight_blocking: True if pre-flight found blocking issues.
-        preflight_errors: List of blocking issues from pre-flight.
-        preflight_warnings: List of warnings from pre-flight.
+        preflight: Nested preflight results (cloud only, when preflight ran).
     """
 
     success: bool
@@ -205,10 +221,7 @@ class JobSubmissionResponse(TypedDict):
     message: str
     error: NotRequired[str]
     launch_confirmed: NotRequired[bool]
-    preflight_summary: NotRequired[str]
-    preflight_blocking: NotRequired[bool]
-    preflight_errors: NotRequired[list[str]]
-    preflight_warnings: NotRequired[list[str]]
+    preflight: NotRequired[PreFlightSummary]
 
 
 class JobStatusResponse(TypedDict):
