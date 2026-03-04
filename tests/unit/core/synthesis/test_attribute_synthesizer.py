@@ -562,6 +562,7 @@ def test_token_usage_starts_at_zero(
 
     assert synthesizer.total_input_tokens == 0
     assert synthesizer.total_output_tokens == 0
+    assert synthesizer.total_cached_tokens == 0
 
 
 @patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
@@ -581,14 +582,26 @@ def test_token_usage_accumulated_from_synthesize(
                 Message(role=Role.USER, content="Test query"),
                 Message(role=Role.ASSISTANT, content="Test response 1"),
             ],
-            metadata={"usage": {"prompt_tokens": 10, "completion_tokens": 20}},
+            metadata={
+                "usage": {
+                    "prompt_tokens": 10,
+                    "completion_tokens": 20,
+                    "cached_tokens": 4,
+                }
+            },
         ),
         Conversation(
             messages=[
                 Message(role=Role.USER, content="Test query"),
                 Message(role=Role.ASSISTANT, content="Test response 2"),
             ],
-            metadata={"usage": {"prompt_tokens": 15, "completion_tokens": 25}},
+            metadata={
+                "usage": {
+                    "prompt_tokens": 15,
+                    "completion_tokens": 25,
+                    "cached_tokens": 6,
+                }
+            },
         ),
     ]
 
@@ -605,6 +618,7 @@ def test_token_usage_accumulated_from_synthesize(
 
     assert synthesizer.total_input_tokens == 25
     assert synthesizer.total_output_tokens == 45
+    assert synthesizer.total_cached_tokens == 10
 
 
 @patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
@@ -639,6 +653,7 @@ def test_token_usage_accumulates_across_multiple_synthesize_calls(
 
     assert synthesizer.total_input_tokens == 20
     assert synthesizer.total_output_tokens == 40
+    assert synthesizer.total_cached_tokens == 0
 
 
 @patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
@@ -711,6 +726,63 @@ def test_token_usage_handles_missing_metadata(
 
     assert synthesizer.total_input_tokens == 0
     assert synthesizer.total_output_tokens == 0
+    assert synthesizer.total_cached_tokens == 0
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_cached_token_usage_accumulated(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_generated_attribute,
+    mock_inference_config,
+):
+    """Test that cached and cache creation tokens are accumulated."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+
+    mock_inference_engine.infer.return_value = [
+        Conversation(
+            messages=[
+                Message(role=Role.USER, content="Test query"),
+                Message(role=Role.ASSISTANT, content="Test response 1"),
+            ],
+            metadata={
+                "usage": {
+                    "prompt_tokens": 10,
+                    "completion_tokens": 5,
+                    "cached_tokens": 3,
+                }
+            },
+        ),
+        Conversation(
+            messages=[
+                Message(role=Role.USER, content="Test query"),
+                Message(role=Role.ASSISTANT, content="Test response 2"),
+            ],
+            metadata={
+                "usage": {
+                    "prompt_tokens": 20,
+                    "completion_tokens": 8,
+                    "cached_tokens": 7,
+                }
+            },
+        ),
+    ]
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+    samples = [
+        {"style": "formal", "topic": "tech"},
+        {"style": "casual", "topic": "science"},
+    ]
+
+    synthesizer.synthesize(samples, mock_generated_attribute)
+
+    assert synthesizer.total_input_tokens == 30
+    assert synthesizer.total_output_tokens == 13
+    assert synthesizer.total_cached_tokens == 10
 
 
 @patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
