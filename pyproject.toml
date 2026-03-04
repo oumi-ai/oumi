@@ -50,7 +50,7 @@ dependencies = [
     "jsonlines",
     "lm_eval[wandb]>=0.4,<0.5.0",
     "mlflow>=3.1",                # >=3.1.4 requires Python3.10>=
-    "numpy>=1.26,<2.4",           # verl==0.5.0 depends on numpy<2.0.0
+    "numpy>=1.26,<2.4",
     # The latest stable version, 2.3.0, is two years old and is causing dependency
     # conflicts. We'll use the dev version until a new stable version is released.
     # See https://github.com/oumi-ai/oumi/issues/1377
@@ -58,7 +58,7 @@ dependencies = [
     "omegaconf==2.4.0.dev4",
     "packaging",
     "pandas>=2.3,<3",
-    "peft>=0.17,<0.19",
+    "peft>=0.18,<0.19",        # 0.18+ required for transformers v5.x
     "pexpect>=4.9,<4.10",      # Used by Polaris client
     "posthog>=7.0,<8.0",
     "pillow>=11.3,<12.2",      # Used by image datasets
@@ -70,14 +70,12 @@ dependencies = [
     "skypilot>=0.11.1,<0.12", # 0.11.1 includes db locking fix
     "tensorboard>=2.20,<2.21", # Optional, for monitoring training
     "tiktoken>=0.7,<1.0",
-    "torch>=2.6,<2.11.0",      # vllm only supports up to torch==2.7
+    "torch>=2.6,<2.11.0",
     "torchao>=0.12,<0.16",     # Used by transformers
     "torchvision>=0.21,<0.26", # Used by some VLM-s (multimodal)
     "tqdm",
-    # Llama Vision attention is broken as late as 4.48.2 if gradient checkpointing is
-    # enabled. See OPE-875 and https://github.com/huggingface/transformers/issues/36040.
-    "transformers>=4.57,<4.58",
-    "trl>=0.24,<0.27",
+    "transformers>=5.2,<5.3",
+    "trl>=0.28,<0.29",
     "typer<0.24.2",             # Used by CLI. Pinned due to sphinxcontrib-typer compatibility. OPE-1806
     "typing_extensions",        # Backports of typing updates
     "uvicorn<0.42.0",           # TODO: Remove on resolution of https://github.com/skypilot-org/skypilot/issues/7303
@@ -124,7 +122,7 @@ gpu = [
     "bitsandbytes>=0.47,<0.50",     # Used for QLora, and PagedAdam implementation
     # When updating verl version, make sure to also update the default config:
     # src/oumi/core/trainers/verl_trainer_config.yaml.
-    "verl>=0.5,<0.6; python_version >= '3.10'", # Used for the VERL_GRPO trainer
+    "verl>=0.6,<0.7; python_version >= '3.10'", # Used for the VERL_GRPO trainer
     "vllm>=0.10,<0.11",                         # For VLLMInferenceEngine, and vLLM-powered GRPO training.
     "kernels>=0.11,<0.13",                      # For compute kernel implementations (e.g., attn_implementation in gold trainer)
 ]
