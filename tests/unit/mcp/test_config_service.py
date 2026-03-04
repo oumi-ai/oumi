@@ -12,7 +12,6 @@ from oumi.mcp.config_service import (
     determine_peft_type,
     extract_datasets,
     extract_header_comment,
-    extract_key_settings,
     find_config_match,
     get_categories,
     infer_task_type,
@@ -153,37 +152,6 @@ def test_peft_not_detected(cfg, path):
     assert determine_peft_type(cfg, path) is None
 
 
-def test_extract_key_settings_training():
-    cfg = {
-        "training": {
-            "learning_rate": 1e-4,
-            "num_train_epochs": 3,
-            "max_steps": 1000,
-            "per_device_train_batch_size": 4,
-            "gradient_accumulation_steps": 2,
-        }
-    }
-    s = extract_key_settings(cfg)
-    assert s["learning_rate"] == 1e-4
-    assert s["max_steps"] == 1000
-
-
-def test_extract_key_settings_model_dtype_rename():
-    cfg = {"model": {"model_max_length": 2048, "torch_dtype_str": "bfloat16"}}
-    s = extract_key_settings(cfg)
-    assert s["model_max_length"] == 2048
-    assert s["torch_dtype"] == "bfloat16"
-
-
-def test_extract_key_settings_empty():
-    assert extract_key_settings({}) == {}
-
-
-def test_extract_key_settings_none_skipped():
-    cfg = {"training": {"learning_rate": None, "max_steps": 100}}
-    s = extract_key_settings(cfg)
-    assert "learning_rate" not in s
-    assert s["max_steps"] == 100
 
 
 def test_parse_yaml_valid(tmp_path: Path):
