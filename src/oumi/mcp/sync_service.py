@@ -22,7 +22,6 @@ import logging
 import os
 import shutil
 import tempfile
-import time
 from pathlib import Path
 from zipfile import ZipFile
 
@@ -37,7 +36,6 @@ from oumi.mcp.config_service import (
 from oumi.mcp.constants import (
     BUNDLED_OUMI_VERSION,
     CONFIG_SYNC_TIMEOUT_SECONDS,
-    CONFIGS_SYNC_INTERVAL_HOURS,
     CONFIGS_SYNC_MARKER,
     CONFIGS_VERSION_MARKER,
     GITHUB_CONFIGS_ZIP_URL,
@@ -104,8 +102,8 @@ def _is_cache_stale() -> bool:
     """Check whether the cached configs need to be refreshed.
 
     Returns True if the cache directory doesn't exist, has no YAML files,
-    the last sync was more than CONFIGS_SYNC_INTERVAL_HOURS ago, or the
-    installed oumi version no longer matches the cached version marker.
+    or the installed oumi version no longer matches the cached version marker.
+    Configs only change with releases, so there is no time-based expiry.
     """
     cache_dir = get_cache_dir()
     marker = cache_dir / CONFIGS_SYNC_MARKER
@@ -127,11 +125,7 @@ def _is_cache_stale() -> bool:
             )
             return True
 
-    try:
-        age_hours = (time.time() - marker.stat().st_mtime) / 3600
-        return age_hours > CONFIGS_SYNC_INTERVAL_HOURS
-    except Exception:
-        return True
+    return False
 
 
 def _touch_sync_marker() -> None:
@@ -147,8 +141,6 @@ def get_configs_source() -> str:
     Possible values: ``"cache:<version>"``, ``"cache:main"``,
     ``"bundled:<version>"``, ``"env:<path>"``, or ``"unknown"``.
     """
-    import os
-
     env_dir = os.environ.get("OUMI_MCP_CONFIGS_DIR")
     if env_dir:
         p = Path(env_dir)
@@ -173,13 +165,10 @@ def _safe_extract(zip_ref: ZipFile, members: list[str], target_dir: Path) -> Non
     Validates that every extracted path stays within *target_dir* to
     prevent Zip Slip (path-traversal) attacks.
     """
-    real_target = os.path.realpath(target_dir)
+    real_target = target_dir.resolve()
     for member in members:
-        member_path = os.path.realpath(os.path.join(real_target, member))
-        if (
-            not member_path.startswith(real_target + os.sep)
-            and member_path != real_target
-        ):
+        member_path = (real_target / member).resolve()
+        if real_target not in member_path.parents and member_path != real_target:
             raise ValueError(f"Attempted path traversal in zip entry: {member}")
         zip_ref.extract(member, target_dir)
 
