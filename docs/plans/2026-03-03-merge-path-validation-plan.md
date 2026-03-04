@@ -24,7 +24,7 @@ def validate_paths_local(cfg: dict, base_dir: Path) -> dict[str, str]:
     """Validate config paths for local jobs.
 
     Walks ``_dir``/``_path``/``_file``/``_folder`` keys, resolves relative
-    paths against *base_dir*, returns ``"ok"`` or ``"not_found"``.
+    paths against *base_dir*, returns ``"valid"`` or ``"not_found"``.
     """
     paths: dict[str, str] = {}
 
@@ -47,9 +47,9 @@ def validate_paths_local(cfg: dict, base_dir: Path) -> dict[str, str]:
         p = Path(val).expanduser()
         if not p.is_absolute():
             p = base_dir / p
-            paths[f"{val} (resolved to {p})"] = "ok" if p.exists() else "not_found"
+            paths[f"{val} (resolved to {p})"] = "valid" if p.exists() else "not_found"
         else:
-            paths[val] = "ok" if p.exists() else "not_found"
+            paths[val] = "valid" if p.exists() else "not_found"
 
     _extract(cfg)
     return paths
@@ -74,7 +74,7 @@ def validate_paths_cloud(
     For **training configs**: walks ``_dir``/``_path``/``_file``/``_folder``
     keys and classifies each path.
 
-    Statuses: ``"ok"``, ``"ok_remote"``, ``"not_found_warning"``,
+    Statuses: ``"valid"``, ``"valid_remote"``, ``"not_found_warning"``,
     ``"local_machine_path_error"``, ``"missing_local_source"``,
     ``"unverifiable_remote"``, ``"working_dir_suspicious"``.
     """
@@ -94,7 +94,7 @@ def validate_paths_cloud(
             expanded = Path(local_src).expanduser()
             if not expanded.is_absolute():
                 expanded = base_dir / expanded
-            results[local_src] = "ok" if expanded.exists() else "missing_local_source"
+            results[local_src] = "valid" if expanded.exists() else "missing_local_source"
 
         # -- working_dir --
         wd = cfg.get("working_dir")
@@ -132,7 +132,7 @@ def validate_paths_cloud(
                     results[val] = "unverifiable_remote"
             else:
                 resolved = base_dir / val
-                results[val] = "ok" if resolved.exists() else "not_found_warning"
+                results[val] = "valid" if resolved.exists() else "not_found_warning"
 
         _extract(cfg)
 
@@ -233,8 +233,8 @@ And its docstring entry:
 
 Update the `paths` docstring to include the new cloud statuses:
 ```
-        paths: Config paths mapped to validation status: "ok", "not_found",
-            "ok_remote", "not_found_warning", "local_machine_path_error",
+        paths: Config paths mapped to validation status: "valid", "not_found",
+            "valid_remote", "not_found_warning", "local_machine_path_error",
             "missing_local_source", "unverifiable_remote", or
             "working_dir_suspicious".
 ```

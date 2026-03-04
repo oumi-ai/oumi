@@ -8,7 +8,7 @@ Two separate config walkers (`validate_paths` cloud branch and `_check_cloud_fil
 
 ### `validate_paths_local(cfg, base_dir) -> dict[str, str]`
 
-Extracted from the local branch of the current `validate_paths`. Walks `_dir/_path/_file/_folder` keys, resolves relative paths against `base_dir`, returns `ok` or `not_found`. No behavior change.
+Extracted from the local branch of the current `validate_paths`. Walks `_dir/_path/_file/_folder` keys, resolves relative paths against `base_dir`, returns `valid` or `not_found`. No behavior change.
 
 ### `validate_paths_cloud(cfg, config_path, client_cwd, cloud) -> dict[str, str]`
 
@@ -17,7 +17,7 @@ Merges the cloud branch of `validate_paths` + all of `_check_cloud_files` into a
 **Job configs** (has `resources`/`setup`/`run` keys):
 - Checks `file_mounts` sources exist locally, resolved against `client_cwd` for relative paths
 - Validates `working_dir` (resolved against `client_cwd` if relative, skip `.`)
-- Statuses: `ok`, `missing_local_source`, `working_dir_suspicious`
+- Statuses: `valid`, `missing_local_source`, `working_dir_suspicious`
 
 **Training configs**:
 - Walks `_dir/_path/_file/_folder` keys (same extractor as local)
@@ -25,7 +25,7 @@ Merges the cloud branch of `validate_paths` + all of `_check_cloud_files` into a
 - Local-machine absolute paths -> `local_machine_path_error`
 - Remote absolute paths -> `unverifiable_remote`
 - Relative paths -> `not_found_warning` (warning, not error)
-- Statuses: `local_machine_path_error`, `unverifiable_remote`, `not_found_warning`, `ok`
+- Statuses: `local_machine_path_error`, `unverifiable_remote`, `not_found_warning`, `valid`
 
 ### `_pre_flight_check` changes
 
