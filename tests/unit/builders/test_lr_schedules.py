@@ -273,12 +273,12 @@ def test_warmup_ratio_logging(mock_logger_info, optimizer, training_params):
     )
 
 
-@patch("oumi.utils.logging.logger.info")
-def test_no_warmup_logging(mock_logger_info, optimizer, training_params):
+@patch("oumi.utils.logging.logger.debug")
+def test_no_warmup_logging(mock_logger_debug, optimizer, training_params):
     training_params.warmup_steps = None
     training_params.warmup_ratio = None
     build_lr_scheduler(optimizer, training_params, num_training_steps=1000)
-    mock_logger_info.assert_called_with(
+    mock_logger_debug.assert_called_with(
         "No warmup steps provided. Setting warmup_steps=0."
     )
 
