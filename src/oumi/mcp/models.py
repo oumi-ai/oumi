@@ -14,9 +14,9 @@
 
 """TypedDict models for Oumi MCP server data structures."""
 
-from typing import Any
+from typing import Any, TypedDict
 
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import NotRequired
 
 from oumi.mcp.constants import TaskType
 
