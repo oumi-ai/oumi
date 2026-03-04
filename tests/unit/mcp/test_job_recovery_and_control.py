@@ -1,14 +1,16 @@
 # pyright: reportTypedDictNotRequiredAccess=false, reportArgumentType=false, reportOptionalMemberAccess=false, reportCallIssue=false
 """Tests for job recovery, cancellation, cluster lifecycle, and cloud launch."""
 
+import pytest
+
+pytest.importorskip("fastmcp", reason="fastmcp is required for MCP server tests")
+
 import asyncio
 import os
 import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
-
-import pytest
 
 from oumi.mcp import job_service, server
 from oumi.mcp.job_service import (

@@ -1,6 +1,10 @@
 # pyright: reportCallIssue=false
 """Tests for metadata extraction, warnings, error paths."""
 
+import pytest
+
+pytest.importorskip("fastmcp", reason="fastmcp is required for MCP server tests")
+
 from unittest.mock import patch
 
 from oumi.mcp.environment_service import _build_missing_env_warning
