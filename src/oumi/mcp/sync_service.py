@@ -152,6 +152,23 @@ def get_configs_source() -> str:
     return "unknown"
 
 
+
+def _safe_extract(zip_ref: ZipFile, members: list[str], target_dir: Path) -> None:
+    """Extract *members* from *zip_ref* into *target_dir* safely.
+
+    Validates that every extracted path stays within *target_dir* to
+    prevent Zip Slip (path-traversal) attacks.
+    """
+    import os
+
+    real_target = os.path.realpath(target_dir)
+    for member in members:
+        member_path = os.path.realpath(os.path.join(real_target, member))
+        if not member_path.startswith(real_target + os.sep) and member_path \!= real_target:
+            raise ValueError(f"Attempted path traversal in zip entry: {member}")
+        zip_ref.extract(member, target_dir)
+
+
 def config_sync(force: bool = False) -> ConfigSyncResponse:
     """Sync configs from the Oumi repository, matching the installed version.
 
@@ -188,6 +205,8 @@ def config_sync(force: bool = False) -> ConfigSyncResponse:
         temp_dir = Path(tempfile.mkdtemp(prefix="oumi_config_sync_"))
         zip_path = temp_dir / "oumi.zip"
 
+        # TODO: Use GitHub Contents API to fetch only the configs/ directory
+        # instead of downloading the full repository archive.
         logger.info("Downloading configs from %s", zip_url)
         with httpx.Client(
             follow_redirects=True,
@@ -225,8 +244,7 @@ def config_sync(force: bool = False) -> ConfigSyncResponse:
                     "source": source_label,
                 }
 
-            for file in config_files:
-                zip_ref.extract(file, temp_dir)
+            _safe_extract(zip_ref, config_files, temp_dir)
 
         extracted_configs = temp_dir / archive_root / "configs"
         if not extracted_configs.exists():
