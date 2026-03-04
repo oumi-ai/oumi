@@ -1,17 +1,3 @@
-# Copyright 2025 - Oumi
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 """Job management service for Oumi MCP execution tools.
 
 Provides job submission, status polling, cancellation, and log streaming
@@ -339,11 +325,12 @@ def _build_local_command(config_path: str, command: str) -> list[str]:
 def _stage_cloud_config(
     record: JobRecord, rt: JobRuntime, *, working_dir: str | None = None
 ) -> str:
-    """Copy config (and optionally a working directory) into a per-job run directory.
+    """Copy config (and referenced files) into a per-job run directory.
 
-    For training-config wrapping mode, only the config file is copied.
-    For job-config passthrough mode, pass *working_dir* to copy the entire
-    source directory tree so relative references inside the config are preserved.
+    Instead of copying the entire project tree, this selectively copies:
+    1. The config file itself (always).
+    2. Any YAML/JSON config files in the same directory as the config
+       (siblings that may be referenced via relative imports/includes).
 
     Returns the staged config filename (relative to the run directory).
     """
@@ -353,7 +340,12 @@ def _stage_cloud_config(
     if working_dir:
         src = Path(working_dir).expanduser()
         if src.is_dir() and src != rt.run_dir:
-            shutil.copytree(src, rt.run_dir, dirs_exist_ok=True)
+            # Selectively copy only YAML/JSON config files from the
+            # working directory instead of the entire project tree.
+            for pattern in ("*.yaml", "*.yml", "*.json"):
+                for cfg_file in src.glob(pattern):
+                    if cfg_file.is_file():
+                        shutil.copy2(cfg_file, rt.run_dir / cfg_file.name)
         elif src.is_file():
             shutil.copy2(src, rt.run_dir / src.name)
 
@@ -1402,7 +1394,9 @@ async def cancel_job_impl(
                     ),
                     timeout=30.0,
                 )
-            except TimeoutError:
+            except (TimeoutError, asyncio.TimeoutError):
+                # Catch both for Python 3.10 compat; in 3.11+
+                # asyncio.TimeoutError inherits from TimeoutError.
                 return {
                     "success": False,
                     "error": (
