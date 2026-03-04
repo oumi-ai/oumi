@@ -179,6 +179,7 @@ DOCS_MODULE_DESCRIPTIONS: dict[str, str] = {
 # documentation purposes.
 DOCS_MODULE_DENYLIST_PREFIXES: tuple[str, ...] = (
     "oumi.cli.",
+    "oumi.mcp.",
     "oumi.telemetry",
     "oumi.utils.",
     "oumi.performance",
@@ -188,6 +189,7 @@ DOCS_MODULE_DENYLIST_PREFIXES: tuple[str, ...] = (
 DOCS_MODULE_DENYLIST: frozenset[str] = frozenset(
     {
         "oumi.__main__",
+        "oumi.mcp",
     }
 )
 DOCS_MAX_RESULTS: int = 10
