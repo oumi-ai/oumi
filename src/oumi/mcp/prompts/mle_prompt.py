@@ -30,7 +30,7 @@ GET_STARTED_CONTENT = """# Oumi MCP - ML Training Config Server
 | Tool | Purpose | Example |
 |------|---------|---------|
 | `list_categories()` | See available models & config types | Start here |
-| `search_configs(query, task, model, keyword)` | Find training configs | `search_configs(model="llama3_1", task="sft")` |
+| `search_configs(query, content_match, limit)` | Find training configs | `search_configs(query=["llama3_1", "sft"])` |
 | `get_config(path)` | Get a **reference** config (see usage note below) | `get_config("llama3_1/sft/8b_lora")` |
 | `validate_config(config, task_type, client_cwd)` | Validate before training | `validate_config("configs/train.yaml", "training", client_cwd="/home/user/project")` |
 | `pre_flight_check(config, client_cwd, cloud)` | Catch issues before launch | `pre_flight_check("configs/train.yaml", client_cwd="/home/user/project", cloud="gcp")` |
@@ -40,7 +40,7 @@ GET_STARTED_CONTENT = """# Oumi MCP - ML Training Config Server
 ### Execution
 | Tool | Purpose | Example |
 |------|---------|---------|
-| `run_oumi_job(config, cmd, client_cwd)` | Execute Oumi command (dry-run by default) | `run_oumi_job("configs/train.yaml", "train", client_cwd="/home/user/project")` |
+| `run_oumi_job(config_path, command, client_cwd)` | Execute Oumi command (dry-run by default) | `run_oumi_job("configs/train.yaml", "train", client_cwd="/home/user/project")` |
 | `get_job_status(job_id)` | Status snapshot (no streaming) | `get_job_status("train_20260206_...")` |
 | `get_job_logs(job_id, lines)` | Tail log snapshot | `get_job_logs("train_20260206_...", lines=200)` |
 | `cancel_job(job_id)` | Cancel a running job | `cancel_job("train_20260206_...")` |
@@ -98,7 +98,7 @@ You MUST pass `client_cwd` (absolute path to the project root) to all path-sensi
 **Example:** If the user's project is at `/home/user/my-project`:
 ```
 validate_config("configs/train.yaml", "training", client_cwd="/home/user/my-project")
-run_oumi_job("configs/train.yaml", "train", client_cwd="/home/user/my-project")
+run_oumi_job(config_path="configs/train.yaml", command="train", client_cwd="/home/user/my-project")
 ```
 
 **Paths inside configs:**
@@ -118,9 +118,9 @@ Step 1: pre_flight_check("configs/train.yaml", client_cwd=CWD, cloud="gcp")
         # → check credentials, then use suggested_configs paths with get_config() for reference YAMLs
 Step 2: Build a job config YAML using guidance://cloud-launch as reference
         Key fields: resources (cloud, accelerators), working_dir, setup, run, envs, file_mounts
-Step 3: run_oumi_job("job.yaml", "train", client_cwd=CWD, cloud="gcp")         # dry-run to verify
-Step 4: run_oumi_job("job.yaml", "train", client_cwd=CWD, cloud="gcp",
-        dry_run=False, confirm=True, user_confirmation="EXECUTE", skip_preflight=True)
+Step 3: run_oumi_job(config_path="job.yaml", command="train", client_cwd=CWD, cloud="gcp")         # dry-run to verify
+Step 4: run_oumi_job(config_path="job.yaml", command="train", client_cwd=CWD, cloud="gcp",
+        dry_run=False, skip_preflight=True)
 Step 5: get_job_status(job_id)                           # poll status
 Step 6: get_job_logs(job_id, lines=200)                  # check logs
 Step 7: [when done] stop_cluster("gcp", cluster_name)   # pause OR
@@ -141,12 +141,12 @@ setup patterns (dataset downloads, extra packages, storage mounts).
 ## Local Quickstart Workflow
 
 1. **Discover models**: `list_categories()` -> see model_families
-2. **Find recipes**: `search_configs(model="llama3_1", task="sft")`
+2. **Find recipes**: `search_configs(query=["llama3_1", "sft"])`
 3. **Study reference**: `get_config("llama3_1/sft/8b_lora")` — read for structure and defaults, do NOT copy verbatim
 4. **Build config**: Create a new config for the user's specific model, dataset, hardware, and goals — use the reference to inform field names and reasonable values
 5. **Validate**: `validate_config("configs/train.yaml", "training", client_cwd="/home/user/project")`
-6. **Preview**: `run_oumi_job("configs/train.yaml", "train", client_cwd="/home/user/project")` -> dry-run (default)
-7. **Execute**: `run_oumi_job("configs/train.yaml", "train", client_cwd="/home/user/project", dry_run=False, confirm=True, user_confirmation="EXECUTE")`
+6. **Preview**: `run_oumi_job(config_path="configs/train.yaml", command="train", client_cwd="/home/user/project")` -> dry-run (default)
+7. **Execute**: `run_oumi_job(config_path="configs/train.yaml", command="train", client_cwd="/home/user/project", dry_run=False)`
 8. **Check status**: `get_job_status("train_20260206_...")`
 9. **Get logs**: `get_job_logs("train_20260206_...", lines=200)`
 
@@ -155,8 +155,8 @@ setup patterns (dataset downloads, extra packages, storage mounts).
 ```
 CWD = "/home/user/project"  # always pass client_cwd
 
-Step 1 (preview):  run_oumi_job(config, "train", client_cwd=CWD)                                    # dry_run=True
-Step 2 (execute):  run_oumi_job(config, "train", client_cwd=CWD, dry_run=False, confirm=True, user_confirmation="EXECUTE")
+Step 1 (preview):  run_oumi_job(config_path=config, command="train", client_cwd=CWD)                           # dry_run=True
+Step 2 (execute):  run_oumi_job(config_path=config, command="train", client_cwd=CWD, dry_run=False)
 Step 3 (status):   get_job_status(job_id)
 Step 4 (logs):     get_job_logs(job_id, lines=200)
 Step 5 (cancel):   cancel_job(job_id)
@@ -179,10 +179,9 @@ Step 2b (delete): down_cluster("gcp", "sky-xxxx", confirm=True, user_confirmatio
 
 ## Search Parameters
 
-- **task**: sft, dpo, grpo, kto, eval, infer, pretrain
-- **model**: llama3_1, llama3_2, llama4, qwen3, phi4, gemma3, deepseek_r1, smollm
-- **query**: Any text (e.g., "8b", "lora", "qlora", "instruct")
-- **keyword**: Content match inside YAML (e.g., "packing", "flash_attn", "gradient_checkpointing")
+- **query**: Terms matched against config paths (AND logic, case-insensitive). Paths encode model family, size, task, and technique
+- **content_match**: Substrings matched against YAML file content (AND logic, case-insensitive). Use for values not in the path, e.g. a dataset name or HuggingFace model ID
+- **limit**: Maximum number of results to return (default 20)
 
 ## Config Key Settings
 
@@ -245,7 +244,7 @@ MCP tools, customize configs, validate, and evaluate before iterating.
 1. search_configs: Find training recipes by model, task, or keyword
 2. get_config: Study a reference config for structure and defaults — do NOT copy verbatim
 3. validate_config: ALWAYS validate before training
-4. launch_training: Execute after validation passes (if available)
+4. run_oumi_job: Execute after validation passes
 
 ## Decision guidelines
 - Model < 10B: Full fine-tuning viable
@@ -253,12 +252,12 @@ MCP tools, customize configs, validate, and evaluate before iterating.
 - Model > 30B: Use QLoRA (4-bit)
 
 ## Critical rules
-- Never skip validation before launch_training
+- Never skip validation before run_oumi_job
 - Always check GPU memory requirements
 
 ## MCP tools overview
 - list_categories(): Discover available model families and config categories
-- search_configs(query, task, model, limit): Find training/eval/inference recipes
+- search_configs(query, content_match, limit): Find training/eval/inference recipes
 - get_config(path): Retrieve YAML and metadata for a recipe
 - validate_config(config, task_type, client_cwd): Validate before running
 
@@ -775,8 +774,8 @@ returns an error directing you to build a job config first.
 
 ### Workflow:
 1. **Build** a job config YAML using this guide as reference
-2. **Preview**: `run_oumi_job("job.yaml", "train", client_cwd=CWD, cloud="gcp")` (dry_run=True)
-3. **Execute**: `run_oumi_job("job.yaml", "train", client_cwd=CWD, cloud="gcp", dry_run=False, confirm=True, user_confirmation="EXECUTE", skip_preflight=True)`
+2. **Preview**: `run_oumi_job(config_path="job.yaml", command="train", client_cwd=CWD, cloud="gcp")` (dry_run=True)
+3. **Execute**: `run_oumi_job(config_path="job.yaml", command="train", client_cwd=CWD, cloud="gcp", dry_run=False, skip_preflight=True)`
 
 Local jobs accept training configs directly — no job config needed.
 
@@ -889,8 +888,8 @@ Once weights are downloaded, stop billing immediately:
 
 | Action | MCP Tool | SkyPilot CLI | Effect |
 |--------|----------|-------------|--------|
-| **Stop** (pause) | `stop_cluster(cluster)` | `sky stop <cluster>` | Stops compute billing, keeps disk. Can restart later. |
-| **Down** (delete) | `down_cluster(cluster)` | `sky down <cluster>` | Deletes everything — VM, disk, all files. Irreversible. |
+| **Stop** (pause) | `stop_cluster(cloud, cluster_name)` | `sky stop <cluster>` | Stops compute billing, keeps disk. Can restart later. |
+| **Down** (delete) | `down_cluster(cloud, cluster_name, confirm, user_confirmation)` | `sky down <cluster>` | Deletes everything — VM, disk, all files. Irreversible. |
 
 **Use `stop`** if you might want to run more jobs on the same cluster.
 **Use `down`** if you're done — this is cheaper (no disk storage fees).
@@ -931,9 +930,9 @@ huggingface-cli upload <your-org>/<model-name>-lora ./output/llama8b-sft
 |------|------------|-----|
 | Check job status | Yes | `get_job_status(job_id)` |
 | View training logs | Yes | `get_job_logs(job_id)` |
-| Run evaluation | Yes | `run_oumi_job(command="evaluate", ...)` |
-| Run inference | Yes | `run_oumi_job(command="infer", ...)` |
-| Stop/delete cluster | Yes | `stop_cluster()` / `down_cluster()` |
+| Run evaluation | Yes | `run_oumi_job(config_path=..., command="evaluate", client_cwd=...)` |
+| Run inference | Yes | `run_oumi_job(config_path=..., command="infer", client_cwd=...)` |
+| Stop/delete cluster | Yes | `stop_cluster(cloud, cluster_name)` / `down_cluster(cloud, cluster_name, confirm, user_confirmation)` |
 | Download files | No | Use `sky rsync-down` in terminal |
 | Merge LoRA adapter | No | Use `peft` or `oumi merge` locally |
 | Push to HF Hub | No | Use `huggingface-cli upload` in terminal |
