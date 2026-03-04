@@ -29,13 +29,19 @@ from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.conversation_utils import create_list_of_message_json_dicts
 from oumi.utils.logging import logger
 from oumi.utils.model_caching import get_local_filepath_for_gguf
+from oumi.utils.packaging import (
+    is_vllm_available,
+    is_vllm_post_v0102,
+)
 from oumi.utils.peft_utils import get_lora_rank
 
-try:
+if is_vllm_available():
     import vllm  # pyright: ignore[reportMissingImports]
 
     try:
-        from vllm.config import ModelDType  # pyright: ignore[reportMissingImports]
+        from vllm.config import (  # pyright: ignore[reportMissingImports]
+            ModelDType,  # pyright: ignore[reportAttributeAccessIssue]
+        )
     except ImportError:
         # For compatibility with newer vLLM versions
         ModelDType = str  # type: ignore
@@ -47,13 +53,25 @@ try:
         QuantizationMethods,
     )
     from vllm.sampling_params import (  # pyright: ignore[reportMissingImports]
-        GuidedDecodingParams as VLLMGuidedDecodingParams,
-    )
-    from vllm.sampling_params import (  # pyright: ignore[reportMissingImports]
         SamplingParams,
     )
-except ModuleNotFoundError:
-    vllm = None
+
+    if is_vllm_post_v0102():
+        from vllm.sampling_params import (  # pyright: ignore[reportMissingImports]
+            StructuredOutputsParams,
+        )
+
+        VLLMGuidedDecodingParams = StructuredOutputsParams  # pyright: ignore[reportMissingImports,reportAttributeAccessIssue]
+    else:
+        from vllm.sampling_params import (  # pyright: ignore[reportMissingImports]
+            GuidedDecodingParams,  # pyright: ignore[reportAttributeAccessIssue]
+        )
+
+        VLLMGuidedDecodingParams = GuidedDecodingParams
+
+else:
+    vllm = None  # type: ignore[assignment]
+    VLLMGuidedDecodingParams = None  # type: ignore[assignment,misc]
 
 
 class VLLMInferenceEngine(BaseInferenceEngine):
@@ -214,9 +232,11 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         if quantization is not None and "quantization" not in vllm_kwargs:
             final_vllm_kwargs["quantization"] = quantization
 
-        self._llm = vllm.LLM(**final_vllm_kwargs)  # pyright: ignore[reportArgumentType, reportAttributeAccessIssue]
-        # Ensure the tokenizer is set properly
-        self._llm.set_tokenizer(self._tokenizer)
+        self._llm = vllm.LLM(**final_vllm_kwargs)  # pyright: ignore[reportArgumentType,reportAttributeAccessIssue]
+
+        # Only set tokenizer for older vLLM versions with transformers v4
+        if not is_vllm_post_v0102():
+            self._llm.set_tokenizer(self._tokenizer)  # pyright: ignore[reportArgumentType,reportAttributeAccessIssue]
 
     def _convert_conversation_to_vllm_input(
         self, conversation: Conversation
@@ -272,14 +292,20 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             else self._model_params
         )
 
+        structured_outputs_kwargs: dict = {}
         if generation_params.guided_decoding is not None:
-            guided_decoding = VLLMGuidedDecodingParams.from_optional(
+            assert VLLMGuidedDecodingParams is not None  # Checked in __init__
+            structured_outputs_value = VLLMGuidedDecodingParams(
                 json=generation_params.guided_decoding.json,
                 regex=generation_params.guided_decoding.regex,
                 choice=generation_params.guided_decoding.choice,
             )
-        else:
-            guided_decoding = None
+            if is_vllm_post_v0102():
+                structured_outputs_kwargs["structured_outputs"] = (
+                    structured_outputs_value
+                )
+            else:
+                structured_outputs_kwargs["guided_decoding"] = structured_outputs_value
 
         sampling_params = SamplingParams(
             n=1,
@@ -293,8 +319,8 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             stop=generation_params.stop_strings,
             stop_token_ids=generation_params.stop_token_ids,
             min_p=generation_params.min_p,
-            guided_decoding=guided_decoding,
             skip_special_tokens=generation_params.skip_special_tokens,
+            **structured_outputs_kwargs,
         )
 
         output_conversations = []

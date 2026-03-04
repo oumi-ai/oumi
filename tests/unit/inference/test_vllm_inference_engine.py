@@ -47,19 +47,26 @@ except ModuleNotFoundError:
     vllm_import_failed = True
 
 
-@pytest.fixture
-def mock_sampling_params():
-    with patch("oumi.inference.vllm_inference_engine.SamplingParams") as mock:
-        yield mock
-
-
 #
 # Fixtures
 #
 @pytest.fixture
 def mock_vllm():
-    with patch("oumi.inference.vllm_inference_engine.vllm") as mvllm:
+    with (
+        patch("oumi.inference.vllm_inference_engine.vllm") as mvllm,
+        patch("oumi.inference.vllm_inference_engine.SamplingParams"),
+    ):
         yield mvllm
+
+
+@pytest.fixture
+def mock_vllm_with_sampling_params():
+    """Mock vLLM and yield the SamplingParams mock for inspection."""
+    with (
+        patch("oumi.inference.vllm_inference_engine.vllm") as mvllm,
+        patch("oumi.inference.vllm_inference_engine.SamplingParams") as msp,
+    ):
+        yield mvllm, msp
 
 
 @pytest.fixture
@@ -530,9 +537,8 @@ def test_infer_from_file_to_file(mock_vllm):
 
 
 @pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
-def test_guided_decoding_json(
-    mock_vllm, single_turn_conversation, mock_sampling_params
-):
+def test_guided_decoding_json(mock_vllm_with_sampling_params, single_turn_conversation):
+    mock_vllm, mock_sampling_params = mock_vllm_with_sampling_params
     schema = {
         "type": "object",
         "properties": {"name": {"type": "string"}, "age": {"type": "number"}},
@@ -555,16 +561,23 @@ def test_guided_decoding_json(
     ]
     result = engine._infer([single_turn_conversation], config)
 
-    # Verify SamplingParams was called with guided_decoding
+    # Verify SamplingParams was called with guided_decoding or structured_outputs
     assert result is not None
     mock_sampling_params.assert_called_once()
     call_kwargs = mock_sampling_params.call_args[1]
-    assert "guided_decoding" in call_kwargs
-    assert call_kwargs["guided_decoding"].json == schema
+    # vLLM > 0.10.2 uses 'structured_outputs', <= 0.10.2 uses 'guided_decoding'
+    guided_key = (
+        "structured_outputs"
+        if "structured_outputs" in call_kwargs
+        else "guided_decoding"
+    )
+    assert guided_key in call_kwargs
+    assert call_kwargs[guided_key].json == schema
 
 
 @pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
-def test_guided_decoding_regex(mock_vllm, mock_sampling_params):
+def test_guided_decoding_regex(mock_vllm_with_sampling_params):
+    mock_vllm, mock_sampling_params = mock_vllm_with_sampling_params
     pattern = r"\d{3}-\d{2}-\d{4}"
 
     config = InferenceConfig(
@@ -592,16 +605,23 @@ def test_guided_decoding_regex(mock_vllm, mock_sampling_params):
 
     result = engine._infer([conversation], config)
 
-    # Verify SamplingParams was called with guided_decoding
+    # Verify SamplingParams was called with guided_decoding or structured_outputs
     assert result is not None
     mock_sampling_params.assert_called_once()
     call_kwargs = mock_sampling_params.call_args[1]
-    assert "guided_decoding" in call_kwargs
-    assert call_kwargs["guided_decoding"].regex == pattern
+    # vLLM > 0.10.2 uses 'structured_outputs', <= 0.10.2 uses 'guided_decoding'
+    guided_key = (
+        "structured_outputs"
+        if "structured_outputs" in call_kwargs
+        else "guided_decoding"
+    )
+    assert guided_key in call_kwargs
+    assert call_kwargs[guided_key].regex == pattern
 
 
 @pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
-def test_guided_decoding_choice(mock_vllm, mock_sampling_params):
+def test_guided_decoding_choice(mock_vllm_with_sampling_params):
+    mock_vllm, mock_sampling_params = mock_vllm_with_sampling_params
     choices = ["option1", "option2"]
     config = InferenceConfig(
         model=ModelParams(
@@ -628,12 +648,18 @@ def test_guided_decoding_choice(mock_vllm, mock_sampling_params):
 
     result = engine._infer([conversation], config)
 
-    # Verify SamplingParams was called with guided_decoding
+    # Verify SamplingParams was called with guided_decoding or structured_outputs
     assert result is not None
     mock_sampling_params.assert_called_once()
     call_kwargs = mock_sampling_params.call_args[1]
-    assert "guided_decoding" in call_kwargs
-    assert call_kwargs["guided_decoding"].choice == choices
+    # vLLM > 0.10.2 uses 'structured_outputs', <= 0.10.2 uses 'guided_decoding'
+    guided_key = (
+        "structured_outputs"
+        if "structured_outputs" in call_kwargs
+        else "guided_decoding"
+    )
+    assert guided_key in call_kwargs
+    assert call_kwargs[guided_key].choice == choices
 
 
 @pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")

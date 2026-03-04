@@ -94,6 +94,7 @@ def _mock_engine(engine_class):
             "oumi.inference.vllm_inference_engine",
             vllm=mock.MagicMock(LLM=mock.MagicMock(return_value=mock_llm)),
             build_tokenizer=mock.MagicMock(return_value=mock_tokenizer),
+            SamplingParams=mock.MagicMock(),
         )
     elif engine_class == LlamaCppInferenceEngine:
         mock_ctx = patch("llama_cpp.Llama.from_pretrained")
