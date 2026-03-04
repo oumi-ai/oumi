@@ -17,16 +17,8 @@
 Provides job submission, status polling, cancellation, and log streaming
 for both local and cloud execution.
 
-Design:
-    - **Local jobs** (``cloud == "local"``): spawned directly via
-      ``subprocess.Popen`` running the Oumi CLI (e.g. ``oumi train -c …``).
-      This avoids the ``oumi.launcher.LocalCluster`` requirement for a
-      ``working_dir``, which the MCP server cannot reliably provide.
-    - **Cloud jobs**: delegated to ``oumi.launcher.up()`` which handles
-      SkyPilot cluster lifecycle, multi-cloud routing, etc.
-    - A thin ``JobRegistry`` maps MCP job IDs to ``JobRecord`` objects.
-    - ``tail_log_file()`` provides async log tailing for streaming to
-      the MCP client via ``ctx.info()``.
+Local jobs are spawned via ``subprocess.Popen`` running the Oumi CLI.
+Cloud jobs are delegated to ``oumi.launcher.up()``.
 """
 
 import asyncio
@@ -66,16 +58,10 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class JobRecord:
-    """Persisted job metadata — identity mapping only.
+    """Persisted job metadata (identity mapping only, no status).
 
-    All fields are strings for simple JSON serde.
-    The registry does NOT store job status; status is always
-    queried live from ``oumi.launcher.status()`` (cloud) or
-    ``rt.process.poll()`` (local).
-
-    For cloud jobs, ``job_id`` is the SkyPilot job ID.
-    For local jobs, ``job_id`` is an MCP-generated ID (e.g. ``train_20250302_a7f2b1``).
-    The ``cloud`` field disambiguates which type of ID it is.
+    Status is always queried live. The ``cloud`` field disambiguates
+    whether ``job_id`` is a SkyPilot ID or an MCP-generated ID.
     """
 
     job_id: str
@@ -90,7 +76,7 @@ class JobRecord:
 
 @dataclass
 class JobRuntime:
-    """Ephemeral per-job state -- lives only in memory, never persisted."""
+    """Ephemeral per-job state, lives only in memory, never persisted."""
 
     process: subprocess.Popen | None = None  # type: ignore[type-arg]
     cluster_obj: BaseCluster | None = None
@@ -105,6 +91,7 @@ class JobRuntime:
     error_message: str | None = None
 
     def close_log_files(self) -> None:
+        """Close open stdout/stderr file handles."""
         for f in (self.stdout_f, self.stderr_f):
             if f is not None:
                 try:
@@ -124,6 +111,7 @@ class JobRegistry:
     """Single-file JSON registry mapping MCP job IDs to cloud identities."""
 
     def __init__(self, path: Path) -> None:
+        """Initialize the registry from *path*, loading existing records."""
         self._path = path
         self._jobs: dict[str, JobRecord] = {}
         self._load()
@@ -134,7 +122,6 @@ class JobRegistry:
         try:
             data = json.loads(self._path.read_text(encoding="utf-8"))
             for entry in data:
-                # Handle legacy records that still have 'status' field
                 entry.pop("status", None)
                 r = JobRecord(**entry)
                 self._jobs[r.job_id] = r
@@ -176,22 +163,24 @@ class JobRegistry:
         records = [dataclasses.asdict(r) for r in self._jobs.values()]
         self._path.parent.mkdir(parents=True, exist_ok=True)
         tmp_fd, tmp_path = tempfile.mkstemp(
-            dir=os.path.dirname(self._path) or ".",
+            dir=str(self._path.parent),
             suffix=".tmp",
         )
         try:
             with os.fdopen(tmp_fd, "w") as f:
                 json.dump(records, f, indent=2)
-            os.replace(tmp_path, str(self._path))
+            Path(tmp_path).replace(self._path)
         except BaseException:
-            os.unlink(tmp_path)
+            Path(tmp_path).unlink()
             raise
 
     def add(self, record: JobRecord) -> None:
+        """Add a job record and persist."""
         self._jobs[record.job_id] = record
         self._save()
 
     def update(self, job_id: str, **fields: Any) -> None:
+        """Update fields on an existing record and persist."""
         record = self._jobs.get(job_id)
         if record is None:
             logger.warning("Registry.update: job_id %s not found, skipping", job_id)
@@ -201,6 +190,7 @@ class JobRegistry:
         self._save()
 
     def get(self, job_id: str) -> JobRecord | None:
+        """Look up a record by job ID."""
         return self._jobs.get(job_id)
 
     def find_by_cloud(self, cloud: str, job_id: str) -> JobRecord | None:
@@ -211,9 +201,11 @@ class JobRegistry:
         return None
 
     def all(self) -> list[JobRecord]:
+        """Return all records."""
         return list(self._jobs.values())
 
     def remove(self, job_id: str) -> None:
+        """Remove a record by job ID and persist."""
         self._jobs.pop(job_id, None)
         self._save()
 
@@ -223,11 +215,7 @@ _runtimes_lock = asyncio.Lock()
 
 
 async def get_runtime(job_id: str) -> JobRuntime:
-    """Return the runtime for *job_id*, creating one if needed.
-
-    Uses ``_runtimes_lock`` to protect concurrent access to the
-    ``_runtimes`` dict.
-    """
+    """Return the runtime for *job_id*, creating one if needed."""
     async with _runtimes_lock:
         if job_id not in _runtimes:
             _runtimes[job_id] = JobRuntime()
@@ -339,13 +327,10 @@ def _build_local_command(config_path: str, command: str) -> list[str]:
 def _stage_cloud_config(
     record: JobRecord, rt: JobRuntime, *, working_dir: str | None = None
 ) -> str:
-    """Copy config (and optionally a working directory) into a per-job run directory.
+    """Copy config into a per-job run directory.
 
-    For training-config wrapping mode, only the config file is copied.
-    For job-config passthrough mode, pass *working_dir* to copy the entire
-    source directory tree so relative references inside the config are preserved.
-
-    Returns the staged config filename (relative to the run directory).
+    When *working_dir* is given, copies the entire directory tree so
+    relative references in the config are preserved.
     """
     assert rt.run_dir is not None
     rt.run_dir.mkdir(parents=True, exist_ok=True)
@@ -364,17 +349,10 @@ def _stage_cloud_config(
 
 
 def start_local_job(record: JobRecord, rt: JobRuntime, client_cwd: str = "") -> None:
-    """Start a local job by spawning the Oumi CLI directly.
+    """Start a local job by spawning the Oumi CLI as a subprocess.
 
-    Creates the log directory, starts the subprocess via ``Popen``, and
-    sets ``rt.process``. Raises on failure
-    (e.g. command not found, permission denied).
-
-    When `client_cwd` is provided, the subprocess runs from that directory
-    so relative paths in the config resolve against the user's project root.
-
-    Stdout and stderr are written to files in ``rt.log_dir`` so
-    that ``tail_log_file()`` can stream them to the MCP client.
+    Logs stdout/stderr to files in ``rt.log_dir``. Uses *client_cwd* as the
+    working directory when provided.
     """
     cmd_argv = _build_local_command(record.config_path, record.command)
 
@@ -417,11 +395,7 @@ def start_local_job(record: JobRecord, rt: JobRuntime, client_cwd: str = "") -> 
 
 
 async def wait_local_completion(record: JobRecord, rt: JobRuntime) -> None:
-    """Await completion of a local job subprocess.
-
-    Waits for the process to exit (in a thread) and sets ``rt.error_message``
-    on failure.  Status is derived at runtime from ``rt.process.poll()``.
-    """
+    """Await completion of a local job subprocess."""
     proc = rt.process
     if proc is None:
         return
@@ -461,11 +435,6 @@ async def _launch_cloud(
     """Launch a cloud job via ``oumi.launcher.up()``.
 
     Requires a job config (with ``resources``/``setup``/``run`` keys).
-    Training configs are rejected with a helpful error message directing
-    the user to the ``guidance://cloud-launch`` resource.
-
-    Updates *record* and *rt* in-place with the cluster object, oumi job ID, and
-    initial status.  On failure, sets ``rt.error_message``.
     """
     reg = get_registry()
 
@@ -545,11 +514,7 @@ async def launch_job(
     *,
     client_cwd: str = "",
 ) -> None:
-    """Launch a job -- local or cloud -- in a background thread.
-
-    For local jobs, spawns the Oumi CLI directly via subprocess.
-    For cloud jobs, delegates to ``oumi.launcher.up()``.
-    """
+    """Launch a job (local or cloud)."""
     if record.cloud == "local":
         start_local_job(record, rt, client_cwd=client_cwd)
         await wait_local_completion(record, rt)
@@ -562,10 +527,9 @@ async def launch_job(
 
 
 async def poll_status(record: JobRecord, rt: JobRuntime) -> OumiJobStatus | None:
-    """Fetch the latest status for a job from the launcher.
+    """Fetch the latest status for a job.
 
-    For **local** jobs, returns None (status derived from ``rt.process``).
-    For **cloud** jobs, queries the cluster or launcher and updates ``rt.oumi_status``.
+    Returns None for local jobs (status derived from ``rt.process``).
     """
     if record.cloud == "local":
         return None
@@ -620,11 +584,7 @@ async def poll_status(record: JobRecord, rt: JobRuntime) -> OumiJobStatus | None
 async def cancel(
     record: JobRecord, rt: JobRuntime, *, force: bool = False
 ) -> JobCancelResponse:
-    """Cancel a job.
-
-    For **local** jobs, sends SIGTERM (or SIGKILL if *force* is True).
-    For **cloud** jobs, delegates to ``oumi.launcher.cancel()``.
-    """
+    """Cancel a job (SIGTERM/SIGKILL for local, launcher.cancel for cloud)."""
     if record.cloud != "local" and rt.cluster_obj is None and rt.process is None:
         rt.cancel_requested = True
         rt.error_message = "Cancellation requested while launch is pending."
@@ -741,7 +701,7 @@ async def tail_log_file(
 
     while True:
         try:
-            size = os.path.getsize(path)
+            size = path.stat().st_size
         except OSError:
             size = 0
 
@@ -1492,7 +1452,8 @@ async def down_cluster_impl(
         return {
             "success": True,
             "message": (
-                f"Dry run: would permanently delete cluster '{cluster_name}' on {cloud}. "
+                f"Dry run: would permanently delete cluster "
+                f"'{cluster_name}' on {cloud}. "
                 "IRREVERSIBLE — all cluster resources and data will be deleted and "
                 "billing will stop. To confirm, re-call with "
                 "confirm=True, user_confirmation='DOWN'."
