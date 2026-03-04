@@ -183,11 +183,11 @@ class DatasetParams(BaseParams):
 
         if self.trust_remote_code:
             warnings.warn(
-                "`trust_remote_code` is deprecated and will be removed in the future.",
+                "`trust_remote_code` is deprecated and will be removed in the future. "
+                "Pass it via dataset_kwargs or use processor_kwargs instead.",
                 DeprecationWarning,
                 stacklevel=2,
             )
-            self.trust_remote_code = False
 
 
 @dataclass

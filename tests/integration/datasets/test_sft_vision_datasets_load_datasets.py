@@ -62,6 +62,10 @@ def _get_all_sft_vision_dataset_infos() -> list[LoadDatasetInfo]:
             "coco_captions",
             "vision_language_jsonl",
             "vl_sft",
+            # hf_vision requires special config (hf_dataset_path, image_column, etc.)
+            "hf_vision",
+            # flickr30k uses dataset scripts which are no longer supported
+            "nlphuji/flickr30k",
         }
     )
 
@@ -132,6 +136,15 @@ def _get_all_sft_vision_dataset_infos() -> list[LoadDatasetInfo]:
             trust_remote_code=True,
             max_rows=64,
             expected_rows=None,
+        ),
+        LoadDatasetInfo(
+            dataset_name="lmms-lab/multimodal-open-r1-8k-verified",
+            model_name=_DEFAULT_MODEL_NAME,
+            dataset_split="train",  # Dataset only has "train" split
+            chat_template=_DEFAULT_CHAT_TEMPLATE,
+            trust_remote_code=True,
+            max_rows=32,
+            expected_rows=32,
         ),
     ]
 
