@@ -104,12 +104,18 @@ def get_configs_dir() -> Path:
     env_dir = os.environ.get("OUMI_MCP_CONFIGS_DIR")
     if env_dir:
         p = Path(env_dir)
-        if p.is_dir() and any(p.rglob("*.yaml")):
-            return p
+        try:
+            if any(p.rglob("*.yaml")):
+                return p
+        except (OSError, FileNotFoundError):
+            pass
 
     cache = get_cache_dir()
-    if cache.is_dir() and any(cache.rglob("*.yaml")):
-        return cache
+    try:
+        if any(cache.rglob("*.yaml")):
+            return cache
+    except (OSError, FileNotFoundError):
+        pass
 
     return get_bundled_configs_dir()
 
@@ -138,17 +144,21 @@ def parse_yaml(path: str) -> dict[str, Any]:
 
 
 def extract_header_comment(path: Path) -> str:
-    """Extract description from YAML header comments.
+    """Extract a short summary from leading YAML header comment lines.
 
-    Reads the first lines of the file that start with # and extracts
-    the description, skipping lines that start with common prefixes
-    like "Usage:", "See Also:", etc.
+    Reads consecutive lines starting with ``#`` from the top of the file,
+    stopping at the first non-empty non-comment line. Each comment line is
+    stripped of leading ``#`` characters and whitespace. Lines beginning with
+    well-known prefixes (e.g. "Usage:", "See Also:", "Requirements:") are
+    discarded. At most the first two qualifying comment lines are joined
+    with a space and returned as the summary string.
 
     Args:
         path: Path to the YAML file.
 
     Returns:
-        Extracted description from header comments.
+        Space-joined summary of up to two header comment lines, or an
+        empty string if no qualifying comments are found or an error occurs.
     """
     try:
         lines = path.read_text(encoding="utf-8").split("\n")
