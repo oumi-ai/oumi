@@ -1036,9 +1036,7 @@ class TestBaseJudge:
             Conversation(
                 messages=[
                     Message(content="prompt1", role=Role.USER),
-                    Message(
-                        content="<judgment>True</judgment>", role=Role.ASSISTANT
-                    ),
+                    Message(content="<judgment>True</judgment>", role=Role.ASSISTANT),
                 ],
                 metadata={
                     "usage": {
@@ -1051,9 +1049,7 @@ class TestBaseJudge:
             Conversation(
                 messages=[
                     Message(content="prompt2", role=Role.USER),
-                    Message(
-                        content="<judgment>False</judgment>", role=Role.ASSISTANT
-                    ),
+                    Message(content="<judgment>False</judgment>", role=Role.ASSISTANT),
                 ],
                 metadata={
                     "usage": {
