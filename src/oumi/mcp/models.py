@@ -43,28 +43,6 @@ class ConfigMetadata(TypedDict):
     peft_type: str
 
 
-class KeySettings(TypedDict):
-    """Important training hyperparameters extracted from config.
-
-    Attributes:
-        learning_rate: Learning rate for training.
-        num_train_epochs: Number of training epochs.
-        max_steps: Maximum number of training steps.
-        per_device_train_batch_size: Batch size per device.
-        gradient_accumulation_steps: Number of gradient accumulation steps.
-        model_max_length: Maximum sequence length.
-        torch_dtype: PyTorch data type (e.g., bfloat16, float32).
-    """
-
-    learning_rate: float | None
-    num_train_epochs: int | None
-    max_steps: int | None
-    per_device_train_batch_size: int | None
-    gradient_accumulation_steps: int | None
-    model_max_length: int | None
-    torch_dtype: str | None
-
-
 class ConfigDetail(ConfigMetadata):
     """Full config details including YAML content.
 
