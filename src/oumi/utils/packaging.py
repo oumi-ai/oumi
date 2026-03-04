@@ -201,3 +201,22 @@ def require_gold_trainer(feature_name: str = "GOLD training") -> None:
             f"Current TRL version: {trl_version}. "
             "Please upgrade TRL with: pip install --upgrade trl"
         )
+
+
+@lru_cache(maxsize=1)
+def is_transformers_v5() -> bool:
+    """Check if the installed transformers version is v5.x or later.
+
+    In transformers v5, several APIs were changed:
+    - AutoModelForVision2Seq was renamed to AutoModelForImageTextToText
+    - SpecialTokensMixin was removed
+    - include_tokens_per_second was removed from TrainingArguments
+
+    Returns:
+        True if transformers v5.x or later is installed, False otherwise.
+    """
+    try:
+        transformers_version = importlib.metadata.version("transformers")
+        return version.parse(transformers_version) >= version.parse("5.0.0")
+    except importlib.metadata.PackageNotFoundError:
+        return False
