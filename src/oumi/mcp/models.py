@@ -111,7 +111,8 @@ class HardwareInfo(TypedDict):
         gpu_memory_gb: Total GPU memory in GB (None if no CUDA GPU).
         compute_capability: CUDA compute capability e.g. "8.0" (None if no CUDA GPU).
         cuda_version: CUDA toolkit version (None if no CUDA GPU).
-        packages: Installed packages relevant to hardware checks, e.g. {"torch": "2.3.0"}.
+        packages: Installed packages relevant to hardware checks,
+        e.g. {"torch": "2.3.0"}.
     """
 
     accelerator_type: str
