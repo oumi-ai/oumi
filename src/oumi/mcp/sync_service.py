@@ -152,7 +152,6 @@ def get_configs_source() -> str:
     return "unknown"
 
 
-
 def _safe_extract(zip_ref: ZipFile, members: list[str], target_dir: Path) -> None:
     """Extract *members* from *zip_ref* into *target_dir* safely.
 
@@ -164,7 +163,10 @@ def _safe_extract(zip_ref: ZipFile, members: list[str], target_dir: Path) -> Non
     real_target = os.path.realpath(target_dir)
     for member in members:
         member_path = os.path.realpath(os.path.join(real_target, member))
-        if not member_path.startswith(real_target + os.sep) and member_path != real_target:
+        if (
+            not member_path.startswith(real_target + os.sep)
+            and member_path != real_target
+        ):
             raise ValueError(f"Attempted path traversal in zip entry: {member}")
         zip_ref.extract(member, target_dir)
 
