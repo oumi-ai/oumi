@@ -438,69 +438,72 @@ def build_index() -> None:
     """Build the full documentation index by auto-discovering oumi modules.
 
     Iterates over all discovered modules, imports them, and builds the index.
-    Sets ``_index_ready`` when complete. Safe to call from any thread.
+    Sets ``_index_ready`` when complete (even on failure, so callers never
+    hang).  Safe to call from any thread.
     """
     global _index, _module_info, _qualified_name_map, _name_lower_map, _search_blobs
 
-    all_entries: list[DocEntry] = []
-    all_info: list[ModuleInfo] = []
+    try:
+        all_entries: list[DocEntry] = []
+        all_info: list[ModuleInfo] = []
 
-    discovered_modules = discover_oumi_modules()
+        discovered_modules = discover_oumi_modules()
 
-    for module_path, description in discovered_modules:
-        logger.info("Indexing docs: %s", module_path)
-        try:
-            entries, info = _index_module(module_path, description)
-            if not description and info["class_count"] + info["function_count"] > 0:
-                try:
-                    mod = importlib.import_module(module_path)
-                    auto_desc = _module_docstring_summary(mod)
-                    if auto_desc:
-                        info["description"] = auto_desc
-                except Exception:
-                    pass
-            if info["class_count"] + info["function_count"] == 0:
-                continue
-            all_entries.extend(entries)
-            all_info.append(info)
-        except Exception as exc:
-            logger.error("Error indexing %s: %s", module_path, exc, exc_info=True)
+        for module_path, description in discovered_modules:
+            logger.info("Indexing docs: %s", module_path)
+            try:
+                entries, info = _index_module(module_path, description)
+                if not description and info["class_count"] + info["function_count"] > 0:
+                    try:
+                        mod = importlib.import_module(module_path)
+                        auto_desc = _module_docstring_summary(mod)
+                        if auto_desc:
+                            info["description"] = auto_desc
+                    except Exception:
+                        pass
+                if info["class_count"] + info["function_count"] == 0:
+                    continue
+                all_entries.extend(entries)
+                all_info.append(info)
+            except Exception as exc:
+                logger.error("Error indexing %s: %s", module_path, exc, exc_info=True)
 
-    qualified_name_map: dict[str, list[DocEntry]] = defaultdict(list)
-    name_lower_map: dict[str, list[DocEntry]] = defaultdict(list)
-    search_blobs: list[dict[str, Any]] = []
-    for entry in all_entries:
-        qualified_name_map[entry["qualified_name"]].append(entry)
-        name_lower_map[entry["name"].lower()].append(entry)
-        search_blobs.append(
-            {
-                "entry": entry,
-                "name_lower": entry["name"].lower(),
-                "qual_lower": entry["qualified_name"].lower(),
-                "field_names_lower": [f["name"].lower() for f in entry["fields"]],
-                "summary_lower": entry["summary"].lower(),
-                "section_contents_lower": [
-                    section["content"].lower() for section in entry["sections"]
-                ],
-                "module_lower": entry["module"].lower(),
-                "kind_lower": entry["kind"].lower(),
-                "is_class_like": entry["kind"] in ("class", "dataclass"),
-            }
+        qualified_name_map: dict[str, list[DocEntry]] = defaultdict(list)
+        name_lower_map: dict[str, list[DocEntry]] = defaultdict(list)
+        search_blobs: list[dict[str, Any]] = []
+        for entry in all_entries:
+            qualified_name_map[entry["qualified_name"]].append(entry)
+            name_lower_map[entry["name"].lower()].append(entry)
+            search_blobs.append(
+                {
+                    "entry": entry,
+                    "name_lower": entry["name"].lower(),
+                    "qual_lower": entry["qualified_name"].lower(),
+                    "field_names_lower": [f["name"].lower() for f in entry["fields"]],
+                    "summary_lower": entry["summary"].lower(),
+                    "section_contents_lower": [
+                        section["content"].lower() for section in entry["sections"]
+                    ],
+                    "module_lower": entry["module"].lower(),
+                    "kind_lower": entry["kind"].lower(),
+                    "is_class_like": entry["kind"] in ("class", "dataclass"),
+                }
+            )
+
+        with _index_lock:
+            _index = all_entries
+            _module_info = all_info
+            _qualified_name_map = dict(qualified_name_map)
+            _name_lower_map = dict(name_lower_map)
+            _search_blobs = search_blobs
+
+        logger.info(
+            "Documentation index ready: %d entries from %d modules",
+            len(all_entries),
+            len(all_info),
         )
-
-    with _index_lock:
-        _index = all_entries
-        _module_info = all_info
-        _qualified_name_map = dict(qualified_name_map)
-        _name_lower_map = dict(name_lower_map)
-        _search_blobs = search_blobs
-
-    _index_ready.set()
-    logger.info(
-        "Documentation index ready: %d entries from %d modules",
-        len(all_entries),
-        len(all_info),
-    )
+    finally:
+        _index_ready.set()
 
 
 def start_background_indexing() -> threading.Thread:
@@ -576,10 +579,10 @@ def search_docs(
             error_msg = "Query cannot be empty."
         else:
             with _index_lock:
-                index = list(_index)
-                qualified_name_map = dict(_qualified_name_map)
-                name_lower_map = {k: list(v) for k, v in _name_lower_map.items()}
-                search_blobs = list(_search_blobs)
+                index = _index
+                qualified_name_map = _qualified_name_map
+                name_lower_map = _name_lower_map
+                search_blobs = _search_blobs
 
             if not index:
                 error_msg = (
