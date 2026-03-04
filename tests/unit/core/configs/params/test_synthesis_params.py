@@ -718,51 +718,37 @@ def test_general_synthesis_params_valid():
     assert sum(c.sample_rate for c in params.combination_sampling) <= 1.0
 
 
+def test_general_synthesis_params_empty_lists_normalized_to_none():
+    """Empty lists should be treated as if the attribute was not provided (None)."""
+    params = GeneralSynthesisParams(input_data=[])
+    assert params.input_data is None
+
+    params = GeneralSynthesisParams(input_documents=[])
+    assert params.input_documents is None
+
+    params = GeneralSynthesisParams(input_examples=[])
+    assert params.input_examples is None
+
+    params = GeneralSynthesisParams(sampled_attributes=[])
+    assert params.sampled_attributes is None
+
+    params = GeneralSynthesisParams(combination_sampling=[])
+    assert params.combination_sampling is None
+
+    params = GeneralSynthesisParams(generated_attributes=[])
+    assert params.generated_attributes is None
+
+    params = GeneralSynthesisParams(transformed_attributes=[])
+    assert params.transformed_attributes is None
+
+    params = GeneralSynthesisParams(multiturn_attributes=[])
+    assert params.multiturn_attributes is None
+
+    params = GeneralSynthesisParams(passthrough_attributes=[])
+    assert params.passthrough_attributes is None
+
+
 def test_general_synthesis_params_invalid():
-    # Test empty lists
-    with pytest.raises(
-        ValueError, match="GeneralSynthesisParams.input_data cannot be empty."
-    ):
-        GeneralSynthesisParams(input_data=[])
-
-    with pytest.raises(
-        ValueError, match="GeneralSynthesisParams.input_documents cannot be empty."
-    ):
-        GeneralSynthesisParams(input_documents=[])
-
-    with pytest.raises(
-        ValueError, match="GeneralSynthesisParams.input_examples cannot be empty."
-    ):
-        GeneralSynthesisParams(input_examples=[])
-
-    with pytest.raises(
-        ValueError,
-        match="GeneralSynthesisParams.sampled_attributes cannot be empty.",
-    ):
-        GeneralSynthesisParams(sampled_attributes=[])
-
-    with pytest.raises(
-        ValueError, match="GeneralSynthesisParams.combination_sampling cannot be empty."
-    ):
-        GeneralSynthesisParams(combination_sampling=[])
-
-    with pytest.raises(
-        ValueError, match="GeneralSynthesisParams.generated_attributes cannot be empty."
-    ):
-        GeneralSynthesisParams(generated_attributes=[])
-
-    with pytest.raises(
-        ValueError,
-        match="GeneralSynthesisParams.transformed_attributes cannot be empty.",
-    ):
-        GeneralSynthesisParams(transformed_attributes=[])
-
-    with pytest.raises(
-        ValueError,
-        match="GeneralSynthesisParams.passthrough_attributes cannot be empty.",
-    ):
-        GeneralSynthesisParams(passthrough_attributes=[])
-
     # Test duplicate attribute IDs
     with pytest.raises(
         ValueError, match="GeneralSynthesisParams contains duplicate attribute IDs"
