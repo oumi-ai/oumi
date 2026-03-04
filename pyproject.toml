@@ -181,9 +181,9 @@ bitnet = ["onebitllms>=0.0.3"]
 
 mcp = [
     "fastmcp>=3.0.0,<4",
-    "httpx>=0.28.1",
-    "huggingface-hub>=0.36.0",
-    "mcp[cli]>=1.25.0",
+    "httpx>=0.28.1,<1",
+    "huggingface-hub>=0.36.0,<1",
+    "mcp>=1.25.0",
     "pyyaml>=6.0",
 ]
 
@@ -254,7 +254,7 @@ ban-relative-imports = "all" # Disallow all relative imports.
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["D", "PTH"] # Ignore docstring checks in tests
-"src/oumi/mcp/*" = ["D", "E501", "ASYNC", "PTH"]  # MCP server: to be addressed in follow-up
+"src/oumi/mcp/*" = ["D", "E501", "ASYNC210", "ASYNC220", "ASYNC230", "ASYNC240", "PTH"]  # MCP server: to be addressed in follow-up
 "src/oumi/utils/verl_model_merger.*" = [
     "E501", # Line too long
     "D",    # Ignore docstring checks
