@@ -63,7 +63,45 @@ def test_convert_api_output_to_conversation(anthropic_engine):
     assert result.conversation_id == "test_id"
 
 
-def test_convert_api_output_to_conversation_with_usage(anthropic_engine):
+@pytest.mark.parametrize(
+    "api_usage,expected_usage",
+    [
+        # Basic usage
+        (
+            {"input_tokens": 12, "output_tokens": 8},
+            {"prompt_tokens": 12, "completion_tokens": 8, "total_tokens": 20},
+        ),
+        # With cache read tokens
+        (
+            {"input_tokens": 12, "output_tokens": 8, "cache_read_input_tokens": 5},
+            {
+                "prompt_tokens": 12,
+                "completion_tokens": 8,
+                "total_tokens": 20,
+                "cached_tokens": 5,
+            },
+        ),
+        # With cache read + creation tokens
+        (
+            {
+                "input_tokens": 12,
+                "output_tokens": 8,
+                "cache_read_input_tokens": 5,
+                "cache_creation_input_tokens": 3,
+            },
+            {
+                "prompt_tokens": 12,
+                "completion_tokens": 8,
+                "total_tokens": 20,
+                "cached_tokens": 5,
+                "cache_creation_tokens": 3,
+            },
+        ),
+    ],
+)
+def test_convert_api_output_to_conversation_with_usage(
+    anthropic_engine, api_usage, expected_usage
+):
     original_conversation = Conversation(
         messages=[
             Message(content="User message", role=Role.USER),
@@ -73,18 +111,14 @@ def test_convert_api_output_to_conversation_with_usage(anthropic_engine):
     )
     api_response = {
         "content": [{"text": "Assistant response"}],
-        "usage": {"input_tokens": 12, "output_tokens": 8},
+        "usage": api_usage,
     }
 
     result = anthropic_engine._convert_api_output_to_conversation(
         api_response, original_conversation
     )
 
-    assert result.metadata["usage"] == {
-        "prompt_tokens": 12,
-        "completion_tokens": 8,
-        "total_tokens": 20,
-    }
+    assert result.metadata["usage"] == expected_usage
     assert result.metadata["key"] == "value"
     assert result.conversation_id == "test_id"
 

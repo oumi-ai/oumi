@@ -146,11 +146,19 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
             return None
         prompt_tokens = usage.get("input_tokens", 0)
         completion_tokens = usage.get("output_tokens", 0)
-        return {
+        result = {
             "prompt_tokens": prompt_tokens,
             "completion_tokens": completion_tokens,
             "total_tokens": prompt_tokens + completion_tokens,
         }
+        # Extract cached tokens from Anthropic's flat format
+        cached_tokens = usage.get("cache_read_input_tokens", 0)
+        if cached_tokens:
+            result["cached_tokens"] = cached_tokens
+        cache_creation_tokens = usage.get("cache_creation_input_tokens", 0)
+        if cache_creation_tokens:
+            result["cache_creation_tokens"] = cache_creation_tokens
+        return result
 
     @override
     def _convert_api_output_to_conversation(
