@@ -30,6 +30,87 @@ from oumi.utils.logging import logger
 from oumi.utils.str_utils import truncate_to_max_tokens_limit
 
 
+def _convert_message_to_transformers_format(
+    message: Message, *, use_list_format: bool = False
+) -> dict[str, Any]:
+    """Convert an oumi Message to transformers v5 multimodal format.
+
+    Transformers v5+ expects messages in a specific format for multimodal models:
+    - Text content: {"type": "text", "text": "..."}
+    - Image content: {"type": "image", "url": "..."} or {"type": "image", "path": "..."}
+
+    Args:
+        message: An oumi Message object.
+        use_list_format: If True, always use list format for content even for
+            text-only messages. This is required for some multimodal processors
+            whose chat templates expect content to always be a list.
+
+    Returns:
+        A dict in transformers v5 multimodal message format.
+    """
+    result: dict[str, Any] = {"role": message.role.value}
+
+    # Handle simple string content (text-only messages)
+    if isinstance(message.content, str):
+        if use_list_format:
+            result["content"] = [{"type": "text", "text": message.content}]
+        else:
+            result["content"] = message.content
+        return result
+
+    # Handle multimodal content (list of content items)
+    content_list = []
+    for item in message.content:
+        item_dict = item.model_dump(mode="json")
+        item_type = item_dict.get("type", "")
+
+        if item_type == "text":
+            # Convert {"type": "text", "content": "..."}
+            # to {"type": "text", "text": "..."}
+            content_list.append(
+                {
+                    "type": "text",
+                    "text": item_dict.get("content", ""),
+                }
+            )
+        elif item_type == "image_url":
+            # Convert {"type": "image_url", "content": "..."}
+            # to {"type": "image", "url": "..."}
+            content_list.append(
+                {
+                    "type": "image",
+                    "url": item_dict.get("content", ""),
+                }
+            )
+        elif item_type == "image_path":
+            # Convert {"type": "image_path", "content": "..."}
+            # to {"type": "image", "path": "..."}
+            content_list.append(
+                {
+                    "type": "image",
+                    "path": item_dict.get("content", ""),
+                }
+            )
+        elif item_type == "image_binary":
+            # Convert binary to base64 data URL
+            binary_b64 = item_dict.get("binary", "")
+            if binary_b64:
+                # Detect image type from binary data or default to jpeg
+                data_url = f"data:image/jpeg;base64,{binary_b64}"
+                content_list.append(
+                    {
+                        "type": "image",
+                        "url": data_url,
+                    }
+                )
+        else:
+            # Pass through unknown types as-is
+            content_list.append(item_dict)
+
+    result["content"] = content_list
+    return result
+
+
 class DefaultProcessor(BaseProcessor):
     """Default implementation of processor that wraps a worker processor.
 
@@ -66,14 +147,6 @@ class DefaultProcessor(BaseProcessor):
         self._worker_processor.tokenizer = tokenizer
         self._tokenizer: BaseTokenizer = tokenizer
 
-        # If the worker processor does not have a chat template, or has a different
-        # one, then equate it to tokenizer's.
-        if (
-            not hasattr(self._worker_processor, "chat_template")
-            or self._worker_processor.chat_template != tokenizer.chat_template
-        ):
-            self._worker_processor.chat_template = tokenizer.chat_template
-
         self._image_processor: BaseImageProcessor | None = None
         if (
             hasattr(self._worker_processor, "image_processor")
@@ -82,6 +155,22 @@ class DefaultProcessor(BaseProcessor):
             self._image_processor = DefaultImageProcessor(
                 self._worker_processor.image_processor
             )
+
+        # Handle chat template assignment:
+        # - If the processor doesn't have a chat_template, set it from the tokenizer
+        # - For text-only processors, also sync with tokenizer's template
+        # - For multimodal processors that already have a chat_template, keep it as it's
+        #   designed to handle image tokens correctly in transformers v5+
+        processor_has_chat_template = (
+            hasattr(self._worker_processor, "chat_template")
+            and self._worker_processor.chat_template is not None
+        )
+        if not processor_has_chat_template:
+            self._worker_processor.chat_template = tokenizer.chat_template
+        elif self._image_processor is None:
+            # For text-only processors, sync with tokenizer's template
+            if self._worker_processor.chat_template != tokenizer.chat_template:
+                self._worker_processor.chat_template = tokenizer.chat_template
         self._label_ignore_index: int | None = label_ignore_index
         self._ignore_features: list[str] | None = (
             copy.copy(ignore_features) if ignore_features else []
@@ -248,14 +337,25 @@ class DefaultProcessor(BaseProcessor):
                         "This is not allowed for processors that are tokenizers."
                     )
 
+            # Convert Message objects to dicts in transformers v5+ format.
+            conversation_dicts = [
+                _convert_message_to_transformers_format(msg, use_list_format=False)
+                for msg in conversation
+            ]
             result = self._worker_processor.apply_chat_template(
-                conversation,  # type: ignore
+                conversation_dicts,
                 tokenize=False,
                 add_generation_prompt=add_generation_prompt,
             )
         else:
+            # For multimodal processors, use list format for content as their
+            # chat templates expect content to always be a list of content items.
+            conversation_dicts = [
+                _convert_message_to_transformers_format(msg, use_list_format=True)
+                for msg in conversation
+            ]
             result = self._worker_processor.apply_chat_template(
-                [conversation], add_generation_prompt=add_generation_prompt
+                [conversation_dicts], add_generation_prompt=add_generation_prompt
             )
 
         if result is None:
