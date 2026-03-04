@@ -586,7 +586,7 @@ async def run_oumi_job(
     reg = get_registry()
     reg.add(record)
 
-    rt = get_runtime(job_id)
+    rt = await get_runtime(job_id)
     rt.log_dir = JOB_LOGS_DIR / job_id
     rt.run_dir = JOB_RUNS_DIR / job_id
 
@@ -837,7 +837,7 @@ async def get_job_logs_resource(job_id: str) -> str:
     if not record:
         return json.dumps({"error": f"Job '{job_id}' not found"})
 
-    rt = get_runtime(record.job_id)
+    rt = await get_runtime(record.job_id)
     status = await poll_status(record, rt)
 
     header_parts = [f"Job: {record.job_id}"]
