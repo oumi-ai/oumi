@@ -1,15 +1,14 @@
 # pyright: reportOperatorIssue=false
-"""Tests for oumi.mcp.sync_service — version detection, URL building, sync flow."""
+"""Tests for oumi.mcp.sync_service — version detection, tree API sync flow."""
 
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-from zipfile import ZipFile
 
 import pytest
 
 from oumi.mcp.sync_service import (
+    _fetch_yaml_paths,
     config_sync,
-    get_configs_zip_url,
     get_oumi_git_tag,
     is_oumi_dev_build,
 )
@@ -37,16 +36,9 @@ def test_git_tag_missing_returns_none():
         assert get_oumi_git_tag() is None
 
 
-def test_configs_zip_url_tagged():
-    url, prefix = get_configs_zip_url("v0.7")
-    assert "v0.7" in url
-    assert prefix == "oumi-0.7/configs/"
-
-
-def test_configs_zip_url_main_branch():
-    url, prefix = get_configs_zip_url(None)
-    assert "main" in url
-    assert prefix == "oumi-main/configs/"
+def test_git_tag_release():
+    with patch("oumi.mcp.sync_service.get_package_version", return_value="0.7"):
+        assert get_oumi_git_tag() == "v0.7"
 
 
 def test_config_sync_skips_when_fresh():
@@ -59,31 +51,97 @@ def test_config_sync_skips_when_fresh():
     assert result["skipped"] is True
 
 
-def test_config_sync_force_ignores_freshness(tmp_path: Path):
+def _make_mock_client(yaml_paths: list[str]) -> MagicMock:
+    """Build a mock httpx.Client that simulates the Trees API + raw downloads."""
+    root_tree_response = MagicMock()
+    root_tree_response.status_code = 200
+    root_tree_response.raise_for_status = MagicMock()
+    root_tree_response.json.return_value = {
+        "tree": [
+            {"path": "configs", "type": "tree", "sha": "abc123"},
+            {"path": "src", "type": "tree", "sha": "def456"},
+        ]
+    }
+
+    configs_tree_response = MagicMock()
+    configs_tree_response.status_code = 200
+    configs_tree_response.raise_for_status = MagicMock()
+    configs_tree_response.json.return_value = {
+        "truncated": False,
+        "tree": [
+            {"path": p, "type": "blob", "sha": f"sha_{i}"}
+            for i, p in enumerate(yaml_paths)
+        ],
+    }
+
+    raw_response = MagicMock()
+    raw_response.status_code = 200
+    raw_response.content = b"model:\n  model_name: gpt2\n"
+
+    def mock_get(url, **_kwargs):
+        if "/git/trees/abc123" in url:
+            return configs_tree_response
+        if "/git/trees/" in url:
+            return root_tree_response
+        if "raw.githubusercontent.com" in url:
+            return raw_response
+        return MagicMock(status_code=404)
+
+    mock_client = MagicMock()
+    mock_client.get.side_effect = mock_get
+    return mock_client
+
+
+def test_fetch_yaml_paths():
+    yaml_paths = ["recipes/llama3/train.yaml", "apis/anthropic/infer.yaml"]
+    mock_client = _make_mock_client(yaml_paths)
+    result = _fetch_yaml_paths(mock_client, "main")
+    assert result == yaml_paths
+
+
+def test_fetch_yaml_paths_filters_non_yaml():
+    root_resp = MagicMock()
+    root_resp.status_code = 200
+    root_resp.raise_for_status = MagicMock()
+    root_resp.json.return_value = {
+        "tree": [{"path": "configs", "type": "tree", "sha": "abc123"}]
+    }
+    configs_resp = MagicMock()
+    configs_resp.status_code = 200
+    configs_resp.raise_for_status = MagicMock()
+    configs_resp.json.return_value = {
+        "truncated": False,
+        "tree": [
+            {"path": "train.yaml", "type": "blob", "sha": "s1"},
+            {"path": "README.md", "type": "blob", "sha": "s2"},
+            {"path": "subdir", "type": "tree", "sha": "s3"},
+        ],
+    }
+
+    def mock_get(url, **_kwargs):
+        if "/git/trees/abc123" in url:
+            return configs_resp
+        return root_resp
+
+    mock_client = MagicMock()
+    mock_client.get.side_effect = mock_get
+    result = _fetch_yaml_paths(mock_client, "main")
+    assert result == ["train.yaml"]
+
+
+def test_config_sync_force_downloads(tmp_path: Path):
     cache_dir = tmp_path / "cache"
-
-    zip_path = tmp_path / "fake.zip"
-    with ZipFile(zip_path, "w") as zf:
-        zf.writestr("oumi-0.7/configs/train.yaml", "model:\n  model_name: gpt2\n")
-
-    zip_bytes = zip_path.read_bytes()
-
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_response.content = zip_bytes
-    mock_response.raise_for_status = MagicMock()
-
-    mock_client_inst = MagicMock()
-    mock_client_inst.get.return_value = mock_response
+    yaml_paths = ["recipes/llama3/train.yaml"]
+    mock_client = _make_mock_client(yaml_paths)
 
     mock_client_cls = MagicMock()
-    mock_client_cls.return_value.__enter__ = MagicMock(return_value=mock_client_inst)
+    mock_client_cls.return_value.__enter__ = MagicMock(return_value=mock_client)
     mock_client_cls.return_value.__exit__ = MagicMock(return_value=False)
 
     with (
         patch("oumi.mcp.sync_service.get_cache_dir", return_value=cache_dir),
         patch("oumi.mcp.sync_service.get_oumi_version", return_value="0.7"),
-        patch("oumi.mcp.sync_service.get_oumi_git_tag", return_value="v0.7"),
+        patch("oumi.mcp.sync_service._get_git_ref", return_value=("v0.7", "tag:v0.7")),
         patch("oumi.mcp.sync_service.clear_config_caches"),
         patch("oumi.mcp.sync_service.httpx.Client", mock_client_cls),
     ):
@@ -91,7 +149,7 @@ def test_config_sync_force_ignores_freshness(tmp_path: Path):
 
     assert result["ok"] is True
     assert result["skipped"] is False
-    assert result["configs_synced"] >= 1
+    assert result["configs_synced"] == 1
 
 
 def test_config_sync_http_error_returns_failure():
@@ -106,10 +164,31 @@ def test_config_sync_http_error_returns_failure():
         patch("oumi.mcp.sync_service._is_cache_stale", return_value=True),
         patch("oumi.mcp.sync_service.get_cache_dir", return_value=Path("/tmp/fake")),
         patch("oumi.mcp.sync_service.get_oumi_version", return_value="0.7"),
-        patch("oumi.mcp.sync_service.get_oumi_git_tag", return_value="v0.7"),
+        patch("oumi.mcp.sync_service._get_git_ref", return_value=("v0.7", "tag:v0.7")),
         patch("oumi.mcp.sync_service.httpx.Client", return_value=mock_client),
     ):
         result = config_sync(force=False)
 
     assert result["ok"] is False
     assert "connection failed" in result["error"]
+
+
+def test_config_sync_no_configs_in_tree():
+    """Tree API returns no YAML files."""
+    mock_client = _make_mock_client([])
+
+    mock_client_cls = MagicMock()
+    mock_client_cls.return_value.__enter__ = MagicMock(return_value=mock_client)
+    mock_client_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+    with (
+        patch("oumi.mcp.sync_service._is_cache_stale", return_value=True),
+        patch("oumi.mcp.sync_service.get_cache_dir", return_value=Path("/tmp/fake")),
+        patch("oumi.mcp.sync_service.get_oumi_version", return_value="0.7"),
+        patch("oumi.mcp.sync_service._get_git_ref", return_value=("v0.7", "tag:v0.7")),
+        patch("oumi.mcp.sync_service.httpx.Client", mock_client_cls),
+    ):
+        result = config_sync(force=False)
+
+    assert result["ok"] is False
+    assert "No YAML configs" in result["error"]

@@ -75,6 +75,7 @@ class AttributeSynthesizer:
         self._inference_config = inference_config
         self._total_input_tokens: int = 0
         self._total_output_tokens: int = 0
+        self._total_cached_tokens: int = 0
 
     def synthesize(
         self,
@@ -277,12 +278,18 @@ class AttributeSynthesizer:
         """Total output/completion tokens accumulated across all synthesize() calls."""
         return self._total_output_tokens
 
+    @property
+    def total_cached_tokens(self) -> int:
+        """Total cached tokens accumulated across all synthesize() calls."""
+        return self._total_cached_tokens
+
     def _accumulate_token_usage(self, inference_results: list[Conversation]) -> None:
         """Accumulate token usage from inference response metadata."""
         for result in inference_results:
             usage = result.metadata.get("usage", {})
             self._total_input_tokens += usage.get("prompt_tokens", 0)
             self._total_output_tokens += usage.get("completion_tokens", 0)
+            self._total_cached_tokens += usage.get("cached_tokens", 0)
 
     def _extract_response(
         self,

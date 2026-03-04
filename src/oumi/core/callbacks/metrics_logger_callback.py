@@ -61,6 +61,8 @@ class MetricsLoggerCallback(BaseTrainerCallback):
             return
 
         metrics = kwargs[_LOGS_KWARG]
+        if "step" not in metrics and "global_step" not in metrics and state is not None:
+            metrics["step"] = state.global_step
         self._write_metrics_to_jsonl(metrics)
 
     def _write_metrics_to_jsonl(self, metrics: dict) -> None:

@@ -74,7 +74,9 @@ _index_ready = threading.Event()
 _index_lock = threading.Lock()
 
 _SECTION_RE = re.compile(
-    r"^(Args|Arguments|Returns?|Raises?|Yields?|Examples?|Notes?|Attributes?|See Also|References?|Todo|Warnings?)\s*:",
+    r"^(Args|Arguments|Returns?|Raises?|Yields?|Examples?"
+    r"|Notes?|Attributes?|See Also|References?"
+    r"|Todo|Warnings?)\s*:",
     re.MULTILINE,
 )
 

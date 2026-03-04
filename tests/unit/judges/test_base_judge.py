@@ -1022,3 +1022,47 @@ class TestBaseJudge:
         mock_engine.get_batch_results_partial.assert_called_once_with(
             "batch_123", input_convs
         )
+
+    def test_cached_token_usage_accumulated(
+        self, base_judge, mock_inference_engine, sample_output_fields
+    ):
+        """Test that cached token usage is accumulated across judge() calls."""
+        inputs = [
+            {"question": "What is 2+2?", "answer": "4"},
+            {"question": "What is 3+3?", "answer": "6"},
+        ]
+
+        mock_inference_engine.infer.return_value = [
+            Conversation(
+                messages=[
+                    Message(content="prompt1", role=Role.USER),
+                    Message(content="<judgment>True</judgment>", role=Role.ASSISTANT),
+                ],
+                metadata={
+                    "usage": {
+                        "prompt_tokens": 10,
+                        "completion_tokens": 5,
+                        "cached_tokens": 3,
+                    }
+                },
+            ),
+            Conversation(
+                messages=[
+                    Message(content="prompt2", role=Role.USER),
+                    Message(content="<judgment>False</judgment>", role=Role.ASSISTANT),
+                ],
+                metadata={
+                    "usage": {
+                        "prompt_tokens": 12,
+                        "completion_tokens": 6,
+                        "cached_tokens": 8,
+                    }
+                },
+            ),
+        ]
+
+        base_judge.judge(inputs)
+
+        assert base_judge.total_input_tokens == 22
+        assert base_judge.total_output_tokens == 11
+        assert base_judge.total_cached_tokens == 11
