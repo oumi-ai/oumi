@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from huggingface_hub import auth_check, whoami
+from huggingface_hub.utils import get_token as _hf_get_token
 from huggingface_hub.errors import (
     GatedRepoError,
     HfHubHTTPError,
