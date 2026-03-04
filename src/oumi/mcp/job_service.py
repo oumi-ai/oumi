@@ -37,6 +37,7 @@ import logging
 import os
 import shutil
 import subprocess
+import tempfile
 import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
@@ -174,9 +175,17 @@ class JobRegistry:
     def _save(self) -> None:
         records = [dataclasses.asdict(r) for r in self._jobs.values()]
         self._path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = self._path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(records, indent=2), encoding="utf-8")
-        tmp.rename(self._path)
+        tmp_fd, tmp_path = tempfile.mkstemp(
+            dir=os.path.dirname(self._path) or ".",
+            suffix=".tmp",
+        )
+        try:
+            with os.fdopen(tmp_fd, "w") as f:
+                json.dump(records, f, indent=2)
+            os.replace(tmp_path, str(self._path))
+        except BaseException:
+            os.unlink(tmp_path)
+            raise
 
     def add(self, record: JobRecord) -> None:
         self._jobs[record.job_id] = record
@@ -213,21 +222,22 @@ _runtimes: dict[str, JobRuntime] = {}
 _runtimes_lock = asyncio.Lock()
 
 
-def get_runtime(job_id: str) -> JobRuntime:
+async def get_runtime(job_id: str) -> JobRuntime:
     """Return the runtime for *job_id*, creating one if needed.
 
-    For use from synchronous helpers and background tasks.  Async callers
-    that need to guard against concurrent access should use
-    ``async with _runtimes_lock:`` around sequences of get/mutate calls.
+    Uses ``_runtimes_lock`` to protect concurrent access to the
+    ``_runtimes`` dict.
     """
-    if job_id not in _runtimes:
-        _runtimes[job_id] = JobRuntime()
-    return _runtimes[job_id]
+    async with _runtimes_lock:
+        if job_id not in _runtimes:
+            _runtimes[job_id] = JobRuntime()
+        return _runtimes[job_id]
 
 
-def evict_runtime(job_id: str) -> None:
+async def evict_runtime(job_id: str) -> None:
     """Remove a runtime entry, closing any open handles."""
-    rt = _runtimes.pop(job_id, None)
+    async with _runtimes_lock:
+        rt = _runtimes.pop(job_id, None)
     if rt is None:
         return
     rt.close_log_files()
@@ -235,12 +245,13 @@ def evict_runtime(job_id: str) -> None:
         rt.runner_task.cancel()
 
 
-def cleanup_stale_runtimes() -> None:
+async def cleanup_stale_runtimes() -> None:
     """Remove runtime entries whose job_id is no longer in the registry."""
     reg = get_registry()
-    stale = [jid for jid in _runtimes if reg.get(jid) is None]
+    async with _runtimes_lock:
+        stale = [jid for jid in _runtimes if reg.get(jid) is None]
     for jid in stale:
-        evict_runtime(jid)
+        await evict_runtime(jid)
     if stale:
         logger.info("Evicted %d stale runtime entries", len(stale))
 
@@ -520,9 +531,9 @@ async def _launch_cloud(
                     "Cancellation was requested during launch, but automatic "
                     f"cloud cancellation failed: {cancel_exc}"
                 )
-            evict_runtime(record.job_id)
+            await evict_runtime(record.job_id)
             return
-        evict_runtime(record.job_id)
+        await evict_runtime(record.job_id)
     except Exception as exc:
         rt.error_message = str(exc)
         logger.exception("Failed to launch cloud job %s", record.job_id)
@@ -631,11 +642,19 @@ async def cancel(
     if record.cloud == "local" and rt.process is not None:
         try:
             if force:
-                rt.process.kill()
+                try:
+                    rt.process.kill()
+                except ProcessLookupError:
+                    pass
                 action = "killed (SIGKILL)"
             else:
-                rt.process.terminate()
+                try:
+                    rt.process.terminate()
+                except ProcessLookupError:
+                    pass
                 action = "terminated (SIGTERM)"
+            # Reap the subprocess to avoid zombies.
+            await asyncio.to_thread(rt.process.wait)
             rt.cancel_requested = True
             rt.error_message = f"Cancelled by user ({action})"
             logger.info("Local job %s %s", record.job_id, action)
@@ -1065,6 +1084,7 @@ async def _fetch_cloud_status_direct(
 
 def _read_log_tail(stdout_path: Path, lines: int) -> tuple[str, int]:
     """Read the trailing *lines* from *stdout_path* efficiently."""
+    lines = min(lines, 10000)
     if lines <= 0:
         return ("", 0)
     block_size = 8192
@@ -1128,7 +1148,7 @@ async def _list_job_summaries(status_filter: str = "all") -> list[JobSummary]:
     for record in reg.all():
         if record.cloud != "local":
             continue
-        rt = get_runtime(record.job_id)
+        rt = await get_runtime(record.job_id)
         status_str = _job_status_str(record, rt)
         is_done = _is_job_done(record, rt)
         if status_filter == "running" and is_done:
@@ -1194,7 +1214,7 @@ async def fetch_status(
             "error": None,
         }
 
-    rt = get_runtime(record.job_id)
+    rt = await get_runtime(record.job_id)
     await poll_status(record, rt)
     log_paths = get_log_paths(record, rt)
     return _build_status_response(
@@ -1214,6 +1234,7 @@ async def fetch_logs(
     """Fetch a bounded log snapshot for a job."""
     if lines < 0:
         lines = 0
+    lines = min(lines, 10000)
 
     cloud = cloud.strip().lower()
     cluster_name = cluster_name.strip()
@@ -1282,7 +1303,7 @@ async def fetch_logs(
             "error": f"Job '{job_id}' not found.",
         }
 
-    rt = get_runtime(record.job_id)
+    rt = await get_runtime(record.job_id)
     await poll_status(record, rt)
     log_paths = get_log_paths(record, rt)
     stdout_path = log_paths.get("stdout")
@@ -1411,7 +1432,7 @@ async def cancel_job_impl(
             "error": f"Job '{job_id}' not found.",
         }
 
-    rt = get_runtime(record.job_id)
+    rt = await get_runtime(record.job_id)
 
     if record.cloud != "local":
         live = await poll_status(record, rt)
