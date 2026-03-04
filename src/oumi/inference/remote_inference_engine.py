@@ -419,11 +419,18 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         total_tokens = usage.get("total_tokens")
         if total_tokens is None:
             total_tokens = prompt_tokens + completion_tokens
-        return {
+        result = {
             "prompt_tokens": prompt_tokens,
             "completion_tokens": completion_tokens,
             "total_tokens": total_tokens,
         }
+        # Extract cached tokens from OpenAI's nested format
+        prompt_details = usage.get("prompt_tokens_details")
+        if prompt_details:
+            cached_tokens = prompt_details.get("cached_tokens", 0)
+            if cached_tokens:
+                result["cached_tokens"] = cached_tokens
+        return result
 
     def _convert_api_output_to_conversation(
         self, response: dict[str, Any], original_conversation: Conversation

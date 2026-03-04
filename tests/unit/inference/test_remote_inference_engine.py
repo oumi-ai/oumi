@@ -2021,7 +2021,37 @@ def test_get_request_headers_missing_env_var():
         assert headers == {"Accept-Encoding": "gzip, deflate"}
 
 
-def test_convert_api_output_captures_usage():
+@pytest.mark.parametrize(
+    "response_usage,expected_usage",
+    [
+        # Full usage with all fields
+        (
+            {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+            {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+        ),
+        # total_tokens computed when missing
+        (
+            {"prompt_tokens": 10, "completion_tokens": 5},
+            {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+        ),
+        # With cached tokens from prompt_tokens_details
+        (
+            {
+                "prompt_tokens": 10,
+                "completion_tokens": 5,
+                "total_tokens": 15,
+                "prompt_tokens_details": {"cached_tokens": 7},
+            },
+            {
+                "prompt_tokens": 10,
+                "completion_tokens": 5,
+                "total_tokens": 15,
+                "cached_tokens": 7,
+            },
+        ),
+    ],
+)
+def test_convert_api_output_captures_usage(response_usage, expected_usage):
     engine = RemoteInferenceEngine(
         _get_default_model_params(),
         remote_params=RemoteParams(api_url=_TARGET_SERVER),
@@ -2032,14 +2062,10 @@ def test_convert_api_output_captures_usage():
     )
     response = {
         "choices": [{"message": {"role": "assistant", "content": "Hi"}}],
-        "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+        "usage": response_usage,
     }
     result = engine._convert_api_output_to_conversation(response, original)
-    assert result.metadata["usage"] == {
-        "prompt_tokens": 10,
-        "completion_tokens": 5,
-        "total_tokens": 15,
-    }
+    assert result.metadata["usage"] == expected_usage
     assert result.metadata["key"] == "value"
 
 
@@ -2058,22 +2084,6 @@ def test_convert_api_output_no_usage():
     result = engine._convert_api_output_to_conversation(response, original)
     assert "usage" not in result.metadata
     assert result.metadata["key"] == "value"
-
-
-def test_convert_api_output_usage_computes_total():
-    engine = RemoteInferenceEngine(
-        _get_default_model_params(),
-        remote_params=RemoteParams(api_url=_TARGET_SERVER),
-    )
-    original = Conversation(
-        messages=[Message(content="Hello", role=Role.USER)],
-    )
-    response = {
-        "choices": [{"message": {"role": "assistant", "content": "Hi"}}],
-        "usage": {"prompt_tokens": 10, "completion_tokens": 5},
-    }
-    result = engine._convert_api_output_to_conversation(response, original)
-    assert result.metadata["usage"]["total_tokens"] == 15
 
 
 @pytest.mark.asyncio
