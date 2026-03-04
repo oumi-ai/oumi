@@ -1,10 +1,12 @@
 # pyright: reportArgumentType=false, reportCallIssue=false
 """Tests for client_cwd path resolution."""
 
+import pytest
+
+pytest.importorskip("fastmcp", reason="fastmcp is required for MCP server tests")
+
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 from oumi.mcp.config_service import resolve_config_path, resolve_path
 from oumi.mcp.job_service import (
