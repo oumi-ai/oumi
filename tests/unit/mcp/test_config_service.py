@@ -152,8 +152,6 @@ def test_peft_not_detected(cfg, path):
     assert determine_peft_type(cfg, path) is None
 
 
-
-
 def test_parse_yaml_valid(tmp_path: Path):
     p = tmp_path / "config.yaml"
     p.write_text("model:\n  model_name: gpt2\n")
