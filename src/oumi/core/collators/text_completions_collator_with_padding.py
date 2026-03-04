@@ -91,16 +91,18 @@ class TextCompletionsCollatorWithPadding:
         raw_example = batch[0]
         token_ids = raw_example[_INPUT_IDS_KEY]
         # Raw text without special tokens
-        raw_text = self._default_collator.tokenizer.decode(
-            token_ids, skip_special_tokens=True
+        raw_text = str(
+            self._default_collator.tokenizer.decode(token_ids, skip_special_tokens=True)
         )
         # Formatted example with special tokens
-        formatted_example = self._default_collator.tokenizer.decode(
-            token_ids, skip_special_tokens=False
+        formatted_example = str(
+            self._default_collator.tokenizer.decode(
+                token_ids, skip_special_tokens=False
+            )
         )
         tokenized_ids = raw_example[_INPUT_IDS_KEY]
         tokenized_example = [
-            (token_id, self._default_collator.tokenizer.decode([token_id]))
+            (token_id, str(self._default_collator.tokenizer.decode([token_id])))
             for token_id in tokenized_ids
         ]
         self._has_logged_example = True

@@ -170,7 +170,7 @@ class BitsAndBytesQuantization(BaseQuantization):
         logger.info(f"Saving quantized model to: {output_dir}")
         model.save_pretrained(
             str(output_dir),
-            safe_serialization=True,  # use safetensors
+            safe_serialization=True,  # use safetensors, not needed after tf v5
         )
         tokenizer.save_pretrained(str(output_dir))
 
