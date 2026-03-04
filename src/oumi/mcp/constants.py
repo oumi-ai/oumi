@@ -50,20 +50,6 @@ ValidatorTaskType = Literal[
     "tuning",
 ]
 
-# Training hyperparameter keys
-TRAINING_KEYS = (
-    "learning_rate",
-    "num_train_epochs",
-    "max_steps",
-    "per_device_train_batch_size",
-    "gradient_accumulation_steps",
-)
-
-MODEL_KEYS = (
-    "model_max_length",
-    "torch_dtype_str",
-)
-
 # Data split names
 DATA_SPLITS = ("train", "validation", "test")
 
