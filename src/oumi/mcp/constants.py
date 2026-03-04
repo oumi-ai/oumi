@@ -75,7 +75,6 @@ CONFIGS_CACHE_SIZE = 1
 DEFAULT_SEARCH_LIMIT = 20
 
 # Config sync settings
-CONFIGS_SYNC_INTERVAL_HOURS = 24
 CONFIGS_SYNC_MARKER = ".last_sync"
 CONFIGS_VERSION_MARKER = ".version"
 GITHUB_CONFIGS_ZIP_URL = "https://github.com/oumi-ai/oumi/archive/refs/heads/main.zip"
