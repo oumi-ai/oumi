@@ -20,6 +20,8 @@ from typing import Literal
 # Task types supported by Oumi
 TaskType = Literal[
     "grpo",
+    "gkd",
+    "gold",
     "dpo",
     "kto",
     "sft",
@@ -63,7 +65,7 @@ MODEL_KEYS = (
 )
 
 # Data split names
-DATA_SPLITS = ("train", "validation", "test", "eval")
+DATA_SPLITS = ("train", "validation", "test")
 
 # Comment prefixes to skip when extracting description
 COMMENT_PREFIXES_TO_SKIP = (
@@ -73,7 +75,6 @@ COMMENT_PREFIXES_TO_SKIP = (
 )
 
 # Config categories
-CATEGORIES_DIR = "categories"
 MODEL_FAMILIES_DIR = "recipes"
 API_PROVIDERS_DIR = "apis"
 
@@ -121,10 +122,6 @@ VALID_OUMI_COMMANDS = frozenset(
 # Default path for the single-file JSON job registry.
 DEFAULT_JOBS_FILE: Path = Path.home() / ".cache" / "oumi-mcp" / "oumi-jobs.json"
 
-# ---------------------------------------------------------------------------
-# Job log streaming constants
-# ---------------------------------------------------------------------------
-
 # Directory for job log files (set as OUMI_LOGGING_DIR for local jobs).
 # The oumi.launcher LocalClient writes subprocess stdout/stderr here.
 JOB_LOGS_DIR: Path = Path.home() / ".cache" / "oumi-mcp" / "job-logs"
@@ -141,10 +138,6 @@ LOG_TAIL_INTERVAL_SECONDS: float = 1.0
 # Default maximum number of log lines to stream to the client per
 # get_job_status call.  After the cap, only progress updates are sent.
 DEFAULT_STREAM_LINES: int = 200
-
-# ---------------------------------------------------------------------------
-# Docs auto-discovery settings
-# ---------------------------------------------------------------------------
 
 # Curated human-readable descriptions for key modules. Auto-discovered modules
 # not listed here will derive a description from their module docstring.
