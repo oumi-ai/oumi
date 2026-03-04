@@ -20,6 +20,23 @@ jobs:
     permissions:
       contents: "read"
     runs-on: linux-gpu-runner
+    strategy:
+      fail-fast: false
+      matrix:
+        transformers-version: ["v4", "v5"]
+        include:
+          - transformers-version: "v4"
+            transformers-spec: "transformers>=4.57,<5.0"
+            # v4 uses huggingface_hub<1.0, so don't force >=1.0
+            hf-hub-spec: ""
+            uv-override: ""
+          - transformers-version: "v5"
+            transformers-spec: "transformers>=5.0,<5.2"
+            # v5 uses huggingface_hub>=1.0
+            hf-hub-spec: "huggingface_hub>=1.0"
+            # Override vLLM's transformers<5 constraint
+            uv-override: "--override /tmp/overrides.txt"
+    name: gpu-tests (transformers ${{ matrix.transformers-version }})
 
     steps:
       - name: Checkout
@@ -59,11 +76,34 @@ jobs:
           enable-cache: true
           cache-dependency-glob: "pyproject.toml"
 
+      - name: Create override file for transformers v5
+        if: matrix.transformers-version == 'v5'
+        run: |
+          # Override vLLM's transformers<5 constraint to allow transformers v5
+          echo "transformers>=5.0" > /tmp/overrides.txt
+
       - name: Install Dependencies
+        env:
+          UV_OVERRIDE: ${{ matrix.uv-override }}
+          HF_HUB_SPEC: ${{ matrix.hf-hub-spec }}
         run: |
           # Install in system python as we're in a sandbox env
           # Install in verbose mode to see what's going on
-          uv pip install --system -e '.[ci_gpu]' hf_transfer
+          # Note: For v4, we don't force huggingface_hub>=1.0 since transformers v4 requires <1.0
+          # For v5, we use --override to bypass vLLM's transformers<5 constraint
+          if [ -n "$HF_HUB_SPEC" ]; then
+            uv pip install --system $UV_OVERRIDE -e '.[ci_gpu]' hf_transfer "$HF_HUB_SPEC"
+          else
+            uv pip install --system $UV_OVERRIDE -e '.[ci_gpu]' hf_transfer
+          fi
+
+      - name: Install specific transformers version
+        env:
+          TRANSFORMERS_SPEC: ${{ matrix.transformers-spec }}
+        run: |
+          # Install the specific transformers version for this matrix job
+          uv pip install --system "$TRANSFORMERS_SPEC"
+          python -c "import transformers; print(f'Transformers version: {transformers.__version__}')"
 
       - name: Cache HuggingFace Models
         uses: actions/cache@v5
