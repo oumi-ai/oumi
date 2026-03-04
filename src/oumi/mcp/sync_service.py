@@ -15,15 +15,13 @@
 """Config synchronization service for Oumi MCP.
 
 Handles config version detection, cache staleness checks, and syncing
-configs from the Oumi GitHub repository.
+configs.
 """
 
 import logging
 import os
 import shutil
-import tempfile
 from pathlib import Path
-from zipfile import ZipFile
 
 import httpx
 
@@ -38,9 +36,8 @@ from oumi.mcp.constants import (
     CONFIG_SYNC_TIMEOUT_SECONDS,
     CONFIGS_SYNC_MARKER,
     CONFIGS_VERSION_MARKER,
-    GITHUB_CONFIGS_ZIP_URL,
-    GITHUB_REPO_URL,
-    GITHUB_ZIP_PREFIX,
+    GITHUB_API_URL,
+    GITHUB_RAW_URL,
 )
 from oumi.mcp.models import ConfigSyncResponse
 
@@ -69,17 +66,15 @@ def get_oumi_git_tag() -> str | None:
     return f"v{version}"
 
 
-def get_configs_zip_url(tag: str | None = None) -> tuple[str, str]:
-    """Return ``(zip_url, zip_prefix)`` for downloading configs.
+def _get_git_ref() -> tuple[str, str]:
+    """Return ``(git_ref, source_label)`` for the current oumi version.
 
-    If *tag* is provided, returns the tagged archive URL; otherwise falls back
-    to the main branch.
+    Release builds use the matching Git tag; dev builds use ``main``.
     """
+    tag = get_oumi_git_tag()
     if tag:
-        url = f"{GITHUB_REPO_URL}/archive/refs/tags/{tag}.zip"
-        prefix = f"oumi-{tag.lstrip('v')}/configs/"
-        return url, prefix
-    return GITHUB_CONFIGS_ZIP_URL, GITHUB_ZIP_PREFIX
+        return tag, f"tag:{tag}"
+    return "main", "main"
 
 
 def _read_version_marker() -> str:
@@ -159,28 +154,98 @@ def get_configs_source() -> str:
     return "unknown"
 
 
-def _safe_extract(zip_ref: ZipFile, members: list[str], target_dir: Path) -> None:
-    """Extract *members* from *zip_ref* into *target_dir* safely.
+def _fetch_yaml_paths(client: httpx.Client, ref: str) -> list[str]:
+    """Fetch the list of YAML config paths using the Git Trees API.
 
-    Validates that every extracted path stays within *target_dir* to
-    prevent Zip Slip (path-traversal) attacks.
+    Makes 2 API calls:
+    1. Get the root tree to find the ``configs/`` subtree SHA.
+    2. Get the full recursive tree for ``configs/`` and filter to .yaml blobs.
+
+    Args:
+        client: An ``httpx.Client`` instance.
+        ref: Git ref (tag like ``v0.7`` or branch like ``main``).
+
+    Returns:
+        List of relative paths (e.g. ``"recipes/llama3/sft/train.yaml"``).
+
+    Raises:
+        ValueError: If the ``configs/`` directory is not found in the tree.
+        httpx.HTTPStatusError: On API errors.
     """
-    real_target = target_dir.resolve()
-    for member in members:
-        member_path = (real_target / member).resolve()
-        if real_target not in member_path.parents and member_path != real_target:
-            raise ValueError(f"Attempted path traversal in zip entry: {member}")
-        zip_ref.extract(member, target_dir)
+    root_resp = client.get(f"{GITHUB_API_URL}/git/trees/{ref}")
+    root_resp.raise_for_status()
+    root_tree = root_resp.json()
+
+    configs_sha = None
+    for entry in root_tree.get("tree", []):
+        if entry["path"] == "configs" and entry["type"] == "tree":
+            configs_sha = entry["sha"]
+            break
+
+    if not configs_sha:
+        raise ValueError(f"configs/ directory not found in repo tree at ref {ref}")
+
+    tree_resp = client.get(
+        f"{GITHUB_API_URL}/git/trees/{configs_sha}",
+        params={"recursive": "1"},
+    )
+    tree_resp.raise_for_status()
+    tree_data = tree_resp.json()
+
+    if tree_data.get("truncated"):
+        logger.warning("Git tree response was truncated; some configs may be missing")
+
+    return [
+        entry["path"]
+        for entry in tree_data.get("tree", [])
+        if entry["type"] == "blob" and entry["path"].endswith(".yaml")
+    ]
+
+
+def _download_configs(
+    client: httpx.Client,
+    ref: str,
+    yaml_paths: list[str],
+    target_dir: Path,
+) -> int:
+    """Download YAML config files from raw.githubusercontent.com.
+
+    Args:
+        client: An ``httpx.Client`` instance.
+        ref: Git ref (tag or branch).
+        yaml_paths: Relative paths under ``configs/``.
+        target_dir: Local directory to write files into.
+
+    Returns:
+        Number of files successfully downloaded.
+    """
+    downloaded = 0
+    for path in yaml_paths:
+        url = f"{GITHUB_RAW_URL}/{ref}/configs/{path}"
+        resp = client.get(url)
+        if resp.status_code != 200:
+            logger.warning("Failed to download %s (HTTP %d)", path, resp.status_code)
+            continue
+
+        dest = target_dir / path
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(resp.content)
+        downloaded += 1
+
+    return downloaded
 
 
 def config_sync(force: bool = False) -> ConfigSyncResponse:
     """Sync configs from the Oumi repository, matching the installed version.
 
-    Release builds download from the matching Git tag; dev builds use main.
+    Uses the GitHub Git Trees API to discover config files, then downloads
+    only YAML files from raw.githubusercontent.com. Release builds download
+    from the matching Git tag; dev builds use main.
+
     Skips download if cache is fresh (unless force=True).
 
     Args:
-        force: Sync regardless of cache age.
+        force: Sync regardless of cache freshness.
     """
     if not force and not _is_cache_stale():
         logger.info("Config cache is fresh, skipping sync")
@@ -193,12 +258,8 @@ def config_sync(force: bool = False) -> ConfigSyncResponse:
         }
 
     cache_dir = get_cache_dir()
-    temp_dir = None
     oumi_ver = get_oumi_version()
-    tag = get_oumi_git_tag()
-
-    zip_url, zip_prefix = get_configs_zip_url(tag)
-    source_label = f"tag:{tag}" if tag else "main"
+    ref, source_label = _get_git_ref()
 
     try:
         logger.info(
@@ -206,56 +267,50 @@ def config_sync(force: bool = False) -> ConfigSyncResponse:
             source_label,
             oumi_ver,
         )
-        temp_dir = Path(tempfile.mkdtemp(prefix="oumi_config_sync_"))
-        zip_path = temp_dir / "oumi.zip"
 
-        # TODO: Use GitHub Contents API to fetch only the configs/ directory
-        # instead of downloading the full repository archive.
-        logger.info("Downloading configs from %s", zip_url)
         with httpx.Client(
             follow_redirects=True,
             timeout=CONFIG_SYNC_TIMEOUT_SECONDS,
         ) as client:
-            response = client.get(zip_url)
+            try:
+                yaml_paths = _fetch_yaml_paths(client, ref)
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code == 404 and ref != "main":
+                    logger.warning("Ref %s not found (404); falling back to main", ref)
+                    ref = "main"
+                    source_label = "main"
+                    yaml_paths = _fetch_yaml_paths(client, ref)
+                else:
+                    raise
 
-            if response.status_code == 404 and tag:
-                logger.warning(
-                    "Tag %s not found (404); falling back to main branch", tag
-                )
-                zip_url, zip_prefix = get_configs_zip_url(None)
-                source_label = "main"
-                response = client.get(zip_url)
-
-            response.raise_for_status()
-            zip_path.write_bytes(response.content)
-
-        logger.info("Downloaded %d bytes from %s", len(response.content), source_label)
-        logger.info("Extracting configs from archive")
-
-        archive_root = zip_prefix.split("/")[0]
-
-        with ZipFile(zip_path, "r") as zip_ref:
-            config_files = [
-                name for name in zip_ref.namelist() if name.startswith(zip_prefix)
-            ]
-
-            if not config_files:
+            if not yaml_paths:
                 return {
                     "ok": False,
                     "skipped": False,
-                    "error": "No configs directory found in repository archive",
+                    "error": "No YAML configs found in repository tree",
                     "configs_synced": 0,
                     "source": source_label,
                 }
 
-            _safe_extract(zip_ref, config_files, temp_dir)
+            logger.info("Found %d YAML configs, downloading...", len(yaml_paths))
 
-        extracted_configs = temp_dir / archive_root / "configs"
-        if not extracted_configs.exists():
+            staging_dir = cache_dir.parent / (cache_dir.name + ".staging")
+            if staging_dir.exists():
+                shutil.rmtree(staging_dir)
+            staging_dir.mkdir(parents=True)
+
+            try:
+                downloaded = _download_configs(client, ref, yaml_paths, staging_dir)
+            except Exception:
+                shutil.rmtree(staging_dir, ignore_errors=True)
+                raise
+
+        if downloaded == 0:
+            shutil.rmtree(staging_dir, ignore_errors=True)
             return {
                 "ok": False,
                 "skipped": False,
-                "error": f"Extracted configs not found at {extracted_configs}",
+                "error": "All config downloads failed",
                 "configs_synced": 0,
                 "source": source_label,
             }
@@ -266,38 +321,35 @@ def config_sync(force: bool = False) -> ConfigSyncResponse:
         if cache_dir.exists():
             logger.info("Backing up old cache: %s -> %s", cache_dir, backup_dir)
             shutil.move(str(cache_dir), str(backup_dir))
-        cache_dir.parent.mkdir(parents=True, exist_ok=True)
         try:
-            logger.info("Moving new configs to %s", cache_dir)
-            shutil.move(str(extracted_configs), str(cache_dir))
+            shutil.move(str(staging_dir), str(cache_dir))
         except Exception:
             if backup_dir.exists():
-                logger.warning("New cache install failed; restoring backup")
+                logger.warning("Cache install failed; restoring backup")
                 shutil.move(str(backup_dir), str(cache_dir))
+            shutil.rmtree(staging_dir, ignore_errors=True)
             raise
         if backup_dir.exists():
             shutil.rmtree(backup_dir, ignore_errors=True)
 
         clear_config_caches()
-
         _touch_sync_marker()
         _write_version_marker(oumi_ver)
 
-        config_count = len(list(cache_dir.rglob("*.yaml")))
         logger.info(
-            "Successfully synced %d config files (%s)", config_count, source_label
+            "Successfully synced %d config files (%s)", downloaded, source_label
         )
 
         return {
             "ok": True,
             "skipped": False,
             "error": None,
-            "configs_synced": config_count,
+            "configs_synced": downloaded,
             "source": source_label,
         }
 
     except httpx.HTTPError as e:
-        error_msg = f"Failed to download configs: {e}"
+        error_msg = f"Failed to sync configs: {e}"
         logger.error(error_msg)
         return {
             "ok": False,
@@ -317,10 +369,3 @@ def config_sync(force: bool = False) -> ConfigSyncResponse:
             "configs_synced": 0,
             "source": source_label,
         }
-
-    finally:
-        if temp_dir and temp_dir.exists():
-            try:
-                shutil.rmtree(temp_dir)
-            except Exception as e:
-                logger.warning("Failed to clean up temp directory %s: %s", temp_dir, e)
