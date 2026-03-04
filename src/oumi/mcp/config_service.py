@@ -43,9 +43,7 @@ from oumi.mcp.constants import (
     CONFIGS_CACHE_SIZE,
     DATA_SPLITS,
     MODEL_FAMILIES_DIR,
-    MODEL_KEYS,
     TRAIN_YAML,
-    TRAINING_KEYS,
     YAML_CACHE_SIZE,
     PeftType,
     TaskType,
@@ -53,7 +51,6 @@ from oumi.mcp.constants import (
 from oumi.mcp.models import (
     CategoriesResponse,
     ConfigMetadata,
-    KeySettings,
 )
 
 logger = logging.getLogger(__name__)
@@ -311,34 +308,6 @@ def clear_config_caches() -> None:
     """Invalidate all config LRU caches after config_sync replaces the cache dir."""
     _get_all_configs_cached.cache_clear()
     _parse_yaml_cached.cache_clear()
-
-
-def extract_key_settings(config: dict[str, Any]) -> KeySettings:
-    """Extract key training settings from config.
-
-    Args:
-        config: Parsed YAML config dict.
-
-    Returns:
-        KeySettings with important hyperparameters.
-    """
-    training = config.get("training", {})
-    model_cfg = config.get("model", {})
-
-    key_settings: KeySettings = {}
-
-    for key in TRAINING_KEYS:
-        if training.get(key) is not None:
-            key_settings[key] = training[key]  # type: ignore[literal-required]
-
-    for key in MODEL_KEYS:
-        if model_cfg.get(key) is not None:
-            if key == "torch_dtype_str":
-                key_settings["torch_dtype"] = model_cfg[key]
-            else:
-                key_settings[key] = model_cfg[key]  # type: ignore[literal-required]
-
-    return key_settings
 
 
 def find_config_match(

@@ -14,9 +14,9 @@
 
 """TypedDict models for Oumi MCP server data structures."""
 
-from typing import Any, TypedDict
+from typing import Any
 
-from typing_extensions import NotRequired
+from typing_extensions import NotRequired, TypedDict
 
 from oumi.mcp.constants import TaskType
 
@@ -41,28 +41,6 @@ class ConfigMetadata(TypedDict):
     datasets: list[str]
     reward_functions: list[str]
     peft_type: str
-
-
-class KeySettings(TypedDict):
-    """Important training hyperparameters extracted from config.
-
-    Attributes:
-        learning_rate: Learning rate for training.
-        num_train_epochs: Number of training epochs.
-        max_steps: Maximum number of training steps.
-        per_device_train_batch_size: Batch size per device.
-        gradient_accumulation_steps: Number of gradient accumulation steps.
-        model_max_length: Maximum sequence length.
-        torch_dtype: PyTorch data type (e.g., bfloat16, float32).
-    """
-
-    learning_rate: NotRequired[float]
-    num_train_epochs: NotRequired[int]
-    max_steps: NotRequired[int]
-    per_device_train_batch_size: NotRequired[int]
-    gradient_accumulation_steps: NotRequired[int]
-    model_max_length: NotRequired[int]
-    torch_dtype: NotRequired[str]
 
 
 class ConfigDetail(ConfigMetadata):
@@ -111,7 +89,8 @@ class HardwareInfo(TypedDict):
         gpu_memory_gb: Total GPU memory in GB (None if no CUDA GPU).
         compute_capability: CUDA compute capability e.g. "8.0" (None if no CUDA GPU).
         cuda_version: CUDA toolkit version (None if no CUDA GPU).
-        packages: Installed packages relevant to hardware checks, e.g. {"torch": "2.3.0"}.
+        packages: Installed packages relevant to hardware checks,
+        e.g. {"torch": "2.3.0"}.
     """
 
     accelerator_type: str
