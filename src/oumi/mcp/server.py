@@ -36,7 +36,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any
 
-from fastmcp import FastMCP
+from fastmcp import FastMCP  # type: ignore[import-not-found]
 
 import oumi.launcher as launcher
 from oumi.mcp.config_service import (
