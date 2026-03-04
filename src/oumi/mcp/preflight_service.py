@@ -32,6 +32,7 @@ from huggingface_hub.errors import (
     HFValidationError,
     RepositoryNotFoundError,
 )
+from huggingface_hub.utils import get_token as _hf_get_token
 from packaging.version import Version
 
 from oumi.mcp.config_service import (
@@ -654,7 +655,13 @@ def check_hardware(cfg: dict) -> tuple[list[str], list[str], HardwareInfo]:
         else None
     )
     hardware["compute_capability"] = cc_str
-    hardware["cuda_version"] = gpu_info.get("cuda_version")
+    cuda_version: str | None = None
+    try:
+        if torch is not None and torch.cuda.is_available():
+            cuda_version = getattr(torch.version, "cuda", None) or None
+    except Exception:
+        pass
+    hardware["cuda_version"] = cuda_version
     hardware["packages"] = packages
 
     model_cfg = cfg.get("model") or {}
@@ -767,13 +774,13 @@ def _pre_flight_check(
         }
     assert cfg is not None
     hf_authenticated = False
-    hf_token: bool | None = None
+    hf_token: str | None = None
     with ThreadPoolExecutor(max_workers=1) as executor:
         try:
             future = executor.submit(whoami)
             future.result(timeout=HF_API_TIMEOUT_SECONDS)
             hf_authenticated = True
-            hf_token = True
+            hf_token = _hf_get_token()
         except HFValidationError:
             errors.append("Invalid HF token")
         except TimeoutError:
@@ -918,7 +925,7 @@ def _pre_flight_check(
             elif cfg.get("generation") and cfg.get("input_path"):
                 task_type = "infer"
         suggested = search_configs_service(
-            all_cfgs, query=[task_type] or ["sft"], limit=5
+            all_cfgs, query=[task_type] if task_type else ["sft"], limit=5
         )
         result["suggested_configs"] = [c["path"] for c in suggested]
 
