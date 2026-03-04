@@ -815,11 +815,9 @@ class GeneralSynthesisParams(BaseParams):
 
     def _check_dataset_source_attribute_ids(self, all_attribute_ids: set[str]) -> None:
         """Check attribute IDs from dataset sources for uniqueness."""
-        if self.input_data is None:
+        if not self.input_data:
+            self.input_data = None
             return
-
-        if len(self.input_data) == 0:
-            raise ValueError("GeneralSynthesisParams.input_data cannot be empty.")
 
         for dataset_source in self.input_data:
             if dataset_source.attribute_map:
@@ -828,11 +826,9 @@ class GeneralSynthesisParams(BaseParams):
 
     def _check_document_source_attribute_ids(self, all_attribute_ids: set[str]) -> None:
         """Check attribute IDs from document sources for uniqueness."""
-        if self.input_documents is None:
+        if not self.input_documents:
+            self.input_documents = None
             return
-
-        if len(self.input_documents) == 0:
-            raise ValueError("GeneralSynthesisParams.input_documents cannot be empty.")
 
         for document_source in self.input_documents:
             if not document_source.segmentation_params:
@@ -843,11 +839,9 @@ class GeneralSynthesisParams(BaseParams):
 
     def _check_example_source_attribute_ids(self, all_attribute_ids: set[str]) -> None:
         """Check attribute IDs from example sources for uniqueness."""
-        if self.input_examples is None:
+        if not self.input_examples:
+            self.input_examples = None
             return
-
-        if len(self.input_examples) == 0:
-            raise ValueError("GeneralSynthesisParams.input_examples cannot be empty.")
 
         for example_source in self.input_examples:
             example_keys = example_source.examples[0].keys()
@@ -856,13 +850,9 @@ class GeneralSynthesisParams(BaseParams):
 
     def _check_sampled_attribute_ids(self, all_attribute_ids: set[str]) -> None:
         """Check attribute IDs from sampled attributes for uniqueness."""
-        if self.sampled_attributes is None:
+        if not self.sampled_attributes:
+            self.sampled_attributes = None
             return
-
-        if len(self.sampled_attributes) == 0:
-            raise ValueError(
-                "GeneralSynthesisParams.sampled_attributes cannot be empty."
-            )
 
         for sampled_attribute in self.sampled_attributes:
             attribute_id = sampled_attribute.id
@@ -870,13 +860,9 @@ class GeneralSynthesisParams(BaseParams):
 
     def _check_generated_attribute_ids(self, all_attribute_ids: set[str]) -> None:
         """Check attribute IDs from generated attributes for uniqueness."""
-        if self.generated_attributes is None:
+        if not self.generated_attributes:
+            self.generated_attributes = None
             return
-
-        if len(self.generated_attributes) == 0:
-            raise ValueError(
-                "GeneralSynthesisParams.generated_attributes cannot be empty."
-            )
 
         for generated_attribute in self.generated_attributes:
             attribute_id = generated_attribute.id
@@ -887,13 +873,9 @@ class GeneralSynthesisParams(BaseParams):
 
     def _check_transformed_attribute_ids(self, all_attribute_ids: set[str]) -> None:
         """Check attribute IDs from transformed attributes for uniqueness."""
-        if self.transformed_attributes is None:
+        if not self.transformed_attributes:
+            self.transformed_attributes = None
             return
-
-        if len(self.transformed_attributes) == 0:
-            raise ValueError(
-                "GeneralSynthesisParams.transformed_attributes cannot be empty."
-            )
 
         for transformed_attribute in self.transformed_attributes:
             attribute_id = transformed_attribute.id
@@ -901,13 +883,9 @@ class GeneralSynthesisParams(BaseParams):
 
     def _check_multiturn_attribute_ids(self, all_attribute_ids: set[str]) -> None:
         """Check attribute IDs from multiturn attributes for uniqueness."""
-        if self.multiturn_attributes is None:
+        if not self.multiturn_attributes:
+            self.multiturn_attributes = None
             return
-
-        if len(self.multiturn_attributes) == 0:
-            raise ValueError(
-                "GeneralSynthesisParams.multiturn_attributes cannot be empty."
-            )
 
         for multiturn_attribute in self.multiturn_attributes:
             attribute_id = multiturn_attribute.id
@@ -915,13 +893,9 @@ class GeneralSynthesisParams(BaseParams):
 
     def _check_combination_sampling_sample_rates(self) -> None:
         """Validate that the combination sample rates are <= 1.0."""
-        if self.combination_sampling is None:
+        if not self.combination_sampling:
+            self.combination_sampling = None
             return
-
-        if len(self.combination_sampling) == 0:
-            raise ValueError(
-                "GeneralSynthesisParams.combination_sampling cannot be empty."
-            )
 
         sample_rates = [
             combination.sample_rate for combination in self.combination_sampling
@@ -934,13 +908,9 @@ class GeneralSynthesisParams(BaseParams):
 
     def _check_passthrough_attribute_ids(self) -> None:
         """Validate that passthrough attributes are non-empty when defined."""
-        if self.passthrough_attributes is None:
+        if not self.passthrough_attributes:
+            self.passthrough_attributes = None
             return
-
-        if len(self.passthrough_attributes) == 0:
-            raise ValueError(
-                "GeneralSynthesisParams.passthrough_attributes cannot be empty."
-            )
 
     def __post_init__(self):
         """Verifies/populates params."""
