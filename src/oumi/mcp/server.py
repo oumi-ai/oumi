@@ -33,6 +33,8 @@ Path rules:
 import asyncio
 import json
 import logging
+import sys
+import threading
 from datetime import datetime, timezone
 from typing import Any
 
@@ -134,8 +136,21 @@ mcp = FastMCP(
 
 
 def _configure_logging() -> None:
-    """Reduce noisy third-party INFO logs on stderr in MCP clients."""
-    logger.setLevel(logging.INFO)
+    """Redirect all oumi logs to stderr so they don't corrupt MCP stdio protocol."""
+    stderr_handler = logging.StreamHandler(sys.stderr)
+    stderr_handler.setFormatter(
+        logging.Formatter(
+            "[%(asctime)s][%(name)s][%(levelname)s] %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        )
+    )
+    for name in ("oumi", __name__):
+        lg = logging.getLogger(name)
+        lg.handlers.clear()
+        lg.addHandler(stderr_handler)
+        lg.setLevel(logging.INFO)
+        lg.propagate = False
+
     for noisy_logger in (
         "mcp.server.lowlevel.server",
         "mcp.server.lowlevel",
@@ -887,26 +902,41 @@ def main() -> None:
     _strip_oumi_env_overrides()
     logger.info("Starting Oumi Config MCP Server")
 
-    sync_result = config_sync()
-    if sync_result["ok"]:
-        if sync_result.get("skipped"):
-            logger.info("Using cached configs (still fresh)")
+    def _background_sync() -> None:
+        """Sync configs and index docs in background to avoid blocking startup.
+
+        MCP clients (Claude Code, Cursor) have connection timeouts (~10-30s).
+        Config sync downloads ~500 files from GitHub and can take 30+ seconds,
+        causing the client to give up before the server starts the protocol.
+        Running sync in background lets the server accept connections immediately
+        while using cached/bundled configs until sync completes.
+        """
+        sync_result = config_sync()
+        if sync_result["ok"]:
+            if sync_result.get("skipped"):
+                logger.info("Using cached configs (still fresh)")
+            else:
+                logger.info(
+                    f"Config sync completed: {sync_result['configs_synced']} files"
+                )
         else:
-            logger.info(f"Config sync completed: {sync_result['configs_synced']} files")
-    else:
-        logger.warning(
-            f"Config sync failed: {sync_result['error']}. "
-            "Falling back to bundled/cached configs."
+            logger.warning(
+                f"Config sync failed: {sync_result['error']}. "
+                "Falling back to bundled/cached configs."
+            )
+
+        configs_dir = get_configs_dir()
+        yaml_count = (
+            len(list(configs_dir.rglob("*.yaml"))) if configs_dir.exists() else 0
         )
+        logger.info(f"Serving {yaml_count} configs from {configs_dir}")
 
-    configs_dir = get_configs_dir()
-    yaml_count = len(list(configs_dir.rglob("*.yaml"))) if configs_dir.exists() else 0
-    logger.info(f"Serving {yaml_count} configs from {configs_dir}")
+        if yaml_count == 0:
+            logger.error("No configs available. Server may not function correctly.")
 
-    if yaml_count == 0:
-        logger.error("No configs available. Server may not function correctly.")
+        start_background_indexing()
 
-    start_background_indexing()
+    threading.Thread(target=_background_sync, daemon=True).start()
 
     mcp.run()
 
