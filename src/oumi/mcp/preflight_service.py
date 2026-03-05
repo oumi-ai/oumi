@@ -99,6 +99,7 @@ def get_gpu_info() -> dict[str, Any]:
             count = torch.cuda.device_count()
             info["accelerator_count"] = count
             if count > 0:
+                # Report primary GPU; sufficient for compatibility checks.
                 props = torch.cuda.get_device_properties(0)
                 info["gpu_name"] = props.name
                 info["gpu_memory_bytes"] = props.total_mem
@@ -116,7 +117,7 @@ def get_gpu_info() -> dict[str, Any]:
             info["accelerator_type"] = "mps"
             info["accelerator_count"] = 1
     except Exception:
-        pass
+        logger.debug("GPU detection failed", exc_info=True)
     return info
 
 
@@ -273,6 +274,11 @@ def validate_datasets(cfg: dict, client_cwd: str = "") -> dict[str, str]:
     results: dict[str, str] = {}
     base_dir = Path(client_cwd) if client_cwd else Path.cwd()
 
+    try:
+        from oumi.core.registry import REGISTRY
+    except Exception:
+        REGISTRY = None  # type: ignore[assignment]
+
     for split in ("train", "eval", "validation", "test"):
         split_cfg = data.get(split) or {}
         for ds in split_cfg.get("datasets") or []:
@@ -287,10 +293,8 @@ def validate_datasets(cfg: dict, client_cwd: str = "") -> dict[str, str]:
             if key in results:
                 continue
 
-            if ds_name:
+            if ds_name and REGISTRY is not None:
                 try:
-                    from oumi.core.registry import REGISTRY
-
                     reg_result = REGISTRY.get_dataset(ds_name)
                     if reg_result is not None:
                         results[key] = "ok_registry"
@@ -312,7 +316,7 @@ def validate_datasets(cfg: dict, client_cwd: str = "") -> dict[str, str]:
 
                     with ThreadPoolExecutor(max_workers=1) as executor:
                         future = executor.submit(datasets.load_dataset_builder, ds_name)
-                        future.result(timeout=5)
+                        future.result(timeout=HF_API_TIMEOUT_SECONDS)
                     results[key] = "ok_hub"
                     continue
                 except TimeoutError:
@@ -556,9 +560,6 @@ def check_cloud_readiness(
     try:
         enabled = _get_enabled_clouds(sky, sky_check)
     except RuntimeError as exc:
-        # SkyPilot may raise RuntimeError when no clouds are enabled. Treat
-        # those as non-blocking for broad checks; treat other runtime failures
-        # as compatibility errors.
         msg = str(exc).lower()
         if "no cloud access" in msg or "no enabled cloud" in msg:
             enabled = []
@@ -657,7 +658,8 @@ def check_hardware(cfg: dict) -> tuple[list[str], list[str], HardwareInfo]:
     cuda_version: str | None = None
     try:
         if torch is not None and torch.cuda.is_available():
-            cuda_version = getattr(torch.version, "cuda", None) or None
+            _ver = getattr(torch, "version", None)
+            cuda_version = getattr(_ver, "cuda", None) if _ver else None
     except Exception:
         pass
     hardware["cuda_version"] = cuda_version
@@ -789,35 +791,35 @@ def _pre_flight_check(
             warnings.append(f"HF auth check failed (may be transient): {e}")
             hf_token = None
 
-    for repo_id, repo_types in get_repos(cfg).items():
-        if repo_id in repo_access:
-            continue
-        for repo_type in repo_types:
-            try:
-                with ThreadPoolExecutor(max_workers=1) as executor:
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        for repo_id, repo_types in get_repos(cfg).items():
+            if repo_id in repo_access:
+                continue
+            for repo_type in repo_types:
+                try:
                     future = executor.submit(
                         auth_check, repo_id, repo_type=repo_type, token=hf_token
                     )
                     future.result(timeout=HF_API_TIMEOUT_SECONDS)
-                repo_access[repo_id] = "valid"
-            except GatedRepoError:
-                repo_access[repo_id] = "gated"
-                errors.append(f"Gated {repo_type} requires access grant: {repo_id}")
-            except RepositoryNotFoundError:
-                repo_access[repo_id] = "not_found"
-                errors.append(f"{repo_type.title()} not found: {repo_id}")
-            except TimeoutError:
-                repo_access[repo_id] = "error"
-                warnings.append(
-                    f"Timed out checking {repo_id} after {HF_API_TIMEOUT_SECONDS}s"
-                )
-            except HfHubHTTPError as e:
-                repo_access[repo_id] = "error"
-                errors.append(f"HF Hub error for {repo_id}: {str(e)}")
-            except Exception as e:
-                repo_access[repo_id] = "error"
-                errors.append(f"Error checking {repo_id}: {str(e)}")
-            break
+                    repo_access[repo_id] = "valid"
+                except GatedRepoError:
+                    repo_access[repo_id] = "gated"
+                    errors.append(f"Gated {repo_type} requires access grant: {repo_id}")
+                except RepositoryNotFoundError:
+                    repo_access[repo_id] = "not_found"
+                    errors.append(f"{repo_type.title()} not found: {repo_id}")
+                except TimeoutError:
+                    repo_access[repo_id] = "error"
+                    warnings.append(
+                        f"Timed out checking {repo_id} after {HF_API_TIMEOUT_SECONDS}s"
+                    )
+                except HfHubHTTPError as e:
+                    repo_access[repo_id] = "error"
+                    errors.append(f"HF Hub error for {repo_id}: {str(e)}")
+                except Exception as e:
+                    repo_access[repo_id] = "error"
+                    errors.append(f"Error checking {repo_id}: {str(e)}")
+                break
 
     hw_errors, hw_warnings, hardware = check_hardware(cfg)
     errors.extend(hw_errors)
@@ -844,7 +846,10 @@ def _pre_flight_check(
                 "'text_sft_jsonl'), or set dataset_path."
             )
         elif ds_status == "warning_timeout":
-            warnings.append(f"HF Hub probe for dataset '{ds_key}' timed out (5s)")
+            warnings.append(
+                f"HF Hub probe for dataset '{ds_key}' "
+                f"timed out ({HF_API_TIMEOUT_SECONDS}s)"
+            )
 
     if target_cloud:
         path_results = validate_paths_cloud(cfg, config_path, client_cwd, target_cloud)
