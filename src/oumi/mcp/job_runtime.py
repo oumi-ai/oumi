@@ -38,6 +38,7 @@ class JobRuntime:
     staged_config_path: str = ""
     cancel_requested: bool = False
     error_message: str | None = None
+    runner_task: asyncio.Task[Any] | None = None
 
     def close_log_files(self) -> None:
         """Close open stdout/stderr file handles."""
