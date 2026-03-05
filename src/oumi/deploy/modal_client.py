@@ -35,7 +35,7 @@ import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 
 try:
-    import tomllib  # Python 3.11+
+    import tomllib  # type: ignore[import]  # Python 3.11+
 except ImportError:
     import tomli as tomllib  # type: ignore[import-not-found]
 
@@ -102,7 +102,9 @@ class ModalDeploymentClient(BaseDeploymentClient):
             config_creds = self._read_modal_config()
             if config_creds:
                 self.token_id = self.token_id or config_creds.get("token_id")
-                self.token_secret = self.token_secret or config_creds.get("token_secret")
+                self.token_secret = self.token_secret or config_creds.get(
+                    "token_secret"
+                )
                 self.workspace = self.workspace or config_creds.get("workspace")
 
         self.workspace = self.workspace or "default"
@@ -176,10 +178,11 @@ class ModalDeploymentClient(BaseDeploymentClient):
         return None
 
     async def __aenter__(self) -> "ModalDeploymentClient":
+        """Enters the async context manager."""
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-        pass
+        """Exits the async context manager."""
 
     async def upload_model(
         self,
@@ -288,13 +291,14 @@ class ModalDeploymentClient(BaseDeploymentClient):
             secrets_str = 'secrets=[modal.Secret.from_name("huggingface-token")],'
 
         if use_huggingface:
-            volumes_str = '''volumes={
-        "/root/.cache/huggingface": modal.Volume.from_name("huggingface-cache", create_if_missing=True),
-    },'''
+            hf_volume = (
+                'modal.Volume.from_name("huggingface-cache", create_if_missing=True)'
+            )
+            volumes_str = 'volumes={"/root/.cache/huggingface": ' + hf_volume + "},"
         else:
             volumes_str = ""
 
-        app_code = f'''
+        app_code = f"""
 import modal
 import subprocess
 
@@ -328,17 +332,15 @@ def serve():
         "--trust-remote-code",
     ]
     subprocess.Popen(cmd)
-'''
+"""
 
         try:
-            with tempfile.NamedTemporaryFile(
-                mode="w", suffix=".py", delete=False
-            ) as f:
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
                 f.write(app_code)
                 temp_file = f.name
 
             logger.info(f"Deploying Modal app from {temp_file}...")
-            result = subprocess.run(
+            result = subprocess.run(  # noqa: ASYNC221
                 ["modal", "deploy", temp_file],
                 capture_output=True,
                 text=True,
@@ -381,7 +383,7 @@ def serve():
         finally:
             if "temp_file" in locals():
                 try:
-                    os.unlink(temp_file)
+                    Path(temp_file).unlink()  # noqa: ASYNC240
                 except Exception:
                     pass
 

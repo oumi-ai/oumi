@@ -34,8 +34,8 @@ from oumi.deploy import (
     EndpointState,
     FireworksDeploymentClient,
     HardwareConfig,
-    Model,
     ModalDeploymentClient,
+    Model,
     ModelType,
     ParasailDeploymentClient,
     UploadedModel,
@@ -915,9 +915,7 @@ def stop(
     async def _stop(client: BaseDeploymentClient) -> None:
         with CONSOLE.status("[bold yellow]Stopping endpoint..."):
             await client.stop_endpoint(endpoint_id)
-        CONSOLE.print(
-            f"[green]✓[/green] Endpoint {endpoint_id} stopped (0 replicas)"
-        )
+        CONSOLE.print(f"[green]✓[/green] Endpoint {endpoint_id} stopped (0 replicas)")
 
     _run_async(provider, _stop)
 
@@ -974,8 +972,7 @@ def delete_model(
         with CONSOLE.status("[bold red]Deleting model..."):
             await client.delete_model(model_id)
         CONSOLE.print(
-            f"[green]✓[/green] Model '{model_id}' deleted "
-            f"successfully from {provider}!"
+            f"[green]✓[/green] Model '{model_id}' deleted successfully from {provider}!"
         )
 
     _run_async(provider, _delete_model_fn)
@@ -1180,6 +1177,7 @@ def up(
     )
 
     async def _deploy(client: BaseDeploymentClient) -> None:
+        assert deploy_cfg.model_source is not None  # guaranteed by validation
         CONSOLE.print("\n[bold]Step 1: Uploading model...[/bold]")
         upload_result = await _upload_model_and_wait(
             client,

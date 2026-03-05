@@ -30,6 +30,7 @@ import logging
 import os
 import re
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -45,36 +46,27 @@ from oumi.deploy.base_client import (
     ModelType,
     UploadedModel,
 )
+from oumi.deploy.parasail_api import (
+    CreateDeploymentRequest,
+    DeploymentResponse,
+    DeviceConfig,
+    ParasailDeploymentStatus,
+    ParasailScaleDownPolicy,
+    SupportCheckResponse,
+)
 
 logger = logging.getLogger(__name__)
 
 _CONTROL_BASE_URL = "https://api.parasail.io/api/v1"
 _INFERENCE_BASE_URL = "https://api.parasail.io/v1"
 
-# Parasail status → EndpointState mapping
-_PARASAIL_STATE_MAP: dict[str, EndpointState] = {
-    "ONLINE": EndpointState.RUNNING,
-    "STARTING": EndpointState.STARTING,
-    "PAUSED": EndpointState.STOPPED,
-    "STOPPING": EndpointState.STOPPING,
-    "OFFLINE": EndpointState.STOPPED,
+_PARASAIL_STATE_MAP: dict[ParasailDeploymentStatus, EndpointState] = {
+    ParasailDeploymentStatus.ONLINE: EndpointState.RUNNING,
+    ParasailDeploymentStatus.STARTING: EndpointState.STARTING,
+    ParasailDeploymentStatus.PAUSED: EndpointState.STOPPED,
+    ParasailDeploymentStatus.STOPPING: EndpointState.STOPPING,
+    ParasailDeploymentStatus.OFFLINE: EndpointState.STOPPED,
 }
-
-# Known Parasail GPU device names
-_KNOWN_HARDWARE: list[HardwareConfig] = [
-    HardwareConfig(accelerator="H100SXM", count=1),
-    HardwareConfig(accelerator="H100SXM", count=2),
-    HardwareConfig(accelerator="H100SXM", count=4),
-    HardwareConfig(accelerator="H100SXM", count=8),
-    HardwareConfig(accelerator="A100SXM", count=1),
-    HardwareConfig(accelerator="A100SXM", count=2),
-    HardwareConfig(accelerator="A100SXM", count=4),
-    HardwareConfig(accelerator="RTX4090", count=1),
-    HardwareConfig(accelerator="RTX4090", count=2),
-    HardwareConfig(accelerator="RTX4090", count=4),
-    HardwareConfig(accelerator="L40S", count=1),
-    HardwareConfig(accelerator="L40S", count=2),
-]
 
 
 def _is_huggingface_url(source: str) -> bool:
@@ -84,7 +76,6 @@ def _is_huggingface_url(source: str) -> bool:
 
 
 def _is_huggingface_repo_id(source: str) -> bool:
-    """Returns True if source looks like a HuggingFace repo ID (org/model)."""
     return bool(re.match(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.\-]+$", source))
 
 
@@ -116,17 +107,17 @@ def _validate_model_source(model_source: str) -> None:
             f"Parasail does not support deploying models from arbitrary URLs "
             f"('{model_source}'). Provide a HuggingFace repo ID or HuggingFace URL."
         )
-    if os.path.isdir(model_source) or os.path.isfile(model_source):
+    if Path(model_source).is_dir() or Path(model_source).is_file():
         raise ValueError(
-            f"Parasail does not support local model uploads. "
+            "Parasail does not support local model uploads. "
             "Provide a HuggingFace repo ID (e.g., 'meta-llama/Llama-3-8B') or "
             "HuggingFace URL. Parasail pulls models directly from HuggingFace."
         )
     if not _is_huggingface_repo_id(model_source):
         raise ValueError(
             f"Unrecognized model source: '{model_source}'. "
-            "Parasail accepts a HuggingFace repo ID (e.g., 'Qwen/Qwen2.5-72B-Instruct') "
-            "or a HuggingFace URL."
+            "Parasail accepts a HuggingFace repo ID "
+            "(e.g., 'Qwen/Qwen2.5-72B-Instruct') or a HuggingFace URL."
         )
 
 
@@ -164,6 +155,7 @@ class ParasailDeploymentClient(BaseDeploymentClient):
         self._http_client: httpx.AsyncClient | None = None
 
     async def __aenter__(self) -> "ParasailDeploymentClient":
+        """Opens the underlying HTTP session."""
         self._http_client = httpx.AsyncClient(
             base_url=_CONTROL_BASE_URL,
             headers=self._headers,
@@ -172,6 +164,7 @@ class ParasailDeploymentClient(BaseDeploymentClient):
         return self
 
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """Closes the underlying HTTP session."""
         if self._http_client is not None:
             await self._http_client.aclose()
             self._http_client = None
@@ -199,9 +192,9 @@ class ParasailDeploymentClient(BaseDeploymentClient):
         """Validates the HuggingFace model source and returns metadata.
 
         Parasail does not require uploading weights — models are pulled directly
-        from HuggingFace.  This method validates that the model source is a
-        supported HuggingFace identifier and optionally checks model compatibility
-        via the Parasail ``/dedicated/support`` API.
+        from HuggingFace. This method validates the model source is a supported
+        HuggingFace identifier and optionally checks model compatibility via
+        the Parasail ``/dedicated/support`` API.
 
         Args:
             model_source: HuggingFace repo ID (e.g., ``Qwen/Qwen2.5-72B-Instruct``)
@@ -227,29 +220,26 @@ class ParasailDeploymentClient(BaseDeploymentClient):
                 "Only full model deployments (model_type='full') are supported."
             )
 
-        logger.info(f"Validating Parasail model source: {model_source}")
+        logger.info(f"Checking Parasail model compatibility: {model_source}")
         response = await self._client.get(
             "/dedicated/support",
             params={"modelName": model_source, "modelAccessKey": ""},
         )
         if response.status_code == 200:
-            data = response.json()
-            if not data.get("supported", True):
-                reason = data.get("errorMessage", "unknown reason")
+            support = SupportCheckResponse.model_validate(response.json())
+            if not support.supported:
+                reason = support.error_message or "unknown reason"
                 logger.warning(
                     f"Parasail reports model '{model_source}' may not be "
                     f"supported: {reason}"
                 )
         else:
             logger.warning(
-                f"Could not verify model compatibility (status {response.status_code}). "
-                "Proceeding anyway."
+                "Could not verify model compatibility "
+                f"(status {response.status_code}). Proceeding anyway."
             )
 
-        return UploadedModel(
-            provider_model_id=model_source,
-            status="ready",
-        )
+        return UploadedModel(provider_model_id=model_source, status="ready")
 
     async def get_model_status(self, model_id: str) -> str:
         """Returns ``"ready"`` — Parasail models are HuggingFace-hosted."""
@@ -265,19 +255,17 @@ class ParasailDeploymentClient(BaseDeploymentClient):
         deployed models derived from ``list_endpoints()``.
         """
         endpoints = await self.list_endpoints()
-        models: list[Model] = []
-        for ep in endpoints:
-            models.append(
-                Model(
-                    model_id=ep.model_id,
-                    model_name=ep.display_name or ep.model_id,
-                    status=ep.state.value.lower(),
-                    provider=self.provider,
-                    model_type=ModelType.FULL,
-                    created_at=ep.created_at,
-                )
+        return [
+            Model(
+                model_id=ep.model_id,
+                model_name=ep.display_name or ep.model_id,
+                status=ep.state.value.lower(),
+                provider=self.provider,
+                model_type=ModelType.FULL,
+                created_at=ep.created_at,
             )
-        return models
+            for ep in endpoints
+        ]
 
     async def delete_model(self, model_id: str) -> None:
         """Not supported — models are HuggingFace-hosted, not managed by Parasail."""
@@ -299,7 +287,7 @@ class ParasailDeploymentClient(BaseDeploymentClient):
         display_name: str | None = None,
         model_access_key: str | None = None,
         context_length: int | None = None,
-        scale_down_policy: str | None = None,
+        scale_down_policy: ParasailScaleDownPolicy | None = None,
         scale_down_threshold_ms: int | None = None,
     ) -> Endpoint:
         """Creates a dedicated Parasail endpoint for a HuggingFace model.
@@ -314,9 +302,8 @@ class ParasailDeploymentClient(BaseDeploymentClient):
             display_name: Unique deployment name (lowercase letters, numbers, dashes).
             model_access_key: HuggingFace token for private models.
             context_length: Override context window length.
-            scale_down_policy: Auto-scaling policy (``"NONE"``, ``"TIMER"``,
-                ``"INACTIVE"``).
-            scale_down_threshold_ms: Idle threshold in milliseconds before scaling down.
+            scale_down_policy: Auto-scaling policy.
+            scale_down_threshold_ms: Idle threshold in ms before scaling down.
 
         Returns:
             Created :class:`Endpoint`.
@@ -341,27 +328,25 @@ class ParasailDeploymentClient(BaseDeploymentClient):
             model_access_key=model_access_key or "",
         )
 
-        payload: dict[str, Any] = {
-            "deploymentName": deployment_name,
-            "modelName": model_id,
-            "deviceConfigs": devices,
-            "replicas": replicas,
-        }
-        if model_access_key:
-            payload["modelAccessKey"] = model_access_key
-        if context_length is not None:
-            payload["contextLength"] = context_length
-        if scale_down_policy is not None:
-            payload["scaleDownPolicy"] = scale_down_policy
-        if scale_down_threshold_ms is not None:
-            payload["scaleDownThreshold"] = scale_down_threshold_ms
+        request = CreateDeploymentRequest(
+            deploymentName=deployment_name,
+            modelName=model_id,
+            deviceConfigs=devices,
+            replicas=replicas,
+            scaleDownPolicy=scale_down_policy,
+            scaleDownThreshold=scale_down_threshold_ms,
+            draftModelName=None,
+            contextLength=context_length,
+            modelAccessKey=model_access_key,
+        )
 
         logger.info(f"Creating Parasail deployment '{deployment_name}'...")
-        response = await self._client.post("/dedicated/deployments", json=payload)
+        response = await self._client.post(
+            "/dedicated/deployments", json=request.to_api_dict()
+        )
         response.raise_for_status()
-        data = response.json()
-
-        return self._parse_endpoint(data)
+        deployment = DeploymentResponse.model_validate(response.json())
+        return _to_endpoint(deployment)
 
     async def get_endpoint(self, endpoint_id: str) -> Endpoint:
         """Gets details of a dedicated endpoint.
@@ -374,7 +359,8 @@ class ParasailDeploymentClient(BaseDeploymentClient):
         """
         response = await self._client.get(f"/dedicated/deployments/{endpoint_id}")
         response.raise_for_status()
-        return self._parse_endpoint(response.json())
+        deployment = DeploymentResponse.model_validate(response.json())
+        return _to_endpoint(deployment)
 
     async def update_endpoint(
         self,
@@ -385,9 +371,8 @@ class ParasailDeploymentClient(BaseDeploymentClient):
         """Updates a dedicated endpoint's replica count.
 
         Parasail's update flow requires fetching the current deployment and
-        PUTting the modified object back.  Only replica count is updated via
-        the ``autoscaling`` parameter; hardware changes require creating a new
-        endpoint.
+        PUTting the modified object back. Only replica count is updated via
+        the ``autoscaling`` parameter; hardware changes require a new endpoint.
 
         Args:
             endpoint_id: Numeric deployment ID (as a string).
@@ -400,16 +385,17 @@ class ParasailDeploymentClient(BaseDeploymentClient):
         """
         get_response = await self._client.get(f"/dedicated/deployments/{endpoint_id}")
         get_response.raise_for_status()
-        current = get_response.json()
+        current_raw = get_response.json()
 
         if autoscaling is not None:
-            current["replicas"] = max(1, autoscaling.min_replicas)
+            current_raw["replicas"] = max(1, autoscaling.min_replicas)
 
         put_response = await self._client.put(
-            f"/dedicated/deployments/{endpoint_id}", json=current
+            f"/dedicated/deployments/{endpoint_id}", json=current_raw
         )
         put_response.raise_for_status()
-        return self._parse_endpoint(put_response.json())
+        deployment = DeploymentResponse.model_validate(put_response.json())
+        return _to_endpoint(deployment)
 
     async def delete_endpoint(self, endpoint_id: str, *, force: bool = False) -> None:
         """Permanently deletes a dedicated endpoint.
@@ -423,21 +409,11 @@ class ParasailDeploymentClient(BaseDeploymentClient):
         logger.info(f"Parasail deployment {endpoint_id} deleted.")
 
     async def list_endpoints(self) -> list[Endpoint]:
-        """Lists all dedicated endpoints for this account.
-
-        Returns:
-            List of :class:`Endpoint` objects.
-        """
+        """Lists all dedicated endpoints for this account."""
         response = await self._client.get("/dedicated/deployments")
         response.raise_for_status()
-        raw = response.json()
-        if isinstance(raw, dict) and "deployments" in raw:
-            items = raw["deployments"]
-        elif isinstance(raw, list):
-            items = raw
-        else:
-            items = []
-        return [self._parse_endpoint(item) for item in items]
+        items: list[dict] = response.json()
+        return [_to_endpoint(DeploymentResponse.model_validate(item)) for item in items]
 
     # -------------------------------------------------------------------------
     # Hardware
@@ -447,8 +423,8 @@ class ParasailDeploymentClient(BaseDeploymentClient):
         """Lists available hardware configurations for Parasail.
 
         If *model_id* is provided, queries the ``/dedicated/devices`` API to
-        return only hardware that is compatible with that model.  Otherwise
-        returns a static list of known Parasail GPU types.
+        return only hardware compatible with that model.  Otherwise queries
+        without a model filter to get the full catalogue.
 
         Args:
             model_id: Optional HuggingFace repo ID to filter compatible hardware.
@@ -456,39 +432,21 @@ class ParasailDeploymentClient(BaseDeploymentClient):
         Returns:
             List of :class:`HardwareConfig` objects.
         """
-        if model_id is None:
-            return list(_KNOWN_HARDWARE)
+        params: dict[str, str] = {"engineName": "VLLM", "modelAccessKey": ""}
+        if model_id is not None:
+            _validate_model_source(model_id)
+            params["modelName"] = model_id
 
-        _validate_model_source(model_id)
-        try:
-            response = await self._client.get(
-                "/dedicated/devices",
-                params={"engineName": "VLLM", "modelName": model_id, "modelAccessKey": ""},
-            )
-            response.raise_for_status()
-            devices: list[dict] = response.json()
-            return [
-                HardwareConfig(
-                    accelerator=d["device"],
-                    count=d["count"],
-                )
-                for d in devices
-                if isinstance(d, dict) and "device" in d and "count" in d
-            ]
-        except Exception as exc:
-            logger.warning(
-                f"Could not fetch hardware from Parasail API: {exc}. "
-                "Returning static hardware list."
-            )
-            return list(_KNOWN_HARDWARE)
+        response = await self._client.get("/dedicated/devices", params=params)
+        response.raise_for_status()
+        devices = [DeviceConfig.model_validate(d) for d in response.json()]
+        return [HardwareConfig(accelerator=d.device, count=d.count) for d in devices]
 
     # -------------------------------------------------------------------------
-    # Start / stop
+    # Start / stop (Parasail pause/resume)
     # -------------------------------------------------------------------------
 
-    async def start_endpoint(
-        self, endpoint_id: str, min_replicas: int = 1
-    ) -> Endpoint:
+    async def start_endpoint(self, endpoint_id: str, min_replicas: int = 1) -> Endpoint:
         """Resumes a paused / offline endpoint.
 
         Args:
@@ -536,7 +494,7 @@ class ParasailDeploymentClient(BaseDeploymentClient):
         desired_device: str,
         desired_count: int,
         model_access_key: str = "",
-    ) -> list[dict]:
+    ) -> list[DeviceConfig]:
         """Fetches device configs from Parasail and marks the desired one selected.
 
         Raises:
@@ -552,22 +510,16 @@ class ParasailDeploymentClient(BaseDeploymentClient):
             },
         )
         response.raise_for_status()
-        devices: list[dict] = response.json()
+        devices = [DeviceConfig.model_validate(d) for d in response.json()]
 
         matched = False
         for d in devices:
-            is_match = (
-                d.get("device") == desired_device and d.get("count") == desired_count
-            )
-            d["selected"] = is_match
+            is_match = d.device == desired_device and d.count == desired_count
+            d.selected = is_match
             matched = matched or is_match
 
         if not matched:
-            available = [
-                f"{d.get('device')} x{d.get('count')}"
-                for d in devices
-                if isinstance(d, dict)
-            ]
+            available = [f"{d.device} x{d.count}" for d in devices]
             raise ValueError(
                 f"No matching hardware config found for "
                 f"'{desired_device}' x{desired_count}. "
@@ -576,67 +528,44 @@ class ParasailDeploymentClient(BaseDeploymentClient):
 
         return devices
 
-    def _parse_endpoint(self, data: dict) -> Endpoint:
-        """Converts a Parasail API response dict to an :class:`Endpoint`."""
-        deployment_id = str(data.get("id", ""))
-        model_name: str = data.get("modelName", "")
-        display_name: str | None = data.get("deploymentName")
-        external_alias: str | None = data.get("externalAlias")
 
-        status_block = data.get("status", {})
-        raw_status = (
-            status_block.get("status", "").upper()
-            if isinstance(status_block, dict)
-            else str(status_block).upper()
-        )
-        state = _PARASAIL_STATE_MAP.get(raw_status, EndpointState.PENDING)
+# ---------------------------------------------------------------------------
+# Module-level helpers
+# ---------------------------------------------------------------------------
 
-        endpoint_url = (
-            f"{_INFERENCE_BASE_URL}/chat/completions" if external_alias else None
-        )
 
-        device_configs: list[dict] = data.get("deviceConfigs", [])
-        selected_config = next(
-            (d for d in device_configs if d.get("selected")), None
-        )
-        if selected_config is None and device_configs:
-            selected_config = device_configs[0]
+def _to_endpoint(dep: DeploymentResponse) -> Endpoint:
+    """Converts a :class:`DeploymentResponse` to an :class:`Endpoint`."""
+    state = _PARASAIL_STATE_MAP.get(dep.deployment_status, EndpointState.PENDING)
 
-        if selected_config:
-            hw = HardwareConfig(
-                accelerator=selected_config.get("device", "unknown"),
-                count=selected_config.get("count", 1),
-            )
-        else:
-            hw = HardwareConfig(accelerator="unknown", count=1)
+    selected = dep.selected_device
+    hw = (
+        HardwareConfig(accelerator=selected.device, count=selected.count)
+        if selected
+        else HardwareConfig(accelerator="unknown", count=1)
+    )
 
-        replicas: int = data.get("replicas", 1)
-        asc = AutoscalingConfig(min_replicas=replicas, max_replicas=replicas)
+    replicas = dep.replicas
+    asc = AutoscalingConfig(min_replicas=replicas, max_replicas=replicas)
 
-        created_at: datetime | None = None
-        created_str = data.get("createdAt") or data.get("created_at")
-        if created_str:
-            try:
-                created_at = datetime.fromisoformat(
-                    created_str.replace("Z", "+00:00")
-                )
-            except (ValueError, AttributeError):
-                pass
-        if created_at is None:
-            created_at = datetime.now(tz=timezone.utc)
+    endpoint_url = (
+        f"{_INFERENCE_BASE_URL}/chat/completions" if dep.external_alias else None
+    )
 
-        return Endpoint(
-            endpoint_id=deployment_id,
-            provider=self.provider,
-            model_id=model_name,
-            endpoint_url=endpoint_url,
-            state=state,
-            hardware=hw,
-            autoscaling=asc,
-            created_at=created_at,
-            display_name=display_name,
-            inference_model_name=external_alias,
-        )
+    created_at: datetime = dep.created_at or datetime.now(tz=timezone.utc)
+
+    return Endpoint(
+        endpoint_id=str(dep.id),
+        provider=DeploymentProvider.PARASAIL,
+        model_id=dep.model_name,
+        endpoint_url=endpoint_url,
+        state=state,
+        hardware=hw,
+        autoscaling=asc,
+        created_at=created_at,
+        display_name=dep.deployment_name,
+        inference_model_name=dep.external_alias,
+    )
 
 
 def _to_deployment_name(raw: str) -> str:
