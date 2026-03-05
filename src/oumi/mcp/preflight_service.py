@@ -620,7 +620,6 @@ def check_cloud_readiness(
 
 def check_hardware(cfg: dict) -> tuple[list[str], list[str], HardwareInfo]:
     """Detect local hardware and check compatibility with config requirements."""
-
     errors: list[str] = []
     warnings: list[str] = []
 
