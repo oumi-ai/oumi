@@ -488,7 +488,6 @@ async def run_oumi_job(
 
     job_id = make_job_id(command, job_name)
 
-    # check if config is for cloud jobs, or local runs
     is_job_config_file = _is_job_config(config_file) if cloud != "local" else False
 
     if cloud != "local" and not is_job_config_file:
@@ -602,7 +601,7 @@ async def run_oumi_job(
                 config_path=abs_config,
                 model_name=model_name,
             )
-        runner = asyncio.create_task(
+        runner: asyncio.Task[Any] = asyncio.create_task(
             wait_local_completion(record, rt),
             name=f"oumi-job-{job_id}",
         )

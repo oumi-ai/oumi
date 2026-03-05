@@ -75,6 +75,7 @@ class JobRuntime:
     staged_config_path: str = ""
     cancel_requested: bool = False
     error_message: str | None = None
+    runner_task: asyncio.Task[Any] | None = None
 
     def close_log_files(self) -> None:
         """Close open stdout/stderr file handles."""
@@ -321,8 +322,6 @@ def _stage_cloud_config(
     if working_dir:
         src = Path(working_dir).expanduser()
         if src.is_dir() and src != rt.run_dir:
-            # Selectively copy only YAML/JSON config files from the
-            # working directory instead of the entire project tree.
             for pattern in ("*.yaml", "*.yml", "*.json"):
                 for cfg_file in src.glob(pattern):
                     if cfg_file.is_file():

@@ -70,34 +70,17 @@ TASK_MAPPING = {
 
 
 def get_bundled_configs_dir() -> Path:
-    """Get the path to the bundled configs shipped with the package.
-
-    Returns:
-        Path to the configs directory inside the installed package.
-    """
+    """Return the path to bundled configs shipped with the package."""
     return Path(__file__).parent / "configs"
 
 
 def get_cache_dir() -> Path:
-    """Get the path to the user-level config cache directory.
-
-    Returns:
-        Path to ~/.cache/oumi-mcp/configs.
-    """
+    """Return the path to ~/.cache/oumi-mcp/configs."""
     return Path.home() / ".cache" / "oumi-mcp" / "configs"
 
 
 def get_configs_dir() -> Path:
-    """Get the path to the configs directory.
-
-    Resolution order (first that exists and contains YAML files wins):
-    1. OUMI_MCP_CONFIGS_DIR environment variable (explicit override)
-    2. ~/.cache/oumi-mcp/configs (synced from GitHub, fresher)
-    3. Bundled configs shipped with the package (always available fallback)
-
-    Returns:
-        Path to the configs directory.
-    """
+    """Return the configs directory (env override > cache > bundled fallback)."""
     env_dir = os.environ.get("OUMI_MCP_CONFIGS_DIR")
     if env_dir:
         p = Path(env_dir)
