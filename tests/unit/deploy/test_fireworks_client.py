@@ -38,9 +38,9 @@ from oumi.deploy.fireworks_client import (
     FIREWORKS_ACCELERATORS,
     FireworksDeploymentClient,
     FireworksInvalidModelIdError,
-    _raise_api_error,
     _validate_fireworks_model_id,
 )
+from oumi.deploy.utils import raise_api_error
 
 
 class TestFireworksStateMap:
@@ -399,7 +399,7 @@ class TestValidateFireworksModelId:
 
 
 class TestRaiseApiError:
-    """Tests for _raise_api_error."""
+    """Tests for raise_api_error (shared helper in utils)."""
 
     @staticmethod
     def _make_response(
@@ -424,28 +424,28 @@ class TestRaiseApiError:
             400, {"error": {"message": "bad request", "code": "INVALID_ARGUMENT"}}
         )
         with pytest.raises(ValueError, match="bad request"):
-            _raise_api_error(resp, "create model")
+            raise_api_error(resp, "create model")
 
     def test_extracts_top_level_message(self):
         resp = self._make_response(404, {"message": "not found"})
         with pytest.raises(ValueError, match="not found"):
-            _raise_api_error(resp, "get model")
+            raise_api_error(resp, "get model")
 
     def test_falls_back_to_text(self):
         resp = self._make_response(500, json_body=None, text="internal server error")
         with pytest.raises(ValueError, match="internal server error"):
-            _raise_api_error(resp, "delete model")
+            raise_api_error(resp, "delete model")
 
     def test_does_not_include_request_body(self):
         resp = self._make_response(400, {"message": "bad"})
         with pytest.raises(ValueError) as exc_info:
-            _raise_api_error(resp, "test")
+            raise_api_error(resp, "test")
         assert "request body" not in str(exc_info.value)
 
     def test_includes_http_status_and_method(self):
         resp = self._make_response(409, {"message": "conflict"})
         with pytest.raises(ValueError, match=r"HTTP 409.*POST"):
-            _raise_api_error(resp, "create")
+            raise_api_error(resp, "create")
 
 
 class TestCheckModelSourceSupported:
