@@ -4,7 +4,7 @@
 import json
 from pathlib import Path
 
-from oumi.mcp.job_service import JobRecord, JobRegistry
+from oumi.mcp.job_service import JobRecord, JobRegistry, reset_registry
 
 
 def _make_record(**overrides) -> JobRecord:
@@ -131,3 +131,31 @@ def test_legacy_records_with_status(tmp_path: Path):
     assert loaded is not None
     assert loaded.job_id == "legacy-1"
     assert not hasattr(loaded, "status")
+
+
+def test_log_dir_persists(tmp_path: Path):
+    """log_dir field persists across registry reload."""
+    path = tmp_path / "jobs.json"
+    reg = JobRegistry(path)
+    reg.add(_make_record(log_dir="/tmp/logs/job1"))
+
+    reg2 = JobRegistry(path)
+    loaded = reg2.get("j1")
+    assert loaded is not None
+    assert loaded.log_dir == "/tmp/logs/job1"
+
+
+def test_log_dir_defaults_empty(tmp_path: Path):
+    """log_dir defaults to empty string."""
+    path = tmp_path / "jobs.json"
+    reg = JobRegistry(path)
+    reg.add(_make_record())
+    assert reg.get("j1").log_dir == ""
+
+
+def test_reset_registry():
+    """reset_registry() clears the singleton."""
+    reset_registry()
+    # After reset, the next get_registry() call will create a fresh instance.
+    # We just verify reset doesn't raise.
+    reset_registry()
