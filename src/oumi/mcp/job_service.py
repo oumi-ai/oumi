@@ -72,6 +72,7 @@ class JobRecord:
     model_name: str
     submit_time: str  # ISO 8601
     output_dir: str = ""
+    log_dir: str = ""
 
 
 @dataclass
@@ -80,7 +81,6 @@ class JobRuntime:
 
     process: subprocess.Popen | None = None  # type: ignore[type-arg]
     cluster_obj: BaseCluster | None = None
-    runner_task: asyncio.Task[None] | None = None
     oumi_status: OumiJobStatus | None = None
     stdout_f: Any = None
     stderr_f: Any = None
@@ -229,30 +229,23 @@ async def evict_runtime(job_id: str) -> None:
     if rt is None:
         return
     rt.close_log_files()
-    if rt.runner_task and not rt.runner_task.done():
-        rt.runner_task.cancel()
-
-
-async def cleanup_stale_runtimes() -> None:
-    """Remove runtime entries whose job_id is no longer in the registry."""
-    reg = get_registry()
-    async with _runtimes_lock:
-        stale = [jid for jid in _runtimes if reg.get(jid) is None]
-    for jid in stale:
-        await evict_runtime(jid)
-    if stale:
-        logger.info("Evicted %d stale runtime entries", len(stale))
 
 
 _registry: JobRegistry | None = None
 
 
-def get_registry(path: Path | None = None) -> JobRegistry:
+def get_registry() -> JobRegistry:
     """Return the global ``JobRegistry``, creating it on first access."""
     global _registry
     if _registry is None:
-        _registry = JobRegistry(path or DEFAULT_JOBS_FILE)
+        _registry = JobRegistry(DEFAULT_JOBS_FILE)
     return _registry
+
+
+def reset_registry() -> None:
+    """Reset the global registry singleton (for test teardown)."""
+    global _registry
+    _registry = None
 
 
 def make_job_id(command: str, job_name: str | None = None) -> str:
@@ -431,10 +424,15 @@ async def _launch_cloud(
     rt: JobRuntime,
     *,
     client_cwd: str = "",
-) -> None:
+) -> str:
     """Launch a cloud job via ``oumi.launcher.up()``.
 
-    Requires a job config (with ``resources``/``setup``/``run`` keys).
+    Blocks until the launcher returns the sky job ID. The record is
+    registered with the sky ID as the canonical identifier — no temporary
+    MCP IDs are used.
+
+    Returns the sky job ID on success. On failure, sets ``rt.error_message``
+    and returns an empty string.
     """
     reg = get_registry()
 
@@ -447,7 +445,7 @@ async def _launch_cloud(
                 "Read the guidance://cloud-launch resource to build one from "
                 "your training config."
             )
-            return
+            return ""
 
         config_parent = str(Path(record.config_path).expanduser().resolve().parent)
         _stage_cloud_config(record, rt, working_dir=config_parent)
@@ -469,28 +467,24 @@ async def _launch_cloud(
         rt.cluster_obj = cluster
         rt.oumi_status = status
 
-        if status and status.id:
-            sky_job_id = str(status.id)
-            old_id = record.job_id
-            record.job_id = sky_job_id
-            record.cluster_name = status.cluster or record.cluster_name
-            reg.remove(old_id)
-            reg.add(record)
-        else:
-            cluster_name = status.cluster if status else record.cluster_name
-            reg.update(record.job_id, cluster_name=cluster_name)
+        sky_job_id = str(status.id) if status and status.id else record.job_id
+        record.job_id = sky_job_id
+        record.cluster_name = (
+            status.cluster if status and status.cluster else record.cluster_name
+        )
+        reg.add(record)
 
         logger.info(
-            "Cloud job %s launched on %s (sky_id=%s)",
-            record.job_id,
+            "Cloud job %s launched on %s",
+            sky_job_id,
             record.cloud,
-            status.id if status else "unknown",
         )
+
         if rt.cancel_requested and status and status.id:
             try:
                 result_status = await asyncio.to_thread(
                     launcher.cancel,
-                    str(status.id),
+                    sky_job_id,
                     record.cloud,
                     record.cluster_name,
                 )
@@ -500,12 +494,15 @@ async def _launch_cloud(
                     "Cancellation was requested during launch, but automatic "
                     f"cloud cancellation failed: {cancel_exc}"
                 )
-            await evict_runtime(record.job_id)
-            return
-        await evict_runtime(record.job_id)
+            await evict_runtime(sky_job_id)
+            return sky_job_id
+
+        await evict_runtime(sky_job_id)
+        return sky_job_id
     except Exception as exc:
         rt.error_message = str(exc)
         logger.exception("Failed to launch cloud job %s", record.job_id)
+        return ""
 
 
 async def launch_job(
@@ -513,13 +510,22 @@ async def launch_job(
     rt: JobRuntime,
     *,
     client_cwd: str = "",
-) -> None:
-    """Launch a job (local or cloud)."""
+) -> str:
+    """Launch a job (local or cloud).
+
+    Returns the canonical job ID. For local jobs this is the MCP-generated ID.
+    For cloud jobs this is the sky job ID returned by the launcher.
+    """
     if record.cloud == "local":
         start_local_job(record, rt, client_cwd=client_cwd)
         await wait_local_completion(record, rt)
+        if rt.log_dir:
+            reg = get_registry()
+            reg.update(record.job_id, log_dir=str(rt.log_dir))
+        await evict_runtime(record.job_id)
+        return record.job_id
     else:
-        await _launch_cloud(
+        return await _launch_cloud(
             record,
             rt,
             client_cwd=client_cwd,
@@ -588,8 +594,6 @@ async def cancel(
     if record.cloud != "local" and rt.cluster_obj is None and rt.process is None:
         rt.cancel_requested = True
         rt.error_message = "Cancellation requested while launch is pending."
-        if rt.runner_task and not rt.runner_task.done():
-            rt.runner_task.cancel()
         return {
             "success": True,
             "message": (
@@ -655,9 +659,12 @@ def get_log_paths(record: JobRecord, rt: JobRuntime) -> dict[str, Path | None]:
 
     Returns a dict with ``"stdout"`` and ``"stderr"`` keys, each
     mapping to a ``Path`` or ``None`` if the file doesn't exist yet.
+    Falls back to ``record.log_dir`` when the runtime has been evicted.
     """
     result: dict[str, Path | None] = {"stdout": None, "stderr": None}
     log_dir = rt.log_dir
+    if log_dir is None and record.log_dir:
+        log_dir = Path(record.log_dir)
     if log_dir is None or not log_dir.is_dir():
         return result
 
@@ -908,9 +915,7 @@ def _job_status_str(record: JobRecord, rt: JobRuntime) -> str:
         if proc is None:
             if rt.error_message:
                 return "failed"
-            if rt.runner_task and not rt.runner_task.done():
-                return "launching"
-            return "unknown"
+            return "completed"
         rc = proc.poll()
         if rc is None:
             return "running"
@@ -919,19 +924,19 @@ def _job_status_str(record: JobRecord, rt: JobRuntime) -> str:
         return rt.oumi_status.status
     if rt.error_message:
         return "failed"
-    if rt.runner_task and not rt.runner_task.done():
-        return "launching"
     return "unknown"
 
 
 def _is_job_done(record: JobRecord, rt: JobRuntime) -> bool:
     """Return True if the job is in a terminal state."""
     is_local = record.cloud == "local"
-    if is_local and rt.process is not None:
-        return rt.process.poll() is not None
+    if is_local:
+        if rt.process is not None:
+            return rt.process.poll() is not None
+        return True
     if rt.oumi_status and rt.oumi_status.done:
         return True
-    if rt.error_message and not rt.runner_task:
+    if rt.error_message:
         return True
     if rt.cancel_requested:
         return True
