@@ -39,6 +39,37 @@ from oumi.deploy.base_client import (
     ModelType,
     UploadedModel,
 )
+from oumi.deploy.fireworks_api import (
+    FW_STATE_TO_ENDPOINT,
+    BaseModelDetailsCheckpointFormat,
+    DeploymentPrecision,
+    GatewayAcceleratorType,
+    GatewayAutoscalingPolicy,
+    GatewayBaseModelDetails,
+    GatewayCode,
+    GatewayConversationConfig,
+    GatewayCreateModelBody,
+    GatewayDeployedModel,
+    GatewayDeployedModelRef,
+    GatewayDeployedModelState,
+    GatewayDeployment,
+    GatewayDeploymentState,
+    GatewayGetModelDownloadEndpointResponse,
+    GatewayGetModelUploadEndpointBody,
+    GatewayGetModelUploadEndpointResponse,
+    GatewayListDeployedModelsResponse,
+    GatewayListDeploymentsResponse,
+    GatewayListModelsResponse,
+    GatewayModel,
+    GatewayModelKind,
+    GatewayModelState,
+    GatewayPEFTDetails,
+    GatewayPrepareModelBody,
+    GatewayReplicaStats,
+    GatewayScaleDeploymentBody,
+    GatewayStatus,
+    GatewayValidateModelUploadResponse,
+)
 
 logger = logging.getLogger(__name__)
 
