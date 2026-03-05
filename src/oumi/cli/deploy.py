@@ -37,6 +37,7 @@ from oumi.deploy import (
     Model,
     ModalDeploymentClient,
     ModelType,
+    ParasailDeploymentClient,
     UploadedModel,
 )
 from oumi.deploy.base_client import BaseDeploymentClient
@@ -112,7 +113,7 @@ def _get_deployment_client(
     """Gets a deployment client for the specified provider.
 
     Args:
-        provider: Provider name ("fireworks", "modal")
+        provider: Provider name ("fireworks", "modal", "parasail")
 
     Returns:
         Deployment client instance
@@ -125,6 +126,8 @@ def _get_deployment_client(
         return FireworksDeploymentClient()
     elif provider == DeploymentProvider.MODAL.value:
         return ModalDeploymentClient()
+    elif provider == DeploymentProvider.PARASAIL.value:
+        return ParasailDeploymentClient()
     else:
         raise ValueError(
             f"Unsupported provider: {provider}. "
@@ -144,6 +147,9 @@ def _get_available_providers() -> list[str]:
     )
     if has_modal_env or (Path.home() / ".modal.toml").exists():
         available.append("modal")
+
+    if os.environ.get("PARASAIL_API_KEY"):
+        available.append("parasail")
 
     return available
 

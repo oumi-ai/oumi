@@ -28,6 +28,7 @@ class DeploymentProvider(str, Enum):
 
     FIREWORKS = "fireworks"
     MODAL = "modal"
+    PARASAIL = "parasail"
 
 
 class EndpointState(str, Enum):
