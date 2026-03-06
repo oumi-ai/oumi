@@ -41,9 +41,17 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
 
         self.instruction_template = instruction_template
         if isinstance(instruction_template, str):
-            # The user provides a string, must tokenize
+            # The user provides a string, must tokenize.
+            # Strip trailing newlines before tokenizing to avoid BPE merge
+            # mismatches: the \n at the end of a template (e.g. "user\n") sits
+            # at a token boundary with the message content that follows. If the
+            # content starts with \n, the two newlines merge into a single BPE
+            # token (e.g. \n\n -> token 271 in Qwen), which differs from the
+            # single-\n token (198) produced by tokenizing the template alone.
+            # Dropping the trailing \n makes the search sequence unambiguous
+            # regardless of what the content starts with.
             self.instruction_token_ids = self.tokenizer.encode(
-                self.instruction_template,  # type: ignore
+                instruction_template.rstrip("\n"),
                 add_special_tokens=False,
             )
         else:
@@ -52,9 +60,12 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
 
         self.response_template = response_template
         if isinstance(response_template, str):
-            # The user provides a string, must tokenize
+            # The user provides a string, must tokenize.
+            # See comment above for instruction_template — same BPE boundary
+            # issue applies to the response template.
             self.response_token_ids = self.tokenizer.encode(
-                self.response_template, add_special_tokens=False
+                response_template.rstrip("\n"),
+                add_special_tokens=False,
             )
         else:
             # The user already provides the token ids
