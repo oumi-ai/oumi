@@ -41,24 +41,52 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
 
         self.instruction_template = instruction_template
         if isinstance(instruction_template, str):
-            # The user provides a string, must tokenize
+            # The user provides a string, must tokenize.
+            #
+            # We strip trailing \n before tokenizing to avoid BPE merge
+            # mismatches: the \n at the end of a template (e.g. "user\n") sits
+            # at a token boundary with the message content that follows.  If the
+            # content starts with \n, the two newlines merge into a single BPE
+            # token (e.g. \n\n -> token 271 in Qwen), which differs from the
+            # single-\n token (198) produced by tokenizing the template alone.
+            # Stripping the trailing \n makes the search sequence unambiguous
+            # regardless of what the content starts with.
+            #
+            # We keep the *original* token count so that the masking offset
+            # still skips the \n token — this avoids including a deterministic
+            # token in the loss computation.
             self.instruction_token_ids = self.tokenizer.encode(
-                self.instruction_template,  # type: ignore
+                instruction_template.rstrip("\n"),
                 add_special_tokens=False,
             )
+            self._instruction_mask_len = len(self.tokenizer.encode(
+                instruction_template,
+                add_special_tokens=False,
+            ))
         else:
             # The user already provides the token ids
             self.instruction_token_ids = instruction_template
+            self._instruction_mask_len = (
+                len(instruction_template) if instruction_template is not None else 0
+            )
 
         self.response_template = response_template
         if isinstance(response_template, str):
-            # The user provides a string, must tokenize
+            # The user provides a string, must tokenize.
+            # See comment above for instruction_template — same BPE boundary
+            # issue applies to the response template.
             self.response_token_ids = self.tokenizer.encode(
-                self.response_template, add_special_tokens=False
+                response_template.rstrip("\n"),
+                add_special_tokens=False,
             )
+            self._response_mask_len = len(self.tokenizer.encode(
+                response_template,
+                add_special_tokens=False,
+            ))
         else:
             # The user already provides the token ids
             self.response_token_ids = response_template
+            self._response_mask_len = len(response_template)
 
         if (
             not self.mlm
@@ -113,8 +141,8 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
                     )
                     batch["labels"][i, :] = self.ignore_index
                 else:
-                    response_token_ids_end_idx = response_token_ids_start_idx + len(
-                        self.response_token_ids
+                    response_token_ids_end_idx = (
+                        response_token_ids_start_idx + self._response_mask_len
                     )
 
                     # Make pytorch loss function ignore all tokens up through the end
@@ -137,7 +165,7 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
                         ].tolist()
                     ):
                         response_token_ids_idxs.append(
-                            assistant_idx + len(self.response_token_ids)
+                            assistant_idx + self._response_mask_len
                         )
 
                 if len(response_token_ids_idxs) == 0:
