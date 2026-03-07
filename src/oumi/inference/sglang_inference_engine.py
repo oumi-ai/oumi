@@ -36,7 +36,7 @@ from oumi.core.configs.internal.supported_models import (
     find_internal_model_config_using_model_name,
 )
 from oumi.core.processors.base_processor import BaseProcessor
-from oumi.core.types.conversation import Conversation, Message, Role, Type
+from oumi.core.types.conversation import Conversation, FinishReason, Message, Role, Type
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 from oumi.utils.conversation_utils import (
     base64encode_content_item_image_bytes,
@@ -281,6 +281,24 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
             body["image_data"] = image_data if len(image_data) > 1 else image_data[0]
         return body
 
+    @staticmethod
+    def _normalize_sglang_finish_reason(raw_reason: str | None) -> FinishReason | None:
+        """Normalize SGLang finish_reason string to FinishReason enum.
+
+        Args:
+            raw_reason: The raw finish_reason string from SGLang response.
+
+        Returns:
+            FinishReason enum value, or None if raw_reason is None.
+        """
+        if raw_reason is None:
+            return None
+        mapping = {
+            "stop": FinishReason.STOP,
+            "length": FinishReason.LENGTH,
+        }
+        return mapping.get(raw_reason.lower(), FinishReason.UNKNOWN)
+
     @override
     def _convert_api_output_to_conversation(
         self, response: dict[str, Any], original_conversation: Conversation
@@ -290,9 +308,17 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
             content=response["text"],
             role=Role.ASSISTANT,
         )
+        metadata = dict(original_conversation.metadata)
+        # SGLang native API may include meta_info with finish_reason
+        meta_info = response.get("meta_info", {})
+        raw_reason = meta_info.get("finish_reason") if meta_info else None
+        if raw_reason:
+            finish_reason = self._normalize_sglang_finish_reason(raw_reason)
+            if finish_reason is not None:
+                metadata["finish_reason"] = finish_reason.value
         return Conversation(
             messages=[*original_conversation.messages, new_message],
-            metadata=original_conversation.metadata,
+            metadata=metadata,
             conversation_id=original_conversation.conversation_id,
         )
 

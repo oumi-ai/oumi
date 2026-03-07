@@ -34,7 +34,7 @@ from oumi.core.configs.internal.supported_models import (
 )
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.processors.base_processor import BaseProcessor
-from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.core.types.conversation import Conversation, FinishReason, Message, Role
 from oumi.utils.conversation_utils import load_image_bytes_to_content_item
 from oumi.utils.image_utils import load_pil_image_from_bytes
 from oumi.utils.logging import logger
@@ -357,16 +357,24 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                 clean_up_tokenization_spaces=True,
                 skip_special_tokens=generation_params.skip_special_tokens,
             )
-            for conversation, response in zip(
-                batched_input[batch_index], output_batch_decoded
+            # Track generated token counts for finish_reason inference
+            generated_lengths = [len(seq) for seq in output_batch.data]
+            for conversation, response, gen_length in zip(
+                batched_input[batch_index], output_batch_decoded, generated_lengths
             ):
                 messages = [
                     *conversation.messages,
                     Message(role=Role.ASSISTANT, content=response),
                 ]
+                # Infer finish_reason from generated length
+                metadata = dict(conversation.metadata)
+                if gen_length >= generation_params.max_new_tokens:
+                    metadata["finish_reason"] = FinishReason.LENGTH.value
+                else:
+                    metadata["finish_reason"] = FinishReason.STOP.value
                 new_conversation = Conversation(
                     messages=messages,
-                    metadata=conversation.metadata,
+                    metadata=metadata,
                     conversation_id=conversation.conversation_id,
                 )
                 self._save_conversation_to_scratch(

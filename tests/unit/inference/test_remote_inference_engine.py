@@ -25,6 +25,7 @@ from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.types.conversation import (
     ContentItem,
     Conversation,
+    FinishReason,
     Message,
     Role,
     Type,
@@ -3319,3 +3320,167 @@ async def test_adaptive_concurrency_full_adjustment_cycle():
             assert len(result) == 50
 
         assert asserts_passed
+
+
+#
+# FinishReason extraction tests
+#
+class TestNormalizeFinishReason:
+    """Tests for RemoteInferenceEngine._normalize_finish_reason."""
+
+    def test_normalize_finish_reason_stop(self):
+        result = RemoteInferenceEngine._normalize_finish_reason("stop")
+        assert result == FinishReason.STOP
+
+    def test_normalize_finish_reason_length(self):
+        result = RemoteInferenceEngine._normalize_finish_reason("length")
+        assert result == FinishReason.LENGTH
+
+    def test_normalize_finish_reason_tool_calls(self):
+        result = RemoteInferenceEngine._normalize_finish_reason("tool_calls")
+        assert result == FinishReason.TOOL_CALLS
+
+    def test_normalize_finish_reason_content_filter(self):
+        result = RemoteInferenceEngine._normalize_finish_reason("content_filter")
+        assert result == FinishReason.CONTENT_FILTER
+
+    def test_normalize_finish_reason_unknown_value(self):
+        result = RemoteInferenceEngine._normalize_finish_reason("some_other_reason")
+        assert result == FinishReason.UNKNOWN
+
+    def test_normalize_finish_reason_none(self):
+        result = RemoteInferenceEngine._normalize_finish_reason(None)
+        assert result is None
+
+    def test_normalize_finish_reason_case_insensitive(self):
+        assert RemoteInferenceEngine._normalize_finish_reason("STOP") == FinishReason.STOP
+        assert (
+            RemoteInferenceEngine._normalize_finish_reason("Length") == FinishReason.LENGTH
+        )
+
+
+class TestExtractFinishReasonFromResponse:
+    """Tests for RemoteInferenceEngine._extract_finish_reason_from_response."""
+
+    def test_extract_finish_reason_stop(self):
+        response = {"choices": [{"finish_reason": "stop"}]}
+        result = RemoteInferenceEngine._extract_finish_reason_from_response(response)
+        assert result == FinishReason.STOP
+
+    def test_extract_finish_reason_length(self):
+        response = {"choices": [{"finish_reason": "length"}]}
+        result = RemoteInferenceEngine._extract_finish_reason_from_response(response)
+        assert result == FinishReason.LENGTH
+
+    def test_extract_finish_reason_empty_choices(self):
+        response = {"choices": []}
+        result = RemoteInferenceEngine._extract_finish_reason_from_response(response)
+        assert result is None
+
+    def test_extract_finish_reason_no_choices(self):
+        response = {}
+        result = RemoteInferenceEngine._extract_finish_reason_from_response(response)
+        assert result is None
+
+    def test_extract_finish_reason_none_value(self):
+        response = {"choices": [{"finish_reason": None}]}
+        result = RemoteInferenceEngine._extract_finish_reason_from_response(response)
+        assert result is None
+
+
+def test_infer_online_extracts_finish_reason():
+    """Test that finish_reason is extracted and added to conversation metadata."""
+    with aioresponses() as m:
+        m.post(
+            _TARGET_SERVER,
+            status=200,
+            payload=dict(
+                choices=[
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "Hello!",
+                        },
+                        "finish_reason": "stop",
+                    }
+                ]
+            ),
+        )
+
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+        )
+        conversation = Conversation(
+            messages=[Message(role=Role.USER, content="Hi")],
+        )
+        result = engine.infer([conversation], _get_default_inference_config())
+
+        assert len(result) == 1
+        assert result[0].metadata.get("finish_reason") == "stop"
+
+
+def test_infer_online_extracts_length_finish_reason():
+    """Test that length finish_reason is extracted correctly."""
+    with aioresponses() as m:
+        m.post(
+            _TARGET_SERVER,
+            status=200,
+            payload=dict(
+                choices=[
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "Truncated response",
+                        },
+                        "finish_reason": "length",
+                    }
+                ]
+            ),
+        )
+
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+        )
+        conversation = Conversation(
+            messages=[Message(role=Role.USER, content="Tell me a long story")],
+        )
+        result = engine.infer([conversation], _get_default_inference_config())
+
+        assert len(result) == 1
+        assert result[0].metadata.get("finish_reason") == "length"
+
+
+def test_infer_online_preserves_existing_metadata_with_finish_reason():
+    """Test that finish_reason is added while preserving existing metadata."""
+    with aioresponses() as m:
+        m.post(
+            _TARGET_SERVER,
+            status=200,
+            payload=dict(
+                choices=[
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "Response",
+                        },
+                        "finish_reason": "stop",
+                    }
+                ]
+            ),
+        )
+
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+        )
+        conversation = Conversation(
+            messages=[Message(role=Role.USER, content="Hi")],
+            metadata={"custom_key": "custom_value"},
+        )
+        result = engine.infer([conversation], _get_default_inference_config())
+
+        assert len(result) == 1
+        assert result[0].metadata.get("finish_reason") == "stop"
+        assert result[0].metadata.get("custom_key") == "custom_value"
