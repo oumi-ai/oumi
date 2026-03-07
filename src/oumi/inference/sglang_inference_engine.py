@@ -283,14 +283,7 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
 
     @staticmethod
     def _normalize_sglang_finish_reason(raw_reason: str | None) -> FinishReason | None:
-        """Normalize SGLang finish_reason string to FinishReason enum.
-
-        Args:
-            raw_reason: The raw finish_reason string from SGLang response.
-
-        Returns:
-            FinishReason enum value, or None if raw_reason is None.
-        """
+        """Normalize SGLang finish_reason string to FinishReason enum."""
         if raw_reason is None:
             return None
         mapping = {
@@ -309,7 +302,6 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
             role=Role.ASSISTANT,
         )
         metadata = dict(original_conversation.metadata)
-        # SGLang native API may include meta_info with finish_reason
         meta_info = response.get("meta_info", {})
         raw_reason = meta_info.get("finish_reason") if meta_info else None
         if raw_reason:

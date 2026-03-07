@@ -324,16 +324,7 @@ class BedrockInferenceEngine(RemoteInferenceEngine):
     def _extract_finish_reason_from_response(
         response: dict[str, Any],
     ) -> FinishReason | None:
-        """Extract normalized finish_reason from a Bedrock Converse response.
-
-        Bedrock uses `stopReason` with values similar to Anthropic.
-
-        Args:
-            response: The API response dictionary.
-
-        Returns:
-            FinishReason enum value, or None if not present.
-        """
+        """Extract normalized finish_reason from a Bedrock Converse response."""
         raw_reason = response.get("stopReason")
         if raw_reason is None:
             return None

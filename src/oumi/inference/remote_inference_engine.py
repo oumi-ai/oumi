@@ -435,14 +435,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
     @staticmethod
     def _normalize_finish_reason(raw_reason: str | None) -> FinishReason | None:
-        """Normalize raw finish_reason string to FinishReason enum.
-
-        Args:
-            raw_reason: The raw finish_reason string from the API response.
-
-        Returns:
-            FinishReason enum value, or None if raw_reason is None.
-        """
+        """Normalize raw finish_reason string to FinishReason enum."""
         if raw_reason is None:
             return None
         mapping = {
@@ -457,14 +450,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     def _extract_finish_reason_from_response(
         response: dict[str, Any],
     ) -> FinishReason | None:
-        """Extract normalized finish_reason from an OpenAI-compatible API response.
-
-        Args:
-            response: The API response dictionary.
-
-        Returns:
-            FinishReason enum value, or None if not present.
-        """
+        """Extract normalized finish_reason from an OpenAI-compatible API response."""
         choices = response.get("choices")
         if not choices or len(choices) == 0:
             return None

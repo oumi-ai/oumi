@@ -165,16 +165,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
     def _extract_finish_reason_from_response(
         response: dict[str, Any],
     ) -> FinishReason | None:
-        """Extract normalized finish_reason from an Anthropic API response.
-
-        Anthropic uses `stop_reason` with different values than OpenAI.
-
-        Args:
-            response: The API response dictionary.
-
-        Returns:
-            FinishReason enum value, or None if not present.
-        """
+        """Extract normalized finish_reason from an Anthropic API response."""
         raw_reason = response.get("stop_reason")
         if raw_reason is None:
             return None

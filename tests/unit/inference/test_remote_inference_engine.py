@@ -3322,9 +3322,7 @@ async def test_adaptive_concurrency_full_adjustment_cycle():
         assert asserts_passed
 
 
-#
 # FinishReason extraction tests
-#
 class TestNormalizeFinishReason:
     """Tests for RemoteInferenceEngine._normalize_finish_reason."""
 

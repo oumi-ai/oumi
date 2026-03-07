@@ -149,14 +149,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
 
     @staticmethod
     def _normalize_finish_reason(raw_reason: str | None) -> FinishReason | None:
-        """Normalize llama.cpp finish_reason string to FinishReason enum.
-
-        Args:
-            raw_reason: The raw finish_reason string from llama.cpp response.
-
-        Returns:
-            FinishReason enum value, or None if raw_reason is None.
-        """
+        """Normalize llama.cpp finish_reason string to FinishReason enum."""
         if raw_reason is None:
             return None
         mapping = {
@@ -239,7 +232,6 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
                 role=Role.ASSISTANT,
             )
 
-            # Extract finish_reason from response
             metadata = dict(conversation.metadata)
             raw_reason = response.get("choices", [{}])[0].get("finish_reason")
             if raw_reason:

@@ -220,14 +220,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
 
     @staticmethod
     def _normalize_vllm_finish_reason(raw_reason: str | None) -> FinishReason | None:
-        """Normalize vLLM finish_reason string to FinishReason enum.
-
-        Args:
-            raw_reason: The raw finish_reason string from vLLM output.
-
-        Returns:
-            FinishReason enum value, or None if raw_reason is None.
-        """
+        """Normalize vLLM finish_reason string to FinishReason enum."""
         if raw_reason is None:
             return None
         mapping = {
@@ -355,7 +348,6 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 *conversation.messages,
                 *new_messages,
             ]
-            # Extract finish_reason from first output
             metadata = dict(conversation.metadata)
             if chat_response.outputs:
                 raw_reason = chat_response.outputs[0].finish_reason

@@ -357,7 +357,6 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                 clean_up_tokenization_spaces=True,
                 skip_special_tokens=generation_params.skip_special_tokens,
             )
-            # Track generated token counts for finish_reason inference
             generated_lengths = [len(seq) for seq in output_batch.data]
             for conversation, response, gen_length in zip(
                 batched_input[batch_index], output_batch_decoded, generated_lengths
@@ -366,7 +365,6 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                     *conversation.messages,
                     Message(role=Role.ASSISTANT, content=response),
                 ]
-                # Infer finish_reason from generated length
                 metadata = dict(conversation.metadata)
                 if gen_length >= generation_params.max_new_tokens:
                     metadata["finish_reason"] = FinishReason.LENGTH.value

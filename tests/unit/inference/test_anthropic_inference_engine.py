@@ -257,9 +257,7 @@ async def test_batch_results_partial_failed_status_retrieves_partial_results(
     assert "server_error" in result.error_messages[1]
 
 
-#
 # FinishReason extraction tests
-#
 class TestAnthropicExtractFinishReason:
     """Tests for AnthropicInferenceEngine._extract_finish_reason_from_response."""
 
