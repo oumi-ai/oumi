@@ -282,15 +282,31 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
         return body
 
     @staticmethod
-    def _normalize_sglang_finish_reason(raw_reason: str | None) -> FinishReason | None:
-        """Normalize SGLang finish_reason string to FinishReason enum."""
+    def _normalize_sglang_finish_reason(
+        raw_reason: dict[str, Any] | str | None,
+    ) -> FinishReason | None:
+        """Normalize SGLang finish_reason to FinishReason enum.
+
+        SGLang returns finish_reason as a dict with a "type" field, e.g.:
+        - {"type": "stop", "matched": 128009}
+        - {"type": "length", "length": 128}
+        """
         if raw_reason is None:
             return None
+
+        # Extract the reason type from dict or use string directly
+        if isinstance(raw_reason, dict):
+            reason_type = raw_reason.get("type")
+            if reason_type is None:
+                return FinishReason.UNKNOWN
+        else:
+            reason_type = raw_reason
+
         mapping = {
             "stop": FinishReason.STOP,
             "length": FinishReason.LENGTH,
         }
-        return mapping.get(raw_reason.lower(), FinishReason.UNKNOWN)
+        return mapping.get(reason_type.lower(), FinishReason.UNKNOWN)
 
     @override
     def _convert_api_output_to_conversation(
