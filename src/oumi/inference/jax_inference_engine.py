@@ -21,6 +21,7 @@ Each model follows the upstream jax-llm-examples prefill/decode pattern.
 from __future__ import annotations
 
 import dataclasses
+import importlib
 import json
 from pathlib import Path
 from typing import Any
@@ -111,6 +112,9 @@ _HF_CONFIG_MODELS = {"gpt_oss", "qwen3", "llama4", "nemotron3"}
 _LLAMA_CONFIG_MODELS = {"llama3"}
 _DEFAULT_CONFIG_MODELS = {"deepseek_r1", "kimi_k2"}
 
+# Models that use AxisType.Auto mesh (vs Explicit for all others)
+_AUTO_MESH_MODELS = {"deepseek_r1", "kimi_k2"}
+
 # KVCache init: llama3 uses 3 args, all others use 4 (including max_seq_len)
 _KVCACHE_3_ARGS = {"llama3"}
 
@@ -134,6 +138,7 @@ class JAXInferenceEngine(BaseInferenceEngine):
         tensor_parallel_size: int = -1,
         quantization: str | None = None,
         max_seq_len: int = 2048,
+        seed: int = 42,
     ):
         """Initializes the JAX inference engine.
 
@@ -148,6 +153,7 @@ class JAXInferenceEngine(BaseInferenceEngine):
             quantization: Quantization mode (e.g., "int8"). Applied via each
                 model's native quantization flags.
             max_seq_len: Maximum sequence length for KV cache allocation.
+            seed: Random seed for JAX PRNG key initialization.
         """
         super().__init__(model_params=model_params, generation_params=generation_params)
 
@@ -159,6 +165,7 @@ class JAXInferenceEngine(BaseInferenceEngine):
         self._tensor_parallel_size = tensor_parallel_size
         self._quantization = quantization
         self._max_seq_len = max_seq_len
+        self._seed = seed
 
         # Resolved during _load_model
         self._model_module: Any = None  # The model's Python module (e.g., l3jax)
@@ -172,9 +179,13 @@ class JAXInferenceEngine(BaseInferenceEngine):
         self._load_model()
 
     def _setup_devices(self) -> None:
-        """Sets up JAX devices and creates the device mesh."""
-        assert jax is not None
-        assert random is not None
+        """Sets up JAX devices and RNG key."""
+        if jax is None:
+            raise RuntimeError(
+                "JAX is not installed. Please install with: pip install oumi[jax]"
+            )
+        if random is None:
+            raise RuntimeError("JAX random module not available. Reinstall JAX.")
         devices = jax.devices()
         if self._tensor_parallel_size <= 0:
             self._tensor_parallel_size = len(devices)
@@ -184,18 +195,30 @@ class JAXInferenceEngine(BaseInferenceEngine):
             f"using {self._tensor_parallel_size} for tensor parallelism."
         )
 
-        # Create mesh following jax-llm-examples pattern: (tp_size, 1, 1)
-        # with axis names ("x", "y", "z")
-        tp = min(self._tensor_parallel_size, len(devices))
-        try:
-            self._mesh = jax.make_mesh((tp, 1, 1), ("x", "y", "z"))
-        except AttributeError:
-            # Fallback for older JAX versions without make_mesh
-            from jax.sharding import Mesh
+        self._rng_key = random.PRNGKey(self._seed)
 
-            self._mesh = Mesh(np.array(devices[:tp]).reshape(tp, 1, 1), ("x", "y", "z"))
+    def _create_mesh(self) -> None:
+        """Creates the JAX device mesh after architecture is resolved.
 
-        self._rng_key = random.PRNGKey(42)
+        Uses the upstream jax-llm-examples pattern: (1, tp, 1) with
+        axis names ("x", "y", "z"). deepseek_r1 and kimi_k2 use
+        AxisType.Auto; all others use AxisType.Explicit.
+        """
+        if jax is None:
+            raise RuntimeError(
+                "JAX is not installed. Please install with: pip install oumi[jax]"
+            )
+        from jax.sharding import AxisType
+
+        tp = min(self._tensor_parallel_size, len(jax.devices()))
+        use_auto = self._architecture in _AUTO_MESH_MODELS
+        axis_type = AxisType.Auto if use_auto else AxisType.Explicit
+
+        self._mesh = jax.make_mesh(
+            (1, tp, 1),
+            ("x", "y", "z"),
+            axis_types=(axis_type,) * 3,
+        )
 
     @staticmethod
     def _resolve_architecture(model_name: str) -> tuple[str, str]:
@@ -226,12 +249,13 @@ class JAXInferenceEngine(BaseInferenceEngine):
         model_name = self._model_params.model_name
         module_path, self._architecture = self._resolve_architecture(model_name)
 
+        # Create mesh now that architecture is known
+        self._create_mesh()
+
         # Build tokenizer
         self._tokenizer = build_tokenizer(self._model_params)
 
         # Import the model module
-        import importlib
-
         try:
             model_mod = importlib.import_module(f"{module_path}.model")
         except ImportError as e:
@@ -323,8 +347,6 @@ class JAXInferenceEngine(BaseInferenceEngine):
         """Loads model weights using the architecture-appropriate method."""
         if self._architecture in _USES_CHKPT_LOAD_MODEL:
             # DeepSeek R1 and Kimi K2 use chkpt_utils.load_model
-            import importlib
-
             try:
                 from etils import epath  # type: ignore[import-not-found]
 
@@ -421,8 +443,10 @@ class JAXInferenceEngine(BaseInferenceEngine):
             else self._generation_params
         )
 
-        assert self._tokenizer is not None
-        assert jnp is not None
+        if self._tokenizer is None:
+            raise RuntimeError("Tokenizer not initialized. Call _load_model first.")
+        if jnp is None:
+            raise RuntimeError("JAX numpy not available. Install JAX.")
 
         output_conversations = []
         for conversation in input:
@@ -489,10 +513,12 @@ class JAXInferenceEngine(BaseInferenceEngine):
         Returns:
             List of generated token IDs (new tokens only, no prompt).
         """
-        assert jax is not None
-        assert jnp is not None
-        assert P is not None
-        assert self._tokenizer is not None
+        if jax is None or jnp is None or P is None:
+            raise RuntimeError(
+                "JAX is not available. Install with: pip install oumi[jax]"
+            )
+        if self._tokenizer is None:
+            raise RuntimeError("Tokenizer not initialized. Call _load_model first.")
         _jax = jax  # local ref for lambdas (pyright can't narrow closures)
 
         mod = self._model_module

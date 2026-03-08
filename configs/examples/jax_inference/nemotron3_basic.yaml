@@ -1,0 +1,41 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Basic JAX inference config for NVIDIA Nemotron 3 Nano.
+#
+# Experimental: JAX backend is under active development.
+#
+# Requirements:
+#   - Install JAX dependencies: `pip install oumi[jax]`
+#
+# Usage:
+#   oumi infer -i -c configs/examples/jax_inference/nemotron3_basic.yaml
+#
+# See Also:
+#   - JAX LLM Examples: https://github.com/jax-ml/jax-llm-examples
+#   - Config class: oumi.core.configs.InferenceConfig
+
+model:
+  model_name: "nvidia/Nemotron-3-Nano"
+  model_max_length: 4096
+  torch_dtype_str: "bfloat16"
+  load_pretrained_weights: true
+  trust_remote_code: true
+
+generation:
+  max_new_tokens: 512
+  temperature: 0.7
+  top_p: 0.9
+
+engine: JAX

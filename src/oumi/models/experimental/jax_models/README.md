@@ -62,32 +62,48 @@ The JAX LLM Examples project aims to provide:
 Based on the upstream repository, JAX LLM Examples has achieved:
 
 #### **Llama 3 Implementation**
-- ✅ Pure JAX implementation with Grouped Query Attention (GQA)
-- ✅ Tensor parallelism via JAX's `shard_map`
-- ✅ Simple INT8 quantization
-- ✅ **Verified performance**: 159 tokens/second on TPU v5e-16 (Llama 3.1 70B, batch size 8, 2048 context)
-- ✅ Custom TPU ragged decode attention kernel
-- 🚧 GPU support in progress
+- Pure JAX implementation with Grouped Query Attention (GQA)
+- Tensor parallelism via JAX's `shard_map`
+- INT8 quantization
+- Custom TPU ragged decode attention kernel
+
+#### **Llama 4 Implementation**
+- Pure JAX implementation with MoE (Mixture of Experts) and gated routing
+- Two model variants: Scout and Maverick
+- NoPE (No Position Embedding) layers at configurable intervals
+- QK normalization support
+- Expert and tensor parallelism via `shard_map`
+- INT8 quantization
 
 #### **DeepSeek R1 Implementation**
-- ✅ Pure JAX implementation of DeepSeek V3 with Multi-head Latent Attention (MLA)
-- ✅ Expert and tensor parallelism using `shard_map`
-- ✅ INT8 quantization support
-- ✅ **Verified performance**: 75.9 tokens/second on TPU v5e-64 (context length 512)
-- ✅ Custom "ragged dot" kernel for efficient MoE processing
-- 🚧 GPU support and further optimizations in progress
+- Pure JAX implementation of DeepSeek V3 with Multi-head Latent Attention (MLA)
+- Expert and tensor parallelism using `shard_map`
+- INT8 quantization support
+- Custom "ragged dot" kernel for efficient MoE processing
 
 #### **Qwen 3 Implementation**
-- ✅ Pure JAX implementation with MLA attention
-- ✅ Expert and tensor parallelism support
-- ✅ Designed for multi-host deployment (235B parameters)
-- ✅ INT8 quantization
-- 🚧 GPU support in progress
+- Pure JAX implementation with MoE and dense model variants
+- Expert and tensor parallelism support
+- Designed for multi-host deployment (235B parameters)
+- INT8 quantization
 
-#### **Additional Models**
-- ✅ Llama 4 implementation
-- ✅ Kimi K2 implementation
-- ✅ OpenAI GPT OSS implementation
+#### **Kimi K2 Implementation**
+- Pure JAX implementation with Multi-head Latent Attention (MLA)
+- 1T parameter MoE architecture
+- Expert and tensor parallelism via `shard_map`
+- INT8 quantization
+
+#### **GPT OSS Implementation**
+- Pure JAX implementation with Mixture of Experts
+- Sliding window attention (configurable per layer)
+- Custom gated activation with dynamic scaling
+- Expert and tensor parallelism
+
+#### **Nemotron 3 Implementation**
+- Hybrid Mamba-Transformer architecture with SSM (State Space Model) layers
+- Mixed layer types: Mamba, Attention, MoE, and MLP
+- Mamba cache with SSM state and convolution states
+- Expert and tensor parallelism
 
 ### Current Limitations
 
@@ -103,7 +119,7 @@ The upstream project has noted limitations:
 
 Oumi has integrated these JAX LLM Examples into our inference pipeline by:
 
-1. **Vendoring implementations**: All 7 model families synced from upstream jax-llm-examples
+1. **Vendoring implementations**: All model families synced from upstream jax-llm-examples
 2. **Unified interface**: Integrated through `JAXInferenceEngine` following Oumi's `BaseInferenceEngine` contract
 3. **Proper prefill/decode loops**: Each model uses its upstream-verified inference pattern
 4. **Test coverage**: Unit and integration test suites
@@ -204,79 +220,107 @@ Simple INT8 quantization is implemented across all models for:
 - Maintained inference speed
 - Minimal quality degradation
 
-## Performance Expectations
+## Relationship to Upstream
 
-Based on upstream JAX LLM Examples benchmarks:
+The model code under each architecture directory (e.g., `llama3/llama3_jax/model.py`)
+is **vendored directly from upstream** [jax-llm-examples](https://github.com/jax-ml/jax-llm-examples)
+with formatting changes (Black style, import ordering). These files retain the
+original `Copyright 2025 The JAX Authors` license header.
 
-### Verified Performance (TPU)
-- **Llama 3.1 70B**: 159 tokens/second (TPU v5e-16, batch size 8, 2048 context)
-- **DeepSeek R1**: 75.9 tokens/second (TPU v5e-64, context length 512)
+Oumi-authored integration code (inference engine, registry, manager, CLI, tests) uses
+the `Copyright 2025 - Oumi` header and follows Oumi's code standards.
 
-### Current Status
-- **TPU**: Optimized and tested
-- **GPU**: Support in development upstream
-- **CPU**: Available for testing and development
+### What We Utilize from Upstream
 
-*Note: Performance will vary based on model size, hardware configuration, and sequence length.*
+- All 7 model implementations (identical to upstream)
+- Checkpoint conversion utilities and download scripts
+- INT8 quantization support
+- Custom TPU kernels (ragged attention, ragged dot)
+- Model-specific optimizations (MLA, MoE, GQA, etc.)
 
-## Development and Testing
+### What We Intentionally Defer
 
-### Local Testing
+- **Serving infrastructure** (`serving/` directory): Continuous batching, KV cache
+  management, prefix caching, HTTP server. Oumi has its own serving patterns.
+- **TPU toolkit** (`misc/tpu_toolkit.sh`): Operational tooling for cluster setup.
+- **Multi-host distributed serving**: Requires infrastructure-level changes.
 
-Test the integration on your local machine:
+## Scripts
+
+### Verify All Models (No Download Needed)
 
 ```bash
-# Test basic functionality (CPU)
-python test_jax_local.py
+# Verify all 7 model architectures work with random weights:
+python scripts/examples/jax_verify_models.py
 
-# Interactive chat interface
-python chat_with_jax.py
+# Verify a specific model:
+python scripts/examples/jax_verify_models.py --model llama3
 
-# Integration tests
-python test_oumi_jax_engine.py
+# Verbose output:
+python scripts/examples/jax_verify_models.py --verbose
 ```
+
+### End-to-End Demo (Download + Convert + Infer)
+
+```bash
+# Quick demo with smallest public model (Qwen3 0.6B):
+python scripts/examples/jax_models_demo.py --quick
+
+# Specific model:
+python scripts/examples/jax_models_demo.py --model qwen3-0.6b
+
+# List available models:
+python scripts/examples/jax_models_demo.py --list
+```
+
+### CLI Interface
+
+```bash
+# List models:
+python -m oumi.models.experimental.jax_models list
+
+# Recommend a model:
+python -m oumi.models.experimental.jax_models recommend --max-size-gb 5
+
+# Download, convert, and run:
+python -m oumi.models.experimental.jax_models run qwen3-0.6b
+```
+
+## Development and Testing
 
 ### Test Suite
 
 ```bash
-# Run JAX-specific tests
-pytest tests/integration/jax_models/ -v -m "cpu"
+# Run JAX unit tests
+pytest tests/unit/inference/test_jax_inference_engine.py -v
 
-# GPU tests (requires CUDA)
-pytest tests/integration/jax_models/ -v -m "single_gpu"
+# Run integration tests (all models)
+XLA_FLAGS="--xla_force_host_platform_device_count=4" \
+pytest tests/integration/jax_models/ -v
+
+# Run model-level tests
+XLA_FLAGS="--xla_force_host_platform_device_count=4" \
+pytest src/oumi/models/experimental/jax_models/*/tests/ -v
+
+# Run only JAX tests across the codebase
+pytest -m jax -v
 ```
 
-## Future Development
+## Known Limitations
 
-### Upstream Roadmap (JAX LLM Examples)
-
-Based on the upstream repository, planned improvements include:
-
-- **Enhanced GPU support**: Full optimization for NVIDIA hardware
-- **Additional kernels**: Ragged decode MLA kernel for DeepSeek
-- **Prefill optimizations**: Improved throughput for initial token processing
-- **Model distillation**: Support for smaller, faster variants
-
-### Oumi Integration Roadmap
-
-- **Training support**: Extend beyond inference to training workflows
-- **Advanced quantization**: 4-bit and mixed precision
-- **Streaming APIs**: Real-time inference capabilities
-- **Production hardening**: Enhanced error handling and monitoring
+- **Inference only**: No training support
+- **No batching**: Conversations are processed one at a time (no batch parallelism)
+- **Limited generation parameters**: fewer params supported vs other engines
+- **No serving**: No continuous batching, prefix caching, or HTTP serving layer
+- **No streaming**: Responses are generated fully before returning
 
 ## Learn More
 
-### Essential Resources
+### Resources
 
 - **[JAX Documentation](https://jax.readthedocs.io/)** - Official JAX documentation
 - **[JAX LLM Examples](https://github.com/jax-ml/jax-llm-examples)** - Source repository for our implementations
 - **[JAX Scaling Book](https://jax-ml.github.io/scaling-book/)** - Comprehensive guide to scaling with JAX
-
-### Research Papers
-
-- [JAX: Composable transformations of Python+NumPy programs](https://arxiv.org/abs/1912.03559)
-- [DeepSeek-V2: A Strong, Economical, and Efficient Mixture-of-Experts Language Model](https://arxiv.org/abs/2405.04434)
-- [Llama 2: Open Foundation and Fine-tuned Chat Models](https://arxiv.org/abs/2307.09288)
 
 ## Contributing
 
@@ -284,17 +328,11 @@ We welcome contributions to improve the JAX integration! Please see our [Contrib
 
 When contributing:
 
-1. Test changes on available hardware (CPU required, GPU/TPU optional)
+1. Test changes on available hardware
 2. Follow existing patterns from other Oumi inference engines
 3. Add appropriate test coverage
 4. Update documentation for new features
 
-## Support
-
-- **Issues**: [GitHub Issues](https://github.com/oumi-ai/oumi/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/oumi-ai/oumi/discussions)
-- **JAX Community**: [JAX GitHub](https://github.com/google/jax)
-
 ---
 
-*This integration is based on the open-source [JAX LLM Examples](https://github.com/jax-ml/jax-llm-examples) project. All performance claims and technical details are derived from the upstream repository's documentation and should be verified independently for your specific use case.*
+*This integration is based on the open-source [JAX LLM Examples](https://github.com/jax-ml/jax-llm-examples) project. All technical details and performance claims are derived from the upstream repository's documentation and should be verified independently for your specific use case.*

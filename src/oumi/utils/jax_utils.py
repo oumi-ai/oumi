@@ -116,7 +116,7 @@ def memory_usage_mb() -> float:
             stats = devices[0].memory_stats()
             if stats and "bytes_in_use" in stats:
                 return stats["bytes_in_use"] / (1024 * 1024)
-    except Exception:
-        pass
+    except (AttributeError, RuntimeError) as e:
+        logger.debug(f"Could not read device memory stats: {e}")
 
     return 0.0

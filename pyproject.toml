@@ -152,8 +152,8 @@ nebius = ["skypilot[nebius]"]
 
 # JAX dependencies for high-performance inference
 jax = [
-    "jax>=0.7.0,<0.10.0",            # JAX with CPU and GPU support (requires Python 3.11+)
-    "jaxlib>=0.7.0,<0.10.0",         # JAX backend library (requires Python 3.11+)
+    "jax>=0.7.0,<0.9.0",             # JAX with CPU and GPU support; <0.9.0 due to shard_map breaking change
+    "jaxlib>=0.7.0,<0.9.0",          # JAX backend library; pinned to match jax
     "flatbuffers",                    # Required by JAX export/serialization
     "orbax-checkpoint>=0.4.0",        # Checkpoint utilities
     "tpu-info",                       # TPU information utilities

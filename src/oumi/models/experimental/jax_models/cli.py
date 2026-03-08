@@ -19,6 +19,7 @@ Following jax-llm-examples patterns for download, convert, and run inference.
 """
 
 import argparse
+import importlib
 import sys
 from pathlib import Path
 
@@ -31,17 +32,21 @@ from oumi.models.experimental.jax_models.registry import (
 
 
 def cmd_list_models(args):
-    """List all available JAX models."""
+    """Lists all available JAX models with their metadata.
+
+    Args:
+        args: Parsed command-line arguments containing cache_dir.
+    """
     manager = JAXModelManager(args.cache_dir)
     models = manager.list_available_models()
 
-    print("🤖 Available JAX Models:")
+    print("Available JAX Models:")
     print("=" * 60)
     for name, info in models.items():
-        auth_str = "🔒 Auth Required" if info["requires_auth"] else "🔓 Public"
+        auth_str = "[Auth Required]" if info["requires_auth"] else "[Public]"
         size_str = f"{info['size_gb']:.1f}GB" if info["size_gb"] else "Unknown size"
 
-        print(f"\n📦 {name}")
+        print(f"\n  {name}")
         print(f"   Model ID: {info['model_id']}")
         print(f"   Architecture: {info['architecture']}")
         print(f"   Size: {size_str}")
@@ -53,12 +58,17 @@ def cmd_list_models(args):
 
 
 def cmd_recommend(args):
-    """Recommend a model based on constraints."""
+    """Recommends a model based on size and auth constraints.
+
+    Args:
+        args: Parsed command-line arguments containing max_size_gb
+            and requires_no_auth.
+    """
     model_key = get_recommended_model(args.max_size_gb, args.requires_no_auth)
 
     if model_key:
         model_info = get_model_info(model_key)
-        print(f"✨ Recommended Model: {model_info.model_id}")
+        print(f"Recommended Model: {model_info.model_id}")
         print(f"   Key: {model_key}")
         print(f"   Architecture: {model_info.architecture}")
         print(f"   Size: {model_info.size_gb}GB")
@@ -70,46 +80,64 @@ def cmd_recommend(args):
         # Find model name for CLI commands
         for name, info in get_supported_models().items():
             if info.model_id == model_info.model_id:
-                print("\n🚀 To use this model:")
+                print("\nTo use this model:")
                 print(
                     f"   python -m oumi.models.experimental.jax_models.cli run {name}"
                 )
                 break
     else:
-        print("❌ No models match the specified constraints")
+        print("Error: No models match the specified constraints")
 
 
 def cmd_download(args):
-    """Download a model from HuggingFace."""
+    """Downloads a model from HuggingFace Hub.
+
+    Args:
+        args: Parsed command-line arguments containing model_name,
+            cache_dir, and force flag.
+    """
     manager = JAXModelManager(args.cache_dir)
 
     try:
         model_dir = manager.download_model(args.model_name, args.force)
-        print(f"✅ Download successful: {model_dir}")
+        print(f"Download successful: {model_dir}")
     except Exception as e:
-        print(f"❌ Download failed: {e}")
+        print(f"Error: Download failed: {e}")
         sys.exit(1)
 
 
 def cmd_convert(args):
-    """Convert a downloaded model to JAX format."""
+    """Converts a downloaded HuggingFace model to JAX format.
+
+    Args:
+        args: Parsed command-line arguments containing model_name,
+            cache_dir, and force flag.
+    """
     manager = JAXModelManager(args.cache_dir)
 
     try:
         jax_dir = manager.convert_model(args.model_name, args.force)
-        print(f"✅ Conversion successful: {jax_dir}")
+        print(f"Conversion successful: {jax_dir}")
     except Exception as e:
-        print(f"❌ Conversion failed: {e}")
+        print(f"Error: Conversion failed: {e}")
         sys.exit(1)
 
 
 def cmd_run(args):
-    """Run inference with a JAX model."""
+    """Runs inference with a JAX model.
+
+    Loads a model (auto-downloading and converting if needed), encodes
+    prompts, runs prefill/decode generation, and displays results.
+
+    Args:
+        args: Parsed command-line arguments containing model_name,
+            prompt, max_new_tokens, auto_download, and auto_convert.
+    """
     manager = JAXModelManager(args.cache_dir)
 
     try:
         # Load model
-        print(f"⏳ Loading {args.model_name}...")
+        print(f"Loading {args.model_name}...")
         weights, config, tokenizer = manager.load_model(
             args.model_name,
             auto_download=args.auto_download,
@@ -117,8 +145,6 @@ def cmd_run(args):
         )
 
         # Import JAX for inference
-        import importlib
-
         import numpy as np
         from jax import numpy as jnp
         from jax import random
@@ -172,12 +198,12 @@ def cmd_run(args):
             inputs = [(max_len - len(x)) * [pad_id] + x for x in inputs]
             return np.array(inputs)
 
-        print(f"💭 Prompts: {prompts}")
+        print(f"Prompts: {prompts}")
         input_tokens = encode_input(prompts)
-        print(f"✅ Encoded input: {input_tokens.shape}")
+        print(f"Encoded input: {input_tokens.shape}")
 
         # Run inference
-        print("🚀 Running JAX inference...")
+        print("Running JAX inference...")
         with set_mesh(config.mesh):
             # Initialize cache
             zero_cache = model_module.KVCache.init(
@@ -201,22 +227,22 @@ def cmd_run(args):
                 )
 
                 if step % 8 == 0:  # Progress indicator
-                    print(f"🔄 Generated {step + 1}/{args.max_new_tokens} tokens...")
+                    print(f"  Generated {step + 1}/{args.max_new_tokens} tokens...")
 
             # Concatenate all generated tokens
             generated_tokens = np.array(jnp.concatenate(tokens_list, axis=-1))
 
         # Decode and display responses
-        print("\n🎉 Generated Responses:")
+        print("\nGenerated Responses:")
         print("=" * 60)
         for i, (prompt, tokens) in enumerate(zip(prompts, generated_tokens)):
             response = tokenizer.decode(tokens)
-            print(f"\n💬 Prompt {i + 1}: {prompt}")
-            print(f"🤖 Response: {response}")
+            print(f"\nPrompt {i + 1}: {prompt}")
+            print(f"Response: {response}")
             print("-" * 40)
 
     except Exception as e:
-        print(f"❌ Inference failed: {e}")
+        print(f"Error: Inference failed: {e}")
         import traceback
 
         traceback.print_exc()

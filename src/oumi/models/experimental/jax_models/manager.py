@@ -94,7 +94,10 @@ class JAXModelManager:
         # Create model directory
         model_dir = self.cache_dir / model_name / "hf_original"
 
-        if model_dir.exists() and not force_download:
+        has_weights = model_dir.exists() and any(
+            model_dir.glob("*.safetensors")
+        )
+        if has_weights and not force_download:
             logger.info(f"Model already downloaded: {model_dir}")
             return model_dir
 
@@ -108,9 +111,6 @@ class JAXModelManager:
 
         try:
             from huggingface_hub import snapshot_download
-
-            # Set up environment for faster downloads
-            os.environ.setdefault("HF_HUB_ENABLE_HF_TRANSFER", "1")
 
             model_dir.parent.mkdir(parents=True, exist_ok=True)
 
@@ -168,9 +168,17 @@ class JAXModelManager:
             logger.info(f"JAX model already converted: {jax_model_dir}")
             return jax_model_dir
 
-        # Clean up if force converting
-        if force_convert and jax_model_dir.exists():
-            logger.info("Cleaning up existing JAX model for force conversion...")
+        # Clean up existing directory if force converting or if previous
+        # conversion was incomplete (orbax expects the directory not to exist)
+        if jax_model_dir.exists() and (
+            force_convert or not (jax_model_dir / "config.json").exists()
+        ):
+            if force_convert:
+                logger.info("Cleaning up existing JAX model for force conversion...")
+            else:
+                logger.info(
+                    "Cleaning up incomplete JAX conversion from previous attempt..."
+                )
             import shutil
 
             shutil.rmtree(jax_model_dir)
@@ -205,15 +213,16 @@ class JAXModelManager:
                     f"No config conversion function found in {model_module}"
                 )
 
-            # Create mesh for conversion
+            # Create mesh following upstream pattern: (1, devices, 1) on y axis
             import jax
             from jax.sharding import AxisType
 
+            use_auto = model_info.architecture in ("deepseek_r1", "kimi_k2")
+            axis_type = AxisType.Auto if use_auto else AxisType.Explicit
             mesh = jax.make_mesh(
-                (1, 1, jax.device_count()),
+                (1, jax.device_count(), 1),
                 ("x", "y", "z"),
-                devices=jax.devices(),
-                axis_types=(AxisType.Explicit,) * 3,
+                axis_types=(axis_type,) * 3,
             )
             jax_config = dataclasses.replace(jax_config, mesh=mesh)
 
@@ -299,7 +308,9 @@ class JAXModelManager:
                 raise RuntimeError(f"No conversion function found in {utils_module}")
 
             # Save converted weights (for convert_model_or_layer path)
-            jax_model_dir.mkdir(parents=True, exist_ok=True)
+            # Note: save_pytree uses orbax which creates the directory itself.
+            # We only ensure the parent directory exists.
+            jax_model_dir.parent.mkdir(parents=True, exist_ok=True)
             model_module.save_pytree(converted_weights, jax_model_dir)
 
             # Copy tokenizer and config files
@@ -375,15 +386,16 @@ class JAXModelManager:
             else:
                 raise RuntimeError("No config conversion function found")
 
-            # Create mesh
+            # Create mesh following upstream pattern: (1, devices, 1) on y axis
             import jax
             from jax.sharding import AxisType
 
+            use_auto = model_info.architecture in ("deepseek_r1", "kimi_k2")
+            axis_type = AxisType.Auto if use_auto else AxisType.Explicit
             mesh = jax.make_mesh(
-                (1, 1, jax.device_count()),
+                (1, jax.device_count(), 1),
                 ("x", "y", "z"),
-                devices=jax.devices(),
-                axis_types=(AxisType.Explicit,) * 3,
+                axis_types=(axis_type,) * 3,
             )
             # Set up config with mesh and disable quantization
             try:
@@ -412,8 +424,11 @@ class JAXModelManager:
                     jax_model_dir, model_module.Weights.shardings(config)
                 )
                 logger.info("Loaded weights with proper sharding")
-            except Exception:
-                logger.warning("Sharding load failed, trying structure conversion...")
+            except (TypeError, ValueError) as e:
+                logger.warning(
+                    f"Sharding load failed ({e}),"
+                    " trying structure conversion..."
+                )
                 raw_weights = model_module.load_pytree(jax_model_dir, None)
 
                 # Convert to structured format

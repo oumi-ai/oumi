@@ -51,7 +51,8 @@ def setup_tensor_parallelism(num_devices: int) -> Any | None:
 
     import numpy as np
 
-    assert Mesh is not None
+    if Mesh is None:
+        raise RuntimeError("JAX Mesh not available. Reinstall JAX.")
     devices = jax.devices()[:num_devices]
     try:
         mesh = jax.make_mesh((num_devices, 1, 1), ("x", "y", "z"))

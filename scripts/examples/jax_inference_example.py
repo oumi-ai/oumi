@@ -21,25 +21,25 @@ Requirements:
     - For Llama models, authenticate: ``huggingface-cli login``
     - TPU or GPU hardware (CPU works for testing but is slow)
 
-Supported models:
-    - Llama 3.1 (8B, 70B, 405B)
-    - Llama 4 (Scout, Maverick)
-    - DeepSeek R1 (native and distilled)
-    - Qwen 3 (0.6B to 235B, dense and MoE)
-    - Kimi K2
-    - GPT-OSS (20B, 120B)
-    - Nemotron 3 Nano
-
 Usage:
+    # Default (Llama 3.1 8B):
     python scripts/examples/jax_inference_example.py
 
-    Or via YAML config:
+    # Custom model:
+    python scripts/examples/jax_inference_example.py --model Qwen/Qwen3-0.6B
+
+    # Custom prompt:
+    python scripts/examples/jax_inference_example.py --prompt "What is JAX?"
+
+    # Or via YAML config:
     oumi infer -i -c configs/examples/jax_inference/llama3_basic.yaml
 
 See Also:
     - JAX LLM Examples: https://github.com/jax-ml/jax-llm-examples
     - Oumi inference docs: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
 """
+
+import argparse
 
 from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.configs import (
@@ -51,10 +51,26 @@ from oumi.core.types.conversation import Conversation, Message, Role
 
 
 def main():
-    """Run JAX inference with a Llama model."""
+    """Run JAX inference with a specified model."""
+    parser = argparse.ArgumentParser(description="JAX inference example with Oumi")
+    parser.add_argument(
+        "--model",
+        default="meta-llama/Llama-3.1-8B-Instruct",
+        help="HuggingFace model ID or local checkpoint path",
+    )
+    parser.add_argument(
+        "--prompt",
+        default="Explain tensor parallelism in one paragraph.",
+        help="Prompt to generate a response for",
+    )
+    parser.add_argument(
+        "--max-new-tokens", type=int, default=512, help="Max tokens to generate"
+    )
+    args = parser.parse_args()
+
     # Configure model and generation parameters.
     model_params = ModelParams(
-        model_name="meta-llama/Llama-3.1-8B-Instruct",
+        model_name=args.model,
         model_max_length=4096,
         torch_dtype_str="bfloat16",
         load_pretrained_weights=True,
@@ -62,7 +78,7 @@ def main():
     )
 
     generation_params = GenerationParams(
-        max_new_tokens=512,
+        max_new_tokens=args.max_new_tokens,
         temperature=0.7,
         top_p=0.9,
     )
@@ -74,14 +90,7 @@ def main():
     )
 
     # Create a conversation and run inference.
-    conversation = Conversation(
-        messages=[
-            Message(
-                role=Role.USER,
-                content="Explain tensor parallelism in one paragraph.",
-            )
-        ]
-    )
+    conversation = Conversation(messages=[Message(role=Role.USER, content=args.prompt)])
 
     results = engine.infer(
         input=[conversation],

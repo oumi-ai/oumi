@@ -64,5 +64,3 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     main(args.source_path, args.dest_path)
-
-    main(args)
