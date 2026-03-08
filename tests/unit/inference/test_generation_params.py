@@ -75,6 +75,9 @@ def _should_skip_engine(engine_class) -> bool:
 def _mock_engine(engine_class):
     """Mock the engine to avoid loading non-existent models."""
 
+    import torch
+    from transformers import BatchEncoding
+
     mock_tokenizer = mock.MagicMock()
     mock_tokenizer.pad_token_id = 0
     mock_tokenizer.eos_token_id = 0
@@ -85,8 +88,22 @@ def _mock_engine(engine_class):
     mock_tokenizer.apply_chat_template.return_value = (
         "<|startoftext|>I'm fine, how are you? <|endoftext|>"
     )
+
+    # Create a proper BatchEncoding for the tokenizer to return
+    # This simulates the tokenized prompt with 5 tokens
+    mock_input_ids = torch.tensor([[1, 2, 3, 4, 5]])
+    mock_batch_encoding = BatchEncoding(
+        {"input_ids": mock_input_ids, "attention_mask": torch.ones_like(mock_input_ids)}
+    )
+    mock_tokenizer.return_value = mock_batch_encoding
+
     mock_model = mock.MagicMock()
-    mock_model.generate = mock.MagicMock()  # Add generate attribute
+
+    # Create a mock tensor that behaves like model.generate() output
+    # Needs .data attribute with proper length and iterable sequences
+    # Simulated output: prompt (5 tokens) + generated (10 tokens) = 15 tokens total
+    mock_output_tensor = torch.tensor([[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]])
+    mock_model.generate = mock.MagicMock(return_value=mock_output_tensor)
 
     if engine_class == VLLMInferenceEngine:
         mock_llm = mock.MagicMock()

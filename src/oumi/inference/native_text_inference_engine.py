@@ -357,16 +357,33 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                 clean_up_tokenization_spaces=True,
                 skip_special_tokens=generation_params.skip_special_tokens,
             )
-            generated_lengths = [len(seq) for seq in output_batch.data]
-            for conversation, response, gen_length in zip(
-                batched_input[batch_index], output_batch_decoded, generated_lengths
+
+            # Calculate the number of newly generated tokens (excluding prompt).
+            # This is needed for correct finish_reason determination regardless
+            # of the exclude_prompt_from_response setting.
+            prompt_lengths = [
+                len(input_batches[batch_index]["input_ids"][i])  # type: ignore
+                for i in range(len(output_batch.data))
+            ]
+            if generation_params.exclude_prompt_from_response:
+                # Prompt already stripped, output_batch.data contains only new tokens
+                generated_token_counts = [len(seq) for seq in output_batch.data]
+            else:
+                # Prompt included, subtract prompt length to get new token count
+                generated_token_counts = [
+                    len(seq) - prompt_len
+                    for seq, prompt_len in zip(output_batch.data, prompt_lengths)
+                ]
+
+            for conversation, response, gen_token_count in zip(
+                batched_input[batch_index], output_batch_decoded, generated_token_counts
             ):
                 messages = [
                     *conversation.messages,
                     Message(role=Role.ASSISTANT, content=response),
                 ]
                 metadata = dict(conversation.metadata)
-                if gen_length >= generation_params.max_new_tokens:
+                if gen_token_count >= generation_params.max_new_tokens:
                     metadata["finish_reason"] = FinishReason.LENGTH.value
                 else:
                     metadata["finish_reason"] = FinishReason.STOP.value

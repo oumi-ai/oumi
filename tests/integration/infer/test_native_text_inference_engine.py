@@ -399,3 +399,110 @@ def test_unsupported_model_raises_error():
     )
     with pytest.raises(ValueError, match="requires a generation config"):
         NativeTextInferenceEngine(model_params)
+
+
+#
+# finish_reason tests
+#
+def test_finish_reason_length_with_exclude_prompt():
+    """Test that finish_reason is 'length' when max_new_tokens is reached.
+
+    Uses exclude_prompt_from_response=True (default).
+    """
+    engine = NativeTextInferenceEngine(_get_default_text_model_params())
+    conversation = Conversation(
+        messages=[
+            Message(content="Write a very long story about a dragon.", role=Role.USER),
+        ],
+    )
+    # Use a very small max_new_tokens to ensure we hit the length limit
+    inference_config = InferenceConfig(
+        generation=GenerationParams(
+            max_new_tokens=3,
+            use_sampling=False,
+            temperature=0.0,
+            exclude_prompt_from_response=True,
+        )
+    )
+    result = engine.infer([conversation], inference_config)
+
+    assert len(result) == 1
+    assert result[0].metadata.get("finish_reason") == "length"
+
+
+def test_finish_reason_length_without_exclude_prompt():
+    """Test that finish_reason is 'length' when max_new_tokens is reached.
+
+    Uses exclude_prompt_from_response=False to verify the fix for the bug where
+    gen_length incorrectly included prompt tokens.
+    """
+    engine = NativeTextInferenceEngine(_get_default_text_model_params())
+    conversation = Conversation(
+        messages=[
+            Message(content="Write a very long story about a dragon.", role=Role.USER),
+        ],
+    )
+    # Use a very small max_new_tokens to ensure we hit the length limit
+    inference_config = InferenceConfig(
+        generation=GenerationParams(
+            max_new_tokens=3,
+            use_sampling=False,
+            temperature=0.0,
+            exclude_prompt_from_response=False,
+        )
+    )
+    result = engine.infer([conversation], inference_config)
+
+    assert len(result) == 1
+    assert result[0].metadata.get("finish_reason") == "length"
+
+
+def test_finish_reason_is_set():
+    """Test that finish_reason is always set in the output metadata."""
+    engine = NativeTextInferenceEngine(_get_default_text_model_params())
+    conversation = Conversation(
+        messages=[
+            Message(content="Hello world!", role=Role.USER),
+        ],
+    )
+    inference_config = InferenceConfig(
+        generation=GenerationParams(
+            max_new_tokens=5,
+            use_sampling=False,
+            temperature=0.0,
+        )
+    )
+    result = engine.infer([conversation], inference_config)
+
+    assert len(result) == 1
+    # Verify finish_reason is set (either "stop" or "length")
+    finish_reason = result[0].metadata.get("finish_reason")
+    assert finish_reason in ("stop", "length"), (
+        f"Unexpected finish_reason: {finish_reason}"
+    )
+
+
+def test_finish_reason_preserved_with_existing_metadata():
+    """Test that finish_reason is added while preserving existing metadata."""
+    engine = NativeTextInferenceEngine(_get_default_text_model_params())
+    conversation = Conversation(
+        messages=[
+            Message(content="Hello!", role=Role.USER),
+        ],
+        metadata={"custom_key": "custom_value", "another_key": 123},
+    )
+    inference_config = InferenceConfig(
+        generation=GenerationParams(
+            max_new_tokens=3,
+            use_sampling=False,
+            temperature=0.0,
+        )
+    )
+    result = engine.infer([conversation], inference_config)
+
+    assert len(result) == 1
+    # Verify existing metadata is preserved
+    assert result[0].metadata.get("custom_key") == "custom_value"
+    assert result[0].metadata.get("another_key") == 123
+    # Verify finish_reason is added
+    assert result[0].metadata.get("finish_reason") == "length"
