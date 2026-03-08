@@ -75,12 +75,10 @@ CONFIGS_CACHE_SIZE = 1
 DEFAULT_SEARCH_LIMIT = 20
 
 # Config sync settings
-CONFIGS_SYNC_INTERVAL_HOURS = 24
 CONFIGS_SYNC_MARKER = ".last_sync"
 CONFIGS_VERSION_MARKER = ".version"
-GITHUB_CONFIGS_ZIP_URL = "https://github.com/oumi-ai/oumi/archive/refs/heads/main.zip"
-GITHUB_REPO_URL = "https://github.com/oumi-ai/oumi"
-GITHUB_ZIP_PREFIX = "oumi-main/configs/"
+GITHUB_API_URL = "https://api.github.com/repos/oumi-ai/oumi"
+GITHUB_RAW_URL = "https://raw.githubusercontent.com/oumi-ai/oumi"
 
 # The oumi release version that the bundled configs/ directory corresponds to.
 # Update this constant whenever the bundled configs are refreshed from a tag.
