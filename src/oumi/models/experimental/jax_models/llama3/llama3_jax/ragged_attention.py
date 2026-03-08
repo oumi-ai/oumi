@@ -14,16 +14,13 @@
 
 import math
 import time
-from collections.abc import Sequence
 from functools import partial
-from typing import Optional, Union
 
 import jax
 from jax import numpy as jnp
 from jax import random
 from jax.experimental import pallas as pl
 from jax.experimental.pallas import tpu as pltpu
-from jax.experimental.shard_map import shard_map
 from jax.sharding import NamedSharding
 from jax.sharding import PartitionSpec as P
 
@@ -57,13 +54,13 @@ def ragged_decode_kernel_fwd(
     scale: float,
     scale_qk_not_k: bool = True,
     scale_s_not_v: bool = True,
-) -> None:
+):
     del chunked_start_ref, chunked_length_ref
     mask_value = jnp.finfo(o_scratch_ref.dtype).min
     b_, i = pl.program_id(0), pl.program_id(1)
 
     @pl.when(i == 0)
-    def init() -> None:
+    def init():
         m_scratch_ref[...] = jnp.full_like(m_scratch_ref, -jnp.inf)
         l_scratch_ref[...] = jnp.zeros_like(l_scratch_ref)
         o_scratch_ref[...] = jnp.zeros_like(o_scratch_ref)
@@ -75,7 +72,7 @@ def ragged_decode_kernel_fwd(
             return x[..., :new_size_in_dim]
         return pltpu.repeat(x, new_size_in_dim // x.shape[axis], axis=axis % x.ndim)
 
-    def loop_fn(b, _) -> None:
+    def loop_fn(b, _):
         b_global = block_bs * b_ + b
         start, length = start_ref[b_global], length_ref[b_global]
         block_start, block_end = i * block_kv, (i + 1) * block_kv
@@ -84,7 +81,7 @@ def ragged_decode_kernel_fwd(
         )
 
         @pl.when(should_compute)
-        def compute() -> None:
+        def compute():
             # compute qk
             q, k = q_ref[b, ...], k_ref[b, ...]
             if k_scale_ref is not None and not scale_qk_not_k:
@@ -142,7 +139,7 @@ def ragged_decode_kernel_fwd(
     jax.lax.fori_loop(0, block_bs, loop_fn, init_val=None)
 
     @pl.when(i == (kv_seq_len // block_kv) - 1)
-    def done() -> None:
+    def done():
         l = l_scratch_ref[...]
         l_inv = jnp.where(l == 0.0, 1.0, 1.0 / l)
         o_ref[...] = (
@@ -154,14 +151,14 @@ def ragged_decode_fwd(
     q: jax.Array,  # [bs, q_heads, head_dim]
     k: jax.Array,  # [bs, kv_seq_len, head_dim]
     v: jax.Array,  # [bs, kv_seq_len, head_dim]
-    starts: Optional[jax.Array] = None,  # [bs]
-    lengths: Optional[jax.Array] = None,  # [bs]
-    k_scale: Optional[jax.Array] = None,  # [bs, kv_seq_len]
-    v_scale: Optional[jax.Array] = None,  # [bs, kv_seq_len]
-    qk_prev: Optional[jax.Array] = None,  # [bs, q_heads, kv_seq_len]
+    starts: jax.Array | None = None,  # [bs]
+    lengths: jax.Array | None = None,  # [bs]
+    k_scale: jax.Array | None = None,  # [bs, kv_seq_len]
+    v_scale: jax.Array | None = None,  # [bs, kv_seq_len]
+    qk_prev: jax.Array | None = None,  # [bs, q_heads, kv_seq_len]
     block_bs: int = 4,
     block_kv: int = 256,
-    scale: Optional[float] = None,
+    scale: float | None = None,
     scale_qk_not_k: bool = True,
     scale_s_not_v: bool = True,
     interpret: bool = False,
@@ -310,17 +307,17 @@ def ragged_decode_fwd(
 
 
 def ragged_decode_fwd_ref(
-    q: list,  # list]
-    k: list,  # list]
+    q: list[jax.Array],  # list[[bs, q_heads, head_dim]]
+    k: list[jax.Array],  # list[[bs, kv_seq_len, head_dim]]
     v: jax.Array,  # [bs, kv_seq_len, head_dim]
-    starts: Optional[jax.Array] = None,  # [bs]
-    lengths: Optional[jax.Array] = None,  # [bs]
-    k_scale: Optional[list] = None,  # list]
-    v_scale: Optional[jax.Array] = None,  # [bs, kv_seq_len]
-    qk_prev: Optional[jax.Array] = None,  # [bs, q_heads, kv_seq_len]
+    starts: jax.Array | None = None,  # [bs]
+    lengths: jax.Array | None = None,  # [bs]
+    k_scale: list[jax.Array] | None = None,  # list[[bs, kv_seq_len]]
+    v_scale: jax.Array | None = None,  # [bs, kv_seq_len]
+    qk_prev: jax.Array | None = None,  # [bs, q_heads, kv_seq_len]
     block_qheads: int = 16,
     block_kv: int = 256,
-    scale: Optional[float] = None,
+    scale: float | None = None,
 ):
     scale = math.sqrt(q.shape[-1]) if scale is None else scale
     bs, q_heads, _ = q.shape
@@ -347,7 +344,9 @@ def ragged_decode_fwd_ref(
     return jnp.einsum("bqT,bTh->bqh", s, v)
 
 
-def _simple_quantize(x: jax.Array, axis: Union[int, tuple], scale_dtype=jnp.float16):
+def _simple_quantize(
+    x: jax.Array, axis: int | tuple[int, ...], scale_dtype=jnp.float16
+):
     if not isinstance(axis, (list, tuple)):
         axis = (axis,)
     axis = tuple(z % x.ndim for z in axis)
@@ -357,7 +356,7 @@ def _simple_quantize(x: jax.Array, axis: Union[int, tuple], scale_dtype=jnp.floa
     return quant, scale.reshape([z for i, z in enumerate(scale.shape) if i not in axis])
 
 
-def test_main(interpret: bool = False) -> None:
+def test_main(interpret=False):
     bs, q_heads, kv_heads, kv_seq_len, head_dim = 128, 16, 4, 8192, 128
     print((bs, q_heads, kv_heads, kv_seq_len, head_dim))
     dtype = jnp.bfloat16
@@ -369,7 +368,7 @@ def test_main(interpret: bool = False) -> None:
         k,
         v,
         starts,
-        lengths: Sequence[int],
+        lengths,
         qk_prev=None,
         which: str = "pallas",
         block_kv: int = 128,
@@ -393,13 +392,13 @@ def test_main(interpret: bool = False) -> None:
         out_specs = qkv_spec
 
         @partial(
-            shard_map,
+            jax.shard_map,
             mesh=mesh,
             in_specs=in_specs,
             out_specs=out_specs,
-            check_rep=False,
+            check_vma=False,
         )
-        def _fn(q, k, v, starts, lengths: Sequence[int], k_scale, v_scale, qk_prev):
+        def _fn(q, k, v, starts, lengths, k_scale, v_scale, qk_prev):
             in_axes = (1, 1, 1, None, None)
             in_axes += (1 if k_scale is not None else None,)
             in_axes += (1 if v_scale is not None else None,)

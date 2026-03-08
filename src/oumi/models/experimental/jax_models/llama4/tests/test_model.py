@@ -22,13 +22,11 @@ from jax.sharding import AxisType, set_mesh
 from jax.sharding import PartitionSpec as P
 
 try:
-    from jax.sharding import use_mesh
-
-    set_mesh = use_mesh
+    from jax.sharding import use_mesh as set_mesh  # jax < 0.7.0
 except ImportError:
     pass
 
-from oumi.models.experimental.jax_models.llama4.llama4_jax import model as l4jax
+from llama4_jax import model as l4jax
 
 jax.config.update("jax_platforms", "cpu")
 jax.config.update("jax_num_cpu_devices", 4)
@@ -77,7 +75,7 @@ MAVERICK_CFG = l4jax.Config(
 
 
 class TestModel(parameterized.TestCase):
-    def setUp(self) -> None:
+    def setUp(self):
         self.mesh = jax.make_mesh(
             (1, len(jax.devices()), 1),
             P("x", "y", "z"),
@@ -101,7 +99,7 @@ class TestModel(parameterized.TestCase):
         )
 
     @parameterized.product(scout=[True, False], quant=[False, True])
-    def test_model_init(self, scout, quant) -> None:
+    def test_model_init(self, scout, quant):
         cfg = self.small_scout_cfg if scout else self.small_maverick_cfg
         cfg = dataclasses.replace(
             cfg, quant_attn=quant, quant_mlp=quant, quant_moe=quant
@@ -109,8 +107,28 @@ class TestModel(parameterized.TestCase):
         weights = l4jax.Weights.init(random.key(0), cfg)
         del weights
 
+    @parameterized.product(quant=[False, True])
+    def test_init_hashing(self, quant):
+        cfg = dataclasses.replace(self.small_scout_cfg, quant_cache=quant)
+        hash_fn = lambda x: hash(tuple(jax.tree.leaves(x, is_leaf=l4jax.is_param)))
+        with self.subTest("Testing weights abstract and shardings hashing"):
+            abstract = l4jax.Weights.abstract(cfg)
+            abstract2 = l4jax.Weights.abstract(cfg)
+            self.assertEqual(hash_fn(abstract), hash_fn(abstract2))
+            shardings = l4jax.Weights.shardings(cfg)
+            shardings2 = l4jax.Weights.shardings(cfg)
+            self.assertEqual(hash_fn(shardings), hash_fn(shardings2))
+
+        with self.subTest("Testing kv-cache abstract and shardings hashing"):
+            abstract = l4jax.KVCache.abstract(cfg, 2, cfg.max_seq_len)
+            abstract2 = l4jax.KVCache.abstract(cfg, 2, cfg.max_seq_len)
+            self.assertEqual(hash_fn(abstract), hash_fn(abstract2))
+            shardings = l4jax.KVCache.shardings(cfg, 2, cfg.max_seq_len)
+            shardings2 = l4jax.KVCache.shardings(cfg, 2, cfg.max_seq_len)
+            self.assertEqual(hash_fn(shardings), hash_fn(shardings2))
+
     @parameterized.product(scout=[True, False], quant=[False, True])
-    def test_cache_init(self, scout, quant) -> None:
+    def test_cache_init(self, scout, quant):
         cfg = self.small_scout_cfg if scout else self.small_maverick_cfg
         cfg = dataclasses.replace(cfg, quant_cache=quant)
         cache = l4jax.KVCache.init(random.key(0), cfg, 2, cfg.max_seq_len)
@@ -119,7 +137,7 @@ class TestModel(parameterized.TestCase):
     @parameterized.product(
         scout=[True, False], quant_weights=[False, True], quant_cache=[True, False]
     )
-    def test_prefill_decode(self, scout, quant_weights, quant_cache) -> None:
+    def test_prefill_decode(self, scout, quant_weights, quant_cache):
         cfg = self.small_scout_cfg if scout else self.small_maverick_cfg
         cfg = dataclasses.replace(
             cfg,

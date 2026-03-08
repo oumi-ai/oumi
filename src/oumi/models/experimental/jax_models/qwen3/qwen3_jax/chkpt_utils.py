@@ -16,9 +16,9 @@ import dataclasses
 import os
 import re
 import shutil
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Callable, Optional
 
 import jax
 import torch
@@ -193,7 +193,7 @@ _HF_KEY_MAPPING = {
 }
 
 
-def _torch_key_to_jax_key(source_key, custom_key_map: Optional[dict[str, str]] = None):
+def _torch_key_to_jax_key(source_key, custom_key_map: dict[str, str] | None = None):
     key_maps = dict(
         _HF_KEY_MAPPING, **(dict() if custom_key_map is None else custom_key_map)
     )
@@ -211,7 +211,7 @@ def _torch_key_to_jax_key(source_key, custom_key_map: Optional[dict[str, str]] =
 def _map_weight(
     source_key,
     value: torch.Tensor,
-    custom_transform_map: Optional[dict[str, Callable]] = None,
+    custom_transform_map: dict[str, Callable] | None = None,
 ):
     key_maps = dict(
         dict(), **(dict() if custom_transform_map is None else custom_transform_map)
@@ -227,12 +227,12 @@ def convert_model_or_layer(
     layer: q3jax.Weights | q3jax.Layer,
     ref_layer: torch.nn.Module,
     cfg: q3jax.Config,
-    device: Optional[jax.Device] = None,
+    device: jax.Device | None = None,
     sequential: bool = True,
-    custom_key_map: Optional[dict[str, str]] = None,
-    custom_transform_map: Optional[dict[str, Callable]] = None,
+    custom_key_map: dict[str, str] | None = None,
+    custom_transform_map: dict[str, Callable] | None = None,
     allow_unconverted_parameters: bool = False,
-    prefix: Optional[str] = None,
+    prefix: str | None = None,
 ):
     device = device if device is not None else jax.devices("cpu")[0]
     torch_params = dict(
@@ -251,6 +251,14 @@ def convert_model_or_layer(
         for (k, v) in jax.tree.flatten_with_path(layer, is_leaf=is_leaf)[0]
     }
     new_params = {k: None for k in layer_params.keys()}
+
+    # some qwen3 checkpoints store both 'embed_tokens' and 'lm_head' even if the embeddings are tied
+    # in this case, we check that the weights are identical and delete 'lm_head'
+    if cfg.tie_embed and "lm_head.weight" in torch_params:
+        torch.testing.assert_close(
+            torch_params["lm_head.weight"], torch_params["model.embed_tokens.weight"]
+        )
+        del torch_params["lm_head.weight"]
 
     def convert_weight_thread(tkey, tweight):
         with jax.default_device(device):

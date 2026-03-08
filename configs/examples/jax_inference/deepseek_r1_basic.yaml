@@ -12,23 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# JAX inference config for DeepSeek R1 with Multi-Head Latent Attention (MLA).
-# Demonstrates advanced attention mechanisms and MoE routing.
+# JAX inference config for DeepSeek R1 Distill Llama 8B.
+# Uses Llama3 architecture with distilled R1 reasoning capabilities.
 #
-# ⚠️ Experimental: JAX backend is under active development
+# Experimental: JAX backend is under active development.
 #
 # Requirements:
-#   - Install JAX dependencies: `pip install "oumi[jax]"`
-#   - High-memory GPU (32GB+ recommended for full model)
-#   - Request access: https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Llama-8B
+#   - Install JAX dependencies: `pip install oumi[jax]`
 #
 # Usage:
 #   oumi infer -i -c configs/examples/jax_inference/deepseek_r1_basic.yaml
-#
-# Features:
-#   - Multi-Head Latent Attention (MLA) for efficiency
-#   - Mixture of Experts (MoE) routing
-#   - Optimized for reasoning tasks
 
 model:
   model_name: "deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
@@ -41,34 +34,5 @@ generation:
   max_new_tokens: 1024
   temperature: 0.8
   top_p: 0.95
-  do_sample: true
-  # DeepSeek R1 works well with slightly higher temperature for reasoning
 
 engine: JAX
-
-jax_config:
-  # Enable MLA-specific optimizations
-  use_mla_attention: true
-
-  # MoE configuration
-  moe_config:
-    num_experts: 8
-    top_k: 2
-    expert_parallelism: true
-
-  # Attention configuration for MLA
-  attention_config:
-    use_low_rank_projection: true
-    q_lora_rank: 1536
-    kv_lora_rank: 512
-    rope_scaling: "yarn"  # YaRN RoPE for long context
-
-  # Memory optimizations for large model
-  memory_fraction: 0.95
-  enable_gradient_checkpointing: true
-
-  # XLA optimizations
-  enable_xla: true
-
-  # Specialized kernels for reasoning
-  use_reasoning_kernels: true

@@ -44,7 +44,7 @@ def decode_ragged_dot_kernel(
     block_compute: int,
     n: int,
     g: int,
-) -> None:
+):
     pid_g, pid_i = pl.program_id(0), pl.program_id(1)
     (_, k), _, m = x_ref.shape, A_ref.shape[0], A_ref.shape[-1]
     block_n_id = lhs_idx_map_ref[pid_g, pid_i]
@@ -62,7 +62,7 @@ def decode_ragged_dot_kernel(
     is_block_n_new = ((pid_g == 0) & (pid_i == 0)) | (prev_block_n_id != block_n_id)
 
     @pl.when(is_block_n_new)
-    def _() -> None:
+    def _():
         y_ref[...] = jnp.zeros_like(y_ref)
 
     # for i in range(lhs_idx // block_compute, n // block_compute): # blockwise over rows in lhs
@@ -277,7 +277,7 @@ def decode_ragged_dot_ref(
     return jax.lax.ragged_dot(lhs, rhs, group_sizes)
 
 
-def test_profile_speed(interpret) -> None:
+def test_profile_speed(interpret):
     seed = 25
     # n, k, g, m = 32, 128, 64, 256
     # n, k, g, m = 64, 128, 64, 7168
@@ -341,9 +341,7 @@ def test_profile_speed(interpret) -> None:
 ########################################################################################################################
 
 
-def _numeric_test_case(
-    seed: int, interpret, n, k, g, m, block_g, block_n, block_compute
-):
+def _numeric_test_case(seed, interpret, n, k, g, m, block_g, block_n, block_compute):
     keys = iter(random.split(random.key(seed), 1024))
     x = random.normal(next(keys), (n, k), dtype=jnp.bfloat16)
     A = random.normal(next(keys), (g, k, m), dtype=jnp.bfloat16)

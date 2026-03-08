@@ -18,14 +18,14 @@ import dataclasses
 import json
 import math
 import os
-from collections.abc import Sequence
-from functools import partial
-from inspect import signature
+from collections.abc import Callable
+from functools import lru_cache, partial
 from pathlib import Path
-from typing import Any, Callable, Optional, Union
+from typing import Any
 
 import jax
 import jax.numpy as jnp
+from etils import epath
 from jax import random, tree_util
 from jax.experimental.pallas.ops.tpu.splash_attention import (
     splash_attention_kernel as splash,
@@ -33,33 +33,15 @@ from jax.experimental.pallas.ops.tpu.splash_attention import (
 from jax.experimental.pallas.ops.tpu.splash_attention import (
     splash_attention_mask as mask_lib,
 )
-from jax.experimental.shard_map import shard_map
 from jax.sharding import PartitionSpec as P
+from jax.sharding import auto_axes, reshard
 
-try:
-    from jax.sharding import set_mesh
-except ImportError:
-    set_mesh = None
-try:
-    from jax.experimental.shard import auto_axes as _auto_axes
-    from jax.experimental.shard import reshard
-except ModuleNotFoundError:
-    try:
-        from jax.sharding import auto_axes as _auto_axes
-        from jax.sharding import reshard
-    except ImportError:
-        # Fallback for older JAX versions
-        _auto_axes = None
-        reshard = None
-from etils import epath
-
-from . import ragged_attention
 from .decode_ragged_dot import decode_ragged_dot
 
 PAD_ID = 151643
 
-AxisName = Optional[Union[str, tuple]]
-Axes = tuple
+AxisName = str | tuple[str, ...] | None
+Axes = tuple[AxisName, ...]
 
 # Expected physical mesh axis names:
 # x - batch
@@ -119,18 +101,6 @@ class ShardingRules:
     vocab_out: AxisName = TENSOR_AXIS_NAME
 
 
-def auto_axes(x, out_sharding):  # TODO(rdyro): remove once in JAX >= 0.7.0
-    if _auto_axes is None:
-        # Fallback for older JAX versions - just return the function
-        return x
-    argname = (
-        "out_sharding"
-        if "out_sharding" in signature(_auto_axes).parameters
-        else "out_shardings"
-    )
-    return _auto_axes(x, **{argname: out_sharding})
-
-
 def logical_to_physical(
     logical: Axes, rules: ShardingRules
 ) -> jax.sharding.PartitionSpec:
@@ -168,8 +138,7 @@ def jax_pytree_struct(cls, meta_fields: tuple = ()):
 jax_static = lambda cls: tree_util.register_static(dataclasses.dataclass(cls))
 
 
-@dataclasses.dataclass
-@tree_util.register_static
+@jax_static
 class Config:
     embed: int
     q_heads: int
@@ -188,7 +157,9 @@ class Config:
     ep_strategy: str = "decode"
     # MLP
     mlp_ffw_size: int = -1
-    mlp_layer_idxs: list = dataclasses.field(default_factory=list)
+    mlp_layer_idxs: list[int] = dataclasses.field(default_factory=list)
+    # embedding tying
+    tie_embed: bool = False
     # kernel config
     use_prefill_attn_kernel: bool = False
     use_decode_attn_kernel: bool = False
@@ -197,7 +168,7 @@ class Config:
     norm_eps: float = 1e-6
     # sharding
     rules: ShardingRules = dataclasses.field(default_factory=ShardingRules)
-    mesh: Optional[jax.sharding.Mesh] = None
+    mesh: jax.sharding.Mesh | None = None
     rope_theta: float = 500000.0
     quant_moe: bool = False
     quant_mlp: bool = False
@@ -205,23 +176,8 @@ class Config:
     quant_cache: bool = True
     quant_scale_dtype: "jnp.dtype" = jnp.bfloat16
 
-    def __post_init__(self):
-        """Validate configuration parameters."""
-        if self.embed <= 0:
-            raise ValueError(f"embed must be positive, got {self.embed}")
-        if self.q_heads <= 0:
-            raise ValueError(f"q_heads must be positive, got {self.q_heads}")
-        if self.kv_heads <= 0:
-            raise ValueError(f"kv_heads must be positive, got {self.kv_heads}")
-        if self.num_layers <= 0:
-            raise ValueError(f"num_layers must be positive, got {self.num_layers}")
-        if self.head_dim <= 0:
-            raise ValueError(f"head_dim must be positive, got {self.head_dim}")
-        if self.vocab_size <= 0:
-            raise ValueError(f"vocab_size must be positive, got {self.vocab_size}")
 
-
-def hf_to_jax_config(hf_config: Union[Any, dict]) -> "Config":
+def hf_to_jax_config(hf_config: Any | dict[str, Any]) -> "Config":
     _get = lambda x, k, default=None: (
         getattr(x, k, default)
         if not isinstance(hf_config, dict)
@@ -237,6 +193,7 @@ def hf_to_jax_config(hf_config: Union[Any, dict]) -> "Config":
         num_layers=_get(hf_config, "num_hidden_layers"),
         head_dim=_get(hf_config, "head_dim"),
         vocab_size=_get(hf_config, "vocab_size"),
+        tie_embed=_get(hf_config, "tie_word_embeddings"),
         norm_eps=_get(hf_config, "rms_norm_eps"),
         moe_experts_per_tok=_get(hf_config, "num_experts_per_tok"),
         moe_num_experts=_get(hf_config, "num_experts"),
@@ -249,13 +206,13 @@ def hf_to_jax_config(hf_config: Union[Any, dict]) -> "Config":
     )
 
 
-def load_config(config_path: Union[str, os.PathLike, Path]) -> "Config":
+def load_config(config_path: str | os.PathLike[str] | Path) -> "Config":
     return hf_to_jax_config(json.loads(Path(config_path).read_text()))
 
 
 def load_tokenizer(
-    tokenizer_path: Union[str, os.PathLike, Path],
-    tokenizer_config_path: Union[str, os.PathLike, Path],
+    tokenizer_path: str | os.PathLike[str] | Path,
+    tokenizer_config_path: str | os.PathLike[str] | Path,
 ) -> "PreTrainedTokenizerFast":  # noqa: F821
     from transformers import AddedToken, PreTrainedTokenizerFast
 
@@ -274,15 +231,15 @@ def load_tokenizer(
 @partial(jax_pytree_struct, meta_fields=("shape", "logical_axes", "initializer"))
 @dataclasses.dataclass(frozen=True)
 class ArrayInfo:
-    shape: tuple
+    shape: tuple[int, ...]
     dtype: "jnp.dtype"
     logical_axes: tuple
-    initializer: Optional[Callable] = None
+    initializer: Callable | None = None
 
 
 # module reload friendly isinstance check
-is_type = lambda x, cls: (type(x).__name__ == cls.__name__) and (
-    type(x).__module__ == cls.__module__
+is_type = lambda x, cls: (
+    (type(x).__name__ == cls.__name__) and (type(x).__module__ == cls.__module__)
 )
 is_param = lambda x: is_type(x, ArrayInfo)
 _count_left_padding = lambda ids, pad_id=PAD_ID: auto_axes(
@@ -296,6 +253,8 @@ _length_minus_right_padding = lambda segment_ids: auto_axes(
     out_sharding=P(None),
 )(segment_ids)
 which_platform = lambda cfg: cfg.mesh.devices.reshape(-1)[0].platform
+_he_normal = lru_cache(jax.nn.initializers.he_normal)
+_const_init = lru_cache(jax.nn.initializers.constant)
 
 
 @partial(jax.jit, static_argnames=("abstract", "shardings"))
@@ -348,10 +307,10 @@ class _Init:
 
 @partial(jax_pytree_struct, meta_fields=("out_scaling", "scale_expand_dims"))
 class QuantArray:
-    quant: Union[jax.Array, ArrayInfo]
-    scale: Union[jax.Array, ArrayInfo]
+    quant: jax.Array | ArrayInfo
+    scale: jax.Array | ArrayInfo
     out_scaling: bool = False
-    scale_expand_dims: Union[int, tuple] = ()
+    scale_expand_dims: int | tuple[int, ...] = ()
     shape = property(lambda self: self.quant.shape)
     ndim = property(lambda self: self.quant.ndim)
 
@@ -359,8 +318,8 @@ class QuantArray:
 def einsum(
     subscripts: str,
     lhs: jax.Array,
-    rhs: Union[jax.Array, QuantArray],
-    out_sharding: Optional[P] = None,
+    rhs: jax.Array | QuantArray,
+    out_sharding: P | None = None,
 ):
     """jnp.einsum wrapper that handles regular arrays and QuantArrays"""
     if is_type(rhs, QuantArray):
@@ -381,16 +340,14 @@ def einsum(
 _int8_quant_init = lambda key, shape, dtype=jnp.int8: random.randint(
     key, shape, -128, 128, dtype=dtype
 )
-_int8_scale_init = (
-    lambda key, shape, dtype: random.normal(key, shape, dtype=dtype)
-    / math.sqrt(math.prod(shape))
-    / 127
+_int8_scale_init = lambda key, shape, dtype: (
+    random.normal(key, shape, dtype=dtype) / math.sqrt(math.prod(shape)) / 127
 )
 
 
 def quantize(
-    x: Union[jax.Array, ArrayInfo],
-    axis: Union[int, tuple],
+    x: jax.Array | ArrayInfo,
+    axis: int | tuple[int, ...],
     scale_dtype=jnp.bfloat16,
     zero_init: bool = False,
 ):
@@ -426,7 +383,7 @@ def quantize(
 
 
 def update_slice(
-    x: Union[jax.Array, QuantArray],
+    x: jax.Array | QuantArray,
     y: jax.Array,
     pos: int,
     update_axis: int,
@@ -466,43 +423,41 @@ def update_slice(
 
 @jax_pytree_struct
 class AttentionLayer(_Init):
-    q: Union[Union[jax.Array, ArrayInfo], QuantArray]
-    k: Union[Union[jax.Array, ArrayInfo], QuantArray]
-    v: Union[Union[jax.Array, ArrayInfo], QuantArray]
-    o: Union[Union[jax.Array, ArrayInfo], QuantArray]
-    q_gamma: Union[Union[jax.Array, ArrayInfo], QuantArray]
-    k_gamma: Union[Union[jax.Array, ArrayInfo], QuantArray]
+    q: jax.Array | ArrayInfo | QuantArray
+    k: jax.Array | ArrayInfo | QuantArray
+    v: jax.Array | ArrayInfo | QuantArray
+    o: jax.Array | ArrayInfo | QuantArray
+    q_gamma: jax.Array | ArrayInfo | QuantArray
+    k_gamma: jax.Array | ArrayInfo | QuantArray
 
     ########################################################################################################################
     @classmethod
     def abstract(cls, cfg: Config) -> "AttentionLayer":
-        _init = lambda *out_axes: jax.nn.initializers.he_normal(
-            in_axis=0, out_axis=out_axes
-        )
+        _init = _he_normal
         layer = AttentionLayer(
             q=ArrayInfo(
                 (cfg.embed, cfg.q_heads, cfg.head_dim),
                 cfg.dtype,
                 ("qkv_embed", "q_heads", "head_dim"),
-                _init(1, 2),
+                _init(0, (1, 2)),
             ),
             k=ArrayInfo(
                 (cfg.embed, cfg.kv_heads, cfg.head_dim),
                 cfg.dtype,
                 ("qkv_embed", "kv_heads", "head_dim"),
-                _init(1, 2),
+                _init(0, (1, 2)),
             ),
             v=ArrayInfo(
                 (cfg.embed, cfg.kv_heads, cfg.head_dim),
                 cfg.dtype,
                 ("qkv_embed", "kv_heads", "head_dim"),
-                _init(1, 2),
+                _init(0, (1, 2)),
             ),
             o=ArrayInfo(
                 (cfg.q_heads, cfg.head_dim, cfg.embed),
                 cfg.dtype,
                 ("o_heads", "head_dim", "o_embed"),
-                _init(1, 2),
+                _init(0, (1, 2)),
             ),
             q_gamma=ArrayInfo(
                 (cfg.head_dim,), cfg.dtype, ("head_dim",), jax.nn.initializers.ones
@@ -542,34 +497,32 @@ class AttentionLayer(_Init):
 
 @jax_pytree_struct
 class MLPLayer(_Init):
-    w_gate: Union[Union[jax.Array, ArrayInfo], QuantArray]
-    w_up: Union[Union[jax.Array, ArrayInfo], QuantArray]
-    w_down: Union[Union[jax.Array, ArrayInfo], QuantArray]
+    w_gate: jax.Array | ArrayInfo | QuantArray
+    w_up: jax.Array | ArrayInfo | QuantArray
+    w_down: jax.Array | ArrayInfo | QuantArray
 
     ########################################################################################################################
     @classmethod
     def abstract(cls, cfg: Config) -> "MLPLayer":
-        _init = lambda *out_axes: jax.nn.initializers.he_normal(
-            in_axis=0, out_axis=out_axes
-        )
+        _init = _he_normal
         layer = MLPLayer(
             w_gate=ArrayInfo(
                 (cfg.embed, cfg.mlp_ffw_size),
                 cfg.dtype,
                 ("mlp_up_embed", "mlp_up_ffw"),
-                _init(1),
+                _init(0, 1),
             ),
             w_up=ArrayInfo(
                 (cfg.embed, cfg.mlp_ffw_size),
                 cfg.dtype,
                 ("mlp_up_embed", "mlp_up_ffw"),
-                _init(1),
+                _init(0, 1),
             ),
             w_down=ArrayInfo(
                 (cfg.mlp_ffw_size, cfg.embed),
                 cfg.dtype,
                 ("mlp_down_ffw", "mlp_down_embed"),
-                _init(1),
+                _init(0, 1),
             ),
         )
         layer = cls.quantize(layer, cfg)
@@ -595,16 +548,16 @@ class MLPLayer(_Init):
 @jax_pytree_struct
 class MoELayer(_Init):
     # router
-    w_router: Union[Union[jax.Array, ArrayInfo], QuantArray]
+    w_router: jax.Array | ArrayInfo | QuantArray
     # experts
-    we_gate: Union[Union[jax.Array, ArrayInfo], QuantArray]
-    we_up: Union[Union[jax.Array, ArrayInfo], QuantArray]
-    we_down: Union[Union[jax.Array, ArrayInfo], QuantArray]
+    we_gate: jax.Array | ArrayInfo | QuantArray
+    we_up: jax.Array | ArrayInfo | QuantArray
+    we_down: jax.Array | ArrayInfo | QuantArray
 
     @classmethod
     def abstract(cls, cfg: Config):
-        _einit = jax.nn.initializers.he_normal(in_axis=0, out_axis=(1, 2))
-        _sinit = jax.nn.initializers.he_normal(in_axis=0, out_axis=1)
+        _einit = _he_normal(in_axis=0, out_axis=(1, 2))
+        _sinit = _he_normal(in_axis=0, out_axis=1)
         dtype = cfg.dtype
         layer = MoELayer(
             w_router=ArrayInfo(
@@ -654,10 +607,10 @@ class MoELayer(_Init):
 
 @jax_pytree_struct
 class Layer(_Init):
-    ffw: Union[MoELayer, MLPLayer]
+    ffw: MoELayer | MLPLayer
     attn: AttentionLayer
-    attn_pre_gamma: Union[jax.Array, ArrayInfo]
-    attn_post_gamma: Union[jax.Array, ArrayInfo]
+    attn_pre_gamma: jax.Array | ArrayInfo
+    attn_post_gamma: jax.Array | ArrayInfo
 
     ########################################################################################################################
     @classmethod
@@ -667,16 +620,10 @@ class Layer(_Init):
             ffw=MoELayer.abstract(cfg) if is_moe else MLPLayer.abstract(cfg),
             attn=AttentionLayer.abstract(cfg),
             attn_pre_gamma=ArrayInfo(
-                (cfg.embed,),
-                cfg.dtype,
-                ("act_embed",),
-                jax.nn.initializers.constant(1.0),
+                (cfg.embed,), cfg.dtype, ("act_embed",), _const_init(1.0)
             ),
             attn_post_gamma=ArrayInfo(
-                (cfg.embed,),
-                cfg.dtype,
-                ("act_embed",),
-                jax.nn.initializers.constant(1.0),
+                (cfg.embed,), cfg.dtype, ("act_embed",), _const_init(1.0)
             ),
         )
         # layer = cls.quantize(layer, cfg)  # abstract already quantized
@@ -693,32 +640,26 @@ class Layer(_Init):
 
 @jax_pytree_struct
 class Weights(_Init):
-    layers: list
-    embedding: Union[jax.Array, ArrayInfo]
-    gamma_final: Union[jax.Array, ArrayInfo]
-    lm_head: Union[jax.Array, ArrayInfo]
+    layers: list[Layer]
+    embedding: jax.Array | ArrayInfo
+    gamma_final: jax.Array | ArrayInfo
+    lm_head: jax.Array | ArrayInfo | None
 
     @classmethod
     def abstract(cls, cfg: Config):
         layers = [Layer.abstract(cfg, layer_idx) for layer_idx in range(cfg.num_layers)]
-        init = lambda in_axis, out_axis: jax.nn.initializers.he_normal(
-            in_axis=in_axis, out_axis=out_axis
-        )
+        init = _he_normal
         return Weights(
             layers=layers,
             embedding=ArrayInfo(
-                (cfg.vocab_size, cfg.embed),
-                cfg.dtype,
-                ("vocab_in", "vocab_in"),
-                init(0, 1),
+                (cfg.vocab_size, cfg.embed), cfg.dtype, (None, "vocab_in"), init(0, 1)
             ),
             gamma_final=ArrayInfo(
-                (cfg.embed,),
-                cfg.dtype,
-                ("act_embed",),
-                jax.nn.initializers.constant(1.0),
+                (cfg.embed,), cfg.dtype, ("act_embed",), _const_init(1.0)
             ),
-            lm_head=ArrayInfo(
+            lm_head=None
+            if cfg.tie_embed
+            else ArrayInfo(
                 (cfg.embed, cfg.vocab_size),
                 cfg.dtype,
                 ("vocab_in", "vocab_out"),
@@ -729,8 +670,8 @@ class Weights(_Init):
 
 @partial(jax_pytree_struct, meta_fields=["time_axis", "size"])
 class KVCache(_Init):
-    k: list  # (batch_size, key_heads, max_seq_len, head_dim)
-    v: list  # (batch_size, key_heads, max_seq_len, head_dim)
+    k: list[jax.Array]  # (batch_size, key_heads, max_seq_len, head_dim)
+    v: list[jax.Array]  # (batch_size, key_heads, max_seq_len, head_dim)
     iter: jax.Array  # []  # sequences are right-aligned for slice udpate performance
     starts: (
         jax.Array
@@ -749,7 +690,7 @@ class KVCache(_Init):
         cache = KVCache(
             k=[val_info for _ in range(cfg.num_layers)],
             v=[val_info for _ in range(cfg.num_layers)],
-            iter=ArrayInfo((), jnp.int32, (), jax.nn.initializers.constant(-1)),
+            iter=ArrayInfo((), jnp.int32, (), _const_init(-1)),
             starts=ArrayInfo(
                 (batch_size,), jnp.int32, ("batch",), jax.nn.initializers.zeros
             ),
@@ -784,7 +725,7 @@ class KVCache(_Init):
         return jnp.where(self.iter >= 0, (self.iter - self.starts) % self.size, 0)
 
     @property
-    def buffers(self) -> tuple:
+    def buffers(self) -> tuple[jax.Array | QuantArray, ...]:
         return (self.k, self.v)
 
 
@@ -805,7 +746,7 @@ def _generate_pos_embeddings(
     positions: jax.Array,
     features: int,
     cfg: Config,
-) -> tuple:
+) -> tuple[jax.Array, jax.Array]:
     """Generate Sin/Cos for Rotary Embeddings.
 
     Generates sinusoids at (features//2) different timescales, where the
@@ -862,8 +803,12 @@ def make_attention_mask(
     ]  # [B, 1, t, T]
     if causal:
         qk = (1, 1, q_len, k_len)  # [b, h, t, T]
-        q_positions = jax.lax.broadcasted_iota(jnp.int32, qk, 2) + q_offset
-        kv_positions = (jax.lax.broadcasted_iota(jnp.int32, qk, 3) + kv_offset) % k_len
+        q_positions = (
+            jax.lax.broadcasted_iota(jnp.int32, qk, 2) + q_offset[:, None, None, None]
+        )
+        kv_positions = (
+            jax.lax.broadcasted_iota(jnp.int32, qk, 3) + kv_offset[:, None, None, None]
+        ) % k_len
         causal_mask = q_positions >= kv_positions
         return segment_mask & causal_mask
     return segment_mask
@@ -872,8 +817,8 @@ def make_attention_mask(
 @partial(auto_axes, out_sharding=P(BATCH_AXIS_NAME, ATTN_HEADS_AXIS_NAME, None, None))
 def attention(
     q: jax.Array,
-    k: Union[jax.Array, tuple],
-    v: Union[jax.Array, tuple],
+    k: jax.Array | tuple[jax.Array, jax.Array],
+    v: jax.Array | tuple[jax.Array, jax.Array],
     q_segment_ids: jax.Array,
     k_segment_ids: jax.Array,
     q_offset: jax.Array,
@@ -924,17 +869,18 @@ def attention(
 
 
 def attention_kernel(
-    q,
-    k,
-    v,
-    q_segment_ids,
-    kv_segment_ids,
-    q_offset,
-    kv_offset,
-    starts,
-    lengths: Sequence[int],
+    q: jax.Array,
+    k: jax.Array | tuple[jax.Array, jax.Array],
+    v: jax.Array | tuple[jax.Array, jax.Array],
+    q_segment_ids: jax.Array,
+    kv_segment_ids: jax.Array,
+    q_offset: jax.Array,
+    kv_offset: jax.Array,
+    starts: jax.Array,
+    lengths: jax.Array,
+    *,
     cfg: Config,
-):
+) -> jax.Array:
     """Flash attention kernel!"""
     # On TPUv3, pallas seems to only work with float32.
     # q, k, v = jnp.float32(q), jnp.float32(k), jnp.float32(v)
@@ -947,16 +893,12 @@ def attention_kernel(
     scale = q.shape[-1] ** -0.5
 
     l2p = lambda *logical: logical_to_physical(logical, cfg.rules)
-
-    kv_repeats = q.shape[-3] // k.shape[-3]
+    q_shape, kv_repeats = q.shape, q.shape[-3] // k.shape[-3]
+    kv_repeats_spec = tuple(set(*l2p("q_heads")) - set(*l2p("kv_heads")))
+    kv_repeats_spec = kv_repeats_spec if len(kv_repeats_spec) > 0 else (None,)
     q_spec = P(
-        *(
-            l2p("batch", "kv_heads")
-            + tuple(set(*l2p("q_heads")) - set(*l2p("kv_heads")))
-            + l2p("sequence", "head_dim")
-        )
+        *(l2p("batch", "kv_heads") + kv_repeats_spec + l2p("sequence", "head_dim"))
     )
-    q_shape__ = q.shape
     q = jax.lax.reshape(
         q,
         (q.shape[:-3] + (k.shape[-3], kv_repeats, q.shape[-2], q.shape[-1])),
@@ -965,87 +907,104 @@ def attention_kernel(
 
     # shard_map
     in_specs = (
-        q_spec,
-        l2p("batch", "kv_heads", "sequence", "head_dim"),
-        l2p("batch", "kv_heads", "sequence", "head_dim"),
-        l2p("batch", "sequence"),
-        l2p("batch", "sequence"),
-        l2p("batch"),
-        l2p("batch"),
+        q_spec,  # q
+        l2p("batch", "kv_heads", "sequence", "head_dim"),  # k
+        l2p("batch", "kv_heads", "sequence", "head_dim"),  # v
+        l2p("batch", "sequence"),  # q_segment_ids
+        l2p("batch", "sequence"),  # kv_segment_ids
+        l2p("batch"),  # q_offset
+        l2p("batch"),  # kv_offset
     )
-    in_specs += (None if k_scale is None else l2p("batch", "kv_heads", "sequence"),)
-    in_specs += (None if v_scale is None else l2p("batch", "kv_heads", "sequence"),)
-    out_specs = q_spec
+    in_specs += (
+        None if k_scale is None else l2p("batch", "kv_heads", "sequence"),
+    )  # k_scales
+    in_specs += (
+        None if v_scale is None else l2p("batch", "kv_heads", "sequence"),
+    )  # v_scales
 
     @partial(
-        shard_map,
+        jax.shard_map,
         mesh=cfg.mesh,
         in_specs=in_specs,
-        out_specs=out_specs,
-        check_rep=False,
+        out_specs=q_spec,
+        check_vma=False,
     )
     def _f(
-        q,
-        k,
-        v,
-        q_segment_ids,
-        kv_segment_ids,
-        starts,
-        lengths: Sequence[int],
-        k_scale,
-        v_scale,
-    ):
-        q_org_shape = q.shape
+        q, k, v, q_segment_ids, kv_segment_ids, q_offset, kv_offset, k_scale, v_scale
+    ) -> jax.Array:
+        assert which_platform(cfg) == "tpu", (
+            "Currently only TPU supports prefill attention, feel free to send a PR."
+        )
+        q_seq, kv_seq, kv_heads = q.shape[-2], v.shape[-2], v.shape[-3]
+        block_q, block_kv = min(q_seq, 512), min(kv_seq, 1024)
+        block_sizes = splash.BlockSizes(
+            block_q=block_q, block_kv=block_kv, block_kv_compute=block_kv
+        )
 
-        if q.shape[-2] != 1:
-            mask = mask_lib.MultiHeadMask(
-                [
-                    mask_lib.CausalMask((q.shape[-2], k.shape[-2]))
-                    for _ in range(q.shape[-3])
-                ]
-            )
-            block_q, block_kv = min(q.shape[-2], 512), min(k.shape[-2], 1024)
-            block_sizes = splash.BlockSizes(
-                block_q=block_q, block_kv=block_kv, block_kv_compute=block_kv
-            )
+        # for prefill with an empty cache
+        mask = mask_lib.MultiHeadMask(
+            [mask_lib.CausalMask((q_seq, kv_seq)) for _ in range(q.shape[-3])]
+        )
+
+        def attn_static_fn(q, k, v, segment_ids):
             attn_fn = splash.make_splash_mqa_single_device(
                 mask=mask, block_sizes=block_sizes
             )
-            attn_fn = jax.vmap(
-                jax.vmap(attn_fn, in_axes=(0, 0, 0, None)), in_axes=(0, 0, 0, 0)
+            attn_fn = jax.vmap(attn_fn, (0, 0, 0, None))  # map over kv heads for mqa
+            attn_fn = jax.vmap(attn_fn, (0, 0, 0, 0))  # map over batch
+            return attn_fn(q, k, v, segment_ids)
+
+        # when the offsets are different (chunked prefill)
+        def attn_dynamic_fn(
+            q, k, v, segment_ids
+        ):  # when the offsets are different (chunked prefill)
+            q_segment_ids, kv_segment_ids = segment_ids.q, segment_ids.kv
+            mask = make_attention_mask(
+                q_seq,
+                kv_seq,
+                q_segment_ids,
+                kv_segment_ids,
+                q_offset,
+                kv_offset,
+                causal=True,
             )
+            attn_fn = lambda q, k, v, segment_ids, mask: (
+                splash.make_splash_mqa_single_device(
+                    mask=mask, block_sizes=block_sizes
+                )(q, k, v, segment_ids)
+            )
+            attn_fn = jax.vmap(
+                attn_fn, (0, 0, 0, None, None)
+            )  # map over kv heads for mqa
+            attn_fn = jax.vmap(attn_fn, (0, 0, 0, 0, 0))  # map over batch
+            return attn_fn(q, k, v, segment_ids, mask)
 
-            segment_ids = splash.SegmentIds(q=q_segment_ids, kv=kv_segment_ids)
-            if k_scale is not None:
-                k = (k * k_scale[..., None]).astype(jnp.bfloat16)
-            if v_scale is not None:
-                v = (v * v_scale[..., None]).astype(jnp.bfloat16)
-            ret = attn_fn(q * scale, k, v, segment_ids)
-        else:
-            assert q.shape[-2] == 1, "This is a decode kernel, q.shape[-2] must be 1"
-            q = q[..., 0, :]
-            in_axes = (1, 1, 1, None, None)
-            in_axes += ((None if k_scale is None else 1),)
-            in_axes += ((None if v_scale is None else 1),)
-            hyperparams = dict(scale=scale, block_kv=512, block_bs=32)
-            ret = jax.vmap(
-                partial(ragged_attention.ragged_decode_fwd, **hyperparams),
-                in_axes=in_axes,
-                out_axes=1,
-            )(q, k, v, starts, lengths, k_scale, v_scale)
-        return ret.reshape(q_org_shape)
+        segment_ids = splash.SegmentIds(q=q_segment_ids, kv=kv_segment_ids)
+        if k_scale is not None:
+            k = (k * k_scale[..., None]).astype(jnp.bfloat16)
+        if v_scale is not None:
+            v = (v * v_scale[..., None]).astype(jnp.bfloat16)
+        # return attn_dynamic_fn(q, k, v, segment_ids)
+        return jax.lax.cond(
+            jnp.all(q_offset == kv_offset),
+            attn_static_fn,
+            attn_dynamic_fn,
+            q * scale,
+            k,
+            v,
+            segment_ids,
+        )
 
-    lengths = jnp.broadcast_to(lengths, starts.shape)
-    ret = _f(
-        q, k, v, q_segment_ids, kv_segment_ids, starts, lengths, k_scale, v_scale
+    out = _f(
+        q, k, v, q_segment_ids, kv_segment_ids, q_offset, kv_offset, k_scale, v_scale
     ).astype(jnp.bfloat16)
     return jax.lax.reshape(
-        ret, q_shape__, out_sharding=l2p("batch", "q_heads", "sequence", "head_dim")
+        out, q_shape, out_sharding=l2p("batch", "q_heads", "sequence", "head_dim")
     )
 
 
 def rms_norm(
-    x: jax.Array, gamma: Optional[jax.Array], eps: Union[jax.Array, float]
+    x: jax.Array, gamma: jax.Array | None, eps: jax.Array | float
 ) -> jax.Array:
     """Apply RMS normalization."""
     rms = jnp.sqrt(
@@ -1061,8 +1020,8 @@ def attention_block(
     sin: jax.Array,
     cos: jax.Array,
     cfg: Config,
-    cache: Optional[KVCache] = None,
-    idx: Optional[int] = None,
+    cache: KVCache | None = None,
+    idx: int | None = None,
 ):
     assert idx is not None
     l2p = lambda *specs: logical_to_physical(specs, cfg.rules)
@@ -1127,9 +1086,7 @@ def attention_block(
             starts,
             lengths,
         )
-        if (cfg.use_prefill_attn_kernel and q.shape[-2] != 1) or (
-            cfg.use_decode_attn_kernel and q.shape[-2] == 1
-        ):
+        if cfg.use_prefill_attn_kernel and q.shape[-2] != 1:
             attn_out = attention_kernel(*attn_args, cfg=cfg)
         else:
             attn_out = attention(*attn_args, cfg)
@@ -1174,7 +1131,7 @@ def _route_tokens_to_moe_experts(
     return topk_weights, topk_idx
 
 
-def _moe_gmm(lhs, rhs, group_sizes: Sequence[int], topk_idx, cfg: Config):
+def _moe_gmm(lhs, rhs, group_sizes, topk_idx, cfg: Config):
     assert lhs.ndim == 2 and rhs.ndim == 3, f"{lhs.ndim=} != 2 and {rhs.ndim=} != 3"
     group_sizes = group_sizes.astype(jnp.int32)
     if (
@@ -1293,7 +1250,11 @@ def moe_block(x: jax.Array, layer: MoELayer, cfg: Config):
     expert_size = cfg.moe_num_experts // expert_count
 
     @partial(
-        shard_map, mesh=cfg.mesh, in_specs=in_specs, out_specs=out_spec, check_rep=False
+        jax.shard_map,
+        mesh=cfg.mesh,
+        in_specs=in_specs,
+        out_specs=out_spec,
+        check_vma=False,
     )
     def _expert_fn(x, we_gate, we_up, we_down, topk_weights, topk_idx):
         (b, s, d), e = x.shape, cfg.moe_experts_per_tok
@@ -1472,8 +1433,8 @@ def forward_layer(
     cos: jax.Array,
     idx: int,
     cfg: Config,
-    cache: Optional[KVCache] = None,
-) -> tuple:
+    cache: KVCache | None = None,
+) -> tuple[jax.Array, jax.Array, jax.Array]:
     x = x.astype(cfg.dtype)
 
     # Attention block
@@ -1503,7 +1464,7 @@ def forward(
     segment_ids: jax.Array,
     weights: Weights,
     cfg: Config,
-    cache: Optional[KVCache] = None,
+    cache: KVCache | None = None,
 ):
     l2p = lambda *args: logical_to_physical(args, cfg.rules)
     x = weights.embedding.at[x, :].get(
@@ -1526,7 +1487,8 @@ def forward(
         all_cache_updates.append(cache_updates)
 
     x = rms_norm(x, weights.gamma_final, cfg.norm_eps)  # Final layer norm.
-    logits = einsum("btd,dv->btv", x, weights.lm_head)  # Project to vocabulary size
+    head_weights = weights.embedding.T if cfg.tie_embed else weights.lm_head
+    logits = einsum("btd,dv->btv", x, head_weights)  # Project to vocabulary size
     if is_type(cache, KVCache):
         cache.k, cache.v = ([z[i] for z in all_cache_updates] for i in range(2))
         additional_tokens = jnp.max(_length_minus_right_padding(segment_ids))
@@ -1538,7 +1500,7 @@ def forward(
 
 
 # serialization
-def save_pytree(data, path) -> None:
+def save_pytree(data, path):
     import orbax.checkpoint as ocp
 
     with ocp.PyTreeCheckpointer() as ckptr:
@@ -1585,7 +1547,7 @@ def prefill(
     cache: KVCache,
     cfg: Config,
     pad_id: int = PAD_ID,
-) -> tuple:
+) -> tuple[jax.Array, jax.Array, KVCache]:
     """Samples from a prompt."""
     # Calculate the next power of 2 for padding, up to cfg.max_seq.
     assert tokens.shape[-1] <= cfg.max_seq_len
@@ -1623,97 +1585,3 @@ def decode_step(last_tokens: jax.Array, weights: Weights, cache: KVCache, cfg: C
     next_tokens = jnp.argmax(next_logits, -1)
     next_tokens = reshard(next_tokens, P())
     return next_tokens, cache
-
-
-def hf_to_jax_config(qwen_config: Any | dict[str, Any]) -> Config:
-    _get = (
-        lambda x, k, default=None: getattr(x, k, default)
-        if hasattr(x, k)
-        else dict(x).get(k, default)
-    )
-    return Config(
-        embed=_get(qwen_config, "hidden_size"),
-        q_heads=_get(qwen_config, "num_attention_heads"),
-        kv_heads=_get(qwen_config, "num_key_value_heads"),
-        num_layers=_get(qwen_config, "num_hidden_layers"),
-        head_dim=_get(qwen_config, "hidden_size")
-        // _get(qwen_config, "num_attention_heads"),
-        vocab_size=_get(qwen_config, "vocab_size"),
-        max_seq_len=_get(qwen_config, "max_position_embeddings", 32768),
-        causal=True,
-        moe_ffw_size=_get(qwen_config, "moe_intermediate_size", 2816),
-        moe_experts_per_tok=_get(qwen_config, "num_experts_per_tok", 8),
-        moe_num_experts=_get(qwen_config, "num_experts", 64),
-        mlp_ffw_size=_get(qwen_config, "intermediate_size", 18944),
-        mlp_layer_idxs=list(range(_get(qwen_config, "num_hidden_layers"))),
-        use_prefill_attn_kernel=False,
-        use_decode_attn_kernel=False,
-        use_ragged_dot_kernel=False,
-        rope_theta=_get(qwen_config, "rope_theta", 1000000.0),
-    )
-
-
-def load_config(config_path: str | os.PathLike[str] | Path) -> Config:
-    return hf_to_jax_config(json.loads(Path(config_path).read_text()))
-
-
-def load_tokenizer(
-    tokenizer_path: str | os.PathLike[str] | Path,
-    tokenizer_config_path: str | os.PathLike[str] | Path,
-) -> "PreTrainedTokenizerFast":  # noqa: F821
-    from transformers import AddedToken, PreTrainedTokenizerFast
-
-    config = json.loads(Path(tokenizer_config_path).read_text())
-    config = {
-        k: AddedToken(**v) if isinstance(v, dict) and str(k).endswith("token") else v
-        for (k, v) in config.items()
-    }
-    config["added_tokens_decoder"] = {
-        int(k): AddedToken(**v)
-        for (k, v) in config.get("added_tokens_decoder", dict()).items()
-    }
-    return PreTrainedTokenizerFast(tokenizer_file=str(tokenizer_path), **config)
-
-
-# serialization
-def save_pytree(data, path):
-    import orbax.checkpoint as ocp
-    from etils import epath
-
-    with ocp.PyTreeCheckpointer() as ckptr:
-        ckptr.save(
-            epath.Path(path),
-            data,
-            ocp.args.PyTreeSave(data, ocdbt_target_data_file_size=1024 * 1024 * 500),
-        )
-
-
-def load_pytree(path, sharding=None):
-    import orbax.checkpoint as ocp
-    from etils import epath
-
-    item, transforms = sharding, None
-    restore_args = jax.tree.map(lambda s: ocp.ArrayRestoreArgs(sharding=s), sharding)
-    with ocp.PyTreeCheckpointer() as ckptr:
-        return ckptr.restore(
-            epath.Path(path),
-            args=ocp.args.PyTreeRestore(
-                item=item, transforms=transforms, restore_args=restore_args
-            ),
-        )
-
-
-# Inference.
-@partial(jax.jit, static_argnums=(1, 2))
-def prepare_chunk(chunk, pad_to: int, pad_id: int):
-    # [bs, length] -> [bs, padded]
-    if chunk.ndim == 1:
-        chunk = chunk[None, :]
-    chunk = jnp.pad(
-        chunk,
-        [(0, 0), (0, pad_to - chunk.shape[-1])],
-        mode="constant",
-        constant_values=pad_id,
-    )
-    segment_ids = jnp.where(chunk != pad_id, 1, 0).astype(jnp.int32)
-    return chunk, segment_ids

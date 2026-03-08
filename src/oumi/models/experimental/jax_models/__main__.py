@@ -13,11 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Main entry point for JAX Models CLI
-Usage: python -m oumi.models.experimental.jax_models [command] [args]
+"""Main entry point for JAX Models CLI.
+
+Usage: python -m oumi.models.experimental.jax_models [command] [args].
 """
 
-from .cli import main
+from oumi.models.experimental.jax_models.cli import main
 
 if __name__ == "__main__":
     main()

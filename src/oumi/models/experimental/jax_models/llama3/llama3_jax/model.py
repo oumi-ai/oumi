@@ -18,45 +18,30 @@ import dataclasses
 import json
 import math
 import os
-from collections.abc import Sequence
-from functools import partial
-from inspect import signature
+from collections import OrderedDict as odict
+from collections.abc import Callable
+from functools import lru_cache, partial
 from pathlib import Path
-from typing import Any, Callable, Optional, TypeVar, Union
+from typing import Any, TypeVar
 
 import jax
 import jax.numpy as jnp
 from jax import random, tree_util
+from jax.experimental.array_serialization import pytree_serialization as ser
+from jax.experimental.pallas.ops.gpu import paged_attention
 from jax.experimental.pallas.ops.tpu.splash_attention import (
     splash_attention_kernel as splash,
 )
 from jax.experimental.pallas.ops.tpu.splash_attention import (
     splash_attention_mask as mask_lib,
 )
-from jax.experimental.shard_map import shard_map
 from jax.sharding import PartitionSpec as P
-
-try:
-    from jax.sharding import set_mesh
-except ImportError:
-    set_mesh = None
-try:
-    from jax.experimental.shard import auto_axes as _auto_axes
-    from jax.experimental.shard import reshard
-except (ModuleNotFoundError, ImportError):
-    try:
-        from jax.sharding import auto_axes as _auto_axes
-        from jax.sharding import reshard
-    except ImportError:
-        # Fallback for older JAX versions
-        _auto_axes = None
-        reshard = None
-from etils import epath
+from jax.sharding import auto_axes, reshard
 
 from . import ragged_attention
 
-AxisName = Optional[Union[str, tuple]]
-Axes = tuple
+AxisName = str | tuple[str, ...] | None
+Axes = tuple[AxisName, ...]
 
 # Expected physical mesh axis names:
 # x - batch
@@ -104,22 +89,10 @@ class ShardingRules:
     vocab_out: AxisName = TENSOR_AXIS_NAME
 
 
-def auto_axes(x, out_sharding):  # TOOD(rdyro): remove once in JAX >= 0.7.0
-    if _auto_axes is None:
-        # Fallback for older JAX versions - just return the function
-        return x
-    argname = (
-        "out_sharding"
-        if "out_sharding" in signature(_auto_axes).parameters
-        else "out_shardings"
-    )
-    return _auto_axes(x, **{argname: out_sharding})
-
-
 def logical_to_physical(
     logical: Axes, rules: ShardingRules
 ) -> jax.sharding.PartitionSpec:
-    """Returns how to physically shard a given sequence of logical array dimensions (i.e. the logical shape of an array)."""
+    """Translate logical to physically sharding."""
     spec = [getattr(rules, axis) if axis is not None else None for axis in logical]
     # `spec` may contain tuples, flatten to check that `spec` maps each physical mesh axis to at most one logical array
     # axis.
@@ -153,8 +126,7 @@ def jax_pytree_struct(cls, meta_fields: tuple = ()):
 jax_static = lambda cls: tree_util.register_static(dataclasses.dataclass(cls))
 
 
-@dataclasses.dataclass
-@tree_util.register_static
+@jax_static
 class Config:
     embed: int
     ffw_size: int
@@ -170,7 +142,7 @@ class Config:
     dtype: "jnp.dtype" = jnp.bfloat16
     # sharding
     rules: ShardingRules = dataclasses.field(default_factory=ShardingRules)
-    mesh: Optional[jax.sharding.Mesh] = None
+    mesh: jax.sharding.Mesh | None = None
     # Llama 3 specific frequency computation
     rope_theta: float = 500000.0
     rope_scaling_factor: float = 8.0
@@ -182,14 +154,10 @@ class Config:
     quant_scale_dtype: "jnp.dtype" = jnp.float16
 
 
-def llama_to_jax_config(llama_config: Union[Any, dict]) -> "Config":
-    def _get(x, k, default=None):
-        if hasattr(x, k):
-            value = getattr(x, k)
-            return value if value is not None else default
-        else:
-            return dict(x).get(k, default)
-
+def llama_to_jax_config(llama_config: Any | dict[str, Any]) -> "Config":
+    _get = lambda x, k, default=None: (
+        getattr(x, k, default) if hasattr(x, k) else dict(x).get(k, default)
+    )
     return Config(
         embed=_get(llama_config, "hidden_size"),
         ffw_size=_get(llama_config, "intermediate_size"),
@@ -204,22 +172,20 @@ def llama_to_jax_config(llama_config: Union[Any, dict]) -> "Config":
         use_prefill_attn_kernel=False,
         use_decode_attn_kernel=False,
         rope_theta=_get(llama_config, "rope_theta"),
-        rope_scaling_factor=(_get(llama_config, "rope_scaling") or {}).get(
-            "factor", 1.0
-        ),
-        rope_scaling_low_freq_factor=(_get(llama_config, "rope_scaling") or {}).get(
-            "low_freq_factor", 1.0
-        ),
-        rope_scaling_high_freq_factor=(_get(llama_config, "rope_scaling") or {}).get(
-            "high_freq_factor", 1.0
-        ),
-        rope_scaling_original_max_position_embeddings=(
-            _get(llama_config, "rope_scaling") or {}
-        ).get("original_max_position_embeddings", 2048),
+        rope_scaling_factor=_get(llama_config, "rope_scaling")["factor"],
+        rope_scaling_low_freq_factor=_get(llama_config, "rope_scaling")[
+            "low_freq_factor"
+        ],
+        rope_scaling_high_freq_factor=_get(llama_config, "rope_scaling")[
+            "high_freq_factor"
+        ],
+        rope_scaling_original_max_position_embeddings=_get(
+            llama_config, "rope_scaling"
+        )["original_max_position_embeddings"],
     )
 
 
-def load_config(config_path: Union[str, os.PathLike, Path]) -> "Config":
+def load_config(config_path: str | os.PathLike[str] | Path) -> "Config":
     return llama_to_jax_config(json.loads(Path(config_path).read_text()))
 
 
@@ -227,8 +193,8 @@ PreTrainedTokenizerFast = TypeVar("PreTrainedTokenizerFast")
 
 
 def load_tokenizer(
-    tokenizer_path: Union[str, os.PathLike, Path],
-    tokenizer_config_path: Union[str, os.PathLike, Path],
+    tokenizer_path: str | os.PathLike[str] | Path,
+    tokenizer_config_path: str | os.PathLike[str] | Path,
 ) -> PreTrainedTokenizerFast:
     from transformers import AddedToken, PreTrainedTokenizerFast
 
@@ -247,27 +213,30 @@ def load_tokenizer(
 @partial(jax_pytree_struct, meta_fields=("shape", "logical_axes", "initializer"))
 @dataclasses.dataclass(frozen=True)
 class ArrayInfo:
-    shape: tuple
+    shape: tuple[int, ...]
     dtype: "jnp.dtype"
     logical_axes: tuple
-    initializer: Optional[Callable] = None
+    initializer: Callable | None = None
 
 
 # module reload friendly isinstance check
-is_type = lambda x, cls: (type(x).__name__ == cls.__name__) and (
-    type(x).__module__ == cls.__module__
+is_type = lambda x, cls: (
+    (type(x).__name__ == cls.__name__) and (type(x).__module__ == cls.__module__)
 )
 is_param = lambda x: is_type(x, ArrayInfo)
+which_platform = lambda cfg: cfg.mesh.devices.reshape(-1)[0].platform
 _count_left_padding = lambda ids, pad_id=0: auto_axes(
     lambda ids: jnp.sum(jnp.cumsum(ids != pad_id, axis=-1) == 0, axis=-1),
     out_sharding=P(None),
 )(ids)
-_length_minus_padding = lambda segment_ids: auto_axes(
+_length_minus_right_padding = lambda segment_ids: auto_axes(
     lambda segment_ids: jnp.sum(
         jnp.cumsum(jnp.flip(segment_ids != 0, -1), axis=-1) > 0, -1
     ),
     out_sharding=P(None),
 )(segment_ids)
+_he_normal = lru_cache(jax.nn.initializers.he_normal)
+_const_init = lru_cache(jax.nn.initializers.constant)
 
 
 @partial(jax.jit, static_argnames=("abstract", "shardings"))
@@ -320,10 +289,10 @@ class _Init:
 
 @partial(jax_pytree_struct, meta_fields=("out_scaling", "scale_expand_dims"))
 class QuantArray:
-    quant: Union[jax.Array, ArrayInfo]
-    scale: Union[jax.Array, ArrayInfo]
+    quant: jax.Array | ArrayInfo
+    scale: jax.Array | ArrayInfo
     out_scaling: bool = False
-    scale_expand_dims: Union[int, tuple] = ()
+    scale_expand_dims: int | tuple[int, ...] = ()
     shape = property(lambda self: self.quant.shape)
     ndim = property(lambda self: self.quant.ndim)
 
@@ -331,8 +300,8 @@ class QuantArray:
 def einsum(
     subscripts: str,
     lhs: jax.Array,
-    rhs: Union[jax.Array, QuantArray],
-    out_sharding: Optional[P] = None,
+    rhs: jax.Array | QuantArray,
+    out_sharding: P | None = None,
 ):
     """jnp.einsum wrapper that handles regular arrays and QuantArrays"""
     if is_type(rhs, QuantArray):
@@ -353,16 +322,14 @@ def einsum(
 _int8_quant_init = lambda key, shape, dtype=jnp.int8: random.randint(
     key, shape, -128, 128, dtype=dtype
 )
-_int8_scale_init = (
-    lambda key, shape, dtype: random.normal(key, shape, dtype=dtype)
-    / math.sqrt(math.prod(shape))
-    / 127
+_int8_scale_init = lambda key, shape, dtype: (
+    random.normal(key, shape, dtype=dtype) / math.sqrt(math.prod(shape)) / 127
 )
 
 
 def quantize(
-    x: Union[jax.Array, ArrayInfo],
-    axis: Union[int, tuple],
+    x: jax.Array | ArrayInfo,
+    axis: int | tuple[int, ...],
     scale_dtype=jnp.float16,
     zero_init: bool = False,
 ):
@@ -398,8 +365,8 @@ def quantize(
 
 
 def update_slice(
-    x: Union[jax.Array, QuantArray],
-    y: jax.Array,
+    x: jax.Array | QuantArray,
+    y: jax.Array | QuantArray,
     pos: int,
     update_axis: int,
     quant_axis: int = -1,
@@ -411,9 +378,7 @@ def update_slice(
             quant_axis % x.quant.ndim,
             update_axis % x.quant.ndim,
         )  # normalize axis numbers
-        y_quant, y_scale = quantize(
-            y, axis=quant_axis, scale_dtype=x.scale.dtype
-        )  # quantize rhs
+        y_quant, y_scale = y.quant, y.scale
         y_quant = reshard(
             y_quant.astype(x.quant.dtype), jax.typeof(x.quant).sharding.spec
         )
@@ -428,7 +393,7 @@ def update_slice(
         ]
         new_scale = jax.lax.dynamic_update_slice_in_dim(
             x.scale, y_scale, pos, axis=scale_update_axis
-        )  # update axis in `scale`
+        )
         return dataclasses.replace(x, quant=new_quant, scale=new_scale)
     else:
         assert x.ndim == y.ndim
@@ -438,69 +403,67 @@ def update_slice(
 
 @jax_pytree_struct
 class Layer(_Init):
-    q: Union[jax.Array, ArrayInfo, QuantArray]
-    k: Union[jax.Array, ArrayInfo, QuantArray]
-    v: Union[jax.Array, ArrayInfo, QuantArray]
-    o: Union[jax.Array, ArrayInfo, QuantArray]
-    w_gate: Union[jax.Array, ArrayInfo, QuantArray]
-    w_up: Union[jax.Array, ArrayInfo, QuantArray]
-    w_down: Union[jax.Array, ArrayInfo, QuantArray]
-    attn_pre_gamma: Union[jax.Array, ArrayInfo]
-    attn_post_gamma: Union[jax.Array, ArrayInfo]
+    q: jax.Array | ArrayInfo | QuantArray
+    k: jax.Array | ArrayInfo | QuantArray
+    v: jax.Array | ArrayInfo | QuantArray
+    o: jax.Array | ArrayInfo | QuantArray
+    w_gate: jax.Array | ArrayInfo | QuantArray
+    w_up: jax.Array | ArrayInfo | QuantArray
+    w_down: jax.Array | ArrayInfo | QuantArray
+    attn_pre_gamma: jax.Array | ArrayInfo
+    attn_post_gamma: jax.Array | ArrayInfo
 
     @classmethod
     def abstract(cls, cfg: Config) -> "Layer":
-        _init = lambda *out_axes: jax.nn.initializers.he_normal(
-            in_axis=0, out_axis=out_axes
-        )
+        _init = _he_normal
         layer = Layer(
             q=ArrayInfo(
                 (cfg.embed, cfg.q_heads, cfg.head_dim),
                 cfg.dtype,
                 ("qkv_embed", "q_heads", "head_dim"),
-                _init(1, 2),
+                _init(0, (1, 2)),
             ),
             k=ArrayInfo(
                 (cfg.embed, cfg.kv_heads, cfg.head_dim),
                 cfg.dtype,
                 ("qkv_embed", "kv_heads", "head_dim"),
-                _init(1, 2),
+                _init(0, (1, 2)),
             ),
             v=ArrayInfo(
                 (cfg.embed, cfg.kv_heads, cfg.head_dim),
                 cfg.dtype,
                 ("qkv_embed", "kv_heads", "head_dim"),
-                _init(1, 2),
+                _init(0, (1, 2)),
             ),
             o=ArrayInfo(
                 (cfg.q_heads, cfg.head_dim, cfg.embed),
                 cfg.dtype,
                 ("o_heads", "head_dim", "o_embed"),
-                _init(1, 2),
+                _init(0, (1, 2)),
             ),
             w_gate=ArrayInfo(
-                (cfg.embed, cfg.ffw_size), cfg.dtype, ("embed_up", "ffw_up"), _init(1)
+                (cfg.embed, cfg.ffw_size),
+                cfg.dtype,
+                ("embed_up", "ffw_up"),
+                _init(0, 1),
             ),
             w_up=ArrayInfo(
-                (cfg.embed, cfg.ffw_size), cfg.dtype, ("embed_up", "ffw_up"), _init(1)
+                (cfg.embed, cfg.ffw_size),
+                cfg.dtype,
+                ("embed_up", "ffw_up"),
+                _init(0, 1),
             ),
             w_down=ArrayInfo(
                 (cfg.ffw_size, cfg.embed),
                 cfg.dtype,
                 ("ffw_down", "embed_down"),
-                _init(1),
+                _init(0, 1),
             ),
             attn_pre_gamma=ArrayInfo(
-                (cfg.embed,),
-                cfg.dtype,
-                ("act_embed",),
-                jax.nn.initializers.constant(1.0),
+                (cfg.embed,), cfg.dtype, ("act_embed",), jax.nn.initializers.ones
             ),
             attn_post_gamma=ArrayInfo(
-                (cfg.embed,),
-                cfg.dtype,
-                ("act_embed",),
-                jax.nn.initializers.constant(1.0),
+                (cfg.embed,), cfg.dtype, ("act_embed",), jax.nn.initializers.ones
             ),
         )
         layer = cls.quantize(layer, cfg)
@@ -529,30 +492,22 @@ class Layer(_Init):
 
 @jax_pytree_struct
 class Weights(_Init):
-    layers: list
-    embedding: Union[jax.Array, ArrayInfo]
-    gamma_final: Union[jax.Array, ArrayInfo]
-    lm_head: Union[jax.Array, ArrayInfo]
+    layers: list[Layer]
+    embedding: jax.Array | ArrayInfo
+    gamma_final: jax.Array | ArrayInfo
+    lm_head: jax.Array | ArrayInfo
 
     @classmethod
     def abstract(cls, cfg: Config):
         layers = [Layer.abstract(cfg) for _ in range(cfg.num_layers)]
-        init = lambda in_axis, out_axis: jax.nn.initializers.he_normal(
-            in_axis=in_axis, out_axis=out_axis
-        )
+        init = _he_normal
         return Weights(
             layers=layers,
             embedding=ArrayInfo(
-                (cfg.vocab_size, cfg.embed),
-                cfg.dtype,
-                ("vocab_in", "vocab_in"),
-                init(0, 1),
+                (cfg.vocab_size, cfg.embed), cfg.dtype, (None, "vocab_in"), init(0, 1)
             ),
             gamma_final=ArrayInfo(
-                (cfg.embed,),
-                cfg.dtype,
-                ("act_embed",),
-                jax.nn.initializers.constant(1.0),
+                (cfg.embed,), cfg.dtype, ("act_embed",), jax.nn.initializers.ones
             ),
             lm_head=ArrayInfo(
                 (cfg.embed, cfg.vocab_size),
@@ -563,19 +518,32 @@ class Weights(_Init):
         )
 
 
-@jax_pytree_struct
+@partial(
+    jax_pytree_struct,
+    meta_fields=("batch_size", "size", "time_axis", "insert_sequences"),
+)
 class KVCache(_Init):
-    k: list  # (batch_size, key_heads, max_seq_len, head_dim)
-    v: list  # (batch_size, key_heads, max_seq_len, head_dim)
-    length: jax.Array  # []  # sequences are right-aligned for slice udpate performance
+    k: list[
+        tuple[jax.Array | QuantArray, ...]
+    ]  # (batch_size, key_heads, max_seq_len, head_dim)
+    v: list[
+        tuple[jax.Array | QuantArray, ...]
+    ]  # (batch_size, key_heads, max_seq_len, head_dim)
+    iter: jax.Array  # []  # sequences are right-aligned for slice update performance
     starts: (
         jax.Array
     )  # [batch_size]  # sequences are right-aligned, we need start indices
+    batch_size: int = 1
+    size: int = 2**30
+    time_axis: int = 2
+    # update_slice: Callable = None
+    insert_sequences: Callable = None
+    # get_sequence: Callable = None
 
     @classmethod
-    def abstract(cls, cfg: Config, batch_size: int, max_seq_len: int):
+    def abstract(cls, cfg: Config, batch_size: int):
         val_info = ArrayInfo(
-            (batch_size, cfg.kv_heads, max_seq_len, cfg.head_dim),
+            (batch_size, cfg.kv_heads, cfg.max_seq_len, cfg.head_dim),
             cfg.dtype,
             ("batch", "kv_heads", "sequence", "head_dim"),
             jax.nn.initializers.zeros,
@@ -583,15 +551,87 @@ class KVCache(_Init):
         cache = KVCache(
             k=[val_info for _ in range(cfg.num_layers)],
             v=[val_info for _ in range(cfg.num_layers)],
-            length=ArrayInfo((), jnp.int32, (), jax.nn.initializers.zeros),
+            # -1 means unintialized since iter (cursor) must be 0 <= iter < len - 1
+            iter=ArrayInfo((), jnp.int32, (), _const_init(-1)),
             starts=ArrayInfo(
                 (batch_size,), jnp.int32, ("batch",), jax.nn.initializers.zeros
             ),
+            size=cfg.max_seq_len,
         )
         if cfg.quant_cache:
             _quantize = partial(
                 quantize, axis=-1, scale_dtype=cfg.quant_scale_dtype, zero_init=True
             )
+            cache = dataclasses.replace(
+                cache,
+                k=[
+                    QuantArray(
+                        *_quantize(cache.k[idx]),
+                        out_scaling=True,
+                        scale_expand_dims=(-2, -3),
+                    )
+                    for idx in range(cfg.num_layers)
+                ],
+                v=[
+                    QuantArray(
+                        *_quantize(cache.v[idx]),
+                        out_scaling=False,
+                        scale_expand_dims=(-2, -3),
+                    )
+                    for idx in range(cfg.num_layers)
+                ],
+            )
+
+        cache.batch_size, cache.size = batch_size, cfg.max_seq_len
+        return cache
+
+    def fill_len(self) -> jax.Array:
+        return jnp.where(self.iter >= 0, (self.iter - self.starts) % self.size, 0)
+
+    @property
+    def buffers(self) -> tuple[jax.Array, ...]:
+        return (self.k, self.v)
+
+    # update_slice = None
+    # insert_sequences = staticmethod(attention_cache_utils.kvcache_update_cache)
+    # get_sequence = staticmethod(attention_cache_utils.kvcache_get_entry)
+
+
+@partial(jax_pytree_struct, meta_fields=("batch_size", "size", "page_size"))
+class PagedKVCache(_Init):
+    k: list[jax.Array | QuantArray]  # [key_heads, total_num_pages, page_size, head_dim]
+    v: list[jax.Array | QuantArray]  # [key_heads, total_num_pages, page_size, head_dim]
+    lengths: jax.Array  # [batch_size]  # true length of the cache entries
+    block_tables: jax.Array  # [batch_size, pages_per_seq]
+    free_pages: jax.Array  # [total_num_pages]
+    batch_size: int = 0
+    size: int = 2**30
+    page_size: int = 0
+
+    @classmethod
+    def abstract(
+        cls, cfg: "Config", batch_size: int, total_num_pages: int, page_size: int
+    ):
+        pages_per_seq = math.ceil(cfg.max_seq_len / page_size)
+        val_info = ArrayInfo(
+            (cfg.kv_heads, total_num_pages, page_size, cfg.head_dim),
+            cfg.dtype,
+            ("kv_heads", None, None, "head_dim"),
+            jax.nn.initializers.zeros,
+        )
+        cache = PagedKVCache(
+            k=[val_info for _ in range(cfg.num_layers)],
+            v=[val_info for _ in range(cfg.num_layers)],
+            lengths=ArrayInfo((batch_size,), jnp.int32, (), jax.nn.initializers.zeros),
+            block_tables=ArrayInfo(
+                (batch_size, pages_per_seq), jnp.int32, (), jax.nn.initializers.zeros
+            ),
+            free_pages=ArrayInfo(
+                (total_num_pages,), jnp.bool, (), jax.nn.initializers.ones
+            ),
+        )
+        if cfg.quant_cache:
+            _quantize = partial(quantize, axis=-1, scale_dtype=cfg.quant_scale_dtype)
             cache = dataclasses.replace(
                 cache,
                 k=[
@@ -611,11 +651,107 @@ class KVCache(_Init):
                     for idx in range(len(cache.v))
                 ],
             )
+        cache.batch_size, cache.page_size = batch_size, page_size
         return cache
 
+    def fill_len(self) -> jax.Array:
+        return self.lengths
+
     @property
-    def time_axis(self) -> int:
-        return 2
+    def buffers(self) -> tuple[jax.Array, ...]:
+        return (self.k, self.v)
+
+    # update_slice = staticmethod(paged_update_slice)
+    # insert_sequences = staticmethod(attention_cache_utils.batch_paged_update_sequences)
+    # get_sequence = staticmethod(attention_cache_utils.batch_paged_get_entry)
+
+    @staticmethod
+    def _find_empty_pages(
+        free_pages: jax.Array, k: int, proposal_pages: jax.Array | None = None
+    ):
+        if proposal_pages is not None:
+            assert proposal_pages.size == k
+            proposal_mask = free_pages[proposal_pages]
+            indicies = jnp.where(
+                ~proposal_mask, jnp.cumsum(~proposal_mask, axis=-1) - 1, k - 1
+            )
+            newly_free_pages = free_pages.at[
+                jnp.where(proposal_mask, proposal_pages, 2**30)
+            ].set(False, mode="drop")
+            return jnp.where(
+                proposal_mask,
+                proposal_pages,
+                jax.lax.top_k(newly_free_pages, k)[1][indicies],
+            )
+        else:
+            return jax.lax.top_k(free_pages, k)[1]
+
+    @staticmethod
+    def _paged_update_slice(
+        cache, kv: tuple[jax.Array | QuantArray, ...], *, layer_idx: int
+    ):
+        # key_heads = cache.buffers[0][layer_idx].shape[0]
+        # assert v.shape[:-1] == k.shape[:-1] == (cache.batch_size, key_heads, 1)  # TODO write this generically
+        needs_next_page = (cache.lengths % cache.page_size) == 0
+        page_table_idx = cache.lengths // cache.page_size
+        current_page_cursor = jnp.take_along_axis(
+            cache.block_tables, page_table_idx[:, None], axis=-1
+        )[..., 0]
+        avg_pages_per_batch_entry = round(
+            cache.buffers[0][layer_idx].shape[0] / cache.batch_size
+        )
+        even_batch_spread = jnp.arange(cache.batch_size) * avg_pages_per_batch_entry
+        proposal_pages = jnp.where(
+            cache.lengths == 0, even_batch_spread, current_page_cursor + 1
+        )
+        free_pages = PagedKVCache._find_empty_pages(
+            cache.free_pages, cache.batch_size, proposal_pages=proposal_pages
+        )
+        page_cursor = jnp.where(needs_next_page, free_pages, current_page_cursor)
+
+        inpage_cursor = cache.lengths % cache.page_size
+
+        new_lengths = cache.lengths + 1
+        # for batch index update the target slice is (heads, i, j, head_dim)
+        # so transpose update (batch, heads, seq, head_dim) -> (batch, heads, head_dim) -> (heads, batch, head_dim)
+        _update = lambda dest, src: dest.at[:, page_cursor, inpage_cursor, ...].set(
+            src.squeeze(2).swapaxes(0, 1)
+        )
+        for buffer, new_buffer in zip(cache.buffers, kv):
+            buffer[layer_idx] = jax.tree.map(_update, buffer[layer_idx], new_buffer)
+
+        batch_idx = jnp.arange(cache.batch_size)
+        new_block_tables = cache.block_tables.at[
+            batch_idx, new_lengths // cache.page_size
+        ].set(page_cursor)
+
+        new_free_pages = cache.free_pages.at[page_cursor].set(False, mode="drop")
+        new_state = dict(
+            lengths=new_lengths,
+            block_tables=new_block_tables,
+            free_pages=new_free_pages,
+        )
+        return tuple(buffer[layer_idx] for buffer in cache.buffers), new_state
+
+    @staticmethod
+    def update_slice(cache, kv: tuple[jax.Array | QuantArray, ...], *, layer_idx: int):
+        repl_sharding = jax.typeof(cache.lengths).sharding
+        kv_sharding = jax.tree.map(
+            lambda x: jax.typeof(x).sharding,
+            tuple(buffer[layer_idx] for buffer in cache.buffers),
+        )
+        sharding = (
+            kv_sharding,
+            dict(
+                lengths=repl_sharding,
+                block_tables=repl_sharding,
+                free_pages=repl_sharding,
+            ),
+        )
+        return auto_axes(
+            partial(PagedKVCache._paged_update_slice, layer_idx=layer_idx),
+            out_sharding=sharding,
+        )(cache, kv)
 
 
 def segment_ids_to_positions(segment_ids):
@@ -668,7 +804,7 @@ def _generate_pos_embeddings(
     positions: jax.Array,
     features: int,
     cfg: Config,
-) -> tuple:
+) -> tuple[jax.Array, jax.Array]:
     """Generate Sin/Cos for Rotary Embeddings.
 
     Generates sinusoids at (features//2) different timescales, where the
@@ -718,34 +854,55 @@ def apply_rotary_embedding(x, sin, cos):
     return jnp.concatenate([x1 * cos - x2 * sin, x2 * cos + x1 * sin], axis=-1)
 
 
+def rms_norm(x: jax.Array, gamma: jax.Array) -> jax.Array:
+    """Apply RMS normalization."""
+    rms = jnp.sqrt(
+        jnp.mean(jnp.astype(x, jnp.float32) ** 2, axis=-1, keepdims=True) + 1e-6
+    )
+    return jnp.astype(gamma * x / rms, jnp.bfloat16)
+
+
 def make_attention_mask(
-    q_len, k_len, q_segment_ids, k_segment_ids, q_offset, causal: bool
+    q_len,
+    k_len,
+    q_segment_ids,
+    kv_segment_ids,
+    q_offset,
+    causal: bool,
+    cache_starts: jax.Array,
 ):
+    cache_size = kv_segment_ids.shape[-1]
     # [B, t, T]
-    segment_mask = q_segment_ids[:, :, None] == k_segment_ids[:, None, :]
+    segment_mask = q_segment_ids[:, :, None] == kv_segment_ids[:, None, :]
     # [B, t, T] -> [B, 1, t, T]
     segment_mask = segment_mask[:, None, :, :]
 
     if causal:
         # [b, h, t, T]
         qk = (1, 1, q_len, k_len)
-        q_iota = jax.lax.broadcasted_iota(jnp.int32, qk, 2)
-        k_iota = jax.lax.broadcasted_iota(jnp.int32, qk, 3)
-        q_positions = q_iota + q_offset
-        causal_mask = q_positions >= k_iota
+        q_positions = (
+            jax.lax.broadcasted_iota(jnp.int32, qk, 2) + q_offset[:, None, None, None]
+        )
+        k_positions = (
+            jax.lax.broadcasted_iota(jnp.int32, qk, 3)
+            + (-1 * cache_starts)[:, None, None, None]
+        ) % cache_size
+        causal_mask = q_positions >= k_positions
         combined_mask = jnp.logical_and(segment_mask, causal_mask)
         return combined_mask
     else:
         return segment_mask
 
 
-def _attention(
+@partial(auto_axes, out_sharding=P(BATCH_AXIS_NAME, TENSOR_AXIS_NAME, None, None))
+def attention(
     q: jax.Array,
-    k: Union[jax.Array, tuple],
-    v: Union[jax.Array, tuple],
+    k: jax.Array | tuple[jax.Array, jax.Array],
+    v: jax.Array | tuple[jax.Array, jax.Array],
     q_segment_ids: jax.Array,
-    k_segment_ids: jax.Array,
+    kv_segment_ids: jax.Array,
     q_offset: jax.Array,
+    cache_starts: jax.Array | None,
     cfg: Config,
 ) -> jax.Array:
     """Compute attention.
@@ -755,7 +912,7 @@ def _attention(
     k: Key tensor of shape (batch_size, num_heads, k_len, head_dim)
     v: Value tensor of shape (batch_size, num_heads, k_len, head_dim)
     q_segment_ids: Query segment IDs of shape (batch_size, q_len)
-    k_segment_ids: Key segment IDs of shape (batch_size, k_len)
+    kv_segment_ids: Key segment IDs of shape (batch_size, k_len)
     q_offset: Query offset of shape (batch_size,)
     cfg: Configuration object
 
@@ -772,7 +929,9 @@ def _attention(
     qk = einsum("bhgtd,bhTd->bhgtT", q_, k) * scale
     qk = qk.reshape((b, qh, t, T))
 
-    mask = make_attention_mask(t, T, q_segment_ids, k_segment_ids, q_offset, cfg.causal)
+    mask = make_attention_mask(
+        t, T, q_segment_ids, kv_segment_ids, q_offset, cfg.causal, cache_starts
+    )
     # Apply the combined mask
     qk = jnp.where(mask, qk, -1e30)
     # jax softmax impl includes max subtraction for numerical stability, no need to do it outside.
@@ -784,21 +943,8 @@ def _attention(
     return qkv.reshape((b, qh, t, d))
 
 
-attention = auto_axes(
-    _attention, out_sharding=P(BATCH_AXIS_NAME, TENSOR_AXIS_NAME, None, None)
-)
-
-
 def attention_kernel(
-    q,
-    k,
-    v,
-    q_segment_ids,
-    kv_segment_ids,
-    q_offset,
-    starts,
-    lengths: Sequence[int],
-    cfg: Config,
+    q, k, v, q_segment_ids, kv_segment_ids, q_offset, starts, lengths, cfg: Config
 ):
     """Flash attention kernel!"""
     # On TPUv3, pallas seems to only work with float32.
@@ -843,23 +989,13 @@ def attention_kernel(
     out_specs = q_spec
 
     @partial(
-        shard_map,
+        jax.shard_map,
         mesh=cfg.mesh,
         in_specs=in_specs,
         out_specs=out_specs,
-        check_rep=False,
+        check_vma=False,
     )
-    def _f(
-        q,
-        k,
-        v,
-        q_segment_ids,
-        kv_segment_ids,
-        starts,
-        lengths: Sequence[int],
-        k_scale,
-        v_scale,
-    ):
+    def _f(q, k, v, q_segment_ids, kv_segment_ids, starts, lengths, k_scale, v_scale):
         q_org_shape = q.shape
 
         if q.shape[-2] != 1:
@@ -910,12 +1046,70 @@ def attention_kernel(
     )
 
 
-def rms_norm(x: jax.Array, gamma: jax.Array) -> jax.Array:
-    """Apply RMS normalization."""
-    rms = jnp.sqrt(
-        jnp.mean(jnp.astype(x, jnp.float32) ** 2, axis=-1, keepdims=True) + 1e-6
+def paged_attention_kernel(q, k, v, block_tables, lengths, cfg: Config):
+    if which_platform(cfg) not in ("gpu", "cuda"):
+        raise ValueError("Paged attention is only supported on GPU.")
+    k, k_scale = (k.quant, k.scale) if is_type(k, QuantArray) else (k, None)
+    v, v_scale = (v.quant, v.scale) if is_type(v, QuantArray) else (v, None)
+
+    # handle grouped query attention
+    assert q.shape[-3] % cfg.kv_heads == 0 and k.shape[0] == cfg.kv_heads
+    scale = q.shape[-1] ** -0.5
+
+    l2p = lambda *logical: logical_to_physical(logical, cfg.rules)
+
+    kv_repeats = q.shape[-3] // cfg.kv_heads
+    q_spec = P(
+        *(
+            l2p("batch", "kv_heads")
+            + tuple(set(*l2p("q_heads")) - set(*l2p("kv_heads")))
+            + l2p("sequence", "head_dim")
+        )
     )
-    return jnp.astype(gamma * x / rms, jnp.bfloat16)
+    q_shape__ = q.shape
+    q = jax.lax.reshape(
+        q,
+        (q.shape[:-3] + (cfg.kv_heads, kv_repeats, q.shape[-2], q.shape[-1])),
+        out_sharding=q_spec,
+    )
+
+    # shard_map
+    in_specs = (
+        q_spec,  # q
+        l2p("kv_heads", None, "sequence", "head_dim"),  # k / k_quant
+        None
+        if k_scale is None
+        else l2p("kv_heads", None, "sequence"),  # k_scale or None
+        l2p("kv_heads", None, "sequence", "head_dim"),  # v / v_quant
+        None
+        if v_scale is None
+        else l2p("kv_heads", None, "sequence"),  # v_scale or None
+        l2p("batch", None),  # block_tables
+        l2p("batch"),  # lengths
+    )
+    out_specs = q_spec
+
+    @partial(
+        jax.shard_map,
+        mesh=cfg.mesh,
+        in_specs=in_specs,
+        out_specs=out_specs,
+        check_vma=False,
+    )
+    def _f(q, k, k_scale, v, v_scale, block_tables, lengths):
+        # q in [batch_size, kv_heads_local, kv_repeats, 1, head_dim]
+        if k_scale is not None:
+            k = (k * k_scale[..., None]).astype(jnp.bfloat16)
+        if v_scale is not None:
+            v = (v * v_scale[..., None]).astype(jnp.bfloat16)
+        q_ = q[..., 0, :].reshape((q.shape[0], -1, q.shape[-1]))
+        ret = paged_attention.paged_attention(q_ * scale, k, v, block_tables, lengths)
+        return ret.reshape(q.shape)
+
+    ret = _f(q, k, k_scale, v, v_scale, block_tables, lengths).astype(jnp.bfloat16)
+    return jax.lax.reshape(
+        ret, q_shape__, out_sharding=l2p("batch", "q_heads", "sequence", "head_dim")
+    )
 
 
 def attention_block(
@@ -925,8 +1119,8 @@ def attention_block(
     sin: jax.Array,
     cos: jax.Array,
     cfg: Config,
-    cache: Optional[KVCache] = None,
-    idx: Optional[int] = None,
+    cache: KVCache | PagedKVCache | None = None,
+    idx: int | None = None,
 ):
     l2p = lambda *specs: logical_to_physical(specs, cfg.rules)
     x = x.astype(cfg.dtype)
@@ -941,45 +1135,59 @@ def attention_block(
     with jax.named_scope("rope"):
         q, k = apply_rotary_embedding(q, sin, cos), apply_rotary_embedding(k, sin, cos)
 
+    if cfg.quant_cache:
+        _quantize = partial(quantize, axis=-1, scale_dtype=cfg.quant_scale_dtype)
+        k = QuantArray(*_quantize(k), out_scaling=True, scale_expand_dims=(-2, -3))
+        v = QuantArray(*_quantize(v), out_scaling=False, scale_expand_dims=(-2, -3))
+
     with jax.named_scope("cache_update"):
-        if cache is not None:
+        paged_state, starts = None, None
+        if is_type(cache, KVCache):
+            it = jnp.maximum(cache.iter, 0)
             k = update_slice(
-                cache.k[idx],
-                k,
-                cache.length,
-                update_axis=cache.time_axis,
-                quant_axis=-1,
+                cache.k[idx], k, it, update_axis=cache.time_axis, quant_axis=-1
             )
             v = update_slice(
-                cache.v[idx],
-                v,
-                cache.length,
-                update_axis=cache.time_axis,
-                quant_axis=-1,
+                cache.v[idx], v, it, update_axis=cache.time_axis, quant_axis=-1
             )
-            time_indices = jnp.arange(0, v.shape[cache.time_axis])[None, :]  # [1, T]
+            time_indices = (
+                jnp.arange(0, v.shape[cache.time_axis])[None, :] - cache.starts[:, None]
+            ) % cache.size  # [B, T]
 
             q_segment_ids = jnp.where(segment_ids != 0, 1, 0)
-            incremental_position = jnp.max(_length_minus_padding(segment_ids))
+            incremental_position = jnp.max(_length_minus_right_padding(segment_ids))
             # i.e. valid below where we've written things [B, T]
-            k_segment_ids = (
-                (time_indices >= cache.starts[:, None])
-                & (time_indices < (cache.length + incremental_position))
-            ).astype(jnp.int32)
-
-            q_offset = cache.length[None]
-            starts, lengths = cache.starts, (cache.length + incremental_position)[None]
+            kv_segment_ids = (time_indices >= 0) & (
+                time_indices < cache.fill_len()[:, None] + incremental_position
+            )
+            q_offset = cache.fill_len() - _count_left_padding(
+                segment_ids, 0
+            )  # 0 is the pad "token" for segment_ids
+            starts, lengths = cache.starts, cache.fill_len()
+            cache_updates = (k, v)
+        elif is_type(cache, PagedKVCache):
+            cache: PagedKVCache
+            (k, v), paged_state = PagedKVCache.update_slice(
+                cache, (k, v), layer_idx=idx
+            )
+            cache_updates = (k, v, paged_state)
         else:
-            q_segment_ids, k_segment_ids = segment_ids, segment_ids
+            # this supports prefill only; no support for a ring cache buffer here
+            q_segment_ids, kv_segment_ids = segment_ids, segment_ids
             q_offset = jnp.zeros(x.shape[0], dtype=jnp.int32)
             starts, lengths = (
-                _count_left_padding(k_segment_ids, 0),
-                _length_minus_padding(k_segment_ids),
+                _count_left_padding(segment_ids, 0),
+                _length_minus_right_padding(kv_segment_ids),
             )
+            cache_updates = (k, v)
 
     # Compute attention
     with jax.named_scope("attention"):
-        if (cfg.use_prefill_attn_kernel and q.shape[-2] != 1) or (
+        if is_type(cache, PagedKVCache):
+            attn_out = paged_attention_kernel(
+                q, k, v, paged_state["block_tables"], paged_state["lengths"], cfg
+            )
+        elif (cfg.use_prefill_attn_kernel and q.shape[-2] != 1) or (
             cfg.use_decode_attn_kernel and q.shape[-2] == 1
         ):
             attn_out = attention_kernel(
@@ -987,14 +1195,16 @@ def attention_block(
                 k,
                 v,
                 q_segment_ids,
-                k_segment_ids,
+                kv_segment_ids,
                 q_offset,
                 starts=starts,
                 lengths=lengths,
                 cfg=cfg,
             )
         else:
-            attn_out = attention(q, k, v, q_segment_ids, k_segment_ids, q_offset, cfg)
+            attn_out = attention(
+                q, k, v, q_segment_ids, kv_segment_ids, q_offset, starts, cfg
+            )
 
     # Project attention output
     with jax.named_scope("projection"):
@@ -1004,7 +1214,7 @@ def attention_block(
             layer.o,
             out_sharding=l2p("batch", "sequence", "act_embed"),
         ).astype(cfg.dtype)
-    return attn_out, k, v
+    return attn_out, cache_updates
 
 
 def ffn_block(x: jax.Array, layer: Layer, cfg: Config):
@@ -1032,14 +1242,14 @@ def forward_layer(
     cos: jax.Array,
     idx: int,
     cfg: Config,
-    cache: Optional[KVCache] = None,
-) -> tuple:
+    cache: KVCache | PagedKVCache | None = None,
+) -> tuple[jax.Array, jax.Array, jax.Array]:
     x = x.astype(cfg.dtype)
 
     # Attention block
     with jax.named_scope("attn_pre_norm"):
         attn_in = rms_norm(x, layer.attn_pre_gamma)
-    attn_out, k, v = attention_block(
+    attn_out, cache_updates = attention_block(
         attn_in, segment_ids, layer, sin, cos, cfg, cache, idx
     )
     with jax.named_scope("residual"):
@@ -1053,7 +1263,7 @@ def forward_layer(
     with jax.named_scope("residual"):
         x = x + ff_out.astype(cfg.dtype)
 
-    return x, k, v
+    return x, cache_updates
 
 
 def forward(
@@ -1061,68 +1271,93 @@ def forward(
     segment_ids: jax.Array,
     weights: Weights,
     cfg: Config,
-    cache: Optional[KVCache] = None,
+    cache: KVCache | PagedKVCache | None = None,
 ):
     l2p = lambda *args: logical_to_physical(args, cfg.rules)
     # Embed input tokens [B, T] -> [B, T D]
     x = weights.embedding.at[x, :].get(
         out_sharding=l2p("batch", "sequence", "act_embed")
     )
-    batch = x.shape[0]
-    positions = segment_ids_to_positions(segment_ids)
+    positions = segment_ids_to_positions(segment_ids)  # already shifted by padding
     # Apply rotary embeddings: [B, T, head_dim]
     if cache is not None:
         # For inference with cache, we need to index the positional embeddings
-        start_indices = jnp.where(cache.length != 0, cache.length - cache.starts, 0)
-    else:
-        start_indices = jnp.zeros((batch,), dtype=jnp.int32)
+        positions = cache.fill_len()[:, None] + positions
     # NOTE: At inference time this only works for UNPACKED sequences.
-    positions = start_indices[:, None] + positions
-    # [B, T, head_dim]
-    sin, cos = _generate_pos_embeddings(positions, cfg.head_dim, cfg)
+    sin, cos = _generate_pos_embeddings(
+        positions, cfg.head_dim, cfg
+    )  # [B, T, head_dim]
     sin, cos = sin.astype(cfg.dtype), cos.astype(cfg.dtype)
 
+    all_cache_updates = []
     for idx, layer in enumerate(weights.layers):
-        x, k, v = forward_layer(x, segment_ids, layer, sin, cos, idx, cfg, cache)
-        cache.k[idx], cache.v[idx] = k, v
-
-    # Final layer norm.
-    x = rms_norm(x, weights.gamma_final)
-    # Project to vocabulary size
-    logits = einsum("btd,dv->btv", x, weights.lm_head)
-    if cache is not None:
-        # Sum where there is a valid segment id (i.e. non padding tokens) [B, T] -> [B,]
-        cache = dataclasses.replace(
-            cache, length=cache.length + jnp.max(_length_minus_padding(segment_ids))
+        x, cache_updates = forward_layer(
+            x, segment_ids, layer, sin, cos, idx, cfg, cache
         )
+        all_cache_updates.append(cache_updates)
+
+    x = rms_norm(x, weights.gamma_final)  # Final layer norm.
+    logits = einsum("btd,dv->btv", x, weights.lm_head)  # Project to vocabulary size
+
+    if is_type(cache, KVCache):
+        cache.k, cache.v = (
+            [z[0] for z in all_cache_updates],
+            [z[1] for z in all_cache_updates],
+        )
+        new_iter = (
+            jnp.maximum(0, cache.iter)
+            + jnp.max(_length_minus_right_padding(segment_ids))
+        ) % cache.size
+        cache = dataclasses.replace(cache, iter=new_iter)
         return logits, cache
-    return logits
+    elif is_type(cache, PagedKVCache):
+        kv, new_state = (
+            tuple(map(list, zip(*[z[:2] for z in all_cache_updates]))),
+            all_cache_updates[0][2],
+        )
+        cache = dataclasses.replace(cache, k=kv[0], v=kv[1], **new_state)
+        return logits, cache
+    else:
+        return logits, all_cache_updates
 
 
 # serialization
-def save_pytree(data, path) -> None:
-    import orbax.checkpoint as ocp
+# def save_pytree(data, path):
+#    import orbax.checkpoint as ocp
+#
+#    with ocp.PyTreeCheckpointer() as ckptr:
+#        ckptr.save(epath.Path(path), data, ocp.args.PyTreeSave(data, ocdbt_target_data_file_size=1024 * 1024 * 100))
+#
+#
+# def load_pytree(path, sharding=None):
+#    import orbax.checkpoint as ocp
+#
+#    item, transforms = sharding, None
+#    restore_args = jax.tree.map(lambda s: ocp.ArrayRestoreArgs(sharding=s), sharding)
+#    with ocp.PyTreeCheckpointer() as ckptr:
+#        return ckptr.restore(
+#            epath.Path(path), ocp.args.PyTreeRestore(item=item, transforms=transforms, restore_args=restore_args)
+#        )
 
-    with ocp.PyTreeCheckpointer() as ckptr:
-        ckptr.save(
-            epath.Path(path),
-            data,
-            ocp.args.PyTreeSave(data, ocdbt_target_data_file_size=1024 * 1024 * 100),
-        )
+
+# serialization
+def save_pytree(weights, path):
+    flat_data = odict(
+        ("weights" + "".join(map(str, k)), v)
+        for k, v in jax.tree.flatten_with_path(weights)[0]
+    )
+    ser.save(flat_data, path)  # save a flatten with path to avoid custom
 
 
 def load_pytree(path, sharding=None):
-    import orbax.checkpoint as ocp
-
-    item, transforms = sharding, None
-    restore_args = jax.tree.map(lambda s: ocp.ArrayRestoreArgs(sharding=s), sharding)
-    with ocp.PyTreeCheckpointer() as ckptr:
-        return ckptr.restore(
-            epath.Path(path),
-            ocp.args.PyTreeRestore(
-                item=item, transforms=transforms, restore_args=restore_args
-            ),
-        )
+    flat_sharding = odict(
+        ("weights" + "".join(map(str, k)), v)
+        for k, v in jax.tree.flatten_with_path(sharding)[0]
+    )
+    data = jax.tree.unflatten(
+        jax.tree.structure(sharding), jax.tree.leaves(ser.load(path, flat_sharding))
+    )
+    return data
 
 
 # Inference.
@@ -1136,27 +1371,43 @@ def prepare_chunk(chunk, pad_to: int, pad_id: int):
     return chunk, segment_ids
 
 
+## serialization
+# def save_pytree(data, path):
+#    flat_data = odict(("weights" + "".join(map(str, k)), v) for k, v in jax.tree.flatten_with_path(data)[0])
+#    ser.save(flat_data, path)  # save a flatten with path to avoid custom
+#
+#
+# def load_pytree(path, sharding=None):
+#    flat_sharding = odict(("weights" + "".join(map(str, k)), v) for k, v in jax.tree.flatten_with_path(sharding)[0])
+#    return jax.tree.unflatten(jax.tree.structure(sharding), jax.tree.leaves(ser.load(path, flat_sharding)))
+
+
 def prefill(
-    tokens: jax.Array, weights: Weights, cache: KVCache, cfg: Config, pad_id: int = 0
+    tokens: jax.Array,
+    weights: Weights,
+    cache: KVCache | None,
+    cfg: Config,
+    pad_id: int = 0,
 ):
     """Samples from a prompt."""
     # Calculate the next power of 2 for padding, up to cfg.max_seq.
     assert tokens.shape[-1] <= cfg.max_seq_len
     pad_to = 2 ** math.ceil(math.log2(tokens.shape[-1]))
-    with set_mesh(cfg.mesh):
-        prompt, prompt_segment_ids = prepare_chunk(tokens, pad_to=pad_to, pad_id=pad_id)
-        assert prompt.ndim == 2
 
-        cache_shardings = KVCache.shardings(
-            cfg, cache.k[0].shape[0], cache.k[0].shape[cache.time_axis]
-        )
-        logits_shardings = jax.sharding.NamedSharding(
-            cfg.mesh, P(BATCH_AXIS_NAME, None, TENSOR_AXIS_NAME)
-        )
+    prompt, prompt_segment_ids = prepare_chunk(tokens, pad_to=pad_to, pad_id=pad_id)
+    assert prompt.ndim == 2
 
+    logits_shardings = jax.sharding.NamedSharding(
+        cfg.mesh, P(BATCH_AXIS_NAME, None, TENSOR_AXIS_NAME)
+    )
+    cache_shardings = KVCache.shardings(
+        cfg, cache.batch_size if cache is not None else tokens.shape[0]
+    )
+
+    if is_type(cache, KVCache):
         cache = dataclasses.replace(
             cache,
-            length=jnp.zeros_like(cache.length),
+            iter=-jnp.ones_like(cache.iter),
             starts=_count_left_padding(tokens, pad_id=pad_id),
         )
         logits, cache = jax.jit(
@@ -1164,8 +1415,23 @@ def prefill(
             donate_argnums=(4,),
             out_shardings=(logits_shardings, cache_shardings),
         )(prompt, prompt_segment_ids, weights, cfg, cache)
-        next_tokens = jax.jit(jnp.argmax, static_argnames=("axis",))(logits, axis=-1)
-        return next_tokens, logits, cache
+    elif is_type(cache, PagedKVCache):
+        raise ValueError("Prefill with Paged KV Cache is not currently supported.")
+    else:
+        cache_shardings = KVCache.shardings(dataclasses.replace(cfg), tokens.shape[0])
+        kv_sharding = [
+            (cache_shardings.k[idx], cache_shardings.v[idx])
+            for idx in range(cfg.num_layers)
+        ]
+        logits, kv_list = jax.jit(
+            forward, out_shardings=(logits_shardings, kv_sharding)
+        )(prompt, prompt_segment_ids, weights, cfg, None)
+        cache = kv_list
+    next_tokens = jax.jit(jnp.argmax, static_argnames=("axis",))(logits, axis=-1)
+    return next_tokens, logits, cache
+
+
+prefill.forward = forward
 
 
 @partial(jax.jit, donate_argnames=("cache",))

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 # Copyright 2025 The JAX Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,14 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Download Llama3-compatible models
-Based on jax-llm-examples/llama3/scripts/download_model.py
-"""
-
 from argparse import ArgumentParser
 from pathlib import Path
 
-# Supported Llama3-architecture models (including DeepSeek R1 Distilled)
 example_models = [
     "meta-llama/Llama-3.1-8B-Instruct",
     "meta-llama/Llama-3.1-70B-Instruct",
@@ -31,26 +27,12 @@ example_models = [
 
 
 def main(model_id: str, dest_root_path: str | Path):
-    """Download a model from HuggingFace"""
     from huggingface_hub import snapshot_download
 
     local_dir = Path(dest_root_path).expanduser().absolute() / str(model_id).replace(
         "/", "--"
     )
-
-    print(f"📥 Downloading {model_id} to {local_dir}")
-
-    try:
-        snapshot_download(
-            repo_id=model_id,
-            local_dir=local_dir,
-            ignore_patterns=["*.bin"],  # Only download safetensors
-        )
-        print(f"✅ Download complete: {local_dir}")
-    except Exception as e:
-        if "401" in str(e):
-            print("❌ Authentication required. Run: huggingface-cli login")
-        raise
+    snapshot_download(repo_id=model_id, local_dir=local_dir)
 
 
 if __name__ == "__main__":

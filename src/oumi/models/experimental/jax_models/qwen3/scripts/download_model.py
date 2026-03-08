@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 # Copyright 2025 The JAX Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,46 +14,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Download Qwen3-compatible models
-Based on jax-llm-examples/qwen3/scripts/download_model.py
-"""
-
 from argparse import ArgumentParser
 from pathlib import Path
 
-# Supported Qwen3-architecture models
 example_models = [
-    "Qwen/Qwen2.5-0.5B-Instruct",
-    "Qwen/Qwen2.5-1.5B-Instruct",
-    "Qwen/Qwen2.5-3B-Instruct",
-    "Qwen/Qwen2.5-7B-Instruct",
-    "Qwen/Qwen2.5-14B-Instruct",
-    "Qwen/Qwen2.5-32B-Instruct",
-    "Qwen/Qwen2.5-72B-Instruct",
+    "Qwen/Qwen3-0.6B",
+    "Qwen/Qwen3-1.7B",
+    "Qwen/Qwen3-4B",
+    "Qwen/Qwen3-8B",
+    "Qwen/Qwen3-14B",
+    "Qwen/Qwen3-32B",
+    "Qwen/Qwen3-30B-A3B",
+    "Qwen/Qwen3-235B-A22B",
 ]
 
 
 def main(model_id: str, dest_root_path: str | Path):
-    """Download a model from HuggingFace"""
     from huggingface_hub import snapshot_download
 
     local_dir = Path(dest_root_path).expanduser().absolute() / str(model_id).replace(
         "/", "--"
     )
-
-    print(f"📥 Downloading {model_id} to {local_dir}")
-
-    try:
-        snapshot_download(
-            repo_id=model_id,
-            local_dir=local_dir,
-            ignore_patterns=["*.bin"],  # Only download safetensors
-        )
-        print(f"✅ Download complete: {local_dir}")
-    except Exception as e:
-        if "401" in str(e):
-            print("❌ Authentication required. Run: huggingface-cli login")
-        raise
+    snapshot_download(repo_id=model_id, local_dir=local_dir)
 
 
 if __name__ == "__main__":

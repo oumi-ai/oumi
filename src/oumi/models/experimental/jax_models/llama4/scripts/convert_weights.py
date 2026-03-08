@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 # Copyright 2025 The JAX Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,10 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Convert HuggingFace Llama4-architecture models to JAX format
-Based on jax-llm-examples/llama4/scripts/convert_weights.py
-"""
-
 import dataclasses
 import shutil
 import sys
@@ -25,95 +22,69 @@ from pathlib import Path
 
 
 def main(model_path: str | Path, ckpt_path: str | Path):
-    """Convert HuggingFace model to JAX format"""
     try:
         from llama4_jax import chkpt_utils as utils
         from llama4_jax import model as l4jax
     except ImportError:
-        # Try relative import for our structure
-        sys.path.append(str(Path(__file__).parent.parent.absolute()))
+        sys.path.append(str(Path(__file__).parents[1].absolute()))
+
         from llama4_jax import chkpt_utils as utils
         from llama4_jax import model as l4jax
 
-    import jax
-    from jax.sharding import AxisType
     from safetensors import safe_open
     from tqdm import tqdm
     from transformers import AutoConfig
 
     model_path, ckpt_path = Path(model_path).expanduser(), Path(ckpt_path).expanduser()
-
-    # Find safetensors files
     files = list(model_path.glob("**/*safetensors"))
-    if not files:
-        raise ValueError(f"No safetensors files found in {model_path}")
-
-    print(f"📂 Found {len(files)} safetensors files")
-
-    # Load config
+    assert len(files) > 1
     config_files = list(model_path.glob("**/config.json"))
-    if len(config_files) != 1:
-        raise ValueError("Must have exactly one `config.json` file in the model path")
-
-    config = AutoConfig.from_pretrained(config_files[0].parent)
-    cfg = l4jax.hf_to_jax_config(config.to_dict())
-
-    print(f"📋 Config: {cfg.num_layers} layers, {cfg.vocab_size} vocab")
-
-    # Create mesh
-    mesh = jax.make_mesh(
-        (1, 1, jax.device_count()),
-        ("x", "y", "z"),
-        devices=jax.devices(),
-        axis_types=(AxisType.Explicit,) * 3,
+    assert len(config_files) == 1, (
+        "Must have only one `config.json` file in the model path"
     )
-    cfg = dataclasses.replace(cfg, mesh=mesh, quant_layer=False)
+    config = AutoConfig.from_pretrained(config_files[0]).text_config
+    cfg = l4jax.hf_to_jax_config(config)
 
-    # Llama4 model checkpoints are distributed unquantized
-    weights = l4jax.Weights.abstract(cfg)
+    # Llama 4 model checkppints are distributed unquantized
+    weights = l4jax.Weights.abstract(
+        dataclasses.replace(cfg, quant_moe=False, quant_mlp=False, quant_attn=False)
+    )
 
     if not ckpt_path.exists():
-        print("🔄 Converting model weights...")
         model = {}
-        for file in tqdm(files, desc="Loading tensors"):
+        for file in tqdm(files):
             with safe_open(file, framework="torch") as f:
                 for key in tqdm(f.keys(), leave=False):
                     model[key] = f.get_tensor(key)
-
-        print(f"📊 Loaded {len(model)} tensors")
-
         converted_weights = utils.convert_model_or_layer(
-            weights, model, cfg, sequential=False
+            weights, model, cfg, sequential=False, prefix="language_model."
         )
         l4jax.save_pytree(converted_weights, ckpt_path)
 
-        print(f"✅ Saved JAX weights to {ckpt_path}")
-
-    # Copy additional files
     additional_files = ["config.json", "tokenizer.json", "tokenizer_config.json"]
     for additional_file in additional_files:
         full_paths = list(model_path.glob(f"**/{additional_file}"))
-        if len(full_paths) == 1:
-            full_path = full_paths[0]
-            shutil.copyfile(full_path, ckpt_path / full_path.name)
-            print(f"✅ Copied {additional_file}")
-        elif len(full_paths) > 1:
-            print(f"⚠️  Found multiple {additional_file} files, using first one")
-            full_path = full_paths[0]
-            shutil.copyfile(full_path, ckpt_path / full_path.name)
-        else:
-            print(f"⚠️  {additional_file} not found")
-
-    print(f"🎉 Conversion complete! JAX model saved to: {ckpt_path}")
+        if len(full_paths) != 1:
+            print(f"Found more than 1 file for {additional_file}")
+        if len(full_paths) == 0:
+            continue
+        full_path = full_paths[0]
+        shutil.copyfile(full_path, ckpt_path / full_path.name)
 
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("--source-path", required=True, help="HF model directory path")
+    parser.add_argument(
+        "--source-path",
+        default="~/DeepSeek-R1-Distill-Llama-70B",
+        required=True,
+        help="HF model directory path",
+    )
     parser.add_argument(
         "--dest-path",
+        default="~/DeepSeek-R1-Distill-Llama-3.1-70B-Instruct",
         required=True,
-        help="JAX model directory (to be created).",
+        help="JAX model model directory (to be created).",
     )
     args = parser.parse_args()
     main(args.source_path, args.dest_path)

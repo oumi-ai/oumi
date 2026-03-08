@@ -12,16 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 from absl.testing import absltest
-
-from oumi.models.experimental.jax_models.deepseek_r1_jax.deepseek_r1_jax import (
-    model as dsjax,
-)
+from deepseek_r1_jax import model as dsjax
 
 
 class TestNumerics(absltest.TestCase):
-    def test_tokenizer_loading(self) -> None:
+    def test_tokenizer_loading(self):
         tokenizer = dsjax.load_tokenizer()
 
 

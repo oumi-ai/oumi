@@ -19,11 +19,10 @@ import gzip
 import json
 import math
 import tempfile
-from collections.abc import Sequence
+from collections.abc import Callable
 from dataclasses import field
-from functools import partial
+from functools import lru_cache, partial
 from pathlib import Path
-from typing import Callable, Optional, Union
 
 import jax
 import jax.numpy as jnp
@@ -35,7 +34,6 @@ from jax.experimental.pallas.ops.tpu.splash_attention import (
 from jax.experimental.pallas.ops.tpu.splash_attention import (
     splash_attention_mask as mask_lib,
 )
-from jax.experimental.shard_map import shard_map
 from jax.sharding import NamedSharding
 from jax.sharding import PartitionSpec as P
 
@@ -43,8 +41,8 @@ from .decode_ragged_dot import decode_ragged_dot
 
 PAD_ID = 163839
 
-AxisName = Optional[Union[str, tuple]]
-Axes = tuple
+AxisName = str | tuple[str, ...] | None
+Axes = tuple[AxisName, ...]
 
 
 # Expected physical mesh axis names:
@@ -161,7 +159,7 @@ class Config:
     dtype: "jnp.dtype" = jnp.bfloat16
     # Sharding rules
     rules: ShardingRules = field(default_factory=lambda: ShardingRules())
-    mesh: Optional[jax.sharding.Mesh] = None
+    mesh: jax.sharding.Mesh | None = None
     # Deepseek Yarn RoPE
     rope_theta: float = 5e4
     rope_scaling_factor: float = 32.0
@@ -196,7 +194,7 @@ class Config:
 
 
 def load_tokenizer(
-    tokenizer_path: Optional[Path] = None, tokenizer_config_path: Optional[Path] = None
+    tokenizer_path: Path | None = None, tokenizer_config_path: Path | None = None
 ) -> "PreTrainedTokenizerFast":  # noqa: F821
     from transformers import PreTrainedTokenizerFast
 
@@ -236,8 +234,8 @@ def load_tokenizer(
 
 
 # module reload friendly check for type(x) == cls
-is_type = lambda x, cls: (type(x).__name__ == cls.__name__) and (
-    type(x).__module__ == cls.__module__
+is_type = lambda x, cls: (
+    (type(x).__name__ == cls.__name__) and (type(x).__module__ == cls.__module__)
 )
 is_param = lambda x: is_type(x, ArrayInfo)
 _count_left_padding = lambda ids, pad_id=PAD_ID: jnp.sum(
@@ -246,6 +244,8 @@ _count_left_padding = lambda ids, pad_id=PAD_ID: jnp.sum(
 _length_minus_right_padding = lambda segment_ids: jnp.sum(
     jnp.cumsum(jnp.flip(segment_ids != 0, -1), axis=-1) > 0, -1
 )
+_he_normal = lru_cache(jax.nn.initializers.he_normal)
+_ones_init = jax.nn.initializers.ones
 
 
 @partial(
@@ -263,10 +263,10 @@ class ArrayInfo:
 
     """
 
-    shape: tuple
+    shape: tuple[int, ...]
     dtype: "jnp.dtype"
     logical_axes: tuple
-    initializer: Optional[Callable] = None
+    initializer: Callable | None = None
 
 
 @partial(jax.jit, static_argnames=("abstract", "shardings"))
@@ -330,10 +330,10 @@ class _Init:
 
 @partial(jax_pytree_struct, meta_fields=("out_scaling", "scale_expand_dims"))
 class QuantArray:
-    quant: Union[jax.Array, ArrayInfo]
-    scale: Union[jax.Array, ArrayInfo]
+    quant: jax.Array | ArrayInfo
+    scale: jax.Array | ArrayInfo
     out_scaling: bool = False
-    scale_expand_dims: Union[int, tuple] = ()
+    scale_expand_dims: int | tuple[int, ...] = ()
     shape = property(lambda self: self.quant.shape)
     ndim = property(lambda self: self.quant.ndim)
 
@@ -341,16 +341,14 @@ class QuantArray:
 _int8_quant_init = lambda key, shape, dtype=jnp.int8: random.randint(
     key, shape, -128, 128, dtype=dtype
 )
-_int8_scale_init = (
-    lambda key, shape, dtype: random.normal(key, shape, dtype=dtype)
-    / math.sqrt(math.prod(shape))
-    / 127
+_int8_scale_init = lambda key, shape, dtype: (
+    random.normal(key, shape, dtype=dtype) / math.sqrt(math.prod(shape)) / 127
 )
 
 
 def quantize(
-    x: Union[jax.Array, ArrayInfo],
-    axis: Union[int, tuple],
+    x: jax.Array | ArrayInfo,
+    axis: int | tuple[int, ...],
     scale_dtype=jnp.float16,
     zero_init: bool = False,
 ):
@@ -414,13 +412,13 @@ def quantize_update_slice(
 
 @jax_pytree_struct
 class MLPLayer(_Init):
-    w_gate: Union[Union[jax.Array, ArrayInfo], QuantArray]
-    w_up: Union[Union[jax.Array, ArrayInfo], QuantArray]
-    w_down: Union[Union[jax.Array, ArrayInfo], QuantArray]
+    w_gate: jax.Array | ArrayInfo | QuantArray
+    w_up: jax.Array | ArrayInfo | QuantArray
+    w_down: jax.Array | ArrayInfo | QuantArray
 
     @classmethod
     def abstract(cls, cfg: Config):
-        _init = jax.nn.initializers.he_normal(in_axis=0, out_axis=1)
+        _init = _he_normal(in_axis=0, out_axis=1)
         dtype = cfg.dtype
         layer = MLPLayer(
             w_gate=ArrayInfo(
@@ -459,21 +457,21 @@ class MLPLayer(_Init):
 @jax_pytree_struct
 class MoELayer(_Init):
     # router
-    w_router: Union[Union[jax.Array, ArrayInfo], QuantArray]
-    b_router: Union[Union[jax.Array, ArrayInfo], QuantArray]
+    w_router: jax.Array | ArrayInfo | QuantArray
+    b_router: jax.Array | ArrayInfo | QuantArray
     # experts
-    we_gate: Union[Union[jax.Array, ArrayInfo], QuantArray]
-    we_up: Union[Union[jax.Array, ArrayInfo], QuantArray]
-    we_down: Union[Union[jax.Array, ArrayInfo], QuantArray]
+    we_gate: jax.Array | ArrayInfo | QuantArray
+    we_up: jax.Array | ArrayInfo | QuantArray
+    we_down: jax.Array | ArrayInfo | QuantArray
     # shared experts
-    ws_gate: Union[Union[jax.Array, ArrayInfo], QuantArray]
-    ws_up: Union[Union[jax.Array, ArrayInfo], QuantArray]
-    ws_down: Union[Union[jax.Array, ArrayInfo], QuantArray]
+    ws_gate: jax.Array | ArrayInfo | QuantArray
+    ws_up: jax.Array | ArrayInfo | QuantArray
+    ws_down: jax.Array | ArrayInfo | QuantArray
 
     @classmethod
     def abstract(cls, cfg: Config):
-        _einit = jax.nn.initializers.he_normal(in_axis=0, out_axis=(1, 2))
-        _sinit = jax.nn.initializers.he_normal(in_axis=0, out_axis=1)
+        _einit = _he_normal(in_axis=0, out_axis=(1, 2))
+        _sinit = _he_normal(in_axis=0, out_axis=1)
         dtype = cfg.dtype
         layer = MoELayer(
             w_router=ArrayInfo(
@@ -486,7 +484,7 @@ class MoELayer(_Init):
                 (cfg.n_routed_experts,),
                 cfg.moe_gate_dtype,
                 (None,),
-                jax.nn.initializers.constant(0.0),
+                jax.nn.initializers.zeros,
             ),
             we_gate=ArrayInfo(
                 (cfg.n_routed_experts, cfg.embed, cfg.moe_ffw_size),
@@ -554,27 +552,27 @@ class MoELayer(_Init):
 
 @jax_pytree_struct
 class AttentionLayer(_Init):
-    q_a: Union[Union[jax.Array, ArrayInfo], QuantArray]
-    q_gamma: Union[Union[jax.Array, ArrayInfo], QuantArray]
-    q_b: Union[Union[jax.Array, ArrayInfo], QuantArray]
-    kv_a: Union[Union[jax.Array, ArrayInfo], QuantArray]
-    k_pe: Union[Union[jax.Array, ArrayInfo], QuantArray]
-    kv_gamma: Union[Union[jax.Array, ArrayInfo], QuantArray]
-    k_b: Union[Union[jax.Array, ArrayInfo], QuantArray]
-    v_b: Union[Union[jax.Array, ArrayInfo], QuantArray]
-    o: Union[Union[jax.Array, ArrayInfo], QuantArray]
+    q_a: jax.Array | ArrayInfo | QuantArray
+    q_gamma: jax.Array | ArrayInfo | QuantArray
+    q_b: jax.Array | ArrayInfo | QuantArray
+    kv_a: jax.Array | ArrayInfo | QuantArray
+    k_pe: jax.Array | ArrayInfo | QuantArray
+    kv_gamma: jax.Array | ArrayInfo | QuantArray
+    k_b: jax.Array | ArrayInfo | QuantArray
+    v_b: jax.Array | ArrayInfo | QuantArray
+    o: jax.Array | ArrayInfo | QuantArray
 
     @classmethod
     def abstract(cls, cfg: Config):
-        _init = lambda *out_ax: jax.nn.initializers.he_normal(
-            in_axis=0, out_axis=out_ax
-        )
+        _init = _he_normal
         dtype = cfg.dtype
-        _ones_init = jax.nn.initializers.constant(1.0)
         q_head_dim = cfg.qk_nope_head_dim + cfg.qk_rope_head_dim
         layer = AttentionLayer(
             q_a=ArrayInfo(
-                (cfg.embed, cfg.q_lora_rank), dtype, ("qkv_embed", "q_lora"), _init(1)
+                (cfg.embed, cfg.q_lora_rank),
+                dtype,
+                ("qkv_embed", "q_lora"),
+                _init(0, 1),
             ),
             q_gamma=ArrayInfo((cfg.q_lora_rank,), dtype, ("q_lora",), _ones_init),
             q_b=ArrayInfo(
@@ -584,32 +582,35 @@ class AttentionLayer(_Init):
                 _init(1, 2),
             ),
             kv_a=ArrayInfo(
-                (cfg.embed, cfg.kv_lora_rank), dtype, ("qkv_embed", "kv_lora"), _init(1)
+                (cfg.embed, cfg.kv_lora_rank),
+                dtype,
+                ("qkv_embed", "kv_lora"),
+                _init(0, 1),
             ),
             k_pe=ArrayInfo(
                 (cfg.embed, cfg.qk_rope_head_dim),
                 dtype,
                 ("qkv_embed", "head_dim"),
-                _init(1),
+                _init(0, 1),
             ),
             kv_gamma=ArrayInfo((cfg.kv_lora_rank,), dtype, ("kv_lora",), _ones_init),
             k_b=ArrayInfo(
                 (cfg.kv_lora_rank, cfg.num_heads, cfg.qk_nope_head_dim),
                 dtype,
                 ("kv_lora", "qkv_heads", "head_dim"),
-                _init(1, 2),
+                _init(0, (1, 2)),
             ),
             v_b=ArrayInfo(
                 (cfg.kv_lora_rank, cfg.num_heads, cfg.v_head_dim),
                 dtype,
                 ("kv_lora", "qkv_heads", "head_dim"),
-                _init(1, 2),
+                _init(0, (1, 2)),
             ),
             o=ArrayInfo(
                 (cfg.num_heads, cfg.v_head_dim, cfg.embed),
                 dtype,
                 ("o_heads", "head_dim", "o_embed"),
-                _init(1, 2),
+                _init(0, (1, 2)),
             ),
         )
         layer = cls.quantize(layer, cfg)
@@ -634,14 +635,14 @@ class AttentionLayer(_Init):
 
 @jax_pytree_struct
 class Layer(_Init):
-    mlp: Union[MLPLayer, MoELayer]
+    mlp: MLPLayer | MoELayer
     attn: AttentionLayer
-    gamma_pre_attn: Union[jax.Array, ArrayInfo]
-    gamma_post_attn: Union[jax.Array, ArrayInfo]
+    gamma_pre_attn: jax.Array | ArrayInfo
+    gamma_post_attn: jax.Array | ArrayInfo
 
     @classmethod
     def abstract(cls, cfg: Config, use_moe: bool = True) -> "Layer":
-        _init = jax.nn.initializers.constant(1.0)
+        _init = jax.nn.initializers.ones
         dtype = cfg.dtype
         return Layer(
             mlp=MoELayer.abstract(cfg) if use_moe else MLPLayer.abstract(cfg),
@@ -661,10 +662,10 @@ class Layer(_Init):
 
 @jax_pytree_struct
 class Weights(_Init):
-    layers: list
-    embedding: Union[jax.Array, ArrayInfo]
-    gamma_final: Union[jax.Array, ArrayInfo]
-    lm_head: Union[jax.Array, ArrayInfo]
+    layers: list[Layer]
+    embedding: jax.Array | ArrayInfo
+    gamma_final: jax.Array | ArrayInfo
+    lm_head: jax.Array | ArrayInfo
 
     @classmethod
     def abstract(cls, cfg: Config):
@@ -677,20 +678,17 @@ class Weights(_Init):
             embedding=ArrayInfo(
                 (cfg.vocab_size, cfg.embed),
                 cfg.dtype,
-                ("vocab_in", "vocab_out"),
-                jax.nn.initializers.he_normal(in_axis=0, out_axis=1),
+                (None, "vocab_in"),
+                _he_normal(in_axis=0, out_axis=1),
             ),
             gamma_final=ArrayInfo(
-                (cfg.embed,),
-                cfg.dtype,
-                ("act_embed",),
-                jax.nn.initializers.constant(1.0),
+                (cfg.embed,), cfg.dtype, ("act_embed",), jax.nn.initializers.ones
             ),
             lm_head=ArrayInfo(
                 (cfg.embed, cfg.vocab_size),
                 cfg.dtype,
                 ("vocab_in", "vocab_out"),
-                jax.nn.initializers.he_normal(in_axis=1, out_axis=0),
+                _he_normal(in_axis=1, out_axis=0),
             ),
         )
 
@@ -703,9 +701,9 @@ class Weights(_Init):
 
 @partial(jax_pytree_struct, meta_fields=["time_axis", "size"])
 class KVCache(_Init):
-    k_nope: list  # [batch_size, max_seq_len, kv_lora]
-    k_pe: list  # [batch_size, max_seq_len, qk_rope_head_dim]
-    v: list  # [batch_size, max_seq_len, kv_lora]
+    k_nope: list[jax.Array]  # [batch_size, max_seq_len, kv_lora]
+    k_pe: list[jax.Array]  # [batch_size, max_seq_len, qk_rope_head_dim]
+    v: list[jax.Array]  # [batch_size, max_seq_len, kv_lora]
     iter: jax.Array  # []  # sequences are right-aligned for slice udpate performance
     starts: (
         jax.Array
@@ -772,7 +770,7 @@ class KVCache(_Init):
         return (self.k_nope, self.k_pe, self.v)
 
 
-def einsum(subscripts: str, lhs: jax.Array, rhs: Union[jax.Array, QuantArray]):
+def einsum(subscripts: str, lhs: jax.Array, rhs: jax.Array | QuantArray):
     """jnp.einsum wrapper that handles regular arrays and QuantArrays"""
     if is_type(rhs, QuantArray):
         scale = jnp.expand_dims(rhs.scale, rhs.scale_expand_dims)
@@ -785,7 +783,7 @@ def einsum(subscripts: str, lhs: jax.Array, rhs: Union[jax.Array, QuantArray]):
 
 
 def update_slice(
-    x: Union[jax.Array, QuantArray],
+    x: jax.Array | QuantArray,
     y: jax.Array,
     pos: int,
     update_axis: int,
@@ -804,7 +802,7 @@ def update_slice(
 
 
 def logical_sharding_constraint(
-    x: Union[jax.Array, QuantArray],
+    x: jax.Array | QuantArray,
     logical_axes: Axes,
     mesh: jax.sharding.Mesh,
     rules: ShardingRules,
@@ -832,7 +830,7 @@ def segment_ids_to_positions(segment_ids):
 
 
 def _yarn_find_correction_dim(
-    num_rotations: int, dim: int, base: int = 10000, max_position_embeddings: int = 2048
+    num_rotations, dim, base=10000, max_position_embeddings=2048
 ):
     return (dim * math.log(max_position_embeddings / (num_rotations * 2 * math.pi))) / (
         2 * math.log(base)
@@ -840,7 +838,7 @@ def _yarn_find_correction_dim(
 
 
 def _yarn_find_correction_range(
-    low_rot, high_rot, dim: int, base: int = 10000, max_position_embeddings: int = 2048
+    low_rot, high_rot, dim, base=10000, max_position_embeddings=2048
 ):
     low = math.floor(
         _yarn_find_correction_dim(low_rot, dim, base, max_position_embeddings)
@@ -851,7 +849,7 @@ def _yarn_find_correction_range(
     return max(low, 0), min(high, dim - 1)  # Clamp values just in case
 
 
-def _yarn_linear_ramp_mask(min, max, dim: int):
+def _yarn_linear_ramp_mask(min, max, dim):
     if min == max:
         max += 0.001  # Prevent singularity
 
@@ -906,8 +904,12 @@ def make_attention_mask(
 
     if causal:
         qk = (1, 1, q_len, k_len)  # [b, h, t, T]
-        q_positions = jax.lax.broadcasted_iota(jnp.int32, qk, 2) + q_offset
-        kv_positions = (jax.lax.broadcasted_iota(jnp.int32, qk, 3) + kv_offset) % k_len
+        q_positions = (
+            jax.lax.broadcasted_iota(jnp.int32, qk, 2) + q_offset[:, None, None, None]
+        )
+        kv_positions = (
+            jax.lax.broadcasted_iota(jnp.int32, qk, 3) + kv_offset[:, None, None, None]
+        ) % k_len
         causal_mask = q_positions >= kv_positions
         return segment_mask & causal_mask
     return segment_mask
@@ -927,9 +929,9 @@ def _get_attn_scale(q_head_dim: int, cfg: Config):
 def attention(
     q_nope: jax.Array,
     q_pe: jax.Array,
-    k_nope: Union[jax.Array, tuple],
-    k_pe: Union[jax.Array, tuple],
-    v: Union[jax.Array, tuple],
+    k_nope: jax.Array | tuple[jax.Array, jax.Array],
+    k_pe: jax.Array | tuple[jax.Array, jax.Array],
+    v: jax.Array | tuple[jax.Array, jax.Array],
     q_segment_ids: jax.Array,
     kv_segment_ids: jax.Array,
     q_offset: jax.Array,
@@ -973,15 +975,7 @@ def attention(
 
 
 def attention_kernel(
-    q,
-    k,
-    v,
-    q_segment_ids,
-    kv_segment_ids,
-    q_offset,
-    starts,
-    lengths: Sequence[int],
-    cfg: Config,
+    q, k, v, q_segment_ids, kv_segment_ids, q_offset, starts, lengths, cfg: Config
 ):
     """Flash attention kernel!"""
     k, k_scale = (k.quant, k.scale) if is_type(k, QuantArray) else (k, None)
@@ -1006,23 +1000,13 @@ def attention_kernel(
     out_specs = l2p("batch", "act_heads", "sequence", "head_dim")
 
     @partial(
-        shard_map,
+        jax.shard_map,
         mesh=cfg.mesh,
         in_specs=in_specs,
         out_specs=out_specs,
-        check_rep=False,
+        check_vma=False,
     )
-    def _f(
-        q,
-        k,
-        v,
-        q_segment_ids,
-        kv_segment_ids,
-        starts,
-        lengths: Sequence[int],
-        k_scale,
-        v_scale,
-    ):
+    def _f(q, k, v, q_segment_ids, kv_segment_ids, starts, lengths, k_scale, v_scale):
         q_org_shape = q.shape
         kv_repeats = q.shape[-3] // k.shape[-3]
         q = q.reshape(
@@ -1091,7 +1075,7 @@ def mla_attention_block(
     sin: jax.Array,
     cos: jax.Array,
     cfg: Config,
-    cache: Optional[KVCache] = None,
+    cache: KVCache | None = None,
     idx: int = 0,
 ) -> jax.Array:
     dtype = cfg.dtype
@@ -1252,7 +1236,7 @@ def _route_tokens_to_moe_experts(
     return topk_weights, topk_idx
 
 
-def _moe_gmm(lhs, rhs, group_sizes: Sequence[int], topk_idx, cfg: Config):
+def _moe_gmm(lhs, rhs, group_sizes, topk_idx, cfg: Config):
     assert lhs.ndim == 2 and rhs.ndim == 3, f"{lhs.ndim=} != 2 and {rhs.ndim=} != 3"
     group_sizes = group_sizes.astype(jnp.int32)
     if cfg.use_decode_ragged_dot_kernel and lhs.shape[0] <= 1024:
@@ -1360,7 +1344,11 @@ def moe_block_ep(x: jax.Array, layer: MoELayer, cfg: Config):
     expert_size = cfg.n_routed_experts // expert_count
 
     @partial(
-        shard_map, mesh=cfg.mesh, in_specs=in_specs, out_specs=out_spec, check_rep=False
+        jax.shard_map,
+        mesh=cfg.mesh,
+        in_specs=in_specs,
+        out_specs=out_spec,
+        check_vma=False,
     )
     def _expert_fn(x, we_gate, we_up, we_down, topk_weights, topk_idx):
         (b, s, d), e = x.shape, cfg.num_experts_per_tok
@@ -1448,10 +1436,9 @@ def moe_block_ep(x: jax.Array, layer: MoELayer, cfg: Config):
             )
             pad_size = rs_shape - ff_out.shape[-1]
             ff_out = jnp.pad(ff_out, ((0, 0), (0, pad_size)))
-            if tensor_axname is not None:
-                ff_out = jax.lax.psum_scatter(
-                    ff_out, axis_name=tensor_axname, scatter_dimension=1, tiled=True
-                )
+            ff_out = jax.lax.psum_scatter(
+                ff_out, axis_name=tensor_axname, scatter_dimension=1, tiled=True
+            )
 
         if cfg.strategy == "prefill":
             with jax.named_scope("expert_weighting"):
@@ -1492,27 +1479,22 @@ def moe_block_ep(x: jax.Array, layer: MoELayer, cfg: Config):
                     is_embedding_sharded
                 ):  # activations are supposed to be sharded on out
                     with jax.named_scope("tp_e_psum_scatter"):
-                        if tensor_axname is not None:
-                            ff_out_expert = jax.lax.psum_scatter(
-                                ff_out_expert,
-                                tensor_axname,
-                                scatter_dimension=1,
-                                tiled=True,
-                            )
+                        ff_out_expert = jax.lax.psum_scatter(
+                            ff_out_expert,
+                            tensor_axname,
+                            scatter_dimension=1,
+                            tiled=True,
+                        )
                     with jax.named_scope("ep_e_psum"):
                         if expert_axname is not None:
                             ff_out_expert = jax.lax.psum(ff_out_expert, expert_axname)
                 else:
-                    if expert_axname is None:
-                        if tensor_axname is not None:
-                            ff_out_expert = jax.lax.psum(ff_out_expert, tensor_axname)
-                    else:
-                        psum_axes = (
-                            (expert_axname, tensor_axname)
-                            if tensor_axname is not None
-                            else expert_axname
-                        )
-                        ff_out_expert = jax.lax.psum(ff_out_expert, psum_axes)
+                    psum_axes = (
+                        tensor_axname
+                        if expert_axname is None
+                        else (expert_axname, tensor_axname)
+                    )
+                    ff_out_expert = jax.lax.psum(ff_out_expert, psum_axes)
             ff_out_expert = ff_out_expert.reshape((b, s, ff_out_expert.shape[-1]))
             return ff_out_expert
 
@@ -1548,8 +1530,8 @@ def forward_layer(
     cos: jax.Array,
     idx: int,
     cfg: Config,
-    cache: Optional[KVCache] = None,
-) -> tuple:
+    cache: KVCache | None = None,
+) -> tuple[jax.Array, jax.Array, jax.Array]:
     x = x.astype(cfg.dtype)
     x = jax.lax.with_sharding_constraint(
         x, logical_to_sharding(("batch", "sequence", "act_embed"), cfg.mesh, cfg.rules)
@@ -1582,7 +1564,7 @@ def forward(
     segment_ids: jax.Array,
     weights: Weights,
     cfg: Config,
-    cache: Optional[KVCache] = None,
+    cache: KVCache | None = None,
 ):
     with jax.named_scope("vocab_in_proj"):
         # Embed input tokens [B, T] -> [B, T D]
@@ -1629,7 +1611,7 @@ def forward(
 
 
 # serialization
-def save_pytree(data, path) -> None:
+def save_pytree(data, path):
     import orbax.checkpoint as ocp
 
     with ocp.PyTreeCheckpointer() as ckptr:

@@ -1,5 +1,23 @@
-# Copy from https://huggingface.co/deepseek-ai/DeepSeek-V3/blob/main/configuration_deepseek.py
+# Copyright 2023 DeepSeek-AI and The HuggingFace Inc. team. All rights reserved.
+#
+# This code is based on EleutherAI's GPT-NeoX library and the GPT-NeoX
+# and OPT implementations in this library. It has been modified from its
+# original forms to accommodate minor architectural differences compared
+# to GPT-NeoX and OPT used by the Meta AI team that trained the model.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
+# Copy from https://huggingface.co/deepseek-ai/DeepSeek-V3/blob/main/configuration_deepseek.py
 
 from transformers.configuration_utils import PretrainedConfig
 from transformers.utils import logging
@@ -121,49 +139,49 @@ class DeepseekV3Config(PretrainedConfig):
 
     def __init__(
         self,
-        vocab_size: int = 129280,
-        hidden_size: int = 7168,
-        intermediate_size: int = 18432,
-        moe_intermediate_size: int = 2048,
-        num_hidden_layers: int = 61,
-        num_nextn_predict_layers: int = 1,
-        num_attention_heads: int = 128,
-        num_key_value_heads: int = 128,
-        n_shared_experts: int = 1,
-        n_routed_experts: int = 256,
-        ep_size: int = 1,
-        routed_scaling_factor: float = 2.5,
-        kv_lora_rank: int = 512,
-        q_lora_rank: int = 1536,
-        qk_rope_head_dim: int = 64,
-        v_head_dim: int = 128,
-        qk_nope_head_dim: int = 128,
-        topk_method: str = "noaux_tc",
-        n_group: int = 8,
-        topk_group: int = 4,
-        num_experts_per_tok: int = 8,
-        moe_layer_freq: int = 1,
-        first_k_dense_replace: int = 3,
-        norm_topk_prob: bool = True,
-        scoring_func: str = "sigmoid",
-        aux_loss_alpha: float = 0.001,
-        seq_aux: bool = True,
-        hidden_act: str = "silu",
-        max_position_embeddings: int = 4096,
-        initializer_range: float = 0.02,
-        rms_norm_eps: float = 1e-6,
-        use_cache: bool = True,
+        vocab_size=129280,
+        hidden_size=7168,
+        intermediate_size=18432,
+        moe_intermediate_size=2048,
+        num_hidden_layers=61,
+        num_nextn_predict_layers=1,
+        num_attention_heads=128,
+        num_key_value_heads=128,
+        n_shared_experts=1,
+        n_routed_experts=256,
+        ep_size=1,
+        routed_scaling_factor=2.5,
+        kv_lora_rank=512,
+        q_lora_rank=1536,
+        qk_rope_head_dim=64,
+        v_head_dim=128,
+        qk_nope_head_dim=128,
+        topk_method="noaux_tc",
+        n_group=8,
+        topk_group=4,
+        num_experts_per_tok=8,
+        moe_layer_freq=1,
+        first_k_dense_replace=3,
+        norm_topk_prob=True,
+        scoring_func="sigmoid",
+        aux_loss_alpha=0.001,
+        seq_aux=True,
+        hidden_act="silu",
+        max_position_embeddings=4096,
+        initializer_range=0.02,
+        rms_norm_eps=1e-6,
+        use_cache=True,
         pad_token_id=None,
-        bos_token_id: int = 0,
-        eos_token_id: int = 1,
-        pretraining_tp: int = 1,
-        tie_word_embeddings: bool = False,
-        rope_theta: float = 10000.0,
+        bos_token_id=0,
+        eos_token_id=1,
+        pretraining_tp=1,
+        tie_word_embeddings=False,
+        rope_theta=10000.0,
         rope_scaling=None,
-        attention_bias: bool = False,
-        attention_dropout: float = 0.0,
+        attention_bias=False,
+        attention_dropout=0.0,
         **kwargs,
-    ) -> None:
+    ):
         self.vocab_size = vocab_size
         self.max_position_embeddings = max_position_embeddings
         self.hidden_size = hidden_size

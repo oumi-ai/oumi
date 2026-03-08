@@ -18,7 +18,6 @@ import re
 import shutil
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Optional
 
 import jax
 import torch
@@ -229,7 +228,7 @@ _SPECIAL_MAP = {
 }
 
 
-def _llama_key_to_jax_key(llama_key, custom_key_map: Optional[dict[str, str]] = None):
+def _llama_key_to_jax_key(llama_key, custom_key_map: dict[str, str] | None = None):
     key_maps = [_HF_KEY_MAPPING] + ([] if custom_key_map is None else [custom_key_map])
     for key_map in key_maps:
         for pat, repl in key_map.items():
@@ -244,11 +243,11 @@ def convert_model_or_layer(
     layer: l4jax.Weights | l4jax.Layer,
     llama_layer: torch.nn.Module,
     cfg: l4jax.Config,
-    device: Optional[jax.Device] = None,
+    device: jax.Device | None = None,
     sequential: bool = False,
-    custom_key_map: Optional[dict[str, str]] = None,
+    custom_key_map: dict[str, str] | None = None,
     allow_unconverted_parameters: bool = False,
-    prefix: Optional[str] = None,
+    prefix: str | None = None,
 ):
     device = device if device is not None else jax.devices("cpu")[0]
     torch_params = dict(
@@ -278,6 +277,7 @@ def convert_model_or_layer(
     new_params = {k: None for k in layer_params.keys()}
 
     def convert_weight_thread(tkey, tweight):
+
         with jax.default_device(device):
             jweight = convert_weight(tkey, tweight, cfg)
         jkey = _llama_key_to_jax_key(tkey, custom_key_map=custom_key_map)

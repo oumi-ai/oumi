@@ -12,10 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""JAX inference engine for running LLM inference via jax-llm-examples models.
+
+Supports Llama 3, Llama 4, DeepSeek R1, Qwen 3, Kimi K2, GPT-OSS, and Nemotron 3.
+Each model follows the upstream jax-llm-examples prefill/decode pattern.
+"""
+
 from __future__ import annotations
 
+import dataclasses
+import json
+from pathlib import Path
 from typing import Any
 
+import numpy as np
 from typing_extensions import override
 
 from oumi.builders import build_tokenizer
@@ -28,12 +38,93 @@ try:
     import jax
     import jax.numpy as jnp
     from jax import random
+    from jax.sharding import PartitionSpec as P
 except ModuleNotFoundError:
-    jax = None
+    jax = None  # type: ignore[assignment]
+    jnp = None  # type: ignore[assignment]
+    random = None  # type: ignore[assignment]
+    P = None  # type: ignore[assignment]
+
+# Maps model architecture keywords to their module paths and loading patterns.
+# Each entry defines: (module_import_path, architecture_family)
+_MODEL_ARCHITECTURES = {
+    "llama3": (
+        "oumi.models.experimental.jax_models.llama3.llama3_jax",
+        "llama3",
+    ),
+    "llama-3": (
+        "oumi.models.experimental.jax_models.llama3.llama3_jax",
+        "llama3",
+    ),
+    "llama4": (
+        "oumi.models.experimental.jax_models.llama4.llama4_jax",
+        "llama4",
+    ),
+    "llama-4": (
+        "oumi.models.experimental.jax_models.llama4.llama4_jax",
+        "llama4",
+    ),
+    "deepseek": (
+        "oumi.models.experimental.jax_models.deepseek_r1_jax.deepseek_r1_jax",
+        "deepseek_r1",
+    ),
+    "qwen3": (
+        "oumi.models.experimental.jax_models.qwen3.qwen3_jax",
+        "qwen3",
+    ),
+    "qwen-3": (
+        "oumi.models.experimental.jax_models.qwen3.qwen3_jax",
+        "qwen3",
+    ),
+    "kimi": (
+        "oumi.models.experimental.jax_models.kimi_k2.kimi_k2_jax",
+        "kimi_k2",
+    ),
+    "gpt-oss": (
+        "oumi.models.experimental.jax_models.gpt_oss.gpt_oss_jax",
+        "gpt_oss",
+    ),
+    "gpt_oss": (
+        "oumi.models.experimental.jax_models.gpt_oss.gpt_oss_jax",
+        "gpt_oss",
+    ),
+    "nemotron": (
+        "oumi.models.experimental.jax_models.nemotron3.nemotron3_jax",
+        "nemotron3",
+    ),
+}
+
+# Models that use cache.iter for first-token extraction (vs cache.length)
+_USES_CACHE_ITER = {"llama3", "gpt_oss", "qwen3", "nemotron3"}
+
+# Models that use chkpt_utils.load_model instead of model.load_pytree
+_USES_CHKPT_LOAD_MODEL = {"deepseek_r1", "kimi_k2"}
+
+# Models that use optimal_formats for weight loading
+_USES_OPTIMAL_FORMATS = {"gpt_oss", "nemotron3"}
+
+# Models that require set_mesh context manager
+_USES_SET_MESH = {"llama3", "gpt_oss", "qwen3", "llama4", "nemotron3"}
+
+# Models that use hf_to_jax_config (vs default Config() or llama_to_jax_config)
+_HF_CONFIG_MODELS = {"gpt_oss", "qwen3", "llama4", "nemotron3"}
+_LLAMA_CONFIG_MODELS = {"llama3"}
+_DEFAULT_CONFIG_MODELS = {"deepseek_r1", "kimi_k2"}
+
+# KVCache init: llama3 uses 3 args, all others use 4 (including max_seq_len)
+_KVCACHE_3_ARGS = {"llama3"}
 
 
 class JAXInferenceEngine(BaseInferenceEngine):
-    """Engine for running JAX inference locally."""
+    """Engine for running inference with JAX models from jax-llm-examples.
+
+    This engine loads and runs models vendored from Google's jax-llm-examples
+    repository, supporting Llama 3/4, DeepSeek R1, Qwen 3, Kimi K2, GPT-OSS,
+    and Nemotron 3. Models are served through Oumi's standard inference pipeline.
+
+    The engine handles the full prefill-then-decode autoregressive generation loop
+    following each model's upstream patterns.
+    """
 
     def __init__(
         self,
@@ -42,375 +133,271 @@ class JAXInferenceEngine(BaseInferenceEngine):
         generation_params: GenerationParams | None = None,
         tensor_parallel_size: int = -1,
         quantization: str | None = None,
-        enable_xla_compilation: bool = True,
-        memory_fraction: float = 0.9,
+        max_seq_len: int = 2048,
     ):
-        """Initializes the inference Engine.
+        """Initializes the JAX inference engine.
 
         Args:
-            model_params: The model parameters to use for inference.
-            generation_params: The generation parameters to use for inference.
-            tensor_parallel_size: The number of tensor parallel devices to use.
-                If set to -1, we will use all the available devices.
-            quantization: The quantization method to use for inference (e.g., "int8").
-            enable_xla_compilation: Whether to enable XLA compilation for performance.
-            memory_fraction: The fraction of available device memory to use.
-                It can range from 0 to 1. Defaults to 0.9, i.e., (90%) utilization.
+            model_params: The model parameters. ``model_name`` should be a path
+                to a local checkpoint directory containing ``config.json`` and
+                converted JAX weights, or a HuggingFace model ID that maps to
+                a known architecture.
+            generation_params: Parameters for generation.
+            tensor_parallel_size: Number of devices for tensor parallelism.
+                -1 means use all available devices.
+            quantization: Quantization mode (e.g., "int8"). Applied via each
+                model's native quantization flags.
+            max_seq_len: Maximum sequence length for KV cache allocation.
         """
         super().__init__(model_params=model_params, generation_params=generation_params)
 
         if not jax:
             raise RuntimeError(
-                "JAX is not installed. "
-                "Please install JAX with: pip install jax[cpu] for CPU "
-                "or pip install jax[cuda12_pip] for GPU support."
-            )
-
-        if not (
-            isinstance(memory_fraction, (int, float))
-            and memory_fraction > 0
-            and memory_fraction <= 1.0
-        ):
-            raise ValueError(
-                f"Memory fraction must be within (0, 1]. Got {memory_fraction}."
+                "JAX is not installed. Please install JAX with: pip install oumi[jax]"
             )
 
         self._tensor_parallel_size = tensor_parallel_size
         self._quantization = quantization
-        self._enable_xla_compilation = enable_xla_compilation
-        self._memory_fraction = memory_fraction
+        self._max_seq_len = max_seq_len
 
-        # JAX-specific attributes
-        self._model: Any = None
-        self._tokenizer: Any = None
-        self._params: Any = None
+        # Resolved during _load_model
+        self._model_module: Any = None  # The model's Python module (e.g., l3jax)
+        self._weights: Any = None  # Model weights (Weights dataclass)
+        self._config: Any = None  # Model config (Config dataclass)
+        self._architecture: str = ""  # Architecture family name
+        self._mesh: Any = None  # JAX device mesh
         self._rng_key: Any = None
 
-        self._setup_jax_devices()
+        self._setup_devices()
         self._load_model()
 
-    def _setup_jax_devices(self) -> None:
-        """Sets up JAX devices and configuration."""
-        if jax is None:
-            raise RuntimeError("JAX is not available")
-
+    def _setup_devices(self) -> None:
+        """Sets up JAX devices and creates the device mesh."""
+        assert jax is not None
+        assert random is not None
         devices = jax.devices()
-        assert devices is not None, "JAX devices should not be None"
-
         if self._tensor_parallel_size <= 0:
             self._tensor_parallel_size = len(devices)
 
         logger.info(
-            f"JAX devices available: {len(devices)}. "
-            f"Using {self._tensor_parallel_size} devices for tensor parallelism."
+            f"JAX devices: {len(devices)} available, "
+            f"using {self._tensor_parallel_size} for tensor parallelism."
         )
 
-        # Setup tensor parallelism mesh
+        # Create mesh following jax-llm-examples pattern: (tp_size, 1, 1)
+        # with axis names ("x", "y", "z")
+        tp = min(self._tensor_parallel_size, len(devices))
         try:
-            from oumi.utils.jax_model_utils import setup_tensor_parallelism
+            self._mesh = jax.make_mesh((tp, 1, 1), ("x", "y", "z"))
+        except AttributeError:
+            # Fallback for older JAX versions without make_mesh
+            from jax.sharding import Mesh
 
-            self._mesh = setup_tensor_parallelism(self._tensor_parallel_size)
-        except ImportError:
-            logger.warning("Could not import JAX model utils")
-            self._mesh = None
+            self._mesh = Mesh(np.array(devices[:tp]).reshape(tp, 1, 1), ("x", "y", "z"))
 
-        # Initialize RNG key for generation
         self._rng_key = random.PRNGKey(42)
 
-        # Set memory allocation fraction if supported
-        if jax is not None and hasattr(jax.config, "update"):
-            try:
-                jax.config.update("jax_memory_fraction", self._memory_fraction)
-                # Enable XLA optimizations if requested
-                if self._enable_xla_compilation:
-                    if jax is not None:
-                        jax.config.update(
-                            "jax_enable_x64", False
-                        )  # Use 32-bit for speed
-                        logger.info("Enabled XLA compilation optimizations")
-            except Exception as e:
-                logger.warning(f"Could not configure JAX: {e}")
+    @staticmethod
+    def _resolve_architecture(model_name: str) -> tuple[str, str]:
+        """Resolves model name to module path and architecture family.
 
-        # Setup multi-host if needed
-        if self._tensor_parallel_size > len(devices):
-            try:
-                from oumi.utils.jax_model_utils import setup_multi_host_jax
-
-                if setup_multi_host_jax():
-                    logger.info("Multi-host JAX setup successful")
-            except ImportError:
-                logger.warning("Multi-host setup not available")
-
-    def _load_model(self) -> None:
-        """Loads the JAX model and tokenizer."""
-        from importlib.util import find_spec
-
-        # Check JAX dependency
-        if not find_spec("jax"):
-            raise RuntimeError(
-                "Failed to find the required dependency package:'jax' "
-                "for JAX inference. "
-                "Run `pip install oumi[jax]`, and try again."
-            )
-
-        model_name = self._model_params.model_name
-
-        # Build tokenizer using Oumi's standard builder
-        self._tokenizer = build_tokenizer(self._model_params)
-
-        # Map model names to JAX implementations
-        # All models have complete implementations in jax-llm-examples
-        jax_model_loaders = {
-            "jax-ml/llama3-8b": self._load_llama3_model,
-            "jax-ml/llama3-70b": self._load_llama3_model,
-            "jax-ml/llama3-405b": self._load_llama3_model,
-            "jax-ml/llama4": self._load_llama4_model,
-            "jax-ml/qwen3": self._load_qwen3_model,
-            "jax-ml/kimi-k2": self._load_kimi_k2_model,
-            "jax-ml/deepseek-r1": self._load_deepseek_model,
-            "jax-ml/gpt-oss": self._load_gpt_oss_model,
-        }
-
-        # Check if model_name contains any JAX model prefix
-        loader_found = False
-        for model_prefix, loader_func in jax_model_loaders.items():
-            if model_name.startswith(model_prefix):
-                self._model, self._params = loader_func()
-                loader_found = True
-                logger.info(f"Loaded JAX model: {model_name}")
-                break
-
-        if not loader_found:
-            logger.warning(
-                f"No JAX implementation found for model: {model_name}. "
-                "Available JAX models: jax-ml/llama3-8b, jax-ml/llama4-scout, "
-                "jax-ml/deepseek-r1, jax-ml/qwen3"
-            )
-            raise ValueError(f"Unsupported JAX model: {model_name}")
-
-    def _load_llama3_model(self) -> tuple[Any, Any]:
-        """Loads Llama 3 JAX model following jax-llm-examples API.
+        Args:
+            model_name: The model name or path.
 
         Returns:
-            Tuple of (model_module, weights) for the JAX model.
+            Tuple of (module_import_path, architecture_family).
+
+        Raises:
+            ValueError: If the model architecture cannot be determined.
         """
+        name_lower = model_name.lower()
+        for keyword, (module_path, arch) in _MODEL_ARCHITECTURES.items():
+            if keyword in name_lower:
+                return module_path, arch
+
+        supported = sorted({v[1] for v in _MODEL_ARCHITECTURES.values()})
+        raise ValueError(
+            f"Cannot determine JAX architecture for model: {model_name}. "
+            f"Supported architectures: {supported}"
+        )
+
+    def _load_model(self) -> None:
+        """Loads the JAX model, config, and weights."""
+        model_name = self._model_params.model_name
+        module_path, self._architecture = self._resolve_architecture(model_name)
+
+        # Build tokenizer
+        self._tokenizer = build_tokenizer(self._model_params)
+
+        # Import the model module
+        import importlib
+
         try:
-            # Import actual JAX Llama3 implementation from vendored jax-llm-examples
-            import dataclasses
-            import json
+            model_mod = importlib.import_module(f"{module_path}.model")
+        except ImportError as e:
+            raise RuntimeError(
+                f"Failed to import JAX model module '{module_path}.model'. "
+                "Ensure oumi[jax] is installed: pip install oumi[jax]"
+            ) from e
+        self._model_module = model_mod
 
-            try:
-                from etils import epath
-            except ImportError:
-                epath = None  # Handle missing etils gracefully
+        # Resolve checkpoint path
+        ckpt_path = self._resolve_checkpoint_path(model_name)
 
-            from oumi.models.experimental.jax_models.llama3.llama3_jax import (
-                model as l3jax,
+        if ckpt_path is not None:
+            self._load_from_checkpoint(ckpt_path, model_mod, module_path)
+        else:
+            self._load_with_random_weights(model_mod)
+
+        logger.info(
+            f"Loaded JAX model: {model_name} (architecture={self._architecture})"
+        )
+
+    def _resolve_checkpoint_path(self, model_name: str) -> Path | None:
+        """Resolves the checkpoint path from the model name."""
+        # First check if it's a direct path
+        candidate = Path(model_name).expanduser()
+        if candidate.is_dir() and (candidate / "config.json").exists():
+            return candidate
+
+        # Check model_params for explicit path
+        model_path = getattr(self._model_params, "model_path", None)
+        if model_path:
+            candidate = Path(model_path).expanduser()
+            if candidate.is_dir():
+                return candidate
+
+        return None
+
+    def _load_config_from_checkpoint(self, ckpt_path: Path, model_mod: Any) -> Any:
+        """Creates a JAX config from checkpoint's config.json."""
+        config_data = json.loads((ckpt_path / "config.json").read_text())
+
+        if self._architecture in _LLAMA_CONFIG_MODELS:
+            cfg = model_mod.llama_to_jax_config(config_data)
+        elif self._architecture in _HF_CONFIG_MODELS:
+            # Llama4 nests text config under "text_config"
+            if self._architecture == "llama4" and "text_config" in config_data:
+                config_data = config_data["text_config"]
+            cfg = model_mod.hf_to_jax_config(config_data)
+        elif self._architecture in _DEFAULT_CONFIG_MODELS:
+            cfg = model_mod.Config()
+        else:
+            raise ValueError(
+                f"Unknown config pattern for architecture: {self._architecture}"
             )
 
-            logger.info("Loading Llama 3 JAX model...")
+        # Apply mesh and quantization
+        replace_kwargs: dict[str, Any] = {"mesh": self._mesh}
 
-            # Create a mock checkpoint path (in real usage, this would be provided)
-            # For now, we'll create a minimal config to test the integration
-            if self._model_params.load_pretrained_weights:
-                # In production, user would specify checkpoint path
-                if epath is not None:
-                    ckpt_path = epath.Path(self._model_params.model_name).expanduser()
-                else:
-                    ckpt_path = None
-                if ckpt_path is not None and ckpt_path.exists():
-                    # Load from actual checkpoint
-                    config_data = json.loads((ckpt_path / "config.json").read_text())
-                    cfg = l3jax.llama_to_jax_config(config_data)
-                    cfg.mesh = self._mesh
-                    cfg.quant_layer = bool(self._quantization)
-                    weights = l3jax.load_pytree(ckpt_path, l3jax.Weights.shardings(cfg))
+        if self._quantization:
+            quant = True
+            if self._architecture == "llama3":
+                replace_kwargs.update(quant_layer=quant, quant_cache=quant)
+            elif self._architecture in ("qwen3", "nemotron3"):
+                replace_kwargs.update(
+                    quant_attn=quant,
+                    quant_moe=quant,
+                    quant_mlp=quant,
+                    quant_cache=quant,
+                )
+                if self._architecture == "nemotron3":
+                    replace_kwargs["quant_mamba"] = quant
+            elif self._architecture in ("llama4",):
+                replace_kwargs.update(
+                    quant_attn=quant, quant_moe=quant, quant_mlp=quant
+                )
+            elif self._architecture in ("gpt_oss",):
+                replace_kwargs.update(quant_moe=quant, quant_cache=quant)
 
-                    logger.info(
-                        f"Successfully loaded Llama 3 JAX model from {ckpt_path}"
-                    )
-                    return l3jax, weights
-                else:
-                    logger.warning(
-                        f"Checkpoint path {ckpt_path} not found, using default config"
-                    )
+        # Set max_seq_len for models that support it
+        if self._architecture != "llama3":
+            replace_kwargs["max_seq_len"] = self._max_seq_len
 
-            # Create default config for testing/development using dict
-            # This would be a minimal config suitable for small tests
+        cfg = dataclasses.replace(cfg, **replace_kwargs)
+        return cfg
+
+    def _load_weights(
+        self, ckpt_path: Path, model_mod: Any, module_path: str, cfg: Any
+    ) -> Any:
+        """Loads model weights using the architecture-appropriate method."""
+        if self._architecture in _USES_CHKPT_LOAD_MODEL:
+            # DeepSeek R1 and Kimi K2 use chkpt_utils.load_model
+            import importlib
+
+            try:
+                from etils import epath  # type: ignore[import-not-found]
+
+                chkpt_mod = importlib.import_module(f"{module_path}.chkpt_utils")
+                return chkpt_mod.load_model(epath.Path(str(ckpt_path)), cfg)
+            except ImportError:
+                chkpt_mod = importlib.import_module(f"{module_path}.chkpt_utils")
+                return chkpt_mod.load_model(ckpt_path, cfg)
+
+        elif self._architecture in _USES_OPTIMAL_FORMATS:
+            # GPT-OSS and Nemotron3 use optimal_formats
+            weights_formats, cache_formats = model_mod.optimal_formats(cfg)
+            weights = model_mod.load_pytree(ckpt_path, weights_formats)
+            # Store cache formats for GPT-OSS cache resharding
+            if self._architecture == "gpt_oss":
+                self._cache_formats = cache_formats
+            return weights
+
+        else:
+            # Llama3, Llama4, Qwen3 use load_pytree with Weights.shardings
+            return model_mod.load_pytree(ckpt_path, model_mod.Weights.shardings(cfg))
+
+    def _load_from_checkpoint(
+        self, ckpt_path: Path, model_mod: Any, module_path: str
+    ) -> None:
+        """Loads model from a checkpoint directory."""
+        self._config = self._load_config_from_checkpoint(ckpt_path, model_mod)
+        self._weights = self._load_weights(
+            ckpt_path, model_mod, module_path, self._config
+        )
+        logger.info(f"Loaded weights from checkpoint: {ckpt_path}")
+
+    def _load_with_random_weights(self, model_mod: Any) -> None:
+        """Initializes model with random weights for testing/development."""
+        logger.warning(
+            "No checkpoint found. Initializing with random weights "
+            "(suitable for testing only)."
+        )
+
+        if self._architecture in _DEFAULT_CONFIG_MODELS:
+            cfg = model_mod.Config()
+        elif self._architecture == "llama3":
+            # Create a minimal Llama3 config for testing
             config_dict = {
-                "hidden_size": 4096,
-                "intermediate_size": 11008,
-                "num_attention_heads": 32,
-                "num_key_value_heads": 32,
-                "num_hidden_layers": 32,
-                "head_dim": 128,
+                "hidden_size": 256,
+                "intermediate_size": 512,
+                "num_attention_heads": 4,
+                "num_key_value_heads": 4,
+                "num_hidden_layers": 2,
+                "head_dim": 64,
                 "vocab_size": 32000,
                 "max_position_embeddings": 2048,
             }
-            default_config = l3jax.llama_to_jax_config(config_dict)
-            default_config.mesh = self._mesh
-            default_config.quant_layer = bool(self._quantization)
-            default_config.quant_cache = bool(self._quantization)
-
-            # Initialize weights from scratch for testing
-            # In production, this would load actual pretrained weights
-            weights = l3jax.Weights.init(self._rng_key, default_config)
-
-            logger.info(
-                "Successfully initialized Llama 3 JAX model with default config"
-            )
-            return l3jax, weights
-
-        except ImportError as e:
-            raise RuntimeError(
-                "Failed to load JAX Llama 3 model. "
-                "Ensure jax-llm-examples is installed: pip install oumi[dev]"
-            ) from e
-
-    def _load_llama4_model(self) -> tuple[Any, Any]:
-        """Loads Llama 4 JAX model.
-
-        Returns:
-            Tuple of (model_fn, params) for the JAX model.
-        """
-        try:
-            # Import actual JAX Llama4 implementation from vendored jax-llm-examples
-            from oumi.models.experimental.jax_models.llama4.llama4_jax import (
-                model as llama4_model,
+            cfg = model_mod.llama_to_jax_config(config_dict)
+        else:
+            raise ValueError(
+                f"Cannot initialize {self._architecture} with random weights. "
+                "Please provide a checkpoint path."
             )
 
-            logger.info("Loading Llama 4 JAX model...")
-
-            # For Llama4, just return the model module without weights for now
-            # Config construction will be handled by the model's own factory methods
-            weights = None
-
-            logger.info("Successfully loaded Llama 4 JAX model")
-            return llama4_model, weights
-
-        except ImportError as e:
-            raise RuntimeError(
-                "Failed to load JAX Llama 4 model. "
-                "Ensure jax-llm-examples is installed: pip install oumi[dev]"
-            ) from e
-
-    def _load_deepseek_model(self) -> tuple[Any, Any]:
-        """Loads DeepSeek R1 JAX model.
-
-        Returns:
-            Tuple of (model_fn, params) for the JAX model.
-        """
-        try:
-            # Import DeepSeek R1 implementation from vendored jax-llm-examples
-            from oumi.models.experimental.jax_models.deepseek_r1_jax.deepseek_r1_jax import (  # noqa: E501
-                model as deepseek_model,
-            )
-
-            logger.info("Loading DeepSeek R1 JAX model...")
-
-            # For DeepSeek R1, just return the model module without weights for now
-            # Config construction will be handled by the model's own factory methods
-            weights = None
-
-            logger.info("Successfully loaded DeepSeek R1 JAX model with MLA attention")
-            return deepseek_model, weights
-
-        except ImportError as e:
-            raise RuntimeError(
-                "Failed to load JAX DeepSeek R1 model. "
-                "Ensure jax-llm-examples is installed: pip install oumi[jax]"
-            ) from e
-
-    def _load_qwen3_model(self) -> tuple[Any, Any]:
-        """Loads Qwen 3 JAX model.
-
-        Returns:
-            Tuple of (model_module, weights) for the JAX model.
-        """
-        try:
-            from oumi.models.experimental.jax_models.qwen3.qwen3_jax import (
-                model as q3jax,
-            )
-
-            logger.info("Loading Qwen 3 JAX model...")
-            # NOTE: Full Qwen3 checkpoint loading to be implemented in future release
-            return q3jax, None
-        except ImportError as e:
-            raise RuntimeError(
-                "Failed to load JAX Qwen 3 model. "
-                "Ensure jax-llm-examples is installed: pip install oumi[dev]"
-            ) from e
-
-    def _load_kimi_k2_model(self) -> tuple[Any, Any]:
-        """Loads Kimi K2 JAX model.
-
-        Returns:
-            Tuple of (model_module, weights) for the JAX model.
-        """
-        try:
-            from oumi.models.experimental.jax_models.kimi_k2.kimi_k2_jax import (
-                model as k2jax,
-            )
-
-            logger.info("Loading Kimi K2 JAX model...")
-            # NOTE: Full Kimi K2 checkpoint loading to be implemented in future release
-            return k2jax, None
-        except ImportError as e:
-            raise RuntimeError(
-                "Failed to load JAX Kimi K2 model. "
-                "Ensure jax-llm-examples is installed: pip install oumi[dev]"
-            ) from e
-
-    def _load_gpt_oss_model(self) -> tuple[Any, Any]:
-        """Loads GPT OSS JAX model.
-
-        Returns:
-            Tuple of (model_module, weights) for the JAX model.
-        """
-        try:
-            from oumi.models.experimental.jax_models.gpt_oss.gpt_oss_jax import (
-                model as gpt_jax,
-            )
-
-            logger.info("Loading GPT OSS JAX model...")
-            # NOTE: Full GPT OSS checkpoint loading to be implemented in future release
-            return gpt_jax, None
-        except ImportError as e:
-            raise RuntimeError(
-                "Failed to load JAX GPT OSS model. "
-                "Ensure jax-llm-examples is installed: pip install oumi[dev]"
-            ) from e
-
-    def _apply_quantization(self, params: Any) -> Any:
-        """Applies quantization to model parameters if specified.
-
-        Args:
-            params: JAX model parameters.
-
-        Returns:
-            Quantized parameters.
-        """
-        if self._quantization == "int8":
-            logger.info("Applying INT8 quantization to JAX model...")
-            # NOTE: INT8 quantization to be implemented following jax-llm-examples  # noqa: E501
-            # This would use techniques from the Llama 3 implementation
-            pass
-        return params
+        cfg = dataclasses.replace(cfg, mesh=self._mesh)
+        self._config = cfg
+        self._weights = model_mod.Weights.init(self._rng_key, cfg)
 
     @override
     def get_supported_params(self) -> set[str]:
-        """Returns a set of supported generation parameters for JAX engine.
-
-        Returns:
-            Set[str]: A set of supported parameter names.
-        """
+        """Returns supported generation parameters for JAX engine."""
         return {
             "max_new_tokens",
             "temperature",
             "top_p",
             "do_sample",
-            "pad_token_id",
-            "eos_token_id",
+            "stop_token_ids",
         }
 
     @override
@@ -419,302 +406,177 @@ class JAXInferenceEngine(BaseInferenceEngine):
         input: list[Conversation],
         inference_config: InferenceConfig | None = None,
     ) -> list[Conversation]:
-        """Runs model inference online using JAX.
+        """Runs model inference on conversations.
 
         Args:
-            input: A list of conversations to run inference on.
+            input: Conversations to run inference on.
             inference_config: Parameters for inference.
 
         Returns:
-            List[Conversation]: Inference output with generated responses.
+            List of conversations with generated assistant responses.
         """
-        # Use the existing _generate method for the actual inference
-        return self._generate(input)
+        generation_params = (
+            inference_config.generation
+            if inference_config and inference_config.generation
+            else self._generation_params
+        )
 
-    def _generate(
-        self,
-        conversations: list[Conversation],
-        **kwargs,
-    ) -> list[Conversation]:
-        """Generates responses for the given conversations.
+        assert self._tokenizer is not None
+        assert jnp is not None
 
-        Args:
-            conversations: List of conversations to generate responses for.
-            **kwargs: Additional generation parameters.
-
-        Returns:
-            List of conversations with generated responses.
-        """
-        if self._model is None or self._params is None:
-            # Fallback if model not loaded
-            for conversation in conversations:
-                conversation.messages.append(
-                    Message(
-                        role=Role.ASSISTANT,
-                        content="[JAX model not loaded. Please check configuration.]",
-                    )
-                )
-            return conversations
-
-        # Process each conversation
-        for conversation in conversations:
-            try:
-                # Tokenize the conversation
-                messages = conversation.messages
-                prompt = self._tokenizer.apply_chat_template(
-                    [
-                        {"role": msg.role.value, "content": msg.content}
-                        for msg in messages
-                    ],
-                    tokenize=False,
-                    add_generation_prompt=True,
+        output_conversations = []
+        for conversation in input:
+            # Apply chat template
+            prompt = self._tokenizer.apply_chat_template(
+                conversation.to_dict()["messages"],
+                tokenize=False,
+                add_generation_prompt=True,
+            )
+            if not isinstance(prompt, str):
+                raise RuntimeError(
+                    f"`apply_chat_template` returned a non-string. Type: {type(prompt)}"
                 )
 
-                # Encode to tokens
-                input_ids = self._tokenizer.encode(prompt, return_tensors="np")
-                if len(input_ids.shape) == 1:
-                    input_ids = input_ids[None, :]  # Add batch dimension
+            # Tokenize
+            input_ids = self._tokenizer.encode(prompt, return_tensors="np")
+            if isinstance(input_ids, list):
+                input_ids = np.array([input_ids])
+            if len(input_ids.shape) == 1:
+                input_ids = input_ids[None, :]
 
-                # Convert to JAX arrays
-                input_ids_jax = jnp.array(input_ids)
+            input_jax = jnp.array(input_ids)
 
-                # Generate with JAX model using autoregressive generation
-                output_ids = self._generate_tokens(
-                    input_ids_jax,
-                    max_new_tokens=self._generation_params.max_new_tokens,
-                    temperature=getattr(self._generation_params, "temperature", 1.0),
-                    top_p=getattr(self._generation_params, "top_p", 1.0),
-                )
+            # Generate
+            max_new_tokens = generation_params.max_new_tokens
+            generated_tokens = self._generate_tokens(input_jax, max_new_tokens)
 
-                # Decode generated tokens
-                # Extract only the newly generated tokens
-                new_tokens = output_ids[0, input_ids_jax.shape[1] :]
-                generated_text = self._tokenizer.decode(
-                    new_tokens, skip_special_tokens=True
-                )
+            # Decode only the new tokens
+            generated_text = self._tokenizer.decode(
+                generated_tokens, skip_special_tokens=True
+            )
 
-                conversation.messages.append(
-                    Message(role=Role.ASSISTANT, content=generated_text)
-                )
+            # Create new Conversation (following NativeTextInferenceEngine pattern)
+            messages = [
+                *conversation.messages,
+                Message(role=Role.ASSISTANT, content=generated_text),
+            ]
+            new_conversation = Conversation(
+                messages=messages,
+                metadata=conversation.metadata,
+                conversation_id=conversation.conversation_id,
+            )
+            self._save_conversation_to_scratch(
+                new_conversation,
+                inference_config.output_path if inference_config else None,
+            )
+            output_conversations.append(new_conversation)
 
-            except Exception as e:
-                logger.error(f"JAX generation failed: {e}")
-                conversation.messages.append(
-                    Message(
-                        role=Role.ASSISTANT, content=f"[JAX generation error: {str(e)}]"
-                    )
-                )
-
-        return conversations
+        return output_conversations
 
     def _generate_tokens(
         self,
-        input_ids: jnp.ndarray,
-        max_new_tokens: int = 50,
-        temperature: float = 1.0,
-        top_p: float = 1.0,
-    ) -> jnp.ndarray:
-        """Generate tokens using JAX model with jax-llm-examples API.
+        input_ids: Any,
+        max_new_tokens: int,
+    ) -> list[int]:
+        """Runs the prefill-then-decode generation loop.
+
+        Follows the upstream jax-llm-examples pattern for each model architecture.
 
         Args:
-            input_ids: Input token IDs [batch_size, seq_len]
-            max_new_tokens: Maximum number of new tokens to generate
-            temperature: Sampling temperature
-            top_p: Top-p (nucleus) sampling parameter
+            input_ids: Input token IDs as JAX array [batch_size, seq_len].
+            max_new_tokens: Maximum number of new tokens to generate.
 
         Returns:
-            Generated token sequence [batch_size, seq_len + new_tokens]
+            List of generated token IDs (new tokens only, no prompt).
         """
-        if self._model is None or self._params is None:
-            logger.error("Model not loaded, returning input tokens")
-            return input_ids
+        assert jax is not None
+        assert jnp is not None
+        assert P is not None
+        assert self._tokenizer is not None
+        _jax = jax  # local ref for lambdas (pyright can't narrow closures)
 
-        try:
-            batch_size, seq_len = input_ids.shape
+        mod = self._model_module
+        cfg = self._config
+        weights = self._weights
+        batch_size = input_ids.shape[0]
 
-            # Different models have different APIs, handle based on model type
-            model_name = self._model_params.model_name.lower()
-
-            if "llama3" in model_name:
-                return self._generate_llama3_tokens(
-                    input_ids, max_new_tokens, temperature, top_p
-                )
-            elif "llama4" in model_name:
-                return self._generate_llama4_tokens(
-                    input_ids, max_new_tokens, temperature, top_p
-                )
-            elif "deepseek" in model_name:
-                return self._generate_deepseek_tokens(
-                    input_ids, max_new_tokens, temperature, top_p
-                )
-            elif "qwen3" in model_name:
-                return self._generate_qwen3_tokens(
-                    input_ids, max_new_tokens, temperature, top_p
-                )
-            elif "kimi" in model_name:
-                return self._generate_kimi_tokens(
-                    input_ids, max_new_tokens, temperature, top_p
-                )
-            elif "gpt-oss" in model_name:
-                return self._generate_gpt_oss_tokens(
-                    input_ids, max_new_tokens, temperature, top_p
-                )
-            else:
-                logger.warning(
-                    f"Unknown model type: {model_name}, using fallback generation"
-                )
-                return input_ids
-
-        except Exception as e:
-            logger.error(f"Error in token generation: {e}")
-            return input_ids
-
-    def _generate_llama3_tokens(
-        self,
-        input_ids: jnp.ndarray,
-        max_new_tokens: int,
-        temperature: float,
-        top_p: float,
-    ) -> jnp.ndarray:
-        """Generate tokens using Llama3 JAX implementation."""
-        if self._params is None:
-            logger.warning("Llama3 params not loaded, returning input")
-            return input_ids
-
-        batch_size, seq_len = input_ids.shape
-
-        # Create KV cache
-        max_seq_len = seq_len + max_new_tokens
-        zero_cache = self._model.KVCache.init(
-            self._rng_key, self._params.config, batch_size, max_seq_len
-        )
-
-        # Prefill phase
-        next_tokens, logits, cache = self._model.prefill(
-            input_ids, self._params, zero_cache, self._params.config
-        )
-
-        # Decode phase
-        curr_tokens = next_tokens[:, cache.length - 1 : cache.length]
-        tokens_list = []
-
-        for _ in range(max_new_tokens):
-            tokens_list.append(curr_tokens)
-            curr_tokens, cache = self._model.decode_step(
-                curr_tokens, self._params, cache, self._params.config
+        # Initialize KV cache
+        if self._architecture in _KVCACHE_3_ARGS:
+            zero_cache = mod.KVCache.init(self._rng_key, cfg, batch_size)
+        else:
+            zero_cache = mod.KVCache.init(
+                self._rng_key, cfg, batch_size, self._max_seq_len
             )
 
-            # Check for EOS token
-            if self._tokenizer.eos_token_id and (
-                curr_tokens[0, 0] == self._tokenizer.eos_token_id
-            ):
-                break
+        # GPT-OSS: reshard cache with optimal formats
+        if self._architecture == "gpt_oss" and hasattr(self, "_cache_formats"):
+            zero_cache = _jax.tree.map(
+                lambda x, sds: _jax.device_put(x, sds.sharding),
+                zero_cache,
+                self._cache_formats,
+            )
 
-        # Concatenate all generated tokens
-        generated_tokens = jnp.concatenate(tokens_list, axis=-1)
-        return jnp.concatenate([input_ids, generated_tokens], axis=-1)
+        # Optional set_mesh context
+        set_mesh_ctx = None
+        if self._architecture in _USES_SET_MESH:
+            try:
+                from jax.sharding import set_mesh
+            except ImportError:
+                try:
+                    from jax.sharding import (
+                        use_mesh as set_mesh,  # type: ignore[attr-defined]
+                    )
+                except ImportError:
+                    set_mesh = None
 
-    def _generate_llama4_tokens(
-        self,
-        input_ids: jnp.ndarray,
-        max_new_tokens: int,
-        temperature: float,
-        top_p: float,
-    ) -> jnp.ndarray:
-        """Generate tokens using Llama4 JAX implementation."""
-        # Similar pattern to Llama3 but with Llama4-specific API
-        logger.info("Llama4 generation not fully implemented yet")
-        return input_ids
+            if set_mesh is not None:
+                set_mesh_ctx = set_mesh(cfg.mesh)
 
-    def _generate_deepseek_tokens(
-        self,
-        input_ids: jnp.ndarray,
-        max_new_tokens: int,
-        temperature: float,
-        top_p: float,
-    ) -> jnp.ndarray:
-        """Generate tokens using DeepSeek R1 JAX implementation."""
-        logger.info("DeepSeek R1 generation not fully implemented yet")
-        return input_ids
+        if set_mesh_ctx is not None:
+            set_mesh_ctx.__enter__()
 
-    def _generate_qwen3_tokens(
-        self,
-        input_ids: jnp.ndarray,
-        max_new_tokens: int,
-        temperature: float,
-        top_p: float,
-    ) -> jnp.ndarray:
-        """Generate tokens using Qwen3 JAX implementation."""
-        logger.info("Qwen3 generation not fully implemented yet")
-        return input_ids
+        try:
+            # Prefill
+            next_tokens, logits, cache = mod.prefill(
+                input_ids, weights, zero_cache, cfg
+            )
 
-    def _generate_kimi_tokens(
-        self,
-        input_ids: jnp.ndarray,
-        max_new_tokens: int,
-        temperature: float,
-        top_p: float,
-    ) -> jnp.ndarray:
-        """Generate tokens using Kimi K2 JAX implementation."""
-        logger.info("Kimi K2 generation not fully implemented yet")
-        return input_ids
+            # Extract first generated token
+            if self._architecture in _USES_CACHE_ITER:
+                curr_tokens = next_tokens.at[:, cache.iter - 1 : cache.iter].get(
+                    out_sharding=P(None, None)
+                )
+            else:
+                curr_tokens = next_tokens[:, cache.length - 1 : cache.length]
 
-    def _generate_gpt_oss_tokens(
-        self,
-        input_ids: jnp.ndarray,
-        max_new_tokens: int,
-        temperature: float,
-        top_p: float,
-    ) -> jnp.ndarray:
-        """Generate tokens using GPT OSS JAX implementation."""
-        logger.info("GPT OSS generation not fully implemented yet")
-        return input_ids
+            # Decode loop
+            tokens_list = []
+            eos_token_id = self._tokenizer.eos_token_id
 
-    def _sample_top_p(
-        self, logits: jnp.ndarray, top_p: float, key: jnp.ndarray
-    ) -> jnp.ndarray:
-        """Top-p (nucleus) sampling implementation.
+            for _ in range(max_new_tokens):
+                tokens_list.append(curr_tokens)
+                curr_tokens, cache = mod.decode_step(curr_tokens, weights, cache, cfg)
 
-        Args:
-            logits: Token logits [batch_size, vocab_size]
-            top_p: Cumulative probability threshold
-            key: Random key for sampling
+                # Check EOS
+                if eos_token_id is not None:
+                    token_val = int(curr_tokens[0, 0])
+                    if token_val == eos_token_id:
+                        break
 
-        Returns:
-            Sampled token indices [batch_size]
-        """
-        if jax is None:
-            raise RuntimeError("JAX is not available")
-        probs = jax.nn.softmax(logits, axis=-1)
-        sorted_indices = jnp.argsort(probs, axis=-1)[:, ::-1]  # Descending order
-        sorted_probs = jnp.take_along_axis(probs, sorted_indices, axis=-1)
+        finally:
+            if set_mesh_ctx is not None:
+                set_mesh_ctx.__exit__(None, None, None)
 
-        # Cumulative probabilities
-        cumsum_probs = jnp.cumsum(sorted_probs, axis=-1)
-
-        # Find cutoff
-        mask = cumsum_probs <= top_p
-        mask = mask.at[:, 0].set(True)  # Always include top token
-
-        # Zero out probabilities beyond cutoff
-        filtered_probs = jnp.where(mask, sorted_probs, 0.0)
-
-        # Renormalize
-        filtered_probs = filtered_probs / jnp.sum(
-            filtered_probs, axis=-1, keepdims=True
-        )
-
-        # Sample from filtered distribution
-        sampled_indices = random.categorical(key, logits=jnp.log(filtered_probs + 1e-8))
-
-        # Map back to original vocabulary
-        return jnp.take_along_axis(sorted_indices, sampled_indices[:, None], axis=-1)[
-            :, 0
-        ]
+        # Concatenate and convert to Python list
+        if tokens_list:
+            all_tokens = jnp.concatenate(tokens_list, axis=-1)
+            return np.array(all_tokens[0]).tolist()
+        return []
 
     def cleanup(self) -> None:
-        """Cleans up JAX resources."""
-        self._model = None
-        self._params = None
+        """Releases JAX model resources."""
+        self._model_module = None
+        self._weights = None
+        self._config = None
         self._tokenizer = None
         logger.info("JAX inference engine resources cleaned up.")

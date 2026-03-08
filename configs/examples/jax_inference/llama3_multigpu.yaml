@@ -12,24 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Multi-GPU JAX inference config for Llama 3 8B with tensor parallelism.
-# Distributes model across multiple GPUs for higher throughput.
+# Multi-device JAX inference config for Llama 3.1 8B.
+# JAX automatically uses all available devices for tensor parallelism.
 #
-# ⚠️ Experimental: JAX backend is under active development
+# Experimental: JAX backend is under active development.
 #
 # Requirements:
-#   - Install JAX dependencies: `pip install "oumi[jax]"`
-#   - 2-4 GPUs with NVLink recommended
-#   - NCCL for multi-GPU communication
+#   - Install JAX dependencies: `pip install oumi[jax]`
+#   - Multiple GPUs or TPU with NVLink/interconnect
 #
 # Usage:
-#   # Launch with multiple GPUs
 #   CUDA_VISIBLE_DEVICES=0,1,2,3 oumi infer -i -c configs/examples/jax_inference/llama3_multigpu.yaml
-#
-# Performance:
-#   - Throughput: ~4x improvement with 4 GPUs
-#   - Latency: Similar to single GPU
-#   - Memory: Distributed across GPUs
 
 model:
   model_name: "meta-llama/Llama-3.1-8B-Instruct"
@@ -42,36 +35,5 @@ generation:
   max_new_tokens: 2048
   temperature: 0.7
   top_p: 0.9
-  do_sample: true
 
 engine: JAX
-
-jax_config:
-  # Tensor parallelism configuration
-  parallel_strategy: "tensor_parallel"
-
-  # Number of devices to use (auto-detected if not specified)
-  num_devices: 4
-
-  # Mesh configuration for sharding
-  mesh_shape: [1, 4, 1]  # [batch, tensor, pipeline]
-  mesh_axes: ["batch", "tensor", "pipeline"]
-
-  # Sharding rules for model parameters
-  sharding_rules:
-    embed: ["tensor", null]
-    mlp: ["null", "tensor"]
-    attention: ["tensor", null]
-
-  # Enable XLA fusion across devices
-  enable_xla: true
-  cross_device_fusion: true
-
-  # NCCL configuration for multi-GPU communication
-  collective_backend: "nccl"
-
-  # Memory management
-  memory_fraction: 0.9
-
-  # Use distributed attention kernels
-  use_distributed_attention: true

@@ -12,29 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Distributed JAX inference config for GPT OSS 120B.
-# Large-scale inference with pipeline and tensor parallelism.
+# Distributed JAX inference config for GPT OSS 20B.
+# JAX automatically handles tensor parallelism across available devices.
 #
-# ⚠️ Experimental: JAX backend is under active development
+# Experimental: JAX backend is under active development.
 #
 # Requirements:
-#   - Install JAX dependencies: `pip install "oumi[jax]"`
-#   - 8+ A100 GPUs (40GB each) or equivalent
-#   - High-bandwidth interconnect (NVLink/InfiniBand)
-#   - Request access: Model availability varies
+#   - Install JAX dependencies: `pip install oumi[jax]`
+#   - Multiple GPUs or TPU pod
 #
 # Usage:
-#   # Multi-node launch (example for 2 nodes with 4 GPUs each)
-#   torchrun --nnodes=2 --nproc_per_node=4 --master_addr=<master_ip> --master_port=29500 \
-#     oumi infer -i -c configs/examples/jax_inference/gpt_oss_distributed.yaml
-#
-# Performance:
-#   - Model size: 120B parameters
-#   - Memory per GPU: ~15GB (with pipeline parallelism)
-#   - Throughput: Depends on sequence length and batch size
+#   oumi infer -i -c configs/examples/jax_inference/gpt_oss_distributed.yaml
 
 model:
-  model_name: "jax-ml/gpt-oss-120b"  # Placeholder - actual model varies
+  model_name: "openai/gpt-oss-20b"
   model_max_length: 2048
   torch_dtype_str: "bfloat16"
   load_pretrained_weights: true
@@ -44,46 +35,5 @@ generation:
   max_new_tokens: 512
   temperature: 0.7
   top_p: 0.9
-  do_sample: true
 
 engine: JAX
-
-jax_config:
-  # Distributed configuration for 120B model
-  parallel_strategy: "pipeline_tensor_parallel"
-
-  # Mesh configuration (adjust based on available hardware)
-  mesh_shape: [1, 4, 2]  # [batch, tensor_parallel, pipeline_parallel]
-  mesh_axes: ["batch", "tensor", "pipeline"]
-
-  # Sharding strategy for large model
-  sharding_rules:
-    embed: ["tensor", null]
-    mlp_up: [null, "tensor"]
-    mlp_down: ["tensor", null]
-    attention_qkv: [null, "tensor"]
-    attention_out: ["tensor", null]
-
-  # Pipeline parallelism configuration
-  pipeline_config:
-    num_stages: 2
-    stage_boundaries: [60]  # Split at layer 60 (out of 120 layers)
-    microbatch_size: 1
-
-  # Memory optimizations for large model
-  memory_fraction: 0.95
-  enable_gradient_checkpointing: true
-  offload_to_host: false  # Keep on GPU for best performance
-
-  # Communication optimization
-  collective_backend: "nccl"
-  enable_async_collective: true
-
-  # XLA optimizations
-  enable_xla: true
-  xla_optimization_level: 3
-
-  # MoE configuration (if model has MoE layers)
-  moe_config:
-    expert_parallelism: true
-    capacity_factor: 1.25

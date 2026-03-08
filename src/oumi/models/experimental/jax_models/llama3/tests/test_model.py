@@ -22,13 +22,11 @@ from jax.sharding import AxisType, set_mesh
 from jax.sharding import PartitionSpec as P
 
 try:
-    from jax.sharding import use_mesh
-
-    set_mesh = use_mesh
+    from jax.sharding import use_mesh as set_mesh  # for jax < 0.7.0
 except ImportError:
     pass
 
-from oumi.models.experimental.jax_models.llama3.llama3_jax import model as l3jax
+from llama3_jax import model as l3jax
 
 jax.config.update("jax_platforms", "cpu")
 jax.config.update("jax_num_cpu_devices", 4)
@@ -49,7 +47,7 @@ CFG = l3jax.Config(
 
 
 class TestModel(parameterized.TestCase):
-    def setUp(self) -> None:
+    def setUp(self):
         self.mesh = jax.make_mesh(
             (1, len(jax.devices()), 1),
             P("x", "y", "z"),
@@ -60,25 +58,45 @@ class TestModel(parameterized.TestCase):
         )
 
     @parameterized.product(quant=[False, True])
-    def test_model_init(self, quant) -> None:
+    def test_model_init(self, quant):
         cfg = dataclasses.replace(self.small_cfg, quant_layer=quant)
         weights = l3jax.Weights.init(random.key(0), cfg)
         del weights
 
     @parameterized.product(quant=[False, True])
-    def test_cache_init(self, quant) -> None:
+    def test_cache_init(self, quant):
         cfg = dataclasses.replace(self.small_cfg, quant_cache=quant)
-        cache = l3jax.KVCache.init(random.key(0), cfg, 2, cfg.max_seq_len)
+        cache = l3jax.KVCache.init(random.key(0), cfg, 2)
         del cache
 
+    @parameterized.product(quant=[False, True])
+    def test_init_hashing(self, quant):
+        cfg = dataclasses.replace(self.small_cfg, quant_cache=quant)
+        hash_fn = lambda x: hash(tuple(jax.tree.leaves(x, is_leaf=l3jax.is_param)))
+        with self.subTest("Testing weights abstract and shardings hashing"):
+            abstract = l3jax.Weights.abstract(cfg)
+            abstract2 = l3jax.Weights.abstract(cfg)
+            self.assertEqual(hash_fn(abstract), hash_fn(abstract2))
+            shardings = l3jax.Weights.shardings(cfg)
+            shardings2 = l3jax.Weights.shardings(cfg)
+            self.assertEqual(hash_fn(shardings), hash_fn(shardings2))
+
+        with self.subTest("Testing kv-cache abstract and shardings hashing"):
+            abstract = l3jax.KVCache.abstract(cfg, 2)
+            abstract2 = l3jax.KVCache.abstract(cfg, 2)
+            self.assertEqual(hash_fn(abstract), hash_fn(abstract2))
+            shardings = l3jax.KVCache.shardings(cfg, 2)
+            shardings2 = l3jax.KVCache.shardings(cfg, 2)
+            self.assertEqual(hash_fn(shardings), hash_fn(shardings2))
+
     @parameterized.product(quant_weights=[False, True], quant_cache=[True, False])
-    def test_prefill_decode(self, quant_weights, quant_cache) -> None:
+    def test_prefill_decode(self, quant_weights, quant_cache):
         cfg = dataclasses.replace(
             self.small_cfg, quant_layer=quant_weights, quant_cache=quant_cache
         )
         tokens = jnp.ones((1, 32), dtype=jnp.int32)
         weights = l3jax.Weights.init(random.key(0), cfg)
-        cache = l3jax.KVCache.init(random.key(0), cfg, tokens.shape[0], cfg.max_seq_len)
+        cache = l3jax.KVCache.init(random.key(0), cfg, tokens.shape[0])
         with set_mesh(cfg.mesh):
             max_tokens, _, cache = l3jax.prefill(tokens, weights, cache, cfg)
         next_tokens = max_tokens[:, :-1]

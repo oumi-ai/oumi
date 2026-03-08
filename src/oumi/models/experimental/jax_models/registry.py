@@ -12,26 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""JAX Model Registry - OFFICIAL models supported by jax-llm-examples
-Based on upstream supported models with TPU requirements
+"""JAX Model Registry - OFFICIAL models supported by jax-llm-examples.
+
+Based on upstream supported models with TPU requirements.
 """
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 
 @dataclass
 class JAXModelInfo:
-    """Information about a supported JAX model"""
+    """Information about a supported JAX model."""
 
     model_id: str  # HuggingFace model ID
     architecture: str  # Which JAX implementation to use
     description: str
-    size_gb: Optional[float] = None
+    size_gb: float | None = None
     requires_auth: bool = False
-    recommended_hardware: Optional[str] = None
-    notes: Optional[str] = None
+    recommended_hardware: str | None = None
+    notes: str | None = None
 
 
 # OFFICIAL SUPPORTED MODELS from jax-llm-examples
@@ -45,7 +45,9 @@ SUPPORTED_MODELS: dict[str, JAXModelInfo] = {
         size_gb=16.0,
         requires_auth=True,
         recommended_hardware="TPU v5e-16+",
-        notes="Requires HuggingFace auth. Multi-host TPU cluster for optimal performance.",
+        notes=(
+            "Requires HuggingFace auth. Multi-host TPU cluster for optimal performance."
+        ),
     ),
     "llama-3.1-70b-instruct": JAXModelInfo(
         model_id="meta-llama/Llama-3.1-70B-Instruct",
@@ -175,16 +177,63 @@ SUPPORTED_MODELS: dict[str, JAXModelInfo] = {
         recommended_hardware="TPU",
         notes="Requires HuggingFace auth. Large MoE architecture.",
     ),
+    # DEEPSEEK_R1_JAX Architecture (native, not distilled)
+    "deepseek-r1": JAXModelInfo(
+        model_id="deepseek-ai/DeepSeek-R1",
+        architecture="deepseek_r1_jax",
+        description="DeepSeek R1 with native MLA attention and MoE routing",
+        size_gb=671.0,
+        requires_auth=False,
+        recommended_hardware="TPU v5e-64+",
+        notes="Full DeepSeek R1 model with expert parallelism.",
+    ),
+    # KIMI_K2_JAX Architecture
+    "kimi-k2": JAXModelInfo(
+        model_id="moonshotai/Kimi-K2-Instruct",
+        architecture="kimi_k2_jax",
+        description="Kimi K2 1T parameter model with MLA attention",
+        size_gb=1000.0,
+        requires_auth=False,
+        recommended_hardware="TPU v5e-64+",
+        notes="Very large model requiring multi-host TPU cluster.",
+    ),
+    # GPT_OSS_JAX Architecture
+    "gpt-oss-20b": JAXModelInfo(
+        model_id="openai/gpt-oss-20b",
+        architecture="gpt_oss_jax",
+        description="GPT OSS 20B with sliding window attention and MoE",
+        size_gb=40.0,
+        requires_auth=False,
+        recommended_hardware="TPU v5e-16+",
+    ),
+    "gpt-oss-120b": JAXModelInfo(
+        model_id="openai/gpt-oss-120b",
+        architecture="gpt_oss_jax",
+        description="GPT OSS 120B with sliding window attention and MoE",
+        size_gb=240.0,
+        requires_auth=False,
+        recommended_hardware="TPU v5e-16+",
+    ),
+    # NEMOTRON3_JAX Architecture
+    "nemotron3-nano": JAXModelInfo(
+        model_id="nvidia/Nemotron-3-Nano",
+        architecture="nemotron3_jax",
+        description="NVIDIA Nemotron 3 Nano hybrid Mamba-Transformer model",
+        size_gb=8.0,
+        requires_auth=False,
+        recommended_hardware="TPU",
+        notes="Hybrid Mamba-Transformer architecture.",
+    ),
 }
 
 
 def get_supported_models() -> dict[str, JAXModelInfo]:
-    """Get all supported JAX models"""
+    """Get all supported JAX models."""
     return SUPPORTED_MODELS
 
 
 def get_models_by_architecture() -> dict[str, list[str]]:
-    """Group models by their JAX architecture"""
+    """Group models by their JAX architecture."""
     arch_models = {}
     for model_key, info in SUPPORTED_MODELS.items():
         if info.architecture not in arch_models:
@@ -193,13 +242,13 @@ def get_models_by_architecture() -> dict[str, list[str]]:
     return arch_models
 
 
-def get_model_info(model_key: str) -> Optional[JAXModelInfo]:
-    """Get information about a specific model"""
+def get_model_info(model_key: str) -> JAXModelInfo | None:
+    """Get information about a specific model."""
     return SUPPORTED_MODELS.get(model_key)
 
 
-def list_models_by_size(max_size_gb: Optional[float] = None) -> list[str]:
-    """List models under a certain size"""
+def list_models_by_size(max_size_gb: float | None = None) -> list[str]:
+    """List models under a certain size."""
     if max_size_gb is None:
         return list(SUPPORTED_MODELS.keys())
 
@@ -211,18 +260,22 @@ def list_models_by_size(max_size_gb: Optional[float] = None) -> list[str]:
 
 
 def list_models_no_auth() -> list[str]:
-    """List models that don't require authentication"""
+    """List models that don't require authentication."""
     return [key for key, info in SUPPORTED_MODELS.items() if not info.requires_auth]
 
 
 def get_implementation_module(architecture: str) -> str:
-    """Get the Python module path for a given architecture"""
+    """Get the Python module path for a given architecture."""
     arch_modules = {
         "llama3_jax": "oumi.models.experimental.jax_models.llama3.llama3_jax",
         "qwen3_jax": "oumi.models.experimental.jax_models.qwen3.qwen3_jax",
         "llama4_jax": "oumi.models.experimental.jax_models.llama4.llama4_jax",
-        "deepseek_r1_jax": "oumi.models.experimental.jax_models.deepseek_r1_jax.deepseek_r1_jax",
+        "deepseek_r1_jax": (
+            "oumi.models.experimental.jax_models.deepseek_r1_jax.deepseek_r1_jax"
+        ),
         "kimi_k2_jax": "oumi.models.experimental.jax_models.kimi_k2.kimi_k2_jax",
+        "gpt_oss_jax": "oumi.models.experimental.jax_models.gpt_oss.gpt_oss_jax",
+        "nemotron3_jax": "oumi.models.experimental.jax_models.nemotron3.nemotron3_jax",
     }
     return arch_modules.get(
         architecture, f"oumi.models.experimental.jax_models.{architecture}"
@@ -230,27 +283,29 @@ def get_implementation_module(architecture: str) -> str:
 
 
 def get_implementation_path(architecture: str) -> str:
-    """Get the filesystem path for a given architecture"""
+    """Get the filesystem path for a given architecture."""
     arch_paths = {
         "llama3_jax": "llama3/llama3_jax",
         "qwen3_jax": "qwen3/qwen3_jax",
         "llama4_jax": "llama4/llama4_jax",
         "deepseek_r1_jax": "deepseek_r1_jax/deepseek_r1_jax",
         "kimi_k2_jax": "kimi_k2/kimi_k2_jax",
+        "gpt_oss_jax": "gpt_oss/gpt_oss_jax",
+        "nemotron3_jax": "nemotron3/nemotron3_jax",
     }
     base_path = Path(__file__).parent
     return str(base_path / arch_paths.get(architecture, architecture))
 
 
 def validate_model_name(model_key: str) -> bool:
-    """Validate if a model key is supported"""
+    """Validate if a model key is supported."""
     return model_key in SUPPORTED_MODELS
 
 
 def get_recommended_model(
-    max_size_gb: Optional[float] = None, requires_no_auth: Optional[bool] = None
-) -> Optional[str]:
-    """Get a recommended model based on constraints"""
+    max_size_gb: float | None = None, requires_no_auth: bool | None = None
+) -> str | None:
+    """Get a recommended model based on constraints."""
     candidates = list(SUPPORTED_MODELS.keys())
 
     if max_size_gb is not None:
@@ -273,7 +328,7 @@ def get_recommended_model(
 
 
 def list_supported_architectures() -> list[str]:
-    """List all supported JAX architectures"""
+    """List all supported JAX architectures."""
     architectures = set()
     for info in SUPPORTED_MODELS.values():
         architectures.add(info.architecture)

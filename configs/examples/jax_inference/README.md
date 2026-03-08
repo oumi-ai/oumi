@@ -66,4 +66,4 @@ JAX provides significant performance improvements:
 - [JAX Documentation](https://jax.readthedocs.io/)
 - [JAX LLM Examples](https://github.com/jax-ml/jax-llm-examples)
 - [JAX Scaling Guide](https://jax-ml.github.io/scaling-book/)
-- [Oumi JAX Integration Docs](../../docs/jax_integration.md)
+- [Oumi Inference Docs](https://oumi.ai/docs/en/latest/user_guides/infer/infer.html)

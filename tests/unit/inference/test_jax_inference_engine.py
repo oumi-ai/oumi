@@ -12,151 +12,158 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from unittest.mock import MagicMock, patch
+"""Unit tests for JAX inference engine."""
+
+from unittest.mock import MagicMock
 
 import pytest
 
 from oumi.core.configs import GenerationParams, ModelParams
-from oumi.core.types.conversation import Conversation, Message, Role
 
-# Mark all tests in this file as JAX-related
 pytestmark = pytest.mark.jax
 
 
 @pytest.fixture
-def model_params():
-    """Create test model parameters."""
+def llama3_model_params():
     return ModelParams(
-        model_name="jax-ml/llama3-8b",
-        load_pretrained_weights=False,  # Avoid loading real weights in tests
+        model_name="meta-llama/Llama-3.1-8B-Instruct",
+        load_pretrained_weights=False,
         trust_remote_code=True,
     )
 
 
 @pytest.fixture
 def generation_params():
-    """Create test generation parameters."""
-    return GenerationParams(
-        max_new_tokens=10,
-        temperature=0.8,
-        top_p=0.9,
-    )
+    return GenerationParams(max_new_tokens=10)
 
 
-@pytest.fixture
-def sample_conversation():
-    """Create a sample conversation for testing."""
-    return Conversation(
-        messages=[Message(role=Role.USER, content="Hello, how are you?")]
-    )
+class TestJAXInferenceEngineUnit:
+    """Unit tests for JAXInferenceEngine."""
 
-
-class TestJAXInferenceEngine:
-    """Test suite for JAX Inference Engine."""
-
-    def test_jax_import_error(self, model_params):
-        """Test that proper error is raised when JAX is not available."""
-        with patch.dict("sys.modules", {"jax": None}):
-            with pytest.raises(RuntimeError, match="JAX is not installed"):
-                from oumi.inference.jax_inference_engine import JAXInferenceEngine
-
-                JAXInferenceEngine(model_params)
-
-    @patch("oumi.inference.jax_inference_engine.jax")
-    @patch("oumi.inference.jax_inference_engine.build_tokenizer")
-    def test_initialization(self, mock_build_tokenizer, mock_jax, model_params):
-        """Test JAX engine initialization."""
-        # Mock JAX components
-        mock_jax.devices.return_value = ["device0", "device1"]
-        mock_jax.random.PRNGKey.return_value = MagicMock()
-        mock_build_tokenizer.return_value = MagicMock()
-
+    def test_unsupported_model_raises(self):
+        """Unsupported model names should raise ValueError."""
         from oumi.inference.jax_inference_engine import JAXInferenceEngine
 
-        with patch.object(JAXInferenceEngine, "_load_model"):
-            engine = JAXInferenceEngine(model_params)
+        with pytest.raises(ValueError, match="Cannot determine JAX architecture"):
+            JAXInferenceEngine._resolve_architecture("totally-unknown-model")
 
-            assert engine._tensor_parallel_size == 2  # Two devices
-            assert engine._model_params.model_name == "jax-ml/llama3-8b"
-
-    @patch("oumi.inference.jax_inference_engine.jax")
-    @patch("oumi.inference.jax_inference_engine.build_tokenizer")
-    def test_unsupported_model(self, mock_build_tokenizer, mock_jax, model_params):
-        """Test error handling for unsupported models."""
-        model_params.model_name = "unsupported-model"
-
-        mock_jax.devices.return_value = ["device0"]
-        mock_jax.random.PRNGKey.return_value = MagicMock()
-        mock_build_tokenizer.return_value = MagicMock()
-
+    def test_architecture_resolution(self):
+        """Test that model names resolve to correct architectures."""
         from oumi.inference.jax_inference_engine import JAXInferenceEngine
 
-        with (
-            patch.object(JAXInferenceEngine, "_setup_jax_devices"),
-            patch("importlib.util.find_spec", return_value=True),
-        ):
-            with pytest.raises(ValueError, match="Unsupported JAX model"):
-                JAXInferenceEngine(model_params)
+        # Test resolution without instantiation (staticmethod)
+        _, arch = JAXInferenceEngine._resolve_architecture("meta-llama/Llama-3.1-8B")
+        assert arch == "llama3"
 
-    @patch("oumi.inference.jax_inference_engine.jax")
-    @patch("oumi.inference.jax_inference_engine.build_tokenizer")
-    def test_memory_fraction_validation(
-        self, mock_build_tokenizer, mock_jax, model_params
-    ):
-        """Test memory fraction parameter validation."""
-        mock_jax.devices.return_value = ["device0"]
-        mock_jax.random.PRNGKey.return_value = MagicMock()
+        _, arch = JAXInferenceEngine._resolve_architecture("deepseek-ai/DeepSeek-R1")
+        assert arch == "deepseek_r1"
 
+        _, arch = JAXInferenceEngine._resolve_architecture("Qwen/Qwen3-32B")
+        assert arch == "qwen3"
+
+        _, arch = JAXInferenceEngine._resolve_architecture("meta-llama/Llama-4-Scout")
+        assert arch == "llama4"
+
+        _, arch = JAXInferenceEngine._resolve_architecture(
+            "moonshotai/Kimi-K2-Instruct"
+        )
+        assert arch == "kimi_k2"
+
+        _, arch = JAXInferenceEngine._resolve_architecture("openai/gpt-oss-20b")
+        assert arch == "gpt_oss"
+
+        _, arch = JAXInferenceEngine._resolve_architecture("nvidia/Nemotron-3-Nano")
+        assert arch == "nemotron3"
+
+    def test_unsupported_architecture_raises(self):
+        """Unknown architecture should raise ValueError with helpful message."""
         from oumi.inference.jax_inference_engine import JAXInferenceEngine
 
-        with patch.object(JAXInferenceEngine, "_load_model"):
-            # Test invalid memory fraction
-            with pytest.raises(ValueError, match="Memory fraction must be within"):
-                JAXInferenceEngine(model_params, memory_fraction=1.5)
+        with pytest.raises(ValueError, match="Cannot determine JAX architecture"):
+            JAXInferenceEngine._resolve_architecture("some/random-model")
 
-    @patch("oumi.inference.jax_inference_engine.jax")
-    @patch("oumi.inference.jax_inference_engine.build_tokenizer")
-    def test_generation_fallback(
-        self, mock_build_tokenizer, mock_jax, model_params, sample_conversation
-    ):
-        """Test generation fallback when model is not loaded."""
-        mock_jax.devices.return_value = ["device0"]
-        mock_jax.random.PRNGKey.return_value = MagicMock()
-        mock_build_tokenizer.return_value = MagicMock()
-
+    def test_get_supported_params(self, llama3_model_params):
+        """Test supported params returns expected set."""
         from oumi.inference.jax_inference_engine import JAXInferenceEngine
 
-        with patch.object(JAXInferenceEngine, "_load_model") as mock_load:
-            # Simulate failed model loading
-            mock_load.side_effect = lambda: setattr(self, "_model", None) or setattr(
-                self, "_params", None
-            )
-            engine = JAXInferenceEngine(model_params)
-            engine._model = None
-            engine._params = None
+        engine = JAXInferenceEngine.__new__(JAXInferenceEngine)
+        params = engine.get_supported_params()
+        assert "max_new_tokens" in params
+        assert "temperature" in params
+        assert "top_p" in params
 
-            # Test generation with unloaded model
-            result = engine._generate([sample_conversation])
+    def test_cleanup(self, llama3_model_params):
+        """Test resource cleanup."""
+        from oumi.inference.jax_inference_engine import JAXInferenceEngine
 
-            assert len(result) == 1
-            assert len(result[0].messages) == 2  # Original + generated
-            assert "JAX model not loaded" in result[0].messages[1].content
+        engine = JAXInferenceEngine.__new__(JAXInferenceEngine)
+        engine._model_module = MagicMock()
+        engine._weights = MagicMock()
+        engine._config = MagicMock()
+        engine._tokenizer = MagicMock()
 
-    def test_dependency_check(self, model_params):
-        """Test dependency checking functionality."""
-        with patch("importlib.util.find_spec", return_value=None):
-            with pytest.raises(
-                RuntimeError, match="Failed to find the required dependency"
-            ):
-                from oumi.inference.jax_inference_engine import JAXInferenceEngine
+        engine.cleanup()
 
-                engine = JAXInferenceEngine(model_params)
-                engine._load_model()
+        assert engine._model_module is None
+        assert engine._weights is None
+        assert engine._config is None
+        assert engine._tokenizer is None
 
-    @patch("oumi.inference.jax_inference_engine.jnp")
-    @patch("oumi.inference.jax_inference_engine.jax")
-    def test_top_p_sampling(self, mock_jax, mock_jnp):
-        """Test top-p sampling implementation."""
-        # This would test the _sample_top_p method
-        # Implementation depends on actual JAX arrays
-        pass  # Placeholder for more detailed JAX-specific tests
+
+class TestJAXRegistry:
+    """Tests for the JAX model registry."""
+
+    def test_registry_has_models(self):
+        from oumi.models.experimental.jax_models.registry import SUPPORTED_MODELS
+
+        assert len(SUPPORTED_MODELS) > 0
+
+    def test_all_architectures_have_modules(self):
+        from oumi.models.experimental.jax_models.registry import (
+            get_implementation_module,
+            list_supported_architectures,
+        )
+
+        for arch in list_supported_architectures():
+            module_path = get_implementation_module(arch)
+            assert module_path, f"No module path for architecture: {arch}"
+
+    def test_get_recommended_model(self):
+        from oumi.models.experimental.jax_models.registry import get_recommended_model
+
+        # Should return a small model that doesn't require auth
+        model = get_recommended_model(max_size_gb=10.0, requires_no_auth=True)
+        assert model is not None
+
+    def test_models_by_architecture(self):
+        from oumi.models.experimental.jax_models.registry import (
+            get_models_by_architecture,
+        )
+
+        arch_models = get_models_by_architecture()
+        assert "llama3_jax" in arch_models
+        assert len(arch_models["llama3_jax"]) > 0
+
+
+class TestJAXUtils:
+    """Tests for JAX utility functions."""
+
+    def test_check_jax_devices(self):
+        from oumi.utils.jax_utils import check_jax_devices
+
+        info = check_jax_devices()
+        # Should work even if JAX not installed (returns error dict)
+        assert isinstance(info, dict)
+
+    def test_setup_jax_for_performance(self):
+        from oumi.utils.jax_utils import setup_jax_for_performance
+
+        # Should not raise
+        setup_jax_for_performance()
+
+    def test_memory_usage_mb(self):
+        from oumi.utils.jax_utils import memory_usage_mb
+
+        result = memory_usage_mb()
+        assert isinstance(result, float)
+        assert result >= 0.0

@@ -12,29 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Inference config for Llama 3 8B using JAX backend.
+# Inference config for Llama 3.1 8B using JAX backend.
 #
 # Requirements:
 #   - Install JAX dependencies: `pip install oumi[jax]`
 #   - Log into HF: `huggingface-cli login`
-#   - Request access to Llama 3: https://huggingface.co/meta-llama/Llama-3-8B-Instruct
+#   - Request access: https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct
 #
 # Usage:
 #   oumi infer -i -c configs/recipes/jax/llama3_jax_infer.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
-#   - JAX Scaling Book: https://jax-ml.github.io/scaling-book/
 #   - JAX LLM Examples: https://github.com/jax-ml/jax-llm-examples
 #   - Config class: oumi.core.configs.InferenceConfig
-#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/inference_config.py
 
 model:
-  model_name: "jax-ml/llama3-8b"
+  model_name: "meta-llama/Llama-3.1-8B-Instruct"
   model_max_length: 2048
-  torch_dtype_str: "bfloat16"  # JAX will convert appropriately
-  load_pretrained_weights: True
-  trust_remote_code: True
+  torch_dtype_str: "bfloat16"
+  load_pretrained_weights: true
+  trust_remote_code: true
 
 generation:
   max_new_tokens: 2048
@@ -42,10 +40,3 @@ generation:
   top_p: 0.9
 
 engine: JAX
-
-# JAX-specific configuration
-jax:
-  tensor_parallel_size: -1  # Use all available devices
-  quantization: "int8"  # JAX int8 quantization
-  enable_xla_compilation: True
-  memory_fraction: 0.9

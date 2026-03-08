@@ -12,8 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""JAX Model Manager - Unified interface for downloading, converting, and loading JAX models
-Following the patterns from jax-llm-examples
+"""JAX Model Manager.
+
+Unified interface for downloading, converting, and loading JAX models
+following the patterns from jax-llm-examples.
 """
 
 import dataclasses
@@ -21,24 +23,25 @@ import importlib
 import json
 import os
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from tqdm import tqdm
 
-from .registry import (
+from oumi.models.experimental.jax_models.registry import (
     get_implementation_module,
     get_model_info,
     get_recommended_model,
     get_supported_models,
     validate_model_name,
 )
+from oumi.utils.logging import logger
 
 
 class JAXModelManager:
-    """Unified manager for JAX models following jax-llm-examples patterns"""
+    """Unified manager for JAX models following jax-llm-examples patterns."""
 
-    def __init__(self, cache_dir: Optional[Path] = None):
-        """Initialize the JAX model manager
+    def __init__(self, cache_dir: Path | None = None):
+        """Initialize the JAX model manager.
 
         Args:
             cache_dir: Directory to cache models (default: ~/.cache/oumi_jax_models)
@@ -47,7 +50,7 @@ class JAXModelManager:
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
     def list_available_models(self) -> dict[str, Any]:
-        """List all available models with their info"""
+        """List all available models with their info."""
         models = get_supported_models()
         return {
             name: {
@@ -63,19 +66,13 @@ class JAXModelManager:
         }
 
     def recommend_model(
-        self, max_size_gb: Optional[float] = None, requires_no_auth: bool = True
-    ) -> Optional[str]:
-        """Recommend a model based on constraints"""
-        model_info = get_recommended_model(max_size_gb, requires_no_auth)
-        if model_info:
-            # Find the model name from the registry
-            for name, info in get_supported_models().items():
-                if info.model_id == model_info.model_id:
-                    return name
-        return None
+        self, max_size_gb: float | None = None, requires_no_auth: bool = True
+    ) -> str | None:
+        """Recommend a model based on constraints."""
+        return get_recommended_model(max_size_gb, requires_no_auth)
 
     def download_model(self, model_name: str, force_download: bool = False) -> Path:
-        """Download a model from HuggingFace
+        """Download a model from HuggingFace.
 
         Args:
             model_name: Name of the model from the registry
@@ -98,14 +95,16 @@ class JAXModelManager:
         model_dir = self.cache_dir / model_name / "hf_original"
 
         if model_dir.exists() and not force_download:
-            print(f"✅ Model already downloaded: {model_dir}")
+            logger.info(f"Model already downloaded: {model_dir}")
             return model_dir
 
-        print(f"📥 Downloading {model_info.model_id}...")
+        logger.info(f"Downloading {model_info.model_id}...")
 
         if model_info.requires_auth:
-            print("⚠️  This model requires HuggingFace authentication!")
-            print("   Run: huggingface-cli login")
+            logger.warning(
+                "This model requires HuggingFace authentication. "
+                "Run: huggingface-cli login"
+            )
 
         try:
             from huggingface_hub import snapshot_download
@@ -121,7 +120,7 @@ class JAXModelManager:
                 ignore_patterns=["*.bin"],  # Only download safetensors
             )
 
-            print(f"✅ Downloaded to: {model_dir}")
+            logger.info(f"Downloaded to: {model_dir}")
             return model_dir
 
         except Exception as e:
@@ -133,7 +132,7 @@ class JAXModelManager:
             raise RuntimeError(f"Download failed: {e}")
 
     def convert_model(self, model_name: str, force_convert: bool = False) -> Path:
-        """Convert a downloaded model to JAX format
+        """Convert a downloaded model to JAX format.
 
         Args:
             model_name: Name of the model from the registry
@@ -166,24 +165,25 @@ class JAXModelManager:
             and (jax_model_dir / "config.json").exists()
             and not force_convert
         ):
-            print(f"✅ JAX model already converted: {jax_model_dir}")
+            logger.info(f"JAX model already converted: {jax_model_dir}")
             return jax_model_dir
 
         # Clean up if force converting
         if force_convert and jax_model_dir.exists():
-            print("🧹 Cleaning up existing JAX model for force conversion...")
+            logger.info("Cleaning up existing JAX model for force conversion...")
             import shutil
 
             shutil.rmtree(jax_model_dir)
 
-        print(f"🔄 Converting {model_name} to JAX format...")
+        logger.info(f"Converting {model_name} to JAX format...")
 
         try:
             # Import the correct implementation
             impl_module_path = get_implementation_module(model_info.architecture)
             if not impl_module_path:
                 raise ValueError(
-                    f"No implementation found for architecture: {model_info.architecture}"
+                    "No implementation found for architecture: "
+                    f"{model_info.architecture}"
                 )
 
             # Dynamic import
@@ -217,8 +217,8 @@ class JAXModelManager:
             )
             jax_config = dataclasses.replace(jax_config, mesh=mesh)
 
-            print(
-                f"📋 Config: {jax_config.num_layers} layers, {jax_config.vocab_size} vocab"
+            logger.info(
+                f"Config: {jax_config.num_layers} layers, {jax_config.vocab_size} vocab"
             )
 
             # Load model tensors
@@ -234,8 +234,9 @@ class JAXModelManager:
                     for key in f.keys():
                         model_tensors[key] = f.get_tensor(key)
 
-            print(
-                f"📂 Loaded {len(model_tensors)} tensors from {len(safetensors_files)} files"
+            logger.info(
+                f"Loaded {len(model_tensors)} tensors "
+                f"from {len(safetensors_files)} files"
             )
 
             # Convert using the appropriate method
@@ -292,7 +293,7 @@ class JAXModelManager:
                     if src.exists():
                         shutil.copy(src, jax_model_dir / file)
 
-                print(f"✅ Model converted to: {jax_model_dir}")
+                logger.info(f"Model converted to: {jax_model_dir}")
                 return jax_model_dir
             else:
                 raise RuntimeError(f"No conversion function found in {utils_module}")
@@ -309,20 +310,17 @@ class JAXModelManager:
                 if src.exists():
                     shutil.copy(src, jax_model_dir / file)
 
-            print(f"✅ Model converted to: {jax_model_dir}")
+            logger.info(f"Model converted to: {jax_model_dir}")
             return jax_model_dir
 
         except Exception as e:
-            print(f"❌ Conversion failed: {e}")
-            import traceback
-
-            traceback.print_exc()
+            logger.error(f"Conversion failed: {e}")
             raise
 
     def load_model(
         self, model_name: str, auto_download: bool = True, auto_convert: bool = True
     ) -> tuple[Any, Any, Any]:
-        """Load a JAX model for inference
+        """Load a JAX model for inference.
 
         Args:
             model_name: Name of the model from the registry
@@ -348,18 +346,18 @@ class JAXModelManager:
 
         # Auto-download if needed
         if not hf_model_dir.exists() and auto_download:
-            print(f"📥 Auto-downloading {model_name}...")
+            logger.info(f"Auto-downloading {model_name}...")
             self.download_model(model_name)
 
         # Auto-convert if needed
         if not jax_model_dir.exists() and auto_convert:
-            print(f"🔄 Auto-converting {model_name}...")
+            logger.info(f"Auto-converting {model_name}...")
             self.convert_model(model_name)
 
         if not jax_model_dir.exists():
             raise RuntimeError(f"JAX model not found: {jax_model_dir}")
 
-        print(f"⏳ Loading JAX model: {model_name}")
+        logger.info(f"Loading JAX model: {model_name}")
 
         try:
             # Import the correct implementation
@@ -413,9 +411,9 @@ class JAXModelManager:
                 weights = model_module.load_pytree(
                     jax_model_dir, model_module.Weights.shardings(config)
                 )
-                print("✅ Loaded weights with proper sharding")
-            except:
-                print("⚠️  Sharding load failed, trying structure conversion...")
+                logger.info("Loaded weights with proper sharding")
+            except Exception:
+                logger.warning("Sharding load failed, trying structure conversion...")
                 raw_weights = model_module.load_pytree(jax_model_dir, None)
 
                 # Convert to structured format
@@ -440,7 +438,7 @@ class JAXModelManager:
                 else:
                     weights = raw_weights
 
-                print("✅ Loaded weights with structure conversion")
+                logger.info("Loaded weights with structure conversion")
 
             # Load tokenizer
             if hasattr(model_module, "load_tokenizer"):
@@ -453,20 +451,17 @@ class JAXModelManager:
 
                 tokenizer = AutoTokenizer.from_pretrained(str(hf_model_dir))
 
-            print(f"✅ Successfully loaded {model_name}")
+            logger.info(f"Successfully loaded {model_name}")
             return weights, config, tokenizer
 
         except Exception as e:
-            print(f"❌ Loading failed: {e}")
-            import traceback
-
-            traceback.print_exc()
+            logger.error(f"Loading failed: {e}")
             raise
 
     def get_model_path(
         self, model_name: str, model_type: str = "jax_converted"
     ) -> Path:
-        """Get the path to a model directory"""
+        """Get the path to a model directory."""
         if model_type not in ["hf_original", "jax_converted"]:
             raise ValueError("model_type must be 'hf_original' or 'jax_converted'")
 

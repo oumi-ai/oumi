@@ -28,25 +28,14 @@ from jax.sharding import NamedSharding
 from jax.sharding import PartitionSpec as P
 
 jax.config.update("jax_platforms", "cpu")
-# Note: jax_num_cpu_devices config option removed in newer JAX versions
-try:
-    jax.config.update("jax_num_cpu_devices", 4)
-except (AttributeError, RuntimeError):
-    # Config option not available in this JAX version or backends already initialized
-    pass
+jax.config.update("jax_num_cpu_devices", 4)
 torch.use_deterministic_algorithms(
     False
 )  # non-deterministic is necessary for deepseek reference
 
-from oumi.models.experimental.jax_models.deepseek_r1_jax.deepseek_r1_jax import (
-    chkpt_utils as utils,
-)
-from oumi.models.experimental.jax_models.deepseek_r1_jax.deepseek_r1_jax import (
-    model as dsjax,
-)
-from oumi.models.experimental.jax_models.deepseek_r1_jax.deepseek_r1_jax.third_party import (
-    modeling_deepseek as deepseek,
-)
+from deepseek_r1_jax import chkpt_utils as utils
+from deepseek_r1_jax import model as dsjax
+from deepseek_r1_jax.third_party import modeling_deepseek as deepseek
 
 config = deepseek.DeepseekV3Config()
 cfg = utils.convert_config(config)
@@ -69,11 +58,7 @@ def err_fn(x, y, axis=-1):
     return diff / (norm + 1e-9)
 
 
-# Use Mesh constructor instead of deprecated jax.make_mesh
-from jax.sharding import Mesh
-
-devices = jax.devices()
-mesh = Mesh(np.array(devices).reshape(1, 1, len(devices)), P("x", "y", "z"))
+mesh = jax.make_mesh((1, 2, jax.device_count() // 2), P("x", "y", "z"))
 cfg = dataclasses.replace(cfg, mesh=mesh, rules=dsjax.ShardingRules())
 cfg = dataclasses.replace(
     cfg, quantize_mlp=False, quantize_attn=False, quantize_moe=False
@@ -104,17 +89,17 @@ cfg_small = dataclasses.replace(
 )
 
 
-def _set_seed(seed: int):
+def _set_seed(seed):
     np.random.seed(seed), torch.manual_seed(seed), pyrandom.seed(seed)
     return iter(random.split(random.key(seed), 8192))
 
 
 class TestNumerics(parameterized.TestCase):
-    def setUp(self) -> None:
+    def setUp(self):
         pass
 
     @parameterized.product(seed=[0, 1, 2])
-    def test_rms_norm(self, seed: int) -> None:
+    def test_rms_norm(self, seed):
         n = 256
         keyit = _set_seed(seed)
         normlayer = deepseek.DeepseekV3RMSNorm(n, eps=1e-6)
@@ -125,7 +110,7 @@ class TestNumerics(parameterized.TestCase):
         np.testing.assert_allclose(y1, y2, atol=1e-3, rtol=1e-2)
 
     @parameterized.product(seed=[0, 1, 2])
-    def test_rotary_embeddings(self, seed: int) -> None:
+    def test_rotary_embeddings(self, seed):
         keyit = _set_seed(seed)
         head_dim = config.qk_rope_head_dim
         max_position_embeddings = 768
@@ -168,7 +153,7 @@ class TestNumerics(parameterized.TestCase):
         np.testing.assert_allclose(k_emb1, k_emb2, **tol)
 
     @parameterized.product(seed=[0, 1, 2])
-    def test_attention(self, seed: int) -> None:
+    def test_attention(self, seed):
         keyit = _set_seed(seed)
         attn_layer = deepseek.DeepseekV3Attention(config_small, 0)
         layer = utils.convert_attn_layer(attn_layer, cfg_small)
@@ -214,7 +199,7 @@ class TestNumerics(parameterized.TestCase):
         np.testing.assert_allclose(attn_out3, attn_out2, **tol)
 
     @parameterized.product(seed=[0, 1, 2])
-    def test_mlp(self, seed: int) -> None:
+    def test_mlp(self, seed):
         keyit = _set_seed(seed)
         mlp_deepseek = deepseek.DeepseekV3MLP(
             config_small,
@@ -240,7 +225,7 @@ class TestNumerics(parameterized.TestCase):
         np.testing.assert_allclose(y2, y3, **tol)
 
     @parameterized.product(seed=[0, 1, 2])
-    def test_moe_router(self, seed: int) -> None:
+    def test_moe_router(self, seed):
         keyit = _set_seed(seed)
         gate = deepseek.MoEGate(config)
         gate.eval()
@@ -273,7 +258,7 @@ class TestNumerics(parameterized.TestCase):
         np.testing.assert_allclose(topk_weights1, topk_weights2, **tol)
 
     @parameterized.product(seed=[0, 1, 2])
-    def test_moe_layer(self, seed: int) -> None:
+    def test_moe_layer(self, seed):
         keyit = _set_seed(seed)
         errs, errs_quant = [], []
         # random init MoE layers experience instabilities sometimes, get minimum error of 5 trials
@@ -317,7 +302,7 @@ class TestNumerics(parameterized.TestCase):
         np.testing.assert_allclose(min(errs_quant), 0, **tol)
 
     @parameterized.product(seed=[0, 1, 2], layer_idx=[0, 10])
-    def test_combined_layer(self, seed: int, layer_idx) -> None:
+    def test_combined_layer(self, seed, layer_idx):
         keyit = _set_seed(seed)
         cfg_small_ = dataclasses.replace(cfg_small)
         errs, errs_quant = [], []
@@ -396,7 +381,7 @@ class TestNumerics(parameterized.TestCase):
     @parameterized.product(
         seed=[0, 1, 2], use_cache=[True, False], quantize_cache=[True, False]
     )
-    def test_model(self, seed: int, use_cache, quantize_cache) -> None:
+    def test_model(self, seed, use_cache, quantize_cache):
         keyit = _set_seed(seed)
         model_deepseek = deepseek.DeepseekV3ForCausalLM(config_small)
         model_deepseek.eval()

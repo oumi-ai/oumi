@@ -1,28 +1,40 @@
-#!/usr/bin/env python3
-"""Minimal Llama4 inference using JAX
-Based on jax-llm-examples/llama4/main.py
-"""
+# Copyright 2025 The JAX Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 import dataclasses
 import json
-from pathlib import Path
-from pprint import pprint
 
 import jax
-import numpy as np
+from etils import epath
 from jax import numpy as jnp
 from jax import random
 from jax.sharding import AxisType, set_mesh
 from jax.sharding import PartitionSpec as P
+
+try:
+    from jax.sharding import use_mesh as set_mesh
+except ImportError:
+    pass
+import numpy as np
 from llama4_jax import model as l4jax
 
 
-def encode_input(tokenizer, texts: list[str], model_name: str, pad_id: int = 0):
-    """Encode input text for the model"""
+def encode_input(tokenizer, texts, pad_id: int = l4jax.PAD_ID):
     assert isinstance(texts, list)
     inputs = [
         tokenizer.apply_chat_template([{"role": "user", "content": text}])
-        + tokenizer.encode("<|start_header_id|>assistant<|end_header_id|>")
+        + tokenizer.encode("<|header_start|>assistant<|header_end|>")
         for text in texts
     ]
     max_len = max([len(x) for x in inputs])
@@ -31,54 +43,30 @@ def encode_input(tokenizer, texts: list[str], model_name: str, pad_id: int = 0):
 
 
 if __name__ == "__main__":
-    # Configuration
-    quant = False  # Set to True for quantized inference
+    jax.distributed.initialize()
+    quant = True
 
-    # Model path - update this to your converted JAX model directory
-    ckpt_path = Path("~/models/jax/meta-llama--Llama-4-8B-Instruct").expanduser()
-
-    if not ckpt_path.exists():
-        print("❌ Model not found. Please:")
-        print("1. Download model:")
-        print(
-            "   python scripts/download_model.py --model-id meta-llama/Llama-4-8B-Instruct --dest-root-path ~/models/hf/"
-        )
-        print("2. Convert to JAX:")
-        print(
-            "   python scripts/convert_weights.py --source-path ~/models/hf/meta-llama--Llama-4-8B-Instruct --dest-path ~/models/jax/meta-llama--Llama-4-8B-Instruct"
-        )
-        exit(1)
-
+    ckpt_path = epath.Path("~/bucket/Llama-4-Scout-Instruct").expanduser()
     if quant:
         ckpt_path = ckpt_path.parent / f"{ckpt_path.name}-quant"
-
-    print(f"🚀 Loading model from: {ckpt_path}")
-
-    # Load tokenizer
     tokenizer = l4jax.load_tokenizer(
         ckpt_path / "tokenizer.json", ckpt_path / "tokenizer_config.json"
     )
-    print("✅ Loaded tokenizer")
 
-    # Create mesh
     mesh = jax.make_mesh(
-        (1, 1, jax.device_count()),
+        (1, 8, jax.device_count() // 8),
         ("x", "y", "z"),
         devices=jax.devices(),
         axis_types=(AxisType.Explicit,) * 3,
     )
-    print(f"✅ Created mesh with {jax.device_count()} devices")
-
-    # Load config and create JAX config
-    cfg = l4jax.hf_to_jax_config(json.loads((ckpt_path / "config.json").read_text()))
-    cfg = dataclasses.replace(cfg, mesh=mesh, quant_layer=quant, quant_cache=quant)
-    print(f"✅ Config: {cfg.num_layers} layers, {cfg.vocab_size} vocab")
-
-    # Load weights
+    cfg = l4jax.hf_to_jax_config(
+        json.loads((ckpt_path / "config.json").read_text())["text_config"]
+    )
+    cfg = dataclasses.replace(
+        cfg, mesh=mesh, quant_attn=quant, quant_moe=quant, quant_mlp=quant
+    )
     weights = l4jax.load_pytree(ckpt_path, l4jax.Weights.shardings(cfg))
-    print("✅ Loaded model weights")
 
-    # Prepare input
     input = encode_input(
         tokenizer,
         [
@@ -86,28 +74,21 @@ if __name__ == "__main__":
             "What is the weather like expressed in long prose in Old English",
             "Do you like ice cream, be extremely precise",
         ],
-        model_name=ckpt_path.name,
     )
-    print(f"✅ Encoded input: {input.shape}")
 
-    # Run inference
-    print("🚀 Running JAX inference...")
     with set_mesh(cfg.mesh):
         zero_cache = l4jax.KVCache.init(
             random.key(1), cfg, input.shape[0], cfg.max_seq_len
         )
         next_tokens, logits, cache = l4jax.prefill(input, weights, zero_cache, cfg)
-        curr_tokens = next_tokens.at[:, cache.iter - 1 : cache.iter].get(
+        curr_tokens = next_tokens.at[:, cache.length - 1 : cache.length].get(
             out_sharding=P(None, None)
         )
-
         tokens_list = []
-        for _ in range(16):
+        for _ in range(32):
             tokens_list.append(curr_tokens)
             curr_tokens, cache = l4jax.decode_step(curr_tokens, weights, cache, cfg)
         tokens = np.array(jnp.concatenate(tokens_list, axis=-1))
-
-    # Decode responses
     responses = [tokenizer.decode(row) for row in tokens]
-    print("🎉 Responses:")
-    pprint(responses)
+    print("Responses:")
+    print(responses)

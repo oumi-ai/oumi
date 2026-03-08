@@ -16,35 +16,25 @@
 #
 # Requirements:
 #   - Install JAX dependencies: `pip install oumi[jax]`
-#   - Log into HF: `huggingface-cli login`
-#   - Request access to DeepSeek R1: https://huggingface.co/deepseek-ai/DeepSeek-R1
 #
 # Usage:
 #   oumi infer -i -c configs/recipes/jax/deepseek_r1_jax_infer.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
-#   - JAX Scaling Book: https://jax-ml.github.io/scaling-book/
 #   - JAX LLM Examples: https://github.com/jax-ml/jax-llm-examples
 #   - Config class: oumi.core.configs.InferenceConfig
 
 model:
-  model_name: "jax-ml/deepseek-r1"
-  model_max_length: 4096  # DeepSeek R1 supports longer contexts
+  model_name: "deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
+  model_max_length: 4096
   torch_dtype_str: "bfloat16"
-  load_pretrained_weights: True
-  trust_remote_code: True
+  load_pretrained_weights: true
+  trust_remote_code: true
 
 generation:
   max_new_tokens: 2048
-  temperature: 0.8  # Slightly higher for reasoning tasks
+  temperature: 0.8
   top_p: 0.95
 
 engine: JAX
-
-# JAX-specific configuration optimized for DeepSeek R1
-jax:
-  tensor_parallel_size: -1  # Use all available devices
-  quantization: "int8"  # Essential for large models like R1
-  enable_xla_compilation: True
-  memory_fraction: 0.85  # Leave more memory for reasoning computations

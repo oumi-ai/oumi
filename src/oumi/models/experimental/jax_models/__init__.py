@@ -12,12 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""JAX Models - Unified platform for JAX-based language models
-Based on jax-llm-examples with integrated download, conversion, and inference
+"""JAX Models - Unified platform for JAX-based language models.
+
+Based on jax-llm-examples with integrated download, conversion, and inference.
 """
 
-from .manager import JAXModelManager
-from .registry import (
+from oumi.models.experimental.jax_models.manager import JAXModelManager
+from oumi.models.experimental.jax_models.registry import (
     JAXModelInfo,
     get_model_info,
     get_recommended_model,

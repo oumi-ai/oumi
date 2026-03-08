@@ -13,20 +13,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Unified CLI for JAX Model Management
-Following jax-llm-examples patterns for download, convert, and run inference
+"""Unified CLI for JAX Model Management.
+
+Following jax-llm-examples patterns for download, convert, and run inference.
 """
 
 import argparse
 import sys
 from pathlib import Path
 
-from .manager import JAXModelManager
-from .registry import get_model_info, get_recommended_model, get_supported_models
+from oumi.models.experimental.jax_models.manager import JAXModelManager
+from oumi.models.experimental.jax_models.registry import (
+    get_model_info,
+    get_recommended_model,
+    get_supported_models,
+)
 
 
 def cmd_list_models(args):
-    """List all available JAX models"""
+    """List all available JAX models."""
     manager = JAXModelManager(args.cache_dir)
     models = manager.list_available_models()
 
@@ -48,7 +53,7 @@ def cmd_list_models(args):
 
 
 def cmd_recommend(args):
-    """Recommend a model based on constraints"""
+    """Recommend a model based on constraints."""
     model_key = get_recommended_model(args.max_size_gb, args.requires_no_auth)
 
     if model_key:
@@ -75,7 +80,7 @@ def cmd_recommend(args):
 
 
 def cmd_download(args):
-    """Download a model from HuggingFace"""
+    """Download a model from HuggingFace."""
     manager = JAXModelManager(args.cache_dir)
 
     try:
@@ -87,7 +92,7 @@ def cmd_download(args):
 
 
 def cmd_convert(args):
-    """Convert a downloaded model to JAX format"""
+    """Convert a downloaded model to JAX format."""
     manager = JAXModelManager(args.cache_dir)
 
     try:
@@ -99,7 +104,7 @@ def cmd_convert(args):
 
 
 def cmd_run(args):
-    """Run inference with a JAX model"""
+    """Run inference with a JAX model."""
     manager = JAXModelManager(args.cache_dir)
 
     try:
@@ -121,7 +126,10 @@ def cmd_run(args):
         from jax.sharding import set_mesh
 
         # Import the correct model implementation
-        from .registry import get_implementation_module, get_model_info
+        from oumi.models.experimental.jax_models.registry import (
+            get_implementation_module,
+            get_model_info,
+        )
 
         model_info = get_model_info(args.model_name)
         impl_module_path = get_implementation_module(model_info.architecture)
@@ -135,7 +143,7 @@ def cmd_run(args):
         ]
 
         def encode_input(texts, pad_id=0):
-            """Simple text encoding - adapt based on model"""
+            """Simple text encoding - adapt based on model."""
             inputs = []
             for text in texts:
                 if hasattr(tokenizer, "apply_chat_template"):
@@ -216,7 +224,7 @@ def cmd_run(args):
 
 
 def main():
-    """Main CLI entry point"""
+    """Main CLI entry point."""
     parser = argparse.ArgumentParser(
         prog="jax-models", description="Unified JAX Model Management CLI"
     )

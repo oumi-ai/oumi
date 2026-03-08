@@ -16,20 +16,19 @@ import dataclasses
 import os
 import re
 import shutil
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Optional, Union
 
 import jax
 import torch
+from gpt_oss_jax import model as gpt_jax
 from jax import numpy as jnp
 from jax.sharding import PartitionSpec as P
 from tqdm import tqdm
 
-from oumi.models.experimental.jax_models.gpt_oss.gpt_oss_jax import model as gpt_jax
 
-
-def quantize_model(ckpt_path: Path, quant_ckpt_path: Path) -> None:
+def quantize_model(ckpt_path: Path, quant_ckpt_path: Path):
     ckpt_path, quant_ckpt_path = (
         Path(ckpt_path).expanduser(),
         Path(quant_ckpt_path).expanduser(),
@@ -137,7 +136,7 @@ def convert_weight(key: str, value: torch.Tensor, cfg: gpt_jax.Config):
     elif re.search(r"o_proj\.weight", key) is not None:
         assert value.shape == (cfg.embed, cfg.q_heads * cfg.head_dim)
         return t2j(value.T.reshape((cfg.q_heads, cfg.head_dim, cfg.embed)))
-    elif re.search(r"(Union[k, v])_proj\.bias", key) is not None:
+    elif re.search(r"(k|v)_proj\.bias", key) is not None:
         assert value.shape == (cfg.kv_heads * cfg.head_dim,)
         return t2j(value.reshape((cfg.kv_heads, cfg.head_dim)))
     elif re.search(r"q_proj\.bias", key) is not None:
@@ -213,7 +212,7 @@ _HF_KEY_MAPPING = {
 }
 
 
-def _torch_key_to_jax_key(source_key, custom_key_map: Optional[dict] = None):
+def _torch_key_to_jax_key(source_key, custom_key_map: dict[str, str] | None = None):
     key_maps = dict(
         _HF_KEY_MAPPING, **(dict() if custom_key_map is None else custom_key_map)
     )
@@ -229,7 +228,9 @@ def _torch_key_to_jax_key(source_key, custom_key_map: Optional[dict] = None):
 
 
 def _map_weight(
-    source_key, value: torch.Tensor, custom_transform_map: Optional[dict] = None
+    source_key,
+    value: torch.Tensor,
+    custom_transform_map: dict[str, Callable] | None = None,
 ):
     key_maps = dict(
         dict(), **(dict() if custom_transform_map is None else custom_transform_map)
@@ -242,15 +243,15 @@ def _map_weight(
 
 
 def convert_model_or_layer(
-    layer: Union[gpt_jax.Weights, gpt_jax.Layer],
+    layer: gpt_jax.Weights | gpt_jax.Layer,
     ref_layer: torch.nn.Module,
     cfg: gpt_jax.Config,
-    device: Optional[jax.Device] = None,
+    device: jax.Device | None = None,
     sequential: bool = True,
-    custom_key_map: Optional[dict] = None,
-    custom_transform_map: Optional[dict] = None,
+    custom_key_map: dict[str, str] | None = None,
+    custom_transform_map: dict[str, Callable] | None = None,
     allow_unconverted_parameters: bool = False,
-    prefix: Optional[str] = None,
+    prefix: str | None = None,
 ):
     device = device if device is not None else jax.devices("cpu")[0]
     torch_params = dict(
@@ -266,7 +267,7 @@ def convert_model_or_layer(
     mxfp4_keys = [
         key
         for key in torch_params
-        if re.match(r".*(Union[gate_up, down])_proj_(Union[scales, blocks])$", key)
+        if re.match(r".*(gate_up|down)_proj_(scales|blocks)$", key)
     ]
     if len(mxfp4_keys) > 0:
         print("Converting mxfp4 weights to bfloat16 for conversion.")

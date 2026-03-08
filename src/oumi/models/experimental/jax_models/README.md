@@ -103,22 +103,23 @@ The upstream project has noted limitations:
 
 Oumi has integrated these JAX LLM Examples into our inference pipeline by:
 
-1. **Vendoring implementations**: All 6 model families copied and adapted for Oumi
-2. **Python 3.9 compatibility**: Fixed type annotations for production compatibility
-3. **Unified interface**: Integrated through `JAXInferenceEngine`
-4. **Test coverage**: Comprehensive CPU and GPU test suites
+1. **Vendoring implementations**: All 7 model families synced from upstream jax-llm-examples
+2. **Unified interface**: Integrated through `JAXInferenceEngine` following Oumi's `BaseInferenceEngine` contract
+3. **Proper prefill/decode loops**: Each model uses its upstream-verified inference pattern
+4. **Test coverage**: Unit and integration test suites
 5. **Configuration system**: YAML-based configuration following Oumi patterns
 
 ### Supported Model Families
 
 | Model Family | Source Implementation | Key Features | Status |
 |--------------|----------------------|--------------|--------|
-| **Llama3** | jax-llm-examples/llama3 | GQA, tensor parallelism, INT8 | ✅ Integrated |
-| **Llama4** | jax-llm-examples/llama4 | Latest architecture improvements | ✅ Integrated |
-| **DeepSeek R1** | jax-llm-examples/deepseek_r1_jax | MLA attention, MoE routing | ✅ Integrated |
-| **Qwen3** | jax-llm-examples/qwen3 | MLA attention, large-scale | ✅ Integrated |
-| **Kimi K2** | jax-llm-examples/kimi_k2 | Long-context support | ✅ Integrated |
-| **GPT OSS** | jax-llm-examples/gpt_oss | Standard GPT architecture | ✅ Integrated |
+| **Llama3** | jax-llm-examples/llama3 | GQA, tensor parallelism, INT8 | Integrated |
+| **Llama4** | jax-llm-examples/llama4 | MoE, NoPE layers, QK norm | Integrated |
+| **DeepSeek R1** | jax-llm-examples/deepseek_r1_jax | MLA attention, MoE routing | Integrated |
+| **Qwen3** | jax-llm-examples/qwen3 | MLA attention, splash attention | Integrated |
+| **Kimi K2** | jax-llm-examples/kimi_k2 | 1T params, MLA attention | Integrated |
+| **GPT OSS** | jax-llm-examples/gpt_oss | Sliding attention, MoE | Integrated |
+| **Nemotron 3** | jax-llm-examples/nemotron3 | Hybrid Mamba-Transformer | Integrated |
 
 ## Installation and Usage
 

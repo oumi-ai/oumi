@@ -20,7 +20,7 @@ import re
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any, Union
+from typing import Any
 
 import jax
 import numpy as np
@@ -46,6 +46,7 @@ from .model import (
     load_pytree,
     save_pytree,
 )
+from .third_party import modeling_deepseek as deepseek
 
 
 def t2j(x: Any):
@@ -103,6 +104,40 @@ def r1_config() -> Config:
     )
 
 
+def convert_config(config: deepseek.DeepseekV3Config) -> Config:
+    return Config(
+        embed=config.hidden_size,
+        q_lora_rank=config.q_lora_rank,
+        kv_lora_rank=config.kv_lora_rank,
+        num_heads=config.num_attention_heads,
+        qk_nope_head_dim=config.qk_nope_head_dim,
+        qk_rope_head_dim=config.qk_rope_head_dim,
+        v_head_dim=config.v_head_dim,
+        vocab_size=config.vocab_size,
+        num_layers=config.num_hidden_layers,
+        max_seq_len=8192,
+        rope_theta=config.rope_theta,
+        rope_scaling_factor=R1_ROPE_SCALING["factor"],
+        rope_beta_fast=R1_ROPE_SCALING["beta_fast"],
+        rope_beta_slow=R1_ROPE_SCALING["beta_slow"],
+        rope_mscale=R1_ROPE_SCALING["mscale"],
+        rope_mscale_all_dim=R1_ROPE_SCALING["mscale_all_dim"],
+        rope_original_max_position_embeddings=R1_ROPE_SCALING[
+            "original_max_position_embeddings"
+        ],
+        ffw_size=config.intermediate_size,
+        first_k_dense=config.first_k_dense_replace,
+        moe_gate_dtype=jnp.float32,
+        moe_ffw_size=config.moe_intermediate_size,
+        n_routed_experts=config.n_routed_experts,
+        num_experts_per_tok=config.num_experts_per_tok,
+        n_group=config.n_group,
+        topk_group=config.topk_group,
+        routed_scaling_factor=config.routed_scaling_factor,
+        n_shared_experts=config.n_shared_experts,
+    )
+
+
 def _cast_dtype(layer, layer_abst):
     assert jax.tree.structure(layer, is_leaf=is_param) == jax.tree.structure(
         layer_abst, is_leaf=is_param
@@ -112,11 +147,18 @@ def _cast_dtype(layer, layer_abst):
     )
 
 
-def convert_attn_layer(params: dict, cfg: Config):
+def convert_attn_layer(
+    params_or_attn: deepseek.DeepseekV3Attention | dict, cfg: Config
+):
     unquant_cfg = dataclasses.replace(cfg, quantize_attn=False)
     layer_abst = AttentionLayer.abstract(unquant_cfg)
     layer = AttentionLayer.abstract(unquant_cfg)
 
+    params = (
+        params_or_attn
+        if isinstance(params_or_attn, dict)
+        else dict(params_or_attn.named_parameters())
+    )
     q_head_dim = cfg.qk_nope_head_dim + cfg.qk_rope_head_dim
 
     layer.q_a = t2j(params["q_a_proj.weight"].data.T)
@@ -158,10 +200,16 @@ def convert_attn_layer(params: dict, cfg: Config):
     return _cast_dtype(layer, layer_abst)
 
 
-def convert_mlp_layer(params: dict, cfg: Config):
+def convert_mlp_layer(params_or_mlp: deepseek.DeepseekV3MLP, cfg: Config):
     unquant_cfg = dataclasses.replace(cfg, quantize_mlp=False)
     layer_abst = MLPLayer.abstract(unquant_cfg)
     layer = MLPLayer.abstract(unquant_cfg)
+
+    params = (
+        params_or_mlp
+        if isinstance(params_or_mlp, dict)
+        else dict(params_or_mlp.named_parameters())
+    )
 
     layer.w_gate = t2j(params["gate_proj.weight"].data.T)
     layer.w_up = t2j(params["up_proj.weight"].data.T)
@@ -178,10 +226,16 @@ def convert_mlp_layer(params: dict, cfg: Config):
     return _cast_dtype(layer, layer_abst)
 
 
-def convert_moe_layer(params: dict, cfg: Config):
+def convert_moe_layer(params_or_moe: deepseek.DeepseekV3MoE | dict, cfg: Config):
     unquant_cfg = dataclasses.replace(cfg, quantize_moe=False)
     layer_abst = MoELayer.abstract(unquant_cfg)
     layer = MoELayer.abstract(unquant_cfg)
+
+    params = (
+        params_or_moe
+        if isinstance(params_or_moe, dict)
+        else dict(params_or_moe.named_parameters())
+    )
 
     layer.w_router = t2j(params["gate.weight"].data.T)
     layer.b_router = t2j(params["gate.e_score_correction_bias"].data)
@@ -228,7 +282,12 @@ def convert_moe_layer(params: dict, cfg: Config):
     return _cast_dtype(layer, layer_abst)
 
 
-def convert_layer(params: dict, cfg: Config):
+def convert_layer(params_or_layer: deepseek.DeepseekV3DecoderLayer | dict, cfg: Config):
+    params = (
+        params_or_layer
+        if isinstance(params_or_layer, dict)
+        else dict(params_or_layer.named_parameters())
+    )
     use_moe = len([k for k in params.keys() if "expert" in k]) > 0
 
     unquant_cfg = dataclasses.replace(
@@ -269,7 +328,13 @@ def _extract_layer_params(params: dict[str, Any], prefix: str):
     return {k[len(prefix) :]: v for (k, v) in params.items() if k.startswith(prefix)}
 
 
-def convert_model(params: dict, cfg: Config):
+def convert_model(params_or_model: deepseek.DeepseekV3ForCausalLM | dict, cfg: Config):
+    params = (
+        params_or_model
+        if isinstance(params_or_model, dict)
+        else dict(params_or_model.named_parameters())
+    )
+
     model_abst = Weights.abstract(cfg)
     model = Weights.abstract(cfg)
     layer_idxs = {
@@ -408,7 +473,7 @@ def convert_hf_checkpoint(params_map, root_path, dest_path, cfg: Config):
         gc.collect()
 
 
-def load_model(root_path: Union[Path, epath.Path], cfg: Config):
+def load_model(root_path: Path | epath.Path, cfg: Config):
     root_path = epath.Path(root_path)
     weights_sharding = Weights.shardings(cfg)
     weights_abst = Weights.abstract(cfg)
@@ -445,6 +510,25 @@ def load_model(root_path: Union[Path, epath.Path], cfg: Config):
         )
 
     return weights
+
+
+def load_torch_model(
+    params_map: dict[str, dict[str, Any]],
+    root_path: Path,
+    config: deepseek.DeepseekV3Config,
+):
+    model = deepseek.DeepseekV3ForCausalLM(config)
+    model.eval()
+    param_names = list(dict(model.named_parameters()).keys())
+
+    extra_param_scales = [
+        f"{k}_scale_inv" for k in param_names if f"{k}_scale_inv" in params_map
+    ]
+    print(f"Reading additional #{len(extra_param_scales)} of parameter scales")
+    param_names = param_names + extra_param_scales
+    params = _dequant_params(load_param_list(params_map, root_path, param_names))
+    model.load_state_dict(params, strict=True)
+    return model
 
 
 def replicate(x):

@@ -12,22 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# JAX inference config for Llama 3 8B with INT8 quantization.
-# This reduces memory usage by ~50% with minimal quality loss.
+# JAX inference config for Llama 3.1 8B with INT8 quantization.
+# INT8 quantization is auto-configured by the JAX engine based on model config.
 #
-# ⚠️ Experimental: JAX backend is under active development
+# Experimental: JAX backend is under active development.
 #
 # Requirements:
 #   - Install JAX dependencies: `pip install oumi[jax]`
-#   - GPU with at least 12GB VRAM recommended
+#   - Log into HF: `huggingface-cli login`
 #
 # Usage:
 #   oumi infer -i -c configs/examples/jax_inference/llama3_int8.yaml
-#
-# Performance:
-#   - Memory: ~12GB (vs ~24GB for FP16)
-#   - Speed: Similar to FP16 with optimized kernels
-#   - Quality: Minimal degradation (<1% perplexity increase)
 
 model:
   model_name: "meta-llama/Llama-3.1-8B-Instruct"
@@ -40,22 +35,5 @@ generation:
   max_new_tokens: 1024
   temperature: 0.7
   top_p: 0.9
-  do_sample: true
 
 engine: JAX
-
-jax_config:
-  # INT8 quantization for memory efficiency
-  quantization: "int8"
-
-  # Enable XLA compilation
-  enable_xla: true
-
-  # Optimized memory management for quantized models
-  memory_fraction: 0.8
-
-  # Use specialized quantized attention kernels
-  use_quantized_attention: true
-
-  # Cache quantization (reduces KV cache memory)
-  quantize_cache: true

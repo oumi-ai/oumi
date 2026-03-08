@@ -152,12 +152,12 @@ nebius = ["skypilot[nebius]"]
 
 # JAX dependencies for high-performance inference
 jax = [
-    "jax>=0.7.0",                     # JAX with CPU and GPU support (requires Python 3.11+)
-    "jaxlib>=0.7.0",                  # JAX backend library (requires Python 3.11+)
+    "jax>=0.7.0,<0.10.0",            # JAX with CPU and GPU support (requires Python 3.11+)
+    "jaxlib>=0.7.0,<0.10.0",         # JAX backend library (requires Python 3.11+)
+    "flatbuffers",                    # Required by JAX export/serialization
     "orbax-checkpoint>=0.4.0",        # Checkpoint utilities
     "tpu-info",                       # TPU information utilities
 ]
-
 
 synthesis = [
     "pdftext>=0.6.3; python_version >= '3.10'", # Document ingestion for synthesis
@@ -220,6 +220,9 @@ oumi = "oumi.cli.main:run"
 extend-include = [
     "*.ipynb", # Include ipython notebooks
 ]
+extend-exclude = [
+    "src/oumi/models/experimental/jax_models",
+]
 line-length = 88
 
 
@@ -272,6 +275,9 @@ include = ["src/oumi/**", "tests/**"]
 exclude = [
     "src/oumi/core/types/proto/**",
     "src/oumi/utils/verl_model_merger.py",
+    "src/oumi/models/experimental/jax_models/**",
+    "src/oumi/inference/vllm_inference_engine.py",
+    "tests/integration/jax_models/**",
 ]
 typeCheckingMode = "basic"
 pythonVersion = "3.10"
@@ -284,6 +290,7 @@ include = ["src/oumi/**"]
 exclude = [
     "src/oumi/core/types/proto/**",
     "src/oumi/utils/verl_model_merger.py",
+    "src/oumi/models/experimental/jax_models/**",
 ]
 
 [tool.ty.environment]

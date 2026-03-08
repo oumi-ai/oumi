@@ -15,7 +15,6 @@
 import random as pyrandom
 from functools import partial
 from pathlib import Path
-from typing import cast
 
 import jax
 from jax import numpy as jnp
@@ -45,18 +44,15 @@ def decode_ragged_dot_kernel(
     block_compute: int,
     n: int,
     g: int,
-) -> None:
+):
     pid_g, pid_i = pl.program_id(0), pl.program_id(1)
     (_, k), _, m = x_ref.shape, A_ref.shape[0], A_ref.shape[-1]
     block_n_id = lhs_idx_map_ref[pid_g, pid_i]
 
-    lhs_idx = cast(jax.Array, jnp.where((pid_g == 0) & (pid_i == 0), 0, lhs_idx_ref[0]))
-    group_id = cast(
-        jax.Array, jnp.where((pid_g == 0) & (pid_i == 0), 0, group_id_ref[0])
-    )
-    group_size = cast(
-        jax.Array,
-        jnp.where(pid_i == 0, group_sizes_ref[pid_g * block_g], group_size_ref[0]),
+    lhs_idx = jnp.where((pid_g == 0) & (pid_i == 0), 0, lhs_idx_ref[0])
+    group_id = jnp.where((pid_g == 0) & (pid_i == 0), 0, group_id_ref[0])
+    group_size = jnp.where(
+        pid_i == 0, group_sizes_ref[pid_g * block_g], group_size_ref[0]
     )
 
     idx = jnp.maximum(pid_g * lhs_idx_map_ref.shape[-1] + pid_i - 1, 0)
@@ -66,7 +62,7 @@ def decode_ragged_dot_kernel(
     is_block_n_new = ((pid_g == 0) & (pid_i == 0)) | (prev_block_n_id != block_n_id)
 
     @pl.when(is_block_n_new)
-    def _() -> None:
+    def _():
         y_ref[...] = jnp.zeros_like(y_ref)
 
     # for i in range(lhs_idx // block_compute, n // block_compute): # blockwise over rows in lhs
@@ -131,8 +127,7 @@ def decode_ragged_dot_kernel(
         y_ref[pl.ds(local_i * block_compute, block_compute), :] = y.astype(y_ref.dtype)
         return new_lhs_idx, new_group_id, new_group_size
 
-    lhs_max = jnp.maximum(lhs_idx, block_n_id * block_n)
-    start_idx = lhs_max // block_compute
+    start_idx = jnp.maximum(lhs_idx, block_n_id * block_n) // block_compute
     end_idx = jnp.minimum(n, (block_n_id + 1) * block_n) // block_compute
     new_lhs_idx, new_group_id, new_group_size = jax.lax.fori_loop(
         start_idx, end_idx, outer_body_fn, (lhs_idx, group_id, group_size)
@@ -255,22 +250,19 @@ def decode_ragged_dot(
     )
 
     out_shape = jax.ShapeDtypeStruct((n, m), dtype=lhs.dtype)
-    return cast(
-        jax.Array,
-        pl.pallas_call(
-            partial(
-                decode_ragged_dot_kernel,
-                block_n=block_n,
-                block_g=block_g,
-                block_compute=block_compute,
-                n=n,
-                g=g,
-            ),
-            out_shape=out_shape,
-            grid_spec=grid_spec,
-            interpret=interpret,
-        )(lhs_idx_map, rhs_idx_map, lhs, rhs, group_sizes.astype(jnp.int32)),
-    )
+    return pl.pallas_call(
+        partial(
+            decode_ragged_dot_kernel,
+            block_n=block_n,
+            block_g=block_g,
+            block_compute=block_compute,
+            n=n,
+            g=g,
+        ),
+        out_shape=out_shape,
+        grid_spec=grid_spec,
+        interpret=interpret,
+    )(lhs_idx_map, rhs_idx_map, lhs, rhs, group_sizes.astype(jnp.int32))
 
 
 @partial(jax.jit, static_argnames=("block_n", "block_g", "block_compute"))
@@ -285,7 +277,7 @@ def decode_ragged_dot_ref(
     return jax.lax.ragged_dot(lhs, rhs, group_sizes)
 
 
-def test_profile_speed(interpret) -> None:
+def test_profile_speed(interpret):
     seed = 25
     # n, k, g, m = 32, 128, 64, 256
     # n, k, g, m = 64, 128, 64, 7168
@@ -301,34 +293,35 @@ def test_profile_speed(interpret) -> None:
 
     block_g, block_compute, block_n = g // 8, 8, n // 4
 
-    group_sizes = jnp.exp(1e1 * random.uniform(next(keys), (g,)))
+    group_sizes = jnp.exp(1e1 * random.uniform(next(keys), g))
     group_sizes = jnp.round(n * (group_sizes / jnp.sum(group_sizes))).astype(jnp.int32)
 
     # group_sizes = jnp.zeros(g, dtype=jnp.int32)
     # group_sizes = group_sizes.at[7].set(n)
+    print(group_sizes)
+    print(group_sizes.reshape((-1, block_g)))
+    print(jnp.sum(group_sizes))
     assert jnp.sum(group_sizes) <= n
 
     opts = dict(block_n=block_n, block_g=block_g, block_compute=block_compute)
-
-    ret = decode_ragged_dot(
-        x,
-        A,
-        group_sizes,
-        **opts,
-        interpret=interpret,
-    ).block_until_ready()
-    ret_ref = decode_ragged_dot_ref(x, A, group_sizes).block_until_ready()
-    # Verify correctness
-    error = float(jnp.linalg.norm(ret - ret_ref) / (jnp.linalg.norm(ret_ref) + 1e-5))
-
-    ret_diff = cast(jax.Array, ret - ret_ref)
-    ret_diff_norm = cast(
-        jax.Array, jnp.linalg.norm(ret_diff.astype(jnp.float32), axis=-1)
+    for _ in range(1):
+        ret = decode_ragged_dot(
+            x,
+            A,
+            group_sizes,
+            **opts,
+            interpret=interpret,
+        ).block_until_ready()
+        ret_ref = decode_ragged_dot_ref(x, A, group_sizes).block_until_ready()
+        print(
+            f"error = {float(jnp.linalg.norm(ret - ret_ref) / (jnp.linalg.norm(ret_ref) + 1e-5)):.4e}"
+        )
+    rowwise_error = jnp.linalg.norm((ret - ret_ref).astype(jnp.float32), axis=-1) / (
+        jnp.linalg.norm(ret_ref.astype(jnp.float32), axis=-1) + 1e-7
     )
-    ret_ref_norm = cast(
-        jax.Array, jnp.linalg.norm(ret_ref.astype(jnp.float32), axis=-1)
-    )
-    rowwise_error = ret_diff_norm / (ret_ref_norm + 1e-7)
+    print(f"mean row error = {jnp.mean(rowwise_error):.4e}")
+    print(f"row-wise error = {rowwise_error}")
+    print(1 * (jnp.arange(group_sizes.size) < jnp.sum(group_sizes)))
 
     opts = dict(block_n=block_n, block_g=block_g, block_compute=block_compute)
     with jax.profiler.trace(str(Path("~/profiles/decode_ragged2").expanduser())):
@@ -348,16 +341,14 @@ def test_profile_speed(interpret) -> None:
 ########################################################################################################################
 
 
-def _numeric_test_case(
-    seed: int, interpret, n, k, g, m, block_g, block_n, block_compute
-):
+def _numeric_test_case(seed, interpret, n, k, g, m, block_g, block_n, block_compute):
     keys = iter(random.split(random.key(seed), 1024))
     x = random.normal(next(keys), (n, k), dtype=jnp.bfloat16)
     A = random.normal(next(keys), (g, k, m), dtype=jnp.bfloat16)
     A = A / jnp.linalg.norm(A, axis=-1)[..., None]
     A = jnp.round(A * 127).astype(jnp.int8)
 
-    group_sizes = jnp.exp(1e1 * random.uniform(next(keys), (g,)))
+    group_sizes = jnp.exp(1e1 * random.uniform(next(keys), g))
     group_sizes = jnp.round(n * (group_sizes / jnp.sum(group_sizes))).astype(jnp.int32)
     assert jnp.sum(group_sizes) <= n
 

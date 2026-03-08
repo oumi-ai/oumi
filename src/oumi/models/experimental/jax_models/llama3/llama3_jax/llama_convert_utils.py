@@ -18,7 +18,6 @@ import re
 import shutil
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Optional, Union
 
 import jax
 import torch
@@ -29,7 +28,7 @@ from tqdm import tqdm
 from . import model as l3jax
 
 
-def quantize_model(ckpt_path: Path, quant_ckpt_path: Path) -> None:
+def quantize_model(ckpt_path: Path, quant_ckpt_path: Path):
     ckpt_path, quant_ckpt_path = (
         Path(ckpt_path).expanduser(),
         Path(quant_ckpt_path).expanduser(),
@@ -100,7 +99,7 @@ def convert_weight(key, value, cfg):
     elif re.search(r"o_proj", key) is not None:
         assert value.shape == (cfg.q_heads * cfg.head_dim, cfg.embed)
         return t2j(value.T.reshape((cfg.q_heads, cfg.head_dim, cfg.embed)))
-    elif re.search(r"(Union[up, gate])_proj", key) is not None:
+    elif re.search(r"(up|gate)_proj", key) is not None:
         assert value.shape == (cfg.ffw_size, cfg.embed)
         return t2j(value.T)
     elif re.search(r"down_proj", key) is not None:
@@ -147,7 +146,7 @@ _LAYER_KEY_MAPPING = {
 }
 
 
-def _llama_key_to_jax_key(llama_key, custom_key_map: Optional[dict] = None):
+def _llama_key_to_jax_key(llama_key, custom_key_map: dict[str, str] | None = None):
     key_maps = [_MODEL_KEY_MAPPING, _LAYER_KEY_MAPPING] + (
         [] if custom_key_map is None else [custom_key_map]
     )
@@ -161,12 +160,12 @@ def _llama_key_to_jax_key(llama_key, custom_key_map: Optional[dict] = None):
 
 
 def convert_model_or_layer(
-    layer: Union[l3jax.Weights, l3jax.Layer],
+    layer: l3jax.Weights | l3jax.Layer,
     llama_layer: torch.nn.Module,
     cfg: l3jax.Config,
-    device: Optional[jax.Device] = None,
+    device: jax.Device | None = None,
     sequential: bool = False,
-    custom_key_map: Optional[dict] = None,
+    custom_key_map: dict[str, str] | None = None,
     allow_unconverted_parameters: bool = False,
 ):
     device = device if device is not None else jax.devices("cpu")[0]

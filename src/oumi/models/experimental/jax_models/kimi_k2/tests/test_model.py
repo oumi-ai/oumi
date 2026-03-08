@@ -19,8 +19,7 @@ from absl.testing import absltest, parameterized
 from jax import numpy as jnp
 from jax import random
 from jax.sharding import PartitionSpec as P
-
-from oumi.models.experimental.jax_models.kimi_k2.kimi_k2_jax import model as k2jax
+from kimi_k2_jax import model as k2jax
 
 jax.config.update("jax_platforms", "cpu")
 jax.config.update("jax_num_cpu_devices", 4)
@@ -43,12 +42,16 @@ SMALL_CFG = k2jax.Config(
 
 
 class TestModel(parameterized.TestCase):
-    def setUp(self) -> None:
-        self.mesh = jax.make_mesh((1, len(jax.devices()), 1), P("x", "y", "z"))
+    def setUp(self):
+        self.mesh = jax.make_mesh(
+            (1, len(jax.devices()), 1),
+            P("x", "y", "z"),
+            axis_types=(jax.sharding.AxisType.Auto,) * 3,
+        )
         self.small_cfg = dataclasses.replace(SMALL_CFG, mesh=self.mesh)
 
     @parameterized.product(quant=[False, True])
-    def test_model_init(self, quant) -> None:
+    def test_model_init(self, quant):
         cfg = dataclasses.replace(
             self.small_cfg, quantize_attn=quant, quantize_moe=quant
         )
@@ -56,13 +59,33 @@ class TestModel(parameterized.TestCase):
         del weights
 
     @parameterized.product(quant=[False, True])
-    def test_cache_init(self, quant) -> None:
+    def test_init_hashing(self, quant):
+        cfg = dataclasses.replace(self.small_cfg, quantize_cache=quant)
+        hash_fn = lambda x: hash(tuple(jax.tree.leaves(x, is_leaf=k2jax.is_param)))
+        with self.subTest("Testing weights abstract and shardings hashing"):
+            abstract = k2jax.Weights.abstract(cfg)
+            abstract2 = k2jax.Weights.abstract(cfg)
+            self.assertEqual(hash_fn(abstract), hash_fn(abstract2))
+            shardings = k2jax.Weights.shardings(cfg)
+            shardings2 = k2jax.Weights.shardings(cfg)
+            self.assertEqual(hash_fn(shardings), hash_fn(shardings2))
+
+        with self.subTest("Testing kv-cache abstract and shardings hashing"):
+            abstract = k2jax.KVCache.abstract(cfg, 2, cfg.max_seq_len)
+            abstract2 = k2jax.KVCache.abstract(cfg, 2, cfg.max_seq_len)
+            self.assertEqual(hash_fn(abstract), hash_fn(abstract2))
+            shardings = k2jax.KVCache.shardings(cfg, 2, cfg.max_seq_len)
+            shardings2 = k2jax.KVCache.shardings(cfg, 2, cfg.max_seq_len)
+            self.assertEqual(hash_fn(shardings), hash_fn(shardings2))
+
+    @parameterized.product(quant=[False, True])
+    def test_cache_init(self, quant):
         cfg = dataclasses.replace(self.small_cfg, quantize_cache=quant)
         cache = k2jax.KVCache.init(random.key(0), cfg, 2, cfg.max_seq_len)
         del cache
 
     @parameterized.product(quant_weights=[False, True], quant_cache=[True, False])
-    def test_prefill_decode(self, quant_weights, quant_cache) -> None:
+    def test_prefill_decode(self, quant_weights, quant_cache):
         cfg = dataclasses.replace(
             self.small_cfg,
             quantize_attn=quant_weights,

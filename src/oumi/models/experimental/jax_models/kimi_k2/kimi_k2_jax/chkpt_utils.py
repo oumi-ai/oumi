@@ -20,7 +20,7 @@ import re
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any, Union
+from typing import Any
 
 import jax
 import numpy as np
@@ -165,7 +165,7 @@ def load_tokenizer():
     )
 
 
-def convert_attn_layer(params_or_attn: Union[DeepseekV3Attention, dict], cfg: Config):
+def convert_attn_layer(params_or_attn: DeepseekV3Attention | dict, cfg: Config):
     unquant_cfg = dataclasses.replace(cfg, quantize_attn=False)
     layer_abst = AttentionLayer.abstract(unquant_cfg)
     layer = AttentionLayer.abstract(unquant_cfg)
@@ -242,7 +242,7 @@ def convert_mlp_layer(params_or_mlp: DeepseekV3MLP, cfg: Config):
     return _cast_dtype(layer, layer_abst)
 
 
-def convert_moe_layer(params_or_moe: Union[DeepseekV3MoE, dict], cfg: Config):
+def convert_moe_layer(params_or_moe: DeepseekV3MoE | dict, cfg: Config):
     unquant_cfg = dataclasses.replace(cfg, quantize_moe=False)
     layer_abst = MoELayer.abstract(unquant_cfg)
     layer = MoELayer.abstract(unquant_cfg)
@@ -298,7 +298,7 @@ def convert_moe_layer(params_or_moe: Union[DeepseekV3MoE, dict], cfg: Config):
     return _cast_dtype(layer, layer_abst)
 
 
-def convert_layer(params_or_layer: Union[DeepseekV3DecoderLayer, dict], cfg: Config):
+def convert_layer(params_or_layer: DeepseekV3DecoderLayer | dict, cfg: Config):
     params = (
         params_or_layer
         if isinstance(params_or_layer, dict)
@@ -340,11 +340,11 @@ def convert_layer(params_or_layer: Union[DeepseekV3DecoderLayer, dict], cfg: Con
     return _cast_dtype(layer, layer_abst)
 
 
-def _extract_layer_params(params: dict, prefix: str):
+def _extract_layer_params(params: dict[str, Any], prefix: str):
     return {k[len(prefix) :]: v for (k, v) in params.items() if k.startswith(prefix)}
 
 
-def convert_model(params_or_model: Union[DeepseekV3ForCausalLM, dict], cfg: Config):
+def convert_model(params_or_model: DeepseekV3ForCausalLM | dict, cfg: Config):
     params = (
         params_or_model
         if isinstance(params_or_model, dict)
@@ -384,20 +384,26 @@ def convert_model(params_or_model: Union[DeepseekV3ForCausalLM, dict], cfg: Conf
 ########################################################################################################################
 
 
-def load_param_list(params_map: dict, root_path: Path, param_list: list) -> dict:
+def load_param_list(
+    params_map: dict[str, dict[str, Any]], root_path: Path, param_list: list[str]
+) -> dict[str, torch.Tensor]:
     root_path = Path(root_path)
     files = {root_path / params_map[param_name]["file"] for param_name in param_list}
     archive = functools.reduce(
-        lambda a, b: Union[a, b], [load_file(file) for file in tqdm(files)], dict()
+        lambda a, b: a | b, [load_file(file) for file in tqdm(files)], dict()
     )
     return {param_name: archive[param_name] for param_name in param_list}
 
 
-def load_param(params_map: dict, root_path: Path, param_name: str) -> torch.Tensor:
+def load_param(
+    params_map: dict[str, dict[str, Any]], root_path: Path, param_name: str
+) -> torch.Tensor:
     return list(load_param_list(params_map, root_path, [param_name]).values())[0]
 
 
-def _dequant_params(params_maybe_quant: dict, parallel: bool = False) -> dict:
+def _dequant_params(
+    params_maybe_quant: dict[str, dict[str, Any]], parallel: bool = False
+) -> dict[str, torch.Tensor]:
     quant_tensors = [
         k[: -len("_scale_inv")]
         for k in params_maybe_quant.keys()
@@ -446,8 +452,8 @@ def _dequant_params(params_maybe_quant: dict, parallel: bool = False) -> dict:
 
 
 def load_params_from_prefix(
-    params_map: dict, root_path: Path, layer_prefix: str
-) -> dict:
+    params_map: dict[str, dict[str, Any]], root_path: Path, layer_prefix: str
+) -> dict[str, torch.Tensor]:
     all_layer_keys = [k for k in params_map.keys() if k.startswith(layer_prefix)]
     params_maybe_quant = {
         k[len(layer_prefix) :]: v
@@ -456,7 +462,7 @@ def load_params_from_prefix(
     return _dequant_params(params_maybe_quant)
 
 
-def convert_hf_checkpoint(params_map, root_path, dest_path, cfg: Config) -> None:
+def convert_hf_checkpoint(params_map, root_path, dest_path, cfg: Config):
     root_path = Path(root_path)
     dest_path = Path(dest_path)
 
@@ -483,7 +489,7 @@ def convert_hf_checkpoint(params_map, root_path, dest_path, cfg: Config) -> None
         gc.collect()
 
 
-def load_model(root_path: Union[Path, epath.Path], cfg: Config):
+def load_model(root_path: Path | epath.Path, cfg: Config):
     root_path = epath.Path(root_path)
     weights_sharding = Weights.shardings(cfg)
     weights_abst = Weights.abstract(cfg)
@@ -523,7 +529,9 @@ def load_model(root_path: Union[Path, epath.Path], cfg: Config):
     return weights
 
 
-def load_torch_model(params_map: dict, root_path: Path, config: DeepseekV3Config):
+def load_torch_model(
+    params_map: dict[str, dict[str, Any]], root_path: Path, config: DeepseekV3Config
+):
     from .third_party import modeling_deepseek as deepseek
 
     model = deepseek.DeepseekV3ForCausalLM(config)

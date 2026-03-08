@@ -22,14 +22,12 @@ from jax.sharding import AxisType, set_mesh
 from jax.sharding import PartitionSpec as P
 
 try:
-    from jax.sharding import use_mesh
-
-    set_mesh = use_mesh
+    from jax.sharding import use_mesh as set_mesh
 except ImportError:
     pass
 
 
-from oumi.models.experimental.jax_models.gpt_oss.gpt_oss_jax import model as gpt_jax
+from gpt_oss_jax import model as gpt_jax
 
 jax.config.update("jax_platforms", "cpu")
 jax.config.update("jax_num_cpu_devices", 4)
@@ -78,7 +76,7 @@ MOE_CFG = gpt_jax.Config(
 
 
 class TestModel(parameterized.TestCase):
-    def setUp(self) -> None:
+    def setUp(self):
         self.mesh = jax.make_mesh(
             (1, len(jax.devices()), 1),
             P("x", "y", "z"),
@@ -89,14 +87,34 @@ class TestModel(parameterized.TestCase):
         )
 
     @parameterized.product(quant=[False, True])
-    def test_model_init(self, quant) -> None:
+    def test_model_init(self, quant):
         cfg = self.small_moe_cfg
         cfg = dataclasses.replace(cfg, quant_attn=quant, quant_moe=quant)
         weights = gpt_jax.Weights.init(random.key(0), cfg)
         del weights
 
     @parameterized.product(quant=[False, True])
-    def test_cache_init(self, quant) -> None:
+    def test_init_hashing(self, quant):
+        cfg = dataclasses.replace(self.small_moe_cfg, quant_cache=quant)
+        hash_fn = lambda x: hash(tuple(jax.tree.leaves(x, is_leaf=gpt_jax.is_param)))
+        with self.subTest("Testing weights abstract and shardings hashing"):
+            abstract = gpt_jax.Weights.abstract(cfg)
+            abstract2 = gpt_jax.Weights.abstract(cfg)
+            self.assertEqual(hash_fn(abstract), hash_fn(abstract2))
+            shardings = gpt_jax.Weights.shardings(cfg)
+            shardings2 = gpt_jax.Weights.shardings(cfg)
+            self.assertEqual(hash_fn(shardings), hash_fn(shardings2))
+
+        with self.subTest("Testing kv-cache abstract and shardings hashing"):
+            abstract = gpt_jax.KVCache.abstract(cfg, 2, cfg.max_seq_len)
+            abstract2 = gpt_jax.KVCache.abstract(cfg, 2, cfg.max_seq_len)
+            self.assertEqual(hash_fn(abstract), hash_fn(abstract2))
+            shardings = gpt_jax.KVCache.shardings(cfg, 2, cfg.max_seq_len)
+            shardings2 = gpt_jax.KVCache.shardings(cfg, 2, cfg.max_seq_len)
+            self.assertEqual(hash_fn(shardings), hash_fn(shardings2))
+
+    @parameterized.product(quant=[False, True])
+    def test_cache_init(self, quant):
         cfg = self.small_moe_cfg
         cache = gpt_jax.KVCache.init(random.key(0), cfg, 2, cfg.max_seq_len)
         del cache
@@ -104,7 +122,7 @@ class TestModel(parameterized.TestCase):
     @parameterized.product(
         moe=[True, False], quant_weights=[False, True], quant_cache=[True, False]
     )
-    def test_prefill_decode(self, moe, quant_weights, quant_cache) -> None:
+    def test_prefill_decode(self, moe, quant_weights, quant_cache):
         cfg = self.small_moe_cfg
         cfg = dataclasses.replace(
             cfg,

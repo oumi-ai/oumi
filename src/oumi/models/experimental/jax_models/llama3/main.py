@@ -1,24 +1,37 @@
-#!/usr/bin/env python3
-"""Minimal Llama 3 inference using JAX
-Based on jax-llm-examples/llama3/main.py
-"""
+# Copyright 2025 The JAX Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 import dataclasses
 import json
-from pathlib import Path
 from pprint import pprint
 
 import jax
-import numpy as np
+from etils import epath
 from jax import numpy as jnp
 from jax import random
 from jax.sharding import AxisType, set_mesh
 from jax.sharding import PartitionSpec as P
+
+try:
+    from jax.sharding import use_mesh as set_mesh  # for jax < 0.7.0
+except ImportError:
+    pass
+import numpy as np
 from llama3_jax import model as l3jax
 
 
 def encode_input(tokenizer, texts: list[str], model_name: str, pad_id: int = 0):
-    """Encode input text for the model"""
     assert isinstance(texts, list)
     inputs = [
         tokenizer.apply_chat_template([{"role": "user", "content": text}])
@@ -32,56 +45,29 @@ def encode_input(tokenizer, texts: list[str], model_name: str, pad_id: int = 0):
 
 
 if __name__ == "__main__":
-    # Configuration
-    quant = False  # Set to True for quantized inference
+    # jax.distributed.initialize()  # if you want to run multi-host
+    quant = True
 
-    # Model path - update this to your converted JAX model directory
-    ckpt_path = Path(
-        "~/models/jax/deepseek-ai--DeepSeek-R1-Distill-Llama-8B"
+    ckpt_path = epath.Path(
+        "~/bucket/llama3_jax_old/DeepSeek-R1-Distill-Llama-3.1-8B-Instruct"
     ).expanduser()
-
-    if not ckpt_path.exists():
-        print("❌ Model not found. Please:")
-        print("1. Download model:")
-        print(
-            "   python scripts/download_model.py --model-id deepseek-ai/DeepSeek-R1-Distill-Llama-8B --dest-root-path ~/models/hf/"
-        )
-        print("2. Convert to JAX:")
-        print(
-            "   python scripts/convert_weights.py --source-path ~/models/hf/deepseek-ai--DeepSeek-R1-Distill-Llama-8B --dest-path ~/models/jax/deepseek-ai--DeepSeek-R1-Distill-Llama-8B"
-        )
-        exit(1)
-
     if quant:
         ckpt_path = ckpt_path.parent / f"{ckpt_path.name}-quant"
-
-    print(f"🚀 Loading model from: {ckpt_path}")
-
-    # Load tokenizer
     tokenizer = l3jax.load_tokenizer(
         ckpt_path / "tokenizer.json", ckpt_path / "tokenizer_config.json"
     )
-    print("✅ Loaded tokenizer")
 
-    # Create mesh
     mesh = jax.make_mesh(
-        (1, 1, jax.device_count()),
+        # (1, 8, jax.device_count() // 8), ("x", "y", "z"), devices=jax.devices(), axis_types=(AxisType.Explicit,) * 3
+        (1, 4, jax.device_count() // 4),
         ("x", "y", "z"),
         devices=jax.devices(),
         axis_types=(AxisType.Explicit,) * 3,
     )
-    print(f"✅ Created mesh with {jax.device_count()} devices")
-
-    # Load config and create JAX config
     cfg = l3jax.llama_to_jax_config(json.loads((ckpt_path / "config.json").read_text()))
     cfg = dataclasses.replace(cfg, mesh=mesh, quant_layer=quant, quant_cache=quant)
-    print(f"✅ Config: {cfg.num_layers} layers, {cfg.vocab_size} vocab")
-
-    # Load weights
     weights = l3jax.load_pytree(ckpt_path, l3jax.Weights.shardings(cfg))
-    print("✅ Loaded model weights")
 
-    # Prepare input
     input = encode_input(
         tokenizer,
         [
@@ -91,26 +77,18 @@ if __name__ == "__main__":
         ],
         model_name=ckpt_path.name,
     )
-    print(f"✅ Encoded input: {input.shape}")
 
-    # Run inference
-    print("🚀 Running JAX inference...")
     with set_mesh(cfg.mesh):
-        zero_cache = l3jax.KVCache.init(
-            random.key(1), cfg, input.shape[0], cfg.max_seq_len
-        )
+        zero_cache = l3jax.KVCache.init(random.key(1), cfg, input.shape[0])
         next_tokens, logits, cache = l3jax.prefill(input, weights, zero_cache, cfg)
         curr_tokens = next_tokens.at[:, cache.iter - 1 : cache.iter].get(
             out_sharding=P(None, None)
         )
-
         tokens_list = []
         for _ in range(16):
             tokens_list.append(curr_tokens)
             curr_tokens, cache = l3jax.decode_step(curr_tokens, weights, cache, cfg)
         tokens = np.array(jnp.concatenate(tokens_list, axis=-1))
-
-    # Decode responses
     responses = [tokenizer.decode(row) for row in tokens]
-    print("🎉 Responses:")
+    print("Responses:")
     pprint(responses)
