@@ -87,7 +87,7 @@ def test_infer_online():
                     role=Role.ASSISTANT,
                 ),
             ],
-            metadata={"foo": "bar"},
+            metadata={"foo": "bar", "finish_reason": "length"},
             conversation_id="123",
         )
     ]
@@ -137,7 +137,7 @@ def test_infer_online_to_file():
                         role=Role.ASSISTANT,
                     ),
                 ],
-                metadata={"foo": "bar"},
+                metadata={"foo": "bar", "finish_reason": "length"},
                 conversation_id="123",
             ),
             Conversation(
@@ -148,7 +148,7 @@ def test_infer_online_to_file():
                         role=Role.ASSISTANT,
                     ),
                 ],
-                metadata={"umi": "bar"},
+                metadata={"umi": "bar", "finish_reason": "length"},
                 conversation_id="133",
             ),
         ]
@@ -196,7 +196,7 @@ def test_infer_from_file():
                         role=Role.ASSISTANT,
                     ),
                 ],
-                metadata={"foo": "bar"},
+                metadata={"foo": "bar", "finish_reason": "length"},
                 conversation_id="123",
             )
         ]
@@ -255,7 +255,7 @@ def test_infer_from_file_to_file():
                         role=Role.ASSISTANT,
                     ),
                 ],
-                metadata={"foo": "bar"},
+                metadata={"foo": "bar", "finish_reason": "length"},
                 conversation_id="123",
             ),
             Conversation(
@@ -266,7 +266,7 @@ def test_infer_from_file_to_file():
                         role=Role.ASSISTANT,
                     ),
                 ],
-                metadata={"umi": "bar"},
+                metadata={"umi": "bar", "finish_reason": "length"},
                 conversation_id="133",
             ),
         ]
@@ -364,7 +364,7 @@ def test_infer_from_file_to_file_with_images(root_testdata_dir: Path):
                         role=Role.ASSISTANT,
                     ),
                 ],
-                metadata={"foo": "bar"},
+                metadata={"foo": "bar", "finish_reason": "length"},
                 conversation_id="123",
             ),
             Conversation(
@@ -375,7 +375,7 @@ def test_infer_from_file_to_file_with_images(root_testdata_dir: Path):
                         role=Role.ASSISTANT,
                     ),
                 ],
-                metadata={"umi": "bar"},
+                metadata={"umi": "bar", "finish_reason": "length"},
                 conversation_id="133",
             ),
         ]
