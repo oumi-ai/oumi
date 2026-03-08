@@ -3351,9 +3351,13 @@ class TestNormalizeFinishReason:
         assert result is None
 
     def test_normalize_finish_reason_case_insensitive(self):
-        assert RemoteInferenceEngine._normalize_finish_reason("STOP") == FinishReason.STOP
         assert (
-            RemoteInferenceEngine._normalize_finish_reason("Length") == FinishReason.LENGTH
+            RemoteInferenceEngine._normalize_finish_reason("STOP")
+            == FinishReason.STOP
+        )
+        assert (
+            RemoteInferenceEngine._normalize_finish_reason("Length")
+            == FinishReason.LENGTH
         )
 
 
