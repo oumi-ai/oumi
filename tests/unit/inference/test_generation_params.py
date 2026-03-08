@@ -102,7 +102,9 @@ def _mock_engine(engine_class):
     # Create a mock tensor that behaves like model.generate() output
     # Needs .data attribute with proper length and iterable sequences
     # Simulated output: prompt (5 tokens) + generated (10 tokens) = 15 tokens total
-    mock_output_tensor = torch.tensor([[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]])
+    mock_output_tensor = torch.tensor(
+        [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]]
+    )
     mock_model.generate = mock.MagicMock(return_value=mock_output_tensor)
 
     if engine_class == VLLMInferenceEngine:
