@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 from oumi.core.configs.base_config import BaseConfig
 from oumi.core.configs.inference_engine_type import InferenceEngineType
@@ -45,18 +44,17 @@ class EvaluationConfig(BaseConfig):
     """
 
     inference_engine: InferenceEngineType = InferenceEngineType.NATIVE
-    """For evaluation tasks that require an inference step, such as AlpacaEval tasks, an
-    inference engine is required to generate model responses. This parameter specifies
-    the inference engine to use for generation. If not defined, the default is the
-    `NATIVE` inference engine."""
+    """For evaluation tasks that require an inference step, an inference engine is
+    required to generate model responses. This parameter specifies the inference engine
+    to use for generation. If not defined, the default is the `NATIVE` inference
+    engine."""
 
-    inference_remote_params: Optional[RemoteParams] = None
-    """For evaluation tasks that require an inference step, such as AlpacaEval tasks, an
-    inference engine is required to generate model responses. If the model is accessed
-    via a remote API, these parameters specify how to run inference against the remote
-    API."""
+    inference_remote_params: RemoteParams | None = None
+    """For evaluation tasks that require an inference step, an inference engine is
+    required to generate model responses. If the model is accessed via a remote API,
+    these parameters specify how to run inference against the remote API."""
 
-    run_name: Optional[str] = None
+    run_name: str | None = None
     """A unique identifier for the current training run.
     This name is used to identify the run in Weights & Biases.
     """

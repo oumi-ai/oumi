@@ -18,7 +18,6 @@ data:
   train:
     datasets:
       - dataset_name: "yahma/alpaca-cleaned"
-    target_col: "prompt"
 
 training:
   optimizer: "adamw_torch"

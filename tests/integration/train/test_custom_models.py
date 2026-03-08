@@ -40,7 +40,7 @@ def _get_default_config(output_temp_dir):
         ),
         model=ModelParams(
             model_name="MlpEncoder",
-            tokenizer_name="gpt2",
+            tokenizer_name="openai-community/gpt2",
             model_max_length=128,
             trust_remote_code=False,
             load_pretrained_weights=False,

@@ -14,16 +14,21 @@
 
 import copy
 from dataclasses import asdict, dataclass
-from typing import Any, Optional, Union
+from typing import Any, cast
 
 import pandas as pd
-from tqdm import tqdm
 
-from oumi.core.configs import AnalyzeConfig
+from oumi.builders.models import build_tokenizer
+from oumi.core.analyze.column_types import ContentType
+from oumi.core.analyze.dataframe_analyzer import DataFrameAnalyzer, DataFrameWithSchema
+from oumi.core.configs import AnalyzeConfig, ModelParams
 from oumi.core.datasets import BaseMapDataset
+from oumi.core.datasets.base_iterable_dataset import BaseIterableDataset
 from oumi.core.registry import REGISTRY
 from oumi.utils.analysis_utils import (
-    build_tokenizer_from_config,
+    compute_statistics,
+    convert_dataset_to_dataframes,
+    get_schema_for_format,
     load_dataset_from_config,
 )
 from oumi.utils.logging import logger
@@ -101,40 +106,151 @@ class DatasetAnalysisResult:
 class DatasetAnalyzer:
     """Orchestrates the analysis of datasets using multiple sample analyzers."""
 
-    def __init__(self, config: AnalyzeConfig):
+    def __init__(self, config: AnalyzeConfig, dataset: BaseMapDataset | None = None):
         """Initialize the dataset analyzer with configuration.
 
         Args:
             config: AnalyzeConfig object containing all analysis parameters
+            dataset: Optional pre-loaded dataset. If provided, this dataset will be used
+                    instead of loading from the config.
         """
         self.config = config
         self.dataset_name = config.dataset_name
         self.split = config.split
 
         # Build tokenizer from config if provided
-        self.tokenizer = build_tokenizer_from_config(config.tokenizer_config)
+        self.tokenizer = self._build_tokenizer(config)
 
-        # Load dataset with the tokenizer
-        self.dataset = load_dataset_from_config(config, self.tokenizer)
+        # Use provided dataset or load from config
+        if dataset is not None:
+            # Dataset provided directly
+            self.dataset = dataset
+            # Use the provided dataset name if config doesn't have one
+            if not self.dataset_name:
+                self.dataset_name = getattr(dataset, "dataset_name", "Custom Dataset")
+            # Handle iterable datasets that don't support len()
+            if isinstance(dataset, BaseIterableDataset):
+                logger.info(f"Using provided streaming dataset '{self.dataset_name}'")
+            else:
+                logger.info(
+                    f"Using provided dataset '{self.dataset_name}' with "
+                    f"{len(dataset)} conversations"
+                )
+        else:
+            # Load dataset from config parameters
+            self.dataset = load_dataset_from_config(config, self.tokenizer)
+            logger.info(f"Loaded dataset from config: {self.dataset_name}")
 
         self.sample_analyzers = self._initialize_sample_analyzers()
 
+        # Initialize dataframe analyzer with sample analyzers
+        self.dataframe_analyzer = DataFrameAnalyzer(self.sample_analyzers)
+
         # Initialize analysis results as None
-        self._analysis_results: Optional[DatasetAnalysisResult] = None
-        self._merged_df: Optional[pd.DataFrame] = None
-        self._message_df: Optional[pd.DataFrame] = None
-        self._conversation_df: Optional[pd.DataFrame] = None
+        self._analysis_results: DatasetAnalysisResult | None = None
+        self._merged_df: pd.DataFrame | None = None
+        self._message_df: pd.DataFrame | None = None
+        self._conversation_df: pd.DataFrame | None = None
+        self._merged_schema: dict | None = None
+        self._analysis_summary: dict[str, Any] | None = None
+
+        # Decimal precision for rounding metrics
+        self._decimal_precision = 2
+
+    def _build_tokenizer(self, config: AnalyzeConfig):
+        """Build a tokenizer from the analyze config.
+
+        Args:
+            config: AnalyzeConfig containing tokenizer settings.
+
+        Returns:
+            Built tokenizer or None if no tokenizer is configured.
+        """
+        if not config.tokenizer_name:
+            return None
+
+        model_params = ModelParams(
+            model_name=config.tokenizer_name,
+            tokenizer_kwargs=config.tokenizer_kwargs,
+            trust_remote_code=config.trust_remote_code,
+        )
+        tokenizer = build_tokenizer(model_params)
+        logger.info(f"Built tokenizer for model: {config.tokenizer_name}")
+        return tokenizer
+
+    def _get_schema_for_dataset(self) -> dict:
+        """Get column schema configuration based on dataset type.
+
+        Detects the appropriate schema based on the dataset class inheritance.
+        Based on analysis of all 60 Oumi datasets:
+        - 37 datasets (SFT/Vision-SFT/GRPO) convert to conversation format → use 'oumi'
+        - 23 datasets (pretraining/DPO/KTO) maintain original structure → use specific
+
+        Returns:
+            Dictionary mapping column names to their configuration.
+
+        Raises:
+            ValueError: If dataset type cannot be determined.
+        """
+        dataset_type = self._detect_dataset_type()
+
+        try:
+            return get_schema_for_format(dataset_type)
+        except ValueError:
+            raise ValueError(f"Unknown dataset type '{dataset_type}'.")
+
+    def _detect_dataset_type(self) -> str:
+        """Detect the dataset type based on the dataset class.
+
+        Returns:
+            String indicating the dataset type for schema selection.
+        """
+        if self.dataset is None:
+            # No dataset provided, default to oumi format
+            return "oumi"
+
+        # Check dataset class inheritance hierarchy for accurate detection
+        dataset_class_bases = [base.__name__ for base in self.dataset.__class__.__mro__]
+
+        # Datasets that convert to conversation format during loading
+        if any(
+            base in dataset_class_bases
+            for base in [
+                "BaseSftDataset",
+                "VisionLanguageSftDataset",
+                "BaseExperimentalGrpoDataset",
+            ]
+        ):
+            return "oumi"  # All convert to conversation format
+
+        # Datasets that maintain original structure
+        elif "BasePretrainingDataset" in dataset_class_bases:
+            return "pretraining"
+        elif any(
+            base in dataset_class_bases
+            for base in ["BaseDpoDataset", "VisionLanguageDpoDataset"]
+        ):
+            return "dpo"
+        elif "BaseExperimentalKtoDataset" in dataset_class_bases:
+            return "kto"
+        else:
+            # Default to conversation format for unknown SFT-like datasets
+            return "oumi"
 
     def _initialize_sample_analyzers(self) -> dict[str, Any]:
         """Initialize sample analyzer plugins from configuration.
 
         Returns:
             Dictionary mapping analyzer IDs to analyzer instances
+
+        Raises:
+            RuntimeError: If any analyzer fails to initialize.
         """
         sample_analyzers = {}
+        failed_analyzers: list[tuple[str, str]] = []
+
         for analyzer_params in self.config.analyzers:
             try:
-                # Get the analyzer class from the registry
                 analyzer_class = REGISTRY.get_sample_analyzer(analyzer_params.id)
                 if analyzer_class is None:
                     raise ValueError(
@@ -156,6 +272,17 @@ class DatasetAnalyzer:
                     f"Failed to initialize sample analyzer {analyzer_params.id}: {e}"
                 )
                 logger.error(f"Analyzer configuration: {analyzer_params}")
+                failed_analyzers.append((analyzer_params.id, str(e)))
+
+        if failed_analyzers:
+            error_details = "\n".join(
+                f"  - {name}: {error}" for name, error in failed_analyzers
+            )
+            raise RuntimeError(
+                f"Failed to initialize {len(failed_analyzers)} analyzer(s):\n"
+                f"{error_details}"
+            )
+
         return sample_analyzers
 
     def analyze_dataset(self) -> None:
@@ -182,193 +309,112 @@ class DatasetAnalyzer:
             f"{list(self.sample_analyzers.keys())}"
         )
 
-        total_conversations = len(self.dataset)
-        conversations_to_analyze = min(
-            total_conversations, self.config.sample_count or total_conversations
+        # Handle iterable datasets differently to avoid downloading everything
+        if isinstance(self.dataset, BaseIterableDataset):
+            # For iterable datasets, we can't get the total length without iterating
+            # So we'll use the sample_count directly and iterate only what we need
+            conversations_to_analyze = (
+                self.config.sample_count or 1000
+            )  # Default limit for streaming
+            total_conversations = None  # Unknown for iterable datasets
+            logger.info(
+                f"Analyzing up to {conversations_to_analyze} conversations from "
+                f"streaming dataset"
+            )
+        else:
+            # For map datasets, we can get the total length
+            total_conversations = len(self.dataset)
+            conversations_to_analyze = min(
+                total_conversations, self.config.sample_count or total_conversations
+            )
+            logger.info(
+                f"Analyzing {conversations_to_analyze} of {total_conversations} "
+                f"conversations"
+            )
+
+        dataframe_list, total_items, items_to_analyze = self._prepare_dataframe_list(
+            conversations_to_analyze
         )
 
-        logger.info(f"Analyzing {conversations_to_analyze} conversations")
+        analysis_result = self.dataframe_analyzer.analyze_dataframe_list(
+            input_data_list=dataframe_list,
+            merge_on=["conversation_index", "conversation_id"],
+        )
+        self._merged_df = analysis_result.merged_df
+        self._message_df = analysis_result.messages_df
+        self._conversation_df = analysis_result.conversations_df
+        self._merged_schema = analysis_result.merged_schema
 
-        self._compute_conversation_metrics()
+        self._analysis_results = DatasetAnalysisResult(
+            dataset_name=self.dataset_name or "",
+            total_conversations=total_conversations or conversations_to_analyze,
+            conversations_analyzed=conversations_to_analyze,
+        )
+
+        # Generate and store the analysis summary after metrics are computed
+        self._analysis_summary = self._generate_analysis_summary()
+
+    def _prepare_dataframe_list(
+        self, max_items: int | None = None
+    ) -> tuple[list[DataFrameWithSchema], int, int]:
+        """Prepare DataFrameWithSchema list from input source with optional limiting.
+
+        Args:
+            max_items: Maximum number of items to analyze (None for no limit)
+
+        Returns:
+            Tuple of (dataframe_list, total_items, items_to_analyze)
+        """
+        if self.dataset is not None:
+            # Conversation dataset input - convert to DataFrames
+            if isinstance(self.dataset, BaseIterableDataset):
+                # For iterable datasets, we can't get the total length
+                total_items = max_items or 1000  # Use max_items or default
+                items_to_analyze = total_items
+                logger.info(
+                    f"Converting streaming dataset with up to {items_to_analyze} items"
+                )
+            else:
+                # For map datasets, we can get the total length
+                total_items = len(self.dataset)
+                logger.info(f"Converting conversation dataset with {total_items} items")
+
+                # Determine how many items to analyze
+                items_to_analyze = total_items
+                if max_items is not None:
+                    items_to_analyze = min(total_items, max_items)
+                    if items_to_analyze < total_items:
+                        logger.info(
+                            f"Limiting analysis to first {max_items} "
+                            f"items (dataset has {total_items} total)"
+                        )
+
+            # Use utility function to convert dataset to DataFrames
+            conversations_df, messages_df = convert_dataset_to_dataframes(
+                dataset=self.dataset,
+                items_to_analyze=items_to_analyze,
+                dataset_name=self.dataset_name or "Unknown Dataset",
+            )
+
+            schema = self._get_schema_for_dataset()
+
+            dataframe_list = [
+                DataFrameWithSchema(conversations_df, schema, "conversations"),
+                DataFrameWithSchema(messages_df, schema, "messages"),
+            ]
+            return dataframe_list, total_items, items_to_analyze
+
+        else:
+            raise ValueError("Either dataframes or dataset must be provided")
 
     @property
-    def analysis_results(self) -> Optional[DatasetAnalysisResult]:
+    def analysis_results(self) -> DatasetAnalysisResult | None:
         """Get the analysis results if available.
 
         Returns:
             DatasetAnalysisResult if analysis has been run, None otherwise
         """
         return self._analysis_results
-
-    def _compute_conversation_metrics(self) -> None:
-        """Compute metrics for all conversations in the dataset.
-
-        This method processes each conversation and creates DataFrames with
-        prefixed columns for each analyzer's metrics.
-        """
-        total_conversations = len(self.dataset)
-
-        # Apply conversation limit if specified
-        max_conversations = self.config.sample_count
-
-        if max_conversations is not None:
-            # AnalyzeConfig ensures sample_count is greater than 0
-            conversations_to_analyze = min(total_conversations, max_conversations)
-            logger.info(
-                f"Limiting analysis to first {max_conversations} "
-                f"conversations (dataset has {total_conversations} total)"
-            )
-        else:
-            conversations_to_analyze = total_conversations
-
-        logger.info(
-            "Analyzing %d conversations for both message-level and "
-            "conversation-level metrics",
-            conversations_to_analyze,
-        )
-
-        # Collect DataFrames for messages and conversations
-        message_dfs = []
-        conversation_dfs = []
-
-        # Use tqdm for progress monitoring
-        for conv_idx in tqdm(
-            range(conversations_to_analyze),
-            desc=f"Analyzing conversations in {self.dataset_name}",
-            unit="conv",
-        ):
-            conversation = self.dataset.conversation(conv_idx)
-            conversation_id = conversation.conversation_id or f"conv_{conv_idx}"
-
-            # Process each analyzer for this conversation
-            conversation_has_data = False
-            for analyzer_id, analyzer in self.sample_analyzers.items():
-                try:
-                    message_results, conversation_result = analyzer.analyze_sample(
-                        conversation, self.tokenizer
-                    )
-
-                    # Convert to DataFrames with prefixed columns
-                    message_df = self._convert_messages_to_df(
-                        message_results, analyzer_id, conversation_id, conv_idx
-                    )
-                    conversation_df = self._convert_conversation_to_df(
-                        conversation_result,
-                        analyzer_id,
-                        conversation_id,
-                        conv_idx,
-                    )
-
-                    # Always add conversation_df (even if empty) to ensure conversation
-                    # is represented
-                    conversation_dfs.append(conversation_df)
-
-                    # Only add message_df if it has data
-                    if not message_df.empty:
-                        message_dfs.append(message_df)
-                        conversation_has_data = True
-
-                except Exception as e:
-                    logger.warning(
-                        f"Analyzer {analyzer_id} failed for conversation "
-                        f"{conv_idx}: {e}"
-                    )
-
-            # If no analyzers succeeded, add a placeholder row for this conversation
-            if not conversation_has_data:
-                # Create a placeholder row with only basic columns (no analyzer columns)
-                placeholder_row = {
-                    "conversation_id": conversation_id,
-                    "conversation_index": conv_idx,
-                    "message_index": 0,  # Add required message columns
-                    "role": "system",  # Default role
-                    "message_id": f"placeholder_{conv_idx}_0",
-                    "text_content": "",  # Empty content
-                }
-
-                placeholder_df = pd.DataFrame([placeholder_row])
-                message_dfs.append(placeholder_df)  # Add to message_dfs instead
-
-        # Create final DataFrames
-        if message_dfs:
-            self._message_df = pd.concat(message_dfs, ignore_index=True)
-        else:
-            self._message_df = pd.DataFrame()
-
-        if conversation_dfs:
-            self._conversation_df = pd.concat(conversation_dfs, ignore_index=True)
-        else:
-            self._conversation_df = pd.DataFrame()
-
-        # Create merged DataFrame with both message and conversation metrics
-        if not self._message_df.empty and not self._conversation_df.empty:
-            self._merged_df = self._message_df.merge(
-                self._conversation_df,
-                on=["conversation_id", "conversation_index"],
-                how="left",
-            )
-        elif not self._message_df.empty:
-            self._merged_df = self._message_df.copy()
-        elif not self._conversation_df.empty:
-            self._merged_df = self._conversation_df.copy()
-        else:
-            self._merged_df = pd.DataFrame()
-
-        # Store metadata
-        self._analysis_results = DatasetAnalysisResult(
-            dataset_name=self.dataset_name or "",
-            total_conversations=total_conversations,
-            conversations_analyzed=conversations_to_analyze,
-        )
-
-    def _convert_messages_to_df(
-        self,
-        messages: list[MessageAnalysisResult],
-        analyzer_id: str,
-        conversation_id: str,
-        conversation_index: int,
-    ) -> pd.DataFrame:
-        """Convert message results to DataFrame with prefixed columns."""
-        if not messages:
-            return pd.DataFrame()
-
-        rows = []
-        for message in messages:
-            row = {
-                "conversation_id": conversation_id,
-                "conversation_index": conversation_index,
-                "message_index": message.message_index,
-                "role": message.role,
-                "message_id": message.message_id,
-                "text_content": message.text_content,
-            }
-
-            # Add analyzer metrics with message_ prefix
-            for key, value in message.analyzer_metrics.items():
-                row[f"message_{analyzer_id}_{key}"] = value
-
-            rows.append(row)
-
-        return pd.DataFrame(rows)
-
-    def _convert_conversation_to_df(
-        self,
-        conversation: ConversationAnalysisResult,
-        analyzer_id: str,
-        conversation_id: str,
-        conversation_index: int,
-    ) -> pd.DataFrame:
-        """Convert conversation result to DataFrame with prefixed columns."""
-        row = {
-            "conversation_id": conversation_id,
-            "conversation_index": conversation_index,
-        }
-
-        # Add analyzer metrics with conversation_ prefix
-        for key, value in conversation.analyzer_metrics.items():
-            row[f"conversation_{analyzer_id}_{key}"] = value
-
-        return pd.DataFrame([row])
 
     def query(self, query_expression: str) -> pd.DataFrame:
         """Query the analysis results using pandas query syntax.
@@ -378,13 +424,16 @@ class DatasetAnalyzer:
 
         Returns:
             DataFrame containing rows that match the query expression
+
+        Raises:
+            RuntimeError: If analysis has not been run yet.
         """
-        # Run analysis if not already done
+        # Check if analysis has been run
         if self._merged_df is None:
-            logger.info("Analysis not yet run, starting analysis...")
-            self.analyze_dataset()
-            # After analysis, _merged_df should be populated
-            assert self._merged_df is not None
+            raise RuntimeError(
+                "Analysis has not been run yet. Please call analyze_dataset() first "
+                "to query the analysis results."
+            )
 
         # Apply the query filter
         try:
@@ -397,41 +446,73 @@ class DatasetAnalyzer:
         return filtered_df
 
     @property
-    def analysis_df(self) -> Union[pd.DataFrame, None]:
+    def analysis_df(self) -> pd.DataFrame | None:
         """Get the merged analysis DataFrame with both message and conversation metrics.
 
         Returns:
-            DataFrame with columns prefixed by message_ and conversation_ for each
-            analyzer
+            DataFrame with columns prefixed by ``message_`` and ``conversation_`` for
+            each analyzer.
+
+        Raises:
+            RuntimeError: If analysis has not been run yet.
         """
         if self._merged_df is None:
-            logger.info("Analysis not yet run, starting analysis...")
-            self.analyze_dataset()
+            raise RuntimeError(
+                "Analysis has not been run yet. Please call analyze_dataset() first "
+                "to access the analysis DataFrame."
+            )
         return self._merged_df
 
     @property
-    def message_df(self) -> Union[pd.DataFrame, None]:
+    def message_df(self) -> pd.DataFrame | None:
         """Get the message-level analysis DataFrame.
 
         Returns:
-            DataFrame with message-level metrics prefixed by message_
+            DataFrame with message-level metrics prefixed by ``message_``
+
+        Raises:
+            RuntimeError: If analysis has not been run yet.
         """
         if self._message_df is None:
-            logger.info("Analysis not yet run, starting analysis...")
-            self.analyze_dataset()
+            raise RuntimeError(
+                "Analysis has not been run yet. Please call analyze_dataset() first "
+                "to access the message DataFrame."
+            )
         return self._message_df
 
     @property
-    def conversation_df(self) -> Union[pd.DataFrame, None]:
+    def conversation_df(self) -> pd.DataFrame | None:
         """Get the conversation-level analysis DataFrame.
 
         Returns:
-            DataFrame with conversation-level metrics prefixed by conversation_
+            DataFrame with conversation-level metrics prefixed by ``conversation_``
+
+        Raises:
+            RuntimeError: If analysis has not been run yet.
         """
         if self._conversation_df is None:
-            logger.info("Analysis not yet run, starting analysis...")
-            self.analyze_dataset()
+            raise RuntimeError(
+                "Analysis has not been run yet. Please call analyze_dataset() first "
+                "to access the conversation DataFrame."
+            )
         return self._conversation_df
+
+    def get_schema(self) -> dict:
+        """Get the schema for the analysis results.
+
+        Returns:
+            Dictionary containing the schema for the merged DataFrame, combining
+            schemas from all input DataFrames including analyzer-generated columns.
+
+        Raises:
+            RuntimeError: If analysis has not been run yet.
+        """
+        if self._merged_schema is None:
+            raise RuntimeError(
+                "Analysis has not been run yet. Please call analyze_dataset() first "
+                "to access the merged schema."
+            )
+        return self._merged_schema
 
     def query_conversations(
         self,
@@ -446,18 +527,22 @@ class DatasetAnalyzer:
         Returns:
             DataFrame with filtered conversation analysis results
 
-        Examples:
+        Raises:
+            RuntimeError: If analysis has not been run yet.
+
+        Examples::
+
             # Filter for short conversations
             long_conversations = analyzer.query_conversations(
                 "length_token_count > 1000"
             )
         """
-        # Run analysis if not already done
+        # Check if analysis has been run
         if self._conversation_df is None:
-            logger.info("Analysis not yet run, starting analysis...")
-            self.analyze_dataset()
-            # After analysis, _conversation_df should be populated
-            assert self._conversation_df is not None
+            raise RuntimeError(
+                "Analysis has not been run yet. Please call analyze_dataset() first "
+                "to query conversation results."
+            )
 
         # Apply the query filter
         try:
@@ -472,7 +557,7 @@ class DatasetAnalyzer:
     def filter(
         self,
         query_expression: str,
-    ) -> BaseMapDataset:
+    ) -> BaseMapDataset | BaseIterableDataset:
         """Filter the original dataset based on analysis results.
 
         This method uses analysis results to filter the original dataset, returning
@@ -484,7 +569,11 @@ class DatasetAnalyzer:
         Returns:
             A new dataset object containing only the filtered conversations
 
-        Examples:
+        Raises:
+            RuntimeError: If analysis has not been run yet.
+
+        Examples::
+
             # Filter for conversations with short messages
             short_dataset = analyzer.filter("length_word_count < 10")
 
@@ -505,16 +594,24 @@ class DatasetAnalyzer:
         # Create a new dataset with only the filtered conversations
         filtered_dataset = self._create_filtered_dataset(conversation_indices)
 
+        # Get total dataset size, handling iterable datasets
+        from oumi.core.datasets.base_iterable_dataset import BaseIterableDataset
+
+        if isinstance(self.dataset, BaseIterableDataset):
+            total_size = "unknown (streaming)"
+        else:
+            total_size = str(len(self.dataset))
+
         logger.info(
             f"Filtered dataset: {len(conversation_indices)} conversations "
-            f"out of {len(self.dataset)} total"
+            f"out of {total_size} total"
         )
 
         return filtered_dataset
 
     def _create_filtered_dataset(
         self, conversation_indices: list[int]
-    ) -> BaseMapDataset:
+    ) -> BaseMapDataset | BaseIterableDataset:
         """Create a new dataset containing only the specified conversations.
 
         Args:
@@ -522,11 +619,20 @@ class DatasetAnalyzer:
 
         Returns:
             A new dataset object with the same format as the original
+
+        Raises:
+            NotImplementedError: If the dataset is an iterable/streaming dataset.
         """
+        from oumi.core.datasets.base_iterable_dataset import BaseIterableDataset
+
+        if isinstance(self.dataset, BaseIterableDataset):
+            raise NotImplementedError(
+                "Filtering is not supported for iterable/streaming datasets."
+            )
+
         # Deep copy the original dataset to preserve all attributes and methods
         filtered_dataset = copy.deepcopy(self.dataset)
 
-        # Filter the DataFrame to only include the specified conversations
         original_df = self.dataset.data
         filtered_dataset._data = original_df.iloc[conversation_indices].copy()
 
@@ -534,3 +640,144 @@ class DatasetAnalyzer:
         filtered_dataset.dataset_name = f"{self.dataset.dataset_name}_filtered"
 
         return filtered_dataset
+
+    def _generate_analysis_summary(self) -> dict[str, Any]:
+        """Generate a comprehensive summary of dataset analysis results.
+
+        This method aggregates metrics from all analyzers to provide insights useful
+        for assessing datasets. It computes statistics like averages,
+        standard deviations, min/max values, and efficiency metrics.
+
+        Returns:
+            Dictionary containing comprehensive dataset analysis summary with:
+            - Dataset overview statistics
+            - Message-level aggregated metrics
+            - Conversation-level aggregated metrics
+        """
+        # Check if we have data to analyze
+        if self._merged_df is None or self._merged_df.empty:
+            return {"error": "No analysis data available"}
+
+        # TODO: Refactor summary methods to be dataset agnostic
+        # Currently these methods assume conversation dataset structure with
+        # messages/conversations.
+        # They should be generalized to work with any dataset type and column structure.
+        summary = {
+            "dataset_overview": self._get_dataset_overview(),
+            "message_level_summary": self._get_level_summary(self._message_df),
+            "conversation_level_summary": self._get_level_summary(
+                self._conversation_df
+            ),
+            "conversation_turns": self._get_conversation_turns_summary(),
+        }
+
+        return summary
+
+    @property
+    def analysis_summary(self) -> dict[str, Any]:
+        """Get the comprehensive analysis summary.
+
+        Returns:
+            Dictionary containing comprehensive dataset analysis summary
+
+        Raises:
+            RuntimeError: If analysis has not been run yet.
+        """
+        if self._analysis_summary is None:
+            raise RuntimeError(
+                "Analysis has not been run yet. Please call analyze_dataset() first "
+                "to generate the analysis summary."
+            )
+        return self._analysis_summary
+
+    def _get_dataset_overview(self) -> dict[str, Any]:
+        """Get basic dataset overview statistics."""
+        if self._analysis_results is None:
+            return {}
+
+        return {
+            "dataset_name": self._analysis_results.dataset_name,
+            "total_conversations": self._analysis_results.total_conversations,
+            "conversations_analyzed": self._analysis_results.conversations_analyzed,
+            "dataset_coverage_percentage": round(
+                100.0
+                * self._analysis_results.conversations_analyzed
+                / self._analysis_results.total_conversations
+                if self._analysis_results.total_conversations > 0
+                else 0,
+                self._decimal_precision,
+            ),
+            "total_messages": len(self._message_df)
+            if self._message_df is not None
+            else 0,
+            "analyzers_used": list(self.sample_analyzers.keys()),
+        }
+
+    def _get_computable_columns(self, df: pd.DataFrame) -> list[str]:
+        """Get computable columns from DataFrame using schema information.
+
+        A computable column is one that has content_type == NUMERIC in the schema.
+
+        Args:
+            df: DataFrame to analyze
+
+        Returns:
+            List of tuples (column_name, schema_info) for computable columns
+        """
+        if self._merged_schema is None:
+            raise RuntimeError(
+                "Schema not available. Please call analyze_dataset() first."
+            )
+
+        computable_columns = []
+        for col in df.columns:
+            # Check schema for this column
+            col_schema = self._merged_schema.get(col)
+            if col_schema is None:
+                continue
+
+            # Only include columns with ContentType.NUMERIC
+            content_type = col_schema.get("content_type")
+            if content_type == ContentType.NUMERIC:
+                computable_columns.append(col)
+
+        return computable_columns
+
+    def _get_level_summary(self, df: pd.DataFrame | None) -> dict[str, Any]:
+        """Get aggregated metrics for a given DataFrame level.
+
+        Uses schema information to better identify and group computable columns.
+
+        Args:
+            df: DataFrame to analyze (message_df or conversation_df)
+
+        Returns:
+            Dictionary mapping metric names to their statistics
+        """
+        if df is None or df.empty:
+            return {}
+
+        summary = {}
+        for col in self._get_computable_columns(df):
+            # Compute statistics for numeric columns
+            values = cast(pd.Series, df[col].dropna())
+            if len(values) > 0:
+                summary[col] = compute_statistics(values, self._decimal_precision)
+
+        return summary
+
+    def _get_conversation_turns_summary(self) -> dict[str, Any]:
+        """Get conversation turn statistics summary.
+
+        Returns:
+            Dictionary containing conversation turn statistics
+        """
+        if self._message_df is None or self._message_df.empty:
+            return {}
+
+        # groupby().size() always returns a Series, but we cast it because
+        # type checker can't infer this
+        turns_per_conversation = cast(
+            pd.Series, self._message_df.groupby("conversation_id").size()
+        )
+        return compute_statistics(turns_per_conversation, self._decimal_precision)

@@ -1,0 +1,81 @@
+# GOLD training with SmolLM models
+# Demonstrates on-policy distillation on single GPU
+#
+# Hardware Requirements:
+#   - Single GPU with 12GB+ VRAM
+#
+# Measured Performance (100 steps on 8x H100 80GB):
+#   - Peak GPU Memory: 10.09 GiB total (4.21 GiB on primary GPU)
+#   - Training Time: ~4.3 minutes (256.8 seconds)
+#   - Throughput: 0.779 samples/sec, 0.389 steps/sec
+#   - Final Loss: 0.0760
+#
+# Usage:
+#   oumi train -c configs/examples/gold/train.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/*train.yaml
+
+model:
+  model_name: "HuggingFaceTB/SmolLM2-135M-Instruct"
+  model_max_length: 1024
+  torch_dtype_str: "bfloat16"
+  load_pretrained_weights: True
+
+data:
+  train:
+    datasets:
+      - dataset_name: "yahma/alpaca-cleaned"
+        dataset_kwargs:
+          return_conversations: True
+          return_conversations_format: "dict"
+
+training:
+  trainer_type: "TRL_GOLD"
+  output_dir: "output/gold_100steps_verification"
+
+  max_steps: 100
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 1
+
+  # Optimization
+  optimizer: "adamw_torch"
+  learning_rate: 1.0e-04
+  lr_scheduler_type: "cosine"
+  warmup_steps: 10
+  weight_decay: 0.01
+
+  save_steps: 100
+
+  # Logging - log every step to see loss progression
+  logging_steps: 5
+  log_level: "info"
+
+  enable_gradient_checkpointing: False
+  enable_wandb: False
+  enable_tensorboard: False
+  log_model_summary: False
+
+  # GOLD parameters
+  gold:
+    teacher_model_name_or_path: "HuggingFaceTB/SmolLM2-360M-Instruct"
+
+    teacher_model_init_kwargs:
+      torch_dtype: "auto"
+      attn_implementation: "sdpa"
+
+    # Generation parameters
+    temperature: 0.9
+    max_completion_length: 512
+
+    # Distillation parameters
+    lmbda: 0.5 # 50% on-policy, 50% off-policy
+    beta: 0.5 # Symmetric JSD
+    disable_dropout: True
+    seq_kd: False
+
+    use_uld_loss: False
+    use_vllm: False

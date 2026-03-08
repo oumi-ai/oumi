@@ -3,13 +3,28 @@ from unittest.mock import MagicMock, patch
 import pytest
 import torch
 from torch.utils.data import DataLoader
-from torchdata.stateful_dataloader import StatefulDataLoader
 
-from oumi.core.configs import TelemetryParams, TrainingParams
+from oumi.builders.models import build_model
+from oumi.core.configs import (
+    ModelParams,
+    TelemetryParams,
+    TrainingConfig,
+    TrainingParams,
+)
 from oumi.core.configs.params.fsdp_params import FSDPParams
 from oumi.core.trainers.oumi_trainer import Trainer
 from oumi.models import MLPEncoder
+from oumi.utils.packaging import is_torchdata_available
 from tests.markers import requires_gpus
+
+# Conditional import for StatefulDataLoader
+_TORCHDATA_AVAILABLE = is_torchdata_available()
+if _TORCHDATA_AVAILABLE:
+    from torchdata.stateful_dataloader import (  # pyright: ignore[reportMissingImports]
+        StatefulDataLoader,
+    )
+else:
+    StatefulDataLoader = DataLoader  # type: ignore[misc, assignment]
 
 
 #
@@ -44,6 +59,8 @@ def mock_stateful_dataloader():
     mock_loader = MagicMock(spec=StatefulDataLoader)
     mock_loader.__iter__.return_value = iter([sample_batch] * 10)
     mock_loader.__len__.return_value = 10
+    mock_loader.state_dict = MagicMock(return_value={})
+    mock_loader.load_state_dict = MagicMock()
 
     return mock_loader
 
@@ -127,7 +144,10 @@ def test_trainer_initialization(
     assert trainer.train_dataset == mock_dataset
     assert trainer.eval_dataset == mock_dataset
     assert isinstance(trainer.optimizer, torch.optim.AdamW)
-    assert isinstance(trainer.train_dataloader, StatefulDataLoader)
+    if _TORCHDATA_AVAILABLE:
+        assert isinstance(trainer.train_dataloader, StatefulDataLoader)
+    else:
+        assert isinstance(trainer.train_dataloader, DataLoader)
     assert isinstance(trainer.eval_dataloader, DataLoader)
     assert trainer.state.epoch == 0
     assert trainer.state.global_step == 0
@@ -280,13 +300,39 @@ def test_save_and_load_model(
         trainer._load_from_checkpoint(str(output_dir))
         mock_dcp_load.assert_called()
         assert trainer.train_dataloader.load_state_dict.called
-        assert trainer.state.epoch == 1
-        assert trainer.state.global_step == 50
+    assert trainer.state.epoch == 1
+    assert trainer.state.global_step == 50
+
+
+@patch("oumi.core.distributed.is_world_process_zero", return_value=True)
+def test_save_model_writes_pretrained_dir(
+    mock_is_world_process_zero, trainer, tmp_path
+):
+    output_dir = tmp_path / "model_output"
+
+    config = TrainingConfig(training=TrainingParams(output_dir=str(output_dir)))
+
+    trainer.save_model(config)
+
+    assert (output_dir / "model.safetensors").exists()
+    pretrained_dir = output_dir / "pretrained"
+    assert (pretrained_dir / "model.safetensors").exists()
+    assert (pretrained_dir / "config.json").exists()
+
+    load_params = ModelParams(
+        model_name=str(pretrained_dir),
+        load_pretrained_weights=True,
+    )
+    loaded_model = build_model(load_params)
+    assert isinstance(loaded_model, MLPEncoder)
 
 
 def test_get_train_dataloader(trainer):
     dataloader = trainer._get_train_dataloader()
-    assert isinstance(dataloader, StatefulDataLoader)
+    if _TORCHDATA_AVAILABLE:
+        assert isinstance(dataloader, StatefulDataLoader)
+    else:
+        assert isinstance(dataloader, DataLoader)
     assert dataloader.batch_size == trainer.params.per_device_train_batch_size
 
 

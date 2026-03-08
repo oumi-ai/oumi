@@ -14,7 +14,7 @@
 
 import json
 import re
-from typing import Any, Optional
+from typing import Any
 
 from oumi.core.configs.params.evaluation_params import EvaluationTaskParams
 from oumi.core.inference.base_inference_engine import BaseInferenceEngine
@@ -23,7 +23,7 @@ from oumi.datasets.grpo.berry_bench import BerryBenchGrpoDataset
 from oumi.utils.logging import logger
 
 
-def _extract_json(response: str) -> Optional[dict]:
+def _extract_json(response: str) -> dict | None:
     r"""Returns the json answer extracted from ```json ...```, or None otherwise."""
     logger.info(f"response: {response}")
     # re.DOTALL lets '.' match newlines. Most LLMs use newlines in their JSON outputs.

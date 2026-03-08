@@ -13,15 +13,12 @@
 # limitations under the License.
 
 import base64
-from collections.abc import Generator, Mapping
+from collections.abc import Callable, Generator
 from enum import Enum
-from types import MappingProxyType
-from typing import Any, Callable, Final, NamedTuple, Optional, Union
+from typing import Any, NamedTuple
 
 import pydantic
 from jinja2 import Template
-
-import oumi.core.types.proto.generated.conversation_pb2 as pb2
 
 
 class Role(str, Enum):
@@ -48,35 +45,6 @@ class Role(str, Enum):
         return self.value
 
 
-_ROLE_TO_PROTO_ROLE_MAP: Final[Mapping[Role, pb2.Role]] = MappingProxyType(
-    {
-        Role.SYSTEM: pb2.Role.SYSTEM,
-        Role.USER: pb2.Role.USER,
-        Role.ASSISTANT: pb2.Role.ASSISTANT,
-        Role.TOOL: pb2.Role.TOOL,
-    }
-)
-_PROTO_ROLE_TO_ROLE_MAP: Final[Mapping[pb2.Role, Role]] = MappingProxyType(
-    {v: k for k, v in _ROLE_TO_PROTO_ROLE_MAP.items()}
-)
-
-
-def _convert_role_to_proto_role(role: Role) -> pb2.Role:
-    """Converts a Role enum to Protocol Buffer format."""
-    result: pb2.Role = _ROLE_TO_PROTO_ROLE_MAP.get(role, pb2.Role.ROLE_UNSPECIFIED)
-    if result == pb2.Role.ROLE_UNSPECIFIED:
-        raise ValueError(f"Invalid role: {role}")
-    return result
-
-
-def _convert_proto_role_to_role(role: pb2.Role) -> Role:
-    """Converts a Protocol Buffer role format to role."""
-    result: Optional[Role] = _PROTO_ROLE_TO_ROLE_MAP.get(role, None)
-    if result is None:
-        raise ValueError(f"Invalid role: {role}")
-    return result
-
-
 class Type(str, Enum):
     """Type of the message."""
 
@@ -99,41 +67,6 @@ class Type(str, Enum):
             str: The string value of the Type enum.
         """
         return self.value
-
-
-_CONTENT_ITEM_TYPE_TO_PROTO_TYPE_MAP: Final[Mapping[Type, pb2.ContentPart.Type]] = (
-    MappingProxyType(
-        {
-            Type.TEXT: pb2.ContentPart.TEXT,
-            Type.IMAGE_PATH: pb2.ContentPart.IMAGE_PATH,
-            Type.IMAGE_URL: pb2.ContentPart.IMAGE_URL,
-            Type.IMAGE_BINARY: pb2.ContentPart.IMAGE_BINARY,
-        }
-    )
-)
-_CONTENT_ITEM_PROTO_TYPE_TO_TYPE_MAP: Final[Mapping[pb2.ContentPart.Type, Type]] = (
-    MappingProxyType({v: k for k, v in _CONTENT_ITEM_TYPE_TO_PROTO_TYPE_MAP.items()})
-)
-
-
-def _convert_type_to_proto_type(content_type: Type) -> pb2.ContentPart.Type:
-    """Converts a type enum to Protocol Buffer format."""
-    result: pb2.ContentPart.Type = _CONTENT_ITEM_TYPE_TO_PROTO_TYPE_MAP.get(
-        content_type, pb2.ContentPart.TYPE_UNSPECIFIED
-    )
-    if result == pb2.ContentPart.TYPE_UNSPECIFIED:
-        raise ValueError(f"Invalid type: {content_type}")
-    return result
-
-
-def _convert_proto_type_to_type(content_type: pb2.ContentPart.Type) -> Type:
-    """Converts a Protocol Buffer type format to type."""
-    result: Optional[Type] = _CONTENT_ITEM_PROTO_TYPE_TO_TYPE_MAP.get(
-        content_type, None
-    )
-    if result is None:
-        raise ValueError(f"Invalid type: {content_type}")
-    return result
 
 
 class ContentItemCounts(NamedTuple):
@@ -164,13 +97,13 @@ class ContentItem(pydantic.BaseModel):
     type: Type
     """The type of the content (e.g., text, image path, image URL)."""
 
-    content: Optional[str] = None
+    content: str | None = None
     """Optional text content of the content item.
 
     One of content or binary must be provided.
     """
 
-    binary: Optional[bytes] = None
+    binary: bytes | None = None
     """Optional binary data for the message content item, used for image data.
 
     One of content or binary must be provided.
@@ -191,7 +124,7 @@ class ContentItem(pydantic.BaseModel):
         return self.type == Type.TEXT
 
     @pydantic.field_serializer("binary")
-    def _encode_binary(self, value: Optional[bytes]) -> str:
+    def _encode_binary(self, value: bytes | None) -> str:
         """Encode binary value as base64 ASCII string.
 
         This is needed for compatibility with JSON.
@@ -201,7 +134,7 @@ class ContentItem(pydantic.BaseModel):
         return base64.b64encode(value).decode("ascii")
 
     @pydantic.field_validator("binary", mode="before")
-    def _decode_binary(cls, value: Optional[Union[str, bytes]]) -> Optional[bytes]:
+    def _decode_binary(cls, value: str | bytes | None) -> bytes | None:
         if value is None:
             return None
         elif isinstance(value, str):
@@ -241,33 +174,6 @@ class ContentItem(pydantic.BaseModel):
                     f"Binary can only be provided for images (Item type: {self.type})."
                 )
 
-    @staticmethod
-    def from_proto(item_proto: pb2.ContentPart) -> "ContentItem":
-        """Converts a Protocol Buffer to a content item."""
-        if item_proto.HasField("blob") and item_proto.blob:
-            return ContentItem(
-                type=_convert_proto_type_to_type(item_proto.type),
-                binary=item_proto.blob.binary_data,
-                content=(item_proto.content or None),
-            )
-        return ContentItem(
-            type=_convert_proto_type_to_type(item_proto.type),
-            content=item_proto.content,
-        )
-
-    def to_proto(self) -> pb2.ContentPart:
-        """Converts a content item to Protocol Buffer format."""
-        if self.binary is not None and len(self.binary) > 0:
-            return pb2.ContentPart(
-                type=_convert_type_to_proto_type(self.type),
-                blob=pb2.DataBlob(binary_data=self.binary),
-                content=(self.content or None),
-            )
-        return pb2.ContentPart(
-            type=_convert_type_to_proto_type(self.type),
-            content=(self.content or None),
-        )
-
     def __repr__(self) -> str:
         """Returns a string representation of the message item."""
         return f"{self.content}" if self.is_text() else f"<{self.type.upper()}>"
@@ -282,7 +188,7 @@ class Message(pydantic.BaseModel):
 
     model_config = pydantic.ConfigDict(frozen=True)
 
-    id: Optional[str] = None
+    id: str | None = None
     """Optional unique identifier for the message.
 
     This attribute can be used to assign a specific identifier to the message,
@@ -292,7 +198,7 @@ class Message(pydantic.BaseModel):
         Optional[str]: The unique identifier of the message, if set; otherwise None.
     """
 
-    content: Union[str, list[ContentItem]]
+    content: str | list[ContentItem]
     """Content of the message.
 
     For text messages, `content` can be set to a string value.
@@ -313,7 +219,7 @@ class Message(pydantic.BaseModel):
         Raises:
             ValueError: If both content and binary are None.
         """
-        if not isinstance(self.content, (str, list)):
+        if not isinstance(self.content, str | list):
             raise ValueError(
                 f"Unexpected content type: {type(self.content)}. "
                 f"Must by a Python string or a list."
@@ -417,32 +323,6 @@ class Message(pydantic.BaseModel):
         counts = self.count_content_items()
         return counts.image_items == 1 and counts.image_items == counts.total_items
 
-    @staticmethod
-    def from_proto(message_proto: pb2.Message) -> "Message":
-        """Converts a Protocol Buffer to a message."""
-        if (len(message_proto.parts) == 1) and (
-            message_proto.parts[0].type == pb2.ContentPart.TEXT
-        ):
-            return Message(
-                id=(message_proto.id or None),
-                role=_convert_proto_role_to_role(message_proto.role),
-                content=message_proto.parts[0].content,
-            )
-
-        return Message(
-            id=(message_proto.id or None),
-            role=_convert_proto_role_to_role(message_proto.role),
-            content=[ContentItem.from_proto(part) for part in message_proto.parts],
-        )
-
-    def to_proto(self) -> pb2.Message:
-        """Converts a message to Protocol Buffer format."""
-        return pb2.Message(
-            id=self.id,
-            role=_convert_role_to_proto_role(self.role),
-            parts=[item.to_proto() for item in self.content_items],
-        )
-
     def __repr__(self) -> str:
         """Returns a string representation of the message."""
         id_str = ""
@@ -456,7 +336,7 @@ class Message(pydantic.BaseModel):
 class Conversation(pydantic.BaseModel):
     """Represents a conversation, which is a sequence of messages."""
 
-    conversation_id: Optional[str] = None
+    conversation_id: str | None = None
     """Optional unique identifier for the conversation.
 
     This attribute can be used to assign a specific identifier to the conversation,
@@ -466,7 +346,7 @@ class Conversation(pydantic.BaseModel):
     messages: list[Message]
     """List of Message objects that make up the conversation."""
 
-    metadata: dict[str, Any] = {}
+    metadata: dict[str, Any] = pydantic.Field(default_factory=dict)
     """Optional metadata associated with the conversation.
 
     This attribute allows for storing additional information about the conversation
@@ -484,7 +364,7 @@ class Conversation(pydantic.BaseModel):
         """
         return self.messages[idx]
 
-    def first_message(self, role: Optional[Role] = None) -> Optional[Message]:
+    def first_message(self, role: Role | None = None) -> Message | None:
         """Gets the first message in the conversation, optionally filtered by role.
 
         Args:
@@ -498,7 +378,7 @@ class Conversation(pydantic.BaseModel):
         messages = self.filter_messages(role=role)
         return messages[0] if len(messages) > 0 else None
 
-    def last_message(self, role: Optional[Role] = None) -> Optional[Message]:
+    def last_message(self, role: Role | None = None) -> Message | None:
         """Gets the last message in the conversation, optionally filtered by role.
 
         Args:
@@ -515,8 +395,8 @@ class Conversation(pydantic.BaseModel):
     def filter_messages(
         self,
         *,
-        role: Optional[Role] = None,
-        filter_fn: Optional[Callable[[Message], bool]] = None,
+        role: Role | None = None,
+        filter_fn: Callable[[Message], bool] | None = None,
     ) -> list[Message]:
         """Gets all messages in the conversation, optionally filtered by role.
 
@@ -572,28 +452,6 @@ class Conversation(pydantic.BaseModel):
     def from_json(cls, data: str) -> "Conversation":
         """Converts a JSON string to a conversation."""
         return cls.model_validate_json(data)
-
-    @staticmethod
-    def from_proto(conversation_proto: pb2.Conversation) -> "Conversation":
-        """Converts a conversation from Protocol Buffer format."""
-        result: Conversation = Conversation(
-            conversation_id=(conversation_proto.conversation_id or None),
-            messages=[Message.from_proto(m) for m in conversation_proto.messages],
-        )
-        for key, value in conversation_proto.metadata.items():
-            result.metadata[key] = str(value)
-        return result
-
-    def to_proto(self) -> pb2.Conversation:
-        """Converts a conversation to Protocol Buffer format."""
-        result = pb2.Conversation(
-            conversation_id=self.conversation_id,
-            messages=[m.to_proto() for m in self.messages],
-        )
-        if self.metadata is not None:
-            for key, value in self.metadata.items():
-                result.metadata[key] = str(value)
-        return result
 
     def __repr__(self) -> str:
         """Returns a string representation of the conversation."""

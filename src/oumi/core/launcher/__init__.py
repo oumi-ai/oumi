@@ -22,10 +22,11 @@ launchers for running machine learning jobs.
 """
 
 from oumi.core.launcher.base_cloud import BaseCloud
-from oumi.core.launcher.base_cluster import BaseCluster, JobStatus
+from oumi.core.launcher.base_cluster import BaseCluster, JobState, JobStatus
 
 __all__ = [
     "BaseCloud",
     "BaseCluster",
+    "JobState",
     "JobStatus",
 ]

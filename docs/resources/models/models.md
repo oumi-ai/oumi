@@ -77,11 +77,11 @@ For detailed implementation guidance on this subject, see the {doc}`/resources/m
 
 ### Tokenizer Integration
 
-Oumi ensures consistent tokenizer handling through the {py:mod}`core.tokenizers` module. Tokenizers can be configured independently of models while maintaining full compatibility.
+Oumi ensures consistent tokenizer handling through the {py:mod}`oumi.core.tokenizers` module. Tokenizers can be configured independently of models while maintaining full compatibility.
 
 ```python
-from builders import build_tokenizer
-from core.configs import ModelParams
+from oumi.builders import build_tokenizer
+from oumi.core.configs import ModelParams
 
 # Configure tokenizer with model
 model_params = ModelParams(
@@ -95,7 +95,7 @@ model_params = ModelParams(
 tokenizer = build_tokenizer(model_params)
 ```
 
-For details on handling special tokens, refer to {py:func}`core.tokenizers.get_default_special_tokens`.
+For details on handling special tokens, refer to {py:func}`oumi.core.tokenizers.get_default_special_tokens`.
 
 ### Parameter Adapters and Quantization
 
@@ -145,6 +145,7 @@ Available templates include:
 - `llava` - For LLaVA multimodal models
 - `phi3-instruct` - For Phi-3 instruction models
 - `qwen2-vl-instruct` - For Qwen2-VL instruction models
+- `qwen3-vl-instruct` - For Qwen3-VL instruction models
 - `zephyr` - For Zephyr models
 
 All the templates expect a `messages` list, where each message is a dictionary with `role` and `content` keys in {doc}`oumi format </resources/datasets/data_formats>`.

@@ -23,6 +23,21 @@ Configs for OpenAI's gpt-oss model family. See the [blog post](https://huggingfa
 
 ## Example Commands
 
+### Training
+
+To fine-tune gpt-oss-20b with LoRA (multi-GPU):
+
+```shell
+oumi distributed torchrun -m oumi train -c oumi://configs/recipes/gpt_oss/sft/20b_lora_multi_gpu_train.yaml
+```
+
+To fine-tune gpt-oss-120b with LoRA using FSDP (multi-GPU):
+
+```shell
+# Single node with multiple GPUs (e.g., 8x H100)
+oumi distributed torchrun -m oumi train -c oumi://configs/recipes/gpt_oss/sft/120b_lora_multi_gpu_train.yaml
+```
+
 ### Inference
 
 To run interactive inference on gpt-oss-120b locally:

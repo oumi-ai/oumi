@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Callable, Optional
+from collections.abc import Callable
 
 import oumi.core.constants as constants
 from oumi.core.collators.text_collator_with_padding import TextCollatorWithPadding
@@ -38,8 +38,8 @@ def build_data_collator(
     collator_name: str,
     tokenizer: BaseTokenizer,
     *,
-    max_length: Optional[int],
-    label_ignore_index: Optional[int] = constants.LABEL_IGNORE_INDEX,
+    max_length: int | None,
+    label_ignore_index: int | None = constants.LABEL_IGNORE_INDEX,
     debug: bool = False,
     **kwargs,
 ) -> Callable:
@@ -108,6 +108,7 @@ def build_data_collator(
             max_length=max_length,
             truncation=enable_truncation,
             label_ignore_index=label_ignore_index,
+            debug=debug,
             **kwargs,
         )
     elif collator_name == "vision_language_sft":
@@ -125,18 +126,35 @@ def build_data_collator(
             **kwargs,
         )
     elif collator_name == "text_completions_only_with_padding":
+        # Extract instruction and response templates from kwargs if provided
+        instruction_template = kwargs.pop("instruction_template", None)
+        response_template = kwargs.pop("response_template", None)
+
+        # Default to Llama-style templates if not provided
+        instruction_prefix = (
+            instruction_template
+            if instruction_template
+            else "<|start_header_id|>user<|end_header_id|>\n\n"
+        )
+        response_prefix = (
+            response_template
+            if response_template
+            else "<|start_header_id|>assistant<|end_header_id|>\n\n"
+        )
+
         return TextCompletionsCollatorWithPadding(
             tokenizer=tokenizer,
-            instruction_prefix="<|start_header_id|>user<|end_header_id|>\n\n",
-            response_prefix="<|start_header_id|>assistant<|end_header_id|>\n\n",
+            instruction_prefix=instruction_prefix,
+            response_prefix=response_prefix,
             debug=debug,
+            **kwargs,
         )
     raise ValueError(f"Unknown data collator name: '{collator_name}'")
 
 
 def build_collator_from_config(
-    config: TrainingConfig, tokenizer: Optional[BaseTokenizer], debug: bool = False
-) -> Optional[Callable]:
+    config: TrainingConfig, tokenizer: BaseTokenizer | None, debug: bool = False
+) -> Callable | None:
     """Creates data collator if specified in config."""
     train_split = config.data.get_split(DatasetSplit.TRAIN)
     if not train_split.collator_name:
@@ -151,7 +169,7 @@ def build_collator_from_config(
 
     model_config = find_internal_model_config(config.model)
 
-    label_ignore_index: Optional[int] = (
+    label_ignore_index: int | None = (
         config.training.label_ignore_index
         if config.training.label_ignore_index is not None
         else (

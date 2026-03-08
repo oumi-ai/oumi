@@ -1,7 +1,6 @@
 import copy
 import functools
 import io
-from typing import Optional
 from unittest.mock import MagicMock, Mock, patch
 
 import numpy as np
@@ -52,7 +51,7 @@ def mock_image_tokenizer() -> MagicMock:
     return mock
 
 
-def create_mock_processor(label_ignore_index: Optional[int]):
+def create_mock_processor(label_ignore_index: int | None):
     processor = Mock()
     processor.processor_name = "llava-hf/llava-1.5-7b-hf"
     processor.tokenizer = Mock()
@@ -61,8 +60,8 @@ def create_mock_processor(label_ignore_index: Optional[int]):
     processor.image_token = _IMAGE_TOKEN
     processor.image_token_id = _IMAGE_TOKEN_ID
     processor.label_ignore_index = label_ignore_index
-    processor.side_effect = (
-        lambda images, text, return_tensors, padding: transformers.BatchEncoding(
+    processor.side_effect = lambda images, text, return_tensors, padding: (
+        transformers.BatchEncoding(
             data={
                 "input_ids": [[101, 102, _IMAGE_TOKEN_ID, 104]],
                 "attention_mask": [[1, 1, 1, 1]],
@@ -92,7 +91,7 @@ def mock_processor_no_label_ignore_index():
 
 
 @functools.cache  # same as @cache added in Python 3.9
-def _get_test_png_image_bytes(image_size: Optional[tuple[int, int]] = None) -> bytes:
+def _get_test_png_image_bytes(image_size: tuple[int, int] | None = None) -> bytes:
     if image_size is None:
         image_size = (80, 40)
     image = Image.new(mode="RGBA", size=image_size)

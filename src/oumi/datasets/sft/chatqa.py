@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional, Union, cast
+from typing import cast
 
 import datasets
 import pandas as pd
@@ -28,7 +28,7 @@ class ChatqaDataset(BaseSftDataset):
     default_dataset = "nvidia/ChatQA-Training-Data"
     default_subset = "sft"
 
-    def _get_system_message(self) -> Optional[str]:
+    def _get_system_message(self) -> str | None:
         if self.dataset_subset == "sft":
             return None
 
@@ -67,7 +67,7 @@ class ChatqaDataset(BaseSftDataset):
 
     @override
     def transform_conversation(
-        self, raw_conversation: Union[dict, pd.Series]
+        self, raw_conversation: dict | pd.Series
     ) -> Conversation:
         """Preprocesses the inputs of the example and returns a dictionary.
 

@@ -55,7 +55,7 @@ def model_params():
     return ModelParams(
         model_name="openai-community/gpt2",
         tokenizer_pad_token="<|endoftext|>",
-        tokenizer_name="gpt2",
+        tokenizer_name="openai-community/gpt2",
         load_pretrained_weights=False,
     )
 
@@ -239,7 +239,7 @@ def test_generation_params_defaults_used_in_inference(
         called_params = mock_infer.call_args[0][1].generation
         assert called_params.max_new_tokens == 1024
         assert called_params.temperature == 0.0
-        assert called_params.top_p == 1.0
+        assert called_params.top_p is None
         assert called_params.frequency_penalty == 0.0
         assert called_params.presence_penalty == 0.0
         assert called_params.stop_strings is None

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import collections
-from typing import Any, Optional
+from typing import Any
 
 import torch
 
@@ -27,11 +27,12 @@ class VisionLanguageCollatorWithPadding:
         self,
         tokenizer: BaseTokenizer,
         *,
-        max_length: Optional[int],
+        max_length: int | None,
         truncation: bool = False,
-        label_ignore_index: Optional[int] = None,
+        label_ignore_index: int | None = None,
         allow_multi_image_inputs: bool = True,
         main_image_feature: str = "pixel_values",
+        debug: bool = False,
     ):
         """Custom collator for multi-modal vision-language training.
 
@@ -46,6 +47,7 @@ class VisionLanguageCollatorWithPadding:
         allow_multi_image_inputs: Whether to allow multi-image inputs.
         main_image_feature: The key to use for fetching the main image data
         (e.g., raw pixels, patches, etc.) from the input.
+        debug: Whether to log a debug example.
         """
         self._allow_multi_image_inputs = allow_multi_image_inputs
         self._main_image_feature = main_image_feature
@@ -59,6 +61,7 @@ class VisionLanguageCollatorWithPadding:
                 # allow 2 variable-sized dimensions: `seq_len`, `num_images`.
                 2 if allow_multi_image_inputs else 1
             ),
+            debug=debug,
         )
 
     def __call__(self, batch) -> dict[str, Any]:

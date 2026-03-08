@@ -18,7 +18,7 @@ import os
 import random
 from contextlib import contextmanager
 from datetime import timedelta
-from typing import NamedTuple, Optional, TypeVar, cast
+from typing import NamedTuple, TypeVar, cast
 
 import numpy as np
 import torch
@@ -74,7 +74,7 @@ def _get_use_orig_params(config: TrainingConfig) -> bool:
 #
 # Process Info
 #
-def _parse_rank(rank: Optional[str]) -> int:
+def _parse_rank(rank: str | None) -> int:
     """Parse the rank from the environment variable."""
     if not rank:
         return 0
@@ -176,7 +176,7 @@ def is_distributed() -> bool:
 # Distributed Operations
 #
 def barrier(
-    group: Optional[torch.distributed.ProcessGroup] = None, monitored: bool = False
+    group: torch.distributed.ProcessGroup | None = None, monitored: bool = False
 ) -> None:
     """Barrier synchronization among all processes in the group."""
     if torch.distributed.is_available() and torch.distributed.is_initialized():
@@ -193,7 +193,7 @@ T = TypeVar("T")
 
 
 def all_gather_object(
-    obj: T, group: Optional[torch.distributed.ProcessGroup] = None
+    obj: T, group: torch.distributed.ProcessGroup | None = None
 ) -> list[T]:
     """Gathers picklable objects from the whole group into a list."""
     verify_torch_distributed_initialized_if_needed()
@@ -284,7 +284,7 @@ def global_leader_first(*args, **kwargs):
 # Distributed Initialization
 #
 def init_distributed(
-    backend: str = "nccl", timeout_minutes: Optional[float] = None
+    backend: str = "nccl", timeout_minutes: float | None = None
 ) -> None:
     """Initialize the distributed environment."""
     device_rank_info: DeviceRankInfo = get_device_rank_info()
@@ -314,9 +314,9 @@ def cleanup_distributed():
 def prepare_model_for_distributed(
     model: torch.nn.Module,
     config: TrainingConfig,
-    ddp_find_unused_parameters: Optional[bool] = None,
+    ddp_find_unused_parameters: bool | None = None,
 ) -> torch.nn.Module:
-    """Wrap the model for distributed training (DDP or FSDP).
+    """Wrap the model for distributed training (DDP, FSDP, or DeepSpeed).
 
     Args:
         model: The model to be wrapped.
@@ -336,6 +336,14 @@ def prepare_model_for_distributed(
 
     device_rank_info = get_device_rank_info()
     fsdp_params = config.fsdp
+    deepspeed_params = config.deepspeed
+
+    # Check for DeepSpeed first since it takes precedence
+    if deepspeed_params.enable_deepspeed:
+        logger.info("Using DeepSpeed for distributed training.")
+        # DeepSpeed model wrapping is handled by the DeepSpeed engine during training
+        # We return the model as-is here since DeepSpeed wrapping happens in the trainer
+        return model
 
     if fsdp_params is None or not fsdp_params.enable_fsdp:
         logger.info("Using DistributedDataParallel (DDP) for distributed training.")
@@ -372,7 +380,8 @@ def prepare_model_for_distributed(
             )
             transformer_layer_classes = (
                 resolve_transformer_layer_cls_string_as_module_set(
-                    fsdp_params.transformer_layer_cls
+                    fsdp_params.transformer_layer_cls,
+                    model=model,
                 )
             )
 
@@ -435,6 +444,43 @@ def prepare_model_for_distributed(
     )
 
     return model
+
+
+#
+# DeepSpeed utilities
+#
+def is_deepspeed_available() -> bool:
+    """Check if DeepSpeed is installed and available."""
+    import importlib.util
+
+    return importlib.util.find_spec("deepspeed") is not None
+
+
+def is_deepspeed_zero3_enabled(config: TrainingConfig) -> bool:
+    """Check if DeepSpeed ZeRO-3 is enabled in the configuration.
+
+    Args:
+        config: The training configuration.
+
+    Returns:
+        bool: True if DeepSpeed ZeRO-3 is enabled, False otherwise.
+    """
+    return config.deepspeed.is_zero3_enabled()
+
+
+def get_deepspeed_config_path_or_dict(config: TrainingConfig) -> str | dict:
+    """Get DeepSpeed configuration as file path or dictionary.
+
+    Args:
+        config: The training configuration.
+
+    Returns:
+        Union[str, dict]: Path to config file if specified, otherwise config dict.
+    """
+    if config.deepspeed.deepspeed_config_path is not None:
+        return str(config.deepspeed.deepspeed_config_path)
+    else:
+        return config.deepspeed.to_deepspeed()
 
 
 def get_accelerate_env_vars(config: TrainingConfig) -> dict[str, str]:
@@ -525,7 +571,7 @@ def prepare_accelerate_fsdp_run(config: TrainingConfig) -> dict[str, str]:
 
 
 def estimate_dataloader_num_workers(
-    gpus_per_node: Optional[int] = None, cpu_count: Optional[int] = None
+    gpus_per_node: int | None = None, cpu_count: int | None = None
 ) -> int:
     """Estimates the number of dataloader workers.
 

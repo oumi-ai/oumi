@@ -13,12 +13,13 @@
 # limitations under the License.
 
 from pathlib import Path
-from typing import Optional, Union, cast
+from typing import cast
 
 import torch
 import torch.nn as nn
 import transformers
 from peft import PeftModel, get_peft_model, prepare_model_for_kbit_training
+from transformers import Mxfp4Config  # pyright: ignore[reportAttributeAccessIssue]
 
 from oumi.core.configs import ModelParams, PeftParams
 from oumi.core.configs.internal.internal_model_config import InternalModelConfig
@@ -26,6 +27,7 @@ from oumi.core.configs.internal.supported_models import (
     find_internal_model_config_using_model_name,
     find_model_hf_config,
     get_all_models_map,
+    get_custom_model_type_from_path,
     is_custom_model,
 )
 from oumi.core.distributed import get_device_rank_info
@@ -52,7 +54,7 @@ except ImportError:
 
 def build_model(
     model_params: ModelParams,
-    peft_params: Optional[PeftParams] = None,
+    peft_params: PeftParams | None = None,
     **kwargs,
 ) -> nn.Module:
     """Builds and returns a model based on the provided Oumi configuration.
@@ -69,24 +71,13 @@ def build_model(
         model = build_oumi_model(
             model_params=model_params,
             peft_params=peft_params,
-            *kwargs,
-        )
-    elif model_params.model_name in (
-        "nyu-visionx/cambrian-phi3-3b",
-        "nyu-visionx/cambrian-8b",
-        "nyu-visionx/cambrian-13b",
-        "nyu-visionx/cambrian-34b",
-    ):
-        model = build_cambrian_model(
-            model_params=model_params,
-            peft_params=peft_params,
-            *kwargs,
+            **kwargs,
         )
     else:
         model = build_huggingface_model(
             model_params=model_params,
             peft_params=peft_params,
-            *kwargs,
+            **kwargs,
         )
 
     if model_params.enable_liger_kernel:
@@ -121,7 +112,7 @@ def build_model(
     return model
 
 
-def _get_model_type(model: nn.Module) -> Optional[str]:
+def _get_model_type(model: nn.Module) -> str | None:
     return getattr(model, "config", None) and getattr(model.config, "model_type", None)
 
 
@@ -147,21 +138,58 @@ def _patch_model_for_liger_kernel(model: nn.Module) -> None:
     liger_kernel.transformers._apply_liger_kernel(model_type)
 
 
+def _resolve_custom_model_type(pretrained_dir: str) -> str:
+    model_type = get_custom_model_type_from_path(pretrained_dir)
+    if model_type:
+        return model_type
+
+    config_path = Path(pretrained_dir) / "config.json"
+    if not config_path.exists():
+        raise ValueError(
+            f"Cannot load pretrained custom model from '{pretrained_dir}'. "
+            "Expected a directory containing 'config.json' and "
+            "'model.safetensors' files created by "
+            "BaseModel.save_pretrained()."
+        )
+
+    raise ValueError(
+        f"Config at '{config_path}' does not contain a valid 'model_type' "
+        "or the model type is not registered in the Oumi registry."
+    )
+
+
 def build_oumi_model(
     model_params: ModelParams,
-    peft_params: Optional[PeftParams] = None,
+    peft_params: PeftParams | None = None,
     **kwargs,
 ) -> nn.Module:
-    """Builds a custom model from our Oumi registry."""
-    model_class = REGISTRY[model_params.model_name, RegistryType.MODEL]
-    model = model_class(**model_params.model_kwargs)
+    """Builds a custom model from our Oumi registry.
 
+    The model_name can be either:
+    - A registry name (e.g., "MLPEncoder") for creating models from scratch
+    - A path to a saved model directory.
+    """
+    # Determine if we should load from pretrained weights
     if model_params.load_pretrained_weights:
-        raise NotImplementedError(
-            "Loading pretrained weights for custom Oumi models is not yet implemented. "
-            "Currently, custom models can only be initialized from scratch. "
-            "Please open a feature request at https://github.com/oumi-ai/oumi."
+        pretrained_dir = model_params.model_name
+        model_type = _resolve_custom_model_type(pretrained_dir)
+        model_class = REGISTRY[model_type, RegistryType.MODEL]
+        logger.info(f"Loading custom model '{model_type}' from {pretrained_dir}")
+        model = model_class.from_pretrained(
+            load_directory=pretrained_dir,
+            override_kwargs=kwargs.get("override_init_kwargs"),
+            map_location="cpu",
+            strict=True,
         )
+    else:
+        if not REGISTRY.contains(name=model_params.model_name, type=RegistryType.MODEL):
+            raise ValueError(
+                f"Model '{model_params.model_name}' is not registered in the Oumi "
+                "registry. For custom models with load_pretrained_weights=False, "
+                "model_name must be a registered model class name (e.g., 'MLPEncoder')."
+            )
+        model_class = REGISTRY[model_params.model_name, RegistryType.MODEL]
+        model = model_class(**model_params.model_kwargs)
 
     if peft_params and peft_params.q_lora:
         raise NotImplementedError(
@@ -184,6 +212,37 @@ def build_oumi_model(
     return model
 
 
+def _get_quantization_config_for_training(model_params: ModelParams):
+    """Get the appropriate quantization config for training.
+
+    For MXFP4 quantized models that need dequantization during training,
+    this creates the appropriate Mxfp4Config(dequantize=True) configuration.
+
+    Args:
+        model_params: Model parameters that may contain quantization config.
+
+    Returns:
+        Quantization config object or None if no quantization needed.
+    """
+    # Check if model_kwargs contains quantization_config
+    if not model_params.model_kwargs:
+        return None
+
+    quant_config = model_params.model_kwargs.get("quantization_config")
+    if not quant_config:
+        return None
+
+    # Handle MXFP4 quantization for training (requires dequantization)
+    if isinstance(quant_config, dict) and quant_config.get("quant_method") == "mxfp4":
+        logger.info(
+            "Detected MXFP4 quantized model. Creating Mxfp4Config(dequantize=True) "
+            "for training."
+        )
+        return Mxfp4Config(dequantize=True)  # pyright: ignore[reportOptionalCall]
+
+    return None
+
+
 def _disable_cache_in_model_config(model: transformers.PreTrainedModel) -> None:
     # Required for FSDP.
     # Context: https://github.com/huggingface/transformers/issues/28499
@@ -195,7 +254,7 @@ def _disable_cache_in_model_config(model: transformers.PreTrainedModel) -> None:
 
 def build_huggingface_model(
     model_params: ModelParams,
-    peft_params: Optional[PeftParams] = None,
+    peft_params: PeftParams | None = None,
     **kwargs,
 ) -> nn.Module:
     """Builds a HuggingFace model.
@@ -241,10 +300,11 @@ def build_huggingface_model(
         disable_dropout(hf_config)
         del model_params.model_kwargs["disable_dropout"]
 
+    # Handle different quantization configurations
     if peft_params and peft_params.q_lora:
         quantization_config = peft_params.to_bits_and_bytes()
     else:
-        quantization_config = None
+        quantization_config = _get_quantization_config_for_training(model_params)
 
     # Both functions instantiate a model from the config, but the main difference is
     # `load_pretrained_weights` also loads the weights, and `from_config` initializes
@@ -257,7 +317,7 @@ def build_huggingface_model(
     if model_params.load_pretrained_weights:
         model = transformers_model_class.from_pretrained(
             config=hf_config,
-            torch_dtype=torch_dtype,
+            dtype=torch_dtype,
             device_map=device_map,
             trust_remote_code=model_params.trust_remote_code,
             pretrained_model_name_or_path=model_params.model_name,
@@ -269,7 +329,7 @@ def build_huggingface_model(
     else:
         model = transformers_model_class.from_config(
             config=hf_config,
-            torch_dtype=torch_dtype,
+            dtype=torch_dtype,
             trust_remote_code=model_params.trust_remote_code,
             attn_implementation=model_params.attn_implementation,
             **kwargs,
@@ -321,81 +381,9 @@ def is_image_text_llm(model_params: ModelParams) -> bool:
     )
 
 
-def build_cambrian_model(
-    model_params: ModelParams,
-    peft_params: Optional[PeftParams] = None,
-    **kwargs,
-) -> nn.Module:
-    """Downloads and builds the model from the HuggingFace Hub."""
-    from importlib.util import find_spec
-
-    for dependency_name in ("diffusers", "einops", "open_clip", "timm"):
-        if not find_spec(dependency_name):
-            raise RuntimeError(
-                f"Failed to find the required dependency package:'{dependency_name}' "
-                f"for the Cambrian model: '{model_params.model_name}'. "
-                "Run `pip install oumi[cambrian]`, and try again."
-            )
-
-    try:
-        from oumi.models.experimental.cambrian.mm_utils import (
-            get_model_name_from_path as get_cambrian_model_name_from_path,
-        )
-        from oumi.models.experimental.cambrian.model.builder import (
-            load_pretrained_model as load_cambrian_pretrained_model,
-        )
-    except ImportError as e:
-        raise RuntimeError(
-            "Failed to load a required dependency "
-            f"for the Cambrian model: '{model_params.model_name}'. "
-            "Run `pip install oumi[cambrian]`, and try again."
-        ) from e
-
-    device_map = model_params.device_map
-    device_rank_info = get_device_rank_info()
-
-    # If we're using FSDP via HF Accelerate, we should not specify the device map
-    # so that HF properly initializes the model for FSDP.
-    # If we set device_map to "auto", it seems HF will try to shard the model when
-    # loading it, which conflicts with FSDP's sharding.
-    # If we set device_map to f"cuda:{device_rank_info.local_rank}", it will try to
-    # load the model only on rank 0, which will OOM for large models.
-    # See https://github.com/huggingface/transformers/pull/25107.
-    if is_using_accelerate_fsdp():
-        logger.info("Accelerate FSDP run detected! Setting device_map to None.")
-        device_map = None
-    elif device_map == "auto" and device_rank_info.world_size > 1:
-        # "auto" is not compatible with DDP.
-        logger.info(
-            f"Building model for distributed training "
-            f"(world_size: {device_rank_info.world_size})..."
-        )
-        device_map = f"cuda:{device_rank_info.local_rank}"
-    logger.info(
-        f"Building model using device_map: {device_map} ({device_rank_info})..."
-    )
-
-    model_path = str(Path(model_params.model_name).expanduser())
-    model_name = get_cambrian_model_name_from_path(model_path)
-    tokenizer, model, processor, _ = load_cambrian_pretrained_model(
-        model_path, None, model_name, device_map=(device_map or "auto")
-    )
-
-    _disable_cache_in_model_config(model)
-
-    # TODO Find a better way to handle it
-
-    # Load pretrained PEFT adapters
-    if model_params.adapter_model:
-        logger.info(f"Loading PEFT adapter from: {model_params.adapter_model} ...")
-        model = PeftModel.from_pretrained(model, model_params.adapter_model)
-
-    return model
-
-
 def build_tokenizer(
     model_params: ModelParams,
-) -> Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]:
+) -> transformers.PreTrainedTokenizer | transformers.PreTrainedTokenizerFast:
     """Builds and returns a tokenizer based on the provided Oumi configuration.
 
     Args:
@@ -419,7 +407,7 @@ def build_tokenizer(
     else:
         tokenizer_id_str = f"model '{model_params.model_name}'"
 
-    internal_config: Optional[InternalModelConfig] = (
+    internal_config: InternalModelConfig | None = (
         find_internal_model_config_using_model_name(
             model_name=tokenizer_name,
             trust_remote_code=model_params.trust_remote_code,
@@ -478,11 +466,13 @@ def build_tokenizer(
         tokenizer.model_max_length = model_params.model_max_length
 
     template_name: str = ""
-    if model_params.chat_template:
+    if model_params.chat_template == "auto":
+        # "auto" means use model's built-in template, don't override
         logger.info(
-            f"Using the chat template '{model_params.chat_template}' "
-            f"specified in model config for {tokenizer_id_str}. "
+            f"Chat template set to 'auto' - using model's built-in template "
+            f"for {tokenizer_id_str}."
         )
+    elif model_params.chat_template is not None:
         template_name = model_params.chat_template
     else:
         # Try to find the default chat template by model type.

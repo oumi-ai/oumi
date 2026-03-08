@@ -1,6 +1,8 @@
 # Local experiments
 tmp/
 wandb/
+# ignore outputs from databricks MLflow telemetry
+mlruns/
 # default output directory for training, evaluation, inference, etc.
 output/
 # test coverage report
@@ -9,6 +11,9 @@ coverage_html/
 notebooks/*tutorial*
 # Evaluation results
 results/
+
+# Pyright Config
+pyrightconfig.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

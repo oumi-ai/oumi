@@ -115,6 +115,54 @@ For a detailed guide on distributed training, see {doc}`/user_guides/train/train
   :width: 80
 ```
 
+## Data Synthesis
+
+For a detailed guide on data synthesis, see {doc}`/user_guides/synth`.
+
+```{typer} oumi.cli.main.app.synth
+  :prog: oumi synth
+  :make-sections:
+  :preferred: svg
+  :theme: monokai
+  :width: 80
+```
+
+## Dataset Analysis
+
+For a detailed guide on dataset analysis, see {doc}`/user_guides/analyze/analyze`.
+
+```{typer} oumi.cli.main.app.analyze
+  :prog: oumi analyze
+  :make-sections:
+  :preferred: svg
+  :theme: monokai
+  :width: 80
+```
+
+## Hyperparameter Tuning
+
+For a detailed guide on hyperparameter tuning, see {doc}`/user_guides/tune`.
+
+```{typer} oumi.cli.main.app.tune
+  :prog: oumi tune
+  :make-sections:
+  :preferred: svg
+  :theme: monokai
+  :width: 80
+```
+
+## Quantization
+
+For a detailed guide on model quantization, see {doc}`/user_guides/quantization`.
+
+```{typer} oumi.cli.main.app.quantize
+  :prog: oumi quantize
+  :make-sections:
+  :preferred: svg
+  :theme: monokai
+  :width: 80
+```
+
 ## Environment
 
 This command is a great tool for debugging!

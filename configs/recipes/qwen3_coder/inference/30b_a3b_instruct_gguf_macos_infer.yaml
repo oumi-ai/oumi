@@ -1,0 +1,34 @@
+# LlamaCPP Inference config for Qwen3-Coder-30B-A3B-Instruct GGUF (macOS compatible).
+#
+# Requirements:
+#   - Run `pip install oumi[llama_cpp]`
+#
+# Usage:
+#   # 1. Download the GGUF file to current working directory:
+#   hf download unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF \
+#     Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf --local-dir .
+#
+#   # 2. Run inference:
+#   oumi infer -i -c configs/recipes/qwen3_coder/inference/30b_a3b_instruct_gguf_macos_infer.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+#   - Config class: oumi.core.configs.InferenceConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/inference_config.py
+#   - Other inference configs: configs/**/inference/
+
+model:
+  model_name: "unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF"
+  tokenizer_name: "Qwen/Qwen3-Coder-30B-A3B-Instruct"
+  model_max_length: 8192
+  torch_dtype_str: "float16"
+  trust_remote_code: True
+  model_kwargs:
+    filename: "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf"
+
+generation:
+  max_new_tokens: 4096
+  temperature: 0.3
+  top_p: 0.9
+
+engine: LLAMACPP

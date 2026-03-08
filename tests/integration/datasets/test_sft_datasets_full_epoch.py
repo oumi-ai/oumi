@@ -34,7 +34,7 @@ def dataset_fixture(request):
     dataset_class = REGISTRY.get_dataset(dataset_name)
     if dataset_class is None:
         pytest.fail(f"Dataset {dataset_name} not found in registry")
-    tokenizer = AutoTokenizer.from_pretrained("gpt2")
+    tokenizer = AutoTokenizer.from_pretrained("openai-community/gpt2")
     return dataset_name, dataset_class(
         dataset_name=dataset_name, split="train", tokenizer=tokenizer
     )

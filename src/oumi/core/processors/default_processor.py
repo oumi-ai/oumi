@@ -13,8 +13,9 @@
 # limitations under the License.
 
 import copy
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Optional, Union
+from typing import Any
 
 import PIL.Image
 import transformers
@@ -41,8 +42,8 @@ class DefaultProcessor(BaseProcessor):
         worker_processor: Any,
         tokenizer: BaseTokenizer,
         *,
-        label_ignore_index: Optional[int],
-        ignore_features: Optional[list[str]] = None,
+        label_ignore_index: int | None,
+        ignore_features: list[str] | None = None,
     ):
         """Initializes the processor."""
         if not processor_name:
@@ -73,7 +74,7 @@ class DefaultProcessor(BaseProcessor):
         ):
             self._worker_processor.chat_template = tokenizer.chat_template
 
-        self._image_processor: Optional[BaseImageProcessor] = None
+        self._image_processor: BaseImageProcessor | None = None
         if (
             hasattr(self._worker_processor, "image_processor")
             and self._worker_processor.image_processor is not None
@@ -81,8 +82,8 @@ class DefaultProcessor(BaseProcessor):
             self._image_processor = DefaultImageProcessor(
                 self._worker_processor.image_processor
             )
-        self._label_ignore_index: Optional[int] = label_ignore_index
-        self._ignore_features: Optional[list[str]] = (
+        self._label_ignore_index: int | None = label_ignore_index
+        self._ignore_features: list[str] | None = (
             copy.copy(ignore_features) if ignore_features else []
         )
 
@@ -121,13 +122,13 @@ class DefaultProcessor(BaseProcessor):
 
     @property
     @override
-    def image_processor(self) -> Optional[BaseImageProcessor]:
+    def image_processor(self) -> BaseImageProcessor | None:
         """Returns an image processor."""
         return self._image_processor
 
     @property
     @override
-    def image_token(self) -> Optional[str]:
+    def image_token(self) -> str | None:
         """Returns an image token."""
         if (
             hasattr(self._worker_processor, "image_token")
@@ -138,7 +139,7 @@ class DefaultProcessor(BaseProcessor):
 
     @property
     @override
-    def image_token_id(self) -> Optional[int]:
+    def image_token_id(self) -> int | None:
         """Returns an image token id."""
         token_str = self.image_token
         if not token_str:
@@ -156,7 +157,7 @@ class DefaultProcessor(BaseProcessor):
 
     @property
     @override
-    def label_ignore_index(self) -> Optional[int]:
+    def label_ignore_index(self) -> int | None:
         """Returns a label ignore index."""
         return self._label_ignore_index
 
@@ -177,31 +178,33 @@ class DefaultProcessor(BaseProcessor):
         self,
         *,
         text: list[str],
-        padding: bool,
-        images: Optional[list[PIL.Image.Image]] = None,
-        return_tensors: Optional[str] = "pt",
+        images: list[PIL.Image.Image] | None = None,
+        return_tensors: str | None = "pt",
+        **kwargs,
     ) -> transformers.BatchEncoding:
         """Invokes the processor to extract features.
 
         Args:
             text: A list of text prompts.
-            padding: Whether to pad sequences to common length.
             images: A list of input images.
             return_tensors: The format of returned tensors.
+            **kwargs: Additional keyword arguments to pass to the processor.
 
         Returns:
             transformers.BatchEncoding: The model-specific input features.
         """
         if images is None or len(images) == 0:
             result = self._worker_processor(
-                text=text, padding=padding, return_tensors=return_tensors
+                text=text,
+                return_tensors=return_tensors,
+                **kwargs,
             )
         else:
             result = self._worker_processor(
                 text=(text[0] if len(text) == 1 else text),
                 images=images,
-                padding=padding,
                 return_tensors=return_tensors,
+                **kwargs,
             )
         if result is None:
             raise RuntimeError("Processor returned `None`.")
@@ -268,7 +271,7 @@ class DefaultProcessor(BaseProcessor):
         return result
 
     @override
-    def save_config(self, output_dir: Union[Path, str]) -> None:
+    def save_config(self, output_dir: Path | str) -> None:
         """Saves processor config to the directory."""
         if not (
             hasattr(self._worker_processor, "save_pretrained")

@@ -17,10 +17,11 @@ import copy
 import math
 import os
 import time
+from collections.abc import Callable
 from contextlib import contextmanager
 from pathlib import Path
 from pprint import pformat
-from typing import Any, Callable, Optional, cast
+from typing import Any, cast
 
 import mlflow
 import pydantic
@@ -35,7 +36,6 @@ from torch.distributed.checkpoint.state_dict import (
     get_state_dict,
 )
 from torch.utils.data import DataLoader, Dataset, DistributedSampler, IterableDataset
-from torchdata.stateful_dataloader import StatefulDataLoader
 from tqdm.auto import tqdm
 from transformers import TrainerCallback
 
@@ -49,13 +49,22 @@ from oumi.core.distributed import (
     is_world_process_zero,
     prepare_model_for_distributed,
 )
+from oumi.core.models.base_model import BaseModel
 from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.trainers.base_trainer import BaseTrainer
 from oumi.performance.telemetry import TelemetryTracker
 from oumi.utils.io_utils import load_json, save_json
 from oumi.utils.logging import logger
+from oumi.utils.packaging import is_torchdata_available
 from oumi.utils.serialization_utils import flatten_config
+
+# Conditional import for StatefulDataLoader
+_TORCHDATA_AVAILABLE = is_torchdata_available()
+if _TORCHDATA_AVAILABLE:
+    from torchdata.stateful_dataloader import (  # pyright: ignore[reportMissingImports]
+        StatefulDataLoader,
+    )
 
 
 class TrainingState(pydantic.BaseModel):
@@ -68,14 +77,14 @@ class Trainer(BaseTrainer):
     def __init__(
         self,
         model: torch.nn.Module,
-        processing_class: Optional[BaseTokenizer],
+        processing_class: BaseTokenizer | None,
         args: TrainingParams,
         train_dataset: Dataset,
-        processor: Optional[BaseProcessor] = None,
-        eval_dataset: Optional[Dataset] = None,
-        callbacks: Optional[list[TrainerCallback]] = None,
-        data_collator: Optional[Callable] = None,
-        config: Optional[TrainingConfig] = None,
+        processor: BaseProcessor | None = None,
+        eval_dataset: Dataset | None = None,
+        callbacks: list[TrainerCallback] | None = None,
+        data_collator: Callable | None = None,
+        config: TrainingConfig | None = None,
         **kwargs,
     ):
         """Initializes the Oumi trainer."""
@@ -199,7 +208,7 @@ class Trainer(BaseTrainer):
     #
     # Training
     #
-    def train(self, resume_from_checkpoint: Optional[str] = None):
+    def train(self, resume_from_checkpoint: str | None = None):
         """Trains the model."""
         if resume_from_checkpoint:
             with torch.profiler.record_function("load_from_checkpoint"):
@@ -482,6 +491,14 @@ class Trainer(BaseTrainer):
             safetensors.torch.save_model(model=self.model, filename=str(model_path))
             self.log(f"Model saved to {model_path}.")
 
+            if isinstance(self.model, BaseModel):
+                pretrained_dir = output_dir / "pretrained"
+                self.model.save_pretrained(pretrained_dir)
+                self.log(
+                    f"Custom model saved. Reload with: "
+                    f"model_name='{pretrained_dir}', load_pretrained_weights=True"
+                )
+
             if self._processor is not None:
                 self._processor.save_config(output_dir)
                 logger.info(f"Processor config has been saved at {output_dir}.")
@@ -537,7 +554,11 @@ class Trainer(BaseTrainer):
         dcp.save(optimizer_state_dict, checkpoint_id=optimizer_path)
 
         if is_world_process_zero():
-            torch.save(self.train_dataloader.state_dict(), dataloader_state_path)
+            if hasattr(self.train_dataloader, "state_dict"):
+                torch.save(
+                    self.train_dataloader.state_dict(),  # type: ignore[union-attr]
+                    dataloader_state_path,
+                )
             save_json(data=self.state.model_dump(), filename=trainer_state_path)
             logger.info(f"Training state saved to {checkpoint_dir}")
 
@@ -591,7 +612,15 @@ class Trainer(BaseTrainer):
         dcp.load(optimizer_state_dict, checkpoint_id=optimizer_path)
 
         if dataloader_state_path.exists():
-            self.train_dataloader.load_state_dict(torch.load(dataloader_state_path))
+            if hasattr(self.train_dataloader, "load_state_dict"):
+                self.train_dataloader.load_state_dict(  # type: ignore[union-attr]
+                    torch.load(dataloader_state_path)
+                )
+            else:
+                logger.warning(
+                    "Dataloader state checkpoint found but current dataloader does not "
+                    "support load_state_dict. Skipping dataloader state restoration."
+                )
         if trainer_state_path.exists():
             self.state = TrainingState.model_validate(
                 load_json(trainer_state_path), strict=True
@@ -700,8 +729,12 @@ class Trainer(BaseTrainer):
     #
     # Data loading
     #
-    def _get_train_dataloader(self) -> StatefulDataLoader:
-        """Returns the training dataloader."""
+    def _get_train_dataloader(self) -> DataLoader:
+        """Returns the training dataloader.
+
+        Returns a StatefulDataLoader when torchdata is available,
+        otherwise falls back to a regular DataLoader.
+        """
         # At this point, "auto" must be pre-resolved to `int`.
         assert isinstance(self.params.dataloader_num_workers, int)
         prefetch_factor = (
@@ -743,18 +776,30 @@ class Trainer(BaseTrainer):
         # Keeping track of the sampler so we can update after each epoch
         self._sampler = sampler
 
-        return StatefulDataLoader(
-            self.train_dataset,
-            batch_size=self.params.per_device_train_batch_size,
-            shuffle=shuffle,
-            sampler=self._sampler,
-            num_workers=self.params.dataloader_num_workers,
-            pin_memory=self.device_type == "cuda",
-            prefetch_factor=prefetch_factor,
-            pin_memory_device=self.device,
-            snapshot_every_n_steps=self.params.save_steps,
-            collate_fn=self.collator_fn,
-        )
+        dataloader_kwargs = {
+            "batch_size": self.params.per_device_train_batch_size,
+            "shuffle": shuffle,
+            "sampler": self._sampler,
+            "num_workers": self.params.dataloader_num_workers,
+            "pin_memory": self.device_type == "cuda",
+            "prefetch_factor": prefetch_factor,
+            "pin_memory_device": self.device,
+            "collate_fn": self.collator_fn,
+        }
+
+        if _TORCHDATA_AVAILABLE:
+            return StatefulDataLoader(  # type: ignore[call-arg]
+                self.train_dataset,
+                snapshot_every_n_steps=self.params.save_steps,
+                **dataloader_kwargs,
+            )
+        else:
+            logger.warning(
+                "torchdata is not installed. Using standard DataLoader. "
+                "Dataloader state checkpointing will not be available. "
+                "Install with: pip install 'oumi[torchdata]'"
+            )
+            return DataLoader(self.train_dataset, **dataloader_kwargs)
 
     def _get_eval_dataloader(self) -> DataLoader:
         """Returns the evaluation dataloader."""
@@ -814,7 +859,7 @@ class Trainer(BaseTrainer):
     # Handle callbacks
     #
     def _process_callbacks(
-        self, event: str, logs: Optional[dict[str, Any]] = None
+        self, event: str, logs: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         """Process callbacks.
 
@@ -829,3 +874,7 @@ class Trainer(BaseTrainer):
                 action(args=self.params, state=None, control=None, logs=logs)
 
         return logs
+
+    def get_last_eval_metrics(self) -> dict[str, Any]:
+        """TODO: This should be implemented in the future to enavle Oumi Trainer in the hyper parameters tuning."""  # noqa: E501
+        raise NotImplementedError

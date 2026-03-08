@@ -14,7 +14,6 @@
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 import requests
 import yaml
@@ -25,6 +24,7 @@ from oumi.cli.alias import AliasType, try_get_config_name_for_alias
 from oumi.core.configs import BaseConfig
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.params.judge_params import JudgeParams
+from oumi.core.configs.params.rule_judge_params import RuleJudgeParams
 
 JUDGE_CONFIG_REPO_PATH_TEMPLATE = "oumi://configs/projects/judges/{path}.yaml"
 
@@ -55,14 +55,17 @@ class JudgeConfig(BaseConfig):
     judge_params: JudgeParams
     """Parameters for the judge prompt and response format."""
 
-    inference_config: InferenceConfig
+    rule_judge_params: RuleJudgeParams | None = None
+    """Parameters for the rule-based deterministic judge."""
+
+    inference_config: InferenceConfig | None = None
     """Configuration for the inference engine and generation parameters."""
 
     @classmethod
-    def from_path(cls, path: str, extra_args: Optional[list[str]] = None) -> Self:
+    def from_path(cls, path: str, extra_args: list[str] | None = None) -> Self:
         """Resolve the JudgeConfig from a local or repo path."""
 
-        def _resolve_path(unresolved_path: str) -> Optional[str]:
+        def _resolve_path(unresolved_path: str) -> str | None:
             try:
                 # Attempt to resolve the path using CLI utilities.
                 # This will handle both local paths and repo (oumi://) paths.

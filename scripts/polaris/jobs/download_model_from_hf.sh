@@ -29,6 +29,6 @@ source ${PBS_O_WORKDIR}/scripts/polaris/polaris_init.sh
 
 set -x
 
-huggingface-cli download "${MODEL_REPO}"
+hf download "${MODEL_REPO}"
 
 echo "Polaris job is all done!"

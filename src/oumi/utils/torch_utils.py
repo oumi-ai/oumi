@@ -17,7 +17,7 @@ import math
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, NamedTuple, Optional, TypeVar, Union, cast
+from typing import Any, NamedTuple, TypeVar, cast
 
 import numpy as np
 import torch
@@ -61,7 +61,7 @@ def limit_per_process_memory(percent: float = 0.95) -> None:
         torch.cuda.set_per_process_memory_fraction(percent)
 
 
-def format_cudnn_version(v: Optional[int]) -> str:
+def format_cudnn_version(v: int | None) -> str:
     """Formats the cuDNN version number.
 
     Args:
@@ -93,7 +93,7 @@ def log_versioning_info() -> None:
     )
 
 
-def log_devices_info(filepath: Optional[Path] = None) -> None:
+def log_devices_info(filepath: Path | None = None) -> None:
     """Logs high-level info about all available accelerator devices."""
     if not torch.cuda.is_available():
         return
@@ -150,7 +150,7 @@ def create_model_summary(model: Any) -> str:
     return "\n".join(lines)
 
 
-def log_model_summary(model, filepath: Optional[Path] = None) -> None:
+def log_model_summary(model, filepath: Path | None = None) -> None:
     """Logs a model summary."""
     model_summary = create_model_summary(model)
     logger.info(model_summary)
@@ -314,7 +314,7 @@ def get_torch_dtype(torch_dtype_str: str) -> torch.dtype:
 
 
 def get_dtype_size_in_bytes(
-    dtype: Union[str, torch.dtype, type[np.generic]],
+    dtype: str | torch.dtype | type[np.generic],
 ) -> int:
     """Returns size of this dtype in bytes."""
     if isinstance(dtype, torch.dtype):
@@ -332,16 +332,16 @@ def get_dtype_size_in_bytes(
 
 
 def _estimate_item_size_in_bytes(item: Any) -> int:
-    if isinstance(item, (int, float)):
+    if isinstance(item, int | float):
         return 4
-    elif isinstance(item, (np.ndarray, torch.Tensor)):
+    elif isinstance(item, np.ndarray | torch.Tensor):
         num_elements = math.prod(item.shape)
         return num_elements * get_dtype_size_in_bytes(item.dtype)
     elif isinstance(item, list):
         return _estimate_sample_list_size_in_bytes(item)
     elif isinstance(item, str):
         return compute_utf8_len(item)
-    elif isinstance(item, (str, bytes)):
+    elif isinstance(item, str | bytes):
         return len(item)
 
     return 0
@@ -447,7 +447,7 @@ def pad_sequences_left_side(
 
 
 def pad_sequences(
-    sequences: list[T], *, padding_value: float = 0, padding_side: Optional[str] = None
+    sequences: list[T], *, padding_value: float = 0, padding_side: str | None = None
 ) -> torch.Tensor:
     """Pads a list of variable-length tensors to a single tensor.
 
@@ -615,7 +615,7 @@ def pad_to_max_dim_and_stack(
     *,
     max_variable_sized_dims: int = -1,
     padding_value: float = 0,
-    padding_side: Optional[str] = None,
+    padding_side: str | None = None,
 ) -> torch.Tensor:
     """Stacks variable-length tensors to a single tensor with dimension expansion.
 
@@ -694,7 +694,7 @@ def create_ones_like(
         return cast(T, [])
 
     first_item = values[0]
-    if isinstance(first_item, (int, float)):
+    if isinstance(first_item, int | float):
         result = list(np.ones_like(values))
     else:
         # Nested list
@@ -713,7 +713,7 @@ def create_ones_like(
 
 def get_first_dim_len(x: Any) -> int:
     """Returns length of the first dimension."""
-    if isinstance(x, (torch.Tensor, np.ndarray)):
+    if isinstance(x, torch.Tensor | np.ndarray):
         return int(x.shape[0])
     elif isinstance(x, list):
         return len(x)
@@ -726,7 +726,7 @@ def get_first_dim_len(x: Any) -> int:
 
 def get_shape_as_list(x: Any) -> list[int]:
     """Returns shape of an object (tensor or numpy array) as Python list."""
-    if isinstance(x, (torch.Tensor, np.ndarray)):
+    if isinstance(x, torch.Tensor | np.ndarray):
         return list(x.shape)
 
     raise ValueError(f"Unsupported type: {type(x)}. Must be numpy array, torch tensor.")

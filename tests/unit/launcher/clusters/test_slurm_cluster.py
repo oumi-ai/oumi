@@ -5,7 +5,7 @@ from unittest.mock import Mock, call, patch
 import pytest
 
 from oumi.core.configs import JobConfig, JobResources, StorageMount
-from oumi.core.launcher import JobStatus
+from oumi.core.launcher import JobState, JobStatus
 from oumi.launcher.clients.slurm_client import SlurmClient
 from oumi.launcher.clusters.slurm_cluster import SlurmCluster
 
@@ -171,6 +171,7 @@ def test_slurm_cluster_get_job_valid_id(mock_datetime, mock_slurm_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="job2",
@@ -179,6 +180,7 @@ def test_slurm_cluster_get_job_valid_id(mock_datetime, mock_slurm_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="final job",
@@ -187,6 +189,7 @@ def test_slurm_cluster_get_job_valid_id(mock_datetime, mock_slurm_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     job = cluster.get_job("myjob")
@@ -214,6 +217,7 @@ def test_slurm_cluster_get_job_invalid_id_nonempty(mock_datetime, mock_slurm_cli
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="job2",
@@ -222,6 +226,7 @@ def test_slurm_cluster_get_job_invalid_id_nonempty(mock_datetime, mock_slurm_cli
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="final job",
@@ -230,6 +235,7 @@ def test_slurm_cluster_get_job_invalid_id_nonempty(mock_datetime, mock_slurm_cli
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     job = cluster.get_job("wrong job")
@@ -247,6 +253,7 @@ def test_slurm_cluster_get_jobs_nonempty(mock_datetime, mock_slurm_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="job2",
@@ -255,6 +262,7 @@ def test_slurm_cluster_get_jobs_nonempty(mock_datetime, mock_slurm_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="final job",
@@ -263,6 +271,7 @@ def test_slurm_cluster_get_jobs_nonempty(mock_datetime, mock_slurm_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     jobs = cluster.get_jobs()
@@ -275,6 +284,7 @@ def test_slurm_cluster_get_jobs_nonempty(mock_datetime, mock_slurm_client):
             metadata="",
             cluster="debug@host",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="job2",
@@ -283,6 +293,7 @@ def test_slurm_cluster_get_jobs_nonempty(mock_datetime, mock_slurm_client):
             metadata="",
             cluster="debug@host",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="final job",
@@ -291,6 +302,7 @@ def test_slurm_cluster_get_jobs_nonempty(mock_datetime, mock_slurm_client):
             metadata="",
             cluster="debug@host",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     assert jobs == expected_jobs
@@ -315,6 +327,7 @@ def test_slurm_cluster_cancel_job(mock_datetime, mock_slurm_client):
             metadata="",
             cluster="debug@host",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="job2",
@@ -323,6 +336,7 @@ def test_slurm_cluster_cancel_job(mock_datetime, mock_slurm_client):
             metadata="",
             cluster="debug@host",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="final job",
@@ -331,6 +345,7 @@ def test_slurm_cluster_cancel_job(mock_datetime, mock_slurm_client):
             metadata="",
             cluster="debug@host",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     job_status = cluster.cancel_job("job2")
@@ -341,6 +356,7 @@ def test_slurm_cluster_cancel_job(mock_datetime, mock_slurm_client):
         metadata="",
         cluster="prod@host",
         done=False,
+        state=JobState.PENDING,
     )
     mock_slurm_client.cancel.assert_called_once_with(
         "job2",
@@ -358,6 +374,7 @@ def test_slurm_cluster_cancel_job_fails(mock_datetime, mock_slurm_client):
             metadata="",
             cluster="debug@host",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     with pytest.raises(RuntimeError):
@@ -378,6 +395,7 @@ def test_slurm_cluster_run_job(mock_datetime, mock_slurm_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         )
     ]
     expected_status = JobStatus(
@@ -387,6 +405,7 @@ def test_slurm_cluster_run_job(mock_datetime, mock_slurm_client):
         metadata="",
         cluster="debug@host",
         done=False,
+        state=JobState.PENDING,
     )
     job_status = cluster.run_job(_get_default_job("slurm"))
     mock_slurm_client.put_recursive.assert_has_calls(
@@ -422,7 +441,7 @@ def test_slurm_cluster_run_job(mock_datetime, mock_slurm_client):
         "~/oumi_launcher/20241009_130424513094/oumi_job.sh",
         "~/oumi_launcher/20241009_130424513094",
         2,
-        "myjob",
+        name="myjob",
     )
     mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
@@ -442,6 +461,7 @@ def test_slurm_cluster_run_job_no_working_dir(mock_datetime, mock_slurm_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         )
     ]
     expected_status = JobStatus(
@@ -451,6 +471,7 @@ def test_slurm_cluster_run_job_no_working_dir(mock_datetime, mock_slurm_client):
         metadata="",
         cluster="debug@host",
         done=False,
+        state=JobState.PENDING,
     )
     job_config = _get_default_job("slurm")
     job_config.working_dir = None
@@ -475,7 +496,7 @@ def test_slurm_cluster_run_job_no_working_dir(mock_datetime, mock_slurm_client):
         "~/oumi_launcher/20241009_130424513094/oumi_job.sh",
         "~/oumi_launcher/20241009_130424513094",
         2,
-        "myjob",
+        name="myjob",
     )
     mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
@@ -507,6 +528,7 @@ def test_slurm_cluster_run_job_with_polling_succeeds(
                 metadata="",
                 cluster="mycluster",
                 done=False,
+                state=JobState.PENDING,
             )
         ],
         [
@@ -517,6 +539,7 @@ def test_slurm_cluster_run_job_with_polling_succeeds(
                 metadata="",
                 cluster="mycluster",
                 done=False,
+                state=JobState.PENDING,
             )
         ],
     ]
@@ -527,6 +550,7 @@ def test_slurm_cluster_run_job_with_polling_succeeds(
         metadata="",
         cluster="debug@host",
         done=False,
+        state=JobState.PENDING,
     )
     job_status = cluster.run_job(_get_default_job("slurm"))
     mock_slurm_client.put_recursive.assert_has_calls(
@@ -562,7 +586,7 @@ def test_slurm_cluster_run_job_with_polling_succeeds(
         "~/oumi_launcher/20241009_130424513094/oumi_job.sh",
         "~/oumi_launcher/20241009_130424513094",
         2,
-        "myjob",
+        name="myjob",
     )
     mock_slurm_client.list_jobs.assert_has_calls([call(), call(), call()])
     mock_time.sleep.assert_has_calls([call(5), call(5)])
@@ -583,6 +607,7 @@ def test_slurm_cluster_run_job_no_name(mock_datetime, mock_slurm_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         )
     ]
     expected_status = JobStatus(
@@ -592,6 +617,7 @@ def test_slurm_cluster_run_job_no_name(mock_datetime, mock_slurm_client):
         metadata="",
         cluster="debug@host",
         done=False,
+        state=JobState.PENDING,
     )
     job = _get_default_job("slurm")
     job.name = None
@@ -633,7 +659,7 @@ def test_slurm_cluster_run_job_no_name(mock_datetime, mock_slurm_client):
         "~/oumi_launcher/20241009_130424513094/oumi_job.sh",
         "~/oumi_launcher/20241009_130424513094",
         2,
-        "1-2-3",
+        name="1-2-3",
     )
     mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
@@ -653,6 +679,7 @@ def test_slurm_cluster_run_job_no_mounts(mock_datetime, mock_slurm_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         )
     ]
     expected_status = JobStatus(
@@ -662,6 +689,7 @@ def test_slurm_cluster_run_job_no_mounts(mock_datetime, mock_slurm_client):
         metadata="",
         cluster="debug@host",
         done=False,
+        state=JobState.PENDING,
     )
     job = _get_default_job("slurm")
     job.file_mounts = {}
@@ -691,7 +719,7 @@ def test_slurm_cluster_run_job_no_mounts(mock_datetime, mock_slurm_client):
         "~/oumi_launcher/20241009_130424513094/oumi_job.sh",
         "~/oumi_launcher/20241009_130424513094",
         2,
-        "myjob",
+        name="myjob",
     )
     mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
@@ -711,6 +739,7 @@ def test_slurm_cluster_run_job_no_pbs(mock_datetime, mock_slurm_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         )
     ]
     expected_status = JobStatus(
@@ -720,6 +749,7 @@ def test_slurm_cluster_run_job_no_pbs(mock_datetime, mock_slurm_client):
         metadata="",
         cluster="debug@host",
         done=False,
+        state=JobState.PENDING,
     )
     job = _get_default_job("slurm")
     job.file_mounts = {}
@@ -747,7 +777,7 @@ def test_slurm_cluster_run_job_no_pbs(mock_datetime, mock_slurm_client):
         "~/oumi_launcher/20241009_130424513094/oumi_job.sh",
         "~/oumi_launcher/20241009_130424513094",
         2,
-        "myjob",
+        name="myjob",
     )
     mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
@@ -767,6 +797,7 @@ def test_slurm_cluster_run_job_no_setup(mock_datetime, mock_slurm_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         )
     ]
     expected_status = JobStatus(
@@ -776,6 +807,7 @@ def test_slurm_cluster_run_job_no_setup(mock_datetime, mock_slurm_client):
         metadata="",
         cluster="debug@host",
         done=False,
+        state=JobState.PENDING,
     )
     job = _get_default_job("slurm")
     job.file_mounts = {}
@@ -803,7 +835,7 @@ def test_slurm_cluster_run_job_no_setup(mock_datetime, mock_slurm_client):
         "~/oumi_launcher/20241009_130424513094/oumi_job.sh",
         "~/oumi_launcher/20241009_130424513094",
         2,
-        "myjob",
+        name="myjob",
     )
     mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
@@ -820,6 +852,7 @@ def test_slurm_cluster_run_job_fails(mock_time, mock_datetime, mock_slurm_client
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         )
     ]
     with pytest.raises(RuntimeError):

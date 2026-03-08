@@ -16,11 +16,12 @@ import copy
 import enum
 import os
 import shutil
+import subprocess
 import sys
 import time
 from subprocess import Popen
 from sys import stderr, stdout
-from typing import Any, Final, NamedTuple, Optional
+from typing import Any, Final, NamedTuple
 
 import typer
 
@@ -155,6 +156,31 @@ class _ProcessRunInfo:
 #
 # Comamnds
 #
+def _detect_backend() -> str:
+    """Detect the distributed backend from environment variables."""
+    if os.environ.get("SKYPILOT_NODE_RANK") is not None:
+        return "skypilot"
+    elif os.environ.get("PBS_NODEFILE") is not None:
+        return "polaris"
+    elif os.environ.get("SLURM_NODELIST") is not None:
+        return "slurm"
+    return "local"
+
+
+def _extract_target_command(args: list[str]) -> str | None:
+    """Extract the target oumi command from args.
+
+    For example, returns 'train' from '-m oumi train'.
+    Returns None if no target command is found.
+    """
+    for i, arg in enumerate(args):
+        if arg == "oumi" and i + 1 < len(args):
+            next_arg = args[i + 1]
+            if not next_arg.startswith("-"):
+                return next_arg
+    return None
+
+
 def torchrun(
     ctx: typer.Context,
     level: cli_utils.LOG_LEVEL_TYPE = None,
@@ -170,6 +196,16 @@ def torchrun(
     except (ValueError, RuntimeError):
         logger.exception("Failed to detect process run info!")
         raise
+
+    from oumi.telemetry import TelemetryManager
+
+    TelemetryManager.get_instance().tags(
+        num_nodes=run_info.num_nodes,
+        gpus_per_node=run_info.gpus_per_node,
+        total_gpus=run_info.total_gpus,
+        backend=_detect_backend(),
+        target_command=_extract_target_command(ctx.args),
+    )
 
     # In some environments (e.g., OLCF Frontier) the "torchrun" command isn't available.
     # In that case, use "python -m torch.distributed.run" instead,
@@ -227,8 +263,18 @@ def accelerate(
         logger.exception("Failed to detect process run info!")
         raise
 
+    from oumi.telemetry import TelemetryManager
+
+    TelemetryManager.get_instance().tags(
+        num_nodes=run_info.num_nodes,
+        gpus_per_node=run_info.gpus_per_node,
+        total_gpus=run_info.total_gpus,
+        backend=_detect_backend(),
+        target_command=_extract_target_command(ctx.args),
+    )
+
     try:
-        accelerate_subcommand: Optional[str] = None
+        accelerate_subcommand: str | None = None
         extra_args = copy.deepcopy(ctx.args)
         if (
             len(extra_args) > 0
@@ -298,6 +344,8 @@ def _detect_process_run_info(env: dict[str, str]) -> _ProcessRunInfo:
     # Will raise an exception if the detected process run info is not consistent.
     _verify_process_run_info(process_run_info, env)
 
+    logger.debug(f"Process run info: {process_run_info}")
+
     return process_run_info
 
 
@@ -328,11 +376,9 @@ def _run_subprocess(cmds: list[str], *, rank: int) -> None:
 
 
 def _verify_process_run_info(run_info: _ProcessRunInfo, env: dict[str, str]) -> None:
-    oumi_total_gpus: Optional[int] = _get_optional_int_env_var(
-        "OUMI_TOTAL_NUM_GPUS", env
-    )
-    oumi_num_nodes: Optional[int] = _get_optional_int_env_var("OUMI_NUM_NODES", env)
-    oumi_master_address: Optional[str] = env.get("OUMI_MASTER_ADDR", None)
+    oumi_total_gpus: int | None = _get_optional_int_env_var("OUMI_TOTAL_NUM_GPUS", env)
+    oumi_num_nodes: int | None = _get_optional_int_env_var("OUMI_NUM_NODES", env)
+    oumi_master_address: str | None = env.get("OUMI_MASTER_ADDR", None)
     if oumi_master_address is not None and len(oumi_master_address) == 0:
         raise ValueError("Empty master address in 'OUMI_MASTER_ADDR'!")
 
@@ -360,7 +406,7 @@ def _verify_process_run_info(run_info: _ProcessRunInfo, env: dict[str, str]) -> 
 #
 # Parse environment variables
 #
-def _detect_polaris_process_run_info(env: dict[str, str]) -> Optional[_ProcessRunInfo]:
+def _detect_polaris_process_run_info(env: dict[str, str]) -> _ProcessRunInfo | None:
     polaris_node_file = env.get("PBS_NODEFILE", None)
     if polaris_node_file is None:
         return None
@@ -392,11 +438,11 @@ def _detect_polaris_process_run_info(env: dict[str, str]) -> Optional[_ProcessRu
     )
 
 
-def _detect_slurm_process_run_info(env: dict[str, str]) -> Optional[_ProcessRunInfo]:
+def _detect_slurm_process_run_info(env: dict[str, str]) -> _ProcessRunInfo | None:
     import torch  # Importing torch takes time so only load it in this scenario.
 
-    nodes_str = env.get("SLURM_NODELIST", None)
-    if nodes_str is None:
+    slurm_nodes_str = env.get("SLURM_NODELIST", None)
+    if slurm_nodes_str is None:
         return None
     logger.debug("Running in Slurm environment!")
     for env_var_name in _SLURM_ENV_VARS:
@@ -404,27 +450,43 @@ def _detect_slurm_process_run_info(env: dict[str, str]) -> Optional[_ProcessRunI
             raise ValueError(
                 f"Slurm environment variable '{env_var_name}' is not defined!"
             )
-    if not nodes_str:
+    if not slurm_nodes_str:
         raise ValueError("Empty value in the 'SLURM_NODELIST' environment variable!")
+    # Parse slurm nodelist string (ex. "nid[001240-001241]") into a newline-separated
+    # list of node IPs.
+    nodes_str = subprocess.run(
+        ["scontrol", "show", "hostnames", slurm_nodes_str],
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=5,
+    ).stdout
     node_ips = _parse_nodes_str(nodes_str)
     if len(node_ips) == 0:
-        raise RuntimeError("Empty list of nodes in 'PBS_NODEFILE'!")
+        raise RuntimeError("Empty list of nodes in 'SLURM_NODELIST'!")
     gpus_per_node = torch.cuda.device_count()
-    node_rank = _get_optional_int_env_var("PMI_RANK", env)
-    if node_rank is None:
+
+    node_rank = _get_optional_int_env_var("SLURM_NODEID", env)
+    # If running on a single node, default to 0.
+    if node_rank is None and len(node_ips) == 1:
         node_rank = 0
+    if node_rank is None:
+        raise ValueError(
+            "Unable to determine node rank on a multi-node setup. "
+            "'SLURM_NODEID' is not set."
+        )
 
     return _ProcessRunInfo(
         node_rank=node_rank,
         world_info=_WorldInfo(num_nodes=len(node_ips), gpus_per_node=gpus_per_node),
         master_address=node_ips[0],
-        master_port=_DEFAULT_MASTER_PORT,
+        master_port=int(env.get(_MASTER_PORT_ENV, _DEFAULT_MASTER_PORT)),
         node_ips=node_ips,
     )
 
 
-def _detect_skypilot_process_run_info(env: dict[str, str]) -> Optional[_ProcessRunInfo]:
-    node_rank: Optional[int] = _get_optional_int_env_var("SKYPILOT_NODE_RANK", env)
+def _detect_skypilot_process_run_info(env: dict[str, str]) -> _ProcessRunInfo | None:
+    node_rank: int | None = _get_optional_int_env_var("SKYPILOT_NODE_RANK", env)
     if node_rank is None:
         return None
 
@@ -443,7 +505,7 @@ def _detect_skypilot_process_run_info(env: dict[str, str]) -> Optional[_ProcessR
         node_rank=node_rank,
         world_info=_WorldInfo(num_nodes=len(node_ips), gpus_per_node=gpus_per_node),
         master_address=node_ips[0],
-        master_port=_DEFAULT_MASTER_PORT,
+        master_port=int(env.get(_MASTER_PORT_ENV, _DEFAULT_MASTER_PORT)),
         node_ips=node_ips,
     )
 
@@ -481,7 +543,7 @@ def _detect_local_machine_process_run_info(env: dict[str, str]) -> _ProcessRunIn
 #
 # Private helper functions to parse environment variables
 #
-def _get_optional_int_env_var(var_name: str, env: dict[str, str]) -> Optional[int]:
+def _get_optional_int_env_var(var_name: str, env: dict[str, str]) -> int | None:
     str_value = env.get(var_name, None)
     if str_value is None:
         return None

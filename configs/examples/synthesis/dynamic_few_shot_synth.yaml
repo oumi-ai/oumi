@@ -1,0 +1,127 @@
+# Dynamic Few-Shot Sampling Example
+# Demonstrates the new dynamic few-shot sampling feature for synthesis.
+# This example shows how to randomly sample N examples from a dataset for each synthesis sample.
+#
+# Requirements:
+#   - Set your anthropic api key in the environment variable ANTHROPIC_API_KEY
+#   - example: `export ANTHROPIC_API_KEY=your_api_key`
+#   - Alternatively, change the model in the inference_config section to your desired model
+#
+# Usage:
+#   oumi synth -c oumi://configs/examples/synthesis/dynamic_few_shot_synth.yaml
+#
+# Key Feature: Dynamic Few-Shot Sampling
+#   - Use `num_shots > 1` to enable dynamic sampling mode
+#   - Each synthesis sample randomly selects N items from the source
+#   - Reference items using bracket notation: {source_id[0].field}
+#   - Works with input_examples, input_data, and input_documents
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/synth.html
+#   - Config class: oumi.core.configs.SynthesisConfig
+
+strategy: GENERAL
+num_samples: 10
+output_path: dynamic_few_shot_dataset.jsonl
+
+strategy_params:
+  # Example 1: Dynamic sampling from inline examples
+  # With num_shots=3, randomly sample 3 examples for each synthesis sample
+  input_examples:
+    - id: few_shot_examples
+      num_shots: 3  # Randomly sample 3 examples per synthesis sample
+      examples:
+        - task_type: "summarization"
+          example_input: "The quick brown fox jumps over the lazy dog. This sentence contains every letter of the English alphabet."
+        - task_type: "translation (Spanish to English)"
+          example_input: "Hola, ¿cómo estás hoy?"
+        - task_type: "question_answering"
+          example_input: "What is the capital of France?"
+        - task_type: "sentiment_analysis"
+          example_input: "This movie was absolutely fantastic! I loved every minute of it."
+        - task_type: "extraction"
+          example_input: "John Smith lives at 123 Main St, New York, NY 10001."
+        - task_type: "rewriting"
+          example_input: "The cat sat on the mat."
+
+  # Example 2: Dynamic sampling from a dataset file (commented out - requires actual file)
+  # input_data:
+  #   - path: "data/knowledge_base.jsonl"
+  #     id: background_knowledge
+  #     num_shots: 2  # Sample 2 knowledge items per synthesis sample
+  #     attribute_map:
+  #       fact: "knowledge_fact"
+  #       source: "knowledge_source"
+
+  # Generate diverse task instructions using the randomly sampled few-shot examples
+  generated_attributes:
+    - id: instruction
+      instruction_messages:
+        - role: USER
+          content: |
+            You are a helpful AI assistant that creates diverse training tasks.
+
+            Here are some example tasks to guide you:
+
+            Example 1:
+            Task Type: {few_shot_examples[0].task_type}
+            Input: {few_shot_examples[0].example_input}
+
+            Example 2:
+            Task Type: {few_shot_examples[1].task_type}
+            Input: {few_shot_examples[1].example_input}
+
+            Example 3:
+            Task Type: {few_shot_examples[2].task_type}
+            Input: {few_shot_examples[2].example_input}
+
+            Now, create a NEW and DIFFERENT task that demonstrates one of these task types.
+            The task should be creative and distinct from the examples above.
+
+            Provide your response in this format:
+            Task Type: [type]
+            Input: [input text]
+
+    - id: response
+      instruction_messages:
+        - role: USER
+          content: |
+            {instruction}
+
+  # Transform the generated response into a structured format
+  transformed_attributes:
+    - id: conversation
+      transformation_strategy:
+        type: CHAT
+        chat_transform:
+          messages:
+            - role: USER
+              content: "{instruction}"
+            - role: ASSISTANT
+              content: "{response}"
+
+  # Keep only specific attributes in the output
+  # Supports both simple keys and bracket notation for extracting nested fields:
+  # - Simple: "conversation" passes through the entire conversation object
+  # - Bracket notation: "few_shot_examples[0].example_input" extracts specific fields
+  #   from dynamically sampled items for inspection and debugging
+  passthrough_attributes:
+    - conversation
+    - few_shot_examples[0].task_type
+    - few_shot_examples[0].example_input
+    - few_shot_examples[1].task_type
+    - few_shot_examples[1].example_input
+    - few_shot_examples[2].task_type
+    - few_shot_examples[2].example_input
+
+# Inference configuration
+inference_config:
+  model:
+    model_name: claude-sonnet-4-20250514
+  engine: ANTHROPIC
+  generation:
+    max_new_tokens: 1024
+    temperature: 0.9
+  remote_params:
+    num_workers: 50
+    politeness_policy: 60

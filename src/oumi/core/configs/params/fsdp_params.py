@@ -14,7 +14,6 @@
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
 
 import torch.distributed.fsdp as torch_fsdp
 
@@ -119,7 +118,7 @@ class BackwardPrefetch(str, Enum):
     NO_PREFETCH = "NO_PREFETCH"
     """Disables backward prefetching altogether."""
 
-    def to_torch(self) -> Optional[torch_fsdp.BackwardPrefetch]:
+    def to_torch(self) -> torch_fsdp.BackwardPrefetch | None:
         """Convert the enum to the corresponding torch_fsdp.BackwardPrefetch."""
         map = {
             BackwardPrefetch.BACKWARD_PRE: torch_fsdp.BackwardPrefetch.BACKWARD_PRE,
@@ -181,7 +180,7 @@ class FSDPParams(BaseParams):
     cpu_offload: bool = False
     """If True, offloads parameters and gradients to CPU when not in use."""
 
-    mixed_precision: Optional[str] = None
+    mixed_precision: str | None = None
     """Enables mixed precision training.
 
     Options: None, "fp16", "bf16".
@@ -207,7 +206,7 @@ class FSDPParams(BaseParams):
     forward_prefetch: bool = False
     """If True, prefetches the forward pass results."""
 
-    use_orig_params: Optional[bool] = None
+    use_orig_params: bool | None = None
     """If True, uses the PyTorch Module's original parameters for FSDP.
 
     For more information, see: https://pytorch.org/docs/stable/fsdp.html.
@@ -226,7 +225,7 @@ class FSDPParams(BaseParams):
     transformer_based policy.
     """
 
-    transformer_layer_cls: Optional[str] = None
+    transformer_layer_cls: str | None = None
     """Class name for transformer layers when using transformer_based policy.
 
     This has no effect when using size_based policy.

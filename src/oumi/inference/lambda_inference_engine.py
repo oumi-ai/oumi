@@ -14,11 +14,10 @@
 
 """Lambda AI inference engine implementation."""
 
-from typing import Optional
-
 from typing_extensions import override
 
-from oumi.core.configs import RemoteParams
+from oumi.core.configs import InferenceConfig, RemoteParams
+from oumi.core.types.conversation import Conversation
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 
 
@@ -33,13 +32,13 @@ class LambdaInferenceEngine(RemoteInferenceEngine):
 
     @property
     @override
-    def base_url(self) -> Optional[str]:
+    def base_url(self) -> str | None:
         """Return the default base URL for the Lambda AI API."""
         return "https://api.lambda.ai/v1/chat/completions"
 
     @property
     @override
-    def api_key_env_varname(self) -> Optional[str]:
+    def api_key_env_varname(self) -> str | None:
         """Return the default environment variable name for the Lambda AI API key."""
         return "LAMBDA_API_KEY"
 
@@ -47,3 +46,15 @@ class LambdaInferenceEngine(RemoteInferenceEngine):
     def _default_remote_params(self) -> RemoteParams:
         """Returns the default remote parameters."""
         return RemoteParams(num_workers=20, politeness_policy=60.0)
+
+    @override
+    def infer_batch(
+        self,
+        _conversations: list[Conversation],
+        _inference_config: InferenceConfig | None = None,
+    ) -> str:
+        """Batch inference is not supported for Lambda API."""
+        raise NotImplementedError(
+            "Batch inference is not supported for Lambda API. "
+            "Please open an issue on GitHub if you'd like this feature."
+        )

@@ -70,6 +70,13 @@ Examples:
         >>> config = JudgeConfig(...)
         >>> judge_dataset(config, dataset)
 
+    Tune a model::
+
+        >>> from oumi import tune
+        >>> from oumi.core.configs import TuningConfig
+        >>> config = TuningConfig(...)
+        >>> tune(config)
+
 See Also:
     - :mod:`oumi.core.configs`: For configuration classes used in Oumi
 """
@@ -81,6 +88,8 @@ from typing import TYPE_CHECKING, Any
 from oumi.utils import logging
 
 if TYPE_CHECKING:
+    from rich.console import Console
+
     from oumi.core.configs import (
         AsyncEvaluationConfig,
         EvaluationConfig,
@@ -89,6 +98,7 @@ if TYPE_CHECKING:
         QuantizationConfig,
         SynthesisConfig,
         TrainingConfig,
+        TuningConfig,
     )
     from oumi.core.inference import BaseInferenceEngine
     from oumi.core.types.conversation import Conversation
@@ -138,12 +148,25 @@ def infer_interactive(
     *,
     input_image_bytes: list[bytes] | None = None,
     system_prompt: str | None = None,
+    console: Console | None = None,
 ) -> None:
-    """Interactively provide the model response for a user-provided input."""
+    """Interactively provide the model response for a user-provided input.
+
+    Args:
+        config: The configuration to use for inference.
+        input_image_bytes: A list of input PNG image bytes to be used with
+            `image+text` VLMs.
+        system_prompt: System prompt for task-specific instructions.
+        console: Optional Rich Console instance for displaying a loading spinner.
+            If provided, a spinner will be shown while generating responses.
+    """
     import oumi.infer
 
     return oumi.infer.infer_interactive(
-        config, input_image_bytes=input_image_bytes, system_prompt=system_prompt
+        config,
+        input_image_bytes=input_image_bytes,
+        system_prompt=system_prompt,
+        console=console,
     )
 
 
@@ -239,7 +262,8 @@ def train(
     config: TrainingConfig,
     additional_model_kwargs: dict[str, Any] | None = None,
     additional_trainer_kwargs: dict[str, Any] | None = None,
-) -> None:
+    verbose: bool = False,
+) -> dict[str, Any] | None:
     """Trains a model using the provided configuration."""
     import oumi.train
 
@@ -247,6 +271,7 @@ def train(
         config,
         additional_model_kwargs=additional_model_kwargs,
         additional_trainer_kwargs=additional_trainer_kwargs,
+        verbose=verbose,
     )
 
 
@@ -274,6 +299,13 @@ def quantize(config: QuantizationConfig) -> QuantizationResult:
     return oumi.quantize.quantize(config)
 
 
+def tune(config: TuningConfig) -> None:
+    """Tunes hyperparameters for a model using the provided configuration."""
+    import oumi.tune
+
+    return oumi.tune.tune(config)
+
+
 __all__ = [
     "evaluate_async",
     "evaluate",
@@ -282,4 +314,5 @@ __all__ = [
     "quantize",
     "synthesize",
     "train",
+    "tune",
 ]

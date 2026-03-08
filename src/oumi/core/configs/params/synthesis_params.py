@@ -12,16 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Synthesis parameters for data generation."""
+
+import math
 import re
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.types.conversation import Conversation, Message, Role
 
-_SUPPORTED_DATASET_FILE_TYPES = {".jsonl", ".json", ".csv", ".parquet", ".tsv"}
+_SUPPORTED_DATASET_FILE_TYPES = {".jsonl", ".json", ".csv", ".parquet", ".tsv", ".xlsx"}
 
 
 @dataclass
@@ -42,7 +45,7 @@ class TextConversation:
 
     messages: list[TextMessage]
 
-    conversation_id: Optional[str] = None
+    conversation_id: str | None = None
 
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -57,20 +60,32 @@ class TextConversation:
 
 @dataclass
 class DatasetSource:
-    """Dataset to be used in synthesis."""
+    """Load data from files or HuggingFace (hf:org/dataset).
+
+    Supported file types: .jsonl, .csv, .parquet, .tsv, .xlsx
+
+    Modes same as ExampleSource:
+      - num_shots=None/1: Round-robin, reference as {field}
+      - num_shots>1: Random N-shot, reference as {id[i].field}
+    """
 
     path: str
-    """Path to the dataset source."""
+    """Path to dataset file or hf:org/dataset."""
 
-    hf_split: Optional[str] = None
-    """Split of the huggingface dataset to be used in synthesis."""
+    hf_split: str | None = None
+    """HuggingFace dataset split."""
 
-    hf_revision: Optional[str] = None
-    """Revision of the huggingface dataset to be used in synthesis."""
+    hf_revision: str | None = None
+    """HuggingFace dataset revision."""
 
-    attribute_map: Optional[dict[str, str]] = None
-    """Map of attributes to be used in synthesis.
-    Will use the existing keys in the dataset if not specified."""
+    attribute_map: dict[str, str] | None = None
+    """Rename columns: {"old_name": "new_name"}."""
+
+    id: str | None = None
+    """Required when num_shots > 1."""
+
+    num_shots: int | None = None
+    """None/1: round-robin. >1: random N-shot."""
 
     def __post_init__(self):
         """Verifies/populates params."""
@@ -79,13 +94,21 @@ class DatasetSource:
 
         file_path = Path(self.path)
         prefix = self.path.split(":")[0]
-        if prefix == "hf":
+        if prefix == "hf" or prefix == "oumi":
             return
         if file_path.suffix.lower() not in _SUPPORTED_DATASET_FILE_TYPES:
             raise ValueError(
                 f"Unsupported dataset file type: {self.path}\n"
                 f"Supported file types: {_SUPPORTED_DATASET_FILE_TYPES}"
             )
+
+        # Validate dynamic sampling configuration
+        if self.num_shots is not None and self.num_shots > 1:
+            if not self.id:
+                raise ValueError(
+                    "DatasetSource.id must be set when num_shots > 1 "
+                    "for dynamic sampling."
+                )
 
 
 class SegmentationStrategy(str, Enum):
@@ -138,16 +161,27 @@ class DocumentSegmentationParams:
 
 @dataclass
 class DocumentSource:
-    """Documents to be used in synthesis."""
+    """Documents for synthesis.
+
+    Modes:
+      - num_shots=None/1: Round-robin, reference as {id}
+      - num_shots>1: Random N-shot, reference as {id[i]}
+
+    Example (dynamic): id="context", num_shots=2 → {context[0]}, {context[1]}
+    Supports file/directory paths. Use segmentation_params to chunk documents.
+    """
 
     path: str
-    """Path to the document source."""
+    """Path to document source (file or directory)."""
 
     id: str
-    """ID to be used when referencing the document during synthesis."""
+    """ID for referencing in templates. Required."""
 
-    segmentation_params: Optional[DocumentSegmentationParams] = None
-    """Segmentation parameters to be used when segmenting the document."""
+    segmentation_params: DocumentSegmentationParams | None = None
+    """Segmentation config. None = use whole document."""
+
+    num_shots: int | None = None
+    """None/1: round-robin. >1: random N-shot."""
 
     def __post_init__(self):
         """Verifies/populates params."""
@@ -159,10 +193,23 @@ class DocumentSource:
 
 @dataclass
 class ExampleSource:
-    """In-line examples to be used in synthesis."""
+    """Inline examples for synthesis.
+
+    Modes:
+      - num_shots=None/1: Round-robin, reference as {field}
+      - num_shots>1: Random N-shot, reference as {id[i].field}
+
+    Example (dynamic): id="examples", num_shots=2 → {examples[0].field}
+    """
 
     examples: list[dict[str, Any]]
-    """Examples to be used in synthesis."""
+    """List of example dicts. All must have same keys."""
+
+    id: str | None = None
+    """Required when num_shots > 1 for dynamic sampling."""
+
+    num_shots: int | None = None
+    """None/1: round-robin. >1: random N-shot sampling."""
 
     def __post_init__(self):
         """Verifies/populates params."""
@@ -174,57 +221,65 @@ class ExampleSource:
             if example.keys() != keys:
                 raise ValueError("All examples must have the same keys.")
 
+        # Validate dynamic sampling configuration
+        if self.num_shots is not None and self.num_shots > 1:
+            if not self.id:
+                raise ValueError(
+                    "ExampleSource.id must be set when num_shots > 1 "
+                    "for dynamic sampling."
+                )
+
 
 @dataclass
-class PermutableAttributeValue:
-    """Value to be used for the attribute."""
+class SampledAttributeValue:
+    """Value to be sampled for the attribute."""
 
     id: str
     """ID to be used when referencing the attribute value during synthesis."""
 
-    value: str
-    """Value to be used for the attribute.
-    Referenced as {attribute_id.value}"""
+    name: str
+    """Plaintext name of the attribute value.
+    Referenced as {attribute_id}"""
 
     description: str
     """Description of the attribute value.
-    Referenced as {attribute_id.value.description}"""
+    Referenced as {attribute_id.description}"""
 
-    sample_rate: Optional[float] = None
+    sample_rate: float | None = None
     """Sample rate for the attribute value. If not specified, will assume uniform
     sampling among possible values."""
 
     def __post_init__(self):
         """Verifies/populates params."""
         if not self.id:
-            raise ValueError("PermutableAttributeValue.id cannot be empty.")
-        if not self.value:
-            raise ValueError("PermutableAttributeValue.value cannot be empty.")
+            raise ValueError("SampledAttributeValue.id cannot be empty.")
+        if not self.name:
+            raise ValueError("SampledAttributeValue.name cannot be empty.")
         if not self.description:
-            raise ValueError("PermutableAttributeValue.description cannot be empty.")
+            raise ValueError("SampledAttributeValue.description cannot be empty.")
         if self.sample_rate is not None and (
             self.sample_rate < 0 or self.sample_rate > 1
         ):
             raise ValueError(
-                "PermutableAttributeValue.sample_rate must be between 0 and 1."
+                "SampledAttributeValue.sample_rate must be between 0 and 1."
             )
 
 
 @dataclass
-class PermutableAttribute:
-    """Attributes to be varied across the dataset."""
+class SampledAttribute:
+    """Attributes to be sampled across the dataset."""
 
     id: str
     """ID to be used when referencing the attribute during synthesis."""
 
-    attribute: str
-    """Plaintext name of the attribute. Referenced as {attribute_id}"""
+    name: str
+    """Plaintext name of the attribute. Referenced as {id.parent}"""
 
     description: str
-    """Description of the attribute. Referenced as {attribute_id.description}"""
+    """Description of the attribute. Referenced as {id.parent.description}"""
 
-    possible_values: list[PermutableAttributeValue]
-    """Type of the attribute."""
+    possible_values: list[SampledAttributeValue]
+    """Values to be sampled for the attribute."""
 
     def get_value_distribution(self) -> dict[str, float]:
         """Get the distribution of attribute values."""
@@ -236,13 +291,13 @@ class PermutableAttribute:
     def __post_init__(self):
         """Verifies/populates params."""
         if not self.id:
-            raise ValueError("PermutableAttribute.id cannot be empty.")
-        if not self.attribute:
-            raise ValueError("PermutableAttribute.attribute cannot be empty.")
+            raise ValueError("SampledAttribute.id cannot be empty.")
+        if not self.name:
+            raise ValueError("SampledAttribute.name cannot be empty.")
         if not self.description:
-            raise ValueError("PermutableAttribute.description cannot be empty.")
+            raise ValueError("SampledAttribute.description cannot be empty.")
         if not self.possible_values:
-            raise ValueError("PermutableAttribute.possible_values cannot be empty.")
+            raise ValueError("SampledAttribute.possible_values cannot be empty.")
 
         value_ids = []
         sample_rates = []
@@ -252,25 +307,26 @@ class PermutableAttribute:
 
         value_ids_set = set(value_ids)
         if len(value_ids) != len(value_ids_set):
-            raise ValueError(
-                "PermutableAttribute.possible_values must have unique IDs."
-            )
+            raise ValueError("SampledAttribute.possible_values must have unique IDs.")
 
         # Normalize sample rates
         normalized_sample_rates = []
         undefined_sample_rate_count = 0
         defined_sample_rate = 0.0
+
         for sample_rate in sample_rates:
             if sample_rate is not None:
                 defined_sample_rate += sample_rate
             else:
                 undefined_sample_rate_count += 1
 
-            if defined_sample_rate > 1.0:
-                raise ValueError("PermutableAttribute.possible_values must sum to 1.0.")
+        if defined_sample_rate > 1.0 and not math.isclose(defined_sample_rate, 1.0):
+            raise ValueError(
+                "SampledAttribute.possible_values must sum to at most 1.0."
+            )
 
         # Assign remaining sample rate to undefined sample rates
-        remaining_sample_rate = 1.0 - defined_sample_rate
+        remaining_sample_rate = max(0.0, 1.0 - defined_sample_rate)
         for sample_rate in sample_rates:
             if sample_rate is None:
                 normalized_sample_rates.append(
@@ -331,22 +387,22 @@ class GeneratedAttributePostprocessingParams:
     If True, the original text will be returned as an attribute.
     If False, the original text will be discarded."""
 
-    cut_prefix: Optional[str] = None
+    cut_prefix: str | None = None
     """Cut off value before and including prefix."""
 
-    cut_suffix: Optional[str] = None
+    cut_suffix: str | None = None
     """Cut off value after and including suffix."""
 
-    regex: Optional[str] = None
+    regex: str | None = None
     """Regex to be used to pull out the value from the generated text."""
 
     strip_whitespace: bool = True
     """Whether to strip whitespace from the value."""
 
-    added_prefix: Optional[str] = None
+    added_prefix: str | None = None
     """Prefix to be added to the value."""
 
-    added_suffix: Optional[str] = None
+    added_suffix: str | None = None
     """Suffix to be added to the value."""
 
     def __post_init__(self):
@@ -375,7 +431,7 @@ class GeneratedAttribute:
     instruction_messages: list[TextMessage]
     """List of messages providing instructions for generating this attribute."""
 
-    postprocessing_params: Optional[GeneratedAttributePostprocessingParams] = None
+    postprocessing_params: GeneratedAttributePostprocessingParams | None = None
     """Postprocessing parameters for the generated attribute."""
 
     def __post_init__(self):
@@ -390,6 +446,101 @@ class GeneratedAttribute:
                     "GeneratedAttribute.id and "
                     "GeneratedAttributePostprocessingParams.id "
                     "cannot be the same."
+                )
+
+
+@dataclass
+class MultiTurnAttribute:
+    """Attributes that enable multi-turn interactions."""
+
+    id: str
+    """Unique identifier for the attribute."""
+
+    min_turns: int
+    """Minimum number of turns (messages) required for the attribute."""
+
+    max_turns: int
+    """Maximum number of turns (messages) allowed for the attribute."""
+
+    role_instruction_messages: dict[Role, str]
+    """Per-role instruction template for generating a turn."""
+
+    output_system_prompt: str | None = None
+    """System prompt prepended to the final output conversation."""
+
+    conversation_planner: str | None = None
+    """Optional planner for generating a conversation plan before turn generation.
+
+    Allows user to specify custom instructions for the planner while planning
+    out the conversation."""
+
+    def __post_init__(self):
+        """Verifies/populates params."""
+        if not self.id:
+            raise ValueError("MultiTurnAttribute.id cannot be empty.")
+        if self.role_instruction_messages:
+            normalized_role_messages: dict[Role, str] = {}
+            for role_key, persona in self.role_instruction_messages.items():
+                if isinstance(role_key, Role):
+                    normalized_role = role_key
+                elif isinstance(role_key, str):
+                    try:
+                        normalized_role = Role[role_key.upper()]
+                    except KeyError:
+                        try:
+                            normalized_role = Role(role_key)
+                        except ValueError as exc:
+                            raise ValueError(
+                                "MultiTurnAttribute.role_instruction_messages contains "
+                                f"unknown role: {role_key}"
+                            ) from exc
+                else:
+                    raise ValueError(
+                        "MultiTurnAttribute.role_instruction_messages keys must be "
+                        "Role or str values."
+                    )
+
+                if not isinstance(persona, str):
+                    raise ValueError(
+                        "MultiTurnAttribute.role_instruction_messages values must "
+                        "be strings."
+                    )
+
+                normalized_role_messages[normalized_role] = persona
+
+            self.role_instruction_messages = normalized_role_messages
+        if self.min_turns < 1:
+            raise ValueError("MultiTurnAttribute.min_turns must be at least 1.")
+        if self.max_turns is not None and self.max_turns < self.min_turns:
+            raise ValueError(
+                "MultiTurnAttribute.max_turns must be greater than or equal to "
+                "min_turns."
+            )
+        if not self.role_instruction_messages:
+            raise ValueError(
+                "MultiTurnAttribute.role_instruction_messages cannot be empty."
+            )
+
+        required_roles = [Role.USER, Role.ASSISTANT]
+        for role in required_roles:
+            if role not in self.role_instruction_messages:
+                raise ValueError(
+                    "MultiTurnAttribute.role_instruction_messages must define "
+                    f"instructions for role: {role}"
+                )
+            if not self.role_instruction_messages[role]:
+                raise ValueError(
+                    "MultiTurnAttribute.role_instruction_messages must include "
+                    f"a non-empty persona for role: {role}"
+                )
+        if self.output_system_prompt is not None:
+            if (
+                not isinstance(self.output_system_prompt, str)
+                or not self.output_system_prompt
+            ):
+                raise ValueError(
+                    "MultiTurnAttribute.output_system_prompt must be a non-empty "
+                    "string."
                 )
 
 
@@ -410,19 +561,19 @@ class TransformationStrategy:
     """The type of transformation strategy."""
 
     # For string transformations
-    string_transform: Optional[str] = None
+    string_transform: str | None = None
     """String transformation template (used when type=STRING)."""
 
     # For list transformations
-    list_transform: Optional[list[str]] = None
+    list_transform: list[str] | None = None
     """List of transforms for each element (used when type=LIST)."""
 
     # For dict transformations
-    dict_transform: Optional[dict[str, str]] = None
+    dict_transform: dict[str, str] | None = None
     """Mapping of dictionary keys to their transforms (used when type=DICT)."""
 
     # For chat transformations
-    chat_transform: Optional[TextConversation] = None
+    chat_transform: TextConversation | None = None
     """Chat transform for chat messages (used when type=CHAT)."""
 
     def __post_init__(self):
@@ -497,27 +648,45 @@ class TransformedAttribute:
 
 @dataclass
 class GeneralSynthesisParams(BaseParams):
-    """General synthesis parameters."""
+    """General synthesis parameters.
 
-    input_data: Optional[list[DatasetSource]] = None
+    Template Placeholders for Attribute References:
+        In instruction messages and transformation templates, you can reference
+        attributes using the following syntax:
+
+        Simple field access:
+            {field} - Value from a dataset, document, or example source
+
+        Sampled attributes (from sampled_attributes):
+            {attr_id} or {attr_id.name} - Sampled attribute value name
+            {attr_id.description} - Sampled attribute value description
+            {attr_id.parent} or {attr_id.parent.name} - Sampled attribute name
+            {attr_id.parent.description} - Sampled attribute description
+
+        Dynamic sampling (when num_shots > 1):
+            {source_id[0].field} - Access specific item from dynamically sampled
+                                   source (dataset, document, or example)
+    """
+
+    input_data: list[DatasetSource] | None = None
     """Datasets whose rows and columns will be used in synthesis.
 
     Rows will be enumerated during sampling, and columns can be referenced as attributes
     when generating new attributes."""
 
-    input_documents: Optional[list[DocumentSource]] = None
+    input_documents: list[DocumentSource] | None = None
     """Documents to be used in synthesis.
 
     Documents will be enumerated during sampling, and both documents and document
     segments can be referenced as attributes when generating new attributes."""
 
-    input_examples: Optional[list[ExampleSource]] = None
+    input_examples: list[ExampleSource] | None = None
     """In-line examples to be used in synthesis.
 
     Examples will be enumerated during sampling, and attributes can be referenced as
     attributes when generating new attributes."""
 
-    permutable_attributes: Optional[list[PermutableAttribute]] = None
+    sampled_attributes: list[SampledAttribute] | None = None
     """Attributes to be varied across the dataset.
 
     Attributes each have a set of possible values which will be randomly sampled
@@ -531,14 +700,14 @@ class GeneralSynthesisParams(BaseParams):
     be sampled 20% of the time. If the last two attributes have no sample rate, they
     will be sampled 25% of the time each as (1.0 - 0.5) / 2 = 0.25."""
 
-    combination_sampling: Optional[list[AttributeCombination]] = None
+    combination_sampling: list[AttributeCombination] | None = None
     """Sampling rates for combinations of attributes.
 
     Each combination is a dictionary of attribute IDs to their values. The sample rate
     is the probability of sampling this combination. The sample rate of all combinations
     must sum to <= 1.0."""
 
-    generated_attributes: Optional[list[GeneratedAttribute]] = None
+    generated_attributes: list[GeneratedAttribute] | None = None
     """Attributes to be generated.
 
     Generated attributes are created by running a chat with the model. The chat is
@@ -565,7 +734,43 @@ class GeneralSynthesisParams(BaseParams):
     The model's response to these messages will be the value of the "name" attribute
     for that data point."""
 
-    transformed_attributes: Optional[list[TransformedAttribute]] = None
+    multiturn_attributes: list[MultiTurnAttribute] | None = None
+    """Multi-turn conversations to be generated.
+
+    Unlike generated_attributes which produce scalar values and process all samples
+    per attribute (batch-first), multiturn_attributes generate variable-length
+    conversations and process each sample completely before moving to the next
+    (sample-first). This enables natural conversation flow with proper context
+    threading.
+
+    Multi-turn attributes can reference any previously defined attributes
+    (sampled, generated, or from input sources) using {placeholder} syntax
+    in their persona prompts.
+
+    For example, if you have a sampled attribute "customer_type" and a generated
+    attribute "issue", you can define a multiturn_attribute with personas
+    that reference them::
+
+        user_persona:
+            role: USER
+            system_prompt: "You are a {customer_type} customer. Your issue: {issue}."
+
+        assistant_persona:
+            role: ASSISTANT
+            system_prompt: "You are a helpful support agent."
+
+    The conversation length is controlled by min_turns and max_turns. The output
+    is a list of message dictionaries:
+        [
+            {"role": "user", "content": "I need help with my order."},
+            {"role": "assistant",
+            "content": "I'd be happy to help. What's your order number?"},
+            {"role": "user", "content": "It's 12345."},
+            {"role": "assistant", "content": "I found it. How can I assist you?"}
+        ]
+    """
+
+    transformed_attributes: list[TransformedAttribute] | None = None
     """Transformation of existing attributes.
 
     Transformed attributes involve no model interaction and instead are for the
@@ -582,13 +787,26 @@ class GeneralSynthesisParams(BaseParams):
 
     """
 
-    passthrough_attributes: Optional[list[str]] = None
+    passthrough_attributes: list[str] | None = None
     """When specified, will ONLY pass through these attributes in final output.
     If left unspecified, all attributes are saved. If an attribute is specified in
     passthrough_attributes but doesn't exist, it will be ignored."""
 
+    def _get_reserved_attribute_ids(self) -> set[str]:
+        """Get the set of attribute IDs reserved for multiturn synthesis."""
+        reserved = {"target_turns", "current_turn"}
+        if self.multiturn_attributes:
+            for multiturn_attribute in self.multiturn_attributes:
+                reserved.add(f"{multiturn_attribute.id}_plan")
+        return reserved
+
     def _check_attribute_ids(self, attribute_ids: set[str], id: str):
         """Check if the attribute ID is already in the set."""
+        if id in self._reserved_attribute_ids:
+            raise ValueError(
+                f"GeneralSynthesisParams does not allow '{id}' "
+                "as an attribute ID because it is reserved for multiturn synthesis."
+            )
         if id in attribute_ids:
             raise ValueError(
                 f"GeneralSynthesisParams contains duplicate attribute IDs: {id}"
@@ -597,11 +815,9 @@ class GeneralSynthesisParams(BaseParams):
 
     def _check_dataset_source_attribute_ids(self, all_attribute_ids: set[str]) -> None:
         """Check attribute IDs from dataset sources for uniqueness."""
-        if self.input_data is None:
+        if not self.input_data:
+            self.input_data = None
             return
-
-        if len(self.input_data) == 0:
-            raise ValueError("GeneralSynthesisParams.input_data cannot be empty.")
 
         for dataset_source in self.input_data:
             if dataset_source.attribute_map:
@@ -610,11 +826,9 @@ class GeneralSynthesisParams(BaseParams):
 
     def _check_document_source_attribute_ids(self, all_attribute_ids: set[str]) -> None:
         """Check attribute IDs from document sources for uniqueness."""
-        if self.input_documents is None:
+        if not self.input_documents:
+            self.input_documents = None
             return
-
-        if len(self.input_documents) == 0:
-            raise ValueError("GeneralSynthesisParams.input_documents cannot be empty.")
 
         for document_source in self.input_documents:
             if not document_source.segmentation_params:
@@ -625,40 +839,30 @@ class GeneralSynthesisParams(BaseParams):
 
     def _check_example_source_attribute_ids(self, all_attribute_ids: set[str]) -> None:
         """Check attribute IDs from example sources for uniqueness."""
-        if self.input_examples is None:
+        if not self.input_examples:
+            self.input_examples = None
             return
-
-        if len(self.input_examples) == 0:
-            raise ValueError("GeneralSynthesisParams.input_examples cannot be empty.")
 
         for example_source in self.input_examples:
             example_keys = example_source.examples[0].keys()
             for new_key in example_keys:
                 self._check_attribute_ids(all_attribute_ids, new_key)
 
-    def _check_permutable_attribute_ids(self, all_attribute_ids: set[str]) -> None:
-        """Check attribute IDs from permutable attributes for uniqueness."""
-        if self.permutable_attributes is None:
+    def _check_sampled_attribute_ids(self, all_attribute_ids: set[str]) -> None:
+        """Check attribute IDs from sampled attributes for uniqueness."""
+        if not self.sampled_attributes:
+            self.sampled_attributes = None
             return
 
-        if len(self.permutable_attributes) == 0:
-            raise ValueError(
-                "GeneralSynthesisParams.permutable_attributes cannot be empty."
-            )
-
-        for permutable_attribute in self.permutable_attributes:
-            attribute_id = permutable_attribute.id
+        for sampled_attribute in self.sampled_attributes:
+            attribute_id = sampled_attribute.id
             self._check_attribute_ids(all_attribute_ids, attribute_id)
 
     def _check_generated_attribute_ids(self, all_attribute_ids: set[str]) -> None:
         """Check attribute IDs from generated attributes for uniqueness."""
-        if self.generated_attributes is None:
+        if not self.generated_attributes:
+            self.generated_attributes = None
             return
-
-        if len(self.generated_attributes) == 0:
-            raise ValueError(
-                "GeneralSynthesisParams.generated_attributes cannot be empty."
-            )
 
         for generated_attribute in self.generated_attributes:
             attribute_id = generated_attribute.id
@@ -669,27 +873,29 @@ class GeneralSynthesisParams(BaseParams):
 
     def _check_transformed_attribute_ids(self, all_attribute_ids: set[str]) -> None:
         """Check attribute IDs from transformed attributes for uniqueness."""
-        if self.transformed_attributes is None:
+        if not self.transformed_attributes:
+            self.transformed_attributes = None
             return
-
-        if len(self.transformed_attributes) == 0:
-            raise ValueError(
-                "GeneralSynthesisParams.transformed_attributes cannot be empty."
-            )
 
         for transformed_attribute in self.transformed_attributes:
             attribute_id = transformed_attribute.id
             self._check_attribute_ids(all_attribute_ids, attribute_id)
 
-    def _check_combination_sampling_sample_rates(self) -> None:
-        """Validate that the combination sample rates are <= 1.0."""
-        if self.combination_sampling is None:
+    def _check_multiturn_attribute_ids(self, all_attribute_ids: set[str]) -> None:
+        """Check attribute IDs from multiturn attributes for uniqueness."""
+        if not self.multiturn_attributes:
+            self.multiturn_attributes = None
             return
 
-        if len(self.combination_sampling) == 0:
-            raise ValueError(
-                "GeneralSynthesisParams.combination_sampling cannot be empty."
-            )
+        for multiturn_attribute in self.multiturn_attributes:
+            attribute_id = multiturn_attribute.id
+            self._check_attribute_ids(all_attribute_ids, attribute_id)
+
+    def _check_combination_sampling_sample_rates(self) -> None:
+        """Validate that the combination sample rates are <= 1.0."""
+        if not self.combination_sampling:
+            self.combination_sampling = None
+            return
 
         sample_rates = [
             combination.sample_rate for combination in self.combination_sampling
@@ -702,22 +908,20 @@ class GeneralSynthesisParams(BaseParams):
 
     def _check_passthrough_attribute_ids(self) -> None:
         """Validate that passthrough attributes are non-empty when defined."""
-        if self.passthrough_attributes is None:
+        if not self.passthrough_attributes:
+            self.passthrough_attributes = None
             return
-
-        if len(self.passthrough_attributes) == 0:
-            raise ValueError(
-                "GeneralSynthesisParams.passthrough_attributes cannot be empty."
-            )
 
     def __post_init__(self):
         """Verifies/populates params."""
+        self._reserved_attribute_ids = self._get_reserved_attribute_ids()
         all_attribute_ids = set()
         self._check_dataset_source_attribute_ids(all_attribute_ids)
         self._check_document_source_attribute_ids(all_attribute_ids)
         self._check_example_source_attribute_ids(all_attribute_ids)
-        self._check_permutable_attribute_ids(all_attribute_ids)
+        self._check_sampled_attribute_ids(all_attribute_ids)
         self._check_generated_attribute_ids(all_attribute_ids)
+        self._check_multiturn_attribute_ids(all_attribute_ids)
         self._check_transformed_attribute_ids(all_attribute_ids)
         self._check_passthrough_attribute_ids()
         self._check_combination_sampling_sample_rates()

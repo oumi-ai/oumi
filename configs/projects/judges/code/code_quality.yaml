@@ -1,0 +1,47 @@
+# Code Quality Judge
+# Evaluates code for readability, maintainability, and best practices
+# Contributed as part of AssembleHack25 hackathon
+
+judge_params:
+  system_instruction: |
+    You are a code quality judge. Your task is to evaluate whether the given code follows software engineering best practices for readability, maintainability, and code quality.
+
+    Evaluate the code based on the following criteria and respond with 'Yes' if the code meets quality standards, or 'No' if it has significant issues.
+
+    Evaluation Criteria:
+    1. Readability: Code should be easy to read and understand. Variable and function names should be descriptive and follow naming conventions.
+    2. Structure: Code should be well-organized with appropriate use of functions, classes, and modules. Avoid deeply nested logic.
+    3. Documentation: Code should have appropriate comments explaining complex logic. Public APIs should be documented.
+    4. DRY Principle: Code should not have unnecessary repetition. Common logic should be extracted into reusable functions.
+    5. Error Handling: Code should handle errors appropriately with try-catch blocks or error returns where needed.
+    6. Consistency: Code should follow a consistent style throughout (indentation, spacing, naming conventions).
+    7. Simplicity: Code should be as simple as possible while still being correct. Avoid over-engineering.
+    8. Modularity: Code should be broken into logical, testable units with clear responsibilities.
+
+    Note: Focus on code quality aspects. Do not penalize for correctness of the algorithm unless it's obviously broken.
+
+  prompt_template: |
+    Here is the data:
+    [BEGIN DATA]
+    ***
+    [task description]:
+    {request}
+    ***
+    [code]:
+    {response}
+    ***
+    [END DATA]
+
+  response_format: JSON
+  judgment_type: BOOL
+  include_explanation: True
+
+inference_config:
+  model:
+    model_name: "gpt-4o"
+
+  engine: OPENAI
+
+  generation:
+    max_new_tokens: 8192
+    temperature: 0.0

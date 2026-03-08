@@ -15,36 +15,36 @@
 """Base classes for sample analyzer plugins."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Optional
 
-from oumi.core.analyze.dataset_analyzer import (
-    ConversationAnalysisResult,
-    MessageAnalysisResult,
-)
-from oumi.core.types.conversation import Conversation
+import pandas as pd
 
 
 class SampleAnalyzer(ABC):
-    """Base class for sample analyzer plugins that analyze individual samples."""
+    """Base class for sample analyzer plugins that analyze individual samples.
+
+    All analyzers work with pandas DataFrames for efficient processing.
+    """
 
     @abstractmethod
     def analyze_sample(
-        self, conversation: Conversation, tokenizer: Optional[Any] = None
-    ) -> tuple[list[MessageAnalysisResult], ConversationAnalysisResult]:
-        """Analyze a conversation sample and return comprehensive analysis results.
+        self,
+        df: pd.DataFrame,
+        schema: dict | None = None,
+    ) -> tuple[pd.DataFrame, dict]:
+        """Analyze text fields and return analysis results.
 
-        This method analyzes a conversation and returns metrics for both individual
-        messages and the conversation as a whole. Each analyzer can decide its own
-        strategy for computing conversation-level metrics (e.g., aggregating message
-        metrics or implementing custom conversation-level analysis).
+        This method performs analysis on the input DataFrame and returns
+        the DataFrame with added analysis columns along with schema information
+        for the generated columns. All analyzers must implement this method.
 
         Args:
-            conversation: The conversation object to analyze
-            tokenizer: Optional tokenizer to use for tokenization-based analysis
+            df: Input DataFrame with text fields
+            schema: Column schema dict to identify text fields
 
         Returns:
-            Tuple containing:
-            - List of MessageAnalysisResult objects for each message
-            - ConversationAnalysisResult for the conversation as a whole
+            Tuple of (DataFrame with added analysis columns,
+            generated column schema dict).
+            The schema dict maps column names to their schema config with keys:
+            'type', 'content_type', 'description'.
         """
         pass

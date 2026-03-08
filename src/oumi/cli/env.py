@@ -12,31 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import importlib.metadata
+import importlib
 import importlib.util
 import os
-import platform
 
 from rich.table import Table
 
 import oumi.cli.cli_utils as cli_utils
-
-
-def _get_package_version(package_name: str, version_fallback: str) -> str:
-    """Gets the version of the specified package.
-
-    Args:
-        package_name: The name of the package.
-        version_fallback: The fallback version string.
-
-    Returns:
-        str: The version of the package, or a fallback string if the package is not
-            installed.
-    """
-    try:
-        return importlib.metadata.version(package_name)
-    except importlib.metadata.PackageNotFoundError:
-        return version_fallback
+from oumi.utils.system_info import (
+    CORE_PACKAGES,
+    get_package_version,
+    get_platform_info,
+)
 
 
 def env():
@@ -69,54 +56,21 @@ def env():
     )
 
     # All deps, excluding dev, docs, and gcp.
-    core_packages = sorted(
-        [
-            "accelerate",
-            "aiohttp",
-            "bitsandbytes",
-            "datasets",
-            "diffusers",
-            "einops",
-            "jsonlines",
-            "llama-cpp-python",
-            "liger-kernel",
-            "lm-eval",
-            "numpy",
-            "nvidia-ml-py",
-            "omegaconf",
-            "open_clip_torch",
-            "pandas",
-            "peft",
-            "pexpect",
-            "pillow",
-            "pydantic",
-            "responses",
-            "sglang",
-            "skypilot",
-            "tensorboard",
-            "timm",
-            "torch",
-            "torchdata",
-            "torchvision",
-            "tqdm",
-            "transformers",
-            "trl",
-            "typer",
-            "vllm",
-            "wandb",
-            "mlflow",
-        ]
-    )
+    core_packages = sorted(CORE_PACKAGES)
     package_versions = {
-        package: _get_package_version(package, version_fallback)
+        package: get_package_version(package, version_fallback)
         for package in core_packages
     }
     env_values = {env_var: os.getenv(env_var, env_var_fallback) for env_var in env_vars}
+
+    # Get platform info from shared module
+    platform_info = get_platform_info()
+
     cli_utils.section_header("Oumi environment information:")
     env_table = Table(show_header=False, show_lines=False)
-    env_table.add_row("Oumi version", _get_package_version("oumi", version_fallback))
-    env_table.add_row("Python version", platform.python_version())
-    env_table.add_row("Platform", platform.platform())
+    env_table.add_row("Oumi version", get_package_version("oumi", version_fallback))
+    env_table.add_row("Python version", platform_info["python_version"])
+    env_table.add_row("Platform", platform_info["platform"])
     cli_utils.CONSOLE.print(env_table)
     cli_utils.section_header("Installed dependencies:")
     deps_table = Table(show_header=True, show_lines=False)

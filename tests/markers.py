@@ -2,6 +2,7 @@ import pytest
 import torch
 
 from oumi.utils.hf_utils import find_hf_token
+from oumi.utils.packaging import is_torchdata_available
 
 
 def requires_gpus(count: int = 1, min_gb: float = 0.0) -> pytest.MarkDecorator:
@@ -68,4 +69,11 @@ def requires_pdf_support():
 
     return pytest.mark.skipif(
         not find_spec("pdf2image"), reason="PDF support is not available"
+    )
+
+
+def requires_torchdata() -> pytest.MarkDecorator:
+    return pytest.mark.skipif(
+        not is_torchdata_available(),
+        reason="torchdata is not installed. Install with: pip install oumi[torchdata]",
     )

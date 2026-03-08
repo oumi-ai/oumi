@@ -114,21 +114,57 @@ def _parse_transformer_layer_cls_string(class_names: str) -> list[str]:
     return result
 
 
+def _get_module_class_from_name(module: nn.Module, name: str) -> type[nn.Module] | None:
+    """Recursively search for a class by name in the model's module tree."""
+    if module.__class__.__name__ == name:
+        return module.__class__
+    for child in module.children():
+        result = _get_module_class_from_name(child, name)
+        if result is not None:
+            return result
+    return None
+
+
 def resolve_transformer_layer_cls_string_as_module_set(
     class_names: str,
+    model: nn.Module | None = None,
 ) -> set[type[nn.Module]]:
-    """Get a module class from its string name."""
+    """Get module classes from their string names.
+
+    For simple class names (no module prefix like "LlamaDecoderLayer"):
+    - If model is provided, searches the model's module tree first (like accelerate)
+    - Falls back to importing from the 'transformers' module
+
+    For fully-qualified names (like "transformers.models.llama.LlamaDecoderLayer"):
+    - Uses the standard import approach
+    """
     result: set[type[nn.Module]] = set()
     for class_name in _parse_transformer_layer_cls_string(class_names):
         parts = class_name.rsplit(".", maxsplit=1)
+
         if len(parts) == 1:
-            # Assume `transformers` by default.
-            module_name = "transformers"
+            if model is not None:
+                transformer_cls = _get_module_class_from_name(model, class_name)
+                if transformer_cls is not None:
+                    result.add(transformer_cls)
+                    continue
+
+            try:
+                module = importlib.import_module("transformers")
+                transformer_cls = getattr(module, class_name)
+                result.add(transformer_cls)
+            except AttributeError:
+                raise ValueError(
+                    f"Could not find transformer layer class '{class_name}'. "
+                    f"Either pass the model to search its module tree, or use a "
+                    f"fully-qualified name like "
+                    f"'transformers.models.X.modeling_X.{class_name}'."
+                )
         else:
-            module_name, class_name = parts
-        module = importlib.import_module(module_name)
-        transformer_cls = getattr(module, class_name)
-        result.add(transformer_cls)
+            module_name, cls_name = parts
+            module = importlib.import_module(module_name)
+            transformer_cls = getattr(module, cls_name)
+            result.add(transformer_cls)
 
     return result
 
@@ -138,8 +174,8 @@ def simplify_transformer_layer_cls_string(class_names: str) -> str:
 
     For example, converts 'foo.Block,foo.util.Decoder' to 'Block,Decoder'.
 
-    The `accelerate` library expects the simplified format, while OUMI trainer requires
-    fully-qualified class names.
+    The `accelerate` library expects the simplified format for the
+    FSDP_TRANSFORMER_CLS_TO_WRAP environment variable.
     """
     result = []
     for class_name in _parse_transformer_layer_cls_string(class_names):

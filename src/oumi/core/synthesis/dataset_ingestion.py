@@ -14,12 +14,12 @@
 
 from enum import Enum
 from pathlib import Path
-from typing import Optional
 
 import pandas as pd
 from datasets import load_dataset
 
 from oumi.core.configs.params.synthesis_params import DatasetSource
+from oumi.utils.io_utils import load_xlsx_all_sheets
 
 
 class DatasetStorageType(Enum):
@@ -27,6 +27,9 @@ class DatasetStorageType(Enum):
 
     HF = "hf"
     """HuggingFace"""
+
+    OUMI = "oumi"
+    """Oumi"""
 
     LOCAL = "local"
     """Local files"""
@@ -44,24 +47,35 @@ class DatasetPath:
         Possible path formats:
         HuggingFace:
         - "hf:repo_id/dataset_name"
+        Oumi:
+        - "oumi:dataset_id"
         Local:
         - "path/to/data/file.jsonl"
         - "path/to/data/file.csv"
         - "path/to/data/file.tsv"
         - "path/to/data/file.parquet"
         - "path/to/data/file.json"
+        - "path/to/data/file.xlsx"
         - "path/to/data/*.jsonl"
         - "path/to/data/*.csv"
         - "path/to/data/*.tsv"
         - "path/to/data/*.parquet"
         - "path/to/data/*.json"
+        - "path/to/data/*.xlsx"
         """
         self._path = path
         self._storage_type = self._get_storage_type(path)
         self._file_extension = ""
         if self._storage_type == DatasetStorageType.LOCAL:
             self._file_extension = self._get_file_extension(path)
-            if self._file_extension not in ["jsonl", "csv", "tsv", "parquet", "json"]:
+            if self._file_extension not in [
+                "jsonl",
+                "csv",
+                "tsv",
+                "parquet",
+                "json",
+                "xlsx",
+            ]:
                 raise ValueError(f"Invalid path: {path}")
 
     def _get_storage_type(self, path: str) -> DatasetStorageType:
@@ -69,16 +83,26 @@ class DatasetPath:
         prefix = path.split(":")[0]
         if prefix == "hf":
             return DatasetStorageType.HF
+        elif prefix == "oumi":
+            return DatasetStorageType.OUMI
         else:
             return DatasetStorageType.LOCAL
 
     def _get_file_extension(self, path: str) -> str:
         """Get the file extension from the path."""
-        return Path(path).suffix.lower()[1:]
+        if self._storage_type == DatasetStorageType.LOCAL:
+            return Path(path).suffix.lower()[1:]
+        else:
+            raise NotImplementedError(
+                f"No extension for {self._storage_type} storage type"
+            )
 
     def get_path_str(self) -> str:
         """Get the path."""
-        if self._storage_type == DatasetStorageType.HF:
+        if (
+            self._storage_type == DatasetStorageType.HF
+            or self._storage_type == DatasetStorageType.OUMI
+        ):
             return self._path.split(":")[1]
         else:
             return self._path
@@ -89,7 +113,12 @@ class DatasetPath:
 
     def get_file_extension(self) -> str:
         """Get the file extension."""
-        return self._file_extension
+        if self._storage_type == DatasetStorageType.LOCAL:
+            return self._file_extension
+        else:
+            raise NotImplementedError(
+                f"No extension for {self._storage_type} storage type"
+            )
 
 
 class DatasetReader:
@@ -97,7 +126,7 @@ class DatasetReader:
 
     Supports:
     - HuggingFace
-    - Local files (JSONL, CSV, TSV, Parquet, JSON)
+    - Local files (JSONL, CSV, TSV, Parquet, JSON, XLSX)
     - Glob patterns
     """
 
@@ -105,7 +134,6 @@ class DatasetReader:
         """Read the data from the data path."""
         data_path = DatasetPath(data_source.path)
         storage_type = data_path.get_storage_type()
-        file_extension = data_path.get_file_extension()
         if storage_type == DatasetStorageType.HF:
             samples = self._read_from_hf(
                 data_path.get_path_str(),
@@ -113,6 +141,7 @@ class DatasetReader:
                 data_source.hf_revision,
             )
         elif storage_type == DatasetStorageType.LOCAL:
+            file_extension = data_path.get_file_extension()
             if "*" in data_path.get_path_str():
                 samples = self._read_from_glob(data_path.get_path_str(), file_extension)
             else:
@@ -120,6 +149,10 @@ class DatasetReader:
                     data_path.get_path_str(),
                     file_extension,
                 )
+        elif storage_type == DatasetStorageType.OUMI:
+            raise NotImplementedError(
+                "Oumi storage type is not supported in open source."
+            )
         else:
             raise ValueError(f"Unsupported storage type: {storage_type}")
 
@@ -145,8 +178,8 @@ class DatasetReader:
     def _read_from_hf(
         self,
         hf_path: str,
-        split: Optional[str] = None,
-        revision: Optional[str] = None,
+        split: str | None = None,
+        revision: str | None = None,
     ) -> list[dict]:
         """Read the dataset from HuggingFace."""
         dataset = load_dataset(hf_path, split=split, revision=revision)
@@ -169,6 +202,8 @@ class DatasetReader:
             return self._read_from_parquet(local_path)
         elif file_extension == "json":
             return self._read_from_json(local_path)
+        elif file_extension == "xlsx":
+            return self._read_from_xlsx(local_path)
         else:
             raise ValueError(f"Unsupported local path suffix: {file_extension}")
 
@@ -200,3 +235,11 @@ class DatasetReader:
         """Read the dataset from a JSON file."""
         json_df = pd.read_json(json_path)
         return json_df.to_dict(orient="records")
+
+    def _read_from_xlsx(self, xlsx_path: str) -> list[dict]:
+        """Read the dataset from an XLSX file.
+
+        Reads all sheets from the XLSX file and concatenates them into a single dataset.
+        """
+        xlsx_df = load_xlsx_all_sheets(xlsx_path)
+        return xlsx_df.to_dict(orient="records")

@@ -241,16 +241,16 @@ The inference system automatically saves completed results to **scratch director
 
 #### Scratch Directory Locations
 
-Scratch files are stored in different locations depending on your configuration:
+Scratch files are stored in different locations depending on your configuration. All scratch files now include a unique hash in their filename based on your model parameters, generation parameters, and dataset content to ensure cache consistency and prevent conflicts between different inference configurations:
 
 **With Output Path Specified:**
 ```
-<output_directory>/scratch/<output_filename>
+<output_directory>/scratch/<output_filename>_<hash>.<extension>
 ```
 
 For example, if your output path is `/home/user/results/inference_results.jsonl`, the scratch file will be:
 ```
-/home/user/results/scratch/inference_results.jsonl
+/home/user/results/scratch/inference_results_a1b2c3d4e5f6.jsonl
 ```
 
 **Without Output Path (Temporary Mode):**
@@ -258,7 +258,7 @@ For example, if your output path is `/home/user/results/inference_results.jsonl`
 ~/.cache/oumi/tmp/temp_inference_output_<hash>.jsonl
 ```
 
-The hash is generated from your model parameters, generation parameters, and dataset content to ensure uniqueness across different inference runs.
+The hash is generated from your model parameters, generation parameters, and dataset content to ensure uniqueness across different inference runs and automatic cache invalidation when configurations change.
 
 ### Adaptive Inference
 

@@ -14,20 +14,27 @@
 
 import logging
 import os
+import platform
+import random
+import sys
+import urllib.parse
+from collections.abc import Callable
 from enum import Enum
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
-import requests
 import typer
 import yaml
-from requests.exceptions import RequestException
 from rich.console import Console
+from rich.table import Table
 
-from oumi.utils.logging import logger
+from oumi.cli.alias import _ALIASES, AliasType
+from oumi.utils.logging import logger, update_logger_level
+from oumi.utils.version_utils import get_oumi_version
 
 CONTEXT_ALLOW_EXTRA_ARGS = {"allow_extra_args": True, "ignore_unknown_options": True}
 CONFIG_FLAGS = ["--config", "-c"]
+NUM_EXAMPLE_CONFIGS = 3
 OUMI_FETCH_DIR = "~/.oumi/fetch"
 OUMI_GITHUB_RAW = "https://raw.githubusercontent.com/oumi-ai/oumi/main"
 _OUMI_PREFIX = "oumi://"
@@ -45,6 +52,81 @@ def section_header(title, console: Console = CONSOLE):
     console.print(f"\n[blue]{'━' * console.width}[/blue]")
     console.print(f"[yellow]   {title}[/yellow]")
     console.print(f"[blue]{'━' * console.width}[/blue]\n")
+
+
+def get_aliases_for_type(alias_type: AliasType) -> list[str]:
+    """Get sorted list of aliases for a command type."""
+    return sorted([k for k, v in _ALIASES.items() if alias_type in v])
+
+
+def get_command_help(base_help: str, alias_type: AliasType) -> str:
+    """Generate help text with example configs included."""
+    aliases = get_aliases_for_type(alias_type)
+    if not aliases:
+        return base_help
+
+    total = len(aliases)
+    if total > NUM_EXAMPLE_CONFIGS:
+        examples = sorted(random.sample(aliases, NUM_EXAMPLE_CONFIGS))
+    else:
+        examples = aliases
+
+    config_lines = "\n".join(f"• {config}" for config in examples)
+
+    lines = [base_help, "", "Example configs:", config_lines]
+    if total > NUM_EXAMPLE_CONFIGS:
+        lines.append("")
+        lines.append(f"Use --list to see all {total} configs.")
+
+    return "\n".join(lines)
+
+
+def create_list_configs_callback(
+    alias_type: AliasType, title: str, command: str
+) -> Callable[[bool], None]:
+    """Create a typer callback that displays available configs in a table."""
+
+    def callback(value: bool) -> None:
+        if not value:
+            return
+
+        aliases = get_aliases_for_type(alias_type)
+
+        table = Table(
+            title=title,
+            title_style="bold",
+            show_header=True,
+            header_style="bold cyan",
+        )
+        table.add_column("Config", style="green")
+        table.add_column("Usage", style="dim")
+
+        for alias in aliases:
+            table.add_row(alias, f"oumi {command} -c {alias}")
+
+        CONSOLE.print()
+        CONSOLE.print(table)
+        CONSOLE.print()
+        CONSOLE.print(f"[dim]Total: {len(aliases)} configs[/dim]")
+        CONSOLE.print()
+
+        raise typer.Exit(code=0)
+
+    return callback
+
+
+def collect_config_overrides(ctx: typer.Context) -> list[str]:
+    """Collect config overrides from dot-notation CLI options."""
+    overrides = []
+    for param in ctx.command.params:
+        opts = getattr(param, "opts", [])
+        dot_opt = next((opt for opt in opts if "." in opt), None)
+        if dot_opt and param.name:
+            config_path = dot_opt.lstrip("-")
+            value = ctx.params.get(param.name)
+            if value is not None:
+                overrides.append(f"{config_path}={value}")
+    return overrides
 
 
 def parse_extra_cli_args(ctx: typer.Context) -> list[str]:
@@ -110,7 +192,7 @@ def parse_extra_cli_args(ctx: typer.Context) -> list[str]:
         bad_args = " ".join(ctx.args)
         raise typer.BadParameter(
             "Extra arguments must be in `--argname value` pairs. "
-            f"Recieved: `{bad_args}`"
+            f"Received: `{bad_args}`"
         )
     logger.debug(f"\n\nParsed CLI args:\n{args}\n\n")
     return args
@@ -134,7 +216,7 @@ class LogLevel(str, Enum):
     CRITICAL = logging.getLevelName(logging.CRITICAL)
 
 
-def set_log_level(level: Optional[LogLevel]):
+def set_log_level(level: LogLevel | None):
     """Sets the logging level for the current command.
 
     Args:
@@ -143,12 +225,12 @@ def set_log_level(level: Optional[LogLevel]):
     if not level:
         return
     uppercase_level = level.upper()
-    logger.setLevel(uppercase_level)
+    update_logger_level("oumi", level=uppercase_level)
     CONSOLE.print(f"Set log level to [yellow]{uppercase_level}[/yellow]")
 
 
 LOG_LEVEL_TYPE = Annotated[
-    Optional[LogLevel],
+    LogLevel | None,
     typer.Option(
         "--log-level",
         "-log",
@@ -160,9 +242,19 @@ LOG_LEVEL_TYPE = Annotated[
     ),
 ]
 
+VERBOSE_TYPE = Annotated[
+    bool,
+    typer.Option(
+        "--verbose",
+        "-v",
+        help="Enable verbose logging with additional debug information.",
+        show_default=True,
+    ),
+]
+
 
 def _resolve_oumi_prefix(
-    config_path: str, output_dir: Optional[Path] = None
+    config_path: str, output_dir: Path | None = None
 ) -> tuple[str, Path]:
     """Resolves oumi:// prefix and determines output directory.
 
@@ -184,7 +276,7 @@ def _resolve_oumi_prefix(
 
 
 def resolve_and_fetch_config(
-    config_path: str, output_dir: Optional[Path] = None, force: bool = True
+    config_path: str, output_dir: Path | None = None, force: bool = True
 ) -> Path:
     """Resolve oumi:// prefix and fetch config if needed.
 
@@ -198,6 +290,9 @@ def resolve_and_fetch_config(
     """
     if not config_path.lower().startswith(_OUMI_PREFIX):
         return Path(config_path)
+
+    import requests
+    from requests.exceptions import RequestException
 
     # Remove oumi:// prefix if present
     new_config_path, config_dir = _resolve_oumi_prefix(config_path, output_dir)
@@ -235,3 +330,79 @@ def resolve_and_fetch_config(
         raise
 
     return Path(local_path)
+
+
+def create_github_issue_url(exception: Exception, traceback_str: str) -> str:
+    """Create a prefilled GitHub issue URL aligned with the bug report template.
+
+    Args:
+        exception: The exception that occurred
+        traceback_str: The full traceback string
+
+    Returns:
+        str: URL for creating a prefilled GitHub issue
+    """
+    # 2000 is the max length of a URL to ensure it works with any browser
+    MAX_URL_LENGTH = 2000
+    base_url = "https://github.com/oumi-ai/oumi/issues/new?"
+
+    python_version = (
+        f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    )
+    system_info = f"{platform.system()} {platform.release()}"
+    oumi_version = get_oumi_version()
+    system_info_content = (
+        f"**Please paste the output of `oumi env` here.** "
+        f"If you can't run this command, here's basic system info:\n\n"
+        f"- Operating system: {system_info}\n"
+        f"- Python version: {python_version}\n"
+        f"- Oumi version: {oumi_version}"
+    )
+
+    title_template = "[Automatic Error Report]: {error_msg}"
+    reproduction_template = (
+        "Steps to reproduce:\n\n"
+        "Command executed: `{command}`\n\n"
+        "Stack trace:\n```\n{traceback}\n```"
+    )
+
+    exception_str = str(exception)
+    command_str = " ".join(sys.argv)
+
+    # Limit the title to 50 chars (unencoded)
+    title_error = exception_str[:50]
+
+    command_part = command_str
+    error_part = exception_str
+    stack_part = traceback_str or ""
+
+    def build_url(command_part: str, error_part: str, stack_part: str) -> str:
+        params = {
+            "template": "bug-report.yaml",
+            "title": title_template.format(error_msg=title_error),
+            "what-happened": error_part,
+            "reproduction-steps": reproduction_template.format(
+                command=command_part, traceback=stack_part
+            ),
+            "system-info": system_info_content,
+        }
+        return f"{base_url}{urllib.parse.urlencode(params)}"
+
+    full_url = build_url(command_part, error_part, stack_part)
+
+    # If too long, iteratively shrink fields by encoded length
+    while len(full_url) > MAX_URL_LENGTH:
+        if stack_part:
+            # shrink stack from the front (keep tail)
+            cut = max(1, len(stack_part) // 2)
+            stack_part = stack_part[cut:]
+        elif error_part:
+            cut = max(1, len(error_part) // 2)
+            error_part = error_part[:-cut]
+        elif command_part:
+            cut = max(1, len(command_part) // 2)
+            command_part = command_part[:-cut]
+        else:
+            return f"{base_url}template=bug-report.yaml"
+        full_url = build_url(command_part, error_part, stack_part)
+    return full_url

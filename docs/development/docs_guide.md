@@ -2,19 +2,22 @@
 
 ## Suggesting Edits Using the UI
 
-You need to submit PRs to update documentation. The easiest way to modify an existing page is to use the "Suggest Edit" UI:
+To update the documentation, you will need to submit a pull request.
+The easiest way to modify an existing page is to use the "Suggest Edit" UI:
 
 1. Navigate to the page you'd like to edit in the [documentation website](https://oumi.ai/docs/en/latest/),
-2. Click on the Github icon in the top right
-3. Click on the "Suggest Edit" button, and make your changes.
+2. Click on the GitHub icon in the top right
+3. Click on the "Suggest Edit" button
+4. Make your changes
+5. Submit a [pull request](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request)
 
-To add a new page, you can add a new Markdown file in our Oumi GitHub repo. For example, the quickstart guide is located [here](https://github.com/oumi-ai/oumi/blame/main/docs/get_started/quickstart.md).
+To add a new page, you can add a new Markdown file to our Oumi GitHub repo. For example, the quickstart guide is located [here](https://github.com/oumi-ai/oumi/blame/main/docs/get_started/quickstart.md).
 
 Note that [Sphinx](https://www.sphinx-doc.org/en/master/) & [MyST](https://myst-parser.readthedocs.io/en/latest/) have special syntax on top of regular Markdown syntax. A quick guide for Sphinx documentation can be found [here](https://myst-parser.readthedocs.io/en/latest/syntax/typography.html). You can also reference existing docs pages to learn.
 
 ## Test Changes Locally
 
-Building the oumi docs locally is simple, and is a great way to verify your change (or test recently pulled changes) before pushing our docs to production.
+Building the Oumi docs locally is simple, and is a great way to verify your change (or test recently pulled changes) before pushing our docs to production.
 
 **‼️ Important ‼️**
 Don’t forget to activate your oumi conda environment first!
@@ -52,7 +55,7 @@ make docs-rebuild
 
 ### Serve Docs Locally
 
-Now you’re ready to build the docs\! You can run one simple command to build the latest docs and open them in chrome. For reference, the local docs URL localhost:8000/get\_started/quickstart.html would correspond to [https://oumi.ai/docs/en/latest/get\_started/quickstart.html](https://oumi.ai/docs/en/latest/get_started/quickstart.html).
+Now you’re ready to build the docs\! You can run one simple command to build the latest docs and open them in Chrome. For reference, the local docs URL localhost:8000/get\_started/quickstart.html would correspond to [https://oumi.ai/docs/en/latest/get\_started/quickstart.html](https://oumi.ai/docs/en/latest/get_started/quickstart.html).
 
 ```bash
 # Switch to your oumi directory, wherever that may be, then run

@@ -14,7 +14,7 @@
 
 import warnings
 from pathlib import Path
-from typing import Optional, cast
+from typing import cast
 
 from tqdm.auto import tqdm
 from typing_extensions import override
@@ -60,7 +60,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
         self,
         model_params: ModelParams,
         *,
-        generation_params: Optional[GenerationParams] = None,
+        generation_params: GenerationParams | None = None,
     ):
         """Initializes the LlamaCppInferenceEngine.
 
@@ -86,6 +86,8 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
             - n_threads: 4
             - filename: "*q8_0.gguf" (applies Q8 quantization by default)
             - flash_attn: True
+            - use_mmap: True (loads model parts as needed)
+            - use_mlock: True (locks the model pages in physical RAM)
             These defaults can be overridden by specifying them in
             `model_params.model_kwargs`.
         """
@@ -122,6 +124,9 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
             # Use Q8 quantization by default.
             "filename": "*8_0.gguf",
             "flash_attn": True,
+            # Memory safety defaults
+            "use_mmap": True,
+            "use_mlock": True,
         }
 
         model_kwargs = model_params.model_kwargs.copy()
@@ -147,10 +152,15 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
     ) -> list[dict[str, str]]:
         """Converts a conversation to a list of llama.cpp input messages."""
         # FIXME Handle multimodal e.g., raise an error.
+        role_mapping = {
+            Role.SYSTEM: "system",
+            Role.USER: "user",
+            Role.ASSISTANT: "assistant",
+        }
         return [
             {
                 "content": message.compute_flattened_text_content(),
-                "role": "user" if message.role == Role.USER else "assistant",
+                "role": role_mapping.get(message.role, "assistant"),
             }
             for message in conversation.messages
         ]
@@ -158,7 +168,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
     def _infer(
         self,
         input: list[Conversation],
-        inference_config: Optional[InferenceConfig] = None,
+        inference_config: InferenceConfig | None = None,
     ) -> list[Conversation]:
         """Runs model inference on the provided input using llama.cpp.
 
@@ -195,7 +205,9 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
                 messages=llama_input,  # type: ignore
                 max_tokens=generation_params.max_new_tokens,
                 temperature=generation_params.temperature,
-                top_p=generation_params.top_p,
+                top_p=generation_params.top_p
+                if generation_params.top_p is not None
+                else 1.0,  # default to 1.0 if top_p is not set
                 frequency_penalty=generation_params.frequency_penalty,
                 presence_penalty=generation_params.presence_penalty,
                 stop=generation_params.stop_strings,
@@ -243,7 +255,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
     def infer_online(
         self,
         input: list[Conversation],
-        inference_config: Optional[InferenceConfig] = None,
+        inference_config: InferenceConfig | None = None,
     ) -> list[Conversation]:
         """Runs model inference online.
 
@@ -267,7 +279,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
     def infer_from_file(
         self,
         input_filepath: str,
-        inference_config: Optional[InferenceConfig] = None,
+        inference_config: InferenceConfig | None = None,
     ) -> list[Conversation]:
         """Runs model inference on inputs in the provided file.
 
@@ -296,7 +308,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
     def _infer_online(
         self,
         input: list[Conversation],
-        inference_config: Optional[InferenceConfig] = None,
+        inference_config: InferenceConfig | None = None,
     ) -> list[Conversation]:
         """Runs model inference online.
 

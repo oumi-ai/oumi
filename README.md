@@ -13,7 +13,7 @@
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 [![About](https://img.shields.io/badge/About-oumi-blue.svg)](https://oumi.ai)
 
-### Everything you need to build state-of-the-art foundation models, end-to-end.
+### Everything you need to build state-of-the-art foundation models, end-to-end
 
 <p align="center">
   <a href="https://trendshift.io/repositories/12865">
@@ -22,8 +22,18 @@
 </p>
 
 ## 🔥 News
-- [2025/08] Inference support for OpenAI's `gpt-oss-20b` and `gpt-oss-120b`: [recipes here](https://github.com/oumi-ai/oumi/tree/main/configs/recipes/gpt_oss)
-- [2025/08] Aug 14 Webinar - [OpenAI's gpt-oss: Separating the Substance from the Hype](https://lu.ma/qd9fhau9?utm_source=oumi_readme).
+
+- [2026/02] [Preview of using the Oumi Platform and Lambda to fine-tune and deploy a 4B model for user intent classification](https://youtu.be/0XpfYRpd_FA)
+- [2026/02] [Lambda and Oumi partner for end-to-end custom model development](https://blog.oumi.ai/p/lambda-and-oumi-partner-for-end-to)
+- [2025/12] [Oumi v0.6.0 released](https://github.com/oumi-ai/oumi/releases/tag/v0.6.0) with Python 3.13 support, `oumi analyze` CLI command, TRL 0.26+ support, and more
+- [2025/12] [WeMakeDevs AI Agents Assemble Hackathon: Oumi webinar on Finetuning for Text-to-SQL](https://www.youtube.com/watch?v=6wPikqRZ7bQ&t=3203s)
+- [2025/12] [Oumi co-sponsors WeMakeDevs AI Agents Assemble Hackathon with over 2000 project submissions](https://www.wemakedevs.org/hackathons/assemblehack25)
+- [2025/11] [Oumi v0.5.0 released](https://github.com/oumi-ai/oumi/releases/tag/v0.5) with advanced data synthesis, hyperparameter tuning automation, support for OpenEnv, and more
+- [2025/11] [Example notebook to perform RLVF fine-tuning with OpenEnv](https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20OpenEnv%20GRPO%20with%20trl.ipynb), an open source library from the Meta PyTorch team for creating, deploying, and distributing agentic RL environments
+- [2025/10] [Oumi v0.4.1](https://github.com/oumi-ai/oumi/releases/tag/v0.4.1) and [v0.4.2](https://github.com/oumi-ai/oumi/releases/tag/v0.4.2) released] with support for Qwen3-VL and Transformers v4.56, data synthesis documentation and examples, and many bug fixes
+- [2025/09] [Oumi v0.4.0 released](https://github.com/oumi-ai/oumi/releases/tag/v0.4.0) with DeepSpeed support, a Hugging Face Hub cache management tool, KTO/Vision DPO trainer support
+- [2025/08] Training and inference support for OpenAI's `gpt-oss-20b` and `gpt-oss-120b`: [recipes here](https://github.com/oumi-ai/oumi/tree/main/configs/recipes/gpt_oss)
+- [2025/08] Aug 14 Webinar - [OpenAI's gpt-oss: Separating the Substance from the Hype](https://youtu.be/g1PkAV7fXn0).
 - [2025/08] [Oumi v0.3.0 released](https://github.com/oumi-ai/oumi/releases/tag/v0.3.0) with model quantization (AWQ), an improved LLM-as-a-Judge API, and Adaptive Inference
 - [2025/07] Recipe for [Qwen3 235B](https://github.com/oumi-ai/oumi/blob/main/configs/recipes/qwen3/inference/235b_a22b_together_infer.yaml)
 - [2025/07] July 24 webinar: ["Training a State-of-the-art Agent LLM with Oumi + Lambda"](https://youtu.be/f3SU_heBP54)
@@ -37,11 +47,12 @@
 - [2025/04] Oumi now supports two new Vision-Language models: [Phi4](https://github.com/oumi-ai/oumi/tree/main/configs/recipes/vision/phi4) and [Qwen 2.5](https://github.com/oumi-ai/oumi/tree/main/configs/recipes/vision/qwen2_5_vl_3b)
 
 ## 🔎 About
+
 Oumi is a fully open-source platform that streamlines the entire lifecycle of foundation models - from data preparation and training to evaluation and deployment. Whether you're developing on a laptop, launching large scale experiments on a cluster, or deploying models in production, Oumi provides the tools and workflows you need.
 
 With Oumi, you can:
 
-- 🚀 Train and fine-tune models from 10M to 405B parameters using state-of-the-art techniques (SFT, LoRA, QLoRA, DPO, and more)
+- 🚀 Train and fine-tune models from 10M to 405B parameters using state-of-the-art techniques (SFT, LoRA, QLoRA, GRPO, and more)
 - 🤖 Work with both text and multimodal models (Llama, DeepSeek, Qwen, Phi, and others)
 - 🔄 Synthesize and curate training data with LLM judges
 - ⚡️ Deploy models efficiently with popular inference engines (vLLM, SGLang)
@@ -68,21 +79,55 @@ Learn more at [oumi.ai](https://oumi.ai/docs), or jump right in with the [quicks
 
 ### Installation
 
-Installing oumi in your environment is straightforward:
+Choose the installation method that works best for you:
 
-```shell
-# Install the package (CPU & NPU only)
-pip install oumi  # For local development & testing
+<details open>
+<summary><b>Using pip (Recommended)</b></summary>
 
-# OR, with GPU support (Requires Nvidia or AMD GPU)
-pip install oumi[gpu]  # For GPU training
+```bash
+# Basic installation
+uv pip install oumi
 
-# To get the latest version, install from the source
-pip install git+https://github.com/oumi-ai/oumi.git
+# With GPU support
+uv pip install 'oumi[gpu]'
+
+# Latest development version
+uv pip install git+https://github.com/oumi-ai/oumi.git
 ```
 
-For more advanced installation options, see the [installation guide](https://oumi.ai/docs/en/latest/get_started/installation.html).
+Don't have uv? [Install it](https://docs.astral.sh/uv/getting-started/installation/) or use `pip` instead.
 
+</details>
+
+<details>
+<summary><b>Using Docker</b></summary>
+
+```bash
+# Pull the latest image
+docker pull ghcr.io/oumi-ai/oumi:latest
+
+# Run oumi commands
+docker run --gpus all -it ghcr.io/oumi-ai/oumi:latest oumi --help
+
+# Train with a mounted config
+docker run --gpus all -v $(pwd):/workspace -it ghcr.io/oumi-ai/oumi:latest \
+    oumi train --config /workspace/my_config.yaml
+```
+
+</details>
+
+<details>
+<summary><b>Quick Install Script (Experimental)</b></summary>
+
+Try Oumi without setting up a Python environment. This installs Oumi in an isolated environment:
+
+```bash
+curl -LsSf https://oumi.ai/install.sh | bash
+```
+
+</details>
+
+For more advanced installation options, see the [installation guide](https://oumi.ai/docs/en/latest/get_started/installation.html).
 
 ### Oumi CLI
 
@@ -121,7 +166,6 @@ oumi launch up -c configs/recipes/smollm/sft/135m/quickstart_gcp_job.yaml --reso
 
 **Note:** Oumi is in <ins>beta</ins> and under active development. The core features are stable, but some advanced features might change as the platform improves.
 
-
 ## 💻 Why use Oumi?
 
 If you need a comprehensive platform for training, evaluating, or deploying models, Oumi is a great choice.
@@ -132,7 +176,7 @@ Here are some of the key features that make Oumi stand out:
 - 🏢 **Enterprise-Grade**: Built and validated by teams training models at scale
 - 🎯 **Research Ready**: Perfect for ML research with easily reproducible experiments, and flexible interfaces for customizing each component.
 - 🌐 **Broad Model Support**: Works with most popular model architectures - from tiny models to the largest ones, text-only to multimodal.
-- 🚀 **SOTA Performance**: Native support for distributed training techniques (FSDP, DDP) and optimized inference engines (vLLM, SGLang).
+- 🚀 **SOTA Performance**: Native support for distributed training techniques (FSDP, DeepSpeed, DDP) and optimized inference engines (vLLM, SGLang).
 - 🤝 **Community First**: 100% open source with an active community. No vendor lock-in, no strings attached.
 
 ## 📚 Examples &  Recipes
@@ -145,8 +189,14 @@ Explore the growing collection of ready-to-use configurations for state-of-the-a
 
 | Model | Example Configurations |
 |-------|------------------------|
+| Qwen3-Next 80B A3B | [LoRA](/configs/recipes/qwen3_next/sft/80b_a3b_lora/train.yaml) • [Inference](/configs/recipes/qwen3_next/inference/80b_a3b_infer.yaml) • [Inference (Instruct)](/configs/recipes/qwen3_next/inference/80b_a3b_instruct_infer.yaml) • [Evaluation](/configs/recipes/qwen3_next/evaluation/80b_a3b_eval.yaml) |
 | Qwen3 30B A3B | [LoRA](/configs/recipes/qwen3/sft/30b_a3b_lora/train.yaml) • [Inference](/configs/recipes/qwen3/inference/30b_a3b_infer.yaml) • [Evaluation](/configs/recipes/qwen3/evaluation/30b_a3b_eval.yaml) |
 | Qwen3 32B | [LoRA](/configs/recipes/qwen3/sft/32b_lora/train.yaml) • [Inference](/configs/recipes/qwen3/inference/32b_infer.yaml) • [Evaluation](/configs/recipes/qwen3/evaluation/32b_eval.yaml) |
+| Qwen3 14B | [LoRA](/configs/recipes/qwen3/sft/14b_lora/train.yaml) • [Inference](/configs/recipes/qwen3/inference/14b_infer.yaml) • [Evaluation](/configs/recipes/qwen3/evaluation/14b_eval.yaml) |
+| Qwen3 8B | [FFT](/configs/recipes/qwen3/sft/8b_full/train.yaml) • [Inference](/configs/recipes/qwen3/inference/8b_infer.yaml) • [Evaluation](/configs/recipes/qwen3/evaluation/8b_eval.yaml) |
+| Qwen3 4B | [FFT](/configs/recipes/qwen3/sft/4b_full/train.yaml) • [Inference](/configs/recipes/qwen3/inference/4b_infer.yaml) • [Evaluation](/configs/recipes/qwen3/evaluation/4b_eval.yaml) |
+| Qwen3 1.7B | [FFT](/configs/recipes/qwen3/sft/1.7b_full/train.yaml) • [Inference](/configs/recipes/qwen3/inference/1.7b_infer.yaml) • [Evaluation](/configs/recipes/qwen3/evaluation/1.7b_eval.yaml) |
+| Qwen3 0.6B | [FFT](/configs/recipes/qwen3/sft/0.6b_full/train.yaml) • [Inference](/configs/recipes/qwen3/inference/0.6b_infer.yaml) • [Evaluation](/configs/recipes/qwen3/evaluation/0.6b_eval.yaml) |
 | QwQ 32B | [FFT](/configs/recipes/qwq/sft/full_train.yaml) • [LoRA](/configs/recipes/qwq/sft/lora_train.yaml) • [QLoRA](/configs/recipes/qwq/sft/qlora_train.yaml) • [Inference](/configs/recipes/qwq/inference/infer.yaml) • [Evaluation](/configs/recipes/qwq/evaluation/eval.yaml) |
 | Qwen2.5-VL 3B | [SFT](/configs/recipes/vision/qwen2_5_vl_3b/sft/full/train.yaml) • [LoRA](/configs/recipes/vision/qwen2_5_vl_3b/sft/lora/train.yaml)• [Inference (vLLM)](configs/recipes/vision/qwen2_5_vl_3b/inference/vllm_infer.yaml) • [Inference](configs/recipes/vision/qwen2_5_vl_3b/inference/infer.yaml) |
 | Qwen2-VL 2B | [SFT](/configs/recipes/vision/qwen2_vl_2b/sft/full/train.yaml) • [LoRA](/configs/recipes/vision/qwen2_vl_2b/sft/lora/train.yaml) • [Inference (vLLM)](configs/recipes/vision/qwen2_vl_2b/inference/vllm_infer.yaml) • [Inference (SGLang)](configs/recipes/vision/qwen2_vl_2b/inference/sglang_infer.yaml) • [Inference](configs/recipes/vision/qwen2_vl_2b/inference/infer.yaml) • [Evaluation](configs/recipes/vision/qwen2_vl_2b/evaluation/eval.yaml) |
@@ -182,6 +232,21 @@ Explore the growing collection of ready-to-use configurations for state-of-the-a
 | [Falcon-H1](https://huggingface.co/collections/tiiuae/falcon-h1-6819f2795bc406da60fab8df) | [FFT](/configs/recipes/falcon_h1/sft/) • [Inference](/configs/recipes/falcon_h1/inference/) • [Evaluation](/configs/recipes/falcon_h1/evaluation/) |
 | [Falcon-E (BitNet)](https://huggingface.co/collections/tiiuae/falcon-edge-series-6804fd13344d6d8a8fa71130) | [FFT](/configs/recipes/falcon_e/sft/) • [DPO](/configs/recipes/falcon_e/dpo/) • [Evaluation](/configs/recipes/falcon_e/evaluation/) |
 
+### 💎 Gemma 3 Family
+
+| Model | Example Configurations |
+|-------|------------------------|
+| Gemma 3 4B Instruct | [FFT](/configs/recipes/gemma3/sft/4b_full/train.yaml) • [Inference](/configs/recipes/gemma3/inference/4b_instruct_infer.yaml) • [Evaluation](/configs/recipes/gemma3/evaluation/4b/eval.yaml) |
+| Gemma 3 12B Instruct | [LoRA](/configs/recipes/gemma3/sft/12b_lora/train.yaml) • [Inference](/configs/recipes/gemma3/inference/12b_instruct_infer.yaml) • [Evaluation](/configs/recipes/gemma3/evaluation/12b/eval.yaml) |
+| Gemma 3 27B Instruct | [LoRA](/configs/recipes/gemma3/sft/27b_lora/train.yaml) • [Inference](/configs/recipes/gemma3/inference/27b_instruct_infer.yaml) • [Evaluation](/configs/recipes/gemma3/evaluation/27b/eval.yaml) |
+
+### 🦉 OLMo 3 Family
+
+| Model | Example Configurations |
+|-------|------------------------|
+| OLMo 3 7B Instruct | [FFT](/configs/recipes/olmo3/sft/7b_full/train.yaml) • [Inference](/configs/recipes/olmo3/inference/7b_infer.yaml) • [Evaluation](/configs/recipes/olmo3/evaluation/7b/eval.yaml) |
+| OLMo 3 32B Instruct | [LoRA](/configs/recipes/olmo3/sft/32b_lora/train.yaml) • [Inference](/configs/recipes/olmo3/inference/32b_infer.yaml) • [Evaluation](/configs/recipes/olmo3/evaluation/32b/eval.yaml) |
+
 ### 🎨 Vision Models
 
 | Model | Example Configurations |
@@ -191,6 +256,9 @@ Explore the growing collection of ready-to-use configurations for state-of-the-a
 | Phi3 Vision 4.2B | [SFT](/configs/recipes/vision/phi3/sft/full/train.yaml) • [LoRA](/configs/recipes/vision/phi3/sft/lora/train.yaml) • [Inference (vLLM)](configs/recipes/vision/phi3/inference/vllm_infer.yaml) |
 | Phi4 Vision 5.6B | [SFT](/configs/recipes/vision/phi4/sft/full/train.yaml) • [LoRA](/configs/recipes/vision/phi4/sft/lora/train.yaml) • [Inference (vLLM)](configs/recipes/vision/phi4/inference/vllm_infer.yaml) • [Inference](/configs/recipes/vision/phi4/inference/infer.yaml) |
 | Qwen2-VL 2B | [SFT](/configs/recipes/vision/qwen2_vl_2b/sft/full/train.yaml) • [LoRA](/configs/recipes/vision/qwen2_vl_2b/sft/lora/train.yaml) • [Inference (vLLM)](configs/recipes/vision/qwen2_vl_2b/inference/vllm_infer.yaml) • [Inference (SGLang)](configs/recipes/vision/qwen2_vl_2b/inference/sglang_infer.yaml) • [Inference](configs/recipes/vision/qwen2_vl_2b/inference/infer.yaml) • [Evaluation](configs/recipes/vision/qwen2_vl_2b/evaluation/eval.yaml) |
+| Qwen3-VL 2B | [Inference](/configs/recipes/vision/qwen3_vl_2b/inference/infer.yaml) |
+| Qwen3-VL 4B | [Inference](/configs/recipes/vision/qwen3_vl_4b/inference/infer.yaml) |
+| Qwen3-VL 8B | [Inference](/configs/recipes/vision/qwen3_vl_8b/inference/infer.yaml) |
 | Qwen2.5-VL 3B | [SFT](/configs/recipes/vision/qwen2_5_vl_3b/sft/full/train.yaml) • [LoRA](/configs/recipes/vision/qwen2_5_vl_3b/sft/lora/train.yaml)• [Inference (vLLM)](configs/recipes/vision/qwen2_5_vl_3b/inference/vllm_infer.yaml) • [Inference](configs/recipes/vision/qwen2_5_vl_3b/inference/infer.yaml) |
 | SmolVLM-Instruct 2B | [SFT](/configs/recipes/vision/smolvlm/sft/full/train.yaml) • [LoRA](/configs/recipes/vision/smolvlm/sft/lora/train.yaml) |
 
@@ -205,72 +273,79 @@ Models prefixed with a checkmark (✅) have been thoroughly tested and validated
 
 #### Instruct Models
 
-| Model | Size | Paper | HF Hub  | License  | Open [^1] | Recommended Parameters |
-|-------|------|-------|---------|----------|------|------------------------|
-| ✅ SmolLM-Instruct | 135M/360M/1.7B | [Blog](https://huggingface.co/blog/smollm) | [Hub](https://huggingface.co/HuggingFaceTB/SmolLM-135M-Instruct) | Apache 2.0 | ✅ | |
-| ✅ DeepSeek R1 Family | 1.5B/8B/32B/70B/671B | [Blog](https://api-docs.deepseek.com/news/news250120) | [Hub](https://huggingface.co/deepseek-ai/DeepSeek-R1) | MIT | ❌ | |
-| ✅ Llama 3.1 Instruct | 8B/70B/405B | [Paper](https://arxiv.org/abs/2407.21783) | [Hub](https://huggingface.co/meta-llama/Llama-3.1-70b-instruct) | [License](https://llama.meta.com/llama3/license/) | ❌  | |
-| ✅ Llama 3.2 Instruct | 1B/3B | [Paper](https://arxiv.org/abs/2407.21783) | [Hub](https://huggingface.co/meta-llama/Llama-3.2-3b-instruct) | [License](https://llama.meta.com/llama3/license/) | ❌  | |
-| ✅ Llama 3.3 Instruct | 70B | [Paper](https://arxiv.org/abs/2407.21783) | [Hub](https://huggingface.co/meta-llama/Llama-3.3-70b-instruct) | [License](https://llama.meta.com/llama3/license/) | ❌  | |
-| ✅ Phi-3.5-Instruct | 4B/14B | [Paper](https://arxiv.org/abs/2404.14219) | [Hub](https://huggingface.co/microsoft/Phi-3.5-mini-instruct) | [License](https://huggingface.co/microsoft/Phi-3-mini-4k-instruct/blob/main/LICENSE) | ❌  | |
-| Qwen2.5-Instruct | 0.5B-70B | [Paper](https://arxiv.org/abs/2309.16609) | [Hub](https://huggingface.co/Qwen/Qwen2.5-7B-Instruct) | [License](https://github.com/QwenLM/Qwen/blob/main/LICENSE) | ❌  | |
-| OLMo 2 Instruct | 7B | [Paper](https://arxiv.org/abs/2402.00838) | [Hub](https://huggingface.co/allenai/OLMo-2-1124-7B) | Apache 2.0 | ✅ | |
-| MPT-Instruct | 7B | [Blog](https://www.mosaicml.com/blog/mpt-7b) | [Hub](https://huggingface.co/mosaicml/mpt-7b-instruct) | Apache 2.0 | ✅ | |
-| Command R | 35B/104B | [Blog](https://cohere.com/blog/command-r7b) | [Hub](https://huggingface.co/CohereForAI/c4ai-command-r-plus) | [License](https://cohere.com/c4ai-cc-by-nc-license) | ❌ | |
-| Granite-3.1-Instruct | 2B/8B | [Paper](https://github.com/ibm-granite/granite-3.0-language-models/blob/main/paper.pdf) | [Hub](https://huggingface.co/ibm-granite/granite-3.1-8b-instruct) | Apache 2.0 | ❌ | |
-| Gemma 2 Instruct | 2B/9B | [Blog](https://ai.google.dev/gemma) | [Hub](https://huggingface.co/google/gemma-2-2b-it) | [License](https://ai.google.dev/gemma/terms) | ❌ | |
-| DBRX-Instruct | 130B MoE | [Blog](https://www.databricks.com/blog/introducing-dbrx-new-state-art-open-llm) | [Hub](https://huggingface.co/databricks/dbrx-instruct) | Apache 2.0 | ❌ | |
-| Falcon-Instruct | 7B/40B | [Paper](https://arxiv.org/abs/2306.01116) | [Hub](https://huggingface.co/tiiuae/falcon-7b-instruct) | Apache 2.0 | ❌  | |
-| ✅ Llama 4 Scout Instruct | 17B (Activated) 109B (Total) | [Paper](https://arxiv.org/abs/2407.21783) | [Hub](https://huggingface.co/meta-llama/Llama-4-Scout-17B-16E-Instruct) | [License](https://llama.meta.com/llama4/license/) | ❌  | |
-| ✅ Llama 4 Maverick Instruct | 17B (Activated) 400B (Total) | [Paper](https://arxiv.org/abs/2407.21783) | [Hub](https://huggingface.co/meta-llama/Llama-4-Maverick-17B-128E-Instruct) | [License](https://llama.meta.com/llama4/license/) | ❌  | |
+| Model | Size | Paper | HF Hub  | License  | Open [^1] |
+|-------|------|-------|---------|----------|------|
+| ✅ SmolLM-Instruct | 135M/360M/1.7B | [Blog](https://huggingface.co/blog/smollm) | [Hub](https://huggingface.co/HuggingFaceTB/SmolLM-135M-Instruct) | Apache 2.0 | ✅ |
+| ✅ DeepSeek R1 Family | 1.5B/8B/32B/70B/671B | [Blog](https://api-docs.deepseek.com/news/news250120) | [Hub](https://huggingface.co/deepseek-ai/DeepSeek-R1) | MIT | ❌ |
+| ✅ Llama 3.1 Instruct | 8B/70B/405B | [Paper](https://arxiv.org/abs/2407.21783) | [Hub](https://huggingface.co/meta-llama/Llama-3.1-70b-instruct) | [License](https://llama.meta.com/llama3/license/) | ❌  |
+| ✅ Llama 3.2 Instruct | 1B/3B | [Paper](https://arxiv.org/abs/2407.21783) | [Hub](https://huggingface.co/meta-llama/Llama-3.2-3b-instruct) | [License](https://llama.meta.com/llama3/license/) | ❌  |
+| ✅ Llama 3.3 Instruct | 70B | [Paper](https://arxiv.org/abs/2407.21783) | [Hub](https://huggingface.co/meta-llama/Llama-3.3-70b-instruct) | [License](https://llama.meta.com/llama3/license/) | ❌  |
+| ✅ Phi-3.5-Instruct | 4B/14B | [Paper](https://arxiv.org/abs/2404.14219) | [Hub](https://huggingface.co/microsoft/Phi-3.5-mini-instruct) | [License](https://huggingface.co/microsoft/Phi-3-mini-4k-instruct/blob/main/LICENSE) | ❌  |
+| ✅ Qwen3 | 0.6B-32B | [Paper](https://arxiv.org/abs/2505.09388) | [Hub](https://huggingface.co/Qwen/Qwen3-32B) | [License](https://github.com/QwenLM/Qwen/blob/main/LICENSE) | ❌  |
+| Qwen2.5-Instruct | 0.5B-70B | [Paper](https://arxiv.org/abs/2309.16609) | [Hub](https://huggingface.co/Qwen/Qwen2.5-7B-Instruct) | [License](https://github.com/QwenLM/Qwen/blob/main/LICENSE) | ❌  |
+| OLMo 2 Instruct | 7B | [Paper](https://arxiv.org/abs/2402.00838) | [Hub](https://huggingface.co/allenai/OLMo-2-1124-7B) | Apache 2.0 | ✅ |
+| ✅ OLMo 3 Instruct | 7B/32B | [Paper](https://arxiv.org/abs/2402.00838) | [Hub](https://huggingface.co/allenai/OLMo-3-7B-Instruct) | Apache 2.0 | ✅ |
+| MPT-Instruct | 7B | [Blog](https://www.mosaicml.com/blog/mpt-7b) | [Hub](https://huggingface.co/mosaicml/mpt-7b-instruct) | Apache 2.0 | ✅ |
+| Command R | 35B/104B | [Blog](https://cohere.com/blog/command-r7b) | [Hub](https://huggingface.co/CohereForAI/c4ai-command-r-plus) | [License](https://cohere.com/c4ai-cc-by-nc-license) | ❌ |
+| Granite-3.1-Instruct | 2B/8B | [Paper](https://github.com/ibm-granite/granite-3.0-language-models/blob/main/paper.pdf) | [Hub](https://huggingface.co/ibm-granite/granite-3.1-8b-instruct) | Apache 2.0 | ❌ |
+| Gemma 2 Instruct | 2B/9B | [Blog](https://ai.google.dev/gemma) | [Hub](https://huggingface.co/google/gemma-2-2b-it) | [License](https://ai.google.dev/gemma/terms) | ❌ |
+| ✅ Gemma 3 Instruct | 4B/12B/27B | [Blog](https://ai.google.dev/gemma) | [Hub](https://huggingface.co/google/gemma-3-27b-it) | [License](https://ai.google.dev/gemma/terms) | ❌ |
+| DBRX-Instruct | 130B MoE | [Blog](https://www.databricks.com/blog/introducing-dbrx-new-state-art-open-llm) | [Hub](https://huggingface.co/databricks/dbrx-instruct) | Apache 2.0 | ❌ |
+| Falcon-Instruct | 7B/40B | [Paper](https://arxiv.org/abs/2306.01116) | [Hub](https://huggingface.co/tiiuae/falcon-7b-instruct) | Apache 2.0 | ❌  |
+| ✅ Llama 4 Scout Instruct | 17B (Activated) 109B (Total) | [Paper](https://arxiv.org/abs/2407.21783) | [Hub](https://huggingface.co/meta-llama/Llama-4-Scout-17B-16E-Instruct) | [License](https://llama.meta.com/llama4/license/) | ❌  |
+| ✅ Llama 4 Maverick Instruct | 17B (Activated) 400B (Total) | [Paper](https://arxiv.org/abs/2407.21783) | [Hub](https://huggingface.co/meta-llama/Llama-4-Maverick-17B-128E-Instruct) | [License](https://llama.meta.com/llama4/license/) | ❌  |
 
 #### Vision-Language Models
 
-| Model | Size | Paper | HF Hub | License | Open | Recommended Parameters |
-|-------|------|-------|---------|----------|------|---------------------|
-| ✅ Llama 3.2 Vision | 11B | [Paper](https://arxiv.org/abs/2407.21783) | [Hub](https://huggingface.co/meta-llama/Llama-3.2-11b-vision) | [License](https://llama.meta.com/llama3/license/) | ❌  | |
-| ✅ LLaVA-1.5 | 7B | [Paper](https://arxiv.org/abs/2310.03744) | [Hub](https://huggingface.co/llava-hf/llava-1.5-7b-hf) | [License](https://ai.meta.com/llama/license) | ❌ | |
-| ✅ Phi-3 Vision | 4.2B | [Paper](https://arxiv.org/abs/2404.14219) | [Hub](https://huggingface.co/microsoft/Phi-3-vision-128k-instruct) | [License](https://huggingface.co/microsoft/Phi-3-mini-4k-instruct/blob/main/LICENSE) | ❌ | |
-| ✅ BLIP-2 | 3.6B | [Paper](https://arxiv.org/abs/2301.12597) | [Hub](https://huggingface.co/Salesforce/blip2-opt-2.7b) | MIT | ❌ | |
-| ✅ Qwen2-VL | 2B | [Blog](https://qwenlm.github.io/blog/qwen2-vl/) | [Hub](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct) | [License](https://github.com/QwenLM/Qwen/blob/main/LICENSE) | ❌  | |
-| ✅ SmolVLM-Instruct | 2B | [Blog](https://huggingface.co/blog/smolvlm) | [Hub](https://huggingface.co/HuggingFaceTB/SmolVLM-Instruct) | Apache 2.0 | ✅  | |
+| Model | Size | Paper | HF Hub | License | Open |
+|-------|------|-------|---------|----------|------|
+| ✅ Llama 3.2 Vision | 11B | [Paper](https://arxiv.org/abs/2407.21783) | [Hub](https://huggingface.co/meta-llama/Llama-3.2-11b-vision) | [License](https://llama.meta.com/llama3/license/) | ❌  |
+| ✅ LLaVA-1.5 | 7B | [Paper](https://arxiv.org/abs/2310.03744) | [Hub](https://huggingface.co/llava-hf/llava-1.5-7b-hf) | [License](https://ai.meta.com/llama/license) | ❌ |
+| ✅ Phi-3 Vision | 4.2B | [Paper](https://arxiv.org/abs/2404.14219) | [Hub](https://huggingface.co/microsoft/Phi-3-vision-128k-instruct) | [License](https://huggingface.co/microsoft/Phi-3-mini-4k-instruct/blob/main/LICENSE) | ❌ |
+| ✅ BLIP-2 | 3.6B | [Paper](https://arxiv.org/abs/2301.12597) | [Hub](https://huggingface.co/Salesforce/blip2-opt-2.7b) | MIT | ❌ |
+| ✅ Qwen2-VL | 2B | [Blog](https://qwenlm.github.io/blog/qwen2-vl/) | [Hub](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct) | [License](https://github.com/QwenLM/Qwen/blob/main/LICENSE) | ❌  |
+| ✅ Qwen3-VL | 2B/4B/8B | [Blog](https://qwenlm.github.io/blog/qwen3-vl/) | [Hub](https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct) | [License](https://github.com/QwenLM/Qwen/blob/main/LICENSE) | ❌  |
+| ✅ SmolVLM-Instruct | 2B | [Blog](https://huggingface.co/blog/smolvlm) | [Hub](https://huggingface.co/HuggingFaceTB/SmolVLM-Instruct) | Apache 2.0 | ✅  |
 
 #### Base Models
 
-| Model | Size | Paper | HF Hub | License | Open | Recommended Parameters |
-|-------|------|-------|---------|----------|------|---------------------|
-| ✅ SmolLM2 | 135M/360M/1.7B | [Blog](https://huggingface.co/blog/smollm) | [Hub](https://huggingface.co/HuggingFaceTB/SmolLM2-135M) | Apache 2.0 | ✅ | |
-| ✅ Llama 3.2 | 1B/3B | [Paper](https://arxiv.org/abs/2407.21783) | [Hub](https://huggingface.co/meta-llama/Llama-3.2-3b) | [License](https://llama.meta.com/llama3/license/) | ❌  | |
-| ✅ Llama 3.1 | 8B/70B/405B | [Paper](https://arxiv.org/abs/2407.21783) | [Hub](https://huggingface.co/meta-llama/Llama-3.1-70b) | [License](https://llama.meta.com/llama3/license/) | ❌  | |
-| ✅ GPT-2 | 124M-1.5B | [Paper](https://arxiv.org/abs/2005.14165) | [Hub](https://huggingface.co/gpt2) | MIT | ✅ | |
-| DeepSeek V2 | 7B/13B | [Blog](https://www.deepseek.com/blogs/deepseek-v2) | [Hub](https://huggingface.co/deepseek-ai/deepseek-llm-7b-v2) | [License](https://github.com/deepseek-ai/DeepSeek-LLM/blob/main/LICENSE-MODEL) | ❌ | |
-| Gemma2 | 2B/9B | [Blog](https://ai.google.dev/gemma) | [Hub](https://huggingface.co/google/gemma2-7b) | [License](https://ai.google.dev/gemma/terms) | ❌ | |
-| GPT-J | 6B | [Blog](https://www.eleuther.ai/artifacts/gpt-j) | [Hub](https://huggingface.co/EleutherAI/gpt-j-6b) | Apache 2.0 | ✅ | |
-| GPT-NeoX | 20B | [Paper](https://arxiv.org/abs/2204.06745) | [Hub](https://huggingface.co/EleutherAI/gpt-neox-20b) | Apache 2.0 | ✅ | |
-| Mistral | 7B | [Paper](https://arxiv.org/abs/2310.06825) | [Hub](https://huggingface.co/mistralai/Mistral-7B-v0.1) | Apache 2.0 | ❌  | |
-| Mixtral | 8x7B/8x22B | [Blog](https://mistral.ai/news/mixtral-of-experts/) | [Hub](https://huggingface.co/mistralai/Mixtral-8x7B-v0.1) | Apache 2.0 | ❌  | |
-| MPT | 7B | [Blog](https://www.mosaicml.com/blog/mpt-7b) | [Hub](https://huggingface.co/mosaicml/mpt-7b) | Apache 2.0 | ✅ | |
-| OLMo | 1B/7B | [Paper](https://arxiv.org/abs/2402.00838) | [Hub](https://huggingface.co/allenai/OLMo-7B-hf) | Apache 2.0 | ✅ | |
-| ✅ Llama 4 Scout | 17B (Activated) 109B (Total) | [Paper](https://arxiv.org/abs/2407.21783) | [Hub](https://huggingface.co/meta-llama/Llama-4-Scout-17B-16E) | [License](https://llama.meta.com/llama4/license/) | ❌  | |
+| Model | Size | Paper | HF Hub | License | Open |
+|-------|------|-------|---------|----------|------|
+| ✅ SmolLM2 | 135M/360M/1.7B | [Blog](https://huggingface.co/blog/smollm) | [Hub](https://huggingface.co/HuggingFaceTB/SmolLM2-135M) | Apache 2.0 | ✅ |
+| ✅ Llama 3.2 | 1B/3B | [Paper](https://arxiv.org/abs/2407.21783) | [Hub](https://huggingface.co/meta-llama/Llama-3.2-3b) | [License](https://llama.meta.com/llama3/license/) | ❌  |
+| ✅ Llama 3.1 | 8B/70B/405B | [Paper](https://arxiv.org/abs/2407.21783) | [Hub](https://huggingface.co/meta-llama/Llama-3.1-70b) | [License](https://llama.meta.com/llama3/license/) | ❌  |
+| ✅ GPT-2 | 124M-1.5B | [Paper](https://arxiv.org/abs/2005.14165) | [Hub](https://huggingface.co/gpt2) | MIT | ✅ |
+| DeepSeek V2 | 7B/13B | [Blog](https://www.deepseek.com/blogs/deepseek-v2) | [Hub](https://huggingface.co/deepseek-ai/deepseek-llm-7b-v2) | [License](https://github.com/deepseek-ai/DeepSeek-LLM/blob/main/LICENSE-MODEL) | ❌ |
+| Gemma2 | 2B/9B | [Blog](https://ai.google.dev/gemma) | [Hub](https://huggingface.co/google/gemma2-7b) | [License](https://ai.google.dev/gemma/terms) | ❌ |
+| GPT-J | 6B | [Blog](https://www.eleuther.ai/artifacts/gpt-j) | [Hub](https://huggingface.co/EleutherAI/gpt-j-6b) | Apache 2.0 | ✅ |
+| GPT-NeoX | 20B | [Paper](https://arxiv.org/abs/2204.06745) | [Hub](https://huggingface.co/EleutherAI/gpt-neox-20b) | Apache 2.0 | ✅ |
+| Mistral | 7B | [Paper](https://arxiv.org/abs/2310.06825) | [Hub](https://huggingface.co/mistralai/Mistral-7B-v0.1) | Apache 2.0 | ❌  |
+| Mixtral | 8x7B/8x22B | [Blog](https://mistral.ai/news/mixtral-of-experts/) | [Hub](https://huggingface.co/mistralai/Mixtral-8x7B-v0.1) | Apache 2.0 | ❌  |
+| MPT | 7B | [Blog](https://www.mosaicml.com/blog/mpt-7b) | [Hub](https://huggingface.co/mosaicml/mpt-7b) | Apache 2.0 | ✅ |
+| OLMo | 1B/7B | [Paper](https://arxiv.org/abs/2402.00838) | [Hub](https://huggingface.co/allenai/OLMo-7B-hf) | Apache 2.0 | ✅ |
+| ✅ Llama 4 Scout | 17B (Activated) 109B (Total) | [Paper](https://arxiv.org/abs/2407.21783) | [Hub](https://huggingface.co/meta-llama/Llama-4-Scout-17B-16E) | [License](https://llama.meta.com/llama4/license/) | ❌  |
 
 #### Reasoning Models
 
-| Model | Size | Paper | HF Hub | License | Open | Recommended Parameters |
-|-------|------|-------|---------|----------|------|---------------------|
-| Qwen QwQ | 32B | [Blog](https://qwenlm.github.io/blog/qwq-32b-preview/) | [Hub](https://huggingface.co/Qwen/QwQ-32B-Preview) | [License](https://github.com/QwenLM/Qwen/blob/main/LICENSE) | ✅ | |
+| Model | Size | Paper | HF Hub | License | Open |
+|-------|------|-------|---------|----------|------|
+| ✅ gpt-oss | 20B/120B | [Paper](https://arxiv.org/abs/2508.10925) | [Hub](https://huggingface.co/openai/gpt-oss-120b) | Apache 2.0 | ❌  |
+| ✅ Qwen3 | 0.6B-32B | [Paper](https://arxiv.org/abs/2505.09388) | [Hub](https://huggingface.co/Qwen/Qwen3-32B) | [License](https://github.com/QwenLM/Qwen/blob/main/LICENSE) | ❌  |
+| ✅ Qwen3-Next | 80B-A3B | [Blog](https://qwenlm.github.io/blog/qwen3/) | [Hub](https://huggingface.co/Qwen/Qwen3-Next-80B-A3B) | [License](https://github.com/QwenLM/Qwen/blob/main/LICENSE) | ❌  |
+| Qwen QwQ | 32B | [Blog](https://qwenlm.github.io/blog/qwq-32b-preview/) | [Hub](https://huggingface.co/Qwen/QwQ-32B-Preview) | [License](https://github.com/QwenLM/Qwen/blob/main/LICENSE) | ❌ |
 
 #### Code Models
 
-| Model | Size | Paper | HF Hub | License | Open | Recommended Parameters |
-|-------|------|-------|---------|----------|------|---------------------|
-| ✅ Qwen2.5 Coder | 0.5B-32B | [Blog](https://qwenlm.github.io/blog/qwen2.5/) | [Hub](https://huggingface.co/Qwen/Qwen2.5-Coder-32B-Instruct) | [License](https://github.com/QwenLM/Qwen/blob/main/LICENSE) | ❌  | |
-| DeepSeek Coder | 1.3B-33B | [Paper](https://arxiv.org/abs/2401.02954) | [Hub](https://huggingface.co/deepseek-ai/deepseek-coder-7b-instruct) | [License](https://github.com/deepseek-ai/DeepSeek-LLM/blob/main/LICENSE-MODEL) | ❌  | |
-| StarCoder 2 | 3B/7B/15B | [Paper](https://arxiv.org/abs/2402.19173) | [Hub](https://huggingface.co/bigcode/starcoder2-15b) | [License](https://huggingface.co/spaces/bigcode/bigcode-model-license-agreement) | ✅ | |
+| Model | Size | Paper | HF Hub | License | Open |
+|-------|------|-------|---------|----------|------|
+| ✅ Qwen2.5 Coder | 0.5B-32B | [Blog](https://qwenlm.github.io/blog/qwen2.5/) | [Hub](https://huggingface.co/Qwen/Qwen2.5-Coder-32B-Instruct) | [License](https://github.com/QwenLM/Qwen/blob/main/LICENSE) | ❌  |
+| DeepSeek Coder | 1.3B-33B | [Paper](https://arxiv.org/abs/2401.02954) | [Hub](https://huggingface.co/deepseek-ai/deepseek-coder-7b-instruct) | [License](https://github.com/deepseek-ai/DeepSeek-LLM/blob/main/LICENSE-MODEL) | ❌  |
+| StarCoder 2 | 3B/7B/15B | [Paper](https://arxiv.org/abs/2402.19173) | [Hub](https://huggingface.co/bigcode/starcoder2-15b) | [License](https://huggingface.co/spaces/bigcode/bigcode-model-license-agreement) | ✅ |
 
 #### Math Models
 
-| Model | Size | Paper | HF Hub | License | Open | Recommended Parameters |
-|-------|------|-------|---------|----------|------|---------------------|
+| Model | Size | Paper | HF Hub | License | Open |
+|-------|------|-------|---------|----------|------|
 | DeepSeek Math | 7B | [Paper](https://arxiv.org/abs/2401.02954) | [Hub](https://huggingface.co/deepseek-ai/deepseek-math-7b-instruct) | [License](https://github.com/deepseek-ai/DeepSeek-LLM/blob/main/LICENSE-MODEL) | ❌  | |
 
 </details>
@@ -279,7 +354,7 @@ Models prefixed with a checkmark (✅) have been thoroughly tested and validated
 
 To learn more about all the platform's capabilities, see the [Oumi documentation](https://oumi.ai/docs).
 
-## 🤝 Join the Community!
+## 🤝 Join the Community
 
 Oumi is a community-first effort. Whether you are a developer, a researcher, or a non-technical user, all contributions are very welcome!
 
@@ -308,6 +383,5 @@ If you find Oumi useful in your research, please consider citing it:
 ## 📜 License
 
 This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details.
-
 
 [^1]: Open models are defined as models with fully open weights, training code, and data, and a permissive license. See [Open Source Definitions](https://opensource.org/ai) for more information.

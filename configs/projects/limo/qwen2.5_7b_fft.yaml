@@ -1,0 +1,71 @@
+# Full Fine-Tuning config for Qwen2.5-7B-Instruct on LIMO dataset
+# Based on LIMO paper configuration: https://arxiv.org/abs/2502.03387
+# Reference: https://github.com/GAIR-NLP/LIMO/blob/main/train/examples/train_limo.yaml
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `hf auth login`
+#
+# Usage:
+#   oumi train -c configs/projects/limo/qwen2.5_7b_fft.yaml
+
+model:
+  model_name: "Qwen/Qwen2.5-7B-Instruct"
+  model_max_length: 16384 # Match LIMO paper cutoff_len
+  torch_dtype_str: "bfloat16"
+  # attn_implementation: "flash_attention_2"  # Match LIMO FA2
+  load_pretrained_weights: True
+  trust_remote_code: True
+  enable_liger_kernel: True
+
+data:
+  train:
+    datasets:
+      - dataset_name: "PromptResponseDataset"
+        split: "train"
+        dataset_kwargs:
+          hf_dataset_path: "GAIR/LIMO"
+          prompt_column: "question"
+          response_column: "solution"
+        shuffle: True
+        seed: 42
+
+training:
+  trainer_type: "TRL_SFT"
+  trainer_kwargs:
+    dataset_text_field: "text" # TRL will look for this field
+  # Full fine-tuning (no PEFT)
+  save_steps: 0 # Save per epoch like LIMO
+  num_train_epochs: 15 # Match LIMO paper
+  per_device_train_batch_size: 1 # Match LIMO paper
+  gradient_accumulation_steps: 1 # Match LIMO paper
+
+  enable_gradient_checkpointing: True
+  gradient_checkpointing_kwargs:
+    use_reentrant: False
+  ddp_find_unused_parameters: False
+  optimizer: "adamw_torch_fused"
+  learning_rate: 5.0e-06 # Match LIMO paper (5.0e-6)
+  lr_scheduler_type: "cosine" # Match LIMO paper
+  warmup_ratio: 0.0 # Match LIMO paper (no warmup)
+  weight_decay: 0.01
+  compile: False
+
+  dataloader_num_workers: 64 # Match LIMO preprocessing workers
+  dataloader_prefetch_factor: 32
+
+  logging_steps: 1 # Match LIMO paper
+  log_model_summary: True
+  empty_device_cache_steps: 50
+  output_dir: "output/qwen2.5_7b_limo_fft"
+  include_performance_metrics: True
+  enable_wandb: True
+  save_final_model: True
+
+fsdp:
+  enable_fsdp: True
+  sharding_strategy: "FULL_SHARD" # Similar to DeepSpeed ZeRO-3
+  forward_prefetch: True
+  use_orig_params: True
+  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
+  transformer_layer_cls: "Qwen2DecoderLayer"

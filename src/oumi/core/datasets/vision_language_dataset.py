@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Any
 
 from typing_extensions import override
 
@@ -53,7 +53,7 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
         ... )
         >>> dataset = MyVisionLanguageSftDataset( # doctest: +SKIP
         ...     tokenizer=tokenizer,
-        ...     processor_name="openai/clip-vit-base-patch32",
+        ...     processor_name="HuggingFaceTB/SmolVLM-256M-Instruct",
         ...     dataset_name="coco_captions",
         ...     split="train"
         ... )
@@ -65,13 +65,13 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
         self,
         *,
         return_conversations: bool = False,
-        tokenizer: Optional[BaseTokenizer] = None,
-        processor: Optional[BaseProcessor] = None,
-        processor_name: Optional[str] = None,
-        processor_kwargs: Optional[dict[str, Any]] = None,
-        limit: Optional[int] = None,
+        tokenizer: BaseTokenizer | None = None,
+        processor: BaseProcessor | None = None,
+        processor_name: str | None = None,
+        processor_kwargs: dict[str, Any] | None = None,
+        limit: int | None = None,
         trust_remote_code: bool = False,
-        max_images: Optional[int] = None,
+        max_images: int | None = None,
         **kwargs,
     ) -> None:
         """Initializes a new instance of the VisionLanguageDataset class.

@@ -12,9 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import io
 import uuid
 from copy import deepcopy
-from typing import Any, Optional
+from typing import Any
 
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import BaseCluster, JobStatus
@@ -79,7 +80,7 @@ class LocalCluster(BaseCluster):
         """Gets the name of the cluster."""
         return self._name
 
-    def get_job(self, job_id: str) -> Optional[JobStatus]:
+    def get_job(self, job_id: str) -> JobStatus | None:
         """Gets the jobs on this cluster if it exists, else returns None."""
         for job in self.get_jobs():
             if job.id == job_id:
@@ -127,3 +128,14 @@ class LocalCluster(BaseCluster):
         """Cancels all jobs, running or queued."""
         for job in self.get_jobs():
             self.cancel_job(job.id)
+
+    def get_logs_stream(
+        self, cluster_name: str, job_id: str | None = None
+    ) -> io.TextIOBase:
+        """Gets a stream that tails the logs of the target job.
+
+        Args:
+            cluster_name: The name of the cluster the job was run in.
+            job_id: The ID of the job to tail the logs of.
+        """
+        raise NotImplementedError

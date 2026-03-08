@@ -13,8 +13,8 @@
 # limitations under the License.
 
 import abc
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Optional, Union
 
 import PIL.Image
 import transformers
@@ -65,25 +65,25 @@ class BaseProcessor(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def image_processor(self) -> Optional[BaseImageProcessor]:
+    def image_processor(self) -> BaseImageProcessor | None:
         """Returns an image processor."""
         raise NotImplementedError
 
     @property
     @abc.abstractmethod
-    def image_token(self) -> Optional[str]:
+    def image_token(self) -> str | None:
         """Returns an image token."""
         raise NotImplementedError
 
     @property
     @abc.abstractmethod
-    def image_token_id(self) -> Optional[int]:
+    def image_token_id(self) -> int | None:
         """Returns an image token id."""
         raise NotImplementedError
 
     @property
     @abc.abstractmethod
-    def label_ignore_index(self) -> Optional[int]:
+    def label_ignore_index(self) -> int | None:
         """Returns a label ignore index."""
         raise NotImplementedError
 
@@ -109,17 +109,17 @@ class BaseProcessor(abc.ABC):
         self,
         *,
         text: list[str],
-        padding: bool,
-        images: Optional[list[PIL.Image.Image]] = None,
-        return_tensors: Optional[str] = "pt",
+        images: list[PIL.Image.Image] | None = None,
+        return_tensors: str | None = "pt",
+        **kwargs,
     ) -> transformers.BatchEncoding:
         """Invokes the processor to extract features.
 
         Args:
             text: A list of text prompts.
-            padding: Whether to pad sequences to common length.
             images: A list of input images.
             return_tensors: The format of returned tensors.
+            kwargs: Additional keyword arguments.
 
         Returns:
             transformers.BatchEncoding: The model-specific input features.
@@ -142,7 +142,7 @@ class BaseProcessor(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def save_config(self, output_dir: Union[Path, str]) -> None:
+    def save_config(self, output_dir: Path | str) -> None:
         """Saves processor config to the directory."""
         raise NotImplementedError
 

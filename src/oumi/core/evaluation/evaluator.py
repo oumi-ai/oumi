@@ -15,20 +15,19 @@
 import copy
 import inspect
 import time
+from collections.abc import Callable
 from dataclasses import fields
 from datetime import datetime
-from typing import Any, Callable, Optional, Union
+from typing import Any
 
 from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.configs import (
-    AlpacaEvalTaskParams,
     EvaluationConfig,
     EvaluationTaskParams,
     LMHarnessTaskParams,
 )
 from oumi.core.configs.params.evaluation_params import EvaluationBackend
 from oumi.core.distributed import is_world_process_zero
-from oumi.core.evaluation.backends.alpaca_eval import evaluate as evaluate_alpaca_eval
 from oumi.core.evaluation.backends.lm_harness import evaluate as evaluate_lm_harness
 from oumi.core.evaluation.evaluation_result import EvaluationResult
 from oumi.core.evaluation.utils.platform_prerequisites import check_prerequisites
@@ -54,25 +53,20 @@ RESERVED_KEYS = {
 class Evaluator:
     """A class for evaluating language models on various tasks.
 
-    Currently, the evaluator supports a wide range of tasks that are handled by three
-    separate backends: LM Harness, Alpaca Eval, and Custom.
+    Currently, the evaluator supports a wide range of tasks that are handled by two
+    separate backends: LM Harness and Custom.
 
     - LM Harness: Framework by EleutherAI for evaluating language models (mostly) on
         standardized benchmarks (multiple-choice, word match, etc). The backend supports
         a large number of popular benchmarks, which can be found at:
         https://github.com/EleutherAI/lm-evaluation-harness/tree/main/lm_eval/tasks.
-    - Alpaca Eval: Framework for evaluating the instruction-following capabilities of
-        language models, as well as whether their responses are helpful, accurate, and
-        relevant. The instruction set consists of 805 open-ended questions, while the
-        evaluation is based on "LLM-as-judge" and prioritizes human-alignment, aiming
-        to assess whether the model responses meet the expectations of human evaluators.
     - Custom: Users can register their own evaluation functions using the decorator
         `@register_evaluation_function` and run custom evaluations based on their
         functions. Note that the `task_name` should be the registry key for the custom
         evaluation function to be used.
     """
 
-    _inference_engine: Optional[BaseInferenceEngine] = None
+    _inference_engine: BaseInferenceEngine | None = None
     """Inference engine used for evaluation, if needed by the tasks."""
 
     def evaluate(self, config: EvaluationConfig, **kwargs) -> list[EvaluationResult]:
@@ -145,16 +139,6 @@ class Evaluator:
                 config=config,
                 **kwargs,  # random_seed, numpy_random_seed, torch_random_seed
             )
-        elif evaluation_backend == EvaluationBackend.ALPACA_EVAL:
-            alpaca_eval_task_params = self._get_backend_task_params(task_params)
-            assert isinstance(alpaca_eval_task_params, AlpacaEvalTaskParams)
-
-            evaluation_result = evaluate_alpaca_eval(
-                task_params=alpaca_eval_task_params,
-                config=config,
-                inference_engine=self._get_inference_engine(config),
-                **kwargs,
-            )
         elif evaluation_backend == EvaluationBackend.CUSTOM:
             evaluation_fn_name = task_params.task_name or ""
             evaluation_fn = self._get_custom_evaluation_fn(evaluation_fn_name)
@@ -208,7 +192,7 @@ class Evaluator:
         task_params: EvaluationTaskParams,
         evaluation_result: EvaluationResult,
         base_output_dir: str,
-        config: Optional[EvaluationConfig],
+        config: EvaluationConfig | None,
     ) -> None:
         """Saves the evaluation's output to the specified output directory.
 
@@ -230,7 +214,7 @@ class Evaluator:
         )
 
     @staticmethod
-    def _get_custom_evaluation_fn(task_name: Optional[str]) -> Callable:
+    def _get_custom_evaluation_fn(task_name: str | None) -> Callable:
         """Retrieve the evaluation function of the custom task."""
         if not task_name:
             raise ValueError(
@@ -254,12 +238,10 @@ class Evaluator:
     @staticmethod
     def _get_backend_task_params(
         task_params: EvaluationTaskParams,
-    ) -> Union[LMHarnessTaskParams, AlpacaEvalTaskParams]:
+    ) -> LMHarnessTaskParams:
         """Returns the evaluation backend-specific task parameters."""
         if task_params.get_evaluation_backend() == EvaluationBackend.LM_HARNESS:
             target_class = LMHarnessTaskParams
-        elif task_params.get_evaluation_backend() == EvaluationBackend.ALPACA_EVAL:
-            target_class = AlpacaEvalTaskParams
         elif task_params.get_evaluation_backend() == EvaluationBackend.CUSTOM:
             raise ValueError(
                 "The custom evaluation backend is not subclassing EvaluationTaskParams."

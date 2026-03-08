@@ -20,10 +20,9 @@ from enum import Enum
 from pathlib import Path
 from subprocess import PIPE, Popen
 from threading import Lock, Thread
-from typing import Optional
 
 from oumi.core.configs import JobConfig
-from oumi.core.launcher import JobStatus
+from oumi.core.launcher import JobState, JobStatus
 
 
 @dataclass
@@ -32,8 +31,8 @@ class _LocalJob:
 
     status: JobStatus
     config: JobConfig
-    stdout: Optional[str] = None
-    stderr: Optional[str] = None
+    stdout: str | None = None
+    stderr: str | None = None
 
 
 class _JobState(Enum):
@@ -64,15 +63,30 @@ class LocalClient:
         self._worker = Thread(target=self._worker_loop, daemon=True)
         self._worker.start()
 
+    def _get_job_state(self, job_state: _JobState) -> JobState:
+        """Gets the state of the job."""
+        if job_state == _JobState.QUEUED:
+            return JobState.PENDING
+        elif job_state == _JobState.RUNNING:
+            return JobState.RUNNING
+        elif job_state == _JobState.COMPLETED:
+            return JobState.SUCCEEDED
+        elif job_state == _JobState.FAILED:
+            return JobState.FAILED
+        elif job_state == _JobState.CANCELED:
+            return JobState.CANCELLED
+        raise ValueError(f"Invalid job state: {job_state}")
+
     def _update_job_status(self, job_id: str, status: _JobState) -> None:
         """Updates the status of the job. Assumes the mutex is already acquired."""
         if job_id not in self._jobs:
             return
         self._jobs[job_id].status.status = status.value
+        self._jobs[job_id].status.state = self._get_job_state(status)
         is_done = status in (_JobState.COMPLETED, _JobState.FAILED, _JobState.CANCELED)
         self._jobs[job_id].status.done = is_done
 
-    def _worker_run_job(self) -> Optional[_LocalJob]:
+    def _worker_run_job(self) -> _LocalJob | None:
         """Kicks off and returns a new job. Assumes the mutex is already acquired."""
         job = self._get_next_job()
         if job is None:
@@ -161,7 +175,7 @@ class LocalClient:
         self._next_job_id += 1
         return str(job_id)
 
-    def _get_next_job(self) -> Optional[_LocalJob]:
+    def _get_next_job(self) -> _LocalJob | None:
         """Gets the next QUEUED job from the queue."""
         queued_jobs = [
             job
@@ -188,6 +202,7 @@ class LocalClient:
                 cluster="",
                 metadata="",
                 done=False,
+                state=JobState.PENDING,
             )
             self._jobs[job_id] = _LocalJob(status=status, config=job)
             return status
@@ -197,7 +212,7 @@ class LocalClient:
         with self._mutex:
             return [job.status for job in self._jobs.values()]
 
-    def get_job(self, job_id: str) -> Optional[JobStatus]:
+    def get_job(self, job_id: str) -> JobStatus | None:
         """Gets the specified job's status.
 
         Args:
@@ -212,7 +227,7 @@ class LocalClient:
                 return job
         return None
 
-    def cancel(self, job_id) -> Optional[JobStatus]:
+    def cancel(self, job_id) -> JobStatus | None:
         """Cancels the specified job.
 
         Args:

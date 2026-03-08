@@ -14,7 +14,6 @@
 
 import collections
 from dataclasses import dataclass
-from typing import Optional
 
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import BaseCloud, BaseCluster, JobStatus
@@ -117,7 +116,7 @@ class FrontierCloud(BaseCloud):
             clusters.append(cluster)
         return clusters
 
-    def up_cluster(self, job: JobConfig, name: Optional[str], **kwargs) -> JobStatus:
+    def up_cluster(self, job: JobConfig, name: str | None, **kwargs) -> JobStatus:
         """Creates a cluster and starts the provided Job."""
         if not job.user:
             raise ValueError("User must be provided in the job config.")
@@ -143,7 +142,7 @@ class FrontierCloud(BaseCloud):
             raise RuntimeError("Failed to start job.")
         return job_status
 
-    def get_cluster(self, name) -> Optional[BaseCluster]:
+    def get_cluster(self, name) -> BaseCluster | None:
         """Gets the cluster with the specified name, or None if not found."""
         clusters = self.list_clusters()
         for cluster in clusters:

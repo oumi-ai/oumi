@@ -1,7 +1,6 @@
 import functools
 import itertools
 import json
-from typing import Optional
 from unittest.mock import patch
 
 import PIL.Image
@@ -91,8 +90,8 @@ def _generate_all_engines() -> list[SGLangInferenceEngine]:
 )
 def test_convert_conversation_to_api_input(
     engine: SGLangInferenceEngine,
-    guided_decoding: Optional[GuidedDecodingParams],
-    num_images: Optional[int],
+    guided_decoding: GuidedDecodingParams | None,
+    num_images: int | None,
 ):
     is_vision_language: bool = "llava" in engine._model_params.model_name.lower()
     num_images = num_images or (1 if is_vision_language else 0)

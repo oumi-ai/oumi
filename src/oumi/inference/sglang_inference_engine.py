@@ -28,6 +28,7 @@ from oumi.builders import (
 )
 from oumi.core.configs import (
     GenerationParams,
+    InferenceConfig,
     ModelParams,
     RemoteParams,
 )
@@ -160,7 +161,9 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
         return _SamplingParams(
             max_new_tokens=generation_params.max_new_tokens,
             temperature=generation_params.temperature,
-            top_p=generation_params.top_p,
+            top_p=generation_params.top_p
+            if generation_params.top_p is not None
+            else 1.0,
             min_p=generation_params.min_p,
             frequency_penalty=generation_params.frequency_penalty,
             presence_penalty=generation_params.presence_penalty,
@@ -314,3 +317,15 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
             "temperature",
             "top_p",
         }
+
+    @override
+    def infer_batch(
+        self,
+        _conversations: list[Conversation],
+        _inference_config: InferenceConfig | None = None,
+    ) -> str:
+        """Batch inference is not implemented for SGLang."""
+        raise NotImplementedError(
+            "Batch inference is not implemented for SGLang. "
+            "Please open an issue on GitHub if you'd like this feature."
+        )

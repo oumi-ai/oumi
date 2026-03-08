@@ -10,7 +10,7 @@ from typer.testing import CliRunner
 
 from oumi.cli.alias import AliasType
 from oumi.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
-from oumi.cli.launch import cancel, down, status, stop, up, which
+from oumi.cli.launch import cancel, down, logs, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
 from oumi.core.configs import (
     DataParams,
@@ -21,9 +21,10 @@ from oumi.core.configs import (
     TrainingConfig,
     TrainingParams,
 )
-from oumi.core.launcher import JobStatus
+from oumi.core.launcher import JobState, JobStatus
 from oumi.launcher import JobConfig, JobResources
 from oumi.utils.logging import logger
+from oumi.utils.version_utils import get_oumi_version
 
 
 @pytest.fixture
@@ -72,6 +73,7 @@ def app():
     launch_app.command()(cancel)
     launch_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(up)
     launch_app.command()(which)
+    launch_app.command()(logs)
     yield launch_app
 
 
@@ -108,9 +110,13 @@ def mock_confirm():
 
 @pytest.fixture
 def mock_version():
+    # Clear the lru_cache to ensure fresh version checks in each test
+    get_oumi_version.cache_clear()
     with patch("oumi.utils.version_utils.version") as version_mock:
         version_mock.return_value = ""
         yield version_mock
+    # Clear again after the test to avoid polluting other tests
+    get_oumi_version.cache_clear()
 
 
 @pytest.fixture
@@ -139,7 +145,7 @@ def _create_training_config() -> TrainingConfig:
             model_name="MlpEncoder",
             model_max_length=1024,
             trust_remote_code=True,
-            tokenizer_name="gpt2",
+            tokenizer_name="openai-community/gpt2",
         ),
         training=TrainingParams(
             trainer_type=TrainerType.TRL_SFT,
@@ -195,6 +201,7 @@ def test_launch_up_job(
             status="running",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         mock_launcher.up.return_value = (mock_cluster, job_status)
         mock_cluster.get_job.return_value = job_status = JobStatus(
@@ -204,7 +211,11 @@ def test_launch_up_job(
             status="done",
             metadata="",
             done=True,
+            state=JobState.SUCCEEDED,
         )
+        mock_log_stream = Mock()
+        mock_log_stream.readline.side_effect = ["line1\n", "line2\n", ""]
+        mock_cluster.get_logs_stream.return_value = mock_log_stream
         _ = runner.invoke(
             app,
             [
@@ -240,6 +251,7 @@ def test_launch_up_job_with_alias(
             status="running",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         mock_launcher.up.return_value = (mock_cluster, job_status)
         mock_cluster.get_job.return_value = job_status = JobStatus(
@@ -249,7 +261,12 @@ def test_launch_up_job_with_alias(
             status="done",
             metadata="",
             done=True,
+            state=JobState.SUCCEEDED,
         )
+        # Mock the log stream to return proper string values
+        mock_log_stream = Mock()
+        mock_log_stream.readline.side_effect = ["line1\n", "line2\n", ""]
+        mock_cluster.get_logs_stream.return_value = mock_log_stream
         _ = runner.invoke(
             app,
             [
@@ -287,6 +304,7 @@ def test_launch_up_job_dev_confirm(
             status="running",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         mock_launcher.up.return_value = (mock_cluster, job_status)
         mock_cluster.get_job.return_value = job_status = JobStatus(
@@ -296,7 +314,11 @@ def test_launch_up_job_dev_confirm(
             status="done",
             metadata="",
             done=True,
+            state=JobState.SUCCEEDED,
         )
+        mock_log_stream = Mock()
+        mock_log_stream.readline.side_effect = ["line1\n", "line2\n", ""]
+        mock_cluster.get_logs_stream.return_value = mock_log_stream
         _ = runner.invoke(
             app,
             [
@@ -331,6 +353,7 @@ def test_launch_up_job_dev_no_confirm(
             status="running",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         mock_launcher.up.return_value = (mock_cluster, job_status)
         mock_cluster.get_job.return_value = job_status = JobStatus(
@@ -340,7 +363,11 @@ def test_launch_up_job_dev_no_confirm(
             status="done",
             metadata="",
             done=True,
+            state=JobState.SUCCEEDED,
         )
+        mock_log_stream = Mock()
+        mock_log_stream.readline.side_effect = ["line1\n", "line2\n", ""]
+        mock_cluster.get_logs_stream.return_value = mock_log_stream
         _ = runner.invoke(
             app,
             [
@@ -375,6 +402,7 @@ def test_launch_up_job_dev_no_confirm_same_path(
             status="running",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         mock_launcher.up.return_value = (mock_cluster, job_status)
         mock_cluster.get_job.return_value = job_status = JobStatus(
@@ -384,7 +412,11 @@ def test_launch_up_job_dev_no_confirm_same_path(
             status="done",
             metadata="",
             done=True,
+            state=JobState.SUCCEEDED,
         )
+        mock_log_stream = Mock()
+        mock_log_stream.readline.side_effect = ["line1\n", "line2\n", ""]
+        mock_cluster.get_logs_stream.return_value = mock_log_stream
         _ = runner.invoke(
             app,
             [
@@ -417,6 +449,7 @@ def test_launch_up_job_no_working_dir(
             status="running",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         mock_launcher.up.return_value = (mock_cluster, job_status)
         mock_cluster.get_job.return_value = job_status = JobStatus(
@@ -426,7 +459,11 @@ def test_launch_up_job_no_working_dir(
             status="done",
             metadata="",
             done=True,
+            state=JobState.SUCCEEDED,
         )
+        mock_log_stream = Mock()
+        mock_log_stream.readline.side_effect = ["line1\n", "line2\n", ""]
+        mock_cluster.get_logs_stream.return_value = mock_log_stream
         _ = runner.invoke(
             app,
             [
@@ -459,6 +496,7 @@ def test_launch_up_job_existing_cluster(
             status="running",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         mock_launcher.run.return_value = job_status
         mock_cluster.get_job.return_value = JobStatus(
@@ -468,7 +506,11 @@ def test_launch_up_job_existing_cluster(
             status="done",
             metadata="",
             done=True,
+            state=JobState.SUCCEEDED,
         )
+        mock_log_stream = Mock()
+        mock_log_stream.readline.side_effect = ["line1\n", "line2\n", ""]
+        mock_cluster.get_logs_stream.return_value = mock_log_stream
         mock_cloud = Mock()
         mock_launcher.get_cloud.return_value = mock_cloud
         mock_cloud.get_cluster.return_value = mock_cluster
@@ -483,7 +525,7 @@ def test_launch_up_job_existing_cluster(
             ],
         )
         mock_launcher.run.assert_called_once_with(job_config, "cluster_id")
-        mock_cluster.get_job.assert_has_calls([call("job_id"), call("job_id")])
+        mock_cluster.get_job.assert_has_calls([call("job_id")])
 
 
 def test_launch_up_job_detach(
@@ -505,6 +547,7 @@ def test_launch_up_job_detach(
             status="running",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         mock_launcher.up.return_value = (mock_cluster, job_status)
         mock_cluster.get_job.return_value = job_status = JobStatus(
@@ -514,6 +557,7 @@ def test_launch_up_job_detach(
             status="done",
             metadata="",
             done=True,
+            state=JobState.SUCCEEDED,
         )
         _ = runner.invoke(
             app,
@@ -547,8 +591,10 @@ def test_launch_up_job_detached_local(
             status="running",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         mock_launcher.up.return_value = (mock_cluster, job_status)
+        mock_cluster.get_logs_stream.side_effect = NotImplementedError()
         mock_cluster.get_job.return_value = job_status = JobStatus(
             id="job_id",
             cluster="local",
@@ -556,6 +602,7 @@ def test_launch_up_job_detached_local(
             status="done",
             metadata="",
             done=True,
+            state=JobState.SUCCEEDED,
         )
         _ = runner.invoke(
             app,
@@ -570,7 +617,7 @@ def test_launch_up_job_detached_local(
 
 
 def test_launch_up_job_sky_logs(
-    app, mock_launcher, mock_pool, mock_version, mock_confirm, mock_fetch, mock_sky_tail
+    app, mock_launcher, mock_pool, mock_version, mock_confirm, mock_fetch
 ):
     class SupportedClouds(Enum):
         """Enum representing the supported clouds."""
@@ -595,6 +642,7 @@ def test_launch_up_job_sky_logs(
             status="running",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         mock_launcher.up.return_value = (mock_cluster, job_status)
         mock_cluster.get_job.return_value = job_status = JobStatus(
@@ -604,7 +652,11 @@ def test_launch_up_job_sky_logs(
             status="done",
             metadata="",
             done=True,
+            state=JobState.SUCCEEDED,
         )
+        mock_log_stream = Mock()
+        mock_log_stream.readline.side_effect = ["line1\n", "line2\n", ""]
+        mock_cluster.get_logs_stream.return_value = mock_log_stream
         _ = runner.invoke(
             app,
             [
@@ -613,7 +665,7 @@ def test_launch_up_job_sky_logs(
                 job_yaml_path,
             ],
         )
-        mock_sky_tail.assert_called_once_with(cluster_name="local", job_id="job_id")
+        mock_cluster.get_logs_stream.assert_called_once()
 
 
 def test_launch_up_job_not_found(
@@ -635,6 +687,7 @@ def test_launch_up_job_not_found(
             status="running",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         mock_launcher.up.return_value = (mock_cluster, job_status)
         mock_cluster.get_job.return_value = job_status = JobStatus(
@@ -644,6 +697,7 @@ def test_launch_up_job_not_found(
             status="done",
             metadata="",
             done=True,
+            state=JobState.SUCCEEDED,
         )
         with pytest.raises(FileNotFoundError) as exception_info:
             res = runner.invoke(
@@ -678,11 +732,13 @@ def test_launch_run_job(
             status="running",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         mock_cloud = Mock()
         mock_launcher.run.return_value = job_status
         mock_launcher.get_cloud.side_effect = [mock_cloud, mock_cloud]
         mock_cloud.get_cluster.side_effect = [mock_cluster, mock_cluster]
+        mock_cluster.get_logs_stream.side_effect = NotImplementedError()
         mock_cluster.get_job.return_value = job_status = JobStatus(
             id="job_id",
             cluster="cluster_id",
@@ -690,6 +746,7 @@ def test_launch_run_job(
             status="done",
             metadata="",
             done=True,
+            state=JobState.SUCCEEDED,
         )
         _ = runner.invoke(
             app,
@@ -703,12 +760,10 @@ def test_launch_run_job(
                 "CRITICAL",
             ],
         )
-        mock_cluster.get_job.assert_has_calls([call("job_id"), call("job_id")])
+        mock_cluster.get_job.assert_has_calls([call("job_id")])
         mock_launcher.run.assert_called_once_with(job_config, "cluster_id")
-        mock_launcher.get_cloud.assert_has_calls([call("aws"), call("aws")])
-        mock_cloud.get_cluster.assert_has_calls(
-            [call("cluster_id"), call("cluster_id")]
-        )
+        mock_launcher.get_cloud.assert_has_calls([call("aws")])
+        mock_cloud.get_cluster.assert_has_calls([call("cluster_id")])
         mock_fetch.assert_called_once_with(job_yaml_path)
         assert logger.level == logging.CRITICAL
 
@@ -733,11 +788,13 @@ def test_launch_run_job_with_alias(
             status="running",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         mock_cloud = Mock()
         mock_launcher.run.return_value = job_status
         mock_launcher.get_cloud.side_effect = [mock_cloud, mock_cloud]
         mock_cloud.get_cluster.side_effect = [mock_cluster, mock_cluster]
+        mock_cluster.get_logs_stream.side_effect = NotImplementedError()
         mock_cluster.get_job.return_value = job_status = JobStatus(
             id="job_id",
             cluster="cluster_id",
@@ -745,6 +802,7 @@ def test_launch_run_job_with_alias(
             status="done",
             metadata="",
             done=True,
+            state=JobState.SUCCEEDED,
         )
         _ = runner.invoke(
             app,
@@ -758,12 +816,10 @@ def test_launch_run_job_with_alias(
                 "CRITICAL",
             ],
         )
-        mock_cluster.get_job.assert_has_calls([call("job_id"), call("job_id")])
+        mock_cluster.get_job.assert_has_calls([call("job_id")])
         mock_launcher.run.assert_called_once_with(job_config, "cluster_id")
-        mock_launcher.get_cloud.assert_has_calls([call("aws"), call("aws")])
-        mock_cloud.get_cluster.assert_has_calls(
-            [call("cluster_id"), call("cluster_id")]
-        )
+        mock_launcher.get_cloud.assert_has_calls([call("aws")])
+        mock_cloud.get_cluster.assert_has_calls([call("cluster_id")])
         mock_fetch.assert_called_once_with(job_yaml_path)
         mock_alias.assert_called_once_with("some_alias", AliasType.JOB)
         assert logger.level == logging.CRITICAL
@@ -790,11 +846,13 @@ def test_launch_run_job_dev_confirm(
             status="running",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         mock_cloud = Mock()
         mock_launcher.run.return_value = job_status
         mock_launcher.get_cloud.side_effect = [mock_cloud, mock_cloud]
         mock_cloud.get_cluster.side_effect = [mock_cluster, mock_cluster]
+        mock_cluster.get_logs_stream.side_effect = NotImplementedError()
         mock_cluster.get_job.return_value = job_status = JobStatus(
             id="job_id",
             cluster="cluster_id",
@@ -802,6 +860,7 @@ def test_launch_run_job_dev_confirm(
             status="done",
             metadata="",
             done=True,
+            state=JobState.SUCCEEDED,
         )
         _ = runner.invoke(
             app,
@@ -813,13 +872,11 @@ def test_launch_run_job_dev_confirm(
                 "cluster_id",
             ],
         )
-        mock_cluster.get_job.assert_has_calls([call("job_id"), call("job_id")])
+        mock_cluster.get_job.assert_has_calls([call("job_id")])
         job_config.working_dir = _oumi_root()
         mock_launcher.run.assert_called_once_with(job_config, "cluster_id")
-        mock_launcher.get_cloud.assert_has_calls([call("aws"), call("aws")])
-        mock_cloud.get_cluster.assert_has_calls(
-            [call("cluster_id"), call("cluster_id")]
-        )
+        mock_launcher.get_cloud.assert_has_calls([call("aws")])
+        mock_cloud.get_cluster.assert_has_calls([call("cluster_id")])
 
 
 def test_launch_run_job_dev_no_confirm(
@@ -843,11 +900,13 @@ def test_launch_run_job_dev_no_confirm(
             status="running",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         mock_cloud = Mock()
         mock_launcher.run.return_value = job_status
         mock_launcher.get_cloud.side_effect = [mock_cloud, mock_cloud]
         mock_cloud.get_cluster.side_effect = [mock_cluster, mock_cluster]
+        mock_cluster.get_logs_stream.side_effect = NotImplementedError()
         mock_cluster.get_job.return_value = job_status = JobStatus(
             id="job_id",
             cluster="cluster_id",
@@ -855,6 +914,7 @@ def test_launch_run_job_dev_no_confirm(
             status="done",
             metadata="",
             done=True,
+            state=JobState.SUCCEEDED,
         )
         _ = runner.invoke(
             app,
@@ -866,12 +926,10 @@ def test_launch_run_job_dev_no_confirm(
                 "cluster_id",
             ],
         )
-        mock_cluster.get_job.assert_has_calls([call("job_id"), call("job_id")])
+        mock_cluster.get_job.assert_has_calls([call("job_id")])
         mock_launcher.run.assert_called_once_with(job_config, "cluster_id")
-        mock_launcher.get_cloud.assert_has_calls([call("aws"), call("aws")])
-        mock_cloud.get_cluster.assert_has_calls(
-            [call("cluster_id"), call("cluster_id")]
-        )
+        mock_launcher.get_cloud.assert_has_calls([call("aws")])
+        mock_cloud.get_cluster.assert_has_calls([call("cluster_id")])
 
 
 def test_launch_run_job_detached(
@@ -893,6 +951,7 @@ def test_launch_run_job_detached(
             status="running",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         mock_cloud = Mock()
         mock_launcher.run.return_value = job_status
@@ -905,6 +964,7 @@ def test_launch_run_job_detached(
             status="done",
             metadata="",
             done=True,
+            state=JobState.SUCCEEDED,
         )
         _ = runner.invoke(
             app,
@@ -943,11 +1003,13 @@ def test_launch_run_job_detached_local(
             status="running",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         mock_cloud = Mock()
         mock_launcher.run.return_value = job_status
         mock_launcher.get_cloud.side_effect = [mock_cloud, mock_cloud]
         mock_cloud.get_cluster.return_value = mock_cluster
+        mock_cluster.get_logs_stream.side_effect = NotImplementedError()
         mock_cluster.get_job.return_value = JobStatus(
             id="job_id",
             cluster="local",
@@ -955,6 +1017,7 @@ def test_launch_run_job_detached_local(
             status="done",
             metadata="",
             done=True,
+            state=JobState.SUCCEEDED,
         )
         _ = runner.invoke(
             app,
@@ -966,10 +1029,10 @@ def test_launch_run_job_detached_local(
                 "local",
             ],
         )
-        mock_cluster.get_job.assert_has_calls([call("job_id"), call("job_id")])
+        mock_cluster.get_job.assert_has_calls([call("job_id")])
         mock_launcher.run.assert_called_once_with(job_config, "local")
-        mock_cloud.get_cluster.assert_has_calls([call("local"), call("local")])
-        mock_launcher.get_cloud.assert_has_calls([call("local"), call("local")])
+        mock_cloud.get_cluster.assert_has_calls([call("local")])
+        mock_launcher.get_cloud.assert_has_calls([call("local")])
 
 
 def test_launch_run_job_no_cluster(
@@ -991,6 +1054,7 @@ def test_launch_run_job_no_cluster(
             status="running",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         mock_cloud = Mock()
         mock_launcher.run.return_value = job_status
@@ -1003,6 +1067,7 @@ def test_launch_run_job_no_cluster(
             status="done",
             metadata="",
             done=True,
+            state=JobState.SUCCEEDED,
         )
         with pytest.raises(
             ValueError, match="No cluster specified for the `run` action."
@@ -1268,3 +1333,157 @@ def test_launch_status_cluster_no_jobs(app, mock_launcher, mock_pool):
     assert "Cloud: cloud_id" in result.stdout
     assert "Cluster: cluster_id" in result.stdout
     assert "No matching jobs found." in result.stdout
+
+
+# Tests for logs command
+def test_launch_logs_with_cloud_success(app, mock_launcher):
+    """Test logs command with specific cloud - success case."""
+    mock_cloud = Mock()
+    mock_cluster = Mock()
+    mock_log_stream = Mock()
+    mock_launcher.get_cloud.return_value = mock_cloud
+    mock_cloud.get_cluster.return_value = mock_cluster
+    mock_cluster.get_logs_stream.return_value = mock_log_stream
+
+    with patch("oumi.cli.launch._tail_logs") as mock_tail_logs:
+        _ = runner.invoke(
+            app,
+            [
+                "logs",
+                "--cluster",
+                "test_cluster",
+                "--cloud",
+                "aws",
+                "--job-id",
+                "job_123",
+            ],
+        )
+
+    mock_launcher.get_cloud.assert_called_once_with("aws")
+    mock_cloud.get_cluster.assert_called_once_with("test_cluster")
+    mock_cluster.get_logs_stream.assert_called_once_with("test_cluster", "job_123")
+    mock_tail_logs.assert_called_once_with(mock_log_stream, None)
+
+
+def test_launch_logs_with_cloud_cluster_not_found(app, mock_launcher, mock_pool):
+    """Test logs command with specific cloud - cluster not found."""
+    mock_cloud = Mock()
+    mock_launcher.get_cloud.return_value = mock_cloud
+    mock_cloud.get_cluster.return_value = None
+
+    result = runner.invoke(
+        app,
+        [
+            "logs",
+            "--cluster",
+            "test_cluster",
+            "--cloud",
+            "aws",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Cluster test_cluster not found" in result.stdout
+
+
+def test_launch_logs_no_cloud_single_match(app, mock_launcher):
+    """Test logs command without cloud - single cluster found."""
+    mock_cloud1 = Mock()
+    mock_cluster1 = Mock()
+    mock_cloud2 = Mock()
+    mock_log_stream = Mock()
+    mock_launcher.which_clouds.return_value = ["aws", "gcp"]
+    mock_launcher.get_cloud.side_effect = [mock_cloud1, mock_cloud2]
+    mock_cloud1.get_cluster.return_value = mock_cluster1
+    mock_cloud2.get_cluster.return_value = None
+    mock_cluster1.get_logs_stream.return_value = mock_log_stream
+
+    with patch("oumi.cli.launch._tail_logs") as mock_tail_logs:
+        _ = runner.invoke(
+            app,
+            [
+                "logs",
+                "--cluster",
+                "test_cluster",
+            ],
+        )
+
+    mock_launcher.which_clouds.assert_called_once()
+    mock_launcher.get_cloud.assert_has_calls([call("aws"), call("gcp")])
+    mock_cloud1.get_cluster.assert_called_once_with("test_cluster")
+    mock_cloud2.get_cluster.assert_called_once_with("test_cluster")
+    mock_cluster1.get_logs_stream.assert_called_once_with("test_cluster", None)
+    mock_tail_logs.assert_called_once_with(mock_log_stream, None)
+
+
+def test_launch_logs_no_cloud_multiple_matches(app, mock_launcher, mock_pool):
+    """Test logs command without cloud - multiple clusters found."""
+    mock_cloud1 = Mock()
+    mock_cluster1 = Mock()
+    mock_cloud2 = Mock()
+    mock_cluster2 = Mock()
+    mock_launcher.which_clouds.return_value = ["aws", "gcp"]
+    mock_launcher.get_cloud.side_effect = [mock_cloud1, mock_cloud2]
+    mock_cloud1.get_cluster.return_value = mock_cluster1
+    mock_cloud2.get_cluster.return_value = mock_cluster2
+
+    result = runner.invoke(
+        app,
+        [
+            "logs",
+            "--cluster",
+            "test_cluster",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Multiple clusters found with name test_cluster" in result.stdout
+
+
+def test_launch_logs_no_cloud_no_matches(app, mock_launcher):
+    """Test logs command without cloud - no clusters found."""
+    mock_cloud1 = Mock()
+    mock_cloud2 = Mock()
+    mock_launcher.which_clouds.return_value = ["aws", "gcp"]
+    mock_launcher.get_cloud.side_effect = [mock_cloud1, mock_cloud2]
+    mock_cloud1.get_cluster.return_value = None
+    mock_cloud2.get_cluster.return_value = None
+
+    result = runner.invoke(
+        app,
+        [
+            "logs",
+            "--cluster",
+            "test_cluster",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Cluster test_cluster not found" in result.stdout
+
+
+def test_launch_logs_with_output_file(app, mock_launcher):
+    """Test logs command with output file specified."""
+    mock_cloud = Mock()
+    mock_cluster = Mock()
+    mock_log_stream = Mock()
+    mock_launcher.get_cloud.return_value = mock_cloud
+    mock_cloud.get_cluster.return_value = mock_cluster
+    mock_cluster.get_logs_stream.return_value = mock_log_stream
+
+    with patch("oumi.cli.launch._tail_logs") as mock_tail_logs:
+        _ = runner.invoke(
+            app,
+            [
+                "logs",
+                "--cluster",
+                "test_cluster",
+                "--cloud",
+                "aws",
+                "--output-filepath",
+                "/tmp/logs.txt",
+            ],
+        )
+
+    mock_cluster.get_logs_stream.assert_called_once_with("test_cluster", None)
+    mock_tail_logs.assert_called_once_with(mock_log_stream, "/tmp/logs.txt")

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import re
+from dataclasses import dataclass, field
 
 from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.configs.inference_config import InferenceConfig
@@ -23,9 +24,30 @@ from oumi.core.configs.params.synthesis_params import (
     GeneratedAttributePostprocessingParams,
     TextMessage,
 )
+from oumi.core.inference.base_inference_engine import BatchResult
 from oumi.core.synthesis.attribute_formatter import AttributeFormatter
 from oumi.core.types.conversation import Conversation, Message
+from oumi.inference.remote_inference_engine import BatchInfo
 from oumi.utils.logging import logger
+
+
+@dataclass
+class SynthBatchResult:
+    """Result from partial batch synthesis, separating successes from failures."""
+
+    successful: list[tuple[int, dict[str, str]]]
+    """List of (original_index, attribute_dict) for successfully synthesized items."""
+
+    failed_indices: list[int]
+    """Indices of items that failed synthesis."""
+
+    error_messages: dict[int, str] = field(default_factory=dict)
+    """Mapping of failed index to error message."""
+
+    @property
+    def has_failures(self) -> bool:
+        """Return True if any items in the batch failed synthesis."""
+        return len(self.failed_indices) > 0
 
 
 class AttributeSynthesizer:
@@ -51,6 +73,9 @@ class AttributeSynthesizer:
             remote_params=inference_config.remote_params,
         )
         self._inference_config = inference_config
+        self._total_input_tokens: int = 0
+        self._total_output_tokens: int = 0
+        self._total_cached_tokens: int = 0
 
     def synthesize(
         self,
@@ -82,43 +107,189 @@ class AttributeSynthesizer:
             inference_conversations,
             inference_config=self._inference_config,
         )
+        self._accumulate_token_usage(inference_results)
 
-        original_responses = self._extract_response(inference_results)
-        if not generated_attribute.postprocessing_params:
-            records = [
-                {generated_attribute.id: unpostprocessed_response}
-                for unpostprocessed_response in original_responses
-            ]
-            return records
+        return self._process_inference_results(inference_results, generated_attribute)
 
-        keep_original = (
-            generated_attribute.postprocessing_params.keep_original_text_attribute
+    def synthesize_batch(
+        self,
+        samples: list[dict],
+        generated_attribute: GeneratedAttribute,
+    ) -> str:
+        """Submit a batch inference job for attribute synthesis.
+
+        Args:
+            samples: The samples to synthesize values for.
+            generated_attribute: The generated attribute to synthesize a value for.
+
+        Returns:
+            The batch ID that can be used with get_batch_status and get_batch_results.
+
+        Raises:
+            NotImplementedError: If the inference engine does not support batch.
+        """
+        if not hasattr(self._inference_engine, "infer_batch"):
+            raise NotImplementedError(
+                f"Inference engine {type(self._inference_engine).__name__} does not "
+                "support batch inference. Use synthesize() instead."
+            )
+
+        conversations = self._build_batch_conversations(samples, generated_attribute)
+
+        batch_id = self._inference_engine.infer_batch(  # type: ignore[attr-defined]
+            conversations,
+            inference_config=self._inference_config,
         )
-        if keep_original:
-            records = [
-                {generated_attribute.id: unpostprocessed_response}
-                for unpostprocessed_response in original_responses
-            ]
-        else:
-            records = [{} for _ in original_responses]
+        return batch_id
 
-        for i in range(len(original_responses)):
-            new_id = generated_attribute.postprocessing_params.id
-            original_response = original_responses[i]
-            new_response = original_response
+    def get_batch_status(self, batch_id: str) -> BatchInfo:
+        """Get the status of a batch inference job.
+
+        Args:
+            batch_id: The batch ID returned from synthesize_batch().
+
+        Returns:
+            BatchInfo containing the job status and progress information.
+
+        Raises:
+            NotImplementedError: If the inference engine does not support batch.
+        """
+        if not hasattr(self._inference_engine, "get_batch_status"):
+            raise NotImplementedError(
+                f"Inference engine {type(self._inference_engine).__name__} does not "
+                "support batch inference."
+            )
+        return self._inference_engine.get_batch_status(batch_id)  # type: ignore[attr-defined]
+
+    def get_batch_results(
+        self,
+        batch_id: str,
+        samples: list[dict],
+        generated_attribute: GeneratedAttribute,
+    ) -> list[dict[str, str]]:
+        """Get results from a completed batch inference job.
+
+        Args:
+            batch_id: The batch ID returned from synthesize_batch().
+            samples: The original samples that were submitted for synthesis.
+            generated_attribute: The generated attribute configuration.
+
+        Returns:
+            A list of dictionaries, one for each sample, with the generated attribute
+            value added to the dictionary (same format as synthesize()).
+
+        Raises:
+            NotImplementedError: If the inference engine does not support batch.
+            RuntimeError: If any items failed synthesis.
+        """
+        result = self.get_batch_results_partial(batch_id, samples, generated_attribute)
+        if result.has_failures:
+            first_idx = result.failed_indices[0]
+            raise RuntimeError(
+                f"Synthesis batch {batch_id} failed for "
+                f"{len(result.failed_indices)} items. "
+                f"First error (index {first_idx}): "
+                f"{result.error_messages.get(first_idx, 'unknown')}"
+            )
+        return [output for _, output in sorted(result.successful)]
+
+    def get_batch_results_partial(
+        self,
+        batch_id: str,
+        samples: list[dict],
+        generated_attribute: GeneratedAttribute,
+    ) -> SynthBatchResult:
+        """Get partial results from a completed batch inference job.
+
+        This method returns successful results alongside failure information.
+        Parse failures from _process_inference_results are also captured.
+
+        Args:
+            batch_id: The batch ID returned from synthesize_batch().
+            samples: The original samples that were submitted for synthesis.
+            generated_attribute: The generated attribute configuration.
+
+        Returns:
+            SynthBatchResult with successful outputs and failure info.
+
+        Raises:
+            NotImplementedError: If the inference engine does not support batch.
+        """
+        conversations = self._build_batch_conversations(samples, generated_attribute)
+
+        logger.info(
+            f"Retrieving partial synthesis results for batch {batch_id} "
+            f"({len(conversations)} conversations)"
+        )
+        batch_result: BatchResult = self._inference_engine.get_batch_results_partial(
+            batch_id, conversations
+        )
+
+        successful_outputs: list[tuple[int, dict[str, str]]] = []
+        failed_indices: list[int] = list(batch_result.failed_indices)
+        error_messages: dict[int, str] = dict(batch_result.error_messages)
+        parse_failures = 0
+
+        for idx, conv in batch_result.successful:
             try:
-                new_response = self._postprocess_sample(
-                    original_response, generated_attribute.postprocessing_params
-                )
-            except ValueError as e:
+                processed = self._process_inference_results([conv], generated_attribute)
+                successful_outputs.append((idx, processed[0]))
+                self._accumulate_token_usage([conv])
+            except Exception as e:
+                parse_failures += 1
+                failed_indices.append(idx)
+                error_messages[idx] = f"Failed to process synthesis output: {e}"
                 logger.warning(
-                    f"Error postprocessing inference result: {e}. Leaving as-is and "
-                    "skipping."
+                    f"Batch {batch_id} request {idx}: "
+                    f"failed to process synthesis output: {e}"
                 )
-            finally:
-                records[i][new_id] = new_response
 
-        return records
+        logger.info(
+            f"Batch {batch_id} synthesis results: "
+            f"{len(successful_outputs)} processed successfully, "
+            f"{len(batch_result.failed_indices)} inference failures, "
+            f"{parse_failures} parse failures"
+        )
+
+        return SynthBatchResult(
+            successful=successful_outputs,
+            failed_indices=failed_indices,
+            error_messages=error_messages,
+        )
+
+    def _build_batch_conversations(
+        self,
+        samples: list[dict],
+        generated_attribute: GeneratedAttribute,
+    ) -> list[Conversation]:
+        """Build inference conversations from samples for batch operations."""
+        return [
+            self._format_instructions(sample, generated_attribute.instruction_messages)
+            for sample in samples
+        ]
+
+    @property
+    def total_input_tokens(self) -> int:
+        """Total input/prompt tokens accumulated across all synthesize() calls."""
+        return self._total_input_tokens
+
+    @property
+    def total_output_tokens(self) -> int:
+        """Total output/completion tokens accumulated across all synthesize() calls."""
+        return self._total_output_tokens
+
+    @property
+    def total_cached_tokens(self) -> int:
+        """Total cached tokens accumulated across all synthesize() calls."""
+        return self._total_cached_tokens
+
+    def _accumulate_token_usage(self, inference_results: list[Conversation]) -> None:
+        """Accumulate token usage from inference response metadata."""
+        for result in inference_results:
+            usage = result.metadata.get("usage", {})
+            self._total_input_tokens += usage.get("prompt_tokens", 0)
+            self._total_output_tokens += usage.get("completion_tokens", 0)
+            self._total_cached_tokens += usage.get("cached_tokens", 0)
 
     def _extract_response(
         self,
@@ -159,6 +330,54 @@ class AttributeSynthesizer:
             new_messages.append(new_message)
 
         return Conversation(messages=new_messages)
+
+    def _process_inference_results(
+        self,
+        inference_results: list[Conversation],
+        generated_attribute: GeneratedAttribute,
+    ) -> list[dict[str, str]]:
+        """Extract and postprocess inference results.
+
+        Args:
+            inference_results: The inference results from the inference engine.
+            generated_attribute: The generated attribute configuration.
+
+        Returns:
+            A list of dictionaries with the processed attribute values.
+        """
+        original_responses = self._extract_response(inference_results)
+
+        if not generated_attribute.postprocessing_params:
+            return [
+                {generated_attribute.id: response} for response in original_responses
+            ]
+
+        keep_original = (
+            generated_attribute.postprocessing_params.keep_original_text_attribute
+        )
+        if keep_original:
+            records = [
+                {generated_attribute.id: response} for response in original_responses
+            ]
+        else:
+            records = [{} for _ in original_responses]
+
+        for i, original_response in enumerate(original_responses):
+            new_id = generated_attribute.postprocessing_params.id
+            new_response = original_response
+            try:
+                new_response = self._postprocess_sample(
+                    original_response, generated_attribute.postprocessing_params
+                )
+            except ValueError as e:
+                logger.warning(
+                    f"Error postprocessing inference result: {e}. Leaving as-is and "
+                    "skipping."
+                )
+            finally:
+                records[i][new_id] = new_response
+
+        return records
 
     def _postprocess_sample(
         self,

@@ -19,13 +19,14 @@ import time
 from abc import ABC, abstractmethod
 from collections.abc import Generator, Iterable, Sized
 from pathlib import Path
-from typing import Any, NamedTuple, Optional, Union, cast
+from typing import Any, NamedTuple, cast
 
 import datasets
 import pandas as pd
 from torch.utils.data import MapDataPipe
 
 from oumi.utils.hf_utils import is_cached_to_disk_hf_dataset
+from oumi.utils.io_utils import load_xlsx_all_sheets
 from oumi.utils.logging import logger
 from oumi.utils.torch_utils import estimate_sample_dict_size_in_bytes, get_shape_as_list
 
@@ -60,21 +61,21 @@ class BaseMapDataset(MapDataPipe, Sized, ABC):
 
     _data: pd.DataFrame
     dataset_name: str
-    dataset_path: Optional[str] = None
-    default_dataset: Optional[str] = None
-    default_subset: Optional[str] = None
+    dataset_path: str | None = None
+    default_dataset: str | None = None
+    default_subset: str | None = None
     trust_remote_code: bool
-    transform_num_workers: Optional[Union[str, int]] = None
+    transform_num_workers: str | int | None = None
 
     def __init__(
         self,
         *,
-        dataset_name: Optional[str],
-        dataset_path: Optional[str] = None,
-        subset: Optional[str] = None,
-        split: Optional[str] = None,
+        dataset_name: str | None,
+        dataset_path: str | None = None,
+        subset: str | None = None,
+        split: str | None = None,
         trust_remote_code: bool = False,
-        transform_num_workers: Optional[Union[str, int]] = None,
+        transform_num_workers: str | int | None = None,
         **kwargs,
     ) -> None:
         """Initializes a new instance of the BaseDataset class."""
@@ -270,7 +271,7 @@ class BaseMapDataset(MapDataPipe, Sized, ABC):
 
     def to_hf(
         self, return_iterable: bool = False
-    ) -> Union[datasets.Dataset, datasets.IterableDataset]:
+    ) -> datasets.Dataset | datasets.IterableDataset:
         """Converts the dataset to a Hugging Face dataset.
 
         Args:
@@ -445,6 +446,9 @@ class BaseMapDataset(MapDataPipe, Sized, ABC):
         elif dataset_path.suffix.lower() == ".parquet" and dataset_path.is_file():
             result = self._load_parquet_dataset(dataset_path)
 
+        elif dataset_path.suffix.lower() == ".xlsx" and dataset_path.is_file():
+            result = self._load_xlsx_dataset(dataset_path)
+
         elif is_cached_to_disk_hf_dataset(dataset_path):
             result = self._load_dataset_from_disk(dataset_path)
 
@@ -463,11 +467,10 @@ class BaseMapDataset(MapDataPipe, Sized, ABC):
             path=self.dataset_name,
             name=self.dataset_subset,
             split=self.split,
-            trust_remote_code=self.trust_remote_code,
         )
 
         if isinstance(
-            splits_or_dataset, (datasets.IterableDataset, datasets.IterableDatasetDict)
+            splits_or_dataset, datasets.IterableDataset | datasets.IterableDatasetDict
         ):
             raise ValueError("IterableDataset is not supported with this class.")
 
@@ -508,6 +511,10 @@ class BaseMapDataset(MapDataPipe, Sized, ABC):
 
     def _load_parquet_dataset(self, path: Path) -> pd.DataFrame:
         return pd.read_parquet(path)
+
+    def _load_xlsx_dataset(self, path: Path) -> pd.DataFrame:
+        """Load all sheets from an XLSX file and concatenate them."""
+        return load_xlsx_all_sheets(path)
 
     def _load_dataset_from_disk(self, path: Path) -> pd.DataFrame:
         dataset: datasets.Dataset = datasets.Dataset.load_from_disk(path)

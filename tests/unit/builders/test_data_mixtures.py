@@ -1,5 +1,3 @@
-from typing import Union
-
 import pytest
 from datasets import Dataset, IterableDataset
 
@@ -34,7 +32,6 @@ def _get_default_config(
 ) -> TrainingConfig:
     dataset_split_params = DatasetSplitParams(
         datasets=datasets,
-        target_col="question",
         stream=stream,
         pack=pack,
     )
@@ -42,7 +39,7 @@ def _get_default_config(
         data=DataParams(),
         model=ModelParams(
             model_name="MlpEncoder",
-            tokenizer_name="gpt2",
+            tokenizer_name="openai-community/gpt2",
             load_pretrained_weights=False,
             model_max_length=1024,
             tokenizer_pad_token="<|endoftext|>",
@@ -62,7 +59,7 @@ def _get_default_config(
 
 
 def _get_dataset_size(
-    dataset: Union[Dataset, IterableDataset, PretrainingAsyncTextDataset],
+    dataset: Dataset | IterableDataset | PretrainingAsyncTextDataset,
     stream: bool,
     pack: bool = False,
 ) -> int:
@@ -70,10 +67,7 @@ def _get_dataset_size(
         if pack:
             assert isinstance(
                 dataset,
-                (
-                    BasePretrainingDataset,
-                    PretrainingAsyncTextDataset,
-                ),
+                BasePretrainingDataset | PretrainingAsyncTextDataset,
             )
         else:
             assert isinstance(dataset, (IterableDataset))
@@ -440,7 +434,7 @@ def test_packing_without_streaming_with_sft_dataset(stream: bool):
                 stream=stream,
             )
         ),
-        model=ModelParams(model_name="gpt2", model_max_length=128),
+        model=ModelParams(model_name="openai-community/gpt2", model_max_length=128),
     )
 
     tokenizer = build_tokenizer(config.model)
@@ -484,7 +478,7 @@ def test_packing_without_streaming_with_pretraining_dataset(stream: bool):
                 stream=stream,
             )
         ),
-        model=ModelParams(model_name="gpt2", model_max_length=128),
+        model=ModelParams(model_name="openai-community/gpt2", model_max_length=128),
     )
 
     tokenizer = build_tokenizer(config.model)
@@ -507,6 +501,55 @@ def test_packing_without_streaming_with_pretraining_dataset(stream: bool):
         assert len(item["input_ids"]) == 128
 
     assert len(items) == 2  # number of packed samples in the dataset
+
+
+def test_multiple_pretraining_datasets_with_streaming(stream: bool):
+    """Test that multiple pretraining datasets can be concatenated when streaming."""
+    if not stream:
+        pytest.skip("Iterable datasets must be streamed")
+
+    config = TrainingConfig(
+        data=DataParams(
+            train=DatasetSplitParams(
+                datasets=[
+                    DatasetParams(
+                        dataset_name="debug_pretraining",
+                        dataset_kwargs={"dataset_size": 20, "seq_length": 64},
+                    ),
+                    DatasetParams(
+                        dataset_name="debug_pretraining",
+                        dataset_kwargs={"dataset_size": 20, "seq_length": 64},
+                    ),
+                ],
+                pack=True,
+                stream=stream,
+            )
+        ),
+        model=ModelParams(model_name="openai-community/gpt2", model_max_length=64),
+    )
+
+    tokenizer = build_tokenizer(config.model)
+    dataset = build_dataset_mixture(
+        config.data,
+        tokenizer,
+        DatasetSplit.TRAIN,
+        seq_length=config.model.model_max_length,
+    )
+
+    assert isinstance(dataset, IterableDataset)
+
+    items = []
+    for idx, item in enumerate(dataset):
+        items.append(item)
+        assert isinstance(item, dict)
+        assert "input_ids" in item
+        assert len(item["input_ids"]) == 64
+
+    # Should have samples from both datasets combined
+    # Each dataset has 20 docs * 6 tokens + 19 EOS = ~139 tokens
+    # With seq_length=64, that's floor(139/64) = 2 packed samples per dataset
+    # 2 datasets * 2 samples = 4 total
+    assert len(items) == 4
 
 
 @pytest.mark.skip(
@@ -534,7 +577,7 @@ def test_mixed_dataset_packing(stream: bool):
                 seed=1,
             )
         ),
-        model=ModelParams(model_name="gpt2", model_max_length=128),
+        model=ModelParams(model_name="openai-community/gpt2", model_max_length=128),
     )
 
     tokenizer = build_tokenizer(config.model)

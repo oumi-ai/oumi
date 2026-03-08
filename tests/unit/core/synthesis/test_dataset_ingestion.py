@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from importlib.util import find_spec
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -23,6 +24,8 @@ from oumi.core.synthesis.dataset_ingestion import (
     DatasetReader,
     DatasetStorageType,
 )
+
+openpyxl_import_failed = find_spec("openpyxl") is None
 
 
 def test_invalid_path():
@@ -53,8 +56,16 @@ def test_local_path():
     assert path.get_path_str() == "path/to/data/file.json"
     assert path.get_storage_type() == DatasetStorageType.LOCAL
 
+    path = DatasetPath("path/to/data/file.xlsx")
+    assert path.get_path_str() == "path/to/data/file.xlsx"
+    assert path.get_storage_type() == DatasetStorageType.LOCAL
+
     path = DatasetPath("path/to/data/*.jsonl")
     assert path.get_path_str() == "path/to/data/*.jsonl"
+    assert path.get_storage_type() == DatasetStorageType.LOCAL
+
+    path = DatasetPath("path/to/data/*.xlsx")
+    assert path.get_path_str() == "path/to/data/*.xlsx"
     assert path.get_storage_type() == DatasetStorageType.LOCAL
 
 
@@ -63,6 +74,29 @@ def test_huggingface_path():
     path = DatasetPath("hf:repo_id/dataset_name")
     assert path.get_path_str() == "repo_id/dataset_name"
     assert path.get_storage_type() == DatasetStorageType.HF
+
+
+def test_oumi_path():
+    """Test get_path_str for Oumi path."""
+    path = DatasetPath("oumi:123")
+    assert path.get_path_str() == "123"
+    assert path.get_storage_type() == DatasetStorageType.OUMI
+
+
+def test_get_file_extension_non_local():
+    """Test that get_file_extension raises error for non-local storage types."""
+    hf_path = DatasetPath("hf:repo/dataset")
+    with pytest.raises(
+        NotImplementedError, match="No extension for DatasetStorageType.HF storage type"
+    ):
+        hf_path.get_file_extension()
+
+    oumi_path = DatasetPath("oumi:123")
+    with pytest.raises(
+        NotImplementedError,
+        match="No extension for DatasetStorageType.OUMI storage type",
+    ):
+        oumi_path.get_file_extension()
 
 
 @pytest.fixture
@@ -119,6 +153,22 @@ def test_read_from_hf_with_parameters(reader, sample_data):
         assert result == sample_data
 
 
+def test_read_from_oumi_dataset(reader, sample_data):
+    """Test reading from Oumi dataset."""
+    data_source = DatasetSource(path="oumi:123")
+
+    with patch("oumi.core.synthesis.dataset_ingestion.load_dataset") as mock_load:
+        mock_dataset = MagicMock()
+        mock_dataset.__iter__ = MagicMock(return_value=iter(sample_data))
+        mock_load.return_value = mock_dataset
+
+        with pytest.raises(
+            NotImplementedError,
+            match="Oumi storage type is not supported in open source.",
+        ):
+            _ = reader.read(data_source)
+
+
 def test_read_from_local_jsonl(reader, sample_data, sample_dataframe):
     """Test reading from local JSONL file."""
     data_source = DatasetSource(path="data/file.jsonl")
@@ -171,6 +221,30 @@ def test_read_from_local_json(reader, sample_data, sample_dataframe):
         result = reader.read(data_source)
 
         mock_read.assert_called_once_with("data/file.json")
+        assert result == sample_data
+
+
+@pytest.mark.skipif(openpyxl_import_failed, reason="openpyxl not available")
+def test_read_from_local_xlsx(reader, sample_data, sample_dataframe):
+    """Test reading from local XLSX file."""
+    data_source = DatasetSource(path="data/file.xlsx")
+
+    with patch.object(reader, "_read_from_xlsx", return_value=sample_data) as mock_read:
+        result = reader.read(data_source)
+
+        mock_read.assert_called_once_with("data/file.xlsx")
+        assert result == sample_data
+
+
+@pytest.mark.skipif(openpyxl_import_failed, reason="openpyxl not available")
+def test_read_from_local_xlsx_glob_pattern(reader, sample_data):
+    """Test reading from local XLSX files using glob pattern."""
+    data_source = DatasetSource(path="data/*.xlsx")
+
+    with patch.object(reader, "_read_from_glob", return_value=sample_data) as mock_glob:
+        result = reader.read(data_source)
+
+        mock_glob.assert_called_once_with("data/*.xlsx", "xlsx")
         assert result == sample_data
 
 

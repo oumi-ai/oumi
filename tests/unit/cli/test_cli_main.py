@@ -1,5 +1,7 @@
+import sys
+from collections.abc import Callable
 from inspect import signature
-from typing import Callable, get_type_hints
+from typing import get_type_hints
 from unittest.mock import Mock, patch
 
 import pytest
@@ -13,7 +15,7 @@ from oumi.cli.infer import infer
 from oumi.cli.judge import judge_dataset_file
 from oumi.cli.launch import cancel, down, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
-from oumi.cli.main import get_app
+from oumi.cli.main import _get_cli_event, get_app
 from oumi.cli.synth import synth
 from oumi.cli.train import train
 
@@ -320,3 +322,180 @@ def test_main_distributed_accelerate_registered(mock_distributed_accelerate):
         ],
     )
     mock_distributed_accelerate.assert_called_once()
+
+
+def test_get_cli_event_basic_command():
+    """Basic command without flags."""
+    with patch.object(sys, "argv", ["oumi", "train"]):
+        event_name, props = _get_cli_event()
+        assert event_name == "cli-train"
+        assert props == {"subcommand": None, "help": False}
+
+
+def test_get_cli_event_command_with_subcommand():
+    """Command with subcommand (e.g., judge dataset)."""
+    with patch.object(sys, "argv", ["oumi", "judge", "dataset"]):
+        event_name, props = _get_cli_event()
+        assert event_name == "cli-judge"
+        assert props == {"subcommand": "dataset", "help": False}
+
+
+def test_get_cli_event_short_help_flag_only():
+    """Global help with -h flag."""
+    with patch.object(sys, "argv", ["oumi", "-h"]):
+        event_name, props = _get_cli_event()
+        assert event_name == "cli"
+        assert props == {"subcommand": None, "help": True}
+
+
+def test_get_cli_event_long_help_flag_only():
+    """Global help with --help flag."""
+    with patch.object(sys, "argv", ["oumi", "--help"]):
+        event_name, props = _get_cli_event()
+        assert event_name == "cli"
+        assert props == {"subcommand": None, "help": True}
+
+
+def test_get_cli_event_command_with_short_help():
+    """Command-specific help with -h."""
+    with patch.object(sys, "argv", ["oumi", "train", "-h"]):
+        event_name, props = _get_cli_event()
+        assert event_name == "cli-train"
+        assert props == {"subcommand": None, "help": True}
+
+
+def test_get_cli_event_command_with_long_help():
+    """Command-specific help with --help."""
+    with patch.object(sys, "argv", ["oumi", "train", "--help"]):
+        event_name, props = _get_cli_event()
+        assert event_name == "cli-train"
+        assert props == {"subcommand": None, "help": True}
+
+
+def test_get_cli_event_subcommand_with_help():
+    """Subcommand-specific help."""
+    with patch.object(sys, "argv", ["oumi", "judge", "dataset", "-h"]):
+        event_name, props = _get_cli_event()
+        assert event_name == "cli-judge"
+        assert props == {"subcommand": "dataset", "help": True}
+
+
+def test_get_cli_event_no_arguments():
+    """No arguments - just the binary name."""
+    with patch.object(sys, "argv", ["oumi"]):
+        event_name, props = _get_cli_event()
+        assert event_name == "cli"
+        assert props == {"subcommand": None, "help": False}
+
+
+def test_get_cli_event_command_with_config_flag():
+    """Command with --config flag and value."""
+    with patch.object(
+        sys, "argv", ["oumi", "train", "--config", "path/to/config.yaml"]
+    ):
+        event_name, props = _get_cli_event()
+        assert event_name == "cli-train"
+        assert props == {"subcommand": None, "help": False}
+
+
+def test_get_cli_event_launch_subcommand():
+    """Launch command with subcommand."""
+    with patch.object(sys, "argv", ["oumi", "launch", "up", "--cluster", "my-cluster"]):
+        event_name, props = _get_cli_event()
+        assert event_name == "cli-launch"
+        assert props == {"subcommand": "up", "help": False}
+
+
+def test_get_cli_event_cache_subcommand():
+    """Cache command with subcommand."""
+    with patch.object(sys, "argv", ["oumi", "cache", "ls"]):
+        event_name, props = _get_cli_event()
+        assert event_name == "cli-cache"
+        assert props == {"subcommand": "ls", "help": False}
+
+
+def test_get_cli_event_distributed_subcommand():
+    """Distributed command with subcommand and additional args."""
+    with patch.object(
+        sys, "argv", ["oumi", "distributed", "torchrun", "-m", "oumi", "train"]
+    ):
+        event_name, props = _get_cli_event()
+        assert event_name == "cli-distributed"
+        assert props == {"subcommand": "torchrun", "help": False}
+
+
+def test_get_cli_event_flag_with_equals_syntax():
+    """Flag using --flag=value syntax."""
+    with patch.object(sys, "argv", ["oumi", "train", "--config=path/to/config.yaml"]):
+        event_name, props = _get_cli_event()
+        assert event_name == "cli-train"
+        assert props == {"subcommand": None, "help": False}
+
+
+def test_get_cli_event_short_flag_with_value():
+    """Short flag with value (e.g., -c config.yaml)."""
+    with patch.object(sys, "argv", ["oumi", "train", "-c", "llama3.1-8b"]):
+        event_name, props = _get_cli_event()
+        assert event_name == "cli-train"
+        assert props == {"subcommand": None, "help": False}
+
+
+def test_get_cli_event_global_help_before_command():
+    """Global --help flag before command - captures global help intent."""
+    with patch.object(sys, "argv", ["oumi", "--help", "train"]):
+        event_name, props = _get_cli_event()
+        # Command is None because --help comes first (global help)
+        assert event_name == "cli"
+        assert props == {"subcommand": None, "help": True}
+
+
+def test_get_cli_event_multiple_flags_after_command():
+    """Multiple flags after command."""
+    with patch.object(
+        sys, "argv", ["oumi", "infer", "--config", "cfg.yaml", "--interactive"]
+    ):
+        event_name, props = _get_cli_event()
+        assert event_name == "cli-infer"
+        assert props == {"subcommand": None, "help": False}
+
+
+def test_get_cli_event_only_captures_first_two_positional():
+    """Only the first two positional args are captured (command + subcommand)."""
+    with patch.object(sys, "argv", ["oumi", "cache", "rm", "model-name"]):
+        event_name, props = _get_cli_event()
+        assert event_name == "cli-cache"
+        # Only captures "rm" as subcommand, "model-name" is ignored
+        assert props == {"subcommand": "rm", "help": False}
+
+
+def test_get_cli_event_help_flag_anywhere():
+    """Help flag detected regardless of position in args."""
+    with patch.object(sys, "argv", ["oumi", "train", "--config", "cfg.yaml", "--help"]):
+        event_name, props = _get_cli_event()
+        assert event_name == "cli-train"
+        assert props["help"] is True
+
+
+def test_get_cli_event_double_dash_separator():
+    """Double dash (--) is treated as a flag and stops positional parsing."""
+    with patch.object(sys, "argv", ["oumi", "--", "train"]):
+        event_name, props = _get_cli_event()
+        # -- stops parsing, so no command is captured
+        assert event_name == "cli"
+        assert props == {"subcommand": None, "help": False}
+
+
+def test_get_cli_event_command_after_double_dash():
+    """Positional args after -- in normal usage."""
+    with patch.object(sys, "argv", ["oumi", "train", "--", "-weird-filename"]):
+        event_name, props = _get_cli_event()
+        assert event_name == "cli-train"
+        assert props == {"subcommand": None, "help": False}
+
+
+def test_get_cli_event_both_help_flags():
+    """Both -h and --help flags present."""
+    with patch.object(sys, "argv", ["oumi", "train", "-h", "--help"]):
+        event_name, props = _get_cli_event()
+        assert event_name == "cli-train"
+        assert props["help"] is True

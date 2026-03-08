@@ -22,6 +22,7 @@ from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.params.synthesis_params import (
     GeneralSynthesisParams,
     GeneratedAttribute,
+    MultiTurnAttribute,
     TextMessage,
     TransformationStrategy,
     TransformationType,
@@ -30,6 +31,7 @@ from oumi.core.configs.params.synthesis_params import (
 from oumi.core.configs.synthesis_config import SynthesisConfig
 from oumi.core.synthesis.attribute_synthesizer import AttributeSynthesizer
 from oumi.core.synthesis.attribute_transformation import AttributeTransformer
+from oumi.core.synthesis.conversation_synthesizer import ConversationSynthesizer
 from oumi.core.synthesis.data_synthesizer import DataSynthesizer
 from oumi.core.synthesis.dataset_planner import DatasetPlanner
 from oumi.core.synthesis.synthesis_pipeline import SynthesisPipeline
@@ -40,6 +42,12 @@ from oumi.core.types.conversation import Role
 def mock_attribute_synthesizer():
     """Create a mock attribute synthesizer."""
     return Mock(spec=AttributeSynthesizer)
+
+
+@pytest.fixture
+def mock_conversation_synthesizer():
+    """Create a mock conversation synthesizer."""
+    return Mock(spec=ConversationSynthesizer)
 
 
 @pytest.fixture
@@ -106,6 +114,28 @@ def synthesis_config_with_transformed_attributes():
 
 
 @pytest.fixture
+def synthesis_config_with_multiturn_attributes():
+    """Create a synthesis config with multi-turn attributes."""
+    multiturn_attribute = MultiTurnAttribute(
+        id="multiturn_conversation",
+        min_turns=2,
+        max_turns=16,
+        role_instruction_messages={
+            Role.USER: "You are a {customer_type} customer with issue: {issue}.",
+            Role.ASSISTANT: "You are a helpful support agent.",
+        },
+        conversation_planner="Plan a {target_turns}-turn conversation about {issue}.",
+        output_system_prompt="This is a customer support conversation about {issue}.",
+    )
+    strategy_params = GeneralSynthesisParams(multiturn_attributes=[multiturn_attribute])
+    return SynthesisConfig(
+        num_samples=3,
+        strategy_params=strategy_params,
+        inference_config=InferenceConfig(),
+    )
+
+
+@pytest.fixture
 def synthesis_config_with_passthrough_attributes():
     """Create a synthesis config with passthrough attributes."""
     strategy_params = GeneralSynthesisParams(passthrough_attributes=["attr1", "attr2"])
@@ -144,7 +174,9 @@ def sample_dataset():
 @patch("oumi.core.synthesis.synthesis_pipeline.DatasetPlanner")
 @patch("oumi.core.synthesis.synthesis_pipeline.AttributeTransformer")
 @patch("oumi.core.synthesis.synthesis_pipeline.AttributeSynthesizer")
+@patch("oumi.core.synthesis.synthesis_pipeline.ConversationSynthesizer")
 def test_synthesis_pipeline_initialization_with_generated_attributes(
+    mock_conv_synth,
     mock_attr_synth,
     mock_attr_transformer,
     mock_dataset_planner,
@@ -241,6 +273,100 @@ def test_synthesize_with_generated_attributes(
     # Verify data synthesizer was called
     mock_data_synthesizer.synthesize.assert_called_once_with(sample_dataset)
     assert result == synthesized_dataset
+
+
+@patch("oumi.core.synthesis.synthesis_pipeline.ConversationSynthesizer")
+@patch("oumi.core.synthesis.synthesis_pipeline.DatasetPlanner")
+@patch("oumi.core.synthesis.synthesis_pipeline.AttributeTransformer")
+@patch("oumi.core.synthesis.synthesis_pipeline.AttributeSynthesizer")
+def test_synthesize_with_multiturn_attributes(
+    mock_attr_synth,
+    mock_attr_transformer_class,
+    mock_dataset_planner_class,
+    mock_conv_synth_class,
+    synthesis_config_with_multiturn_attributes,
+    sample_dataset,
+    mock_dataset_planner,
+    mock_attribute_transformer,
+):
+    """Test synthesis flow with multi-turn attributes."""
+    mock_attr_transformer_class.return_value = mock_attribute_transformer
+    mock_dataset_planner_class.return_value = mock_dataset_planner
+    mock_dataset_planner.plan.return_value = sample_dataset
+
+    multiturn_attr = (
+        synthesis_config_with_multiturn_attributes.strategy_params.multiturn_attributes[
+            0
+        ]
+    )
+    mock_conv_synth = mock_conv_synth_class.return_value
+    mock_conv_synth.synthesize.return_value = [
+        {
+            multiturn_attr.id: {"messages": [{"role": "user", "content": "Hello"}]},
+            "conversation_plan": "Plan",
+        }
+        for _ in sample_dataset
+    ]
+
+    pipeline = SynthesisPipeline(synthesis_config_with_multiturn_attributes)
+    result = pipeline.synthesize()
+
+    mock_conv_synth_class.assert_called_once_with(
+        synthesis_config_with_multiturn_attributes.strategy_params,
+        synthesis_config_with_multiturn_attributes.inference_config,
+    )
+    mock_conv_synth.synthesize.assert_called_once_with(sample_dataset, multiturn_attr)
+    assert all(multiturn_attr.id in item for item in result)
+    assert all("conversation_plan" in item for item in result)
+
+
+@patch("oumi.core.synthesis.synthesis_pipeline.ConversationSynthesizer")
+@patch("oumi.core.synthesis.synthesis_pipeline.DatasetPlanner")
+@patch("oumi.core.synthesis.synthesis_pipeline.AttributeTransformer")
+@patch("oumi.core.synthesis.synthesis_pipeline.AttributeSynthesizer")
+def test_synthesize_with_multiturn_filtered_result_keeps_samples(
+    mock_attr_synth,
+    mock_attr_transformer_class,
+    mock_dataset_planner_class,
+    mock_conv_synth_class,
+    synthesis_config_with_multiturn_attributes,
+    mock_dataset_planner,
+    mock_attribute_transformer,
+):
+    """Test that filtered conversation results do not crash or drop samples."""
+    sample_dataset = [
+        {"id": "s1", "base": "v1"},
+        {"id": "s2", "base": "v2"},
+    ]
+    mock_attr_transformer_class.return_value = mock_attribute_transformer
+    mock_dataset_planner_class.return_value = mock_dataset_planner
+    mock_dataset_planner.plan.return_value = sample_dataset
+
+    multiturn_attr = (
+        synthesis_config_with_multiturn_attributes.strategy_params.multiturn_attributes[
+            0
+        ]
+    )
+    plan_key = f"{multiturn_attr.id}_plan"
+    mock_conv_synth = mock_conv_synth_class.return_value
+    mock_conv_synth.synthesize.return_value = [
+        {
+            multiturn_attr.id: {"messages": [{"role": "user", "content": "Hello"}]},
+            plan_key: "Plan",
+        },
+        None,
+    ]
+
+    pipeline = SynthesisPipeline(synthesis_config_with_multiturn_attributes)
+    result = pipeline.synthesize()
+
+    assert len(result) == 2
+    assert multiturn_attr.id in result[0]
+    assert plan_key in result[0]
+    assert multiturn_attr.id not in result[1]
+    assert plan_key not in result[1]
+    assert result[1]["id"] == "s2"
+    assert result[1]["base"] == "v2"
 
 
 @patch("oumi.core.synthesis.synthesis_pipeline.DatasetPlanner")
@@ -442,3 +568,280 @@ def test_synthesize_unsupported_output_extension(
 
         with pytest.raises(ValueError, match="Unsupported output path"):
             pipeline.synthesize()
+
+
+@patch("oumi.core.synthesis.synthesis_pipeline.DatasetPlanner")
+@patch("oumi.core.synthesis.synthesis_pipeline.AttributeTransformer")
+@patch("oumi.core.synthesis.synthesis_pipeline.AttributeSynthesizer")
+def test_synthesize_with_bracket_notation_passthrough(
+    mock_attr_synth,
+    mock_attr_transformer_class,
+    mock_dataset_planner_class,
+    mock_dataset_planner,
+    mock_attribute_transformer,
+):
+    """Test synthesis with bracket notation in passthrough attributes."""
+    full_dataset = [
+        {
+            "conversation": {"messages": []},
+            "examples": [
+                {"field1": "ex1_f1", "field2": "ex1_f2"},
+                {"field1": "ex2_f1", "field2": "ex2_f2"},
+                {"field1": "ex3_f1", "field2": "ex3_f2"},
+            ],
+            "other_attr": "should_be_filtered",
+        },
+        {
+            "conversation": {"messages": []},
+            "examples": [
+                {"field1": "ex4_f1", "field2": "ex4_f2"},
+                {"field1": "ex5_f1", "field2": "ex5_f2"},
+                {"field1": "ex6_f1", "field2": "ex6_f2"},
+            ],
+            "other_attr": "should_be_filtered",
+        },
+    ]
+
+    expected_filtered = [
+        {
+            "conversation": {"messages": []},
+            "examples[0].field1": "ex1_f1",
+            "examples[0].field2": "ex1_f2",
+            "examples[1].field1": "ex2_f1",
+            "examples[2].field2": "ex3_f2",
+        },
+        {
+            "conversation": {"messages": []},
+            "examples[0].field1": "ex4_f1",
+            "examples[0].field2": "ex4_f2",
+            "examples[1].field1": "ex5_f1",
+            "examples[2].field2": "ex6_f2",
+        },
+    ]
+
+    strategy_params = GeneralSynthesisParams(
+        passthrough_attributes=[
+            "conversation",
+            "examples[0].field1",
+            "examples[0].field2",
+            "examples[1].field1",
+            "examples[2].field2",
+        ]
+    )
+    config = SynthesisConfig(
+        num_samples=2,
+        strategy_params=strategy_params,
+        inference_config=InferenceConfig(),
+    )
+
+    mock_attr_transformer_class.return_value = mock_attribute_transformer
+    mock_dataset_planner_class.return_value = mock_dataset_planner
+    mock_dataset_planner.plan.return_value = full_dataset
+
+    pipeline = SynthesisPipeline(config)
+    result = pipeline.synthesize()
+
+    # Should filter to only passthrough attributes with bracket notation resolved
+    assert result == expected_filtered
+
+
+@patch("oumi.core.synthesis.synthesis_pipeline.DatasetPlanner")
+@patch("oumi.core.synthesis.synthesis_pipeline.AttributeTransformer")
+@patch("oumi.core.synthesis.synthesis_pipeline.AttributeSynthesizer")
+def test_synthesize_with_mixed_passthrough_attributes(
+    mock_attr_synth,
+    mock_attr_transformer_class,
+    mock_dataset_planner_class,
+    mock_dataset_planner,
+    mock_attribute_transformer,
+):
+    """Test synthesis with mix of simple and bracket notation passthrough attributes."""
+    full_dataset = [
+        {
+            "simple_attr": "simple_value",
+            "nested": [
+                {"name": "item1", "value": 10},
+                {"name": "item2", "value": 20},
+            ],
+            "to_filter": "removed",
+        }
+    ]
+
+    expected_filtered = [
+        {
+            "simple_attr": "simple_value",
+            "nested[0].name": "item1",
+            "nested[1].value": 20,
+        }
+    ]
+
+    strategy_params = GeneralSynthesisParams(
+        passthrough_attributes=[
+            "simple_attr",
+            "nested[0].name",
+            "nested[1].value",
+        ]
+    )
+    config = SynthesisConfig(
+        num_samples=1,
+        strategy_params=strategy_params,
+        inference_config=InferenceConfig(),
+    )
+
+    mock_attr_transformer_class.return_value = mock_attribute_transformer
+    mock_dataset_planner_class.return_value = mock_dataset_planner
+    mock_dataset_planner.plan.return_value = full_dataset
+
+    pipeline = SynthesisPipeline(config)
+    result = pipeline.synthesize()
+
+    assert result == expected_filtered
+
+
+def test_extract_nested_value_simple():
+    """Test extracting values with simple bracket notation."""
+    # Create a minimal config to avoid model loading
+    strategy_params = GeneralSynthesisParams()
+    config = SynthesisConfig(
+        num_samples=1,
+        strategy_params=strategy_params,
+        inference_config=InferenceConfig(),
+    )
+
+    # Mock the initialization to avoid model loading
+    with patch("oumi.core.synthesis.synthesis_pipeline.AttributeSynthesizer"):
+        with patch("oumi.core.synthesis.synthesis_pipeline.AttributeTransformer"):
+            with patch("oumi.core.synthesis.synthesis_pipeline.DatasetPlanner"):
+                pipeline = SynthesisPipeline(config)
+
+    sample = {
+        "items": [
+            {"name": "first", "value": 1},
+            {"name": "second", "value": 2},
+        ]
+    }
+
+    assert pipeline._extract_nested_value(sample, "items[0].name") == "first"
+    assert pipeline._extract_nested_value(sample, "items[1].value") == 2
+
+
+def test_extract_nested_value_deeply_nested():
+    """Test extracting values from deeply nested structures."""
+    strategy_params = GeneralSynthesisParams()
+    config = SynthesisConfig(
+        num_samples=1,
+        strategy_params=strategy_params,
+        inference_config=InferenceConfig(),
+    )
+
+    with patch("oumi.core.synthesis.synthesis_pipeline.AttributeSynthesizer"):
+        with patch("oumi.core.synthesis.synthesis_pipeline.AttributeTransformer"):
+            with patch("oumi.core.synthesis.synthesis_pipeline.DatasetPlanner"):
+                pipeline = SynthesisPipeline(config)
+
+    sample = {"data": [{"level1": {"level2": [{"level3": "deep_value"}]}}]}
+
+    # Note: current implementation handles items[0].field but no lower depth access
+    # This tests the current single-level array access capability
+    assert pipeline._extract_nested_value(sample, "data[0].level1") == {
+        "level2": [{"level3": "deep_value"}]
+    }
+
+
+def test_extract_nested_value_invalid_index():
+    """Test that invalid indices raise appropriate errors."""
+    strategy_params = GeneralSynthesisParams()
+    config = SynthesisConfig(
+        num_samples=1,
+        strategy_params=strategy_params,
+        inference_config=InferenceConfig(),
+    )
+
+    with patch("oumi.core.synthesis.synthesis_pipeline.AttributeSynthesizer"):
+        with patch("oumi.core.synthesis.synthesis_pipeline.AttributeTransformer"):
+            with patch("oumi.core.synthesis.synthesis_pipeline.DatasetPlanner"):
+                pipeline = SynthesisPipeline(config)
+
+    sample = {"items": [{"name": "only_one"}]}
+
+    with pytest.raises(IndexError):
+        pipeline._extract_nested_value(sample, "items[5].name")
+
+
+def test_extract_nested_value_invalid_key():
+    """Test that invalid keys raise appropriate errors."""
+    strategy_params = GeneralSynthesisParams()
+    config = SynthesisConfig(
+        num_samples=1,
+        strategy_params=strategy_params,
+        inference_config=InferenceConfig(),
+    )
+
+    with patch("oumi.core.synthesis.synthesis_pipeline.AttributeSynthesizer"):
+        with patch("oumi.core.synthesis.synthesis_pipeline.AttributeTransformer"):
+            with patch("oumi.core.synthesis.synthesis_pipeline.DatasetPlanner"):
+                pipeline = SynthesisPipeline(config)
+
+    sample = {"items": [{"name": "test"}]}
+
+    with pytest.raises(KeyError):
+        pipeline._extract_nested_value(sample, "items[0].nonexistent")
+
+
+def test_extract_nested_value_type_error():
+    """Test that accessing non-dict/non-list types raises appropriate errors."""
+    strategy_params = GeneralSynthesisParams()
+    config = SynthesisConfig(
+        num_samples=1,
+        strategy_params=strategy_params,
+        inference_config=InferenceConfig(),
+    )
+
+    with patch("oumi.core.synthesis.synthesis_pipeline.AttributeSynthesizer"):
+        with patch("oumi.core.synthesis.synthesis_pipeline.AttributeTransformer"):
+            with patch("oumi.core.synthesis.synthesis_pipeline.DatasetPlanner"):
+                pipeline = SynthesisPipeline(config)
+
+    sample = {"value": "string"}
+
+    with pytest.raises(ValueError, match="Cannot index into non-list"):
+        pipeline._extract_nested_value(sample, "value[0]")
+
+
+def test_passthrough_with_missing_bracket_paths():
+    """Test that missing bracket notation paths are gracefully skipped."""
+    strategy_params = GeneralSynthesisParams(
+        passthrough_attributes=[
+            "exists",
+            "items[0].field",
+            "missing[5].field",
+        ]
+    )
+    config = SynthesisConfig(
+        num_samples=1,
+        strategy_params=strategy_params,
+        inference_config=InferenceConfig(),
+    )
+
+    with patch("oumi.core.synthesis.synthesis_pipeline.AttributeSynthesizer"):
+        with patch("oumi.core.synthesis.synthesis_pipeline.AttributeTransformer"):
+            with patch("oumi.core.synthesis.synthesis_pipeline.DatasetPlanner"):
+                pipeline = SynthesisPipeline(config)
+
+    dataset = [
+        {
+            "exists": "value",
+            "items": [{"field": "present"}],
+            "other": "filtered",
+        }
+    ]
+
+    result = pipeline._passthrough_attributes(dataset)
+
+    # Should include 'exists' and 'items[0].field', skip 'missing[5].field'
+    assert result == [
+        {
+            "exists": "value",
+            "items[0].field": "present",
+        }
+    ]

@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional, Union
 
 import pandas as pd
 from typing_extensions import override
@@ -38,7 +37,7 @@ class ChatRAGBenchDataset(BaseSftDataset):
         *,
         split: str = "test",
         task: str = "generation",
-        subset: Optional[str] = None,
+        subset: str | None = None,
         num_context_docs: int = 5,
         **kwargs,
     ) -> None:
@@ -84,7 +83,7 @@ class ChatRAGBenchDataset(BaseSftDataset):
             return "dev"
         return "test"
 
-    def _get_instruction(self) -> Optional[str]:
+    def _get_instruction(self) -> str | None:
         """Get an appropriate instruction for each dataset subset."""
         subset_instructions = {
             "doc2dial": "Please give a full and complete answer for the question.",
@@ -118,7 +117,7 @@ class ChatRAGBenchDataset(BaseSftDataset):
             return f"source: {doc['text']}"
 
     @override
-    def transform_conversation(self, example: Union[dict, pd.Series]) -> Conversation:
+    def transform_conversation(self, example: dict | pd.Series) -> Conversation:
         """Transforms a given example into a Conversation object.
 
         Args:

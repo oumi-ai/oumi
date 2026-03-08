@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import copy
-from typing import Any, Optional
+from typing import Any
 
 from typing_extensions import override
 
@@ -21,19 +21,39 @@ from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
 from oumi.core.types.conversation import Conversation
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 
+# OpenAI reasoning models that only support temperature=1.0 and don't support
+# logit_bias.
+# This includes o-series models and GPT-5 family.
+# Reference: https://platform.openai.com/docs/guides/reasoning
+_REASONING_MODEL_PREFIXES = ("o1", "o3", "o4", "gpt-5")
+
+
+def _is_reasoning_model(model_name: str) -> bool:
+    """Check if a model is an OpenAI reasoning model.
+
+    Reasoning models only support temperature=1.0 and don't support logit_bias.
+
+    Args:
+        model_name: The name of the model to check.
+
+    Returns:
+        True if the model is a reasoning model, False otherwise.
+    """
+    return model_name.startswith(_REASONING_MODEL_PREFIXES)
+
 
 class OpenAIInferenceEngine(RemoteInferenceEngine):
     """Engine for running inference against the OpenAI API."""
 
     @property
     @override
-    def base_url(self) -> Optional[str]:
+    def base_url(self) -> str | None:
         """Return the default base URL for the OpenAI API."""
         return "https://api.openai.com/v1/chat/completions"
 
     @property
     @override
-    def api_key_env_varname(self) -> Optional[str]:
+    def api_key_env_varname(self) -> str | None:
         """Return the default environment variable name for the OpenAI API key."""
         return "OPENAI_API_KEY"
 
@@ -56,13 +76,13 @@ class OpenAIInferenceEngine(RemoteInferenceEngine):
         Returns:
             Dict[str, Any]: A dictionary representing the OpenAI input.
         """
-        if model_params.model_name == "o1-preview":
+        if _is_reasoning_model(model_params.model_name):
             generation_params = copy.deepcopy(generation_params)
 
-            # o1-preview does NOT support logit_bias.
+            # Reasoning models do NOT support logit_bias.
             generation_params.logit_bias = {}
 
-            # o1-preview only supports temperature = 1.
+            # Reasoning models only support temperature = 1.0.
             generation_params.temperature = 1.0
 
         return super()._convert_conversation_to_api_input(

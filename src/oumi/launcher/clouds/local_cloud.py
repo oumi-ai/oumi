@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional
 
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import BaseCloud, BaseCluster, JobStatus
@@ -50,7 +49,7 @@ class LocalCloud(BaseCloud):
             self._clusters[name] = LocalCluster(name, LocalClient())
         return self._clusters[name]
 
-    def up_cluster(self, job: JobConfig, name: Optional[str], **kwargs) -> JobStatus:
+    def up_cluster(self, job: JobConfig, name: str | None, **kwargs) -> JobStatus:
         """Creates a cluster and starts the provided Job."""
         # The default cluster.
         cluster_name = name or self._DEFAULT_CLUSTER
@@ -60,7 +59,7 @@ class LocalCloud(BaseCloud):
             raise RuntimeError("Failed to start job.")
         return job_status
 
-    def get_cluster(self, name) -> Optional[BaseCluster]:
+    def get_cluster(self, name) -> BaseCluster | None:
         """Gets the cluster with the specified name, or None if not found."""
         clusters = self.list_clusters()
         for cluster in clusters:

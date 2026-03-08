@@ -4,7 +4,7 @@ import functools
 import random
 import string
 import warnings
-from typing import Final, NamedTuple, Optional
+from typing import Final, NamedTuple
 
 import pytest
 import transformers
@@ -30,7 +30,7 @@ class ChatTemplateTestSpec(NamedTuple):
     model_name: str
     test_image: bool = False
     trust_remote_code: bool = False
-    image_placeholder: Optional[str] = None
+    image_placeholder: str | None = None
 
 
 class ConversationTuple(NamedTuple):
@@ -94,8 +94,8 @@ def create_test_conversation(
 def create_test_tokenizer(
     model_name: str,
     *,
-    chat_template_name: Optional[str] = None,
-    inline_chat_template: Optional[str] = None,
+    chat_template_name: str | None = None,
+    inline_chat_template: str | None = None,
     trust_remote_code: bool = False,
 ) -> BaseTokenizer:
     if chat_template_name is None:
@@ -118,7 +118,7 @@ def create_test_tokenizer(
 @functools.cache
 def get_hf_chat_template(
     tokenizer_name: str, *, trust_remote_code: bool = False
-) -> Optional[str]:
+) -> str | None:
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         tokenizer_name, trust_remote_code=trust_remote_code
     )

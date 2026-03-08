@@ -124,3 +124,9 @@ def test_model_params_reserved_processor_kwargs(field_names: list[str], tmp_path
             model_name=str(tmp_path),
             processor_kwargs={field_name: "foo_value" for field_name in field_names},
         )
+
+
+def test_chat_template_kwargs_custom_assignment():
+    model_params = ModelParams(chat_template_kwargs={"enable_thinking": False})
+    assert model_params.chat_template_kwargs is not None
+    assert model_params.chat_template_kwargs["enable_thinking"] is False

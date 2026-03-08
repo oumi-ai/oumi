@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional
+from typing import TYPE_CHECKING
 
 from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.configs import InferenceConfig, InferenceEngineType
@@ -25,6 +25,9 @@ from oumi.core.types.conversation import (
     Type,
 )
 from oumi.utils.logging import logger
+
+if TYPE_CHECKING:
+    from rich.console import Console
 
 
 def get_engine(config: InferenceConfig) -> BaseInferenceEngine:
@@ -43,10 +46,20 @@ def get_engine(config: InferenceConfig) -> BaseInferenceEngine:
 def infer_interactive(
     config: InferenceConfig,
     *,
-    input_image_bytes: Optional[list[bytes]] = None,
-    system_prompt: Optional[str] = None,
+    input_image_bytes: list[bytes] | None = None,
+    system_prompt: str | None = None,
+    console: "Console | None" = None,
 ) -> None:
-    """Interactively provide the model response for a user-provided input."""
+    """Interactively provide the model response for a user-provided input.
+
+    Args:
+        config: The configuration to use for inference.
+        input_image_bytes: A list of input PNG image bytes to be used with
+            `image+text` VLMs.
+        system_prompt: System prompt for task-specific instructions.
+        console: Optional Rich Console instance for displaying a loading spinner.
+            If provided, a spinner will be shown while generating responses.
+    """
     # Create engine up front to avoid reinitializing it for each input.
     inference_engine = get_engine(config)
     while True:
@@ -55,15 +68,27 @@ def infer_interactive(
         except (EOFError, KeyboardInterrupt):  # Triggered by Ctrl+D/Ctrl+C
             print("\nExiting...")
             return
-        model_response = infer(
-            config=config,
-            inputs=[
-                input_text,
-            ],
-            system_prompt=system_prompt,
-            input_image_bytes=input_image_bytes,
-            inference_engine=inference_engine,
-        )
+
+        def _run_inference():
+            return infer(
+                config=config,
+                inputs=[
+                    input_text,
+                ],
+                system_prompt=system_prompt,
+                input_image_bytes=input_image_bytes,
+                inference_engine=inference_engine,
+            )
+
+        # Display loading spinner if console is provided
+        if console is not None:
+            with console.status(
+                "[green]Generating response...[/green]", spinner="dots"
+            ):
+                model_response = _run_inference()
+        else:
+            model_response = _run_inference()
+
         for g in model_response:
             print("------------")
             print(repr(g))
@@ -73,11 +98,11 @@ def infer_interactive(
 
 def infer(
     config: InferenceConfig,
-    inputs: Optional[list[str]] = None,
-    inference_engine: Optional[BaseInferenceEngine] = None,
+    inputs: list[str] | None = None,
+    inference_engine: BaseInferenceEngine | None = None,
     *,
-    input_image_bytes: Optional[list[bytes]] = None,
-    system_prompt: Optional[str] = None,
+    input_image_bytes: list[bytes] | None = None,
+    system_prompt: str | None = None,
 ) -> list[Conversation]:
     """Runs batch inference for a model using the provided configuration.
 

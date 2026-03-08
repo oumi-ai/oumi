@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 from omegaconf import MISSING
 from typing_extensions import override
@@ -53,42 +52,47 @@ class JobResources:
     """The cloud used to run the job (required).
 
     Options:
+        Major cloud providers:
         - aws: Amazon Web Services
         - azure: Microsoft Azure
         - gcp: Google Cloud Platform
         - lambda: Lambda Cloud
-        - local: The local machine launching the job
-        - polaris: The Polaris cluster at Argonne National Laboratory
         - runpod: RunPod
+        Research clusters (not intended for general use):
+        - polaris: The Polaris cluster at Argonne National Laboratory
+        - frontier: The Frontier cluster at Oak Ridge National Laboratory
+        - perlmutter: The Perlmutter cluster at Lawrence Berkeley National Laboratory
+        Other clouds:
+        - local: The local machine launching the job
     """
 
-    region: Optional[str] = None
+    region: str | None = None
     """The region to use (optional). Supported values vary by environment."""
 
-    zone: Optional[str] = None
+    zone: str | None = None
     """The zone to use (optional). Supported values vary by environment."""
 
-    accelerators: Optional[str] = None
+    accelerators: str | None = None
     """Accelerator type (optional). Supported values vary by environment.
 
     For GCP you may specify the accelerator name and count, e.g. "V100:4".
     """
 
-    cpus: Optional[str] = None
+    cpus: str | None = None
     """Number of vCPUs to use per node (optional).
 
     Sky-based clouds support strings with
     modifiers, e.g. "2+" to indicate at least 2 vCPUs.
     """
 
-    memory: Optional[str] = None
+    memory: str | None = None
     """Memory to allocate per node in GiB (optional).
 
     Sky-based clouds support strings
     with modifiers, e.g. "256+" to indicate at least 256 GB.
     """
 
-    instance_type: Optional[str] = None
+    instance_type: str | None = None
     """Instance type to use (optional).
 
     Supported values vary by environment.
@@ -101,13 +105,13 @@ class JobResources:
     If unspecified, defaults to False (on-demand instances).
     """
 
-    disk_size: Optional[int] = None
+    disk_size: int | None = None
     """Disk size in GiB to allocate for OS (mounted at /) (optional)
 
     Ignored by Polaris.
     """
 
-    disk_tier: Optional[str] = None
+    disk_tier: str | None = None
     """Disk tier to use for OS (optional).
 
     For sky-based clouds this Could be one of 'low', 'medium', 'high', 'ultra', or
@@ -115,11 +119,24 @@ class JobResources:
     disk tiers.
     """
 
-    image_id: Optional[str] = None
+    image_id: str | None = None
     """The image id used to boot the instances (optional).
 
     You can specify a docker by using the format `docker:<image_id>`.
     This field is not applicable for all clouds.
+
+    Overrides image_id_map if both are specified.
+    """
+
+    image_id_map: dict[str, str] | None = None
+    """The image id map used to boot the instances (optional).
+    Map is in the form of {region: image_id}.
+
+    You can specify a docker by using the format `docker:<image_id>`.
+    This field is not applicable for all clouds. Recommended for AMI based clouds for
+    multiple region support.
+
+    Overridden by image_id if both are specified.
     """
 
 
@@ -127,13 +144,13 @@ class JobResources:
 class JobConfig(BaseConfig):
     """Configuration for launching jobs on a cluster."""
 
-    name: Optional[str] = None
+    name: str | None = None
     """Job name (optional). Only used for display purposes."""
 
-    user: Optional[str] = None
+    user: str | None = None
     """The user that the job will run as (optional). Required only for Polaris."""
 
-    working_dir: Optional[str] = None
+    working_dir: str | None = None
     """The local directory containing the scripts required to execute this job.
 
     This directory will be copied to the remote node before the job is executed.
@@ -164,7 +181,7 @@ class JobConfig(BaseConfig):
     The keys of `storage_mounts` cannot be shared with `file_mounts`.
     """
 
-    setup: Optional[str] = None
+    setup: str | None = None
     """The setup script to run on every node. Optional.
 
     `setup` will always be executed before `run`. In sky-based clouds, `setup` is

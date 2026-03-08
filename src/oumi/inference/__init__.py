@@ -18,7 +18,10 @@ This module provides various implementations for running model inference.
 """
 
 from oumi.inference.anthropic_inference_engine import AnthropicInferenceEngine
+from oumi.inference.bedrock_inference_engine import BedrockInferenceEngine
+from oumi.inference.cerebras_inference_engine import CerebrasInferenceEngine
 from oumi.inference.deepseek_inference_engine import DeepSeekInferenceEngine
+from oumi.inference.fireworks_inference_engine import FireworksInferenceEngine
 from oumi.inference.gcp_inference_engine import GoogleVertexInferenceEngine
 from oumi.inference.gemini_inference_engine import GoogleGeminiInferenceEngine
 from oumi.inference.jax_inference_engine import JAXInferenceEngine
@@ -26,6 +29,7 @@ from oumi.inference.lambda_inference_engine import LambdaInferenceEngine
 from oumi.inference.llama_cpp_inference_engine import LlamaCppInferenceEngine
 from oumi.inference.native_text_inference_engine import NativeTextInferenceEngine
 from oumi.inference.openai_inference_engine import OpenAIInferenceEngine
+from oumi.inference.openrouter_inference_engine import OpenRouterInferenceEngine
 from oumi.inference.parasail_inference_engine import ParasailInferenceEngine
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 from oumi.inference.remote_vllm_inference_engine import RemoteVLLMInferenceEngine
@@ -36,7 +40,10 @@ from oumi.inference.vllm_inference_engine import VLLMInferenceEngine
 
 __all__ = [
     "AnthropicInferenceEngine",
+    "BedrockInferenceEngine",
+    "CerebrasInferenceEngine",
     "DeepSeekInferenceEngine",
+    "FireworksInferenceEngine",
     "GoogleGeminiInferenceEngine",
     "GoogleVertexInferenceEngine",
     "JAXInferenceEngine",
@@ -44,6 +51,7 @@ __all__ = [
     "LlamaCppInferenceEngine",
     "NativeTextInferenceEngine",
     "OpenAIInferenceEngine",
+    "OpenRouterInferenceEngine",
     "ParasailInferenceEngine",
     "RemoteInferenceEngine",
     "RemoteVLLMInferenceEngine",

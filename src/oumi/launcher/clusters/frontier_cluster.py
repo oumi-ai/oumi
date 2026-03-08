@@ -12,13 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import io
 import re
 import uuid
 from datetime import datetime
 from enum import Enum
 from functools import reduce
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import BaseCluster, JobStatus
@@ -56,7 +57,7 @@ def _last_sbatch_line(script: list[str]) -> int:
 
 def _get_logging_dirs_and_files(
     script: str,
-) -> tuple[list[str], Optional[Path], Optional[Path]]:
+) -> tuple[list[str], Path | None, Path | None]:
     """Gets the logging directories from the script.
 
     Parses the provided script for commands starting with `#SBATCH -o`, `#SBATCH -e`,
@@ -70,8 +71,8 @@ def _get_logging_dirs_and_files(
     """
     logging_pattern = r"#SBATCH\s+-([oe|eo|doe|o|e])\s+(.*)"
     logging_dirs = set()
-    stdout_file: Optional[Path] = None
-    stderr_file: Optional[Path] = None
+    stdout_file: Path | None = None
+    stderr_file: Path | None = None
     for line in script.split("\n"):
         match = re.match(logging_pattern, line.strip())
         if match:
@@ -164,8 +165,6 @@ def _validate_job_config(job: JobConfig) -> None:
         logger.warning("Instance type is unused for Frontier jobs.")
     if job.resources.disk_size:
         logger.warning("Disk size is unused for Frontier jobs.")
-    if job.resources.instance_type:
-        logger.warning("Instance type is unused for Frontier jobs.")
     # Warn that storage mounts are currently unsupported.
     if len(job.storage_mounts.items()) > 0:
         logger.warning("Storage mounts are currently unsupported for Frontier jobs.")
@@ -216,7 +215,7 @@ class FrontierCluster(BaseCluster):
         """Gets the name of the cluster."""
         return self._name
 
-    def get_job(self, job_id: str) -> Optional[JobStatus]:
+    def get_job(self, job_id: str) -> JobStatus | None:
         """Gets the jobs on this cluster if it exists, else returns None."""
         for job in self.get_jobs():
             if job.id == job_id:
@@ -304,7 +303,7 @@ class FrontierCluster(BaseCluster):
         # Set the proper CHMOD permissions.
         self._client.run_commands([f"chmod +x {script_path}"])
         # Set up logging directories.
-        logging_dirs, stdout_file, stderr_file = _get_logging_dirs_and_files(job_script)
+        logging_dirs, _, _ = _get_logging_dirs_and_files(job_script)
         if len(logging_dirs) > 0:
             self._client.run_commands(
                 [f"mkdir -p {log_dir}" for log_dir in logging_dirs]
@@ -322,16 +321,6 @@ class FrontierCluster(BaseCluster):
             threads_per_core=1,
             distribution="block:cyclic",
             partition=self._queue.value,
-            stdout_file=(
-                str(stdout_file)
-                if stdout_file
-                else "/lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.OU"
-            ),
-            stderr_file=(
-                str(stderr_file)
-                if stderr_file
-                else "/lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.ER"
-            ),
         )
         job_status = self.get_job(job_id)
         if job_status is None:
@@ -345,3 +334,14 @@ class FrontierCluster(BaseCluster):
     def down(self) -> None:
         """This is a no-op for Frontier clusters."""
         pass
+
+    def get_logs_stream(
+        self, cluster_name: str, job_id: str | None = None
+    ) -> io.TextIOBase:
+        """Gets a stream that tails the logs of the target job.
+
+        Args:
+            cluster_name: The name of the cluster the job was run in.
+            job_id: The ID of the job to tail the logs of.
+        """
+        raise NotImplementedError

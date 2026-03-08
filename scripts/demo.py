@@ -397,7 +397,6 @@ def run_demo():
         "data": {
             "train": {
                 "datasets": [{"dataset_name": dataset_name}],
-                "target_col": "prompt",
             }
         },
         "training": {
@@ -561,7 +560,7 @@ def run_demo():
 
                             # Process metrics
                             for metric_name, value in metrics.items():
-                                if isinstance(value, (int, float)):
+                                if isinstance(value, int | float):
                                     # Extract base metric name and type
                                     base_name, *metric_type = metric_name.split(",")
 
@@ -690,7 +689,7 @@ def run_demo():
     }
 
     if provider_code != "local":
-        deploy_config["setup"] = "pip install uv && uv pip install oumi[gpu]"
+        deploy_config["setup"] = "pip install uv && uv pip install --system oumi[gpu]"
     create_config_file(deploy_config, "job_config.yaml")
     console.print("\nCreated deployment configuration:")
     display_yaml_config(deploy_config, "Deployment Configuration")

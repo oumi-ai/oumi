@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Optional
+from typing import Any
 
 
 class EvaluationResult:
@@ -33,11 +33,11 @@ class EvaluationResult:
 
     def __init__(
         self,
-        task_name: Optional[str] = None,
-        task_result: Optional[dict[str, Any]] = None,
-        backend_config: Optional[dict[str, Any]] = None,
-        start_time: Optional[str] = None,
-        elapsed_time_sec: Optional[int] = None,
+        task_name: str | None = None,
+        task_result: dict[str, Any] | None = None,
+        backend_config: dict[str, Any] | None = None,
+        start_time: str | None = None,
+        elapsed_time_sec: int | None = None,
     ):
         """Initialize the EvaluationResult class."""
         self.task_name = task_name

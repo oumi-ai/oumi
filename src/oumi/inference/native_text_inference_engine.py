@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import warnings
-from typing import Optional, cast
+from typing import cast
 
 import PIL.Image
 import torch
@@ -47,7 +47,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         self,
         model_params: ModelParams,
         *,
-        generation_params: Optional[GenerationParams] = None,
+        generation_params: GenerationParams | None = None,
     ):
         """Initializes the inference Engine.
 
@@ -68,7 +68,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                 f"Model {self._model_params.model_name} requires a generation config."
             )
         self._tokenizer = build_tokenizer(self._model_params)
-        self._processor: Optional[BaseProcessor] = None
+        self._processor: BaseProcessor | None = None
 
         if not hasattr(self._model, "generate"):
             raise ValueError(
@@ -242,7 +242,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
     def _infer(
         self,
         input: list[Conversation],
-        inference_config: Optional[InferenceConfig] = None,
+        inference_config: InferenceConfig | None = None,
     ) -> list[Conversation]:
         """Runs batch inference for a model using the provided configuration.
 
@@ -355,6 +355,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             output_batch_decoded = self._tokenizer.batch_decode(
                 output_batch.data,
                 clean_up_tokenization_spaces=True,
+                skip_special_tokens=generation_params.skip_special_tokens,
             )
             for conversation, response in zip(
                 batched_input[batch_index], output_batch_decoded
@@ -380,7 +381,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
     def _infer_online(
         self,
         input: list[Conversation],
-        inference_config: Optional[InferenceConfig] = None,
+        inference_config: InferenceConfig | None = None,
     ) -> list[Conversation]:
         """Runs model inference online.
 
@@ -404,6 +405,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             "min_p",
             "presence_penalty",
             "seed",
+            "skip_special_tokens",
             "stop_strings",
             "stop_token_ids",
             "temperature",
@@ -416,7 +418,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
     def infer_online(
         self,
         input: list[Conversation],
-        inference_config: Optional[InferenceConfig] = None,
+        inference_config: InferenceConfig | None = None,
     ) -> list[Conversation]:
         """Runs model inference online.
 
@@ -440,7 +442,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
     def infer_from_file(
         self,
         input_filepath: str,
-        inference_config: Optional[InferenceConfig] = None,
+        inference_config: InferenceConfig | None = None,
     ) -> list[Conversation]:
         """Runs model inference on inputs in the provided file.
 

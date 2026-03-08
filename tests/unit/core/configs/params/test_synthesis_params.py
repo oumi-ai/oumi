@@ -24,8 +24,9 @@ from oumi.core.configs.params.synthesis_params import (
     ExampleSource,
     GeneralSynthesisParams,
     GeneratedAttribute,
-    PermutableAttribute,
-    PermutableAttributeValue,
+    MultiTurnAttribute,
+    SampledAttribute,
+    SampledAttributeValue,
     SegmentationStrategy,
     TextConversation,
     TextMessage,
@@ -48,6 +49,14 @@ def test_dataset_source_valid():
     for path in valid_paths:
         ds = DatasetSource(path=path)
         assert ds.path == path
+
+    # Test HuggingFace paths
+    ds = DatasetSource(path="hf:repo/dataset")
+    assert ds.path == "hf:repo/dataset"
+
+    # Test Oumi paths
+    ds = DatasetSource(path="oumi:dataset_id")
+    assert ds.path == "oumi:dataset_id"
 
     ds = DatasetSource(path="data.jsonl", attribute_map={"original_name": "new_name"})
     assert ds.attribute_map == {"original_name": "new_name"}
@@ -149,61 +158,59 @@ def test_example_source_invalid():
 
 def test_permutable_attribute_value_valid():
     # Test minimal valid case
-    value = PermutableAttributeValue(
-        id="test", value="test_value", description="test description"
+    value = SampledAttributeValue(
+        id="test", name="test_value", description="test description"
     )
     assert value.id == "test"
-    assert value.value == "test_value"
+    assert value.name == "test_value"
     assert value.description == "test description"
     assert value.sample_rate is None
 
     # Test with sample rate
-    value = PermutableAttributeValue(
-        id="test", value="test_value", description="test description", sample_rate=0.5
+    value = SampledAttributeValue(
+        id="test", name="test_value", description="test description", sample_rate=0.5
     )
     assert value.sample_rate == 0.5
 
 
 def test_permutable_attribute_value_invalid():
     # Test empty id
-    with pytest.raises(ValueError, match="PermutableAttributeValue.id cannot be empty"):
-        PermutableAttributeValue(id="", value="test", description="test")
+    with pytest.raises(ValueError, match="SampledAttributeValue.id cannot be empty"):
+        SampledAttributeValue(id="", name="test", description="test")
 
     # Test empty value
-    with pytest.raises(
-        ValueError, match="PermutableAttributeValue.value cannot be empty"
-    ):
-        PermutableAttributeValue(id="test", value="", description="test")
+    with pytest.raises(ValueError, match="SampledAttributeValue.name cannot be empty"):
+        SampledAttributeValue(id="test", name="", description="test")
 
     # Test empty description
     with pytest.raises(
-        ValueError, match="PermutableAttributeValue.description cannot be empty"
+        ValueError, match="SampledAttributeValue.description cannot be empty"
     ):
-        PermutableAttributeValue(id="test", value="test", description="")
+        SampledAttributeValue(id="test", name="test", description="")
 
     # Test invalid sample rate
     with pytest.raises(
-        ValueError, match="PermutableAttributeValue.sample_rate must be between 0 and 1"
+        ValueError, match="SampledAttributeValue.sample_rate must be between 0 and 1"
     ):
-        PermutableAttributeValue(
-            id="test", value="test", description="test", sample_rate=1.5
+        SampledAttributeValue(
+            id="test", name="test", description="test", sample_rate=1.5
         )
 
 
 def test_permutable_attribute_valid():
     # Test valid case with uniform sampling
     values = [
-        PermutableAttributeValue(id="v1", value="value1", description="desc1"),
-        PermutableAttributeValue(id="v2", value="value2", description="desc2"),
+        SampledAttributeValue(id="v1", name="value1", description="desc1"),
+        SampledAttributeValue(id="v2", name="value2", description="desc2"),
     ]
-    attr = PermutableAttribute(
+    attr = SampledAttribute(
         id="test",
-        attribute="test_attr",
+        name="test_attr",
         description="test description",
         possible_values=values,
     )
     assert attr.id == "test"
-    assert attr.attribute == "test_attr"
+    assert attr.name == "test_attr"
     assert attr.description == "test description"
     assert len(attr.possible_values) == 2
     # Check that sample rates were normalized
@@ -211,16 +218,16 @@ def test_permutable_attribute_valid():
 
     # Test with explicit sample rates
     values = [
-        PermutableAttributeValue(
-            id="v1", value="value1", description="desc1", sample_rate=0.3
+        SampledAttributeValue(
+            id="v1", name="value1", description="desc1", sample_rate=0.3
         ),
-        PermutableAttributeValue(
-            id="v2", value="value2", description="desc2", sample_rate=0.7
+        SampledAttributeValue(
+            id="v2", name="value2", description="desc2", sample_rate=0.7
         ),
     ]
-    attr = PermutableAttribute(
+    attr = SampledAttribute(
         id="test",
-        attribute="test_attr",
+        name="test_attr",
         description="test description",
         possible_values=values,
     )
@@ -230,81 +237,125 @@ def test_permutable_attribute_valid():
 
 def test_permutable_attribute_invalid():
     # Test empty id
-    with pytest.raises(ValueError, match="PermutableAttribute.id cannot be empty"):
-        PermutableAttribute(
+    with pytest.raises(ValueError, match="SampledAttribute.id cannot be empty"):
+        SampledAttribute(
             id="",
-            attribute="test",
+            name="test",
             description="test",
             possible_values=[
-                PermutableAttributeValue(id="v1", value="value1", description="desc1")
+                SampledAttributeValue(id="v1", name="value1", description="desc1")
             ],
         )
 
     # Test empty attribute
-    with pytest.raises(
-        ValueError, match="PermutableAttribute.attribute cannot be empty"
-    ):
-        PermutableAttribute(
+    with pytest.raises(ValueError, match="SampledAttribute.name cannot be empty"):
+        SampledAttribute(
             id="test",
-            attribute="",
+            name="",
             description="test",
             possible_values=[
-                PermutableAttributeValue(id="v1", value="value1", description="desc1")
+                SampledAttributeValue(id="v1", name="value1", description="desc1")
             ],
         )
 
     # Test empty description
     with pytest.raises(
-        ValueError, match="PermutableAttribute.description cannot be empty"
+        ValueError, match="SampledAttribute.description cannot be empty"
     ):
-        PermutableAttribute(
+        SampledAttribute(
             id="test",
-            attribute="test",
+            name="test",
             description="",
             possible_values=[
-                PermutableAttributeValue(id="v1", value="value1", description="desc1")
+                SampledAttributeValue(id="v1", name="value1", description="desc1")
             ],
         )
 
     # Test empty possible values
     with pytest.raises(
-        ValueError, match="PermutableAttribute.possible_values cannot be empty"
+        ValueError, match="SampledAttribute.possible_values cannot be empty"
     ):
-        PermutableAttribute(
-            id="test", attribute="test", description="test", possible_values=[]
-        )
+        SampledAttribute(id="test", name="test", description="test", possible_values=[])
 
     # Test duplicate value ids
     with pytest.raises(
-        ValueError, match="PermutableAttribute.possible_values must have unique IDs"
+        ValueError, match="SampledAttribute.possible_values must have unique IDs"
     ):
-        PermutableAttribute(
+        SampledAttribute(
             id="test",
-            attribute="test",
+            name="test",
             description="test",
             possible_values=[
-                PermutableAttributeValue(id="v1", value="value1", description="desc1"),
-                PermutableAttributeValue(id="v1", value="value2", description="desc2"),
+                SampledAttributeValue(id="v1", name="value1", description="desc1"),
+                SampledAttributeValue(id="v1", name="value2", description="desc2"),
             ],
         )
 
     # Test sample rates sum > 1
     with pytest.raises(
-        ValueError, match="PermutableAttribute.possible_values must sum to 1.0"
+        ValueError, match="SampledAttribute.possible_values must sum to at most 1.0"
     ):
-        PermutableAttribute(
+        SampledAttribute(
             id="test",
-            attribute="test",
+            name="test",
             description="test",
             possible_values=[
-                PermutableAttributeValue(
-                    id="v1", value="value1", description="desc1", sample_rate=0.6
+                SampledAttributeValue(
+                    id="v1", name="value1", description="desc1", sample_rate=0.6
                 ),
-                PermutableAttributeValue(
-                    id="v2", value="value2", description="desc2", sample_rate=0.6
+                SampledAttributeValue(
+                    id="v2", name="value2", description="desc2", sample_rate=0.6
                 ),
             ],
         )
+
+
+def test_sampled_attribute_valid_floating_point_precision():
+    # Test floating point precision - values that sum to 1.0 but might have tiny errors
+    # This should not raise an error due to epsilon tolerance (1e-6)
+    # Using 0.1 which has a known floating point representation error
+    # When added directly: 0.1 + 0.1 + ... (10 times) != 1.0 exactly
+    # The error is ~1.1e-16, which is well within the 1e-6 epsilon tolerance
+    values = [
+        SampledAttributeValue(
+            id="v1", name="value1", description="desc1", sample_rate=0.1
+        ),
+        SampledAttributeValue(
+            id="v2", name="value2", description="desc2", sample_rate=0.1
+        ),
+        SampledAttributeValue(
+            id="v3", name="value3", description="desc3", sample_rate=0.1
+        ),
+        SampledAttributeValue(
+            id="v4", name="value4", description="desc4", sample_rate=0.1
+        ),
+        SampledAttributeValue(
+            id="v5", name="value5", description="desc5", sample_rate=0.1
+        ),
+        SampledAttributeValue(
+            id="v6", name="value6", description="desc6", sample_rate=0.1
+        ),
+        SampledAttributeValue(
+            id="v7", name="value7", description="desc7", sample_rate=0.1
+        ),
+        SampledAttributeValue(
+            id="v8", name="value8", description="desc8", sample_rate=0.1
+        ),
+        SampledAttributeValue(
+            id="v9", name="value9", description="desc9", sample_rate=0.1
+        ),
+        SampledAttributeValue(
+            id="v10", name="value10", description="desc10", sample_rate=0.1
+        ),
+    ]
+    attr = SampledAttribute(
+        id="test",
+        name="test",
+        description="test",
+        possible_values=values,
+    )
+    # Should succeed without raising an error
+    assert len(attr.possible_values) == 10
 
 
 def test_attribute_combination_valid():
@@ -386,6 +437,90 @@ def test_generated_attribute_invalid():
         GeneratedAttribute(
             id="test",
             instruction_messages=None,  # type: ignore
+        )
+
+
+def test_multiturn_attribute_invalid_min_turns():
+    with pytest.raises(
+        ValueError, match="MultiTurnAttribute.min_turns must be at least 1."
+    ):
+        MultiTurnAttribute(
+            id="conversation",
+            min_turns=0,
+            max_turns=2,
+            role_instruction_messages={
+                Role.USER: "You are a user.",
+                Role.ASSISTANT: "You are an assistant.",
+            },
+        )
+
+
+def test_multiturn_attribute_invalid_max_turns():
+    with pytest.raises(
+        ValueError,
+        match=(
+            "MultiTurnAttribute.max_turns must be greater than or equal to min_turns."
+        ),
+    ):
+        MultiTurnAttribute(
+            id="conversation",
+            min_turns=2,
+            max_turns=1,
+            role_instruction_messages={
+                Role.USER: "You are a user.",
+                Role.ASSISTANT: "You are an assistant.",
+            },
+        )
+
+
+def test_multiturn_attribute_invalid_output_system_prompt():
+    with pytest.raises(
+        ValueError,
+        match="MultiTurnAttribute.output_system_prompt must be a non-empty string.",
+    ):
+        MultiTurnAttribute(
+            id="conversation",
+            min_turns=1,
+            max_turns=2,
+            role_instruction_messages={
+                Role.USER: "You are a user.",
+                Role.ASSISTANT: "You are an assistant.",
+            },
+            output_system_prompt="",
+        )
+
+
+def test_multiturn_attribute_missing_role_instructions():
+    with pytest.raises(
+        ValueError,
+        match="MultiTurnAttribute.role_instruction_messages must define instructions",
+    ):
+        MultiTurnAttribute(
+            id="conversation",
+            min_turns=1,
+            max_turns=2,
+            role_instruction_messages={
+                Role.USER: "You are a user.",
+            },
+        )
+
+
+def test_multiturn_attribute_empty_role_instructions():
+    with pytest.raises(
+        ValueError,
+        match=(
+            "MultiTurnAttribute.role_instruction_messages must include a "
+            "non-empty persona"
+        ),
+    ):
+        MultiTurnAttribute(
+            id="conversation",
+            min_turns=1,
+            max_turns=2,
+            role_instruction_messages={
+                Role.USER: "",
+                Role.ASSISTANT: "You are an assistant.",
+            },
         )
 
 
@@ -503,7 +638,7 @@ def test_general_synthesis_params_valid():
     assert params.input_data is None
     assert params.input_documents is None
     assert params.input_examples is None
-    assert params.permutable_attributes is None
+    assert params.sampled_attributes is None
     assert params.combination_sampling is None
     assert params.generated_attributes is None
     assert params.transformed_attributes is None
@@ -516,14 +651,14 @@ def test_general_synthesis_params_valid():
         ],
         input_documents=[DocumentSource(path="doc.txt", id="doc1")],
         input_examples=[ExampleSource(examples=[{"field1": "value1"}])],
-        permutable_attributes=[
-            PermutableAttribute(
+        sampled_attributes=[
+            SampledAttribute(
                 id="attr1",
-                attribute="test_attr",
+                name="test_attr",
                 description="test desc",
                 possible_values=[
-                    PermutableAttributeValue(
-                        id="v1", value="value1", description="desc1", sample_rate=0.5
+                    SampledAttributeValue(
+                        id="v1", name="value1", description="desc1", sample_rate=0.5
                     )
                 ],
             )
@@ -539,6 +674,18 @@ def test_general_synthesis_params_valid():
                 instruction_messages=[
                     TextMessage(role=Role.SYSTEM, content="System message")
                 ],
+            )
+        ],
+        multiturn_attributes=[
+            MultiTurnAttribute(
+                id="conversation",
+                min_turns=1,
+                max_turns=2,
+                role_instruction_messages={
+                    Role.USER: "You are a user. Turn {current_turn}",
+                    Role.ASSISTANT: "You are an assistant. Turn {current_turn}",
+                },
+                conversation_planner="Plan a {target_turns}-turn conversation.",
             )
         ],
         transformed_attributes=[
@@ -571,51 +718,37 @@ def test_general_synthesis_params_valid():
     assert sum(c.sample_rate for c in params.combination_sampling) <= 1.0
 
 
+def test_general_synthesis_params_empty_lists_normalized_to_none():
+    """Empty lists should be treated as if the attribute was not provided (None)."""
+    params = GeneralSynthesisParams(input_data=[])
+    assert params.input_data is None
+
+    params = GeneralSynthesisParams(input_documents=[])
+    assert params.input_documents is None
+
+    params = GeneralSynthesisParams(input_examples=[])
+    assert params.input_examples is None
+
+    params = GeneralSynthesisParams(sampled_attributes=[])
+    assert params.sampled_attributes is None
+
+    params = GeneralSynthesisParams(combination_sampling=[])
+    assert params.combination_sampling is None
+
+    params = GeneralSynthesisParams(generated_attributes=[])
+    assert params.generated_attributes is None
+
+    params = GeneralSynthesisParams(transformed_attributes=[])
+    assert params.transformed_attributes is None
+
+    params = GeneralSynthesisParams(multiturn_attributes=[])
+    assert params.multiturn_attributes is None
+
+    params = GeneralSynthesisParams(passthrough_attributes=[])
+    assert params.passthrough_attributes is None
+
+
 def test_general_synthesis_params_invalid():
-    # Test empty lists
-    with pytest.raises(
-        ValueError, match="GeneralSynthesisParams.input_data cannot be empty."
-    ):
-        GeneralSynthesisParams(input_data=[])
-
-    with pytest.raises(
-        ValueError, match="GeneralSynthesisParams.input_documents cannot be empty."
-    ):
-        GeneralSynthesisParams(input_documents=[])
-
-    with pytest.raises(
-        ValueError, match="GeneralSynthesisParams.input_examples cannot be empty."
-    ):
-        GeneralSynthesisParams(input_examples=[])
-
-    with pytest.raises(
-        ValueError,
-        match="GeneralSynthesisParams.permutable_attributes cannot be empty.",
-    ):
-        GeneralSynthesisParams(permutable_attributes=[])
-
-    with pytest.raises(
-        ValueError, match="GeneralSynthesisParams.combination_sampling cannot be empty."
-    ):
-        GeneralSynthesisParams(combination_sampling=[])
-
-    with pytest.raises(
-        ValueError, match="GeneralSynthesisParams.generated_attributes cannot be empty."
-    ):
-        GeneralSynthesisParams(generated_attributes=[])
-
-    with pytest.raises(
-        ValueError,
-        match="GeneralSynthesisParams.transformed_attributes cannot be empty.",
-    ):
-        GeneralSynthesisParams(transformed_attributes=[])
-
-    with pytest.raises(
-        ValueError,
-        match="GeneralSynthesisParams.passthrough_attributes cannot be empty.",
-    ):
-        GeneralSynthesisParams(passthrough_attributes=[])
-
     # Test duplicate attribute IDs
     with pytest.raises(
         ValueError, match="GeneralSynthesisParams contains duplicate attribute IDs"
@@ -627,7 +760,51 @@ def test_general_synthesis_params_invalid():
             ]
         )
 
-    # Test combination sampling rates sum > 1.0
+    reserved_ids = ["target_turns", "current_turn"]
+    for reserved_id in reserved_ids:
+        with pytest.raises(
+            ValueError,
+            match=f"GeneralSynthesisParams does not allow '{reserved_id}' as an "
+            "attribute ID",
+        ):
+            GeneralSynthesisParams(
+                generated_attributes=[
+                    GeneratedAttribute(
+                        id=reserved_id,
+                        instruction_messages=[
+                            TextMessage(role=Role.SYSTEM, content="System message"),
+                        ],
+                    )
+                ]
+            )
+
+    with pytest.raises(
+        ValueError,
+        match="GeneralSynthesisParams does not allow 'conversation_plan' "
+        "as an attribute ID because it is reserved for multiturn synthesis.",
+    ):
+        GeneralSynthesisParams(
+            generated_attributes=[
+                GeneratedAttribute(
+                    id="conversation_plan",
+                    instruction_messages=[
+                        TextMessage(role=Role.SYSTEM, content="System message"),
+                    ],
+                )
+            ],
+            multiturn_attributes=[
+                MultiTurnAttribute(
+                    id="conversation",
+                    min_turns=1,
+                    max_turns=2,
+                    role_instruction_messages={
+                        Role.USER: "You are a user.",
+                        Role.ASSISTANT: "You are an assistant.",
+                    },
+                )
+            ],
+        )
+
     with pytest.raises(
         ValueError,
         match="GeneralSynthesisParams.combination_sampling sample rates must be "

@@ -1,0 +1,44 @@
+name: "Close stale issues and PRs"
+
+on:
+  schedule:
+    # Run daily at 00:00 UTC
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@v10
+        with:
+          # Stale issues
+          days-before-issue-stale: 90
+          days-before-issue-close: 14
+          stale-issue-label: "stale"
+          stale-issue-message: >
+            This issue has been inactive for 90 days and will be closed in 14 days
+            if there is no further activity. If you believe this issue is still relevant,
+            please comment to keep it open. Thank you for your contributions!
+          close-issue-message: >
+            This issue was closed due to inactivity. If you believe this is still relevant,
+            please feel free to reopen it or create a new issue with updated information.
+
+          # Stale PRs
+          days-before-pr-stale: 90
+          days-before-pr-close: 14
+          stale-pr-label: "stale"
+          stale-pr-message: >
+            This PR has been inactive for 90 days and will be closed in 14 days
+            if there is no further activity. If you're still working on this,
+            please comment or push updates to keep it open. Thank you for your contribution!
+          close-pr-message: >
+            This PR was closed due to inactivity. If you'd like to continue this work,
+            please feel free to reopen it or create a new PR. Thank you for your contribution!
+
+          remove-stale-when-updated: true
+          ascending: true

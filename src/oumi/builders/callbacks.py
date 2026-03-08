@@ -12,13 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Optional
+from pathlib import Path
+from typing import Any
 
 import torch
 
 from oumi.core.callbacks.base_trainer_callback import BaseTrainerCallback
 from oumi.core.callbacks.bitnet_callback import BitNetCallback
 from oumi.core.callbacks.hf_mfu_callback import HfMfuTrainerCallback
+from oumi.core.callbacks.metrics_logger_callback import MetricsLoggerCallback
 from oumi.core.callbacks.mfu_callback import MfuTrainerCallback
 from oumi.core.callbacks.nan_inf_detection_callback import NanInfDetectionCallback
 from oumi.core.callbacks.profiler_step_callback import ProfilerStepCallback
@@ -33,7 +35,7 @@ from oumi.utils.torch_utils import (
 
 
 def build_training_callbacks(
-    config: TrainingConfig, model: torch.nn.Module, profiler: Optional[Any]
+    config: TrainingConfig, model: torch.nn.Module, profiler: Any | None
 ) -> list[BaseTrainerCallback]:
     """Builds the training callbacks for the given training config and model.
 
@@ -57,6 +59,12 @@ def build_training_callbacks(
           training with non-packed datasets.
     """
     result: list[BaseTrainerCallback] = []
+
+    if config.training.output_dir:
+        result.append(
+            MetricsLoggerCallback(output_dir=Path(config.training.output_dir))
+        )
+
     if not config.training.include_performance_metrics:
         return result
 

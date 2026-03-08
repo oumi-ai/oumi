@@ -14,11 +14,11 @@
 
 
 from pathlib import Path
-from typing import Optional, Union
 
 from oumi.core.configs.judge_config import JudgeConfig
 from oumi.core.types.conversation import Conversation, Role
-from oumi.judges.base_judge import JudgeOutput
+from oumi.judges.base_judge import BaseJudge, JudgeOutput
+from oumi.judges.rule_based_judge import RuleBasedJudge
 from oumi.judges.simple_judge import SimpleJudge
 from oumi.utils.io_utils import load_jsonlines
 
@@ -28,10 +28,27 @@ DATASET_REQUEST_KEY = "request"
 DATASET_RESPONSE_KEY = "response"
 
 
+def _create_judge(judge_config: JudgeConfig | str) -> BaseJudge:
+    """Create the appropriate judge based on the configuration.
+
+    Args:
+        judge_config: JudgeConfig object or path to a judge config file.
+
+    Returns:
+        BaseJudge: Either a RuleBasedJudge or SimpleJudge instance.
+    """
+    if isinstance(judge_config, str):
+        judge_config = JudgeConfig.from_path(judge_config)
+
+    if judge_config.rule_judge_params is not None:
+        return RuleBasedJudge(judge_config=judge_config)
+    return SimpleJudge(judge_config=judge_config)
+
+
 def judge_dataset(
-    judge_config: Union[JudgeConfig, str],
+    judge_config: JudgeConfig | str,
     dataset: list[dict[str, str]],
-    output_file: Optional[Union[str, Path]] = None,
+    output_file: str | Path | None = None,
 ) -> list[JudgeOutput]:
     """Judge a dataset using Oumi's Judge framework.
 
@@ -80,7 +97,7 @@ def judge_dataset(
         >>> for output in judged_outputs:
         ...     print(output.field_values)  # e.g., {'judgment': True}
     """
-    judge = SimpleJudge(judge_config=judge_config)
+    judge = _create_judge(judge_config)
     judge_outputs = judge.judge(inputs=dataset)
 
     # Save `judge_outputs` into a file, if an `output_file` was provided
@@ -93,9 +110,9 @@ def judge_dataset(
 
 
 def judge_dataset_file(
-    judge_config: Union[JudgeConfig, str],
-    input_file: Union[str, Path],
-    output_file: Optional[Union[str, Path]] = None,
+    judge_config: JudgeConfig | str,
+    input_file: str | Path,
+    output_file: str | Path | None = None,
 ) -> list[JudgeOutput]:
     """Judge a dataset from a JSONL file using Oumi's Judge framework.
 
@@ -127,9 +144,9 @@ def judge_dataset_file(
 
 
 def judge_conversations_file(
-    judge_config: Union[JudgeConfig, str],
-    input_file: Union[str, Path],
-    output_file: Optional[Union[str, Path]] = None,
+    judge_config: JudgeConfig | str,
+    input_file: str | Path,
+    output_file: str | Path | None = None,
 ) -> list[JudgeOutput]:
     """Judge a list of conversations from a JSONL file using Oumi's Judge framework.
 

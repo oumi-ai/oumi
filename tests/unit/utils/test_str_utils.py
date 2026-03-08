@@ -1,6 +1,5 @@
 import os
 import re
-from typing import Optional
 from unittest.mock import patch
 
 import pytest
@@ -9,6 +8,7 @@ from oumi.builders import build_tokenizer
 from oumi.core.configs import ModelParams
 from oumi.utils.str_utils import (
     compute_utf8_len,
+    extract_json,
     get_editable_install_override_env_var,
     sanitize_run_name,
     set_oumi_install_editable,
@@ -127,7 +127,7 @@ def test_compute_utf8_len():
         ("False", False),
     ],
 )
-def test_get_editable_install_override(env_var_val: Optional[str], expected_val: bool):
+def test_get_editable_install_override(env_var_val: str | None, expected_val: bool):
     overrides = {}
     if env_var_val is not None:
         overrides = {"OUMI_FORCE_EDITABLE_INSTALL": env_var_val}
@@ -268,7 +268,7 @@ def test_truncate_text_pieces_to_max_tokens_limit_success(
     text_pieces: list[str],
     max_tokens: int,
     truncation_side: str,
-    expected_text_pieces: Optional[list[str]],
+    expected_text_pieces: list[str] | None,
     gpt2_tokenizer,
 ):
     truncated_text_pieces = truncate_text_pieces_to_max_tokens_limit(
@@ -282,3 +282,38 @@ def test_truncate_text_pieces_to_max_tokens_limit_success(
         assert truncated_text_pieces == expected_text_pieces
     else:
         assert truncated_text_pieces == text_pieces
+
+
+def test_extract_json_fenced_list():
+    text = "Here is the result:\n```json\n[1, 2, 3]\n```\nDone."
+    assert extract_json(text, expected_type=list) == [1, 2, 3]
+
+
+def test_extract_json_fenced_dict():
+    text = '```json\n{"key": "value"}\n```'
+    assert extract_json(text, expected_type=dict) == {"key": "value"}
+
+
+def test_extract_json_raw_list():
+    text = "The answer is [1, 2, 3] and that is it."
+    assert extract_json(text, expected_type=list) == [1, 2, 3]
+
+
+def test_extract_json_raw_dict():
+    text = 'Result: {"name": "test", "value": 42}'
+    assert extract_json(text, expected_type=dict) == {"name": "test", "value": 42}
+
+
+def test_extract_json_type_mismatch():
+    assert extract_json('{"a": 1}', expected_type=list) is None
+    assert extract_json("[1, 2]", expected_type=dict) is None
+
+
+def test_extract_json_no_json():
+    assert extract_json("Just some plain text.", expected_type=list) is None
+    assert extract_json("", expected_type=list) is None
+
+
+def test_extract_json_any_type():
+    assert extract_json("[1, 2]", expected_type=None) == [1, 2]
+    assert extract_json('Result: {"a": 1}', expected_type=None) == {"a": 1}

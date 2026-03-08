@@ -12,12 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import io
 import re
 import uuid
 from datetime import datetime
 from functools import reduce
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import BaseCluster, JobStatus
@@ -195,7 +196,7 @@ class PolarisCluster(BaseCluster):
         """Gets the name of the cluster."""
         return self._name
 
-    def get_job(self, job_id: str) -> Optional[JobStatus]:
+    def get_job(self, job_id: str) -> JobStatus | None:
         """Gets the jobs on this cluster if it exists, else returns None."""
         for job in self.get_jobs():
             if job.id == job_id:
@@ -297,3 +298,14 @@ class PolarisCluster(BaseCluster):
     def down(self) -> None:
         """This is a no-op for Polaris clusters."""
         pass
+
+    def get_logs_stream(
+        self, cluster_name: str, job_id: str | None = None
+    ) -> io.TextIOBase:
+        """Gets a stream that tails the logs of the target job.
+
+        Args:
+            cluster_name: The name of the cluster the job was run in.
+            job_id: The ID of the job to tail the logs of.
+        """
+        raise NotImplementedError

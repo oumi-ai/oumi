@@ -27,7 +27,6 @@ data:
   train:
     datasets:
       - dataset_name: "yahma/alpaca-cleaned"
-    target_col: "prompt"
 
 training:
   output_dir: "output/qwen2_5_3b.fft"
@@ -53,7 +52,7 @@ training:
   logging_steps: 50
   save_steps: 800
   num_train_epochs: 3
-  dataloader_num_workers: 64  # Match LIMO preprocessing workers
+  dataloader_num_workers: 64 # Match LIMO preprocessing workers
   dataloader_prefetch_factor: 32
   include_performance_metrics: True
   log_model_summary: False
@@ -61,7 +60,7 @@ training:
 
 fsdp:
   enable_fsdp: True
-  sharding_strategy: "FULL_SHARD"  # Similar to DeepSpeed ZeRO-3
+  sharding_strategy: "FULL_SHARD" # Similar to DeepSpeed ZeRO-3
   forward_prefetch: True
   use_orig_params: True
   auto_wrap_policy: "TRANSFORMER_BASED_WRAP"

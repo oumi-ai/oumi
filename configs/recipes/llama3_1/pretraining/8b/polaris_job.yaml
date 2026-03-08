@@ -4,7 +4,7 @@
 #   - Set up your ALCF account (only available to Oumi core team)
 #   - Set `user` to your ALCF username
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
-#   - Log into HF: `huggingface-cli login`
+#   - Log into HF: `hf auth login`
 #   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct
 #
 # Usage:
@@ -20,7 +20,7 @@ name: llama8b-pretrain
 # NOTE: Replace with your username.
 user: your_username
 
-num_nodes: 1  # Set it to N for multi-node training.
+num_nodes: 1 # Set it to N for multi-node training.
 resources:
   cloud: polaris
 

@@ -14,7 +14,7 @@
 
 """The CNNClassifier model provides a basic example how to use ConvNets in Oumi."""
 
-from typing import Callable, Optional
+from collections.abc import Callable
 
 import torch
 import torch.nn as nn
@@ -46,7 +46,13 @@ class CNNClassifier(BaseModel):
             output_dim: The output dimension i.e., the number of classes.
             kernel_size: Convolutional kernel size.
         """
-        super().__init__()
+        super().__init__(
+            image_width=image_width,
+            image_height=image_height,
+            in_channels=in_channels,
+            output_dim=output_dim,
+            kernel_size=kernel_size,
+        )
         self.conv1 = nn.Conv2d(in_channels, 32, kernel_size=kernel_size)
         w, h = self._compute_next_level_image_size(
             image_width, image_height, kernel_size=kernel_size, halve=False
@@ -80,7 +86,7 @@ class CNNClassifier(BaseModel):
     def forward(
         self,
         images: torch.Tensor,
-        labels: Optional[torch.LongTensor] = None,
+        labels: torch.LongTensor | None = None,
         **kwargs,
     ) -> dict[str, torch.Tensor]:
         """Forward pass of the model."""

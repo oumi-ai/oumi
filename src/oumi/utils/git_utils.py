@@ -14,10 +14,9 @@
 
 import subprocess
 from pathlib import Path
-from typing import Optional
 
 
-def get_git_revision_hash() -> Optional[str]:
+def get_git_revision_hash() -> str | None:
     """Get the current git revision hash.
 
     Returns:
@@ -34,7 +33,7 @@ def get_git_revision_hash() -> Optional[str]:
         return None
 
 
-def get_git_tag() -> Optional[str]:
+def get_git_tag() -> str | None:
     """Get the current git tag.
 
     Returns:
@@ -51,7 +50,7 @@ def get_git_tag() -> Optional[str]:
         return None
 
 
-def get_git_root_dir() -> Optional[Path]:
+def get_git_root_dir() -> Path | None:
     """Get the root directory of the current git repository.
 
     Returns:

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import pathlib
-from typing import Optional, cast
+from typing import cast
 
 import peft
 import transformers
@@ -30,13 +30,13 @@ class HuggingFaceTrainer(BaseTrainer):
     def __init__(
         self,
         hf_trainer: transformers.Trainer,
-        processor: Optional[BaseProcessor] = None,
+        processor: BaseProcessor | None = None,
     ):
         """Initializes HuggingFace-specific Trainer version."""
         self._hf_trainer = hf_trainer
         self._processor = processor
 
-    def train(self, resume_from_checkpoint: Optional[str] = None) -> None:
+    def train(self, resume_from_checkpoint: str | None = None) -> None:
         """Trains a model."""
         self._hf_trainer.train(resume_from_checkpoint=resume_from_checkpoint)
 
@@ -154,3 +154,11 @@ class HuggingFaceTrainer(BaseTrainer):
         if self._processor is not None:
             self._processor.save_config(output_dir)
             logger.info(f"Processor config has been saved at {output_dir}")
+
+    def get_last_eval_metrics(self) -> dict:
+        """Gets the last evaluation metrics from the trainer.
+
+        Returns:
+            A dictionary containing the last evaluation metrics.
+        """
+        return self._hf_trainer.evaluate()

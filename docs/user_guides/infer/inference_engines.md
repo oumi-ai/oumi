@@ -143,9 +143,42 @@ model_params = ModelParams(
 )
 ```
 
+**Serving LoRA Adapters**
+
+vLLM supports serving LoRA (Low-Rank Adaptation) adapters, allowing you to use fine-tuned models without loading the full model weights. This is particularly useful when you've fine-tuned a base model and want to serve the adapted version.
+
+To serve a LoRA adapter, specify the `adapter_model` parameter pointing to your LoRA checkpoint:
+
+```python
+engine = VLLMInferenceEngine(
+    ModelParams(
+        model_name="meta-llama/Llama-3.1-8B-Instruct",  # Base model
+        adapter_model="path/to/lora/adapter",           # LoRA adapter path
+    )
+)
+```
+
+The LoRA adapter can be:
+
+- A local directory containing the adapter weights
+- A HuggingFace Hub model ID (e.g., `username/model-lora-adapter`)
+
+vLLM will automatically:
+
+- Load the base model
+- Apply the LoRA adapter weights
+- Configure the appropriate LoRA rank from the adapter checkpoint
+
+**Important Notes:**
+
+- Not all model architectures support LoRA adapters in vLLM. Check the [vLLM supported models documentation](https://docs.vllm.ai/en/latest/models/supported_models.html) for compatibility.
+- The base model specified in `model_name` must match the base model used during LoRA fine-tuning.
+- LoRA serving works with both single-GPU and multi-GPU (tensor parallel) setups.
+
 **Resources**
 
 - [vLLM Documentation](https://vllm.readthedocs.io/en/latest/)
+- [vLLM LoRA Support](https://docs.vllm.ai/en/latest/models/lora.html)
 
 ### LlamaCPP Engine
 
@@ -222,21 +255,21 @@ model_params = ModelParams(
 
 1. **Basic Server** - Suitable for development and testing:
 
-```bash
-python -m vllm.entrypoints.openai.api_server \
-    --model meta-llama/Llama-3.1-8B-Instruct \
-    --port 6864
-```
+    ```bash
+    python -m vllm.entrypoints.openai.api_server \
+        --model meta-llama/Llama-3.1-8B-Instruct \
+        --port 6864
+    ```
 
 2. **Multi-GPU Server** - For large models requiring multiple GPUs:
 
-```bash
-python -m vllm.entrypoints.openai.api_server \
-    --model meta-llama/Llama-3.3-70B-Instruct \
-    --port 6864 \
-    --tensor-parallel-size 4
+    ```bash
+    python -m vllm.entrypoints.openai.api_server \
+        --model meta-llama/Llama-3.3-70B-Instruct \
+        --port 6864 \
+        --tensor-parallel-size 4
 
-```
+    ```
 
 #### Client Configuration
 
@@ -255,6 +288,59 @@ engine = RemoteVLLMInferenceEngine(
     )
 )
 ```
+
+#### Serving LoRA Adapters
+
+Remote vLLM servers can serve LoRA adapters just like local vLLM engines. There are two ways to configure this:
+
+**Option 1: Start Server with LoRA Adapter**
+
+Start the vLLM server with the `--enable-lora` flag and specify the adapter:
+
+```bash
+python -m vllm.entrypoints.openai.api_server \
+    --model meta-llama/Llama-3.1-8B-Instruct \
+    --port 6864 \
+    --enable-lora \
+    --lora-modules my-adapter=path/to/lora/adapter
+```
+
+Then connect using the adapter name:
+
+```python
+engine = RemoteVLLMInferenceEngine(
+    model_params=ModelParams(
+        model_name="my-adapter"  # Use the adapter name from --lora-modules
+    ),
+    remote_params=RemoteParams(
+        api_url="http://localhost:6864"
+    )
+)
+```
+
+**Option 2: Specify Adapter in Client**
+
+Alternatively, you can specify the `adapter_model` in the client configuration:
+
+```python
+engine = RemoteVLLMInferenceEngine(
+    model_params=ModelParams(
+        model_name="meta-llama/Llama-3.1-8B-Instruct",  # Base model
+        adapter_model="path/to/lora/adapter"             # LoRA adapter
+    ),
+    remote_params=RemoteParams(
+        api_url="http://localhost:6864"
+    )
+)
+```
+
+When using `adapter_model` in the client, the adapter path/name will be used as the model identifier in API requests.
+
+**Important Notes:**
+
+- The vLLM server must be started with `--enable-lora` flag to support LoRA adapters
+- Multiple LoRA adapters can be served simultaneously from a single server using `--lora-modules`
+- Check [vLLM LoRA documentation](https://docs.vllm.ai/en/latest/models/lora.html) for advanced configurations
 
 ### Remote SGLang
 
@@ -310,9 +396,6 @@ from oumi.core.configs import ModelParams, RemoteParams
 engine = AnthropicInferenceEngine(
     model_params=ModelParams(
         model_name="claude-3-5-sonnet-20240620"
-    ),
-    remote_params=RemoteParams(
-        api_key_env_varname="ANTHROPIC_API_KEY",
     )
 )
 ```
@@ -383,7 +466,6 @@ The most popular Google Vertex AI models available via this API (as of late Jan'
 | Code Gemma 7B                         | google/codegemma-7b              |
 | Code Gemma 7B IT                      | google/codegemma-7b-it           |
 
-
 **Resources**
 
 - [Vertex AI Documentation](https://cloud.google.com/vertex-ai/docs) for Google Cloud AI services
@@ -399,9 +481,6 @@ from oumi.core.configs import ModelParams, RemoteParams
 engine = GoogleGeminiInferenceEngine(
     model_params=ModelParams(
         model_name="gemini-1.5-flash"
-    ),
-    remote_params=RemoteParams(
-        api_key_env_varname="GEMINI_API_KEY",
     )
 )
 ```
@@ -436,9 +515,6 @@ from oumi.core.configs import ModelParams, RemoteParams
 engine = OpenAIInferenceEngine(
     model_params=ModelParams(
         model_name="gpt-4o-mini"
-    ),
-    remote_params=RemoteParams(
-        api_key_env_varname="OPENAI_API_KEY",
     )
 )
 ```
@@ -473,9 +549,6 @@ from oumi.core.configs import ModelParams, RemoteParams
 engine = TogetherInferenceEngine(
     model_params=ModelParams(
         model_name="meta-llama/Llama-3.2-1B-Instruct"
-    ),
-    remote_params=RemoteParams(
-        api_key_env_varname="TOGETHER_API_KEY",
     )
 )
 ```
@@ -503,7 +576,6 @@ engine = LambdaInferenceEngine(
 
 The full list of models available via this API can be found at [docs.lambda.ai](https://docs.lambda.ai/public-cloud/lambda-inference-api/#listing-models).
 
-
 **Resources**
 
 - [Lambda AI API Documentation](https://docs.lambda.ai/public-cloud/lambda-inference-api)
@@ -521,9 +593,6 @@ from oumi.core.configs import ModelParams, RemoteParams
 engine = DeepSeekInferenceEngine(
     model_params=ModelParams(
         model_name="deepseek-chat"
-    ),
-    remote_params=RemoteParams(
-        api_key_env_varname="DEEPSEEK_API_KEY",
     )
 )
 ```
@@ -536,6 +605,67 @@ The DeepSeek models available via this API as of late Jan'2025 are listed below.
 |---------------------------------------|---------------------------|
 | DeepSeek-V3                           | deepseek-chat             |
 | DeepSeek-R1 (reasoning with CoT)      | deepseek-reasoner         |
+
+### Fireworks AI
+
+[Fireworks AI](https://fireworks.ai) provides fast and cost-effective inference for a wide range of open source and fine-tuned models through their serverless API.
+
+**Basic Usage**
+
+```{testcode}
+from oumi.inference import FireworksInferenceEngine
+from oumi.core.configs import ModelParams, RemoteParams
+
+engine = FireworksInferenceEngine(
+    model_params=ModelParams(
+        model_name="accounts/fireworks/models/llama-v3p1-8b-instruct"
+    )
+)
+```
+
+**Supported Models**
+
+Fireworks AI hosts a variety of models including Llama, Qwen, Mixtral, and many others. For an up-to-date list, please visit [fireworks.ai/models](https://fireworks.ai/models).
+
+**Resources**
+
+- [Fireworks AI Documentation](https://docs.fireworks.ai/)
+- [Available Models](https://fireworks.ai/models)
+
+### OpenRouter
+
+[OpenRouter](https://openrouter.ai) provides a unified API that gives access to hundreds of AI models from multiple providers (OpenAI, Anthropic, Google, Meta, and more) through a single endpoint. It automatically handles fallbacks and can select cost-effective options.
+
+**Basic Usage**
+
+```{testcode}
+from oumi.inference import OpenRouterInferenceEngine
+from oumi.core.configs import ModelParams
+
+engine = OpenRouterInferenceEngine(
+    model_params=ModelParams(
+        model_name="anthropic/claude-sonnet-4.5"
+    )
+)
+```
+
+**Model Naming**
+
+OpenRouter uses a `provider/model` naming format. Examples:
+
+| Provider   | Model Name                        |
+|------------|-----------------------------------|
+| Anthropic  | `anthropic/claude-sonnet-4.5`     |
+| OpenAI     | `openai/gpt-5.2`                  |
+| Meta       | `meta-llama/llama-4-maverick`     |
+| Google     | `google/gemini-2.0-flash`         |
+
+For a full list of available models, visit [openrouter.ai/models](https://openrouter.ai/models).
+
+**Resources**
+
+- [OpenRouter Documentation](https://openrouter.ai/docs)
+- [Available Models](https://openrouter.ai/models)
 
 ### SambaNova
 
@@ -552,15 +682,60 @@ from oumi.core.configs import ModelParams, RemoteParams
 engine = SambanovaInferenceEngine(
     model_params=ModelParams(
         model_name="Meta-Llama-3.1-405B-Instruct"
-    ),
-    remote_params=RemoteParams(
-        api_key_env_varname="SAMBANOVA_API_KEY",
     )
 )
 ```
 
-** Reference **
+**Reference**
+
 - [SambaNova's Documentation](https://docs.sambanova.ai/cloud/docs/get-started/overview)
+
+### AWS Bedrock
+
+[AWS Bedrock](https://aws.amazon.com/bedrock/) is Amazon's fully managed service for accessing foundation models from leading AI providers including Anthropic (Claude), Meta (Llama), Amazon (Titan), and more. Bedrock provides a unified API for running inference on these models without managing infrastructure.
+
+**Installation**
+
+```bash
+pip install boto3
+```
+
+**Setup**
+
+The Bedrock engine requires AWS credentials and the `AWS_REGION` environment variable:
+
+```bash
+export AWS_REGION=us-east-1  # or your preferred region
+```
+
+Configure AWS credentials using one of these methods:
+
+- AWS CLI: `aws configure`
+- Environment variables: `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
+- IAM roles (for EC2/ECS deployments)
+
+**Basic Usage**
+
+```python
+from oumi.inference import BedrockInferenceEngine
+from oumi.core.configs import ModelParams, RemoteParams, GenerationParams
+
+engine = BedrockInferenceEngine(
+    model_params=ModelParams(
+        model_name="anthropic.claude-3-5-sonnet-20240620-v1:0"
+    ),
+)
+```
+
+**Supported Models**
+
+For the complete list of available models and their IDs, visit [AWS Bedrock Model IDs](https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids.html).
+
+**Resources**
+
+- [AWS Bedrock Documentation](https://docs.aws.amazon.com/bedrock/)
+- [Bedrock Model IDs](https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids.html)
+- [AWS Bedrock Pricing](https://aws.amazon.com/bedrock/pricing/)
 
 ### Parasail.io
 
@@ -579,9 +754,6 @@ from oumi.core.configs import ModelParams, RemoteParams
 engine = ParasailInferenceEngine(
     model_params=ModelParams(
         model_name="meta-llama/Llama-3.2-1B-Instruct"
-    ),
-    remote_params=RemoteParams(
-        api_key_env_varname="PARASAIL_API_KEY",
     )
 )
 ```
@@ -591,6 +763,60 @@ The models available via this API can be found at [docs.parasail.io](https://doc
 **Resources**
 
 - [Parasail.io Documentation](https://docs.parasail.io)
+
+## Batch Inference
+
+Several cloud API engines support batch inference, which allows you to process large numbers of requests asynchronously at reduced cost. Batch jobs are queued and processed within a completion window (typically 24 hours).
+
+**Basic Usage**
+
+```python
+from oumi.inference import OpenAIInferenceEngine
+from oumi.core.configs import ModelParams
+from oumi.core.types.conversation import Conversation, Message, Role
+
+engine = OpenAIInferenceEngine(
+    model_params=ModelParams(model_name="gpt-4o-mini")
+)
+
+# Create conversations to process
+conversations = [
+    Conversation(messages=[Message(content="Hello!", role=Role.USER)]),
+    Conversation(messages=[Message(content="How are you?", role=Role.USER)]),
+]
+
+# Submit batch job
+batch_id = engine.infer_batch(conversations)
+
+# Check status
+status = engine.get_batch_status(batch_id)
+print(f"Status: {status.status}")
+
+# Retrieve results when complete
+if status.status.value == "completed":
+    results = engine.get_batch_results(batch_id, conversations)
+```
+
+### Supported Engines
+
+The following table shows which engines support batch inference:
+
+| Engine | Batch Support | Notes |
+|--------|---------------|-------|
+| OpenAI | ✅ Supported | OpenAI Batch API |
+| Parasail | ✅ Supported | OpenAI-compatible Batch API |
+| Anthropic | 🔜 Coming soon | Message Batches API |
+| Together | 🔜 Coming soon | Together Batch API |
+| Fireworks | 🔜 Coming soon | Fireworks Batch API |
+| DeepSeek | ❌ Not supported | |
+| Gemini | ❌ Not supported | |
+| Vertex AI | ❌ Not supported | |
+| Bedrock | ❌ Not supported | |
+| Lambda | ❌ Not supported | |
+| SambaNova | ❌ Not supported | |
+| OpenRouter | ❌ Not supported | |
+| Remote vLLM | ❌ Not supported | |
+| SGLang | ❌ Not supported | |
 
 ## See Also
 

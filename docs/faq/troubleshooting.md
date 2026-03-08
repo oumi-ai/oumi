@@ -14,19 +14,22 @@ If you'd like to use Oumi on Windows, we strongly suggest using
 [Windows Subsystem for Linux (WSL)](https://learn.microsoft.com/en-us/windows/wsl/install).
 
 Installing natively on Windows outside of a WSL environment can lead to installation errors such as:
+
 ```shell
 ERROR: Could not find a version that satisfies the requirement ... (from versions: none)
 ```
+
 or runtime errors like:
+
 ```shell
 ModuleNotFoundError: No module named 'resource'
 ```
 
-### Installing on Mac
+### Installing on macOS
 
 Oumi only supports Apple Silicon Macs, not Intel Macs. This is because PyTorch dropped support for the latter. Installing on Intel Macs can lead to errors like:
 
-```
+```text
 Using Python 3.11.11 environment at: /Users/moonshine/miniconda3/envs/oumi
   × No solution found when resolving dependencies:
   ╰─▶ Because only the following versions of torch are available:
@@ -78,10 +81,10 @@ ValueError: File mount source '~/.netrc' does not exist locally. To fix: check i
 These errors indicate that your JobConfig contains a reference to a file that does not exist on your local machine. You can remove the offending line from your yaml file's {py:attr}`~oumi.core.configs.JobConfig.file_mounts` to resolve the error if it's unneeded. Otherwise, here's how to resolve the error for specific files often mounted by Oumi jobs:
 
 - `~/.netrc`: This file contains your Weights and Biases (WandB) credentials, which are needed to log your run's metrics to WandB.
-  - To fix, follow [these instructions](/development/dev_setup.md#optional-set-up-weights-and-biases)
+  - To fix, follow {ref}`these instructions <optional-set-up-weights-and-biases>`
   - If you don't require WandB logging, disable either TrainingParams.{py:attr}`~oumi.core.configs.TrainingParams.enable_wandb` or EvaluationConfig.{py:attr}`~oumi.core.configs.EvaluationConfig.enable_wandb`, for training and evaluation jobs respectively. This is needed in addition to removing the file mount to prevent an error.
 - `~/.cache/huggingface/token`: This file contains your Huggingface credentials, which are needed to access gated datasets/models on HuggingFace Hub.
-  - To fix, follow [these instructions](/development/dev_setup.md#optional-set-up-huggingface)
+  - To fix, follow {ref}`these instructions <optional-set-up-huggingface>`
 
 ### Training Stability & NaN Loss
 

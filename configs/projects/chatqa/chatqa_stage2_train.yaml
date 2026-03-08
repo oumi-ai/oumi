@@ -26,7 +26,6 @@ model:
 
 data:
   train:
-    target_col: "text"
     mixture_strategy: first_exhausted
     pack: False
     datasets:
@@ -59,10 +58,10 @@ data:
         mixture_proportion: 0.08
       - dataset_name: "nvidia/ChatQA-Training-Data"
         subset: "synthetic_convqa"
-        mixture_proportion: 0.27  # Original: 0.3
+        mixture_proportion: 0.27 # Original: 0.3
       - dataset_name: "nvidia/ChatQA-Training-Data"
         subset: "sft"
-        mixture_proportion: 0.1  # Original: 0.2
+        mixture_proportion: 0.1 # Original: 0.2
 
 training:
   trainer_type: "TRL_SFT"

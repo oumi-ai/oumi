@@ -1,7 +1,7 @@
 # Inference config for Llama 8B Instruct.
 #
 # Requirements:
-#   - Log into HF: `huggingface-cli login`
+#   - Log into HF: `hf auth login`
 #   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct
 #
 # Usage:

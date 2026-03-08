@@ -136,7 +136,6 @@ Notes:
     - `all_exhausted`: Continues until all datasets are exhausted (may oversample)
 - When `pack` is enabled:
   - `stream` must also be enabled
-  - `target_col` must be specified
 - All splits must use the same collator type if specified
 - If a collator is specified for validation/test, it must also be specified for train
 - `collator_kwargs` allows customizing collator behavior with additional parameters:
@@ -144,7 +143,6 @@ Notes:
   - For `vision_language_with_padding`: Can override `allow_multi_image_inputs` or `main_image_feature`
   - For `vision_language_sft`: Can override `allow_multi_image_inputs`, `truncation_side`, etc.
   - Config-provided kwargs take precedence over automatically determined values
-
 
 ### Training Configuration
 

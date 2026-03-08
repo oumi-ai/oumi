@@ -14,7 +14,6 @@
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.utils.placeholders import get_placeholders, resolve_placeholders
@@ -83,7 +82,17 @@ class JudgeParams(BaseParams):
     prompt_template: str
     """Template for the judge prompt with placeholders, such as {question}, {answer}."""
 
-    system_instruction: Optional[str] = field(default=None)
+    prompt_template_placeholders: list[str] | None = field(default=None)
+    """List of placeholder names in `prompt_template`, to be replaced by the dataset.
+
+    These placeholders correspond to the keys that are expected to be found in every
+    example of the input dataset. Their values will replace the placeholders of the
+    prompt template, generating a different judge prompt for each example.
+    Specifically, if the prompt template contains "{question}" and "{answer}",
+    this list (if defined) should be ["question", "answer"].
+    """
+
+    system_instruction: str | None = field(default=None)
     """Optional system message to guide judge behavior."""
 
     template_variables: dict[str, str] = field(default_factory=dict)
@@ -100,7 +109,7 @@ class JudgeParams(BaseParams):
     judgment_type: JudgeOutputType = field(default=JudgeOutputType.BOOL)
     """The type of output that the judgment should be provided with."""
 
-    judgment_scores: Optional[dict[str, float]] = field(default=None)
+    judgment_scores: dict[str, float] | None = field(default=None)
     """For ENUM judgment_type, the mapping from category names to numeric scores.
 
     Example:
@@ -155,12 +164,23 @@ class JudgeParams(BaseParams):
         # Validate judgment scores are numeric if provided
         if self.judgment_scores:
             if not all(
-                isinstance(score, (int, float))
+                isinstance(score, int | float)
                 for score in self.judgment_scores.values()
             ):
                 raise ValueError("All judgment_scores values must be numeric")
             if not self.judgment_scores:
                 raise ValueError("judgment_scores cannot be empty when provided")
+
+        # Validate prompt_template_placeholders
+        if self.prompt_template_placeholders:
+            actual_placeholders = self.get_placeholders()
+            declared_placeholders = set(self.prompt_template_placeholders)
+            if declared_placeholders != actual_placeholders:
+                raise ValueError(
+                    f"prompt_template_placeholders ({declared_placeholders}) are "
+                    "inconsistent with placeholders found in the prompt_template "
+                    f"({actual_placeholders})"
+                )
 
     def replace_template_variables(self):
         """Apply template variables to prompt_template and system_instruction."""

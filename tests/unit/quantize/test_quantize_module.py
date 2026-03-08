@@ -29,7 +29,7 @@ class TestQuantizeModule:
     def setup_method(self):
         """Set up test fixtures."""
         self.valid_config = QuantizationConfig(
-            model=ModelParams(model_name="TinyLlama/TinyLlama-1.1B-Chat-v1.0"),
+            model=ModelParams(model_name="HuggingFaceTB/SmolLM2-135M-Instruct"),
             method="awq_q4_0",
             output_path="test_model",
         )
@@ -69,7 +69,7 @@ class TestQuantizeModule:
         """Test successful quantization with BitsAndBytes method."""
         # Create BNB config
         bnb_config = QuantizationConfig(
-            model=ModelParams(model_name="gpt2"),
+            model=ModelParams(model_name="openai-community/gpt2"),
             method="bnb_4bit",
             output_path="test_model",
             output_format="safetensors",

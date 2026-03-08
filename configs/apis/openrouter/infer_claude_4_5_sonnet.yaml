@@ -1,0 +1,21 @@
+# Inference config for Claude 4.5 Sonnet via OpenRouter.
+#
+# Requirements:
+#   - Set the `OPENROUTER_API_KEY` env var to your OpenRouter API key.
+#
+# Usage:
+#   oumi infer -i -c configs/apis/openrouter/infer_claude_4_5_sonnet.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+#   - OpenRouter docs: https://openrouter.ai/docs
+#   - Config class: oumi.core.configs.InferenceConfig
+
+model:
+  model_name: "anthropic/claude-sonnet-4.5"
+
+engine: OPENROUTER
+
+generation:
+  max_new_tokens: 8192
+  temperature: 1.0

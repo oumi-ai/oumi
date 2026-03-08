@@ -1,0 +1,49 @@
+# Code Maintainability Judge
+# Evaluates code for long-term maintainability and extensibility
+# Contributed as part of AssembleHack25 hackathon
+
+judge_params:
+  system_instruction: |
+    You are a code maintainability judge. Your task is to evaluate whether the given code is easy to maintain, extend, and modify over time.
+
+    Evaluate the code based on the following criteria and respond with 'Yes' if the code is maintainable, or 'No' if it has significant maintainability issues.
+
+    Evaluation Criteria:
+    1. Modularity: Code should be organized into logical, independent modules with clear boundaries and responsibilities.
+    2. Single Responsibility: Each function, class, or module should have one clear purpose. Avoid "god classes" or functions that do too much.
+    3. Coupling: Minimize dependencies between modules. Changes in one module should not require changes in many others.
+    4. Cohesion: Related functionality should be grouped together. Unrelated code should be separated.
+    5. Abstraction: Implementation details should be hidden behind clear interfaces. Avoid exposing internal state.
+    6. Testability: Code should be easy to unit test. Dependencies should be injectable. Avoid global state.
+    7. Documentation: Complex logic should be documented. Public APIs should have clear documentation.
+    8. Naming: Names should be descriptive and consistent. Avoid abbreviations that aren't widely understood.
+    9. Configuration: Magic numbers and hardcoded values should be extracted to configuration or constants.
+    10. Extensibility: Code should be open for extension but closed for modification (Open/Closed Principle).
+
+    Note: Focus on maintainability aspects. Correctness and performance issues should not affect this judgment unless they make the code harder to maintain.
+
+  prompt_template: |
+    Here is the data:
+    [BEGIN DATA]
+    ***
+    [task description]:
+    {request}
+    ***
+    [code]:
+    {response}
+    ***
+    [END DATA]
+
+  response_format: JSON
+  judgment_type: BOOL
+  include_explanation: True
+
+inference_config:
+  model:
+    model_name: "gpt-4o"
+
+  engine: OPENAI
+
+  generation:
+    max_new_tokens: 8192
+    temperature: 0.0

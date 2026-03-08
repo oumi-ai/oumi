@@ -13,14 +13,14 @@
 # limitations under the License.
 
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Any
 
 from oumi.core.configs import TrainingConfig
 
 
 class BaseTrainer(ABC):
     @abstractmethod
-    def train(self, resume_from_checkpoint: Optional[str] = None) -> None:
+    def train(self, resume_from_checkpoint: str | None = None) -> None:
         """Trains a model."""
 
     @abstractmethod
@@ -44,3 +44,11 @@ class BaseTrainer(ABC):
             None
         """
         # TODO: Define semantics of this method more clearly.
+
+    @abstractmethod
+    def get_last_eval_metrics(self) -> dict[str, Any]:
+        """Returns the last evaluation metrics from the trained model.
+
+        Returns:
+            dict with the evaluation metrics from the last trained model step.
+        """

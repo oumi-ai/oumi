@@ -12,6 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing_extensions import override
+
+from oumi.core.configs import InferenceConfig
+from oumi.core.types.conversation import Conversation
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 
 
@@ -26,3 +30,15 @@ class DeepSeekInferenceEngine(RemoteInferenceEngine):
 
     api_key_env_varname = "DEEPSEEK_API_KEY"
     """The environment variable name for the DeepSeek API key."""
+
+    @override
+    def infer_batch(
+        self,
+        _conversations: list[Conversation],
+        _inference_config: InferenceConfig | None = None,
+    ) -> str:
+        """Batch inference is not implemented for DeepSeek."""
+        raise NotImplementedError(
+            "Batch inference is not implemented for DeepSeek. "
+            "Please open an issue on GitHub if you'd like this feature."
+        )

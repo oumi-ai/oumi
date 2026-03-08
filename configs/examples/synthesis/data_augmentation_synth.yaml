@@ -1,0 +1,222 @@
+# Data Augmentation Example
+# Expand existing datasets through both instruction rephrasing and related task generation.
+# This example creates both: 1) diverse ways to ask for the same information, and 2) similar but different tasks in the same domain.
+#
+# Requirements:
+#   - Set your anthropic api key in the environment variable ANTHROPIC_API_KEY
+#   - example: `export ANTHROPIC_API_KEY=your_api_key`
+#   - Alternatively, change the model in the inference_config section to your desired model
+#   - See the inference_config section for more details
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/configuration.html
+#
+# Usage:
+#   oumi synth -c oumi://configs/examples/synthesis/data_augmentation_synth.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/synth.html
+#   - Config class: oumi.core.configs.SynthesisConfig
+#   - Params class: oumi.core.configs.params.synthesis_params.GeneralSynthesisParams
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/synthesis_config.py
+#   - Params source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/params/synthesis_params.py
+#   - Other synthesis configs: configs/**/*synth.yaml
+
+strategy: GENERAL
+num_samples: 10
+output_path: augmented_qa_dataset.jsonl
+
+strategy_params:
+  # Input existing data to augment
+  input_data:
+    - path: "data/dataset_examples/alpaca_format.jsonl"
+      # Map the current attributes to the new attributes used in this config
+      attribute_map:
+        instruction: original_instruction
+        input: original_input
+        output: original_response
+
+  # Define augmentation approaches
+  sampled_attributes:
+    # Whether to rephrase the same task or create a related task
+    - id: augmentation_type
+      name: Augmentation Type
+      description: Whether to rephrase the same task or create a related task
+      possible_values:
+        - id: rephrase
+          name: Rephrase Same Task
+          description: Create different ways to ask for the exact same thing
+          sample_rate: 0.3  # 30% will be rephrases
+        - id: related_task
+          name: Related Task
+          description: Create similar but different tasks in the same domain
+          sample_rate: 0.7  # 70% will be related tasks
+
+    # Different ways to phrase the same request
+    - id: phrasing_style
+      name: Instruction Phrasing Style
+      description: Different ways to phrase the same request
+      possible_values:
+        - id: direct
+          name: Direct
+          description: Straightforward, clear commands (e.g., "Calculate X", "Explain Y")
+          sample_rate: 0.25
+        - id: conversational
+          name: Conversational
+          description: Natural, question-based phrasing (e.g., "Can you help me...", "What would...")
+          sample_rate: 0.25
+        - id: formal
+          name: Formal
+          description: Professional, structured requests (e.g., "Please provide...", "I require...")
+          sample_rate: 0.25
+        - id: context_rich
+          name: Context-Rich
+          description: Instructions that include background or context (e.g., "I'm working on X and need...")
+          sample_rate: 0.25
+
+    # How detailed and specific the instruction should be
+    - id: specificity_level
+      name: Instruction Specificity
+      description: How detailed and specific the instruction should be
+      possible_values:
+        - id: general
+          name: General
+          description: Broad, high-level requests
+        - id: specific
+          name: Specific
+          description: Detailed requests with specific requirements
+        - id: precise
+          name: Precise
+          description: Very specific with exact parameters or constraints
+
+  # Generate instruction variations or related tasks
+  generated_attributes:
+    # Generate the augmented instruction
+    - id: augmented_instruction
+      instruction_messages:
+        - role: SYSTEM
+          content: |
+            You are an expert at creating instruction variations for data augmentation.
+
+            Based on the augmentation type specified, you will either:
+            1. REPHRASE: Create different ways to ask for the exact same thing while maintaining EXACT same meaning and requirements
+            2. RELATED_TASK: Create similar but different tasks in the same domain that require different responses but use similar knowledge/skills
+
+            Always follow the specified phrasing style and specificity level guidelines.
+            If there was input data, incorporate it naturally or create appropriate new data for related tasks.
+        - role: USER
+          content: |
+            Original instruction: "{original_instruction}"
+            Original input (if any): "{original_input}"
+            Augmentation type: {augmentation_type}
+            Phrasing style: {phrasing_style.description}
+            Specificity level: {specificity_level.description}
+
+            Create a new instruction based on the augmentation type:
+            - If "rephrase": Rewrite the instruction using the specified style/specificity while asking for exactly the same thing
+            - If "related_task": Create a similar but different task in the same domain using the specified style/specificity
+
+            Format your response as follows:
+            Instruction:
+            <instruction>
+            End Instruction
+
+            Write only the instruction, do not include additional filler text or the answer.
+      postprocessing_params:
+        id: cleaned_instruction
+        cut_prefix: "Instruction:"
+        cut_suffix: "End Instruction"
+        strip_whitespace: true
+
+    # Generate the augmented response
+    - id: augmented_response
+      instruction_messages:
+        - role: SYSTEM
+          content: |
+            You are a helpful AI assistant providing accurate and informative responses.
+
+            Based on the augmentation type, you will either:
+            1. For "rephrase": Provide a response with the same information and style as the original
+            2. For "related_task": Provide an appropriate response that matches the style and quality of the original but addresses the new request
+
+            Always maintain the same level of helpfulness and accuracy as demonstrated in the original response.
+        - role: USER
+          content: |
+            Instruction: "{cleaned_instruction}"
+            Augmentation type: {augmentation_type}
+            Original instruction: "{original_instruction}"
+            Original response: "{original_response}"
+
+            Provide an appropriate response based on the augmentation type:
+            - If "rephrase": Maintain the same style and quality of the original response
+            - If "related_task": Create a new response that addresses the new instruction while matching the original's style and quality
+
+            Format your response as follows:
+            Response:
+            <response>
+            End Response
+
+            Write only the response, do not include additional filler text.
+      postprocessing_params:
+        id: cleaned_response
+        cut_prefix: "Response:"
+        cut_suffix: "End Response"
+        strip_whitespace: true
+
+  # Specify particular combinations and how often to sample them
+  combination_sampling:
+    - combination:
+        augmentation_type: rephrase
+        phrasing_style: conversational
+        specificity_level: general
+      sample_rate: 0.15  # 15% rephrase + conversational + general
+    - combination:
+        augmentation_type: rephrase
+        phrasing_style: formal
+        specificity_level: precise
+      sample_rate: 0.15  # 15% rephrase + formal + precise
+    - combination:
+        augmentation_type: related_task
+        phrasing_style: direct
+        specificity_level: specific
+      sample_rate: 0.1   # 10% related + direct + specific
+    - combination:
+        augmentation_type: related_task
+        phrasing_style: context_rich
+        specificity_level: general
+      sample_rate: 0.1   # 10% related + context-rich + general
+
+  # Transform into conversation format with appropriate response
+  transformed_attributes:
+    - id: conversation
+      transformation_strategy:
+        type: CHAT
+        chat_transform:
+          messages:
+            - role: USER
+              content: "{cleaned_instruction}"
+            - role: ASSISTANT
+              content: "{cleaned_response}"
+
+  # Include only relevant attributes in output
+  passthrough_attributes:
+    - conversation
+    - cleaned_instruction
+    - cleaned_response
+    - augmentation_type
+    - phrasing_style
+    - specificity_level
+    - original_instruction
+    - original_input
+    - original_response
+
+# Example inference configuration
+inference_config:
+  model:
+    model_name: claude-3-5-sonnet-20240620
+  engine: ANTHROPIC
+  generation:
+    max_new_tokens: 8192
+    temperature: 0.7
+    top_p: 0.9
+  remote_params:
+    num_workers: 50
+    politeness_policy: 60

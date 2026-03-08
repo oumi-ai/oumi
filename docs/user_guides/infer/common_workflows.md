@@ -226,6 +226,135 @@ for conv in results:
 
 For more examples and detailed API documentation, see the [OpenAI Batch API documentation](https://platform.openai.com/docs/api-reference/batch).
 
+## Serving LoRA Fine-Tuned Models
+
+If you've fine-tuned a model using LoRA (Low-Rank Adaptation), you can serve the adapted model efficiently without loading the full fine-tuned weights. This is particularly useful for deploying multiple variants of a base model.
+
+### Local LoRA Serving with vLLM
+
+```{code-block} python
+:emphasize-lines: 6, 7
+
+from oumi.inference import VLLMInferenceEngine
+from oumi.core.configs import ModelParams, GenerationParams, InferenceConfig
+from oumi.core.types.conversation import Conversation, Message, Role
+
+# Initialize engine with LoRA adapter
+engine = VLLMInferenceEngine(
+    ModelParams(
+        model_name="meta-llama/Llama-3.1-8B-Instruct",  # Base model
+        adapter_model="path/to/lora/adapter",           # Your LoRA adapter
+        torch_dtype_str="bfloat16"
+    )
+)
+
+# Create conversation
+conversation = Conversation(messages=[
+    Message(role=Role.USER, content="What is machine learning?")
+])
+
+# Run inference with the adapted model
+config = InferenceConfig(
+    generation=GenerationParams(
+        max_new_tokens=256,
+        temperature=0.7
+    )
+)
+
+result = engine.infer([conversation], config)
+print(result[0].messages[-1].content)
+```
+
+### Using LoRA with Configuration Files
+
+You can also specify the LoRA adapter in a YAML configuration file:
+
+```yaml
+model:
+  model_name: "meta-llama/Llama-3.1-8B-Instruct"
+  adapter_model: "path/to/lora/adapter"
+  torch_dtype_str: "bfloat16"
+
+generation:
+  max_new_tokens: 256
+  temperature: 0.7
+
+engine: VLLM
+```
+
+Then run inference using the CLI:
+
+```bash
+oumi infer -i -c config.yaml
+```
+
+### Remote LoRA Serving
+
+For production deployments, you can serve LoRA adapters using a remote vLLM server:
+
+**1. Start the vLLM server with LoRA support:**
+
+```bash
+python -m vllm.entrypoints.openai.api_server \
+    --model meta-llama/Llama-3.1-8B-Instruct \
+    --port 6864 \
+    --enable-lora \
+    --lora-modules my-adapter=path/to/lora/adapter
+```
+
+**2. Connect from the client:**
+
+```python
+from oumi.inference import RemoteVLLMInferenceEngine
+from oumi.core.configs import ModelParams, RemoteParams
+
+engine = RemoteVLLMInferenceEngine(
+    model_params=ModelParams(
+        model_name="my-adapter"  # Use the adapter name from server
+    ),
+    remote_params=RemoteParams(
+        api_url="http://localhost:6864"
+    )
+)
+```
+
+### Serving Multiple LoRA Adapters
+
+You can serve multiple LoRA adapters from a single vLLM server:
+
+```bash
+python -m vllm.entrypoints.openai.api_server \
+    --model meta-llama/Llama-3.1-8B-Instruct \
+    --port 6864 \
+    --enable-lora \
+    --lora-modules \
+        adapter-v1=path/to/adapter-v1 \
+        adapter-v2=path/to/adapter-v2 \
+        adapter-v3=path/to/adapter-v3
+```
+
+Then switch between adapters by changing the `model_name`:
+
+```python
+# Use adapter-v1
+engine = RemoteVLLMInferenceEngine(
+    model_params=ModelParams(model_name="adapter-v1"),
+    remote_params=RemoteParams(api_url="http://localhost:6864")
+)
+
+# Or use adapter-v2
+engine = RemoteVLLMInferenceEngine(
+    model_params=ModelParams(model_name="adapter-v2"),
+    remote_params=RemoteParams(api_url="http://localhost:6864")
+)
+```
+
+### Important Notes
+
+- The base model specified in `model_name` must match the base model used during LoRA fine-tuning
+- Not all model architectures support LoRA adapters in vLLM - check the [vLLM documentation](https://docs.vllm.ai/en/latest/models/supported_models.html) for compatibility
+- LoRA adapters can be stored locally or on HuggingFace Hub (e.g., `"username/model-lora-adapter"`)
+
 ## See Also
 
 - {doc}`configuration` for configuration options

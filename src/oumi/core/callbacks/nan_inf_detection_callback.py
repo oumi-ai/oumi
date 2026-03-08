@@ -15,7 +15,6 @@
 """A callback to detect NaN/INF metric values."""
 
 import copy
-from typing import Optional, Union
 
 import numpy as np
 import transformers
@@ -47,9 +46,9 @@ class NanInfDetectionCallback(BaseTrainerCallback):
 
     def on_log(
         self,
-        args: Union[transformers.TrainingArguments, TrainingParams],
-        state: Optional[transformers.TrainerState] = None,
-        control: Optional[transformers.TrainerControl] = None,
+        args: transformers.TrainingArguments | TrainingParams,
+        state: transformers.TrainerState | None = None,
+        control: transformers.TrainerControl | None = None,
         **kwargs,
     ):
         """Event called after logging the last logs."""

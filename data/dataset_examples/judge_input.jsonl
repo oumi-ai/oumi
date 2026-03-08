@@ -1,0 +1,4 @@
+{"request": "What is 2+2?", "response": "2+2 equals 4."}
+{"request": "Write a phone number", "response": "You can reach me at 555-1234."}
+{"request": "Run the tests", "response": "Error: test failed with exception traceback"}
+{"request": "Explain quantum physics", "response": "Quantum physics studies matter at atomic scales."}

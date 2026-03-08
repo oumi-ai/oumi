@@ -14,7 +14,7 @@
 
 """This module defines the MLPEncoder class, which is a simple text encoder."""
 
-from typing import Callable, Optional
+from collections.abc import Callable
 
 import torch
 import torch.nn as nn
@@ -36,7 +36,9 @@ class MLPEncoder(BaseModel):
             hidden_dim (int): The hidden dimension.
             output_dim (int): The output dimension.
         """
-        super().__init__()
+        super().__init__(
+            input_dim=input_dim, hidden_dim=hidden_dim, output_dim=output_dim
+        )
 
         self.embedding = nn.Embedding(input_dim, hidden_dim)
         self.fc1 = nn.Linear(hidden_dim, hidden_dim)
@@ -46,7 +48,7 @@ class MLPEncoder(BaseModel):
     def forward(
         self,
         input_ids: torch.LongTensor,
-        labels: Optional[torch.LongTensor] = None,
+        labels: torch.LongTensor | None = None,
         **kwargs,
     ) -> dict[str, torch.Tensor]:
         """Forward pass of the MLP model.

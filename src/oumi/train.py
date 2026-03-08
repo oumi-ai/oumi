@@ -14,10 +14,10 @@
 
 import functools
 import time
-from importlib.metadata import version
+from collections.abc import Callable
 from pathlib import Path
 from pprint import pformat
-from typing import Any, Callable, Final, Optional, Union, cast
+from typing import Any, Final, cast
 
 import datasets as hf_datasets
 import torch
@@ -32,6 +32,7 @@ from oumi.builders import (
     build_peft_model,
     build_processor,
     build_reward_functions,
+    build_rollout_function,
     build_tokenizer,
     build_trainer,
     build_training_callbacks,
@@ -80,14 +81,14 @@ from oumi.utils.torch_utils import (
     log_peak_gpu_memory,
     log_versioning_info,
 )
-from oumi.utils.version_utils import is_dev_build
+from oumi.utils.version_utils import get_oumi_version, is_dev_build
 
 
 def _find_checkpoint_to_resume_from(
-    resume_from_checkpoint: Optional[str],
+    resume_from_checkpoint: str | None,
     try_resume_from_last_checkpoint: bool,
     output_dir: str,
-) -> Optional[str]:
+) -> str | None:
     """Finds and returns the last checkpoint path to be passed to Trainer."""
     checkpoint_path = None
     if resume_from_checkpoint:
@@ -103,7 +104,7 @@ def _find_checkpoint_to_resume_from(
     return None
 
 
-def _ensure_dir_exists(output_dir: Union[str, Path], human_readable_name: str) -> None:
+def _ensure_dir_exists(output_dir: str | Path, human_readable_name: str) -> None:
     if not output_dir:
         raise ValueError(f"{human_readable_name} is not specified!")
     output_dir_path: Path = Path(output_dir)
@@ -149,8 +150,7 @@ def _log_training_info(config: TrainingConfig) -> None:
             if telemetry_dir and is_world_process_zero()
             else None
         )
-        oumi_version = version("oumi")
-        logger.info(f"Oumi version: {oumi_version}")
+        logger.info(f"Oumi version: {get_oumi_version()}")
         if is_dev_build():
             logger.info(f"Git revision hash: {get_git_revision_hash()}")
             logger.info(f"Git tag: {get_git_tag()}")
@@ -189,14 +189,18 @@ def _finalize_training_config(config: TrainingConfig) -> TrainingConfig:
 def _create_optional_training_kwargs(
     config: TrainingConfig,
     trainer_type: TrainerType,
-    metrics_function: Optional[Callable],
+    metrics_function: Callable | None,
     reward_functions: list[Callable],
-    collator: Optional[Callable],
-    additional_trainer_kwargs: Optional[dict[str, Any]] = None,
+    rollout_function: Callable | None,
+    collator: Callable | None,
+    additional_trainer_kwargs: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     kwargs: dict[str, Any] = {}
     if trainer_type == TrainerType.OUMI:
         kwargs["config"] = config
+
+    # Pass config to all trainer types so DeepSpeed can be configured in HF trainers
+    kwargs["training_config"] = config
 
     if trainer_type in (TrainerType.TRL_GRPO, TrainerType.VERL_GRPO):
         if metrics_function:
@@ -204,9 +208,25 @@ def _create_optional_training_kwargs(
         if collator:
             raise ValueError(f"collator isn't supported for {trainer_type}")
         kwargs["reward_funcs"] = reward_functions
+        kwargs["rollout_func"] = rollout_function
     else:
         kwargs["compute_metrics"] = metrics_function
         kwargs["data_collator"] = collator
+
+    # Handle GKD teacher model - pass the teacher model path to the trainer constructor
+    # TRL's GKDTrainer will load the teacher model automatically using
+    # teacher_model_init_kwargs from the config
+    if trainer_type == TrainerType.TRL_GKD:
+        if config.training.gkd.teacher_model_name_or_path:
+            kwargs["teacher_model"] = config.training.gkd.teacher_model_name_or_path
+
+    # Handle GOLD teacher model - pass the teacher model path to the trainer constructor
+    # TRL's GOLDTrainer will load the teacher model automatically using
+    # teacher_model_init_kwargs from the config
+    if trainer_type == TrainerType.TRL_GOLD:
+        if config.training.gold.teacher_model_name_or_path:
+            kwargs["teacher_model"] = config.training.gold.teacher_model_name_or_path
+
     kwargs.update(additional_trainer_kwargs or {})
     return kwargs
 
@@ -259,9 +279,11 @@ def _verl_train(partial_trainer: Callable[[], BaseTrainer]):
 
 def train(
     config: TrainingConfig,
-    additional_model_kwargs: Optional[dict[str, Any]] = None,
-    additional_trainer_kwargs: Optional[dict[str, Any]] = None,
-) -> None:
+    additional_model_kwargs: dict[str, Any] | None = None,
+    additional_trainer_kwargs: dict[str, Any] | None = None,
+    additional_tuning_kwargs: dict[str, Any] | None = None,
+    verbose: bool = False,
+) -> None | dict[str, Any]:
     """Trains a model using the provided configuration."""
     _START_TIME = time.time()
 
@@ -277,20 +299,39 @@ def train(
 
     config = _finalize_training_config(config)
 
+    # Check for potential multi-node DeepSpeed ZeRO-3 saving issue early
+    if (
+        config.deepspeed
+        and config.deepspeed.is_zero3_enabled()
+        and config.deepspeed.stage3_gather_16bit_weights_on_model_save
+        and get_device_rank_info().world_size > get_device_rank_info().local_world_size
+    ):
+        logger.warning(
+            "⚠️  Multi-node DeepSpeed ZeRO-3 model saving detected with "
+            "stage3_gather_16bit_weights_on_model_save=True. This can cause hangs "
+            "during weight gathering across nodes. Consider setting "
+            "stage3_gather_16bit_weights_on_model_save=False and using "
+            "zero_to_fp32.py for post-training conversion. "
+            "See: https://github.com/microsoft/DeepSpeed/issues/2450"
+        )
+
     if is_local_process_zero():
-        logger.info(f"TrainingConfig:\n{pformat(config)}")
+        if verbose:
+            logger.info(f"TrainingConfig:\n{pformat(config)}")
         if telemetry_dir and is_world_process_zero():
-            config.to_yaml(str(telemetry_dir / "training_config.yaml"))
+            config_path = telemetry_dir / "training_config.yaml"
+            config.to_yaml(str(config_path))
+            logger.info(f"Training config saved to {config_path}")
 
     # Initialize tokenizer and processor.
-    tokenizer: Optional[BaseTokenizer] = None
+    tokenizer: BaseTokenizer | None = None
     if is_custom_model(config.model.model_name) and not config.model.tokenizer_name:
         # Keep tokenizer as None for custom models unless `tokenizer_name` is specified.
         tokenizer = None
     else:
         tokenizer = build_tokenizer(config.model)
 
-    processor: Optional[BaseProcessor] = None
+    processor: BaseProcessor | None = None
     if is_image_text_llm(config.model):
         assert tokenizer is not None, (
             "Tokenizer can't be None because all VLM-s are non-custom currently"
@@ -310,6 +351,10 @@ def train(
         # to be dropped from the dataset.
         if config.training.trainer_type == TrainerType.TRL_SFT:
             config.training.trainer_kwargs["remove_unused_columns"] = False
+            logger.info(
+                "Set `training.trainer_kwargs.remove_unused_columns=False` for VLM "
+                "training with TRL_SFT trainer."
+            )
 
     # Load datasets.
     train_dataset = build_dataset_mixture(
@@ -329,31 +374,35 @@ def train(
         )
 
     trainer_type: Final[TrainerType] = config.training.trainer_type
-    metrics_function: Optional[Callable] = build_metrics_function(config.training)
+    metrics_function: Callable | None = build_metrics_function(config.training)
     reward_functions: list[Callable] = build_reward_functions(config.training)
+    rollout_function: Callable | None = build_rollout_function(config.training)
     if trainer_type == TrainerType.TRL_GRPO:
         if len(reward_functions) == 0:
             logger.warning(f"No reward_function specified for {trainer_type}!")
         if not isinstance(train_dataset, BaseExperimentalGrpoDataset) and isinstance(
-            train_dataset, (hf_datasets.Dataset, hf_datasets.IterableDataset)
+            train_dataset, hf_datasets.Dataset | hf_datasets.IterableDataset
         ):
             train_dataset = try_prepare_trl_grpo_dataset(train_dataset)
         if (
             eval_dataset is not None
             and not isinstance(eval_dataset, BaseExperimentalGrpoDataset)
             and isinstance(
-                eval_dataset, (hf_datasets.Dataset, hf_datasets.IterableDataset)
+                eval_dataset, hf_datasets.Dataset | hf_datasets.IterableDataset
             )
         ):
             eval_dataset = try_prepare_trl_grpo_dataset(eval_dataset)
 
-    collator: Optional[Callable] = build_collator_from_config(config, tokenizer)
+    collator: Callable | None = build_collator_from_config(
+        config, tokenizer, debug=config.training.log_examples
+    )
 
     training_kwargs = _create_optional_training_kwargs(
         config,
         trainer_type,
         metrics_function,
         reward_functions,
+        rollout_function,
         collator,
         additional_trainer_kwargs=additional_trainer_kwargs,
     )
@@ -362,7 +411,9 @@ def train(
     # 1. It uses Ray
     # 2. Some of the setup below is not applicable.
     if config.training.trainer_type == TrainerType.VERL_GRPO:
-        create_trainer_fn = build_trainer(trainer_type, processor=processor)
+        create_trainer_fn = build_trainer(
+            trainer_type, processor=processor, verbose=verbose
+        )
 
         # We don't initialize the trainer here because it needs to run in a remote Ray
         # function.
@@ -455,7 +506,7 @@ def train(
 
     # Train model
     create_trainer_fn: Callable[..., BaseTrainer] = build_trainer(
-        trainer_type, processor=processor
+        trainer_type, processor=processor, verbose=verbose
     )
 
     # Reclaim memory before training starts.
@@ -531,10 +582,16 @@ def train(
         barrier()
 
         logger.info("Saving final model...")
+
         trainer.save_model(config=config)
 
     barrier()
 
     if is_distributed():
         cleanup_distributed()
+
+    if additional_tuning_kwargs:
+        logger.info("Retrieving last evaluation metrics for tuning...")
+        return {**trainer.get_last_eval_metrics()}
+
     _log_feedback_request()

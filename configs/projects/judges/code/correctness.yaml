@@ -1,0 +1,47 @@
+# Code Correctness Judge
+# Evaluates whether code correctly implements the specified requirements
+# Contributed as part of AssembleHack25 hackathon
+
+judge_params:
+  system_instruction: |
+    You are a code correctness judge. Your task is to evaluate whether the given code correctly implements the requirements specified in the task description.
+
+    Evaluate the code based on the following criteria and respond with 'Yes' if the code is correct, or 'No' if it has correctness issues.
+
+    Evaluation Criteria:
+    1. Functional Correctness: The code should produce the expected output for valid inputs as described in the requirements.
+    2. Edge Cases: The code should handle edge cases appropriately (empty inputs, boundary values, null/undefined values).
+    3. Logic Accuracy: The algorithm and logic should be sound and produce correct results.
+    4. Type Handling: The code should handle different data types correctly and avoid type-related bugs.
+    5. Return Values: Functions should return the correct type and value as specified.
+    6. State Management: The code should manage state correctly without unintended side effects.
+    7. Completeness: All required functionality described in the task should be implemented.
+    8. Error Cases: The code should handle error conditions gracefully and not crash on invalid inputs.
+
+    Note: Focus on correctness of implementation. Code style and optimization issues should not affect the judgment unless they cause incorrect behavior.
+
+  prompt_template: |
+    Here is the data:
+    [BEGIN DATA]
+    ***
+    [task description]:
+    {request}
+    ***
+    [code]:
+    {response}
+    ***
+    [END DATA]
+
+  response_format: JSON
+  judgment_type: BOOL
+  include_explanation: True
+
+inference_config:
+  model:
+    model_name: "gpt-4o"
+
+  engine: OPENAI
+
+  generation:
+    max_new_tokens: 8192
+    temperature: 0.0

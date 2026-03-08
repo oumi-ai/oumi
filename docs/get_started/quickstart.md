@@ -38,13 +38,21 @@ oumi <command> --help  # for command-specific help
 
 The available commands are:
 
-- `train`
-- `evaluate`
-- `infer`
-- `launch`
-- `judge`
+| Command | Description |
+|---------|-------------|
+| `train` | Train or fine-tune models |
+| `evaluate` | Evaluate models on benchmarks |
+| `infer` | Run model inference |
+| `launch` | Launch jobs on cloud platforms |
+| `judge` | Use LLM-as-a-Judge for evaluation |
+| `synth` | Generate synthetic training data |
+| `analyze` | Analyze and profile datasets |
+| `tune` | Hyperparameter tuning |
+| `quantize` | Quantize models for deployment |
+| `distributed` | Distributed training utilities |
+| `env` | Display environment information |
 
-Let's go through some examples of each command.
+Let's go through some examples of the core commands.
 
 ## 📚 Training
 
@@ -73,7 +81,7 @@ oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml \
 To run the same recipe on your own dataset (e.g., in our supported JSON or JSONL formats), you can override the dataset name and path. You can try this functionality out by downloading the `alpaca_cleaned` dataset manually via the huggingface CLI, then including that local path in your run.
 
 ```bash
-huggingface-cli download yahma/alpaca-cleaned --repo-type dataset --local-dir /path/to/local/dataset
+hf download yahma/alpaca-cleaned --repo-type dataset --local-dir /path/to/local/dataset
 
 oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml \
   --data.train.datasets "[{dataset_name: text_sft, dataset_path: /path/to/local/dataset}]" \

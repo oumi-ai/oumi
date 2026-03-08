@@ -20,11 +20,10 @@ from dataclasses import dataclass
 from enum import Enum
 from getpass import getpass
 from pathlib import Path
-from typing import Optional
 
 import pexpect
 
-from oumi.core.launcher import JobStatus
+from oumi.core.launcher import JobState, JobStatus
 from oumi.utils.logging import logger
 
 _CTRL_PATH = "-S ~/.ssh/control-%h-%p-%r"
@@ -90,7 +89,8 @@ class PolarisClient:
         PROD = "prod"
 
     _FINISHED_STATUS = "F"
-
+    _FAILED_STATUS = "E"
+    _RUNNING_STATUS = "R"
     _PROD_QUEUES = {
         "small",
         "medium",
@@ -108,6 +108,23 @@ class PolarisClient:
         """
         self._user = user
         self._refresh_creds()
+
+    def _get_job_state(self, status: str) -> JobState:
+        """Gets the state of the job.
+
+        Args:
+            status: The status of the job.
+
+        Returns:
+            The state of the job.
+        """
+        if status == self._FINISHED_STATUS:
+            return JobState.SUCCEEDED
+        elif status == self._FAILED_STATUS:
+            return JobState.FAILED
+        elif status == self._RUNNING_STATUS:
+            return JobState.RUNNING
+        return JobState.PENDING
 
     def _split_status_line(self, line: str, metadata: str) -> JobStatus:
         """Splits a status line into a JobStatus object.
@@ -138,13 +155,15 @@ class PolarisClient:
                 f"Invalid status line: {line}. "
                 f"Expected 11 fields, but found {len(fields)}."
             )
+        state = self._get_job_state(fields[9])
         return JobStatus(
             id=self._get_short_job_id(fields[0]),
             name=fields[3],
             status=fields[9],
             cluster=fields[2],
             metadata=metadata,
-            done=fields[9] == self._FINISHED_STATUS,
+            done=state in (JobState.SUCCEEDED, JobState.FAILED, JobState.CANCELLED),
+            state=state,
         )
 
     def _get_short_job_id(self, job_id: str) -> str:
@@ -262,7 +281,7 @@ class PolarisClient:
         working_dir: str,
         node_count: int,
         queue: SupportedQueues,
-        name: Optional[str],
+        name: str | None,
     ) -> str:
         """Submits the specified job script to Polaris.
 
@@ -325,7 +344,7 @@ class PolarisClient:
             raise RuntimeError("At least one job status was not parsed.")
         return jobs
 
-    def get_job(self, job_id: str, queue: SupportedQueues) -> Optional[JobStatus]:
+    def get_job(self, job_id: str, queue: SupportedQueues) -> JobStatus | None:
         """Gets the specified job's status.
 
         Args:
@@ -341,7 +360,7 @@ class PolarisClient:
                 return job
         return None
 
-    def cancel(self, job_id, queue: SupportedQueues) -> Optional[JobStatus]:
+    def cancel(self, job_id, queue: SupportedQueues) -> JobStatus | None:
         """Cancels the specified job.
 
         Args:

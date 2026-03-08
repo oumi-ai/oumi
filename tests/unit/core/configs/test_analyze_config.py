@@ -14,7 +14,10 @@
 
 import pytest
 
-from oumi.core.configs.analyze_config import AnalyzeConfig, SampleAnalyzerParams
+from oumi.core.configs.analyze_config import (
+    AnalyzeConfig,
+    SampleAnalyzerParams,
+)
 
 
 def test_sample_analyzer_param_validation_success():
@@ -28,7 +31,8 @@ def test_sample_analyzer_param_validation_missing_id():
     """Test validation failure when id is missing."""
     with pytest.raises(ValueError, match="Analyzer 'id' must be provided"):
         AnalyzeConfig(
-            dataset_name="test_dataset", analyzers=[SampleAnalyzerParams(id="")]
+            dataset_name="test_dataset",
+            analyzers=[SampleAnalyzerParams(id="")],
         )
 
 
@@ -51,16 +55,71 @@ def test_sample_analyzer_param_with_language_detection_params():
     assert analyzer.params == language_detection_params
 
 
-def test_analyze_config_validation_missing_dataset_name():
-    """Test validation failure when dataset_name is missing."""
-    with pytest.raises(ValueError, match="'dataset_name' must be provided"):
-        AnalyzeConfig(dataset_name=None)
+def test_analyze_config_deprecated_is_multimodal_warning():
+    """Test that using is_multimodal emits a deprecation warning."""
+    import warnings
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        AnalyzeConfig(
+            dataset_path="/path/to/dataset.json",
+            is_multimodal=True,
+            processor_name="HuggingFaceTB/SmolVLM-256M-Instruct",
+        )
+        # Check deprecation warning was emitted
+        assert any("is_multimodal" in str(warning.message) for warning in w)
+        assert any(issubclass(warning.category, DeprecationWarning) for warning in w)
 
 
-def test_analyze_config_validation_empty_dataset_name():
-    """Test validation failure when dataset_name is empty."""
-    with pytest.raises(ValueError, match="'dataset_name' must be provided"):
-        AnalyzeConfig(dataset_name="")
+def test_analyze_config_auto_detect_multimodal_from_processor():
+    """Test that multimodality is auto-detected from processor_name presence."""
+    # With processor_name: multimodal (no error)
+    config_multimodal = AnalyzeConfig(
+        dataset_path="/path/to/dataset.json",
+        processor_name="HuggingFaceTB/SmolVLM-256M-Instruct",
+    )
+    assert config_multimodal.processor_name is not None
+
+    # Without processor_name: text-only (no error)
+    config_text = AnalyzeConfig(
+        dataset_path="/path/to/dataset.json",
+    )
+    assert config_text.processor_name is None
+
+
+def test_analyze_config_dataset_path_without_is_multimodal():
+    """Test that dataset_path works without is_multimodal (deprecated field)."""
+    # This should not raise an error anymore since is_multimodal is deprecated
+    config = AnalyzeConfig(
+        dataset_path="/path/to/dataset.json",
+    )
+    assert config.dataset_path == "/path/to/dataset.json"
+    assert config.is_multimodal is None  # Not set
+
+
+def test_analyze_config_deprecated_is_multimodal_still_accepted():
+    """Test that is_multimodal is still accepted (for backwards compatibility)
+    but emits a deprecation warning."""
+    import warnings
+
+    # Should work with is_multimodal=True (deprecated but accepted)
+    with warnings.catch_warnings(record=True):
+        warnings.simplefilter("always")
+        config = AnalyzeConfig(
+            dataset_path="/path/to/dataset.json",
+            is_multimodal=True,
+            processor_name="HuggingFaceTB/SmolVLM-256M-Instruct",
+        )
+        assert config.is_multimodal is True
+
+    # Should work with is_multimodal=False (deprecated but accepted)
+    with warnings.catch_warnings(record=True):
+        warnings.simplefilter("always")
+        config = AnalyzeConfig(
+            dataset_path="/path/to/dataset.json",
+            is_multimodal=False,
+        )
+        assert config.is_multimodal is False
 
 
 def test_analyze_config_validation_with_valid_analyzers():
