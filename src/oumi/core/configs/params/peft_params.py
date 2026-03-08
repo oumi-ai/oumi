@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Literal, Optional
 
+from peft import LoraConfig
 from peft.utils.peft_types import TaskType
 from transformers import BitsAndBytesConfig
 
@@ -128,10 +129,24 @@ class PeftParams(BaseParams):
         default=None,
         metadata={"help": "LoRA target modules."},
     )
-    """List of module names to apply LoRA to.
+    """List of module names/regexes to apply LoRA to.
 
-    If None, LoRA will be applied to all linear layers in the model.
-    Specify module names to selectively apply LoRA to certain parts of the model.
+    If None, modules that are LoRA-trained are chosen based on the model's architecture.
+    Specify ["all-linear"] to apply LoRA to all linear/Conv1D layers in the model.
+    Specify a list of module names to only apply LoRA to those modules in the model.
+    Finally, specifying [] to avoid targeting any modules (ex. if you want to set
+    lora_target_parameters instead).
+    """
+
+    lora_target_parameters: Optional[list[str]] = field(
+        default=None,
+        metadata={"help": "LoRA target parameters."},
+    )
+    """List of parameter names/regexes to apply LoRA to.
+
+    This is similar to `lora_target_modules` (which you should prefer using if possible)
+    but for parameters instead of modules. This is generally only useful for models like
+    MoEs that sometimes use nn.Parameter instead of nn.Module.
     """
 
     lora_modules_to_save: Optional[list[str]] = field(
@@ -285,6 +300,37 @@ class PeftParams(BaseParams):
     - ADAPTER_AND_BASE_MODEL: Save the base model in addition to the adapter.
     - MERGED: Merge the adapter and base model's weights and save as a single model.
     """
+
+    def to_lora(self) -> LoraConfig:
+        """Creates a configuration for LoRA via HF's peft library."""
+        if self.lora_init_weights == LoraWeightInitialization.RANDOM:
+            init_lora_weights = False
+        elif self.lora_init_weights == LoraWeightInitialization.DEFAULT:
+            init_lora_weights = True
+        else:
+            init_lora_weights = self.lora_init_weights.value
+
+        # LoraConfig's target_modules is type Optional[Union[list[str], str]], but
+        # since OmegaConf doesn't support a union between a list and a primitive type,
+        # our field's type is Optional[list[str]].
+        #
+        # This is special handling for the "all-linear" special case.
+        # See: https://huggingface.co/docs/peft/en/package_reference/lora#peft.LoraConfig.target_modules
+        target_modules = self.lora_target_modules
+        if target_modules == ["all-linear"]:
+            target_modules = "all-linear"
+
+        return LoraConfig(
+            r=self.lora_r,
+            lora_alpha=self.lora_alpha,
+            lora_dropout=self.lora_dropout,
+            target_modules=target_modules,
+            target_parameters=self.lora_target_parameters,
+            modules_to_save=self.lora_modules_to_save,
+            bias=self.lora_bias,  # type: ignore
+            task_type=self.lora_task_type,
+            init_lora_weights=init_lora_weights,
+        )
 
     def to_bits_and_bytes(self) -> BitsAndBytesConfig:
         """Creates a configuration for quantized models via BitsAndBytes.

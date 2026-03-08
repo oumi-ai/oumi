@@ -66,7 +66,6 @@ peft:
   bnb_4bit_compute_dtype: "bfloat16"
   lora_r: 64
   lora_alpha: 128
-  lora_dropout: 0.0
   lora_target_modules:
     - "q_proj"
     - "v_proj"
