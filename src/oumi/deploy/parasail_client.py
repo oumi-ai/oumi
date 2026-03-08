@@ -53,7 +53,9 @@ from oumi.deploy.parasail_api import (
     ParasailDeploymentStatus,
     ParasailScaleDownPolicy,
     SupportCheckResponse,
+    SupportMessage,
 )
+from oumi.deploy.utils import resolve_hf_token, warn_if_private_model_missing_token
 
 logger = logging.getLogger(__name__)
 
@@ -213,6 +215,8 @@ class ParasailDeploymentClient(BaseDeploymentClient):
         """
         _ = progress_callback
         _validate_model_source(model_source)
+        hf_token = resolve_hf_token()
+        warn_if_private_model_missing_token(model_source, hf_token)
 
         if model_type == ModelType.ADAPTER:
             raise ValueError(
@@ -223,12 +227,22 @@ class ParasailDeploymentClient(BaseDeploymentClient):
         logger.info(f"Checking Parasail model compatibility: {model_source}")
         response = await self._client.get(
             "/dedicated/support",
-            params={"modelName": model_source, "modelAccessKey": ""},
+            params={"modelName": model_source, "modelAccessKey": hf_token},
         )
         if response.status_code == 200:
             support = SupportCheckResponse.model_validate(response.json())
+            error_msgs = [m for m in support.messages if (m.level or "").upper() == "ERROR"]
+            if error_msgs:
+                raise ValueError(
+                    f"Parasail model validation failed for '{model_source}': "
+                    + "; ".join(m.content for m in error_msgs)
+                )
             if not support.supported:
-                reason = support.error_message or "unknown reason"
+                reason = (
+                    support.error_message
+                    or (support.messages[0].content if support.messages else None)
+                    or "unknown reason"
+                )
                 logger.warning(
                     f"Parasail reports model '{model_source}' may not be "
                     f"supported: {reason}"
@@ -313,6 +327,8 @@ class ParasailDeploymentClient(BaseDeploymentClient):
             httpx.HTTPStatusError: If the Parasail API returns an error.
         """
         _validate_model_source(model_id)
+        hf_token = resolve_hf_token(model_access_key)
+        warn_if_private_model_missing_token(model_id, hf_token)
 
         deployment_name = _to_deployment_name(display_name or model_id)
         replicas = max(1, autoscaling.min_replicas)
@@ -325,7 +341,7 @@ class ParasailDeploymentClient(BaseDeploymentClient):
             model_id=model_id,
             desired_device=hardware.accelerator,
             desired_count=hardware.count,
-            model_access_key=model_access_key or "",
+            model_access_key=hf_token,
         )
 
         request = CreateDeploymentRequest(
@@ -337,7 +353,7 @@ class ParasailDeploymentClient(BaseDeploymentClient):
             scaleDownThreshold=scale_down_threshold_ms,
             draftModelName=None,
             contextLength=context_length,
-            modelAccessKey=model_access_key,
+            modelAccessKey=hf_token or None,
         )
 
         logger.info(f"Creating Parasail deployment '{deployment_name}'...")
@@ -422,20 +438,34 @@ class ParasailDeploymentClient(BaseDeploymentClient):
     async def list_hardware(self, model_id: str | None = None) -> list[HardwareConfig]:
         """Lists available hardware configurations for Parasail.
 
-        If *model_id* is provided, queries the ``/dedicated/devices`` API to
-        return only hardware compatible with that model.  Otherwise queries
-        without a model filter to get the full catalogue.
+        Queries the ``/dedicated/devices`` API for hardware compatible with
+        *model_id*.  Parasail's API requires a model name — calling without
+        one raises :class:`ValueError`.
 
         Args:
-            model_id: Optional HuggingFace repo ID to filter compatible hardware.
+            model_id: HuggingFace repo ID (e.g., ``Qwen/Qwen2.5-72B-Instruct``)
+                or HuggingFace URL. **Required** for Parasail.
 
         Returns:
-            List of :class:`HardwareConfig` objects.
+            List of :class:`HardwareConfig` objects compatible with the model.
+
+        Raises:
+            ValueError: If *model_id* is not provided or is not a valid
+                HuggingFace identifier.
         """
-        params: dict[str, str] = {"engineName": "VLLM", "modelAccessKey": ""}
-        if model_id is not None:
-            _validate_model_source(model_id)
-            params["modelName"] = model_id
+        if model_id is None:
+            raise ValueError(
+                "Parasail requires a model ID to list compatible hardware. "
+                "Provide a HuggingFace repo ID, e.g. 'Qwen/Qwen2.5-72B-Instruct'."
+            )
+        _validate_model_source(model_id)
+        hf_token = resolve_hf_token()
+        warn_if_private_model_missing_token(model_id, hf_token)
+        params: dict[str, str] = {
+            "engineName": "VLLM",
+            "modelName": model_id,
+            "modelAccessKey": hf_token,
+        }
 
         response = await self._client.get("/dedicated/devices", params=params)
         response.raise_for_status()

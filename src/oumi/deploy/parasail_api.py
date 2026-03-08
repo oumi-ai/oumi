@@ -257,6 +257,15 @@ class DeploymentResponse(BaseModel):
         return self.device_configs[0] if self.device_configs else None
 
 
+class SupportMessage(BaseModel):
+    """A single message entry inside a ``SupportCheckResponse``."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    content: str
+    level: str | None = None
+
+
 class SupportCheckResponse(BaseModel):
     """Response from ``GET /dedicated/support``."""
 
@@ -271,7 +280,7 @@ class SupportCheckResponse(BaseModel):
         default_factory=list, alias="supportingEngines"
     )
     model_redirect: str | None = Field(None, alias="modelRedirect")
-    messages: list[str] = Field(default_factory=list)
+    messages: list[SupportMessage] = Field(default_factory=list)
     properties: ModelProperties | None = None
     error_message: str | None = Field(None, alias="errorMessage")
 
