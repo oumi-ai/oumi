@@ -8,6 +8,7 @@ from oumi.core.types.conversation import (
     ContentItem,
     ContentItemCounts,
     Conversation,
+    FinishReason,
     Message,
     Role,
     Type,
@@ -880,3 +881,53 @@ def test_conversation_metadata_independence():
 
     assert conv2.metadata == {}
     assert conv1.metadata == {"foo": "bar"}
+
+
+def test_finish_reason_enum_values():
+    """Test FinishReason enum has expected values."""
+    assert FinishReason.STOP.value == "stop"
+    assert FinishReason.LENGTH.value == "length"
+    assert FinishReason.TOOL_CALLS.value == "tool_calls"
+    assert FinishReason.CONTENT_FILTER.value == "content_filter"
+    assert FinishReason.ERROR.value == "error"
+    assert FinishReason.UNKNOWN.value == "unknown"
+
+
+def test_finish_reason_str_representation():
+    """Test FinishReason __str__ returns value."""
+    assert str(FinishReason.STOP) == "stop"
+    assert str(FinishReason.LENGTH) == "length"
+    assert str(FinishReason.TOOL_CALLS) == "tool_calls"
+    assert str(FinishReason.CONTENT_FILTER) == "content_filter"
+    assert str(FinishReason.ERROR) == "error"
+    assert str(FinishReason.UNKNOWN) == "unknown"
+
+
+def test_finish_reason_is_str_subclass():
+    """Test FinishReason is a str subclass for serialization compatibility."""
+    assert isinstance(FinishReason.STOP, str)
+    assert isinstance(FinishReason.LENGTH, str)
+
+
+def test_conversation_with_finish_reason_metadata():
+    """Test that finish_reason can be stored in conversation metadata."""
+    conv = Conversation(
+        messages=[Message(role=Role.USER, content="Hello")],
+        metadata={"finish_reason": FinishReason.STOP.value},
+    )
+    assert conv.metadata["finish_reason"] == "stop"
+
+    # Test serialization roundtrip
+    conv_dict = conv.to_dict()
+    reconstructed = Conversation.from_dict(conv_dict)
+    assert reconstructed.metadata["finish_reason"] == "stop"
+
+
+def test_finish_reason_from_string():
+    """Test creating FinishReason from string values."""
+    assert FinishReason("stop") == FinishReason.STOP
+    assert FinishReason("length") == FinishReason.LENGTH
+    assert FinishReason("tool_calls") == FinishReason.TOOL_CALLS
+    assert FinishReason("content_filter") == FinishReason.CONTENT_FILTER
+    assert FinishReason("error") == FinishReason.ERROR
+    assert FinishReason("unknown") == FinishReason.UNKNOWN

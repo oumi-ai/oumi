@@ -69,6 +69,36 @@ class Type(str, Enum):
         return self.value
 
 
+class FinishReason(str, Enum):
+    """Reason why the model stopped generating tokens."""
+
+    STOP = "stop"
+    """Model hit a natural stopping point or stop sequence."""
+
+    LENGTH = "length"
+    """Model reached max_tokens limit."""
+
+    TOOL_CALLS = "tool_calls"
+    """Model made a tool/function call."""
+
+    CONTENT_FILTER = "content_filter"
+    """Content was filtered due to safety/moderation."""
+
+    ERROR = "error"
+    """Generation failed due to an error."""
+
+    UNKNOWN = "unknown"
+    """Finish reason could not be determined."""
+
+    def __str__(self) -> str:
+        """Return the string representation of the FinishReason enum.
+
+        Returns:
+            str: The string value of the FinishReason enum.
+        """
+        return self.value
+
+
 class ContentItemCounts(NamedTuple):
     """Contains counts of content items in a message by type."""
 
