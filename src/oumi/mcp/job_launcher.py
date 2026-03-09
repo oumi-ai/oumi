@@ -279,6 +279,8 @@ async def cancel(
     if record.cloud != "local" and rt.cluster_obj is None and rt.process is None:
         rt.cancel_requested = True
         rt.error_message = "Cancellation requested while launch is pending."
+        if rt.runner_task is not None and not rt.runner_task.done():
+            rt.runner_task.cancel()
         return {
             "success": True,
             "message": (
