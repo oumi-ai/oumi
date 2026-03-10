@@ -90,37 +90,21 @@ async def test_cancel_job_timeout():
 
 
 @pytest.mark.asyncio
-async def test_cancel_pending_cloud_launch_marks_intent():
+async def test_cancel_pending_cloud_launch_sets_flag_without_cancelling_task():
     record = _make_record()
-    rt = JobRuntime()
-    rt.runner_task = asyncio.Future()  # type: ignore[assignment]
-    response = await cancel(record, rt)
-    assert response["success"]
-    assert rt.cancel_requested
-
-
-@pytest.mark.asyncio
-async def test_cancel_pending_cloud_job_does_not_cancel_runner_task():
-    """runner_task must NOT be cancelled — the thread cannot be interrupted,
-    and CancelledError would skip the post-launch reconciliation that calls
-    launcher.cancel() to clean up cloud resources."""
-    record = _make_record(job_id="test-cancel-task")
     rt = JobRuntime()
     mock_task = asyncio.Future()
     rt.runner_task = mock_task  # type: ignore[assignment]
-    result = await cancel(record, rt)
-    assert result["success"]
+    response = await cancel(record, rt)
+    assert response["success"]
     assert rt.cancel_requested
     assert not mock_task.cancelled()
 
 
 @pytest.mark.asyncio
 async def test_cancel_launched_cloud_job_calls_launcher_cancel():
-    """After launch completes and runtime is evicted, a fresh runtime must
-    NOT be treated as 'pending'.  cancel() should fall through to the
-    launcher.cancel() path for cloud jobs."""
     record = _make_record(job_id="sky-99")
-    rt = JobRuntime()  # fresh runtime — no runner_task, no cluster_obj
+    rt = JobRuntime()
     with patch("oumi.mcp.job_service.launcher") as mock_launcher:
         mock_launcher.cancel.return_value = None
         response = await cancel(record, rt)
