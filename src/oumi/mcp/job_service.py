@@ -476,10 +476,13 @@ async def _launch_cloud(
         rt.oumi_status = status
 
         sky_job_id = str(status.id) if status and status.id else record.job_id
+        original_id = record.job_id
         record.job_id = sky_job_id
         record.cluster_name = (
             status.cluster if status and status.cluster else record.cluster_name
         )
+        if sky_job_id != original_id:
+            reg.remove(original_id)
         reg.add(record)
 
         logger.info(
@@ -487,6 +490,9 @@ async def _launch_cloud(
             sky_job_id,
             record.cloud,
         )
+
+        if sky_job_id != original_id:
+            await evict_runtime(original_id)
 
         if rt.cancel_requested and status and status.id:
             try:
