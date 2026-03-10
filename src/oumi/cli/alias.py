@@ -27,6 +27,7 @@ class AliasType(str, Enum):
     QUANTIZE = "quantize"
     JUDGE = "judge"
     TUNE = "tune"
+    AIDE = "aide"
     ANALYZE = "analyze"
     SYNTH = "synth"
 
