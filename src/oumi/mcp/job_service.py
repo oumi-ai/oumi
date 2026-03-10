@@ -233,13 +233,7 @@ async def evict_runtime(job_id: str) -> None:
 
 
 async def migrate_runtime(old_id: str, new_id: str) -> None:
-    """Re-key a runtime entry from *old_id* to *new_id*.
-
-    After a cloud launch, the job ID changes from the MCP-generated ID
-    to the SkyPilot ID.  This migrates the runtime so that later lookups
-    by the new ID find the existing state (cluster_obj, cancel_requested,
-    etc.) instead of creating a fresh, empty runtime.
-    """
+    """Re-key a runtime entry from *old_id* to *new_id*."""
     async with _runtimes_lock:
         rt = _runtimes.pop(old_id, None)
         if rt is not None:
@@ -619,11 +613,6 @@ async def cancel(
     record: JobRecord, rt: JobRuntime, *, force: bool = False
 ) -> JobCancelResponse:
     """Cancel a job (SIGTERM/SIGKILL for local, launcher.cancel for cloud)."""
-    # A cloud job is "pending" only if its runner task is still actively
-    # running (launcher.up() hasn't returned yet).  We check runner_task
-    # rather than cluster_obj because after the launch completes and the
-    # runtime is evicted, a fresh runtime would have cluster_obj=None —
-    # which would incorrectly look "pending" and skip launcher.cancel().
     launch_pending = (
         rt.runner_task is not None
         and not rt.runner_task.done()
@@ -632,12 +621,6 @@ async def cancel(
     if record.cloud != "local" and launch_pending:
         rt.cancel_requested = True
         rt.error_message = "Cancellation requested while launch is pending."
-        # NOTE: we intentionally do NOT cancel rt.runner_task here.
-        # launcher.up() runs in a thread (asyncio.to_thread) which cannot
-        # be interrupted.  Cancelling the task would only raise CancelledError
-        # after the thread completes, skipping the post-launch reconciliation
-        # in _launch_cloud that calls launcher.cancel() to clean up cloud
-        # resources.  The cancel_requested flag is sufficient.
         return {
             "success": True,
             "message": (
@@ -661,7 +644,6 @@ async def cancel(
                 except ProcessLookupError:
                     pass
                 action = "terminated (SIGTERM)"
-            # Reap the subprocess to avoid zombies.
             await asyncio.to_thread(rt.process.wait)
             rt.cancel_requested = True
             rt.error_message = f"Cancelled by user ({action})"
@@ -1412,8 +1394,6 @@ async def cancel_job_impl(
                     timeout=30.0,
                 )
             except (TimeoutError, asyncio.TimeoutError):
-                # Catch both for Python 3.10 compat; in 3.11+
-                # asyncio.TimeoutError inherits from TimeoutError.
                 return {
                     "success": False,
                     "error": (
