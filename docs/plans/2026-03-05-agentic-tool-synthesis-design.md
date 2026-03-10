@@ -2,59 +2,62 @@
 
 ## Overview
 
-Extend the multi-turn conversation synthesis system to support agentic tool use with stateful environment simulation. Users define tools and a structured environment that tools interact with. The planner decides which turns involve tool calls, the tool executor simulates tool behavior conditioned on environment state, and tool outputs mutate the environment for subsequent calls. The output is a standard chat-format conversation with `TOOL_CALL` and `TOOL` role messages inline.
+Extend the multi-turn conversation synthesis system to support agentic tool use. Users define tools with output strategies (deterministic or LLM-generated), the conversation planner decides when the agent calls tools, and tool outputs are resolved and integrated into the conversation. An optional environment layer enables stateful tool interactions when needed.
 
-Inspired by the SynthTools paper (ICML 2025 submission), which introduces a pipeline for generating synthetic tool ecosystems with LLM-based tool simulation conditioned on mutable metadata/environment state.
+**Core principle: Tools are the centerpiece. Environment is optional.**
 
 ---
 
 ## Goals
 
-- Enable users to define tools with rich schemas (parameters, output schemas, error modes)
-- Introduce a structured, mutable environment that tools read from and write to
-- Environment structure is user-defined; data values are populated via `{placeholder}` resolution from sampled/generated attributes
-- Tool simulation is LLM-based: the simulator receives tool config + args + environment state and produces realistic outputs + state updates
+- Enable users to define tools with schemas, output strategies, and descriptions
+- Support deterministic (user-defined) and generated (LLM-simulated) tool outputs
+- Support multi-tool calls within a single assistant turn (chained tool use)
+- Optionally support mutable environment state for stateful tool interactions
 - Keep tool calls as sub-steps within an ASSISTANT turn (no impact on `min_turns`/`max_turns`)
-- Produce standard chat-format output compatible with the existing pipeline
+- Produce standard chat-format output with `TOOL_CALL` and `TOOL` role messages inline
 - Stay inline with the existing attribute pipeline (`{placeholder}` templates, sampled/generated attributes)
 
 ---
 
-## Architecture
+## Tool Output Strategies
 
-### Approach: Extend existing synthesizer + new ToolExecutor + EnvironmentManager
+| Strategy | Source | When to use |
+|----------|--------|-------------|
+| **DETERMINISTIC** | User-defined outputs, one selected per conversation | Predictable tools, bounded output variety |
+| **GENERATED** | LLM simulates output given schema + args + context | Open-ended tools, when realism matters |
 
-Extend `MultiTurnAttribute`, `ConversationSynthesizer`, and `GeneralSynthesisParams` minimally. Extract tool execution and environment management into new classes. The environment is populated through the standard attribute pipeline using `{placeholder}` resolution.
+### DETERMINISTIC details
 
-### Pipeline flow
+- Single output in the list: always returns that output
+- Multiple outputs: one randomly selected per conversation (weighted by `sample_rate`, uniform if unset)
+- Selection happens once at conversation initialization, not per-call
 
-```
-1. DatasetPlanner.plan()            -> sampled attributes per sample
-2. DataSynthesizer.synthesize()     -> generated attributes per sample
-3. ConversationSynthesizer:
-   a. Resolve {placeholders} in environment template -> populated environment per sample
-   b. Plan conversation (planner sees tools + environment)
-   c. Execute turns:
-      - Regular turns: existing behavior
-      - Tool-call turns:
-        i.   Generate tool_call args (batched LLM)
-        ii.  Simulate tool output (batched LLM, conditioned on environment)
-        iii. Apply environment updates
-        iv.  Generate assistant response (batched LLM)
-4. AttributeTransformer.transform() -> transformed attributes
-5. Output
-```
+### GENERATED details
+
+- LLM receives: tool config + args + conversation history + optional environment snapshot
+- `output_instruction` provides hints for realistic simulation
+- `output_schema` gives the LLM structure guidance for the response format
 
 ---
 
 ## Config Schema
 
-### New: `ToolOutputMode`
+### New: `ToolOutputStrategy`
 
 ```python
-class ToolOutputMode(str, Enum):
-    DETERMINISTIC = "deterministic"   # round-robin through fixed outputs
-    SIMULATED = "simulated"           # LLM simulates tool behavior given environment
+class ToolOutputStrategy(str, Enum):
+    DETERMINISTIC = "deterministic"  # user-defined outputs
+    GENERATED = "generated"          # LLM simulates output
+```
+
+### New: `ToolOutputValue`
+
+```python
+@dataclass
+class ToolOutputValue:
+    output: str                       # tool output (JSON string)
+    sample_rate: float | None = None  # selection weight, uniform if unset
 ```
 
 ### New: `ToolConfig`
@@ -62,32 +65,36 @@ class ToolOutputMode(str, Enum):
 Defined at the `GeneralSynthesisParams` level. Referenced by name from `MultiTurnAttribute.available_tools`.
 
 ```python
-class ToolConfig(BaseModel):
-    id: str                              # referenced by available_tools
-    name: str                            # tool name (e.g., "ReturnRequestValidator")
-    description: str                     # what the tool does
-    parameters: dict[str, Any] = {}      # parameter schema {name: {type, required, description}}
-    output_schema: dict[str, Any] = {}   # expected output fields
-    error_modes: list[str] = []          # documented error conditions
-    output_mode: ToolOutputMode = ToolOutputMode.SIMULATED
+@dataclass
+class ToolConfig:
+    id: str                                       # referenced by available_tools
+    name: str                                     # tool name (e.g., "SearchOrders")
+    description: str                              # what the tool does
+    parameters: dict[str, Any] = {}               # parameter schema {name: {type, required, description}}
+
+    output_strategy: ToolOutputStrategy = ToolOutputStrategy.GENERATED
 
     # DETERMINISTIC mode
-    deterministic_outputs: list[str] = []
+    deterministic_outputs: list[ToolOutputValue] = []
 
-    # SIMULATED mode
-    output_instruction: str = ""         # optional hint for the LLM simulator
-    mutates_environment: bool = True     # whether this tool updates environment state
+    # GENERATED mode
+    output_instruction: str = ""                  # hint for LLM simulator
+    output_schema: dict[str, Any] = {}            # expected output structure
+
+    # Optional environment interaction (only when environment is defined)
+    mutates_environment: bool = False
 ```
 
-### New: `EnvironmentConfig`
+### New: `EnvironmentConfig` (Optional)
 
 ```python
-class EnvironmentConfig(BaseModel):
+@dataclass
+class EnvironmentConfig:
     entities: dict[str, Any] = {}   # structured state template with {placeholders}
     context: str = ""               # domain rules/constraints template with {placeholders}
 ```
 
-The `entities` and `context` fields are templates. They contain `{placeholder}` references to sampled/generated attributes, which are resolved per-sample before the conversation synthesizer uses them.
+Both fields support `{placeholder}` resolution from sampled/generated attributes.
 
 ### Changes to `GeneralSynthesisParams`
 
@@ -99,106 +106,214 @@ tools: list[ToolConfig] = []
 
 ```python
 available_tools: list[str] = []                    # list of ToolConfig ids
-environment: EnvironmentConfig | None = None       # environment template for this conversation
+environment: EnvironmentConfig | None = None       # optional environment template
 ```
 
 ---
 
-## Environment Design
+## Planner Extension
 
-### User defines structure, attributes fill values
+When `available_tools` is non-empty, the planner prompt is extended with:
 
-The environment is a user-authored template. Users define the full structure (entity types, fields, relationships). Data values come from the existing attribute pipeline via `{placeholder}` syntax.
+1. **Tool catalog** — tool names, descriptions, and parameter summaries
+2. **Environment overview** (only when environment is defined) — summary of available entities and context
+3. **Extended instruction** — planner may annotate ASSISTANT turns with `tool_calls`
 
-```yaml
-strategy_params:
-  sampled_attributes:
-    - id: customer_id
-      values: [{value: "CUST001"}, {value: "CUST002"}, {value: "CUST003"}]
-    - id: order_status
-      values: [{value: "delivered"}, {value: "shipped"}]
-    - id: product_name
-      values: [{value: "Running Shoes"}, {value: "Hiking Boots"}]
-    - id: product_price
-      values: [{value: "119.99"}, {value: "89.99"}]
+### Extended planner JSON schema
 
-  generated_attributes:
-    - id: customer_name
-      instruction: "Generate a realistic customer name"
-    - id: customer_email
-      instruction: "Generate a realistic email for a customer named {customer_name}"
-    - id: return_policy
-      instruction: "Generate a return policy for footwear products"
-
-  multiturn_attributes:
-    - id: support_conv
-      min_turns: 3
-      max_turns: 6
-      available_tools: [return_validator, search_orders, status_tracker]
-      environment:
-        entities:
-          customers:
-            "{customer_id}":
-              name: "{customer_name}"
-              email: "{customer_email}"
-              orders: ["{customer_id}_ORD001"]
-          orders:
-            "{customer_id}_ORD001":
-              customer_id: "{customer_id}"
-              items:
-                - id: "ITEM001"
-                  name: "{product_name}"
-                  price: "{product_price}"
-              status: "{order_status}"
-          returns: {}
-        context: |
-          {return_policy}
-      role_instruction_messages:
-        user: "You are {customer_name}, contacting support about your order"
-        assistant: "You are a helpful customer support agent"
+```json
+[
+  {"turn": 1, "role": "USER", "instruction": "ask about returning their order"},
+  {
+    "turn": 2,
+    "role": "ASSISTANT",
+    "tool_calls": [
+      {"tool": "search_orders", "instruction": "look up the customer's order using their customer ID"},
+      {"tool": "check_return_eligibility", "instruction": "check if the order is eligible for return based on search results"}
+    ],
+    "instruction": "summarize return eligibility and explain next steps"
+  },
+  {"turn": 3, "role": "USER", "instruction": "confirm they want to proceed with the return"},
+  {
+    "turn": 4,
+    "role": "ASSISTANT",
+    "tool_calls": [
+      {"tool": "process_return", "instruction": "initiate the return for the order"}
+    ],
+    "instruction": "confirm the return has been processed and explain the timeline"
+  }
+]
 ```
 
-### How it works per sample
+- `tool_calls` is an optional list on any ASSISTANT turn
+- Each entry has `tool` (ToolConfig id) and `instruction` (guides arg generation)
+- `instruction` on the turn itself guides the ASSISTANT's final response after all tool results
+- `_parse_plan` passes through the new fields transparently
+- Turn count is unaffected — a tool-call turn still counts as one turn
 
-1. `DatasetPlanner` samples: `customer_id=CUST002`, `order_status=delivered`, etc.
-2. `DataSynthesizer` generates: `customer_name="Maria Garcia"`, `customer_email="maria@example.com"`, etc.
-3. `ConversationSynthesizer` resolves placeholders in the environment template:
+---
+
+## Pipeline Flow
+
+```
+1. DatasetPlanner.plan()            -> sampled attributes per sample
+2. DataSynthesizer.synthesize()     -> generated attributes per sample
+3. ConversationSynthesizer:
+   a. Resolve DETERMINISTIC tool outputs per conversation (sample once)
+   b. Resolve {placeholders} in environment template (if present) -> EnvironmentManager
+   c. Plan conversation (planner sees tools + optional environment)
+   d. Execute turns:
+      - Regular turns: existing behavior
+      - Tool-call turns:
+        For each tool_call in tool_calls:
+          i.   Generate tool_call args (batched LLM, sees prior tool results)
+          ii.  Resolve tool output (DETERMINISTIC: use pre-selected output,
+               GENERATED: batched LLM conditioned on args + optional environment)
+          iii. Apply environment updates (if environment defined and tool mutates)
+          iv.  Append TOOL_CALL + TOOL messages to conversation
+        Then:
+          v.   Generate ASSISTANT response (batched LLM, sees all tool results)
+4. AttributeTransformer.transform() -> transformed attributes
+5. Output
+```
+
+---
+
+## ConversationSynthesizer Changes
+
+### Initialization per sample
 
 ```python
-# Sample-specific populated environment:
+# Resolve DETERMINISTIC tool outputs for this conversation
+tool_outputs = {}
+for tool_id in multiturn_attribute.available_tools:
+    tool_config = tools_by_id[tool_id]
+    if tool_config.output_strategy == ToolOutputStrategy.DETERMINISTIC:
+        tool_outputs[tool_id] = select_output(tool_config.deterministic_outputs)
+
+# Resolve environment (if present)
+env_manager = None
+if multiturn_attribute.environment:
+    resolved_env = attribute_formatter.resolve(
+        multiturn_attribute.environment, sample
+    )
+    env_manager = EnvironmentManager(
+        entities=resolved_env["entities"],
+        context=resolved_env["context"],
+    )
+```
+
+### Extended turn loop
+
+```python
+for turn_idx in range(target_turns):
+    turn_plan = parsed_turn_plans[turn_idx]
+
+    if turn_plan.get("tool_calls"):
+        # Process each tool call sequentially within this turn
+        for tool_call_plan in turn_plan["tool_calls"]:
+            tool_config = tools_by_id[tool_call_plan["tool"]]
+
+            # Batch: Generate tool_call args for all active samples
+            # LLM sees conversation history including prior tool results from this turn
+            tool_call_msgs = batch_generate_args(
+                tool_config, tool_call_plan, conversations, environments
+            )
+
+            # Resolve tool output based on strategy
+            if tool_config.output_strategy == ToolOutputStrategy.DETERMINISTIC:
+                tool_result_msgs = [
+                    make_tool_message(tool_outputs[sample_idx][tool_config.id])
+                    for sample_idx in active_sample_indices
+                ]
+            else:  # GENERATED
+                tool_result_msgs = batch_simulate(
+                    tool_config, tool_call_msgs, environments
+                )
+
+            # Append TOOL_CALL + TOOL to each conversation
+            for i, conv in enumerate(active_conversations):
+                conv.messages.append(tool_call_msgs[i])
+                conv.messages.append(tool_result_msgs[i])
+
+        # Batch: Generate ASSISTANT response with all tool results in context
+        responses = batch_generate_response(
+            conversations, turn_plan["instruction"], personas
+        )
+        for i, conv in enumerate(active_conversations):
+            conv.messages.append(responses[i])
+    else:
+        # Existing behavior unchanged
+        ...
+```
+
+---
+
+## ToolExecutor
+
+New class in `src/oumi/core/synthesis/tool_executor.py`.
+
+### Responsibilities
+
+**Argument generation** — Prompt the model with tool name/description, `instruction` from the plan, conversation history, and optional environment state. Model returns a tool_call message with arguments as JSON.
+
+**Output resolution** — Either return the pre-selected DETERMINISTIC output, or run LLM simulation for GENERATED mode.
+
+**GENERATED simulator prompt:**
+
+```
+You are simulating the tool "{name}".
+
+Description: {description}
+Parameters: {parameters}
+Output schema: {output_schema}
+{output_instruction}
+
+{optional: Current environment state:}
+{environment_snapshot}
+
+The agent called this tool with arguments:
+{tool_call_args}
+
+Produce a realistic response based on the arguments{optional: and environment state}.
+
+Return JSON:
 {
-  "entities": {
-    "customers": {
-      "CUST002": {
-        "name": "Maria Garcia",
-        "email": "maria@example.com",
-        "orders": ["CUST002_ORD001"]
-      }
-    },
-    "orders": {
-      "CUST002_ORD001": {
-        "customer_id": "CUST002",
-        "items": [{"id": "ITEM001", "name": "Hiking Boots", "price": "89.99"}],
-        "status": "delivered"
-      }
-    },
-    "returns": {}
-  },
-  "context": "90-day return policy for footwear..."
+  "status": "success" | "error",
+  "output": { ... }
+  {optional: "environment_updates": { ... }}
 }
 ```
 
-4. This populated environment is passed to the `EnvironmentManager` for this sample's conversation.
+### Interface
 
-### Environment compatibility with tools
+```python
+class ToolExecutor:
+    def generate_args(
+        self,
+        tool_config: ToolConfig,
+        tool_call_plan: dict,
+        conversation: Conversation,
+        environment: EnvironmentManager | None,
+    ) -> Message:
+        """Generate TOOL_CALL message with arguments."""
 
-Since the user defines both the tool configs and the environment structure, compatibility is ensured by design. The user knows that `ReturnRequestValidator` needs `orders` and `customers` in the environment, so they include them. The tool's `parameters`, `output_schema`, and `error_modes` give the LLM tool simulator enough context to produce outputs consistent with the environment state.
+    def resolve_output(
+        self,
+        tool_config: ToolConfig,
+        tool_call_msg: Message,
+        environment: EnvironmentManager | None,
+        deterministic_output: str | None,
+    ) -> Message:
+        """Resolve TOOL message. Uses deterministic_output if provided,
+        otherwise runs LLM simulation."""
+```
 
 ---
 
-## EnvironmentManager
+## EnvironmentManager (Optional)
 
-New class in `src/oumi/core/synthesis/environment_manager.py`.
+New class in `src/oumi/core/synthesis/environment_manager.py`. Only instantiated when `MultiTurnAttribute.environment` is defined.
 
 ```python
 class EnvironmentManager:
@@ -215,216 +330,13 @@ class EnvironmentManager:
 
     def apply_updates(self, updates: dict[str, Any]) -> None:
         """Deep-merge updates into current state. Log the change."""
-        self._history.append({
-            "step": len(self._history),
-            "updates": copy.deepcopy(updates),
-        })
+        self._history.append({"step": len(self._history), "updates": copy.deepcopy(updates)})
         deep_merge(self._state, updates)
 
     def get_history(self) -> list[dict]:
         """Return mutation history for debugging/observability."""
         return self._history
 ```
-
-One `EnvironmentManager` instance per sample. Created after placeholder resolution, lives for the duration of the conversation synthesis.
-
----
-
-## ToolExecutor
-
-New class in `src/oumi/core/synthesis/tool_executor.py`.
-
-### Responsibilities
-
-**Step 1 -- Argument generation**
-
-Prompt the model with the tool name/description, `tool_args_instruction` from the plan, current conversation history, and environment state. Model returns a tool_call message with arguments as a JSON dict.
-
-**Step 2 -- Tool simulation**
-
-| Mode | Behavior |
-|------|----------|
-| `DETERMINISTIC` | Round-robin through `deterministic_outputs`. No environment interaction. |
-| `SIMULATED` | LLM-based two-stage simulation (following SynthTools paper): |
-
-For SIMULATED mode, the simulator prompt follows a two-stage pattern:
-
-1. **Parameter validation**: Check if args are valid given tool schema + environment state. If invalid, return an appropriate error from `error_modes`.
-2. **Response generation**: Given valid args + environment state, produce realistic output matching `output_schema` and return `environment_updates` if `mutates_environment` is true.
-
-Simulator prompt template:
-
-```
-You are simulating the tool "{name}".
-
-Description: {description}
-Parameters: {parameters}
-Output schema: {output_schema}
-Error modes: {error_modes}
-{output_instruction}
-
-Current environment state:
-{environment_snapshot}
-
-The agent called this tool with arguments:
-{tool_call_args}
-
-First, validate the parameters against the tool schema and environment state.
-If invalid, return an error response.
-If valid, produce a realistic response based on the environment state.
-
-Return JSON:
-{
-  "status": "success" | "error",
-  "status_code": 200 | 400 | 422,
-  "output": { ... },
-  "environment_updates": { ... }
-}
-```
-
-**Step 3 -- Apply environment updates**
-
-If the tool has `mutates_environment: true` and returned `environment_updates`, apply them to the `EnvironmentManager`.
-
-### Interface
-
-```python
-class ToolExecutor:
-    def execute(
-        self,
-        tool_config: ToolConfig,
-        turn_plan: dict,
-        conversation: Conversation,
-        environment: EnvironmentManager,
-        sample: dict,
-        deterministic_index: int,
-    ) -> tuple[Message, Message]:
-        """
-        Returns (tool_call_message, tool_result_message).
-        Side effect: may mutate environment via apply_updates.
-        """
-```
-
----
-
-## Planner Extension
-
-When `available_tools` is non-empty, two additions are injected into the planner prompt:
-
-1. **Tool catalog** -- tool names, descriptions, and parameter summaries:
-   ```
-   Available tools:
-   - ReturnRequestValidator: Validates a return request against order data
-     Parameters: return_request_id (string), order_id (string), customer_id (string), return_reason (string)
-   - SearchOrders: Look up order details by order ID
-     Parameters: order_id (string)
-   ```
-
-2. **Environment overview** -- summary of available entities and context:
-   ```
-   Environment state contains:
-   - customers: 1 customer (CUST002)
-   - orders: 1 order (CUST002_ORD001, status: delivered)
-   - returns: empty
-   Context: 90-day return policy for footwear...
-   ```
-
-3. **Extended instruction** -- planner is told it may annotate ASSISTANT turns with tool calls.
-
-### Extended planner JSON schema
-
-```json
-[
-  {"turn": 1, "role": "USER", "instruction": "ask about returning their order"},
-  {
-    "turn": 2,
-    "role": "ASSISTANT",
-    "tool_call": "search_orders",
-    "tool_args_instruction": "look up the customer's order using their customer ID from the environment",
-    "instruction": "after seeing the order details, confirm the order and ask about the return reason"
-  },
-  {
-    "turn": 3,
-    "role": "USER",
-    "instruction": "explain they changed their mind about the product"
-  },
-  {
-    "turn": 4,
-    "role": "ASSISTANT",
-    "tool_call": "return_validator",
-    "tool_args_instruction": "validate the return request with the order ID, customer ID, and reason 'changed mind'",
-    "instruction": "confirm the return has been approved and explain next steps"
-  }
-]
-```
-
-- `tool_call` and `tool_args_instruction` are optional fields on any ASSISTANT turn.
-- `instruction` is always present and guides the ASSISTANT's final response after the tool result.
-- `_parse_plan` passes through the new fields transparently.
-- Turn count is unaffected -- a tool-call turn still counts as one turn.
-
----
-
-## ConversationSynthesizer Changes
-
-### Environment initialization
-
-Before planning, resolve `{placeholders}` in the environment template for each sample using `AttributeFormatter`, then create an `EnvironmentManager` per sample.
-
-```python
-# Per sample:
-resolved_env = attribute_formatter.resolve(environment_config, sample)
-env_manager = EnvironmentManager(
-    entities=resolved_env["entities"],
-    context=resolved_env["context"],
-)
-```
-
-### Extended turn loop
-
-```python
-for turn_idx in range(target_turns):
-    turn_plan = parsed_turn_plans[turn_idx]
-
-    if turn_plan.get("tool_call"):
-        tool_config = tools_by_id[turn_plan["tool_call"]]
-
-        # Batch 1: Generate tool_call args for all active samples
-        tool_call_msgs = batch_generate_args(
-            tool_config, turn_plan, conversations, environments
-        )
-
-        # Batch 2: Simulate tool outputs for all active samples
-        # Each sample's prompt includes its own environment snapshot
-        tool_result_msgs = batch_simulate(
-            tool_config, tool_call_msgs, environments
-        )
-        # Side effect: environment_updates applied per sample
-
-        # Append tool_call and tool_result to each conversation
-        for i, conv in enumerate(active_conversations):
-            conv.messages.append(tool_call_msgs[i])
-            conv.messages.append(tool_result_msgs[i])
-
-        # Batch 3: Generate ASSISTANT response with tool result in context
-        responses = batch_generate_response(
-            conversations, turn_plan["instruction"], personas
-        )
-        for i, conv in enumerate(active_conversations):
-            conv.messages.append(responses[i])
-    else:
-        # Existing behavior unchanged
-        response = batch_generate_response(...)
-        ...
-```
-
-### Batching strategy for tool-call turns
-
-Tool-call turns run as up to three sequential batched inference passes:
-
-1. **Args generation batch** -- generate tool_call messages for all samples at this turn position. Each prompt includes the sample's conversation history + environment snapshot.
-2. **Simulation batch** -- for SIMULATED mode: generate tool outputs for all samples. Each prompt includes the sample's environment snapshot + tool call args. DETERMINISTIC mode skips this batch.
-3. **Response batch** -- ASSISTANT responds with tool result in context (existing batch logic).
 
 ---
 
@@ -445,21 +357,113 @@ class Role(str, Enum):
 
 ### Output format
 
-A synthesized conversation with tool-call turns:
+A synthesized conversation with multi-tool chaining:
 
 ```
 [SYSTEM]    "You are a helpful customer support agent"
 [USER]      "Hi, I'd like to return my hiking boots from my recent order"
 [TOOL_CALL] {"name": "SearchOrders", "arguments": {"customer_id": "CUST002"}}
-[TOOL]      {"status": "success", "status_code": 200, "output": {"order_id": "CUST002_ORD001", "items": [{"name": "Hiking Boots", "price": "89.99"}], "status": "delivered"}}
-[ASSISTANT] "I can see your order with Hiking Boots for $89.99. It was delivered. I can help you with a return. What's the reason?"
-[USER]      "I changed my mind about them"
-[TOOL_CALL] {"name": "ReturnRequestValidator", "arguments": {"return_request_id": "RET001", "order_id": "CUST002_ORD001", "customer_id": "CUST002", "return_reason": "changed mind"}}
-[TOOL]      {"status": "success", "status_code": 200, "output": {"is_valid": true, "validation_status": "approved", "days_remaining": 75}}
-[ASSISTANT] "Your return has been approved! You have 75 days remaining in the return window..."
+[TOOL]      {"status": "success", "output": {"order_id": "ORD-001", "item": "Hiking Boots", "status": "delivered"}}
+[TOOL_CALL] {"name": "CheckReturnEligibility", "arguments": {"order_id": "ORD-001"}}
+[TOOL]      {"status": "success", "output": {"eligible": true, "window_remaining": 75}}
+[ASSISTANT] "Your order with Hiking Boots is eligible for return. You have 75 days remaining..."
+[USER]      "Great, please process the return"
+[TOOL_CALL] {"name": "ProcessReturn", "arguments": {"order_id": "ORD-001", "reason": "customer request"}}
+[TOOL]      {"status": "success", "output": {"return_id": "RET-001", "label_url": "https://..."}}
+[ASSISTANT] "Your return has been processed! Return ID: RET-001. Here's your shipping label..."
 ```
 
-The output is a standard `Conversation` object. The `TOOL_CALL` and `TOOL` messages are inline between USER and ASSISTANT messages.
+---
+
+## Example Config
+
+```yaml
+strategy: GENERAL
+num_samples: 10
+output_path: agentic_tool_dataset.jsonl
+
+strategy_params:
+  sampled_attributes:
+    - id: customer_id
+      name: Customer ID
+      description: Unique customer identifier
+      possible_values:
+        - {id: cust1, name: "CUST001", description: "Customer 001"}
+        - {id: cust2, name: "CUST002", description: "Customer 002"}
+
+  generated_attributes:
+    - id: customer_name
+      instruction_messages:
+        - role: SYSTEM
+          content: "Generate a realistic customer name. Output only the name."
+        - role: USER
+          content: "Generate a name."
+
+  tools:
+    - id: search_orders
+      name: SearchOrders
+      description: "Look up order details by customer ID"
+      parameters:
+        customer_id: {type: string, required: true}
+      output_strategy: DETERMINISTIC
+      deterministic_outputs:
+        - output: '{"order_id": "ORD-001", "status": "delivered", "item": "Running Shoes", "price": 119.99}'
+          sample_rate: 0.5
+        - output: '{"order_id": "ORD-002", "status": "shipped", "item": "Hiking Boots", "price": 89.99}'
+          sample_rate: 0.5
+
+    - id: check_return_eligibility
+      name: CheckReturnEligibility
+      description: "Check if an order is eligible for return"
+      parameters:
+        order_id: {type: string, required: true}
+      output_strategy: GENERATED
+      output_instruction: "Check eligibility based on order status and return window"
+      output_schema:
+        eligible: {type: boolean}
+        window_remaining: {type: integer}
+        reason: {type: string}
+
+    - id: process_return
+      name: ProcessReturn
+      description: "Initiate a return for an order"
+      parameters:
+        order_id: {type: string, required: true}
+        reason: {type: string, required: true}
+      output_strategy: GENERATED
+      output_instruction: "Generate a return confirmation with return ID and shipping label"
+
+  multiturn_attributes:
+    - id: support_conversation
+      min_turns: 4
+      max_turns: 8
+      available_tools: [search_orders, check_return_eligibility, process_return]
+
+      role_instruction_messages:
+        USER: |
+          You are {customer_name} (ID: {customer_id}), contacting support about your order.
+          Be cooperative and provide information when asked.
+        ASSISTANT: |
+          You are a helpful customer support agent. Use your tools to look up
+          information and process requests. Always verify details before taking actions.
+
+      output_system_prompt: |
+        You are a helpful customer support agent with access to order management tools.
+
+  passthrough_attributes:
+    - support_conversation
+
+inference_config:
+  model:
+    model_name: claude-sonnet-4-20250514
+  engine: ANTHROPIC
+  generation:
+    max_new_tokens: 8192
+    temperature: 0.7
+  remote_params:
+    num_workers: 50
+    politeness_policy: 60
+```
 
 ---
 
@@ -468,11 +472,11 @@ The output is a standard `Conversation` object. The `TOOL_CALL` and `TOOL` messa
 | File | Change |
 |------|--------|
 | `src/oumi/core/types/conversation.py` | Add `Role.TOOL_CALL` to enum |
-| `src/oumi/core/configs/params/synthesis_params.py` | Add `ToolConfig`, `ToolOutputMode`, `EnvironmentConfig`; extend `GeneralSynthesisParams` with `tools`; extend `MultiTurnAttribute` with `available_tools` and `environment` |
-| `src/oumi/core/synthesis/environment_manager.py` | New file -- `EnvironmentManager` class |
-| `src/oumi/core/synthesis/tool_executor.py` | New file -- `ToolExecutor` class |
-| `src/oumi/core/synthesis/conversation_synthesizer.py` | Extend planner prompt injection with tool catalog + environment overview; extend turn loop to handle tool-call turns; per-sample environment initialization and tracking |
-| `configs/examples/synthesis/agentic_tool_synth.yaml` | New example config demonstrating tool use with environment |
+| `src/oumi/core/configs/params/synthesis_params.py` | Add `ToolConfig`, `ToolOutputStrategy`, `ToolOutputValue`, `EnvironmentConfig`; extend `GeneralSynthesisParams` with `tools`; extend `MultiTurnAttribute` with `available_tools` and `environment` |
+| `src/oumi/core/synthesis/environment_manager.py` | New file — `EnvironmentManager` class |
+| `src/oumi/core/synthesis/tool_executor.py` | New file — `ToolExecutor` class |
+| `src/oumi/core/synthesis/conversation_synthesizer.py` | Extend planner prompt with tool catalog + optional environment; extend turn loop for tool-call turns with multi-tool support; per-sample tool output selection and optional environment initialization |
+| `configs/examples/synthesis/agentic_tool_synth.yaml` | New example config |
 | `tests/unit/core/synthesis/test_environment_manager.py` | New tests |
 | `tests/unit/core/synthesis/test_tool_executor.py` | New tests |
 | `tests/unit/core/synthesis/test_conversation_synthesizer.py` | Add tool-call turn tests |
