@@ -232,6 +232,20 @@ async def evict_runtime(job_id: str) -> None:
     rt.close_log_files()
 
 
+async def migrate_runtime(old_id: str, new_id: str) -> None:
+    """Re-key a runtime entry from *old_id* to *new_id*.
+
+    After a cloud launch, the job ID changes from the MCP-generated ID
+    to the SkyPilot ID.  This migrates the runtime so that later lookups
+    by the new ID find the existing state (cluster_obj, cancel_requested,
+    etc.) instead of creating a fresh, empty runtime.
+    """
+    async with _runtimes_lock:
+        rt = _runtimes.pop(old_id, None)
+        if rt is not None:
+            _runtimes[new_id] = rt
+
+
 _registry: JobRegistry | None = None
 
 
@@ -492,7 +506,7 @@ async def _launch_cloud(
         )
 
         if sky_job_id != original_id:
-            await evict_runtime(original_id)
+            await migrate_runtime(original_id, sky_job_id)
 
         if rt.cancel_requested and status and status.id:
             try:
@@ -605,11 +619,25 @@ async def cancel(
     record: JobRecord, rt: JobRuntime, *, force: bool = False
 ) -> JobCancelResponse:
     """Cancel a job (SIGTERM/SIGKILL for local, launcher.cancel for cloud)."""
-    if record.cloud != "local" and rt.cluster_obj is None and rt.process is None:
+    # A cloud job is "pending" only if its runner task is still actively
+    # running (launcher.up() hasn't returned yet).  We check runner_task
+    # rather than cluster_obj because after the launch completes and the
+    # runtime is evicted, a fresh runtime would have cluster_obj=None —
+    # which would incorrectly look "pending" and skip launcher.cancel().
+    launch_pending = (
+        rt.runner_task is not None
+        and not rt.runner_task.done()
+        and rt.cluster_obj is None
+    )
+    if record.cloud != "local" and launch_pending:
         rt.cancel_requested = True
         rt.error_message = "Cancellation requested while launch is pending."
-        if rt.runner_task is not None and not rt.runner_task.done():
-            rt.runner_task.cancel()
+        # NOTE: we intentionally do NOT cancel rt.runner_task here.
+        # launcher.up() runs in a thread (asyncio.to_thread) which cannot
+        # be interrupted.  Cancelling the task would only raise CancelledError
+        # after the thread completes, skipping the post-launch reconciliation
+        # in _launch_cloud that calls launcher.cancel() to clean up cloud
+        # resources.  The cancel_requested flag is sufficient.
         return {
             "success": True,
             "message": (
