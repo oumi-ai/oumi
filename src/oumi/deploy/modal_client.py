@@ -15,14 +15,15 @@
 """Modal.com deployment client for serverless vLLM inference.
 
 Uses Modal's serverless GPU functions with auto-scaling and pay-per-second billing.
-Models are accessed directly from S3 via CloudBucketMount (no upload needed) or
-downloaded from HuggingFace Hub.
+Models are downloaded from HuggingFace Hub at container start.
 
 References:
 - Modal Docs: https://modal.com/docs
+- Modal Python SDK: https://modal.com/docs/reference/modal.App
 - vLLM on Modal: https://docs.vllm.ai/en/latest/deployment/frameworks/modal/
 """
 
+import importlib.util
 import logging
 import os
 import re
@@ -30,14 +31,6 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-
-import boto3
-from botocore.exceptions import BotoCoreError, ClientError
-
-try:
-    import tomllib  # Python 3.11+
-except ImportError:
-    import tomli as tomllib  # type: ignore[import-not-found]
 
 try:
     import modal
@@ -58,21 +51,61 @@ from oumi.deploy.base_client import (
     ModelType,
     UploadedModel,
 )
+from oumi.deploy.utils import (
+    check_hf_model_accessibility,
+    is_huggingface_repo_id,
+    resolve_hf_token,
+    warn_if_private_model_missing_token,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def _validate_modal_model_source(model_source: str) -> None:
+    """Validate that *model_source* is a HuggingFace repo ID.
+
+    Raises:
+        ValueError: If model_source is not supported by Modal.
+    """
+    _unsupported = {
+        "s3://": "S3 (planned, not yet supported)",
+        "gs://": "GCS",
+        "az://": "Azure Blob",
+        "abfs://": "Azure Blob",
+    }
+    for prefix, label in _unsupported.items():
+        if model_source.startswith(prefix):
+            raise ValueError(
+                f"Modal does not yet support {label} model sources ('{model_source}'). "
+                "Provide a HuggingFace repo ID (e.g., 'meta-llama/Llama-3-8B')."
+            )
+    if model_source.startswith(("https://", "http://")):
+        raise ValueError(
+            f"Modal does not support deploying models from URLs ('{model_source}'). "
+            "Provide a HuggingFace repo ID (e.g., 'meta-llama/Llama-3-8B')."
+        )
+    if Path(model_source).is_dir() or Path(model_source).is_file():
+        raise ValueError(
+            "Modal does not support local model uploads. "
+            "Provide a HuggingFace repo ID (e.g., 'meta-llama/Llama-3-8B')."
+        )
+    if not is_huggingface_repo_id(model_source):
+        raise ValueError(
+            f"Unrecognized model source: '{model_source}'. "
+            "Modal accepts a HuggingFace repo ID (e.g., 'Qwen/Qwen3-1.7B')."
+        )
 
 
 class ModalDeploymentClient(BaseDeploymentClient):
     """Modal.com deployment client for serverless vLLM inference.
 
-    Models are accessed directly from S3 via CloudBucketMount (no upload step)
-    or downloaded from HuggingFace Hub.  Modal generates and deploys a
-    containerised vLLM server behind an HTTPS endpoint.
+    Models are downloaded from HuggingFace Hub at container start. Modal
+    generates and deploys a containerised vLLM server behind an HTTPS endpoint
+    using the Python SDK (``app.deploy()``).
     """
 
     provider = DeploymentProvider.MODAL
 
-    # Modal GPU types mapping
     GPU_TYPES = {
         "nvidia_a100_40gb": "A100",
         "nvidia_a100_80gb": "A100",
@@ -87,93 +120,46 @@ class ModalDeploymentClient(BaseDeploymentClient):
         token_id: str | None = None,
         token_secret: str | None = None,
         workspace: str | None = None,
+        hf_secret_name: str | None = None,
     ):
         """Initialize Modal client.
 
-        Credentials are resolved in order: constructor args → env vars →
-        ``~/.modal.toml``.  Raises ``ValueError`` if no valid credentials
-        are found.
+        Credentials are resolved in order: constructor args -> env vars.
+        Raises ``ValueError`` if no valid credentials are found.
+
+        Args:
+            token_id: Modal API token ID. Falls back to ``MODAL_TOKEN_ID``.
+            token_secret: Modal API token secret. Falls back to
+                ``MODAL_TOKEN_SECRET``.
+            workspace: Modal workspace name. Falls back to
+                ``MODAL_WORKSPACE``, then ``"default"``.
+            hf_secret_name: Name of the Modal secret containing HuggingFace
+                credentials. Falls back to ``MODAL_HF_SECRET_NAME``, then
+                ``"huggingface-token"``.
         """
-        self.token_id = token_id or os.environ.get("MODAL_TOKEN_ID")
-        self.token_secret = token_secret or os.environ.get("MODAL_TOKEN_SECRET")
-        self.workspace = workspace or os.environ.get("MODAL_WORKSPACE")
+        self._token_id = token_id or os.environ.get("MODAL_TOKEN_ID")
+        self._token_secret = token_secret or os.environ.get("MODAL_TOKEN_SECRET")
 
-        if not self.token_id or not self.token_secret or not self.workspace:
-            config_creds = self._read_modal_config()
-            if config_creds:
-                self.token_id = self.token_id or config_creds.get("token_id")
-                self.token_secret = self.token_secret or config_creds.get("token_secret")
-                self.workspace = self.workspace or config_creds.get("workspace")
-
-        self.workspace = self.workspace or "default"
-
-        if not self.token_id or not self.token_secret:
+        if not self._token_id:
             raise ValueError(
-                "Modal credentials required. Either:\n"
-                "1. Run 'modal token new' to create ~/.modal.toml, or\n"
-                "2. Set MODAL_TOKEN_ID and MODAL_TOKEN_SECRET env vars, or\n"
-                "3. Pass token_id and token_secret to constructor."
+                "Modal token ID required. Set the MODAL_TOKEN_ID environment "
+                "variable or pass token_id to the constructor."
+            )
+        if not self._token_secret:
+            raise ValueError(
+                "Modal token secret required. Set the MODAL_TOKEN_SECRET environment "
+                "variable or pass token_secret to the constructor."
             )
 
-        os.environ["MODAL_TOKEN_ID"] = self.token_id
-        os.environ["MODAL_TOKEN_SECRET"] = self.token_secret
+        self._workspace = workspace or os.environ.get("MODAL_WORKSPACE", "default")
+        self._hf_secret_name = hf_secret_name or os.environ.get(
+            "MODAL_HF_SECRET_NAME", "huggingface-token"
+        )
 
-        self._s3_client = boto3.client("s3")
+        os.environ["MODAL_TOKEN_ID"] = self._token_id
+        os.environ["MODAL_TOKEN_SECRET"] = self._token_secret
+
         self._deployed_apps: dict[str, tuple] = {}
-
-    def _read_modal_config(self) -> dict[str, str] | None:
-        """Read credentials and workspace from ``~/.modal.toml``.
-
-        The TOML section name is the workspace (e.g., ``[oumi]``).  Prefers the
-        section marked ``active = true``; falls back to the first section that
-        contains valid credentials.
-        """
-        config_paths = [
-            Path.home() / ".modal.toml",
-            Path.home() / ".modal" / "config.toml",
-        ]
-
-        for config_path in config_paths:
-            if not config_path.exists():
-                continue
-            try:
-                with open(config_path, "rb") as f:
-                    config = tomllib.load(f)
-
-                fallback: dict[str, str] | None = None
-                for section_name, section in config.items():
-                    if not isinstance(section, dict):
-                        continue
-                    token_id = section.get("token_id")
-                    token_secret = section.get("token_secret")
-                    if not token_id or not token_secret:
-                        continue
-
-                    creds = {
-                        "token_id": token_id,
-                        "token_secret": token_secret,
-                        "workspace": section_name,
-                    }
-                    if section.get("active", False):
-                        logger.info(
-                            f"Loaded Modal credentials from {config_path} "
-                            f"[{section_name}]"
-                        )
-                        return creds
-                    if fallback is None:
-                        fallback = creds
-
-                if fallback:
-                    logger.info(
-                        f"Loaded Modal credentials from {config_path} "
-                        f"[{fallback['workspace']}]"
-                    )
-                    return fallback
-
-            except Exception as e:
-                logger.warning(f"Failed to read Modal config from {config_path}: {e}")
-
-        return None
 
     async def __aenter__(self) -> "ModalDeploymentClient":
         return self
@@ -188,59 +174,50 @@ class ModalDeploymentClient(BaseDeploymentClient):
         model_type: ModelType = ModelType.FULL,
         base_model: str | None = None,
         progress_callback: Any | None = None,
+        model_access_key: str | None = None,
     ) -> UploadedModel:
-        """Validate S3 model path and return metadata for deployment.
+        """Validate a HuggingFace model source for deployment.
 
-        Modal doesn't require uploading weights — models are accessed directly
-        from S3 via CloudBucketMount.  This validates the path is accessible.
+        Modal downloads models from HuggingFace Hub at container start — no
+        bytes are transferred during upload. This validates the model source
+        and checks accessibility.
+
+        Args:
+            model_source: HuggingFace repo ID (e.g. ``Qwen/Qwen3-1.7B``).
+            model_name: Display name for the model.
+            model_type: ``full`` or ``adapter``.
+            base_model: Required when ``model_type`` is ``adapter``.
+            progress_callback: Unused.
+            model_access_key: Explicit HuggingFace token for private models.
 
         Raises:
-            ValueError: If model_source is not a valid/accessible S3 path.
+            ValueError: If model_source is not a valid HuggingFace repo ID,
+                or if ``model_type`` is ``adapter`` without ``base_model``.
         """
         _ = progress_callback
-        if not model_source.startswith("s3://"):
-            raise ValueError(
-                f"Modal requires S3 paths for models. Got: {model_source}. "
-                "Upload model to S3 first, then deploy with s3:// URL."
-            )
-
-        s3_match = re.match(r"s3://([^/]+)/(.+)", model_source)
-        if not s3_match:
-            raise ValueError(f"Invalid S3 path format: {model_source}")
-
-        bucket_name = s3_match.group(1)
-        model_path = s3_match.group(2)
-
-        logger.info(f"Validating S3 path: s3://{bucket_name}/{model_path}")
-        try:
-            response = self._s3_client.list_objects_v2(
-                Bucket=bucket_name, Prefix=model_path, MaxKeys=1
-            )
-            if not response.get("Contents"):
-                raise ValueError(
-                    f"S3 path not found or empty: {model_source}. "
-                    "Ensure the model has been uploaded to S3."
-                )
-            logger.info(f"S3 path validated: {model_source}")
-
-        except (BotoCoreError, ClientError) as e:
-            error_msg = f"Failed to access S3 path {model_source}: {e}"
-            logger.error(error_msg)
-            raise ValueError(error_msg) from e
 
         if model_type == ModelType.ADAPTER and not base_model:
             raise ValueError("base_model required for LoRA adapters")
 
+        _validate_modal_model_source(model_source)
+
+        hf_token = resolve_hf_token(model_access_key)
+        warn_if_private_model_missing_token(model_source, hf_token)
+
+        logger.info(f"Validated HuggingFace model source: {model_source}")
         return UploadedModel(
             provider_model_id=model_source,
             status="ready",
         )
 
     async def get_model_status(self, model_id: str) -> str:
-        """Return ``"ready"`` — S3-backed models are always available once validated."""
-        if not model_id.startswith("s3://"):
-            raise ValueError(f"Invalid model_id (expected S3 path): {model_id}")
-        return "ready"
+        """Return ``"ready"`` — HF models are always available once validated."""
+        if is_huggingface_repo_id(model_id):
+            return "ready"
+        raise ValueError(
+            f"Unsupported model source: {model_id}. "
+            "Modal currently only supports HuggingFace repo IDs."
+        )
 
     async def create_endpoint(
         self,
@@ -248,53 +225,44 @@ class ModalDeploymentClient(BaseDeploymentClient):
         hardware: HardwareConfig,
         autoscaling: AutoscalingConfig,
         display_name: str | None = None,
-        huggingface_model_id: str | None = None,
     ) -> Endpoint:
         """Generate and deploy a Modal app with a vLLM inference server.
 
-        Supports S3-backed models (via CloudBucketMount) and HuggingFace models.
+        The model source type is auto-detected from ``model_id``. Only
+        HuggingFace repo IDs are currently supported. For private/gated
+        models, a Modal secret (named ``self._hf_secret_name``) is injected
+        so the container can authenticate with HuggingFace Hub.
 
         Raises:
-            ValueError: If GPU type not supported.
+            ValueError: If model_id is not a HuggingFace repo ID or GPU type
+                is not supported.
             RuntimeError: If deployment fails.
         """
-        import subprocess
-        import tempfile
-
-        use_huggingface = huggingface_model_id is not None
-        if use_huggingface:
-            logger.info(
-                f"Creating Modal endpoint for HuggingFace model: {huggingface_model_id}"
+        if not is_huggingface_repo_id(model_id):
+            raise ValueError(
+                f"Only HuggingFace repo IDs are currently supported. Got: {model_id}"
             )
-            vllm_model_path = huggingface_model_id
-        else:
-            s3_match = re.match(r"s3://([^/]+)/(.+)", model_id)
-            if not s3_match:
-                raise ValueError(f"Invalid S3 path: {model_id}")
-            vllm_model_path = f"/models/{s3_match.group(2)}"
 
+        is_private = not check_hf_model_accessibility(model_id)
         gpu_type = self._to_modal_gpu(hardware)
         app_name = self._generate_app_name(display_name or "oumi-inference")
-        log_model = huggingface_model_id if use_huggingface else model_id
         logger.info(
-            f"Creating Modal app {app_name} with {gpu_type} GPU for model {log_model}"
+            f"Creating Modal app {app_name} with {gpu_type} GPU for model {model_id}"
         )
 
         vllm_port = 8000
         scaledown = autoscaling.min_replicas if autoscaling.min_replicas > 0 else 300
 
-        secrets_str = ""
-        if use_huggingface:
-            secrets_str = 'secrets=[modal.Secret.from_name("huggingface-token")],'
-
-        if use_huggingface:
-            volumes_str = '''volumes={
-        "/root/.cache/huggingface": modal.Volume.from_name("huggingface-cache", create_if_missing=True),
-    },'''
+        if is_private:
+            secrets_str = f'secrets=[modal.Secret.from_name("{self._hf_secret_name}")],'
         else:
-            volumes_str = ""
+            secrets_str = ""
 
-        app_code = f'''
+        volumes_str = """volumes={
+        "/root/.cache/huggingface": modal.Volume.from_name("huggingface-cache", create_if_missing=True),
+    },"""
+
+        app_code = f"""
 import modal
 import subprocess
 
@@ -320,7 +288,7 @@ vllm_image = (
 @modal.web_server(port={vllm_port}, startup_timeout=300)
 def serve():
     cmd = [
-        "vllm", "serve", "{vllm_model_path}",
+        "vllm", "serve", "{model_id}",
         "--host", "0.0.0.0",
         "--port", "{vllm_port}",
         "--enforce-eager",
@@ -328,32 +296,28 @@ def serve():
         "--trust-remote-code",
     ]
     subprocess.Popen(cmd)
-'''
+"""
 
+        temp_file: str | None = None
         try:
-            with tempfile.NamedTemporaryFile(
-                mode="w", suffix=".py", delete=False
-            ) as f:
+            import tempfile
+
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
                 f.write(app_code)
                 temp_file = f.name
 
-            logger.info(f"Deploying Modal app from {temp_file}...")
-            result = subprocess.run(
-                ["modal", "deploy", temp_file],
-                capture_output=True,
-                text=True,
-                timeout=600,
-            )
-
-            if result.returncode != 0:
-                error_msg = f"Modal deploy failed: {result.stderr}"
-                logger.error(error_msg)
-                raise RuntimeError(error_msg)
-
-            logger.info(f"Modal deploy output: {result.stdout}")
+            logger.info(f"Deploying Modal app via SDK from {temp_file}...")
+            spec = importlib.util.spec_from_file_location("_modal_app", temp_file)
+            if spec is None or spec.loader is None:
+                raise RuntimeError(
+                    f"Failed to load generated Modal app from {temp_file}"
+                )
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            mod.app.deploy()
 
             endpoint_url = (
-                f"https://{self.workspace}--{app_name}-serve.modal.run"
+                f"https://{self._workspace}--{app_name}-serve.modal.run"
                 "/v1/chat/completions"
             )
             logger.info(f"Modal app deployed: {endpoint_url}")
@@ -361,7 +325,7 @@ def serve():
             return Endpoint(
                 endpoint_id=app_name,
                 provider=self.provider,
-                model_id=huggingface_model_id if use_huggingface else model_id,
+                model_id=model_id,
                 endpoint_url=endpoint_url,
                 state=EndpointState.RUNNING,
                 hardware=hardware,
@@ -370,16 +334,12 @@ def serve():
                 created_at=datetime.now(tz=timezone.utc),
             )
 
-        except subprocess.TimeoutExpired:
-            error_msg = f"Modal deploy timed out for {app_name}"
-            logger.error(error_msg)
-            raise RuntimeError(error_msg)
         except Exception as e:
             error_msg = f"Failed to deploy Modal app {app_name}: {e}"
             logger.error(error_msg)
             raise RuntimeError(error_msg) from e
         finally:
-            if "temp_file" in locals():
+            if temp_file is not None:
                 try:
                     os.unlink(temp_file)
                 except Exception:
@@ -440,7 +400,6 @@ def serve():
             HardwareConfig(accelerator="nvidia_a10g", count=1),
             HardwareConfig(accelerator="nvidia_l4", count=1),
             HardwareConfig(accelerator="nvidia_t4", count=1),
-            # Multi-GPU configs
             HardwareConfig(accelerator="nvidia_a100_80gb", count=2),
             HardwareConfig(accelerator="nvidia_a100_80gb", count=4),
             HardwareConfig(accelerator="nvidia_h100_80gb", count=2),
@@ -451,20 +410,20 @@ def serve():
     async def list_models(
         self, include_public: bool = False, organization: str | None = None
     ) -> list[Model]:
-        """Return empty list — Modal has no model registry (models live in S3)."""
+        """Return empty list — Modal has no model registry."""
         return []
 
     async def delete_model(self, model_id: str) -> None:
-        """Not supported — models live in S3, not in Modal."""
+        """Not supported — models live on HuggingFace, not in Modal."""
         raise NotImplementedError(
-            "Modal doesn't manage model storage. Models are accessed directly from S3. "
-            "Delete the model from S3 if needed using AWS CLI or boto3."
+            "Modal doesn't manage model storage. Models are referenced from "
+            "HuggingFace Hub. Delete the model from HuggingFace if needed."
         )
 
     # --- Helpers ---
 
     def _build_endpoint_url(self, endpoint_id: str) -> str:
-        return f"https://{self.workspace}--{endpoint_id}-serve.modal.run"
+        return f"https://{self._workspace}--{endpoint_id}-serve.modal.run"
 
     def _make_default_endpoint(
         self, endpoint_id: str, state: EndpointState

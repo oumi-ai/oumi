@@ -78,7 +78,7 @@ def check_hf_model_accessibility(model_id: str) -> bool:
 
 
 def resolve_hf_token(model_access_key: str | None = None) -> str:
-    """Resolve the HuggingFace token to use for Parasail API calls.
+    """Resolve the HuggingFace token for deployment API calls.
 
     Priority:
     1. Explicit *model_access_key* (caller-provided).
@@ -115,6 +115,5 @@ def warn_if_private_model_missing_token(
         logger.warning(
             f"Model '{model_id}' appears to be gated or private on HuggingFace, "
             "but no HuggingFace token was found. Set the HF_TOKEN environment "
-            "variable or pass --model-access-key to avoid authentication errors "
-            "from Parasail."
+            "variable or pass --model-access-key to provide authentication."
         )

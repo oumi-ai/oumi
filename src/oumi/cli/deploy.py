@@ -36,8 +36,8 @@ from oumi.deploy import (
     EndpointState,
     FireworksDeploymentClient,
     HardwareConfig,
-    Model,
     ModalDeploymentClient,
+    Model,
     ModelType,
     ParasailDeploymentClient,
     UploadedModel,
@@ -150,10 +150,7 @@ def _get_available_providers() -> list[str]:
     if os.environ.get("PARASAIL_API_KEY"):
         available.append("parasail")
 
-    has_modal_env = os.environ.get("MODAL_TOKEN_ID") and os.environ.get(
-        "MODAL_TOKEN_SECRET"
-    )
-    if has_modal_env or (Path.home() / ".modal.toml").exists():
+    if os.environ.get("MODAL_TOKEN_ID") and os.environ.get("MODAL_TOKEN_SECRET"):
         available.append("modal")
 
     return available
