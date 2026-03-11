@@ -242,7 +242,7 @@ def get_vllm_version() -> str | None:
 
 
 @lru_cache(maxsize=1)
-def is_vllm_post_v0102() -> bool:
+def is_vllm_post_v0_10_2() -> bool:
     """Checks if vLLM version is newer than 0.10.2."""
     vllm_version = get_vllm_version()
     if vllm_version is None:
