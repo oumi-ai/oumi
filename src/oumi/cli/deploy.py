@@ -48,6 +48,11 @@ logger = logging.getLogger(__name__)
 
 CONSOLE = Console()
 _DEFAULT_POLL_TIMEOUT_S = 1800  # 30 minutes
+_DEPLOYMENT_CLIENTS: dict[str, type[BaseDeploymentClient]] = {
+    DeploymentProvider.FIREWORKS.value: FireworksDeploymentClient,
+    DeploymentProvider.MODAL.value: ModalDeploymentClient,
+    DeploymentProvider.PARASAIL.value: ParasailDeploymentClient,
+}
 
 
 def _kv(label: str, value: Any) -> None:
@@ -126,18 +131,15 @@ def _get_deployment_client(
     Raises:
         ValueError: If provider is not supported.
     """
-    provider = provider.lower()
-    if provider == DeploymentProvider.FIREWORKS.value:
-        return FireworksDeploymentClient()
-    elif provider == DeploymentProvider.MODAL.value:
-        return ModalDeploymentClient()
-    elif provider == DeploymentProvider.PARASAIL.value:
-        return ParasailDeploymentClient()
-    else:
-        raise ValueError(
-            f"Unsupported provider: {provider}. "
-            f"Supported providers: {[p.value for p in DeploymentProvider]}"
-        )
+    normalized_provider = provider.strip().lower()
+    client_cls = _DEPLOYMENT_CLIENTS.get(normalized_provider)
+    if client_cls:
+        return client_cls()
+
+    raise ValueError(
+        f"Unsupported provider: {provider}. "
+        f"Supported providers: {list(_DEPLOYMENT_CLIENTS.keys())}"
+    )
 
 
 def _get_available_providers() -> list[str]:

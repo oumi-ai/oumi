@@ -21,6 +21,8 @@ References:
 - Modal Docs: https://modal.com/docs
 - Modal Python SDK: https://modal.com/docs/reference/modal.App
 - vLLM on Modal: https://docs.vllm.ai/en/latest/deployment/frameworks/modal/
+- Modal GPU guide: https://modal.com/docs/guide/gpu
+- Modal Python SDK source: https://github.com/modal-labs/modal-client
 """
 
 import importlib.util
@@ -106,14 +108,21 @@ class ModalDeploymentClient(BaseDeploymentClient):
 
     provider = DeploymentProvider.MODAL
 
-    GPU_TYPES = {
-        "nvidia_a100_40gb": "A100",
-        "nvidia_a100_80gb": "A100",
-        "nvidia_h100_80gb": "H100",
-        "nvidia_a10g": "A10G",
-        "nvidia_l4": "L4",
-        "nvidia_t4": "T4",
-    }
+    # Static catalog used by list_hardware(); Modal's public Python SDK currently
+    # exposes GPU selection strings but does not provide a live "list available GPUs"
+    # API for a workspace. Keep this aligned with:
+    # https://modal.com/docs/guide/gpu
+    _SUPPORTED_HARDWARE_SPECS: tuple[tuple[str, tuple[int, ...]], ...] = (
+        ("nvidia_t4", (1, 2, 4, 8)),
+        ("nvidia_l4", (1, 2, 4, 8)),
+        ("nvidia_a10g", (1, 2, 4)),
+        ("nvidia_l40s", (1, 2, 4, 8)),
+        ("nvidia_a100_40gb", (1, 2, 4, 8)),
+        ("nvidia_a100_80gb", (1, 2, 4, 8)),
+        ("nvidia_h100_80gb", (1, 2, 4, 8)),
+        ("nvidia_h200", (1, 2, 4, 8)),
+        ("nvidia_b200", (1, 2, 4, 8)),
+    )
 
     def __init__(
         self,
@@ -393,18 +402,11 @@ def serve():
 
     async def list_hardware(self, model_id: str | None = None) -> list[HardwareConfig]:
         """List supported GPU types on Modal."""
+        _ = model_id
         return [
-            HardwareConfig(accelerator="nvidia_a100_40gb", count=1),
-            HardwareConfig(accelerator="nvidia_a100_80gb", count=1),
-            HardwareConfig(accelerator="nvidia_h100_80gb", count=1),
-            HardwareConfig(accelerator="nvidia_a10g", count=1),
-            HardwareConfig(accelerator="nvidia_l4", count=1),
-            HardwareConfig(accelerator="nvidia_t4", count=1),
-            HardwareConfig(accelerator="nvidia_a100_80gb", count=2),
-            HardwareConfig(accelerator="nvidia_a100_80gb", count=4),
-            HardwareConfig(accelerator="nvidia_h100_80gb", count=2),
-            HardwareConfig(accelerator="nvidia_h100_80gb", count=4),
-            HardwareConfig(accelerator="nvidia_h100_80gb", count=8),
+            HardwareConfig(accelerator=accelerator, count=count)
+            for accelerator, counts in self._SUPPORTED_HARDWARE_SPECS
+            for count in counts
         ]
 
     async def list_models(
@@ -442,13 +444,40 @@ def serve():
 
     def _to_modal_gpu(self, hardware: HardwareConfig) -> str:
         """Convert ``HardwareConfig`` to a Modal GPU type string."""
-        gpu_type = self.GPU_TYPES.get(hardware.accelerator)
-        if not gpu_type:
-            raise ValueError(
-                f"Unsupported GPU type: {hardware.accelerator}. "
-                f"Supported types: {list(self.GPU_TYPES.keys())}"
-            )
-        return gpu_type
+        accelerator = hardware.accelerator.lower()
+
+        if accelerator in ("nvidia_t4", "t4"):
+            return "T4"
+        if accelerator in ("nvidia_l4", "l4"):
+            return "L4"
+        if accelerator in ("nvidia_a10g", "nvidia_a10", "a10g", "a10"):
+            return "A10G"
+        if accelerator in ("nvidia_l40s", "l40s"):
+            return "L40S"
+        if accelerator in ("nvidia_a100_40gb", "a100_40gb", "a100-40gb"):
+            return "A100-40GB"
+        if accelerator in ("nvidia_a100_80gb", "a100_80gb", "a100-80gb"):
+            return "A100-80GB"
+        if accelerator in ("nvidia_a100", "a100"):
+            return "A100"
+        if accelerator in ("nvidia_h100_80gb", "nvidia_h100", "h100_80gb", "h100"):
+            return "H100"
+        if accelerator in ("nvidia_h200", "h200"):
+            return "H200"
+        if accelerator in ("nvidia_b200", "b200"):
+            return "B200"
+
+        supported = sorted({a for a, _ in self._SUPPORTED_HARDWARE_SPECS})
+        supported.extend(
+            [
+                "nvidia_a100",
+                "nvidia_h100",
+            ]
+        )
+        raise ValueError(
+            f"Unsupported GPU type: {hardware.accelerator}. "
+            f"Supported types: {supported}"
+        )
 
     def _generate_app_name(self, display_name: str) -> str:
         """Generate a valid Modal app name (lowercase alphanumeric + hyphens)."""
