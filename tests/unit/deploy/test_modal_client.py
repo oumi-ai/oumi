@@ -1,6 +1,5 @@
 """Unit tests for Modal deployment client."""
 
-import subprocess
 import sys
 from unittest.mock import MagicMock, patch
 
@@ -31,28 +30,17 @@ def modal_client():
             token_secret="test-token-secret",
             workspace="test-workspace",
         )
-        # Mock the S3 client
-        client._s3_client = MagicMock()
         return client
-
-
-@pytest.fixture
-def mock_s3_client():
-    """Create a mock S3 client."""
-    client = MagicMock()
-    client.list_objects_v2.return_value = {"Contents": [{"Key": "model/file"}]}
-    return client
 
 
 def test_gpu_type_mapping(modal_client):
     """Test GPU type conversion to Modal format."""
     hw = HardwareConfig(accelerator="nvidia_a100_80gb", count=1)
-    assert modal_client._to_modal_gpu(hw) == "A100"
+    assert modal_client._to_modal_gpu(hw) == "A100-80GB"
 
     hw = HardwareConfig(accelerator="nvidia_h100_80gb", count=2)
     assert modal_client._to_modal_gpu(hw) == "H100"
 
-    # Invalid GPU type
     hw = HardwareConfig(accelerator="nvidia_v100", count=1)
     with pytest.raises(ValueError, match="Unsupported GPU type"):
         modal_client._to_modal_gpu(hw)
@@ -72,36 +60,41 @@ def test_app_name_generation(modal_client):
     assert name.islower()
     assert " " not in name
 
-    # Special characters removed
     name = modal_client._generate_app_name("Model@123_test")
     assert "@" not in name
     assert "_" not in name
 
 
 @pytest.mark.asyncio
-async def test_upload_model_s3_path(modal_client, mock_s3_client):
-    """Test upload_model with S3 path."""
-    modal_client._s3_client = mock_s3_client
+async def test_upload_model_hf_repo(modal_client):
+    """Test upload_model accepts a HuggingFace repo ID."""
+    with patch(
+        "oumi.deploy.modal_client.check_hf_model_accessibility", return_value=True
+    ):
+        result = await modal_client.upload_model(
+            model_source="Qwen/Qwen3-1.7B",
+            model_name="qwen3-1-7b",
+            model_type=ModelType.FULL,
+        )
 
-    result = await modal_client.upload_model(
-        model_source="s3://my-bucket/models/llama-7b",
-        model_name="llama-7b",
-        model_type=ModelType.FULL,
-    )
-
-    assert result.provider_model_id == "s3://my-bucket/models/llama-7b"
+    assert result.provider_model_id == "Qwen/Qwen3-1.7B"
     assert result.status == "ready"
-
-    # Verify S3 was checked
-    mock_s3_client.list_objects_v2.assert_called_once_with(
-        Bucket="my-bucket", Prefix="models/llama-7b", MaxKeys=1
-    )
 
 
 @pytest.mark.asyncio
-async def test_upload_model_invalid_path(modal_client):
-    """Test upload_model rejects non-S3 paths."""
-    with pytest.raises(ValueError, match="Modal requires S3 paths"):
+async def test_upload_model_rejects_s3(modal_client):
+    """Test upload_model rejects S3 paths (not yet supported)."""
+    with pytest.raises(ValueError, match="does not yet support S3"):
+        await modal_client.upload_model(
+            model_source="s3://bucket/models/llama-7b",
+            model_name="test",
+        )
+
+
+@pytest.mark.asyncio
+async def test_upload_model_rejects_local_path(modal_client):
+    """Test upload_model rejects non-HF sources."""
+    with pytest.raises(ValueError, match="Unrecognized model source"):
         await modal_client.upload_model(
             model_source="/local/path/to/model",
             model_name="test",
@@ -109,39 +102,39 @@ async def test_upload_model_invalid_path(modal_client):
 
 
 @pytest.mark.asyncio
-async def test_upload_model_s3_not_found(modal_client, mock_s3_client):
-    """Test upload_model fails when S3 path doesn't exist."""
-    mock_s3_client.list_objects_v2.return_value = {}  # No contents
-    modal_client._s3_client = mock_s3_client
-
-    with pytest.raises(ValueError, match="S3 path not found"):
-        await modal_client.upload_model(
-            model_source="s3://bucket/missing/model",
-            model_name="test",
-        )
-
-
-@pytest.mark.asyncio
 async def test_get_model_status(modal_client):
-    """Test get_model_status always returns ready for S3 paths."""
-    status = await modal_client.get_model_status("s3://bucket/path/to/model")
+    """Test get_model_status returns ready for HF repo IDs."""
+    status = await modal_client.get_model_status("Qwen/Qwen3-1.7B")
     assert status == "ready"
 
 
 @pytest.mark.asyncio
-async def test_create_endpoint(modal_client, mock_s3_client):
-    """Test endpoint creation via subprocess-based Modal CLI deploy."""
-    modal_client._s3_client = mock_s3_client
+async def test_get_model_status_rejects_non_hf(modal_client):
+    """Test get_model_status raises for non-HF sources."""
+    with pytest.raises(ValueError, match="Unsupported model source"):
+        await modal_client.get_model_status("s3://bucket/path/to/model")
 
-    mock_proc = MagicMock(spec=subprocess.CompletedProcess)
-    mock_proc.returncode = 0
-    mock_proc.stdout = ""
-    mock_proc.stderr = ""
 
-    with patch("subprocess.run", return_value=mock_proc):
+@pytest.mark.asyncio
+async def test_create_endpoint(modal_client):
+    """Test endpoint creation generates and deploys a Modal app."""
+    with (
+        patch(
+            "oumi.deploy.modal_client.check_hf_model_accessibility",
+            return_value=True,
+        ),
+        patch(
+            "oumi.deploy.modal_client.importlib.util"
+        ) as mock_importlib,
+    ):
+        mock_spec = MagicMock()
+        mock_importlib.spec_from_file_location.return_value = mock_spec
+        mock_mod = MagicMock()
+        mock_importlib.module_from_spec.return_value = mock_mod
+
         endpoint = await modal_client.create_endpoint(
-            model_id="s3://bucket/models/llama-7b",
-            hardware=HardwareConfig(accelerator="nvidia_a100_80gb", count=1),
+            model_id="Qwen/Qwen3-1.7B",
+            hardware=HardwareConfig(accelerator="nvidia_h100_80gb", count=1),
             autoscaling=AutoscalingConfig(min_replicas=0, max_replicas=2),
             display_name="test-model",
         )

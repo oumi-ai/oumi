@@ -63,6 +63,8 @@ from oumi.deploy.utils import (
 
 logger = logging.getLogger(__name__)
 
+_SCALEDOWN_WINDOW_SECONDS = 15 * 60  # Modal range: [2, 3600]
+
 
 def _validate_modal_model_source(model_source: str) -> None:
     """Validate that *model_source* is a HuggingFace repo ID.
@@ -97,6 +99,7 @@ def _validate_modal_model_source(model_source: str) -> None:
             f"Unrecognized model source: '{model_source}'. "
             "Modal accepts a HuggingFace repo ID (e.g., 'Qwen/Qwen3-1.7B')."
         )
+
 
 
 class ModalDeploymentClient(BaseDeploymentClient):
@@ -265,7 +268,6 @@ class ModalDeploymentClient(BaseDeploymentClient):
         logger.info(f"Using local Python {local_python_minor} for Modal image build")
 
         vllm_port = 8000
-        scaledown = autoscaling.min_replicas if autoscaling.min_replicas > 0 else 300
 
         if is_private:
             secrets_str = (
@@ -297,12 +299,12 @@ vllm_image = (
     image=vllm_image,
     gpu="{gpu_type}:{hardware.count}",
     {secrets_str}
-    scaledown_window={scaledown},
+    scaledown_window={_SCALEDOWN_WINDOW_SECONDS},
     timeout=600,
     {volumes_str}
 )
 @modal.concurrent(max_inputs=100)
-@modal.web_server(port={vllm_port}, startup_timeout=300)
+@modal.web_server(port={vllm_port}, startup_timeout=600)
 def serve():
     cmd = [
         "vllm", "serve", "{model_id}",
