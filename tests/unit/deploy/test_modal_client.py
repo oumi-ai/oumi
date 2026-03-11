@@ -123,9 +123,7 @@ async def test_create_endpoint(modal_client):
             "oumi.deploy.modal_client.check_hf_model_accessibility",
             return_value=True,
         ),
-        patch(
-            "oumi.deploy.modal_client.importlib.util"
-        ) as mock_importlib,
+        patch("oumi.deploy.modal_client.importlib.util") as mock_importlib,
     ):
         mock_spec = MagicMock()
         mock_importlib.spec_from_file_location.return_value = mock_spec
@@ -249,7 +247,9 @@ async def test_list_endpoints(modal_client):
 def test_ensure_modal_hf_secret_exists_creates_secret(modal_client):
     """Creates the HF secret when token is available."""
     with (
-        patch("oumi.deploy.modal_client.resolve_hf_token", return_value="hf_test_token"),
+        patch(
+            "oumi.deploy.modal_client.resolve_hf_token", return_value="hf_test_token"
+        ),
         patch("oumi.deploy.modal_client.modal") as mock_modal,
     ):
         modal_client._ensure_modal_hf_secret_exists()
@@ -271,7 +271,9 @@ def test_ensure_modal_hf_secret_exists_raises_without_token(modal_client):
 def test_ensure_modal_hf_secret_exists_allows_existing_secret(modal_client):
     """Treats 'already exists' as success."""
     with (
-        patch("oumi.deploy.modal_client.resolve_hf_token", return_value="hf_test_token"),
+        patch(
+            "oumi.deploy.modal_client.resolve_hf_token", return_value="hf_test_token"
+        ),
         patch("oumi.deploy.modal_client.modal") as mock_modal,
     ):
         mock_modal.Secret.create_deployed.side_effect = RuntimeError(

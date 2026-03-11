@@ -101,7 +101,6 @@ def _validate_modal_model_source(model_source: str) -> None:
         )
 
 
-
 class ModalDeploymentClient(BaseDeploymentClient):
     """Modal.com deployment client for serverless vLLM inference.
 
@@ -271,7 +270,7 @@ class ModalDeploymentClient(BaseDeploymentClient):
 
         if is_private:
             secrets_str = (
-                'secrets=[modal.Secret.from_name('
+                "secrets=[modal.Secret.from_name("
                 f'"{self._hf_secret_name}", required_keys=["HF_TOKEN"])],'
             )
         else:
