@@ -29,6 +29,7 @@ import importlib.util
 import logging
 import os
 import re
+import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -253,17 +254,24 @@ class ModalDeploymentClient(BaseDeploymentClient):
             )
 
         is_private = not check_hf_model_accessibility(model_id)
+        if is_private:
+            self._ensure_modal_hf_secret_exists()
         gpu_type = self._to_modal_gpu(hardware)
         app_name = self._generate_app_name(display_name or "oumi-inference")
+        local_python_minor = self._local_python_minor()
         logger.info(
             f"Creating Modal app {app_name} with {gpu_type} GPU for model {model_id}"
         )
+        logger.info(f"Using local Python {local_python_minor} for Modal image build")
 
         vllm_port = 8000
         scaledown = autoscaling.min_replicas if autoscaling.min_replicas > 0 else 300
 
         if is_private:
-            secrets_str = f'secrets=[modal.Secret.from_name("{self._hf_secret_name}")],'
+            secrets_str = (
+                'secrets=[modal.Secret.from_name('
+                f'"{self._hf_secret_name}", required_keys=["HF_TOKEN"])],'
+            )
         else:
             secrets_str = ""
 
@@ -278,7 +286,7 @@ import subprocess
 app = modal.App("{app_name}")
 
 vllm_image = (
-    modal.Image.from_registry("nvidia/cuda:12.8.0-devel-ubuntu22.04", add_python="3.12")
+    modal.Image.from_registry("nvidia/cuda:12.8.0-devel-ubuntu22.04", add_python="{local_python_minor}")
     .entrypoint([])
     .apt_install("libxcb1", "libx11-6", "libgl1-mesa-glx", "libglib2.0-0")
     .pip_install("vllm>=0.6.0", "huggingface-hub>=0.36.0", "hf_transfer")
@@ -427,6 +435,33 @@ def serve():
     def _build_endpoint_url(self, endpoint_id: str) -> str:
         return f"https://{self._workspace}--{endpoint_id}-serve.modal.run"
 
+    def _ensure_modal_hf_secret_exists(self) -> None:
+        """Ensure the workspace has a Modal secret containing ``HF_TOKEN``."""
+        hf_token = resolve_hf_token()
+        if not hf_token:
+            raise RuntimeError(
+                "This HuggingFace model appears private/gated, but no HF token was "
+                "found. Set HF_TOKEN or pass --model-access-key before deploying."
+            )
+
+        try:
+            modal.Secret.create_deployed(
+                deployment_name=self._hf_secret_name,
+                env_dict={"HF_TOKEN": hf_token},
+                overwrite=False,
+            )
+            logger.info(f"Created Modal secret '{self._hf_secret_name}' for HF access")
+        except Exception as e:
+            # Secret already exists; keep using it.
+            if "already exists" in str(e).lower():
+                logger.info(
+                    f"Using existing Modal secret '{self._hf_secret_name}' for HF access"
+                )
+                return
+            raise RuntimeError(
+                f"Failed to ensure Modal secret '{self._hf_secret_name}' exists: {e}"
+            ) from e
+
     def _make_default_endpoint(
         self, endpoint_id: str, state: EndpointState
     ) -> Endpoint:
@@ -485,3 +520,8 @@ def serve():
         name = re.sub(r"[^a-z0-9-]", "", name)
         name = re.sub(r"-+", "-", name)
         return f"{name}-{int(time.time())}"
+
+    @staticmethod
+    def _local_python_minor() -> str:
+        """Return local interpreter major.minor (e.g. ``3.11``)."""
+        return f"{sys.version_info.major}.{sys.version_info.minor}"

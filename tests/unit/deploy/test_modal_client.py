@@ -1,6 +1,7 @@
 """Unit tests for Modal deployment client."""
 
 import subprocess
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -55,6 +56,13 @@ def test_gpu_type_mapping(modal_client):
     hw = HardwareConfig(accelerator="nvidia_v100", count=1)
     with pytest.raises(ValueError, match="Unsupported GPU type"):
         modal_client._to_modal_gpu(hw)
+
+
+def test_local_python_minor(modal_client):
+    """Uses the current interpreter version for generated Modal images."""
+    assert modal_client._local_python_minor() == (
+        f"{sys.version_info.major}.{sys.version_info.minor}"
+    )
 
 
 def test_app_name_generation(modal_client):
@@ -243,3 +251,37 @@ async def test_list_endpoints(modal_client):
 
     assert len(endpoints) == 2
     assert all(e.provider == modal_client.provider for e in endpoints)
+
+
+def test_ensure_modal_hf_secret_exists_creates_secret(modal_client):
+    """Creates the HF secret when token is available."""
+    with (
+        patch("oumi.deploy.modal_client.resolve_hf_token", return_value="hf_test_token"),
+        patch("oumi.deploy.modal_client.modal") as mock_modal,
+    ):
+        modal_client._ensure_modal_hf_secret_exists()
+
+    mock_modal.Secret.create_deployed.assert_called_once_with(
+        deployment_name="huggingface-token",
+        env_dict={"HF_TOKEN": "hf_test_token"},
+        overwrite=False,
+    )
+
+
+def test_ensure_modal_hf_secret_exists_raises_without_token(modal_client):
+    """Raises a clear error if no HF token is available."""
+    with patch("oumi.deploy.modal_client.resolve_hf_token", return_value=""):
+        with pytest.raises(RuntimeError, match="no HF token was found"):
+            modal_client._ensure_modal_hf_secret_exists()
+
+
+def test_ensure_modal_hf_secret_exists_allows_existing_secret(modal_client):
+    """Treats 'already exists' as success."""
+    with (
+        patch("oumi.deploy.modal_client.resolve_hf_token", return_value="hf_test_token"),
+        patch("oumi.deploy.modal_client.modal") as mock_modal,
+    ):
+        mock_modal.Secret.create_deployed.side_effect = RuntimeError(
+            "Secret already exists"
+        )
+        modal_client._ensure_modal_hf_secret_exists()
