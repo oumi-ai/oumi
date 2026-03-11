@@ -1,7 +1,7 @@
 """Unit tests for Modal deployment client."""
 
 import sys
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -22,13 +22,11 @@ def modal_client():
         {
             "MODAL_TOKEN_ID": "test-token-id",
             "MODAL_TOKEN_SECRET": "test-token-secret",
-            "MODAL_WORKSPACE": "test-workspace",
         },
     ):
         client = ModalDeploymentClient(
             token_id="test-token-id",
             token_secret="test-token-secret",
-            workspace="test-workspace",
         )
         return client
 
@@ -124,11 +122,19 @@ async def test_create_endpoint(modal_client):
             return_value=True,
         ),
         patch("oumi.deploy.modal_client.importlib.util") as mock_importlib,
+        patch("oumi.deploy.modal_client.modal") as mock_modal,
     ):
         mock_spec = MagicMock()
         mock_importlib.spec_from_file_location.return_value = mock_spec
         mock_mod = MagicMock()
+        mock_mod.app.deploy.aio = AsyncMock()
         mock_importlib.module_from_spec.return_value = mock_mod
+
+        mock_fn = MagicMock()
+        mock_fn.get_web_url.aio = AsyncMock(
+            return_value="https://myworkspace--the-app-serve.modal.run"
+        )
+        mock_modal.Function.from_name.return_value = mock_fn
 
         endpoint = await modal_client.create_endpoint(
             model_id="Qwen/Qwen3-1.7B",
@@ -139,8 +145,9 @@ async def test_create_endpoint(modal_client):
 
         assert endpoint.provider == modal_client.provider
         assert endpoint.state == EndpointState.RUNNING
-        assert "test-workspace" in endpoint.endpoint_url
-        assert ".modal.run" in endpoint.endpoint_url
+        assert endpoint.endpoint_url == (
+            "https://myworkspace--the-app-serve.modal.run/v1/chat/completions"
+        )
 
 
 @pytest.mark.asyncio
@@ -187,30 +194,46 @@ async def test_list_models_returns_empty(modal_client):
 async def test_get_endpoint(modal_client):
     """Test getting endpoint status."""
     with patch("oumi.deploy.modal_client.modal") as mock_modal:
-        # Mock App.lookup
         mock_app = MagicMock()
-        mock_modal.App.lookup.return_value = mock_app
+        mock_modal.App.lookup.aio = AsyncMock(return_value=mock_app)
+
+        mock_fn = MagicMock()
+        mock_fn.get_web_url.aio = AsyncMock(
+            return_value="https://test-workspace--test-app-123-serve.modal.run"
+        )
+        mock_modal.Function.from_name.return_value = mock_fn
 
         endpoint = await modal_client.get_endpoint("test-app-123")
 
         assert endpoint.endpoint_id == "test-app-123"
         assert endpoint.state == EndpointState.RUNNING
-        mock_modal.App.lookup.assert_called_once_with(
+        assert endpoint.endpoint_url == (
+            "https://test-workspace--test-app-123-serve.modal.run"
+            "/v1/chat/completions"
+        )
+        mock_modal.App.lookup.aio.assert_called_once_with(
             "test-app-123", create_if_missing=False
         )
+        mock_modal.Function.from_name.assert_called_with("test-app-123", "serve")
 
 
 @pytest.mark.asyncio
 async def test_get_endpoint_not_found(modal_client):
     """Test getting endpoint that doesn't exist."""
     with patch("oumi.deploy.modal_client.modal") as mock_modal:
-        # Mock App.lookup returns None
-        mock_modal.App.lookup.return_value = None
+        mock_modal.App.lookup.aio = AsyncMock(return_value=None)
+
+        mock_fn = MagicMock()
+        mock_fn.get_web_url.aio = AsyncMock(
+            return_value="https://ws--missing-app-serve.modal.run"
+        )
+        mock_modal.Function.from_name.return_value = mock_fn
 
         endpoint = await modal_client.get_endpoint("missing-app")
 
         assert endpoint.endpoint_id == "missing-app"
         assert endpoint.state == EndpointState.ERROR
+        assert endpoint.endpoint_url.endswith("/v1/chat/completions")
 
 
 @pytest.mark.asyncio
@@ -218,30 +241,32 @@ async def test_delete_endpoint(modal_client):
     """Test deleting an endpoint."""
     with patch("oumi.deploy.modal_client.modal") as mock_modal:
         mock_app = MagicMock()
-        mock_modal.App.lookup.return_value = mock_app
+        mock_modal.App.lookup.aio = AsyncMock(return_value=mock_app)
 
-        # Add app to tracking
         modal_client._deployed_apps["test-app"] = (mock_app, "test-app")
 
         await modal_client.delete_endpoint("test-app")
 
-        # Verify app was removed from tracking
         assert "test-app" not in modal_client._deployed_apps
 
 
 @pytest.mark.asyncio
 async def test_list_endpoints(modal_client):
     """Test listing endpoints."""
-    # Add some tracked apps
-    mock_app1 = MagicMock()
-    mock_app2 = MagicMock()
-    modal_client._deployed_apps["app1"] = (mock_app1, "app1")
-    modal_client._deployed_apps["app2"] = (mock_app2, "app2")
+    with patch("oumi.deploy.modal_client.modal") as mock_modal:
+        mock_fn = MagicMock()
+        mock_fn.get_web_url.aio = AsyncMock(
+            return_value="https://ws--app-serve.modal.run"
+        )
+        mock_modal.Function.from_name.return_value = mock_fn
 
-    endpoints = await modal_client.list_endpoints()
+        modal_client._deployed_apps["app1"] = (MagicMock(), "app1")
+        modal_client._deployed_apps["app2"] = (MagicMock(), "app2")
 
-    assert len(endpoints) == 2
-    assert all(e.provider == modal_client.provider for e in endpoints)
+        endpoints = await modal_client.list_endpoints()
+
+        assert len(endpoints) == 2
+        assert all(e.provider == modal_client.provider for e in endpoints)
 
 
 def test_ensure_modal_hf_secret_exists_creates_secret(modal_client):

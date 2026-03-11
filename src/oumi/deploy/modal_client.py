@@ -131,7 +131,6 @@ class ModalDeploymentClient(BaseDeploymentClient):
         self,
         token_id: str | None = None,
         token_secret: str | None = None,
-        workspace: str | None = None,
         hf_secret_name: str | None = None,
     ):
         """Initialize Modal client.
@@ -143,8 +142,6 @@ class ModalDeploymentClient(BaseDeploymentClient):
             token_id: Modal API token ID. Falls back to ``MODAL_TOKEN_ID``.
             token_secret: Modal API token secret. Falls back to
                 ``MODAL_TOKEN_SECRET``.
-            workspace: Modal workspace name. Falls back to
-                ``MODAL_WORKSPACE``, then ``"default"``.
             hf_secret_name: Name of the Modal secret containing HuggingFace
                 credentials. Falls back to ``MODAL_HF_SECRET_NAME``, then
                 ``"huggingface-token"``.
@@ -163,7 +160,6 @@ class ModalDeploymentClient(BaseDeploymentClient):
                 "variable or pass token_secret to the constructor."
             )
 
-        self._workspace = workspace or os.environ.get("MODAL_WORKSPACE", "default")
         self._hf_secret_name = hf_secret_name or os.environ.get(
             "MODAL_HF_SECRET_NAME", "huggingface-token"
         )
@@ -332,12 +328,9 @@ def serve():
                 )
             mod = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(mod)
-            mod.app.deploy()
+            await mod.app.deploy.aio()
 
-            endpoint_url = (
-                f"https://{self._workspace}--{app_name}-serve.modal.run"
-                "/v1/chat/completions"
-            )
+            endpoint_url = await self._build_endpoint_url(app_name)
             logger.info(f"Modal app deployed: {endpoint_url}")
 
             return Endpoint(
@@ -366,14 +359,20 @@ def serve():
     async def get_endpoint(self, endpoint_id: str) -> Endpoint:
         """Get endpoint status from Modal."""
         try:
-            app = modal.App.lookup(endpoint_id, create_if_missing=False)
+            app = await modal.App.lookup.aio(endpoint_id, create_if_missing=False)
             if app is None:
                 logger.warning(f"Modal app {endpoint_id} not found")
-                return self._make_default_endpoint(endpoint_id, EndpointState.ERROR)
-            return self._make_default_endpoint(endpoint_id, EndpointState.RUNNING)
+                return await self._make_default_endpoint(
+                    endpoint_id, EndpointState.ERROR
+                )
+            return await self._make_default_endpoint(
+                endpoint_id, EndpointState.RUNNING
+            )
         except Exception as e:
             logger.error(f"Failed to get endpoint status for {endpoint_id}: {e}")
-            return self._make_default_endpoint(endpoint_id, EndpointState.ERROR)
+            return await self._make_default_endpoint(
+                endpoint_id, EndpointState.ERROR
+            )
 
     async def update_endpoint(
         self,
@@ -391,7 +390,7 @@ def serve():
         """Delete Modal deployment (app will scale to zero and be removed)."""
         try:
             logger.info(f"Deleting Modal app {endpoint_id}...")
-            app = modal.App.lookup(endpoint_id, create_if_missing=False)
+            app = await modal.App.lookup.aio(endpoint_id, create_if_missing=False)
             if app:
                 logger.info(
                     f"Modal app {endpoint_id} will scale to zero and be removed"
@@ -405,7 +404,7 @@ def serve():
     async def list_endpoints(self) -> list[Endpoint]:
         """List deployments tracked in this session (Modal has no list API)."""
         return [
-            self._make_default_endpoint(dep_id, EndpointState.RUNNING)
+            await self._make_default_endpoint(dep_id, EndpointState.RUNNING)
             for dep_id in self._deployed_apps
         ]
 
@@ -433,8 +432,16 @@ def serve():
 
     # --- Helpers ---
 
-    def _build_endpoint_url(self, endpoint_id: str) -> str:
-        return f"https://{self._workspace}--{endpoint_id}-serve.modal.run"
+    async def _build_endpoint_url(self, endpoint_id: str) -> str:
+        """Resolve the chat completions URL for a deployed Modal app."""
+        fn = modal.Function.from_name(endpoint_id, "serve")
+        base_url = await fn.get_web_url.aio()
+        if not base_url:
+            raise RuntimeError(
+                f"Modal SDK returned no web URL for app '{endpoint_id}'. "
+                "Is the app deployed?"
+            )
+        return f"{base_url.rstrip('/')}/v1/chat/completions"
 
     def _ensure_modal_hf_secret_exists(self) -> None:
         """Ensure the workspace has a Modal secret containing ``HF_TOKEN``."""
@@ -463,7 +470,7 @@ def serve():
                 f"Failed to ensure Modal secret '{self._hf_secret_name}' exists: {e}"
             ) from e
 
-    def _make_default_endpoint(
+    async def _make_default_endpoint(
         self, endpoint_id: str, state: EndpointState
     ) -> Endpoint:
         """Build an ``Endpoint`` with sensible defaults for lookup results."""
@@ -471,7 +478,7 @@ def serve():
             endpoint_id=endpoint_id,
             provider=self.provider,
             model_id="",
-            endpoint_url=self._build_endpoint_url(endpoint_id),
+            endpoint_url=await self._build_endpoint_url(endpoint_id),
             state=state,
             hardware=HardwareConfig(accelerator="unknown", count=1),
             autoscaling=AutoscalingConfig(min_replicas=0, max_replicas=1),
