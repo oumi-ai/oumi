@@ -15,6 +15,7 @@
 """CLI commands for deploying models to inference providers."""
 
 import asyncio
+import logging
 import os
 import time
 from collections.abc import Callable, Coroutine
@@ -37,9 +38,12 @@ from oumi.deploy import (
     HardwareConfig,
     Model,
     ModelType,
+    ParasailDeploymentClient,
     UploadedModel,
 )
 from oumi.deploy.base_client import BaseDeploymentClient
+
+logger = logging.getLogger(__name__)
 
 CONSOLE = Console()
 _DEFAULT_POLL_TIMEOUT_S = 1800  # 30 minutes
@@ -113,7 +117,7 @@ def _get_deployment_client(
     """Gets a deployment client for the specified provider.
 
     Args:
-        provider: Provider name ("fireworks")
+        provider: Provider name ("fireworks", "parasail")
 
     Returns:
         Deployment client instance
@@ -124,10 +128,13 @@ def _get_deployment_client(
     provider = provider.lower()
     if provider == DeploymentProvider.FIREWORKS.value:
         return FireworksDeploymentClient()
-    raise ValueError(
-        f"Unsupported provider: {provider}. "
-        f"Supported providers: {[p.value for p in DeploymentProvider]}"
-    )
+    elif provider == DeploymentProvider.PARASAIL.value:
+        return ParasailDeploymentClient()
+    else:
+        raise ValueError(
+            f"Unsupported provider: {provider}. "
+            f"Supported providers: {[p.value for p in DeploymentProvider]}"
+        )
 
 
 def _get_available_providers() -> list[str]:
@@ -141,6 +148,9 @@ def _get_available_providers() -> list[str]:
     # Check Fireworks.ai
     if os.environ.get("FIREWORKS_API_KEY") and os.environ.get("FIREWORKS_ACCOUNT_ID"):
         available.append("fireworks")
+
+    if os.environ.get("PARASAIL_API_KEY"):
+        available.append("parasail")
 
     return available
 
@@ -185,37 +195,53 @@ async def _poll_model_until_ready(
         await asyncio.sleep(10)
 
 
-async def _poll_endpoint_until_ready(
+async def _poll_endpoint_until_state(
     client: BaseDeploymentClient,
     endpoint_id: str,
+    target_state: EndpointState,
     console: Console,
     timeout_s: int = _DEFAULT_POLL_TIMEOUT_S,
 ) -> Endpoint:
-    """Polls until the endpoint is RUNNING or ERROR.
+    """Polls until the endpoint reaches *target_state* or ERROR.
 
     Returns the final Endpoint; raises typer.Exit(1) on ERROR or timeout.
     """
-    console.print("\n[yellow]Waiting for endpoint to be ready...[/yellow]")
+    state_label = target_state.value.lower()
+    logger.debug(
+        "_poll_endpoint_until_state called: endpoint_id=%s, target=%s, timeout=%s",
+        endpoint_id,
+        target_state,
+        timeout_s,
+    )
+    console.print(f"\n[yellow]Waiting for endpoint to be {state_label}...[/yellow]")
     start = time.monotonic()
 
     while True:
-        if time.monotonic() - start > timeout_s:
+        elapsed = time.monotonic() - start
+        if elapsed > timeout_s:
             console.print(
                 f"[red]Error:[/red] Timed out after {timeout_s}s "
-                "waiting for endpoint to be ready."
+                f"waiting for endpoint to be {state_label}."
             )
             raise typer.Exit(1)
 
         endpoint = await client.get_endpoint(endpoint_id)
+        logger.debug(
+            "Endpoint %s state=%s (target=%s, elapsed=%.1fs)",
+            endpoint_id,
+            endpoint.state,
+            target_state,
+            elapsed,
+        )
         console.print(f"State: {endpoint.state.value}")
 
-        if endpoint.state == EndpointState.RUNNING:
-            console.print("[green]✓[/green] Endpoint is ready!")
+        if endpoint.state == target_state:
+            console.print(f"[green]✓[/green] Endpoint is {state_label}!")
             if endpoint.endpoint_url:
                 console.print(f"[cyan]URL:[/cyan] {endpoint.endpoint_url}")
             return endpoint
         if endpoint.state == EndpointState.ERROR:
-            console.print("[red]Error:[/red] Endpoint deployment failed")
+            console.print("[red]Error:[/red] Endpoint entered error state")
             raise typer.Exit(1)
 
         await asyncio.sleep(10)
@@ -565,8 +591,8 @@ def create_endpoint(
             _kv("URL", endpoint.endpoint_url)
 
         if wait:
-            endpoint = await _poll_endpoint_until_ready(
-                client, endpoint.endpoint_id, CONSOLE
+            endpoint = await _poll_endpoint_until_state(
+                client, endpoint.endpoint_id, EndpointState.RUNNING, CONSOLE
             )
 
     _run_async(provider, _create)
@@ -633,7 +659,9 @@ def status(
             EndpointState.RUNNING,
             EndpointState.ERROR,
         ):
-            await _poll_endpoint_until_ready(client, endpoint_id, CONSOLE)
+            await _poll_endpoint_until_state(
+                client, endpoint_id, EndpointState.RUNNING, CONSOLE
+            )
 
     _run_async(provider, _status)
 
@@ -874,6 +902,14 @@ def start(
             help="Minimum replicas when started",
         ),
     ] = 1,
+    wait: Annotated[
+        bool,
+        typer.Option(
+            "--wait",
+            "-w",
+            help="Wait for endpoint to reach RUNNING state",
+        ),
+    ] = False,
     log_level: LOG_LEVEL_TYPE = None,
 ) -> None:
     """Starts a stopped endpoint (saves cost when resuming).
@@ -889,9 +925,13 @@ def start(
                 endpoint_id, min_replicas=min_replicas
             )
         CONSOLE.print(
-            f"[green]✓[/green] Endpoint {endpoint_id} started "
+            f"[green]✓[/green] Endpoint {endpoint_id} start requested "
             f"(min_replicas={endpoint.autoscaling.min_replicas})"
         )
+        if wait:
+            await _poll_endpoint_until_state(
+                client, endpoint_id, EndpointState.RUNNING, CONSOLE
+            )
 
     _run_async(provider, _start)
 
@@ -913,6 +953,14 @@ def stop(
             help="Deployment provider (fireworks)",
         ),
     ],
+    wait: Annotated[
+        bool,
+        typer.Option(
+            "--wait",
+            "-w",
+            help="Wait for endpoint to reach STOPPED state",
+        ),
+    ] = False,
     log_level: LOG_LEVEL_TYPE = None,
 ) -> None:
     """Stops an endpoint by scaling to 0 replicas (cost savings).
@@ -925,7 +973,13 @@ def stop(
     async def _stop(client: BaseDeploymentClient) -> None:
         with CONSOLE.status("[bold yellow]Stopping endpoint..."):
             await client.stop_endpoint(endpoint_id)
-        CONSOLE.print(f"[green]✓[/green] Endpoint {endpoint_id} stopped (0 replicas)")
+        CONSOLE.print(
+            f"[green]✓[/green] Endpoint {endpoint_id} stop requested (0 replicas)"
+        )
+        if wait:
+            await _poll_endpoint_until_state(
+                client, endpoint_id, EndpointState.STOPPED, CONSOLE
+            )
 
     _run_async(provider, _stop)
 
@@ -1133,8 +1187,7 @@ def up(
     wait: Annotated[
         bool,
         typer.Option(
-            "--wait",
-            "-w",
+            "--wait/--no-wait",
             help="Wait for deployment to be ready",
         ),
     ] = True,
@@ -1188,6 +1241,7 @@ def up(
     )
 
     async def _deploy(client: BaseDeploymentClient) -> None:
+        assert deploy_cfg.model_source is not None  # guaranteed by validation
         CONSOLE.print("\n[bold]Step 1: Uploading model...[/bold]")
         upload_result = await _upload_model_and_wait(
             client,
@@ -1216,8 +1270,8 @@ def up(
         CONSOLE.print(f"[green]✓[/green] Endpoint created: {endpoint.endpoint_id}")
 
         if wait:
-            endpoint = await _poll_endpoint_until_ready(
-                client, endpoint.endpoint_id, CONSOLE
+            endpoint = await _poll_endpoint_until_state(
+                client, endpoint.endpoint_id, EndpointState.RUNNING, CONSOLE
             )
 
         CONSOLE.print("\n" + "=" * 60)
