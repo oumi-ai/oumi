@@ -20,7 +20,7 @@ from tqdm.asyncio import tqdm
 from typing_extensions import override
 
 from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
-from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.core.types.conversation import Conversation, FinishReason, Message, Role
 from oumi.inference.adaptive_semaphore import PoliteAdaptiveSemaphore
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 from oumi.utils.logging import logger
@@ -320,6 +320,23 @@ class BedrockInferenceEngine(RemoteInferenceEngine):
                 + (f"Reason: {failure_reason}" if failure_reason else "")
             )
 
+    @staticmethod
+    def _extract_finish_reason_from_response(
+        response: dict[str, Any],
+    ) -> FinishReason | None:
+        """Extract normalized finish_reason from a Bedrock Converse response."""
+        raw_reason = response.get("stopReason")
+        if raw_reason is None:
+            return None
+        mapping = {
+            "end_turn": FinishReason.STOP,
+            "max_tokens": FinishReason.LENGTH,
+            "stop_sequence": FinishReason.STOP,
+            "tool_use": FinishReason.TOOL_CALLS,
+            "content_filtered": FinishReason.CONTENT_FILTER,
+        }
+        return mapping.get(raw_reason, FinishReason.UNKNOWN)
+
     @override
     def _convert_api_output_to_conversation(
         self, response: dict[str, Any], original: Conversation
@@ -330,9 +347,13 @@ class BedrockInferenceEngine(RemoteInferenceEngine):
             if "text" in block:
                 text += block["text"]
         new_message = Message(content=text, role=Role.ASSISTANT)
+        metadata = dict(original.metadata)
+        finish_reason = self._extract_finish_reason_from_response(response)
+        if finish_reason is not None:
+            metadata["finish_reason"] = finish_reason.value
         return Conversation(
             messages=[*original.messages, new_message],
-            metadata=original.metadata,
+            metadata=metadata,
             conversation_id=original.conversation_id,
         )
 

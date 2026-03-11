@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
-from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.core.types.conversation import Conversation, FinishReason, Message, Role
 from oumi.inference.anthropic_inference_engine import AnthropicInferenceEngine
 from oumi.inference.remote_inference_engine import BatchInfo, BatchStatus
 
@@ -255,3 +255,100 @@ async def test_batch_results_partial_failed_status_retrieves_partial_results(
     assert result.successful[0][0] == 0
     assert result.failed_indices == [1]
     assert "server_error" in result.error_messages[1]
+
+
+# FinishReason extraction tests
+class TestAnthropicExtractFinishReason:
+    """Tests for AnthropicInferenceEngine._extract_finish_reason_from_response."""
+
+    def test_extract_finish_reason_end_turn(self, anthropic_engine):
+        response = {"stop_reason": "end_turn", "content": [{"text": "Hello"}]}
+        result = AnthropicInferenceEngine._extract_finish_reason_from_response(response)
+        assert result == FinishReason.STOP
+
+    def test_extract_finish_reason_max_tokens(self, anthropic_engine):
+        response = {"stop_reason": "max_tokens", "content": [{"text": "Truncated"}]}
+        result = AnthropicInferenceEngine._extract_finish_reason_from_response(response)
+        assert result == FinishReason.LENGTH
+
+    def test_extract_finish_reason_stop_sequence(self, anthropic_engine):
+        response = {"stop_reason": "stop_sequence", "content": [{"text": "Stopped"}]}
+        result = AnthropicInferenceEngine._extract_finish_reason_from_response(response)
+        assert result == FinishReason.STOP
+
+    def test_extract_finish_reason_tool_use(self, anthropic_engine):
+        response = {"stop_reason": "tool_use", "content": [{"text": "Function call"}]}
+        result = AnthropicInferenceEngine._extract_finish_reason_from_response(response)
+        assert result == FinishReason.TOOL_CALLS
+
+    def test_extract_finish_reason_unknown(self, anthropic_engine):
+        response = {"stop_reason": "some_new_reason", "content": [{"text": "Response"}]}
+        result = AnthropicInferenceEngine._extract_finish_reason_from_response(response)
+        assert result == FinishReason.UNKNOWN
+
+    def test_extract_finish_reason_none(self, anthropic_engine):
+        response = {"content": [{"text": "Response"}]}
+        result = AnthropicInferenceEngine._extract_finish_reason_from_response(response)
+        assert result is None
+
+
+def test_convert_api_output_to_conversation_with_finish_reason(anthropic_engine):
+    """Test that finish_reason is extracted from Anthropic response."""
+    original_conversation = Conversation(
+        messages=[Message(content="User message", role=Role.USER)],
+        metadata={"key": "value"},
+    )
+    api_response = {
+        "content": [{"text": "Assistant response"}],
+        "stop_reason": "end_turn",
+    }
+
+    result = anthropic_engine._convert_api_output_to_conversation(
+        api_response, original_conversation
+    )
+
+    assert result.metadata.get("finish_reason") == "stop"
+    assert result.metadata["key"] == "value"
+
+
+def test_convert_api_output_to_conversation_with_max_tokens_finish_reason(
+    anthropic_engine,
+):
+    """Test that max_tokens finish_reason is mapped to 'length'."""
+    original_conversation = Conversation(
+        messages=[Message(content="User message", role=Role.USER)],
+        metadata={},
+    )
+    api_response = {
+        "content": [{"text": "Truncated response"}],
+        "stop_reason": "max_tokens",
+    }
+
+    result = anthropic_engine._convert_api_output_to_conversation(
+        api_response, original_conversation
+    )
+
+    assert result.metadata.get("finish_reason") == "length"
+
+
+def test_convert_api_output_to_conversation_with_usage_and_finish_reason(
+    anthropic_engine,
+):
+    """Test that both usage and finish_reason are extracted."""
+    original_conversation = Conversation(
+        messages=[Message(content="User message", role=Role.USER)],
+        metadata={},
+    )
+    api_response = {
+        "content": [{"text": "Response"}],
+        "stop_reason": "end_turn",
+        "usage": {"input_tokens": 10, "output_tokens": 5},
+    }
+
+    result = anthropic_engine._convert_api_output_to_conversation(
+        api_response, original_conversation
+    )
+
+    assert result.metadata.get("finish_reason") == "stop"
+    assert result.metadata["usage"]["prompt_tokens"] == 10
+    assert result.metadata["usage"]["completion_tokens"] == 5

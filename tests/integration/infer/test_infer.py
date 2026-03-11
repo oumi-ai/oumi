@@ -40,7 +40,14 @@ def _compare_conversation_lists(
     for actual, expected in zip(output, expected_output):
         if actual.messages != expected.messages:
             return False
-        if actual.metadata != expected.metadata:
+        # Compare metadata excluding finish_reason (which is dynamically added)
+        actual_metadata = {
+            k: v for k, v in actual.metadata.items() if k != "finish_reason"
+        }
+        expected_metadata = {
+            k: v for k, v in expected.metadata.items() if k != "finish_reason"
+        }
+        if actual_metadata != expected_metadata:
             return False
         if expected.conversation_id is not None:
             if actual.conversation_id != expected.conversation_id:
