@@ -1137,7 +1137,9 @@ def test_agentic_turn_deterministic_tool(
     # Find the tool result message
     messages = conv_dict["messages"]  # type: ignore[index]
     tool_results = [
-        m for m in messages if m.get("role") == "tool"  # type: ignore[union-attr]
+        m
+        for m in messages
+        if m.get("role") == "tool"  # type: ignore[union-attr]
     ]
     assert len(tool_results) >= 1
     # Deterministic output should contain our canned values
