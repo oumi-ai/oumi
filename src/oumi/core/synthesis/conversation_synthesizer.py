@@ -680,7 +680,10 @@ class ConversationSynthesizer:
                                 Message(role=Role.ASSISTANT, content=text)
                             )
                             turn_tool_msgs[idx].append(
-                                Message(role=Role.TOOL, content=result)
+                                Message(
+                                    role=Role.USER,
+                                    content=f"[Tool result from {tool_call['name']}]: {result}",
+                                )
                             )
                             output_messages[idx].append(
                                 ToolExecutor.format_tool_call_message(
@@ -712,7 +715,12 @@ class ConversationSynthesizer:
                         turn_tool_msgs[idx].append(
                             Message(role=Role.ASSISTANT, content=raw)
                         )
-                        turn_tool_msgs[idx].append(Message(role=Role.TOOL, content=sim))
+                        turn_tool_msgs[idx].append(
+                            Message(
+                                role=Role.USER,
+                                content=f"[Tool result from {tc['name']}]: {sim}",
+                            )
+                        )
                         output_messages[idx].append(
                             ToolExecutor.format_tool_call_message(tc, cid)
                         )
