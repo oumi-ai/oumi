@@ -976,12 +976,8 @@ def test_agentic_turn_with_tool_call_and_response(
                         ]
                     )
                 )
-            elif (
-                "ASSISTANT" in str(last_content)
-                and not any(
-                    "[Tool result from" in str(m.content)
-                    for m in conv.messages
-                )
+            elif "ASSISTANT" in str(last_content) and not any(
+                "[Tool result from" in str(m.content) for m in conv.messages
             ):
                 results.append(
                     Conversation(
@@ -1061,9 +1057,7 @@ def test_agentic_turn_deterministic_tool(
                         ]
                     )
                 )
-            elif not any(
-                "[Tool result from" in str(m.content) for m in conv.messages
-            ):
+            elif not any("[Tool result from" in str(m.content) for m in conv.messages):
                 results.append(
                     Conversation(
                         messages=[
