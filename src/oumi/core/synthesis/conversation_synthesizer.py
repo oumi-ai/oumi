@@ -682,7 +682,11 @@ class ConversationSynthesizer:
                             turn_tool_msgs[idx].append(
                                 Message(
                                     role=Role.USER,
-                                    content=f"[Tool result from {tool_call['name']}]: {result}",
+                                    content=(
+                                        f"[Tool result from "
+                                        f"{tool_call['name']}]: "
+                                        f"{result}"
+                                    ),
                                 )
                             )
                             output_messages[idx].append(

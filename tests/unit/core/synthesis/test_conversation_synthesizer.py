@@ -964,7 +964,12 @@ def test_agentic_turn_with_tool_call_and_response(
                         messages=[
                             Message(
                                 role=Role.ASSISTANT,
-                                content='```json\n[{"turn": 1, "instruction": "Ask about order"}, {"turn": 2, "instruction": "Look up the order"}]\n```',
+                                content=(
+                                    '```json\n[{"turn": 1, "instruction":'
+                                    ' "Ask about order"}, {"turn": 2,'
+                                    ' "instruction": "Look up the order"}'
+                                    "]\n```"
+                                ),
                             )
                         ]
                     )
@@ -992,7 +997,11 @@ def test_agentic_turn_with_tool_call_and_response(
                         messages=[
                             Message(
                                 role=Role.ASSISTANT,
-                                content='<tool_call>{"name": "SearchOrders", "arguments": {"order_id": "ORD-001"}}</tool_call>',
+                                content=(
+                                    '<tool_call>{"name": "SearchOrders",'
+                                    ' "arguments": {"order_id": "ORD-001"}}'
+                                    "</tool_call>"
+                                ),
                             )
                         ]
                     )
@@ -1065,7 +1074,6 @@ def test_agentic_turn_deterministic_tool(
     def infer_side_effect(conversations, **kwargs):
         results = []
         for conv in conversations:
-            last_content = conv.messages[-1].content if conv.messages else ""
             # Planning call
             if "conversation planner" in str(conv.messages[0].content).lower():
                 results.append(
@@ -1073,7 +1081,11 @@ def test_agentic_turn_deterministic_tool(
                         messages=[
                             Message(
                                 role=Role.ASSISTANT,
-                                content='```json\n[{"turn": 1, "instruction": "Ask"}, {"turn": 2, "instruction": "Escalate"}]\n```',
+                                content=(
+                                    '```json\n[{"turn": 1, "instruction":'
+                                    ' "Ask"}, {"turn": 2, "instruction":'
+                                    ' "Escalate"}]\n```'
+                                ),
                             )
                         ]
                     )
@@ -1085,7 +1097,11 @@ def test_agentic_turn_deterministic_tool(
                         messages=[
                             Message(
                                 role=Role.ASSISTANT,
-                                content='<tool_call>{"name": "Escalate", "arguments": {"reason": "complex issue"}}</tool_call>',
+                                content=(
+                                    '<tool_call>{"name": "Escalate",'
+                                    ' "arguments": {"reason":'
+                                    ' "complex issue"}}</tool_call>'
+                                ),
                             )
                         ]
                     )

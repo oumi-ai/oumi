@@ -289,7 +289,7 @@ def test_validate_arguments_no_parameters_tool(executor):
 def test_sample_deterministic_outputs_returns_for_deterministic_tools(
     executor, deterministic_tool, generated_tool
 ):
-    """Test that sample_deterministic_outputs returns entries for DETERMINISTIC tools."""
+    """Test sample_deterministic_outputs returns for DETERMINISTIC tools."""
     selections = executor.sample_deterministic_outputs(
         [deterministic_tool, generated_tool]
     )
