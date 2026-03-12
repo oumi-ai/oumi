@@ -90,7 +90,9 @@ from oumi.utils import logging
 if TYPE_CHECKING:
     from rich.console import Console
 
+    from oumi.core.agentic.base_agentic_optimizer import AideResult
     from oumi.core.configs import (
+        AideConfig,
         AsyncEvaluationConfig,
         EvaluationConfig,
         InferenceConfig,
@@ -306,7 +308,27 @@ def tune(config: TuningConfig) -> None:
     return oumi.tune.tune(config)
 
 
+def aide(config: AideConfig, verbose: bool = False) -> AideResult:
+    """Run AI-driven agentic code optimization.
+
+    Uses AIDE ML's tree-search algorithm to iteratively generate, test,
+    and refine code solutions — optimizing against a target metric.
+
+    Args:
+        config: The AIDE configuration.
+        verbose: Enable verbose logging with additional debug information.
+
+    Returns:
+        AideResult containing the best solution found, its metric value,
+        and paths to the journal and solution files.
+    """
+    import oumi.aide
+
+    return oumi.aide.aide(config, verbose=verbose)
+
+
 __all__ = [
+    "aide",
     "evaluate_async",
     "evaluate",
     "infer_interactive",
