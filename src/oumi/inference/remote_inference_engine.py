@@ -48,6 +48,7 @@ from oumi.core.inference.base_inference_engine import (
 )
 from oumi.core.types.conversation import (
     Conversation,
+    FinishReason,
     Message,
     Role,
 )
@@ -432,6 +433,30 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 result["cached_tokens"] = cached_tokens
         return result
 
+    @staticmethod
+    def _normalize_finish_reason(raw_reason: str | None) -> FinishReason | None:
+        """Normalize raw finish_reason string to FinishReason enum."""
+        if raw_reason is None:
+            return None
+        mapping = {
+            "stop": FinishReason.STOP,
+            "length": FinishReason.LENGTH,
+            "tool_calls": FinishReason.TOOL_CALLS,
+            "content_filter": FinishReason.CONTENT_FILTER,
+        }
+        return mapping.get(raw_reason.lower(), FinishReason.UNKNOWN)
+
+    @staticmethod
+    def _extract_finish_reason_from_response(
+        response: dict[str, Any],
+    ) -> FinishReason | None:
+        """Extract normalized finish_reason from an OpenAI-compatible API response."""
+        choices = response.get("choices")
+        if not choices or len(choices) == 0:
+            return None
+        raw_reason = choices[0].get("finish_reason")
+        return RemoteInferenceEngine._normalize_finish_reason(raw_reason)
+
     def _convert_api_output_to_conversation(
         self, response: dict[str, Any], original_conversation: Conversation
     ) -> Conversation:
@@ -457,6 +482,9 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         usage = self._extract_usage_from_response(response)
         if usage is not None:
             metadata["usage"] = usage
+        finish_reason = self._extract_finish_reason_from_response(response)
+        if finish_reason is not None:
+            metadata["finish_reason"] = finish_reason.value
         return Conversation(
             messages=[
                 *original_conversation.messages,

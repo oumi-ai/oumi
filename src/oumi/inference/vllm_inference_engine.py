@@ -25,7 +25,7 @@ from typing_extensions import override
 from oumi.builders import build_tokenizer
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.inference import BaseInferenceEngine
-from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.core.types.conversation import Conversation, FinishReason, Message, Role
 from oumi.utils.conversation_utils import create_list_of_message_json_dicts
 from oumi.utils.logging import logger
 from oumi.utils.model_caching import get_local_filepath_for_gguf
@@ -218,6 +218,17 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         # Ensure the tokenizer is set properly
         self._llm.set_tokenizer(self._tokenizer)
 
+    @staticmethod
+    def _normalize_vllm_finish_reason(raw_reason: str | None) -> FinishReason | None:
+        """Normalize vLLM finish_reason string to FinishReason enum."""
+        if raw_reason is None:
+            return None
+        mapping = {
+            "stop": FinishReason.STOP,
+            "length": FinishReason.LENGTH,
+        }
+        return mapping.get(raw_reason.lower(), FinishReason.UNKNOWN)
+
     def _convert_conversation_to_vllm_input(
         self, conversation: Conversation
     ) -> list[ChatCompletionMessageParam]:
@@ -337,9 +348,15 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 *conversation.messages,
                 *new_messages,
             ]
+            metadata = dict(conversation.metadata)
+            if chat_response.outputs:
+                raw_reason = chat_response.outputs[0].finish_reason
+                finish_reason = self._normalize_vllm_finish_reason(raw_reason)
+                if finish_reason is not None:
+                    metadata["finish_reason"] = finish_reason.value
             new_conversation = Conversation(
                 messages=messages,
-                metadata=conversation.metadata,
+                metadata=metadata,
                 conversation_id=conversation.conversation_id,
             )
             self._save_conversation_to_scratch(
