@@ -34,28 +34,51 @@ class ToolOutputStrategy(str, Enum):
 
 
 @dataclass
-class ToolOutputValue:
-    """A possible deterministic output for a tool.
+class DeterministicToolOutput:
+    """A possible canned output for a tool.
 
     Used with ToolOutputStrategy.DETERMINISTIC. One value is randomly selected
-    per conversation, weighted by sample_rate.
+    per conversation, weighted by sample_rate. Matches the sampling pattern
+    used by SampledAttributeValue in synthesis_params.
     """
 
-    output: str
-    """The tool output as a JSON string."""
+    values: dict[str, Any] = field(default_factory=dict)
+    """Structured output values. Serialized to JSON by the system at output time."""
 
     sample_rate: float | None = None
     """Selection weight. If not specified, assumes uniform sampling
-    among all possible outputs."""
+    among all possible outputs. Must be between 0 and 1."""
 
     def __post_init__(self):
         """Verifies/populates params."""
-        if not self.output:
-            raise ValueError("ToolOutputValue.output cannot be empty.")
+        if not self.values:
+            raise ValueError("DeterministicToolOutput.values cannot be empty.")
         if self.sample_rate is not None and (
             self.sample_rate < 0 or self.sample_rate > 1
         ):
-            raise ValueError("ToolOutputValue.sample_rate must be between 0 and 1.")
+            raise ValueError(
+                "DeterministicToolOutput.sample_rate must be between 0 and 1."
+            )
+
+
+@dataclass
+class GeneratedToolOutput:
+    """Configuration for LLM-simulated tool output.
+
+    Used with ToolOutputStrategy.GENERATED. The LLM simulator receives
+    the tool definition, call arguments, conversation history, and this
+    config to produce a realistic output.
+    """
+
+    instruction: str
+    """Prompt hint for the LLM simulator. Guides what kind of output to produce.
+    Example: "Return eligibility based on order status and 30-day return window."
+    """
+
+    def __post_init__(self):
+        """Verifies/populates params."""
+        if not self.instruction:
+            raise ValueError("GeneratedToolOutput.instruction cannot be empty.")
 
 
 @dataclass
@@ -65,44 +88,70 @@ class ToolAttribute:
     Tools are defined at the GeneralSynthesisParams level and referenced
     by id from MultiTurnAttribute.available_tools.
 
-    The output_strategy field determines which other fields are relevant:
-    - DETERMINISTIC: uses deterministic_outputs
-    - GENERATED: uses output_instruction and/or output_schema
+    The output_strategy field determines which output config is used:
+    - DETERMINISTIC: uses deterministic_outputs (list, one sampled per conversation)
+    - GENERATED: uses generated_output (singular config for LLM simulator)
     """
 
     id: str
     """Unique identifier for the tool. Referenced by available_tools."""
 
     name: str
-    """Display name of the tool (e.g., "SearchOrders")."""
+    """Display name of the tool (e.g., "SearchOrders").
+    Used in the tool catalog and output tool definitions."""
 
     description: str
-    """What the tool does. Shown to the planner and used in simulation prompts."""
+    """What the tool does. Shown in the tool catalog, used in simulation
+    prompts, and included in output tool definitions."""
 
     output_strategy: ToolOutputStrategy = ToolOutputStrategy.GENERATED
     """How this tool produces its output."""
 
     parameters: dict[str, Any] = field(default_factory=dict)
-    """Parameter schema. Keys are parameter names, values describe the parameter.
-    Example: {"customer_id": {"type": "string", "required": true}}"""
+    """JSON Schema for tool parameters. Matches the OpenAI/HuggingFace standard.
 
-    # DETERMINISTIC fields
-    deterministic_outputs: list[ToolOutputValue] = field(default_factory=list)
-    """Possible outputs for DETERMINISTIC mode. One is selected per conversation,
-    weighted by sample_rate (uniform if unset)."""
+    Example::
 
-    # GENERATED fields
-    output_instruction: str = ""
-    """Prompt hint for the LLM simulator. Guides what kind of output to produce."""
+        {
+            "type": "object",
+            "properties": {
+                "customer_id": {
+                    "type": "string",
+                    "description": "The customer's ID"
+                }
+            },
+            "required": ["customer_id"]
+        }
+    """
 
     output_schema: dict[str, Any] = field(default_factory=dict)
-    """Expected output structure for the LLM simulator to follow.
-    Example: {"eligible": {"type": "boolean"}, "reason": {"type": "string"}}"""
+    """JSON Schema describing the tool's output structure. Shared across strategies.
 
-    # Optional environment interaction
-    mutates_environment: bool = False
-    """Whether this tool updates environment state. Only relevant when an
-    environment is defined on the MultiTurnAttribute. Ignored otherwise."""
+    For DETERMINISTIC: used to validate that canned outputs conform to the schema.
+    For GENERATED: passed to the LLM simulator as structure guidance.
+
+    Example::
+
+        {
+            "type": "object",
+            "properties": {
+                "eligible": {"type": "boolean"},
+                "reason": {"type": "string"}
+            }
+        }
+    """
+
+    deterministic_outputs: list[DeterministicToolOutput] = field(default_factory=list)
+    """Possible canned outputs for DETERMINISTIC strategy.
+
+    One is selected per conversation, weighted by sample_rate (uniform if unset).
+    Selection happens once at conversation initialization, not per-call."""
+
+    generated_output: GeneratedToolOutput | None = None
+    """Configuration for LLM-simulated output for GENERATED strategy.
+
+    The LLM simulator uses this config along with the tool call arguments
+    and conversation context to produce a realistic output."""
 
     def __post_init__(self):
         """Verifies/populates params."""
@@ -122,17 +171,18 @@ class ToolAttribute:
             self._normalize_sample_rates()
 
         elif self.output_strategy == ToolOutputStrategy.GENERATED:
-            if not self.output_instruction and not self.output_schema:
+            if not self.generated_output:
                 raise ValueError(
-                    "ToolAttribute must have at least one of "
-                    "output_instruction or output_schema "
+                    "ToolAttribute.generated_output must be provided "
                     "when output_strategy is GENERATED."
                 )
 
     def _normalize_sample_rates(self) -> None:
         """Normalize sample rates for deterministic outputs.
 
-        Matches the pattern used by SampledAttribute for consistency.
+        Matches the pattern used by SampledAttribute for consistency:
+        - Defined rates are summed
+        - Remaining probability is split uniformly among undefined rates
         """
         sample_rates = [o.sample_rate for o in self.deterministic_outputs]
 
@@ -156,30 +206,3 @@ class ToolAttribute:
             for output_value in self.deterministic_outputs:
                 if output_value.sample_rate is None:
                     output_value.sample_rate = per_undefined
-
-
-@dataclass
-class EnvironmentConfig:
-    """Optional environment configuration for stateful tool interactions.
-
-    When defined on a MultiTurnAttribute, tools can read from and write to
-    a shared mutable state. Both fields support {placeholder} resolution
-    from sampled/generated attributes.
-
-    When not defined, tools operate statelessly.
-    """
-
-    entities: dict[str, Any] = field(default_factory=dict)
-    """Structured state template with {placeholders}.
-    Example: {"orders": {"{order_id}": {"status": "{order_status}"}}}"""
-
-    context: str = ""
-    """Domain rules/constraints template with {placeholders}.
-    Example: "{return_policy}"."""
-
-    def __post_init__(self):
-        """Verifies/populates params."""
-        if not self.entities and not self.context:
-            raise ValueError(
-                "EnvironmentConfig must have at least one of entities or context."
-            )

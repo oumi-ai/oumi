@@ -1,0 +1,643 @@
+# Agentic tool-calling customer support conversations.
+# Extends the multiturn conversation example with tools that the assistant
+# autonomously decides to call — producing training data in the standard
+# OpenAI/HuggingFace tool-calling format.
+#
+# Requirements:
+#   - Set your anthropic api key in the environment variable ANTHROPIC_API_KEY
+#   - example: `export ANTHROPIC_API_KEY=your_api_key`
+#   - Alternatively, change the model in the inference_config section to your desired model
+#   - See the inference_config section for more details
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/configuration.html
+#
+# Usage:
+#   oumi synth -c oumi://configs/examples/synthesis/agentic_tool_synth.yaml
+#
+# Output Format:
+#   Each row has two top-level keys:
+#     "tools"    — OpenAI-format tool definitions (used with apply_chat_template)
+#     "messages" — conversation with role: assistant/tool_calls + role: tool messages
+#
+# Diversity:
+#   Within a single config, diversity comes from:
+#     1. Sampled attributes — scenario type, customer personality, order state, etc.
+#     2. Generated attributes — LLM-created issue details, customer openers
+#     3. Deterministic output variants — different tool responses per conversation
+#     4. Conversation planner — naturally varies flow based on attribute combinations
+#
+#   For cross-domain diversity (e.g., customer support + code assistant + travel
+#   booking), create separate configs with different tool sets and personas.
+#   Each domain defines its own tools, scenarios, and role instructions.
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/synth.html
+#   - Config class: oumi.core.configs.SynthesisConfig
+#   - Params class: oumi.core.configs.params.synthesis_params.GeneralSynthesisParams
+#   - Tool params: oumi.core.configs.params.tool_params.ToolAttribute
+#   - Non-agentic version: configs/examples/synthesis/multiturn_conversation_synth.yaml
+
+strategy: GENERAL
+num_samples: 5
+output_path: agentic_tool_dataset.jsonl
+
+strategy_params:
+  # ── Sampled Attributes ─────────────────────────────────────────────────
+  # These are the primary diversity drivers. Each combination produces a
+  # different scenario, personality, and outcome — the cross-product of
+  # all sampled attributes creates a large space of unique conversations.
+  sampled_attributes:
+    # What the customer needs help with
+    - id: scenario
+      name: Support Scenario
+      description: The type of customer support issue being addressed
+      possible_values:
+        - id: order_tracking
+          name: Order Tracking
+          description: Customer wants to know where their order is, when it will arrive, or why it's delayed
+          sample_rate: 0.15
+        - id: missing_delivery
+          name: Missing Delivery
+          description: Order shows delivered but customer never received the package
+          sample_rate: 0.1
+        - id: wrong_item
+          name: Wrong Item Received
+          description: Customer received a different product than what they ordered
+          sample_rate: 0.1
+        - id: billing_dispute
+          name: Billing Dispute
+          description: Customer was charged incorrectly — double charges, wrong amount, or unauthorized transaction
+          sample_rate: 0.1
+        - id: product_question
+          name: Product Information
+          description: Customer asking about product specs, compatibility, comparisons, or availability before buying
+          sample_rate: 0.1
+        - id: technical_support
+          name: Technical Support
+          description: Device malfunction, connectivity issue, firmware problem, or setup trouble
+          sample_rate: 0.1
+        - id: return_refund
+          name: Return & Refund
+          description: Customer wants to return a product and get their money back
+          sample_rate: 0.1
+        - id: cancel_order
+          name: Order Cancellation
+          description: Customer wants to cancel an order that hasn't shipped yet or is in transit
+          sample_rate: 0.08
+        - id: warranty_claim
+          name: Warranty Claim
+          description: Product broke outside the return window but within warranty period
+          sample_rate: 0.07
+        - id: price_match
+          name: Price Match Request
+          description: Customer found a lower price elsewhere and wants BrightTech to match it
+          sample_rate: 0.05
+        - id: account_issue
+          name: Account Issue
+          description: Customer locked out of account, needs email changed, or has login problems
+          sample_rate: 0.05
+
+    # How the customer communicates
+    - id: customer_type
+      name: Customer Personality
+      description: The customer's communication style and emotional state
+      possible_values:
+        - id: concise
+          name: Concise
+          description: Short, direct messages. Gives only necessary info. Expects quick resolution.
+          sample_rate: 0.25
+        - id: friendly
+          name: Friendly
+          description: Warm and polite, says please and thank you, patient with the process
+          sample_rate: 0.15
+        - id: frustrated
+          name: Frustrated
+          description: Annoyed but still civil. Uses phrases like "this is ridiculous" or "I shouldn't have to deal with this"
+          sample_rate: 0.15
+        - id: confused
+          name: Confused
+          description: Doesn't understand technical terms, asks clarifying questions, unsure how processes work
+          sample_rate: 0.15
+        - id: demanding
+          name: Demanding
+          description: Wants immediate resolution, asks for supervisors, mentions taking business elsewhere
+          sample_rate: 0.1
+        - id: detailed
+          name: Detailed
+          description: Provides extensive context upfront — dates, screenshots mentioned, error messages, steps already tried
+          sample_rate: 0.1
+        - id: skeptical
+          name: Skeptical
+          description: Doubts the agent's answers, asks for confirmation, wants things in writing
+          sample_rate: 0.1
+
+    # What state the order is in — drives which tools are useful and what
+    # the tool simulator should return
+    - id: order_state
+      name: Order State
+      description: The current state of the customer's order in the system
+      possible_values:
+        - id: processing
+          name: Processing
+          description: Order placed but not yet shipped. Payment captured, awaiting fulfillment.
+          sample_rate: 0.2
+        - id: shipped
+          name: Shipped
+          description: Order shipped and in transit. Tracking number available.
+          sample_rate: 0.25
+        - id: delivered
+          name: Delivered
+          description: Order marked as delivered to the customer's address.
+          sample_rate: 0.3
+        - id: cancelled
+          name: Cancelled
+          description: Order was previously cancelled by customer or system.
+          sample_rate: 0.05
+        - id: backordered
+          name: Backordered
+          description: Item is out of stock, order is on hold until restocked.
+          sample_rate: 0.1
+        - id: no_order
+          name: No Order Found
+          description: Customer references an order that doesn't exist in the system — could be wrong number, different store, or too old.
+          sample_rate: 0.1
+
+    # What product the conversation involves
+    - id: product
+      name: Product
+      description: The BrightTech product involved in this conversation
+      possible_values:
+        - id: laptop
+          name: ProMax 15 Laptop
+          description: "15-inch laptop, $1,249.99, Intel i9, 32GB RAM, 1TB SSD"
+          sample_rate: 0.2
+        - id: smartwatch
+          name: SmartWatch X
+          description: "Fitness smartwatch, $349.99, heart rate monitor, GPS, 5-day battery"
+          sample_rate: 0.15
+        - id: soundbar
+          name: SoundBar 500
+          description: "2.1 channel soundbar with wireless sub, $199.99, Bluetooth 5.0, HDMI ARC"
+          sample_rate: 0.15
+        - id: earbuds
+          name: Wireless Earbuds Pro
+          description: "Active noise cancelling earbuds, $89.99, 8-hour battery, IPX5 water resistant"
+          sample_rate: 0.15
+        - id: monitor
+          name: UltraScreen 27 Monitor
+          description: "27-inch 4K monitor, $449.99, IPS panel, USB-C hub, 99% sRGB"
+          sample_rate: 0.15
+        - id: charger
+          name: PowerHub Charger
+          description: "100W 4-port USB-C charger, $59.99, GaN technology, travel adapter included"
+          sample_rate: 0.1
+        - id: tablet
+          name: UltraTab Pro
+          description: "10-inch tablet, $599.99, stylus included, 256GB storage, Wi-Fi 6E"
+          sample_rate: 0.1
+
+  # ── Generated Attributes ───────────────────────────────────────────────
+  # LLM-created details that make each conversation unique even when
+  # sampled attributes overlap.
+  generated_attributes:
+    - id: customer_name
+      instruction_messages:
+        - role: SYSTEM
+          content: |
+            Generate a realistic first name for a customer. Just output the name, nothing else.
+        - role: USER
+          content: |
+            Generate a common first name.
+
+    - id: issue_detail
+      instruction_messages:
+        - role: SYSTEM
+          content: |
+            You generate specific, realistic details for customer support issues.
+            Be concise and specific. Output only the detail, no extra text.
+        - role: USER
+          content: |
+            Issue category: {scenario.name}
+            Category details: {scenario.description}
+            Product: {product.name} ({product.description})
+            Order state: {order_state.name} — {order_state.description}
+
+            Generate ONE specific, concrete detail for this support issue.
+            Make it consistent with the order state and product.
+
+            Examples showing how order state affects the issue:
+            - Order Tracking + Shipped: "my order #BT-45231 has been in transit for 8 days with no updates since it left the warehouse"
+            - Missing Delivery + Delivered: "tracking says my ProMax 15 Laptop was delivered yesterday at 2pm but nothing was at my door"
+            - Wrong Item + Delivered: "I ordered the SoundBar 500 but received a PowerHub Charger instead"
+            - Billing Dispute + Processing: "I see two pending charges of $349.99 on my card for the same SmartWatch X order"
+            - Return & Refund + Delivered: "I want to return my UltraScreen 27 Monitor, the colors look washed out compared to my old monitor"
+            - Technical Support + Delivered: "my Wireless Earbuds Pro keep disconnecting from Bluetooth every 10 minutes since the last firmware update"
+            - Cancel Order + Processing: "I just placed order #BT-90112 for the UltraTab Pro but I changed my mind, can I cancel before it ships?"
+            - Warranty Claim + Delivered: "my ProMax 15 Laptop screen started flickering 4 months after purchase, still under 1-year warranty"
+            - Price Match + No Order: "I see the SmartWatch X is $299.99 on Amazon right now but $349.99 on your site"
+            - Account Issue + No Order: "I can't log into my account, it says my email isn't recognized but I've ordered from you before"
+            - Product Information + No Order: "I'm comparing the UltraTab Pro and the ProMax 15 for digital art, which has better stylus support?"
+
+            Output only the specific issue detail, nothing else.
+
+    - id: customer_opener
+      instruction_messages:
+        - role: SYSTEM
+          content: |
+            You write realistic customer support chat messages.
+            Match the customer's personality in tone and style.
+            Be natural - real customers don't write perfectly formatted messages.
+        - role: USER
+          content: |
+            Customer name: {customer_name}
+            Customer personality: {customer_type.name} - {customer_type.description}
+            Issue: {issue_detail}
+
+            Write the customer's opening message to BrightTech Electronics support.
+
+            Guidelines:
+            - Match the personality (frustrated = short/annoyed, friendly = polite, confused = uncertain, demanding = urgent, concise = minimal, detailed = lots of context, skeptical = questioning)
+            - Include enough context to understand the issue but not all details
+            - Concise customers: 1-2 sentences max
+            - Detailed customers: 3-4 sentences with specifics
+            - Others: 2-3 sentences
+            - Sound like a real person typing in a chat — typos and informal grammar are okay for some personalities
+
+            Output only the customer's message, nothing else.
+
+  # ── Tool Definitions ───────────────────────────────────────────────────
+  # The agent autonomously decides when and which tools to call.
+  # Tool outputs are either sampled from canned values (DETERMINISTIC)
+  # or generated by an LLM simulator (GENERATED).
+  tools:
+    - id: search_orders
+      name: SearchOrders
+      description: "Look up order details by customer ID or order number"
+      parameters:
+        type: object
+        properties:
+          customer_id:
+            type: string
+            description: "The customer's ID (e.g., CUST-1234)"
+          order_id:
+            type: string
+            description: "A specific order number (e.g., BT-78234)"
+        required: []
+      output_strategy: GENERATED
+      generated_output:
+        instruction: >
+          Return realistic order details for the queried order.
+          The order state should be consistent with the conversation context.
+          Include: order_id, status, item name, total price, and relevant dates.
+          If the conversation suggests the order doesn't exist, return an error
+          like {"error": "No order found matching the provided criteria"}.
+          Use BrightTech product names and realistic prices.
+      output_schema:
+        type: object
+        properties:
+          order_id:
+            type: string
+          status:
+            type: string
+          item:
+            type: string
+          total:
+            type: string
+          delivery_date:
+            type: string
+          tracking_number:
+            type: string
+
+    - id: check_return_eligibility
+      name: CheckReturnEligibility
+      description: "Check if an order is eligible for return or refund"
+      parameters:
+        type: object
+        properties:
+          order_id:
+            type: string
+            description: "The order ID to check"
+        required:
+          - order_id
+      output_strategy: GENERATED
+      generated_output:
+        instruction: >
+          Determine return eligibility based on the conversation context.
+          Rules: items delivered within 30 days are eligible for full refund.
+          Items 30-60 days: store credit only. Over 60 days: not eligible.
+          Items still in transit: not returnable but can be cancelled.
+          Damaged/defective items: always eligible regardless of window.
+          Include the specific reason and any applicable conditions.
+      output_schema:
+        type: object
+        properties:
+          eligible:
+            type: boolean
+          window_remaining_days:
+            type: integer
+          reason:
+            type: string
+          refund_amount:
+            type: string
+          refund_method:
+            type: string
+
+    - id: process_return
+      name: ProcessReturn
+      description: "Initiate a return for an eligible order"
+      parameters:
+        type: object
+        properties:
+          order_id:
+            type: string
+            description: "The order to return"
+          reason:
+            type: string
+            description: "Reason for return"
+        required:
+          - order_id
+          - reason
+      output_strategy: GENERATED
+      generated_output:
+        instruction: >
+          Generate a return confirmation. Include a return ID (format RET-XXXXX),
+          a return shipping label reference, and estimated refund timeline.
+          Standard returns: 5-7 business days. Defective items: 3-5 business days.
+          If the order is not eligible, return an error with explanation.
+      output_schema:
+        type: object
+        properties:
+          return_id:
+            type: string
+          status:
+            type: string
+          return_label:
+            type: string
+          refund_timeline:
+            type: string
+
+    - id: cancel_order
+      name: CancelOrder
+      description: "Cancel an order that hasn't been delivered yet"
+      parameters:
+        type: object
+        properties:
+          order_id:
+            type: string
+            description: "The order to cancel"
+          reason:
+            type: string
+            description: "Reason for cancellation"
+        required:
+          - order_id
+      output_strategy: GENERATED
+      generated_output:
+        instruction: >
+          Process order cancellation. Orders in "processing" status can be
+          cancelled immediately with full refund. Orders that have "shipped"
+          may require the customer to refuse delivery or return after receipt.
+          Orders already "delivered" cannot be cancelled (suggest return instead).
+          Return appropriate status and next steps.
+      output_schema:
+        type: object
+        properties:
+          cancelled:
+            type: boolean
+          reason:
+            type: string
+          refund_amount:
+            type: string
+          refund_timeline:
+            type: string
+
+    - id: search_product
+      name: SearchProduct
+      description: "Search the product catalog for product information"
+      parameters:
+        type: object
+        properties:
+          product_name:
+            type: string
+            description: "Product name or keyword to search for"
+        required:
+          - product_name
+      output_strategy: GENERATED
+      generated_output:
+        instruction: >
+          Return product information for BrightTech Electronics products.
+          Include product name, price, key specs, availability, and warranty info.
+          If the search doesn't match any product, return partial matches or
+          suggest similar products. Products: ProMax 15 Laptop ($1,249.99),
+          SmartWatch X ($349.99), SoundBar 500 ($199.99), Wireless Earbuds Pro
+          ($89.99), UltraScreen 27 Monitor ($449.99), PowerHub Charger ($59.99),
+          UltraTab Pro ($599.99).
+      output_schema:
+        type: object
+        properties:
+          product_name:
+            type: string
+          price:
+            type: string
+          in_stock:
+            type: boolean
+          specs:
+            type: string
+          warranty:
+            type: string
+
+    - id: check_warranty
+      name: CheckWarranty
+      description: "Check warranty status and coverage for a product or order"
+      parameters:
+        type: object
+        properties:
+          order_id:
+            type: string
+            description: "The order ID to check warranty for"
+        required:
+          - order_id
+      output_strategy: GENERATED
+      generated_output:
+        instruction: >
+          Check warranty coverage for the product. All BrightTech products
+          come with 1-year limited warranty. Extended warranty (2 additional
+          years) is available for products over $200. Return warranty status,
+          expiration date, and what's covered. If the product is out of
+          warranty, mention repair options.
+      output_schema:
+        type: object
+        properties:
+          warranty_active:
+            type: boolean
+          warranty_type:
+            type: string
+          expiration_date:
+            type: string
+          coverage:
+            type: string
+
+    - id: check_account
+      name: CheckAccount
+      description: "Look up customer account details and verify identity"
+      parameters:
+        type: object
+        properties:
+          email:
+            type: string
+            description: "Customer's email address"
+          customer_id:
+            type: string
+            description: "Customer's ID"
+        required: []
+      output_strategy: GENERATED
+      generated_output:
+        instruction: >
+          Look up customer account information. Return account status
+          (active, locked, suspended), associated email, order count, and
+          member since date. If the email/ID doesn't match any account,
+          return {"error": "No account found"}. For locked accounts,
+          include the lock reason (too many failed logins, suspicious activity, etc.).
+      output_schema:
+        type: object
+        properties:
+          account_status:
+            type: string
+          email:
+            type: string
+          order_count:
+            type: integer
+          member_since:
+            type: string
+
+    - id: escalate_to_specialist
+      name: EscalateToSpecialist
+      description: "Escalate the conversation to a human specialist"
+      parameters:
+        type: object
+        properties:
+          reason:
+            type: string
+            description: "Why this needs specialist attention"
+          priority:
+            type: string
+            description: "Priority level: low, medium, high"
+            enum: ["low", "medium", "high"]
+        required:
+          - reason
+      output_strategy: DETERMINISTIC
+      deterministic_outputs:
+        - values:
+            ticket_id: "ESC-40821"
+            status: "escalated"
+            assigned_to: "Specialist Team A"
+            estimated_response: "within 2 hours"
+          sample_rate: 0.4
+        - values:
+            ticket_id: "ESC-51932"
+            status: "escalated"
+            assigned_to: "Senior Support"
+            estimated_response: "within 30 minutes"
+          sample_rate: 0.3
+        - values:
+            ticket_id: "ESC-63044"
+            status: "queued"
+            assigned_to: "Billing Specialist"
+            estimated_response: "within 4 hours"
+          sample_rate: 0.15
+        - values:
+            ticket_id: "ESC-74155"
+            status: "escalated"
+            assigned_to: "Technical Specialist"
+            estimated_response: "within 1 hour"
+          sample_rate: 0.15
+
+  # ── Multi-Turn Conversations ───────────────────────────────────────────
+  multiturn_attributes:
+    - id: "support_conversation"
+      min_turns: 4
+      max_turns: 10
+      available_tools:
+        - search_orders
+        - check_return_eligibility
+        - process_return
+        - cancel_order
+        - search_product
+        - check_warranty
+        - check_account
+        - escalate_to_specialist
+      max_tool_calls_per_turn: 3
+
+      role_instruction_messages:
+        USER: |
+          You are {customer_name}, a {customer_type.name} customer contacting BrightTech Electronics support.
+
+          Your personality: {customer_type.description}
+          Your specific issue: {issue_detail}
+          Your product: {product.name}
+          Your order state: {order_state.name} — {order_state.description}
+
+          Guidelines:
+          - Follow the plan's direction for this turn, but respond naturally
+          - Stay in character throughout the conversation
+          - Your opening message was: "{customer_opener}"
+          - Build on the conversation naturally
+          - Provide information when asked (order numbers, product names, etc.)
+          - Do not break character or acknowledge you are an AI
+          - If the agent asks for info you haven't mentioned, make up realistic details consistent with your issue
+
+          If this is your first message in the conversation (there are no previous messages from the agent), start the conversation with your opening message: "{customer_opener}"
+
+          If the agent has already responded to you, continue the conversation naturally by responding to what they just said.
+
+          Keep your response concise and realistic. Stay in character as {customer_name}.
+          Output only the customer's message, nothing else.
+        ASSISTANT: |
+          You are CareBot, a customer service assistant for BrightTech Electronics.
+
+          Your goals:
+          - Resolve customer issues efficiently using the tools available to you
+          - Use tools to look up real information — never guess or fabricate data
+          - Be polite, empathetic, and professional
+          - If you don't have enough information, ask the customer to clarify
+          - After using a tool, summarize the findings naturally for the customer
+
+          Guidelines:
+          - Always look up order details before making claims about order status
+          - Check return eligibility before promising a return or refund
+          - Check warranty status for issues outside the return window
+          - Use CancelOrder for orders not yet delivered, ProcessReturn for delivered orders
+          - Escalate only when the issue is genuinely beyond your capabilities
+          - Keep responses concise and actionable — avoid unnecessary filler
+          - Don't call the same tool twice with the same arguments
+
+      output_system_prompt: |
+        You are CareBot, a customer service assistant for BrightTech Electronics.
+        You have access to order management and product information tools.
+
+      conversation_planner: |
+        Create a natural customer support conversation about: {issue_detail}
+        The customer is {customer_type.name} ({customer_type.description}).
+        The order is currently: {order_state.name} ({order_state.description}).
+        The product involved is: {product.name}.
+
+        The conversation should progress toward resolution, with the agent
+        using tools to look up information and take actions. Make the
+        resolution path realistic for the given order state — for example,
+        a "no order found" state should lead to troubleshooting the order
+        number or escalation, not a successful lookup.
+
+  # Include only relevant attributes in output
+  passthrough_attributes:
+    - support_conversation
+
+# Inference configuration
+inference_config:
+  model:
+    model_name: claude-sonnet-4-20250514
+  engine: ANTHROPIC
+  generation:
+    max_new_tokens: 8192
+    temperature: 0.7
+    top_p: 0.9
+  remote_params:
+    num_workers: 50
+    politeness_policy: 60

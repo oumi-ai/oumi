@@ -787,20 +787,23 @@ def test_synthesize_filters_conversations_with_empty_messages(
             {"conversation_plan": "plan1"},
             {"conversation_plan": "plan2"},
         ]
-        mock_synth.return_value = [
-            Conversation(
-                messages=[
-                    Message(role=Role.USER, content="Hello"),
-                    Message(role=Role.ASSISTANT, content="Hi!"),
-                ]
-            ),
-            Conversation(
-                messages=[
-                    Message(role=Role.USER, content="Hello"),
-                    Message(role=Role.ASSISTANT, content=""),
-                ]
-            ),
-        ]
+        mock_synth.return_value = (
+            [
+                Conversation(
+                    messages=[
+                        Message(role=Role.USER, content="Hello"),
+                        Message(role=Role.ASSISTANT, content="Hi!"),
+                    ]
+                ),
+                Conversation(
+                    messages=[
+                        Message(role=Role.USER, content="Hello"),
+                        Message(role=Role.ASSISTANT, content=""),
+                    ]
+                ),
+            ],
+            None,
+        )
 
         samples = [{"key": "val1"}, {"key": "val2"}]
         result = synthesizer.synthesize(samples, multiturn_attr)
@@ -845,22 +848,397 @@ def test_synthesize_filters_all_conversations_returns_empty(
             {"conversation_plan": "plan1"},
             {"conversation_plan": "plan2"},
         ]
-        mock_synth.return_value = [
-            Conversation(
-                messages=[
-                    Message(role=Role.USER, content=""),
-                    Message(role=Role.ASSISTANT, content="Response"),
-                ]
-            ),
-            Conversation(
-                messages=[
-                    Message(role=Role.USER, content="Hello"),
-                    Message(role=Role.ASSISTANT, content=""),
-                ]
-            ),
-        ]
+        mock_synth.return_value = (
+            [
+                Conversation(
+                    messages=[
+                        Message(role=Role.USER, content=""),
+                        Message(role=Role.ASSISTANT, content="Response"),
+                    ]
+                ),
+                Conversation(
+                    messages=[
+                        Message(role=Role.USER, content="Hello"),
+                        Message(role=Role.ASSISTANT, content=""),
+                    ]
+                ),
+            ],
+            None,
+        )
 
         samples = [{"key": "val1"}, {"key": "val2"}]
         result = synthesizer.synthesize(samples, multiturn_attr)
 
     assert result == [None, None]
+
+
+# ── Agentic Tool Tests ───────────────────────────────────────────────────
+
+
+def _make_tool_params():
+    """Create GeneralSynthesisParams with tools for agentic tests."""
+    from oumi.core.configs.params.tool_params import (
+        DeterministicToolOutput,
+        GeneratedToolOutput,
+        ToolAttribute,
+        ToolOutputStrategy,
+    )
+
+    return GeneralSynthesisParams(
+        tools=[
+            ToolAttribute(
+                id="search",
+                name="SearchOrders",
+                description="Look up order details",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "order_id": {"type": "string", "description": "Order ID"}
+                    },
+                    "required": ["order_id"],
+                },
+                output_strategy=ToolOutputStrategy.GENERATED,
+                generated_output=GeneratedToolOutput(
+                    instruction="Return order details."
+                ),
+            ),
+            ToolAttribute(
+                id="escalate",
+                name="Escalate",
+                description="Escalate to specialist",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "reason": {"type": "string", "description": "Reason"}
+                    },
+                    "required": ["reason"],
+                },
+                output_strategy=ToolOutputStrategy.DETERMINISTIC,
+                deterministic_outputs=[
+                    DeterministicToolOutput(
+                        values={"ticket_id": "ESC-001", "status": "escalated"}
+                    ),
+                ],
+            ),
+        ],
+    )
+
+
+def _make_tool_multiturn():
+    """Create a MultiTurnAttribute with tools."""
+    return MultiTurnAttribute(
+        id="tool_conversation",
+        min_turns=2,
+        max_turns=2,
+        available_tools=["search", "escalate"],
+        max_tool_calls_per_turn=3,
+        role_instruction_messages={
+            Role.USER: "You are a customer with issue: {issue}.",
+            Role.ASSISTANT: "You are a support agent.",
+        },
+        output_system_prompt="You are a support agent.",
+    )
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_agentic_turn_with_tool_call_and_response(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """Test that an agentic turn with a tool call produces correct output format."""
+    mock_engine = Mock()
+    mock_build_inference_engine.return_value = mock_engine
+
+    call_count = [0]
+
+    def infer_side_effect(conversations, **kwargs):
+        results = []
+        for conv in conversations:
+            call_count[0] += 1
+            last_content = conv.messages[-1].content if conv.messages else ""
+
+            # Planning call
+            if "conversation planner" in str(conv.messages[0].content).lower():
+                results.append(
+                    Conversation(
+                        messages=[
+                            Message(
+                                role=Role.ASSISTANT,
+                                content='```json\n[{"turn": 1, "instruction": "Ask about order"}, {"turn": 2, "instruction": "Look up the order"}]\n```',
+                            )
+                        ]
+                    )
+                )
+            # Tool simulator call
+            elif "simulating the tool" in str(conv.messages[0].content).lower():
+                results.append(
+                    Conversation(
+                        messages=[
+                            Message(
+                                role=Role.ASSISTANT,
+                                content='{"order_id": "ORD-001", "status": "shipped"}',
+                            )
+                        ]
+                    )
+                )
+            # First assistant turn iteration: make a tool call
+            elif (
+                "ASSISTANT" in str(last_content)
+                and call_count[0] <= 10
+                and not any(m.role == Role.TOOL for m in conv.messages)
+            ):
+                results.append(
+                    Conversation(
+                        messages=[
+                            Message(
+                                role=Role.ASSISTANT,
+                                content='<tool_call>{"name": "SearchOrders", "arguments": {"order_id": "ORD-001"}}</tool_call>',
+                            )
+                        ]
+                    )
+                )
+            # After tool result, respond naturally
+            else:
+                results.append(
+                    Conversation(
+                        messages=[
+                            Message(
+                                role=Role.ASSISTANT,
+                                content="Your order ORD-001 has been shipped!",
+                            )
+                        ]
+                    )
+                )
+        return results
+
+    mock_engine.infer.side_effect = infer_side_effect
+
+    params = _make_tool_params()
+    mt_attr = _make_tool_multiturn()
+    synthesizer = ConversationSynthesizer(params, mock_inference_config)
+
+    samples = [{"issue": "order tracking"}]
+    result = synthesizer.synthesize(samples, mt_attr)
+
+    assert len(result) == 1
+    record = result[0]
+    assert record is not None
+
+    conv_dict = record["tool_conversation"]
+    assert isinstance(conv_dict, dict)
+
+    # Should have "tools" key with tool definitions
+    assert "tools" in conv_dict
+    tools_list = conv_dict["tools"]
+    assert len(tools_list) == 2
+    assert tools_list[0]["function"]["name"] == "SearchOrders"
+    assert tools_list[1]["function"]["name"] == "Escalate"
+
+    # Should have "messages" key
+    assert "messages" in conv_dict
+    messages = conv_dict["messages"]
+    assert len(messages) > 0
+
+    # Check system message is first
+    assert messages[0]["role"] == "system"
+
+    # Check there's at least one tool_calls message and one tool result
+    has_tool_call = any(
+        m.get("tool_calls") is not None for m in messages if isinstance(m, dict)
+    )
+    has_tool_result = any(
+        m.get("role") == "tool" for m in messages if isinstance(m, dict)
+    )
+    assert has_tool_call, "Should have at least one tool call message"
+    assert has_tool_result, "Should have at least one tool result message"
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_agentic_turn_deterministic_tool(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """Test that DETERMINISTIC tools resolve without extra LLM calls."""
+    mock_engine = Mock()
+    mock_build_inference_engine.return_value = mock_engine
+
+    def infer_side_effect(conversations, **kwargs):
+        results = []
+        for conv in conversations:
+            last_content = conv.messages[-1].content if conv.messages else ""
+            # Planning call
+            if "conversation planner" in str(conv.messages[0].content).lower():
+                results.append(
+                    Conversation(
+                        messages=[
+                            Message(
+                                role=Role.ASSISTANT,
+                                content='```json\n[{"turn": 1, "instruction": "Ask"}, {"turn": 2, "instruction": "Escalate"}]\n```',
+                            )
+                        ]
+                    )
+                )
+            # First assistant turn: escalate (deterministic tool)
+            elif not any(m.role == Role.TOOL for m in conv.messages):
+                results.append(
+                    Conversation(
+                        messages=[
+                            Message(
+                                role=Role.ASSISTANT,
+                                content='<tool_call>{"name": "Escalate", "arguments": {"reason": "complex issue"}}</tool_call>',
+                            )
+                        ]
+                    )
+                )
+            # After tool result: respond
+            else:
+                results.append(
+                    Conversation(
+                        messages=[
+                            Message(
+                                role=Role.ASSISTANT,
+                                content="I've escalated your issue.",
+                            )
+                        ]
+                    )
+                )
+        return results
+
+    mock_engine.infer.side_effect = infer_side_effect
+
+    params = _make_tool_params()
+    mt_attr = _make_tool_multiturn()
+    synthesizer = ConversationSynthesizer(params, mock_inference_config)
+
+    samples = [{"issue": "complex problem"}]
+    result = synthesizer.synthesize(samples, mt_attr)
+
+    assert len(result) == 1
+    record = result[0]
+    assert record is not None
+    conv_dict = record["tool_conversation"]
+
+    # Find the tool result message
+    tool_results = [m for m in conv_dict["messages"] if m.get("role") == "tool"]
+    assert len(tool_results) >= 1
+    # Deterministic output should contain our canned values
+    import json
+
+    content = json.loads(tool_results[0]["content"])
+    assert content["ticket_id"] == "ESC-001"
+    assert content["status"] == "escalated"
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_agentic_zero_tool_calls_filtered(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """Test that conversations with tools but zero tool calls are filtered out."""
+    mock_engine = Mock()
+    mock_build_inference_engine.return_value = mock_engine
+
+    def infer_side_effect(conversations, **kwargs):
+        return [
+            Conversation(
+                messages=[Message(role=Role.ASSISTANT, content="Just a text response")]
+            )
+            for _ in conversations
+        ]
+
+    mock_engine.infer.side_effect = infer_side_effect
+
+    params = _make_tool_params()
+    mt_attr = _make_tool_multiturn()
+    synthesizer = ConversationSynthesizer(params, mock_inference_config)
+
+    samples = [{"issue": "simple question"}]
+    result = synthesizer.synthesize(samples, mt_attr)
+
+    # Should be filtered out (None) because no tools were called
+    assert len(result) == 1
+    assert result[0] is None
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_tool_catalog_injected_into_assistant_persona(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """Test that the tool catalog is auto-injected into ASSISTANT persona."""
+    mock_build_inference_engine.return_value = Mock()
+
+    params = _make_tool_params()
+    synthesizer = ConversationSynthesizer(params, mock_inference_config)
+
+    tools = synthesizer._get_tools_for_multiturn(_make_tool_multiturn())
+    persona_msg = synthesizer._format_persona_with_tools(
+        {"issue": "test"}, "You are a support agent.", tools
+    )
+
+    content = persona_msg.content
+    assert "SearchOrders" in content
+    assert "Escalate" in content
+    assert "<tool_call>" in content
+    assert "do not guess or fabricate data" in content
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_planner_prompt_includes_tool_guidance(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """Test that planner prompt mentions tool availability when tools exist."""
+    mock_build_inference_engine.return_value = Mock()
+
+    params = _make_tool_params()
+    synthesizer = ConversationSynthesizer(params, mock_inference_config)
+
+    mt_attr = _make_tool_multiturn()
+    sample = {"issue": "test", "target_turns": 4}
+    planner = synthesizer._create_planner_prompt(mt_attr, sample)
+
+    system_content = planner.messages[0].content
+    assert "tools" in system_content.lower()
+    assert "WHAT" in system_content
+
+    user_content = planner.messages[3].content
+    assert "looking up information" in user_content
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_non_tool_conversation_unchanged(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """Test that non-tool conversations produce the same output format as before."""
+    mock_engine = Mock()
+    mock_build_inference_engine.return_value = mock_engine
+    mock_engine.infer.return_value = [
+        Conversation(messages=[Message(role=Role.ASSISTANT, content="Response")])
+    ]
+
+    # No tools defined
+    params = GeneralSynthesisParams()
+    mt_attr = MultiTurnAttribute(
+        id="test_conversation",
+        min_turns=2,
+        max_turns=2,
+        role_instruction_messages={
+            Role.USER: "You are a user",
+            Role.ASSISTANT: "You are an assistant",
+        },
+    )
+
+    synthesizer = ConversationSynthesizer(params, mock_inference_config)
+    result = synthesizer.synthesize([{}], mt_attr)
+
+    assert len(result) == 1
+    record = result[0]
+    assert record is not None
+    conv = record["test_conversation"]
+    assert isinstance(conv, dict)
+    # Should NOT have "tools" key
+    assert "tools" not in conv
+    # Should have "messages" key
+    assert "messages" in conv
