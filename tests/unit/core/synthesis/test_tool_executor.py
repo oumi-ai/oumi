@@ -27,7 +27,6 @@ from oumi.core.configs.params.tool_params import (
 from oumi.core.synthesis.tool_executor import ToolExecutor
 from oumi.core.types.conversation import Message, Role
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -167,8 +166,7 @@ def test_parse_tool_call_missing_name(executor):
 def test_parse_tool_call_unknown_tool(executor):
     """Test that parse_tool_call returns None for an unknown tool name."""
     response = (
-        '<tool_call>{"name": "NonExistentTool", '
-        '"arguments": {"x": 1}}</tool_call>'
+        '<tool_call>{"name": "NonExistentTool", "arguments": {"x": 1}}</tool_call>'
     )
     result = executor.parse_tool_call(response)
     assert result is None
@@ -305,17 +303,13 @@ def test_sample_deterministic_outputs_returns_for_deterministic_tools(
     assert parsed["status"] in valid_statuses
 
 
-def test_sample_deterministic_outputs_skips_generated_tools(
-    executor, generated_tool
-):
+def test_sample_deterministic_outputs_skips_generated_tools(executor, generated_tool):
     """Test that GENERATED tools are skipped entirely."""
     selections = executor.sample_deterministic_outputs([generated_tool])
     assert len(selections) == 0
 
 
-def test_sample_deterministic_outputs_respects_weights(
-    executor, deterministic_tool
-):
+def test_sample_deterministic_outputs_respects_weights(executor, deterministic_tool):
     """Test that sampling respects sample_rate weights over many iterations."""
     counts = {"delivered": 0, "pending": 0}
     n = 1000
@@ -342,9 +336,7 @@ def test_sample_deterministic_outputs_empty_list(executor):
 # ---------------------------------------------------------------------------
 
 
-def test_resolve_output_deterministic_returns_preselected(
-    executor, deterministic_tool
-):
+def test_resolve_output_deterministic_returns_preselected(executor, deterministic_tool):
     """Test that DETERMINISTIC tools return the pre-selected output."""
     preselected = json.dumps({"order_id": "ORD-001", "status": "delivered"})
     selections = {deterministic_tool.id: preselected}
@@ -355,9 +347,7 @@ def test_resolve_output_deterministic_returns_preselected(
     assert result == preselected
 
 
-def test_resolve_output_deterministic_missing_selection(
-    executor, deterministic_tool
-):
+def test_resolve_output_deterministic_missing_selection(executor, deterministic_tool):
     """Test that a missing deterministic selection returns an error JSON."""
     tool_call = {"name": "SearchOrders", "arguments": {"order_id": "ORD-001"}}
     result = executor.resolve_output(tool_call, {})

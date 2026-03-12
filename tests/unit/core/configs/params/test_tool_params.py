@@ -26,7 +26,6 @@ from oumi.core.configs.params.tool_params import (
 )
 from oumi.core.types.conversation import Role
 
-
 # ---------------------------------------------------------------------------
 # ToolOutputStrategy
 # ---------------------------------------------------------------------------
