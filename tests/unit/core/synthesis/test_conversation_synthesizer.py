@@ -1135,12 +1135,15 @@ def test_agentic_turn_deterministic_tool(
     conv_dict = record["tool_conversation"]
 
     # Find the tool result message
-    tool_results = [m for m in conv_dict["messages"] if m.get("role") == "tool"]
+    messages = conv_dict["messages"]  # type: ignore[index]
+    tool_results = [
+        m for m in messages if m.get("role") == "tool"  # type: ignore[union-attr]
+    ]
     assert len(tool_results) >= 1
     # Deterministic output should contain our canned values
     import json
 
-    content = json.loads(tool_results[0]["content"])
+    content = json.loads(tool_results[0]["content"])  # type: ignore[index]
     assert content["ticket_id"] == "ESC-001"
     assert content["status"] == "escalated"
 
@@ -1214,11 +1217,11 @@ def test_planner_prompt_includes_tool_guidance(
     sample = {"issue": "test", "target_turns": 4}
     planner = synthesizer._create_planner_prompt(mt_attr, sample)
 
-    system_content = planner.messages[0].content
+    system_content = str(planner.messages[0].content)
     assert "tools" in system_content.lower()
     assert "WHAT" in system_content
 
-    user_content = planner.messages[3].content
+    user_content = str(planner.messages[3].content)
     assert "looking up information" in user_content
 
 

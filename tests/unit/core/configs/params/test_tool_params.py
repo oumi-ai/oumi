@@ -108,7 +108,7 @@ def _make_deterministic_tool(**overrides) -> ToolAttribute:
         ],
     )
     defaults.update(overrides)
-    return ToolAttribute(**defaults)
+    return ToolAttribute(**defaults)  # type: ignore[arg-type]
 
 
 def test_tool_attribute_deterministic_valid():
@@ -144,7 +144,7 @@ def _make_generated_tool(**overrides) -> ToolAttribute:
         generated_output=GeneratedToolOutput(instruction="Do something."),
     )
     defaults.update(overrides)
-    return ToolAttribute(**defaults)
+    return ToolAttribute(**defaults)  # type: ignore[arg-type]
 
 
 def test_tool_attribute_generated_valid():
@@ -246,7 +246,7 @@ def _make_multiturn_attr(**overrides) -> MultiTurnAttribute:
         available_tools=[],
     )
     defaults.update(overrides)
-    return MultiTurnAttribute(**defaults)
+    return MultiTurnAttribute(**defaults)  # type: ignore[arg-type]
 
 
 def test_synthesis_params_valid_tool_references():
