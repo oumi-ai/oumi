@@ -24,6 +24,7 @@ from oumi.inference.deepseek_inference_engine import DeepSeekInferenceEngine
 from oumi.inference.fireworks_inference_engine import FireworksInferenceEngine
 from oumi.inference.gcp_inference_engine import GoogleVertexInferenceEngine
 from oumi.inference.gemini_inference_engine import GoogleGeminiInferenceEngine
+from oumi.inference.jax_inference_engine import JAXInferenceEngine
 from oumi.inference.lambda_inference_engine import LambdaInferenceEngine
 from oumi.inference.llama_cpp_inference_engine import LlamaCppInferenceEngine
 from oumi.inference.native_text_inference_engine import NativeTextInferenceEngine
@@ -45,6 +46,7 @@ __all__ = [
     "FireworksInferenceEngine",
     "GoogleGeminiInferenceEngine",
     "GoogleVertexInferenceEngine",
+    "JAXInferenceEngine",
     "LambdaInferenceEngine",
     "LlamaCppInferenceEngine",
     "NativeTextInferenceEngine",

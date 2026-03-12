@@ -1,19 +1,9 @@
-# Local experiments
-tmp/
-wandb/
-# ignore outputs from databricks MLflow telemetry
-mlruns/
-# default output directory for training, evaluation, inference, etc.
-output/
-# test coverage report
-coverage_html/
-# Notebook tutorial working files/directories
-notebooks/*tutorial*
-# Evaluation results
-results/
-
-# Pyright Config
-pyrightconfig.json
+**/experiments.py
+**/experiments.ipynb
+**/.tpu_ips.log
+**/.ssh_output.log
+**/.node0_ip.txt
+**/.vscode/**
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -24,7 +14,6 @@ __pycache__/
 *.so
 
 # Distribution / packaging
-_build/
 .Python
 build/
 develop-eggs/
@@ -68,7 +57,6 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
-.ruff_cache/
 
 # Translations
 *.mo
@@ -88,8 +76,7 @@ instance/
 .scrapy
 
 # Sphinx documentation
-docs/.sphinx/_build/
-docs/api/*.rst
+docs/_build/
 
 # PyBuilder
 .pybuilder/
@@ -114,6 +101,12 @@ ipython_config.py
 #   install all needed dependencies.
 #Pipfile.lock
 
+# UV
+#   Similar to Pipfile.lock, it is generally recommended to include uv.lock in version control.
+#   This is especially recommended for binary packages to ensure reproducibility, and is more
+#   commonly ignored for libraries.
+#uv.lock
+
 # poetry
 #   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
 #   This is especially recommended for binary packages to ensure reproducibility, and is more
@@ -126,8 +119,10 @@ ipython_config.py
 #pdm.lock
 #   pdm stores project-wide configurations in .pdm.toml, but it is recommended to not include it
 #   in version control.
-#   https://pdm.fming.dev/#use-with-ide
+#   https://pdm.fming.dev/latest/usage/project/#working-with-version-control
 .pdm.toml
+.pdm-python
+.pdm-build/
 
 # PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
 __pypackages__/
@@ -179,9 +174,8 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-# Mac
-.DS_Store
+# Ruff stuff:
+.ruff_cache/
 
-# VS Code Workspace
-oumi.code-workspace
-/.venv311
+# PyPI configuration file
+.pypirc

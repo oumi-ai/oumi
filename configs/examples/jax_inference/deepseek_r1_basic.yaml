@@ -1,0 +1,38 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# JAX inference config for DeepSeek R1 Distill Llama 8B.
+# Uses Llama3 architecture with distilled R1 reasoning capabilities.
+#
+# Experimental: JAX backend is under active development.
+#
+# Requirements:
+#   - Install JAX dependencies: `pip install oumi[jax]`
+#
+# Usage:
+#   oumi infer -i -c configs/examples/jax_inference/deepseek_r1_basic.yaml
+
+model:
+  model_name: "deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
+  model_max_length: 4096
+  torch_dtype_str: "bfloat16"
+  load_pretrained_weights: true
+  trust_remote_code: true
+
+generation:
+  max_new_tokens: 1024
+  temperature: 0.8
+  top_p: 0.95
+
+engine: JAX
