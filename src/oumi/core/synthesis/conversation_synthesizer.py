@@ -331,13 +331,15 @@ class ConversationSynthesizer:
                 return True
         return False
 
-    def _format_persona(self, sample: dict, persona: str, role: Role) -> Message:
+    def _format_persona(
+        self, sample: dict, persona: str, tools: list[ToolAttribute]
+    ) -> Message:
         """Format the persona for the sample.
 
         Args:
             sample: The sample dict containing all attributes.
             persona: The persona string to format.
-            role: The role for this persona.
+            tools: The list of ToolAttribute objects available to the persona.
 
         Returns:
             A Message with the formatted persona as a SYSTEM message.
@@ -347,38 +349,25 @@ class ConversationSynthesizer:
             persona,
             missing_values_allowed=False,
         )
+        if tools:
+            tool_catalog = ToolExecutor.build_tool_catalog(tools)
+            tool_section = (
+                "\n\nYou have access to the following tools. Use them to look up "
+                "information and perform actions — do not guess or fabricate data.\n\n"
+                f"Tools:\n{tool_catalog}\n\n"
+                "To use a tool, output:\n"
+                '<tool_call>{"name": "ToolName", "arguments": '
+                '{"param": "value"}}</tool_call>\n\n'
+                "After receiving a tool result, you may call another tool "
+                "or respond to the user."
+            )
+            formatted_content += tool_section
+
+            return Message(role=Role.SYSTEM, content=formatted_content)
         return Message(
             role=Role.SYSTEM,
             content=formatted_content,
         )
-
-    def _format_persona_with_tools(
-        self,
-        sample: dict,
-        persona: str,
-        tools: list[ToolAttribute],
-    ) -> Message:
-        """Format the ASSISTANT persona with auto-injected tool catalog."""
-        formatted_content = self._formatter.format(
-            sample,
-            persona,
-            missing_values_allowed=False,
-        )
-
-        tool_catalog = ToolExecutor.build_tool_catalog(tools)
-        tool_section = (
-            "\n\nYou have access to the following tools. Use them to look up "
-            "information and perform actions — do not guess or fabricate data.\n\n"
-            f"Tools:\n{tool_catalog}\n\n"
-            "To use a tool, output:\n"
-            '<tool_call>{"name": "ToolName", "arguments": '
-            '{"param": "value"}}</tool_call>\n\n'
-            "After receiving a tool result, you may call another tool "
-            "or respond to the user."
-        )
-        formatted_content += tool_section
-
-        return Message(role=Role.SYSTEM, content=formatted_content)
 
     def _build_role_context(
         self, sample: dict, multiturn_attribute: MultiTurnAttribute
@@ -598,14 +587,11 @@ class ConversationSynthesizer:
                     sample_ctx = {**samples[i], "current_turn": current_turn}
                     persona_text = multiturn_attribute.role_instruction_messages[role]
 
-                    if is_tool_turn:
-                        persona_msg = self._format_persona_with_tools(
-                            sample_ctx, persona_text, tools
-                        )
-                    else:
-                        persona_msg = self._format_persona(
-                            sample_ctx, persona_text, role
-                        )
+                    persona_msg = self._format_persona(
+                        sample_ctx,
+                        persona_text,
+                        tools if is_tool_turn else [],
+                    )
 
                     turn_instruction = ""
                     parsed_plans = samples[i].get("parsed_turn_plans", [])
@@ -657,7 +643,8 @@ class ConversationSynthesizer:
                 for idx, text in zip(active, texts):
                     tool_call = None
                     if is_tool_turn and tool_executor:
-                        tool_call = tool_executor.parse_tool_call(text)
+                        if turn_call_counts.get(idx, 0) < max_tool_calls:
+                            tool_call = tool_executor.parse_tool_call(text)
 
                     if tool_call is None:
                         histories[idx].extend(turn_tool_msgs[idx])
