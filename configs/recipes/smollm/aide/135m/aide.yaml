@@ -1,0 +1,71 @@
+# AIDE agentic optimization config for SmolLM 135M Instruct.
+#
+# Usage:
+#   oumi aide -c configs/recipes/smollm/aide/135m/aide.yaml
+#
+# See Also:
+#   - Config class: oumi.core.configs.AideConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/aide_config.py
+#   - Params source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/params/aide_params.py
+
+model:
+  model_name: "HuggingFaceTB/SmolLM2-135M-Instruct"
+  model_max_length: 2048
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  load_pretrained_weights: true
+  trust_remote_code: true
+
+data:
+  train:
+    datasets:
+      - dataset_name: "yahma/alpaca-cleaned"
+        split: "train[:90%]"
+
+  validation:
+    datasets:
+      - dataset_name: "yahma/alpaca-cleaned"
+        split: "train[90%:]"
+
+goal: >
+  Optimize training hyperparameters for SmolLM 135M on the Alpaca dataset
+  to minimize eval_loss. Explore learning rate, optimizer choice,
+  warmup schedule, and batch size / gradient accumulation tradeoffs.
+  Keep the total training time under 30 minutes per trial.
+
+base_training_config: "configs/recipes/smollm/sft/135m/train.yaml"
+
+mutable_config_paths:
+  - "training.learning_rate"
+  - "training.optimizer"
+  - "training.warmup_ratio"
+  - "training.lr_scheduler_type"
+  - "training.gradient_accumulation_steps"
+  - "training.per_device_train_batch_size"
+  - "training.max_steps"
+  - "peft.lora_r"
+  - "peft.lora_alpha"
+
+aide:
+  steps: 10
+  surface: CONFIG_SEARCH
+  target_metric: "eval_loss"
+  target_direction: "minimize"
+  output_dir: "output/aide_smollm_135m"
+  workspace_dir: "workspaces/aide_smollm_135m"
+
+  code_llm:
+    model: "o4-mini"
+    temperature: 0.5
+
+  feedback_llm:
+    model: "gpt-4.1-mini"
+    temperature: 0.5
+
+  search:
+    num_drafts: 3
+    debug_prob: 0.5
+    max_debug_depth: 3
+
+  execution:
+    timeout: 1800  # 30 min per trial

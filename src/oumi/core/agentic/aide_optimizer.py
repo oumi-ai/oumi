@@ -240,7 +240,14 @@ class AideOptimizer(BaseAgenticOptimizer):
         Returns:
             AideResult with the best code, metric, and paths.
         """
-        best_node = self._journal.get_best_node(only_good=False)
+        # Handle empty journal (no steps run yet)
+        if not self._journal.nodes:
+            best_node = None
+        else:
+            try:
+                best_node = self._journal.get_best_node(only_good=False)
+            except (ValueError, IndexError):
+                best_node = None
 
         # Save best solution to file
         output_dir = Path(self.aide_params.output_dir)
