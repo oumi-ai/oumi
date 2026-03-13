@@ -181,6 +181,12 @@ tune = ["optuna>=4.0.0,<5.0"]
 
 bitnet = ["onebitllms>=0.0.3"]
 
+mcp = [
+    "fastmcp>=3.0.0,<4",
+    "httpx>=0.28.1,<1",
+    "mcp>=1.25.0,<2",
+]
+
 file_formats = ["pdf2image>=1.17,<1.18", "python-poppler>=0.4,<0.5"]
 
 llama_cpp = ["llama-cpp-python>=0.3.5,<0.4"]
@@ -193,7 +199,7 @@ torchdata = ["torchdata>=0.9,<0.10.0"]
 
 # CI targets
 ci_cpu = [
-    "oumi[dev,docs,gcp,synthesis,tune,torchdata]",
+    "oumi[dev,docs,gcp,mcp,synthesis,tune,torchdata]",
     "vllm>=0.10,<0.11",                            # For VLLMInferenceEngine
     # This may fail to install. As a temporary workaround, run:
     # CMAKE_ARGS="-DLLAVA_BUILD=OFF" pip install -U llama-cpp-python
@@ -208,6 +214,7 @@ ci_gpu = [
 
 [project.scripts]
 oumi = "oumi.cli.main:run"
+oumi-mcp = "oumi.mcp.server:main"
 
 [tool.ruff]
 extend-include = [
@@ -247,6 +254,7 @@ ban-relative-imports = "all" # Disallow all relative imports.
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["D", "PTH"] # Ignore docstring checks in tests
+"src/oumi/mcp/*" = ["ASYNC210", "ASYNC220", "ASYNC230", "ASYNC240"]  # fastmcp uses sync-over-async patterns
 "src/oumi/utils/verl_model_merger.*" = [
     "E501", # Line too long
     "D",    # Ignore docstring checks
