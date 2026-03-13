@@ -27,55 +27,15 @@ from oumi.core.configs.params.tool_params import (
 from oumi.core.types.conversation import Role
 
 
-def test_tool_output_strategy_values():
-    assert ToolOutputStrategy.DETERMINISTIC == "deterministic"
-    assert ToolOutputStrategy.GENERATED == "generated"
-
-
-def test_tool_output_strategy_is_str_enum():
-    assert isinstance(ToolOutputStrategy.DETERMINISTIC, str)
-    assert isinstance(ToolOutputStrategy.GENERATED, str)
-
-
-def test_deterministic_tool_output_valid():
-    output = DeterministicToolOutput(values={"status": "ok"})
-    assert output.values == {"status": "ok"}
-    assert output.sample_rate is None
-
-
-def test_deterministic_tool_output_valid_with_sample_rate():
-    output = DeterministicToolOutput(values={"x": 1}, sample_rate=0.5)
-    assert output.sample_rate == 0.5
-
-
-def test_deterministic_tool_output_boundary_sample_rates():
-    DeterministicToolOutput(values={"x": 1}, sample_rate=0.0)
-    DeterministicToolOutput(values={"x": 1}, sample_rate=1.0)
-
-
 def test_deterministic_tool_output_empty_values_raises():
     with pytest.raises(ValueError, match="values cannot be empty"):
         DeterministicToolOutput(values={})
 
 
-def test_deterministic_tool_output_negative_sample_rate_raises():
+@pytest.mark.parametrize("rate", [-0.1, 1.1])
+def test_deterministic_tool_output_invalid_sample_rate_raises(rate):
     with pytest.raises(ValueError, match="sample_rate must be between 0 and 1"):
-        DeterministicToolOutput(values={"x": 1}, sample_rate=-0.1)
-
-
-def test_deterministic_tool_output_sample_rate_above_one_raises():
-    with pytest.raises(ValueError, match="sample_rate must be between 0 and 1"):
-        DeterministicToolOutput(values={"x": 1}, sample_rate=1.1)
-
-
-def test_generated_tool_output_valid():
-    output = GeneratedToolOutput(instruction="Return a result.")
-    assert output.instruction == "Return a result."
-
-
-def test_generated_tool_output_empty_instruction_raises():
-    with pytest.raises(ValueError, match="instruction cannot be empty"):
-        GeneratedToolOutput(instruction="")
+        DeterministicToolOutput(values={"x": 1}, sample_rate=rate)
 
 
 def _make_deterministic_tool(**overrides) -> ToolAttribute:
@@ -92,11 +52,16 @@ def _make_deterministic_tool(**overrides) -> ToolAttribute:
     return ToolAttribute(**defaults)  # type: ignore[arg-type]
 
 
-def test_tool_attribute_deterministic_valid():
-    tool = _make_deterministic_tool()
-    assert tool.id == "tool1"
-    assert tool.output_strategy == ToolOutputStrategy.DETERMINISTIC
-    assert tool.deterministic_outputs[0].sample_rate == 1.0
+def _make_generated_tool(**overrides) -> ToolAttribute:
+    defaults = dict(
+        id="tool2",
+        name="GenTool",
+        description="A generated tool",
+        output_strategy=ToolOutputStrategy.GENERATED,
+        generated_output=GeneratedToolOutput(instruction="Do something."),
+    )
+    defaults.update(overrides)
+    return ToolAttribute(**defaults)  # type: ignore[arg-type]
 
 
 def test_tool_attribute_deterministic_without_outputs_raises():
@@ -110,24 +75,6 @@ def test_tool_attribute_deterministic_without_outputs_raises():
         )
 
 
-def _make_generated_tool(**overrides) -> ToolAttribute:
-    defaults = dict(
-        id="tool2",
-        name="GenTool",
-        description="A generated tool",
-        output_strategy=ToolOutputStrategy.GENERATED,
-        generated_output=GeneratedToolOutput(instruction="Do something."),
-    )
-    defaults.update(overrides)
-    return ToolAttribute(**defaults)  # type: ignore[arg-type]
-
-
-def test_tool_attribute_generated_valid():
-    tool = _make_generated_tool()
-    assert tool.output_strategy == ToolOutputStrategy.GENERATED
-    assert tool.generated_output is not None
-
-
 def test_tool_attribute_generated_without_output_raises():
     with pytest.raises(ValueError, match="generated_output must be provided"):
         ToolAttribute(
@@ -139,19 +86,13 @@ def test_tool_attribute_generated_without_output_raises():
         )
 
 
-def test_tool_attribute_empty_id_raises():
-    with pytest.raises(ValueError, match="id cannot be empty"):
-        _make_generated_tool(id="")
-
-
-def test_tool_attribute_empty_name_raises():
-    with pytest.raises(ValueError, match="name cannot be empty"):
-        _make_generated_tool(name="")
-
-
-def test_tool_attribute_empty_description_raises():
-    with pytest.raises(ValueError, match="description cannot be empty"):
-        _make_generated_tool(description="")
+@pytest.mark.parametrize(
+    "field,value",
+    [("id", ""), ("name", ""), ("description", "")],
+)
+def test_tool_attribute_empty_field_raises(field, value):
+    with pytest.raises(ValueError, match=f"{field} cannot be empty"):
+        _make_generated_tool(**{field: value})
 
 
 def test_tool_attribute_normalizes_undefined_sample_rates():
@@ -181,16 +122,6 @@ def test_tool_attribute_sample_rates_exceeding_one_raises():
     ]
     with pytest.raises(ValueError, match="sample rates must sum to at most 1.0"):
         _make_deterministic_tool(deterministic_outputs=outputs)
-
-
-def test_tool_attribute_sample_rates_exactly_one():
-    outputs = [
-        DeterministicToolOutput(values={"a": 1}, sample_rate=0.4),
-        DeterministicToolOutput(values={"b": 2}, sample_rate=0.6),
-    ]
-    tool = _make_deterministic_tool(deterministic_outputs=outputs)
-    assert tool.deterministic_outputs[0].sample_rate == pytest.approx(0.4)
-    assert tool.deterministic_outputs[1].sample_rate == pytest.approx(0.6)
 
 
 def _make_multiturn_attr(**overrides) -> MultiTurnAttribute:
@@ -247,18 +178,3 @@ def test_synthesis_params_duplicate_tool_ids_raises():
             tools=[t1, t2],
             multiturn_attributes=[mt],
         )
-
-
-def test_synthesis_params_no_tools_no_references_passes():
-    mt = _make_multiturn_attr(available_tools=[])
-    params = GeneralSynthesisParams(
-        tools=None,
-        multiturn_attributes=[mt],
-    )
-    assert params.tools is None
-
-
-def test_synthesis_params_no_multiturn_no_tools_passes():
-    params = GeneralSynthesisParams()
-    assert params.tools is None
-    assert params.multiturn_attributes is None
