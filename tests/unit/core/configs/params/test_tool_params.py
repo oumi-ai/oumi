@@ -26,10 +26,6 @@ from oumi.core.configs.params.tool_params import (
 )
 from oumi.core.types.conversation import Role
 
-# ---------------------------------------------------------------------------
-# ToolOutputStrategy
-# ---------------------------------------------------------------------------
-
 
 def test_tool_output_strategy_values():
     assert ToolOutputStrategy.DETERMINISTIC == "deterministic"
@@ -39,11 +35,6 @@ def test_tool_output_strategy_values():
 def test_tool_output_strategy_is_str_enum():
     assert isinstance(ToolOutputStrategy.DETERMINISTIC, str)
     assert isinstance(ToolOutputStrategy.GENERATED, str)
-
-
-# ---------------------------------------------------------------------------
-# DeterministicToolOutput
-# ---------------------------------------------------------------------------
 
 
 def test_deterministic_tool_output_valid():
@@ -77,11 +68,6 @@ def test_deterministic_tool_output_sample_rate_above_one_raises():
         DeterministicToolOutput(values={"x": 1}, sample_rate=1.1)
 
 
-# ---------------------------------------------------------------------------
-# GeneratedToolOutput
-# ---------------------------------------------------------------------------
-
-
 def test_generated_tool_output_valid():
     output = GeneratedToolOutput(instruction="Return a result.")
     assert output.instruction == "Return a result."
@@ -90,11 +76,6 @@ def test_generated_tool_output_valid():
 def test_generated_tool_output_empty_instruction_raises():
     with pytest.raises(ValueError, match="instruction cannot be empty"):
         GeneratedToolOutput(instruction="")
-
-
-# ---------------------------------------------------------------------------
-# ToolAttribute - DETERMINISTIC strategy
-# ---------------------------------------------------------------------------
 
 
 def _make_deterministic_tool(**overrides) -> ToolAttribute:
@@ -115,7 +96,6 @@ def test_tool_attribute_deterministic_valid():
     tool = _make_deterministic_tool()
     assert tool.id == "tool1"
     assert tool.output_strategy == ToolOutputStrategy.DETERMINISTIC
-    # sample_rate should be normalized (only one output -> 1.0)
     assert tool.deterministic_outputs[0].sample_rate == 1.0
 
 
@@ -128,11 +108,6 @@ def test_tool_attribute_deterministic_without_outputs_raises():
             output_strategy=ToolOutputStrategy.DETERMINISTIC,
             deterministic_outputs=[],
         )
-
-
-# ---------------------------------------------------------------------------
-# ToolAttribute - GENERATED strategy
-# ---------------------------------------------------------------------------
 
 
 def _make_generated_tool(**overrides) -> ToolAttribute:
@@ -164,11 +139,6 @@ def test_tool_attribute_generated_without_output_raises():
         )
 
 
-# ---------------------------------------------------------------------------
-# ToolAttribute - empty fields
-# ---------------------------------------------------------------------------
-
-
 def test_tool_attribute_empty_id_raises():
     with pytest.raises(ValueError, match="id cannot be empty"):
         _make_generated_tool(id="")
@@ -184,18 +154,12 @@ def test_tool_attribute_empty_description_raises():
         _make_generated_tool(description="")
 
 
-# ---------------------------------------------------------------------------
-# ToolAttribute - sample rate normalization
-# ---------------------------------------------------------------------------
-
-
 def test_tool_attribute_normalizes_undefined_sample_rates():
     outputs = [
         DeterministicToolOutput(values={"a": 1}),
         DeterministicToolOutput(values={"b": 2}),
     ]
     tool = _make_deterministic_tool(deterministic_outputs=outputs)
-    # Both undefined -> uniform -> 0.5 each
     assert tool.deterministic_outputs[0].sample_rate == pytest.approx(0.5)
     assert tool.deterministic_outputs[1].sample_rate == pytest.approx(0.5)
 
@@ -227,11 +191,6 @@ def test_tool_attribute_sample_rates_exactly_one():
     tool = _make_deterministic_tool(deterministic_outputs=outputs)
     assert tool.deterministic_outputs[0].sample_rate == pytest.approx(0.4)
     assert tool.deterministic_outputs[1].sample_rate == pytest.approx(0.6)
-
-
-# ---------------------------------------------------------------------------
-# GeneralSynthesisParams - tool cross-validation
-# ---------------------------------------------------------------------------
 
 
 def _make_multiturn_attr(**overrides) -> MultiTurnAttribute:
@@ -296,7 +255,6 @@ def test_synthesis_params_no_tools_no_references_passes():
         tools=None,
         multiturn_attributes=[mt],
     )
-    # Both should be normalized to None when empty/unused
     assert params.tools is None
 
 

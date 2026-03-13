@@ -27,10 +27,6 @@ from oumi.core.configs.params.tool_params import (
 from oumi.core.synthesis.tool_executor import ToolExecutor
 from oumi.core.types.conversation import Message, Role
 
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
-
 
 @pytest.fixture
 def deterministic_tool():
@@ -125,11 +121,6 @@ def executor(deterministic_tool, generated_tool, no_params_tool):
     return ToolExecutor([deterministic_tool, generated_tool, no_params_tool])
 
 
-# ---------------------------------------------------------------------------
-# parse_tool_call
-# ---------------------------------------------------------------------------
-
-
 def test_parse_tool_call_valid(executor):
     """Test parsing a well-formed tool call."""
     response = (
@@ -216,11 +207,6 @@ def test_parse_tool_call_name_not_string(executor):
     assert result is None
 
 
-# ---------------------------------------------------------------------------
-# validate_arguments
-# ---------------------------------------------------------------------------
-
-
 def test_validate_arguments_valid(executor):
     """Test that valid arguments pass validation."""
     tool_call = {"name": "SearchOrders", "arguments": {"order_id": "ORD-001"}}
@@ -281,11 +267,6 @@ def test_validate_arguments_no_parameters_tool(executor):
     assert error is None
 
 
-# ---------------------------------------------------------------------------
-# sample_deterministic_outputs
-# ---------------------------------------------------------------------------
-
-
 def test_sample_deterministic_outputs_returns_for_deterministic_tools(
     executor, deterministic_tool, generated_tool
 ):
@@ -297,7 +278,6 @@ def test_sample_deterministic_outputs_returns_for_deterministic_tools(
     assert deterministic_tool.id in selections
     assert generated_tool.id not in selections
 
-    # The selection should be valid JSON matching one of the canned outputs
     parsed = json.loads(selections[deterministic_tool.id])
     valid_statuses = {"delivered", "pending"}
     assert parsed["status"] in valid_statuses
@@ -319,9 +299,7 @@ def test_sample_deterministic_outputs_respects_weights(executor, deterministic_t
         parsed = json.loads(selections[deterministic_tool.id])
         counts[parsed["status"]] += 1
 
-    # With 0.7/0.3 weights over 1000 samples, delivered should dominate
     assert counts["delivered"] > counts["pending"]
-    # Rough sanity: delivered should be at least 50% (very conservative bound)
     assert counts["delivered"] > n * 0.5
 
 
@@ -329,11 +307,6 @@ def test_sample_deterministic_outputs_empty_list(executor):
     """Test with an empty tools list."""
     selections = executor.sample_deterministic_outputs([])
     assert selections == {}
-
-
-# ---------------------------------------------------------------------------
-# resolve_output
-# ---------------------------------------------------------------------------
 
 
 def test_resolve_output_deterministic_returns_preselected(executor, deterministic_tool):
@@ -373,11 +346,6 @@ def test_resolve_output_unknown_tool(executor):
     parsed = json.loads(result)
     assert "error" in parsed
     assert "NoSuchTool" in parsed["error"]
-
-
-# ---------------------------------------------------------------------------
-# build_generated_simulator_prompt
-# ---------------------------------------------------------------------------
 
 
 def test_build_generated_simulator_prompt_structure(executor):
@@ -448,13 +416,7 @@ def test_build_generated_simulator_prompt_no_params_tool(executor):
 
     system_content = conversation.messages[0].content
     assert "GetCurrentTime" in system_content
-    # Should not include "Parameter schema" since the tool has no parameters
     assert "Parameter schema" not in system_content
-
-
-# ---------------------------------------------------------------------------
-# build_tool_catalog
-# ---------------------------------------------------------------------------
 
 
 def test_build_tool_catalog_contains_all_tools(
@@ -477,7 +439,6 @@ def test_build_tool_catalog_shows_required_params(deterministic_tool):
 
     assert "order_id (string, required)" in catalog
     assert "include_items (boolean)" in catalog
-    # include_items should NOT have ", required"
     assert "include_items (boolean, required)" not in catalog
 
 
@@ -495,7 +456,6 @@ def test_build_tool_catalog_no_params_tool(no_params_tool):
 
     assert "GetCurrentTime" in catalog
     assert "Get the current server time" in catalog
-    # Should only have the one line for the tool itself
     lines = [line for line in catalog.split("\n") if line.strip()]
     assert len(lines) == 1
 
@@ -504,11 +464,6 @@ def test_build_tool_catalog_empty_list():
     """Test catalog with empty tools list."""
     catalog = ToolExecutor.build_tool_catalog([])
     assert catalog == ""
-
-
-# ---------------------------------------------------------------------------
-# build_tool_definitions
-# ---------------------------------------------------------------------------
 
 
 def test_build_tool_definitions_format(deterministic_tool, generated_tool):
@@ -543,11 +498,6 @@ def test_build_tool_definitions_no_params_gets_empty_object(no_params_tool):
     assert params == {"type": "object", "properties": {}}
 
 
-# ---------------------------------------------------------------------------
-# format_tool_call_message
-# ---------------------------------------------------------------------------
-
-
 def test_format_tool_call_message_structure():
     """Test that format_tool_call_message produces correct OpenAI format."""
     tool_call = {"name": "SearchOrders", "arguments": {"order_id": "ORD-001"}}
@@ -571,11 +521,6 @@ def test_format_tool_call_message_empty_arguments():
 
     tc = result["tool_calls"][0]
     assert json.loads(tc["function"]["arguments"]) == {}
-
-
-# ---------------------------------------------------------------------------
-# format_tool_result_message
-# ---------------------------------------------------------------------------
 
 
 def test_format_tool_result_message_structure():
@@ -606,11 +551,6 @@ def test_format_tool_result_message_error_content():
     assert result["name"] == "SearchOrders"
     parsed = json.loads(result["content"])
     assert parsed["error"] == "Order not found"
-
-
-# ---------------------------------------------------------------------------
-# get_tool_by_name
-# ---------------------------------------------------------------------------
 
 
 def test_get_tool_by_name_found(executor, deterministic_tool):
