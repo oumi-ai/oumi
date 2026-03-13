@@ -259,6 +259,24 @@ class ToolExecutor:
         return Conversation(messages=messages)
 
     @staticmethod
+    def build_capability_summary(tools: list[ToolAttribute]) -> str:
+        """Build a capability summary for the conversation planner.
+
+        Lists what the assistant can do (descriptions only) without exposing
+        tool names or parameters. This gives the planner enough context to
+        create feasible plans while keeping tool selection up to the agent.
+
+        Returns an empty string if the tools list is empty.
+        """
+        seen: set[str] = set()
+        lines: list[str] = []
+        for tool in tools:
+            if tool.description not in seen:
+                seen.add(tool.description)
+                lines.append(f"- {tool.description}")
+        return "\n".join(lines)
+
+    @staticmethod
     def build_tool_catalog(tools: list[ToolAttribute]) -> str:
         """Build a formatted tool catalog for injection into synthesis prompts."""
         lines: list[str] = []

@@ -1170,7 +1170,14 @@ def test_planner_prompt_includes_tool_guidance(
     assert "WHAT" in system_content
 
     user_content = str(planner.messages[3].content)
-    assert "looking up information" in user_content
+    assert "The assistant has the following capabilities:" in user_content
+    assert "Look up order details" in user_content
+    assert "Escalate to specialist" in user_content
+    capability_section = user_content.split("capabilities:\n")[-1].split(
+        "\nRole context:"
+    )[0]
+    assert "SearchOrders" not in capability_section
+    assert "available capabilities" in user_content
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")

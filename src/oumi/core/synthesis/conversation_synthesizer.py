@@ -417,7 +417,8 @@ class ConversationSynthesizer:
         target_turns = sample["target_turns"]
         turn_order_str = self._build_turn_order_str(turn_order, target_turns)
 
-        has_tools = bool(multiturn_attribute.available_tools)
+        tools = self._get_tools_for_multiturn(multiturn_attribute)
+        has_tools = bool(tools)
 
         system_prompt = (
             "You are a conversation planner. Create conversation outlines "
@@ -443,20 +444,26 @@ class ConversationSynthesizer:
                 "Plan a 4-turn conversation.\n"
                 "Turn order: Turn 1: USER, Turn 2: ASSISTANT, Turn 3: USER, "
                 "Turn 4: ASSISTANT\n\n"
+                "The assistant has the following capabilities:\n"
+                "- Look up order details and status\n"
+                "- Check return eligibility for an order\n\n"
                 "Role context:\n"
                 "[USER]\n"
                 "You are a customer who wants to return a recent order.\n\n"
                 "[ASSISTANT]\n"
                 "You are a support agent who helps customers with orders.\n\n"
                 "Additional instructions: Help the customer with their return "
-                "request by looking up the relevant information."
+                "request by investigating the order details."
             )
             example_response = """```json
 [
-  {"turn": 1, "instruction": "Explain that you want to return your order and why"},
-  {"turn": 2, "instruction": "Look up the order and check return eligibility"},
+  {"turn": 1, "instruction": "Explain that you want to return your order and
+  provide the reason"},
+  {"turn": 2, "instruction": "Verify the order details and check whether a return
+  is eligible based on the return policy"},
   {"turn": 3, "instruction": "Confirm you want to proceed with the return"},
-  {"turn": 4, "instruction": "Process the return and share next steps"}
+  {"turn": 4, "instruction": "Process the return and provide confirmation with
+  next steps"}
 ]
 ```"""
         else:
@@ -493,9 +500,15 @@ class ConversationSynthesizer:
 
         if has_tools:
             base_prompt += (
-                "- ASSISTANT turns should involve looking up information or "
-                "taking actions to help the user.\n"
+                "- ASSISTANT turns should actively investigate, verify, or "
+                "take actions using the assistant's available capabilities.\n"
             )
+            capability_summary = ToolExecutor.build_capability_summary(tools)
+            if capability_summary:
+                base_prompt += (
+                    "\nThe assistant has the following capabilities:\n"
+                    f"{capability_summary}\n"
+                )
 
         if role_context:
             base_prompt += f"\nRole context:\n{role_context}\n"

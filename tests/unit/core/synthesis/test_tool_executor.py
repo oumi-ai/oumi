@@ -564,3 +564,47 @@ def test_get_tool_by_name_not_found(executor):
     """Test that looking up a nonexistent tool returns None."""
     tool = executor.get_tool_by_name("NoSuchTool")
     assert tool is None
+
+
+def test_build_capability_summary(deterministic_tool, generated_tool):
+    """Test that capability summary contains descriptions only, no tool names."""
+    summary = ToolExecutor.build_capability_summary(
+        [deterministic_tool, generated_tool]
+    )
+    assert deterministic_tool.description in summary
+    assert generated_tool.description in summary
+    assert deterministic_tool.name not in summary
+    assert generated_tool.name not in summary
+    for line in summary.strip().split("\n"):
+        assert line.startswith("- ")
+
+
+def test_build_capability_summary_empty_list():
+    """Test that empty tools list returns empty string."""
+    assert ToolExecutor.build_capability_summary([]) == ""
+
+
+def test_build_capability_summary_single_tool(deterministic_tool):
+    """Test capability summary with a single tool."""
+    summary = ToolExecutor.build_capability_summary([deterministic_tool])
+    assert summary == f"- {deterministic_tool.description}"
+
+
+def test_build_capability_summary_deduplicates():
+    """Test that duplicate descriptions are deduplicated."""
+    tool_a = ToolAttribute(
+        id="a",
+        name="ToolA",
+        description="Same description",
+        output_strategy=ToolOutputStrategy.GENERATED,
+        generated_output=GeneratedToolOutput(instruction="test"),
+    )
+    tool_b = ToolAttribute(
+        id="b",
+        name="ToolB",
+        description="Same description",
+        output_strategy=ToolOutputStrategy.GENERATED,
+        generated_output=GeneratedToolOutput(instruction="test"),
+    )
+    summary = ToolExecutor.build_capability_summary([tool_a, tool_b])
+    assert summary.count("Same description") == 1
