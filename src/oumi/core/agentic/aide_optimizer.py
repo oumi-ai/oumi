@@ -294,18 +294,28 @@ class AideOptimizer(BaseAgenticOptimizer):
         )
 
     def get_search_summary(self) -> dict[str, Any]:
-        """Get a summary of the search progress."""
-        best = self._journal.get_best_node(only_good=True)
+        """Get a summary of the search progress.
+
+        Returns:
+            Dictionary with total_nodes, good_nodes, buggy_nodes,
+            draft_nodes, and best_metric.
+        """
+        best_metric_value = None
+        if self._journal.nodes and self._journal.good_nodes:
+            try:
+                best = self._journal.get_best_node(only_good=True)
+                if best and best.metric and hasattr(best.metric, "value"):
+                    raw = best.metric.value
+                    best_metric_value = float(raw) if raw is not None else None
+            except (ValueError, IndexError):
+                pass
+
         return {
             "total_nodes": len(self._journal),
             "good_nodes": len(self._journal.good_nodes),
             "buggy_nodes": len(self._journal.buggy_nodes),
             "draft_nodes": len(self._journal.draft_nodes),
-            "best_metric": (
-                best.metric.value
-                if best and best.metric and hasattr(best.metric, "value")
-                else None
-            ),
+            "best_metric": (best_metric_value),
         }
 
     def cleanup(self) -> None:
