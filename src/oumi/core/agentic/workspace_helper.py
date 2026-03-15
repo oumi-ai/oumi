@@ -90,7 +90,7 @@ def run_trial(
     config.training.enable_wandb = False
 
     # Train and extract metric.
-    eval_results = train(config)
+    eval_results = train(config, additional_tuning_kwargs={"aide": True})
 
     if eval_results and target_metric in eval_results:
         metric = float(eval_results[target_metric])
@@ -149,7 +149,7 @@ def test_reward(
     config.training.output_dir = "./working/reward_trial"
     config.training.enable_wandb = False
 
-    eval_results = train(config)
+    eval_results = train(config, additional_tuning_kwargs={"aide": True})
 
     if eval_results and target_metric in eval_results:
         metric = float(eval_results[target_metric])
