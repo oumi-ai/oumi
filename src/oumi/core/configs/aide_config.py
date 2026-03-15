@@ -114,10 +114,13 @@ class AideConfig(BaseConfig):
     def finalize_and_validate(self) -> None:
         """Validates the AIDE config.
 
-        Overrides base validation to make data params optional — AIDE
-        generates its own training scripts so datasets are not always
-        required at config time. Only validates data if datasets are
-        actually specified.
+        Unlike :class:`~oumi.core.configs.training_config.TrainingConfig`
+        which requires datasets upfront, AIDE generates its own training
+        scripts that may include data loading logic. Therefore, data
+        validation is only performed if datasets are explicitly provided.
+
+        Raises:
+            ValueError: If ``goal`` is empty or not provided.
         """
         # Validate aide params and their children
         self.aide.finalize_and_validate()

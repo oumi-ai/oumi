@@ -25,6 +25,7 @@ def build_agentic_optimizer(
     aide_params: AideParams,
     task_desc: dict[str, Any],
     workspace_dir: Path,
+    base_training_config: str | None = None,
 ) -> BaseAgenticOptimizer:
     """Build an agentic optimizer based on the configuration.
 
@@ -35,6 +36,7 @@ def build_agentic_optimizer(
         aide_params: Configuration parameters for the optimizer.
         task_desc: Task description dict for the optimization agent.
         workspace_dir: Working directory for generated scripts.
+        base_training_config: Path to a base Oumi training config YAML.
 
     Returns:
         An instance of the appropriate optimizer implementation.
@@ -43,4 +45,5 @@ def build_agentic_optimizer(
         aide_params=aide_params,
         task_desc=task_desc,
         workspace_dir=workspace_dir,
+        base_training_config=base_training_config,
     )

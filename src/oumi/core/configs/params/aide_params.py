@@ -165,7 +165,7 @@ class AideParams(BaseParams):
     """LLM settings for code generation (drafting, improving, debugging)."""
 
     feedback_llm: AideLLMParams = field(
-        default_factory=lambda: AideLLMParams(model="gpt-4.1-mini")
+        default_factory=lambda: AideLLMParams(model="gpt-5-mini")
     )
     """LLM settings for evaluating execution results and extracting metrics."""
 

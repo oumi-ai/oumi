@@ -24,12 +24,13 @@ import json
 from pathlib import Path
 from typing import Any
 
+from omegaconf import OmegaConf
+
 try:
     import aide  # type: ignore[reportMissingImports]
     from aide.agent import Agent as AideAgent
     from aide.interpreter import Interpreter as AideInterpreter
     from aide.journal import Journal as AideJournal
-    from aide.utils.config import save_run as aide_save_run
 except ImportError:
     aide = None  # type: ignore[assignment]
 
@@ -62,38 +63,111 @@ def _build_oumi_task_desc(
         "Evaluation": (
             f"The target metric is '{target_metric}' "
             f"which should be {target_direction}d. "
-            f"Print the metric as: METRIC:{target_metric}=<value>"
+            f"Print the metric value to stdout so it can be extracted."
         ),
     }
 
+    # Tell the agent about the oumi_helper.py available in the workspace.
+    helper_note = (
+        "IMPORTANT: An `oumi_helper` module is available in your workspace. "
+        "Always use it instead of calling Oumi's API directly. "
+        "It handles all configuration loading, environment setup, "
+        "and metric extraction.\n"
+    )
+
     if surface == AideOptimizationSurface.CONFIG_SEARCH:
+        # Use just the filename — the file is copied into the workspace.
+        base_path = Path(base_config_yaml).name if base_config_yaml else "train.yaml"
         desc["Surface"] = (
-            "Generate a Python script that creates a TrainingConfig, "
-            "trains a model using oumi.train.train(), evaluates it, "
-            "and prints the target metric."
+            "Generate a Python script that optimizes training hyperparameters."
+        )
+        desc["How to use oumi_helper"] = (
+            f"{helper_note}\n"
+            "```python\n"
+            "from oumi_helper import run_trial, get_config_fields\n"
+            "\n"
+            "# See what fields are available:\n"
+            "# fields = get_config_fields(base_config_path)\n"
+            "\n"
+            "# Run a trial with specific overrides:\n"
+            "metric = run_trial(\n"
+            f'    base_config_path="{base_path}",\n'
+            "    overrides={\n"
+            '        "training.learning_rate": 3e-4,\n'
+            '        "training.optimizer": "adafactor",\n'
+            '        "training.warmup_ratio": 0.1,\n'
+            "    },\n"
+            f'    target_metric="{target_metric}",\n'
+            ")\n"
+            f'print(f"{target_metric}={{metric}}")\n'
+            "```\n"
         )
         if mutable_paths:
             desc["Constraints"] = (
                 f"You may only modify these config paths: {mutable_paths}"
             )
     elif surface == AideOptimizationSurface.REWARD_FUNCTION:
-        desc["Surface"] = (
-            "Generate a reward function compatible with Oumi's GRPO trainer. "
-            "The function signature must be: "
-            "def reward_fn(completions: list[str], "
-            "prompts: list[str] | None = None, **kwargs) -> list[float]"
+        base_path = Path(base_config_yaml).name if base_config_yaml else "train.yaml"
+        desc["Surface"] = "Generate a reward function for GRPO/RLHF training."
+        desc["How to use oumi_helper"] = (
+            f"{helper_note}\n"
+            "```python\n"
+            "from oumi_helper import test_reward\n"
+            "\n"
+            "def my_reward_fn(\n"
+            "    completions: list[str],\n"
+            "    prompts: list[str] | None = None,\n"
+            "    **kwargs,\n"
+            ") -> list[float]:\n"
+            "    rewards = []\n"
+            "    for completion in completions:\n"
+            "        # Your reward logic here.\n"
+            "        score = 1.0 if 'correct' in completion else 0.0\n"
+            "        rewards.append(score)\n"
+            "    return rewards\n"
+            "\n"
+            "metric = test_reward(\n"
+            "    reward_fn=my_reward_fn,\n"
+            f'    base_config_path="{base_path}",\n'
+            f'    target_metric="{target_metric}",\n'
+            ")\n"
+            f'print(f"{target_metric}={{metric}}")\n'
+            "```\n"
         )
     elif surface == AideOptimizationSurface.EVAL_FUNCTION:
-        desc["Surface"] = (
-            "Generate a custom evaluation function. "
-            "Use @register_evaluation_function to register it. "
-            "The function should return a dict of metric names to values."
+        desc["Surface"] = "Generate a custom evaluation function."
+        desc["How to use oumi_helper"] = (
+            f"{helper_note}\n"
+            "```python\n"
+            "from oumi_helper import test_eval\n"
+            "\n"
+            "def my_eval_fn(task_params, config, inference_engine):\n"
+            "    # Your evaluation logic here.\n"
+            "    # Return dict of metric_name -> float value.\n"
+            "    return {'accuracy': 0.95}\n"
+            "\n"
+            "metric = test_eval(\n"
+            "    eval_fn=my_eval_fn,\n"
+            f'    base_config_path="eval_config.yaml",\n'
+            f'    target_metric="{target_metric}",\n'
+            ")\n"
+            f'print(f"{target_metric}={{metric}}")\n'
+            "```\n"
         )
     elif surface == AideOptimizationSurface.FULL_PIPELINE:
-        desc["Surface"] = (
-            "Generate a complete training pipeline script using Oumi's API. "
-            "The script must print the final metric as: "
-            f"METRIC:{target_metric}=<value>"
+        desc["Surface"] = "Generate a complete training pipeline script."
+        desc["How to use oumi_helper"] = (
+            f"{helper_note}\n"
+            "```python\n"
+            "from oumi_helper import run_trial\n"
+            "\n"
+            "# You can use run_trial for simple overrides,\n"
+            "# or call Oumi's API directly for full control:\n"
+            "# from oumi.core.configs import TrainingConfig\n"
+            "# from oumi.train import train\n"
+            "# config = TrainingConfig.from_yaml('train.yaml')\n"
+            "# eval_results = train(config)\n"
+            "```\n"
         )
 
     if base_config_yaml:
@@ -104,9 +178,19 @@ def _build_oumi_task_desc(
 
 def _build_aide_omegaconf(aide_params: AideParams, workspace_dir: Path) -> Any:
     """Convert AideParams to AIDE's internal OmegaConf config."""
+    import coolname
     from omegaconf import OmegaConf
 
+    exp_name = coolname.generate_slug(3)
+
     cfg_dict = {
+        "data_dir": str(workspace_dir / "input"),
+        "desc_file": None,
+        "goal": None,
+        "eval": None,
+        "exp_name": exp_name,
+        "preprocess_data": False,
+        "copy_data": False,
         "agent": {
             "steps": aide_params.steps,
             "k_fold_validation": 5,
@@ -129,6 +213,7 @@ def _build_aide_omegaconf(aide_params: AideParams, workspace_dir: Path) -> Any:
         "exec": {
             "timeout": aide_params.execution.timeout,
             "format_tb_ipython": aide_params.execution.format_tb_ipython,
+            "agent_file_name": aide_params.execution.agent_file_name,
         },
         "workspace_dir": str(workspace_dir),
         "log_dir": str(Path(aide_params.output_dir) / "logs"),
@@ -160,15 +245,18 @@ class AideOptimizer(BaseAgenticOptimizer):
     def __init__(
         self,
         aide_params: AideParams,
-        task_desc: dict[str, Any],
+        task_desc: dict[str, Any] | str,
         workspace_dir: Path,
+        base_training_config: str | None = None,
     ) -> None:
         """Initialize the AIDE optimizer.
 
         Args:
             aide_params: AIDE configuration parameters.
-            task_desc: Task description dict for the AIDE agent.
+            task_desc: Task description as dict (keys become markdown headers)
+                or string (used as-is).
             workspace_dir: Working directory for generated scripts.
+            base_training_config: Path to a base Oumi training config YAML.
 
         Raises:
             ImportError: If aideml is not installed.
@@ -184,6 +272,41 @@ class AideOptimizer(BaseAgenticOptimizer):
 
         self._workspace_dir = workspace_dir
         self._workspace_dir.mkdir(parents=True, exist_ok=True)
+
+        # AIDE's interpreter redirects stdout to a queue, which breaks
+        # Oumi's rich logging (sys.stdout.isatty() fails). Disable it
+        # for the duration of the AIDE run; restored in cleanup().
+        import os
+
+        self._prev_rich_logging = os.environ.get("OUMI_DISABLE_RICH_LOGGING")
+        os.environ["OUMI_DISABLE_RICH_LOGGING"] = "true"
+
+        # Write helper script into workspace so agent can import it.
+        from oumi.core.agentic.workspace_helper import write_workspace_helper
+
+        write_workspace_helper(workspace_dir)
+
+        # Copy base training config into workspace so AIDE subprocess can
+        # find it. Resolve the path to absolute so it works regardless of
+        # what directory the notebook/script runs from.
+        if base_training_config:
+            import shutil
+
+            src = Path(base_training_config)
+            if not src.is_absolute():
+                # Search common locations for the config file.
+                for root in [Path.cwd(), Path.cwd().parent, Path(__file__).parents[3]]:
+                    candidate = root / src
+                    if candidate.exists():
+                        src = candidate
+                        break
+
+            if src.exists():
+                dst = workspace_dir / src.name
+                shutil.copy2(src, dst)
+                logger.info(f"Copied base config -> {dst}")
+            else:
+                logger.warning(f"Base config not found: {base_training_config}")
 
         # Build AIDE's internal config
         self._aide_cfg = _build_aide_omegaconf(aide_params, workspace_dir)
@@ -222,7 +345,42 @@ class AideOptimizer(BaseAgenticOptimizer):
         """
         callback = exec_callback or self._interpreter.run
         self._agent.step(exec_callback=callback)
-        aide_save_run(self._aide_cfg, self._journal)
+
+        # Log the latest node's details for debugging.
+        latest_node = self._journal.nodes[-1] if self._journal.nodes else None
+        if latest_node:
+            stage = latest_node.stage_name
+            logger.info(f"  Action: {stage}")
+            if latest_node.plan:
+                # Truncate plan to first 200 chars for readability
+                plan_preview = latest_node.plan[:200].replace("\n", " ")
+                logger.info(f"  Plan: {plan_preview}")
+            if latest_node.is_buggy and latest_node.term_out:
+                # Show last 5 lines of output for buggy nodes
+                out_lines = latest_node.term_out.strip().split("\n")
+                error_preview = "\n".join(out_lines[-5:])
+                logger.info(f"  Error output:\n{error_preview}")
+            if latest_node.analysis:
+                logger.info(f"  Analysis: {latest_node.analysis[:200]}")
+
+        # Save run state (journal, config, tree visualization).
+        # aide_save_run expects cfg.log_dir to be a Path, but our OmegaConf
+        # config stores strings. Handle this by saving manually.
+        log_dir = Path(self._aide_cfg.log_dir)
+        log_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            from aide.utils import serialize, tree_export
+
+            serialize.dump_json(self._journal, log_dir / "journal.json")
+            OmegaConf.save(config=self._aide_cfg, f=log_dir / "config.yaml")
+            tree_export.generate(
+                self._aide_cfg, self._journal, log_dir / "tree_plot.html"
+            )
+            best = self._journal.get_best_node(only_good=False)
+            if best and best.code:
+                (log_dir / "best_solution.py").write_text(best.code)
+        except Exception as e:
+            logger.warning(f"Failed to save run state: {e}")
 
         # Log progress
         best = self._journal.get_best_node(only_good=True)
@@ -242,11 +400,13 @@ class AideOptimizer(BaseAgenticOptimizer):
         """
         # Handle empty journal (no steps run yet)
         if not self._journal.nodes:
+            logger.warning("No solutions were generated (empty journal).")
             best_node = None
         else:
             try:
                 best_node = self._journal.get_best_node(only_good=False)
-            except (ValueError, IndexError):
+            except (ValueError, IndexError) as e:
+                logger.warning(f"Could not extract best node: {e}")
                 best_node = None
 
         # Save best solution to file
@@ -315,9 +475,17 @@ class AideOptimizer(BaseAgenticOptimizer):
             "good_nodes": len(self._journal.good_nodes),
             "buggy_nodes": len(self._journal.buggy_nodes),
             "draft_nodes": len(self._journal.draft_nodes),
-            "best_metric": (best_metric_value),
+            "best_metric": best_metric_value,
         }
 
     def cleanup(self) -> None:
-        """Clean up the interpreter session."""
+        """Clean up the interpreter session and restore environment."""
         self._interpreter.cleanup_session()
+
+        # Restore the rich logging environment variable.
+        import os
+
+        if self._prev_rich_logging is None:
+            os.environ.pop("OUMI_DISABLE_RICH_LOGGING", None)
+        else:
+            os.environ["OUMI_DISABLE_RICH_LOGGING"] = self._prev_rich_logging

@@ -49,7 +49,7 @@ def aide_params():
         output_dir="/tmp/aide_test_output",
         workspace_dir="/tmp/aide_test_workspace",
         code_llm=AideLLMParams(model="o4-mini", temperature=0.5),
-        feedback_llm=AideLLMParams(model="gpt-4.1-mini", temperature=0.5),
+        feedback_llm=AideLLMParams(model="gpt-5-mini", temperature=0.5),
         search=AideSearchParams(num_drafts=2, debug_prob=0.5, max_debug_depth=2),
         execution=AideExecParams(timeout=60),
     )
@@ -68,7 +68,8 @@ def test_build_oumi_task_desc_config_search():
     assert "Minimize eval_loss" in desc["Task goal"]
     assert "Oumi ML framework" in desc["Framework"]
     assert "eval_loss" in desc["Evaluation"]
-    assert "TrainingConfig" in desc["Surface"]
+    assert "hyperparameters" in desc["Surface"]
+    assert "oumi_helper" in desc["How to use oumi_helper"]
 
 
 def test_build_oumi_task_desc_reward_function():
@@ -134,7 +135,7 @@ def test_build_aide_omegaconf(aide_params, tmp_path):
     assert cfg.agent.steps == 3
     assert cfg.agent.code.model == "o4-mini"
     assert cfg.agent.code.temp == 0.5
-    assert cfg.agent.feedback.model == "gpt-4.1-mini"
+    assert cfg.agent.feedback.model == "gpt-5-mini"
     assert cfg.agent.search.num_drafts == 2
     assert cfg.agent.search.debug_prob == 0.5
     assert cfg.exec.timeout == 60
@@ -219,3 +220,125 @@ def test_aide_result_none_metric():
     )
     assert result.best_metric is None
     assert result.good_solutions == 0
+
+
+# --- Additional Coverage Tests ---
+
+
+def test_build_aide_omegaconf_report_disabled(tmp_path):
+    """Test OmegaConf config when report generation is disabled."""
+    params = AideParams(
+        steps=5,
+        generate_report=False,
+        output_dir=str(tmp_path / "output"),
+    )
+    cfg = _build_aide_omegaconf(params, tmp_path)
+    assert cfg.generate_report is False
+    assert "report" not in cfg
+
+
+def test_build_aide_omegaconf_custom_models(tmp_path):
+    """Test OmegaConf config with custom LLM models."""
+    params = AideParams(
+        steps=5,
+        code_llm=AideLLMParams(model="claude-sonnet-4-20250514", temperature=0.8),
+        feedback_llm=AideLLMParams(model="gpt-4.1", temperature=0.2),
+    )
+    cfg = _build_aide_omegaconf(params, tmp_path)
+    assert cfg.agent.code.model == "claude-sonnet-4-20250514"
+    assert cfg.agent.code.temp == 0.8
+    assert cfg.agent.feedback.model == "gpt-4.1"
+    assert cfg.agent.feedback.temp == 0.2
+
+
+def test_build_oumi_task_desc_no_constraints():
+    """Config search without mutable_paths has no Constraints key."""
+    desc = _build_oumi_task_desc(
+        goal="Test",
+        surface=AideOptimizationSurface.CONFIG_SEARCH,
+        target_metric="eval_loss",
+        target_direction="minimize",
+        mutable_paths=None,
+    )
+    assert "Constraints" not in desc
+
+
+def test_build_oumi_task_desc_no_base_config():
+    """Task desc without base config has no Base Training Config key."""
+    desc = _build_oumi_task_desc(
+        goal="Test",
+        surface=AideOptimizationSurface.CONFIG_SEARCH,
+        target_metric="eval_loss",
+        target_direction="minimize",
+        base_config_yaml=None,
+    )
+    assert "Base Training Config" not in desc
+
+
+def test_build_oumi_task_desc_metric_direction_in_eval():
+    """Evaluation section includes both metric name and direction."""
+    desc = _build_oumi_task_desc(
+        goal="Test",
+        surface=AideOptimizationSurface.FULL_PIPELINE,
+        target_metric="accuracy",
+        target_direction="maximize",
+    )
+    assert "accuracy" in desc["Evaluation"]
+    assert "maximize" in desc["Evaluation"]
+
+
+def test_aide_optimizer_get_search_summary_empty_journal(aide_params, tmp_path):
+    """get_search_summary returns None metric on empty journal."""
+    task_desc = {"Task goal": "Test", "Framework": "Oumi"}
+    optimizer = AideOptimizer(
+        aide_params=aide_params,
+        task_desc=task_desc,
+        workspace_dir=tmp_path,
+    )
+    summary = optimizer.get_search_summary()
+    assert summary["best_metric"] is None
+    assert summary["total_nodes"] == 0
+    assert summary["draft_nodes"] == 0
+    optimizer.cleanup()
+
+
+def test_aide_optimizer_get_best_solution_saves_files(aide_params, tmp_path):
+    """get_best_solution creates output files even with empty journal."""
+    aide_params.output_dir = str(tmp_path / "output")
+    task_desc = {"Task goal": "Test", "Framework": "Oumi"}
+    optimizer = AideOptimizer(
+        aide_params=aide_params,
+        task_desc=task_desc,
+        workspace_dir=tmp_path / "workspace",
+    )
+    result = optimizer.get_best_solution()
+
+    from pathlib import Path
+
+    assert Path(result.journal_path).exists()
+    assert result.best_solution_path.endswith("best_solution.py")
+    optimizer.cleanup()
+
+
+def test_aide_optimizer_init_with_string_task_desc(aide_params, tmp_path):
+    """AideOptimizer accepts string task_desc (not just dict)."""
+    optimizer = AideOptimizer(
+        aide_params=aide_params,
+        task_desc="Simple string goal",
+        workspace_dir=tmp_path,
+    )
+    assert optimizer.aide_params == aide_params
+    optimizer.cleanup()
+
+
+def test_aide_optimizer_cleanup_is_idempotent(aide_params, tmp_path):
+    """Calling cleanup() multiple times should not raise."""
+    task_desc = {"Task goal": "Test"}
+    optimizer = AideOptimizer(
+        aide_params=aide_params,
+        task_desc=task_desc,
+        workspace_dir=tmp_path,
+    )
+    optimizer.cleanup()
+    # Second cleanup should not raise
+    optimizer.cleanup()

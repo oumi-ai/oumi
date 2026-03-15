@@ -144,7 +144,7 @@ def test_aide_params_nested_defaults():
     assert isinstance(params.search, AideSearchParams)
     assert isinstance(params.execution, AideExecParams)
     assert params.code_llm.model == "o4-mini"
-    assert params.feedback_llm.model == "gpt-4.1-mini"
+    assert params.feedback_llm.model == "gpt-5-mini"
 
 
 def test_aide_params_telemetry_dir_default():
@@ -309,7 +309,7 @@ aide:
     temperature: 0.7
 
   feedback_llm:
-    model: "gpt-4.1-mini"
+    model: "gpt-5-mini"
     temperature: 0.3
 
   search:
@@ -336,7 +336,7 @@ mutable_config_paths:
     assert config.aide.surface == AideOptimizationSurface.CONFIG_SEARCH
     assert config.aide.code_llm.model == "claude-sonnet-4-20250514"
     assert config.aide.code_llm.temperature == 0.7
-    assert config.aide.feedback_llm.model == "gpt-4.1-mini"
+    assert config.aide.feedback_llm.model == "gpt-5-mini"
     assert config.aide.search.num_drafts == 3
     assert config.aide.search.debug_prob == 0.6
     assert config.aide.search.max_debug_depth == 2

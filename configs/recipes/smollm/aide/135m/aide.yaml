@@ -6,7 +6,6 @@
 # See Also:
 #   - Config class: oumi.core.configs.AideConfig
 #   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/aide_config.py
-#   - Params source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/params/aide_params.py
 
 model:
   model_name: "HuggingFaceTB/SmolLM2-135M-Instruct"
@@ -59,7 +58,7 @@ aide:
     temperature: 0.5
 
   feedback_llm:
-    model: "gpt-4.1-mini"
+    model: "gpt-5-mini"
     temperature: 0.5
 
   search:

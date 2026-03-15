@@ -95,7 +95,7 @@ def main():
             output_dir="output/aide_example",
             workspace_dir="workspaces/aide_example",
             code_llm=AideLLMParams(model="o4-mini", temperature=0.5),
-            feedback_llm=AideLLMParams(model="gpt-4.1-mini", temperature=0.5),
+            feedback_llm=AideLLMParams(model="gpt-5-mini", temperature=0.5),
             search=AideSearchParams(num_drafts=2, debug_prob=0.5),
             execution=AideExecParams(timeout=600),
         ),
@@ -108,7 +108,18 @@ def main():
     print(f"  Metric: {config.aide.target_metric} ({config.aide.target_direction})")
     print()
 
-    result = aide(config, verbose=True)
+    try:
+        result = aide(config, verbose=True)
+    except ImportError as e:
+        print(f"Error: {e}")
+        print(
+            "Please install AIDE ML: pip install aideml --no-deps && "
+            "pip install oumi[aide]"
+        )
+        return
+    except Exception as e:
+        print(f"AIDE optimization failed: {e}")
+        raise
 
     # Print results
     print("\n" + "=" * 60)

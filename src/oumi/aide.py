@@ -133,18 +133,12 @@ def aide(
             logger.info(f"AIDE config saved to {config_path}")
 
     # Build task description from config
-    base_config_yaml = None
-    if config.base_training_config:
-        base_path = Path(config.base_training_config)
-        if base_path.exists():
-            base_config_yaml = base_path.read_text()
-
     task_desc = _build_oumi_task_desc(
         goal=config.goal,
         surface=config.aide.surface,
         target_metric=config.aide.target_metric,
         target_direction=config.aide.target_direction,
-        base_config_yaml=base_config_yaml,
+        base_config_yaml=config.base_training_config or "",
         mutable_paths=config.mutable_config_paths,
     )
 
@@ -154,6 +148,7 @@ def aide(
         aide_params=config.aide,
         task_desc=task_desc,
         workspace_dir=workspace_dir,
+        base_training_config=config.base_training_config,
     )
 
     logger.info(f"AIDE init time: {time.time() - _START_TIME:.3f}s")
