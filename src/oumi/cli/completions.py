@@ -390,6 +390,19 @@ def complete_job_config(incomplete: str) -> list[tuple[str, str]]:
     return completer(incomplete)
 
 
+def complete_aide_config(incomplete: str) -> list[tuple[str, str]]:
+    """Complete AIDE config names and paths.
+
+    Args:
+        incomplete: The partial text typed by the user.
+
+    Returns:
+        List of (completion, help_text) tuples.
+    """
+    completer = create_config_completer(AliasType.AIDE)
+    return completer(incomplete)
+
+
 def complete_synth_config(incomplete: str) -> list[tuple[str, str]]:
     """Complete synth config names and paths.
 

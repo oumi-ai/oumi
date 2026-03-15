@@ -19,6 +19,7 @@ from typing import Any
 
 import typer
 
+from oumi.cli.aide_cmd import aide as aide_cmd
 from oumi.cli.alias import AliasType
 from oumi.cli.analyze import analyze
 from oumi.cli.cache import card as cache_card
@@ -155,6 +156,13 @@ def get_app() -> typer.Typer:
         help=get_command_help("Search for optimal hyperparameters.", AliasType.TUNE),
         rich_help_panel="Model",
     )(tune)
+    app.command(
+        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
+        help=get_command_help(
+            "Run AI-driven agentic code optimization.", AliasType.AIDE
+        ),
+        rich_help_panel="Model",
+    )(aide_cmd)
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help=get_command_help(

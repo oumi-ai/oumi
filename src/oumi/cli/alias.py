@@ -27,6 +27,7 @@ class AliasType(str, Enum):
     QUANTIZE = "quantize"
     JUDGE = "judge"
     TUNE = "tune"
+    AIDE = "aide"
     ANALYZE = "analyze"
     SYNTH = "synth"
 
@@ -328,6 +329,7 @@ _ALIASES: dict[str, dict[AliasType, str]] = {
         AliasType.INFER: "oumi://configs/recipes/smollm/inference/135m_infer.yaml",
         AliasType.EVAL: "oumi://configs/recipes/smollm/evaluation/135m/eval.yaml",
         AliasType.TUNE: "oumi://configs/recipes/smollm/tuning/135m/tune.yaml",
+        AliasType.AIDE: "oumi://configs/recipes/smollm/aide/135m/aide.yaml",
     },
     # GPT-2 family.
     "gpt2": {

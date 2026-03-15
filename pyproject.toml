@@ -15,6 +15,23 @@ oumi = ["LICENSE", "README.md", "*.jinja"]
 # by default.
 [tool.uv]
 prerelease = "allow"
+# aideml pins exact versions of pandas/numpy/scipy that are older than Oumi's
+# requirements. The code runs fine with newer versions — the pins are just
+# overly strict. These overrides tell uv to use Oumi's versions instead.
+override-dependencies = [
+    "pandas>=2.3,<3",
+    "numpy>=2.0",
+    "scipy>=1.17",
+    "scikit-learn>=1.8",
+    "datasets>=3.2",
+    "rich>=14",
+    "tqdm>=4.67",
+    "jsonschema>=4.26",
+    "pytest>=9",
+    "responses>=0.25",
+    "Pillow>=11",
+    "protobuf>=6.32",
+]
 
 [project]
 name = "oumi"
@@ -179,6 +196,12 @@ quantization = ["autoawq>=0.2,<0.3", "bitsandbytes>=0.47,<0.50"]
 
 tune = ["optuna>=4.0.0,<5.0"]
 
+# AIDE agentic optimization. uv override-dependencies (above) resolves the
+# version conflicts between aideml's strict pins and Oumi's requirements.
+# With uv: uv pip install -e ".[aide]"  (just works)
+# With pip: pip install "oumi[aide]" && pip install aideml --no-deps
+aide = ["aideml>=0.2.2"]
+
 bitnet = ["onebitllms>=0.0.3"]
 
 file_formats = ["pdf2image>=1.17,<1.18", "python-poppler>=0.4,<0.5"]
@@ -193,7 +216,7 @@ torchdata = ["torchdata>=0.9,<0.10.0"]
 
 # CI targets
 ci_cpu = [
-    "oumi[dev,docs,gcp,synthesis,tune,torchdata]",
+    "oumi[dev,docs,gcp,synthesis,tune,aide,torchdata]",
     "vllm>=0.10,<0.11",                            # For VLLMInferenceEngine
     # This may fail to install. As a temporary workaround, run:
     # CMAKE_ARGS="-DLLAVA_BUILD=OFF" pip install -U llama-cpp-python
