@@ -78,7 +78,7 @@ class GeneratedEnvironment:
         self._state: dict[str, Any] | None = deepcopy(config.initial_state)
         self._state_schema: dict[str, Any] | None = config.state_schema
 
-    def initialize(self, tools: list[ToolAttribute]) -> None:
+    def initialize(self, tools: list[ToolAttribute], scenario_context: str | None = None) -> None:
         """Generate state_schema and/or initial_state if not provided.
 
         Called once at synthesis start, before any conversations.
@@ -87,8 +87,16 @@ class GeneratedEnvironment:
         - schema provided, initial_state None: generate initial state from schema.
         - Both provided: validate initial_state against schema, no generation needed.
 
-        Uses LLM to generate schema from tool definitions, then
-        generates initial state from schema. Validates both.
+        Args:
+            tools: All tools bound to this environment.
+            scenario_context: Optional conversation persona/scenario from MultiTurnAttribute
+                (e.g. role_instruction_messages). Providing scenario context produces more
+                realistic initial state — e.g., a "property management for a tenant with a
+                leaking faucet" scenario yields state pre-populated with relevant tenants and
+                open maintenance requests, rather than generic empty state.
+
+        Uses LLM to generate schema from tool definitions and scenario context,
+        then generates initial state from schema. Validates both.
         """
 
     def step(self, tool: ToolAttribute, arguments: dict[str, Any]) -> str:
@@ -114,18 +122,20 @@ class GeneratedEnvironment:
 #### LLM Prompt Design
 
 **Schema generation** (`initialize`, when `state_schema` is None):
-- Input: environment description, system prompt, all bound tools with their parameter schemas, output schemas, descriptions, and read_only flags
+- Input: environment description, system prompt, all bound tools with their parameter schemas, output schemas, descriptions, read_only flags, and scenario context (if provided)
 - Instruction: design a JSON Schema for the state. Every field any tool reads or writes must be represented.
 - Validation: parsed output must be valid JSON Schema.
 
 **Initial state generation** (`initialize`, when `initial_state` is None):
-- Input: environment description, validated schema
+- Input: environment description, validated schema, and scenario context (if provided)
+- The scenario context (conversation personas, role instructions) guides the LLM to generate state that is coherent with the conversation that will take place. For example, if the scenario describes a tenant calling about a broken window, the initial state should include that tenant's record and potentially a pre-existing relationship with the property.
 - Instruction: generate a realistic initial state conforming to the schema.
 - Validation: `jsonschema.validate(initial_state, state_schema)`. Retry up to 2 times on failure.
 
 **Result generation** (`_generate_result`):
 - System: `{system_prompt}` + current state as JSON
 - User: tool name, arguments, instruction to produce output as JSON matching tool's output schema
+- **Read consistency**: Because the full state is included in every `_generate_result` prompt, read-only tools naturally return consistent results — calling `read_file("notes.txt")` twice against the same state produces the same content, since the LLM sees the same state document both times. Mutating tools update the state between calls, so subsequent reads correctly reflect changes. This is an inherent property of the state-conditioned generation pattern rather than requiring explicit caching.
 
 **State update** (`_update_state`):
 - System: `{system_prompt}` + state schema definition
@@ -181,7 +191,7 @@ else:
 **Important**: Environment-bound tool calls within a conversation must be processed **sequentially** (each `step()` may mutate state that the next call depends on). They cannot be batched like GENERATED simulator calls. This is already the case in the current loop structure — tool calls within a single assistant turn are processed one at a time.
 
 **Lifecycle**:
-- In `synthesize()`, before `_synthesize_all_samples`: create `GeneratedEnvironment` instances from config, call `initialize(bound_tools)` on each to generate schema/initial_state if needed.
+- In `synthesize()`, before `_synthesize_all_samples`: create `GeneratedEnvironment` instances from config, call `initialize(bound_tools, scenario_context)` on each to generate schema/initial_state if needed. The `scenario_context` is derived from the `MultiTurnAttribute.role_instruction_messages` (the conversation personas).
 - In `_synthesize_all_samples`, for each sample: `deepcopy` all environments so each sample has isolated state.
 - During a sample's conversation: `step()` is called per tool call, state accumulates within that sample.
 
