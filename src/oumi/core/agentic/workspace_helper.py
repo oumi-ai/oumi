@@ -78,9 +78,15 @@ def run_trial(
         for key, value in overrides.items():
             parts = key.split(".")
             obj = config
-            for part in parts[:-1]:
-                obj = getattr(obj, part)
-            setattr(obj, parts[-1], value)
+            try:
+                for part in parts[:-1]:
+                    obj = getattr(obj, part)
+                setattr(obj, parts[-1], value)
+            except AttributeError:
+                raise ValueError(
+                    f"Invalid config path '{key}'. "
+                    f"Use get_config_fields() to see available fields."
+                ) from None
 
     # Ensure output goes to working directory.
     if not config.training.output_dir.startswith("./working"):
@@ -200,6 +206,11 @@ def test_eval(
         name=eval_name, type=RegistryType.EVALUATION_FUNCTION, value=eval_fn
     )
 
+    if not config.tasks:
+        raise ValueError(
+            "Evaluation config has no tasks defined. "
+            "Add at least one task to your evaluation YAML."
+        )
     config.tasks[0].task_name = eval_name
     config.tasks[0].evaluation_backend = "custom"
 
@@ -227,12 +238,26 @@ def get_config_fields(base_config_path: str) -> dict:
     Returns:
         Dict mapping dot-notation field paths to (value, type_name) tuples.
     """
+    import os
     from oumi.core.configs import TrainingConfig
 
-    config = TrainingConfig.from_yaml(base_config_path)
+    if not os.path.exists(base_config_path):
+        local = os.path.basename(base_config_path)
+        if os.path.exists(local):
+            base_config_path = local
+
+    try:
+        config = TrainingConfig.from_yaml(base_config_path)
+    except Exception as e:
+        raise ValueError(
+            f"Failed to load config from '{base_config_path}': {e}"
+        ) from e
+
     fields = {}
 
     def _extract(obj, prefix=""):
+        if not dataclasses.is_dataclass(obj):
+            return
         for f in dataclasses.fields(obj):
             path = f"{prefix}{f.name}" if prefix else f.name
             val = getattr(obj, f.name)
