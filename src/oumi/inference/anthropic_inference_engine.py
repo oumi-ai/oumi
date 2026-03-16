@@ -254,7 +254,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         if processing_status == "in_progress":
             status = BatchStatus.IN_PROGRESS
         elif processing_status == "canceling":
-            status = BatchStatus.CANCELLED
+            status = BatchStatus.CANCELLING
         elif processing_status == "ended":
             # Determine final status based on request_counts
             if request_counts.get("canceled", 0) > 0:
