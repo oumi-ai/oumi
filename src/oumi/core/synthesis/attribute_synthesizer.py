@@ -161,6 +161,25 @@ class AttributeSynthesizer:
             )
         return self._inference_engine.get_batch_status(batch_id)  # type: ignore[attr-defined]
 
+    def cancel_batch(self, batch_id: str) -> BatchInfo:
+        """Cancel a batch inference job.
+
+        Args:
+            batch_id: The batch ID returned from synthesize_batch().
+
+        Returns:
+            BatchInfo containing the updated job status.
+
+        Raises:
+            NotImplementedError: If the inference engine does not support batch.
+        """
+        if not hasattr(self._inference_engine, "cancel_batch"):
+            raise NotImplementedError(
+                f"Inference engine {type(self._inference_engine).__name__} does not "
+                "support batch cancellation."
+            )
+        return self._inference_engine.cancel_batch(batch_id)  # type: ignore[attr-defined]
+
     def get_batch_results(
         self,
         batch_id: str,
