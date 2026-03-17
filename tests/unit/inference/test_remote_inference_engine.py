@@ -3485,3 +3485,82 @@ def test_infer_online_preserves_existing_metadata_with_finish_reason():
         assert len(result) == 1
         assert result[0].metadata.get("finish_reason") == "stop"
         assert result[0].metadata.get("custom_key") == "custom_value"
+
+
+@pytest.mark.asyncio
+async def test_cancel_batch():
+    """Test cancelling a batch job."""
+    with aioresponses() as m:
+        m.post(
+            f"{_TARGET_SERVER_BASE}/v1/batches/batch-123/cancel",
+            status=200,
+            payload={
+                "id": "batch-123",
+                "status": "cancelling",
+                "request_counts": {
+                    "total": 10,
+                    "completed": 3,
+                    "failed": 0,
+                },
+            },
+        )
+
+        engine = _make_engine()
+        status = await engine._cancel_batch("batch-123")
+        assert status.id == "batch-123"
+        assert status.status == BatchStatus.CANCELLING
+        assert status.total_requests == 10
+        assert status.completed_requests == 3
+
+
+@pytest.mark.asyncio
+async def test_cancel_batch_http_400_error():
+    """Test cancel_batch raises RuntimeError on 400 (batch already terminal)."""
+    with aioresponses() as m:
+        m.post(
+            f"{_TARGET_SERVER_BASE}/v1/batches/batch-123/cancel",
+            status=400,
+            body="Batch already completed",
+        )
+
+        engine = _make_engine()
+        with pytest.raises(RuntimeError, match="Failed to cancel batch"):
+            await engine._cancel_batch("batch-123")
+
+
+@pytest.mark.asyncio
+async def test_cancel_batch_http_404_error():
+    """Test cancel_batch raises RuntimeError on 404 (batch not found)."""
+    with aioresponses() as m:
+        m.post(
+            f"{_TARGET_SERVER_BASE}/v1/batches/batch-123/cancel",
+            status=404,
+            body="Batch not found",
+        )
+
+        engine = _make_engine()
+        with pytest.raises(RuntimeError, match="Failed to cancel batch"):
+            await engine._cancel_batch("batch-123")
+
+
+def test_cancel_batch_public():
+    """Test the public cancel_batch method."""
+    with aioresponses() as m:
+        m.post(
+            f"{_TARGET_SERVER_BASE}/v1/batches/batch-123/cancel",
+            status=200,
+            payload={
+                "id": "batch-123",
+                "status": "cancelling",
+                "request_counts": {
+                    "total": 10,
+                    "completed": 3,
+                    "failed": 0,
+                },
+            },
+        )
+
+        engine = _make_engine()
+        status = engine.cancel_batch("batch-123")
+        assert status.id == "batch-123"
+        assert status.status == BatchStatus.CANCELLING
