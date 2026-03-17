@@ -257,6 +257,67 @@ async def test_batch_results_partial_failed_status_retrieves_partial_results(
     assert "server_error" in result.error_messages[1]
 
 
+@pytest.mark.asyncio
+async def test_batch_results_nested_error_structure(anthropic_engine):
+    """Anthropic may nest error detail under error.error; extract inner message."""
+    conversations = [_make_conversation("Q0"), _make_conversation("Q1")]
+
+    batch_info = _make_batch_info(
+        BatchStatus.FAILED, completed_requests=1, failed_requests=1
+    )
+
+    results_jsonl = "\n".join(
+        [
+            json.dumps(
+                {
+                    "custom_id": "request-0",
+                    "result": {
+                        "type": "succeeded",
+                        "message": {"content": [{"text": "A0"}]},
+                    },
+                }
+            ),
+            json.dumps(
+                {
+                    "custom_id": "request-1",
+                    "result": {
+                        "type": "errored",
+                        "error": {
+                            "type": "error",
+                            "error": {
+                                "type": "invalid_request_error",
+                                "message": "max_tokens: 8096 > 8000",
+                            },
+                        },
+                    },
+                }
+            ),
+        ]
+    )
+
+    with (
+        patch.object(
+            anthropic_engine,
+            "_get_anthropic_batch_status",
+            new_callable=AsyncMock,
+            return_value=batch_info,
+        ),
+        patch.object(
+            anthropic_engine,
+            "_create_session",
+            return_value=_mock_session_response(results_jsonl),
+        ),
+    ):
+        result = await anthropic_engine._get_anthropic_batch_results_partial(
+            "batch-123", conversations
+        )
+
+    assert len(result.successful) == 1
+    assert result.failed_indices == [1]
+    assert "invalid_request_error" in result.error_messages[1]
+    assert "max_tokens: 8096 > 8000" in result.error_messages[1]
+
+
 # FinishReason extraction tests
 class TestAnthropicExtractFinishReason:
     """Tests for AnthropicInferenceEngine._extract_finish_reason_from_response."""
