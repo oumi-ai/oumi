@@ -56,11 +56,14 @@ class SkyCloud(BaseCloud):
 
     def up_cluster(self, job: JobConfig, name: str | None, **kwargs) -> JobStatus:
         """Creates a cluster and starts the provided Job."""
-        job_status = self._client.launch(job, name, **kwargs)
-        cluster = self.get_cluster(job_status.cluster)
+        launch_status = self._client.launch(job, name, **kwargs)
+        cluster = self.get_cluster(launch_status.cluster)
         if not cluster:
-            raise RuntimeError(f"Cluster {job_status.cluster} not found.")
-        return cluster.get_job(job_status.id)
+            raise RuntimeError(f"Cluster {launch_status.cluster} not found.")
+        final_status = cluster.get_job(launch_status.id)
+        # Preserve cost_per_hour from launch — not available in job queue data.
+        final_status.cost_per_hour = launch_status.cost_per_hour
+        return final_status
 
     def get_cluster(self, name) -> BaseCluster | None:
         """Gets the cluster with the specified name, or None if not found."""
