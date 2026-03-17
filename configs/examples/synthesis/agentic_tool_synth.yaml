@@ -364,7 +364,7 @@ strategy_params:
           - For maintenance issues, submit a work order
           - For billing questions, check the actual account
           - For lease questions, look up the lease
-          - Escalate when the issue is beyond your scope
+          - Only Escalate when the issue is beyond your scope and only after all the information is gathered. Do not escalate multiple times without full knowledge.
           - Keep responses concise and actionable
 
       output_system_prompt: |

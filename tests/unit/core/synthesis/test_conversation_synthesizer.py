@@ -29,7 +29,10 @@ from oumi.core.configs.params.synthesis_params import (
     SampledAttribute,
     SampledAttributeValue,
 )
-from oumi.core.synthesis.conversation_synthesizer import ConversationSynthesizer
+from oumi.core.synthesis.conversation_synthesizer import (
+    ConversationSynthesizer,
+    _clean_json_output,
+)
 from oumi.core.types.conversation import Conversation, Message, Role
 
 
@@ -1211,3 +1214,18 @@ def test_non_tool_conversation_unchanged(
     assert isinstance(conv, dict)
     assert "tools" not in conv
     assert "messages" in conv
+
+
+def test_clean_json_output_strips_markdown_fences():
+    raw = '```json\n{"key": "value"}\n```'
+    assert _clean_json_output(raw) == '{"key": "value"}'
+
+
+def test_clean_json_output_passes_clean_json():
+    raw = '{"key": "value"}'
+    assert _clean_json_output(raw) == '{"key": "value"}'
+
+
+def test_clean_json_output_returns_raw_on_failure():
+    raw = "not json at all"
+    assert _clean_json_output(raw) == "not json at all"

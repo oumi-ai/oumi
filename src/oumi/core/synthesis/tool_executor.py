@@ -27,8 +27,36 @@ from oumi.core.configs.params.tool_params import (
 )
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.logging import logger
+from oumi.utils.str_utils import extract_json
 
 _TOOL_CALL_PATTERN = re.compile(r"<tool_call>\s*(.*?)\s*</tool_call>", re.DOTALL)
+_TOOL_CALL_OPEN_PATTERN = re.compile(r"<tool_call>\s*(.*)", re.DOTALL)
+_TOOL_TAG_PATTERN = re.compile(r"</?tool_call>")
+_TRAILING_COMMA_PATTERN = re.compile(r",\s*([}\]])")
+
+
+def _parse_tool_json(raw: str) -> dict[str, Any] | None:
+    """Extract and parse JSON from raw tool call content."""
+    result = extract_json(raw, expected_type=dict)
+    if isinstance(result, dict):
+        return result
+    stripped = raw.rstrip()
+    for _ in range(3):
+        if stripped.endswith("}"):
+            stripped = stripped[:-1]
+            try:
+                parsed = json.loads(stripped)
+                if isinstance(parsed, dict):
+                    return parsed
+            except json.JSONDecodeError:
+                continue
+    cleaned = _TRAILING_COMMA_PATTERN.sub(r"\1", raw)
+    if cleaned != raw:
+        result = extract_json(cleaned, expected_type=dict)
+        if isinstance(result, dict):
+            return result
+    return None
+
 
 _MAX_CONTEXT_MESSAGES = 20
 _MAX_CONTEXT_CHARS_PER_MESSAGE = 500
@@ -60,27 +88,17 @@ class ToolExecutor:
         """Parse <tool_call> tags from response."""
         match = _TOOL_CALL_PATTERN.search(response)
         if not match:
+            match = _TOOL_CALL_OPEN_PATTERN.search(response)
+        if not match:
             return None
 
-        raw = match.group(1)
-        try:
-            parsed = json.loads(raw)
-        except json.JSONDecodeError:
-            fixed = raw
-            for _ in range(3):
-                if fixed.endswith("}"):
-                    fixed = fixed[:-1]
-                    try:
-                        parsed = json.loads(fixed)
-                        break
-                    except json.JSONDecodeError:
-                        continue
-            else:
-                logger.warning(f"Failed to parse tool call JSON: {raw[:200]}")
-                return None
-
-        if not isinstance(parsed, dict):
-            logger.warning(f"Tool call is not a dict: {type(parsed)}")
+        raw = match.group(1).strip()
+        close_idx = raw.find("</tool_call>")
+        if close_idx != -1:
+            raw = raw[:close_idx].strip()
+        parsed = _parse_tool_json(raw)
+        if parsed is None:
+            logger.warning(f"Failed to parse tool call JSON: {raw[:200]}")
             return None
 
         name = parsed.get("name")
@@ -102,6 +120,11 @@ class ToolExecutor:
             return None
 
         return {"name": name, "arguments": arguments}
+
+    @staticmethod
+    def strip_tool_tags(text: str) -> str:
+        """Remove any residual <tool_call> or </tool_call> tags from text."""
+        return _TOOL_TAG_PATTERN.sub("", text).strip()
 
     def validate_arguments(
         self, tool_call: dict[str, Any]

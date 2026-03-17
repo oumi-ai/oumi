@@ -342,3 +342,71 @@ def test_build_capability_summary(deterministic_tool, generated_tool):
     assert generated_tool.name not in summary
     for line in summary.strip().split("\n"):
         assert line.startswith("- ")
+
+
+def test_parse_tool_call_unclosed_tag(executor):
+    """Fallback regex matches when LLM forgets closing tag."""
+    response = '<tool_call>{"name": "SearchOrders", "arguments": {"order_id": "X"}}'
+    result = executor.parse_tool_call(response)
+    assert result is not None
+    assert result["name"] == "SearchOrders"
+    assert result["arguments"] == {"order_id": "X"}
+
+
+def test_parse_tool_call_trailing_comma(executor):
+    """Trailing comma before } is cleaned up."""
+    response = (
+        '<tool_call>{"name": "SearchOrders", '
+        '"arguments": {"order_id": "X",}}</tool_call>'
+    )
+    result = executor.parse_tool_call(response)
+    assert result is not None
+    assert result["name"] == "SearchOrders"
+
+
+def test_parse_tool_call_markdown_fences_inside_tag(executor):
+    """Markdown fences wrapping JSON inside the tag are handled."""
+    response = (
+        "<tool_call>```json\n"
+        '{"name": "SearchOrders", "arguments": {"order_id": "X"}}\n'
+        "```</tool_call>"
+    )
+    result = executor.parse_tool_call(response)
+    assert result is not None
+    assert result["name"] == "SearchOrders"
+
+
+def test_parse_tool_call_open_tag_with_trailing_prose(executor):
+    """Open-tag fallback doesn't consume trailing prose as JSON."""
+    response = (
+        '<tool_call>{"name": "SearchOrders", "arguments": {"order_id": "X"}}'
+        "</tool_call> Here is some reasoning about the result."
+    )
+    result = executor.parse_tool_call(response)
+    assert result is not None
+    assert result["name"] == "SearchOrders"
+
+
+def test_parse_tool_call_comma_in_string_value_preserved(executor):
+    """Trailing comma fix doesn't corrupt commas inside string values."""
+    response = (
+        '<tool_call>{"name": "SearchOrders", '
+        '"arguments": {"order_id": "items A, B]"}}</tool_call>'
+    )
+    result = executor.parse_tool_call(response)
+    assert result is not None
+    assert result["arguments"]["order_id"] == "items A, B]"
+
+
+def test_strip_tool_tags_removes_both_tags():
+    text = "<tool_call>some content</tool_call>"
+    assert ToolExecutor.strip_tool_tags(text) == "some content"
+
+
+def test_strip_tool_tags_no_tags():
+    assert ToolExecutor.strip_tool_tags("plain text") == "plain text"
+
+
+def test_strip_tool_tags_partial_open_only():
+    text = "I tried to use <tool_call> but failed"
+    assert ToolExecutor.strip_tool_tags(text) == "I tried to use  but failed"

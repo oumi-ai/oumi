@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import random
 
 from oumi.builders.inference_engines import build_inference_engine
@@ -27,6 +28,14 @@ from oumi.core.synthesis.tool_executor import ToolExecutor
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.logging import logger
 from oumi.utils.str_utils import extract_json
+
+
+def _clean_json_output(text: str) -> str:
+    """Strip markdown fences and extract clean JSON from LLM-generated tool output."""
+    parsed = extract_json(text, expected_type=None)
+    if parsed is not None:
+        return json.dumps(parsed)
+    return text
 
 
 class ConversationSynthesizer:
@@ -359,7 +368,9 @@ class ConversationSynthesizer:
                 '<tool_call>{"name": "ToolName", "arguments": '
                 '{"param": "value"}}</tool_call>\n\n'
                 "After receiving a tool result, you may call another tool "
-                "or respond to the user."
+                "or respond to the user.\n\n"
+                "IMPORTANT: Never claim you performed an action without using "
+                "the <tool_call> tag. Every action must go through a tool call."
             )
             formatted_content += tool_section
 
@@ -663,8 +674,13 @@ class ConversationSynthesizer:
                         histories[idx].extend(turn_tool_msgs[idx])
                         histories[idx].append(Message(role=role, content=text))
                         if tool_executor:
+                            content = (
+                                ToolExecutor.strip_tool_tags(text)
+                                if is_tool_turn
+                                else text
+                            )
                             output_messages[idx].append(
-                                {"role": role.value, "content": text}
+                                {"role": role.value, "content": content}
                             )
                     else:
                         assert tool_executor is not None
@@ -716,6 +732,7 @@ class ConversationSynthesizer:
                         )
                     )
                     for (idx, raw, tc, cid), sim in zip(gen_items, sim_texts):
+                        sim = _clean_json_output(sim)
                         turn_tool_msgs[idx].append(
                             Message(role=Role.ASSISTANT, content=raw)
                         )
