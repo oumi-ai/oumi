@@ -58,6 +58,18 @@ class JobStatus:
     #: For more fine-grained information about the job, see the status field.
     state: JobState
 
+    #: The cost per hour of the cluster in USD.
+    #: Includes all nodes. None if cost information is unavailable.
+    cost_per_hour: float | None = None
+
+    #: Unix timestamp when the job started running.
+    #: None if the job hasn't started yet or timing data is unavailable.
+    started_at: float | None = None
+
+    #: Unix timestamp when the job completed.
+    #: None if the job hasn't completed yet or timing data is unavailable.
+    ended_at: float | None = None
+
 
 class BaseCluster(ABC):
     """Base class for a compute cluster (job queue)."""
