@@ -233,7 +233,7 @@ class SkyClient:
             raise RuntimeError("Failed to launch job.")
         # Extract hourly cost from launched resources (includes all nodes).
         try:
-            cost_per_hour = resource_handle.get_hourly_price()
+            cost_per_hour = resource_handle.get_hourly_price()  # pyright: ignore[reportAttributeAccessIssue]
         except Exception:
             cost_per_hour = None
 
