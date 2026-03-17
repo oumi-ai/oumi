@@ -1334,7 +1334,8 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                     error_msg = error_msg.get("message", str(error_msg))
                 if not error_msg:
                     body_error = (
-                        result.get("response", {}).get("body", {}).get("error", {})
+                        ((result.get("response") or {}).get("body") or {})
+                        .get("error", {})
                     )
                     if isinstance(body_error, dict):
                         error_msg = body_error.get("message")
