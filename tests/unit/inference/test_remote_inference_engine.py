@@ -2370,7 +2370,7 @@ async def test_batch_results_partial_failure_retries():
 
 @pytest.mark.asyncio
 async def test_batch_results_error_in_response_body():
-    """Test error parsing when top-level error is null and detail is in response.body."""
+    """Test error parsing when top-level error null and detail is in response.body."""
     with aioresponses() as m:
         m.get(
             f"{_TARGET_SERVER_BASE}/v1/batches/batch-123",
