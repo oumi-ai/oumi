@@ -2,7 +2,7 @@
 
 Pre-training is the process of training a language model from scratch, or continuing training on a pre-trained model, using large amounts of unlabeled text data. The most common pre-training method is Causal Language Modeling (CLM), where the model predicts the next token in a sequence, given the preceding tokens.
 
-This guide covers pre-training datasets used for training language models from scratch or continuing pre-training in Oumi.
+This guide covers pre-training datasets used for training language models from scratch or continuing pre-training in Oumi OSS.
 
 ## Supported Datasets
 
@@ -15,7 +15,7 @@ Out of the box, we support multiple popular pre-training datasets:
 
 ### Configuration
 
-To use a specific pre-training dataset in your Oumi configuration, you need to specify it in the {py:class}`~oumi.core.configs.TrainingConfig`. Here's an example of how to configure a pre-training dataset:
+To use a specific pre-training dataset in your Oumi OSS configuration, you need to specify it in the {py:class}`~oumi.core.configs.TrainingConfig`. Here's an example of how to configure a pre-training dataset:
 
 ```yaml
 training:
@@ -75,7 +75,7 @@ The {py:func}`~oumi.builders.data.build_dataset_mixture` function takes care of 
 
 ## Adding a New Pre-training Dataset
 
-All pre-training datasets in Oumi are subclasses of {py:class}`~oumi.core.datasets.iterable_dataset.BasePretrainingIterableDataset`.
+All pre-training datasets in Oumi OSS are subclasses of {py:class}`~oumi.core.datasets.iterable_dataset.BasePretrainingIterableDataset`.
 
 This class extends {py:class}`~oumi.core.datasets.iterable_dataset.BaseIterableDataset` to offer functionality specific to pre-training tasks.
 

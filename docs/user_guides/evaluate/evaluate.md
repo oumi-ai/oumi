@@ -14,21 +14,21 @@ custom_evals
 
 ## Overview
 
-Oumi offers a flexible and unified framework designed to assess and benchmark **Large Language Models (LLMs)** and **Vision Language Models (VLMs)**. The framework allows researchers, developers, and organizations to easily evaluate the performance of their models across a variety of benchmarks, compare results, and track progress in a standardized and reproducible way.
+Oumi OSS offers a flexible and unified framework designed to assess and benchmark **Large Language Models (LLMs)** and **Vision Language Models (VLMs)**. The framework allows researchers, developers, and organizations to easily evaluate the performance of their models across a variety of benchmarks, compare results, and track progress in a standardized and reproducible way.
 
 Key features include:
 
 - **Seamless Setup**: Single-step installation for all packages and dependencies, ensuring quick and conflict-free setup.
 - **Consistency**: Platform ensures deterministic execution and [reproducible results](/user_guides/evaluate/evaluate.md#results-and-logging). Reproducibility is achieved by automatically logging and versioning all environmental parameters and experimental configurations.
-- **Diversity**: Offering a [wide range of benchmarks](/user_guides/evaluate/evaluate.md#benchmark-types) across domains. Oumi enables a comprehensive evaluation of LLMs on tasks ranging from natural language understanding to creative text generation, providing holistic assessment across various real-world applications.
+- **Diversity**: Offering a [wide range of benchmarks](/user_guides/evaluate/evaluate.md#benchmark-types) across domains. Oumi OSS enables a comprehensive evaluation of LLMs on tasks ranging from natural language understanding to creative text generation, providing holistic assessment across various real-world applications.
 - **Scalability**: Supports [multi-GPU and multi-node evaluations](/user_guides/infer/infer.md#distributed-inference), along with the ability to shard large models across multiple GPUs/nodes. Incorporates batch processing optimizations to effectively manage memory constraints and ensure efficient resource utilization.
-- **Multimodality**: Designed with multiple modalities in mind, Oumi already supports evaluating on {ref}`joint image-text <multi-modal-standardized-benchmarks>` inputs, assessing VLMs on cross-modal reasoning tasks, where visual and linguistic data are inherently linked.
+- **Multimodality**: Designed with multiple modalities in mind, Oumi OSS already supports evaluating on {ref}`joint image-text <multi-modal-standardized-benchmarks>` inputs, assessing VLMs on cross-modal reasoning tasks, where visual and linguistic data are inherently linked.
 <!-- Consider adding later:
-**Extensibility**: Designed with simplicity and modularity in mind, Oumi offers a flexible framework that empowers the community to easily contribute new benchmarks and metrics. This facilitates continuous improvement and ensures the platform evolves alongside emerging research and industry trends.
+**Extensibility**: Designed with simplicity and modularity in mind, Oumi OSS offers a flexible framework that empowers the community to easily contribute new benchmarks and metrics. This facilitates continuous improvement and ensures the platform evolves alongside emerging research and industry trends.
 -->
 
-Oumi seamlessly integrates with leading evaluation frameworks such as [LM Evaluation Harness](https://github.com/EleutherAI/lm-evaluation-harness), [AlpacaEval](https://github.com/tatsu-lab/alpaca_eval), and (WIP) [MT-Bench](https://github.com/lm-sys/FastChat/tree/main/fastchat/llm_judge).
-For more specialized use cases not covered by these frameworks, Oumi also supports {doc}`custom evaluation functions </user_guides/evaluate/custom_evals>`, enabling you to tailor evaluations to your specific needs.
+Oumi OSS seamlessly integrates with leading evaluation frameworks such as [LM Evaluation Harness](https://github.com/EleutherAI/lm-evaluation-harness), [AlpacaEval](https://github.com/tatsu-lab/alpaca_eval), and (WIP) [MT-Bench](https://github.com/lm-sys/FastChat/tree/main/fastchat/llm_judge).
+For more specialized use cases not covered by these frameworks, Oumi OSS also supports {doc}`custom evaluation functions </user_guides/evaluate/custom_evals>`, enabling you to tailor evaluations to your specific needs.
 
 ## Benchmark Types
 
@@ -43,7 +43,7 @@ For more specialized use cases not covered by these frameworks, Oumi also suppor
 
 ### Using the CLI
 
-The simplest way to evaluate a model is by authoring a `YAML` configuration, and calling the Oumi CLI:
+The simplest way to evaluate a model is by authoring a `YAML` configuration, and calling the Oumi OSS CLI:
 
 ````{dropdown} configs/recipes/phi3/evaluation/eval.yaml
 ```{literalinclude} /../configs/recipes/phi3/evaluation/eval.yaml
@@ -92,7 +92,7 @@ output_dir: "my_evaluation_results"
 
 ### Multi-GPU Evaluation
 
-Oumi supports multiple strategies for multi-GPU evaluation. **Choose the right strategy based on your model size and inference engine.**
+Oumi OSS supports multiple strategies for multi-GPU evaluation. **Choose the right strategy based on your model size and inference engine.**
 
 ##### Strategy 1: VLLM with Tensor Parallelism (Recommended)
 
@@ -225,7 +225,7 @@ The evaluation outputs are saved under the specified `output_dir`, in a folder n
 
 ### Reproducibility Metadata
 
-To ensure that evaluations are fully reproducible, Oumi automatically logs all input configurations and environmental parameters, as shown below. These files provide a complete and traceable record of each evaluation, enabling users to reliably replicate results, ensuring consistency and transparency throughout the evaluation lifecycle.
+To ensure that evaluations are fully reproducible, Oumi OSS automatically logs all input configurations and environmental parameters, as shown below. These files provide a complete and traceable record of each evaluation, enabling users to reliably replicate results, ensuring consistency and transparency throughout the evaluation lifecycle.
 
 | File | Description | Reference |
 |------|-------------|-----------|
@@ -237,7 +237,7 @@ To ensure that evaluations are fully reproducible, Oumi automatically logs all i
 
 ### Weights & Biases
 
-To enhance experiment tracking and result visualization, Oumi integrates with [Weights and Biases](https://wandb.ai/site) (Wandb), a leading tool for managing machine learning workflows. Wandb enables users to monitor and log metrics, hyperparameters, and model outputs in real time, providing detailed insights into model performance throughout the evaluation process. When `enable_wandb` is set, Wandb results are automatically logged, empowering users to track experiments with greater transparency, and easily visualize trends across multiple runs. This integration streamlines the process of comparing models, identifying optimal configurations, and maintaining an organized, collaborative record of all evaluation activities.
+To enhance experiment tracking and result visualization, Oumi OSS integrates with [Weights and Biases](https://wandb.ai/site) (Wandb), a leading tool for managing machine learning workflows. Wandb enables users to monitor and log metrics, hyperparameters, and model outputs in real time, providing detailed insights into model performance throughout the evaluation process. When `enable_wandb` is set, Wandb results are automatically logged, empowering users to track experiments with greater transparency, and easily visualize trends across multiple runs. This integration streamlines the process of comparing models, identifying optimal configurations, and maintaining an organized, collaborative record of all evaluation activities.
 
 To ensure Wandb results are logged:
 

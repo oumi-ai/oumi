@@ -1,10 +1,10 @@
 # Acknowledgments
 
-Oumi makes use of several libraries and tools from the open-source community. 🚀
+Oumi OSS makes use of several libraries and tools from the open-source community. 🚀
 
 We would like to acknowledge these projects:
 
-| Project | Usage in Oumi |
+| Project | Usage in Oumi OSS |
 |-------------------|---------------|
 | [Accelerate](https://github.com/huggingface/accelerate) | Distributed training and mixed precision computations |
 | [bitsandbytes](https://github.com/bitsandbytes-foundation/bitsandbytes) | Quantization and efficient optimizers for QLora |

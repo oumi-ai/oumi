@@ -1,10 +1,10 @@
 # Telemetry
 
-Oumi collects anonymous usage analytics to help us debug issues and prioritize new features. This page explains our privacy principles and how to opt out.
+Oumi OSS collects anonymous usage analytics to help us debug issues and prioritize new features. This page explains our privacy principles and how to opt out.
 
 ## What We Collect
 
-We only collect anonymous, aggregate information about how Oumi is used:
+We only collect anonymous, aggregate information about how Oumi OSS is used:
 
 - **Usage patterns**: Which commands are run, success/failure rates, performance metrics, training type, etc
 - **Environment**: Hardware specs, OS, package versions

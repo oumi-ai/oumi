@@ -1,6 +1,6 @@
 # Recipes
 
-To help you get started with Oumi, we've prepared a set of recipes for common use cases. These recipes are designed to be easy to understand and modify, and should be a good starting point for your own projects. Each recipe is a YAML file that can be used to train, evaluate, or deploy a model. We also have corresponding job configs for most recipes that let you run the job remotely; they're usually files ending in `_job.yaml` in the same directory as the recipe config.
+To help you get started with Oumi OSS, we've prepared a set of recipes for common use cases. These recipes are designed to be easy to understand and modify, and should be a good starting point for your own projects. Each recipe is a YAML file that can be used to train, evaluate, or deploy a model. We also have corresponding job configs for most recipes that let you run the job remotely; they're usually files ending in `_job.yaml` in the same directory as the recipe config.
 
 ## Overview
 
@@ -10,7 +10,7 @@ The recipes are organized by model family and task type. Each recipe includes:
 - Platform-specific job configurations (Cloud (e.g. GCP), Polaris, or local)
 - Multiple training methods (FFT, LoRA, QLoRA, FSDP/DDP)
 
-To use a recipe, simply download the desired configuration file, modify any parameters as needed, and run the configuration using the Oumi CLI. For example:
+To use a recipe, simply download the desired configuration file, modify any parameters as needed, and run the configuration using the Oumi OSS CLI. For example:
 
 ```bash
 oumi train --config path/to/config.yaml
@@ -99,7 +99,7 @@ You can also check out the `README.md` in each recipe's directory for more detai
 
 ### 🎯 Training Techniques
 
-This section lists an example config for various training techniques supported by Oumi.
+This section lists an example config for various training techniques supported by Oumi OSS.
 
 | Technique | Configuration | Links |
 |-------|--------------|-------|

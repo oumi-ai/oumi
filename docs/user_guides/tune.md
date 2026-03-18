@@ -4,7 +4,7 @@
 
 ## Introduction
 
-Finding the right hyperparameters can make the difference between a mediocre model and state-of-the-art performance. Oumi provides `oumi tune`, a built-in hyperparameter optimization module powered by [Optuna](https://optuna.org/) that makes systematic hyperparameter search effortless.
+Finding the right hyperparameters can make the difference between a mediocre model and state-of-the-art performance. Oumi OSS provides `oumi tune`, a built-in hyperparameter optimization module powered by [Optuna](https://optuna.org/) that makes systematic hyperparameter search effortless.
 
 With `oumi tune`, you can:
 
@@ -12,11 +12,11 @@ With `oumi tune`, you can:
 - 🎯 **Multi-Objective Optimization**: Optimize for multiple metrics simultaneously (e.g., minimize loss while maximizing accuracy)
 - 📊 **Smart Sampling**: Use log-uniform sampling for learning rates, categorical choices for optimizers, and more
 - 💾 **Full Tracking**: Automatically save results, best models, and detailed trial logs
-- 🚀 **Easy Integration**: Works seamlessly with all Oumi training workflows
+- 🚀 **Easy Integration**: Works seamlessly with all Oumi OSS training workflows
 
 ## Installation
 
-To use the hyperparameter tuning feature, install Oumi with the `tune` extra:
+To use the hyperparameter tuning feature, install Oumi OSS with the `tune` extra:
 
 ```bash
 pip install oumi[tune]
@@ -80,7 +80,7 @@ oumi tune -c tune.yaml
 
 ### Parameter Types
 
-Oumi supports several parameter types for defining search spaces:
+Oumi OSS supports several parameter types for defining search spaces:
 
 #### Categorical Parameters
 
@@ -200,7 +200,7 @@ When using multi-objective optimization, use `get_best_trials()` (plural) instea
 
 ### Tuner Type
 
-Currently, Oumi supports the Optuna tuner:
+Currently, Oumi OSS supports the Optuna tuner:
 
 ```yaml
 tuning:
