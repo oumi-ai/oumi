@@ -64,11 +64,11 @@ class JobStatus:
 
     #: Unix timestamp when the job started running.
     #: None if the job hasn't started yet or timing data is unavailable.
-    started_at: float | None = None
+    start_at: float | None = None
 
     #: Unix timestamp when the job completed.
     #: None if the job hasn't completed yet or timing data is unavailable.
-    ended_at: float | None = None
+    end_at: float | None = None
 
 
 class BaseCluster(ABC):

@@ -263,8 +263,8 @@ def test_sky_cluster_stop(mock_sky_client):
     mock_sky_client.stop.assert_called_once_with("mycluster")
 
 
-def test_convert_sky_job_populates_started_at_and_ended_at(mock_sky_client):
-    """Test that started_at and ended_at are extracted from sky job dict."""
+def test_convert_sky_job_populates_start_at_and_end_at(mock_sky_client):
+    """Test that start_at and end_at are extracted from sky job dict."""
     cluster = SkyCluster("test-cluster", mock_sky_client)
     sky_job = {
         "job_id": 1,
@@ -277,8 +277,8 @@ def test_convert_sky_job_populates_started_at_and_ended_at(mock_sky_client):
     jobs = cluster.get_jobs()
 
     assert len(jobs) == 1
-    assert jobs[0].started_at == 1700000000.0
-    assert jobs[0].ended_at == 1700003600.0
+    assert jobs[0].start_at == 1700000000.0
+    assert jobs[0].end_at == 1700003600.0
 
 
 def test_convert_sky_job_handles_missing_timestamps(mock_sky_client):
@@ -293,5 +293,5 @@ def test_convert_sky_job_handles_missing_timestamps(mock_sky_client):
     jobs = cluster.get_jobs()
 
     assert len(jobs) == 1
-    assert jobs[0].started_at is None
-    assert jobs[0].ended_at is None
+    assert jobs[0].start_at is None
+    assert jobs[0].end_at is None

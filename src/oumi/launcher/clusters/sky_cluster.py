@@ -75,8 +75,8 @@ class SkyCluster(BaseCluster):
             or state == JobState.FAILED
             or state == JobState.CANCELLED,
             state=state,
-            started_at=sky_job.get("start_at"),
-            ended_at=sky_job.get("end_at"),
+            start_at=sky_job.get("start_at"),
+            end_at=sky_job.get("end_at"),
         )
 
     def name(self) -> str:
