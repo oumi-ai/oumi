@@ -79,7 +79,7 @@ class TestBaseDpoDatasetColumnNames:
     def test_column_names_trl_pre_029(self, mock_tokenizer, sample_dpo_data):
         """Test that pre-0.29 TRL column names are used when TRL < 0.29."""
         with patch(
-            "oumi.core.datasets.base_dpo_dataset.is_trl_v029_or_later",
+            "oumi.core.datasets.base_dpo_dataset.is_trl_v0_29_or_later",
             return_value=False,
         ):
             dataset = ConcreteDpoDataset(
@@ -101,7 +101,7 @@ class TestBaseDpoDatasetColumnNames:
     def test_column_names_trl_029_or_later(self, mock_tokenizer, sample_dpo_data):
         """Test that 0.29+ TRL column names are used when TRL >= 0.29."""
         with patch(
-            "oumi.core.datasets.base_dpo_dataset.is_trl_v029_or_later",
+            "oumi.core.datasets.base_dpo_dataset.is_trl_v0_29_or_later",
             return_value=True,
         ):
             dataset = ConcreteDpoDataset(
@@ -123,7 +123,7 @@ class TestBaseDpoDatasetColumnNames:
     def test_column_values_are_lists(self, mock_tokenizer, sample_dpo_data):
         """Test that column values are lists of token IDs."""
         with patch(
-            "oumi.core.datasets.base_dpo_dataset.is_trl_v029_or_later",
+            "oumi.core.datasets.base_dpo_dataset.is_trl_v0_29_or_later",
             return_value=True,
         ):
             dataset = ConcreteDpoDataset(
@@ -142,7 +142,7 @@ class TestBaseDpoDatasetColumnNames:
     ):
         """Test that EOS token is appended to chosen and rejected sequences."""
         with patch(
-            "oumi.core.datasets.base_dpo_dataset.is_trl_v029_or_later",
+            "oumi.core.datasets.base_dpo_dataset.is_trl_v0_29_or_later",
             return_value=True,
         ):
             dataset = ConcreteDpoDataset(

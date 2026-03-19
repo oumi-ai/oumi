@@ -20,7 +20,7 @@ from typing_extensions import override
 from oumi.core.datasets.base_map_dataset import BaseMapDataset
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types.conversation import Role
-from oumi.utils.packaging import is_trl_v029_or_later
+from oumi.utils.packaging import is_trl_v0_29_or_later
 
 _PROMPT_KEY = "prompt"
 _CHOSEN_KEY = "chosen"
@@ -144,7 +144,7 @@ class BaseDpoDataset(BaseMapDataset):
 
         # TRL v0.29+ uses shorter column names (prompt_ids, chosen_ids, rejected_ids)
         # Earlier versions use prompt_input_ids, chosen_input_ids, rejected_input_ids
-        if is_trl_v029_or_later():
+        if is_trl_v0_29_or_later():
             return {
                 "prompt_ids": prompt_input_ids,
                 "chosen_ids": chosen_input_ids,

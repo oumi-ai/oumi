@@ -223,7 +223,7 @@ def is_transformers_v5() -> bool:
 
 
 @lru_cache(maxsize=1)
-def is_trl_v029_or_later() -> bool:
+def is_trl_v0_29_or_later() -> bool:
     """Checks if TRL version is 0.29.0 or later."""
     try:
         trl_version = importlib.metadata.version("trl")
