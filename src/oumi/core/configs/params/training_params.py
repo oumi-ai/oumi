@@ -750,6 +750,27 @@ class TrainingParams(BaseParams):
     not satisfactory, or for new models not yet fully-integrated by Oumi.
     """
 
+    def _get_token_tracking_kwargs(self) -> dict[str, Any]:
+        """Returns token tracking kwargs for the installed transformers version.
+
+        In transformers v5, `include_tokens_per_second` was removed and merged
+        into `include_num_input_tokens_seen`.
+        """
+        from oumi.utils.packaging import is_transformers_v5
+
+        if is_transformers_v5():
+            # v5: only include_num_input_tokens_seen is available
+            # (tokens_per_second is now automatically included when this is enabled)
+            return {
+                "include_num_input_tokens_seen": self.include_performance_metrics,
+            }
+        else:
+            # v4: both parameters exist separately
+            return {
+                "include_tokens_per_second": self.include_performance_metrics,
+                "include_num_input_tokens_seen": self.include_performance_metrics,
+            }
+
     def to_hf(self, training_config: Optional["TrainingConfig"] = None):
         """Converts Oumi config to HuggingFace's TrainingArguments.
 
@@ -892,8 +913,7 @@ class TrainingParams(BaseParams):
             adam_epsilon=self.adam_epsilon,
             gradient_checkpointing=self.enable_gradient_checkpointing,
             gradient_checkpointing_kwargs=self.gradient_checkpointing_kwargs,
-            include_tokens_per_second=self.include_performance_metrics,
-            include_num_input_tokens_seen=self.include_performance_metrics,
+            **self._get_token_tracking_kwargs(),
             fp16=self.mixed_precision_dtype == MixedPrecisionDtype.FP16,
             bf16=self.mixed_precision_dtype == MixedPrecisionDtype.BF16,
             torch_compile=self.compile,
