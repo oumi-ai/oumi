@@ -117,7 +117,13 @@ def build_trainer(
     elif trainer_type == TrainerType.TRL_GRPO:
         return _create_hf_builder_fn(trl.GRPOTrainer)
     elif trainer_type == TrainerType.TRL_GKD:
-        return _create_hf_builder_fn(trl.GKDTrainer)
+        from oumi.utils.packaging import is_trl_v0_28_or_later
+
+        if is_trl_v0_28_or_later():
+            from trl.experimental.gkd import GKDTrainer
+        else:
+            GKDTrainer = trl.GKDTrainer
+        return _create_hf_builder_fn(GKDTrainer)
     elif trainer_type == TrainerType.TRL_GOLD:
         from oumi.utils.packaging import require_gold_trainer
 

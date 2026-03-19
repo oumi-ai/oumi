@@ -258,3 +258,13 @@ def is_vllm_post_v0_10_2() -> bool:
     if vllm_version is None:
         return False
     return version.parse(vllm_version) > version.parse("0.10.2")
+
+
+@lru_cache(maxsize=1)
+def is_trl_v0_28_or_later() -> bool:
+    """Check if the installed TRL version is v0.28 or later."""
+    try:
+        trl_version = importlib.metadata.version("trl")
+        return version.parse(trl_version) >= version.parse("0.28.0")
+    except importlib.metadata.PackageNotFoundError:
+        return False
