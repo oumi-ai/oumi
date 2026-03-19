@@ -157,7 +157,7 @@ synthesis = [
 ]
 
 litellm = [
-    "litellm>=1.56,<1.57",
+    "litellm>=1.56,<2.0",
     "tenacity",       # Required by litellm for retry logic
 ]
 

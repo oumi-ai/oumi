@@ -127,6 +127,7 @@ def test_litellm_build_completion_kwargs_basic(litellm_engine):
     assert kwargs["max_tokens"] == 100
     assert kwargs["temperature"] == 0.5
     assert kwargs["num_retries"] == 3
+    assert kwargs["drop_params"] is True  # Auto-strip unsupported params
     assert "api_key" not in kwargs
     assert "api_base" not in kwargs
 
@@ -242,6 +243,30 @@ def test_litellm_convert_response_with_usage_metadata(litellm_engine):
     assert result.metadata["usage"]["completion_tokens"] == 20
     assert result.metadata["usage"]["total_tokens"] == 30
     assert result.metadata["usage"]["cached_tokens"] == 5
+
+
+def test_litellm_convert_response_without_cached_tokens(litellm_engine):
+    """Test converting response when cached_tokens is not available."""
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock()]
+    mock_response.choices[0].message.content = "Response"
+    mock_response.usage = MagicMock(spec=["prompt_tokens", "completion_tokens", "total_tokens"])
+    mock_response.usage.prompt_tokens = 10
+    mock_response.usage.completion_tokens = 20
+    mock_response.usage.total_tokens = 30
+
+    original_conversation = Conversation(
+        messages=[Message(role=Role.USER, content="Hello!")]
+    )
+
+    result = litellm_engine._convert_response_to_conversation(
+        mock_response, original_conversation
+    )
+
+    assert result.metadata["usage"]["prompt_tokens"] == 10
+    assert result.metadata["usage"]["completion_tokens"] == 20
+    assert result.metadata["usage"]["total_tokens"] == 30
+    assert result.metadata["usage"]["cached_tokens"] is None
 
 
 def test_litellm_convert_response_with_none_content(litellm_engine):

@@ -158,10 +158,15 @@ class LiteLLMInferenceEngine(BaseInferenceEngine):
                     conversation, generation_params, output_path
                 )
 
+        # For single conversations, await directly to avoid asyncio.gather issues
+        # with litellm's async client cleanup
+        if len(input) == 1:
+            result = await process_conversation(input[0])
+            return [result]
+
         tasks = [process_conversation(conv) for conv in input]
-        disable_tqdm = len(tasks) < 2
         results = await tqdm.gather(
-            *tasks, desc="Running LiteLLM inference", disable=disable_tqdm
+            *tasks, desc="Running LiteLLM inference", disable=False
         )
         return list(results)
 
@@ -234,6 +239,7 @@ class LiteLLMInferenceEngine(BaseInferenceEngine):
             "max_tokens": generation_params.max_new_tokens,
             "temperature": generation_params.temperature,
             "num_retries": self._num_retries,
+            "drop_params": True,  # Automatically strip unsupported params per provider
         }
 
         if self._api_key is not None:
@@ -277,7 +283,7 @@ class LiteLLMInferenceEngine(BaseInferenceEngine):
                 "prompt_tokens": response.usage.prompt_tokens,
                 "completion_tokens": response.usage.completion_tokens,
                 "total_tokens": response.usage.total_tokens,
-                "cached_tokens": response.usage.cached_tokens,
+                "cached_tokens": getattr(response.usage, "cached_tokens", None),
             }
 
         new_message = Message(
