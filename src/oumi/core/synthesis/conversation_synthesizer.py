@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 import json
 import random
 
@@ -22,8 +23,13 @@ from oumi.core.configs.params.synthesis_params import (
     GeneralSynthesisParams,
     MultiTurnAttribute,
 )
-from oumi.core.configs.params.tool_params import ToolAttribute
+from oumi.core.configs.params.tool_params import (
+    ToolAttribute,
+    ToolEnvironmentAttribute,
+    ToolOutputStrategy,
+)
 from oumi.core.synthesis.attribute_formatter import AttributeFormatter
+from oumi.core.synthesis.environment import GeneratedToolEnvironment
 from oumi.core.synthesis.tool_executor import ToolExecutor
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.logging import logger
@@ -68,6 +74,11 @@ class ConversationSynthesizer:
             for tool in params.tools:
                 self._tools_by_id[tool.id] = tool
 
+        self._env_configs: dict[str, ToolEnvironmentAttribute] = {}
+        if params.environments:
+            for env_config in params.environments:
+                self._env_configs[env_config.id] = env_config
+
     def _get_tools_for_multiturn(
         self, multiturn_attribute: MultiTurnAttribute
     ) -> list[ToolAttribute]:
@@ -85,6 +96,47 @@ class ConversationSynthesizer:
                     f"'{multiturn_attribute.id}' not found in params.tools"
                 )
         return tools
+
+    def _create_environments(
+        self, multiturn_attribute: MultiTurnAttribute
+    ) -> dict[str, GeneratedToolEnvironment] | None:
+        """Create and initialize GeneratedToolEnvironment instances.
+
+        Called once per multiturn synthesis. Returns None if no
+        environment-bound tools are used.
+        """
+        tools = self._get_tools_for_multiturn(multiturn_attribute)
+        env_tools: dict[str, list[ToolAttribute]] = {}
+        for tool in tools:
+            if tool.environment:
+                env_tools.setdefault(tool.environment, []).append(tool)
+
+        if not env_tools:
+            return None
+
+        # Build scenario context from role instructions.
+        # NOTE: These may contain template placeholders like {attr_id} that
+        # haven't been resolved yet. They're included as-is for context.
+        scenario_parts = []
+        for role, instruction in multiturn_attribute.role_instruction_messages.items():
+            scenario_parts.append(f"{role.value}: {instruction}")
+        scenario_context = "\n".join(scenario_parts) if scenario_parts else None
+
+        environments: dict[str, GeneratedToolEnvironment] = {}
+        for env_id, bound_tools in env_tools.items():
+            config = self._env_configs.get(env_id)
+            if not config:
+                logger.warning(f"Environment config not found for '{env_id}'")
+                continue
+            env = GeneratedToolEnvironment(
+                config=config,
+                inference_engine=self._inference_engine,
+                inference_config=self._inference_config,
+            )
+            env.initialize(bound_tools, scenario_context=scenario_context)
+            environments[env_id] = env
+
+        return environments if environments else None
 
     def _validate_roles(self, multiturn_attribute: MultiTurnAttribute) -> None:
         """Validate that required roles have corresponding personas.
@@ -581,6 +633,20 @@ class ConversationSynthesizer:
             return [], None
 
         tools = self._get_tools_for_multiturn(multiturn_attribute)
+
+        template_envs = (
+            self._create_environments(multiturn_attribute) if tools else None
+        )
+
+        sample_envs: list[dict[str, GeneratedToolEnvironment] | None] = []
+        for _ in samples:
+            if template_envs:
+                sample_envs.append(
+                    {eid: copy.deepcopy(env) for eid, env in template_envs.items()}
+                )
+            else:
+                sample_envs.append(None)
+
         tool_executor = ToolExecutor(tools) if tools else None
         deterministic_selections = (
             [tool_executor.sample_deterministic_outputs(tools) for _ in samples]
@@ -687,6 +753,64 @@ class ConversationSynthesizer:
                         turn_call_counts[idx] += 1
                         tool_call_counts[idx] += 1
                         call_id = f"call_{tool_call_counts[idx]:03d}"
+                        env_result = None
+                        idx_envs = sample_envs[idx]
+                        if idx_envs is not None:
+                            tool_obj = tool_executor.get_tool_by_name(tool_call["name"])
+                            if tool_obj and tool_obj.environment:
+                                env = idx_envs.get(tool_obj.environment)
+                                if env:
+                                    env_result = env.step(
+                                        tool_obj,
+                                        arguments=tool_call["arguments"],
+                                    )
+
+                        if env_result is not None:
+                            result = env_result
+                            turn_tool_msgs[idx].append(
+                                Message(role=Role.ASSISTANT, content=text)
+                            )
+                            turn_tool_msgs[idx].append(
+                                Message(
+                                    role=Role.USER,
+                                    content=(
+                                        f"[Tool result from "
+                                        f"{tool_call['name']}]: "
+                                        f"{result}"
+                                    ),
+                                )
+                            )
+                            output_messages[idx].append(
+                                ToolExecutor.format_tool_call_message(
+                                    tool_call, call_id
+                                )
+                            )
+                            tool_result_msg = ToolExecutor.format_tool_result_message(
+                                call_id, result, tool_call["name"]
+                            )
+                            # Attach environment state snapshot
+                            if env:
+                                tool_result_msg["_environment_state"] = copy.deepcopy(
+                                    env.state
+                                )
+                            output_messages[idx].append(tool_result_msg)
+                            still_active.append(idx)
+                            continue
+
+                        # Guard: ENVIRONMENT tools must not fall through
+                        # to DETERMINISTIC/GENERATED paths
+                        env_tool = tool_executor.get_tool_by_name(tool_call["name"])
+                        if (
+                            env_tool
+                            and env_tool.output_strategy
+                            == ToolOutputStrategy.ENVIRONMENT
+                        ):
+                            logger.warning(
+                                f"Environment not found for tool "
+                                f"'{tool_call['name']}', skipping."
+                            )
+                            still_active.append(idx)
+                            continue
 
                         result = tool_executor.resolve_output(
                             tool_call, deterministic_selections[idx]

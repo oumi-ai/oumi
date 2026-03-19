@@ -22,7 +22,10 @@ from pathlib import Path
 from typing import Any
 
 from oumi.core.configs.params.base_params import BaseParams
-from oumi.core.configs.params.tool_params import ToolAttribute
+from oumi.core.configs.params.tool_params import (
+    ToolAttribute,
+    ToolEnvironmentAttribute,
+)
 from oumi.core.types.conversation import Conversation, Message, Role
 
 _SUPPORTED_DATASET_FILE_TYPES = {".jsonl", ".json", ".csv", ".parquet", ".tsv", ".xlsx"}
@@ -823,6 +826,12 @@ class GeneralSynthesisParams(BaseParams):
         ]
     """
 
+    environments: list[ToolEnvironmentAttribute] | None = None
+    """Environment definitions for stateful tool synthesis.
+
+    Environments are stateful containers that tools operate on. Tools
+    reference environments by id via ToolAttribute.environment."""
+
     transformed_attributes: list[TransformedAttribute] | None = None
     """Transformation of existing attributes.
 
@@ -965,6 +974,38 @@ class GeneralSynthesisParams(BaseParams):
             self.passthrough_attributes = None
             return
 
+    def _check_environment_ids(self) -> None:
+        """Validate environment ids are unique."""
+        if not self.environments:
+            self.environments = None
+            return
+
+        env_ids = [env.id for env in self.environments]
+        if len(env_ids) != len(set(env_ids)):
+            seen: set[str] = set()
+            dupes = [e for e in env_ids if e in seen or seen.add(e)]  # type: ignore[func-returns-value]
+            raise ValueError(
+                f"GeneralSynthesisParams.environments contains "
+                f"duplicate environment ids: {dupes}"
+            )
+
+    def _check_tool_environment_references(self) -> None:
+        """Validate that tool.environment references valid environment ids."""
+        if not self.tools:
+            return
+
+        env_ids: set[str] = set()
+        if self.environments:
+            env_ids = {env.id for env in self.environments}
+
+        for tool in self.tools:
+            if tool.environment and tool.environment not in env_ids:
+                raise ValueError(
+                    f"ToolAttribute '{tool.id}' references unknown "
+                    f"environment '{tool.environment}'. "
+                    f"Defined environment ids: {sorted(env_ids)}"
+                )
+
     def _check_available_tools(self) -> None:
         """Validate that available_tools ids reference defined tools."""
         if not self.multiturn_attributes:
@@ -1021,3 +1062,5 @@ class GeneralSynthesisParams(BaseParams):
         self._check_passthrough_attribute_ids()
         self._check_combination_sampling_sample_rates()
         self._check_available_tools()
+        self._check_environment_ids()
+        self._check_tool_environment_references()

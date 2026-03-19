@@ -20,6 +20,7 @@ from oumi.core.configs.params.synthesis_params import (
 )
 from oumi.core.configs.params.tool_params import (
     DeterministicToolOutput,
+    ToolEnvironmentAttribute,
     GeneratedToolOutput,
     ToolAttribute,
     ToolOutputStrategy,
@@ -178,3 +179,161 @@ def test_synthesis_params_duplicate_tool_ids_raises():
             tools=[t1, t2],
             multiturn_attributes=[mt],
         )
+
+
+# --- ToolOutputStrategy.ENVIRONMENT ---
+
+
+def test_tool_output_strategy_environment_exists():
+    assert ToolOutputStrategy.ENVIRONMENT == "environment"
+
+
+def _make_environment_tool(**overrides) -> ToolAttribute:
+    defaults = dict(
+        id="tool_env",
+        name="EnvTool",
+        description="An environment tool",
+        output_strategy=ToolOutputStrategy.ENVIRONMENT,
+        environment="my_env",
+        read_only=True,
+    )
+    defaults.update(overrides)
+    return ToolAttribute(**defaults)
+
+
+def test_tool_attribute_environment_valid():
+    tool = _make_environment_tool()
+    assert tool.environment == "my_env"
+    assert tool.read_only is True
+    assert tool.output_strategy == ToolOutputStrategy.ENVIRONMENT
+
+
+def test_tool_attribute_environment_read_only_false():
+    tool = _make_environment_tool(read_only=False)
+    assert tool.read_only is False
+
+
+def test_tool_attribute_environment_strategy_without_env_raises():
+    """ENVIRONMENT strategy requires environment field."""
+    with pytest.raises(ValueError, match="environment must be set"):
+        ToolAttribute(
+            id="t",
+            name="T",
+            description="d",
+            output_strategy=ToolOutputStrategy.ENVIRONMENT,
+        )
+
+
+def test_tool_attribute_env_set_without_environment_strategy_raises():
+    """Setting environment requires ENVIRONMENT strategy."""
+    with pytest.raises(ValueError, match="output_strategy must be ENVIRONMENT"):
+        ToolAttribute(
+            id="t",
+            name="T",
+            description="d",
+            output_strategy=ToolOutputStrategy.GENERATED,
+            environment="some_env",
+            generated_output=GeneratedToolOutput(instruction="x"),
+        )
+
+
+def test_tool_attribute_environment_ignores_generated_output():
+    """ENVIRONMENT tools don't need generated_output or deterministic_outputs."""
+    tool = _make_environment_tool()
+    assert tool.generated_output is None
+    assert tool.deterministic_outputs == []
+
+
+# --- ToolEnvironmentAttribute ---
+
+
+def test_environment_attribute_valid():
+    env = ToolEnvironmentAttribute(
+        id="filesystem",
+        name="Filesystem",
+        description="A simple filesystem",
+        system_prompt="You manage a filesystem.",
+    )
+    assert env.id == "filesystem"
+    assert env.state_schema is None
+    assert env.initial_state is None
+
+
+def test_environment_attribute_with_schema_and_state():
+    schema = {
+        "type": "object",
+        "properties": {"files": {"type": "object"}},
+        "required": ["files"],
+    }
+    state = {"files": {}}
+    env = ToolEnvironmentAttribute(
+        id="fs",
+        name="FS",
+        description="d",
+        system_prompt="p",
+        state_schema=schema,
+        initial_state=state,
+    )
+    assert env.state_schema == schema
+    assert env.initial_state == state
+
+
+def test_environment_attribute_empty_id_raises():
+    with pytest.raises(ValueError, match="id cannot be empty"):
+        ToolEnvironmentAttribute(id="", name="n", description="d", system_prompt="p")
+
+
+def test_environment_attribute_empty_name_raises():
+    with pytest.raises(ValueError, match="name cannot be empty"):
+        ToolEnvironmentAttribute(id="x", name="", description="d", system_prompt="p")
+
+
+def test_environment_attribute_empty_description_raises():
+    with pytest.raises(ValueError, match="description cannot be empty"):
+        ToolEnvironmentAttribute(id="x", name="n", description="", system_prompt="p")
+
+
+def test_environment_attribute_empty_system_prompt_raises():
+    with pytest.raises(ValueError, match="system_prompt cannot be empty"):
+        ToolEnvironmentAttribute(id="x", name="n", description="d", system_prompt="")
+
+
+# --- GeneralSynthesisParams with environments ---
+
+
+def test_general_synthesis_params_with_environments():
+    env = ToolEnvironmentAttribute(
+        id="fs", name="FS", description="d", system_prompt="p"
+    )
+    tool = _make_environment_tool(environment="fs")
+    params = GeneralSynthesisParams(
+        environments=[env],
+        tools=[tool],
+        multiturn_attributes=[
+            _make_multiturn_attr(available_tools=["tool_env"])
+        ],
+    )
+    assert params.environments is not None
+    assert len(params.environments) == 1
+
+
+def test_general_synthesis_params_tool_references_unknown_env_raises():
+    tool = _make_environment_tool(environment="nonexistent")
+    with pytest.raises(ValueError, match="references unknown environment"):
+        GeneralSynthesisParams(
+            tools=[tool],
+            multiturn_attributes=[
+                _make_multiturn_attr(available_tools=["tool_env"])
+            ],
+        )
+
+
+def test_general_synthesis_params_duplicate_env_ids_raises():
+    env1 = ToolEnvironmentAttribute(
+        id="fs", name="FS1", description="d1", system_prompt="p1"
+    )
+    env2 = ToolEnvironmentAttribute(
+        id="fs", name="FS2", description="d2", system_prompt="p2"
+    )
+    with pytest.raises(ValueError, match="duplicate environment"):
+        GeneralSynthesisParams(environments=[env1, env2])
