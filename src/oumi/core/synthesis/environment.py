@@ -21,7 +21,7 @@ from typing import Any
 import jsonschema
 
 from oumi.core.configs.inference_config import InferenceConfig
-from oumi.core.configs.params.tool_params import ToolEnvironmentAttribute, ToolAttribute
+from oumi.core.configs.params.tool_params import ToolAttribute, ToolEnvironmentAttribute
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.logging import logger
 from oumi.utils.str_utils import extract_json
@@ -79,7 +79,7 @@ class GeneratedToolEnvironment:
                 new_state = self._update_state(
                     tool, arguments, result, retry=(attempt > 0)
                 )
-                if self._validate_state(new_state):
+                if new_state is not None and self._validate_state(new_state):
                     self._state = new_state
                     break
             else:
@@ -111,8 +111,7 @@ class GeneratedToolEnvironment:
         if not self._state:
             self._state = self._generate_initial_state(scenario_context)
             if not self._validate_state(self._state):
-                # Retry up to 2 times
-                for _ in range(_MAX_STATE_UPDATE_RETRIES - 1):
+                for _ in range(_MAX_STATE_UPDATE_RETRIES):
                     self._state = self._generate_initial_state(scenario_context)
                     if self._validate_state(self._state):
                         break
@@ -166,8 +165,11 @@ class GeneratedToolEnvironment:
         arguments: dict[str, Any],
         result: str,
         retry: bool = False,
-    ) -> dict[str, Any]:
-        """LLM call: given state + tool call + result, produce new state."""
+    ) -> dict[str, Any] | None:
+        """LLM call: given state + tool call + result, produce new state.
+
+        Returns None if JSON parsing fails, signaling that a retry is needed.
+        """
         system_parts = [
             self._config.system_prompt,
         ]
@@ -206,7 +208,7 @@ class GeneratedToolEnvironment:
             return parsed
 
         logger.warning(f"Failed to parse state update JSON: {text[:200]}")
-        return self._state
+        return None
 
     def _validate_state(self, state: dict[str, Any]) -> bool:
         """Validate state against the schema. Returns True if valid."""

@@ -754,6 +754,7 @@ class ConversationSynthesizer:
                         tool_call_counts[idx] += 1
                         call_id = f"call_{tool_call_counts[idx]:03d}"
                         env_result = None
+                        env = None
                         idx_envs = sample_envs[idx]
                         if idx_envs is not None:
                             tool_obj = tool_executor.get_tool_by_name(tool_call["name"])

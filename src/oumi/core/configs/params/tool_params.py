@@ -204,7 +204,7 @@ class ToolAttribute:
     must be ENVIRONMENT and tool results come from env.step()."""
 
     read_only: bool = True
-    """Whether this tool modifiesits environment's state.
+    """Whether this tool only reads (does not modify) its environment's state.
     Only relevant when environment is set."""
 
     def __post_init__(self):
