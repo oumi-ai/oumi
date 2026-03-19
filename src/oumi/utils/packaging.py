@@ -248,3 +248,21 @@ def is_vllm_post_v0_10_2() -> bool:
     if vllm_version is None:
         return False
     return version.parse(vllm_version) > version.parse("0.10.2")
+
+
+@lru_cache(maxsize=1)
+def is_vllm_v0_17_or_later() -> bool:
+    """Checks if vLLM version is 0.17.0 or later.
+
+    In vLLM v0.17, several APIs were changed:
+    - GuidedDecodingParams was replaced by StructuredOutputsParams
+    - The SamplingParams 'guided_decoding' kwarg was renamed to 'structured_outputs'
+    - LLM.set_tokenizer() was removed
+
+    Returns:
+        True if vLLM v0.17.0 or later is installed, False otherwise.
+    """
+    vllm_version = get_vllm_version()
+    if vllm_version is None:
+        return False
+    return version.parse(vllm_version) >= version.parse("0.17.0")
