@@ -19,6 +19,7 @@ from unittest.mock import MagicMock, Mock, patch
 import jsonlines
 import pandas as pd
 import pytest
+import torch
 
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.datasets.vision_language.vision_dpo_jsonlines import VisionDpoJsonlinesDataset
@@ -178,3 +179,123 @@ def test_transform_preference(sample_vision_dpo_data, mock_tokenizer, mock_proce
         assert "chosen" in result
         assert "rejected" in result
         assert "images" in result
+
+
+class TestVisionDpoDatasetColumnNames:
+    """Tests for Vision DPO dataset column name handling based on TRL version."""
+
+    @pytest.fixture
+    def mock_processor_with_call(self, mock_processor):
+        """Create a mock processor that can be called."""
+
+        def mock_call(images, text):
+            return {
+                "input_ids": torch.tensor([[1, 2, 3]]),
+                "pixel_values": torch.tensor([[[[0.5]]]]),
+            }
+
+        mock_processor.__call__ = mock_call
+        mock_processor.return_value = mock_call(None, None)
+        return mock_processor
+
+    @pytest.fixture
+    def mock_tokenizer_with_call(self, mock_tokenizer):
+        """Create a mock tokenizer that can be called."""
+        mock_tokenizer.eos_token_id = 2
+
+        def mock_call(text, add_special_tokens=True):
+            return {"input_ids": [1, 2, 3]}
+
+        mock_tokenizer.__call__ = mock_call
+        mock_tokenizer.return_value = mock_call("")
+
+        def mock_apply_chat_template(messages, tokenize=True):
+            return "mock_template_output"
+
+        mock_tokenizer.apply_chat_template = mock_apply_chat_template
+
+        return mock_tokenizer
+
+    def test_column_names_trl_pre_029(
+        self,
+        sample_vision_dpo_data,
+        mock_tokenizer_with_call,
+        mock_processor_with_call,
+    ):
+        """Test that pre-0.29 TRL column names are used when TRL < 0.29."""
+        with (
+            patch(
+                "oumi.core.datasets.vision_language_dpo_dataset.is_trl_v029_or_later",
+                return_value=False,
+            ),
+            patch(
+                "oumi.core.datasets.vision_language_dpo_dataset."
+                "VisionLanguageDpoDataset._load_image"
+            ) as mock_load_image,
+            patch(
+                "oumi.core.datasets.vision_language_dpo_dataset."
+                "VisionLanguageDpoDataset._resize_image"
+            ) as mock_resize_image,
+        ):
+            mock_image = Mock()
+            mock_load_image.return_value = mock_image
+            mock_resize_image.return_value = mock_image
+
+            dataset = VisionDpoJsonlinesDataset(
+                data=sample_vision_dpo_data,
+                tokenizer=mock_tokenizer_with_call,
+                processor=mock_processor_with_call,
+            )
+
+            result = dataset[0]
+
+            # Pre-0.29 TRL uses *_input_ids suffix
+            assert "prompt_input_ids" in result
+            assert "chosen_input_ids" in result
+            assert "rejected_input_ids" in result
+            # New column names should NOT be present
+            assert "prompt_ids" not in result
+            assert "chosen_ids" not in result
+            assert "rejected_ids" not in result
+
+    def test_column_names_trl_029_or_later(
+        self,
+        sample_vision_dpo_data,
+        mock_tokenizer_with_call,
+        mock_processor_with_call,
+    ):
+        """Test that 0.29+ TRL column names are used when TRL >= 0.29."""
+        with (
+            patch(
+                "oumi.core.datasets.vision_language_dpo_dataset.is_trl_v029_or_later",
+                return_value=True,
+            ),
+            patch(
+                "oumi.core.datasets.vision_language_dpo_dataset."
+                "VisionLanguageDpoDataset._load_image"
+            ) as mock_load_image,
+            patch(
+                "oumi.core.datasets.vision_language_dpo_dataset."
+                "VisionLanguageDpoDataset._resize_image"
+            ) as mock_resize_image,
+        ):
+            mock_image = Mock()
+            mock_load_image.return_value = mock_image
+            mock_resize_image.return_value = mock_image
+
+            dataset = VisionDpoJsonlinesDataset(
+                data=sample_vision_dpo_data,
+                tokenizer=mock_tokenizer_with_call,
+                processor=mock_processor_with_call,
+            )
+
+            result = dataset[0]
+
+            # TRL 0.29+ uses shorter *_ids suffix
+            assert "prompt_ids" in result
+            assert "chosen_ids" in result
+            assert "rejected_ids" in result
+            # Old column names should NOT be present
+            assert "prompt_input_ids" not in result
+            assert "chosen_input_ids" not in result
+            assert "rejected_input_ids" not in result

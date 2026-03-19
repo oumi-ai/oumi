@@ -30,6 +30,7 @@ from oumi.core.datasets.base_dpo_dataset import BaseDpoDataset
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types.conversation import ContentItem, Role, Type
 from oumi.utils.conversation_utils import load_pil_image_from_content_item
+from oumi.utils.packaging import is_trl_v029_or_later
 
 _PROMPT_KEY = "prompt"
 _CHOSEN_KEY = "chosen"
@@ -274,11 +275,20 @@ class VisionLanguageDpoDataset(BaseDpoDataset):
         chosen_input_ids = chosen_input_ids + [self._tokenizer.eos_token_id]
         rejected_input_ids = rejected_input_ids + [self._tokenizer.eos_token_id]
 
-        output = {
-            "prompt_input_ids": prompt_input_ids,
-            "chosen_input_ids": chosen_input_ids,
-            "rejected_input_ids": rejected_input_ids,
-        }
+        # TRL v0.29+ uses shorter column names (prompt_ids, chosen_ids, rejected_ids)
+        # Earlier versions use prompt_input_ids, chosen_input_ids, rejected_input_ids
+        if is_trl_v029_or_later():
+            output = {
+                "prompt_ids": prompt_input_ids,
+                "chosen_ids": chosen_input_ids,
+                "rejected_ids": rejected_input_ids,
+            }
+        else:
+            output = {
+                "prompt_input_ids": prompt_input_ids,
+                "chosen_input_ids": chosen_input_ids,
+                "rejected_input_ids": rejected_input_ids,
+            }
 
         # Drop the first dimension of the features if needed.
         if "pixel_values" in processed_features:
