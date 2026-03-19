@@ -815,7 +815,14 @@ class TrainingParams(BaseParams):
         elif self.trainer_type == TrainerType.TRL_GRPO:
             config_class = trl.GRPOConfig
         elif self.trainer_type == TrainerType.TRL_GKD:
-            config_class = trl.GKDConfig
+            from oumi.utils.packaging import is_trl_v0_28_or_later
+
+            if is_trl_v0_28_or_later():
+                from trl.experimental.gkd import GKDConfig
+
+                config_class = GKDConfig
+            else:
+                config_class = trl.GKDConfig
         elif self.trainer_type == TrainerType.TRL_GOLD:
             from oumi.utils.packaging import require_gold_trainer
 
