@@ -811,7 +811,14 @@ class TrainingParams(BaseParams):
         elif self.trainer_type == TrainerType.TRL_DPO:
             config_class = trl.DPOConfig
         elif self.trainer_type == TrainerType.TRL_KTO:
-            config_class = trl.KTOConfig
+            from oumi.utils.packaging import is_trl_v0_28_or_later
+
+            if is_trl_v0_28_or_later():
+                from trl.experimental.kto import KTOConfig
+
+                config_class = KTOConfig
+            else:
+                config_class = trl.KTOConfig
         elif self.trainer_type == TrainerType.TRL_GRPO:
             config_class = trl.GRPOConfig
         elif self.trainer_type == TrainerType.TRL_GKD:

@@ -113,7 +113,13 @@ def build_trainer(
     elif trainer_type == TrainerType.TRL_DPO:
         return _create_hf_builder_fn(TrlDpoTrainer)
     elif trainer_type == TrainerType.TRL_KTO:
-        return _create_hf_builder_fn(trl.KTOTrainer)
+        from oumi.utils.packaging import is_trl_v0_28_or_later
+
+        if is_trl_v0_28_or_later():
+            from trl.experimental.kto import KTOTrainer
+        else:
+            KTOTrainer = trl.KTOTrainer
+        return _create_hf_builder_fn(KTOTrainer)
     elif trainer_type == TrainerType.TRL_GRPO:
         return _create_hf_builder_fn(trl.GRPOTrainer)
     elif trainer_type == TrainerType.TRL_GKD:
