@@ -250,7 +250,9 @@ def test_litellm_convert_response_without_cached_tokens(litellm_engine):
     mock_response = MagicMock()
     mock_response.choices = [MagicMock()]
     mock_response.choices[0].message.content = "Response"
-    mock_response.usage = MagicMock(spec=["prompt_tokens", "completion_tokens", "total_tokens"])
+    mock_response.usage = MagicMock(
+        spec=["prompt_tokens", "completion_tokens", "total_tokens"]
+    )
     mock_response.usage.prompt_tokens = 10
     mock_response.usage.completion_tokens = 20
     mock_response.usage.total_tokens = 30
