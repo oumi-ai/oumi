@@ -77,6 +77,7 @@ from oumi.core.configs.internal.internal_model_config import (
 from oumi.core.registry import REGISTRY, RegistryType
 from oumi.utils.cache_utils import dict_cache
 from oumi.utils.logging import logger
+from oumi.utils.packaging import is_transformers_v5
 
 
 @dict_cache
@@ -489,7 +490,10 @@ def get_all_models_map() -> Mapping[
     default_vlm_config: InternalModelConfig = _create_default_vlm_config()
 
     default_llm_class = transformers.AutoModelForCausalLM
-    default_vlm_class = transformers.AutoModelForVision2Seq
+    if is_transformers_v5():
+        default_vlm_class = transformers.AutoModelForImageTextToText
+    else:
+        default_vlm_class = transformers.AutoModelForVision2Seq
 
     all_models_list: list[_ModelTypeInfo] = [
         _ModelTypeInfo(
