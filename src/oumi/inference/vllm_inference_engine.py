@@ -55,8 +55,8 @@ try:
     _VLLM_V0_17 = is_vllm_v0_17_or_later()
 
     if _VLLM_V0_17:
-        from vllm.sampling_params import (  # pyright: ignore[reportMissingImports, reportAttributeAccessIssue]
-            StructuredOutputsParams as VLLMGuidedDecodingParams,
+        from vllm.sampling_params import (  # pyright: ignore[reportMissingImports]
+            StructuredOutputsParams as VLLMGuidedDecodingParams,  # pyright: ignore[reportAttributeAccessIssue]
         )
     else:
         from vllm.sampling_params import (  # pyright: ignore[reportMissingImports]
