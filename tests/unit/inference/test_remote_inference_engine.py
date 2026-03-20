@@ -2369,6 +2369,166 @@ async def test_batch_results_partial_failure_retries():
 
 
 @pytest.mark.asyncio
+async def test_batch_results_error_in_response_body():
+    """Test error parsing when top-level error null and detail is in response.body."""
+    with aioresponses() as m:
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/batches/batch-123",
+            status=200,
+            payload=_make_batch_status_payload(
+                total=2, completed=1, failed=1, error_file_id="file-error-123"
+            ),
+        )
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/files/file-output-123/content",
+            status=200,
+            body=_make_batch_result_line("request-0", "Response 0"),
+        )
+        # OpenAI-style error: top-level "error" is null, detail in response.body.error
+        error_line = json.dumps(
+            {
+                "custom_id": "request-1",
+                "error": None,
+                "response": {
+                    "body": {
+                        "error": {
+                            "message": "The model produced invalid content.",
+                            "type": "model_error",
+                            "code": "model_error",
+                        }
+                    }
+                },
+            }
+        )
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/files/file-error-123/content",
+            status=200,
+            body=error_line,
+        )
+
+        engine = _make_engine()
+        conversations = _make_conversations("Q0", "Q1")
+
+        retry_result = Conversation(
+            messages=[
+                Message(content="Q1", role=Role.USER),
+                Message(content="Retry Response 1", role=Role.ASSISTANT),
+            ]
+        )
+        with patch.object(
+            engine, "_infer", new_callable=AsyncMock, return_value=[retry_result]
+        ):
+            results = await engine._get_batch_results_with_mapping(
+                "batch-123", conversations
+            )
+
+        assert len(results) == 2
+        assert results[0].messages[-1].content == "Response 0"
+        assert results[1].messages[-1].content == "Retry Response 1"
+
+
+@pytest.mark.asyncio
+async def test_batch_results_error_null_no_body_error():
+    """Test error parsing falls back to 'unknown error' when no error detail exists."""
+    with aioresponses() as m:
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/batches/batch-123",
+            status=200,
+            payload=_make_batch_status_payload(
+                total=2, completed=1, failed=1, error_file_id="file-error-123"
+            ),
+        )
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/files/file-output-123/content",
+            status=200,
+            body=_make_batch_result_line("request-0", "Response 0"),
+        )
+        # Error is null with no response.body.error either
+        error_line = json.dumps(
+            {
+                "custom_id": "request-1",
+                "error": None,
+            }
+        )
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/files/file-error-123/content",
+            status=200,
+            body=error_line,
+        )
+
+        engine = _make_engine()
+        conversations = _make_conversations("Q0", "Q1")
+
+        retry_result = Conversation(
+            messages=[
+                Message(content="Q1", role=Role.USER),
+                Message(content="Retry Response 1", role=Role.ASSISTANT),
+            ]
+        )
+        with patch.object(
+            engine, "_infer", new_callable=AsyncMock, return_value=[retry_result]
+        ):
+            results = await engine._get_batch_results_with_mapping(
+                "batch-123", conversations
+            )
+
+        assert len(results) == 2
+        assert results[0].messages[-1].content == "Response 0"
+        assert results[1].messages[-1].content == "Retry Response 1"
+
+
+@pytest.mark.asyncio
+async def test_batch_results_error_null_response_null():
+    """Test no AttributeError when both error and response are null."""
+    with aioresponses() as m:
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/batches/batch-123",
+            status=200,
+            payload=_make_batch_status_payload(
+                total=2, completed=1, failed=1, error_file_id="file-error-123"
+            ),
+        )
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/files/file-output-123/content",
+            status=200,
+            body=_make_batch_result_line("request-0", "Response 0"),
+        )
+        # Both error and response are null
+        error_line = json.dumps(
+            {
+                "custom_id": "request-1",
+                "error": None,
+                "response": None,
+            }
+        )
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/files/file-error-123/content",
+            status=200,
+            body=error_line,
+        )
+
+        engine = _make_engine()
+        conversations = _make_conversations("Q0", "Q1")
+
+        retry_result = Conversation(
+            messages=[
+                Message(content="Q1", role=Role.USER),
+                Message(content="Retry Response 1", role=Role.ASSISTANT),
+            ]
+        )
+        with patch.object(
+            engine, "_infer", new_callable=AsyncMock, return_value=[retry_result]
+        ):
+            results = await engine._get_batch_results_with_mapping(
+                "batch-123", conversations
+            )
+
+        assert len(results) == 2
+        assert results[0].messages[-1].content == "Response 0"
+        assert results[1].messages[-1].content == "Retry Response 1"
+
+
+@pytest.mark.asyncio
 async def test_batch_results_retry_failure_propagates():
     """Test that exceptions from _infer during retry propagate up."""
     with aioresponses() as m:
@@ -3485,3 +3645,82 @@ def test_infer_online_preserves_existing_metadata_with_finish_reason():
         assert len(result) == 1
         assert result[0].metadata.get("finish_reason") == "stop"
         assert result[0].metadata.get("custom_key") == "custom_value"
+
+
+@pytest.mark.asyncio
+async def test_cancel_batch():
+    """Test cancelling a batch job."""
+    with aioresponses() as m:
+        m.post(
+            f"{_TARGET_SERVER_BASE}/v1/batches/batch-123/cancel",
+            status=200,
+            payload={
+                "id": "batch-123",
+                "status": "cancelling",
+                "request_counts": {
+                    "total": 10,
+                    "completed": 3,
+                    "failed": 0,
+                },
+            },
+        )
+
+        engine = _make_engine()
+        status = await engine._cancel_batch("batch-123")
+        assert status.id == "batch-123"
+        assert status.status == BatchStatus.CANCELLING
+        assert status.total_requests == 10
+        assert status.completed_requests == 3
+
+
+@pytest.mark.asyncio
+async def test_cancel_batch_http_400_error():
+    """Test cancel_batch raises RuntimeError on 400 (batch already terminal)."""
+    with aioresponses() as m:
+        m.post(
+            f"{_TARGET_SERVER_BASE}/v1/batches/batch-123/cancel",
+            status=400,
+            body="Batch already completed",
+        )
+
+        engine = _make_engine()
+        with pytest.raises(RuntimeError, match="Failed to cancel batch"):
+            await engine._cancel_batch("batch-123")
+
+
+@pytest.mark.asyncio
+async def test_cancel_batch_http_404_error():
+    """Test cancel_batch raises RuntimeError on 404 (batch not found)."""
+    with aioresponses() as m:
+        m.post(
+            f"{_TARGET_SERVER_BASE}/v1/batches/batch-123/cancel",
+            status=404,
+            body="Batch not found",
+        )
+
+        engine = _make_engine()
+        with pytest.raises(RuntimeError, match="Failed to cancel batch"):
+            await engine._cancel_batch("batch-123")
+
+
+def test_cancel_batch_public():
+    """Test the public cancel_batch method."""
+    with aioresponses() as m:
+        m.post(
+            f"{_TARGET_SERVER_BASE}/v1/batches/batch-123/cancel",
+            status=200,
+            payload={
+                "id": "batch-123",
+                "status": "cancelling",
+                "request_counts": {
+                    "total": 10,
+                    "completed": 3,
+                    "failed": 0,
+                },
+            },
+        )
+
+        engine = _make_engine()
+        status = engine.cancel_batch("batch-123")
+        assert status.id == "batch-123"
+        assert status.status == BatchStatus.CANCELLING

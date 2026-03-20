@@ -169,7 +169,18 @@ class TogetherInferenceEngine(RemoteInferenceEngine):
           ``request_counts`` dict with total/completed/failed keys.
         """
         if "status" in data:
-            data["status"] = data["status"].lower()
+            status = data["status"].lower()
+            # Together uses American spelling; normalize to match BatchStatus
+            status = status.replace("canceling", "cancelling").replace(
+                "canceled", "cancelled"
+            )
+            data["status"] = status
+
+        # Normalize American spelling of timestamp fields
+        if "canceling_at" in data:
+            data["cancelling_at"] = data.pop("canceling_at")
+        if "canceled_at" in data:
+            data["cancelled_at"] = data.pop("canceled_at")
 
         # Convert ISO 8601 timestamps to Unix timestamps for base class compatibility
         timestamp_fields = [
@@ -267,6 +278,23 @@ class TogetherInferenceEngine(RemoteInferenceEngine):
                 if response.status != 200:
                     raise RuntimeError(
                         f"Failed to get batch status: {await response.text()}"
+                    )
+                data = await response.json()
+                return BatchInfo.from_api_response(
+                    self._normalize_together_response(data)
+                )
+
+    @override
+    async def _cancel_batch(self, batch_id: str) -> BatchInfo:
+        """Cancels a batch job, normalizing Together's response format."""
+        async with self._create_session() as (session, headers):
+            async with session.post(
+                f"{self.get_batch_api_url()}/{batch_id}/cancel",
+                headers=headers,
+            ) as response:
+                if response.status != 200:
+                    raise RuntimeError(
+                        f"Failed to cancel batch: {await response.text()}"
                     )
                 data = await response.json()
                 return BatchInfo.from_api_response(

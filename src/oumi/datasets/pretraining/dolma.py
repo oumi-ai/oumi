@@ -12,13 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import warnings
+
 from oumi.core.datasets import BasePretrainingDataset
 from oumi.core.registry import register_dataset
+
+_DEPRECATION_WARNING = (
+    "The allenai/dolma dataset uses a loading script that is no longer supported "
+    "in datasets>=4.0.0. This dataset wrapper is deprecated and will be removed in "
+    "a future version. To use this dataset, pin datasets<4.0.0 in your environment."
+)
 
 
 @register_dataset("allenai/dolma")
 class DolmaDataset(BasePretrainingDataset):
     """Dolma: A dataset of 3 trillion tokens from diverse web content.
+
+    .. deprecated::
+        This dataset is deprecated due to HuggingFace datasets>=4.0.0 removing
+        support for dataset loading scripts. The underlying dataset requires
+        ``datasets<4.0.0`` to function.
 
     Dolma :footcite:`2024_dolma` is a large-scale dataset containing
     approximately 3 trillion tokens sourced from various web content, academic
@@ -54,3 +67,8 @@ class DolmaDataset(BasePretrainingDataset):
     """
 
     default_dataset = "allenai/dolma"
+
+    def __init__(self, **kwargs):
+        """Initialize the dataset with a deprecation warning."""
+        warnings.warn(_DEPRECATION_WARNING, DeprecationWarning, stacklevel=2)
+        super().__init__(**kwargs)

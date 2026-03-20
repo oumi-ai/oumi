@@ -57,9 +57,12 @@ def _normalize_dataset_name_for_matching(s: str) -> str:
 
 def _get_all_sft_vision_dataset_infos() -> list[LoadDatasetInfo]:
     # Special case datasets that should be excluded from default testing.
+    # Note: coco_captions and nlphuji/flickr30k are excluded because they require
+    # datasets<4.0.0 due to HuggingFace removing support for dataset loading scripts.
     _EXCLUDED_DATASETS = set(
         {
             "coco_captions",
+            "nlphuji/flickr30k",
             "vision_language_jsonl",
             "vl_sft",
         }
