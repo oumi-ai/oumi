@@ -58,7 +58,7 @@ def test_convert_conversation_to_api_input(bedrock_engine):
             Message(content="Assistant message", role=Role.ASSISTANT),
         ]
     )
-    generation_params = GenerationParams(max_new_tokens=100)
+    generation_params = GenerationParams(max_new_tokens=100, top_p=1.0)
 
     result = bedrock_engine._convert_conversation_to_api_input(
         conversation, generation_params, bedrock_engine._model_params
