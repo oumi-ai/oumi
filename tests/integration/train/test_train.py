@@ -236,7 +236,6 @@ def test_train_kto():
                 save_final_model=True,
                 trainer_kwargs={
                     "max_length": 512,
-                    "max_prompt_length": 128,
                     "remove_unused_columns": False,
                     "desirable_weight": 0.8,
                 },
