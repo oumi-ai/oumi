@@ -31,12 +31,32 @@ OUTPUT_FILENAME_GENERATION_PARAMS = "generation_params.json"
 OUTPUT_FILENAME_INFERENCE_PARAMS = "inference_params.json"
 OUTPUT_FILENAME_PACKAGE_VERSIONS = "package_versions.json"
 OUTPUT_FILENAME_EVALUATION_CONFIG_YAML = "evaluation_config.yaml"
+OUTPUT_FILENAME_PREDICTIONS = "predictions.jsonl"
+
+# Special key for predictions in task_result that should be saved separately.
+PREDICTIONS_KEY = "_predictions"
 
 
 def _save_to_file(output_path: Path, data: Any) -> None:
     """Serialize and save `data` to `output_path`."""
     with open(output_path, "w") as file_out:
         file_out.write(json_serializer(data))
+
+
+def _save_predictions_to_jsonl(output_path: Path, predictions: list[dict]) -> None:
+    """Save predictions to a JSONL file (one JSON object per line).
+
+    Args:
+        output_path: Path to the output JSONL file.
+        predictions: List of prediction dictionaries to save.
+    """
+    import json
+
+    with open(output_path, "w") as file_out:
+        for pred in predictions:
+            # Use compact JSON (no indent) for proper JSONL format
+            file_out.write(json.dumps(pred, ensure_ascii=False) + "\n")
+    logger.info(f"Saved {len(predictions)} predictions to {output_path}")
 
 
 def _find_non_existing_output_dir_from_base_dir(base_dir: Path) -> Path:
@@ -116,6 +136,21 @@ def save_evaluation_output(
         task_result = copy.deepcopy(evaluation_result.task_result)
     else:
         task_result = {}
+
+    # Extract predictions if present (they should be saved separately as JSONL).
+    # Predictions can be at the top level or nested under results.<task_name>
+    predictions = task_result.pop(PREDICTIONS_KEY, None)
+    if predictions is None and "results" in task_result:
+        # Check for predictions nested under results.<task_name>
+        for task_name, task_metrics in task_result.get("results", {}).items():
+            if isinstance(task_metrics, dict) and PREDICTIONS_KEY in task_metrics:
+                predictions = task_metrics.pop(PREDICTIONS_KEY)
+                break
+    if predictions and isinstance(predictions, list):
+        _save_predictions_to_jsonl(
+            output_dir / OUTPUT_FILENAME_PREDICTIONS, predictions
+        )
+
     if evaluation_result.start_time:
         task_result["start_time"] = evaluation_result.start_time
     if evaluation_result.elapsed_time_sec:
