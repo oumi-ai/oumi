@@ -128,7 +128,7 @@ def build_trainer(
         if is_trl_v0_28_or_later():
             from trl.experimental.gkd import GKDTrainer
         else:
-            GKDTrainer = trl.GKDTrainer
+            GKDTrainer = trl.GKDTrainer  # type: ignore[attr-defined]
         return _create_hf_builder_fn(GKDTrainer)
     elif trainer_type == TrainerType.TRL_GOLD:
         from oumi.utils.packaging import require_gold_trainer

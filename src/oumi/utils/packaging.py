@@ -261,6 +261,25 @@ def is_vllm_post_v0_10_2() -> bool:
 
 
 @lru_cache(maxsize=1)
+def is_vllm_v0_12_or_later() -> bool:
+    """Checks if vLLM version is 0.12.0 or later.
+
+    In vLLM v0.12, several APIs were changed:
+    - GuidedDecodingParams was removed (replaced by StructuredOutputsParams in v0.11)
+    - The SamplingParams 'guided_decoding' kwarg was removed
+      (replaced by 'structured_outputs' in v0.11)
+    - LLM.set_tokenizer() was deprecated in v0.12 and removed in v0.13
+
+    Returns:
+        True if vLLM v0.12.0 or later is installed, False otherwise.
+    """
+    vllm_version = get_vllm_version()
+    if vllm_version is None:
+        return False
+    return version.parse(vllm_version) >= version.parse("0.12.0")
+
+
+@lru_cache(maxsize=1)
 def is_trl_v0_28_or_later() -> bool:
     """Check if the installed TRL version is v0.28 or later."""
     try:
