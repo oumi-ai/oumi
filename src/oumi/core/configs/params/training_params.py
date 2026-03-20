@@ -772,6 +772,31 @@ class TrainingParams(BaseParams):
                 "include_num_input_tokens_seen": self.include_performance_metrics,
             }
 
+    def _get_warmup_kwargs(self) -> dict[str, Any]:
+        """Returns warmup kwargs for the installed transformers version.
+
+        In transformers v5, `warmup_ratio` is deprecated. The `warmup_steps`
+        parameter now accepts float values (ratio) in addition to int values.
+        """
+        from oumi.utils.packaging import is_transformers_v5
+
+        if is_transformers_v5():
+            # v5: warmup_ratio is deprecated, use warmup_steps for both int and float
+            # If warmup_steps is set, use it directly (takes precedence)
+            # If warmup_ratio is set, pass it as warmup_steps (float)
+            if self.warmup_steps is not None:
+                return {"warmup_steps": self.warmup_steps}
+            elif self.warmup_ratio is not None:
+                return {"warmup_steps": self.warmup_ratio}
+            else:
+                return {"warmup_steps": 0}
+        else:
+            # v4: both parameters exist separately
+            return {
+                "warmup_ratio": self.warmup_ratio or 0.0,
+                "warmup_steps": self.warmup_steps or 0,
+            }
+
     def to_hf(self, training_config: Optional["TrainingConfig"] = None):
         """Converts Oumi config to HuggingFace's TrainingArguments.
 
@@ -924,8 +949,7 @@ class TrainingParams(BaseParams):
             learning_rate=self.learning_rate,
             lr_scheduler_type=self.lr_scheduler_type,
             lr_scheduler_kwargs=self.lr_scheduler_kwargs,
-            warmup_ratio=self.warmup_ratio or 0.0,  # same default as transformers
-            warmup_steps=self.warmup_steps or 0,  # same default as transformers
+            **self._get_warmup_kwargs(),
             weight_decay=self.weight_decay,
             adam_beta1=self.adam_beta1,
             adam_beta2=self.adam_beta2,
