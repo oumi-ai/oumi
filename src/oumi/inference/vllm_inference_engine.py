@@ -55,7 +55,7 @@ try:
     _VLLM_V0_17 = is_vllm_v0_17_or_later()
 
     if _VLLM_V0_17:
-        from vllm.sampling_params import (  # pyright: ignore[reportMissingImports]
+        from vllm.sampling_params import (  # pyright: ignore[reportMissingImports, reportAttributeAccessIssue]
             StructuredOutputsParams as VLLMGuidedDecodingParams,
         )
     else:
@@ -335,7 +335,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             stop=generation_params.stop_strings,
             stop_token_ids=generation_params.stop_token_ids,
             min_p=generation_params.min_p,
-            **guided_decoding_kwarg,
+            **guided_decoding_kwarg,  # pyright: ignore[reportArgumentType]
             skip_special_tokens=generation_params.skip_special_tokens,
         )
 
