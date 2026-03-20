@@ -463,7 +463,10 @@ def test_packing_without_streaming_with_pretraining_dataset(stream: bool):
     """Test that packing works regardless of streaming flag"""
 
     if not stream:
-        pytest.skip("Iterable datasets must be streamed")
+        pytest.skip(
+            "OK To Skip: packing without streaming with "
+            "pretraining dataset is not supported"
+        )
 
     config = TrainingConfig(
         data=DataParams(
@@ -506,7 +509,10 @@ def test_packing_without_streaming_with_pretraining_dataset(stream: bool):
 def test_multiple_pretraining_datasets_with_streaming(stream: bool):
     """Test that multiple pretraining datasets can be concatenated when streaming."""
     if not stream:
-        pytest.skip("Iterable datasets must be streamed")
+        pytest.skip(
+            "OK To Skip: packing without streaming with "
+            "pretraining dataset is not supported"
+        )
 
     config = TrainingConfig(
         data=DataParams(
