@@ -14,8 +14,11 @@
 
 """Unit tests for base deployment client types."""
 
+import pytest
+
 from oumi.deploy.base_client import (
     AutoscalingConfig,
+    BaseDeploymentClient,
     DeploymentProvider,
     Endpoint,
     EndpointState,
@@ -164,3 +167,110 @@ class TestEndpoint:
         assert ep.created_at == created
         assert ep.display_name == "My Endpoint"
         assert ep.endpoint_url is None
+
+    def test_endpoint_model_id_none(self):
+        """Endpoint.model_id may be None when the provider cannot retrieve it."""
+        ep = Endpoint(
+            endpoint_id="ep-modal",
+            provider=DeploymentProvider.MODAL,
+            model_id=None,
+            endpoint_url="https://ws--app-serve.modal.run/v1/chat/completions",
+            state=EndpointState.RUNNING,
+            hardware=HardwareConfig(accelerator="unknown", count=1),
+            autoscaling=AutoscalingConfig(min_replicas=0, max_replicas=1),
+        )
+        assert ep.model_id is None
+
+
+class TestTestEndpointModelIdValidation:
+    """test_endpoint raises when model_id is missing."""
+
+    @pytest.mark.asyncio
+    async def test_raises_on_none_model_id(self):
+        """test_endpoint raises ValueError when model_id is None."""
+
+        class _MinimalClient(BaseDeploymentClient):
+            provider = DeploymentProvider.MODAL
+
+            async def upload_model(self, *a, **kw):  # type: ignore[override]
+                raise NotImplementedError
+
+            async def get_model_status(self, *a, **kw):  # type: ignore[override]
+                raise NotImplementedError
+
+            async def create_endpoint(self, *a, **kw):  # type: ignore[override]
+                raise NotImplementedError
+
+            async def get_endpoint(self, *a, **kw):  # type: ignore[override]
+                raise NotImplementedError
+
+            async def update_endpoint(self, *a, **kw):  # type: ignore[override]
+                raise NotImplementedError
+
+            async def delete_endpoint(self, *a, **kw):  # type: ignore[override]
+                raise NotImplementedError
+
+            async def list_endpoints(self, *a, **kw):  # type: ignore[override]
+                raise NotImplementedError
+
+            async def list_hardware(self, *a, **kw):  # type: ignore[override]
+                raise NotImplementedError
+
+            async def list_models(self, *a, **kw):  # type: ignore[override]
+                raise NotImplementedError
+
+            async def delete_model(self, *a, **kw):  # type: ignore[override]
+                raise NotImplementedError
+
+        client = _MinimalClient()
+        with pytest.raises(ValueError, match="model_id is required"):
+            await client.test_endpoint(
+                endpoint_url="https://example.modal.run/v1/chat/completions",
+                prompt="hello",
+                model_id=None,
+            )
+
+    @pytest.mark.asyncio
+    async def test_raises_on_empty_string_model_id(self):
+        """test_endpoint raises ValueError when model_id is empty string."""
+
+        class _MinimalClient(BaseDeploymentClient):
+            provider = DeploymentProvider.MODAL
+
+            async def upload_model(self, *a, **kw):  # type: ignore[override]
+                raise NotImplementedError
+
+            async def get_model_status(self, *a, **kw):  # type: ignore[override]
+                raise NotImplementedError
+
+            async def create_endpoint(self, *a, **kw):  # type: ignore[override]
+                raise NotImplementedError
+
+            async def get_endpoint(self, *a, **kw):  # type: ignore[override]
+                raise NotImplementedError
+
+            async def update_endpoint(self, *a, **kw):  # type: ignore[override]
+                raise NotImplementedError
+
+            async def delete_endpoint(self, *a, **kw):  # type: ignore[override]
+                raise NotImplementedError
+
+            async def list_endpoints(self, *a, **kw):  # type: ignore[override]
+                raise NotImplementedError
+
+            async def list_hardware(self, *a, **kw):  # type: ignore[override]
+                raise NotImplementedError
+
+            async def list_models(self, *a, **kw):  # type: ignore[override]
+                raise NotImplementedError
+
+            async def delete_model(self, *a, **kw):  # type: ignore[override]
+                raise NotImplementedError
+
+        client = _MinimalClient()
+        with pytest.raises(ValueError, match="model_id is required"):
+            await client.test_endpoint(
+                endpoint_url="https://example.modal.run/v1/chat/completions",
+                prompt="hello",
+                model_id="",
+            )

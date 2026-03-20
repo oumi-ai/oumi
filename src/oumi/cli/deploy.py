@@ -301,7 +301,7 @@ def _print_endpoint_table(endpoints: list[Endpoint]) -> None:
         table.add_row(
             endpoint.endpoint_id,
             endpoint.provider.value,
-            endpoint.model_id,
+            endpoint.model_id or "",
             f"[{state_color}]{endpoint.state.value}[/{state_color}]",
             hw_str,
             url_str,
@@ -642,7 +642,7 @@ def status(
             Panel(
                 f"[cyan]Endpoint ID:[/cyan] {endpoint.endpoint_id}\n"
                 f"[cyan]Provider:[/cyan] {endpoint.provider.value}\n"
-                f"[cyan]Model ID:[/cyan] {endpoint.model_id}\n"
+                f"[cyan]Model ID:[/cyan] {endpoint.model_id or 'unknown'}\n"
                 f"[cyan]State:[/cyan] {endpoint.state.value}\n"
                 f"[cyan]Hardware:[/cyan] "
                 f"{endpoint.hardware.count}x "
@@ -1120,6 +1120,10 @@ def test(
 
     Example:
         oumi deploy test --endpoint-id ep-123 --provider fireworks --prompt "Hello!"
+
+    For Modal endpoints the model name is auto-discovered from the live
+    vLLM server (``/v1/models``).  This also acts as a readiness check —
+    the command will wait for cold starts before sending the prompt.
     """
     section_header("Test Endpoint", CONSOLE)
 
@@ -1139,15 +1143,16 @@ def test(
             )
             raise typer.Exit(1)
 
+        resolved_model_id = endpoint.inference_model_name or endpoint.model_id
         _kv("Endpoint", endpoint.endpoint_url)
-        _kv("Model", endpoint.model_id)
-        CONSOLE.print(f"[cyan]Prompt:[/cyan] {prompt}\n")  # trailing newline
+        _kv("Model", resolved_model_id or "(auto-detect from server)")
+        CONSOLE.print(f"[cyan]Prompt:[/cyan] {prompt}\n")
 
         with CONSOLE.status("[bold green]Sending test request..."):
             result = await client.test_endpoint(
                 endpoint_url=endpoint.endpoint_url,
                 prompt=prompt,
-                model_id=endpoint.inference_model_name or endpoint.model_id,
+                model_id=resolved_model_id,
                 max_tokens=max_tokens,
             )
         _print_test_result(result)

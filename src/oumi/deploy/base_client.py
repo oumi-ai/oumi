@@ -94,7 +94,7 @@ class Endpoint:
 
     endpoint_id: str
     provider: DeploymentProvider
-    model_id: str
+    model_id: str | None
     endpoint_url: str | None
     state: EndpointState
     hardware: HardwareConfig
@@ -359,15 +359,21 @@ class BaseDeploymentClient(ABC):
         """
         import httpx  # noqa: PLC0415
 
+        if not model_id:
+            raise ValueError(
+                "model_id is required for inference requests. "
+                "Pass the model's HuggingFace repo ID or provider model name "
+                "(e.g. 'Qwen/Qwen3-1.7B')."
+            )
         payload: dict[str, Any] = {
-            "model": model_id or "default",
+            "model": model_id,
             "messages": [{"role": "user", "content": prompt}],
             "max_tokens": max_tokens,
             "temperature": temperature,
             "stream": stream,
         }
         headers = self._get_inference_auth_headers()
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=300.0) as client:
             response = await client.post(
                 endpoint_url,
                 json=payload,

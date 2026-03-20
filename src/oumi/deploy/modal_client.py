@@ -25,6 +25,7 @@ References:
 - Modal Python SDK source: https://github.com/modal-labs/modal-client
 """
 
+import asyncio
 import importlib.util
 import logging
 import os
@@ -64,6 +65,20 @@ from oumi.deploy.utils import (
 logger = logging.getLogger(__name__)
 
 _SCALEDOWN_WINDOW_SECONDS = 15 * 60  # Modal range: [2, 3600]
+_VLLM_PROBE_TIMEOUT_SECONDS = 10  # Quick probe for get_endpoint / list_endpoints
+_VLLM_READY_TIMEOUT_SECONDS = 300  # Full cold-start wait for test_endpoint
+_VLLM_POLL_INTERVAL_SECONDS = 5
+
+# ``modal app list --json`` State strings → EndpointState
+_MODAL_CLI_STATE_MAP: dict[str, EndpointState] = {
+    "deployed": EndpointState.RUNNING,
+    "ephemeral": EndpointState.RUNNING,
+    "ephemeral (detached)": EndpointState.RUNNING,
+    "initializing...": EndpointState.STARTING,
+    "stopping...": EndpointState.STOPPING,
+    "stopped": EndpointState.STOPPED,
+    "disabled": EndpointState.STOPPED,
+}
 
 
 def _validate_modal_model_source(model_source: str) -> None:
@@ -333,6 +348,8 @@ def serve():
             endpoint_url = await self._build_endpoint_url(app_name)
             logger.info(f"Modal app deployed: {endpoint_url}")
 
+            self._deployed_apps[app_name] = (None, app_name)
+
             return Endpoint(
                 endpoint_id=app_name,
                 provider=self.provider,
@@ -357,7 +374,13 @@ def serve():
                     pass
 
     async def get_endpoint(self, endpoint_id: str) -> Endpoint:
-        """Get endpoint status from Modal."""
+        """Get endpoint status from Modal.
+
+        If the app is found, a quick probe (≤ 10 s) is made against the
+        vLLM ``/v1/models`` endpoint to resolve ``model_id``.  When the
+        container is cold the probe times out harmlessly and ``model_id``
+        is left as ``None``.
+        """
         try:
             app = await modal.App.lookup.aio(endpoint_id, create_if_missing=False)
             if app is None:
@@ -365,14 +388,13 @@ def serve():
                 return await self._make_default_endpoint(
                     endpoint_id, EndpointState.ERROR
                 )
+            model_id = await self._try_fetch_vllm_model_id(endpoint_id)
             return await self._make_default_endpoint(
-                endpoint_id, EndpointState.RUNNING
+                endpoint_id, EndpointState.RUNNING, model_id=model_id
             )
         except Exception as e:
             logger.error(f"Failed to get endpoint status for {endpoint_id}: {e}")
-            return await self._make_default_endpoint(
-                endpoint_id, EndpointState.ERROR
-            )
+            return await self._make_default_endpoint(endpoint_id, EndpointState.ERROR)
 
     async def update_endpoint(
         self,
@@ -402,11 +424,70 @@ def serve():
             raise
 
     async def list_endpoints(self) -> list[Endpoint]:
-        """List deployments tracked in this session (Modal has no list API)."""
-        return [
-            await self._make_default_endpoint(dep_id, EndpointState.RUNNING)
-            for dep_id in self._deployed_apps
-        ]
+        """List all Modal apps by invoking the ``modal`` CLI.
+
+        Runs ``modal app list --json`` in a subprocess — this is the
+        **stable, documented** way to enumerate apps.  The Modal Python
+        SDK does not expose a public ``list`` API; the CLI internally
+        calls a gRPC endpoint (``client.stub.AppList``) and formats the
+        result.  We parse the JSON output to avoid depending on private
+        SDK internals that may change across versions.
+
+        For each **running** app a quick vLLM probe (≤ 10 s) is
+        attempted to populate ``model_id``.
+        """
+        import json as _json  # noqa: PLC0415
+        import subprocess  # noqa: PLC0415
+
+        try:
+            proc = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: subprocess.run(
+                    [sys.executable, "-m", "modal", "app", "list", "--json"],
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                ),
+            )
+            if proc.returncode != 0:
+                logger.error(
+                    "modal app list failed (rc=%d): %s",
+                    proc.returncode,
+                    proc.stderr.strip(),
+                )
+                return []
+            apps: list[dict[str, Any]] = _json.loads(proc.stdout)
+        except Exception as e:
+            logger.error("Failed to list Modal apps: %s", e)
+            return []
+
+        endpoints: list[Endpoint] = []
+        for app_info in apps:
+            endpoint_id = app_info.get("Description", "")
+            cli_state = app_info.get("State", "").lower()
+            state = _MODAL_CLI_STATE_MAP.get(cli_state, EndpointState.ERROR)
+
+            try:
+                endpoint_url = await self._build_endpoint_url(endpoint_id)
+            except Exception:
+                endpoint_url = None
+
+            created_str = app_info.get("Created at")
+            created_at = datetime.fromisoformat(created_str) if created_str else None
+
+            endpoints.append(
+                Endpoint(
+                    endpoint_id=endpoint_id,
+                    provider=self.provider,
+                    model_id=None,
+                    endpoint_url=endpoint_url,
+                    state=state,
+                    hardware=HardwareConfig(accelerator="unknown", count=1),
+                    autoscaling=AutoscalingConfig(min_replicas=0, max_replicas=1),
+                    created_at=created_at,
+                )
+            )
+        return endpoints
 
     async def list_hardware(self, model_id: str | None = None) -> list[HardwareConfig]:
         """List supported GPU types on Modal."""
@@ -428,6 +509,128 @@ def serve():
         raise NotImplementedError(
             "Modal doesn't manage model storage. Models are referenced from "
             "HuggingFace Hub. Delete the model from HuggingFace if needed."
+        )
+
+    # --- vLLM model discovery & health check ---
+
+    @staticmethod
+    def _vllm_base_url(endpoint_url: str) -> str:
+        """Strip ``/v1/chat/completions`` to get the vLLM server root."""
+        return endpoint_url.removesuffix("/v1/chat/completions")
+
+    async def _fetch_vllm_model_id(
+        self,
+        base_url: str,
+        timeout: float = _VLLM_READY_TIMEOUT_SECONDS,
+        poll_interval: float = _VLLM_POLL_INTERVAL_SECONDS,
+    ) -> str:
+        """Poll ``GET /v1/models`` until vLLM reports a loaded model.
+
+        Blocks with retries until the server is warm and returns the model
+        name.  Doubles as a readiness / health check — the endpoint is
+        considered healthy once this method returns successfully.
+
+        Returns:
+            The model ID reported by vLLM (e.g. ``"Qwen/Qwen3-1.7B"``).
+
+        Raises:
+            RuntimeError: If *timeout* is exceeded before a model is reported.
+        """
+        import httpx  # noqa: PLC0415
+
+        models_url = f"{base_url.rstrip('/')}/v1/models"
+        headers = self._get_inference_auth_headers()
+        deadline = time.monotonic() + timeout
+        last_error: Exception | None = None
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            while time.monotonic() < deadline:
+                sleep_time = poll_interval
+                try:
+                    resp = await client.get(models_url, headers=headers)
+                    if resp.status_code == 429:
+                        # Modal rate-limits during cold start; back off before retrying.
+                        retry_after = resp.headers.get("retry-after")
+                        sleep_time = float(retry_after) if retry_after else 30.0
+                        last_error = httpx.HTTPStatusError(
+                            f"Client error '429 Too Many Requests' for url '{models_url}'",
+                            request=resp.request,
+                            response=resp,
+                        )
+                        logger.debug(
+                            "vLLM endpoint rate-limited (429) at %s, backing off %.0fs",
+                            models_url,
+                            sleep_time,
+                        )
+                    else:
+                        resp.raise_for_status()
+                        data = resp.json()
+                        models = data.get("data", [])
+                        if models:
+                            model_id: str = models[0]["id"]
+                            logger.info(
+                                "vLLM reports model %r at %s", model_id, models_url
+                            )
+                            return model_id
+                except Exception as e:
+                    last_error = e
+                    logger.debug("vLLM not ready at %s: %s", models_url, e)
+
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                await asyncio.sleep(min(sleep_time, remaining))
+
+        raise RuntimeError(
+            f"Timed out after {timeout:.0f}s waiting for vLLM to report a "
+            f"model at {models_url}. Last error: {last_error}"
+        )
+
+    async def _try_fetch_vllm_model_id(
+        self, endpoint_id: str, timeout: float = _VLLM_PROBE_TIMEOUT_SECONDS
+    ) -> str | None:
+        """Best-effort probe for the model name from a live vLLM server.
+
+        Returns ``None`` (instead of raising) when the server is unreachable,
+        cold, or the timeout expires.
+        """
+        try:
+            endpoint_url = await self._build_endpoint_url(endpoint_id)
+            base_url = self._vllm_base_url(endpoint_url)
+            return await self._fetch_vllm_model_id(base_url, timeout=timeout)
+        except Exception as e:
+            logger.debug(
+                "Could not fetch model name from vLLM for %s: %s", endpoint_id, e
+            )
+            return None
+
+    # --- Overrides ---
+
+    async def test_endpoint(
+        self,
+        endpoint_url: str,
+        prompt: str,
+        model_id: str | None = None,
+        max_tokens: int = 100,
+        temperature: float = 0.7,
+        stream: bool = False,
+    ) -> dict[str, Any]:
+        """Send a test prompt, auto-discovering the model name from vLLM.
+
+        If *model_id* is not provided, polls the vLLM ``/v1/models`` endpoint
+        (handling cold starts with up to a 300 s wait) to discover the served
+        model name before sending the inference request.
+        """
+        if not model_id:
+            base_url = self._vllm_base_url(endpoint_url)
+            model_id = await self._fetch_vllm_model_id(base_url)
+        return await super().test_endpoint(
+            endpoint_url=endpoint_url,
+            prompt=prompt,
+            model_id=model_id,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            stream=stream,
         )
 
     # --- Helpers ---
@@ -471,13 +674,27 @@ def serve():
             ) from e
 
     async def _make_default_endpoint(
-        self, endpoint_id: str, state: EndpointState
+        self,
+        endpoint_id: str,
+        state: EndpointState,
+        model_id: str | None = None,
     ) -> Endpoint:
-        """Build an ``Endpoint`` with sensible defaults for lookup results."""
+        """Build an ``Endpoint`` for a looked-up Modal app.
+
+        ``model_id`` is not stored in Modal app metadata, so it is ``None``
+        when an endpoint is looked up by ID alone (e.g. via ``get_endpoint``
+        or ``list_endpoints``).  Callers that do know the model (e.g.
+        ``create_endpoint``) should pass it explicitly.
+
+        Note: because ``model_id`` is unknown after a lookup, calling
+        ``test_endpoint`` on such an endpoint will raise ``ValueError``
+        asking for the model name.  This is intentional — sending a wrong
+        model name to vLLM causes a 404.
+        """
         return Endpoint(
             endpoint_id=endpoint_id,
             provider=self.provider,
-            model_id="",
+            model_id=model_id,
             endpoint_url=await self._build_endpoint_url(endpoint_id),
             state=state,
             hardware=HardwareConfig(accelerator="unknown", count=1),
