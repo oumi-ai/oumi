@@ -6,7 +6,7 @@ from oumi.core.configs import ModelParams
 from oumi.core.constants import LABEL_IGNORE_INDEX
 from oumi.core.types import ContentItem, Conversation, Message, Role
 from oumi.core.types.conversation import Type
-from oumi.utils.packaging import is_transformers_v5_3_or_later
+from oumi.utils.packaging import is_transformers_v5
 
 
 @pytest.fixture
@@ -84,7 +84,7 @@ def test_phi3_tokenization(phi3_tokenizer):
     # Transformers v5.3.0+ changed whitespace handling in SentencePiece tokenizers:
     # - Extra whitespace tokens (29871) before newlines are no longer emitted
     # - "This" tokenizes as 4013 instead of 910
-    if is_transformers_v5_3_or_later():
+    if is_transformers_v5():
         expected_tokens = [
             32010,  # <|user|>
             13,  # \n
