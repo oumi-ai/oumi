@@ -14,7 +14,7 @@ from oumi.utils.conversation_utils import base64encode_content_item_image_bytes
 from oumi.utils.image_utils import (
     create_png_bytes_from_image,
 )
-from oumi.utils.packaging import is_vllm_v0_17_or_later
+from oumi.utils.packaging import is_vllm_v0_12_or_later
 
 try:
     vllm_import_failed = False
@@ -560,7 +560,7 @@ def test_guided_decoding_json(
     assert result is not None
     mock_sampling_params.assert_called_once()
     call_kwargs = mock_sampling_params.call_args[1]
-    guided_key = "structured_outputs" if is_vllm_v0_17_or_later() else "guided_decoding"
+    guided_key = "structured_outputs" if is_vllm_v0_12_or_later() else "guided_decoding"
     assert guided_key in call_kwargs
     assert call_kwargs[guided_key].json == schema
 
@@ -598,7 +598,7 @@ def test_guided_decoding_regex(mock_vllm, mock_sampling_params):
     assert result is not None
     mock_sampling_params.assert_called_once()
     call_kwargs = mock_sampling_params.call_args[1]
-    guided_key = "structured_outputs" if is_vllm_v0_17_or_later() else "guided_decoding"
+    guided_key = "structured_outputs" if is_vllm_v0_12_or_later() else "guided_decoding"
     assert guided_key in call_kwargs
     assert call_kwargs[guided_key].regex == pattern
 
@@ -635,7 +635,7 @@ def test_guided_decoding_choice(mock_vllm, mock_sampling_params):
     assert result is not None
     mock_sampling_params.assert_called_once()
     call_kwargs = mock_sampling_params.call_args[1]
-    guided_key = "structured_outputs" if is_vllm_v0_17_or_later() else "guided_decoding"
+    guided_key = "structured_outputs" if is_vllm_v0_12_or_later() else "guided_decoding"
     assert guided_key in call_kwargs
     assert call_kwargs[guided_key].choice == choices
 

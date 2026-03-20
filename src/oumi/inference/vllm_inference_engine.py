@@ -50,11 +50,11 @@ try:
         SamplingParams,
     )
 
-    from oumi.utils.packaging import is_vllm_v0_17_or_later
+    from oumi.utils.packaging import is_vllm_v0_12_or_later
 
-    _VLLM_V0_17 = is_vllm_v0_17_or_later()
+    _VLLM_V0_12 = is_vllm_v0_12_or_later()
 
-    if _VLLM_V0_17:
+    if _VLLM_V0_12:
         from vllm.sampling_params import (  # pyright: ignore[reportMissingImports]
             StructuredOutputsParams as VLLMGuidedDecodingParams,  # pyright: ignore[reportAttributeAccessIssue]
         )
@@ -64,7 +64,7 @@ try:
         )
 except ModuleNotFoundError:
     vllm = None
-    _VLLM_V0_17 = False
+    _VLLM_V0_12 = False
 
 
 class VLLMInferenceEngine(BaseInferenceEngine):
@@ -227,9 +227,9 @@ class VLLMInferenceEngine(BaseInferenceEngine):
 
         self._llm = vllm.LLM(**final_vllm_kwargs)  # pyright: ignore[reportArgumentType, reportAttributeAccessIssue]
         # Ensure the tokenizer is set properly.
-        # set_tokenizer() was removed in vLLM v0.17; the tokenizer is already
+        # set_tokenizer() was deprecated in vLLM v0.12 and removed in v0.13; the tokenizer is already
         # configured via the constructor's `tokenizer` parameter.
-        if not _VLLM_V0_17:
+        if not _VLLM_V0_12:
             self._llm.set_tokenizer(self._tokenizer)
 
     @staticmethod
@@ -298,15 +298,15 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         )
 
         if generation_params.guided_decoding is not None:
-            if _VLLM_V0_17:
-                # vLLM v0.17+ uses StructuredOutputsParams (direct construction)
+            if _VLLM_V0_12:
+                # vLLM v0.12+ uses StructuredOutputsParams (direct construction)
                 guided_decoding = VLLMGuidedDecodingParams(
                     json=generation_params.guided_decoding.json,
                     regex=generation_params.guided_decoding.regex,
                     choice=generation_params.guided_decoding.choice,
                 )
             else:
-                # vLLM <0.17 uses GuidedDecodingParams.from_optional()
+                # vLLM <0.12 uses GuidedDecodingParams.from_optional()
                 guided_decoding = VLLMGuidedDecodingParams.from_optional(
                     json=generation_params.guided_decoding.json,
                     regex=generation_params.guided_decoding.regex,
@@ -315,11 +315,11 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         else:
             guided_decoding = None
 
-        # In vLLM v0.17+, the kwarg was renamed from 'guided_decoding'
+        # In vLLM v0.12+, the kwarg was renamed from 'guided_decoding'
         # to 'structured_outputs'.
         guided_decoding_kwarg = (
             {"structured_outputs": guided_decoding}
-            if _VLLM_V0_17
+            if _VLLM_V0_12
             else {"guided_decoding": guided_decoding}
         )
 
