@@ -28,14 +28,13 @@ data:
     use_torchdata: True
     datasets:
       - dataset_name: "merve/vqav2-small"
-        split: "validation"
+        split: "validation[:512]"
         shuffle: True
         seed: 42
         transform_num_workers: "auto"
         dataset_kwargs:
           processor_name: "Qwen/Qwen3-VL-30B-A3B-Instruct"
           return_tensors: True
-          # limit: 4096 # Uncomment to limit dataset size!
 
 training:
   output_dir: "output/qwen3_vl_30b_a3b/lora"
