@@ -14,11 +14,13 @@
 
 """Test engine for validating analysis results."""
 
+from oumi.analyze.testing.batch_engine import BatchTestEngine
 from oumi.analyze.testing.engine import TestEngine
 from oumi.analyze.testing.results import TestResult, TestSeverity, TestSummary
 from oumi.core.configs.params.test_params import TestParams, TestType
 
 __all__ = [
+    "BatchTestEngine",
     "TestEngine",
     "TestParams",
     "TestResult",
