@@ -115,10 +115,11 @@ def _check_checkpoint_dir(
         gen_config = load_json(dir_path / "generation_config.json")
         assert isinstance(gen_config, dict), "Invalid generation config"
 
-    # Verify special tokens map
-    with open(dir_path / "special_tokens_map.json") as f:
-        tokens_map = json.load(f)
-        assert isinstance(tokens_map, dict), "Invalid special tokens map"
+    # Verify special tokens map (not generated in transformers v5)
+    if not is_transformers_v5():
+        with open(dir_path / "special_tokens_map.json") as f:
+            tokens_map = json.load(f)
+            assert isinstance(tokens_map, dict), "Invalid special tokens map"
 
     # Verify tokenizer config
     with open(dir_path / "tokenizer_config.json") as f:
