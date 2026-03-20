@@ -854,7 +854,7 @@ class TrainingParams(BaseParams):
 
                 config_class = GKDConfig
             else:
-                config_class = trl.GKDConfig
+                config_class = trl.GKDConfig  # type: ignore[attr-defined]
         elif self.trainer_type == TrainerType.TRL_GOLD:
             from oumi.utils.packaging import require_gold_trainer
 
