@@ -552,9 +552,6 @@ def test_multiple_pretraining_datasets_with_streaming(stream: bool):
     assert len(items) == 4
 
 
-@pytest.mark.skip(
-    reason="FIXME: this test is inconsistent, and fails depending on cache state"
-)
 def test_mixed_dataset_packing(stream: bool):
     """Test packing with mixed datasets"""
     config = TrainingConfig(
