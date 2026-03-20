@@ -6,8 +6,14 @@ from transformers import (
     AutoConfig,
     AutoModel,
     AutoModelForCausalLM,
-    AutoModelForVision2Seq,
 )
+
+from oumi.utils.packaging import is_transformers_v5
+
+if is_transformers_v5():
+    from transformers import AutoModelForImageTextToText
+else:
+    from transformers import AutoModelForVision2Seq as AutoModelForImageTextToText
 from transformers.models.mllama.modeling_mllama import (
     MllamaCrossAttentionDecoderLayer,
     MllamaSelfAttentionDecoderLayer,
@@ -118,9 +124,9 @@ MODEL_CONFIGS = [
     ("meta-llama/Meta-Llama-3-70B-Instruct", "LlamaDecoderLayer", AutoModelForCausalLM),
     ("microsoft/Phi-3-mini-4k-instruct", "Phi3DecoderLayer", AutoModelForCausalLM),
     # Only available on nightly build
-    # ("Qwen/Qwen2-VL-2B-Instruct", "QwenDecoderLayer", AutoModelForVision2Seq),
-    ("llava-hf/llava-1.5-7b-hf", "CLIPEncoderLayer", AutoModelForVision2Seq),
-    ("Salesforce/blip2-opt-2.7b", "Blip2EncoderLayer", AutoModelForVision2Seq),
+    # ("Qwen/Qwen2-VL-2B-Instruct", "QwenDecoderLayer", AutoModelForImageTextToText),
+    ("llava-hf/llava-1.5-7b-hf", "CLIPEncoderLayer", AutoModelForImageTextToText),
+    ("Salesforce/blip2-opt-2.7b", "Blip2EncoderLayer", AutoModelForImageTextToText),
     ("mistralai/Mistral-7B-v0.1", "MistralDecoderLayer", AutoModelForCausalLM),
     ("google/gemma-2-2b-it", "GemmaDecoderLayer", AutoModelForCausalLM),
     ("google/gemma-2-2b", "GemmaDecoderLayer", AutoModelForCausalLM),

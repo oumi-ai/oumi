@@ -6,6 +6,7 @@ import torch
 from transformers import AutoTokenizer
 
 from oumi.core.datasets import BasePretrainingDataset
+from tests.unit.conftest import create_mock_tokenizer
 
 
 #
@@ -258,3 +259,36 @@ def test_dataset_with_empty_docs(tokenizer):
 
     samples = list(dataset)
     assert len(samples) == 0
+
+
+def test_requires_eos_token_when_append_concat_token_enabled():
+    """Test that ValueError is raised when append_concat_token=True
+    but tokenizer has no eos_token_id."""
+    mock_tokenizer = create_mock_tokenizer(eos_token_id=None)
+
+    with pytest.raises(
+        ValueError, match="Tokenizer must have an EOS token if append_concat_token"
+    ):
+        TestDataset(
+            tokenizer=mock_tokenizer,
+            dataset_name="dummy",
+            seq_length=10,
+            dataset_text_field="text",
+            append_concat_token=True,
+        )
+
+
+def test_no_eos_token_required_when_append_concat_token_disabled():
+    """Test that tokenizer without eos_token_id works when append_concat_token=False."""
+    mock_tokenizer = create_mock_tokenizer(eos_token_id=None)
+    mock_tokenizer.encode.return_value = [1, 2, 3, 4, 5]
+
+    # Should not raise
+    dataset = TestDataset(
+        tokenizer=mock_tokenizer,
+        dataset_name="dummy",
+        seq_length=10,
+        dataset_text_field="text",
+        append_concat_token=False,
+    )
+    assert dataset.concat_token_id is None

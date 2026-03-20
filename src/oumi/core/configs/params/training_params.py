@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import copy
+import os
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -750,6 +751,52 @@ class TrainingParams(BaseParams):
     not satisfactory, or for new models not yet fully-integrated by Oumi.
     """
 
+    def _get_token_tracking_kwargs(self) -> dict[str, Any]:
+        """Returns token tracking kwargs for the installed transformers version.
+
+        In transformers v5, `include_tokens_per_second` was removed and merged
+        into `include_num_input_tokens_seen`.
+        """
+        from oumi.utils.packaging import is_transformers_v5
+
+        if is_transformers_v5():
+            # v5: only include_num_input_tokens_seen is available
+            # (tokens_per_second is now automatically included when this is enabled)
+            return {
+                "include_num_input_tokens_seen": self.include_performance_metrics,
+            }
+        else:
+            # v4: both parameters exist separately
+            return {
+                "include_tokens_per_second": self.include_performance_metrics,
+                "include_num_input_tokens_seen": self.include_performance_metrics,
+            }
+
+    def _get_warmup_kwargs(self) -> dict[str, Any]:
+        """Returns warmup kwargs for the installed transformers version.
+
+        In transformers v5, `warmup_ratio` is deprecated. The `warmup_steps`
+        parameter now accepts float values (ratio) in addition to int values.
+        """
+        from oumi.utils.packaging import is_transformers_v5
+
+        if is_transformers_v5():
+            # v5: warmup_ratio is deprecated, use warmup_steps for both int and float
+            # If warmup_steps is set, use it directly (takes precedence)
+            # If warmup_ratio is set, pass it as warmup_steps (float)
+            if self.warmup_steps is not None:
+                return {"warmup_steps": self.warmup_steps}
+            elif self.warmup_ratio is not None:
+                return {"warmup_steps": self.warmup_ratio}
+            else:
+                return {"warmup_steps": 0}
+        else:
+            # v4: both parameters exist separately
+            return {
+                "warmup_ratio": self.warmup_ratio or 0.0,
+                "warmup_steps": self.warmup_steps or 0,
+            }
+
     def to_hf(self, training_config: Optional["TrainingConfig"] = None):
         """Converts Oumi config to HuggingFace's TrainingArguments.
 
@@ -789,11 +836,25 @@ class TrainingParams(BaseParams):
         elif self.trainer_type == TrainerType.TRL_DPO:
             config_class = trl.DPOConfig
         elif self.trainer_type == TrainerType.TRL_KTO:
-            config_class = trl.KTOConfig
+            from oumi.utils.packaging import is_trl_v0_28_or_later
+
+            if is_trl_v0_28_or_later():
+                from trl.experimental.kto import KTOConfig
+
+                config_class = KTOConfig
+            else:
+                config_class = trl.KTOConfig
         elif self.trainer_type == TrainerType.TRL_GRPO:
             config_class = trl.GRPOConfig
         elif self.trainer_type == TrainerType.TRL_GKD:
-            config_class = trl.GKDConfig
+            from oumi.utils.packaging import is_trl_v0_28_or_later
+
+            if is_trl_v0_28_or_later():
+                from trl.experimental.gkd import GKDConfig
+
+                config_class = GKDConfig
+            else:
+                config_class = trl.GKDConfig
         elif self.trainer_type == TrainerType.TRL_GOLD:
             from oumi.utils.packaging import require_gold_trainer
 
@@ -865,10 +926,14 @@ class TrainingParams(BaseParams):
                 )
             trainer_kwargs.update(gold_kwargs)
 
+        # Set TENSORBOARD_LOGGING_DIR env var for TensorBoard logging
+        if self.enable_tensorboard:
+            tensorboard_dir = self.logging_dir or f"{self.output_dir}/tensorboard"
+            os.environ["TENSORBOARD_LOGGING_DIR"] = tensorboard_dir
+
         result = config_class(
             gradient_accumulation_steps=self.gradient_accumulation_steps,
             log_level=self.dep_log_level,
-            logging_dir=self.logging_dir,
             logging_nan_inf_filter=True,
             logging_steps=self.logging_steps,
             logging_strategy=self.logging_strategy,
@@ -884,16 +949,14 @@ class TrainingParams(BaseParams):
             learning_rate=self.learning_rate,
             lr_scheduler_type=self.lr_scheduler_type,
             lr_scheduler_kwargs=self.lr_scheduler_kwargs,
-            warmup_ratio=self.warmup_ratio or 0.0,  # same default as transformers
-            warmup_steps=self.warmup_steps or 0,  # same default as transformers
+            **self._get_warmup_kwargs(),
             weight_decay=self.weight_decay,
             adam_beta1=self.adam_beta1,
             adam_beta2=self.adam_beta2,
             adam_epsilon=self.adam_epsilon,
             gradient_checkpointing=self.enable_gradient_checkpointing,
             gradient_checkpointing_kwargs=self.gradient_checkpointing_kwargs,
-            include_tokens_per_second=self.include_performance_metrics,
-            include_num_input_tokens_seen=self.include_performance_metrics,
+            **self._get_token_tracking_kwargs(),
             fp16=self.mixed_precision_dtype == MixedPrecisionDtype.FP16,
             bf16=self.mixed_precision_dtype == MixedPrecisionDtype.BF16,
             torch_compile=self.compile,

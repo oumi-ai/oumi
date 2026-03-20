@@ -588,10 +588,16 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
 
             if result_type in ("error", "errored"):
                 error_info = result.get("result", {}).get("error", {})
+                # Anthropic nests the detail under error.error
+                inner_error = error_info.get("error", {})
+                if isinstance(inner_error, dict) and inner_error.get("message"):
+                    error_type = inner_error.get("type", error_info.get("type"))
+                    error_msg = inner_error["message"]
+                else:
+                    error_type = error_info.get("type")
+                    error_msg = error_info.get("message")
                 failed_indices.append(idx)
-                error_messages[idx] = (
-                    f"{error_info.get('type')}: {error_info.get('message')}"
-                )
+                error_messages[idx] = f"{error_type}: {error_msg}"
             elif result_type == "succeeded":
                 try:
                     message_response = result.get("result", {}).get("message", {})

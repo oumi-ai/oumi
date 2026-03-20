@@ -1329,10 +1329,16 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                     continue
 
                 failed_indices.append(idx)
-                error_msg = result.get("error", {})
+                error_msg = result.get("error")
                 if isinstance(error_msg, dict):
                     error_msg = error_msg.get("message", str(error_msg))
-                error_messages[idx] = str(error_msg)
+                if not error_msg:
+                    body_error = ((result.get("response") or {}).get("body") or {}).get(
+                        "error", {}
+                    )
+                    if isinstance(body_error, dict):
+                        error_msg = body_error.get("message")
+                error_messages[idx] = str(error_msg or "unknown error")
 
         # Detect items missing from both output and error files
         seen_indices = {idx for idx, _ in successful} | set(failed_indices)
