@@ -227,8 +227,8 @@ class VLLMInferenceEngine(BaseInferenceEngine):
 
         self._llm = vllm.LLM(**final_vllm_kwargs)  # pyright: ignore[reportArgumentType, reportAttributeAccessIssue]
         # Ensure the tokenizer is set properly.
-        # set_tokenizer() was deprecated in vLLM v0.12 and removed in v0.13; the tokenizer is already
-        # configured via the constructor's `tokenizer` parameter.
+        # set_tokenizer() was deprecated in vLLM v0.12 and removed in v0.13; the
+        # tokenizer is already configured via the constructor's `tokenizer` parameter.
         if not _VLLM_V0_12:
             self._llm.set_tokenizer(self._tokenizer)
 
