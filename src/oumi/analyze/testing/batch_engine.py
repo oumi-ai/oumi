@@ -198,29 +198,33 @@ class BatchTestEngine:
             conv_id = (
                 conversation_ids[orig_idx] if orig_idx < len(conversation_ids) else None
             )
-            global_idx = acc.total_count + orig_idx
             try:
                 if op_func(value, test.value):
+                    match_pos = acc.matching_count
                     acc.matching_count += 1
                     acc.matching_conversation_ids.append(conv_id)
                     if len(acc.matching_reasons) < MAX_FAILURE_REASONS:
-                        acc.matching_reasons[global_idx] = (
+                        acc.matching_reasons[match_pos] = (
                             f"Flagged: {test.metric} {test.operator} {test.value}"
                             f" (value={value})"
                         )
                 else:
+                    non_match_pos = acc.non_matching_count
                     acc.non_matching_count += 1
                     acc.non_matching_conversation_ids.append(conv_id)
                     if len(acc.non_matching_reasons) < MAX_FAILURE_REASONS:
-                        acc.non_matching_reasons[global_idx] = (
+                        acc.non_matching_reasons[non_match_pos] = (
                             f"Not flagged: {test.metric} {test.operator} {test.value}"
                             f" (value={value})"
                         )
             except (TypeError, ValueError):
+                non_match_pos = acc.non_matching_count
                 acc.non_matching_count += 1
                 acc.non_matching_conversation_ids.append(conv_id)
                 if len(acc.non_matching_reasons) < MAX_FAILURE_REASONS:
-                    acc.non_matching_reasons[global_idx] = f"Cannot evaluate: {value}"
+                    acc.non_matching_reasons[non_match_pos] = (
+                        f"Cannot evaluate: {value}"
+                    )
 
         acc.total_count += len(values)
 
