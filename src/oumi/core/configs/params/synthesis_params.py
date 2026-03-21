@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any
 
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.core.configs.params.tool_params import ToolAttribute
 from oumi.core.types.conversation import Conversation, Message, Role
 
 _SUPPORTED_DATASET_FILE_TYPES = {".jsonl", ".json", ".csv", ".parquet", ".tsv", ".xlsx"}
@@ -474,6 +475,14 @@ class MultiTurnAttribute:
     Allows user to specify custom instructions for the planner while planning
     out the conversation."""
 
+    available_tools: list[str] = field(default_factory=list)
+    """List of tool ids (from GeneralSynthesisParams.tools) available in this
+    conversation."""
+
+    max_tool_calls_per_turn: int = 50
+    """Safety ceiling for tool calls per ASSISTANT turn. The agent naturally stops
+    when it decides no more tools are needed. This only prevents runaway loops."""
+
     def __post_init__(self):
         """Verifies/populates params."""
         if not self.id:
@@ -542,6 +551,17 @@ class MultiTurnAttribute:
                     "MultiTurnAttribute.output_system_prompt must be a non-empty "
                     "string."
                 )
+
+        if self.available_tools is not None:
+            if not isinstance(self.available_tools, list):
+                raise ValueError(
+                    "MultiTurnAttribute.available_tools must be a list of tool names."
+                )
+            for tool in self.available_tools:
+                if not isinstance(tool, str):
+                    raise ValueError(
+                        "MultiTurnAttribute.available_tools must be a list of strings."
+                    )
 
 
 class TransformationType(str, Enum):
@@ -770,6 +790,39 @@ class GeneralSynthesisParams(BaseParams):
         ]
     """
 
+    tools: list[ToolAttribute] | None = None
+    """Tool definitions for agentic synthesis.
+
+    Tools are defined here and referenced by id from
+    MultiTurnAttribute.available_tools. Each tool specifies its parameters
+    (input schema), output_schema, and output strategy (DETERMINISTIC or
+    GENERATED).
+
+    Example::
+
+        tools = [
+            ToolAttribute(
+                id="search",
+                name="WebSearch",
+                description="Searches the web for the given query.",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "The search query.",
+                        }
+                    },
+                    "required": ["query"],
+                },
+                output_strategy=ToolOutputStrategy.GENERATED,
+                generated_output=GeneratedToolOutput(
+                    instruction="Return relevant search results.",
+                ),
+            ),
+        ]
+    """
+
     transformed_attributes: list[TransformedAttribute] | None = None
     """Transformation of existing attributes.
 
@@ -912,6 +965,48 @@ class GeneralSynthesisParams(BaseParams):
             self.passthrough_attributes = None
             return
 
+    def _check_available_tools(self) -> None:
+        """Validate that available_tools ids reference defined tools."""
+        if not self.multiturn_attributes:
+            self.multiturn_attributes = None
+            return
+
+        # Collect all tool ids referenced by any multiturn attribute
+        all_referenced = [
+            tool_id
+            for mt_attr in self.multiturn_attributes
+            for tool_id in mt_attr.available_tools
+        ]
+
+        if not all_referenced:
+            if not self.tools:
+                self.tools = None
+            return
+
+        if not self.tools:
+            raise ValueError(
+                "GeneralSynthesisParams.tools must be defined when "
+                "MultiTurnAttribute.available_tools is non-empty. "
+                f"Referenced tool ids: {sorted(set(all_referenced))}"
+            )
+
+        tool_id_list = [tool.id for tool in self.tools]
+        tool_ids = set(tool_id_list)
+        if len(tool_id_list) != len(tool_ids):
+            seen: set[str] = set()
+            dupes = [t for t in tool_id_list if t in seen or seen.add(t)]  # type: ignore[func-returns-value]
+            raise ValueError(
+                f"GeneralSynthesisParams.tools contains duplicate tool ids: {dupes}"
+            )
+
+        for mt_attr in self.multiturn_attributes:
+            for tool_id in mt_attr.available_tools:
+                if tool_id not in tool_ids:
+                    raise ValueError(
+                        f"MultiTurnAttribute '{mt_attr.id}' references unknown "
+                        f"tool '{tool_id}'. Defined tool ids: {sorted(tool_ids)}"
+                    )
+
     def __post_init__(self):
         """Verifies/populates params."""
         self._reserved_attribute_ids = self._get_reserved_attribute_ids()
@@ -925,3 +1020,4 @@ class GeneralSynthesisParams(BaseParams):
         self._check_transformed_attribute_ids(all_attribute_ids)
         self._check_passthrough_attribute_ids()
         self._check_combination_sampling_sample_rates()
+        self._check_available_tools()
