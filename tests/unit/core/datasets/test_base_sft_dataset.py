@@ -34,6 +34,8 @@ def _get_hf_collator_result(conversation, tokenizer):
 
 
 class TestBaseSftDataset(BaseSftDataset):
+    __test__ = False  # Prevent pytest collection
+
     default_dataset = "test"
 
     def transform_conversation(self, example):
