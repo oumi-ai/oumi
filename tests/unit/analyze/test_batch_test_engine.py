@@ -472,9 +472,7 @@ def test_actual_value_single_item():
     assert summary.results[0].actual_value == 42.0
 
 
-def test_actual_value_none_for_multiple_items(
-    sample_results, sample_conversation_ids
-):
+def test_actual_value_none_for_multiple_items(sample_results, sample_conversation_ids):
     """Test that actual_value is None when there are multiple items."""
     tests = [
         TestParams(
