@@ -20,10 +20,6 @@ from pydantic import BaseModel
 from oumi.analyze.testing.batch_engine import BatchTestEngine
 from oumi.core.configs.params.test_params import TestParams, TestType
 
-# -----------------------------------------------------------------------------
-# Test Fixtures
-# -----------------------------------------------------------------------------
-
 
 class SampleMetrics(BaseModel):
     """Sample metrics for testing."""
@@ -58,11 +54,6 @@ def sample_conversation_ids() -> list[str | None]:
     return ["conv_1", "conv_2", "conv_3", "conv_4"]
 
 
-# -----------------------------------------------------------------------------
-# Tests: Initialization
-# -----------------------------------------------------------------------------
-
-
 def test_engine_initialization():
     """Test BatchTestEngine initialization."""
     tests = [
@@ -80,11 +71,6 @@ def test_engine_empty_tests():
     engine = BatchTestEngine([])
     summary = engine.finalize()
     assert summary.total_tests == 0
-
-
-# -----------------------------------------------------------------------------
-# Tests: Single Batch (equivalent to TestEngine behavior)
-# -----------------------------------------------------------------------------
 
 
 def test_threshold_all_pass(sample_results, sample_conversation_ids):
@@ -184,11 +170,6 @@ def test_threshold_both_min_and_max_percentage(sample_results, sample_conversati
 
     # 3 out of 4 (75%) have tokens > 75
     assert summary.passed_tests == 1
-
-
-# -----------------------------------------------------------------------------
-# Tests: Multi-Batch Processing
-# -----------------------------------------------------------------------------
 
 
 def test_multi_batch_accumulation():
@@ -293,11 +274,6 @@ def test_multi_batch_percentage_computed_over_total():
     assert result.passed is True
     assert result.details["matching_count"] == 1
     assert result.details["matching_percentage"] == 25.0
-
-
-# -----------------------------------------------------------------------------
-# Tests: Error Handling
-# -----------------------------------------------------------------------------
 
 
 def test_missing_operator():
@@ -425,11 +401,6 @@ def test_empty_first_batch_does_not_block_later_batches():
     assert result.details["matching_count"] == 1
 
 
-# -----------------------------------------------------------------------------
-# Tests: Metric Extraction
-# -----------------------------------------------------------------------------
-
-
 def test_single_result_not_list():
     """Test extracting metric from single result (not list)."""
     tests = [
@@ -538,11 +509,6 @@ def test_nested_dict_values():
     assert summary.failed_tests == 1
 
 
-# -----------------------------------------------------------------------------
-# Tests: Affected Conversation IDs
-# -----------------------------------------------------------------------------
-
-
 def test_affected_ids_max_percentage_exceeded():
     """Test affected IDs when max_percentage is exceeded."""
     tests = [
@@ -623,11 +589,6 @@ def test_affected_ids_empty_when_passing():
     assert affected["check"] == []
 
 
-# -----------------------------------------------------------------------------
-# Tests: Multiple Tests
-# -----------------------------------------------------------------------------
-
-
 def test_multiple_tests(sample_results, sample_conversation_ids):
     """Test running multiple tests in batch mode."""
     tests = [
@@ -652,11 +613,6 @@ def test_multiple_tests(sample_results, sample_conversation_ids):
 
     assert summary.total_tests == 2
     assert summary.passed_tests == 2
-
-
-# -----------------------------------------------------------------------------
-# Tests: Result Details
-# -----------------------------------------------------------------------------
 
 
 def test_result_details_populated(sample_results, sample_conversation_ids):
