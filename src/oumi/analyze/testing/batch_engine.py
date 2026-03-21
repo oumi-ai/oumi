@@ -47,8 +47,6 @@ class _TestAccumulator:
     total_count: int = 0
     matching_conversation_ids: list[str | None] = field(default_factory=list)
     non_matching_conversation_ids: list[str | None] = field(default_factory=list)
-    sample_matching_ids: list[str | None] = field(default_factory=list)
-    sample_non_matching_ids: list[str | None] = field(default_factory=list)
     matching_reasons: dict[int, str] = field(default_factory=dict)
     non_matching_reasons: dict[int, str] = field(default_factory=dict)
     first_value: Any = None
@@ -103,6 +101,18 @@ class BatchTestEngine:
                 acc.error = f"Test execution failed: {e}"
                 logger.warning(f"  Test '{test.id}': ERROR - {e}")
 
+    def _create_error_result(self, test: TestParams, error: str) -> TestResult:
+        """Create a TestResult for an error condition."""
+        return TestResult(
+            test_id=test.id,
+            passed=False,
+            severity=TestSeverity(test.severity),
+            title=test.title or test.id,
+            description=test.description or "",
+            metric=test.metric or "",
+            error=error,
+        )
+
     def finalize(self) -> TestSummary:
         """Compute final test results from accumulated batch data.
 
@@ -115,29 +125,13 @@ class BatchTestEngine:
             acc = self._accumulators[test.id]
 
             if acc.error:
-                test_results.append(
-                    TestResult(
-                        test_id=test.id,
-                        passed=False,
-                        severity=TestSeverity(test.severity),
-                        title=test.title or test.id,
-                        description=test.description or "",
-                        metric=test.metric or "",
-                        error=acc.error,
-                    )
-                )
+                test_results.append(self._create_error_result(test, acc.error))
                 continue
 
             if acc.total_count == 0 and test.metric:
                 test_results.append(
-                    TestResult(
-                        test_id=test.id,
-                        passed=False,
-                        severity=TestSeverity(test.severity),
-                        title=test.title or test.id,
-                        description=test.description or "",
-                        metric=test.metric or "",
-                        error=f"Metric '{test.metric}' not found in results",
+                    self._create_error_result(
+                        test, f"Metric '{test.metric}' not found in results"
                     )
                 )
                 continue
@@ -209,8 +203,6 @@ class BatchTestEngine:
                 if op_func(value, test.value):
                     acc.matching_count += 1
                     acc.matching_conversation_ids.append(conv_id)
-                    if len(acc.sample_matching_ids) < MAX_SAMPLE_INDICES:
-                        acc.sample_matching_ids.append(conv_id)
                     if len(acc.matching_reasons) < MAX_FAILURE_REASONS:
                         acc.matching_reasons[global_idx] = (
                             f"Flagged: {test.metric} {test.operator} {test.value}"
@@ -219,8 +211,6 @@ class BatchTestEngine:
                 else:
                     acc.non_matching_count += 1
                     acc.non_matching_conversation_ids.append(conv_id)
-                    if len(acc.sample_non_matching_ids) < MAX_SAMPLE_INDICES:
-                        acc.sample_non_matching_ids.append(conv_id)
                     if len(acc.non_matching_reasons) < MAX_FAILURE_REASONS:
                         acc.non_matching_reasons[global_idx] = (
                             f"Not flagged: {test.metric} {test.operator} {test.value}"
@@ -234,8 +224,14 @@ class BatchTestEngine:
 
         acc.total_count += len(values)
 
-    def _build_final_result(self, acc: _TestAccumulator) -> TestResult:
-        """Build the final TestResult from accumulated data."""
+    def _determine_outcome(
+        self, acc: _TestAccumulator
+    ) -> tuple[bool, list[str | None], float, dict[int, str]]:
+        """Determine pass/fail and select the affected set.
+
+        Returns:
+            (passed, affected_ids, affected_pct, failure_reasons)
+        """
         test = acc.test
         total_count = acc.total_count
         matching_count = acc.matching_count
@@ -250,14 +246,12 @@ class BatchTestEngine:
         passed = True
         affected_ids: list[str | None] = []
         affected_pct = 0.0
-        sample_ids: list[str | None] = []
         failure_reasons: dict[int, str] = {}
 
         if test.max_percentage is not None and matching_pct > test.max_percentage:
             passed = False
             affected_ids = acc.matching_conversation_ids
             affected_pct = matching_pct
-            sample_ids = acc.sample_matching_ids
             failure_reasons = acc.matching_reasons
 
         if test.min_percentage is not None and matching_pct < test.min_percentage:
@@ -265,18 +259,25 @@ class BatchTestEngine:
             if not affected_ids:
                 affected_ids = acc.non_matching_conversation_ids
                 affected_pct = non_matching_pct
-                sample_ids = acc.sample_non_matching_ids
                 failure_reasons = acc.non_matching_reasons
 
         if test.max_percentage is None and test.min_percentage is None:
             passed = matching_count == 0
             affected_ids = acc.matching_conversation_ids
             affected_pct = matching_pct
-            sample_ids = acc.sample_matching_ids
             failure_reasons = acc.matching_reasons
 
+        return passed, affected_ids, affected_pct, failure_reasons
+
+    def _build_final_result(self, acc: _TestAccumulator) -> TestResult:
+        """Build the final TestResult from accumulated data."""
+        test = acc.test
+        passed, affected_ids, affected_pct, failure_reasons = (
+            self._determine_outcome(acc)
+        )
+
         actual_value: float | None = None
-        if total_count == 1 and isinstance(acc.first_value, int | float):
+        if acc.total_count == 1 and isinstance(acc.first_value, int | float):
             actual_value = float(acc.first_value)
 
         return TestResult(
@@ -287,7 +288,7 @@ class BatchTestEngine:
             description=test.description or "",
             metric=test.metric or "",
             affected_count=len(affected_ids),
-            total_count=total_count,
+            total_count=acc.total_count,
             affected_percentage=round(affected_pct, 2),
             threshold=test.max_percentage or test.min_percentage,
             actual_value=actual_value,
@@ -298,37 +299,25 @@ class BatchTestEngine:
                 "value": test.value,
                 "max_percentage": test.max_percentage,
                 "min_percentage": test.min_percentage,
-                "matching_count": matching_count,
-                "matching_percentage": round(matching_pct, 2),
+                "matching_count": acc.matching_count,
+                "matching_percentage": round(
+                    100.0 * acc.matching_count / acc.total_count
+                    if acc.total_count > 0
+                    else 0.0,
+                    2,
+                ),
                 "failure_reasons": {
                     str(k): v
                     for k, v in list(failure_reasons.items())[:MAX_FAILURE_REASONS]
                 },
-                "sample_conversation_ids": sample_ids[:MAX_SAMPLE_INDICES],
+                "sample_conversation_ids": affected_ids[:MAX_SAMPLE_INDICES],
             },
         )
 
     def _get_affected_ids(self, acc: _TestAccumulator) -> list[str | None]:
-        """Determine affected IDs based on test pass/fail logic."""
-        test = acc.test
-        total_count = acc.total_count
-        matching_count = acc.matching_count
-
-        if total_count == 0:
-            return []
-
-        matching_pct = 100.0 * matching_count / total_count
-
-        if test.max_percentage is not None and matching_pct > test.max_percentage:
-            return acc.matching_conversation_ids
-
-        if test.min_percentage is not None and matching_pct < test.min_percentage:
-            return acc.non_matching_conversation_ids
-
-        if test.max_percentage is None and test.min_percentage is None:
-            return acc.matching_conversation_ids
-
-        return []
+        """Return all affected conversation IDs based on test outcome."""
+        _, affected_ids, _, _ = self._determine_outcome(acc)
+        return affected_ids
 
     def _extract_metric_values(
         self,
