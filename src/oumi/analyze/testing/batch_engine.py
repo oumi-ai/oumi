@@ -276,8 +276,8 @@ class BatchTestEngine:
     def _build_final_result(self, acc: _TestAccumulator) -> TestResult:
         """Build the final TestResult from accumulated data."""
         test = acc.test
-        passed, affected_ids, affected_pct, failure_reasons = (
-            self._determine_outcome(acc)
+        passed, affected_ids, affected_pct, failure_reasons = self._determine_outcome(
+            acc
         )
 
         actual_value: float | None = None
