@@ -49,8 +49,8 @@ class _TestAccumulator:
     non_matching_conversation_ids: list[str | None] = field(default_factory=list)
     sample_matching_ids: list[str | None] = field(default_factory=list)
     sample_non_matching_ids: list[str | None] = field(default_factory=list)
-    matching_reasons: dict[str | None, str] = field(default_factory=dict)
-    non_matching_reasons: dict[str | None, str] = field(default_factory=dict)
+    matching_reasons: dict[int, str] = field(default_factory=dict)
+    non_matching_reasons: dict[int, str] = field(default_factory=dict)
     first_value: Any = None
     error: str | None = None
 
@@ -198,10 +198,13 @@ class BatchTestEngine:
             return
 
         if acc.total_count == 0 and len(values) == 1:
-            acc.first_value = values[0]
+            acc.first_value = values[0][1]
 
-        for i, value in enumerate(values):
-            conv_id = conversation_ids[i] if i < len(conversation_ids) else None
+        for orig_idx, value in values:
+            conv_id = (
+                conversation_ids[orig_idx] if orig_idx < len(conversation_ids) else None
+            )
+            global_idx = acc.total_count + orig_idx
             try:
                 if op_func(value, test.value):
                     acc.matching_count += 1
@@ -209,7 +212,7 @@ class BatchTestEngine:
                     if len(acc.sample_matching_ids) < MAX_SAMPLE_INDICES:
                         acc.sample_matching_ids.append(conv_id)
                     if len(acc.matching_reasons) < MAX_FAILURE_REASONS:
-                        acc.matching_reasons[conv_id] = (
+                        acc.matching_reasons[global_idx] = (
                             f"Flagged: {test.metric} {test.operator} {test.value}"
                             f" (value={value})"
                         )
@@ -219,7 +222,7 @@ class BatchTestEngine:
                     if len(acc.sample_non_matching_ids) < MAX_SAMPLE_INDICES:
                         acc.sample_non_matching_ids.append(conv_id)
                     if len(acc.non_matching_reasons) < MAX_FAILURE_REASONS:
-                        acc.non_matching_reasons[conv_id] = (
+                        acc.non_matching_reasons[global_idx] = (
                             f"Not flagged: {test.metric} {test.operator} {test.value}"
                             f" (value={value})"
                         )
@@ -227,7 +230,7 @@ class BatchTestEngine:
                 acc.non_matching_count += 1
                 acc.non_matching_conversation_ids.append(conv_id)
                 if len(acc.non_matching_reasons) < MAX_FAILURE_REASONS:
-                    acc.non_matching_reasons[conv_id] = f"Cannot evaluate: {value}"
+                    acc.non_matching_reasons[global_idx] = f"Cannot evaluate: {value}"
 
         acc.total_count += len(values)
 
@@ -248,7 +251,7 @@ class BatchTestEngine:
         affected_ids: list[str | None] = []
         affected_pct = 0.0
         sample_ids: list[str | None] = []
-        failure_reasons: dict[str | None, str] = {}
+        failure_reasons: dict[int, str] = {}
 
         if test.max_percentage is not None and matching_pct > test.max_percentage:
             passed = False
@@ -331,8 +334,13 @@ class BatchTestEngine:
         self,
         metric: str,
         results: dict[str, list[BaseModel] | BaseModel],
-    ) -> list[Any]:
-        """Extract values for a metric path like 'analyzer_name.field_name'."""
+    ) -> list[tuple[int, Any]]:
+        """Extract values for a metric path like 'analyzer_name.field_name'.
+
+        Returns a list of (original_index, value) tuples so callers can
+        correctly align values with conversation IDs even when some items
+        have ``None`` metric values.
+        """
         parts = metric.split(".")
         if len(parts) < 2:
             return []
@@ -347,13 +355,13 @@ class BatchTestEngine:
 
         if isinstance(analyzer_results, BaseModel):
             value = self._get_nested_value(analyzer_results, field_path)
-            return [value] if value is not None else []
+            return [(0, value)] if value is not None else []
 
         values = []
-        for result in analyzer_results:
+        for idx, result in enumerate(analyzer_results):
             value = self._get_nested_value(result, field_path)
             if value is not None:
-                values.append(value)
+                values.append((idx, value))
 
         return values
 
@@ -375,7 +383,10 @@ class BatchTestEngine:
                 else:
                     return None
             else:
-                return None
+                raise TypeError(
+                    f"Cannot traverse type {type(current).__name__}. "
+                    f"Expected BaseModel or dict, got {current!r}"
+                )
         return current
 
     def _traverse_dict(self, d: dict, path: list[str]) -> Any | None:
