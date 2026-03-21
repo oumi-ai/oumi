@@ -49,7 +49,6 @@ class _TestAccumulator:
     non_matching_conversation_ids: list[str | None] = field(default_factory=list)
     matching_reasons: dict[int, str] = field(default_factory=dict)
     non_matching_reasons: dict[int, str] = field(default_factory=dict)
-    first_value: Any = None
     error: str | None = None
 
 
@@ -191,9 +190,6 @@ class BatchTestEngine:
             acc.error = f"Unknown operator: {test.operator}"
             return
 
-        if acc.total_count == 0 and len(values) == 1:
-            acc.first_value = values[0][1]
-
         for orig_idx, value in values:
             conv_id = (
                 conversation_ids[orig_idx] if orig_idx < len(conversation_ids) else None
@@ -280,10 +276,6 @@ class BatchTestEngine:
             acc
         )
 
-        actual_value: float | None = None
-        if acc.total_count == 1 and isinstance(acc.first_value, int | float):
-            actual_value = float(acc.first_value)
-
         return TestResult(
             test_id=test.id,
             passed=passed,
@@ -295,7 +287,7 @@ class BatchTestEngine:
             total_count=acc.total_count,
             affected_percentage=round(affected_pct, 2),
             threshold=test.max_percentage or test.min_percentage,
-            actual_value=actual_value,
+            actual_value=None,
             sample_indices=[],  # Not meaningful for batch mode
             all_affected_indices=[],  # Not meaningful for batch mode
             details={
