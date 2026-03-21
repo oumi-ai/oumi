@@ -422,7 +422,6 @@ def test_single_result_not_list():
     assert summary.passed_tests == 1
 
 
-
 def test_nested_dict_values():
     """Test extracting metric from nested dict via values field."""
     tests = [
