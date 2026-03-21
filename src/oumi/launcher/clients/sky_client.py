@@ -231,6 +231,12 @@ class SkyClient:
         job_id, resource_handle = self._sky_lib.stream_and_get(job_id)
         if job_id is None or resource_handle is None:
             raise RuntimeError("Failed to launch job.")
+        # Extract hourly cost from launched resources (includes all nodes).
+        try:
+            cost_per_hour = resource_handle.get_hourly_price()  # pyright: ignore[reportAttributeAccessIssue]
+        except Exception:
+            cost_per_hour = None
+
         return JobStatus(
             name="",
             id=str(job_id),
@@ -239,6 +245,7 @@ class SkyClient:
             metadata="",
             done=False,
             state=JobState.PENDING,
+            cost_per_hour=cost_per_hour,
         )
 
     def status(self):  # type hinting will force sky to be imported and not lazy loaded
