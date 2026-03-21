@@ -157,6 +157,9 @@ class BatchTestEngine:
         result: dict[str, list[str | None]] = {}
         for test in self.tests:
             acc = self._accumulators[test.id]
+            if acc.error:
+                result[test.id] = []
+                continue
             affected_ids = self._get_affected_ids(acc)
             result[test.id] = affected_ids
         return result
