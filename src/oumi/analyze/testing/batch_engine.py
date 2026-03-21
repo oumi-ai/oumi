@@ -26,7 +26,11 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from oumi.analyze.testing.engine import MAX_FAILURE_REASONS, MAX_SAMPLE_INDICES, OPERATORS
+from oumi.analyze.testing.engine import (
+    MAX_FAILURE_REASONS,
+    MAX_SAMPLE_INDICES,
+    OPERATORS,
+)
 from oumi.analyze.testing.results import TestResult, TestSeverity, TestSummary
 from oumi.core.configs.params.test_params import TestParams, TestType
 
@@ -47,6 +51,7 @@ class _TestAccumulator:
     sample_non_matching_ids: list[str | None] = field(default_factory=list)
     matching_reasons: dict[str | None, str] = field(default_factory=dict)
     non_matching_reasons: dict[str | None, str] = field(default_factory=dict)
+    first_value: Any = None
     error: str | None = None
 
 
@@ -68,6 +73,7 @@ class BatchTestEngine:
     """
 
     def __init__(self, tests: list[TestParams]):
+        """Initialize the batch test engine with test configurations."""
         self.tests = tests
         self._accumulators: dict[str, _TestAccumulator] = {}
         for test in tests:
@@ -122,6 +128,20 @@ class BatchTestEngine:
                 )
                 continue
 
+            if acc.total_count == 0 and test.metric:
+                test_results.append(
+                    TestResult(
+                        test_id=test.id,
+                        passed=False,
+                        severity=TestSeverity(test.severity),
+                        title=test.title or test.id,
+                        description=test.description or "",
+                        metric=test.metric or "",
+                        error=f"Metric '{test.metric}' not found in results",
+                    )
+                )
+                continue
+
             test_results.append(self._build_final_result(acc))
 
         summary = TestSummary.from_results(test_results)
@@ -131,9 +151,7 @@ class BatchTestEngine:
             f"({summary.pass_rate}%)"
         )
         if summary.high_severity_failures > 0:
-            logger.warning(
-                f"  {summary.high_severity_failures} high severity failures"
-            )
+            logger.warning(f"  {summary.high_severity_failures} high severity failures")
 
         return summary
 
@@ -164,7 +182,6 @@ class BatchTestEngine:
 
         values = self._extract_metric_values(test.metric, results)
         if not values:
-            acc.error = f"Metric '{test.metric}' not found in results"
             return
 
         if test.type != TestType.THRESHOLD:
@@ -179,6 +196,9 @@ class BatchTestEngine:
         if op_func is None:
             acc.error = f"Unknown operator: {test.operator}"
             return
+
+        if acc.total_count == 0 and len(values) == 1:
+            acc.first_value = values[0]
 
         for i, value in enumerate(values):
             conv_id = conversation_ids[i] if i < len(conversation_ids) else None
@@ -253,10 +273,8 @@ class BatchTestEngine:
             failure_reasons = acc.matching_reasons
 
         actual_value: float | None = None
-        if total_count == 1 and isinstance(
-            acc.matching_count + acc.non_matching_count, int
-        ):
-            actual_value = None
+        if total_count == 1 and isinstance(acc.first_value, int | float):
+            actual_value = float(acc.first_value)
 
         return TestResult(
             test_id=test.id,

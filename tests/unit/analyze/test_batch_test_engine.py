@@ -20,7 +20,6 @@ from pydantic import BaseModel
 from oumi.analyze.testing.batch_engine import BatchTestEngine
 from oumi.core.configs.params.test_params import TestParams, TestType
 
-
 # -----------------------------------------------------------------------------
 # Test Fixtures
 # -----------------------------------------------------------------------------
@@ -166,9 +165,7 @@ def test_threshold_with_min_percentage(sample_results, sample_conversation_ids):
     assert summary.passed_tests == 1
 
 
-def test_threshold_both_min_and_max_percentage(
-    sample_results, sample_conversation_ids
-):
+def test_threshold_both_min_and_max_percentage(sample_results, sample_conversation_ids):
     """Test threshold with both min and max percentage."""
     tests = [
         TestParams(
@@ -343,6 +340,7 @@ def test_unknown_operator():
     summary = engine.finalize()
 
     assert summary.error_tests == 1
+    assert summary.results[0].error is not None
     assert "Unknown operator" in summary.results[0].error
 
 
@@ -365,6 +363,7 @@ def test_missing_metric():
     summary = engine.finalize()
 
     assert summary.error_tests == 1
+    assert summary.results[0].error is not None
     assert "not found" in summary.results[0].error
 
 
@@ -396,6 +395,36 @@ def test_error_persists_across_batches():
     assert summary.error_tests == 1
 
 
+def test_empty_first_batch_does_not_block_later_batches():
+    """Test that an empty first batch does not permanently error the test."""
+    tests = [
+        TestParams(
+            id="resilient",
+            type=TestType.THRESHOLD,
+            metric="length.total_tokens",
+            operator=">",
+            value=100,
+        )
+    ]
+    engine = BatchTestEngine(tests)
+
+    # First batch has no data for the metric
+    engine.process_batch({}, ["conv_1"])
+
+    # Second batch has valid data
+    engine.process_batch(
+        {"length": [SampleMetrics(total_tokens=200, total_chars=400)]},
+        ["conv_2"],
+    )
+
+    summary = engine.finalize()
+    result = summary.results[0]
+
+    assert result.error is None
+    assert result.total_count == 1
+    assert result.details["matching_count"] == 1
+
+
 # -----------------------------------------------------------------------------
 # Tests: Metric Extraction
 # -----------------------------------------------------------------------------
@@ -420,6 +449,73 @@ def test_single_result_not_list():
     summary = engine.finalize()
 
     assert summary.passed_tests == 1
+
+
+def test_actual_value_single_item():
+    """Test that actual_value is populated for single-item metrics."""
+    tests = [
+        TestParams(
+            id="single_val",
+            type=TestType.THRESHOLD,
+            metric="length.total_tokens",
+            operator=">",
+            value=1000,
+        )
+    ]
+    engine = BatchTestEngine(tests)
+    engine.process_batch(
+        {"length": [SampleMetrics(total_tokens=42, total_chars=200)]},
+        ["conv_1"],
+    )
+    summary = engine.finalize()
+
+    assert summary.results[0].actual_value == 42.0
+
+
+def test_actual_value_none_for_multiple_items(
+    sample_results, sample_conversation_ids
+):
+    """Test that actual_value is None when there are multiple items."""
+    tests = [
+        TestParams(
+            id="multi_val",
+            type=TestType.THRESHOLD,
+            metric="length.total_tokens",
+            operator=">",
+            value=1000,
+        )
+    ]
+    engine = BatchTestEngine(tests)
+    engine.process_batch(sample_results, sample_conversation_ids)
+    summary = engine.finalize()
+
+    assert summary.results[0].actual_value is None
+
+
+def test_actual_value_none_for_multi_batch():
+    """Test that actual_value is None when total items span multiple batches."""
+    tests = [
+        TestParams(
+            id="multi_batch_val",
+            type=TestType.THRESHOLD,
+            metric="length.total_tokens",
+            operator=">",
+            value=1000,
+        )
+    ]
+    engine = BatchTestEngine(tests)
+    engine.process_batch(
+        {"length": [SampleMetrics(total_tokens=42, total_chars=200)]},
+        ["conv_1"],
+    )
+    engine.process_batch(
+        {"length": [SampleMetrics(total_tokens=99, total_chars=400)]},
+        ["conv_2"],
+    )
+    summary = engine.finalize()
+
+    # Two total items across batches → actual_value should be None
+    assert summary.results[0].actual_value is None
 
 
 def test_nested_dict_values():
