@@ -1,25 +1,25 @@
-# Customizing Oumi
+# Customizing Oumi OSS
 
 Often times when using a new framework, you may find that something you'd like to use is
 missing. We always welcome [contributions](/development/contributing), but we also understand that sometimes it's
 simpler to prototype changes locally. Whether you want to quickly experiment with new
 features, test out different implementation approaches, or iterate rapidly on your ideas
-without impacting the main codebase, Oumi provides a simple way to support
+without impacting the main codebase, Oumi OSS provides a simple way to support
 local customizations without any additional installations.
 
-## The Oumi Registry
+## The Oumi OSS Registry
 
 We support customization via the {py:class}`oumi.core.registry.Registry`.
 
 You can easily register classes that are then loaded as if they're a native part of the
-Oumi framework.
+Oumi OSS framework.
 
 See the diagram below for how we load your custom code:
 
 ```{mermaid}
 %%{init: {'theme': 'base', 'themeVariables': { 'background': '#f5f5f5'}}}%%
 graph LR
-    %% Oumi Framework
+    %% Oumi OSS Framework
     FR[Oumi] --> |Read OUMI_EXTRA_DEPS_FILE| RQ[requirements.txt]
 
     %% Load Custom Files
@@ -58,7 +58,7 @@ Don't forget to decorate your class with
 
 ### Custom Datasets
 
-Custom datasets are a great way to handle unique dataset formats that Oumi may not yet
+Custom datasets are a great way to handle unique dataset formats that Oumi OSS may not yet
 support.
 
 See the following snippets for examples of custom datasets:
@@ -99,8 +99,8 @@ Don't forget to decorate your function with `@register_judge(...)`!
 
 ## Enable Your Classes for the CLI
 
-If you're using Oumi as a python library, your custom classes will work out of the box!
-However, to use your custom classes from the Oumi CLI, you need to tell Oumi which files
+If you're using Oumi OSS as a python library, your custom classes will work out of the box!
+However, to use your custom classes from the Oumi OSS CLI, you need to tell Oumi OSS which files
 to load when initializing our Registry.
 
 To do this, you must first create a `requirements.txt` file. This file has a simple
@@ -124,7 +124,7 @@ export OUMI_EXTRA_DEPS_FILE=/another/path/requirements.txt
 
 ## See Also
 
-- {py:class}`oumi.core.models.BaseModel` - Base class for all Oumi models
+- {py:class}`oumi.core.models.BaseModel` - Base class for all Oumi OSS models
 - {py:class}`oumi.core.registry.Registry` - Model registration system
 - {py:class}`oumi.core.configs.params.model_params.ModelParams` - Base parameters class for models
 - {gh}`➿ Training CNN on Custom Dataset <notebooks/Oumi - Training CNN on Custom Dataset.ipynb>` - Sample Jupyter notebook using {py:class}`oumi.models.CNNClassifier` and [Custom Numpy Dataset](sample-custom-numpy-dataset).

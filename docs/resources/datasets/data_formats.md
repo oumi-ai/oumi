@@ -1,6 +1,6 @@
 # Chat Formats
 
-Oumi supports multiple popular input formats for representing conversations and messages for AI applications. For example, you can use the `Oumi Conversation` format, which is an extension of OpenAI's JSON format, or the `Alpaca Instruction` format, which is a simplified format that is easier to work with for single-turn instruction models.
+Oumi OSS supports multiple popular input formats for representing conversations and messages for AI applications. For example, you can use the `Oumi Conversation` format, which is an extension of OpenAI's JSON format, or the `Alpaca Instruction` format, which is a simplified format that is easier to work with for single-turn instruction models.
 
 The chat data representation is designed to be:
 - **Type-Safe**: Built on pydantic models for strong type checking and validation
@@ -11,7 +11,7 @@ The chat data representation is designed to be:
 In this guide, we will look at examples of each supported format, and how to use each format in oumi. This is essential for using your own chat data with oumi `train`, `infer`, and `judge` commands.
 
 ## Using Your Own Chat Data
-In general, to use your own data with Oumi, you need to convert it into a format that can be loaded by one of the existing {py:mod}`oumi.datasets`  classes.
+In general, to use your own data with Oumi OSS, you need to convert it into a format that can be loaded by one of the existing {py:mod}`oumi.datasets`  classes.
 
 For chat datasets in particular, which are used for {doc}`Supervised Fine-tuning </resources/datasets/sft_datasets>`, {doc}`Preference Tuning </resources/datasets/preference_datasets>`, {doc}`Vision-Language SFT </resources/datasets/vl_sft_datasets>` training, and for all {doc}`inference tasks </user_guides/infer/infer>`, we recommend using {py:class}`~oumi.datasets.sft.sft_jsonlines.TextSftJsonLinesDataset` (registered as `text_sft`) for text-only conversations, or {py:class}`~oumi.datasets.vision_language.vision_jsonlines.VLJsonlinesDataset` (registered as `vl_sft`) for multimodal conversations.
 
@@ -36,7 +36,7 @@ The conversation format is used internally by all the SFT, Preference Tuning, an
 ```
 
 This format is:
-- Used by internally by Oumi for most tasks. We recommend using it by default for your chat data.
+- Used by internally by Oumi OSS for most tasks. We recommend using it by default for your chat data.
 - Supports multi-turn conversations with system messages
 - Can handle multimodal content (text + images)
 - Allows for additional metadata
@@ -199,7 +199,7 @@ Let's looks at some examples of how these formats look in practice. You can furt
 
 ## Core Data Structures
 
-Oumi uses structured data formats implemented with pydantic models for robust type checking and validation:
+Oumi OSS uses structured data formats implemented with pydantic models for robust type checking and validation:
 
 ### Message Format
 
@@ -381,7 +381,7 @@ restored = Conversation.from_json(json_data)
 
 ## Data Validation
 
-Oumi uses pydantic models to automatically validate:
+Oumi OSS uses pydantic models to automatically validate:
 
 - Message role values
 - Content type consistency
