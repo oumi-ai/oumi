@@ -74,3 +74,6 @@ class InferenceEngineType(str, Enum):
 
     CEREBRAS = "CEREBRAS"
     """The inference engine for Cerebras API."""
+
+    JAX = "JAX"
+    """The JAX inference engine for high-performance JAX models."""

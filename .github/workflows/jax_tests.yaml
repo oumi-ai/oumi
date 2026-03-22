@@ -1,0 +1,159 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: "JAX Tests"
+
+on:
+  schedule:
+    - cron: '0 */12 * * *' # Every 12 hours
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'src/oumi/inference/jax_inference_engine.py'
+      - 'src/oumi/utils/jax_*.py'
+      - 'configs/recipes/jax/**'
+      - 'tests/**/test_jax_*.py'
+      - 'pyproject.toml'
+
+env:
+  XLA_PYTHON_CLIENT_PREALLOCATE: false
+  JAX_ENABLE_X64: false
+
+jobs:
+  jax-cpu-tests:
+    permissions:
+      contents: 'read'
+    runs-on: ubuntu-24.04
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        # Checkout using commit hash to make "no-commit-to-branch" test pass.
+        ref: ${{ github.sha }}
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+      with:
+        enable-cache: true
+        cache-dependency-glob: "pyproject.toml"
+
+    - name: "Set up Python"
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install JAX Dependencies
+      run: |
+        # Install development dependencies which includes JAX CPU
+        uv pip install -e '.[dev,docs,gcp,synthesis]' --system
+
+    - name: Run JAX CPU tests
+      run: |
+        cd ./tests/unit/
+        pytest -s -m "not e2e and not e2e_eternal and not single_gpu and not multi_gpu and not tpu" \
+               -k "jax" --durations=50 --timeout=300
+
+  jax-gpu-tests:
+    permissions:
+      contents: 'read'
+    runs-on: linux-gpu-runner
+    # Only run on certain conditions to save GPU resources
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' &&
+       contains(github.event.pull_request.title, '[jax]'))
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.sha }}
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+      with:
+        enable-cache: true
+        cache-dependency-glob: "pyproject.toml"
+
+    - name: "Set up Python"
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install JAX GPU Dependencies
+      run: |
+        nvidia-smi
+        # Install JAX for GPU
+        uv pip install -e '.[ci_jax]' --system
+        # Install JAX GPU version
+        uv pip install jax[cuda12_pip] --system
+
+    - name: Download Test Data
+      run: |
+        ./tests/scripts/predownload_for_github_gpu_tests.sh
+
+    - name: Run JAX GPU tests
+      run: |
+        cd ./tests/integration/
+        pytest -s -m "not e2e and not e2e_eternal and not multi_gpu and not tpu" \
+               -k "jax" --durations=50 --timeout=600
+
+  jax-tpu-tests:
+    permissions:
+      contents: 'read'
+    runs-on: ubuntu-24.04
+    # Only run on manual trigger or specific PR labels
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.pull_request.labels.*.name, 'tpu-test')
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.sha }}
+
+    - name: Setup Google Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+      with:
+        service_account_key: ${{ secrets.GCP_SA_KEY }}
+        project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+      with:
+        enable-cache: true
+        cache-dependency-glob: "pyproject.toml"
+
+    - name: "Set up Python"
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install JAX TPU Dependencies
+      run: |
+        # Install JAX for TPU
+        uv pip install -e '.[ci_jax]' --system
+        # Install JAX TPU version
+        uv pip install jax[tpu] -f https://storage.googleapis.com/jax-releases/libtpu_releases.html --system
+
+    - name: Run JAX TPU tests
+      run: |
+        # Set TPU environment variables
+        export TPU_NAME=${{ secrets.TPU_NAME }}
+        export TPU_ZONE=${{ secrets.TPU_ZONE }}
+
+        cd ./tests/integration/
+        pytest -s -m "tpu" -k "jax" --durations=50 --timeout=900

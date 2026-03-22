@@ -1,0 +1,14 @@
+poetry.lock
+scratch/**
+
+projects/charformer/data/
+projects/bio/data/
+
+# Python ignores
+__pycache__/
+*.pyc
+*.egg-info
+build/**
+
+.venv
+.vscode
