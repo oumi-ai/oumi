@@ -16,7 +16,7 @@
 
 from pathlib import Path
 
-from oumi.quantize.constants import SIZE_UNITS
+_SIZE_UNITS = ("B", "KB", "MB", "GB", "TB", "PB")
 
 
 def get_directory_size(path: str) -> int:
@@ -31,8 +31,9 @@ def get_directory_size(path: str) -> int:
 
 def format_size(size_bytes: int) -> str:
     """Format size in bytes to human readable format."""
-    for unit in SIZE_UNITS:
-        if size_bytes < 1024.0:
-            return f"{size_bytes:.1f} {unit}"
-        size_bytes = int(size_bytes / 1024.0)
-    return f"{size_bytes:.1f} PB"
+    size = float(size_bytes)
+    for unit in _SIZE_UNITS:
+        if size < 1024.0:
+            return f"{size:.1f} {unit}"
+        size /= 1024.0
+    return f"{size:.1f} PB"

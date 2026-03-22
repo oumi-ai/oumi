@@ -14,44 +14,40 @@
 
 """Quantization module for Oumi.
 
-This module provides comprehensive model quantization capabilities including
-AWQ, BitsAndBytes, and GGUF quantization methods.
+This module provides model quantization via LLM Compressor (FP8, GPTQ, AWQ)
+and BitsAndBytes (NF4, FP4, INT8).
 """
 
-from typing import TYPE_CHECKING
-
-from oumi.quantize.awq_quantizer import AwqQuantization
+from oumi.core.configs import QuantizationConfig
+from oumi.core.configs.quantization_config import QuantizationScheme
 from oumi.quantize.base import BaseQuantization, QuantizationResult
 from oumi.quantize.bnb_quantizer import BitsAndBytesQuantization
+from oumi.quantize.constants import QuantizationAlgorithm
+from oumi.quantize.llmcompressor_quantizer import LLMCompressorQuantization
 
-if TYPE_CHECKING:
-    from oumi.core.configs import QuantizationConfig
 
-
-def quantize(config: "QuantizationConfig") -> QuantizationResult:
+def quantize(config: QuantizationConfig) -> QuantizationResult:
     """Main quantization function that routes to appropriate quantizer.
 
     Args:
-        config: Quantization configuration containing method, model parameters,
-            and other settings.
+        config: Quantization configuration containing scheme, model
+            parameters, and other settings. The backend is inferred
+            from the scheme.
 
     Returns:
         QuantizationResult containing quantization results including file sizes
         and compression ratios.
 
     Raises:
-        ValueError: If quantization method is not supported
+        ValueError: If quantization configuration is invalid
         RuntimeError: If quantization fails
     """
-    from oumi.core.configs import QuantizationConfig
-
     if not isinstance(config, QuantizationConfig):
         raise ValueError(f"Expected QuantizationConfig, got {type(config)}")
 
-    # Use builder to create appropriate quantizer
     from oumi.builders.quantizers import build_quantizer
 
-    quantizer = build_quantizer(config.method)
+    quantizer = build_quantizer(config.backend)
     quantizer.raise_if_requirements_not_met()
 
     return quantizer.quantize(config)
@@ -59,8 +55,10 @@ def quantize(config: "QuantizationConfig") -> QuantizationResult:
 
 __all__ = [
     "BaseQuantization",
-    "QuantizationResult",
-    "AwqQuantization",
     "BitsAndBytesQuantization",
+    "LLMCompressorQuantization",
+    "QuantizationAlgorithm",
+    "QuantizationResult",
+    "QuantizationScheme",
     "quantize",
 ]

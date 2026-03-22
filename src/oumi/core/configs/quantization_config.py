@@ -13,78 +13,199 @@
 # limitations under the License.
 
 from dataclasses import dataclass, field
+from enum import Enum
 
 from oumi.core.configs.base_config import BaseConfig
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.exceptions import OumiConfigError
 
 
+class QuantizationBackend(str, Enum):
+    """Quantization library/backend selection (internal)."""
+
+    LLM_COMPRESSOR = "llm_compressor"
+    BNB = "bnb"
+
+
+class QuantizationScheme(str, Enum):
+    """Compression scheme for quantization.
+
+    LLM Compressor schemes are passed directly to LLM Compressor modifiers.
+    BnB schemes (prefixed with ``bnb_``) map to BitsAndBytes quantization types.
+    """
+
+    # LLM Compressor schemes
+    FP8_DYNAMIC = "fp8_dynamic"
+    FP8_BLOCK = "fp8_block"
+    W4A16 = "w4a16"
+    W4A16_ASYM = "w4a16_asym"
+    W8A16 = "w8a16"
+
+    # BitsAndBytes schemes
+    BNB_NF4 = "bnb_nf4"
+    BNB_FP4 = "bnb_fp4"
+    BNB_INT8 = "bnb_int8"
+
+
+class QuantizationAlgorithm(str, Enum):
+    """Quantization algorithm selection.
+
+    AUTO defers to the default algorithm defined in SCHEME_REGISTRY for the
+    chosen quantization scheme.
+    """
+
+    AUTO = "auto"
+    RTN = "rtn"
+    GPTQ = "gptq"
+    AWQ = "awq"
+    BNB = "bnb"
+
+
+def _coerce_enum(value, enum_cls: type[Enum], label: str):
+    """Coerce a plain string to an enum member, raising OumiConfigError on mismatch.
+
+    Accepts both enum values (e.g. 'fp8_dynamic') and enum names (e.g. 'FP8_DYNAMIC'),
+    since OmegaConf serializes enum fields by name when saving to YAML.
+    """
+    if isinstance(value, str) and not isinstance(value, enum_cls):
+        # Try by value first (e.g. 'fp8_dynamic'), then by name (e.g. 'FP8_DYNAMIC').
+        try:
+            return enum_cls(value)
+        except ValueError:
+            pass
+        try:
+            return enum_cls[value]
+        except KeyError:
+            pass
+        raise OumiConfigError(
+            f"Unsupported {label}: {value}. "
+            f"Must be one of: {[e.value for e in enum_cls]}."
+        )
+    return value
+
+
 @dataclass
 class QuantizationConfig(BaseConfig):
-    """Configuration for model quantization.
+    """Configuration for model quantization via LLM Compressor or BitsAndBytes.
 
-    Reduces model size by converting weights from higher precision (float32) to
-    lower precision (int4, int8) formats while maintaining performance.
+    Reduces model size by converting weights from higher precision to lower
+    precision formats, optimized for deployment with vLLM.
 
-    Tested on NVIDIA H100 GPU with models up to 14B parameters.
+    The backend is inferred automatically from the scheme: schemes prefixed
+    with ``bnb_`` use BitsAndBytes, all others use LLM Compressor.
 
     Example:
         >>> config = QuantizationConfig(
-        ...     model=ModelParams(model_name="meta-llama/Llama-2-7b-hf"),
-        ...     method="awq_q4_0",
-        ...     output_path="llama2-7b-q4.gguf"
+        ...     model=ModelParams(model_name="meta-llama/Llama-3.1-8B-Instruct"),
+        ...     scheme=QuantizationScheme.FP8_DYNAMIC,
+        ...     output_path="llama3-8b-fp8"
         ... )
     """
 
     model: ModelParams = field(default_factory=ModelParams)
     """Model to quantize. Supports HuggingFace IDs, local paths, or Oumi models."""
 
-    method: str = "awq_q4_0"
-    """Quantization method. AWQ methods (awq_q4_0, awq_q8_0) provide best quality.
-    Direct GGUF methods (q4_0, q8_0) for llama.cpp. Precision methods (f16, f32)."""
+    scheme: str | None = None
+    """Compression scheme (required).
+    LLM Compressor: fp8_dynamic, fp8_block, w4a16, w4a16_asym, w8a16.
+    BitsAndBytes: bnb_nf4, bnb_fp4, bnb_int8.
+    Accepts enum values or names; coerced in __post_init__."""
 
     output_path: str = "quantized_model"
-    """Output file path for the quantized model."""
+    """Output directory for the quantized model."""
 
     output_format: str = "safetensors"
     """Output format: 'safetensors'."""
 
-    batch_size: int | None = None
-    """Batch size for calibration. Auto-sized if None. Typical: 32, 8-32, 1-8."""
+    # --- Algorithm control ---
+
+    algorithm: str = QuantizationAlgorithm.AUTO.value
+    """Compression algorithm: 'auto', 'rtn', 'gptq', 'awq', 'bnb'.
+    'auto' selects the best algorithm for the chosen scheme.
+    Accepts enum values (auto) or names (AUTO); coerced in __post_init__."""
 
     verbose: bool = False
     """Enable detailed progress logging."""
 
-    # AWQ-specific configuration
-    awq_group_size: int = 128
-    """AWQ weight grouping size. 128 (balanced), 64 (higher accuracy), 256 (faster)."""
+    ignore_layers: list[str] = field(default_factory=lambda: ["lm_head"])
+    """Layer name patterns to exclude from quantization (regex supported)."""
 
-    awq_zero_point: bool = True
-    """Enable zero-point quantization for AWQ. Generally recommended."""
+    # --- Calibration settings ---
 
-    awq_version: str = "GEMM"
-    """AWQ kernel version. 'GEMM' (faster, default) or 'GEMV'."""
+    calibration_dataset: str = "HuggingFaceH4/ultrachat_200k"
+    """HuggingFace dataset ID for calibration data."""
 
-    cleanup_temp: bool = True
-    """Remove temporary AWQ files after conversion."""
+    calibration_split: str = "train_sft"
+    """Dataset split to use for calibration."""
 
     calibration_samples: int = 512
-    """AWQ calibration samples. 512 (balanced), 128 (faster), 1024 (more accurate)."""
+    """Number of calibration samples. 512 (balanced), 128 (faster), 1024 (accurate)."""
+
+    max_seq_length: int = 2048
+    """Max sequence length for calibration tokenization."""
+
+    # --- Algorithm-specific settings ---
+
+    group_size: int = 128
+    """Weight grouping size for GPTQ/AWQ (64/128/256)."""
+
+    dampening_frac: float = 0.1
+    """GPTQ dampening fraction."""
+
+    # --- Output control ---
+
+    save_compressed: bool = True
+    """Save in compressed-tensors format for optimized vLLM serving."""
+
+    # --- Computed (non-init) fields ---
+
+    backend: QuantizationBackend = field(
+        init=False, default=QuantizationBackend.LLM_COMPRESSOR
+    )
+    """Quantization backend, inferred from scheme. Not user-settable."""
 
     def __post_init__(self):
         """Post-initialization validation."""
-        from oumi.quantize.constants import SUPPORTED_METHODS, SUPPORTED_OUTPUT_FORMATS
+        # Imported lazily to avoid a circular import: quantize.constants imports
+        # the enums defined above.
+        from oumi.quantize.constants import SCHEME_REGISTRY, SUPPORTED_OUTPUT_FORMATS
 
-        # Validate output format
+        if self.scheme is None:
+            raise OumiConfigError(
+                "Quantization scheme is required. "
+                f"Must be one of: {[s.value for s in QuantizationScheme]}."
+            )
+        self.scheme = _coerce_enum(self.scheme, QuantizationScheme, "scheme")
+        self.backend = SCHEME_REGISTRY[self.scheme].backend
+
+        self.algorithm = _coerce_enum(
+            self.algorithm, QuantizationAlgorithm, "algorithm"
+        )
+
+        # BnB backend forces the BnB algorithm.
+        if self.backend == QuantizationBackend.BNB:
+            self.algorithm = QuantizationAlgorithm.BNB
+
+        # LLM Compressor backend rejects the BnB algorithm.
+        if (
+            self.backend == QuantizationBackend.LLM_COMPRESSOR
+            and self.algorithm == QuantizationAlgorithm.BNB
+        ):
+            raise OumiConfigError(
+                "Algorithm 'bnb' is not compatible with LLM Compressor schemes. "
+                "Use 'auto', 'rtn', 'gptq', or 'awq'."
+            )
+
         if self.output_format not in SUPPORTED_OUTPUT_FORMATS:
             raise OumiConfigError(
                 f"Unsupported output format: {self.output_format}. "
                 f"Must be one of: {SUPPORTED_OUTPUT_FORMATS}."
             )
 
-        # Validate quantization method
-        if self.method not in SUPPORTED_METHODS:
-            raise OumiConfigError(
-                f"Unsupported quantization method: {self.method}. "
-                f"Must be one of: {SUPPORTED_METHODS}."
-            )
+    def __finalize_and_validate__(self) -> None:
+        """Re-infer computed fields after config deserialization.
+
+        OmegaConf.to_object() bypasses __post_init__, so computed fields
+        like ``backend`` (derived from ``scheme``) need to be re-set here.
+        """
+        self.__post_init__()
