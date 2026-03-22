@@ -20,44 +20,24 @@ to the main quantize() function for when you need direct access to quantizer ins
 """
 
 from oumi.quantize.base import BaseQuantization
+from oumi.quantize.constants import BNB_METHODS, QuantizationMethod
 
 
-def build_quantizer(method: str) -> BaseQuantization:
+def build_quantizer(method: QuantizationMethod) -> BaseQuantization:
     """Create appropriate quantization instance based on method.
 
     Args:
-        method: Quantization method name (e.g., "awq_q4_0", "bnb_4bit")
+        method: Quantization method to use.
 
     Returns:
         Instance of appropriate quantization class
-
-    Raises:
-        ValueError: If method is not supported by any quantizer
     """
-    # Import here to avoid circular imports
-    from oumi.quantize.awq_quantizer import AwqQuantization
     from oumi.quantize.bnb_quantizer import BitsAndBytesQuantization
+    from oumi.quantize.llmcompressor_quantizer import LLMCompressorQuantization
 
-    # Determine quantizer based on method prefix
-    if method.startswith("awq_"):
-        return AwqQuantization()
-    elif method.startswith("bnb_"):
+    if method in BNB_METHODS:
         return BitsAndBytesQuantization()
-    else:
-        # Try all quantizers to find one that supports this method
-        for quantizer_class in [
-            AwqQuantization,
-            BitsAndBytesQuantization,
-        ]:
-            instance = quantizer_class()
-            if instance.supports_method(method):
-                return instance
-
-        available_methods = get_available_methods()
-        raise ValueError(
-            f"Unsupported quantization method: {method}. "
-            f"Available methods: {available_methods}"
-        )
+    return LLMCompressorQuantization()
 
 
 def get_available_methods() -> dict[str, list[str]]:
@@ -66,12 +46,11 @@ def get_available_methods() -> dict[str, list[str]]:
     Returns:
         Dictionary mapping quantizer names to their supported methods
     """
-    # Import here to avoid circular imports
-    from oumi.quantize.awq_quantizer import AwqQuantization
     from oumi.quantize.bnb_quantizer import BitsAndBytesQuantization
+    from oumi.quantize.llmcompressor_quantizer import LLMCompressorQuantization
 
     return {
-        "AWQ": AwqQuantization.supported_methods,
+        "LLMCompressor": LLMCompressorQuantization.supported_methods,
         "BitsAndBytes": BitsAndBytesQuantization.supported_methods,
     }
 
@@ -82,12 +61,11 @@ def get_supported_formats() -> list[str]:
     Returns:
         List of all supported output formats
     """
-    # Import here to avoid circular imports
-    from oumi.quantize.awq_quantizer import AwqQuantization
     from oumi.quantize.bnb_quantizer import BitsAndBytesQuantization
+    from oumi.quantize.llmcompressor_quantizer import LLMCompressorQuantization
 
     formats = set()
-    formats.update(AwqQuantization.supported_formats)
+    formats.update(LLMCompressorQuantization.supported_formats)
     formats.update(BitsAndBytesQuantization.supported_formats)
 
     return sorted(list(formats))

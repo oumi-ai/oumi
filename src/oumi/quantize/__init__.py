@@ -14,21 +14,18 @@
 
 """Quantization module for Oumi.
 
-This module provides comprehensive model quantization capabilities including
-AWQ, BitsAndBytes, and GGUF quantization methods.
+This module provides model quantization via LLM Compressor (FP8, GPTQ, AWQ)
+and BitsAndBytes (NF4, INT8).
 """
 
-from typing import TYPE_CHECKING
-
-from oumi.quantize.awq_quantizer import AwqQuantization
+from oumi.core.configs import QuantizationConfig
 from oumi.quantize.base import BaseQuantization, QuantizationResult
 from oumi.quantize.bnb_quantizer import BitsAndBytesQuantization
+from oumi.quantize.constants import QuantizationAlgorithm, QuantizationMethod
+from oumi.quantize.llmcompressor_quantizer import LLMCompressorQuantization
 
-if TYPE_CHECKING:
-    from oumi.core.configs import QuantizationConfig
 
-
-def quantize(config: "QuantizationConfig") -> QuantizationResult:
+def quantize(config: QuantizationConfig) -> QuantizationResult:
     """Main quantization function that routes to appropriate quantizer.
 
     Args:
@@ -43,12 +40,9 @@ def quantize(config: "QuantizationConfig") -> QuantizationResult:
         ValueError: If quantization method is not supported
         RuntimeError: If quantization fails
     """
-    from oumi.core.configs import QuantizationConfig
-
     if not isinstance(config, QuantizationConfig):
         raise ValueError(f"Expected QuantizationConfig, got {type(config)}")
 
-    # Use builder to create appropriate quantizer
     from oumi.builders.quantizers import build_quantizer
 
     quantizer = build_quantizer(config.method)
@@ -59,8 +53,10 @@ def quantize(config: "QuantizationConfig") -> QuantizationResult:
 
 __all__ = [
     "BaseQuantization",
-    "QuantizationResult",
-    "AwqQuantization",
     "BitsAndBytesQuantization",
+    "LLMCompressorQuantization",
+    "QuantizationAlgorithm",
+    "QuantizationMethod",
+    "QuantizationResult",
     "quantize",
 ]

@@ -1,0 +1,28 @@
+# W4A16 (4-bit weight) quantization config for TinyLlama via GPTQ.
+#
+# This method requires a calibration dataset and produces 4-bit weight-only
+# quantized models for deployment on Turing+ GPUs (T4, RTX 20xx and newer).
+#
+# Usage:
+#   oumi quantize -c configs/examples/quantization/w4a16_quantization_config.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/quantization.html
+#   - Config class: oumi.core.configs.QuantizationConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/quantization_config.py
+#   - Other quantization configs: configs/examples/quantization/*quantization_config.yaml
+
+# Model configuration
+model:
+  model_name: "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+
+# Quantization settings
+method: "w4a16"
+output_path: "tinyllama-1.1b-w4a16"
+
+# Calibration settings
+calibration_dataset: "HuggingFaceH4/ultrachat_200k"
+calibration_split: "train_sft"
+calibration_samples: 512
+max_seq_length: 2048
+group_size: 128

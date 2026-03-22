@@ -16,6 +16,7 @@
 
 import importlib.util
 from pathlib import Path
+from typing import cast
 
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -23,6 +24,7 @@ from typing_extensions import override
 
 from oumi.core.configs import QuantizationConfig
 from oumi.quantize.base import BaseQuantization, QuantizationResult
+from oumi.quantize.constants import BNB_METHODS, QuantizationMethod
 from oumi.quantize.utils import format_size, get_directory_size
 from oumi.utils.logging import logger
 
@@ -34,7 +36,7 @@ class BitsAndBytesQuantization(BaseQuantization):
     supporting both 4-bit and 8-bit quantization methods.
     """
 
-    supported_methods = ["bnb_4bit", "bnb_8bit"]
+    supported_methods = BNB_METHODS
     supported_formats = ["safetensors"]
 
     def __init__(self):
@@ -54,7 +56,6 @@ class BitsAndBytesQuantization(BaseQuantization):
                 "Install with: pip install bitsandbytes"
             )
 
-        # Import to get version info
         try:
             import bitsandbytes  # type: ignore
 
@@ -72,30 +73,30 @@ class BitsAndBytesQuantization(BaseQuantization):
         Returns:
             QuantizationResult containing quantization results
         """
-        # Validate configuration for this quantizer
         self.validate_config(config)
-
-        # Check requirements
-        self.raise_if_requirements_not_met()
 
         logger.info("Starting BitsAndBytes quantization pipeline...")
 
-        # Perform quantization
         model, tokenizer = self._quantize_model(config)
 
-        # Save model based on output format
-        output_path = self._save_model(model, tokenizer, config)
+        output_dir = Path(config.output_path)
+        output_dir.mkdir(parents=True, exist_ok=True)
 
-        quantized_size = get_directory_size(output_path)
+        logger.info(f"Saving quantized model to: {output_dir}")
+        model.save_pretrained(str(output_dir), safe_serialization=True)
+        tokenizer.save_pretrained(str(output_dir))
 
-        logger.info("✅ BitsAndBytes quantization successful!")
-        logger.info(f"📊 Quantized size: {format_size(quantized_size)}")
-        logger.info(f"💡 Model saved to: {output_path}")
+        quantized_size = get_directory_size(str(output_dir))
 
+        logger.info("BitsAndBytes quantization successful!")
+        logger.info(f"Quantized size: {format_size(quantized_size)}")
+        logger.info(f"Model saved to: {output_dir}")
+
+        method = cast(QuantizationMethod, config.method)
         return QuantizationResult(
-            quantization_method=config.method,
+            quantization_method=method,
             quantized_size_bytes=quantized_size,
-            output_path=output_path,
+            output_path=str(output_dir),
             format_type=config.output_format,
         )
 
@@ -104,25 +105,23 @@ class BitsAndBytesQuantization(BaseQuantization):
         logger.info(
             f"Loading model for BitsAndBytes quantization: {config.model.model_name}"
         )
-        logger.info("📥 Loading base model...")
 
-        # Configure quantization based on method
-        quantization_config = self._get_quantization_config(config.method)
+        method = cast(QuantizationMethod, config.method)
+        quantization_config = self._get_quantization_config(method)
+        logger.info(f"Using {method.value} quantization")
 
-        logger.info(f"🔧 Using {config.method} quantization")
-
-        # Load and quantize model
-        torch_dtype = config.model.torch_dtype
-        if torch_dtype == torch.float32:
-            torch_dtype = torch.float16
+        model_kwargs = dict(config.model.model_kwargs or {})
+        # Remove keys passed explicitly below to avoid duplicate keyword argument errors.
+        model_kwargs.pop("device_map", None)
+        model_kwargs.pop("torch_dtype", None)
+        model_kwargs["trust_remote_code"] = config.model.trust_remote_code
 
         model = AutoModelForCausalLM.from_pretrained(
             config.model.model_name,
             quantization_config=quantization_config,
-            device_map=config.model.device_map,
-            torch_dtype=torch_dtype,
-            trust_remote_code=config.model.trust_remote_code,
-            **(config.model.model_kwargs or {}),
+            device_map="auto",
+            torch_dtype=torch.float16,
+            **model_kwargs,
         )
 
         tokenizer = AutoTokenizer.from_pretrained(
@@ -133,18 +132,18 @@ class BitsAndBytesQuantization(BaseQuantization):
 
         return model, tokenizer
 
-    def _get_quantization_config(self, method: str):
+    def _get_quantization_config(self, method: QuantizationMethod):
         """Get BitsAndBytes quantization config based on method."""
         from transformers import BitsAndBytesConfig
 
-        if method == "bnb_4bit":
+        if method == QuantizationMethod.BNB_4BIT:
             return BitsAndBytesConfig(
                 load_in_4bit=True,
                 bnb_4bit_compute_dtype=torch.float16,
                 bnb_4bit_use_double_quant=True,
                 bnb_4bit_quant_type="nf4",
             )
-        elif method == "bnb_8bit":
+        elif method == QuantizationMethod.BNB_8BIT:
             return BitsAndBytesConfig(
                 load_in_8bit=True,
                 llm_int8_threshold=6.0,
@@ -152,26 +151,3 @@ class BitsAndBytesQuantization(BaseQuantization):
             )
         else:
             raise ValueError(f"Unsupported BitsAndBytes method: {method}")
-
-    def _save_model(self, model, tokenizer, config: QuantizationConfig) -> str:
-        """Save quantized model based on output format."""
-        # Ensure output directory exists
-        output_path = Path(config.output_path)
-        if output_path.suffix:
-            # If output_path has an extension, treat parent as directory
-            output_dir = output_path.parent
-        else:
-            # If no extension, treat as directory
-            output_dir = output_path
-
-        output_dir.mkdir(parents=True, exist_ok=True)
-
-        # Save based on format
-        logger.info(f"Saving quantized model to: {output_dir}")
-        model.save_pretrained(
-            str(output_dir),
-            safe_serialization=True,  # use safetensors
-        )
-        tokenizer.save_pretrained(str(output_dir))
-
-        return str(output_dir)

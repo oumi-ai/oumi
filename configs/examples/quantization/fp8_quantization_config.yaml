@@ -1,7 +1,10 @@
-# BitsAndBytes quantization config for TinyLlama.
+# FP8 dynamic quantization config for TinyLlama.
+#
+# This is a data-free method (no calibration dataset needed) that produces
+# FP8 models optimized for vLLM serving on Hopper+ GPUs (H100, H200).
 #
 # Usage:
-#   oumi quantize -c configs/examples/quantization/bnb_quantization_config.yaml
+#   oumi quantize -c configs/examples/quantization/fp8_quantization_config.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/quantization.html
@@ -12,8 +15,7 @@
 # Model configuration
 model:
   model_name: "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
-  tokenizer_name: "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
 
 # Quantization settings
-method: "bnb_4bit"
-output_path: "tinyllama-1.1b-bnb4"
+method: "fp8_dynamic"
+output_path: "tinyllama-1.1b-fp8"

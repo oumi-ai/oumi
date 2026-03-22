@@ -154,7 +154,11 @@ from oumi.core.configs.params.tuning_params import (
     TunerType,
     TuningParams,
 )
-from oumi.core.configs.quantization_config import QuantizationConfig
+from oumi.core.configs.quantization_config import (
+    QuantizationAlgorithm,
+    QuantizationConfig,
+    QuantizationMethod,
+)
 from oumi.core.configs.synthesis_config import SynthesisConfig
 from oumi.core.configs.training_config import TrainingConfig
 from oumi.core.configs.tuning_config import TuningConfig
@@ -195,7 +199,9 @@ __all__ = [
     "PeftParams",
     "PeftSaveMode",
     "ProfilerParams",
+    "QuantizationAlgorithm",
     "QuantizationConfig",
+    "QuantizationMethod",
     "RemoteParams",
     "SchedulerType",
     "ShardingStrategy",

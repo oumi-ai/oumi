@@ -61,7 +61,7 @@ def quantize(
             "--model",
             help=(
                 "Path or identifier of the model to quantize. "
-                "Can be a HuggingFace model ID (e.g., 'oumi-ai/HallOumi-8B'), "
+                "Can be a HuggingFace model ID (e.g., 'meta-llama/Llama-3.1-8B-Instruct'), "
                 "a local directory path, or an Oumi model registry identifier. "
                 "If not specified, uses the model defined in the config file."
             ),
@@ -75,27 +75,43 @@ def quantize(
             "--method",
             help=(
                 "Quantization method to use. "
-                "AWQ methods: awq_q4_0 (default), awq_q4_1, awq_q8_0, awq_f16. "
-                "BitsAndBytes methods: bnb_4bit, bnb_8bit."
+                "LLM Compressor: fp8_dynamic, fp8_block, "
+                "w4a16, w4a16_asym, w8a16. "
+                "BitsAndBytes: bnb_4bit, bnb_8bit."
             ),
             rich_help_panel="Quantization",
         ),
-    ] = "awq_q4_0",
+    ] = "",
+    algorithm: Annotated[
+        str,
+        typer.Option(
+            "--algorithm",
+            help=(
+                "Quantization algorithm: auto, rtn, gptq, awq. "
+                "'auto' selects the best algorithm for the chosen method."
+            ),
+            rich_help_panel="Quantization",
+        ),
+    ] = "",
     # Output options
     output: Annotated[
         str,
         typer.Option(
             "--output",
-            help="Output path for the quantized model.",
+            help="Output directory for the quantized model.",
             rich_help_panel="Output",
         ),
     ] = "quantized_model",
 ):
-    r"""🚧 DEVELOPMENT: Quantize a model to reduce its size and memory requirements.
+    r"""Quantize a model to reduce its size and memory requirements.
+
+    Supports LLM Compressor (FP8, GPTQ, AWQ) and BitsAndBytes (NF4, INT8)
+    quantization methods. Produces models in compressed-tensors format
+    optimized for vLLM serving.
 
     Example:
-        oumi quantize --model "oumi-ai/HallOumi-8B" --method awq_q4_0 \
-            --output "halloumi-8b-q4.gguf"
+        oumi quantize --model "meta-llama/Llama-3.1-8B-Instruct" \
+            --method fp8_dynamic --output "llama3-8b-fp8"
 
     Note:
         The quantization process may require significant memory and time,
@@ -107,11 +123,30 @@ def quantize(
     # Delayed imports
     from oumi import quantize as oumi_quantize
     from oumi.core.configs import ModelParams, QuantizationConfig
-    from oumi.quantize.constants import SUPPORTED_METHODS
+    from oumi.quantize.constants import QuantizationAlgorithm, QuantizationMethod
     from oumi.utils.torch_utils import device_cleanup
 
+    parsed_method: QuantizationMethod | None = None
+    if method:
+        try:
+            parsed_method = QuantizationMethod(method)
+        except ValueError:
+            raise typer.BadParameter(
+                f"Unsupported quantization method: {method}. "
+                f"Must be one of: {[m.value for m in QuantizationMethod]}."
+            )
+
+    parsed_algorithm: QuantizationAlgorithm | None = None
+    if algorithm:
+        try:
+            parsed_algorithm = QuantizationAlgorithm(algorithm)
+        except ValueError:
+            raise typer.BadParameter(
+                f"Unsupported algorithm: {algorithm}. "
+                f"Must be one of: {[a.value for a in QuantizationAlgorithm]}."
+            )
+
     if config is not None:
-        # Use provided config file
         config_path = str(
             cli_utils.resolve_and_fetch_config(
                 try_get_config_name_for_alias(config, AliasType.QUANTIZE),
@@ -121,40 +156,34 @@ def quantize(
             config_path, extra_args, logger=logger
         )
 
-        # Override config with CLI arguments if provided
-        if model:  # Non-empty string
+        if model:
             parsed_config.model.model_name = model
-        if method != "awq_q4_0":  # Only override if not default
-            parsed_config.method = method
-        if output != "quantized_model.gguf":  # Only override if not default
+        if parsed_method is not None:
+            parsed_config.method = parsed_method
+        if parsed_algorithm is not None:
+            parsed_config.algorithm = parsed_algorithm
+        if output != "quantized_model":
             parsed_config.output_path = output
-
-        # Only safetensors is supported for now
-        parsed_config.output_format = "safetensors"
     else:
-        # Create config from CLI arguments
-        if not model:  # Empty string or Nones
+        if not model:
             raise typer.BadParameter(
-                "Either --config must be provided or --model must be specified"
+                "Either --config must be provided or --model must be specified."
+            )
+        if parsed_method is None:
+            raise typer.BadParameter(
+                "--method is required when not using a config file. "
+                f"Must be one of: {[m.value for m in QuantizationMethod]}."
             )
 
-        # Determine appropriate output format based on method
-        if method.startswith("awq_"):
-            output_format = "pytorch"
-        elif method.startswith("bnb_"):
-            output_format = "pytorch"  # or "safetensors" depending on preference
-        else:
-            raise ValueError(
-                f"Unsupported quantization method: {method}. "
-                f"Must be one of: {SUPPORTED_METHODS}."
-            )
+        kwargs: dict = {
+            "model": ModelParams(model_name=model),
+            "method": parsed_method,
+            "output_path": output,
+        }
+        if parsed_algorithm is not None:
+            kwargs["algorithm"] = parsed_algorithm
 
-        parsed_config = QuantizationConfig(
-            model=ModelParams(model_name=model),
-            method=method,
-            output_path=output,
-            output_format=output_format,
-        )
+        parsed_config = QuantizationConfig(**kwargs)
 
     parsed_config.finalize_and_validate()
 
@@ -166,28 +195,25 @@ def quantize(
         with cli_utils.CONSOLE.status("Quantizing model...", spinner="dots"):
             result = oumi_quantize(parsed_config)
     except Exception as e:
-        logger.error(f"❌ Quantization failed: {e}")
+        logger.error(f"Quantization failed: {e}")
         device_cleanup()
         raise
 
-    # Check if quantization was successful
     if not result or not result.output_path:
-        logger.error("❌ Model quantization failed!")
+        logger.error("Model quantization failed!")
         device_cleanup()
         return
 
-    # Display results using QuantizationResult attributes
-    cli_utils.CONSOLE.print("✅ Model quantized successfully!")
-    cli_utils.CONSOLE.print(f"📁 Output saved to: {result.output_path}")
-    cli_utils.CONSOLE.print(f"🔧 Method: {result.quantization_method}")
-    cli_utils.CONSOLE.print(f"📋 Format: {result.format_type}")
+    cli_utils.CONSOLE.print("Model quantized successfully!")
+    cli_utils.CONSOLE.print(f"Output saved to: {result.output_path}")
+    cli_utils.CONSOLE.print(f"Method: {result.quantization_method}")
+    cli_utils.CONSOLE.print(f"Format: {result.format_type}")
     cli_utils.CONSOLE.print(
-        f"📊 Quantized size: {result.quantized_size_bytes / (1024**3):.2f} GB"
+        f"Quantized size: {result.quantized_size_bytes / (1024**3):.2f} GB"
     )
 
-    # Display additional info if available
     if result.additional_info:
         for key, value in result.additional_info.items():
-            cli_utils.CONSOLE.print(f"ℹ️  {key}: {value}")
+            cli_utils.CONSOLE.print(f"  {key}: {value}")
 
     device_cleanup()

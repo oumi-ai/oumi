@@ -1,34 +1,39 @@
 # Quantization Examples
 
-> 🚧 **DEVELOPMENT STATUS**: The quantization feature is currently under active development.
-
-This directory contains example configurations for model quantization using Oumi's AWQ and BitsAndBytes quantization methods.
+This directory contains example configurations for model quantization using
+Oumi's LLM Compressor and BitsAndBytes backends.
 
 > **NOTE**: Quantization requires a GPU to run.
 
 ## Configuration Files
 
-- **`awq_quantization_config.yaml`** - AWQ 4-bit quantization with calibration
+- **`fp8_quantization_config.yaml`** - FP8 dynamic quantization (data-free, Hopper+)
+- **`w4a16_quantization_config.yaml`** - 4-bit weight quantization via GPTQ (with calibration)
 - **`bnb_quantization_config.yaml`** - BitsAndBytes 4-bit quantization
 
 ## Quick Start
 
 ```bash
-# Simplest command-line usage
-oumi quantize --method awq_q4_0 --model "TinyLlama/TinyLlama-1.1B-Chat-v1.0" --output quantized_model
+# Data-free FP8 quantization (fastest, requires H100/H200)
+oumi quantize --model "TinyLlama/TinyLlama-1.1B-Chat-v1.0" \
+    --method fp8_dynamic --output tinyllama-fp8
+
+# 4-bit weight quantization via GPTQ (requires calibration data)
+oumi quantize -c configs/examples/quantization/w4a16_quantization_config.yaml
 
 # Using configuration file
-oumi quantize --config configs/examples/quantization/awq_quantization_config.yaml
+oumi quantize -c configs/examples/quantization/fp8_quantization_config.yaml
 ```
 
 ## Supported Methods
 
-### AWQ (Activation-aware Weight Quantization)
+### LLM Compressor
 
-- `awq_q4_0` - 4-bit quantization (default)
-- `awq_q4_1` - 4-bit with asymmetric quantization
-- `awq_q8_0` - 8-bit quantization
-- `awq_f16` - 16-bit float conversion
+- `fp8_dynamic` - FP8 dynamic quantization (data-free, Hopper+) **(default)**
+- `fp8_block` - FP8 block-wise quantization (data-free, Hopper+)
+- `w4a16` - 4-bit weight quantization via GPTQ (Turing+)
+- `w4a16_asym` - 4-bit asymmetric weight quantization via AWQ (Turing+)
+- `w8a16` - 8-bit weight quantization via GPTQ (Turing+)
 
 ### BitsAndBytes
 
@@ -37,18 +42,12 @@ oumi quantize --config configs/examples/quantization/awq_quantization_config.yam
 
 ## Output Formats
 
-- **safetensors** - HuggingFace safetensors format (`.safetensors` extension)
+- **safetensors** - compressed-tensors format optimized for vLLM serving
 
 ## Requirements
 
 ```bash
 pip install oumi[quantization]
-
-# Alternatively, for AWQ quantization only
-pip install autoawq
-
-# Alternatively, for BitsAndBytes quantization only
-pip install bitsandbytes
 ```
 
 For more details, see the [Quantization Guide](https://oumi.ai/docs/en/latest/user_guides/quantization.html).

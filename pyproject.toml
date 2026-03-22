@@ -175,7 +175,7 @@ evaluation = [
     "sentencepiece>=0.2.0",
 ]
 
-quantization = ["autoawq>=0.2,<0.3", "bitsandbytes>=0.47,<0.50"]
+quantization = ["llmcompressor>=0.10,<0.11", "bitsandbytes>=0.47,<0.50"]
 
 tune = ["optuna>=4.0.0,<5.0"]
 
