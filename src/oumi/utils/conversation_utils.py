@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import base64
+import warnings
 from typing import Any
 
 import PIL.Image
@@ -28,6 +29,82 @@ from oumi.utils.image_utils import (
     load_pil_image_from_url,
 )
 from oumi.utils.str_utils import truncate_text_pieces_to_max_tokens_limit
+
+
+_WARNED_ABOUT_OLD_FORMAT = False
+
+
+def _warn_old_format_once() -> None:
+    """Emit a one-time deprecation warning about old message format.
+
+    This warning is intended for development/debugging purposes to help
+    identify code that still uses the old internal format.
+    """
+    global _WARNED_ABOUT_OLD_FORMAT
+    if not _WARNED_ABOUT_OLD_FORMAT:
+        warnings.warn(
+            "Oumi's internal message format (type='text', content='...') is deprecated. "
+            "Use HuggingFace Transformers v5 format (type='text', text='...'). "
+            "This warning will be removed in a future version.",
+            DeprecationWarning,
+            stacklevel=4,
+        )
+        _WARNED_ABOUT_OLD_FORMAT = True
+
+
+def convert_content_item_to_hf_dict(item: ContentItem) -> dict[str, Any]:
+    """Convert ContentItem to HuggingFace Transformers v5 format.
+
+    This function converts oumi's internal ContentItem representation to the
+    format expected by HuggingFace Transformers v5+ chat templates.
+
+    Args:
+        item: The ContentItem to convert.
+
+    Returns:
+        A dictionary in HuggingFace Transformers v5 format:
+        - Text: {"type": "text", "text": "..."}
+        - Image URL: {"type": "image", "url": "..."}
+        - Image path: {"type": "image", "path": "..."}
+        - Image binary: {"type": "image", "base64": "..."}
+
+    Raises:
+        ValueError: If the ContentItem type is unknown.
+    """
+    if item.type == Type.TEXT:
+        return {"type": "text", "text": item.content or ""}
+    elif item.type == Type.IMAGE_URL:
+        return {"type": "image", "url": item.content or ""}
+    elif item.type == Type.IMAGE_PATH:
+        return {"type": "image", "path": item.content or ""}
+    elif item.type == Type.IMAGE_BINARY:
+        b64 = base64.b64encode(item.binary).decode("ascii") if item.binary else ""
+        return {"type": "image", "base64": b64}
+    raise ValueError(f"Unknown content item type: {item.type}")
+
+
+def convert_message_to_hf_dict(message: Message) -> dict[str, Any]:
+    """Convert Message to HuggingFace Transformers v5 compatible dict.
+
+    This function converts oumi's internal Message representation to the
+    format expected by HuggingFace Transformers v5+ chat templates.
+
+    Args:
+        message: The Message to convert.
+
+    Returns:
+        A dictionary with "role" and "content" keys in HF v5 format.
+        For simple string content, "content" is a string.
+        For multimodal content, "content" is a list of HF-formatted items.
+    """
+    result: dict[str, Any] = {"role": message.role.value}
+    if isinstance(message.content, str):
+        result["content"] = message.content
+    else:
+        result["content"] = [
+            convert_content_item_to_hf_dict(item) for item in message.content
+        ]
+    return result
 
 
 def load_image_bytes_to_content_item(

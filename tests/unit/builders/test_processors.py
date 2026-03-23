@@ -338,3 +338,128 @@ def test_processor_apply_chat_template_multimodal_text_content():
     prompt = processor.apply_chat_template(messages)
     assert isinstance(prompt, str)
     assert "Describe the following:" in prompt
+
+
+def test_processor_converts_multimodal_to_hf_format():
+    """Test DefaultProcessor converts multimodal content to HF Transformers v5 format.
+
+    This test verifies that multimodal content items are converted to the HF format:
+    - Text: {"type": "text", "text": "..."} (NOT "content")
+    - Image URL: {"type": "image", "url": "..."}
+    - Image path: {"type": "image", "path": "..."}
+    """
+    from oumi.core.processors.default_processor import DefaultProcessor
+
+    model_params = ModelParams(
+        model_name="llava-hf/llava-1.5-7b-hf", chat_template="llava"
+    )
+    tokenizer: BaseTokenizer = build_tokenizer(model_params)
+    processor: BaseProcessor = build_processor(
+        model_params.model_name, tokenizer, trust_remote_code=False
+    )
+
+    assert isinstance(processor, DefaultProcessor)
+
+    # Test multimodal content conversion
+    messages = [
+        Message(
+            role=Role.USER,
+            content=[
+                ContentItem(type=Type.IMAGE_URL, content="http://example.com/img.jpg"),
+                ContentItem(type=Type.TEXT, content="What is this?"),
+            ],
+        ),
+    ]
+    converted = processor._convert_messages_to_dicts(messages)
+
+    assert len(converted) == 1
+    assert converted[0]["role"] == "user"
+    assert isinstance(converted[0]["content"], list)
+    assert len(converted[0]["content"]) == 2
+
+    # Verify HF format: image uses "url" key
+    assert converted[0]["content"][0] == {
+        "type": "image",
+        "url": "http://example.com/img.jpg",
+    }
+    # Verify HF format: text uses "text" key (NOT "content")
+    assert converted[0]["content"][1] == {"type": "text", "text": "What is this?"}
+
+
+def test_processor_converts_image_path_to_hf_format():
+    """Test DefaultProcessor converts image path to HF Transformers v5 format."""
+    from oumi.core.processors.default_processor import DefaultProcessor
+
+    model_params = ModelParams(
+        model_name="llava-hf/llava-1.5-7b-hf", chat_template="llava"
+    )
+    tokenizer: BaseTokenizer = build_tokenizer(model_params)
+    processor: BaseProcessor = build_processor(
+        model_params.model_name, tokenizer, trust_remote_code=False
+    )
+
+    assert isinstance(processor, DefaultProcessor)
+
+    messages = [
+        Message(
+            role=Role.USER,
+            content=[
+                ContentItem(type=Type.IMAGE_PATH, content="/path/to/image.png"),
+                ContentItem(type=Type.TEXT, content="Describe this."),
+            ],
+        ),
+    ]
+    converted = processor._convert_messages_to_dicts(messages)
+
+    assert len(converted) == 1
+    assert converted[0]["role"] == "user"
+    assert isinstance(converted[0]["content"], list)
+    assert len(converted[0]["content"]) == 2
+
+    # Verify HF format: image path uses "path" key
+    assert converted[0]["content"][0] == {
+        "type": "image",
+        "path": "/path/to/image.png",
+    }
+    assert converted[0]["content"][1] == {"type": "text", "text": "Describe this."}
+
+
+def test_processor_converts_image_binary_to_hf_format():
+    """Test DefaultProcessor converts image binary to HF Transformers v5 format."""
+    from oumi.core.processors.default_processor import DefaultProcessor
+
+    model_params = ModelParams(
+        model_name="llava-hf/llava-1.5-7b-hf", chat_template="llava"
+    )
+    tokenizer: BaseTokenizer = build_tokenizer(model_params)
+    processor: BaseProcessor = build_processor(
+        model_params.model_name, tokenizer, trust_remote_code=False
+    )
+
+    assert isinstance(processor, DefaultProcessor)
+
+    image_binary = base64.b64decode(_SMALL_B64_IMAGE)
+    messages = [
+        Message(
+            role=Role.USER,
+            content=[
+                ContentItem(type=Type.IMAGE_BINARY, binary=image_binary),
+                ContentItem(type=Type.TEXT, content="What do you see?"),
+            ],
+        ),
+    ]
+    converted = processor._convert_messages_to_dicts(messages)
+
+    assert len(converted) == 1
+    assert converted[0]["role"] == "user"
+    assert isinstance(converted[0]["content"], list)
+    assert len(converted[0]["content"]) == 2
+
+    # Verify HF format: image binary uses "base64" key
+    assert converted[0]["content"][0]["type"] == "image"
+    assert "base64" in converted[0]["content"][0]
+    # Verify the base64 decodes to original bytes
+    decoded = base64.b64decode(converted[0]["content"][0]["base64"])
+    assert decoded == image_binary
+
+    assert converted[0]["content"][1] == {"type": "text", "text": "What do you see?"}

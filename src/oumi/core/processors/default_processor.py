@@ -227,11 +227,20 @@ class DefaultProcessor(BaseProcessor):
         return result
 
     def _convert_messages_to_dicts(self, messages: list[Message]) -> list[dict]:
-        """Converts Message objects to dict format for HuggingFace compatibility."""
-        return [
-            msg.model_dump(mode="json", exclude_none=True, exclude_unset=True)
-            for msg in messages
-        ]
+        """Converts Message objects to HuggingFace Transformers v5 format.
+
+        This method converts oumi's internal Message representation to the
+        format expected by HuggingFace Transformers v5+ chat templates.
+
+        Args:
+            messages: List of Message objects to convert.
+
+        Returns:
+            List of dictionaries in HuggingFace Transformers v5 format.
+        """
+        from oumi.utils.conversation_utils import convert_message_to_hf_dict
+
+        return [convert_message_to_hf_dict(msg) for msg in messages]
 
     @override
     def apply_chat_template(

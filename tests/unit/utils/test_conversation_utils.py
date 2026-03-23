@@ -13,6 +13,8 @@ from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.types.conversation import ContentItem, Conversation, Message, Role, Type
 from oumi.utils.conversation_utils import (
     base64encode_content_item_image_bytes,
+    convert_content_item_to_hf_dict,
+    convert_message_to_hf_dict,
     convert_message_to_json_content,
     convert_message_to_json_content_list,
     create_list_of_message_json_dicts,
@@ -802,3 +804,130 @@ def test_truncate_text_in_content_items(
         assert truncated_messages == expected_messages
     else:
         assert truncated_messages == messages
+
+
+# HuggingFace Transformers v5 format conversion tests
+
+
+def test_convert_content_item_to_hf_dict_text():
+    """Test conversion of text ContentItem to HF format."""
+    item = ContentItem(type=Type.TEXT, content="Hello")
+    result = convert_content_item_to_hf_dict(item)
+    assert result == {"type": "text", "text": "Hello"}
+
+
+def test_convert_content_item_to_hf_dict_text_empty():
+    """Test conversion of empty text ContentItem to HF format."""
+    item = ContentItem(type=Type.TEXT, content="")
+    result = convert_content_item_to_hf_dict(item)
+    assert result == {"type": "text", "text": ""}
+
+
+def test_convert_content_item_to_hf_dict_image_url():
+    """Test conversion of image URL ContentItem to HF format."""
+    item = ContentItem(type=Type.IMAGE_URL, content="http://example.com/img.jpg")
+    result = convert_content_item_to_hf_dict(item)
+    assert result == {"type": "image", "url": "http://example.com/img.jpg"}
+
+
+def test_convert_content_item_to_hf_dict_image_path():
+    """Test conversion of image path ContentItem to HF format."""
+    item = ContentItem(type=Type.IMAGE_PATH, content="/path/to/img.jpg")
+    result = convert_content_item_to_hf_dict(item)
+    assert result == {"type": "image", "path": "/path/to/img.jpg"}
+
+
+def test_convert_content_item_to_hf_dict_image_binary():
+    """Test conversion of image binary ContentItem to HF format."""
+    png_bytes = create_test_png_image_bytes()
+    item = ContentItem(type=Type.IMAGE_BINARY, binary=png_bytes)
+    result = convert_content_item_to_hf_dict(item)
+    assert result["type"] == "image"
+    assert "base64" in result
+    assert isinstance(result["base64"], str)
+    # Verify base64 decodes back to original bytes
+    import base64
+
+    decoded = base64.b64decode(result["base64"])
+    assert decoded == png_bytes
+
+
+def test_convert_message_to_hf_dict_simple():
+    """Test conversion of simple string content Message to HF format."""
+    msg = Message(role=Role.USER, content="Hello")
+    result = convert_message_to_hf_dict(msg)
+    assert result == {"role": "user", "content": "Hello"}
+
+
+def test_convert_message_to_hf_dict_assistant():
+    """Test conversion of assistant Message to HF format."""
+    msg = Message(role=Role.ASSISTANT, content="Hi there!")
+    result = convert_message_to_hf_dict(msg)
+    assert result == {"role": "assistant", "content": "Hi there!"}
+
+
+def test_convert_message_to_hf_dict_system():
+    """Test conversion of system Message to HF format."""
+    msg = Message(role=Role.SYSTEM, content="You are a helpful assistant.")
+    result = convert_message_to_hf_dict(msg)
+    assert result == {"role": "system", "content": "You are a helpful assistant."}
+
+
+def test_convert_message_to_hf_dict_multimodal():
+    """Test conversion of multimodal Message to HF format."""
+    msg = Message(
+        role=Role.USER,
+        content=[
+            ContentItem(type=Type.IMAGE_URL, content="http://example.com/img.jpg"),
+            ContentItem(type=Type.TEXT, content="What is this?"),
+        ],
+    )
+    result = convert_message_to_hf_dict(msg)
+    assert result["role"] == "user"
+    assert isinstance(result["content"], list)
+    assert len(result["content"]) == 2
+    assert result["content"][0] == {"type": "image", "url": "http://example.com/img.jpg"}
+    assert result["content"][1] == {"type": "text", "text": "What is this?"}
+
+
+def test_convert_message_to_hf_dict_multimodal_with_path():
+    """Test conversion of multimodal Message with image path to HF format."""
+    msg = Message(
+        role=Role.USER,
+        content=[
+            ContentItem(type=Type.TEXT, content="Describe this:"),
+            ContentItem(type=Type.IMAGE_PATH, content="/path/to/image.png"),
+        ],
+    )
+    result = convert_message_to_hf_dict(msg)
+    assert result["role"] == "user"
+    assert isinstance(result["content"], list)
+    assert len(result["content"]) == 2
+    assert result["content"][0] == {"type": "text", "text": "Describe this:"}
+    assert result["content"][1] == {"type": "image", "path": "/path/to/image.png"}
+
+
+def test_convert_message_to_hf_dict_multimodal_with_binary():
+    """Test conversion of multimodal Message with image binary to HF format."""
+    png_bytes = create_test_png_image_bytes()
+    msg = Message(
+        role=Role.USER,
+        content=[
+            ContentItem(type=Type.IMAGE_BINARY, binary=png_bytes),
+            ContentItem(type=Type.TEXT, content="What do you see?"),
+        ],
+    )
+    result = convert_message_to_hf_dict(msg)
+    assert result["role"] == "user"
+    assert isinstance(result["content"], list)
+    assert len(result["content"]) == 2
+    assert result["content"][0]["type"] == "image"
+    assert "base64" in result["content"][0]
+    assert result["content"][1] == {"type": "text", "text": "What do you see?"}
+
+
+def test_convert_message_to_hf_dict_empty_content_list():
+    """Test conversion of Message with empty content list to HF format."""
+    msg = Message(role=Role.USER, content=[])
+    result = convert_message_to_hf_dict(msg)
+    assert result == {"role": "user", "content": []}
