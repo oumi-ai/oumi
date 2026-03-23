@@ -128,8 +128,10 @@ class GeneratedToolEnvironment:
                     f"does not conform to the provided state schema."
                 )
 
-    def _generate_result(self, tool: ToolAttribute, arguments: dict[str, Any]) -> str:
-        """LLM call: given current state + tool call, produce tool output."""
+    def build_result_prompt(
+        self, tool: ToolAttribute, arguments: dict[str, Any]
+    ) -> Conversation:
+        """Build the prompt for generating a tool result."""
         system_parts = [
             self._config.system_prompt,
             f"\nCurrent state:\n{json.dumps(self._state, indent=2)}",
@@ -152,24 +154,16 @@ class GeneratedToolEnvironment:
             Message(role=Role.SYSTEM, content="\n".join(system_parts)),
             Message(role=Role.USER, content="\n".join(user_parts)),
         ]
-        conversation = Conversation(messages=messages)
+        return Conversation(messages=messages)
 
-        results = self._inference_engine.infer(
-            [conversation], inference_config=self._inference_config
-        )
-        return self._extract_text(results[0])
-
-    def _update_state(
+    def build_state_update_prompt(
         self,
         tool: ToolAttribute,
         arguments: dict[str, Any],
         result: str,
         retry: bool = False,
-    ) -> dict[str, Any] | None:
-        """LLM call: given state + tool call + result, produce new state.
-
-        Returns None if JSON parsing fails, signaling that a retry is needed.
-        """
+    ) -> Conversation:
+        """Build the prompt for updating state."""
         system_parts = [
             self._config.system_prompt,
         ]
@@ -196,8 +190,46 @@ class GeneratedToolEnvironment:
             Message(role=Role.SYSTEM, content="\n".join(system_parts)),
             Message(role=Role.USER, content="\n".join(user_parts)),
         ]
-        conversation = Conversation(messages=messages)
+        return Conversation(messages=messages)
 
+    def apply_result(self, response: Conversation) -> str:
+        """Extract the tool result text from an inference response."""
+        return self._extract_text(response)
+
+    def apply_state_update(self, response: Conversation) -> bool:
+        """Parse, validate, and apply a state update from an inference response.
+
+        Returns True if the state was successfully updated, False otherwise.
+        """
+        text = self._extract_text(response)
+        parsed = extract_json(text, expected_type=dict)
+        if isinstance(parsed, dict) and self._validate_state(parsed):
+            self._state = parsed
+            return True
+        if not isinstance(parsed, dict):
+            logger.warning(f"Failed to parse state update JSON: {text[:200]}")
+        return False
+
+    def _generate_result(self, tool: ToolAttribute, arguments: dict[str, Any]) -> str:
+        """Given current state + tool call, produce tool output."""
+        conversation = self.build_result_prompt(tool, arguments)
+        results = self._inference_engine.infer(
+            [conversation], inference_config=self._inference_config
+        )
+        return self._extract_text(results[0])
+
+    def _update_state(
+        self,
+        tool: ToolAttribute,
+        arguments: dict[str, Any],
+        result: str,
+        retry: bool = False,
+    ) -> dict[str, Any] | None:
+        """LLM call: given state + tool call + result, produce new state.
+
+        Returns None if JSON parsing fails, signaling that a retry is needed.
+        """
+        conversation = self.build_state_update_prompt(tool, arguments, result, retry)
         results = self._inference_engine.infer(
             [conversation], inference_config=self._inference_config
         )
@@ -221,12 +253,201 @@ class GeneratedToolEnvironment:
             logger.warning(f"State validation failed: {e.message}")
             return False
 
+    def build_schema_prompt(
+        self,
+        tools: list[ToolAttribute],
+        scenario_context: str | None = None,
+    ) -> Conversation:
+        """Build the prompt for generating a JSON Schema from tool definitions.
+
+        No LLM call is made. Returns a Conversation ready for batched inference.
+
+        Args:
+            tools: All tools bound to this environment.
+            scenario_context: Optional conversation persona/scenario context.
+
+        Returns:
+            A Conversation with system and user messages.
+        """
+        tool_descriptions = []
+        for tool in tools:
+            desc = (
+                f"- {tool.name} ({tool.description})\n"
+                f"  read_only: {tool.read_only}\n"
+                f"  parameters: {json.dumps(tool.parameters)}"
+            )
+            if tool.output_schema:
+                desc += f"\n  output_schema: {json.dumps(tool.output_schema)}"
+            tool_descriptions.append(desc)
+
+        system_msg = (
+            "You are designing a JSON Schema for the state of an environment.\n\n"
+            f"Environment: {self._config.name}\n"
+            f"Description: {self._config.description}\n\n"
+            f"{self._config.system_prompt}"
+        )
+
+        user_parts = [
+            "The following tools operate on this environment:\n\n"
+            + "\n\n".join(tool_descriptions)
+            + "\n\nDesign a JSON Schema for the state. "
+            "Every field that any tool reads or writes must be represented. "
+            "Output ONLY a valid JSON Schema object.",
+        ]
+        if scenario_context:
+            user_parts.insert(0, f"Scenario context: {scenario_context}\n\n")
+
+        messages = [
+            Message(role=Role.SYSTEM, content=system_msg),
+            Message(role=Role.USER, content="\n".join(user_parts)),
+        ]
+        return Conversation(messages=messages)
+
+    def apply_schema(self, response: Conversation) -> bool:
+        """Parse JSON from the response and store it as the state schema.
+
+        Args:
+            response: Inference response containing JSON schema.
+
+        Returns:
+            True if the schema was successfully parsed and stored,
+            False otherwise. On failure, _state_schema is unchanged.
+        """
+        text = self._extract_text(response)
+        parsed = extract_json(text, expected_type=dict)
+        if isinstance(parsed, dict):
+            self._state_schema = parsed
+            return True
+        logger.warning(f"Failed to parse schema JSON: {text[:200]}")
+        return False
+
+    def build_initial_state_prompt(
+        self,
+        scenario_context: str | None = None,
+    ) -> Conversation:
+        """Build the prompt for generating an initial state.
+
+        No LLM call is made. Requires self._state_schema to be set already.
+        Returns a Conversation ready for batched inference.
+
+        Args:
+            scenario_context: Optional conversation persona/scenario context.
+
+        Returns:
+            A Conversation with system and user messages.
+        """
+        system_msg = (
+            f"You are initializing the state of an environment.\n\n"
+            f"Environment: {self._config.name}\n"
+            f"Description: {self._config.description}\n\n"
+            f"{self._config.system_prompt}"
+        )
+
+        user_parts = [
+            f"State schema:\n{json.dumps(self._state_schema, indent=2)}\n\n"
+            "Generate a realistic initial state conforming to this schema. "
+            "Output ONLY valid JSON.",
+        ]
+        if scenario_context:
+            user_parts.insert(0, f"Scenario context: {scenario_context}\n\n")
+
+        messages = [
+            Message(role=Role.SYSTEM, content=system_msg),
+            Message(role=Role.USER, content="\n".join(user_parts)),
+        ]
+        return Conversation(messages=messages)
+
+    def apply_initial_state(self, response: Conversation) -> bool:
+        """Parse JSON from response, validate against schema, and store as state.
+
+        Args:
+            response: Inference response containing the initial state JSON.
+
+        Returns:
+            True if the state was successfully parsed, validated, and stored.
+            False otherwise. On failure, _state is unchanged.
+        """
+        text = self._extract_text(response)
+        parsed = extract_json(text, expected_type=dict)
+        if not isinstance(parsed, dict):
+            logger.warning(f"Failed to parse initial state JSON: {text[:200]}")
+            return False
+        if not self._validate_state(parsed):
+            return False
+        self._state = parsed
+        return True
+
+    def summarize_state(self) -> str:
+        """Produce a concise rule-based text summary of the current state.
+
+        No LLM call is made. Walks the JSON state to produce a readable
+        summary. For dicts: list keys with child summaries. For lists:
+        report length and keys of first element if dict items.
+
+        Example output: "files: a.txt: (str), b.txt: (str)"
+
+        Returns:
+            A human-readable string summary of the current state.
+        """
+        if not self._state:
+            return ""
+        parts = []
+        for key, value in self._state.items():
+            child_summary = self._summarize_value(value, depth=1)
+            if child_summary:
+                parts.append(f"{key}: {child_summary}")
+            else:
+                parts.append(key)
+        return ", ".join(parts)
+
+    @staticmethod
+    def _summarize_value(value: Any, depth: int, max_depth: int = 3) -> str:
+        """Recursively produce a concise summary of a JSON value.
+
+        Args:
+            value: The value to summarize.
+            depth: Current recursion depth.
+            max_depth: Maximum recursion depth before truncating.
+
+        Returns:
+            A concise string summary of the value.
+        """
+        if depth > max_depth:
+            return "..."
+
+        if isinstance(value, dict):
+            if not value:
+                return "{}"
+            parts = []
+            for k, v in value.items():
+                child = GeneratedToolEnvironment._summarize_value(
+                    v, depth + 1, max_depth
+                )
+                if child:
+                    parts.append(f"{k}: {child}")
+                else:
+                    parts.append(str(k))
+            return ", ".join(parts)
+
+        if isinstance(value, list):
+            count = len(value)
+            if count == 0:
+                return "[]"
+            first = value[0] if value else None
+            if isinstance(first, dict) and first:
+                keys = ", ".join(str(k) for k in first.keys())
+                return f"[{count} items, keys: {keys}]"
+            return f"[{count} items]"
+
+        # Scalar — just report the type name
+        return f"({type(value).__name__})"
+
     def _generate_schema(
         self,
         tools: list[ToolAttribute],
         scenario_context: str | None = None,
     ) -> dict[str, Any]:
-        """LLM call: generate a JSON Schema from tool definitions."""
+        """Generate a JSON Schema from tool definitions."""
         tool_descriptions = []
         for tool in tools:
             desc = (
