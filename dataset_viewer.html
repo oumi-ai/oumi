@@ -1,0 +1,1198 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Oumi Dataset Viewer</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Inria+Sans:ital,wght@0,300;0,400;0,700;1,300;1,400&family=Orbitron:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@300;400;500&display=swap"
+            rel="stylesheet"
+        />
+        <style>
+            :root {
+                --black: #000000;
+                --black-soft: #0a0a0f;
+                --surface: #101018;
+                --surface-raised: #16161f;
+                --surface-overlay: #1c1c28;
+                --border: rgba(255, 255, 255, 0.06);
+                --border-subtle: rgba(255, 255, 255, 0.03);
+                --blue: #085cff;
+                --blue-glow: rgba(8, 92, 255, 0.15);
+                --blue-dim: rgba(8, 92, 255, 0.08);
+                --blue-bright: #3d7fff;
+                --white: #ffffff;
+                --text: rgba(255, 255, 255, 0.92);
+                --text-secondary: rgba(255, 255, 255, 0.55);
+                --text-muted: rgba(255, 255, 255, 0.3);
+                --text-ghost: rgba(255, 255, 255, 0.15);
+                --accent-green: #00d67d;
+                --accent-green-dim: rgba(0, 214, 125, 0.08);
+                --accent-red: #ff4466;
+                --accent-red-dim: rgba(255, 68, 102, 0.08);
+                --accent-amber: #ffaa22;
+                --accent-amber-dim: rgba(255, 170, 34, 0.08);
+                --accent-purple: #a855f7;
+                --accent-purple-dim: rgba(168, 85, 247, 0.08);
+                --accent-purple-border: rgba(168, 85, 247, 0.25);
+                --title: "Orbitron", sans-serif;
+                --heading: "Inria Sans", "Helvetica Neue", sans-serif;
+                --body: "Crimson Pro", "Georgia", serif;
+                --mono: "IBM Plex Mono", "Courier New", monospace;
+                --shadow:
+                    0 2px 12px rgba(0, 0, 0, 0.4), 0 0 1px rgba(8, 92, 255, 0.1);
+                --shadow-lg:
+                    0 8px 40px rgba(0, 0, 0, 0.5),
+                    0 0 1px rgba(8, 92, 255, 0.15);
+                --radius: 8px;
+                --radius-sm: 4px;
+            }
+
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            html {
+                font-size: 16px;
+            }
+            body {
+                font-family: var(--body);
+                background: var(--black-soft);
+                color: var(--text);
+                min-height: 100vh;
+                -webkit-font-smoothing: antialiased;
+                overflow-x: hidden;
+            }
+
+            /* ── Background grid + glow ── */
+            body::before {
+                content: "";
+                position: fixed;
+                inset: 0;
+                background:
+                    radial-gradient(
+                        ellipse 60% 40% at 50% 0%,
+                        var(--blue-glow) 0%,
+                        transparent 70%
+                    ),
+                    linear-gradient(
+                        rgba(255, 255, 255, 0.02) 1px,
+                        transparent 1px
+                    ),
+                    linear-gradient(
+                        90deg,
+                        rgba(255, 255, 255, 0.02) 1px,
+                        transparent 1px
+                    );
+                background-size:
+                    100% 100%,
+                    40px 40px,
+                    40px 40px;
+                pointer-events: none;
+                z-index: 0;
+            }
+
+            /* ── Topbar ── */
+            .topbar {
+                position: sticky;
+                top: 0;
+                z-index: 100;
+                background: rgba(10, 10, 15, 0.85);
+                backdrop-filter: blur(20px) saturate(1.4);
+                -webkit-backdrop-filter: blur(20px) saturate(1.4);
+                border-bottom: 1px solid var(--border);
+                padding: 0 28px;
+                height: 56px;
+                display: flex;
+                align-items: center;
+                gap: 16px;
+            }
+            .topbar::after {
+                content: "";
+                position: absolute;
+                bottom: -1px;
+                left: 0;
+                right: 0;
+                height: 1px;
+                background: linear-gradient(
+                    90deg,
+                    transparent 0%,
+                    var(--blue) 50%,
+                    transparent 100%
+                );
+                opacity: 0.4;
+            }
+            .topbar-brand {
+                font-family: var(--title);
+                font-size: 13px;
+                font-weight: 700;
+                color: var(--white);
+                letter-spacing: 2.5px;
+                text-transform: uppercase;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+            .topbar-brand::before {
+                content: "";
+                display: inline-block;
+                width: 20px;
+                height: 20px;
+                background: var(--blue);
+                border-radius: 4px;
+                box-shadow: 0 0 12px var(--blue-glow);
+            }
+            .topbar-brand em {
+                font-style: normal;
+                font-family: var(--heading);
+                font-weight: 300;
+                font-size: 12px;
+                color: var(--text-secondary);
+                letter-spacing: 0.5px;
+                text-transform: none;
+                margin-left: 2px;
+                padding-left: 10px;
+                border-left: 1px solid var(--border);
+            }
+            .topbar-file {
+                font-family: var(--mono);
+                font-size: 11px;
+                color: var(--text-secondary);
+                background: var(--surface);
+                border: 1px solid var(--border);
+                padding: 5px 12px;
+                border-radius: var(--radius-sm);
+                max-width: 280px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .topbar-spacer {
+                flex: 1;
+            }
+            .topbar-nav {
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                flex-shrink: 0;
+            }
+            .counter {
+                font-family: var(--mono);
+                font-size: 12px;
+                color: var(--text-secondary);
+                min-width: 64px;
+                text-align: center;
+                padding: 0 8px;
+            }
+            .nav-btn {
+                width: 32px;
+                height: 32px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: var(--surface);
+                border: 1px solid var(--border);
+                border-radius: var(--radius-sm);
+                color: var(--text-secondary);
+                cursor: pointer;
+                font-size: 14px;
+                transition: all 0.2s;
+            }
+            .nav-btn:hover:not(:disabled) {
+                background: var(--surface-raised);
+                color: var(--blue-bright);
+                border-color: rgba(8, 92, 255, 0.3);
+                box-shadow: 0 0 8px var(--blue-dim);
+            }
+            .nav-btn:disabled {
+                opacity: 0.2;
+                cursor: default;
+            }
+
+            /* ── Landing / Drop Zone ── */
+            .landing {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                min-height: calc(100vh - 56px);
+                padding: 40px;
+                position: relative;
+                z-index: 1;
+            }
+            .drop-zone {
+                width: 100%;
+                max-width: 480px;
+                background: var(--surface);
+                border: 1px solid var(--border);
+                border-radius: var(--radius);
+                padding: 64px 44px;
+                text-align: center;
+                cursor: pointer;
+                position: relative;
+                box-shadow: var(--shadow);
+                transition: all 0.3s ease;
+                overflow: hidden;
+            }
+            .drop-zone::before {
+                content: "";
+                position: absolute;
+                inset: 0;
+                background: radial-gradient(
+                    ellipse at 50% 0%,
+                    var(--blue-dim) 0%,
+                    transparent 70%
+                );
+                opacity: 0;
+                transition: opacity 0.3s;
+            }
+            .drop-zone:hover::before,
+            .drop-zone.dragover::before {
+                opacity: 1;
+            }
+            .drop-zone.dragover {
+                border-color: var(--blue);
+                box-shadow:
+                    var(--shadow-lg),
+                    0 0 30px var(--blue-dim);
+            }
+            .drop-zone input[type="file"] {
+                position: absolute;
+                inset: 0;
+                opacity: 0;
+                cursor: pointer;
+                z-index: 2;
+            }
+            .drop-icon {
+                font-family: var(--title);
+                font-size: 28px;
+                font-weight: 700;
+                color: var(--blue);
+                margin-bottom: 20px;
+                letter-spacing: 4px;
+                text-shadow: 0 0 20px var(--blue-glow);
+            }
+            .drop-zone h2 {
+                font-family: var(--heading);
+                font-size: 20px;
+                font-weight: 700;
+                color: var(--text);
+                margin-bottom: 12px;
+                letter-spacing: -0.2px;
+            }
+            .drop-zone p {
+                font-family: var(--body);
+                font-size: 15px;
+                color: var(--text-secondary);
+                line-height: 1.7;
+            }
+            .drop-zone p strong {
+                color: var(--blue-bright);
+                font-weight: 500;
+                text-decoration: underline;
+                text-decoration-color: rgba(8, 92, 255, 0.3);
+                text-underline-offset: 3px;
+            }
+            .drop-error {
+                margin-top: 16px;
+                font-family: var(--mono);
+                font-size: 11px;
+                color: var(--accent-red);
+                display: none;
+            }
+
+            /* ── Main content area ── */
+            .main {
+                display: none;
+                max-width: 800px;
+                margin: 0 auto;
+                padding: 0 24px 80px;
+                position: relative;
+                z-index: 1;
+            }
+            .main.active {
+                display: block;
+            }
+
+            /* Page container */
+            .page {
+                background: var(--surface);
+                border: 1px solid var(--border);
+                border-radius: var(--radius);
+                box-shadow: var(--shadow-lg);
+                margin-top: 24px;
+                padding: 28px 32px 36px;
+                position: relative;
+                min-height: 400px;
+            }
+            .page::before {
+                content: "";
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 2px;
+                background: linear-gradient(
+                    90deg,
+                    var(--blue) 0%,
+                    transparent 60%
+                );
+                border-radius: var(--radius) var(--radius) 0 0;
+                opacity: 0.6;
+            }
+
+            /* ── Tools: collapsible panel ── */
+            .tools-insert {
+                background: var(--surface-raised);
+                border: 1px solid var(--border);
+                border-radius: var(--radius-sm);
+                margin-bottom: 24px;
+                overflow: hidden;
+            }
+            .tools-header {
+                padding: 12px 16px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                cursor: pointer;
+                user-select: none;
+                transition: background 0.15s;
+            }
+            .tools-header:hover {
+                background: rgba(255, 255, 255, 0.02);
+            }
+            .tools-chevron {
+                color: var(--text-muted);
+                font-size: 9px;
+                transition: transform 0.2s;
+            }
+            .tools-chevron.open {
+                transform: rotate(90deg);
+            }
+            .tools-label {
+                font-family: var(--heading);
+                font-size: 11px;
+                font-weight: 700;
+                color: var(--text-secondary);
+                letter-spacing: 1.5px;
+                text-transform: uppercase;
+            }
+            .tools-count {
+                font-family: var(--mono);
+                font-size: 10px;
+                color: var(--text-muted);
+                margin-left: auto;
+            }
+            .tools-body {
+                display: none;
+                border-top: 1px solid var(--border);
+                padding: 14px 16px;
+            }
+            .tools-body.open {
+                display: block;
+            }
+            .tools-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+                gap: 8px;
+            }
+            .tool-card {
+                padding: 10px 12px;
+                border-radius: var(--radius-sm);
+                background: var(--surface);
+                border: 1px solid var(--border-subtle);
+                transition: border-color 0.15s;
+            }
+            .tool-card:hover {
+                border-color: var(--border);
+            }
+            .tool-card-name {
+                font-family: var(--mono);
+                font-size: 12px;
+                font-weight: 500;
+                color: var(--blue-bright);
+            }
+            .tool-card-desc {
+                font-family: var(--body);
+                font-size: 13px;
+                color: var(--text-muted);
+                font-style: italic;
+                margin-top: 3px;
+            }
+            .tool-card-params {
+                font-family: var(--mono);
+                font-size: 10px;
+                color: var(--text-ghost);
+                margin-top: 5px;
+            }
+            .tool-card-params .req {
+                color: var(--accent-amber);
+                font-weight: 500;
+            }
+
+            /* ── Messages ── */
+            .entry {
+                padding: 16px 18px;
+                position: relative;
+                border-radius: var(--radius-sm);
+                margin: 8px 0;
+                transition: background 0.15s;
+            }
+
+            .entry-role {
+                font-family: var(--heading);
+                font-size: 10px;
+                font-weight: 700;
+                letter-spacing: 1.2px;
+                text-transform: uppercase;
+                margin-bottom: 8px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+
+            .entry-role .badge {
+                font-family: var(--mono);
+                font-size: 9px;
+                padding: 2px 7px;
+                border-radius: 3px;
+                font-weight: 400;
+                letter-spacing: 0.3px;
+            }
+
+            .entry-text {
+                font-family: var(--body);
+                font-size: 15.5px;
+                line-height: 1.75;
+                white-space: pre-wrap;
+                word-break: break-word;
+            }
+
+            /* ── User: blue accent ── */
+            .entry.is-user {
+                background: var(--blue-dim);
+                border-left: 2px solid var(--blue);
+                margin-right: 48px;
+            }
+            .entry.is-user .entry-role {
+                color: var(--blue-bright);
+            }
+            .entry.is-user .entry-text {
+                color: var(--text);
+            }
+
+            /* ── Assistant: subtle surface ── */
+            .entry.is-assistant {
+                background: var(--surface-raised);
+                border-left: 2px solid var(--text-ghost);
+                margin-left: 48px;
+            }
+            .entry.is-assistant .entry-role {
+                color: var(--text-secondary);
+            }
+            .entry.is-assistant .entry-text {
+                color: rgba(255, 255, 255, 0.78);
+            }
+
+            /* ── System: centered, dim ── */
+            .entry.is-system {
+                background: none;
+                border-left: none;
+                text-align: center;
+                margin: 8px 64px;
+                padding: 12px 16px;
+                border-top: 1px solid var(--border);
+                border-bottom: 1px solid var(--border);
+                border-radius: 0;
+            }
+            .entry.is-system .entry-role {
+                color: var(--text-ghost);
+                justify-content: center;
+                font-size: 9px;
+            }
+            .entry.is-system .entry-text {
+                font-style: italic;
+                color: var(--text-muted);
+                font-size: 13px;
+                line-height: 1.6;
+            }
+
+            /* ── Tool call: amber accent ── */
+            .entry.is-tool-call {
+                background: var(--accent-amber-dim);
+                border-left: 2px solid var(--accent-amber);
+                margin-left: 48px;
+            }
+            .entry.is-tool-call .entry-role {
+                color: var(--accent-amber);
+            }
+            .entry-role .badge.call {
+                background: var(--accent-amber-dim);
+                color: var(--accent-amber);
+                border: 1px solid rgba(255, 170, 34, 0.15);
+            }
+
+            /* ── Tool result: green accent ── */
+            .entry.is-tool-result {
+                background: var(--accent-green-dim);
+                border-left: 2px solid var(--accent-green);
+                margin-left: 48px;
+            }
+            .entry.is-tool-result .entry-role {
+                color: var(--accent-green);
+            }
+            .entry-role .badge.result {
+                background: var(--accent-green-dim);
+                color: var(--accent-green);
+                border: 1px solid rgba(0, 214, 125, 0.15);
+            }
+
+            .entry-fn {
+                font-family: var(--mono);
+                font-size: 13px;
+                font-weight: 500;
+                color: var(--blue-bright);
+                margin-bottom: 8px;
+            }
+            .entry-fn::before {
+                content: "fn";
+                font-family: var(--mono);
+                font-size: 10px;
+                font-weight: 700;
+                color: var(--text-muted);
+                margin-right: 8px;
+                padding: 1px 5px;
+                background: var(--surface);
+                border-radius: 2px;
+                border: 1px solid var(--border);
+            }
+
+            .entry-code {
+                background: var(--black-soft);
+                border: 1px solid var(--border);
+                border-radius: var(--radius-sm);
+                padding: 14px 16px;
+                font-family: var(--mono);
+                font-size: 11.5px;
+                line-height: 1.65;
+                color: var(--text-secondary);
+                white-space: pre-wrap;
+                word-break: break-word;
+                overflow-x: auto;
+            }
+
+            /* ── Environment state panel ── */
+            .env-insert {
+                background: var(--accent-purple-dim);
+                border: 1px solid var(--accent-purple-border);
+                border-radius: var(--radius-sm);
+                margin: 4px 0 8px 48px;
+                overflow: hidden;
+            }
+            .env-header {
+                padding: 10px 14px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                cursor: pointer;
+                user-select: none;
+                transition: background 0.15s;
+            }
+            .env-header:hover {
+                background: rgba(168, 85, 247, 0.05);
+            }
+            .env-chevron {
+                color: var(--text-muted);
+                font-size: 9px;
+                transition: transform 0.2s;
+                flex-shrink: 0;
+            }
+            .env-chevron.open {
+                transform: rotate(90deg);
+            }
+            .env-label {
+                font-family: var(--heading);
+                font-size: 11px;
+                font-weight: 700;
+                color: var(--accent-purple);
+                letter-spacing: 1.5px;
+                text-transform: uppercase;
+            }
+            .env-count {
+                font-family: var(--mono);
+                font-size: 10px;
+                color: var(--text-muted);
+                margin-left: auto;
+            }
+            .env-body {
+                display: none;
+                border-top: 1px solid var(--accent-purple-border);
+                padding: 14px 16px;
+            }
+            .env-body.open {
+                display: block;
+            }
+            .env-json {
+                font-family: var(--mono);
+                font-size: 11.5px;
+                line-height: 1.65;
+                color: var(--text-secondary);
+                background: var(--black-soft);
+                border: 1px solid var(--border);
+                border-radius: var(--radius-sm);
+                padding: 14px 16px;
+                white-space: pre-wrap;
+                word-break: break-word;
+                overflow-x: auto;
+                max-height: 400px;
+                overflow-y: auto;
+            }
+            .env-json .j-key { color: var(--accent-purple); }
+            .env-json .j-str { color: var(--accent-green); }
+            .env-json .j-num { color: var(--accent-amber); }
+            .env-json .j-bool { color: var(--blue-bright); }
+            .env-json .j-null { color: var(--text-muted); font-style: italic; }
+            .env-json .j-punct { color: var(--text-ghost); }
+            .env-json .j-changed {
+                background: rgba(255, 170, 34, 0.12);
+                border-left: 2px solid var(--accent-amber);
+                margin-left: -16px;
+                padding-left: 14px;
+                display: inline-block;
+                width: calc(100% + 16px);
+            }
+            .env-json .j-added {
+                background: rgba(0, 214, 125, 0.10);
+                border-left: 2px solid var(--accent-green);
+                margin-left: -16px;
+                padding-left: 14px;
+                display: inline-block;
+                width: calc(100% + 16px);
+            }
+            .env-json .j-removed {
+                background: rgba(255, 68, 102, 0.10);
+                border-left: 2px solid var(--accent-red);
+                margin-left: -16px;
+                padding-left: 14px;
+                display: inline-block;
+                width: calc(100% + 16px);
+                text-decoration: line-through;
+                opacity: 0.6;
+            }
+            .env-legend {
+                display: flex;
+                gap: 14px;
+                margin-bottom: 10px;
+                font-family: var(--mono);
+                font-size: 10px;
+                color: var(--text-muted);
+            }
+            .env-legend-item {
+                display: flex;
+                align-items: center;
+                gap: 5px;
+            }
+            .env-legend-dot {
+                width: 8px;
+                height: 8px;
+                border-radius: 2px;
+                flex-shrink: 0;
+            }
+            .env-legend-dot.added { background: var(--accent-green); }
+            .env-legend-dot.changed { background: var(--accent-amber); }
+            .env-legend-dot.removed { background: var(--accent-red); }
+            .env-dot {
+                display: inline-block;
+                width: 7px;
+                height: 7px;
+                border-radius: 50%;
+                background: var(--accent-purple);
+                box-shadow: 0 0 6px rgba(168, 85, 247, 0.4);
+                margin-left: 4px;
+                vertical-align: middle;
+            }
+
+            /* ── Keyboard hints ── */
+            .kbd-hint {
+                position: fixed;
+                bottom: 16px;
+                right: 20px;
+                font-family: var(--heading);
+                font-size: 10px;
+                color: var(--text-muted);
+                background: rgba(10, 10, 15, 0.9);
+                backdrop-filter: blur(12px);
+                border: 1px solid var(--border);
+                border-radius: var(--radius-sm);
+                padding: 6px 12px;
+                display: flex;
+                gap: 12px;
+                box-shadow: var(--shadow);
+                opacity: 0.7;
+            }
+            kbd {
+                display: inline-block;
+                background: var(--surface-raised);
+                border: 1px solid var(--border);
+                border-radius: 3px;
+                padding: 1px 5px;
+                font-family: var(--mono);
+                font-size: 9px;
+                color: var(--text-secondary);
+                box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04);
+            }
+
+            /* ── Scrollbar ── */
+            ::-webkit-scrollbar {
+                width: 6px;
+            }
+            ::-webkit-scrollbar-track {
+                background: transparent;
+            }
+            ::-webkit-scrollbar-thumb {
+                background: rgba(255, 255, 255, 0.08);
+                border-radius: 3px;
+            }
+            ::-webkit-scrollbar-thumb:hover {
+                background: rgba(255, 255, 255, 0.14);
+            }
+
+            /* ── Entry animations ── */
+            @keyframes fadeSlideIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(8px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+            .page {
+                animation: fadeSlideIn 0.3s ease-out;
+            }
+            .entry {
+                animation: fadeSlideIn 0.25s ease-out both;
+            }
+            .entry:nth-child(1) {
+                animation-delay: 0.02s;
+            }
+            .entry:nth-child(2) {
+                animation-delay: 0.04s;
+            }
+            .entry:nth-child(3) {
+                animation-delay: 0.06s;
+            }
+            .entry:nth-child(4) {
+                animation-delay: 0.08s;
+            }
+            .entry:nth-child(5) {
+                animation-delay: 0.1s;
+            }
+            .entry:nth-child(6) {
+                animation-delay: 0.12s;
+            }
+            .entry:nth-child(7) {
+                animation-delay: 0.14s;
+            }
+            .entry:nth-child(8) {
+                animation-delay: 0.16s;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="topbar">
+            <div class="topbar-brand">OUMI <em>Dataset Viewer</em></div>
+            <div class="topbar-file" id="fileName" style="display: none"></div>
+            <div class="topbar-spacer"></div>
+            <div class="topbar-nav" id="navBar" style="display: none">
+                <button class="nav-btn" id="prevBtn" disabled onclick="go(-1)">
+                    &larr;
+                </button>
+                <div class="counter" id="counter"></div>
+                <button class="nav-btn" id="nextBtn" disabled onclick="go(1)">
+                    &rarr;
+                </button>
+            </div>
+        </div>
+
+        <div class="landing" id="landing">
+            <div class="drop-zone" id="dropZone">
+                <input
+                    type="file"
+                    id="fileInput"
+                    accept=".jsonl,.json,.ndjson,.jsonlines"
+                />
+                <div class="drop-icon">{ }</div>
+                <h2>Open a dataset</h2>
+                <p>
+                    Drag &amp; drop a .jsonl file here<br />or
+                    <strong>browse your files</strong>
+                </p>
+                <div class="drop-error" id="dropError"></div>
+            </div>
+        </div>
+
+        <div class="main" id="main"></div>
+
+        <div class="kbd-hint" id="kbdHint" style="display: none">
+            <span><kbd>&larr;</kbd><kbd>&rarr;</kbd> navigate</span>
+            <span><kbd>t</kbd> tools</span>
+            <span><kbd>e</kbd> env states</span>
+        </div>
+
+        <script>
+            let data = [],
+                idx = 0;
+
+            const fileInput = document.getElementById("fileInput");
+            const dropZone = document.getElementById("dropZone");
+            const dropError = document.getElementById("dropError");
+
+            fileInput.addEventListener("change", (e) => {
+                if (e.target.files && e.target.files[0])
+                    loadFile(e.target.files[0]);
+            });
+            dropZone.addEventListener("dragover", (e) => {
+                e.preventDefault();
+                dropZone.classList.add("dragover");
+            });
+            dropZone.addEventListener("dragleave", (e) => {
+                e.preventDefault();
+                dropZone.classList.remove("dragover");
+            });
+            dropZone.addEventListener("drop", (e) => {
+                e.preventDefault();
+                dropZone.classList.remove("dragover");
+                if (e.dataTransfer.files && e.dataTransfer.files[0])
+                    loadFile(e.dataTransfer.files[0]);
+            });
+
+            function loadFile(file) {
+                dropError.style.display = "none";
+                const reader = new FileReader();
+                reader.onerror = () => showErr("Could not read file.");
+                reader.onload = (e) => {
+                    const text = e.target.result;
+                    if (!text || !text.trim()) {
+                        showErr("File is empty.");
+                        return;
+                    }
+                    const lines = text
+                        .trim()
+                        .split("\n")
+                        .filter((l) => l.trim());
+                    const parsed = [],
+                        errs = [];
+                    lines.forEach((l, i) => {
+                        try {
+                            parsed.push(JSON.parse(l));
+                        } catch {
+                            errs.push(i + 1);
+                        }
+                    });
+                    if (!parsed.length) {
+                        showErr(
+                            "No valid JSON lines." +
+                                (errs.length
+                                    ? " Errors on lines: " +
+                                      errs.slice(0, 5).join(", ")
+                                    : ""),
+                        );
+                        return;
+                    }
+                    data = parsed;
+                    idx = 0;
+                    document.getElementById("fileName").textContent = file.name;
+                    document.getElementById("fileName").style.display = "";
+                    document.getElementById("navBar").style.display = "";
+                    document.getElementById("landing").style.display = "none";
+                    document.getElementById("main").classList.add("active");
+                    document.getElementById("kbdHint").style.display = "";
+                    render();
+                };
+                reader.readAsText(file);
+            }
+            function showErr(m) {
+                dropError.textContent = m;
+                dropError.style.display = "block";
+            }
+
+            function go(d) {
+                idx = Math.max(0, Math.min(data.length - 1, idx + d));
+                render();
+            }
+            document.addEventListener("keydown", (e) => {
+                if (!data.length) return;
+                if (e.key === "ArrowLeft") {
+                    e.preventDefault();
+                    go(-1);
+                }
+                if (e.key === "ArrowRight") {
+                    e.preventDefault();
+                    go(1);
+                }
+                if (e.key === "t" || e.key === "T") {
+                    const b = document.querySelector(".tools-body"),
+                        c = document.querySelector(".tools-chevron");
+                    if (b) {
+                        b.classList.toggle("open");
+                        if (c) c.classList.toggle("open");
+                    }
+                }
+                if (e.key === "e" || e.key === "E") {
+                    document.querySelectorAll(".env-insert").forEach((p) => {
+                        const b = p.querySelector(".env-body"),
+                            c = p.querySelector(".env-chevron");
+                        if (b) { b.classList.toggle("open"); if (c) c.classList.toggle("open"); }
+                    });
+                }
+            });
+
+            function render() {
+                const main = document.getElementById("main");
+                document.getElementById("prevBtn").disabled = idx === 0;
+                document.getElementById("nextBtn").disabled =
+                    idx >= data.length - 1;
+                document.getElementById("counter").textContent =
+                    `${idx + 1} / ${data.length}`;
+
+                const d = extract(data[idx]);
+                if (!d) {
+                    main.innerHTML =
+                        '<p style="padding:40px;color:var(--text-muted);font-style:italic;">Unrecognized format.</p>';
+                    return;
+                }
+
+                let h = '<div class="page">';
+
+                // Tools insert
+                if (d.tools && d.tools.length) {
+                    h += `<div class="tools-insert">
+      <div class="tools-header" onclick="this.querySelector('.tools-chevron').classList.toggle('open');this.nextElementSibling.classList.toggle('open');">
+        <span class="tools-chevron">&#9654;</span>
+        <span class="tools-label">Tools</span>
+        <span class="tools-count">${d.tools.length} defined</span>
+      </div>
+      <div class="tools-body"><div class="tools-grid">`;
+                    for (const t of d.tools) {
+                        const fn = t.function || t;
+                        const props = fn.parameters?.properties || {};
+                        const req = fn.parameters?.required || [];
+                        const p = Object.entries(props)
+                            .map(
+                                ([k]) =>
+                                    `<span class="${req.includes(k) ? "req" : ""}">${esc(k)}${req.includes(k) ? "" : "?"}</span>`,
+                            )
+                            .join(", ");
+                        h += `<div class="tool-card">
+        <div class="tool-card-name">${esc(fn.name || "")}</div>
+        <div class="tool-card-desc">${esc(fn.description || "")}</div>
+        ${p ? `<div class="tool-card-params">(${p})</div>` : ""}
+      </div>`;
+                    }
+                    h += "</div></div></div>";
+                }
+
+                // Track environment state for diffing
+                let prevEnvState = null;
+
+                // Messages
+                if (d.messages)
+                    for (const msg of d.messages) {
+                        if (msg.tool_calls) {
+                            if (msg.content)
+                                h += entryHtml(
+                                    "assistant",
+                                    "Assistant",
+                                    msg.content,
+                                );
+                            for (const tc of msg.tool_calls) {
+                                const fn = tc.function || {};
+                                let args = "";
+                                try {
+                                    args = JSON.stringify(
+                                        JSON.parse(fn.arguments || "{}"),
+                                        null,
+                                        2,
+                                    );
+                                } catch {
+                                    args = fn.arguments || "";
+                                }
+                                h += `<div class="entry is-tool-call">
+          <div class="entry-role">Tool Call <span class="badge call">${esc(tc.id || "")}</span></div>
+          <div class="entry-fn">${esc(fn.name || "")}</div>
+          <div class="entry-code">${esc(args)}</div>
+        </div>`;
+                            }
+                        } else if (msg.role === "tool") {
+                            let r = "";
+                            try {
+                                r = JSON.stringify(
+                                    JSON.parse(msg.content || ""),
+                                    null,
+                                    2,
+                                );
+                            } catch {
+                                r = msg.content || "";
+                            }
+                            const hasEnv = !!msg._environment_state;
+                            h += `<div class="entry is-tool-result">
+        <div class="entry-role">Tool Result ${msg.tool_call_id ? `<span class="badge result">${esc(msg.tool_call_id)}</span>` : ""}${hasEnv ? '<span class="env-dot" title="Environment state available"></span>' : ""}</div>
+        <div class="entry-code">${esc(r)}</div>
+      </div>`;
+                            if (hasEnv) {
+                                const envState = msg._environment_state;
+                                const hasDiff = prevEnvState !== null;
+                                const diffLabel = hasDiff ? "changed" : "initial";
+                                const jsonHtml = highlightJson(envState, prevEnvState);
+                                h += `<div class="env-insert">
+          <div class="env-header" onclick="toggleEnv(this)">
+            <span class="env-chevron">&#9654;</span>
+            <span class="env-label">Environment State</span>
+            <span class="env-count">${diffLabel}</span>
+          </div>
+          <div class="env-body">`;
+                                if (hasDiff) {
+                                    h += `<div class="env-legend">
+              <div class="env-legend-item"><span class="env-legend-dot added"></span> added</div>
+              <div class="env-legend-item"><span class="env-legend-dot changed"></span> changed</div>
+              <div class="env-legend-item"><span class="env-legend-dot removed"></span> removed</div>
+            </div>`;
+                                }
+                                h += `<div class="env-json">${jsonHtml}</div></div></div>`;
+                                prevEnvState = JSON.parse(JSON.stringify(envState));
+                            }
+                        } else {
+                            h += entryHtml(
+                                msg.role,
+                                roleLabel(msg.role),
+                                msg.content || "",
+                            );
+                        }
+                    }
+
+                h += "</div>";
+                main.innerHTML = h;
+                window.scrollTo({ top: 0, behavior: "instant" });
+            }
+
+            function entryHtml(type, label, content) {
+                return `<div class="entry is-${type}">
+    <div class="entry-role">${label}</div>
+    <div class="entry-text">${esc(content)}</div>
+  </div>`;
+            }
+            function roleLabel(r) {
+                return (
+                    { system: "System", user: "User", assistant: "Assistant" }[
+                        r
+                    ] || r
+                );
+            }
+            function extract(o) {
+                if (!o || typeof o !== "object") return null;
+                if (o.messages) return o;
+                for (const k of Object.keys(o)) if (o[k]?.messages) return o[k];
+                return null;
+            }
+            function esc(s) {
+                return String(s)
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;");
+            }
+
+            function toggleEnv(header) {
+                const c = header.querySelector(".env-chevron");
+                const b = header.nextElementSibling;
+                if (c) c.classList.toggle("open");
+                if (b) b.classList.toggle("open");
+            }
+
+            /* ── JSON syntax highlighting with diff ── */
+            function highlightJson(obj, prevObj) {
+                const lines = [];
+                renderVal(obj, prevObj, lines, 0);
+                return lines.join("\n");
+            }
+
+            function renderVal(val, prevVal, lines, indent) {
+                const pad = "  ".repeat(indent);
+                if (val === null) {
+                    lines.push(pad + '<span class="j-null">null</span>');
+                } else if (typeof val === "string") {
+                    lines.push(pad + '<span class="j-str">"' + esc(val) + '"</span>');
+                } else if (typeof val === "number") {
+                    lines.push(pad + '<span class="j-num">' + val + "</span>");
+                } else if (typeof val === "boolean") {
+                    lines.push(pad + '<span class="j-bool">' + val + "</span>");
+                } else if (Array.isArray(val)) {
+                    if (!val.length) { lines.push(pad + '<span class="j-punct">[]</span>'); return; }
+                    lines.push(pad + '<span class="j-punct">[</span>');
+                    const pa = Array.isArray(prevVal) ? prevVal : null;
+                    for (let i = 0; i < val.length; i++) {
+                        const pv = pa && i < pa.length ? pa[i] : undefined;
+                        const added = pa !== null && pv === undefined;
+                        const sub = [];
+                        renderVal(val[i], pv, sub, indent + 1);
+                        if (added) sub.forEach((l) => lines.push(wrapDiff(l, "added")));
+                        else sub.forEach((l) => lines.push(l));
+                        if (i < val.length - 1) lines[lines.length - 1] += '<span class="j-punct">,</span>';
+                    }
+                    lines.push(pad + '<span class="j-punct">]</span>');
+                } else if (typeof val === "object") {
+                    const keys = Object.keys(val);
+                    if (!keys.length) { lines.push(pad + '<span class="j-punct">{}</span>'); return; }
+                    lines.push(pad + '<span class="j-punct">{</span>');
+                    const po = prevVal && typeof prevVal === "object" && !Array.isArray(prevVal) ? prevVal : null;
+                    keys.forEach((k, ki) => {
+                        const pv = po ? po[k] : undefined;
+                        const added = po !== null && pv === undefined;
+                        const changed = po !== null && pv !== undefined && JSON.stringify(pv) !== JSON.stringify(val[k]);
+                        const kp = "  ".repeat(indent + 1);
+                        const keyHtml = kp + '<span class="j-key">"' + esc(k) + '"</span><span class="j-punct">: </span>';
+                        const comma = ki < keys.length - 1 ? '<span class="j-punct">,</span>' : "";
+                        if (val[k] === null || typeof val[k] !== "object") {
+                            let vh = "";
+                            if (val[k] === null) vh = '<span class="j-null">null</span>';
+                            else if (typeof val[k] === "string") vh = '<span class="j-str">"' + esc(val[k]) + '"</span>';
+                            else if (typeof val[k] === "number") vh = '<span class="j-num">' + val[k] + "</span>";
+                            else if (typeof val[k] === "boolean") vh = '<span class="j-bool">' + val[k] + "</span>";
+                            const fl = keyHtml + vh + comma;
+                            if (added) lines.push(wrapDiff(fl, "added"));
+                            else if (changed) lines.push(wrapDiff(fl, "changed"));
+                            else lines.push(fl);
+                        } else {
+                            if (added) lines.push(wrapDiff(keyHtml, "added"));
+                            else if (changed) lines.push(wrapDiff(keyHtml, "changed"));
+                            else lines.push(keyHtml);
+                            const sub = [];
+                            renderVal(val[k], pv, sub, indent + 1);
+                            if (sub.length) sub[0] = sub[0].replace(/^\s+/, "  ".repeat(indent + 1));
+                            const wrap = added ? "added" : changed ? "changed" : null;
+                            sub.forEach((l) => lines.push(wrap ? wrapDiff(l, wrap) : l));
+                            if (comma) lines[lines.length - 1] += comma;
+                        }
+                    });
+                    if (po) {
+                        Object.keys(po).forEach((k) => {
+                            if (!(k in val)) {
+                                const rl = "  ".repeat(indent + 1) + '<span class="j-key">"' + esc(k) + '"</span><span class="j-punct">: </span><span class="j-str">...</span>';
+                                lines.push(wrapDiff(rl, "removed"));
+                            }
+                        });
+                    }
+                    lines.push(pad + '<span class="j-punct">}</span>');
+                }
+            }
+
+            function wrapDiff(line, type) {
+                return '<span class="j-' + type + '">' + line + "</span>";
+            }
+        </script>
+    </body>
+</html>

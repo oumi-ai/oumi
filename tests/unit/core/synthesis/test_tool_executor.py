@@ -415,9 +415,9 @@ def test_strip_tool_tags_partial_open_only():
 class TestStripBareToolJson:
     def test_removes_bare_tool_call_json(self):
         text = (
-            'Calling tool.\n\n'
+            "Calling tool.\n\n"
             '{"name": "DescribeTable", "arguments": {"table": "users"}}\n\n'
-            'Done.'
+            "Done."
         )
         result = ToolExecutor.strip_bare_tool_json(text)
         assert "DescribeTable" not in result
@@ -432,7 +432,7 @@ class TestStripBareToolJson:
     def test_removes_multiple_bare_tool_calls(self):
         text = (
             '{"name": "ToolA", "arguments": {"x": 1}}\n\n'
-            'middle text\n\n'
+            "middle text\n\n"
             '{"name": "ToolB", "arguments": {"y": 2}}'
         )
         result = ToolExecutor.strip_bare_tool_json(text)
@@ -442,7 +442,8 @@ class TestStripBareToolJson:
 
     def test_handles_nested_json_in_arguments(self):
         text = (
-            '{"name": "Insert", "arguments": {"data": {"key": "val", "nested": {"a": 1}}}}'
+            '{"name": "Insert", "arguments":'
+            ' {"data": {"key": "val", "nested": {"a": 1}}}}'
         )
         result = ToolExecutor.strip_bare_tool_json(text)
         assert result == ""
@@ -459,7 +460,7 @@ class TestStripBareToolJson:
 class TestExtractContentAroundToolCall:
     def test_extracts_text_before_tool_call(self):
         text = (
-            'Let me check.\n\n'
+            "Let me check.\n\n"
             '<tool_call>{"name": "Search", "arguments": {}}</tool_call>'
         )
         result = ToolExecutor.extract_content_around_tool_call(text)
@@ -468,7 +469,7 @@ class TestExtractContentAroundToolCall:
     def test_extracts_text_after_tool_call(self):
         text = (
             '<tool_call>{"name": "Search", "arguments": {}}</tool_call>\n\n'
-            'I will verify.'
+            "I will verify."
         )
         result = ToolExecutor.extract_content_around_tool_call(text)
         assert result == "I will verify."
@@ -488,7 +489,7 @@ class TestExtractContentAroundToolCall:
 
     def test_strips_bare_json_from_remaining_text(self):
         text = (
-            'Here is my answer.\n\n'
+            "Here is my answer.\n\n"
             '<tool_call>{"name": "Search", "arguments": {}}</tool_call>\n\n'
             '{"name": "AnotherTool", "arguments": {"x": 1}}'
         )

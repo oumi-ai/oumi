@@ -22,9 +22,9 @@ from oumi.core.configs.params.synthesis_params import (
 )
 from oumi.core.configs.params.tool_params import (
     DeterministicToolOutput,
-    ToolEnvironmentAttribute,
     GeneratedToolOutput,
     ToolAttribute,
+    ToolEnvironmentAttribute,
     ToolOutputStrategy,
 )
 from oumi.core.types.conversation import Role
@@ -311,9 +311,7 @@ def test_general_synthesis_params_with_environments():
     params = GeneralSynthesisParams(
         environments=[env],
         tools=[tool],
-        multiturn_attributes=[
-            _make_multiturn_attr(available_tools=["tool_env"])
-        ],
+        multiturn_attributes=[_make_multiturn_attr(available_tools=["tool_env"])],
     )
     assert params.environments is not None
     assert len(params.environments) == 1
@@ -324,9 +322,7 @@ def test_general_synthesis_params_tool_references_unknown_env_raises():
     with pytest.raises(ValueError, match="references unknown environment"):
         GeneralSynthesisParams(
             tools=[tool],
-            multiturn_attributes=[
-                _make_multiturn_attr(available_tools=["tool_env"])
-            ],
+            multiturn_attributes=[_make_multiturn_attr(available_tools=["tool_env"])],
         )
 
 

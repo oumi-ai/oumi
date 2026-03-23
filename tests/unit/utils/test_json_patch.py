@@ -120,8 +120,7 @@ class TestParsePatchResponse:
 
     def test_surrounding_prose(self):
         text = (
-            'Here is the patch:\n[{"op": "remove", "path": "/c"}]\n'
-            "This removes key c."
+            'Here is the patch:\n[{"op": "remove", "path": "/c"}]\nThis removes key c.'
         )
         result = parse_patch_response(text)
         assert result == [{"op": "remove", "path": "/c"}]

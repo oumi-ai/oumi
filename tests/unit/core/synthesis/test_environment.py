@@ -275,7 +275,7 @@ class TestBatchedInitMethods:
 
 class TestStateUpdatePrompt:
     def test_prompt_is_four_messages(self):
-        """State update prompt has system, user example, assistant example, user actual."""
+        """State update prompt has system, user, assistant, user."""
         config = _make_env_config(
             initial_state={"files": {"a.txt": "hello"}},
         )

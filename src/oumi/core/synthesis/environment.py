@@ -31,11 +31,11 @@ from oumi.utils.json_patch import (
 from oumi.utils.logging import logger
 from oumi.utils.str_utils import extract_json
 
-_MAX_STATE_UPDATE_RETRIES = 2
-"""Maximum retries for state updates that fail schema validation."""
+_MAX_STATE_UPDATE_RETRIES = (
+    2  # Max retries for state updates that fail schema validation.
+)
 
-_MAX_RESULT_RETRIES = 2
-"""Maximum retries for tool results that fail JSON parsing."""
+_MAX_RESULT_RETRIES = 2  # Max retries for tool results that fail JSON parsing.
 
 
 class GeneratedToolEnvironment:
