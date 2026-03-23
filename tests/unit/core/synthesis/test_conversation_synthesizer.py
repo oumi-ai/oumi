@@ -1060,6 +1060,18 @@ def test_agentic_turn_deterministic_tool(
                         ]
                     )
                 )
+            elif "customer" in str(conv.messages[0].content).lower():
+                # User turn — generate a normal user message
+                results.append(
+                    Conversation(
+                        messages=[
+                            Message(
+                                role=Role.ASSISTANT,
+                                content="I have a complex problem I need help with.",
+                            )
+                        ]
+                    )
+                )
             elif not any("[Tool result from" in str(m.content) for m in conv.messages):
                 results.append(
                     Conversation(
@@ -1385,4 +1397,4 @@ def test_format_persona_includes_grounding_rules(
     content = result.content
     assert "trust the tool results" in content
     assert "Do NOT fabricate" in content
-    assert "Do not include multiple tool calls" in content
+    assert "output the <tool_call> tag clearly" in content

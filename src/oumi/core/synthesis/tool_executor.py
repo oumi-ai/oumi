@@ -78,7 +78,6 @@ class ToolExecutor:
     def __init__(self, tools: list[ToolAttribute]):
         """Initialize the tool executor with a list of available tools."""
         self._tools_by_name: dict[str, ToolAttribute] = {t.name: t for t in tools}
-        self._tools_by_id: dict[str, ToolAttribute] = {t.id: t for t in tools}
 
     def get_tool_by_name(self, name: str) -> ToolAttribute | None:
         """Look up a tool by its display name."""
@@ -143,11 +142,7 @@ class ToolExecutor:
             except (json.JSONDecodeError, ValueError):
                 i += 1
                 continue
-            if (
-                isinstance(parsed, dict)
-                and "name" in parsed
-                and "arguments" in parsed
-            ):
+            if isinstance(parsed, dict) and "name" in parsed and "arguments" in parsed:
                 removals.append((i, end_idx))
                 i = end_idx
             else:
@@ -167,13 +162,9 @@ class ToolExecutor:
 
         Returns the cleaned text, or None if nothing meaningful remains.
         """
-        # Remove <tool_call>...</tool_call> blocks
         cleaned = _TOOL_CALL_PATTERN.sub("", text)
-        # Also remove open-ended <tool_call>... (unclosed)
         cleaned = _TOOL_CALL_OPEN_PATTERN.sub("", cleaned)
-        # Remove residual tags
         cleaned = _TOOL_TAG_PATTERN.sub("", cleaned)
-        # Remove bare tool JSON
         cleaned = ToolExecutor.strip_bare_tool_json(cleaned)
 
         cleaned = cleaned.strip()

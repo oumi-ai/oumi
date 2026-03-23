@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Any
+
 import pytest
 
 from oumi.core.configs.params.synthesis_params import (
@@ -188,8 +190,8 @@ def test_tool_output_strategy_environment_exists():
     assert ToolOutputStrategy.ENVIRONMENT == "environment"
 
 
-def _make_environment_tool(**overrides) -> ToolAttribute:
-    defaults = dict(
+def _make_environment_tool(**overrides: Any) -> ToolAttribute:
+    defaults: dict[str, Any] = dict(
         id="tool_env",
         name="EnvTool",
         description="An environment tool",

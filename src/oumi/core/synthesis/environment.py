@@ -34,6 +34,9 @@ from oumi.utils.str_utils import extract_json
 _MAX_STATE_UPDATE_RETRIES = 2
 """Maximum retries for state updates that fail schema validation."""
 
+_MAX_RESULT_RETRIES = 2
+"""Maximum retries for tool results that fail JSON parsing."""
+
 
 class GeneratedToolEnvironment:
     """Stateful environment for tool synthesis using a build/apply pattern.
@@ -66,7 +69,10 @@ class GeneratedToolEnvironment:
         return self._state
 
     def build_result_prompt(
-        self, tool: ToolAttribute, arguments: dict[str, Any]
+        self,
+        tool: ToolAttribute,
+        arguments: dict[str, Any],
+        retry: bool = False,
     ) -> Conversation:
         """Build the prompt for generating a tool result."""
         system_parts = [
@@ -78,8 +84,16 @@ class GeneratedToolEnvironment:
             f"Tool '{tool.name}' called with arguments:\n"
             f"{json.dumps(arguments, indent=2)}\n\n"
             "Given the current state, produce the tool's output. "
-            "Output ONLY valid JSON.",
+            "Output ONLY valid JSON — no markdown fences, no explanation, "
+            "no code blocks. The first character of your response must be "
+            "{ or [.",
         ]
+        if retry:
+            user_parts.append(
+                "\nIMPORTANT: Your previous output was not valid JSON "
+                "(it may have been truncated or wrapped in markdown). "
+                "Output ONLY a complete, valid JSON object or array."
+            )
         if tool.output_schema:
             user_parts.insert(
                 0,
@@ -109,7 +123,6 @@ class GeneratedToolEnvironment:
                 f"\nState schema:\n{json.dumps(self._state_schema, indent=2)}"
             )
 
-        # Few-shot example
         example_user = (
             'Current state:\n{"users": {"1": {"name": "Alice", "role": "admin"}, '
             '"2": {"name": "Bob", "role": "viewer"}}}\n\n'
@@ -125,10 +138,8 @@ class GeneratedToolEnvironment:
             '[{"op": "replace", "path": "/users/2/role", "value": "editor"}]'
         )
 
-        # Build a dynamic example path from current state
         example_path = self._build_example_path()
 
-        # Actual request
         user_parts = [
             f"Current state:\n{json.dumps(self._state, indent=2)}\n\n"
             f"Tool '{tool.name}' was called with:\n"

@@ -1,0 +1,265 @@
+# Database assistant with stateful tool synthesis.
+#
+# Simulates a data analyst interacting with a SQL database assistant.
+# The environment maintains actual table state — inserts, updates, and
+# deletes mutate the state, while queries return results consistent
+# with it. This produces training data where tool outputs are internally
+# consistent across multi-step workflows.
+#
+# Usage:
+#   oumi synth -c configs/examples/synthesis/stateful_db_synth.yaml
+
+strategy: GENERAL
+num_samples: 5
+output_path: stateful_db_dataset.jsonl
+
+strategy_params:
+  sampled_attributes:
+    - id: domain
+      name: Database Domain
+      description: The business domain the database serves
+      possible_values:
+        - id: ecommerce
+          name: E-Commerce
+          description: Online store with customers, orders, products, and inventory
+          sample_rate: 0.3
+        - id: hr
+          name: Human Resources
+          description: Employee records, departments, salaries, and performance reviews
+          sample_rate: 0.25
+        - id: healthcare
+          name: Healthcare
+          description: Patients, appointments, prescriptions, and billing records
+          sample_rate: 0.25
+        - id: logistics
+          name: Logistics
+          description: Shipments, warehouses, carriers, and delivery tracking
+          sample_rate: 0.2
+
+    - id: task_type
+      name: Task Type
+      description: What the analyst needs to accomplish
+      possible_values:
+        - id: investigation
+          name: Data Investigation
+          description: Explore data to answer a business question, requiring multiple queries to drill down
+          sample_rate: 0.3
+        - id: data_fix
+          name: Data Correction
+          description: Find and fix incorrect or stale records, verifying before and after
+          sample_rate: 0.25
+        - id: migration
+          name: Data Migration
+          description: Move or transform data between tables, with validation checks
+          sample_rate: 0.2
+        - id: reporting
+          name: Report Generation
+          description: Run multiple queries to compile a summary or report
+          sample_rate: 0.25
+
+    - id: complexity
+      name: Query Complexity
+      description: How complex the database operations are
+      possible_values:
+        - id: simple
+          name: Simple
+          description: Single-table queries, basic filters, straightforward inserts
+          sample_rate: 0.3
+        - id: moderate
+          name: Moderate
+          description: Multi-table joins, aggregations, conditional updates
+          sample_rate: 0.45
+        - id: complex
+          name: Complex
+          description: Subqueries, window functions, multi-step transactions
+          sample_rate: 0.25
+
+  environments:
+    - id: database
+      name: SQLDatabase
+      description: >
+        A relational database with multiple tables. State represents the current
+        contents of all tables. Tables have realistic data with primary keys,
+        foreign key relationships, and constraints. The database should have
+        3-5 tables appropriate for the domain, each with 5-15 rows of realistic data.
+      system_prompt: |
+        You manage a SQL database. Maintain internally consistent state across
+        all operations:
+        - SELECT queries return rows matching the WHERE clause from current state
+        - INSERT adds rows (auto-generate IDs if needed, enforce uniqueness)
+        - UPDATE modifies matching rows in place
+        - DELETE removes matching rows
+        - Enforce referential integrity (foreign keys must reference existing rows)
+        - Return appropriate errors for constraint violations, missing tables, etc.
+        - Timestamps should be realistic (use 2024-2025 dates)
+
+  tools:
+    - id: run_query
+      name: RunQuery
+      description: >
+        Execute a read-only SQL query (SELECT) against the database and return
+        results as a formatted table
+      output_strategy: ENVIRONMENT
+      environment: database
+      read_only: true
+      parameters:
+        type: object
+        properties:
+          sql:
+            type: string
+            description: The SQL SELECT query to execute
+        required: [sql]
+      output_schema:
+        type: object
+        properties:
+          columns:
+            type: array
+            items: { type: string }
+          rows:
+            type: array
+            items:
+              type: array
+          row_count: { type: integer }
+
+    - id: execute_statement
+      name: ExecuteStatement
+      description: >
+        Execute a write SQL statement (INSERT, UPDATE, DELETE) against the
+        database and return the number of affected rows
+      output_strategy: ENVIRONMENT
+      environment: database
+      read_only: false
+      parameters:
+        type: object
+        properties:
+          sql:
+            type: string
+            description: The SQL INSERT, UPDATE, or DELETE statement to execute
+        required: [sql]
+      output_schema:
+        type: object
+        properties:
+          status: { type: string }
+          rows_affected: { type: integer }
+          message: { type: string }
+
+    - id: describe_table
+      name: DescribeTable
+      description: >
+        Show the schema of a database table including column names, types,
+        constraints, and foreign keys
+      output_strategy: ENVIRONMENT
+      environment: database
+      read_only: true
+      parameters:
+        type: object
+        properties:
+          table_name:
+            type: string
+            description: Name of the table to describe
+        required: [table_name]
+      output_schema:
+        type: object
+        properties:
+          table_name: { type: string }
+          columns:
+            type: array
+            items:
+              type: object
+              properties:
+                name: { type: string }
+                type: { type: string }
+                nullable: { type: boolean }
+                primary_key: { type: boolean }
+          foreign_keys:
+            type: array
+            items:
+              type: object
+              properties:
+                column: { type: string }
+                references: { type: string }
+
+    - id: list_tables
+      name: ListTables
+      description: List all tables in the database with row counts
+      output_strategy: ENVIRONMENT
+      environment: database
+      read_only: true
+      parameters:
+        type: object
+        properties: {}
+      output_schema:
+        type: object
+        properties:
+          tables:
+            type: array
+            items:
+              type: object
+              properties:
+                name: { type: string }
+                row_count: { type: integer }
+
+  multiturn_attributes:
+    - id: db_conversation
+      min_turns: 4
+      max_turns: 10
+      available_tools:
+        - run_query
+        - execute_statement
+        - describe_table
+        - list_tables
+      max_tool_calls_per_turn: 5
+      conversation_planner: |
+        Plan a conversation where a data analyst works with a database assistant
+        on a {task_type.name} task in a {domain.name} database.
+
+        Complexity level: {complexity.description}
+        Task: {task_type.description}
+
+        The conversation should:
+        1. Start with the analyst describing what they need
+        2. The assistant explores the schema and data to understand the situation
+        3. Multiple tool calls build on each other (e.g., query to find data,
+           then update based on results, then verify the change)
+        4. End with the task completed and verified
+
+      role_instruction_messages:
+        USER: |
+          You are a data analyst working with a {domain.name} database.
+          You need to: {task_type.description}.
+          Complexity: {complexity.description}.
+
+          Be specific about what you need. Reference table names, column names,
+          and values when you can. React to query results — ask follow-up questions,
+          request modifications, or confirm the results look correct.
+
+          Output only your message, nothing else.
+        ASSISTANT: |
+          You are a database assistant helping with a {domain.name} database.
+          The analyst needs help with: {task_type.description}.
+
+          Guidelines:
+          - Always explore the schema first (list_tables, describe_table) before querying
+          - Use run_query for SELECT statements and execute_statement for writes
+          - After any write operation, run a verification query to confirm the change
+          - Explain what each query does and interpret results for the analyst
+          - If a query returns unexpected results, investigate before proceeding
+
+      output_system_prompt: |
+        You are a database assistant. You help analysts query, modify, and
+        understand data in SQL databases. Always verify changes after writes.
+
+  passthrough_attributes:
+    - db_conversation
+
+inference_config:
+  model:
+    model_name: claude-sonnet-4-20250514
+  engine: ANTHROPIC
+  generation:
+    max_new_tokens: 8192
+    temperature: 0.7
+    top_p: 0.9
+  remote_params:
+    num_workers: 50
+    politeness_policy: 60

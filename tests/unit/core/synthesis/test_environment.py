@@ -15,18 +15,19 @@
 """Tests for GeneratedToolEnvironment."""
 
 import json
+from typing import Any
 
 from oumi.core.configs.params.tool_params import (
-    ToolEnvironmentAttribute,
     ToolAttribute,
+    ToolEnvironmentAttribute,
     ToolOutputStrategy,
 )
 from oumi.core.synthesis.environment import GeneratedToolEnvironment
 from oumi.core.types.conversation import Conversation, Message, Role
 
 
-def _make_env_config(**overrides) -> ToolEnvironmentAttribute:
-    defaults = dict(
+def _make_env_config(**overrides: Any) -> ToolEnvironmentAttribute:
+    defaults: dict[str, Any] = dict(
         id="filesystem",
         name="Filesystem",
         description="A simple filesystem with files and their contents.",
@@ -47,8 +48,8 @@ def _make_env_config(**overrides) -> ToolEnvironmentAttribute:
     return ToolEnvironmentAttribute(**defaults)
 
 
-def _make_env_tool(read_only: bool = True, **overrides) -> ToolAttribute:
-    defaults = dict(
+def _make_env_tool(read_only: bool = True, **overrides: Any) -> ToolAttribute:
+    defaults: dict[str, Any] = dict(
         id="read_file",
         name="ReadFile",
         description="Read a file",
@@ -66,8 +67,6 @@ def _make_env_tool(read_only: bool = True, **overrides) -> ToolAttribute:
 
 
 class TestBatchedInitMethods:
-    # --- build_schema_prompt / apply_schema ---
-
     def test_build_schema_prompt_returns_conversation(self):
         """build_schema_prompt returns a Conversation with system+user messages,
         contains 'JSON Schema' and tool name, and makes no infer calls."""
@@ -125,8 +124,6 @@ class TestBatchedInitMethods:
         assert result is False
         assert env._state_schema is None
 
-    # --- build_initial_state_prompt / apply_initial_state ---
-
     def test_build_initial_state_prompt_returns_conversation(self):
         """Returns a Conversation referencing the schema."""
         config = _make_env_config(state_schema=None, initial_state=None)
@@ -162,7 +159,12 @@ class TestBatchedInitMethods:
         config = _make_env_config(
             state_schema={
                 "type": "object",
-                "properties": {"files": {"type": "object", "additionalProperties": {"type": "string"}}},
+                "properties": {
+                    "files": {
+                        "type": "object",
+                        "additionalProperties": {"type": "string"},
+                    }
+                },
                 "required": ["files"],
             },
             initial_state=None,
@@ -219,8 +221,6 @@ class TestBatchedInitMethods:
         assert result is False
         assert env.state == {"files": {}}
 
-    # --- summarize_state ---
-
     def test_summarize_state_basic(self):
         """Summary contains key names; no LLM call is made."""
         config = _make_env_config(
@@ -257,7 +257,6 @@ class TestBatchedInitMethods:
         summary = env.summarize_state()
 
         assert isinstance(summary, str)
-        # Should not raise; empty is fine
 
     def test_build_schema_prompt_includes_dict_keyed_instruction(self):
         """Schema prompt instructs LLM to use dict-keyed collections."""
@@ -268,7 +267,10 @@ class TestBatchedInitMethods:
         conv = env.build_schema_prompt([tool])
 
         user_text = conv.messages[1].content
-        assert "dictionaries keyed by" in user_text.lower() or "dict" in user_text.lower()
+        assert isinstance(user_text, str)
+        assert (
+            "dictionaries keyed by" in user_text.lower() or "dict" in user_text.lower()
+        )
 
 
 class TestStateUpdatePrompt:
@@ -363,14 +365,13 @@ class TestStateUpdatePrompt:
         )
 
         last_text = conv.messages[-1].content
+        assert isinstance(last_text, str)
         assert "JSON Patch" in last_text or "json patch" in last_text.lower()
 
 
 class TestApplyStateUpdate:
     def _make_response(self, text: str) -> Conversation:
-        return Conversation(
-            messages=[Message(role=Role.ASSISTANT, content=text)]
-        )
+        return Conversation(messages=[Message(role=Role.ASSISTANT, content=text)])
 
     def test_valid_patch_updates_state(self):
         config = _make_env_config(

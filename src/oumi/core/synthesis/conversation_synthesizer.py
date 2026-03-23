@@ -30,6 +30,7 @@ from oumi.core.configs.params.tool_params import (
 )
 from oumi.core.synthesis.attribute_formatter import AttributeFormatter
 from oumi.core.synthesis.environment import (
+    _MAX_RESULT_RETRIES,
     _MAX_STATE_UPDATE_RETRIES,
     GeneratedToolEnvironment,
 )
@@ -45,6 +46,15 @@ def _clean_json_output(text: str) -> str:
     if parsed is not None:
         return json.dumps(parsed)
     return text
+
+
+def _is_valid_json(text: str) -> bool:
+    """Return True if *text* is parseable as a JSON object or array."""
+    try:
+        result = json.loads(text)
+        return isinstance(result, (dict, list))
+    except (json.JSONDecodeError, TypeError):
+        return False
 
 
 class ConversationSynthesizer:
@@ -107,11 +117,6 @@ class ConversationSynthesizer:
     ) -> list[dict[str, GeneratedToolEnvironment] | None]:
         """Create and initialize per-sample environments with batched LLM calls.
 
-        Unlike _create_environments() which creates one shared set of environments,
-        this method creates fresh GeneratedToolEnvironment instances for each sample
-        and initializes them using two batched inference calls across all samples:
-        one for schema generation and one for initial state generation.
-
         Args:
             samples: List of sample dicts, each containing resolved attribute values.
             multiturn_attribute: The multi-turn attribute defining which tools are used.
@@ -129,13 +134,10 @@ class ConversationSynthesizer:
         if not env_tools:
             return [None] * len(samples)
 
-        # Build scenario context template from role instruction messages
         scenario_parts = []
         for role, instruction in multiturn_attribute.role_instruction_messages.items():
             scenario_parts.append(f"{role.value}: {instruction}")
         scenario_template = "\n".join(scenario_parts) if scenario_parts else None
-
-        # Create fresh environments for each sample
         sample_envs: list[dict[str, GeneratedToolEnvironment]] = []
         for _ in samples:
             envs: dict[str, GeneratedToolEnvironment] = {}
@@ -144,14 +146,9 @@ class ConversationSynthesizer:
                 if not config:
                     logger.warning(f"Environment config not found for '{env_id}'")
                     continue
-                envs[env_id] = GeneratedToolEnvironment(
-                    config=config,
-                    inference_engine=self._inference_engine,
-                    inference_config=self._inference_config,
-                )
+                envs[env_id] = GeneratedToolEnvironment(config=config)
             sample_envs.append(envs)
 
-        # Resolve per-sample scenario contexts
         def _resolve_scenario(sample: dict) -> str | None:
             if scenario_template is None:
                 return None
@@ -160,10 +157,7 @@ class ConversationSynthesizer:
             )
 
         scenario_contexts = [_resolve_scenario(s) for s in samples]
-
-        # Batch 1 — Schema generation
-        # Build prompts for all (sample, env) pairs that need a schema
-        schema_pairs: list[tuple[int, str]] = []  # (sample_idx, env_id)
+        schema_pairs: list[tuple[int, str]] = []
         schema_prompts: list = []
         for i, envs in enumerate(sample_envs):
             ctx = scenario_contexts[i]
@@ -176,7 +170,6 @@ class ConversationSynthesizer:
             schema_responses = self._inference_engine.infer(
                 schema_prompts, inference_config=self._inference_config
             )
-            # Apply responses; collect failures for retry
             retry_schema_pairs: list[tuple[int, str]] = []
             retry_schema_prompts: list = []
             for (i, env_id), response in zip(schema_pairs, schema_responses):
@@ -185,9 +178,11 @@ class ConversationSynthesizer:
                     for _ in range(_MAX_STATE_UPDATE_RETRIES):
                         retry_schema_pairs.append((i, env_id))
                         retry_schema_prompts.append(
-                            env.build_schema_prompt(env_tools[env_id], scenario_contexts[i])
+                            env.build_schema_prompt(
+                                env_tools[env_id], scenario_contexts[i]
+                            )
                         )
-                        break  # one retry prompt per failure; batched below
+                        break
 
             if retry_schema_prompts:
                 retry_responses = self._inference_engine.infer(
@@ -201,14 +196,10 @@ class ConversationSynthesizer:
                             f"sample {i}. Using permissive schema."
                         )
                         env._state_schema = {"type": "object"}
-
-            # Ensure every env has a schema (fallback for any that still lack one)
             for envs in sample_envs:
                 for env_id, env in envs.items():
                     if env._state_schema is None:
                         env._state_schema = {"type": "object"}
-
-        # Batch 2 — Initial state generation (only after ALL schemas are set)
         state_pairs: list[tuple[int, str]] = []
         state_prompts: list = []
         for i, envs in enumerate(sample_envs):
@@ -248,9 +239,7 @@ class ConversationSynthesizer:
 
         return [envs if envs else None for envs in sample_envs]
 
-    def _summarize_envs(
-        self, envs: dict[str, GeneratedToolEnvironment]
-    ) -> str:
+    def _summarize_envs(self, envs: dict[str, GeneratedToolEnvironment]) -> str:
         """Concatenate state summaries from all environments."""
         parts = []
         for env_id, env in envs.items():
@@ -306,21 +295,16 @@ class ConversationSynthesizer:
 
         tools = self._get_tools_for_multiturn(multiturn_attributes)
         has_envs = any(t.environment for t in tools)
-
-        # 1. Init environments per-sample (batched)
         sample_envs = None
         env_summaries = None
         if has_envs:
             sample_envs = self._init_sample_environments(samples, multiturn_attributes)
             env_summaries = [
-                self._summarize_envs(envs) if envs else None
-                for envs in sample_envs
+                self._summarize_envs(envs) if envs else None for envs in sample_envs
             ]
-
-        # 2. Plan with env context
-        samples = self._plan_samples(samples, multiturn_attributes, env_summaries=env_summaries)
-
-        # 3. Synthesize turns
+        samples = self._plan_samples(
+            samples, multiturn_attributes, env_summaries=env_summaries
+        )
         conversations, tool_data = self._synthesize_all_samples(
             samples, multiturn_attributes, sample_envs=sample_envs
         )
@@ -332,6 +316,13 @@ class ConversationSynthesizer:
 
         for i, (sample, conversation) in enumerate(zip(samples, conversations)):
             if self._has_empty_messages(conversation):
+                filtered_count += 1
+                records.append(None)
+                continue
+
+            if has_tools and self._has_empty_output_messages(
+                tool_data["output_messages"][i]
+            ):
                 filtered_count += 1
                 records.append(None)
                 continue
@@ -384,6 +375,7 @@ class ConversationSynthesizer:
             samples: The conversation samples to plan.
             multiturn_attributes: The multi-turn attribute defining conversation rules.
             max_retries: Maximum number of retry attempts for failed plan parsing.
+            env_summaries: Optional list of environment summaries for each sample.
 
         Returns:
             A list of sample dicts augmented with runtime fields
@@ -529,6 +521,20 @@ class ConversationSynthesizer:
                 return True
         return False
 
+    @staticmethod
+    def _has_empty_output_messages(output_msgs: list[dict]) -> bool:
+        """Check if any user/assistant output message has empty content."""
+        for msg in output_msgs:
+            role = msg.get("role")
+            if role in ("system", "tool"):
+                continue
+            if role == "assistant" and "tool_calls" in msg:
+                continue
+            content = msg.get("content", "")
+            if isinstance(content, str) and not content.strip():
+                return True
+        return False
+
     def _format_persona(
         self, sample: dict, persona: str, tools: list[ToolAttribute]
     ) -> Message:
@@ -566,7 +572,6 @@ class ConversationSynthesizer:
                 "3. Do NOT fabricate data, statistics, or results. Only reference "
                 "information returned by tools.\n"
                 "4. When using a tool, output the <tool_call> tag clearly. "
-                "Do not include multiple tool calls in a single response."
             )
             formatted_content += tool_section
 
@@ -620,7 +625,6 @@ class ConversationSynthesizer:
         """Create the planner prompt template with role context and turn order.
 
         Returns a Conversation with a one-shot example for consistent formatting.
-        The prompt instructs the model to output JSON wrapped in code fences.
         """
         role_context = self._build_role_context(sample, multiturn_attribute)
         turn_order = self._default_turn_order
@@ -776,10 +780,6 @@ class ConversationSynthesizer:
     ) -> tuple[list[Conversation], dict | None]:
         """Synthesize multi-turn conversations for all samples with batched inference.
 
-        For ASSISTANT turns with tools, the agent loops: generate → parse for
-        tool calls → resolve output → generate again, until a natural language
-        response. Non-tool turns run through the same loop exactly once.
-
         Returns:
             (conversations, tool_data) where tool_data is None when no tools
             are configured.
@@ -875,7 +875,6 @@ class ConversationSynthesizer:
                 still_active: list[int] = []
                 gen_items: list[tuple[int, str, dict, str]] = []
                 gen_prompts: list[Conversation] = []
-                # Collect ENVIRONMENT tool calls for batched inference
                 env_items: list[
                     tuple[
                         int,
@@ -898,85 +897,45 @@ class ConversationSynthesizer:
                         histories[idx].extend(turn_tool_msgs[idx])
                         histories[idx].append(Message(role=role, content=text))
                         if tool_executor:
-                            content = (
-                                ToolExecutor.strip_tool_tags(text)
-                                if is_tool_turn
-                                else text
-                            )
+                            content = ToolExecutor.strip_tool_tags(text)
                             content = ToolExecutor.strip_bare_tool_json(content)
                             output_messages[idx].append(
                                 {"role": role.value, "content": content}
                             )
+                        continue
+
+                    assert tool_executor is not None
+                    turn_call_counts[idx] += 1
+                    tool_call_counts[idx] += 1
+                    call_id = f"call_{tool_call_counts[idx]:03d}"
+
+                    env, tool_obj = self._resolve_env_tool(
+                        tool_executor, tool_call, resolved_envs[idx]
+                    )
+
+                    if env and tool_obj:
+                        env_items.append((idx, text, tool_call, call_id, env, tool_obj))
+                        env_result_prompts.append(
+                            env.build_result_prompt(
+                                tool_obj,
+                                arguments=tool_call["arguments"],
+                            )
+                        )
+                    elif self._is_env_tool_missing_env(tool_executor, tool_call):
+                        still_active.append(idx)
                     else:
-                        assert tool_executor is not None
-                        turn_call_counts[idx] += 1
-                        tool_call_counts[idx] += 1
-                        call_id = f"call_{tool_call_counts[idx]:03d}"
-
-                        # Check if this is an ENVIRONMENT tool
-                        env = None
-                        tool_obj = None
-                        idx_envs = resolved_envs[idx]
-                        if idx_envs is not None:
-                            tool_obj = tool_executor.get_tool_by_name(tool_call["name"])
-                            if tool_obj and tool_obj.environment:
-                                env = idx_envs.get(tool_obj.environment)
-
-                        if env and tool_obj:
-                            # Queue for batched env processing
-                            env_items.append(
-                                (idx, text, tool_call, call_id, env, tool_obj)
-                            )
-                            env_result_prompts.append(
-                                env.build_result_prompt(
-                                    tool_obj,
-                                    arguments=tool_call["arguments"],
-                                )
-                            )
-                            continue
-
-                        # Guard: ENVIRONMENT tools must not fall through
-                        # to DETERMINISTIC/GENERATED paths
-                        env_tool = tool_executor.get_tool_by_name(tool_call["name"])
-                        if (
-                            env_tool
-                            and env_tool.output_strategy
-                            == ToolOutputStrategy.ENVIRONMENT
-                        ):
-                            logger.warning(
-                                f"Environment not found for tool "
-                                f"'{tool_call['name']}', skipping."
-                            )
-                            still_active.append(idx)
-                            continue
-
                         result = tool_executor.resolve_output(
                             tool_call, deterministic_selections[idx]
                         )
                         if result is not None:
-                            clean_content: str = ToolExecutor.extract_content_around_tool_call(text) or text
-                            turn_tool_msgs[idx].append(
-                                Message(role=Role.ASSISTANT, content=clean_content)
-                            )
-                            turn_tool_msgs[idx].append(
-                                Message(
-                                    role=Role.USER,
-                                    content=(
-                                        f"[Tool result from "
-                                        f"{tool_call['name']}]: "
-                                        f"{result}"
-                                    ),
-                                )
-                            )
-                            output_messages[idx].append(
-                                ToolExecutor.format_tool_call_message(
-                                    tool_call, call_id
-                                )
-                            )
-                            output_messages[idx].append(
-                                ToolExecutor.format_tool_result_message(
-                                    call_id, result, tool_call["name"]
-                                )
+                            self._record_tool_result(
+                                idx,
+                                text,
+                                tool_call,
+                                call_id,
+                                result,
+                                turn_tool_msgs,
+                                output_messages,
                             )
                             still_active.append(idx)
                         else:
@@ -987,150 +946,74 @@ class ConversationSynthesizer:
                                     tool_call, ctx
                                 )
                             )
-
-                # Batched ENVIRONMENT tool result generation
                 if env_result_prompts:
-                    env_responses = self._inference_engine.infer(
+                    env_activated = self._process_env_tool_calls(
+                        env_items,
                         env_result_prompts,
-                        inference_config=self._inference_config,
+                        turn_tool_msgs,
+                        output_messages,
                     )
-                    # Collect state update prompts for non-read-only tools
-                    state_update_indices: list[int] = []
-                    state_update_prompts: list[Conversation] = []
-                    env_results: list[str] = []
-
-                    for i, (
-                        (idx, text, tool_call, call_id, env, tool_obj),
-                        response,
-                    ) in enumerate(zip(env_items, env_responses)):
-                        result = env.apply_result(response)
-                        env_results.append(result)
-
-                        if not tool_obj.read_only:
-                            state_update_indices.append(i)
-                            state_update_prompts.append(
-                                env.build_state_update_prompt(
-                                    tool_obj,
-                                    arguments=tool_call["arguments"],
-                                    result=result,
-                                )
-                            )
-
-                    # Batched state updates
-                    if state_update_prompts:
-                        update_responses = self._inference_engine.infer(
-                            state_update_prompts,
-                            inference_config=self._inference_config,
-                        )
-                        # Track failures for retry
-                        failed: list[tuple[int, int]] = []
-                        for ui, response in zip(state_update_indices, update_responses):
-                            env = env_items[ui][4]
-                            if not env.apply_state_update(response):
-                                failed.append((ui, state_update_indices.index(ui)))
-
-                        # Retry failed state updates
-                        for _ in range(1, _MAX_STATE_UPDATE_RETRIES):
-                            if not failed:
-                                break
-                            retry_prompts = []
-                            for ui, _ in failed:
-                                (
-                                    idx,
-                                    text,
-                                    tool_call,
-                                    call_id,
-                                    env,
-                                    tool_obj,
-                                ) = env_items[ui]
-                                retry_prompts.append(
-                                    env.build_state_update_prompt(
-                                        tool_obj,
-                                        arguments=tool_call["arguments"],
-                                        result=env_results[ui],
-                                        retry=True,
-                                    )
-                                )
-                            retry_responses = self._inference_engine.infer(
-                                retry_prompts,
-                                inference_config=self._inference_config,
-                            )
-                            still_failed = []
-                            for (ui, _), response in zip(failed, retry_responses):
-                                env = env_items[ui][4]
-                                if not env.apply_state_update(response):
-                                    still_failed.append((ui, 0))
-                            failed = still_failed
-
-                        if failed:
-                            for ui, _ in failed:
-                                env = env_items[ui][4]
-                                tool_obj = env_items[ui][5]
-                                logger.warning(
-                                    f"State update failed after "
-                                    f"{_MAX_STATE_UPDATE_RETRIES} retries "
-                                    f"for tool '{tool_obj.name}'. "
-                                    f"Keeping previous state."
-                                )
-
-                    # Now append all env results to histories
-                    for i, (
-                        idx,
-                        text,
-                        tool_call,
-                        call_id,
-                        env,
-                        tool_obj,
-                    ) in enumerate(env_items):
-                        result = env_results[i]
-                        clean_content: str = ToolExecutor.extract_content_around_tool_call(text) or text
-                        turn_tool_msgs[idx].append(
-                            Message(role=Role.ASSISTANT, content=clean_content)
-                        )
-                        turn_tool_msgs[idx].append(
-                            Message(
-                                role=Role.USER,
-                                content=(
-                                    f"[Tool result from {tool_call['name']}]: {result}"
-                                ),
-                            )
-                        )
-                        output_messages[idx].append(
-                            ToolExecutor.format_tool_call_message(tool_call, call_id)
-                        )
-                        tool_result_msg = ToolExecutor.format_tool_result_message(
-                            call_id, result, tool_call["name"]
-                        )
-                        tool_result_msg["_environment_state"] = copy.deepcopy(env.state)
-                        output_messages[idx].append(tool_result_msg)
-                        still_active.append(idx)
-
-                # Batched GENERATED tool simulation
+                    still_active.extend(env_activated)
                 if gen_prompts:
                     sim_texts = self._extract_response(
                         self._inference_engine.infer(
                             gen_prompts, inference_config=self._inference_config
                         )
                     )
-                    for (idx, raw, tc, cid), sim in zip(gen_items, sim_texts):
-                        sim = _clean_json_output(sim)
-                        clean_content: str = ToolExecutor.extract_content_around_tool_call(raw) or raw
-                        turn_tool_msgs[idx].append(
-                            Message(role=Role.ASSISTANT, content=clean_content)
-                        )
-                        turn_tool_msgs[idx].append(
-                            Message(
-                                role=Role.USER,
-                                content=f"[Tool result from {tc['name']}]: {sim}",
+                    # Identify which results need retries
+                    gen_failed: list[int] = []
+                    gen_results: list[str | None] = [None] * len(gen_items)
+                    for j, sim in enumerate(sim_texts):
+                        cleaned = _clean_json_output(sim)
+                        if _is_valid_json(cleaned):
+                            gen_results[j] = cleaned
+                        else:
+                            gen_failed.append(j)
+
+                    assert tool_executor is not None
+                    for _ in range(_MAX_RESULT_RETRIES):
+                        if not gen_failed:
+                            break
+                        retry_prompts = [
+                            tool_executor.build_generated_simulator_prompt(
+                                gen_items[j][2],
+                                histories[gen_items[j][0]]
+                                + turn_tool_msgs[gen_items[j][0]],
+                            )
+                            for j in gen_failed
+                        ]
+                        retry_texts = self._extract_response(
+                            self._inference_engine.infer(
+                                retry_prompts,
+                                inference_config=self._inference_config,
                             )
                         )
-                        output_messages[idx].append(
-                            ToolExecutor.format_tool_call_message(tc, cid)
+                        still_gen_failed: list[int] = []
+                        for j, sim in zip(gen_failed, retry_texts):
+                            cleaned = _clean_json_output(sim)
+                            if _is_valid_json(cleaned):
+                                gen_results[j] = cleaned
+                            else:
+                                still_gen_failed.append(j)
+                        gen_failed = still_gen_failed
+
+                    for j in gen_failed:
+                        logger.warning(
+                            f"Generated tool result for "
+                            f"'{gen_items[j][2]['name']}' was not valid "
+                            f"JSON after {_MAX_RESULT_RETRIES} retries."
                         )
-                        output_messages[idx].append(
-                            ToolExecutor.format_tool_result_message(
-                                cid, sim, tc["name"]
-                            )
+                        gen_results[j] = _clean_json_output(sim_texts[j])
+
+                    for j, (idx, raw, tc, cid) in enumerate(gen_items):
+                        self._record_tool_result(
+                            idx,
+                            raw,
+                            tc,
+                            cid,
+                            gen_results[j] or "",
+                            turn_tool_msgs,
+                            output_messages,
                         )
                         still_active.append(idx)
 
@@ -1158,6 +1041,225 @@ class ConversationSynthesizer:
             }
 
         return conversations, tool_data
+
+    @staticmethod
+    def _resolve_env_tool(
+        tool_executor: ToolExecutor,
+        tool_call: dict,
+        idx_envs: dict[str, GeneratedToolEnvironment] | None,
+    ) -> tuple[GeneratedToolEnvironment | None, ToolAttribute | None]:
+        """Look up the environment and tool object for a tool call.
+
+        Returns (env, tool_obj) if this is an environment-bound tool with a
+        matching environment, or (None, None) otherwise.
+        """
+        if idx_envs is None:
+            return None, None
+        tool_obj = tool_executor.get_tool_by_name(tool_call["name"])
+        if tool_obj and tool_obj.environment:
+            env = idx_envs.get(tool_obj.environment)
+            if env:
+                return env, tool_obj
+        return None, None
+
+    @staticmethod
+    def _is_env_tool_missing_env(tool_executor: ToolExecutor, tool_call: dict) -> bool:
+        """Return True if tool_call targets an ENVIRONMENT tool whose env is missing."""
+        tool = tool_executor.get_tool_by_name(tool_call["name"])
+        if tool and tool.output_strategy == ToolOutputStrategy.ENVIRONMENT:
+            logger.warning(
+                f"Environment not found for tool '{tool_call['name']}', skipping."
+            )
+            return True
+        return False
+
+    @staticmethod
+    def _record_tool_result(
+        idx: int,
+        raw_text: str,
+        tool_call: dict,
+        call_id: str,
+        result: str,
+        turn_tool_msgs: dict[int, list[Message]],
+        output_messages: list[list[dict]],
+        env_state: dict | None = None,
+    ) -> None:
+        """Append a tool call + result to conversation history and output messages."""
+        clean_content = ToolExecutor.extract_content_around_tool_call(raw_text)
+        if clean_content:
+            turn_tool_msgs[idx].append(
+                Message(role=Role.ASSISTANT, content=clean_content)
+            )
+        turn_tool_msgs[idx].append(
+            Message(
+                role=Role.USER,
+                content=f"[Tool result from {tool_call['name']}]: {result}",
+            )
+        )
+        output_messages[idx].append(
+            ToolExecutor.format_tool_call_message(tool_call, call_id)
+        )
+        tool_result_msg = ToolExecutor.format_tool_result_message(
+            call_id, result, tool_call["name"]
+        )
+        if env_state is not None:
+            tool_result_msg["_environment_state"] = env_state
+        output_messages[idx].append(tool_result_msg)
+
+    def _process_env_tool_calls(
+        self,
+        env_items: list[
+            tuple[int, str, dict, str, GeneratedToolEnvironment, ToolAttribute]
+        ],
+        env_result_prompts: list[Conversation],
+        turn_tool_msgs: dict[int, list[Message]],
+        output_messages: list[list[dict]],
+    ) -> list[int]:
+        """Execute batched environment tool calls: results, state updates, retries.
+
+        Returns list of sample indices that were processed (to add to still_active).
+        """
+        env_responses = self._inference_engine.infer(
+            env_result_prompts,
+            inference_config=self._inference_config,
+        )
+
+        env_results: list[str | None] = [None] * len(env_items)
+        last_raw: dict[int, str] = {}
+        failed_indices: list[int] = []
+
+        for i, ((idx, text, tool_call, call_id, env, tool_obj), response) in enumerate(
+            zip(env_items, env_responses)
+        ):
+            raw = env.apply_result(response)
+            result = _clean_json_output(raw)
+            if _is_valid_json(result):
+                env_results[i] = result
+            else:
+                last_raw[i] = result
+                failed_indices.append(i)
+
+        # Retry failed results with an explicit retry hint
+        for _ in range(_MAX_RESULT_RETRIES):
+            if not failed_indices:
+                break
+            retry_prompts = [
+                env_items[i][4].build_result_prompt(
+                    env_items[i][5],
+                    arguments=env_items[i][2]["arguments"],
+                    retry=True,
+                )
+                for i in failed_indices
+            ]
+            retry_responses = self._inference_engine.infer(
+                retry_prompts,
+                inference_config=self._inference_config,
+            )
+            still_failed: list[int] = []
+            for i, response in zip(failed_indices, retry_responses):
+                raw = env_items[i][4].apply_result(response)
+                result = _clean_json_output(raw)
+                if _is_valid_json(result):
+                    env_results[i] = result
+                else:
+                    last_raw[i] = result
+                    still_failed.append(i)
+            failed_indices = still_failed
+
+        for i in failed_indices:
+            logger.warning(
+                f"Tool result for '{env_items[i][5].name}' was not valid JSON "
+                f"after {_MAX_RESULT_RETRIES} retries. Using raw text."
+            )
+            env_results[i] = last_raw[i]
+
+        # Collect valid results for state updates
+        final_results: list[str] = []
+        state_update_indices: list[int] = []
+        state_update_prompts: list[Conversation] = []
+
+        for i, (idx, text, tool_call, call_id, env, tool_obj) in enumerate(env_items):
+            result = env_results[i]
+            assert result is not None
+            final_results.append(result)
+            if not tool_obj.read_only and i not in failed_indices:
+                state_update_indices.append(i)
+                state_update_prompts.append(
+                    env.build_state_update_prompt(
+                        tool_obj,
+                        arguments=tool_call["arguments"],
+                        result=result,
+                    )
+                )
+
+        if state_update_prompts:
+            self._apply_state_updates_batched(
+                env_items, final_results, state_update_indices, state_update_prompts
+            )
+
+        activated: list[int] = []
+        for i, (idx, text, tool_call, call_id, env, tool_obj) in enumerate(env_items):
+            self._record_tool_result(
+                idx,
+                text,
+                tool_call,
+                call_id,
+                final_results[i],
+                turn_tool_msgs,
+                output_messages,
+                env_state=copy.deepcopy(env.state),
+            )
+            activated.append(idx)
+        return activated
+
+    def _apply_state_updates_batched(
+        self,
+        env_items: list[
+            tuple[int, str, dict, str, GeneratedToolEnvironment, ToolAttribute]
+        ],
+        env_results: list[str],
+        state_update_indices: list[int],
+        state_update_prompts: list[Conversation],
+    ) -> None:
+        """Apply state updates with batched retries on failure."""
+        update_responses = self._inference_engine.infer(
+            state_update_prompts,
+            inference_config=self._inference_config,
+        )
+
+        failed: list[int] = []
+        for ui, response in zip(state_update_indices, update_responses):
+            env = env_items[ui][4]
+            if not env.apply_state_update(response):
+                failed.append(ui)
+
+        for _ in range(1, _MAX_STATE_UPDATE_RETRIES):
+            if not failed:
+                break
+            retry_prompts = [
+                env_items[ui][4].build_state_update_prompt(
+                    env_items[ui][5],
+                    arguments=env_items[ui][2]["arguments"],
+                    result=env_results[ui],
+                    retry=True,
+                )
+                for ui in failed
+            ]
+            retry_responses = self._inference_engine.infer(
+                retry_prompts,
+                inference_config=self._inference_config,
+            )
+            still_failed = []
+            for ui, response in zip(failed, retry_responses):
+                if not env_items[ui][4].apply_state_update(response):
+                    still_failed.append(ui)
+            failed = still_failed
+
+        for ui in failed:
+            logger.warning(
+                f"State update failed after {_MAX_STATE_UPDATE_RETRIES} retries "
+                f"for tool '{env_items[ui][5].name}'. Keeping previous state."
+            )
 
     def _select_target_turns(
         self, multiturn_attribute: MultiTurnAttribute, turn_order: list[Role]
