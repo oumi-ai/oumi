@@ -192,7 +192,7 @@ torchdata = ["torchdata>=0.9,<0.10.0"]
 
 # CI targets
 ci_cpu = [
-    "oumi[dev,docs,gcp,synthesis,tune,torchdata]",
+    "oumi[dev,docs,gcp,synthesis,tune,torchdata,file_formats]",
     "vllm>=0.10,<0.11",                            # For VLLMInferenceEngine
     "boto3",  # For bedrock inference engine tests
     # This may fail to install. As a temporary workaround, run:
@@ -200,9 +200,9 @@ ci_cpu = [
     "llama-cpp-python>=0.3,<0.4", # For LlamaCppInferenceEngine
 ]
 # llama-cpp-python is not compatible with the github
-# gpu actions runner, so we skip it for now,
+# gpu actions runner, so we skip it for now
 ci_gpu = [
-    "oumi[dev,docs,gcp,gpu,deepspeed,synthesis,tune,torchdata]",
+    "oumi[dev,docs,gcp,gpu,deepspeed,synthesis,tune,torchdata,file_formats]",
     "boto3",  # For bedrock inference engine tests
 ]
 
