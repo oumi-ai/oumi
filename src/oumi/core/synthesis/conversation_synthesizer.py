@@ -100,44 +100,6 @@ class ConversationSynthesizer:
                 )
         return tools
 
-    def _create_environments(
-        self, multiturn_attribute: MultiTurnAttribute
-    ) -> dict[str, GeneratedToolEnvironment] | None:
-        """Create and initialize GeneratedToolEnvironment instances.
-
-        Called once per multiturn synthesis. Returns None if no
-        environment-bound tools are used.
-        """
-        tools = self._get_tools_for_multiturn(multiturn_attribute)
-        env_tools: dict[str, list[ToolAttribute]] = {}
-        for tool in tools:
-            if tool.environment:
-                env_tools.setdefault(tool.environment, []).append(tool)
-
-        if not env_tools:
-            return None
-
-        scenario_parts = []
-        for role, instruction in multiturn_attribute.role_instruction_messages.items():
-            scenario_parts.append(f"{role.value}: {instruction}")
-        scenario_context = "\n".join(scenario_parts) if scenario_parts else None
-
-        environments: dict[str, GeneratedToolEnvironment] = {}
-        for env_id, bound_tools in env_tools.items():
-            config = self._env_configs.get(env_id)
-            if not config:
-                logger.warning(f"Environment config not found for '{env_id}'")
-                continue
-            env = GeneratedToolEnvironment(
-                config=config,
-                inference_engine=self._inference_engine,
-                inference_config=self._inference_config,
-            )
-            env.initialize(bound_tools, scenario_context=scenario_context)
-            environments[env_id] = env
-
-        return environments if environments else None
-
     def _init_sample_environments(
         self,
         samples: list[dict],
@@ -342,9 +304,25 @@ class ConversationSynthesizer:
             f"attribute '{multiturn_attributes.id}'"
         )
 
-        samples = self._plan_samples(samples, multiturn_attributes)
+        tools = self._get_tools_for_multiturn(multiturn_attributes)
+        has_envs = any(t.environment for t in tools)
+
+        # 1. Init environments per-sample (batched)
+        sample_envs = None
+        env_summaries = None
+        if has_envs:
+            sample_envs = self._init_sample_environments(samples, multiturn_attributes)
+            env_summaries = [
+                self._summarize_envs(envs) if envs else None
+                for envs in sample_envs
+            ]
+
+        # 2. Plan with env context
+        samples = self._plan_samples(samples, multiturn_attributes, env_summaries=env_summaries)
+
+        # 3. Synthesize turns
         conversations, tool_data = self._synthesize_all_samples(
-            samples, multiturn_attributes
+            samples, multiturn_attributes, sample_envs=sample_envs
         )
         has_tools = tool_data is not None
 
@@ -787,6 +765,7 @@ class ConversationSynthesizer:
         self,
         samples: list[dict],
         multiturn_attribute: MultiTurnAttribute,
+        sample_envs: list[dict[str, GeneratedToolEnvironment] | None] | None = None,
     ) -> tuple[list[Conversation], dict | None]:
         """Synthesize multi-turn conversations for all samples with batched inference.
 
@@ -803,18 +782,8 @@ class ConversationSynthesizer:
 
         tools = self._get_tools_for_multiturn(multiturn_attribute)
 
-        template_envs = (
-            self._create_environments(multiturn_attribute) if tools else None
-        )
-
-        sample_envs: list[dict[str, GeneratedToolEnvironment] | None] = []
-        for _ in samples:
-            if template_envs:
-                sample_envs.append(
-                    {eid: copy.deepcopy(env) for eid, env in template_envs.items()}
-                )
-            else:
-                sample_envs.append(None)
+        if sample_envs is None:
+            sample_envs = [None] * len(samples)
 
         tool_executor = ToolExecutor(tools) if tools else None
         deterministic_selections = (
