@@ -29,7 +29,10 @@ from oumi.core.configs.params.tool_params import (
     ToolOutputStrategy,
 )
 from oumi.core.synthesis.attribute_formatter import AttributeFormatter
-from oumi.core.synthesis.environment import GeneratedToolEnvironment
+from oumi.core.synthesis.environment import (
+    _MAX_STATE_UPDATE_RETRIES,
+    GeneratedToolEnvironment,
+)
 from oumi.core.synthesis.tool_executor import ToolExecutor
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.logging import logger
@@ -114,9 +117,6 @@ class ConversationSynthesizer:
         if not env_tools:
             return None
 
-        # Build scenario context from role instructions.
-        # NOTE: These may contain template placeholders like {attr_id} that
-        # haven't been resolved yet. They're included as-is for context.
         scenario_parts = []
         for role, instruction in multiturn_attribute.role_instruction_messages.items():
             scenario_parts.append(f"{role.value}: {instruction}")
@@ -137,6 +137,163 @@ class ConversationSynthesizer:
             environments[env_id] = env
 
         return environments if environments else None
+
+    def _init_sample_environments(
+        self,
+        samples: list[dict],
+        multiturn_attribute: MultiTurnAttribute,
+    ) -> list[dict[str, GeneratedToolEnvironment] | None]:
+        """Create and initialize per-sample environments with batched LLM calls.
+
+        Unlike _create_environments() which creates one shared set of environments,
+        this method creates fresh GeneratedToolEnvironment instances for each sample
+        and initializes them using two batched inference calls across all samples:
+        one for schema generation and one for initial state generation.
+
+        Args:
+            samples: List of sample dicts, each containing resolved attribute values.
+            multiturn_attribute: The multi-turn attribute defining which tools are used.
+
+        Returns:
+            A list aligned to samples. Each entry is a dict mapping env_id to a
+            fresh GeneratedToolEnvironment, or None if no env-bound tools exist.
+        """
+        tools = self._get_tools_for_multiturn(multiturn_attribute)
+        env_tools: dict[str, list[ToolAttribute]] = {}
+        for tool in tools:
+            if tool.environment:
+                env_tools.setdefault(tool.environment, []).append(tool)
+
+        if not env_tools:
+            return [None] * len(samples)
+
+        # Build scenario context template from role instruction messages
+        scenario_parts = []
+        for role, instruction in multiturn_attribute.role_instruction_messages.items():
+            scenario_parts.append(f"{role.value}: {instruction}")
+        scenario_template = "\n".join(scenario_parts) if scenario_parts else None
+
+        # Create fresh environments for each sample
+        sample_envs: list[dict[str, GeneratedToolEnvironment]] = []
+        for sample in samples:
+            envs: dict[str, GeneratedToolEnvironment] = {}
+            for env_id in env_tools:
+                config = self._env_configs.get(env_id)
+                if not config:
+                    logger.warning(f"Environment config not found for '{env_id}'")
+                    continue
+                envs[env_id] = GeneratedToolEnvironment(
+                    config=config,
+                    inference_engine=self._inference_engine,
+                    inference_config=self._inference_config,
+                )
+            sample_envs.append(envs)
+
+        # Resolve per-sample scenario contexts
+        def _resolve_scenario(sample: dict) -> str | None:
+            if scenario_template is None:
+                return None
+            return self._formatter.format(
+                sample, scenario_template, missing_values_allowed=True
+            )
+
+        scenario_contexts = [_resolve_scenario(s) for s in samples]
+
+        # Batch 1 — Schema generation
+        # Build prompts for all (sample, env) pairs that need a schema
+        schema_pairs: list[tuple[int, str]] = []  # (sample_idx, env_id)
+        schema_prompts: list = []
+        for i, envs in enumerate(sample_envs):
+            ctx = scenario_contexts[i]
+            for env_id, env in envs.items():
+                bound_tools = env_tools[env_id]
+                schema_pairs.append((i, env_id))
+                schema_prompts.append(env.build_schema_prompt(bound_tools, ctx))
+
+        if schema_prompts:
+            schema_responses = self._inference_engine.infer(
+                schema_prompts, inference_config=self._inference_config
+            )
+            # Apply responses; collect failures for retry
+            retry_schema_pairs: list[tuple[int, str]] = []
+            retry_schema_prompts: list = []
+            for (i, env_id), response in zip(schema_pairs, schema_responses):
+                env = sample_envs[i][env_id]
+                if not env.apply_schema(response):
+                    for _ in range(_MAX_STATE_UPDATE_RETRIES):
+                        retry_schema_pairs.append((i, env_id))
+                        retry_schema_prompts.append(
+                            env.build_schema_prompt(env_tools[env_id], scenario_contexts[i])
+                        )
+                        break  # one retry prompt per failure; batched below
+
+            if retry_schema_prompts:
+                retry_responses = self._inference_engine.infer(
+                    retry_schema_prompts, inference_config=self._inference_config
+                )
+                for (i, env_id), response in zip(retry_schema_pairs, retry_responses):
+                    env = sample_envs[i][env_id]
+                    if not env.apply_schema(response):
+                        logger.warning(
+                            f"Failed to generate valid schema for env '{env_id}' "
+                            f"sample {i}. Using permissive schema."
+                        )
+                        env._state_schema = {"type": "object"}
+
+            # Ensure every env has a schema (fallback for any that still lack one)
+            for envs in sample_envs:
+                for env_id, env in envs.items():
+                    if env._state_schema is None:
+                        env._state_schema = {"type": "object"}
+
+        # Batch 2 — Initial state generation (only after ALL schemas are set)
+        state_pairs: list[tuple[int, str]] = []
+        state_prompts: list = []
+        for i, envs in enumerate(sample_envs):
+            ctx = scenario_contexts[i]
+            for env_id, env in envs.items():
+                state_pairs.append((i, env_id))
+                state_prompts.append(env.build_initial_state_prompt(ctx))
+
+        if state_prompts:
+            state_responses = self._inference_engine.infer(
+                state_prompts, inference_config=self._inference_config
+            )
+            retry_state_pairs: list[tuple[int, str]] = []
+            retry_state_prompts: list = []
+            for (i, env_id), response in zip(state_pairs, state_responses):
+                env = sample_envs[i][env_id]
+                if not env.apply_initial_state(response):
+                    for _ in range(_MAX_STATE_UPDATE_RETRIES):
+                        retry_state_pairs.append((i, env_id))
+                        retry_state_prompts.append(
+                            env.build_initial_state_prompt(scenario_contexts[i])
+                        )
+                        break
+
+            if retry_state_prompts:
+                retry_responses = self._inference_engine.infer(
+                    retry_state_prompts, inference_config=self._inference_config
+                )
+                for (i, env_id), response in zip(retry_state_pairs, retry_responses):
+                    env = sample_envs[i][env_id]
+                    if not env.apply_initial_state(response):
+                        logger.warning(
+                            f"Initial state generation failed for env '{env_id}' "
+                            f"sample {i}. Using empty dict."
+                        )
+                        env._state = {}
+
+        return [envs if envs else None for envs in sample_envs]
+
+    def _summarize_envs(
+        self, envs: dict[str, GeneratedToolEnvironment]
+    ) -> str:
+        """Concatenate state summaries from all environments."""
+        parts = []
+        for env_id, env in envs.items():
+            parts.append(f'Environment "{env_id}":\n{env.summarize_state()}')
+        return "\n\n".join(parts)
 
     def _validate_roles(self, multiturn_attribute: MultiTurnAttribute) -> None:
         """Validate that required roles have corresponding personas.
@@ -729,6 +886,18 @@ class ConversationSynthesizer:
                 still_active: list[int] = []
                 gen_items: list[tuple[int, str, dict, str]] = []
                 gen_prompts: list[Conversation] = []
+                # Collect ENVIRONMENT tool calls for batched inference
+                env_items: list[
+                    tuple[
+                        int,
+                        str,
+                        dict,
+                        str,
+                        GeneratedToolEnvironment,
+                        ToolAttribute,
+                    ]
+                ] = []
+                env_result_prompts: list[Conversation] = []
 
                 for idx, text in zip(active, texts):
                     tool_call = None
@@ -753,49 +922,27 @@ class ConversationSynthesizer:
                         turn_call_counts[idx] += 1
                         tool_call_counts[idx] += 1
                         call_id = f"call_{tool_call_counts[idx]:03d}"
-                        env_result = None
+
+                        # Check if this is an ENVIRONMENT tool
                         env = None
+                        tool_obj = None
                         idx_envs = sample_envs[idx]
                         if idx_envs is not None:
                             tool_obj = tool_executor.get_tool_by_name(tool_call["name"])
                             if tool_obj and tool_obj.environment:
                                 env = idx_envs.get(tool_obj.environment)
-                                if env:
-                                    env_result = env.step(
-                                        tool_obj,
-                                        arguments=tool_call["arguments"],
-                                    )
 
-                        if env_result is not None:
-                            result = env_result
-                            turn_tool_msgs[idx].append(
-                                Message(role=Role.ASSISTANT, content=text)
+                        if env and tool_obj:
+                            # Queue for batched env processing
+                            env_items.append(
+                                (idx, text, tool_call, call_id, env, tool_obj)
                             )
-                            turn_tool_msgs[idx].append(
-                                Message(
-                                    role=Role.USER,
-                                    content=(
-                                        f"[Tool result from "
-                                        f"{tool_call['name']}]: "
-                                        f"{result}"
-                                    ),
+                            env_result_prompts.append(
+                                env.build_result_prompt(
+                                    tool_obj,
+                                    arguments=tool_call["arguments"],
                                 )
                             )
-                            output_messages[idx].append(
-                                ToolExecutor.format_tool_call_message(
-                                    tool_call, call_id
-                                )
-                            )
-                            tool_result_msg = ToolExecutor.format_tool_result_message(
-                                call_id, result, tool_call["name"]
-                            )
-                            # Attach environment state snapshot
-                            if env:
-                                tool_result_msg["_environment_state"] = copy.deepcopy(
-                                    env.state
-                                )
-                            output_messages[idx].append(tool_result_msg)
-                            still_active.append(idx)
                             continue
 
                         # Guard: ENVIRONMENT tools must not fall through
@@ -850,6 +997,123 @@ class ConversationSynthesizer:
                                 )
                             )
 
+                # Batched ENVIRONMENT tool result generation
+                if env_result_prompts:
+                    env_responses = self._inference_engine.infer(
+                        env_result_prompts,
+                        inference_config=self._inference_config,
+                    )
+                    # Collect state update prompts for non-read-only tools
+                    state_update_indices: list[int] = []
+                    state_update_prompts: list[Conversation] = []
+                    env_results: list[str] = []
+
+                    for i, (
+                        (idx, text, tool_call, call_id, env, tool_obj),
+                        response,
+                    ) in enumerate(zip(env_items, env_responses)):
+                        result = env.apply_result(response)
+                        env_results.append(result)
+
+                        if not tool_obj.read_only:
+                            state_update_indices.append(i)
+                            state_update_prompts.append(
+                                env.build_state_update_prompt(
+                                    tool_obj,
+                                    arguments=tool_call["arguments"],
+                                    result=result,
+                                )
+                            )
+
+                    # Batched state updates
+                    if state_update_prompts:
+                        update_responses = self._inference_engine.infer(
+                            state_update_prompts,
+                            inference_config=self._inference_config,
+                        )
+                        # Track failures for retry
+                        failed: list[tuple[int, int]] = []
+                        for ui, response in zip(state_update_indices, update_responses):
+                            env = env_items[ui][4]
+                            if not env.apply_state_update(response):
+                                failed.append((ui, state_update_indices.index(ui)))
+
+                        # Retry failed state updates
+                        for attempt in range(1, _MAX_STATE_UPDATE_RETRIES):
+                            if not failed:
+                                break
+                            retry_prompts = []
+                            for ui, _ in failed:
+                                (
+                                    idx,
+                                    text,
+                                    tool_call,
+                                    call_id,
+                                    env,
+                                    tool_obj,
+                                ) = env_items[ui]
+                                retry_prompts.append(
+                                    env.build_state_update_prompt(
+                                        tool_obj,
+                                        arguments=tool_call["arguments"],
+                                        result=env_results[ui],
+                                        retry=True,
+                                    )
+                                )
+                            retry_responses = self._inference_engine.infer(
+                                retry_prompts,
+                                inference_config=self._inference_config,
+                            )
+                            still_failed = []
+                            for (ui, _), response in zip(failed, retry_responses):
+                                env = env_items[ui][4]
+                                if not env.apply_state_update(response):
+                                    still_failed.append((ui, 0))
+                            failed = still_failed
+
+                        if failed:
+                            for ui, _ in failed:
+                                env = env_items[ui][4]
+                                tool_obj = env_items[ui][5]
+                                logger.warning(
+                                    f"State update failed after "
+                                    f"{_MAX_STATE_UPDATE_RETRIES} retries "
+                                    f"for tool '{tool_obj.name}'. "
+                                    f"Keeping previous state."
+                                )
+
+                    # Now append all env results to histories
+                    for i, (
+                        idx,
+                        text,
+                        tool_call,
+                        call_id,
+                        env,
+                        tool_obj,
+                    ) in enumerate(env_items):
+                        result = env_results[i]
+                        turn_tool_msgs[idx].append(
+                            Message(role=Role.ASSISTANT, content=text)
+                        )
+                        turn_tool_msgs[idx].append(
+                            Message(
+                                role=Role.USER,
+                                content=(
+                                    f"[Tool result from {tool_call['name']}]: {result}"
+                                ),
+                            )
+                        )
+                        output_messages[idx].append(
+                            ToolExecutor.format_tool_call_message(tool_call, call_id)
+                        )
+                        tool_result_msg = ToolExecutor.format_tool_result_message(
+                            call_id, result, tool_call["name"]
+                        )
+                        tool_result_msg["_environment_state"] = copy.deepcopy(env.state)
+                        output_messages[idx].append(tool_result_msg)
+                        still_active.append(idx)
+
+                # Batched GENERATED tool simulation
                 if gen_prompts:
                     sim_texts = self._extract_response(
                         self._inference_engine.infer(

@@ -1229,3 +1229,89 @@ def test_clean_json_output_passes_clean_json():
 def test_clean_json_output_returns_raw_on_failure():
     raw = "not json at all"
     assert _clean_json_output(raw) == "not json at all"
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_init_sample_environments_per_sample(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """Each sample should get its own environment with resolved context."""
+    from oumi.core.configs.params.tool_params import (
+        ToolAttribute,
+        ToolEnvironmentAttribute,
+        ToolOutputStrategy,
+    )
+
+    mock_engine = Mock()
+    mock_build_inference_engine.return_value = mock_engine
+
+    schema = json.dumps({"type": "object", "properties": {"data": {"type": "string"}}})
+    state1 = json.dumps({"data": "healthcare"})
+    state2 = json.dumps({"data": "ecommerce"})
+
+    call_count = 0
+
+    def infer_side_effect(conversations, **kwargs):
+        nonlocal call_count
+        results = []
+        for _ in conversations:
+            call_count += 1
+            if call_count <= 2:
+                text = schema
+            elif call_count == 3:
+                text = state1
+            else:
+                text = state2
+            results.append(
+                Conversation(messages=[Message(role=Role.ASSISTANT, content=text)])
+            )
+        return results
+
+    mock_engine.infer.side_effect = infer_side_effect
+
+    env_config = ToolEnvironmentAttribute(
+        id="db",
+        name="Database",
+        description="A database",
+        system_prompt="You manage a database.",
+    )
+    tool = ToolAttribute(
+        id="query",
+        name="Query",
+        description="Run query",
+        output_strategy=ToolOutputStrategy.ENVIRONMENT,
+        environment="db",
+        read_only=True,
+    )
+
+    params = GeneralSynthesisParams(
+        tools=[tool],
+        environments=[env_config],
+    )
+    multiturn = MultiTurnAttribute(
+        id="conv",
+        min_turns=2,
+        max_turns=2,
+        available_tools=["query"],
+        role_instruction_messages={
+            Role.USER: "You are a analyst.",
+            Role.ASSISTANT: "You are a database assistant.",
+        },
+    )
+    synthesizer = ConversationSynthesizer(params, mock_inference_config)
+
+    from types import SimpleNamespace
+
+    samples = [
+        {"domain": SimpleNamespace(name="Healthcare")},
+        {"domain": SimpleNamespace(name="E-Commerce")},
+    ]
+    result = synthesizer._init_sample_environments(samples, multiturn)
+
+    assert len(result) == 2
+    assert result[0] is not None
+    assert result[1] is not None
+    assert result[0]["db"] is not result[1]["db"]
+    # Batching: 2 batched infer calls (schemas + states), not 2N serial
+    assert mock_engine.infer.call_count == 2
