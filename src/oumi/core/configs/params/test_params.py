@@ -50,6 +50,8 @@ class TestType(str, Enum):
         - COMPOSITE: Combine multiple tests with AND/OR logic
     """
 
+    __test__ = False  # Prevent pytest from collecting this as a test class
+
     THRESHOLD = "threshold"
     # Not yet implemented - planned for future
     REGEX = "regex"
@@ -60,6 +62,8 @@ class TestType(str, Enum):
 
 class TestSeverity(str, Enum):
     """Severity levels for test failures."""
+
+    __test__ = False  # Prevent pytest from collecting this as a test class
 
     HIGH = "high"
     MEDIUM = "medium"
@@ -177,6 +181,8 @@ class TestParams(BaseParams):
         # Python test fields
         function: Python function code as a string.
     """
+
+    __test__ = False  # Prevent pytest from collecting this as a test class
 
     id: str = ""
     type: str = ""
