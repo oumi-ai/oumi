@@ -30,7 +30,6 @@ from oumi.utils.image_utils import (
 )
 from oumi.utils.str_utils import truncate_text_pieces_to_max_tokens_limit
 
-
 _WARNED_ABOUT_OLD_FORMAT = False
 
 
@@ -43,8 +42,9 @@ def _warn_old_format_once() -> None:
     global _WARNED_ABOUT_OLD_FORMAT
     if not _WARNED_ABOUT_OLD_FORMAT:
         warnings.warn(
-            "Oumi's internal message format (type='text', content='...') is deprecated. "
-            "Use HuggingFace Transformers v5 format (type='text', text='...'). "
+            "Oumi's internal message format (type='text', content='...') is "
+            "deprecated. Use HuggingFace Transformers v5 format "
+            "(type='text', text='...'). "
             "This warning will be removed in a future version.",
             DeprecationWarning,
             stacklevel=4,

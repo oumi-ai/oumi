@@ -886,7 +886,10 @@ def test_convert_message_to_hf_dict_multimodal():
     assert result["role"] == "user"
     assert isinstance(result["content"], list)
     assert len(result["content"]) == 2
-    assert result["content"][0] == {"type": "image", "url": "http://example.com/img.jpg"}
+    assert result["content"][0] == {
+        "type": "image",
+        "url": "http://example.com/img.jpg",
+    }
     assert result["content"][1] == {"type": "text", "text": "What is this?"}
 
 
