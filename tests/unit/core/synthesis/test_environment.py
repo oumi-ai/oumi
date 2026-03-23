@@ -269,3 +269,98 @@ class TestBatchedInitMethods:
 
         user_text = conv.messages[1].content
         assert "dictionaries keyed by" in user_text.lower() or "dict" in user_text.lower()
+
+
+class TestStateUpdatePrompt:
+    def test_prompt_is_four_messages(self):
+        """State update prompt has system, user example, assistant example, user actual."""
+        config = _make_env_config(
+            initial_state={"files": {"a.txt": "hello"}},
+        )
+        env = GeneratedToolEnvironment(config=config)
+        tool = _make_env_tool(read_only=False, id="write_file", name="WriteFile")
+
+        conv = env.build_state_update_prompt(
+            tool,
+            arguments={"path": "a.txt", "content": "world"},
+            result='{"status": "success"}',
+        )
+
+        assert len(conv.messages) == 4
+        assert conv.messages[0].role == Role.SYSTEM
+        assert conv.messages[1].role == Role.USER
+        assert conv.messages[2].role == Role.ASSISTANT
+        assert conv.messages[3].role == Role.USER
+
+    def test_few_shot_example_contains_patch_format(self):
+        """The assistant example message contains a JSON Patch array."""
+        config = _make_env_config(
+            initial_state={"files": {"a.txt": "hello"}},
+        )
+        env = GeneratedToolEnvironment(config=config)
+        tool = _make_env_tool(read_only=False, id="write_file", name="WriteFile")
+
+        conv = env.build_state_update_prompt(
+            tool,
+            arguments={"path": "a.txt", "content": "world"},
+            result='{"status": "success"}',
+        )
+
+        assistant_text = conv.messages[2].content
+        assert '"op"' in assistant_text
+        assert '"path"' in assistant_text
+        assert '"replace"' in assistant_text
+
+    def test_actual_request_contains_current_state(self):
+        """The actual user message includes current state and tool details."""
+        config = _make_env_config(
+            initial_state={"files": {"a.txt": "hello"}},
+        )
+        env = GeneratedToolEnvironment(config=config)
+        tool = _make_env_tool(read_only=False, id="write_file", name="WriteFile")
+
+        conv = env.build_state_update_prompt(
+            tool,
+            arguments={"path": "a.txt", "content": "world"},
+            result='{"status": "success"}',
+        )
+
+        user_text = conv.messages[3].content
+        assert "a.txt" in user_text
+        assert "WriteFile" in user_text
+        assert "JSON Patch" in user_text
+
+    def test_actual_request_contains_dynamic_example_path(self):
+        """The actual user message includes an example path from current state."""
+        config = _make_env_config(
+            initial_state={"files": {"readme.txt": "hello"}},
+        )
+        env = GeneratedToolEnvironment(config=config)
+        tool = _make_env_tool(read_only=False, id="write_file", name="WriteFile")
+
+        conv = env.build_state_update_prompt(
+            tool,
+            arguments={"path": "readme.txt", "content": "world"},
+            result='{"status": "success"}',
+        )
+
+        user_text = conv.messages[3].content
+        assert "/files/" in user_text
+
+    def test_retry_prompt_references_json_patch(self):
+        """Retry=True appends a message referencing JSON Patch format."""
+        config = _make_env_config(
+            initial_state={"files": {"a.txt": "hello"}},
+        )
+        env = GeneratedToolEnvironment(config=config)
+        tool = _make_env_tool(read_only=False, id="write_file", name="WriteFile")
+
+        conv = env.build_state_update_prompt(
+            tool,
+            arguments={"path": "a.txt", "content": "world"},
+            result='{"status": "success"}',
+            retry=True,
+        )
+
+        last_text = conv.messages[-1].content
+        assert "JSON Patch" in last_text or "json patch" in last_text.lower()

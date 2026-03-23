@@ -94,7 +94,7 @@ class GeneratedToolEnvironment:
         result: str,
         retry: bool = False,
     ) -> Conversation:
-        """Build the prompt for updating state."""
+        """Build a few-shot prompt for generating a JSON Patch state update."""
         system_parts = [
             self._config.system_prompt,
         ]
@@ -103,25 +103,69 @@ class GeneratedToolEnvironment:
                 f"\nState schema:\n{json.dumps(self._state_schema, indent=2)}"
             )
 
+        # Few-shot example
+        example_user = (
+            'Current state:\n{"users": {"1": {"name": "Alice", "role": "admin"}, '
+            '"2": {"name": "Bob", "role": "viewer"}}}\n\n'
+            "Tool 'UpdateRole' was called with:\n"
+            '{"user_id": "2", "new_role": "editor"}\n\n'
+            'Tool returned:\n{"status": "success", "rows_affected": 1}\n\n'
+            "Output a JSON Patch (RFC 6902) array describing ONLY the changes "
+            "to the state. Each operation must have: op (add/remove/replace), "
+            "path (JSON Pointer referencing dict keys, e.g. /users/2/role), "
+            "and value (for add/replace). Output ONLY the JSON array."
+        )
+        example_assistant = (
+            '[{"op": "replace", "path": "/users/2/role", "value": "editor"}]'
+        )
+
+        # Build a dynamic example path from current state
+        example_path = self._build_example_path()
+
+        # Actual request
         user_parts = [
             f"Current state:\n{json.dumps(self._state, indent=2)}\n\n"
             f"Tool '{tool.name}' was called with:\n"
             f"{json.dumps(arguments, indent=2)}\n\n"
             f"Tool returned:\n{result}\n\n"
-            "Update the state to reflect this tool call. "
-            "Output ONLY valid JSON conforming to the state schema.",
+            "Output a JSON Patch (RFC 6902) array describing ONLY the changes "
+            "to the state. Each operation must have: op (add/remove/replace), "
+            "path (JSON Pointer referencing dict keys, e.g. "
+            f"{example_path}), "
+            "and value (for add/replace). Output ONLY the JSON array.",
         ]
         if retry:
             user_parts.append(
-                "\nIMPORTANT: Your previous state update was invalid. "
-                "Ensure the output is valid JSON and conforms to the schema."
+                "\nIMPORTANT: Your previous output was not a valid JSON Patch "
+                "array. Output ONLY a JSON array of RFC 6902 patch operations."
             )
 
         messages = [
             Message(role=Role.SYSTEM, content="\n".join(system_parts)),
+            Message(role=Role.USER, content=example_user),
+            Message(role=Role.ASSISTANT, content=example_assistant),
             Message(role=Role.USER, content="\n".join(user_parts)),
         ]
         return Conversation(messages=messages)
+
+    def _build_example_path(self) -> str:
+        """Build a dynamic JSON Pointer example from current state keys.
+
+        Walks the first key at each level up to depth 2 to produce something
+        like "/users/1/name". Falls back to "/key/value" if state is empty.
+        """
+        parts: list[str] = []
+        current: Any = self._state
+        for _ in range(3):
+            if isinstance(current, dict) and current:
+                key = next(iter(current))
+                parts.append(str(key))
+                current = current[key]
+            else:
+                break
+        if not parts:
+            return "/key/value"
+        return "/" + "/".join(parts)
 
     def apply_result(self, response: Conversation) -> str:
         """Extract the tool result text from an inference response."""
