@@ -22,6 +22,7 @@ from peft import PeftModel, get_peft_model, prepare_model_for_kbit_training
 from transformers import Mxfp4Config  # pyright: ignore[reportAttributeAccessIssue]
 
 from oumi.core.configs import ModelParams, PeftParams
+from oumi.core.types.exceptions import LoraTargetModulesError
 from oumi.core.configs.internal.internal_model_config import InternalModelConfig
 from oumi.core.configs.internal.supported_models import (
     find_internal_model_config_using_model_name,
@@ -518,6 +519,9 @@ def build_peft_model(
 
     Returns:
         The built PEFT model.
+
+    Raises:
+        LoraTargetModulesError: If the specified target modules don't exist in the model.
     """
     lora_config = peft_params.to_lora()
 
@@ -529,7 +533,24 @@ def build_peft_model(
     else:
         model = base_model
 
-    model = get_peft_model(model, lora_config)
+    try:
+        model = get_peft_model(model, lora_config)
+    except ValueError as e:
+        if "Target modules" in str(e) and "not found" in str(e):
+            # Extract available module names from the model
+            available_modules = [name for name, _ in model.named_modules()]
+            target_modules = lora_config.target_modules
+            if isinstance(target_modules, list):
+                requested_modules = [m for m in target_modules if m is not None]
+            elif target_modules is not None:
+                requested_modules = [target_modules]
+            else:
+                requested_modules = []
+            raise LoraTargetModulesError(
+                requested_modules=requested_modules,
+                available_modules=available_modules,
+            ) from e
+        raise
 
     return model
 

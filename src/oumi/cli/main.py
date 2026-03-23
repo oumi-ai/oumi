@@ -43,7 +43,7 @@ from oumi.cli.quantize import quantize
 from oumi.cli.synth import synth
 from oumi.cli.train import train
 from oumi.cli.tune import tune
-from oumi.core.types.exceptions import ConfigNotFoundError
+from oumi.core.types.exceptions import ConfigNotFoundError, LoraTargetModulesError
 from oumi.utils.logging import should_use_rich_logging
 
 _ASCII_LOGO = r"""
@@ -330,6 +330,10 @@ def run():
             with telemetry.capture_operation(event_name, event_properties):
                 return app()
     except ConfigNotFoundError as e:
+        # Expected error - show message without stack trace
+        CONSOLE.print(f"[red]Error:[/red] {e}")
+        sys.exit(1)
+    except LoraTargetModulesError as e:
         # Expected error - show message without stack trace
         CONSOLE.print(f"[red]Error:[/red] {e}")
         sys.exit(1)

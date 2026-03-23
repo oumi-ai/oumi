@@ -41,11 +41,16 @@ from oumi.core.types.conversation import (
     TemplatedMessage,
     Type,
 )
-from oumi.core.types.exceptions import ConfigNotFoundError, HardwareException
+from oumi.core.types.exceptions import (
+    ConfigNotFoundError,
+    HardwareException,
+    LoraTargetModulesError,
+)
 
 __all__ = [
     "ConfigNotFoundError",
     "HardwareException",
+    "LoraTargetModulesError",
     "ContentItem",
     "ContentItemCounts",
     "Conversation",
