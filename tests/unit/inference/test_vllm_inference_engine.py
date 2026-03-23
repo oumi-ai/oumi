@@ -659,3 +659,163 @@ def test_chat_template_kwargs_enable_thinking_false(mock_vllm):
     call_kwargs = engine._llm.chat.call_args.kwargs
     assert "chat_template_kwargs" in call_kwargs
     assert call_kwargs["chat_template_kwargs"].get("enable_thinking") is False
+
+
+# =============================================================================
+# Tests for vLLM message format compatibility with oumi chat templates
+# =============================================================================
+
+
+def test_vllm_message_format_uses_text_key_for_text_content():
+    """Verify that vLLM message conversion uses 'text' key, not 'content'.
+
+    vLLM expects OpenAI API format: {"type": "text", "text": "..."}
+    This test ensures oumi's conversion produces this format.
+    """
+    from oumi.utils.conversation_utils import convert_message_content_item_to_json_dict
+
+    text_item = ContentItem(type=Type.TEXT, content="Hello world")
+    result = convert_message_content_item_to_json_dict(text_item)
+
+    # Must use 'text' key for vLLM/OpenAI compatibility
+    assert result["type"] == "text"
+    assert "text" in result
+    assert result["text"] == "Hello world"
+    # Should NOT have 'content' key for text items
+    assert "content" not in result
+
+
+def test_vllm_message_format_uses_image_url_structure():
+    """Verify that vLLM message conversion uses OpenAI image_url structure.
+
+    vLLM expects: {"type": "image_url", "image_url": {"url": "..."}}
+    This nested structure is different from transformers v5 format.
+    """
+    from oumi.utils.conversation_utils import convert_message_content_item_to_json_dict
+
+    image_item = ContentItem(type=Type.IMAGE_URL, content="http://example.com/img.jpg")
+    result = convert_message_content_item_to_json_dict(image_item)
+
+    # Must use OpenAI's nested image_url structure
+    assert result["type"] == "image_url"
+    assert "image_url" in result
+    assert isinstance(result["image_url"], dict)
+    assert result["image_url"]["url"] == "http://example.com/img.jpg"
+
+
+def test_vllm_multimodal_message_conversion_end_to_end():
+    """Test complete multimodal message conversion for vLLM.
+
+    This verifies that a multimodal conversation is correctly converted
+    to the format vLLM expects for its chat API.
+    """
+    from oumi.utils.conversation_utils import create_list_of_message_json_dicts
+
+    messages = [
+        Message(
+            role=Role.USER,
+            content=[
+                ContentItem(type=Type.IMAGE_URL, content="http://example.com/img.jpg"),
+                ContentItem(type=Type.TEXT, content="What is in this image?"),
+            ],
+        ),
+    ]
+
+    result = create_list_of_message_json_dicts(
+        messages, group_adjacent_same_role_turns=True
+    )
+
+    assert len(result) == 1
+    assert result[0]["role"] == "user"
+    assert isinstance(result[0]["content"], list)
+    assert len(result[0]["content"]) == 2
+
+    # Image item should use OpenAI format
+    image_item = result[0]["content"][0]
+    assert image_item["type"] == "image_url"
+    assert "image_url" in image_item
+    assert image_item["image_url"]["url"] == "http://example.com/img.jpg"
+
+    # Text item should use 'text' key
+    text_item = result[0]["content"][1]
+    assert text_item["type"] == "text"
+    assert text_item["text"] == "What is in this image?"
+
+
+def test_vllm_format_compatible_with_oumi_chat_template():
+    """Test that vLLM's message format works with oumi's custom chat templates.
+
+    This is a critical compatibility test: when vLLM loads a model trained
+    with oumi and applies the saved chat template to vLLM-formatted messages,
+    it should produce correct prompts.
+
+    vLLM uses: {"type": "text", "text": "..."} and
+               {"type": "image_url", "image_url": {"url": "..."}}
+
+    Oumi's templates handle these via:
+    - Text: (item['text'] if 'text' in item else item['content'])
+    - Images: item['type'].startswith('image')
+    """
+    from oumi.builders import build_tokenizer
+    from oumi.core.configs import ModelParams
+
+    model_params = ModelParams(
+        model_name="llava-hf/llava-1.5-7b-hf", chat_template="llava"
+    )
+    tokenizer = build_tokenizer(model_params)
+
+    # This is the format vLLM would pass to the chat template
+    vllm_format_messages = [
+        {
+            "role": "user",
+            "content": [
+                # vLLM uses image_url with nested structure
+                {"type": "image_url", "image_url": {"url": "http://example.com/img.jpg"}},
+                # vLLM uses 'text' key
+                {"type": "text", "text": "What do you see?"},
+            ],
+        }
+    ]
+
+    # Apply the oumi chat template (which would be saved with the model)
+    prompt = tokenizer.apply_chat_template(
+        vllm_format_messages, tokenize=False, add_generation_prompt=True
+    )
+
+    # The template should correctly:
+    # 1. Insert image placeholder for image_url type (startswith('image'))
+    # 2. Extract text from 'text' key
+    assert "<image>" in prompt
+    assert "What do you see?" in prompt
+    assert "USER:" in prompt
+    assert "ASSISTANT:" in prompt
+
+
+def test_vllm_text_only_message_format():
+    """Test that simple text messages work with vLLM format.
+
+    For text-only messages, vLLM may pass content as a string directly,
+    which oumi's templates should handle.
+    """
+    from oumi.builders import build_tokenizer
+    from oumi.core.configs import ModelParams
+
+    model_params = ModelParams(
+        model_name="llava-hf/llava-1.5-7b-hf", chat_template="llava"
+    )
+    tokenizer = build_tokenizer(model_params)
+
+    # Simple text message (content as string, not list)
+    simple_messages = [
+        {"role": "user", "content": "Hello, how are you?"},
+        {"role": "assistant", "content": "I am doing well!"},
+    ]
+
+    prompt = tokenizer.apply_chat_template(
+        simple_messages, tokenize=False, add_generation_prompt=False
+    )
+
+    assert "Hello, how are you?" in prompt
+    assert "I am doing well!" in prompt
+    assert "USER:" in prompt
+    assert "ASSISTANT:" in prompt

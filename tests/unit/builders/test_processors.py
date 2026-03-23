@@ -338,3 +338,192 @@ def test_processor_apply_chat_template_multimodal_text_content():
     prompt = processor.apply_chat_template(messages)
     assert isinstance(prompt, str)
     assert "Describe the following:" in prompt
+
+
+def test_processor_saves_chat_template(tmp_path):
+    """Test that processor.save_config saves the chat template.
+
+    This is critical for 3rd party libraries like vLLM to pick up
+    the correct chat template when loading a trained model.
+    """
+    import json
+
+    from oumi.core.processors.default_processor import DefaultProcessor
+
+    model_params = ModelParams(
+        model_name="llava-hf/llava-1.5-7b-hf", chat_template="llava"
+    )
+    tokenizer: BaseTokenizer = build_tokenizer(model_params)
+    processor: BaseProcessor = build_processor(
+        model_params.model_name, tokenizer, trust_remote_code=False
+    )
+
+    # Verify processor has the expected chat template
+    assert isinstance(processor, DefaultProcessor)
+    assert processor.chat_template is not None
+    assert len(processor.chat_template) > 0
+
+    # Save the processor config
+    processor.save_config(tmp_path)
+
+    # Verify chat template was saved (either in tokenizer_config.json or chat_template.jinja)
+    tokenizer_config_path = tmp_path / "tokenizer_config.json"
+    chat_template_jinja_path = tmp_path / "chat_template.jinja"
+
+    chat_template_saved = False
+    if chat_template_jinja_path.exists():
+        # Newer transformers versions save chat template to separate file
+        with open(chat_template_jinja_path) as f:
+            saved_template = f.read()
+        assert len(saved_template) > 0
+        chat_template_saved = True
+    elif tokenizer_config_path.exists():
+        # Older versions may save it in tokenizer_config.json
+        with open(tokenizer_config_path) as f:
+            config = json.load(f)
+        if "chat_template" in config:
+            assert len(config["chat_template"]) > 0
+            chat_template_saved = True
+
+    assert chat_template_saved, (
+        "Chat template was not saved. This will cause issues with 3rd party "
+        "inference libraries like vLLM that rely on the saved chat template."
+    )
+
+
+def test_processor_saved_chat_template_can_be_reloaded(tmp_path):
+    """Test that the saved chat template can be reloaded and produces identical output.
+
+    This verifies end-to-end that a model trained with oumi can be loaded
+    by other libraries and produce the same prompts.
+    """
+    model_params = ModelParams(
+        model_name="llava-hf/llava-1.5-7b-hf", chat_template="llava"
+    )
+    tokenizer: BaseTokenizer = build_tokenizer(model_params)
+    processor: BaseProcessor = build_processor(
+        model_params.model_name, tokenizer, trust_remote_code=False
+    )
+
+    # Create a test message
+    messages = [
+        Message(role=Role.USER, content="Hello, how are you?"),
+        Message(role=Role.ASSISTANT, content="I am doing well!"),
+    ]
+
+    # Get the prompt from the original processor
+    original_prompt = processor.apply_chat_template(messages)
+
+    # Save the processor config
+    processor.save_config(tmp_path)
+
+    # Reload the tokenizer from the saved config
+    reloaded_tokenizer = transformers.AutoTokenizer.from_pretrained(str(tmp_path))
+
+    # Verify the chat template was preserved
+    assert reloaded_tokenizer.chat_template is not None
+    assert reloaded_tokenizer.chat_template == processor.chat_template
+
+    # Verify the reloaded tokenizer produces the same output
+    # Convert messages to dict format (as vLLM would do)
+    messages_as_dicts = [
+        {"role": msg.role.value, "content": msg.content} for msg in messages
+    ]
+    reloaded_prompt = reloaded_tokenizer.apply_chat_template(
+        messages_as_dicts, tokenize=False, add_generation_prompt=False
+    )
+
+    assert reloaded_prompt == original_prompt
+
+
+def test_oumi_chat_template_handles_both_text_formats():
+    """Test that oumi's chat templates handle both 'text' and 'content' keys.
+
+    Oumi's custom chat templates are designed to work with both:
+    - transformers v5 format: {"type": "text", "text": "..."}
+    - oumi internal format: {"type": "text", "content": "..."}
+
+    This is important for compatibility with different inference backends.
+    """
+    model_params = ModelParams(
+        model_name="llava-hf/llava-1.5-7b-hf", chat_template="llava"
+    )
+    tokenizer: BaseTokenizer = build_tokenizer(model_params)
+
+    # Test with oumi's format (content key)
+    oumi_format_messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "content": "Hello world"},
+            ],
+        }
+    ]
+
+    # Test with transformers v5 format (text key)
+    transformers_format_messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "Hello world"},
+            ],
+        }
+    ]
+
+    oumi_prompt = tokenizer.apply_chat_template(
+        oumi_format_messages, tokenize=False, add_generation_prompt=False
+    )
+    transformers_prompt = tokenizer.apply_chat_template(
+        transformers_format_messages, tokenize=False, add_generation_prompt=False
+    )
+
+    # Both formats should produce identical prompts
+    assert oumi_prompt == transformers_prompt
+    assert "Hello world" in oumi_prompt
+
+
+def test_oumi_chat_template_handles_image_type_variations():
+    """Test that oumi's chat templates handle different image type values.
+
+    Oumi uses 'image_url' and 'image_path' types, while transformers v5 uses 'image'.
+    Oumi's templates use item['type'].startswith('image') to handle all variants.
+    """
+    model_params = ModelParams(
+        model_name="llava-hf/llava-1.5-7b-hf", chat_template="llava"
+    )
+    tokenizer: BaseTokenizer = build_tokenizer(model_params)
+
+    # Test with oumi's image_url type
+    oumi_image_messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "image_url", "content": "http://example.com/img.jpg"},
+                {"type": "text", "content": "What is this?"},
+            ],
+        }
+    ]
+
+    # Test with transformers v5 image type
+    transformers_image_messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "image", "url": "http://example.com/img.jpg"},
+                {"type": "text", "text": "What is this?"},
+            ],
+        }
+    ]
+
+    oumi_prompt = tokenizer.apply_chat_template(
+        oumi_image_messages, tokenize=False, add_generation_prompt=False
+    )
+    transformers_prompt = tokenizer.apply_chat_template(
+        transformers_image_messages, tokenize=False, add_generation_prompt=False
+    )
+
+    # Both should include the image placeholder and text
+    assert "<image>" in oumi_prompt
+    assert "What is this?" in oumi_prompt
+    assert "<image>" in transformers_prompt
+    assert "What is this?" in transformers_prompt
