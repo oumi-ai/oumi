@@ -558,8 +558,15 @@ class ConversationSynthesizer:
                 '{"param": "value"}}</tool_call>\n\n'
                 "After receiving a tool result, you may call another tool "
                 "or respond to the user.\n\n"
-                "IMPORTANT: Never claim you performed an action without using "
-                "the <tool_call> tag. Every action must go through a tool call."
+                "IMPORTANT RULES:\n"
+                "1. NEVER claim you performed an action without using the "
+                "<tool_call> tag. Every action must go through a tool call.\n"
+                "2. Base ALL responses on actual tool results. If tool results "
+                "contradict your expectations, trust the tool results.\n"
+                "3. Do NOT fabricate data, statistics, or results. Only reference "
+                "information returned by tools.\n"
+                "4. When using a tool, output the <tool_call> tag clearly. "
+                "Do not include multiple tool calls in a single response."
             )
             formatted_content += tool_section
 
@@ -947,7 +954,7 @@ class ConversationSynthesizer:
                             tool_call, deterministic_selections[idx]
                         )
                         if result is not None:
-                            clean_content = ToolExecutor.extract_content_around_tool_call(text) or text
+                            clean_content: str = ToolExecutor.extract_content_around_tool_call(text) or text
                             turn_tool_msgs[idx].append(
                                 Message(role=Role.ASSISTANT, content=clean_content)
                             )
@@ -1076,7 +1083,7 @@ class ConversationSynthesizer:
                         tool_obj,
                     ) in enumerate(env_items):
                         result = env_results[i]
-                        clean_content = ToolExecutor.extract_content_around_tool_call(text) or text
+                        clean_content: str = ToolExecutor.extract_content_around_tool_call(text) or text
                         turn_tool_msgs[idx].append(
                             Message(role=Role.ASSISTANT, content=clean_content)
                         )
@@ -1107,7 +1114,7 @@ class ConversationSynthesizer:
                     )
                     for (idx, raw, tc, cid), sim in zip(gen_items, sim_texts):
                         sim = _clean_json_output(sim)
-                        clean_content = ToolExecutor.extract_content_around_tool_call(raw) or raw
+                        clean_content: str = ToolExecutor.extract_content_around_tool_call(raw) or raw
                         turn_tool_msgs[idx].append(
                             Message(role=Role.ASSISTANT, content=clean_content)
                         )

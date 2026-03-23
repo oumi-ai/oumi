@@ -1347,3 +1347,42 @@ def test_planner_prompt_includes_env_summary(
     last_user_msg = prompt.messages[-1].content
     assert "tables: users" in last_user_msg
     assert "MUST work with this data" in last_user_msg
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_format_persona_includes_grounding_rules(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """When tools are provided, persona should include grounding instructions."""
+    from oumi.core.configs.params.tool_params import (
+        ToolAttribute,
+        ToolEnvironmentAttribute,
+        ToolOutputStrategy,
+    )
+
+    mock_build_inference_engine.return_value = Mock()
+
+    env_config = ToolEnvironmentAttribute(
+        id="db",
+        name="Database",
+        description="A database",
+        system_prompt="You manage a database.",
+    )
+    tool = ToolAttribute(
+        id="query",
+        name="Query",
+        description="Run a query",
+        output_strategy=ToolOutputStrategy.ENVIRONMENT,
+        environment="db",
+        read_only=True,
+    )
+    params = GeneralSynthesisParams(tools=[tool], environments=[env_config])
+    synthesizer = ConversationSynthesizer(params, mock_inference_config)
+
+    result = synthesizer._format_persona({}, "You are an assistant.", [tool])
+
+    content = result.content
+    assert "trust the tool results" in content
+    assert "Do NOT fabricate" in content
+    assert "Do not include multiple tool calls" in content
