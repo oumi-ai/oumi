@@ -1315,3 +1315,35 @@ def test_init_sample_environments_per_sample(
     assert result[0]["db"] is not result[1]["db"]
     # Batching: 2 batched infer calls (schemas + states), not 2N serial
     assert mock_engine.infer.call_count == 2
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_planner_prompt_includes_env_summary(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """When env_summary is provided, planner prompt should contain it."""
+    mock_build_inference_engine.return_value = Mock()
+
+    params = GeneralSynthesisParams()
+    multiturn = MultiTurnAttribute(
+        id="conv",
+        min_turns=2,
+        max_turns=2,
+        role_instruction_messages={
+            Role.USER: "You are a user.",
+            Role.ASSISTANT: "You are an assistant.",
+        },
+    )
+    synthesizer = ConversationSynthesizer(params, mock_inference_config)
+
+    sample = {"target_turns": 2}
+    env_summary = 'Environment "database":\ntables: users (10 items), orders (5 items)'
+
+    prompt = synthesizer._create_planner_prompt(
+        multiturn, sample, env_summary=env_summary
+    )
+
+    last_user_msg = prompt.messages[-1].content
+    assert "tables: users" in last_user_msg
+    assert "MUST work with this data" in last_user_msg

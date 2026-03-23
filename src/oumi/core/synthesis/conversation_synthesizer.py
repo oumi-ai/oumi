@@ -175,7 +175,7 @@ class ConversationSynthesizer:
 
         # Create fresh environments for each sample
         sample_envs: list[dict[str, GeneratedToolEnvironment]] = []
-        for sample in samples:
+        for _ in samples:
             envs: dict[str, GeneratedToolEnvironment] = {}
             for env_id in env_tools:
                 config = self._env_configs.get(env_id)
@@ -398,6 +398,7 @@ class ConversationSynthesizer:
         samples: list[dict],
         multiturn_attributes: MultiTurnAttribute,
         max_retries: int = 2,
+        env_summaries: list[str | None] | None = None,
     ) -> list[dict]:
         """Plan the conversation samples with retry logic for failed parses.
 
@@ -434,6 +435,7 @@ class ConversationSynthesizer:
                 self._create_planner_prompt(
                     multiturn_attributes,
                     augmented_samples[i],
+                    env_summary=env_summaries[i] if env_summaries else None,
                 )
                 for i in indices_to_process
             ]
@@ -625,7 +627,10 @@ class ConversationSynthesizer:
         return ", ".join(parts)
 
     def _create_planner_prompt(
-        self, multiturn_attribute: MultiTurnAttribute, sample: dict
+        self,
+        multiturn_attribute: MultiTurnAttribute,
+        sample: dict,
+        env_summary: str | None = None,
     ) -> Conversation:
         """Create the planner prompt template with role context and turn order.
 
@@ -740,6 +745,13 @@ class ConversationSynthesizer:
                 missing_values_allowed=False,
             )
             base_prompt += f"\nAdditional instructions: {formatted_planner}\n"
+
+        if env_summary:
+            base_prompt += (
+                f"\nThe environment currently contains:\n{env_summary}\n\n"
+                "Your plan MUST work with this data. Do not reference tables, "
+                "fields, or entities that are not present in the environment.\n"
+            )
 
         base_prompt += (
             "\nOutput ONLY the JSON array wrapped in ```json code fences. "
@@ -1039,7 +1051,7 @@ class ConversationSynthesizer:
                                 failed.append((ui, state_update_indices.index(ui)))
 
                         # Retry failed state updates
-                        for attempt in range(1, _MAX_STATE_UPDATE_RETRIES):
+                        for _ in range(1, _MAX_STATE_UPDATE_RETRIES):
                             if not failed:
                                 break
                             retry_prompts = []
