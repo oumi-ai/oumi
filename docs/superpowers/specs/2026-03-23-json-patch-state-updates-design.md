@@ -28,27 +28,71 @@ Replace full-state replacement with **RFC 6902 JSON Patch**. Instead of asking
 the LLM to output the entire state, ask it to output a small array of patch
 operations describing only what changed. Apply the patch programmatically.
 
+Two complementary changes:
+
+1. **JSON Patch for state updates** — ask the LLM to output a small patch array
+   instead of the full state.
+2. **Dict-keyed state structure** — store collections as `{"id": {row}}` dicts
+   instead of arrays, so JSON Pointer paths are semantic (key-based) rather than
+   positional (index-based).
+
 **Example:** An `UPDATE appointments SET status = 'Completed' WHERE appointment_id = 2`
-currently requires ~4,000 tokens of full state output. With JSON Patch:
+currently requires ~4,000 tokens of full state output. With dict-keyed state +
+JSON Patch:
 
 ```json
 [
-  {"op": "replace", "path": "/appointments/1/status", "value": "Completed"},
-  {"op": "replace", "path": "/appointments/1/updated_at", "value": "2024-11-10T14:30:00"}
+  {"op": "replace", "path": "/appointments/2/status", "value": "Completed"},
+  {"op": "replace", "path": "/appointments/2/updated_at", "value": "2024-11-10T14:30:00"}
 ]
 ```
 
-~50 tokens. Dramatically reduces failure rate.
-
-**Note on JSON Pointer paths:** RFC 6902 uses JSON Pointers (RFC 6901) for
-paths. For arrays, paths use 0-based indices (e.g., `/appointments/1` is the
-second element). The LLM must determine the correct array index from the current
-state shown in the prompt. The prompt includes the full current state so the LLM
-can count positions.
+~50 tokens. The path `/appointments/2` refers to the dict key `"2"`, not array
+index 2. No counting required — the LLM just uses the identifier it already
+knows from the tool call arguments.
 
 ## Design
 
-### 1. New utility: `src/oumi/utils/json_patch.py`
+### 1. Dict-keyed state structure
+
+Update `build_schema_prompt` to instruct the schema-generation LLM to use
+**dictionaries keyed by primary identifiers** instead of arrays for collections.
+
+Current (array-based):
+```json
+{
+  "appointments": [
+    {"appointment_id": 1, "status": "Completed"},
+    {"appointment_id": 2, "status": "Scheduled"}
+  ]
+}
+```
+
+New (dict-keyed):
+```json
+{
+  "appointments": {
+    "1": {"appointment_id": 1, "status": "Completed"},
+    "2": {"appointment_id": 2, "status": "Scheduled"}
+  }
+}
+```
+
+The instruction is added to the user message in `build_schema_prompt`:
+
+> "IMPORTANT: For collections of records (e.g., tables, lists of entities),
+> use dictionaries keyed by the record's primary identifier — NOT arrays.
+> For example, use `{"users": {"1": {...}, "2": {...}}}` instead of
+> `{"users": [{...}, {...}]}`."
+
+The `build_initial_state_prompt` already follows the schema, so it will
+naturally produce dict-keyed state. No changes needed there.
+
+This ensures JSON Pointer paths in patches are always semantic
+(`/appointments/2/status`) rather than positional (`/appointments/1/status`),
+eliminating the array-index-counting failure mode.
+
+### 2. New utility: `src/oumi/utils/json_patch.py`
 
 A standalone utility module, not coupled to synthesis. Can be used anywhere in
 the codebase.
@@ -108,40 +152,47 @@ def parse_patch_response(text: str) -> list[dict[str, Any]] | None:
 - **Parsing:** `parse_patch_response` delegates to `extract_json(text, expected_type=list)`.
   Returns `None` on failure (caller handles retry).
 
-### 2. Changes to `src/oumi/core/synthesis/environment.py`
+### 4. Changes to `src/oumi/core/synthesis/environment.py`
+
+#### `build_schema_prompt`
+
+Add dict-keyed collection instruction to the user message (see section 1).
 
 #### `build_state_update_prompt`
 
-The user message changes from:
+Changes from "output full state" to a **few-shot prompted JSON Patch request**.
+The prompt becomes a 4-message conversation (system, user example, assistant
+example, user actual) instead of the current 2-message format.
 
-> "Update the state to reflect this tool call. Output ONLY valid JSON
-> conforming to the state schema."
+**System message:** Same environment system prompt + state schema (unchanged).
 
-To a prompt that:
+**Few-shot example (user):**
+```
+Current state:
+{"users": {"1": {"name": "Alice", "role": "admin"}, "2": {"name": "Bob", "role": "viewer"}}}
 
-1. Explains JSON Patch format with a **concrete example derived from the current
-   state** (e.g., using a real key from `self._state` to show the path format)
-2. Explicitly notes that array paths use 0-based indices
-3. Asks for ONLY the JSON Patch array
+Tool 'UpdateRole' was called with: {"user_id": "2", "new_role": "editor"}
+Tool returned: {"status": "success", "rows_affected": 1}
 
-Example prompt text:
+Output a JSON Patch (RFC 6902) array describing ONLY the changes.
+Use "replace" to update, "add" to insert, "remove" to delete.
+Paths reference dict keys, not array indices (e.g., /users/2/role).
+Output ONLY the JSON array.
+```
 
-> "Output a JSON Patch (RFC 6902) array describing ONLY the changes to the
-> state. Each operation has: op (add/remove/replace), path (JSON Pointer using
-> 0-based array indices), and value (for add/replace).
->
-> Example for this state: `[{"op": "replace", "path": "/{first_key}/0/{first_field}", "value": "new"}]`
->
-> Output ONLY the JSON array."
+**Few-shot example (assistant):**
+```json
+[{"op": "replace", "path": "/users/2/role", "value": "editor"}]
+```
 
-Where `{first_key}` and `{first_field}` are dynamically derived from
-`self._state` to ground the example in the actual data structure.
+**Actual request (user):** Same format as the example — current state, tool
+call, tool result, and the instruction block. A dynamic example path is derived
+from `self._state` to reinforce the dict-key path format for the specific state
+structure.
 
-The system message and the inclusion of current state, tool call details, and
-tool result remain unchanged.
-
-When `retry=True`, the appended message is updated to reference JSON Patch
-format: "Ensure the output is a valid JSON Patch (RFC 6902) array."
+**Retry prompt:** When `retry=True`, appended message says: "Your previous
+output was not a valid JSON Patch array. Output ONLY a JSON array of patch
+operations."
 
 #### `apply_state_update`
 
@@ -182,7 +233,7 @@ no longer called by `apply_state_update` (schema validation moves into
   It calls `env.apply_state_update()` which returns `bool`. The retry logic
   works as-is.
 
-### 3. Tests
+### 5. Tests
 
 #### `tests/unit/utils/test_json_patch.py` (new)
 
@@ -197,6 +248,8 @@ no longer called by `apply_state_update` (schema validation moves into
 - Existing `apply_state_update` tests updated to use patch format
 - New test: patch that produces schema-invalid state returns False
 - New test: malformed patch text returns False
+- New test: `build_schema_prompt` includes dict-keyed collection instruction
+- New test: `build_state_update_prompt` returns 4-message few-shot conversation
 
 ## What This Does NOT Change
 
@@ -211,9 +264,11 @@ no longer called by `apply_state_update` (schema validation moves into
 
 ## Risks
 
-- **LLM may produce wrong JSON Pointer paths** (e.g., wrong array index).
-  Mitigated by: the prompt includes the full current state, and retries handle
-  transient failures. Future enhancement: path auto-resolution for common
-  patterns.
+- **LLM may produce wrong JSON Pointer paths.** Mitigated by: dict-keyed state
+  eliminates index-counting errors, few-shot examples demonstrate the path
+  format, and the retry mechanism handles transient failures.
 - **`jsonpatch` library dependency.** Low risk: pure Python, BSD license,
   well-maintained, no transitive dependencies.
+- **Existing configs/datasets.** Regenerating datasets with this change will
+  produce dict-keyed state. No migration needed — schemas and initial states
+  are auto-generated per run.
