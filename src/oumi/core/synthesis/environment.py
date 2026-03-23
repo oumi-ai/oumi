@@ -20,7 +20,6 @@ from typing import Any
 
 import jsonschema
 
-from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.params.tool_params import ToolAttribute, ToolEnvironmentAttribute
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.logging import logger
@@ -31,29 +30,25 @@ _MAX_STATE_UPDATE_RETRIES = 2
 
 
 class GeneratedToolEnvironment:
-    """LLM-powered stateful environment for tool synthesis.
+    """Stateful environment for tool synthesis using a build/apply pattern.
 
     Maintains a JSON state document that evolves as tools read from and
-    write to it. Each tool call is processed via two LLM calls using the
-    build/apply pattern:
+    write to it. Each tool call is processed via two LLM calls:
     1. build_result_prompt / apply_result: produces the tool's output given
        current state
     2. build_state_update_prompt / apply_state_update: updates state to
        reflect the tool call (if not read_only)
 
+    The environment does not call inference itself — it only builds prompts
+    and applies responses. The caller (e.g. ConversationSynthesizer) is
+    responsible for batching inference calls across environments.
+
     State is validated against a JSON Schema after each update.
     """
 
-    def __init__(
-        self,
-        config: ToolEnvironmentAttribute,
-        inference_engine: Any,
-        inference_config: InferenceConfig | None = None,
-    ):
-        """Initialize the environment with config and inference engine."""
+    def __init__(self, config: ToolEnvironmentAttribute):
+        """Initialize the environment with config."""
         self._config = config
-        self._inference_engine = inference_engine
-        self._inference_config = inference_config
         self._state: dict[str, Any] = copy.deepcopy(config.initial_state or {})
         self._state_schema: dict[str, Any] | None = (
             copy.deepcopy(config.state_schema) if config.state_schema else None
@@ -63,50 +58,6 @@ class GeneratedToolEnvironment:
     def state(self) -> dict[str, Any]:
         """Current state of the environment."""
         return self._state
-
-    def initialize(
-        self,
-        tools: list[ToolAttribute],
-        scenario_context: str | None = None,
-    ) -> None:
-        """Generate state_schema and/or initial_state if not provided.
-
-        Serial convenience method. For batched initialization across
-        multiple environments, use build_schema_prompt()/apply_schema()
-        and build_initial_state_prompt()/apply_initial_state() directly.
-        """
-        if self._state_schema is None:
-            prompt = self.build_schema_prompt(tools, scenario_context)
-            results = self._inference_engine.infer(
-                [prompt], inference_config=self._inference_config
-            )
-            if not self.apply_schema(results[0]):
-                logger.warning(
-                    f"Failed to generate valid schema for '{self._config.id}'. "
-                    "Using permissive schema."
-                )
-                self._state_schema = {"type": "object"}
-
-        if not self._state:
-            for attempt in range(_MAX_STATE_UPDATE_RETRIES + 1):
-                prompt = self.build_initial_state_prompt(scenario_context)
-                results = self._inference_engine.infer(
-                    [prompt], inference_config=self._inference_config
-                )
-                if self.apply_initial_state(results[0]):
-                    break
-            else:
-                logger.warning(
-                    f"Initial state generation failed validation "
-                    f"for environment '{self._config.id}'. Using empty dict."
-                )
-                self._state = {}
-        elif self._state_schema:
-            if not self._validate_state(self._state):
-                raise ValueError(
-                    f"Initial state for environment '{self._config.id}' "
-                    f"does not conform to the provided state schema."
-                )
 
     def build_result_prompt(
         self, tool: ToolAttribute, arguments: dict[str, Any]
@@ -208,8 +159,6 @@ class GeneratedToolEnvironment:
     ) -> Conversation:
         """Build the prompt for generating a JSON Schema from tool definitions.
 
-        No LLM call is made. Returns a Conversation ready for batched inference.
-
         Args:
             tools: All tools bound to this environment.
             scenario_context: Optional conversation persona/scenario context.
@@ -239,7 +188,13 @@ class GeneratedToolEnvironment:
             "The following tools operate on this environment:\n\n"
             + "\n\n".join(tool_descriptions)
             + "\n\nDesign a JSON Schema for the state. "
-            "Every field that any tool reads or writes must be represented. "
+            "Every field that any tool reads or writes must be represented.\n\n"
+            "IMPORTANT: For collections of records (e.g., tables, lists of "
+            "entities), use dictionaries keyed by the record's primary "
+            "identifier — NOT arrays. For example, use "
+            '{"users": {"1": {...}, "2": {...}}} instead of '
+            '{"users": [{...}, {...}]}. This ensures stable key-based '
+            "lookups.\n\n"
             "Output ONLY a valid JSON Schema object.",
         ]
         if scenario_context:
@@ -274,9 +229,6 @@ class GeneratedToolEnvironment:
         scenario_context: str | None = None,
     ) -> Conversation:
         """Build the prompt for generating an initial state.
-
-        No LLM call is made. Requires self._state_schema to be set already.
-        Returns a Conversation ready for batched inference.
 
         Args:
             scenario_context: Optional conversation persona/scenario context.
@@ -327,10 +279,6 @@ class GeneratedToolEnvironment:
 
     def summarize_state(self) -> str:
         """Produce a concise rule-based text summary of the current state.
-
-        No LLM call is made. Walks the JSON state to produce a readable
-        summary. For dicts: list keys with child summaries. For lists:
-        report length and keys of first element if dict items.
 
         Example output: "files: a.txt: (str), b.txt: (str)"
 
@@ -386,8 +334,6 @@ class GeneratedToolEnvironment:
                 keys = ", ".join(str(k) for k in first.keys())
                 return f"[{count} items, keys: {keys}]"
             return f"[{count} items]"
-
-        # Scalar — just report the type name
         return f"({type(value).__name__})"
 
     @staticmethod

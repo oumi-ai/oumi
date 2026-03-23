@@ -15,7 +15,6 @@
 """Tests for GeneratedToolEnvironment."""
 
 import json
-from unittest.mock import MagicMock
 
 from oumi.core.configs.params.tool_params import (
     ToolEnvironmentAttribute,
@@ -66,122 +65,6 @@ def _make_env_tool(read_only: bool = True, **overrides) -> ToolAttribute:
     return ToolAttribute(**defaults)
 
 
-def _mock_inference_engine(responses: list[str]) -> MagicMock:
-    """Create a mock inference engine that returns given responses in sequence."""
-    engine = MagicMock()
-    call_count = 0
-
-    def infer_side_effect(conversations, **kwargs):
-        nonlocal call_count
-        results = []
-        for _ in conversations:
-            text = responses[call_count] if call_count < len(responses) else "{}"
-            call_count += 1
-            results.append(
-                Conversation(messages=[Message(role=Role.ASSISTANT, content=text)])
-            )
-        return results
-
-    engine.infer.side_effect = infer_side_effect
-    return engine
-
-
-class TestGeneratedToolEnvironmentInitialize:
-    def test_initialize_generates_schema_and_state(self):
-        """When both are None, initialize should generate both."""
-        config = _make_env_config(state_schema=None, initial_state=None)
-        schema = {
-            "type": "object",
-            "properties": {
-                "files": {
-                    "type": "object",
-                    "additionalProperties": {"type": "string"},
-                }
-            },
-            "required": ["files"],
-        }
-        state = {"files": {}}
-        engine = _mock_inference_engine([
-            json.dumps(schema),  # schema generation
-            json.dumps(state),   # initial state generation
-        ])
-        env = GeneratedToolEnvironment(config=config, inference_engine=engine)
-
-        tools = [_make_env_tool(read_only=True)]
-        env.initialize(tools)
-
-        assert env._state_schema == schema
-        assert env.state == state
-        assert engine.infer.call_count == 2
-
-    def test_initialize_generates_only_state_when_schema_provided(self):
-        """When schema is provided but initial_state is None, only generate state."""
-        schema = {
-            "type": "object",
-            "properties": {"files": {"type": "object"}},
-            "required": ["files"],
-        }
-        config = _make_env_config(state_schema=schema, initial_state=None)
-        state = {"files": {}}
-        engine = _mock_inference_engine([
-            json.dumps(state),  # only initial state generation
-        ])
-        env = GeneratedToolEnvironment(config=config, inference_engine=engine)
-
-        env.initialize([_make_env_tool()])
-
-        assert env._state_schema == schema
-        assert env.state == state
-        assert engine.infer.call_count == 1
-
-    def test_initialize_validates_when_both_provided(self):
-        """When both are provided, initialize should validate state against schema."""
-        config = _make_env_config()  # has valid schema and state
-        engine = _mock_inference_engine([])
-        env = GeneratedToolEnvironment(config=config, inference_engine=engine)
-
-        env.initialize([_make_env_tool()])
-
-        # No LLM calls needed, just validation
-        assert engine.infer.call_count == 0
-
-    def test_initialize_raises_when_initial_state_violates_schema(self):
-        """When initial_state doesn't match schema, initialize should raise."""
-        config = _make_env_config(initial_state={"bad_key": "no files"})
-        engine = _mock_inference_engine([])
-        env = GeneratedToolEnvironment(config=config, inference_engine=engine)
-
-        import pytest
-
-        with pytest.raises(ValueError, match="does not conform"):
-            env.initialize([_make_env_tool()])
-
-    def test_initialize_with_scenario_context(self):
-        """Scenario context should be included in LLM prompts."""
-        config = _make_env_config(state_schema=None, initial_state=None)
-        schema = {
-            "type": "object",
-            "properties": {"files": {"type": "object"}},
-            "required": ["files"],
-        }
-        engine = _mock_inference_engine([
-            json.dumps(schema),
-            json.dumps({"files": {}}),
-        ])
-        env = GeneratedToolEnvironment(config=config, inference_engine=engine)
-
-        env.initialize(
-            [_make_env_tool()],
-            scenario_context="Tenant calling about a broken window.",
-        )
-
-        # Verify scenario context was included in the prompt
-        first_call_args = engine.infer.call_args_list[0]
-        prompt_conversations = first_call_args[0][0]
-        prompt_text = prompt_conversations[0].messages[-1].content
-        assert "broken window" in prompt_text
-
-
 class TestBatchedInitMethods:
     # --- build_schema_prompt / apply_schema ---
 
@@ -189,8 +72,7 @@ class TestBatchedInitMethods:
         """build_schema_prompt returns a Conversation with system+user messages,
         contains 'JSON Schema' and tool name, and makes no infer calls."""
         config = _make_env_config(state_schema=None, initial_state=None)
-        engine = _mock_inference_engine([])
-        env = GeneratedToolEnvironment(config=config, inference_engine=engine)
+        env = GeneratedToolEnvironment(config=config)
         tool = _make_env_tool()
 
         conv = env.build_schema_prompt([tool])
@@ -202,13 +84,11 @@ class TestBatchedInitMethods:
         user_text = conv.messages[1].content
         assert "JSON Schema" in user_text
         assert tool.name in user_text
-        assert engine.infer.call_count == 0
 
     def test_build_schema_prompt_includes_scenario_context(self):
         """Scenario context appears in the user message."""
         config = _make_env_config(state_schema=None, initial_state=None)
-        engine = _mock_inference_engine([])
-        env = GeneratedToolEnvironment(config=config, inference_engine=engine)
+        env = GeneratedToolEnvironment(config=config)
         tool = _make_env_tool()
 
         conv = env.build_schema_prompt([tool], scenario_context="office network setup")
@@ -219,8 +99,7 @@ class TestBatchedInitMethods:
     def test_apply_schema_valid(self):
         """Valid JSON schema is parsed and stored in _state_schema."""
         config = _make_env_config(state_schema=None, initial_state=None)
-        engine = _mock_inference_engine([])
-        env = GeneratedToolEnvironment(config=config, inference_engine=engine)
+        env = GeneratedToolEnvironment(config=config)
         schema = {"type": "object", "properties": {"x": {"type": "integer"}}}
         response = Conversation(
             messages=[Message(role=Role.ASSISTANT, content=json.dumps(schema))]
@@ -234,8 +113,7 @@ class TestBatchedInitMethods:
     def test_apply_schema_invalid_json(self):
         """Unparseable response returns False and leaves _state_schema unchanged."""
         config = _make_env_config(state_schema=None, initial_state=None)
-        engine = _mock_inference_engine([])
-        env = GeneratedToolEnvironment(config=config, inference_engine=engine)
+        env = GeneratedToolEnvironment(config=config)
         assert env._state_schema is None
 
         response = Conversation(
@@ -252,8 +130,7 @@ class TestBatchedInitMethods:
     def test_build_initial_state_prompt_returns_conversation(self):
         """Returns a Conversation referencing the schema."""
         config = _make_env_config(state_schema=None, initial_state=None)
-        engine = _mock_inference_engine([])
-        env = GeneratedToolEnvironment(config=config, inference_engine=engine)
+        env = GeneratedToolEnvironment(config=config)
         env._state_schema = {
             "type": "object",
             "properties": {"files": {"type": "object"}},
@@ -268,13 +145,11 @@ class TestBatchedInitMethods:
         user_text = conv.messages[1].content
         # Should reference the schema content
         assert "files" in user_text
-        assert engine.infer.call_count == 0
 
     def test_build_initial_state_prompt_includes_scenario_context(self):
         """Scenario context appears in the user message."""
         config = _make_env_config(state_schema=None, initial_state=None)
-        engine = _mock_inference_engine([])
-        env = GeneratedToolEnvironment(config=config, inference_engine=engine)
+        env = GeneratedToolEnvironment(config=config)
         env._state_schema = {"type": "object"}
 
         conv = env.build_initial_state_prompt(scenario_context="rainy day at the park")
@@ -292,8 +167,7 @@ class TestBatchedInitMethods:
             },
             initial_state=None,
         )
-        engine = _mock_inference_engine([])
-        env = GeneratedToolEnvironment(config=config, inference_engine=engine)
+        env = GeneratedToolEnvironment(config=config)
         # Override state to empty so we can see apply_initial_state set it
         env._state = {}
         state = {"files": {"readme.txt": "hello"}}
@@ -316,8 +190,7 @@ class TestBatchedInitMethods:
             },
             initial_state=None,
         )
-        engine = _mock_inference_engine([])
-        env = GeneratedToolEnvironment(config=config, inference_engine=engine)
+        env = GeneratedToolEnvironment(config=config)
         original_state = {"files": {}}
         env._state = original_state.copy()
 
@@ -334,8 +207,7 @@ class TestBatchedInitMethods:
     def test_apply_initial_state_invalid_json(self):
         """Unparseable response returns False and leaves _state unchanged."""
         config = _make_env_config(initial_state=None)
-        engine = _mock_inference_engine([])
-        env = GeneratedToolEnvironment(config=config, inference_engine=engine)
+        env = GeneratedToolEnvironment(config=config)
         env._state = {"files": {}}
 
         response = Conversation(
@@ -354,15 +226,13 @@ class TestBatchedInitMethods:
         config = _make_env_config(
             initial_state={"files": {"a.txt": "hello", "b.txt": "world"}}
         )
-        engine = _mock_inference_engine([])
-        env = GeneratedToolEnvironment(config=config, inference_engine=engine)
+        env = GeneratedToolEnvironment(config=config)
 
         summary = env.summarize_state()
 
         assert "files" in summary
         assert "a.txt" in summary
         assert "b.txt" in summary
-        assert engine.infer.call_count == 0
 
     def test_summarize_state_nested_arrays(self):
         """Summary reports array lengths."""
@@ -370,8 +240,7 @@ class TestBatchedInitMethods:
             state_schema=None,
             initial_state={"items": [{"name": "x"}, {"name": "y"}, {"name": "z"}]},
         )
-        engine = _mock_inference_engine([])
-        env = GeneratedToolEnvironment(config=config, inference_engine=engine)
+        env = GeneratedToolEnvironment(config=config)
 
         summary = env.summarize_state()
 
@@ -382,11 +251,21 @@ class TestBatchedInitMethods:
     def test_summarize_state_empty(self):
         """Handles empty state gracefully."""
         config = _make_env_config(initial_state=None, state_schema=None)
-        engine = _mock_inference_engine([])
-        env = GeneratedToolEnvironment(config=config, inference_engine=engine)
+        env = GeneratedToolEnvironment(config=config)
         env._state = {}
 
         summary = env.summarize_state()
 
         assert isinstance(summary, str)
         # Should not raise; empty is fine
+
+    def test_build_schema_prompt_includes_dict_keyed_instruction(self):
+        """Schema prompt instructs LLM to use dict-keyed collections."""
+        config = _make_env_config(state_schema=None, initial_state=None)
+        env = GeneratedToolEnvironment(config=config)
+        tool = _make_env_tool()
+
+        conv = env.build_schema_prompt([tool])
+
+        user_text = conv.messages[1].content
+        assert "dictionaries keyed by" in user_text.lower() or "dict" in user_text.lower()
