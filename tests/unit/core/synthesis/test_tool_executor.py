@@ -410,3 +410,93 @@ def test_strip_tool_tags_no_tags():
 def test_strip_tool_tags_partial_open_only():
     text = "I tried to use <tool_call> but failed"
     assert ToolExecutor.strip_tool_tags(text) == "I tried to use  but failed"
+
+
+class TestStripBareToolJson:
+    def test_removes_bare_tool_call_json(self):
+        text = (
+            'Calling tool.\n\n'
+            '{"name": "DescribeTable", "arguments": {"table": "users"}}\n\n'
+            'Done.'
+        )
+        result = ToolExecutor.strip_bare_tool_json(text)
+        assert "DescribeTable" not in result
+        assert "Calling tool." in result
+        assert "Done." in result
+
+    def test_preserves_non_tool_json(self):
+        text = 'Here is the result: {"status": "ok", "count": 5}'
+        result = ToolExecutor.strip_bare_tool_json(text)
+        assert '{"status": "ok", "count": 5}' in result
+
+    def test_removes_multiple_bare_tool_calls(self):
+        text = (
+            '{"name": "ToolA", "arguments": {"x": 1}}\n\n'
+            'middle text\n\n'
+            '{"name": "ToolB", "arguments": {"y": 2}}'
+        )
+        result = ToolExecutor.strip_bare_tool_json(text)
+        assert "ToolA" not in result
+        assert "ToolB" not in result
+        assert "middle text" in result
+
+    def test_handles_nested_json_in_arguments(self):
+        text = (
+            '{"name": "Insert", "arguments": {"data": {"key": "val", "nested": {"a": 1}}}}'
+        )
+        result = ToolExecutor.strip_bare_tool_json(text)
+        assert result == ""
+
+    def test_no_change_when_no_bare_json(self):
+        text = "Just plain text with no JSON at all."
+        result = ToolExecutor.strip_bare_tool_json(text)
+        assert result == text
+
+    def test_empty_string(self):
+        assert ToolExecutor.strip_bare_tool_json("") == ""
+
+
+class TestExtractContentAroundToolCall:
+    def test_extracts_text_before_tool_call(self):
+        text = (
+            'Let me check.\n\n'
+            '<tool_call>{"name": "Search", "arguments": {}}</tool_call>'
+        )
+        result = ToolExecutor.extract_content_around_tool_call(text)
+        assert result == "Let me check."
+
+    def test_extracts_text_after_tool_call(self):
+        text = (
+            '<tool_call>{"name": "Search", "arguments": {}}</tool_call>\n\n'
+            'I will verify.'
+        )
+        result = ToolExecutor.extract_content_around_tool_call(text)
+        assert result == "I will verify."
+
+    def test_returns_none_when_only_tool_call(self):
+        text = '<tool_call>{"name": "Search", "arguments": {}}</tool_call>'
+        result = ToolExecutor.extract_content_around_tool_call(text)
+        assert result is None
+
+    def test_returns_none_when_remaining_is_bare_json(self):
+        text = (
+            '<tool_call>{"name": "Search", "arguments": {}}</tool_call>\n\n'
+            '{"name": "AnotherTool", "arguments": {"x": 1}}'
+        )
+        result = ToolExecutor.extract_content_around_tool_call(text)
+        assert result is None
+
+    def test_strips_bare_json_from_remaining_text(self):
+        text = (
+            'Here is my answer.\n\n'
+            '<tool_call>{"name": "Search", "arguments": {}}</tool_call>\n\n'
+            '{"name": "AnotherTool", "arguments": {"x": 1}}'
+        )
+        result = ToolExecutor.extract_content_around_tool_call(text)
+        assert result == "Here is my answer."
+        assert "AnotherTool" not in result
+
+    def test_handles_open_tag(self):
+        text = 'Checking.\n<tool_call>{"name": "Search", "arguments": {}}'
+        result = ToolExecutor.extract_content_around_tool_call(text)
+        assert result == "Checking."

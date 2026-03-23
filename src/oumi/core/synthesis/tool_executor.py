@@ -126,6 +126,59 @@ class ToolExecutor:
         """Remove any residual <tool_call> or </tool_call> tags from text."""
         return _TOOL_TAG_PATTERN.sub("", text).strip()
 
+    @staticmethod
+    def strip_bare_tool_json(text: str) -> str:
+        """Remove bare JSON objects that look like tool calls from text."""
+        if not text:
+            return text
+
+        removals: list[tuple[int, int]] = []
+        i = 0
+        while i < len(text):
+            if text[i] != "{":
+                i += 1
+                continue
+            try:
+                parsed, end_idx = json.JSONDecoder().raw_decode(text, i)
+            except (json.JSONDecodeError, ValueError):
+                i += 1
+                continue
+            if (
+                isinstance(parsed, dict)
+                and "name" in parsed
+                and "arguments" in parsed
+            ):
+                removals.append((i, end_idx))
+                i = end_idx
+            else:
+                i += 1
+
+        result = text
+        for start, end in reversed(removals):
+            result = result[:start] + result[end:]
+
+        while "\n\n\n" in result:
+            result = result.replace("\n\n\n", "\n\n")
+        return result.strip()
+
+    @staticmethod
+    def extract_content_around_tool_call(text: str) -> str | None:
+        """Extract natural language content before/after a <tool_call> tag.
+
+        Returns the cleaned text, or None if nothing meaningful remains.
+        """
+        # Remove <tool_call>...</tool_call> blocks
+        cleaned = _TOOL_CALL_PATTERN.sub("", text)
+        # Also remove open-ended <tool_call>... (unclosed)
+        cleaned = _TOOL_CALL_OPEN_PATTERN.sub("", cleaned)
+        # Remove residual tags
+        cleaned = _TOOL_TAG_PATTERN.sub("", cleaned)
+        # Remove bare tool JSON
+        cleaned = ToolExecutor.strip_bare_tool_json(cleaned)
+
+        cleaned = cleaned.strip()
+        return cleaned if cleaned else None
+
     def validate_arguments(
         self, tool_call: dict[str, Any]
     ) -> ToolCallValidationError | None:
