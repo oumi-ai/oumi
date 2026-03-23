@@ -364,3 +364,116 @@ class TestStateUpdatePrompt:
 
         last_text = conv.messages[-1].content
         assert "JSON Patch" in last_text or "json patch" in last_text.lower()
+
+
+class TestApplyStateUpdate:
+    def _make_response(self, text: str) -> Conversation:
+        return Conversation(
+            messages=[Message(role=Role.ASSISTANT, content=text)]
+        )
+
+    def test_valid_patch_updates_state(self):
+        config = _make_env_config(
+            initial_state={"files": {"a.txt": "old"}},
+        )
+        env = GeneratedToolEnvironment(config=config)
+
+        response = self._make_response(
+            '[{"op": "replace", "path": "/files/a.txt", "value": "new"}]'
+        )
+        result = env.apply_state_update(response)
+
+        assert result is True
+        assert env.state["files"]["a.txt"] == "new"
+
+    def test_add_op_updates_state(self):
+        config = _make_env_config(
+            initial_state={"files": {"a.txt": "hello"}},
+        )
+        env = GeneratedToolEnvironment(config=config)
+
+        response = self._make_response(
+            '[{"op": "add", "path": "/files/b.txt", "value": "world"}]'
+        )
+        result = env.apply_state_update(response)
+
+        assert result is True
+        assert env.state["files"]["b.txt"] == "world"
+        assert env.state["files"]["a.txt"] == "hello"
+
+    def test_invalid_patch_returns_false(self):
+        config = _make_env_config(
+            initial_state={"files": {"a.txt": "hello"}},
+        )
+        env = GeneratedToolEnvironment(config=config)
+
+        response = self._make_response(
+            '[{"op": "replace", "path": "/nonexistent/path", "value": "x"}]'
+        )
+        result = env.apply_state_update(response)
+
+        assert result is False
+        assert env.state == {"files": {"a.txt": "hello"}}
+
+    def test_malformed_json_returns_false(self):
+        config = _make_env_config(
+            initial_state={"files": {"a.txt": "hello"}},
+        )
+        env = GeneratedToolEnvironment(config=config)
+
+        response = self._make_response("not json at all")
+        result = env.apply_state_update(response)
+
+        assert result is False
+        assert env.state == {"files": {"a.txt": "hello"}}
+
+    def test_schema_validation_failure_returns_false(self):
+        """Patch succeeds but result violates schema -> returns False."""
+        config = _make_env_config(
+            state_schema={
+                "type": "object",
+                "properties": {
+                    "files": {
+                        "type": "object",
+                        "additionalProperties": {"type": "string"},
+                    }
+                },
+                "required": ["files"],
+            },
+            initial_state={"files": {"a.txt": "hello"}},
+        )
+        env = GeneratedToolEnvironment(config=config)
+
+        response = self._make_response(
+            '[{"op": "replace", "path": "/files/a.txt", "value": 12345}]'
+        )
+        result = env.apply_state_update(response)
+
+        assert result is False
+        assert env.state["files"]["a.txt"] == "hello"
+
+    def test_empty_patch_is_valid(self):
+        config = _make_env_config(
+            initial_state={"files": {"a.txt": "hello"}},
+        )
+        env = GeneratedToolEnvironment(config=config)
+
+        response = self._make_response("[]")
+        result = env.apply_state_update(response)
+
+        assert result is True
+        assert env.state == {"files": {"a.txt": "hello"}}
+
+    def test_markdown_fenced_patch(self):
+        config = _make_env_config(
+            initial_state={"files": {"a.txt": "old"}},
+        )
+        env = GeneratedToolEnvironment(config=config)
+
+        response = self._make_response(
+            '```json\n[{"op": "replace", "path": "/files/a.txt", "value": "new"}]\n```'
+        )
+        result = env.apply_state_update(response)
+
+        assert result is True
+        assert env.state["files"]["a.txt"] == "new"

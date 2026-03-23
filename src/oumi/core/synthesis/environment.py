@@ -22,6 +22,12 @@ import jsonschema
 
 from oumi.core.configs.params.tool_params import ToolAttribute, ToolEnvironmentAttribute
 from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.utils.json_patch import (
+    JsonPatchError,
+    JsonPatchValidationError,
+    apply_json_patch,
+    parse_patch_response,
+)
 from oumi.utils.logging import logger
 from oumi.utils.str_utils import extract_json
 
@@ -172,18 +178,26 @@ class GeneratedToolEnvironment:
         return self._extract_text(response)
 
     def apply_state_update(self, response: Conversation) -> bool:
-        """Parse, validate, and apply a state update from an inference response.
+        """Parse, validate, and apply a JSON Patch from an inference response.
 
         Returns True if the state was successfully updated, False otherwise.
         """
         text = self._extract_text(response)
-        parsed = extract_json(text, expected_type=dict)
-        if isinstance(parsed, dict) and self._validate_state(parsed):
-            self._state = parsed
+        patch = parse_patch_response(text)
+        if patch is None:
+            logger.warning(f"Failed to parse JSON Patch: {text[:200]}")
+            return False
+        try:
+            self._state = apply_json_patch(
+                self._state, patch, schema=self._state_schema
+            )
             return True
-        if not isinstance(parsed, dict):
-            logger.warning(f"Failed to parse state update JSON: {text[:200]}")
-        return False
+        except JsonPatchError as e:
+            logger.warning(f"JSON Patch application failed: {e}")
+            return False
+        except JsonPatchValidationError as e:
+            logger.warning(f"Patched state failed schema validation: {e}")
+            return False
 
     def _validate_state(self, state: dict[str, Any]) -> bool:
         """Validate state against the schema. Returns True if valid."""
