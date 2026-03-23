@@ -782,8 +782,9 @@ class ConversationSynthesizer:
 
         tools = self._get_tools_for_multiturn(multiturn_attribute)
 
-        if sample_envs is None:
-            sample_envs = [None] * len(samples)
+        resolved_envs: list[dict[str, GeneratedToolEnvironment] | None] = (
+            sample_envs if sample_envs is not None else [None for _ in samples]
+        )
 
         tool_executor = ToolExecutor(tools) if tools else None
         deterministic_selections = (
@@ -895,6 +896,7 @@ class ConversationSynthesizer:
                                 if is_tool_turn
                                 else text
                             )
+                            content = ToolExecutor.strip_bare_tool_json(content)
                             output_messages[idx].append(
                                 {"role": role.value, "content": content}
                             )
@@ -907,7 +909,7 @@ class ConversationSynthesizer:
                         # Check if this is an ENVIRONMENT tool
                         env = None
                         tool_obj = None
-                        idx_envs = sample_envs[idx]
+                        idx_envs = resolved_envs[idx]
                         if idx_envs is not None:
                             tool_obj = tool_executor.get_tool_by_name(tool_call["name"])
                             if tool_obj and tool_obj.environment:
@@ -945,8 +947,9 @@ class ConversationSynthesizer:
                             tool_call, deterministic_selections[idx]
                         )
                         if result is not None:
+                            clean_content = ToolExecutor.extract_content_around_tool_call(text) or text
                             turn_tool_msgs[idx].append(
-                                Message(role=Role.ASSISTANT, content=text)
+                                Message(role=Role.ASSISTANT, content=clean_content)
                             )
                             turn_tool_msgs[idx].append(
                                 Message(
@@ -1073,8 +1076,9 @@ class ConversationSynthesizer:
                         tool_obj,
                     ) in enumerate(env_items):
                         result = env_results[i]
+                        clean_content = ToolExecutor.extract_content_around_tool_call(text) or text
                         turn_tool_msgs[idx].append(
-                            Message(role=Role.ASSISTANT, content=text)
+                            Message(role=Role.ASSISTANT, content=clean_content)
                         )
                         turn_tool_msgs[idx].append(
                             Message(
@@ -1103,8 +1107,9 @@ class ConversationSynthesizer:
                     )
                     for (idx, raw, tc, cid), sim in zip(gen_items, sim_texts):
                         sim = _clean_json_output(sim)
+                        clean_content = ToolExecutor.extract_content_around_tool_call(raw) or raw
                         turn_tool_msgs[idx].append(
-                            Message(role=Role.ASSISTANT, content=raw)
+                            Message(role=Role.ASSISTANT, content=clean_content)
                         )
                         turn_tool_msgs[idx].append(
                             Message(
