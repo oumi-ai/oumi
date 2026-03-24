@@ -994,3 +994,99 @@ def test_get_batch_results_partial_not_supported(
         )
 
     assert "does not support partial batch results" in str(exc_info.value)
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_escape_curly_braces(mock_build_inference_engine):
+    """Test that _escape_curly_braces properly escapes curly braces."""
+    mock_build_inference_engine.return_value = Mock()
+    synthesizer = AttributeSynthesizer(GeneralSynthesisParams(), Mock())
+
+    # Test basic curly braces
+    assert synthesizer._escape_curly_braces("hello") == "hello"
+    assert synthesizer._escape_curly_braces("{key}") == "{{key}}"
+    assert synthesizer._escape_curly_braces("{{already}}") == "{{{{already}}}}"
+
+    # Test JSON-like content (the main use case)
+    json_content = '{"answers": [{"answer": "yes", "confidence": 0.9}]}'
+    expected = '{{"answers": [{{"answer": "yes", "confidence": 0.9}}]}}'
+    assert synthesizer._escape_curly_braces(json_content) == expected
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_synthesize_escapes_curly_braces_in_llm_output(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_generated_attribute,
+    mock_inference_config,
+):
+    """Test that LLM-generated content with curly braces is escaped.
+
+    This prevents nested placeholder injection when the output is used in
+    subsequent template formatting.
+    """
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+
+    # LLM returns JSON with curly braces
+    json_response = '{"answers": [{"answer": "yes"}]}'
+    mock_inference_engine.infer.return_value = [
+        Conversation(
+            messages=[
+                Message(role=Role.USER, content="Test query"),
+                Message(role=Role.ASSISTANT, content=json_response),
+            ]
+        ),
+    ]
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+    samples = [{"style": "formal", "topic": "tech"}]
+    result = synthesizer.synthesize(samples, mock_generated_attribute)
+
+    # The curly braces should be escaped
+    expected_escaped = '{{"answers": [{{"answer": "yes"}}]}}'
+    assert result[0]["generated_content"] == expected_escaped
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_get_batch_results_escapes_curly_braces(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_generated_attribute,
+    mock_inference_config,
+):
+    """Test that batch results also escape curly braces in LLM output."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+
+    json_response = '{"key": "value"}'
+    mock_inference_engine.get_batch_results_partial.return_value = BatchResult(
+        successful=[
+            (
+                0,
+                Conversation(
+                    messages=[
+                        Message(role=Role.USER, content="Test query"),
+                        Message(role=Role.ASSISTANT, content=json_response),
+                    ]
+                ),
+            ),
+        ],
+        failed_indices=[],
+        error_messages={},
+    )
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+    samples = [{"style": "formal", "topic": "tech"}]
+    result = synthesizer.get_batch_results(
+        "batch_123", samples, mock_generated_attribute
+    )
+
+    expected_escaped = '{{"key": "value"}}'
+    assert result[0]["generated_content"] == expected_escaped

@@ -126,7 +126,11 @@ class SafeDict(dict):
         if self.missing_values_allowed:
             return "{" + key + "}"
         else:
-            raise ValueError(f"Missing value for placeholder: {key}")
+            raise ValueError(
+                f"Missing value for placeholder: \"{key}\". "
+                f"If this is not intended to be a placeholder (e.g., part of a JSON "
+                f"example), escape curly braces by doubling them: {{{{ and }}}}"
+            )
 
     def __getitem__(self, key):
         """Override to wrap list values with IndexableValue for bracket support.

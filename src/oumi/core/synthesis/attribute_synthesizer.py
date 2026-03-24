@@ -347,9 +347,15 @@ class AttributeSynthesizer:
         """
         original_responses = self._extract_response(inference_results)
 
+        # Escape curly braces in LLM responses to prevent nested placeholder injection
+        # when these values are used in subsequent template formatting
+        escaped_responses = [
+            self._escape_curly_braces(response) for response in original_responses
+        ]
+
         if not generated_attribute.postprocessing_params:
             return [
-                {generated_attribute.id: response} for response in original_responses
+                {generated_attribute.id: response} for response in escaped_responses
             ]
 
         keep_original = (
@@ -357,17 +363,17 @@ class AttributeSynthesizer:
         )
         if keep_original:
             records = [
-                {generated_attribute.id: response} for response in original_responses
+                {generated_attribute.id: response} for response in escaped_responses
             ]
         else:
-            records = [{} for _ in original_responses]
+            records = [{} for _ in escaped_responses]
 
-        for i, original_response in enumerate(original_responses):
+        for i, escaped_response in enumerate(escaped_responses):
             new_id = generated_attribute.postprocessing_params.id
-            new_response = original_response
+            new_response = escaped_response
             try:
                 new_response = self._postprocess_sample(
-                    original_response, generated_attribute.postprocessing_params
+                    escaped_response, generated_attribute.postprocessing_params
                 )
             except ValueError as e:
                 logger.warning(
@@ -428,3 +434,19 @@ class AttributeSynthesizer:
             response = response + postprocessing_params.added_suffix
 
         return response
+
+    def _escape_curly_braces(self, text: str) -> str:
+        """Escape curly braces to prevent placeholder interpretation in format_map.
+
+        LLM-generated content may contain curly braces (e.g., JSON like {"key": "value"}).
+        When this content is later used as a placeholder value in another template,
+        Python's str.format_map() would interpret the braces as nested placeholders.
+        Escaping them as {{ and }} prevents this injection issue.
+
+        Args:
+            text: The text containing potential curly braces.
+
+        Returns:
+            The text with curly braces escaped as {{ and }}.
+        """
+        return text.replace("{", "{{").replace("}", "}}")

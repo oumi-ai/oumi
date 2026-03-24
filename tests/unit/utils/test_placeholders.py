@@ -124,8 +124,24 @@ def test_resolve_placeholders_missing_values_not_allowed():
     values = {"name": "Alice"}
 
     # With missing_values_allowed=False (default), should raise ValueError
-    with pytest.raises(ValueError, match="Missing value for placeholder: city"):
+    with pytest.raises(ValueError, match='Missing value for placeholder: "city"'):
         resolve_placeholders(template, values, missing_values_allowed=False)
+
+
+def test_resolve_placeholders_error_suggests_escaping():
+    """Test that error message suggests escaping curly braces."""
+    # This simulates a user putting JSON examples in their template
+    template = 'Output format: {"answers": [...]}'
+    values = {}
+
+    with pytest.raises(ValueError) as exc_info:
+        resolve_placeholders(template, values, missing_values_allowed=False)
+
+    error_message = str(exc_info.value)
+    # Error should mention the problematic placeholder
+    assert '"answers"' in error_message
+    # Error should suggest escaping curly braces
+    assert "{{" in error_message and "}}" in error_message
 
 
 def test_indexable_value_with_empty_list():
