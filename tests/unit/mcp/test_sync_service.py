@@ -1,6 +1,7 @@
 # pyright: reportOperatorIssue=false
 """Tests for oumi.mcp.sync_service — version detection, tree API sync flow."""
 
+import urllib.parse
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -79,11 +80,12 @@ def _make_mock_client(yaml_paths: list[str]) -> MagicMock:
     raw_response.content = b"model:\n  model_name: gpt2\n"
 
     def mock_get(url, **_kwargs):
-        if "/git/trees/abc123" in url:
+        parsed = urllib.parse.urlparse(url)
+        if "/git/trees/abc123" in parsed.path:
             return configs_tree_response
-        if "/git/trees/" in url:
+        if "/git/trees/" in parsed.path:
             return root_tree_response
-        if "raw.githubusercontent.com" in url:
+        if parsed.hostname == "raw.githubusercontent.com":
             return raw_response
         return MagicMock(status_code=404)
 
