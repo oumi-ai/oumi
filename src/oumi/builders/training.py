@@ -18,6 +18,7 @@ from pprint import pformat
 from typing import cast
 
 import transformers
+import trl
 
 from oumi.core.configs import TrainerType, TrainingParams
 from oumi.core.distributed import is_world_process_zero
@@ -31,9 +32,9 @@ from oumi.core.trainers import (
 from oumi.core.trainers import Trainer as OumiTrainer
 from oumi.utils.logging import logger
 from oumi.utils.packaging import (
-    check_trl_vllm_compatibility_if_installed,
     is_trl_v0_28_or_later,
     require_gold_trainer,
+    verify_trl_vllm_compatibility,
 )
 
 
@@ -113,8 +114,6 @@ def build_trainer(
         return _init_verl_grpo_trainer
 
     if trainer_type == TrainerType.TRL_SFT:
-        import trl
-
         return _create_hf_builder_fn(trl.SFTTrainer)
     elif trainer_type == TrainerType.TRL_DPO:
         return _create_hf_builder_fn(TrlDpoTrainer)
@@ -125,10 +124,7 @@ def build_trainer(
             from trl import KTOTrainer
         return _create_hf_builder_fn(KTOTrainer)
     elif trainer_type == TrainerType.TRL_GRPO:
-        check_trl_vllm_compatibility_if_installed("TRL GRPO trainer")
-        from trl import GRPOTrainer
-
-        return _create_hf_builder_fn(GRPOTrainer)
+        return _create_hf_builder_fn(trl.GRPOTrainer)
     elif trainer_type == TrainerType.TRL_GKD:
         if is_trl_v0_28_or_later():
             from trl.experimental.gkd import GKDTrainer
@@ -137,7 +133,7 @@ def build_trainer(
         return _create_hf_builder_fn(GKDTrainer)
     elif trainer_type == TrainerType.TRL_GOLD:
         require_gold_trainer()
-        check_trl_vllm_compatibility_if_installed("TRL GOLD trainer")
+        verify_trl_vllm_compatibility("TRL GOLD trainer")
         from trl.experimental.gold import GOLDTrainer
 
         return _create_hf_builder_fn(GOLDTrainer)
