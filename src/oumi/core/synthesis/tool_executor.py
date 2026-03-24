@@ -359,21 +359,16 @@ class ToolExecutor:
 
     @staticmethod
     def build_tool_catalog(tools: list[ToolAttribute]) -> str:
-        """Build a formatted tool catalog for injection into synthesis prompts."""
+        """Build a formatted tool catalog with full JSON Schema for each tool."""
         lines: list[str] = []
         for tool in tools:
             lines.append(f"- {tool.name}: {tool.description}")
             if tool.parameters:
-                props = tool.parameters.get("properties", {})
-                required = set(tool.parameters.get("required", []))
-                for param_name, param_info in props.items():
-                    param_type = param_info.get("type", "any")
-                    param_desc = param_info.get("description", "")
-                    req_marker = ", required" if param_name in required else ""
-                    line = f"    {param_name} ({param_type}{req_marker})"
-                    if param_desc:
-                        line += f" - {param_desc}"
-                    lines.append(line)
+                schema_str = json.dumps(tool.parameters, indent=2)
+                indented = "\n".join(
+                    f"  {line}" for line in schema_str.split("\n")
+                )
+                lines.append(f"  Parameters:\n{indented}")
         return "\n".join(lines)
 
     @staticmethod

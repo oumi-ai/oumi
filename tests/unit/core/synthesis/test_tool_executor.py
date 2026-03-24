@@ -249,9 +249,22 @@ def test_build_tool_catalog(deterministic_tool, generated_tool, no_params_tool):
     assert "SearchOrders" in catalog
     assert "CheckEligibility" in catalog
     assert "GetCurrentTime" in catalog
-    assert "order_id (string, required)" in catalog
-    assert "include_items (boolean)" in catalog
-    assert "include_items (boolean, required)" not in catalog
+    assert '"type": "object"' in catalog
+    assert '"order_id"' in catalog
+
+
+def test_build_tool_catalog_includes_full_schema(deterministic_tool, generated_tool, no_params_tool):
+    """Catalog includes full JSON Schema per tool, not just flattened params."""
+    catalog = ToolExecutor.build_tool_catalog(
+        [deterministic_tool, generated_tool, no_params_tool]
+    )
+    assert "SearchOrders" in catalog
+    assert "CheckEligibility" in catalog
+    assert "GetCurrentTime" in catalog
+    assert '"type": "object"' in catalog
+    assert '"properties"' in catalog
+    assert '"required"' in catalog
+    assert "order_id (string, required)" not in catalog
 
 
 def test_build_tool_definitions_format(deterministic_tool, generated_tool):
