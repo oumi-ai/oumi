@@ -35,7 +35,7 @@ try:
     import vllm  # pyright: ignore[reportMissingImports]
 
     try:
-        from vllm.config import ModelDType  # pyright: ignore[reportMissingImports]
+        from vllm.config import ModelDType  # pyright: ignore[reportMissingImports, reportAttributeAccessIssue]
     except ImportError:
         # For compatibility with newer vLLM versions
         ModelDType = str  # type: ignore
@@ -60,7 +60,7 @@ try:
         )
     else:
         from vllm.sampling_params import (  # pyright: ignore[reportMissingImports]
-            GuidedDecodingParams as VLLMGuidedDecodingParams,
+            GuidedDecodingParams as VLLMGuidedDecodingParams,  # pyright: ignore[reportAttributeAccessIssue]
         )
 except ModuleNotFoundError:
     vllm = None
@@ -230,7 +230,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         # set_tokenizer() was deprecated in vLLM v0.12 and removed in v0.13; the
         # tokenizer is already configured via the constructor's `tokenizer` parameter.
         if not _VLLM_V0_12:
-            self._llm.set_tokenizer(self._tokenizer)
+            self._llm.set_tokenizer(self._tokenizer)  # pyright: ignore[reportAttributeAccessIssue]
 
     @staticmethod
     def _normalize_vllm_finish_reason(raw_reason: str | None) -> FinishReason | None:
@@ -307,7 +307,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 )
             else:
                 # vLLM <0.12 uses GuidedDecodingParams.from_optional()
-                guided_decoding = VLLMGuidedDecodingParams.from_optional(
+                guided_decoding = VLLMGuidedDecodingParams.from_optional(  # type: ignore[attr-defined]  # pyright: ignore[reportAttributeAccessIssue]
                     json=generation_params.guided_decoding.json,
                     regex=generation_params.guided_decoding.regex,
                     choice=generation_params.guided_decoding.choice,
