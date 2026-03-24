@@ -12,13 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import warnings
+
 from oumi.core.datasets import BasePretrainingDataset
 from oumi.core.registry import register_dataset
+
+_DEPRECATION_WARNING = (
+    "The EleutherAI/pile dataset uses a loading script that is no longer supported "
+    "in datasets>=4.0.0. This dataset wrapper is deprecated and will be removed in "
+    "a future version. To use this dataset, pin datasets<4.0.0 in your environment."
+)
 
 
 @register_dataset("EleutherAI/pile")
 class PileV1Dataset(BasePretrainingDataset):
     """The Pile: An 825 GiB diverse, open source language modeling dataset.
+
+    .. deprecated::
+        This dataset is deprecated due to HuggingFace datasets>=4.0.0 removing
+        support for dataset loading scripts. The underlying dataset requires
+        ``datasets<4.0.0`` to function.
 
     The Pile is a large-scale English language dataset consisting of 22 smaller,
     high-quality datasets combined together. It is designed for training large
@@ -67,3 +80,8 @@ class PileV1Dataset(BasePretrainingDataset):
     """
 
     default_dataset = "EleutherAI/pile"
+
+    def __init__(self, **kwargs):
+        """Initialize the dataset with a deprecation warning."""
+        warnings.warn(_DEPRECATION_WARNING, DeprecationWarning, stacklevel=2)
+        super().__init__(**kwargs)

@@ -36,7 +36,7 @@ from oumi.core.configs.internal.supported_models import (
     find_internal_model_config_using_model_name,
 )
 from oumi.core.processors.base_processor import BaseProcessor
-from oumi.core.types.conversation import Conversation, Message, Role, Type
+from oumi.core.types.conversation import Conversation, FinishReason, Message, Role, Type
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 from oumi.utils.conversation_utils import (
     base64encode_content_item_image_bytes,
@@ -281,6 +281,33 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
             body["image_data"] = image_data if len(image_data) > 1 else image_data[0]
         return body
 
+    @staticmethod
+    def _normalize_sglang_finish_reason(
+        raw_reason: dict[str, Any] | str | None,
+    ) -> FinishReason | None:
+        """Normalize SGLang finish_reason to FinishReason enum.
+
+        SGLang returns finish_reason as a dict with a "type" field, e.g.:
+        - {"type": "stop", "matched": 128009}
+        - {"type": "length", "length": 128}
+        """
+        if raw_reason is None:
+            return None
+
+        # Extract the reason type from dict or use string directly
+        if isinstance(raw_reason, dict):
+            reason_type = raw_reason.get("type")
+            if reason_type is None:
+                return FinishReason.UNKNOWN
+        else:
+            reason_type = raw_reason
+
+        mapping = {
+            "stop": FinishReason.STOP,
+            "length": FinishReason.LENGTH,
+        }
+        return mapping.get(reason_type.lower(), FinishReason.UNKNOWN)
+
     @override
     def _convert_api_output_to_conversation(
         self, response: dict[str, Any], original_conversation: Conversation
@@ -290,9 +317,16 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
             content=response["text"],
             role=Role.ASSISTANT,
         )
+        metadata = dict(original_conversation.metadata)
+        meta_info = response.get("meta_info", {})
+        raw_reason = meta_info.get("finish_reason") if meta_info else None
+        if raw_reason:
+            finish_reason = self._normalize_sglang_finish_reason(raw_reason)
+            if finish_reason is not None:
+                metadata["finish_reason"] = finish_reason.value
         return Conversation(
             messages=[*original_conversation.messages, new_message],
-            metadata=original_conversation.metadata,
+            metadata=metadata,
             conversation_id=original_conversation.conversation_id,
         )
 

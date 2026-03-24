@@ -12,13 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import warnings
+
 from oumi.core.datasets import BasePretrainingDataset
 from oumi.core.registry import register_dataset
+
+_DEPRECATION_WARNING = (
+    "The togethercomputer/RedPajama-Data-V2 dataset uses a loading script that is no "
+    "longer supported in datasets>=4.0.0. This dataset wrapper is deprecated and will "
+    "be removed in a future version. To use this dataset, pin datasets<4.0.0 in your "
+    "environment."
+)
 
 
 @register_dataset("togethercomputer/RedPajama-Data-V2")
 class RedPajamaDataV2Dataset(BasePretrainingDataset):
     """RedPajama V2 Dataset for training large language models.
+
+    .. deprecated::
+        This dataset is deprecated due to HuggingFace datasets>=4.0.0 removing
+        support for dataset loading scripts. The underlying dataset requires
+        ``datasets<4.0.0`` to function.
 
     This dataset includes over 100B text documents from 84 CommonCrawl snapshots,
     processed using the CCNet pipeline. It contains 30B documents with quality
@@ -50,3 +64,8 @@ class RedPajamaDataV2Dataset(BasePretrainingDataset):
     """
 
     default_dataset = "togethercomputer/RedPajama-Data-V2"
+
+    def __init__(self, **kwargs):
+        """Initialize the dataset with a deprecation warning."""
+        warnings.warn(_DEPRECATION_WARNING, DeprecationWarning, stacklevel=2)
+        super().__init__(**kwargs)

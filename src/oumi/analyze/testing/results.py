@@ -41,6 +41,8 @@ class TestResult(BaseModel):
         details: Additional details about the test result.
     """
 
+    __test__ = False  # Prevent pytest from collecting this as a test class
+
     test_id: str
     passed: bool
     severity: TestSeverity = TestSeverity.MEDIUM
@@ -76,6 +78,8 @@ class TestSummary(BaseModel):
         medium_severity_failures: Number of medium severity failures.
         low_severity_failures: Number of low severity failures.
     """
+
+    __test__ = False  # Prevent pytest from collecting this as a test class
 
     results: list[TestResult] = Field(default_factory=list)
     total_tests: int = 0

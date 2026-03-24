@@ -18,6 +18,7 @@ from oumi.core.datasets import BaseIterableDataset, BaseMapDataset
 from oumi.core.registry import register_dataset
 from oumi.core.tokenizers import BaseTokenizer
 from tests.markers import requires_torchdata
+from tests.unit.conftest import create_mock_tokenizer
 
 pytestmark = requires_torchdata()
 
@@ -114,9 +115,9 @@ class CustomProxyIterableDataset(BaseIterableDataset):
         return self._inner_dataset.transform(x)
 
 
-class SimpleTokenizer(BaseTokenizer):
-    def __call__(self, text, **kwargs):
-        return {"input_ids": torch.tensor([ord(c) for c in text])}
+def _simple_tokenize(text, **kwargs):
+    """Simple tokenization that converts characters to their ordinal values."""
+    return {"input_ids": torch.tensor([ord(c) for c in text])}
 
 
 def create_hf_dataset(size=10):
@@ -145,8 +146,8 @@ def mock_hf_hub_reader(dataset, name, split, streaming):
 
 
 @pytest.fixture
-def tokenizer() -> BaseTokenizer:
-    return SimpleTokenizer()
+def tokenizer():
+    return create_mock_tokenizer(tokenize_func=_simple_tokenize)
 
 
 @pytest.fixture

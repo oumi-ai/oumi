@@ -25,6 +25,7 @@ from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.types.conversation import (
     ContentItem,
     Conversation,
+    FinishReason,
     Message,
     Role,
     Type,
@@ -1124,7 +1125,6 @@ def test_infer_online_multiple_requests_politeness():
         assert expected_result == result
 
 
-@pytest.mark.asyncio
 def test_infer_online_multiple_requests_politeness_multiple_workers():
     # Note: We use the first message's content as the key to avoid
     # stringifying the message object.
@@ -2368,6 +2368,166 @@ async def test_batch_results_partial_failure_retries():
 
 
 @pytest.mark.asyncio
+async def test_batch_results_error_in_response_body():
+    """Test error parsing when top-level error null and detail is in response.body."""
+    with aioresponses() as m:
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/batches/batch-123",
+            status=200,
+            payload=_make_batch_status_payload(
+                total=2, completed=1, failed=1, error_file_id="file-error-123"
+            ),
+        )
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/files/file-output-123/content",
+            status=200,
+            body=_make_batch_result_line("request-0", "Response 0"),
+        )
+        # OpenAI-style error: top-level "error" is null, detail in response.body.error
+        error_line = json.dumps(
+            {
+                "custom_id": "request-1",
+                "error": None,
+                "response": {
+                    "body": {
+                        "error": {
+                            "message": "The model produced invalid content.",
+                            "type": "model_error",
+                            "code": "model_error",
+                        }
+                    }
+                },
+            }
+        )
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/files/file-error-123/content",
+            status=200,
+            body=error_line,
+        )
+
+        engine = _make_engine()
+        conversations = _make_conversations("Q0", "Q1")
+
+        retry_result = Conversation(
+            messages=[
+                Message(content="Q1", role=Role.USER),
+                Message(content="Retry Response 1", role=Role.ASSISTANT),
+            ]
+        )
+        with patch.object(
+            engine, "_infer", new_callable=AsyncMock, return_value=[retry_result]
+        ):
+            results = await engine._get_batch_results_with_mapping(
+                "batch-123", conversations
+            )
+
+        assert len(results) == 2
+        assert results[0].messages[-1].content == "Response 0"
+        assert results[1].messages[-1].content == "Retry Response 1"
+
+
+@pytest.mark.asyncio
+async def test_batch_results_error_null_no_body_error():
+    """Test error parsing falls back to 'unknown error' when no error detail exists."""
+    with aioresponses() as m:
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/batches/batch-123",
+            status=200,
+            payload=_make_batch_status_payload(
+                total=2, completed=1, failed=1, error_file_id="file-error-123"
+            ),
+        )
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/files/file-output-123/content",
+            status=200,
+            body=_make_batch_result_line("request-0", "Response 0"),
+        )
+        # Error is null with no response.body.error either
+        error_line = json.dumps(
+            {
+                "custom_id": "request-1",
+                "error": None,
+            }
+        )
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/files/file-error-123/content",
+            status=200,
+            body=error_line,
+        )
+
+        engine = _make_engine()
+        conversations = _make_conversations("Q0", "Q1")
+
+        retry_result = Conversation(
+            messages=[
+                Message(content="Q1", role=Role.USER),
+                Message(content="Retry Response 1", role=Role.ASSISTANT),
+            ]
+        )
+        with patch.object(
+            engine, "_infer", new_callable=AsyncMock, return_value=[retry_result]
+        ):
+            results = await engine._get_batch_results_with_mapping(
+                "batch-123", conversations
+            )
+
+        assert len(results) == 2
+        assert results[0].messages[-1].content == "Response 0"
+        assert results[1].messages[-1].content == "Retry Response 1"
+
+
+@pytest.mark.asyncio
+async def test_batch_results_error_null_response_null():
+    """Test no AttributeError when both error and response are null."""
+    with aioresponses() as m:
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/batches/batch-123",
+            status=200,
+            payload=_make_batch_status_payload(
+                total=2, completed=1, failed=1, error_file_id="file-error-123"
+            ),
+        )
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/files/file-output-123/content",
+            status=200,
+            body=_make_batch_result_line("request-0", "Response 0"),
+        )
+        # Both error and response are null
+        error_line = json.dumps(
+            {
+                "custom_id": "request-1",
+                "error": None,
+                "response": None,
+            }
+        )
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/files/file-error-123/content",
+            status=200,
+            body=error_line,
+        )
+
+        engine = _make_engine()
+        conversations = _make_conversations("Q0", "Q1")
+
+        retry_result = Conversation(
+            messages=[
+                Message(content="Q1", role=Role.USER),
+                Message(content="Retry Response 1", role=Role.ASSISTANT),
+            ]
+        )
+        with patch.object(
+            engine, "_infer", new_callable=AsyncMock, return_value=[retry_result]
+        ):
+            results = await engine._get_batch_results_with_mapping(
+                "batch-123", conversations
+            )
+
+        assert len(results) == 2
+        assert results[0].messages[-1].content == "Response 0"
+        assert results[1].messages[-1].content == "Retry Response 1"
+
+
+@pytest.mark.asyncio
 async def test_batch_results_retry_failure_propagates():
     """Test that exceptions from _infer during retry propagate up."""
     with aioresponses() as m:
@@ -3319,3 +3479,247 @@ async def test_adaptive_concurrency_full_adjustment_cycle():
             assert len(result) == 50
 
         assert asserts_passed
+
+
+# FinishReason extraction tests
+class TestNormalizeFinishReason:
+    """Tests for RemoteInferenceEngine._normalize_finish_reason."""
+
+    def test_normalize_finish_reason_stop(self):
+        result = RemoteInferenceEngine._normalize_finish_reason("stop")
+        assert result == FinishReason.STOP
+
+    def test_normalize_finish_reason_length(self):
+        result = RemoteInferenceEngine._normalize_finish_reason("length")
+        assert result == FinishReason.LENGTH
+
+    def test_normalize_finish_reason_tool_calls(self):
+        result = RemoteInferenceEngine._normalize_finish_reason("tool_calls")
+        assert result == FinishReason.TOOL_CALLS
+
+    def test_normalize_finish_reason_content_filter(self):
+        result = RemoteInferenceEngine._normalize_finish_reason("content_filter")
+        assert result == FinishReason.CONTENT_FILTER
+
+    def test_normalize_finish_reason_unknown_value(self):
+        result = RemoteInferenceEngine._normalize_finish_reason("some_other_reason")
+        assert result == FinishReason.UNKNOWN
+
+    def test_normalize_finish_reason_none(self):
+        result = RemoteInferenceEngine._normalize_finish_reason(None)
+        assert result is None
+
+    def test_normalize_finish_reason_case_insensitive(self):
+        assert (
+            RemoteInferenceEngine._normalize_finish_reason("STOP") == FinishReason.STOP
+        )
+        assert (
+            RemoteInferenceEngine._normalize_finish_reason("Length")
+            == FinishReason.LENGTH
+        )
+
+
+class TestExtractFinishReasonFromResponse:
+    """Tests for RemoteInferenceEngine._extract_finish_reason_from_response."""
+
+    def test_extract_finish_reason_stop(self):
+        response = {"choices": [{"finish_reason": "stop"}]}
+        result = RemoteInferenceEngine._extract_finish_reason_from_response(response)
+        assert result == FinishReason.STOP
+
+    def test_extract_finish_reason_length(self):
+        response = {"choices": [{"finish_reason": "length"}]}
+        result = RemoteInferenceEngine._extract_finish_reason_from_response(response)
+        assert result == FinishReason.LENGTH
+
+    def test_extract_finish_reason_empty_choices(self):
+        response = {"choices": []}
+        result = RemoteInferenceEngine._extract_finish_reason_from_response(response)
+        assert result is None
+
+    def test_extract_finish_reason_no_choices(self):
+        response = {}
+        result = RemoteInferenceEngine._extract_finish_reason_from_response(response)
+        assert result is None
+
+    def test_extract_finish_reason_none_value(self):
+        response = {"choices": [{"finish_reason": None}]}
+        result = RemoteInferenceEngine._extract_finish_reason_from_response(response)
+        assert result is None
+
+
+def test_infer_online_extracts_finish_reason():
+    """Test that finish_reason is extracted and added to conversation metadata."""
+    with aioresponses() as m:
+        m.post(
+            _TARGET_SERVER,
+            status=200,
+            payload=dict(
+                choices=[
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "Hello!",
+                        },
+                        "finish_reason": "stop",
+                    }
+                ]
+            ),
+        )
+
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+        )
+        conversation = Conversation(
+            messages=[Message(role=Role.USER, content="Hi")],
+        )
+        result = engine.infer([conversation], _get_default_inference_config())
+
+        assert len(result) == 1
+        assert result[0].metadata.get("finish_reason") == "stop"
+
+
+def test_infer_online_extracts_length_finish_reason():
+    """Test that length finish_reason is extracted correctly."""
+    with aioresponses() as m:
+        m.post(
+            _TARGET_SERVER,
+            status=200,
+            payload=dict(
+                choices=[
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "Truncated response",
+                        },
+                        "finish_reason": "length",
+                    }
+                ]
+            ),
+        )
+
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+        )
+        conversation = Conversation(
+            messages=[Message(role=Role.USER, content="Tell me a long story")],
+        )
+        result = engine.infer([conversation], _get_default_inference_config())
+
+        assert len(result) == 1
+        assert result[0].metadata.get("finish_reason") == "length"
+
+
+def test_infer_online_preserves_existing_metadata_with_finish_reason():
+    """Test that finish_reason is added while preserving existing metadata."""
+    with aioresponses() as m:
+        m.post(
+            _TARGET_SERVER,
+            status=200,
+            payload=dict(
+                choices=[
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "Response",
+                        },
+                        "finish_reason": "stop",
+                    }
+                ]
+            ),
+        )
+
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+        )
+        conversation = Conversation(
+            messages=[Message(role=Role.USER, content="Hi")],
+            metadata={"custom_key": "custom_value"},
+        )
+        result = engine.infer([conversation], _get_default_inference_config())
+
+        assert len(result) == 1
+        assert result[0].metadata.get("finish_reason") == "stop"
+        assert result[0].metadata.get("custom_key") == "custom_value"
+
+
+@pytest.mark.asyncio
+async def test_cancel_batch():
+    """Test cancelling a batch job."""
+    with aioresponses() as m:
+        m.post(
+            f"{_TARGET_SERVER_BASE}/v1/batches/batch-123/cancel",
+            status=200,
+            payload={
+                "id": "batch-123",
+                "status": "cancelling",
+                "request_counts": {
+                    "total": 10,
+                    "completed": 3,
+                    "failed": 0,
+                },
+            },
+        )
+
+        engine = _make_engine()
+        status = await engine._cancel_batch("batch-123")
+        assert status.id == "batch-123"
+        assert status.status == BatchStatus.CANCELLING
+        assert status.total_requests == 10
+        assert status.completed_requests == 3
+
+
+@pytest.mark.asyncio
+async def test_cancel_batch_http_400_error():
+    """Test cancel_batch raises RuntimeError on 400 (batch already terminal)."""
+    with aioresponses() as m:
+        m.post(
+            f"{_TARGET_SERVER_BASE}/v1/batches/batch-123/cancel",
+            status=400,
+            body="Batch already completed",
+        )
+
+        engine = _make_engine()
+        with pytest.raises(RuntimeError, match="Failed to cancel batch"):
+            await engine._cancel_batch("batch-123")
+
+
+@pytest.mark.asyncio
+async def test_cancel_batch_http_404_error():
+    """Test cancel_batch raises RuntimeError on 404 (batch not found)."""
+    with aioresponses() as m:
+        m.post(
+            f"{_TARGET_SERVER_BASE}/v1/batches/batch-123/cancel",
+            status=404,
+            body="Batch not found",
+        )
+
+        engine = _make_engine()
+        with pytest.raises(RuntimeError, match="Failed to cancel batch"):
+            await engine._cancel_batch("batch-123")
+
+
+def test_cancel_batch_public():
+    """Test the public cancel_batch method."""
+    with aioresponses() as m:
+        m.post(
+            f"{_TARGET_SERVER_BASE}/v1/batches/batch-123/cancel",
+            status=200,
+            payload={
+                "id": "batch-123",
+                "status": "cancelling",
+                "request_counts": {
+                    "total": 10,
+                    "completed": 3,
+                    "failed": 0,
+                },
+            },
+        )
+
+        engine = _make_engine()
+        status = engine.cancel_batch("batch-123")
+        assert status.id == "batch-123"
+        assert status.status == BatchStatus.CANCELLING

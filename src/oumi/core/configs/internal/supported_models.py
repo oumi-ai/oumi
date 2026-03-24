@@ -77,6 +77,7 @@ from oumi.core.configs.internal.internal_model_config import (
 from oumi.core.registry import REGISTRY, RegistryType
 from oumi.utils.cache_utils import dict_cache
 from oumi.utils.logging import logger
+from oumi.utils.packaging import is_transformers_v5
 
 
 @dict_cache
@@ -311,6 +312,14 @@ def _create_qwen3_vl_vlm_config() -> InternalModelConfig:
             for feature_name in ("image_grid_thw",)
         }
     )
+    # mm_token_type_ids is produced by the Qwen3-VL processor with a leading
+    # batch dimension that must be stripped when processing individual examples.
+    config.model_input_features["mm_token_type_ids"] = InternalFeatureSpec(
+        name="mm_token_type_ids",
+        required=False,
+        variable_shape=False,
+        first_dim_action=InternalFeatureFirstDimAction.DROP_IF_DUMMY,
+    )
     config.processor_kwargs.update(
         # Defaults per Qwen3-VL:
         # https://github.com/QwenLM/Qwen3-VL/blob/main/qwen-vl-utils/src/qwen_vl_utils/vision_process.py
@@ -489,7 +498,10 @@ def get_all_models_map() -> Mapping[
     default_vlm_config: InternalModelConfig = _create_default_vlm_config()
 
     default_llm_class = transformers.AutoModelForCausalLM
-    default_vlm_class = transformers.AutoModelForVision2Seq
+    if is_transformers_v5():
+        default_vlm_class = transformers.AutoModelForImageTextToText
+    else:
+        default_vlm_class = transformers.AutoModelForVision2Seq  # type: ignore[attr-defined]
 
     all_models_list: list[_ModelTypeInfo] = [
         _ModelTypeInfo(
@@ -567,6 +579,11 @@ def get_all_models_map() -> Mapping[
             model_type="qwen3_vl",
             model_class=default_vlm_class,
             tested=True,
+            config=_create_qwen3_vl_vlm_config(),
+        ),
+        _ModelTypeInfo(
+            model_type="qwen3_vl_moe",
+            model_class=default_vlm_class,
             config=_create_qwen3_vl_vlm_config(),
         ),
         _ModelTypeInfo(

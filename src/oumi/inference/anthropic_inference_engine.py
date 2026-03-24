@@ -24,7 +24,7 @@ from oumi.core.configs import (
     ModelParams,
     RemoteParams,
 )
-from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.core.types.conversation import Conversation, FinishReason, Message, Role
 from oumi.inference.remote_inference_engine import (
     BatchInfo,
     BatchListResponse,
@@ -160,6 +160,23 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
             result["cache_creation_tokens"] = cache_creation_tokens
         return result
 
+    @staticmethod
+    @override
+    def _extract_finish_reason_from_response(
+        response: dict[str, Any],
+    ) -> FinishReason | None:
+        """Extract normalized finish_reason from an Anthropic API response."""
+        raw_reason = response.get("stop_reason")
+        if raw_reason is None:
+            return None
+        mapping = {
+            "end_turn": FinishReason.STOP,
+            "max_tokens": FinishReason.LENGTH,
+            "stop_sequence": FinishReason.STOP,
+            "tool_use": FinishReason.TOOL_CALLS,
+        }
+        return mapping.get(raw_reason, FinishReason.UNKNOWN)
+
     @override
     def _convert_api_output_to_conversation(
         self, response: dict[str, Any], original_conversation: Conversation
@@ -173,6 +190,9 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         usage = self._extract_usage_from_response(response)
         if usage is not None:
             metadata["usage"] = usage
+        finish_reason = self._extract_finish_reason_from_response(response)
+        if finish_reason is not None:
+            metadata["finish_reason"] = finish_reason.value
         return Conversation(
             messages=[*original_conversation.messages, new_message],
             metadata=metadata,
@@ -234,7 +254,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         if processing_status == "in_progress":
             status = BatchStatus.IN_PROGRESS
         elif processing_status == "canceling":
-            status = BatchStatus.CANCELLED
+            status = BatchStatus.CANCELLING
         elif processing_status == "ended":
             # Determine final status based on request_counts
             if request_counts.get("canceled", 0) > 0:
@@ -568,10 +588,16 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
 
             if result_type in ("error", "errored"):
                 error_info = result.get("result", {}).get("error", {})
+                # Anthropic nests the detail under error.error
+                inner_error = error_info.get("error", {})
+                if isinstance(inner_error, dict) and inner_error.get("message"):
+                    error_type = inner_error.get("type", error_info.get("type"))
+                    error_msg = inner_error["message"]
+                else:
+                    error_type = error_info.get("type")
+                    error_msg = error_info.get("message")
                 failed_indices.append(idx)
-                error_messages[idx] = (
-                    f"{error_info.get('type')}: {error_info.get('message')}"
-                )
+                error_messages[idx] = f"{error_type}: {error_msg}"
             elif result_type == "succeeded":
                 try:
                     message_response = result.get("result", {}).get("message", {})
