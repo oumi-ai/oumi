@@ -35,7 +35,9 @@ try:
     import vllm  # pyright: ignore[reportMissingImports]
 
     try:
-        from vllm.config import ModelDType  # pyright: ignore[reportMissingImports, reportAttributeAccessIssue]
+        from vllm.config import (  # pyright: ignore[reportMissingImports]
+            ModelDType,  # pyright: ignore[reportAttributeAccessIssue]
+        )
     except ImportError:
         # For compatibility with newer vLLM versions
         ModelDType = str  # type: ignore
