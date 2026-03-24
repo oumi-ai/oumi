@@ -226,6 +226,13 @@ class DefaultProcessor(BaseProcessor):
             )
         return result
 
+    def _convert_messages_to_dicts(self, messages: list[Message]) -> list[dict]:
+        """Converts Message objects to dict format for HuggingFace compatibility."""
+        return [
+            msg.model_dump(mode="json", exclude_none=True, exclude_unset=True)
+            for msg in messages
+        ]
+
     @override
     def apply_chat_template(
         self, conversation: list[Message], add_generation_prompt: bool = False
@@ -239,6 +246,10 @@ class DefaultProcessor(BaseProcessor):
         Returns:
             A text prompt, which includes all input messages formatted into a string.
         """
+        # Convert Message objects to dict format for HuggingFace compatibility.
+        # Transformers v5+ requires dict messages with .get() access.
+        conversation_dicts = self._convert_messages_to_dicts(conversation)
+
         if isinstance(self._worker_processor, BaseTokenizer):
             # If the processor is actually a tokenizer, then disallow non-text messages.
             for message in conversation:
@@ -249,13 +260,13 @@ class DefaultProcessor(BaseProcessor):
                     )
 
             result = self._worker_processor.apply_chat_template(
-                conversation,  # type: ignore
+                conversation_dicts,
                 tokenize=False,
                 add_generation_prompt=add_generation_prompt,
             )
         else:
             result = self._worker_processor.apply_chat_template(
-                [conversation], add_generation_prompt=add_generation_prompt
+                [conversation_dicts], add_generation_prompt=add_generation_prompt
             )
 
         if result is None:

@@ -40,7 +40,14 @@ def _compare_conversation_lists(
     for actual, expected in zip(output, expected_output):
         if actual.messages != expected.messages:
             return False
-        if actual.metadata != expected.metadata:
+        # Compare metadata excluding finish_reason (which is dynamically added)
+        actual_metadata = {
+            k: v for k, v in actual.metadata.items() if k != "finish_reason"
+        }
+        expected_metadata = {
+            k: v for k, v in expected.metadata.items() if k != "finish_reason"
+        }
+        if actual_metadata != expected_metadata:
             return False
         if expected.conversation_id is not None:
             if actual.conversation_id != expected.conversation_id:
@@ -78,7 +85,6 @@ def test_infer_basic_interactive(monkeypatch: pytest.MonkeyPatch):
 
 @requires_cuda_initialized()
 @requires_gpus()
-@pytest.mark.skip(reason="TODO: this test takes too long to run")
 def test_infer_basic_interactive_with_images(
     monkeypatch: pytest.MonkeyPatch, root_testdata_dir: Path
 ):
@@ -89,7 +95,7 @@ def test_infer_basic_interactive_with_images(
             trust_remote_code=True,
             chat_template="llava",
         ),
-        generation=GenerationParams(max_new_tokens=16, temperature=0.0, seed=42),
+        generation=GenerationParams(max_new_tokens=5, temperature=0.0, seed=42),
     )
 
     png_image_bytes = load_image_png_bytes_from_path(

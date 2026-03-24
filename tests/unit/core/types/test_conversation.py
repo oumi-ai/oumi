@@ -8,6 +8,7 @@ from oumi.core.types.conversation import (
     ContentItem,
     ContentItemCounts,
     Conversation,
+    FinishReason,
     Message,
     Role,
     Type,
@@ -880,3 +881,121 @@ def test_conversation_metadata_independence():
 
     assert conv2.metadata == {}
     assert conv1.metadata == {"foo": "bar"}
+
+
+def test_finish_reason_enum_values():
+    """Test FinishReason enum has expected values."""
+    assert FinishReason.STOP.value == "stop"
+    assert FinishReason.LENGTH.value == "length"
+    assert FinishReason.TOOL_CALLS.value == "tool_calls"
+    assert FinishReason.CONTENT_FILTER.value == "content_filter"
+    assert FinishReason.ERROR.value == "error"
+    assert FinishReason.UNKNOWN.value == "unknown"
+
+
+def test_finish_reason_str_representation():
+    """Test FinishReason __str__ returns value."""
+    assert str(FinishReason.STOP) == "stop"
+    assert str(FinishReason.LENGTH) == "length"
+    assert str(FinishReason.TOOL_CALLS) == "tool_calls"
+    assert str(FinishReason.CONTENT_FILTER) == "content_filter"
+    assert str(FinishReason.ERROR) == "error"
+    assert str(FinishReason.UNKNOWN) == "unknown"
+
+
+def test_finish_reason_is_str_subclass():
+    """Test FinishReason is a str subclass for serialization compatibility."""
+    assert isinstance(FinishReason.STOP, str)
+    assert isinstance(FinishReason.LENGTH, str)
+
+
+def test_conversation_with_finish_reason_metadata():
+    """Test that finish_reason can be stored in conversation metadata."""
+    conv = Conversation(
+        messages=[Message(role=Role.USER, content="Hello")],
+        metadata={"finish_reason": FinishReason.STOP.value},
+    )
+    assert conv.metadata["finish_reason"] == "stop"
+
+    # Test serialization roundtrip
+    conv_dict = conv.to_dict()
+    reconstructed = Conversation.from_dict(conv_dict)
+    assert reconstructed.metadata["finish_reason"] == "stop"
+
+
+def test_finish_reason_from_string():
+    """Test creating FinishReason from string values."""
+    assert FinishReason("stop") == FinishReason.STOP
+    assert FinishReason("length") == FinishReason.LENGTH
+    assert FinishReason("tool_calls") == FinishReason.TOOL_CALLS
+    assert FinishReason("content_filter") == FinishReason.CONTENT_FILTER
+    assert FinishReason("error") == FinishReason.ERROR
+    assert FinishReason("unknown") == FinishReason.UNKNOWN
+
+
+# Tests for HuggingFace transformers v5 compatibility
+# In v5, apply_chat_template requires dict messages with .get() access
+
+
+def test_message_to_dict_hf_compatible_simple():
+    """Verify Message.model_dump() produces HF-compatible dict format."""
+    msg = Message(role=Role.USER, content="Hello")
+    msg_dict = msg.model_dump(mode="json", exclude_none=True)
+
+    # HF expects these exact keys with .get() access
+    assert "role" in msg_dict
+    assert "content" in msg_dict
+    assert msg_dict.get("role") == "user"
+    assert msg_dict.get("content") == "Hello"
+
+
+def test_message_to_dict_hf_compatible_all_roles():
+    """Verify all Role types produce HF-compatible dict format."""
+    for role in [Role.USER, Role.ASSISTANT, Role.SYSTEM, Role.TOOL]:
+        msg = Message(role=role, content="test")
+        msg_dict = msg.model_dump(mode="json", exclude_none=True)
+        assert msg_dict.get("role") == role.value
+        assert msg_dict.get("content") == "test"
+
+
+def test_message_to_dict_hf_compatible_multimodal():
+    """Verify multimodal Message converts to HF-compatible format."""
+    msg = Message(
+        role=Role.USER,
+        content=[
+            ContentItem(type=Type.TEXT, content="Describe this image"),
+            ContentItem(type=Type.IMAGE_URL, content="http://example.com/img.jpg"),
+        ],
+    )
+
+    msg_dict = msg.model_dump(mode="json", exclude_none=True)
+
+    # Verify structure matches HF expectations
+    assert msg_dict.get("role") == "user"
+    assert isinstance(msg_dict.get("content"), list)
+    assert len(msg_dict["content"]) == 2
+    assert msg_dict["content"][0].get("type") == "text"
+    assert msg_dict["content"][1].get("type") == "image_url"
+
+
+def test_conversation_messages_to_dict_list_hf_compatible():
+    """Verify conversation messages can be converted to HF-compatible format."""
+    conv = Conversation(
+        messages=[
+            Message(role=Role.USER, content="Hi"),
+            Message(role=Role.ASSISTANT, content="Hello!"),
+            Message(role=Role.USER, content="How are you?"),
+        ]
+    )
+
+    # This is how code should convert for HF v5
+    msg_dicts = conv.to_dict()["messages"]
+
+    assert len(msg_dicts) == 3
+    assert all(isinstance(m, dict) for m in msg_dicts)
+    assert msg_dicts[0].get("role") == "user"
+    assert msg_dicts[0].get("content") == "Hi"
+    assert msg_dicts[1].get("role") == "assistant"
+    assert msg_dicts[1].get("content") == "Hello!"
+    assert msg_dicts[2].get("role") == "user"
+    assert msg_dicts[2].get("content") == "How are you?"

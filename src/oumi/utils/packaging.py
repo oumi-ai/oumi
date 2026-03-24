@@ -201,3 +201,89 @@ def require_gold_trainer(feature_name: str = "GOLD training") -> None:
             f"Current TRL version: {trl_version}. "
             "Please upgrade TRL with: pip install --upgrade trl"
         )
+
+
+@lru_cache(maxsize=1)
+def is_transformers_v5() -> bool:
+    """Check if the installed transformers version is v5.x or later.
+
+    In transformers v5, several APIs were changed:
+    - AutoModelForVision2Seq was renamed to AutoModelForImageTextToText
+    - SpecialTokensMixin was removed
+    - include_tokens_per_second was removed from TrainingArguments
+
+    Returns:
+        True if transformers v5.x or later is installed, False otherwise.
+    """
+    try:
+        transformers_version = importlib.metadata.version("transformers")
+        return version.parse(transformers_version) >= version.parse("5.0.0")
+    except importlib.metadata.PackageNotFoundError:
+        return False
+
+
+@lru_cache(maxsize=1)
+def is_trl_v0_29_or_later() -> bool:
+    """Checks if TRL version is 0.29.0 or later."""
+    try:
+        trl_version = importlib.metadata.version("trl")
+        return version.parse(trl_version) >= version.parse("0.29.0")
+    except importlib.metadata.PackageNotFoundError:
+        return False
+
+
+@lru_cache(maxsize=1)
+def is_vllm_available() -> bool:
+    """Checks if vLLM is installed."""
+    try:
+        importlib.import_module("vllm")
+        return True
+    except ImportError:
+        return False
+
+
+@lru_cache(maxsize=1)
+def get_vllm_version() -> str | None:
+    """Returns the installed vLLM version, or None if not installed."""
+    try:
+        return importlib.metadata.version("vllm")
+    except importlib.metadata.PackageNotFoundError:
+        return None
+
+
+@lru_cache(maxsize=1)
+def is_vllm_post_v0_10_2() -> bool:
+    """Checks if vLLM version is newer than 0.10.2."""
+    vllm_version = get_vllm_version()
+    if vllm_version is None:
+        return False
+    return version.parse(vllm_version) > version.parse("0.10.2")
+
+
+@lru_cache(maxsize=1)
+def is_vllm_v0_12_or_later() -> bool:
+    """Checks if vLLM version is 0.12.0 or later.
+
+    In vLLM v0.12, several APIs were changed:
+    - GuidedDecodingParams was removed (replaced by StructuredOutputsParams in v0.11)
+    - The SamplingParams 'guided_decoding' kwarg was removed
+      (replaced by 'structured_outputs' in v0.11)
+    - LLM.set_tokenizer() was deprecated in v0.12 and removed in v0.13
+
+    Returns:
+        True if vLLM v0.12.0 or later is installed, False otherwise.
+    """
+    vllm_version = get_vllm_version()
+    if vllm_version is None:
+        return False
+    return version.parse(vllm_version) >= version.parse("0.12.0")
+
+
+@lru_cache(maxsize=1)
+def is_trl_v0_28_or_later() -> bool:
+    """Check if the installed TRL version is v0.28 or later."""
+    try:
+        trl_version = importlib.metadata.version("trl")
+        return version.parse(trl_version) >= version.parse("0.28.0")
+    except importlib.metadata.PackageNotFoundError:
+        return False

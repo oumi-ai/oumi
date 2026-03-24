@@ -48,6 +48,7 @@ from oumi.core.inference.base_inference_engine import (
 )
 from oumi.core.types.conversation import (
     Conversation,
+    FinishReason,
     Message,
     Role,
 )
@@ -79,6 +80,7 @@ class BatchStatus(Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     EXPIRED = "expired"
+    CANCELLING = "cancelling"
     CANCELLED = "cancelled"
 
 
@@ -432,6 +434,30 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 result["cached_tokens"] = cached_tokens
         return result
 
+    @staticmethod
+    def _normalize_finish_reason(raw_reason: str | None) -> FinishReason | None:
+        """Normalize raw finish_reason string to FinishReason enum."""
+        if raw_reason is None:
+            return None
+        mapping = {
+            "stop": FinishReason.STOP,
+            "length": FinishReason.LENGTH,
+            "tool_calls": FinishReason.TOOL_CALLS,
+            "content_filter": FinishReason.CONTENT_FILTER,
+        }
+        return mapping.get(raw_reason.lower(), FinishReason.UNKNOWN)
+
+    @staticmethod
+    def _extract_finish_reason_from_response(
+        response: dict[str, Any],
+    ) -> FinishReason | None:
+        """Extract normalized finish_reason from an OpenAI-compatible API response."""
+        choices = response.get("choices")
+        if not choices or len(choices) == 0:
+            return None
+        raw_reason = choices[0].get("finish_reason")
+        return RemoteInferenceEngine._normalize_finish_reason(raw_reason)
+
     def _convert_api_output_to_conversation(
         self, response: dict[str, Any], original_conversation: Conversation
     ) -> Conversation:
@@ -457,6 +483,9 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         usage = self._extract_usage_from_response(response)
         if usage is not None:
             metadata["usage"] = usage
+        finish_reason = self._extract_finish_reason_from_response(response)
+        if finish_reason is not None:
+            metadata["finish_reason"] = finish_reason.value
         return Conversation(
             messages=[
                 *original_conversation.messages,
@@ -889,6 +918,17 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         """
         return safe_asyncio_run(self._get_batch_status(batch_id))
 
+    def cancel_batch(self, batch_id: str) -> BatchInfo:
+        """Cancels a batch inference job.
+
+        Args:
+            batch_id: The batch job ID to cancel
+
+        Returns:
+            BatchInfo: Updated status of the batch job
+        """
+        return safe_asyncio_run(self._cancel_batch(batch_id))
+
     def list_batches(
         self,
         after: str | None = None,
@@ -1061,6 +1101,29 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 if response.status != 200:
                     raise RuntimeError(
                         f"Failed to get batch status: {await response.text()}"
+                    )
+                data = await response.json()
+                return BatchInfo.from_api_response(data)
+
+    async def _cancel_batch(self, batch_id: str) -> BatchInfo:
+        """Cancels a batch job via the API.
+
+        Args:
+            batch_id: ID of the batch job to cancel
+
+        Returns:
+            BatchInfo: Updated status of the batch job
+        """
+        connector = aiohttp.TCPConnector(limit=self._get_connection_limit())
+        async with aiohttp.ClientSession(connector=connector) as session:
+            headers = self._get_request_headers(self._remote_params)
+            async with session.post(
+                f"{self.get_batch_api_url()}/{batch_id}/cancel",
+                headers=headers,
+            ) as response:
+                if response.status != 200:
+                    raise RuntimeError(
+                        f"Failed to cancel batch: {await response.text()}"
                     )
                 data = await response.json()
                 return BatchInfo.from_api_response(data)
@@ -1266,10 +1329,16 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                     continue
 
                 failed_indices.append(idx)
-                error_msg = result.get("error", {})
+                error_msg = result.get("error")
                 if isinstance(error_msg, dict):
                     error_msg = error_msg.get("message", str(error_msg))
-                error_messages[idx] = str(error_msg)
+                if not error_msg:
+                    body_error = ((result.get("response") or {}).get("body") or {}).get(
+                        "error", {}
+                    )
+                    if isinstance(body_error, dict):
+                        error_msg = body_error.get("message")
+                error_messages[idx] = str(error_msg or "unknown error")
 
         # Detect items missing from both output and error files
         seen_indices = {idx for idx, _ in successful} | set(failed_indices)

@@ -74,6 +74,8 @@ class TestEngine:
         tests: List of test configurations.
     """
 
+    __test__ = False  # Prevent pytest from collecting this as a test class
+
     def __init__(self, tests: list[TestParams]):
         """Initialize the test engine with test configurations."""
         self.tests = tests
@@ -279,12 +281,14 @@ class TestEngine:
                 if op_func(value, test.value):
                     matching_indices.append(i)
                     matching_reasons[i] = (
-                        f"{value} satisfies {test.operator} {test.value}"
+                        f"Flagged: {test.metric} {test.operator} {test.value}"
+                        f" (value={value})"
                     )
                 else:
                     non_matching_indices.append(i)
                     non_matching_reasons[i] = (
-                        f"{value} does not satisfy {test.operator} {test.value}"
+                        f"Not flagged: {test.metric} {test.operator} {test.value}"
+                        f" (value={value})"
                     )
             except (TypeError, ValueError):
                 non_matching_indices.append(i)
