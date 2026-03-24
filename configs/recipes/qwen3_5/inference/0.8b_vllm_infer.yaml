@@ -6,9 +6,14 @@
 # Usage:
 #   oumi infer -i -c configs/recipes/qwen3_5/inference/0.8b_vllm_infer.yaml
 #
-# To use a fine-tuned model, override model_name:
+# To use a LoRA fine-tuned model, override model_name:
 #   oumi infer -i -c configs/recipes/qwen3_5/inference/0.8b_vllm_infer.yaml \
-#     --model.model_name output/qwen3.5_0.8b.fft
+#     --model.model_name output/qwen3.5_0.8b.lora
+#
+# To use an FFT fine-tuned model, also set hf_config_path to the base model:
+#   oumi infer -i -c configs/recipes/qwen3_5/inference/0.8b_vllm_infer.yaml \
+#     --model.model_name output/qwen3.5_0.8b.fft \
+#     --model.model_kwargs '{"hf_config_path": "Qwen/Qwen3.5-0.8B"}'
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
@@ -22,6 +27,8 @@ model:
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
   trust_remote_code: True
+  model_kwargs:
+    language_model_only: True
 
 generation:
   max_new_tokens: 512
