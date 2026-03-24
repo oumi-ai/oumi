@@ -4,6 +4,7 @@ import pytest
 
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.logging import get_logger
+from oumi.utils.packaging import check_trl_vllm_compatibility_if_installed
 
 
 @pytest.fixture(autouse=True)
@@ -88,3 +89,12 @@ def single_turn_conversation():
             Message(role=Role.ASSISTANT, content="Hi there!"),
         ]
     )
+
+
+@pytest.fixture
+def skip_if_trl_vllm_incompatible():
+    """Skip test if TRL and vLLM versions are incompatible."""
+    try:
+        check_trl_vllm_compatibility_if_installed("Test")
+    except RuntimeError as e:
+        pytest.skip(str(e))

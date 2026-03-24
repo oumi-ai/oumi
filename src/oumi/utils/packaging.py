@@ -287,3 +287,29 @@ def is_trl_v0_28_or_later() -> bool:
         return version.parse(trl_version) >= version.parse("0.28.0")
     except importlib.metadata.PackageNotFoundError:
         return False
+
+
+def check_trl_vllm_compatibility_if_installed(feature_name: str) -> None:
+    """Checks TRL/vLLM compatibility before importing TRL trainers.
+
+    TRL imports vLLM at module level, which can cause import errors if versions
+    are incompatible. Call this before importing GRPO/GOLD trainers.
+    """
+    try:
+        vllm_ver = version.parse(importlib.metadata.version("vllm"))
+        trl_ver = version.parse(importlib.metadata.version("trl"))
+    except importlib.metadata.PackageNotFoundError:
+        return  # Missing package will fail later with a clearer error
+
+    # TRL < 0.27 uses GuidedDecodingParams (removed in vLLM 0.12)
+    # TRL >= 0.27 uses StructuredOutputsParams (added in vLLM 0.11)
+    if trl_ver < version.parse("0.27.0") and vllm_ver >= version.parse("0.12.0"):
+        raise RuntimeError(
+            f"{feature_name}: TRL {trl_ver} requires vLLM < 0.12.0, but found {vllm_ver}. "
+            f"Upgrade TRL (pip install 'trl>=0.27.0') or downgrade vLLM."
+        )
+    if trl_ver >= version.parse("0.27.0") and vllm_ver < version.parse("0.11.0"):
+        raise RuntimeError(
+            f"{feature_name}: TRL {trl_ver} requires vLLM >= 0.11.0, but found {vllm_ver}. "
+            f"Upgrade vLLM (pip install 'vllm>=0.11.0') or downgrade TRL."
+        )

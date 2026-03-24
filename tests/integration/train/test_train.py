@@ -302,10 +302,9 @@ def test_train_gkd():
 
 
 @pytest.mark.skipif(
-    not is_gold_trainer_available(),
-    reason="GOLD trainer is not available",
+    not is_gold_trainer_available(), reason="GOLD trainer not available"
 )
-def test_train_gold():
+def test_train_gold(skip_if_trl_vllm_incompatible):
     """Test GOLD (General Online Logit Distillation) training workflow."""
     with tempfile.TemporaryDirectory() as output_temp_dir:
         output_training_dir = str(pathlib.Path(output_temp_dir) / "train")

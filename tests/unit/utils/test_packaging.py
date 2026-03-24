@@ -8,6 +8,7 @@ from oumi.utils.packaging import (
     _package_error_message,
     _package_prerequisites_error_messages,
     check_package_prerequisites,
+    check_trl_vllm_compatibility_if_installed,
 )
 
 
@@ -150,3 +151,49 @@ def test_check_package_prerequisites():
     with pytest.raises(RuntimeError) as runtime_error:
         check_package_prerequisites(package_prerequisites)
     assert runtime_error.value.args[0] == expected_runtime_error_str
+
+
+class TestCheckTrlVllmCompatibilityIfInstalled:
+    """Tests for TRL/vLLM compatibility checking."""
+
+    def test_no_error_when_vllm_not_installed(self, monkeypatch):
+        """No error when vLLM is not installed."""
+
+        def mock_version(pkg):
+            if pkg == "vllm":
+                raise importlib.metadata.PackageNotFoundError()
+            return "0.26.0"
+
+        monkeypatch.setattr("importlib.metadata.version", mock_version)
+        check_trl_vllm_compatibility_if_installed("test")  # Should not raise
+
+    def test_no_error_when_compatible(self, monkeypatch):
+        """No error when versions are compatible."""
+
+        def mock_version(pkg):
+            return {"vllm": "0.14.0", "trl": "0.29.0"}[pkg]
+
+        monkeypatch.setattr("importlib.metadata.version", mock_version)
+        check_trl_vllm_compatibility_if_installed("test")  # Should not raise
+
+    def test_error_old_trl_new_vllm(self, monkeypatch):
+        """Error when TRL < 0.27 with vLLM >= 0.12."""
+
+        def mock_version(pkg):
+            return {"vllm": "0.14.0", "trl": "0.26.0"}[pkg]
+
+        monkeypatch.setattr("importlib.metadata.version", mock_version)
+        with pytest.raises(RuntimeError) as exc_info:
+            check_trl_vllm_compatibility_if_installed("test")
+        assert "vLLM < 0.12.0" in str(exc_info.value)
+
+    def test_error_new_trl_old_vllm(self, monkeypatch):
+        """Error when TRL >= 0.27 with vLLM < 0.11."""
+
+        def mock_version(pkg):
+            return {"vllm": "0.10.2", "trl": "0.29.0"}[pkg]
+
+        monkeypatch.setattr("importlib.metadata.version", mock_version)
+        with pytest.raises(RuntimeError) as exc_info:
+            check_trl_vllm_compatibility_if_installed("test")
+        assert "vLLM >= 0.11.0" in str(exc_info.value)
