@@ -20,6 +20,8 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
+import jsonschema
+
 from oumi.core.configs.params.tool_params import (
     DeterministicToolOutput,
     ToolAttribute,
@@ -63,13 +65,21 @@ _MAX_CONTEXT_CHARS_PER_MESSAGE = 500
 
 
 @dataclass
-class ToolCallValidationError:
-    """Structured error from validating tool call arguments against a schema."""
+class ToolCallParsed:
+    """Successfully parsed and validated tool call."""
 
-    tool_name: str
-    error_type: str
-    message: str
-    details: dict[str, Any]
+    tool_call: dict[str, Any]
+
+
+@dataclass
+class ToolCallError:
+    """Structured error from parsing or validation."""
+
+    error_json: str
+    tool_name: str | None
+
+
+ToolCallResult = ToolCallParsed | ToolCallError | None
 
 
 class ToolExecutor:
@@ -83,8 +93,8 @@ class ToolExecutor:
         """Look up a tool by its display name."""
         return self._tools_by_name.get(name)
 
-    def parse_tool_call(self, response: str) -> dict[str, Any] | None:
-        """Parse <tool_call> tags from response."""
+    def parse_and_validate_tool_call(self, response: str) -> ToolCallResult:
+        """Parse <tool_call> tags from response and validate arguments."""
         match = _TOOL_CALL_PATTERN.search(response)
         if not match:
             match = _TOOL_CALL_OPEN_PATTERN.search(response)
@@ -97,28 +107,78 @@ class ToolExecutor:
             raw = raw[:close_idx].strip()
         parsed = _parse_tool_json(raw)
         if parsed is None:
-            logger.warning(f"Failed to parse tool call JSON: {raw[:200]}")
-            return None
+            return ToolCallError(
+                error_json=json.dumps(
+                    {
+                        "error": "malformed_json",
+                        "message": "Tool call JSON could not be parsed.",
+                    }
+                ),
+                tool_name=None,
+            )
 
         name = parsed.get("name")
         arguments = parsed.get("arguments", {})
 
         if not name or not isinstance(name, str):
-            logger.warning(f"Tool call missing or invalid 'name': {parsed}")
-            return None
+            return ToolCallError(
+                error_json=json.dumps(
+                    {
+                        "error": "malformed_json",
+                        "message": "Tool call missing or invalid 'name' field.",
+                    }
+                ),
+                tool_name=None,
+            )
 
         if not isinstance(arguments, dict):
-            logger.warning(f"Tool call 'arguments' is not a dict: {type(arguments)}")
-            return None
+            return ToolCallError(
+                error_json=json.dumps(
+                    {
+                        "error": "malformed_json",
+                        "message": f"Tool call 'arguments' must be a dict, got {type(arguments).__name__}.",
+                        "tool": name,
+                    }
+                ),
+                tool_name=name,
+            )
 
         if name not in self._tools_by_name:
-            logger.warning(
-                f"Tool call references unknown tool '{name}'. "
-                f"Available: {sorted(self._tools_by_name.keys())}"
+            return ToolCallError(
+                error_json=json.dumps(
+                    {
+                        "error": "unknown_tool",
+                        "message": f"Tool '{name}' not found.",
+                        "available_tools": sorted(self._tools_by_name.keys()),
+                    }
+                ),
+                tool_name=name,
             )
-            return None
 
-        return {"name": name, "arguments": arguments}
+        tool = self._tools_by_name[name]
+        if tool.parameters:
+            try:
+                jsonschema.validate(instance=arguments, schema=tool.parameters)
+            except jsonschema.ValidationError as e:
+                return ToolCallError(
+                    error_json=json.dumps(
+                        {
+                            "error": "invalid_arguments",
+                            "message": e.message,
+                            "tool": name,
+                        }
+                    ),
+                    tool_name=name,
+                )
+
+        return ToolCallParsed(tool_call={"name": name, "arguments": arguments})
+
+    def parse_tool_call(self, response: str) -> dict[str, Any] | None:
+        """Deprecated: use parse_and_validate_tool_call instead."""
+        result = self.parse_and_validate_tool_call(response)
+        if isinstance(result, ToolCallParsed):
+            return result.tool_call
+        return None
 
     @staticmethod
     def strip_tool_tags(text: str) -> str:
@@ -169,52 +229,6 @@ class ToolExecutor:
 
         cleaned = cleaned.strip()
         return cleaned if cleaned else None
-
-    def validate_arguments(
-        self, tool_call: dict[str, Any]
-    ) -> ToolCallValidationError | None:
-        """Validate tool call arguments against the tool's parameter schema.
-
-        Returns None if valid, or a ToolCallValidationError describing the problem.
-        """
-        tool = self._tools_by_name.get(tool_call["name"])
-        if not tool:
-            return ToolCallValidationError(
-                tool_name=tool_call["name"],
-                error_type="unknown_tool",
-                message=f"Unknown tool: {tool_call['name']}",
-                details={},
-            )
-
-        if not tool.parameters:
-            return None
-
-        schema_props = tool.parameters.get("properties", {})
-        required = set(tool.parameters.get("required", []))
-        provided = set(tool_call["arguments"].keys())
-
-        missing = required - provided
-        if missing:
-            return ToolCallValidationError(
-                tool_name=tool.name,
-                error_type="missing_required",
-                message=f"Missing required parameters: {sorted(missing)}",
-                details={"missing": sorted(missing), "provided": sorted(provided)},
-            )
-
-        unknown = provided - set(schema_props.keys())
-        if unknown:
-            return ToolCallValidationError(
-                tool_name=tool.name,
-                error_type="unknown_parameters",
-                message=f"Unknown parameters: {sorted(unknown)}",
-                details={
-                    "unknown": sorted(unknown),
-                    "allowed": sorted(schema_props.keys()),
-                },
-            )
-
-        return None
 
     def sample_deterministic_outputs(
         self, tools: list[ToolAttribute]

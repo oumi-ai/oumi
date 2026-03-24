@@ -24,7 +24,7 @@ from oumi.core.configs.params.tool_params import (
     ToolAttribute,
     ToolOutputStrategy,
 )
-from oumi.core.synthesis.tool_executor import ToolExecutor
+from oumi.core.synthesis.tool_executor import ToolCallError, ToolCallParsed, ToolExecutor
 from oumi.core.types.conversation import Message, Role
 
 
@@ -49,6 +49,7 @@ def deterministic_tool():
                 },
             },
             "required": ["order_id"],
+            "additionalProperties": False,
         },
         output_schema={
             "type": "object",
@@ -178,32 +179,6 @@ def test_parse_tool_call_empty_arguments(executor):
     assert result["name"] == "GetCurrentTime"
     assert result["arguments"] == {}
 
-
-def test_validate_arguments_valid(executor):
-    tool_call = {"name": "SearchOrders", "arguments": {"order_id": "ORD-001"}}
-    assert executor.validate_arguments(tool_call) is None
-
-
-def test_validate_arguments_missing_required(executor):
-    tool_call = {"name": "SearchOrders", "arguments": {"include_items": True}}
-    error = executor.validate_arguments(tool_call)
-
-    assert error is not None
-    assert error.error_type == "missing_required"
-    assert "order_id" in error.message
-    assert "order_id" in error.details["missing"]
-
-
-def test_validate_arguments_unknown_params(executor):
-    tool_call = {
-        "name": "SearchOrders",
-        "arguments": {"order_id": "ORD-001", "bogus_param": "value"},
-    }
-    error = executor.validate_arguments(tool_call)
-
-    assert error is not None
-    assert error.error_type == "unknown_parameters"
-    assert "bogus_param" in error.message
 
 
 def test_sample_deterministic_outputs(executor, deterministic_tool, generated_tool):
@@ -501,3 +476,96 @@ class TestExtractContentAroundToolCall:
         text = 'Checking.\n<tool_call>{"name": "Search", "arguments": {}}'
         result = ToolExecutor.extract_content_around_tool_call(text)
         assert result == "Checking."
+
+
+class TestParseAndValidateToolCall:
+    def test_valid_tool_call_returns_parsed(self, executor):
+        response = '<tool_call>{"name": "SearchOrders", "arguments": {"order_id": "ORD-123"}}</tool_call>'
+        result = executor.parse_and_validate_tool_call(response)
+        assert isinstance(result, ToolCallParsed)
+        assert result.tool_call["name"] == "SearchOrders"
+        assert result.tool_call["arguments"] == {"order_id": "ORD-123"}
+
+    def test_no_tool_call_returns_none(self, executor):
+        result = executor.parse_and_validate_tool_call("Just a regular response.")
+        assert result is None
+
+    def test_malformed_json_returns_error(self, executor):
+        response = "<tool_call>this is not json</tool_call>"
+        result = executor.parse_and_validate_tool_call(response)
+        assert isinstance(result, ToolCallError)
+        assert "malformed_json" in result.error_json
+        assert result.tool_name is None
+
+    def test_unknown_tool_returns_error(self, executor):
+        response = '<tool_call>{"name": "FakeToolXYZ", "arguments": {}}</tool_call>'
+        result = executor.parse_and_validate_tool_call(response)
+        assert isinstance(result, ToolCallError)
+        assert "unknown_tool" in result.error_json
+        assert "FakeToolXYZ" in result.error_json
+        assert "SearchOrders" in result.error_json
+        assert result.tool_name == "FakeToolXYZ"
+
+    def test_missing_required_param_returns_error(self, executor):
+        response = '<tool_call>{"name": "SearchOrders", "arguments": {"include_items": true}}</tool_call>'
+        result = executor.parse_and_validate_tool_call(response)
+        assert isinstance(result, ToolCallError)
+        assert "invalid_arguments" in result.error_json
+        assert "order_id" in result.error_json
+        assert result.tool_name == "SearchOrders"
+
+    def test_wrong_type_returns_error(self, executor):
+        response = '<tool_call>{"name": "SearchOrders", "arguments": {"order_id": 12345}}</tool_call>'
+        result = executor.parse_and_validate_tool_call(response)
+        assert isinstance(result, ToolCallError)
+        assert "invalid_arguments" in result.error_json
+        assert result.tool_name == "SearchOrders"
+
+    def test_unknown_param_returns_error(self, executor):
+        """Requires 'additionalProperties: false' in the fixture schema."""
+        response = '<tool_call>{"name": "SearchOrders", "arguments": {"order_id": "X", "bogus": "val"}}</tool_call>'
+        result = executor.parse_and_validate_tool_call(response)
+        assert isinstance(result, ToolCallError)
+        assert "invalid_arguments" in result.error_json
+
+    def test_tool_with_no_params_accepts_empty_args(self, executor):
+        response = '<tool_call>{"name": "GetCurrentTime"}</tool_call>'
+        result = executor.parse_and_validate_tool_call(response)
+        assert isinstance(result, ToolCallParsed)
+        assert result.tool_call["name"] == "GetCurrentTime"
+
+    def test_missing_name_returns_error(self, executor):
+        response = '<tool_call>{"arguments": {"order_id": "X"}}</tool_call>'
+        result = executor.parse_and_validate_tool_call(response)
+        assert isinstance(result, ToolCallError)
+        assert "malformed" in result.error_json.lower()
+
+    def test_arguments_not_dict_returns_error(self, executor):
+        response = '<tool_call>{"name": "SearchOrders", "arguments": "bad"}</tool_call>'
+        result = executor.parse_and_validate_tool_call(response)
+        assert isinstance(result, ToolCallError)
+
+    def test_unclosed_tag_still_works(self, executor):
+        response = '<tool_call>{"name": "SearchOrders", "arguments": {"order_id": "X"}}'
+        result = executor.parse_and_validate_tool_call(response)
+        assert isinstance(result, ToolCallParsed)
+
+    def test_extra_braces_still_works(self, executor):
+        response = '<tool_call>{"name": "SearchOrders", "arguments": {"order_id": "X"}}}</tool_call>'
+        result = executor.parse_and_validate_tool_call(response)
+        assert isinstance(result, ToolCallParsed)
+
+    def test_error_json_is_valid_json(self, executor):
+        import json
+
+        cases = [
+            "<tool_call>not json</tool_call>",
+            '<tool_call>{"name": "Fake", "arguments": {}}</tool_call>',
+            '<tool_call>{"name": "SearchOrders", "arguments": {"include_items": true}}</tool_call>',
+        ]
+        for response in cases:
+            result = executor.parse_and_validate_tool_call(response)
+            if isinstance(result, ToolCallError):
+                parsed = json.loads(result.error_json)
+                assert "error" in parsed
+                assert "message" in parsed
