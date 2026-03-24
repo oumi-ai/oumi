@@ -658,8 +658,7 @@ def check_hardware(cfg: dict) -> tuple[list[str], list[str], HardwareInfo]:
     cuda_version: str | None = None
     try:
         if torch is not None and torch.cuda.is_available():
-            _ver = getattr(torch, "version", None)
-            cuda_version = getattr(_ver, "cuda", None) if _ver else None
+            cuda_version = getattr(torch.version, "cuda", None) or None  # type: ignore[attr-defined]
     except Exception:
         pass
     hardware["cuda_version"] = cuda_version

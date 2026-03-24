@@ -27,7 +27,7 @@ import oumi.launcher as launcher
 from oumi.core.launcher.base_cluster import JobStatus as OumiJobStatus
 from oumi.mcp.config_service import parse_yaml
 from oumi.mcp.job_registry import JobRecord, get_registry
-from oumi.mcp.job_runtime import JobRuntime, evict_runtime
+from oumi.mcp.job_runtime import JobRuntime, evict_runtime, migrate_runtime
 from oumi.mcp.models import JobCancelResponse
 
 logger = logging.getLogger(__name__)
@@ -207,10 +207,13 @@ async def _launch_cloud(
         rt.oumi_status = status
 
         sky_job_id = str(status.id) if status and status.id else record.job_id
+        original_id = record.job_id
         record.job_id = sky_job_id
         record.cluster_name = (
             status.cluster if status and status.cluster else record.cluster_name
         )
+        if sky_job_id != original_id:
+            reg.remove(original_id)
         reg.add(record)
 
         logger.info(
@@ -218,6 +221,9 @@ async def _launch_cloud(
             sky_job_id,
             record.cloud,
         )
+
+        if sky_job_id != original_id:
+            await migrate_runtime(original_id, sky_job_id)
 
         if rt.cancel_requested and status and status.id:
             try:
@@ -276,7 +282,12 @@ async def cancel(
     record: JobRecord, rt: JobRuntime, *, force: bool = False
 ) -> JobCancelResponse:
     """Cancel a job (SIGTERM/SIGKILL for local, launcher.cancel for cloud)."""
-    if record.cloud != "local" and rt.cluster_obj is None and rt.process is None:
+    launch_pending = (
+        rt.runner_task is not None
+        and not rt.runner_task.done()
+        and rt.cluster_obj is None
+    )
+    if record.cloud != "local" and launch_pending:
         rt.cancel_requested = True
         rt.error_message = "Cancellation requested while launch is pending."
         return {

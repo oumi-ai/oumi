@@ -38,6 +38,7 @@ class JobRuntime:
     staged_config_path: str = ""
     cancel_requested: bool = False
     error_message: str | None = None
+    runner_task: asyncio.Task[Any] | None = None
 
     def close_log_files(self) -> None:
         """Close open stdout/stderr file handles."""
@@ -70,3 +71,17 @@ async def evict_runtime(job_id: str) -> None:
     if rt is None:
         return
     rt.close_log_files()
+
+
+async def migrate_runtime(old_id: str, new_id: str) -> None:
+    """Re-key a runtime entry from *old_id* to *new_id*.
+
+    After a cloud launch, the job ID changes from the MCP-generated ID
+    to the SkyPilot ID.  This migrates the runtime so that later lookups
+    by the new ID find the existing state (cluster_obj, cancel_requested,
+    etc.) instead of creating a fresh, empty runtime.
+    """
+    async with _runtimes_lock:
+        rt = _runtimes.pop(old_id, None)
+        if rt is not None:
+            _runtimes[new_id] = rt

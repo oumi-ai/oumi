@@ -63,6 +63,7 @@ __all__ = [
     "JobRegistry",
     "JobRuntime",
     "cancel",
+    "_list_job_summaries",
     "cancel_job_impl",
     "down_cluster_impl",
     "evict_runtime",
