@@ -659,3 +659,111 @@ def test_chat_template_kwargs_enable_thinking_false(mock_vllm):
     call_kwargs = engine._llm.chat.call_args.kwargs
     assert "chat_template_kwargs" in call_kwargs
     assert call_kwargs["chat_template_kwargs"].get("enable_thinking") is False
+
+
+#
+# Tests for _get_vl_text_model_overrides
+#
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_vl_text_model_overrides_unknown_model():
+    """Unknown/invalid model names should return (False, None)."""
+    result = VLLMInferenceEngine._get_vl_text_model_overrides(
+        "/nonexistent/path/to/model"
+    )
+    assert result == (False, None)
+
+
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_vl_text_model_overrides_non_vl_model():
+    """Non-VL models (e.g. GPT-2) should return (False, None)."""
+    mock_config = MagicMock()
+    mock_config.model_type = "gpt2"
+    # No text_config or vision_config attributes
+    del mock_config.text_config
+    del mock_config.vision_config
+    with patch(
+        "transformers.AutoConfig.from_pretrained",
+        return_value=mock_config,
+    ):
+        result = VLLMInferenceEngine._get_vl_text_model_overrides("gpt2")
+    assert result == (False, None)
+
+
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_vl_text_model_overrides_vl_model():
+    """VL models with text_config and vision_config should return (True, None)."""
+    mock_config = MagicMock()
+    mock_config.text_config = MagicMock()
+    mock_config.vision_config = MagicMock()
+    with patch(
+        "transformers.AutoConfig.from_pretrained",
+        return_value=mock_config,
+    ):
+        language_model_only, hf_overrides = (
+            VLLMInferenceEngine._get_vl_text_model_overrides("Qwen/Qwen3.5-0.8B")
+        )
+    assert language_model_only is True
+    assert hf_overrides is None
+
+
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_vl_text_model_overrides_text_submodel():
+    """Text sub-models of VL models should return (True, callable)."""
+    text_config_dict = {
+        "model_type": "qwen3_5_text",
+        "hidden_size": 1024,
+        "vocab_size": 248320,
+        "num_hidden_layers": 24,
+    }
+
+    # Use a simple namespace that only has model_type and to_dict
+    # (no text_config/vision_config, so the VL config check returns False)
+    class _FakeTextConfig:
+        model_type = "qwen3_5_text"
+
+        def to_dict(self):
+            return text_config_dict
+
+    mock_config = _FakeTextConfig()
+    with patch(
+        "transformers.AutoConfig.from_pretrained",
+        return_value=mock_config,
+    ):
+        language_model_only, hf_overrides = (
+            VLLMInferenceEngine._get_vl_text_model_overrides(
+                "output/qwen3.5_0.8b.fft"
+            )
+        )
+    assert language_model_only is True
+    assert hf_overrides is not None
+    assert callable(hf_overrides)
+
+    # The callable should produce a VL config with correct text_config
+    from vllm.transformers_utils.configs.qwen3_5 import (
+        Qwen3_5Config as VLLMQwen3_5Config,
+    )
+
+    wrapped = hf_overrides(MagicMock())  # Input is ignored
+    assert isinstance(wrapped, VLLMQwen3_5Config)
+    assert wrapped.architectures == ["Qwen3_5ForConditionalGeneration"]
+    assert wrapped.text_config.hidden_size == 1024
+    assert wrapped.text_config.vocab_size == 248320
+
+
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_vl_text_model_overrides_passed_to_vllm(mock_vllm):
+    """Verify that VL overrides are passed through to vllm.LLM constructor."""
+    mock_vllm_instance = Mock()
+    mock_vllm.LLM.return_value = mock_vllm_instance
+
+    # Mock _get_vl_text_model_overrides to return VL model detection
+    with patch.object(
+        VLLMInferenceEngine,
+        "_get_vl_text_model_overrides",
+        return_value=(True, None),
+    ):
+        VLLMInferenceEngine(_get_default_model_params())
+
+    # Check that language_model_only=True was passed to vllm.LLM
+    call_kwargs = mock_vllm.LLM.call_args[1]
+    assert call_kwargs.get("language_model_only") is True

@@ -207,6 +207,25 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 f"Supported methods are: {supported_quantization_methods}."
             )
 
+        # Detect if the model is a text-only sub-model of a VL (vision-language)
+        # model. This happens when:
+        # - FFT checkpoints save only the text config (e.g. model_type
+        #   "qwen3_5_text" instead of "qwen3_5")
+        # - The base model is a VL model but we only want text inference
+        # In these cases, we need language_model_only=True and possibly
+        # hf_overrides to wrap the text config into the full VL config.
+        language_model_only, hf_overrides = self._get_vl_text_model_overrides(
+            model_params.model_name
+        )
+        if language_model_only:
+            vllm_kwargs["language_model_only"] = True
+            logger.info(
+                "Detected text-only sub-model of a VL model. "
+                "Setting language_model_only=True for vLLM."
+            )
+        if hf_overrides is not None:
+            vllm_kwargs["hf_overrides"] = hf_overrides
+
         final_vllm_kwargs = dict(
             model=model_params.model_name,
             tokenizer=model_params.tokenizer_name,
@@ -233,6 +252,101 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         # tokenizer is already configured via the constructor's `tokenizer` parameter.
         if not _VLLM_V0_12:
             self._llm.set_tokenizer(self._tokenizer)  # pyright: ignore[reportAttributeAccessIssue]
+
+    @staticmethod
+    def _get_vl_text_model_overrides(
+        model_name: str,
+    ) -> tuple[bool, object | None]:
+        """Detect if a model is a text sub-model of a VL model and return overrides.
+
+        Some VL models (e.g. Qwen3.5) have a composite config where the full model
+        uses one config class (e.g. Qwen3_5Config with model_type "qwen3_5") and the
+        text sub-model uses another (e.g. Qwen3_5TextConfig with model_type
+        "qwen3_5_text"). When fine-tuning only the text part, the saved checkpoint
+        has the text config, but vLLM expects the full VL config.
+
+        This method detects such cases and returns:
+        - language_model_only: True if vLLM should run in text-only mode
+        - hf_overrides: A callable to wrap the text config into the full VL config,
+          or None if no wrapping is needed
+
+        Args:
+            model_name: The model name or path.
+
+        Returns:
+            A tuple of (language_model_only, hf_overrides).
+        """
+        from transformers import AutoConfig
+
+        try:
+            config = AutoConfig.from_pretrained(model_name, trust_remote_code=True)
+        except Exception:
+            return False, None
+
+        # Check if this is already a composite VL config (e.g. base HF model).
+        # In that case, we just need language_model_only=True.
+        if hasattr(config, "text_config") and hasattr(config, "vision_config"):
+            return True, None
+
+        # Check if this is a text sub-config that belongs to a VL model.
+        # We detect this by checking if the config's model_type has a known
+        # VL parent (e.g. "qwen3_5_text" -> "qwen3_5").
+        model_type = getattr(config, "model_type", None)
+        if model_type is None:
+            return False, None
+
+        # Map of text sub-model types to their VL parent config info.
+        # Each entry maps: text_model_type -> (vllm_config_class_path,
+        # parent_architecture)
+        _TEXT_TO_VL_CONFIG_MAP: dict[str, tuple[str, str]] = {
+            "qwen3_5_text": (
+                "vllm.transformers_utils.configs.qwen3_5.Qwen3_5Config",
+                "Qwen3_5ForConditionalGeneration",
+            ),
+        }
+
+        if model_type not in _TEXT_TO_VL_CONFIG_MAP:
+            return False, None
+
+        vllm_config_path, parent_arch = _TEXT_TO_VL_CONFIG_MAP[model_type]
+
+        # Dynamically import the vLLM config class
+        module_path, class_name = vllm_config_path.rsplit(".", 1)
+        import importlib
+
+        try:
+            vllm_config_module = importlib.import_module(module_path)
+            VLLMConfigClass = getattr(vllm_config_module, class_name)
+        except (ImportError, AttributeError):
+            logger.warning(
+                f"Could not import vLLM config class {vllm_config_path}. "
+                "Skipping VL text model detection."
+            )
+            return False, None
+
+        text_config_dict = config.to_dict()
+
+        def _wrap_text_config(_loaded_config: object) -> object:
+            """Wrap a text config into the full VL config for vLLM compatibility.
+
+            This callable is invoked by vLLM after it loads the config from disk.
+            There are two cases:
+            1. The loaded config is already a VL config (e.g. Qwen3_5Config) but
+               with incorrect text_config (defaults instead of checkpoint values),
+               because vLLM's config loader used Qwen3_5Config.from_pretrained()
+               on a checkpoint that only has text config fields.
+            2. The loaded config is a text-only config (e.g. Qwen3_5TextConfig).
+            In both cases, we reconstruct the VL config with the correct text_config.
+            """
+            wrapped = VLLMConfigClass(text_config=text_config_dict)
+            wrapped.architectures = [parent_arch]
+            return wrapped
+
+        logger.info(
+            f"Model has text-only config (model_type={model_type!r}). "
+            f"Will wrap into VL config for vLLM compatibility."
+        )
+        return True, _wrap_text_config
 
     @staticmethod
     def _normalize_vllm_finish_reason(raw_reason: str | None) -> FinishReason | None:
