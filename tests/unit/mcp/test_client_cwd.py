@@ -9,11 +9,9 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from oumi.mcp.config_service import resolve_config_path, resolve_path
-from oumi.mcp.job_service import (
-    JobRecord,
-    JobRuntime,
-    start_local_job,
-)
+from oumi.mcp.job_launcher import start_local_job
+from oumi.mcp.job_registry import JobRecord
+from oumi.mcp.job_runtime import JobRuntime
 from oumi.mcp.server import (
     pre_flight_check,
     run_oumi_job,

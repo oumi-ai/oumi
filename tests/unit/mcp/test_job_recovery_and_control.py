@@ -1,4 +1,4 @@
-# pyright: reportTypedDictNotRequiredAccess=false, reportArgumentType=false, reportOptionalMemberAccess=false, reportCallIssue=false
+# pyright: reportTypedDictNotRequiredAccess=false, reportArgumentType=false, reportOptionalMemberAccess=false, reportCallIssue=false, reportOperatorIssue=false, reportAttributeAccessIssue=false, reportOptionalSubscript=false
 """Tests for job recovery, cancellation, cluster lifecycle, and cloud launch."""
 
 import pytest
@@ -12,13 +12,10 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
-from oumi.mcp import job_service, server
-from oumi.mcp.job_service import (
-    JobRecord,
-    JobRuntime,
-    cancel,
-    make_job_id,
-)
+from oumi.mcp import job_launcher, job_logs, job_service, server
+from oumi.mcp.job_launcher import cancel
+from oumi.mcp.job_registry import JobRecord, make_job_id
+from oumi.mcp.job_runtime import JobRuntime
 
 
 def _make_record(**overrides) -> JobRecord:
@@ -229,7 +226,7 @@ async def test_cloud_launch_rejects_training_config():
         rt.run_dir = Path(tmp_dir) / "run"
         with patch("oumi.mcp.job_service.get_registry") as mock_reg:
             mock_reg.return_value.update = lambda *a, **kw: None
-            await job_service._launch_cloud(record, rt, client_cwd=tmp_dir)
+            await job_launcher._launch_cloud(record, rt, client_cwd=tmp_dir)
         assert rt.error_message is not None
         assert "job config" in rt.error_message.lower()
 
@@ -290,7 +287,7 @@ async def test_cloud_launch_reconciles_pending_cancel():
             ) as mock_cancel,
             patch("oumi.mcp.job_service.get_registry", return_value=mock_reg),
         ):
-            await job_service._launch_cloud(record, rt, client_cwd=tmp_dir)  # type: ignore[attr-defined]
+            await job_launcher._launch_cloud(record, rt, client_cwd=tmp_dir)  # type: ignore[attr-defined]
 
         mock_cancel.assert_called_once_with("cloud-456", "gcp", "cluster-b")
         assert rt.cancel_requested
@@ -334,7 +331,7 @@ async def test_launch_cloud_client_cwd_sets_working_dir():
             with patch("oumi.mcp.job_service.get_registry") as mock_registry:
                 mock_registry.return_value.update = lambda *a, **kw: None
                 mock_registry.return_value.get = lambda jid: record
-                await job_service._launch_cloud(  # type: ignore[attr-defined]
+                await job_launcher._launch_cloud(  # type: ignore[attr-defined]
                     record, rt, client_cwd=str(client_dir)
                 )
 
@@ -347,7 +344,7 @@ def test_read_log_tail_large_file():
         log_path = Path(tmp_dir) / "big.log"
         lines = [f"line-{idx}" for idx in range(1, 20001)]
         log_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-        tail, count = job_service._read_log_tail(log_path, 5)
+        tail, count = job_logs.read_log_tail(log_path, 5)
     assert count == 5
     assert tail.splitlines() == lines[-5:]
 

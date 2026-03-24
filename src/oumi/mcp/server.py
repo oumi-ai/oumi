@@ -68,24 +68,31 @@ from oumi.mcp.docs_service import (
 from oumi.mcp.environment_service import (
     _strip_oumi_env_overrides,
 )
-from oumi.mcp.job_service import (
-    JobRecord,
+from oumi.mcp.job_launcher import (
     _is_job_config,
+    launch_job,
+    poll_status,
+    start_local_job,
+    wait_local_completion,
+)
+from oumi.mcp.job_logs import (
+    get_log_paths,
+)
+from oumi.mcp.job_registry import (
+    JobRecord,
+    get_registry,
+    make_job_id,
+)
+from oumi.mcp.job_runtime import (
+    get_runtime,
+)
+from oumi.mcp.job_service import (
     _list_job_summaries,
     cancel_job_impl,
     down_cluster_impl,
     fetch_logs,
     fetch_status,
-    get_log_paths,
-    get_registry,
-    get_runtime,
-    launch_job,
-    list_jobs_impl,
-    make_job_id,
-    poll_status,
-    start_local_job,
     stop_cluster_impl,
-    wait_local_completion,
 )
 from oumi.mcp.models import (
     CategoriesResponse,
@@ -106,7 +113,7 @@ from oumi.mcp.models import (
 from oumi.mcp.preflight_service import (
     _pre_flight_check,
 )
-from oumi.mcp.prompts.mle_prompt import (
+from oumi.mcp.prompts import (
     ANALYZE_COMMAND_RESOURCE,
     CLOUD_LAUNCH_RESOURCE,
     EVAL_COMMAND_RESOURCE,
@@ -469,6 +476,8 @@ async def run_oumi_job(
             "model_name": "",
             "message": "",
             "error": error,
+            "launch_confirmed": None,
+            "preflight": None,
         }
         base.update(overrides)  # type: ignore[typeddict-item]
         return base
@@ -551,6 +560,9 @@ async def run_oumi_job(
             "cluster_name": cluster_name,
             "model_name": model_name,
             "message": message,
+            "error": None,
+            "launch_confirmed": None,
+            "preflight": None,
         }
 
     preflight_data: PreFlightSummary | None = None
@@ -687,9 +699,9 @@ async def run_oumi_job(
         "model_name": model_name,
         "launch_confirmed": launch_confirmed if not is_local else True,
         "message": message,
+        "error": None,
+        "preflight": preflight_data,
     }
-    if preflight_data is not None:
-        response["preflight"] = preflight_data
     return response
 
 
@@ -782,7 +794,7 @@ async def list_jobs(
     Args:
         status: ``"all"`` (default), ``"running"``, or ``"completed"``.
     """
-    return await list_jobs_impl(status=status)
+    return await _list_job_summaries(status_filter=status)
 
 
 @mcp.tool()
