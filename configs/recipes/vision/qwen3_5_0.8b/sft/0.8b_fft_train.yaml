@@ -1,0 +1,61 @@
+# Full fine-tune config for Qwen3.5 0.8B as a VLM.
+# Based on the Qwen3 VL 2B Instruct FFT config.
+#
+# Usage:
+#   oumi train -c configs/recipes/vision/qwen3_5_0.8b/sft/0.8b_fft_train.yaml
+
+model:
+  model_name: "Qwen/Qwen3.5-0.8B"
+  torch_dtype_str: "bfloat16"
+  model_max_length: 4096
+  trust_remote_code: True
+  attn_implementation: "sdpa"
+  chat_template: "qwen3-vl-instruct"
+  freeze_layers:
+    - "model.visual"
+
+data:
+  train:
+    collator_name: "vision_language_with_padding"
+    use_torchdata: False
+    datasets:
+      - dataset_name: "merve/vqav2-small"
+        split: "validation[:512]"
+        shuffle: True
+        seed: 42
+        transform_num_workers: 1
+        dataset_kwargs:
+          processor_name: "Qwen/Qwen3.5-0.8B"
+          return_tensors: True
+          limit: 512
+
+training:
+  output_dir: "output/qwen3.5_0.8b_vlm_fft"
+  trainer_type: "TRL_SFT"
+  enable_gradient_checkpointing: True
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 4
+  max_steps: 5
+  use_peft: False
+
+  gradient_checkpointing_kwargs:
+    use_reentrant: False
+  max_grad_norm: 0.5
+  ddp_find_unused_parameters: False
+  empty_device_cache_steps: 1
+  compile: False
+
+  optimizer: "adamw_torch_fused"
+  learning_rate: 2e-5
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  lr_scheduler_type: "cosine"
+
+  logging_steps: 1
+  save_steps: 0
+  dataloader_main_process_only: False
+  dataloader_num_workers: 2
+  dataloader_prefetch_factor: 8
+  include_performance_metrics: True
+  log_model_summary: False
+  enable_wandb: False
