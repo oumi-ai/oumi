@@ -21,7 +21,7 @@ from functools import lru_cache
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _pkg_version
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
 
@@ -175,7 +175,7 @@ def extract_header_comment(path: Path) -> str:
         return ""
 
 
-def infer_task_type(trainer_type: str, path: str) -> str:
+def infer_task_type(trainer_type: str, path: str) -> TaskType | Literal[""]:
     """Infer task type from trainer_type or file path.
 
     Checks both the trainer_type field and the path for task indicators

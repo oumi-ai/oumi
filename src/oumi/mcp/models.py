@@ -14,11 +14,11 @@
 
 """TypedDict models for Oumi MCP server data structures."""
 
-from typing import Any
+from typing import Any, Literal
 
 from typing_extensions import TypedDict
 
-from oumi.mcp.constants import AcceleratorType
+from oumi.mcp.constants import AcceleratorType, TaskType
 
 
 class ConfigMetadata(TypedDict):
@@ -37,7 +37,7 @@ class ConfigMetadata(TypedDict):
     path: str
     description: str
     model_name: str
-    task_type: str
+    task_type: TaskType | Literal[""]
     datasets: list[str]
     reward_functions: list[str]
     peft_type: str
