@@ -289,7 +289,7 @@ def is_trl_v0_28_or_later() -> bool:
         return False
 
 
-def check_trl_vllm_compatibility_if_installed(feature_name: str) -> None:
+def verify_trl_vllm_compatibility(feature_name: str) -> None:
     """Checks TRL/vLLM compatibility before importing TRL trainers.
 
     TRL imports vLLM at module level, which can cause import errors if versions

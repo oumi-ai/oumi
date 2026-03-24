@@ -8,7 +8,7 @@ from oumi.utils.packaging import (
     _package_error_message,
     _package_prerequisites_error_messages,
     check_package_prerequisites,
-    check_trl_vllm_compatibility_if_installed,
+    verify_trl_vllm_compatibility,
 )
 
 
@@ -165,7 +165,7 @@ class TestCheckTrlVllmCompatibilityIfInstalled:
             return "0.26.0"
 
         monkeypatch.setattr("importlib.metadata.version", mock_version)
-        check_trl_vllm_compatibility_if_installed("test")  # Should not raise
+        verify_trl_vllm_compatibility("test")  # Should not raise
 
     def test_no_error_when_compatible(self, monkeypatch):
         """No error when versions are compatible."""
@@ -174,7 +174,7 @@ class TestCheckTrlVllmCompatibilityIfInstalled:
             return {"vllm": "0.14.0", "trl": "0.29.0"}[pkg]
 
         monkeypatch.setattr("importlib.metadata.version", mock_version)
-        check_trl_vllm_compatibility_if_installed("test")  # Should not raise
+        verify_trl_vllm_compatibility("test")  # Should not raise
 
     def test_error_old_trl_new_vllm(self, monkeypatch):
         """Error when TRL < 0.27 with vLLM >= 0.12."""
@@ -184,7 +184,7 @@ class TestCheckTrlVllmCompatibilityIfInstalled:
 
         monkeypatch.setattr("importlib.metadata.version", mock_version)
         with pytest.raises(RuntimeError) as exc_info:
-            check_trl_vllm_compatibility_if_installed("test")
+            verify_trl_vllm_compatibility("test")
         assert "vLLM < 0.12.0" in str(exc_info.value)
 
     def test_error_new_trl_old_vllm(self, monkeypatch):
@@ -195,5 +195,5 @@ class TestCheckTrlVllmCompatibilityIfInstalled:
 
         monkeypatch.setattr("importlib.metadata.version", mock_version)
         with pytest.raises(RuntimeError) as exc_info:
-            check_trl_vllm_compatibility_if_installed("test")
+            verify_trl_vllm_compatibility("test")
         assert "vLLM >= 0.11.0" in str(exc_info.value)
