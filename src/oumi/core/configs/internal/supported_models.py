@@ -293,6 +293,39 @@ def _create_qwen2_5_vl_vlm_config() -> InternalModelConfig:
     return config
 
 
+def _create_qwen3_5_vlm_config() -> InternalModelConfig:
+    config = _create_default_vlm_config(
+        pixel_values_variable_shape=True,
+        supports_multiple_images=True,
+    )
+    config.chat_template = "qwen3-vl-instruct"
+    config.model_input_features.update(
+        {
+            feature_name: InternalFeatureSpec(
+                name=feature_name,
+                required=True,
+                variable_shape=False,
+                image_dependent=True,
+            )
+            for feature_name in ("image_grid_thw",)
+        }
+    )
+    config.model_input_features["mm_token_type_ids"] = InternalFeatureSpec(
+        name="mm_token_type_ids",
+        required=False,
+        variable_shape=False,
+        first_dim_action=InternalFeatureFirstDimAction.DROP_IF_DUMMY,
+    )
+    config.processor_kwargs.update(
+        {
+            "min_pixels": 4 * 28 * 28,
+            "max_pixels": 16384 * 28 * 28,
+            "patch_size": 16,
+        }
+    )
+    return config
+
+
 def _create_qwen3_vl_vlm_config() -> InternalModelConfig:
     config = _create_default_vlm_config(
         pixel_values_variable_shape=True,
@@ -574,6 +607,11 @@ def get_all_models_map() -> Mapping[
             model_class=default_vlm_class,
             tested=True,
             config=_create_qwen2_5_vl_vlm_config(),
+        ),
+        _ModelTypeInfo(
+            model_type="qwen3_5",
+            model_class=default_vlm_class,
+            config=_create_qwen3_5_vlm_config(),
         ),
         _ModelTypeInfo(
             model_type="qwen3_vl",
