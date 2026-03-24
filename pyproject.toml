@@ -185,7 +185,7 @@ mcp = [
     "mcp>=1.25.0,<2",
 ]
 
-file_formats = ["pdf2image>=1.17,<1.18", "python-poppler>=0.4,<0.5"]
+file_formats = ["pdf2image>=1.17,<1.18"]
 
 llama_cpp = ["llama-cpp-python>=0.3.5,<0.4"]
 
@@ -197,7 +197,7 @@ torchdata = ["torchdata>=0.9,<0.10.0"]
 
 # CI targets
 ci_cpu = [
-    "oumi[dev,docs,gcp,mcp,synthesis,tune,torchdata]",
+    "oumi[dev,docs,gcp,mcp,synthesis,tune,torchdata,file_formats]",
     "vllm>=0.10,<0.11",                            # For VLLMInferenceEngine
     # This may fail to install. As a temporary workaround, run:
     # CMAKE_ARGS="-DLLAVA_BUILD=OFF" pip install -U llama-cpp-python
