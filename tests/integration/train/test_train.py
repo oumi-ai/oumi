@@ -16,8 +16,8 @@ from oumi.core.configs import (
 from oumi.core.configs.params.gkd_params import GkdParams
 from oumi.core.configs.params.gold_params import GoldParams
 from oumi.utils.packaging import (
-    verify_trl_vllm_compatibility,
     is_gold_trainer_available,
+    verify_trl_vllm_compatibility,
 )
 
 try:
@@ -310,7 +310,9 @@ def test_train_gkd():
         train(config)
 
 
-@pytest.mark.skipif(not is_gold_trainer_available(), reason="GOLD trainer not available")
+@pytest.mark.skipif(
+    not is_gold_trainer_available(), reason="GOLD trainer not available"
+)
 @pytest.mark.skipif(not _trl_vllm_compatible, reason="TRL/vLLM versions incompatible")
 def test_train_gold():
     """Test GOLD (General Online Logit Distillation) training workflow."""
