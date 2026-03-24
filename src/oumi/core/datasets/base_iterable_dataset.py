@@ -24,7 +24,7 @@ from oumi.utils.logging import logger
 
 
 def _convert_tensors_for_arrow(item: Any) -> Any:
-    """Recursively convert PyTorch tensors to native Python types for Arrow compatibility.
+    """Recursively convert PyTorch tensors for Arrow compatibility.
 
     Uses .item()/.tolist() instead of .numpy() because numpy scalar types
     (e.g. numpy.int64) are not recognized by the dataset's Arrow conversion logic,
