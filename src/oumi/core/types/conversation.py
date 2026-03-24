@@ -153,7 +153,7 @@ class ContentItem(pydantic.BaseModel):
         """Checks if the item contains text."""
         return self.type == Type.TEXT
 
-    @pydantic.field_serializer("binary")
+    @pydantic.field_serializer("binary", when_used="unless-none")
     def _encode_binary(self, value: bytes | None) -> str:
         """Encode binary value as base64 ASCII string.
 

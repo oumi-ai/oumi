@@ -2,7 +2,11 @@
 {% set turn_suffix = '\n' %}
 
 {% for message in messages %}
-    {{ message['role'].upper() + role_suffix + message['content'] | trim }}{% if not loop.last %}{{ turn_suffix }}{% endif %}
+    {%- if message['content'] is string -%}
+        {{ message['role'].upper() + role_suffix + message['content'] | trim }}{% if not loop.last %}{{ turn_suffix }}{% endif %}
+    {%- else -%}
+        {{ message['role'].upper() + role_suffix }}{%- for item in message['content'] -%}{%- if item['type'] == 'text' -%}{{ item['text'] | trim }}{%- endif -%}{%- endfor -%}{% if not loop.last %}{{ turn_suffix }}{% endif %}
+    {%- endif -%}
 {% endfor %}
 {% if add_generation_prompt %}
     {{ turn_suffix + "ASSISTANT" + role_suffix }}

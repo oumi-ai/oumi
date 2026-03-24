@@ -285,13 +285,13 @@ def test_processor_converts_messages_to_dict_internally():
     ]
     converted = processor._convert_messages_to_dicts(messages)
 
-    # Verify conversion produces dict format with .get() access
+    # Verify conversion produces HF-compatible dict format with .get() access
     assert len(converted) == 2
     assert all(isinstance(m, dict) for m in converted)
     assert converted[0].get("role") == "user"
-    assert converted[0].get("content") == "Hello"
+    assert converted[0].get("content") == [{"type": "text", "text": "Hello"}]
     assert converted[1].get("role") == "assistant"
-    assert converted[1].get("content") == "Hi there!"
+    assert converted[1].get("content") == [{"type": "text", "text": "Hi there!"}]
 
 
 def test_processor_apply_chat_template_with_message_objects():

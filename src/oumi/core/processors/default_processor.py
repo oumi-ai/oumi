@@ -227,11 +227,31 @@ class DefaultProcessor(BaseProcessor):
         return result
 
     def _convert_messages_to_dicts(self, messages: list[Message]) -> list[dict]:
-        """Converts Message objects to dict format for HuggingFace compatibility."""
-        return [
-            msg.model_dump(mode="json", exclude_none=True, exclude_unset=True)
-            for msg in messages
-        ]
+        """Converts Message objects to HuggingFace-compatible dict format.
+
+        All content is normalized to list format for compatibility with HF
+        processor chat templates:
+        - string content -> [{"type": "text", "text": "..."}]
+        - image types (image_binary, image_url, image_path) -> {"type": "image"}
+        - text type -> {"type": "text", "text": "..."}
+        """
+        result = []
+        for msg in messages:
+            msg_dict: dict = {"role": str(msg.role)}
+            if isinstance(msg.content, str):
+                msg_dict["content"] = [{"type": "text", "text": msg.content}]
+            else:
+                content_list = []
+                for item in msg.content:
+                    if item.is_image():
+                        content_list.append({"type": "image"})
+                    elif item.is_text():
+                        content_list.append(
+                            {"type": "text", "text": item.content or ""}
+                        )
+                msg_dict["content"] = content_list
+            result.append(msg_dict)
+        return result
 
     @override
     def apply_chat_template(

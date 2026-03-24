@@ -1,1 +1,1 @@
-{% for message in messages %}{{ message.content }}{{ eos_token }}{% endfor %}
+{% for message in messages %}{% if message.content is string %}{{ message.content }}{% else %}{% for item in message.content %}{% if item.type == 'text' %}{{ item.text }}{% endif %}{% endfor %}{% endif %}{{ eos_token }}{% endfor %}

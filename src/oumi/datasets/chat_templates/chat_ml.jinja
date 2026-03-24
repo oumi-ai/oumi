@@ -10,7 +10,11 @@
         {{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}
     {% endif %}
 
-    {{ '<|im_start|>' + message['role'] + '\n' + message['content'] | trim + '<|im_end|>\n' }}
+    {%- if message['content'] is string -%}
+        {{ '<|im_start|>' + message['role'] + '\n' + message['content'] | trim + '<|im_end|>\n' }}
+    {%- else -%}
+        {{ '<|im_start|>' + message['role'] + '\n' }}{%- for item in message['content'] -%}{%- if item['type'] == 'text' -%}{{ item['text'] | trim }}{%- endif -%}{%- endfor -%}{{ '<|im_end|>\n' }}
+    {%- endif -%}
 {% endfor %}
 
 {% if add_generation_prompt %}
