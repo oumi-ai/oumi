@@ -126,8 +126,8 @@ class DatasetParams(BaseParams):
     trust_remote_code: bool = False
     """Whether to trust remote code when loading the tokenizer and/or processor.
 
-    Note: HuggingFace datasets that require custom code are no longer supported. 
-    This parameter is used for tokenizers and processors that contain custom code 
+    Note: HuggingFace datasets that require custom code are no longer supported.
+    This parameter is used for tokenizers and processors that contain custom code
     (e.g., Phi-3-vision).
     """
 
@@ -181,7 +181,6 @@ class DatasetParams(BaseParams):
                     f"reserved fields: {conflicting_keys}. "
                     "Use properties of DatasetParams instead."
                 )
-
 
 
 @dataclass
