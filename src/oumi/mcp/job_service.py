@@ -84,7 +84,6 @@ __all__ = [
 ]
 
 
-
 def _job_status_str(record: JobRecord, rt: JobRuntime) -> str:
     """Derive a human-readable status string for any job (local or cloud)."""
     if rt.cancel_requested:
