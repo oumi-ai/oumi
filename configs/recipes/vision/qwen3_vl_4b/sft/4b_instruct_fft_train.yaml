@@ -20,7 +20,7 @@ model:
   attn_implementation: "sdpa"
   chat_template: "qwen3-vl-instruct"
   freeze_layers:
-    - "visual"
+    - "model.visual"
 
 data:
   train:
