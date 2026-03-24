@@ -173,13 +173,6 @@ class ToolExecutor:
 
         return ToolCallParsed(tool_call={"name": name, "arguments": arguments})
 
-    def parse_tool_call(self, response: str) -> dict[str, Any] | None:
-        """Deprecated: use parse_and_validate_tool_call instead."""
-        result = self.parse_and_validate_tool_call(response)
-        if isinstance(result, ToolCallParsed):
-            return result.tool_call
-        return None
-
     @staticmethod
     def strip_tool_tags(text: str) -> str:
         """Remove any residual <tool_call> or </tool_call> tags from text."""

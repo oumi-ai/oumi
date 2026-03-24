@@ -127,11 +127,11 @@ def test_parse_tool_call_valid(executor):
         'Some text <tool_call>{"name": "SearchOrders", '
         '"arguments": {"order_id": "ORD-123"}}</tool_call> more text'
     )
-    result = executor.parse_tool_call(response)
+    result = executor.parse_and_validate_tool_call(response)
 
-    assert result is not None
-    assert result["name"] == "SearchOrders"
-    assert result["arguments"] == {"order_id": "ORD-123"}
+    assert isinstance(result, ToolCallParsed)
+    assert result.tool_call["name"] == "SearchOrders"
+    assert result.tool_call["arguments"] == {"order_id": "ORD-123"}
 
 
 @pytest.mark.parametrize(
@@ -156,7 +156,8 @@ def test_parse_tool_call_valid(executor):
     ],
 )
 def test_parse_tool_call_returns_none_for_invalid_input(executor, response):
-    assert executor.parse_tool_call(response) is None
+    result = executor.parse_and_validate_tool_call(response)
+    assert not isinstance(result, ToolCallParsed)
 
 
 def test_parse_tool_call_extra_braces(executor):
@@ -164,20 +165,20 @@ def test_parse_tool_call_extra_braces(executor):
         '<tool_call>{"name": "SearchOrders", '
         '"arguments": {"order_id": "ORD-123"}}}</tool_call>'
     )
-    result = executor.parse_tool_call(response)
+    result = executor.parse_and_validate_tool_call(response)
 
-    assert result is not None
-    assert result["name"] == "SearchOrders"
-    assert result["arguments"] == {"order_id": "ORD-123"}
+    assert isinstance(result, ToolCallParsed)
+    assert result.tool_call["name"] == "SearchOrders"
+    assert result.tool_call["arguments"] == {"order_id": "ORD-123"}
 
 
 def test_parse_tool_call_empty_arguments(executor):
     response = '<tool_call>{"name": "GetCurrentTime"}</tool_call>'
-    result = executor.parse_tool_call(response)
+    result = executor.parse_and_validate_tool_call(response)
 
-    assert result is not None
-    assert result["name"] == "GetCurrentTime"
-    assert result["arguments"] == {}
+    assert isinstance(result, ToolCallParsed)
+    assert result.tool_call["name"] == "GetCurrentTime"
+    assert result.tool_call["arguments"] == {}
 
 
 
@@ -335,10 +336,10 @@ def test_build_capability_summary(deterministic_tool, generated_tool):
 def test_parse_tool_call_unclosed_tag(executor):
     """Fallback regex matches when LLM forgets closing tag."""
     response = '<tool_call>{"name": "SearchOrders", "arguments": {"order_id": "X"}}'
-    result = executor.parse_tool_call(response)
-    assert result is not None
-    assert result["name"] == "SearchOrders"
-    assert result["arguments"] == {"order_id": "X"}
+    result = executor.parse_and_validate_tool_call(response)
+    assert isinstance(result, ToolCallParsed)
+    assert result.tool_call["name"] == "SearchOrders"
+    assert result.tool_call["arguments"] == {"order_id": "X"}
 
 
 def test_parse_tool_call_trailing_comma(executor):
@@ -347,9 +348,9 @@ def test_parse_tool_call_trailing_comma(executor):
         '<tool_call>{"name": "SearchOrders", '
         '"arguments": {"order_id": "X",}}</tool_call>'
     )
-    result = executor.parse_tool_call(response)
-    assert result is not None
-    assert result["name"] == "SearchOrders"
+    result = executor.parse_and_validate_tool_call(response)
+    assert isinstance(result, ToolCallParsed)
+    assert result.tool_call["name"] == "SearchOrders"
 
 
 def test_parse_tool_call_markdown_fences_inside_tag(executor):
@@ -359,9 +360,9 @@ def test_parse_tool_call_markdown_fences_inside_tag(executor):
         '{"name": "SearchOrders", "arguments": {"order_id": "X"}}\n'
         "```</tool_call>"
     )
-    result = executor.parse_tool_call(response)
-    assert result is not None
-    assert result["name"] == "SearchOrders"
+    result = executor.parse_and_validate_tool_call(response)
+    assert isinstance(result, ToolCallParsed)
+    assert result.tool_call["name"] == "SearchOrders"
 
 
 def test_parse_tool_call_open_tag_with_trailing_prose(executor):
@@ -370,9 +371,9 @@ def test_parse_tool_call_open_tag_with_trailing_prose(executor):
         '<tool_call>{"name": "SearchOrders", "arguments": {"order_id": "X"}}'
         "</tool_call> Here is some reasoning about the result."
     )
-    result = executor.parse_tool_call(response)
-    assert result is not None
-    assert result["name"] == "SearchOrders"
+    result = executor.parse_and_validate_tool_call(response)
+    assert isinstance(result, ToolCallParsed)
+    assert result.tool_call["name"] == "SearchOrders"
 
 
 def test_parse_tool_call_comma_in_string_value_preserved(executor):
@@ -381,9 +382,9 @@ def test_parse_tool_call_comma_in_string_value_preserved(executor):
         '<tool_call>{"name": "SearchOrders", '
         '"arguments": {"order_id": "items A, B]"}}</tool_call>'
     )
-    result = executor.parse_tool_call(response)
-    assert result is not None
-    assert result["arguments"]["order_id"] == "items A, B]"
+    result = executor.parse_and_validate_tool_call(response)
+    assert isinstance(result, ToolCallParsed)
+    assert result.tool_call["arguments"]["order_id"] == "items A, B]"
 
 
 def test_strip_tool_tags_removes_both_tags():

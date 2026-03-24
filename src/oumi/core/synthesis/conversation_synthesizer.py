@@ -34,7 +34,11 @@ from oumi.core.synthesis.environment import (
     _MAX_STATE_UPDATE_RETRIES,
     GeneratedToolEnvironment,
 )
-from oumi.core.synthesis.tool_executor import ToolExecutor
+from oumi.core.synthesis.tool_executor import (
+    ToolCallError,
+    ToolCallParsed,
+    ToolExecutor,
+)
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.logging import logger
 from oumi.utils.str_utils import extract_json
@@ -917,10 +921,33 @@ class ConversationSynthesizer:
                 env_result_prompts: list[Conversation] = []
 
                 for idx, text in zip(active, texts):
-                    tool_call = None
+                    tc_result = None
                     if is_tool_turn and tool_executor:
                         if turn_call_counts.get(idx, 0) < max_tool_calls:
-                            tool_call = tool_executor.parse_tool_call(text)
+                            tc_result = tool_executor.parse_and_validate_tool_call(text)
+
+                    if isinstance(tc_result, ToolCallError):
+                        # Inject deterministic error as tool result
+                        turn_call_counts[idx] += 1
+                        tool_call_counts[idx] += 1
+                        call_id = f"call_{tool_call_counts[idx]:03d}"
+                        error_tool_call = {
+                            "name": tc_result.tool_name or "unknown",
+                            "arguments": {},
+                        }
+                        self._record_tool_result(
+                            idx,
+                            text,
+                            error_tool_call,
+                            call_id,
+                            tc_result.error_json,
+                            turn_tool_msgs,
+                            output_messages,
+                        )
+                        still_active.append(idx)
+                        continue
+
+                    tool_call = tc_result.tool_call if isinstance(tc_result, ToolCallParsed) else None
 
                     if tool_call is None:
                         full_histories[idx].extend(turn_tool_msgs[idx])
