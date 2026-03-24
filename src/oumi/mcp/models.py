@@ -16,7 +16,7 @@
 
 from typing import Any, Literal
 
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
 
 from oumi.mcp.constants import AcceleratorType, TaskType
 
