@@ -812,7 +812,12 @@ class ConversationSynthesizer:
             else []
         )
 
-        histories: list[list[Message]] = [[] for _ in samples]
+        # Full history includes tool call tags and results — used for
+        # assistant prompts so the LLM sees in-context tool-call examples.
+        full_histories: list[list[Message]] = [[] for _ in samples]
+        # Conversational history omits tool mechanics — used for user
+        # prompts so the user LLM only sees natural language exchanges.
+        conversational_histories: list[list[Message]] = [[] for _ in samples]
         output_messages: list[list[dict]] = [[] for _ in samples]
         tool_call_counts = [0] * len(samples)
         max_turns = max(s["target_turns"] for s in samples)
@@ -865,9 +870,14 @@ class ConversationSynthesizer:
                             "Stay in character."
                         )
 
+                    history = (
+                        full_histories[i]
+                        if is_tool_turn
+                        else conversational_histories[i]
+                    )
                     msgs = (
                         [persona_msg]
-                        + histories[i]
+                        + history
                         + [Message(role=Role.USER, content=turn_info)]
                         + turn_tool_msgs[i]
                     )
@@ -906,8 +916,19 @@ class ConversationSynthesizer:
                             tool_call = tool_executor.parse_tool_call(text)
 
                     if tool_call is None:
-                        histories[idx].extend(turn_tool_msgs[idx])
-                        histories[idx].append(Message(role=role, content=text))
+                        full_histories[idx].extend(turn_tool_msgs[idx])
+                        # Add assistant prose fragments (not tool results)
+                        # to conversational history so the user sees natural
+                        # language the assistant said before tool calls.
+                        for msg in turn_tool_msgs[idx]:
+                            if msg.role == Role.ASSISTANT:
+                                conversational_histories[idx].append(msg)
+                        full_histories[idx].append(
+                            Message(role=role, content=text)
+                        )
+                        conversational_histories[idx].append(
+                            Message(role=role, content=text)
+                        )
                         if tool_executor:
                             content = ToolExecutor.strip_tool_tags(text)
                             content = ToolExecutor.strip_bare_tool_json(content)
@@ -951,7 +972,7 @@ class ConversationSynthesizer:
                             )
                             still_active.append(idx)
                         else:
-                            ctx = histories[idx] + turn_tool_msgs[idx]
+                            ctx = full_histories[idx] + turn_tool_msgs[idx]
                             gen_items.append((idx, text, tool_call, call_id))
                             gen_prompts.append(
                                 tool_executor.build_generated_simulator_prompt(
@@ -989,7 +1010,7 @@ class ConversationSynthesizer:
                         retry_prompts = [
                             tool_executor.build_generated_simulator_prompt(
                                 gen_items[j][2],
-                                histories[gen_items[j][0]]
+                                full_histories[gen_items[j][0]]
                                 + turn_tool_msgs[gen_items[j][0]],
                             )
                             for j in gen_failed
@@ -1034,7 +1055,7 @@ class ConversationSynthesizer:
                 active = still_active
 
         conversations: list[Conversation] = []
-        for sample, history in zip(samples, histories):
+        for sample, history in zip(samples, full_histories):
             out: list[Message] = []
             sys_msg = self._format_output_system_message(
                 sample, multiturn_attribute.output_system_prompt
