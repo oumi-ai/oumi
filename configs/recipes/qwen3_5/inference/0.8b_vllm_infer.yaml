@@ -10,10 +10,12 @@
 #   oumi infer -i -c configs/recipes/qwen3_5/inference/0.8b_vllm_infer.yaml \
 #     --model.model_name output/qwen3.5_0.8b.lora
 #
-# To use an FFT fine-tuned model, also set hf_config_path to the base model:
+# To use an FFT fine-tuned model, set language_model_only and hf_config_path
+# so vLLM loads the full VL config from the base model while using the
+# checkpoint weights:
 #   oumi infer -i -c configs/recipes/qwen3_5/inference/0.8b_vllm_infer.yaml \
 #     --model.model_name output/qwen3.5_0.8b.fft \
-#     --model.model_kwargs '{"hf_config_path": "Qwen/Qwen3.5-0.8B"}'
+#     --model.model_kwargs '{"language_model_only": true, "hf_config_path": "Qwen/Qwen3.5-0.8B"}'
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
@@ -28,6 +30,7 @@ model:
   attn_implementation: "sdpa"
   trust_remote_code: True
   model_kwargs:
+    # Qwen3.5 is a VL model; enable text-only mode for vLLM.
     language_model_only: True
 
 generation:

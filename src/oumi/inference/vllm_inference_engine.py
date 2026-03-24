@@ -207,13 +207,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 f"Supported methods are: {supported_quantization_methods}."
             )
 
-        # Pass through vLLM-specific options from model_kwargs.
-        # - language_model_only: Run a VL model in text-only mode (skips
-        #   vision encoder). Required for VL model families like Qwen3.5.
-        # - hf_config_path: Load HF config from a different model/path than
-        #   the weights. Needed for FFT checkpoints of VL models where the
-        #   saved config is text-only but vLLM expects the full VL config.
-        #   Set this to the base model name (e.g. "Qwen/Qwen3.5-0.8B").
+        # Pass through selected vLLM kwargs from model_kwargs.
         _VLLM_PASSTHROUGH_KWARGS = ("language_model_only", "hf_config_path")
         if model_params.model_kwargs:
             for key in _VLLM_PASSTHROUGH_KWARGS:
