@@ -21,6 +21,7 @@ from oumi.utils.system_info import get_package_version
 
 # Task types supported by Oumi
 TaskType = Literal[
+    "",
     "grpo",
     "gkd",
     "gold",
