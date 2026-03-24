@@ -571,7 +571,19 @@ class ConversationSynthesizer:
                 "contradict your expectations, trust the tool results.\n"
                 "3. Do NOT fabricate data, statistics, or results. Only reference "
                 "information returned by tools.\n"
-                "4. When using a tool, output the <tool_call> tag clearly. "
+                "4. When using a tool, output the <tool_call> tag clearly.\n"
+                "5. CRITICAL: You MUST use <tool_call> tags for EVERY database "
+                "operation or tool invocation. Do NOT narrate or describe running "
+                "queries in prose — actually call the tool using the tag. "
+                "Do NOT fabricate query results. Every data point must come from "
+                "a real tool result.\n"
+                "6. If you want to look something up or run a query, you MUST "
+                "output a <tool_call> tag. A response that describes tool results "
+                "without a preceding <tool_call> tag is INVALID.\n"
+                "7. Each tool operation MUST have its own <tool_call> tag. "
+                "You may call multiple tools in a single message, but each "
+                "must be a separate <tool_call> invocation — never narrate "
+                "tool operations in prose."
             )
             formatted_content += tool_section
 
