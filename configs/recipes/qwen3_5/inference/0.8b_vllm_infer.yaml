@@ -29,9 +29,6 @@ model:
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
   trust_remote_code: True
-  model_kwargs:
-    # Qwen3.5 is a VL model; enable text-only mode for vLLM.
-    language_model_only: True
 
 generation:
   max_new_tokens: 512
