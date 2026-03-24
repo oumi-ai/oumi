@@ -16,9 +16,9 @@
 
 from typing import Any
 
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
 
-from oumi.mcp.constants import TaskType
+from oumi.mcp.constants import AcceleratorType, TaskType
 
 
 class ConfigMetadata(TypedDict):
@@ -56,13 +56,13 @@ class KeySettings(TypedDict):
         torch_dtype: PyTorch data type (e.g., bfloat16, float32).
     """
 
-    learning_rate: NotRequired[float]
-    num_train_epochs: NotRequired[int]
-    max_steps: NotRequired[int]
-    per_device_train_batch_size: NotRequired[int]
-    gradient_accumulation_steps: NotRequired[int]
-    model_max_length: NotRequired[int]
-    torch_dtype: NotRequired[str]
+    learning_rate: float | None
+    num_train_epochs: int | None
+    max_steps: int | None
+    per_device_train_batch_size: int | None
+    gradient_accumulation_steps: int | None
+    model_max_length: int | None
+    torch_dtype: str | None
 
 
 class ConfigDetail(ConfigMetadata):
@@ -115,7 +115,7 @@ class HardwareInfo(TypedDict):
         e.g. {"torch": "2.3.0"}.
     """
 
-    accelerator_type: str
+    accelerator_type: AcceleratorType
     accelerator_count: int
     gpu_name: str | None
     gpu_memory_gb: float | None
@@ -177,9 +177,9 @@ class PreFlightCheckResponse(TypedDict):
     errors: list[str]
     warnings: list[str]
     paths: dict[str, str]
-    skypilot_compat_issue: NotRequired[bool]
-    dataset_checks: NotRequired[dict[str, str]]
-    suggested_configs: NotRequired[list[str]]
+    skypilot_compat_issue: bool | None
+    dataset_checks: dict[str, str] | None
+    suggested_configs: list[str] | None
 
 
 class PreFlightSummary(TypedDict):
@@ -231,9 +231,9 @@ class JobSubmissionResponse(TypedDict):
     cluster_name: str
     model_name: str
     message: str
-    error: NotRequired[str]
-    launch_confirmed: NotRequired[bool]
-    preflight: NotRequired[PreFlightSummary]
+    error: str | None
+    launch_confirmed: bool | None
+    preflight: PreFlightSummary | None
 
 
 class JobStatusResponse(TypedDict):
@@ -265,8 +265,8 @@ class JobStatusResponse(TypedDict):
     cluster: str
     model_name: str
     is_done: bool
-    metadata: NotRequired[dict[str, Any]]
-    log_file: NotRequired[str]
+    metadata: dict[str, Any] | None
+    log_file: str | None
     error: str | None
 
 
@@ -280,8 +280,8 @@ class JobCancelResponse(TypedDict):
     """
 
     success: bool
-    message: NotRequired[str]
-    error: NotRequired[str]
+    message: str | None
+    error: str | None
 
 
 class JobSummary(TypedDict):
@@ -458,8 +458,8 @@ class ClusterLifecycleResponse(TypedDict):
     """
 
     success: bool
-    message: NotRequired[str]
-    error: NotRequired[str]
+    message: str | None
+    error: str | None
 
 
 class ConfigSyncResponse(TypedDict):

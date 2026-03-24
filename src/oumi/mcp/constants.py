@@ -17,6 +17,8 @@
 from pathlib import Path
 from typing import Literal
 
+from oumi.utils.system_info import get_package_version
+
 # Task types supported by Oumi
 TaskType = Literal[
     "grpo",
@@ -30,8 +32,10 @@ TaskType = Literal[
     "pretraining",
     "synthesis",
     "quantization",
-    "",
 ]
+
+# Accelerator types
+AcceleratorType = Literal["cuda", "mps", "none"]
 
 # PEFT types
 PeftType = Literal["lora", "qlora"]
@@ -97,8 +101,8 @@ GITHUB_REPO_URL = "https://github.com/oumi-ai/oumi"
 GITHUB_ZIP_PREFIX = "oumi-main/configs/"
 
 # The oumi release version that the bundled configs/ directory corresponds to.
-# Update this constant whenever the bundled configs are refreshed from a tag.
-BUNDLED_OUMI_VERSION = "0.7"
+# Derived from the installed package so it stays in sync automatically.
+BUNDLED_OUMI_VERSION = get_package_version("oumi", fallback="0.0.0")
 
 # HuggingFace API timeout (seconds) for pre-flight checks
 HF_API_TIMEOUT_SECONDS = 10
