@@ -120,9 +120,9 @@ def test_start_local_job_sets_cwd(tmp_path: Path):
 
     with (
         patch(
-            "oumi.mcp.job_service.subprocess.Popen", return_value=mock_proc
+            "oumi.mcp.job_launcher.subprocess.Popen", return_value=mock_proc
         ) as mock_popen,
-        patch("oumi.mcp.job_service.get_registry") as mock_reg,
+        patch("oumi.mcp.job_launcher.get_registry") as mock_reg,
     ):
         mock_reg.return_value.update = MagicMock()
         start_local_job(record, rt, client_cwd="/home/alice/project")

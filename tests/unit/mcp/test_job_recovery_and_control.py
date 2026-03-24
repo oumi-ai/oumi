@@ -102,7 +102,7 @@ async def test_cancel_pending_cloud_launch_sets_flag_without_cancelling_task():
 async def test_cancel_launched_cloud_job_calls_launcher_cancel():
     record = _make_record(job_id="sky-99")
     rt = JobRuntime()
-    with patch("oumi.mcp.job_service.launcher") as mock_launcher:
+    with patch("oumi.mcp.job_launcher.launcher") as mock_launcher:
         mock_launcher.cancel.return_value = None
         response = await cancel(record, rt)
     assert response["success"]
@@ -131,7 +131,7 @@ async def test_get_job_logs_direct_identity():
     with (
         patch("oumi.mcp.job_service._resolve_job_record", return_value=None),
         patch(
-            "oumi.mcp.job_service._get_cloud_logs",
+            "oumi.mcp.job_service.get_cloud_logs",
             new_callable=AsyncMock,
             return_value=mock_logs,
         ),
@@ -556,7 +556,7 @@ async def test_skip_preflight_bypasses_checks():
             )
         mock_pf.assert_not_called()
         assert resp["success"]
-        assert "preflight" not in resp
+        assert resp.get("preflight") is None
 
 
 @pytest.mark.asyncio
