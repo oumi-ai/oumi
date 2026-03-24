@@ -124,10 +124,11 @@ class DatasetParams(BaseParams):
     """The size of the shuffle buffer used for shuffling the dataset before sampling."""
 
     trust_remote_code: bool = False
-    """Whether to trust remote code when loading the dataset.
+    """Whether to trust remote code when loading the tokenizer and/or processor.
 
-    Deprecated:
-        This parameter is deprecated and will be removed in the future.
+    Note: HuggingFace datasets that require custom code are no longer supported. 
+    This parameter is used for tokenizers and processors that contain custom code 
+    (e.g., Phi-3-vision).
     """
 
     transform_num_workers: str | int | None = None
@@ -181,13 +182,6 @@ class DatasetParams(BaseParams):
                     "Use properties of DatasetParams instead."
                 )
 
-        if self.trust_remote_code:
-            warnings.warn(
-                "`trust_remote_code` is deprecated and will be removed in the future.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            self.trust_remote_code = False
 
 
 @dataclass
