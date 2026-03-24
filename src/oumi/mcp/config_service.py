@@ -175,7 +175,7 @@ def extract_header_comment(path: Path) -> str:
         return ""
 
 
-def infer_task_type(trainer_type: str, path: str) -> TaskType:
+def infer_task_type(trainer_type: str, path: str) -> str:
     """Infer task type from trainer_type or file path.
 
     Checks both the trainer_type field and the path for task indicators

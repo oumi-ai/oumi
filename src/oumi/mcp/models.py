@@ -18,7 +18,7 @@ from typing import Any
 
 from typing_extensions import TypedDict
 
-from oumi.mcp.constants import AcceleratorType, TaskType
+from oumi.mcp.constants import AcceleratorType
 
 
 class ConfigMetadata(TypedDict):
@@ -37,7 +37,7 @@ class ConfigMetadata(TypedDict):
     path: str
     description: str
     model_name: str
-    task_type: TaskType
+    task_type: str
     datasets: list[str]
     reward_functions: list[str]
     peft_type: str
