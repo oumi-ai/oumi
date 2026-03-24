@@ -483,6 +483,89 @@ class TestApplyStateUpdate:
         assert env.state["files"]["a.txt"] == "new"
 
 
+class TestPublicSetters:
+    def test_set_state_valid(self):
+        config = _make_env_config(initial_state={"files": {}})
+        env = GeneratedToolEnvironment(config=config)
+        new_state = {"files": {"a.txt": "hello"}}
+        result = env.set_state(new_state)
+        assert result is True
+        assert env.state == new_state
+
+    def test_set_state_deep_copies(self):
+        config = _make_env_config(initial_state={"files": {}})
+        env = GeneratedToolEnvironment(config=config)
+        new_state = {"files": {"a.txt": "hello"}}
+        env.set_state(new_state)
+        new_state["files"]["a.txt"] = "mutated"
+        assert env.state["files"]["a.txt"] == "hello"
+
+    def test_set_state_validates_by_default(self):
+        config = _make_env_config(
+            state_schema={"type": "object", "properties": {"files": {"type": "object"}}, "required": ["files"]},
+            initial_state={"files": {}},
+        )
+        env = GeneratedToolEnvironment(config=config)
+        result = env.set_state({"wrong_key": "bad"})
+        assert result is False
+        assert env.state == {"files": {}}
+
+    def test_set_state_skip_validation(self):
+        config = _make_env_config(
+            state_schema={"type": "object", "properties": {"files": {"type": "object"}}, "required": ["files"]},
+            initial_state={"files": {}},
+        )
+        env = GeneratedToolEnvironment(config=config)
+        result = env.set_state({"wrong_key": "bad"}, validate=False)
+        assert result is True
+        assert env.state == {"wrong_key": "bad"}
+
+    def test_set_schema(self):
+        config = _make_env_config(state_schema=None, initial_state=None)
+        env = GeneratedToolEnvironment(config=config)
+        schema = {"type": "object", "properties": {"x": {"type": "integer"}}}
+        env.set_schema(schema)
+        assert env._state_schema == schema
+
+    def test_set_schema_deep_copies(self):
+        config = _make_env_config(state_schema=None, initial_state=None)
+        env = GeneratedToolEnvironment(config=config)
+        schema = {"type": "object"}
+        env.set_schema(schema)
+        schema["type"] = "array"
+        assert env._state_schema["type"] == "object"
+
+
+class TestApplyInitialStateFallback:
+    def test_stores_last_parsed_on_validation_failure(self):
+        config = _make_env_config(
+            state_schema={"type": "object", "properties": {"files": {"type": "object"}}, "required": ["files"]},
+            initial_state=None,
+        )
+        env = GeneratedToolEnvironment(config=config)
+        bad_state = {"no_files_key": "wrong"}
+        response = Conversation(messages=[Message(role=Role.ASSISTANT, content=json.dumps(bad_state))])
+        result = env.apply_initial_state(response)
+        assert result is False
+        assert env._last_parsed_state == bad_state
+
+    def test_last_parsed_state_none_on_json_failure(self):
+        config = _make_env_config(initial_state=None)
+        env = GeneratedToolEnvironment(config=config)
+        response = Conversation(messages=[Message(role=Role.ASSISTANT, content="not json")])
+        result = env.apply_initial_state(response)
+        assert result is False
+        assert env._last_parsed_state is None
+
+    def test_last_parsed_state_none_on_success(self):
+        config = _make_env_config(state_schema={"type": "object"}, initial_state=None)
+        env = GeneratedToolEnvironment(config=config)
+        response = Conversation(messages=[Message(role=Role.ASSISTANT, content='{"x": 1}')])
+        result = env.apply_initial_state(response)
+        assert result is True
+        assert env._last_parsed_state is None
+
+
 class TestStateUpdatePromptThreeShot:
     def test_prompt_has_eight_messages(self):
         """State update prompt: system + 3 user/assistant pairs + actual user = 8."""
@@ -507,7 +590,7 @@ class TestStateUpdatePromptThreeShot:
         conv = env.build_state_update_prompt(
             tool, arguments={"path": "a.txt", "content": "world"}, result='{"status": "success"}',
         )
-        assistant_texts = [conv.messages[i].content for i in range(2, 7, 2)]
+        assistant_texts = [str(conv.messages[i].content) for i in range(2, 7, 2)]
         all_examples = " ".join(assistant_texts)
         assert '"replace"' in all_examples
         assert '"add"' in all_examples

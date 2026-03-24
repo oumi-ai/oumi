@@ -62,11 +62,23 @@ class GeneratedToolEnvironment:
         self._state_schema: dict[str, Any] | None = (
             copy.deepcopy(config.state_schema) if config.state_schema else None
         )
+        self._last_parsed_state: dict[str, Any] | None = None
 
     @property
     def state(self) -> dict[str, Any]:
         """Current state of the environment."""
         return self._state
+
+    def set_state(self, state: dict[str, Any], validate: bool = True) -> bool:
+        """Set state, optionally skipping schema validation."""
+        if validate and not self._validate_state(state):
+            return False
+        self._state = copy.deepcopy(state)
+        return True
+
+    def set_schema(self, schema: dict[str, Any]) -> None:
+        """Set the state schema."""
+        self._state_schema = copy.deepcopy(schema)
 
     def build_result_prompt(
         self,
@@ -362,19 +374,17 @@ class GeneratedToolEnvironment:
     def apply_initial_state(self, response: Conversation) -> bool:
         """Parse JSON from response, validate against schema, and store as state.
 
-        Args:
-            response: Inference response containing the initial state JSON.
-
-        Returns:
-            True if the state was successfully parsed, validated, and stored.
-            False otherwise. On failure, _state is unchanged.
+        On validation failure, the parsed dict is stored in _last_parsed_state
+        so the caller can use it as a fallback.
         """
+        self._last_parsed_state = None
         text = self._extract_text(response)
         parsed = extract_json(text, expected_type=dict)
         if not isinstance(parsed, dict):
             logger.warning(f"Failed to parse initial state JSON: {text[:200]}")
             return False
         if not self._validate_state(parsed):
+            self._last_parsed_state = parsed
             return False
         self._state = parsed
         return True

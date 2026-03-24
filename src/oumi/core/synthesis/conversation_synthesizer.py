@@ -195,11 +195,11 @@ class ConversationSynthesizer:
                             f"Failed to generate valid schema for env '{env_id}' "
                             f"sample {i}. Using permissive schema."
                         )
-                        env._state_schema = {"type": "object"}
+                        env.set_schema({"type": "object"})
             for envs in sample_envs:
                 for env_id, env in envs.items():
                     if env._state_schema is None:
-                        env._state_schema = {"type": "object"}
+                        env.set_schema({"type": "object"})
         state_pairs: list[tuple[int, str]] = []
         state_prompts: list = []
         for i, envs in enumerate(sample_envs):
@@ -231,11 +231,18 @@ class ConversationSynthesizer:
                 for (i, env_id), response in zip(retry_state_pairs, retry_responses):
                     env = sample_envs[i][env_id]
                     if not env.apply_initial_state(response):
-                        logger.warning(
-                            f"Initial state generation failed for env '{env_id}' "
-                            f"sample {i}. Using empty dict."
-                        )
-                        env._state = {}
+                        if env._last_parsed_state is not None:
+                            env.set_state(env._last_parsed_state, validate=False)
+                            logger.warning(
+                                f"Using parsed-but-schema-invalid initial state for "
+                                f"env '{env_id}' (sample {i})."
+                            )
+                        else:
+                            env.set_state({})
+                            logger.warning(
+                                f"Initial state generation failed completely for "
+                                f"env '{env_id}' (sample {i}). Using empty state."
+                            )
 
         return [envs if envs else None for envs in sample_envs]
 
@@ -1266,7 +1273,7 @@ class ConversationSynthesizer:
             if not env.apply_state_update(response):
                 failed.append(ui)
 
-        for _ in range(1, _MAX_STATE_UPDATE_RETRIES):
+        for _ in range(_MAX_STATE_UPDATE_RETRIES):
             if not failed:
                 break
             retry_prompts = [
