@@ -54,20 +54,6 @@ ValidatorTaskType = Literal[
     "tuning",
 ]
 
-# Training hyperparameter keys
-TRAINING_KEYS = (
-    "learning_rate",
-    "num_train_epochs",
-    "max_steps",
-    "per_device_train_batch_size",
-    "gradient_accumulation_steps",
-)
-
-MODEL_KEYS = (
-    "model_max_length",
-    "torch_dtype_str",
-)
-
 # Data split names
 DATA_SPLITS = ("train", "validation", "test")
 
@@ -93,12 +79,10 @@ CONFIGS_CACHE_SIZE = 1
 DEFAULT_SEARCH_LIMIT = 20
 
 # Config sync settings
-CONFIGS_SYNC_INTERVAL_HOURS = 24
 CONFIGS_SYNC_MARKER = ".last_sync"
 CONFIGS_VERSION_MARKER = ".version"
-GITHUB_CONFIGS_ZIP_URL = "https://github.com/oumi-ai/oumi/archive/refs/heads/main.zip"
-GITHUB_REPO_URL = "https://github.com/oumi-ai/oumi"
-GITHUB_ZIP_PREFIX = "oumi-main/configs/"
+GITHUB_API_URL = "https://api.github.com/repos/oumi-ai/oumi"
+GITHUB_RAW_URL = "https://raw.githubusercontent.com/oumi-ai/oumi"
 
 # The oumi release version that the bundled configs/ directory corresponds to.
 # Derived from the installed package so it stays in sync automatically.
@@ -123,15 +107,18 @@ VALID_OUMI_COMMANDS = frozenset(
     ["train", "analyze", "synth", "evaluate", "eval", "infer", "tune", "quantize"]
 )
 
+# Base data directory for MCP job state (not cache – must survive reboots).
+_MCP_DATA_DIR: Path = Path.home() / ".oumi" / "mcp"
+
 # Default path for the single-file JSON job registry.
-DEFAULT_JOBS_FILE: Path = Path.home() / ".cache" / "oumi-mcp" / "oumi-jobs.json"
+DEFAULT_JOBS_FILE: Path = _MCP_DATA_DIR / "oumi-jobs.json"
 
 # Directory for job log files (set as OUMI_LOGGING_DIR for local jobs).
 # The oumi.launcher LocalClient writes subprocess stdout/stderr here.
-JOB_LOGS_DIR: Path = Path.home() / ".cache" / "oumi-mcp" / "job-logs"
+JOB_LOGS_DIR: Path = _MCP_DATA_DIR / "job-logs"
 
 # Directory for per-job cloud launch staging files.
-JOB_RUNS_DIR: Path = Path.home() / ".cache" / "oumi-mcp" / "job-runs"
+JOB_RUNS_DIR: Path = _MCP_DATA_DIR / "job-runs"
 
 # How often to poll launcher status while streaming logs (seconds).
 LOG_POLL_INTERVAL_SECONDS: float = 2.0
@@ -195,6 +182,7 @@ DOCS_MODULE_DESCRIPTIONS: dict[str, str] = {
 # documentation purposes.
 DOCS_MODULE_DENYLIST_PREFIXES: tuple[str, ...] = (
     "oumi.cli.",
+    "oumi.mcp.",
     "oumi.telemetry",
     "oumi.utils.",
     "oumi.performance",
@@ -204,6 +192,7 @@ DOCS_MODULE_DENYLIST_PREFIXES: tuple[str, ...] = (
 DOCS_MODULE_DENYLIST: frozenset[str] = frozenset(
     {
         "oumi.__main__",
+        "oumi.mcp",
     }
 )
 DOCS_MAX_RESULTS: int = 10

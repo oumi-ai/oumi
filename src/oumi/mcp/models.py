@@ -14,9 +14,9 @@
 
 """TypedDict models for Oumi MCP server data structures."""
 
-from typing import Any
+from typing import Any, Literal
 
-from typing_extensions import TypedDict
+from typing_extensions import NotRequired, TypedDict
 
 from oumi.mcp.constants import AcceleratorType, TaskType
 
@@ -37,32 +37,10 @@ class ConfigMetadata(TypedDict):
     path: str
     description: str
     model_name: str
-    task_type: TaskType
+    task_type: TaskType | Literal[""]
     datasets: list[str]
     reward_functions: list[str]
     peft_type: str
-
-
-class KeySettings(TypedDict):
-    """Important training hyperparameters extracted from config.
-
-    Attributes:
-        learning_rate: Learning rate for training.
-        num_train_epochs: Number of training epochs.
-        max_steps: Maximum number of training steps.
-        per_device_train_batch_size: Batch size per device.
-        gradient_accumulation_steps: Number of gradient accumulation steps.
-        model_max_length: Maximum sequence length.
-        torch_dtype: PyTorch data type (e.g., bfloat16, float32).
-    """
-
-    learning_rate: float | None
-    num_train_epochs: int | None
-    max_steps: int | None
-    per_device_train_batch_size: int | None
-    gradient_accumulation_steps: int | None
-    model_max_length: int | None
-    torch_dtype: str | None
 
 
 class ConfigDetail(ConfigMetadata):
@@ -265,8 +243,8 @@ class JobStatusResponse(TypedDict):
     cluster: str
     model_name: str
     is_done: bool
-    metadata: dict[str, Any] | None
-    log_file: str | None
+    metadata: NotRequired[dict[str, Any]]
+    log_file: NotRequired[str]
     error: str | None
 
 
@@ -280,8 +258,8 @@ class JobCancelResponse(TypedDict):
     """
 
     success: bool
-    message: str | None
-    error: str | None
+    message: NotRequired[str]
+    error: NotRequired[str]
 
 
 class JobSummary(TypedDict):
@@ -458,8 +436,8 @@ class ClusterLifecycleResponse(TypedDict):
     """
 
     success: bool
-    message: str | None
-    error: str | None
+    message: NotRequired[str]
+    error: NotRequired[str]
 
 
 class ConfigSyncResponse(TypedDict):
