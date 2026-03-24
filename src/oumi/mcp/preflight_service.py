@@ -756,6 +756,8 @@ def _pre_flight_check(
             "warnings": [],
             "paths": {},
             "skypilot_compat_issue": False,
+            "dataset_checks": None,
+            "suggested_configs": None,
         }
 
     cfg, load_error = load_yaml_strict(config_path)
@@ -772,6 +774,8 @@ def _pre_flight_check(
             "warnings": [],
             "paths": {},
             "skypilot_compat_issue": False,
+            "dataset_checks": None,
+            "suggested_configs": None,
         }
     assert cfg is not None
     hf_authenticated = False
@@ -913,6 +917,8 @@ def _pre_flight_check(
         "warnings": warnings,
         "paths": path_results,
         "skypilot_compat_issue": has_compat_issue,
+        "dataset_checks": None,
+        "suggested_configs": None,
     }
 
     if dataset_checks:
