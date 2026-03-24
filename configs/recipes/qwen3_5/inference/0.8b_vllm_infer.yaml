@@ -6,13 +6,12 @@
 # Usage:
 #   oumi infer -i -c configs/recipes/qwen3_5/inference/0.8b_vllm_infer.yaml
 #
-# To use a LoRA fine-tuned model, override model_name:
+# To use a LoRA fine-tuned model:
 #   oumi infer -i -c configs/recipes/qwen3_5/inference/0.8b_vllm_infer.yaml \
-#     --model.model_name output/qwen3.5_0.8b.lora
+#     --model.model_name output/qwen3.5_0.8b.lora \
+#     --model.model_kwargs '{"language_model_only": true}'
 #
-# To use an FFT fine-tuned model, set language_model_only and hf_config_path
-# so vLLM loads the full VL config from the base model while using the
-# checkpoint weights:
+# To use an FFT fine-tuned model:
 #   oumi infer -i -c configs/recipes/qwen3_5/inference/0.8b_vllm_infer.yaml \
 #     --model.model_name output/qwen3.5_0.8b.fft \
 #     --model.model_kwargs '{"language_model_only": true, "hf_config_path": "Qwen/Qwen3.5-0.8B"}'
