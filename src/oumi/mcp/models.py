@@ -16,7 +16,7 @@
 
 from typing import Any, Literal
 
-from typing_extensions import TypedDict
+from typing_extensions import NotRequired, TypedDict
 
 from oumi.mcp.constants import AcceleratorType, TaskType
 
@@ -243,8 +243,8 @@ class JobStatusResponse(TypedDict):
     cluster: str
     model_name: str
     is_done: bool
-    metadata: dict[str, Any] | None
-    log_file: str | None
+    metadata: NotRequired[dict[str, Any]]
+    log_file: NotRequired[str]
     error: str | None
 
 
@@ -258,8 +258,8 @@ class JobCancelResponse(TypedDict):
     """
 
     success: bool
-    message: str | None
-    error: str | None
+    message: NotRequired[str]
+    error: NotRequired[str]
 
 
 class JobSummary(TypedDict):
@@ -436,8 +436,8 @@ class ClusterLifecycleResponse(TypedDict):
     """
 
     success: bool
-    message: str | None
-    error: str | None
+    message: NotRequired[str]
+    error: NotRequired[str]
 
 
 class ConfigSyncResponse(TypedDict):
