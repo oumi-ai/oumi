@@ -115,15 +115,14 @@ class GeneratedToolEnvironment:
         retry: bool = False,
     ) -> Conversation:
         """Build a few-shot prompt for generating a JSON Patch state update."""
-        system_parts = [
-            self._config.system_prompt,
-        ]
+        system_parts = [self._config.system_prompt]
         if self._state_schema:
             system_parts.append(
                 f"\nState schema:\n{json.dumps(self._state_schema, indent=2)}"
             )
 
-        example_user = (
+        # Example 1: replace (UPDATE)
+        ex1_user = (
             'Current state:\n{"users": {"1": {"name": "Alice", "role": "admin"}, '
             '"2": {"name": "Bob", "role": "viewer"}}}\n\n'
             "Tool 'UpdateRole' was called with:\n"
@@ -134,9 +133,39 @@ class GeneratedToolEnvironment:
             "path (JSON Pointer referencing dict keys, e.g. /users/2/role), "
             "and value (for add/replace). Output ONLY the JSON array."
         )
-        example_assistant = (
-            '[{"op": "replace", "path": "/users/2/role", "value": "editor"}]'
+        ex1_assistant = '[{"op": "replace", "path": "/users/2/role", "value": "editor"}]'
+
+        # Example 2: add (INSERT)
+        ex2_user = (
+            'Current state:\n{"users": {"1": {"name": "Alice", "role": "admin"}, '
+            '"2": {"name": "Bob", "role": "viewer"}}}\n\n'
+            "Tool 'CreateUser' was called with:\n"
+            '{"name": "Carol", "role": "editor"}\n\n'
+            'Tool returned:\n{"status": "success", "id": "3"}\n\n'
+            "Output a JSON Patch (RFC 6902) array describing ONLY the changes "
+            "to the state. Each operation must have: op (add/remove/replace), "
+            "path (JSON Pointer referencing dict keys, e.g. /users/3), "
+            "and value (for add/replace). Output ONLY the JSON array."
         )
+        ex2_assistant = (
+            '[{"op": "add", "path": "/users/3", '
+            '"value": {"name": "Carol", "role": "editor"}}]'
+        )
+
+        # Example 3: remove (DELETE)
+        ex3_user = (
+            'Current state:\n{"users": {"1": {"name": "Alice", "role": "admin"}, '
+            '"2": {"name": "Bob", "role": "viewer"}, '
+            '"3": {"name": "Carol", "role": "editor"}}}\n\n'
+            "Tool 'DeleteUser' was called with:\n"
+            '{"user_id": "2"}\n\n'
+            'Tool returned:\n{"status": "success", "rows_affected": 1}\n\n'
+            "Output a JSON Patch (RFC 6902) array describing ONLY the changes "
+            "to the state. Each operation must have: op (add/remove/replace), "
+            "path (JSON Pointer referencing dict keys, e.g. /users/2), "
+            "and value (for add/replace). Output ONLY the JSON array."
+        )
+        ex3_assistant = '[{"op": "remove", "path": "/users/2"}]'
 
         example_path = self._build_example_path()
 
@@ -159,8 +188,12 @@ class GeneratedToolEnvironment:
 
         messages = [
             Message(role=Role.SYSTEM, content="\n".join(system_parts)),
-            Message(role=Role.USER, content=example_user),
-            Message(role=Role.ASSISTANT, content=example_assistant),
+            Message(role=Role.USER, content=ex1_user),
+            Message(role=Role.ASSISTANT, content=ex1_assistant),
+            Message(role=Role.USER, content=ex2_user),
+            Message(role=Role.ASSISTANT, content=ex2_assistant),
+            Message(role=Role.USER, content=ex3_user),
+            Message(role=Role.ASSISTANT, content=ex3_assistant),
             Message(role=Role.USER, content="\n".join(user_parts)),
         ]
         return Conversation(messages=messages)

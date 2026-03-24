@@ -274,8 +274,8 @@ class TestBatchedInitMethods:
 
 
 class TestStateUpdatePrompt:
-    def test_prompt_is_four_messages(self):
-        """State update prompt has system, user, assistant, user."""
+    def test_prompt_is_eight_messages(self):
+        """State update prompt has system, 3 user/assistant pairs, then actual user."""
         config = _make_env_config(
             initial_state={"files": {"a.txt": "hello"}},
         )
@@ -288,7 +288,7 @@ class TestStateUpdatePrompt:
             result='{"status": "success"}',
         )
 
-        assert len(conv.messages) == 4
+        assert len(conv.messages) == 8
         assert conv.messages[0].role == Role.SYSTEM
         assert conv.messages[1].role == Role.USER
         assert conv.messages[2].role == Role.ASSISTANT
@@ -312,6 +312,9 @@ class TestStateUpdatePrompt:
         assert '"op"' in assistant_text
         assert '"path"' in assistant_text
         assert '"replace"' in assistant_text
+        # Also verify indices 4 and 6 are assistant messages
+        assert conv.messages[4].role == Role.ASSISTANT
+        assert conv.messages[6].role == Role.ASSISTANT
 
     def test_actual_request_contains_current_state(self):
         """The actual user message includes current state and tool details."""
@@ -327,7 +330,7 @@ class TestStateUpdatePrompt:
             result='{"status": "success"}',
         )
 
-        user_text = conv.messages[3].content
+        user_text = conv.messages[7].content
         assert "a.txt" in user_text
         assert "WriteFile" in user_text
         assert "JSON Patch" in user_text
@@ -346,7 +349,7 @@ class TestStateUpdatePrompt:
             result='{"status": "success"}',
         )
 
-        user_text = conv.messages[3].content
+        user_text = conv.messages[7].content
         assert "/files/" in user_text
 
     def test_retry_prompt_references_json_patch(self):
@@ -478,3 +481,34 @@ class TestApplyStateUpdate:
 
         assert result is True
         assert env.state["files"]["a.txt"] == "new"
+
+
+class TestStateUpdatePromptThreeShot:
+    def test_prompt_has_eight_messages(self):
+        """State update prompt: system + 3 user/assistant pairs + actual user = 8."""
+        config = _make_env_config(initial_state={"files": {"a.txt": "hello"}})
+        env = GeneratedToolEnvironment(config=config)
+        tool = _make_env_tool(read_only=False, id="write_file", name="WriteFile")
+        conv = env.build_state_update_prompt(
+            tool, arguments={"path": "a.txt", "content": "world"}, result='{"status": "success"}',
+        )
+        assert len(conv.messages) == 8
+        assert conv.messages[0].role == Role.SYSTEM
+        for i in range(1, 7, 2):
+            assert conv.messages[i].role == Role.USER
+            assert conv.messages[i + 1].role == Role.ASSISTANT
+        assert conv.messages[7].role == Role.USER
+
+    def test_examples_cover_add_replace_remove(self):
+        """The three examples demonstrate replace, add, and remove operations."""
+        config = _make_env_config(initial_state={"files": {"a.txt": "hello"}})
+        env = GeneratedToolEnvironment(config=config)
+        tool = _make_env_tool(read_only=False, id="write_file", name="WriteFile")
+        conv = env.build_state_update_prompt(
+            tool, arguments={"path": "a.txt", "content": "world"}, result='{"status": "success"}',
+        )
+        assistant_texts = [conv.messages[i].content for i in range(2, 7, 2)]
+        all_examples = " ".join(assistant_texts)
+        assert '"replace"' in all_examples
+        assert '"add"' in all_examples
+        assert '"remove"' in all_examples
