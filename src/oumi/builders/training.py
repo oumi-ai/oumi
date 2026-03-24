@@ -121,7 +121,7 @@ def build_trainer(
         if is_trl_v0_28_or_later():
             from trl.experimental.kto import KTOTrainer
         else:
-            from trl import KTOTrainer
+            KTOTrainer = trl.KTOTrainer
         return _create_hf_builder_fn(KTOTrainer)
     elif trainer_type == TrainerType.TRL_GRPO:
         return _create_hf_builder_fn(trl.GRPOTrainer)
@@ -129,7 +129,7 @@ def build_trainer(
         if is_trl_v0_28_or_later():
             from trl.experimental.gkd import GKDTrainer
         else:
-            from trl import GKDTrainer  # type: ignore[attr-defined]
+            GKDTrainer = trl.GKDTrainer  # type: ignore[attr-defined]
         return _create_hf_builder_fn(GKDTrainer)
     elif trainer_type == TrainerType.TRL_GOLD:
         require_gold_trainer()
