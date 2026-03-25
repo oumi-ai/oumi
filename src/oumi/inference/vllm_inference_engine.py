@@ -207,6 +207,13 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 f"Supported methods are: {supported_quantization_methods}."
             )
 
+        # Pass through selected vLLM kwargs from model_kwargs.
+        _VLLM_PASSTHROUGH_KWARGS = ("language_model_only", "hf_config_path")
+        if model_params.model_kwargs:
+            for key in _VLLM_PASSTHROUGH_KWARGS:
+                if key in model_params.model_kwargs:
+                    vllm_kwargs[key] = model_params.model_kwargs[key]
+
         final_vllm_kwargs = dict(
             model=model_params.model_name,
             tokenizer=model_params.tokenizer_name,
