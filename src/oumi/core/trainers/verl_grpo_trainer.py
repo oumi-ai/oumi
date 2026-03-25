@@ -317,7 +317,7 @@ class VerlGrpoTrainer(BaseTrainer):
         # 1. Read verl default dict config from the installed verl package.
         # This ensures the config always matches the installed verl version.
         verl_config_path = (
-            Path(verl.__file__).parent  # pyright: ignore[reportOptionalMemberAccess]
+            Path(verl.__file__).parent  # pyright: ignore[reportArgumentType, reportOptionalMemberAccess]
             / "trainer"
             / "config"
             / "_generated_ppo_trainer.yaml"
