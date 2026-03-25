@@ -222,7 +222,6 @@ def is_transformers_v5() -> bool:
         return False
 
 
-@lru_cache(maxsize=1)
 def is_trl_v0_29_or_later() -> bool:
     """Checks if TRL version is 0.29.0 or later."""
     try:

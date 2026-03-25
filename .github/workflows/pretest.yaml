@@ -17,7 +17,6 @@ env:
 
 jobs:
   static-checks:
-    if: false  # Temporarily disabled
     permissions:
       contents: "read"
     runs-on: ubuntu-24.04
