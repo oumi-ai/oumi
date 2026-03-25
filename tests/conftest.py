@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import datasets
 import pytest
 
 from oumi.core.types.conversation import Conversation, Message, Role
@@ -9,6 +10,18 @@ from oumi.utils.logging import get_logger
 @pytest.fixture(autouse=True)
 def disable_telemetry(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("DO_NOT_TRACK", "1")
+
+
+@pytest.fixture
+def disable_hf_datasets_cache():
+    """Temporarily disable HuggingFace datasets caching.
+
+    This prevents stale cache issues where cached datasets have outdated
+    column names or formats that don't match the current code.
+    """
+    datasets.disable_caching()
+    yield
+    datasets.enable_caching()
 
 
 @pytest.fixture
