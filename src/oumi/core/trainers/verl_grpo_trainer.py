@@ -15,6 +15,7 @@
 """Volcano Engine Reinforcement Learning (verl) GRPO Trainer."""
 
 import copy
+import inspect
 import os
 from collections.abc import Callable
 from pathlib import Path
@@ -381,7 +382,26 @@ class VerlGrpoTrainer(BaseTrainer):
         config.trainer.experiment_name = training_params.run_name
         config.trainer.default_local_dir = str(self._temp_output_dir or "")
 
-        # 3. Apply user overrides
+        # 3. Wire reward functions into verl config.
+        if is_verl_v0_7_or_later() and len(self._reward_funcs) > 0:
+            # verl >=0.7 discovers reward functions via config rather than
+            # accepting them as constructor args. Point the config at the
+            # oumi reward function's source module and function name so that
+            # verl's `load_extern_object` can import it.
+            reward_fn = self._reward_funcs[0]
+            fn_module = inspect.getmodule(reward_fn)
+            if fn_module is None or fn_module.__name__ is None:
+                raise ValueError(
+                    "Could not determine module for reward function "
+                    f"{reward_fn!r}. verl >=0.7 requires reward functions "
+                    "to be defined in importable modules."
+                )
+            module_path = f"pkg://{fn_module.__name__}"
+            fn_name = reward_fn.__name__
+            config.reward.custom_reward_function.path = module_path
+            config.reward.custom_reward_function.name = fn_name
+
+        # 4. Apply user overrides
         overrides_config = OmegaConf.create(training_params.verl_config_overrides)
         config = cast(DictConfig, OmegaConf.merge(config, overrides_config))
 
