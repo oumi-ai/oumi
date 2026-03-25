@@ -25,6 +25,7 @@ from typing import Any, TypeVar, cast
 from omegaconf import OmegaConf
 
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.exceptions import OumiConfigError, OumiConfigFileNotFoundError
 
 T = TypeVar("T", bound="BaseConfig")
 
@@ -128,6 +129,10 @@ def _read_config_without_interpolation(config_path: str) -> str:
     Returns:
         str: The stringified configuration.
     """
+    if not Path(config_path).is_file():
+        raise OumiConfigFileNotFoundError(
+            f"Config file not found or path is not a file: {config_path}"
+        )
     with open(config_path) as f:
         stringified_config = f.read()
         pattern = r"(?<!\\)\$\{"  # Matches "${" but not "\${"
@@ -165,7 +170,11 @@ class BaseConfig:
                 + "\n".join(f"- {path}" for path in sorted(removed_paths))
             )
 
-        OmegaConf.save(config=processed_config, f=config_path)
+        try:
+            OmegaConf.save(config=processed_config, f=config_path)
+        except OSError as e:
+            # handle missing parent folder
+            raise OumiConfigError(f"Failed to save config to {config_path}: {e}") from e
 
     @classmethod
     def from_yaml(
@@ -181,6 +190,10 @@ class BaseConfig:
         Returns:
             BaseConfig: The merged configuration object.
         """
+        if not Path(config_path).is_file():
+            raise OumiConfigFileNotFoundError(
+                f"Config file not found or path is not a file: {config_path}"
+            )
         schema = OmegaConf.structured(cls)
         if ignore_interpolation:
             stringified_config = _read_config_without_interpolation(str(config_path))

@@ -57,6 +57,7 @@ from oumi.cli.quantize import quantize
 from oumi.cli.synth import synth
 from oumi.cli.train import train
 from oumi.cli.tune import tune
+from oumi.exceptions import OumiConfigError
 from oumi.utils.logging import should_use_rich_logging
 
 _ASCII_LOGO = r"""
@@ -365,6 +366,9 @@ def run():
             telemetry = TelemetryManager.get_instance()
             with telemetry.capture_operation(event_name, event_properties):
                 return app()
+    except OumiConfigError as e:
+        CONSOLE.print(f"[red]Error: {e}[/red]")
+        sys.exit(1)
     except Exception as e:
         tb_str = traceback.format_exc()
         CONSOLE.print(tb_str)

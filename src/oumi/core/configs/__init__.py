@@ -158,12 +158,14 @@ from oumi.core.configs.quantization_config import QuantizationConfig
 from oumi.core.configs.synthesis_config import SynthesisConfig
 from oumi.core.configs.training_config import TrainingConfig
 from oumi.core.configs.tuning_config import TuningConfig
+from oumi.exceptions import OumiConfigError, OumiConfigFileNotFoundError
 
 __all__ = [
     "AsyncEvaluationConfig",
     "AutoWrapPolicy",
     "BackwardPrefetch",
     "BaseConfig",
+    "OumiConfigFileNotFoundError",
     "DataParams",
     "DatasetParams",
     "DatasetSplit",
@@ -192,6 +194,7 @@ __all__ = [
     "MixedPrecisionDtype",
     "MixtureStrategy",
     "ModelParams",
+    "OumiConfigError",
     "PeftParams",
     "PeftSaveMode",
     "ProfilerParams",

@@ -22,7 +22,11 @@ from omegaconf import MISSING
 from transformers.utils import find_adapter_config_file, is_flash_attn_2_available
 
 from oumi.core.configs.params.base_params import BaseParams
-from oumi.core.types.exceptions import HardwareException
+from oumi.exceptions import (
+    HardwareException,
+    OumiConfigError,
+    OumiConfigFileNotFoundError,
+)
 from oumi.utils.logging import logger
 from oumi.utils.torch_utils import get_torch_dtype
 
@@ -268,6 +272,11 @@ class ModelParams(BaseParams):
                 adapter_config_file = None
             # If this check fails, it means this is not a LoRA model.
             if adapter_config_file:
+                if not Path(adapter_config_file).is_file():
+                    raise OumiConfigFileNotFoundError(
+                        f"Adapter config file not found or path is not a file: "
+                        f"{adapter_config_file}"
+                    )
                 # If `model_name` is a local dir, this should be the same.
                 # If it's a HF Hub repo, this should be the path to the cached repo.
                 adapter_dir = Path(adapter_config_file).parent
@@ -280,8 +289,19 @@ class ModelParams(BaseParams):
                 # present, set it to the base model name found in the adapter config,
                 # if present. Error otherwise.
                 if len(list(adapter_dir.glob("config.json"))) == 0:
-                    with open(adapter_config_file) as f:
-                        adapter_config = json.load(f)
+                    try:
+                        with open(adapter_config_file) as f:
+                            adapter_config = json.load(f)
+                    except OSError as e:
+                        raise OumiConfigError(
+                            f"Failed to read adapter config at "
+                            f"{adapter_config_file}: {e}"
+                        ) from e
+                    except json.JSONDecodeError as e:
+                        raise OumiConfigError(
+                            f"Adapter config at {adapter_config_file} contains invalid "
+                            f"JSON: (line {e.lineno}, col {e.colno}): {e.msg}"
+                        ) from e
                     model_name = adapter_config.get("base_model_name_or_path")
                     if not model_name:
                         raise ValueError(

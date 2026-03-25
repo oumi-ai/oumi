@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Backward-compatible re-exports. Canonical definitions live in oumi.exceptions."""
 
-class HardwareException(Exception):
-    """An exception thrown for invalid hardware configurations."""
+from oumi.exceptions import OumiConfigError, OumiConfigFileNotFoundError
+
+__all__ = ["OumiConfigFileNotFoundError", "OumiConfigError"]

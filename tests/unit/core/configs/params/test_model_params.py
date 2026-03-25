@@ -5,6 +5,7 @@ from unittest.mock import call, patch
 import pytest
 
 from oumi.core.configs.params.model_params import ModelParams
+from oumi.exceptions import OumiConfigError, OumiConfigFileNotFoundError
 
 
 def test_post_init_adapter_model_present():
@@ -130,3 +131,44 @@ def test_chat_template_kwargs_custom_assignment():
     model_params = ModelParams(chat_template_kwargs={"enable_thinking": False})
     assert model_params.chat_template_kwargs is not None
     assert model_params.chat_template_kwargs["enable_thinking"] is False
+
+
+@patch("oumi.core.configs.params.model_params.find_adapter_config_file")
+def test_adapter_config_file_path_not_a_file(mock_find, tmp_path: Path):
+    """Raises OumiConfigFileNotFoundError for a missing adapter config path."""
+    mock_find.return_value = str(tmp_path / "ghost_adapter_config.json")
+
+    params = ModelParams(model_name=str(tmp_path))
+    with pytest.raises(
+        OumiConfigFileNotFoundError,
+        match="Adapter config file not found or path is not a file",
+    ):
+        params.finalize_and_validate()
+
+
+@patch("oumi.core.configs.params.model_params.find_adapter_config_file")
+def test_adapter_config_read_oserror(mock_find, tmp_path: Path):
+    """Test OSError reading adapter_config.json is re-raised as OumiConfigError."""
+    adapter_path = tmp_path / "adapter_config.json"
+    adapter_path.write_text('{"base_model_name_or_path": "base_model"}')
+    mock_find.return_value = str(adapter_path)
+
+    params = ModelParams(model_name=str(tmp_path))
+    with patch("builtins.open", side_effect=OSError("Permission denied")):
+        with pytest.raises(
+            OumiConfigError,
+            match="Failed to read adapter config",
+        ):
+            params.finalize_and_validate()
+
+
+def test_adapter_config_invalid_json(tmp_path: Path):
+    """Test malformed JSON raises OumiConfigError with location info."""
+    (tmp_path / "adapter_config.json").write_text("{not: valid json!!}")
+
+    params = ModelParams(model_name=str(tmp_path))
+    with pytest.raises(OumiConfigError, match="contains invalid JSON") as exc_info:
+        params.finalize_and_validate()
+
+    assert "line" in str(exc_info.value)
+    assert "col" in str(exc_info.value)
