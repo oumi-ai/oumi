@@ -156,7 +156,7 @@ def test_check_package_prerequisites():
 def test_verify_trl_vllm_compatibility_skips_when_vllm_missing(monkeypatch):
     def mock_version(pkg):
         if pkg == "vllm":
-            raise importlib.metadata.PackageNotFoundError()
+            raise importlib.metadata.PackageNotFoundError
         return "0.26.0"
 
     monkeypatch.setattr("importlib.metadata.version", mock_version)

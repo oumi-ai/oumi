@@ -305,11 +305,11 @@ def verify_trl_vllm_compatibility(feature_name: str) -> None:
     # TRL >= 0.27 uses StructuredOutputsParams (added in vLLM 0.11)
     if trl_ver < version.parse("0.27.0") and vllm_ver >= version.parse("0.12.0"):
         raise RuntimeError(
-            f"{feature_name}: TRL {trl_ver} requires vLLM < 0.12.0, but found {vllm_ver}. "
-            f"Upgrade TRL (pip install 'trl>=0.27.0') or downgrade vLLM."
+            f"{feature_name}: TRL {trl_ver} requires vLLM < 0.12.0, "
+            f"but found {vllm_ver}. Upgrade TRL or downgrade vLLM."
         )
     if trl_ver >= version.parse("0.27.0") and vllm_ver < version.parse("0.11.0"):
         raise RuntimeError(
-            f"{feature_name}: TRL {trl_ver} requires vLLM >= 0.11.0, but found {vllm_ver}. "
-            f"Upgrade vLLM (pip install 'vllm>=0.11.0') or downgrade TRL."
+            f"{feature_name}: TRL {trl_ver} requires vLLM >= 0.11.0, "
+            f"but found {vllm_ver}. Upgrade vLLM or downgrade TRL."
         )
