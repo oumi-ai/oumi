@@ -12,6 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from transformers.trainer_callback import TrainerCallback as BaseTrainerCallback
+import transformers
 
-__all__ = ["BaseTrainerCallback"]
+BaseTrainerCallback = transformers.TrainerCallback
