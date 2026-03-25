@@ -13,7 +13,9 @@ from oumi.utils.packaging import is_transformers_v5
 if is_transformers_v5():
     from transformers import AutoModelForImageTextToText
 else:
-    from transformers import AutoModelForVision2Seq as AutoModelForImageTextToText
+    from transformers import (
+        AutoModelForVision2Seq as AutoModelForImageTextToText,  # type: ignore[attr-defined]
+    )
 from transformers.models.mllama.modeling_mllama import (
     MllamaCrossAttentionDecoderLayer,
     MllamaSelfAttentionDecoderLayer,

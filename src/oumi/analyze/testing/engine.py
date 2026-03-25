@@ -74,6 +74,8 @@ class TestEngine:
         tests: List of test configurations.
     """
 
+    __test__ = False  # Prevent pytest from collecting this as a test class
+
     def __init__(self, tests: list[TestParams]):
         """Initialize the test engine with test configurations."""
         self.tests = tests

@@ -501,7 +501,7 @@ def get_all_models_map() -> Mapping[
     if is_transformers_v5():
         default_vlm_class = transformers.AutoModelForImageTextToText
     else:
-        default_vlm_class = transformers.AutoModelForVision2Seq
+        default_vlm_class = transformers.AutoModelForVision2Seq  # type: ignore[attr-defined]
 
     all_models_list: list[_ModelTypeInfo] = [
         _ModelTypeInfo(

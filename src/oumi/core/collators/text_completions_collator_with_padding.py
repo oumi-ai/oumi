@@ -98,11 +98,17 @@ class TextCompletionsCollatorWithPadding:
         formatted_example = self._default_collator.tokenizer.decode(
             token_ids, skip_special_tokens=False
         )
-        tokenized_ids = raw_example[_INPUT_IDS_KEY]
-        tokenized_example = [
-            (token_id, self._default_collator.tokenizer.decode([token_id]))
-            for token_id in tokenized_ids
-        ]
+        # Decode() returns str | list[str]. For single sequences
+        # (non-batched input), it always returns str. Assert this for type narrowing
+        # to avoid type errors.
+        assert isinstance(raw_text, str), "Expected str from decode for single sequence"
+        assert isinstance(formatted_example, str)
+
+        tokenized_example: list[tuple[int, str]] = []
+        for token_id in token_ids:
+            decoded = self._default_collator.tokenizer.decode([token_id])
+            assert isinstance(decoded, str)
+            tokenized_example.append((token_id, decoded))
         self._has_logged_example = True
 
         # Extract the first example from the batched tensors for cleaner debug output

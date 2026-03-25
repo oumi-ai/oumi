@@ -61,7 +61,7 @@ dependencies = [
     "aioresponses>=0.7,<0.8",     # User by inference engine tests
     "backoff>=2.2.1,<2.3",
     "click<8.4.0",                # Used by CLI. 8.2.0 is currently unsupported by Typer.
-    "datasets>=3.2,<4.8.3",       # 4.8.3 contains a breaking change
+    "datasets>=3.2,<4.8.4",
     "greenlet",                   # Required by skypilot 0.11+ (sqlalchemy asyncio)
     "hdrhistogram>=0.10,<0.11",
     "httpx>=0.27,<1.0",           # Used by deploy module (async HTTP client)
@@ -96,7 +96,7 @@ dependencies = [
     # Llama Vision attention is broken as late as 4.48.2 if gradient checkpointing is
     # enabled. See OPE-875 and https://github.com/huggingface/transformers/issues/36040.
     "transformers>=4.57,<4.58",
-    "trl>=0.24,<0.27",
+    "trl>=0.24,<0.30",
     "typer<0.24.2",             # Used by CLI. Pinned due to sphinxcontrib-typer compatibility. OPE-1806
     "typing_extensions",        # Backports of typing updates
     "uvicorn<0.42.0",           # TODO: Remove on resolution of https://github.com/skypilot-org/skypilot/issues/7303
@@ -139,12 +139,12 @@ docs = [
 # Useful dependencies when running on GPU
 gpu = [
     "liger-kernel>=0.6,<0.8",
-    "nvidia-ml-py>=13.580,<13.591",
+    "nvidia-ml-py>=13.580,<13.596",
     "bitsandbytes>=0.47,<0.50",     # Used for QLora, and PagedAdam implementation
     # When updating verl version, make sure to also update the default config:
     # src/oumi/core/trainers/verl_trainer_config.yaml.
-    "verl>=0.5,<0.6; python_version >= '3.10'", # Used for the VERL_GRPO trainer
-    "vllm>=0.10,<0.11",                         # For VLLMInferenceEngine, and vLLM-powered GRPO training.
+    "verl>=0.5,<0.8; python_version >= '3.10'", # Used for the VERL_GRPO trainer
+    "vllm>=0.10,<0.19",                         # For VLLMInferenceEngine, and vLLM-powered GRPO training.
     "kernels>=0.11,<0.13",                      # For compute kernel implementations (e.g., attn_implementation in gold trainer)
 ]
 
@@ -183,7 +183,6 @@ flash_attn = [
 ]
 
 evaluation = [
-    "alpaca-eval>=0.6,<0.7; python_version >= '3.10'",
     "langdetect",                                      # leaderboard_ifeval
     "immutabledict",                                   # leaderboard_ifeval
     "nltk>=3.9",                                       # leaderboard_ifeval
@@ -204,7 +203,13 @@ aide = ["aideml>=0.2.2"]
 
 bitnet = ["onebitllms>=0.0.3"]
 
-file_formats = ["pdf2image>=1.17,<1.18", "python-poppler>=0.4,<0.5"]
+mcp = [
+    "fastmcp>=3.0.0,<4",
+    "httpx>=0.28.1,<1",
+    "mcp>=1.25.0,<2",
+]
+
+file_formats = ["pdf2image>=1.17,<1.18"]
 
 llama_cpp = ["llama-cpp-python>=0.3.5,<0.4"]
 
@@ -216,8 +221,9 @@ torchdata = ["torchdata>=0.9,<0.10.0"]
 
 # CI targets
 ci_cpu = [
-    "oumi[dev,docs,gcp,synthesis,tune,aide,torchdata]",
-    "vllm>=0.10,<0.11",                            # For VLLMInferenceEngine
+    "oumi[dev,docs,gcp,mcp,synthesis,tune,aide,torchdata,file_formats]",
+    "vllm>=0.10,<0.19",                            # For VLLMInferenceEngine
+    "boto3",  # For bedrock inference engine tests
     # This may fail to install. As a temporary workaround, run:
     # CMAKE_ARGS="-DLLAVA_BUILD=OFF" pip install -U llama-cpp-python
     "llama-cpp-python>=0.3,<0.4", # For LlamaCppInferenceEngine
@@ -225,12 +231,13 @@ ci_cpu = [
 # llama-cpp-python is not compatible with the github
 # gpu actions runner, so we skip it for now
 ci_gpu = [
-    "oumi[dev,docs,gcp,gpu,deepspeed,synthesis,tune,torchdata]",
-    "alpaca-eval>=0.6,<0.7; python_version >= '3.10'",
+    "oumi[dev,docs,gcp,gpu,deepspeed,synthesis,tune,torchdata,file_formats]",
+    "boto3",  # For bedrock inference engine tests
 ]
 
 [project.scripts]
 oumi = "oumi.cli.main:run"
+oumi-mcp = "oumi.mcp.server:main"
 
 [tool.ruff]
 extend-include = [
@@ -270,6 +277,7 @@ ban-relative-imports = "all" # Disallow all relative imports.
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["D", "PTH"] # Ignore docstring checks in tests
+"src/oumi/mcp/*" = ["ASYNC210", "ASYNC220", "ASYNC230", "ASYNC240"]  # fastmcp uses sync-over-async patterns
 "src/oumi/utils/verl_model_merger.*" = [
     "E501", # Line too long
     "D",    # Ignore docstring checks
@@ -320,6 +328,7 @@ unsupported-operator = "warn"  # Type narrowing limitations with isinstance
 too-many-positional-arguments = "warn"  # Loose typing (Callable) doesn't capture signatures
 parameter-already-assigned = "warn"  # False positives with *args/**kwargs patterns
 
+
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
@@ -328,6 +337,24 @@ filterwarnings = [
     # Warnings from mlflow dependency that we can't fix
     "ignore:Support for class-based `config` is deprecated.*:DeprecationWarning",
     "ignore:builtin type .* has no __module__ attribute:DeprecationWarning",
+    # torchao deprecation warnings - upstream issue, will be resolved in future torchao releases
+    "ignore:Importing from torchao.dtypes:DeprecationWarning",
+    "ignore:Importing BlockSparseLayout from torchao.dtypes:DeprecationWarning",
+    # torchdata datapipes deprecation - known limitation, pinned to <0.10
+    "ignore:The 'datapipes', 'dataloader2' modules are deprecated:UserWarning",
+    # Ray state API deprecation - upstream issue in vllm/ray
+    "ignore:Ray state API is no longer experimental:DeprecationWarning",
+    # transformers deprecation warnings - upstream, will be resolved when upgrading to v5
+    "ignore:The image_processor_class argument is deprecated:FutureWarning",
+    "ignore:The class `AutoModelForVision2Seq` is deprecated:FutureWarning",
+    # TRL warnings - version-aware code already handles these, warnings are from TRL internals
+    "ignore:To copy construct from a tensor, it is recommended to use:UserWarning",
+    "ignore:The `KTOConfig` is now located in `trl.experimental`:FutureWarning",
+    "ignore:The `KTOTrainer` is now located in `trl.experimental`:FutureWarning",
+    "ignore:The `GKDConfig` is now located in `trl.experimental`:FutureWarning",
+    "ignore:The `GKDTrainer` is now located in `trl.experimental`:FutureWarning",
+    # torchao quant_api invalid escape sequence - upstream issue
+    "ignore:invalid escape sequence:DeprecationWarning",
 ]
 markers = [
     "e2e: Slow e2e integration tests",

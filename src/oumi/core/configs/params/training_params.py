@@ -854,7 +854,7 @@ class TrainingParams(BaseParams):
 
                 config_class = GKDConfig
             else:
-                config_class = trl.GKDConfig
+                config_class = trl.GKDConfig  # type: ignore[attr-defined]
         elif self.trainer_type == TrainerType.TRL_GOLD:
             from oumi.utils.packaging import require_gold_trainer
 
@@ -975,7 +975,7 @@ class TrainingParams(BaseParams):
             dataloader_persistent_workers=self.dataloader_persistent_workers,
             dataloader_pin_memory=True,  # Set it to True to be explicit.
             ddp_find_unused_parameters=self.ddp_find_unused_parameters,
-            max_grad_norm=self.max_grad_norm,  # type: ignore
+            max_grad_norm=self.max_grad_norm if self.max_grad_norm is not None else 0.0,
             accelerator_config={  # accelerator config for multi-device training
                 "dispatch_batches": dispatch_batches,
                 # The params below are set to their default values.
