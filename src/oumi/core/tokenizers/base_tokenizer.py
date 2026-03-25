@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import transformers
+from transformers.tokenization_utils_base import (
+    PreTrainedTokenizerBase as BaseTokenizer,
+)
 
-BaseTokenizer = transformers.PreTrainedTokenizerBase
+__all__ = ["BaseTokenizer"]
