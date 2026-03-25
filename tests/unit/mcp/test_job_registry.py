@@ -15,7 +15,7 @@ def _make_record(**overrides) -> JobRecord:
         cloud="local",
         cluster_name="",
         model_name="test",
-        submit_time="2099-01-01T00:00:00Z",
+        submit_time="2099-01-01T00:00:00+00:00",
     )
     defaults.update(overrides)
     return JobRecord(**defaults)

@@ -85,7 +85,9 @@ class JobRegistry:
         to_remove: list[str] = []
         for jid, rec in self._jobs.items():
             try:
-                ts = datetime.fromisoformat(rec.submit_time)
+                # Python 3.10 fromisoformat() doesn't accept the "Z" suffix.
+                raw = rec.submit_time.replace("Z", "+00:00")
+                ts = datetime.fromisoformat(raw)
                 if ts.tzinfo is None:
                     ts = ts.replace(tzinfo=timezone.utc)
                 if ts < cutoff:
