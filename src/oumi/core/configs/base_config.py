@@ -25,6 +25,7 @@ from typing import Any, TypeVar, cast
 from omegaconf import OmegaConf
 
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.exceptions import OumiConfigError
 
 T = TypeVar("T", bound="BaseConfig")
 
@@ -128,10 +129,15 @@ def _read_config_without_interpolation(config_path: str) -> str:
     Returns:
         str: The stringified configuration.
     """
-    with open(config_path) as f:
-        stringified_config = f.read()
-        pattern = r"(?<!\\)\$\{"  # Matches "${" but not "\${"
-        stringified_config = re.sub(pattern, "\\${", stringified_config)
+    try:
+        with open(config_path) as f:
+            stringified_config = f.read()
+    except (FileNotFoundError, IsADirectoryError, NotADirectoryError) as e:
+        raise OumiConfigError(
+            f"Config file not found or path is not a file: {config_path}"
+        ) from e
+    pattern = r"(?<!\\)\$\{"  # Matches "${" but not "\${"
+    stringified_config = re.sub(pattern, "\\${", stringified_config)
     return stringified_config
 
 
@@ -165,7 +171,13 @@ class BaseConfig:
                 + "\n".join(f"- {path}" for path in sorted(removed_paths))
             )
 
-        OmegaConf.save(config=processed_config, f=config_path)
+        try:
+            OmegaConf.save(config=processed_config, f=config_path)
+        except (FileNotFoundError, NotADirectoryError, IsADirectoryError) as e:
+            raise OumiConfigError(
+                f"Cannot save config to {config_path}: "
+                f"parent directory does not exist or is not a directory: {e}"
+            ) from e
 
     @classmethod
     def from_yaml(
@@ -186,7 +198,12 @@ class BaseConfig:
             stringified_config = _read_config_without_interpolation(str(config_path))
             file_config = OmegaConf.create(stringified_config)
         else:
-            file_config = OmegaConf.load(config_path)
+            try:
+                file_config = OmegaConf.load(config_path)
+            except (FileNotFoundError, IsADirectoryError, NotADirectoryError) as e:
+                raise OumiConfigError(
+                    f"Config file not found or path is not a file: {config_path}"
+                ) from e
         config = OmegaConf.to_object(OmegaConf.merge(schema, file_config))
         if not isinstance(config, cls):
             raise TypeError(f"config is not {cls}")
