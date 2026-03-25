@@ -54,6 +54,7 @@ from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.trainers.base_trainer import BaseTrainer
 from oumi.utils.logging import logger
+from oumi.utils.packaging import is_verl_v0_7_or_later
 from oumi.utils.verl_model_merger import FSDPModelMerger, ModelMergerConfig
 
 # Dataset processing function type. This function takes the following arguments:
@@ -313,9 +314,20 @@ class VerlGrpoTrainer(BaseTrainer):
         model_params = self._oumi_config.model
         model_name = model_params.model_name
 
-        # 1. Read verl default dict config from YAML.
-        yaml_path = Path(__file__).parent / "verl_trainer_config.yaml"
-        config = OmegaConf.load(yaml_path)
+        # 1. Read verl default dict config from the installed verl package.
+        # This ensures the config always matches the installed verl version.
+        verl_config_path = (
+            Path(verl.__file__).parent  # pyright: ignore[reportOptionalMemberAccess]
+            / "trainer"
+            / "config"
+            / "_generated_ppo_trainer.yaml"
+        )
+        if verl_config_path.exists():
+            config = OmegaConf.load(verl_config_path)
+        else:
+            # Fallback to bundled config for older verl versions.
+            yaml_path = Path(__file__).parent / "verl_trainer_config.yaml"
+            config = OmegaConf.load(yaml_path)
         config = cast(DictConfig, config)
 
         # 2. Set config values, ex. from Oumi config values
@@ -413,35 +425,41 @@ class VerlGrpoTrainer(BaseTrainer):
             global_pool_id: [self._verl_config.trainer.n_gpus_per_node]
             * self._verl_config.trainer.nnodes,
         }
-        mapping = {
+        # Note: verl >=0.7 annotates mapping as dict[int, str], but at runtime
+        # it looks up keys using Role enum members (not .value), so we always
+        # use Role enum members as keys for both old and new versions.
+        _verl_v07 = is_verl_v0_7_or_later()
+        mapping: dict[Any, str] = {
             Role.ActorRollout: global_pool_id,
             Role.Critic: global_pool_id,
             Role.RefPolicy: global_pool_id,
         }
 
         resource_pool_manager = ResourcePoolManager(
-            resource_pool_spec=resource_pool_spec, mapping=mapping
+            resource_pool_spec=resource_pool_spec,
+            mapping=mapping,  # pyright: ignore[reportArgumentType]
         )
 
-        # Create reward function manager
-        compute_score = self._reward_funcs[0] if len(self._reward_funcs) > 0 else None
-        reward_fn = NaiveRewardManager(
-            tokenizer=tokenizer, num_examine=0, compute_score=compute_score
-        )
-        # num_examine=1 means to print 1 example per batch for analysis.
-        val_reward_fn = NaiveRewardManager(
-            tokenizer=tokenizer, num_examine=1, compute_score=compute_score
-        )
-
-        self._verl_trainer = RayPPOTrainer(
+        # verl >=0.7 removed reward_fn/val_reward_fn from RayPPOTrainer
+        trainer_kwargs: dict[str, Any] = dict(
             config=self._verl_config,
             tokenizer=tokenizer,
             processor=self._processor,
             role_worker_mapping=role_worker_mapping,
             resource_pool_manager=resource_pool_manager,
-            reward_fn=reward_fn,
-            val_reward_fn=val_reward_fn,
         )
+        if not _verl_v07:
+            compute_score = (
+                self._reward_funcs[0] if len(self._reward_funcs) > 0 else None
+            )
+            trainer_kwargs["reward_fn"] = NaiveRewardManager(
+                tokenizer=tokenizer, num_examine=0, compute_score=compute_score
+            )
+            trainer_kwargs["val_reward_fn"] = NaiveRewardManager(
+                tokenizer=tokenizer, num_examine=1, compute_score=compute_score
+            )
+
+        self._verl_trainer = RayPPOTrainer(**trainer_kwargs)  # pyright: ignore[reportCallIssue]
 
     def train(self) -> None:
         """Trains the model using verl's RayPPOTrainer."""
