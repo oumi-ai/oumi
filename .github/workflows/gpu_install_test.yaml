@@ -16,7 +16,6 @@ env:
 
 jobs:
   gpu-install-test:
-    if: false  # Temporarily disabled
     permissions:
       contents: "read"
     runs-on: linux-gpu-runner
