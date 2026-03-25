@@ -44,7 +44,7 @@ dependencies = [
     "aioresponses>=0.7,<0.8",     # User by inference engine tests
     "backoff>=2.2.1,<2.3",
     "click<8.4.0",                # Used by CLI. 8.2.0 is currently unsupported by Typer.
-    "datasets>=3.2,<4.8.3",       # 4.8.3 contains a breaking change
+    "datasets>=3.2,<4.8.4",
     "greenlet",                   # Required by skypilot 0.11+ (sqlalchemy asyncio)
     "hdrhistogram>=0.10,<0.11",
     "httpx>=0.27,<1.0",           # Used by deploy module (async HTTP client)
@@ -180,6 +180,12 @@ tune = ["optuna>=4.0.0,<5.0"]
 
 bitnet = ["onebitllms>=0.0.3"]
 
+mcp = [
+    "fastmcp>=3.0.0,<4",
+    "httpx>=0.28.1,<1",
+    "mcp>=1.25.0,<2",
+]
+
 file_formats = ["pdf2image>=1.17,<1.18"]
 
 llama_cpp = ["llama-cpp-python>=0.3.5,<0.4"]
@@ -192,7 +198,7 @@ torchdata = ["torchdata>=0.9,<0.10.0"]
 
 # CI targets
 ci_cpu = [
-    "oumi[dev,docs,gcp,synthesis,tune,torchdata,file_formats]",
+    "oumi[dev,docs,gcp,mcp,synthesis,tune,torchdata,file_formats]",
     "vllm>=0.10,<0.11",                            # For VLLMInferenceEngine
     "boto3",  # For bedrock inference engine tests
     # This may fail to install. As a temporary workaround, run:
@@ -208,6 +214,7 @@ ci_gpu = [
 
 [project.scripts]
 oumi = "oumi.cli.main:run"
+oumi-mcp = "oumi.mcp.server:main"
 
 [tool.ruff]
 extend-include = [
@@ -247,6 +254,7 @@ ban-relative-imports = "all" # Disallow all relative imports.
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["D", "PTH"] # Ignore docstring checks in tests
+"src/oumi/mcp/*" = ["ASYNC210", "ASYNC220", "ASYNC230", "ASYNC240"]  # fastmcp uses sync-over-async patterns
 "src/oumi/utils/verl_model_merger.*" = [
     "E501", # Line too long
     "D",    # Ignore docstring checks

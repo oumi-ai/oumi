@@ -659,3 +659,48 @@ def test_chat_template_kwargs_enable_thinking_false(mock_vllm):
     call_kwargs = engine._llm.chat.call_args.kwargs
     assert "chat_template_kwargs" in call_kwargs
     assert call_kwargs["chat_template_kwargs"].get("enable_thinking") is False
+
+
+#
+# Tests for vLLM passthrough kwargs
+#
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_language_model_only_passed_to_vllm(mock_vllm):
+    """Verify language_model_only from model_kwargs is passed to vllm.LLM."""
+    mock_vllm.LLM.return_value = Mock()
+
+    params = _get_default_model_params()
+    params.model_kwargs = {"language_model_only": True}
+    VLLMInferenceEngine(params)
+
+    call_kwargs = mock_vllm.LLM.call_args[1]
+    assert call_kwargs.get("language_model_only") is True
+
+
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_hf_config_path_passed_to_vllm(mock_vllm):
+    """Verify hf_config_path from model_kwargs is passed to vllm.LLM."""
+    mock_vllm.LLM.return_value = Mock()
+
+    params = _get_default_model_params()
+    params.model_kwargs = {
+        "language_model_only": True,
+        "hf_config_path": "Qwen/Qwen3.5-0.8B",
+    }
+    VLLMInferenceEngine(params)
+
+    call_kwargs = mock_vllm.LLM.call_args[1]
+    assert call_kwargs.get("hf_config_path") == "Qwen/Qwen3.5-0.8B"
+    assert call_kwargs.get("language_model_only") is True
+
+
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_no_passthrough_kwargs_by_default(mock_vllm):
+    """Verify passthrough kwargs are not set when not in model_kwargs."""
+    mock_vllm.LLM.return_value = Mock()
+
+    VLLMInferenceEngine(_get_default_model_params())
+
+    call_kwargs = mock_vllm.LLM.call_args[1]
+    assert "language_model_only" not in call_kwargs
+    assert "hf_config_path" not in call_kwargs
