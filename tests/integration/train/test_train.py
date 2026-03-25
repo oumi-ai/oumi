@@ -176,7 +176,7 @@ def test_train_pack_with_sft_dataset():
         train(config)
 
 
-def test_train_dpo(disable_hf_datasets_cache):
+def test_train_dpo(temp_hf_datasets_cache):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         output_training_dir = str(pathlib.Path(output_temp_dir) / "train")
         config: TrainingConfig = TrainingConfig(
