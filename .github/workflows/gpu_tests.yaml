@@ -85,11 +85,6 @@ jobs:
           echo "CUDA_HOME: $CUDA_HOME"
           nvcc --version
 
-      - name: Clear datasets cache
-        run: |
-          # Clear HF datasets cache to avoid stale cached datasets with old column names
-          rm -rf ~/.cache/huggingface/datasets
-
       - name: Run GPU tests
         run: |
           cd ./tests/integration/

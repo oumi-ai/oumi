@@ -1,6 +1,7 @@
 import pathlib
 import tempfile
 
+import datasets
 import pytest
 
 from oumi import train
@@ -177,6 +178,9 @@ def test_train_pack_with_sft_dataset():
 
 
 def test_train_dpo():
+    # Disable HF datasets caching to avoid stale cache with outdated column names
+    # If trl < 0.29. This can be removed once we upgrade to trl >= 0.29.
+    datasets.disable_caching()
     with tempfile.TemporaryDirectory() as output_temp_dir:
         output_training_dir = str(pathlib.Path(output_temp_dir) / "train")
         config: TrainingConfig = TrainingConfig(
