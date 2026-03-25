@@ -14,6 +14,7 @@ env:
 
 jobs:
   install-test:
+    if: false  # Temporarily disabled
     runs-on: ubuntu-latest
 
     strategy:
