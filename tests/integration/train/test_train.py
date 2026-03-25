@@ -15,7 +15,16 @@ from oumi.core.configs import (
 )
 from oumi.core.configs.params.gkd_params import GkdParams
 from oumi.core.configs.params.gold_params import GoldParams
-from oumi.utils.packaging import is_gold_trainer_available
+from oumi.utils.packaging import (
+    is_gold_trainer_available,
+    verify_trl_vllm_compatibility,
+)
+
+try:
+    verify_trl_vllm_compatibility("GOLD trainer")
+    _trl_vllm_compatible = True
+except RuntimeError:
+    _trl_vllm_compatible = False
 
 
 def test_train_basic():
@@ -167,7 +176,7 @@ def test_train_pack_with_sft_dataset():
         train(config)
 
 
-def test_train_dpo():
+def test_train_dpo(temp_hf_datasets_cache):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         output_training_dir = str(pathlib.Path(output_temp_dir) / "train")
         config: TrainingConfig = TrainingConfig(
@@ -302,9 +311,9 @@ def test_train_gkd():
 
 
 @pytest.mark.skipif(
-    not is_gold_trainer_available(),
-    reason="GOLD trainer is not available",
+    not is_gold_trainer_available(), reason="GOLD trainer not available"
 )
+@pytest.mark.skipif(not _trl_vllm_compatible, reason="TRL/vLLM versions incompatible")
 def test_train_gold():
     """Test GOLD (General Online Logit Distillation) training workflow."""
     with tempfile.TemporaryDirectory() as output_temp_dir:
