@@ -153,47 +153,37 @@ def test_check_package_prerequisites():
     assert runtime_error.value.args[0] == expected_runtime_error_str
 
 
-class TestCheckTrlVllmCompatibilityIfInstalled:
-    """Tests for TRL/vLLM compatibility checking."""
+def test_verify_trl_vllm_compatibility_skips_when_vllm_missing(monkeypatch):
+    def mock_version(pkg):
+        if pkg == "vllm":
+            raise importlib.metadata.PackageNotFoundError()
+        return "0.26.0"
 
-    def test_no_error_when_vllm_not_installed(self, monkeypatch):
-        """No error when vLLM is not installed."""
+    monkeypatch.setattr("importlib.metadata.version", mock_version)
+    verify_trl_vllm_compatibility("test")  # Should not raise
 
-        def mock_version(pkg):
-            if pkg == "vllm":
-                raise importlib.metadata.PackageNotFoundError()
-            return "0.26.0"
 
-        monkeypatch.setattr("importlib.metadata.version", mock_version)
-        verify_trl_vllm_compatibility("test")  # Should not raise
+def test_verify_trl_vllm_compatibility_passes_when_compatible(monkeypatch):
+    def mock_version(pkg):
+        return {"vllm": "0.14.0", "trl": "0.29.0"}[pkg]
 
-    def test_no_error_when_compatible(self, monkeypatch):
-        """No error when versions are compatible."""
+    monkeypatch.setattr("importlib.metadata.version", mock_version)
+    verify_trl_vllm_compatibility("test")  # Should not raise
 
-        def mock_version(pkg):
-            return {"vllm": "0.14.0", "trl": "0.29.0"}[pkg]
 
-        monkeypatch.setattr("importlib.metadata.version", mock_version)
-        verify_trl_vllm_compatibility("test")  # Should not raise
+def test_verify_trl_vllm_compatibility_fails_old_trl_new_vllm(monkeypatch):
+    def mock_version(pkg):
+        return {"vllm": "0.14.0", "trl": "0.26.0"}[pkg]
 
-    def test_error_old_trl_new_vllm(self, monkeypatch):
-        """Error when TRL < 0.27 with vLLM >= 0.12."""
+    monkeypatch.setattr("importlib.metadata.version", mock_version)
+    with pytest.raises(RuntimeError, match="vLLM < 0.12.0"):
+        verify_trl_vllm_compatibility("test")
 
-        def mock_version(pkg):
-            return {"vllm": "0.14.0", "trl": "0.26.0"}[pkg]
 
-        monkeypatch.setattr("importlib.metadata.version", mock_version)
-        with pytest.raises(RuntimeError) as exc_info:
-            verify_trl_vllm_compatibility("test")
-        assert "vLLM < 0.12.0" in str(exc_info.value)
+def test_verify_trl_vllm_compatibility_fails_new_trl_old_vllm(monkeypatch):
+    def mock_version(pkg):
+        return {"vllm": "0.10.2", "trl": "0.29.0"}[pkg]
 
-    def test_error_new_trl_old_vllm(self, monkeypatch):
-        """Error when TRL >= 0.27 with vLLM < 0.11."""
-
-        def mock_version(pkg):
-            return {"vllm": "0.10.2", "trl": "0.29.0"}[pkg]
-
-        monkeypatch.setattr("importlib.metadata.version", mock_version)
-        with pytest.raises(RuntimeError) as exc_info:
-            verify_trl_vllm_compatibility("test")
-        assert "vLLM >= 0.11.0" in str(exc_info.value)
+    monkeypatch.setattr("importlib.metadata.version", mock_version)
+    with pytest.raises(RuntimeError, match="vLLM >= 0.11.0"):
+        verify_trl_vllm_compatibility("test")
