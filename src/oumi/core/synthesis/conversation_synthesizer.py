@@ -618,34 +618,11 @@ class ConversationSynthesizer:
         if tools:
             tool_catalog = ToolExecutor.build_tool_catalog(tools)
             tool_section = (
-                "\n\nYou have access to the following tools. Use them to look up "
-                "information and perform actions — do not guess or fabricate data.\n\n"
-                f"Tools:\n{tool_catalog}\n\n"
-                "To use a tool, output:\n"
-                '<tool_call>{"name": "ToolName", "arguments": '
-                '{"param": "value"}}</tool_call>\n\n'
-                "After receiving a tool result, you may call another tool "
-                "or respond to the user.\n\n"
-                "IMPORTANT RULES:\n"
-                "1. NEVER claim you performed an action without using the "
-                "<tool_call> tag. Every action must go through a tool call.\n"
-                "2. Base ALL responses on actual tool results. If tool results "
-                "contradict your expectations, trust the tool results.\n"
-                "3. Do NOT fabricate data, statistics, or results. Only reference "
-                "information returned by tools.\n"
-                "4. When using a tool, output the <tool_call> tag clearly.\n"
-                "5. CRITICAL: You MUST use <tool_call> tags for EVERY database "
-                "operation or tool invocation. Do NOT narrate or describe running "
-                "queries in prose — actually call the tool using the tag. "
-                "Do NOT fabricate query results. Every data point must come from "
-                "a real tool result.\n"
-                "6. If you want to look something up or run a query, you MUST "
-                "output a <tool_call> tag. A response that describes tool results "
-                "without a preceding <tool_call> tag is INVALID.\n"
-                "7. Each tool operation MUST have its own <tool_call> tag. "
-                "You may call multiple tools in a single message, but each "
-                "must be a separate <tool_call> invocation — never narrate "
-                "tool operations in prose."
+                "\n\nYou have access to the following tools:\n\n"
+                f"{tool_catalog}\n\n"
+                "Use these tools to look up information and perform actions. "
+                "Do not guess or fabricate data — every data point must come "
+                "from a tool result."
             )
             formatted_content += tool_section
 
@@ -654,6 +631,58 @@ class ConversationSynthesizer:
             role=Role.SYSTEM,
             content=formatted_content,
         )
+
+    @staticmethod
+    def _build_tool_turn_info(
+        current_turn: int,
+        target_turns: int,
+        turn_instruction: str,
+        max_calls_reached: bool,
+    ) -> str:
+        """Build the turn-level user message for assistant tool turns.
+
+        Places the format constraint in the user message (last thing the LLM
+        reads) with a concrete full-turn example.
+        """
+        parts = [f"Turn {current_turn} of {target_turns}.\n"]
+
+        if turn_instruction:
+            parts.append(f"Task: {turn_instruction}\n")
+
+        if max_calls_reached:
+            parts.append(
+                "You have used all tool calls for this turn. "
+                "Respond to the user based on the information gathered so far."
+            )
+            return "\n".join(parts)
+
+        parts.append(
+            "OUTPUT FORMAT: To use a tool, output a <tool_call> tag. "
+            "Example of a correct response:\n\n"
+            '<tool_call>{"name": "ToolName", "arguments": {"key": "value"}}'
+            "</tool_call>\n\n"
+            "Here is what I found based on the results...\n\n"
+            "You MUST use <tool_call> tags for every tool operation. "
+            "Do not describe or narrate tool operations — call the tool."
+        )
+        return "\n".join(parts)
+
+    @staticmethod
+    def _build_prose_turn_info(
+        current_turn: int,
+        target_turns: int,
+        role: str,
+        turn_instruction: str,
+    ) -> str:
+        """Build turn-level user message for non-tool turns (user turns)."""
+        parts = [
+            f"You are generating turn {current_turn} of {target_turns} "
+            f"as the {role}.\n"
+        ]
+        if turn_instruction:
+            parts.append(f"For this turn: {turn_instruction}\n")
+        parts.append("Generate your response for this turn.")
+        return "\n".join(parts)
 
     def _build_role_context(
         self, sample: dict, multiturn_attribute: MultiTurnAttribute
@@ -913,23 +942,19 @@ class ConversationSynthesizer:
                     if turn_idx < len(parsed_plans):
                         turn_instruction = parsed_plans[turn_idx]
 
-                    target = samples[i]["target_turns"]
-                    turn_info = (
-                        f"You are generating turn {current_turn} of {target} "
-                        f"as the {role.value.upper()}.\n\n"
-                    )
-                    if turn_instruction:
-                        turn_info += f"For this turn: {turn_instruction}\n\n"
-                    if is_tool_turn and turn_call_counts[i] >= max_tool_calls:
-                        turn_info += (
-                            "You have reached the maximum number of tool calls "
-                            "for this turn. Respond directly to the user based "
-                            "on the information gathered so far."
+                    if is_tool_turn:
+                        turn_info = self._build_tool_turn_info(
+                            current_turn=current_turn,
+                            target_turns=samples[i]["target_turns"],
+                            turn_instruction=turn_instruction,
+                            max_calls_reached=turn_call_counts[i] >= max_tool_calls,
                         )
                     else:
-                        turn_info += (
-                            "Generate ONLY your response for this turn. "
-                            "Stay in character."
+                        turn_info = self._build_prose_turn_info(
+                            current_turn=current_turn,
+                            target_turns=samples[i]["target_turns"],
+                            role=role.value.upper(),
+                            turn_instruction=turn_instruction,
                         )
 
                     history = (

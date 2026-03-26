@@ -979,7 +979,7 @@ def test_agentic_turn_with_tool_call_and_response(
                         ]
                     )
                 )
-            elif "ASSISTANT" in str(last_content) and not any(
+            elif "OUTPUT FORMAT" in str(last_content) and not any(
                 "[Tool result from" in str(m.content) for m in conv.messages
             ):
                 results.append(
@@ -1162,7 +1162,7 @@ def test_tool_catalog_injected_into_assistant_persona(
 
     assert "SearchOrders" in persona_msg.content
     assert "Escalate" in persona_msg.content
-    assert "<tool_call>" in persona_msg.content
+    assert "Do not guess or fabricate data" in persona_msg.content
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
@@ -1676,6 +1676,89 @@ def test_format_persona_includes_grounding_rules(
     result = synthesizer._format_persona({}, "You are an assistant.", [tool])
 
     content = result.content
-    assert "trust the tool results" in content
-    assert "Do NOT fabricate" in content
-    assert "output the <tool_call> tag clearly" in content
+    assert "Query" in content
+    assert "Run a query" in content
+    assert "Do not guess or fabricate data" in content
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_format_persona_system_msg_has_tools_not_format_rules(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """System message should list tools but NOT contain format rules."""
+    from oumi.core.configs.params.tool_params import (
+        ToolAttribute,
+        ToolEnvironmentAttribute,
+        ToolOutputStrategy,
+    )
+
+    mock_build_inference_engine.return_value = Mock()
+
+    tool = ToolAttribute(
+        id="query",
+        name="RunQuery",
+        description="Execute a SQL query",
+        output_strategy=ToolOutputStrategy.ENVIRONMENT,
+        environment="db",
+        read_only=True,
+    )
+    env_config = ToolEnvironmentAttribute(
+        id="db",
+        name="Database",
+        description="A database",
+        system_prompt="You manage a database.",
+    )
+    params = GeneralSynthesisParams(tools=[tool], environments=[env_config])
+    synthesizer = ConversationSynthesizer(params, mock_inference_config)
+
+    result = synthesizer._format_persona({}, "You are an assistant.", [tool])
+    content = result.content
+
+    assert "RunQuery" in content
+    assert "Execute a SQL query" in content
+    assert "IMPORTANT RULES:" not in content
+    assert "CRITICAL:" not in content
+
+
+def test_build_tool_turn_info_contains_format_instruction():
+    """Turn info user message should contain format spec with example."""
+    turn_info = ConversationSynthesizer._build_tool_turn_info(
+        current_turn=2,
+        target_turns=6,
+        turn_instruction="Explore the database schema",
+        max_calls_reached=False,
+    )
+
+    assert "<tool_call>" in turn_info
+    assert "</tool_call>" in turn_info
+    assert "Example" in turn_info or "example" in turn_info
+    assert "Stay in character" not in turn_info
+    assert "Generate ONLY" not in turn_info
+
+
+def test_build_tool_turn_info_max_calls_no_format():
+    """When max tool calls reached, turn info should request prose response."""
+    turn_info = ConversationSynthesizer._build_tool_turn_info(
+        current_turn=2,
+        target_turns=6,
+        turn_instruction="Summarize findings",
+        max_calls_reached=True,
+    )
+
+    assert "<tool_call>" not in turn_info
+    assert "Respond" in turn_info or "respond" in turn_info
+
+
+def test_build_prose_turn_info_no_tool_format():
+    """Prose turn info should not contain tool format instructions."""
+    turn_info = ConversationSynthesizer._build_prose_turn_info(
+        current_turn=1,
+        target_turns=4,
+        role="USER",
+        turn_instruction="Describe the problem",
+    )
+
+    assert "USER" in turn_info
+    assert "Describe the problem" in turn_info
+    assert "<tool_call>" not in turn_info
