@@ -20,44 +20,82 @@ from typing import Any
 import typer
 
 from oumi.cli.alias import AliasType
-from oumi.cli.analyze import analyze
-from oumi.cli.cache import card as cache_card
-from oumi.cli.cache import get as cache_get
-from oumi.cli.cache import ls as cache_ls
-from oumi.cli.cache import rm as cache_rm
 from oumi.cli.cli_utils import (
     CONSOLE,
     CONTEXT_ALLOW_EXTRA_ARGS,
     create_github_issue_url,
     get_command_help,
 )
-from oumi.cli.deploy import (
-    create_endpoint,
-    delete,
-    delete_model,
-    list_deployments,
-    list_hardware,
-    list_models,
-    test,
-    upload,
-)
-from oumi.cli.deploy import start as deploy_start
-from oumi.cli.deploy import status as deploy_status
-from oumi.cli.deploy import stop as deploy_stop
-from oumi.cli.deploy import up as deploy_up
-from oumi.cli.distributed_run import accelerate, torchrun
-from oumi.cli.env import env
-from oumi.cli.evaluate import evaluate
-from oumi.cli.fetch import fetch
-from oumi.cli.infer import infer
-from oumi.cli.judge import judge_conversations_file, judge_dataset_file
-from oumi.cli.launch import cancel, down, logs, status, stop, up, which
-from oumi.cli.launch import run as launcher_run
-from oumi.cli.quantize import quantize
-from oumi.cli.synth import synth
-from oumi.cli.train import train
-from oumi.cli.tune import tune
 from oumi.utils.logging import should_use_rich_logging
+
+# =============================================================================
+# Lazy CLI module imports
+# =============================================================================
+# These imports are deferred using TYPE_CHECKING to avoid loading heavy
+# dependencies (like pydantic, requests, etc.) at CLI startup time.
+# The actual imports happen when commands are registered in get_app().
+
+
+def _import_cli_modules():
+    """Import all CLI command modules. Called lazily when building the app."""
+    # Import all CLI modules - they now have optimized (lazy) internal imports
+    from oumi.cli import (
+        analyze,
+        cache,
+        deploy,
+        distributed_run,
+        env,
+        evaluate,
+        fetch,
+        infer,
+        judge,
+        launch,
+        quantize,
+        synth,
+        train,
+        tune,
+    )
+
+    return {
+        "analyze": analyze.analyze,
+        "cache_card": cache.card,
+        "cache_get": cache.get,
+        "cache_ls": cache.ls,
+        "cache_rm": cache.rm,
+        "deploy_upload": deploy.upload,
+        "deploy_create_endpoint": deploy.create_endpoint,
+        "deploy_delete": deploy.delete,
+        "deploy_delete_model": deploy.delete_model,
+        "deploy_list": deploy.list_deployments,
+        "deploy_list_hardware": deploy.list_hardware,
+        "deploy_list_models": deploy.list_models,
+        "deploy_test": deploy.test,
+        "deploy_start": deploy.start,
+        "deploy_status": deploy.status,
+        "deploy_stop": deploy.stop,
+        "deploy_up": deploy.up,
+        "accelerate": distributed_run.accelerate,
+        "torchrun": distributed_run.torchrun,
+        "env": env.env,
+        "evaluate": evaluate.evaluate,
+        "fetch": fetch.fetch,
+        "infer": infer.infer,
+        "judge_conversations_file": judge.judge_conversations_file,
+        "judge_dataset_file": judge.judge_dataset_file,
+        "launch_cancel": launch.cancel,
+        "launch_down": launch.down,
+        "launch_logs": launch.logs,
+        "launch_status": launch.status,
+        "launch_stop": launch.stop,
+        "launch_up": launch.up,
+        "launch_which": launch.which,
+        "launch_run": launch.run,
+        "quantize": quantize.quantize,
+        "synth": synth.synth,
+        "train": train.train,
+        "tune": tune.tune,
+    }
+
 
 _ASCII_LOGO = r"""
    ____  _    _ __  __ _____
@@ -114,6 +152,9 @@ _HELP_OPTION_NAMES = {"help_option_names": ["--help", "-h"]}
 
 def get_app() -> typer.Typer:
     """Create the Typer CLI app."""
+    # Import CLI modules lazily when building the app
+    cmds = _import_cli_modules()
+
     app = typer.Typer(
         pretty_exceptions_enable=False,
         rich_markup_mode="rich",
@@ -129,7 +170,7 @@ def get_app() -> typer.Typer:
             "Run benchmarks and evaluations on a model.", AliasType.EVAL
         ),
         rich_help_panel="Model",
-    )(evaluate)
+    )(cmds["evaluate"])
     app.command(  # Alias for evaluate
         name="eval",
         hidden=True,
@@ -137,24 +178,24 @@ def get_app() -> typer.Typer:
         help=get_command_help(
             "Run benchmarks and evaluations on a model.", AliasType.EVAL
         ),
-    )(evaluate)
+    )(cmds["evaluate"])
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help=get_command_help(
             "Generate text or predictions using a model.", AliasType.INFER
         ),
         rich_help_panel="Model",
-    )(infer)
+    )(cmds["infer"])
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help=get_command_help("Fine-tune or pre-train a model.", AliasType.TRAIN),
         rich_help_panel="Model",
-    )(train)
+    )(cmds["train"])
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help=get_command_help("Search for optimal hyperparameters.", AliasType.TUNE),
         rich_help_panel="Model",
-    )(tune)
+    )(cmds["tune"])
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help=get_command_help(
@@ -162,7 +203,7 @@ def get_app() -> typer.Typer:
             AliasType.QUANTIZE,
         ),
         rich_help_panel="Model",
-    )(quantize)
+    )(cmds["quantize"])
 
     # Data
     app.command(
@@ -171,14 +212,14 @@ def get_app() -> typer.Typer:
             "Compute statistics and metrics for a dataset.", AliasType.ANALYZE
         ),
         rich_help_panel="Data",
-    )(analyze)
+    )(cmds["analyze"])
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help=get_command_help(
             "Generate synthetic training & evaluation data.", AliasType.SYNTH
         ),
         rich_help_panel="Data",
-    )(synth)
+    )(cmds["synth"])
     app.command(  # Alias for synth
         name="synthesize",
         hidden=True,
@@ -186,7 +227,7 @@ def get_app() -> typer.Typer:
         help=get_command_help(
             "Generate synthetic training & evaluation data.", AliasType.SYNTH
         ),
-    )(synth)
+    )(cmds["synth"])
     judge_app = typer.Typer(
         pretty_exceptions_enable=False, context_settings=_HELP_OPTION_NAMES
     )
@@ -222,12 +263,12 @@ def get_app() -> typer.Typer:
         name="dataset",
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help=get_command_help("Judge a dataset.", AliasType.JUDGE),
-    )(judge_dataset_file)
+    )(cmds["judge_dataset_file"])
     judge_app.command(
         name="conversations",
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help=get_command_help("Judge conversations.", AliasType.JUDGE),
-    )(judge_conversations_file)
+    )(cmds["judge_conversations_file"])
     app.add_typer(
         judge_app,
         name="judge",
@@ -238,18 +279,26 @@ def get_app() -> typer.Typer:
     launch_app = typer.Typer(
         pretty_exceptions_enable=False, context_settings=_HELP_OPTION_NAMES
     )
-    launch_app.command(help="Cancel a running job.")(cancel)
-    launch_app.command(help="Tear down a cluster and release resources.")(down)
+    launch_app.command(help="Cancel a running job.")(cmds["launch_cancel"])
+    launch_app.command(help="Tear down a cluster and release resources.")(
+        cmds["launch_down"]
+    )
     launch_app.command(
         name="run", context_settings=CONTEXT_ALLOW_EXTRA_ARGS, help="Execute a job."
-    )(launcher_run)
-    launch_app.command(help="Show status of jobs launched from Oumi.")(status)
-    launch_app.command(help="Stop a cluster without tearing it down.")(stop)
+    )(cmds["launch_run"])
+    launch_app.command(help="Show status of jobs launched from Oumi.")(
+        cmds["launch_status"]
+    )
+    launch_app.command(help="Stop a cluster without tearing it down.")(
+        cmds["launch_stop"]
+    )
     launch_app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS, help="Start a cluster and run a job."
-    )(up)
-    launch_app.command(help="List available cloud providers.")(which)
-    launch_app.command(help="Fetch logs from a running or completed job.")(logs)
+    )(cmds["launch_up"])
+    launch_app.command(help="List available cloud providers.")(cmds["launch_which"])
+    launch_app.command(help="Fetch logs from a running or completed job.")(
+        cmds["launch_logs"]
+    )
     app.add_typer(
         launch_app,
         name="launch",
@@ -259,20 +308,36 @@ def get_app() -> typer.Typer:
     deploy_app = typer.Typer(
         pretty_exceptions_enable=False, context_settings=_HELP_OPTION_NAMES
     )
-    deploy_app.command(help="Upload a model to an inference provider")(upload)
-    deploy_app.command(help="Create an inference endpoint")(create_endpoint)
-    deploy_app.command(name="list", help="List all deployments")(list_deployments)
-    deploy_app.command(name="list-models", help="List uploaded models")(list_models)
-    deploy_app.command(name="status", help="Get deployment status")(deploy_status)
-    deploy_app.command(name="start", help="Start a stopped endpoint")(deploy_start)
-    deploy_app.command(name="stop", help="Stop an endpoint to save cost")(deploy_stop)
-    deploy_app.command(help="Delete an endpoint")(delete)
-    deploy_app.command(name="delete-model", help="Delete an uploaded model")(
-        delete_model
+    deploy_app.command(help="Upload a model to an inference provider")(
+        cmds["deploy_upload"]
     )
-    deploy_app.command(help="List available hardware options")(list_hardware)
-    deploy_app.command(help="Test endpoint with a sample request")(test)
-    deploy_app.command(help="Deploy model end-to-end (upload + endpoint)")(deploy_up)
+    deploy_app.command(help="Create an inference endpoint")(
+        cmds["deploy_create_endpoint"]
+    )
+    deploy_app.command(name="list", help="List all deployments")(cmds["deploy_list"])
+    deploy_app.command(name="list-models", help="List uploaded models")(
+        cmds["deploy_list_models"]
+    )
+    deploy_app.command(name="status", help="Get deployment status")(
+        cmds["deploy_status"]
+    )
+    deploy_app.command(name="start", help="Start a stopped endpoint")(
+        cmds["deploy_start"]
+    )
+    deploy_app.command(name="stop", help="Stop an endpoint to save cost")(
+        cmds["deploy_stop"]
+    )
+    deploy_app.command(help="Delete an endpoint")(cmds["deploy_delete"])
+    deploy_app.command(name="delete-model", help="Delete an uploaded model")(
+        cmds["deploy_delete_model"]
+    )
+    deploy_app.command(help="List available hardware options")(
+        cmds["deploy_list_hardware"]
+    )
+    deploy_app.command(help="Test endpoint with a sample request")(cmds["deploy_test"])
+    deploy_app.command(help="Deploy model end-to-end (upload + endpoint)")(
+        cmds["deploy_up"]
+    )
     app.add_typer(
         deploy_app,
         name="deploy",
@@ -282,8 +347,10 @@ def get_app() -> typer.Typer:
     distributed_app = typer.Typer(
         pretty_exceptions_enable=False, context_settings=_HELP_OPTION_NAMES
     )
-    distributed_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(accelerate)
-    distributed_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(torchrun)
+    distributed_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(
+        cmds["accelerate"]
+    )
+    distributed_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(cmds["torchrun"])
     app.add_typer(
         distributed_app,
         name="distributed",
@@ -293,26 +360,32 @@ def get_app() -> typer.Typer:
     app.command(
         help="Show status of launched jobs and clusters.",
         rich_help_panel="Compute",
-    )(status)
+    )(cmds["launch_status"])
 
     # Tools
     app.command(
         help="Show Oumi environment and system information.",
         rich_help_panel="Tools",
-    )(env)
+    )(cmds["env"])
     app.command(
         help="Download example configs from the Oumi repository.",
         rich_help_panel="Tools",
-    )(fetch)
+    )(cmds["fetch"])
     cache_app = typer.Typer(
         pretty_exceptions_enable=False, context_settings=_HELP_OPTION_NAMES
     )
-    cache_app.command(name="ls", help="List cached models and datasets.")(cache_ls)
+    cache_app.command(name="ls", help="List cached models and datasets.")(
+        cmds["cache_ls"]
+    )
     cache_app.command(
         name="get", help="Download a model or dataset from Hugging Face."
-    )(cache_get)
-    cache_app.command(name="card", help="Show details for a cached item.")(cache_card)
-    cache_app.command(name="rm", help="Remove items from the local cache.")(cache_rm)
+    )(cmds["cache_get"])
+    cache_app.command(name="card", help="Show details for a cached item.")(
+        cmds["cache_card"]
+    )
+    cache_app.command(name="rm", help="Remove items from the local cache.")(
+        cmds["cache_rm"]
+    )
     app.add_typer(
         cache_app,
         name="cache",
@@ -351,9 +424,22 @@ def _get_cli_event() -> tuple[str, dict[str, Any]]:
     return event_name, properties
 
 
+def _is_completion_mode() -> bool:
+    """Check if running in shell completion mode."""
+    return any(
+        os.environ.get(key)
+        for key in ("_OUMI_COMPLETE", "COMP_WORDS", "COMP_LINE", "_TYPER_COMPLETE")
+    )
+
+
 def run():
     """The entrypoint for the CLI."""
     app = get_app()
+
+    # Skip telemetry for shell completions and help requests
+    # Telemetry imports torch which adds ~0.6s overhead
+    if _is_completion_mode():
+        return app()
 
     try:
         event_name, event_properties = _get_cli_event()

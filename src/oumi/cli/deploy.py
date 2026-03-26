@@ -14,34 +14,41 @@
 
 """CLI commands for deploying models to inference providers."""
 
+from __future__ import annotations
+
 import asyncio
 import os
 import time
 from collections.abc import Callable, Coroutine
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Annotated, Any
+from typing import TYPE_CHECKING, Annotated, Any
 
-import httpx
-import requests
 import typer
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
 from oumi.cli.cli_utils import LOG_LEVEL_TYPE, section_header
-from oumi.deploy import (
-    AutoscalingConfig,
-    DeploymentProvider,
-    Endpoint,
-    EndpointState,
-    FireworksDeploymentClient,
-    HardwareConfig,
-    Model,
-    ModelType,
-    UploadedModel,
-)
-from oumi.deploy.base_client import BaseDeploymentClient
+
+# Lazy imports for heavy dependencies
+# These are imported inside functions to speed up CLI startup time
+if TYPE_CHECKING:
+    import httpx
+    import requests
+
+    from oumi.deploy import (
+        AutoscalingConfig,
+        DeploymentProvider,
+        Endpoint,
+        EndpointState,
+        FireworksDeploymentClient,
+        HardwareConfig,
+        Model,
+        ModelType,
+        UploadedModel,
+    )
+    from oumi.deploy.base_client import BaseDeploymentClient
 
 CONSOLE = Console()
 _DEFAULT_POLL_TIMEOUT_S = 1800  # 30 minutes
@@ -52,15 +59,18 @@ def _kv(label: str, value: Any) -> None:
     CONSOLE.print(f"[cyan]{label}:[/cyan] {value}")
 
 
-# ----- Shared colour maps for Rich output -----
+def _get_endpoint_state_colors() -> dict:
+    """Returns endpoint state color mapping (lazy import)."""
+    from oumi.deploy import EndpointState
 
-_ENDPOINT_STATE_COLORS: dict[EndpointState, str] = {
-    EndpointState.RUNNING: "green",
-    EndpointState.PENDING: "yellow",
-    EndpointState.STARTING: "yellow",
-    EndpointState.ERROR: "red",
-    EndpointState.STOPPED: "dim",
-}
+    return {
+        EndpointState.RUNNING: "green",
+        EndpointState.PENDING: "yellow",
+        EndpointState.STARTING: "yellow",
+        EndpointState.ERROR: "red",
+        EndpointState.STOPPED: "dim",
+    }
+
 
 _MODEL_STATUS_COLORS: dict[str, str] = {
     "ready": "green",
@@ -83,16 +93,15 @@ _MODEL_STATUS_COLORS: dict[str, str] = {
 
 def _run_async(
     provider: str | None,
-    fn: (
-        Callable[[BaseDeploymentClient], Coroutine[Any, Any, None]]
-        | Callable[[], Coroutine[Any, Any, None]]
-    ),
+    fn: Callable[..., Coroutine[Any, Any, None]],
 ) -> None:
     """Creates a deployment client (when *provider* is given), runs *fn*, then closes.
 
     When *provider* is ``None`` the callable is invoked with no arguments
     (used by commands that manage their own client lifecycle, e.g. ``list_models``).
     """
+    import httpx
+    import requests
 
     async def _inner() -> None:
         if provider is not None:
@@ -114,9 +123,7 @@ def _run_async(
         raise typer.Exit(1) from None
 
 
-def _get_deployment_client(
-    provider: str,
-) -> BaseDeploymentClient:
+def _get_deployment_client(provider: str):
     """Gets a deployment client for the specified provider.
 
     Args:
@@ -128,6 +135,8 @@ def _get_deployment_client(
     Raises:
         ValueError: If provider is not supported
     """
+    from oumi.deploy import DeploymentProvider, FireworksDeploymentClient
+
     provider = provider.lower()
     if provider == DeploymentProvider.FIREWORKS.value:
         return FireworksDeploymentClient()
@@ -270,8 +279,9 @@ def _print_endpoint_table(endpoints: list[Endpoint]) -> None:
     table.add_column("Hardware", style="white")
     table.add_column("URL", style="dim", overflow="fold")
 
+    endpoint_state_colors = _get_endpoint_state_colors()
     for endpoint in endpoints:
-        state_color = _ENDPOINT_STATE_COLORS.get(endpoint.state, "white")
+        state_color = endpoint_state_colors.get(endpoint.state, "white")
 
         hw_str = f"{endpoint.hardware.count}x {endpoint.hardware.accelerator}"
         url_str = endpoint.endpoint_url or "-"

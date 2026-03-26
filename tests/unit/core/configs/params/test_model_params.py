@@ -24,7 +24,7 @@ def test_post_init_adapter_model_not_present(tmp_path: Path):
     assert params.adapter_model is None
 
 
-@patch("oumi.core.configs.params.model_params.find_adapter_config_file")
+@patch("transformers.utils.find_adapter_config_file")
 def test_post_init_adapter_model_not_present_exception(
     mock_find_adapter_config_file, tmp_path: Path
 ):

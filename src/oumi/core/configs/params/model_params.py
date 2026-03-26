@@ -19,7 +19,6 @@ from typing import Any
 
 from huggingface_hub.errors import HFValidationError
 from omegaconf import MISSING
-from transformers.utils import find_adapter_config_file, is_flash_attn_2_available
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.types.exceptions import HardwareException
@@ -249,6 +248,9 @@ class ModelParams(BaseParams):
 
     def __finalize_and_validate__(self):
         """Finalizes and validates final config params."""
+        # Lazy imports: transformers.utils is heavy (~800ms)
+        from transformers.utils import find_adapter_config_file, is_flash_attn_2_available
+
         # If the user didn't specify a LoRA adapter, check to see if the dir/repo
         # specified by `model_name` contains an adapter, and set `adapter_name` if so.
         if self.adapter_model is None:

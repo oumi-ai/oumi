@@ -20,10 +20,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
-    from oumi.core.configs.training_config import TrainingConfig
+    import transformers
+    import trl
 
-import transformers
-import trl
+    from oumi.core.configs.training_config import TrainingConfig
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.gkd_params import GkdParams
@@ -803,6 +803,10 @@ class TrainingParams(BaseParams):
         Args:
             training_config: Optional TrainingConfig to access DeepSpeed parameters.
         """
+        # Lazy imports: transformers and trl are heavy (~2s combined)
+        import transformers
+        import trl
+
         save_strategy: str = "no"
         if self.save_epoch:
             save_strategy = "epoch"
