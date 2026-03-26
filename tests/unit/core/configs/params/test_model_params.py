@@ -3,17 +3,22 @@ from pathlib import Path
 from unittest.mock import call, patch
 
 import pytest
+from huggingface_hub.errors import HFValidationError
 
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.exceptions import OumiConfigError, OumiConfigFileNotFoundError
 
 
-def test_post_init_adapter_model_present():
-    params = ModelParams(model_name="base_model", adapter_model="adapter_model")
+def test_post_init_adapter_model_present(tmp_path: Path):
+    adapter_dir = tmp_path / "my_adapter"
+    adapter_dir.mkdir()
+    (adapter_dir / "adapter_config.json").write_text('{"r": 16}')
+
+    params = ModelParams(model_name="base_model", adapter_model=str(adapter_dir))
     params.finalize_and_validate()
 
     assert params.model_name == "base_model"
-    assert params.adapter_model == "adapter_model"
+    assert params.adapter_model == str(adapter_dir)
 
 
 def test_post_init_adapter_model_not_present(tmp_path: Path):
@@ -89,6 +94,45 @@ def test_post_init_config_file_empty(mock_logger, tmp_path: Path):
         ValueError,
         match="`model_name` specifies an adapter model only,"
         " but the base model could not be found!",
+    ):
+        params.finalize_and_validate()
+
+
+def test_explicit_adapter_model_nonexistent_path():
+    """Explicitly-set adapter_model that doesn't exist raises error."""
+    params = ModelParams(
+        model_name="base_model", adapter_model="/nonexistent/adapter_path"
+    )
+    with pytest.raises(
+        ConfigFileNotFoundError,
+        match="adapter_config.json not found for adapter_model",
+    ):
+        params.finalize_and_validate()
+
+
+def test_explicit_adapter_model_missing_adapter_config(tmp_path: Path):
+    """Adapter dir exists but has no adapter_config.json."""
+    adapter_dir = tmp_path / "incomplete_adapter"
+    adapter_dir.mkdir()
+
+    params = ModelParams(model_name="base_model", adapter_model=str(adapter_dir))
+    with pytest.raises(
+        ConfigFileNotFoundError,
+        match="adapter_config.json not found for adapter_model",
+    ):
+        params.finalize_and_validate()
+
+
+@patch("oumi.core.configs.params.model_params.find_adapter_config_file")
+def test_explicit_adapter_model_hf_validation_error(mock_find):
+    """HFValidationError during adapter_model validation raises error."""
+    mock_find.side_effect = HFValidationError("Invalid repo id")
+    params = ModelParams(
+        model_name="base_model", adapter_model="not///a///valid///repo"
+    )
+    with pytest.raises(
+        ConfigFileNotFoundError,
+        match="adapter_config.json not found for adapter_model",
     ):
         params.finalize_and_validate()
 

@@ -312,6 +312,18 @@ class ModelParams(BaseParams):
                     logger.info(
                         f"Setting `model_name` to {model_name} found in adapter config."
                     )
+        else:
+            # Validate the explicitly-provided adapter_model path.
+            try:
+                adapter_config_file = find_adapter_config_file(self.adapter_model)
+            except (OSError, HFValidationError):
+                adapter_config_file = None
+            if not adapter_config_file or not Path(adapter_config_file).is_file():
+                raise ConfigFileNotFoundError(
+                    f"adapter_config.json not found for adapter_model: "
+                    f"'{self.adapter_model}'. Ensure this path points to a valid "
+                    f"LoRA adapter directory containing adapter_config.json."
+                )
 
         # Check if flash-attention-2 is requested and supported
         if (self.attn_implementation == "flash_attention_2") and (
