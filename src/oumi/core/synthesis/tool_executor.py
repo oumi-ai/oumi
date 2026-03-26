@@ -42,6 +42,17 @@ def _parse_tool_json(raw: str) -> dict[str, Any] | None:
     result = extract_json(raw, expected_type=dict)
     if isinstance(result, dict):
         return result
+    # Try adding missing closing braces (LLMs often drop the outer `}`).
+    missing = raw.count("{") - raw.count("}")
+    if missing > 0:
+        patched = raw.rstrip() + "}" * missing
+        try:
+            parsed = json.loads(patched)
+            if isinstance(parsed, dict):
+                return parsed
+        except json.JSONDecodeError:
+            pass
+    # Try removing extra closing braces.
     stripped = raw.rstrip()
     for _ in range(3):
         if stripped.endswith("}"):
@@ -94,11 +105,18 @@ class ToolExecutor:
         return self._tools_by_name.get(name)
 
     def parse_and_validate_tool_call(self, response: str) -> ToolCallResult:
-        """Parse <tool_call> tags from response and validate arguments."""
+        """Parse <tool_call> tags from response and validate arguments.
+
+        Falls back to bare JSON parsing if no <tool_call> tags are found.
+        """
         match = _TOOL_CALL_PATTERN.search(response)
         if not match:
             match = _TOOL_CALL_OPEN_PATTERN.search(response)
         if not match:
+            # Fallback: try to find bare JSON that looks like a tool call
+            parsed = self._parse_bare_tool_json(response)
+            if parsed is not None:
+                return self._validate_parsed_tool_call(parsed)
             return None
 
         raw = match.group(1).strip()
@@ -117,6 +135,10 @@ class ToolExecutor:
                 tool_name=None,
             )
 
+        return self._validate_parsed_tool_call(parsed)
+
+    def _validate_parsed_tool_call(self, parsed: dict[str, Any]) -> ToolCallResult:
+        """Validate a parsed tool call dict and return appropriate result."""
         name = parsed.get("name")
         arguments = parsed.get("arguments", {})
 
@@ -136,7 +158,8 @@ class ToolExecutor:
                 error_json=json.dumps(
                     {
                         "error": "malformed_json",
-                        "message": f"Tool call 'arguments' must be a dict, got {type(arguments).__name__}.",
+                        "message": "Tool call 'arguments' must be a dict, got "
+                        f"{type(arguments).__name__}.",
                         "tool": name,
                     }
                 ),
@@ -172,6 +195,32 @@ class ToolExecutor:
                 )
 
         return ToolCallParsed(tool_call={"name": name, "arguments": arguments})
+
+    @staticmethod
+    def _parse_bare_tool_json(text: str) -> dict[str, Any] | None:
+        """Find a bare JSON object with 'name' and 'arguments' fields in text.
+
+        Scans text for JSON objects that look like tool calls. Returns the
+        first match, or None if no tool-call-shaped JSON is found.
+        """
+        i = 0
+        while i < len(text):
+            if text[i] != "{":
+                i += 1
+                continue
+            try:
+                parsed, end_idx = json.JSONDecoder().raw_decode(text, i)
+            except (json.JSONDecodeError, ValueError):
+                i += 1
+                continue
+            if (
+                isinstance(parsed, dict)
+                and "name" in parsed
+                and "arguments" in parsed
+            ):
+                return parsed
+            i += 1
+        return None
 
     @staticmethod
     def strip_tool_tags(text: str) -> str:
@@ -358,9 +407,7 @@ class ToolExecutor:
             lines.append(f"- {tool.name}: {tool.description}")
             if tool.parameters:
                 schema_str = json.dumps(tool.parameters, indent=2)
-                indented = "\n".join(
-                    f"  {line}" for line in schema_str.split("\n")
-                )
+                indented = "\n".join(f"  {line}" for line in schema_str.split("\n"))
                 lines.append(f"  Parameters:\n{indented}")
         return "\n".join(lines)
 

@@ -583,3 +583,42 @@ class TestParseAndValidateToolCall:
                 parsed = json.loads(result.error_json)
                 assert "error" in parsed
                 assert "message" in parsed
+
+    def test_bare_json_tool_call_parsed(self, executor):
+        """Bare JSON without <tool_call> tags should be parsed as fallback."""
+        response = (
+            'Let me look that up.\n\n'
+            '{"name": "SearchOrders", "arguments": {"order_id": "ORD-001"}}'
+        )
+        result = executor.parse_and_validate_tool_call(response)
+        assert isinstance(result, ToolCallParsed)
+        assert result.tool_call["name"] == "SearchOrders"
+        assert result.tool_call["arguments"]["order_id"] == "ORD-001"
+
+    def test_bare_json_unknown_tool_returns_error(self, executor):
+        """Bare JSON referencing unknown tool should return ToolCallError."""
+        response = '{"name": "UnknownTool", "arguments": {}}'
+        result = executor.parse_and_validate_tool_call(response)
+        assert isinstance(result, ToolCallError)
+
+    def test_bare_json_invalid_args_returns_error(self, executor):
+        """Bare JSON with schema-invalid arguments should return ToolCallError."""
+        response = '{"name": "SearchOrders", "arguments": {"order_id": 123}}'
+        result = executor.parse_and_validate_tool_call(response)
+        assert isinstance(result, ToolCallError)
+
+    def test_tagged_tool_call_preferred_over_bare(self, executor):
+        """If both <tool_call> tag and bare JSON exist, tag takes precedence."""
+        response = (
+            '<tool_call>{"name": "SearchOrders", "arguments": {"order_id": "A"}}</tool_call>\n'
+            '{"name": "SearchOrders", "arguments": {"order_id": "B"}}'
+        )
+        result = executor.parse_and_validate_tool_call(response)
+        assert isinstance(result, ToolCallParsed)
+        assert result.tool_call["arguments"]["order_id"] == "A"
+
+    def test_bare_json_not_tool_shaped_returns_none(self, executor):
+        """JSON without name/arguments fields should not be treated as tool call."""
+        response = 'Here is the data: {"users": [1, 2, 3]}'
+        result = executor.parse_and_validate_tool_call(response)
+        assert result is None
