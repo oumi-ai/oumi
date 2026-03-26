@@ -434,7 +434,7 @@ class VerlGrpoTrainer(BaseTrainer):
 
         tokenizer = self._processing_class
 
-        # verl >=0.7 requires AsyncActorRolloutRefWorker for the checkpoint 
+        # verl >=0.7 requires AsyncActorRolloutRefWorker for the checkpoint
         # engine's weight sync.
         _verl_v07 = is_verl_v0_7_or_later()
         _actor_worker_cls = (
