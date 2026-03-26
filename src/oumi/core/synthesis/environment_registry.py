@@ -23,7 +23,11 @@ _ID_SUFFIX_PATTERN = re.compile(r"^(.+)_id$")
 
 
 def _pluralize(word: str) -> str:
-    """Naive English pluralization for entity names."""
+    """Naive English pluralization for entity names.
+
+    Handles common suffixes. Not meant to be exhaustive — just good enough
+    for collection names like tenant→tenants, category→categories.
+    """
     if word.endswith("s"):
         if word.endswith("ss") or word.endswith("us"):
             return word + "es"
@@ -53,7 +57,20 @@ def _detect_primary_entity(tool: ToolAttribute) -> str | None:
 
 
 def derive_schema_from_tools(tools: list[ToolAttribute]) -> dict[str, Any]:
-    """Derive a JSON Schema for environment state from tool definitions."""
+    """Derive a JSON Schema for environment state from tool definitions.
+
+    Scans each tool's parameters and output_schema to infer entity collections.
+    A field named ``<entity>_id`` is treated as the primary key and used to
+    name the collection (pluralized). Other fields are merged into the record
+    schema for that collection.
+
+    Args:
+        tools: List of tool definitions to inspect.
+
+    Returns:
+        A JSON Schema ``object`` whose ``properties`` map collection names to
+        per-record schemas (each an ``object`` with ``additionalProperties``).
+    """
     collections: dict[str, dict[str, dict[str, Any]]] = {}
 
     for tool in tools:
@@ -79,9 +96,12 @@ def derive_schema_from_tools(tools: list[ToolAttribute]) -> dict[str, Any]:
             for field_name, field_schema in param_props.items():
                 if field_name == f"{entity_name}_id":
                     continue
+                # If this field references another entity, keep it
+                # (it's a foreign key like lease.tenant_id)
                 existing = collections[collection_name].get(field_name, {})
                 merged = dict(existing)
                 if "enum" in field_schema:
+                    # Prefer enum from parameters (more specific)
                     merged["enum"] = field_schema["enum"]
                 if "type" in field_schema and "type" not in merged:
                     merged["type"] = field_schema["type"]
