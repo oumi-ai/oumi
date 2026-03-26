@@ -14,7 +14,9 @@ from oumi.launcher.clusters.sky_cluster import SkyCluster
 #
 @pytest.fixture
 def mock_sky_client():
-    yield Mock(spec=SkyClient)
+    client = Mock(spec=SkyClient)
+    client.get_cluster_hourly_price.return_value = None
+    yield client
 
 
 def _get_default_job(cloud: str) -> JobConfig:
@@ -261,6 +263,23 @@ def test_sky_cluster_stop(mock_sky_client):
     cluster = SkyCluster("mycluster", mock_sky_client)
     cluster.stop()
     mock_sky_client.stop.assert_called_once_with("mycluster")
+
+
+def test_convert_sky_job_populates_cost_per_hour(mock_sky_client):
+    """Test that cost_per_hour is populated from cluster status handle."""
+    cluster = SkyCluster("test-cluster", mock_sky_client)
+    mock_sky_client.get_cluster_hourly_price.return_value = 3.14
+    sky_job = {
+        "job_id": 1,
+        "job_name": "test-job",
+        "status": "JobStatus.RUNNING",
+    }
+    mock_sky_client.queue.return_value = [sky_job]
+    jobs = cluster.get_jobs()
+
+    assert len(jobs) == 1
+    assert jobs[0].cost_per_hour == 3.14
+    mock_sky_client.get_cluster_hourly_price.assert_called_once_with("test-cluster")
 
 
 def test_convert_sky_job_populates_start_at_and_end_at(mock_sky_client):

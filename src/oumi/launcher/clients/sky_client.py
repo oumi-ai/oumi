@@ -248,6 +248,24 @@ class SkyClient:
             cost_per_hour=cost_per_hour,
         )
 
+    def get_cluster_hourly_price(self, cluster_name: str) -> float | None:
+        """Gets the hourly price for a cluster from its resource handle.
+
+        Args:
+            cluster_name: The name of the cluster.
+
+        Returns:
+            The hourly price in USD, or None if unavailable.
+        """
+        try:
+            statuses = self._sky_lib.stream_and_get(self._sky_lib.status())
+            for cluster in statuses:
+                if cluster["name"] == cluster_name:
+                    return cluster["handle"].get_hourly_price()  # pyright: ignore[reportAttributeAccessIssue]
+        except Exception:
+            pass
+        return None
+
     def status(self):  # type hinting will force sky to be imported and not lazy loaded
         """Gets a list of cluster statuses.
 
