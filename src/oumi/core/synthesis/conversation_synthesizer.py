@@ -280,23 +280,25 @@ class ConversationSynthesizer:
                         f"env '{env_id}' (sample {i}). Using empty state."
                     )
 
-        # Mark samples with empty state as having no environment —
-        # this prevents the pipeline from generating conversations with
-        # hallucinated tool results against a nonexistent state.
+        # Kill samples where ALL environments have completely empty state
+        # (i.e., state generation failed entirely and fell back to {}).
+        # Samples with schema-invalid but parseable state are kept — they
+        # have enough data for the environment LLM to work with.
         result: list[dict[str, GeneratedToolEnvironment] | None] = []
         for envs in sample_envs:
             if not envs:
                 result.append(None)
                 continue
-            has_data = any(env.state for env in envs.values())
-            if has_data:
-                result.append(envs)
-            else:
+            all_empty = all(not env.state for env in envs.values())
+            if all_empty:
                 logger.warning(
-                    "Dropping sample: all environments have empty state. "
-                    "This sample will produce no tool calls."
+                    "Dropping sample: all environments have empty state "
+                    "after exhausting retries. This sample cannot produce "
+                    "tool calls."
                 )
                 result.append(None)
+            else:
+                result.append(envs)
         return result
 
     def _summarize_envs(self, envs: dict[str, GeneratedToolEnvironment]) -> str:

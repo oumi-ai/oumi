@@ -1420,10 +1420,194 @@ def test_init_env_schema_retries_up_to_max(
     assert mock_engine.infer.call_count == expected_calls
 
     # Verify schema was actually applied from the LLM response, not the fallback
+    assert result[0] is not None
     env = result[0]["db"]
+    assert env._state_schema is not None
     assert "properties" in env._state_schema, (
         "Schema should come from LLM response, not permissive fallback"
     )
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_init_env_kills_sample_on_total_state_failure(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """If state generation produces no parseable JSON after all retries, sample is None."""
+    from oumi.core.configs.params.tool_params import (
+        ToolAttribute,
+        ToolEnvironmentAttribute,
+        ToolOutputStrategy,
+    )
+
+    mock_engine = Mock()
+    mock_build_inference_engine.return_value = mock_engine
+
+    call_count = 0
+
+    def infer_side_effect(conversations, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        results = []
+        for _ in conversations:
+            if call_count == 1:
+                # Valid schema
+                results.append(
+                    Conversation(
+                        messages=[
+                            Message(
+                                role=Role.ASSISTANT,
+                                content='{"type": "object", "properties": {"items": {"type": "object"}}}',
+                            )
+                        ]
+                    )
+                )
+            else:
+                # All state attempts fail with non-JSON
+                results.append(
+                    Conversation(
+                        messages=[
+                            Message(
+                                role=Role.ASSISTANT,
+                                content="I cannot generate state data",
+                            )
+                        ]
+                    )
+                )
+        return results
+
+    mock_engine.infer.side_effect = infer_side_effect
+
+    env_config = ToolEnvironmentAttribute(
+        id="db",
+        name="Database",
+        description="A database",
+        system_prompt="You manage a database.",
+    )
+    tool = ToolAttribute(
+        id="query",
+        name="Query",
+        description="Run query",
+        output_strategy=ToolOutputStrategy.ENVIRONMENT,
+        environment="db",
+        read_only=True,
+    )
+    params = GeneralSynthesisParams(tools=[tool], environments=[env_config])
+    multiturn = MultiTurnAttribute(
+        id="conv",
+        min_turns=2,
+        max_turns=2,
+        available_tools=["query"],
+        role_instruction_messages={
+            Role.USER: "You are an analyst.",
+            Role.ASSISTANT: "You are a db assistant.",
+        },
+    )
+    synthesizer = ConversationSynthesizer(params, mock_inference_config)
+
+    from types import SimpleNamespace
+
+    result = synthesizer._init_sample_environments(
+        [{"domain": SimpleNamespace(name="Test")}], multiturn
+    )
+
+    # Sample should be killed (None) because state was completely unparseable
+    assert result[0] is None
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_init_env_keeps_sample_with_schema_invalid_state(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """If state is parseable JSON but fails schema validation, sample should survive."""
+    from oumi.core.configs.params.tool_params import (
+        ToolAttribute,
+        ToolEnvironmentAttribute,
+        ToolOutputStrategy,
+    )
+
+    mock_engine = Mock()
+    mock_build_inference_engine.return_value = mock_engine
+
+    call_count = 0
+
+    def infer_side_effect(conversations, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        results = []
+        for _ in conversations:
+            if call_count == 1:
+                # Strict schema requiring specific keys
+                results.append(
+                    Conversation(
+                        messages=[
+                            Message(
+                                role=Role.ASSISTANT,
+                                content=json.dumps({
+                                    "type": "object",
+                                    "properties": {
+                                        "users": {"type": "object"}
+                                    },
+                                    "required": ["users"],
+                                }),
+                            )
+                        ]
+                    )
+                )
+            else:
+                # State with wrong keys (fails schema) but IS valid JSON
+                results.append(
+                    Conversation(
+                        messages=[
+                            Message(
+                                role=Role.ASSISTANT,
+                                content='{"wrong_key": {"1": {"name": "Alice"}}}',
+                            )
+                        ]
+                    )
+                )
+        return results
+
+    mock_engine.infer.side_effect = infer_side_effect
+
+    env_config = ToolEnvironmentAttribute(
+        id="db",
+        name="Database",
+        description="A database",
+        system_prompt="You manage a database.",
+    )
+    tool = ToolAttribute(
+        id="query",
+        name="Query",
+        description="Run query",
+        output_strategy=ToolOutputStrategy.ENVIRONMENT,
+        environment="db",
+        read_only=True,
+    )
+    params = GeneralSynthesisParams(tools=[tool], environments=[env_config])
+    multiturn = MultiTurnAttribute(
+        id="conv",
+        min_turns=2,
+        max_turns=2,
+        available_tools=["query"],
+        role_instruction_messages={
+            Role.USER: "You are an analyst.",
+            Role.ASSISTANT: "You are a db assistant.",
+        },
+    )
+    synthesizer = ConversationSynthesizer(params, mock_inference_config)
+
+    from types import SimpleNamespace
+
+    result = synthesizer._init_sample_environments(
+        [{"domain": SimpleNamespace(name="Test")}], multiturn
+    )
+
+    # Sample should survive — schema-invalid but parseable state is used via fallback
+    assert result[0] is not None
+    env = result[0]["db"]
+    assert env.state != {}  # Should have the parsed-but-invalid state
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
