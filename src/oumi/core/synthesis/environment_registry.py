@@ -14,6 +14,7 @@
 
 """Environment registry: build once, copy N times."""
 
+import copy
 import json
 import re
 from typing import Any
@@ -21,8 +22,10 @@ from typing import Any
 import jsonschema
 
 from oumi.core.configs.params.tool_params import ToolAttribute, ToolEnvironmentAttribute
+from oumi.core.synthesis.environment import GeneratedToolEnvironment
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.logging import logger
+from oumi.utils.str_utils import extract_json
 
 _ID_SUFFIX_PATTERN = re.compile(r"^(.+)_id$")
 
@@ -375,3 +378,221 @@ def validate_collection(
                 )
 
     return True, None
+
+
+_MAX_COLLECTION_RETRIES = 2
+
+
+class EnvironmentRegistry:
+    """Builds environments once through a layered pipeline, then copies N times.
+
+    Phases:
+    1. Schema resolution: config-provided or derived from tools.
+    2. Dependency analysis: topological sort into generation waves.
+    3. Per-collection population: small LLM calls per collection, wave-ordered.
+    4. Assembly + validation: combine and validate full state.
+    """
+
+    def __init__(self):
+        """Initialize an empty registry."""
+        self._built: dict[str, GeneratedToolEnvironment] = {}
+
+    def register_static(self, config: ToolEnvironmentAttribute) -> None:
+        """Register an environment with config-provided schema and state.
+
+        No LLM calls needed — the config has everything.
+        """
+        env = GeneratedToolEnvironment(config=config)
+        self._built[config.id] = env
+
+    def build(
+        self,
+        config: ToolEnvironmentAttribute,
+        tools: list[ToolAttribute],
+        inference_engine: Any,
+        inference_config: Any,
+        scenario_context: str | None = None,
+    ) -> None:
+        """Build a fully populated environment through the layered pipeline.
+
+        Args:
+            config: Environment configuration.
+            tools: Tools bound to this environment.
+            inference_engine: Engine for LLM inference calls.
+            inference_config: Config for inference calls.
+            scenario_context: Optional scenario for realistic data generation.
+        """
+        # Phase 1: Schema resolution
+        schema = self._resolve_schema(config, tools)
+
+        # Phase 2: Dependency analysis
+        graph = build_dependency_graph(schema)
+        waves = sort_into_waves(graph)
+
+        # Phase 3: Per-collection population
+        state: dict[str, Any] = {}
+        properties = schema.get("properties", {})
+
+        for wave in waves:
+            prompts = []
+            wave_collections = []
+
+            for collection_name in wave:
+                collection_schema = properties.get(collection_name, {})
+                sub_schema = collection_schema.get("additionalProperties", {})
+                prompt = build_collection_prompt(
+                    config=config,
+                    collection_name=collection_name,
+                    sub_schema=sub_schema,
+                    existing_state=state,
+                    scenario_context=scenario_context,
+                )
+                prompts.append(prompt)
+                wave_collections.append((collection_name, sub_schema))
+
+            if not prompts:
+                continue
+
+            responses = inference_engine.infer(
+                prompts, inference_config=inference_config
+            )
+
+            # Process responses and retry failures
+            for (collection_name, sub_schema), response in zip(
+                wave_collections, responses
+            ):
+                success = self._process_collection_response(
+                    collection_name=collection_name,
+                    sub_schema=sub_schema,
+                    response=response,
+                    state=state,
+                    config=config,
+                    existing_state=state,
+                    scenario_context=scenario_context,
+                    inference_engine=inference_engine,
+                    inference_config=inference_config,
+                )
+                if not success:
+                    logger.warning(
+                        f"Collection '{collection_name}' failed after "
+                        f"{_MAX_COLLECTION_RETRIES} retries. Skipping."
+                    )
+
+        # Phase 4: Assembly — state is already assembled, store it
+        env = GeneratedToolEnvironment(config=config)
+        env.set_schema(schema)
+        env.set_state(state, validate=False)
+        self._built[config.id] = env
+
+    def create_copies(
+        self, env_id: str, n: int
+    ) -> list[GeneratedToolEnvironment]:
+        """Return n independent deepcopies of the built environment.
+
+        Args:
+            env_id: The environment config ID.
+            n: Number of copies to produce.
+
+        Returns:
+            List of independent GeneratedToolEnvironment instances.
+
+        Raises:
+            KeyError: If env_id has not been built or registered.
+        """
+        if env_id not in self._built:
+            raise KeyError(
+                f"Environment '{env_id}' not found. "
+                f"Call build() or register_static() first."
+            )
+        source = self._built[env_id]
+        return [copy.deepcopy(source) for _ in range(n)]
+
+    def _resolve_schema(
+        self,
+        config: ToolEnvironmentAttribute,
+        tools: list[ToolAttribute],
+    ) -> dict[str, Any]:
+        """Resolve the state schema: config-provided or tool-derived."""
+        if config.state_schema:
+            return copy.deepcopy(config.state_schema)
+
+        schema = derive_schema_from_tools(tools)
+        if not schema.get("properties"):
+            logger.warning(
+                f"Schema derivation for '{config.id}' produced "
+                f"no collections. Using permissive schema."
+            )
+            return {"type": "object"}
+        return schema
+
+    def _process_collection_response(
+        self,
+        collection_name: str,
+        sub_schema: dict[str, Any],
+        response: Any,
+        state: dict[str, Any],
+        config: ToolEnvironmentAttribute,
+        existing_state: dict[str, Any],
+        scenario_context: str | None,
+        inference_engine: Any,
+        inference_config: Any,
+    ) -> bool:
+        """Process a collection generation response with retry on failure.
+
+        Returns True if the collection was successfully populated.
+        """
+        text = _extract_response_text(response)
+        parsed = extract_json(text, expected_type=dict)
+
+        if isinstance(parsed, dict):
+            ok, error = validate_collection(
+                collection_name, parsed, sub_schema, existing_state
+            )
+            if ok:
+                state[collection_name] = parsed
+                return True
+            retry_error = error
+        else:
+            retry_error = f"Could not parse JSON from response: {text[:200]}"
+
+        # Retry loop
+        for _ in range(_MAX_COLLECTION_RETRIES):
+            retry_prompt = build_collection_prompt(
+                config=config,
+                collection_name=collection_name,
+                sub_schema=sub_schema,
+                existing_state=existing_state,
+                scenario_context=scenario_context,
+                retry_error=retry_error,
+            )
+            retry_responses = inference_engine.infer(
+                [retry_prompt], inference_config=inference_config
+            )
+            text = _extract_response_text(retry_responses[0])
+            parsed = extract_json(text, expected_type=dict)
+
+            if isinstance(parsed, dict):
+                ok, error = validate_collection(
+                    collection_name,
+                    parsed,
+                    sub_schema,
+                    existing_state,
+                )
+                if ok:
+                    state[collection_name] = parsed
+                    return True
+                retry_error = error
+            else:
+                retry_error = (
+                    "Could not parse JSON from response: " f"{text[:200]}"
+                )
+
+        return False
+
+
+def _extract_response_text(response: Conversation) -> str:
+    """Extract text from the last message of an inference response."""
+    if not response.messages:
+        return ""
+    content = response.messages[-1].content
+    return content if isinstance(content, str) else ""

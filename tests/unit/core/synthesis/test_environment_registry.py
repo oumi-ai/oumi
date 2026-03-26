@@ -14,14 +14,18 @@
 
 """Tests for EnvironmentRegistry."""
 
+import json
 from typing import Any
+from unittest.mock import MagicMock
 
 from oumi.core.configs.params.tool_params import (
     ToolAttribute,
     ToolEnvironmentAttribute,
     ToolOutputStrategy,
 )
+from oumi.core.synthesis.environment import GeneratedToolEnvironment
 from oumi.core.synthesis.environment_registry import (
+    EnvironmentRegistry,
     _pluralize,
     build_collection_prompt,
     build_dependency_graph,
@@ -29,7 +33,7 @@ from oumi.core.synthesis.environment_registry import (
     sort_into_waves,
     validate_collection,
 )
-from oumi.core.types.conversation import Role
+from oumi.core.types.conversation import Conversation, Message, Role
 
 
 class TestPluralize:
@@ -570,3 +574,221 @@ class TestValidateCollection:
             "tenants", {}, sub_schema, {}
         )
         assert ok is True
+
+
+class TestEnvironmentRegistryStatic:
+    def test_register_static_and_create_copies(self):
+        """Static registration stores env and copies are independent."""
+        config = _make_env_config(
+            state_schema={
+                "type": "object",
+                "properties": {
+                    "tenants": {"type": "object"},
+                },
+            },
+            initial_state={
+                "tenants": {"1": {"name": "Alice"}},
+            },
+        )
+        registry = EnvironmentRegistry()
+        registry.register_static(config)
+
+        copies = registry.create_copies("db", 3)
+
+        assert len(copies) == 3
+        for env in copies:
+            assert isinstance(env, GeneratedToolEnvironment)
+            assert env.state == {
+                "tenants": {"1": {"name": "Alice"}},
+            }
+
+        # Copies are independent
+        copies[0].state["tenants"]["1"]["name"] = "Mutated"
+        assert copies[1].state["tenants"]["1"]["name"] == "Alice"
+
+    def test_create_copies_unknown_env_raises(self):
+        """Requesting copies of an unregistered env raises KeyError."""
+        registry = EnvironmentRegistry()
+        try:
+            registry.create_copies("nonexistent", 1)
+            assert False, "Should have raised KeyError"
+        except KeyError:
+            pass
+
+
+class TestEnvironmentRegistryBuild:
+    def _make_mock_engine(self, responses: list[str]):
+        """Create a mock inference engine returning canned responses."""
+        engine = MagicMock()
+        call_count = 0
+
+        def mock_infer(input, inference_config=None):
+            nonlocal call_count
+            results = []
+            for _ in input:
+                text = responses[call_count % len(responses)]
+                call_count += 1
+                results.append(
+                    Conversation(
+                        messages=[
+                            Message(
+                                role=Role.ASSISTANT,
+                                content=text,
+                            )
+                        ]
+                    )
+                )
+            return results
+
+        engine.infer = mock_infer
+        return engine
+
+    def test_build_with_config_provided_schema(self):
+        """When config has state_schema, no schema derivation happens."""
+        config = _make_env_config(
+            state_schema={
+                "type": "object",
+                "properties": {
+                    "tenants": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string"},
+                            },
+                        },
+                    },
+                },
+            },
+        )
+        tenant_data = json.dumps(
+            {"T-001": {"name": "Alice"}, "T-002": {"name": "Bob"}}
+        )
+        engine = self._make_mock_engine([tenant_data])
+        inference_config = MagicMock()
+
+        registry = EnvironmentRegistry()
+        tools = [_make_tool()]
+        registry.build(config, tools, engine, inference_config)
+
+        copies = registry.create_copies("db", 2)
+        assert len(copies) == 2
+        assert "T-001" in copies[0].state["tenants"]
+
+    def test_build_derives_schema_when_not_provided(self):
+        """When config has no state_schema, schema is derived from tools."""
+        config = _make_env_config(
+            state_schema=None,
+            initial_state=None,
+        )
+        tenant_data = json.dumps({"T-001": {"name": "Alice"}})
+        engine = self._make_mock_engine([tenant_data])
+        inference_config = MagicMock()
+
+        tools = [
+            _make_tool(
+                output_schema={
+                    "type": "object",
+                    "properties": {
+                        "tenant_id": {"type": "string"},
+                        "name": {"type": "string"},
+                    },
+                },
+            )
+        ]
+
+        registry = EnvironmentRegistry()
+        registry.build(config, tools, engine, inference_config)
+
+        copies = registry.create_copies("db", 1)
+        assert copies[0].state.get("tenants") is not None
+
+    def test_build_multi_wave(self):
+        """Collections with dependencies are generated in wave order."""
+        config = _make_env_config(
+            state_schema={
+                "type": "object",
+                "properties": {
+                    "tenants": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string"},
+                            },
+                        },
+                    },
+                    "leases": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "object",
+                            "properties": {
+                                "tenant_id": {"type": "string"},
+                                "start_date": {"type": "string"},
+                            },
+                        },
+                    },
+                },
+            },
+        )
+        tenant_data = json.dumps({"T-001": {"name": "Alice"}})
+        lease_data = json.dumps(
+            {
+                "L-001": {
+                    "tenant_id": "T-001",
+                    "start_date": "2024-01-01",
+                }
+            }
+        )
+        engine = self._make_mock_engine([tenant_data, lease_data])
+        inference_config = MagicMock()
+
+        registry = EnvironmentRegistry()
+        registry.build(config, [_make_tool()], engine, inference_config)
+
+        copies = registry.create_copies("db", 1)
+        state = copies[0].state
+        assert "T-001" in state["tenants"]
+        assert "L-001" in state["leases"]
+        assert state["leases"]["L-001"]["tenant_id"] == "T-001"
+
+    def test_build_partial_failure_keeps_successful_collections(self):
+        """If a collection fails, others are still populated."""
+        config = _make_env_config(
+            state_schema={
+                "type": "object",
+                "properties": {
+                    "tenants": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string"},
+                            },
+                        },
+                    },
+                    "units": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "object",
+                            "properties": {
+                                "number": {"type": "string"},
+                            },
+                        },
+                    },
+                },
+            },
+        )
+        tenant_data = json.dumps({"T-001": {"name": "Alice"}})
+        # Units always returns invalid JSON
+        engine = self._make_mock_engine(
+            [tenant_data, "not valid json at all"]
+        )
+        inference_config = MagicMock()
+
+        registry = EnvironmentRegistry()
+        registry.build(config, [_make_tool()], engine, inference_config)
+
+        copies = registry.create_copies("db", 1)
+        state = copies[0].state
+        assert "T-001" in state.get("tenants", {})
