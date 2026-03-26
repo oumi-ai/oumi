@@ -114,6 +114,15 @@ class TrainerType(Enum):
     Optionally, supports user-defined reward functions.
     """
 
+    MCA_SFT = "mca_sft"
+    """Supervised fine-tuning trainer using mcore_adapter (Megatron Core Adapter).
+
+    Uses Megatron-Core parallelism (tensor parallel, pipeline parallel, expert parallel)
+    for efficient distributed training of large models.
+
+    Requires: ``pip install mcore_adapter``
+    """
+
 
 class SchedulerType(str, Enum):
     """Enum representing the supported learning rate schedulers.

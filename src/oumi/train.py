@@ -407,6 +407,26 @@ def train(
         additional_trainer_kwargs=additional_trainer_kwargs,
     )
 
+    # MCA training is handled separately because mcore_adapter manages its own
+    # distributed initialization, model construction, and training loop.
+    if config.training.trainer_type == TrainerType.MCA_SFT:
+        create_trainer_fn = build_trainer(
+            trainer_type, processor=processor, verbose=verbose
+        )
+        trainer = create_trainer_fn(
+            processing_class=tokenizer,
+            config=config,
+            train_dataset=train_dataset,
+            eval_dataset=eval_dataset,
+        )
+        trainer.train(
+            resume_from_checkpoint=config.training.resume_from_checkpoint,
+        )
+        if config.training.save_final_model:
+            trainer.save_state()
+            trainer.save_model(config=config)
+        return
+
     # verl training is handled separately because:
     # 1. It uses Ray
     # 2. Some of the setup below is not applicable.

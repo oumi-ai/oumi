@@ -26,6 +26,7 @@ from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.trainers import (
     BaseTrainer,
     HuggingFaceTrainer,
+    McaSftTrainer,
     TrlDpoTrainer,
     VerlGrpoTrainer,
 )
@@ -147,5 +148,7 @@ def build_trainer(
         return _create_oumi_builder_fn()
     elif trainer_type == TrainerType.VERL_GRPO:
         return _create_verl_grpo_builder_fn()
+    elif trainer_type == TrainerType.MCA_SFT:
+        return lambda *args, **kwargs: McaSftTrainer(*args, **kwargs)
 
     raise NotImplementedError(f"Trainer type {trainer_type} not supported.")

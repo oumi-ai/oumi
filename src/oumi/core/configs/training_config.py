@@ -22,6 +22,7 @@ from oumi.core.configs.base_config import BaseConfig
 from oumi.core.configs.params.data_params import DataParams
 from oumi.core.configs.params.deepspeed_params import DeepSpeedParams
 from oumi.core.configs.params.fsdp_params import FSDPParams
+from oumi.core.configs.params.megatron_params import MegatronParams
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.configs.params.peft_params import PeftParams
 from oumi.core.configs.params.training_params import (
@@ -86,6 +87,13 @@ class TrainingConfig(BaseConfig):
     :class:`oumi.core.configs.params.deepspeed_params.DeepSpeedParams`.
     """
 
+    megatron: MegatronParams = field(default_factory=MegatronParams)
+    """Parameters for Megatron-Core parallelism via mcore_adapter.
+
+    For more details, see
+    :class:`oumi.core.configs.params.megatron_params.MegatronParams`.
+    """
+
     def __post_init__(self):
         """Verifies/populates params."""
         if self.model.compile:
@@ -105,6 +113,38 @@ class TrainingConfig(BaseConfig):
             raise ValueError(
                 "Cannot enable both FSDP and DeepSpeed simultaneously. "
                 "Please enable only one distributed training method."
+            )
+
+        # Validate Megatron mutual exclusions
+        _megatron_enabled = (
+            self.megatron.is_enabled()
+            or self.training.trainer_type == TrainerType.MCA_SFT
+        )
+        if _megatron_enabled and self.fsdp.enable_fsdp:
+            raise ValueError(
+                "Cannot enable both Megatron parallelism and FSDP. "
+                "Megatron uses its own tensor/pipeline parallelism; "
+                "FSDP's parameter sharding would conflict. "
+                "Set fsdp.enable_fsdp=False when using MCA trainers."
+            )
+        if _megatron_enabled and self.deepspeed.enable_deepspeed:
+            raise ValueError(
+                "Cannot enable both Megatron parallelism and DeepSpeed. "
+                "Megatron has its own distributed optimizer and gradient handling. "
+                "Set deepspeed.enable_deepspeed=False when using MCA trainers."
+            )
+        if _megatron_enabled and self.peft.q_lora:
+            raise ValueError(
+                "QLoRA is incompatible with Megatron parallelism. "
+                "Megatron uses custom parallel linear layers that cannot be quantized. "
+                "Set peft.q_lora=False when using MCA trainers."
+            )
+        if _megatron_enabled and self.training.use_peft:
+            raise ValueError(
+                "HuggingFace PEFT/LoRA is incompatible with Megatron parallelism. "
+                "Megatron models use parallel linear layers with different naming. "
+                "For LoRA with Megatron, configure it through "
+                "megatron.mca_config_overrides."
             )
 
         # Validate DeepSpeed batch size configuration for TRL trainers
@@ -187,6 +227,12 @@ class TrainingConfig(BaseConfig):
             elif trainer_type == TrainerType.OUMI:
                 # We need to Liger patch ourselves for our own training loop.
                 pass
+            elif trainer_type in (TrainerType.VERL_GRPO, TrainerType.MCA_SFT):
+                logger.warning(
+                    "Liger kernel is not supported with %s trainer. Ignoring.",
+                    trainer_type,
+                )
+                self.model.enable_liger_kernel = False
             else:
                 raise ValueError("Unrecognized trainer type!")
 

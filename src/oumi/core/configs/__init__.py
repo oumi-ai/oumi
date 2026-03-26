@@ -109,6 +109,7 @@ from oumi.core.configs.params.fsdp_params import (
 )
 from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.grpo_params import GrpoParams
+from oumi.core.configs.params.megatron_params import MegatronParams
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.configs.params.judge_params import (
     JudgeOutputType,
@@ -189,6 +190,7 @@ __all__ = [
     "JudgeResponseFormat",
     "LMHarnessTaskParams",
     "LoraWeightInitialization",
+    "MegatronParams",
     "MixedPrecisionDtype",
     "MixtureStrategy",
     "ModelParams",
