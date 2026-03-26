@@ -141,6 +141,9 @@ test:
 coverage:
 	$(CONDA_RUN) pytest --cov=$(OUMI_SRC_DIR) --cov-report=term-missing --cov-report=html:coverage_html $(TEST_DIR)
 
+coverage-unit:
+	$(CONDA_RUN) pytest --cov=$(OUMI_SRC_DIR) --cov-report=term-missing --cov-report=html:coverage_html tests/unit/
+
 # To adjust the accelerators: `make gcpcode ARGS="--resources.accelerators A100:4"`
 # To run on a different cloud: `make gcpssh ARGS="--resources.cloud aws"`
 gcpssh:
@@ -188,4 +191,4 @@ doctest-file:
 	fi
 	$(CONDA_RUN) $(SPHINXBUILD) -b doctest "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(FILE)
 
-.PHONY: help setup upgrade clean check torchfix ty format test coverage gcpssh gcpcode docs docs-help docs-serve docs-rebuild copy-doc-files clean-docs doctest doctest-file
+.PHONY: help setup upgrade clean check torchfix ty format test coverage coverage-unit gcpssh gcpcode docs docs-help docs-serve docs-rebuild copy-doc-files clean-docs doctest doctest-file
