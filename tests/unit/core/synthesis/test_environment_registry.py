@@ -22,7 +22,9 @@ from oumi.core.configs.params.tool_params import (
 )
 from oumi.core.synthesis.environment_registry import (
     _pluralize,
+    build_dependency_graph,
     derive_schema_from_tools,
+    sort_into_waves,
 )
 
 
@@ -207,3 +209,157 @@ class TestDeriveSchemaFromTools:
         )
         assert "tenant_id" not in record_props
         assert "name" in record_props
+
+
+class TestBuildDependencyGraph:
+    def test_no_foreign_keys(self):
+        """Collections with no _id references have empty dependency sets."""
+        schema = {
+            "type": "object",
+            "properties": {
+                "tenants": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "properties": {"name": {"type": "string"}},
+                    },
+                },
+                "units": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "properties": {"number": {"type": "string"}},
+                    },
+                },
+            },
+        }
+        graph = build_dependency_graph(schema)
+        assert graph == {"tenants": set(), "units": set()}
+
+    def test_foreign_key_creates_dependency(self):
+        """A lease with tenant_id depends on tenants."""
+        schema = {
+            "type": "object",
+            "properties": {
+                "tenants": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "properties": {"name": {"type": "string"}},
+                    },
+                },
+                "leases": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                            "tenant_id": {"type": "string"},
+                            "start_date": {"type": "string"},
+                        },
+                    },
+                },
+            },
+        }
+        graph = build_dependency_graph(schema)
+        assert graph["leases"] == {"tenants"}
+        assert graph["tenants"] == set()
+
+    def test_multiple_foreign_keys(self):
+        """A lease referencing tenant_id and unit_id depends on both."""
+        schema = {
+            "type": "object",
+            "properties": {
+                "tenants": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "properties": {"name": {"type": "string"}},
+                    },
+                },
+                "units": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "properties": {"number": {"type": "string"}},
+                    },
+                },
+                "leases": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                            "tenant_id": {"type": "string"},
+                            "unit_id": {"type": "string"},
+                        },
+                    },
+                },
+            },
+        }
+        graph = build_dependency_graph(schema)
+        assert graph["leases"] == {"tenants", "units"}
+
+    def test_self_referencing_id_ignored(self):
+        """A tenant_id inside the tenants collection is not a dependency."""
+        schema = {
+            "type": "object",
+            "properties": {
+                "tenants": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                            "tenant_id": {"type": "string"},
+                            "name": {"type": "string"},
+                        },
+                    },
+                },
+            },
+        }
+        graph = build_dependency_graph(schema)
+        assert graph["tenants"] == set()
+
+
+class TestSortIntoWaves:
+    def test_independent_collections_in_one_wave(self):
+        graph = {"tenants": set(), "units": set()}
+        waves = sort_into_waves(graph)
+        assert len(waves) == 1
+        assert set(waves[0]) == {"tenants", "units"}
+
+    def test_dependent_collection_in_later_wave(self):
+        graph = {
+            "tenants": set(),
+            "units": set(),
+            "leases": {"tenants", "units"},
+        }
+        waves = sort_into_waves(graph)
+        assert len(waves) == 2
+        assert set(waves[0]) == {"tenants", "units"}
+        assert waves[1] == ["leases"]
+
+    def test_three_wave_chain(self):
+        graph = {
+            "tenants": set(),
+            "units": set(),
+            "leases": {"tenants", "units"},
+            "payments": {"leases"},
+        }
+        waves = sort_into_waves(graph)
+        assert len(waves) == 3
+        assert set(waves[0]) == {"tenants", "units"}
+        assert waves[1] == ["leases"]
+        assert waves[2] == ["payments"]
+
+    def test_empty_graph(self):
+        waves = sort_into_waves({})
+        assert waves == []
+
+    def test_cycle_broken(self):
+        """Cycles are broken — all collections still appear in output."""
+        graph = {
+            "tenants": {"leases"},
+            "leases": {"tenants"},
+        }
+        waves = sort_into_waves(graph)
+        all_collections = [c for wave in waves for c in wave]
+        assert set(all_collections) == {"tenants", "leases"}

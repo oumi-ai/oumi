@@ -18,6 +18,7 @@ import re
 from typing import Any
 
 from oumi.core.configs.params.tool_params import ToolAttribute
+from oumi.utils.logging import logger
 
 _ID_SUFFIX_PATTERN = re.compile(r"^(.+)_id$")
 
@@ -118,3 +119,92 @@ def derive_schema_from_tools(tools: list[ToolAttribute]) -> dict[str, Any]:
             },
         }
     return {"type": "object", "properties": properties}
+
+
+def build_dependency_graph(
+    schema: dict[str, Any],
+) -> dict[str, set[str]]:
+    """Build a dependency graph from a state schema.
+
+    For each collection, scans its record properties for foreign-key fields
+    (fields ending in `_id` whose prefix matches another collection).
+
+    Args:
+        schema: The full state JSON Schema.
+
+    Returns:
+        Dict mapping collection name to set of collection names it depends on.
+    """
+    properties = schema.get("properties", {})
+    collection_names = set(properties.keys())
+    graph: dict[str, set[str]] = {name: set() for name in collection_names}
+
+    for collection_name, collection_schema in properties.items():
+        additional = collection_schema.get("additionalProperties", {})
+        record_props = additional.get("properties", {})
+
+        for field_name in record_props:
+            match = _ID_SUFFIX_PATTERN.match(field_name)
+            if not match:
+                continue
+            entity = match.group(1)
+            target_collection = _pluralize(entity)
+            # Don't add self-references as dependencies
+            if target_collection == collection_name:
+                continue
+            if target_collection in collection_names:
+                graph[collection_name].add(target_collection)
+
+    return graph
+
+
+def sort_into_waves(
+    graph: dict[str, set[str]],
+) -> list[list[str]]:
+    """Topological sort of collections into parallel waves.
+
+    Each wave contains collections whose dependencies are all satisfied
+    by previous waves. Collections within a wave can be generated in parallel.
+
+    Cycles are broken by forcing the collection with fewer inbound
+    references into an earlier wave.
+
+    Args:
+        graph: Dependency graph from build_dependency_graph.
+
+    Returns:
+        List of waves. Each wave is a sorted list of collection names.
+    """
+    if not graph:
+        return []
+
+    remaining = {name: set(deps) for name, deps in graph.items()}
+    waves: list[list[str]] = []
+
+    while remaining:
+        # Find collections with no unresolved dependencies
+        ready = sorted(name for name, deps in remaining.items() if not deps)
+
+        if not ready:
+            # Cycle detected — break it by picking the collection with
+            # the fewest inbound references
+            inbound_counts = {name: 0 for name in remaining}
+            for deps in remaining.values():
+                for dep in deps:
+                    if dep in inbound_counts:
+                        inbound_counts[dep] += 1
+            ready = [min(inbound_counts, key=lambda n: inbound_counts[n])]
+            logger.warning(
+                f"Cycle detected in dependency graph. Breaking by "
+                f"forcing '{ready[0]}' into current wave."
+            )
+
+        waves.append(ready)
+
+        resolved = set(ready)
+        for name in ready:
+            del remaining[name]
+        for deps in remaining.values():
+            deps -= resolved
+
+    return waves
