@@ -14,10 +14,14 @@
 
 """Environment registry: build once, copy N times."""
 
+import json
 import re
 from typing import Any
 
-from oumi.core.configs.params.tool_params import ToolAttribute
+import jsonschema
+
+from oumi.core.configs.params.tool_params import ToolAttribute, ToolEnvironmentAttribute
+from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.logging import logger
 
 _ID_SUFFIX_PATTERN = re.compile(r"^(.+)_id$")
@@ -208,3 +212,166 @@ def sort_into_waves(
             deps -= resolved
 
     return waves
+
+
+_DEFAULT_RECORD_COUNT = "3-8"
+
+
+def build_collection_prompt(
+    config: ToolEnvironmentAttribute,
+    collection_name: str,
+    sub_schema: dict[str, Any],
+    existing_state: dict[str, Any],
+    scenario_context: str | None = None,
+    record_count: str = _DEFAULT_RECORD_COUNT,
+    retry_error: str | None = None,
+) -> Conversation:
+    """Build a prompt for generating one collection's records.
+
+    Args:
+        config: The environment config (name, description, system_prompt).
+        collection_name: Name of the collection to populate (e.g., "tenants").
+        sub_schema: JSON Schema for a single record in this collection.
+        existing_state: Previously generated collections (for FK context).
+        scenario_context: Optional scenario description for realism.
+        record_count: How many records to generate (e.g., "3-5").
+        retry_error: If retrying, the error message from the previous attempt.
+
+    Returns:
+        A Conversation with system and user messages.
+    """
+    system_msg = (
+        f"You are populating data for an environment.\n\n"
+        f"Environment: {config.name}\n"
+        f"Description: {config.description}\n\n"
+        f"{config.system_prompt}"
+    )
+
+    user_parts: list[str] = []
+
+    if scenario_context:
+        user_parts.append(f"Scenario: {scenario_context}\n")
+
+    if existing_state:
+        state_lines = []
+        for coll_name, coll_data in existing_state.items():
+            state_lines.append(
+                f"{coll_name}: {json.dumps(coll_data, indent=2)}"
+            )
+        user_parts.append(
+            "Existing state:\n" + "\n\n".join(state_lines) + "\n"
+        )
+
+    schema_str = json.dumps(sub_schema, indent=2)
+    user_parts.append(
+        f"Generate {record_count} records for the "
+        f"'{collection_name}' collection.\n\n"
+        f"Each record must match this schema:\n{schema_str}\n"
+    )
+
+    # Foreign key instructions
+    fk_fields = [
+        f
+        for f in sub_schema.get("properties", {})
+        if _ID_SUFFIX_PATTERN.match(f)
+    ]
+    if fk_fields and existing_state:
+        refs = []
+        for fk in fk_fields:
+            match = _ID_SUFFIX_PATTERN.match(fk)
+            if match:
+                target = _pluralize(match.group(1))
+                if target in existing_state:
+                    refs.append(
+                        f"- {fk} must reference an existing "
+                        f"ID from '{target}'"
+                    )
+        if refs:
+            user_parts.append(
+                "Referential integrity:\n"
+                + "\n".join(refs) + "\n"
+            )
+
+    user_parts.append(
+        "Output a JSON object keyed by string IDs (e.g., "
+        '"1", "2" or domain-appropriate IDs). '
+        "No markdown fences. Start with {."
+    )
+
+    if retry_error:
+        user_parts.append(
+            f"\nIMPORTANT: Your previous output failed "
+            f"validation: {retry_error}\n"
+            "Fix the issue and output only valid JSON."
+        )
+
+    messages = [
+        Message(role=Role.SYSTEM, content=system_msg),
+        Message(role=Role.USER, content="\n".join(user_parts)),
+    ]
+    return Conversation(messages=messages)
+
+
+def validate_collection(
+    collection_name: str,
+    data: Any,
+    sub_schema: dict[str, Any],
+    existing_state: dict[str, Any],
+) -> tuple[bool, str | None]:
+    """Validate a generated collection's data.
+
+    Checks:
+    1. Data is a dict (keyed by ID).
+    2. Each record validates against the sub-schema.
+    3. Foreign key fields reference existing records.
+
+    Args:
+        collection_name: Name of this collection.
+        data: The generated data (should be dict[str, dict]).
+        sub_schema: JSON Schema for a single record.
+        existing_state: Previously generated collections for FK checks.
+
+    Returns:
+        (True, None) if valid, (False, error_message) if not.
+    """
+    if not isinstance(data, dict):
+        return (
+            False,
+            f"Expected a dict keyed by ID, "
+            f"got {type(data).__name__}.",
+        )
+
+    # Validate each record against the sub-schema
+    for record_id, record in data.items():
+        try:
+            jsonschema.validate(instance=record, schema=sub_schema)
+        except jsonschema.ValidationError as e:
+            return (
+                False,
+                f"Record '{record_id}' failed schema "
+                f"validation: {e.message}",
+            )
+
+    # Check referential integrity
+    for record_id, record in data.items():
+        if not isinstance(record, dict):
+            continue
+        for field_name, value in record.items():
+            match = _ID_SUFFIX_PATTERN.match(field_name)
+            if not match or not isinstance(value, str):
+                continue
+            entity = match.group(1)
+            target_collection = _pluralize(entity)
+            if target_collection == collection_name:
+                continue  # Self-references are fine
+            if target_collection not in existing_state:
+                continue  # No data to check against
+            if value not in existing_state[target_collection]:
+                return (
+                    False,
+                    f"Record '{record_id}' references "
+                    f"{field_name}='{value}' but '{value}' "
+                    f"does not exist in '{target_collection}'.",
+                )
+
+    return True, None

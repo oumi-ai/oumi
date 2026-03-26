@@ -18,14 +18,18 @@ from typing import Any
 
 from oumi.core.configs.params.tool_params import (
     ToolAttribute,
+    ToolEnvironmentAttribute,
     ToolOutputStrategy,
 )
 from oumi.core.synthesis.environment_registry import (
     _pluralize,
+    build_collection_prompt,
     build_dependency_graph,
     derive_schema_from_tools,
     sort_into_waves,
+    validate_collection,
 )
+from oumi.core.types.conversation import Role
 
 
 class TestPluralize:
@@ -363,3 +367,206 @@ class TestSortIntoWaves:
         waves = sort_into_waves(graph)
         all_collections = [c for wave in waves for c in wave]
         assert set(all_collections) == {"tenants", "leases"}
+
+
+def _make_env_config(**overrides: Any) -> ToolEnvironmentAttribute:
+    defaults: dict[str, Any] = dict(
+        id="db",
+        name="PropertyDB",
+        description="A property management database.",
+        system_prompt="You are a property management database.",
+    )
+    defaults.update(overrides)
+    return ToolEnvironmentAttribute(**defaults)
+
+
+class TestBuildCollectionPrompt:
+    def test_wave_0_prompt_has_no_existing_state(self):
+        """First-wave collections get no existing state context."""
+        config = _make_env_config()
+        sub_schema = {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "email": {"type": "string"},
+            },
+        }
+        conv = build_collection_prompt(
+            config=config,
+            collection_name="tenants",
+            sub_schema=sub_schema,
+            existing_state={},
+        )
+        assert len(conv.messages) == 2
+        assert conv.messages[0].role == Role.SYSTEM
+        user_text = conv.messages[1].content
+        assert "tenants" in user_text
+        assert "name" in user_text
+        assert "Existing state" not in user_text
+
+    def test_wave_1_prompt_includes_existing_state(self):
+        """Later-wave collections see previously generated data."""
+        config = _make_env_config()
+        sub_schema = {
+            "type": "object",
+            "properties": {
+                "tenant_id": {"type": "string"},
+                "start_date": {"type": "string"},
+            },
+        }
+        existing = {"tenants": {"T-001": {"name": "Alice"}}}
+        conv = build_collection_prompt(
+            config=config,
+            collection_name="leases",
+            sub_schema=sub_schema,
+            existing_state=existing,
+        )
+        user_text = conv.messages[1].content
+        assert "T-001" in user_text
+        assert "Alice" in user_text
+        assert "tenant_id" in user_text
+
+    def test_prompt_includes_id_format_hint(self):
+        """Prompt tells the LLM what ID format to use."""
+        config = _make_env_config()
+        sub_schema = {
+            "type": "object",
+            "properties": {"name": {"type": "string"}},
+        }
+        conv = build_collection_prompt(
+            config=config,
+            collection_name="tenants",
+            sub_schema=sub_schema,
+            existing_state={},
+        )
+        user_text = conv.messages[1].content
+        assert (
+            "string ids" in user_text.lower()
+            or "keyed by" in user_text.lower()
+        )
+
+    def test_prompt_requests_json_only(self):
+        """Prompt instructs LLM to output only JSON."""
+        config = _make_env_config()
+        sub_schema = {
+            "type": "object",
+            "properties": {"name": {"type": "string"}},
+        }
+        conv = build_collection_prompt(
+            config=config,
+            collection_name="tenants",
+            sub_schema=sub_schema,
+            existing_state={},
+        )
+        user_text = conv.messages[1].content
+        assert "no markdown" in user_text.lower()
+
+    def test_scenario_context_included(self):
+        """Scenario context appears in the prompt when provided."""
+        config = _make_env_config()
+        sub_schema = {
+            "type": "object",
+            "properties": {"name": {"type": "string"}},
+        }
+        conv = build_collection_prompt(
+            config=config,
+            collection_name="tenants",
+            sub_schema=sub_schema,
+            existing_state={},
+            scenario_context="Residential apartment complex in Seattle",
+        )
+        user_text = conv.messages[1].content
+        assert "Seattle" in user_text
+
+
+class TestValidateCollection:
+    def test_valid_collection(self):
+        sub_schema = {
+            "type": "object",
+            "properties": {"name": {"type": "string"}},
+        }
+        data = {"1": {"name": "Alice"}, "2": {"name": "Bob"}}
+        ok, error = validate_collection(
+            "tenants", data, sub_schema, {}
+        )
+        assert ok is True
+        assert error is None
+
+    def test_invalid_json_type(self):
+        """Non-dict data fails."""
+        sub_schema = {
+            "type": "object",
+            "properties": {"name": {"type": "string"}},
+        }
+        ok, error = validate_collection(
+            "tenants", [1, 2], sub_schema, {}
+        )
+        assert ok is False
+        assert "dict" in error.lower() or "object" in error.lower()
+
+    def test_record_schema_violation(self):
+        """A record violating the sub-schema fails."""
+        sub_schema = {
+            "type": "object",
+            "properties": {"name": {"type": "string"}},
+            "required": ["name"],
+        }
+        data = {"1": {"name": 12345}}
+        ok, error = validate_collection(
+            "tenants", data, sub_schema, {}
+        )
+        assert ok is False
+
+    def test_referential_integrity_pass(self):
+        """Foreign keys pointing to existing records pass."""
+        sub_schema = {
+            "type": "object",
+            "properties": {
+                "tenant_id": {"type": "string"},
+                "start_date": {"type": "string"},
+            },
+        }
+        data = {
+            "L-001": {
+                "tenant_id": "T-001",
+                "start_date": "2024-01-01",
+            }
+        }
+        existing = {"tenants": {"T-001": {"name": "Alice"}}}
+        ok, error = validate_collection(
+            "leases", data, sub_schema, existing
+        )
+        assert ok is True
+
+    def test_referential_integrity_fail(self):
+        """Foreign keys pointing to nonexistent records fail."""
+        sub_schema = {
+            "type": "object",
+            "properties": {
+                "tenant_id": {"type": "string"},
+                "start_date": {"type": "string"},
+            },
+        }
+        data = {
+            "L-001": {
+                "tenant_id": "T-999",
+                "start_date": "2024-01-01",
+            }
+        }
+        existing = {"tenants": {"T-001": {"name": "Alice"}}}
+        ok, error = validate_collection(
+            "leases", data, sub_schema, existing
+        )
+        assert ok is False
+        assert "T-999" in error
+
+    def test_empty_collection_valid(self):
+        """An empty dict is valid (generates 0 records)."""
+        sub_schema = {
+            "type": "object",
+            "properties": {"name": {"type": "string"}},
+        }
+        ok, error = validate_collection(
+            "tenants", {}, sub_schema, {}
+        )
+        assert ok is True
