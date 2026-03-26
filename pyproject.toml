@@ -93,9 +93,7 @@ dependencies = [
     "torchao>=0.12,<0.16",     # Used by transformers
     "torchvision>=0.21,<0.26", # Used by some VLM-s (multimodal)
     "tqdm",
-    # Llama Vision attention is broken as late as 4.48.2 if gradient checkpointing is
-    # enabled. See OPE-875 and https://github.com/huggingface/transformers/issues/36040.
-    "transformers>=4.57,<4.58",
+    "transformers>=4.57,<5.4",
     "trl>=0.24,<0.30",
     "typer<0.24.2",             # Used by CLI. Pinned due to sphinxcontrib-typer compatibility. OPE-1806
     "typing_extensions",        # Backports of typing updates
