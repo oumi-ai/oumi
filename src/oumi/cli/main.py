@@ -53,11 +53,12 @@ from oumi.cli.infer import infer
 from oumi.cli.judge import judge_conversations_file, judge_dataset_file
 from oumi.cli.launch import cancel, down, logs, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
+from oumi.cli.plugins_cmd import plugins
 from oumi.cli.quantize import quantize
 from oumi.cli.synth import synth
 from oumi.cli.train import train
 from oumi.cli.tune import tune
-from oumi.utils.logging import should_use_rich_logging
+from oumi.utils.logging import logger, should_use_rich_logging
 
 _ASCII_LOGO = r"""
    ____  _    _ __  __ _____
@@ -319,8 +320,76 @@ def get_app() -> typer.Typer:
         help="Manage locally cached models and datasets.",
         rich_help_panel="Tools",
     )
+    app.command(
+        help="List installed plugins and their registrations.",
+        rich_help_panel="Tools",
+    )(plugins)
+
+    # Register plugin CLI commands (must be last, after all core commands).
+    _register_plugin_commands(app)
 
     return app
+
+
+def _get_registered_command_names(app: typer.Typer) -> set[str]:
+    """Extract all registered command and group names from a Typer app."""
+    names: set[str] = set()
+    for cmd in app.registered_commands:
+        if cmd.name:
+            names.add(cmd.name)
+        elif cmd.callback:
+            names.add(cmd.callback.__name__.replace("_", "-"))
+    for grp in app.registered_groups:
+        if grp.name:
+            names.add(grp.name)
+    return names
+
+
+def _register_plugin_commands(app: typer.Typer) -> None:
+    """Discover plugins and register their CLI commands."""
+    from oumi.plugins.discovery import discover_plugins
+
+    core_command_names = _get_registered_command_names(app)
+
+    for plugin_info in discover_plugins():
+        if plugin_info.error or plugin_info.register_cli_fn is None:
+            continue
+
+        len_cmds_before = len(app.registered_commands)
+        len_grps_before = len(app.registered_groups)
+
+        try:
+            plugin_info.register_cli_fn(app)
+        except Exception:
+            logger.warning(
+                "Plugin '%s' failed during CLI registration. Skipping.",
+                plugin_info.entry_point_name,
+                exc_info=True,
+            )
+            continue
+
+        # Check newly-added commands/groups for collisions with core names.
+        collisions: set[str] = set()
+        new_cmd_objects = app.registered_commands[len_cmds_before:]
+        for obj in new_cmd_objects:
+            name = obj.name or (
+                obj.callback.__name__.replace("_", "-") if obj.callback else None
+            )
+            if name in core_command_names:
+                collisions.add(name)
+                app.registered_commands.remove(obj)
+        new_grp_objects = app.registered_groups[len_grps_before:]
+        for obj in new_grp_objects:
+            if obj.name in core_command_names:
+                collisions.add(obj.name)
+                app.registered_groups.remove(obj)
+        if collisions:
+            logger.error(
+                "Plugin '%s' tried to register commands that collide with core "
+                "commands: %s. These plugin commands will be ignored.",
+                plugin_info.entry_point_name,
+                collisions,
+            )
 
 
 def _get_cli_event() -> tuple[str, dict[str, Any]]:

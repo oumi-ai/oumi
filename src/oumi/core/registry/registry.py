@@ -106,9 +106,34 @@ def _register_dependencies(cls_function):
             if user_req_file:
                 _load_user_requirements(user_req_file)
 
+            # Import registry modules from installed plugins.
+            _load_plugin_registry_modules()
+
         return cls_function(self, *args, **kwargs)
 
     return wrapper
+
+
+def _load_plugin_registry_modules():
+    """Import registry modules declared by installed plugins."""
+    try:
+        from oumi.plugins.discovery import discover_plugins
+    except ImportError:
+        return
+
+    for plugin_info in discover_plugins():
+        if plugin_info.error:
+            continue
+        for module_path in plugin_info.registry_modules:
+            try:
+                importlib.import_module(module_path)
+            except Exception:
+                logger.warning(
+                    "Plugin '%s': failed to import registry module '%s'. Skipping.",
+                    plugin_info.entry_point_name,
+                    module_path,
+                    exc_info=True,
+                )
 
 
 class Registry:
