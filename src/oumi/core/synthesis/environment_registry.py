@@ -383,6 +383,14 @@ def validate_collection(
 _MAX_COLLECTION_RETRIES = 2
 
 
+def _extract_response_text(response: Conversation) -> str:
+    """Extract text from the last message of an inference response."""
+    if not response.messages:
+        return ""
+    content = response.messages[-1].content
+    return content if isinstance(content, str) else ""
+
+
 class EnvironmentRegistry:
     """Builds environments once through a layered pipeline, then copies N times.
 
@@ -467,7 +475,6 @@ class EnvironmentRegistry:
                     response=response,
                     state=state,
                     config=config,
-                    existing_state=state,
                     scenario_context=scenario_context,
                     inference_engine=inference_engine,
                     inference_config=inference_config,
@@ -532,7 +539,6 @@ class EnvironmentRegistry:
         response: Any,
         state: dict[str, Any],
         config: ToolEnvironmentAttribute,
-        existing_state: dict[str, Any],
         scenario_context: str | None,
         inference_engine: Any,
         inference_config: Any,
@@ -546,7 +552,7 @@ class EnvironmentRegistry:
 
         if isinstance(parsed, dict):
             ok, error = validate_collection(
-                collection_name, parsed, sub_schema, existing_state
+                collection_name, parsed, sub_schema, state
             )
             if ok:
                 state[collection_name] = parsed
@@ -561,7 +567,7 @@ class EnvironmentRegistry:
                 config=config,
                 collection_name=collection_name,
                 sub_schema=sub_schema,
-                existing_state=existing_state,
+                existing_state=state,
                 scenario_context=scenario_context,
                 retry_error=retry_error,
             )
@@ -576,7 +582,7 @@ class EnvironmentRegistry:
                     collection_name,
                     parsed,
                     sub_schema,
-                    existing_state,
+                    state,
                 )
                 if ok:
                     state[collection_name] = parsed
@@ -588,11 +594,3 @@ class EnvironmentRegistry:
                 )
 
         return False
-
-
-def _extract_response_text(response: Conversation) -> str:
-    """Extract text from the last message of an inference response."""
-    if not response.messages:
-        return ""
-    content = response.messages[-1].content
-    return content if isinstance(content, str) else ""

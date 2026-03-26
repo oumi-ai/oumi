@@ -18,6 +18,8 @@ import json
 from typing import Any
 from unittest.mock import MagicMock
 
+import pytest
+
 from oumi.core.configs.params.tool_params import (
     ToolAttribute,
     ToolEnvironmentAttribute,
@@ -609,11 +611,8 @@ class TestEnvironmentRegistryStatic:
     def test_create_copies_unknown_env_raises(self):
         """Requesting copies of an unregistered env raises KeyError."""
         registry = EnvironmentRegistry()
-        try:
+        with pytest.raises(KeyError):
             registry.create_copies("nonexistent", 1)
-            assert False, "Should have raised KeyError"
-        except KeyError:
-            pass
 
 
 class TestEnvironmentRegistryBuild:
@@ -780,9 +779,10 @@ class TestEnvironmentRegistryBuild:
             },
         )
         tenant_data = json.dumps({"T-001": {"name": "Alice"}})
-        # Units always returns invalid JSON
+        # Units always returns invalid JSON (initial + 2 retries = 3 bad responses)
         engine = self._make_mock_engine(
-            [tenant_data, "not valid json at all"]
+            [tenant_data, "not valid json at all",
+             "not valid json at all", "not valid json at all"]
         )
         inference_config = MagicMock()
 
@@ -792,3 +792,4 @@ class TestEnvironmentRegistryBuild:
         copies = registry.create_copies("db", 1)
         state = copies[0].state
         assert "T-001" in state.get("tenants", {})
+        assert "units" not in state or state.get("units") == {}
