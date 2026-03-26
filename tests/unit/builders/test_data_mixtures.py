@@ -1,3 +1,5 @@
+import functools
+
 import pytest
 from datasets import Dataset, IterableDataset
 
@@ -22,6 +24,14 @@ from oumi.core.datasets.pretraining_async_text_dataset import (
 )
 
 pytestmark = pytest.mark.parametrize("stream", [True, False])
+
+
+@functools.cache
+def _get_cached_tokenizer(model_name: str, tokenizer_name: str):
+    """Cache tokenizer across all tests in this module to avoid repeated loading."""
+    return build_tokenizer(
+        ModelParams(model_name=model_name, tokenizer_name=tokenizer_name)
+    )
 
 
 def _get_default_config(
@@ -91,7 +101,9 @@ def test_data_single_dataset_in_mixture(stream: bool):
         stream,
         DatasetSplit.TRAIN,
     )
-    tokenizer = build_tokenizer(config.model)
+    tokenizer = _get_cached_tokenizer(
+        config.model.model_name, config.model.tokenizer_name
+    )
     dataset = build_dataset_mixture(
         config.data,
         tokenizer,
@@ -107,7 +119,9 @@ def test_data_single_dataset_from_kwargs(stream: bool):
         stream,
         DatasetSplit.TRAIN,
     )
-    tokenizer = build_tokenizer(config.model)
+    tokenizer = _get_cached_tokenizer(
+        config.model.model_name, config.model.tokenizer_name
+    )
     dataset = build_dataset(
         dataset_name="debug_sft",
         dataset_kwargs={"dataset_size": 6},
@@ -124,7 +138,9 @@ def test_data_single_dataset_from_params(stream: bool):
         DatasetSplit.TRAIN,
     )
 
-    tokenizer = build_tokenizer(config.model)
+    tokenizer = _get_cached_tokenizer(
+        config.model.model_name, config.model.tokenizer_name
+    )
     dataset = build_dataset(
         dataset_name="debug_sft",
         tokenizer=tokenizer,
@@ -151,7 +167,9 @@ def test_data_multiple_datasets(stream: bool):
         stream,
         DatasetSplit.TEST,
     )
-    tokenizer = build_tokenizer(config.model)
+    tokenizer = _get_cached_tokenizer(
+        config.model.model_name, config.model.tokenizer_name
+    )
     dataset = dataset = build_dataset_mixture(
         config.data,
         tokenizer,
@@ -178,7 +196,9 @@ def test_data_multiple_datasets_local_sample(stream: bool):
         stream,
         DatasetSplit.VALIDATION,
     )
-    tokenizer = build_tokenizer(config.model)
+    tokenizer = _get_cached_tokenizer(
+        config.model.model_name, config.model.tokenizer_name
+    )
     dataset = build_dataset_mixture(
         config.data,
         tokenizer,
@@ -215,7 +235,9 @@ def test_data_multiple_datasets_shuffle_different_seeds(stream: bool):
         stream,
         DatasetSplit.VALIDATION,
     )
-    tokenizer = build_tokenizer(config.model)
+    tokenizer = _get_cached_tokenizer(
+        config.model.model_name, config.model.tokenizer_name
+    )
     dataset = build_dataset_mixture(
         config.data,
         tokenizer,
@@ -263,7 +285,9 @@ def test_data_multiple_datasets_local_mixed(stream: bool):
     )
     config.data.get_split(DatasetSplit.TRAIN).mixture_strategy = "first_exhausted"
     config.data.get_split(DatasetSplit.TRAIN).seed = 1
-    tokenizer = build_tokenizer(config.model)
+    tokenizer = _get_cached_tokenizer(
+        config.model.model_name, config.model.tokenizer_name
+    )
     dataset = build_dataset_mixture(
         config.data,
         tokenizer,
@@ -302,7 +326,9 @@ def test_data_multiple_datasets_local_mixed_all_exhausted(stream: bool):
     )
     config.data.get_split(DatasetSplit.TRAIN).mixture_strategy = "all_exhausted"
     config.data.get_split(DatasetSplit.TRAIN).seed = 1
-    tokenizer = build_tokenizer(config.model)
+    tokenizer = _get_cached_tokenizer(
+        config.model.model_name, config.model.tokenizer_name
+    )
     dataset = build_dataset_mixture(
         config.data,
         tokenizer,
@@ -367,7 +393,9 @@ def test_data_multiple_datasets_different_mix_seeds(stream: bool):
         )
         config.data.get_split(DatasetSplit.TRAIN).mixture_strategy = "first_exhausted"
         config.data.get_split(DatasetSplit.TRAIN).seed = seed
-        tokenizer = build_tokenizer(config.model)
+        tokenizer = _get_cached_tokenizer(
+            config.model.model_name, config.model.tokenizer_name
+        )
         datasets.append(
             build_dataset_mixture(
                 config.data,
@@ -409,7 +437,9 @@ def test_data_multiple_datasets_packing(stream: bool):
     )
     config.data.get_split(DatasetSplit.TEST).mixture_strategy = "first_exhausted"
     config.data.get_split(DatasetSplit.TEST).seed = 1
-    tokenizer = build_tokenizer(config.model)
+    tokenizer = _get_cached_tokenizer(
+        config.model.model_name, config.model.tokenizer_name
+    )
     dataset = build_dataset_mixture(
         config.data,
         tokenizer,
@@ -437,7 +467,9 @@ def test_packing_without_streaming_with_sft_dataset(stream: bool):
         model=ModelParams(model_name="openai-community/gpt2", model_max_length=128),
     )
 
-    tokenizer = build_tokenizer(config.model)
+    tokenizer = _get_cached_tokenizer(
+        config.model.model_name, config.model.tokenizer_name
+    )
     dataset = build_dataset_mixture(
         config.data,
         tokenizer,
@@ -484,7 +516,9 @@ def test_packing_without_streaming_with_pretraining_dataset(stream: bool):
         model=ModelParams(model_name="openai-community/gpt2", model_max_length=128),
     )
 
-    tokenizer = build_tokenizer(config.model)
+    tokenizer = _get_cached_tokenizer(
+        config.model.model_name, config.model.tokenizer_name
+    )
     dataset = build_dataset_mixture(
         config.data,
         tokenizer,
@@ -534,7 +568,9 @@ def test_multiple_pretraining_datasets_with_streaming(stream: bool):
         model=ModelParams(model_name="openai-community/gpt2", model_max_length=64),
     )
 
-    tokenizer = build_tokenizer(config.model)
+    tokenizer = _get_cached_tokenizer(
+        config.model.model_name, config.model.tokenizer_name
+    )
     dataset = build_dataset_mixture(
         config.data,
         tokenizer,
@@ -589,7 +625,9 @@ def test_mixed_dataset_packing(stream: bool):
         model=ModelParams(model_name="openai-community/gpt2", model_max_length=128),
     )
 
-    tokenizer = build_tokenizer(config.model)
+    tokenizer = _get_cached_tokenizer(
+        config.model.model_name, config.model.tokenizer_name
+    )
     dataset = build_dataset_mixture(
         config.data,
         tokenizer,
