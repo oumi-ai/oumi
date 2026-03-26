@@ -783,7 +783,6 @@ class Trainer(BaseTrainer):
             "num_workers": self.params.dataloader_num_workers,
             "pin_memory": self.device_type == "cuda",
             "prefetch_factor": prefetch_factor,
-            "pin_memory_device": self.device,
             "collate_fn": self.collator_fn,
         }
 

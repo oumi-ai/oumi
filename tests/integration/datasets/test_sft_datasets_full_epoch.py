@@ -41,6 +41,7 @@ def dataset_fixture(request):
 
 
 @pytest.mark.e2e
+@pytest.mark.timeout(1200)
 def test_dataset_conversation(dataset_fixture):
     dataset_name, dataset = dataset_fixture
     assert len(dataset) > 0, f"Dataset {dataset_name} is empty"
