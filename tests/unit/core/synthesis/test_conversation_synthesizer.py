@@ -1330,6 +1330,103 @@ def test_init_sample_environments_per_sample(
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_init_env_schema_retries_up_to_max(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """Schema generation should retry _MAX_STATE_UPDATE_RETRIES times on failure."""
+    from oumi.core.configs.params.tool_params import (
+        ToolAttribute,
+        ToolEnvironmentAttribute,
+        ToolOutputStrategy,
+    )
+    from oumi.core.synthesis.environment import _MAX_STATE_UPDATE_RETRIES
+
+    mock_engine = Mock()
+    mock_build_inference_engine.return_value = mock_engine
+
+    call_count = 0
+
+    def infer_side_effect(conversations, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        results = []
+        for _ in conversations:
+            if call_count <= _MAX_STATE_UPDATE_RETRIES:
+                # Return invalid schema (not JSON)
+                results.append(
+                    Conversation(
+                        messages=[
+                            Message(role=Role.ASSISTANT, content="not valid json")
+                        ]
+                    )
+                )
+            else:
+                # Return valid schema then valid state
+                results.append(
+                    Conversation(
+                        messages=[
+                            Message(
+                                role=Role.ASSISTANT,
+                                content='{"type": "object", "properties": {"items": {"type": "object"}}}',
+                            )
+                        ]
+                    )
+                )
+        return results
+
+    mock_engine.infer.side_effect = infer_side_effect
+
+    env_config = ToolEnvironmentAttribute(
+        id="db",
+        name="Database",
+        description="A database",
+        system_prompt="You manage a database.",
+    )
+    tool = ToolAttribute(
+        id="query",
+        name="Query",
+        description="Run query",
+        output_strategy=ToolOutputStrategy.ENVIRONMENT,
+        environment="db",
+        read_only=True,
+    )
+    params = GeneralSynthesisParams(tools=[tool], environments=[env_config])
+    multiturn = MultiTurnAttribute(
+        id="conv",
+        min_turns=2,
+        max_turns=2,
+        available_tools=["query"],
+        role_instruction_messages={
+            Role.USER: "You are an analyst.",
+            Role.ASSISTANT: "You are a db assistant.",
+        },
+    )
+    synthesizer = ConversationSynthesizer(params, mock_inference_config)
+
+    from types import SimpleNamespace
+
+    result = synthesizer._init_sample_environments(
+        [{"domain": SimpleNamespace(name="Test")}], multiturn
+    )
+
+    # With the broken code (for _ in range(N): ...; break), only 1 retry
+    # happens regardless of _MAX_STATE_UPDATE_RETRIES. The fixed code should
+    # make: 1 initial schema + _MAX_STATE_UPDATE_RETRIES retry batches + 1 state
+    # = 1 + _MAX_STATE_UPDATE_RETRIES + 1 = 4 total calls.
+    # The broken code would only make 3 calls (1 initial + 1 retry + 1 state)
+    # and fall back to permissive schema.
+    expected_calls = 1 + _MAX_STATE_UPDATE_RETRIES + 1  # schema + retries + state
+    assert mock_engine.infer.call_count == expected_calls
+
+    # Verify schema was actually applied from the LLM response, not the fallback
+    env = result[0]["db"]
+    assert "properties" in env._state_schema, (
+        "Schema should come from LLM response, not permissive fallback"
+    )
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
 def test_planner_prompt_includes_env_summary(
     mock_build_inference_engine,
     mock_inference_config,

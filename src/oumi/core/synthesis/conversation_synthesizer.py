@@ -174,32 +174,49 @@ class ConversationSynthesizer:
             schema_responses = self._inference_engine.infer(
                 schema_prompts, inference_config=self._inference_config
             )
-            retry_schema_pairs: list[tuple[int, str]] = []
-            retry_schema_prompts: list = []
-            for (i, env_id), response in zip(schema_pairs, schema_responses):
+            # Track which (pair_index) still need retries
+            failed_indices: list[int] = []
+            for j, ((i, env_id), response) in enumerate(
+                zip(schema_pairs, schema_responses)
+            ):
                 env = sample_envs[i][env_id]
                 if not env.apply_schema(response):
-                    for _ in range(_MAX_STATE_UPDATE_RETRIES):
-                        retry_schema_pairs.append((i, env_id))
-                        retry_schema_prompts.append(
-                            env.build_schema_prompt(
-                                env_tools[env_id], scenario_contexts[i]
-                            )
-                        )
-                        break
+                    failed_indices.append(j)
 
-            if retry_schema_prompts:
+            for _ in range(_MAX_STATE_UPDATE_RETRIES):
+                if not failed_indices:
+                    break
+                retry_prompts = [
+                    sample_envs[schema_pairs[j][0]][
+                        schema_pairs[j][1]
+                    ].build_schema_prompt(
+                        env_tools[schema_pairs[j][1]],
+                        scenario_contexts[schema_pairs[j][0]],
+                    )
+                    for j in failed_indices
+                ]
                 retry_responses = self._inference_engine.infer(
-                    retry_schema_prompts, inference_config=self._inference_config
+                    retry_prompts, inference_config=self._inference_config
                 )
-                for (i, env_id), response in zip(retry_schema_pairs, retry_responses):
+                still_failed: list[int] = []
+                for j, response in zip(failed_indices, retry_responses):
+                    i, env_id = schema_pairs[j]
                     env = sample_envs[i][env_id]
                     if not env.apply_schema(response):
-                        logger.warning(
-                            f"Failed to generate valid schema for env '{env_id}' "
-                            f"sample {i}. Using permissive schema."
-                        )
-                        env.set_schema({"type": "object"})
+                        still_failed.append(j)
+                failed_indices = still_failed
+
+            # Fallback: any still-failed schemas get permissive type
+            for j in failed_indices:
+                i, env_id = schema_pairs[j]
+                logger.warning(
+                    f"Failed to generate valid schema for env '{env_id}' "
+                    f"sample {i} after {_MAX_STATE_UPDATE_RETRIES} retries. "
+                    f"Using permissive schema."
+                )
+                sample_envs[i][env_id].set_schema({"type": "object"})
+
+            # Ensure any env that never got a schema attempt also has a fallback
             for envs in sample_envs:
                 for env_id, env in envs.items():
                     if env._state_schema is None:
@@ -216,39 +233,71 @@ class ConversationSynthesizer:
             state_responses = self._inference_engine.infer(
                 state_prompts, inference_config=self._inference_config
             )
-            retry_state_pairs: list[tuple[int, str]] = []
-            retry_state_prompts: list = []
-            for (i, env_id), response in zip(state_pairs, state_responses):
+            failed_indices: list[int] = []
+            for j, ((i, env_id), response) in enumerate(
+                zip(state_pairs, state_responses)
+            ):
                 env = sample_envs[i][env_id]
                 if not env.apply_initial_state(response):
-                    for _ in range(_MAX_STATE_UPDATE_RETRIES):
-                        retry_state_pairs.append((i, env_id))
-                        retry_state_prompts.append(
-                            env.build_initial_state_prompt(scenario_contexts[i])
-                        )
-                        break
+                    failed_indices.append(j)
 
-            if retry_state_prompts:
+            for _ in range(_MAX_STATE_UPDATE_RETRIES):
+                if not failed_indices:
+                    break
+                retry_prompts = [
+                    sample_envs[state_pairs[j][0]][
+                        state_pairs[j][1]
+                    ].build_initial_state_prompt(
+                        scenario_contexts[state_pairs[j][0]]
+                    )
+                    for j in failed_indices
+                ]
                 retry_responses = self._inference_engine.infer(
-                    retry_state_prompts, inference_config=self._inference_config
+                    retry_prompts, inference_config=self._inference_config
                 )
-                for (i, env_id), response in zip(retry_state_pairs, retry_responses):
+                still_failed: list[int] = []
+                for j, response in zip(failed_indices, retry_responses):
+                    i, env_id = state_pairs[j]
                     env = sample_envs[i][env_id]
                     if not env.apply_initial_state(response):
-                        if env._last_parsed_state is not None:
-                            env.set_state(env._last_parsed_state, validate=False)
-                            logger.warning(
-                                f"Using parsed-but-schema-invalid initial state for "
-                                f"env '{env_id}' (sample {i})."
-                            )
-                        else:
-                            env.set_state({})
-                            logger.warning(
-                                f"Initial state generation failed completely for "
-                                f"env '{env_id}' (sample {i}). Using empty state."
-                            )
+                        still_failed.append(j)
+                failed_indices = still_failed
 
-        return [envs if envs else None for envs in sample_envs]
+            # Fallback for exhausted retries
+            for j in failed_indices:
+                i, env_id = state_pairs[j]
+                env = sample_envs[i][env_id]
+                if env._last_parsed_state is not None:
+                    env.set_state(env._last_parsed_state, validate=False)
+                    logger.warning(
+                        f"Using parsed-but-schema-invalid initial state for "
+                        f"env '{env_id}' (sample {i})."
+                    )
+                else:
+                    env.set_state({})
+                    logger.warning(
+                        f"Initial state generation failed completely for "
+                        f"env '{env_id}' (sample {i}). Using empty state."
+                    )
+
+        # Mark samples with empty state as having no environment —
+        # this prevents the pipeline from generating conversations with
+        # hallucinated tool results against a nonexistent state.
+        result: list[dict[str, GeneratedToolEnvironment] | None] = []
+        for envs in sample_envs:
+            if not envs:
+                result.append(None)
+                continue
+            has_data = any(env.state for env in envs.values())
+            if has_data:
+                result.append(envs)
+            else:
+                logger.warning(
+                    "Dropping sample: all environments have empty state. "
+                    "This sample will produce no tool calls."
+                )
+                result.append(None)
+        return result
 
     def _summarize_envs(self, envs: dict[str, GeneratedToolEnvironment]) -> str:
         """Concatenate state summaries from all environments."""
@@ -947,7 +996,11 @@ class ConversationSynthesizer:
                         still_active.append(idx)
                         continue
 
-                    tool_call = tc_result.tool_call if isinstance(tc_result, ToolCallParsed) else None
+                    tool_call = (
+                        tc_result.tool_call
+                        if isinstance(tc_result, ToolCallParsed)
+                        else None
+                    )
 
                     if tool_call is None:
                         full_histories[idx].extend(turn_tool_msgs[idx])
@@ -957,9 +1010,7 @@ class ConversationSynthesizer:
                         for msg in turn_tool_msgs[idx]:
                             if msg.role == Role.ASSISTANT:
                                 conversational_histories[idx].append(msg)
-                        full_histories[idx].append(
-                            Message(role=role, content=text)
-                        )
+                        full_histories[idx].append(Message(role=role, content=text))
                         conversational_histories[idx].append(
                             Message(role=role, content=text)
                         )
@@ -1152,11 +1203,11 @@ class ConversationSynthesizer:
         env_state: dict | None = None,
     ) -> None:
         """Append a tool call + result to conversation history and output messages."""
-        clean_content = ToolExecutor.extract_content_around_tool_call(raw_text)
-        if clean_content:
-            turn_tool_msgs[idx].append(
-                Message(role=Role.ASSISTANT, content=clean_content)
-            )
+        # Preserve the full raw text (including <tool_call> tags) in the
+        # agent-facing history so the LLM sees its own prior tool call format
+        # as in-context examples. Without this, the LLM "forgets" the
+        # <tool_call> tag convention after enough context accumulates.
+        turn_tool_msgs[idx].append(Message(role=Role.ASSISTANT, content=raw_text))
         turn_tool_msgs[idx].append(
             Message(
                 role=Role.USER,
