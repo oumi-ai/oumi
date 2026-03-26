@@ -13,6 +13,8 @@
 # limitations under the License.
 
 
+from typing import Any
+
 import numpy as np
 import transformers
 
@@ -26,7 +28,9 @@ from oumi.utils.logging import logger
 # Base class functions
 #
 def tokenize_for_completions_only_training_with_template(
-    tokenizer: BaseTokenizer, conversation: Conversation
+    tokenizer: BaseTokenizer,
+    conversation: Conversation,
+    chat_template_kwargs: dict[str, Any] | None = None,
 ) -> dict:
     """Tokenize a conversation for completions-only training with a template."""
     batch: transformers.BatchEncoding = tokenizer.apply_chat_template(
@@ -34,6 +38,7 @@ def tokenize_for_completions_only_training_with_template(
         tokenize=True,
         return_dict=True,
         return_assistant_tokens_mask=True,
+        **(chat_template_kwargs or {}),
     )
 
     data = batch.data
@@ -55,6 +60,7 @@ def tokenize_for_completions_only_training_with_prefix(
     instruction_template: str,
     response_token_ids: list[int],
     instruction_token_ids: list[int],
+    chat_template_kwargs: dict[str, Any] | None = None,
 ) -> dict:
     """Tokenize a conversation for completions-only training with a prefix."""
     prompt: str = tokenizer.apply_chat_template(
@@ -62,6 +68,7 @@ def tokenize_for_completions_only_training_with_prefix(
         tokenize=False,
         return_dict=False,
         return_assistant_tokens_mask=False,
+        **(chat_template_kwargs or {}),
     )
     tokenizer_batch: transformers.BatchEncoding = tokenizer(
         prompt, truncation=True, padding=False, return_tensors="pt"

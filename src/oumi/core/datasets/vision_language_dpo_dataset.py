@@ -239,20 +239,26 @@ class VisionLanguageDpoDataset(BaseDpoDataset):
             )
 
         # Apply the chat template to the prompt.
-        prompt = self._tokenizer.apply_chat_template(features["prompt"], tokenize=False)
+        prompt = self._tokenizer.apply_chat_template(
+            features["prompt"], tokenize=False, **self._chat_template_kwargs
+        )
         prompt = cast(str, prompt)
 
         # Apply the chat template to the chosen and rejected turns.
         # To get only the completion part, we tokenizer the prompt + chosen/rejected
         # and then remove the prompt prefix.
         prompt_chosen = self._tokenizer.apply_chat_template(
-            features["prompt"] + features["chosen"], tokenize=False
+            features["prompt"] + features["chosen"],
+            tokenize=False,
+            **self._chat_template_kwargs,
         )
         prompt_chosen = cast(str, prompt_chosen)
         chosen = prompt_chosen[len(prompt) :]
 
         prompt_rejected = self._tokenizer.apply_chat_template(
-            features["prompt"] + features["rejected"], tokenize=False
+            features["prompt"] + features["rejected"],
+            tokenize=False,
+            **self._chat_template_kwargs,
         )
         prompt_rejected = cast(str, prompt_rejected)
         rejected = prompt_rejected[len(prompt) :]

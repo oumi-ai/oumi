@@ -151,8 +151,16 @@ class ModelParams(BaseParams):
 
     chat_template_kwargs: dict[str, Any] | None = None
     """Additional keyword args to pass to the chat template renderer.
-    Currently, it is only used by the vLLM inference engine to pass additional kwargs
-    for generation of assistant messages.
+
+    These kwargs are forwarded to ``tokenizer.apply_chat_template()`` during
+    both training data tokenization and inference. For example, Qwen3 models
+    accept ``enable_thinking`` (bool) to control thinking token insertion:
+
+    .. code-block:: yaml
+
+        model:
+          chat_template_kwargs:
+            enable_thinking: false
     """
 
     attn_implementation: str | None = None

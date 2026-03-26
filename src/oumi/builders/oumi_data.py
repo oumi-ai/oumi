@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import cast
+from typing import Any, cast
 
 import torch.utils.data.datapipes as dp
 from torch.utils.data import IterDataPipe, MapDataPipe
@@ -62,6 +62,7 @@ def build_dataset_mixture(
     tokenizer: BaseTokenizer | None,
     dataset_split: DatasetSplit,
     seed: int | None = None,
+    chat_template_kwargs: dict[str, Any] | None = None,
 ) -> "IterDataPipe":
     """Builds a dataset for the specified split.
 
@@ -83,7 +84,7 @@ def build_dataset_mixture(
 
     for dataset_params in dataset_split_params.datasets:
         # Load the dataset
-        datapipe = _load_dataset(dataset_params, dataset_split_params.stream, tokenizer)
+        datapipe = _load_dataset(dataset_params, dataset_split_params.stream, tokenizer, chat_template_kwargs=chat_template_kwargs)
 
         # Apply sampling if needed
         if dataset_params.sample_count is not None:
@@ -162,6 +163,7 @@ def _load_dataset(
     dataset_params: DatasetParams,
     stream: bool,
     tokenizer: BaseTokenizer | None = None,
+    chat_template_kwargs: dict[str, Any] | None = None,
 ) -> IterDataPipe:
     """Loads a dataset and wraps it in a DataPipe if necessary."""
     # First, try to load a custom dataset from the REGISTRY
@@ -171,6 +173,8 @@ def _load_dataset(
 
     if dataset_class is not None:
         dataset_kwargs = {**dataset_params.dataset_kwargs}
+        if chat_template_kwargs:
+            dataset_kwargs["chat_template_kwargs"] = chat_template_kwargs
         # Use the dataset name override from 'dataset_kwargs' if specified (OPE-897).
         dataset_name = (
             dataset_kwargs.pop("dataset_name_override", None)

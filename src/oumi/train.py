@@ -362,6 +362,7 @@ def train(
         tokenizer,
         DatasetSplit.TRAIN,
         seq_length=config.model.model_max_length,
+        chat_template_kwargs=config.model.chat_template_kwargs,
     )
 
     eval_dataset = None
@@ -371,6 +372,7 @@ def train(
             tokenizer,
             DatasetSplit.VALIDATION,
             seq_length=config.model.model_max_length,
+            chat_template_kwargs=config.model.chat_template_kwargs,
         )
 
     trainer_type: Final[TrainerType] = config.training.trainer_type

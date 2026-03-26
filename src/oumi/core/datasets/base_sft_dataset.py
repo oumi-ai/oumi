@@ -14,7 +14,7 @@
 
 import re
 from abc import ABC, abstractmethod
-from typing import Literal, cast
+from typing import Any, Literal, cast
 
 import pandas as pd
 from typing_extensions import override
@@ -49,6 +49,7 @@ class BaseSftDataset(BaseMapDataset, ABC):
         instruction_template: str | None = None,
         return_conversations: bool = False,
         return_conversations_format: Literal["dict", "json"] = "json",
+        chat_template_kwargs: dict[str, Any] | None = None,
         **kwargs,
     ) -> None:
         """Initializes a new instance of the BaseSftDataset class."""
@@ -69,6 +70,7 @@ class BaseSftDataset(BaseMapDataset, ABC):
         self._instruction_template = instruction_template
         self._return_conversations = return_conversations
         self._return_conversations_format = return_conversations_format
+        self._chat_template_kwargs = chat_template_kwargs or {}
 
         if self._assistant_only:
             self._verify_assistant_only_compatibility()
@@ -218,6 +220,7 @@ class BaseSftDataset(BaseMapDataset, ABC):
             return tokenize_for_completions_only_training_with_template(
                 tokenizer=self._tokenizer,
                 conversation=conversation,
+                chat_template_kwargs=self._chat_template_kwargs,
             )
         else:
             return tokenize_for_completions_only_training_with_prefix(
@@ -227,6 +230,7 @@ class BaseSftDataset(BaseMapDataset, ABC):
                 instruction_template=cast(str, self._instruction_template),
                 response_token_ids=self.response_token_ids,
                 instruction_token_ids=self.instruction_token_ids,
+                chat_template_kwargs=self._chat_template_kwargs,
             )
 
     def _tokenize(
@@ -243,6 +247,7 @@ class BaseSftDataset(BaseMapDataset, ABC):
             max_length=self._tokenizer.model_max_length,
             truncation=True,
             add_generation_prompt=(self.task == "generation"),
+            **self._chat_template_kwargs,
         )
 
         if tokenize:

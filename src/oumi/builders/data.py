@@ -14,7 +14,7 @@
 
 import copy
 from collections.abc import Callable, Sequence
-from typing import TypeVar, cast
+from typing import Any, TypeVar, cast
 
 import datasets
 
@@ -43,6 +43,7 @@ def build_dataset_mixture(
     dataset_split: DatasetSplit,
     seq_length: int | None = None,
     seed: int | None = None,
+    chat_template_kwargs: dict[str, Any] | None = None,
 ) -> DatasetType | PretrainingAsyncTextDataset:
     """Builds a dataset for the specified split.
 
@@ -54,7 +55,8 @@ def build_dataset_mixture(
             packing is requested, and the dataset isn't already packed. If not provided,
             defaults to 1024.
         seed: If specified, a seed used for random sampling.
-        kwargs: Keyword arguments.
+        chat_template_kwargs: Additional kwargs to pass to
+            ``tokenizer.apply_chat_template()`` during dataset tokenization.
 
     Returns:
         dataset: The built dataset for `dataset_split`.
@@ -71,7 +73,7 @@ def build_dataset_mixture(
         # We return a torchdata.IterDataPipe instead of a HuggingFace Dataset or
         # IterableDataset. This is a temporary workaround until torchdata is stable
         # and becomes the default processing pipeline.
-        return build_oumi_dataset(data_params, tokenizer, dataset_split, seed)  # type: ignore
+        return build_oumi_dataset(data_params, tokenizer, dataset_split, seed, chat_template_kwargs=chat_template_kwargs)  # type: ignore
 
     # Check if the underlying dataset is already packed, or if we need to pack it
     # ourselves.
@@ -83,6 +85,7 @@ def build_dataset_mixture(
                 dataset_params=dataset_params,
                 stream=dataset_split_params.stream,
                 tokenizer=tokenizer,
+                chat_template_kwargs=chat_template_kwargs,
             ),
             dataset_params=dataset_params,
             stream=dataset_split_params.stream,
@@ -244,6 +247,7 @@ def _load_dataset(
     dataset_params: DatasetParams,
     stream: bool,
     tokenizer: BaseTokenizer | None = None,
+    chat_template_kwargs: dict[str, Any] | None = None,
 ) -> (
     datasets.DatasetDict
     | datasets.Dataset
@@ -271,6 +275,8 @@ def _load_dataset(
             dataset_kwargs["transform_num_workers"] = (
                 dataset_params.transform_num_workers
             )
+        if chat_template_kwargs:
+            dataset_kwargs["chat_template_kwargs"] = chat_template_kwargs
         # Use the dataset name override from 'dataset_kwargs' if specified (OPE-897).
         dataset_name = (
             dataset_kwargs.pop("dataset_name_override", None)

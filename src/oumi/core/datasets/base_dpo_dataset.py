@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import cast
+from typing import Any, cast
 
 import numpy as np
 from typing_extensions import override
@@ -42,6 +42,7 @@ class BaseDpoDataset(BaseMapDataset):
         split: str | None = None,
         tokenizer: BaseTokenizer | None = None,
         return_tensors: bool = False,
+        chat_template_kwargs: dict[str, Any] | None = None,
         **kwargs,
     ) -> None:
         """Initializes a new instance of the BaseDpoDataset class.
@@ -71,6 +72,7 @@ class BaseDpoDataset(BaseMapDataset):
 
         self._tokenizer = tokenizer
         self._return_tensors = return_tensors
+        self._chat_template_kwargs = chat_template_kwargs or {}
 
         self._data = self._load_data()
 
@@ -109,20 +111,26 @@ class BaseDpoDataset(BaseMapDataset):
             raise ValueError("Tokenizer is required to process a sample.")
 
         # Apply the chat template to the prompt.
-        prompt = self._tokenizer.apply_chat_template(features["prompt"], tokenize=False)
+        prompt = self._tokenizer.apply_chat_template(
+            features["prompt"], tokenize=False, **self._chat_template_kwargs
+        )
         prompt = cast(str, prompt)
 
         # Apply the chat template to the chosen and rejected turns.
         # To get only the completion part, we tokenizer the prompt + chosen/rejected
         # and then remove the prompt prefix.
         prompt_chosen = self._tokenizer.apply_chat_template(
-            features["prompt"] + features["chosen"], tokenize=False
+            features["prompt"] + features["chosen"],
+            tokenize=False,
+            **self._chat_template_kwargs,
         )
         prompt_chosen = cast(str, prompt_chosen)
         chosen = prompt_chosen[len(prompt) :]
 
         prompt_rejected = self._tokenizer.apply_chat_template(
-            features["prompt"] + features["rejected"], tokenize=False
+            features["prompt"] + features["rejected"],
+            tokenize=False,
+            **self._chat_template_kwargs,
         )
         prompt_rejected = cast(str, prompt_rejected)
         rejected = prompt_rejected[len(prompt) :]
