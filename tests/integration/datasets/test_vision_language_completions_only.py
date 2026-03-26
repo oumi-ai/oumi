@@ -6,6 +6,7 @@ from oumi.core.configs import ModelParams
 from oumi.core.constants import LABEL_IGNORE_INDEX
 from oumi.core.types import ContentItem, Conversation, Message, Role
 from oumi.core.types.conversation import Type
+from oumi.utils.packaging import is_transformers_v5
 
 
 @pytest.fixture
@@ -80,27 +81,50 @@ def test_phi3_tokenization(phi3_tokenizer):
     )
 
     tokens = phi3_tokenizer.encode(prompt, add_special_tokens=False)
-    expected_tokens = [
-        32010,
-        29871,
-        13,
-        5618,
-        338,
-        445,
-        29973,
-        32007,
-        29871,
-        13,
-        32001,
-        910,
-        338,
-        263,
-        1243,
-        29889,
-        32007,
-        29871,
-        13,
-    ]
+    # Transformers v5.3.0+ changed whitespace handling in SentencePiece tokenizers:
+    # - Extra whitespace tokens (29871) before newlines are no longer emitted
+    # - "This" tokenizes as 4013 instead of 910
+    if is_transformers_v5():
+        expected_tokens = [
+            32010,  # <|user|>
+            13,  # \n
+            5618,  # What
+            338,  # is
+            445,  # this
+            29973,  # ?
+            32007,  # <|end|>
+            13,  # \n
+            32001,  # <|assistant|>
+            4013,  # This
+            338,  # is
+            263,  # a
+            1243,  # test
+            29889,  # .
+            32007,  # <|end|>
+            13,  # \n
+        ]
+    else:
+        expected_tokens = [
+            32010,  # <|user|>
+            29871,  # whitespace
+            13,  # \n
+            5618,  # What
+            338,  # is
+            445,  # this
+            29973,  # ?
+            32007,  # <|end|>
+            29871,  # whitespace
+            13,  # \n
+            32001,  # <|assistant|>
+            910,  # This (with leading space)
+            338,  # is
+            263,  # a
+            1243,  # test
+            29889,  # .
+            32007,  # <|end|>
+            29871,  # whitespace
+            13,  # \n
+        ]
     assert tokens == expected_tokens, f"Expected {expected_tokens}, got {tokens}"
 
 

@@ -14,6 +14,7 @@ from oumi.utils.conversation_utils import base64encode_content_item_image_bytes
 from oumi.utils.image_utils import (
     create_png_bytes_from_image,
 )
+from oumi.utils.packaging import is_vllm_v0_12_or_later
 
 try:
     vllm_import_failed = False
@@ -555,12 +556,13 @@ def test_guided_decoding_json(
     ]
     result = engine._infer([single_turn_conversation], config)
 
-    # Verify SamplingParams was called with guided_decoding
+    # Verify SamplingParams was called with guided_decoding/structured_outputs
     assert result is not None
     mock_sampling_params.assert_called_once()
     call_kwargs = mock_sampling_params.call_args[1]
-    assert "guided_decoding" in call_kwargs
-    assert call_kwargs["guided_decoding"].json == schema
+    guided_key = "structured_outputs" if is_vllm_v0_12_or_later() else "guided_decoding"
+    assert guided_key in call_kwargs
+    assert call_kwargs[guided_key].json == schema
 
 
 @pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
@@ -592,12 +594,13 @@ def test_guided_decoding_regex(mock_vllm, mock_sampling_params):
 
     result = engine._infer([conversation], config)
 
-    # Verify SamplingParams was called with guided_decoding
+    # Verify SamplingParams was called with guided_decoding/structured_outputs
     assert result is not None
     mock_sampling_params.assert_called_once()
     call_kwargs = mock_sampling_params.call_args[1]
-    assert "guided_decoding" in call_kwargs
-    assert call_kwargs["guided_decoding"].regex == pattern
+    guided_key = "structured_outputs" if is_vllm_v0_12_or_later() else "guided_decoding"
+    assert guided_key in call_kwargs
+    assert call_kwargs[guided_key].regex == pattern
 
 
 @pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
@@ -628,12 +631,13 @@ def test_guided_decoding_choice(mock_vllm, mock_sampling_params):
 
     result = engine._infer([conversation], config)
 
-    # Verify SamplingParams was called with guided_decoding
+    # Verify SamplingParams was called with guided_decoding/structured_outputs
     assert result is not None
     mock_sampling_params.assert_called_once()
     call_kwargs = mock_sampling_params.call_args[1]
-    assert "guided_decoding" in call_kwargs
-    assert call_kwargs["guided_decoding"].choice == choices
+    guided_key = "structured_outputs" if is_vllm_v0_12_or_later() else "guided_decoding"
+    assert guided_key in call_kwargs
+    assert call_kwargs[guided_key].choice == choices
 
 
 @pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
@@ -655,3 +659,48 @@ def test_chat_template_kwargs_enable_thinking_false(mock_vllm):
     call_kwargs = engine._llm.chat.call_args.kwargs
     assert "chat_template_kwargs" in call_kwargs
     assert call_kwargs["chat_template_kwargs"].get("enable_thinking") is False
+
+
+#
+# Tests for vLLM passthrough kwargs
+#
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_language_model_only_passed_to_vllm(mock_vllm):
+    """Verify language_model_only from model_kwargs is passed to vllm.LLM."""
+    mock_vllm.LLM.return_value = Mock()
+
+    params = _get_default_model_params()
+    params.model_kwargs = {"language_model_only": True}
+    VLLMInferenceEngine(params)
+
+    call_kwargs = mock_vllm.LLM.call_args[1]
+    assert call_kwargs.get("language_model_only") is True
+
+
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_hf_config_path_passed_to_vllm(mock_vllm):
+    """Verify hf_config_path from model_kwargs is passed to vllm.LLM."""
+    mock_vllm.LLM.return_value = Mock()
+
+    params = _get_default_model_params()
+    params.model_kwargs = {
+        "language_model_only": True,
+        "hf_config_path": "Qwen/Qwen3.5-0.8B",
+    }
+    VLLMInferenceEngine(params)
+
+    call_kwargs = mock_vllm.LLM.call_args[1]
+    assert call_kwargs.get("hf_config_path") == "Qwen/Qwen3.5-0.8B"
+    assert call_kwargs.get("language_model_only") is True
+
+
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_no_passthrough_kwargs_by_default(mock_vllm):
+    """Verify passthrough kwargs are not set when not in model_kwargs."""
+    mock_vllm.LLM.return_value = Mock()
+
+    VLLMInferenceEngine(_get_default_model_params())
+
+    call_kwargs = mock_vllm.LLM.call_args[1]
+    assert "language_model_only" not in call_kwargs
+    assert "hf_config_path" not in call_kwargs

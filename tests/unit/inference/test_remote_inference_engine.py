@@ -1125,7 +1125,6 @@ def test_infer_online_multiple_requests_politeness():
         assert expected_result == result
 
 
-@pytest.mark.asyncio
 def test_infer_online_multiple_requests_politeness_multiple_workers():
     # Note: We use the first message's content as the key to avoid
     # stringifying the message object.

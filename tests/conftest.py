@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+from datasets import config as datasets_config
 
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.logging import get_logger
@@ -9,6 +10,19 @@ from oumi.utils.logging import get_logger
 @pytest.fixture(autouse=True)
 def disable_telemetry(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("DO_NOT_TRACK", "1")
+
+
+@pytest.fixture
+def temp_hf_datasets_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """Use a temporary cache directory for HuggingFace datasets.
+
+    This prevents stale cache issues where cached datasets have outdated
+    column names or formats that don't match the current code.
+
+    Note: datasets.disable_caching() doesn't affect from_generator(),
+    so we use a temp directory instead.
+    """
+    monkeypatch.setattr(datasets_config, "HF_DATASETS_CACHE", str(tmp_path))
 
 
 @pytest.fixture
