@@ -63,8 +63,7 @@ class SkyCloud(BaseCloud):
         final_status = cluster.get_job(launch_status.id)
         if not final_status:
             raise RuntimeError(
-                f"Job {launch_status.id} not found on cluster"
-                f" {launch_status.cluster}."
+                f"Job {launch_status.id} not found on cluster {launch_status.cluster}."
             )
         # Preserve cost_per_hour from launch — not available in job queue data.
         final_status.cost_per_hour = launch_status.cost_per_hour
