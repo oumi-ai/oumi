@@ -12,6 +12,7 @@ from oumi.core.configs import (
     TrainingConfig,
 )
 from oumi.core.configs.params.evaluation_params import EvaluationTaskParams
+from oumi.exceptions import OumiConfigParsingError
 
 
 def test_config_serialization():
@@ -187,13 +188,14 @@ def test_config_from_yaml_and_arg_list_failure_nonexistent_index(tmp_path):
     config_path = tmp_path / "eval.yaml"
     config.to_yaml(config_path)
 
-    with pytest.raises(omegaconf.errors.ValidationError):
+    with pytest.raises(OumiConfigParsingError) as exc_info:
         EvaluationConfig.from_yaml_and_arg_list(
             config_path,
             [
                 "tasks[2].num_samples=1",  # index doesn't exist
             ],
         )
+    assert isinstance(exc_info.value.__cause__, omegaconf.errors.ValidationError)
 
 
 def test_config_from_yaml_and_arg_list_failure_empty_list(tmp_path):
@@ -202,10 +204,11 @@ def test_config_from_yaml_and_arg_list_failure_empty_list(tmp_path):
     config_path = tmp_path / "eval.yaml"
     config.to_yaml(config_path)
 
-    with pytest.raises(omegaconf.errors.ValidationError):
+    with pytest.raises(OumiConfigParsingError) as exc_info:
         EvaluationConfig.from_yaml_and_arg_list(
             config_path,
             [
                 "tasks[0].num_samples=1",  # index doesn't exist
             ],
         )
+    assert isinstance(exc_info.value.__cause__, omegaconf.errors.ValidationError)
