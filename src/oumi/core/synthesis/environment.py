@@ -29,7 +29,6 @@ from oumi.utils.json_patch import (
     parse_patch_response,
 )
 from oumi.utils.logging import logger
-from oumi.utils.str_utils import extract_json
 
 _MAX_STATE_UPDATE_RETRIES = (
     2  # Max retries for state updates that fail schema validation.
@@ -62,7 +61,6 @@ class GeneratedToolEnvironment:
         self._state_schema: dict[str, Any] | None = (
             copy.deepcopy(config.state_schema) if config.state_schema else None
         )
-        self._last_parsed_state: dict[str, Any] | None = None
 
     @property
     def state(self) -> dict[str, Any]:
@@ -95,16 +93,13 @@ class GeneratedToolEnvironment:
         user_parts = [
             f"Tool '{tool.name}' called with arguments:\n"
             f"{json.dumps(arguments, indent=2)}\n\n"
-            "Given the current state, produce the tool's output. "
-            "Output ONLY valid JSON — no markdown fences, no explanation, "
-            "no code blocks. The first character of your response must be "
-            "{ or [.",
+            "Produce the tool's JSON output based on the current state. "
+            "No markdown fences. Start with { or [.",
         ]
         if retry:
             user_parts.append(
-                "\nIMPORTANT: Your previous output was not valid JSON "
-                "(it may have been truncated or wrapped in markdown). "
-                "Output ONLY a complete, valid JSON object or array."
+                "\nYour previous output was not valid JSON. "
+                "Output only a complete JSON object or array."
             )
         if tool.output_schema:
             user_parts.insert(
@@ -145,9 +140,10 @@ class GeneratedToolEnvironment:
             "path (JSON Pointer referencing dict keys, e.g. /users/2/role), "
             "and value (for add/replace). Output ONLY the JSON array."
         )
-        ex1_assistant = '[{"op": "replace", "path": "/users/2/role", "value": "editor"}]'
+        ex1_assistant = (
+            '[{"op": "replace", "path": "/users/2/role", "value": "editor"}]'
+        )
 
-        # Example 2: add (INSERT)
         ex2_user = (
             'Current state:\n{"users": {"1": {"name": "Alice", "role": "admin"}, '
             '"2": {"name": "Bob", "role": "viewer"}}}\n\n'
@@ -265,129 +261,6 @@ class GeneratedToolEnvironment:
         except jsonschema.ValidationError as e:
             logger.warning(f"State validation failed: {e.message}")
             return False
-
-    def build_schema_prompt(
-        self,
-        tools: list[ToolAttribute],
-        scenario_context: str | None = None,
-    ) -> Conversation:
-        """Build the prompt for generating a JSON Schema from tool definitions.
-
-        Args:
-            tools: All tools bound to this environment.
-            scenario_context: Optional conversation persona/scenario context.
-
-        Returns:
-            A Conversation with system and user messages.
-        """
-        tool_descriptions = []
-        for tool in tools:
-            desc = (
-                f"- {tool.name} ({tool.description})\n"
-                f"  read_only: {tool.read_only}\n"
-                f"  parameters: {json.dumps(tool.parameters)}"
-            )
-            if tool.output_schema:
-                desc += f"\n  output_schema: {json.dumps(tool.output_schema)}"
-            tool_descriptions.append(desc)
-
-        system_msg = (
-            "You are designing a JSON Schema for the state of an environment.\n\n"
-            f"Environment: {self._config.name}\n"
-            f"Description: {self._config.description}\n\n"
-            f"{self._config.system_prompt}"
-        )
-
-        user_parts = [
-            "The following tools operate on this environment:\n\n"
-            + "\n\n".join(tool_descriptions)
-            + "\n\nDesign a JSON Schema for the state. "
-            "Every field that any tool reads or writes must be represented.\n\n"
-            "IMPORTANT: For collections of records (e.g., tables, lists of "
-            "entities), use dictionaries keyed by the record's primary "
-            "identifier — NOT arrays. For example, use "
-            '{"users": {"1": {...}, "2": {...}}} instead of '
-            '{"users": [{...}, {...}]}. This ensures stable key-based '
-            "lookups.\n\n"
-            "Output ONLY a valid JSON Schema object.",
-        ]
-        if scenario_context:
-            user_parts.insert(0, f"Scenario context: {scenario_context}\n\n")
-
-        messages = [
-            Message(role=Role.SYSTEM, content=system_msg),
-            Message(role=Role.USER, content="\n".join(user_parts)),
-        ]
-        return Conversation(messages=messages)
-
-    def apply_schema(self, response: Conversation) -> bool:
-        """Parse JSON from the response and store it as the state schema.
-
-        Args:
-            response: Inference response containing JSON schema.
-
-        Returns:
-            True if the schema was successfully parsed and stored,
-            False otherwise. On failure, _state_schema is unchanged.
-        """
-        text = self._extract_text(response)
-        parsed = extract_json(text, expected_type=dict)
-        if isinstance(parsed, dict):
-            self._state_schema = parsed
-            return True
-        logger.warning(f"Failed to parse schema JSON: {text[:200]}")
-        return False
-
-    def build_initial_state_prompt(
-        self,
-        scenario_context: str | None = None,
-    ) -> Conversation:
-        """Build the prompt for generating an initial state.
-
-        Args:
-            scenario_context: Optional conversation persona/scenario context.
-
-        Returns:
-            A Conversation with system and user messages.
-        """
-        system_msg = (
-            f"You are initializing the state of an environment.\n\n"
-            f"Environment: {self._config.name}\n"
-            f"Description: {self._config.description}\n\n"
-            f"{self._config.system_prompt}"
-        )
-
-        user_parts = [
-            f"State schema:\n{json.dumps(self._state_schema, indent=2)}\n\n"
-            "Generate a realistic initial state conforming to this schema. "
-            "Output ONLY valid JSON.",
-        ]
-        if scenario_context:
-            user_parts.insert(0, f"Scenario context: {scenario_context}\n\n")
-
-        messages = [
-            Message(role=Role.SYSTEM, content=system_msg),
-            Message(role=Role.USER, content="\n".join(user_parts)),
-        ]
-        return Conversation(messages=messages)
-
-    def apply_initial_state(self, response: Conversation) -> bool:
-        """Parse JSON from response, validate against schema, and store as state.
-
-        On validation failure, the parsed dict is stored in _last_parsed_state
-        so the caller can use it as a fallback.
-        """
-        self._last_parsed_state = None
-        text = self._extract_text(response)
-        parsed = extract_json(text, expected_type=dict)
-        if not isinstance(parsed, dict):
-            logger.warning(f"Failed to parse initial state JSON: {text[:200]}")
-            return False
-        if not self._validate_state(parsed):
-            self._last_parsed_state = parsed
-            return False
-        self._state = parsed
-        return True
 
     def summarize_state(self) -> str:
         """Produce a concise rule-based text summary of the current state.
