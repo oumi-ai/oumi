@@ -34,6 +34,7 @@ from oumi.core.synthesis.environment import (
     _MAX_STATE_UPDATE_RETRIES,
     GeneratedToolEnvironment,
 )
+from oumi.core.synthesis.environment_registry import EnvironmentRegistry
 from oumi.core.synthesis.tool_executor import (
     ToolCallError,
     ToolCallParsed,
@@ -119,15 +120,19 @@ class ConversationSynthesizer:
         samples: list[dict],
         multiturn_attribute: MultiTurnAttribute,
     ) -> list[dict[str, GeneratedToolEnvironment] | None]:
-        """Create and initialize per-sample environments with batched LLM calls.
+        """Create and initialize per-sample environments via the registry.
+
+        Builds each environment once, then copies for all samples.
 
         Args:
-            samples: List of sample dicts, each containing resolved attribute values.
-            multiturn_attribute: The multi-turn attribute defining which tools are used.
+            samples: List of sample dicts with resolved attribute values.
+            multiturn_attribute: Multi-turn attribute defining which tools
+                are used.
 
         Returns:
-            A list aligned to samples. Each entry is a dict mapping env_id to a
-            fresh GeneratedToolEnvironment, or None if no env-bound tools exist.
+            A list aligned to samples. Each entry is a dict mapping
+            env_id to a GeneratedToolEnvironment, or None if no
+            env-bound tools exist.
         """
         tools = self._get_tools_for_multiturn(multiturn_attribute)
         env_tools: dict[str, list[ToolAttribute]] = {}
@@ -138,167 +143,81 @@ class ConversationSynthesizer:
         if not env_tools:
             return [None] * len(samples)
 
+        # Build scenario context from role instructions
         scenario_parts = []
-        for role, instruction in multiturn_attribute.role_instruction_messages.items():
+        for role, instruction in (
+            multiturn_attribute.role_instruction_messages.items()
+        ):
             scenario_parts.append(f"{role.value}: {instruction}")
-        scenario_template = "\n".join(scenario_parts) if scenario_parts else None
-        sample_envs: list[dict[str, GeneratedToolEnvironment]] = []
-        for _ in samples:
+        scenario_template = (
+            "\n".join(scenario_parts) if scenario_parts else None
+        )
+
+        scenario_context = None
+        if scenario_template and samples:
+            scenario_context = self._formatter.format(
+                samples[0],
+                scenario_template,
+                missing_values_allowed=True,
+            )
+
+        # Build each environment once via registry
+        registry = EnvironmentRegistry()
+        for env_id, bound_tools in env_tools.items():
+            config = self._env_configs.get(env_id)
+            if not config:
+                logger.warning(
+                    f"Environment config not found for '{env_id}'"
+                )
+                continue
+
+            if (
+                config.initial_state is not None
+                and config.state_schema is not None
+            ):
+                registry.register_static(config)
+            else:
+                registry.build(
+                    config,
+                    bound_tools,
+                    self._inference_engine,
+                    self._inference_config,
+                    scenario_context=scenario_context,
+                )
+
+        # Create N copies
+        n = len(samples)
+        result: list[dict[str, GeneratedToolEnvironment] | None] = []
+        for _ in range(n):
             envs: dict[str, GeneratedToolEnvironment] = {}
             for env_id in env_tools:
-                config = self._env_configs.get(env_id)
-                if not config:
-                    logger.warning(f"Environment config not found for '{env_id}'")
+                if env_id not in self._env_configs:
                     continue
-                envs[env_id] = GeneratedToolEnvironment(config=config)
-            sample_envs.append(envs)
-
-        def _resolve_scenario(sample: dict) -> str | None:
-            if scenario_template is None:
-                return None
-            return self._formatter.format(
-                sample, scenario_template, missing_values_allowed=True
-            )
-
-        scenario_contexts = [_resolve_scenario(s) for s in samples]
-        schema_pairs: list[tuple[int, str]] = []
-        schema_prompts: list = []
-        for i, envs in enumerate(sample_envs):
-            ctx = scenario_contexts[i]
-            for env_id, env in envs.items():
-                bound_tools = env_tools[env_id]
-                schema_pairs.append((i, env_id))
-                schema_prompts.append(env.build_schema_prompt(bound_tools, ctx))
-
-        if schema_prompts:
-            schema_responses = self._inference_engine.infer(
-                schema_prompts, inference_config=self._inference_config
-            )
-            # Track which (pair_index) still need retries
-            failed_indices: list[int] = []
-            for j, ((i, env_id), response) in enumerate(
-                zip(schema_pairs, schema_responses)
-            ):
-                env = sample_envs[i][env_id]
-                if not env.apply_schema(response):
-                    failed_indices.append(j)
-
-            for _ in range(_MAX_STATE_UPDATE_RETRIES):
-                if not failed_indices:
-                    break
-                retry_prompts = [
-                    sample_envs[schema_pairs[j][0]][
-                        schema_pairs[j][1]
-                    ].build_schema_prompt(
-                        env_tools[schema_pairs[j][1]],
-                        scenario_contexts[schema_pairs[j][0]],
-                    )
-                    for j in failed_indices
-                ]
-                retry_responses = self._inference_engine.infer(
-                    retry_prompts, inference_config=self._inference_config
-                )
-                still_failed: list[int] = []
-                for j, response in zip(failed_indices, retry_responses):
-                    i, env_id = schema_pairs[j]
-                    env = sample_envs[i][env_id]
-                    if not env.apply_schema(response):
-                        still_failed.append(j)
-                failed_indices = still_failed
-
-            # Fallback: any still-failed schemas get permissive type
-            for j in failed_indices:
-                i, env_id = schema_pairs[j]
-                logger.warning(
-                    f"Failed to generate valid schema for env '{env_id}' "
-                    f"sample {i} after {_MAX_STATE_UPDATE_RETRIES} retries. "
-                    f"Using permissive schema."
-                )
-                sample_envs[i][env_id].set_schema({"type": "object"})
-
-            # Ensure any env that never got a schema attempt also has a fallback
-            for envs in sample_envs:
-                for env_id, env in envs.items():
-                    if env._state_schema is None:
-                        env.set_schema({"type": "object"})
-        state_pairs: list[tuple[int, str]] = []
-        state_prompts: list = []
-        for i, envs in enumerate(sample_envs):
-            ctx = scenario_contexts[i]
-            for env_id, env in envs.items():
-                state_pairs.append((i, env_id))
-                state_prompts.append(env.build_initial_state_prompt(ctx))
-
-        if state_prompts:
-            state_responses = self._inference_engine.infer(
-                state_prompts, inference_config=self._inference_config
-            )
-            failed_indices: list[int] = []
-            for j, ((i, env_id), response) in enumerate(
-                zip(state_pairs, state_responses)
-            ):
-                env = sample_envs[i][env_id]
-                if not env.apply_initial_state(response):
-                    failed_indices.append(j)
-
-            for _ in range(_MAX_STATE_UPDATE_RETRIES):
-                if not failed_indices:
-                    break
-                retry_prompts = [
-                    sample_envs[state_pairs[j][0]][
-                        state_pairs[j][1]
-                    ].build_initial_state_prompt(
-                        scenario_contexts[state_pairs[j][0]]
-                    )
-                    for j in failed_indices
-                ]
-                retry_responses = self._inference_engine.infer(
-                    retry_prompts, inference_config=self._inference_config
-                )
-                still_failed: list[int] = []
-                for j, response in zip(failed_indices, retry_responses):
-                    i, env_id = state_pairs[j]
-                    env = sample_envs[i][env_id]
-                    if not env.apply_initial_state(response):
-                        still_failed.append(j)
-                failed_indices = still_failed
-
-            # Fallback for exhausted retries
-            for j in failed_indices:
-                i, env_id = state_pairs[j]
-                env = sample_envs[i][env_id]
-                if env._last_parsed_state is not None:
-                    env.set_state(env._last_parsed_state, validate=False)
+                try:
+                    copies = registry.create_copies(env_id, 1)
+                    envs[env_id] = copies[0]
+                except KeyError:
                     logger.warning(
-                        f"Using parsed-but-schema-invalid initial state for "
-                        f"env '{env_id}' (sample {i})."
-                    )
-                else:
-                    env.set_state({})
-                    logger.warning(
-                        f"Initial state generation failed completely for "
-                        f"env '{env_id}' (sample {i}). Using empty state."
+                        f"Environment '{env_id}' not built. "
+                        f"Skipping."
                     )
 
-        # Kill samples where ALL environments have completely empty state
-        # (i.e., state generation failed entirely and fell back to {}).
-        # Samples with schema-invalid but parseable state are kept — they
-        # have enough data for the environment LLM to work with.
-        result: list[dict[str, GeneratedToolEnvironment] | None] = []
-        for envs in sample_envs:
             if not envs:
                 result.append(None)
                 continue
-            all_empty = all(not env.state for env in envs.values())
+
+            all_empty = all(
+                not env.state for env in envs.values()
+            )
             if all_empty:
                 logger.warning(
-                    "Dropping sample: all environments have empty state "
-                    "after exhausting retries. This sample cannot produce "
-                    "tool calls."
+                    "Dropping sample: all environments have "
+                    "empty state."
                 )
                 result.append(None)
             else:
                 result.append(envs)
+
         return result
 
     def _summarize_envs(self, envs: dict[str, GeneratedToolEnvironment]) -> str:

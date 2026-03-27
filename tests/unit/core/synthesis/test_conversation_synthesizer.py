@@ -1248,7 +1248,7 @@ def test_init_sample_environments_per_sample(
     mock_build_inference_engine,
     mock_inference_config,
 ):
-    """Each sample should get its own environment with resolved context."""
+    """Each sample should get its own independent environment copy via registry."""
     from oumi.core.configs.params.tool_params import (
         ToolAttribute,
         ToolEnvironmentAttribute,
@@ -1258,35 +1258,15 @@ def test_init_sample_environments_per_sample(
     mock_engine = Mock()
     mock_build_inference_engine.return_value = mock_engine
 
-    schema = json.dumps({"type": "object", "properties": {"data": {"type": "string"}}})
-    state1 = json.dumps({"data": "healthcare"})
-    state2 = json.dumps({"data": "ecommerce"})
-
-    call_count = 0
-
-    def infer_side_effect(conversations, **kwargs):
-        nonlocal call_count
-        results = []
-        for _ in conversations:
-            call_count += 1
-            if call_count <= 2:
-                text = schema
-            elif call_count == 3:
-                text = state1
-            else:
-                text = state2
-            results.append(
-                Conversation(messages=[Message(role=Role.ASSISTANT, content=text)])
-            )
-        return results
-
-    mock_engine.infer.side_effect = infer_side_effect
-
+    # Use static env (initial_state + state_schema) so no LLM calls are needed
+    # for environment initialization — the registry uses register_static path.
     env_config = ToolEnvironmentAttribute(
         id="db",
         name="Database",
         description="A database",
         system_prompt="You manage a database.",
+        state_schema={"type": "object", "properties": {"data": {"type": "string"}}},
+        initial_state={"data": "seed"},
     )
     tool = ToolAttribute(
         id="query",
@@ -1324,64 +1304,55 @@ def test_init_sample_environments_per_sample(
     assert len(result) == 2
     assert result[0] is not None
     assert result[1] is not None
+    # Each sample gets an independent deepcopy — not the same object
     assert result[0]["db"] is not result[1]["db"]
-    # Batching: 2 batched infer calls (schemas + states), not 2N serial
-    assert mock_engine.infer.call_count == 2
+    # Registry uses register_static: no LLM inference calls needed
+    assert mock_engine.infer.call_count == 0
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
-def test_init_env_schema_retries_up_to_max(
+def test_init_env_registry_build_path_used(
     mock_build_inference_engine,
     mock_inference_config,
 ):
-    """Schema generation should retry _MAX_STATE_UPDATE_RETRIES times on failure."""
+    """When env has no static state, registry.build() is called via LLM inference."""
     from oumi.core.configs.params.tool_params import (
         ToolAttribute,
         ToolEnvironmentAttribute,
         ToolOutputStrategy,
     )
-    from oumi.core.synthesis.environment import _MAX_STATE_UPDATE_RETRIES
 
     mock_engine = Mock()
     mock_build_inference_engine.return_value = mock_engine
 
-    call_count = 0
-
-    def infer_side_effect(conversations, **kwargs):
-        nonlocal call_count
-        call_count += 1
-        results = []
-        for _ in conversations:
-            if call_count <= _MAX_STATE_UPDATE_RETRIES:
-                # Return invalid schema (not JSON)
-                results.append(
-                    Conversation(
-                        messages=[
-                            Message(role=Role.ASSISTANT, content="not valid json")
-                        ]
-                    )
+    # Return valid collection data so the state is non-empty
+    mock_engine.infer.return_value = [
+        Conversation(
+            messages=[
+                Message(
+                    role=Role.ASSISTANT,
+                    content='{"1": {"name": "Alice"}, "2": {"name": "Bob"}}',
                 )
-            else:
-                # Return valid schema then valid state
-                results.append(
-                    Conversation(
-                        messages=[
-                            Message(
-                                role=Role.ASSISTANT,
-                                content='{"type": "object", "properties": {"items": {"type": "object"}}}',
-                            )
-                        ]
-                    )
-                )
-        return results
-
-    mock_engine.infer.side_effect = infer_side_effect
+            ]
+        )
+    ]
 
     env_config = ToolEnvironmentAttribute(
         id="db",
         name="Database",
         description="A database",
         system_prompt="You manage a database.",
+        # Provide state_schema so registry knows what to generate
+        state_schema={
+            "type": "object",
+            "properties": {
+                "users": {
+                    "type": "object",
+                    "additionalProperties": {"type": "object"},
+                }
+            },
+        },
+        # No initial_state → goes through registry.build() path
     )
     tool = ToolAttribute(
         id="query",
@@ -1410,22 +1381,13 @@ def test_init_env_schema_retries_up_to_max(
         [{"domain": SimpleNamespace(name="Test")}], multiturn
     )
 
-    # With the broken code (for _ in range(N): ...; break), only 1 retry
-    # happens regardless of _MAX_STATE_UPDATE_RETRIES. The fixed code should
-    # make: 1 initial schema + _MAX_STATE_UPDATE_RETRIES retry batches + 1 state
-    # = 1 + _MAX_STATE_UPDATE_RETRIES + 1 = 4 total calls.
-    # The broken code would only make 3 calls (1 initial + 1 retry + 1 state)
-    # and fall back to permissive schema.
-    expected_calls = 1 + _MAX_STATE_UPDATE_RETRIES + 1  # schema + retries + state
-    assert mock_engine.infer.call_count == expected_calls
+    # Registry called infer at least once to build the environment
+    assert mock_engine.infer.call_count >= 1
 
-    # Verify schema was actually applied from the LLM response, not the fallback
+    # Sample should survive — env has non-empty state from the LLM response
     assert result[0] is not None
     env = result[0]["db"]
-    assert env._state_schema is not None
-    assert "properties" in env._state_schema, (
-        "Schema should come from LLM response, not permissive fallback"
-    )
+    assert env.state != {}
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
@@ -1516,11 +1478,11 @@ def test_init_env_kills_sample_on_total_state_failure(
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
-def test_init_env_keeps_sample_with_schema_invalid_state(
+def test_init_env_static_config_used_without_llm(
     mock_build_inference_engine,
     mock_inference_config,
 ):
-    """If state is parseable JSON but fails schema validation, sample should survive."""
+    """When both initial_state and state_schema are provided, no LLM calls are made."""
     from oumi.core.configs.params.tool_params import (
         ToolAttribute,
         ToolEnvironmentAttribute,
@@ -1530,52 +1492,17 @@ def test_init_env_keeps_sample_with_schema_invalid_state(
     mock_engine = Mock()
     mock_build_inference_engine.return_value = mock_engine
 
-    call_count = 0
-
-    def infer_side_effect(conversations, **kwargs):
-        nonlocal call_count
-        call_count += 1
-        results = []
-        for _ in conversations:
-            if call_count == 1:
-                # Strict schema requiring specific keys
-                results.append(
-                    Conversation(
-                        messages=[
-                            Message(
-                                role=Role.ASSISTANT,
-                                content=json.dumps({
-                                    "type": "object",
-                                    "properties": {
-                                        "users": {"type": "object"}
-                                    },
-                                    "required": ["users"],
-                                }),
-                            )
-                        ]
-                    )
-                )
-            else:
-                # State with wrong keys (fails schema) but IS valid JSON
-                results.append(
-                    Conversation(
-                        messages=[
-                            Message(
-                                role=Role.ASSISTANT,
-                                content='{"wrong_key": {"1": {"name": "Alice"}}}',
-                            )
-                        ]
-                    )
-                )
-        return results
-
-    mock_engine.infer.side_effect = infer_side_effect
-
+    static_state = {"users": {"1": {"name": "Alice"}, "2": {"name": "Bob"}}}
     env_config = ToolEnvironmentAttribute(
         id="db",
         name="Database",
         description="A database",
         system_prompt="You manage a database.",
+        state_schema={
+            "type": "object",
+            "properties": {"users": {"type": "object"}},
+        },
+        initial_state=static_state,
     )
     tool = ToolAttribute(
         id="query",
@@ -1604,10 +1531,13 @@ def test_init_env_keeps_sample_with_schema_invalid_state(
         [{"domain": SimpleNamespace(name="Test")}], multiturn
     )
 
-    # Sample should survive — schema-invalid but parseable state is used via fallback
+    # Static path: no LLM inference calls needed
+    assert mock_engine.infer.call_count == 0
+
+    # Sample should survive with the static state
     assert result[0] is not None
     env = result[0]["db"]
-    assert env.state != {}  # Should have the parsed-but-invalid state
+    assert env.state == static_state
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
