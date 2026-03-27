@@ -53,6 +53,25 @@ class TogetherInferenceEngine(RemoteInferenceEngine):
         """Return the default environment variable name for the Together API key."""
         return "TOGETHER_API_KEY"
 
+    @staticmethod
+    @override
+    def _extract_usage_from_response(
+        response: dict[str, Any],
+    ) -> dict[str, int] | None:
+        """Extract normalized token usage from a Together AI API response.
+
+        Together AI returns cached_tokens as a flat field in the usage object
+        rather than nested under prompt_tokens_details like OpenAI.
+        """
+        result = RemoteInferenceEngine._extract_usage_from_response(response)
+        if result is None:
+            return None
+        usage = response.get("usage", {})
+        cached_tokens = usage.get("cached_tokens", 0)
+        if cached_tokens:
+            result["cached_tokens"] = cached_tokens
+        return result
+
     @property
     def _batch_purpose(self) -> str:
         """Return the purpose value for batch file uploads.
