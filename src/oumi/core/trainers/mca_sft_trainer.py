@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 try:
-    from mcore_adapter import McaTrainer, McaTrainingArguments  # pyright: ignore[reportMissingImports]
+    from mcore_adapter import McaTrainer, TrainingArguments as McaTrainingArguments  # pyright: ignore[reportMissingImports]
     from mcore_adapter.models import AutoModel as McaAutoModel  # pyright: ignore[reportMissingImports]
 except ModuleNotFoundError:
     McaTrainer = None  # type: ignore[assignment, misc]
@@ -41,14 +41,18 @@ MCA_SUPPORTED_MODELS = {
     "mistral",
     "mixtral",
     "qwen2",
+    "qwen2_moe",
     "qwen2_vl",
     "qwen2_5_vl",
     "qwen3",
     "qwen3_moe",
+    "qwen3_next",
+    "qwen3_omni",
     "qwen3_vl",
     "qwen3_vl_moe",
     "qwen3_5",
     "qwen3_5_moe",
+    "seed_oss",
 }
 
 
@@ -91,19 +95,52 @@ class McaSftTrainer(BaseTrainer):
         # Build MCA training arguments from oumi config.
         mca_args = self._build_mca_args(config)
 
+        # mcore_adapter expects a local model path (it uses os.path.isfile to
+        # find config.json). Resolve HuggingFace Hub IDs to a local snapshot.
+        model_path = self._resolve_model_path(config.model.model_name)
+
         # MCA owns model construction (handles TP/PP placement internally).
-        model = McaAutoModel.from_pretrained(
-            config.model.model_name, mca_args
-        )
+        model = McaAutoModel.from_pretrained(model_path, mca_args)
+
+        # Wrap the data collator to ensure `labels` are present, which
+        # mcore_adapter requires. If the upstream collator doesn't produce
+        # labels, copy input_ids as labels (standard causal LM training).
+        data_collator = kwargs.pop("data_collator", None)
+        if data_collator is not None:
+            original_collator = data_collator
+
+            def _collator_with_labels(batch):
+                result = original_collator(batch)
+                if "labels" not in result and "input_ids" in result:
+                    result["labels"] = result["input_ids"].clone()
+                return result
+
+            data_collator = _collator_with_labels
 
         self._mca_trainer = McaTrainer(
             model=model,
             args=mca_args,
-            processing_class=processing_class,
+            tokenizer=processing_class,
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
+            data_collator=data_collator,
             **kwargs,
         )
+
+    def _resolve_model_path(self, model_name_or_path: str) -> str:
+        """Resolves a HuggingFace Hub model ID to a local path.
+
+        mcore_adapter requires a local directory containing config.json.
+        If the path is already local, returns it as-is.
+        """
+        if Path(model_name_or_path).is_dir():
+            return model_name_or_path
+
+        from huggingface_hub import snapshot_download
+
+        local_path = snapshot_download(model_name_or_path)
+        logger.info("Downloaded model snapshot to %s", local_path)
+        return local_path
 
     def _validate_model_support(self, model_name_or_path: str) -> None:
         """Validates the model architecture is supported by mcore_adapter."""

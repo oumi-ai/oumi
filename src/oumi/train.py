@@ -418,6 +418,7 @@ def train(
             config=config,
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
+            data_collator=collator,
         )
         trainer.train(
             resume_from_checkpoint=config.training.resume_from_checkpoint,
