@@ -75,7 +75,9 @@ class McaSftTrainer(BaseTrainer):
         if McaTrainer is None:
             raise RuntimeError(
                 "mcore_adapter is not installed. "
-                "Please install it with: pip install mcore_adapter"
+                "Please install it with: "
+                'pip install "git+https://github.com/alibaba/roll.git'
+                '#subdirectory=mcore_adapter"'
             )
 
         self._config = config

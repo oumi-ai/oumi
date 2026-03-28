@@ -1,0 +1,66 @@
+# SFT config for Qwen2.5 0.5B using Megatron-Core Adapter (MCA).
+#
+# MCA enables Megatron-Core parallelism (tensor parallel, pipeline parallel,
+# expert parallel) for efficient distributed training of large models.
+#
+# Requirements:
+#   - Install mcore_adapter:
+#       pip install "git+https://github.com/alibaba/roll.git#subdirectory=mcore_adapter"
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage (single GPU):
+#   MASTER_ADDR=localhost MASTER_PORT=29500 WORLD_SIZE=1 RANK=0 LOCAL_RANK=0 \
+#     oumi train -c configs/recipes/qwen2_5/sft/0.5b_mca/train.yaml
+#
+# Usage (multi-GPU with torchrun):
+#   oumi distributed torchrun -m oumi train -c configs/recipes/qwen2_5/sft/0.5b_mca/train.yaml
+#
+# Notes:
+#   - MCA manages its own distributed initialization, so env vars must be set.
+#   - MCA is incompatible with FSDP, DeepSpeed, and LoRA/QLoRA. Use
+#     megatron.mca_config_overrides for MCA-native LoRA instead.
+#   - Supported model architectures: deepseek_v3, llama, mistral, mixtral,
+#     qwen2, qwen2_moe, qwen3, qwen3_moe, and others. See MCA_SUPPORTED_MODELS
+#     in oumi/core/trainers/mca_sft_trainer.py for the full list.
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - MegatronParams: oumi.core.configs.params.megatron_params.MegatronParams
+
+model:
+  model_name: "Qwen/Qwen2.5-0.5B"
+  model_max_length: 4096
+  torch_dtype_str: "float32"  # Required: model loads in fp32 for mixed precision
+  trust_remote_code: True
+
+data:
+  train:
+    datasets:
+      - dataset_name: "yahma/alpaca-cleaned"
+    collator_name: "text_with_padding"
+
+training:
+  trainer_type: "MCA_SFT"
+  output_dir: "output/qwen2_5_0.5b.mca_sft"
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 1
+  num_train_epochs: 1
+  learning_rate: 2e-5
+  seed: 42
+  mixed_precision_dtype: "BF16"
+  logging_steps: 50
+  save_steps: 500
+  save_final_model: True
+
+# Megatron-Core parallelism settings.
+# Adjust tensor_model_parallel_size and pipeline_model_parallel_size based on
+# your GPU count. WORLD_SIZE must be divisible by TP * PP * EP.
+megatron:
+  tensor_model_parallel_size: 1   # Increase for larger models (e.g., 2 or 4)
+  pipeline_model_parallel_size: 1 # Increase for very large models
+  expert_model_parallel_size: 1   # Increase for MoE models
+  transformer_impl: "local"       # Use "transformer_engine" if Transformer Engine is installed
+  use_distributed_optimizer: False # Set True to shard optimizer across DP ranks
+  auto_convert_to_hf: True        # Convert MCA checkpoint to HF format on save
+  # mca_config_overrides: {}      # Additional McaTrainingArguments overrides

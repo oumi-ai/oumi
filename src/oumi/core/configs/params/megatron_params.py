@@ -24,6 +24,10 @@ class MegatronParams(BaseParams):
 
     These parameters control tensor, pipeline, and expert parallelism
     for distributed training with mcore_adapter (MCA).
+
+    Requires mcore_adapter to be installed::
+
+        pip install "git+https://github.com/alibaba/roll.git#subdirectory=mcore_adapter"
     """
 
     tensor_model_parallel_size: int = 1

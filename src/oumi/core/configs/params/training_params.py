@@ -120,7 +120,7 @@ class TrainerType(Enum):
     Uses Megatron-Core parallelism (tensor parallel, pipeline parallel, expert parallel)
     for efficient distributed training of large models.
 
-    Requires: ``pip install mcore_adapter``
+    Requires: ``pip install "git+https://github.com/alibaba/roll.git#subdirectory=mcore_adapter"``
     """
 
 

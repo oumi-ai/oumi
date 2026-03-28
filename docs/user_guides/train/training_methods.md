@@ -15,6 +15,7 @@ Here's a quick comparison:
 | [Pretraining](#pretraining) | Domain adaptation | Raw text | Very High | Trains a language model from scratch or adapts it to a new domain using large amounts of unlabeled text. |
 | [Direct Preference Optimization (DPO)](#direct-preference-optimization-dpo) | Preference learning | Preference pairs | Low | Trains a model to align with human preferences by providing pairs of preferred and rejected outputs. |
 | [Group Relative Policy Optimization (GRPO)](#group-relative-policy-optimization-grpo) | Reasoning | Input-output pairs | Moderate | Trains a model to improve reasoning skills by providing training examples with concrete answers. |
+| [Megatron-Core SFT (MCA)](#megatron-core-sft-mca) | Large-scale SFT | Input-output pairs | High | Uses Megatron-Core parallelism (tensor, pipeline, expert parallel) for efficient distributed training of large models. |
 
 ```{tip}
 Oumi supports GRPO on Vision-Language Models with the `VERL_GRPO` trainer.
@@ -434,6 +435,92 @@ training:
     data:
       train_batch_size: 128
 ```
+
+(megatron-core-sft-mca)=
+
+## Megatron-Core SFT (MCA)
+
+### Overview
+
+Megatron-Core SFT uses the [mcore_adapter](https://github.com/alibaba/roll) (MCA) library to enable Megatron-Core parallelism for distributed training of large models. This is useful when standard data parallelism (DDP/FSDP) is not sufficient, and you need tensor parallelism, pipeline parallelism, or expert parallelism to train models that don't fit on a single GPU.
+
+Key features:
+
+- **Tensor Parallelism (TP):** Splits individual layers across GPUs for models with large hidden dimensions.
+- **Pipeline Parallelism (PP):** Distributes model layers across GPUs in a pipeline.
+- **Expert Parallelism (EP):** Distributes MoE experts across GPUs.
+- **Sequence Parallelism:** Reduces memory by parallelizing sequence-dimension operations (requires TP > 1).
+- **Distributed Optimizer:** Shards optimizer state across data-parallel ranks to reduce memory.
+- **Automatic HF Conversion:** Converts MCA checkpoints to HuggingFace format for inference.
+
+### Installation
+
+mcore_adapter is not available on PyPI. Install it from the Alibaba ROLL repository:
+
+```bash
+pip install "git+https://github.com/alibaba/roll.git#subdirectory=mcore_adapter"
+```
+
+### Supported Models
+
+MCA supports the following model architectures: `deepseek_v3`, `glm4_moe`, `llama`, `mistral`, `mixtral`, `qwen2`, `qwen2_moe`, `qwen3`, `qwen3_moe`, `qwen3_vl`, `qwen3_vl_moe`, `qwen3_5`, `qwen3_5_moe`, `seed_oss`, and others. For the full list, see `MCA_SUPPORTED_MODELS` in {py:mod}`oumi.core.trainers.mca_sft_trainer`.
+
+### Data Format
+
+MCA SFT uses the same data format as standard {ref}`SFT <supervised-fine-tuning-sft>`.
+
+### Configuration
+
+```yaml
+model:
+  model_name: "Qwen/Qwen2.5-0.5B"
+  torch_dtype_str: "float32"  # Required for mixed precision training
+
+data:
+  train:
+    datasets:
+      - dataset_name: "yahma/alpaca-cleaned"
+    collator_name: "text_with_padding"
+
+training:
+  trainer_type: "MCA_SFT"
+  mixed_precision_dtype: "BF16"
+
+megatron:
+  tensor_model_parallel_size: 1   # Number of GPUs for tensor parallelism
+  pipeline_model_parallel_size: 1 # Number of GPUs for pipeline parallelism
+  expert_model_parallel_size: 1   # Number of GPUs for expert parallelism (MoE)
+  transformer_impl: "local"       # Or "transformer_engine" if installed
+  auto_convert_to_hf: True        # Convert checkpoint to HF format on save
+```
+
+See {gh}`configs/recipes/qwen2_5/sft/0.5b_mca/train.yaml` for a complete example.
+
+```{note}
+MCA manages its own distributed initialization internally. When running on a single GPU, you must set distributed environment variables manually:
+
+    MASTER_ADDR=localhost MASTER_PORT=29500 WORLD_SIZE=1 RANK=0 LOCAL_RANK=0 \
+      oumi train -c your_config.yaml
+
+For multi-GPU training, use `oumi distributed torchrun`.
+```
+
+```{warning}
+MCA is **incompatible** with FSDP, DeepSpeed, and HuggingFace PEFT/LoRA/QLoRA.
+For LoRA with Megatron, use `megatron.mca_config_overrides` to pass MCA-native LoRA settings.
+```
+
+### Parallelism Configuration
+
+The `WORLD_SIZE` must be divisible by `TP * PP * EP`. The remaining GPUs are used for data parallelism. For example, with 8 GPUs, `TP=2`, `PP=2`, `EP=1`, you get `DP=2` (2 data-parallel replicas).
+
+| Parameter | Description | When to use |
+|-----------|-------------|-------------|
+| `tensor_model_parallel_size` | Split layers across GPUs | Large hidden dimensions |
+| `pipeline_model_parallel_size` | Pipeline model layers | Very deep models |
+| `expert_model_parallel_size` | Distribute MoE experts | Mixture-of-Experts models |
+| `sequence_parallel` | Parallelize sequence ops | Requires TP > 1 |
+| `use_distributed_optimizer` | Shard optimizer state | Reduce per-GPU memory |
 
 ## Next Steps
 
