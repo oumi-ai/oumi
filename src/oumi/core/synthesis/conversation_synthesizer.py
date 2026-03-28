@@ -262,13 +262,6 @@ class ConversationSynthesizer:
 
         return finalized
 
-    def _summarize_envs(self, envs: dict[str, GeneratedToolEnvironment]) -> str:
-        """Concatenate state summaries from all environments."""
-        parts = []
-        for env_id, env in envs.items():
-            parts.append(f'Environment "{env_id}":\n{env.summarize_state()}')
-        return "\n\n".join(parts)
-
     def _serialize_env_states(self, envs: dict[str, GeneratedToolEnvironment]) -> str:
         """Serialize the full state of all environments as formatted JSON."""
         parts = []
@@ -327,15 +320,15 @@ class ConversationSynthesizer:
         tools = self._get_tools_for_multiturn(multiturn_attributes)
         has_envs = any(t.environment for t in tools)
         sample_envs = None
-        env_summaries = None
+        env_states = None
         if has_envs:
             sample_envs = self._init_sample_environments(samples, multiturn_attributes)
-            env_summaries = [
+            env_states = [
                 self._serialize_env_states(envs) if envs else None
                 for envs in sample_envs
             ]
         samples = self._plan_samples(
-            samples, multiturn_attributes, env_summaries=env_summaries
+            samples, multiturn_attributes, env_states=env_states
         )
         conversations, tool_data = self._synthesize_all_samples(
             samples, multiturn_attributes, sample_envs=sample_envs
@@ -413,7 +406,7 @@ class ConversationSynthesizer:
         samples: list[dict],
         multiturn_attributes: MultiTurnAttribute,
         max_retries: int = 2,
-        env_summaries: list[str | None] | None = None,
+        env_states: list[str | None] | None = None,
     ) -> list[dict]:
         """Plan the conversation samples with retry logic for failed parses.
 
@@ -421,7 +414,7 @@ class ConversationSynthesizer:
             samples: The conversation samples to plan.
             multiturn_attributes: The multi-turn attribute defining conversation rules.
             max_retries: Maximum number of retry attempts for failed plan parsing.
-            env_summaries: Optional list of environment summaries for each sample.
+            env_states: Optional list of serialized environment states for each sample.
 
         Returns:
             A list of sample dicts augmented with runtime fields
@@ -451,7 +444,7 @@ class ConversationSynthesizer:
                 self._create_planner_prompt(
                     multiturn_attributes,
                     augmented_samples[i],
-                    env_summary=env_summaries[i] if env_summaries else None,
+                    env_state=env_states[i] if env_states else None,
                 )
                 for i in indices_to_process
             ]
@@ -836,7 +829,7 @@ class ConversationSynthesizer:
         self,
         multiturn_attribute: MultiTurnAttribute,
         sample: dict,
-        env_summary: str | None = None,
+        env_state: str | None = None,
     ) -> Conversation:
         """Create the planner prompt template with role context and turn order.
 
@@ -951,9 +944,9 @@ class ConversationSynthesizer:
             )
             base_prompt += f"\nAdditional instructions: {formatted_planner}\n"
 
-        if env_summary:
+        if env_state:
             base_prompt += (
-                f"\nThe environment contains the following data:\n{env_summary}\n\n"
+                f"\nThe environment contains the following data:\n{env_state}\n\n"
                 "Your plan MUST be grounded in this data. Reference actual entities, "
                 "values, and relationships present in the environment. "
                 "Do not invent data that is not here.\n"

@@ -31,10 +31,42 @@ from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.logging import logger
 from oumi.utils.str_utils import extract_json
 
+
+def _example_value(schema: dict[str, Any]) -> Any:
+    """Generate a placeholder example value from a JSON Schema property."""
+    if "example" in schema:
+        return schema["example"]
+    if "enum" in schema:
+        return schema["enum"][0]
+    ptype = schema.get("type", "string")
+    if ptype == "string":
+        return "..."
+    if ptype == "integer":
+        return 0
+    if ptype == "number":
+        return 0.0
+    if ptype == "boolean":
+        return True
+    if ptype == "array":
+        return []
+    if ptype == "object":
+        return {}
+    return "..."
+
+
 _TOOL_CALL_PATTERN = re.compile(r"<tool_call>\s*(.*?)\s*</tool_call>", re.DOTALL)
 _TOOL_CALL_OPEN_PATTERN = re.compile(r"<tool_call>\s*(.*)", re.DOTALL)
 _TOOL_TAG_PATTERN = re.compile(r"</?tool_call>")
 _TRAILING_COMMA_PATTERN = re.compile(r",\s*([}\]])")
+_TOOL_JSON_START_PATTERN = re.compile(r'\{\s*"name"\s*:')
+_TOOL_JSON_SHAPE_PATTERN = re.compile(
+    r'\{\s*"name"\s*:\s*"[^"]+"\s*,.*?"arguments"\s*:', re.DOTALL
+)
+_TRAILING_TOOL_ARTIFACT_PATTERN = re.compile(r"(?:\n\s*)?[<>{}\[\],:;|]+\s*$")
+_ARTIFACT_ONLY_PATTERN = re.compile(r'^[\s<>{}\[\],:;|"]*$')
+
+_MAX_CONTEXT_MESSAGES = 20
+_MAX_CONTEXT_CHARS_PER_MESSAGE = 500
 
 
 def _parse_tool_json(raw: str) -> dict[str, Any] | None:
@@ -42,7 +74,6 @@ def _parse_tool_json(raw: str) -> dict[str, Any] | None:
     result = extract_json(raw, expected_type=dict)
     if isinstance(result, dict):
         return result
-    # Try adding missing closing braces (LLMs often drop the outer `}`).
     missing = raw.count("{") - raw.count("}")
     if missing > 0:
         patched = raw.rstrip() + "}" * missing
@@ -52,7 +83,6 @@ def _parse_tool_json(raw: str) -> dict[str, Any] | None:
                 return parsed
         except json.JSONDecodeError:
             pass
-    # Try removing extra closing braces.
     stripped = raw.rstrip()
     for _ in range(3):
         if stripped.endswith("}"):
@@ -69,10 +99,6 @@ def _parse_tool_json(raw: str) -> dict[str, Any] | None:
         if isinstance(result, dict):
             return result
     return None
-
-
-_MAX_CONTEXT_MESSAGES = 20
-_MAX_CONTEXT_CHARS_PER_MESSAGE = 500
 
 
 @dataclass
@@ -113,7 +139,6 @@ class ToolExecutor:
         if not match:
             match = _TOOL_CALL_OPEN_PATTERN.search(response)
         if not match:
-            # Fallback: try to find bare JSON that looks like a tool call
             parsed = self._parse_bare_tool_json(response)
             if parsed is not None:
                 return self._validate_parsed_tool_call(parsed)
@@ -137,7 +162,9 @@ class ToolExecutor:
 
         return self._validate_parsed_tool_call(parsed)
 
-    def _validate_parsed_tool_call(self, parsed: dict[str, Any]) -> ToolCallResult:
+    def _validate_parsed_tool_call(
+        self, parsed: dict[str, Any]
+    ) -> ToolCallParsed | ToolCallError:
         """Validate a parsed tool call dict and return appropriate result."""
         name = parsed.get("name")
         arguments = parsed.get("arguments", {})
@@ -209,15 +236,11 @@ class ToolExecutor:
                 i += 1
                 continue
             try:
-                parsed, end_idx = json.JSONDecoder().raw_decode(text, i)
+                parsed, _ = json.JSONDecoder().raw_decode(text, i)
             except (json.JSONDecodeError, ValueError):
                 i += 1
                 continue
-            if (
-                isinstance(parsed, dict)
-                and "name" in parsed
-                and "arguments" in parsed
-            ):
+            if isinstance(parsed, dict) and "name" in parsed and "arguments" in parsed:
                 return parsed
             i += 1
         return None
@@ -259,26 +282,76 @@ class ToolExecutor:
         return result.strip()
 
     @staticmethod
-    def extract_content_around_tool_call(text: str) -> str | None:
-        """Extract natural language content before/after a <tool_call> tag.
+    def _strip_malformed_bare_tool_json(text: str) -> str:
+        """Remove tool-shaped JSON fragments even when decoding fails.
 
-        Returns the cleaned text, or None if nothing meaningful remains.
+        This handles the common failure mode where the model starts emitting a
+        bare tool call object and truncates it before the JSON is complete.
         """
-        cleaned = _TOOL_CALL_PATTERN.sub("", text)
-        cleaned = _TOOL_CALL_OPEN_PATTERN.sub("", cleaned)
-        cleaned = _TOOL_TAG_PATTERN.sub("", cleaned)
-        cleaned = ToolExecutor.strip_bare_tool_json(cleaned)
+        if not text:
+            return text
 
-        cleaned = cleaned.strip()
-        return cleaned if cleaned else None
+        result = text
+        search_pos = 0
+        while True:
+            match = _TOOL_JSON_START_PATTERN.search(result, search_pos)
+            if not match:
+                break
+            start = match.start()
+            suffix = result[start:]
+            if not _TOOL_JSON_SHAPE_PATTERN.match(suffix):
+                search_pos = match.end()
+                continue
+
+            try:
+                parsed, end_idx = json.JSONDecoder().raw_decode(result, start)
+            except (json.JSONDecodeError, ValueError):
+                paragraph_end = result.find("\n\n", start)
+                if paragraph_end == -1:
+                    paragraph_end = len(result)
+                result = result[:start] + result[paragraph_end:]
+                search_pos = start
+                continue
+
+            if isinstance(parsed, dict) and "name" in parsed and "arguments" in parsed:
+                result = result[:start] + result[end_idx:]
+                search_pos = start
+            else:
+                search_pos = match.end()
+
+        return result
+
+    @staticmethod
+    def sanitize_assistant_content(text: str) -> str:
+        """Strip tool-call artifacts from assistant prose before export.
+
+        Removes complete tagged tool calls, dangling open tags, bare tool JSON,
+        and leftover punctuation-only fragments such as a trailing `}` or `>`.
+        """
+        if not text:
+            return ""
+
+        content = _TOOL_CALL_PATTERN.sub("", text)
+        open_match = _TOOL_CALL_OPEN_PATTERN.search(content)
+        if open_match:
+            content = content[: open_match.start()]
+
+        content = ToolExecutor.strip_tool_tags(content)
+        content = ToolExecutor.strip_bare_tool_json(content)
+        content = ToolExecutor._strip_malformed_bare_tool_json(content)
+        content = _TRAILING_TOOL_ARTIFACT_PATTERN.sub("", content).strip()
+
+        while "\n\n\n" in content:
+            content = content.replace("\n\n\n", "\n\n")
+
+        if _ARTIFACT_ONLY_PATTERN.fullmatch(content):
+            return ""
+        return content.strip()
 
     def sample_deterministic_outputs(
         self, tools: list[ToolAttribute]
     ) -> dict[str, str]:
-        """Sample one deterministic output per DETERMINISTIC tool.
-
-        Called once per conversation. Returns {tool_id: output_json_string}.
-        """
+        """Sample one deterministic output per DETERMINISTIC tool."""
         selections: dict[str, str] = {}
         for tool in tools:
             if tool.output_strategy != ToolOutputStrategy.DETERMINISTIC:
@@ -361,10 +434,33 @@ class ToolExecutor:
         system_parts.append(f"\nBehavior: {tool.generated_output.instruction}")
         system_parts.append(
             "\nProduce a realistic JSON response matching the output schema. "
-            "Output ONLY valid JSON."
+            "No markdown fences. Start with { or [."
         )
 
         messages = [Message(role=Role.SYSTEM, content="\n".join(system_parts))]
+
+        # Generic few-shot examples to teach the format: raw JSON output,
+        # no markdown fences. Uses a different domain than the actual tool
+        # to avoid biasing the output while demonstrating the pattern.
+        messages.append(
+            Message(
+                role=Role.USER,
+                content=(
+                    "The agent called CheckInventory with:\n"
+                    '{"product_id": "SKU-1234"}\n\n'
+                    "Generate the tool's JSON output."
+                ),
+            )
+        )
+        messages.append(
+            Message(
+                role=Role.ASSISTANT,
+                content=(
+                    '{"product_id": "SKU-1234", "in_stock": true, '
+                    '"quantity": 47, "warehouse": "US-WEST-2"}'
+                ),
+            )
+        )
 
         user_parts: list[str] = []
         if conversation_history:
@@ -401,15 +497,39 @@ class ToolExecutor:
 
     @staticmethod
     def build_tool_catalog(tools: list[ToolAttribute]) -> str:
-        """Build a formatted tool catalog with full JSON Schema for each tool."""
-        lines: list[str] = []
+        """Build a formatted tool catalog with schemas and usage examples."""
+        sections: list[str] = []
         for tool in tools:
-            lines.append(f"- {tool.name}: {tool.description}")
+            parts = [f"### {tool.name}\n{tool.description}\n"]
+
             if tool.parameters:
-                schema_str = json.dumps(tool.parameters, indent=2)
-                indented = "\n".join(f"  {line}" for line in schema_str.split("\n"))
-                lines.append(f"  Parameters:\n{indented}")
-        return "\n".join(lines)
+                required = tool.parameters.get("required", [])
+                props = tool.parameters.get("properties", {})
+                if props:
+                    param_lines = []
+                    for pname, pschema in props.items():
+                        ptype = pschema.get("type", "any")
+                        pdesc = pschema.get("description", "")
+                        req_marker = " (required)" if pname in required else ""
+                        param_lines.append(
+                            f"  - {pname} ({ptype}{req_marker}): {pdesc}"
+                        )
+                    parts.append("Parameters:\n" + "\n".join(param_lines))
+
+            if tool.output_schema:
+                parts.append(f"Returns:\n{json.dumps(tool.output_schema, indent=2)}")
+            example_args = {}
+            if tool.parameters:
+                for pname, pschema in tool.parameters.get("properties", {}).items():
+                    example_args[pname] = _example_value(pschema)
+            parts.append(
+                "Usage:\n"
+                f'<tool_call>{{"name": "{tool.name}", '
+                f'"arguments": {json.dumps(example_args)}}}</tool_call>'
+            )
+
+            sections.append("\n".join(parts))
+        return "\n\n".join(sections)
 
     @staticmethod
     def build_tool_definitions(tools: list[ToolAttribute]) -> list[dict[str, Any]]:

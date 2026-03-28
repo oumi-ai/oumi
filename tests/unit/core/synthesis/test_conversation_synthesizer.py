@@ -1690,11 +1690,11 @@ def test_init_sample_environments_rebuilds_when_env_config_varies(
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
-def test_planner_prompt_includes_env_summary(
+def test_planner_prompt_includes_env_state(
     mock_build_inference_engine,
     mock_inference_config,
 ):
-    """When env_summary is provided, planner prompt should contain it."""
+    """When env_state is provided, planner prompt should contain it."""
     mock_build_inference_engine.return_value = Mock()
 
     params = GeneralSynthesisParams()
@@ -1710,10 +1710,10 @@ def test_planner_prompt_includes_env_summary(
     synthesizer = ConversationSynthesizer(params, mock_inference_config)
 
     sample = {"target_turns": 2}
-    env_summary = 'Environment "database":\ntables: users (10 items), orders (5 items)'
+    env_state = 'Environment "database":\ntables: users (10 items), orders (5 items)'
 
     prompt = synthesizer._create_planner_prompt(
-        multiturn, sample, env_summary=env_summary
+        multiturn, sample, env_state=env_state
     )
 
     last_user_msg = prompt.messages[-1].content

@@ -24,7 +24,11 @@ from oumi.core.configs.params.tool_params import (
     ToolAttribute,
     ToolOutputStrategy,
 )
-from oumi.core.synthesis.tool_executor import ToolCallError, ToolCallParsed, ToolExecutor
+from oumi.core.synthesis.tool_executor import (
+    ToolCallError,
+    ToolCallParsed,
+    ToolExecutor,
+)
 from oumi.core.types.conversation import Message, Role
 
 
@@ -214,16 +218,23 @@ def test_build_generated_simulator_prompt(executor):
     tool_call = {"name": "CheckEligibility", "arguments": {"order_id": "ORD-999"}}
     conversation = executor.build_generated_simulator_prompt(tool_call)
 
-    assert len(conversation.messages) == 2
+    # system + 1 few-shot pair (2 messages) + actual request = 4
+    assert len(conversation.messages) == 4
     assert conversation.messages[0].role == Role.SYSTEM
-    assert conversation.messages[1].role == Role.USER
 
     system_content = conversation.messages[0].content
     assert "CheckEligibility" in system_content
     assert "Check return eligibility" in system_content
-    assert "valid JSON" in system_content
+    assert "Start with { or [" in system_content
 
-    user_content = conversation.messages[1].content
+    # Generic few-shot example to teach raw JSON format
+    assert conversation.messages[1].role == Role.USER
+    assert "CheckInventory" in conversation.messages[1].content
+    assert conversation.messages[2].role == Role.ASSISTANT
+    assert "SKU-1234" in conversation.messages[2].content
+
+    # Actual request
+    user_content = conversation.messages[3].content
     assert "ORD-999" in user_content
 
 
@@ -237,7 +248,8 @@ def test_build_generated_simulator_prompt_with_history(executor):
         tool_call, conversation_history=history
     )
 
-    user_content = conversation.messages[1].content
+    # Actual request is the last message (index 3)
+    user_content = conversation.messages[3].content
     assert "Conversation so far" in user_content
     assert "return my order" in user_content
 
@@ -254,18 +266,20 @@ def test_build_tool_catalog(deterministic_tool, generated_tool, no_params_tool):
     assert '"order_id"' in catalog
 
 
-def test_build_tool_catalog_includes_full_schema(deterministic_tool, generated_tool, no_params_tool):
-    """Catalog includes full JSON Schema per tool, not just flattened params."""
+def test_build_tool_catalog_includes_full_schema(
+    deterministic_tool, generated_tool, no_params_tool
+):
+    """Catalog includes structured tool info with params, returns, and usage."""
     catalog = ToolExecutor.build_tool_catalog(
         [deterministic_tool, generated_tool, no_params_tool]
     )
-    assert "SearchOrders" in catalog
-    assert "CheckEligibility" in catalog
-    assert "GetCurrentTime" in catalog
-    assert '"type": "object"' in catalog
-    assert '"properties"' in catalog
-    assert '"required"' in catalog
-    assert "order_id (string, required)" not in catalog
+    assert "### SearchOrders" in catalog
+    assert "### CheckEligibility" in catalog
+    assert "### GetCurrentTime" in catalog
+    assert "(required)" in catalog
+    assert "Parameters:" in catalog
+    assert "<tool_call>" in catalog
+    assert "Usage:" in catalog
 
 
 def test_build_tool_definitions_format(deterministic_tool, generated_tool):
@@ -446,55 +460,46 @@ class TestStripBareToolJson:
         assert ToolExecutor.strip_bare_tool_json("") == ""
 
 
-class TestExtractContentAroundToolCall:
-    def test_extracts_text_before_tool_call(self):
+class TestSanitizeAssistantContent:
+    def test_removes_complete_tagged_tool_call_block(self):
         text = (
-            "Let me check.\n\n"
-            '<tool_call>{"name": "Search", "arguments": {}}</tool_call>'
+            "Checking the data now.\n\n"
+            '<tool_call>{"name": "SearchOrders", "arguments": {"order_id": "X"}}'
+            "</tool_call>"
         )
-        result = ToolExecutor.extract_content_around_tool_call(text)
-        assert result == "Let me check."
+        result = ToolExecutor.sanitize_assistant_content(text)
+        assert result == "Checking the data now."
 
-    def test_extracts_text_after_tool_call(self):
+    def test_removes_dangling_open_tool_call(self):
         text = (
-            '<tool_call>{"name": "Search", "arguments": {}}</tool_call>\n\n'
-            "I will verify."
+            "Perfect! Now let me create a summary analysis.\n\n"
+            '<tool_call>{"name": "RunQuery", "arguments": {"sql": "SELECT *"'
         )
-        result = ToolExecutor.extract_content_around_tool_call(text)
-        assert result == "I will verify."
+        result = ToolExecutor.sanitize_assistant_content(text)
+        assert result == "Perfect! Now let me create a summary analysis."
 
-    def test_returns_none_when_only_tool_call(self):
-        text = '<tool_call>{"name": "Search", "arguments": {}}</tool_call>'
-        result = ToolExecutor.extract_content_around_tool_call(text)
-        assert result is None
-
-    def test_returns_none_when_remaining_is_bare_json(self):
+    def test_removes_malformed_bare_tool_json_fragment(self):
         text = (
-            '<tool_call>{"name": "Search", "arguments": {}}</tool_call>\n\n'
-            '{"name": "AnotherTool", "arguments": {"x": 1}}'
+            "Excellent. Let me verify the changes:\n\n"
+            '{"name": "RunQuery", "arguments": {"sql": "SELECT * FROM users"\n\n'
+            "Done."
         )
-        result = ToolExecutor.extract_content_around_tool_call(text)
-        assert result is None
+        result = ToolExecutor.sanitize_assistant_content(text)
+        assert '{"name": "RunQuery"' not in result
+        assert "Excellent." in result
+        assert "Done." in result
 
-    def test_strips_bare_json_from_remaining_text(self):
-        text = (
-            "Here is my answer.\n\n"
-            '<tool_call>{"name": "Search", "arguments": {}}</tool_call>\n\n'
-            '{"name": "AnotherTool", "arguments": {"x": 1}}'
-        )
-        result = ToolExecutor.extract_content_around_tool_call(text)
-        assert result == "Here is my answer."
-        assert "AnotherTool" not in result
-
-    def test_handles_open_tag(self):
-        text = 'Checking.\n<tool_call>{"name": "Search", "arguments": {}}'
-        result = ToolExecutor.extract_content_around_tool_call(text)
-        assert result == "Checking."
+    def test_drops_artifact_only_content(self):
+        assert ToolExecutor.sanitize_assistant_content("}") == ""
+        assert ToolExecutor.sanitize_assistant_content(">") == ""
 
 
 class TestParseAndValidateToolCall:
     def test_valid_tool_call_returns_parsed(self, executor):
-        response = '<tool_call>{"name": "SearchOrders", "arguments": {"order_id": "ORD-123"}}</tool_call>'
+        response = (
+            '<tool_call>{"name": "SearchOrders",'
+            ' "arguments": {"order_id": "ORD-123"}}</tool_call>'
+        )
         result = executor.parse_and_validate_tool_call(response)
         assert isinstance(result, ToolCallParsed)
         assert result.tool_call["name"] == "SearchOrders"
@@ -521,7 +526,10 @@ class TestParseAndValidateToolCall:
         assert result.tool_name == "FakeToolXYZ"
 
     def test_missing_required_param_returns_error(self, executor):
-        response = '<tool_call>{"name": "SearchOrders", "arguments": {"include_items": true}}</tool_call>'
+        response = (
+            '<tool_call>{"name": "SearchOrders",'
+            ' "arguments": {"include_items": true}}</tool_call>'
+        )
         result = executor.parse_and_validate_tool_call(response)
         assert isinstance(result, ToolCallError)
         assert "invalid_arguments" in result.error_json
@@ -529,7 +537,10 @@ class TestParseAndValidateToolCall:
         assert result.tool_name == "SearchOrders"
 
     def test_wrong_type_returns_error(self, executor):
-        response = '<tool_call>{"name": "SearchOrders", "arguments": {"order_id": 12345}}</tool_call>'
+        response = (
+            '<tool_call>{"name": "SearchOrders",'
+            ' "arguments": {"order_id": 12345}}</tool_call>'
+        )
         result = executor.parse_and_validate_tool_call(response)
         assert isinstance(result, ToolCallError)
         assert "invalid_arguments" in result.error_json
@@ -537,7 +548,11 @@ class TestParseAndValidateToolCall:
 
     def test_unknown_param_returns_error(self, executor):
         """Requires 'additionalProperties: false' in the fixture schema."""
-        response = '<tool_call>{"name": "SearchOrders", "arguments": {"order_id": "X", "bogus": "val"}}</tool_call>'
+        response = (
+            '<tool_call>{"name": "SearchOrders",'
+            ' "arguments": {"order_id": "X",'
+            ' "bogus": "val"}}</tool_call>'
+        )
         result = executor.parse_and_validate_tool_call(response)
         assert isinstance(result, ToolCallError)
         assert "invalid_arguments" in result.error_json
@@ -565,7 +580,10 @@ class TestParseAndValidateToolCall:
         assert isinstance(result, ToolCallParsed)
 
     def test_extra_braces_still_works(self, executor):
-        response = '<tool_call>{"name": "SearchOrders", "arguments": {"order_id": "X"}}}</tool_call>'
+        response = (
+            '<tool_call>{"name": "SearchOrders",'
+            ' "arguments": {"order_id": "X"}}}</tool_call>'
+        )
         result = executor.parse_and_validate_tool_call(response)
         assert isinstance(result, ToolCallParsed)
 
@@ -575,7 +593,11 @@ class TestParseAndValidateToolCall:
         cases = [
             "<tool_call>not json</tool_call>",
             '<tool_call>{"name": "Fake", "arguments": {}}</tool_call>',
-            '<tool_call>{"name": "SearchOrders", "arguments": {"include_items": true}}</tool_call>',
+            (
+                '<tool_call>{"name": "SearchOrders",'
+                ' "arguments": {"include_items": true}}'
+                "</tool_call>"
+            ),
         ]
         for response in cases:
             result = executor.parse_and_validate_tool_call(response)
@@ -610,8 +632,10 @@ class TestParseAndValidateToolCall:
     def test_tagged_tool_call_preferred_over_bare(self, executor):
         """If both <tool_call> tag and bare JSON exist, tag takes precedence."""
         response = (
-            '<tool_call>{"name": "SearchOrders", "arguments": {"order_id": "A"}}</tool_call>\n'
-            '{"name": "SearchOrders", "arguments": {"order_id": "B"}}'
+            '<tool_call>{"name": "SearchOrders",'
+            ' "arguments": {"order_id": "A"}}</tool_call>\n'
+            '{"name": "SearchOrders",'
+            ' "arguments": {"order_id": "B"}}'
         )
         result = executor.parse_and_validate_tool_call(response)
         assert isinstance(result, ToolCallParsed)
