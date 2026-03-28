@@ -123,6 +123,16 @@ def _collect_environment() -> dict[str, str]:
     except Exception:
         pass
 
+    # System RAM (cgroup-aware for containers)
+    from config_health.core.dry_run import _get_available_ram_gb, _read_cgroup_memory_limit_gb
+
+    ram_gb = _get_available_ram_gb()
+    if ram_gb > 0:
+        env["available_ram_gb"] = f"{ram_gb:.1f}"
+    cgroup_gb = _read_cgroup_memory_limit_gb()
+    if cgroup_gb > 0:
+        env["cgroup_memory_limit_gb"] = f"{cgroup_gb:.1f}"
+
     return env
 
 

@@ -97,6 +97,110 @@ def _cleanup_gpu() -> None:
         pass
 
 
+def _estimate_params_from_config(hf_config: object) -> int:
+    """Estimate parameter count from HF config metadata. No model instantiation."""
+    cfg = hf_config
+    if hasattr(cfg, "text_config") and cfg.text_config is not None:
+        cfg = cfg.text_config
+
+    hidden = getattr(cfg, "hidden_size", 0) or 0
+    layers = getattr(cfg, "num_hidden_layers", 0) or 0
+    inter = getattr(cfg, "intermediate_size", 0) or 0
+    vocab = getattr(cfg, "vocab_size", 0) or 0
+    heads = getattr(cfg, "num_attention_heads", 0) or 0
+    kv_heads = getattr(cfg, "num_key_value_heads", None) or heads
+    head_dim = hidden // heads if heads else 0
+    num_experts = getattr(cfg, "num_local_experts", None) or getattr(cfg, "num_experts", None) or 1
+
+    if not all([hidden, layers, vocab]):
+        return 0
+
+    embedding = vocab * hidden
+    kv_dim = kv_heads * head_dim if (kv_heads and head_dim) else hidden
+    attn = hidden * hidden + hidden * kv_dim * 2 + hidden * hidden  # Q + K + V + O
+    mlp = 3 * hidden * inter if inter else 4 * hidden * hidden
+    if num_experts > 1:
+        mlp = mlp * num_experts + hidden * num_experts
+    norm = 2 * hidden
+
+    return embedding + layers * (attn + mlp + norm) + hidden + embedding
+
+
+def _get_available_ram_gb() -> float:
+    """Get available system RAM in GB.
+
+    On containerized environments (RunPod, Docker, k8s), standard tools like
+    `free` report the *host* machine's RAM, not the container's allocation.
+    We read cgroup limits first since those are the actual enforced boundaries —
+    exceeding them triggers the OOM killer.
+    """
+    import platform
+    import subprocess
+
+    if platform.system() == "Darwin":
+        # macOS: use sysctl
+        try:
+            result = subprocess.run(
+                ["sysctl", "-n", "hw.memsize"],
+                capture_output=True, text=True,
+            )
+            if result.returncode == 0:
+                return int(result.stdout.strip()) / (1024**3)
+        except Exception:
+            pass
+        return 0.0
+
+    # Linux: try cgroup limits first (correct in containers)
+    cgroup_gb = _read_cgroup_memory_limit_gb()
+    if cgroup_gb > 0:
+        return cgroup_gb
+
+    # Bare metal Linux: fall back to free
+    try:
+        result = subprocess.run(
+            ["free", "-b"],
+            capture_output=True, text=True,
+        )
+        if result.returncode == 0:
+            for line in result.stdout.splitlines():
+                if line.startswith("Mem:"):
+                    fields = line.split()
+                    # free -b: total used free shared buff/cache available
+                    if len(fields) >= 7:
+                        return int(fields[6]) / (1024**3)
+    except Exception:
+        pass
+
+    return 0.0
+
+
+def _read_cgroup_memory_limit_gb() -> float:
+    """Read the container memory limit from cgroup (v2 then v1).
+
+    Returns the enforced limit in GB, or 0 if not in a cgroup-limited container.
+    """
+    # cgroup v2: /sys/fs/cgroup/memory.max
+    try:
+        with open("/sys/fs/cgroup/memory.max") as f:
+            val = f.read().strip()
+        if val != "max":  # "max" means unlimited
+            return int(val) / (1024**3)
+    except (FileNotFoundError, ValueError, PermissionError):
+        pass
+
+    # cgroup v1: /sys/fs/cgroup/memory/memory.limit_in_bytes
+    try:
+        with open("/sys/fs/cgroup/memory/memory.limit_in_bytes") as f:
+            val = int(f.read().strip())
+        # Very large values (near 2^63) mean unlimited
+        if val < (1 << 62):
+            return val / (1024**3)
+    except (FileNotFoundError, ValueError, PermissionError):
+        pass
+
+    return 0.0
+
+
 def _estimate_model_memory_gb(num_params: int, dtype_bytes: int, use_peft: bool) -> float:
     """Rough estimate of minimum GPU memory needed (model + optimizer + grad)."""
     model_gb = (num_params * dtype_bytes) / (1024**3)
@@ -148,7 +252,7 @@ def _execute_dry_run(
 
             result.notes.append(f"model: {config.model.model_name}")
 
-            # Load model config (metadata only)
+            # Load model config (metadata only — no weights)
             hf_config = transformers.AutoConfig.from_pretrained(
                 config.model.model_name, trust_remote_code=True
             )
@@ -170,10 +274,46 @@ def _execute_dry_run(
                     type(hf_config), None
                 )
 
-            # Instantiate with random weights (no download!)
             dtype = getattr(torch, config.model.torch_dtype_str or "bfloat16", torch.bfloat16)
             dtype_bytes = 2 if dtype in (torch.float16, torch.bfloat16) else 4
 
+            # Pre-flight memory check BEFORE model instantiation.
+            # Estimate param count from HF config metadata (cheap, no model creation).
+            estimated_params = _estimate_params_from_config(hf_config)
+            if estimated_params > 0:
+                model_weight_gb = (estimated_params * dtype_bytes) / (1024**3)
+                # CPU RAM needed: model weights + overhead for instantiation (~2x)
+                cpu_needed_gb = model_weight_gb * 2.0
+                result.notes.append(
+                    f"estimated: {estimated_params / 1e9:.1f}B params, "
+                    f"{model_weight_gb:.1f} GB weights, "
+                    f"{cpu_needed_gb:.1f} GB CPU RAM needed"
+                )
+
+                available_ram_gb = _get_available_ram_gb()
+                if available_ram_gb > 0 and cpu_needed_gb > available_ram_gb * 0.8:
+                    result.error = (
+                        f"Skipped: model needs ~{cpu_needed_gb:.0f} GB CPU RAM "
+                        f"but only {available_ram_gb:.0f} GB available "
+                        f"({estimated_params / 1e9:.1f}B params)"
+                    )
+                    return
+
+                # Also check GPU VRAM if available
+                if torch.cuda.is_available():
+                    estimated_gpu_gb = _estimate_model_memory_gb(
+                        estimated_params, dtype_bytes, config.training.use_peft
+                    )
+                    free_gpu_gb = torch.cuda.mem_get_info()[0] / (1024**3)
+                    if estimated_gpu_gb > free_gpu_gb * 0.9:
+                        result.error = (
+                            f"Skipped: model needs ~{estimated_gpu_gb:.1f} GB GPU "
+                            f"but only {free_gpu_gb:.1f} GB free "
+                            f"({estimated_params / 1e9:.1f}B params)"
+                        )
+                        return
+
+            # Instantiate with random weights (no download!)
             if model_class is not None:
                 model = model_class(hf_config).to(dtype=dtype)
             else:
@@ -184,21 +324,10 @@ def _execute_dry_run(
             num_params = sum(p.numel() for p in model.parameters())
             result.notes.append(f"params: {num_params / 1e9:.1f}B")
 
-            # Pre-flight memory check: skip if model won't fit
+            # Determine device
             device = "cpu"
             if torch.cuda.is_available():
                 device = "cuda"
-                estimated_gb = _estimate_model_memory_gb(
-                    num_params, dtype_bytes, config.training.use_peft
-                )
-                free_gb = (torch.cuda.mem_get_info()[0]) / (1024**3)
-                result.notes.append(f"estimated: {estimated_gb:.1f} GB, free: {free_gb:.1f} GB")
-                if estimated_gb > free_gb * 0.9:  # 90% threshold
-                    result.error = (
-                        f"Skipped: model needs ~{estimated_gb:.1f} GB but only "
-                        f"{free_gb:.1f} GB free on GPU"
-                    )
-                    return
             elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
                 device = "mps"
 
