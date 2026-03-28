@@ -1,0 +1,160 @@
+<div class="p-5">
+    <!-- Header -->
+    <div class="mb-5">
+        <h2 class="text-lg font-semibold text-white font-mono">{{ entry.short_path }}</h2>
+        <div class="flex items-center gap-3 mt-2">
+            <span class="text-xs px-2 py-1 rounded-md bg-gray-800 text-gray-300">{{ entry.config_type.value }}</span>
+            <span class="text-xs px-2 py-1 rounded-md bg-gray-800 text-gray-400">{{ entry.config_class_name }}</span>
+            <span class="text-xs px-2 py-1 rounded-md bg-gray-800 text-gray-400">{{ entry.gpu_tier.label }}</span>
+            <span class="text-xs px-2 py-1 rounded-md bg-gray-800 text-gray-500">{{ entry.category }}</span>
+        </div>
+    </div>
+
+    <!-- Metadata -->
+    <div class="grid grid-cols-2 gap-3 mb-5 text-sm">
+        {% if entry.model_name %}
+        <div class="bg-gray-800/50 rounded-md p-3">
+            <div class="text-[10px] uppercase tracking-wider text-gray-500 mb-1">Model</div>
+            <div class="text-gray-300 font-mono text-xs">{{ entry.model_name }}</div>
+        </div>
+        {% endif %}
+        {% if entry.model_family %}
+        <div class="bg-gray-800/50 rounded-md p-3">
+            <div class="text-[10px] uppercase tracking-wider text-gray-500 mb-1">Family</div>
+            <div class="text-gray-300">{{ entry.model_family }}</div>
+        </div>
+        {% endif %}
+        {% if entry.datasets %}
+        <div class="bg-gray-800/50 rounded-md p-3 col-span-2">
+            <div class="text-[10px] uppercase tracking-wider text-gray-500 mb-1">Datasets</div>
+            {% for ds in entry.datasets %}
+            <div class="text-gray-300 font-mono text-xs">{{ ds }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Check Results -->
+    <div class="mb-5">
+        <h3 class="text-sm font-medium text-gray-400 mb-3 uppercase tracking-wider">Health Checks</h3>
+        <div class="space-y-1.5">
+            {% for r in results %}
+            <div class="flex items-start gap-2 py-1.5 px-3 rounded-md
+                {% if r.status.value == 'fail' %}bg-red-950/30 border border-red-900/30
+                {% elif r.status.value == 'warn' %}bg-amber-950/30 border border-amber-900/30
+                {% elif r.status.value == 'pass' %}bg-gray-800/30 border border-gray-800/50
+                {% else %}bg-gray-800/20 border border-gray-800/30{% endif %}">
+                {% if r.status.value == 'fail' %}
+                <span class="text-red-400 text-sm mt-0.5">&#10005;</span>
+                {% elif r.status.value == 'warn' %}
+                <span class="text-amber-400 text-sm mt-0.5">&#9888;</span>
+                {% elif r.status.value == 'pass' %}
+                <span class="text-emerald-400 text-sm mt-0.5">&#10003;</span>
+                {% else %}
+                <span class="text-gray-500 text-sm mt-0.5">&#8212;</span>
+                {% endif %}
+                <div class="flex-1">
+                    <div class="text-xs text-gray-400">{{ r.check_name }}</div>
+                    <div class="text-sm {% if r.status.value == 'fail' %}text-red-300{% elif r.status.value == 'warn' %}text-amber-300{% else %}text-gray-400{% endif %}">
+                        {{ r.message }}
+                    </div>
+                    {% if r.details %}
+                    <div class="text-xs text-gray-600 mt-1 font-mono">{{ r.details }}</div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+            {% if not results %}
+            <div class="text-sm text-gray-600">No checks run</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- VRAM Estimate -->
+    {% if vram %}
+    <div class="mb-5">
+        <h3 class="text-sm font-medium text-gray-400 mb-3 uppercase tracking-wider">VRAM Estimate</h3>
+        <div class="bg-gray-800/30 border border-gray-800/50 rounded-md p-4">
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                    <div class="text-[10px] uppercase tracking-wider text-gray-500 mb-1">As Configured</div>
+                    <div class="text-2xl font-bold text-white">{{ "%.1f"|format(vram.total_vram_gb) }} GB</div>
+                    <div class="text-xs text-gray-500">batch={{ vram.batch_size }}, seq={{ vram.seq_len }}</div>
+                </div>
+                <div>
+                    <div class="text-[10px] uppercase tracking-wider text-gray-500 mb-1">Minimal Setup</div>
+                    <div class="text-2xl font-bold text-emerald-400">{{ "%.1f"|format(vram.minimal_total_vram_gb) }} GB</div>
+                    <div class="text-xs text-gray-500">batch=1, seq=512, grad ckpt</div>
+                </div>
+            </div>
+            <!-- Memory breakdown bar -->
+            {% set total = vram.model_memory_gb + vram.optimizer_memory_gb + vram.gradient_memory_gb + vram.activation_memory_gb + vram.overhead_gb %}
+            {% if total > 0 %}
+            <div class="mb-3">
+                <div class="flex h-3 rounded-full overflow-hidden bg-gray-900">
+                    <div class="bg-blue-500" style="width: {{ (vram.model_memory_gb / total * 100)|int }}%" title="Model: {{ '%.1f'|format(vram.model_memory_gb) }} GB"></div>
+                    <div class="bg-purple-500" style="width: {{ (vram.optimizer_memory_gb / total * 100)|int }}%" title="Optimizer: {{ '%.1f'|format(vram.optimizer_memory_gb) }} GB"></div>
+                    <div class="bg-amber-500" style="width: {{ (vram.gradient_memory_gb / total * 100)|int }}%" title="Gradients: {{ '%.1f'|format(vram.gradient_memory_gb) }} GB"></div>
+                    <div class="bg-emerald-500" style="width: {{ (vram.activation_memory_gb / total * 100)|int }}%" title="Activations: {{ '%.1f'|format(vram.activation_memory_gb) }} GB"></div>
+                    <div class="bg-gray-600" style="width: {{ (vram.overhead_gb / total * 100)|int }}%" title="Overhead: {{ '%.1f'|format(vram.overhead_gb) }} GB"></div>
+                </div>
+                <div class="flex gap-3 mt-2 text-[10px] text-gray-500">
+                    <span><span class="inline-block w-2 h-2 rounded-sm bg-blue-500 mr-1"></span>Model {{ "%.1f"|format(vram.model_memory_gb) }}G</span>
+                    <span><span class="inline-block w-2 h-2 rounded-sm bg-purple-500 mr-1"></span>Optimizer {{ "%.1f"|format(vram.optimizer_memory_gb) }}G</span>
+                    <span><span class="inline-block w-2 h-2 rounded-sm bg-amber-500 mr-1"></span>Gradients {{ "%.1f"|format(vram.gradient_memory_gb) }}G</span>
+                    <span><span class="inline-block w-2 h-2 rounded-sm bg-emerald-500 mr-1"></span>Activations {{ "%.1f"|format(vram.activation_memory_gb) }}G</span>
+                </div>
+            </div>
+            {% endif %}
+            <div class="grid grid-cols-3 gap-3 text-xs">
+                <div class="bg-gray-900/50 rounded p-2">
+                    <div class="text-gray-500">Parameters</div>
+                    <div class="text-gray-300 font-mono">{{ "%.1f"|format(vram.total_params_b) }}B total</div>
+                    <div class="text-gray-400 font-mono">{{ "%.2f"|format(vram.trainable_params_b) }}B trainable</div>
+                </div>
+                <div class="bg-gray-900/50 rounded p-2">
+                    <div class="text-gray-500">Training</div>
+                    <div class="text-gray-300">{{ "LoRA r=%d"|format(vram.peft_rank) if vram.is_peft else "Full Finetune" }}</div>
+                    <div class="text-gray-400">{{ "Quantized" if vram.is_quantized else "%.0f-bit"|format(vram.dtype_bytes * 8) }}</div>
+                </div>
+                <div class="bg-gray-900/50 rounded p-2">
+                    <div class="text-gray-500">Distributed</div>
+                    <div class="text-gray-300">{{ vram.num_gpus }} GPU{{ "s" if vram.num_gpus > 1 else "" }}</div>
+                    <div class="text-gray-400">{{ "Grad ckpt" if vram.gradient_checkpointing else "No grad ckpt" }}</div>
+                </div>
+            </div>
+            {% if vram.notes %}
+            <div class="mt-2 text-[10px] text-gray-600">{{ ", ".join(vram.notes) }}</div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Optimization Suggestions -->
+    {% if suggestions %}
+    <div class="mb-5">
+        <h3 class="text-sm font-medium text-gray-400 mb-3 uppercase tracking-wider">Suggestions</h3>
+        <div class="space-y-2">
+            {% for s in suggestions %}
+            <div class="bg-blue-950/20 border border-blue-900/30 rounded-md p-3">
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-blue-900/40 text-blue-300">{{ s.category }}</span>
+                    <span class="text-[10px] px-1.5 py-0.5 rounded
+                        {% if s.priority == 'high' %}bg-red-900/40 text-red-300
+                        {% elif s.priority == 'medium' %}bg-amber-900/40 text-amber-300
+                        {% else %}bg-gray-800 text-gray-400{% endif %}">{{ s.priority }}</span>
+                </div>
+                <div class="text-sm text-blue-200 font-medium">{{ s.title }}</div>
+                <div class="text-xs text-gray-400 mt-1">{{ s.suggestion }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Raw YAML -->
+    <div>
+        <h3 class="text-sm font-medium text-gray-400 mb-3 uppercase tracking-wider">Raw YAML</h3>
+        <pre class="bg-gray-950 border border-gray-800 rounded-md p-4 text-xs text-gray-400 font-mono overflow-x-auto max-h-96 overflow-y-auto"><code>{{ raw_yaml }}</code></pre>
+    </div>
+</div>

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Config Health{% endblock %}</title>
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/styles.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { mono: ['JetBrains Mono', 'Fira Code', 'monospace'] }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-950 text-gray-200 min-h-screen">
+    <nav class="bg-gray-900 border-b border-gray-800 sticky top-0 z-50">
+        <div class="max-w-[1600px] mx-auto px-6 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <span class="text-lg font-bold text-white tracking-tight">Config Health</span>
+                <span class="text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full">v0.1</span>
+            </div>
+            <div class="flex items-center gap-6">
+                <a href="/" class="text-sm text-gray-400 hover:text-white transition-colors {% block nav_dashboard %}{% endblock %}">Dashboard</a>
+                <a href="/coverage" class="text-sm text-gray-400 hover:text-white transition-colors {% block nav_coverage %}{% endblock %}">Coverage</a>
+                <a href="/scaffold" class="text-sm text-gray-400 hover:text-white transition-colors {% block nav_scaffold %}{% endblock %}">Scaffold</a>
+                <form hx-post="/api/rescan" hx-target="body" class="inline">
+                    <button type="submit" class="text-sm px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-md transition-colors flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5 htmx-indicator animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
+                        Rescan
+                    </button>
+                </form>
+            </div>
+        </div>
+    </nav>
+    <main class="max-w-[1600px] mx-auto px-6 py-6">
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

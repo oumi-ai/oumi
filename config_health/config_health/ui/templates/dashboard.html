@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block nav_dashboard %}text-white font-medium{% endblock %}
+{% block title %}Dashboard — Config Health{% endblock %}
+
+{% block content %}
+<!-- Summary Cards -->
+<div class="grid grid-cols-4 gap-4 mb-6">
+    <div class="bg-gray-900 rounded-lg border border-gray-800 p-4">
+        <div class="text-3xl font-bold text-white">{{ total }}</div>
+        <div class="text-sm text-gray-500 mt-1">Total Configs</div>
+    </div>
+    <div class="bg-gray-900 rounded-lg border border-gray-800 p-4">
+        <div class="text-3xl font-bold text-emerald-400">{{ pass_count }}</div>
+        <div class="text-sm text-gray-500 mt-1">Passing</div>
+    </div>
+    <div class="bg-gray-900 rounded-lg border border-gray-800 p-4">
+        <div class="text-3xl font-bold text-amber-400">{{ warn_count }}</div>
+        <div class="text-sm text-gray-500 mt-1">Warnings</div>
+    </div>
+    <div class="bg-gray-900 rounded-lg border border-gray-800 p-4">
+        <div class="text-3xl font-bold text-red-400">{{ fail_count }}</div>
+        <div class="text-sm text-gray-500 mt-1">Failures</div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="flex flex-wrap gap-3 mb-4 bg-gray-900 rounded-lg border border-gray-800 p-3">
+    <input type="text" name="q" value="{{ current_q }}"
+        placeholder="Search configs..."
+        class="bg-gray-800 border border-gray-700 rounded-md px-3 py-1.5 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500 w-64"
+        hx-get="/" hx-target="#config-list" hx-trigger="keyup changed delay:300ms"
+        hx-include="[name='type'],[name='status'],[name='tier'],[name='family']">
+
+    <select name="type"
+        class="bg-gray-800 border border-gray-700 rounded-md px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-blue-500"
+        hx-get="/" hx-target="#config-list"
+        hx-include="[name='q'],[name='status'],[name='tier'],[name='family']">
+        <option value="">All Types</option>
+        {% for t in config_types %}
+        <option value="{{ t }}" {% if current_type == t %}selected{% endif %}>{{ t }}</option>
+        {% endfor %}
+    </select>
+
+    <select name="status"
+        class="bg-gray-800 border border-gray-700 rounded-md px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-blue-500"
+        hx-get="/" hx-target="#config-list"
+        hx-include="[name='q'],[name='type'],[name='tier'],[name='family']">
+        <option value="">All Status</option>
+        <option value="pass" {% if current_status == 'pass' %}selected{% endif %}>Pass</option>
+        <option value="warn" {% if current_status == 'warn' %}selected{% endif %}>Warning</option>
+        <option value="fail" {% if current_status == 'fail' %}selected{% endif %}>Fail</option>
+    </select>
+
+    <select name="tier"
+        class="bg-gray-800 border border-gray-700 rounded-md px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-blue-500"
+        hx-get="/" hx-target="#config-list"
+        hx-include="[name='q'],[name='type'],[name='status'],[name='family']">
+        <option value="">All Tiers</option>
+        {% for val, label in gpu_tiers %}
+        <option value="{{ val }}" {% if current_tier == val|string %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+    </select>
+
+    <select name="family"
+        class="bg-gray-800 border border-gray-700 rounded-md px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-blue-500"
+        hx-get="/" hx-target="#config-list"
+        hx-include="[name='q'],[name='type'],[name='status'],[name='tier']">
+        <option value="">All Families</option>
+        {% for f in families %}
+        <option value="{{ f }}" {% if current_family == f %}selected{% endif %}>{{ f }}</option>
+        {% endfor %}
+    </select>
+
+    <span class="text-sm text-gray-500 self-center ml-auto">{{ entries|length }} shown</span>
+</div>
+
+<!-- Main: Config list + Detail panel -->
+<div class="grid grid-cols-5 gap-4" style="height: calc(100vh - 320px);">
+    <!-- Config List -->
+    <div class="col-span-2 bg-gray-900 rounded-lg border border-gray-800 overflow-hidden flex flex-col">
+        <div class="px-4 py-2 border-b border-gray-800 text-xs font-medium text-gray-500 uppercase tracking-wider">
+            Configs
+        </div>
+        <div class="overflow-y-auto flex-1" id="config-list">
+            {% include "partials/config_list.html" %}
+        </div>
+    </div>
+
+    <!-- Detail Panel -->
+    <div class="col-span-3 bg-gray-900 rounded-lg border border-gray-800 overflow-y-auto" id="detail-panel">
+        <div class="flex items-center justify-center h-full text-gray-600">
+            <div class="text-center">
+                <svg class="w-12 h-12 mx-auto mb-3 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                <p class="text-sm">Click a config to view details</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

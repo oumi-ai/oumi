@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block nav_coverage %}text-white font-medium{% endblock %}
+{% block title %}Coverage — Config Health{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h2 class="text-xl font-bold text-white mb-1">Coverage Matrix</h2>
+    <p class="text-sm text-gray-500">Model families vs config types. Green = has configs, empty = gap.</p>
+</div>
+
+<!-- Matrix -->
+<div class="bg-gray-900 rounded-lg border border-gray-800 overflow-x-auto mb-8">
+    <table class="w-full text-sm">
+        <thead>
+            <tr class="border-b border-gray-800">
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-900">Family</th>
+                {% for ct in col_types %}
+                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">{{ ct }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for family in families %}
+            <tr class="border-b border-gray-800/50 hover:bg-gray-800/30">
+                <td class="px-4 py-2.5 font-mono text-gray-300 sticky left-0 bg-gray-900">{{ family }}</td>
+                {% for ct in col_types %}
+                <td class="px-4 py-2.5 text-center">
+                    {% set entries = matrix[family].get(ct, []) %}
+                    {% if entries %}
+                    <span class="inline-flex items-center justify-center w-8 h-6 rounded bg-emerald-900/40 text-emerald-400 text-xs font-medium">
+                        {{ entries|length }}
+                    </span>
+                    {% else %}
+                    <span class="text-gray-700">—</span>
+                    {% endif %}
+                </td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Coverage Gaps -->
+{% if gaps %}
+<div class="mb-6">
+    <h3 class="text-lg font-semibold text-white mb-3">Coverage Gaps</h3>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        {% for gap in gaps %}
+        <div class="bg-gray-900 border border-amber-900/30 rounded-lg p-4">
+            <div class="flex items-center gap-2 mb-2">
+                <span class="text-amber-400">&#9888;</span>
+                <span class="font-mono font-medium text-gray-200">{{ gap.model_family }}</span>
+                <span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-500">{{ gap.category }}</span>
+            </div>
+            <div class="text-xs text-gray-500 mb-1">Missing:</div>
+            <div class="flex flex-wrap gap-1 mb-2">
+                {% for m in gap.missing_types %}
+                <span class="text-[10px] px-1.5 py-0.5 rounded bg-red-950/50 text-red-400">{{ m }}</span>
+                {% endfor %}
+            </div>
+            <div class="text-xs text-gray-500 mb-1">Has:</div>
+            <div class="flex flex-wrap gap-1">
+                {% for e in gap.existing_types %}
+                <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-950/50 text-emerald-400">{{ e }}</span>
+                {% endfor %}
+            </div>
+            <!-- Completeness bar -->
+            <div class="mt-3 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                <div class="h-full rounded-full
+                    {% if gap.completeness >= 0.66 %}bg-emerald-500
+                    {% elif gap.completeness >= 0.33 %}bg-amber-500
+                    {% else %}bg-red-500{% endif %}"
+                    style="width: {{ (gap.completeness * 100)|int }}%"></div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% else %}
+<div class="bg-gray-900 border border-gray-800 rounded-lg p-8 text-center">
+    <span class="text-emerald-400 text-2xl">&#10003;</span>
+    <p class="text-gray-400 mt-2">All model families have complete coverage!</p>
+</div>
+{% endif %}
+{% endblock %}

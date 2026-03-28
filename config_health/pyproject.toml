@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "config-health"
+version = "0.1.0"
+description = "Health checker and dashboard for Oumi configs"
+requires-python = ">=3.11"
+dependencies = [
+    "click>=8.0",
+    "fastapi>=0.100",
+    "uvicorn[standard]>=0.20",
+    "jinja2>=3.0",
+    "huggingface-hub>=0.20",
+    "pyyaml>=6.0",
+    "rich>=13.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "httpx"]
+
+[project.scripts]
+config-health = "config_health.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["config_health*"]
+
+[tool.setuptools.package-data]
+config_health = [
+    "ui/templates/**/*.html",
+    "ui/static/**/*",
+    "scaffolds/**/*.j2",
+]

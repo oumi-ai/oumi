@@ -1,0 +1,40 @@
+# {{ model_name.split('/')[-1] }} GCP job config.
+#
+# Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#
+# Usage:
+#   oumi launch up -c <path-to-this-file> --cluster {{ model_short_name }}
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+
+name: {{ model_short_name }}-{{ task_type }}
+
+num_nodes: 1
+
+resources:
+  cloud: gcp
+  accelerators: "A100:1"
+  disk_size: 200
+  use_spot: false
+
+working_dir: .
+
+envs:
+  WANDB_PROJECT: oumi-train
+  OUMI_RUN_NAME: {{ model_short_name }}.{{ task_type }}
+
+setup: |
+  set -e
+  pip install uv && uv pip install --system oumi[gpu]
+
+run: |
+  set -e
+  source ./configs/examples/misc/sky_init.sh
+  set -x
+  oumi train \
+      -c configs/recipes/TODO/train.yaml \
+      --training.output_dir "output/"
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"

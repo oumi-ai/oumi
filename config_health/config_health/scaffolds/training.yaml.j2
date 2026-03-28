@@ -1,0 +1,46 @@
+# {{ model_name.split('/')[-1] }} SFT training config.
+#
+# Usage:
+#   oumi train -c <path-to-this-file>
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+
+model:
+  model_name: "{{ model_name }}"
+  trust_remote_code: True
+  torch_dtype_str: "bfloat16"
+
+data:
+  train:
+    datasets:
+      - dataset_name: "{{ dataset_name }}"
+
+training:
+  trainer_type: "TRL_SFT"
+  use_peft: {{ use_lora | lower }}
+  optimizer: "adamw_torch"
+  learning_rate: 2.0e-04
+  num_train_epochs: 1
+  per_device_train_batch_size: {{ batch_size }}
+  gradient_accumulation_steps: 4
+  enable_gradient_checkpointing: true
+  logging_steps: 10
+  save_steps: 200
+  output_dir: "output/{{ model_short_name }}.sft"
+  seed: 42
+{% if use_lora %}
+
+peft:
+  q_lora: False
+  lora_r: 16
+  lora_alpha: 32
+  lora_dropout: 0
+  lora_target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+{% endif %}

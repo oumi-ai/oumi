@@ -1,0 +1,20 @@
+# {{ model_name.split('/')[-1] }} inference config.
+#
+# Usage:
+#   oumi infer -i -c <path-to-this-file>
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+#   - Config class: oumi.core.configs.InferenceConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/inference_config.py
+
+model:
+  model_name: "{{ model_name }}"
+  trust_remote_code: True
+  torch_dtype_str: "bfloat16"
+
+generation:
+  max_new_tokens: 512
+  batch_size: 1
+
+engine: NATIVE

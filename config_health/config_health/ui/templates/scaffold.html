@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block nav_scaffold %}text-white font-medium{% endblock %}
+{% block title %}Scaffold — Config Health{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h2 class="text-xl font-bold text-white mb-1">Config Scaffolder</h2>
+    <p class="text-sm text-gray-500">Generate new config files from templates.</p>
+</div>
+
+<div class="grid grid-cols-2 gap-6">
+    <!-- Form -->
+    <div class="bg-gray-900 rounded-lg border border-gray-800 p-5">
+        <form hx-post="/api/scaffold" hx-target="#scaffold-result">
+            <div class="mb-4">
+                <label class="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Model Name</label>
+                <input type="text" name="model_name" required
+                    placeholder="e.g., meta-llama/Llama-3.1-8B-Instruct"
+                    class="w-full bg-gray-800 border border-gray-700 rounded-md px-3 py-2 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-blue-500">
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Task Types</label>
+                <div class="flex flex-wrap gap-3">
+                    {% for task in available_tasks %}
+                    <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                        <input type="checkbox" name="tasks" value="{{ task }}"
+                            {% if task in ('training', 'inference', 'evaluation') %}checked{% endif %}
+                            class="rounded bg-gray-800 border-gray-600 text-blue-600 focus:ring-blue-500">
+                        {{ task }}
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                    <input type="checkbox" name="use_lora" checked
+                        class="rounded bg-gray-800 border-gray-600 text-blue-600 focus:ring-blue-500">
+                    Use LoRA (PEFT)
+                </label>
+            </div>
+
+            <div class="mb-5">
+                <label class="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Output Directory (optional)</label>
+                <input type="text" name="output_dir"
+                    placeholder="Leave empty to preview only"
+                    class="w-full bg-gray-800 border border-gray-700 rounded-md px-3 py-2 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-blue-500">
+            </div>
+
+            <button type="submit"
+                class="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-md transition-colors">
+                Generate Configs
+            </button>
+        </form>
+    </div>
+
+    <!-- Result -->
+    <div id="scaffold-result" class="bg-gray-900 rounded-lg border border-gray-800 p-5">
+        <div class="flex items-center justify-center h-full text-gray-600">
+            <p class="text-sm">Generated configs will appear here</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

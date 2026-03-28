@@ -1,0 +1,29 @@
+# {{ model_name.split('/')[-1] }} evaluation config.
+#
+# Usage:
+#   oumi evaluate -c <path-to-this-file>
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html
+#   - Config class: oumi.core.configs.EvaluationConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/evaluation_config.py
+
+model:
+  model_name: "{{ model_name }}"
+  model_max_length: 2048
+  torch_dtype_str: "bfloat16"
+  trust_remote_code: True
+  load_pretrained_weights: True
+  shard_for_eval: True
+
+generation:
+  batch_size: 4
+
+tasks:
+  - evaluation_backend: lm_harness
+    task_name: mmlu_college_computer_science
+    eval_kwargs:
+      num_fewshot: 5
+
+inference_engine: NATIVE
+enable_wandb: False

@@ -1,0 +1,31 @@
+{% for entry in entries %}
+<div class="px-4 py-2.5 border-b border-gray-800/50 hover:bg-gray-800/50 cursor-pointer transition-colors"
+     hx-get="/api/config-detail/{{ entry.path }}" hx-target="#detail-panel">
+    <div class="flex items-center gap-2">
+        <!-- Status indicator -->
+        {% if entry.path in all_fail_paths %}
+        <span class="w-2 h-2 rounded-full bg-red-400 flex-shrink-0"></span>
+        {% elif entry.path in all_warn_paths %}
+        <span class="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0"></span>
+        {% else %}
+        <span class="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0"></span>
+        {% endif %}
+
+        <!-- Path -->
+        <span class="text-sm text-gray-300 truncate flex-1 font-mono">{{ entry.short_path }}</span>
+    </div>
+    <div class="flex items-center gap-2 mt-1 ml-4">
+        <!-- Type badge -->
+        <span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-400">{{ entry.config_type.value }}</span>
+        <!-- GPU tier badge -->
+        <span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-500">{{ entry.gpu_tier.label }}</span>
+        <!-- Model name -->
+        {% if entry.model_name %}
+        <span class="text-[10px] text-gray-600 truncate">{{ entry.model_name }}</span>
+        {% endif %}
+    </div>
+</div>
+{% endfor %}
+{% if not entries %}
+<div class="px-4 py-8 text-center text-gray-600 text-sm">No configs match filters</div>
+{% endif %}
