@@ -40,6 +40,7 @@ try:
     )
     from verl.workers.fsdp_workers import (  # pyright: ignore[reportMissingImports]
         ActorRolloutRefWorker,
+        AsyncActorRolloutRefWorker,
         CriticWorker,
     )
     from verl.workers.reward_manager import (  # pyright: ignore[reportMissingImports]
@@ -433,10 +434,16 @@ class VerlGrpoTrainer(BaseTrainer):
 
         tokenizer = self._processing_class
 
+        # verl >=0.7 requires AsyncActorRolloutRefWorker for the checkpoint
+        # engine's weight sync.
+        _verl_v07 = is_verl_v0_7_or_later()
+        _actor_worker_cls = (
+            AsyncActorRolloutRefWorker if _verl_v07 else ActorRolloutRefWorker
+        )
         role_worker_mapping = {
-            Role.ActorRollout: ray.remote(ActorRolloutRefWorker),
+            Role.ActorRollout: ray.remote(_actor_worker_cls),
             Role.Critic: ray.remote(CriticWorker),
-            Role.RefPolicy: ray.remote(ActorRolloutRefWorker),
+            Role.RefPolicy: ray.remote(_actor_worker_cls),
         }
 
         # Create resource pool manager
@@ -448,7 +455,6 @@ class VerlGrpoTrainer(BaseTrainer):
         # Note: verl >=0.7 annotates mapping as dict[int, str], but at runtime
         # it looks up keys using Role enum members (not .value), so we always
         # use Role enum members as keys for both old and new versions.
-        _verl_v07 = is_verl_v0_7_or_later()
         mapping: dict[Any, str] = {
             Role.ActorRollout: global_pool_id,
             Role.Critic: global_pool_id,
