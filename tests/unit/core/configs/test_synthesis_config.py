@@ -17,6 +17,7 @@ import pytest
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.params.synthesis_params import GeneralSynthesisParams
 from oumi.core.configs.synthesis_config import SynthesisConfig, SynthesisStrategy
+from oumi.exceptions import OumiConfigError
 
 
 def test_default_synthesis_config():
@@ -52,7 +53,7 @@ def test_invalid_strategy():
     config = SynthesisConfig()
     config.strategy = "invalid_strategy"  # type: ignore
 
-    with pytest.raises(ValueError, match="Unsupported synthesis strategy"):
+    with pytest.raises(OumiConfigError, match="Unsupported synthesis strategy"):
         config.__post_init__()
 
 
@@ -60,7 +61,7 @@ def test_invalid_input_path():
     """Test that setting input_path raises ValueError."""
     inference_config = InferenceConfig(input_path="some/path")
 
-    with pytest.raises(ValueError, match="Input path is not supported"):
+    with pytest.raises(OumiConfigError, match="Input path is not supported"):
         SynthesisConfig(inference_config=inference_config)
 
 
@@ -68,5 +69,5 @@ def test_invalid_output_path():
     """Test that setting output_path raises ValueError."""
     inference_config = InferenceConfig(output_path="some/path")
 
-    with pytest.raises(ValueError, match="Output path is not supported"):
+    with pytest.raises(OumiConfigError, match="Output path is not supported"):
         SynthesisConfig(inference_config=inference_config)

@@ -20,6 +20,7 @@ from oumi.core.configs.params.judge_params import (
     JudgeOutputType,
     JudgeResponseFormat,
 )
+from oumi.exceptions import OumiConfigError
 
 
 @dataclass
@@ -82,24 +83,26 @@ class RuleJudgeParams(BaseParams):
             ValueError: If parameters are invalid
         """
         if not self.rule_type or not self.rule_type.strip():
-            raise ValueError("rule_type cannot be empty")
+            raise OumiConfigError("rule_type cannot be empty")
 
         if not self.input_fields:
-            raise ValueError("input_fields cannot be empty")
+            raise OumiConfigError("input_fields cannot be empty")
 
         if not all(
             isinstance(field, str) and field.strip() for field in self.input_fields
         ):
-            raise ValueError("All input_fields must be non-empty strings")
+            raise OumiConfigError("All input_fields must be non-empty strings")
 
         if self.judgment_type == JudgeOutputType.ENUM and not self.judgment_scores:
-            raise ValueError("judgment_scores must be provided for ENUM judgment_type")
+            raise OumiConfigError(
+                "judgment_scores must be provided for ENUM judgment_type"
+            )
 
         if self.judgment_scores:
             if not all(
                 isinstance(score, int | float)
                 for score in self.judgment_scores.values()
             ):
-                raise ValueError("All judgment_scores values must be numeric")
+                raise OumiConfigError("All judgment_scores values must be numeric")
             if len(self.judgment_scores) == 0:
-                raise ValueError("judgment_scores cannot be empty when provided")
+                raise OumiConfigError("judgment_scores cannot be empty when provided")

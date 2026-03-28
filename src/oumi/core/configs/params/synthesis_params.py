@@ -23,6 +23,7 @@ from typing import Any
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.exceptions import OumiConfigError
 
 _SUPPORTED_DATASET_FILE_TYPES = {".jsonl", ".json", ".csv", ".parquet", ".tsv", ".xlsx"}
 
@@ -90,14 +91,14 @@ class DatasetSource:
     def __post_init__(self):
         """Verifies/populates params."""
         if not self.path:
-            raise ValueError("DatasetSource.path cannot be empty.")
+            raise OumiConfigError("DatasetSource.path cannot be empty.")
 
         file_path = Path(self.path)
         prefix = self.path.split(":")[0]
         if prefix == "hf" or prefix == "oumi":
             return
         if file_path.suffix.lower() not in _SUPPORTED_DATASET_FILE_TYPES:
-            raise ValueError(
+            raise OumiConfigError(
                 f"Unsupported dataset file type: {self.path}\n"
                 f"Supported file types: {_SUPPORTED_DATASET_FILE_TYPES}"
             )
@@ -105,7 +106,7 @@ class DatasetSource:
         # Validate dynamic sampling configuration
         if self.num_shots is not None and self.num_shots > 1:
             if not self.id:
-                raise ValueError(
+                raise OumiConfigError(
                     "DatasetSource.id must be set when num_shots > 1 "
                     "for dynamic sampling."
                 )
@@ -146,14 +147,14 @@ class DocumentSegmentationParams:
     def __post_init__(self):
         """Verifies/populates params."""
         if self.segment_length <= 0:
-            raise ValueError("Segment length must be positive.")
+            raise OumiConfigError("Segment length must be positive.")
         if self.segment_overlap < 0:
-            raise ValueError("Segment overlap must be non-negative.")
+            raise OumiConfigError("Segment overlap must be non-negative.")
         if self.segment_overlap >= self.segment_length:
-            raise ValueError("Segment overlap must be less than segment length.")
+            raise OumiConfigError("Segment overlap must be less than segment length.")
         if self.segmentation_strategy == SegmentationStrategy.TOKENS:
             if not self.tokenizer:
-                raise ValueError(
+                raise OumiConfigError(
                     "DocumentSegmentationParams.tokenizer cannot be empty when "
                     "segmentation_strategy is TOKENS."
                 )
@@ -186,9 +187,9 @@ class DocumentSource:
     def __post_init__(self):
         """Verifies/populates params."""
         if not self.path:
-            raise ValueError("DocumentSource.path cannot be empty.")
+            raise OumiConfigError("DocumentSource.path cannot be empty.")
         if not self.id:
-            raise ValueError("DocumentSource.id cannot be empty.")
+            raise OumiConfigError("DocumentSource.id cannot be empty.")
 
 
 @dataclass
@@ -214,17 +215,17 @@ class ExampleSource:
     def __post_init__(self):
         """Verifies/populates params."""
         if not self.examples:
-            raise ValueError("ExampleSource.examples cannot be empty.")
+            raise OumiConfigError("ExampleSource.examples cannot be empty.")
 
         keys = self.examples[0].keys()
         for example in self.examples:
             if example.keys() != keys:
-                raise ValueError("All examples must have the same keys.")
+                raise OumiConfigError("All examples must have the same keys.")
 
         # Validate dynamic sampling configuration
         if self.num_shots is not None and self.num_shots > 1:
             if not self.id:
-                raise ValueError(
+                raise OumiConfigError(
                     "ExampleSource.id must be set when num_shots > 1 "
                     "for dynamic sampling."
                 )
@@ -252,15 +253,15 @@ class SampledAttributeValue:
     def __post_init__(self):
         """Verifies/populates params."""
         if not self.id:
-            raise ValueError("SampledAttributeValue.id cannot be empty.")
+            raise OumiConfigError("SampledAttributeValue.id cannot be empty.")
         if not self.name:
-            raise ValueError("SampledAttributeValue.name cannot be empty.")
+            raise OumiConfigError("SampledAttributeValue.name cannot be empty.")
         if not self.description:
-            raise ValueError("SampledAttributeValue.description cannot be empty.")
+            raise OumiConfigError("SampledAttributeValue.description cannot be empty.")
         if self.sample_rate is not None and (
             self.sample_rate < 0 or self.sample_rate > 1
         ):
-            raise ValueError(
+            raise OumiConfigError(
                 "SampledAttributeValue.sample_rate must be between 0 and 1."
             )
 
@@ -291,13 +292,13 @@ class SampledAttribute:
     def __post_init__(self):
         """Verifies/populates params."""
         if not self.id:
-            raise ValueError("SampledAttribute.id cannot be empty.")
+            raise OumiConfigError("SampledAttribute.id cannot be empty.")
         if not self.name:
-            raise ValueError("SampledAttribute.name cannot be empty.")
+            raise OumiConfigError("SampledAttribute.name cannot be empty.")
         if not self.description:
-            raise ValueError("SampledAttribute.description cannot be empty.")
+            raise OumiConfigError("SampledAttribute.description cannot be empty.")
         if not self.possible_values:
-            raise ValueError("SampledAttribute.possible_values cannot be empty.")
+            raise OumiConfigError("SampledAttribute.possible_values cannot be empty.")
 
         value_ids = []
         sample_rates = []
@@ -307,7 +308,9 @@ class SampledAttribute:
 
         value_ids_set = set(value_ids)
         if len(value_ids) != len(value_ids_set):
-            raise ValueError("SampledAttribute.possible_values must have unique IDs.")
+            raise OumiConfigError(
+                "SampledAttribute.possible_values must have unique IDs."
+            )
 
         # Normalize sample rates
         normalized_sample_rates = []
@@ -321,7 +324,7 @@ class SampledAttribute:
                 undefined_sample_rate_count += 1
 
         if defined_sample_rate > 1.0 and not math.isclose(defined_sample_rate, 1.0):
-            raise ValueError(
+            raise OumiConfigError(
                 "SampledAttribute.possible_values must sum to at most 1.0."
             )
 
@@ -353,24 +356,24 @@ class AttributeCombination:
     def __post_init__(self):
         """Verifies/populates params."""
         if self.sample_rate < 0 or self.sample_rate > 1:
-            raise ValueError(
+            raise OumiConfigError(
                 "AttributeCombination.sample_rate must be between 0 and 1."
             )
         if not self.combination:
-            raise ValueError("AttributeCombination.combination cannot be empty.")
+            raise OumiConfigError("AttributeCombination.combination cannot be empty.")
 
         for key, value in self.combination.items():
             if not key:
-                raise ValueError(
+                raise OumiConfigError(
                     "AttributeCombination.combination key cannot be empty."
                 )
             if not value:
-                raise ValueError(
+                raise OumiConfigError(
                     "AttributeCombination.combination value cannot be empty."
                 )
 
         if len(self.combination.keys()) <= 1:
-            raise ValueError(
+            raise OumiConfigError(
                 "AttributeCombination.combination must have at least two keys."
             )
 
@@ -408,7 +411,7 @@ class GeneratedAttributePostprocessingParams:
     def __post_init__(self):
         """Verifies/populates params."""
         if not self.id:
-            raise ValueError(
+            raise OumiConfigError(
                 "GeneratedAttributePostprocessingParams.id cannot be empty."
             )
 
@@ -416,7 +419,7 @@ class GeneratedAttributePostprocessingParams:
             try:
                 re.compile(self.regex)
             except Exception as e:
-                raise ValueError(
+                raise OumiConfigError(
                     f"Error compiling GeneratedAttributePostprocessingParams.regex: {e}"
                 )
 
@@ -437,12 +440,14 @@ class GeneratedAttribute:
     def __post_init__(self):
         """Verifies/populates params."""
         if not self.id:
-            raise ValueError("GeneratedAttribute.id cannot be empty.")
+            raise OumiConfigError("GeneratedAttribute.id cannot be empty.")
         if not self.instruction_messages:
-            raise ValueError("GeneratedAttribute.instruction_messages cannot be empty.")
+            raise OumiConfigError(
+                "GeneratedAttribute.instruction_messages cannot be empty."
+            )
         if self.postprocessing_params:
             if self.id == self.postprocessing_params.id:
-                raise ValueError(
+                raise OumiConfigError(
                     "GeneratedAttribute.id and "
                     "GeneratedAttributePostprocessingParams.id "
                     "cannot be the same."
@@ -477,7 +482,7 @@ class MultiTurnAttribute:
     def __post_init__(self):
         """Verifies/populates params."""
         if not self.id:
-            raise ValueError("MultiTurnAttribute.id cannot be empty.")
+            raise OumiConfigError("MultiTurnAttribute.id cannot be empty.")
         if self.role_instruction_messages:
             normalized_role_messages: dict[Role, str] = {}
             for role_key, persona in self.role_instruction_messages.items():
@@ -490,18 +495,18 @@ class MultiTurnAttribute:
                         try:
                             normalized_role = Role(role_key)
                         except ValueError as exc:
-                            raise ValueError(
+                            raise OumiConfigError(
                                 "MultiTurnAttribute.role_instruction_messages contains "
                                 f"unknown role: {role_key}"
                             ) from exc
                 else:
-                    raise ValueError(
+                    raise OumiConfigError(
                         "MultiTurnAttribute.role_instruction_messages keys must be "
                         "Role or str values."
                     )
 
                 if not isinstance(persona, str):
-                    raise ValueError(
+                    raise OumiConfigError(
                         "MultiTurnAttribute.role_instruction_messages values must "
                         "be strings."
                     )
@@ -510,26 +515,26 @@ class MultiTurnAttribute:
 
             self.role_instruction_messages = normalized_role_messages
         if self.min_turns < 1:
-            raise ValueError("MultiTurnAttribute.min_turns must be at least 1.")
+            raise OumiConfigError("MultiTurnAttribute.min_turns must be at least 1.")
         if self.max_turns is not None and self.max_turns < self.min_turns:
-            raise ValueError(
+            raise OumiConfigError(
                 "MultiTurnAttribute.max_turns must be greater than or equal to "
                 "min_turns."
             )
         if not self.role_instruction_messages:
-            raise ValueError(
+            raise OumiConfigError(
                 "MultiTurnAttribute.role_instruction_messages cannot be empty."
             )
 
         required_roles = [Role.USER, Role.ASSISTANT]
         for role in required_roles:
             if role not in self.role_instruction_messages:
-                raise ValueError(
+                raise OumiConfigError(
                     "MultiTurnAttribute.role_instruction_messages must define "
                     f"instructions for role: {role}"
                 )
             if not self.role_instruction_messages[role]:
-                raise ValueError(
+                raise OumiConfigError(
                     "MultiTurnAttribute.role_instruction_messages must include "
                     f"a non-empty persona for role: {role}"
                 )
@@ -538,7 +543,7 @@ class MultiTurnAttribute:
                 not isinstance(self.output_system_prompt, str)
                 or not self.output_system_prompt
             ):
-                raise ValueError(
+                raise OumiConfigError(
                     "MultiTurnAttribute.output_system_prompt must be a non-empty "
                     "string."
                 )
@@ -580,7 +585,9 @@ class TransformationStrategy:
         """Verifies/populates params based on the type."""
         if self.type == TransformationType.STRING:
             if self.string_transform is None or self.string_transform == "":
-                raise ValueError("string_transform cannot be empty when type=STRING")
+                raise OumiConfigError(
+                    "string_transform cannot be empty when type=STRING"
+                )
             # Clear other fields
             self.list_transform = None
             self.dict_transform = None
@@ -588,7 +595,7 @@ class TransformationStrategy:
 
         elif self.type == TransformationType.LIST:
             if not self.list_transform or len(self.list_transform) == 0:
-                raise ValueError("list_transform cannot be empty when type=LIST")
+                raise OumiConfigError("list_transform cannot be empty when type=LIST")
             # Clear other fields
             self.string_transform = None
             self.dict_transform = None
@@ -596,7 +603,7 @@ class TransformationStrategy:
 
         elif self.type == TransformationType.DICT:
             if not self.dict_transform or len(self.dict_transform) == 0:
-                raise ValueError("dict_transform cannot be empty when type=DICT")
+                raise OumiConfigError("dict_transform cannot be empty when type=DICT")
             # Clear other fields
             self.string_transform = None
             self.list_transform = None
@@ -604,15 +611,19 @@ class TransformationStrategy:
 
         elif self.type == TransformationType.CHAT:
             if not self.chat_transform or len(self.chat_transform.messages) == 0:
-                raise ValueError("chat_transform cannot be empty when type=CHAT")
+                raise OumiConfigError("chat_transform cannot be empty when type=CHAT")
 
             messages = self.chat_transform.messages
             for message in messages:
                 content = message.content
                 if not isinstance(content, str):
-                    raise ValueError("chat_transform message content must be a string")
+                    raise OumiConfigError(
+                        "chat_transform message content must be a string"
+                    )
                 if not content:
-                    raise ValueError("chat_transform message content cannot be empty")
+                    raise OumiConfigError(
+                        "chat_transform message content cannot be empty"
+                    )
 
             # Clear other fields
             self.string_transform = None
@@ -633,10 +644,10 @@ class TransformedAttribute:
     def __post_init__(self):
         """Verifies/populates params."""
         if not self.id:
-            raise ValueError("TransformedAttribute.id cannot be empty.")
+            raise OumiConfigError("TransformedAttribute.id cannot be empty.")
 
         if not isinstance(self.transformation_strategy, TransformationStrategy):
-            raise ValueError(
+            raise OumiConfigError(
                 "TransformedAttribute.transformation_strategy must be a "
                 f"TransformationStrategy, got {type(self.transformation_strategy)}"
             )
@@ -804,12 +815,12 @@ class GeneralSynthesisParams(BaseParams):
     def _check_attribute_ids(self, attribute_ids: set[str], id: str):
         """Check if the attribute ID is already in the set."""
         if id in self._reserved_attribute_ids:
-            raise ValueError(
+            raise OumiConfigError(
                 f"GeneralSynthesisParams does not allow '{id}' "
                 "as an attribute ID because it is reserved for multiturn synthesis."
             )
         if id in attribute_ids:
-            raise ValueError(
+            raise OumiConfigError(
                 f"GeneralSynthesisParams contains duplicate attribute IDs: {id}"
             )
         attribute_ids.add(id)
@@ -902,7 +913,7 @@ class GeneralSynthesisParams(BaseParams):
             combination.sample_rate for combination in self.combination_sampling
         ]
         if sum(sample_rates) > 1.0:
-            raise ValueError(
+            raise OumiConfigError(
                 "GeneralSynthesisParams.combination_sampling sample rates must be "
                 "less than or equal to 1.0."
             )

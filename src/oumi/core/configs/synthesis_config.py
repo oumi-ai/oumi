@@ -18,6 +18,7 @@ from enum import Enum
 from oumi.core.configs.base_config import BaseConfig
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.params.synthesis_params import GeneralSynthesisParams
+from oumi.exceptions import OumiConfigError
 
 
 class SynthesisStrategy(str, Enum):
@@ -56,21 +57,21 @@ class SynthesisConfig(BaseConfig):
         if self.strategy == SynthesisStrategy.GENERAL:
             pass
         else:
-            raise ValueError(f"Unsupported synthesis strategy: {self.strategy}")
+            raise OumiConfigError(f"Unsupported synthesis strategy: {self.strategy}")
 
         if self.inference_config.input_path is not None:
-            raise ValueError(
+            raise OumiConfigError(
                 "Input path is not supported for general synthesis strategy."
             )
 
         if self.inference_config.output_path is not None:
-            raise ValueError(
+            raise OumiConfigError(
                 "Output path is not supported for general synthesis strategy."
             )
 
         if self.output_path is not None:
             if self.output_path == "":
-                raise ValueError("Output path cannot be empty.")
+                raise OumiConfigError("Output path cannot be empty.")
 
             if not self.output_path.endswith(".jsonl"):
-                raise ValueError("Output path must end with .jsonl.")
+                raise OumiConfigError("Output path must end with .jsonl.")
