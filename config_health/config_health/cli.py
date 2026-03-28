@@ -7,6 +7,14 @@ import time
 
 import click
 from rich.console import Console
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    SpinnerColumn,
+    TextColumn,
+    TimeElapsedColumn,
+)
 from rich.table import Table
 
 from config_health.core.classifier import classify_config
@@ -18,6 +26,19 @@ from config_health.core.scanner import find_repo_root, scan_config_paths
 from config_health.core.static_checks import run_static_checks
 
 console = Console()
+
+
+def _make_progress() -> Progress:
+    return Progress(
+        SpinnerColumn(),
+        TextColumn("[bold blue]{task.description}"),
+        BarColumn(bar_width=30),
+        MofNCompleteColumn(),
+        TextColumn("•"),
+        TimeElapsedColumn(),
+        console=console,
+        transient=False,
+    )
 
 
 def _build_report(
@@ -41,42 +62,55 @@ def _build_report(
         console.print("[yellow]No config files found.[/yellow]")
         return report
 
-    # Classify
-    console.print(f"Scanning {len(all_paths)} configs...")
-    for yaml_path in all_paths:
-        entry = classify_config(yaml_path, repo_root)
-        report.entries.append(entry)
+    n = len(all_paths)
+    training_count = 0  # counted after classification
 
-    # Static checks
-    console.print("Running static checks...")
-    for entry in report.entries:
-        results = run_static_checks(entry, repo_root)
-        report.check_results.extend(results)
+    with _make_progress() as progress:
+        # Phase 1: Classify
+        task = progress.add_task("Scanning configs", total=n)
+        for yaml_path in all_paths:
+            entry = classify_config(yaml_path, repo_root)
+            report.entries.append(entry)
+            progress.advance(task)
+        training_count = sum(
+            1 for e in report.entries if e.config_type == ConfigType.TRAINING
+        )
 
-    # Hub checks
-    if hub_check:
-        console.print("Checking HuggingFace Hub..." + (" (offline)" if offline else ""))
-        hub = HubChecker(offline=offline)
+        # Phase 2: Static checks
+        task = progress.add_task("Static checks", total=n)
         for entry in report.entries:
-            results = hub.check_config(entry)
+            results = run_static_checks(entry, repo_root)
             report.check_results.extend(results)
+            progress.advance(task)
 
-    # Tier 0 checks
-    if tier0:
-        console.print("Running tier 0 checks (tokenizer/model config/architecture)...")
-        from config_health.core.tier0_checks import run_tier0_checks
+        # Phase 3: Hub checks
+        if hub_check:
+            label = "Hub checks (offline)" if offline else "Hub checks"
+            task = progress.add_task(label, total=n)
+            hub = HubChecker(offline=offline)
+            for entry in report.entries:
+                results = hub.check_config(entry)
+                report.check_results.extend(results)
+                progress.advance(task)
 
-        for entry in report.entries:
-            results = run_tier0_checks(entry)
-            report.check_results.extend(results)
+        # Phase 4: Tier 0
+        if tier0:
+            from config_health.core.tier0_checks import run_tier0_checks
 
-    # VRAM estimates
-    if vram:
-        console.print("Estimating VRAM for training configs...")
-        from config_health.core.vram_estimator import estimate_vram
+            task = progress.add_task("Tier 0 (architecture)", total=n)
+            for entry in report.entries:
+                results = run_tier0_checks(entry)
+                report.check_results.extend(results)
+                progress.advance(task)
 
-        for entry in report.entries:
-            if entry.config_type == ConfigType.TRAINING:
+        # Phase 5: VRAM
+        if vram:
+            from config_health.core.vram_estimator import estimate_vram
+
+            task = progress.add_task("VRAM estimates", total=training_count)
+            for entry in report.entries:
+                if entry.config_type != ConfigType.TRAINING:
+                    continue
                 est = estimate_vram(entry)
                 if not est.error:
                     report.vram_estimates[entry.path] = {
@@ -95,30 +129,33 @@ def _build_report(
                         "seq_len": est.seq_len,
                         "notes": est.notes,
                     }
+                progress.advance(task)
 
-    # Dry-run
-    if dry_run:
-        console.print(f"Running training dry-runs ({dry_run_steps} steps)...")
-        from config_health.core.dry_run import dry_run_to_check_results, run_dry_run
+        # Phase 6: Dry-run
+        if dry_run:
+            from config_health.core.dry_run import (
+                dry_run_to_check_results,
+                run_dry_run,
+            )
 
-        for entry in report.entries:
-            if entry.config_type != ConfigType.TRAINING:
-                continue
-            dr = run_dry_run(entry, max_steps=dry_run_steps)
-            report.check_results.extend(dry_run_to_check_results(dr))
-            report.dry_run_results[entry.path] = {
-                "success": dr.success,
-                "steps_completed": dr.steps_completed,
-                "duration_s": round(dr.duration_s, 1),
-                "peak_memory_gb": round(dr.peak_memory_gb, 1),
-                "error": dr.error,
-                "notes": dr.notes,
-            }
+            task = progress.add_task("Dry-run training", total=training_count)
+            for entry in report.entries:
+                if entry.config_type != ConfigType.TRAINING:
+                    continue
+                dr = run_dry_run(entry, max_steps=dry_run_steps)
+                report.check_results.extend(dry_run_to_check_results(dr))
+                report.dry_run_results[entry.path] = {
+                    "success": dr.success,
+                    "steps_completed": dr.steps_completed,
+                    "duration_s": round(dr.duration_s, 1),
+                    "peak_memory_gb": round(dr.peak_memory_gb, 1),
+                    "error": dr.error,
+                    "notes": dr.notes,
+                }
+                progress.advance(task)
 
-    # Coverage analysis
+    # Coverage analysis + suggestions (fast, no progress needed)
     report.coverage_gaps = analyze_coverage(report.entries)
-
-    # Optimization suggestions
     for entry in report.entries:
         suggestions = suggest_optimizations(entry)
         report.suggestions.extend(suggestions)
