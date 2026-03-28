@@ -292,18 +292,18 @@ def _get_model_arch(model_name: str) -> _ModelArch | None:
         if hasattr(config, "text_config") and config.text_config is not None:
             config = config.text_config
 
-        hidden = getattr(config, "hidden_size", 0)
-        layers = getattr(config, "num_hidden_layers", 0)
-        inter = getattr(config, "intermediate_size", 0)
-        vocab = getattr(config, "vocab_size", 0)
-        heads = getattr(config, "num_attention_heads", 0)
-        kv_heads = getattr(config, "num_key_value_heads", heads)
+        hidden = getattr(config, "hidden_size", 0) or 0
+        layers = getattr(config, "num_hidden_layers", 0) or 0
+        inter = getattr(config, "intermediate_size", 0) or 0
+        vocab = getattr(config, "vocab_size", 0) or 0
+        heads = getattr(config, "num_attention_heads", 0) or 0
+        kv_heads = getattr(config, "num_key_value_heads", None) or heads
         head_dim = hidden // heads if heads else 0
         max_pos_emb = getattr(config, "max_position_embeddings", 0) or 0
 
         # MoE detection
-        num_experts = getattr(config, "num_local_experts", getattr(config, "num_experts", 1)) or 1
-        experts_per_tok = getattr(config, "num_experts_per_tok", 1) or 1
+        num_experts = getattr(config, "num_local_experts", None) or getattr(config, "num_experts", None) or 1
+        experts_per_tok = getattr(config, "num_experts_per_tok", None) or 1
         is_moe = num_experts > 1
 
         if not all([hidden, layers, vocab]):
@@ -386,7 +386,7 @@ def _estimate_lora_params(
         return 0
 
     # Map module names to their dimensions
-    kv_dim = arch.num_kv_heads * arch.head_dim if arch.head_dim else arch.hidden_size
+    kv_dim = (arch.num_kv_heads or arch.num_attention_heads) * (arch.head_dim or 0) if arch.head_dim else arch.hidden_size
     module_dims: dict[str, tuple[int, int]] = {
         "q_proj": (arch.hidden_size, arch.hidden_size),
         "k_proj": (arch.hidden_size, kv_dim),
@@ -450,7 +450,7 @@ def _estimate_activation_memory(
         linear_components = batch_size * seq_len * arch.hidden_size * 34 * dtype_bytes
         # The factor-34 formula already includes a linear attention term;
         # add the extra quadratic cost on top if not using efficient attention
-        kv_dim = arch.num_kv_heads * arch.head_dim if arch.head_dim else arch.hidden_size
+        kv_dim = (arch.num_kv_heads or arch.num_attention_heads) * (arch.head_dim or 0) if arch.head_dim else arch.hidden_size
         linear_attn_in_formula = batch_size * seq_len * (arch.hidden_size + 2 * kv_dim) * dtype_bytes
         per_layer = linear_components + attn_scores - linear_attn_in_formula
 

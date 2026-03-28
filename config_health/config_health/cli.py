@@ -126,6 +126,46 @@ def _collect_environment() -> dict[str, str]:
     return env
 
 
+def _suppress_library_warnings():
+    """Suppress transformers/HF warnings that corrupt Rich progress output."""
+    import contextlib
+    import logging
+    import os
+    import warnings
+
+    @contextlib.contextmanager
+    def _ctx():
+        # Suppress Python warnings (transformers/trl/torchao emit warnings at import)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            # Suppress noisy loggers that corrupt Rich progress output
+            loggers_to_quiet = ["transformers", "oumi", "torch", "trl", "torchao"]
+            old_levels = {}
+            for name in loggers_to_quiet:
+                logger = logging.getLogger(name)
+                old_levels[name] = logger.level
+                logger.setLevel(logging.ERROR)
+            # Suppress HF hub / transformers env-based warnings
+            os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
+            os.environ.setdefault("TRANSFORMERS_NO_ADVISORY_WARNINGS", "1")
+            # Redirect stderr to suppress C-level warnings (torch elastic, torchao)
+            # that bypass Python's warning system
+            devnull_fd = os.open(os.devnull, os.O_WRONLY)
+            old_stderr_fd = os.dup(2)
+            os.dup2(devnull_fd, 2)
+            os.close(devnull_fd)
+            try:
+                yield
+            finally:
+                # Restore stderr
+                os.dup2(old_stderr_fd, 2)
+                os.close(old_stderr_fd)
+                for name, level in old_levels.items():
+                    logging.getLogger(name).setLevel(level)
+
+    return _ctx()
+
+
 def _build_report(
     repo_root: str,
     *,
@@ -169,7 +209,7 @@ def _build_report(
     n = len(all_paths)
     training_count = 0  # counted after classification
 
-    with _make_progress() as progress:
+    with _make_progress() as progress, _suppress_library_warnings():
         # Phase 1: Classify
         phase_start = time.time()
         task = progress.add_task("Scanning configs", total=n)
