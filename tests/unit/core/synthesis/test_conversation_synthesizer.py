@@ -1996,3 +1996,169 @@ def test_generate_plan_raises_on_response_count_mismatch(
     )
     with pytest.raises(RuntimeError, match="Conversation planning"):
         synthesizer._generate_plan([planner])
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_user_turn_history_excludes_tool_artifacts(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """User-role LLM must never see tool calls or tool results in its history.
+
+    The synthesis loop maintains two separate histories:
+    - full_histories: includes raw tool calls + tool results (for assistant turns)
+    - conversational_histories: sanitized prose only (for user turns)
+
+    This test verifies that when the user-role LLM is prompted after an assistant
+    turn that made a tool call, none of the history messages passed to it contain
+    tool call tags, tool result strings, or raw JSON tool payloads.
+    """
+    mock_engine = Mock()
+    mock_build_inference_engine.return_value = mock_engine
+
+    # Conversations seen by the user-turn LLM will be captured here
+    user_turn_conversations: list[Conversation] = []
+
+    def infer_side_effect(conversations, **kwargs):
+        results = []
+        for conv in conversations:
+            first_content = str(conv.messages[0].content) if conv.messages else ""
+            last_content = str(conv.messages[-1].content) if conv.messages else ""
+
+            if "conversation planner" in first_content.lower():
+                # Planner call: return a 4-turn plan (USER, ASST, USER, ASST)
+                results.append(
+                    Conversation(
+                        messages=[
+                            Message(
+                                role=Role.ASSISTANT,
+                                content=(
+                                    "```json\n"
+                                    '[{"turn": 1, "instruction": "Ask about order"},'
+                                    ' {"turn": 2, "instruction": "Look up the order"},'
+                                    ' {"turn": 3, "instruction": "Follow up"},'
+                                    ' {"turn": 4, "instruction": "Confirm and close"}]'
+                                    "\n```"
+                                ),
+                            )
+                        ]
+                    )
+                )
+            elif "simulating the tool" in first_content.lower():
+                # Tool simulator call: return valid JSON result
+                results.append(
+                    Conversation(
+                        messages=[
+                            Message(
+                                role=Role.ASSISTANT,
+                                content='{"order_id": "ORD-001", "status": "shipped"}',
+                            )
+                        ]
+                    )
+                )
+            elif (
+                "customer" in first_content.lower()
+                and "[Tool result from" not in last_content
+                and "<tool_call>" not in last_content
+            ):
+                # This is a USER turn prompt — capture it for later assertions
+                user_turn_conversations.extend(conversations)
+                results.append(
+                    Conversation(
+                        messages=[
+                            Message(
+                                role=Role.ASSISTANT,
+                                content="I need help with my order ORD-001.",
+                            )
+                        ]
+                    )
+                )
+            elif any(
+                "[Tool result from SearchOrders]:" in str(m.content)
+                for m in conv.messages
+            ):
+                # Assistant prose turn after tool result
+                results.append(
+                    Conversation(
+                        messages=[
+                            Message(
+                                role=Role.ASSISTANT,
+                                content="Your order ORD-001 has been shipped!",
+                            )
+                        ]
+                    )
+                )
+            elif "MUST use <tool_call>" in last_content:
+                # Assistant tool-call turn
+                results.append(
+                    Conversation(
+                        messages=[
+                            Message(
+                                role=Role.ASSISTANT,
+                                content=(
+                                    '<tool_call>{"name": "SearchOrders",'
+                                    ' "arguments": {"order_id": "ORD-001"}}'
+                                    "</tool_call>"
+                                ),
+                            )
+                        ]
+                    )
+                )
+            else:
+                results.append(
+                    Conversation(
+                        messages=[
+                            Message(
+                                role=Role.ASSISTANT,
+                                content="Your order has been resolved.",
+                            )
+                        ]
+                    )
+                )
+        return results
+
+    mock_engine.infer.side_effect = infer_side_effect
+
+    params = _make_tool_params()
+    mt_attr = MultiTurnAttribute(
+        id="tool_conversation",
+        min_turns=4,
+        max_turns=4,
+        available_tools=["search", "escalate"],
+        max_tool_calls_per_turn=3,
+        role_instruction_messages={
+            Role.USER: "You are a customer with issue: {issue}.",
+            Role.ASSISTANT: "You are a support agent.",
+        },
+        output_system_prompt="You are a support agent.",
+    )
+    synthesizer = ConversationSynthesizer(params, mock_inference_config)
+
+    result = synthesizer.synthesize([{"issue": "order tracking"}], mt_attr)
+
+    # Synthesis should have produced a result
+    assert result[0] is not None
+
+    # We must have captured at least one user-turn conversation (turn 3)
+    assert len(user_turn_conversations) >= 1, (
+        "Expected at least one user-turn conversation to be captured"
+    )
+
+    # Verify none of the history messages passed to the user LLM contain tool artifacts
+    tool_artifact_strings = [
+        "<tool_call>",
+        "</tool_call>",
+        "[Tool result from",
+    ]
+    for conv in user_turn_conversations:
+        # The history messages are everything between the persona (first) and
+        # the turn instruction (last). Check all non-system messages.
+        for msg in conv.messages:
+            if msg.role == Role.SYSTEM:
+                continue
+            content = msg.content if isinstance(msg.content, str) else ""
+            for artifact in tool_artifact_strings:
+                assert artifact not in content, (
+                    f"User-turn history contains tool artifact {artifact!r} "
+                    f"in {msg.role.value} message: {content[:200]!r}"
+                )
