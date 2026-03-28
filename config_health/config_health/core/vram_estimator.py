@@ -22,7 +22,7 @@ from typing import Any
 
 import yaml
 
-from config_health.core.models import ConfigEntry, ConfigType
+from config_health.core.models import REMOTE_ENGINES, ConfigEntry, ConfigType
 
 _GB = 1024**3
 _CUDA_OVERHEAD_GB = 0.5  # ~500 MB for CUDA context, kernels, etc.
@@ -105,10 +105,7 @@ def estimate_vram(entry: ConfigEntry) -> VRAMEstimate:
         return VRAMEstimate(error="No model_name")
 
     # Skip remote engines
-    if entry.engine and entry.engine in {
-        "ANTHROPIC", "OPENAI", "GOOGLE", "GOOGLE_GEMINI", "GOOGLE_VERTEX",
-        "OPENROUTER", "TOGETHER", "FIREWORKS", "PARASAIL", "LAMBDA", "REMOTE",
-    }:
+    if entry.engine and entry.engine in REMOTE_ENGINES:
         return VRAMEstimate(error="Remote engine")
 
     # Get model architecture info from HF config
@@ -343,7 +340,7 @@ def _estimate_total_params(
     num_experts: int,
 ) -> int:
     """Estimate total parameters from architecture dimensions."""
-    # Embedding + LM head (often tied, but counted once for memory)
+    # Embedding (LM head is typically tied to embeddings — shared tensor, counted once)
     embedding = vocab * hidden
 
     # Per-layer attention: Q + K + V + O projections
@@ -370,10 +367,9 @@ def _estimate_total_params(
     norm_per_layer = 2 * hidden
 
     total = (
-        embedding  # token embeddings
+        embedding  # token embeddings (LM head typically tied, shares this tensor)
         + layers * (attn_per_layer + mlp_per_layer + norm_per_layer)
         + hidden  # final layer norm
-        + embedding  # LM head (may be tied but still in memory)
     )
     return total
 

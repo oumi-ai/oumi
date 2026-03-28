@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 import time
 
@@ -21,7 +22,14 @@ from rich.table import Table
 from config_health.core.classifier import classify_config
 from config_health.core.coverage import analyze_coverage
 from config_health.core.hub_checker import HubChecker
-from config_health.core.models import CheckStatus, ConfigType, HealthReport
+from config_health.core.models import (
+    CheckResult,
+    CheckStatus,
+    ConfigEntry,
+    ConfigType,
+    HealthReport,
+    Severity,
+)
 from config_health.core.optimizer import suggest_optimizations
 from config_health.core.scanner import find_repo_root, scan_config_paths
 from config_health.core.static_checks import run_static_checks
@@ -91,8 +99,8 @@ def _collect_environment() -> dict[str, str]:
             env["cuda_device_count"] = str(torch.cuda.device_count())
             cap = torch.cuda.get_device_capability(0)
             env["cuda_capability"] = f"{cap[0]}.{cap[1]}"
-            total_mem = torch.cuda.get_device_properties(0).total_mem
-            env["cuda_total_memory_gb"] = f"{total_mem / (1024**3):.1f}"
+            total_memory = torch.cuda.get_device_properties(0).total_memory
+            env["cuda_total_memory_gb"] = f"{total_memory / (1024**3):.1f}"
 
         # CUDA toolkit version (from torch)
         env["cuda_version"] = getattr(torch.version, "cuda", "N/A") or "N/A"
@@ -208,9 +216,12 @@ def _build_report(
 
     # C2: Incremental mode — only re-check changed configs
     if incremental and not paths:
+        original_count = len(all_paths)
         all_paths = _filter_changed_configs(all_paths, repo_root, last_report_path)
-        if all_paths:
-            console.print(f"[dim]Incremental: checking {len(all_paths)} changed configs[/dim]")
+        if len(all_paths) < original_count:
+            console.print(f"[dim]Incremental: checking {len(all_paths)} changed configs (of {original_count})[/dim]")
+        else:
+            console.print(f"[dim]Incremental: no changes detected, checking all {len(all_paths)} configs[/dim]")
 
     if not all_paths:
         console.print("[yellow]No config files found.[/yellow]")
@@ -224,7 +235,14 @@ def _build_report(
         phase_start = time.time()
         task = progress.add_task("Scanning configs", total=n)
         for yaml_path in all_paths:
-            entry = classify_config(yaml_path, repo_root)
+            try:
+                entry = classify_config(yaml_path, repo_root)
+            except Exception as exc:
+                entry = ConfigEntry(
+                    path=os.path.relpath(yaml_path, repo_root),
+                    abs_path=yaml_path,
+                    parse_error=f"Classification crashed: {exc}",
+                )
             report.entries.append(entry)
             progress.advance(task)
         training_count = sum(
@@ -239,7 +257,16 @@ def _build_report(
         task = progress.add_task(label, total=n)
         for entry in report.entries:
             check_start = time.time()
-            results = run_static_checks(entry, repo_root, skip_finalize=quick)
+            try:
+                results = run_static_checks(entry, repo_root, skip_finalize=quick)
+            except Exception as exc:
+                results = [CheckResult(
+                    config_path=entry.path,
+                    check_name="static_checks",
+                    status=CheckStatus.FAIL,
+                    message=f"Static checks crashed: {exc}",
+                    severity=Severity.ERROR,
+                )]
             elapsed = round(time.time() - check_start, 3)
             for r in results:
                 r.duration_s = elapsed
@@ -375,10 +402,17 @@ def _filter_changed_configs(
         except Exception:
             pass
 
-    # Fall back to git: configs changed since last commit on main
+    # Fall back to git: configs changed vs default branch
     try:
+        # Detect default branch (main or master)
+        branch_result = subprocess.run(
+            ["git", "rev-parse", "--verify", "main"],
+            capture_output=True, text=True, cwd=repo_root,
+        )
+        default_branch = "main" if branch_result.returncode == 0 else "master"
+
         result = subprocess.run(
-            ["git", "diff", "--name-only", "main", "--", "configs/"],
+            ["git", "diff", "--name-only", default_branch, "--", "configs/"],
             capture_output=True,
             text=True,
             cwd=repo_root,
@@ -400,25 +434,11 @@ def _print_summary(report: HealthReport) -> None:
     console.print(f"[bold]Config Health Report[/bold]  ({report.scan_duration_s:.1f}s)")
     console.print()
 
-    # Summary counts
+    # Summary counts (using model properties for consistency with dashboard)
     total = report.total
-    passes = sum(
-        1
-        for e in report.entries
-        if all(
-            r.status != CheckStatus.FAIL
-            for r in report.results_for(e.path)
-        )
-    )
-    failures = total - passes
-    warnings = sum(
-        1
-        for e in report.entries
-        if any(
-            r.status == CheckStatus.WARN
-            for r in report.results_for(e.path)
-        )
-    )
+    failures = report.fail_count
+    warnings = report.warn_count
+    passes = report.pass_count
 
     console.print(f"  Total configs: {total}")
     console.print(f"  [green]Healthy:[/green]  {passes}")

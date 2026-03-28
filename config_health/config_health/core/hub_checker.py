@@ -8,29 +8,11 @@ import time
 from dataclasses import dataclass
 
 from config_health.core.models import (
+    REMOTE_ENGINES,
     CheckResult,
     CheckStatus,
     ConfigEntry,
     Severity,
-)
-
-# Remote inference engines whose model_name values are provider-specific
-# identifiers, not HuggingFace Hub repo IDs.
-_REMOTE_ENGINES = frozenset(
-    {
-        "ANTHROPIC",
-        "OPENAI",
-        "GOOGLE",
-        "GOOGLE_GEMINI",
-        "GOOGLE_VERTEX",
-        "OPENROUTER",
-        "TOGETHER",
-        "FIREWORKS",
-        "PARASAIL",
-        "LAMBDA",
-        "REMOTE",
-        "REMOTE_VLLM",
-    }
 )
 
 _CACHE_TTL_SECONDS = 7 * 24 * 3600  # 7 days
@@ -62,6 +44,8 @@ class HubChecker:
         for ds_name in entry.datasets:
             results.append(self._check_dataset(entry, ds_name))
 
+        # Batch-save cache after all checks for this config
+        self._save_cache()
         return results
 
     def _check_model(self, entry: ConfigEntry) -> CheckResult:
@@ -71,7 +55,7 @@ class HubChecker:
 
         # Skip remote API engines — their model_name is a provider-specific
         # identifier (e.g. "gpt-4o", "claude-3-5-sonnet-latest"), not an HF repo.
-        if entry.engine and entry.engine in _REMOTE_ENGINES:
+        if entry.engine and entry.engine in REMOTE_ENGINES:
             return CheckResult(
                 config_path=entry.path,
                 check_name="model_exists",
@@ -169,11 +153,16 @@ class HubChecker:
 
             repo_info(repo_id, repo_type=repo_type if repo_type == "dataset" else None)
             exists = True
-        except Exception:
-            exists = False
+        except Exception as e:
+            # Distinguish "not found" from network/transient errors
+            err_str = str(e).lower()
+            if "404" in err_str or "not found" in err_str or "doesn't exist" in err_str:
+                exists = False
+            else:
+                # Network error, rate limit, etc. — don't cache, return None
+                return None
 
         self._cache[cache_key] = _CacheEntry(exists=exists, checked_at=time.time())
-        self._save_cache()
         return exists
 
     def _load_cache(self) -> None:

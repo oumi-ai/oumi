@@ -67,6 +67,27 @@ class ConfigType(str, Enum):
 
 
 # Mapping from config class name to ConfigType
+# Remote inference engines whose model_name is a provider-specific identifier,
+# not a HuggingFace Hub repo ID. Single source of truth — import this constant
+# instead of duplicating the set in each module.
+REMOTE_ENGINES = frozenset(
+    {
+        "ANTHROPIC",
+        "OPENAI",
+        "GOOGLE",
+        "GOOGLE_GEMINI",
+        "GOOGLE_VERTEX",
+        "OPENROUTER",
+        "TOGETHER",
+        "FIREWORKS",
+        "PARASAIL",
+        "LAMBDA",
+        "REMOTE",
+        "REMOTE_VLLM",
+    }
+)
+
+
 CONFIG_CLASS_TO_TYPE: dict[str, ConfigType] = {
     "TrainingConfig": ConfigType.TRAINING,
     "InferenceConfig": ConfigType.INFERENCE,
@@ -172,19 +193,28 @@ class HealthReport:
         return len(self.entries)
 
     @property
+    def fail_paths(self) -> set[str]:
+        """Configs with at least one FAIL result."""
+        return {r.config_path for r in self.check_results if r.status == CheckStatus.FAIL}
+
+    @property
+    def warn_paths(self) -> set[str]:
+        """Configs with at least one WARN but no FAIL results."""
+        fail = self.fail_paths
+        return {r.config_path for r in self.check_results if r.status == CheckStatus.WARN} - fail
+
+    @property
     def pass_count(self) -> int:
-        return self._count_status(CheckStatus.PASS)
+        """Configs with no FAIL and no WARN results."""
+        return len(self.entries) - len(self.fail_paths) - len(self.warn_paths)
 
     @property
     def fail_count(self) -> int:
-        return self._count_status(CheckStatus.FAIL)
+        return len(self.fail_paths)
 
     @property
     def warn_count(self) -> int:
-        return self._count_status(CheckStatus.WARN)
-
-    def _count_status(self, status: CheckStatus) -> int:
-        return sum(1 for r in self.check_results if r.status == status)
+        return len(self.warn_paths)
 
     def results_for(self, config_path: str) -> list[CheckResult]:
         return [r for r in self.check_results if r.config_path == config_path]

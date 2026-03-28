@@ -55,7 +55,10 @@ def _parse_list_from_text(text: str, prefix: str) -> list[str]:
 
 
 def _fix_lora_targets(abs_path: str, result: CheckResult) -> bool:
-    """Replace wrong LoRA target modules with available ones from the model."""
+    """Replace wrong LoRA target modules with available ones from the model.
+
+    Uses string replacement to preserve YAML formatting and comments.
+    """
     try:
         with open(abs_path) as f:
             content = f.read()
@@ -87,11 +90,15 @@ def _fix_lora_targets(abs_path: str, result: CheckResult) -> bool:
         if not wrong:
             return False
 
-        peft["lora_target_modules"] = correct_targets
-        data["peft"] = peft
+        # Use string replacement to preserve formatting
+        new_content = _replace_yaml_list(
+            content, "lora_target_modules", correct_targets
+        )
+        if new_content == content:
+            return False
 
         with open(abs_path, "w") as f:
-            yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+            f.write(new_content)
 
         return True
     except Exception:
@@ -99,7 +106,10 @@ def _fix_lora_targets(abs_path: str, result: CheckResult) -> bool:
 
 
 def _fix_fsdp_layer_cls(abs_path: str, result: CheckResult) -> bool:
-    """Fix FSDP transformer_layer_cls: replace with detected class from arch."""
+    """Fix FSDP transformer_layer_cls: replace with detected class from arch.
+
+    Uses string replacement to preserve YAML formatting and comments.
+    """
     try:
         with open(abs_path) as f:
             content = f.read()
@@ -120,12 +130,60 @@ def _fix_fsdp_layer_cls(abs_path: str, result: CheckResult) -> bool:
             return False
 
         new_cls = ",".join(detected)
-        fsdp["transformer_layer_cls"] = new_cls
-        data["fsdp"] = fsdp
+
+        # Use string replacement to preserve formatting
+        new_content = _replace_yaml_value(content, "transformer_layer_cls", new_cls)
+        if new_content == content:
+            return False
 
         with open(abs_path, "w") as f:
-            yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+            f.write(new_content)
 
         return True
     except Exception:
         return False
+
+
+def _replace_yaml_value(content: str, key: str, new_value: str) -> str:
+    """Replace a scalar YAML value while preserving surrounding formatting."""
+    pattern = re.compile(
+        rf"^(\s*{re.escape(key)}\s*:\s*)(.+)$", re.MULTILINE
+    )
+    return pattern.sub(rf"\g<1>{new_value}", content, count=1)
+
+
+def _replace_yaml_list(content: str, key: str, new_items: list[str]) -> str:
+    """Replace a YAML list value while preserving surrounding formatting.
+
+    Handles both inline `[a, b]` and block `- a\\n- b` list styles.
+    """
+    lines = content.split("\n")
+    new_lines: list[str] = []
+    i = 0
+    found = False
+    while i < len(lines):
+        line = lines[i]
+        # Match the key line
+        match = re.match(rf"^(\s*){re.escape(key)}\s*:", line)
+        if match and not found:
+            found = True
+            indent = match.group(1)
+            # Check if inline list: `key: [a, b, c]`
+            if "[" in line:
+                new_list = "[" + ", ".join(new_items) + "]"
+                new_lines.append(f"{indent}{key}: {new_list}")
+                i += 1
+                continue
+            # Block list: emit key, then items
+            new_lines.append(f"{indent}{key}:")
+            item_indent = indent + "  "
+            for item in new_items:
+                new_lines.append(f"{item_indent}- {item}")
+            # Skip old list items
+            i += 1
+            while i < len(lines) and re.match(rf"^\s+-\s+", lines[i]):
+                i += 1
+            continue
+        new_lines.append(line)
+        i += 1
+    return "\n".join(new_lines)

@@ -17,6 +17,7 @@ from typing import Any
 import yaml
 
 from config_health.core.models import (
+    REMOTE_ENGINES,
     CheckResult,
     CheckStatus,
     ConfigEntry,
@@ -31,24 +32,6 @@ _MODEL_TYPES = frozenset(
         ConfigType.INFERENCE,
         ConfigType.EVALUATION,
         ConfigType.TUNING,
-    }
-)
-
-# Remote inference engines — model_name is a provider ID, not an HF repo
-_REMOTE_ENGINES = frozenset(
-    {
-        "ANTHROPIC",
-        "OPENAI",
-        "GOOGLE",
-        "GOOGLE_GEMINI",
-        "GOOGLE_VERTEX",
-        "OPENROUTER",
-        "TOGETHER",
-        "FIREWORKS",
-        "PARASAIL",
-        "LAMBDA",
-        "REMOTE",
-        "REMOTE_VLLM",
     }
 )
 
@@ -68,6 +51,10 @@ class _ArchInfo:
 _hf_config_cache: dict[str, Any] = {}
 _tokenizer_cache: dict[str, Any] = {}
 _arch_cache: dict[str, _ArchInfo] = {}
+_yaml_cache: dict[str, dict | None] = {}
+
+# Sentinel to distinguish "loaded but got None" from "not yet loaded"
+_NOT_LOADED = object()
 
 
 def clear_tier0_cache() -> None:
@@ -75,6 +62,7 @@ def clear_tier0_cache() -> None:
     _hf_config_cache.clear()
     _tokenizer_cache.clear()
     _arch_cache.clear()
+    _yaml_cache.clear()
 
 
 def run_tier0_checks(entry: ConfigEntry) -> list[CheckResult]:
@@ -87,7 +75,7 @@ def run_tier0_checks(entry: ConfigEntry) -> list[CheckResult]:
         return results
     if entry.model_name.startswith(("./", "/", "~")):
         return results
-    if entry.engine and entry.engine in _REMOTE_ENGINES:
+    if entry.engine and entry.engine in REMOTE_ENGINES:
         return results
 
     model_name = entry.model_name
@@ -223,7 +211,10 @@ def _load_hf_config(model_name: str) -> Any:
         result = transformers.AutoConfig.from_pretrained(
             model_name, trust_remote_code=True
         )
-    except Exception:
+    except Exception as e:
+        # Only cache definitive failures (not found, invalid config), not transient ones
+        if _is_transient_error(e):
+            return None
         result = None
     _hf_config_cache[model_name] = result
     return result
@@ -238,19 +229,33 @@ def _load_tokenizer(model_name: str) -> Any:
         result = transformers.AutoTokenizer.from_pretrained(
             model_name, trust_remote_code=True
         )
-    except Exception:
+    except Exception as e:
+        if _is_transient_error(e):
+            return None
         result = None
     _tokenizer_cache[model_name] = result
     return result
 
 
+def _is_transient_error(e: Exception) -> bool:
+    """Check if an exception is likely transient (network, rate limit)."""
+    err_str = str(e).lower()
+    transient_signals = ("timeout", "connection", "rate limit", "429", "503", "502")
+    return any(s in err_str for s in transient_signals)
+
+
 def _load_yaml(path: str) -> dict | None:
+    cached = _yaml_cache.get(path, _NOT_LOADED)
+    if cached is not _NOT_LOADED:
+        return cached  # type: ignore[return-value]
     try:
         with open(path) as f:
             data = yaml.safe_load(f)
-        return data if isinstance(data, dict) else None
+        result = data if isinstance(data, dict) else None
     except Exception:
-        return None
+        result = None
+    _yaml_cache[path] = result
+    return result
 
 
 def _load_architecture_info(model_name: str) -> _ArchInfo:
@@ -480,7 +485,12 @@ def _check_lora_targets(
     if not targets or targets == ["all-linear"]:
         return results
 
-    missing = [t for t in targets if t not in arch.module_names]
+    # Filter out "all-linear" (PEFT magic value) before checking against arch
+    concrete_targets = [t for t in targets if t != "all-linear"]
+    if not concrete_targets:
+        return results
+
+    missing = [t for t in concrete_targets if t not in arch.module_names]
     if missing:
         results.append(
             CheckResult(
@@ -498,7 +508,7 @@ def _check_lora_targets(
                 config_path=entry.path,
                 check_name="lora_targets",
                 status=CheckStatus.PASS,
-                message=f"All {len(targets)} LoRA target modules found in model",
+                message=f"All {len(concrete_targets)} LoRA target modules found in model",
                 severity=Severity.INFO,
             )
         )

@@ -8,6 +8,7 @@ import yaml
 
 from config_health.core.models import (
     CONFIG_CLASS_TO_TYPE,
+    REMOTE_ENGINES,
     ConfigEntry,
     ConfigType,
     GpuTier,
@@ -46,21 +47,8 @@ _FILENAME_TYPE_HINTS: list[tuple[str, ConfigType]] = [
     ("deploy", ConfigType.JOB),
 ]
 
-# Remote API engines that don't need GPU
-_API_ENGINES = frozenset(
-    {
-        "ANTHROPIC",
-        "OPENAI",
-        "GOOGLE",
-        "VERTEX",
-        "OPENROUTER",
-        "TOGETHER",
-        "FIREWORKS",
-        "PARASAIL",
-        "LAMBDA",
-        "REMOTE",
-    }
-)
+# Use the shared REMOTE_ENGINES constant for API engine detection
+_API_ENGINES = REMOTE_ENGINES
 
 
 def classify_config(yaml_path: str, repo_root: str) -> ConfigEntry:

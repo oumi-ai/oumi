@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
+import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 from urllib.parse import unquote
 
@@ -13,7 +16,7 @@ from fastapi.templating import Jinja2Templates
 from config_health.core.classifier import classify_config
 from config_health.core.coverage import analyze_coverage, build_coverage_matrix
 from config_health.core.hub_checker import HubChecker
-from config_health.core.models import CheckStatus, ConfigType, GpuTier, HealthReport
+from config_health.core.models import CheckStatus, ConfigEntry, ConfigType, GpuTier, HealthReport
 from config_health.core.optimizer import suggest_optimizations
 from config_health.core.scaffolder import get_available_tasks, scaffold_config
 from config_health.core.scanner import scan_config_paths
@@ -30,10 +33,6 @@ def create_app(
     offline: bool = False,
     from_report: str | None = None,
 ) -> FastAPI:
-    app = FastAPI(title="Config Health Dashboard")
-    templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
-    app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
-
     # Shared state
     state = {"repo_root": repo_root, "offline": offline, "report": HealthReport()}
 
@@ -41,24 +40,43 @@ def create_app(
         report = HealthReport()
         paths = scan_config_paths(repo_root)
         for p in paths:
-            entry = classify_config(p, repo_root)
+            try:
+                entry = classify_config(p, repo_root)
+            except Exception as exc:
+                entry = ConfigEntry(
+                    path=os.path.relpath(p, repo_root),
+                    abs_path=p,
+                    parse_error=f"Classification crashed: {exc}",
+                )
             report.entries.append(entry)
 
         hub = HubChecker(offline=offline)
         for entry in report.entries:
-            report.check_results.extend(run_static_checks(entry, repo_root))
-            report.check_results.extend(hub.check_config(entry))
-            report.suggestions.extend(suggest_optimizations(entry))
+            try:
+                report.check_results.extend(run_static_checks(entry, repo_root))
+                report.check_results.extend(hub.check_config(entry))
+                report.suggestions.extend(suggest_optimizations(entry))
+            except Exception:
+                pass
 
         report.coverage_gaps = analyze_coverage(report.entries)
         return report
 
-    @app.on_event("startup")
-    async def startup():
-        if from_report:
-            state["report"] = HealthReport.from_json(from_report)
-        else:
-            state["report"] = _scan()
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        try:
+            if from_report:
+                state["report"] = HealthReport.from_json(from_report)
+            else:
+                state["report"] = await asyncio.to_thread(_scan)
+        except Exception as exc:
+            import sys
+            print(f"WARNING: startup scan failed: {exc}", file=sys.stderr)
+        yield
+
+    app = FastAPI(title="Config Health Dashboard", lifespan=lifespan)
+    templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
+    app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
 
     # ── Pages ──────────────────────────────────────────────────────
 
@@ -84,39 +102,19 @@ def create_app(
         if q:
             entries = [e for e in entries if q.lower() in e.path.lower()]
         if status:
+            all_fail = report.fail_paths
+            all_warn = report.warn_paths  # warn-only (excludes configs that also have fails)
             if status == "fail":
-                fail_paths = {
-                    r.config_path
-                    for r in report.check_results
-                    if r.status == CheckStatus.FAIL
-                }
-                entries = [e for e in entries if e.path in fail_paths]
+                entries = [e for e in entries if e.path in all_fail]
             elif status == "warn":
-                warn_paths = {
-                    r.config_path
-                    for r in report.check_results
-                    if r.status == CheckStatus.WARN
-                }
-                entries = [e for e in entries if e.path in warn_paths]
+                entries = [e for e in entries if e.path in all_warn]
             elif status == "pass":
-                fail_paths = {
-                    r.config_path
-                    for r in report.check_results
-                    if r.status == CheckStatus.FAIL
-                }
-                entries = [e for e in entries if e.path not in fail_paths]
+                non_pass = all_fail | all_warn
+                entries = [e for e in entries if e.path not in non_pass]
 
         # Compute summary stats from full report
-        all_fail_paths = {
-            r.config_path
-            for r in report.check_results
-            if r.status == CheckStatus.FAIL
-        }
-        all_warn_paths = {
-            r.config_path
-            for r in report.check_results
-            if r.status == CheckStatus.WARN
-        }
+        all_fail_paths = report.fail_paths
+        all_warn_paths = report.warn_paths
 
         config_types = sorted(set(e.config_type.value for e in report.entries if e.config_type != ConfigType.UNKNOWN))
         families = sorted(set(e.model_family for e in report.entries if e.model_family))
@@ -127,8 +125,8 @@ def create_app(
             "entries": entries,
             "total": len(report.entries),
             "fail_count": len(all_fail_paths),
-            "warn_count": len(all_warn_paths - all_fail_paths),
-            "pass_count": len(report.entries) - len(all_fail_paths),
+            "warn_count": len(all_warn_paths),
+            "pass_count": len(report.entries) - len(all_fail_paths) - len(all_warn_paths),
             "config_types": config_types,
             "families": families,
             "gpu_tiers": [(t.value, t.label) for t in GpuTier],
@@ -216,7 +214,7 @@ def create_app(
 
     @app.post("/api/rescan", response_class=HTMLResponse)
     async def rescan(request: Request):
-        state["report"] = _scan()
+        state["report"] = await asyncio.to_thread(_scan)
         # Redirect to dashboard
         from starlette.responses import RedirectResponse
 
@@ -228,7 +226,18 @@ def create_app(
         model_name = str(form.get("model_name", ""))
         tasks = form.getlist("tasks")
         use_lora = form.get("use_lora") == "on"
-        output_dir = str(form.get("output_dir", "")).strip() or None
+        raw_output_dir = str(form.get("output_dir", "")).strip() or None
+        # Sanitize: resolve and ensure output_dir stays within the repo
+        output_dir = None
+        if raw_output_dir:
+            resolved = os.path.realpath(os.path.join(repo_root, raw_output_dir))
+            if resolved.startswith(os.path.realpath(repo_root)):
+                output_dir = resolved
+            else:
+                return templates.TemplateResponse(
+                    "partials/scaffold_result.html",
+                    {"request": request, "results": [{"task": "error", "success": False, "content": "output_dir must be within the repo"}]},
+                )
 
         results: list[dict] = []
         for task in tasks:

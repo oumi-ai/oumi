@@ -19,19 +19,12 @@ import time
 from dataclasses import dataclass, field
 
 from config_health.core.models import (
+    REMOTE_ENGINES,
     CheckResult,
     CheckStatus,
     ConfigEntry,
     ConfigType,
     Severity,
-)
-
-_REMOTE_ENGINES = frozenset(
-    {
-        "ANTHROPIC", "OPENAI", "GOOGLE", "GOOGLE_GEMINI", "GOOGLE_VERTEX",
-        "OPENROUTER", "TOGETHER", "FIREWORKS", "PARASAIL", "LAMBDA",
-        "REMOTE", "REMOTE_VLLM",
-    }
 )
 
 
@@ -63,7 +56,7 @@ def run_dry_run(entry: ConfigEntry, *, max_steps: int = 2) -> DryRunResult:
         result.error = "No model_name"
         return result
 
-    if entry.engine and entry.engine in _REMOTE_ENGINES:
+    if entry.engine and entry.engine in REMOTE_ENGINES:
         result.error = "Remote engine"
         return result
 

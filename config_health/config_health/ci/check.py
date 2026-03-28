@@ -28,9 +28,31 @@ def main() -> None:
     print(f"Scanning {len(paths)} configs...")
 
     for p in paths:
-        entry = classify_config(p, repo_root)
+        try:
+            entry = classify_config(p, repo_root)
+        except Exception as exc:
+            import os
+
+            from config_health.core.models import ConfigEntry
+
+            entry = ConfigEntry(
+                path=os.path.relpath(p, repo_root),
+                abs_path=p,
+                parse_error=f"Classification crashed: {exc}",
+            )
         report.entries.append(entry)
-        results = run_static_checks(entry, repo_root)
+        try:
+            results = run_static_checks(entry, repo_root)
+        except Exception as exc:
+            from config_health.core.models import CheckResult, Severity
+
+            results = [CheckResult(
+                config_path=entry.path,
+                check_name="static_checks",
+                status=CheckStatus.FAIL,
+                message=f"Static checks crashed: {exc}",
+                severity=Severity.ERROR,
+            )]
         report.check_results.extend(results)
 
     failures = [r for r in report.check_results if r.status == CheckStatus.FAIL]
