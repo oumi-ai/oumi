@@ -188,6 +188,23 @@ class BedrockInferenceEngine(RemoteInferenceEngine):
         return result
 
     @override
+    def list_models(self, chat_only: bool = True) -> list[str]:
+        """Returns model IDs available in AWS Bedrock."""
+        region = os.getenv(_AWS_REGION_ENV_VAR)
+        if not region:
+            raise ValueError(f"Environment variable {_AWS_REGION_ENV_VAR} not set.")
+        client = boto3.client("bedrock", region_name=region)  # type: ignore
+        response = client.list_foundation_models()
+        summaries = response.get("modelSummaries", [])
+        if chat_only:
+            summaries = [
+                m for m in summaries
+                if "TEXT" in m.get("outputModalities", [])
+                and "TEXT" in m.get("inputModalities", [])
+            ]
+        return sorted(m["modelId"] for m in summaries if "modelId" in m)
+
+    @override
     def _default_remote_params(self) -> RemoteParams:
         """Returns the default remote parameters."""
         return RemoteParams()
