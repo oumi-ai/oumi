@@ -74,6 +74,18 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
         """Return the default environment variable name for the Fireworks API key."""
         return "FIREWORKS_API_KEY"
 
+    @override
+    def get_models_api_url(self) -> str:
+        """Returns the URL for the Fireworks models API."""
+        return "https://api.fireworks.ai/inference/v1/models"
+
+    @override
+    def _filter_chat_models(
+        self, models: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """Filters to chat-capable models using Fireworks' ``supports_chat`` field."""
+        return [m for m in models if m.get("supports_chat") is True]
+
     def _get_account_id(self) -> str:
         """Get the Fireworks account ID from environment variable.
 

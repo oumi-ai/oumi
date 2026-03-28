@@ -42,8 +42,31 @@ def _is_reasoning_model(model_name: str) -> bool:
     return model_name.startswith(_REASONING_MODEL_PREFIXES)
 
 
+_NON_CHAT_PREFIXES = (
+    "babbage-",
+    "dall-e-",
+    "davinci-",
+    "omni-moderation-",
+    "sora-",
+    "text-embedding-",
+    "tts-",
+    "whisper-",
+)
+
+
 class OpenAIInferenceEngine(RemoteInferenceEngine):
     """Engine for running inference against the OpenAI API."""
+
+    @override
+    def _filter_chat_models(
+        self, models: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """Filters out non-chat OpenAI models (embeddings, TTS, DALL-E, etc.)."""
+        return [
+            m
+            for m in models
+            if not m.get("id", "").startswith(_NON_CHAT_PREFIXES)
+        ]
 
     @property
     @override
