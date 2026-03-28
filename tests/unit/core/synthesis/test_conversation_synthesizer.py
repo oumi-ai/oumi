@@ -979,8 +979,9 @@ def test_agentic_turn_with_tool_call_and_response(
                         ]
                     )
                 )
-            elif "OUTPUT FORMAT" in str(last_content) and not any(
-                "[Tool result from" in str(m.content) for m in conv.messages
+            elif "MUST use <tool_call>" in str(last_content) and not any(
+                "[Tool result from SearchOrders]: {" in str(m.content)
+                for m in conv.messages
             ):
                 results.append(
                     Conversation(
@@ -1162,7 +1163,7 @@ def test_tool_catalog_injected_into_assistant_persona(
 
     assert "SearchOrders" in persona_msg.content
     assert "Escalate" in persona_msg.content
-    assert "Do not guess or fabricate data" in persona_msg.content
+    assert "NEVER fabricate tool results" in persona_msg.content
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
@@ -1395,7 +1396,7 @@ def test_init_env_kills_sample_on_total_state_failure(
     mock_build_inference_engine,
     mock_inference_config,
 ):
-    """If state generation produces no parseable JSON after all retries, sample is None."""
+    """If state generation produces no parseable JSON after retries, sample is None."""
     from oumi.core.configs.params.tool_params import (
         ToolAttribute,
         ToolEnvironmentAttribute,
@@ -1405,38 +1406,19 @@ def test_init_env_kills_sample_on_total_state_failure(
     mock_engine = Mock()
     mock_build_inference_engine.return_value = mock_engine
 
-    call_count = 0
-
     def infer_side_effect(conversations, **kwargs):
-        nonlocal call_count
-        call_count += 1
-        results = []
-        for _ in conversations:
-            if call_count == 1:
-                # Valid schema
-                results.append(
-                    Conversation(
-                        messages=[
-                            Message(
-                                role=Role.ASSISTANT,
-                                content='{"type": "object", "properties": {"items": {"type": "object"}}}',
-                            )
-                        ]
+        # All state generation attempts fail with non-JSON
+        return [
+            Conversation(
+                messages=[
+                    Message(
+                        role=Role.ASSISTANT,
+                        content="I cannot generate state data",
                     )
-                )
-            else:
-                # All state attempts fail with non-JSON
-                results.append(
-                    Conversation(
-                        messages=[
-                            Message(
-                                role=Role.ASSISTANT,
-                                content="I cannot generate state data",
-                            )
-                        ]
-                    )
-                )
-        return results
+                ]
+            )
+            for _ in conversations
+        ]
 
     mock_engine.infer.side_effect = infer_side_effect
 
@@ -1541,6 +1523,173 @@ def test_init_env_static_config_used_without_llm(
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_init_sample_environments_reuses_shared_environment_build(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """When env config is identical, build once and copy across samples."""
+    from oumi.core.configs.params.tool_params import (
+        ToolAttribute,
+        ToolEnvironmentAttribute,
+        ToolOutputStrategy,
+    )
+
+    mock_engine = Mock()
+    mock_build_inference_engine.return_value = mock_engine
+
+    def infer_side_effect(conversations, **kwargs):
+        return [
+            Conversation(
+                messages=[
+                    Message(
+                        role=Role.ASSISTANT,
+                        content='{"1": {"name": "Alice"}}',
+                    )
+                ]
+            )
+            for _ in conversations
+        ]
+
+    mock_engine.infer.side_effect = infer_side_effect
+
+    env_config = ToolEnvironmentAttribute(
+        id="db",
+        name="Database",
+        description="A database",
+        system_prompt="You manage a database.",
+        state_schema={
+            "type": "object",
+            "properties": {
+                "users": {
+                    "type": "object",
+                    "additionalProperties": {"type": "object"},
+                }
+            },
+        },
+    )
+    tool = ToolAttribute(
+        id="query",
+        name="Query",
+        description="Run query",
+        output_strategy=ToolOutputStrategy.ENVIRONMENT,
+        environment="db",
+        read_only=True,
+    )
+    params = GeneralSynthesisParams(tools=[tool], environments=[env_config])
+    multiturn = MultiTurnAttribute(
+        id="conv",
+        min_turns=2,
+        max_turns=2,
+        available_tools=["query"],
+        role_instruction_messages={
+            Role.USER: "You are an analyst for {domain.name}.",
+            Role.ASSISTANT: "You are a db assistant for {domain.name}.",
+        },
+    )
+    synthesizer = ConversationSynthesizer(params, mock_inference_config)
+
+    from types import SimpleNamespace
+
+    result = synthesizer._init_sample_environments(
+        [
+            {"domain": SimpleNamespace(name="Healthcare")},
+            {"domain": SimpleNamespace(name="E-Commerce")},
+        ],
+        multiturn,
+    )
+
+    assert result[0] is not None
+    assert result[1] is not None
+    assert mock_engine.infer.call_count == 1
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_init_sample_environments_rebuilds_when_env_config_varies(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """If env config formats differently per sample, each variant is built separately."""
+    from oumi.core.configs.params.tool_params import (
+        ToolAttribute,
+        ToolEnvironmentAttribute,
+        ToolOutputStrategy,
+    )
+
+    seen_prompts: list[str] = []
+    mock_engine = Mock()
+    mock_build_inference_engine.return_value = mock_engine
+
+    def infer_side_effect(conversations, **kwargs):
+        for conv in conversations:
+            seen_prompts.append(str(conv.messages[0].content))
+        return [
+            Conversation(
+                messages=[
+                    Message(
+                        role=Role.ASSISTANT,
+                        content='{"1": {"name": "Alice"}}',
+                    )
+                ]
+            )
+            for _ in conversations
+        ]
+
+    mock_engine.infer.side_effect = infer_side_effect
+
+    env_config = ToolEnvironmentAttribute(
+        id="db",
+        name="Database",
+        description="A {domain.name} database",
+        system_prompt="You manage a {domain.name} database.",
+        state_schema={
+            "type": "object",
+            "properties": {
+                "users": {
+                    "type": "object",
+                    "additionalProperties": {"type": "object"},
+                }
+            },
+        },
+    )
+    tool = ToolAttribute(
+        id="query",
+        name="Query",
+        description="Run query",
+        output_strategy=ToolOutputStrategy.ENVIRONMENT,
+        environment="db",
+        read_only=True,
+    )
+    params = GeneralSynthesisParams(tools=[tool], environments=[env_config])
+    multiturn = MultiTurnAttribute(
+        id="conv",
+        min_turns=2,
+        max_turns=2,
+        available_tools=["query"],
+        role_instruction_messages={
+            Role.USER: "You are an analyst for {domain.name}.",
+            Role.ASSISTANT: "You are a db assistant.",
+        },
+    )
+    synthesizer = ConversationSynthesizer(params, mock_inference_config)
+
+    from types import SimpleNamespace
+
+    result = synthesizer._init_sample_environments(
+        [
+            {"domain": SimpleNamespace(name="Healthcare")},
+            {"domain": SimpleNamespace(name="E-Commerce")},
+        ],
+        multiturn,
+    )
+
+    assert result[0] is not None
+    assert result[1] is not None
+    assert mock_engine.infer.call_count == 2
+    assert any("Healthcare" in prompt for prompt in seen_prompts)
+    assert any("E-Commerce" in prompt for prompt in seen_prompts)
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
 def test_planner_prompt_includes_env_summary(
     mock_build_inference_engine,
     mock_inference_config,
@@ -1569,7 +1718,7 @@ def test_planner_prompt_includes_env_summary(
 
     last_user_msg = prompt.messages[-1].content
     assert "tables: users" in last_user_msg
-    assert "MUST work with this data" in last_user_msg
+    assert "MUST be grounded in this data" in last_user_msg
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
@@ -1608,7 +1757,7 @@ def test_format_persona_includes_grounding_rules(
     content = result.content
     assert "Query" in content
     assert "Run a query" in content
-    assert "Do not guess or fabricate data" in content
+    assert "NEVER fabricate tool results" in content
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
@@ -1651,8 +1800,132 @@ def test_format_persona_system_msg_has_tools_not_format_rules(
     assert "CRITICAL:" not in content
 
 
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_over_limit_tool_call_is_stripped_from_assistant_output(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """A valid tool call emitted after the per-turn limit should not leak into output."""
+    mock_engine = Mock()
+    mock_build_inference_engine.return_value = mock_engine
+    call_count = 0
+
+    def infer_side_effect(conversations, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return [
+                Conversation(
+                    messages=[
+                        Message(
+                            role=Role.ASSISTANT,
+                            content=(
+                                '```json\n[{"turn": 1, "instruction": "Ask about '
+                                'the order"}, {"turn": 2, "instruction": '
+                                '"Investigate and conclude"}]\n```'
+                            ),
+                        )
+                    ]
+                )
+            ]
+        if call_count == 2:
+            return [
+                Conversation(
+                    messages=[
+                        Message(
+                            role=Role.ASSISTANT,
+                            content="Please check order ORD-001.",
+                        )
+                    ]
+                )
+            ]
+        if call_count == 3:
+            return [
+                Conversation(
+                    messages=[
+                        Message(
+                            role=Role.ASSISTANT,
+                            content=(
+                                '<tool_call>{"name": "SearchOrders", '
+                                '"arguments": {"order_id": "ORD-001"}}'
+                                "</tool_call>"
+                            ),
+                        )
+                    ]
+                )
+            ]
+        if call_count == 4:
+            return [
+                Conversation(
+                    messages=[
+                        Message(
+                            role=Role.ASSISTANT,
+                            content='{"order_id": "ORD-001", "status": "delivered"}',
+                        )
+                    ]
+                )
+            ]
+        return [
+            Conversation(
+                messages=[
+                    Message(
+                        role=Role.ASSISTANT,
+                        content=(
+                            "Based on the current results, the order is delivered.\n\n"
+                            '{"name": "SearchOrders", '
+                            '"arguments": {"order_id": "ORD-001"}}'
+                        ),
+                    )
+                ]
+            )
+        ]
+
+    mock_engine.infer.side_effect = infer_side_effect
+
+    params = _make_tool_params()
+    mt_attr = MultiTurnAttribute(
+        id="tool_conversation",
+        min_turns=2,
+        max_turns=2,
+        available_tools=["search", "escalate"],
+        max_tool_calls_per_turn=1,
+        role_instruction_messages={
+            Role.USER: "You are a customer with issue: {issue}.",
+            Role.ASSISTANT: "You are a support agent.",
+        },
+        output_system_prompt="You are a support agent.",
+    )
+    synthesizer = ConversationSynthesizer(params, mock_inference_config)
+
+    result = synthesizer.synthesize([{"issue": "check order"}], mt_attr)
+
+    assert result[0] is not None
+    messages = result[0]["tool_conversation"]["messages"]
+    assistant_messages = [
+        m for m in messages if m.get("role") == "assistant" and m.get("content")
+    ]
+    assert assistant_messages[-1]["content"] == (
+        "Based on the current results, the order is delivered."
+    )
+    assert "SearchOrders" not in assistant_messages[-1]["content"]
+
+
+def test_final_assistant_message_looks_incomplete():
+    output_messages = [
+        {"role": "user", "content": "Please summarize."},
+        {"role": "assistant", "content": "Perfect! Now let me verify the changes."},
+    ]
+
+    assert (
+        ConversationSynthesizer._final_assistant_message_looks_incomplete(
+            output_messages
+        )
+        is True
+    )
+
+
 def test_build_tool_turn_info_contains_format_instruction():
-    """Turn info user message should contain format spec with example."""
+    """Turn info user message should contain tool-call reminder."""
     turn_info = ConversationSynthesizer._build_tool_turn_info(
         current_turn=2,
         target_turns=6,
@@ -1661,8 +1934,8 @@ def test_build_tool_turn_info_contains_format_instruction():
     )
 
     assert "<tool_call>" in turn_info
-    assert "</tool_call>" in turn_info
-    assert "Example" in turn_info or "example" in turn_info
+    assert "MUST" in turn_info
+    assert "Explore the database schema" in turn_info
     assert "Stay in character" not in turn_info
     assert "Generate ONLY" not in turn_info
 
@@ -1680,6 +1953,19 @@ def test_build_tool_turn_info_max_calls_no_format():
     assert "Respond" in turn_info or "respond" in turn_info
 
 
+def test_build_tool_turn_info_final_turn_no_future_steps():
+    """Final tool turn should tell the model to conclude, not defer work."""
+    turn_info = ConversationSynthesizer._build_tool_turn_info(
+        current_turn=4,
+        target_turns=4,
+        turn_instruction="Wrap up the investigation",
+        max_calls_reached=False,
+    )
+
+    assert "final turn" in turn_info.lower()
+    assert "future" in turn_info.lower() or "conclude" in turn_info.lower()
+
+
 def test_build_prose_turn_info_no_tool_format():
     """Prose turn info should not contain tool format instructions."""
     turn_info = ConversationSynthesizer._build_prose_turn_info(
@@ -1692,3 +1978,21 @@ def test_build_prose_turn_info_no_tool_format():
     assert "USER" in turn_info
     assert "Describe the problem" in turn_info
     assert "<tool_call>" not in turn_info
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_generate_plan_raises_on_response_count_mismatch(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """Planner should fail fast if batched inference returns wrong result count."""
+    mock_engine = Mock()
+    mock_engine.infer.return_value = []
+    mock_build_inference_engine.return_value = mock_engine
+    synthesizer = ConversationSynthesizer(GeneralSynthesisParams(), mock_inference_config)
+
+    planner = Conversation(
+        messages=[Message(role=Role.USER, content="Plan something.")]
+    )
+    with pytest.raises(RuntimeError, match="Conversation planning"):
+        synthesizer._generate_plan([planner])
