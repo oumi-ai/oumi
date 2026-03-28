@@ -58,9 +58,7 @@ class TogetherInferenceEngine(RemoteInferenceEngine):
                 return data if isinstance(data, list) else data.get("data", [])
 
     @override
-    def _filter_chat_models(
-        self, models: list[dict[str, Any]]
-    ) -> list[dict[str, Any]]:
+    def _filter_chat_models(self, models: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Filters to chat models using Together's ``type`` field."""
         return [m for m in models if m.get("type") == "chat"]
 

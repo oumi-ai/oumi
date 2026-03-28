@@ -90,11 +90,11 @@ class BedrockInferenceEngine(RemoteInferenceEngine):
         """Return the default environment variable name for the Bedrock API key."""
         return None
 
-    def _bedrock_client(self, remote_params: RemoteParams) -> Any:
+    def _get_aws_region(self) -> str:
         region = os.getenv(_AWS_REGION_ENV_VAR)
         if not region:
             raise ValueError(f"Environment variable {_AWS_REGION_ENV_VAR} not set.")
-        return boto3.client("bedrock-runtime", region_name=region)  # type: ignore
+        return region
 
     @override
     def _convert_conversation_to_api_input(
@@ -190,15 +190,14 @@ class BedrockInferenceEngine(RemoteInferenceEngine):
     @override
     def list_models(self, chat_only: bool = True) -> list[str]:
         """Returns model IDs available in AWS Bedrock."""
-        region = os.getenv(_AWS_REGION_ENV_VAR)
-        if not region:
-            raise ValueError(f"Environment variable {_AWS_REGION_ENV_VAR} not set.")
+        region = self._get_aws_region()
         client = boto3.client("bedrock", region_name=region)  # type: ignore
         response = client.list_foundation_models()
         summaries = response.get("modelSummaries", [])
         if chat_only:
             summaries = [
-                m for m in summaries
+                m
+                for m in summaries
                 if "TEXT" in m.get("outputModalities", [])
                 and "TEXT" in m.get("inputModalities", [])
             ]
@@ -247,7 +246,7 @@ class BedrockInferenceEngine(RemoteInferenceEngine):
         body: dict[str, Any],
     ) -> dict[str, Any]:
         """Synchronously invokes Bedrock Converse via boto3."""
-        client = self._bedrock_client(remote_params)
+        client = boto3.client("bedrock-runtime", region_name=self._get_aws_region())  # type: ignore
         kwargs: dict[str, Any] = {
             "modelId": model_params.model_name,
             "messages": body["messages"],

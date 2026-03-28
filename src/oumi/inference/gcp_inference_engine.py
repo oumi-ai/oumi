@@ -176,6 +176,10 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
         Vertex AI does not expose a public REST endpoint for listing
         available foundation models. Use the Google Cloud Console or
         ``gcloud ai models list`` to browse the Model Garden.
+
+        Note:
+            The ``chat_only`` parameter has no effect for this engine since
+            only the configured model name is returned.
         """
         return [self._model_params.model_name]
 

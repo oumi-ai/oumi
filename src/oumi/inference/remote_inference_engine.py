@@ -860,7 +860,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         return conversations
 
     #
-    # Batch inference
+    # Model discovery
     #
 
     def get_models_api_url(self) -> str:
@@ -904,15 +904,22 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 data = await response.json()
                 return data.get("data", [])
 
-    def _filter_chat_models(
-        self, models: list[dict[str, Any]]
-    ) -> list[dict[str, Any]]:
+    def _filter_chat_models(self, models: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Filters model list to chat-capable models only.
 
-        Subclasses should override this if the provider exposes richer
-        metadata for filtering. The default implementation returns all models.
+        The default implementation returns all models unfiltered because
+        not all providers expose metadata to distinguish chat from non-chat
+        models. Subclasses that can distinguish (e.g., OpenAI, Together,
+        Fireworks) override this to provide actual filtering.
+
+        For providers without an override, ``chat_only=True`` and
+        ``chat_only=False`` return the same results.
         """
         return models
+
+    #
+    # Batch inference
+    #
 
     def get_file_api_url(self) -> str:
         """Returns the URL for the file API."""

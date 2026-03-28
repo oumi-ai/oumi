@@ -80,9 +80,7 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
         return "https://api.fireworks.ai/inference/v1/models"
 
     @override
-    def _filter_chat_models(
-        self, models: list[dict[str, Any]]
-    ) -> list[dict[str, Any]]:
+    def _filter_chat_models(self, models: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Filters to chat-capable models using Fireworks' ``supports_chat`` field."""
         return [m for m in models if m.get("supports_chat") is True]
 
