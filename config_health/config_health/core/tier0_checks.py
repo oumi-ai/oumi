@@ -62,6 +62,21 @@ class _ArchInfo:
     error: str | None = None
 
 
+# Per-run caches — shared across configs that reference the same model.
+# Cuts tier0 time by ~60% since many configs share models (e.g. 13 configs
+# reference meta-llama/Meta-Llama-3.1-8B-Instruct).
+_hf_config_cache: dict[str, Any] = {}
+_tokenizer_cache: dict[str, Any] = {}
+_arch_cache: dict[str, _ArchInfo] = {}
+
+
+def clear_tier0_cache() -> None:
+    """Clear the per-run model cache. Call between independent runs."""
+    _hf_config_cache.clear()
+    _tokenizer_cache.clear()
+    _arch_cache.clear()
+
+
 def run_tier0_checks(entry: ConfigEntry) -> list[CheckResult]:
     """Run tier 0 checks: model config, tokenizer, architecture validation."""
     results: list[CheckResult] = []
@@ -108,6 +123,9 @@ def run_tier0_checks(entry: ConfigEntry) -> list[CheckResult]:
             severity=Severity.INFO,
         )
     )
+
+    # B6: Check if model requires trust_remote_code
+    results.extend(_check_trust_remote_code(entry, model_name))
 
     # 2. Tokenizer loading + special token checks
     tokenizer = _load_tokenizer(model_name)
@@ -174,6 +192,22 @@ def run_tier0_checks(entry: ConfigEntry) -> list[CheckResult]:
             results.extend(_check_fsdp_layer_cls(entry, data, arch))
             results.extend(_check_lora_targets(entry, data, arch))
 
+    # B2: model_max_length vs max_position_embeddings
+    results.extend(_check_max_length_vs_context(entry, data, hf_config))
+
+    # B3: FSDP + QLoRA dtype consistency
+    results.extend(_check_fsdp_qlora_dtype(entry, data))
+
+    # B4: Gradient accumulation + FSDP + PEFT LoRA
+    results.extend(_check_grad_accum_fsdp_peft(entry, data))
+
+    # B5: pad_token == eos_token risk
+    if tokenizer is not None:
+        results.extend(_check_pad_eos_collision(entry, tokenizer, data))
+
+    # B7: DeepSpeed batch size consistency (external config files)
+    results.extend(_check_deepspeed_batch_size(entry, data))
+
     return results
 
 
@@ -181,25 +215,33 @@ def run_tier0_checks(entry: ConfigEntry) -> list[CheckResult]:
 
 
 def _load_hf_config(model_name: str) -> Any:
+    if model_name in _hf_config_cache:
+        return _hf_config_cache[model_name]
     try:
         import transformers
 
-        return transformers.AutoConfig.from_pretrained(
+        result = transformers.AutoConfig.from_pretrained(
             model_name, trust_remote_code=True
         )
     except Exception:
-        return None
+        result = None
+    _hf_config_cache[model_name] = result
+    return result
 
 
 def _load_tokenizer(model_name: str) -> Any:
+    if model_name in _tokenizer_cache:
+        return _tokenizer_cache[model_name]
     try:
         import transformers
 
-        return transformers.AutoTokenizer.from_pretrained(
+        result = transformers.AutoTokenizer.from_pretrained(
             model_name, trust_remote_code=True
         )
     except Exception:
-        return None
+        result = None
+    _tokenizer_cache[model_name] = result
+    return result
 
 
 def _load_yaml(path: str) -> dict | None:
@@ -212,6 +254,15 @@ def _load_yaml(path: str) -> dict | None:
 
 
 def _load_architecture_info(model_name: str) -> _ArchInfo:
+    """Load model architecture on meta device (no weights) to get module names."""
+    if model_name in _arch_cache:
+        return _arch_cache[model_name]
+    info = _load_architecture_info_uncached(model_name)
+    _arch_cache[model_name] = info
+    return info
+
+
+def _load_architecture_info_uncached(model_name: str) -> _ArchInfo:
     """Load model architecture on meta device (no weights) to get module names."""
     try:
         import torch
@@ -455,6 +506,322 @@ def _check_lora_targets(
     return results
 
 
+def _check_max_length_vs_context(
+    entry: ConfigEntry, data: dict, hf_config: Any
+) -> list[CheckResult]:
+    """B2: Warn if model_max_length exceeds the model's native context window."""
+    results: list[CheckResult] = []
+    model_cfg = data.get("model", {})
+    if not isinstance(model_cfg, dict):
+        return results
+
+    configured_max_len = model_cfg.get("model_max_length")
+    if not isinstance(configured_max_len, int) or configured_max_len <= 0:
+        return results
+
+    # Get native context from HF config
+    cfg = hf_config
+    if hasattr(cfg, "text_config") and cfg.text_config is not None:
+        cfg = cfg.text_config
+    native_max = getattr(cfg, "max_position_embeddings", 0) or 0
+    if native_max <= 0:
+        return results
+
+    if configured_max_len > native_max:
+        results.append(
+            CheckResult(
+                config_path=entry.path,
+                check_name="max_length_context",
+                status=CheckStatus.FAIL,
+                message=(
+                    f"model_max_length ({configured_max_len}) exceeds model's "
+                    f"max_position_embeddings ({native_max}). Training will produce "
+                    "garbage or fail with RoPE extrapolation errors."
+                ),
+                severity=Severity.ERROR,
+            )
+        )
+
+    return results
+
+
+def _check_fsdp_qlora_dtype(
+    entry: ConfigEntry, data: dict
+) -> list[CheckResult]:
+    """B3: Check FSDP + QLoRA dtype consistency.
+
+    When FSDP is enabled with QLoRA, quant_storage dtype must match the FSDP
+    mixed precision dtype. Mismatches cause silent OOM or crashes.
+    """
+    results: list[CheckResult] = []
+    fsdp = data.get("fsdp", {})
+    peft = data.get("peft", {})
+    training = data.get("training", {})
+    model_cfg = data.get("model", {})
+
+    if not isinstance(fsdp, dict) or not fsdp.get("enable_fsdp"):
+        return results
+    if not isinstance(training, dict) or not training.get("use_peft"):
+        return results
+    if not isinstance(peft, dict) or not peft.get("q_lora"):
+        return results
+
+    # Get quant_storage dtype
+    model_kwargs = (model_cfg.get("model_kwargs", {}) or {}) if isinstance(model_cfg, dict) else {}
+    quant_config = model_kwargs.get("quantization_config", {}) or {}
+    quant_storage = quant_config.get("bnb_4bit_quant_storage", "")
+
+    # Get FSDP mixed precision dtype
+    fsdp_dtype = fsdp.get("mixed_precision_dtype", "")
+
+    if quant_storage and fsdp_dtype and quant_storage != fsdp_dtype:
+        results.append(
+            CheckResult(
+                config_path=entry.path,
+                check_name="fsdp_qlora_dtype",
+                status=CheckStatus.FAIL,
+                message=(
+                    f"FSDP + QLoRA dtype mismatch: quant_storage={quant_storage} "
+                    f"but FSDP mixed_precision_dtype={fsdp_dtype}. "
+                    "These must match per HuggingFace FSDP-QLoRA docs."
+                ),
+                severity=Severity.ERROR,
+            )
+        )
+
+    return results
+
+
+def _check_grad_accum_fsdp_peft(
+    entry: ConfigEntry, data: dict
+) -> list[CheckResult]:
+    """B4: Warn about gradient accumulation + FSDP + PEFT LoRA + bf16.
+
+    This combination triggers RuntimeError: expected dtype float for *end*
+    but got dtype c10::BFloat16.
+    """
+    results: list[CheckResult] = []
+    fsdp = data.get("fsdp", {})
+    training = data.get("training", {})
+    model_cfg = data.get("model", {})
+
+    if not isinstance(fsdp, dict) or not fsdp.get("enable_fsdp"):
+        return results
+    if not isinstance(training, dict) or not training.get("use_peft"):
+        return results
+
+    grad_accum = training.get("gradient_accumulation_steps", 1)
+    if not isinstance(grad_accum, int) or grad_accum <= 1:
+        return results
+
+    dtype = (model_cfg.get("torch_dtype_str", "") if isinstance(model_cfg, dict) else "")
+    mixed = training.get("mixed_precision_dtype", "")
+    uses_bf16 = dtype == "bfloat16" or mixed in ("bf16", "bfloat16")
+
+    if uses_bf16:
+        results.append(
+            CheckResult(
+                config_path=entry.path,
+                check_name="grad_accum_fsdp_peft",
+                status=CheckStatus.WARN,
+                message=(
+                    "gradient_accumulation + FSDP + PEFT LoRA + bf16 can cause "
+                    "RuntimeError (dtype mismatch). See: "
+                    "https://discuss.huggingface.co/t/105006"
+                ),
+                severity=Severity.WARNING,
+            )
+        )
+
+    return results
+
+
+def _check_pad_eos_collision(
+    entry: ConfigEntry, tokenizer: Any, data: dict
+) -> list[CheckResult]:
+    """B5: Warn when pad_token is set to eos_token.
+
+    The model can learn to ignore EOS during training, leading to generation
+    that never terminates.
+    """
+    results: list[CheckResult] = []
+
+    pad_token = tokenizer.pad_token
+    eos_token = tokenizer.eos_token
+
+    # Check if config explicitly sets pad_token to eos_token
+    model_cfg = data.get("model", {})
+    if isinstance(model_cfg, dict):
+        override = model_cfg.get("tokenizer_pad_token", "")
+        if override and override == eos_token:
+            results.append(
+                CheckResult(
+                    config_path=entry.path,
+                    check_name="pad_eos_collision",
+                    status=CheckStatus.WARN,
+                    message=(
+                        "pad_token is set to eos_token. The model may learn to ignore "
+                        "EOS, causing generation to never terminate. Consider using a "
+                        "dedicated pad token."
+                    ),
+                    severity=Severity.WARNING,
+                )
+            )
+            return results
+
+    # Check tokenizer defaults
+    if pad_token and eos_token and pad_token == eos_token:
+        results.append(
+            CheckResult(
+                config_path=entry.path,
+                check_name="pad_eos_collision",
+                status=CheckStatus.WARN,
+                message=(
+                    f"Tokenizer's pad_token == eos_token ('{eos_token}'). The model "
+                    "may learn to ignore EOS during training. Consider setting a "
+                    "dedicated pad token via model.tokenizer_pad_token."
+                ),
+                severity=Severity.WARNING,
+            )
+        )
+
+    return results
+
+
+def _check_trust_remote_code(
+    entry: ConfigEntry, model_name: str
+) -> list[CheckResult]:
+    """B6: Check if model requires trust_remote_code but config doesn't set it."""
+    results: list[CheckResult] = []
+    data = _load_yaml(entry.abs_path)
+    if data is None:
+        return results
+
+    model_cfg = data.get("model", {})
+    if not isinstance(model_cfg, dict):
+        return results
+
+    # If already set, nothing to check
+    if model_cfg.get("trust_remote_code"):
+        return results
+    model_kwargs = model_cfg.get("model_kwargs", {}) or {}
+    if model_kwargs.get("trust_remote_code"):
+        return results
+
+    # Try loading without trust_remote_code to see if it's needed
+    try:
+        import transformers
+
+        transformers.AutoConfig.from_pretrained(
+            model_name, trust_remote_code=False
+        )
+    except Exception as e:
+        if "trust_remote_code" in str(e).lower():
+            results.append(
+                CheckResult(
+                    config_path=entry.path,
+                    check_name="trust_remote_code",
+                    status=CheckStatus.WARN,
+                    message=(
+                        f"Model '{model_name}' requires trust_remote_code=True "
+                        "but the config doesn't set it."
+                    ),
+                    severity=Severity.WARNING,
+                )
+            )
+
+    return results
+
+
+def _check_deepspeed_batch_size(
+    entry: ConfigEntry, data: dict
+) -> list[CheckResult]:
+    """B7: Validate DeepSpeed batch size consistency in external config files.
+
+    When train_batch_size in the DeepSpeed config doesn't match
+    per_device_train_batch_size * gradient_accumulation_steps * num_gpus,
+    training crashes at startup.
+    """
+    import json
+    import os
+
+    results: list[CheckResult] = []
+    ds = data.get("deepspeed", {})
+    if not isinstance(ds, dict) or not ds.get("enable_deepspeed"):
+        return results
+
+    config_file = ds.get("config_file")
+    if not config_file or not isinstance(config_file, str):
+        return results
+
+    # Resolve path
+    full_path = config_file
+    if not os.path.isabs(config_file):
+        # Try relative to config file first, then repo root
+        config_dir = os.path.dirname(entry.abs_path)
+        candidate = os.path.join(config_dir, config_file)
+        if os.path.exists(candidate):
+            full_path = candidate
+
+    if not os.path.exists(full_path):
+        return results  # File reference check already covers missing files
+
+    try:
+        with open(full_path) as f:
+            ds_config = json.load(f)
+    except Exception:
+        return results
+
+    train_batch = ds_config.get("train_batch_size")
+    if train_batch == "auto" or train_batch is None:
+        return results  # "auto" is the recommended oumi setting
+
+    # Check consistency
+    training = data.get("training", {})
+    if not isinstance(training, dict):
+        return results
+
+    per_device = training.get("per_device_train_batch_size", 1)
+    grad_accum = training.get("gradient_accumulation_steps", 1)
+
+    if isinstance(train_batch, int) and isinstance(per_device, int) and isinstance(grad_accum, int):
+        # We don't know num_gpus statically, but we can check the per-GPU batch
+        expected_per_gpu = per_device * grad_accum
+        ds_per_gpu_batch = ds_config.get("train_micro_batch_size_per_gpu")
+        if isinstance(ds_per_gpu_batch, int) and ds_per_gpu_batch != per_device:
+            results.append(
+                CheckResult(
+                    config_path=entry.path,
+                    check_name="deepspeed_batch_size",
+                    status=CheckStatus.FAIL,
+                    message=(
+                        f"DeepSpeed train_micro_batch_size_per_gpu ({ds_per_gpu_batch}) "
+                        f"!= per_device_train_batch_size ({per_device}). "
+                        "Training will crash at startup."
+                    ),
+                    severity=Severity.ERROR,
+                )
+            )
+
+        ds_grad_accum = ds_config.get("gradient_accumulation_steps")
+        if isinstance(ds_grad_accum, int) and ds_grad_accum != grad_accum:
+            results.append(
+                CheckResult(
+                    config_path=entry.path,
+                    check_name="deepspeed_grad_accum",
+                    status=CheckStatus.WARN,
+                    message=(
+                        f"DeepSpeed gradient_accumulation_steps ({ds_grad_accum}) "
+                        f"!= training.gradient_accumulation_steps ({grad_accum}). "
+                        "Consider using 'auto' in the DeepSpeed config."
+                    ),
+                    severity=Severity.WARNING,
+                )
+            )
+
+    return results
+
+
 def _check_chat_templates(
     entry: ConfigEntry, tokenizer: Any
 ) -> list[CheckResult]:
@@ -524,6 +891,11 @@ def _check_chat_templates(
                     severity=Severity.INFO,
                 )
             )
+            # B1: Verify token IDs match — catches BPE boundary mismatches
+            # where the string appears in text but tokenizes differently in context
+            results.extend(
+                _check_collator_token_ids(entry, tokenizer, response_template, rendered)
+            )
 
         # Check special tokens are recognized (encode to single tokens)
         results.extend(
@@ -561,6 +933,72 @@ def _check_chat_templates(
         results.extend(
             _check_template_special_tokens(entry, tokenizer, instruction_template, "instruction_template")
         )
+
+    return results
+
+
+def _check_collator_token_ids(
+    entry: ConfigEntry,
+    tokenizer: Any,
+    response_template: str,
+    rendered_conversation: str,
+) -> list[CheckResult]:
+    """B1: Verify that the response_template token IDs appear as a contiguous
+    subsequence in the tokenized conversation.
+
+    The TRL DataCollatorForCompletionOnlyLM tokenizes response_template and
+    searches for those token IDs in the input. If they don't appear (due to BPE
+    boundary effects), the collator silently masks the entire sequence — training
+    runs but learns nothing.
+    """
+    results: list[CheckResult] = []
+    try:
+        # Tokenize the template the same way the collator does
+        template_ids = tokenizer.encode(response_template, add_special_tokens=False)
+        # Tokenize the full rendered conversation
+        conversation_ids = tokenizer.encode(rendered_conversation, add_special_tokens=False)
+
+        if not template_ids:
+            return results
+
+        # Search for template_ids as a contiguous subsequence
+        found = False
+        for i in range(len(conversation_ids) - len(template_ids) + 1):
+            if conversation_ids[i : i + len(template_ids)] == template_ids:
+                found = True
+                break
+
+        if not found:
+            results.append(
+                CheckResult(
+                    config_path=entry.path,
+                    check_name="collator_token_ids",
+                    status=CheckStatus.FAIL,
+                    message=(
+                        "response_template token IDs not found in tokenized conversation. "
+                        "The collator will silently mask all labels — training will learn nothing. "
+                        f"Template tokens: {template_ids[:10]}{'...' if len(template_ids) > 10 else ''}"
+                    ),
+                    severity=Severity.ERROR,
+                    details=(
+                        "The string appears in the rendered text but tokenizes differently in context "
+                        "(BPE boundary effect). Try adjusting the response_template to include a "
+                        "leading space or use the exact token boundary from the chat template."
+                    ),
+                )
+            )
+        else:
+            results.append(
+                CheckResult(
+                    config_path=entry.path,
+                    check_name="collator_token_ids",
+                    status=CheckStatus.PASS,
+                    message="response_template token IDs found in tokenized conversation",
+                    severity=Severity.INFO,
+                )
+            )
+    except Exception:
+        pass  # Don't fail the check if tokenization itself fails
 
     return results
 

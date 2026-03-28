@@ -13,19 +13,16 @@ Requirements:
 
 from __future__ import annotations
 
-import os
+import gc
 import tempfile
 import time
 from dataclasses import dataclass, field
-
-import yaml
 
 from config_health.core.models import (
     CheckResult,
     CheckStatus,
     ConfigEntry,
     ConfigType,
-    GpuTier,
     Severity,
 )
 
@@ -87,6 +84,29 @@ def run_dry_run(entry: ConfigEntry, *, max_steps: int = 2) -> DryRunResult:
     return result
 
 
+def _cleanup_gpu() -> None:
+    """Force-free GPU memory between dry-runs."""
+    gc.collect()
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            torch.cuda.reset_peak_memory_stats()
+    except Exception:
+        pass
+
+
+def _estimate_model_memory_gb(num_params: int, dtype_bytes: int, use_peft: bool) -> float:
+    """Rough estimate of minimum GPU memory needed (model + optimizer + grad)."""
+    model_gb = (num_params * dtype_bytes) / (1024**3)
+    if use_peft:
+        # LoRA: only ~1-5% of params are trainable, optimizer is small
+        return model_gb * 1.2
+    # Full finetune: model + optimizer (8 bytes/param) + gradients
+    return model_gb + (num_params * (8 + dtype_bytes)) / (1024**3)
+
+
 def _execute_dry_run(
     entry: ConfigEntry, result: DryRunResult, max_steps: int
 ) -> None:
@@ -100,128 +120,151 @@ def _execute_dry_run(
     # Load and patch the config
     config = TrainingConfig.from_yaml(entry.abs_path)
 
+    model = None
+    optimizer = None
+
     # Override for dry-run: minimal steps, temp output
     with tempfile.TemporaryDirectory() as tmpdir:
-        config.training.max_steps = max_steps
-        config.training.num_train_epochs = 1
-        config.training.per_device_train_batch_size = 1
-        config.training.gradient_accumulation_steps = 1
-        config.training.output_dir = tmpdir
-        config.training.save_steps = 0
-        config.training.logging_steps = 1
-        config.training.enable_wandb = False
-        config.training.enable_gradient_checkpointing = True
+        try:
+            config.training.max_steps = max_steps
+            config.training.num_train_epochs = 1
+            config.training.per_device_train_batch_size = 1
+            config.training.gradient_accumulation_steps = 1
+            config.training.output_dir = tmpdir
+            config.training.save_steps = 0
+            config.training.logging_steps = 1
+            config.training.enable_wandb = False
+            config.training.enable_gradient_checkpointing = True
 
-        # Disable FSDP/DeepSpeed for single-device dry-run
-        config.fsdp.enable_fsdp = False
-        config.deepspeed.enable_deepspeed = False
+            # Disable FSDP/DeepSpeed for single-device dry-run
+            config.fsdp.enable_fsdp = False
+            config.deepspeed.enable_deepspeed = False
 
-        # Inject dummy dataset if empty
-        if len(config.data.train.datasets) == 0:
-            config.data.train.datasets.append(
-                DatasetParams(dataset_name="yahma/alpaca-cleaned")
+            # Inject dummy dataset if empty
+            if len(config.data.train.datasets) == 0:
+                config.data.train.datasets.append(
+                    DatasetParams(dataset_name="yahma/alpaca-cleaned")
+                )
+
+            result.notes.append(f"model: {config.model.model_name}")
+
+            # Load model config (metadata only)
+            hf_config = transformers.AutoConfig.from_pretrained(
+                config.model.model_name, trust_remote_code=True
             )
 
-        result.notes.append(f"model: {config.model.model_name}")
-
-        # Load model config (metadata only)
-        hf_config = transformers.AutoConfig.from_pretrained(
-            config.model.model_name, trust_remote_code=True
-        )
-
-        # Handle composite configs
-        if hasattr(hf_config, "text_config") and hf_config.text_config is not None:
-            text_config = hf_config.text_config
-            model_class = transformers.AutoModelForCausalLM._model_mapping.get(
-                type(text_config), None
-            )
-            if model_class:
-                hf_config = text_config
+            # Handle composite configs
+            if hasattr(hf_config, "text_config") and hf_config.text_config is not None:
+                text_config = hf_config.text_config
+                model_class = transformers.AutoModelForCausalLM._model_mapping.get(
+                    type(text_config), None
+                )
+                if model_class:
+                    hf_config = text_config
+                else:
+                    model_class = transformers.AutoModelForCausalLM._model_mapping.get(
+                        type(hf_config), None
+                    )
             else:
                 model_class = transformers.AutoModelForCausalLM._model_mapping.get(
                     type(hf_config), None
                 )
-        else:
-            model_class = transformers.AutoModelForCausalLM._model_mapping.get(
-                type(hf_config), None
+
+            # Instantiate with random weights (no download!)
+            dtype = getattr(torch, config.model.torch_dtype_str or "bfloat16", torch.bfloat16)
+            dtype_bytes = 2 if dtype in (torch.float16, torch.bfloat16) else 4
+
+            if model_class is not None:
+                model = model_class(hf_config).to(dtype=dtype)
+            else:
+                model = transformers.AutoModelForCausalLM.from_config(
+                    hf_config, trust_remote_code=True, torch_dtype=dtype
+                )
+
+            num_params = sum(p.numel() for p in model.parameters())
+            result.notes.append(f"params: {num_params / 1e9:.1f}B")
+
+            # Pre-flight memory check: skip if model won't fit
+            device = "cpu"
+            if torch.cuda.is_available():
+                device = "cuda"
+                estimated_gb = _estimate_model_memory_gb(
+                    num_params, dtype_bytes, config.training.use_peft
+                )
+                free_gb = (torch.cuda.mem_get_info()[0]) / (1024**3)
+                result.notes.append(f"estimated: {estimated_gb:.1f} GB, free: {free_gb:.1f} GB")
+                if estimated_gb > free_gb * 0.9:  # 90% threshold
+                    result.error = (
+                        f"Skipped: model needs ~{estimated_gb:.1f} GB but only "
+                        f"{free_gb:.1f} GB free on GPU"
+                    )
+                    return
+            elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+                device = "mps"
+
+            # Apply LoRA if configured
+            if config.training.use_peft:
+                from peft import LoraConfig, get_peft_model
+
+                lora_targets = config.peft.lora_target_modules
+                if not lora_targets:
+                    lora_targets = ["q_proj", "v_proj"]
+
+                lora_config = LoraConfig(
+                    r=config.peft.lora_r or 16,
+                    lora_alpha=config.peft.lora_alpha or 32,
+                    target_modules=lora_targets,
+                    lora_dropout=config.peft.lora_dropout or 0.0,
+                    bias="none",
+                )
+                model = get_peft_model(model, lora_config)
+                trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+                result.notes.append(f"LoRA trainable: {trainable / 1e6:.1f}M")
+
+            model = model.to(device)
+            result.notes.append(f"device: {device}")
+
+            # Load tokenizer
+            tokenizer = transformers.AutoTokenizer.from_pretrained(
+                config.model.model_name, trust_remote_code=True
+            )
+            if tokenizer.pad_token is None:
+                tokenizer.pad_token = tokenizer.eos_token
+
+            # Create dummy batch
+            seq_len = min(config.model.model_max_length or 128, 128)
+            dummy_ids = torch.randint(0, tokenizer.vocab_size, (1, seq_len), device=device)
+            dummy_labels = dummy_ids.clone()
+
+            # Simple training loop (no Trainer overhead)
+            optimizer = torch.optim.AdamW(
+                [p for p in model.parameters() if p.requires_grad], lr=1e-5
             )
 
-        # Instantiate with random weights (no download!)
-        dtype = getattr(torch, config.model.torch_dtype_str or "bfloat16", torch.bfloat16)
+            model.train()
+            for step in range(max_steps):
+                outputs = model(input_ids=dummy_ids, labels=dummy_labels)
+                loss = outputs.loss
+                loss.backward()
+                optimizer.step()
+                optimizer.zero_grad()
+                result.steps_completed = step + 1
+                result.notes.append(f"step {step + 1}: loss={loss.item():.4f}")
 
-        if model_class is not None:
-            model = model_class(hf_config).to(dtype=dtype)
-        else:
-            model = transformers.AutoModelForCausalLM.from_config(
-                hf_config, trust_remote_code=True, torch_dtype=dtype
-            )
+            # Record peak memory
+            if device == "cuda":
+                result.peak_memory_gb = torch.cuda.max_memory_allocated() / (1024**3)
+                result.notes.append(f"peak GPU memory: {result.peak_memory_gb:.1f} GB")
 
-        num_params = sum(p.numel() for p in model.parameters())
-        result.notes.append(f"params: {num_params / 1e9:.1f}B")
+            result.success = True
 
-        # Apply LoRA if configured
-        if config.training.use_peft:
-            from peft import LoraConfig, get_peft_model
-
-            lora_targets = config.peft.lora_target_modules
-            if not lora_targets:
-                lora_targets = ["q_proj", "v_proj"]
-
-            lora_config = LoraConfig(
-                r=config.peft.lora_r or 16,
-                lora_alpha=config.peft.lora_alpha or 32,
-                target_modules=lora_targets,
-                lora_dropout=config.peft.lora_dropout or 0.0,
-                bias="none",
-            )
-            model = get_peft_model(model, lora_config)
-            trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
-            result.notes.append(f"LoRA trainable: {trainable / 1e6:.1f}M")
-
-        # Determine device
-        device = "cpu"
-        if torch.cuda.is_available():
-            device = "cuda"
-        elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-            device = "mps"
-
-        model = model.to(device)
-        result.notes.append(f"device: {device}")
-
-        # Load tokenizer
-        tokenizer = transformers.AutoTokenizer.from_pretrained(
-            config.model.model_name, trust_remote_code=True
-        )
-        if tokenizer.pad_token is None:
-            tokenizer.pad_token = tokenizer.eos_token
-
-        # Create dummy batch
-        seq_len = min(config.model.model_max_length or 128, 128)
-        dummy_ids = torch.randint(0, tokenizer.vocab_size, (1, seq_len), device=device)
-        dummy_labels = dummy_ids.clone()
-
-        # Simple training loop (no Trainer overhead)
-        optimizer = torch.optim.AdamW(
-            [p for p in model.parameters() if p.requires_grad], lr=1e-5
-        )
-
-        model.train()
-        for step in range(max_steps):
-            outputs = model(input_ids=dummy_ids, labels=dummy_labels)
-            loss = outputs.loss
-            loss.backward()
-            optimizer.step()
-            optimizer.zero_grad()
-            result.steps_completed = step + 1
-            result.notes.append(f"step {step + 1}: loss={loss.item():.4f}")
-
-        # Record peak memory
-        if device == "cuda":
-            result.peak_memory_gb = torch.cuda.max_memory_allocated() / (1024**3)
-            result.notes.append(f"peak GPU memory: {result.peak_memory_gb:.1f} GB")
-            torch.cuda.reset_peak_memory_stats()
-
-        result.success = True
+        finally:
+            # Explicitly free GPU memory
+            del optimizer
+            if model is not None:
+                model.cpu()
+                del model
+            _cleanup_gpu()
 
 
 def dry_run_to_check_results(dr: DryRunResult) -> list[CheckResult]:

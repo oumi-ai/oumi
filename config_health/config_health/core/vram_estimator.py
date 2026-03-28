@@ -17,7 +17,6 @@ Memory components:
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -132,9 +131,16 @@ def estimate_vram(entry: ConfigEntry) -> VRAMEstimate:
     batch_size = training.get("per_device_train_batch_size", 1)
     if not isinstance(batch_size, int) or batch_size < 1:
         batch_size = 1
-    seq_len = model_cfg.get("model_max_length", 2048)
+    seq_len = model_cfg.get("model_max_length", 0)
     if not isinstance(seq_len, int) or seq_len < 1:
-        seq_len = 2048
+        # Fall back to model's native context window from AutoConfig
+        seq_len = arch.max_position_embeddings if arch.max_position_embeddings > 0 else 2048
+
+    # Detect attention implementation for activation memory estimation
+    attn_impl = model_cfg.get("attn_implementation", "")
+    model_kwargs = model_cfg.get("model_kwargs", {}) or {}
+    if not attn_impl:
+        attn_impl = model_kwargs.get("attn_implementation", "")
 
     # LoRA / PEFT
     is_peft = bool(training.get("use_peft", False))
@@ -144,7 +150,6 @@ def estimate_vram(entry: ConfigEntry) -> VRAMEstimate:
     # Quantization
     is_quantized = q_lora
     quant_bytes = dtype_bytes
-    model_kwargs = model_cfg.get("model_kwargs", {}) or {}
     quant_config = model_kwargs.get("quantization_config", {}) or {}
     quant_method = quant_config.get("quant_method", "")
     if quant_method in ("bnb", "bitsandbytes", "awq", "gptq"):
@@ -207,12 +212,12 @@ def estimate_vram(entry: ConfigEntry) -> VRAMEstimate:
 
     # Activation memory
     est.activation_memory_gb = _estimate_activation_memory(
-        arch, batch_size, seq_len, dtype_bytes, grad_ckpt
+        arch, batch_size, seq_len, dtype_bytes, grad_ckpt, attn_impl
     )
 
     # Minimal activation memory (batch_size=1, grad checkpointing on)
     est.minimal_activation_gb = _estimate_activation_memory(
-        arch, 1, min(seq_len, 512), dtype_bytes, True
+        arch, 1, min(seq_len, 512), dtype_bytes, True, attn_impl
     )
 
     # FSDP sharding
@@ -268,6 +273,7 @@ class _ModelArch:
     num_attention_heads: int
     num_kv_heads: int
     head_dim: int
+    max_position_embeddings: int = 0  # native context window from HF config
     is_moe: bool = False
     num_experts: int = 1
     experts_per_tok: int = 1
@@ -293,6 +299,7 @@ def _get_model_arch(model_name: str) -> _ModelArch | None:
         heads = getattr(config, "num_attention_heads", 0)
         kv_heads = getattr(config, "num_key_value_heads", heads)
         head_dim = hidden // heads if heads else 0
+        max_pos_emb = getattr(config, "max_position_embeddings", 0) or 0
 
         # MoE detection
         num_experts = getattr(config, "num_local_experts", getattr(config, "num_experts", 1)) or 1
@@ -316,6 +323,7 @@ def _get_model_arch(model_name: str) -> _ModelArch | None:
             num_attention_heads=heads,
             num_kv_heads=kv_heads,
             head_dim=head_dim,
+            max_position_embeddings=max_pos_emb,
             is_moe=is_moe,
             num_experts=num_experts,
             experts_per_tok=experts_per_tok,
@@ -415,24 +423,40 @@ def _estimate_activation_memory(
     seq_len: int,
     dtype_bytes: float,
     gradient_checkpointing: bool,
+    attn_implementation: str = "",
 ) -> float:
     """Estimate activation memory in GB.
 
-    Per-layer activations include attention scores, intermediate MLP activations,
-    and residual connections.
-    """
-    # Attention activations: batch * heads * seq * seq * dtype
-    attn_scores = batch_size * arch.num_attention_heads * seq_len * seq_len * dtype_bytes
-    # MLP activations: batch * seq * intermediate * dtype
-    mlp_act = batch_size * seq_len * arch.intermediate_size * dtype_bytes
-    # Residual: batch * seq * hidden * dtype
-    residual = batch_size * seq_len * arch.hidden_size * dtype_bytes
+    Uses the literature-based formula: batch * seq * hidden * 34 * dtype per layer,
+    which accounts for all intermediate tensors across attention, MLP, norms, and
+    residuals. Flash Attention / SDPA reduces the attention component from O(seq^2)
+    to O(seq), saving 10-20% for long sequences.
 
-    per_layer = attn_scores + mlp_act + residual
+    References:
+    - https://www.propelrc.com/llm-vram-calculator/
+    - https://modal.com/blog/how-much-vram-need-fine-tuning
+    """
+    uses_efficient_attn = attn_implementation in ("sdpa", "flash_attention_2")
+
+    if uses_efficient_attn:
+        # Flash/SDPA: attention memory is O(seq_len), not O(seq_len^2)
+        # Per-layer: batch * seq * hidden * 34 (literature formula) minus the
+        # quadratic attention component, replaced with linear
+        per_layer = batch_size * seq_len * arch.hidden_size * 34 * dtype_bytes
+    else:
+        # Naive attention: includes O(seq^2) attention scores
+        # Use the component-based formula with quadratic attention
+        attn_scores = batch_size * arch.num_attention_heads * seq_len * seq_len * dtype_bytes
+        linear_components = batch_size * seq_len * arch.hidden_size * 34 * dtype_bytes
+        # The factor-34 formula already includes a linear attention term;
+        # add the extra quadratic cost on top if not using efficient attention
+        kv_dim = arch.num_kv_heads * arch.head_dim if arch.head_dim else arch.hidden_size
+        linear_attn_in_formula = batch_size * seq_len * (arch.hidden_size + 2 * kv_dim) * dtype_bytes
+        per_layer = linear_components + attn_scores - linear_attn_in_formula
 
     if gradient_checkpointing:
-        # Only store activations at checkpoint boundaries (~sqrt(layers))
-        effective_layers = math.sqrt(arch.num_layers)
+        # Literature: ~35% reduction in activation memory with gradient checkpointing
+        effective_layers = arch.num_layers * 0.65
     else:
         effective_layers = arch.num_layers
 

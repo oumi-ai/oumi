@@ -1,0 +1,21 @@
+name: Config Health
+
+on:
+  pull_request:
+    paths: ['configs/**']
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          pip install -e .
+          pip install -e ./config_health
+      - name: Run config health checks
+        run: config-health check --no-hub --quick

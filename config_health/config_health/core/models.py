@@ -124,6 +124,7 @@ class CheckResult:
     message: str
     severity: Severity
     details: str | None = None
+    duration_s: float | None = None
 
 
 @dataclass
@@ -162,6 +163,8 @@ class HealthReport:
     suggestions: list[OptimizationSuggestion] = field(default_factory=list)
     vram_estimates: dict[str, dict] = field(default_factory=dict)  # path -> estimate dict
     dry_run_results: dict[str, dict] = field(default_factory=dict)  # path -> result dict
+    phase_durations_s: dict[str, float] = field(default_factory=dict)  # phase -> seconds
+    environment: dict[str, str] = field(default_factory=dict)  # runtime env info
     scan_duration_s: float = 0.0
 
     @property
@@ -217,6 +220,8 @@ class HealthReport:
             "suggestions": [asdict(s) for s in self.suggestions],
             "vram_estimates": self.vram_estimates,
             "dry_run_results": self.dry_run_results,
+            "phase_durations_s": self.phase_durations_s,
+            "environment": self.environment,
             "scan_duration_s": self.scan_duration_s,
         }
         with open(path, "w") as f:
@@ -243,5 +248,7 @@ class HealthReport:
             report.suggestions.append(OptimizationSuggestion(**s))
         report.vram_estimates = data.get("vram_estimates", {})
         report.dry_run_results = data.get("dry_run_results", {})
+        report.phase_durations_s = data.get("phase_durations_s", {})
+        report.environment = data.get("environment", {})
         report.scan_duration_s = data.get("scan_duration_s", 0.0)
         return report

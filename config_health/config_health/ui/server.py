@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from urllib.parse import unquote
 
@@ -25,7 +24,12 @@ _TEMPLATES_DIR = _UI_DIR / "templates"
 _STATIC_DIR = _UI_DIR / "static"
 
 
-def create_app(repo_root: str, *, offline: bool = False) -> FastAPI:
+def create_app(
+    repo_root: str,
+    *,
+    offline: bool = False,
+    from_report: str | None = None,
+) -> FastAPI:
     app = FastAPI(title="Config Health Dashboard")
     templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
     app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
@@ -51,7 +55,10 @@ def create_app(repo_root: str, *, offline: bool = False) -> FastAPI:
 
     @app.on_event("startup")
     async def startup():
-        state["report"] = _scan()
+        if from_report:
+            state["report"] = HealthReport.from_json(from_report)
+        else:
+            state["report"] = _scan()
 
     # ── Pages ──────────────────────────────────────────────────────
 

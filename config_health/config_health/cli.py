@@ -14,6 +14,7 @@ from rich.progress import (
     SpinnerColumn,
     TextColumn,
     TimeElapsedColumn,
+    TimeRemainingColumn,
 )
 from rich.table import Table
 
@@ -36,9 +37,93 @@ def _make_progress() -> Progress:
         MofNCompleteColumn(),
         TextColumn("•"),
         TimeElapsedColumn(),
+        TextColumn("•"),
+        TimeRemainingColumn(),
         console=console,
         transient=False,
     )
+
+
+def _collect_environment() -> dict[str, str]:
+    """Capture runtime environment info that may affect check results."""
+    import platform
+    import subprocess
+
+    env: dict[str, str] = {
+        "python": platform.python_version(),
+        "platform": platform.platform(),
+    }
+
+    # Git commit for reproducibility
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True, text=True,
+        )
+        if result.returncode == 0:
+            env["git_commit"] = result.stdout.strip()
+    except Exception:
+        pass
+
+    # Key library versions
+    for pkg in ("transformers", "torch", "peft", "oumi", "trl", "bitsandbytes", "deepspeed"):
+        try:
+            mod = __import__(pkg)
+            env[f"{pkg}_version"] = getattr(mod, "__version__", "?")
+        except ImportError:
+            pass
+
+    # Flash Attention version
+    try:
+        import flash_attn
+
+        env["flash_attn_version"] = getattr(flash_attn, "__version__", "?")
+    except ImportError:
+        pass
+
+    # CUDA / GPU details
+    try:
+        import torch
+
+        env["cuda_available"] = str(torch.cuda.is_available())
+        if torch.cuda.is_available():
+            env["cuda_device"] = torch.cuda.get_device_name(0)
+            env["cuda_device_count"] = str(torch.cuda.device_count())
+            cap = torch.cuda.get_device_capability(0)
+            env["cuda_capability"] = f"{cap[0]}.{cap[1]}"
+            total_mem = torch.cuda.get_device_properties(0).total_mem
+            env["cuda_total_memory_gb"] = f"{total_mem / (1024**3):.1f}"
+
+        # CUDA toolkit version (from torch)
+        env["cuda_version"] = getattr(torch.version, "cuda", "N/A") or "N/A"
+
+        # cuDNN version
+        if torch.backends.cudnn.is_available():
+            env["cudnn_version"] = str(torch.backends.cudnn.version())
+            env["cudnn_enabled"] = str(torch.backends.cudnn.enabled)
+    except Exception:
+        pass
+
+    # NVIDIA driver version via nvidia-smi
+    try:
+        result = subprocess.run(
+            ["nvidia-smi", "--query-gpu=driver_version", "--format=csv,noheader,nounits"],
+            capture_output=True, text=True,
+        )
+        if result.returncode == 0:
+            env["nvidia_driver"] = result.stdout.strip().split("\n")[0]
+    except Exception:
+        pass
+
+    # NCCL version (relevant for multi-GPU)
+    try:
+        import torch.cuda.nccl
+
+        env["nccl_version"] = ".".join(str(v) for v in torch.cuda.nccl.version())
+    except Exception:
+        pass
+
+    return env
 
 
 def _build_report(
@@ -50,14 +135,33 @@ def _build_report(
     vram: bool = False,
     dry_run: bool = False,
     dry_run_steps: int = 2,
+    quick: bool = False,
+    incremental: bool = False,
+    last_report_path: str | None = None,
+    auto_fix: bool = False,
+    output_path: str | None = None,
     paths: list[str] | None = None,
 ) -> HealthReport:
     """Scan, classify, and check all configs. Returns a HealthReport."""
     start = time.time()
     report = HealthReport()
+    report.environment = _collect_environment()
+
+    def _checkpoint() -> None:
+        """Save partial results so interrupted runs aren't lost."""
+        if output_path:
+            report.scan_duration_s = time.time() - start
+            report.to_json(output_path)
 
     # Discover configs
     all_paths = paths or scan_config_paths(repo_root)
+
+    # C2: Incremental mode — only re-check changed configs
+    if incremental and not paths:
+        all_paths = _filter_changed_configs(all_paths, repo_root, last_report_path)
+        if all_paths:
+            console.print(f"[dim]Incremental: checking {len(all_paths)} changed configs[/dim]")
+
     if not all_paths:
         console.print("[yellow]No config files found.[/yellow]")
         return report
@@ -67,6 +171,7 @@ def _build_report(
 
     with _make_progress() as progress:
         # Phase 1: Classify
+        phase_start = time.time()
         task = progress.add_task("Scanning configs", total=n)
         for yaml_path in all_paths:
             entry = classify_config(yaml_path, repo_root)
@@ -75,43 +180,70 @@ def _build_report(
         training_count = sum(
             1 for e in report.entries if e.config_type == ConfigType.TRAINING
         )
+        report.phase_durations_s["classify"] = round(time.time() - phase_start, 2)
+        _checkpoint()
 
         # Phase 2: Static checks
-        task = progress.add_task("Static checks", total=n)
+        phase_start = time.time()
+        label = "Static checks (quick)" if quick else "Static checks"
+        task = progress.add_task(label, total=n)
         for entry in report.entries:
-            results = run_static_checks(entry, repo_root)
+            check_start = time.time()
+            results = run_static_checks(entry, repo_root, skip_finalize=quick)
+            elapsed = round(time.time() - check_start, 3)
+            for r in results:
+                r.duration_s = elapsed
             report.check_results.extend(results)
             progress.advance(task)
+        report.phase_durations_s["static"] = round(time.time() - phase_start, 2)
+        _checkpoint()
 
         # Phase 3: Hub checks
         if hub_check:
+            phase_start = time.time()
             label = "Hub checks (offline)" if offline else "Hub checks"
             task = progress.add_task(label, total=n)
             hub = HubChecker(offline=offline)
             for entry in report.entries:
+                check_start = time.time()
                 results = hub.check_config(entry)
+                elapsed = round(time.time() - check_start, 3)
+                for r in results:
+                    r.duration_s = elapsed
                 report.check_results.extend(results)
                 progress.advance(task)
+            report.phase_durations_s["hub"] = round(time.time() - phase_start, 2)
+            _checkpoint()
 
         # Phase 4: Tier 0
         if tier0:
             from config_health.core.tier0_checks import run_tier0_checks
 
+            phase_start = time.time()
             task = progress.add_task("Tier 0 (architecture)", total=n)
             for entry in report.entries:
+                check_start = time.time()
                 results = run_tier0_checks(entry)
+                elapsed = round(time.time() - check_start, 3)
+                for r in results:
+                    r.duration_s = elapsed
                 report.check_results.extend(results)
                 progress.advance(task)
+            report.phase_durations_s["tier0"] = round(time.time() - phase_start, 2)
+            _checkpoint()
 
         # Phase 5: VRAM
         if vram:
             from config_health.core.vram_estimator import estimate_vram
 
+            phase_start = time.time()
             task = progress.add_task("VRAM estimates", total=training_count)
             for entry in report.entries:
                 if entry.config_type != ConfigType.TRAINING:
                     continue
+                check_start = time.time()
                 est = estimate_vram(entry)
+                elapsed = round(time.time() - check_start, 3)
                 if not est.error:
                     report.vram_estimates[entry.path] = {
                         "total_vram_gb": est.total_vram_gb,
@@ -128,8 +260,11 @@ def _build_report(
                         "batch_size": est.batch_size,
                         "seq_len": est.seq_len,
                         "notes": est.notes,
+                        "duration_s": elapsed,
                     }
                 progress.advance(task)
+            report.phase_durations_s["vram"] = round(time.time() - phase_start, 2)
+            _checkpoint()
 
         # Phase 6: Dry-run
         if dry_run:
@@ -138,6 +273,7 @@ def _build_report(
                 run_dry_run,
             )
 
+            phase_start = time.time()
             task = progress.add_task("Dry-run training", total=training_count)
             for entry in report.entries:
                 if entry.config_type != ConfigType.TRAINING:
@@ -153,6 +289,8 @@ def _build_report(
                     "notes": dr.notes,
                 }
                 progress.advance(task)
+            report.phase_durations_s["dry_run"] = round(time.time() - phase_start, 2)
+            _checkpoint()
 
     # Coverage analysis + suggestions (fast, no progress needed)
     report.coverage_gaps = analyze_coverage(report.entries)
@@ -160,8 +298,50 @@ def _build_report(
         suggestions = suggest_optimizations(entry)
         report.suggestions.extend(suggestions)
 
+    # C3: Auto-fix known issues
+    if auto_fix:
+        from config_health.core.auto_fix import apply_fixes
+
+        fix_count = apply_fixes(report, repo_root)
+        if fix_count:
+            console.print(f"[bold green]Auto-fixed {fix_count} issue(s)[/bold green]")
+
     report.scan_duration_s = time.time() - start
     return report
+
+
+def _filter_changed_configs(
+    all_paths: list[str], repo_root: str, last_report_path: str | None
+) -> list[str]:
+    """C2: Filter to only configs changed since last report or git commit."""
+    import os
+    import subprocess
+
+    # If a previous report is provided, use its timestamp
+    if last_report_path and os.path.exists(last_report_path):
+        try:
+            mtime = os.path.getmtime(last_report_path)
+            return [p for p in all_paths if os.path.getmtime(p) > mtime]
+        except Exception:
+            pass
+
+    # Fall back to git: configs changed since last commit on main
+    try:
+        result = subprocess.run(
+            ["git", "diff", "--name-only", "main", "--", "configs/"],
+            capture_output=True,
+            text=True,
+            cwd=repo_root,
+        )
+        if result.returncode == 0:
+            changed = set(result.stdout.strip().splitlines())
+            changed_abs = {os.path.join(repo_root, p) for p in changed}
+            filtered = [p for p in all_paths if p in changed_abs]
+            return filtered if filtered else all_paths
+    except Exception:
+        pass
+
+    return all_paths
 
 
 def _print_summary(report: HealthReport) -> None:
@@ -194,6 +374,11 @@ def _print_summary(report: HealthReport) -> None:
     console.print(f"  [green]Healthy:[/green]  {passes}")
     console.print(f"  [red]Failing:[/red]  {failures}")
     console.print(f"  [yellow]Warnings:[/yellow] {warnings}")
+
+    # Phase timing breakdown
+    if report.phase_durations_s:
+        parts = [f"{phase}: {dur}s" for phase, dur in report.phase_durations_s.items()]
+        console.print(f"  [dim]Timing: {', '.join(parts)}[/dim]")
     console.print()
 
     # Type breakdown
@@ -264,6 +449,10 @@ def main():
 @click.option("--dry-run", is_flag=True, help="Run training dry-runs with random weights")
 @click.option("--exhaustive", is_flag=True, help="Run all checks: tier0 + hub + VRAM + dry-run")
 @click.option("--no-hub", is_flag=True, help="Skip HuggingFace Hub existence checks entirely")
+@click.option("--quick", is_flag=True, help="Skip finalize_and_validate() for faster static checks (~10s)")
+@click.option("--incremental", is_flag=True, help="Only check configs changed since last report")
+@click.option("--last-report", type=str, default=None, help="Path to previous report.json for incremental mode")
+@click.option("--fix", is_flag=True, help="Auto-fix known issues (wrong LoRA targets, FSDP layer classes)")
 @click.option("--path", type=str, default=None, help="Check a specific config file")
 @click.option("--output", "-o", type=str, default=None, help="Save report as JSON to this path")
 @click.option("--repo-root", type=str, default=None, help="Repository root directory")
@@ -274,6 +463,10 @@ def check(
     dry_run: bool,
     exhaustive: bool,
     no_hub: bool,
+    quick: bool,
+    incremental: bool,
+    last_report: str | None,
+    fix: bool,
     path: str | None,
     output: str | None,
     repo_root: str | None,
@@ -283,9 +476,12 @@ def check(
     \b
     Examples:
       config-health check                    # static + hub checks
+      config-health check --quick            # fast static checks (~10s)
       config-health check --tier0            # + architecture validation
       config-health check --exhaustive       # everything
       config-health check --exhaustive -o report.json  # save results
+      config-health check --incremental      # only changed configs
+      config-health check --fix              # auto-fix known issues
     """
     if exhaustive:
         tier0 = True
@@ -315,6 +511,11 @@ def check(
         hub_check=not no_hub,
         vram=vram,
         dry_run=dry_run,
+        quick=quick,
+        incremental=incremental,
+        last_report_path=last_report,
+        auto_fix=fix,
+        output_path=output,
         paths=paths,
     )
     _print_summary(report)
@@ -360,9 +561,16 @@ def check(
 @click.option("--port", type=int, default=8777, help="Port for the dashboard")
 @click.option("--host", type=str, default="127.0.0.1", help="Host to bind to")
 @click.option("--offline", is_flag=True, help="Skip HuggingFace Hub checks")
+@click.option("--from", "from_report", type=str, default=None, help="Load pre-computed report.json instead of scanning")
 @click.option("--repo-root", type=str, default=None, help="Repository root directory")
-def ui(port: int, host: str, offline: bool, repo_root: str | None):
-    """Launch the web dashboard."""
+def ui(port: int, host: str, offline: bool, from_report: str | None, repo_root: str | None):
+    """Launch the web dashboard.
+
+    \b
+    Examples:
+      config-health ui                       # scan and serve
+      config-health ui --from report.json    # load pre-computed report
+    """
     try:
         root = repo_root or find_repo_root()
     except FileNotFoundError as e:
@@ -373,8 +581,10 @@ def ui(port: int, host: str, offline: bool, repo_root: str | None):
 
     from config_health.ui.server import create_app
 
-    app = create_app(root, offline=offline)
+    app = create_app(root, offline=offline, from_report=from_report)
     console.print(f"[bold]Starting Config Health dashboard on http://{host}:{port}[/bold]")
+    if from_report:
+        console.print(f"[dim]Loaded from: {from_report}[/dim]")
     uvicorn.run(app, host=host, port=port, log_level="warning")
 
 

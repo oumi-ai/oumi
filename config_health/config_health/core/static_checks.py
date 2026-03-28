@@ -15,13 +15,16 @@ from config_health.core.models import (
 )
 
 
-def run_static_checks(entry: ConfigEntry, repo_root: str) -> list[CheckResult]:
+def run_static_checks(
+    entry: ConfigEntry, repo_root: str, *, skip_finalize: bool = False
+) -> list[CheckResult]:
     """Run all static checks on a config entry."""
     results: list[CheckResult] = []
     results.append(_check_parse(entry))
 
     # Run finalize_and_validate (catches deeper oumi validation)
-    if not entry.parse_error:
+    # --quick mode skips this (~3s per config for the oumi import)
+    if not entry.parse_error and not skip_finalize:
         results.append(_check_finalize_and_validate(entry))
 
     # Load raw data for deeper checks
