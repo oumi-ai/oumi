@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from config_health.core.classifier import classify_config
-from config_health.core.coverage import analyze_coverage, build_coverage_matrix
+from config_health.core.coverage import analyze_coverage, build_arch_coverage, build_coverage_matrix
 from config_health.core.hub_checker import HubChecker
 from config_health.core.models import CheckStatus, ConfigEntry, ConfigType, GpuTier, HealthReport
 from config_health.core.optimizer import suggest_optimizations
@@ -87,6 +87,7 @@ def create_app(
         status: str | None = Query(None),
         tier: str | None = Query(None),
         family: str | None = Query(None),
+        model: str | None = Query(None),
         q: str | None = Query(None),
     ):
         report: HealthReport = state["report"]
@@ -99,6 +100,8 @@ def create_app(
             entries = [e for e in entries if str(e.gpu_tier.value) == tier]
         if family:
             entries = [e for e in entries if e.model_family == family]
+        if model:
+            entries = [e for e in entries if e.model_name == model]
         if q:
             entries = [e for e in entries if q.lower() in e.path.lower()]
         if status:
@@ -118,9 +121,9 @@ def create_app(
 
         config_types = sorted(set(e.config_type.value for e in report.entries if e.config_type != ConfigType.UNKNOWN))
         families = sorted(set(e.model_family for e in report.entries if e.model_family))
+        models = sorted(set(e.model_name for e in report.entries if e.model_name))
 
         ctx = {
-            "request": request,
             "report": report,
             "entries": entries,
             "total": len(report.entries),
@@ -129,45 +132,45 @@ def create_app(
             "pass_count": len(report.entries) - len(all_fail_paths) - len(all_warn_paths),
             "config_types": config_types,
             "families": families,
+            "models": models,
             "gpu_tiers": [(t.value, t.label) for t in GpuTier],
             "current_type": type or "",
             "current_status": status or "",
             "current_tier": tier if tier is not None else "",
             "current_family": family or "",
+            "current_model": model or "",
             "current_q": q or "",
             "all_fail_paths": all_fail_paths,
             "all_warn_paths": all_warn_paths,
         }
 
         if request.headers.get("HX-Request"):
-            return templates.TemplateResponse("partials/config_list.html", ctx)
-        return templates.TemplateResponse("dashboard.html", ctx)
+            return templates.TemplateResponse(request, "partials/config_list.html", ctx)
+        return templates.TemplateResponse(request, "dashboard.html", ctx)
 
     @app.get("/coverage", response_class=HTMLResponse)
     async def coverage_page(request: Request):
         report: HealthReport = state["report"]
         matrix = build_coverage_matrix(report.entries)
         col_types = ["training", "inference", "evaluation", "job", "judge", "synthesis"]
-        return templates.TemplateResponse(
-            "coverage.html",
-            {
-                "request": request,
-                "matrix": matrix,
-                "col_types": col_types,
-                "gaps": report.coverage_gaps,
-                "families": sorted(matrix.keys()),
-            },
-        )
+
+        # Architecture coverage (may be slow first time — resolves model_types from HF)
+        covered, uncovered = await asyncio.to_thread(build_arch_coverage, report.entries)
+
+        return templates.TemplateResponse(request, "coverage.html", {
+            "matrix": matrix,
+            "col_types": col_types,
+            "gaps": report.coverage_gaps,
+            "families": sorted(matrix.keys()),
+            "arch_covered": covered,
+            "arch_uncovered": uncovered,
+        })
 
     @app.get("/scaffold", response_class=HTMLResponse)
     async def scaffold_page(request: Request):
-        return templates.TemplateResponse(
-            "scaffold.html",
-            {
-                "request": request,
-                "available_tasks": get_available_tasks(),
-            },
-        )
+        return templates.TemplateResponse(request, "scaffold.html", {
+            "available_tasks": get_available_tasks(),
+        })
 
     # ── API endpoints ──────────────────────────────────────────────
 
@@ -199,18 +202,14 @@ def create_app(
         except Exception:
             raw_yaml = "Could not read file"
 
-        return templates.TemplateResponse(
-            "config_detail.html",
-            {
-                "request": request,
-                "entry": entry,
-                "results": results,
-                "suggestions": suggestions,
-                "vram": vram_est,
-                "raw_yaml": raw_yaml,
-                "CheckStatus": CheckStatus,
-            },
-        )
+        return templates.TemplateResponse(request, "config_detail.html", {
+            "entry": entry,
+            "results": results,
+            "suggestions": suggestions,
+            "vram": vram_est,
+            "raw_yaml": raw_yaml,
+            "CheckStatus": CheckStatus,
+        })
 
     @app.post("/api/rescan", response_class=HTMLResponse)
     async def rescan(request: Request):
@@ -234,10 +233,9 @@ def create_app(
             if resolved.startswith(os.path.realpath(repo_root)):
                 output_dir = resolved
             else:
-                return templates.TemplateResponse(
-                    "partials/scaffold_result.html",
-                    {"request": request, "results": [{"task": "error", "success": False, "content": "output_dir must be within the repo"}]},
-                )
+                return templates.TemplateResponse(request, "partials/scaffold_result.html", {
+                    "results": [{"task": "error", "success": False, "content": "output_dir must be within the repo"}],
+                })
 
         results: list[dict] = []
         for task in tasks:
@@ -259,9 +257,8 @@ def create_app(
             except Exception as e:
                 results.append({"task": task, "success": False, "content": str(e)})
 
-        return templates.TemplateResponse(
-            "partials/scaffold_result.html",
-            {"request": request, "results": results},
-        )
+        return templates.TemplateResponse(request, "partials/scaffold_result.html", {
+            "results": results,
+        })
 
     return app

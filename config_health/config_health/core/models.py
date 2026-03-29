@@ -164,6 +164,20 @@ class CoverageGap:
 
 
 @dataclass
+class ArchCoverageEntry:
+    """Coverage info for an HF model architecture (model_type)."""
+
+    model_type: str  # e.g. "llama", "qwen2", "gemma2"
+    model_class: str  # e.g. "LlamaForCausalLM"
+    config_types: list[str] = field(default_factory=list)  # e.g. ["training", "inference"]
+    model_names: list[str] = field(default_factory=list)  # HF repo IDs using this arch
+    config_count: int = 0
+    is_vlm: bool = False  # vision-language model
+    in_oumi_registry: bool = False  # registered in Oumi's supported_models
+    oumi_tested: bool = False  # marked as tested in Oumi's registry
+
+
+@dataclass
 class OptimizationSuggestion:
     """A suggested improvement for a config."""
 

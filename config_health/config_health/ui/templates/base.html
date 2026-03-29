@@ -3,33 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex">
     <title>{% block title %}Config Health{% endblock %}</title>
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/static/styles.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🩺</text></svg>">
     <script>
         tailwind.config = {
             theme: {
                 extend: {
-                    fontFamily: { mono: ['JetBrains Mono', 'Fira Code', 'monospace'] }
+                    fontFamily: { mono: ['JetBrains Mono', 'Fira Code', 'ui-monospace', 'monospace'] },
+                    colors: {
+                        surface: { 950: '#0a0c10', 900: '#111318', 800: '#1a1d25', 700: '#252830' },
+                    }
                 }
             }
         }
     </script>
 </head>
-<body class="bg-gray-950 text-gray-200 min-h-screen">
-    <nav class="bg-gray-900 border-b border-gray-800 sticky top-0 z-50">
-        <div class="max-w-[1600px] mx-auto px-6 py-3 flex items-center justify-between">
-            <div class="flex items-center gap-2">
-                <span class="text-lg font-bold text-white tracking-tight">Config Health</span>
-                <span class="text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full">v0.1</span>
+<body class="bg-surface-950 text-gray-300 min-h-screen">
+    <nav class="bg-surface-900/80 backdrop-blur-md border-b border-white/5 sticky top-0 z-50">
+        <div class="max-w-[1600px] mx-auto px-6 h-14 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <span class="text-base font-semibold text-white tracking-tight">Config Health</span>
+                <span class="text-[10px] text-gray-500 bg-surface-800 px-2 py-0.5 rounded-full font-medium">v0.1</span>
             </div>
-            <div class="flex items-center gap-6">
-                <a href="/" class="text-sm text-gray-400 hover:text-white transition-colors {% block nav_dashboard %}{% endblock %}">Dashboard</a>
-                <a href="/coverage" class="text-sm text-gray-400 hover:text-white transition-colors {% block nav_coverage %}{% endblock %}">Coverage</a>
-                <a href="/scaffold" class="text-sm text-gray-400 hover:text-white transition-colors {% block nav_scaffold %}{% endblock %}">Scaffold</a>
+            <div class="flex items-center gap-1">
+                <a href="/" class="text-sm px-3 py-1.5 rounded-md transition-colors {% block nav_dashboard %}text-gray-400 hover:text-white hover:bg-white/5{% endblock %}">Dashboard</a>
+                <a href="/coverage" class="text-sm px-3 py-1.5 rounded-md transition-colors {% block nav_coverage %}text-gray-400 hover:text-white hover:bg-white/5{% endblock %}">Coverage</a>
+                <a href="/scaffold" class="text-sm px-3 py-1.5 rounded-md transition-colors {% block nav_scaffold %}text-gray-400 hover:text-white hover:bg-white/5{% endblock %}">Scaffold</a>
+                <div class="w-px h-5 bg-white/10 mx-2"></div>
                 <form hx-post="/api/rescan" hx-target="body" class="inline">
-                    <button type="submit" class="text-sm px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-md transition-colors flex items-center gap-1.5">
+                    <button type="submit" class="text-sm px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-md transition-colors flex items-center gap-1.5 font-medium">
                         <svg class="w-3.5 h-3.5 htmx-indicator animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
                         Rescan
                     </button>

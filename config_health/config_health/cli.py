@@ -428,11 +428,12 @@ def _filter_changed_configs(
     return all_paths
 
 
-def _print_summary(report: HealthReport) -> None:
-    """Print a summary table to the console."""
-    console.print()
-    console.print(f"[bold]Config Health Report[/bold]  ({report.scan_duration_s:.1f}s)")
-    console.print()
+def _print_summary(report: HealthReport, *, target: Console | None = None) -> None:
+    """Print a summary table to the console (or an alternate target)."""
+    out = target or console
+    out.print()
+    out.print(f"[bold]Config Health Report[/bold]  ({report.scan_duration_s:.1f}s)")
+    out.print()
 
     # Summary counts (using model properties for consistency with dashboard)
     total = report.total
@@ -440,16 +441,16 @@ def _print_summary(report: HealthReport) -> None:
     warnings = report.warn_count
     passes = report.pass_count
 
-    console.print(f"  Total configs: {total}")
-    console.print(f"  [green]Healthy:[/green]  {passes}")
-    console.print(f"  [red]Failing:[/red]  {failures}")
-    console.print(f"  [yellow]Warnings:[/yellow] {warnings}")
+    out.print(f"  Total configs: {total}")
+    out.print(f"  [green]Healthy:[/green]  {passes}")
+    out.print(f"  [red]Failing:[/red]  {failures}")
+    out.print(f"  [yellow]Warnings:[/yellow] {warnings}")
 
     # Phase timing breakdown
     if report.phase_durations_s:
         parts = [f"{phase}: {dur}s" for phase, dur in report.phase_durations_s.items()]
-        console.print(f"  [dim]Timing: {', '.join(parts)}[/dim]")
-    console.print()
+        out.print(f"  [dim]Timing: {', '.join(parts)}[/dim]")
+    out.print()
 
     # Type breakdown
     type_table = Table(title="By Config Type")
@@ -457,8 +458,8 @@ def _print_summary(report: HealthReport) -> None:
     type_table.add_column("Count", justify="right")
     for ctype, entries in sorted(report.entries_by_type().items(), key=lambda x: -len(x[1])):
         type_table.add_row(ctype.value, str(len(entries)))
-    console.print(type_table)
-    console.print()
+    out.print(type_table)
+    out.print()
 
     # GPU tier breakdown
     tier_table = Table(title="By GPU Tier")
@@ -469,41 +470,159 @@ def _print_summary(report: HealthReport) -> None:
         tier_counts[e.gpu_tier.label] = tier_counts.get(e.gpu_tier.label, 0) + 1
     for tier, count in sorted(tier_counts.items()):
         tier_table.add_row(tier, str(count))
-    console.print(tier_table)
-    console.print()
+    out.print(tier_table)
+    out.print()
 
     # Failures
     fail_results = [r for r in report.check_results if r.status == CheckStatus.FAIL]
     if fail_results:
-        console.print(f"[bold red]Failures ({len(fail_results)}):[/bold red]")
+        out.print(f"[bold red]Failures ({len(fail_results)}):[/bold red]")
         for r in fail_results[:20]:
-            console.print(f"  [red]✗[/red] {r.config_path}: {r.message}")
+            out.print(f"  [red]✗[/red] {r.config_path}: {r.message}")
         if len(fail_results) > 20:
-            console.print(f"  ... and {len(fail_results) - 20} more")
-        console.print()
+            out.print(f"  ... and {len(fail_results) - 20} more")
+        out.print()
 
     # Coverage gaps
     if report.coverage_gaps:
-        console.print(f"[bold yellow]Coverage Gaps ({len(report.coverage_gaps)}):[/bold yellow]")
+        out.print(f"[bold yellow]Coverage Gaps ({len(report.coverage_gaps)}):[/bold yellow]")
         for gap in report.coverage_gaps[:15]:
-            console.print(
+            out.print(
                 f"  [yellow]⚠[/yellow] {gap.model_family} ({gap.category}): "
                 f"missing {', '.join(gap.missing_types)}"
             )
         if len(report.coverage_gaps) > 15:
-            console.print(f"  ... and {len(report.coverage_gaps) - 15} more")
-        console.print()
+            out.print(f"  ... and {len(report.coverage_gaps) - 15} more")
+        out.print()
 
     # Optimization suggestions summary
     if report.suggestions:
-        console.print(f"[bold cyan]Optimization Suggestions: {len(report.suggestions)}[/bold cyan]")
+        out.print(f"[bold cyan]Optimization Suggestions: {len(report.suggestions)}[/bold cyan]")
         # Group by category
         by_cat: dict[str, int] = {}
         for s in report.suggestions:
             by_cat[s.category] = by_cat.get(s.category, 0) + 1
         for cat, count in sorted(by_cat.items(), key=lambda x: -x[1]):
-            console.print(f"  {cat}: {count}")
-        console.print()
+            out.print(f"  {cat}: {count}")
+        out.print()
+
+
+def _write_summary_md(report: HealthReport, path: str) -> None:
+    """Write a human-readable markdown summary of the health report."""
+    lines: list[str] = []
+    w = lines.append
+
+    w("# Config Health Summary")
+    w("")
+    w(f"Scanned **{report.total}** configs in {report.scan_duration_s:.1f}s.")
+    w("")
+
+    # Counts
+    w("## Results")
+    w("")
+    w(f"| Status | Count |")
+    w(f"|--------|-------|")
+    w(f"| Healthy | {report.pass_count} |")
+    w(f"| Warnings | {report.warn_count} |")
+    w(f"| Failing | {report.fail_count} |")
+    w(f"| **Total** | **{report.total}** |")
+    w("")
+
+    # By type
+    w("## By Config Type")
+    w("")
+    w("| Type | Count |")
+    w("|------|-------|")
+    for ctype, entries in sorted(report.entries_by_type().items(), key=lambda x: -len(x[1])):
+        w(f"| {ctype.value} | {len(entries)} |")
+    w("")
+
+    # Failures
+    fail_results = [r for r in report.check_results if r.status == CheckStatus.FAIL]
+    if fail_results:
+        w(f"## Failures ({len(fail_results)})")
+        w("")
+        for r in fail_results:
+            w(f"- **{r.config_path}**: {r.message}")
+            if r.details:
+                w(f"  - {r.details}")
+        w("")
+
+    # Warnings
+    warn_results = [r for r in report.check_results if r.status == CheckStatus.WARN]
+    if warn_results:
+        w(f"## Warnings ({len(warn_results)})")
+        w("")
+        for r in warn_results:
+            w(f"- **{r.config_path}**: {r.message}")
+        w("")
+
+    # Coverage gaps
+    if report.coverage_gaps:
+        w(f"## Coverage Gaps ({len(report.coverage_gaps)})")
+        w("")
+        for gap in report.coverage_gaps:
+            w(f"- **{gap.model_family}** ({gap.category}): missing {', '.join(gap.missing_types)}")
+        w("")
+
+    # VRAM estimates
+    if report.vram_estimates:
+        w(f"## VRAM Estimates ({len(report.vram_estimates)} training configs)")
+        w("")
+        w("| Config | VRAM | Min VRAM | Params | Type |")
+        w("|--------|------|----------|--------|------|")
+        for cfg_path, est in sorted(report.vram_estimates.items()):
+            short = cfg_path.removeprefix("configs/")
+            peft = "LoRA" if est.get("is_peft") else "FFT"
+            if est.get("is_quantized"):
+                peft += "+Q"
+            w(f"| {short} | {est['total_vram_gb']:.1f} GB | {est['minimal_total_vram_gb']:.1f} GB | {est['total_params_b']}B | {peft} |")
+        w("")
+
+    # Dry-run results
+    if report.dry_run_results:
+        dr_pass = sum(1 for v in report.dry_run_results.values() if v["success"])
+        dr_fail = sum(1 for v in report.dry_run_results.values() if not v["success"] and v["error"])
+        w(f"## Dry-Run Results ({dr_pass} passed, {dr_fail} failed)")
+        w("")
+        for cfg_path, dr in sorted(report.dry_run_results.items()):
+            short = cfg_path.removeprefix("configs/")
+            if dr["success"]:
+                mem = f" ({dr['peak_memory_gb']:.1f} GB)" if dr["peak_memory_gb"] > 0 else ""
+                w(f"- {short}: passed in {dr['duration_s']:.1f}s{mem}")
+            elif dr["error"]:
+                w(f"- {short}: **FAILED** — {dr['error']}")
+        w("")
+
+    # Suggestions summary
+    if report.suggestions:
+        by_cat: dict[str, int] = {}
+        for s in report.suggestions:
+            by_cat[s.category] = by_cat.get(s.category, 0) + 1
+        w(f"## Optimization Suggestions ({len(report.suggestions)})")
+        w("")
+        for cat, count in sorted(by_cat.items(), key=lambda x: -x[1]):
+            w(f"- {cat}: {count}")
+        w("")
+
+    # Environment
+    if report.environment:
+        w("## Environment")
+        w("")
+        for k, v in sorted(report.environment.items()):
+            w(f"- {k}: {v}")
+        w("")
+
+    # Phase timing
+    if report.phase_durations_s:
+        w("## Phase Timing")
+        w("")
+        for phase, dur in report.phase_durations_s.items():
+            w(f"- {phase}: {dur}s")
+        w("")
+
+    with open(path, "w") as f:
+        f.write("\n".join(lines))
 
 
 @click.group()
@@ -524,7 +643,7 @@ def main():
 @click.option("--last-report", type=str, default=None, help="Path to previous report.json for incremental mode")
 @click.option("--fix", is_flag=True, help="Auto-fix known issues (wrong LoRA targets, FSDP layer classes)")
 @click.option("--path", type=str, default=None, help="Check a specific config file")
-@click.option("--output", "-o", type=str, default=None, help="Save report as JSON to this path")
+@click.option("--output", "-o", type=str, default=None, help="Save results to this directory (report.json, summary.md, logs.txt)")
 @click.option("--repo-root", type=str, default=None, help="Repository root directory")
 def check(
     offline: bool,
@@ -549,7 +668,7 @@ def check(
       config-health check --quick            # fast static checks (~10s)
       config-health check --tier0            # + architecture validation
       config-health check --exhaustive       # everything
-      config-health check --exhaustive -o report.json  # save results
+      config-health check --exhaustive -o results/     # save to directory
       config-health check --incremental      # only changed configs
       config-health check --fix              # auto-fix known issues
     """
@@ -566,13 +685,31 @@ def check(
 
     paths = None
     if path:
-        import os
-
         abs_path = os.path.abspath(path)
         if not os.path.exists(abs_path):
             console.print(f"[red]File not found: {path}[/red]")
             sys.exit(1)
         paths = [abs_path]
+
+    # Prepare output directory
+    output_dir = None
+    json_path = None
+    if output:
+        output_dir = os.path.abspath(output)
+        os.makedirs(output_dir, exist_ok=True)
+        json_path = os.path.join(output_dir, "report.json")
+
+    # If saving output, tee console to logs.txt
+    log_console = None
+    if output_dir:
+        from rich.console import Console as RichConsole
+
+        log_console = RichConsole(
+            file=open(os.path.join(output_dir, "logs.txt"), "w"),
+            force_terminal=False,
+            no_color=True,
+            width=120,
+        )
 
     report = _build_report(
         root,
@@ -585,37 +722,55 @@ def check(
         incremental=incremental,
         last_report_path=last_report,
         auto_fix=fix,
-        output_path=output,
+        output_path=json_path,
         paths=paths,
     )
     _print_summary(report)
+    if log_console:
+        _print_summary(report, target=log_console)
 
     # Show VRAM summary if estimated
     if report.vram_estimates:
         valid_vrams = [v["total_vram_gb"] for v in report.vram_estimates.values()]
         min_vrams = [v["minimal_total_vram_gb"] for v in report.vram_estimates.values()]
-        console.print(
+        msg = (
             f"[bold cyan]VRAM Estimates:[/bold cyan] {len(valid_vrams)} training configs, "
             f"{min(min_vrams):.1f} — {max(valid_vrams):.1f} GB"
         )
+        console.print(msg)
         console.print()
+        if log_console:
+            log_console.print(msg)
+            log_console.print()
 
     # Show dry-run summary
     if report.dry_run_results:
         dr_pass = sum(1 for v in report.dry_run_results.values() if v["success"])
         dr_fail = sum(1 for v in report.dry_run_results.values() if not v["success"] and v["error"])
-        console.print(
-            f"[bold cyan]Dry-runs:[/bold cyan] {dr_pass} passed, {dr_fail} failed"
-        )
+        msg = f"[bold cyan]Dry-runs:[/bold cyan] {dr_pass} passed, {dr_fail} failed"
+        console.print(msg)
+        if log_console:
+            log_console.print(msg)
         for p, v in report.dry_run_results.items():
             if not v["success"] and v["error"]:
-                console.print(f"  [red]✗[/red] {p}: {v['error'][:100]}")
+                line = f"  [red]✗[/red] {p}: {v['error'][:100]}"
+                console.print(line)
+                if log_console:
+                    log_console.print(line)
         console.print()
+        if log_console:
+            log_console.print()
 
-    # Save report
-    if output:
-        report.to_json(output)
-        console.print(f"[bold]Report saved to {output}[/bold]")
+    # Save outputs
+    if output_dir and json_path:
+        report.to_json(json_path)
+        _write_summary_md(report, os.path.join(output_dir, "summary.md"))
+        if log_console and log_console.file:
+            log_console.file.close()
+        console.print(f"[bold]Results saved to {output_dir}/[/bold]")
+        console.print(f"  report.json  — machine-readable full report")
+        console.print(f"  summary.md   — human-readable markdown summary")
+        console.print(f"  logs.txt     — plain-text console output")
 
     # Exit with non-zero if there are failures
     fail_count = sum(

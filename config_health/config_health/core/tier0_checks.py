@@ -701,7 +701,12 @@ def _check_pad_eos_collision(
 def _check_trust_remote_code(
     entry: ConfigEntry, model_name: str
 ) -> list[CheckResult]:
-    """B6: Check if model requires trust_remote_code but config doesn't set it."""
+    """B6: Check trust_remote_code usage.
+
+    Rule: trust_remote_code should default to False unless the model requires it.
+    - WARN if the model requires it but config doesn't set it.
+    - WARN if config sets it to True but the model doesn't need it.
+    """
     results: list[CheckResult] = []
     data = _load_yaml(entry.abs_path)
     if data is None:
@@ -711,14 +716,14 @@ def _check_trust_remote_code(
     if not isinstance(model_cfg, dict):
         return results
 
-    # If already set, nothing to check
-    if model_cfg.get("trust_remote_code"):
-        return results
     model_kwargs = model_cfg.get("model_kwargs", {}) or {}
-    if model_kwargs.get("trust_remote_code"):
-        return results
+    config_sets_trust = bool(
+        model_cfg.get("trust_remote_code")
+        or model_kwargs.get("trust_remote_code")
+    )
 
     # Try loading without trust_remote_code to see if it's needed
+    model_requires_trust = False
     try:
         import transformers
 
@@ -727,18 +732,34 @@ def _check_trust_remote_code(
         )
     except Exception as e:
         if "trust_remote_code" in str(e).lower():
-            results.append(
-                CheckResult(
-                    config_path=entry.path,
-                    check_name="trust_remote_code",
-                    status=CheckStatus.WARN,
-                    message=(
-                        f"Model '{model_name}' requires trust_remote_code=True "
-                        "but the config doesn't set it."
-                    ),
-                    severity=Severity.WARNING,
-                )
+            model_requires_trust = True
+
+    if model_requires_trust and not config_sets_trust:
+        results.append(
+            CheckResult(
+                config_path=entry.path,
+                check_name="trust_remote_code",
+                status=CheckStatus.WARN,
+                message=(
+                    f"Model '{model_name}' requires trust_remote_code=True "
+                    "but the config doesn't set it."
+                ),
+                severity=Severity.WARNING,
             )
+        )
+    elif config_sets_trust and not model_requires_trust:
+        results.append(
+            CheckResult(
+                config_path=entry.path,
+                check_name="trust_remote_code",
+                status=CheckStatus.WARN,
+                message=(
+                    f"Config sets trust_remote_code=True but model '{model_name}' "
+                    "does not require it. Prefer trust_remote_code=False for security."
+                ),
+                severity=Severity.WARNING,
+            )
+        )
 
     return results
 

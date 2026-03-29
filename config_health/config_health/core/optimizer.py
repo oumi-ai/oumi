@@ -169,25 +169,8 @@ def _inference_suggestions(
 def _evaluation_suggestions(
     entry: ConfigEntry, data: dict
 ) -> list[OptimizationSuggestion]:
-    suggestions: list[OptimizationSuggestion] = []
-    model = data.get("model", {})
-
-    if isinstance(model, dict):
-        if not model.get("trust_remote_code"):
-            suggestions.append(
-                OptimizationSuggestion(
-                    config_path=entry.path,
-                    category="compatibility",
-                    title="Enable trust_remote_code",
-                    suggestion=(
-                        "Some models require `trust_remote_code: True` to load. "
-                        "Consider enabling it for broader compatibility."
-                    ),
-                    priority="low",
-                )
-            )
-
-    return suggestions
+    # trust_remote_code is validated by tier0_checks — no blanket suggestion here.
+    return []
 
 
 def _load_yaml(path: str) -> dict | None:

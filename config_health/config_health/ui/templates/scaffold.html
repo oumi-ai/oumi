@@ -1,64 +1,68 @@
 {% extends "base.html" %}
-{% block nav_scaffold %}text-white font-medium{% endblock %}
+{% block nav_scaffold %}text-white bg-white/10{% endblock %}
 {% block title %}Scaffold — Config Health{% endblock %}
 
 {% block content %}
 <div class="mb-6">
-    <h2 class="text-xl font-bold text-white mb-1">Config Scaffolder</h2>
+    <h2 class="text-lg font-semibold text-white mb-1">Config Scaffolder</h2>
     <p class="text-sm text-gray-500">Generate new config files from templates.</p>
 </div>
 
-<div class="grid grid-cols-2 gap-6">
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
     <!-- Form -->
-    <div class="bg-gray-900 rounded-lg border border-gray-800 p-5">
-        <form hx-post="/api/scaffold" hx-target="#scaffold-result">
-            <div class="mb-4">
-                <label class="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Model Name</label>
+    <div class="bg-surface-900 rounded-xl border border-white/5 p-6">
+        <form hx-post="/api/scaffold" hx-target="#scaffold-result" hx-indicator="#scaffold-spinner">
+            <div class="mb-5">
+                <label class="block text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2">Model Name</label>
                 <input type="text" name="model_name" required
                     placeholder="e.g., meta-llama/Llama-3.1-8B-Instruct"
-                    class="w-full bg-gray-800 border border-gray-700 rounded-md px-3 py-2 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-blue-500">
+                    class="w-full bg-surface-800 border border-white/5 rounded-lg px-3 py-2.5 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500/50 focus:border-blue-500/50 font-mono">
             </div>
 
-            <div class="mb-4">
-                <label class="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Task Types</label>
+            <div class="mb-5">
+                <label class="block text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2">Task Types</label>
                 <div class="flex flex-wrap gap-3">
                     {% for task in available_tasks %}
-                    <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                    <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer group">
                         <input type="checkbox" name="tasks" value="{{ task }}"
                             {% if task in ('training', 'inference', 'evaluation') %}checked{% endif %}
-                            class="rounded bg-gray-800 border-gray-600 text-blue-600 focus:ring-blue-500">
-                        {{ task }}
+                            class="rounded bg-surface-800 border-gray-600 text-blue-600 focus:ring-blue-500/50 focus:ring-offset-0">
+                        <span class="group-hover:text-white transition-colors">{{ task }}</span>
                     </label>
                     {% endfor %}
                 </div>
             </div>
 
-            <div class="mb-4">
-                <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+            <div class="mb-5">
+                <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer group">
                     <input type="checkbox" name="use_lora" checked
-                        class="rounded bg-gray-800 border-gray-600 text-blue-600 focus:ring-blue-500">
-                    Use LoRA (PEFT)
+                        class="rounded bg-surface-800 border-gray-600 text-blue-600 focus:ring-blue-500/50 focus:ring-offset-0">
+                    <span class="group-hover:text-white transition-colors">Use LoRA (PEFT)</span>
                 </label>
             </div>
 
-            <div class="mb-5">
-                <label class="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Output Directory (optional)</label>
+            <div class="mb-6">
+                <label class="block text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-2">Output Directory <span class="text-gray-600 normal-case">(optional)</span></label>
                 <input type="text" name="output_dir"
                     placeholder="Leave empty to preview only"
-                    class="w-full bg-gray-800 border border-gray-700 rounded-md px-3 py-2 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-blue-500">
+                    class="w-full bg-surface-800 border border-white/5 rounded-lg px-3 py-2.5 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500/50 focus:border-blue-500/50">
             </div>
 
             <button type="submit"
-                class="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-md transition-colors">
+                class="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2">
+                <svg id="scaffold-spinner" class="w-4 h-4 htmx-indicator animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
                 Generate Configs
             </button>
         </form>
     </div>
 
     <!-- Result -->
-    <div id="scaffold-result" class="bg-gray-900 rounded-lg border border-gray-800 p-5">
+    <div id="scaffold-result" class="bg-surface-900 rounded-xl border border-white/5 p-6 min-h-[300px]">
         <div class="flex items-center justify-center h-full text-gray-600">
-            <p class="text-sm">Generated configs will appear here</p>
+            <div class="text-center">
+                <svg class="w-12 h-12 mx-auto mb-3 text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5"/></svg>
+                <p class="text-sm">Generated configs will appear here</p>
+            </div>
         </div>
     </div>
 </div>

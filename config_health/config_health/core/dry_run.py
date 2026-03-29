@@ -389,21 +389,42 @@ def _execute_dry_run(
             _cleanup_gpu()
 
 
+# Errors that indicate the config was intentionally skipped, not that it failed.
+_SKIP_ERRORS = frozenset({
+    "Remote engine",
+    "GGUF model (not supported for dry-run)",
+    "Local checkpoint path",
+    "Not a training config",
+    "No model_name",
+})
+
+
 def dry_run_to_check_results(dr: DryRunResult) -> list[CheckResult]:
     """Convert a DryRunResult into CheckResults for the report."""
     results: list[CheckResult] = []
 
     if dr.error:
-        results.append(
-            CheckResult(
-                config_path=dr.config_path,
-                check_name="dry_run",
-                status=CheckStatus.FAIL,
-                message=f"Dry-run failed: {dr.error}",
-                severity=Severity.ERROR,
-                details="\n".join(dr.notes) if dr.notes else None,
+        if dr.error in _SKIP_ERRORS:
+            results.append(
+                CheckResult(
+                    config_path=dr.config_path,
+                    check_name="dry_run",
+                    status=CheckStatus.SKIP,
+                    message=f"Dry-run skipped: {dr.error}",
+                    severity=Severity.INFO,
+                )
             )
-        )
+        else:
+            results.append(
+                CheckResult(
+                    config_path=dr.config_path,
+                    check_name="dry_run",
+                    status=CheckStatus.FAIL,
+                    message=f"Dry-run failed: {dr.error}",
+                    severity=Severity.ERROR,
+                    details="\n".join(dr.notes) if dr.notes else None,
+                )
+            )
     elif dr.success:
         msg = f"Dry-run passed: {dr.steps_completed} steps in {dr.duration_s:.1f}s"
         if dr.peak_memory_gb > 0:

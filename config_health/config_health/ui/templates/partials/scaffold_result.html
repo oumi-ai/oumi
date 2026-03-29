@@ -1,4 +1,4 @@
-<div class="space-y-4">
+<div class="space-y-5">
     {% for r in results %}
     <div>
         <div class="flex items-center gap-2 mb-2">
@@ -9,13 +9,13 @@
             {% endif %}
             <span class="text-sm font-medium text-gray-300">{{ r.task }}</span>
             {% if r.get('saved') %}
-            <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-900/40 text-emerald-400">saved</span>
+            <span class="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 font-medium">saved</span>
             {% endif %}
         </div>
         {% if r.success %}
-        <pre class="bg-gray-950 border border-gray-800 rounded-md p-3 text-xs text-gray-400 font-mono overflow-x-auto max-h-64 overflow-y-auto"><code>{{ r.content }}</code></pre>
+        <pre class="bg-surface-950 border border-white/5 rounded-lg p-3 text-xs text-gray-400 font-mono overflow-x-auto max-h-64 overflow-y-auto leading-relaxed"><code>{{ r.content }}</code></pre>
         {% else %}
-        <div class="text-sm text-red-400">{{ r.content }}</div>
+        <div class="text-sm text-red-400 bg-red-500/5 border border-red-500/10 rounded-lg p-3">{{ r.content }}</div>
         {% endif %}
     </div>
     {% endfor %}

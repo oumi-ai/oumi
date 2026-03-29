@@ -1,40 +1,67 @@
 {% extends "base.html" %}
-{% block nav_dashboard %}text-white font-medium{% endblock %}
+{% block nav_dashboard %}text-white bg-white/10{% endblock %}
 {% block title %}Dashboard — Config Health{% endblock %}
 
 {% block content %}
-<!-- Summary Cards -->
-<div class="grid grid-cols-4 gap-4 mb-6">
-    <div class="bg-gray-900 rounded-lg border border-gray-800 p-4">
-        <div class="text-3xl font-bold text-white">{{ total }}</div>
-        <div class="text-sm text-gray-500 mt-1">Total Configs</div>
+<!-- Summary Cards (clickable — filter by status) -->
+<div class="grid grid-cols-4 gap-3 mb-5">
+    <div class="summary-card bg-surface-900 rounded-xl border border-white/5 p-4 flex items-center gap-4 cursor-pointer transition-all hover:bg-surface-800 {% if current_status == '' %}card-active{% endif %}"
+         data-status="" onclick="filterByStatus('')">
+        <div class="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+            <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
+        </div>
+        <div>
+            <div class="text-2xl font-bold text-white leading-none">{{ total }}</div>
+            <div class="text-xs text-gray-500 mt-1">Total Configs</div>
+        </div>
     </div>
-    <div class="bg-gray-900 rounded-lg border border-gray-800 p-4">
-        <div class="text-3xl font-bold text-emerald-400">{{ pass_count }}</div>
-        <div class="text-sm text-gray-500 mt-1">Passing</div>
+    <div class="summary-card bg-surface-900 rounded-xl border border-white/5 p-4 flex items-center gap-4 cursor-pointer transition-all hover:bg-surface-800 {% if current_status == 'pass' %}card-active{% endif %}"
+         data-status="pass" onclick="filterByStatus('pass')">
+        <div class="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+            <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </div>
+        <div>
+            <div class="text-2xl font-bold text-emerald-400 leading-none">{{ pass_count }}</div>
+            <div class="text-xs text-gray-500 mt-1">Passing</div>
+        </div>
     </div>
-    <div class="bg-gray-900 rounded-lg border border-gray-800 p-4">
-        <div class="text-3xl font-bold text-amber-400">{{ warn_count }}</div>
-        <div class="text-sm text-gray-500 mt-1">Warnings</div>
+    <div class="summary-card bg-surface-900 rounded-xl border border-white/5 p-4 flex items-center gap-4 cursor-pointer transition-all hover:bg-surface-800 {% if current_status == 'warn' %}card-active{% endif %}"
+         data-status="warn" onclick="filterByStatus('warn')">
+        <div class="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+            <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
+        </div>
+        <div>
+            <div class="text-2xl font-bold text-amber-400 leading-none">{{ warn_count }}</div>
+            <div class="text-xs text-gray-500 mt-1">Warnings</div>
+        </div>
     </div>
-    <div class="bg-gray-900 rounded-lg border border-gray-800 p-4">
-        <div class="text-3xl font-bold text-red-400">{{ fail_count }}</div>
-        <div class="text-sm text-gray-500 mt-1">Failures</div>
+    <div class="summary-card bg-surface-900 rounded-xl border border-white/5 p-4 flex items-center gap-4 cursor-pointer transition-all hover:bg-surface-800 {% if current_status == 'fail' %}card-active{% endif %}"
+         data-status="fail" onclick="filterByStatus('fail')">
+        <div class="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center flex-shrink-0">
+            <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </div>
+        <div>
+            <div class="text-2xl font-bold text-red-400 leading-none">{{ fail_count }}</div>
+            <div class="text-xs text-gray-500 mt-1">Failures</div>
+        </div>
     </div>
 </div>
 
 <!-- Filters -->
-<div class="flex flex-wrap gap-3 mb-4 bg-gray-900 rounded-lg border border-gray-800 p-3">
-    <input type="text" name="q" value="{{ current_q }}"
-        placeholder="Search configs..."
-        class="bg-gray-800 border border-gray-700 rounded-md px-3 py-1.5 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500 w-64"
-        hx-get="/" hx-target="#config-list" hx-trigger="keyup changed delay:300ms"
-        hx-include="[name='type'],[name='status'],[name='tier'],[name='family']">
+<div class="flex flex-wrap items-center gap-2 mb-4 bg-surface-900 rounded-xl border border-white/5 px-4 py-3">
+    <div class="relative flex-shrink-0">
+        <svg class="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+        <input type="text" name="q" value="{{ current_q }}"
+            placeholder="Search configs..."
+            class="bg-surface-800 border border-white/5 rounded-lg pl-9 pr-3 py-1.5 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500/50 focus:border-blue-500/50 w-56"
+            hx-get="/" hx-target="#config-list" hx-trigger="keyup changed delay:300ms"
+            hx-include="[name='type'],[name='status'],[name='tier'],[name='family'],[name='model']">
+    </div>
 
     <select name="type"
-        class="bg-gray-800 border border-gray-700 rounded-md px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-blue-500"
+        class="bg-surface-800 border border-white/5 rounded-lg px-3 py-1.5 text-sm text-gray-300 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
         hx-get="/" hx-target="#config-list"
-        hx-include="[name='q'],[name='status'],[name='tier'],[name='family']">
+        hx-include="[name='q'],[name='status'],[name='tier'],[name='family'],[name='model']">
         <option value="">All Types</option>
         {% for t in config_types %}
         <option value="{{ t }}" {% if current_type == t %}selected{% endif %}>{{ t }}</option>
@@ -42,9 +69,9 @@
     </select>
 
     <select name="status"
-        class="bg-gray-800 border border-gray-700 rounded-md px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-blue-500"
+        class="bg-surface-800 border border-white/5 rounded-lg px-3 py-1.5 text-sm text-gray-300 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
         hx-get="/" hx-target="#config-list"
-        hx-include="[name='q'],[name='type'],[name='tier'],[name='family']">
+        hx-include="[name='q'],[name='type'],[name='tier'],[name='family'],[name='model']">
         <option value="">All Status</option>
         <option value="pass" {% if current_status == 'pass' %}selected{% endif %}>Pass</option>
         <option value="warn" {% if current_status == 'warn' %}selected{% endif %}>Warning</option>
@@ -52,9 +79,9 @@
     </select>
 
     <select name="tier"
-        class="bg-gray-800 border border-gray-700 rounded-md px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-blue-500"
+        class="bg-surface-800 border border-white/5 rounded-lg px-3 py-1.5 text-sm text-gray-300 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
         hx-get="/" hx-target="#config-list"
-        hx-include="[name='q'],[name='type'],[name='status'],[name='family']">
+        hx-include="[name='q'],[name='type'],[name='status'],[name='family'],[name='model']">
         <option value="">All Tiers</option>
         {% for val, label in gpu_tiers %}
         <option value="{{ val }}" {% if current_tier == val|string %}selected{% endif %}>{{ label }}</option>
@@ -62,24 +89,34 @@
     </select>
 
     <select name="family"
-        class="bg-gray-800 border border-gray-700 rounded-md px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-blue-500"
+        class="bg-surface-800 border border-white/5 rounded-lg px-3 py-1.5 text-sm text-gray-300 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
         hx-get="/" hx-target="#config-list"
-        hx-include="[name='q'],[name='type'],[name='status'],[name='tier']">
+        hx-include="[name='q'],[name='type'],[name='status'],[name='tier'],[name='model']">
         <option value="">All Families</option>
         {% for f in families %}
         <option value="{{ f }}" {% if current_family == f %}selected{% endif %}>{{ f }}</option>
         {% endfor %}
     </select>
 
-    <span class="text-sm text-gray-500 self-center ml-auto">{{ entries|length }} shown</span>
+    <select name="model"
+        class="bg-surface-800 border border-white/5 rounded-lg px-3 py-1.5 text-sm text-gray-300 focus:outline-none focus:ring-1 focus:ring-blue-500/50 max-w-[200px]"
+        hx-get="/" hx-target="#config-list"
+        hx-include="[name='q'],[name='type'],[name='status'],[name='tier'],[name='family']">
+        <option value="">All Models</option>
+        {% for m in models %}
+        <option value="{{ m }}" {% if current_model == m %}selected{% endif %}>{{ m }}</option>
+        {% endfor %}
+    </select>
+
+    <span class="text-xs text-gray-500 ml-auto tabular-nums">{{ entries|length }} of {{ total }}</span>
 </div>
 
 <!-- Main: Config list + Detail panel -->
-<div class="grid grid-cols-5 gap-4" style="height: calc(100vh - 320px);">
+<div class="grid grid-cols-5 gap-4 h-[calc(100vh-250px)] min-h-[400px]">
     <!-- Config List -->
-    <div class="col-span-2 bg-gray-900 rounded-lg border border-gray-800 overflow-hidden flex flex-col">
-        <div class="px-4 py-2 border-b border-gray-800 text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Configs
+    <div class="col-span-2 bg-surface-900 rounded-xl border border-white/5 overflow-hidden flex flex-col">
+        <div class="px-4 py-2.5 border-b border-white/5 flex items-center justify-between">
+            <span class="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Configs</span>
         </div>
         <div class="overflow-y-auto flex-1" id="config-list">
             {% include "partials/config_list.html" %}
@@ -87,13 +124,25 @@
     </div>
 
     <!-- Detail Panel -->
-    <div class="col-span-3 bg-gray-900 rounded-lg border border-gray-800 overflow-y-auto" id="detail-panel">
+    <div class="col-span-3 bg-surface-900 rounded-xl border border-white/5 overflow-y-auto" id="detail-panel">
         <div class="flex items-center justify-center h-full text-gray-600">
             <div class="text-center">
-                <svg class="w-12 h-12 mx-auto mb-3 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                <p class="text-sm">Click a config to view details</p>
+                <svg class="w-16 h-16 mx-auto mb-4 text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
+                <p class="text-sm text-gray-600">Select a config to view details</p>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+function filterByStatus(status) {
+    const sel = document.querySelector('select[name="status"]');
+    sel.value = status;
+    sel.dispatchEvent(new Event('change'));
+    // Update card highlights
+    document.querySelectorAll('.summary-card').forEach(c => c.classList.remove('card-active'));
+    const card = document.querySelector(`.summary-card[data-status="${status}"]`);
+    if (card) card.classList.add('card-active');
+}
+</script>
 {% endblock %}
