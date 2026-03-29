@@ -107,13 +107,26 @@ class McaSftTrainer(BaseTrainer):
         # Wrap the data collator to ensure `labels` are present, which
         # mcore_adapter requires. If the upstream collator doesn't produce
         # labels, copy input_ids as labels (standard causal LM training).
+        # NOTE: This means loss is computed on the entire sequence. For
+        # completions-only training, use a collator that produces labels
+        # with -100 for prompt tokens (e.g. text_completions_only_with_padding).
         data_collator = kwargs.pop("data_collator", None)
         if data_collator is not None:
             original_collator = data_collator
+            _labels_warning_logged = False
 
             def _collator_with_labels(batch):
+                nonlocal _labels_warning_logged
                 result = original_collator(batch)
                 if "labels" not in result and "input_ids" in result:
+                    if not _labels_warning_logged:
+                        logger.warning(
+                            "Data collator did not produce 'labels'. "
+                            "Falling back to labels=input_ids (loss on full "
+                            "sequence). Use a completions-only collator if "
+                            "you want to mask the prompt."
+                        )
+                        _labels_warning_logged = True
                     result["labels"] = result["input_ids"].clone()
                 return result
 
@@ -182,13 +195,14 @@ class McaSftTrainer(BaseTrainer):
 
         mca_kwargs: dict[str, Any] = {
             "output_dir": str(self._output_dir or "mca_output"),
+            # Megatron parallelism.
             "tensor_model_parallel_size": megatron.tensor_model_parallel_size,
             "pipeline_model_parallel_size": megatron.pipeline_model_parallel_size,
             "expert_model_parallel_size": megatron.expert_model_parallel_size,
             "sequence_parallel": megatron.sequence_parallel,
             "use_distributed_optimizer": megatron.use_distributed_optimizer,
             "transformer_impl": megatron.transformer_impl,
-            # Map oumi training params.
+            # Core training params.
             "learning_rate": training.learning_rate,
             "num_train_epochs": training.num_train_epochs,
             "per_device_train_batch_size": training.per_device_train_batch_size,
@@ -196,7 +210,19 @@ class McaSftTrainer(BaseTrainer):
             "save_steps": training.save_steps,
             "logging_steps": training.logging_steps,
             "seed": training.seed,
+            "optim": training.optimizer,
+            "lr_scheduler_type": training.lr_scheduler_type,
+            "weight_decay": training.weight_decay,
         }
+
+        if training.warmup_ratio is not None:
+            mca_kwargs["warmup_steps"] = training.warmup_ratio
+        if training.warmup_steps is not None:
+            mca_kwargs["warmup_steps"] = training.warmup_steps
+        if training.max_grad_norm is not None:
+            mca_kwargs["max_grad_norm"] = training.max_grad_norm
+        if training.enable_gradient_checkpointing:
+            mca_kwargs["gradient_checkpointing"] = True
 
         if megatron.virtual_pipeline_model_parallel_size is not None:
             mca_kwargs["virtual_pipeline_model_parallel_size"] = (
@@ -252,8 +278,11 @@ class McaSftTrainer(BaseTrainer):
             )
 
     def save_state(self) -> None:
-        """Saves the training state."""
+        """Saves trainer_state.json (training progress metadata)."""
         self._mca_trainer.save_state()
+
+        # The optimizer/scheduler state is already saved by MCA's internal
+        # checkpointing in model_optim_rng.pt at each save_steps.
 
     def save_model(self, config: TrainingConfig, final: bool = True) -> None:
         """Saves the model, optionally converting to HF format."""

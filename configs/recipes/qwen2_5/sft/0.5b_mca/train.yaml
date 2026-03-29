@@ -31,7 +31,6 @@
 model:
   model_name: "Qwen/Qwen2.5-0.5B"
   model_max_length: 4096
-  torch_dtype_str: "float32"  # Required: model loads in fp32 for mixed precision
   trust_remote_code: True
 
 data:
@@ -47,6 +46,9 @@ training:
   gradient_accumulation_steps: 1
   num_train_epochs: 1
   learning_rate: 2e-5
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.03
+  weight_decay: 0.01
   seed: 42
   mixed_precision_dtype: "BF16"
   logging_steps: 50
