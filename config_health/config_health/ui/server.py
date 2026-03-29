@@ -34,7 +34,7 @@ def create_app(
     from_report: str | None = None,
 ) -> FastAPI:
     # Shared state
-    state = {"repo_root": repo_root, "offline": offline, "report": HealthReport()}
+    state: dict = {"repo_root": repo_root, "offline": offline, "report": HealthReport(), "scan_error": None}
 
     def _scan() -> HealthReport:
         report = HealthReport()
@@ -56,8 +56,16 @@ def create_app(
                 report.check_results.extend(run_static_checks(entry, repo_root))
                 report.check_results.extend(hub.check_config(entry))
                 report.suggestions.extend(suggest_optimizations(entry))
-            except Exception:
-                pass
+            except Exception as exc:
+                from config_health.core.models import CheckResult as CR, Severity as Sev
+                report.check_results.append(CR(
+                    config_path=entry.path,
+                    check_name="scan_error",
+                    status=CheckStatus.FAIL,
+                    message=f"Check crashed: {exc}",
+                    severity=Sev.ERROR,
+                ))
+        hub.save_cache()
 
         report.coverage_gaps = analyze_coverage(report.entries)
         return report
@@ -72,6 +80,7 @@ def create_app(
         except Exception as exc:
             import sys
             print(f"WARNING: startup scan failed: {exc}", file=sys.stderr)
+            state["scan_error"] = str(exc)
         yield
 
     app = FastAPI(title="Config Health Dashboard", lifespan=lifespan)
@@ -142,6 +151,7 @@ def create_app(
             "current_q": q or "",
             "all_fail_paths": all_fail_paths,
             "all_warn_paths": all_warn_paths,
+            "scan_error": state.get("scan_error"),
         }
 
         if request.headers.get("HX-Request"):
@@ -213,6 +223,13 @@ def create_app(
 
     @app.post("/api/rescan", response_class=HTMLResponse)
     async def rescan(request: Request):
+        # Clear all caches before rescanning
+        from config_health.core.coverage import clear_model_type_cache
+        from config_health.core.scanner import clear_yaml_cache
+
+        clear_yaml_cache()
+        clear_model_type_cache()
+        state["scan_error"] = None
         state["report"] = await asyncio.to_thread(_scan)
         # Redirect to dashboard
         from starlette.responses import RedirectResponse

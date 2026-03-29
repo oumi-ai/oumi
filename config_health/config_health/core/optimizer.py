@@ -173,10 +173,4 @@ def _evaluation_suggestions(
     return []
 
 
-def _load_yaml(path: str) -> dict | None:
-    try:
-        with open(path) as f:
-            data = yaml.safe_load(f)
-        return data if isinstance(data, dict) else None
-    except Exception:
-        return None
+from config_health.core.scanner import load_yaml_cached as _load_yaml  # shared cache

@@ -51,18 +51,11 @@ class _ArchInfo:
 _hf_config_cache: dict[str, Any] = {}
 _tokenizer_cache: dict[str, Any] = {}
 _arch_cache: dict[str, _ArchInfo] = {}
-_yaml_cache: dict[str, dict | None] = {}
-
-# Sentinel to distinguish "loaded but got None" from "not yet loaded"
-_NOT_LOADED = object()
-
-
 def clear_tier0_cache() -> None:
     """Clear the per-run model cache. Call between independent runs."""
     _hf_config_cache.clear()
     _tokenizer_cache.clear()
     _arch_cache.clear()
-    _yaml_cache.clear()
 
 
 def run_tier0_checks(entry: ConfigEntry) -> list[CheckResult]:
@@ -244,18 +237,7 @@ def _is_transient_error(e: Exception) -> bool:
     return any(s in err_str for s in transient_signals)
 
 
-def _load_yaml(path: str) -> dict | None:
-    cached = _yaml_cache.get(path, _NOT_LOADED)
-    if cached is not _NOT_LOADED:
-        return cached  # type: ignore[return-value]
-    try:
-        with open(path) as f:
-            data = yaml.safe_load(f)
-        result = data if isinstance(data, dict) else None
-    except Exception:
-        result = None
-    _yaml_cache[path] = result
-    return result
+from config_health.core.scanner import load_yaml_cached as _load_yaml  # shared cache
 
 
 def _load_architecture_info(model_name: str) -> _ArchInfo:

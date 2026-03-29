@@ -5,6 +5,35 @@ from __future__ import annotations
 import glob
 import os
 
+import yaml
+
+
+# ── Shared YAML cache ──────────────────────────────────────────────
+# Single cache used by all modules to avoid redundant disk reads + parses.
+# On a 500-config --exhaustive run this eliminates ~3000 redundant parses.
+_yaml_cache: dict[str, dict | None] = {}
+_YAML_NOT_LOADED = object()
+
+
+def load_yaml_cached(path: str) -> dict | None:
+    """Load and cache a YAML file. Returns None on any error."""
+    cached = _yaml_cache.get(path, _YAML_NOT_LOADED)
+    if cached is not _YAML_NOT_LOADED:
+        return cached  # type: ignore[return-value]
+    try:
+        with open(path) as f:
+            data = yaml.safe_load(f)
+        result = data if isinstance(data, dict) else None
+    except Exception:
+        result = None
+    _yaml_cache[path] = result
+    return result
+
+
+def clear_yaml_cache() -> None:
+    """Clear the shared YAML cache. Call between independent runs."""
+    _yaml_cache.clear()
+
 
 def scan_config_paths(repo_root: str) -> list[str]:
     """Find all YAML config files under configs/."""

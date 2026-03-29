@@ -3,6 +3,15 @@
 {% block title %}Dashboard — Config Health{% endblock %}
 
 {% block content %}
+{% if scan_error %}
+<div class="mb-4 bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-start gap-3">
+    <svg class="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/></svg>
+    <div>
+        <div class="text-sm font-medium text-red-300">Startup scan failed</div>
+        <div class="text-xs text-red-400/70 mt-1 font-mono">{{ scan_error }}</div>
+    </div>
+</div>
+{% endif %}
 <!-- Summary Cards (clickable — filter by status) -->
 <div class="grid grid-cols-4 gap-3 mb-5">
     <div class="summary-card bg-surface-900 rounded-xl border border-white/5 p-4 flex items-center gap-4 cursor-pointer transition-all hover:bg-surface-800 {% if current_status == '' %}card-active{% endif %}"

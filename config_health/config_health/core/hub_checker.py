@@ -44,9 +44,11 @@ class HubChecker:
         for ds_name in entry.datasets:
             results.append(self._check_dataset(entry, ds_name))
 
-        # Batch-save cache after all checks for this config
-        self._save_cache()
         return results
+
+    def save_cache(self) -> None:
+        """Save the hub cache to disk. Call once at end of run."""
+        self._save_cache()
 
     def _check_model(self, entry: ConfigEntry) -> CheckResult:
         """Check if model_name exists on HuggingFace Hub."""
@@ -151,7 +153,7 @@ class HubChecker:
         try:
             from huggingface_hub import repo_info
 
-            repo_info(repo_id, repo_type=repo_type if repo_type == "dataset" else None)
+            repo_info(repo_id, repo_type=repo_type)
             exists = True
         except Exception as e:
             # Distinguish "not found" from network/transient errors

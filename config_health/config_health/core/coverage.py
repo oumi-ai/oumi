@@ -83,6 +83,11 @@ def _get_expected_types(category: str) -> set[str]:
 _model_type_cache: dict[str, str | None] = {}
 
 
+def clear_model_type_cache() -> None:
+    """Clear the model_type resolution cache. Call on rescan."""
+    _model_type_cache.clear()
+
+
 def _get_oumi_registry() -> dict[str, dict]:
     """Get Oumi's internal model registry: model_type -> {model_class, tested, is_vlm}.
 

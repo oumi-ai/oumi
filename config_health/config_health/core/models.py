@@ -209,18 +209,20 @@ class HealthReport:
     @property
     def fail_paths(self) -> set[str]:
         """Configs with at least one FAIL result."""
-        return {r.config_path for r in self.check_results if r.status == CheckStatus.FAIL}
+        stats = self._status_stats()
+        return stats[0]
 
     @property
     def warn_paths(self) -> set[str]:
         """Configs with at least one WARN but no FAIL results."""
-        fail = self.fail_paths
-        return {r.config_path for r in self.check_results if r.status == CheckStatus.WARN} - fail
+        stats = self._status_stats()
+        return stats[1]
 
     @property
     def pass_count(self) -> int:
         """Configs with no FAIL and no WARN results."""
-        return len(self.entries) - len(self.fail_paths) - len(self.warn_paths)
+        fail, warn = self._status_stats()
+        return len(self.entries) - len(fail) - len(warn)
 
     @property
     def fail_count(self) -> int:
@@ -229,6 +231,19 @@ class HealthReport:
     @property
     def warn_count(self) -> int:
         return len(self.warn_paths)
+
+    def _status_stats(self) -> tuple[set[str], set[str]]:
+        """Compute fail_paths and warn_paths in a single pass. Cached."""
+        # Use a simple instance-level cache keyed on check_results length
+        # to avoid recomputing on repeated property access within the same state.
+        cache_key = len(self.check_results)
+        cached = getattr(self, "_status_cache", None)
+        if cached is not None and cached[0] == cache_key:
+            return cached[1], cached[2]
+        fail = {r.config_path for r in self.check_results if r.status == CheckStatus.FAIL}
+        warn = {r.config_path for r in self.check_results if r.status == CheckStatus.WARN} - fail
+        self._status_cache = (cache_key, fail, warn)  # type: ignore[attr-defined]
+        return fail, warn
 
     def results_for(self, config_path: str) -> list[CheckResult]:
         return [r for r in self.check_results if r.config_path == config_path]

@@ -13,7 +13,7 @@ from config_health.core.models import (
     ConfigType,
     GpuTier,
 )
-from config_health.core.scanner import get_category, get_model_family
+from config_health.core.scanner import get_category, get_model_family, load_yaml_cached
 
 # Keys/paths that strongly signal a config type
 _PATH_TYPE_HINTS: list[tuple[str, ConfigType]] = [
@@ -96,13 +96,8 @@ def classify_config(yaml_path: str, repo_root: str) -> ConfigEntry:
 
 
 def _load_yaml_safe(yaml_path: str) -> dict | None:
-    """Load YAML without OmegaConf interpolation."""
-    try:
-        with open(yaml_path) as f:
-            data = yaml.safe_load(f)
-        return data if isinstance(data, dict) else None
-    except Exception:
-        return None
+    """Load YAML without OmegaConf interpolation. Uses shared cache."""
+    return load_yaml_cached(yaml_path)
 
 
 def _detect_type(data: dict, filepath: str) -> ConfigType:

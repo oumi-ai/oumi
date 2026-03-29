@@ -116,7 +116,7 @@ def _estimate_params_from_config(hf_config: object) -> int:
         mlp = mlp * num_experts + hidden * num_experts
     norm = 2 * hidden
 
-    return embedding + layers * (attn + mlp + norm) + hidden + embedding
+    return embedding + layers * (attn + mlp + norm) + hidden  # LM head typically tied to embedding
 
 
 def _get_available_ram_gb() -> float:

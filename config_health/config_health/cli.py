@@ -289,6 +289,7 @@ def _build_report(
                     r.duration_s = elapsed
                 report.check_results.extend(results)
                 progress.advance(task)
+            hub.save_cache()
             report.phase_durations_s["hub"] = round(time.time() - phase_start, 2)
             _checkpoint()
 
@@ -677,6 +678,13 @@ def check(
         vram = True
         dry_run = True
 
+    if fix and not tier0:
+        console.print(
+            "[yellow]Warning:[/yellow] --fix requires --tier0 to detect LoRA target and "
+            "FSDP layer class issues. Adding --tier0 automatically."
+        )
+        tier0 = True
+
     try:
         root = repo_root or find_repo_root()
     except FileNotFoundError as e:
@@ -700,77 +708,81 @@ def check(
         json_path = os.path.join(output_dir, "report.json")
 
     # If saving output, tee console to logs.txt
+    log_file = None
     log_console = None
     if output_dir:
         from rich.console import Console as RichConsole
 
+        log_file = open(os.path.join(output_dir, "logs.txt"), "w")
         log_console = RichConsole(
-            file=open(os.path.join(output_dir, "logs.txt"), "w"),
+            file=log_file,
             force_terminal=False,
             no_color=True,
             width=120,
         )
 
-    report = _build_report(
-        root,
-        offline=offline,
-        tier0=tier0,
-        hub_check=not no_hub,
-        vram=vram,
-        dry_run=dry_run,
-        quick=quick,
-        incremental=incremental,
-        last_report_path=last_report,
-        auto_fix=fix,
-        output_path=json_path,
-        paths=paths,
-    )
-    _print_summary(report)
-    if log_console:
-        _print_summary(report, target=log_console)
-
-    # Show VRAM summary if estimated
-    if report.vram_estimates:
-        valid_vrams = [v["total_vram_gb"] for v in report.vram_estimates.values()]
-        min_vrams = [v["minimal_total_vram_gb"] for v in report.vram_estimates.values()]
-        msg = (
-            f"[bold cyan]VRAM Estimates:[/bold cyan] {len(valid_vrams)} training configs, "
-            f"{min(min_vrams):.1f} — {max(valid_vrams):.1f} GB"
+    try:
+        report = _build_report(
+            root,
+            offline=offline,
+            tier0=tier0,
+            hub_check=not no_hub,
+            vram=vram,
+            dry_run=dry_run,
+            quick=quick,
+            incremental=incremental,
+            last_report_path=last_report,
+            auto_fix=fix,
+            output_path=json_path,
+            paths=paths,
         )
-        console.print(msg)
-        console.print()
+        _print_summary(report)
         if log_console:
-            log_console.print(msg)
-            log_console.print()
+            _print_summary(report, target=log_console)
 
-    # Show dry-run summary
-    if report.dry_run_results:
-        dr_pass = sum(1 for v in report.dry_run_results.values() if v["success"])
-        dr_fail = sum(1 for v in report.dry_run_results.values() if not v["success"] and v["error"])
-        msg = f"[bold cyan]Dry-runs:[/bold cyan] {dr_pass} passed, {dr_fail} failed"
-        console.print(msg)
-        if log_console:
-            log_console.print(msg)
-        for p, v in report.dry_run_results.items():
-            if not v["success"] and v["error"]:
-                line = f"  [red]✗[/red] {p}: {v['error'][:100]}"
-                console.print(line)
-                if log_console:
-                    log_console.print(line)
-        console.print()
-        if log_console:
-            log_console.print()
+        # Show VRAM summary if estimated
+        if report.vram_estimates:
+            valid_vrams = [v["total_vram_gb"] for v in report.vram_estimates.values()]
+            min_vrams = [v["minimal_total_vram_gb"] for v in report.vram_estimates.values()]
+            msg = (
+                f"[bold cyan]VRAM Estimates:[/bold cyan] {len(valid_vrams)} training configs, "
+                f"{min(min_vrams):.1f} — {max(valid_vrams):.1f} GB"
+            )
+            console.print(msg)
+            console.print()
+            if log_console:
+                log_console.print(msg)
+                log_console.print()
 
-    # Save outputs
-    if output_dir and json_path:
-        report.to_json(json_path)
-        _write_summary_md(report, os.path.join(output_dir, "summary.md"))
-        if log_console and log_console.file:
-            log_console.file.close()
-        console.print(f"[bold]Results saved to {output_dir}/[/bold]")
-        console.print(f"  report.json  — machine-readable full report")
-        console.print(f"  summary.md   — human-readable markdown summary")
-        console.print(f"  logs.txt     — plain-text console output")
+        # Show dry-run summary
+        if report.dry_run_results:
+            dr_pass = sum(1 for v in report.dry_run_results.values() if v["success"])
+            dr_fail = sum(1 for v in report.dry_run_results.values() if not v["success"] and v["error"])
+            msg = f"[bold cyan]Dry-runs:[/bold cyan] {dr_pass} passed, {dr_fail} failed"
+            console.print(msg)
+            if log_console:
+                log_console.print(msg)
+            for p, v in report.dry_run_results.items():
+                if not v["success"] and v["error"]:
+                    line = f"  [red]✗[/red] {p}: {v['error'][:100]}"
+                    console.print(line)
+                    if log_console:
+                        log_console.print(line)
+            console.print()
+            if log_console:
+                log_console.print()
+
+        # Save outputs
+        if output_dir and json_path:
+            report.to_json(json_path)
+            _write_summary_md(report, os.path.join(output_dir, "summary.md"))
+            console.print(f"[bold]Results saved to {output_dir}/[/bold]")
+            console.print(f"  report.json  — machine-readable full report")
+            console.print(f"  summary.md   — human-readable markdown summary")
+            console.print(f"  logs.txt     — plain-text console output")
+    finally:
+        if log_file:
+            log_file.close()
 
     # Exit with non-zero if there are failures
     fail_count = sum(

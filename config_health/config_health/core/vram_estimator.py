@@ -448,7 +448,7 @@ def _estimate_activation_memory(
         # add the extra quadratic cost on top if not using efficient attention
         kv_dim = (arch.num_kv_heads or arch.num_attention_heads) * (arch.head_dim or 0) if arch.head_dim else arch.hidden_size
         linear_attn_in_formula = batch_size * seq_len * (arch.hidden_size + 2 * kv_dim) * dtype_bytes
-        per_layer = linear_components + attn_scores - linear_attn_in_formula
+        per_layer = max(0.0, linear_components + attn_scores - linear_attn_in_formula)
 
     if gradient_checkpointing:
         # Literature: ~35% reduction in activation memory with gradient checkpointing
@@ -481,10 +481,4 @@ def _infer_num_gpus(data: dict, entry: ConfigEntry) -> int:
     return 2
 
 
-def _load_yaml(path: str) -> dict | None:
-    try:
-        with open(path) as f:
-            data = yaml.safe_load(f)
-        return data if isinstance(data, dict) else None
-    except Exception:
-        return None
+from config_health.core.scanner import load_yaml_cached as _load_yaml  # shared cache
