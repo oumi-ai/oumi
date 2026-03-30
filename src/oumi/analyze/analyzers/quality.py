@@ -65,8 +65,7 @@ class DataQualityMetrics(BaseModel):
     )
     has_system_message_not_at_start: bool = Field(
         description=(
-            "True if any system message appears after position 0 "
-            "in the conversation"
+            "True if any system message appears after position 0 in the conversation"
         )
     )
     has_empty_turns: bool = Field(
