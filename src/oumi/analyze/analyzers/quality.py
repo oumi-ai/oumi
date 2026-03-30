@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field
 
 from oumi.analyze.base import ConversationAnalyzer
 from oumi.core.registry import register_sample_analyzer
-from oumi.core.types.conversation import Conversation, Message
+from oumi.core.types.conversation import Conversation, Message, Role
 
 __all__ = ["DataQualityMetrics", "DataQualityAnalyzer"]
 
@@ -40,6 +40,8 @@ class DataQualityMetrics(BaseModel):
     Example:
         >>> result = DataQualityMetrics(
         ...     has_non_alternating_turns=False,
+        ...     has_no_user_message=False,
+        ...     has_system_message_not_at_start=False,
         ...     has_empty_turns=False,
         ...     empty_turn_count=0,
         ...     has_invalid_values=False,
@@ -53,6 +55,15 @@ class DataQualityMetrics(BaseModel):
         description=(
             "True if non-system messages do NOT strictly alternate between "
             "user and assistant roles (i.e. consecutive same-role messages exist)"
+        )
+    )
+    has_no_user_message: bool = Field(
+        description="True if the conversation contains no user message"
+    )
+    has_system_message_not_at_start: bool = Field(
+        description=(
+            "True if a system message exists but is not the first message "
+            "in the conversation"
         )
     )
     has_empty_turns: bool = Field(
@@ -120,7 +131,16 @@ class DataQualityAnalyzer(ConversationAnalyzer[DataQualityMetrics]):
                 has_non_alternating = True
                 break
 
-        # 2. Empty turns check
+        # 2. No user message check
+        messages = conversation.messages
+        has_no_user = not any(m.role == Role.USER for m in messages)
+
+        # 3. System message not at position 0 check
+        has_system_not_at_start = any(
+            m.role == Role.SYSTEM for m in messages[1:]
+        )
+
+        # 4. Empty turns check
         def _text(m: Message) -> str:
             return DataQualityAnalyzer.get_text_content(m)
 
@@ -136,6 +156,8 @@ class DataQualityAnalyzer(ConversationAnalyzer[DataQualityMetrics]):
 
         return DataQualityMetrics(
             has_non_alternating_turns=has_non_alternating,
+            has_no_user_message=has_no_user,
+            has_system_message_not_at_start=has_system_not_at_start,
             has_empty_turns=empty_count > 0,
             empty_turn_count=empty_count,
             has_invalid_values=len(patterns_found) > 0,
