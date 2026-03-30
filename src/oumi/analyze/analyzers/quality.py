@@ -58,11 +58,14 @@ class DataQualityMetrics(BaseModel):
         )
     )
     has_no_user_message: bool = Field(
-        description="True if the conversation contains no user message"
+        description=(
+            "True if the conversation contains no user message "
+            "(including empty conversations)"
+        )
     )
     has_system_message_not_at_start: bool = Field(
         description=(
-            "True if a system message exists but is not the first message "
+            "True if any system message appears after position 0 "
             "in the conversation"
         )
     )
@@ -87,8 +90,10 @@ class DataQualityMetrics(BaseModel):
 class DataQualityAnalyzer(ConversationAnalyzer[DataQualityMetrics]):
     """Analyzer for basic data quality checks on conversations.
 
-    Checks for three common data quality issues without requiring an LLM:
+    Checks for five common data quality issues without requiring an LLM:
     - Non-alternating user/assistant message patterns
+    - Missing user messages
+    - System messages not at the start of the conversation
     - Empty or whitespace-only turns
     - Values serialized as strings (NaN, null, None, undefined)
 
@@ -122,8 +127,10 @@ class DataQualityAnalyzer(ConversationAnalyzer[DataQualityMetrics]):
         Returns:
             DataQualityMetrics with the quality check results.
         """
+        messages = conversation.messages
+
         # 1. Non-alternating turns check (ignoring system messages)
-        roles = [m.role.value for m in conversation.messages]
+        roles = [m.role.value for m in messages]
         non_system = [r for r in roles if r != "system"]
         has_non_alternating = False
         for i in range(1, len(non_system)):
@@ -132,23 +139,20 @@ class DataQualityAnalyzer(ConversationAnalyzer[DataQualityMetrics]):
                 break
 
         # 2. No user message check
-        messages = conversation.messages
         has_no_user = not any(m.role == Role.USER for m in messages)
 
         # 3. System message not at position 0 check
-        has_system_not_at_start = any(
-            m.role == Role.SYSTEM for m in messages[1:]
-        )
+        has_system_not_at_start = any(m.role == Role.SYSTEM for m in messages[1:])
 
         # 4. Empty turns check
         def _text(m: Message) -> str:
             return DataQualityAnalyzer.get_text_content(m)
 
-        empty_count = sum(1 for m in conversation.messages if not _text(m).strip())
+        empty_count = sum(1 for m in messages if not _text(m).strip())
 
-        # 3. Invalid serialized values check
+        # 5. Invalid serialized values check
         patterns_found: set[str] = set()
-        for message in conversation.messages:
+        for message in messages:
             content = _text(message)
             for pattern, name in _INVALID_VALUE_PATTERNS:
                 if pattern.search(content):
