@@ -370,6 +370,11 @@ def _build_report(
             report.phase_durations_s["dry_run"] = round(time.time() - phase_start, 2)
             _checkpoint()
 
+    # Enrich entries with model metadata and complexity scores
+    from config_health.core.enrichment import enrich_entries
+
+    enrich_entries(report.entries)
+
     # Coverage analysis + suggestions (fast, no progress needed)
     report.coverage_gaps = analyze_coverage(report.entries)
     for entry in report.entries:
@@ -1053,3 +1058,65 @@ def scaffold(model_name: str, tasks: str, output_dir: str | None, no_lora: bool)
                 console.print()
         except ValueError as e:
             console.print(f"  [red]✗[/red] {e}")
+
+
+@main.command()
+@click.argument("old_report", type=click.Path(exists=True))
+@click.argument("new_report", type=click.Path(exists=True))
+@click.option("--output", "-o", type=str, default=None, help="Save diff as markdown to this path")
+def diff(old_report: str, new_report: str, output: str | None):
+    """Compare two report.json files and show what changed.
+
+    \b
+    Examples:
+      config-health diff old/report.json new/report.json
+      config-health diff old/report.json new/report.json -o diff.md
+    """
+    from config_health.core.models import HealthReport
+    from config_health.core.report_diff import diff_reports
+
+    old = HealthReport.from_json(old_report)
+    new = HealthReport.from_json(new_report)
+    result = diff_reports(old, new)
+
+    if not result.has_changes:
+        console.print("[green]No changes between reports.[/green]")
+        return
+
+    # Print summary
+    if result.new_failures:
+        console.print(f"[bold red]New Failures ({len(result.new_failures)}):[/bold red]")
+        for path, msg in result.new_failures:
+            console.print(f"  [red]✗[/red] {path}: {msg}")
+        console.print()
+
+    if result.resolved_failures:
+        console.print(f"[bold green]Resolved Failures ({len(result.resolved_failures)}):[/bold green]")
+        for path, msg in result.resolved_failures:
+            console.print(f"  [green]✓[/green] {path}: {msg}")
+        console.print()
+
+    if result.new_warnings:
+        console.print(f"[bold yellow]New Warnings ({len(result.new_warnings)}):[/bold yellow]")
+        for path, msg in result.new_warnings:
+            console.print(f"  [yellow]⚠[/yellow] {path}: {msg}")
+        console.print()
+
+    if result.resolved_warnings:
+        console.print(f"[bold green]Resolved Warnings ({len(result.resolved_warnings)}):[/bold green]")
+        for path, msg in result.resolved_warnings:
+            console.print(f"  [green]✓[/green] {path}: {msg}")
+        console.print()
+
+    if result.new_configs:
+        console.print(f"[dim]New configs: {len(result.new_configs)}[/dim]")
+    if result.removed_configs:
+        console.print(f"[dim]Removed configs: {len(result.removed_configs)}[/dim]")
+
+    if output:
+        with open(output, "w") as f:
+            f.write(result.to_markdown())
+        console.print(f"\n[bold]Diff saved to {output}[/bold]")
+
+    if result.is_regression:
+        sys.exit(1)

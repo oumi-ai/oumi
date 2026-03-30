@@ -1,226 +1,208 @@
 {% extends "base.html" %}
-{% block nav_coverage %}text-white bg-white/10{% endblock %}
+{% block nav_coverage %}text-gray-900 bg-gray-100{% endblock %}
 {% block title %}Coverage — Config Health{% endblock %}
 
 {% block content %}
-<div class="mb-6">
-    <h2 class="text-lg font-semibold text-white mb-1">Coverage Matrix</h2>
-    <p class="text-sm text-gray-500">Model families vs config types. Green cells have configs, dashes are gaps.</p>
+<!-- Search -->
+<div class="mb-6 flex items-center gap-4">
+    <div class="relative flex-1 max-w-sm">
+        <svg class="w-4 h-4 text-gray-300 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+        <input type="text" id="family-search" placeholder="Search families or models..."
+            class="w-full bg-gray-50 border border-gray-200 rounded-lg pl-9 pr-3 py-2 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:border-indigo-400"
+            oninput="filterFamilies(this.value)">
+    </div>
+    <div class="text-sm text-gray-400">
+        {{ families|length }} families · {{ families|map(attribute='config_count')|sum }} configs
+    </div>
 </div>
 
-<!-- Matrix -->
-<div class="bg-surface-900 rounded-xl border border-white/5 overflow-x-auto mb-8">
-    <table class="w-full text-sm">
-        <thead>
-            <tr class="border-b border-white/5">
-                <th class="px-4 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-surface-900 z-10">Family</th>
-                {% for ct in col_types %}
-                <th class="px-4 py-3 text-center text-[10px] font-medium text-gray-500 uppercase tracking-wider">{{ ct }}</th>
+<!-- Family list -->
+<div id="family-list" class="space-y-1 mb-10">
+    {% for f in families %}
+    <div class="family-item border border-gray-100 rounded-lg overflow-hidden" data-name="{{ f.name }}" data-model="{{ f.model_name_sample }}">
+        <!-- Summary row (always visible) -->
+        <div class="flex items-center gap-4 px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors"
+             onclick="this.parentElement.classList.toggle('expanded')">
+            <!-- Score bar -->
+            <div class="w-24 flex-shrink-0">
+                <div class="flex h-1.5 rounded-full overflow-hidden bg-gray-100">
+                    <div class="rounded-full {% if f.score >= 1.0 %}bg-emerald-500{% elif f.score >= 0.66 %}bg-emerald-400{% elif f.score >= 0.33 %}bg-amber-400{% else %}bg-red-400{% endif %}"
+                         style="width: {{ (f.score * 100)|round }}%"></div>
+                </div>
+            </div>
+
+            <!-- Family name -->
+            <span class="font-mono text-sm text-gray-900 w-36 flex-shrink-0 font-medium">{{ f.name }}</span>
+
+            <!-- Type indicators -->
+            <div class="flex items-center gap-1.5">
+                {% for t in ['training', 'inference', 'evaluation'] %}
+                {% if t in f.types_present %}
+                <span class="text-xs px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700">{{ t[:5] }}</span>
+                {% else %}
+                <a href="/scaffold?model={{ f.model_name_sample }}&task={{ t }}" class="text-xs px-1.5 py-0.5 rounded bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 transition-colors" title="Click to scaffold {{ t }} config" onclick="event.stopPropagation()">{{ t[:5] }}</a>
+                {% endif %}
                 {% endfor %}
-            </tr>
-        </thead>
-        <tbody>
-            {% for family in families %}
-            <tr class="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors">
-                <td class="px-4 py-2.5 font-mono text-gray-300 text-[13px] sticky left-0 bg-surface-900 z-10">{{ family }}</td>
-                {% for ct in col_types %}
-                <td class="px-4 py-2.5 text-center">
-                    {% set entries = matrix[family].get(ct, []) %}
-                    {% if entries %}
-                    <span class="inline-flex items-center justify-center w-7 h-5 rounded-md bg-emerald-500/15 text-emerald-400 text-[11px] font-medium">
-                        {{ entries|length }}
-                    </span>
-                    {% else %}
-                    <span class="text-gray-700/50">—</span>
+            </div>
+
+            <!-- Config count -->
+            <span class="text-sm text-gray-400 tabular-nums ml-auto">{{ f.config_count }}</span>
+
+            <!-- Expand arrow -->
+            <svg class="w-4 h-4 text-gray-300 transition-transform family-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 5 7 7-7 7"/></svg>
+        </div>
+
+        <!-- Drilldown (hidden by default) -->
+        <div class="family-detail hidden px-4 pb-4 pt-1 border-t border-gray-50 bg-gray-50/50">
+            <div class="grid grid-cols-3 gap-6 text-sm">
+                <!-- Config types -->
+                <div>
+                    <div class="text-xs text-gray-400 uppercase tracking-wider mb-2 font-medium">Config types</div>
+                    {% for t in col_types %}
+                    {% set count = f.all_types.get(t, 0) %}
+                    <div class="flex items-center justify-between py-0.5">
+                        <span class="text-gray-600">{{ t }}</span>
+                        {% if count > 0 %}
+                        <span class="text-emerald-600 tabular-nums font-medium">{{ count }}</span>
+                        {% else %}
+                        <a href="/scaffold?model={{ f.model_name_sample }}&task={{ t }}" class="text-red-400 hover:text-red-600 transition-colors text-xs">+ add</a>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Scales × types -->
+                <div>
+                    <div class="text-xs text-gray-400 uppercase tracking-wider mb-2 font-medium">Size × type</div>
+                    {% if f.scale_types %}
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-xs text-gray-400">
+                                <th class="text-left font-medium pb-1">Size</th>
+                                <th class="text-center font-medium pb-1">train</th>
+                                <th class="text-center font-medium pb-1">infer</th>
+                                <th class="text-center font-medium pb-1">eval</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for size, types in f.scale_types.items() %}
+                            <tr>
+                                <td class="text-gray-600 font-mono py-0.5">{{ size }}</td>
+                                {% for t in ['training', 'inference', 'evaluation'] %}
+                                <td class="text-center py-0.5">
+                                    {% if types.get(t, 0) > 0 %}
+                                    <span class="text-emerald-600">{{ types[t] }}</span>
+                                    {% else %}
+                                    <span class="text-red-300">—</span>
+                                    {% endif %}
+                                </td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                     {% endif %}
-                </td>
-                {% endfor %}
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
+                    {% if f.missing_scales %}
+                    <div class="mt-3 pt-2 border-t border-gray-100">
+                        <div class="text-xs text-gray-400 mb-1.5">Available on HF, no configs:</div>
+                        {% for s in f.missing_scales %}
+                        <div class="flex items-center gap-2 py-0.5">
+                            <span class="text-sm font-mono text-red-400">{{ s }}</span>
+                            <span class="text-xs text-gray-400 truncate" title="{{ f.missing_scale_models[s] }}">{{ f.missing_scale_models[s] }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    {% if not f.scale_types and not f.missing_scales %}
+                    <div class="text-gray-400 text-sm">No scale data</div>
+                    {% endif %}
+                </div>
 
-<!-- Coverage Gaps -->
-{% if gaps %}
-<div class="mb-8">
-    <h3 class="text-base font-semibold text-white mb-4">Coverage Gaps ({{ gaps|length }})</h3>
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-        {% for gap in gaps|sort(attribute='completeness') %}
-        <div class="bg-surface-900 border border-amber-500/10 rounded-xl p-4 hover:border-amber-500/20 transition-colors">
-            <div class="flex items-center gap-2 mb-3">
-                <span class="font-mono font-medium text-gray-200 text-sm">{{ gap.model_family }}</span>
-                <span class="text-[10px] px-1.5 py-0.5 rounded-md bg-surface-800 text-gray-500 font-medium">{{ gap.category }}</span>
-            </div>
-            <div class="text-[10px] text-gray-500 mb-1 font-medium uppercase tracking-wider">Missing</div>
-            <div class="flex flex-wrap gap-1 mb-3">
-                {% for m in gap.missing_types %}
-                <span class="text-[10px] px-2 py-0.5 rounded-md bg-red-500/10 text-red-400 font-medium">{{ m }}</span>
-                {% endfor %}
-            </div>
-            <div class="text-[10px] text-gray-500 mb-1 font-medium uppercase tracking-wider">Has</div>
-            <div class="flex flex-wrap gap-1 mb-3">
-                {% for e in gap.existing_types %}
-                <span class="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 font-medium">{{ e }}</span>
-                {% endfor %}
-            </div>
-            <div class="h-1 bg-surface-800 rounded-full overflow-hidden">
-                <div class="h-full rounded-full transition-all
-                    {% if gap.completeness >= 0.66 %}bg-emerald-500
-                    {% elif gap.completeness >= 0.33 %}bg-amber-500
-                    {% else %}bg-red-500{% endif %}"
-                    style="width: {{ (gap.completeness * 100)|round }}%"></div>
+                <!-- Architecture -->
+                <div>
+                    <div class="text-xs text-gray-400 uppercase tracking-wider mb-2 font-medium">Architecture</div>
+                    {% if f.arch_type %}
+                    <div class="text-gray-700 font-mono">{{ f.arch_type }}</div>
+                    {% endif %}
+                    {% if f.model_name_sample %}
+                    <div class="text-gray-400 text-sm mt-1 truncate" title="{{ f.model_name_sample }}">{{ f.model_name_sample }}</div>
+                    {% endif %}
+                    <div class="text-gray-400 text-sm mt-1">{{ f.category }}</div>
+                </div>
             </div>
         </div>
-        {% endfor %}
     </div>
-</div>
-{% else %}
-<div class="bg-surface-900 border border-white/5 rounded-xl p-10 text-center mb-8">
-    <svg class="w-10 h-10 mx-auto mb-3 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-    <p class="text-gray-400 text-sm">All model families have complete coverage</p>
-</div>
-{% endif %}
-
-<!-- Architecture Coverage -->
-{% set total_arch = arch_covered|length + arch_uncovered|length %}
-{% set vlm_covered = arch_covered|selectattr('is_vlm')|list %}
-{% set llm_covered = arch_covered|rejectattr('is_vlm')|list %}
-{% set oumi_registered = arch_covered|selectattr('in_oumi_registry')|list %}
-{% set oumi_uncovered_registered = arch_uncovered|selectattr('in_oumi_registry')|list %}
-<div class="mb-6">
-    <h2 class="text-lg font-semibold text-white mb-1">Architecture Coverage</h2>
-    <p class="text-sm text-gray-500">
-        Transformers supports {{ total_arch }} architectures (LLM + VLM).
-        Your configs cover <span class="text-emerald-400 font-medium">{{ arch_covered|length }}</span>
-        (<span class="text-blue-400">{{ llm_covered|length }} LLM</span>,
-         <span class="text-violet-400">{{ vlm_covered|length }} VLM</span>).
-        {% if oumi_registered %}
-        <span class="text-cyan-400">{{ oumi_registered|length }}</span> are in the Oumi registry.
-        {% endif %}
-    </p>
+    {% endfor %}
 </div>
 
-<!-- Summary bar -->
-{% if total_arch > 0 %}
-<div class="mb-6">
-    <div class="flex h-3 rounded-full overflow-hidden bg-surface-800">
-        <div class="bg-blue-500" style="width: {{ (llm_covered|length / total_arch * 100)|round }}%"
-             title="{{ llm_covered|length }} LLM covered"></div>
-        <div class="bg-violet-500" style="width: {{ (vlm_covered|length / total_arch * 100)|round }}%"
-             title="{{ vlm_covered|length }} VLM covered"></div>
+<!-- Architecture summary -->
+<div class="border-t border-gray-100 pt-8">
+    <div class="flex items-baseline gap-3 mb-4">
+        <span class="text-sm font-medium text-gray-900">Architectures</span>
+        <span class="text-sm text-gray-400">{{ covered_count }} of {{ total_arch }} covered</span>
     </div>
-    <div class="flex justify-between mt-1.5 text-[10px] text-gray-500">
-        <div class="flex gap-4">
-            <span><span class="inline-block w-2 h-2 rounded-sm bg-blue-500 mr-1 align-middle"></span>{{ llm_covered|length }} LLM</span>
-            <span><span class="inline-block w-2 h-2 rounded-sm bg-violet-500 mr-1 align-middle"></span>{{ vlm_covered|length }} VLM</span>
-        </div>
-        <span>{{ arch_uncovered|length }} uncovered</span>
-    </div>
-</div>
-{% endif %}
 
-<!-- Covered architectures -->
-{% if arch_covered %}
-<div class="mb-8">
-    <h3 class="text-base font-semibold text-white mb-3">
-        Covered Architectures ({{ arch_covered|length }})
-    </h3>
-    <div class="bg-surface-900 rounded-xl border border-white/5 overflow-x-auto">
-        <table class="w-full text-sm">
-            <thead>
-                <tr class="border-b border-white/5">
-                    <th class="px-4 py-2.5 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">model_type</th>
-                    <th class="px-4 py-2.5 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Class</th>
-                    <th class="px-4 py-2.5 text-center text-[10px] font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                    <th class="px-4 py-2.5 text-center text-[10px] font-medium text-gray-500 uppercase tracking-wider">Oumi</th>
-                    <th class="px-4 py-2.5 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Config Types</th>
-                    <th class="px-4 py-2.5 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Models</th>
-                    <th class="px-4 py-2.5 text-right text-[10px] font-medium text-gray-500 uppercase tracking-wider">Configs</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for arch in arch_covered %}
-                <tr class="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors">
-                    <td class="px-4 py-2 font-mono text-[13px] {% if arch.is_vlm %}text-violet-400{% else %}text-emerald-400{% endif %}">{{ arch.model_type }}</td>
-                    <td class="px-4 py-2 font-mono text-gray-500 text-[11px]">{{ arch.model_class }}</td>
-                    <td class="px-4 py-2 text-center">
-                        {% if arch.is_vlm %}
-                        <span class="text-[10px] px-1.5 py-0.5 rounded-md bg-violet-500/10 text-violet-400 font-medium">VLM</span>
-                        {% else %}
-                        <span class="text-[10px] px-1.5 py-0.5 rounded-md bg-blue-500/10 text-blue-400 font-medium">LLM</span>
-                        {% endif %}
-                    </td>
-                    <td class="px-4 py-2 text-center">
-                        {% if arch.oumi_tested %}
-                        <span class="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 font-medium" title="Registered and tested in Oumi">tested</span>
-                        {% elif arch.in_oumi_registry %}
-                        <span class="text-[10px] px-1.5 py-0.5 rounded-md bg-cyan-500/10 text-cyan-400 font-medium" title="Registered in Oumi (not yet tested)">registered</span>
-                        {% else %}
-                        <span class="text-gray-700" title="Not in Oumi registry — uses default AutoModelForCausalLM">—</span>
-                        {% endif %}
-                    </td>
-                    <td class="px-4 py-2">
-                        <div class="flex flex-wrap gap-1">
-                            {% for ct in arch.config_types %}
-                            <span class="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 font-medium">{{ ct }}</span>
-                            {% endfor %}
-                        </div>
-                    </td>
-                    <td class="px-4 py-2 max-w-[280px]">
-                        <div class="flex flex-wrap gap-1">
-                            {% for m in arch.model_names[:3] %}
-                            <span class="text-[10px] px-1.5 py-0.5 rounded-md bg-surface-800 text-gray-400 font-mono truncate max-w-[160px]">{{ m }}</span>
-                            {% endfor %}
-                            {% if arch.model_names|length > 3 %}
-                            <span class="text-[10px] text-gray-600">+{{ arch.model_names|length - 3 }}</span>
-                            {% endif %}
-                        </div>
-                    </td>
-                    <td class="px-4 py-2 text-right">
-                        <span class="text-[13px] font-medium text-gray-300">{{ arch.config_count }}</span>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
-{% endif %}
-
-<!-- Uncovered architectures -->
-{% if arch_uncovered %}
-{% set uncov_oumi = arch_uncovered|selectattr('in_oumi_registry')|list %}
-{% set uncov_vlm = arch_uncovered|selectattr('is_vlm')|list %}
-{% set uncov_llm = arch_uncovered|rejectattr('is_vlm')|list %}
-<div class="mb-6">
-    <h3 class="text-base font-semibold text-white mb-3">
-        Uncovered Architectures ({{ arch_uncovered|length }})
-        <span class="text-sm font-normal text-gray-500 ml-2">Supported by transformers but no configs found</span>
-    </h3>
-    {% if uncov_oumi %}
-    <div class="bg-surface-900 rounded-xl border border-amber-500/10 p-4 mb-3">
-        <div class="text-[11px] text-amber-400 font-medium mb-2">In Oumi registry but no configs:</div>
-        <div class="flex flex-wrap gap-2">
-            {% for arch in uncov_oumi %}
-            <span class="text-[11px] px-2 py-1 rounded-md font-mono
-                {% if arch.is_vlm %}bg-violet-500/10 text-violet-400{% else %}bg-cyan-500/10 text-cyan-400{% endif %}"
-                  title="{{ arch.model_class }}{% if arch.oumi_tested %} (tested){% endif %}">{{ arch.model_type }}{% if arch.is_vlm %} <span class="opacity-50">VLM</span>{% endif %}</span>
+    {% if arch_covered %}
+    <div class="mb-6">
+        <div class="text-xs text-gray-400 uppercase tracking-wider mb-2 font-medium">In your configs</div>
+        <div class="flex flex-wrap gap-1.5">
+            {% for arch in arch_covered %}
+            <span class="text-xs px-2 py-1 rounded font-mono
+                {% if arch.oumi_tested %}bg-emerald-50 text-emerald-700
+                {% elif arch.in_oumi_registry %}bg-gray-100 text-gray-600
+                {% else %}bg-gray-50 text-gray-500{% endif %}"
+                title="{{ arch.model_class }} · {{ arch.config_count }} configs{% if arch.is_vlm %} · VLM{% endif %}">{{ arch.model_type }}{% if arch.is_vlm %} <span class="text-violet-500">●</span>{% endif %}</span>
             {% endfor %}
         </div>
     </div>
     {% endif %}
-    <div class="bg-surface-900 rounded-xl border border-white/5 p-4">
-        <div class="text-[11px] text-gray-500 font-medium mb-2">Other ({{ arch_uncovered|length - uncov_oumi|length }}):</div>
+
+    {% if arch_uncovered_oumi %}
+    <div class="mb-6">
+        <div class="text-xs text-gray-400 uppercase tracking-wider mb-2 font-medium">Oumi-supported, no configs yet</div>
         <div class="flex flex-wrap gap-1.5">
-            {% for arch in arch_uncovered if not arch.in_oumi_registry %}
-            <span class="text-[10px] px-2 py-0.5 rounded-md font-mono
-                {% if arch.is_vlm %}bg-violet-500/5 text-violet-500/50{% else %}bg-surface-800 text-gray-600{% endif %}
-                hover:text-gray-300 transition-colors"
-                  title="{{ arch.model_class }}{% if arch.is_vlm %} (VLM){% endif %}">{{ arch.model_type }}</span>
+            {% for arch in arch_uncovered_oumi %}
+            <span class="text-xs px-2 py-1 rounded font-mono bg-amber-50 text-amber-700"
+                title="{{ arch.model_class }}{% if arch.is_vlm %} · VLM{% endif %}">{{ arch.model_type }}{% if arch.is_vlm %} <span class="text-violet-500">●</span>{% endif %}</span>
             {% endfor %}
         </div>
     </div>
+    {% endif %}
+
+    {% if arch_uncovered_other %}
+    <details>
+        <summary class="text-sm text-gray-400 cursor-pointer hover:text-gray-600 transition-colors">
+            {{ arch_uncovered_other|length }} other uncovered architectures
+        </summary>
+        <div class="flex flex-wrap gap-1 mt-3">
+            {% for arch in arch_uncovered_other %}
+            <span class="text-xs px-1.5 py-0.5 rounded font-mono {% if arch.is_vlm %}text-violet-400 bg-violet-50{% else %}text-gray-400 bg-gray-50{% endif %}"
+                title="{{ arch.model_class }}{% if arch.is_vlm %} · VLM{% endif %}">{{ arch.model_type }}</span>
+            {% endfor %}
+        </div>
+    </details>
+    {% endif %}
 </div>
-{% endif %}
+
+<script>
+// Expand/collapse family details
+document.querySelectorAll('.family-item').forEach(item => {
+    const observer = new MutationObserver(() => {
+        const expanded = item.classList.contains('expanded');
+        item.querySelector('.family-detail').classList.toggle('hidden', !expanded);
+        item.querySelector('.family-arrow').style.transform = expanded ? 'rotate(90deg)' : '';
+    });
+    observer.observe(item, { attributes: true, attributeFilter: ['class'] });
+});
+
+// Search filter
+function filterFamilies(query) {
+    const q = query.toLowerCase();
+    document.querySelectorAll('.family-item').forEach(item => {
+        const name = item.dataset.name.toLowerCase();
+        const model = (item.dataset.model || '').toLowerCase();
+        item.style.display = (!q || name.includes(q) || model.includes(q)) ? '' : 'none';
+    });
+}
+</script>
 {% endblock %}

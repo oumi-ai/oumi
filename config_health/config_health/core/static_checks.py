@@ -32,7 +32,14 @@ def run_static_checks(
     if data is None:
         return results
 
+    # Skip deeper checks for configs that failed to parse — they'll have
+    # noisy false positives (e.g., accelerate.yaml flagged for missing model_name)
+    if entry.parse_error:
+        return results
+
+    results.extend(_check_unknown_keys(entry, data))
     results.extend(_check_cross_field(entry, data))
+    results.extend(_check_trainer_specific(entry, data))
     results.extend(_check_file_references(entry, data, repo_root))
     results.extend(_check_completeness(entry, data))
     return results
@@ -140,6 +147,257 @@ def _check_finalize_and_validate(entry: ConfigEntry) -> CheckResult:
             severity=Severity.ERROR,
             details=msg[:500] if len(msg) > 200 else None,
         )
+
+
+def _check_unknown_keys(entry: ConfigEntry, data: dict) -> list[CheckResult]:
+    """Detect unknown/misspelled YAML keys by comparing against OmegaConf schema.
+
+    Top-level unknown keys → FAIL (almost certainly a typo).
+    Nested unknown keys → WARN (could be intentional pass-through like model_kwargs).
+    """
+    results: list[CheckResult] = []
+
+    # Skip for configs that already failed to parse or have unknown type
+    if entry.parse_error or entry.config_type == ConfigType.UNKNOWN:
+        return results
+
+    schema = _get_config_schema(entry.config_type)
+    if not schema:
+        return results
+
+    # Check top-level keys
+    for key in data:
+        if key not in schema:
+            suggestion = _suggest_key(key, schema)
+            msg = f"Unknown top-level key '{key}'"
+            if suggestion:
+                msg += f" — did you mean '{suggestion}'?"
+            results.append(
+                CheckResult(
+                    config_path=entry.path,
+                    check_name="unknown_key",
+                    status=CheckStatus.FAIL,
+                    message=msg,
+                    severity=Severity.ERROR,
+                )
+            )
+
+    # Check nested keys in known sections
+    _NESTED_SCHEMAS = _get_nested_schemas()
+    for section_key, section_fields in _NESTED_SCHEMAS.items():
+        section_data = data.get(section_key)
+        if not isinstance(section_data, dict):
+            continue
+        for key in section_data:
+            if key not in section_fields:
+                suggestion = _suggest_key(key, section_fields)
+                msg = f"Unknown key '{section_key}.{key}'"
+                if suggestion:
+                    msg += f" — did you mean '{suggestion}'?"
+                results.append(
+                    CheckResult(
+                        config_path=entry.path,
+                        check_name="unknown_key",
+                        status=CheckStatus.WARN,
+                        message=msg,
+                        severity=Severity.WARNING,
+                    )
+                )
+
+    return results
+
+
+def _suggest_key(unknown: str, valid_keys: object) -> str | None:
+    """Suggest the closest valid key using edit distance."""
+    best = None
+    best_dist = float("inf")
+    for valid in valid_keys:
+        dist = _edit_distance(unknown.lower(), valid.lower())
+        if dist < best_dist and dist <= max(2, len(unknown) // 3):
+            best = valid
+            best_dist = dist
+    return best
+
+
+def _edit_distance(a: str, b: str) -> int:
+    """Levenshtein distance between two strings."""
+    if len(a) > len(b):
+        a, b = b, a
+    prev = list(range(len(a) + 1))
+    for j in range(1, len(b) + 1):
+        curr = [j] + [0] * len(a)
+        for i in range(1, len(a) + 1):
+            cost = 0 if a[i - 1] == b[j - 1] else 1
+            curr[i] = min(curr[i - 1] + 1, prev[i] + 1, prev[i - 1] + cost)
+        prev = curr
+    return prev[len(a)]
+
+
+# Schema cache — built once per process
+_schema_cache: dict[str, dict[str, set[str]]] = {}
+
+
+def _get_config_schema(config_type: ConfigType) -> set[str] | None:
+    """Get the set of valid top-level YAML keys for a config type."""
+    import dataclasses
+
+    if "top_level" in _schema_cache:
+        return _schema_cache["top_level"].get(config_type.value)
+
+    # Build schemas from oumi config dataclasses
+    try:
+        from oumi.core.configs import (
+            AnalyzeConfig,
+            AsyncEvaluationConfig,
+            EvaluationConfig,
+            InferenceConfig,
+            JobConfig,
+            JudgeConfig,
+            QuantizationConfig,
+            SynthesisConfig,
+            TrainingConfig,
+            TuningConfig,
+        )
+
+        type_to_cls = {
+            "training": TrainingConfig,
+            "inference": InferenceConfig,
+            "evaluation": EvaluationConfig,
+            "job": JobConfig,
+            "judge": JudgeConfig,
+            "synthesis": SynthesisConfig,
+            "quantization": QuantizationConfig,
+            "analyze": AnalyzeConfig,
+            "async_evaluation": AsyncEvaluationConfig,
+            "tuning": TuningConfig,
+        }
+
+        _schema_cache["top_level"] = {}
+        for type_name, cls in type_to_cls.items():
+            _schema_cache["top_level"][type_name] = {
+                f.name for f in dataclasses.fields(cls)
+            }
+    except Exception:
+        _schema_cache["top_level"] = {}
+
+    return _schema_cache["top_level"].get(config_type.value)
+
+
+def _get_nested_schemas() -> dict[str, set[str]]:
+    """Get valid keys for nested config sections (model, training, data, fsdp, peft)."""
+    if "nested" in _schema_cache:
+        return _schema_cache["nested"]
+
+    import dataclasses
+
+    result: dict[str, set[str]] = {}
+    try:
+        from oumi.core.configs.params.data_params import DataParams
+        from oumi.core.configs.params.fsdp_params import FSDPParams
+        from oumi.core.configs.params.model_params import ModelParams
+        from oumi.core.configs.params.peft_params import PeftParams
+        from oumi.core.configs.params.training_params import TrainingParams
+
+        for name, cls in [
+            ("model", ModelParams),
+            ("training", TrainingParams),
+            ("data", DataParams),
+            ("fsdp", FSDPParams),
+            ("peft", PeftParams),
+        ]:
+            result[name] = {f.name for f in dataclasses.fields(cls)}
+    except Exception:
+        pass
+
+    _schema_cache["nested"] = result
+    return result
+
+
+def _check_trainer_specific(entry: ConfigEntry, data: dict) -> list[CheckResult]:
+    """Validate trainer-type-specific required fields.
+
+    Different trainers (GRPO, GKD, GOLD, DPO, KTO) need specific config sections.
+    """
+    results: list[CheckResult] = []
+    if entry.config_type != ConfigType.TRAINING:
+        return results
+
+    training = data.get("training", {})
+    if not isinstance(training, dict):
+        return results
+
+    trainer_type = training.get("trainer_type", "")
+    if not isinstance(trainer_type, str):
+        return results
+
+    trainer_upper = trainer_type.upper()
+
+    # GRPO trainers need grpo section and reward_functions
+    if "GRPO" in trainer_upper:
+        grpo = training.get("grpo")
+        reward = training.get("reward_functions")
+        if not grpo and not reward:
+            results.append(
+                CheckResult(
+                    config_path=entry.path,
+                    check_name="trainer_grpo",
+                    status=CheckStatus.FAIL,
+                    message=(
+                        f"Trainer {trainer_type} requires 'training.grpo' section "
+                        "and/or 'training.reward_functions'"
+                    ),
+                    severity=Severity.ERROR,
+                )
+            )
+
+    # GKD trainer needs gkd section
+    if "GKD" in trainer_upper:
+        if not training.get("gkd"):
+            results.append(
+                CheckResult(
+                    config_path=entry.path,
+                    check_name="trainer_gkd",
+                    status=CheckStatus.FAIL,
+                    message=f"Trainer {trainer_type} requires 'training.gkd' section",
+                    severity=Severity.ERROR,
+                )
+            )
+
+    # GOLD trainer needs gold section
+    if "GOLD" in trainer_upper:
+        if not training.get("gold"):
+            results.append(
+                CheckResult(
+                    config_path=entry.path,
+                    check_name="trainer_gold",
+                    status=CheckStatus.FAIL,
+                    message=f"Trainer {trainer_type} requires 'training.gold' section",
+                    severity=Severity.ERROR,
+                )
+            )
+
+    # DPO trainer needs paired data (train split with specific format)
+    if "DPO" in trainer_upper or "KTO" in trainer_upper:
+        data_section = data.get("data", {})
+        if isinstance(data_section, dict):
+            train_data = data_section.get("train", {})
+            if isinstance(train_data, dict):
+                datasets = train_data.get("datasets", [])
+                if datasets and isinstance(datasets, list) and isinstance(datasets[0], dict):
+                    # DPO datasets should have a specific format
+                    ds = datasets[0]
+                    if not ds.get("dataset_name"):
+                        results.append(
+                            CheckResult(
+                                config_path=entry.path,
+                                check_name="trainer_dpo_data",
+                                status=CheckStatus.WARN,
+                                message=f"Trainer {trainer_type}: verify dataset provides preference pairs",
+                                severity=Severity.WARNING,
+                            )
+                        )
+
+    return results
 
 
 def _check_cross_field(entry: ConfigEntry, data: dict) -> list[CheckResult]:

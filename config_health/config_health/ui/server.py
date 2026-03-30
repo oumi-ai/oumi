@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from config_health.core.classifier import classify_config
-from config_health.core.coverage import analyze_coverage, build_arch_coverage, build_coverage_matrix
+from config_health.core.coverage import analyze_coverage, build_arch_coverage, build_coverage_matrix, build_scale_coverage
 from config_health.core.hub_checker import HubChecker
 from config_health.core.models import CheckStatus, ConfigEntry, ConfigType, GpuTier, HealthReport
 from config_health.core.optimizer import suggest_optimizations
@@ -82,6 +82,21 @@ def create_app(
             print(f"WARNING: startup scan failed: {exc}", file=sys.stderr)
             state["scan_error"] = str(exc)
         yield
+
+    def _build_scale_type_breakdown(
+        entries: list, sizes: list[str]
+    ) -> dict[str, dict[str, int]]:
+        """Build size -> {config_type: count} for drilldown view."""
+        result: dict[str, dict[str, int]] = {s: {} for s in sizes}
+        for e in entries:
+            if not e.model_meta or not e.model_meta.size_label:
+                continue
+            size = e.model_meta.size_label
+            if size not in result:
+                continue
+            ctype = e.config_type.value
+            result[size][ctype] = result[size].get(ctype, 0) + 1
+        return result
 
     app = FastAPI(title="Config Health Dashboard", lifespan=lifespan)
     templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
@@ -162,18 +177,92 @@ def create_app(
     async def coverage_page(request: Request):
         report: HealthReport = state["report"]
         matrix = build_coverage_matrix(report.entries)
-        col_types = ["training", "inference", "evaluation", "job", "judge", "synthesis"]
+        col_types = ["training", "inference", "evaluation"]
+        all_col_types = ["training", "inference", "evaluation", "job", "judge", "synthesis"]
 
-        # Architecture coverage (may be slow first time — resolves model_types from HF)
+        # Architecture coverage
         covered, uncovered = await asyncio.to_thread(build_arch_coverage, report.entries)
 
+        # Scale coverage
+        scale_matrix = build_scale_coverage(report.entries)
+
+        # Build per-family summaries for the drilldown view
+        gap_by_family = {g.model_family: g for g in report.coverage_gaps}
+        family_summaries = []
+        for family in sorted(matrix.keys()):
+            types_present = set(matrix[family].keys())
+            config_count = sum(len(v) for v in matrix[family].values())
+            expected = set(col_types)
+            present = types_present & expected
+            score = len(present) / len(expected) if expected else 1.0
+            gap = gap_by_family.get(family)
+            scales = scale_matrix.get(family, {})
+            sorted_scales = sorted(scales.keys(), key=lambda s: float(s.rstrip("B"))) if scales else []
+
+            # Find arch info and ALL sizes for this family's models
+            family_entries = [e for e in report.entries if e.model_family == family]
+            arch_type = ""
+            model_name_sample = ""
+            all_family_sizes: set[str] = set()
+            for e in family_entries:
+                if e.model_meta and e.model_meta.model_type and not arch_type:
+                    arch_type = e.model_meta.model_type
+                if e.model_name and not model_name_sample:
+                    model_name_sample = e.model_name
+                # Collect ALL sizes seen for this family (from any config type)
+                if e.model_meta and e.model_meta.size_label:
+                    all_family_sizes.add(e.model_meta.size_label)
+
+            # Discover all sizes that exist on HF Hub for this family
+            from config_health.core.enrichment import discover_hub_sizes
+
+            hub_sizes: dict[str, str] = {}  # size_label -> model_id
+            if model_name_sample:
+                for mid, size_b in discover_hub_sizes(model_name_sample):
+                    if size_b >= 1:
+                        label = f"{int(size_b)}B" if size_b == int(size_b) else f"{size_b:.1f}B"
+                    else:
+                        label = f"{size_b:.1f}B"
+                    hub_sizes[label] = mid
+
+            covered_sizes = set(scales.keys()) if scales else set()
+            # Missing = sizes on HF Hub that have no configs in recipes/projects
+            missing_from_hub = {s: mid for s, mid in hub_sizes.items() if s not in all_family_sizes}
+            sorted_missing = sorted(missing_from_hub.keys(), key=lambda s: float(s.rstrip("B")))
+
+            family_summaries.append({
+                "name": family,
+                "score": score,
+                "config_count": config_count,
+                "types_present": sorted(types_present),
+                "types_missing": sorted(expected - present),
+                "all_types": {t: len(matrix[family].get(t, [])) for t in all_col_types},
+                "scales": {s: len(scales[s]) for s in sorted_scales},
+                "missing_scales": sorted_missing,
+                "missing_scale_models": {s: missing_from_hub[s] for s in sorted_missing},
+                # Per-size per-type breakdown for the drilldown
+                "scale_types": _build_scale_type_breakdown(family_entries, sorted_scales or sorted(all_family_sizes, key=lambda s: float(s.rstrip("B")))),
+                "arch_type": arch_type,
+                "model_name_sample": model_name_sample,
+                "category": gap.category if gap else "recipes",
+            })
+
+        # Sort: incomplete families first, then by name
+        family_summaries.sort(key=lambda f: (f["score"], f["name"]))
+
+        # Architectures: covered, Oumi-registered uncovered, and all others
+        popular_covered = covered[:20]
+        oumi_uncovered = [a for a in uncovered if a.in_oumi_registry]
+        other_uncovered = [a for a in uncovered if not a.in_oumi_registry]
+
         return templates.TemplateResponse(request, "coverage.html", {
-            "matrix": matrix,
-            "col_types": col_types,
-            "gaps": report.coverage_gaps,
-            "families": sorted(matrix.keys()),
-            "arch_covered": covered,
-            "arch_uncovered": uncovered,
+            "families": family_summaries,
+            "col_types": all_col_types,
+            "arch_covered": popular_covered,
+            "arch_uncovered_oumi": oumi_uncovered,
+            "arch_uncovered_other": other_uncovered,
+            "total_arch": len(covered) + len(uncovered),
+            "covered_count": len(covered),
         })
 
     @app.get("/scaffold", response_class=HTMLResponse)
@@ -225,10 +314,12 @@ def create_app(
     async def rescan(request: Request):
         # Clear all caches before rescanning
         from config_health.core.coverage import clear_model_type_cache
+        from config_health.core.enrichment import clear_metadata_cache
         from config_health.core.scanner import clear_yaml_cache
 
         clear_yaml_cache()
         clear_model_type_cache()
+        clear_metadata_cache()
         state["scan_error"] = None
         state["report"] = await asyncio.to_thread(_scan)
         # Redirect to dashboard

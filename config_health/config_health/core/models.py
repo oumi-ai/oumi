@@ -103,6 +103,26 @@ CONFIG_CLASS_TO_TYPE: dict[str, ConfigType] = {
 
 
 @dataclass
+class ModelMetadata:
+    """Metadata about a model, pulled from HF or inferred."""
+
+    params_b: float = 0.0  # parameter count in billions
+    architecture: str = ""  # e.g. "LlamaForCausalLM"
+    model_type: str = ""  # e.g. "llama", "qwen2"
+    license: str = ""
+    is_vlm: bool = False
+
+    @property
+    def size_label(self) -> str:
+        """Human-readable size like '7B', '70B', '0.5B'."""
+        if self.params_b <= 0:
+            return ""
+        if self.params_b >= 1:
+            return f"{self.params_b:.0f}B" if self.params_b == int(self.params_b) else f"{self.params_b:.1f}B"
+        return f"{self.params_b:.1f}B"
+
+
+@dataclass
 class ConfigEntry:
     """A discovered config file with its metadata."""
 
@@ -117,6 +137,8 @@ class ConfigEntry:
     datasets: list[str] = field(default_factory=list)
     engine: str | None = None  # inference engine (e.g. NATIVE, OPENAI, ANTHROPIC)
     parse_error: str | None = None
+    model_meta: ModelMetadata | None = None  # populated during enrichment
+    complexity: int = 0  # count of enabled features (LoRA, FSDP, quant, etc.)
 
     @property
     def status(self) -> CheckStatus:
@@ -296,6 +318,10 @@ class HealthReport:
         for e in data.get("entries", []):
             e["config_type"] = ConfigType(e["config_type"])
             e["gpu_tier"] = GpuTier(e["gpu_tier"])
+            # Reconstruct ModelMetadata if present
+            meta = e.pop("model_meta", None)
+            if isinstance(meta, dict):
+                e["model_meta"] = ModelMetadata(**meta)
             report.entries.append(ConfigEntry(**e))
         for r in data.get("check_results", []):
             r["status"] = CheckStatus(r["status"])

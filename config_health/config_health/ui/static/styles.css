@@ -1,75 +1,67 @@
-/* Config Health Dashboard — custom styles */
+/* Config Health — Light instrument panel */
 
-/* HTMX loading indicator */
-.htmx-indicator {
-    display: none;
-}
-.htmx-request .htmx-indicator {
-    display: inline-block;
-}
-.htmx-request.htmx-indicator {
-    display: inline-block;
-}
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=DM+Sans:wght@400;500;600;700&display=swap');
 
-/* Scrollbar styling */
-::-webkit-scrollbar {
-    width: 5px;
-    height: 5px;
-}
-::-webkit-scrollbar-track {
-    background: transparent;
-}
-::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.15);
-}
+/* HTMX */
+.htmx-indicator { display: none; }
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator { display: inline-block; }
+.htmx-swapping { opacity: 0.5; transition: opacity 80ms ease-out; }
+.htmx-settling { opacity: 1; transition: opacity 120ms ease-in; }
 
-/* Smooth transitions for HTMX swaps */
-.htmx-swapping {
-    opacity: 0.6;
-    transition: opacity 100ms ease-out;
-}
-.htmx-settling {
-    opacity: 1;
-    transition: opacity 150ms ease-in;
-}
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.08); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.15); }
 
-/* Active (selected) config row — persistent state via JS onclick */
+/* Config list */
+.config-row { transition: background 80ms; }
+.config-row:hover { background: rgba(0,0,0,0.02); }
 .config-row.active {
-    background-color: rgba(59, 130, 246, 0.08);
-    border-left: 2px solid rgba(59, 130, 246, 0.5);
-    padding-left: 14px;  /* compensate for the 2px border */
+    background: rgba(99, 102, 241, 0.04);
+    box-shadow: inset 2px 0 0 rgb(99, 102, 241);
+}
+.config-row.htmx-request { opacity: 0.5; }
+
+/* Status card active */
+.stat-card { transition: all 150ms; }
+.stat-card.card-active {
+    box-shadow: inset 0 -2px 0 currentColor;
 }
 
-/* Loading state on config rows */
-.config-row.htmx-request {
-    opacity: 0.6;
-}
-
-/* Active summary card */
-.summary-card.card-active {
-    border-color: rgba(59, 130, 246, 0.3);
-    box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.15);
-    background-color: rgba(59, 130, 246, 0.04);
-}
-
-/* Focus visible for keyboard users */
+/* Focus */
 :focus-visible {
-    outline: 1px solid rgba(59, 130, 246, 0.5);
+    outline: 1px solid rgba(99, 102, 241, 0.5);
     outline-offset: -1px;
-    border-radius: 4px;
 }
 
-/* Select dropdowns — fix appearance in dark theme */
+/* Select */
 select {
     -webkit-appearance: none;
     appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3E%3C/svg%3E");
     background-position: right 6px center;
     background-repeat: no-repeat;
-    background-size: 16px;
-    padding-right: 28px;
+    background-size: 14px;
+    padding-right: 24px;
+}
+
+/* Tab navigation */
+.tab-btn { color: #9ca3af; border-bottom: 2px solid transparent; transition: all 150ms; }
+.tab-btn:hover { color: #374151; }
+.tab-btn.tab-active { color: #111827; border-color: #6366f1; }
+.tab-panel { display: none; }
+.tab-panel.tab-visible { display: block; }
+
+/* Section dividers */
+.section-label {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #9ca3af;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+    margin-bottom: 14px;
 }

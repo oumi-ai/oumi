@@ -1,35 +1,20 @@
 {% for entry in entries %}
-<div class="config-row px-4 py-2.5 border-b border-white/[0.03] hover:bg-white/[0.03] cursor-pointer transition-all duration-100"
+<div class="config-row px-3.5 py-2.5 cursor-pointer border-b border-gray-100"
      hx-get="/api/config-detail/{{ entry.path }}" hx-target="#detail-panel"
      onclick="document.querySelectorAll('.config-row').forEach(r=>r.classList.remove('active'));this.classList.add('active')">
     <div class="flex items-center gap-2.5">
-        <!-- Status indicator -->
         {% if entry.path in all_fail_paths %}
-        <span class="w-1.5 h-1.5 rounded-full bg-red-400 ring-2 ring-red-400/20 flex-shrink-0"></span>
+        <span class="w-2 h-2 rounded-full bg-red-500 flex-shrink-0"></span>
         {% elif entry.path in all_warn_paths %}
-        <span class="w-1.5 h-1.5 rounded-full bg-amber-400 ring-2 ring-amber-400/20 flex-shrink-0"></span>
+        <span class="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0"></span>
         {% else %}
-        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 ring-2 ring-emerald-400/20 flex-shrink-0"></span>
+        <span class="w-2 h-2 rounded-full bg-emerald-500/50 flex-shrink-0"></span>
         {% endif %}
-
-        <!-- Path -->
-        <span class="text-[13px] text-gray-300 truncate flex-1 font-mono leading-snug">{{ entry.short_path }}</span>
-    </div>
-    <div class="flex items-center gap-1.5 mt-1.5 ml-4">
-        <!-- Type badge -->
-        <span class="text-[10px] px-1.5 py-0.5 rounded-md bg-{{ entry.config_type.badge_color }}-500/10 text-{{ entry.config_type.badge_color }}-400 font-medium">{{ entry.config_type.value }}</span>
-        <!-- GPU tier badge -->
-        <span class="text-[10px] px-1.5 py-0.5 rounded-md bg-surface-800 text-gray-500">{{ entry.gpu_tier.label }}</span>
-        <!-- Model name -->
-        {% if entry.model_name %}
-        <span class="text-[10px] text-gray-600 truncate ml-auto">{{ entry.model_name }}</span>
-        {% endif %}
+        <span class="text-sm text-gray-700 truncate font-mono leading-tight flex-1">{{ entry.short_path }}</span>
+        <span class="text-xs text-gray-400 flex-shrink-0">{{ entry.config_type.value }}</span>
     </div>
 </div>
 {% endfor %}
 {% if not entries %}
-<div class="px-4 py-12 text-center text-gray-600 text-sm">
-    <svg class="w-8 h-8 mx-auto mb-2 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
-    No configs match filters
-</div>
+<div class="px-4 py-10 text-center text-sm text-gray-400">No configs match</div>
 {% endif %}

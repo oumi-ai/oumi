@@ -68,6 +68,26 @@ def build_coverage_matrix(
     return matrix
 
 
+def build_scale_coverage(
+    entries: list[ConfigEntry],
+) -> dict[str, dict[str, list[ConfigEntry]]]:
+    """Build model_family -> size_label -> [entries] matrix.
+
+    Groups configs by model family and model size (e.g. '7B', '70B').
+    """
+    matrix: dict[str, dict[str, list[ConfigEntry]]] = {}
+    for entry in entries:
+        if not entry.model_family or entry.category not in ("recipes", "projects"):
+            continue
+        size = ""
+        if entry.model_meta and entry.model_meta.size_label:
+            size = entry.model_meta.size_label
+        if not size:
+            continue
+        matrix.setdefault(entry.model_family, {}).setdefault(size, []).append(entry)
+    return matrix
+
+
 def _get_expected_types(category: str) -> set[str]:
     if category == "recipes":
         return _RECIPE_EXPECTED

@@ -88,9 +88,9 @@ def run_tier0_checks(entry: ConfigEntry) -> list[CheckResult]:
             CheckResult(
                 config_path=entry.path,
                 check_name="model_config_load",
-                status=CheckStatus.FAIL,
-                message=f"Cannot load model config: {model_name}",
-                severity=Severity.ERROR,
+                status=CheckStatus.WARN,
+                message=f"Cannot load model config: {model_name} (may be unreleased, gated, or renamed)",
+                severity=Severity.WARNING,
             )
         )
         return results  # Can't do further checks without config
@@ -294,7 +294,7 @@ def _load_architecture_info_uncached(model_name: str) -> _ArchInfo:
             cls_name = module.__class__.__name__
             if any(
                 kw in cls_name
-                for kw in ("DecoderLayer", "TransformerBlock", "Block")
+                for kw in ("DecoderLayer", "EncoderLayer", "TransformerBlock", "Block")
             ):
                 if name and name.split(".")[-1].isdigit():
                     if cls_name not in layer_classes:
@@ -309,10 +309,22 @@ def _load_architecture_info_uncached(model_name: str) -> _ArchInfo:
 
 
 def _get_config_and_class(config: Any) -> tuple[Any, Any]:
-    """Get the right config + class for instantiation, handling composite configs."""
+    """Get the right config + class for instantiation, handling composite configs.
+
+    For VLMs, uses the FULL config (not text_config) with the VLM auto class
+    so that vision encoder layers are included in architecture detection.
+    """
     import transformers
 
-    # Composite configs (e.g., Llama 4) nest text_config inside main config
+    # Try VLM classes first (they handle composite configs natively)
+    for auto_cls_name in ("AutoModelForImageTextToText", "AutoModelForVision2Seq"):
+        auto_cls = getattr(transformers, auto_cls_name, None)
+        if auto_cls and hasattr(auto_cls, "_model_mapping"):
+            model_class = auto_cls._model_mapping.get(type(config), None)
+            if model_class is not None:
+                return config, model_class
+
+    # Composite configs: try text_config with CausalLM
     if hasattr(config, "text_config") and config.text_config is not None:
         text_config = config.text_config
         model_class = transformers.AutoModelForCausalLM._model_mapping.get(
@@ -321,6 +333,7 @@ def _get_config_and_class(config: Any) -> tuple[Any, Any]:
         if model_class is not None:
             return text_config, model_class
 
+    # Standard CausalLM
     model_class = transformers.AutoModelForCausalLM._model_mapping.get(
         type(config), None
     )
@@ -520,6 +533,14 @@ def _check_max_length_vs_context(
         return results
 
     if configured_max_len > native_max:
+        # Check if the config uses RoPE scaling (YaRN, dynamic, linear) which
+        # intentionally extends context beyond max_position_embeddings
+        model_kwargs = (model_cfg.get("model_kwargs") or {}) if isinstance(model_cfg, dict) else {}
+        rope_scaling = model_kwargs.get("rope_scaling") or model_cfg.get("rope_scaling")
+        if rope_scaling:
+            # RoPE scaling is configured — this is intentional, not an error
+            return results
+
         results.append(
             CheckResult(
                 config_path=entry.path,

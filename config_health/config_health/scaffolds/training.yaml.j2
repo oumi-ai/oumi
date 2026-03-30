@@ -1,4 +1,6 @@
 # {{ model_name.split('/')[-1] }} SFT training config.
+#{% if is_vlm %} (Vision-Language Model){% endif %}
+{% if params_b %}# Estimated {{ params_b }}B parameters.{% endif %}
 #
 # Usage:
 #   oumi train -c <path-to-this-file>
@@ -10,12 +12,13 @@
 
 model:
   model_name: "{{ model_name }}"
-  # trust_remote_code: True  # uncomment only if the model requires it
-  torch_dtype_str: "bfloat16"
+{% if trust_remote_code %}  trust_remote_code: True
+{% endif %}  torch_dtype_str: "bfloat16"
 
 data:
   train:
-    datasets:
+{% if is_vlm and collator_name %}    collator_name: "{{ collator_name }}"
+{% endif %}    datasets:
       - dataset_name: "{{ dataset_name }}"
 
 training:
@@ -39,8 +42,9 @@ peft:
   lora_alpha: 32
   lora_dropout: 0
   lora_target_modules:
-    - "q_proj"
+{% if lora_targets %}{% for t in lora_targets %}    - "{{ t }}"
+{% endfor %}{% else %}    - "q_proj"
     - "k_proj"
     - "v_proj"
     - "o_proj"
-{% endif %}
+{% endif %}{% endif %}
