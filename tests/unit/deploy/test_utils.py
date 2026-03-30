@@ -15,7 +15,7 @@
 """Unit tests for oumi.deploy.utils."""
 
 import logging
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -111,7 +111,8 @@ class TestCheckHfModelAccessibility:
             from huggingface_hub.utils import GatedRepoError
 
             with patch(
-                "huggingface_hub.model_info", side_effect=GatedRepoError("gated")
+                "huggingface_hub.model_info",
+                side_effect=GatedRepoError("gated", response=MagicMock()),
             ):
                 assert check_hf_model_accessibility("meta-llama/Llama-3-8B") is False
         except ImportError:
@@ -123,7 +124,7 @@ class TestCheckHfModelAccessibility:
 
             with patch(
                 "huggingface_hub.model_info",
-                side_effect=RepositoryNotFoundError("not found"),
+                side_effect=RepositoryNotFoundError("not found", response=MagicMock()),
             ):
                 assert check_hf_model_accessibility("org/nonexistent") is False
         except ImportError:
