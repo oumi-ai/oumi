@@ -18,6 +18,8 @@ def tokenizer():
 
 
 class TestDataset(BasePretrainingDataset):
+    __test__ = False  # Prevent pytest collection
+
     def __init__(self, *args, mock_data=None, **kwargs):
         self.mock_data = (
             mock_data if mock_data is not None else self._default_mock_data()

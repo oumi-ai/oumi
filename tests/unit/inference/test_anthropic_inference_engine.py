@@ -39,6 +39,7 @@ def test_convert_conversation_to_api_input(anthropic_engine):
     assert result["messages"][1]["content"] == "Assistant message"
     assert result["messages"][1]["role"] == "assistant"
     assert result["max_tokens"] == 100
+    assert result["cache_control"] == {"type": "ephemeral"}
 
 
 def test_convert_api_output_to_conversation(anthropic_engine):

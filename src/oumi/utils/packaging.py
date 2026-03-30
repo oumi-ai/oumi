@@ -280,6 +280,21 @@ def is_vllm_v0_12_or_later() -> bool:
 
 
 @lru_cache(maxsize=1)
+def is_verl_v0_7_or_later() -> bool:
+    """Checks if verl version is 0.7.0 or later.
+
+    In verl v0.7, several APIs were changed:
+    - ResourcePoolManager.mapping type changed from dict[Role, str] to dict[int, str]
+    - RayPPOTrainer removed reward_fn and val_reward_fn parameters
+    """
+    try:
+        verl_version = importlib.metadata.version("verl")
+        return version.parse(verl_version) >= version.parse("0.7.0")
+    except importlib.metadata.PackageNotFoundError:
+        return False
+
+
+@lru_cache(maxsize=1)
 def is_trl_v0_28_or_later() -> bool:
     """Check if the installed TRL version is v0.28 or later."""
     try:
@@ -287,3 +302,29 @@ def is_trl_v0_28_or_later() -> bool:
         return version.parse(trl_version) >= version.parse("0.28.0")
     except importlib.metadata.PackageNotFoundError:
         return False
+
+
+def verify_trl_vllm_compatibility(feature_name: str) -> None:
+    """Checks TRL/vLLM compatibility before importing TRL trainers.
+
+    TRL imports vLLM at module level, which can cause import errors if versions
+    are incompatible. Call this before importing GRPO/GOLD trainers.
+    """
+    try:
+        vllm_ver = version.parse(importlib.metadata.version("vllm"))
+        trl_ver = version.parse(importlib.metadata.version("trl"))
+    except importlib.metadata.PackageNotFoundError:
+        return  # Missing package will fail later with a clearer error
+
+    # TRL < 0.27 uses GuidedDecodingParams (removed in vLLM 0.12)
+    # TRL >= 0.27 uses StructuredOutputsParams (added in vLLM 0.11)
+    if trl_ver < version.parse("0.27.0") and vllm_ver >= version.parse("0.12.0"):
+        raise RuntimeError(
+            f"{feature_name}: TRL {trl_ver} requires vLLM < 0.12.0, "
+            f"but found {vllm_ver}. Upgrade TRL or downgrade vLLM."
+        )
+    if trl_ver >= version.parse("0.27.0") and vllm_ver < version.parse("0.11.0"):
+        raise RuntimeError(
+            f"{feature_name}: TRL {trl_ver} requires vLLM >= 0.11.0, "
+            f"but found {vllm_ver}. Upgrade vLLM or downgrade TRL."
+        )

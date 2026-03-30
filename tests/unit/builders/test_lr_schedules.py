@@ -286,6 +286,7 @@ def test_no_warmup_logging(mock_logger_info, optimizer, training_params):
 def test_linear_scheduler_lr_values(optimizer, training_params):
     num_training_steps = 100
     scheduler = build_lr_scheduler(optimizer, training_params, num_training_steps)
+    optimizer.step()
     scheduler.step()
 
     # Check initial LR
@@ -306,6 +307,7 @@ def test_cosine_scheduler_lr_values(optimizer, training_params):
     training_params.lr_scheduler_type = SchedulerType.COSINE
     num_training_steps = 100
     scheduler = build_lr_scheduler(optimizer, training_params, num_training_steps)
+    optimizer.step()
     scheduler.step()
 
     # Check initial LR
@@ -327,6 +329,7 @@ def test_cosine_scheduler_lr_values(optimizer, training_params):
 def test_constant_scheduler_lr_values(optimizer, training_params):
     training_params.lr_scheduler_type = SchedulerType.CONSTANT
     scheduler = build_lr_scheduler(optimizer, training_params)
+    optimizer.step()
     scheduler.step()
 
     # Check initial LR
