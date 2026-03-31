@@ -23,11 +23,10 @@
 
 ## 🔥 News
 
-- [2026/03] Upgraded to Transformers v5, TRL v0.30, vLLM v0.19, and veRL v0.7 compatibility
-- [2026/03] [MCP Integration Phase 1](https://github.com/oumi-ai/oumi/pull/2234): package scaffold and dependencies for MCP server support
-- [2026/03] New: `oumi deploy` command for deploying oumi models dedicated inference endpoints on fireworks.ai and parasail
 - [2026/03] Added support for Qwen3.5 model family
-- [2026/03] Inference engines received multiple improvements: list_models api, improved error reporting
+- [2026/03] [MCP Integration](https://github.com/oumi-ai/oumi/pull/2234): oumi mcp is now available
+- [2026/03] New: `oumi deploy` command for deploying oumi models dedicated inference endpoints on fireworks.ai and parasail
+- [2026/03] Upgraded to Transformers v5, TRL v0.30, vLLM v0.19, and veRL v0.7 compatibility
 - [2026/02] [Preview of using the Oumi Platform and Lambda to fine-tune and deploy a 4B model for user intent classification](https://youtu.be/0XpfYRpd_FA)
 - [2026/02] [Lambda and Oumi partner for end-to-end custom model development](https://blog.oumi.ai/p/lambda-and-oumi-partner-for-end-to)
 - [2025/12] [Oumi v0.6.0 released](https://github.com/oumi-ai/oumi/releases/tag/v0.6.0) with Python 3.13 support, `oumi analyze` CLI command, TRL 0.26+ support, and more
@@ -38,7 +37,7 @@
 - [2025/10] [Oumi v0.4.1](https://github.com/oumi-ai/oumi/releases/tag/v0.4.1) and [v0.4.2](https://github.com/oumi-ai/oumi/releases/tag/v0.4.2) released] with support for Qwen3-VL and Transformers v4.56, data synthesis documentation and examples, and many bug fixes
 
 <details>
-<summary>Older updates</summary>
+<summary>Other updates</summary>
 
 - [2025/09] [Oumi v0.4.0 released](https://github.com/oumi-ai/oumi/releases/tag/v0.4.0) with DeepSpeed support, a Hugging Face Hub cache management tool, KTO/Vision DPO trainer support
 - [2025/08] Training and inference support for OpenAI's `gpt-oss-20b` and `gpt-oss-120b`: [recipes here](https://github.com/oumi-ai/oumi/tree/main/configs/recipes/gpt_oss)
