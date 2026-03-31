@@ -74,3 +74,6 @@ class InferenceEngineType(str, Enum):
 
     CEREBRAS = "CEREBRAS"
     """The inference engine for Cerebras API."""
+
+    HUGGING_FACE = "HUGGING_FACE"
+    """The inference engine for HuggingFace Inference Providers API."""
