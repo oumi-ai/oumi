@@ -638,7 +638,9 @@ class TestBaseJudge:
         assert result[0].metadata == {"id": "conv1", "custom": "data1"}
         assert result[1].metadata == {"id": "conv2", "custom": "data2"}
 
-        mock_inference_engine.infer.assert_called_once_with(input=input_convs)
+        mock_inference_engine.infer.assert_called_once_with(
+            input=input_convs, progress_callback=None
+        )
 
     def test_infer_length_mismatch(self, base_judge, mock_inference_engine):
         input_convs = [Conversation(messages=[Message(content="test", role=Role.USER)])]
@@ -1066,3 +1068,66 @@ class TestBaseJudge:
         assert base_judge.total_input_tokens == 22
         assert base_judge.total_output_tokens == 11
         assert base_judge.total_cached_tokens == 11
+
+    def test_judge_forwards_progress_callback(
+        self, mock_inference_engine, sample_output_fields
+    ):
+        """Test that judge() forwards progress_callback to the inference engine."""
+        judge = BaseJudge(
+            prompt_template="Is this helpful? Question: {question}, Answer: {answer}",
+            prompt_template_placeholders={"question", "answer"},
+            system_instruction=None,
+            example_field_values=[],
+            response_format=JudgeResponseFormat.XML,
+            output_fields=sample_output_fields,
+            inference_engine=mock_inference_engine,
+        )
+
+        mock_inference_engine.infer.return_value = [
+            Conversation(
+                messages=[
+                    Message(content="prompt", role=Role.USER),
+                    Message(
+                        content="<judgment>True</judgment>", role=Role.ASSISTANT
+                    ),
+                ]
+            ),
+        ]
+
+        callback = Mock()
+        inputs = [{"question": "What is 1+1?", "answer": "2"}]
+        judge.judge(inputs, progress_callback=callback)
+
+        # Verify infer was called with progress_callback
+        mock_inference_engine.infer.assert_called_once()
+        assert mock_inference_engine.infer.call_args[1]["progress_callback"] is callback
+
+    def test_judge_progress_callback_defaults_to_none(
+        self, mock_inference_engine, sample_output_fields
+    ):
+        """Test that judge() passes None when no callback is provided."""
+        judge = BaseJudge(
+            prompt_template="Is this helpful? Question: {question}, Answer: {answer}",
+            prompt_template_placeholders={"question", "answer"},
+            system_instruction=None,
+            example_field_values=[],
+            response_format=JudgeResponseFormat.XML,
+            output_fields=sample_output_fields,
+            inference_engine=mock_inference_engine,
+        )
+
+        mock_inference_engine.infer.return_value = [
+            Conversation(
+                messages=[
+                    Message(content="prompt", role=Role.USER),
+                    Message(
+                        content="<judgment>True</judgment>", role=Role.ASSISTANT
+                    ),
+                ]
+            ),
+        ]
+
+        inputs = [{"question": "What is 1+1?", "answer": "2"}]
+        judge.judge(inputs)
+
+        assert mock_inference_engine.infer.call_args[1]["progress_callback"] is None

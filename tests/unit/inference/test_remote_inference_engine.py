@@ -3723,3 +3723,123 @@ def test_cancel_batch_public():
         status = engine.cancel_batch("batch-123")
         assert status.id == "batch-123"
         assert status.status == BatchStatus.CANCELLING
+
+
+def test_progress_callback_fires_per_conversation():
+    """Test that progress_callback fires once per conversation in _infer_online."""
+    num_conversations = 3
+    with aioresponses() as m:
+        for _ in range(num_conversations):
+            m.post(
+                _TARGET_SERVER,
+                status=200,
+                payload=dict(
+                    choices=[
+                        {
+                            "message": {
+                                "role": "assistant",
+                                "content": "response",
+                            }
+                        }
+                    ]
+                ),
+            )
+
+        engine = _make_engine()
+        conversations = [
+            Conversation(
+                messages=[Message(role=Role.USER, content=f"msg {i}")],
+                conversation_id=f"conv-{i}",
+            )
+            for i in range(num_conversations)
+        ]
+
+        callback_calls = []
+
+        def track_callback(completed, total):
+            callback_calls.append((completed, total))
+
+        results = engine.infer(
+            input=conversations,
+            inference_config=_get_default_inference_config(),
+            progress_callback=track_callback,
+        )
+
+        assert len(results) == num_conversations
+        assert len(callback_calls) == num_conversations
+        # All calls should have total == num_conversations
+        assert all(total == num_conversations for _, total in callback_calls)
+        # Completed values should cover 1..num_conversations (order may vary)
+        completed_values = sorted(c for c, _ in callback_calls)
+        assert completed_values == [1, 2, 3]
+
+
+def test_progress_callback_none_works():
+    """Test that inference works normally when progress_callback is None."""
+    with aioresponses() as m:
+        m.post(
+            _TARGET_SERVER,
+            status=200,
+            payload=dict(
+                choices=[
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "response",
+                        }
+                    }
+                ]
+            ),
+        )
+
+        engine = _make_engine()
+        conversations = [
+            Conversation(
+                messages=[Message(role=Role.USER, content="hello")],
+                conversation_id="conv-1",
+            )
+        ]
+
+        results = engine.infer(
+            input=conversations,
+            inference_config=_get_default_inference_config(),
+            progress_callback=None,
+        )
+        assert len(results) == 1
+
+
+def test_progress_callback_exception_does_not_crash():
+    """Test that a raising callback doesn't prevent inference from completing."""
+    with aioresponses() as m:
+        m.post(
+            _TARGET_SERVER,
+            status=200,
+            payload=dict(
+                choices=[
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "response",
+                        }
+                    }
+                ]
+            ),
+        )
+
+        engine = _make_engine()
+        conversations = [
+            Conversation(
+                messages=[Message(role=Role.USER, content="hello")],
+                conversation_id="conv-1",
+            )
+        ]
+
+        def bad_callback(completed, total):
+            raise RuntimeError("callback error")
+
+        results = engine.infer(
+            input=conversations,
+            inference_config=_get_default_inference_config(),
+            progress_callback=bad_callback,
+        )
+        assert len(results) == 1
