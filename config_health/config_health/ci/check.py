@@ -36,7 +36,9 @@ def main() -> None:
     failures = [r for r in report.check_results if r.status == CheckStatus.FAIL]
     warnings = [r for r in report.check_results if r.status == CheckStatus.WARN]
 
-    print(f"\nResults: {len(report.entries)} configs, {len(failures)} failures, {len(warnings)} warnings")
+    print(
+        f"\nResults: {len(report.entries)} configs, {len(failures)} failures, {len(warnings)} warnings"
+    )
 
     if failures:
         print("\nFailures:")

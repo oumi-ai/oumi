@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import os
 
-import yaml
-
 from config_health.core.models import (
     CheckResult,
     CheckStatus,
@@ -383,7 +381,11 @@ def _check_trainer_specific(entry: ConfigEntry, data: dict) -> list[CheckResult]
             train_data = data_section.get("train", {})
             if isinstance(train_data, dict):
                 datasets = train_data.get("datasets", [])
-                if datasets and isinstance(datasets, list) and isinstance(datasets[0], dict):
+                if (
+                    datasets
+                    and isinstance(datasets, list)
+                    and isinstance(datasets[0], dict)
+                ):
                     # DPO datasets should have a specific format
                     ds = datasets[0]
                     if not ds.get("dataset_name"):

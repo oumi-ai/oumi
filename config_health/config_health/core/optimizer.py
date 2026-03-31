@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import yaml
-
 from config_health.core.models import (
     ConfigEntry,
     ConfigType,

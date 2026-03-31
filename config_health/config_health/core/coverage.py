@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from config_health.core.models import (
+    REMOTE_ENGINES,
     ArchCoverageEntry,
     ConfigEntry,
     ConfigType,
     CoverageGap,
-    REMOTE_ENGINES,
 )
 
 # Expected config types per category
@@ -148,7 +148,10 @@ def get_supported_architectures() -> dict[str, dict]:
         import transformers
 
         # Causal LM architectures
-        for config_cls, model_cls in transformers.AutoModelForCausalLM._model_mapping.items():
+        for (
+            config_cls,
+            model_cls,
+        ) in transformers.AutoModelForCausalLM._model_mapping.items():
             model_type = getattr(config_cls, "model_type", None)
             if model_type:
                 result[model_type] = {
@@ -291,13 +294,15 @@ def build_arch_coverage(
     # transformers/oumi registry (custom or very new models)
     for model_type, data in arch_data.items():
         if model_type not in all_archs:
-            covered.append(ArchCoverageEntry(
-                model_type=model_type,
-                model_class="(unknown)",
-                config_types=sorted(data["config_types"]),
-                model_names=sorted(data["model_names"]),
-                config_count=data["count"],
-            ))
+            covered.append(
+                ArchCoverageEntry(
+                    model_type=model_type,
+                    model_class="(unknown)",
+                    config_types=sorted(data["config_types"]),
+                    model_names=sorted(data["model_names"]),
+                    config_count=data["count"],
+                )
+            )
 
     covered.sort(key=lambda e: -e.config_count)
     return covered, uncovered

@@ -7,7 +7,6 @@ import re
 from config_health.core.models import (
     REMOTE_ENGINES,
     ConfigEntry,
-    ConfigType,
     ModelMetadata,
 )
 from config_health.core.scanner import load_yaml_cached
@@ -32,13 +31,30 @@ _COMPLEXITY_FEATURES = [
     ("peft", lambda d: bool((d.get("training") or {}).get("use_peft"))),
     ("fsdp", lambda d: bool((d.get("fsdp") or {}).get("enable_fsdp"))),
     ("deepspeed", lambda d: bool((d.get("deepspeed") or {}).get("enable_deepspeed"))),
-    ("quantization", lambda d: bool(
-        (d.get("peft") or {}).get("q_lora")
-        or ((d.get("model") or {}).get("model_kwargs") or {}).get("quantization_config")
-    )),
-    ("grad_checkpointing", lambda d: bool((d.get("training") or {}).get("enable_gradient_checkpointing"))),
-    ("mixed_precision", lambda d: bool((d.get("training") or {}).get("mixed_precision_dtype"))),
-    ("flash_attention", lambda d: (d.get("model") or {}).get("attn_implementation") in ("sdpa", "flash_attention_2")),
+    (
+        "quantization",
+        lambda d: bool(
+            (d.get("peft") or {}).get("q_lora")
+            or ((d.get("model") or {}).get("model_kwargs") or {}).get(
+                "quantization_config"
+            )
+        ),
+    ),
+    (
+        "grad_checkpointing",
+        lambda d: bool((d.get("training") or {}).get("enable_gradient_checkpointing")),
+    ),
+    (
+        "mixed_precision",
+        lambda d: bool((d.get("training") or {}).get("mixed_precision_dtype")),
+    ),
+    (
+        "flash_attention",
+        lambda d: (
+            (d.get("model") or {}).get("attn_implementation")
+            in ("sdpa", "flash_attention_2")
+        ),
+    ),
     ("compile", lambda d: bool((d.get("training") or {}).get("compile"))),
 ]
 
@@ -98,7 +114,11 @@ def _resolve_model_metadata(
         layers = getattr(inner, "num_hidden_layers", 0) or 0
         inter = getattr(inner, "intermediate_size", 0) or 0
         vocab = getattr(inner, "vocab_size", 0) or 0
-        num_experts = getattr(inner, "num_local_experts", None) or getattr(inner, "num_experts", None) or 1
+        num_experts = (
+            getattr(inner, "num_local_experts", None)
+            or getattr(inner, "num_experts", None)
+            or 1
+        )
 
         # Estimate params
         params = 0
@@ -115,7 +135,11 @@ def _resolve_model_metadata(
                 mlp_per_layer = mlp_per_layer * num_experts + hidden * num_experts
             norm_per_layer = 2 * hidden
 
-            params = embedding + layers * (attn_per_layer + mlp_per_layer + norm_per_layer) + hidden
+            params = (
+                embedding
+                + layers * (attn_per_layer + mlp_per_layer + norm_per_layer)
+                + hidden
+            )
 
         # Try to get architecture class name
         arch_name = type(config).__name__.replace("Config", "")

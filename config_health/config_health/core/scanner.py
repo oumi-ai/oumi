@@ -7,7 +7,6 @@ import os
 
 import yaml
 
-
 # ── Shared YAML cache ──────────────────────────────────────────────
 # Single cache used by all modules to avoid redundant disk reads + parses.
 # On a 500-config --exhaustive run this eliminates ~3000 redundant parses.

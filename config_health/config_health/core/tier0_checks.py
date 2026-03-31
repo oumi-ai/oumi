@@ -14,8 +14,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-import yaml
-
 from config_health.core.models import (
     REMOTE_ENGINES,
     CheckResult,
@@ -51,6 +49,8 @@ class _ArchInfo:
 _hf_config_cache: dict[str, Any] = {}
 _tokenizer_cache: dict[str, Any] = {}
 _arch_cache: dict[str, _ArchInfo] = {}
+
+
 def clear_tier0_cache() -> None:
     """Clear the per-run model cache. Call between independent runs."""
     _hf_config_cache.clear()
@@ -78,7 +78,7 @@ def run_tier0_checks(entry: ConfigEntry) -> list[CheckResult]:
         return results
 
     # Skip local checkpoint paths (e.g., "output/model.fft/checkpoint-800")
-    if not "/" in model_name or model_name.startswith("output/"):
+    if "/" not in model_name or model_name.startswith("output/"):
         return results
 
     # 1. Model config loading
@@ -153,8 +153,14 @@ def run_tier0_checks(entry: ConfigEntry) -> list[CheckResult]:
     peft = data.get("peft", {})
     training = data.get("training", {})
     needs_arch = (
-        (isinstance(fsdp, dict) and fsdp.get("enable_fsdp") and fsdp.get("transformer_layer_cls"))
-        or (isinstance(training, dict) and training.get("use_peft") and isinstance(peft, dict) and peft.get("lora_target_modules"))
+        isinstance(fsdp, dict)
+        and fsdp.get("enable_fsdp")
+        and fsdp.get("transformer_layer_cls")
+    ) or (
+        isinstance(training, dict)
+        and training.get("use_peft")
+        and isinstance(peft, dict)
+        and peft.get("lora_target_modules")
     )
 
     if needs_arch:
@@ -355,7 +361,7 @@ def _check_special_tokens(
                 config_path=entry.path,
                 check_name="eos_token",
                 status=CheckStatus.FAIL,
-                message=f"Tokenizer has no eos_token (required for training)",
+                message="Tokenizer has no eos_token (required for training)",
                 severity=Severity.ERROR,
             )
         )
@@ -387,7 +393,7 @@ def _check_special_tokens(
                         check_name="pad_token",
                         status=CheckStatus.WARN,
                         message=(
-                            f"Tokenizer has no pad_token. "
+                            "Tokenizer has no pad_token. "
                             "Set model.tokenizer_pad_token in config."
                         ),
                         severity=Severity.WARNING,
@@ -430,11 +436,7 @@ def _check_fsdp_layer_cls(
     # Extract short class name from FQN (e.g., "a.b.Foo" -> "Foo")
     configured_short = [c.split(".")[-1] for c in configured_classes]
 
-    missing = [
-        name
-        for name in configured_short
-        if name not in detected
-    ]
+    missing = [name for name in configured_short if name not in detected]
 
     if not missing:
         results.append(
@@ -535,7 +537,9 @@ def _check_max_length_vs_context(
     if configured_max_len > native_max:
         # Check if the config uses RoPE scaling (YaRN, dynamic, linear) which
         # intentionally extends context beyond max_position_embeddings
-        model_kwargs = (model_cfg.get("model_kwargs") or {}) if isinstance(model_cfg, dict) else {}
+        model_kwargs = (
+            (model_cfg.get("model_kwargs") or {}) if isinstance(model_cfg, dict) else {}
+        )
         rope_scaling = model_kwargs.get("rope_scaling") or model_cfg.get("rope_scaling")
         if rope_scaling:
             # RoPE scaling is configured — this is intentional, not an error
@@ -558,9 +562,7 @@ def _check_max_length_vs_context(
     return results
 
 
-def _check_fsdp_qlora_dtype(
-    entry: ConfigEntry, data: dict
-) -> list[CheckResult]:
+def _check_fsdp_qlora_dtype(entry: ConfigEntry, data: dict) -> list[CheckResult]:
     """B3: Check FSDP + QLoRA dtype consistency.
 
     When FSDP is enabled with QLoRA, quant_storage dtype must match the FSDP
@@ -580,7 +582,9 @@ def _check_fsdp_qlora_dtype(
         return results
 
     # Get quant_storage dtype
-    model_kwargs = (model_cfg.get("model_kwargs", {}) or {}) if isinstance(model_cfg, dict) else {}
+    model_kwargs = (
+        (model_cfg.get("model_kwargs", {}) or {}) if isinstance(model_cfg, dict) else {}
+    )
     quant_config = model_kwargs.get("quantization_config", {}) or {}
     quant_storage = quant_config.get("bnb_4bit_quant_storage", "")
 
@@ -605,9 +609,7 @@ def _check_fsdp_qlora_dtype(
     return results
 
 
-def _check_grad_accum_fsdp_peft(
-    entry: ConfigEntry, data: dict
-) -> list[CheckResult]:
+def _check_grad_accum_fsdp_peft(entry: ConfigEntry, data: dict) -> list[CheckResult]:
     """B4: Warn about gradient accumulation + FSDP + PEFT LoRA + bf16.
 
     This combination triggers RuntimeError: expected dtype float for *end*
@@ -627,7 +629,7 @@ def _check_grad_accum_fsdp_peft(
     if not isinstance(grad_accum, int) or grad_accum <= 1:
         return results
 
-    dtype = (model_cfg.get("torch_dtype_str", "") if isinstance(model_cfg, dict) else "")
+    dtype = model_cfg.get("torch_dtype_str", "") if isinstance(model_cfg, dict) else ""
     mixed = training.get("mixed_precision_dtype", "")
     uses_bf16 = dtype == "bfloat16" or mixed in ("bf16", "bfloat16")
 
@@ -701,9 +703,7 @@ def _check_pad_eos_collision(
     return results
 
 
-def _check_trust_remote_code(
-    entry: ConfigEntry, model_name: str
-) -> list[CheckResult]:
+def _check_trust_remote_code(entry: ConfigEntry, model_name: str) -> list[CheckResult]:
     """B6: Check trust_remote_code usage.
 
     Rule: trust_remote_code should default to False unless the model requires it.
@@ -721,8 +721,7 @@ def _check_trust_remote_code(
 
     model_kwargs = model_cfg.get("model_kwargs", {}) or {}
     config_sets_trust = bool(
-        model_cfg.get("trust_remote_code")
-        or model_kwargs.get("trust_remote_code")
+        model_cfg.get("trust_remote_code") or model_kwargs.get("trust_remote_code")
     )
 
     # Try loading without trust_remote_code to see if it's needed
@@ -730,9 +729,7 @@ def _check_trust_remote_code(
     try:
         import transformers
 
-        transformers.AutoConfig.from_pretrained(
-            model_name, trust_remote_code=False
-        )
+        transformers.AutoConfig.from_pretrained(model_name, trust_remote_code=False)
     except Exception as e:
         if "trust_remote_code" in str(e).lower():
             model_requires_trust = True
@@ -767,9 +764,7 @@ def _check_trust_remote_code(
     return results
 
 
-def _check_deepspeed_batch_size(
-    entry: ConfigEntry, data: dict
-) -> list[CheckResult]:
+def _check_deepspeed_batch_size(entry: ConfigEntry, data: dict) -> list[CheckResult]:
     """B7: Validate DeepSpeed batch size consistency in external config files.
 
     When train_batch_size in the DeepSpeed config doesn't match
@@ -818,7 +813,11 @@ def _check_deepspeed_batch_size(
     per_device = training.get("per_device_train_batch_size", 1)
     grad_accum = training.get("gradient_accumulation_steps", 1)
 
-    if isinstance(train_batch, int) and isinstance(per_device, int) and isinstance(grad_accum, int):
+    if (
+        isinstance(train_batch, int)
+        and isinstance(per_device, int)
+        and isinstance(grad_accum, int)
+    ):
         # We don't know num_gpus statically, but we can check the per-GPU batch
         expected_per_gpu = per_device * grad_accum
         ds_per_gpu_batch = ds_config.get("train_micro_batch_size_per_gpu")
@@ -856,9 +855,7 @@ def _check_deepspeed_batch_size(
     return results
 
 
-def _check_chat_templates(
-    entry: ConfigEntry, tokenizer: Any
-) -> list[CheckResult]:
+def _check_chat_templates(entry: ConfigEntry, tokenizer: Any) -> list[CheckResult]:
     """Validate that configured chat templates match the tokenizer's format."""
     results: list[CheckResult] = []
     data = _load_yaml(entry.abs_path)
@@ -933,7 +930,9 @@ def _check_chat_templates(
 
         # Check special tokens are recognized (encode to single tokens)
         results.extend(
-            _check_template_special_tokens(entry, tokenizer, response_template, "response_template")
+            _check_template_special_tokens(
+                entry, tokenizer, response_template, "response_template"
+            )
         )
 
     # Check instruction_template
@@ -965,7 +964,9 @@ def _check_chat_templates(
             )
 
         results.extend(
-            _check_template_special_tokens(entry, tokenizer, instruction_template, "instruction_template")
+            _check_template_special_tokens(
+                entry, tokenizer, instruction_template, "instruction_template"
+            )
         )
 
     return results
@@ -990,7 +991,9 @@ def _check_collator_token_ids(
         # Tokenize the template the same way the collator does
         template_ids = tokenizer.encode(response_template, add_special_tokens=False)
         # Tokenize the full rendered conversation
-        conversation_ids = tokenizer.encode(rendered_conversation, add_special_tokens=False)
+        conversation_ids = tokenizer.encode(
+            rendered_conversation, add_special_tokens=False
+        )
 
         if not template_ids:
             return results

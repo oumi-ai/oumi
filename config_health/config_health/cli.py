@@ -66,7 +66,8 @@ def _collect_environment() -> dict[str, str]:
     try:
         result = subprocess.run(
             ["git", "rev-parse", "--short", "HEAD"],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         if result.returncode == 0:
             env["git_commit"] = result.stdout.strip()
@@ -74,7 +75,15 @@ def _collect_environment() -> dict[str, str]:
         pass
 
     # Key library versions
-    for pkg in ("transformers", "torch", "peft", "oumi", "trl", "bitsandbytes", "deepspeed"):
+    for pkg in (
+        "transformers",
+        "torch",
+        "peft",
+        "oumi",
+        "trl",
+        "bitsandbytes",
+        "deepspeed",
+    ):
         try:
             mod = __import__(pkg)
             env[f"{pkg}_version"] = getattr(mod, "__version__", "?")
@@ -115,8 +124,13 @@ def _collect_environment() -> dict[str, str]:
     # NVIDIA driver version via nvidia-smi
     try:
         result = subprocess.run(
-            ["nvidia-smi", "--query-gpu=driver_version", "--format=csv,noheader,nounits"],
-            capture_output=True, text=True,
+            [
+                "nvidia-smi",
+                "--query-gpu=driver_version",
+                "--format=csv,noheader,nounits",
+            ],
+            capture_output=True,
+            text=True,
         )
         if result.returncode == 0:
             env["nvidia_driver"] = result.stdout.strip().split("\n")[0]
@@ -132,7 +146,10 @@ def _collect_environment() -> dict[str, str]:
         pass
 
     # System RAM (cgroup-aware for containers)
-    from config_health.core.dry_run import _get_available_ram_gb, _read_cgroup_memory_limit_gb
+    from config_health.core.dry_run import (
+        _get_available_ram_gb,
+        _read_cgroup_memory_limit_gb,
+    )
 
     ram_gb = _get_available_ram_gb()
     if ram_gb > 0:
@@ -219,9 +236,13 @@ def _build_report(
         original_count = len(all_paths)
         all_paths = _filter_changed_configs(all_paths, repo_root, last_report_path)
         if len(all_paths) < original_count:
-            console.print(f"[dim]Incremental: checking {len(all_paths)} changed configs (of {original_count})[/dim]")
+            console.print(
+                f"[dim]Incremental: checking {len(all_paths)} changed configs (of {original_count})[/dim]"
+            )
         else:
-            console.print(f"[dim]Incremental: no changes detected, checking all {len(all_paths)} configs[/dim]")
+            console.print(
+                f"[dim]Incremental: no changes detected, checking all {len(all_paths)} configs[/dim]"
+            )
 
     if not all_paths:
         console.print("[yellow]No config files found.[/yellow]")
@@ -260,13 +281,15 @@ def _build_report(
             try:
                 results = run_static_checks(entry, repo_root, skip_finalize=quick)
             except Exception as exc:
-                results = [CheckResult(
-                    config_path=entry.path,
-                    check_name="static_checks",
-                    status=CheckStatus.FAIL,
-                    message=f"Static checks crashed: {exc}",
-                    severity=Severity.ERROR,
-                )]
+                results = [
+                    CheckResult(
+                        config_path=entry.path,
+                        check_name="static_checks",
+                        status=CheckStatus.FAIL,
+                        message=f"Static checks crashed: {exc}",
+                        severity=Severity.ERROR,
+                    )
+                ]
             elapsed = round(time.time() - check_start, 3)
             for r in results:
                 r.duration_s = elapsed
@@ -413,7 +436,9 @@ def _filter_changed_configs(
         # Detect default branch (main or master)
         branch_result = subprocess.run(
             ["git", "rev-parse", "--verify", "main"],
-            capture_output=True, text=True, cwd=repo_root,
+            capture_output=True,
+            text=True,
+            cwd=repo_root,
         )
         default_branch = "main" if branch_result.returncode == 0 else "master"
 
@@ -462,7 +487,9 @@ def _print_summary(report: HealthReport, *, target: Console | None = None) -> No
     type_table = Table(title="By Config Type")
     type_table.add_column("Type", style="bold")
     type_table.add_column("Count", justify="right")
-    for ctype, entries in sorted(report.entries_by_type().items(), key=lambda x: -len(x[1])):
+    for ctype, entries in sorted(
+        report.entries_by_type().items(), key=lambda x: -len(x[1])
+    ):
         type_table.add_row(ctype.value, str(len(entries)))
     out.print(type_table)
     out.print()
@@ -491,7 +518,9 @@ def _print_summary(report: HealthReport, *, target: Console | None = None) -> No
 
     # Coverage gaps
     if report.coverage_gaps:
-        out.print(f"[bold yellow]Coverage Gaps ({len(report.coverage_gaps)}):[/bold yellow]")
+        out.print(
+            f"[bold yellow]Coverage Gaps ({len(report.coverage_gaps)}):[/bold yellow]"
+        )
         for gap in report.coverage_gaps[:15]:
             out.print(
                 f"  [yellow]⚠[/yellow] {gap.model_family} ({gap.category}): "
@@ -503,7 +532,9 @@ def _print_summary(report: HealthReport, *, target: Console | None = None) -> No
 
     # Optimization suggestions summary
     if report.suggestions:
-        out.print(f"[bold cyan]Optimization Suggestions: {len(report.suggestions)}[/bold cyan]")
+        out.print(
+            f"[bold cyan]Optimization Suggestions: {len(report.suggestions)}[/bold cyan]"
+        )
         # Group by category
         by_cat: dict[str, int] = {}
         for s in report.suggestions:
@@ -526,8 +557,8 @@ def _write_summary_md(report: HealthReport, path: str) -> None:
     # Counts
     w("## Results")
     w("")
-    w(f"| Status | Count |")
-    w(f"|--------|-------|")
+    w("| Status | Count |")
+    w("|--------|-------|")
     w(f"| Healthy | {report.pass_count} |")
     w(f"| Warnings | {report.warn_count} |")
     w(f"| Failing | {report.fail_count} |")
@@ -539,7 +570,9 @@ def _write_summary_md(report: HealthReport, path: str) -> None:
     w("")
     w("| Type | Count |")
     w("|------|-------|")
-    for ctype, entries in sorted(report.entries_by_type().items(), key=lambda x: -len(x[1])):
+    for ctype, entries in sorted(
+        report.entries_by_type().items(), key=lambda x: -len(x[1])
+    ):
         w(f"| {ctype.value} | {len(entries)} |")
     w("")
 
@@ -568,7 +601,9 @@ def _write_summary_md(report: HealthReport, path: str) -> None:
         w(f"## Coverage Gaps ({len(report.coverage_gaps)})")
         w("")
         for gap in report.coverage_gaps:
-            w(f"- **{gap.model_family}** ({gap.category}): missing {', '.join(gap.missing_types)}")
+            w(
+                f"- **{gap.model_family}** ({gap.category}): missing {', '.join(gap.missing_types)}"
+            )
         w("")
 
     # VRAM estimates
@@ -582,19 +617,29 @@ def _write_summary_md(report: HealthReport, path: str) -> None:
             peft = "LoRA" if est.get("is_peft") else "FFT"
             if est.get("is_quantized"):
                 peft += "+Q"
-            w(f"| {short} | {est['total_vram_gb']:.1f} GB | {est['minimal_total_vram_gb']:.1f} GB | {est['total_params_b']}B | {peft} |")
+            w(
+                f"| {short} | {est['total_vram_gb']:.1f} GB | {est['minimal_total_vram_gb']:.1f} GB | {est['total_params_b']}B | {peft} |"
+            )
         w("")
 
     # Dry-run results
     if report.dry_run_results:
         dr_pass = sum(1 for v in report.dry_run_results.values() if v["success"])
-        dr_fail = sum(1 for v in report.dry_run_results.values() if not v["success"] and v["error"])
+        dr_fail = sum(
+            1
+            for v in report.dry_run_results.values()
+            if not v["success"] and v["error"]
+        )
         w(f"## Dry-Run Results ({dr_pass} passed, {dr_fail} failed)")
         w("")
         for cfg_path, dr in sorted(report.dry_run_results.items()):
             short = cfg_path.removeprefix("configs/")
             if dr["success"]:
-                mem = f" ({dr['peak_memory_gb']:.1f} GB)" if dr["peak_memory_gb"] > 0 else ""
+                mem = (
+                    f" ({dr['peak_memory_gb']:.1f} GB)"
+                    if dr["peak_memory_gb"] > 0
+                    else ""
+                )
                 w(f"- {short}: passed in {dr['duration_s']:.1f}s{mem}")
             elif dr["error"]:
                 w(f"- {short}: **FAILED** — {dr['error']}")
@@ -639,17 +684,48 @@ def main():
 
 @main.command()
 @click.option("--offline", is_flag=True, help="Skip HuggingFace Hub checks")
-@click.option("--tier0", is_flag=True, help="Run tier 0 checks (tokenizer/model config/architecture)")
+@click.option(
+    "--tier0",
+    is_flag=True,
+    help="Run tier 0 checks (tokenizer/model config/architecture)",
+)
 @click.option("--vram", is_flag=True, help="Estimate VRAM for training configs")
-@click.option("--dry-run", is_flag=True, help="Run training dry-runs with random weights")
-@click.option("--exhaustive", is_flag=True, help="Run all checks: tier0 + hub + VRAM + dry-run")
-@click.option("--no-hub", is_flag=True, help="Skip HuggingFace Hub existence checks entirely")
-@click.option("--quick", is_flag=True, help="Skip finalize_and_validate() for faster static checks (~10s)")
-@click.option("--incremental", is_flag=True, help="Only check configs changed since last report")
-@click.option("--last-report", type=str, default=None, help="Path to previous report.json for incremental mode")
-@click.option("--fix", is_flag=True, help="Auto-fix known issues (wrong LoRA targets, FSDP layer classes)")
+@click.option(
+    "--dry-run", is_flag=True, help="Run training dry-runs with random weights"
+)
+@click.option(
+    "--exhaustive", is_flag=True, help="Run all checks: tier0 + hub + VRAM + dry-run"
+)
+@click.option(
+    "--no-hub", is_flag=True, help="Skip HuggingFace Hub existence checks entirely"
+)
+@click.option(
+    "--quick",
+    is_flag=True,
+    help="Skip finalize_and_validate() for faster static checks (~10s)",
+)
+@click.option(
+    "--incremental", is_flag=True, help="Only check configs changed since last report"
+)
+@click.option(
+    "--last-report",
+    type=str,
+    default=None,
+    help="Path to previous report.json for incremental mode",
+)
+@click.option(
+    "--fix",
+    is_flag=True,
+    help="Auto-fix known issues (wrong LoRA targets, FSDP layer classes)",
+)
 @click.option("--path", type=str, default=None, help="Check a specific config file")
-@click.option("--output", "-o", type=str, default=None, help="Save results to this directory (report.json, summary.md, logs.txt)")
+@click.option(
+    "--output",
+    "-o",
+    type=str,
+    default=None,
+    help="Save results to this directory (report.json, summary.md, logs.txt)",
+)
 @click.option("--repo-root", type=str, default=None, help="Repository root directory")
 def check(
     offline: bool,
@@ -748,7 +824,9 @@ def check(
         # Show VRAM summary if estimated
         if report.vram_estimates:
             valid_vrams = [v["total_vram_gb"] for v in report.vram_estimates.values()]
-            min_vrams = [v["minimal_total_vram_gb"] for v in report.vram_estimates.values()]
+            min_vrams = [
+                v["minimal_total_vram_gb"] for v in report.vram_estimates.values()
+            ]
             msg = (
                 f"[bold cyan]VRAM Estimates:[/bold cyan] {len(valid_vrams)} training configs, "
                 f"{min(min_vrams):.1f} — {max(valid_vrams):.1f} GB"
@@ -762,7 +840,11 @@ def check(
         # Show dry-run summary
         if report.dry_run_results:
             dr_pass = sum(1 for v in report.dry_run_results.values() if v["success"])
-            dr_fail = sum(1 for v in report.dry_run_results.values() if not v["success"] and v["error"])
+            dr_fail = sum(
+                1
+                for v in report.dry_run_results.values()
+                if not v["success"] and v["error"]
+            )
             msg = f"[bold cyan]Dry-runs:[/bold cyan] {dr_pass} passed, {dr_fail} failed"
             console.print(msg)
             if log_console:
@@ -782,19 +864,15 @@ def check(
             report.to_json(json_path)
             _write_summary_md(report, os.path.join(output_dir, "summary.md"))
             console.print(f"[bold]Results saved to {output_dir}/[/bold]")
-            console.print(f"  report.json  — machine-readable full report")
-            console.print(f"  summary.md   — human-readable markdown summary")
-            console.print(f"  logs.txt     — plain-text console output")
+            console.print("  report.json  — machine-readable full report")
+            console.print("  summary.md   — human-readable markdown summary")
+            console.print("  logs.txt     — plain-text console output")
     finally:
         if log_file:
             log_file.close()
 
     # Exit with non-zero if there are failures
-    fail_count = sum(
-        1
-        for r in report.check_results
-        if r.status == CheckStatus.FAIL
-    )
+    fail_count = sum(1 for r in report.check_results if r.status == CheckStatus.FAIL)
     if fail_count > 0:
         sys.exit(1)
 
@@ -803,9 +881,17 @@ def check(
 @click.option("--port", type=int, default=8777, help="Port for the dashboard")
 @click.option("--host", type=str, default="127.0.0.1", help="Host to bind to")
 @click.option("--offline", is_flag=True, help="Skip HuggingFace Hub checks")
-@click.option("--from", "from_report", type=str, default=None, help="Load pre-computed report.json instead of scanning")
+@click.option(
+    "--from",
+    "from_report",
+    type=str,
+    default=None,
+    help="Load pre-computed report.json instead of scanning",
+)
 @click.option("--repo-root", type=str, default=None, help="Repository root directory")
-def ui(port: int, host: str, offline: bool, from_report: str | None, repo_root: str | None):
+def ui(
+    port: int, host: str, offline: bool, from_report: str | None, repo_root: str | None
+):
     """Launch the web dashboard.
 
     \b
@@ -824,7 +910,9 @@ def ui(port: int, host: str, offline: bool, from_report: str | None, repo_root: 
     from config_health.ui.server import create_app
 
     app = create_app(root, offline=offline, from_report=from_report)
-    console.print(f"[bold]Starting Config Health dashboard on http://{host}:{port}[/bold]")
+    console.print(
+        f"[bold]Starting Config Health dashboard on http://{host}:{port}[/bold]"
+    )
     if from_report:
         console.print(f"[dim]Loaded from: {from_report}[/dim]")
     uvicorn.run(app, host=host, port=port, log_level="warning")
@@ -867,7 +955,9 @@ def report(repo_root: str | None):
 
 
 @main.command()
-@click.option("--path", type=str, default=None, help="Estimate for a specific config file")
+@click.option(
+    "--path", type=str, default=None, help="Estimate for a specific config file"
+)
 @click.option("--family", type=str, default=None, help="Filter by model family")
 @click.option("--repo-root", type=str, default=None, help="Repository root directory")
 def vram(path: str | None, family: str | None, repo_root: str | None):
@@ -918,8 +1008,13 @@ def vram(path: str | None, family: str | None, repo_root: str | None):
         estimates.append((entry, est))
         if est.error:
             table.add_row(
-                entry.short_path, "?", "?",
-                f"[dim]{est.error}[/dim]", "", "", "",
+                entry.short_path,
+                "?",
+                "?",
+                f"[dim]{est.error}[/dim]",
+                "",
+                "",
+                "",
             )
             continue
 
@@ -945,10 +1040,17 @@ def vram(path: str | None, family: str | None, repo_root: str | None):
         console.print(f"\n[bold]Summary:[/bold] {len(valid)} configs estimated")
         max_vram = max(e.total_vram_gb for e in valid)
         min_vram = min(e.minimal_total_vram_gb for e in valid)
-        console.print(f"  Range: {min_vram:.1f} GB (minimal) — {max_vram:.1f} GB (as configured)")
+        console.print(
+            f"  Range: {min_vram:.1f} GB (minimal) — {max_vram:.1f} GB (as configured)"
+        )
 
         # GPU tier buckets
-        tiers = {"< 24 GB (consumer)": 0, "24-48 GB (A10/A6000)": 0, "48-80 GB (A100)": 0, "> 80 GB (multi-GPU)": 0}
+        tiers = {
+            "< 24 GB (consumer)": 0,
+            "24-48 GB (A10/A6000)": 0,
+            "48-80 GB (A100)": 0,
+            "> 80 GB (multi-GPU)": 0,
+        }
         for e in valid:
             v = e.minimal_total_vram_gb
             if v < 24:
@@ -967,7 +1069,9 @@ def vram(path: str | None, family: str | None, repo_root: str | None):
 
 
 @main.command(name="dry-run")
-@click.option("--path", type=str, default=None, help="Dry-run a specific training config")
+@click.option(
+    "--path", type=str, default=None, help="Dry-run a specific training config"
+)
 @click.option("--family", type=str, default=None, help="Filter by model family")
 @click.option("--steps", type=int, default=2, help="Number of training steps")
 @click.option("--repo-root", type=str, default=None, help="Repository root directory")
@@ -975,7 +1079,7 @@ def dry_run(path: str | None, family: str | None, steps: int, repo_root: str | N
     """Run training dry-run with random weights (no model download)."""
     import os
 
-    from config_health.core.dry_run import dry_run_to_check_results, run_dry_run
+    from config_health.core.dry_run import run_dry_run
 
     try:
         root = repo_root or find_repo_root()
@@ -1001,7 +1105,9 @@ def dry_run(path: str | None, family: str | None, steps: int, repo_root: str | N
         console.print("[yellow]No training configs found.[/yellow]")
         return
 
-    console.print(f"[bold]Dry-running {len(entries)} training configs ({steps} steps each)...[/bold]\n")
+    console.print(
+        f"[bold]Dry-running {len(entries)} training configs ({steps} steps each)...[/bold]\n"
+    )
 
     passed = 0
     failed = 0
@@ -1009,8 +1115,11 @@ def dry_run(path: str | None, family: str | None, steps: int, repo_root: str | N
     for entry in entries:
         dr = run_dry_run(entry, max_steps=steps)
         if dr.error and dr.error in (
-            "Remote engine", "GGUF model (not supported for dry-run)",
-            "Local checkpoint path", "Not a training config", "No model_name",
+            "Remote engine",
+            "GGUF model (not supported for dry-run)",
+            "Local checkpoint path",
+            "Not a training config",
+            "No model_name",
         ):
             skipped += 1
             continue
@@ -1027,15 +1136,27 @@ def dry_run(path: str | None, family: str | None, steps: int, repo_root: str | N
             console.print(f"  [red]✗[/red] {entry.short_path}")
             console.print(f"    [red]{dr.error}[/red]")
 
-    console.print(f"\n[bold]Results:[/bold] {passed} passed, {failed} failed, {skipped} skipped")
+    console.print(
+        f"\n[bold]Results:[/bold] {passed} passed, {failed} failed, {skipped} skipped"
+    )
     if failed > 0:
         sys.exit(1)
 
 
 @main.command()
 @click.argument("model_name")
-@click.option("--tasks", type=str, default="training,inference,evaluation", help="Comma-separated task types")
-@click.option("--output-dir", type=str, default=None, help="Output directory for generated configs")
+@click.option(
+    "--tasks",
+    type=str,
+    default="training,inference,evaluation",
+    help="Comma-separated task types",
+)
+@click.option(
+    "--output-dir",
+    type=str,
+    default=None,
+    help="Output directory for generated configs",
+)
 @click.option("--no-lora", is_flag=True, help="Generate full finetune config (no LoRA)")
 def scaffold(model_name: str, tasks: str, output_dir: str | None, no_lora: bool):
     """Generate config files from templates."""
@@ -1063,7 +1184,9 @@ def scaffold(model_name: str, tasks: str, output_dir: str | None, no_lora: bool)
 @main.command()
 @click.argument("old_report", type=click.Path(exists=True))
 @click.argument("new_report", type=click.Path(exists=True))
-@click.option("--output", "-o", type=str, default=None, help="Save diff as markdown to this path")
+@click.option(
+    "--output", "-o", type=str, default=None, help="Save diff as markdown to this path"
+)
 def diff(old_report: str, new_report: str, output: str | None):
     """Compare two report.json files and show what changed.
 
@@ -1085,25 +1208,33 @@ def diff(old_report: str, new_report: str, output: str | None):
 
     # Print summary
     if result.new_failures:
-        console.print(f"[bold red]New Failures ({len(result.new_failures)}):[/bold red]")
+        console.print(
+            f"[bold red]New Failures ({len(result.new_failures)}):[/bold red]"
+        )
         for path, msg in result.new_failures:
             console.print(f"  [red]✗[/red] {path}: {msg}")
         console.print()
 
     if result.resolved_failures:
-        console.print(f"[bold green]Resolved Failures ({len(result.resolved_failures)}):[/bold green]")
+        console.print(
+            f"[bold green]Resolved Failures ({len(result.resolved_failures)}):[/bold green]"
+        )
         for path, msg in result.resolved_failures:
             console.print(f"  [green]✓[/green] {path}: {msg}")
         console.print()
 
     if result.new_warnings:
-        console.print(f"[bold yellow]New Warnings ({len(result.new_warnings)}):[/bold yellow]")
+        console.print(
+            f"[bold yellow]New Warnings ({len(result.new_warnings)}):[/bold yellow]"
+        )
         for path, msg in result.new_warnings:
             console.print(f"  [yellow]⚠[/yellow] {path}: {msg}")
         console.print()
 
     if result.resolved_warnings:
-        console.print(f"[bold green]Resolved Warnings ({len(result.resolved_warnings)}):[/bold green]")
+        console.print(
+            f"[bold green]Resolved Warnings ({len(result.resolved_warnings)}):[/bold green]"
+        )
         for path, msg in result.resolved_warnings:
             console.print(f"  [green]✓[/green] {path}: {msg}")
         console.print()

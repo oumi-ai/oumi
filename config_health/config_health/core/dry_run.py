@@ -103,7 +103,11 @@ def _estimate_params_from_config(hf_config: object) -> int:
     heads = getattr(cfg, "num_attention_heads", 0) or 0
     kv_heads = getattr(cfg, "num_key_value_heads", None) or heads
     head_dim = hidden // heads if heads else 0
-    num_experts = getattr(cfg, "num_local_experts", None) or getattr(cfg, "num_experts", None) or 1
+    num_experts = (
+        getattr(cfg, "num_local_experts", None)
+        or getattr(cfg, "num_experts", None)
+        or 1
+    )
 
     if not all([hidden, layers, vocab]):
         return 0
@@ -116,7 +120,9 @@ def _estimate_params_from_config(hf_config: object) -> int:
         mlp = mlp * num_experts + hidden * num_experts
     norm = 2 * hidden
 
-    return embedding + layers * (attn + mlp + norm) + hidden  # LM head typically tied to embedding
+    return (
+        embedding + layers * (attn + mlp + norm) + hidden
+    )  # LM head typically tied to embedding
 
 
 def _get_available_ram_gb() -> float:
@@ -135,7 +141,8 @@ def _get_available_ram_gb() -> float:
         try:
             result = subprocess.run(
                 ["sysctl", "-n", "hw.memsize"],
-                capture_output=True, text=True,
+                capture_output=True,
+                text=True,
             )
             if result.returncode == 0:
                 return int(result.stdout.strip()) / (1024**3)
@@ -152,7 +159,8 @@ def _get_available_ram_gb() -> float:
     try:
         result = subprocess.run(
             ["free", "-b"],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         if result.returncode == 0:
             for line in result.stdout.splitlines():
@@ -194,7 +202,9 @@ def _read_cgroup_memory_limit_gb() -> float:
     return 0.0
 
 
-def _estimate_model_memory_gb(num_params: int, dtype_bytes: int, use_peft: bool) -> float:
+def _estimate_model_memory_gb(
+    num_params: int, dtype_bytes: int, use_peft: bool
+) -> float:
     """Rough estimate of minimum GPU memory needed (model + optimizer + grad)."""
     model_gb = (num_params * dtype_bytes) / (1024**3)
     if use_peft:
@@ -204,9 +214,7 @@ def _estimate_model_memory_gb(num_params: int, dtype_bytes: int, use_peft: bool)
     return model_gb + (num_params * (8 + dtype_bytes)) / (1024**3)
 
 
-def _execute_dry_run(
-    entry: ConfigEntry, result: DryRunResult, max_steps: int
-) -> None:
+def _execute_dry_run(entry: ConfigEntry, result: DryRunResult, max_steps: int) -> None:
     """Execute the actual dry-run."""
     import torch
     import transformers
@@ -267,7 +275,9 @@ def _execute_dry_run(
                     type(hf_config), None
                 )
 
-            dtype = getattr(torch, config.model.torch_dtype_str or "bfloat16", torch.bfloat16)
+            dtype = getattr(
+                torch, config.model.torch_dtype_str or "bfloat16", torch.bfloat16
+            )
             dtype_bytes = 2 if dtype in (torch.float16, torch.bfloat16) else 4
 
             # Pre-flight memory check BEFORE model instantiation.
@@ -340,7 +350,9 @@ def _execute_dry_run(
                     bias="none",
                 )
                 model = get_peft_model(model, lora_config)
-                trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+                trainable = sum(
+                    p.numel() for p in model.parameters() if p.requires_grad
+                )
                 result.notes.append(f"LoRA trainable: {trainable / 1e6:.1f}M")
 
             model = model.to(device)
@@ -355,7 +367,9 @@ def _execute_dry_run(
 
             # Create dummy batch
             seq_len = min(config.model.model_max_length or 128, 128)
-            dummy_ids = torch.randint(0, tokenizer.vocab_size, (1, seq_len), device=device)
+            dummy_ids = torch.randint(
+                0, tokenizer.vocab_size, (1, seq_len), device=device
+            )
             dummy_labels = dummy_ids.clone()
 
             # Simple training loop (no Trainer overhead)
@@ -390,13 +404,15 @@ def _execute_dry_run(
 
 
 # Errors that indicate the config was intentionally skipped, not that it failed.
-_SKIP_ERRORS = frozenset({
-    "Remote engine",
-    "GGUF model (not supported for dry-run)",
-    "Local checkpoint path",
-    "Not a training config",
-    "No model_name",
-})
+_SKIP_ERRORS = frozenset(
+    {
+        "Remote engine",
+        "GGUF model (not supported for dry-run)",
+        "Local checkpoint path",
+        "Not a training config",
+        "No model_name",
+    }
+)
 
 
 def dry_run_to_check_results(dr: DryRunResult) -> list[CheckResult]:

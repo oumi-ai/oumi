@@ -18,9 +18,6 @@ Memory components:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
-
-import yaml
 
 from config_health.core.models import REMOTE_ENGINES, ConfigEntry, ConfigType
 
@@ -131,7 +128,9 @@ def estimate_vram(entry: ConfigEntry) -> VRAMEstimate:
     seq_len = model_cfg.get("model_max_length", 0)
     if not isinstance(seq_len, int) or seq_len < 1:
         # Fall back to model's native context window from AutoConfig
-        seq_len = arch.max_position_embeddings if arch.max_position_embeddings > 0 else 2048
+        seq_len = (
+            arch.max_position_embeddings if arch.max_position_embeddings > 0 else 2048
+        )
 
     # Detect attention implementation for activation memory estimation
     attn_impl = model_cfg.get("attn_implementation", "")
@@ -161,8 +160,16 @@ def estimate_vram(entry: ConfigEntry) -> VRAMEstimate:
     grad_ckpt = bool(training.get("enable_gradient_checkpointing", False))
 
     # FSDP / multi-GPU
-    fsdp_enabled = bool(fsdp_cfg.get("enable_fsdp", False)) if isinstance(fsdp_cfg, dict) else False
-    ds_enabled = bool(ds_cfg.get("enable_deepspeed", False)) if isinstance(ds_cfg, dict) else False
+    fsdp_enabled = (
+        bool(fsdp_cfg.get("enable_fsdp", False))
+        if isinstance(fsdp_cfg, dict)
+        else False
+    )
+    ds_enabled = (
+        bool(ds_cfg.get("enable_deepspeed", False))
+        if isinstance(ds_cfg, dict)
+        else False
+    )
     num_gpus = 1
     if fsdp_enabled or ds_enabled:
         # Infer from job config or default to 2
@@ -193,9 +200,7 @@ def estimate_vram(entry: ConfigEntry) -> VRAMEstimate:
     if is_peft:
         # LoRA: rank * (in + out) for each target module
         target_modules = peft_cfg.get("lora_target_modules", [])
-        est.trainable_params = _estimate_lora_params(
-            arch, peft_rank, target_modules
-        )
+        est.trainable_params = _estimate_lora_params(arch, peft_rank, target_modules)
         est.notes.append(f"LoRA r={peft_rank}, {len(target_modules)} targets")
     else:
         est.trainable_params = arch.total_params
@@ -299,7 +304,11 @@ def _get_model_arch(model_name: str) -> _ModelArch | None:
         max_pos_emb = getattr(config, "max_position_embeddings", 0) or 0
 
         # MoE detection
-        num_experts = getattr(config, "num_local_experts", None) or getattr(config, "num_experts", None) or 1
+        num_experts = (
+            getattr(config, "num_local_experts", None)
+            or getattr(config, "num_experts", None)
+            or 1
+        )
         experts_per_tok = getattr(config, "num_experts_per_tok", None) or 1
         is_moe = num_experts > 1
 
@@ -382,7 +391,11 @@ def _estimate_lora_params(
         return 0
 
     # Map module names to their dimensions
-    kv_dim = (arch.num_kv_heads or arch.num_attention_heads) * (arch.head_dim or 0) if arch.head_dim else arch.hidden_size
+    kv_dim = (
+        (arch.num_kv_heads or arch.num_attention_heads) * (arch.head_dim or 0)
+        if arch.head_dim
+        else arch.hidden_size
+    )
     module_dims: dict[str, tuple[int, int]] = {
         "q_proj": (arch.hidden_size, arch.hidden_size),
         "k_proj": (arch.hidden_size, kv_dim),
@@ -442,12 +455,20 @@ def _estimate_activation_memory(
     else:
         # Naive attention: includes O(seq^2) attention scores
         # Use the component-based formula with quadratic attention
-        attn_scores = batch_size * arch.num_attention_heads * seq_len * seq_len * dtype_bytes
+        attn_scores = (
+            batch_size * arch.num_attention_heads * seq_len * seq_len * dtype_bytes
+        )
         linear_components = batch_size * seq_len * arch.hidden_size * 34 * dtype_bytes
         # The factor-34 formula already includes a linear attention term;
         # add the extra quadratic cost on top if not using efficient attention
-        kv_dim = (arch.num_kv_heads or arch.num_attention_heads) * (arch.head_dim or 0) if arch.head_dim else arch.hidden_size
-        linear_attn_in_formula = batch_size * seq_len * (arch.hidden_size + 2 * kv_dim) * dtype_bytes
+        kv_dim = (
+            (arch.num_kv_heads or arch.num_attention_heads) * (arch.head_dim or 0)
+            if arch.head_dim
+            else arch.hidden_size
+        )
+        linear_attn_in_formula = (
+            batch_size * seq_len * (arch.hidden_size + 2 * kv_dim) * dtype_bytes
+        )
         per_layer = max(0.0, linear_components + attn_scores - linear_attn_in_formula)
 
     if gradient_checkpointing:

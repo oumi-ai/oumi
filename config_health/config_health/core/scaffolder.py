@@ -11,7 +11,6 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
 
-
 _SCAFFOLDS_DIR = Path(__file__).parent.parent / "scaffolds"
 
 # Task type to template file mapping
@@ -120,13 +119,13 @@ def _detect_model_info(model_name: str) -> dict:
         )
         model_type = getattr(config, "model_type", "")
         info["model_type"] = model_type
-        info["is_vlm"] = hasattr(config, "text_config") and config.text_config is not None
+        info["is_vlm"] = (
+            hasattr(config, "text_config") and config.text_config is not None
+        )
 
         # Check if trust_remote_code is needed
         try:
-            transformers.AutoConfig.from_pretrained(
-                model_name, trust_remote_code=False
-            )
+            transformers.AutoConfig.from_pretrained(model_name, trust_remote_code=False)
         except Exception as e:
             if "trust_remote_code" in str(e).lower():
                 info["needs_trust_remote_code"] = True
@@ -163,7 +162,11 @@ def _detect_model_info(model_name: str) -> dict:
             try:
                 import torch
 
-                inner_config = config.text_config if info["is_vlm"] and config.text_config else config
+                inner_config = (
+                    config.text_config
+                    if info["is_vlm"] and config.text_config
+                    else config
+                )
                 with torch.device("meta"):
                     model = transformers.AutoModelForCausalLM.from_config(
                         inner_config, trust_remote_code=True
@@ -173,7 +176,15 @@ def _detect_model_info(model_name: str) -> dict:
                     if "." in name:
                         module_names.add(name.split(".")[-1])
                 # Pick standard LoRA targets that exist
-                standard = ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+                standard = [
+                    "q_proj",
+                    "k_proj",
+                    "v_proj",
+                    "o_proj",
+                    "gate_proj",
+                    "up_proj",
+                    "down_proj",
+                ]
                 info["lora_targets"] = [t for t in standard if t in module_names]
                 del model
             except Exception:

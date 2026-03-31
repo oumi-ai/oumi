@@ -79,7 +79,15 @@ def _fix_lora_targets(abs_path: str, result: CheckResult) -> bool:
             return False
 
         # Map common wrong names to correct ones
-        standard_targets = ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+        standard_targets = [
+            "q_proj",
+            "k_proj",
+            "v_proj",
+            "o_proj",
+            "gate_proj",
+            "up_proj",
+            "down_proj",
+        ]
         correct_targets = [t for t in standard_targets if t in available]
 
         if not correct_targets:
@@ -146,9 +154,7 @@ def _fix_fsdp_layer_cls(abs_path: str, result: CheckResult) -> bool:
 
 def _replace_yaml_value(content: str, key: str, new_value: str) -> str:
     """Replace a scalar YAML value while preserving surrounding formatting."""
-    pattern = re.compile(
-        rf"^(\s*{re.escape(key)}\s*:\s*)(.+)$", re.MULTILINE
-    )
+    pattern = re.compile(rf"^(\s*{re.escape(key)}\s*:\s*)(.+)$", re.MULTILINE)
     return pattern.sub(rf"\g<1>{new_value}", content, count=1)
 
 
@@ -181,7 +187,7 @@ def _replace_yaml_list(content: str, key: str, new_items: list[str]) -> str:
                 new_lines.append(f"{item_indent}- {item}")
             # Skip old list items
             i += 1
-            while i < len(lines) and re.match(rf"^\s+-\s+", lines[i]):
+            while i < len(lines) and re.match(r"^\s+-\s+", lines[i]):
                 i += 1
             continue
         new_lines.append(line)

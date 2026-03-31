@@ -4,10 +4,7 @@ from __future__ import annotations
 
 import os
 
-import yaml
-
 from config_health.core.models import (
-    CONFIG_CLASS_TO_TYPE,
     REMOTE_ENGINES,
     ConfigEntry,
     ConfigType,
@@ -127,7 +124,9 @@ def _detect_type(data: dict, filepath: str) -> ConfigType:
         return ConfigType.ANALYZE
 
     # Async evaluation configs — wrap an evaluation config inside `evaluation:` key
-    if "evaluation" in keys and ("checkpoints_dir" in keys or "polling_interval" in keys):
+    if "evaluation" in keys and (
+        "checkpoints_dir" in keys or "polling_interval" in keys
+    ):
         return ConfigType.ASYNC_EVALUATION
 
     # Tuning configs
@@ -268,9 +267,7 @@ def _extract_engine(data: dict) -> str | None:
     return None
 
 
-def _infer_gpu_tier(
-    data: dict, config_type: ConfigType, filepath: str
-) -> GpuTier:
+def _infer_gpu_tier(data: dict, config_type: ConfigType, filepath: str) -> GpuTier:
     """Infer GPU tier from config content."""
     basename = os.path.basename(filepath).lower()
 

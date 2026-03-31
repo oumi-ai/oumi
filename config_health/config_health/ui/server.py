@@ -14,9 +14,20 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from config_health.core.classifier import classify_config
-from config_health.core.coverage import analyze_coverage, build_arch_coverage, build_coverage_matrix, build_scale_coverage
+from config_health.core.coverage import (
+    analyze_coverage,
+    build_arch_coverage,
+    build_coverage_matrix,
+    build_scale_coverage,
+)
 from config_health.core.hub_checker import HubChecker
-from config_health.core.models import CheckStatus, ConfigEntry, ConfigType, GpuTier, HealthReport
+from config_health.core.models import (
+    CheckStatus,
+    ConfigEntry,
+    ConfigType,
+    GpuTier,
+    HealthReport,
+)
 from config_health.core.optimizer import suggest_optimizations
 from config_health.core.scaffolder import get_available_tasks, scaffold_config
 from config_health.core.scanner import scan_config_paths
@@ -34,7 +45,12 @@ def create_app(
     from_report: str | None = None,
 ) -> FastAPI:
     # Shared state
-    state: dict = {"repo_root": repo_root, "offline": offline, "report": HealthReport(), "scan_error": None}
+    state: dict = {
+        "repo_root": repo_root,
+        "offline": offline,
+        "report": HealthReport(),
+        "scan_error": None,
+    }
 
     def _scan() -> HealthReport:
         report = HealthReport()
@@ -57,14 +73,18 @@ def create_app(
                 report.check_results.extend(hub.check_config(entry))
                 report.suggestions.extend(suggest_optimizations(entry))
             except Exception as exc:
-                from config_health.core.models import CheckResult as CR, Severity as Sev
-                report.check_results.append(CR(
-                    config_path=entry.path,
-                    check_name="scan_error",
-                    status=CheckStatus.FAIL,
-                    message=f"Check crashed: {exc}",
-                    severity=Sev.ERROR,
-                ))
+                from config_health.core.models import CheckResult as CR
+                from config_health.core.models import Severity as Sev
+
+                report.check_results.append(
+                    CR(
+                        config_path=entry.path,
+                        check_name="scan_error",
+                        status=CheckStatus.FAIL,
+                        message=f"Check crashed: {exc}",
+                        severity=Sev.ERROR,
+                    )
+                )
         hub.save_cache()
 
         report.coverage_gaps = analyze_coverage(report.entries)
@@ -79,6 +99,7 @@ def create_app(
                 state["report"] = await asyncio.to_thread(_scan)
         except Exception as exc:
             import sys
+
             print(f"WARNING: startup scan failed: {exc}", file=sys.stderr)
             state["scan_error"] = str(exc)
         yield
@@ -130,7 +151,9 @@ def create_app(
             entries = [e for e in entries if q.lower() in e.path.lower()]
         if status:
             all_fail = report.fail_paths
-            all_warn = report.warn_paths  # warn-only (excludes configs that also have fails)
+            all_warn = (
+                report.warn_paths
+            )  # warn-only (excludes configs that also have fails)
             if status == "fail":
                 entries = [e for e in entries if e.path in all_fail]
             elif status == "warn":
@@ -143,9 +166,15 @@ def create_app(
         all_fail_paths = report.fail_paths
         all_warn_paths = report.warn_paths
 
-        config_types = sorted(set(e.config_type.value for e in report.entries if e.config_type != ConfigType.UNKNOWN))
-        families = sorted(set(e.model_family for e in report.entries if e.model_family))
-        models = sorted(set(e.model_name for e in report.entries if e.model_name))
+        config_types = sorted(
+            {
+                e.config_type.value
+                for e in report.entries
+                if e.config_type != ConfigType.UNKNOWN
+            }
+        )
+        families = sorted({e.model_family for e in report.entries if e.model_family})
+        models = sorted({e.model_name for e in report.entries if e.model_name})
 
         ctx = {
             "report": report,
@@ -153,7 +182,9 @@ def create_app(
             "total": len(report.entries),
             "fail_count": len(all_fail_paths),
             "warn_count": len(all_warn_paths),
-            "pass_count": len(report.entries) - len(all_fail_paths) - len(all_warn_paths),
+            "pass_count": len(report.entries)
+            - len(all_fail_paths)
+            - len(all_warn_paths),
             "config_types": config_types,
             "families": families,
             "models": models,
@@ -178,10 +209,19 @@ def create_app(
         report: HealthReport = state["report"]
         matrix = build_coverage_matrix(report.entries)
         col_types = ["training", "inference", "evaluation"]
-        all_col_types = ["training", "inference", "evaluation", "job", "judge", "synthesis"]
+        all_col_types = [
+            "training",
+            "inference",
+            "evaluation",
+            "job",
+            "judge",
+            "synthesis",
+        ]
 
         # Architecture coverage
-        covered, uncovered = await asyncio.to_thread(build_arch_coverage, report.entries)
+        covered, uncovered = await asyncio.to_thread(
+            build_arch_coverage, report.entries
+        )
 
         # Scale coverage
         scale_matrix = build_scale_coverage(report.entries)
@@ -197,7 +237,11 @@ def create_app(
             score = len(present) / len(expected) if expected else 1.0
             gap = gap_by_family.get(family)
             scales = scale_matrix.get(family, {})
-            sorted_scales = sorted(scales.keys(), key=lambda s: float(s.rstrip("B"))) if scales else []
+            sorted_scales = (
+                sorted(scales.keys(), key=lambda s: float(s.rstrip("B")))
+                if scales
+                else []
+            )
 
             # Find arch info and ALL sizes for this family's models
             family_entries = [e for e in report.entries if e.model_family == family]
@@ -220,32 +264,50 @@ def create_app(
             if model_name_sample:
                 for mid, size_b in discover_hub_sizes(model_name_sample):
                     if size_b >= 1:
-                        label = f"{int(size_b)}B" if size_b == int(size_b) else f"{size_b:.1f}B"
+                        label = (
+                            f"{int(size_b)}B"
+                            if size_b == int(size_b)
+                            else f"{size_b:.1f}B"
+                        )
                     else:
                         label = f"{size_b:.1f}B"
                     hub_sizes[label] = mid
 
             covered_sizes = set(scales.keys()) if scales else set()
             # Missing = sizes on HF Hub that have no configs in recipes/projects
-            missing_from_hub = {s: mid for s, mid in hub_sizes.items() if s not in all_family_sizes}
-            sorted_missing = sorted(missing_from_hub.keys(), key=lambda s: float(s.rstrip("B")))
+            missing_from_hub = {
+                s: mid for s, mid in hub_sizes.items() if s not in all_family_sizes
+            }
+            sorted_missing = sorted(
+                missing_from_hub.keys(), key=lambda s: float(s.rstrip("B"))
+            )
 
-            family_summaries.append({
-                "name": family,
-                "score": score,
-                "config_count": config_count,
-                "types_present": sorted(types_present),
-                "types_missing": sorted(expected - present),
-                "all_types": {t: len(matrix[family].get(t, [])) for t in all_col_types},
-                "scales": {s: len(scales[s]) for s in sorted_scales},
-                "missing_scales": sorted_missing,
-                "missing_scale_models": {s: missing_from_hub[s] for s in sorted_missing},
-                # Per-size per-type breakdown for the drilldown
-                "scale_types": _build_scale_type_breakdown(family_entries, sorted_scales or sorted(all_family_sizes, key=lambda s: float(s.rstrip("B")))),
-                "arch_type": arch_type,
-                "model_name_sample": model_name_sample,
-                "category": gap.category if gap else "recipes",
-            })
+            family_summaries.append(
+                {
+                    "name": family,
+                    "score": score,
+                    "config_count": config_count,
+                    "types_present": sorted(types_present),
+                    "types_missing": sorted(expected - present),
+                    "all_types": {
+                        t: len(matrix[family].get(t, [])) for t in all_col_types
+                    },
+                    "scales": {s: len(scales[s]) for s in sorted_scales},
+                    "missing_scales": sorted_missing,
+                    "missing_scale_models": {
+                        s: missing_from_hub[s] for s in sorted_missing
+                    },
+                    # Per-size per-type breakdown for the drilldown
+                    "scale_types": _build_scale_type_breakdown(
+                        family_entries,
+                        sorted_scales
+                        or sorted(all_family_sizes, key=lambda s: float(s.rstrip("B"))),
+                    ),
+                    "arch_type": arch_type,
+                    "model_name_sample": model_name_sample,
+                    "category": gap.category if gap else "recipes",
+                }
+            )
 
         # Sort: incomplete families first, then by name
         family_summaries.sort(key=lambda f: (f["score"], f["name"]))
@@ -255,21 +317,29 @@ def create_app(
         oumi_uncovered = [a for a in uncovered if a.in_oumi_registry]
         other_uncovered = [a for a in uncovered if not a.in_oumi_registry]
 
-        return templates.TemplateResponse(request, "coverage.html", {
-            "families": family_summaries,
-            "col_types": all_col_types,
-            "arch_covered": popular_covered,
-            "arch_uncovered_oumi": oumi_uncovered,
-            "arch_uncovered_other": other_uncovered,
-            "total_arch": len(covered) + len(uncovered),
-            "covered_count": len(covered),
-        })
+        return templates.TemplateResponse(
+            request,
+            "coverage.html",
+            {
+                "families": family_summaries,
+                "col_types": all_col_types,
+                "arch_covered": popular_covered,
+                "arch_uncovered_oumi": oumi_uncovered,
+                "arch_uncovered_other": other_uncovered,
+                "total_arch": len(covered) + len(uncovered),
+                "covered_count": len(covered),
+            },
+        )
 
     @app.get("/scaffold", response_class=HTMLResponse)
     async def scaffold_page(request: Request):
-        return templates.TemplateResponse(request, "scaffold.html", {
-            "available_tasks": get_available_tasks(),
-        })
+        return templates.TemplateResponse(
+            request,
+            "scaffold.html",
+            {
+                "available_tasks": get_available_tasks(),
+            },
+        )
 
     # ── API endpoints ──────────────────────────────────────────────
 
@@ -301,14 +371,18 @@ def create_app(
         except Exception:
             raw_yaml = "Could not read file"
 
-        return templates.TemplateResponse(request, "config_detail.html", {
-            "entry": entry,
-            "results": results,
-            "suggestions": suggestions,
-            "vram": vram_est,
-            "raw_yaml": raw_yaml,
-            "CheckStatus": CheckStatus,
-        })
+        return templates.TemplateResponse(
+            request,
+            "config_detail.html",
+            {
+                "entry": entry,
+                "results": results,
+                "suggestions": suggestions,
+                "vram": vram_est,
+                "raw_yaml": raw_yaml,
+                "CheckStatus": CheckStatus,
+            },
+        )
 
     @app.post("/api/rescan", response_class=HTMLResponse)
     async def rescan(request: Request):
@@ -341,9 +415,19 @@ def create_app(
             if resolved.startswith(os.path.realpath(repo_root)):
                 output_dir = resolved
             else:
-                return templates.TemplateResponse(request, "partials/scaffold_result.html", {
-                    "results": [{"task": "error", "success": False, "content": "output_dir must be within the repo"}],
-                })
+                return templates.TemplateResponse(
+                    request,
+                    "partials/scaffold_result.html",
+                    {
+                        "results": [
+                            {
+                                "task": "error",
+                                "success": False,
+                                "content": "output_dir must be within the repo",
+                            }
+                        ],
+                    },
+                )
 
         results: list[dict] = []
         for task in tasks:
@@ -365,8 +449,12 @@ def create_app(
             except Exception as e:
                 results.append({"task": task, "success": False, "content": str(e)})
 
-        return templates.TemplateResponse(request, "partials/scaffold_result.html", {
-            "results": results,
-        })
+        return templates.TemplateResponse(
+            request,
+            "partials/scaffold_result.html",
+            {
+                "results": results,
+            },
+        )
 
     return app

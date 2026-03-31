@@ -118,7 +118,11 @@ class ModelMetadata:
         if self.params_b <= 0:
             return ""
         if self.params_b >= 1:
-            return f"{self.params_b:.0f}B" if self.params_b == int(self.params_b) else f"{self.params_b:.1f}B"
+            return (
+                f"{self.params_b:.0f}B"
+                if self.params_b == int(self.params_b)
+                else f"{self.params_b:.1f}B"
+            )
         return f"{self.params_b:.1f}B"
 
 
@@ -191,7 +195,9 @@ class ArchCoverageEntry:
 
     model_type: str  # e.g. "llama", "qwen2", "gemma2"
     model_class: str  # e.g. "LlamaForCausalLM"
-    config_types: list[str] = field(default_factory=list)  # e.g. ["training", "inference"]
+    config_types: list[str] = field(
+        default_factory=list
+    )  # e.g. ["training", "inference"]
     model_names: list[str] = field(default_factory=list)  # HF repo IDs using this arch
     config_count: int = 0
     is_vlm: bool = False  # vision-language model
@@ -218,9 +224,15 @@ class HealthReport:
     check_results: list[CheckResult] = field(default_factory=list)
     coverage_gaps: list[CoverageGap] = field(default_factory=list)
     suggestions: list[OptimizationSuggestion] = field(default_factory=list)
-    vram_estimates: dict[str, dict] = field(default_factory=dict)  # path -> estimate dict
-    dry_run_results: dict[str, dict] = field(default_factory=dict)  # path -> result dict
-    phase_durations_s: dict[str, float] = field(default_factory=dict)  # phase -> seconds
+    vram_estimates: dict[str, dict] = field(
+        default_factory=dict
+    )  # path -> estimate dict
+    dry_run_results: dict[str, dict] = field(
+        default_factory=dict
+    )  # path -> result dict
+    phase_durations_s: dict[str, float] = field(
+        default_factory=dict
+    )  # phase -> seconds
     environment: dict[str, str] = field(default_factory=dict)  # runtime env info
     scan_duration_s: float = 0.0
 
@@ -262,8 +274,12 @@ class HealthReport:
         cached = getattr(self, "_status_cache", None)
         if cached is not None and cached[0] == cache_key:
             return cached[1], cached[2]
-        fail = {r.config_path for r in self.check_results if r.status == CheckStatus.FAIL}
-        warn = {r.config_path for r in self.check_results if r.status == CheckStatus.WARN} - fail
+        fail = {
+            r.config_path for r in self.check_results if r.status == CheckStatus.FAIL
+        }
+        warn = {
+            r.config_path for r in self.check_results if r.status == CheckStatus.WARN
+        } - fail
         self._status_cache = (cache_key, fail, warn)  # type: ignore[attr-defined]
         return fail, warn
 
@@ -309,7 +325,7 @@ class HealthReport:
             json.dump(data, f, indent=2, default=_serialize)
 
     @classmethod
-    def from_json(cls, path: str | Path) -> "HealthReport":
+    def from_json(cls, path: str | Path) -> HealthReport:
         """Load report from JSON."""
         with open(path) as f:
             data = json.load(f)
