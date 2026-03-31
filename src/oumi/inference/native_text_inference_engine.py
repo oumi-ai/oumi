@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import warnings
+from collections.abc import Callable
 from typing import cast
 
 import PIL.Image
@@ -405,12 +406,16 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         self,
         input: list[Conversation],
         inference_config: InferenceConfig | None = None,
+        progress_callback: Callable[[int, int], None] | None = None,
     ) -> list[Conversation]:
         """Runs model inference online.
 
         Args:
             input: A list of conversations to run inference on.
             inference_config: Parameters for inference.
+            progress_callback: Optional callback invoked after each conversation
+                completes. Called with (completed_count, total_count). Not used
+                by this engine.
 
         Returns:
             List[Conversation]: Inference output.
