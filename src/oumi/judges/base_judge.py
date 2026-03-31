@@ -462,6 +462,13 @@ class BaseJudge:
         parse_failures = 0
 
         for idx, conv in batch_result.successful:
+            # Accumulate token usage from batch results (not covered by
+            # _infer(), which only runs for non-batch / retry paths).
+            usage = conv.metadata.get("usage", {})
+            self._total_input_tokens += usage.get("prompt_tokens", 0)
+            self._total_output_tokens += usage.get("completion_tokens", 0)
+            self._total_cached_tokens += usage.get("cached_tokens", 0)
+
             try:
                 self._validate_completed_conversation(conv)
                 raw_output = str(conv.messages[-1].content)
