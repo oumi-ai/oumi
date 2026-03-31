@@ -1,6 +1,6 @@
 # Analysis Configuration
 
-{py:class}`~oumi.core.configs.AnalyzeConfig` controls how Oumi analyzes datasets. See {doc}`analyze` for usage examples.
+{py:class}`~oumi.core.configs.AnalyzeConfig` controls how Oumi OSS analyzes datasets. See {doc}`analyze` for usage examples.
 
 ## Core Settings
 
@@ -130,7 +130,7 @@ Multimodal datasets require a valid `processor_name`.
 
 ## Example Configuration
 
-Run the example from the Oumi repository root:
+Run the example from the Oumi OSS repository root:
 
 ```bash
 oumi analyze --config configs/examples/analyze/analyze.yaml

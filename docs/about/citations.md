@@ -1,6 +1,6 @@
 # Citations
 
-## Citing Oumi
+## Citing Oumi OSS
 
 If you find Oumi useful in your research, please consider citing it using the following entry:
 

@@ -2,7 +2,7 @@
 
 Preference tuning is a technique for training language models to align with human preferences. It involves presenting the model with pairs of outputs (e.g., two different responses to the same prompt) and training it to prefer the output that humans prefer.
 
-This guide covers datasets used for RLHF (Reinforcement Learning from Human Feedback) and DPO (Direct Preference Optimization) in Oumi.
+This guide covers datasets used for RLHF (Reinforcement Learning from Human Feedback) and DPO (Direct Preference Optimization) in Oumi OSS.
 
 ## Supported Datasets
 

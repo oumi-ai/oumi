@@ -41,6 +41,27 @@ class TogetherInferenceEngine(RemoteInferenceEngine):
     See: https://docs.together.ai/docs/batch-inference
     """
 
+    @override
+    async def _fetch_models(self) -> list[dict[str, Any]]:
+        """Fetches models from Together's API, which returns a raw list."""
+        async with self._create_session() as (session, headers):
+            async with session.get(
+                self.get_models_api_url(),
+                headers=headers,
+            ) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    raise RuntimeError(
+                        f"Failed to list models: {response.status} {error_text}"
+                    )
+                data = await response.json()
+                return data if isinstance(data, list) else data.get("data", [])
+
+    @override
+    def _filter_chat_models(self, models: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Filters to chat models using Together's ``type`` field."""
+        return [m for m in models if m.get("type") == "chat"]
+
     @property
     @override
     def base_url(self) -> str | None:

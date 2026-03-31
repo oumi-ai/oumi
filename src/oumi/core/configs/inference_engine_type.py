@@ -30,9 +30,6 @@ class InferenceEngineType(str, Enum):
     SGLANG = "SGLANG"
     """The SGLang inference engine."""
 
-    LAMBDA = "LAMBDA"
-    """The Lambda inference engine."""
-
     LLAMACPP = "LLAMACPP"
     """The LlamaCPP inference engine."""
 

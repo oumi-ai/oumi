@@ -4,7 +4,7 @@
 
 ## Introduction
 
-Oumi supports several training methods to accommodate different use cases.
+Oumi OSS supports several training methods to accommodate different use cases.
 
 Here's a quick comparison:
 
@@ -17,7 +17,7 @@ Here's a quick comparison:
 | [Group Relative Policy Optimization (GRPO)](#group-relative-policy-optimization-grpo) | Reasoning | Input-output pairs | Moderate | Trains a model to improve reasoning skills by providing training examples with concrete answers. |
 
 ```{tip}
-Oumi supports GRPO on Vision-Language Models with the `VERL_GRPO` trainer.
+Oumi OSS supports GRPO on Vision-Language Models with the `VERL_GRPO` trainer.
 ```
 
 (supervised-fine-tuning-sft)=
@@ -343,7 +343,7 @@ The `VERL_GRPO` trainer has a specific format required for its input dataset. Re
 ```
 
 ```{tip}
-verl requires paths to Parquet files for the training and validation data. Oumi allows you to use HuggingFace Datasets instead by automatically creating the necessary Parquet files before training.
+verl requires paths to Parquet files for the training and validation data. Oumi OSS allows you to use HuggingFace Datasets instead by automatically creating the necessary Parquet files before training.
 ```
 
 ### Reward function
@@ -354,7 +354,7 @@ Instead of training a separate reward model which estimates the reward value of 
 
 #### TRL_GRPO
 
-Configuring the `TRL_GRPO` trainer is similar to most other trl-based trainers in Oumi, like `TRL_SFT`. Most Oumi config fields will be used, as trl's [GRPO config](https://huggingface.co/docs/trl/main/en/grpo_trainer#trl.GRPOConfig) is built on top of HF's config. The following configuration highlights some relevant fields for GRPO:
+Configuring the `TRL_GRPO` trainer is similar to most other trl-based trainers in Oumi OSS, like `TRL_SFT`. Most Oumi OSS config fields will be used, as trl's [GRPO config](https://huggingface.co/docs/trl/main/en/grpo_trainer#trl.GRPOConfig) is built on top of HF's config. The following configuration highlights some relevant fields for GRPO:
 
 ```yaml
 model:
@@ -378,9 +378,9 @@ training:
 
 #### VERL_GRPO
 
-verl is an RL training framework created by Alibaba. Many Oumi config fields, which generally correspond to HF config fields, thus are not consumed by verl. The following table shows all Oumi config fields used by the verl trainer, and what fields they map to. An overview of fields in the verl config can be found in their [documentation](https://verl.readthedocs.io/en/latest/examples/config.html).
+verl is an RL training framework created by Alibaba. Many Oumi OSS config fields, which generally correspond to HF config fields, thus are not consumed by verl. The following table shows all Oumi OSS config fields used by the verl trainer, and what fields they map to. An overview of fields in the verl config can be found in their [documentation](https://verl.readthedocs.io/en/latest/examples/config.html).
 
-| Oumi                                            | verl                                                  |
+| Oumi OSS                                        | verl                                                  |
 |-------------------------------------------------|-------------------------------------------------------|
 | model.model_name                                | actor_rollout_ref.model.path                          |
 | data.train.datasets                             | data.train_files                                      |
@@ -402,10 +402,10 @@ verl is an RL training framework created by Alibaba. Many Oumi config fields, wh
 | training.output_dir                             | trainer.default_local_dir                             |
 
 ```{tip}
-The `training.verl_config_overrides` field can be used to specify any field in the verl config. The values specified in this field will override any values set by the Oumi -> verl mapping above. For example, if you already have your own training/validation Parquet files you want to use, you can directly set `data.train_files` in the override.
+The `training.verl_config_overrides` field can be used to specify any field in the verl config. The values specified in this field will override any values set by the Oumi OSS -> verl mapping above. For example, if you already have your own training/validation Parquet files you want to use, you can directly set `data.train_files` in the override.
 ```
 
-The following shows a bare-bones Oumi `VERL_GRPO` config.
+The following shows a bare-bones Oumi OSS `VERL_GRPO` config.
 
 ```yaml
 model:

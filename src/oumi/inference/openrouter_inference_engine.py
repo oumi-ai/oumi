@@ -45,6 +45,11 @@ class OpenRouterInferenceEngine(RemoteInferenceEngine):
         return "OPENROUTER_API_KEY"
 
     @override
+    def get_models_api_url(self) -> str:
+        """Returns the URL for the OpenRouter models API."""
+        return "https://openrouter.ai/api/v1/models"
+
+    @override
     def infer_batch(
         self,
         _conversations: list[Conversation],

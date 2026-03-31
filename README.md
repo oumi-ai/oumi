@@ -23,6 +23,11 @@
 
 ## 🔥 News
 
+- [2026/03] Upgraded to Transformers v5, TRL v0.30, vLLM v0.19, and veRL v0.7 compatibility
+- [2026/03] [MCP Integration Phase 1](https://github.com/oumi-ai/oumi/pull/2234): package scaffold and dependencies for MCP server support
+- [2026/03] New: `oumi deploy` command for deploying oumi models dedicated inference endpoints on fireworks.ai and parasail
+- [2026/03] Added support for Qwen3.5 model family
+- [2026/03] Inference engines received multiple improvements: list_models api, improved error reporting
 - [2026/02] [Preview of using the Oumi Platform and Lambda to fine-tune and deploy a 4B model for user intent classification](https://youtu.be/0XpfYRpd_FA)
 - [2026/02] [Lambda and Oumi partner for end-to-end custom model development](https://blog.oumi.ai/p/lambda-and-oumi-partner-for-end-to)
 - [2025/12] [Oumi v0.6.0 released](https://github.com/oumi-ai/oumi/releases/tag/v0.6.0) with Python 3.13 support, `oumi analyze` CLI command, TRL 0.26+ support, and more
@@ -31,6 +36,10 @@
 - [2025/11] [Oumi v0.5.0 released](https://github.com/oumi-ai/oumi/releases/tag/v0.5) with advanced data synthesis, hyperparameter tuning automation, support for OpenEnv, and more
 - [2025/11] [Example notebook to perform RLVF fine-tuning with OpenEnv](https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20OpenEnv%20GRPO%20with%20trl.ipynb), an open source library from the Meta PyTorch team for creating, deploying, and distributing agentic RL environments
 - [2025/10] [Oumi v0.4.1](https://github.com/oumi-ai/oumi/releases/tag/v0.4.1) and [v0.4.2](https://github.com/oumi-ai/oumi/releases/tag/v0.4.2) released] with support for Qwen3-VL and Transformers v4.56, data synthesis documentation and examples, and many bug fixes
+
+<details>
+<summary>Older updates</summary>
+
 - [2025/09] [Oumi v0.4.0 released](https://github.com/oumi-ai/oumi/releases/tag/v0.4.0) with DeepSpeed support, a Hugging Face Hub cache management tool, KTO/Vision DPO trainer support
 - [2025/08] Training and inference support for OpenAI's `gpt-oss-20b` and `gpt-oss-120b`: [recipes here](https://github.com/oumi-ai/oumi/tree/main/configs/recipes/gpt_oss)
 - [2025/08] Aug 14 Webinar - [OpenAI's gpt-oss: Separating the Substance from the Hype](https://youtu.be/g1PkAV7fXn0).
@@ -45,6 +54,8 @@
 - [2025/04] Recipes for [Qwen3 model family](https://github.com/oumi-ai/oumi/tree/main/configs/recipes/qwen3)
 - [2025/04] Introducing HallOumi: a State-of-the-Art Claim-Verification Model [(technical overview)](https://oumi.ai/blog/posts/introducing-halloumi)
 - [2025/04] Oumi now supports two new Vision-Language models: [Phi4](https://github.com/oumi-ai/oumi/tree/main/configs/recipes/vision/phi4) and [Qwen 2.5](https://github.com/oumi-ai/oumi/tree/main/configs/recipes/vision/qwen2_5_vl_3b)
+
+</details>
 
 ## 🔎 About
 
