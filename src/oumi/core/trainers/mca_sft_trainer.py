@@ -62,13 +62,6 @@ class McaSftTrainer(BaseTrainer):
     This class wraps mcore_adapter's McaTrainer, following the same pattern
     as VerlGrpoTrainer. MCA handles model construction, distributed
     initialization, and training internally.
-
-    .. note::
-        **transformer_impl quality warning**: ``transformer_impl="local"`` uses
-        Megatron-Core's reimplementation of the transformer, which may produce
-        different fine-tuning outcomes than HuggingFace's native implementation.
-        If output quality is poor, try ``transformer_impl="transformer_engine"``
-        (requires NVIDIA Transformer Engine to be installed).
     """
 
     def __init__(
