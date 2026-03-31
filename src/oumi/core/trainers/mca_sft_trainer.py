@@ -62,6 +62,13 @@ class McaSftTrainer(BaseTrainer):
     This class wraps mcore_adapter's McaTrainer, following the same pattern
     as VerlGrpoTrainer. MCA handles model construction, distributed
     initialization, and training internally.
+
+    .. note::
+        **transformer_impl quality warning**: ``transformer_impl="local"`` uses
+        Megatron-Core's reimplementation of the transformer, which may produce
+        different fine-tuning outcomes than HuggingFace's native implementation.
+        If output quality is poor, try ``transformer_impl="transformer_engine"``
+        (requires NVIDIA Transformer Engine to be installed).
     """
 
     def __init__(
@@ -94,6 +101,14 @@ class McaSftTrainer(BaseTrainer):
         self._validate_model_support(config.model.model_name)
         self._validate_world_size(megatron)
 
+        # MCA's DataLoader always uses SequentialSampler (no internal shuffle).
+        # Pre-shuffle the training dataset so examples are not processed in their
+        # original order (which may be sorted by class label, causing mode collapse).
+        seed = training.seed if training.seed is not None else 42
+        if hasattr(train_dataset, "shuffle"):
+            train_dataset = train_dataset.shuffle(seed=seed)
+            logger.info("Pre-shuffled train_dataset (MCA uses SequentialSampler).")
+
         # Build MCA training arguments from oumi config.
         mca_args = self._build_mca_args(config)
 
@@ -104,12 +119,19 @@ class McaSftTrainer(BaseTrainer):
         # MCA owns model construction (handles TP/PP placement internally).
         model = McaAutoModel.from_pretrained(model_path, mca_args)
 
-        # Wrap the data collator to ensure `labels` are present, which
-        # mcore_adapter requires. If the upstream collator doesn't produce
-        # labels, copy input_ids as labels (standard causal LM training).
-        # NOTE: This means loss is computed on the entire sequence. For
-        # completions-only training, use a collator that produces labels
-        # with -100 for prompt tokens (e.g. text_completions_only_with_padding).
+        # Wrap the data collator to:
+        # 1. Ensure `labels` are present (required by mcore_adapter).
+        # 2. Pre-shift labels for Megatron-style loss computation.
+        #
+        # IMPORTANT — label alignment difference vs HuggingFace:
+        #   HF CausalLM shifts labels INTERNALLY in forward():
+        #     loss = CE(logits[:, :-1], labels[:, 1:])
+        #   Megatron/mcore_adapter does NOT shift; it computes:
+        #     loss = CE(logits[:, i], labels[:, i])
+        #   Therefore labels must arrive PRE-SHIFTED: labels[i] = input_ids[i+1].
+        #   We do this by trimming input_ids/attention_mask from the right and
+        #   labels from the left, reducing sequence length by 1. This matches
+        #   the approach used in LlamaFactory and ROLL's own SFT pipelines.
         data_collator = kwargs.pop("data_collator", None)
         if data_collator is not None:
             original_collator = data_collator
@@ -128,6 +150,16 @@ class McaSftTrainer(BaseTrainer):
                         )
                         _labels_warning_logged = True
                     result["labels"] = result["input_ids"].clone()
+
+                # Pre-shift for Megatron: input_ids[:-1], labels[1:].
+                # Both tensors end up length seq_len-1 and are aligned so that
+                # labels[i] is the token that should follow input_ids[i].
+                result["input_ids"] = result["input_ids"][:, :-1]
+                result["labels"] = result["labels"][:, 1:]
+                if "attention_mask" in result:
+                    result["attention_mask"] = result["attention_mask"][:, :-1]
+                if "position_ids" in result:
+                    result["position_ids"] = result["position_ids"][:, :-1]
                 return result
 
             data_collator = _collator_with_labels
@@ -216,13 +248,14 @@ class McaSftTrainer(BaseTrainer):
         }
 
         if training.warmup_ratio is not None:
-            mca_kwargs["warmup_steps"] = training.warmup_ratio
+            mca_kwargs["warmup_ratio"] = training.warmup_ratio
         if training.warmup_steps is not None:
             mca_kwargs["warmup_steps"] = training.warmup_steps
         if training.max_grad_norm is not None:
             mca_kwargs["max_grad_norm"] = training.max_grad_norm
-        if training.enable_gradient_checkpointing:
-            mca_kwargs["gradient_checkpointing"] = True
+        # Note: MCA's VirtualModels wrapper doesn't support HF's
+        # gradient_checkpointing_enable(). For activation recomputation,
+        # use megatron.recompute_granularity ("full" or "selective") instead.
 
         if megatron.virtual_pipeline_model_parallel_size is not None:
             mca_kwargs["virtual_pipeline_model_parallel_size"] = (
@@ -310,8 +343,61 @@ class McaSftTrainer(BaseTrainer):
                 "MCA checkpoint saved at %s but not converted to HF format.",
                 mca_dir,
             )
+            return
         except Exception:
             logger.exception("Failed to convert MCA checkpoint to HF format.")
+            return
+
+        # vLLM and some HF loading paths don't apply tie_word_embeddings
+        # automatically when lm_head.weight is absent from the checkpoint.
+        # Explicitly add lm_head.weight = embed_tokens.weight for models that
+        # use tied embeddings (e.g. Qwen3) so all inference backends work.
+        self._fix_tied_embeddings(hf_dir)
+
+    def _fix_tied_embeddings(self, hf_dir: Path) -> None:
+        """Adds explicit lm_head.weight for tied-embedding models if missing.
+
+        mcore_adapter's converter omits lm_head.weight when tie_word_embeddings
+        is True (the weight is identical to embed_tokens.weight). HF handles
+        this via config.json, but vLLM requires the key to be present in the
+        safetensors file.
+        """
+        import json
+
+        config_path = hf_dir / "config.json"
+        if not config_path.exists():
+            return
+
+        with open(config_path) as f:
+            hf_config = json.load(f)
+
+        if not hf_config.get("tie_word_embeddings", False):
+            return
+
+        # Find safetensors file(s) and check if lm_head.weight is present.
+        safetensors_files = list(hf_dir.glob("*.safetensors"))
+        if not safetensors_files:
+            return
+
+        try:
+            from safetensors.torch import load_file, save_file
+
+            for sf_path in safetensors_files:
+                tensors = load_file(str(sf_path))
+                if "lm_head.weight" not in tensors and "model.embed_tokens.weight" in tensors:
+                    # Clone to avoid shared-memory error in safetensors serialization.
+                    tensors["lm_head.weight"] = tensors["model.embed_tokens.weight"].clone()
+                    save_file(tensors, str(sf_path))
+                    logger.info(
+                        "Added explicit lm_head.weight (tied to embed_tokens) in %s",
+                        sf_path,
+                    )
+        except Exception:
+            logger.warning(
+                "Could not add lm_head.weight to safetensors checkpoint. "
+                "vLLM inference may fail for models with tie_word_embeddings=True.",
+                exc_info=True,
+            )
 
     def get_last_eval_metrics(self) -> dict[str, Any]:
         """Returns the last evaluation metrics."""
