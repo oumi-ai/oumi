@@ -1095,6 +1095,87 @@ class TestBaseJudge:
         assert judge.total_output_tokens == 50
         assert judge.total_cached_tokens == 15
 
+    def test_batch_plus_retry_token_usage_accumulated(self, sample_output_fields):
+        """Test tokens from batch results and retried items are both accumulated.
+
+        Simulates the real-world flow: batch partially succeeds, then failed
+        items are retried individually via judge(). Total tokens should include
+        both paths.
+        """
+        mock_engine = MagicMock()
+
+        # Batch returns 1 success (item 0), 1 failure (item 1)
+        mock_engine.get_batch_results_partial.return_value = BatchResult(
+            successful=[
+                (
+                    0,
+                    Conversation(
+                        messages=[
+                            Message(content="prompt", role=Role.USER),
+                            Message(
+                                content="<judgment>True</judgment>",
+                                role=Role.ASSISTANT,
+                            ),
+                        ],
+                        metadata={
+                            "usage": {
+                                "prompt_tokens": 100,
+                                "completion_tokens": 20,
+                                "cached_tokens": 5,
+                            }
+                        },
+                    ),
+                ),
+            ],
+            failed_indices=[1],
+            error_messages={1: "server error"},
+        )
+
+        judge = BaseJudge(
+            prompt_template="Is this helpful? Question: {question}, Answer: {answer}",
+            prompt_template_placeholders={"question", "answer"},
+            system_instruction=None,
+            example_field_values=[],
+            response_format=JudgeResponseFormat.XML,
+            output_fields=sample_output_fields,
+            inference_engine=mock_engine,
+        )
+
+        # Step 1: retrieve partial batch results
+        input_convs = [
+            Conversation(messages=[Message(content="p1", role=Role.USER)]),
+            Conversation(messages=[Message(content="p2", role=Role.USER)]),
+        ]
+        with patch(
+            "oumi.judges.base_judge.isinstance", side_effect=lambda obj, cls: True
+        ):
+            judge.judge_batch_result_partial("batch_123", input_convs)
+
+        # Step 2: retry the failed item via judge() (the non-batch path)
+        mock_engine.infer.return_value = [
+            Conversation(
+                messages=[
+                    Message(content="prompt2", role=Role.USER),
+                    Message(
+                        content="<judgment>False</judgment>", role=Role.ASSISTANT
+                    ),
+                ],
+                metadata={
+                    "usage": {
+                        "prompt_tokens": 80,
+                        "completion_tokens": 15,
+                        "cached_tokens": 3,
+                    }
+                },
+            ),
+        ]
+        judge.judge([{"question": "What is 3+3?", "answer": "6"}])
+
+        # Totals should include both batch (100+20+5) and retry (80+15+3)
+        assert judge.total_input_tokens == 180
+        assert judge.total_output_tokens == 35
+        assert judge.total_cached_tokens == 8
+
     def test_cached_token_usage_accumulated(
         self, base_judge, mock_inference_engine, sample_output_fields
     ):
