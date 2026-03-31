@@ -19,6 +19,7 @@ import json
 import time
 import uuid
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -91,6 +92,7 @@ class BaseInferenceEngine(ABC):
         self,
         input: list[Conversation] | None = None,
         inference_config: InferenceConfig | None = None,
+        progress_callback: Callable[[int, int], None] | None = None,
     ) -> list[Conversation]:
         """Runs model inference.
 
@@ -98,6 +100,8 @@ class BaseInferenceEngine(ABC):
             input: A list of conversations to run inference on. Optional.
             inference_config: Parameters for inference.
                 If not specified, a default config is inferred.
+            progress_callback: Optional callback invoked after each conversation
+                completes. Called with (completed_count, total_count).
 
         Returns:
             List[Conversation]: Inference output.
@@ -197,7 +201,7 @@ class BaseInferenceEngine(ABC):
         start_time = time.perf_counter()
         histogram = self._latency_histogram_online
         inference_results = self._infer_online(
-            remaining_conversations, inference_config
+            remaining_conversations, inference_config, progress_callback
         )
         histogram.record_value((time.perf_counter() - start_time) * 1e3)
         self._maybe_log_latency_histogram(histogram)
@@ -464,12 +468,15 @@ class BaseInferenceEngine(ABC):
         self,
         input: list[Conversation],
         inference_config: InferenceConfig | None = None,
+        progress_callback: Callable[[int, int], None] | None = None,
     ) -> list[Conversation]:
         """Runs model inference online.
 
         Args:
             input: A list of conversations to run inference on.
             inference_config: Parameters for inference.
+            progress_callback: Optional callback invoked after each conversation
+                completes. Called with (completed_count, total_count).
 
         Returns:
             List[Conversation]: Inference output.

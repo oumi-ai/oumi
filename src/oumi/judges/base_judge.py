@@ -15,6 +15,7 @@
 import json
 import logging
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 import pydantic
@@ -361,12 +362,15 @@ class BaseJudge:
     def judge(
         self,
         inputs: list[dict[str, str]],
+        progress_callback: Callable[[int, int], None] | None = None,
     ) -> list[JudgeOutput]:
         """Evaluate a batch of inputs and return structured judgments.
 
         Args:
             inputs: List of dictionaries containing input data for evaluation.
                     Each dict must contain values for all prompt_template placeholders.
+            progress_callback: Optional callback invoked after each input is
+                processed. Called with (completed_count, total_count).
 
         Returns:
             List of structured judge outputs with parsed results
@@ -375,7 +379,9 @@ class BaseJudge:
             ValueError: If inference returns unexpected number of conversations
         """
         conversations = self.build_conversations(inputs)
-        completed_conversations = self._infer(conversations)
+        completed_conversations = self._infer(
+            conversations, progress_callback=progress_callback
+        )
         return self.parse_judge_outputs(completed_conversations)
 
     def judge_batch_submit(
@@ -704,11 +710,17 @@ class BaseJudge:
                 f"got {conversation.messages[-1].role}"
             )
 
-    def _infer(self, conversations: list[Conversation]) -> list[Conversation]:
+    def _infer(
+        self,
+        conversations: list[Conversation],
+        progress_callback: Callable[[int, int], None] | None = None,
+    ) -> list[Conversation]:
         """Run inference on judge conversations and preserve metadata.
 
         Args:
             conversations: List of conversations to run inference on
+            progress_callback: Optional callback invoked after each conversation
+                completes. Called with (completed_count, total_count).
 
         Returns:
             List of conversations with model responses added
@@ -718,7 +730,9 @@ class BaseJudge:
 
         # Run batch inference
         if self.inference_engine:
-            response_conversations = self.inference_engine.infer(input=conversations)
+            response_conversations = self.inference_engine.infer(
+                input=conversations, progress_callback=progress_callback
+            )
         else:
             raise ValueError(
                 "Cannot run inference: inference_engine is None. "

@@ -19,7 +19,7 @@ import os
 import tempfile
 import urllib.parse
 import warnings
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime
@@ -739,13 +739,15 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         self,
         input: list[Conversation],
         inference_config: InferenceConfig | None = None,
+        progress_callback: Callable[[int, int], None] | None = None,
     ) -> list[Conversation]:
         """Runs model inference on the provided input.
 
         Args:
             input: A list of conversations to run inference on.
             inference_config: Parameters for inference.
-            remote_params: Parameters for running inference against a remote API.
+            progress_callback: Optional callback invoked after each conversation
+                completes. Called with (completed_count, total_count).
 
         Returns:
             List[Conversation]: Inference output.
@@ -757,6 +759,20 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             capacity=self._remote_params.num_workers,
             politeness_policy=self._remote_params.politeness_policy,
         )
+        total = len(input)
+        completed_count = 0
+
+        async def _wrap_with_progress(task):
+            nonlocal completed_count
+            result = await task
+            completed_count += 1
+            if progress_callback:
+                try:
+                    progress_callback(completed_count, total)
+                except Exception:
+                    pass  # progress reporting is best-effort
+            return result
+
         async with aiohttp.ClientSession(connector=connector) as session:
             tasks = [
                 self._query_api(
@@ -769,7 +785,14 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             ]
 
             disable_tqdm = len(tasks) < 2
-            results = await tqdm.gather(*tasks, disable=disable_tqdm)
+            if progress_callback:
+                # Use asyncio.gather directly when we have a progress callback,
+                # since we report progress via the callback instead of tqdm.
+                results = await asyncio.gather(
+                    *[_wrap_with_progress(t) for t in tasks]
+                )
+            else:
+                results = await tqdm.gather(*tasks, disable=disable_tqdm)
             return results
 
     @override
@@ -777,17 +800,22 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         self,
         input: list[Conversation],
         inference_config: InferenceConfig | None = None,
+        progress_callback: Callable[[int, int], None] | None = None,
     ) -> list[Conversation]:
         """Runs model inference online.
 
         Args:
             input: A list of conversations to run inference on.
             inference_config: Parameters for inference.
+            progress_callback: Optional callback invoked after each conversation
+                completes. Called with (completed_count, total_count).
 
         Returns:
             List[Conversation]: Inference output.
         """
-        conversations = safe_asyncio_run(self._infer(input, inference_config))
+        conversations = safe_asyncio_run(
+            self._infer(input, inference_config, progress_callback)
+        )
         return conversations
 
     @override

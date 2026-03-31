@@ -994,3 +994,69 @@ def test_get_batch_results_partial_not_supported(
         )
 
     assert "does not support partial batch results" in str(exc_info.value)
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_synthesize_forwards_progress_callback(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_generated_attribute,
+    mock_inference_config,
+):
+    """Test that synthesize forwards progress_callback to the inference engine."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+
+    mock_inference_engine.infer.return_value = [
+        Conversation(
+            messages=[
+                Message(role=Role.USER, content="Test query"),
+                Message(role=Role.ASSISTANT, content="Test response"),
+            ]
+        ),
+    ]
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+    samples = [{"style": "formal", "topic": "tech"}]
+
+    callback = Mock()
+    synthesizer.synthesize(samples, mock_generated_attribute, progress_callback=callback)
+
+    # Verify infer was called with the progress_callback
+    mock_inference_engine.infer.assert_called_once()
+    assert mock_inference_engine.infer.call_args[1]["progress_callback"] is callback
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_synthesize_progress_callback_defaults_to_none(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_generated_attribute,
+    mock_inference_config,
+):
+    """Test that synthesize passes None when no callback is provided."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+
+    mock_inference_engine.infer.return_value = [
+        Conversation(
+            messages=[
+                Message(role=Role.USER, content="Test query"),
+                Message(role=Role.ASSISTANT, content="Test response"),
+            ]
+        ),
+    ]
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+    samples = [{"style": "formal", "topic": "tech"}]
+
+    synthesizer.synthesize(samples, mock_generated_attribute)
+
+    mock_inference_engine.infer.assert_called_once()
+    assert mock_inference_engine.infer.call_args[1]["progress_callback"] is None

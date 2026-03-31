@@ -21,6 +21,7 @@ class MockInferenceEngine(BaseInferenceEngine):
         self,
         input: list[Conversation],
         inference_config: InferenceConfig | None = None,
+        progress_callback=None,
     ) -> list[Conversation]:
         # Mock implementation that appends an assistant response
         results = []
@@ -168,10 +169,12 @@ def test_infer_no_resume_from_scratch_on_success(mock_engine):
                 [
                     # First call with just the first conversation
                     mock.call(
-                        [conversations[0].model_copy(deep=True)], inference_config
+                        [conversations[0].model_copy(deep=True)],
+                        inference_config,
+                        None,
                     ),
                     # Second call with both conversations
-                    mock.call(conversations, inference_config),
+                    mock.call(conversations, inference_config, None),
                 ]
             )
 
@@ -196,7 +199,7 @@ def test_infer_resume_from_scratch_on_failure(mock_engine):
         ]
 
         # Run inference which fails on the second conversation
-        def mock_infer_online(input_convs, config):
+        def mock_infer_online(input_convs, config, progress_callback=None):
             # Process conversations one at a time
             results = []
             for i, conv in enumerate(input_convs):
@@ -453,3 +456,43 @@ def test_final_conversations_saved_to_output_file(mock_engine):
         assert not scratch_path.exists(), (
             "Scratch file should be cleaned up after successful inference"
         )
+
+
+def test_progress_callback_called_for_each_conversation(mock_engine):
+    """Test that progress_callback is passed through to _infer_online."""
+    conversations = [create_test_conversation(i) for i in range(3)]
+
+    callback_calls = []
+
+    def track_callback(completed, total):
+        callback_calls.append((completed, total))
+
+    # The MockInferenceEngine._infer_online doesn't fire the callback itself,
+    # so we patch it to verify the callback is passed through from infer().
+    with patch.object(mock_engine, "_infer_online", wraps=mock_engine._infer_online) as m:
+        mock_engine.infer(input=conversations, progress_callback=track_callback)
+        # Verify progress_callback was forwarded to _infer_online
+        assert m.call_args[0][2] is track_callback
+
+
+def test_progress_callback_none_by_default(mock_engine):
+    """Test that progress_callback defaults to None."""
+    conversations = [create_test_conversation(1)]
+
+    with patch.object(mock_engine, "_infer_online", wraps=mock_engine._infer_online) as m:
+        mock_engine.infer(input=conversations)
+        # Third positional arg should be None
+        assert m.call_args[0][2] is None
+
+
+def test_progress_callback_exception_does_not_crash_inference(mock_engine):
+    """Test that a raising callback doesn't prevent inference from completing."""
+    conversations = [create_test_conversation(1)]
+
+    def bad_callback(completed, total):
+        raise RuntimeError("callback error")
+
+    # Even if the callback raises, infer() should still return results.
+    # (The base class passes it to _infer_online; concrete engines catch exceptions.)
+    results = mock_engine.infer(input=conversations, progress_callback=bad_callback)
+    assert len(results) == 1

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from oumi.builders.inference_engines import build_inference_engine
@@ -81,6 +82,7 @@ class AttributeSynthesizer:
         self,
         samples: list[dict],
         generated_attribute: GeneratedAttribute,
+        progress_callback: Callable[[int, int], None] | None = None,
     ) -> list[dict[str, str]]:
         """Synthesize a value for the generated attribute.
 
@@ -89,6 +91,8 @@ class AttributeSynthesizer:
         Args:
             samples: The samples to synthesize values for.
             generated_attribute: The generated attribute to synthesize a value for.
+            progress_callback: Optional callback invoked after each sample is
+                processed. Called with (completed_count, total_count).
 
         Returns:
             A list of dictionaries, one for each sample, with the generated attribute
@@ -106,6 +110,7 @@ class AttributeSynthesizer:
         inference_results = self._inference_engine.infer(
             inference_conversations,
             inference_config=self._inference_config,
+            progress_callback=progress_callback,
         )
         self._accumulate_token_usage(inference_results)
 
