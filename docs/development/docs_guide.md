@@ -11,13 +11,13 @@ The easiest way to modify an existing page is to use the "Suggest Edit" UI:
 4. Make your changes
 5. Submit a [pull request](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request)
 
-To add a new page, you can add a new Markdown file to our Oumi GitHub repo. For example, the quickstart guide is located [here](https://github.com/oumi-ai/oumi/blame/main/docs/get_started/quickstart.md).
+To add a new page, you can add a new Markdown file to our Oumi OSS GitHub repo. For example, the quickstart guide is located [here](https://github.com/oumi-ai/oumi/blame/main/docs/get_started/quickstart.md).
 
 Note that [Sphinx](https://www.sphinx-doc.org/en/master/) & [MyST](https://myst-parser.readthedocs.io/en/latest/) have special syntax on top of regular Markdown syntax. A quick guide for Sphinx documentation can be found [here](https://myst-parser.readthedocs.io/en/latest/syntax/typography.html). You can also reference existing docs pages to learn.
 
 ## Test Changes Locally
 
-Building the Oumi docs locally is simple, and is a great way to verify your change (or test recently pulled changes) before pushing our docs to production.
+Building the Oumi OSS docs locally is simple, and is a great way to verify your change (or test recently pulled changes) before pushing our docs to production.
 
 **‼️ Important ‼️**
 Don’t forget to activate your oumi conda environment first!
@@ -30,7 +30,7 @@ conda activate oumi
 
 The following instructions only need to be done ONCE:
 
-Before building our docs, you need to clone our [local fork of sphinx-term](https://github.com/oumi-ai/sphinx-term) and install it in the same Conda env you use for Oumi development:
+Before building our docs, you need to clone our [local fork of sphinx-term](https://github.com/oumi-ai/sphinx-term) and install it in the same Conda env you use for Oumi OSS development:
 
 ```bash
 git clone https://github.com/oumi-ai/sphinx-term.git
@@ -39,7 +39,7 @@ git submodule update --init --recursive
 pip install -e .
 ```
 
-If you haven’t already installed our “\[docs\]” package for Oumi, make sure you do that as well.
+If you haven’t already installed our “\[docs\]” package for Oumi OSS, make sure you do that as well.
 
 ```bash
 # Switch to your oumi directory, wherever that may be
