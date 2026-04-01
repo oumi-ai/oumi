@@ -16,6 +16,7 @@
 ### Everything you need to build state-of-the-art foundation models, end-to-end
 
 <p align="center">
+  <a href="https://www.producthunt.com/products/oumi?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-oumi" target="_blank" rel="noopener noreferrer"><img alt="Oumi - Build and deploy custom AI models from a prompt in hours | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1112961&amp;theme=light&amp;t=1775017213454"></a>
   <a href="https://trendshift.io/repositories/12865">
     <img alt="GitHub trending" src="https://trendshift.io/api/badge/repositories/12865" />
   </a>
