@@ -76,6 +76,7 @@ dependencies = [
     "torchao>=0.12,<0.16",     # Used by transformers
     "torchvision>=0.21,<0.26", # Used by some VLM-s (multimodal)
     "tqdm",
+    "hf-xet>=1.4.3",           # Floor pin to avoid OSError on training startup. LOU-1369
     "transformers>=4.57,<5.5",
     "trl>=0.24,<0.30",
     "typer<0.24.2",             # Used by CLI. Pinned due to sphinxcontrib-typer compatibility. OPE-1806
