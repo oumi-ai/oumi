@@ -1,9 +1,13 @@
 import argparse
 import json
 
-from oumi.core.configs import InferenceConfig
+import dotenv
+
+from oumi.builders.inference_engines import build_inference_engine
+from oumi.core.configs import InferenceConfig, InferenceEngineType
 from oumi.core.types.conversation import Conversation, Message, Role
-from oumi.inference import VLLMInferenceEngine
+
+dotenv.load_dotenv()
 
 
 def main(args):
@@ -23,18 +27,19 @@ def main(args):
                     role=Role(m["role"]),
                     content=m["content"],
                 )
-                for m in d["prompt"]
+                for m in d["messages"]
             ],
-            metadata={k: v for k, v in d.items() if k != "prompt"}
+            metadata={k: v for k, v in d.items() if k != "messages"},
         )
         processed_data.append(output)
 
     config = InferenceConfig.from_yaml(str(args.inference_config))
 
-    engine = VLLMInferenceEngine(
+    engine = build_inference_engine(
+        engine_type=config.engine or InferenceEngineType.VLLM,
         model_params=config.model,
+        remote_params=config.remote_params,
         generation_params=config.generation,
-        gpu_memory_utilization=0.95,
     )
 
     results = engine.infer(input=processed_data, inference_config=config)

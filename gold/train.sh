@@ -41,9 +41,56 @@
 # wait
 
 # oumi train -c configs/tatqa_llama_lambda0.0_1epoch_lora_inversekl.yaml 2>&1 | tee logs/train_tatqa_llama_lambda0.0_1epoch_lora_inversekl.log
-oumi train -c configs/tatqa_llama_lambda1.0_1epoch_lora_inversekl.yaml 2>&1 | tee logs/train_tatqa_llama_lambda1.0_1epoch_lora_inversekl.log
-wait
+# oumi train -c configs/tatqa_llama_lambda1.0_1epoch_lora_inversekl.yaml 2>&1 | tee logs/train_tatqa_llama_lambda1.0_1epoch_lora_inversekl.log
+# wait
 
 # oumi distributed torchrun \
 #     -m oumi train \
 #     -c configs/tatqa_llama_sft.yaml 2>&1 | tee logs/train_tatqa_llama_sft.log
+
+# # Billing experiments
+# oumi distributed torchrun \
+#     -m oumi train \
+#     -c configs/billing_expts/tatqa_llama_sft.yaml 2>&1 | tee logs/train_billingexpts_tatqa_llama_sft.log
+
+# wait
+# oumi train -c configs/billing_expts/tatqa_llama_lambda0.0_fft_fowardkl.yaml 2>&1 | tee logs/train_billingexpts_tatqa_llama_lambda0.0_fft_forwardkl.log
+# wait
+# oumi train -c configs/billing_expts/tatqa_llama_lambda0.0_fft_inversekl.yaml 2>&1 | tee logs/train_billingexpts_tatqa_llama_lambda0.0_fft_inversekl.log
+# wait
+# oumi train -c configs/billing_expts/tatqa_llama_lambda0.0_lora_forwardkl.yaml 2>&1 | tee logs/train_billingexpts_tatqa_llama_lambda0.0_lora_forwardkl.log
+# wait
+# oumi train -c configs/billing_expts/tatqa_llama_lambda0.0_lora_inversekl.yaml 2>&1 | tee logs/train_billingexpts_tatqa_llama_lambda0.0_lora_inversekl.log
+# wait
+# oumi train -c configs/billing_expts/tatqa_llama_lambda0.5_fft_forwardkl.yaml 2>&1 | tee logs/train_billingexpts_tatqa_llama_lambda0.5_fft_forwardkl.log
+# wait
+# oumi train -c configs/billing_expts/tatqa_llama_lambda0.5_fft_inversekl.yaml 2>&1 | tee logs/train_billingexpts_tatqa_llama_lambda0.5_fft_inversekl.log
+# wait
+# oumi train -c configs/billing_expts/tatqa_llama_lambda0.5_lora_forwardkl.yaml 2>&1 | tee logs/train_billingexpts_tatqa_llama_lambda0.5_lora_forwardkl.log
+# wait
+# oumi train -c configs/billing_expts/tatqa_llama_lambda0.5_lora_inversekl.yaml 2>&1 | tee logs/train_billingexpts_tatqa_llama_lambda0.5_lora_inversekl.log
+# wait
+# oumi train -c configs/billing_expts/tatqa_llama_lambda1.0_fft_forwardkl.yaml 2>&1 | tee logs/train_billingexpts_tatqa_llama_lambda1.0_fft_forwardkl.log
+# wait
+# oumi train -c configs/billing_expts/tatqa_llama_lambda1.0_fft_inversekl.yaml 2>&1 | tee logs/train_billingexpts_tatqa_llama_lambda1.0_fft_inversekl.log
+# wait
+# oumi train -c configs/billing_expts/tatqa_llama_lambda1.0_lora_forwardkl.yaml 2>&1 | tee logs/train_billingexpts_tatqa_llama_lambda1.0_lora_forwardkl.log
+# wait
+# oumi train -c configs/billing_expts/tatqa_llama_lambda1.0_lora_inversekl.yaml 2>&1 | tee logs/train_billingexpts_tatqa_llama_lambda1.0_lora_inversekl.log
+# wait
+
+# oumi train -c configs/stress_tests/llama_lambda0.5_1epoch_battery_troubleshoot.yaml 2>&1 | tee logs/train_llama_lambda0.5_1epoch_battery_troubleshoot.log
+# wait
+
+# oumi train -c configs/hermes_llama.yaml 2>&1 | tee logs/hermes_llama.log
+# wait
+
+# oumi train -c configs/alpaca_long_llama.yaml 2>&1 | tee logs/alpaca_long_llama.log
+# wait
+
+# oumi train -c configs/tatqa_llama_lambda0.5_1epoch_lora_bf16.yaml 2>&1 | tee logs/tatqa_llama_lambda0.5_1epoch_lora_bf16.log
+# wait
+# oumi train -c configs/tatqa_llama_lambda0.5_1epoch_lora_fp32.yaml 2>&1 | tee logs/tatqa_llama_lambda0.5_1epoch_lora_fp32.log
+# wait
+oumi train -c configs/tatqa_llama_lambda0.5_1epoch_lora_bf16_nomixedprec.yaml 2>&1 | tee logs/tatqa_llama_lambda0.5_1epoch_lora_bf16_nomixedprec.log
+wait

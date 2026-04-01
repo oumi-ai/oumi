@@ -1,9 +1,8 @@
 """TatQA reward function for GRPO training with LLM judge."""
 
 import json
-import os
 import re
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from typing import Any
 
 import dotenv
@@ -470,7 +469,11 @@ def tatqa_reward(
             judge_needed.append(None)
 
     # Batch judge for samples that need it
-    if use_judge and judge_client is not None and any(j is not None for j in judge_needed):
+    if (
+        use_judge
+        and judge_client is not None
+        and any(j is not None for j in judge_needed)
+    ):
         # Extract samples that need judging
         judge_samples = [j for j in judge_needed if j is not None]
         indices = [j[0] for j in judge_samples]

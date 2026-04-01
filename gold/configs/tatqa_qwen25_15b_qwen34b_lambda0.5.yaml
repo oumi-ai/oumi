@@ -1,0 +1,100 @@
+model:
+  model_name: "Qwen/Qwen3-4B-Instruct-2507"
+  model_max_length: 2048
+  torch_dtype_str: "float32"
+  load_pretrained_weights: True
+  trust_remote_code: True
+  attn_implementation: "sdpa"
+
+data:
+  train:
+    datasets:
+      - dataset_name: text_sft_jsonl
+        dataset_path: /data/shanghong/oumi/gold/tatqa_data/train_final_max2048.jsonl
+        dataset_kwargs:
+          return_conversations: True
+          return_conversations_format: "dict"
+    target_col: "messages"
+    seed: 42
+
+training:
+  use_peft: False
+  trainer_type: "TRL_GOLD"
+  output_dir: "output/tatqa_qwen25_15b_qwen34b_lambda0.5"
+  run_name: "tatqa_qwen25_15b_qwen34b_lambda0.5"
+
+  # Training duration
+  num_train_epochs: 2
+  per_device_train_batch_size: 1
+  per_device_eval_batch_size: 4
+  gradient_accumulation_steps: 16
+  max_grad_norm: 1.0
+
+  # Mixed precision and performance
+  mixed_precision_dtype: BF16
+  enable_gradient_checkpointing: True
+
+  # Optimization
+  optimizer: "adamw_torch"
+  learning_rate: 1.0e-05
+
+  # Learning rate schedule
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.1
+  weight_decay: 0.01
+
+  # Evaluation
+  logging_first_step: True
+
+  # Checkpointing
+  save_steps: 100
+
+  # Logging
+  logging_steps: 1
+  log_level: "info"
+
+  enable_wandb: True
+  enable_tensorboard: False
+  log_model_summary: False
+
+  trainer_kwargs:
+    max_length: 2048
+
+  # GOLD parameters
+  gold:
+    teacher_model_name_or_path: "Qwen/Qwen3-4B-Instruct-2507"
+
+    teacher_model_init_kwargs:
+      torch_dtype: "auto"
+      dtype: "auto"
+      trust_remote_code: True
+      attn_implementation: "kernels-community/vllm-flash-attn3"
+      device_map: "auto"
+
+    # Generation parameters
+    temperature: 1.0
+    top_p: 0.95
+    top_k: 0
+    max_completion_length: 512
+
+    # Distillation parameters
+    lmbda: 1.0
+    beta: 0.0
+    disable_dropout: True
+    seq_kd: False
+
+    use_uld_loss: True
+    use_extended_uld: True
+    uld_use_hybrid_loss: True
+    uld_crossentropy_weight: 0.0
+    uld_distillation_weight: 1.0
+    uld_student_temperature: 1.0
+    uld_teacher_temperature: 1.0
+    uld_skip_student_eos: True
+    uld_skip_teacher_eos: True
+
+    # vLLM colocate mode
+    use_vllm: True
+    vllm_mode: "colocate"
+    vllm_gpu_memory_utilization: 0.4
+    vllm_tensor_parallel_size: 1

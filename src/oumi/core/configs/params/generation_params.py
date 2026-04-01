@@ -132,7 +132,7 @@ class GenerationParams(BaseParams):
 
     n: int = 1
     """Number of samples to generate.
-    
+
     This parameter is only used in `VLLMInferenceEngine`.
     Default is 1.
     """

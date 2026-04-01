@@ -38,6 +38,3 @@ echo $CXX
 Experiments:
 - [countdown](notes/countdown.md)
 - [tatqa](notes/tatqa.md)
-
-
-

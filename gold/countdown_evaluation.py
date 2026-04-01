@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Countdown Game Evaluation Script
+"""Countdown Game Evaluation Script
 
 Evaluates model performance on the Countdown math game where models must:
 - Reach a target value using given numbers and arithmetic operations (+, -, *, /)
@@ -39,10 +38,10 @@ import ast
 import json
 import re
 from collections import Counter
+from collections.abc import Iterable
 from dataclasses import dataclass
 from fractions import Fraction
-from typing import Any, Iterable
-
+from typing import Any
 
 # Regex to extract answer from <answer>...</answer> tags (case-insensitive, multiline)
 ANSWER_RE = re.compile(r"<answer>(.*?)</answer>", re.DOTALL | re.IGNORECASE)
@@ -51,27 +50,21 @@ ANSWER_RE = re.compile(r"<answer>(.*?)</answer>", re.DOTALL | re.IGNORECASE)
 @dataclass
 class CheckResult:
     """Result of validation check."""
+
     ok: bool
     reason: str = ""
 
 
 def normalize_ops(s: str) -> str:
-    """
-    Normalize common unicode operator variants to ASCII equivalents.
+    """Normalize common unicode operator variants to ASCII equivalents.
 
     Converts: × → *, ÷ → /, − → -
     """
-    return (
-        s.replace("×", "*")
-         .replace("÷", "/")
-         .replace("−", "-")
-         .strip()
-    )
+    return s.replace("×", "*").replace("÷", "/").replace("−", "-").strip()
 
 
 def extract_answer_equation_last(text: str) -> str | None:
-    """
-    Extract the LAST <answer>...</answer> block from text.
+    """Extract the LAST <answer>...</answer> block from text.
 
     Returns:
         The inner string (normalized) of the final answer block, or None if not found.
@@ -83,10 +76,8 @@ def extract_answer_equation_last(text: str) -> str | None:
     return eq if eq else None
 
 
-
 def last_n_assistant_contents(messages: Any, n: int) -> list[str]:
-    """
-    Extract the last n assistant message contents from a messages list.
+    """Extract the last n assistant message contents from a messages list.
 
     Args:
         messages: List of message dictionaries with 'role' and 'content' keys
@@ -110,8 +101,7 @@ def last_n_assistant_contents(messages: Any, n: int) -> list[str]:
 
 
 class SafeCountdownEvaluator:
-    """
-    Safe evaluator for arithmetic expressions with strict validation.
+    """Safe evaluator for arithmetic expressions with strict validation.
 
     Features:
     - Only allows arithmetic operations: +, -, *, /
@@ -138,8 +128,7 @@ class SafeCountdownEvaluator:
         return self._eval_node(node)
 
     def _eval_node(self, node: ast.AST) -> Fraction:
-        """
-        Recursively evaluate an AST node.
+        """Recursively evaluate an AST node.
 
         Handles:
         - Constants (integers only)
@@ -189,8 +178,7 @@ class SafeCountdownEvaluator:
 
 
 def split_lhs_rhs(answer_text: str) -> tuple[str, str | None]:
-    """
-    Split answer text into left-hand side and right-hand side of equation.
+    """Split answer text into left-hand side and right-hand side of equation.
 
     If '=' is present, splits on the LAST '=' to handle potential nested expressions.
     If '=' is not present, treats entire text as LHS.
@@ -208,8 +196,7 @@ def split_lhs_rhs(answer_text: str) -> tuple[str, str | None]:
 
 
 def eval_expr(expr: str) -> tuple[Fraction, list[int]]:
-    """
-    Safely evaluate arithmetic expression and track number usage.
+    """Safely evaluate arithmetic expression and track number usage.
 
     Args:
         expr: Arithmetic expression string (e.g., "3 + 5 * 2")
@@ -227,9 +214,10 @@ def eval_expr(expr: str) -> tuple[Fraction, list[int]]:
     return val, ev.used_numbers
 
 
-def check_completion_detailed(target: int, nums: list[int], assistant_text: str) -> dict[str, Any]:
-    """
-    Validates a single completion against Countdown rules.
+def check_completion_detailed(
+    target: int, nums: list[int], assistant_text: str
+) -> dict[str, Any]:
+    """Validates a single completion against Countdown rules.
 
     Returns a detailed dict with validation status and debug information:
       - ok: bool - whether the completion is correct
@@ -273,7 +261,9 @@ def check_completion_detailed(target: int, nums: list[int], assistant_text: str)
 
     # Rule 2: Each number must be used exactly once
     if Counter(used_nums) != Counter(nums):
-        out["reason"] = f"invalid_number_usage: used {sorted(used_nums)}, expected {sorted(nums)}"
+        out["reason"] = (
+            f"invalid_number_usage: used {sorted(used_nums)}, expected {sorted(nums)}"
+        )
         return out
 
     target_frac = Fraction(int(target), 1)
@@ -314,8 +304,7 @@ def check_completion_detailed(target: int, nums: list[int], assistant_text: str)
 def check_row_pass_n_detailed(
     target: int, nums: list[int], messages: list[dict[str, Any]], n: int
 ) -> tuple[bool, list[dict[str, Any]]]:
-    """
-    Compute pass@n metric for a single example.
+    """Compute pass@n metric for a single example.
 
     Args:
         target: Target value to reach
@@ -335,8 +324,7 @@ def check_row_pass_n_detailed(
 
 
 def iter_jsonl(path: str) -> Iterable[dict[str, Any]]:
-    """
-    Iterate over lines in a JSONL file, parsing each as JSON.
+    """Iterate over lines in a JSONL file, parsing each as JSON.
 
     Args:
         path: Path to JSONL file
@@ -347,7 +335,7 @@ def iter_jsonl(path: str) -> Iterable[dict[str, Any]]:
     Raises:
         ValueError: If any line contains invalid JSON
     """
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         for line_no, line in enumerate(f, start=1):
             line = line.strip()
             if not line:
@@ -453,11 +441,13 @@ def main() -> None:
                         print("  (no assistant messages found)")
                     else:
                         for i, d in enumerate(details, start=1):
-                            status = "✓ CORRECT" if d["ok"] else f"✗ FAIL: {d['reason']}"
+                            status = (
+                                "✓ CORRECT" if d["ok"] else f"✗ FAIL: {d['reason']}"
+                            )
                             print(f"  Completion {i}/{len(details)}: {status}")
                             if not d["ok"]:
                                 print(f"    Answer: {d['answer_text']}")
-                                if d['used_nums']:
+                                if d["used_nums"]:
                                     print(f"    Used numbers: {d['used_nums']}")
                     shown += 1
 
@@ -468,7 +458,13 @@ def main() -> None:
                 obj["metrics"][f"pass@{args.n}"] = pass_ok
                 obj["metrics"]["completions"] = details
                 obj["metrics"]["newest_reason_key"] = (
-                    "ok" if pass_ok else (str(details[-1]["reason"]).split(":")[0] if details else "no_assistant_messages")
+                    "ok"
+                    if pass_ok
+                    else (
+                        str(details[-1]["reason"]).split(":")[0]
+                        if details
+                        else "no_assistant_messages"
+                    )
                 )
                 out_f.write(json.dumps(obj, ensure_ascii=False) + "\n")
 
@@ -489,7 +485,7 @@ def main() -> None:
         print(f"Invalid examples: {total - valid}")
     print(f"\nPassed examples: {passed}")
     print(f"Failed examples: {valid - passed}")
-    print(f"\nPass@{args.n}: {acc:.4f} ({acc*100:.2f}%)")
+    print(f"\nPass@{args.n}: {acc:.4f} ({acc * 100:.2f}%)")
 
     if failures:
         print(f"\n{'-' * 60}")
@@ -514,11 +510,10 @@ def main() -> None:
     }
 
     if args.summary_out:
-        summary_path = f'{args.summary_out.split(".json")[0]}_pass@{args.n}.json'
+        summary_path = f"{args.summary_out.split('.json')[0]}_pass@{args.n}.json"
         with open(summary_path, "w", encoding="utf-8") as sf:
             sf.write(json.dumps(summary, ensure_ascii=False, indent=2) + "\n")
         print(f"\nWrote summary to: {summary_path}")
-
 
 
 if __name__ == "__main__":

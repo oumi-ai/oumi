@@ -48,7 +48,7 @@ export MLFLOW_RUN_NAME="oumi_enterprise_experiments"
 # CUDA_VISIBLE_DEVICES=3 python run.py --input_file data/test.jsonl --output_file output/qwen2.5_1.5b_ckpt1000.json --inference_config infer_configs/qwen2.5_1.5b_ckpt1000.yaml --chat_format &
 # wait
 
-# CUDA_VISIBLE_DEVICES=0 python run.py --input_file data/test.jsonl --output_file output/qwen2.5_1.5b_ckpt500.json --inference_config infer_configs/qwen2.5_1.5b_ckpt500.yaml --chat_format | 2>&1 tee infer_logs/qwen2.5_1.5b_ckpt500.log & 
+# CUDA_VISIBLE_DEVICES=0 python run.py --input_file data/test.jsonl --output_file output/qwen2.5_1.5b_ckpt500.json --inference_config infer_configs/qwen2.5_1.5b_ckpt500.yaml --chat_format | 2>&1 tee infer_logs/qwen2.5_1.5b_ckpt500.log &
 # CUDA_VISIBLE_DEVICES=1 python run.py --input_file data/test.jsonl --output_file output/qwen2.5_1.5b_ckpt1000.json --inference_config infer_configs/qwen2.5_1.5b_ckpt1000.yaml --chat_format | 2>&1 tee infer_logs/qwen2.5_1.5b_ckpt1000.log &
 # CUDA_VISIBLE_DEVICES=2 python run.py --input_file data/test.jsonl --output_file output/qwen2.5_1.5b_ckpt2000.json --inference_config infer_configs/qwen2.5_1.5b_ckpt2000.yaml --chat_format | 2>&1 tee infer_logs/qwen2.5_1.5b_ckpt2000.log &
 # CUDA_VISIBLE_DEVICES=3 python run.py --input_file data/test.jsonl --output_file output/qwen2.5_1.5b_ckpt3000.json --inference_config infer_configs/qwen2.5_1.5b_ckpt3000.yaml --chat_format | 2>&1 tee infer_logs/qwen2.5_1.5b_ckpt3000.log &
@@ -184,5 +184,14 @@ export MLFLOW_RUN_NAME="oumi_enterprise_experiments"
 # CUDA_VISIBLE_DEVICES=3 python run.py --input_file tatqa_data/test_modified.jsonl --output_file output/ablation_4_no_hybrid_ckpt799.jsonl --inference_config infer_configs/ablation_4_no_hybrid_ckpt799.yaml | 2>&1 tee infer_logs/ablation_4_no_hybrid_ckpt799.log &
 # wait
 
-CUDA_VISIBLE_DEVICES=0 python run.py --input_file data/test.jsonl --output_file output/countdown_qwen2.5_1.5b_sft.jsonl --inference_config infer_configs/countdown_qwen2.5_1.5b_sft.yaml | 2>&1 tee infer_logs/countdown_qwen2.5_1.5b_sft.log &
+# CUDA_VISIBLE_DEVICES=0 python run.py --input_file data/test.jsonl --output_file output/countdown_qwen2.5_1.5b_sft.jsonl --inference_config infer_configs/countdown_qwen2.5_1.5b_sft.yaml | 2>&1 tee infer_logs/countdown_qwen2.5_1.5b_sft.log &
+# wait
+# CUDA_VISIBLE_DEVICES=0,1,2,3 python run.py --input_file tatqa_data/test_modified.jsonl --output_file output/gptoss_120b_baseline.jsonl --inference_config infer_configs/gptoss_120b.yaml | 2>&1 tee infer_logs/gptoss_120b_baseline.log &
+# CUDA_VISIBLE_DEVICES=0,1 python run.py --input_file tatqa_data/test_modified.jsonl --output_file output/gptoss_20b_baseline.jsonl --inference_config infer_configs/gptoss_20b.yaml | 2>&1 tee infer_logs/gptoss_20b_baseline.log &
+# wait
+# python run.py --input_file tatqa_data/test_modified.jsonl --output_file output/kimi_k2.5_baseline.jsonl --inference_config infer_configs/kimi_k2.5.yaml | 2>&1 tee infer_logs/kimi_k2.5_baseline.log &
+# wait
+
+CUDA_VISIBLE_DEVICES=0 python run.py --input_file tatqa_data/test_modified.jsonl --output_file output/tatqa_llama_lambda0.5_1epoch_lora_fp32.jsonl --inference_config infer_configs/tatqa_llama_lambda0.5_1epoch_lora_fp32.yaml | 2>&1 tee infer_logs/tatqa_llama_lambda0.5_1epoch_lora_fp32.log &
+CUDA_VISIBLE_DEVICES=1 python run.py --input_file tatqa_data/test_modified.jsonl --output_file output/tatqa_llama_lambda0.5_1epoch_lora_bf16.jsonl --inference_config infer_configs/tatqa_llama_lambda0.5_1epoch_lora_bf16.yaml | 2>&1 tee infer_logs/tatqa_llama_lambda0.5_1epoch_lora_bf16.log &
 wait

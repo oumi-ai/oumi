@@ -7,6 +7,7 @@ Usage:
 """
 
 import sys
+
 sys.path.insert(0, "/data/shanghong/oumi")
 
 from grpo.tatqa_reward import tatqa_reward
@@ -96,7 +97,9 @@ def test_batch_processing():
         ground_truth=["129,454", "129,454", "129,454", "129,454"],
         use_judge=False,
     )
-    assert test_rewards == [1.0, 1.0, 0.0, 0.0], f"Expected [1.0, 1.0, 0.0, 0.0], got {test_rewards}"
+    assert test_rewards == [1.0, 1.0, 0.0, 0.0], (
+        f"Expected [1.0, 1.0, 0.0, 0.0], got {test_rewards}"
+    )
     print("   ✓ Batch processing test passed")
 
 
@@ -107,6 +110,7 @@ def test_with_judge():
     print("   Attempting to call judge model...")
 
     import os
+
     judge_config = "configs/tatqa_judge_config.yaml"
     if not os.path.exists(judge_config):
         print(f"   ⚠ Judge config not found at {judge_config}")
@@ -127,8 +131,10 @@ def test_with_judge():
 
         # Judge should determine this is correct (same value, different formatting)
         # But we don't assert because judge behavior can vary
-        print(f"   ✓ Judge model called successfully")
-        print(f"   Note: Judge decided this is {'correct' if test_rewards[0] > 0.5 else 'incorrect'}")
+        print("   ✓ Judge model called successfully")
+        print(
+            f"   Note: Judge decided this is {'correct' if test_rewards[0] > 0.5 else 'incorrect'}"
+        )
         return True
 
     except Exception as e:
@@ -167,7 +173,9 @@ def main():
         print("\n✅ Judge test passed! Full reward function is working.")
     else:
         print("\n⚠ Judge test skipped or failed.")
-        print("Fast-path matching works, but judge needs to be set up for full functionality.")
+        print(
+            "Fast-path matching works, but judge needs to be set up for full functionality."
+        )
 
     print("\n" + "=" * 70)
 

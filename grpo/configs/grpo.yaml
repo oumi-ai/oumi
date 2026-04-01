@@ -38,7 +38,7 @@ training:
   enable_gradient_checkpointing: True
   gradient_checkpointing_kwargs:
     use_reentrant: False
-  
+
   # Optimization
   optimizer: "adamw_torch"
   learning_rate: 1.0e-5
@@ -47,7 +47,7 @@ training:
   lr_scheduler_type: "cosine"
   warmup_ratio: 0.1
   weight_decay: 0.01
-  
+
   # Evaluation
   eval_strategy: "steps"
   eval_steps: 500
@@ -81,11 +81,10 @@ training:
     vllm_mode: "colocate"
     vllm_gpu_memory_utilization: 0.5
     log_completions: True
-    # vllm_max_model_len: 2048 
+    # vllm_max_model_len: 2048
     ## find how to send max_num_seqs to vllm from trl
     ## launch vllm manually via server
-  
+
   # profiler:
     # enable_cuda_profiling: True
     # profile_memory: True
-

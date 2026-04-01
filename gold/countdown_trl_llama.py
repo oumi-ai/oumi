@@ -1,6 +1,6 @@
 from datasets import load_dataset
-from trl.experimental.gold import GOLDConfig, GOLDTrainer
 from transformers import AutoModelForCausalLM, AutoTokenizer
+from trl.experimental.gold import GOLDConfig, GOLDTrainer
 
 student_name = "meta-llama/Llama-3.2-1B-Instruct"
 teacher_name = "Qwen/Qwen3-4B-Instruct-2507"

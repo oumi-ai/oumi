@@ -1,0 +1,19 @@
+model:
+  model_name: "moonshotai/Kimi-K2-Thinking"
+  trust_remote_code: true
+  torch_dtype_str: "bfloat16"
+
+generation:
+  max_new_tokens: 4096
+  n: 1
+  temperature: 0.95
+  skip_special_tokens: False
+
+remote_params:
+  num_workers: 200
+  max_retries: 10
+
+
+output_path: "output/kimi_k2_thinking_baseline.jsonl"
+
+engine: "TOGETHER"

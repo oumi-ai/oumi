@@ -4,24 +4,27 @@ from __future__ import annotations
 
 import re
 import sqlite3
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Tuple, Optional,Sequence
-from func_timeout import func_timeout, FunctionTimedOut
+from typing import Any
 
-from oumi.core.registry import register, RegistryType
+from func_timeout import FunctionTimedOut, func_timeout
+
+from oumi.core.registry import RegistryType, register
 from oumi.utils.logging import logger
-
 
 THINK_START, THINK_END = "<think>", "</think>"
 SQL_START, SQL_END = "<sql>", "</sql>"
 SOLUTION_START, SOLUTION_END = "<solution>", "</solution>"
 OBS_START, OBS_END = "<observation>", "</observation>"
 
+
 @dataclass
 class ExtractSqlResult:
     success: bool
-    thoughts: Optional[List[str]]
-    solution_sql: Optional[str]
+    thoughts: list[str] | None
+    solution_sql: str | None
+
 
 def _extract_sql(output: str) -> ExtractSqlResult:
     """Extract SQL from model output.
@@ -32,7 +35,7 @@ def _extract_sql(output: str) -> ExtractSqlResult:
     """
     if output.count(SOLUTION_START) != 1:
         return ExtractSqlResult(False, None, None)
-    
+
     pre_solution, tail = output.split(SOLUTION_START, 1)
 
     if tail.count(SOLUTION_END) != 1:
@@ -54,14 +57,16 @@ def _extract_sql(output: str) -> ExtractSqlResult:
 
     return ExtractSqlResult(True, thoughts, solution_text.strip())
 
+
 @dataclass
 class SqlResult:
     db_file: str
     sql: str
-    rows: Optional[Sequence[tuple]]
+    rows: Sequence[tuple] | None
     success: bool
-    output: Optional[str] = None
-    error: Optional[str] = None
+    output: str | None = None
+    error: str | None = None
+
 
 def _execute_sql(db_path: str, sql: str) -> Sequence[tuple]:
     """Execute SQL on a (read-only) sqlite3 database and return all rows."""
@@ -72,11 +77,12 @@ def _execute_sql(db_path: str, sql: str) -> Sequence[tuple]:
             cur.execute(sql)
             rows = cur.fetchall()
             con.rollback()
-        logger.info('Successfully executed')
+        logger.info("Successfully executed")
         return rows
     except Exception as e:
         logger.error(f"Error executing SQL: {e}, db file: {db_path}")
         return None
+
 
 def _execute_sql_wrapper(
     db_file: str,
@@ -84,9 +90,7 @@ def _execute_sql_wrapper(
     timeout: float,
     output_str: str | None = None,
 ) -> SqlResult:
-    """
-    High-level function: adds timeout, logging, and wraps into SqlResult.
-    """
+    """High-level function: adds timeout, logging, and wraps into SqlResult."""
     try:
         rows = func_timeout(timeout, _execute_sql, args=(db_file, sql))
         logger.info("Successfully executed SQL on %s", db_file)
@@ -127,7 +131,7 @@ def _execute_sql_wrapper(
         )
 
 
-def _normalize_rows(rows: Iterable[Tuple[Any, ...]]) -> List[Tuple[str, ...]]:
+def _normalize_rows(rows: Iterable[tuple[Any, ...]]) -> list[tuple[str, ...]]:
     """Canonicalize rows for comparison: stringify + sort."""
     normalized = [tuple("" if v is None else str(v) for v in row) for row in rows]
     return sorted(normalized)
@@ -137,8 +141,8 @@ def _normalize_rows(rows: Iterable[Tuple[Any, ...]]) -> List[Tuple[str, ...]]:
 def text2sql_reward(  # type: ignore[override]
     data_source: str,
     solution_str: str,
-    ground_truth: Dict[str, Any],
-    extra_info: Dict[str, Any],
+    ground_truth: dict[str, Any],
+    extra_info: dict[str, Any],
     *,
     format_score: float = 0.1,
     exec_score: float = 1.0,

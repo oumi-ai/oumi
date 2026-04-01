@@ -37,12 +37,12 @@
 #     --n 4 \
 #     --out output/pass@4/qwen3_4b_baseline_judged@4.jsonl \
 #     --summary-out output/pass@4/qwen3_4b_baseline_summary.json
-  
+
   # python3 countdown_evaluation.py output/pass@4/qwen3_8b_baseline.jsonl \
   #   --n 4 \
   #   --out output/pass@4/qwen3_8b_baseline_judged@4.jsonl \
   #   --summary-out output/pass@4/qwen3_8b_baseline_summary.json
-  
+
   # python3 countdown_evaluation.py output/pass@4/qwen3_30b_instruct_baseline.jsonl \
   #   --n 4 \
   #   --out output/pass@4/qwen3_30b_instruct_baseline_judged@4.jsonl \
@@ -102,7 +102,7 @@
   #   --n 4 \
   #   --out output/gold_llama32_1b_qwen34b_cross_ckpt200_judged@4.jsonl \
   #   --summary-out output/gold_llama32_1b_qwen34b_cross_ckpt200_summary.json
-    
+
   # python3 countdown_evaluation.py output/gold_llama32_1b_qwen34b_cross_ckpt400.jsonl \
   #   --n 4 \
   #   --out output/gold_llama32_1b_qwen34b_cross_ckpt400_judged@4.jsonl \

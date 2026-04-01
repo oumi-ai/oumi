@@ -2,7 +2,7 @@
 
 ## Experiment config
 
-Ref: https://github.com/oumi-ai/oumi/blob/shanghong/gold/gold/gold.yaml 
+Ref: https://github.com/oumi-ai/oumi/blob/shanghong/gold/gold/gold.yaml
 
 Student: Qwen/Qwen3-0.6B
 Teacher: openai/gpt-oss-120b
@@ -14,16 +14,16 @@ Status
 
 
 ## Run 1
-https://wandb.ai/shanghongsim/huggingface/runs/xpke25y7?nw=nwusershanghong_sim 
+https://wandb.ai/shanghongsim/huggingface/runs/xpke25y7?nw=nwusershanghong_sim
 
-Test run (default hparam from Oumi repo): 
+Test run (default hparam from Oumi repo):
 ![](../images/run1.png)
 
 
 ## Run 2
 https://wandb.ai/shanghongsim/huggingface/runs/ied3451f?nw=nwusershanghong_sim
 
-Changes: 
+Changes:
 - Increased grad acc to 16
 
 Notes:
@@ -33,7 +33,7 @@ Notes:
 ![](../images/run2.png)
 
 ## Run 3
-https://wandb.ai/shanghongsim/huggingface/runs/jq9m5yfe?nw=nwusershanghong_sim 
+https://wandb.ai/shanghongsim/huggingface/runs/jq9m5yfe?nw=nwusershanghong_sim
 
 Changes:
 - Decreased LR from 1e-04 to 1e-05
@@ -47,12 +47,12 @@ Notes:
 
 ## Run 4
 Test: https://wandb.ai/shanghongsim/huggingface/runs/8vsr8f4g?nw=nwusershanghong_sim
-Active run: https://wandb.ai/shanghongsim/huggingface/runs/ycg5t4c0?nw=nwusershanghong_sim 
+Active run: https://wandb.ai/shanghongsim/huggingface/runs/ycg5t4c0?nw=nwusershanghong_sim
 
 Changes:
 - Changed warmup ratio 0.1 to warmup steps 10
 
-Notes: 
+Notes:
 - On policy loss is converging to below 1 but off policy loss seems to be plateauing at 2-3
 
 ![](../images/run4.png)
@@ -109,7 +109,7 @@ To do:
 
 Debugging steps:
 - 🚧Align dataset and teacher. Currently the dataset is distilled from gpt5 mini and teacher is gpt oss
-- ✅Try student and teacher from same family to eliminate tokenization mismatch 
+- ✅Try student and teacher from same family to eliminate tokenization mismatch
 - Fix a few hparams:
     - use_uld_loss: True
     - uld_use_hybrid_loss: True
@@ -140,12 +140,12 @@ Observations:
 Issues:
 - Completions only collator not compatible with GOLD trainer
     - From GOLDTrainer page: GOLDTrainer keeps the raw messages so the ChatML collator can construct prompts and completions with the correct boundaries.
-    - How is collator being passed in for Oumi? https://github.com/oumi-ai/oumi/blob/63b0eb8a5b9ef5256671cede817cf9b4d2244fe5/src/oumi/builders/training.py#L71 
-    - How is collator passed in natively for HF? https://huggingface.co/docs/trl/en/gold_trainer#trl.experimental.gold.GOLDTrainer 
-    - ** needs more investigation 
+    - How is collator being passed in for Oumi? https://github.com/oumi-ai/oumi/blob/63b0eb8a5b9ef5256671cede817cf9b4d2244fe5/src/oumi/builders/training.py#L71
+    - How is collator passed in natively for HF? https://huggingface.co/docs/trl/en/gold_trainer#trl.experimental.gold.GOLDTrainer
+    - ** needs more investigation
 
 Next debugging steps:
-- Try to repro results here: https://huggingface.co/spaces/HuggingFaceH4/on-policy-distillation 
+- Try to repro results here: https://huggingface.co/spaces/HuggingFaceH4/on-policy-distillation
 - Use their settings for our scenario (Tatqa)
 
 
@@ -153,7 +153,7 @@ Next debugging steps:
 
 <details>
 <summary>When trying to use `text_completions_only_with_padding` collator in Oumi</summary>
-    
+
     ```
     wandb: Currently logged in as: shanghong_sim (shanghongsim) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
     wandb: Tracking run with wandb version 0.23.1
@@ -399,10 +399,3 @@ Next debugging steps:
                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     ```
 </details>
-
-
-
-
-
-
-

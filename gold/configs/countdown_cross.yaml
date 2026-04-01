@@ -6,11 +6,11 @@
 model:
   model_name: "meta-llama/Llama-3.2-1B-Instruct"
   model_max_length: 2048
-  # must set to float32 for mixed precision training, else error will be raised 
+  # must set to float32 for mixed precision training, else error will be raised
   # see: https://docs.google.com/document/d/1AACWZv0X_iFDKkpmo6AJLKpBFltaYEGkVTtXtfk5xh0/edit?tab=t.wt3qnz8tbz2q
   # https://github.com/oumi-ai/oumi/blob/17f5773c4f6899bde5d553bfec133b56506e56af/src/oumi/core/configs/training_config.py#L138
-  torch_dtype_str: "float32" 
-  # torch_dtype_str: "bfloat16" 
+  torch_dtype_str: "float32"
+  # torch_dtype_str: "bfloat16"
   load_pretrained_weights: True
   trust_remote_code: True
   attn_implementation: "sdpa"

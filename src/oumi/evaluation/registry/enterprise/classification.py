@@ -127,8 +127,7 @@ def _compute_accuracy(predictions: list[str], ground_truths: list[str]) -> dict:
 
     # Mean response length (raw, before any extraction/normalization)
     mean_response_chars = (
-        sum(len(p) for p in predictions) / len(predictions)
-        if predictions else 0.0
+        sum(len(p) for p in predictions) / len(predictions) if predictions else 0.0
     )
 
     return {

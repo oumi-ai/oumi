@@ -1,0 +1,51 @@
+# TatQA evaluation config using the enterprise_tatqa custom evaluator.
+#
+# The model is expected to output answers inside <answer>...</answer> tags.
+# Scoring uses a three-tier cascade:
+#   1. Exact string match
+#   2. Whitespace/case-normalised match
+#   3. LLM judge (optional, batched) - add judge_config_file to eval_kwargs to enable
+#
+# Usage:
+#   # Evaluate a specific model
+#   oumi evaluate -c gold/eval_configs/tatqa.yaml \
+#     --model.model_name "meta-llama/Llama-3.1-8B-Instruct"
+#
+#   # Evaluate a fine-tuned checkpoint (full weights)
+#   oumi evaluate -c gold/eval_configs/tatqa.yaml \
+#     --model.model_name "gold/output/tatqa_llama_lambda0.5/checkpoint-819"
+#
+#   # Evaluate a LoRA adapter
+#   oumi evaluate -c gold/eval_configs/tatqa.yaml \
+#     --model.model_name "meta-llama/Llama-3.1-8B-Instruct" \
+#     --model.adapter_model "gold/output/tatqa_llama_lambda0.5_1epoch_lora/checkpoint-819"
+#
+#   # Quick sanity check (10 samples)
+#   oumi evaluate -c gold/eval_configs/tatqa.yaml \
+#     --model.model_name "meta-llama/Llama-3.1-8B-Instruct" \
+#     --tasks[0].num_samples 10
+
+model:
+  model_name: "meta-llama/Llama-3.1-8B-Instruct"  # override via CLI
+  adapter_model: null
+  trust_remote_code: true
+  torch_dtype_str: "bfloat16"
+  tokenizer_kwargs:
+    padding_side: "left"
+
+generation:
+  max_new_tokens: 4096
+  temperature: 0.0
+  skip_special_tokens: false  # keep <answer> tags visible
+
+tasks:
+  - evaluation_backend: custom
+    task_name: enterprise_tatqa
+    num_samples: null
+    eval_kwargs:
+      test_data_path: "/data/shanghong/oumi/gold/tatqa_data/test_modified.jsonl"
+      # judge_config_file: "gold/judge_configs/equivalence_judge.yaml"  # uncomment to enable LLM judge
+
+inference_engine: VLLM
+
+output_dir: "gold/output/tatqa_eval"

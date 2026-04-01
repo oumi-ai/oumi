@@ -1,0 +1,18 @@
+model:
+  model_name: "deepseek-ai/DeepSeek-V3.1"
+  trust_remote_code: true
+  torch_dtype_str: "bfloat16"
+
+generation:
+  max_new_tokens: 4096
+  n: 1
+  temperature: 0.95
+  skip_special_tokens: False
+
+remote_params:
+  num_workers: 200
+  max_retries: 10
+
+output_path: "output/deepseek_v3.1_baseline.jsonl"
+
+engine: "TOGETHER"

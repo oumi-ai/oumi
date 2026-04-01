@@ -192,3 +192,4 @@ oumi.code-workspace
 **/output
 *.db
 mlflow.db
+gold/countdown_results_pass@4/

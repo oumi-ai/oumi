@@ -1,6 +1,6 @@
 from datasets import load_dataset
-from trl.experimental.gold import GOLDConfig, GOLDTrainer
 from transformers import AutoModelForCausalLM, AutoTokenizer
+from trl.experimental.gold import GOLDConfig, GOLDTrainer
 
 student_name = "Qwen/Qwen2.5-1.5B-Instruct"
 teacher_name = "Qwen/Qwen3-4B-Instruct-2507"
@@ -29,21 +29,16 @@ training_args = GOLDConfig(
     warmup_ratio=0.05,
     logging_steps=1,
     report_to="wandb",
-
     bf16=True,
-
     teacher_model_name_or_path=teacher_name,
     teacher_tokenizer_name_or_path=teacher_name,
     teacher_model_init_kwargs={
         "torch_dtype": "auto",
         "trust_remote_code": True,
-
         # IMPORTANT: remove device_map for DDP
         "device_map": None,
-
         "attn_implementation": "kernels-community/vllm-flash-attn3",
     },
-
     temperature=1.0,
     max_completion_length=256,
     lmbda=0.5,
@@ -52,7 +47,6 @@ training_args = GOLDConfig(
     seq_kd=False,
     use_uld_loss=True,
     uld_use_hybrid_loss=True,
-
     data_seed=42,
     use_vllm=True,
     vllm_mode="colocate",

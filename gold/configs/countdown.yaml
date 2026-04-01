@@ -30,9 +30,9 @@
 model:
   model_name: "Qwen/Qwen2.5-1.5B-Instruct"
   model_max_length: 4096
-  # must set to float32 for mixed precision training, else error will be raised 
+  # must set to float32 for mixed precision training, else error will be raised
   # see: https://docs.google.com/document/d/1AACWZv0X_iFDKkpmo6AJLKpBFltaYEGkVTtXtfk5xh0/edit?tab=t.wt3qnz8tbz2q
-  torch_dtype_str: "float32" 
+  torch_dtype_str: "float32"
   load_pretrained_weights: True
   trust_remote_code: True
   attn_implementation: "sdpa"

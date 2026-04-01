@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""
-Plot IFEval metrics from control_tatqa output directory.
+"""Plot IFEval metrics from control_tatqa output directory.
 Plots prompt level strict accuracy and instruction level strict accuracy.
 """
 
 import json
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
-from pathlib import Path
 
 # Define the output directory
 OUTPUT_DIR = Path("/data/shanghong/oumi/gold/output/control_tatqa")
@@ -60,14 +60,15 @@ def collect_metrics():
         # Use the first (should be only) task_result.json file
         task_result_file = task_result_files[0]
 
-        with open(task_result_file, 'r') as f:
+        with open(task_result_file) as f:
             data = json.load(f)
 
         # Extract metrics
         results = data.get("results", {}).get("leaderboard_ifeval", {})
 
         metrics[model_name] = {
-            "prompt_level_strict_acc": results.get("prompt_level_strict_acc,none", 0) * 100,
+            "prompt_level_strict_acc": results.get("prompt_level_strict_acc,none", 0)
+            * 100,
             "inst_level_strict_acc": results.get("inst_level_strict_acc,none", 0) * 100,
         }
 
@@ -91,38 +92,60 @@ def plot_metrics(metrics):
     bar_width = 0.35
 
     # Create grouped bars
-    bars1 = ax.bar(x_pos - bar_width/2, prompt_acc, bar_width,
-                   label='Prompt Level Strict Acc', color='steelblue', alpha=0.8)
-    bars2 = ax.bar(x_pos + bar_width/2, inst_acc, bar_width,
-                   label='Instruction Level Strict Acc', color='coral', alpha=0.8)
+    bars1 = ax.bar(
+        x_pos - bar_width / 2,
+        prompt_acc,
+        bar_width,
+        label="Prompt Level Strict Acc",
+        color="steelblue",
+        alpha=0.8,
+    )
+    bars2 = ax.bar(
+        x_pos + bar_width / 2,
+        inst_acc,
+        bar_width,
+        label="Instruction Level Strict Acc",
+        color="coral",
+        alpha=0.8,
+    )
 
     # Customize the plot
-    ax.set_ylabel('Accuracy (%)', fontsize=14)
-    ax.set_title('IFEval Llama', fontsize=14, fontweight='bold')
+    ax.set_ylabel("Accuracy (%)", fontsize=14)
+    ax.set_title("IFEval Llama", fontsize=14, fontweight="bold")
     ax.set_xticks(x_pos)
-    ax.set_xticklabels(display_names, rotation=45, fontsize=14, ha='right')
+    ax.set_xticklabels(display_names, rotation=45, fontsize=14, ha="right")
     ax.set_ylim(0, 100)
     ax.legend(fontsize=14)
-    ax.grid(axis='y', alpha=0.3)
+    ax.grid(axis="y", alpha=0.3)
 
     # Add value labels on bars
     for bar in bars1:
         height = bar.get_height()
-        ax.text(bar.get_x() + bar.get_width()/2., height,
-                f'{height:.1f}%',
-                ha='center', va='bottom', fontsize=14)
+        ax.text(
+            bar.get_x() + bar.get_width() / 2.0,
+            height,
+            f"{height:.1f}%",
+            ha="center",
+            va="bottom",
+            fontsize=14,
+        )
 
     for bar in bars2:
         height = bar.get_height()
-        ax.text(bar.get_x() + bar.get_width()/2., height,
-                f'{height:.1f}%',
-                ha='center', va='bottom', fontsize=14)
+        ax.text(
+            bar.get_x() + bar.get_width() / 2.0,
+            height,
+            f"{height:.1f}%",
+            ha="center",
+            va="bottom",
+            fontsize=14,
+        )
 
     plt.tight_layout()
 
     # Save the figure
     output_path = OUTPUT_DIR / "tatqa_ifeval_accuracy_comparison.png"
-    plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    plt.savefig(output_path, dpi=300, bbox_inches="tight")
     print(f"\nPlot saved to: {output_path}")
 
     plt.show()
@@ -132,11 +155,11 @@ def print_metrics_table(metrics):
     """Print metrics in a formatted table."""
     ordered_models = [m for m in MODEL_ORDER if m in metrics]
 
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("IFEval Metrics Summary")
-    print("="*80)
+    print("=" * 80)
     print(f"{'Model':<40} {'Prompt Strict Acc':<20} {'Inst Strict Acc':<20}")
-    print("-"*80)
+    print("-" * 80)
 
     for model in ordered_models:
         display_name = DISPLAY_NAMES.get(model, model)
@@ -144,7 +167,7 @@ def print_metrics_table(metrics):
         inst_acc = metrics[model]["inst_level_strict_acc"]
         print(f"{display_name:<40} {prompt_acc:>18.2f}% {inst_acc:>18.2f}%")
 
-    print("="*80)
+    print("=" * 80)
 
 
 def main():

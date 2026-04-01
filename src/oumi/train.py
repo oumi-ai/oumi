@@ -363,7 +363,7 @@ def train(
         DatasetSplit.TRAIN,
         seq_length=config.model.model_max_length,
     )
-    print(f'{train_dataset=}')
+    print(f"{train_dataset=}")
 
     eval_dataset = None
     if len(config.data.get_split(DatasetSplit.VALIDATION).datasets) != 0:

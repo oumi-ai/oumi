@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /data/shanghong/oumi -path */build -prune -o -type f -name *registry* -print)",
+      "Bash(grep -E \"\\\\.\\(py|json|yaml\\)$\")",
+      "Bash(find /data/shanghong/oumi -path */build -prune -o -type f -name *download* -print)",
+      "Bash(grep -E \"\\\\.py$\")",
+      "Bash(find /data/shanghong/oumi -path */build -prune -o -type f -name *convert* -print)",
+      "Bash(xargs ls:*)",
+      "Bash(find /data/shanghong/oumi -path */build -prune -o -type f \\\\\\(-name README* -o -name DATASET* -o -name DATA* \\\\\\) -print)",
+      "Bash(grep -r \"messages.*role.*assistant\\\\|conversation.*format\" /data/shanghong/oumi/data --include=*.md --include=*.txt)",
+      "Bash(python3 -m json.tool)",
+      "Bash(python3 -c \"import json, sys; print\\(json.dumps\\(json.load\\(sys.stdin\\), indent=2\\)\\)\")",
+      "Bash(find /data/shanghong/oumi -path */build -prune -o -type f -name *.py -exec grep -l \"to.*chat\\\\|messages.*format\\\\|alpaca.*oumi\" {})",
+      "Bash(2)"
+    ]
+  }
+}

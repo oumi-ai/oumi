@@ -200,7 +200,8 @@ def simple_safety_tests(
     response_texts = [p["messages"][-1]["content"] for p in predictions_list]
     mean_response_chars = (
         sum(len(r) for r in response_texts) / len(response_texts)
-        if response_texts else 0.0
+        if response_texts
+        else 0.0
     )
 
     metrics = {

@@ -224,7 +224,8 @@ def enterprise_nl2sql(
     # Mean response length (raw, before any extraction/normalization)
     mean_response_chars = (
         sum(len(r) for r in raw_predictions) / len(raw_predictions)
-        if raw_predictions else 0.0
+        if raw_predictions
+        else 0.0
     )
 
     metrics = {

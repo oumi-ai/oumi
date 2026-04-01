@@ -6,7 +6,7 @@ Repro https://huggingface.co/spaces/HuggingFaceH4/on-policy-distillation
 
 ![](../images/native_trl_vs_oumi.png)
 
-**Differences between the printed GOLDConfig** 
+**Differences between the printed GOLDConfig**
 | HF                              | Oumi                             |
 |---------------------------------|----------------------------------|
 | bf16 = True                     | bf16 = False                     |
@@ -26,7 +26,7 @@ Repro https://huggingface.co/spaces/HuggingFaceH4/on-policy-distillation
 
     ```
     Output of hf_args = training_args.to_hf(training_config) and print(hf_args)
-                
+
     GOLDConfig(
     _n_gpu=8,
     accelerator_config={'split_batches': False, 'dispatch_batches': None, 'even_batches': True, 'use_seedable_sampler': True, 'non_blocking': False, 'gradient_accumulation_kwargs': None, 'use_configured_state': False},
@@ -437,7 +437,7 @@ Repro https://huggingface.co/spaces/HuggingFaceH4/on-policy-distillation
 
 **Solved** by setting `--bf16` (`mixed_precision_training`)
 
-Note: In Oumi config, I needed to load student in `fp32` to enable `mixed_precision_training` 
+Note: In Oumi config, I needed to load student in `fp32` to enable `mixed_precision_training`
 
 ```
   File "/opt/conda/envs/oumi/lib/python3.11/site-packages/omegaconf/omegaconf.py", line 607, in to_object
@@ -568,7 +568,7 @@ trainer.train()
 ![](../images/failure_modes@4.png)
 ![](../images/math_errors@4.png)
 
-I suspect that better performance can be achieved by lowering the LR and stretching the epochs out. This may also help to prevent the collapse. 
+I suspect that better performance can be achieved by lowering the LR and stretching the epochs out. This may also help to prevent the collapse.
 
 Further experiments:
 - experiments to investigate the effect of LR on collapse

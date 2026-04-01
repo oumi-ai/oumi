@@ -7,9 +7,11 @@ Usage:
 """
 
 import sys
+
 sys.path.insert(0, "/data/shanghong/oumi")
 
 import pandas as pd
+
 from grpo.tatqa_dataset import TatqaDataset
 from oumi.core.types.conversation import Conversation
 
@@ -46,11 +48,15 @@ def test_prompt_format(sample):
     print("\n3. Testing prompt format...")
     prompt = sample["prompt"]
     assert isinstance(prompt, list), "Prompt should be a list"
-    assert all("role" in msg and "content" in msg for msg in prompt), "Messages should have role and content"
+    assert all("role" in msg and "content" in msg for msg in prompt), (
+        "Messages should have role and content"
+    )
 
     roles = [msg["role"] for msg in prompt]
     print(f"   Prompt roles: {roles}")
-    assert "assistant" not in roles, "Prompt should NOT contain assistant message (GRPO will generate)"
+    assert "assistant" not in roles, (
+        "Prompt should NOT contain assistant message (GRPO will generate)"
+    )
     assert "user" in roles, "Prompt should contain user message"
     print("   ✓ Prompt format correct (no assistant message)")
 
@@ -104,7 +110,9 @@ def test_statistics(dataset):
     print(f"   Total samples: {len(dataset)}")
 
     n_samples = min(100, len(dataset))
-    avg_prompt_len = sum(len(dataset[i]["prompt"]) for i in range(n_samples)) / n_samples
+    avg_prompt_len = (
+        sum(len(dataset[i]["prompt"]) for i in range(n_samples)) / n_samples
+    )
     print(f"   Average prompt length: {avg_prompt_len:.1f} messages")
 
     ground_truths = [str(dataset[i].get("ground_truth", "")) for i in range(n_samples)]
