@@ -1,0 +1,394 @@
+# Property management agent for a grocery-anchored shopping center.
+# Tenants ask about utilities, maintenance, rent, trash/sewage, etc.
+#
+# Usage:
+#   oumi synth -c oumi://configs/examples/synthesis/agentic_tool_synth.yaml
+
+strategy: GENERAL
+num_samples: 5
+output_path: agentic_tool_dataset.jsonl
+
+strategy_params:
+  sampled_attributes:
+    - id: issue_type
+      name: Issue Type
+      description: What the tenant needs help with
+      possible_values:
+        - id: water_utility
+          name: Water Utility
+          description: Questions about water billing, usage, leaks, or shutoffs
+          sample_rate: 0.15
+        - id: electric_utility
+          name: Electric Utility
+          description: Questions about electric billing, outages, meter readings, or high usage
+          sample_rate: 0.15
+        - id: trash_sewage
+          name: Trash & Sewage
+          description: Trash pickup schedules, missed pickups, dumpster issues, sewage backups
+          sample_rate: 0.15
+        - id: rent_payment
+          name: Rent Payment
+          description: Rent due dates, payment methods, late fees, lease terms
+          sample_rate: 0.15
+        - id: maintenance
+          name: Maintenance Request
+          description: HVAC repair, plumbing fix, parking lot issue, signage, lighting
+          sample_rate: 0.2
+        - id: lease_question
+          name: Lease Question
+          description: CAM charges, lease renewal, permitted use, operating hours
+          sample_rate: 0.1
+        - id: emergency
+          name: Emergency
+          description: Flood, fire, gas leak, broken pipe, power outage affecting business
+          sample_rate: 0.1
+
+    - id: tenant_type
+      name: Tenant Type
+      description: The type of business the tenant operates
+      possible_values:
+        - id: grocery
+          name: Grocery Store (Anchor)
+          description: Large grocery anchor tenant, 40k sqft, high utility usage
+          sample_rate: 0.15
+        - id: restaurant
+          name: Restaurant
+          description: Sit-down or fast-casual restaurant, grease traps, high water usage
+          sample_rate: 0.2
+        - id: retail
+          name: Retail Shop
+          description: Clothing, electronics, or general merchandise store
+          sample_rate: 0.2
+        - id: salon
+          name: Salon / Spa
+          description: Hair salon or nail spa, water-heavy, chemical disposal needs
+          sample_rate: 0.15
+        - id: medical
+          name: Medical / Dental Office
+          description: Doctor or dentist office, strict sanitation requirements
+          sample_rate: 0.15
+        - id: dryclean
+          name: Dry Cleaner
+          description: Dry cleaning business, chemical handling, high energy usage
+          sample_rate: 0.15
+
+    - id: tone
+      name: Tenant Tone
+      description: How the tenant communicates
+      possible_values:
+        - id: polite
+          name: Polite
+          description: Professional and courteous
+          sample_rate: 0.35
+        - id: frustrated
+          name: Frustrated
+          description: Annoyed about an ongoing or recurring issue
+          sample_rate: 0.25
+        - id: urgent
+          name: Urgent
+          description: Needs immediate help, issue is affecting business operations
+          sample_rate: 0.2
+        - id: confused
+          name: Confused
+          description: Unsure about lease terms, billing, or who is responsible
+          sample_rate: 0.2
+
+  generated_attributes:
+    - id: tenant_name
+      instruction_messages:
+        - role: SYSTEM
+          content: Generate a realistic business name for a {tenant_type.name} in a shopping center. Just the name, nothing else.
+        - role: USER
+          content: Generate a business name for a {tenant_type.name}.
+
+    - id: contact_name
+      instruction_messages:
+        - role: SYSTEM
+          content: Generate a realistic first name for a store manager. Just the name, nothing else.
+        - role: USER
+          content: Generate a first name.
+
+    - id: issue_detail
+      instruction_messages:
+        - role: SYSTEM
+          content: |
+            Generate a specific, realistic detail for a property management issue.
+            Be concise. Output only the detail.
+        - role: USER
+          content: |
+            Tenant: {tenant_name} ({tenant_type.name} — {tenant_type.description})
+            Issue type: {issue_type.name} — {issue_type.description}
+
+            Generate ONE specific issue detail. Examples:
+            - Water Utility + Restaurant: "our water bill jumped from $800 to $2,400 this month and we haven't changed anything"
+            - Maintenance + Salon: "the AC unit above our shop has been making a grinding noise for 3 days and it's 85 degrees inside"
+            - Trash + Grocery: "the dumpster behind our store wasn't emptied this week and it's overflowing, attracting pests"
+            - Rent + Retail: "I sent the rent check last week but haven't received confirmation it was applied"
+            - Emergency + Restaurant: "there's water coming through our ceiling from the unit above, it's dripping onto the dining area"
+            - Electric + Dry Cleaner: "we had a power surge yesterday that fried our pressing machine controller"
+            - Lease + Medical: "our lease says landlord covers HVAC maintenance but we got billed $450 for a filter change"
+
+    - id: opener
+      instruction_messages:
+        - role: SYSTEM
+          content: |
+            Write a realistic message from a shopping center tenant to their property manager.
+            Match the tone. Be natural.
+        - role: USER
+          content: |
+            Contact: {contact_name} from {tenant_name}
+            Tone: {tone.name} — {tone.description}
+            Issue: {issue_detail}
+
+            Write their opening message. Keep it 1-3 sentences. Output only the message.
+
+  tools:
+    - id: lookup_lease
+      name: LookupLease
+      description: Look up a tenant's lease details including rent, CAM charges, and responsibilities
+      parameters:
+        type: object
+        properties:
+          tenant_name:
+            type: string
+            description: Name of the tenant business
+        required: [tenant_name]
+      output_strategy: GENERATED
+      generated_output:
+        instruction: >
+          Return lease details for this tenant. Include monthly rent, CAM charges,
+          lease start/end dates, and key responsibilities (who covers HVAC, plumbing, etc.).
+          Make it consistent with the tenant type and conversation context.
+      output_schema:
+        type: object
+        properties:
+          tenant_name: { type: string }
+          suite_number: { type: string }
+          monthly_rent: { type: string }
+          cam_charges: { type: string }
+          lease_start: { type: string }
+          lease_end: { type: string }
+          landlord_responsibilities: { type: string }
+          tenant_responsibilities: { type: string }
+
+    - id: check_utility_account
+      name: CheckUtilityAccount
+      description: Check utility billing and usage for a tenant's suite
+      parameters:
+        type: object
+        properties:
+          suite_number:
+            type: string
+            description: The suite number
+          utility_type:
+            type: string
+            description: "water, electric, or gas"
+        required: [suite_number, utility_type]
+      output_strategy: GENERATED
+      generated_output:
+        instruction: >
+          Return utility account details. Include current balance, last payment,
+          current month usage vs prior month, and any anomalies. Make usage
+          realistic for the tenant type (restaurants use more water, etc.).
+      output_schema:
+        type: object
+        properties:
+          suite_number: { type: string }
+          utility_type: { type: string }
+          current_balance: { type: string }
+          last_payment_date: { type: string }
+          current_month_usage: { type: string }
+          prior_month_usage: { type: string }
+          notes: { type: string }
+
+    - id: submit_maintenance_request
+      name: SubmitMaintenanceRequest
+      description: Submit a maintenance work order
+      parameters:
+        type: object
+        properties:
+          suite_number:
+            type: string
+            description: Suite number
+          description:
+            type: string
+            description: Description of the issue
+          priority:
+            type: string
+            description: "low, medium, high, emergency"
+            enum: [low, medium, high, emergency]
+        required: [suite_number, description, priority]
+      output_strategy: DETERMINISTIC
+      deterministic_outputs:
+        - values:
+            work_order_id: "WO-3847"
+            status: "submitted"
+            assigned_to: "Mike's HVAC & Plumbing"
+            eta: "within 24 hours"
+          sample_rate: 0.4
+        - values:
+            work_order_id: "WO-3848"
+            status: "submitted"
+            assigned_to: "AllPro Maintenance"
+            eta: "within 4 hours"
+          sample_rate: 0.3
+        - values:
+            work_order_id: "WO-3849"
+            status: "urgent — dispatched"
+            assigned_to: "On-call technician"
+            eta: "within 1 hour"
+          sample_rate: 0.3
+
+    - id: check_rent_status
+      name: CheckRentStatus
+      description: Check rent payment status for a tenant
+      parameters:
+        type: object
+        properties:
+          tenant_name:
+            type: string
+            description: Tenant business name
+        required: [tenant_name]
+      output_strategy: GENERATED
+      generated_output:
+        instruction: >
+          Return rent payment status. Include current month status (paid/unpaid/partial),
+          last payment date and amount, any outstanding balance, and late fee info if applicable.
+          Late fee is 5% after the 5th of the month.
+      output_schema:
+        type: object
+        properties:
+          tenant_name: { type: string }
+          current_month_status: { type: string }
+          last_payment_date: { type: string }
+          last_payment_amount: { type: string }
+          outstanding_balance: { type: string }
+          late_fee: { type: string }
+
+    - id: check_trash_schedule
+      name: CheckTrashSchedule
+      description: Check trash and recycling pickup schedule and report issues
+      parameters:
+        type: object
+        properties:
+          suite_number:
+            type: string
+            description: Suite number or area
+        required: [suite_number]
+      output_strategy: DETERMINISTIC
+      deterministic_outputs:
+        - values:
+            trash_pickup: "Tuesday and Friday, 6:00 AM"
+            recycling_pickup: "Wednesday, 6:00 AM"
+            dumpster_location: "Rear lot, bay 3"
+            next_pickup: "Friday"
+            notes: "No reported issues"
+          sample_rate: 0.5
+        - values:
+            trash_pickup: "Monday and Thursday, 5:30 AM"
+            recycling_pickup: "Monday, 5:30 AM"
+            dumpster_location: "Rear lot, bay 1"
+            next_pickup: "Thursday"
+            notes: "Waste hauler reported access blocked last pickup — please keep dumpster area clear"
+          sample_rate: 0.3
+        - values:
+            trash_pickup: "Tuesday and Friday, 6:00 AM"
+            recycling_pickup: "Wednesday, 6:00 AM"
+            dumpster_location: "Rear lot, bay 3"
+            next_pickup: "Tuesday"
+            notes: "Missed pickup reported — hauler notified, extra pickup scheduled"
+          sample_rate: 0.2
+
+    - id: escalate_to_property_manager
+      name: EscalateToPropertyManager
+      description: Escalate an issue to the senior property manager
+      parameters:
+        type: object
+        properties:
+          reason:
+            type: string
+            description: Why this needs escalation
+          priority:
+            type: string
+            enum: [low, medium, high]
+        required: [reason]
+      output_strategy: DETERMINISTIC
+      deterministic_outputs:
+        - values:
+            ticket_id: "PM-2210"
+            status: "escalated"
+            assigned_to: "Regional Property Manager"
+            response_time: "within 4 hours"
+          sample_rate: 0.5
+        - values:
+            ticket_id: "PM-2211"
+            status: "escalated"
+            assigned_to: "Senior Property Manager"
+            response_time: "within 1 hour"
+          sample_rate: 0.5
+
+  multiturn_attributes:
+    - id: "property_conversation"
+      min_turns: 3
+      max_turns: 7
+      available_tools:
+        - lookup_lease
+        - check_utility_account
+        - submit_maintenance_request
+        - check_rent_status
+        - check_trash_schedule
+        - escalate_to_property_manager
+      max_tool_calls_per_turn: 10
+
+      role_instruction_messages:
+        USER: |
+          You are {contact_name}, manager of {tenant_name} ({tenant_type.name}) at Oakridge Plaza shopping center.
+
+          Your tone: {tone.description}
+          Your issue: {issue_detail}
+
+          Guidelines:
+          - Your opening message was: "{opener}"
+          - If this is your first message, use your opening message
+          - Otherwise respond naturally to what the property management assistant said
+          - Provide details when asked (suite number, dates, etc.)
+          - Stay in character. Keep responses concise and realistic.
+
+          Output only your message, nothing else.
+        ASSISTANT: |
+          You are the Oakridge Plaza property management assistant.
+
+          Guidelines:
+          - Be professional and helpful
+          - Use tools to look up real information before answering
+          - For maintenance issues, submit a work order
+          - For billing questions, check the actual account
+          - For lease questions, look up the lease
+          - Only Escalate when the issue is beyond your scope and only after all the information is gathered. Do not escalate multiple times without full knowledge.
+          - Keep responses concise and actionable
+
+      output_system_prompt: |
+        You are the Oakridge Plaza property management assistant.
+        You help tenants with utilities, maintenance, rent, and lease questions.
+
+      conversation_planner: |
+        Create a property management conversation about: {issue_detail}
+        Tenant: {tenant_name} ({tenant_type.name}), tone is {tone.name}.
+
+        The conversation should progress toward resolution using the available tools.
+        Keep it practical and realistic for commercial property management.
+
+  passthrough_attributes:
+    - property_conversation
+
+inference_config:
+  model:
+    model_name: claude-sonnet-4-20250514
+  engine: ANTHROPIC
+  generation:
+    max_new_tokens: 8192
+    temperature: 0.7
+    top_p: 0.9
+  remote_params:
+    num_workers: 50
+    politeness_policy: 60
