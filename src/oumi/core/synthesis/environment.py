@@ -23,7 +23,6 @@ from oumi.core.configs.params.tool_params import (
 )
 from oumi.core.types.conversation import Conversation, Message
 
-_MAX_STATE_UPDATE_RETRIES = 2
 _MAX_RESULT_RETRIES = 2
 
 
