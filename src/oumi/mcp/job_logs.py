@@ -74,7 +74,7 @@ async def tail_log_file(
     If the file does not exist yet, waits up to ``poll_interval`` between
     checks until it appears or *done_event* fires.
     """
-    while not path.exists():
+    while not path.exists():  # noqa: ASYNC240
         if done_event.is_set():
             return
         await asyncio.sleep(poll_interval)
@@ -84,13 +84,13 @@ async def tail_log_file(
 
     while True:
         try:
-            size = path.stat().st_size
+            size = path.stat().st_size  # noqa: ASYNC240
         except OSError:
             size = 0
 
         if size > position:
             try:
-                with open(path, encoding="utf-8", errors="replace") as f:
+                with open(path, encoding="utf-8", errors="replace") as f:  # noqa: ASYNC230
                     f.seek(position)
                     chunk = f.read()
                     position = f.tell()
@@ -105,7 +105,7 @@ async def tail_log_file(
 
         if done_event.is_set():
             try:
-                with open(path, encoding="utf-8", errors="replace") as f:
+                with open(path, encoding="utf-8", errors="replace") as f:  # noqa: ASYNC230
                     f.seek(position)
                     remaining = f.read()
             except OSError:
