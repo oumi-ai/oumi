@@ -106,6 +106,7 @@ class EnvironmentRegistry:
     """Builds environments once, then copies N times for parallel samples."""
 
     def __init__(self):
+        """Initialize an empty registry."""
         raise NotImplementedError
 
     def register_static(self, config: ToolEnvironmentAttribute) -> None:
@@ -123,9 +124,7 @@ class EnvironmentRegistry:
         """Build a fully populated environment."""
         raise NotImplementedError
 
-    def create_copies(
-        self, env_id: str, n: int
-    ) -> list[GeneratedToolEnvironment]:
+    def create_copies(self, env_id: str, n: int) -> list[GeneratedToolEnvironment]:
         """Return n independent deepcopies of a built environment."""
         raise NotImplementedError
 
