@@ -14,31 +14,121 @@
 
 """Tool executor for agentic synthesis."""
 
+import json
+import random
+import re
 from dataclasses import dataclass
 from typing import Any
 
-from oumi.core.configs.params.tool_params import ToolAttribute
-from oumi.core.types.conversation import Conversation, Message
+import jsonschema
+
+from oumi.core.configs.params.tool_params import (
+    DeterministicToolOutput,
+    ToolAttribute,
+    ToolOutputStrategy,
+)
+from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.utils.logging import logger
+from oumi.utils.str_utils import extract_json
 
 
 def clean_json_output(text: str) -> str:
-    """Strip markdown fences and extract clean JSON from LLM output."""
-    raise NotImplementedError
+    """Strip markdown fences and extract clean JSON from LLM-generated tool output."""
+    parsed = extract_json(text, expected_type=None)
+    if parsed is not None:
+        return json.dumps(parsed)
+    return text
 
 
 def is_valid_json(text: str) -> bool:
-    """Return True if text is parseable as a JSON object or array."""
-    raise NotImplementedError
+    """Return True if *text* is parseable as a JSON object or array."""
+    try:
+        result = json.loads(text)
+        return isinstance(result, (dict, list))
+    except (json.JSONDecodeError, TypeError):
+        return False
 
 
 def build_example_result(tool: ToolAttribute) -> str:
     """Build a realistic example result from a tool's output_schema."""
-    raise NotImplementedError
+    if not tool.output_schema:
+        return '{"status": "ok"}'
+    props = tool.output_schema.get("properties", {})
+    if not props:
+        return json.dumps(_example_value(tool.output_schema))
+    example = {}
+    for key, schema in props.items():
+        example[key] = _example_value(schema)
+    return json.dumps(example)
 
 
 def _example_value(schema: dict[str, Any]) -> Any:
     """Generate a placeholder example value from a JSON Schema property."""
-    raise NotImplementedError
+    if "example" in schema:
+        return schema["example"]
+    if "enum" in schema:
+        return schema["enum"][0]
+    ptype = schema.get("type", "string")
+    if ptype == "string":
+        return "..."
+    if ptype == "integer":
+        return 0
+    if ptype == "number":
+        return 0.0
+    if ptype == "boolean":
+        return True
+    if ptype == "array":
+        return []
+    if ptype == "object":
+        return {}
+    return "..."
+
+
+_TOOL_CALL_PATTERN = re.compile(r"<tool_call>\s*(.*?)\s*</tool_call>", re.DOTALL)
+_TOOL_CALL_OPEN_PATTERN = re.compile(r"<tool_call>\s*(.*)", re.DOTALL)
+_TOOL_TAG_PATTERN = re.compile(r"</?tool_call>")
+_TRAILING_COMMA_PATTERN = re.compile(r",\s*([}\]])")
+_TOOL_JSON_START_PATTERN = re.compile(r'\{\s*"name"\s*:')
+_TOOL_JSON_SHAPE_PATTERN = re.compile(
+    r'\{\s*"name"\s*:\s*"[^"]+"\s*,.*?"arguments"\s*:', re.DOTALL
+)
+_TRAILING_TOOL_ARTIFACT_PATTERN = re.compile(r"(?:\n\s*)?[<>{}\[\],:;|]+\s*$")
+_ARTIFACT_ONLY_PATTERN = re.compile(r'^[\s<>{}\[\],:;|"]*$')
+
+_MAX_CONTEXT_MESSAGES = 20
+_MAX_CONTEXT_CHARS_PER_MESSAGE = 500
+
+
+def _parse_tool_json(raw: str) -> dict[str, Any] | None:
+    """Extract and parse JSON from raw tool call content."""
+    result = extract_json(raw, expected_type=dict)
+    if isinstance(result, dict):
+        return result
+    missing = raw.count("{") - raw.count("}")
+    if missing > 0:
+        patched = raw.rstrip() + "}" * missing
+        try:
+            parsed = json.loads(patched)
+            if isinstance(parsed, dict):
+                return parsed
+        except json.JSONDecodeError:
+            pass
+    stripped = raw.rstrip()
+    for _ in range(3):
+        if stripped.endswith("}"):
+            stripped = stripped[:-1]
+            try:
+                parsed = json.loads(stripped)
+                if isinstance(parsed, dict):
+                    return parsed
+            except json.JSONDecodeError:
+                continue
+    cleaned = _TRAILING_COMMA_PATTERN.sub(r"\1", raw)
+    if cleaned != raw:
+        result = extract_json(cleaned, expected_type=dict)
+        if isinstance(result, dict):
+            return result
+    return None
 
 
 @dataclass
@@ -63,30 +153,277 @@ class ToolExecutor:
     """Parses tool calls from LLM responses and resolves tool outputs."""
 
     def __init__(self, tools: list[ToolAttribute]):
-        """Initialize the tool executor with available tools."""
-        raise NotImplementedError
+        """Initialize the tool executor with a list of available tools."""
+        self._tools_by_name: dict[str, ToolAttribute] = {t.name: t for t in tools}
 
     def get_tool_by_name(self, name: str) -> ToolAttribute | None:
         """Look up a tool by its display name."""
-        raise NotImplementedError
+        return self._tools_by_name.get(name)
 
     def parse_and_validate_tool_call(self, response: str) -> ToolCallResult:
-        """Parse <tool_call> tags from response and validate arguments."""
-        raise NotImplementedError
+        """Parse <tool_call> tags from response and validate arguments.
+
+        Falls back to bare JSON parsing if no <tool_call> tags are found.
+        """
+        match = _TOOL_CALL_PATTERN.search(response)
+        if not match:
+            match = _TOOL_CALL_OPEN_PATTERN.search(response)
+        if not match:
+            parsed = self._parse_bare_tool_json(response)
+            if parsed is not None:
+                return self._validate_parsed_tool_call(parsed)
+            return None
+
+        raw = match.group(1).strip()
+        close_idx = raw.find("</tool_call>")
+        if close_idx != -1:
+            raw = raw[:close_idx].strip()
+        parsed = _parse_tool_json(raw)
+        if parsed is None:
+            return ToolCallError(
+                error_json=json.dumps(
+                    {
+                        "error": "malformed_json",
+                        "message": "Tool call JSON could not be parsed.",
+                    }
+                ),
+                tool_name=None,
+            )
+
+        return self._validate_parsed_tool_call(parsed)
+
+    def _validate_parsed_tool_call(
+        self, parsed: dict[str, Any]
+    ) -> ToolCallParsed | ToolCallError:
+        """Validate a parsed tool call dict and return appropriate result."""
+        name = parsed.get("name")
+        arguments = parsed.get("arguments", {})
+
+        if not name or not isinstance(name, str):
+            return ToolCallError(
+                error_json=json.dumps(
+                    {
+                        "error": "malformed_json",
+                        "message": "Tool call missing or invalid 'name' field.",
+                    }
+                ),
+                tool_name=None,
+            )
+
+        if not isinstance(arguments, dict):
+            return ToolCallError(
+                error_json=json.dumps(
+                    {
+                        "error": "malformed_json",
+                        "message": "Tool call 'arguments' must be a dict, got "
+                        f"{type(arguments).__name__}.",
+                        "tool": name,
+                    }
+                ),
+                tool_name=name,
+            )
+
+        if name not in self._tools_by_name:
+            return ToolCallError(
+                error_json=json.dumps(
+                    {
+                        "error": "unknown_tool",
+                        "message": f"Tool '{name}' not found.",
+                        "available_tools": sorted(self._tools_by_name.keys()),
+                    }
+                ),
+                tool_name=name,
+            )
+
+        tool = self._tools_by_name[name]
+        if tool.parameters:
+            try:
+                jsonschema.validate(instance=arguments, schema=tool.parameters)
+            except jsonschema.ValidationError as e:
+                return ToolCallError(
+                    error_json=json.dumps(
+                        {
+                            "error": "invalid_arguments",
+                            "message": e.message,
+                            "tool": name,
+                        }
+                    ),
+                    tool_name=name,
+                )
+
+        return ToolCallParsed(tool_call={"name": name, "arguments": arguments})
+
+    @staticmethod
+    def _parse_bare_tool_json(text: str) -> dict[str, Any] | None:
+        """Find a bare JSON object with 'name' and 'arguments' fields in text.
+
+        Scans text for JSON objects that look like tool calls. Returns the
+        first match, or None if no tool-call-shaped JSON is found.
+        """
+        i = 0
+        while i < len(text):
+            if text[i] != "{":
+                i += 1
+                continue
+            try:
+                parsed, _ = json.JSONDecoder().raw_decode(text, i)
+            except (json.JSONDecodeError, ValueError):
+                i += 1
+                continue
+            if isinstance(parsed, dict) and "name" in parsed and "arguments" in parsed:
+                return parsed
+            i += 1
+        return None
+
+    @staticmethod
+    def strip_tool_tags(text: str) -> str:
+        """Remove any residual <tool_call> or </tool_call> tags from text."""
+        return _TOOL_TAG_PATTERN.sub("", text).strip()
+
+    @staticmethod
+    def strip_bare_tool_json(text: str) -> str:
+        """Remove bare JSON objects that look like tool calls from text."""
+        if not text:
+            return text
+
+        removals: list[tuple[int, int]] = []
+        i = 0
+        while i < len(text):
+            if text[i] != "{":
+                i += 1
+                continue
+            try:
+                parsed, end_idx = json.JSONDecoder().raw_decode(text, i)
+            except (json.JSONDecodeError, ValueError):
+                i += 1
+                continue
+            if isinstance(parsed, dict) and "name" in parsed and "arguments" in parsed:
+                removals.append((i, end_idx))
+                i = end_idx
+            else:
+                i += 1
+
+        result = text
+        for start, end in reversed(removals):
+            result = result[:start] + result[end:]
+
+        while "\n\n\n" in result:
+            result = result.replace("\n\n\n", "\n\n")
+        return result.strip()
+
+    @staticmethod
+    def _strip_malformed_bare_tool_json(text: str) -> str:
+        """Remove tool-shaped JSON fragments even when decoding fails.
+
+        This handles the common failure mode where the model starts emitting a
+        bare tool call object and truncates it before the JSON is complete.
+        """
+        if not text:
+            return text
+
+        result = text
+        search_pos = 0
+        while True:
+            match = _TOOL_JSON_START_PATTERN.search(result, search_pos)
+            if not match:
+                break
+            start = match.start()
+            suffix = result[start:]
+            if not _TOOL_JSON_SHAPE_PATTERN.match(suffix):
+                search_pos = match.end()
+                continue
+
+            try:
+                parsed, end_idx = json.JSONDecoder().raw_decode(result, start)
+            except (json.JSONDecodeError, ValueError):
+                paragraph_end = result.find("\n\n", start)
+                if paragraph_end == -1:
+                    paragraph_end = len(result)
+                result = result[:start] + result[paragraph_end:]
+                search_pos = start
+                continue
+
+            if isinstance(parsed, dict) and "name" in parsed and "arguments" in parsed:
+                result = result[:start] + result[end_idx:]
+                search_pos = start
+            else:
+                search_pos = match.end()
+
+        return result
+
+    @staticmethod
+    def sanitize_assistant_content(text: str) -> str:
+        """Strip tool-call artifacts from assistant prose before export."""
+        if not text:
+            return ""
+
+        content = _TOOL_CALL_PATTERN.sub("", text)
+        open_match = _TOOL_CALL_OPEN_PATTERN.search(content)
+        if open_match:
+            content = content[: open_match.start()]
+
+        content = ToolExecutor.strip_tool_tags(content)
+        content = ToolExecutor.strip_bare_tool_json(content)
+        content = ToolExecutor._strip_malformed_bare_tool_json(content)
+        content = _TRAILING_TOOL_ARTIFACT_PATTERN.sub("", content).strip()
+
+        while "\n\n\n" in content:
+            content = content.replace("\n\n\n", "\n\n")
+
+        if _ARTIFACT_ONLY_PATTERN.fullmatch(content):
+            return ""
+        return content.strip()
 
     def sample_deterministic_outputs(
         self, tools: list[ToolAttribute]
     ) -> dict[str, str]:
         """Sample one deterministic output per DETERMINISTIC tool."""
-        raise NotImplementedError
+        selections: dict[str, str] = {}
+        for tool in tools:
+            if tool.output_strategy != ToolOutputStrategy.DETERMINISTIC:
+                continue
+            if not tool.deterministic_outputs:
+                continue
+
+            weights = [
+                o.sample_rate if o.sample_rate is not None else 1.0
+                for o in tool.deterministic_outputs
+            ]
+            selected: DeterministicToolOutput = random.choices(
+                tool.deterministic_outputs, weights=weights, k=1
+            )[0]
+            selections[tool.id] = json.dumps(selected.values)
+
+        return selections
 
     def resolve_output(
         self,
         tool_call: dict[str, Any],
         deterministic_selections: dict[str, str],
     ) -> str | None:
-        """Resolve a tool call to its output. None for GENERATED tools."""
-        raise NotImplementedError
+        """Resolve a tool call to its output.
+
+        Returns the output string for DETERMINISTIC tools, or None for
+        GENERATED tools (caller must use build_generated_simulator_prompt).
+        """
+        tool = self._tools_by_name.get(tool_call["name"])
+        if not tool:
+            logger.warning(
+                f"Cannot resolve output for unknown tool: {tool_call['name']}"
+            )
+            return json.dumps({"error": f"Unknown tool: {tool_call['name']}"})
+
+        if tool.output_strategy == ToolOutputStrategy.DETERMINISTIC:
+            output = deterministic_selections.get(tool.id)
+            if output is None:
+                logger.warning(
+                    f"No deterministic output pre-selected for tool '{tool.id}'"
+                )
+                return json.dumps(
+                    {"error": f"No output available for tool '{tool.name}'"}
+                )
+            return output
+        return None
 
     def build_generated_simulator_prompt(
         self,
@@ -94,24 +431,132 @@ class ToolExecutor:
         conversation_history: list[Message] | None = None,
     ) -> Conversation:
         """Build LLM prompt for simulating a GENERATED tool's output."""
-        raise NotImplementedError
+        tool = self._tools_by_name[tool_call["name"]]
+        assert tool.generated_output is not None
+
+        system_parts = [
+            f'You are simulating the tool "{tool.name}".',
+            f"\nDescription: {tool.description}",
+        ]
+
+        if tool.parameters:
+            system_parts.append(
+                f"\nParameter schema:\n{json.dumps(tool.parameters, indent=2)}"
+            )
+
+        if tool.output_schema:
+            system_parts.append(
+                f"\nExpected output schema:\n{json.dumps(tool.output_schema, indent=2)}"
+            )
+
+        system_parts.append(f"\nBehavior: {tool.generated_output.instruction}")
+        system_parts.append(
+            "\nProduce a realistic JSON response matching the output schema. "
+            "No markdown fences. Start with { or [."
+        )
+
+        messages = [Message(role=Role.SYSTEM, content="\n".join(system_parts))]
+
+        messages.append(
+            Message(
+                role=Role.USER,
+                content=(
+                    "The agent called CheckInventory with:\n"
+                    '{"product_id": "SKU-1234"}\n\n'
+                    "Generate the tool's JSON output."
+                ),
+            )
+        )
+        messages.append(
+            Message(
+                role=Role.ASSISTANT,
+                content=(
+                    '{"product_id": "SKU-1234", "in_stock": true, '
+                    '"quantity": 47, "warehouse": "US-WEST-2"}'
+                ),
+            )
+        )
+
+        user_parts: list[str] = []
+        if conversation_history:
+            context = self._truncate_history(conversation_history)
+            if context:
+                user_parts.append(f"Conversation so far:\n{context}\n")
+
+        user_parts.append(
+            f"The agent called {tool.name} with:\n"
+            f"{json.dumps(tool_call['arguments'], indent=2)}\n\n"
+            f"Generate the tool's JSON output."
+        )
+        messages.append(Message(role=Role.USER, content="\n".join(user_parts)))
+
+        return Conversation(messages=messages)
 
     @staticmethod
     def build_capability_summary(tools: list[ToolAttribute]) -> str:
         """Build a planner-facing capability summary."""
-        raise NotImplementedError
+        seen: set[str] = set()
+        lines: list[str] = []
+        for tool in tools:
+            if tool.description not in seen:
+                seen.add(tool.description)
+                lines.append(f"- {tool.description}")
+        return "\n".join(lines)
 
     @staticmethod
     def build_tool_catalog(tools: list[ToolAttribute]) -> str:
         """Build a formatted tool catalog with schemas and usage examples."""
-        raise NotImplementedError
+        sections: list[str] = []
+        for tool in tools:
+            parts = [f"### {tool.name}\n{tool.description}\n"]
+
+            if tool.parameters:
+                required = tool.parameters.get("required", [])
+                props = tool.parameters.get("properties", {})
+                if props:
+                    param_lines = []
+                    for pname, pschema in props.items():
+                        ptype = pschema.get("type", "any")
+                        pdesc = pschema.get("description", "")
+                        req_marker = " (required)" if pname in required else ""
+                        param_lines.append(
+                            f"  - {pname} ({ptype}{req_marker}): {pdesc}"
+                        )
+                    parts.append("Parameters:\n" + "\n".join(param_lines))
+
+            if tool.output_schema:
+                parts.append(f"Returns:\n{json.dumps(tool.output_schema, indent=2)}")
+            example_args = {}
+            if tool.parameters:
+                for pname, pschema in tool.parameters.get("properties", {}).items():
+                    example_args[pname] = _example_value(pschema)
+            parts.append(
+                "Usage:\n"
+                f'<tool_call>{{"name": "{tool.name}", '
+                f'"arguments": {json.dumps(example_args)}}}</tool_call>'
+            )
+
+            sections.append("\n".join(parts))
+        return "\n\n".join(sections)
 
     @staticmethod
-    def build_tool_definitions(
-        tools: list[ToolAttribute],
-    ) -> list[dict[str, Any]]:
+    def build_tool_definitions(tools: list[ToolAttribute]) -> list[dict[str, Any]]:
         """Convert ToolAttributes to standard tool definitions for output."""
-        raise NotImplementedError
+        definitions: list[dict[str, Any]] = []
+        for tool in tools:
+            definition: dict[str, Any] = {
+                "type": "function",
+                "function": {
+                    "name": tool.name,
+                    "description": tool.description,
+                },
+            }
+            definition["function"]["parameters"] = tool.parameters or {
+                "type": "object",
+                "properties": {},
+            }
+            definitions.append(definition)
+        return definitions
 
     @staticmethod
     def format_tool_call_message(
@@ -119,7 +564,20 @@ class ToolExecutor:
         call_id: str,
     ) -> dict[str, Any]:
         """Format a parsed tool call as a standard OpenAI assistant message."""
-        raise NotImplementedError
+        return {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": call_id,
+                    "type": "function",
+                    "function": {
+                        "name": tool_call["name"],
+                        "arguments": json.dumps(tool_call["arguments"]),
+                    },
+                }
+            ],
+        }
 
     @staticmethod
     def format_tool_result_message(
@@ -128,27 +586,66 @@ class ToolExecutor:
         name: str,
     ) -> dict[str, Any]:
         """Format a tool result as a standard OpenAI tool message."""
-        raise NotImplementedError
+        return {
+            "role": "tool",
+            "tool_call_id": call_id,
+            "name": name,
+            "content": content,
+        }
 
     @staticmethod
-    def strip_tool_tags(text: str) -> str:
-        """Remove any residual <tool_call> or </tool_call> tags."""
-        raise NotImplementedError
-
-    @staticmethod
-    def strip_bare_tool_json(text: str) -> str:
-        """Remove bare JSON objects that look like tool calls."""
-        raise NotImplementedError
-
-    @staticmethod
-    def sanitize_assistant_content(text: str) -> str:
-        """Strip tool-call artifacts from assistant prose before export."""
-        raise NotImplementedError
+    def _truncate_history(messages: list[Message]) -> str:
+        """Truncate conversation history to fit context constraints."""
+        recent = messages[-_MAX_CONTEXT_MESSAGES:]
+        lines: list[str] = []
+        for msg in recent:
+            content = msg.content or ""
+            if (
+                isinstance(content, str)
+                and len(content) > _MAX_CONTEXT_CHARS_PER_MESSAGE
+            ):
+                content = content[:_MAX_CONTEXT_CHARS_PER_MESSAGE] + "..."
+            lines.append(f"[{msg.role.value}]: {content}")
+        return "\n".join(lines)
 
     @staticmethod
     def build_tool_few_shot(tools: list[ToolAttribute]) -> list[Message]:
         """Build few-shot messages demonstrating a correct tool-call exchange."""
-        raise NotImplementedError
+        if not tools:
+            return []
+
+        tool = tools[0]
+        example_args: dict[str, Any] = {}
+        if tool.parameters:
+            for pname, pschema in tool.parameters.get("properties", {}).items():
+                if "example" in pschema:
+                    example_args[pname] = pschema["example"]
+                elif "enum" in pschema:
+                    example_args[pname] = pschema["enum"][0]
+                else:
+                    example_args[pname] = _example_value(pschema)
+
+        tool_call_json = json.dumps({"name": tool.name, "arguments": example_args})
+        example_result = build_example_result(tool)
+
+        return [
+            Message(
+                role=Role.USER,
+                content=f"Look up information using {tool.name}.",
+            ),
+            Message(
+                role=Role.ASSISTANT,
+                content=f"<tool_call>{tool_call_json}</tool_call>",
+            ),
+            Message(
+                role=Role.USER,
+                content=(f"[Tool result from {tool.name}]: {example_result}"),
+            ),
+            Message(
+                role=Role.ASSISTANT,
+                content=f"The {tool.name} result shows {example_result}.",
+            ),
+        ]
 
     @staticmethod
     def build_tool_turn_info(
@@ -158,7 +655,37 @@ class ToolExecutor:
         max_calls_reached: bool,
     ) -> str:
         """Build the turn-level user message for assistant tool turns."""
-        raise NotImplementedError
+        parts = [f"Turn {current_turn} of {target_turns}.\n"]
+        is_final_turn = current_turn == target_turns
+
+        if turn_instruction:
+            parts.append(f"Task: {turn_instruction}\n")
+
+        if is_final_turn:
+            parts.append(
+                "This is the final turn. Finish the task now. "
+                "Do not announce future steps or promise another action.\n"
+            )
+
+        if max_calls_reached:
+            parts.append(
+                "You have used all tool calls for this turn. "
+                "Respond to the user based on the information gathered so far. "
+                "Do NOT output tool tags or tool JSON."
+            )
+            return "\n".join(parts)
+
+        parts.append(
+            "You MUST use <tool_call> tags to call tools. "
+            "Do NOT narrate, describe, or simulate tool calls. "
+            "Do NOT make up results — call the tool and wait for the response."
+        )
+        if is_final_turn:
+            parts.append(
+                "If you already have enough verified information, conclude "
+                "directly instead of starting another step."
+            )
+        return "\n".join(parts)
 
     @staticmethod
     def build_prose_turn_info(
@@ -167,8 +694,19 @@ class ToolExecutor:
         role: str,
         turn_instruction: str,
     ) -> str:
-        """Build turn-level user message for non-tool turns."""
-        raise NotImplementedError
+        """Build turn-level user message for non-tool turns (user turns)."""
+        parts = [
+            f"You are generating turn {current_turn} of {target_turns} as the {role}.\n"
+        ]
+        if turn_instruction:
+            parts.append(f"For this turn: {turn_instruction}\n")
+        if role == Role.USER.value.upper():
+            parts.append(
+                "Write like a real person: direct, concise, and do not narrate "
+                "your workflow.\n"
+            )
+        parts.append("Generate your response for this turn.")
+        return "\n".join(parts)
 
     @staticmethod
     def record_tool_result(
@@ -181,5 +719,20 @@ class ToolExecutor:
         output_messages: list[list[dict]],
         env_state: dict | None = None,
     ) -> None:
-        """Append a tool call + result to conversation history and output."""
-        raise NotImplementedError
+        """Append a tool call + result to conversation history and output messages."""
+        turn_tool_msgs[idx].append(Message(role=Role.ASSISTANT, content=raw_text))
+        turn_tool_msgs[idx].append(
+            Message(
+                role=Role.USER,
+                content=f"[Tool result from {tool_call['name']}]: {result}",
+            )
+        )
+        output_messages[idx].append(
+            ToolExecutor.format_tool_call_message(tool_call, call_id)
+        )
+        tool_result_msg = ToolExecutor.format_tool_result_message(
+            call_id, result, tool_call["name"]
+        )
+        if env_state is not None:
+            tool_result_msg["_environment_state"] = env_state
+        output_messages[idx].append(tool_result_msg)
