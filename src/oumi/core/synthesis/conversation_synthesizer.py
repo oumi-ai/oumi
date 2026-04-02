@@ -355,15 +355,27 @@ class ConversationSynthesizer:
 
         return result
 
-    @staticmethod
     def _validate_parsed_turn_plans(
+        self,
         parsed_turn_plans: list[str],
     ) -> str | None:
         """Return a validation error when planner instructions are unsafe."""
+        tool_names = {t.name for t in self._tools_by_id.values()}
         for turn_idx, instruction in enumerate(parsed_turn_plans, start=1):
             cleaned = instruction.strip()
             if not cleaned:
                 return f"missing instruction for turn {turn_idx}"
+            if "<tool_call>" in cleaned or "</tool_call>" in cleaned:
+                return (
+                    f"turn {turn_idx} contains tool call syntax — "
+                    "planner must describe WHAT to do, not HOW"
+                )
+            for name in tool_names:
+                if name in cleaned:
+                    return (
+                        f"turn {turn_idx} leaks tool name '{name}' — "
+                        "planner must not reference specific tools"
+                    )
         return None
 
     def _extract_response(

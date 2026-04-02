@@ -1970,9 +1970,10 @@ def test_planner_prompt_includes_env_state(
     prompt = synthesizer._create_planner_prompt(multiturn, sample, env_state=env_state)
 
     last_user_msg = prompt.messages[-1].content
-    assert "Environment summary for planning only:" in last_user_msg
+    assert "Environment state (ground truth):" in last_user_msg
     assert "tables: users" in last_user_msg
-    assert "Do not copy hidden facts verbatim" in last_user_msg
+    assert isinstance(last_user_msg, str)
+    assert "exact ids from this state" in last_user_msg.lower()
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
