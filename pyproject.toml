@@ -15,6 +15,7 @@ oumi = ["LICENSE", "README.md", "*.jinja"]
 # by default.
 [tool.uv]
 prerelease = "allow"
+override-dependencies = ["transformers>=5.5,<5.6"]
 
 [project]
 name = "oumi"
