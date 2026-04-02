@@ -324,7 +324,7 @@ def test_synthesize_with_multiturn_attributes(
 @patch("oumi.core.synthesis.synthesis_pipeline.DatasetPlanner")
 @patch("oumi.core.synthesis.synthesis_pipeline.AttributeTransformer")
 @patch("oumi.core.synthesis.synthesis_pipeline.AttributeSynthesizer")
-def test_synthesize_with_multiturn_filtered_result_keeps_samples(
+def test_synthesize_with_multiturn_filtered_result_drops_failed_samples(
     mock_attr_synth,
     mock_attr_transformer_class,
     mock_dataset_planner_class,
@@ -333,7 +333,7 @@ def test_synthesize_with_multiturn_filtered_result_keeps_samples(
     mock_dataset_planner,
     mock_attribute_transformer,
 ):
-    """Test that filtered conversation results do not crash or drop samples."""
+    """Test that failed multiturn rows are removed from final dataset."""
     sample_dataset = [
         {"id": "s1", "base": "v1"},
         {"id": "s2", "base": "v2"},
@@ -360,13 +360,11 @@ def test_synthesize_with_multiturn_filtered_result_keeps_samples(
     pipeline = SynthesisPipeline(synthesis_config_with_multiturn_attributes)
     result = pipeline.synthesize()
 
-    assert len(result) == 2
+    assert len(result) == 1
     assert multiturn_attr.id in result[0]
     assert plan_key in result[0]
-    assert multiturn_attr.id not in result[1]
-    assert plan_key not in result[1]
-    assert result[1]["id"] == "s2"
-    assert result[1]["base"] == "v2"
+    assert result[0]["id"] == "s1"
+    assert result[0]["base"] == "v1"
 
 
 @patch("oumi.core.synthesis.synthesis_pipeline.DatasetPlanner")
