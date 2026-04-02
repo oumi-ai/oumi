@@ -1373,16 +1373,6 @@ def test_init_sample_environments_per_sample(
         tools=[tool],
         environments=[env_config],
     )
-    multiturn = MultiTurnAttribute(
-        id="conv",
-        min_turns=2,
-        max_turns=2,
-        available_tools=["query"],
-        role_instruction_messages={
-            Role.USER: "You are a analyst.",
-            Role.ASSISTANT: "You are a database assistant.",
-        },
-    )
     synthesizer = ConversationSynthesizer(params, mock_inference_config)
 
     from types import SimpleNamespace
@@ -1462,16 +1452,6 @@ def test_init_env_registry_build_path_used(
         read_only=True,
     )
     params = GeneralSynthesisParams(tools=[tool], environments=[env_config])
-    multiturn = MultiTurnAttribute(
-        id="conv",
-        min_turns=2,
-        max_turns=2,
-        available_tools=["query"],
-        role_instruction_messages={
-            Role.USER: "You are an analyst.",
-            Role.ASSISTANT: "You are a db assistant.",
-        },
-    )
     synthesizer = ConversationSynthesizer(params, mock_inference_config)
 
     from types import SimpleNamespace
@@ -1540,16 +1520,6 @@ def test_init_env_kills_sample_on_total_state_failure(
         read_only=True,
     )
     params = GeneralSynthesisParams(tools=[tool], environments=[env_config])
-    multiturn = MultiTurnAttribute(
-        id="conv",
-        min_turns=2,
-        max_turns=2,
-        available_tools=["query"],
-        role_instruction_messages={
-            Role.USER: "You are an analyst.",
-            Role.ASSISTANT: "You are a db assistant.",
-        },
-    )
     synthesizer = ConversationSynthesizer(params, mock_inference_config)
 
     from types import SimpleNamespace
@@ -1603,16 +1573,6 @@ def test_init_env_static_config_used_without_llm(
         read_only=True,
     )
     params = GeneralSynthesisParams(tools=[tool], environments=[env_config])
-    multiturn = MultiTurnAttribute(
-        id="conv",
-        min_turns=2,
-        max_turns=2,
-        available_tools=["query"],
-        role_instruction_messages={
-            Role.USER: "You are an analyst.",
-            Role.ASSISTANT: "You are a db assistant.",
-        },
-    )
     synthesizer = ConversationSynthesizer(params, mock_inference_config)
 
     from types import SimpleNamespace
@@ -1689,16 +1649,6 @@ def test_init_sample_environments_reuses_shared_environment_build(
         read_only=True,
     )
     params = GeneralSynthesisParams(tools=[tool], environments=[env_config])
-    multiturn = MultiTurnAttribute(
-        id="conv",
-        min_turns=2,
-        max_turns=2,
-        available_tools=["query"],
-        role_instruction_messages={
-            Role.USER: "You are an analyst for {domain.name}.",
-            Role.ASSISTANT: "You are a db assistant for {domain.name}.",
-        },
-    )
     synthesizer = ConversationSynthesizer(params, mock_inference_config)
 
     from types import SimpleNamespace
@@ -1725,7 +1675,7 @@ def test_init_sample_environments_rebuilds_when_env_config_varies(
     mock_build_inference_engine,
     mock_inference_config,
 ):
-    """If env config formats differently per sample, each variant is built separately."""
+    """Env config format varies per sample: each variant built separately."""
     from oumi.core.configs.params.tool_params import (
         ToolAttribute,
         ToolEnvironmentAttribute,
@@ -1777,16 +1727,7 @@ def test_init_sample_environments_rebuilds_when_env_config_varies(
         read_only=True,
     )
     params = GeneralSynthesisParams(tools=[tool], environments=[env_config])
-    multiturn = MultiTurnAttribute(
-        id="conv",
-        min_turns=2,
-        max_turns=2,
-        available_tools=["query"],
-        role_instruction_messages={
-            Role.USER: "You are an analyst for {domain.name}.",
-            Role.ASSISTANT: "You are a db assistant.",
-        },
-    )
+
     synthesizer = ConversationSynthesizer(params, mock_inference_config)
 
     from types import SimpleNamespace
@@ -1823,9 +1764,6 @@ def test_process_env_write_calls_updates_state_before_generating_result(
     from oumi.core.synthesis.environment import GeneratedToolEnvironment
 
     mock_build_inference_engine.return_value = Mock()
-    synthesizer = ConversationSynthesizer(
-        GeneralSynthesisParams(), mock_inference_config
-    )
 
     env = GeneratedToolEnvironment(
         ToolEnvironmentAttribute(
@@ -1939,9 +1877,6 @@ def test_process_env_write_calls_returns_error_without_result_generation(
     )
 
     mock_build_inference_engine.return_value = Mock()
-    synthesizer = ConversationSynthesizer(
-        GeneralSynthesisParams(), mock_inference_config
-    )
 
     env = GeneratedToolEnvironment(
         ToolEnvironmentAttribute(
@@ -2124,7 +2059,7 @@ def test_over_limit_tool_call_is_stripped_from_assistant_output(
     mock_build_inference_engine,
     mock_inference_config,
 ):
-    """A valid tool call emitted after the per-turn limit should not leak into output."""
+    """Tool call emitted after per-turn limit should not leak into output."""
     mock_engine = Mock()
     mock_build_inference_engine.return_value = mock_engine
     call_count = 0
@@ -2219,7 +2154,9 @@ def test_over_limit_tool_call_is_stripped_from_assistant_output(
     result = synthesizer.synthesize([{"issue": "check order"}], mt_attr)
 
     assert result[0] is not None
-    messages = result[0]["tool_conversation"]["messages"]
+    conv = result[0]["tool_conversation"]
+    assert isinstance(conv, dict)
+    messages = conv["messages"]
     assistant_messages = [
         m for m in messages if m.get("role") == "assistant" and m.get("content")
     ]
