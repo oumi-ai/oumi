@@ -32,6 +32,36 @@ from oumi.utils.logging import logger
 from oumi.utils.str_utils import extract_json
 
 
+def clean_json_output(text: str) -> str:
+    """Strip markdown fences and extract clean JSON from LLM-generated tool output."""
+    parsed = extract_json(text, expected_type=None)
+    if parsed is not None:
+        return json.dumps(parsed)
+    return text
+
+
+def is_valid_json(text: str) -> bool:
+    """Return True if *text* is parseable as a JSON object or array."""
+    try:
+        result = json.loads(text)
+        return isinstance(result, (dict, list))
+    except (json.JSONDecodeError, TypeError):
+        return False
+
+
+def build_example_result(tool: ToolAttribute) -> str:
+    """Build a realistic example result from a tool's output_schema."""
+    if not tool.output_schema:
+        return '{"status": "ok"}'
+    props = tool.output_schema.get("properties", {})
+    if not props:
+        return json.dumps(_example_value(tool.output_schema))
+    example = {}
+    for key, schema in props.items():
+        example[key] = _example_value(schema)
+    return json.dumps(example)
+
+
 def _example_value(schema: dict[str, Any]) -> Any:
     """Generate a placeholder example value from a JSON Schema property."""
     if "example" in schema:
@@ -323,11 +353,7 @@ class ToolExecutor:
 
     @staticmethod
     def sanitize_assistant_content(text: str) -> str:
-        """Strip tool-call artifacts from assistant prose before export.
-
-        Removes complete tagged tool calls, dangling open tags, bare tool JSON,
-        and leftover punctuation-only fragments such as a trailing `}` or `>`.
-        """
+        """Strip tool-call artifacts from assistant prose before export."""
         if not text:
             return ""
 
@@ -404,15 +430,7 @@ class ToolExecutor:
         tool_call: dict[str, Any],
         conversation_history: list[Message] | None = None,
     ) -> Conversation:
-        """Build the LLM prompt for simulating a GENERATED tool output.
-
-        The simulator LLM receives:
-        - Tool definition (name, description, parameter schema)
-        - Output schema (what the response should look like)
-        - User-provided instruction for how this tool should behave
-        - The actual arguments the agent passed
-        - Truncated conversation context for coherence
-        """
+        """Build LLM prompt for simulating a GENERATED tool's output."""
         tool = self._tools_by_name[tool_call["name"]]
         assert tool.generated_output is not None
 
@@ -439,9 +457,6 @@ class ToolExecutor:
 
         messages = [Message(role=Role.SYSTEM, content="\n".join(system_parts))]
 
-        # Generic few-shot examples to teach the format: raw JSON output,
-        # no markdown fences. Uses a different domain than the actual tool
-        # to avoid biasing the output while demonstrating the pattern.
         messages.append(
             Message(
                 role=Role.USER,
@@ -479,14 +494,7 @@ class ToolExecutor:
 
     @staticmethod
     def build_capability_summary(tools: list[ToolAttribute]) -> str:
-        """Build a capability summary for the conversation planner.
-
-        Lists what the assistant can do (descriptions only) without exposing
-        tool names or parameters. This gives the planner enough context to
-        create feasible plans while keeping tool selection up to the agent.
-
-        Returns an empty string if the tools list is empty.
-        """
+        """Build a planner-facing capability summary."""
         seen: set[str] = set()
         lines: list[str] = []
         for tool in tools:
@@ -599,3 +607,132 @@ class ToolExecutor:
                 content = content[:_MAX_CONTEXT_CHARS_PER_MESSAGE] + "..."
             lines.append(f"[{msg.role.value}]: {content}")
         return "\n".join(lines)
+
+    @staticmethod
+    def build_tool_few_shot(tools: list[ToolAttribute]) -> list[Message]:
+        """Build few-shot messages demonstrating a correct tool-call exchange."""
+        if not tools:
+            return []
+
+        tool = tools[0]
+        example_args: dict[str, Any] = {}
+        if tool.parameters:
+            for pname, pschema in tool.parameters.get("properties", {}).items():
+                if "example" in pschema:
+                    example_args[pname] = pschema["example"]
+                elif "enum" in pschema:
+                    example_args[pname] = pschema["enum"][0]
+                else:
+                    example_args[pname] = _example_value(pschema)
+
+        tool_call_json = json.dumps({"name": tool.name, "arguments": example_args})
+        example_result = build_example_result(tool)
+
+        return [
+            Message(
+                role=Role.USER,
+                content=f"Look up information using {tool.name}.",
+            ),
+            Message(
+                role=Role.ASSISTANT,
+                content=f"<tool_call>{tool_call_json}</tool_call>",
+            ),
+            Message(
+                role=Role.USER,
+                content=(f"[Tool result from {tool.name}]: {example_result}"),
+            ),
+            Message(
+                role=Role.ASSISTANT,
+                content=f"The {tool.name} result shows {example_result}.",
+            ),
+        ]
+
+    @staticmethod
+    def build_tool_turn_info(
+        current_turn: int,
+        target_turns: int,
+        turn_instruction: str,
+        max_calls_reached: bool,
+    ) -> str:
+        """Build the turn-level user message for assistant tool turns."""
+        parts = [f"Turn {current_turn} of {target_turns}.\n"]
+        is_final_turn = current_turn == target_turns
+
+        if turn_instruction:
+            parts.append(f"Task: {turn_instruction}\n")
+
+        if is_final_turn:
+            parts.append(
+                "This is the final turn. Finish the task now. "
+                "Do not announce future steps or promise another action.\n"
+            )
+
+        if max_calls_reached:
+            parts.append(
+                "You have used all tool calls for this turn. "
+                "Respond to the user based on the information gathered so far. "
+                "Do NOT output tool tags or tool JSON."
+            )
+            return "\n".join(parts)
+
+        parts.append(
+            "You MUST use <tool_call> tags to call tools. "
+            "Do NOT narrate, describe, or simulate tool calls. "
+            "Do NOT make up results — call the tool and wait for the response."
+        )
+        if is_final_turn:
+            parts.append(
+                "If you already have enough verified information, conclude "
+                "directly instead of starting another step."
+            )
+        return "\n".join(parts)
+
+    @staticmethod
+    def build_prose_turn_info(
+        current_turn: int,
+        target_turns: int,
+        role: str,
+        turn_instruction: str,
+    ) -> str:
+        """Build turn-level user message for non-tool turns (user turns)."""
+        parts = [
+            f"You are generating turn {current_turn} of {target_turns} as the {role}.\n"
+        ]
+        if turn_instruction:
+            parts.append(f"For this turn: {turn_instruction}\n")
+        if role == Role.USER.value.upper():
+            parts.append(
+                "Write like a real person: direct, concise, and do not narrate "
+                "your workflow.\n"
+            )
+        parts.append("Generate your response for this turn.")
+        return "\n".join(parts)
+
+    @staticmethod
+    def record_tool_result(
+        idx: int,
+        raw_text: str,
+        tool_call: dict,
+        call_id: str,
+        result: str,
+        turn_tool_msgs: dict[int, list[Message]],
+        output_messages: list[list[dict]],
+        env_state: dict | None = None,
+    ) -> None:
+        """Append a tool call + result to conversation history and output messages."""
+        turn_tool_msgs[idx].append(Message(role=Role.ASSISTANT, content=raw_text))
+        turn_tool_msgs[idx].append(
+            Message(
+                role=Role.USER,
+                content=f"[Tool result from {tool_call['name']}]: {result}",
+            )
+        )
+        output_messages[idx].append(
+            ToolExecutor.format_tool_call_message(tool_call, call_id)
+        )
+        tool_result_msg = ToolExecutor.format_tool_result_message(
+            call_id, result, tool_call["name"]
+        )
+        if env_state is not None:
+            tool_result_msg["_environment_state"] = env_state
+        output_messages[idx].append(tool_result_msg)

@@ -34,7 +34,6 @@ from oumi.core.types.conversation import Message, Role
 
 @pytest.fixture
 def deterministic_tool():
-    """Create a DETERMINISTIC tool with two possible outputs."""
     return ToolAttribute(
         id="tool_search_orders",
         name="SearchOrders",
@@ -77,7 +76,6 @@ def deterministic_tool():
 
 @pytest.fixture
 def generated_tool():
-    """Create a GENERATED tool."""
     return ToolAttribute(
         id="tool_check_eligibility",
         name="CheckEligibility",
@@ -108,7 +106,6 @@ def generated_tool():
 
 @pytest.fixture
 def no_params_tool():
-    """Create a tool with no parameters."""
     return ToolAttribute(
         id="tool_get_time",
         name="GetCurrentTime",
@@ -122,7 +119,6 @@ def no_params_tool():
 
 @pytest.fixture
 def executor(deterministic_tool, generated_tool, no_params_tool):
-    """Create a ToolExecutor with all fixture tools."""
     return ToolExecutor([deterministic_tool, generated_tool, no_params_tool])
 
 
@@ -185,7 +181,6 @@ def test_parse_tool_call_empty_arguments(executor):
     assert result.tool_call["arguments"] == {}
 
 
-
 def test_sample_deterministic_outputs(executor, deterministic_tool, generated_tool):
     selections = executor.sample_deterministic_outputs(
         [deterministic_tool, generated_tool]
@@ -218,7 +213,6 @@ def test_build_generated_simulator_prompt(executor):
     tool_call = {"name": "CheckEligibility", "arguments": {"order_id": "ORD-999"}}
     conversation = executor.build_generated_simulator_prompt(tool_call)
 
-    # system + 1 few-shot pair (2 messages) + actual request = 4
     assert len(conversation.messages) == 4
     assert conversation.messages[0].role == Role.SYSTEM
 
@@ -227,13 +221,11 @@ def test_build_generated_simulator_prompt(executor):
     assert "Check return eligibility" in system_content
     assert "Start with { or [" in system_content
 
-    # Generic few-shot example to teach raw JSON format
     assert conversation.messages[1].role == Role.USER
     assert "CheckInventory" in conversation.messages[1].content
     assert conversation.messages[2].role == Role.ASSISTANT
     assert "SKU-1234" in conversation.messages[2].content
 
-    # Actual request
     user_content = conversation.messages[3].content
     assert "ORD-999" in user_content
 
@@ -248,7 +240,6 @@ def test_build_generated_simulator_prompt_with_history(executor):
         tool_call, conversation_history=history
     )
 
-    # Actual request is the last message (index 3)
     user_content = conversation.messages[3].content
     assert "Conversation so far" in user_content
     assert "return my order" in user_content
@@ -269,7 +260,6 @@ def test_build_tool_catalog(deterministic_tool, generated_tool, no_params_tool):
 def test_build_tool_catalog_includes_full_schema(
     deterministic_tool, generated_tool, no_params_tool
 ):
-    """Catalog includes structured tool info with params, returns, and usage."""
     catalog = ToolExecutor.build_tool_catalog(
         [deterministic_tool, generated_tool, no_params_tool]
     )
@@ -348,7 +338,6 @@ def test_build_capability_summary(deterministic_tool, generated_tool):
 
 
 def test_parse_tool_call_unclosed_tag(executor):
-    """Fallback regex matches when LLM forgets closing tag."""
     response = '<tool_call>{"name": "SearchOrders", "arguments": {"order_id": "X"}}'
     result = executor.parse_and_validate_tool_call(response)
     assert isinstance(result, ToolCallParsed)
@@ -357,7 +346,6 @@ def test_parse_tool_call_unclosed_tag(executor):
 
 
 def test_parse_tool_call_trailing_comma(executor):
-    """Trailing comma before } is cleaned up."""
     response = (
         '<tool_call>{"name": "SearchOrders", '
         '"arguments": {"order_id": "X",}}</tool_call>'
@@ -368,7 +356,6 @@ def test_parse_tool_call_trailing_comma(executor):
 
 
 def test_parse_tool_call_markdown_fences_inside_tag(executor):
-    """Markdown fences wrapping JSON inside the tag are handled."""
     response = (
         "<tool_call>```json\n"
         '{"name": "SearchOrders", "arguments": {"order_id": "X"}}\n'
@@ -380,7 +367,6 @@ def test_parse_tool_call_markdown_fences_inside_tag(executor):
 
 
 def test_parse_tool_call_open_tag_with_trailing_prose(executor):
-    """Open-tag fallback doesn't consume trailing prose as JSON."""
     response = (
         '<tool_call>{"name": "SearchOrders", "arguments": {"order_id": "X"}}'
         "</tool_call> Here is some reasoning about the result."
@@ -391,7 +377,6 @@ def test_parse_tool_call_open_tag_with_trailing_prose(executor):
 
 
 def test_parse_tool_call_comma_in_string_value_preserved(executor):
-    """Trailing comma fix doesn't corrupt commas inside string values."""
     response = (
         '<tool_call>{"name": "SearchOrders", '
         '"arguments": {"order_id": "items A, B]"}}</tool_call>'
@@ -547,7 +532,6 @@ class TestParseAndValidateToolCall:
         assert result.tool_name == "SearchOrders"
 
     def test_unknown_param_returns_error(self, executor):
-        """Requires 'additionalProperties: false' in the fixture schema."""
         response = (
             '<tool_call>{"name": "SearchOrders",'
             ' "arguments": {"order_id": "X",'
@@ -607,9 +591,8 @@ class TestParseAndValidateToolCall:
                 assert "message" in parsed
 
     def test_bare_json_tool_call_parsed(self, executor):
-        """Bare JSON without <tool_call> tags should be parsed as fallback."""
         response = (
-            'Let me look that up.\n\n'
+            "Let me look that up.\n\n"
             '{"name": "SearchOrders", "arguments": {"order_id": "ORD-001"}}'
         )
         result = executor.parse_and_validate_tool_call(response)
@@ -618,19 +601,16 @@ class TestParseAndValidateToolCall:
         assert result.tool_call["arguments"]["order_id"] == "ORD-001"
 
     def test_bare_json_unknown_tool_returns_error(self, executor):
-        """Bare JSON referencing unknown tool should return ToolCallError."""
         response = '{"name": "UnknownTool", "arguments": {}}'
         result = executor.parse_and_validate_tool_call(response)
         assert isinstance(result, ToolCallError)
 
     def test_bare_json_invalid_args_returns_error(self, executor):
-        """Bare JSON with schema-invalid arguments should return ToolCallError."""
         response = '{"name": "SearchOrders", "arguments": {"order_id": 123}}'
         result = executor.parse_and_validate_tool_call(response)
         assert isinstance(result, ToolCallError)
 
     def test_tagged_tool_call_preferred_over_bare(self, executor):
-        """If both <tool_call> tag and bare JSON exist, tag takes precedence."""
         response = (
             '<tool_call>{"name": "SearchOrders",'
             ' "arguments": {"order_id": "A"}}</tool_call>\n'
@@ -642,7 +622,6 @@ class TestParseAndValidateToolCall:
         assert result.tool_call["arguments"]["order_id"] == "A"
 
     def test_bare_json_not_tool_shaped_returns_none(self, executor):
-        """JSON without name/arguments fields should not be treated as tool call."""
         response = 'Here is the data: {"users": [1, 2, 3]}'
         result = executor.parse_and_validate_tool_call(response)
         assert result is None

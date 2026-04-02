@@ -32,6 +32,7 @@ from oumi.core.synthesis.environment import (
     build_collection_prompt,
     build_dependency_graph,
     build_state_generation_prompt,
+    serialize_env_states,
     sort_into_waves,
     validate_collection,
 )
@@ -78,103 +79,113 @@ def _make_env_tool(read_only: bool = True, **overrides: Any) -> ToolAttribute:
     return ToolAttribute(**defaults)
 
 
-class TestStateUpdatePrompt:
-    def test_prompt_is_eight_messages(self):
-        """State update prompt has system, 3 user/assistant pairs, then actual user."""
-        config = _make_env_config(
-            initial_state={"files": {"a.txt": "hello"}},
-        )
-        env = GeneratedToolEnvironment(config=config)
-        tool = _make_env_tool(read_only=False, id="write_file", name="WriteFile")
+def _make_write_state_response(text: str) -> Conversation:
+    return Conversation(messages=[Message(role=Role.ASSISTANT, content=text)])
 
-        conv = env.build_state_update_prompt(
-            tool,
-            arguments={"path": "a.txt", "content": "world"},
-            result='{"status": "success"}',
-        )
 
-        assert len(conv.messages) == 8
-        assert conv.messages[0].role == Role.SYSTEM
-        assert conv.messages[1].role == Role.USER
-        assert conv.messages[2].role == Role.ASSISTANT
-        assert conv.messages[3].role == Role.USER
+def test_serialize_env_states_returns_full_state_for_small_envs():
+    initial_state = {
+        "files": {
+            "a.txt": "hello",
+            "b.txt": "world",
+        },
+        "metadata": {"status": "ready", "locked": False},
+    }
+    env = GeneratedToolEnvironment(_make_env_config(initial_state=initial_state))
 
-    def test_few_shot_example_contains_patch_format(self):
-        """The assistant example message contains a JSON Patch array."""
-        config = _make_env_config(
-            initial_state={"files": {"a.txt": "hello"}},
-        )
-        env = GeneratedToolEnvironment(config=config)
-        tool = _make_env_tool(read_only=False, id="write_file", name="WriteFile")
+    serialized = serialize_env_states({"filesystem": env})
+    parsed = json.loads(serialized)
 
-        conv = env.build_state_update_prompt(
-            tool,
-            arguments={"path": "a.txt", "content": "world"},
-            result='{"status": "success"}',
-        )
+    assert parsed["filesystem"]["name"] == "Filesystem"
+    assert parsed["filesystem"]["state"] == initial_state
 
-        assistant_text = conv.messages[2].content
-        assert '"op"' in assistant_text
-        assert '"path"' in assistant_text
-        assert '"replace"' in assistant_text
-        # Also verify indices 4 and 6 are assistant messages
-        assert conv.messages[4].role == Role.ASSISTANT
-        assert conv.messages[6].role == Role.ASSISTANT
 
-    def test_actual_request_contains_current_state(self):
-        """The actual user message includes current state and tool details."""
-        config = _make_env_config(
-            initial_state={"files": {"a.txt": "hello"}},
-        )
-        env = GeneratedToolEnvironment(config=config)
-        tool = _make_env_tool(read_only=False, id="write_file", name="WriteFile")
+def test_write_state_update_prompt_mentions_patch_and_error():
+    config = _make_env_config(initial_state={"files": {"a.txt": "hello"}})
+    env = GeneratedToolEnvironment(config=config)
+    tool = _make_env_tool(read_only=False, id="write_file", name="WriteFile")
 
-        conv = env.build_state_update_prompt(
-            tool,
-            arguments={"path": "a.txt", "content": "world"},
-            result='{"status": "success"}',
-        )
+    conv = env.build_write_state_update_prompt(
+        tool,
+        arguments={"path": "a.txt", "content": "world"},
+    )
 
-        user_text = conv.messages[7].content
-        assert "a.txt" in user_text
-        assert "WriteFile" in user_text
-        assert "JSON Patch" in user_text
+    last_text = str(conv.messages[-1].content)
+    assert '"patch"' in last_text
+    assert '"error"' in last_text
+    assert "before the tool result is generated" in last_text
 
-    def test_actual_request_contains_dynamic_example_path(self):
-        """The actual user message includes an example path from current state."""
-        config = _make_env_config(
-            initial_state={"files": {"readme.txt": "hello"}},
-        )
-        env = GeneratedToolEnvironment(config=config)
-        tool = _make_env_tool(read_only=False, id="write_file", name="WriteFile")
 
-        conv = env.build_state_update_prompt(
-            tool,
-            arguments={"path": "readme.txt", "content": "world"},
-            result='{"status": "success"}',
-        )
+def test_apply_state_update_returning_patch_success():
+    config = _make_env_config(initial_state={"files": {"a.txt": "old"}})
+    env = GeneratedToolEnvironment(config=config)
 
-        user_text = conv.messages[7].content
-        assert "/files/" in user_text
+    response = _make_write_state_response(
+        '{"patch": [{"op": "replace", "path": "/files/a.txt", '
+        '"value": "new"}], "error": null}'
+    )
+    succeeded, patch_ops, error = env.apply_state_update_returning_patch(response)
 
-    def test_retry_prompt_references_json_patch(self):
-        """Retry=True appends a message referencing JSON Patch format."""
-        config = _make_env_config(
-            initial_state={"files": {"a.txt": "hello"}},
-        )
-        env = GeneratedToolEnvironment(config=config)
-        tool = _make_env_tool(read_only=False, id="write_file", name="WriteFile")
+    assert succeeded is True
+    assert error is None
+    assert patch_ops == [{"op": "replace", "path": "/files/a.txt", "value": "new"}]
+    assert env.state["files"]["a.txt"] == "new"
 
-        conv = env.build_state_update_prompt(
-            tool,
-            arguments={"path": "a.txt", "content": "world"},
-            result='{"status": "success"}',
-            retry=True,
-        )
 
-        last_text = conv.messages[-1].content
-        assert isinstance(last_text, str)
-        assert "JSON Patch" in last_text or "json patch" in last_text.lower()
+def test_apply_state_update_returning_patch_rejected_keeps_state():
+    config = _make_env_config(initial_state={"files": {"a.txt": "hello"}})
+    env = GeneratedToolEnvironment(config=config)
+
+    response = _make_write_state_response(
+        '{"patch": [], "error": "File does not exist."}'
+    )
+    succeeded, patch_ops, error = env.apply_state_update_returning_patch(response)
+
+    assert succeeded is False
+    assert patch_ops == []
+    assert error == "File does not exist."
+    assert env.state == {"files": {"a.txt": "hello"}}
+
+
+def test_write_result_prompt_includes_before_after_diff():
+    config = _make_env_config(initial_state={"files": {"a.txt": "updated"}})
+    env = GeneratedToolEnvironment(config=config)
+    tool = _make_env_tool(read_only=False, id="write_file", name="WriteFile")
+    pre_patch_state = {"files": {"a.txt": "old"}}
+
+    conv = env.build_write_result_prompt(
+        tool,
+        arguments={"path": "a.txt", "content": "updated"},
+        patch_ops=[{"op": "replace", "path": "/files/a.txt", "value": "updated"}],
+        patch_succeeded=True,
+        pre_patch_state=pre_patch_state,
+    )
+
+    last_text = str(conv.messages[-1].content)
+    assert "State BEFORE the tool call" in last_text
+    assert "State AFTER the tool call" in last_text
+    assert '"old"' in last_text
+    assert '"updated"' in last_text
+    assert "SUCCESS" in last_text
+    assert "Do not re-check preconditions" in last_text
+
+
+def test_write_result_prompt_fallback_without_pre_patch_state():
+    config = _make_env_config(initial_state={"files": {"a.txt": "updated"}})
+    env = GeneratedToolEnvironment(config=config)
+    tool = _make_env_tool(read_only=False, id="write_file", name="WriteFile")
+
+    conv = env.build_write_result_prompt(
+        tool,
+        arguments={"path": "a.txt", "content": "updated"},
+        patch_ops=[{"op": "replace", "path": "/files/a.txt", "value": "updated"}],
+        patch_succeeded=True,
+    )
+
+    last_text = str(conv.messages[-1].content)
+    assert "Current state (after update)" in last_text
+    assert "Applied state update" in last_text
+    assert "SUCCESS" in last_text
 
 
 class TestApplyStateUpdate:
@@ -237,7 +248,6 @@ class TestApplyStateUpdate:
         assert env.state == {"files": {"a.txt": "hello"}}
 
     def test_schema_validation_failure_returns_false(self):
-        """Patch succeeds but result violates schema -> returns False."""
         config = _make_env_config(
             state_schema={
                 "type": "object",
@@ -350,46 +360,6 @@ class TestPublicSetters:
         assert env._state_schema["type"] == "object"
 
 
-class TestStateUpdatePromptThreeShot:
-    def test_prompt_has_eight_messages(self):
-        """State update prompt: system + 3 user/assistant pairs + actual user = 8."""
-        config = _make_env_config(initial_state={"files": {"a.txt": "hello"}})
-        env = GeneratedToolEnvironment(config=config)
-        tool = _make_env_tool(read_only=False, id="write_file", name="WriteFile")
-        conv = env.build_state_update_prompt(
-            tool,
-            arguments={"path": "a.txt", "content": "world"},
-            result='{"status": "success"}',
-        )
-        assert len(conv.messages) == 8
-        assert conv.messages[0].role == Role.SYSTEM
-        for i in range(1, 7, 2):
-            assert conv.messages[i].role == Role.USER
-            assert conv.messages[i + 1].role == Role.ASSISTANT
-        assert conv.messages[7].role == Role.USER
-
-    def test_examples_cover_add_replace_remove(self):
-        """The three examples demonstrate replace, add, and remove operations."""
-        config = _make_env_config(initial_state={"files": {"a.txt": "hello"}})
-        env = GeneratedToolEnvironment(config=config)
-        tool = _make_env_tool(read_only=False, id="write_file", name="WriteFile")
-        conv = env.build_state_update_prompt(
-            tool,
-            arguments={"path": "a.txt", "content": "world"},
-            result='{"status": "success"}',
-        )
-        assistant_texts = [str(conv.messages[i].content) for i in range(2, 7, 2)]
-        all_examples = " ".join(assistant_texts)
-        assert '"replace"' in all_examples
-        assert '"add"' in all_examples
-        assert '"remove"' in all_examples
-
-
-# ---------------------------------------------------------------------------
-# EnvironmentRegistry tests (merged from test_environment_registry.py)
-# ---------------------------------------------------------------------------
-
-
 def _make_registry_env_config(**overrides: Any) -> ToolEnvironmentAttribute:
     defaults: dict[str, Any] = dict(
         id="db",
@@ -438,7 +408,6 @@ class TestPluralize:
 
 class TestBuildStateGenerationPrompt:
     def test_includes_environment_description(self):
-        """Prompt includes the environment name and description."""
         config = _make_registry_env_config()
         conv = build_state_generation_prompt(config=config, tools=[])
         system_text = conv.messages[0].content
@@ -446,7 +415,6 @@ class TestBuildStateGenerationPrompt:
         assert "property management database" in system_text
 
     def test_includes_tool_definitions(self):
-        """Prompt includes bound tool names, params, and output schemas."""
         config = _make_registry_env_config()
         tool = _make_tool(
             output_schema={
@@ -463,7 +431,6 @@ class TestBuildStateGenerationPrompt:
         assert "tenant_id" in user_text
 
     def test_includes_scenario_context(self):
-        """Scenario context appears when provided."""
         config = _make_registry_env_config()
         conv = build_state_generation_prompt(
             config=config,
@@ -474,7 +441,6 @@ class TestBuildStateGenerationPrompt:
         assert "Seattle" in user_text
 
     def test_no_tools_still_produces_prompt(self):
-        """Works with zero tools — relies on env description alone."""
         config = _make_registry_env_config()
         conv = build_state_generation_prompt(config=config, tools=[])
         assert len(conv.messages) == 2
@@ -483,7 +449,6 @@ class TestBuildStateGenerationPrompt:
         assert "initial state" in user_text.lower()
 
     def test_retry_error_included(self):
-        """Retry error appears in the prompt."""
         config = _make_registry_env_config()
         conv = build_state_generation_prompt(
             config=config,
@@ -496,7 +461,6 @@ class TestBuildStateGenerationPrompt:
 
 class TestBuildDependencyGraph:
     def test_no_foreign_keys(self):
-        """Collections with no _id references have empty dependency sets."""
         schema = {
             "type": "object",
             "properties": {
@@ -520,7 +484,6 @@ class TestBuildDependencyGraph:
         assert graph == {"tenants": set(), "units": set()}
 
     def test_foreign_key_creates_dependency(self):
-        """A lease with tenant_id depends on tenants."""
         schema = {
             "type": "object",
             "properties": {
@@ -548,7 +511,6 @@ class TestBuildDependencyGraph:
         assert graph["tenants"] == set()
 
     def test_multiple_foreign_keys(self):
-        """A lease referencing tenant_id and unit_id depends on both."""
         schema = {
             "type": "object",
             "properties": {
@@ -582,7 +544,6 @@ class TestBuildDependencyGraph:
         assert graph["leases"] == {"tenants", "units"}
 
     def test_self_referencing_id_ignored(self):
-        """A tenant_id inside the tenants collection is not a dependency."""
         schema = {
             "type": "object",
             "properties": {
@@ -638,7 +599,6 @@ class TestSortIntoWaves:
         assert waves == []
 
     def test_cycle_broken(self):
-        """Cycles are broken — all collections still appear in output."""
         graph = {
             "tenants": {"leases"},
             "leases": {"tenants"},
@@ -650,7 +610,6 @@ class TestSortIntoWaves:
 
 class TestBuildCollectionPrompt:
     def test_wave_0_prompt_has_no_existing_state(self):
-        """First-wave collections get no existing state context."""
         config = _make_registry_env_config()
         sub_schema = {
             "type": "object",
@@ -673,7 +632,6 @@ class TestBuildCollectionPrompt:
         assert "Existing state" not in user_text
 
     def test_wave_1_prompt_includes_existing_state(self):
-        """Later-wave collections see previously generated data."""
         config = _make_registry_env_config()
         sub_schema = {
             "type": "object",
@@ -695,7 +653,6 @@ class TestBuildCollectionPrompt:
         assert "tenant_id" in user_text
 
     def test_prompt_includes_id_format_hint(self):
-        """Prompt tells the LLM what ID format to use."""
         config = _make_registry_env_config()
         sub_schema = {
             "type": "object",
@@ -709,13 +666,9 @@ class TestBuildCollectionPrompt:
         )
         user_text = conv.messages[1].content
         assert isinstance(user_text, str)
-        assert (
-            "string ids" in user_text.lower()
-            or "keyed by" in user_text.lower()
-        )
+        assert "string ids" in user_text.lower() or "keyed by" in user_text.lower()
 
     def test_prompt_requests_json_only(self):
-        """Prompt instructs LLM to output only JSON."""
         config = _make_registry_env_config()
         sub_schema = {
             "type": "object",
@@ -732,7 +685,6 @@ class TestBuildCollectionPrompt:
         assert "no markdown" in user_text.lower()
 
     def test_scenario_context_included(self):
-        """Scenario context appears in the prompt when provided."""
         config = _make_registry_env_config()
         sub_schema = {
             "type": "object",
@@ -756,40 +708,31 @@ class TestValidateCollection:
             "properties": {"name": {"type": "string"}},
         }
         data = {"1": {"name": "Alice"}, "2": {"name": "Bob"}}
-        ok, error = validate_collection(
-            "tenants", data, sub_schema, {}
-        )
+        ok, error = validate_collection("tenants", data, sub_schema, {})
         assert ok is True
         assert error is None
 
     def test_invalid_json_type(self):
-        """Non-dict data fails."""
         sub_schema = {
             "type": "object",
             "properties": {"name": {"type": "string"}},
         }
-        ok, error = validate_collection(
-            "tenants", [1, 2], sub_schema, {}
-        )
+        ok, error = validate_collection("tenants", [1, 2], sub_schema, {})
         assert ok is False
         assert error is not None
         assert "dict" in error.lower() or "object" in error.lower()
 
     def test_record_schema_violation(self):
-        """A record violating the sub-schema fails."""
         sub_schema = {
             "type": "object",
             "properties": {"name": {"type": "string"}},
             "required": ["name"],
         }
         data = {"1": {"name": 12345}}
-        ok, _error = validate_collection(
-            "tenants", data, sub_schema, {}
-        )
+        ok, _error = validate_collection("tenants", data, sub_schema, {})
         assert ok is False
 
     def test_referential_integrity_pass(self):
-        """Foreign keys pointing to existing records pass."""
         sub_schema = {
             "type": "object",
             "properties": {
@@ -804,13 +747,10 @@ class TestValidateCollection:
             }
         }
         existing = {"tenants": {"T-001": {"name": "Alice"}}}
-        ok, _error = validate_collection(
-            "leases", data, sub_schema, existing
-        )
+        ok, _error = validate_collection("leases", data, sub_schema, existing)
         assert ok is True
 
     def test_referential_integrity_fail(self):
-        """Foreign keys pointing to nonexistent records fail."""
         sub_schema = {
             "type": "object",
             "properties": {
@@ -825,28 +765,22 @@ class TestValidateCollection:
             }
         }
         existing = {"tenants": {"T-001": {"name": "Alice"}}}
-        ok, error = validate_collection(
-            "leases", data, sub_schema, existing
-        )
+        ok, error = validate_collection("leases", data, sub_schema, existing)
         assert ok is False
         assert error is not None
         assert "T-999" in error
 
     def test_empty_collection_valid(self):
-        """An empty dict is valid (generates 0 records)."""
         sub_schema = {
             "type": "object",
             "properties": {"name": {"type": "string"}},
         }
-        ok, _error = validate_collection(
-            "tenants", {}, sub_schema, {}
-        )
+        ok, _error = validate_collection("tenants", {}, sub_schema, {})
         assert ok is True
 
 
 class TestEnvironmentRegistryStatic:
     def test_register_static_and_create_copies(self):
-        """Static registration stores env and copies are independent."""
         config = _make_registry_env_config(
             state_schema={
                 "type": "object",
@@ -870,12 +804,10 @@ class TestEnvironmentRegistryStatic:
                 "tenants": {"1": {"name": "Alice"}},
             }
 
-        # Copies are independent
         copies[0].state["tenants"]["1"]["name"] = "Mutated"
         assert copies[1].state["tenants"]["1"]["name"] == "Alice"
 
     def test_create_copies_unknown_env_raises(self):
-        """Requesting copies of an unregistered env raises KeyError."""
         registry = EnvironmentRegistry()
         with pytest.raises(KeyError):
             registry.create_copies("nonexistent", 1)
@@ -883,7 +815,6 @@ class TestEnvironmentRegistryStatic:
 
 class TestEnvironmentRegistryBuild:
     def _make_mock_engine(self, responses: list[str]):
-        """Create a mock inference engine returning canned responses."""
         engine = MagicMock()
         call_count = 0
 
@@ -909,7 +840,6 @@ class TestEnvironmentRegistryBuild:
         return engine
 
     def test_build_with_config_provided_schema(self):
-        """When config has state_schema, no schema derivation happens."""
         config = _make_registry_env_config(
             state_schema={
                 "type": "object",
@@ -926,9 +856,7 @@ class TestEnvironmentRegistryBuild:
                 },
             },
         )
-        tenant_data = json.dumps(
-            {"T-001": {"name": "Alice"}, "T-002": {"name": "Bob"}}
-        )
+        tenant_data = json.dumps({"T-001": {"name": "Alice"}, "T-002": {"name": "Bob"}})
         engine = self._make_mock_engine([tenant_data])
         inference_config = MagicMock()
 
@@ -941,16 +869,16 @@ class TestEnvironmentRegistryBuild:
         assert "T-001" in copies[0].state["tenants"]
 
     def test_build_generates_state_from_description(self):
-        """When config has no state_schema, state is generated via LLM."""
         config = _make_registry_env_config(
             state_schema=None,
             initial_state=None,
         )
-        # LLM returns a full state object
-        state_data = json.dumps({
-            "tenants": {"T-001": {"name": "Alice"}},
-            "units": {"U-101": {"number": "101", "status": "occupied"}},
-        })
+        state_data = json.dumps(
+            {
+                "tenants": {"T-001": {"name": "Alice"}},
+                "units": {"U-101": {"number": "101", "status": "occupied"}},
+            }
+        )
         engine = self._make_mock_engine([state_data])
         inference_config = MagicMock()
 
@@ -964,7 +892,6 @@ class TestEnvironmentRegistryBuild:
         assert copies[0].state["tenants"]["T-001"]["name"] == "Alice"
 
     def test_build_multi_wave(self):
-        """Collections with dependencies are generated in wave order."""
         config = _make_registry_env_config(
             state_schema={
                 "type": "object",
@@ -1013,7 +940,6 @@ class TestEnvironmentRegistryBuild:
         assert state["leases"]["L-001"]["tenant_id"] == "T-001"
 
     def test_build_partial_failure_keeps_successful_collections(self):
-        """If a collection fails, others are still populated."""
         config = _make_registry_env_config(
             state_schema={
                 "type": "object",
@@ -1040,10 +966,13 @@ class TestEnvironmentRegistryBuild:
             },
         )
         tenant_data = json.dumps({"T-001": {"name": "Alice"}})
-        # Units always returns invalid JSON (initial + 2 retries = 3 bad responses)
         engine = self._make_mock_engine(
-            [tenant_data, "not valid json at all",
-             "not valid json at all", "not valid json at all"]
+            [
+                tenant_data,
+                "not valid json at all",
+                "not valid json at all",
+                "not valid json at all",
+            ]
         )
         inference_config = MagicMock()
 
@@ -1056,7 +985,6 @@ class TestEnvironmentRegistryBuild:
         assert "units" not in state or state.get("units") == {}
 
     def test_build_raises_on_response_count_mismatch(self):
-        """Build fails fast when inference response count mismatches prompt count."""
         config = _make_registry_env_config(
             state_schema={
                 "type": "object",

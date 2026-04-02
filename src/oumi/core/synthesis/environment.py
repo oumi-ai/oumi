@@ -17,11 +17,17 @@
 import copy
 import json
 import re
+from collections.abc import Callable
 from typing import Any
 
 import jsonschema
 
-from oumi.core.configs.params.tool_params import ToolAttribute, ToolEnvironmentAttribute
+from oumi.core.configs.params.tool_params import (
+    ToolAttribute,
+    ToolEnvironmentAttribute,
+    ToolOutputStrategy,
+)
+from oumi.core.synthesis.tool_executor import clean_json_output, is_valid_json
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.json_patch import (
     JsonPatchError,
@@ -36,24 +42,30 @@ _MAX_STATE_UPDATE_RETRIES = (
     2  # Max retries for state updates that fail schema validation.
 )
 
-_MAX_RESULT_RETRIES = 2  # Max retries for tool results that fail JSON parsing.
+_MAX_RESULT_RETRIES = 2
+
+
+def _parse_top_level_json(text: str) -> Any:
+    """Parse JSON from a response, stripping markdown fences if present."""
+    stripped = text.strip()
+    if not stripped:
+        return None
+
+    fence_match = re.search(r"```(?:json)?\s*([\s\S]*?)```", stripped)
+    if fence_match:
+        stripped = fence_match.group(1).strip()
+
+    try:
+        return json.loads(stripped)
+    except json.JSONDecodeError:
+        return None
 
 
 class GeneratedToolEnvironment:
-    """Stateful environment for tool synthesis using a build/apply pattern.
+    """Stateful environment for tool synthesis.
 
-    Maintains a JSON state document that evolves as tools read from and
-    write to it. Each tool call is processed via two LLM calls:
-    1. build_result_prompt / apply_result: produces the tool's output given
-       current state
-    2. build_state_update_prompt / apply_state_update: updates state to
-       reflect the tool call (if not read_only)
-
-    The environment does not call inference itself — it only builds prompts
-    and applies responses. The caller (e.g. ConversationSynthesizer) is
-    responsible for batching inference calls across environments.
-
-    State is validated against a JSON Schema after each update.
+    Maintains a JSON state document that evolves as tools read/write to it.
+    Builds prompts and applies responses — does not call inference itself.
     """
 
     def __init__(self, config: ToolEnvironmentAttribute):
@@ -68,6 +80,13 @@ class GeneratedToolEnvironment:
     def state(self) -> dict[str, Any]:
         """Current state of the environment."""
         return self._state
+
+    def summarize_for_planner(self) -> dict[str, Any]:
+        """Return a compact state view for planner grounding."""
+        return {
+            "name": self._config.name,
+            "state": self._state,
+        }
 
     def set_state(self, state: dict[str, Any], validate: bool = True) -> bool:
         """Set state, optionally skipping schema validation."""
@@ -116,97 +135,146 @@ class GeneratedToolEnvironment:
         ]
         return Conversation(messages=messages)
 
-    def build_state_update_prompt(
+    def build_write_state_update_prompt(
         self,
         tool: ToolAttribute,
         arguments: dict[str, Any],
-        result: str,
         retry: bool = False,
+        retry_error: str | None = None,
     ) -> Conversation:
-        """Build a few-shot prompt for generating a JSON Patch state update."""
+        """Build prompt for state-first write: decide patch before generating result."""
         system_parts = [self._config.system_prompt]
         if self._state_schema:
             system_parts.append(
                 f"\nState schema:\n{json.dumps(self._state_schema, indent=2)}"
             )
 
-        # Example 1: replace (UPDATE)
-        ex1_user = (
-            'Current state:\n{"users": {"1": {"name": "Alice", "role": "admin"}, '
-            '"2": {"name": "Bob", "role": "viewer"}}}\n\n'
-            "Tool 'UpdateRole' was called with:\n"
-            '{"user_id": "2", "new_role": "editor"}\n\n'
-            'Tool returned:\n{"status": "success", "rows_affected": 1}\n\n'
-            "Output a JSON Patch (RFC 6902) array describing ONLY the changes "
-            "to the state. Each operation must have: op (add/remove/replace), "
-            "path (JSON Pointer referencing dict keys, e.g. /users/2/role), "
-            "and value (for add/replace). Output ONLY the JSON array."
+        example_success_user = (
+            'Current state:\n{"files": {"a.txt": "hello"}}\n\n'
+            "Tool 'WriteFile' was called with:\n"
+            '{"path": "a.txt", "content": "world"}\n\n'
+            "Decide the state update that should happen before the tool result "
+            "is generated. Output ONLY a JSON object with keys: "
+            '"patch" (RFC 6902 array) and "error" (null or string).'
         )
-        ex1_assistant = (
-            '[{"op": "replace", "path": "/users/2/role", "value": "editor"}]'
+        example_success_assistant = (
+            '{"patch": [{"op": "replace", "path": "/files/a.txt", '
+            '"value": "world"}], "error": null}'
         )
 
-        ex2_user = (
-            'Current state:\n{"users": {"1": {"name": "Alice", "role": "admin"}, '
-            '"2": {"name": "Bob", "role": "viewer"}}}\n\n'
-            "Tool 'CreateUser' was called with:\n"
-            '{"name": "Carol", "role": "editor"}\n\n'
-            'Tool returned:\n{"status": "success", "id": "3"}\n\n'
-            "Output a JSON Patch (RFC 6902) array describing ONLY the changes "
-            "to the state. Each operation must have: op (add/remove/replace), "
-            "path (JSON Pointer referencing dict keys, e.g. /users/3), "
-            "and value (for add/replace). Output ONLY the JSON array."
+        example_failure_user = (
+            'Current state:\n{"files": {"a.txt": "hello"}}\n\n'
+            "Tool 'DeleteFile' was called with:\n"
+            '{"path": "missing.txt"}\n\n'
+            "Decide the state update that should happen before the tool result "
+            "is generated. Output ONLY a JSON object with keys: "
+            '"patch" (RFC 6902 array) and "error" (null or string).'
         )
-        ex2_assistant = (
-            '[{"op": "add", "path": "/users/3", '
-            '"value": {"name": "Carol", "role": "editor"}}]'
+        example_failure_assistant = (
+            '{"patch": [], "error": "File \'missing.txt\' does not exist."}'
         )
-
-        # Example 3: remove (DELETE)
-        ex3_user = (
-            'Current state:\n{"users": {"1": {"name": "Alice", "role": "admin"}, '
-            '"2": {"name": "Bob", "role": "viewer"}, '
-            '"3": {"name": "Carol", "role": "editor"}}}\n\n'
-            "Tool 'DeleteUser' was called with:\n"
-            '{"user_id": "2"}\n\n'
-            'Tool returned:\n{"status": "success", "rows_affected": 1}\n\n'
-            "Output a JSON Patch (RFC 6902) array describing ONLY the changes "
-            "to the state. Each operation must have: op (add/remove/replace), "
-            "path (JSON Pointer referencing dict keys, e.g. /users/2), "
-            "and value (for add/replace). Output ONLY the JSON array."
-        )
-        ex3_assistant = '[{"op": "remove", "path": "/users/2"}]'
 
         example_path = self._build_example_path()
-
         user_parts = [
             f"Current state:\n{json.dumps(self._state, indent=2)}\n\n"
             f"Tool '{tool.name}' was called with:\n"
             f"{json.dumps(arguments, indent=2)}\n\n"
-            f"Tool returned:\n{result}\n\n"
-            "Output a JSON Patch (RFC 6902) array describing ONLY the changes "
-            "to the state. Each operation must have: op (add/remove/replace), "
-            "path (JSON Pointer referencing dict keys, e.g. "
-            f"{example_path}), "
-            "and value (for add/replace). Output ONLY the JSON array.",
+            "Decide the state update that should happen before the tool result "
+            "is generated.\n"
+            "Output ONLY a JSON object with:\n"
+            '- "patch": RFC 6902 JSON Patch array\n'
+            '- "error": null when the update can be applied, otherwise a short '
+            "error string explaining why the write should be rejected.\n"
+            "If the write should succeed with no changes, return an empty patch "
+            'array and "error": null.\n'
+            "Paths must use JSON Pointer syntax, e.g. "
+            f"{example_path}."
         ]
         if retry:
             user_parts.append(
-                "\nIMPORTANT: Your previous output was not a valid JSON Patch "
-                "array. Output ONLY a JSON array of RFC 6902 patch operations."
+                "\nIMPORTANT: Your previous output could not be applied. "
+                "Return ONLY a valid JSON object with keys 'patch' and 'error'."
             )
+        if retry_error:
+            user_parts.append(f"\nPrevious error: {retry_error}")
 
         messages = [
             Message(role=Role.SYSTEM, content="\n".join(system_parts)),
-            Message(role=Role.USER, content=ex1_user),
-            Message(role=Role.ASSISTANT, content=ex1_assistant),
-            Message(role=Role.USER, content=ex2_user),
-            Message(role=Role.ASSISTANT, content=ex2_assistant),
-            Message(role=Role.USER, content=ex3_user),
-            Message(role=Role.ASSISTANT, content=ex3_assistant),
+            Message(role=Role.USER, content=example_success_user),
+            Message(role=Role.ASSISTANT, content=example_success_assistant),
+            Message(role=Role.USER, content=example_failure_user),
+            Message(role=Role.ASSISTANT, content=example_failure_assistant),
             Message(role=Role.USER, content="\n".join(user_parts)),
         ]
         return Conversation(messages=messages)
+
+    def build_write_result_prompt(
+        self,
+        tool: ToolAttribute,
+        arguments: dict[str, Any],
+        patch_ops: list[dict[str, Any]],
+        patch_succeeded: bool,
+        pre_patch_state: dict[str, Any] | None = None,
+        retry: bool = False,
+        retry_error: str | None = None,
+    ) -> Conversation:
+        """Build the prompt for generating a write tool result after state update."""
+        system_parts = [self._config.system_prompt]
+
+        user_parts = []
+        if tool.output_schema:
+            user_parts.append(
+                f"Expected output schema:\n{json.dumps(tool.output_schema, indent=2)}\n"
+            )
+
+        user_parts.append(
+            f"Tool '{tool.name}' was called with arguments:\n"
+            f"{json.dumps(arguments, indent=2)}\n\n"
+        )
+        if patch_succeeded:
+            if pre_patch_state is not None:
+                user_parts.append(
+                    f"State BEFORE the tool call:\n"
+                    f"{json.dumps(pre_patch_state, indent=2)}\n\n"
+                    f"State AFTER the tool call:\n"
+                    f"{json.dumps(self._state, indent=2)}\n\n"
+                    "The patch was applied successfully. Generate a SUCCESS "
+                    "result that reflects the change from the before state to "
+                    "the after state. Do not re-check preconditions — the "
+                    "operation already succeeded."
+                )
+            else:
+                user_parts.append(
+                    f"Current state (after update):\n"
+                    f"{json.dumps(self._state, indent=2)}\n\n"
+                    f"Applied state update:\n"
+                    f"{json.dumps(patch_ops, indent=2)}\n\n"
+                    "The patch was applied successfully. Generate a SUCCESS "
+                    "result. Do not re-check preconditions — the operation "
+                    "already succeeded."
+                )
+        else:
+            user_parts.append(
+                f"Current state:\n{json.dumps(self._state, indent=2)}\n\n"
+                "The state update failed. Return a JSON error response "
+                "describing the failure."
+            )
+
+        user_parts.append("No markdown fences. Start with { or [.")
+        if retry:
+            user_parts.append(
+                "\nIMPORTANT: Your previous output was not valid JSON. "
+                "Output only a complete JSON object or array."
+            )
+        if retry_error:
+            user_parts.append(f"\nPrevious error: {retry_error}")
+
+        return Conversation(
+            messages=[
+                Message(role=Role.SYSTEM, content="\n".join(system_parts)),
+                Message(role=Role.USER, content="\n".join(user_parts)),
+            ]
+        )
 
     def _build_example_path(self) -> str:
         """Build a dynamic JSON Pointer example from current state keys.
@@ -231,30 +299,61 @@ class GeneratedToolEnvironment:
         """Extract the tool result text from an inference response."""
         return self._extract_text(response)
 
-    def apply_state_update(self, response: Conversation) -> bool:
-        """Parse, validate, and apply a JSON Patch from an inference response.
-
-        Returns True if the state was successfully updated, False otherwise.
-        """
+    def apply_state_update_returning_patch(
+        self, response: Conversation
+    ) -> tuple[bool, list[dict[str, Any]], str | None]:
+        """Parse and apply a write-state update. Returns (succeeded, ops, error)."""
         text = self._extract_text(response)
-        patch = parse_patch_response(text)
+        explicit_error: str | None = None
+
+        parsed = _parse_top_level_json(text)
+        if isinstance(parsed, dict):
+            parsed_obj = parsed
+            raw_patch = parsed_obj.get("patch", [])
+            if not isinstance(raw_patch, list):
+                return False, [], "Write-state response 'patch' must be a list."
+
+            error_value = parsed_obj.get("error")
+            if error_value is None:
+                explicit_error = None
+            elif isinstance(error_value, str):
+                explicit_error = error_value.strip() or None
+            else:
+                explicit_error = str(error_value)
+
+            if explicit_error:
+                return False, [], explicit_error
+            patch = raw_patch
+        elif isinstance(parsed, list):
+            patch = parsed
+        else:
+            patch = parse_patch_response(text)
+
         if patch is None:
-            logger.warning(f"Failed to parse JSON Patch: {text[:200]}")
-            return False
+            error = f"Failed to parse JSON Patch: {text[:200]}"
+            logger.warning(error)
+            return False, [], error
+
         try:
             self._state = apply_json_patch(
                 self._state, patch, schema=self._state_schema
             )
-            return True
+            return True, patch, None
         except JsonPatchError as e:
-            logger.warning(f"JSON Patch application failed: {e}")
-            return False
+            error = f"JSON Patch application failed: {e}"
+            logger.warning(error)
+            return False, patch, str(e)
         except JsonPatchValidationError as e:
-            logger.warning(f"Patched state failed schema validation: {e}")
-            return False
+            error = f"Patched state failed schema validation: {e}"
+            logger.warning(error)
+            return False, patch, str(e)
+
+    def apply_state_update(self, response: Conversation) -> bool:
+        """Convenience wrapper: apply patch and return success bool."""
+        succeeded, _, _ = self.apply_state_update_returning_patch(response)
+        return succeeded
 
     def _validate_state(self, state: dict[str, Any]) -> bool:
-        """Validate state against the schema. Returns True if valid."""
         if not self._state_schema:
             return True
         try:
@@ -278,11 +377,7 @@ _ID_SUFFIX_PATTERN = re.compile(r"^(.+)_id$")
 
 
 def _pluralize(word: str) -> str:
-    """Naive English pluralization for entity names.
-
-    Handles common suffixes. Not meant to be exhaustive — just good enough
-    for collection names like tenant→tenants, category→categories.
-    """
+    """Naive English pluralization for collection name inference."""
     if word.endswith("s"):
         if word.endswith("ss") or word.endswith("us"):
             return word + "es"
@@ -310,17 +405,7 @@ def _format_tool_definitions(tools: list[ToolAttribute]) -> str:
 def build_dependency_graph(
     schema: dict[str, Any],
 ) -> dict[str, set[str]]:
-    """Build a dependency graph from a state schema.
-
-    For each collection, scans its record properties for foreign-key fields
-    (fields ending in `_id` whose prefix matches another collection).
-
-    Args:
-        schema: The full state JSON Schema.
-
-    Returns:
-        Dict mapping collection name to set of collection names it depends on.
-    """
+    """Build FK-based dependency graph from a state schema."""
     properties = schema.get("properties", {})
     collection_names = set(properties.keys())
     graph: dict[str, set[str]] = {name: set() for name in collection_names}
@@ -335,7 +420,6 @@ def build_dependency_graph(
                 continue
             entity = match.group(1)
             target_collection = _pluralize(entity)
-            # Don't add self-references as dependencies
             if target_collection == collection_name:
                 continue
             if target_collection in collection_names:
@@ -347,20 +431,7 @@ def build_dependency_graph(
 def sort_into_waves(
     graph: dict[str, set[str]],
 ) -> list[list[str]]:
-    """Topological sort of collections into parallel waves.
-
-    Each wave contains collections whose dependencies are all satisfied
-    by previous waves. Collections within a wave can be generated in parallel.
-
-    Cycles are broken by forcing the collection with fewer inbound
-    references into an earlier wave.
-
-    Args:
-        graph: Dependency graph from build_dependency_graph.
-
-    Returns:
-        List of waves. Each wave is a sorted list of collection names.
-    """
+    """Topological sort into parallel waves. Breaks cycles by inbound count."""
     if not graph:
         return []
 
@@ -368,12 +439,9 @@ def sort_into_waves(
     waves: list[list[str]] = []
 
     while remaining:
-        # Find collections with no unresolved dependencies
         ready = sorted(name for name, deps in remaining.items() if not deps)
 
         if not ready:
-            # Cycle detected — break it by picking the collection with
-            # the fewest inbound references
             inbound_counts = {name: 0 for name in remaining}
             for deps in remaining.values():
                 for dep in deps:
@@ -408,20 +476,7 @@ def build_collection_prompt(
     record_count: str = _DEFAULT_RECORD_COUNT,
     retry_error: str | None = None,
 ) -> Conversation:
-    """Build a prompt for generating one collection's records.
-
-    Args:
-        config: The environment config (name, description, system_prompt).
-        collection_name: Name of the collection to populate (e.g., "tenants").
-        sub_schema: JSON Schema for a single record in this collection.
-        existing_state: Previously generated collections (for FK context).
-        scenario_context: Optional scenario description for realism.
-        record_count: How many records to generate (e.g., "3-5").
-        retry_error: If retrying, the error message from the previous attempt.
-
-    Returns:
-        A Conversation with system and user messages.
-    """
+    """Build a prompt for generating one collection's records."""
     system_msg = (
         f"You are populating data for an environment.\n\n"
         f"Environment: {config.name}\n"
@@ -447,7 +502,6 @@ def build_collection_prompt(
         f"Each record must match this schema:\n{schema_str}\n"
     )
 
-    # Foreign key instructions
     fk_fields = [
         f for f in sub_schema.get("properties", {}) if _ID_SUFFIX_PATTERN.match(f)
     ]
@@ -488,20 +542,7 @@ def build_state_generation_prompt(
     scenario_context: str | None = None,
     retry_error: str | None = None,
 ) -> Conversation:
-    """Build a prompt for generating full environment state.
-
-    Used when no state_schema is provided. The LLM generates the complete
-    state from the environment description and bound tool definitions.
-
-    Args:
-        config: The environment config (name, description, system_prompt).
-        tools: Tools bound to this environment.
-        scenario_context: Optional scenario description for realism.
-        retry_error: If retrying, the error message from the previous attempt.
-
-    Returns:
-        A Conversation with system and user messages.
-    """
+    """Build prompt for generating full environment state (no schema path)."""
     system_msg = (
         f"You are populating initial data for an environment.\n\n"
         f"Environment: {config.name}\n"
@@ -548,29 +589,13 @@ def validate_collection(
     sub_schema: dict[str, Any],
     existing_state: dict[str, Any],
 ) -> tuple[bool, str | None]:
-    """Validate a generated collection's data.
-
-    Checks:
-    1. Data is a dict (keyed by ID).
-    2. Each record validates against the sub-schema.
-    3. Foreign key fields reference existing records.
-
-    Args:
-        collection_name: Name of this collection.
-        data: The generated data (should be dict[str, dict]).
-        sub_schema: JSON Schema for a single record.
-        existing_state: Previously generated collections for FK checks.
-
-    Returns:
-        (True, None) if valid, (False, error_message) if not.
-    """
+    """Validate collection data: schema conformance and FK integrity."""
     if not isinstance(data, dict):
         return (
             False,
             f"Expected a dict keyed by ID, got {type(data).__name__}.",
         )
 
-    # Validate each record against the sub-schema
     for record_id, record in data.items():
         try:
             jsonschema.validate(instance=record, schema=sub_schema)
@@ -580,7 +605,6 @@ def validate_collection(
                 f"Record '{record_id}' failed schema validation: {e.message}",
             )
 
-    # Check referential integrity
     for record_id, record in data.items():
         if not isinstance(record, dict):
             continue
@@ -591,9 +615,9 @@ def validate_collection(
             entity = match.group(1)
             target_collection = _pluralize(entity)
             if target_collection == collection_name:
-                continue  # Self-references are fine
+                continue
             if target_collection not in existing_state:
-                continue  # No data to check against
+                continue
             if value not in existing_state[target_collection]:
                 return (
                     False,
@@ -633,24 +657,14 @@ def _extract_response_text(response: Conversation) -> str:
 
 
 class EnvironmentRegistry:
-    """Builds environments once through a layered pipeline, then copies N times.
-
-    Phases:
-    1. Schema resolution: config-provided or derived from tools.
-    2. Dependency analysis: topological sort into generation waves.
-    3. Per-collection population: small LLM calls per collection, wave-ordered.
-    4. Assembly + validation: combine and validate full state.
-    """
+    """Builds environments once, then copies N times for parallel samples."""
 
     def __init__(self):
-        """Initialize an empty registry."""
+        """Initialize environment registery."""
         self._built: dict[str, GeneratedToolEnvironment] = {}
 
     def register_static(self, config: ToolEnvironmentAttribute) -> None:
-        """Register an environment with config-provided schema and state.
-
-        No LLM calls needed — the config has everything.
-        """
+        """Register an environment that needs no LLM generation."""
         env = GeneratedToolEnvironment(config=config)
         self._built[config.id] = env
 
@@ -662,19 +676,7 @@ class EnvironmentRegistry:
         inference_config: Any,
         scenario_context: str | None = None,
     ) -> None:
-        """Build a fully populated environment through the layered pipeline.
-
-        Two paths:
-        - If config has a state_schema: wave-based per-collection generation.
-        - Otherwise: single LLM call using env description + tool definitions.
-
-        Args:
-            config: Environment configuration.
-            tools: Tools bound to this environment.
-            inference_engine: Engine for LLM inference calls.
-            inference_config: Config for inference calls.
-            scenario_context: Optional scenario for realistic data generation.
-        """
+        """Build a fully populated environment via schema-based."""
         if config.state_schema:
             schema = copy.deepcopy(config.state_schema)
             state = self._build_from_schema(
@@ -701,18 +703,7 @@ class EnvironmentRegistry:
         self._built[config.id] = env
 
     def create_copies(self, env_id: str, n: int) -> list[GeneratedToolEnvironment]:
-        """Return n independent deepcopies of the built environment.
-
-        Args:
-            env_id: The environment config ID.
-            n: Number of copies to produce.
-
-        Returns:
-            List of independent GeneratedToolEnvironment instances.
-
-        Raises:
-            KeyError: If env_id has not been built or registered.
-        """
+        """Return n independent deepcopies of a built environment."""
         if env_id not in self._built:
             raise KeyError(
                 f"Environment '{env_id}' not found. "
@@ -729,10 +720,7 @@ class EnvironmentRegistry:
         inference_config: Any,
         scenario_context: str | None,
     ) -> dict[str, Any]:
-        """Generate state using wave-based per-collection prompts.
-
-        Used when config provides an explicit state_schema.
-        """
+        """Generate state using wave-based per-collection prompts."""
         graph = build_dependency_graph(schema)
         waves = sort_into_waves(graph)
 
@@ -795,12 +783,7 @@ class EnvironmentRegistry:
         inference_config: Any,
         scenario_context: str | None,
     ) -> dict[str, Any]:
-        """Generate state from environment description and tool definitions.
-
-        Used when no state_schema is provided. Makes a single LLM call
-        with the environment description and bound tool definitions, and
-        lets the LLM decide the appropriate state structure.
-        """
+        """Generate state from env description + tool defs (no schema)."""
         prompt = build_state_generation_prompt(
             config=config,
             tools=tools,
@@ -818,7 +801,6 @@ class EnvironmentRegistry:
         if isinstance(parsed, dict) and parsed:
             return parsed
 
-        # Retry
         retry_error = (
             f"Could not parse JSON from response: {text[:200]}"
             if not isinstance(parsed, dict)
@@ -882,7 +864,6 @@ class EnvironmentRegistry:
         else:
             retry_error = f"Could not parse JSON from response: {text[:200]}"
 
-        # Retry loop
         for _ in range(_MAX_COLLECTION_RETRIES):
             retry_prompt = build_collection_prompt(
                 config=config,
@@ -918,3 +899,448 @@ class EnvironmentRegistry:
                 retry_error = f"Could not parse JSON from response: {text[:200]}"
 
         return False
+
+
+def resolve_env_tool(
+    tool_executor: Any,
+    tool_call: dict,
+    idx_envs: dict[str, GeneratedToolEnvironment] | None,
+) -> tuple[GeneratedToolEnvironment | None, ToolAttribute | None]:
+    """Look up (env, tool) for an environment-bound tool call, or (None, None)."""
+    if idx_envs is None:
+        return None, None
+    tool_obj = tool_executor.get_tool_by_name(tool_call["name"])
+    if tool_obj and tool_obj.environment:
+        env = idx_envs.get(tool_obj.environment)
+        if env:
+            return env, tool_obj
+    return None, None
+
+
+def is_env_tool_missing_env(tool_executor: Any, tool_call: dict) -> bool:
+    """Return True if tool_call targets an ENVIRONMENT tool whose env is missing."""
+    tool = tool_executor.get_tool_by_name(tool_call["name"])
+    if tool and tool.output_strategy == ToolOutputStrategy.ENVIRONMENT:
+        logger.warning(
+            f"Environment not found for tool '{tool_call['name']}', skipping."
+        )
+        return True
+    return False
+
+
+def serialize_env_states(envs: dict[str, GeneratedToolEnvironment]) -> str:
+    """Serialize planner-oriented environment summaries as stable JSON."""
+    summaries = {
+        env_id: env.summarize_for_planner()
+        for env_id, env in sorted(envs.items(), key=lambda item: item[0])
+    }
+    return json.dumps(summaries, indent=2, sort_keys=True, ensure_ascii=True)
+
+
+def format_environment_config(
+    formatter: Any,
+    sample: dict,
+    config: ToolEnvironmentAttribute,
+) -> ToolEnvironmentAttribute:
+    """Format environment prompt fields with sample-specific attributes."""
+    return ToolEnvironmentAttribute(
+        id=config.id,
+        name=formatter.format(
+            sample,
+            config.name,
+            missing_values_allowed=True,
+        ),
+        description=formatter.format(
+            sample,
+            config.description,
+            missing_values_allowed=True,
+        ),
+        system_prompt=formatter.format(
+            sample,
+            config.system_prompt,
+            missing_values_allowed=True,
+        ),
+        state_schema=copy.deepcopy(config.state_schema),
+        initial_state=copy.deepcopy(config.initial_state),
+    )
+
+
+def init_sample_environments(
+    samples: list[dict],
+    tools: list[ToolAttribute],
+    env_configs: dict[str, ToolEnvironmentAttribute],
+    formatter: Any,
+    inference_engine: Any,
+    inference_config: Any,
+) -> list[dict[str, GeneratedToolEnvironment] | None]:
+    """Create per-sample environments, reusing builds when config is identical."""
+    env_tools: dict[str, list[ToolAttribute]] = {}
+    for tool in tools:
+        if tool.environment:
+            env_tools.setdefault(tool.environment, []).append(tool)
+
+    if not env_tools:
+        return [None] * len(samples)
+
+    result: list[dict[str, GeneratedToolEnvironment]] = [{} for _ in samples]
+
+    for env_id, bound_tools in env_tools.items():
+        config = env_configs.get(env_id)
+        if not config:
+            logger.warning(f"Environment config not found for '{env_id}'")
+            continue
+
+        variants: dict[
+            tuple[str, str, str, str | None, str | None],
+            GeneratedToolEnvironment,
+        ] = {}
+
+        for i, sample in enumerate(samples):
+            formatted_config = format_environment_config(formatter, sample, config)
+            signature = (
+                formatted_config.name,
+                formatted_config.description,
+                formatted_config.system_prompt,
+                (
+                    json.dumps(formatted_config.state_schema, sort_keys=True)
+                    if formatted_config.state_schema is not None
+                    else None
+                ),
+                (
+                    json.dumps(formatted_config.initial_state, sort_keys=True)
+                    if formatted_config.initial_state is not None
+                    else None
+                ),
+            )
+
+            source_env = variants.get(signature)
+            if source_env is None:
+                registry = EnvironmentRegistry()
+                if (
+                    formatted_config.initial_state is not None
+                    and formatted_config.state_schema is not None
+                ):
+                    registry.register_static(formatted_config)
+                else:
+                    registry.build(
+                        formatted_config,
+                        bound_tools,
+                        inference_engine,
+                        inference_config,
+                        scenario_context=None,
+                    )
+
+                try:
+                    source_env = registry.create_copies(env_id, 1)[0]
+                except KeyError:
+                    logger.warning(f"Environment '{env_id}' not built. Skipping.")
+                    continue
+                variants[signature] = source_env
+
+            result[i][env_id] = copy.deepcopy(source_env)
+
+    finalized: list[dict[str, GeneratedToolEnvironment] | None] = []
+    for envs in result:
+        if not envs:
+            finalized.append(None)
+            continue
+
+        all_empty = all(not env.state for env in envs.values())
+        if all_empty:
+            logger.warning("Dropping sample: all environments have empty state.")
+            finalized.append(None)
+        else:
+            finalized.append(envs)
+
+    return finalized
+
+
+def process_env_tool_calls(
+    env_items: list[
+        tuple[int, str, dict, str, GeneratedToolEnvironment, ToolAttribute]
+    ],
+    env_result_prompts: list[Conversation],
+    turn_tool_msgs: dict[int, list[Message]],
+    output_messages: list[list[dict]],
+    inference_engine: Any,
+    inference_config: Any,
+    record_fn: Callable[..., None],
+) -> list[int]:
+    """Execute batched env tool calls."""
+    final_results: list[str | None] = [None] * len(env_items)
+
+    read_indices = [
+        i for i, (_, _, _, _, _, tool_obj) in enumerate(env_items) if tool_obj.read_only
+    ]
+    write_indices = [
+        i
+        for i, (_, _, _, _, _, tool_obj) in enumerate(env_items)
+        if not tool_obj.read_only
+    ]
+
+    if read_indices:
+        _process_env_read_calls(
+            env_items,
+            env_result_prompts,
+            read_indices,
+            final_results,
+            inference_engine,
+            inference_config,
+        )
+
+    if write_indices:
+        _process_env_write_calls(
+            env_items,
+            write_indices,
+            final_results,
+            inference_engine,
+            inference_config,
+        )
+
+    activated: list[int] = []
+    for i, (idx, text, tool_call, call_id, env, _tool_obj) in enumerate(env_items):
+        result = final_results[i]
+        if result is None:
+            result = '{"error": "Failed to generate result"}'
+        record_fn(
+            idx,
+            text,
+            tool_call,
+            call_id,
+            result,
+            turn_tool_msgs,
+            output_messages,
+            env_state=copy.deepcopy(env.state),
+        )
+        activated.append(idx)
+    return activated
+
+
+def _process_env_read_calls(
+    env_items: list[
+        tuple[int, str, dict, str, GeneratedToolEnvironment, ToolAttribute]
+    ],
+    env_result_prompts: list[Conversation],
+    read_indices: list[int],
+    final_results: list[str | None],
+    inference_engine: Any,
+    inference_config: Any,
+) -> None:
+    """Generate results for read-only environment tool calls."""
+    prompts = [env_result_prompts[i] for i in read_indices]
+    responses = _infer_exact(
+        inference_engine, prompts, inference_config, "Read tool result generation"
+    )
+
+    failed_positions: list[int] = []
+    last_raw: dict[int, str] = {}
+
+    for pos, response in enumerate(responses):
+        i = read_indices[pos]
+        raw = env_items[i][4].apply_result(response)
+        cleaned = clean_json_output(raw)
+        if is_valid_json(cleaned):
+            final_results[i] = cleaned
+        else:
+            last_raw[pos] = cleaned
+            failed_positions.append(pos)
+
+    for _ in range(_MAX_RESULT_RETRIES):
+        if not failed_positions:
+            break
+        retry_prompts = [
+            env_items[read_indices[pos]][4].build_result_prompt(
+                env_items[read_indices[pos]][5],
+                arguments=env_items[read_indices[pos]][2]["arguments"],
+                retry=True,
+            )
+            for pos in failed_positions
+        ]
+        retry_responses = _infer_exact(
+            inference_engine, retry_prompts, inference_config, "Read tool result retry"
+        )
+        still_failed: list[int] = []
+        for pos, response in zip(failed_positions, retry_responses):
+            i = read_indices[pos]
+            raw = env_items[i][4].apply_result(response)
+            cleaned = clean_json_output(raw)
+            if is_valid_json(cleaned):
+                final_results[i] = cleaned
+            else:
+                last_raw[pos] = cleaned
+                still_failed.append(pos)
+        failed_positions = still_failed
+
+    for pos in failed_positions:
+        i = read_indices[pos]
+        logger.warning(
+            f"Read result for '{env_items[i][5].name}' was not valid JSON "
+            f"after {_MAX_RESULT_RETRIES} retries. Using raw text."
+        )
+        final_results[i] = last_raw.get(pos, "{}")
+
+
+def _process_env_write_calls(
+    env_items: list[
+        tuple[int, str, dict, str, GeneratedToolEnvironment, ToolAttribute]
+    ],
+    write_indices: list[int],
+    final_results: list[str | None],
+    inference_engine: Any,
+    inference_config: Any,
+) -> None:
+    """Process write tool calls: patch state first, then generate result."""
+    update_prompts = [
+        env_items[i][4].build_write_state_update_prompt(
+            env_items[i][5], env_items[i][2]["arguments"]
+        )
+        for i in write_indices
+    ]
+    update_responses = _infer_exact(
+        inference_engine,
+        update_prompts,
+        inference_config,
+        "Write state update generation",
+    )
+
+    patch_data: dict[int, tuple[bool, list[dict[str, Any]]]] = {}
+    pre_patch_states: dict[int, dict[str, Any]] = {}
+    failed_indices: list[int] = []
+    update_errors: dict[int, str] = {}
+
+    for env_item_index, response in zip(write_indices, update_responses):
+        env = env_items[env_item_index][4]
+        pre_patch_states[env_item_index] = copy.deepcopy(env.state)
+        succeeded, ops, error = env.apply_state_update_returning_patch(response)
+        patch_data[env_item_index] = (succeeded, ops)
+        if not succeeded:
+            failed_indices.append(env_item_index)
+            if error:
+                update_errors[env_item_index] = error
+
+    for _ in range(_MAX_STATE_UPDATE_RETRIES):
+        if not failed_indices:
+            break
+        retry_prompts = [
+            env_items[env_item_index][4].build_write_state_update_prompt(
+                env_items[env_item_index][5],
+                env_items[env_item_index][2]["arguments"],
+                retry=True,
+                retry_error=update_errors.get(env_item_index),
+            )
+            for env_item_index in failed_indices
+        ]
+        retry_responses = _infer_exact(
+            inference_engine,
+            retry_prompts,
+            inference_config,
+            "Write state update retry",
+        )
+        still_failed: list[int] = []
+
+        for env_item_index, response in zip(failed_indices, retry_responses):
+            env = env_items[env_item_index][4]
+            pre_patch_states[env_item_index] = copy.deepcopy(env.state)
+            succeeded, ops, error = env.apply_state_update_returning_patch(response)
+            patch_data[env_item_index] = (succeeded, ops)
+            if not succeeded:
+                still_failed.append(env_item_index)
+                if error:
+                    update_errors[env_item_index] = error
+            else:
+                update_errors.pop(env_item_index, None)
+        failed_indices = still_failed
+
+    successful_indices: list[int] = []
+    for env_item_index in write_indices:
+        succeeded, _patch_ops = patch_data.get(env_item_index, (False, []))
+        if succeeded:
+            successful_indices.append(env_item_index)
+            continue
+
+        error_message = update_errors.get(
+            env_item_index, "State update could not be applied."
+        )
+        logger.warning(
+            f"Write state update for '{env_items[env_item_index][5].name}' "
+            f"failed after {_MAX_STATE_UPDATE_RETRIES} retries."
+        )
+        final_results[env_item_index] = json.dumps(
+            {
+                "error": "state_update_failed",
+                "message": error_message,
+            }
+        )
+
+    if not successful_indices:
+        return
+
+    result_prompts = [
+        env_items[env_item_index][4].build_write_result_prompt(
+            env_items[env_item_index][5],
+            env_items[env_item_index][2]["arguments"],
+            patch_ops=patch_data[env_item_index][1],
+            patch_succeeded=patch_data[env_item_index][0],
+            pre_patch_state=pre_patch_states.get(env_item_index),
+        )
+        for env_item_index in successful_indices
+    ]
+    result_responses = _infer_exact(
+        inference_engine, result_prompts, inference_config, "Write result generation"
+    )
+
+    result_failed: list[int] = []
+    last_raw: dict[int, str] = {}
+    result_errors: dict[int, str] = {}
+
+    for env_item_index, response in zip(successful_indices, result_responses):
+        raw = env_items[env_item_index][4].apply_result(response)
+        cleaned = clean_json_output(raw)
+        if is_valid_json(cleaned):
+            final_results[env_item_index] = cleaned
+        else:
+            last_raw[env_item_index] = cleaned
+            result_failed.append(env_item_index)
+            result_errors[env_item_index] = (
+                f"Result was not valid JSON: {cleaned[:200]}"
+            )
+
+    for _ in range(_MAX_RESULT_RETRIES):
+        if not result_failed:
+            break
+        retry_prompts = [
+            env_items[env_item_index][4].build_write_result_prompt(
+                env_items[env_item_index][5],
+                env_items[env_item_index][2]["arguments"],
+                patch_ops=patch_data[env_item_index][1],
+                patch_succeeded=patch_data[env_item_index][0],
+                pre_patch_state=pre_patch_states.get(env_item_index),
+                retry=True,
+                retry_error=result_errors.get(env_item_index),
+            )
+            for env_item_index in result_failed
+        ]
+        retry_responses = _infer_exact(
+            inference_engine, retry_prompts, inference_config, "Write result retry"
+        )
+        still_failed_result: list[int] = []
+        for env_item_index, response in zip(result_failed, retry_responses):
+            raw = env_items[env_item_index][4].apply_result(response)
+            cleaned = clean_json_output(raw)
+            if is_valid_json(cleaned):
+                final_results[env_item_index] = cleaned
+                result_errors.pop(env_item_index, None)
+            else:
+                last_raw[env_item_index] = cleaned
+                result_errors[env_item_index] = (
+                    f"Result was not valid JSON: {cleaned[:200]}"
+                )
+                still_failed_result.append(env_item_index)
+        result_failed = still_failed_result
+
+    for env_item_index in result_failed:
+        logger.warning(
+            f"Write result for '{env_items[env_item_index][5].name}' not valid JSON "
+            f"after {_MAX_RESULT_RETRIES} retries. Using raw text."
+        )
+        final_results[env_item_index] = last_raw.get(env_item_index, "{}")

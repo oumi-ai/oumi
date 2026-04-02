@@ -29,10 +29,12 @@ from oumi.core.configs.params.synthesis_params import (
     SampledAttribute,
     SampledAttributeValue,
 )
-from oumi.core.synthesis.conversation_synthesizer import (
-    ConversationSynthesizer,
-    _clean_json_output,
+from oumi.core.synthesis.conversation_synthesizer import ConversationSynthesizer
+from oumi.core.synthesis.environment import (
+    _process_env_write_calls,
+    init_sample_environments,
 )
+from oumi.core.synthesis.tool_executor import ToolExecutor, clean_json_output
 from oumi.core.types.conversation import Conversation, Message, Role
 
 
@@ -356,6 +358,36 @@ def test_build_role_context_formats_personas(
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_build_role_context_preserves_json_braces(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """Role context should preserve literal JSON snippets for the planner."""
+    mock_build_inference_engine.return_value = Mock()
+
+    synthesizer = ConversationSynthesizer(
+        GeneralSynthesisParams(),
+        mock_inference_config,
+    )
+
+    multiturn_attr = MultiTurnAttribute(
+        id="test_conversation",
+        min_turns=2,
+        max_turns=2,
+        role_instruction_messages={
+            Role.USER: "Use this payload exactly: {payload}",
+            Role.ASSISTANT: "You are a helpful agent.",
+        },
+    )
+
+    sample = {"payload": '{"schema": {"type": "object"}}'}
+    result = synthesizer._build_role_context(sample, multiturn_attr)
+
+    assert '{"schema": {"type": "object"}}' in result
+    assert "{{" not in result
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
 def test_planner_prompt_includes_role_context(
     mock_build_inference_engine,
     mock_inference_config,
@@ -397,9 +429,10 @@ def test_planner_prompt_includes_role_context(
     assert "You are a helpful agent." in user_message
 
     example_response = planner.messages[2].content
-    assert "```json" in example_response
-    assert '"turn": 1' in example_response
-    assert '"instruction"' in example_response
+    assert isinstance(example_response, str)
+    parsed_example = json.loads(example_response)
+    assert parsed_example[0]["turn"] == 1
+    assert "instruction" in parsed_example[0]
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
@@ -552,6 +585,60 @@ def test_parse_plan_handles_string_turn_numbers(
     assert len(result) == 2
     assert result[0] == "First instruction"
     assert result[1] == "Second instruction"
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_plan_samples_retries_on_invalid_planner_instructions(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """Planner retries when instructions leak tool syntax or tool names."""
+    mock_engine = Mock()
+    mock_build_inference_engine.return_value = mock_engine
+
+    invalid_plan = json.dumps(
+        [
+            {
+                "turn": 1,
+                "instruction": (
+                    '<tool_call>{"name": "SearchOrders", '
+                    '"arguments": {"order_id": "ORD-001"}}</tool_call>'
+                ),
+            },
+            {
+                "turn": 2,
+                "instruction": "Use SearchOrders to summarize the result.",
+            },
+        ]
+    )
+    valid_plan = json.dumps(
+        [
+            {"turn": 1, "instruction": "Describe the order problem."},
+            {
+                "turn": 2,
+                "instruction": (
+                    "Investigate the order details and respond with the outcome."
+                ),
+            },
+        ]
+    )
+    mock_engine.infer.side_effect = [
+        [Conversation(messages=[Message(role=Role.ASSISTANT, content=invalid_plan)])],
+        [Conversation(messages=[Message(role=Role.ASSISTANT, content=valid_plan)])],
+    ]
+
+    synthesizer = ConversationSynthesizer(_make_tool_params(), mock_inference_config)
+    planned = synthesizer._plan_samples(
+        [{"issue": "order tracking"}],
+        _make_tool_multiturn(),
+        max_retries=1,
+    )
+
+    assert mock_engine.infer.call_count == 2
+    assert planned[0]["parsed_turn_plans"] == [
+        "Describe the order problem.",
+        "Investigate the order details and respond with the outcome.",
+    ]
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
@@ -1055,7 +1142,7 @@ def test_agentic_turn_deterministic_tool(
                                 content=(
                                     '```json\n[{"turn": 1, "instruction":'
                                     ' "Ask"}, {"turn": 2, "instruction":'
-                                    ' "Escalate"}]\n```'
+                                    ' "Route the issue for specialist support"}]\n```'
                                 ),
                             )
                         ]
@@ -1195,6 +1282,10 @@ def test_planner_prompt_includes_tool_guidance(
     assert "SearchOrders" not in capability_section
     assert "available capabilities" in user_content
 
+    parsed_example = json.loads(str(planner.messages[2].content))
+    assert parsed_example[0]["turn"] == 1
+    assert "instruction" in parsed_example[0]
+
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
 def test_non_tool_conversation_unchanged(
@@ -1231,17 +1322,17 @@ def test_non_tool_conversation_unchanged(
 
 def test_clean_json_output_strips_markdown_fences():
     raw = '```json\n{"key": "value"}\n```'
-    assert _clean_json_output(raw) == '{"key": "value"}'
+    assert clean_json_output(raw) == '{"key": "value"}'
 
 
 def test_clean_json_output_passes_clean_json():
     raw = '{"key": "value"}'
-    assert _clean_json_output(raw) == '{"key": "value"}'
+    assert clean_json_output(raw) == '{"key": "value"}'
 
 
 def test_clean_json_output_returns_raw_on_failure():
     raw = "not json at all"
-    assert _clean_json_output(raw) == "not json at all"
+    assert clean_json_output(raw) == "not json at all"
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
@@ -1300,7 +1391,14 @@ def test_init_sample_environments_per_sample(
         {"domain": SimpleNamespace(name="Healthcare")},
         {"domain": SimpleNamespace(name="E-Commerce")},
     ]
-    result = synthesizer._init_sample_environments(samples, multiturn)
+    result = init_sample_environments(
+        samples,
+        [tool],
+        synthesizer._env_configs,
+        synthesizer._formatter,
+        synthesizer._inference_engine,
+        synthesizer._inference_config,
+    )
 
     assert len(result) == 2
     assert result[0] is not None
@@ -1378,8 +1476,13 @@ def test_init_env_registry_build_path_used(
 
     from types import SimpleNamespace
 
-    result = synthesizer._init_sample_environments(
-        [{"domain": SimpleNamespace(name="Test")}], multiturn
+    result = init_sample_environments(
+        [{"domain": SimpleNamespace(name="Test")}],
+        [tool],
+        synthesizer._env_configs,
+        synthesizer._formatter,
+        synthesizer._inference_engine,
+        synthesizer._inference_config,
     )
 
     # Registry called infer at least once to build the environment
@@ -1451,8 +1554,13 @@ def test_init_env_kills_sample_on_total_state_failure(
 
     from types import SimpleNamespace
 
-    result = synthesizer._init_sample_environments(
-        [{"domain": SimpleNamespace(name="Test")}], multiturn
+    result = init_sample_environments(
+        [{"domain": SimpleNamespace(name="Test")}],
+        [tool],
+        synthesizer._env_configs,
+        synthesizer._formatter,
+        synthesizer._inference_engine,
+        synthesizer._inference_config,
     )
 
     # Sample should be killed (None) because state was completely unparseable
@@ -1509,8 +1617,13 @@ def test_init_env_static_config_used_without_llm(
 
     from types import SimpleNamespace
 
-    result = synthesizer._init_sample_environments(
-        [{"domain": SimpleNamespace(name="Test")}], multiturn
+    result = init_sample_environments(
+        [{"domain": SimpleNamespace(name="Test")}],
+        [tool],
+        synthesizer._env_configs,
+        synthesizer._formatter,
+        synthesizer._inference_engine,
+        synthesizer._inference_config,
     )
 
     # Static path: no LLM inference calls needed
@@ -1590,12 +1703,16 @@ def test_init_sample_environments_reuses_shared_environment_build(
 
     from types import SimpleNamespace
 
-    result = synthesizer._init_sample_environments(
+    result = init_sample_environments(
         [
             {"domain": SimpleNamespace(name="Healthcare")},
             {"domain": SimpleNamespace(name="E-Commerce")},
         ],
-        multiturn,
+        [tool],
+        synthesizer._env_configs,
+        synthesizer._formatter,
+        synthesizer._inference_engine,
+        synthesizer._inference_config,
     )
 
     assert result[0] is not None
@@ -1674,12 +1791,16 @@ def test_init_sample_environments_rebuilds_when_env_config_varies(
 
     from types import SimpleNamespace
 
-    result = synthesizer._init_sample_environments(
+    result = init_sample_environments(
         [
             {"domain": SimpleNamespace(name="Healthcare")},
             {"domain": SimpleNamespace(name="E-Commerce")},
         ],
-        multiturn,
+        [tool],
+        synthesizer._env_configs,
+        synthesizer._formatter,
+        synthesizer._inference_engine,
+        synthesizer._inference_config,
     )
 
     assert result[0] is not None
@@ -1687,6 +1808,205 @@ def test_init_sample_environments_rebuilds_when_env_config_varies(
     assert mock_engine.infer.call_count == 2
     assert any("Healthcare" in prompt for prompt in seen_prompts)
     assert any("E-Commerce" in prompt for prompt in seen_prompts)
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_process_env_write_calls_updates_state_before_generating_result(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    from oumi.core.configs.params.tool_params import (
+        ToolAttribute,
+        ToolEnvironmentAttribute,
+        ToolOutputStrategy,
+    )
+    from oumi.core.synthesis.environment import GeneratedToolEnvironment
+
+    mock_build_inference_engine.return_value = Mock()
+    synthesizer = ConversationSynthesizer(
+        GeneralSynthesisParams(), mock_inference_config
+    )
+
+    env = GeneratedToolEnvironment(
+        ToolEnvironmentAttribute(
+            id="filesystem",
+            name="Filesystem",
+            description="A filesystem",
+            system_prompt="You manage a filesystem.",
+            state_schema={
+                "type": "object",
+                "properties": {"files": {"type": "object"}},
+            },
+            initial_state={"files": {"a.txt": "old"}},
+        )
+    )
+    tool = ToolAttribute(
+        id="write_file",
+        name="WriteFile",
+        description="Write a file",
+        output_strategy=ToolOutputStrategy.ENVIRONMENT,
+        environment="filesystem",
+        read_only=False,
+        parameters={
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+                "content": {"type": "string"},
+            },
+            "required": ["path", "content"],
+        },
+        output_schema={
+            "type": "object",
+            "properties": {
+                "status": {"type": "string"},
+                "path": {"type": "string"},
+            },
+        },
+    )
+
+    call_count = 0
+
+    def mock_infer(prompts, inference_config=None):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return [
+                Conversation(
+                    messages=[
+                        Message(
+                            role=Role.ASSISTANT,
+                            content=(
+                                '{"patch": [{"op": "replace", '
+                                '"path": "/files/a.txt", "value": "new"}], '
+                                '"error": null}'
+                            ),
+                        )
+                    ]
+                )
+            ]
+        assert env.state["files"]["a.txt"] == "new"
+        return [
+            Conversation(
+                messages=[
+                    Message(
+                        role=Role.ASSISTANT,
+                        content='{"status": "success", "path": "a.txt"}',
+                    )
+                ]
+            )
+        ]
+
+    mock_engine = Mock()
+    mock_engine.infer = mock_infer
+    mock_config = Mock()
+
+    final_results: list[str | None] = [None]
+    env_items = [
+        (
+            0,
+            '<tool_call>{"name": "WriteFile", "arguments": {"path": "a.txt", '
+            '"content": "new"}}</tool_call>',
+            {"name": "WriteFile", "arguments": {"path": "a.txt", "content": "new"}},
+            "call_001",
+            env,
+            tool,
+        )
+    ]
+
+    _process_env_write_calls(env_items, [0], final_results, mock_engine, mock_config)
+
+    assert env.state["files"]["a.txt"] == "new"
+    assert json.loads(final_results[0] or "{}") == {
+        "status": "success",
+        "path": "a.txt",
+    }
+    assert call_count == 2
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_process_env_write_calls_returns_error_without_result_generation(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    from oumi.core.configs.params.tool_params import (
+        ToolAttribute,
+        ToolEnvironmentAttribute,
+        ToolOutputStrategy,
+    )
+    from oumi.core.synthesis.environment import (
+        _MAX_STATE_UPDATE_RETRIES,
+        GeneratedToolEnvironment,
+    )
+
+    mock_build_inference_engine.return_value = Mock()
+    synthesizer = ConversationSynthesizer(
+        GeneralSynthesisParams(), mock_inference_config
+    )
+
+    env = GeneratedToolEnvironment(
+        ToolEnvironmentAttribute(
+            id="filesystem",
+            name="Filesystem",
+            description="A filesystem",
+            system_prompt="You manage a filesystem.",
+            state_schema={
+                "type": "object",
+                "properties": {"files": {"type": "object"}},
+            },
+            initial_state={"files": {"a.txt": "old"}},
+        )
+    )
+    tool = ToolAttribute(
+        id="write_file",
+        name="WriteFile",
+        description="Write a file",
+        output_strategy=ToolOutputStrategy.ENVIRONMENT,
+        environment="filesystem",
+        read_only=False,
+        parameters={
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+                "content": {"type": "string"},
+            },
+            "required": ["path", "content"],
+        },
+    )
+
+    mock_engine = Mock()
+    mock_engine.infer.return_value = [
+        Conversation(
+            messages=[
+                Message(
+                    role=Role.ASSISTANT,
+                    content='{"patch": [], "error": "File is locked."}',
+                )
+            ]
+        )
+    ]
+    mock_config = Mock()
+
+    final_results: list[str | None] = [None]
+    env_items = [
+        (
+            0,
+            '<tool_call>{"name": "WriteFile", "arguments": {"path": "a.txt", '
+            '"content": "new"}}</tool_call>',
+            {"name": "WriteFile", "arguments": {"path": "a.txt", "content": "new"}},
+            "call_001",
+            env,
+            tool,
+        )
+    ]
+
+    _process_env_write_calls(env_items, [0], final_results, mock_engine, mock_config)
+
+    assert env.state["files"]["a.txt"] == "old"
+    assert json.loads(final_results[0] or "{}") == {
+        "error": "state_update_failed",
+        "message": "File is locked.",
+    }
+    assert mock_engine.infer.call_count == 1 + _MAX_STATE_UPDATE_RETRIES
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
@@ -1712,13 +2032,12 @@ def test_planner_prompt_includes_env_state(
     sample = {"target_turns": 2}
     env_state = 'Environment "database":\ntables: users (10 items), orders (5 items)'
 
-    prompt = synthesizer._create_planner_prompt(
-        multiturn, sample, env_state=env_state
-    )
+    prompt = synthesizer._create_planner_prompt(multiturn, sample, env_state=env_state)
 
     last_user_msg = prompt.messages[-1].content
+    assert "Environment summary for planning only:" in last_user_msg
     assert "tables: users" in last_user_msg
-    assert "MUST be grounded in this data" in last_user_msg
+    assert "Do not copy hidden facts verbatim" in last_user_msg
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
@@ -1910,23 +2229,22 @@ def test_over_limit_tool_call_is_stripped_from_assistant_output(
     assert "SearchOrders" not in assistant_messages[-1]["content"]
 
 
-def test_final_assistant_message_looks_incomplete():
-    output_messages = [
+def test_has_valid_final_assistant_message():
+    valid = [
         {"role": "user", "content": "Please summarize."},
         {"role": "assistant", "content": "Perfect! Now let me verify the changes."},
     ]
+    assert ConversationSynthesizer._has_valid_final_assistant_message(valid) is True
 
-    assert (
-        ConversationSynthesizer._final_assistant_message_looks_incomplete(
-            output_messages
-        )
-        is True
-    )
+    invalid = [
+        {"role": "user", "content": "Please summarize."},
+    ]
+    assert ConversationSynthesizer._has_valid_final_assistant_message(invalid) is False
 
 
 def test_build_tool_turn_info_contains_format_instruction():
     """Turn info user message should contain tool-call reminder."""
-    turn_info = ConversationSynthesizer._build_tool_turn_info(
+    turn_info = ToolExecutor.build_tool_turn_info(
         current_turn=2,
         target_turns=6,
         turn_instruction="Explore the database schema",
@@ -1942,7 +2260,7 @@ def test_build_tool_turn_info_contains_format_instruction():
 
 def test_build_tool_turn_info_max_calls_no_format():
     """When max tool calls reached, turn info should request prose response."""
-    turn_info = ConversationSynthesizer._build_tool_turn_info(
+    turn_info = ToolExecutor.build_tool_turn_info(
         current_turn=2,
         target_turns=6,
         turn_instruction="Summarize findings",
@@ -1955,7 +2273,7 @@ def test_build_tool_turn_info_max_calls_no_format():
 
 def test_build_tool_turn_info_final_turn_no_future_steps():
     """Final tool turn should tell the model to conclude, not defer work."""
-    turn_info = ConversationSynthesizer._build_tool_turn_info(
+    turn_info = ToolExecutor.build_tool_turn_info(
         current_turn=4,
         target_turns=4,
         turn_instruction="Wrap up the investigation",
@@ -1968,7 +2286,7 @@ def test_build_tool_turn_info_final_turn_no_future_steps():
 
 def test_build_prose_turn_info_no_tool_format():
     """Prose turn info should not contain tool format instructions."""
-    turn_info = ConversationSynthesizer._build_prose_turn_info(
+    turn_info = ToolExecutor.build_prose_turn_info(
         current_turn=1,
         target_turns=4,
         role="USER",
@@ -1989,7 +2307,9 @@ def test_generate_plan_raises_on_response_count_mismatch(
     mock_engine = Mock()
     mock_engine.infer.return_value = []
     mock_build_inference_engine.return_value = mock_engine
-    synthesizer = ConversationSynthesizer(GeneralSynthesisParams(), mock_inference_config)
+    synthesizer = ConversationSynthesizer(
+        GeneralSynthesisParams(), mock_inference_config
+    )
 
     planner = Conversation(
         messages=[Message(role=Role.USER, content="Plan something.")]
