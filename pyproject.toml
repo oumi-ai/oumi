@@ -76,8 +76,8 @@ dependencies = [
     "torchao>=0.12,<0.16",     # Used by transformers
     "torchvision>=0.21,<0.26", # Used by some VLM-s (multimodal)
     "tqdm",
-    "transformers>=4.57,<5.5",
-    "trl>=0.24,<0.30",
+    "transformers>=4.57,<5.6",
+    "trl>=0.24,<1.1",
     "typer<0.24.2",             # Used by CLI. Pinned due to sphinxcontrib-typer compatibility. OPE-1806
     "typing_extensions",        # Backports of typing updates
     "uvicorn<0.43.0",           # TODO: Remove on resolution of https://github.com/skypilot-org/skypilot/issues/7303
