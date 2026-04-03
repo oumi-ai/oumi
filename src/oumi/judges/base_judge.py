@@ -124,13 +124,13 @@ class JudgeOutput(pydantic.BaseModel):
         field_scores = {}
 
         # Strip thinking tags produced by reasoning models before parsing
-        raw_output = cls._strip_thinking_tags(raw_output)
+        stripped_output = cls._strip_thinking_tags(raw_output)
 
         # Parse the judge's response based on the expected format
         if response_format == JudgeResponseFormat.XML:
-            parsed_output = cls._parse_xml_output(raw_output)
+            parsed_output = cls._parse_xml_output(stripped_output)
         elif response_format == JudgeResponseFormat.JSON:
-            parsed_output = cls._parse_json_output(raw_output)
+            parsed_output = cls._parse_json_output(stripped_output)
         else:  # JudgeResponseFormat.RAW
             parsed_output = {}
 
