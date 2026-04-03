@@ -1,0 +1,10 @@
+model:
+  model_name: "meta-llama/Llama-3.1-8B-Instruct"
+  adapter_model: "/data/shanghong/oumi/gold/output/tatqa_llama_lambda0.5_1epoch_lora_bf16_new_version"
+  trust_remote_code: true
+  torch_dtype_str: "bfloat16"
+
+generation:
+  max_new_tokens: 8192
+  temperature: 0.95
+  skip_special_tokens: False
