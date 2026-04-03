@@ -184,6 +184,50 @@ class TestJudgeOutput:
         parsed = JudgeOutput._parse_json_output(json_output)
         assert parsed == {}
 
+    def test_strip_thinking_tags_think(self):
+        assert (
+            JudgeOutput._strip_thinking_tags(
+                "<think>reasoning here</think><judgment>True</judgment>"
+            )
+            == "<judgment>True</judgment>"
+        )
+
+    def test_strip_thinking_tags_thinking(self):
+        assert (
+            JudgeOutput._strip_thinking_tags(
+                "<thinking>reasoning here</thinking><judgment>True</judgment>"
+            )
+            == "<judgment>True</judgment>"
+        )
+
+    def test_strip_thinking_tags_no_tags(self):
+        assert JudgeOutput._strip_thinking_tags("<judgment>True</judgment>") == (
+            "<judgment>True</judgment>"
+        )
+
+    def test_strip_thinking_tags_empty(self):
+        assert JudgeOutput._strip_thinking_tags("") == ""
+
+    def test_from_raw_output_strips_thinking_tags(self):
+        raw_output = "<think>internal reasoning</think><judgment>True</judgment>"
+        output_fields = [
+            JudgeOutputField(
+                field_key="judgment",
+                field_type=JudgeOutputType.BOOL,
+                field_scores=None,
+            )
+        ]
+
+        judge_output = JudgeOutput.from_raw_output(
+            raw_output=raw_output,
+            response_format=JudgeResponseFormat.XML,
+            output_fields=output_fields,
+        )
+
+        assert judge_output.raw_output == raw_output
+        assert judge_output.parsed_output == {"judgment": "True"}
+        assert judge_output.field_values == {"judgment": True}
+
     def test_from_raw_output_bool_no_scores(self):
         raw_output = "<judgment>True</judgment>"
         output_fields = [
