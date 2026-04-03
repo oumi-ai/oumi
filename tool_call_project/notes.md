@@ -129,46 +129,68 @@ batch["labels"][i, :response_token_ids_end_idx] = self.ignore_index
 
 ---
 
-#### Case B: With `instruction_template` (lines 124–195)
+#### Case B: With `instruction_template` (lines 124–195) — BUG WITH TOOL TURNS
 
-Finds **all** occurrences of both templates, then masks the regions between each `[INST]` and the following `[RESP]`. What remains unmasked is only the content between `[RESP]` and the next `[INST]`.
+The *intended* behaviour is to find all `instruction_template` and `response_template` positions, pair them up via `zip()`, and mask the regions between each instruction and its following response.
+
+However, `zip()` stops at the shorter list. In a tool-calling conversation, the tool result uses a **different role marker** (e.g., `<|im_start|>tool\n` instead of `<|im_start|>user\n`), so the collator only sees **1 instruction** but **2 responses**:
 
 ```
-Token sequence (example with tool turn):
-  [INST] Hello [/INST] [RESP] Sure, let me check. <tool_call>...</tool_call> [INST] [tool result: Sunny] [/INST] [RESP] It's sunny!
+Actual token sequence (SmolLM2 example):
+  <|im_start|>user\n  What's the weather?  <|im_end|>
+  <|im_start|>assistant\n  <tool_call>...</tool_call>  <|im_end|>
+  <|im_start|>tool\n  {"result": "Sunny"}  <|im_end|>       ← NOT matched as instruction!
+  <|im_start|>assistant\n  It's sunny!  <|im_end|>
 
-  human_token_ids_idxs   = [pos_INST_1, pos_INST_2]
-  response_token_ids_idxs = [pos_after_RESP_1, pos_after_RESP_2]
+  human_token_ids_idxs    = [pos_user]                    ← only 1 match
+  response_token_ids_idxs = [pos_asst_1, pos_asst_2]      ← 2 matches
 
-  Loop pairs (human_start → response_end):
-    Pair 0: 0 → pos_after_RESP_1    mask labels[:pos_after_RESP_1]   (line 192)
-    Pair 1: pos_INST_2 → pos_after_RESP_2    mask labels[pos_INST_2:pos_after_RESP_2]   (line 190)
+  zip([pos_user], [pos_asst_1, pos_asst_2])
+    → only 1 pair: (pos_user, pos_asst_1)
+    → masks labels[:pos_asst_1]
 
-Labels result:
-  [-100 -100 -100 -100] [Sure, let me check. <tool_call>...</tool_call>] [-100 -100 -100 -100 -100] [It's sunny!]
-   ^^ masked ^^                  ^^ UNMASKED (trains) ^^                      ^^ masked ^^              ^^ UNMASKED ^^
+  Everything after pos_asst_1 is UNMASKED — including the tool result.
 ```
 
 Key lines:
 ```python
+# line 185–186 — zip stops at the shorter list
+for idx, (start, end) in enumerate(zip(human_token_ids_idxs, response_token_ids_idxs)):
+
 # line 190 — mask between instruction and response (middle turns)
 batch["labels"][i, start:end] = self.ignore_index
 
 # line 192 — mask from beginning up to first response (first turn)
 batch["labels"][i, :end] = self.ignore_index
 
-# line 195 — mask trailing instruction with no following response
-batch["labels"][i, human_token_ids_idxs[-1]:] = self.ignore_index
+# line 194–195 — only fires when responses < instructions, not our case
+if len(response_token_ids_idxs) < len(human_token_ids_idxs):
+    batch["labels"][i, human_token_ids_idxs[-1]:] = self.ignore_index
 ```
 
 ---
 
-**Result for tool turns:** The tool result (`[INST] [tool result: ...] [/INST]`) sits between two instruction markers, so it is always in a masked region. Only ASSISTANT turns contribute to training loss.
+**Actual result for tool turns (BUG):**
 
-This means:
-- **Training on tool call generation** (assistant deciding to call a tool) works correctly — `<tool_call>...</tool_call>` is in the ASSISTANT turn, so it is **unmasked**.
-- **Tool results** (role=TOOL) are always masked — the model never trains to produce them (correct, since your code produces them).
-- There is no mechanism today to selectively unmask/mask parts of tool call arguments.
+| Turn | Role | Expected | Actual (Case B) |
+|------|------|----------|-----------------|
+| 1 | user | masked | masked |
+| 2 | assistant (tool_call) | unmasked | unmasked |
+| 3 | tool (tool result) | **masked** | **unmasked ← BUG** |
+| 4 | assistant (final answer) | unmasked | unmasked |
+
+The root cause: the collator only recognises `<|im_start|>user\n` as an instruction boundary. The tool result uses `<|im_start|>tool\n` — a different marker the collator ignores. After the first assistant turn ends, the tool result leaks into the unmasked region.
+
+### Fix: `ToolAwareCompletionsCollator`
+
+A new collator (`src/oumi/core/collators/tool_aware_completions_collator.py`) fixes this by taking a fundamentally different approach:
+
+1. Start with **all labels masked** (-100).
+2. Find every `response_template` → next `end_of_turn_template` span.
+3. **Unmask** only those spans (assistant content).
+4. Optionally re-mask spans containing `tool_call_start_template` (`mask_tool_calls=True`).
+
+This never relies on instruction markers, so tool result turns are always masked correctly.
 
 ---
 
