@@ -123,11 +123,14 @@ class JudgeOutput(pydantic.BaseModel):
         field_values = {}
         field_scores = {}
 
+        # Strip thinking tags produced by reasoning models before parsing
+        stripped_output = cls._strip_thinking_tags(raw_output)
+
         # Parse the judge's response based on the expected format
         if response_format == JudgeResponseFormat.XML:
-            parsed_output = cls._parse_xml_output(raw_output)
+            parsed_output = cls._parse_xml_output(stripped_output)
         elif response_format == JudgeResponseFormat.JSON:
-            parsed_output = cls._parse_json_output(raw_output)
+            parsed_output = cls._parse_json_output(stripped_output)
         else:  # JudgeResponseFormat.RAW
             parsed_output = {}
 
@@ -164,6 +167,16 @@ class JudgeOutput(pydantic.BaseModel):
             response_format=response_format,
             output_fields=output_fields,
         )
+
+    @staticmethod
+    def _strip_thinking_tags(text: str) -> str:
+        """Remove thinking blocks by reasoning models."""
+        return re.sub(
+            r"<think(?:ing)?>.*?</think(?:ing)?>",
+            "",
+            text,
+            flags=re.DOTALL | re.IGNORECASE,
+        ).strip()
 
     @classmethod
     def _parse_xml_output(cls, xml_output: str | None) -> dict[str, str]:
@@ -462,6 +475,13 @@ class BaseJudge:
         parse_failures = 0
 
         for idx, conv in batch_result.successful:
+            # Accumulate token usage from batch results (not covered by
+            # _infer(), which only runs for non-batch / retry paths).
+            usage = conv.metadata.get("usage", {})
+            self._total_input_tokens += usage.get("prompt_tokens", 0)
+            self._total_output_tokens += usage.get("completion_tokens", 0)
+            self._total_cached_tokens += usage.get("cached_tokens", 0)
+
             try:
                 self._validate_completed_conversation(conv)
                 raw_output = str(conv.messages[-1].content)

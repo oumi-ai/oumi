@@ -2,7 +2,7 @@
 
 Supervised Fine-Tuning (SFT) is the most common approach for adapting a pre-trained language model to specific downstream tasks. This involves fine-tuning the model's parameters on a labeled dataset of input-output pairs, effectively teaching the model to perform the desired task.
 
-This guide covers datasets used for using SFT datasets in Oumi.
+This guide covers datasets used for using SFT datasets in Oumi OSS.
 
 ## SFT Datasets
 
@@ -15,7 +15,7 @@ Out-of-the box, we support multiple popular SFT datasets:
 
 ### Configuration
 
-To use a specific SFT dataset in your Oumi configuration, specify it in the {py:class}`~oumi.core.configs.TrainingConfig`.
+To use a specific SFT dataset in your Oumi OSS configuration, specify it in the {py:class}`~oumi.core.configs.TrainingConfig`.
 
 Here's an example:
 
@@ -66,7 +66,7 @@ for batch in loader:
 
 ## Adding a New SFT Dataset
 
-All SFT datasets in Oumi are subclasses of {py:class}`~oumi.core.datasets.BaseSftDataset`.
+All SFT datasets in Oumi OSS are subclasses of {py:class}`~oumi.core.datasets.BaseSftDataset`.
 
 To add a new SFT dataset:
 
@@ -113,7 +113,7 @@ For more advanced SFT dataset implementations, explore the `oumi.datasets` modul
 
 ### Using an Unregistered Dataset Whose Format is Identical to a Registered Dataset
 
-Many datasets on HuggingFace share the same format as Oumi registered datasets. It is not necessary to register each dataset explicitly to use it. Instead, you can override the `dataset_name` parameter using a keyword argument; see the code snippet below for an example of how to do this.
+Many datasets on Hugging Face share the same format as Oumi OSS registered datasets. It is not necessary to register each dataset explicitly to use it. Instead, you can override the `dataset_name` parameter using a keyword argument; see the code snippet below for an example of how to do this.
 
 ```
 - dataset_name: registered_hf_dataset_with_compatible_class

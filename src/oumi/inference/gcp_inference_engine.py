@@ -170,6 +170,20 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
         return headers
 
     @override
+    def list_models(self, chat_only: bool = True) -> list[str]:
+        """Returns the configured model name.
+
+        Vertex AI does not expose a public REST endpoint for listing
+        available foundation models. Use the Google Cloud Console or
+        ``gcloud ai models list`` to browse the Model Garden.
+
+        Note:
+            The ``chat_only`` parameter has no effect for this engine since
+            only the configured model name is returned.
+        """
+        return [self._model_params.model_name]
+
+    @override
     def _default_remote_params(self) -> RemoteParams:
         """Returns the default remote parameters."""
         return RemoteParams(num_workers=10, politeness_policy=60.0)

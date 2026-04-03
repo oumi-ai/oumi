@@ -95,7 +95,9 @@ def test_infer_basic_interactive_with_images(
             trust_remote_code=True,
             chat_template="llava",
         ),
-        generation=GenerationParams(max_new_tokens=5, temperature=0.0, seed=42),
+        generation=GenerationParams(
+            max_new_tokens=5, temperature=0.0, seed=42, use_cache=True
+        ),
     )
 
     png_image_bytes = load_image_png_bytes_from_path(
@@ -179,7 +181,11 @@ def test_infer_basic_non_interactive_with_images(
         device_map=get_default_device_map_for_inference(),
     )
     generation_params = GenerationParams(
-        max_new_tokens=10, temperature=0.0, seed=42, batch_size=test_spec.batch_size
+        max_new_tokens=10,
+        temperature=0.0,
+        seed=42,
+        batch_size=test_spec.batch_size,
+        use_cache=True,
     )
 
     png_image_bytes = load_image_png_bytes_from_path(

@@ -1,6 +1,6 @@
 # Built-In Judges
 
-Oumi provides a comprehensive set of built-in judges that can be used out-of-the-box for common evaluation tasks. These judges are carefully designed and tested to provide reliable assessments across different domains and use cases. All built-in judges are configured to use GPT-4 by default, but you can easily change the underlying model to any hosted or local model with a [config parameter override](/user_guides/judge/judge_config.md#parameter-override).
+Oumi OSS provides a comprehensive set of built-in judges that can be used out-of-the-box for common evaluation tasks. These judges are carefully designed and tested to provide reliable assessments across different domains and use cases. All built-in judges are configured to use GPT-4 by default, but you can easily change the underlying model to any hosted or local model with a [config parameter override](/user_guides/judge/judge_config.md#parameter-override).
 
 ## Generic Judges
 

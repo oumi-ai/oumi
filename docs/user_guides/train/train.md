@@ -13,9 +13,9 @@ monitoring
 
 ## Overview
 
-Oumi provides an end-to-end training framework designed to handle everything from small fine-tuning experiments to large-scale pre-training runs.
+Oumi OSS provides an end-to-end training framework designed to handle everything from small fine-tuning experiments to large-scale pre-training runs.
 
-Oumi enables you to start small—in a notebook or local machine—and easily scale up as your needs grow while maintaining a consistent interface across different training scenarios and environments.
+Oumi OSS enables you to start small—in a notebook or local machine—and easily scale up as your needs grow while maintaining a consistent interface across different training scenarios and environments.
 
 Key features include:
 
@@ -62,7 +62,7 @@ Running this config will:
 
 ## Configuration Guide
 
-At the heart of Oumi's training system is a YAML-based configuration framework. This allows you to define all aspects of your training run in a single, version-controlled file.
+At the heart of Oumi OSS's training system is a YAML-based configuration framework. This allows you to define all aspects of your training run in a single, version-controlled file.
 
 Here's a basic example with key parameters explained:
 
@@ -179,7 +179,7 @@ peft: # Control key hyper-parameters of the PEFT training process
 
 ### Fine-tuning a Vision-Language Model
 
-Multimodal support in Oumi is similar to support for text-only models with few config changes e.g., data collation.
+Multimodal support in Oumi OSS is similar to support for text-only models with few config changes e.g., data collation.
 You can find more details in {ref}`Vision-Language SFT <vision-language-sft>`, {ref}`VL SFT Datasets <vl-sft-datasets>`,
 {ref}`Multi-modal Inference <multi-modal-inference>`, and {ref}`Multi-modal Benchmarks <multi-modal-standardized-benchmarks>`.
 
@@ -215,7 +215,7 @@ Thanks to the integration with [Skypilot](https://skypilot.readthedocs.io/en/lat
 
 #### Multi-node Training
 
-To train with multiple nodes using the Oumi launcher, set {py:attr}`~oumi.core.configs.JobConfig.num_nodes` to your desired number of nodes.
+To train with multiple nodes using the Oumi OSS launcher, set {py:attr}`~oumi.core.configs.JobConfig.num_nodes` to your desired number of nodes.
 
 ### Using Custom Datasets
 

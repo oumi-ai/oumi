@@ -133,6 +133,12 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         if generation_params.stop_strings is not None:
             body["stop_sequences"] = generation_params.stop_strings
 
+        # Enable prompt caching. Anthropic automatically caches content up to
+        # the last cacheable block. This reduces latency and cost for repeated
+        # prefixes (system prompts, long context, multi-turn conversations).
+        # See: https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching
+        body["cache_control"] = {"type": "ephemeral"}
+
         return body
 
     @staticmethod

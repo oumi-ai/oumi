@@ -25,19 +25,19 @@
   <a href="get_started/quickstart.html" class="oumi-hero-cta">Get Started →</a>
 </div>
 
-## What is Oumi?
+## What is Oumi OSS (Open Source Stack)?
 
-Oumi is an open-source platform designed for ML engineers and researchers who want to train, fine-tune, evaluate, and deploy foundation models. Whether you're fine-tuning a small language model on a single GPU or training a 405B parameter model across a cluster, Oumi provides a unified interface that scales with your needs.
+Oumi OSS is an open-source platform designed for ML engineers and researchers who want to train, fine-tune, evaluate, and deploy foundation models. Whether you're fine-tuning a small language model on a single GPU or training a 405B parameter model across a cluster, Oumi OSS provides a unified interface that scales with your needs.
 
-**Who is Oumi for?**
+**Who is Oumi OSS for?**
 
 - **ML Engineers** building production AI systems who need reliable training pipelines and deployment options
 - **Researchers** experimenting with new training methods, architectures, or datasets
 - **Teams** who want a consistent workflow from local development to cloud-scale training
 
-**What problems does Oumi solve?**
+**What problems does Oumi OSS solve?**
 
-- **Fragmented tooling**: Instead of stitching together different libraries for training, evaluation, and deployment, Oumi provides one cohesive platform
+- **Fragmented tooling**: Instead of stitching together different libraries for training, evaluation, and deployment, Oumi OSS provides one cohesive platform
 - **Scaling complexity**: The same configuration works locally and on cloud infrastructure (AWS, GCP, Azure, Lambda Labs)
 - **Reproducibility**: YAML-based configs make experiments easy to track, share, and reproduce
 
@@ -126,7 +126,7 @@ about/telemetry
 
 **Prerequisites:** Python 3.10+, pip. GPU recommended for larger models (CPU works for small models like SmolLM-135M).
 
-Install Oumi and start training in minutes:
+Install Oumi OSS and start training in minutes:
 
 ```bash
 # Install with GPU support (or use `pip install oumi` for CPU-only)
@@ -143,7 +143,7 @@ For detailed setup instructions including virtual environments and cloud setup, 
 
 ## What will you build?
 
-Oumi provides a unified interface across the entire model development lifecycle. The workflows below cover training, evaluation, inference, data synthesis, hyperparameter tuning, and cloud deployment—all driven by YAML configs that work identically on your laptop or a multi-node cluster.
+Oumi OSS provides a unified interface across the entire model development lifecycle. The workflows below cover training, evaluation, inference, data synthesis, hyperparameter tuning, and cloud deployment—all driven by YAML configs that work identically on your laptop or a multi-node cluster.
 
 ::::{grid} 1 2 3 3
 :gutter: 2
@@ -194,7 +194,7 @@ Launch jobs on AWS, GCP, Azure, or Lambda Labs with a single command.
 
 ## Hands-on Notebooks
 
-Explore the most common Oumi workflows hands-on. These notebooks run in Google Colab with pre-configured environments—just click and start experimenting. Try "A Tour" for a high-level overview, or dive straight into a specific topic.
+Explore the most common Oumi OSS workflows hands-on. These notebooks run in Google Colab with pre-configured environments—just click and start experimenting. Try "A Tour" for a high-level overview, or dive straight into a specific topic.
 
 ::::{grid} 1 2 3 3
 :gutter: 2
@@ -225,7 +225,7 @@ Guide to distilling large models into smaller, efficient ones
 :link: https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20Evaluation%20with%20Oumi.ipynb
 :link-type: url
 
-Comprehensive model evaluation using Oumi's evaluation framework
+Comprehensive model evaluation using Oumi OSS's evaluation framework
 :::
 
 :::{grid-item-card} Remote Training
@@ -246,7 +246,7 @@ Filter and curate training data with built-in judges
 
 ## Community & Support
 
-Oumi is a community-first effort. Whether you are a developer, a researcher, or a non-technical user, all contributions are very welcome!
+Oumi OSS is a community-first effort. Whether you are a developer, a researcher, or a non-technical user, all contributions are very welcome!
 
 - Join our [Discord community](https://discord.gg/oumi) to get help, share your experiences, and chat with the team
 - Check the {doc}`FAQ <faq/troubleshooting>` for common questions and troubleshooting
