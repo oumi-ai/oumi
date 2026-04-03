@@ -184,3 +184,12 @@ cython_debug/
 
 # VS Code Workspace
 oumi.code-workspace
+
+/enterprise_experiments
+**/data
+**/**_data
+**/**_results
+**/output
+*.db
+mlflow.db
+gold/countdown_results_pass@4/
