@@ -16,7 +16,6 @@ import json
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import cast
 
 import pydantic
 from typing_extensions import Self
@@ -391,9 +390,9 @@ class BaseJudge:
             ValueError: If inference returns unexpected number of conversations
         """
         conversations: list[Conversation] = (
-            self.build_conversations(cast(list[dict[str, str]], inputs))
+            self.build_conversations(inputs)  # type: ignore[arg-type]
             if inputs and isinstance(inputs[0], dict)
-            else cast(list[Conversation], inputs)
+            else inputs
         )
         completed_conversations = self._infer(conversations)
         return self.parse_judge_outputs(completed_conversations)
@@ -418,9 +417,9 @@ class BaseJudge:
             ValueError: If inference_engine is None or not a RemoteInferenceEngine.
         """
         conversations: list[Conversation] = (
-            self.build_conversations(cast(list[dict[str, str]], inputs))
+            self.build_conversations(inputs)  # type: ignore[arg-type]
             if inputs and isinstance(inputs[0], dict)
-            else cast(list[Conversation], inputs)
+            else inputs
         )
         if not isinstance(self.inference_engine, RemoteInferenceEngine):
             raise ValueError("Batch judging requires a RemoteInferenceEngine")
