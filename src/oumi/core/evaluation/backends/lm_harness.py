@@ -254,9 +254,9 @@ def _convert_lm_harness_samples_to_predictions(
                 f"len={len(first_sample['resps']) if first_sample['resps'] else 0}"
             )
             if first_sample["resps"]:
-                logger.debug(
-                    f"resps[0]: {first_sample['resps'][0][:100] if first_sample['resps'][0] else 'empty'}..."
-                )
+                resps_0 = first_sample["resps"][0]
+                preview = resps_0[:100] if resps_0 else "empty"
+                logger.debug(f"resps[0]: {preview}...")
 
     for sample in task_samples:
         doc = sample.get("doc", {})
@@ -435,8 +435,8 @@ def evaluate(
 
     lm_eval_output = lm_harness_evaluate(
         lm,
-        task_dict,
-        **eval_kwargs,  # type: ignore
+        task_dict,  # pyright: ignore[reportArgumentType]
+        **eval_kwargs,
     )
 
     # Metrics are only available on the main process, and `None` on others.
