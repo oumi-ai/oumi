@@ -505,7 +505,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 Message(
                     content=content,
                     role=Role(message["role"]),
-                    reasoning=reasoning,
+                    reasoning_content=reasoning,
                 ),
             ],
             metadata=metadata,

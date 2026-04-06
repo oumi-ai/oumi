@@ -114,11 +114,11 @@ def test_convert_api_output_interleaved_blocks(anthropic_engine):
         api_response, original
     )
     assert result.messages[-1].content == "First part.Second part."
-    assert result.messages[-1].reasoning == "Step 1...Step 2..."
+    assert result.messages[-1].reasoning_content == "Step 1...Step 2..."
 
 
 def test_convert_api_output_with_thinking_blocks(anthropic_engine):
-    """Test that thinking blocks are extracted into Message.reasoning."""
+    """Test that thinking blocks are extracted into Message.reasoning_content."""
     original = Conversation(
         messages=[Message(content="Hello", role=Role.USER)],
     )
@@ -136,7 +136,7 @@ def test_convert_api_output_with_thinking_blocks(anthropic_engine):
         api_response, original
     )
     assert result.messages[-1].content == "Here is my answer."
-    assert result.messages[-1].reasoning == "Let me reason about this..."
+    assert result.messages[-1].reasoning_content == "Let me reason about this..."
 
 
 def test_convert_api_output_no_thinking_blocks(anthropic_engine):
@@ -149,7 +149,7 @@ def test_convert_api_output_no_thinking_blocks(anthropic_engine):
         api_response, original
     )
     assert result.messages[-1].content == "Simple answer."
-    assert result.messages[-1].reasoning is None
+    assert result.messages[-1].reasoning_content is None
 
 
 def test_convert_api_output_null_thinking_content(anthropic_engine):
@@ -168,7 +168,7 @@ def test_convert_api_output_null_thinking_content(anthropic_engine):
         api_response, original
     )
     assert result.messages[-1].content == "Answer."
-    assert result.messages[-1].reasoning is None
+    assert result.messages[-1].reasoning_content is None
 
 
 def test_convert_api_output_null_text_content(anthropic_engine):
@@ -186,7 +186,7 @@ def test_convert_api_output_null_text_content(anthropic_engine):
         api_response, original
     )
     assert result.messages[-1].content == ""
-    assert result.messages[-1].reasoning == "Reasoning here."
+    assert result.messages[-1].reasoning_content == "Reasoning here."
 
 
 @pytest.mark.parametrize(

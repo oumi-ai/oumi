@@ -371,7 +371,9 @@ class BedrockInferenceEngine(RemoteInferenceEngine):
                     text_parts.append(part)
         text = "".join(text_parts)
         reasoning = "".join(reasoning_parts) if reasoning_parts else None
-        new_message = Message(content=text, role=Role.ASSISTANT, reasoning=reasoning)
+        new_message = Message(
+            content=text, role=Role.ASSISTANT, reasoning_content=reasoning
+        )
         metadata = dict(original.metadata)
         finish_reason = self._extract_finish_reason_from_response(response)
         if finish_reason is not None:

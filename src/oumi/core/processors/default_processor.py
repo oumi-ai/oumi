@@ -14,9 +14,11 @@
 
 import copy
 from collections.abc import Callable
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+import jinja2
 import PIL.Image
 import transformers
 from typing_extensions import override
@@ -28,6 +30,38 @@ from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types.conversation import Message
 from oumi.utils.logging import logger
 from oumi.utils.str_utils import truncate_to_max_tokens_limit
+
+_REASONING_FIELD_NAMES = frozenset({"reasoning", "reasoning_content"})
+_jinja_env = jinja2.Environment()
+
+
+@lru_cache(maxsize=8)
+def _template_references_reasoning(template: str) -> bool:
+    """Check if a Jinja2 template references reasoning fields on messages.
+
+    Parses the template AST and walks it to find attribute access
+    (``message.reasoning_content``) or item access
+    (``message['reasoning']``) nodes that reference reasoning fields.
+    This avoids false positives from comments or unrelated text.
+    """
+    from jinja2.nodes import Const, Getattr, Getitem, Node
+
+    try:
+        ast = _jinja_env.parse(template)
+    except jinja2.TemplateSyntaxError:
+        return False
+
+    pending: list[Node] = [ast]
+    while pending:
+        node = pending.pop()
+        if isinstance(node, Getattr):
+            if node.attr in _REASONING_FIELD_NAMES:
+                return True
+        elif isinstance(node, Getitem):
+            if isinstance(node.arg, Const) and node.arg.value in _REASONING_FIELD_NAMES:
+                return True
+        pending.extend(node.iter_child_nodes())
+    return False
 
 
 class DefaultProcessor(BaseProcessor):
@@ -226,12 +260,48 @@ class DefaultProcessor(BaseProcessor):
             )
         return result
 
+    def _template_supports_reasoning(self) -> bool:
+        """Check if the chat template natively handles reasoning fields.
+
+        Parses the Jinja2 AST to find actual variable references to
+        ``reasoning`` or ``reasoning_content`` on message objects, avoiding
+        false positives from comments or unrelated text.
+        """
+        return _template_references_reasoning(self.chat_template)
+
     def _convert_messages_to_dicts(self, messages: list[Message]) -> list[dict]:
-        """Converts Message objects to dict format for HuggingFace compatibility."""
-        return [
-            msg.model_dump(mode="json", exclude_none=True, exclude_unset=True)
-            for msg in messages
-        ]
+        """Converts Message objects to dict format for HuggingFace compatibility.
+
+        When a message has ``reasoning_content``, the behavior depends on
+        whether the chat template natively supports reasoning fields:
+
+        - **Template supports reasoning** (e.g., Qwen3): both
+          ``reasoning_content`` and ``reasoning`` keys are included so the
+          template can render them natively (typically inside ``<think>``
+          tags).
+        - **Template does not support reasoning** (e.g., Llama, DeepSeek):
+          reasoning is prepended to ``content`` wrapped in ``<think>`` tags
+          so it appears in the tokenized sequence.
+        """
+        template_supports = self._template_supports_reasoning()
+        result = []
+        for msg in messages:
+            d = msg.model_dump(mode="json", exclude_none=True, exclude_unset=True)
+            if msg.reasoning_content is not None:
+                if template_supports:
+                    # Pass as separate keys — template handles formatting.
+                    if "reasoning" not in d:
+                        d["reasoning"] = msg.reasoning_content
+                else:
+                    # Fold into content — template doesn't know about
+                    # reasoning, so we prepend it with <think> tags.
+                    d.pop("reasoning_content", None)
+                    content = d.get("content", "")
+                    d["content"] = (
+                        f"<think>\n{msg.reasoning_content}\n</think>\n\n{content}"
+                    )
+            result.append(d)
+        return result
 
     @override
     def apply_chat_template(

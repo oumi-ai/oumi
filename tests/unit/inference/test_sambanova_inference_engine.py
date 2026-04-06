@@ -77,7 +77,7 @@ def test_convert_api_output_to_conversation(sambanova_engine):
 
 
 def test_convert_api_output_with_reasoning(sambanova_engine):
-    """Test that reasoning field is extracted into Message.reasoning."""
+    """Test that reasoning field is extracted into Message.reasoning_content."""
     original = Conversation(
         messages=[Message(content="Hello", role=Role.USER)],
     )
@@ -96,7 +96,7 @@ def test_convert_api_output_with_reasoning(sambanova_engine):
         api_response, original
     )
     assert result.messages[-1].content == "The answer is B."
-    assert result.messages[-1].reasoning == "Let me think step by step..."
+    assert result.messages[-1].reasoning_content == "Let me think step by step..."
 
 
 def test_convert_api_output_null_content_with_reasoning(sambanova_engine):
@@ -119,7 +119,7 @@ def test_convert_api_output_null_content_with_reasoning(sambanova_engine):
         api_response, original
     )
     assert result.messages[-1].content == ""
-    assert result.messages[-1].reasoning == "Still thinking..."
+    assert result.messages[-1].reasoning_content == "Still thinking..."
 
 
 def test_convert_api_output_to_conversation_error_handling(sambanova_engine):

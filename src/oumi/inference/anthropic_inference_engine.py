@@ -216,7 +216,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         new_message = Message(
             content=text,
             role=Role.ASSISTANT,
-            reasoning=reasoning,
+            reasoning_content=reasoning,
         )
         metadata = dict(original_conversation.metadata)
         usage = self._extract_usage_from_response(response)

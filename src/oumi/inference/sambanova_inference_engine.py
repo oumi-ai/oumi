@@ -118,7 +118,7 @@ class SambanovaInferenceEngine(RemoteInferenceEngine):
         new_message = Message(
             content=content,
             role=Role.ASSISTANT,
-            reasoning=reasoning,
+            reasoning_content=reasoning,
         )
 
         return Conversation(
