@@ -2109,6 +2109,186 @@ def test_convert_api_output_content_null_returns_empty_string():
     assert result.messages[-1].role == Role.ASSISTANT
 
 
+def test_convert_api_output_null_content_with_reasoning():
+    """Test that null content defaults to empty string and reasoning is on message.
+
+    Thinking models (e.g., Qwen3.5) via Together API can return content=null
+    when the token budget is consumed by reasoning.
+    """
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
+    )
+    original = Conversation(
+        messages=[Message(content="Hello", role=Role.USER)],
+    )
+    response = {
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "reasoning": "Thinking about this...",
+                },
+                "finish_reason": "length",
+            }
+        ],
+    }
+    result = engine._convert_api_output_to_conversation(response, original)
+    assert result.messages[-1].content == ""
+    assert result.messages[-1].role == Role.ASSISTANT
+    assert result.messages[-1].reasoning_content == "Thinking about this..."
+
+
+def test_convert_api_output_null_content_no_reasoning():
+    """Test that null content with no reasoning falls back to empty string."""
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
+    )
+    original = Conversation(
+        messages=[Message(content="Hello", role=Role.USER)],
+    )
+    response = {
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                },
+            }
+        ],
+    }
+    result = engine._convert_api_output_to_conversation(response, original)
+    assert result.messages[-1].content == ""
+    assert result.messages[-1].role == Role.ASSISTANT
+    assert result.messages[-1].reasoning_content is None
+
+
+def test_convert_api_output_null_reasoning():
+    """Test that reasoning=null in response results in None, not empty string."""
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
+    )
+    original = Conversation(
+        messages=[Message(content="Hello", role=Role.USER)],
+    )
+    response = {
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": "Hi",
+                    "reasoning": None,
+                },
+            }
+        ],
+    }
+    result = engine._convert_api_output_to_conversation(response, original)
+    assert result.messages[-1].content == "Hi"
+    assert result.messages[-1].reasoning_content is None
+
+
+def test_convert_api_output_empty_string_reasoning():
+    """Test that empty reasoning is preserved, not treated as None."""
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
+    )
+    original = Conversation(
+        messages=[Message(content="Hello", role=Role.USER)],
+    )
+    response = {
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": "Hi",
+                    "reasoning": "",
+                },
+            }
+        ],
+    }
+    result = engine._convert_api_output_to_conversation(response, original)
+    assert result.messages[-1].content == "Hi"
+    assert result.messages[-1].reasoning_content == ""
+
+
+def test_convert_api_output_reasoning_content_fallback():
+    """Test that reasoning_content is used when reasoning is absent."""
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
+    )
+    original = Conversation(
+        messages=[Message(content="Hello", role=Role.USER)],
+    )
+    response = {
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": "Answer",
+                    "reasoning_content": "GLM thinking...",
+                },
+            }
+        ],
+    }
+    result = engine._convert_api_output_to_conversation(response, original)
+    assert result.messages[-1].reasoning_content == "GLM thinking..."
+
+
+def test_convert_api_output_reasoning_preferred_over_reasoning_content():
+    """Test that reasoning takes precedence over reasoning_content when both present."""
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
+    )
+    original = Conversation(
+        messages=[Message(content="Hello", role=Role.USER)],
+    )
+    response = {
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": "Answer",
+                    "reasoning": "primary",
+                    "reasoning_content": "fallback",
+                },
+            }
+        ],
+    }
+    result = engine._convert_api_output_to_conversation(response, original)
+    assert result.messages[-1].reasoning_content == "primary"
+
+
+def test_convert_api_output_content_with_reasoning():
+    """Test that when both content and reasoning are present, both are on message."""
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
+    )
+    original = Conversation(
+        messages=[Message(content="Hello", role=Role.USER)],
+    )
+    response = {
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": "The answer is B.",
+                    "reasoning": "Let me think step by step...",
+                },
+            }
+        ],
+    }
+    result = engine._convert_api_output_to_conversation(response, original)
+    assert result.messages[-1].content == "The answer is B."
+    assert result.messages[-1].reasoning_content == "Let me think step by step..."
+
+
 @pytest.mark.asyncio
 async def test_upload_batch_file():
     """Test uploading a batch file."""

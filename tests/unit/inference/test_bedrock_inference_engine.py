@@ -102,6 +102,42 @@ def test_convert_api_output_to_conversation(bedrock_engine):
 
 
 @pytest.mark.skipif(boto3_import_failed, reason="boto3 not available")
+def test_convert_api_output_with_thinking_blocks(bedrock_engine):
+    """Test that thinking blocks are extracted into Message.reasoning."""
+    original = Conversation(
+        messages=[Message(content="Hello", role=Role.USER)],
+    )
+    api_response = {
+        "output": {
+            "message": {
+                "content": [
+                    {
+                        "type": "thinking",
+                        "thinking": "Step 1: analyze...",
+                    },
+                    {"text": "The answer is 42."},
+                ]
+            }
+        }
+    }
+    result = bedrock_engine._convert_api_output_to_conversation(api_response, original)
+    assert result.messages[-1].content == "The answer is 42."
+    assert result.messages[-1].reasoning == "Step 1: analyze..."
+
+
+@pytest.mark.skipif(boto3_import_failed, reason="boto3 not available")
+def test_convert_api_output_no_thinking_blocks(bedrock_engine):
+    """Test that reasoning is None when no thinking blocks present."""
+    original = Conversation(
+        messages=[Message(content="Hello", role=Role.USER)],
+    )
+    api_response = {"output": {"message": {"content": [{"text": "Simple answer."}]}}}
+    result = bedrock_engine._convert_api_output_to_conversation(api_response, original)
+    assert result.messages[-1].content == "Simple answer."
+    assert result.messages[-1].reasoning is None
+
+
+@pytest.mark.skipif(boto3_import_failed, reason="boto3 not available")
 def test_infer_online(bedrock_engine):
     with patch.object(bedrock_engine, "_infer") as mock_infer:
         mock_infer.return_value = [

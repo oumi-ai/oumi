@@ -239,6 +239,16 @@ class Message(pydantic.BaseModel):
     role: Role
     """The role of the entity sending the message (e.g., user, assistant, system)."""
 
+    reasoning: str | None = None
+    """Optional reasoning/thinking content from the model.
+
+    Some providers (e.g., Together) return a separate ``reasoning`` field for
+    thinking models (Qwen3.x, Qwen3.5-x). When present, ``content`` holds the
+    visible output and ``reasoning`` holds the internal chain-of-thought.
+    If the model exhausts its token budget on reasoning, ``content`` may be
+    empty while ``reasoning`` contains the partial thinking.
+    """
+
     def model_post_init(self, __context) -> None:
         """Post-initialization method for the Message model.
 

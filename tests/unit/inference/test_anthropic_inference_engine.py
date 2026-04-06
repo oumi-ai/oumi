@@ -97,6 +97,98 @@ def test_convert_api_output_missing_content_key(anthropic_engine):
         )
 
 
+def test_convert_api_output_interleaved_blocks(anthropic_engine):
+    """Test that interleaved thinking and text blocks are all collected."""
+    original = Conversation(
+        messages=[Message(content="Hello", role=Role.USER)],
+    )
+    api_response = {
+        "content": [
+            {"type": "thinking", "thinking": "Step 1..."},
+            {"type": "text", "text": "First part."},
+            {"type": "thinking", "thinking": "Step 2..."},
+            {"type": "text", "text": "Second part."},
+        ]
+    }
+    result = anthropic_engine._convert_api_output_to_conversation(
+        api_response, original
+    )
+    assert result.messages[-1].content == "First part.Second part."
+    assert result.messages[-1].reasoning == "Step 1...Step 2..."
+
+
+def test_convert_api_output_with_thinking_blocks(anthropic_engine):
+    """Test that thinking blocks are extracted into Message.reasoning."""
+    original = Conversation(
+        messages=[Message(content="Hello", role=Role.USER)],
+    )
+    api_response = {
+        "content": [
+            {
+                "type": "thinking",
+                "thinking": "Let me reason about this...",
+                "signature": "abc123",
+            },
+            {"type": "text", "text": "Here is my answer."},
+        ]
+    }
+    result = anthropic_engine._convert_api_output_to_conversation(
+        api_response, original
+    )
+    assert result.messages[-1].content == "Here is my answer."
+    assert result.messages[-1].reasoning == "Let me reason about this..."
+
+
+def test_convert_api_output_no_thinking_blocks(anthropic_engine):
+    """Test that reasoning is None when no thinking blocks present."""
+    original = Conversation(
+        messages=[Message(content="Hello", role=Role.USER)],
+    )
+    api_response = {"content": [{"type": "text", "text": "Simple answer."}]}
+    result = anthropic_engine._convert_api_output_to_conversation(
+        api_response, original
+    )
+    assert result.messages[-1].content == "Simple answer."
+    assert result.messages[-1].reasoning is None
+
+
+def test_convert_api_output_null_thinking_content(anthropic_engine):
+    """Test that thinking blocks with null/empty thinking are skipped."""
+    original = Conversation(
+        messages=[Message(content="Hello", role=Role.USER)],
+    )
+    api_response = {
+        "content": [
+            {"type": "thinking", "thinking": None, "signature": "sig1"},
+            {"type": "thinking", "thinking": "", "signature": "sig2"},
+            {"type": "text", "text": "Answer."},
+        ]
+    }
+    result = anthropic_engine._convert_api_output_to_conversation(
+        api_response, original
+    )
+    assert result.messages[-1].content == "Answer."
+    assert result.messages[-1].reasoning is None
+
+
+def test_convert_api_output_null_text_content(anthropic_engine):
+    """Test that text=null defaults to empty string."""
+    original = Conversation(
+        messages=[Message(content="Hello", role=Role.USER)],
+    )
+    api_response = {
+        "content": [
+            {"type": "thinking", "thinking": "Reasoning here.", "signature": "sig"},
+            {"type": "text", "text": None},
+        ]
+    }
+    result = anthropic_engine._convert_api_output_to_conversation(
+        api_response, original
+    )
+    assert result.messages[-1].content == ""
+    assert result.messages[-1].reasoning == "Reasoning here."
+
+
 @pytest.mark.parametrize(
     "api_usage,expected_usage",
     [
