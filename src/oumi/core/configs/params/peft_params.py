@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import re
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Literal
@@ -123,6 +124,16 @@ class PeftParams(BaseParams):
     """The dropout probability applied to LoRA layers.
 
     This helps prevent overfitting in the adaptation layers.
+    """
+
+    lora_target_modules_scope: str | None = field(
+        default=None, metadata={"help": "LoRA target modules scope"}
+    )
+    """Scope of the LoRA target modules.
+
+    If None, LoRA target modules are considered to be targeting the language model.
+    For multimodal models, scope defines what is getting targetted.
+    eg: for Gemma4, scopes are language_model, vision_tower, audio tower.
     """
 
     lora_target_modules: list[str] | None = field(
@@ -319,6 +330,17 @@ class PeftParams(BaseParams):
         target_modules = self.lora_target_modules
         if target_modules == ["all-linear"]:
             target_modules = "all-linear"
+        elif self.lora_target_modules_scope and target_modules:
+            # When a scope is set, build a regex that restricts LoRA to modules
+            # within that scope. For example, scope="language_model" with
+            # modules=["q_proj", "v_proj"] produces:
+            #   ".*language_model.*\.(q_proj|v_proj)"
+            # This is critical for multimodal models (e.g. Gemma4) where
+            # vision/audio towers have identically-named layers that should
+            # NOT be targeted during text-only SFT.
+            scope = re.escape(self.lora_target_modules_scope)
+            modules_pattern = "|".join(re.escape(m) for m in target_modules)
+            target_modules = rf".*{scope}.*\.({modules_pattern})"
 
         return LoraConfig(
             r=self.lora_r,
