@@ -21,26 +21,6 @@ from oumi.core.configs.params.tool_params import ToolAttribute
 from oumi.core.types.conversation import Conversation, Message
 
 
-def clean_json_output(text: str) -> str:
-    """Strip markdown fences and extract clean JSON from LLM output."""
-    raise NotImplementedError
-
-
-def is_valid_json(text: str) -> bool:
-    """Return True if text is parseable as a JSON object or array."""
-    raise NotImplementedError
-
-
-def build_example_result(tool: ToolAttribute) -> str:
-    """Build a realistic example result from a tool's output_schema."""
-    raise NotImplementedError
-
-
-def _example_value(schema: dict[str, Any]) -> Any:
-    """Generate a placeholder example value from a JSON Schema property."""
-    raise NotImplementedError
-
-
 @dataclass
 class ToolCallParsed:
     """Successfully parsed and validated tool call."""
@@ -133,11 +113,6 @@ class ToolExecutor:
     @staticmethod
     def strip_tool_tags(text: str) -> str:
         """Remove any residual <tool_call> or </tool_call> tags."""
-        raise NotImplementedError
-
-    @staticmethod
-    def strip_bare_tool_json(text: str) -> str:
-        """Remove bare JSON objects that look like tool calls."""
         raise NotImplementedError
 
     @staticmethod
