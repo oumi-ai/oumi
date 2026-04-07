@@ -479,6 +479,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         message = response["choices"][0].get("message")
         if not message:
             raise RuntimeError(f"No message found in API response: {response}")
+        content = message.get("content") or ""
         metadata = dict(original_conversation.metadata)
         usage = self._extract_usage_from_response(response)
         if usage is not None:
@@ -490,7 +491,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             messages=[
                 *original_conversation.messages,
                 Message(
-                    content=message["content"],
+                    content=content,
                     role=Role(message["role"]),
                 ),
             ],
