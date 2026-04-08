@@ -804,12 +804,15 @@ class GeneralSynthesisParams(BaseParams):
         """Check if the attribute ID is already in the set."""
         if id in self._reserved_attribute_ids:
             raise ValueError(
-                f"GeneralSynthesisParams does not allow '{id}' "
-                "as an attribute ID because it is reserved for multiturn synthesis."
+                f"Attribute ID '{id}' is reserved for multiturn synthesis "
+                "and cannot be used. Please choose a different attribute ID."
             )
         if id in attribute_ids:
             raise ValueError(
-                f"GeneralSynthesisParams contains duplicate attribute IDs: {id}"
+                f"Attribute ID '{id}' is used more than once. "
+                "Each attribute ID must be unique across all sources "
+                "(datasets, documents, examples, sampled, generated, "
+                "and transformed attributes)."
             )
         attribute_ids.add(id)
 
@@ -902,8 +905,9 @@ class GeneralSynthesisParams(BaseParams):
         ]
         if sum(sample_rates) > 1.0:
             raise ValueError(
-                "GeneralSynthesisParams.combination_sampling sample rates must be "
-                "less than or equal to 1.0."
+                "Combination sampling rates must sum to 1.0 or less, "
+                f"but the current total is {sum(sample_rates):.2f}. "
+                "Please reduce the sample rates."
             )
 
     def _check_passthrough_attribute_ids(self) -> None:
