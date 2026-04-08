@@ -142,16 +142,27 @@ class ToolAwareCompletionsCollator(DataCollatorForLanguageModeling):
         batch = super().torch_call(examples)
 
         resp_len = len(self.response_token_ids)
+        pad_token_id = self.tokenizer.pad_token_id
 
         for i in range(len(examples)):
             # Step 1: mask everything.
             batch["labels"][i, :] = self.ignore_index
 
             seq: list[int] = batch["input_ids"][i].tolist()
-            n = len(seq)
 
-            # Step 2: find every assistant response start position.
-            resp_positions = self._find_pattern(seq, self.response_token_ids)
+            # Compute the effective sequence length excluding trailing padding.
+            # This prevents false matches when end_of_turn_token_ids overlaps
+            # with the pad token (common: e.g. <|im_end|> = eos = pad).
+            if pad_token_id is not None:
+                n = len(seq)
+                while n > 0 and seq[n - 1] == pad_token_id:
+                    n -= 1
+            else:
+                n = len(seq)
+
+            # Step 2: find every assistant response start position
+            # (within the non-padded region only).
+            resp_positions = self._find_pattern(seq[:n], self.response_token_ids)
 
             if len(resp_positions) == 0:
                 warnings.warn(
@@ -166,14 +177,15 @@ class ToolAwareCompletionsCollator(DataCollatorForLanguageModeling):
                 # Content starts right after the response_template tokens.
                 content_start = resp_pos + resp_len
 
-                # Step 3: find the next end_of_turn after content_start.
+                # Step 3: find the next end_of_turn after content_start
+                # (within the non-padded region only).
                 eot_positions = self._find_pattern(
-                    seq[content_start:], self.end_of_turn_token_ids
+                    seq[content_start:n], self.end_of_turn_token_ids
                 )
                 if eot_positions:
                     content_end = content_start + eot_positions[0]
                 else:
-                    # No closing marker found — unmask to the end of the sequence.
+                    # No closing marker found — unmask to end of real content.
                     content_end = n
 
                 if content_start >= content_end:

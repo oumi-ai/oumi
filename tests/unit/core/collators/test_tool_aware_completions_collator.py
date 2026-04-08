@@ -278,6 +278,35 @@ def test_empty_content_span():
     assert all(v == IGNORE for v in labels)
 
 
+def test_padding_matching_eot_does_not_false_match():
+    """When pad_token_id matches the EOT token, padding must not be treated as
+    a real end-of-turn boundary. Regression test for the case where
+    end_of_turn_template == pad token (e.g. <|im_end|> = eos = pad)."""
+    tokenizer, pad_token_id = create_test_tokenizer()
+    resp, _, _ = get_template_token_ids()
+
+    # Use pad_token_id itself as the EOT template — worst case scenario.
+    eot_ids = [pad_token_id]
+    content = [_SENTINELS[0], _SENTINELS[1]]
+    # Sequence: [RESP] content (no real EOT), then padding
+    seq = flat(resp, content) + [pad_token_id] * 5
+
+    collator = ToolAwareCompletionsCollator(
+        response_template=resp,
+        end_of_turn_template=eot_ids,
+        tokenizer=tokenizer,
+    )
+    batch = collator.torch_call([{"input_ids": seq}])
+    labels = batch["labels"][0].tolist()
+
+    # Content should be unmasked — the padding should not act as an EOT
+    # that truncates the span to zero length.
+    content_start = len(resp)
+    assert labels[content_start : content_start + len(content)] == content
+    # Padding should be masked.
+    assert all(v == IGNORE for v in labels[content_start + len(content) :])
+
+
 # ---------------------------------------------------------------------------
 # Batch processing
 # ---------------------------------------------------------------------------
