@@ -186,13 +186,13 @@ async def _launch_cloud(
             await evict_runtime(record.job_id)
             return ""
 
-        config_parent = str(Path(record.config_path).expanduser().resolve().parent)  # noqa: ASYNC240
+        config_parent = str(Path(record.config_path).expanduser().resolve().parent)
         _stage_cloud_config(record, rt, working_dir=config_parent)
         job_config = launcher.JobConfig.from_yaml(rt.staged_config_path)
         if not job_config.name:
             job_config.name = record.job_id
         if client_cwd and job_config.working_dir:
-            wd = Path(job_config.working_dir).expanduser()  # noqa: ASYNC240
+            wd = Path(job_config.working_dir).expanduser()
             if not wd.is_absolute():
                 job_config.working_dir = str((Path(client_cwd) / wd).resolve())
         elif client_cwd and not job_config.working_dir:
