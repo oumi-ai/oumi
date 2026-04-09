@@ -45,7 +45,7 @@ dependencies = [
     "aioresponses>=0.7,<0.8",     # User by inference engine tests
     "backoff>=2.2.1,<2.3",
     "click<8.4.0",                # Used by CLI. 8.2.0 is currently unsupported by Typer.
-    "datasets>=3.2,<5",
+    "datasets>=3.2,<4.8.5",
     "greenlet",                   # Required by skypilot 0.11+ (sqlalchemy asyncio)
     "hdrhistogram>=0.10,<0.11",
     "httpx>=0.27,<1.0",           # Used by deploy module (async HTTP client)
@@ -297,6 +297,7 @@ call-non-callable = "warn"  # Dynamic callables
 unsupported-operator = "warn"  # Type narrowing limitations with isinstance
 too-many-positional-arguments = "warn"  # Loose typing (Callable) doesn't capture signatures
 parameter-already-assigned = "warn"  # False positives with *args/**kwargs patterns
+
 
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"
