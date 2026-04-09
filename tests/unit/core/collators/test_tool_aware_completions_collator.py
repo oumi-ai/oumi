@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 import torch
 
+import oumi.core.constants as constants
 from oumi.builders import build_tokenizer
 from oumi.core.collators.tool_aware_completions_collator import (
     ToolAwareCompletionsCollator,
@@ -12,7 +13,7 @@ from oumi.core.collators.tool_aware_completions_collator import (
 from oumi.core.configs import ModelParams
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 
-IGNORE = -100
+IGNORE = constants.LABEL_IGNORE_INDEX
 
 # Template strings — chosen to be unambiguous in GPT-2's vocabulary.
 _RESP_STR = " ASSISTANT_RESPONSE_START"
