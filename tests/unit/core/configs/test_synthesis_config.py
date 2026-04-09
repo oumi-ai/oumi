@@ -115,6 +115,7 @@ def test_synthesis_config_with_top_level_environment_config():
         environment_config=env_config,
     )
 
+    assert config.environment_config is not None
     assert config.environment_config == env_config
     assert config.environment_config.tool_environment_map == {"answer_faq": "faq"}
 
@@ -174,6 +175,7 @@ def test_synthesis_config_validates_available_tools():
 
     assert config.environment_config is not None
     assert config.environment_config.all_tools[0].id == "answer_faq"
+    assert params.multiturn_attributes is not None
     mt_attr = params.multiturn_attributes[0]
     assert [t.id for t in config.resolve_multiturn_tools(mt_attr)] == ["answer_faq"]
 
