@@ -437,7 +437,7 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             request_payload=create_payload,
         )
 
-    async def upload_model_from_inventory(
+    async def upload_model_with_resolver(
         self,
         model_name: str,
         file_inventory: dict[str, int],

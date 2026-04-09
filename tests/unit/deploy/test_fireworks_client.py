@@ -672,15 +672,15 @@ class TestCollectFileInventory:
 
 
 class TestUploadModelFromInventory:
-    """Tests for upload_model_from_inventory and _upload_model_files_with_resolver."""
+    """Tests for upload_model_with_resolver and _upload_model_files_with_resolver."""
 
     @staticmethod
     def _make_client() -> FireworksDeploymentClient:
         return FireworksDeploymentClient(api_key="test-key", account_id="test-account")
 
     @pytest.mark.asyncio
-    async def test_upload_model_from_inventory_calls_subflows(self, tmp_path):
-        """upload_model_from_inventory calls create, upload, and validate in order."""
+    async def test_upload_model_with_resolver_calls_subflows(self, tmp_path):
+        """upload_model_with_resolver calls create, upload, and validate in order."""
         client = self._make_client()
 
         fake_file = tmp_path / "config.json"
@@ -720,7 +720,7 @@ class TestUploadModelFromInventory:
                 side_effect=mock_wait,
             ),
         ):
-            result = await client.upload_model_from_inventory(
+            result = await client.upload_model_with_resolver(
                 model_name="my-model",
                 file_inventory=file_inventory,
                 file_resolver=mock_resolver,
@@ -731,8 +731,8 @@ class TestUploadModelFromInventory:
         assert result.status == "validating"
 
     @pytest.mark.asyncio
-    async def test_upload_model_from_inventory_rejects_invalid_name(self, tmp_path):
-        """upload_model_from_inventory raises for names that violate Fireworks rules."""
+    async def test_upload_model_with_resolver_rejects_invalid_name(self, tmp_path):
+        """upload_model_with_resolver raises for names that violate Fireworks rules."""
         client = self._make_client()
 
         @asynccontextmanager
@@ -740,7 +740,7 @@ class TestUploadModelFromInventory:
             yield tmp_path / filename
 
         with pytest.raises(FireworksInvalidModelIdError):
-            await client.upload_model_from_inventory(
+            await client.upload_model_with_resolver(
                 model_name="BadName",  # uppercase letters not allowed
                 file_inventory={"config.json": 10},
                 file_resolver=mock_resolver,
