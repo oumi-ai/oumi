@@ -15,6 +15,7 @@
 import random
 
 from oumi.builders.inference_engines import build_inference_engine
+from oumi.core.configs.environment_config import EnvironmentConfig
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.inference_engine_type import InferenceEngineType
 from oumi.core.configs.params.synthesis_params import (
@@ -23,6 +24,7 @@ from oumi.core.configs.params.synthesis_params import (
 )
 from oumi.core.synthesis.attribute_formatter import AttributeFormatter
 from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.environments import BaseTool
 from oumi.utils.logging import logger
 from oumi.utils.str_utils import extract_json
 
@@ -39,9 +41,11 @@ class ConversationSynthesizer:
         self,
         params: GeneralSynthesisParams,
         inference_config: InferenceConfig,
+        environment_config: EnvironmentConfig | None = None,
     ):
         """Initialize the synthesizer."""
         self._params = params
+        self._environment_config = environment_config
         self._formatter = AttributeFormatter(params)
 
         self._inference_engine = build_inference_engine(
@@ -51,6 +55,17 @@ class ConversationSynthesizer:
         )
         self._inference_config = inference_config
         self._default_turn_order = [Role.USER, Role.ASSISTANT]
+
+    def _resolve_available_tools(
+        self, multiturn_attribute: MultiTurnAttribute
+    ) -> list[BaseTool]:
+        """Resolve tools for a multiturn attribute from selected environments."""
+        if self._environment_config is None:
+            return []
+        return self._environment_config.resolve_tools(
+            environment_ids=multiturn_attribute.available_environments or None,
+            tool_ids=multiturn_attribute.available_tools or None,
+        )
 
     def _validate_roles(self, multiturn_attribute: MultiTurnAttribute) -> None:
         """Validate that required roles have corresponding personas.
@@ -98,6 +113,13 @@ class ConversationSynthesizer:
             f"Synthesizing {len(samples)} conversations for "
             f"attribute '{multiturn_attributes.id}'"
         )
+        available_tools = self._resolve_available_tools(multiturn_attributes)
+        if available_tools:
+            logger.debug(
+                "Resolved tools for '%s': %s",
+                multiturn_attributes.id,
+                [tool.id for tool in available_tools],
+            )
 
         samples = self._plan_samples(samples, multiturn_attributes)
         conversations = self._synthesize_all_samples(samples, multiturn_attributes)
