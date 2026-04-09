@@ -176,6 +176,7 @@ def build_data_collator(
             end_of_turn_template=end_of_turn_template,
             mask_tool_calls=mask_tool_calls,
             tool_call_start_template=tool_call_start_template,
+            ignore_index=label_ignore_index if label_ignore_index is not None else -100,
             tokenizer=tokenizer,
             **kwargs,
         )

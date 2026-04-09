@@ -146,6 +146,41 @@ def test_build_collator_from_config_with_collator(
     assert callable(collator)
 
 
+def test_build_data_collator_tool_aware_completions(mock_tokenizer):
+    collator_name = "tool_aware_completions_only"
+    resp = "<|im_start|>" + "assistant\n"
+    eot = "<|im_end|>"
+
+    with pytest.raises(ValueError, match="response_template"):
+        build_data_collator(collator_name, mock_tokenizer, max_length=None)
+
+    with pytest.raises(ValueError, match="end_of_turn_template"):
+        build_data_collator(
+            collator_name, mock_tokenizer, max_length=None, response_template=resp
+        )
+
+    collator = build_data_collator(
+        collator_name,
+        mock_tokenizer,
+        max_length=None,
+        response_template=resp,
+        end_of_turn_template=eot,
+    )
+    assert collator is not None
+    assert callable(collator)
+    assert collator.ignore_index == constants.LABEL_IGNORE_INDEX
+
+    collator_custom = build_data_collator(
+        collator_name,
+        mock_tokenizer,
+        max_length=None,
+        label_ignore_index=-200,
+        response_template=resp,
+        end_of_turn_template=eot,
+    )
+    assert collator_custom.ignore_index == -200
+
+
 def test_build_collator_from_config_no_collator(mock_tokenizer):
     training_config = TrainingConfig(
         data=DataParams(
