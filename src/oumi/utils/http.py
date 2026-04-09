@@ -82,10 +82,10 @@ async def get_failure_reason_from_response(
         if isinstance(response_json, list):
             response_json = response_json[0]
         error_msg = (
-            response_json.get("error", {}).get("message")
-            if response_json
-            else f"HTTP {response.status}"
+            response_json.get("error", {}).get("message") if response_json else None
         )
+        if error_msg is None:
+            error_msg = f"HTTP {response.status}"
 
     except Exception:
         error_msg = f"HTTP {response.status}"

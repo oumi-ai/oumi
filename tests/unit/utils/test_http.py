@@ -95,6 +95,17 @@ async def test_get_failure_reason_from_response_with_list_response():
 
 
 @pytest.mark.asyncio
+async def test_get_failure_reason_from_response_with_null_message():
+    """Test handling when error message is null in the response."""
+    mock_response = AsyncMock(spec=aiohttp.ClientResponse)
+    mock_response.status = 400
+    mock_response.json.return_value = {"error": {"message": None}}
+
+    result = await get_failure_reason_from_response(mock_response)
+    assert result == "HTTP 400"
+
+
+@pytest.mark.asyncio
 async def test_get_failure_reason_from_response_with_empty_response():
     """Test handling of non-retryable errors with empty response."""
     mock_response = AsyncMock(spec=aiohttp.ClientResponse)
