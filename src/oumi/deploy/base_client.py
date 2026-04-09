@@ -15,12 +15,12 @@
 """Base types and interfaces for deployment clients."""
 
 from abc import ABC, abstractmethod
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncContextManager, Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, AsyncContextManager
+from typing import Any
 
 
 class DeploymentProvider(str, Enum):
