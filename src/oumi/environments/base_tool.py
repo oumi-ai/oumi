@@ -44,8 +44,7 @@ class BaseTool(BaseParams):
             return raw
         if not isinstance(raw, Mapping):
             raise TypeError(
-                f"Tool definitions must be tool objects or mappings, "
-                f"got {type(raw)}"
+                f"Tool definitions must be tool objects or mappings, got {type(raw)}"
             )
         return cls(
             id=raw["id"],
