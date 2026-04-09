@@ -38,14 +38,21 @@ repos:
         args: [--fix, --exit-non-zero-on-fix]
       - id: ruff-format
         types_or: [python, pyi, jupyter]
+  - repo: https://github.com/Lucas-C/pre-commit-hooks
+    rev: v1.5.6
+    hooks:
+      - id: insert-license
+        files: ^src/oumi/.*\.py$
+        args:
+          - --license-filepath
+          - .license_header.txt
+          - --comment-style
+          - "#"
+          - --use-current-year
+          - --detect-license-in-X-top-lines=15
+          - --skip-license-insertion-comment=Licensed under the Apache License, Version 2.0
   - repo: local
     hooks:
-      - id: check-apache-license-header
-        name: check apache license header
-        entry: python scripts/check_apache_license_header.py
-        language: python
-        types: [python]
-        files: ^src/oumi/
       - id: pyright
         name: pyright
         entry: env PYRIGHT_PYTHON_PYLANCE_VERSION=latest-release pyright
