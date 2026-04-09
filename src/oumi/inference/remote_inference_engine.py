@@ -661,6 +661,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                                 raise APIStatusError(
                                     f"Non-retriable error: {failure_reason}",
                                     status_code=response.status,
+                                    api_input=api_input,
                                 )
                             continue
 
@@ -733,7 +734,11 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 f"Reason: {failure_reason}" if failure_reason else ""
             )
             if last_status_code is not None:
-                raise APIStatusError(message, status_code=last_status_code)
+                raise APIStatusError(
+                    message,
+                    status_code=last_status_code,
+                    api_input=api_input,
+                )
             raise RuntimeError(message)
 
     async def _infer(

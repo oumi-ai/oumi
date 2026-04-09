@@ -19,10 +19,23 @@ import aiohttp
 class APIStatusError(RuntimeError):
     """An API error that preserves the HTTP status code."""
 
-    def __init__(self, message: str, *, status_code: int):
-        """Initialize with a message and HTTP status code."""
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int,
+        api_input: dict | None = None,
+    ):
+        """Initialize with a message and HTTP status code.
+
+        Args:
+            message: Human-readable error description.
+            status_code: HTTP status code from the provider.
+            api_input: The JSON request body sent to the provider, if available.
+        """
         super().__init__(message)
         self.status_code = status_code
+        self.api_input = api_input
 
 
 _NON_RETRIABLE_STATUS_CODES = {
