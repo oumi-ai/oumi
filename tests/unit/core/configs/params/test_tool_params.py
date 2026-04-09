@@ -12,263 +12,216 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any
-
 import pytest
 
-from oumi.core.configs.params.synthesis_params import (
-    GeneralSynthesisParams,
-    MultiTurnAttribute,
-)
-from oumi.core.configs.params.tool_params import (
+from oumi.core.configs.environment_config import EnvironmentConfig
+from oumi.environments import (
+    BaseTool,
+    DeterministicEnvironment,
+    DeterministicTool,
     DeterministicToolOutput,
     GeneratedToolOutput,
-    ToolAttribute,
-    ToolEnvironmentAttribute,
-    ToolOutputStrategy,
+    StatefulEnvironment,
+    StatefulTool,
+    StatelessEnvironment,
+    StatelessTool,
+    ToolEnvironmentType,
 )
-from oumi.core.types.conversation import Role
 
 
-def test_deterministic_tool_output_empty_values_raises():
-    with pytest.raises(ValueError, match="values cannot be empty"):
-        DeterministicToolOutput(values={})
-
-
-@pytest.mark.parametrize("rate", [-0.1, 1.1])
-def test_deterministic_tool_output_invalid_sample_rate_raises(rate):
-    with pytest.raises(ValueError, match="sample_rate must be between 0 and 1"):
-        DeterministicToolOutput(values={"x": 1}, sample_rate=rate)
-
-
-def _make_deterministic_tool(**overrides) -> ToolAttribute:
+def _make_deterministic_tool(**overrides) -> DeterministicTool:
     defaults = dict(
         id="tool1",
         name="MyTool",
         description="A tool",
-        output_strategy=ToolOutputStrategy.DETERMINISTIC,
         deterministic_outputs=[
-            DeterministicToolOutput(values={"a": 1}),
+            DeterministicToolOutput(input={"id": "01"}, output={"msg": "ok"}),
         ],
     )
     defaults.update(overrides)
-    return ToolAttribute(**defaults)  # type: ignore[arg-type]
+    return DeterministicTool(**defaults)
 
 
-def _make_generated_tool(**overrides) -> ToolAttribute:
+def _make_stateless_tool(**overrides) -> StatelessTool:
     defaults = dict(
         id="tool2",
         name="GenTool",
         description="A generated tool",
-        output_strategy=ToolOutputStrategy.GENERATED,
         generated_output=GeneratedToolOutput(instruction="Do something."),
     )
     defaults.update(overrides)
-    return ToolAttribute(**defaults)  # type: ignore[arg-type]
+    return StatelessTool(**defaults)
 
 
-def test_tool_attribute_deterministic_without_outputs_raises():
-    with pytest.raises(ValueError, match="deterministic_outputs cannot be empty"):
-        ToolAttribute(
-            id="t",
-            name="T",
-            description="d",
-            output_strategy=ToolOutputStrategy.DETERMINISTIC,
-            deterministic_outputs=[],
-        )
+def _make_stateful_tool(**overrides) -> StatefulTool:
+    defaults = dict(
+        id="tool3",
+        name="StatefulTool",
+        description="A stateful tool",
+    )
+    defaults.update(overrides)
+    return StatefulTool(**defaults)
 
 
-def test_tool_attribute_generated_without_output_raises():
-    with pytest.raises(ValueError, match="generated_output must be provided"):
-        ToolAttribute(
-            id="t",
-            name="T",
-            description="d",
-            output_strategy=ToolOutputStrategy.GENERATED,
-            generated_output=None,
-        )
+# --- DeterministicToolOutput tests ---
+
+
+def test_deterministic_tool_output_empty_input_raises():
+    with pytest.raises(ValueError, match="input cannot be empty"):
+        DeterministicToolOutput(input={}, output={"msg": "ok"})
+
+
+def test_deterministic_tool_output_empty_output_raises():
+    with pytest.raises(ValueError, match="output cannot be empty"):
+        DeterministicToolOutput(input={"id": "1"}, output={})
+
+
+def test_deterministic_tool_output_matches_exact():
+    entry = DeterministicToolOutput(
+        input={"id": "01", "status": "pending"},
+        output={"message": "Order is pending"},
+    )
+    assert entry.matches({"id": "01", "status": "pending"}) is True
+    assert entry.matches({"status": "pending", "id": "01"}) is True
+
+
+def test_deterministic_tool_output_no_match():
+    entry = DeterministicToolOutput(
+        input={"id": "01"},
+        output={"message": "ok"},
+    )
+    assert entry.matches({"id": "02"}) is False
+    assert entry.matches({"id": "01", "extra": "arg"}) is False
+
+
+# --- BaseTool tests ---
 
 
 @pytest.mark.parametrize(
-    "field,value",
-    [("id", ""), ("name", ""), ("description", "")],
+    "field,value", [("id", ""), ("name", ""), ("description", "")]
 )
-def test_tool_attribute_empty_field_raises(field, value):
+def test_base_tool_empty_field_raises(field, value):
     with pytest.raises(ValueError, match=f"{field} cannot be empty"):
-        _make_generated_tool(**{field: value})
+        BaseTool(**{"id": "t", "name": "T", "description": "d", **{field: value}})
 
 
-def test_tool_attribute_normalizes_undefined_sample_rates():
+# --- DeterministicTool tests ---
+
+
+def test_deterministic_tool_requires_outputs():
+    with pytest.raises(ValueError, match="must have at least one"):
+        DeterministicTool(
+            id="t", name="T", description="d", deterministic_outputs=[]
+        )
+
+
+def test_deterministic_tool_duplicate_inputs_raises():
     outputs = [
-        DeterministicToolOutput(values={"a": 1}),
-        DeterministicToolOutput(values={"b": 2}),
+        DeterministicToolOutput(input={"id": "01"}, output={"msg": "a"}),
+        DeterministicToolOutput(input={"id": "01"}, output={"msg": "b"}),
     ]
-    tool = _make_deterministic_tool(deterministic_outputs=outputs)
-    assert tool.deterministic_outputs[0].sample_rate == pytest.approx(0.5)
-    assert tool.deterministic_outputs[1].sample_rate == pytest.approx(0.5)
-
-
-def test_tool_attribute_normalizes_mixed_sample_rates():
-    outputs = [
-        DeterministicToolOutput(values={"a": 1}, sample_rate=0.7),
-        DeterministicToolOutput(values={"b": 2}),
-    ]
-    tool = _make_deterministic_tool(deterministic_outputs=outputs)
-    assert tool.deterministic_outputs[0].sample_rate == pytest.approx(0.7)
-    assert tool.deterministic_outputs[1].sample_rate == pytest.approx(0.3)
-
-
-def test_tool_attribute_sample_rates_exceeding_one_raises():
-    outputs = [
-        DeterministicToolOutput(values={"a": 1}, sample_rate=0.6),
-        DeterministicToolOutput(values={"b": 2}, sample_rate=0.6),
-    ]
-    with pytest.raises(ValueError, match="sample rates must sum to at most 1.0"):
+    with pytest.raises(ValueError, match="duplicate"):
         _make_deterministic_tool(deterministic_outputs=outputs)
 
 
-def _make_multiturn_attr(**overrides) -> MultiTurnAttribute:
-    defaults = dict(
-        id="chat",
-        min_turns=1,
-        max_turns=3,
-        role_instruction_messages={
-            Role.USER: "You are a user.",
-            Role.ASSISTANT: "You are an assistant.",
-        },
-        available_tools=[],
+def test_deterministic_tool_resolve_match():
+    tool = _make_deterministic_tool(
+        deterministic_outputs=[
+            DeterministicToolOutput(
+                input={"id": "01"}, output={"msg": "pending"}
+            ),
+            DeterministicToolOutput(
+                input={"id": "02"}, output={"msg": "delivered"}
+            ),
+        ]
     )
-    defaults.update(overrides)
-    return MultiTurnAttribute(**defaults)  # type: ignore[arg-type]
+    assert tool.resolve_deterministic({"id": "01"}) == {"msg": "pending"}
+    assert tool.resolve_deterministic({"id": "02"}) == {"msg": "delivered"}
 
 
-def test_synthesis_params_valid_tool_references():
-    tool = _make_generated_tool(id="search")
-    mt = _make_multiturn_attr(available_tools=["search"])
-    params = GeneralSynthesisParams(
-        tools=[tool],
-        multiturn_attributes=[mt],
-    )
-    assert params.tools is not None
-    assert len(params.tools) == 1
+def test_deterministic_tool_resolve_no_match():
+    tool = _make_deterministic_tool()
+    assert tool.resolve_deterministic({"id": "99"}) is None
 
 
-def test_synthesis_params_undefined_tool_reference_raises():
-    tool = _make_generated_tool(id="search")
-    mt = _make_multiturn_attr(available_tools=["nonexistent"])
-    with pytest.raises(ValueError, match="references unknown tool 'nonexistent'"):
-        GeneralSynthesisParams(
-            tools=[tool],
-            multiturn_attributes=[mt],
+# --- StatelessTool tests ---
+
+
+def test_stateless_tool_requires_generated_output():
+    with pytest.raises(ValueError, match="must have a generated_output"):
+        StatelessTool(
+            id="t", name="T", description="d", generated_output=None
         )
 
 
-def test_synthesis_params_available_tools_without_tools_defined_raises():
-    mt = _make_multiturn_attr(available_tools=["search"])
-    with pytest.raises(ValueError, match="tools must be defined"):
-        GeneralSynthesisParams(
-            tools=None,
-            multiturn_attributes=[mt],
-        )
+# --- ToolEnvironmentType tests ---
 
 
-def test_synthesis_params_duplicate_tool_ids_raises():
-    t1 = _make_generated_tool(id="dup")
-    t2 = _make_generated_tool(id="dup")
-    mt = _make_multiturn_attr(available_tools=["dup"])
-    with pytest.raises(ValueError, match="duplicate tool ids"):
-        GeneralSynthesisParams(
-            tools=[t1, t2],
-            multiturn_attributes=[mt],
-        )
+def test_tool_environment_type_values_exist():
+    assert ToolEnvironmentType.STATEFUL == "stateful"
+    assert ToolEnvironmentType.STATELESS == "stateless"
+    assert ToolEnvironmentType.DETERMINISTIC == "deterministic"
 
 
-# --- ToolOutputStrategy.ENVIRONMENT ---
+# --- Environment + typed tool integration tests ---
 
 
-def test_tool_output_strategy_environment_exists():
-    assert ToolOutputStrategy.ENVIRONMENT == "environment"
-
-
-def _make_environment_tool(**overrides: Any) -> ToolAttribute:
-    defaults: dict[str, Any] = dict(
-        id="tool_env",
-        name="EnvTool",
-        description="An environment tool",
-        output_strategy=ToolOutputStrategy.ENVIRONMENT,
-        environment="my_env",
-        read_only=True,
-    )
-    defaults.update(overrides)
-    return ToolAttribute(**defaults)
-
-
-def test_tool_attribute_environment_valid():
-    tool = _make_environment_tool()
-    assert tool.environment == "my_env"
-    assert tool.read_only is True
-    assert tool.output_strategy == ToolOutputStrategy.ENVIRONMENT
-
-
-def test_tool_attribute_environment_read_only_false():
-    tool = _make_environment_tool(read_only=False)
-    assert tool.read_only is False
-
-
-def test_tool_attribute_environment_strategy_without_env_raises():
-    """ENVIRONMENT strategy requires environment field."""
-    with pytest.raises(ValueError, match="environment must be set"):
-        ToolAttribute(
-            id="t",
-            name="T",
-            description="d",
-            output_strategy=ToolOutputStrategy.ENVIRONMENT,
-        )
-
-
-def test_tool_attribute_env_set_without_environment_strategy_raises():
-    """Setting environment requires ENVIRONMENT strategy."""
-    with pytest.raises(ValueError, match="output_strategy must be ENVIRONMENT"):
-        ToolAttribute(
-            id="t",
-            name="T",
-            description="d",
-            output_strategy=ToolOutputStrategy.GENERATED,
-            environment="some_env",
-            generated_output=GeneratedToolOutput(instruction="x"),
-        )
-
-
-def test_tool_attribute_environment_ignores_generated_output():
-    """ENVIRONMENT tools don't need generated_output or deterministic_outputs."""
-    tool = _make_environment_tool()
-    assert tool.generated_output is None
-    assert tool.deterministic_outputs == []
-
-
-# --- ToolEnvironmentAttribute ---
-
-
-def test_environment_attribute_valid():
-    env = ToolEnvironmentAttribute(
+def test_stateful_environment_valid():
+    env = StatefulEnvironment(
         id="filesystem",
         name="Filesystem",
         description="A simple filesystem",
         system_prompt="You manage a filesystem.",
+        tools=[StatefulTool(id="read", name="Read", description="Read files.")],
     )
     assert env.id == "filesystem"
     assert env.state_schema is None
     assert env.initial_state is None
+    assert isinstance(env.tools[0], StatefulTool)
 
 
-def test_environment_attribute_with_schema_and_state():
+def test_stateful_environment_coerces_dict_tools():
+    env = StatefulEnvironment(
+        id="fs",
+        name="FS",
+        description="d",
+        system_prompt="p",
+        tools=[{"id": "read", "name": "Read", "description": "Read files."}],
+    )
+    assert isinstance(env.tools[0], StatefulTool)
+
+
+def test_deterministic_environment_valid():
+    env = DeterministicEnvironment(
+        id="lookup",
+        name="Lookup",
+        description="A deterministic lookup environment",
+        tools=[
+            DeterministicTool(
+                id="policy",
+                name="Policy",
+                description="Look up policy.",
+                deterministic_outputs=[
+                    DeterministicToolOutput(
+                        input={"id": "1"},
+                        output={"result": "ok"},
+                    )
+                ],
+            )
+        ],
+    )
+    assert not hasattr(env, "system_prompt")
+    assert isinstance(env.tools[0], DeterministicTool)
+
+
+def test_environment_with_schema_and_state():
     schema = {
         "type": "object",
         "properties": {"files": {"type": "object"}},
         "required": ["files"],
     }
     state = {"files": {}}
-    env = ToolEnvironmentAttribute(
+    env = StatefulEnvironment(
         id="fs",
         name="FS",
         description="d",
@@ -280,58 +233,117 @@ def test_environment_attribute_with_schema_and_state():
     assert env.initial_state == state
 
 
-def test_environment_attribute_empty_id_raises():
+def test_environment_empty_id_raises():
     with pytest.raises(ValueError, match="id cannot be empty"):
-        ToolEnvironmentAttribute(id="", name="n", description="d", system_prompt="p")
+        StatefulEnvironment(id="", name="n", description="d", system_prompt="p")
 
 
-def test_environment_attribute_empty_name_raises():
+def test_environment_empty_name_raises():
     with pytest.raises(ValueError, match="name cannot be empty"):
-        ToolEnvironmentAttribute(id="x", name="", description="d", system_prompt="p")
+        StatefulEnvironment(id="x", name="", description="d", system_prompt="p")
 
 
-def test_environment_attribute_empty_description_raises():
+def test_environment_empty_description_raises():
     with pytest.raises(ValueError, match="description cannot be empty"):
-        ToolEnvironmentAttribute(id="x", name="n", description="", system_prompt="p")
-
-
-def test_environment_attribute_empty_system_prompt_raises():
-    with pytest.raises(ValueError, match="system_prompt cannot be empty"):
-        ToolEnvironmentAttribute(id="x", name="n", description="d", system_prompt="")
-
-
-# --- GeneralSynthesisParams with environments ---
-
-
-def test_general_synthesis_params_with_environments():
-    env = ToolEnvironmentAttribute(
-        id="fs", name="FS", description="d", system_prompt="p"
-    )
-    tool = _make_environment_tool(environment="fs")
-    params = GeneralSynthesisParams(
-        environments=[env],
-        tools=[tool],
-        multiturn_attributes=[_make_multiturn_attr(available_tools=["tool_env"])],
-    )
-    assert params.environments is not None
-    assert len(params.environments) == 1
-
-
-def test_general_synthesis_params_tool_references_unknown_env_raises():
-    tool = _make_environment_tool(environment="nonexistent")
-    with pytest.raises(ValueError, match="references unknown environment"):
-        GeneralSynthesisParams(
-            tools=[tool],
-            multiturn_attributes=[_make_multiturn_attr(available_tools=["tool_env"])],
+        StatefulEnvironment(
+            id="x", name="n", description="", system_prompt="p"
         )
 
 
-def test_general_synthesis_params_duplicate_env_ids_raises():
-    env1 = ToolEnvironmentAttribute(
-        id="fs", name="FS1", description="d1", system_prompt="p1"
+def test_stateful_environment_empty_system_prompt_raises():
+    with pytest.raises(ValueError, match="system_prompt cannot be empty"):
+        StatefulEnvironment(
+            id="x", name="n", description="d", system_prompt=""
+        )
+
+
+def test_stateless_environment_empty_system_prompt_raises():
+    with pytest.raises(ValueError, match="system_prompt cannot be empty"):
+        StatelessEnvironment(
+            id="x", name="n", description="d", system_prompt=""
+        )
+
+
+def test_stateless_environment_with_state_schema_raises():
+    with pytest.raises(
+        TypeError, match="unexpected keyword argument 'state_schema'"
+    ):
+        StatelessEnvironment(
+            id="x",
+            name="n",
+            description="d",
+            system_prompt="p",
+            state_schema={"type": "object"},
+        )
+
+
+def test_deterministic_environment_with_initial_state_raises():
+    with pytest.raises(
+        TypeError, match="unexpected keyword argument 'initial_state'"
+    ):
+        DeterministicEnvironment(
+            id="x", name="n", description="d", initial_state={}
+        )
+
+
+def test_environment_duplicate_tool_ids_raises():
+    with pytest.raises(ValueError, match="duplicate tool id 'dup'"):
+        StatefulEnvironment(
+            id="env2",
+            name="Env 2",
+            description="d",
+            system_prompt="p",
+            tools=[
+                StatefulTool(id="dup", name="Read", description="Read files."),
+                StatefulTool(
+                    id="dup", name="Write", description="Write files."
+                ),
+            ],
+        )
+
+
+def test_environment_config_duplicate_tool_ids_across_envs_raises():
+    env1 = StatefulEnvironment(
+        id="env1",
+        name="Env 1",
+        description="d",
+        system_prompt="p",
+        tools=[
+            StatefulTool(id="dup", name="Read", description="Read files.")
+        ],
     )
-    env2 = ToolEnvironmentAttribute(
-        id="fs", name="FS2", description="d2", system_prompt="p2"
+    env2 = StatefulEnvironment(
+        id="env2",
+        name="Env 2",
+        description="d",
+        system_prompt="p",
+        tools=[
+            StatefulTool(id="dup", name="Write", description="Write files.")
+        ],
     )
-    with pytest.raises(ValueError, match="duplicate environment"):
-        GeneralSynthesisParams(environments=[env1, env2])
+    with pytest.raises(ValueError, match="duplicate tool id 'dup'"):
+        EnvironmentConfig(environments=[env1, env2])
+
+
+def test_environment_config_tool_environment_map():
+    env = StatelessEnvironment(
+        id="faq",
+        name="FAQ",
+        description="FAQ tools",
+        system_prompt="Answer FAQs.",
+        tools=[_make_stateless_tool(id="answer_faq")],
+    )
+    config = EnvironmentConfig(environments=[env])
+    assert config.tool_environment_map == {"answer_faq": "faq"}
+
+
+def test_deterministic_environment_requires_outputs_on_tool():
+    with pytest.raises(ValueError, match="must have at least one"):
+        DeterministicEnvironment(
+            id="det_env",
+            name="Deterministic",
+            description="d",
+            tools=[
+                _make_deterministic_tool(deterministic_outputs=[])
+            ],
+        )

@@ -164,6 +164,76 @@ Ready to dive deeper? The sections below cover all available options in detail.
 
 ---
 
+## Environment-First Tool Synthesis
+
+Agentic synthesis now follows an environment-first model. Tools do not declare an output strategy directly. Instead, each tool is bound to an environment, and the environment type defines the execution model.
+
+- **`stateful` environments** maintain shared JSON state. Tool calls read from or update that state, which is how consistency is preserved across turns.
+- **`stateless` environments** generate tool results with an LLM. Responses are cached by input, so the same tool input can reuse the same generated output.
+- **`deterministic` environments** behave like lookup tables. Matching inputs return responses from a predefined set without LLM generation.
+
+At the config level:
+
+- Environments own their tool definitions.
+- Reusable environment catalogs live in top-level `environment_config` or `environment_config_path`.
+- Tools do not declare an `environment` field. The parent environment owns the binding.
+- `generated_output` is only used for tools in `stateless` environments.
+- `deterministic_outputs` is only used for tools in `deterministic` environments.
+- `read_only` is only meaningful for tools in `stateful` environments.
+
+Example:
+
+```yaml
+environment_config:
+  environments:
+    - id: support_backend
+      name: Support Backend
+      description: Simulated support system state
+      type: stateful
+      system_prompt: You manage support system state.
+      tools:
+        - id: get_ticket
+          name: GetTicket
+          description: Read a ticket from the support backend.
+          read_only: true
+
+    - id: faq_lookup
+      name: FAQ Lookup
+      description: Cached LLM-backed FAQ answers
+      type: stateless
+      system_prompt: Generate concise FAQ answers grounded in the tool contract.
+      tools:
+        - id: answer_faq
+          name: AnswerFAQ
+          description: Answer common support questions.
+          generated_output:
+            instruction: Return the FAQ answer for the given question.
+
+    - id: policy_table
+      name: Policy Table
+      description: Predefined policy responses
+      type: deterministic
+      tools:
+        - id: get_refund_policy
+          name: GetRefundPolicy
+          description: Return the matching refund policy.
+          deterministic_outputs:
+            - input:
+                policy_type: standard
+              output:
+                policy: Standard 30-day refund policy
+
+strategy_params:
+  multiturn_attributes:
+    - id: support_chat
+      min_turns: 2
+      max_turns: 4
+      role_instruction_messages:
+        USER: You are a customer contacting support.
+        ASSISTANT: You are a helpful support agent.
+      available_tools: [get_ticket, answer_faq, get_refund_policy]
+```
+
 ## Complete Configuration Reference
 
 ### Top-Level Parameters

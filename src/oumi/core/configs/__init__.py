@@ -83,6 +83,7 @@ from oumi.core.configs.analyze_config import (
 )
 from oumi.core.configs.async_evaluation_config import AsyncEvaluationConfig
 from oumi.core.configs.base_config import BaseConfig
+from oumi.core.configs.environment_config import EnvironmentConfig
 from oumi.core.configs.evaluation_config import EvaluationConfig
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.inference_engine_type import InferenceEngineType
@@ -159,6 +160,16 @@ from oumi.core.configs.quantization_config import QuantizationConfig
 from oumi.core.configs.synthesis_config import SynthesisConfig
 from oumi.core.configs.training_config import TrainingConfig
 from oumi.core.configs.tuning_config import TuningConfig
+from oumi.environments import (
+    BaseEnvironment,
+    BaseTool,
+    DeterministicEnvironment,
+    DeterministicToolOutput,
+    GeneratedToolOutput,
+    StatefulEnvironment,
+    StatelessEnvironment,
+    ToolEnvironmentType,
+)
 from oumi.exceptions import OumiConfigError
 
 __all__ = [
@@ -166,6 +177,7 @@ __all__ = [
     "AutoWrapPolicy",
     "BackwardPrefetch",
     "BaseConfig",
+    "BaseEnvironment",
     "DataParams",
     "DatasetParams",
     "DatasetSplit",
@@ -178,6 +190,7 @@ __all__ = [
     "EvaluationBackend",
     "EvaluationConfig",
     "EvaluationTaskParams",
+    "EnvironmentConfig",
     "FSDPParams",
     "GenerationParams",
     "GrpoParams",
@@ -215,17 +228,24 @@ __all__ = [
     "TuningParams",
     "AttributeCombination",
     "DatasetSourceParam",
+    "DeterministicToolOutput",
+    "DeterministicEnvironment",
     "DocumentSegmentationParams",
     "DocumentSource",
     "ExampleSource",
+    "GeneratedToolOutput",
     "GeneratedAttributePostprocessingParams",
     "GeneralSynthesisParams",
     "GeneratedAttribute",
     "SampledAttribute",
     "SampledAttributeValue",
     "SegmentationStrategy",
+    "StatefulEnvironment",
+    "StatelessEnvironment",
     "TextConversation",
     "TextMessage",
+    "BaseTool",
+    "ToolEnvironmentType",
     "TransformationStrategy",
     "TransformationType",
     "TransformedAttribute",
