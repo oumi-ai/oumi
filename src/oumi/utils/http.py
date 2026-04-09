@@ -46,10 +46,31 @@ _NON_RETRIABLE_STATUS_CODES = {
     422,  # Unprocessable Entity
 }
 
+_RETRIABLE_400_PATTERNS = [
+    # OpenAI intermittently returns this under concurrent load; valid JSON succeeds
+    # on retry. See LOU-1492.
+    "could not parse the json body",
+]
 
-def is_non_retriable_status_code(status_code: int) -> bool:
-    """Check if a status code is non-retriable."""
-    return status_code in _NON_RETRIABLE_STATUS_CODES
+
+def is_non_retriable_status_code(
+    status_code: int, error_message: str | None = None
+) -> bool:
+    """Check if a status code is non-retriable.
+
+    Args:
+        status_code: HTTP status code from the provider.
+        error_message: Optional error message from the response body. When
+            provided for a 400 status, known transient patterns are checked
+            and treated as retriable.
+    """
+    if status_code not in _NON_RETRIABLE_STATUS_CODES:
+        return False
+    if status_code == 400 and error_message is not None:
+        lower_msg = error_message.lower()
+        if any(pattern in lower_msg for pattern in _RETRIABLE_400_PATTERNS):
+            return False
+    return True
 
 
 async def get_failure_reason_from_response(
