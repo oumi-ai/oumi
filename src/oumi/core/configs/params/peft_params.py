@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import re
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Literal
@@ -130,11 +131,25 @@ class PeftParams(BaseParams):
         default=None,
         metadata={"help": "LoRA target modules."},
     )
-    """List of module names/regexes to apply LoRA to.
+    """List of module names or regex patterns to apply LoRA to.
 
     If None, modules that are LoRA-trained are chosen based on the model's architecture.
     Specify ["all-linear"] to apply LoRA to all linear/Conv1D layers in the model.
-    Specify a list of module names to only apply LoRA to those modules in the model.
+    Specify a list of module names to only apply LoRA to those modules in the model
+    (matched by suffix, e.g. "q_proj" matches any module ending in ".q_proj").
+
+    For multimodal models where you need to target specific model components,
+    use regex patterns to scope targeting. For example, to target only the
+    language model layers in Gemma4 (avoiding vision/audio tower layers):
+
+        lora_target_modules:
+          - ".*language_model.*q_proj"
+          - ".*language_model.*v_proj"
+
+    When any item contains regex metacharacters (.*+?|), all items are
+    joined into a single regex string and matched via re.fullmatch against
+    full module paths.
+
     Finally, specifying [] to avoid targeting any modules (ex. if you want to set
     lora_target_parameters instead).
     """
@@ -320,6 +335,15 @@ class PeftParams(BaseParams):
         target_modules = self.lora_target_modules
         if target_modules == ["all-linear"]:
             target_modules = "all-linear"
+        elif target_modules and any(
+            re.search(r"[.*+?\\^$|()]", m) for m in target_modules
+        ):
+            # Items contain regex metacharacters — join into a single regex
+            # string so PEFT uses re.fullmatch instead of suffix matching.
+            # This is needed for multimodal models (e.g. Gemma4) where
+            # plain names like "q_proj" would match both language model and
+            # vision/audio tower layers, causing errors on unsupported types.
+            target_modules = "|".join(f"({m})" for m in target_modules)
 
         return LoraConfig(
             r=self.lora_r,
