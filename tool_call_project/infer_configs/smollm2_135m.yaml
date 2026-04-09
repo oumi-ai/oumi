@@ -1,0 +1,8 @@
+model:
+  model_name: "HuggingFaceTB/SmolLM2-135M-Instruct"
+  trust_remote_code: true
+  torch_dtype_str: "bfloat16"
+
+generation:
+  max_new_tokens: 2048
+  temperature: 0.0

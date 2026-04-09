@@ -1,0 +1,80 @@
+model:
+  model_name: "Qwen/Qwen2.5-1.5B-Instruct"
+  model_max_length: 4096
+  load_pretrained_weights: True
+  trust_remote_code: True
+  attn_implementation: "sdpa"
+
+data:
+  train:
+    datasets:
+      - dataset_name: text_sft_jsonl
+        dataset_path: /data/shanghong/oumi/tool_call_project/data/hermes_reasoning_tool_use_train_split_train_filtered.jsonl
+        dataset_kwargs:
+          return_conversations: True
+          return_conversations_format: "dict"
+    target_col: "messages"
+    collator_name: "tool_aware_completions_only"
+    collator_kwargs:
+      response_template: "<|im_start|>assistant\n"
+      end_of_turn_template: "<|im_end|>"
+      mask_tool_calls: false
+      tool_call_start_template: "<tool_call>"
+    seed: 42
+  validation:
+    datasets:
+      - dataset_name: text_sft_jsonl
+        dataset_path: /data/shanghong/oumi/tool_call_project/data/hermes_reasoning_tool_use_val_split_train_filtered.jsonl
+        dataset_kwargs:
+          return_conversations: True
+          return_conversations_format: "dict"
+    target_col: "messages"
+    collator_name: "tool_aware_completions_only"
+    collator_kwargs:
+      response_template: "<|im_start|>assistant\n"
+      end_of_turn_template: "<|im_end|>"
+      mask_tool_calls: false
+      tool_call_start_template: "<tool_call>"
+    seed: 42
+
+training:
+  trainer_type: "TRL_SFT"
+  output_dir: "/data/shanghong/oumi/tool_call_project/output/qwen2.5_1.5b_sft_tool_call"
+  run_name: "qwen2.5_1.5b_sft_tool_call"
+
+  num_train_epochs: 2
+
+  per_device_train_batch_size: 2 # EBS: 32
+  per_device_eval_batch_size: 4
+  gradient_accumulation_steps: 2
+  max_grad_norm: 1
+
+  enable_gradient_checkpointing: True
+  gradient_checkpointing_kwargs:
+    use_reentrant: False
+  compile: False
+
+  optimizer: "adamw_torch"
+  learning_rate: 1.0e-05
+
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.05
+
+  logging_first_step: True
+  eval_strategy: "steps"
+  eval_steps: 200
+
+  save_steps: 200
+
+  logging_steps: 10
+  enable_wandb: True
+
+  empty_device_cache_steps: 50
+  include_performance_metrics: True
+
+fsdp:
+  enable_fsdp: True
+  forward_prefetch: True
+  sharding_strategy: "HYBRID_SHARD"
+  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
+  transformer_layer_cls: "Qwen2DecoderLayer"

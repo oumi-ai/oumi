@@ -1,0 +1,12 @@
+model:
+  model_name: "deepseek-ai/DeepSeek-V3.1"
+
+engine: TOGETHER
+
+generation:
+  max_new_tokens: 2048
+  temperature: 0.0
+
+remote_params:
+  num_workers: 50
+  max_retries: 5

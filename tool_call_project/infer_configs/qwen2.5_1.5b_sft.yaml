@@ -1,0 +1,8 @@
+model:
+  model_name: "/data/shanghong/oumi/tool_call_project/output/qwen2.5_1.5b_sft_tool_call"
+  trust_remote_code: true
+  torch_dtype_str: "bfloat16"
+
+generation:
+  max_new_tokens: 2048
+  temperature: 0.0
