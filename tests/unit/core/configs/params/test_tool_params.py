@@ -97,9 +97,7 @@ def test_deterministic_tool_output_no_match():
 # --- BaseTool tests ---
 
 
-@pytest.mark.parametrize(
-    "field,value", [("id", ""), ("name", ""), ("description", "")]
-)
+@pytest.mark.parametrize("field,value", [("id", ""), ("name", ""), ("description", "")])
 def test_base_tool_empty_field_raises(field, value):
     with pytest.raises(ValueError, match=f"{field} cannot be empty"):
         BaseTool(**{"id": "t", "name": "T", "description": "d", **{field: value}})
@@ -110,9 +108,7 @@ def test_base_tool_empty_field_raises(field, value):
 
 def test_deterministic_tool_requires_outputs():
     with pytest.raises(ValueError, match="must have at least one"):
-        DeterministicTool(
-            id="t", name="T", description="d", deterministic_outputs=[]
-        )
+        DeterministicTool(id="t", name="T", description="d", deterministic_outputs=[])
 
 
 def test_deterministic_tool_duplicate_inputs_raises():
@@ -127,12 +123,8 @@ def test_deterministic_tool_duplicate_inputs_raises():
 def test_deterministic_tool_resolve_match():
     tool = _make_deterministic_tool(
         deterministic_outputs=[
-            DeterministicToolOutput(
-                input={"id": "01"}, output={"msg": "pending"}
-            ),
-            DeterministicToolOutput(
-                input={"id": "02"}, output={"msg": "delivered"}
-            ),
+            DeterministicToolOutput(input={"id": "01"}, output={"msg": "pending"}),
+            DeterministicToolOutput(input={"id": "02"}, output={"msg": "delivered"}),
         ]
     )
     assert tool.resolve_deterministic({"id": "01"}) == {"msg": "pending"}
@@ -149,9 +141,7 @@ def test_deterministic_tool_resolve_no_match():
 
 def test_stateless_tool_requires_generated_output():
     with pytest.raises(ValueError, match="must have a generated_output"):
-        StatelessTool(
-            id="t", name="T", description="d", generated_output=None
-        )
+        StatelessTool(id="t", name="T", description="d", generated_output=None)
 
 
 # --- ToolEnvironmentType tests ---
@@ -245,29 +235,21 @@ def test_environment_empty_name_raises():
 
 def test_environment_empty_description_raises():
     with pytest.raises(ValueError, match="description cannot be empty"):
-        StatefulEnvironment(
-            id="x", name="n", description="", system_prompt="p"
-        )
+        StatefulEnvironment(id="x", name="n", description="", system_prompt="p")
 
 
 def test_stateful_environment_empty_system_prompt_raises():
     with pytest.raises(ValueError, match="system_prompt cannot be empty"):
-        StatefulEnvironment(
-            id="x", name="n", description="d", system_prompt=""
-        )
+        StatefulEnvironment(id="x", name="n", description="d", system_prompt="")
 
 
 def test_stateless_environment_empty_system_prompt_raises():
     with pytest.raises(ValueError, match="system_prompt cannot be empty"):
-        StatelessEnvironment(
-            id="x", name="n", description="d", system_prompt=""
-        )
+        StatelessEnvironment(id="x", name="n", description="d", system_prompt="")
 
 
 def test_stateless_environment_with_state_schema_raises():
-    with pytest.raises(
-        TypeError, match="unexpected keyword argument 'state_schema'"
-    ):
+    with pytest.raises(TypeError, match="unexpected keyword argument 'state_schema'"):
         StatelessEnvironment(
             id="x",
             name="n",
@@ -278,12 +260,8 @@ def test_stateless_environment_with_state_schema_raises():
 
 
 def test_deterministic_environment_with_initial_state_raises():
-    with pytest.raises(
-        TypeError, match="unexpected keyword argument 'initial_state'"
-    ):
-        DeterministicEnvironment(
-            id="x", name="n", description="d", initial_state={}
-        )
+    with pytest.raises(TypeError, match="unexpected keyword argument 'initial_state'"):
+        DeterministicEnvironment(id="x", name="n", description="d", initial_state={})
 
 
 def test_environment_duplicate_tool_ids_raises():
@@ -295,9 +273,7 @@ def test_environment_duplicate_tool_ids_raises():
             system_prompt="p",
             tools=[
                 StatefulTool(id="dup", name="Read", description="Read files."),
-                StatefulTool(
-                    id="dup", name="Write", description="Write files."
-                ),
+                StatefulTool(id="dup", name="Write", description="Write files."),
             ],
         )
 
@@ -308,18 +284,14 @@ def test_environment_config_duplicate_tool_ids_across_envs_raises():
         name="Env 1",
         description="d",
         system_prompt="p",
-        tools=[
-            StatefulTool(id="dup", name="Read", description="Read files.")
-        ],
+        tools=[StatefulTool(id="dup", name="Read", description="Read files.")],
     )
     env2 = StatefulEnvironment(
         id="env2",
         name="Env 2",
         description="d",
         system_prompt="p",
-        tools=[
-            StatefulTool(id="dup", name="Write", description="Write files.")
-        ],
+        tools=[StatefulTool(id="dup", name="Write", description="Write files.")],
     )
     with pytest.raises(ValueError, match="duplicate tool id 'dup'"):
         EnvironmentConfig(environments=[env1, env2])
@@ -343,7 +315,5 @@ def test_deterministic_environment_requires_outputs_on_tool():
             id="det_env",
             name="Deterministic",
             description="d",
-            tools=[
-                _make_deterministic_tool(deterministic_outputs=[])
-            ],
+            tools=[_make_deterministic_tool(deterministic_outputs=[])],
         )

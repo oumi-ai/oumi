@@ -49,9 +49,7 @@ class StatelessTool(BaseTool):
         """Validate stateless tool fields."""
         super().__post_init__()
         if self.generated_output is None:
-            raise ValueError(
-                f"StatelessTool '{self.id}' must have a generated_output."
-            )
+            raise ValueError(f"StatelessTool '{self.id}' must have a generated_output.")
 
     @classmethod
     def create(cls, raw: Mapping[str, Any] | BaseTool) -> StatelessTool:
@@ -65,8 +63,7 @@ class StatelessTool(BaseTool):
             )
         if not isinstance(raw, Mapping):
             raise TypeError(
-                f"Tool definitions must be tool objects or mappings, "
-                f"got {type(raw)}"
+                f"Tool definitions must be tool objects or mappings, got {type(raw)}"
             )
         generated_output = raw.get("generated_output")
         if isinstance(generated_output, Mapping):
@@ -125,9 +122,7 @@ class StatelessEnvironment(BaseEnvironment):
         """Build a stable cache key from tool id and arguments."""
         return f"{tool_id}::{json.dumps(arguments, sort_keys=True)}"
 
-    def resolve_cached(
-        self, tool_id: str, arguments: dict[str, Any]
-    ) -> str | None:
+    def resolve_cached(self, tool_id: str, arguments: dict[str, Any]) -> str | None:
         """Look up a cached result for the given tool call."""
         if not self.cache_by_input:
             return None

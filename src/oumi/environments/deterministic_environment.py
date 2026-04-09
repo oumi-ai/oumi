@@ -75,9 +75,7 @@ class DeterministicTool(BaseTool):
                 )
             seen.add(key)
 
-    def resolve_deterministic(
-        self, arguments: dict[str, Any]
-    ) -> dict[str, Any] | None:
+    def resolve_deterministic(self, arguments: dict[str, Any]) -> dict[str, Any] | None:
         """Resolve a deterministic output for the given arguments."""
         for entry in self.deterministic_outputs:
             if entry.matches(arguments):
@@ -96,8 +94,7 @@ class DeterministicTool(BaseTool):
             )
         if not isinstance(raw, Mapping):
             raise TypeError(
-                f"Tool definitions must be tool objects or mappings, "
-                f"got {type(raw)}"
+                f"Tool definitions must be tool objects or mappings, got {type(raw)}"
             )
         deterministic_outputs = [
             entry
@@ -135,9 +132,7 @@ class DeterministicEnvironment(BaseEnvironment):
     def _validate_type_specific(self) -> None:
         return
 
-    def resolve(
-        self, tool_id: str, arguments: dict[str, Any]
-    ) -> dict[str, Any] | None:
+    def resolve(self, tool_id: str, arguments: dict[str, Any]) -> dict[str, Any] | None:
         """Resolve a deterministic tool call to its output.
 
         Raises:
