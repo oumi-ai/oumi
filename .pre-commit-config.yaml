@@ -40,6 +40,12 @@ repos:
         types_or: [python, pyi, jupyter]
   - repo: local
     hooks:
+      - id: check-apache-license-header
+        name: check apache license header
+        entry: python scripts/check_apache_license_header.py
+        language: python
+        types: [python]
+        files: ^src/oumi/
       - id: pyright
         name: pyright
         entry: env PYRIGHT_PYTHON_PYLANCE_VERSION=latest-release pyright
