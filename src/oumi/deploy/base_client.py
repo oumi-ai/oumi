@@ -19,7 +19,8 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from pathlib import Path
+from typing import Any, AsyncContextManager
 
 
 class DeploymentProvider(str, Enum):
@@ -106,6 +107,11 @@ class Endpoint:
 # Async callback for upload/deploy progress updates.
 # Signature: ``async def callback(stage: str, message: str, details: dict)``
 ProgressCallback = Callable[[str, str, dict[str, Any]], Awaitable[None]]
+
+# Async context manager that yields a local Path for a given filename.
+# Used to provide model files one-at-a-time during upload so only one shard
+# is on disk at any moment (peak disk usage = size of one shard, not full model).
+FileResolver = Callable[[str], AsyncContextManager[Path]]
 
 
 class BaseDeploymentClient(ABC):
