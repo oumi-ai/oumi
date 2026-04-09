@@ -46,7 +46,11 @@ class SynthesisPipeline:
             else None
         )
         self._conversation_synthesizer = (
-            ConversationSynthesizer(config.strategy_params, config.inference_config)
+            ConversationSynthesizer(
+                config.strategy_params,
+                config.inference_config,
+                environment_config=config.environment_config,
+            )
             if config.strategy_params.multiturn_attributes
             else None
         )

@@ -22,10 +22,6 @@ from pathlib import Path
 from typing import Any
 
 from oumi.core.configs.params.base_params import BaseParams
-from oumi.core.configs.params.tool_params import (
-    ToolAttribute,
-    ToolEnvironmentAttribute,
-)
 from oumi.core.types.conversation import Conversation, Message, Role
 
 _SUPPORTED_DATASET_FILE_TYPES = {".jsonl", ".json", ".csv", ".parquet", ".tsv", ".xlsx"}
@@ -478,9 +474,11 @@ class MultiTurnAttribute:
     Allows user to specify custom instructions for the planner while planning
     out the conversation."""
 
+    available_environments: list[str] = field(default_factory=list)
+    """List of environment ids availabe in this conversation."""
+
     available_tools: list[str] = field(default_factory=list)
-    """List of tool ids (from GeneralSynthesisParams.tools) available in this
-    conversation."""
+    """List of tool ids available in this conversation."""
 
     max_tool_calls_per_turn: int = 50
     """Safety ceiling for tool calls per ASSISTANT turn. The agent naturally stops
@@ -564,6 +562,18 @@ class MultiTurnAttribute:
                 if not isinstance(tool, str):
                     raise ValueError(
                         "MultiTurnAttribute.available_tools must be a list of strings."
+                    )
+        if self.available_environments is not None:
+            if not isinstance(self.available_environments, list):
+                raise ValueError(
+                    "MultiTurnAttribute.available_environments must be a list of "
+                    "environment ids."
+                )
+            for environment in self.available_environments:
+                if not isinstance(environment, str):
+                    raise ValueError(
+                        "MultiTurnAttribute.available_environments must be a list "
+                        "of strings."
                     )
 
 
@@ -793,45 +803,6 @@ class GeneralSynthesisParams(BaseParams):
         ]
     """
 
-    tools: list[ToolAttribute] | None = None
-    """Tool definitions for agentic synthesis.
-
-    Tools are defined here and referenced by id from
-    MultiTurnAttribute.available_tools. Each tool specifies its parameters
-    (input schema), output_schema, and output strategy (DETERMINISTIC or
-    GENERATED).
-
-    Example::
-
-        tools = [
-            ToolAttribute(
-                id="search",
-                name="WebSearch",
-                description="Searches the web for the given query.",
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "query": {
-                            "type": "string",
-                            "description": "The search query.",
-                        }
-                    },
-                    "required": ["query"],
-                },
-                output_strategy=ToolOutputStrategy.GENERATED,
-                generated_output=GeneratedToolOutput(
-                    instruction="Return relevant search results.",
-                ),
-            ),
-        ]
-    """
-
-    environments: list[ToolEnvironmentAttribute] | None = None
-    """Environment definitions for stateful tool synthesis.
-
-    Environments are stateful containers that tools operate on. Tools
-    reference environments by id via ToolAttribute.environment."""
-
     transformed_attributes: list[TransformedAttribute] | None = None
     """Transformation of existing attributes.
 
@@ -974,80 +945,6 @@ class GeneralSynthesisParams(BaseParams):
             self.passthrough_attributes = None
             return
 
-    def _check_environment_ids(self) -> None:
-        """Validate environment ids are unique."""
-        if not self.environments:
-            self.environments = None
-            return
-
-        env_ids = [env.id for env in self.environments]
-        if len(env_ids) != len(set(env_ids)):
-            seen: set[str] = set()
-            dupes = [e for e in env_ids if e in seen or seen.add(e)]  # type: ignore[func-returns-value]
-            raise ValueError(
-                f"GeneralSynthesisParams.environments contains "
-                f"duplicate environment ids: {dupes}"
-            )
-
-    def _check_tool_environment_references(self) -> None:
-        """Validate that tool.environment references valid environment ids."""
-        if not self.tools:
-            return
-
-        env_ids: set[str] = set()
-        if self.environments:
-            env_ids = {env.id for env in self.environments}
-
-        for tool in self.tools:
-            if tool.environment and tool.environment not in env_ids:
-                raise ValueError(
-                    f"ToolAttribute '{tool.id}' references unknown "
-                    f"environment '{tool.environment}'. "
-                    f"Defined environment ids: {sorted(env_ids)}"
-                )
-
-    def _check_available_tools(self) -> None:
-        """Validate that available_tools ids reference defined tools."""
-        if not self.multiturn_attributes:
-            self.multiturn_attributes = None
-            return
-
-        # Collect all tool ids referenced by any multiturn attribute
-        all_referenced = [
-            tool_id
-            for mt_attr in self.multiturn_attributes
-            for tool_id in mt_attr.available_tools
-        ]
-
-        if not all_referenced:
-            if not self.tools:
-                self.tools = None
-            return
-
-        if not self.tools:
-            raise ValueError(
-                "GeneralSynthesisParams.tools must be defined when "
-                "MultiTurnAttribute.available_tools is non-empty. "
-                f"Referenced tool ids: {sorted(set(all_referenced))}"
-            )
-
-        tool_id_list = [tool.id for tool in self.tools]
-        tool_ids = set(tool_id_list)
-        if len(tool_id_list) != len(tool_ids):
-            seen: set[str] = set()
-            dupes = [t for t in tool_id_list if t in seen or seen.add(t)]  # type: ignore[func-returns-value]
-            raise ValueError(
-                f"GeneralSynthesisParams.tools contains duplicate tool ids: {dupes}"
-            )
-
-        for mt_attr in self.multiturn_attributes:
-            for tool_id in mt_attr.available_tools:
-                if tool_id not in tool_ids:
-                    raise ValueError(
-                        f"MultiTurnAttribute '{mt_attr.id}' references unknown "
-                        f"tool '{tool_id}'. Defined tool ids: {sorted(tool_ids)}"
-                    )
-
     def __post_init__(self):
         """Verifies/populates params."""
         self._reserved_attribute_ids = self._get_reserved_attribute_ids()
@@ -1061,6 +958,3 @@ class GeneralSynthesisParams(BaseParams):
         self._check_transformed_attribute_ids(all_attribute_ids)
         self._check_passthrough_attribute_ids()
         self._check_combination_sampling_sample_rates()
-        self._check_available_tools()
-        self._check_environment_ids()
-        self._check_tool_environment_references()
