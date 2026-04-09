@@ -15,6 +15,7 @@
 """Unit tests for Fireworks.ai deployment client."""
 
 import os
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -698,8 +699,6 @@ class TestUploadModelFromInventory:
         async def mock_wait(*args, **kwargs) -> None:
             calls.append("validate")
 
-        from contextlib import asynccontextmanager
-
         @asynccontextmanager
         async def mock_resolver(filename: str):
             yield fake_file
@@ -736,13 +735,9 @@ class TestUploadModelFromInventory:
         """upload_model_from_inventory raises for names that violate Fireworks rules."""
         client = self._make_client()
 
-        from contextlib import asynccontextmanager
-
         @asynccontextmanager
         async def mock_resolver(filename: str):
             yield tmp_path / filename
-
-        from oumi.deploy.fireworks_client import FireworksInvalidModelIdError
 
         with pytest.raises(FireworksInvalidModelIdError):
             await client.upload_model_from_inventory(
@@ -769,8 +764,6 @@ class TestUploadModelFromInventory:
 
         # Map filename → temp file for the mock resolver
         files_map = {"config.json": file_a, "model.safetensors": file_b}
-
-        from contextlib import asynccontextmanager
 
         @asynccontextmanager
         async def mock_resolver(filename: str):
