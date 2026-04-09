@@ -314,6 +314,7 @@ def test_synthesize_with_multiturn_attributes(
     mock_conv_synth_class.assert_called_once_with(
         synthesis_config_with_multiturn_attributes.strategy_params,
         synthesis_config_with_multiturn_attributes.inference_config,
+        environment_config=None,
     )
     mock_conv_synth.synthesize.assert_called_once_with(sample_dataset, multiturn_attr)
     assert all(multiturn_attr.id in item for item in result)
