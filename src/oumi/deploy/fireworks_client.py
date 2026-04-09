@@ -392,7 +392,6 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             # which files to expect.  For adapter uploads, only PEFT files are
             # included (Fireworks rejects non-adapter files for HF_PEFT_ADDON).
             file_inventory = self._collect_file_inventory(model_dir, model_type)
-            hf_files = sorted(file_inventory.keys())
 
             # Step 2b: For adapters, read adapter_config.json so we can
             # populate peftDetails with the real r and target_modules.
@@ -537,6 +536,13 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         """
         total_bytes = sum(file_sizes.values())
         _MB = 1024 * 1024
+        if "config.json" in file_sizes:
+            logger.info("config.json found (%d bytes)", file_sizes["config.json"])
+        else:
+            logger.error(
+                "config.json NOT found in model files: %s",
+                list(file_sizes.keys()),
+            )
         logger.info(
             "Uploading %d files (%.1f MB) via resolver",
             len(file_sizes),
