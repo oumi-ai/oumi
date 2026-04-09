@@ -27,22 +27,38 @@ class TextCompletionsCollatorWithPadding:
     def __init__(
         self,
         tokenizer: BaseTokenizer,
-        instruction_prefix: str,
-        response_prefix: str,
+        response_prefix: str | list[int],
+        instruction_prefix: str | list[int] | None = None,
         debug: bool = False,
+        end_of_turn_template: str | list[int] | None = None,
+        mask_tool_calls: bool = False,
+        tool_call_start_template: str | list[int] | None = None,
+        ignore_index: int = -100,
     ):
         """Custom collator for text LLM training.
 
         Args:
         tokenizer: The tokenizer used for encoding the data.
-        instruction_prefix: The prefix marking the beginning of the user instruction.
         response_prefix: The prefix marking the beginning of the assistant response.
+        instruction_prefix: The prefix marking the beginning of the user instruction.
+            Optional when using span-based masking via end_of_turn_template.
         debug: If True, enables debug mode for logging.
+        end_of_turn_template: String or token-ID list marking end of turn.
+            When provided, enables span-based masking for tool-aware conversations.
+        mask_tool_calls: When True, re-masks assistant spans containing tool calls.
+        tool_call_start_template: String or token-ID list marking tool-call start.
+            Required when mask_tool_calls=True.
+        ignore_index: Value used for masked labels. Must match the ignore_index
+            of the loss function (default: -100).
         """
         self._default_collator = DataCollatorForCompletionOnlyLM(
             tokenizer=tokenizer,
             instruction_template=instruction_prefix,
             response_template=response_prefix,
+            end_of_turn_template=end_of_turn_template,
+            mask_tool_calls=mask_tool_calls,
+            tool_call_start_template=tool_call_start_template,
+            ignore_index=ignore_index,
         )
 
         if not hasattr(tokenizer, "pad_token_id") or tokenizer.pad_token_id is None:

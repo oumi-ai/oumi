@@ -146,19 +146,12 @@ def test_build_collator_from_config_with_collator(
     assert callable(collator)
 
 
-def test_build_data_collator_tool_aware_completions(mock_tokenizer):
-    collator_name = "tool_aware_completions_only"
+def test_build_data_collator_text_completions_with_tool_kwargs(mock_tokenizer):
+    collator_name = "text_completions_only_with_padding"
     resp = "<|im_start|>" + "assistant\n"
     eot = "<|im_end|>"
 
-    with pytest.raises(ValueError, match="response_template"):
-        build_data_collator(collator_name, mock_tokenizer, max_length=None)
-
-    with pytest.raises(ValueError, match="end_of_turn_template"):
-        build_data_collator(
-            collator_name, mock_tokenizer, max_length=None, response_template=resp
-        )
-
+    # Basic build with end_of_turn_template
     collator = build_data_collator(
         collator_name,
         mock_tokenizer,
@@ -168,8 +161,11 @@ def test_build_data_collator_tool_aware_completions(mock_tokenizer):
     )
     assert collator is not None
     assert callable(collator)
-    assert collator.ignore_index == constants.LABEL_IGNORE_INDEX
 
+    # Default label_ignore_index is forwarded
+    assert collator._default_collator.ignore_index == constants.LABEL_IGNORE_INDEX
+
+    # Custom label_ignore_index is forwarded
     collator_custom = build_data_collator(
         collator_name,
         mock_tokenizer,
@@ -178,7 +174,20 @@ def test_build_data_collator_tool_aware_completions(mock_tokenizer):
         response_template=resp,
         end_of_turn_template=eot,
     )
-    assert collator_custom.ignore_index == -200
+    assert collator_custom._default_collator.ignore_index == -200
+
+    # With mask_tool_calls
+    collator_tc = build_data_collator(
+        collator_name,
+        mock_tokenizer,
+        max_length=None,
+        response_template=resp,
+        end_of_turn_template=eot,
+        mask_tool_calls=True,
+        tool_call_start_template="<tool_call>",
+    )
+    assert collator_tc is not None
+    assert callable(collator_tc)
 
 
 def test_build_collator_from_config_no_collator(mock_tokenizer):
