@@ -442,11 +442,9 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         model_name: str,
         file_inventory: dict[str, int],
         file_resolver: FileResolver,
-        model_type: ModelType = ModelType.FULL,
-        base_model: str | None = None,
         progress_callback: ProgressCallback | None = None,
     ) -> UploadedModel:
-        """Uploads a model using a pre-computed file inventory and resolver.
+        """Uploads a full model using a pre-computed file inventory and resolver.
 
         Unlike ``upload_model()`` which requires all files on local disk, this
         method accepts a ``file_inventory`` (filenames → sizes in bytes) and a
@@ -454,26 +452,31 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         streaming from cloud storage one file at a time, keeping peak disk usage
         to the size of a single shard rather than the full model.
 
+        Only FULL model uploads are supported. Adapter (LoRA) uploads require
+        reading adapter_config.json and verifying the base model — see
+        ``upload_model()`` for that path.
+
         Args:
             model_name: Fireworks model ID (e.g., ``"my-custom-model"``).
             file_inventory: Mapping of relative filename to file size in bytes.
             file_resolver: Async context manager factory.  For each filename,
                 ``file_resolver(filename)`` must yield a local ``Path`` to the
                 file and clean up after the ``async with`` block exits.
-            model_type: FULL or ADAPTER (default: FULL).
-            base_model: Required for ADAPTER uploads.
             progress_callback: Optional async progress callback.
 
         Returns:
             ``UploadedModel`` with the Fireworks provider model ID.
         """
+        # TODO: Add adapter support. Requires accepting adapter_config dict
+        # and base_model, plus the same validation upload_model() does
+        # (_verify_base_model_exists, target_modules check).
         _validate_fireworks_model_id(model_name)
         hf_files = sorted(file_inventory.keys())
 
         create_payload = await self._create_model_resource(
             model_name,
-            model_type,
-            base_model,
+            ModelType.FULL,
+            None,
             progress_callback,
             huggingface_files=hf_files,
         )
