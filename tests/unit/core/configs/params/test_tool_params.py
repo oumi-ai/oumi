@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Any
+
 import pytest
 
 from oumi.core.configs.environment_config import EnvironmentConfig
@@ -29,8 +31,8 @@ from oumi.environments import (
 )
 
 
-def _make_deterministic_tool(**overrides) -> DeterministicTool:
-    defaults = dict(
+def _make_deterministic_tool(**overrides: Any) -> DeterministicTool:
+    defaults: dict[str, Any] = dict(
         id="tool1",
         name="MyTool",
         description="A tool",
@@ -42,8 +44,8 @@ def _make_deterministic_tool(**overrides) -> DeterministicTool:
     return DeterministicTool(**defaults)
 
 
-def _make_stateless_tool(**overrides) -> StatelessTool:
-    defaults = dict(
+def _make_stateless_tool(**overrides: Any) -> StatelessTool:
+    defaults: dict[str, Any] = dict(
         id="tool2",
         name="GenTool",
         description="A generated tool",
@@ -53,8 +55,8 @@ def _make_stateless_tool(**overrides) -> StatelessTool:
     return StatelessTool(**defaults)
 
 
-def _make_stateful_tool(**overrides) -> StatefulTool:
-    defaults = dict(
+def _make_stateful_tool(**overrides: Any) -> StatefulTool:
+    defaults: dict[str, Any] = dict(
         id="tool3",
         name="StatefulTool",
         description="A stateful tool",
@@ -176,7 +178,7 @@ def test_stateful_environment_coerces_dict_tools():
         name="FS",
         description="d",
         system_prompt="p",
-        tools=[{"id": "read", "name": "Read", "description": "Read files."}],
+        tools=[{"id": "read", "name": "Read", "description": "Read files."}],  # type: ignore[arg-type]
     )
     assert isinstance(env.tools[0], StatefulTool)
 
@@ -255,13 +257,13 @@ def test_stateless_environment_with_state_schema_raises():
             name="n",
             description="d",
             system_prompt="p",
-            state_schema={"type": "object"},
+            state_schema={"type": "object"},  # type: ignore[call-arg]
         )
 
 
 def test_deterministic_environment_with_initial_state_raises():
     with pytest.raises(TypeError, match="unexpected keyword argument 'initial_state'"):
-        DeterministicEnvironment(id="x", name="n", description="d", initial_state={})
+        DeterministicEnvironment(id="x", name="n", description="d", initial_state={})  # type: ignore[call-arg]
 
 
 def test_environment_duplicate_tool_ids_raises():
