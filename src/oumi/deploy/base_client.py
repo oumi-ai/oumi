@@ -15,7 +15,8 @@
 """Base types and interfaces for deployment clients."""
 
 from abc import ABC, abstractmethod
-from collections.abc import AsyncContextManager, Awaitable, Callable
+from collections.abc import Awaitable, Callable
+from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -111,7 +112,7 @@ ProgressCallback = Callable[[str, str, dict[str, Any]], Awaitable[None]]
 # Async context manager that yields a local Path for a given filename.
 # Used to provide model files one-at-a-time during upload so only one shard
 # is on disk at any moment (peak disk usage = size of one shard, not full model).
-FileResolver = Callable[[str], AsyncContextManager[Path]]
+FileResolver = Callable[[str], AbstractAsyncContextManager[Path]]
 
 
 class BaseDeploymentClient(ABC):
