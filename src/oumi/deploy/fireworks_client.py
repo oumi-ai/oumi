@@ -492,6 +492,10 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             request_payload=create_payload,
         )
 
+    # ------------------------------------------------------------------
+    # upload_model — private helpers
+    # ------------------------------------------------------------------
+
     async def _upload_model_files_with_resolver(
         self,
         model_id: str,
@@ -580,10 +584,6 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             f"All {total_files} files uploaded ({total_bytes / _MB:.1f} MB total)",
             {"status": "complete", "total_files": total_files},
         )
-
-    # ------------------------------------------------------------------
-    # upload_model — private helpers
-    # ------------------------------------------------------------------
 
     async def _create_model_resource(
         self,
