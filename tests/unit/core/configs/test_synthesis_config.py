@@ -116,9 +116,7 @@ def test_synthesis_config_with_top_level_environment_config():
     )
 
     assert config.environment_config == env_config
-    assert config.environment_config.tool_environment_map == {
-        "answer_faq": "faq"
-    }
+    assert config.environment_config.tool_environment_map == {"answer_faq": "faq"}
 
 
 def test_synthesis_config_loads_environment_config_from_path(tmp_path):
@@ -177,9 +175,7 @@ def test_synthesis_config_validates_available_tools():
     assert config.environment_config is not None
     assert config.environment_config.all_tools[0].id == "answer_faq"
     mt_attr = params.multiturn_attributes[0]
-    assert [t.id for t in config.resolve_multiturn_tools(mt_attr)] == [
-        "answer_faq"
-    ]
+    assert [t.id for t in config.resolve_multiturn_tools(mt_attr)] == ["answer_faq"]
 
 
 def test_synthesis_config_requires_environment_config_for_available_tools():
@@ -198,9 +194,7 @@ def test_synthesis_config_requires_environment_config_for_available_tools():
         ]
     )
 
-    with pytest.raises(
-        ValueError, match="Environment or tool references require"
-    ):
+    with pytest.raises(ValueError, match="Environment or tool references require"):
         SynthesisConfig(strategy_params=params)
 
 
@@ -232,9 +226,7 @@ def test_synthesis_config_validates_available_environments():
     )
 
     with pytest.raises(ValueError, match="references unknown environment"):
-        SynthesisConfig(
-            strategy_params=params, environment_config=env_config
-        )
+        SynthesisConfig(strategy_params=params, environment_config=env_config)
 
 
 def test_synthesis_config_restricts_tools_to_selected_environments():
@@ -279,9 +271,7 @@ def test_synthesis_config_restricts_tools_to_selected_environments():
     )
 
     with pytest.raises(ValueError, match="references unknown tool"):
-        SynthesisConfig(
-            strategy_params=params, environment_config=env_config
-        )
+        SynthesisConfig(strategy_params=params, environment_config=env_config)
 
 
 def test_synthesis_config_resolves_all_tools_from_selected_environments():
@@ -320,15 +310,15 @@ def test_synthesis_config_resolves_all_tools_from_selected_environments():
         available_environments=["faq", "files"],
     )
     config = SynthesisConfig(
-        strategy_params=GeneralSynthesisParams(
-            multiturn_attributes=[mt_attr]
-        ),
+        strategy_params=GeneralSynthesisParams(multiturn_attributes=[mt_attr]),
         environment_config=env_config,
     )
 
-    assert [
-        env.id for env in config.resolve_multiturn_environments(mt_attr)
-    ] == ["faq", "files"]
-    assert [
-        tool.id for tool in config.resolve_multiturn_tools(mt_attr)
-    ] == ["answer_faq", "read_file"]
+    assert [env.id for env in config.resolve_multiturn_environments(mt_attr)] == [
+        "faq",
+        "files",
+    ]
+    assert [tool.id for tool in config.resolve_multiturn_tools(mt_attr)] == [
+        "answer_faq",
+        "read_file",
+    ]
