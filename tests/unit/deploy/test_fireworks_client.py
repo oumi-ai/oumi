@@ -770,10 +770,15 @@ class TestUploadModelFromInventory:
             resolved.append(filename)
             yield files_map[filename]
 
-        async def mock_upload_single_file(file_path, file_size, signed_url, *args, **kwargs):
+        async def mock_upload_single_file(
+            file_path, file_size, signed_url, *args, **kwargs
+        ):
             uploaded.append(str(file_path))
 
-        signed_urls = [("config.json", "https://gcs/config"), ("model.safetensors", "https://gcs/model")]
+        signed_urls = [
+            ("config.json", "https://gcs/config"),
+            ("model.safetensors", "https://gcs/model"),
+        ]
         with (
             patch.object(
                 client,
