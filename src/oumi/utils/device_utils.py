@@ -338,9 +338,26 @@ def get_nvidia_gpu_runtime_info(
 
 
 def log_nvidia_gpu_runtime_info(device_index: int = 0, log_prefix: str = "") -> None:
-    """Prints the current NVIDIA GPU runtime info."""
+    """Prints the current NVIDIA GPU or MPS runtime info."""
     info = get_nvidia_gpu_runtime_info(device_index)
-    logger.info(f"{log_prefix.rstrip()} GPU runtime info: {pformat(info)}.")
+    if info is not None:
+        logger.info(f"{log_prefix.rstrip()} GPU runtime info: {pformat(info)}.")
+        return
+
+    # Fall back to MPS memory info when no NVIDIA GPU is present.
+    try:
+        import torch
+
+        if torch.backends.mps.is_available():
+            allocated_mb = torch.mps.current_allocated_memory() / 1024**2
+            driver_mb = torch.mps.driver_allocated_memory() / 1024**2
+            logger.info(
+                f"{log_prefix.rstrip()} MPS memory: "
+                f"Allocated: {allocated_mb:.1f} MiB, "
+                f"Driver Reserved: {driver_mb:.1f} MiB."
+            )
+    except ImportError:
+        pass
 
 
 def get_nvidia_gpu_memory_utilization(device_index: int = 0) -> float:

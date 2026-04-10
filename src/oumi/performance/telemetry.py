@@ -155,21 +155,30 @@ def gpu_memory_logger(user_function: Callable, synchronize: bool = True) -> Call
 
     @wraps(user_function)
     def wrapper(*args, **kwargs):
-        if not torch.cuda.is_available():
-            LOGGER.debug("CUDA is not available. GPU memory usage cannot be logged.")
+        if torch.cuda.is_available():
+            if synchronize:
+                torch.cuda.synchronize()
+            start_memory = torch.cuda.memory_allocated()
+
+            result = user_function(*args, **kwargs)
+
+            if synchronize:
+                torch.cuda.synchronize()
+            end_memory = torch.cuda.memory_allocated()
+        elif torch.backends.mps.is_available():
+            if synchronize:
+                torch.mps.synchronize()
+            start_memory = torch.mps.current_allocated_memory()
+
+            result = user_function(*args, **kwargs)
+
+            if synchronize:
+                torch.mps.synchronize()
+            end_memory = torch.mps.current_allocated_memory()
+        else:
+            LOGGER.debug("No GPU available. GPU memory usage cannot be logged.")
             return user_function(*args, **kwargs)
 
-        if synchronize:
-            torch.cuda.synchronize()
-
-        start_memory = torch.cuda.memory_allocated()
-
-        result = user_function(*args, **kwargs)
-
-        if synchronize:
-            torch.cuda.synchronize()
-
-        end_memory = torch.cuda.memory_allocated()
         memory_diff = end_memory - start_memory
         LOGGER.debug(
             f"{user_function.__name__} used {memory_diff / 1024**2:.2f} MiB "
@@ -231,13 +240,19 @@ class TelemetryTracker:
         Args:
             custom_logger: A custom logging function. If None, store in self.gpu_memory.
         """
-        if not torch.cuda.is_available():
-            LOGGER.debug("CUDA is not available. GPU memory usage cannot be logged.")
-            return
+        memory_info: dict[str, float] | None = None
+        if torch.cuda.is_available():
+            memory_allocated = torch.cuda.memory_allocated() / 1024**2
+            memory_reserved = torch.cuda.memory_reserved() / 1024**2
+            memory_info = {"allocated": memory_allocated, "reserved": memory_reserved}
+        elif torch.backends.mps.is_available():
+            memory_allocated = torch.mps.current_allocated_memory() / 1024**2
+            memory_reserved = torch.mps.driver_allocated_memory() / 1024**2
+            memory_info = {"allocated": memory_allocated, "reserved": memory_reserved}
 
-        memory_allocated = torch.cuda.memory_allocated() / 1024**2  # Convert to MiB
-        memory_reserved = torch.cuda.memory_reserved() / 1024**2  # Convert to MiB
-        memory_info = {"allocated": memory_allocated, "reserved": memory_reserved}
+        if memory_info is None:
+            LOGGER.debug("No GPU available. GPU memory usage cannot be logged.")
+            return
 
         if custom_logger:
             custom_logger(memory_info)
