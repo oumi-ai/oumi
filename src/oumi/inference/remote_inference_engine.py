@@ -479,6 +479,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         message = response["choices"][0].get("message")
         if not message:
             raise RuntimeError(f"No message found in API response: {response}")
+        content = message.get("content") or ""
         metadata = dict(original_conversation.metadata)
         usage = self._extract_usage_from_response(response)
         if usage is not None:
@@ -490,7 +491,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             messages=[
                 *original_conversation.messages,
                 Message(
-                    content=message["content"],
+                    content=content,
                     role=Role(message["role"]),
                 ),
             ],
@@ -656,10 +657,13 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                             )
 
                             # Check for non-retriable status codes to fail fast.
-                            if is_non_retriable_status_code(response.status):
+                            if is_non_retriable_status_code(
+                                response.status, failure_reason
+                            ):
                                 raise APIStatusError(
                                     f"Non-retriable error: {failure_reason}",
                                     status_code=response.status,
+                                    api_input=api_input,
                                 )
                             continue
 
@@ -732,7 +736,11 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 f"Reason: {failure_reason}" if failure_reason else ""
             )
             if last_status_code is not None:
-                raise APIStatusError(message, status_code=last_status_code)
+                raise APIStatusError(
+                    message,
+                    status_code=last_status_code,
+                    api_input=api_input,
+                )
             raise RuntimeError(message)
 
     async def _infer(

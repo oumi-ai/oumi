@@ -77,7 +77,7 @@ kubectl apply -f oumi-deployment.yaml
 
 Deployment can take about 15 minutes for the cluster to pull and load the Oumi OSS container image.
 
-### 3. Access Oumi OSS 
+### 3. Access Oumi OSS
 
 ```bash
 # Get pod name

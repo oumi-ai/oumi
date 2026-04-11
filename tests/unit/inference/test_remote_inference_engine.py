@@ -732,6 +732,7 @@ def test_infer_online_fails_with_message(mock_asyncio_sleep):
             exc_info.value
         )
         assert exc_info.value.status_code == 504
+        assert exc_info.value.api_input is not None
         with pytest.raises(APIStatusError) as exc_info:
             _ = engine.infer(
                 [conversation],
@@ -741,6 +742,7 @@ def test_infer_online_fails_with_message(mock_asyncio_sleep):
             exc_info.value
         )
         assert exc_info.value.status_code == 429
+        assert exc_info.value.api_input is not None
         with pytest.raises(APIStatusError) as exc_info:
             _ = engine.infer(
                 [conversation],
@@ -751,6 +753,7 @@ def test_infer_online_fails_with_message(mock_asyncio_sleep):
             in str(exc_info.value)
         )
         assert exc_info.value.status_code == 503
+        assert exc_info.value.api_input is not None
         with pytest.raises(APIStatusError) as exc_info:
             _ = engine.infer(
                 [conversation],
@@ -761,6 +764,7 @@ def test_infer_online_fails_with_message(mock_asyncio_sleep):
             in str(exc_info.value)
         )
         assert exc_info.value.status_code == 500
+        assert exc_info.value.api_input is not None
 
         # No retries
         assert mock_asyncio_sleep.call_count == 0
@@ -811,11 +815,12 @@ def test_infer_online_fails_with_message_and_retries(mock_asyncio_sleep):
         with pytest.raises(
             APIStatusError,
             match="Failed to query API after 4 attempts. Reason: Internal server error",
-        ):
+        ) as exc_info:
             _ = engine.infer(
                 [conversation],
                 config,
             )
+        assert exc_info.value.api_input is not None
         # 3 retries
         assert mock_asyncio_sleep.call_count == 3
 
@@ -2086,6 +2091,29 @@ def test_convert_api_output_no_usage():
     assert result.metadata["key"] == "value"
 
 
+def test_convert_api_output_content_null_returns_empty_string():
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
+    )
+    original = Conversation(
+        messages=[Message(content="Hello", role=Role.USER)],
+    )
+    response = {
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                }
+            }
+        ],
+    }
+    result = engine._convert_api_output_to_conversation(response, original)
+    assert result.messages[-1].content == ""
+    assert result.messages[-1].role == Role.ASSISTANT
+
+
 @pytest.mark.asyncio
 async def test_upload_batch_file():
     """Test uploading a batch file."""
@@ -2863,6 +2891,7 @@ def test_non_retriable_errors(mock_asyncio_sleep):
                 exc_info.value
             )
             assert exc_info.value.status_code == status_code
+            assert exc_info.value.api_input is not None
             # Verify no retries were attempted
             assert mock_asyncio_sleep.call_count == 0
             mock_asyncio_sleep.reset_mock()

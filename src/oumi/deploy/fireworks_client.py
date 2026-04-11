@@ -19,6 +19,7 @@ import json
 import logging
 import os
 import shutil
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, cast
 
@@ -31,6 +32,7 @@ from oumi.deploy.base_client import (
     DeploymentProvider,
     Endpoint,
     EndpointState,
+    FileResolver,
     HardwareConfig,
     Model,
     ModelType,
@@ -390,7 +392,6 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             # which files to expect.  For adapter uploads, only PEFT files are
             # included (Fireworks rejects non-adapter files for HF_PEFT_ADDON).
             file_inventory = self._collect_file_inventory(model_dir, model_type)
-            hf_files = sorted(file_inventory.keys())
 
             # Step 2b: For adapters, read adapter_config.json so we can
             # populate peftDetails with the real r and target_modules.
@@ -411,34 +412,203 @@ class FireworksDeploymentClient(BaseDeploymentClient):
                     )
                 await self._verify_base_model_exists(base_model)
 
-            # Step 3: Create model resource on Fireworks
-            create_payload = await self._create_model_resource(
+            @asynccontextmanager
+            async def local_resolver(filename: str):
+                yield model_dir / filename
+
+            return await self._do_upload(
                 model_id,
+                file_inventory,
+                local_resolver,
                 model_type,
                 base_model,
+                adapter_config,
                 progress_callback,
-                huggingface_files=hf_files,
-                adapter_config=adapter_config,
             )
-
-            # Steps 4–5: Upload files, validate
-            await self._upload_model_files(
-                model_dir, model_id, progress_callback, file_inventory
-            )
-            await self._wait_and_validate(model_id, progress_callback)
         finally:
             if temp_dir and temp_dir.exists():
                 shutil.rmtree(temp_dir, ignore_errors=True)
 
-        return UploadedModel(
-            provider_model_id=f"accounts/{self.account_id}/models/{model_id}",
-            status="validating",
-            request_payload=create_payload,
+    async def upload_model_with_resolver(
+        self,
+        model_name: str,
+        file_inventory: dict[str, int],
+        file_resolver: FileResolver,
+        progress_callback: ProgressCallback | None = None,
+    ) -> UploadedModel:
+        """Uploads a full model using a pre-computed file inventory and resolver.
+
+        Unlike ``upload_model()`` which requires all files on local disk, this
+        method accepts a ``file_inventory`` (filenames → sizes in bytes) and a
+        ``file_resolver`` callback that yields each file on demand.  This enables
+        streaming from cloud storage one file at a time, keeping peak disk usage
+        to the size of a single shard rather than the full model.
+
+        Only FULL model uploads are supported. Adapter (LoRA) uploads require
+        reading adapter_config.json and verifying the base model — see
+        ``upload_model()`` for that path.
+
+        Args:
+            model_name: Fireworks model ID (e.g., ``"my-custom-model"``).
+            file_inventory: Mapping of relative filename to file size in bytes.
+            file_resolver: Async context manager factory.  For each filename,
+                ``file_resolver(filename)`` must yield a local ``Path`` to the
+                file and clean up after the ``async with`` block exits.
+            progress_callback: Optional async progress callback.
+
+        Returns:
+            ``UploadedModel`` with the Fireworks provider model ID.
+        """
+        # TODO: Add adapter support. Requires accepting adapter_config dict
+        # and base_model, plus the same validation upload_model() does
+        # (_verify_base_model_exists, target_modules check).
+        _validate_fireworks_model_id(model_name)
+        return await self._do_upload(
+            model_name,
+            file_inventory,
+            file_resolver,
+            ModelType.FULL,
+            None,
+            None,
+            progress_callback,
         )
 
     # ------------------------------------------------------------------
     # upload_model — private helpers
     # ------------------------------------------------------------------
+
+    async def _do_upload(
+        self,
+        model_name: str,
+        file_inventory: dict[str, int],
+        file_resolver: FileResolver,
+        model_type: ModelType,
+        base_model: str | None,
+        adapter_config: dict[str, Any] | None,
+        progress_callback: ProgressCallback | None,
+    ) -> UploadedModel:
+        """Shared upload implementation: create model → upload files → validate.
+
+        Both ``upload_model`` and ``upload_model_with_resolver`` delegate here
+        after their own prep work (source resolution, adapter validation, etc.).
+        """
+        hf_files = sorted(file_inventory.keys())
+        create_payload = await self._create_model_resource(
+            model_name,
+            model_type,
+            base_model,
+            progress_callback,
+            huggingface_files=hf_files,
+            adapter_config=adapter_config,
+        )
+        await self._upload_model_files_with_resolver(
+            model_name,
+            file_inventory,
+            file_resolver,
+            progress_callback,
+        )
+        await self._wait_and_validate(model_name, progress_callback)
+        return UploadedModel(
+            provider_model_id=f"accounts/{self.account_id}/models/{model_name}",
+            status="validating",
+            request_payload=create_payload,
+        )
+
+    async def _upload_model_files_with_resolver(
+        self,
+        model_id: str,
+        file_sizes: dict[str, int],
+        file_resolver: FileResolver,
+        progress_callback: ProgressCallback | None,
+    ) -> None:
+        """Upload files using a resolver that provides each file on demand.
+
+        Fetches signed upload URLs for all files, then iterates them in upload
+        order.  For each file, it calls ``file_resolver(filename)`` as an async
+        context manager to obtain a local path, uploads the file, and lets the
+        resolver clean up (e.g., delete the temp file) before moving on.
+
+        Args:
+            model_id: Fireworks model ID used to request signed upload URLs.
+            file_sizes: Mapping of relative filename to file size in bytes.
+            file_resolver: Async context manager factory yielding a local Path.
+            progress_callback: Optional async progress callback.
+        """
+        total_bytes = sum(file_sizes.values())
+        _MB = 1024 * 1024
+        if "config.json" in file_sizes:
+            logger.info("config.json found (%d bytes)", file_sizes["config.json"])
+        else:
+            logger.error(
+                "config.json NOT found in model files: %s",
+                list(file_sizes.keys()),
+            )
+        logger.info(
+            "Uploading %d files (%.1f MB) via resolver",
+            len(file_sizes),
+            total_bytes / _MB,
+        )
+
+        upload_items = await self._get_signed_urls_ordered(model_id, file_sizes)
+        total_files = len(upload_items)
+
+        await self._notify(
+            progress_callback,
+            "uploading",
+            f"Starting upload of {total_files} files ({total_bytes / _MB:.1f} MB)",
+            {"total_files": total_files, "total_bytes": total_bytes},
+        )
+
+        uploaded_bytes = 0
+        for idx, (filename, signed_url) in enumerate(upload_items, 1):
+            file_size = file_sizes[filename]
+            logger.info(
+                "[%d/%d] Uploading %s (%.2f MB)",
+                idx,
+                total_files,
+                filename,
+                file_size / _MB,
+            )
+
+            async with file_resolver(filename) as file_path:
+                await self._upload_single_file(
+                    file_path, file_size, signed_url, filename, idx, total_files
+                )
+
+            uploaded_bytes += file_size
+            logger.info(
+                "[%d/%d] Uploaded %s (%.1f / %.1f MB)",
+                idx,
+                total_files,
+                filename,
+                uploaded_bytes / _MB,
+                total_bytes / _MB,
+            )
+            await self._notify(
+                progress_callback,
+                "uploading",
+                f"Uploaded {filename} ({idx}/{total_files}, "
+                f"{uploaded_bytes / _MB:.1f} / {total_bytes / _MB:.1f} MB)",
+                {
+                    "current_file": filename,
+                    "uploaded_count": idx,
+                    "total_files": total_files,
+                    "uploaded_bytes": uploaded_bytes,
+                    "total_bytes": total_bytes,
+                },
+            )
+
+        logger.info(
+            "All %d files uploaded via resolver (%.1f MB total)",
+            total_files,
+            total_bytes / _MB,
+        )
+        await self._notify(
+            progress_callback,
+            "uploading",
+            f"All {total_files} files uploaded ({total_bytes / _MB:.1f} MB total)",
+            {"status": "complete", "total_files": total_files},
+        )
 
     async def _create_model_resource(
         self,
@@ -806,117 +976,6 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             raise ValueError("No upload URLs received from Fireworks API.")
 
         return sorted(file_upload_urls.items(), key=self._upload_order_key)
-
-    async def _upload_model_files(
-        self,
-        model_dir: Path,
-        model_id: str,
-        progress_callback: ProgressCallback | None,
-        file_sizes: dict[str, int] | None = None,
-    ) -> None:
-        """Obtains signed URLs and uploads each file.
-
-        Follows the Fireworks REST API upload flow documented at
-        https://docs.fireworks.ai/models/uploading-custom-models-api:
-
-        1. Call ``getUploadEndpoint`` to obtain per-file signed URLs.
-        2. PUT each file to its signed URL (streamed from disk, with
-           retry and exponential back-off on transient failures).
-
-        Files are uploaded in deterministic order (config/tokenizer first) to
-        improve validation success (GCS propagation).
-
-        Args:
-            model_dir: Local directory containing model weight files.
-            model_id: Fireworks model ID used to request signed upload URLs.
-            progress_callback: Optional callback for upload progress events.
-            file_sizes: Pre-computed file inventory. When ``None`` the
-                inventory is collected from *model_dir* (backward compat).
-        """
-        if file_sizes is None:
-            file_sizes = self._collect_file_inventory(model_dir)
-        total_bytes = sum(file_sizes.values())
-        logger.info(
-            "Found %d files to upload (%.1f MB)",
-            len(file_sizes),
-            total_bytes / _MB,
-        )
-        if "config.json" in file_sizes:
-            logger.info("config.json found (%d bytes)", file_sizes["config.json"])
-        else:
-            logger.error(
-                "config.json NOT found in model files: %s", list(file_sizes.keys())
-            )
-
-        await self._notify(
-            progress_callback,
-            "extracting",
-            f"Found {len(file_sizes)} files ({total_bytes / _MB:.1f} MB total)",
-            {"file_count": len(file_sizes), "files": list(file_sizes.keys())},
-        )
-
-        upload_items = await self._get_signed_urls_ordered(model_id, file_sizes)
-        total_files = len(upload_items)
-        uploaded_bytes = 0
-
-        await self._notify(
-            progress_callback,
-            "uploading",
-            f"Starting upload of {total_files} files ({total_bytes / _MB:.1f} MB)",
-            {"total_files": total_files, "total_bytes": total_bytes},
-        )
-
-        for idx, (filename, signed_url) in enumerate(upload_items, 1):
-            file_path = model_dir / filename
-            file_size = file_sizes[filename]
-
-            logger.info(
-                "[%d/%d] Uploading %s (%.2f MB)",
-                idx,
-                total_files,
-                filename,
-                file_size / _MB,
-            )
-
-            await self._upload_single_file(
-                file_path, file_size, signed_url, filename, idx, total_files
-            )
-
-            uploaded_bytes += file_size
-            logger.info(
-                "[%d/%d] Uploaded %s (%.1f / %.1f MB)",
-                idx,
-                total_files,
-                filename,
-                uploaded_bytes / _MB,
-                total_bytes / _MB,
-            )
-
-            await self._notify(
-                progress_callback,
-                "uploading",
-                f"Uploaded {filename} ({idx}/{total_files}, "
-                f"{uploaded_bytes / _MB:.1f} / {total_bytes / _MB:.1f} MB)",
-                {
-                    "current_file": filename,
-                    "uploaded_count": idx,
-                    "total_files": total_files,
-                    "uploaded_bytes": uploaded_bytes,
-                    "total_bytes": total_bytes,
-                },
-            )
-
-        logger.info(
-            "All %d files uploaded (%.1f MB total)",
-            total_files,
-            total_bytes / _MB,
-        )
-        await self._notify(
-            progress_callback,
-            "uploading",
-            f"All {total_files} files uploaded ({total_bytes / _MB:.1f} MB total)",
-            {"status": "complete", "total_files": total_files},
-        )
 
     # ------------------------------------------------------------------
     # Per-file upload with retry
