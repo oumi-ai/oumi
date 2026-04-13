@@ -230,6 +230,43 @@ class TestFireworksDeploymentClient:
             assert payload["minReplicaCount"] == 1
             assert payload["maxReplicaCount"] == 2
             assert payload["displayName"] == "test-deployment"
+            # No caller-supplied ID → no deploymentId query param.
+            assert call_args[1].get("params", {}) == {}
+
+    @pytest.mark.asyncio
+    async def test_create_endpoint_with_endpoint_id(self):
+        """Test create_endpoint passes caller-supplied deploymentId as query param."""
+        client = FireworksDeploymentClient(api_key="test", account_id="test-account")
+
+        mock_response = MagicMock()
+        mock_response.is_success = True
+        mock_response.json.return_value = {
+            "name": "accounts/test-account/deployments/dep-42-m10-v1",
+            "baseModel": "model-456",
+            "state": "CREATING",
+            "acceleratorType": "NVIDIA_A100_80GB",
+            "acceleratorCount": 1,
+            "minReplicaCount": 1,
+            "maxReplicaCount": 2,
+        }
+
+        with patch.object(
+            client._client, "post", new_callable=AsyncMock, return_value=mock_response
+        ) as mock_post:
+            await client.create_endpoint(
+                model_id="model-456",
+                hardware=HardwareConfig(accelerator="nvidia_a100_80gb", count=1),
+                autoscaling=AutoscalingConfig(min_replicas=1, max_replicas=2),
+                endpoint_id="dep-42-m10-v1",
+            )
+
+            mock_post.assert_called_once()
+            call_args = mock_post.call_args
+            # deploymentId is a query param, not a body field.
+            assert call_args[1]["params"] == {"deploymentId": "dep-42-m10-v1"}
+            payload = call_args[1]["json"]
+            assert "deploymentId" not in payload
+            assert payload["baseModel"] == "model-456"
 
     @pytest.mark.asyncio
     async def test_get_endpoint(self):
