@@ -65,7 +65,7 @@ class RemoteParams(BaseParams):
     input_tokens_per_minute: int | None = None
     """Maximum input (prompt) tokens per minute (input TPM).
 
-    When set, the inf engine tracks input token usage from each API response and
+    When set, the inference engine tracks input token usage from each API response and
     sleeps before the next request if the 60-second rolling total would exceed
     this limit. Token counts are read from the normalized output of
     "_extract_usage_from_response()", which maps all supported APIs to the
@@ -77,7 +77,7 @@ class RemoteParams(BaseParams):
     output_tokens_per_minute: int | None = None
     """Maximum output (completion) tokens per minute (output TPM).
 
-    When set, the inf engine tracks output token usage from each API response and
+    When set, the inference engine tracks output token usage from each API response and
     sleeps before the next request if the 60-second rolling total would exceed
     this limit. Token counts are read from the normalized output of
     "_extract_usage_from_response()", which maps all supported APIs to the
@@ -87,7 +87,14 @@ class RemoteParams(BaseParams):
     """
 
     politeness_policy: float = 0.0
-    """Deprecated: use requests_per_minute instead."""
+    """Politeness policy to use when calling an API.
+
+    If greater than zero, this is the amount of time in seconds a worker will
+    sleep before making a subsequent request.
+
+    .. deprecated::
+        Use ``requests_per_minute`` instead.
+    """
 
     batch_completion_window: str | None = "24h"
     """Time window for batch completion. Currently only '24h' is supported.

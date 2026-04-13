@@ -213,8 +213,12 @@ class RateLimiter:
         if self._requests_per_minute is None:
             return 0.0
         if len(history) >= self._requests_per_minute and history:
-            # wait till the oldest request expires (history[0] + window)
-            return window - (now - history[0].timestamp)
+            # Wait until the pivot entry expires: the entry that must leave the
+            # window for len(history) to drop below requests_per_minute
+            # If len > RPM there are N requests over the limit, so N+1 entries
+            # expire: the last of those is history[len(history) - RPM]
+            pivot = history[len(history) - self._requests_per_minute]
+            return window - (now - pivot.timestamp)
         return 0.0
 
     def _wait_seconds_for_tpm(
