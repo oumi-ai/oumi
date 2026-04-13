@@ -189,6 +189,12 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             timeout=120.0,
         )
 
+    async def __aenter__(self) -> "FireworksDeploymentClient":
+        """Narrows the base ``__aenter__`` return type to this subclass so
+        callers using ``async with`` get full access to Fireworks-specific
+        methods without a cast."""
+        return self
+
     async def close(self) -> None:
         """Closes the HTTP client and releases resources."""
         await self._client.aclose()
@@ -1216,6 +1222,7 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         hardware: HardwareConfig,
         autoscaling: AutoscalingConfig,
         display_name: str | None = None,
+        endpoint_id: str | None = None,
     ) -> Endpoint:
         """Creates an inference endpoint (deployment) for a model.
 
@@ -1224,6 +1231,12 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             hardware: Hardware configuration
             autoscaling: Autoscaling configuration
             display_name: Optional display name
+            endpoint_id: Optional caller-supplied deployment ID. When provided,
+                it is passed as the ``deploymentId`` query parameter so the
+                resulting deployment has a deterministic resource path
+                ``accounts/{account_id}/deployments/{endpoint_id}``. When
+                omitted, Fireworks generates a random ID (the default
+                behavior).
 
         Returns:
             Created Endpoint
@@ -1239,9 +1252,14 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             displayName=display_name,
         )
 
+        params: dict[str, Any] = {}
+        if endpoint_id is not None:
+            params["deploymentId"] = endpoint_id
+
         response = await self._client.post(
             f"/v1/accounts/{self.account_id}/deployments",
             json=deployment.model_dump(by_alias=True, exclude_none=True),
+            params=params,
         )
         self._check_response(response, f"create endpoint for model '{model_id}'")
 
