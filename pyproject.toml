@@ -81,7 +81,7 @@ dependencies = [
     "trl>=0.24,<1.1",
     "typer<0.24.2",             # Used by CLI. Pinned due to sphinxcontrib-typer compatibility. OPE-1806
     "typing_extensions",        # Backports of typing updates
-    "uvicorn<0.44.0",           # TODO: Remove on resolution of https://github.com/skypilot-org/skypilot/issues/7303
+    "uvicorn<0.45.0",           # TODO: Remove on resolution of https://github.com/skypilot-org/skypilot/issues/7303
     "wandb>=0.21,<0.26",        # Logging to Weights and Biases.
 ]
 
