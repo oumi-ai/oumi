@@ -27,26 +27,26 @@ class TextCompletionsCollatorWithPadding:
     def __init__(
         self,
         tokenizer: BaseTokenizer,
-        response_template: str | list[int],
-        instruction_template: str | list[int] | None = None,
+        response_template: str,
+        instruction_template: str | None = None,
         debug: bool = False,
         masking_method: str | None = None,
-        end_of_turn_template: str | list[int] | None = None,
-        tool_call_start_template: str | list[int] | None = None,
+        end_of_turn_template: str | None = None,
+        tool_call_start_template: str | None = None,
         ignore_index: int = -100,
     ):
         """Custom collator for text LLM training.
 
         Args:
         tokenizer: The tokenizer used for encoding the data.
-        response_template: String or token-ID list marking assistant response start.
-        instruction_template: String or token-ID list marking user instruction start.
+        response_template: String marking assistant response start.
+        instruction_template: String marking user instruction start.
         debug: If True, enables debug mode for logging.
         masking_method: Masking strategy — ``"assistant_turn"``,
             ``"assistant_turn_no_tools"``, or ``"final_assistant_turn"``.
-        end_of_turn_template: String or token-ID list marking the end of a turn.
+        end_of_turn_template: String marking the end of a turn.
             Required for ``assistant_turn`` and ``assistant_turn_no_tools``.
-        tool_call_start_template: String or token-ID list marking tool-call start.
+        tool_call_start_template: String marking tool-call start.
             Required for ``assistant_turn_no_tools``.
         ignore_index: Value used for masked labels. Must match the ignore_index
             of the loss function (default: -100).

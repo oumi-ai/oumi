@@ -276,14 +276,13 @@ def make_span_collator(
     mask_tool_calls: bool = False,
 ) -> TextCompletionsCollatorWithPadding:
     tokenizer, _ = create_test_tokenizer()
-    resp_ids, eot_ids, tc_ids = get_template_token_ids()
     masking_method = "assistant_turn_no_tools" if mask_tool_calls else "assistant_turn"
     return TextCompletionsCollatorWithPadding(
         tokenizer=tokenizer,
-        response_template=resp_ids,
+        response_template=_RESP_STR,
         masking_method=masking_method,
-        end_of_turn_template=eot_ids,
-        tool_call_start_template=tc_ids if mask_tool_calls else None,
+        end_of_turn_template=_EOT_STR,
+        tool_call_start_template=_TC_STR if mask_tool_calls else None,
     )
 
 
@@ -453,13 +452,12 @@ def test_span_non_tool_call_turn_still_unmasked_when_mask_tool_calls_set():
 
 def test_span_mask_tool_calls_requires_template():
     tokenizer, _ = create_test_tokenizer()
-    resp_ids, eot_ids, _ = get_template_token_ids()
     with pytest.raises(ValueError, match="tool_call_start_template"):
         TextCompletionsCollatorWithPadding(
             tokenizer=tokenizer,
-            response_template=resp_ids,
+            response_template=_RESP_STR,
             masking_method="assistant_turn_no_tools",
-            end_of_turn_template=eot_ids,
+            end_of_turn_template=_EOT_STR,
             tool_call_start_template=None,
         )
 
@@ -513,8 +511,8 @@ def test_span_padding_matching_eot_does_not_false_match():
 
     collator = TextCompletionsCollatorWithPadding(
         tokenizer=tokenizer,
-        response_template=resp,
-        end_of_turn_template=eot_ids,
+        response_template=_RESP_STR,
+        end_of_turn_template=str(tokenizer.decode(eot_ids)),
     )
     batch = collator([{"input_ids": seq}])
     labels = batch["labels"][0].tolist()
