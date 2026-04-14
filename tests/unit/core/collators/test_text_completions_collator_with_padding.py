@@ -462,6 +462,18 @@ def test_span_mask_tool_calls_requires_template():
         )
 
 
+def test_span_masking_requires_end_of_turn_template():
+    tokenizer, _ = create_test_tokenizer()
+    for method in ("assistant_turn", "assistant_turn_no_tools"):
+        with pytest.raises(ValueError, match="end_of_turn_template"):
+            TextCompletionsCollatorWithPadding(
+                tokenizer=tokenizer,
+                response_template=_RESP_STR,
+                masking_method=method,
+                end_of_turn_template=None,
+            )
+
+
 # ---------------------------------------------------------------------------
 # Edge cases
 # ---------------------------------------------------------------------------

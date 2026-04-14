@@ -138,6 +138,13 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
         else:
             self.masking_method = "_legacy_instruction_response"
 
+        if self.masking_method in ("assistant_turn", "assistant_turn_no_tools"):
+            if end_of_turn_template is None:
+                raise ValueError(
+                    "end_of_turn_template must be provided "
+                    f"when masking_method='{self.masking_method}'"
+                )
+
         self.mask_tool_calls = self.masking_method == "assistant_turn_no_tools"
         self.tool_call_start_token_ids: list[int] | None = None
         if self.mask_tool_calls:
