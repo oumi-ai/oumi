@@ -116,7 +116,10 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
                 )
             self.masking_method = masking_method
         elif end_of_turn_template is not None:
-            self.masking_method = "assistant_turn"
+            if tool_call_start_template is not None:
+                self.masking_method = "assistant_turn_no_tools"
+            else:
+                self.masking_method = "assistant_turn"
         elif instruction_template is None:
             self.masking_method = "final_assistant_turn"
         else:
