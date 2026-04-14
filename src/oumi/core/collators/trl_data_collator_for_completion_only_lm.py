@@ -80,6 +80,57 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
             return self.tokenizer.encode(template, add_special_tokens=False)
         return list(template)
 
+    @classmethod
+    def _resolve_masking_method(
+        cls,
+        masking_method: str | None,
+        *,
+        end_of_turn_template: str | list[int] | None,
+        tool_call_start_template: str | list[int] | None,
+        instruction_template: str | list[int] | None,
+    ) -> str:
+        """Resolve masking_method from explicit value or template presence.
+
+        Priority (first match wins):
+          1. Explicit masking_method (validated)
+          2. end_of_turn + tool_call_start → assistant_turn_no_tools
+          3. end_of_turn only             → assistant_turn
+          4. no instruction_template      → final_assistant_turn
+          5. fallback                     → _legacy_instruction_response
+        """
+        if masking_method is not None:
+            if masking_method not in cls._KNOWN_MASKING_METHODS:
+                valid = sorted(
+                    cls._KNOWN_MASKING_METHODS - {"_legacy_instruction_response"}
+                )
+                raise ValueError(
+                    f"Unknown masking_method='{masking_method}'. "
+                    f"Must be one of: {valid}"
+                )
+            return masking_method
+
+        has_eot = end_of_turn_template is not None
+        has_tool = tool_call_start_template is not None
+        has_inst = instruction_template is not None
+
+        if has_eot and has_tool:
+            return "assistant_turn_no_tools"
+        if has_eot:
+            return "assistant_turn"
+        if not has_inst:
+            return "final_assistant_turn"
+
+        warnings.warn(
+            "Instruction-based masking is deprecated. "
+            "Use masking_method='assistant_turn' with "
+            "end_of_turn_template for multi-turn conversations, "
+            "or masking_method='final_assistant_turn' "
+            "for single-turn completions.",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+        return "_legacy_instruction_response"
+
     def __init__(
         self,
         response_template: str | list[int],
@@ -104,35 +155,12 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
         self.end_of_turn_template = end_of_turn_template
         self.end_of_turn_token_ids = self._tokenize_template(end_of_turn_template)
 
-        # Infer masking_method from template presence for backward compatibility.
-        if masking_method is not None:
-            if masking_method not in self._KNOWN_MASKING_METHODS:
-                valid_methods = sorted(
-                    self._KNOWN_MASKING_METHODS - {"_legacy_instruction_response"}
-                )
-                raise ValueError(
-                    f"Unknown masking_method='{masking_method}'. "
-                    f"Must be one of: {valid_methods}"
-                )
-            self.masking_method = masking_method
-        elif end_of_turn_template is not None:
-            if tool_call_start_template is not None:
-                self.masking_method = "assistant_turn_no_tools"
-            else:
-                self.masking_method = "assistant_turn"
-        elif instruction_template is None:
-            self.masking_method = "final_assistant_turn"
-        else:
-            self.masking_method = "_legacy_instruction_response"
-            warnings.warn(
-                "Instruction-based masking is deprecated. "
-                "Use masking_method='assistant_turn' with "
-                "end_of_turn_template for multi-turn conversations, "
-                "or masking_method='final_assistant_turn' "
-                "for single-turn completions.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
+        self.masking_method = self._resolve_masking_method(
+            masking_method,
+            end_of_turn_template=end_of_turn_template,
+            tool_call_start_template=tool_call_start_template,
+            instruction_template=instruction_template,
+        )
 
         # Validate required templates for each masking method.
         if self.masking_method in ("assistant_turn", "assistant_turn_no_tools"):
