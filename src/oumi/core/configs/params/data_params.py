@@ -247,11 +247,12 @@ class DatasetSplitParams(BaseParams):
     """Masking strategy for the completions collator.
 
     Only applies when ``collator_name`` is
-    ``text_completions_only_with_padding``. Defaults to ``assistant_turn``
-    when that collator is used.
+    ``text_completions_only_with_padding``. When ``None`` (default),
+    template tokens must be provided manually via ``collator_kwargs``.
 
     When set, template tokens are auto-resolved from the tokenizer
     vocabulary — ``collator_kwargs`` for templates are not needed.
+    Mutually exclusive with ``collator_kwargs``.
 
     Example YAML::
 
