@@ -121,6 +121,15 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
             self.masking_method = "final_assistant_turn"
         else:
             self.masking_method = "_legacy_instruction_response"
+            warnings.warn(
+                "Instruction-based masking is deprecated. "
+                "Use masking_method='assistant_turn' with "
+                "end_of_turn_template for multi-turn conversations, "
+                "or masking_method='final_assistant_turn' "
+                "for single-turn completions.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
         # Validate required templates for each masking method.
         if self.masking_method in ("assistant_turn", "assistant_turn_no_tools"):
