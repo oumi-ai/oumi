@@ -155,22 +155,10 @@ from oumi.core.configs.params.tuning_params import (
     TuningParams,
 )
 from oumi.core.configs.quantization_config import QuantizationConfig
+from oumi.core.configs.synthesis_config import SynthesisConfig
 from oumi.core.configs.training_config import TrainingConfig
 from oumi.core.configs.tuning_config import TuningConfig
 from oumi.exceptions import OumiConfigError
-
-def __getattr__(name: str):  # noqa: E302
-    """Lazily import configs that depend on oumi.environments to avoid circular imports."""
-    if name == "EnvironmentConfig":
-        from oumi.core.configs.environment_config import EnvironmentConfig
-
-        return EnvironmentConfig
-    if name == "SynthesisConfig":
-        from oumi.core.configs.synthesis_config import SynthesisConfig
-
-        return SynthesisConfig
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
 
 __all__ = [
     "AsyncEvaluationConfig",
@@ -188,7 +176,6 @@ __all__ = [
     "EvaluationConfig",
     "EvaluationBackend",
     "EvaluationConfig",
-    "EnvironmentConfig",
     "EvaluationTaskParams",
     "FSDPParams",
     "GenerationParams",
