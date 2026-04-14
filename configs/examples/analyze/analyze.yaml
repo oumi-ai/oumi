@@ -28,16 +28,8 @@ analyzers:
       # tokenizer_name: meta-llama/Llama-3.1-8B-Instruct
   - type: quality
     display_name: Quality
-    # params:
-    #   check_turn_pattern: true
-    #   check_empty_content: true
-    #   check_truncation: true
-    #   check_refusals: true
-    #   check_tags: true
   - type: turn_stats
     display_name: TurnStats
-    # params:
-    #   include_system_in_counts: false
 
 # Tests validate analysis results against thresholds.
 # Metric paths use "{display_name}.{field_name}" format.
