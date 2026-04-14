@@ -12,19 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from oumi.core.configs.base_config import BaseConfig
-from oumi.core.configs.environment_config import EnvironmentConfig
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.params.synthesis_params import (
     GeneralSynthesisParams,
     MultiTurnAttribute,
 )
-from oumi.environments.base_environment import BaseEnvironment
-from oumi.environments.base_tool import Tool
+
+if TYPE_CHECKING:
+    from oumi.core.configs.environment_config import EnvironmentConfig
+    from oumi.environments.base_environment import BaseEnvironment
+    from oumi.environments.base_tool import Tool
 
 
 class SynthesisStrategy(str, Enum):
@@ -117,6 +122,8 @@ class SynthesisConfig(BaseConfig):
                     f"Environment config path does not exist: "
                     f"{self.environment_config_path}"
                 )
+            from oumi.core.configs.environment_config import EnvironmentConfig
+
             return EnvironmentConfig.from_yaml(config_path)
 
         return None
