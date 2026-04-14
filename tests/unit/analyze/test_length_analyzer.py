@@ -122,10 +122,10 @@ def test_length_metrics_creation():
     assert metrics.avg_tokens_per_message == 5.0
     assert metrics.message_token_counts == [4, 6]
     assert metrics.num_messages == 2
-    # Role stats default to None when not provided
-    assert metrics.user_total_tokens is None
-    assert metrics.assistant_total_tokens is None
-    assert metrics.system_total_tokens is None
+    # Role stats default to 0 when not provided
+    assert metrics.user_total_tokens == 0
+    assert metrics.assistant_total_tokens == 0
+    assert metrics.system_total_tokens == 0
 
 
 def test_length_metrics_with_role_stats():
@@ -229,14 +229,11 @@ def test_analyze_with_custom_tokenizer(simple_conversation, mock_tokenizer):
     assert result.total_tokens == 3
 
 
-def test_analyze_without_explicit_tokenizer_uses_tiktoken_fallback(
-    simple_conversation,
-):
-    """Test that analyze falls back to tiktoken when no tokenizer is provided."""
-    analyzer = LengthAnalyzer()  # No explicit tokenizer, uses tiktoken fallback
-    result = analyzer.analyze(simple_conversation)
-    # Should still count tokens via tiktoken fallback
-    assert result.total_tokens > 0
+def test_analyze_without_explicit_tokenizer_raises(simple_conversation):
+    """Test that analyze raises when no tokenizer is configured."""
+    analyzer = LengthAnalyzer()  # No tokenizer
+    with pytest.raises(RuntimeError, match="No tokenizer configured"):
+        analyzer.analyze(simple_conversation)
 
 
 # -----------------------------------------------------------------------------
@@ -278,10 +275,10 @@ def test_analyze_text_role_stats_are_none(tiktoken_tokenizer):
     analyzer = LengthAnalyzer(tokenizer=tiktoken_tokenizer)
     result = analyzer.analyze_text("Some text")
 
-    # No conversation context, so role stats are None
-    assert result.user_total_tokens is None
-    assert result.assistant_total_tokens is None
-    assert result.system_total_tokens is None
+    # analyze_text defaults role stats to 0
+    assert result.user_total_tokens == 0
+    assert result.assistant_total_tokens == 0
+    assert result.system_total_tokens == 0
 
 
 # -----------------------------------------------------------------------------
@@ -311,11 +308,11 @@ def test_count_tokens_empty_string(tiktoken_tokenizer):
     assert count == 0
 
 
-def test_count_tokens_with_tiktoken_fallback():
-    """Test that _count_tokens uses tiktoken fallback when no tokenizer given."""
+def test_count_tokens_without_tokenizer_raises():
+    """Test that _count_tokens raises when no tokenizer is configured."""
     analyzer = LengthAnalyzer()
-    # Falls back to tiktoken, so should count tokens
-    assert analyzer._count_tokens("test text") > 0
+    with pytest.raises(RuntimeError, match="No tokenizer configured"):
+        analyzer._count_tokens("test text")
 
 
 # -----------------------------------------------------------------------------
