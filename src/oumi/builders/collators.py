@@ -208,12 +208,39 @@ def build_data_collator(
             **kwargs,
         )
     elif collator_name == "text_completions_only_with_padding":
-        if not kwargs.get("response_template"):
-            raise ValueError(
-                "response_template is required for "
-                "'text_completions_only_with_padding'. Provide it via "
-                "collator_kwargs or use masking_method for auto-resolution."
-            )
+        # Only apply Llama-style defaults when masking_method is not set.
+        # When masking_method is present, _build_masking_kwargs already
+        # resolved the correct templates — injecting defaults here would
+        # override intentional omissions (e.g. final_assistant_turn
+        # deliberately omits instruction_template).
+        if not kwargs.get("masking_method"):
+            if kwargs.get("end_of_turn_template") is None:
+                if not kwargs.get("instruction_template"):
+                    logger.warning(
+                        "No instruction_template provided for "
+                        "'text_completions_only_with_padding'. "
+                        "Falling back to Llama-style default. "
+                        "Please set instruction_template via collator_kwargs "
+                        "or use masking_method for auto-resolution."
+                    )
+                    kwargs.setdefault(
+                        "instruction_template",
+                        "<|start_header_id|>user<|end_header_id|>\n\n",
+                    )
+
+            if not kwargs.get("response_template"):
+                logger.warning(
+                    "No response_template provided for "
+                    "'text_completions_only_with_padding'. "
+                    "Falling back to Llama-style default. "
+                    "Please set response_template via collator_kwargs "
+                    "or use masking_method for auto-resolution."
+                )
+                kwargs.setdefault(
+                    "response_template",
+                    "<|start_header_id|>assistant<|end_header_id|>\n\n",
+                )
+
         return TextCompletionsCollatorWithPadding(
             tokenizer=tokenizer,
             debug=debug,

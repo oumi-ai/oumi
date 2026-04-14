@@ -65,6 +65,72 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
         padding_free: Remove padding and add position_ids. Default False.
     """
 
+    _KNOWN_MASKING_METHODS = {
+        "assistant_turn",
+        "assistant_turn_no_tools",
+        "final_assistant_turn",
+        "_legacy_instruction_response",
+    }
+
+    def _tokenize_template(self, template: str | list[int] | None) -> list[int] | None:
+        """Encode a template string into token IDs, or pass through if already IDs."""
+        if template is None:
+            return None
+        if isinstance(template, str):
+            return self.tokenizer.encode(template, add_special_tokens=False)
+        return list(template)
+
+    @classmethod
+    def _resolve_masking_method(
+        cls,
+        masking_method: str | None,
+        *,
+        end_of_turn_template: str | list[int] | None,
+        tool_call_start_template: str | list[int] | None,
+        instruction_template: str | list[int] | None,
+    ) -> str:
+        """Resolve masking_method from explicit value or template presence.
+
+        Priority (first match wins):
+          1. Explicit masking_method (validated)
+          2. end_of_turn + tool_call_start → assistant_turn_no_tools
+          3. end_of_turn only             → assistant_turn
+          4. no instruction_template      → final_assistant_turn
+          5. fallback                     → _legacy_instruction_response
+        """
+        if masking_method is not None:
+            if masking_method not in cls._KNOWN_MASKING_METHODS:
+                valid = sorted(
+                    cls._KNOWN_MASKING_METHODS - {"_legacy_instruction_response"}
+                )
+                raise ValueError(
+                    f"Unknown masking_method='{masking_method}'. "
+                    f"Must be one of: {valid}"
+                )
+            return masking_method
+
+        has_eot = end_of_turn_template is not None
+        has_tool = tool_call_start_template is not None
+        has_inst = instruction_template is not None
+
+        if has_eot and has_tool:
+            return "assistant_turn_no_tools"
+        if has_eot:
+            return "assistant_turn"
+        if not has_inst:
+            return "final_assistant_turn"
+
+        warnings.warn(
+            "Instruction-based masking is deprecated. "
+            "Use masking_method='assistant_turn' with "
+            "end_of_turn_template for multi-turn conversations, "
+            "or masking_method='final_assistant_turn' "
+            "for single-turn completions.",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+        return "_legacy_instruction_response"
+
     def __init__(
         self,
         response_template: str | list[int],
@@ -81,62 +147,28 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
         """Initializes the DataCollatorForCompletionOnlyLM."""
         super().__init__(*args, mlm=mlm, **kwargs)
 
+        # Tokenize templates.
         self.instruction_template = instruction_template
-        if isinstance(instruction_template, str):
-            # The user provides a string, must tokenize
-            self.instruction_token_ids = self.tokenizer.encode(
-                self.instruction_template,  # type: ignore
-                add_special_tokens=False,
-            )
-        else:
-            # The user already provides the token ids
-            self.instruction_token_ids = instruction_template
-
+        self.instruction_token_ids = self._tokenize_template(instruction_template)
         self.response_template = response_template
-        if isinstance(response_template, str):
-            # The user provides a string, must tokenize
-            self.response_token_ids = self.tokenizer.encode(
-                self.response_template, add_special_tokens=False
-            )
-        else:
-            # The user already provides the token ids
-            self.response_token_ids = response_template
-
-        # Tool-aware span-based masking parameters
+        self.response_token_ids: list[int] = self._tokenize_template(response_template)  # type: ignore[assignment]
         self.end_of_turn_template = end_of_turn_template
-        if isinstance(end_of_turn_template, str):
-            self.end_of_turn_token_ids: list[int] | None = self.tokenizer.encode(
-                end_of_turn_template, add_special_tokens=False
-            )
-        elif end_of_turn_template is not None:
-            self.end_of_turn_token_ids = list(end_of_turn_template)
-        else:
-            self.end_of_turn_token_ids = None
+        self.end_of_turn_token_ids = self._tokenize_template(end_of_turn_template)
 
-        _KNOWN_MASKING_METHODS = {
-            "assistant_turn",
-            "assistant_turn_no_tools",
-            "final_assistant_turn",
-            "_legacy_instruction_response",
-        }
+        self.masking_method = self._resolve_masking_method(
+            masking_method,
+            end_of_turn_template=end_of_turn_template,
+            tool_call_start_template=tool_call_start_template,
+            instruction_template=instruction_template,
+        )
 
-        # Infer masking_method from template presence for backward compatibility.
-        if masking_method is not None:
-            if masking_method not in _KNOWN_MASKING_METHODS:
-                valid_methods = sorted(
-                    _KNOWN_MASKING_METHODS - {"_legacy_instruction_response"}
-                )
+        # Validate required templates for each masking method.
+        if self.masking_method in ("assistant_turn", "assistant_turn_no_tools"):
+            if end_of_turn_template is None:
                 raise ValueError(
-                    f"Unknown masking_method='{masking_method}'. "
-                    f"Must be one of: {valid_methods}"
+                    "end_of_turn_template must be provided "
+                    f"when masking_method='{self.masking_method}'"
                 )
-            self.masking_method = masking_method
-        elif end_of_turn_template is not None:
-            self.masking_method = "assistant_turn"
-        elif instruction_template is None:
-            self.masking_method = "final_assistant_turn"
-        else:
-            self.masking_method = "_legacy_instruction_response"
 
         self.mask_tool_calls = self.masking_method == "assistant_turn_no_tools"
         self.tool_call_start_token_ids: list[int] | None = None
@@ -146,12 +178,9 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
                     "tool_call_start_template must be provided "
                     "when masking_method='assistant_turn_no_tools'"
                 )
-            if isinstance(tool_call_start_template, str):
-                self.tool_call_start_token_ids = self.tokenizer.encode(
-                    tool_call_start_template, add_special_tokens=False
-                )
-            else:
-                self.tool_call_start_token_ids = list(tool_call_start_template)
+            self.tool_call_start_token_ids = self._tokenize_template(
+                tool_call_start_template
+            )
 
         if (
             not self.mlm
