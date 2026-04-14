@@ -93,12 +93,16 @@ def test_metrics_creation():
     """Test that DataQualityMetrics can be created with required fields."""
     metrics = DataQualityMetrics(
         has_non_alternating_turns=False,
+        has_no_user_message=False,
+        has_system_message_not_at_start=False,
         has_empty_turns=False,
         empty_turn_count=0,
         has_invalid_values=False,
         invalid_value_patterns=[],
     )
     assert metrics.has_non_alternating_turns is False
+    assert metrics.has_no_user_message is False
+    assert metrics.has_system_message_not_at_start is False
     assert metrics.has_empty_turns is False
     assert metrics.empty_turn_count == 0
     assert metrics.has_invalid_values is False
@@ -109,12 +113,16 @@ def test_metrics_with_issues():
     """Test DataQualityMetrics with quality issues detected."""
     metrics = DataQualityMetrics(
         has_non_alternating_turns=True,
+        has_no_user_message=True,
+        has_system_message_not_at_start=True,
         has_empty_turns=True,
         empty_turn_count=2,
         has_invalid_values=True,
         invalid_value_patterns=["NaN", "null"],
     )
     assert metrics.has_non_alternating_turns is True
+    assert metrics.has_no_user_message is True
+    assert metrics.has_system_message_not_at_start is True
     assert metrics.has_empty_turns is True
     assert metrics.empty_turn_count == 2
     assert metrics.has_invalid_values is True
@@ -187,6 +195,76 @@ def test_single_message_no_alternation_issue():
     result = analyzer.analyze(conv)
 
     assert result.has_non_alternating_turns is False
+
+
+# -----------------------------------------------------------------------------
+# No User Message Tests
+# -----------------------------------------------------------------------------
+
+
+def test_has_user_message(simple_conversation):
+    """Test conversation with a user message."""
+    analyzer = DataQualityAnalyzer()
+    result = analyzer.analyze(simple_conversation)
+
+    assert result.has_no_user_message is False
+
+
+def test_no_user_message():
+    """Test detection of conversation with no user message."""
+    conv = Conversation(
+        messages=[
+            Message(role=Role.ASSISTANT, content="Hello!"),
+        ]
+    )
+    analyzer = DataQualityAnalyzer()
+    result = analyzer.analyze(conv)
+
+    assert result.has_no_user_message is True
+
+
+def test_no_user_message_empty_conversation(empty_conversation):
+    """Test that empty conversation flags no user message."""
+    analyzer = DataQualityAnalyzer()
+    result = analyzer.analyze(empty_conversation)
+
+    assert result.has_no_user_message is True
+
+
+# -----------------------------------------------------------------------------
+# System Message Not At Start Tests
+# -----------------------------------------------------------------------------
+
+
+def test_system_message_at_start(conversation_with_system):
+    """Test that system message at position 0 is fine."""
+    analyzer = DataQualityAnalyzer()
+    result = analyzer.analyze(conversation_with_system)
+
+    assert result.has_system_message_not_at_start is False
+
+
+def test_system_message_not_at_start():
+    """Test detection of system message not at position 0."""
+    conv = Conversation(
+        messages=[
+            Message(role=Role.USER, content="Hello"),
+            Message(role=Role.SYSTEM, content="You are helpful."),
+            Message(role=Role.ASSISTANT, content="Hi!"),
+        ]
+    )
+    analyzer = DataQualityAnalyzer()
+    result = analyzer.analyze(conv)
+
+    assert result.has_system_message_not_at_start is True
+
+
+def test_no_system_message(simple_conversation):
+    """Test conversation with no system message."""
+    analyzer = DataQualityAnalyzer()
+    result = analyzer.analyze(simple_conversation)
+
+    assert result.has_system_message_not_at_start is False
 
 
 # -----------------------------------------------------------------------------
@@ -360,6 +438,8 @@ def test_empty_conversation(empty_conversation):
 
     assert isinstance(result, DataQualityMetrics)
     assert result.has_non_alternating_turns is False
+    assert result.has_no_user_message is True
+    assert result.has_system_message_not_at_start is False
     assert result.has_empty_turns is False
     assert result.empty_turn_count == 0
     assert result.has_invalid_values is False
@@ -372,11 +452,11 @@ def test_empty_conversation(empty_conversation):
 
 
 def test_all_issues_present():
-    """Test conversation with all quality issues."""
+    """Test conversation with multiple quality issues."""
     conv = Conversation(
         messages=[
-            Message(role=Role.USER, content="Hello"),
-            Message(role=Role.USER, content=""),
+            Message(role=Role.ASSISTANT, content=""),
+            Message(role=Role.SYSTEM, content="Late system message."),
             Message(role=Role.ASSISTANT, content="Value is NaN."),
         ]
     )
@@ -384,6 +464,8 @@ def test_all_issues_present():
     result = analyzer.analyze(conv)
 
     assert result.has_non_alternating_turns is True
+    assert result.has_no_user_message is True
+    assert result.has_system_message_not_at_start is True
     assert result.has_empty_turns is True
     assert result.empty_turn_count == 1
     assert result.has_invalid_values is True
@@ -396,6 +478,8 @@ def test_clean_conversation(simple_conversation):
     result = analyzer.analyze(simple_conversation)
 
     assert result.has_non_alternating_turns is False
+    assert result.has_no_user_message is False
+    assert result.has_system_message_not_at_start is False
     assert result.has_empty_turns is False
     assert result.empty_turn_count == 0
     assert result.has_invalid_values is False
@@ -420,6 +504,8 @@ def test_get_result_schema():
     schema = DataQualityAnalyzer.get_result_schema()
     assert "properties" in schema
     assert "has_non_alternating_turns" in schema["properties"]
+    assert "has_no_user_message" in schema["properties"]
+    assert "has_system_message_not_at_start" in schema["properties"]
     assert "has_empty_turns" in schema["properties"]
     assert "has_invalid_values" in schema["properties"]
 
@@ -428,6 +514,8 @@ def test_get_metric_names():
     """Test that metric names can be retrieved."""
     names = DataQualityAnalyzer.get_metric_names()
     assert "has_non_alternating_turns" in names
+    assert "has_no_user_message" in names
+    assert "has_system_message_not_at_start" in names
     assert "has_empty_turns" in names
     assert "empty_turn_count" in names
     assert "has_invalid_values" in names

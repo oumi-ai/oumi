@@ -82,6 +82,8 @@ Fast, non-LLM quality checks for data validation.
 | Metric | Description |
 |--------|-------------|
 | `has_non_alternating_turns` | Consecutive same-role messages exist (excluding system) |
+| `has_no_user_message` | Conversation contains no user message |
+| `has_system_message_not_at_start` | System message appears after position 0 |
 | `has_empty_turns` | Any message has empty or whitespace-only content |
 | `empty_turn_count` | Number of empty/whitespace-only messages |
 | `has_invalid_values` | Contains serialized `NaN`, `null`, `None`, `undefined` |
