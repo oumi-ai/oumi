@@ -89,15 +89,17 @@ Fast, non-LLM quality checks for data validation.
 
 ### Turn Stats Analyzer (`turn_stats`)
 
-Conversation structure and balance metrics.
+Conversation structure and turn count metrics.
 
 | Metric | Description |
 |--------|-------------|
-| `num_turns` | Total turns (excluding system by default) |
-| `num_user_turns` / `num_assistant_turns` | Per-role turn counts |
-| `avg_user_chars` / `avg_assistant_chars` | Average message length by role |
-| `response_ratio` | Assistant-to-user message length ratio |
-| `assistant_turn_ratio` | Fraction of turns from the assistant |
+| `num_turns` | Total number of turns (messages) |
+| `num_user_turns` | Number of user turns |
+| `num_assistant_turns` | Number of assistant turns |
+| `num_tool_turns` | Number of tool turns |
+| `has_system_message` | Whether the conversation has a system message |
+| `first_turn_role` | Role of the first message |
+| `last_turn_role` | Role of the last message |
 
 Use `oumi analyze --list-metrics` to see all available metrics and their descriptions.
 

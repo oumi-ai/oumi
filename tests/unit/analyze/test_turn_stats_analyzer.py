@@ -87,39 +87,44 @@ def test_metrics_creation():
         num_user_turns=1,
         num_assistant_turns=1,
         has_system_message=False,
-        avg_user_chars=5.0,
-        avg_assistant_chars=10.0,
-        response_ratio=2.0,
         first_turn_role="user",
         last_turn_role="assistant",
     )
     assert metrics.num_turns == 2
     assert metrics.num_user_turns == 1
-    assert metrics.response_ratio == 2.0
-    assert metrics.total_user_chars == 0
-    assert metrics.total_assistant_chars == 0
-    assert metrics.assistant_turn_ratio == 0.0
+    assert metrics.num_assistant_turns == 1
+    assert metrics.has_system_message is False
+    assert metrics.num_tool_turns == 0  # default
+    assert metrics.first_turn_role == "user"
+    assert metrics.last_turn_role == "assistant"
 
 
 def test_metrics_with_all_fields():
     """Test TurnStatsMetrics with all fields populated."""
     metrics = TurnStatsMetrics(
-        num_turns=4,
+        num_turns=5,
         num_user_turns=2,
         num_assistant_turns=2,
+        num_tool_turns=1,
         has_system_message=True,
-        avg_user_chars=50.0,
-        avg_assistant_chars=150.0,
-        total_user_chars=100,
-        total_assistant_chars=300,
-        response_ratio=3.0,
-        assistant_turn_ratio=0.5,
         first_turn_role="system",
         last_turn_role="assistant",
     )
-    assert metrics.total_user_chars == 100
-    assert metrics.total_assistant_chars == 300
-    assert metrics.assistant_turn_ratio == 0.5
+    assert metrics.num_tool_turns == 1
+    assert metrics.has_system_message is True
+    assert metrics.first_turn_role == "system"
+
+
+def test_metrics_none_roles():
+    """Test TurnStatsMetrics with None role values (empty conversation)."""
+    metrics = TurnStatsMetrics(
+        num_turns=0,
+        num_user_turns=0,
+        num_assistant_turns=0,
+        has_system_message=False,
+    )
+    assert metrics.first_turn_role is None
+    assert metrics.last_turn_role is None
 
 
 # -----------------------------------------------------------------------------
@@ -128,15 +133,9 @@ def test_metrics_with_all_fields():
 
 
 def test_default_initialization():
-    """Test TurnStatsAnalyzer with default parameters."""
+    """Test TurnStatsAnalyzer initializes without errors."""
     analyzer = TurnStatsAnalyzer()
-    assert analyzer.include_system_in_counts is False
-
-
-def test_include_system_in_counts():
-    """Test TurnStatsAnalyzer with include_system_in_counts."""
-    analyzer = TurnStatsAnalyzer(include_system_in_counts=True)
-    assert analyzer.include_system_in_counts is True
+    assert analyzer is not None
 
 
 # -----------------------------------------------------------------------------
@@ -166,7 +165,6 @@ def test_multi_turn_conversation(multi_turn_conversation):
     assert result.num_turns == 4
     assert result.num_user_turns == 2
     assert result.num_assistant_turns == 2
-    assert result.assistant_turn_ratio == 0.5
 
 
 def test_empty_conversation(empty_conversation):
@@ -177,123 +175,57 @@ def test_empty_conversation(empty_conversation):
     assert result.num_turns == 0
     assert result.num_user_turns == 0
     assert result.num_assistant_turns == 0
-    assert result.avg_user_chars == 0.0
-    assert result.avg_assistant_chars == 0.0
-    assert result.response_ratio == 0.0
-    assert result.first_turn_role == ""
-    assert result.last_turn_role == ""
+    assert result.has_system_message is False
+    assert result.first_turn_role is None
+    assert result.last_turn_role is None
 
 
 # -----------------------------------------------------------------------------
-# System Message Handling Tests
+# System Message Tests
 # -----------------------------------------------------------------------------
 
 
-def test_system_message_excluded_from_counts(conversation_with_system):
-    """Test that system messages are excluded from turn counts by default."""
+def test_system_message_detected(conversation_with_system):
+    """Test that system messages are detected."""
     analyzer = TurnStatsAnalyzer()
     result = analyzer.analyze(conversation_with_system)
 
     assert result.has_system_message is True
-    # Default: system messages excluded from num_turns
-    assert result.num_turns == 2
+    assert result.num_turns == 3  # all messages counted
     assert result.num_user_turns == 1
     assert result.num_assistant_turns == 1
 
 
-def test_system_message_included_in_counts(conversation_with_system):
-    """Test that system messages are included when configured."""
-    analyzer = TurnStatsAnalyzer(include_system_in_counts=True)
-    result = analyzer.analyze(conversation_with_system)
-
-    assert result.has_system_message is True
-    # With include_system: all messages counted
-    assert result.num_turns == 3
-    assert result.num_user_turns == 1
-    assert result.num_assistant_turns == 1
-    assert result.first_turn_role == "system"
-
-
-# -----------------------------------------------------------------------------
-# Character Length and Ratio Tests
-# -----------------------------------------------------------------------------
-
-
-def test_character_length_stats(simple_conversation):
-    """Test character length statistics."""
+def test_no_system_message(simple_conversation):
+    """Test conversation without system message."""
     analyzer = TurnStatsAnalyzer()
     result = analyzer.analyze(simple_conversation)
 
-    # "Hello" = 5 chars for user
-    assert result.avg_user_chars == 5.0
-    assert result.total_user_chars == 5
-    # "Hi there!" = 9 chars for assistant
-    assert result.avg_assistant_chars == 9.0
-    assert result.total_assistant_chars == 9
+    assert result.has_system_message is False
 
 
-def test_response_ratio(simple_conversation):
-    """Test response ratio calculation."""
-    analyzer = TurnStatsAnalyzer()
-    result = analyzer.analyze(simple_conversation)
-
-    # Response ratio = avg_assistant_chars / avg_user_chars = 9 / 5
-    assert result.response_ratio == pytest.approx(9.0 / 5.0)
+# -----------------------------------------------------------------------------
+# Tool Turn Tests
+# -----------------------------------------------------------------------------
 
 
-def test_response_ratio_zero_user_chars():
-    """Test response ratio when user messages have zero length."""
+def test_tool_turns_counted():
+    """Test that tool turns are counted."""
     conv = Conversation(
         messages=[
-            Message(role=Role.USER, content=""),
-            Message(role=Role.ASSISTANT, content="Hello!"),
+            Message(role=Role.USER, content="Use a tool."),
+            Message(role=Role.ASSISTANT, content="Let me check."),
+            Message(role=Role.TOOL, content='{"result": "done"}'),
+            Message(role=Role.ASSISTANT, content="Here's the result."),
         ]
     )
     analyzer = TurnStatsAnalyzer()
     result = analyzer.analyze(conv)
 
-    # avg_user is 0, so response_ratio should be 0
-    assert result.response_ratio == 0.0
-
-
-def test_multi_turn_averages(multi_turn_conversation):
-    """Test character averaging across multiple turns."""
-    analyzer = TurnStatsAnalyzer()
-    result = analyzer.analyze(multi_turn_conversation)
-
-    # User: "Hi" (2) + "What is AI?" (11) = 13 total, avg = 6.5
-    assert result.total_user_chars == 13
-    assert result.avg_user_chars == 6.5
-    assert result.num_user_turns == 2
-
-
-# -----------------------------------------------------------------------------
-# Turn Ratio Tests
-# -----------------------------------------------------------------------------
-
-
-def test_assistant_turn_ratio_balanced(multi_turn_conversation):
-    """Test assistant turn ratio in a balanced conversation."""
-    analyzer = TurnStatsAnalyzer()
-    result = analyzer.analyze(multi_turn_conversation)
-
-    assert result.assistant_turn_ratio == 0.5
-
-
-def test_assistant_turn_ratio_unbalanced():
-    """Test assistant turn ratio in an unbalanced conversation."""
-    conv = Conversation(
-        messages=[
-            Message(role=Role.USER, content="Hello"),
-            Message(role=Role.USER, content="Are you there?"),
-            Message(role=Role.ASSISTANT, content="Yes!"),
-        ]
-    )
-    analyzer = TurnStatsAnalyzer()
-    result = analyzer.analyze(conv)
-
-    # 1 assistant / 3 total non-system turns
-    assert result.assistant_turn_ratio == pytest.approx(1.0 / 3.0)
+    assert result.num_turns == 4
+    assert result.num_tool_turns == 1
+    assert result.num_user_turns == 1
+    assert result.num_assistant_turns == 2
 
 
 # -----------------------------------------------------------------------------
@@ -330,9 +262,10 @@ def test_single_message():
     result = analyzer.analyze(conv)
 
     assert result.num_turns == 1
+    assert result.num_user_turns == 1
+    assert result.num_assistant_turns == 0
     assert result.first_turn_role == "user"
     assert result.last_turn_role == "user"
-    assert result.assistant_turn_ratio == 0.0
 
 
 # -----------------------------------------------------------------------------
@@ -353,7 +286,7 @@ def test_get_result_schema():
     schema = TurnStatsAnalyzer.get_result_schema()
     assert "properties" in schema
     assert "num_turns" in schema["properties"]
-    assert "response_ratio" in schema["properties"]
+    assert "num_user_turns" in schema["properties"]
 
 
 def test_get_metric_names():
@@ -361,7 +294,14 @@ def test_get_metric_names():
     names = TurnStatsAnalyzer.get_metric_names()
     assert "num_turns" in names
     assert "num_user_turns" in names
-    assert "response_ratio" in names
+    assert "num_assistant_turns" in names
+    assert "has_system_message" in names
+
+
+def test_get_config_schema():
+    """Test that config schema can be retrieved."""
+    schema = TurnStatsAnalyzer.get_config_schema()
+    assert isinstance(schema, dict)
 
 
 def test_analyzer_is_conversation_analyzer():
