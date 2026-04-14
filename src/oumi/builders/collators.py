@@ -208,27 +208,15 @@ def build_data_collator(
             **kwargs,
         )
     elif collator_name == "text_completions_only_with_padding":
-        masking_method = kwargs.pop("masking_method", None)
-        end_of_turn_template = kwargs.pop("end_of_turn_template", None)
-        tool_call_start_template = kwargs.pop("tool_call_start_template", None)
-        response_template = kwargs.pop("response_template", None)
-        instruction_template = kwargs.pop("instruction_template", None)
-
-        if not response_template:
+        if not kwargs.get("response_template"):
             raise ValueError(
                 "response_template is required for "
                 "'text_completions_only_with_padding'. Provide it via "
                 "collator_kwargs or use masking_method for auto-resolution."
             )
-
         return TextCompletionsCollatorWithPadding(
             tokenizer=tokenizer,
-            response_template=response_template,
-            instruction_template=instruction_template,
             debug=debug,
-            masking_method=masking_method,
-            end_of_turn_template=end_of_turn_template,
-            tool_call_start_template=tool_call_start_template,
             ignore_index=(
                 label_ignore_index if label_ignore_index is not None else -100
             ),
@@ -264,20 +252,18 @@ def build_collator_from_config(
         )
     )
 
-    collator_kwargs: dict = {}
+    # 1. Resolve kwargs — masking_method or raw collator_kwargs.
     masking_method = train_split.masking_method
-
-    if masking_method is None:
-        # Legacy path: use collator_kwargs from config as-is.
-        collator_kwargs.update(train_split.collator_kwargs or {})
-    else:
+    if masking_method is not None:
         if collator_name != "text_completions_only_with_padding":
             raise ValueError(
                 f"masking_method is only supported for "
                 f"'text_completions_only_with_padding', "
                 f"got collator_name='{collator_name}'."
             )
-        collator_kwargs.update(_build_masking_kwargs(masking_method, tokenizer))
+        collator_kwargs = _build_masking_kwargs(masking_method, tokenizer)
+    else:
+        collator_kwargs = dict(train_split.collator_kwargs or {})
 
     # Vision collator auto-kwargs.
     if (
