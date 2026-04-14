@@ -8,131 +8,161 @@
 analyze_config
 ```
 
-Oumi's dataset analysis framework helps you understand training data before and after fine-tuning. Compute metrics, identify outliers, compare datasets, and create filtered subsets.
+Oumi's dataset analysis framework helps you understand training data before and after fine-tuning. Compute metrics, identify quality issues, compare datasets, and validate data with configurable tests.
 
 **Key capabilities:**
 
-- **Profile datasets**: Understand text length distributions, token counts, and statistics
-- **Quality control**: Identify outliers, empty samples, or problematic data
-- **Compare datasets**: Analyze multiple datasets with consistent metrics
-- **Filter data**: Create filtered subsets based on analysis results
+- **Profile datasets**: Token counts, length distributions, turn statistics
+- **Quality control**: Empty messages, truncation, policy refusals, invalid values
+- **Validate data**: Configurable tests with threshold, percentage, and range checks
+- **Export results**: CSV, JSON, or Parquet output with statistical summaries
 
 ## Quick Start
 
 ::::{tab-set-code}
 :::{code-block} bash
-oumi analyze --config configs/examples/analyze/analyze.yaml
+oumi analyze -c configs/examples/analyze/analyze.yaml
 :::
 :::{code-block} python
-from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
-from oumi.core.configs import AnalyzeConfig, SampleAnalyzerParams
+from oumi.analyze import run_typed_analysis, TypedAnalyzeConfig, AnalyzerConfig
 
-config = AnalyzeConfig(
+config = TypedAnalyzeConfig(
     dataset_path="data/dataset_examples/oumi_format.jsonl",
-    is_multimodal=False,
-    analyzers=[SampleAnalyzerParams(id="length")],
+    analyzers=[
+        AnalyzerConfig(type="length", display_name="Length"),
+        AnalyzerConfig(type="quality", display_name="Quality"),
+    ],
 )
 
-analyzer = DatasetAnalyzer(config)
-analyzer.analyze_dataset()
-print(analyzer.analysis_summary)
+results = run_typed_analysis(config)
 :::
 ::::
 
-Oumi outputs results to `./analysis_output/` including per-message metrics, conversation aggregates, and statistical summaries.
+Results are saved to the configured `output_path` (default: current directory) including per-conversation metrics, test results, and statistical summaries.
 
 ## Configuration
 
-A minimal configuration for a local file:
+A minimal YAML configuration:
 
 ```yaml
 dataset_path: data/dataset_examples/oumi_format.jsonl
-is_multimodal: false
+
 analyzers:
-  - id: length
+  - type: length
+    display_name: Length
+    params:
+      tokenizer_name: cl100k_base
 ```
 
-For complete configuration options including dataset sources, output settings, tokenizer configuration, and validation rules, see {doc}`analyze_config`.
+For complete configuration options including tests, custom metrics, and tokenizer settings, see {doc}`analyze_config`.
 
 ## Available Analyzers
 
-### Length Analyzer
+### Length Analyzer (`length`)
 
-The built-in `length` analyzer computes text length metrics:
+Computes token and message count metrics using a configurable tokenizer.
 
 | Metric | Description |
 |--------|-------------|
-| `char_count` | Number of characters |
-| `word_count` | Number of words (space-separated) |
-| `sentence_count` | Number of sentences (split on `.!?`) |
-| `token_count` | Number of tokens (requires tokenizer) |
+| `total_tokens` | Total tokens across all messages |
+| `avg_tokens_per_message` | Average tokens per message |
+| `num_messages` | Number of messages in the conversation |
+| `user_total_tokens` | Total tokens in user messages |
+| `assistant_total_tokens` | Total tokens in assistant messages |
+| `system_total_tokens` | Total tokens in system messages |
 
 :::{tip}
-Enable token counting by adding `tokenizer_config` to your configuration. See {doc}`analyze_config` for setup details.
+Configure the tokenizer via `params.tokenizer_name`. Supports tiktoken encodings (e.g., `cl100k_base`) and HuggingFace model IDs (e.g., `meta-llama/Llama-3.1-8B-Instruct`).
 :::
+
+### Quality Analyzer (`quality`)
+
+Fast, non-LLM quality checks for data validation.
+
+| Metric | Description |
+|--------|-------------|
+| `has_alternating_turns` | Proper user-assistant alternation |
+| `has_empty_turns` | Any message has empty content |
+| `has_invalid_values` | Contains serialized `NaN`, `null`, `None` |
+| `fits_4k_context` / `fits_8k_context` | Estimated context window fit |
+| `appears_truncated` | Last message appears cut off |
+| `has_policy_refusal` | Assistant message contains refusal patterns |
+| `has_unbalanced_tags` | Unmatched `<think>`, code blocks, etc. |
+| `passes_basic_quality` | Passes all enabled quality checks |
+
+### Turn Stats Analyzer (`turn_stats`)
+
+Conversation structure and balance metrics.
+
+| Metric | Description |
+|--------|-------------|
+| `num_turns` | Total turns (excluding system by default) |
+| `num_user_turns` / `num_assistant_turns` | Per-role turn counts |
+| `avg_user_chars` / `avg_assistant_chars` | Average message length by role |
+| `response_ratio` | Assistant-to-user message length ratio |
+| `assistant_turn_ratio` | Fraction of turns from the assistant |
+
+### Additional Analyzers
+
+| Analyzer | Type | Description |
+|----------|------|-------------|
+| `deduplication` | Dataset-level | Near-duplicate detection via MinHash |
+| `llm` | Conversation-level | LLM-as-judge evaluation (requires API key) |
+| `usefulness` | Conversation-level | Response usefulness scoring |
+| `safety` | Conversation-level | Safety and harmful content detection |
+| `coherence` | Conversation-level | Response coherence evaluation |
+
+Use `oumi analyze --list-metrics` to see all available metrics and their descriptions.
 
 ## Working with Results
 
-### Analysis Summary
+### Output Files
 
-Access summary statistics after running analysis:
+| File | Description |
+|------|-------------|
+| `analysis.{format}` | Per-conversation metrics (one row per conversation) |
+| `test_results.json` | Test pass/fail details (if tests configured) |
+| `summary.json` | Statistical summary (mean, std, min, max) |
 
-```python
-summary = analyzer.analysis_summary
+### Exporting
 
-# Dataset overview
-print(f"Dataset: {summary['dataset_overview']['dataset_name']}")
-print(f"Samples: {summary['dataset_overview']['conversations_analyzed']}")
+::::{tab-set-code}
+:::{code-block} bash
 
-# Message-level statistics
-for analyzer_name, metrics in summary['message_level_summary'].items():
-    for metric_name, stats in metrics.items():
-        print(f"{metric_name}: mean={stats['mean']}, std={stats['std']}")
-```
+# Export to CSV (default)
+oumi analyze -c config.yaml
 
-### DataFrames
+# Export to JSON
+oumi analyze -c config.yaml --format json
 
-Access raw analysis data as pandas DataFrames:
+# Export to Parquet
+oumi analyze -c config.yaml --format parquet
 
-```python
-message_df = analyzer.message_df        # One row per message
-conversation_df = analyzer.conversation_df  # One row per conversation
-full_df = analyzer.analysis_df          # Merged view
-```
+# Override output directory
+oumi analyze -c config.yaml --output ./my_results
+:::
+::::
 
-The `conversation_df` includes:
-
-- `conversation_index`: Index of the conversation in the dataset
-- `conversation_id`: Unique identifier for the conversation
-- `num_messages`: Number of messages in the conversation
-- `conversation_text_content`: Full conversation rendered as text (formatted as "ROLE: content" for each message)
-
-### Querying and Filtering
-
-Filter results using pandas query syntax:
+### Programmatic Access
 
 ```python
-# Find long messages
-long_messages = analyzer.query("text_content_length_word_count > 10")
+from oumi.analyze import run_typed_analysis, TypedAnalyzeConfig
 
-# Find short conversations
-short_convos = analyzer.query_conversations("conversation_text_content_length_char_count < 100")
+config = TypedAnalyzeConfig.from_yaml("config.yaml")
+results = run_typed_analysis(config)
 
-# Create filtered dataset
-filtered_dataset = analyzer.filter("text_content_length_word_count < 100")
+# results is a dict mapping analyzer display_name to list of result models
+for length_result in results["Length"]:
+    print(f"Tokens: {length_result.total_tokens}")
+
+# Convert to DataFrame
+from oumi.analyze import to_analysis_dataframe
+
+df = to_analysis_dataframe(results)
+print(df.describe())
 ```
 
-## Supported Dataset Formats
-
-| Format | Description | Example |
-|--------|-------------|---------|
-| **oumi** | Multi-turn conversations with roles | SFT, instruction-following |
-| **alpaca** | Instruction/input/output format | Stanford Alpaca |
-| **DPO** | Preference pairs (chosen/rejected) | Preference learning |
-| **KTO** | Binary feedback format | Human feedback |
-| **Pretraining** | Raw text | C4, The Pile |
-
-### Analyzing HuggingFace Datasets
+## Analyzing HuggingFace Datasets
 
 Analyze any HuggingFace Hub dataset directly:
 
@@ -140,133 +170,84 @@ Analyze any HuggingFace Hub dataset directly:
 :::{code-block} yaml
 
 # hf_analyze.yaml
-
 dataset_name: argilla/databricks-dolly-15k-curated-en
 split: train
 sample_count: 100
 output_path: ./analysis_output/dolly
-analyzers:
 
-- id: length
+analyzers:
+  - type: length
+    display_name: Length
+    params:
+      tokenizer_name: cl100k_base
+  - type: quality
+    display_name: Quality
 :::
 :::{code-block} python
-from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
-from oumi.core.configs import AnalyzeConfig, SampleAnalyzerParams
+from oumi.analyze import run_typed_analysis, TypedAnalyzeConfig, AnalyzerConfig
 
-config = AnalyzeConfig(
+config = TypedAnalyzeConfig(
     dataset_name="argilla/databricks-dolly-15k-curated-en",
     split="train",
     sample_count=100,
-    analyzers=[SampleAnalyzerParams(id="length")],
+    analyzers=[
+        AnalyzerConfig(type="length", display_name="Length"),
+        AnalyzerConfig(type="quality", display_name="Quality"),
+    ],
 )
-analyzer = DatasetAnalyzer(config)
-analyzer.analyze_dataset()
+results = run_typed_analysis(config)
 :::
 ::::
 
-## Exporting Results
+## Data Validation with Tests
 
-::::{tab-set-code}
-:::{code-block} bash
+Configure tests to automatically validate your dataset against quality thresholds:
 
-# Export to CSV (default)
+```yaml
+analyzers:
+  - type: length
+    display_name: Length
+  - type: quality
+    display_name: Quality
 
-oumi analyze --config configs/examples/analyze/analyze.yaml
+tests:
+  - id: max_tokens
+    type: threshold
+    metric: Length.total_tokens
+    operator: ">"
+    value: 10000
+    max_percentage: 5.0
+    severity: high
+    display_name: "Token count exceeds 10K"
 
-# Export to Parquet
+  - id: quality_pass_rate
+    type: percentage
+    metric: Quality.passes_basic_quality
+    condition: "== True"
+    min_percentage: 80.0
+    severity: high
+    display_name: "Basic quality pass rate"
 
-oumi analyze --config configs/examples/analyze/analyze.yaml --format parquet
-
-# Override output directory
-
-oumi analyze --config configs/examples/analyze/analyze.yaml --output ./my_results
-:::
-::::
-
-**Output files:**
-
-| File | Description |
-|------|-------------|
-| `message_analysis.{format}` | Per-message metrics |
-| `conversation_analysis.{format}` | Per-conversation aggregated metrics |
-| `analysis_summary.json` | Statistical summary |
-
-## Creating Custom Analyzers
-
-You can create custom analyzers to compute domain-specific metrics for your datasets. Custom analyzers extend the `SampleAnalyzer` base class and are registered using the `@register_sample_analyzer` decorator.
-
-For example, to build a question detector analyzer:
-
-```python
-import re
-from typing import Optional
-import pandas as pd
-
-from oumi.core.analyze.column_types import ContentType
-from oumi.core.analyze.sample_analyzer import SampleAnalyzer
-from oumi.core.registry import register_sample_analyzer
-
-
-@register_sample_analyzer("questions")
-class QuestionAnalyzer(SampleAnalyzer):
-    """Counts questions in text fields."""
-
-    def _count_questions(self, text: str) -> int:
-        """Count question marks in text. Replace with your own logic."""
-        return len(re.findall(r"\?", text))
-
-    def analyze_sample(
-        self,
-        df: pd.DataFrame,
-        schema: Optional[dict] = None,
-    ) -> pd.DataFrame:
-        result_df = df.copy()
-
-        # Find text columns using the schema
-        text_columns = [
-            col for col, config in schema.items()
-            if config.get("content_type") == ContentType.TEXT and col in df.columns
-        ]
-
-        for column in text_columns:
-            result_df[f"{column}_question_count"] = (
-                df[column].astype(str).apply(self._count_questions)
-            )
-
-        return result_df
+  - id: token_range
+    type: range
+    metric: Length.total_tokens
+    min_value: 10
+    max_value: 8192
+    max_percentage: 10.0
+    severity: low
+    display_name: "Tokens within context window"
 ```
 
-Use your analyzer by referencing its registered ID:
+Metrics are referenced as `"{display_name}.{field_name}"` (e.g., `Length.total_tokens`, `Quality.has_empty_turns`).
 
-::::{tab-set-code}
-:::{code-block} yaml
-analyzers:
-
-- id: questions
-:::
-:::{code-block} python
-
-# Import your analyzer module to trigger registration
-
-import my_analyzers  # noqa: F401
-
-config = AnalyzeConfig(
-    dataset_path="data/my_dataset.jsonl",
-    is_multimodal=False,
-    analyzers=[SampleAnalyzerParams(id="questions")],
-)
-:::
-::::
-
-**Key points:**
-
-- Register with a unique ID via `@register_sample_analyzer("id")`
-- Use `schema` to find text columns (`ContentType.TEXT`)
-- Prefix output columns with the source column name (e.g., `{column}_question_count`)
+See {doc}`analyze_config` for full test configuration options.
 
 ## API Reference
 
-- {py:class}`~oumi.core.configs.AnalyzeConfig` - Configuration class
-- {py:class}`~oumi.core.analyze.dataset_analyzer.DatasetAnalyzer` - Main analyzer class
-- {py:class}`~oumi.core.analyze.sample_analyzer.SampleAnalyzer` - Base class for analyzers
-- {py:class}`~oumi.core.analyze.length_analyzer.LengthAnalyzer` - Built-in length analyzer
+- {py:class}`~oumi.analyze.config.TypedAnalyzeConfig` - Configuration class
+- {py:class}`~oumi.analyze.config.AnalyzerConfig` - Analyzer configuration
+- {py:class}`~oumi.analyze.pipeline.AnalysisPipeline` - Analysis pipeline
+- {py:class}`~oumi.analyze.base.ConversationAnalyzer` - Base class for analyzers
+- {py:class}`~oumi.analyze.analyzers.length.LengthAnalyzer` - Length metrics
+- {py:class}`~oumi.analyze.analyzers.quality.DataQualityAnalyzer` - Quality checks
+- {py:class}`~oumi.analyze.analyzers.turn_stats.TurnStatsAnalyzer` - Turn statistics

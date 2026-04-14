@@ -1,11 +1,12 @@
 # Dataset Analysis Configuration
-# Usage: oumi analyze --config configs/examples/analyze/analyze.yaml
+# Usage: oumi analyze -c configs/examples/analyze/analyze.yaml
 #
 # Output files:
-#   - message_analysis.csv: Per-message metrics
-#   - conversation_analysis.csv: Per-conversation aggregated metrics
-#   - analysis_summary.json: Statistical summary (mean, std, min, max, median)
-# Local file in Oumi or Alpaca format
+#   - analysis.csv: Per-conversation metrics
+#   - test_results.json: Test pass/fail details
+#   - summary.json: Statistical summary (mean, std, min, max, median)
+
+# Local file in Oumi format (JSONL with {"messages": [...]})
 dataset_path: data/dataset_examples/oumi_format.jsonl
 # Or, use a HuggingFace dataset
 # dataset_name: argilla/databricks-dolly-15k-curated-en
@@ -13,19 +14,10 @@ dataset_path: data/dataset_examples/oumi_format.jsonl
 
 # sample_count: 1000  # Limit samples (null = all)
 
-# Tokenizer for token_count metric (use same tokenizer as your target model)
-# tokenizer_name: openai-community/gpt2
-# tokenizer_kwargs: {}
-
-# For multimodal (vision-language) datasets, specify a processor
-# Presence of processor_name automatically enables multimodal mode
-# processor_name: llava-hf/llava-1.5-7b-hf
-# processor_kwargs: {}
-
-# trust_remote_code: false
-
 output_path: ./analysis_output
 
+# Analyzers to run. Each needs a unique display_name.
+# Metrics are accessed via paths like "Length.total_tokens".
 analyzers:
   - type: length
     display_name: Length
@@ -34,4 +26,34 @@ analyzers:
       tokenizer_name: cl100k_base  # tiktoken encoding (GPT-4)
       # For HuggingFace tokenizers, use model ID:
       # tokenizer_name: meta-llama/Llama-3.1-8B-Instruct
-      # trust_remote_code: false
+  - type: quality
+    display_name: Quality
+    # params:
+    #   check_turn_pattern: true
+    #   check_empty_content: true
+    #   check_truncation: true
+    #   check_refusals: true
+    #   check_tags: true
+  - type: turn_stats
+    display_name: TurnStats
+    # params:
+    #   include_system_in_counts: false
+
+# Tests validate analysis results against thresholds.
+# Metric paths use "{display_name}.{field_name}" format.
+# tests:
+#   - id: max_tokens
+#     type: threshold
+#     metric: Length.total_tokens
+#     operator: ">"
+#     value: 10000
+#     max_percentage: 5.0
+#     severity: high
+#     display_name: "Token count exceeds 10K"
+#   - id: empty_turns
+#     type: percentage
+#     metric: Quality.has_empty_turns
+#     condition: "== True"
+#     max_percentage: 5.0
+#     severity: high
+#     display_name: "Conversations with empty turns"
