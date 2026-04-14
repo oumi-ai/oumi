@@ -23,7 +23,7 @@ from typing import Any, ClassVar
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.environments.base_environment import BaseEnvironment
-from oumi.environments.tool_result import ToolResult
+from oumi.environments.base_tool import ToolResult
 
 
 def _validate_json_schema_value(

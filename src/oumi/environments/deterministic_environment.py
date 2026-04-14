@@ -21,8 +21,7 @@ from dataclasses import dataclass, field
 from typing import Any, ClassVar
 
 from oumi.environments.base_environment import BaseEnvironment
-from oumi.environments.base_tool import DeterministicToolOutput, Tool
-from oumi.environments.tool_result import ToolResult
+from oumi.environments.base_tool import DeterministicToolOutput, Tool, ToolResult
 
 
 @dataclass
