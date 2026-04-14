@@ -18,7 +18,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from oumi.core.configs.base_config import BaseConfig
-from oumi.environments import BaseEnvironment, BaseTool
+from oumi.environments.base_environment import BaseEnvironment
+from oumi.environments.base_tool import Tool
 
 
 @dataclass
@@ -54,7 +55,7 @@ class EnvironmentConfig(BaseConfig):
                 tool_ids.add(tool.id)
 
     @property
-    def all_tools(self) -> list[BaseTool]:
+    def all_tools(self) -> list[Tool]:
         """Flatten all tools across environments."""
         return [tool for environment in self.environments for tool in environment.tools]
 
@@ -74,7 +75,7 @@ class EnvironmentConfig(BaseConfig):
                 return environment
         return None
 
-    def get_tool(self, tool_id: str) -> BaseTool | None:
+    def get_tool(self, tool_id: str) -> Tool | None:
         """Look up a tool by id."""
         for tool in self.all_tools:
             if tool.id == tool_id:
@@ -85,7 +86,7 @@ class EnvironmentConfig(BaseConfig):
         self,
         environment_ids: list[str] | None = None,
         tool_ids: list[str] | None = None,
-    ) -> list[BaseTool]:
+    ) -> list[Tool]:
         """Resolve tools from selected environments and optional tool ids.
 
         Raises:

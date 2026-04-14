@@ -23,7 +23,8 @@ from oumi.core.configs.params.synthesis_params import (
     GeneralSynthesisParams,
     MultiTurnAttribute,
 )
-from oumi.environments import BaseEnvironment, BaseTool
+from oumi.environments.base_environment import BaseEnvironment
+from oumi.environments.base_tool import Tool
 
 
 class SynthesisStrategy(str, Enum):
@@ -144,7 +145,7 @@ class SynthesisConfig(BaseConfig):
 
     def resolve_multiturn_tools(
         self, multiturn_attribute: MultiTurnAttribute
-    ) -> list[BaseTool]:
+    ) -> list[Tool]:
         """Resolve the tools available to a multiturn attribute."""
         if self.environment_config is None:
             return []

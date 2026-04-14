@@ -23,11 +23,9 @@ from oumi.core.configs.params.synthesis_params import (
 from oumi.core.configs.synthesis_config import SynthesisConfig, SynthesisStrategy
 from oumi.core.types.conversation import Role
 from oumi.environments import (
-    GeneratedToolOutput,
-    StatefulEnvironment,
-    StatefulTool,
-    StatelessEnvironment,
-    StatelessTool,
+    SyntheticEnvironment,
+    SyntheticStateParams,
+    Tool,
 )
 
 
@@ -84,21 +82,18 @@ def test_invalid_output_path():
         SynthesisConfig(inference_config=inference_config)
 
 
-def _make_faq_tool() -> StatelessTool:
-    return StatelessTool(
+def _make_faq_tool() -> Tool:
+    return Tool(
         id="answer_faq",
         name="AnswerFAQ",
         description="Answer a FAQ question.",
-        generated_output=GeneratedToolOutput(
-            instruction="Answer the given FAQ question."
-        ),
     )
 
 
 def test_synthesis_config_with_top_level_environment_config():
     env_config = EnvironmentConfig(
         environments=[
-            StatelessEnvironment(
+            SyntheticEnvironment(
                 id="faq",
                 name="FAQ",
                 description="FAQ tools",
@@ -124,7 +119,7 @@ def test_synthesis_config_loads_environment_config_from_path(tmp_path):
     env_config_path = tmp_path / "environments.yaml"
     env_config = EnvironmentConfig(
         environments=[
-            StatelessEnvironment(
+            SyntheticEnvironment(
                 id="faq",
                 name="FAQ",
                 description="FAQ tools",
@@ -144,7 +139,7 @@ def test_synthesis_config_loads_environment_config_from_path(tmp_path):
 def test_synthesis_config_validates_available_tools():
     env_config = EnvironmentConfig(
         environments=[
-            StatelessEnvironment(
+            SyntheticEnvironment(
                 id="faq",
                 name="FAQ",
                 description="FAQ tools",
@@ -203,7 +198,7 @@ def test_synthesis_config_requires_environment_config_for_available_tools():
 def test_synthesis_config_validates_available_environments():
     env_config = EnvironmentConfig(
         environments=[
-            StatelessEnvironment(
+            SyntheticEnvironment(
                 id="faq",
                 name="FAQ",
                 description="FAQ tools",
@@ -234,20 +229,22 @@ def test_synthesis_config_validates_available_environments():
 def test_synthesis_config_restricts_tools_to_selected_environments():
     env_config = EnvironmentConfig(
         environments=[
-            StatelessEnvironment(
+            SyntheticEnvironment(
                 id="faq",
                 name="FAQ",
                 description="FAQ tools",
                 system_prompt="Answer FAQs.",
                 tools=[_make_faq_tool()],
             ),
-            StatefulEnvironment(
+            SyntheticEnvironment(
                 id="files",
                 name="Files",
                 description="File tools",
                 system_prompt="Manage files.",
+                state_params=SyntheticStateParams(),
+                cache_by_input=False,
                 tools=[
-                    StatefulTool(
+                    Tool(
                         id="read_file",
                         name="ReadFile",
                         description="Read a file.",
@@ -279,20 +276,22 @@ def test_synthesis_config_restricts_tools_to_selected_environments():
 def test_synthesis_config_resolves_all_tools_from_selected_environments():
     env_config = EnvironmentConfig(
         environments=[
-            StatelessEnvironment(
+            SyntheticEnvironment(
                 id="faq",
                 name="FAQ",
                 description="FAQ tools",
                 system_prompt="Answer FAQs.",
                 tools=[_make_faq_tool()],
             ),
-            StatefulEnvironment(
+            SyntheticEnvironment(
                 id="files",
                 name="Files",
                 description="File tools",
                 system_prompt="Manage files.",
+                state_params=SyntheticStateParams(),
+                cache_by_input=False,
                 tools=[
-                    StatefulTool(
+                    Tool(
                         id="read_file",
                         name="ReadFile",
                         description="Read a file.",

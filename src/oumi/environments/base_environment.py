@@ -12,12 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Abstract base class for tool environments.
-
-Environments are simulated worlds that agents interact with via tools.
-They are used by synthesis (to generate training data), evaluation
-(to test agent behaviour), and RL (to provide reward signals).
-"""
+"""Abstract base class for tool environments."""
 
 from __future__ import annotations
 
@@ -27,26 +22,20 @@ from dataclasses import dataclass, field, fields
 from typing import Any, ClassVar
 
 from oumi.core.configs.params.base_params import BaseParams
-from oumi.environments.base_tool import BaseTool
-from oumi.environments.types import ToolEnvironmentType
+from oumi.environments.base_tool import Tool
+from oumi.environments.tool_result import ToolResult
 
 
 @dataclass
 class BaseEnvironment(BaseParams, ABC):
-    """Abstract base class for tool environments.
+    """Abstract base class for tool environments."""
 
-    Each environment owns a set of tools and defines how tool calls are
-    resolved. Subclasses implement the concrete execution model and
-    coerce raw tool definitions into their typed tool subclass.
-    """
-
-    _registry: ClassVar[dict[ToolEnvironmentType, type[BaseEnvironment]]] = {}
+    _registry: ClassVar[dict[str, type[BaseEnvironment]]] = {}
 
     id: str
     name: str
     description: str
-    tools: list[BaseTool] = field(default_factory=list)
-    type: ToolEnvironmentType = field(init=False)
+    tools: list[Tool] = field(default_factory=list)
 
     def __init_subclass__(cls, **kwargs):
         """Register subclass in the environment type registry."""
@@ -65,7 +54,6 @@ class BaseEnvironment(BaseParams, ABC):
             raise ValueError(f"{type(self).__name__}.description cannot be empty.")
         self.tools = self._coerce_tools(self.tools)
         self._validate_unique_tool_ids()
-        self._validate_type_specific()
 
     def _validate_unique_tool_ids(self) -> None:
         tool_ids: set[str] = set()
@@ -77,16 +65,32 @@ class BaseEnvironment(BaseParams, ABC):
                 )
             tool_ids.add(tool.id)
 
-    @abstractmethod
-    def _coerce_tools(self, tools: list[Any]) -> list[BaseTool]:
-        """Coerce raw tool definitions into this environment's typed tool class."""
+    def _coerce_tools(self, tools: list[Any]) -> list[Tool]:
+        """Coerce raw tool definitions into Tool instances."""
+        return [Tool.create(tool) for tool in tools]
 
     @abstractmethod
-    def _validate_type_specific(self) -> None:
-        """Validate fields specific to the environment subtype."""
+    def step(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:
+        """Execute a tool call within this environment."""
+
+    def _get_tool(self, tool_id: str) -> Tool | None:
+        """Look up a tool owned by this environment."""
+        for tool in self.tools:
+            if tool.id == tool_id:
+                return tool
+        return None
+
+    def _get_tool_or_raise(self, tool_id: str) -> Tool:
+        tool = self._get_tool(tool_id)
+        if tool is None:
+            raise ValueError(
+                f"Tool '{tool_id}' not found in environment '{self.id}'. "
+                f"Available tools: {[tool.id for tool in self.tools]}"
+            )
+        return tool
 
     @classmethod
-    def create(cls, raw: Mapping[str, Any] | BaseEnvironment) -> BaseEnvironment:
+    def create(cls, raw: Any) -> BaseEnvironment:
         """Create a concrete environment from raw config data.
 
         Raises:
@@ -100,21 +104,14 @@ class BaseEnvironment(BaseParams, ABC):
                 "Environment definitions must be environment objects or mappings, "
                 f"got {type(raw)}"
             )
-        raw_type = raw.get("type")
-        if raw_type is None:
+        environment_type = raw.get("type")
+        if environment_type is None:
             raise ValueError(
                 "Environment definition must include a 'type' field. "
-                f"Supported types: {[t.value for t in ToolEnvironmentType]}"
+                f"Supported types: {sorted(cls._registry)}"
             )
-        if isinstance(raw_type, ToolEnvironmentType):
-            environment_type = raw_type
-        elif isinstance(raw_type, str):
-            try:
-                environment_type = ToolEnvironmentType(raw_type)
-            except ValueError:
-                environment_type = ToolEnvironmentType[raw_type]
-        else:
-            environment_type = ToolEnvironmentType(raw_type)
+        if not isinstance(environment_type, str):
+            environment_type = str(environment_type)
         environment_cls = cls._registry.get(environment_type)
         if environment_cls is None:
             raise ValueError(f"Unsupported environment type: {environment_type}")
