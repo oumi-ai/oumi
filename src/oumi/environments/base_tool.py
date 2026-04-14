@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Base tool class shared by all environment types."""
+"""Tool definitions shared by all environment types."""
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
@@ -24,23 +25,34 @@ from oumi.core.configs.params.base_params import BaseParams
 
 
 @dataclass
-class BaseTool(BaseParams):
-    """Common fields for all tools exposed by an environment."""
+class DeterministicToolOutput(BaseParams):
+    """An input-to-output mapping for a deterministic tool."""
+
+    input: dict[str, Any] = field(default_factory=dict)
+    output: dict[str, Any] = field(default_factory=dict)
+
+    def matches(self, arguments: dict[str, Any]) -> bool:
+        """Check if the input matches the given arguments."""
+        return json.dumps(self.input, sort_keys=True) == json.dumps(
+            arguments, sort_keys=True
+        )
+
+
+@dataclass
+class Tool(BaseParams):
+    """Tool schema owned by an environment."""
 
     id: str
     name: str
     description: str
     parameters: dict[str, Any] = field(default_factory=dict)
+    read_only: bool = True
+    deterministic_outputs: list[DeterministicToolOutput] = field(default_factory=list)
 
     @classmethod
-    def create(cls, raw: Mapping[str, Any] | BaseTool) -> BaseTool:
-        """Create a tool from raw config data.
-
-        Returns a ``BaseTool`` with only the common fields. Environment
-        subclasses call their own typed factory (e.g.
-        ``DeterministicTool.create``) to get the full subclass.
-        """
-        if isinstance(raw, BaseTool):
+    def create(cls, raw: Any) -> Tool:
+        """Create a tool from raw config data."""
+        if isinstance(raw, Tool):
             return raw
         if not isinstance(raw, Mapping):
             raise TypeError(
@@ -51,6 +63,8 @@ class BaseTool(BaseParams):
             name=raw["name"],
             description=raw["description"],
             parameters=raw.get("parameters", {}),
+            read_only=raw.get("read_only", True),
+            deterministic_outputs=raw.get("deterministic_outputs", []),
         )
 
     def __post_init__(self):
@@ -61,3 +75,11 @@ class BaseTool(BaseParams):
             raise ValueError(f"{type(self).__name__}.name cannot be empty.")
         if not self.description:
             raise ValueError(f"{type(self).__name__}.description cannot be empty.")
+
+    def to_llm_schema(self) -> dict[str, Any]:
+        """Export a provider-agnostic schema for LLM tool registration."""
+        return {
+            "name": self.name,
+            "description": self.description,
+            "parameters": self.parameters,
+        }
