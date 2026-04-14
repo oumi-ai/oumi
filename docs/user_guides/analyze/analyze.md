@@ -102,16 +102,6 @@ Conversation structure and balance metrics.
 | `response_ratio` | Assistant-to-user message length ratio |
 | `assistant_turn_ratio` | Fraction of turns from the assistant |
 
-### Additional Analyzers
-
-| Analyzer | Type | Description |
-|----------|------|-------------|
-| `deduplication` | Dataset-level | Near-duplicate detection via MinHash |
-| `llm` | Conversation-level | LLM-as-judge evaluation (requires API key) |
-| `usefulness` | Conversation-level | Response usefulness scoring |
-| `safety` | Conversation-level | Safety and harmful content detection |
-| `coherence` | Conversation-level | Response coherence evaluation |
-
 Use `oumi analyze --list-metrics` to see all available metrics and their descriptions.
 
 ## Working with Results

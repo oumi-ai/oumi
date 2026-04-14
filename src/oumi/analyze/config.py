@@ -32,10 +32,7 @@ class AnalyzerType(str, Enum):
 
     LENGTH = "length"
     QUALITY = "quality"
-    FORMAT = "format"
-    DIVERSITY = "diversity"
-    EMBEDDING = "embedding"
-    LLM_JUDGE = "llm_judge"
+    TURN_STATS = "turn_stats"
 
 
 @dataclass

@@ -56,44 +56,16 @@ def register_analyzer(name: str):
 # Register built-in analyzers
 def _register_builtin_analyzers():
     """Register built-in analyzers in the registry."""
-    from oumi.analyze.analyzers.deduplication import DeduplicationAnalyzer
     from oumi.analyze.analyzers.length import LengthAnalyzer
-    from oumi.analyze.analyzers.llm_analyzer import (
-        CoherenceAnalyzer,
-        FactualityAnalyzer,
-        InstructionFollowingAnalyzer,
-        LLMAnalyzer,
-        SafetyAnalyzer,
-        UsefulnessAnalyzer,
-    )
     from oumi.analyze.analyzers.quality import DataQualityAnalyzer
     from oumi.analyze.analyzers.turn_stats import TurnStatsAnalyzer
 
-    # Non-LLM analyzers (fast, cheap)
     ANALYZER_REGISTRY["length"] = LengthAnalyzer
     ANALYZER_REGISTRY["LengthAnalyzer"] = LengthAnalyzer
     ANALYZER_REGISTRY["quality"] = DataQualityAnalyzer
     ANALYZER_REGISTRY["DataQualityAnalyzer"] = DataQualityAnalyzer
     ANALYZER_REGISTRY["turn_stats"] = TurnStatsAnalyzer
     ANALYZER_REGISTRY["TurnStatsAnalyzer"] = TurnStatsAnalyzer
-
-    # Dataset-level analyzers
-    ANALYZER_REGISTRY["deduplication"] = DeduplicationAnalyzer
-    ANALYZER_REGISTRY["DeduplicationAnalyzer"] = DeduplicationAnalyzer
-
-    # LLM-based analyzers
-    ANALYZER_REGISTRY["llm"] = LLMAnalyzer
-    ANALYZER_REGISTRY["LLMAnalyzer"] = LLMAnalyzer
-    ANALYZER_REGISTRY["usefulness"] = UsefulnessAnalyzer
-    ANALYZER_REGISTRY["UsefulnessAnalyzer"] = UsefulnessAnalyzer
-    ANALYZER_REGISTRY["safety"] = SafetyAnalyzer
-    ANALYZER_REGISTRY["SafetyAnalyzer"] = SafetyAnalyzer
-    ANALYZER_REGISTRY["factuality"] = FactualityAnalyzer
-    ANALYZER_REGISTRY["FactualityAnalyzer"] = FactualityAnalyzer
-    ANALYZER_REGISTRY["coherence"] = CoherenceAnalyzer
-    ANALYZER_REGISTRY["CoherenceAnalyzer"] = CoherenceAnalyzer
-    ANALYZER_REGISTRY["instruction_following"] = InstructionFollowingAnalyzer
-    ANALYZER_REGISTRY["InstructionFollowingAnalyzer"] = InstructionFollowingAnalyzer
 
 
 # Call on module import
