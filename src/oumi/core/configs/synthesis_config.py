@@ -17,7 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from oumi.core.configs.base_config import BaseConfig
 from oumi.core.configs.inference_config import InferenceConfig
@@ -57,8 +57,8 @@ class SynthesisConfig(BaseConfig):
     )
     """The synthesis strategy parameters to use."""
 
-    environment_config: EnvironmentConfig | None = None
-    """Reusable environment-first tool configuration."""
+    environment_config: Any | None = None
+    """Reusable environment-first tool configuration (EnvironmentConfig)."""
 
     environment_config_path: str | None = None
     """Optional path to an EnvironmentConfig YAML file."""
