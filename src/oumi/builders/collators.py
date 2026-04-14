@@ -51,7 +51,8 @@ def build_data_collator(
 
             - "text_with_padding": Uses `TextCollatorWithPadding`.
             - "text_completions_only_with_padding": Uses
-                `TextCompletionsCollatorWithPadding`.
+                `TextCompletionsCollatorWithPadding`. Supports optional
+                ``end_of_turn_template`` for tool-aware span-based masking.
             - "vision_language_with_padding": Uses `VisionLanguageCollatorWithPadding`.
             - "vision_language_sft": Uses `VisionLanguageSftCollator`.
 
@@ -129,24 +130,33 @@ def build_data_collator(
         # Extract instruction and response templates from kwargs if provided
         instruction_template = kwargs.pop("instruction_template", None)
         response_template = kwargs.pop("response_template", None)
+        end_of_turn_template = kwargs.pop("end_of_turn_template", None)
+        masking_method = kwargs.pop("masking_method", None)
+        tool_call_start_template = kwargs.pop("tool_call_start_template", None)
 
-        # Default to Llama-style templates if not provided
-        instruction_prefix = (
-            instruction_template
-            if instruction_template
-            else "<|start_header_id|>user<|end_header_id|>\n\n"
-        )
-        response_prefix = (
-            response_template
-            if response_template
-            else "<|start_header_id|>assistant<|end_header_id|>\n\n"
-        )
+        # Only default to Llama-style instruction template when NOT using
+        # span-based masking (end_of_turn_template makes it unnecessary).
+        if end_of_turn_template is None:
+            instruction_template = (
+                instruction_template
+                if instruction_template
+                else "<|start_header_id|>user<|end_header_id|>\n\n"
+            )
+
+        if not response_template:
+            response_template = "<|start_header_id|>assistant<|end_header_id|>\n\n"
 
         return TextCompletionsCollatorWithPadding(
             tokenizer=tokenizer,
-            instruction_prefix=instruction_prefix,
-            response_prefix=response_prefix,
+            response_template=response_template,
+            instruction_template=instruction_template,
             debug=debug,
+            masking_method=masking_method,
+            end_of_turn_template=end_of_turn_template,
+            tool_call_start_template=tool_call_start_template,
+            ignore_index=(
+                label_ignore_index if label_ignore_index is not None else -100
+            ),
             **kwargs,
         )
     raise ValueError(f"Unknown data collator name: '{collator_name}'")

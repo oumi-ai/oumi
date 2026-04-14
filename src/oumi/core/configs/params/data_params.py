@@ -197,8 +197,14 @@ class DatasetSplitParams(BaseParams):
 
         - "text_with_padding": Dynamically pads the inputs received to
             the longest length.
+        - "text_completions_only_with_padding": Uses template matching to
+            mask non-assistant tokens. Works for simple user/assistant turns.
+            Supports optional ``end_of_turn_template`` in ``collator_kwargs``
+            for tool-aware span-based masking. When set, also supports
+            ``mask_tool_calls=True`` and ``tool_call_start_template``.
         - "vision_language_with_padding": Uses VisionLanguageCollator
             for image+text multi-modal data.
+        - "vision_language_sft": Uses VisionLanguageSftCollator.
 
     If None, then a default collator will be assigned.
     """
