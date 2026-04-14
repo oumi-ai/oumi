@@ -122,11 +122,10 @@ def test_length_metrics_creation():
     assert metrics.avg_tokens_per_message == 5.0
     assert metrics.message_token_counts == [4, 6]
     assert metrics.num_messages == 2
-    # Role stats default to 0
-    assert metrics.user_total_tokens == 0
-    assert metrics.assistant_total_tokens == 0
-    assert metrics.system_total_tokens == 0
-    assert metrics.tool_total_tokens == 0
+    # Role stats default to None when not provided
+    assert metrics.user_total_tokens is None
+    assert metrics.assistant_total_tokens is None
+    assert metrics.system_total_tokens is None
 
 
 def test_length_metrics_with_role_stats():
@@ -186,15 +185,16 @@ def test_analyze_simple_conversation(simple_conversation, tiktoken_tokenizer):
 
 
 def test_analyze_role_stats(simple_conversation, tiktoken_tokenizer):
-    """Test that role stats are always computed."""
+    """Test that role stats are computed when compute_role_stats is enabled."""
     analyzer = LengthAnalyzer(tokenizer=tiktoken_tokenizer)
     result = analyzer.analyze(simple_conversation)
 
+    assert result.user_total_tokens is not None
     assert result.user_total_tokens > 0
+    assert result.assistant_total_tokens is not None
     assert result.assistant_total_tokens > 0
-    # System and tool should be 0 since there are no such messages
+    # System should be 0 since there are no system messages
     assert result.system_total_tokens == 0
-    assert result.tool_total_tokens == 0
 
 
 def test_analyze_conversation_with_system(conversation_with_system, tiktoken_tokenizer):
@@ -203,6 +203,7 @@ def test_analyze_conversation_with_system(conversation_with_system, tiktoken_tok
     result = analyzer.analyze(conversation_with_system)
 
     assert result.num_messages == 3
+    assert result.system_total_tokens is not None
     assert result.system_total_tokens > 0
 
 
@@ -228,12 +229,14 @@ def test_analyze_with_custom_tokenizer(simple_conversation, mock_tokenizer):
     assert result.total_tokens == 3
 
 
-def test_analyze_raises_without_tokenizer(simple_conversation):
-    """Test that analyze raises RuntimeError without a tokenizer."""
-    analyzer = LengthAnalyzer()  # No tokenizer
-
-    with pytest.raises(RuntimeError, match="No tokenizer configured"):
-        analyzer.analyze(simple_conversation)
+def test_analyze_without_explicit_tokenizer_uses_tiktoken_fallback(
+    simple_conversation,
+):
+    """Test that analyze falls back to tiktoken when no tokenizer is provided."""
+    analyzer = LengthAnalyzer()  # No explicit tokenizer, uses tiktoken fallback
+    result = analyzer.analyze(simple_conversation)
+    # Should still count tokens via tiktoken fallback
+    assert result.total_tokens > 0
 
 
 # -----------------------------------------------------------------------------
@@ -270,16 +273,15 @@ def test_analyze_text_empty(tiktoken_tokenizer):
     assert result.num_messages == 1
 
 
-def test_analyze_text_role_stats_are_zero(tiktoken_tokenizer):
-    """Test that analyze_text returns zero for role stats (no conversation context)."""
+def test_analyze_text_role_stats_are_none(tiktoken_tokenizer):
+    """Test that analyze_text returns None for role stats (no conversation context)."""
     analyzer = LengthAnalyzer(tokenizer=tiktoken_tokenizer)
     result = analyzer.analyze_text("Some text")
 
-    # No conversation context, so role stats default to 0
-    assert result.user_total_tokens == 0
-    assert result.assistant_total_tokens == 0
-    assert result.system_total_tokens == 0
-    assert result.tool_total_tokens == 0
+    # No conversation context, so role stats are None
+    assert result.user_total_tokens is None
+    assert result.assistant_total_tokens is None
+    assert result.system_total_tokens is None
 
 
 # -----------------------------------------------------------------------------
@@ -309,81 +311,11 @@ def test_count_tokens_empty_string(tiktoken_tokenizer):
     assert count == 0
 
 
-def test_count_tokens_raises_when_no_tokenizer():
-    """Test that RuntimeError is raised when no tokenizer is configured."""
+def test_count_tokens_with_tiktoken_fallback():
+    """Test that _count_tokens uses tiktoken fallback when no tokenizer given."""
     analyzer = LengthAnalyzer()
-
-    with pytest.raises(RuntimeError, match="No tokenizer configured"):
-        analyzer._count_tokens("test text")
-
-
-# -----------------------------------------------------------------------------
-# Rendered Tokens Tests
-# -----------------------------------------------------------------------------
-
-
-def test_rendered_tokens_none_for_tiktoken(simple_conversation, tiktoken_tokenizer):
-    """Test that rendered_tokens is None when using tiktoken (no chat template)."""
-    analyzer = LengthAnalyzer(tokenizer=tiktoken_tokenizer)
-    result = analyzer.analyze(simple_conversation)
-
-    # tiktoken doesn't have apply_chat_template
-    assert result.rendered_tokens is None
-
-
-def test_rendered_tokens_none_for_mock_tokenizer(simple_conversation, mock_tokenizer):
-    """Test that rendered_tokens is None for tokenizers without apply_chat_template."""
-    analyzer = LengthAnalyzer(tokenizer=mock_tokenizer)
-    result = analyzer.analyze(simple_conversation)
-
-    assert result.rendered_tokens is None
-
-
-def test_rendered_tokens_with_chat_template(simple_conversation):
-    """Test rendered_tokens with a tokenizer that has apply_chat_template."""
-
-    class MockChatTokenizer:
-        """Mock tokenizer with apply_chat_template support."""
-
-        # Must have chat_template attribute set
-        chat_template = "{{ messages }}"
-
-        def encode(self, text: str) -> list[int]:
-            # Count characters instead of words for predictable results
-            return list(range(len(text)))
-
-        def apply_chat_template(self, conversation, tokenize=False, return_dict=False):
-            # Simulate chat template adding special tokens/formatting
-            messages = conversation.messages
-            parts = []
-            for msg in messages:
-                content = (
-                    msg.content if isinstance(msg.content, str) else str(msg.content)
-                )
-                parts.append(f"<|{msg.role.value}|>{content}<|end|>")
-            return "\n".join(parts)
-
-    tokenizer = MockChatTokenizer()
-    analyzer = LengthAnalyzer(tokenizer=tokenizer)
-    result = analyzer.analyze(simple_conversation)
-
-    # rendered_tokens should be computed
-    assert result.rendered_tokens is not None
-    # Rendered should be larger due to chat template formatting
-    # "Hello" (5) + "Hi there!" (9) = 14 chars for messages
-    # Rendered adds "<|user|>...<|end|>\n<|assistant|>...<|end|>" = much more
-    assert result.rendered_tokens > result.total_tokens
-
-
-def test_rendered_tokens_empty_conversation(tiktoken_tokenizer):
-    """Test rendered_tokens for empty conversation."""
-    from oumi.core.types.conversation import Conversation
-
-    analyzer = LengthAnalyzer(tokenizer=tiktoken_tokenizer)
-    result = analyzer.analyze(Conversation(messages=[]))
-
-    # tiktoken doesn't have chat template, so None
-    assert result.rendered_tokens is None
+    # Falls back to tiktoken, so should count tokens
+    assert analyzer._count_tokens("test text") > 0
 
 
 # -----------------------------------------------------------------------------
@@ -391,12 +323,14 @@ def test_rendered_tokens_empty_conversation(tiktoken_tokenizer):
 # -----------------------------------------------------------------------------
 
 
-def test_analyzer_registered_in_registry():
-    """Test that LengthAnalyzer is registered in the core registry."""
-    from oumi.core.registry import REGISTRY, RegistryType
+def test_analyzer_registered_in_cli_registry():
+    """Test that LengthAnalyzer is registered in the CLI analyzer registry."""
+    from oumi.analyze.cli import ANALYZER_REGISTRY
 
-    analyzer_class = REGISTRY.get(name="length", type=RegistryType.SAMPLE_ANALYZER)
-    assert analyzer_class is LengthAnalyzer
+    assert "length" in ANALYZER_REGISTRY
+    assert ANALYZER_REGISTRY["length"] is LengthAnalyzer
+    assert "LengthAnalyzer" in ANALYZER_REGISTRY
+    assert ANALYZER_REGISTRY["LengthAnalyzer"] is LengthAnalyzer
 
 
 # -----------------------------------------------------------------------------
@@ -428,9 +362,11 @@ def test_get_metric_descriptions():
     assert len(descriptions["total_tokens"]) > 0
 
 
-def test_get_scope():
-    """Test that analyzer scope is conversation."""
-    assert LengthAnalyzer.get_scope() == "conversation"
+def test_analyzer_is_conversation_analyzer():
+    """Test that LengthAnalyzer is a ConversationAnalyzer."""
+    from oumi.analyze.base import ConversationAnalyzer
+
+    assert issubclass(LengthAnalyzer, ConversationAnalyzer)
 
 
 def test_from_config_tiktoken():
@@ -486,7 +422,7 @@ def test_from_config_default():
 
 def test_create_analyzer_from_config_uses_from_config():
     """Test that create_analyzer_from_config uses from_config method."""
-    from oumi.analyze import create_analyzer_from_config
+    from oumi.analyze.cli import create_analyzer_from_config
 
     analyzer = create_analyzer_from_config("length", {"tokenizer_name": "cl100k_base"})
     assert analyzer is not None

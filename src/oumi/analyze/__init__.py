@@ -12,125 +12,160 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Analyzer framework for dataset analysis."""
+"""Typed analyzer framework for dataset analysis.
 
-from oumi.analyze.analyzers import (
-    DataQualityAnalyzer,
-    DataQualityMetrics,
-    LengthAnalyzer,
-    LengthAnalyzerConfig,
-    LengthMetrics,
-    TurnStatsAnalyzer,
-    TurnStatsMetrics,
+This module provides a typed, Pydantic-based approach to analyzing datasets,
+replacing the DataFrame-centric approach with typed Conversation objects
+and strongly-typed result models.
+
+Example usage:
+
+    from oumi.analyze import LengthAnalyzer, AnalysisPipeline
+
+    # Single conversation analysis
+    analyzer = LengthAnalyzer()
+    result = analyzer.analyze(conversation)
+    print(f"Total words: {result.total_words}")
+
+    # Batch processing with pipeline
+    pipeline = AnalysisPipeline(analyzers=[LengthAnalyzer()])
+    results = pipeline.run(conversations)
+
+    # Convert to DataFrame when needed
+    df = pipeline.to_dataframe()
+"""
+
+# Import analyzers and result models (co-located in analyzer files)
+from oumi.analyze.analyzers.deduplication import (
+    DeduplicationAnalyzer,
+    DeduplicationResult,
+    DuplicateGroup,
 )
+from oumi.analyze.analyzers.length import LengthAnalyzer, LengthMetrics
+from oumi.analyze.analyzers.llm_analyzer import (
+    CoherenceAnalyzer,
+    FactualityAnalyzer,
+    InstructionFollowingAnalyzer,
+    JudgmentType,
+    LLMAnalyzer,
+    LLMJudgmentMetrics,
+    SafetyAnalyzer,
+    TargetScope,
+    UsefulnessAnalyzer,
+    get_available_criteria,
+    get_criteria_info,
+)
+from oumi.analyze.analyzers.quality import DataQualityAnalyzer, DataQualityMetrics
+from oumi.analyze.analyzers.turn_stats import TurnStatsAnalyzer, TurnStatsMetrics
 from oumi.analyze.base import (
-    BaseAnalyzer,
     ConversationAnalyzer,
     DatasetAnalyzer,
     MessageAnalyzer,
     PreferenceAnalyzer,
 )
+
+# Import CLI utilities
+from oumi.analyze.cli import (
+    create_analyzer_from_config,
+    generate_tests,
+    get_analyzer_class,
+    list_metrics,
+    print_summary,
+    run_from_config_file,
+    run_typed_analysis,
+    save_results,
+)
+
+# Import config
 from oumi.analyze.config import (
     AnalyzerConfig,
+    CustomMetricConfig,
     TypedAnalyzeConfig,
 )
+
+# Import custom metrics
+from oumi.analyze.custom_metrics import (
+    CustomConversationMetric,
+    CustomMessageMetric,
+    CustomMetricResult,
+    create_custom_metric,
+)
+
+# Import discovery utilities
 from oumi.analyze.discovery import (
     describe_analyzer,
+    generate_test_template,
     get_analyzer_info,
-    get_instance_metrics,
     list_available_metrics,
     print_analyzer_metrics,
 )
 from oumi.analyze.pipeline import AnalysisPipeline
+
+# Import testing
 from oumi.analyze.testing import TestEngine, TestResult, TestSummary
 from oumi.analyze.utils.dataframe import to_analysis_dataframe
-from oumi.core.registry import (
-    REGISTRY,
-)
-from oumi.core.registry import (
-    register_sample_analyzer as register_analyzer,
-)
-
-
-def get_analyzer_class(name: str) -> type | None:
-    """Get an analyzer class by name.
-
-    Args:
-        name: Name of the analyzer.
-
-    Returns:
-        The analyzer class or None if not found.
-    """
-    from typing import cast
-
-    result = REGISTRY.get_sample_analyzer(name)
-    return cast(type | None, result)
-
-
-def create_analyzer_from_config(
-    analyzer_id: str,
-    params: dict,
-) -> "MessageAnalyzer | ConversationAnalyzer | DatasetAnalyzer | None":
-    """Create an analyzer instance from configuration.
-
-    Prefers using the analyzer's from_config() classmethod if available,
-    otherwise falls back to direct instantiation with **params.
-
-    Args:
-        analyzer_id: Analyzer type identifier.
-        params: Analyzer-specific parameters.
-
-    Returns:
-        Analyzer instance or None if not found.
-    """
-    import logging
-
-    logger = logging.getLogger(__name__)
-
-    analyzer_class = REGISTRY.get_sample_analyzer(analyzer_id)
-    if analyzer_class is None:
-        logger.warning(f"Unknown analyzer: {analyzer_id}")
-        return None
-
-    try:
-        # Prefer from_config() if available for better config handling
-        if hasattr(analyzer_class, "from_config") and callable(
-            getattr(analyzer_class, "from_config")
-        ):
-            return analyzer_class.from_config(params)  # type: ignore[union-attr]
-        else:
-            return analyzer_class(**params)
-    except Exception as e:
-        logger.error(f"Failed to create analyzer {analyzer_id}: {e}")
-        return None
-
 
 __all__ = [
-    "AnalysisPipeline",
-    "AnalyzerConfig",
-    "BaseAnalyzer",
-    "ConversationAnalyzer",
-    "DataQualityAnalyzer",
-    "DataQualityMetrics",
-    "DatasetAnalyzer",
-    "LengthAnalyzer",
-    "LengthAnalyzerConfig",
-    "LengthMetrics",
+    # Base classes
     "MessageAnalyzer",
+    "ConversationAnalyzer",
+    "DatasetAnalyzer",
     "PreferenceAnalyzer",
+    # Pipeline
+    "AnalysisPipeline",
+    # Utilities
+    "to_analysis_dataframe",
+    # Analyzers
+    "LengthAnalyzer",
+    "TurnStatsAnalyzer",
+    "DataQualityAnalyzer",
+    "DeduplicationAnalyzer",
+    "LLMAnalyzer",
+    "UsefulnessAnalyzer",
+    "SafetyAnalyzer",
+    "FactualityAnalyzer",
+    "CoherenceAnalyzer",
+    "InstructionFollowingAnalyzer",
+    # Enums
+    "TargetScope",
+    "JudgmentType",
+    # Utilities
+    "get_available_criteria",
+    "get_criteria_info",
+    # Result models
+    "LengthMetrics",
+    "TurnStatsMetrics",
+    "DataQualityMetrics",
+    "DeduplicationResult",
+    "DuplicateGroup",
+    "LLMJudgmentMetrics",
+    # Config
+    "TypedAnalyzeConfig",
+    "AnalyzerConfig",
+    "CustomMetricConfig",
+    # Testing
     "TestEngine",
     "TestResult",
     "TestSummary",
-    "TurnStatsAnalyzer",
-    "TurnStatsMetrics",
-    "TypedAnalyzeConfig",
-    "create_analyzer_from_config",
-    "describe_analyzer",
-    "get_analyzer_class",
-    "get_analyzer_info",
-    "get_instance_metrics",
+    # CLI utilities
+    "run_typed_analysis",
+    "run_from_config_file",
+    "save_results",
+    "print_summary",
+    "list_metrics",
+    "generate_tests",
+    # Custom metrics
+    "CustomConversationMetric",
+    "CustomMessageMetric",
+    "CustomMetricResult",
+    "create_custom_metric",
+    # Discovery utilities
     "list_available_metrics",
     "print_analyzer_metrics",
-    "register_analyzer",
-    "to_analysis_dataframe",
+    "get_analyzer_info",
+    "generate_test_template",
+    "describe_analyzer",
+    # Backward-compatible exports (used by API worker)
+    "create_analyzer_from_config",
+    "get_analyzer_class",
 ]

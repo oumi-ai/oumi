@@ -23,16 +23,16 @@ from oumi.analyze.config import AnalyzerConfig, TypedAnalyzeConfig
 # -----------------------------------------------------------------------------
 
 
-def test_analyzer_config_requires_instance_id():
-    """Test that instance_id is required."""
-    config = AnalyzerConfig(id="length", instance_id="length")
-    assert config.instance_id == "length"
+def test_analyzer_config_auto_populates_display_name():
+    """Test that display_name defaults to type if not provided."""
+    config = AnalyzerConfig(type="length")
+    assert config.display_name == "length"
 
 
-def test_analyzer_config_preserves_explicit_instance_id():
-    """Test that explicit instance_id is preserved."""
-    config = AnalyzerConfig(id="length", instance_id="length_custom")
-    assert config.instance_id == "length_custom"
+def test_analyzer_config_preserves_explicit_display_name():
+    """Test that explicit display_name is preserved."""
+    config = AnalyzerConfig(type="length", display_name="Length")
+    assert config.display_name == "Length"
 
 
 # -----------------------------------------------------------------------------
@@ -44,8 +44,8 @@ def test_from_dict_parses_analyzers():
     """Test parsing analyzers from dict."""
     data = {
         "analyzers": [
-            {"id": "length"},
-            {"id": "quality", "instance_id": "quality_check"},
+            {"type": "length", "display_name": "Length"},
+            {"type": "quality", "display_name": "Quality Check"},
             "turn_stats",  # String shorthand
         ]
     }
@@ -53,53 +53,72 @@ def test_from_dict_parses_analyzers():
     config = TypedAnalyzeConfig.from_dict(data)
 
     assert len(config.analyzers) == 3
-    assert config.analyzers[0].id == "length"
-    assert config.analyzers[0].instance_id == "length"
-    assert config.analyzers[1].id == "quality"
-    assert config.analyzers[1].instance_id == "quality_check"
-    assert config.analyzers[2].id == "turn_stats"
+    assert config.analyzers[0].type == "length"
+    assert config.analyzers[0].display_name == "Length"
+    assert config.analyzers[1].type == "quality"
+    assert config.analyzers[1].display_name == "Quality Check"
+    assert config.analyzers[2].type == "turn_stats"
+    assert config.analyzers[2].display_name == "turn_stats"
 
 
-def test_from_dict_raises_on_duplicate_instance_ids():
-    """Test that duplicate instance_id values raise an error."""
+def test_from_dict_backward_compat_id_and_instance_id():
+    """Test that old id/instance_id field names still work."""
     data = {
         "analyzers": [
             {"id": "length"},
-            {"id": "quality", "instance_id": "length"},  # Duplicate!
-        ]
-    }
-
-    with pytest.raises(ValueError, match="Duplicate analyzer instance_id"):
-        TypedAnalyzeConfig.from_dict(data)
-
-
-def test_from_dict_raises_on_duplicate_default_instance_ids():
-    """Test that duplicate default instance_ids (from same id) raise an error."""
-    data = {
-        "analyzers": [
-            {"id": "length"},
-            {"id": "length"},  # Same id -> same default instance_id
-        ]
-    }
-
-    with pytest.raises(ValueError, match="Duplicate analyzer instance_id"):
-        TypedAnalyzeConfig.from_dict(data)
-
-
-def test_from_dict_allows_same_type_with_different_instance_ids():
-    """Test that same analyzer type with different instance_ids is allowed."""
-    data = {
-        "analyzers": [
-            {"id": "length", "instance_id": "length_1"},
-            {"id": "length", "instance_id": "length_2"},
+            {"id": "quality", "instance_id": "quality_check"},
         ]
     }
 
     config = TypedAnalyzeConfig.from_dict(data)
 
     assert len(config.analyzers) == 2
-    assert config.analyzers[0].instance_id == "length_1"
-    assert config.analyzers[1].instance_id == "length_2"
+    assert config.analyzers[0].type == "length"
+    assert config.analyzers[0].display_name == "length"
+    assert config.analyzers[1].type == "quality"
+    assert config.analyzers[1].display_name == "quality_check"
+
+
+def test_from_dict_raises_on_duplicate_display_names():
+    """Test that duplicate display_name values raise an error."""
+    data = {
+        "analyzers": [
+            {"type": "length", "display_name": "Length"},
+            {"type": "quality", "display_name": "Length"},  # Duplicate!
+        ]
+    }
+
+    with pytest.raises(ValueError, match="Duplicate analyzer display_name"):
+        TypedAnalyzeConfig.from_dict(data)
+
+
+def test_from_dict_raises_on_duplicate_default_display_names():
+    """Test that duplicate default display_names (from same type) raise an error."""
+    data = {
+        "analyzers": [
+            {"type": "length"},
+            {"type": "length"},  # Same type -> same default display_name
+        ]
+    }
+
+    with pytest.raises(ValueError, match="Duplicate analyzer display_name"):
+        TypedAnalyzeConfig.from_dict(data)
+
+
+def test_from_dict_allows_same_type_with_different_display_names():
+    """Test that same analyzer type with different display_names is allowed."""
+    data = {
+        "analyzers": [
+            {"type": "length", "display_name": "Length 1"},
+            {"type": "length", "display_name": "Length 2"},
+        ]
+    }
+
+    config = TypedAnalyzeConfig.from_dict(data)
+
+    assert len(config.analyzers) == 2
+    assert config.analyzers[0].display_name == "Length 1"
+    assert config.analyzers[1].display_name == "Length 2"
 
 
 def test_from_dict_empty_analyzers():
@@ -109,6 +128,68 @@ def test_from_dict_empty_analyzers():
     config = TypedAnalyzeConfig.from_dict(data)
 
     assert config.analyzers == []
+
+
+def test_from_dict_type_takes_precedence_over_id():
+    """Test that 'type' takes precedence when both 'type' and 'id' are provided."""
+    data = {
+        "analyzers": [
+            {"type": "quality", "id": "length"},  # type wins
+        ]
+    }
+
+    config = TypedAnalyzeConfig.from_dict(data)
+    assert config.analyzers[0].type == "quality"
+
+
+def test_from_dict_display_name_takes_precedence_over_instance_id():
+    """Test that 'display_name' takes precedence over 'instance_id'."""
+    data = {
+        "analyzers": [
+            {
+                "type": "length",
+                "display_name": "New Name",
+                "instance_id": "old_name",
+            },
+        ]
+    }
+
+    config = TypedAnalyzeConfig.from_dict(data)
+    assert config.analyzers[0].display_name == "New Name"
+
+
+def test_from_dict_test_display_name():
+    """Test that test display_name is parsed correctly."""
+    data = {
+        "tests": [
+            {
+                "id": "check_tokens",
+                "type": "threshold",
+                "metric": "Length.total_tokens",
+                "display_name": "Token count check",
+            }
+        ]
+    }
+
+    config = TypedAnalyzeConfig.from_dict(data)
+    assert config.tests[0].display_name == "Token count check"
+
+
+def test_from_dict_test_title_backward_compat():
+    """Test that 'title' is accepted as alias for 'display_name' in tests."""
+    data = {
+        "tests": [
+            {
+                "id": "check_tokens",
+                "type": "threshold",
+                "metric": "Length.total_tokens",
+                "title": "Token count check",
+            }
+        ]
+    }
+
+    config = TypedAnalyzeConfig.from_dict(data)
+    assert config.tests[0].display_name == "Token count check"
 
 
 # -----------------------------------------------------------------------------

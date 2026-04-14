@@ -14,11 +14,18 @@
 
 """Test result models for the test engine."""
 
+from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, Field
 
-from oumi.core.configs.params.test_params import TestSeverity
+
+class TestSeverity(str, Enum):
+    """Severity levels for test failures."""
+
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
 
 
 class TestResult(BaseModel):
@@ -41,8 +48,6 @@ class TestResult(BaseModel):
         details: Additional details about the test result.
     """
 
-    __test__ = False  # Prevent pytest from collecting this as a test class
-
     test_id: str
     passed: bool
     severity: TestSeverity = TestSeverity.MEDIUM
@@ -55,7 +60,6 @@ class TestResult(BaseModel):
     threshold: float | None = None
     actual_value: float | None = None
     sample_indices: list[int] = Field(default_factory=list)
-    all_affected_indices: list[int] = Field(default_factory=list)
     error: str | None = None
     details: dict[str, Any] = Field(default_factory=dict)
 
@@ -78,8 +82,6 @@ class TestSummary(BaseModel):
         medium_severity_failures: Number of medium severity failures.
         low_severity_failures: Number of low severity failures.
     """
-
-    __test__ = False  # Prevent pytest from collecting this as a test class
 
     results: list[TestResult] = Field(default_factory=list)
     total_tests: int = 0

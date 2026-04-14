@@ -15,20 +15,19 @@
 """DataFrame conversion utilities for typed analysis results."""
 
 import logging
-from collections.abc import Mapping, Sequence
 from typing import Any
 
 import pandas as pd
 from pydantic import BaseModel
 
-from oumi.core.types.conversation import ContentItem, Conversation
+from oumi.core.types.conversation import Conversation
 
 logger = logging.getLogger(__name__)
 
 
 def to_analysis_dataframe(
     conversations: list[Conversation],
-    results: Mapping[str, Sequence[BaseModel] | BaseModel],
+    results: dict[str, list[BaseModel] | BaseModel],
     message_to_conversation_idx: list[int] | None = None,
 ) -> pd.DataFrame:
     """Convert typed analysis results to a pandas DataFrame.
@@ -86,38 +85,47 @@ def to_analysis_dataframe(
                         _add_result_to_row(row, result, prefix)
 
                 elif result_count == total_messages and message_to_conversation_idx:
+                    # Message-level results - aggregate for this conversation
                     conv_messages = [
                         analyzer_results[msg_idx]
                         for msg_idx, conv_idx in enumerate(message_to_conversation_idx)
                         if conv_idx == i
                     ]
                     if conv_messages:
+                        # Use first message result (or could aggregate)
                         # TODO: Consider aggregation strategy (first, mean, etc.)
                         _add_result_to_row(row, conv_messages[0], prefix)
                         row[f"{prefix}__message_count"] = len(conv_messages)
 
                 elif i < result_count:
+                    # Fallback: try to use result at index i
                     result = analyzer_results[i]
                     _add_result_to_row(row, result, prefix)
+                    # Warn on first conversation only to avoid spam
                     if i == 0:
                         logger.warning(
-                            f"Analyzer '{analyzer_name}' returned {result_count} "
-                            f"results for {num_conversations} conversations "
-                            f"(expected equal "
-                            f"counts or {total_messages} for message-level). Some "
-                            "conversations may have missing metric values.",
+                            f"Analyzer '{analyzer_name}' returned "
+                            f"{result_count} results for "
+                            f"{num_conversations} conversations "
+                            f"(expected equal counts or "
+                            f"{total_messages} for message-level)."
+                            " Some conversations may have missing"
+                            " metric values."
                         )
                 else:
-                    if i == result_count:
+                    # Results list is shorter than conversation index - warn once
+                    if i == result_count:  # Only warn when we first exceed
                         logger.warning(
-                            f"Analyzer '{analyzer_name}' returned {result_count} "
-                            f"results for {num_conversations} conversations. "
-                            f"Conversations "
-                            f"{result_count}-{num_conversations - 1} will have "
-                            "missing values.",
+                            f"Analyzer '{analyzer_name}' returned "
+                            f"{result_count} results for "
+                            f"{num_conversations} conversations. "
+                            f"Conversations {result_count}-"
+                            f"{num_conversations - 1} will have "
+                            "missing values."
                         )
 
             elif isinstance(analyzer_results, BaseModel):
+                # Dataset-level result - same for all conversations
                 _add_result_to_row(row, analyzer_results, prefix)
 
         rows.append(row)
@@ -127,7 +135,7 @@ def to_analysis_dataframe(
 
 def to_message_dataframe(
     conversations: list[Conversation],
-    results: Mapping[str, Sequence[BaseModel]],
+    results: dict[str, list[BaseModel]],
 ) -> pd.DataFrame:
     """Convert message-level analysis results to a pandas DataFrame.
 
@@ -155,12 +163,14 @@ def to_message_dataframe(
                 "role": message.role.value,
             }
 
+            # Add text content (handle multimodal)
             if isinstance(message.content, str):
                 row["text_content"] = message.content
             else:
+                # Concatenate text from content items
                 text_parts = []
                 for item in message.content:
-                    if isinstance(item, ContentItem) and isinstance(item.content, str):
+                    if hasattr(item, "content") and isinstance(item.content, str):
                         text_parts.append(item.content)
                 row["text_content"] = " ".join(text_parts)
 
@@ -178,7 +188,20 @@ def to_message_dataframe(
 
 
 def _get_column_prefix(analyzer_name: str) -> str:
-    """Convert analyzer name to lowercase column prefix."""
+    """Get the column name prefix for an analyzer.
+
+    Converts analyzer names to lowercase prefixes:
+    - "LengthAnalyzer" -> "length"
+    - "QualityAnalyzer" -> "quality"
+    - "CustomName" -> "customname"
+
+    Args:
+        analyzer_name: Name of the analyzer.
+
+    Returns:
+        Lowercase prefix for column names.
+    """
+    # Remove common suffixes
     name = analyzer_name
     for suffix in ["Analyzer", "Metrics"]:
         if name.endswith(suffix):
@@ -192,7 +215,19 @@ def _add_result_to_row(
     result: BaseModel | dict[str, Any],
     prefix: str,
 ) -> None:
-    """Add fields from result model to row with prefixed column names."""
+    """Add fields from a result model to a row dictionary.
+
+    Handles nested structures and lists appropriately:
+    - Scalar values: prefix__field_name
+    - Lists: prefix__field_name (stored as-is for DataFrame)
+    - Nested models: prefix__nested_field_name (flattened)
+
+    Args:
+        row: Row dictionary to add fields to.
+        result: Pydantic model or dict with fields to add.
+        prefix: Prefix for column names.
+    """
+    # Handle both Pydantic models and raw dicts (from cache)
     if isinstance(result, dict):
         result_dict = result
     else:
@@ -202,16 +237,19 @@ def _add_result_to_row(
         column_name = f"{prefix}__{field_name}"
 
         if isinstance(value, dict):
+            # Nested structure - flatten with additional prefix
             for nested_key, nested_value in value.items():
                 row[f"{column_name}__{nested_key}"] = nested_value
         elif isinstance(value, list) and len(value) > 0 and isinstance(value[0], dict):
-            logger.debug(f"Skipping complex field {column_name}: list of dicts")
+            # List of dicts - skip for now (complex structure)
+            pass
         else:
+            # Scalar or simple list - add directly
             row[column_name] = value
 
 
 def results_to_dict(
-    results: Mapping[str, Sequence[BaseModel] | BaseModel],
+    results: dict[str, list[BaseModel] | BaseModel],
 ) -> dict[str, list[dict[str, Any]] | dict[str, Any]]:
     """Convert typed results to a serializable dictionary.
 

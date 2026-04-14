@@ -12,35 +12,58 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Configuration for the typed analyzer framework."""
+"""Configuration for the typed analyzer framework.
+
+This module provides configuration classes for the new typed analyzer
+architecture, supporting both programmatic and YAML-based configuration.
+"""
 
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
 from typing import Any
 
-import yaml
+from oumi.analyze.testing.engine import TestConfig, TestType
+from oumi.analyze.testing.results import TestSeverity
 
-from oumi.core.configs.params.test_params import TestParams
+
+class AnalyzerType(str, Enum):
+    """Built-in analyzer types."""
+
+    LENGTH = "length"
+    QUALITY = "quality"
+    FORMAT = "format"
+    DIVERSITY = "diversity"
+    EMBEDDING = "embedding"
+    LLM_JUDGE = "llm_judge"
 
 
 @dataclass
 class AnalyzerConfig:
-    """Configuration for a single analyzer instance.
+    """Configuration for a single analyzer.
 
-    Each analyzer has a type (`id`) and a unique instance name (`instance_id`).
-    Multiple instances of the same type are supported (e.g. two length analyzers
-    with different tokenizers).
+    Matches the API's ``AnalyzerConfigInput`` naming convention:
+
+    - ``type``: registry identifier (e.g. ``"length"``, ``"quality"``).
+    - ``display_name``: human-readable label shown in the UI and used as
+      the results key / metric prefix.  Defaults to ``type``.
+    - ``params``: analyzer-specific parameters forwarded to the factory.
 
     Attributes:
-        id: Analyzer type (registry id, e.g. "length", "difficulty_judge").
-        instance_id: Unique instance name (always required). Used as the results
-            key and in test metric paths.
+        type: Analyzer type identifier (registry key).
+        display_name: Human-readable label used as the result key and
+            metric path prefix.  Defaults to ``type`` if not set.
         params: Analyzer-specific parameters.
     """
 
-    id: str
-    instance_id: str
+    type: str = ""
+    display_name: str | None = None
     params: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self):
+        """Auto-populate display_name if not provided."""
+        if self.display_name is None:
+            self.display_name = self.type
 
 
 @dataclass
@@ -68,12 +91,12 @@ class CustomMetricConfig:
 
     .. warning::
         **Security Warning**: The ``function`` field contains arbitrary Python
-        code that is executed dynamically. Only load configurations from
+        code that is executed via ``exec()``. Only load configurations from
         trusted sources. Never load YAML configs from untrusted users or
         external sources without review, as they could execute malicious code.
 
-    Example YAML::
-
+    Example YAML:
+        ```yaml
         custom_metrics:
           - id: word_to_char_ratio
             scope: conversation
@@ -87,6 +110,7 @@ class CustomMetricConfig:
                   chars = sum(len(m.content) for m in conversation.messages)
                   words = sum(len(m.content.split()) for m in conversation.messages)
                   return {"ratio": words / chars if chars > 0 else 0.0}
+        ```
 
     Attributes:
         id: Unique identifier for the metric.
@@ -134,6 +158,65 @@ class CustomMetricConfig:
 
 
 @dataclass
+class TestConfigYAML:
+    """YAML-friendly test configuration.
+
+    This class mirrors TestConfig but uses simpler types for YAML parsing.
+
+    Attributes:
+        id: Unique identifier for the test.
+        type: Test type ("threshold", "percentage", "range").
+        metric: Path to the metric (e.g., ``"Length.total_tokens"``).
+        severity: Severity level ("high", "medium", "low").
+        display_name: Human-readable title shown in results.  Alias: ``title``.
+        description: Description of the test.
+        operator: Comparison operator for threshold tests.
+        value: Value to compare against.
+        condition: Condition for percentage tests.
+        max_percentage: Maximum allowed percentage.
+        min_percentage: Minimum required percentage.
+        min_value: Minimum value for range tests.
+        max_value: Maximum value for range tests.
+    """
+
+    id: str
+    type: str
+    metric: str
+    severity: str = "medium"
+    display_name: str = ""
+    description: str = ""
+    operator: str | None = None
+    value: float | int | str | None = None
+    condition: str | None = None
+    max_percentage: float | None = None
+    min_percentage: float | None = None
+    min_value: float | None = None
+    max_value: float | None = None
+
+    def to_test_config(self) -> TestConfig:
+        """Convert to TestConfig for the test engine.
+
+        Returns:
+            TestConfig instance.
+        """
+        return TestConfig(
+            id=self.id,
+            type=TestType(self.type),
+            metric=self.metric,
+            severity=TestSeverity(self.severity),
+            title=self.display_name,
+            description=self.description,
+            operator=self.operator,
+            value=self.value,
+            condition=self.condition,
+            max_percentage=self.max_percentage,
+            min_percentage=self.min_percentage,
+            min_value=self.min_value,
+            max_value=self.max_value,
+        )
+
+
+@dataclass
 class TypedAnalyzeConfig:
     """Configuration for the typed analyzer pipeline.
 
@@ -141,17 +224,19 @@ class TypedAnalyzeConfig:
     architecture. It supports both programmatic construction and
     loading from YAML files.
 
-    Example YAML::
-
+    Example YAML:
+        ```yaml
         dataset_path: /path/to/data.jsonl
         sample_count: 1000
         output_path: ./analysis_output
 
         analyzers:
-          - id: length
+          - type: length
+            display_name: Length
             params:
-              count_tokens: true
-          - id: quality
+              tokenizer_name: cl100k_base
+          - type: quality
+            display_name: Quality
 
         custom_metrics:
           - id: turn_pattern
@@ -161,12 +246,14 @@ class TypedAnalyzeConfig:
                   ...
 
         tests:
-          - id: max_words
+          - id: max_tokens
             type: threshold
-            metric: LengthAnalyzer.total_words
+            metric: Length.total_tokens
             operator: ">"
             value: 10000
             max_percentage: 5.0
+            display_name: "Token count exceeds limit"
+        ```
 
     Attributes:
         dataset_name: Name of the dataset (HuggingFace identifier).
@@ -182,19 +269,36 @@ class TypedAnalyzeConfig:
         report_title: Custom title for the report.
     """
 
+    # Eval name (optional, for web viewer)
     eval_name: str | None = None
+
+    # Parent eval ID (for linking derived analyses)
     parent_eval_id: str | None = None
+
+    # Dataset source
     dataset_name: str | None = None
     dataset_path: str | None = None
     split: str = "train"
     subset: str | None = None
     sample_count: int | None = None
+
+    # Output
     output_path: str = "."
+
+    # Analyzers
     analyzers: list[AnalyzerConfig] = field(default_factory=list)
+
+    # Custom metrics
     custom_metrics: list[CustomMetricConfig] = field(default_factory=list)
-    tests: list[TestParams] = field(default_factory=list)
+
+    # Tests
+    tests: list[TestConfigYAML] = field(default_factory=list)
+
+    # Tokenizer
     tokenizer_name: str | None = None
     tokenizer_kwargs: dict[str, Any] = field(default_factory=dict)
+
+    # Report
     generate_report: bool = False
     report_title: str | None = None
 
@@ -222,79 +326,12 @@ class TypedAnalyzeConfig:
         Raises:
             ValueError: If config contains custom code but allow_custom_code=False.
         """
+        import yaml
+
         with open(path) as f:
             data = yaml.safe_load(f)
 
         return cls.from_dict(data, allow_custom_code=allow_custom_code)
-
-    @classmethod
-    def _parse_analyzers(cls, data: dict[str, Any]) -> list[AnalyzerConfig]:
-        """Parse analyzer configurations, raising on duplicate instance_ids."""
-        analyzers = []
-        for analyzer_data in data.get("analyzers", []):
-            if isinstance(analyzer_data, dict):
-                # instance_id defaults to id if not provided in YAML
-                if "instance_id" not in analyzer_data:
-                    analyzer_data = {
-                        **analyzer_data,
-                        "instance_id": analyzer_data["id"],
-                    }
-                analyzers.append(AnalyzerConfig(**analyzer_data))
-            elif isinstance(analyzer_data, str):
-                analyzers.append(
-                    AnalyzerConfig(id=analyzer_data, instance_id=analyzer_data)
-                )
-
-        # Validate unique instance_ids
-        instance_ids = [a.instance_id for a in analyzers]
-        duplicates = [id for id in set(instance_ids) if instance_ids.count(id) > 1]
-        if duplicates:
-            raise ValueError(
-                f"Duplicate analyzer instance_id values: {duplicates}. "
-                "Each analyzer must have a unique instance_id to avoid collisions."
-            )
-
-        return analyzers
-
-    @classmethod
-    def _parse_custom_metrics(
-        cls, data: dict[str, Any], allow_custom_code: bool
-    ) -> list[CustomMetricConfig]:
-        """Parse custom metrics, raising if code is present and not allowed."""
-        custom_metrics = []
-        for metric_data in data.get("custom_metrics", []):
-            output_schema = [
-                OutputFieldSchema(**f)
-                for f in metric_data.get("output_schema", [])
-                if isinstance(f, dict)
-            ]
-            remaining = {k: v for k, v in metric_data.items() if k != "output_schema"}
-            custom_metrics.append(
-                CustomMetricConfig(**remaining, output_schema=output_schema)
-            )
-
-        # Security check: reject custom code unless explicitly allowed
-        if not allow_custom_code:
-            metrics_with_code = [m.id for m in custom_metrics if m.function.strip()]
-            if metrics_with_code:
-                raise ValueError(
-                    f"Configuration contains custom metrics with executable code: "
-                    f"{metrics_with_code}. This is a security risk if loading from "
-                    f"untrusted sources. Set allow_custom_code=True to explicitly "
-                    f"allow code execution, or remove the 'function' fields."
-                )
-
-        return custom_metrics
-
-    @classmethod
-    def _parse_tests(cls, data: dict[str, Any]) -> list[TestParams]:
-        """Parse and validate test configurations."""
-        tests = []
-        for test_data in data.get("tests", []):
-            test_params = TestParams(**test_data)
-            test_params.finalize_and_validate()
-            tests.append(test_params)
-        return tests
 
     @classmethod
     def from_dict(
@@ -312,12 +349,75 @@ class TypedAnalyzeConfig:
             TypedAnalyzeConfig instance.
 
         Raises:
-            ValueError: If config contains custom code but allow_custom_code=False,
-                or if duplicate analyzer instance_ids found.
+            ValueError: If config contains custom code but allow_custom_code=False.
         """
-        analyzers = cls._parse_analyzers(data)
-        custom_metrics = cls._parse_custom_metrics(data, allow_custom_code)
-        tests = cls._parse_tests(data)
+        # Parse analyzers
+        analyzers = []
+        for analyzer_data in data.get("analyzers", []):
+            if isinstance(analyzer_data, dict):
+                analyzer_data = dict(analyzer_data)  # don't mutate caller's dict
+                # Backward compat: accept "id" as alias for "type"
+                if "id" in analyzer_data and "type" not in analyzer_data:
+                    analyzer_data["type"] = analyzer_data.pop("id")
+                elif "id" in analyzer_data:
+                    analyzer_data.pop("id")  # "type" takes precedence
+                # Backward compat: accept "instance_id" as alias for "display_name"
+                if (
+                    "instance_id" in analyzer_data
+                    and "display_name" not in analyzer_data
+                ):
+                    analyzer_data["display_name"] = analyzer_data.pop("instance_id")
+                elif "instance_id" in analyzer_data:
+                    analyzer_data.pop("instance_id")  # "display_name" takes precedence
+                analyzers.append(AnalyzerConfig(**analyzer_data))
+            elif isinstance(analyzer_data, str):
+                analyzers.append(AnalyzerConfig(type=analyzer_data))
+
+        # Validate unique display_names
+        display_names = [a.display_name for a in analyzers]
+        duplicates = [
+            name for name in set(display_names) if display_names.count(name) > 1
+        ]
+        if duplicates:
+            raise ValueError(
+                f"Duplicate analyzer display_name values: {duplicates}. "
+                "Each analyzer must have a unique display_name to avoid "
+                "result collisions."
+            )
+
+        # Parse custom metrics
+        custom_metrics = []
+        for metric_data in data.get("custom_metrics", []):
+            # Parse output_schema if present
+            output_schema = []
+            for field_data in metric_data.pop("output_schema", []):
+                if isinstance(field_data, dict):
+                    output_schema.append(OutputFieldSchema(**field_data))
+            custom_metrics.append(
+                CustomMetricConfig(**metric_data, output_schema=output_schema)
+            )
+
+        # Security check: reject custom code unless explicitly allowed
+        if not allow_custom_code:
+            metrics_with_code = [m.id for m in custom_metrics if m.function.strip()]
+            if metrics_with_code:
+                raise ValueError(
+                    f"Configuration contains custom metrics with executable code: "
+                    f"{metrics_with_code}. This is a security risk if loading from "
+                    f"untrusted sources. Set allow_custom_code=True to explicitly "
+                    f"allow code execution, or remove the 'function' fields."
+                )
+
+        # Parse tests
+        tests = []
+        for test_data in data.get("tests", []):
+            test_data = dict(test_data)  # don't mutate caller's dict
+            # Backward compat: accept "title" as alias for "display_name"
+            if "title" in test_data and "display_name" not in test_data:
+                test_data["display_name"] = test_data.pop("title")
+            elif "title" in test_data:
+                test_data.pop("title")  # "display_name" takes precedence
+            tests.append(TestConfigYAML(**test_data))
 
         return cls(
             eval_name=data.get("eval_name"),
@@ -338,10 +438,12 @@ class TypedAnalyzeConfig:
         )
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert configuration to a dictionary."""
+        """Convert configuration to a dictionary.
+
+        Returns:
+            Configuration as dictionary.
+        """
         return {
-            "eval_name": self.eval_name,
-            "parent_eval_id": self.parent_eval_id,
             "dataset_name": self.dataset_name,
             "dataset_path": self.dataset_path,
             "split": self.split,
@@ -349,7 +451,11 @@ class TypedAnalyzeConfig:
             "sample_count": self.sample_count,
             "output_path": self.output_path,
             "analyzers": [
-                {"id": a.id, "instance_id": a.instance_id, "params": a.params}
+                {
+                    "type": a.type,
+                    "display_name": a.display_name,
+                    "params": a.params,
+                }
                 for a in self.analyzers
             ],
             "custom_metrics": [
@@ -358,15 +464,6 @@ class TypedAnalyzeConfig:
                     "scope": m.scope,
                     "function": m.function,
                     "description": m.description,
-                    "output_schema": [
-                        {
-                            "name": f.name,
-                            "type": f.type,
-                            "description": f.description,
-                        }
-                        for f in m.output_schema
-                    ],
-                    "depends_on": m.depends_on,
                 }
                 for m in self.custom_metrics
             ],
@@ -376,13 +473,15 @@ class TypedAnalyzeConfig:
                     "type": t.type,
                     "metric": t.metric,
                     "severity": t.severity,
-                    "title": t.title,
+                    "display_name": t.display_name,
                     "description": t.description,
                     "operator": t.operator,
                     "value": t.value,
                     "condition": t.condition,
                     "max_percentage": t.max_percentage,
                     "min_percentage": t.min_percentage,
+                    "min_value": t.min_value,
+                    "max_value": t.max_value,
                 }
                 for t in self.tests
             ],
@@ -391,3 +490,11 @@ class TypedAnalyzeConfig:
             "generate_report": self.generate_report,
             "report_title": self.report_title,
         }
+
+    def get_test_configs(self) -> list[TestConfig]:
+        """Get test configurations for the test engine.
+
+        Returns:
+            List of TestConfig instances.
+        """
+        return [t.to_test_config() for t in self.tests]

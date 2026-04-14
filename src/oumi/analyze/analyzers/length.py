@@ -16,21 +16,10 @@
 
 from typing import Any, Protocol, runtime_checkable
 
-import tiktoken
 from pydantic import BaseModel, Field
 
 from oumi.analyze.base import ConversationAnalyzer
-from oumi.builders import build_tokenizer
-from oumi.core.configs.params.model_params import ModelParams
-from oumi.core.registry import register_sample_analyzer
 from oumi.core.types.conversation import Conversation, Role
-
-__all__ = [
-    "LengthAnalyzerConfig",
-    "LengthMetrics",
-    "LengthAnalyzer",
-    "Tokenizer",
-]
 
 
 @runtime_checkable
@@ -42,34 +31,13 @@ class Tokenizer(Protocol):
         ...
 
 
-def _default_tokenizer(encoding: str = "cl100k_base") -> tiktoken.Encoding:
-    return tiktoken.get_encoding(encoding)
-
-
-class LengthAnalyzerConfig(BaseModel):
-    """Configuration for LengthAnalyzer."""
-
-    tokenizer_name: str = Field(
-        default="cl100k_base",
-        description=(
-            "Tokenizer name. For tiktoken, use encoding names like "
-            "'cl100k_base' (GPT-4), 'o200k_base' (GPT-4o), etc. "
-            "For HuggingFace, use model IDs like "
-            "'meta-llama/Llama-3.1-8B-Instruct'. "
-            "Automatically detects backend based on name."
-        ),
-    )
-    trust_remote_code: bool = Field(
-        default=False,
-        description=(
-            "Trust remote code for HuggingFace tokenizers "
-            "(only applicable when using HF models)"
-        ),
-    )
+__all__ = ["LengthMetrics", "LengthAnalyzer"]
 
 
 class LengthMetrics(BaseModel):
     """Result model for length analysis of conversations.
+
+    Contains token counts at both the conversation level and per-message breakdown.
 
     Example:
         >>> result = LengthMetrics(
@@ -82,43 +50,43 @@ class LengthMetrics(BaseModel):
         25
     """
 
+    # Conversation-level totals
     total_tokens: int = Field(description="Total number of tokens across all messages")
-    rendered_tokens: int | None = Field(
-        default=None,
-        description="Token count of the full conversation rendered with chat template. "
-        "None if tokenizer doesn't support apply_chat_template.",
-    )
+
+    # Averages
     avg_tokens_per_message: float = Field(description="Average tokens per message")
+
+    # Per-message breakdowns
     message_token_counts: list[int] = Field(
         description="Token count for each message in order"
     )
+
+    # Message count
     num_messages: int = Field(description="Number of messages in the conversation")
-    user_total_tokens: int = Field(
-        default=0, description="Total tokens in user messages"
+
+    # Role-specific stats (optional)
+    user_total_tokens: int | None = Field(
+        default=None, description="Total tokens in user messages"
     )
-    assistant_total_tokens: int = Field(
-        default=0, description="Total tokens in assistant messages"
+    assistant_total_tokens: int | None = Field(
+        default=None, description="Total tokens in assistant messages"
     )
-    system_total_tokens: int = Field(
-        default=0, description="Total tokens in system messages"
-    )
-    tool_total_tokens: int = Field(
-        default=0, description="Total tokens in tool messages"
+    system_total_tokens: int | None = Field(
+        default=None, description="Total tokens in system messages"
     )
 
 
-@register_sample_analyzer("length")
 class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
     """Analyzer for computing token length metrics of conversations.
 
-    Computes token counts for conversations using a provided tokenizer.
-    Provides both conversation-level totals and per-message breakdowns.
+    Computes token counts for conversations using either a provided tokenizer
+    or tiktoken. Provides both conversation-level totals and per-message breakdowns.
 
     Example:
-        >>> from oumi.analyze.analyzers.length import LengthAnalyzer
+        >>> from oumi.analyze import LengthAnalyzer
         >>> from oumi.core.types.conversation import Conversation, Message, Role
         >>>
-        >>> analyzer = LengthAnalyzer.from_config({"tokenizer_name": "cl100k_base"})
+        >>> analyzer = LengthAnalyzer()
         >>> conversation = Conversation(messages=[
         ...     Message(role=Role.USER, content="Hello, how are you?"),
         ...     Message(role=Role.ASSISTANT, content="I'm doing well, thanks!"),
@@ -128,98 +96,122 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
         Total tokens: 12
 
     Args:
-        tokenizer: Tokenizer instance for token counting. Must have an
-            `encode(text) -> list` method. Use `from_config()` to construct
-            from a tokenizer name, or pass any compatible tokenizer directly.
+        tokenizer: Tokenizer instance for token counting. If None,
+            will use tiktoken with the specified encoding.
+        tiktoken_encoding: Tiktoken encoding name to use if no tokenizer
+            is provided. Defaults to "cl100k_base" (GPT-4 encoding).
+        compute_role_stats: Whether to compute per-role token counts.
     """
 
-    _result_model = LengthMetrics
-
-    @classmethod
-    def get_config_schema(cls) -> dict[str, Any]:
-        """Get JSON schema for this analyzer's configuration."""
-        return LengthAnalyzerConfig.model_json_schema()
+    # Known tiktoken encodings for auto-detection
+    TIKTOKEN_ENCODINGS = {
+        "cl100k_base",
+        "o200k_base",
+        "p50k_base",
+        "r50k_base",
+        "p50k_edit",
+    }
 
     @classmethod
     def from_config(cls, config: dict[str, Any]) -> "LengthAnalyzer":
         """Create a LengthAnalyzer from a config dictionary.
 
+        Supports ``tokenizer_name`` to auto-detect tiktoken vs HuggingFace
+        tokenizers, and ``trust_remote_code`` for HF models.
+
         Args:
-            config: See ``LengthAnalyzerConfig`` for supported keys.
+            config: Configuration dict. Keys:
+                - tokenizer_name: Tokenizer/encoding name (default: "cl100k_base")
+                - trust_remote_code: Trust remote code for HF tokenizers
+                - compute_role_stats: Whether to compute per-role stats
 
         Returns:
             LengthAnalyzer instance with configured tokenizer.
         """
-        cfg = LengthAnalyzerConfig(**config)
+        tokenizer_name = config.get("tokenizer_name", "cl100k_base")
+        trust_remote_code = config.get("trust_remote_code", False)
+        compute_role_stats = config.get("compute_role_stats", True)
 
-        # Known tiktoken encodings — auto-detect backend based on name.
-        # Note: "gpt2" is intentionally excluded because it is also a valid
-        # HuggingFace model ID; users who want tiktoken's gpt2 encoding should
-        # use the tiktoken API directly.
-        TIKTOKEN_ENCODINGS = {
-            "cl100k_base",
-            "o200k_base",
-            "p50k_base",
-            "r50k_base",
-            "p50k_edit",
-        }
+        if tokenizer_name in cls.TIKTOKEN_ENCODINGS:
+            import tiktoken
 
-        if cfg.tokenizer_name in TIKTOKEN_ENCODINGS:
-            tokenizer = _default_tokenizer(cfg.tokenizer_name)
+            tokenizer = tiktoken.get_encoding(tokenizer_name)
+            return cls(tokenizer=tokenizer, compute_role_stats=compute_role_stats)
         else:
-            # Use build_tokenizer so token counts align with training/inference
-            # and oumi's internal model configs (padding side, etc.) are applied.
+            from oumi.builders import build_tokenizer
+            from oumi.core.configs.params.model_params import ModelParams
+
             tokenizer = build_tokenizer(
                 ModelParams(
-                    model_name=cfg.tokenizer_name,
-                    trust_remote_code=cfg.trust_remote_code,
+                    model_name=tokenizer_name,
+                    trust_remote_code=trust_remote_code,
                 )
             )
+            return cls(tokenizer=tokenizer, compute_role_stats=compute_role_stats)
 
-        return cls(tokenizer=tokenizer)
+    def __init__(
+        self,
+        tokenizer: Any | None = None,
+        tiktoken_encoding: str = "cl100k_base",
+        compute_role_stats: bool = True,
+    ):
+        """Initialize the length analyzer.
 
-    def __init__(self, tokenizer: Tokenizer | None = None):
-        """Initialize the analyzer."""
+        Args:
+            tokenizer: Optional tokenizer for token counting.
+            tiktoken_encoding: Tiktoken encoding name if using tiktoken.
+            compute_role_stats: Whether to compute per-role statistics.
+        """
         self.tokenizer = tokenizer
+        self.tiktoken_encoding = tiktoken_encoding
+        self.compute_role_stats = compute_role_stats
+        self._tiktoken_encoder = None
 
-    def get_available_metric_names(self) -> list[str]:
-        """Return metrics this instance will produce.
+        # Initialize tiktoken if no tokenizer provided
+        if tokenizer is None:
+            self._tiktoken_encoder = self._load_tiktoken_encoder()
 
-        Excludes ``rendered_tokens`` when the tokenizer doesn't support
-        ``apply_chat_template`` (i.e. tiktoken or no tokenizer).
+    def _load_tiktoken_encoder(self) -> Any | None:
+        """Load tiktoken encoder lazily.
+
+        Returns:
+            Tiktoken encoder or None if not available.
         """
-        names = self.get_metric_names()
-        if not hasattr(self.tokenizer, "apply_chat_template"):
-            names = [n for n in names if n != "rendered_tokens"]
-        return names
-
-    def _count_tokens(self, text: str) -> int:
-        if self.tokenizer is None:
-            raise RuntimeError(
-                "No tokenizer configured. Either pass a tokenizer to __init__ "
-                "or use from_config({'tokenizer_name': 'cl100k_base'})."
-            )
-
-        if isinstance(self.tokenizer, tiktoken.Encoding):
-            # Encode special tokens (e.g. <|endoftext|>) as literal text
-            tokens = self.tokenizer.encode(text, disallowed_special=())
-        else:
-            tokens = self.tokenizer.encode(text)
-        return len(tokens)
-
-    def _count_rendered_tokens(self, conversation: Conversation) -> int | None:
-        """Count tokens after applying the tokenizer's chat template.
-
-        Returns None if the tokenizer doesn't support chat templates.
-        """
-        if self.tokenizer is None:
-            return None
-
         try:
-            rendered_text = self.get_conversation_text(conversation, self.tokenizer)  # type: ignore[arg-type]
-            return self._count_tokens(rendered_text)
+            import tiktoken
+
+            return tiktoken.get_encoding(self.tiktoken_encoding)
+        except ImportError:
+            return None
         except Exception:
             return None
+
+    def _count_tokens(self, text: str) -> int:
+        """Count tokens in text.
+
+        Args:
+            text: Text to tokenize.
+
+        Returns:
+            Token count (0 if tokenizer not available).
+        """
+        if self.tokenizer is not None:
+            # Use provided tokenizer (HuggingFace style)
+            try:
+                tokens = self.tokenizer.encode(text)
+                return len(tokens)
+            except Exception:
+                return 0
+
+        if self._tiktoken_encoder is not None:
+            # Use tiktoken
+            try:
+                tokens = self._tiktoken_encoder.encode(text)
+                return len(tokens)
+            except Exception:
+                return 0
+
+        return 0
 
     def analyze(self, conversation: Conversation) -> LengthMetrics:
         """Analyze token length metrics for a conversation.
@@ -231,30 +223,46 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
             LengthMetrics containing token counts.
         """
         message_token_counts: list[int] = []
-        role_token_counts: dict[Role, int] = {role: 0 for role in Role}
+
+        # Role-specific accumulators
+        role_token_counts: dict[Role, int] = {
+            Role.USER: 0,
+            Role.ASSISTANT: 0,
+            Role.SYSTEM: 0,
+        }
 
         for message in conversation.messages:
             text = self.get_text_content(message)
+
+            # Token count
             token_count = self._count_tokens(text)
             message_token_counts.append(token_count)
 
-            role_token_counts[message.role] += token_count
+            # Role-specific counts
+            if self.compute_role_stats and message.role in role_token_counts:
+                role_token_counts[message.role] += token_count
 
+        # Compute totals
         total_tokens = sum(message_token_counts)
         num_messages = len(conversation.messages)
+
+        # Compute average
         avg_tokens = total_tokens / num_messages if num_messages > 0 else 0.0
-        rendered_tokens = self._count_rendered_tokens(conversation)
 
         return LengthMetrics(
             total_tokens=total_tokens,
-            rendered_tokens=rendered_tokens,
             avg_tokens_per_message=avg_tokens,
             message_token_counts=message_token_counts,
             num_messages=num_messages,
-            user_total_tokens=role_token_counts[Role.USER],
-            assistant_total_tokens=role_token_counts[Role.ASSISTANT],
-            system_total_tokens=role_token_counts[Role.SYSTEM],
-            tool_total_tokens=role_token_counts[Role.TOOL],
+            user_total_tokens=role_token_counts[Role.USER]
+            if self.compute_role_stats
+            else None,
+            assistant_total_tokens=role_token_counts[Role.ASSISTANT]
+            if self.compute_role_stats
+            else None,
+            system_total_tokens=role_token_counts[Role.SYSTEM]
+            if self.compute_role_stats
+            else None,
         )
 
     def analyze_text(self, text: str) -> LengthMetrics:
@@ -275,4 +283,7 @@ class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
             avg_tokens_per_message=float(token_count),
             message_token_counts=[token_count],
             num_messages=1,
+            user_total_tokens=None,
+            assistant_total_tokens=None,
+            system_total_tokens=None,
         )

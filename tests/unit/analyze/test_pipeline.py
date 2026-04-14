@@ -15,7 +15,7 @@
 """Tests for AnalysisPipeline."""
 
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import pytest
 from pydantic import BaseModel
@@ -72,25 +72,6 @@ class SimpleConversationAnalyzer(ConversationAnalyzer[SimpleMetrics]):
     def __init__(self, multiplier: int = 1):
         self.multiplier = multiplier
 
-    @classmethod
-    def get_config_schema(cls) -> dict:
-        return {"properties": {}}
-
-    @classmethod
-    def get_result_schema(cls) -> dict:
-        return SimpleMetrics.model_json_schema()
-
-    @classmethod
-    def get_metric_names(cls) -> list[str]:
-        return list(SimpleMetrics.model_fields.keys())
-
-    @classmethod
-    def get_metric_descriptions(cls) -> dict[str, str]:
-        return {
-            name: field.description or ""
-            for name, field in SimpleMetrics.model_fields.items()
-        }
-
     def analyze(self, conversation: Conversation) -> SimpleMetrics:
         return SimpleMetrics(
             value=len(conversation.messages) * self.multiplier,
@@ -100,25 +81,6 @@ class SimpleConversationAnalyzer(ConversationAnalyzer[SimpleMetrics]):
 
 class SimpleMessageAnalyzer(MessageAnalyzer[MessageMetrics]):
     """Simple message analyzer for testing."""
-
-    @classmethod
-    def get_config_schema(cls) -> dict:
-        return {"properties": {}}
-
-    @classmethod
-    def get_result_schema(cls) -> dict:
-        return MessageMetrics.model_json_schema()
-
-    @classmethod
-    def get_metric_names(cls) -> list[str]:
-        return list(MessageMetrics.model_fields.keys())
-
-    @classmethod
-    def get_metric_descriptions(cls) -> dict[str, str]:
-        return {
-            name: field.description or ""
-            for name, field in MessageMetrics.model_fields.items()
-        }
 
     def analyze(self, message: Message) -> MessageMetrics:
         content = message.content if isinstance(message.content, str) else ""
@@ -131,25 +93,6 @@ class SimpleMessageAnalyzer(MessageAnalyzer[MessageMetrics]):
 class SimpleDatasetAnalyzer(DatasetAnalyzer[DatasetMetrics]):
     """Simple dataset analyzer for testing."""
 
-    @classmethod
-    def get_config_schema(cls) -> dict:
-        return {"properties": {}}
-
-    @classmethod
-    def get_result_schema(cls) -> dict:
-        return DatasetMetrics.model_json_schema()
-
-    @classmethod
-    def get_metric_names(cls) -> list[str]:
-        return list(DatasetMetrics.model_fields.keys())
-
-    @classmethod
-    def get_metric_descriptions(cls) -> dict[str, str]:
-        return {
-            name: field.description or ""
-            for name, field in DatasetMetrics.model_fields.items()
-        }
-
     def analyze(self, conversations: list[Conversation]) -> DatasetMetrics:
         total_messages = sum(len(c.messages) for c in conversations)
         return DatasetMetrics(
@@ -160,25 +103,6 @@ class SimpleDatasetAnalyzer(DatasetAnalyzer[DatasetMetrics]):
 
 class SimplePreferenceAnalyzer(PreferenceAnalyzer[PreferenceMetrics]):
     """Simple preference analyzer for testing."""
-
-    @classmethod
-    def get_config_schema(cls) -> dict:
-        return {"properties": {}}
-
-    @classmethod
-    def get_result_schema(cls) -> dict:
-        return PreferenceMetrics.model_json_schema()
-
-    @classmethod
-    def get_metric_names(cls) -> list[str]:
-        return list(PreferenceMetrics.model_fields.keys())
-
-    @classmethod
-    def get_metric_descriptions(cls) -> dict[str, str]:
-        return {
-            name: field.description or ""
-            for name, field in PreferenceMetrics.model_fields.items()
-        }
 
     def analyze(
         self, chosen: Conversation, rejected: Conversation
@@ -195,25 +119,6 @@ class DerivedConversationAnalyzer(ConversationAnalyzer[SimpleMetrics]):
 
     def __init__(self):
         self._dependency_results: dict[str, Any] = {}
-
-    @classmethod
-    def get_config_schema(cls) -> dict:
-        return {"properties": {}}
-
-    @classmethod
-    def get_result_schema(cls) -> dict:
-        return SimpleMetrics.model_json_schema()
-
-    @classmethod
-    def get_metric_names(cls) -> list[str]:
-        return list(SimpleMetrics.model_fields.keys())
-
-    @classmethod
-    def get_metric_descriptions(cls) -> dict[str, str]:
-        return {
-            name: field.description or ""
-            for name, field in SimpleMetrics.model_fields.items()
-        }
 
     def set_dependencies(self, results: dict[str, Any]) -> None:
         self._dependency_results = results
@@ -250,25 +155,6 @@ class ChainedAnalyzer(ConversationAnalyzer[SimpleMetrics]):
 
     def __init__(self):
         self._dependency_results: dict[str, Any] = {}
-
-    @classmethod
-    def get_config_schema(cls) -> dict:
-        return {"properties": {}}
-
-    @classmethod
-    def get_result_schema(cls) -> dict:
-        return SimpleMetrics.model_json_schema()
-
-    @classmethod
-    def get_metric_names(cls) -> list[str]:
-        return list(SimpleMetrics.model_fields.keys())
-
-    @classmethod
-    def get_metric_descriptions(cls) -> dict[str, str]:
-        return {
-            name: field.description or ""
-            for name, field in SimpleMetrics.model_fields.items()
-        }
 
     def set_dependencies(self, results: dict[str, Any]) -> None:
         self._dependency_results = results
@@ -390,7 +276,8 @@ def test_run_conversation_analyzer(sample_conversations: list[Conversation]):
     results = pipeline.run(sample_conversations)
 
     assert "SimpleConversationAnalyzer" in results
-    conv_results = cast(list[SimpleMetrics], results["SimpleConversationAnalyzer"])
+    conv_results = results["SimpleConversationAnalyzer"]
+    assert isinstance(conv_results, list)
     assert len(conv_results) == 2
     assert conv_results[0].value == 2  # 2 messages in conv1
     assert conv_results[1].value == 3  # 3 messages in conv2
@@ -484,7 +371,7 @@ def test_derived_analyzer_receives_dependencies(
     results = pipeline.run(sample_conversations)
 
     assert "DerivedConversationAnalyzer" in results
-    derived_results = cast(list[SimpleMetrics], results["DerivedConversationAnalyzer"])
+    derived_results = results["DerivedConversationAnalyzer"]
     assert len(derived_results) == 2
 
 
@@ -502,8 +389,8 @@ def test_derived_analyzer_uses_correct_dependency_index(
     pipeline = AnalysisPipeline(analyzers=[base_analyzer, derived_analyzer])
     results = pipeline.run(sample_conversations)
 
-    base_results = cast(list[SimpleMetrics], results["SimpleConversationAnalyzer"])
-    derived_results = cast(list[SimpleMetrics], results["DerivedConversationAnalyzer"])
+    base_results = results["SimpleConversationAnalyzer"]
+    derived_results = results["DerivedConversationAnalyzer"]
 
     # conv1 has 2 messages -> base_value = 2 -> derived_value = 4
     # conv2 has 3 messages -> base_value = 3 -> derived_value = 6
@@ -536,47 +423,11 @@ def test_circular_dependency_raises_error(sample_conversations: list[Conversatio
     class CircularA(ConversationAnalyzer[SimpleMetrics]):
         depends_on = ["CircularB"]
 
-        @classmethod
-        def get_config_schema(cls) -> dict:
-            return {"properties": {}}
-
-        @classmethod
-        def get_result_schema(cls) -> dict:
-            return SimpleMetrics.model_json_schema()
-
-        @classmethod
-        def get_metric_names(cls) -> list[str]:
-            return list(SimpleMetrics.model_fields.keys())
-
-        @classmethod
-        def get_metric_descriptions(cls) -> dict[str, str]:
-            return {
-                n: f.description or "" for n, f in SimpleMetrics.model_fields.items()
-            }
-
         def analyze(self, conversation: Conversation) -> SimpleMetrics:
             return SimpleMetrics(value=1, name="a")
 
     class CircularB(ConversationAnalyzer[SimpleMetrics]):
         depends_on = ["CircularA"]
-
-        @classmethod
-        def get_config_schema(cls) -> dict:
-            return {"properties": {}}
-
-        @classmethod
-        def get_result_schema(cls) -> dict:
-            return SimpleMetrics.model_json_schema()
-
-        @classmethod
-        def get_metric_names(cls) -> list[str]:
-            return list(SimpleMetrics.model_fields.keys())
-
-        @classmethod
-        def get_metric_descriptions(cls) -> dict[str, str]:
-            return {
-                n: f.description or "" for n, f in SimpleMetrics.model_fields.items()
-            }
 
         def analyze(self, conversation: Conversation) -> SimpleMetrics:
             return SimpleMetrics(value=1, name="b")
@@ -602,7 +453,7 @@ def test_run_preference(
     results = pipeline.run_preference(sample_preference_pairs)
 
     assert "SimplePreferenceAnalyzer" in results
-    pref_results = cast(list[PreferenceMetrics], results["SimplePreferenceAnalyzer"])
+    pref_results = results["SimplePreferenceAnalyzer"]
     assert len(pref_results) == 1
     assert pref_results[0].chosen_longer is True  # conv2 (3 msgs) > conv1 (2 msgs)
 
@@ -758,7 +609,5 @@ def test_multiple_analyzers_same_type(sample_conversations: list[Conversation]):
     assert "conv_analyzer_1" in results
     assert "conv_analyzer_2" in results
     # First conversation has 2 messages
-    conv1_results = cast(list[SimpleMetrics], results["conv_analyzer_1"])
-    conv2_results = cast(list[SimpleMetrics], results["conv_analyzer_2"])
-    assert conv1_results[0].value == 2  # 2 * 1
-    assert conv2_results[0].value == 4  # 2 * 2
+    assert results["conv_analyzer_1"][0].value == 2  # 2 * 1
+    assert results["conv_analyzer_2"][0].value == 4  # 2 * 2

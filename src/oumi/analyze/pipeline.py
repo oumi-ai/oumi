@@ -14,15 +14,12 @@
 
 """Analysis pipeline for orchestrating multiple analyzers."""
 
-import json
 import logging
-from collections.abc import Callable, Iterable
-from graphlib import CycleError, TopologicalSorter
+from collections.abc import Iterable
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from pydantic import BaseModel
-from tqdm import tqdm
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -37,8 +34,10 @@ from oumi.core.types.conversation import Conversation
 
 logger = logging.getLogger(__name__)
 
+# Constants
 _CACHE_FILENAME = "analysis_results.json"
 
+# Type aliases for consistency
 AnyAnalyzer = (
     MessageAnalyzer[Any]
     | ConversationAnalyzer[Any]
@@ -65,12 +64,18 @@ class AnalysisPipeline:
         >>> from oumi.analyze import AnalysisPipeline, LengthAnalyzer
         >>>
         >>> pipeline = AnalysisPipeline(
-        ...     analyzers=[
-        ...         LengthAnalyzer.from_config({"tokenizer_name": "cl100k_base"})
-        ...     ],
+        ...     analyzers=[LengthAnalyzer(count_tokens=True)],
         ...     cache_dir="./analysis_cache",
         ... )
         >>> results = pipeline.run(conversations)
+        >>>
+        >>> # Access results by analyzer name
+        >>> length_results = results["LengthAnalyzer"]
+        >>> for r in length_results:
+        ...     print(f"Words: {r.total_words}")
+        >>>
+        >>> # Convert to DataFrame for analysis
+        >>> df = pipeline.to_dataframe()
 
     Args:
         analyzers: List of analyzer instances to run.
@@ -82,15 +87,22 @@ class AnalysisPipeline:
         analyzers: list[AnyAnalyzer],
         cache_dir: str | Path | None = None,
     ):
-        """Initialize the analysis pipeline."""
+        """Initialize the analysis pipeline.
+
+        Args:
+            analyzers: List of analyzer instances to run.
+            cache_dir: Optional directory for caching results.
+        """
         self.analyzers = analyzers
         self.cache_dir = Path(cache_dir) if cache_dir else None
 
+        # Results storage
         self._results: AnalysisResults = {}
-        self._assigned_names: set[str] = set()
         self._conversations: list[Conversation] = []
+        # Track which conversation each message belongs to (for message analyzers)
         self._message_to_conversation_idx: list[int] = []
 
+        # Categorize analyzers by type for appropriate handling
         self._message_analyzers: list[MessageAnalyzer[Any]] = []
         self._conversation_analyzers: list[ConversationAnalyzer[Any]] = []
         self._dataset_analyzers: list[DatasetAnalyzer[Any]] = []
@@ -128,6 +140,7 @@ class AnalysisPipeline:
         self._conversations = conversations
         self._results = {}
 
+        # Build message-to-conversation index for later correlation
         self._message_to_conversation_idx = []
         for conv_idx, conv in enumerate(conversations):
             for _ in conv.messages:
@@ -138,12 +151,18 @@ class AnalysisPipeline:
             f"on {len(conversations)} conversations"
         )
 
+        # Run conversation-level analyzers
         self._run_conversation_analyzers(conversations)
+
+        # Run message-level analyzers
         self._run_message_analyzers(conversations)
+
+        # Run dataset-level analyzers
         self._run_dataset_analyzers(conversations)
 
         logger.info(f"Analysis complete: {len(self._results)} analyzer results")
 
+        # Cache results if cache_dir is set
         if self.cache_dir:
             self._save_cache()
 
@@ -212,6 +231,8 @@ class AnalysisPipeline:
         Returns:
             True if cache was loaded successfully, False otherwise.
         """
+        import json
+
         if not self.cache_dir:
             return False
 
@@ -231,25 +252,51 @@ class AnalysisPipeline:
 
     @property
     def results(self) -> AnalysisResults:
-        """Get the cached analysis results."""
+        """Get the cached analysis results.
+
+        Returns:
+            Dictionary mapping analyzer names to results.
+        """
         return self._results
 
     @property
     def conversations(self) -> list[Conversation]:
-        """Get the analyzed conversations."""
+        """Get the analyzed conversations.
+
+        Returns:
+            List of conversations that were analyzed.
+        """
         return self._conversations
 
     @property
     def message_to_conversation_idx(self) -> list[int]:
-        """Get the mapping from message index to conversation index."""
+        """Get the mapping from message index to conversation index.
+
+        This is useful for correlating message-level results back to
+        their parent conversations.
+
+        Returns:
+            List where index i contains the conversation index for message i.
+        """
         return self._message_to_conversation_idx
 
     def get_analyzer(self, name: str) -> AnyAnalyzer | None:
-        """Get an analyzer by name, or None if not found."""
+        """Get an analyzer by name.
+
+        Args:
+            name: Name of the analyzer to find.
+
+        Returns:
+            Analyzer instance or None if not found.
+        """
         for analyzer in self.analyzers:
             if self._get_analyzer_name(analyzer) == name:
                 return analyzer
         return None
+
+    # -------------------------------------------------------------------------
+    # Private helper methods
+    # -------------------------------------------------------------------------
 
     def _run_conversation_analyzers(self, conversations: list[Conversation]) -> None:
         """Run all conversation-level analyzers in dependency order."""
@@ -260,9 +307,7 @@ class AnalysisPipeline:
         ):
             self._inject_dependencies(analyzer)
             self._run_single_analyzer(
-                analyzer,
-                lambda a: cast(ConversationAnalyzer, a).analyze_batch(conversations),
-                is_batch=True,
+                analyzer, lambda a: a.analyze_batch(conversations), is_batch=True
             )
 
     def _run_message_analyzers(self, conversations: list[Conversation]) -> None:
@@ -270,6 +315,7 @@ class AnalysisPipeline:
         if not self._message_analyzers:
             return
 
+        # Flatten all messages from all conversations
         all_messages = [msg for conv in conversations for msg in conv.messages]
 
         sorted_analyzers = self._topological_sort(self._message_analyzers)
@@ -279,9 +325,7 @@ class AnalysisPipeline:
         ):
             self._inject_dependencies(analyzer)
             self._run_single_analyzer(
-                analyzer,
-                lambda a: cast(MessageAnalyzer, a).analyze_batch(all_messages),
-                is_batch=True,
+                analyzer, lambda a: a.analyze_batch(all_messages), is_batch=True
             )
 
     def _run_dataset_analyzers(self, conversations: list[Conversation]) -> None:
@@ -293,20 +337,24 @@ class AnalysisPipeline:
         ):
             self._inject_dependencies(analyzer)
             self._run_single_analyzer(
-                analyzer,
-                lambda a: cast(DatasetAnalyzer, a).analyze(conversations),
-                is_batch=False,
+                analyzer, lambda a: a.analyze(conversations), is_batch=False
             )
 
     def _run_single_analyzer(
         self,
         analyzer: AnyAnalyzer,
-        run_func: Callable[[AnyAnalyzer], BaseModel | list[BaseModel]],
+        run_func: Any,
         is_batch: bool,
     ) -> None:
-        """Run a single analyzer and store its results."""
+        """Run a single analyzer and store results.
+
+        Args:
+            analyzer: The analyzer to run.
+            run_func: Function that takes the analyzer and returns results.
+            is_batch: Whether the result is a list (batch) or single value.
+        """
         name = self._get_analyzer_name(analyzer)
-        scope = analyzer.get_scope()
+        scope = self._get_analyzer_scope(analyzer)
         logger.debug(f"Running {scope} analyzer: {name}")
 
         try:
@@ -323,12 +371,24 @@ class AnalysisPipeline:
     def _topological_sort(self, analyzers: list[T]) -> list[T]:
         """Sort analyzers by dependencies using topological sort.
 
+        Uses Python's built-in graphlib.TopologicalSorter for proper
+        dependency ordering. Handles chained dependencies like A → B → C.
+
+        Args:
+            analyzers: List of analyzers to sort.
+
+        Returns:
+            List of analyzers in dependency order.
+
         Raises:
             ValueError: If there's a circular dependency.
         """
+        from graphlib import CycleError, TopologicalSorter
+
         if not analyzers:
             return []
 
+        # Build name -> analyzer mapping
         name_to_analyzer: dict[str, T] = {}
         for analyzer in analyzers:
             name = self._get_analyzer_name(analyzer)  # type: ignore[arg-type]
@@ -336,10 +396,12 @@ class AnalysisPipeline:
 
         all_names = set(name_to_analyzer.keys())
 
+        # Build dependency graph: {node: [dependencies]}
         graph: dict[str, set[str]] = {}
         for analyzer in analyzers:
             name = self._get_analyzer_name(analyzer)  # type: ignore[arg-type]
             depends_on = getattr(analyzer, "depends_on", None) or []
+            # Only include dependencies within this analyzer group
             graph[name] = {dep for dep in depends_on if dep in all_names}
 
         try:
@@ -351,11 +413,20 @@ class AnalysisPipeline:
         return [name_to_analyzer[name] for name in sorted_names]
 
     def _inject_dependencies(self, analyzer: AnyAnalyzer) -> None:
-        """Inject dependency results into a derived analyzer."""
+        """Inject dependency results into a derived analyzer.
+
+        If the analyzer has a `depends_on` attribute listing dependency names,
+        and a `set_dependencies` method, this will pass the results from
+        those dependencies to the analyzer.
+
+        Args:
+            analyzer: The derived analyzer to inject dependencies into.
+        """
         depends_on = getattr(analyzer, "depends_on", None)
         if not depends_on:
             return
 
+        # Check if analyzer can receive dependencies
         if not hasattr(analyzer, "set_dependencies"):
             logger.warning(
                 f"Analyzer {self._get_analyzer_name(analyzer)} has depends_on "
@@ -363,6 +434,7 @@ class AnalysisPipeline:
             )
             return
 
+        # Gather dependency results
         dependency_results: dict[str, list[BaseModel] | BaseModel] = {}
         for dep_name in depends_on:
             if dep_name in self._results:
@@ -373,40 +445,72 @@ class AnalysisPipeline:
                     f"'{self._get_analyzer_name(analyzer)}'"
                 )
 
+        # Inject dependencies
         analyzer.set_dependencies(dependency_results)  # type: ignore[union-attr]
 
     def _iter_with_progress(self, items: list[T], desc: str) -> Iterable[T]:
-        """Iterate with progress bar."""
-        return tqdm(items, desc=desc, unit="analyzer")
+        """Iterate with optional progress bar.
+
+        Args:
+            items: Items to iterate over.
+            desc: Description for the progress bar.
+
+        Returns:
+            Iterator (with tqdm wrapper if available).
+        """
+        try:
+            from tqdm import tqdm
+
+            return tqdm(items, desc=desc, unit="analyzer")
+        except ImportError:
+            return items
 
     def _get_analyzer_name(self, analyzer: AnyAnalyzer) -> str:
         """Get the name for an analyzer.
 
-        If ``analyzer_id`` is already set, returns it directly.  Otherwise
-        auto-generates a name from the class name, appending a numeric suffix
-        to avoid collisions with existing results.
-        """
-        if analyzer.analyzer_id is not None:
-            return analyzer.analyzer_id
+        Uses the class name by default, but can be overridden by
+        setting an 'analyzer_id' attribute on the analyzer.
 
-        # Auto-generate from class name, deduplicating if needed
-        base = analyzer.__class__.__name__
-        name = base
-        counter = 2
-        while name in self._assigned_names:
-            name = f"{base}_{counter}"
-            counter += 1
-        self._assigned_names.add(name)
-        analyzer.analyzer_id = name
-        return name
+        Args:
+            analyzer: The analyzer instance.
+
+        Returns:
+            Name string for the analyzer.
+        """
+        analyzer_id = getattr(analyzer, "analyzer_id", None)
+        if analyzer_id is not None:
+            return str(analyzer_id)
+        return analyzer.__class__.__name__
+
+    def _get_analyzer_scope(self, analyzer: AnyAnalyzer) -> str:
+        """Get the scope name for an analyzer.
+
+        Args:
+            analyzer: The analyzer instance.
+
+        Returns:
+            Scope string ('message', 'conversation', 'dataset', or 'preference').
+        """
+        if isinstance(analyzer, MessageAnalyzer):
+            return "message"
+        elif isinstance(analyzer, ConversationAnalyzer):
+            return "conversation"
+        elif isinstance(analyzer, DatasetAnalyzer):
+            return "dataset"
+        elif isinstance(analyzer, PreferenceAnalyzer):
+            return "preference"
+        return "unknown"
 
     def _save_cache(self) -> None:
         """Save results to cache directory."""
+        import json
+
         if not self.cache_dir:
             return
 
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
+        # Save results as JSON
         results_path = self.cache_dir / _CACHE_FILENAME
         serialized = {}
         for name, result in self._results.items():

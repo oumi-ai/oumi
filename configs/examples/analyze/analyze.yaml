@@ -27,7 +27,8 @@ dataset_path: data/dataset_examples/oumi_format.jsonl
 output_path: ./analysis_output
 
 analyzers:
-  - id: length
+  - type: length
+    display_name: Length
     params:
       # Tokenizer name - automatically detects tiktoken vs HuggingFace
       tokenizer_name: cl100k_base  # tiktoken encoding (GPT-4)

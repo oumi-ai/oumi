@@ -165,13 +165,21 @@ def get_app() -> typer.Typer:
     )(quantize)
 
     # Data
-    app.command(
+    analyze_app = typer.Typer(
+        pretty_exceptions_enable=False, context_settings=_HELP_OPTION_NAMES
+    )
+    analyze_app.callback(
+        invoke_without_command=True,
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
+    )(analyze)
+    app.add_typer(
+        analyze_app,
+        name="analyze",
         help=get_command_help(
             "Compute statistics and metrics for a dataset.", AliasType.ANALYZE
         ),
         rich_help_panel="Data",
-    )(analyze)
+    )
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help=get_command_help(
