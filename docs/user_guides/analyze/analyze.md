@@ -81,14 +81,11 @@ Fast, non-LLM quality checks for data validation.
 
 | Metric | Description |
 |--------|-------------|
-| `has_alternating_turns` | Proper user-assistant alternation |
-| `has_empty_turns` | Any message has empty content |
-| `has_invalid_values` | Contains serialized `NaN`, `null`, `None` |
-| `fits_4k_context` / `fits_8k_context` | Estimated context window fit |
-| `appears_truncated` | Last message appears cut off |
-| `has_policy_refusal` | Assistant message contains refusal patterns |
-| `has_unbalanced_tags` | Unmatched `<think>`, code blocks, etc. |
-| `passes_basic_quality` | Passes all enabled quality checks |
+| `has_non_alternating_turns` | Consecutive same-role messages exist (excluding system) |
+| `has_empty_turns` | Any message has empty or whitespace-only content |
+| `empty_turn_count` | Number of empty/whitespace-only messages |
+| `has_invalid_values` | Contains serialized `NaN`, `null`, `None`, `undefined` |
+| `invalid_value_patterns` | List of invalid value patterns found |
 
 ### Turn Stats Analyzer (`turn_stats`)
 
@@ -210,13 +207,13 @@ tests:
     severity: high
     display_name: "Token count exceeds 10K"
 
-  - id: quality_pass_rate
+  - id: no_empty_turns
     type: percentage
-    metric: Quality.passes_basic_quality
-    condition: "== True"
-    min_percentage: 80.0
+    metric: Quality.has_empty_turns
+    condition: "== False"
+    min_percentage: 95.0
     severity: high
-    display_name: "Basic quality pass rate"
+    display_name: "No empty turns"
 
   - id: token_range
     type: range

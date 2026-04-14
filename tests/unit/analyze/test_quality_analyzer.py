@@ -79,48 +79,6 @@ def conversation_with_empty_turns() -> Conversation:
 
 
 @pytest.fixture
-def conversation_with_refusal() -> Conversation:
-    """Create a conversation with a policy refusal."""
-    return Conversation(
-        messages=[
-            Message(role=Role.USER, content="Do something bad."),
-            Message(
-                role=Role.ASSISTANT,
-                content="I cannot assist with that request.",
-            ),
-        ]
-    )
-
-
-@pytest.fixture
-def conversation_with_think_tags() -> Conversation:
-    """Create a conversation with balanced think tags."""
-    return Conversation(
-        messages=[
-            Message(role=Role.USER, content="What is 2 + 2?"),
-            Message(
-                role=Role.ASSISTANT,
-                content="<think>Simple arithmetic.</think>The answer is 4.",
-            ),
-        ]
-    )
-
-
-@pytest.fixture
-def conversation_with_unbalanced_tags() -> Conversation:
-    """Create a conversation with unbalanced think tags."""
-    return Conversation(
-        messages=[
-            Message(role=Role.USER, content="What is 2 + 2?"),
-            Message(
-                role=Role.ASSISTANT,
-                content="<think>Let me think about this...",
-            ),
-        ]
-    )
-
-
-@pytest.fixture
 def empty_conversation() -> Conversation:
     """Create an empty conversation."""
     return Conversation(messages=[])
@@ -134,58 +92,33 @@ def empty_conversation() -> Conversation:
 def test_metrics_creation():
     """Test that DataQualityMetrics can be created with required fields."""
     metrics = DataQualityMetrics(
-        has_alternating_turns=True,
-        turn_sequence="user,assistant",
+        has_non_alternating_turns=False,
         has_empty_turns=False,
+        empty_turn_count=0,
         has_invalid_values=False,
-        estimated_tokens=10,
-        fits_4k_context=True,
-        fits_8k_context=True,
-        appears_truncated=False,
-        has_policy_refusal=False,
-        has_think_tags=False,
-        has_unbalanced_tags=False,
-        passes_basic_quality=True,
+        invalid_value_patterns=[],
     )
-    assert metrics.has_alternating_turns is True
-    assert metrics.passes_basic_quality is True
-    assert metrics.num_consecutive_same_role == 0
+    assert metrics.has_non_alternating_turns is False
+    assert metrics.has_empty_turns is False
     assert metrics.empty_turn_count == 0
-    assert metrics.empty_turn_indices == []
-    assert metrics.quality_issues == []
+    assert metrics.has_invalid_values is False
+    assert metrics.invalid_value_patterns == []
 
 
-def test_metrics_with_all_fields():
-    """Test DataQualityMetrics with all fields populated."""
+def test_metrics_with_issues():
+    """Test DataQualityMetrics with quality issues detected."""
     metrics = DataQualityMetrics(
-        has_alternating_turns=False,
-        turn_sequence="user,user,assistant",
-        num_consecutive_same_role=2,
+        has_non_alternating_turns=True,
         has_empty_turns=True,
-        empty_turn_count=1,
-        empty_turn_indices=[1],
+        empty_turn_count=2,
         has_invalid_values=True,
-        invalid_value_patterns=["NaN"],
-        estimated_tokens=5000,
-        fits_4k_context=False,
-        fits_8k_context=True,
-        appears_truncated=True,
-        ends_mid_sentence=True,
-        truncation_reason="Ends with comma",
-        has_policy_refusal=True,
-        refusal_count=1,
-        refusal_phrases=["i cannot"],
-        has_think_tags=True,
-        has_unbalanced_tags=True,
-        unmatched_tags=["<think>"],
-        passes_basic_quality=False,
-        quality_issues=["Non-alternating turns detected"],
+        invalid_value_patterns=["NaN", "null"],
     )
-    assert metrics.num_consecutive_same_role == 2
-    assert metrics.empty_turn_indices == [1]
-    assert metrics.invalid_value_patterns == ["NaN"]
-    assert metrics.truncation_reason == "Ends with comma"
-    assert len(metrics.quality_issues) == 1
+    assert metrics.has_non_alternating_turns is True
+    assert metrics.has_empty_turns is True
+    assert metrics.empty_turn_count == 2
+    assert metrics.has_invalid_values is True
+    assert metrics.invalid_value_patterns == ["NaN", "null"]
 
 
 # -----------------------------------------------------------------------------
@@ -194,31 +127,9 @@ def test_metrics_with_all_fields():
 
 
 def test_default_initialization():
-    """Test DataQualityAnalyzer with default parameters."""
+    """Test DataQualityAnalyzer initializes without errors."""
     analyzer = DataQualityAnalyzer()
-    assert analyzer.check_turn_pattern is True
-    assert analyzer.check_empty_content is True
-    assert analyzer.check_invalid_values is True
-    assert analyzer.check_truncation is True
-    assert analyzer.check_refusals is True
-    assert analyzer.check_tags is True
-    assert analyzer.context_4k_threshold == 4096
-    assert analyzer.context_8k_threshold == 8192
-    assert analyzer.tokens_per_word == 1.3
-
-
-def test_custom_initialization():
-    """Test DataQualityAnalyzer with custom parameters."""
-    analyzer = DataQualityAnalyzer(
-        check_turn_pattern=False,
-        check_refusals=False,
-        context_4k_threshold=2048,
-        tokens_per_word=1.5,
-    )
-    assert analyzer.check_turn_pattern is False
-    assert analyzer.check_refusals is False
-    assert analyzer.context_4k_threshold == 2048
-    assert analyzer.tokens_per_word == 1.5
+    assert analyzer is not None
 
 
 # -----------------------------------------------------------------------------
@@ -231,9 +142,7 @@ def test_alternating_turns(simple_conversation):
     analyzer = DataQualityAnalyzer()
     result = analyzer.analyze(simple_conversation)
 
-    assert result.has_alternating_turns is True
-    assert result.num_consecutive_same_role == 0
-    assert result.turn_sequence == "user,assistant"
+    assert result.has_non_alternating_turns is False
 
 
 def test_non_alternating_turns(non_alternating_conversation):
@@ -241,9 +150,7 @@ def test_non_alternating_turns(non_alternating_conversation):
     analyzer = DataQualityAnalyzer()
     result = analyzer.analyze(non_alternating_conversation)
 
-    assert result.has_alternating_turns is False
-    assert result.num_consecutive_same_role == 2
-    assert "Non-alternating turns detected" in result.quality_issues
+    assert result.has_non_alternating_turns is True
 
 
 def test_system_message_ignored_in_alternation(conversation_with_system):
@@ -251,23 +158,35 @@ def test_system_message_ignored_in_alternation(conversation_with_system):
     analyzer = DataQualityAnalyzer()
     result = analyzer.analyze(conversation_with_system)
 
-    assert result.has_alternating_turns is True
-    assert "system" in result.turn_sequence
+    assert result.has_non_alternating_turns is False
 
 
-def test_turn_pattern_check_disabled():
-    """Test that disabling turn pattern check skips it."""
+def test_consecutive_assistant_messages():
+    """Test detection of consecutive assistant messages."""
     conv = Conversation(
         messages=[
             Message(role=Role.USER, content="Hello"),
-            Message(role=Role.USER, content="Again"),
+            Message(role=Role.ASSISTANT, content="Hi!"),
+            Message(role=Role.ASSISTANT, content="How can I help?"),
         ]
     )
-    analyzer = DataQualityAnalyzer(check_turn_pattern=False)
+    analyzer = DataQualityAnalyzer()
     result = analyzer.analyze(conv)
 
-    assert result.has_alternating_turns is True
-    assert result.turn_sequence == ""
+    assert result.has_non_alternating_turns is True
+
+
+def test_single_message_no_alternation_issue():
+    """Test that a single message doesn't flag alternation issues."""
+    conv = Conversation(
+        messages=[
+            Message(role=Role.USER, content="Hello"),
+        ]
+    )
+    analyzer = DataQualityAnalyzer()
+    result = analyzer.analyze(conv)
+
+    assert result.has_non_alternating_turns is False
 
 
 # -----------------------------------------------------------------------------
@@ -282,7 +201,6 @@ def test_no_empty_turns(simple_conversation):
 
     assert result.has_empty_turns is False
     assert result.empty_turn_count == 0
-    assert result.empty_turn_indices == []
 
 
 def test_empty_turns_detected(conversation_with_empty_turns):
@@ -292,23 +210,21 @@ def test_empty_turns_detected(conversation_with_empty_turns):
 
     assert result.has_empty_turns is True
     assert result.empty_turn_count == 2
-    assert 1 in result.empty_turn_indices
-    assert 2 in result.empty_turn_indices
 
 
-def test_empty_content_check_disabled():
-    """Test that disabling empty content check skips it."""
+def test_whitespace_only_is_empty():
+    """Test that whitespace-only content counts as empty."""
     conv = Conversation(
         messages=[
             Message(role=Role.USER, content="Hello"),
-            Message(role=Role.ASSISTANT, content=""),
+            Message(role=Role.ASSISTANT, content="   \t\n  "),
         ]
     )
-    analyzer = DataQualityAnalyzer(check_empty_content=False)
+    analyzer = DataQualityAnalyzer()
     result = analyzer.analyze(conv)
 
-    assert result.has_empty_turns is False
-    assert result.empty_turn_count == 0
+    assert result.has_empty_turns is True
+    assert result.empty_turn_count == 1
 
 
 # -----------------------------------------------------------------------------
@@ -340,284 +256,101 @@ def test_nan_detected():
     assert "NaN" in result.invalid_value_patterns
 
 
-def test_invalid_values_check_disabled():
-    """Test that disabling invalid values check skips it."""
+def test_null_detected():
+    """Test detection of null values in content."""
     conv = Conversation(
         messages=[
-            Message(role=Role.USER, content="Value is NaN"),
-            Message(role=Role.ASSISTANT, content="OK."),
+            Message(role=Role.USER, content="The result was null."),
+            Message(role=Role.ASSISTANT, content="Let me check."),
         ]
     )
-    analyzer = DataQualityAnalyzer(check_invalid_values=False)
+    analyzer = DataQualityAnalyzer()
     result = analyzer.analyze(conv)
 
+    assert result.has_invalid_values is True
+    assert "null" in result.invalid_value_patterns
+
+
+def test_none_detected():
+    """Test detection of None values in content."""
+    conv = Conversation(
+        messages=[
+            Message(role=Role.USER, content="It returned None instead."),
+            Message(role=Role.ASSISTANT, content="That's a bug."),
+        ]
+    )
+    analyzer = DataQualityAnalyzer()
+    result = analyzer.analyze(conv)
+
+    assert result.has_invalid_values is True
+    assert "None" in result.invalid_value_patterns
+
+
+def test_undefined_detected():
+    """Test detection of undefined values in content."""
+    conv = Conversation(
+        messages=[
+            Message(role=Role.USER, content="The variable is undefined."),
+            Message(role=Role.ASSISTANT, content="Check your code."),
+        ]
+    )
+    analyzer = DataQualityAnalyzer()
+    result = analyzer.analyze(conv)
+
+    assert result.has_invalid_values is True
+    assert "undefined" in result.invalid_value_patterns
+
+
+def test_multiple_invalid_patterns():
+    """Test detection of multiple invalid value patterns."""
+    conv = Conversation(
+        messages=[
+            Message(role=Role.USER, content="Values are NaN and null here."),
+            Message(role=Role.ASSISTANT, content="Also None is bad."),
+        ]
+    )
+    analyzer = DataQualityAnalyzer()
+    result = analyzer.analyze(conv)
+
+    assert result.has_invalid_values is True
+    assert len(result.invalid_value_patterns) >= 3
+    assert "NaN" in result.invalid_value_patterns
+    assert "null" in result.invalid_value_patterns
+    assert "None" in result.invalid_value_patterns
+
+
+def test_invalid_value_word_boundary():
+    """Test that invalid value detection respects word boundaries."""
+    conv = Conversation(
+        messages=[
+            Message(role=Role.USER, content="I like bananas."),
+            Message(role=Role.ASSISTANT, content="Me too!"),
+        ]
+    )
+    analyzer = DataQualityAnalyzer()
+    result = analyzer.analyze(conv)
+
+    # "banana" contains "nan" but shouldn't match due to word boundary
     assert result.has_invalid_values is False
 
 
-# -----------------------------------------------------------------------------
-# Context Length Tests
-# -----------------------------------------------------------------------------
-
-
-def test_fits_context_windows(simple_conversation):
-    """Test that a short conversation fits context windows."""
-    analyzer = DataQualityAnalyzer()
-    result = analyzer.analyze(simple_conversation)
-
-    assert result.estimated_tokens > 0
-    assert result.fits_4k_context is True
-    assert result.fits_8k_context is True
-
-
-def test_exceeds_4k_context():
-    """Test detection of conversation exceeding 4K context."""
-    # Create a long conversation that exceeds 4K tokens (~3200 words)
-    long_text = "word " * 3500
+def test_patterns_are_sorted():
+    """Test that invalid value patterns are returned sorted."""
     conv = Conversation(
         messages=[
-            Message(role=Role.USER, content=long_text),
-            Message(role=Role.ASSISTANT, content="OK."),
+            Message(role=Role.USER, content="null and NaN"),
+            Message(role=Role.ASSISTANT, content="Also undefined."),
         ]
     )
     analyzer = DataQualityAnalyzer()
     result = analyzer.analyze(conv)
 
-    assert result.fits_4k_context is False
-    assert any("4K" in issue for issue in result.quality_issues)
-
-
-def test_custom_context_thresholds():
-    """Test with custom context thresholds."""
-    conv = Conversation(
-        messages=[
-            Message(role=Role.USER, content="word " * 100),
-            Message(role=Role.ASSISTANT, content="OK."),
-        ]
-    )
-    analyzer = DataQualityAnalyzer(context_4k_threshold=50)
-    result = analyzer.analyze(conv)
-
-    assert result.fits_4k_context is False
+    assert result.invalid_value_patterns == sorted(result.invalid_value_patterns)
 
 
 # -----------------------------------------------------------------------------
-# Truncation Tests
+# Empty Conversation Tests
 # -----------------------------------------------------------------------------
-
-
-def test_no_truncation(simple_conversation):
-    """Test conversation that doesn't appear truncated."""
-    analyzer = DataQualityAnalyzer()
-    result = analyzer.analyze(simple_conversation)
-
-    assert result.appears_truncated is False
-
-
-def test_truncation_ends_with_comma():
-    """Test detection of truncation when message ends with comma."""
-    conv = Conversation(
-        messages=[
-            Message(role=Role.USER, content="List some things."),
-            Message(
-                role=Role.ASSISTANT,
-                content="Here are some things: apples, oranges,",
-            ),
-        ]
-    )
-    analyzer = DataQualityAnalyzer()
-    result = analyzer.analyze(conv)
-
-    assert result.appears_truncated is True
-    assert "truncated" in result.quality_issues[0].lower() or any(
-        "truncated" in issue.lower() for issue in result.quality_issues
-    )
-
-
-def test_truncation_ends_with_incomplete_word():
-    """Test detection of truncation ending with an incomplete phrase."""
-    conv = Conversation(
-        messages=[
-            Message(role=Role.USER, content="Tell me more."),
-            Message(
-                role=Role.ASSISTANT,
-                content="The main reasons are quality and",
-            ),
-        ]
-    )
-    analyzer = DataQualityAnalyzer()
-    result = analyzer.analyze(conv)
-
-    assert result.appears_truncated is True
-
-
-def test_truncation_check_disabled():
-    """Test that disabling truncation check skips it."""
-    conv = Conversation(
-        messages=[
-            Message(role=Role.USER, content="Hello"),
-            Message(role=Role.ASSISTANT, content="Things like,"),
-        ]
-    )
-    analyzer = DataQualityAnalyzer(check_truncation=False)
-    result = analyzer.analyze(conv)
-
-    assert result.appears_truncated is False
-
-
-# -----------------------------------------------------------------------------
-# Refusal Detection Tests
-# -----------------------------------------------------------------------------
-
-
-def test_no_refusal(simple_conversation):
-    """Test conversation with no policy refusal."""
-    analyzer = DataQualityAnalyzer()
-    result = analyzer.analyze(simple_conversation)
-
-    assert result.has_policy_refusal is False
-    assert result.refusal_count == 0
-    assert result.refusal_phrases == []
-
-
-def test_refusal_detected(conversation_with_refusal):
-    """Test detection of policy refusal."""
-    analyzer = DataQualityAnalyzer()
-    result = analyzer.analyze(conversation_with_refusal)
-
-    assert result.has_policy_refusal is True
-    assert result.refusal_count == 1
-    assert len(result.refusal_phrases) > 0
-
-
-def test_refusal_only_in_assistant():
-    """Test that refusal patterns in user messages are ignored."""
-    conv = Conversation(
-        messages=[
-            Message(role=Role.USER, content="I cannot do this."),
-            Message(role=Role.ASSISTANT, content="Sure, I can help you!"),
-        ]
-    )
-    analyzer = DataQualityAnalyzer()
-    result = analyzer.analyze(conv)
-
-    assert result.has_policy_refusal is False
-
-
-def test_refusal_check_disabled():
-    """Test that disabling refusal check skips it."""
-    conv = Conversation(
-        messages=[
-            Message(role=Role.USER, content="Do something bad."),
-            Message(
-                role=Role.ASSISTANT,
-                content="I cannot assist with that.",
-            ),
-        ]
-    )
-    analyzer = DataQualityAnalyzer(check_refusals=False)
-    result = analyzer.analyze(conv)
-
-    assert result.has_policy_refusal is False
-
-
-# -----------------------------------------------------------------------------
-# Think Tag Tests
-# -----------------------------------------------------------------------------
-
-
-def test_no_think_tags(simple_conversation):
-    """Test conversation with no think tags."""
-    analyzer = DataQualityAnalyzer()
-    result = analyzer.analyze(simple_conversation)
-
-    assert result.has_think_tags is False
-    assert result.has_unbalanced_tags is False
-
-
-def test_balanced_think_tags(conversation_with_think_tags):
-    """Test detection of balanced think tags."""
-    analyzer = DataQualityAnalyzer()
-    result = analyzer.analyze(conversation_with_think_tags)
-
-    assert result.has_think_tags is True
-    assert result.has_unbalanced_tags is False
-    assert result.unmatched_tags == []
-
-
-def test_unbalanced_think_tags(conversation_with_unbalanced_tags):
-    """Test detection of unbalanced think tags."""
-    analyzer = DataQualityAnalyzer()
-    result = analyzer.analyze(conversation_with_unbalanced_tags)
-
-    assert result.has_think_tags is True
-    assert result.has_unbalanced_tags is True
-    assert len(result.unmatched_tags) > 0
-
-
-def test_unbalanced_code_blocks():
-    """Test detection of unbalanced code blocks."""
-    conv = Conversation(
-        messages=[
-            Message(role=Role.USER, content="Show me code."),
-            Message(
-                role=Role.ASSISTANT,
-                content="```python\nprint('hello')\n",
-            ),
-        ]
-    )
-    analyzer = DataQualityAnalyzer()
-    result = analyzer.analyze(conv)
-
-    assert result.has_unbalanced_tags is True
-    assert "```" in result.unmatched_tags
-
-
-def test_tags_check_disabled():
-    """Test that disabling tag check skips it."""
-    conv = Conversation(
-        messages=[
-            Message(role=Role.USER, content="Hello"),
-            Message(role=Role.ASSISTANT, content="<think>Unclosed."),
-        ]
-    )
-    analyzer = DataQualityAnalyzer(check_tags=False)
-    result = analyzer.analyze(conv)
-
-    assert result.has_think_tags is False
-    assert result.has_unbalanced_tags is False
-
-
-# -----------------------------------------------------------------------------
-# Overall Quality Tests
-# -----------------------------------------------------------------------------
-
-
-def test_passes_basic_quality(simple_conversation):
-    """Test that a good conversation passes basic quality."""
-    analyzer = DataQualityAnalyzer()
-    result = analyzer.analyze(simple_conversation)
-
-    assert result.passes_basic_quality is True
-    assert result.quality_issues == []
-
-
-def test_fails_basic_quality_multiple_issues():
-    """Test that multiple quality issues are reported."""
-    conv = Conversation(
-        messages=[
-            Message(role=Role.USER, content="Hello"),
-            Message(role=Role.USER, content=""),
-            Message(
-                role=Role.ASSISTANT,
-                content="I cannot help with",
-            ),
-        ]
-    )
-    analyzer = DataQualityAnalyzer()
-    result = analyzer.analyze(conv)
-
-    assert result.passes_basic_quality is False
-    assert len(result.quality_issues) >= 2
 
 
 def test_empty_conversation(empty_conversation):
@@ -626,8 +359,47 @@ def test_empty_conversation(empty_conversation):
     result = analyzer.analyze(empty_conversation)
 
     assert isinstance(result, DataQualityMetrics)
-    assert result.estimated_tokens == 0
+    assert result.has_non_alternating_turns is False
     assert result.has_empty_turns is False
+    assert result.empty_turn_count == 0
+    assert result.has_invalid_values is False
+    assert result.invalid_value_patterns == []
+
+
+# -----------------------------------------------------------------------------
+# Combined Scenario Tests
+# -----------------------------------------------------------------------------
+
+
+def test_all_issues_present():
+    """Test conversation with all quality issues."""
+    conv = Conversation(
+        messages=[
+            Message(role=Role.USER, content="Hello"),
+            Message(role=Role.USER, content=""),
+            Message(role=Role.ASSISTANT, content="Value is NaN."),
+        ]
+    )
+    analyzer = DataQualityAnalyzer()
+    result = analyzer.analyze(conv)
+
+    assert result.has_non_alternating_turns is True
+    assert result.has_empty_turns is True
+    assert result.empty_turn_count == 1
+    assert result.has_invalid_values is True
+    assert "NaN" in result.invalid_value_patterns
+
+
+def test_clean_conversation(simple_conversation):
+    """Test that a clean conversation has no quality issues."""
+    analyzer = DataQualityAnalyzer()
+    result = analyzer.analyze(simple_conversation)
+
+    assert result.has_non_alternating_turns is False
+    assert result.has_empty_turns is False
+    assert result.empty_turn_count == 0
+    assert result.has_invalid_values is False
+    assert result.invalid_value_patterns == []
 
 
 # -----------------------------------------------------------------------------
@@ -647,16 +419,19 @@ def test_get_result_schema():
     """Test that result schema can be retrieved."""
     schema = DataQualityAnalyzer.get_result_schema()
     assert "properties" in schema
-    assert "has_alternating_turns" in schema["properties"]
-    assert "passes_basic_quality" in schema["properties"]
+    assert "has_non_alternating_turns" in schema["properties"]
+    assert "has_empty_turns" in schema["properties"]
+    assert "has_invalid_values" in schema["properties"]
 
 
 def test_get_metric_names():
     """Test that metric names can be retrieved."""
     names = DataQualityAnalyzer.get_metric_names()
-    assert "has_alternating_turns" in names
+    assert "has_non_alternating_turns" in names
     assert "has_empty_turns" in names
-    assert "passes_basic_quality" in names
+    assert "empty_turn_count" in names
+    assert "has_invalid_values" in names
+    assert "invalid_value_patterns" in names
 
 
 def test_analyzer_is_conversation_analyzer():
@@ -664,3 +439,9 @@ def test_analyzer_is_conversation_analyzer():
     from oumi.analyze.base import ConversationAnalyzer
 
     assert issubclass(DataQualityAnalyzer, ConversationAnalyzer)
+
+
+def test_get_config_schema():
+    """Test that config schema can be retrieved."""
+    schema = DataQualityAnalyzer.get_config_schema()
+    assert isinstance(schema, dict)

@@ -139,13 +139,13 @@ Check if a metric exceeds a threshold across the dataset.
   value: 10000
   max_percentage: 5.0
 
-# At least 80% must have quality_score > 0.5
-- id: min_quality
+# At most 5% of conversations can have non-alternating turns
+- id: non_alternating
   type: threshold
-  metric: Quality.passes_basic_quality
+  metric: Quality.has_non_alternating_turns
   operator: "=="
   value: true
-  min_percentage: 80.0
+  max_percentage: 5.0
 ```
 
 ### Percentage Tests
