@@ -27,11 +27,11 @@ class TextCompletionsCollatorWithPadding:
     def __init__(
         self,
         tokenizer: BaseTokenizer,
-        response_prefix: str | list[int],
-        instruction_prefix: str | list[int] | None = None,
+        response_template: str | list[int],
+        instruction_template: str | list[int] | None = None,
         debug: bool = False,
+        masking_method: str | None = None,
         end_of_turn_template: str | list[int] | None = None,
-        mask_tool_calls: bool = False,
         tool_call_start_template: str | list[int] | None = None,
         ignore_index: int = -100,
     ):
@@ -39,24 +39,24 @@ class TextCompletionsCollatorWithPadding:
 
         Args:
         tokenizer: The tokenizer used for encoding the data.
-        response_prefix: The prefix marking the beginning of the assistant response.
-        instruction_prefix: The prefix marking the beginning of the user instruction.
-            Optional when using span-based masking via end_of_turn_template.
+        response_template: String or token-ID list marking assistant response start.
+        instruction_template: String or token-ID list marking user instruction start.
         debug: If True, enables debug mode for logging.
-        end_of_turn_template: String or token-ID list marking end of turn.
-            When provided, enables span-based masking for tool-aware conversations.
-        mask_tool_calls: When True, re-masks assistant spans containing tool calls.
+        masking_method: Masking strategy — ``"assistant_turn"``,
+            ``"assistant_turn_no_tools"``, or ``"final_assistant_turn"``.
+        end_of_turn_template: String or token-ID list marking the end of a turn.
+            Required for ``assistant_turn`` and ``assistant_turn_no_tools``.
         tool_call_start_template: String or token-ID list marking tool-call start.
-            Required when mask_tool_calls=True.
+            Required for ``assistant_turn_no_tools``.
         ignore_index: Value used for masked labels. Must match the ignore_index
             of the loss function (default: -100).
         """
         self._default_collator = DataCollatorForCompletionOnlyLM(
             tokenizer=tokenizer,
-            instruction_template=instruction_prefix,
-            response_template=response_prefix,
+            instruction_template=instruction_template,
+            response_template=response_template,
+            masking_method=masking_method,
             end_of_turn_template=end_of_turn_template,
-            mask_tool_calls=mask_tool_calls,
             tool_call_start_template=tool_call_start_template,
             ignore_index=ignore_index,
         )

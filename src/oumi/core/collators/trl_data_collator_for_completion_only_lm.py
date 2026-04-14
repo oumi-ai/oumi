@@ -21,9 +21,48 @@ from transformers.data.data_collator import DataCollatorForLanguageModeling
 
 
 class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
-    """Data collator used for completion tasks.
+    """Data collator for completion-only training.
 
-    Copied from `trl`'s `DataCollatorForCompletionOnlyLM` class.
+    Masks input labels so that the loss is only computed on specific
+    tokens (typically assistant responses), while ignoring other tokens
+    (system prompts, user messages, padding).
+
+    The ``masking_method`` parameter selects the masking strategy:
+
+    **``assistant_turn``**:
+        Span-based masking for multi-turn and tool-calling conversations.
+        Masks everything, then unmarks each assistant response span bounded
+        by ``response_template`` .. ``end_of_turn_template`` (inclusive of EOT).
+        Correctly handles interleaved tool results and parallel tool calls.
+
+    **``assistant_turn_no_tools``**:
+        Same as ``assistant_turn``, but additionally re-masks assistant
+        turns that contain tool-call content. Requires
+        ``tool_call_start_template``. Only natural-language responses
+        contribute to the loss.
+
+    **``final_assistant_turn``**:
+        Masks all tokens before the *last* ``response_template`` occurrence.
+        Only the final assistant response is trained on. Suitable for
+        single-turn completions.
+
+    Args:
+        response_template: String or token IDs marking the start of an
+            assistant response. Required for all modes.
+        instruction_template: String or token IDs marking the start of a
+            user instruction. Legacy — only used with the instruction+response
+            fallback path.
+        masking_method: One of ``"assistant_turn"``,
+            ``"assistant_turn_no_tools"``, ``"final_assistant_turn"``.
+            When None, inferred from template presence for backward compat.
+        end_of_turn_template: String or token IDs marking the end of a
+            conversational turn. Required for ``assistant_turn`` and
+            ``assistant_turn_no_tools`` modes.
+        tool_call_start_template: String or token IDs marking the start
+            of a tool-call block. Required for ``assistant_turn_no_tools``.
+        mlm: Whether to use masked language modeling. Default False.
+        ignore_index: Label value for masked tokens. Default -100.
+        padding_free: Remove padding and add position_ids. Default False.
     """
 
     def __init__(
@@ -31,8 +70,8 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
         response_template: str | list[int],
         instruction_template: str | list[int] | None = None,
         *args,
+        masking_method: str | None = None,
         end_of_turn_template: str | list[int] | None = None,
-        mask_tool_calls: bool = False,
         tool_call_start_template: str | list[int] | None = None,
         mlm: bool = False,
         ignore_index: int = -100,
@@ -74,13 +113,38 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
         else:
             self.end_of_turn_token_ids = None
 
-        self.mask_tool_calls = mask_tool_calls
+        _KNOWN_MASKING_METHODS = {
+            "assistant_turn",
+            "assistant_turn_no_tools",
+            "final_assistant_turn",
+            "_legacy_instruction_response",
+        }
+
+        # Infer masking_method from template presence for backward compatibility.
+        if masking_method is not None:
+            if masking_method not in _KNOWN_MASKING_METHODS:
+                valid_methods = sorted(
+                    _KNOWN_MASKING_METHODS - {"_legacy_instruction_response"}
+                )
+                raise ValueError(
+                    f"Unknown masking_method='{masking_method}'. "
+                    f"Must be one of: {valid_methods}"
+                )
+            self.masking_method = masking_method
+        elif end_of_turn_template is not None:
+            self.masking_method = "assistant_turn"
+        elif instruction_template is None:
+            self.masking_method = "final_assistant_turn"
+        else:
+            self.masking_method = "_legacy_instruction_response"
+
+        self.mask_tool_calls = self.masking_method == "assistant_turn_no_tools"
         self.tool_call_start_token_ids: list[int] | None = None
-        if mask_tool_calls:
+        if self.mask_tool_calls:
             if tool_call_start_template is None:
                 raise ValueError(
                     "tool_call_start_template must be provided "
-                    "when mask_tool_calls=True"
+                    "when masking_method='assistant_turn_no_tools'"
                 )
             if isinstance(tool_call_start_template, str):
                 self.tool_call_start_token_ids = self.tokenizer.encode(
@@ -137,10 +201,12 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
     def _apply_span_masking(
         self, batch: dict[str, Any], examples: list[list[int] | Any | dict[str, Any]]
     ) -> None:
-        """Apply span-based label masking for tool-aware conversations.
+        """Apply span-based masking for tool-aware conversations.
 
-        This masks everything, then selectively unmasks assistant response
-        spans delimited by response_template and end_of_turn_template.
+        Masks all labels, then unmarks assistant response spans bounded by
+        response_template and end_of_turn_template (inclusive — the EOT token
+        is unmasked so the model learns to produce it).  Optionally re-masks
+        spans that contain tool-call content.
         """
         resp_ids = self.response_token_ids
         eot_ids = self.end_of_turn_token_ids
@@ -199,9 +265,17 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
                     ):
                         continue
 
-                # Step 5: unmask this assistant response span.
-                batch["labels"][i, content_start:content_end] = batch["input_ids"][
-                    i, content_start:content_end
+                # Step 5: unmask this assistant response span, including the
+                # end-of-turn token so the model learns when to stop.
+                if eot_positions:
+                    eot_len = len(self.end_of_turn_token_ids)  # type: ignore
+                    unmask_end = content_end + eot_len
+                else:
+                    # No EOT found — content_end == n (end of real content).
+                    # Do NOT extend past n or we'd unmask into padding.
+                    unmask_end = content_end
+                batch["labels"][i, content_start:unmask_end] = batch["input_ids"][
+                    i, content_start:unmask_end
                 ]
 
     # ------------------------------------------------------------------
@@ -214,9 +288,10 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
         """Collates a list of examples into a batch."""
         batch = super().torch_call(examples)
 
-        if self.end_of_turn_template is not None:
+        if self.masking_method in ("assistant_turn", "assistant_turn_no_tools"):
             self._apply_span_masking(batch, examples)
-        elif self.instruction_template is None:
+        elif self.masking_method == "final_assistant_turn":
+            # Response-only: unmask only the final assistant response.
             for i in range(len(examples)):
                 response_token_ids_start_idx = None
 

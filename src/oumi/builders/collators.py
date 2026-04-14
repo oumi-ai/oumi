@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from collections.abc import Callable
+from dataclasses import dataclass
 
 import oumi.core.constants as constants
 from oumi.core.collators.text_collator_with_padding import TextCollatorWithPadding
@@ -27,11 +28,91 @@ from oumi.core.configs import DatasetSplit, TrainingConfig
 from oumi.core.configs.internal.supported_models import (
     find_internal_model_config,
 )
+from oumi.core.configs.params.data_params import MaskingMethod
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.utils.logging import logger
 
 # This is used to set the max input length for a model with infinite size input
 _VERY_LARGE_INTEGER = int(1e30)
+
+
+@dataclass(frozen=True)
+class _CollatorTemplates:
+    """Model-specific token strings for SFT label masking."""
+
+    response_template: str
+    end_of_turn_template: str
+    tool_call_start_template: str | None = None
+
+
+_CHATML_TEMPLATES = _CollatorTemplates(
+    response_template="<|im_start|>assistant\n",
+    end_of_turn_template="<|im_end|>",
+    tool_call_start_template="<tool_call>",
+)
+
+_LLAMA3_TEMPLATES = _CollatorTemplates(
+    response_template="<|start_header_id|>assistant<|end_header_id|>\n\n",
+    end_of_turn_template="<|eot_id|>",
+    tool_call_start_template="<|python_tag|>",
+)
+
+# Each entry: (marker_token, templates).
+# Order matters: first marker found in the tokenizer's vocabulary wins.
+# Adding a new model family = adding one line here.
+_COLLATOR_TEMPLATE_DETECTORS: list[tuple[str, _CollatorTemplates]] = [
+    ("<|im_start|>", _CHATML_TEMPLATES),  # ChatML: Qwen, Yi, etc.
+    ("<|start_header_id|>", _LLAMA3_TEMPLATES),  # Llama 3
+]
+
+
+def _resolve_collator_templates(
+    tokenizer: BaseTokenizer,
+) -> _CollatorTemplates:
+    """Detect model family from tokenizer vocabulary and return templates."""
+    vocab = tokenizer.get_vocab()
+    for marker_token, templates in _COLLATOR_TEMPLATE_DETECTORS:
+        if marker_token in vocab:
+            return templates
+
+    raise ValueError(
+        "Cannot detect collator templates from tokenizer vocabulary. "
+        "Use collator_kwargs to provide response_template and "
+        "end_of_turn_template manually instead of masking_method."
+    )
+
+
+def _build_masking_kwargs(
+    masking_method: MaskingMethod,
+    tokenizer: BaseTokenizer,
+) -> dict:
+    """Build collator kwargs from a masking_method enum and tokenizer.
+
+    Resolves model-specific templates from the tokenizer vocabulary
+    and returns kwargs ready to pass to build_data_collator.
+    """
+    templates = _resolve_collator_templates(tokenizer)
+    kwargs: dict = {
+        "masking_method": masking_method.value,
+        "response_template": templates.response_template,
+    }
+
+    if masking_method in (
+        MaskingMethod.ASSISTANT_TURN,
+        MaskingMethod.ASSISTANT_TURN_NO_TOOLS,
+    ):
+        kwargs["end_of_turn_template"] = templates.end_of_turn_template
+
+    if masking_method == MaskingMethod.ASSISTANT_TURN_NO_TOOLS:
+        if templates.tool_call_start_template is None:
+            raise ValueError(
+                "masking_method='assistant_turn_no_tools' requires "
+                "tool_call_start_template, but none is registered "
+                "for this model's token family."
+            )
+        kwargs["tool_call_start_template"] = templates.tool_call_start_template
+
+    return kwargs
 
 
 def build_data_collator(
@@ -127,38 +208,26 @@ def build_data_collator(
             **kwargs,
         )
     elif collator_name == "text_completions_only_with_padding":
-        # Extract instruction and response templates from kwargs if provided
-        instruction_template = kwargs.pop("instruction_template", None)
-        response_template = kwargs.pop("response_template", None)
+        masking_method = kwargs.pop("masking_method", None)
         end_of_turn_template = kwargs.pop("end_of_turn_template", None)
-        mask_tool_calls = kwargs.pop("mask_tool_calls", False)
         tool_call_start_template = kwargs.pop("tool_call_start_template", None)
+        response_template = kwargs.pop("response_template", None)
+        instruction_template = kwargs.pop("instruction_template", None)
 
-        # Only default to Llama-style instruction template when NOT using
-        # span-based masking (end_of_turn_template makes instruction_prefix
-        # unnecessary since masking is handled by response/eot spans).
-        if end_of_turn_template is None:
-            instruction_prefix = (
-                instruction_template
-                if instruction_template
-                else "<|start_header_id|>user<|end_header_id|>\n\n"
+        if not response_template:
+            raise ValueError(
+                "response_template is required for "
+                "'text_completions_only_with_padding'. Provide it via "
+                "collator_kwargs or use masking_method for auto-resolution."
             )
-        else:
-            instruction_prefix = instruction_template  # may be None, that's fine
-
-        response_prefix = (
-            response_template
-            if response_template
-            else "<|start_header_id|>assistant<|end_header_id|>\n\n"
-        )
 
         return TextCompletionsCollatorWithPadding(
             tokenizer=tokenizer,
-            instruction_prefix=instruction_prefix,
-            response_prefix=response_prefix,
+            response_template=response_template,
+            instruction_template=instruction_template,
             debug=debug,
+            masking_method=masking_method,
             end_of_turn_template=end_of_turn_template,
-            mask_tool_calls=mask_tool_calls,
             tool_call_start_template=tool_call_start_template,
             ignore_index=(
                 label_ignore_index if label_ignore_index is not None else -100
@@ -195,7 +264,22 @@ def build_collator_from_config(
         )
     )
 
-    collator_kwargs = {}
+    collator_kwargs: dict = {}
+    masking_method = train_split.masking_method
+
+    if masking_method is None:
+        # Legacy path: use collator_kwargs from config as-is.
+        collator_kwargs.update(train_split.collator_kwargs or {})
+    else:
+        if collator_name != "text_completions_only_with_padding":
+            raise ValueError(
+                f"masking_method is only supported for "
+                f"'text_completions_only_with_padding', "
+                f"got collator_name='{collator_name}'."
+            )
+        collator_kwargs.update(_build_masking_kwargs(masking_method, tokenizer))
+
+    # Vision collator auto-kwargs.
     if (
         collator_name in ("vision_language_with_padding", "vision_language_sft")
         and model_config is not None
@@ -221,11 +305,6 @@ def build_collator_from_config(
         collator_kwargs["trust_remote_code"] = collator_kwargs.get(
             "trust_remote_code", config.model.trust_remote_code
         )
-
-    # Merge collator_kwargs from config with the existing kwargs
-    # Config kwargs take precedence over automatically determined kwargs
-    config_collator_kwargs = train_split.collator_kwargs or {}
-    collator_kwargs.update(config_collator_kwargs)
 
     return build_data_collator(
         collator_name=collator_name,

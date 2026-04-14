@@ -62,8 +62,8 @@ def test_success_basic():
 
     collator = TextCompletionsCollatorWithPadding(
         tokenizer=tokenizer,
-        instruction_prefix=instruction_prefix,
-        response_prefix=response_prefix,
+        instruction_template=instruction_prefix,
+        response_template=response_prefix,
     )
     assert callable(collator)
 
@@ -186,8 +186,8 @@ def test_debug_logging(caplog):
 
     collator = TextCompletionsCollatorWithPadding(
         tokenizer=tokenizer,
-        instruction_prefix=instruction_prefix,
-        response_prefix=response_prefix,
+        instruction_template=instruction_prefix,
+        response_template=response_prefix,
         debug=True,
     )
     assert callable(collator)
@@ -277,11 +277,12 @@ def make_span_collator(
 ) -> TextCompletionsCollatorWithPadding:
     tokenizer, _ = create_test_tokenizer()
     resp_ids, eot_ids, tc_ids = get_template_token_ids()
+    masking_method = "assistant_turn_no_tools" if mask_tool_calls else "assistant_turn"
     return TextCompletionsCollatorWithPadding(
         tokenizer=tokenizer,
-        response_prefix=resp_ids,
+        response_template=resp_ids,
+        masking_method=masking_method,
         end_of_turn_template=eot_ids,
-        mask_tool_calls=mask_tool_calls,
         tool_call_start_template=tc_ids if mask_tool_calls else None,
     )
 
@@ -313,7 +314,8 @@ def test_span_single_turn_content_is_unmasked():
     n_prefix = len(prefix) + len(resp)
     assert all(v == IGNORE for v in labels[:n_prefix])
     assert labels[n_prefix : n_prefix + len(content)] == content
-    assert all(v == IGNORE for v in labels[n_prefix + len(content) :])
+    # EOT tokens are unmasked (model learns to produce the stop token)
+    assert labels[n_prefix + len(content) : n_prefix + len(content) + len(eot)] == eot
 
 
 def test_span_single_turn_response_template_tokens_are_masked():
@@ -326,7 +328,7 @@ def test_span_single_turn_response_template_tokens_are_masked():
         assert labels[i] == IGNORE, f"resp template token {i} should be masked"
 
 
-def test_span_single_turn_eot_tokens_are_masked():
+def test_span_single_turn_eot_tokens_are_unmasked():
     resp, eot, _ = get_template_token_ids()
     content = [_SENTINELS[0]]
     seq = flat(resp, content, eot)
@@ -334,8 +336,7 @@ def test_span_single_turn_eot_tokens_are_masked():
     labels = get_span_labels(make_span_collator(), seq)
 
     eot_start = len(resp) + len(content)
-    for i in range(len(eot)):
-        assert labels[eot_start + i] == IGNORE, f"eot token {i} should be masked"
+    assert labels[eot_start : eot_start + len(eot)] == eot
 
 
 # ---------------------------------------------------------------------------
@@ -456,9 +457,9 @@ def test_span_mask_tool_calls_requires_template():
     with pytest.raises(ValueError, match="tool_call_start_template"):
         TextCompletionsCollatorWithPadding(
             tokenizer=tokenizer,
-            response_prefix=resp_ids,
+            response_template=resp_ids,
+            masking_method="assistant_turn_no_tools",
             end_of_turn_template=eot_ids,
-            mask_tool_calls=True,
             tool_call_start_template=None,
         )
 
@@ -512,7 +513,7 @@ def test_span_padding_matching_eot_does_not_false_match():
 
     collator = TextCompletionsCollatorWithPadding(
         tokenizer=tokenizer,
-        response_prefix=resp,
+        response_template=resp,
         end_of_turn_template=eot_ids,
     )
     batch = collator([{"input_ids": seq}])
@@ -592,5 +593,5 @@ def test_span_labels_numpy_values_match_expected():
     seq = flat(resp, content, eot)
 
     batch = make_span_collator()([{"input_ids": seq}])
-    expected = [IGNORE] * len(resp) + content + [IGNORE] * len(eot)
+    expected = [IGNORE] * len(resp) + content + eot
     assert np.all(batch["labels"].numpy() == np.array([expected], dtype=np.int32))

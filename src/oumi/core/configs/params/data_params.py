@@ -52,6 +52,33 @@ class MixtureStrategy(str, Enum):
             raise ValueError("Unsupported value for MixtureStrategy")
 
 
+class MaskingMethod(str, Enum):
+    """Controls which tokens contribute to the loss during SFT training.
+
+    Used with the ``text_completions_only_with_padding`` collator to
+    select the masking strategy. Template tokens are auto-resolved
+    from the tokenizer vocabulary.
+
+    Members:
+        ASSISTANT_TURN: Train on all assistant response turns including
+            tool calls. Uses span-based masking: system prompts, user
+            messages, and tool results are masked; everything between the
+            assistant header and the end-of-turn token (inclusive) is
+            unmasked.
+        ASSISTANT_TURN_NO_TOOLS: Same as ``ASSISTANT_TURN``, but
+            additionally masks assistant turns that contain tool-call
+            content. Only natural-language assistant responses contribute
+            to the loss.
+        FINAL_ASSISTANT_TURN: Train only on the final assistant response.
+            Masks all tokens before the last ``response_template``
+            occurrence. Suitable for single-turn completions.
+    """
+
+    ASSISTANT_TURN = "assistant_turn"
+    ASSISTANT_TURN_NO_TOOLS = "assistant_turn_no_tools"
+    FINAL_ASSISTANT_TURN = "final_assistant_turn"
+
+
 @dataclass
 class DatasetParams(BaseParams):
     dataset_name: str = MISSING
@@ -216,6 +243,24 @@ class DatasetSplitParams(BaseParams):
     and can be used to customize collator behavior beyond the default parameters.
     """
 
+    masking_method: MaskingMethod | None = None
+    """Masking strategy for the completions collator.
+
+    Only applies when ``collator_name`` is
+    ``text_completions_only_with_padding``. Defaults to ``assistant_turn``
+    when that collator is used.
+
+    When set, template tokens are auto-resolved from the tokenizer
+    vocabulary — ``collator_kwargs`` for templates are not needed.
+
+    Example YAML::
+
+        data:
+          train:
+            collator_name: "text_completions_only_with_padding"
+            masking_method: "assistant_turn"
+    """
+
     pack: bool = False
     """Whether to pack the text into constant-length chunks.
 
@@ -303,6 +348,15 @@ class DatasetSplitParams(BaseParams):
                 DeprecationWarning,
                 stacklevel=2,
             )
+        if self.masking_method is not None:
+            if isinstance(self.masking_method, str):
+                self.masking_method = MaskingMethod(self.masking_method)
+            if self.collator_kwargs:
+                raise ValueError(
+                    "masking_method and collator_kwargs are mutually exclusive. "
+                    "masking_method auto-resolves all template tokens — remove "
+                    "collator_kwargs."
+                )
 
     def _is_sum_normalized(self, mix_sum) -> bool:
         # Note: the underlying interleave implementation requires
