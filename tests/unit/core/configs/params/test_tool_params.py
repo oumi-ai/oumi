@@ -148,11 +148,12 @@ def test_synthetic_state_params_validates_initial_state_against_schema():
 
 
 def test_synthetic_state_params_accepts_partial_inputs():
-    assert SyntheticStateParams(state_schema=_make_state_schema()).state_schema is not None
     assert (
-        SyntheticStateParams(initial_state={"files": {"count": 1}}).initial_state
-        == {"files": {"count": 1}}
+        SyntheticStateParams(state_schema=_make_state_schema()).state_schema is not None
     )
+    assert SyntheticStateParams(
+        initial_state={"files": {"count": 1}}
+    ).initial_state == {"files": {"count": 1}}
 
 
 def test_synthetic_environment_valid_stateless():
