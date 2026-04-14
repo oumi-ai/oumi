@@ -107,8 +107,6 @@ class SyntheticEnvironment(BaseEnvironment):
             and self.state_params.initial_state is not None
             else None
         )
-
-        # Validate synthetic-only fields after common environment validation/coercion.
         if not self.system_prompt:
             raise ValueError("SyntheticEnvironment.system_prompt cannot be empty.")
         if self.state_params is not None and self.cache_by_input:
@@ -160,10 +158,6 @@ class SyntheticEnvironment(BaseEnvironment):
         )
 
     def step(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:
-        """Execute a synthetic tool call.
-
-        The environment interface is defined now; actual LLM-backed execution
-        will be implemented in follow-up changes.
-        """
+        """Execute a synthetic tool call."""
         self._get_tool_or_raise(tool_id)
         raise NotImplementedError("SyntheticEnvironment.step() is not implemented yet.")

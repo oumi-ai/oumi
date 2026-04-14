@@ -14,12 +14,16 @@
 
 """Configuration for agentic environments."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from oumi.core.configs.base_config import BaseConfig
-from oumi.environments.base_environment import BaseEnvironment
-from oumi.environments.base_tool import Tool
+
+if TYPE_CHECKING:
+    from oumi.environments.base_environment import BaseEnvironment
+    from oumi.environments.base_tool import Tool
 
 
 @dataclass
@@ -130,4 +134,6 @@ class EnvironmentConfig(BaseConfig):
 
     def _coerce_environment(self, environment: Any) -> BaseEnvironment:
         """Coerce a raw dict or environment instance into a concrete environment."""
+        from oumi.environments.base_environment import BaseEnvironment
+
         return BaseEnvironment.create(environment)
