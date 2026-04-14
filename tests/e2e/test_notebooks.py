@@ -2,9 +2,11 @@
 
 from pathlib import Path
 
-import nbformat
+import nbformat  # pyright: ignore[reportMissingImports]
 import pytest
-from nbconvert.preprocessors import ExecutePreprocessor
+from nbconvert.preprocessors import (
+    ExecutePreprocessor,  # pyright: ignore[reportMissingImports]
+)
 
 from tests import get_notebooks_dir
 

@@ -43,8 +43,12 @@ from oumi.core.configs import (
 )
 from oumi.core.configs.params.remote_params import AdaptiveConcurrencyParams
 from oumi.core.inference import BaseInferenceEngine
+from oumi.core.inference.base_inference_engine import (
+    BatchResult,
+)
 from oumi.core.types.conversation import (
     Conversation,
+    FinishReason,
     Message,
     Role,
 )
@@ -56,9 +60,11 @@ from oumi.utils.conversation_utils import (
     create_list_of_message_json_dicts,
 )
 from oumi.utils.http import (
+    APIStatusError,
     get_failure_reason_from_response,
     is_non_retriable_status_code,
 )
+from oumi.utils.logging import logger
 
 _AUTHORIZATION_KEY: str = "Authorization"
 _BATCH_PURPOSE = "batch"
@@ -75,6 +81,7 @@ class BatchStatus(Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     EXPIRED = "expired"
+    CANCELLING = "cancelling"
     CANCELLED = "cancelled"
 
 
@@ -433,11 +440,42 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         total_tokens = usage.get("total_tokens")
         if total_tokens is None:
             total_tokens = prompt_tokens + completion_tokens
-        return {
+        result = {
             "prompt_tokens": prompt_tokens,
             "completion_tokens": completion_tokens,
             "total_tokens": total_tokens,
         }
+        # Extract cached tokens from OpenAI's nested format
+        prompt_details = usage.get("prompt_tokens_details")
+        if prompt_details:
+            cached_tokens = prompt_details.get("cached_tokens", 0)
+            if cached_tokens:
+                result["cached_tokens"] = cached_tokens
+        return result
+
+    @staticmethod
+    def _normalize_finish_reason(raw_reason: str | None) -> FinishReason | None:
+        """Normalize raw finish_reason string to FinishReason enum."""
+        if raw_reason is None:
+            return None
+        mapping = {
+            "stop": FinishReason.STOP,
+            "length": FinishReason.LENGTH,
+            "tool_calls": FinishReason.TOOL_CALLS,
+            "content_filter": FinishReason.CONTENT_FILTER,
+        }
+        return mapping.get(raw_reason.lower(), FinishReason.UNKNOWN)
+
+    @staticmethod
+    def _extract_finish_reason_from_response(
+        response: dict[str, Any],
+    ) -> FinishReason | None:
+        """Extract normalized finish_reason from an OpenAI-compatible API response."""
+        choices = response.get("choices")
+        if not choices or len(choices) == 0:
+            return None
+        raw_reason = choices[0].get("finish_reason")
+        return RemoteInferenceEngine._normalize_finish_reason(raw_reason)
 
     def _convert_api_output_to_conversation(
         self, response: dict[str, Any], original_conversation: Conversation
@@ -460,15 +498,19 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         message = response["choices"][0].get("message")
         if not message:
             raise RuntimeError(f"No message found in API response: {response}")
+        content = message.get("content") or ""
         metadata = dict(original_conversation.metadata)
         usage = self._extract_usage_from_response(response)
         if usage is not None:
             metadata["usage"] = usage
+        finish_reason = self._extract_finish_reason_from_response(response)
+        if finish_reason is not None:
+            metadata["finish_reason"] = finish_reason.value
         return Conversation(
             messages=[
                 *original_conversation.messages,
                 Message(
-                    content=message["content"],
+                    content=content,
                     role=Role(message["role"]),
                 ),
             ],
@@ -610,6 +652,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             )
             headers = self._get_request_headers(remote_params)
             failure_reason = None
+            last_status_code = None
 
             # Retry the request if it fails
             for attempt in range(remote_params.max_retries + 1):
@@ -630,16 +673,20 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                     ) as response:
                         if response.status != 200:
                             await self._try_record_error()
+                            last_status_code = response.status
                             failure_reason = await get_failure_reason_from_response(
                                 response
                             )
 
                             # Check for non-retriable status codes to fail fast.
-                            if is_non_retriable_status_code(response.status):
-                                failure_reason = (
-                                    f"Non-retriable error: {failure_reason}"
+                            if is_non_retriable_status_code(
+                                response.status, failure_reason
+                            ):
+                                raise APIStatusError(
+                                    f"Non-retriable error: {failure_reason}",
+                                    status_code=response.status,
+                                    api_input=api_input,
                                 )
-                                raise RuntimeError(failure_reason)
                             continue
 
                         # Try to parse the response as JSON
@@ -717,10 +764,16 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                         ) from e
                     continue
             # This should only be reached if all retries failed
-            raise RuntimeError(
-                f"Failed to query API after {attempt + 1} attempts. "
-                + (f"Reason: {failure_reason}" if failure_reason else "")
+            message = f"Failed to query API after {attempt + 1} attempts. " + (
+                f"Reason: {failure_reason}" if failure_reason else ""
             )
+            if last_status_code is not None:
+                raise APIStatusError(
+                    message,
+                    status_code=last_status_code,
+                    api_input=api_input,
+                )
+            raise RuntimeError(message)
 
     async def _infer(
         self,
@@ -847,6 +900,64 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         return conversations
 
     #
+    # Model discovery
+    #
+
+    def get_models_api_url(self) -> str:
+        """Returns the URL for the models API."""
+        return str(
+            urllib.parse.urlparse(self._remote_params.api_url)
+            ._replace(path="/v1/models")
+            .geturl()
+        )
+
+    @override
+    def list_models(self, chat_only: bool = True) -> list[str]:
+        """Returns a list of model IDs available from the remote provider.
+
+        Queries the OpenAI-compatible ``/v1/models`` endpoint.
+
+        Args:
+            chat_only: If True (default), only return models that support
+                chat completions. If False, return all models.
+
+        Returns:
+            list[str]: A list of model ID strings.
+        """
+        models = safe_asyncio_run(self._fetch_models())
+        if chat_only:
+            models = self._filter_chat_models(models)
+        return sorted(m["id"] for m in models if "id" in m)
+
+    async def _fetch_models(self) -> list[dict[str, Any]]:
+        """Fetches raw model objects from the provider's models endpoint."""
+        async with self._create_session() as (session, headers):
+            async with session.get(
+                self.get_models_api_url(),
+                headers=headers,
+            ) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    raise RuntimeError(
+                        f"Failed to list models: {response.status} {error_text}"
+                    )
+                data = await response.json()
+                return data.get("data", [])
+
+    def _filter_chat_models(self, models: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Filters model list to chat-capable models only.
+
+        The default implementation returns all models unfiltered because
+        not all providers expose metadata to distinguish chat from non-chat
+        models. Subclasses that can distinguish (e.g., OpenAI, Together,
+        Fireworks) override this to provide actual filtering.
+
+        For providers without an override, ``chat_only=True`` and
+        ``chat_only=False`` return the same results.
+        """
+        return models
+
+    #
     # Batch inference
     #
 
@@ -905,6 +1016,17 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         """
         return safe_asyncio_run(self._get_batch_status(batch_id))
 
+    def cancel_batch(self, batch_id: str) -> BatchInfo:
+        """Cancels a batch inference job.
+
+        Args:
+            batch_id: The batch job ID to cancel
+
+        Returns:
+            BatchInfo: Updated status of the batch job
+        """
+        return safe_asyncio_run(self._cancel_batch(batch_id))
+
     def list_batches(
         self,
         after: str | None = None,
@@ -933,15 +1055,20 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     ) -> list[Conversation]:
         """Gets the results of a completed batch job.
 
+        For COMPLETED batches with partial failures, successful results are kept
+        and failed requests are retried via online inference.
+
         Args:
             batch_id: The batch job ID
             conversations: Original conversations used to create the batch
 
         Returns:
-            List[Conversation]: The processed conversations with responses
+            List of processed conversations with responses, preserving the
+            original input order.
 
         Raises:
-            RuntimeError: If the batch failed or has not completed
+            RuntimeError: If the batch failed, has not completed, or if retry
+                of failed requests also fails.
         """
         return safe_asyncio_run(
             self._get_batch_results_with_mapping(batch_id, conversations)
@@ -1076,6 +1203,29 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 data = await response.json()
                 return BatchInfo.from_api_response(data)
 
+    async def _cancel_batch(self, batch_id: str) -> BatchInfo:
+        """Cancels a batch job via the API.
+
+        Args:
+            batch_id: ID of the batch job to cancel
+
+        Returns:
+            BatchInfo: Updated status of the batch job
+        """
+        connector = aiohttp.TCPConnector(limit=self._get_connection_limit())
+        async with aiohttp.ClientSession(connector=connector) as session:
+            headers = self._get_request_headers(self._remote_params)
+            async with session.post(
+                f"{self.get_batch_api_url()}/{batch_id}/cancel",
+                headers=headers,
+            ) as response:
+                if response.status != 200:
+                    raise RuntimeError(
+                        f"Failed to cancel batch: {await response.text()}"
+                    )
+                data = await response.json()
+                return BatchInfo.from_api_response(data)
+
     async def _list_batches(
         self,
         after: str | None = None,
@@ -1130,17 +1280,91 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     ) -> list[Conversation]:
         """Gets the results of a completed batch job and maps them to conversations.
 
+        Delegates to _get_batch_results_partial for result retrieval, then retries
+        any failed requests via the engine's online inference path.
+
         Args:
             batch_id: ID of the batch job
             conversations: Original conversations used to create the batch
 
         Returns:
-            List[Conversation]: The processed conversations with responses
+            List of processed conversations with responses, preserving the
+            original input order.
 
         Raises:
-            RuntimeError: If batch status is not completed or if there are errors
+            RuntimeError: If batch is in a non-completed terminal state (FAILED,
+                EXPIRED, CANCELLED), not in a terminal state, or if retry of
+                failed requests also fails.
         """
-        # Get batch status first
+        batch_result = await self._get_batch_results_partial(batch_id, conversations)
+
+        # Build results in original order
+        results: list[Conversation | None] = [None] * len(conversations)
+        for idx, conv in batch_result.successful:
+            results[idx] = conv
+
+        if not batch_result.has_failures:
+            return results  # type: ignore[return-value]
+
+        # Retry failed conversations via online inference
+        # (per-item failure details already logged by _get_batch_results_partial)
+        failed_conversations = [conversations[i] for i in batch_result.failed_indices]
+        logger.warning(
+            f"Batch {batch_id}: "
+            f"{len(failed_conversations)}/{len(conversations)} "
+            f"requests failed. Retrying via online inference."
+        )
+        retry_results = await self._infer(failed_conversations)
+
+        # Merge retry results back into the correct positions
+        for idx, retry_result in zip(batch_result.failed_indices, retry_results):
+            results[idx] = retry_result
+
+        return results  # type: ignore[return-value]
+
+    def get_batch_results_partial(
+        self,
+        batch_id: str,
+        conversations: list[Conversation],
+    ) -> BatchResult:
+        """Gets the results of a completed batch job, tolerating partial failures.
+
+        Args:
+            batch_id: The batch job ID
+            conversations: Original conversations used to create the batch
+
+        Returns:
+            BatchResult with successful conversations and failure details
+
+        Raises:
+            RuntimeError: If the batch is not in a terminal state, or if the
+                batch status is FAILED/EXPIRED/CANCELLED (unrecoverable)
+        """
+        return safe_asyncio_run(
+            self._get_batch_results_partial(batch_id, conversations)
+        )
+
+    async def _get_batch_results_partial(
+        self,
+        batch_id: str,
+        conversations: list[Conversation],
+    ) -> BatchResult:
+        """Gets partial results of a completed batch job.
+
+        If batch status is FAILED/EXPIRED/CANCELLED, raises (unrecoverable).
+        If status is COMPLETED (even with errors), parses output and error files
+        to separate successes from failures.
+
+        Args:
+            batch_id: ID of the batch job
+            conversations: Original conversations used to create the batch
+
+        Returns:
+            BatchResult with successful and failed items
+
+        Raises:
+            RuntimeError: If the batch is not terminal or is unrecoverably failed
+        """
         batch_info = await self._get_batch_status(batch_id)
 
         if not batch_info.is_terminal:
@@ -1148,45 +1372,92 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 f"Batch is not in terminal state. Status: {batch_info.status}"
             )
 
-        if batch_info.has_errors:
-            # Download error file if there are failed requests
-            if batch_info.error_file_id:
-                error_content = await self._download_file(batch_info.error_file_id)
-                raise RuntimeError(f"Batch has failed requests: {error_content}")
-            raise RuntimeError(f"Batch failed with error: {batch_info.error}")
-
-        # Download results file
-        if not batch_info.output_file_id:
-            raise RuntimeError("No output file available")
-
-        results_content = await self._download_file(batch_info.output_file_id)
-
-        # Parse results and map by custom_id
-        results_by_id: dict[str, dict] = {}
-        for line in results_content.splitlines():
-            result = json.loads(line)
-            custom_id = result.get("custom_id")
-            if not custom_id:
-                raise RuntimeError(f"Batch result missing custom_id: {result}")
-            results_by_id[custom_id] = result
-
-        # Map results back to conversations in original order
-        processed_conversations = []
-        for i, conv in enumerate(conversations):
-            custom_id = f"request-{i}"
-            result = results_by_id.get(custom_id)
-            if not result:
-                raise RuntimeError(
-                    f"Missing result for {custom_id}. "
-                    f"Available IDs: {list(results_by_id.keys())}"
-                )
-            if result.get("error"):
-                raise RuntimeError(f"Batch request failed: {result['error']}")
-            processed_conv = self._convert_api_output_to_conversation(
-                result["response"]["body"], conv
+        if batch_info.status in (
+            BatchStatus.FAILED,
+            BatchStatus.EXPIRED,
+            BatchStatus.CANCELLED,
+        ):
+            raise RuntimeError(
+                f"Batch is unrecoverably {batch_info.status.value}: "
+                f"error={batch_info.error}"
             )
-            processed_conversations.append(processed_conv)
-        return processed_conversations
+
+        logger.info(
+            f"Batch {batch_id}: retrieving partial results "
+            f"(status={batch_info.status.value}, "
+            f"total={len(conversations)} requests)"
+        )
+        successful: list[tuple[int, Conversation]] = []
+        failed_indices: list[int] = []
+        error_messages: dict[int, str] = {}
+
+        # Parse output file (successful results)
+        if batch_info.output_file_id:
+            results_content = await self._download_file(batch_info.output_file_id)
+            for line in results_content.splitlines():
+                if not line.strip():
+                    continue
+                result = json.loads(line)
+                custom_id = result.get("custom_id", "")
+                try:
+                    idx = int(custom_id.split("-", 1)[1])
+                except (IndexError, ValueError):
+                    continue
+
+                try:
+                    conv = self._convert_api_output_to_conversation(
+                        result["response"]["body"], conversations[idx]
+                    )
+                    successful.append((idx, conv))
+                except Exception as e:
+                    failed_indices.append(idx)
+                    error_messages[idx] = f"Failed to parse response: {e}"
+
+        # Parse error file (failed requests)
+        if batch_info.error_file_id:
+            error_content = await self._download_file(batch_info.error_file_id)
+            for line in error_content.splitlines():
+                if not line.strip():
+                    continue
+                result = json.loads(line)
+                custom_id = result.get("custom_id", "")
+                try:
+                    idx = int(custom_id.split("-", 1)[1])
+                except (IndexError, ValueError):
+                    continue
+
+                failed_indices.append(idx)
+                error_msg = result.get("error")
+                if isinstance(error_msg, dict):
+                    error_msg = error_msg.get("message", str(error_msg))
+                if not error_msg:
+                    body_error = ((result.get("response") or {}).get("body") or {}).get(
+                        "error", {}
+                    )
+                    if isinstance(body_error, dict):
+                        error_msg = body_error.get("message")
+                error_messages[idx] = str(error_msg or "unknown error")
+
+        # Detect items missing from both output and error files
+        seen_indices = {idx for idx, _ in successful} | set(failed_indices)
+        for idx in range(len(conversations)):
+            if idx not in seen_indices:
+                failed_indices.append(idx)
+                error_messages[idx] = "Result missing from both output and error files"
+
+        logger.info(
+            f"Batch {batch_id}: {len(successful)} succeeded, "
+            f"{len(failed_indices)} failed out of {len(conversations)} total"
+        )
+        if error_messages:
+            for idx, msg in error_messages.items():
+                logger.warning(f"Batch {batch_id} request {idx} failed: {msg}")
+
+        return BatchResult(
+            successful=successful,
+            failed_indices=sorted(failed_indices),
+            error_messages=error_messages,
+        )
 
     #
     # File operations

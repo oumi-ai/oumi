@@ -15,7 +15,7 @@ other_datasets
 
 ## Overview
 
-Oumi provides a dataset framework designed to handle everything from small custom datasets to web-scale pre-training datasets. Our goal is to make it easy to work with any type of data while maintaining consistent interfaces and optimal performance.
+Oumi OSS provides a dataset framework designed to handle everything from small custom datasets to web-scale pre-training datasets. Our goal is to make it easy to work with any type of data while maintaining consistent interfaces and optimal performance.
 
 Key features include:
 
@@ -69,7 +69,7 @@ for batch in dataloader:
 
 ### Working with Dataset Mixtures
 
-For more complex training scenarios, you might want to combine multiple datasets. Oumi makes it easy to create and configure dataset mixtures, allowing you to train on multiple datasets simultaneously with configurable mixing strategies.
+For more complex training scenarios, you might want to combine multiple datasets. Oumi OSS makes it easy to create and configure dataset mixtures, allowing you to train on multiple datasets simultaneously with configurable mixing strategies.
 
 ::::{tab-set}
 :::{tab-item} YAML Config
@@ -121,7 +121,7 @@ dataset = build_dataset_mixture(
 
 ### How Datasets Work
 
-At its core, each dataset in Oumi consists of two main components:
+At its core, each dataset in Oumi OSS consists of two main components:
 
 1. **Dataset Class**: Specified by `dataset_name`, this defines how the data should be processed. Dataset classes are registered in the codebase and map to specific Python classes. For example:
    - `"tatsu-lab/alpaca"` maps to the {py:class}`~oumi.datasets.sft.alpaca.AlpacaDataset` class, which handles JSON Lines data in Alpaca format
@@ -170,7 +170,7 @@ It's also possible to define custom datasets for new types of data not covered a
 
 ## Next Steps
 
-1. **New to Oumi Datasets?**
+1. **New to Oumi OSS Datasets?**
    - Start with our [Data Formats Guide](/resources/datasets/data_formats) to understand basic concepts and structures
 
 2. **Using Existing Datasets?**

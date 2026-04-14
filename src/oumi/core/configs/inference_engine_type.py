@@ -30,9 +30,6 @@ class InferenceEngineType(str, Enum):
     SGLANG = "SGLANG"
     """The SGLang inference engine."""
 
-    LAMBDA = "LAMBDA"
-    """The Lambda inference engine."""
-
     LLAMACPP = "LLAMACPP"
     """The LlamaCPP inference engine."""
 
@@ -71,3 +68,6 @@ class InferenceEngineType(str, Enum):
 
     BEDROCK = "BEDROCK"
     """The inference engine for AWS Bedrock API."""
+
+    CEREBRAS = "CEREBRAS"
+    """The inference engine for Cerebras API."""

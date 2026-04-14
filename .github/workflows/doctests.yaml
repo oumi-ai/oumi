@@ -38,6 +38,11 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y poppler-utils
+
       - name: Install Dependencies
         run: |
           # Install in system python as we're in a sandbox env

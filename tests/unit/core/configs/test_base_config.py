@@ -11,12 +11,16 @@ from oumi.core.configs.base_config import BaseConfig, _handle_non_primitives
 
 
 class TestEnum(Enum):
+    __test__ = False  # Prevent pytest collection
+
     VALUE1 = "value1"
     VALUE2 = "value2"
 
 
 @dataclass(eq=False)
 class TestConfig(BaseConfig):
+    __test__ = False  # Prevent pytest collection
+
     str_value: str
     int_value: int
     float_value: float

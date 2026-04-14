@@ -45,8 +45,8 @@ def _get_torchdata_imports():
         MultiplexerLongest,
         SampleMultiplexer,
     )
-    from torchdata.datapipes.map.util.converter import (
-        MapToIterConverterIterDataPipe,  # pyright: ignore[reportMissingImports]
+    from torchdata.datapipes.map.util.converter import (  # pyright: ignore[reportMissingImports]
+        MapToIterConverterIterDataPipe,
     )
 
     return (
@@ -62,7 +62,7 @@ def build_dataset_mixture(
     tokenizer: BaseTokenizer | None,
     dataset_split: DatasetSplit,
     seed: int | None = None,
-) -> IterDataPipe:
+) -> "IterDataPipe":
     """Builds a dataset for the specified split.
 
     Args:

@@ -25,7 +25,7 @@ from typing_extensions import override
 from oumi.builders import build_tokenizer
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.inference import BaseInferenceEngine
-from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.core.types.conversation import Conversation, FinishReason, Message, Role
 from oumi.utils.conversation_utils import create_list_of_message_json_dicts
 from oumi.utils.logging import logger
 from oumi.utils.model_caching import get_local_filepath_for_gguf
@@ -35,7 +35,9 @@ try:
     import vllm  # pyright: ignore[reportMissingImports]
 
     try:
-        from vllm.config import ModelDType  # pyright: ignore[reportMissingImports]
+        from vllm.config import (  # pyright: ignore[reportMissingImports]
+            ModelDType,  # pyright: ignore[reportAttributeAccessIssue]
+        )
     except ImportError:
         # For compatibility with newer vLLM versions
         ModelDType = str  # type: ignore
@@ -47,13 +49,24 @@ try:
         QuantizationMethods,
     )
     from vllm.sampling_params import (  # pyright: ignore[reportMissingImports]
-        GuidedDecodingParams as VLLMGuidedDecodingParams,
-    )
-    from vllm.sampling_params import (  # pyright: ignore[reportMissingImports]
         SamplingParams,
     )
+
+    from oumi.utils.packaging import is_vllm_v0_12_or_later
+
+    _VLLM_V0_12 = is_vllm_v0_12_or_later()
+
+    if _VLLM_V0_12:
+        from vllm.sampling_params import (  # pyright: ignore[reportMissingImports]
+            StructuredOutputsParams as VLLMGuidedDecodingParams,  # pyright: ignore[reportAttributeAccessIssue]
+        )
+    else:
+        from vllm.sampling_params import (  # pyright: ignore[reportMissingImports]
+            GuidedDecodingParams as VLLMGuidedDecodingParams,  # pyright: ignore[reportAttributeAccessIssue]
+        )
 except ModuleNotFoundError:
     vllm = None
+    _VLLM_V0_12 = False
 
 
 class VLLMInferenceEngine(BaseInferenceEngine):
@@ -194,6 +207,13 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 f"Supported methods are: {supported_quantization_methods}."
             )
 
+        # Pass through selected vLLM kwargs from model_kwargs.
+        _VLLM_PASSTHROUGH_KWARGS = ("language_model_only", "hf_config_path")
+        if model_params.model_kwargs:
+            for key in _VLLM_PASSTHROUGH_KWARGS:
+                if key in model_params.model_kwargs:
+                    vllm_kwargs[key] = model_params.model_kwargs[key]
+
         final_vllm_kwargs = dict(
             model=model_params.model_name,
             tokenizer=model_params.tokenizer_name,
@@ -215,8 +235,22 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             final_vllm_kwargs["quantization"] = quantization
 
         self._llm = vllm.LLM(**final_vllm_kwargs)  # pyright: ignore[reportArgumentType, reportAttributeAccessIssue]
-        # Ensure the tokenizer is set properly
-        self._llm.set_tokenizer(self._tokenizer)
+        # Ensure the tokenizer is set properly.
+        # set_tokenizer() was deprecated in vLLM v0.12 and removed in v0.13; the
+        # tokenizer is already configured via the constructor's `tokenizer` parameter.
+        if not _VLLM_V0_12:
+            self._llm.set_tokenizer(self._tokenizer)  # pyright: ignore[reportAttributeAccessIssue]
+
+    @staticmethod
+    def _normalize_vllm_finish_reason(raw_reason: str | None) -> FinishReason | None:
+        """Normalize vLLM finish_reason string to FinishReason enum."""
+        if raw_reason is None:
+            return None
+        mapping = {
+            "stop": FinishReason.STOP,
+            "length": FinishReason.LENGTH,
+        }
+        return mapping.get(raw_reason.lower(), FinishReason.UNKNOWN)
 
     def _convert_conversation_to_vllm_input(
         self, conversation: Conversation
@@ -273,13 +307,30 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         )
 
         if generation_params.guided_decoding is not None:
-            guided_decoding = VLLMGuidedDecodingParams.from_optional(
-                json=generation_params.guided_decoding.json,
-                regex=generation_params.guided_decoding.regex,
-                choice=generation_params.guided_decoding.choice,
-            )
+            if _VLLM_V0_12:
+                # vLLM v0.12+ uses StructuredOutputsParams (direct construction)
+                guided_decoding = VLLMGuidedDecodingParams(
+                    json=generation_params.guided_decoding.json,
+                    regex=generation_params.guided_decoding.regex,
+                    choice=generation_params.guided_decoding.choice,
+                )
+            else:
+                # vLLM <0.12 uses GuidedDecodingParams.from_optional()
+                guided_decoding = VLLMGuidedDecodingParams.from_optional(  # type: ignore[attr-defined]  # pyright: ignore[reportAttributeAccessIssue]
+                    json=generation_params.guided_decoding.json,
+                    regex=generation_params.guided_decoding.regex,
+                    choice=generation_params.guided_decoding.choice,
+                )
         else:
             guided_decoding = None
+
+        # In vLLM v0.12+, the kwarg was renamed from 'guided_decoding'
+        # to 'structured_outputs'.
+        guided_decoding_kwarg = (
+            {"structured_outputs": guided_decoding}
+            if _VLLM_V0_12
+            else {"guided_decoding": guided_decoding}
+        )
 
         sampling_params = SamplingParams(
             n=1,
@@ -293,7 +344,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             stop=generation_params.stop_strings,
             stop_token_ids=generation_params.stop_token_ids,
             min_p=generation_params.min_p,
-            guided_decoding=guided_decoding,
+            **guided_decoding_kwarg,  # pyright: ignore[reportArgumentType]
             skip_special_tokens=generation_params.skip_special_tokens,
         )
 
@@ -337,9 +388,15 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 *conversation.messages,
                 *new_messages,
             ]
+            metadata = dict(conversation.metadata)
+            if chat_response.outputs:
+                raw_reason = chat_response.outputs[0].finish_reason
+                finish_reason = self._normalize_vllm_finish_reason(raw_reason)
+                if finish_reason is not None:
+                    metadata["finish_reason"] = finish_reason.value
             new_conversation = Conversation(
                 messages=messages,
-                metadata=conversation.metadata,
+                metadata=metadata,
                 conversation_id=conversation.conversation_id,
             )
             self._save_conversation_to_scratch(

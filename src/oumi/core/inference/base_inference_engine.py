@@ -19,6 +19,7 @@ import json
 import time
 import uuid
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from pathlib import Path
 
 import jsonlines
@@ -33,6 +34,25 @@ from oumi.core.configs import (
 from oumi.core.types.conversation import Conversation
 from oumi.utils.logging import logger
 from oumi.utils.math_utils import is_power_of_two
+
+
+@dataclass
+class BatchResult:
+    """Result of a partial batch retrieval, separating successes from failures."""
+
+    successful: list[tuple[int, Conversation]]
+    """List of (original_index, conversation) for successful requests."""
+
+    failed_indices: list[int]
+    """Indices of requests that failed."""
+
+    error_messages: dict[int, str]
+    """Mapping of failed index to error message."""
+
+    @property
+    def has_failures(self) -> bool:
+        """Return True if any requests failed."""
+        return len(self.failed_indices) > 0
 
 
 class BaseInferenceEngine(ABC):
@@ -411,6 +431,22 @@ class BaseInferenceEngine(ABC):
                         "This parameter will be ignored."
                     )
 
+    def list_models(self, chat_only: bool = True) -> list[str]:
+        """Returns a list of model IDs supported by this engine.
+
+        Override this method in derived classes to query the provider's API
+        for available models. The default implementation returns the model
+        name this engine was initialized with.
+
+        Args:
+            chat_only: If True (default), only return models that support
+                chat completions. If False, return all models.
+
+        Returns:
+            list[str]: A list of supported model ID strings.
+        """
+        return [self._model_params.model_name]
+
     @abstractmethod
     def get_supported_params(self) -> set[str]:
         """Returns a set of supported generation parameters for this engine.
@@ -439,6 +475,29 @@ class BaseInferenceEngine(ABC):
             List[Conversation]: Inference output.
         """
         raise NotImplementedError
+
+    def get_batch_results_partial(
+        self,
+        batch_id: str,
+        conversations: list[Conversation],
+    ) -> BatchResult:
+        """Gets partial results of a completed batch job.
+
+        Engines that support batch inference should override this method.
+
+        Args:
+            batch_id: The batch job ID.
+            conversations: Original conversations used to create the batch.
+
+        Returns:
+            BatchResult with successful conversations and failure details.
+
+        Raises:
+            NotImplementedError: If the engine does not support batch.
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__} does not support partial batch results."
+        )
 
     def apply_chat_template(
         self, conversation: Conversation, **tokenizer_kwargs

@@ -1,13 +1,13 @@
 # Custom Models
 
-This guide explains how to create custom models in Oumi. We'll use the `MLPEncoder` as a concrete example to demonstrate best practices and requirements.
+This guide explains how to create custom models in Oumi OSS. We'll use the `MLPEncoder` as a concrete example to demonstrate best practices and requirements.
 
 ## Core Concepts
 
 Before diving into the implementation, let's understand the key concepts and components:
 
 1. **Base Model Interface**
-   - All Oumi models inherit from {py:class}`oumi.core.models.BaseModel`
+   - All Oumi OSS models inherit from {py:class}`oumi.core.models.BaseModel`
    - This provides a consistent interface and enforces implementation of required methods
    - The base class extends {external:class}`torch.nn.Module` for PyTorch compatibility
 
@@ -59,7 +59,7 @@ Key points about configuration:
 ## Implementing a Custom Model
 ### Overview
 
-At a high level, an Oumi model:
+At a high level, an Oumi OSS model:
 
 1. Inherits from {py:class}`oumi.core.models.BaseModel` (which extends {external:class}`torch.nn.Module`)
 2. Implements a forward pass that returns a dictionary of tensors
@@ -210,7 +210,7 @@ See {doc}`/user_guides/customization` to quickly enable your model when using th
 
 ## Testing Models
 
-Oumi uses pytest for testing models. Here's an example test for the MLPEncoder:
+Oumi OSS uses pytest for testing models. Here's an example test for the MLPEncoder:
 
 ```python
 import pytest
@@ -240,7 +240,7 @@ def test_mlp_encoder_forward():
 
 ## Using the Model
 
-There are two main ways to use custom models in Oumi:
+There are two main ways to use custom models in Oumi OSS:
 
 ### 1. Using `build_model`
 
@@ -306,7 +306,7 @@ config = TrainingConfig.from_yaml("train_config.yaml")
 train(config)
 ```
 
-The key points about using models in Oumi:
+The key points about using models in Oumi OSS:
 - Models are instantiated through the {py:func}`oumi.builders.build_model` function
 - All constructor parameters go in `model_kwargs`
 - Models can be configured through YAML for training
@@ -332,7 +332,7 @@ for batch in dataloader:
 
 ## See Also
 
-- {py:class}`oumi.core.models.BaseModel` - Base class for all Oumi models
+- {py:class}`oumi.core.models.BaseModel` - Base class for all Oumi OSS models
 - {py:class}`oumi.core.registry.Registry` - Model registration system
 - {py:class}`oumi.core.configs.params.model_params.ModelParams` - Base parameters class for models
 - {gh}`➿ Training CNN on Custom Dataset <notebooks/Oumi - Training CNN on Custom Dataset.ipynb>` - Sample Jupyter notebook using {py:class}`oumi.models.CNNClassifier` and [Custom Numpy Dataset](sample-custom-numpy-dataset).
