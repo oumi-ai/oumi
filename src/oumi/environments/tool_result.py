@@ -12,14 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Shared types for the environments package."""
+"""Tool execution results."""
 
-from enum import Enum
+from dataclasses import dataclass
+from typing import Any
+
+from oumi.core.configs.params.base_params import BaseParams
 
 
-class ToolEnvironmentType(str, Enum):
-    """Execution model for an environment-bound tool."""
+@dataclass
+class ToolResult(BaseParams):
+    """Result returned by an environment step."""
 
-    STATEFUL = "stateful"
-    STATELESS = "stateless"
-    DETERMINISTIC = "deterministic"
+    output: str | dict[str, Any] | None
+    updated_state: dict[str, Any] | None = None

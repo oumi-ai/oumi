@@ -124,7 +124,9 @@ from oumi.core.configs.params.peft_params import (
 from oumi.core.configs.params.profiler_params import ProfilerParams
 from oumi.core.configs.params.remote_params import RemoteParams
 from oumi.core.configs.params.synthesis_params import (
-    AttributeCombination,
+    DatasetSource as DatasetSourceParam,
+)
+from oumi.core.configs.params.synthesis_params import (
     DocumentSegmentationParams,
     DocumentSource,
     ExampleSource,
@@ -141,9 +143,6 @@ from oumi.core.configs.params.synthesis_params import (
     TransformationType,
     TransformedAttribute,
 )
-from oumi.core.configs.params.synthesis_params import (
-    DatasetSource as DatasetSourceParam,
-)
 from oumi.core.configs.params.telemetry_params import TelemetryParams
 from oumi.core.configs.params.training_params import (
     MixedPrecisionDtype,
@@ -159,16 +158,6 @@ from oumi.core.configs.quantization_config import QuantizationConfig
 from oumi.core.configs.synthesis_config import SynthesisConfig
 from oumi.core.configs.training_config import TrainingConfig
 from oumi.core.configs.tuning_config import TuningConfig
-from oumi.environments import (
-    BaseEnvironment,
-    BaseTool,
-    DeterministicEnvironment,
-    DeterministicToolOutput,
-    GeneratedToolOutput,
-    StatefulEnvironment,
-    StatelessEnvironment,
-    ToolEnvironmentType,
-)
 from oumi.exceptions import OumiConfigError
 
 __all__ = [
@@ -176,7 +165,6 @@ __all__ = [
     "AutoWrapPolicy",
     "BackwardPrefetch",
     "BaseConfig",
-    "BaseEnvironment",
     "DataParams",
     "DatasetParams",
     "DatasetSplit",
@@ -188,8 +176,8 @@ __all__ = [
     "EvaluationConfig",
     "EvaluationBackend",
     "EvaluationConfig",
-    "EvaluationTaskParams",
     "EnvironmentConfig",
+    "EvaluationTaskParams",
     "FSDPParams",
     "GenerationParams",
     "GrpoParams",
@@ -224,26 +212,18 @@ __all__ = [
     "TunerType",
     "TuningConfig",
     "TuningParams",
-    "AttributeCombination",
     "DatasetSourceParam",
-    "DeterministicToolOutput",
-    "DeterministicEnvironment",
     "DocumentSegmentationParams",
     "DocumentSource",
     "ExampleSource",
-    "GeneratedToolOutput",
     "GeneratedAttributePostprocessingParams",
     "GeneralSynthesisParams",
     "GeneratedAttribute",
     "SampledAttribute",
     "SampledAttributeValue",
     "SegmentationStrategy",
-    "StatefulEnvironment",
-    "StatelessEnvironment",
     "TextConversation",
     "TextMessage",
-    "BaseTool",
-    "ToolEnvironmentType",
     "TransformationStrategy",
     "TransformationType",
     "TransformedAttribute",
