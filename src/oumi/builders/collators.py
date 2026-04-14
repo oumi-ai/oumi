@@ -263,9 +263,9 @@ def build_collator_from_config(
             )
         collator_kwargs = _build_masking_kwargs(masking_method, tokenizer)
     else:
-        collator_kwargs = dict(train_split.collator_kwargs or {})
+        collator_kwargs: dict = {}
 
-    # Vision collator auto-kwargs.
+    # 2. Vision collator auto-kwargs.
     if (
         collator_name in ("vision_language_with_padding", "vision_language_sft")
         and model_config is not None
@@ -291,6 +291,11 @@ def build_collator_from_config(
         collator_kwargs["trust_remote_code"] = collator_kwargs.get(
             "trust_remote_code", config.model.trust_remote_code
         )
+
+    # 3. Merge collator_kwargs from config with the existing kwargs.
+    # Config kwargs take precedence over automatically determined kwargs.
+    config_collator_kwargs = train_split.collator_kwargs or {}
+    collator_kwargs.update(config_collator_kwargs)
 
     return build_data_collator(
         collator_name=collator_name,

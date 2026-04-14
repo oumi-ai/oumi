@@ -391,7 +391,7 @@ def test_masking_method_llama3(mock_tokenizer):
             )
         ),
         model=ModelParams(
-            model_name="meta-llama/Llama-3.1-8B-Instruct",
+            model_name="MlpEncoder",
             model_max_length=64,
         ),
     )
@@ -483,7 +483,7 @@ def test_masking_method_llama3_no_tools(mock_tokenizer):
             )
         ),
         model=ModelParams(
-            model_name="meta-llama/Llama-3.1-8B-Instruct",
+            model_name="MlpEncoder",
             model_max_length=64,
         ),
     )
@@ -513,7 +513,7 @@ def test_legacy_collator_kwargs_with_instruction_template(mock_tokenizer):
             )
         ),
         model=ModelParams(
-            model_name="meta-llama/Llama-3.1-8B-Instruct",
+            model_name="MlpEncoder",
             model_max_length=64,
         ),
     )
