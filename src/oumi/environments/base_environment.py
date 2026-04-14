@@ -22,8 +22,7 @@ from dataclasses import dataclass, field, fields
 from typing import Any, ClassVar
 
 from oumi.core.configs.params.base_params import BaseParams
-from oumi.environments.base_tool import Tool
-from oumi.environments.tool_result import ToolResult
+from oumi.environments.base_tool import Tool, ToolResult
 
 
 @dataclass

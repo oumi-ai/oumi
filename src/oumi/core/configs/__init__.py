@@ -83,7 +83,6 @@ from oumi.core.configs.analyze_config import (
 )
 from oumi.core.configs.async_evaluation_config import AsyncEvaluationConfig
 from oumi.core.configs.base_config import BaseConfig
-from oumi.core.configs.environment_config import EnvironmentConfig
 from oumi.core.configs.evaluation_config import EvaluationConfig
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.inference_engine_type import InferenceEngineType
@@ -155,10 +154,22 @@ from oumi.core.configs.params.tuning_params import (
     TuningParams,
 )
 from oumi.core.configs.quantization_config import QuantizationConfig
-from oumi.core.configs.synthesis_config import SynthesisConfig
 from oumi.core.configs.training_config import TrainingConfig
 from oumi.core.configs.tuning_config import TuningConfig
 from oumi.exceptions import OumiConfigError
+
+def __getattr__(name: str):  # noqa: E302
+    """Lazily import configs that depend on oumi.environments to avoid circular imports."""
+    if name == "EnvironmentConfig":
+        from oumi.core.configs.environment_config import EnvironmentConfig
+
+        return EnvironmentConfig
+    if name == "SynthesisConfig":
+        from oumi.core.configs.synthesis_config import SynthesisConfig
+
+        return SynthesisConfig
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     "AsyncEvaluationConfig",

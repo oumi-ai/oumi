@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tool definitions shared by all environment types."""
+"""Tool definitions and execution results shared by all environment types."""
 
 from __future__ import annotations
 
@@ -83,3 +83,11 @@ class Tool(BaseParams):
             "description": self.description,
             "parameters": self.parameters,
         }
+
+
+@dataclass
+class ToolResult(BaseParams):
+    """Result returned by an environment step."""
+
+    output: str | dict[str, Any] | None
+    updated_state: dict[str, Any] | None = None
