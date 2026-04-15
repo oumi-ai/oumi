@@ -20,7 +20,6 @@ instead of DataFrames. Tests are pure validation - no computation allowed.
 
 import logging
 import operator
-import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
@@ -36,14 +35,10 @@ logger = logging.getLogger(__name__)
 class TestType(str, Enum):
     """Types of tests that can be run."""
 
+    __test__ = False  # Prevent pytest from collecting this as a test class
+
     THRESHOLD = "threshold"
     """Check if metric exceeds a threshold."""
-
-    PERCENTAGE = "percentage"
-    """Check percentage of samples matching a condition."""
-
-    RANGE = "range"
-    """Check if metric is within a range."""
 
 
 @dataclass
@@ -59,12 +54,11 @@ class TestConfig:
         description: Description of what the test checks.
         operator: Comparison operator for threshold tests.
         value: Value to compare against.
-        condition: Condition string for percentage tests.
-        max_percentage: Maximum allowed percentage for percentage tests.
-        min_percentage: Minimum required percentage for percentage tests.
-        min_value: Minimum value for range tests.
-        max_value: Maximum value for range tests.
+        max_percentage: Maximum allowed percentage matching the condition.
+        min_percentage: Minimum required percentage matching the condition.
     """
+
+    __test__ = False  # Prevent pytest from collecting this as a test class
 
     id: str
     type: TestType
@@ -77,14 +71,9 @@ class TestConfig:
     operator: str | None = None  # "<", ">", "<=", ">=", "==", "!="
     value: float | int | str | None = None
 
-    # Percentage test parameters
-    condition: str | None = None  # e.g., "== True", "> 0.5"
+    # Percentage thresholds
     max_percentage: float | None = None
     min_percentage: float | None = None
-
-    # Range test parameters
-    min_value: float | None = None
-    max_value: float | None = None
 
 
 # Maximum number of sample indices to include in test results
@@ -132,6 +121,8 @@ class TestEngine:
         tests: List of test configurations.
     """
 
+    __test__ = False  # Prevent pytest from collecting this as a test class
+
     def __init__(self, tests: list[TestConfig]):
         """Initialize the test engine.
 
@@ -139,6 +130,18 @@ class TestEngine:
             tests: List of test configurations.
         """
         self.tests = tests
+
+    def _create_error_result(self, test: TestConfig, error: str) -> TestResult:
+        """Create a TestResult for an error condition."""
+        return TestResult(
+            test_id=test.id,
+            passed=False,
+            severity=test.severity,
+            title=test.title or test.id,
+            description=test.description or "",
+            metric=test.metric or "",
+            error=error,
+        )
 
     def run(
         self,
@@ -167,14 +170,8 @@ class TestEngine:
                     f"({result.affected_count}/{result.total_count} affected)"
                 )
             except Exception as e:
-                # Create error result
-                error_result = TestResult(
-                    test_id=test.id,
-                    passed=False,
-                    severity=test.severity,
-                    title=test.title or test.id,
-                    description=test.description,
-                    error=f"Test execution failed: {e}",
+                error_result = self._create_error_result(
+                    test, f"Test execution failed: {e}"
                 )
                 test_results.append(error_result)
                 logger.warning(f"  Test '{test.id}': ERROR - {e}")
@@ -208,32 +205,15 @@ class TestEngine:
         indexed_values = self._extract_metric_values(test.metric, results)
 
         if not indexed_values:
-            return TestResult(
-                test_id=test.id,
-                passed=False,
-                severity=test.severity,
-                title=test.title or test.id,
-                description=test.description,
-                metric=test.metric or "",
-                error=f"Metric '{test.metric}' not found in results",
+            return self._create_error_result(
+                test, f"Metric '{test.metric}' not found in results"
             )
 
         # Run appropriate test type
         if test.type == TestType.THRESHOLD:
             return self._run_threshold_test(test, indexed_values)
-        elif test.type == TestType.PERCENTAGE:
-            return self._run_percentage_test(test, indexed_values)
-        elif test.type == TestType.RANGE:
-            return self._run_range_test(test, indexed_values)
         else:
-            return TestResult(
-                test_id=test.id,
-                passed=False,
-                severity=test.severity,
-                title=test.title or test.id,
-                metric=test.metric or "",
-                error=f"Unknown test type: {test.type}",
-            )
+            return self._create_error_result(test, f"Unknown test type: {test.type}")
 
     def _extract_metric_values(
         self,
@@ -270,7 +250,7 @@ class TestEngine:
             value = self._get_nested_value(analyzer_results, field_path)
             return [(0, value)] if value is not None else []
 
-        # List of results — preserve original index
+        # List of results -- preserve original index
         indexed_values = []
         for i, result in enumerate(analyzer_results):
             value = self._get_nested_value(result, field_path)
@@ -279,24 +259,42 @@ class TestEngine:
 
         return indexed_values
 
-    def _get_nested_value(
-        self,
-        obj: Any,
-        field_path: list[str],
-    ) -> Any | None:
-        """Get a nested field value from a Pydantic model.
+    def _get_nested_value(self, obj: Any, field_path: list[str]) -> Any:
+        """Get a nested field value from a Pydantic model or dict.
 
         Args:
-            obj: Pydantic model instance.
+            obj: Pydantic model instance or dict.
             field_path: List of field names to traverse.
 
         Returns:
             Field value or None if not found.
         """
         current: Any = obj
-        for field in field_path:
-            if hasattr(current, field):
-                current = getattr(current, field)
+        for i, field in enumerate(field_path):
+            if isinstance(current, BaseModel):
+                if field in type(current).model_fields:
+                    current = getattr(current, field)
+                else:
+                    # Check for CustomMetricResult with values dict
+                    values = getattr(current, "values", None)
+                    if isinstance(values, dict):
+                        return self._traverse_dict(values, field_path[i:])
+                    return None
+            elif isinstance(current, dict):
+                if field in current:
+                    current = current[field]
+                else:
+                    return None
+            else:
+                return None
+        return current
+
+    def _traverse_dict(self, d: dict, path: list[str]) -> Any | None:
+        """Traverse a dict using a field path."""
+        current: Any = d
+        for field in path:
+            if isinstance(current, dict) and field in current:
+                current = current[field]
             else:
                 return None
         return current
@@ -313,12 +311,10 @@ class TestEngine:
         - max_percentage: "At most X% can match the condition"
           Samples MATCHING the condition are problematic.
           Example: "At most 10% can have total_tokens > 4096"
-          → Samples with > 4096 tokens are the issues.
 
         - min_percentage: "At least X% must match the condition"
           Samples NOT matching the condition are problematic.
           Example: "At least 80% must have quality_score > 0.5"
-          → Samples with <= 0.5 score are the issues.
 
         - Neither set: ALL samples must match the condition.
 
@@ -330,25 +326,13 @@ class TestEngine:
             TestResult.
         """
         if test.operator is None or test.value is None:
-            return TestResult(
-                test_id=test.id,
-                passed=False,
-                severity=test.severity,
-                title=test.title or test.id,
-                metric=test.metric or "",
-                error="Threshold test requires 'operator' and 'value'",
+            return self._create_error_result(
+                test, "Threshold test requires 'operator' and 'value'"
             )
 
         op_func = OPERATORS.get(test.operator)
         if op_func is None:
-            return TestResult(
-                test_id=test.id,
-                passed=False,
-                severity=test.severity,
-                title=test.title or test.id,
-                metric=test.metric or "",
-                error=f"Unknown operator: {test.operator}",
-            )
+            return self._create_error_result(test, f"Unknown operator: {test.operator}")
 
         # Evaluate the condition for each value
         matching_indices = []  # Original indices of samples that MATCH
@@ -408,6 +392,13 @@ class TestEngine:
             if isinstance(val, (int, float)):
                 actual_value = float(val)
 
+        # Use `is not None` to avoid treating 0.0 as falsy
+        threshold = (
+            test.max_percentage
+            if test.max_percentage is not None
+            else test.min_percentage
+        )
+
         return TestResult(
             test_id=test.id,
             passed=passed,
@@ -418,9 +409,10 @@ class TestEngine:
             affected_count=affected_count,
             total_count=total_count,
             affected_percentage=round(affected_pct, 2),
-            threshold=test.max_percentage or test.min_percentage,
+            threshold=threshold,
             actual_value=actual_value,
             sample_indices=affected_indices[:MAX_SAMPLE_INDICES],
+            all_affected_indices=affected_indices,
             details={
                 "operator": test.operator,
                 "value": test.value,
@@ -431,221 +423,5 @@ class TestEngine:
                 "failure_reasons": {
                     k: v for k, v in list(failure_reasons.items())[:MAX_FAILURE_REASONS]
                 },
-            },
-        )
-
-    def _run_percentage_test(
-        self,
-        test: TestConfig,
-        indexed_values: list[tuple[int, Any]],
-    ) -> TestResult:
-        """Run a percentage test.
-
-        Checks what percentage of values match a condition.
-
-        Args:
-            test: Test configuration.
-            indexed_values: List of (original_index, value) tuples.
-
-        Returns:
-            TestResult.
-        """
-        if test.condition is None:
-            return TestResult(
-                test_id=test.id,
-                passed=False,
-                severity=test.severity,
-                title=test.title or test.id,
-                metric=test.metric or "",
-                error="Percentage test requires 'condition'",
-            )
-
-        # Parse condition (e.g., "== True", "> 0.5")
-        match = re.match(r"([<>=!]+)\s*(.+)", test.condition.strip())
-        if not match:
-            return TestResult(
-                test_id=test.id,
-                passed=False,
-                severity=test.severity,
-                title=test.title or test.id,
-                metric=test.metric or "",
-                error=f"Invalid condition format: {test.condition}",
-            )
-
-        op_str, value_str = match.groups()
-        op_func = OPERATORS.get(op_str)
-        if op_func is None:
-            return TestResult(
-                test_id=test.id,
-                passed=False,
-                severity=test.severity,
-                title=test.title or test.id,
-                metric=test.metric or "",
-                error=f"Unknown operator in condition: {op_str}",
-            )
-
-        # Parse value
-        try:
-            if value_str.lower() == "true":
-                compare_value: Any = True
-            elif value_str.lower() == "false":
-                compare_value = False
-            elif value_str.lower() == "none":
-                compare_value = None
-            else:
-                compare_value = float(value_str)
-        except ValueError:
-            compare_value = value_str
-
-        # Count matches and non-matches using original indices
-        matching_indices = []
-        non_matching_indices = []
-        matching_reasons: dict[int, str] = {}
-        non_matching_reasons: dict[int, str] = {}
-        for orig_idx, value in indexed_values:
-            try:
-                if op_func(value, compare_value):
-                    matching_indices.append(orig_idx)
-                    matching_reasons[orig_idx] = f"{value} matches {test.condition}"
-                else:
-                    non_matching_indices.append(orig_idx)
-                    non_matching_reasons[orig_idx] = (
-                        f"{value} does not match {test.condition}"
-                    )
-            except (TypeError, ValueError):
-                non_matching_indices.append(orig_idx)
-                non_matching_reasons[orig_idx] = f"Cannot evaluate: {value}"
-
-        matching_count = len(matching_indices)
-        total_count = len(indexed_values)
-        matching_pct = 100.0 * matching_count / total_count if total_count > 0 else 0.0
-
-        # Check against thresholds
-        passed = True
-        if test.max_percentage is not None and matching_pct > test.max_percentage:
-            passed = False
-        if test.min_percentage is not None and matching_pct < test.min_percentage:
-            passed = False
-
-        # For max_percentage: matching samples are problematic (they exceed quota)
-        # For min_percentage: non-matching samples are problematic
-        if test.min_percentage is not None and not passed:
-            affected_indices = non_matching_indices
-            affected_count = len(non_matching_indices)
-            affected_pct = (
-                100.0 * affected_count / total_count if total_count > 0 else 0.0
-            )
-            failure_reasons = non_matching_reasons
-        else:
-            affected_indices = matching_indices
-            affected_count = matching_count
-            affected_pct = matching_pct
-            failure_reasons = matching_reasons
-
-        # For single-value (dataset-level) metrics, include the actual value
-        actual_value = None
-        if total_count == 1:
-            val = indexed_values[0][1]
-            if isinstance(val, (int, float, bool)):
-                actual_value = (
-                    float(val)
-                    if isinstance(val, (int, float))
-                    else (1.0 if val else 0.0)
-                )
-
-        return TestResult(
-            test_id=test.id,
-            passed=passed,
-            severity=test.severity,
-            title=test.title or test.id,
-            description=test.description,
-            metric=test.metric or "",
-            affected_count=affected_count,
-            total_count=total_count,
-            affected_percentage=round(affected_pct, 2),
-            threshold=test.max_percentage or test.min_percentage,
-            actual_value=actual_value,
-            sample_indices=affected_indices[:MAX_SAMPLE_INDICES],
-            details={
-                "condition": test.condition,
-                "matching_count": matching_count,
-                "matching_percentage": round(matching_pct, 2),
-                "failure_reasons": {
-                    k: v for k, v in list(failure_reasons.items())[:MAX_FAILURE_REASONS]
-                },
-            },
-        )
-
-    def _run_range_test(
-        self,
-        test: TestConfig,
-        indexed_values: list[tuple[int, Any]],
-    ) -> TestResult:
-        """Run a range test.
-
-        Checks what percentage of values fall outside a range.
-
-        Args:
-            test: Test configuration.
-            indexed_values: List of (original_index, value) tuples.
-
-        Returns:
-            TestResult.
-        """
-        if test.min_value is None and test.max_value is None:
-            return TestResult(
-                test_id=test.id,
-                passed=False,
-                severity=test.severity,
-                title=test.title or test.id,
-                metric=test.metric or "",
-                error="Range test requires 'min_value' and/or 'max_value'",
-            )
-
-        # Find values outside range using original indices
-        affected_indices = []
-        for orig_idx, value in indexed_values:
-            try:
-                outside_range = False
-                if test.min_value is not None and value < test.min_value:
-                    outside_range = True
-                if test.max_value is not None and value > test.max_value:
-                    outside_range = True
-                if outside_range:
-                    affected_indices.append(orig_idx)
-            except (TypeError, ValueError):
-                # Non-comparable values count as outside range
-                logger.debug(
-                    "Non-comparable value in range test '%s' at "
-                    "index %s: %r — counting as outside range",
-                    test.id,
-                    orig_idx,
-                    value,
-                )
-                affected_indices.append(orig_idx)
-
-        affected_count = len(affected_indices)
-        total_count = len(indexed_values)
-        affected_pct = 100.0 * affected_count / total_count if total_count > 0 else 0.0
-
-        # Default: no values should be outside range
-        max_pct = test.max_percentage if test.max_percentage is not None else 0.0
-        passed = affected_pct <= max_pct
-
-        return TestResult(
-            test_id=test.id,
-            passed=passed,
-            severity=test.severity,
-            title=test.title or test.id,
-            description=test.description,
-            metric=test.metric or "",
-            affected_count=affected_count,
-            total_count=total_count,
-            affected_percentage=round(affected_pct, 2),
-            threshold=max_pct,
-            sample_indices=affected_indices[:MAX_SAMPLE_INDICES],
-            details={
-                "min_value": test.min_value,
-                "max_value": test.max_value,
             },
         )

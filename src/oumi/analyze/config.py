@@ -114,11 +114,8 @@ class TestConfigYAML:
             description=self.description,
             operator=self.operator,
             value=self.value,
-            condition=self.condition,
             max_percentage=self.max_percentage,
             min_percentage=self.min_percentage,
-            min_value=self.min_value,
-            max_value=self.max_value,
         )
 
 

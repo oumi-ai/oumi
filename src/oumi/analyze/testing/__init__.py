@@ -19,9 +19,10 @@ from oumi.analyze.testing.engine import TestConfig, TestEngine
 from oumi.analyze.testing.engine import TestType as TypedTestType
 from oumi.analyze.testing.results import TestResult, TestSeverity, TestSummary
 
-# Backward compatibility: API worker and batch engine import TestParams
-# and TestType from here.  Re-export the core versions to keep existing
-# ``from oumi.analyze.testing import TestType`` working.
+# Backward compatibility: batch engine and external code import TestParams
+# and TestType from here.  The core TestType has additional variants
+# (REGEX, CONTAINS, etc.) used by the batch/v1 path; the engine's TestType
+# (aliased as TypedTestType) is the v2 enum with only THRESHOLD.
 from oumi.core.configs.params.test_params import TestParams, TestType
 
 __all__ = [
