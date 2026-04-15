@@ -15,7 +15,12 @@
 """Environments for agentic tool interactions."""
 
 from oumi.environments.base_environment import BaseEnvironment
-from oumi.environments.base_tool import DeterministicToolOutput, Tool, ToolResult
+from oumi.environments.base_tool import (
+    DeterministicToolOutput,
+    Tool,
+    ToolResult,
+    ToolSchema,
+)
 from oumi.environments.deterministic_environment import DeterministicEnvironment
 from oumi.environments.synthetic_environment import (
     SyntheticEnvironment,
@@ -25,6 +30,7 @@ from oumi.environments.synthetic_environment import (
 __all__ = [
     "BaseEnvironment",
     "Tool",
+    "ToolSchema",
     "ToolResult",
     "SyntheticEnvironment",
     "SyntheticStateParams",

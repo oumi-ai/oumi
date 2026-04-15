@@ -25,6 +25,7 @@ from oumi.environments import (
     SyntheticStateParams,
     Tool,
     ToolResult,
+    ToolSchema,
 )
 
 
@@ -104,7 +105,11 @@ def test_tool_to_llm_schema():
         id="search",
         name="Search",
         description="Search the catalog.",
-        parameters={"type": "object", "properties": {"query": {"type": "string"}}},
+        parameters=ToolSchema(
+            type="object",
+            properties={"query": ToolSchema(type="string")},
+            required=["query"],
+        ),
     )
     assert tool.to_llm_schema() == {
         "name": "Search",
@@ -112,6 +117,29 @@ def test_tool_to_llm_schema():
         "parameters": {
             "type": "object",
             "properties": {"query": {"type": "string"}},
+            "required": ["query"],
+        },
+    }
+
+
+def test_tool_to_llm_schema_includes_output_schema():
+    tool = Tool(
+        id="search",
+        name="Search",
+        description="Search the catalog.",
+        parameters=ToolSchema(type="object", properties={}),
+        output_schema=ToolSchema(
+            type="object",
+            properties={"result": ToolSchema(type="string")},
+        ),
+    )
+    assert tool.to_llm_schema() == {
+        "name": "Search",
+        "description": "Search the catalog.",
+        "parameters": {"type": "object"},
+        "output_schema": {
+            "type": "object",
+            "properties": {"result": {"type": "string"}},
         },
     }
 
@@ -137,6 +165,88 @@ def test_tool_create_coerces_deterministic_outputs():
     )
     assert isinstance(env, DeterministicEnvironment)
     assert isinstance(env.tools[0].deterministic_outputs[0], DeterministicToolOutput)
+
+
+def test_tool_create_reads_extended_tool_fields():
+    tool = Tool.create(
+        {
+            "id": "policy",
+            "name": "Policy",
+            "description": "Look up policy.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "policy_id": {"type": "string"},
+                },
+                "required": ["policy_id"],
+            },
+            "output_schema": {"type": "object", "properties": {}},
+        }
+    )
+    assert tool.parameters.required == ["policy_id"]
+    assert tool.output_schema == ToolSchema(type="object", properties={})
+
+
+def test_tool_schema_to_dict():
+    schema = ToolSchema(
+        type="object",
+        properties={
+            "query": ToolSchema(type="string"),
+        },
+        description="Tool input schema.",
+        required=["query"],
+    )
+    assert schema.to_dict() == {
+        "type": "object",
+        "properties": {"query": {"type": "string"}},
+        "description": "Tool input schema.",
+        "required": ["query"],
+    }
+
+
+def test_tool_schema_create_recursively_coerces_nested_properties():
+    schema = ToolSchema.create(
+        {
+            "type": "object",
+            "properties": {
+                "customer": {
+                    "type": "object",
+                    "properties": {
+                        "email": {"type": "string", "description": "Customer email."}
+                    },
+                    "required": ["email"],
+                }
+            },
+            "required": ["customer"],
+        }
+    )
+    assert isinstance(schema.properties["customer"], ToolSchema)
+    assert isinstance(schema.properties["customer"].properties["email"], ToolSchema)
+    assert schema.to_dict() == {
+        "type": "object",
+        "properties": {
+            "customer": {
+                "type": "object",
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "description": "Customer email.",
+                    }
+                },
+                "required": ["email"],
+            }
+        },
+        "required": ["customer"],
+    }
+
+
+def test_tool_schema_required_must_exist_in_properties():
+    with pytest.raises(ValueError, match="required contains unknown properties"):
+        ToolSchema(
+            type="object",
+            properties={"query": ToolSchema(type="string")},
+            required=["missing"],
+        )
 
 
 def test_synthetic_state_params_validates_initial_state_against_schema():
