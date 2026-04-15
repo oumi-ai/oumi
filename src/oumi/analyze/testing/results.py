@@ -44,6 +44,7 @@ class TestResult(BaseModel):
         threshold: The configured threshold for the test.
         actual_value: The actual computed value (for threshold tests).
         sample_indices: Indices of affected samples (limited).
+        all_affected_indices: Full list of affected sample indices.
         error: Error message if test execution failed.
         details: Additional details about the test result.
     """
@@ -60,6 +61,7 @@ class TestResult(BaseModel):
     threshold: float | None = None
     actual_value: float | None = None
     sample_indices: list[int] = Field(default_factory=list)
+    all_affected_indices: list[int] = Field(default_factory=list)
     error: str | None = None
     details: dict[str, Any] = Field(default_factory=dict)
 
