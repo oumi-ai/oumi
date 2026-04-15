@@ -417,3 +417,51 @@ def test_results_to_dict_empty():
     output = results_to_dict({})
 
     assert output == {}
+
+
+# -----------------------------------------------------------------------------
+# Tests: Cached (raw dict) results
+# -----------------------------------------------------------------------------
+
+
+def test_dataset_level_cached_dict_in_dataframe(sample_conversations):
+    """Test that dataset-level results as raw dicts are included."""
+    results = {
+        "Stats": {"total_count": 100, "avg_score": 75.5},
+    }
+
+    df = to_analysis_dataframe(sample_conversations, results)
+
+    assert "stats__total_count" in df.columns
+    assert "stats__avg_score" in df.columns
+    # Dataset-level: same value repeated for every conversation
+    assert (df["stats__total_count"] == 100).all()
+    assert (df["stats__avg_score"] == 75.5).all()
+
+
+def test_per_conversation_cached_dicts_in_dataframe(sample_conversations):
+    """Test that per-conversation results as raw dicts work."""
+    results = {
+        "Simple": [
+            {"score": 80, "name": "a"},
+            {"score": 90, "name": "b"},
+        ],
+    }
+
+    df = to_analysis_dataframe(sample_conversations, results)
+
+    assert df["simple__score"].tolist() == [80, 90]
+    assert df["simple__name"].tolist() == ["a", "b"]
+
+
+def test_results_to_dict_with_cached_dicts():
+    """Test results_to_dict passes through raw dicts unchanged."""
+    results = {
+        "ListAnalyzer": [{"score": 1}, {"score": 2}],
+        "DatasetAnalyzer": {"total": 42},
+    }
+
+    output = results_to_dict(results)
+
+    assert output["ListAnalyzer"] == [{"score": 1}, {"score": 2}]
+    assert output["DatasetAnalyzer"] == {"total": 42}

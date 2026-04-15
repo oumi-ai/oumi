@@ -124,8 +124,9 @@ def to_analysis_dataframe(
                             "missing values."
                         )
 
-            elif isinstance(analyzer_results, BaseModel):
+            elif isinstance(analyzer_results, (BaseModel, dict)):
                 # Dataset-level result - same for all conversations
+                # (may be a raw dict when loaded from cache)
                 _add_result_to_row(row, analyzer_results, prefix)
 
         rows.append(row)
@@ -265,8 +266,12 @@ def results_to_dict(
 
     for name, result in results.items():
         if isinstance(result, list):
-            output[name] = [r.model_dump() for r in result]
+            output[name] = [
+                r.model_dump() if isinstance(r, BaseModel) else r for r in result
+            ]
         elif isinstance(result, BaseModel):
             output[name] = result.model_dump()
+        elif isinstance(result, dict):
+            output[name] = result
 
     return output
