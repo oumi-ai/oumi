@@ -500,19 +500,21 @@ class TestEngine:
         # Count matches and non-matches using original indices
         matching_indices = []
         non_matching_indices = []
-        failure_reasons: dict[int, str] = {}
+        matching_reasons: dict[int, str] = {}
+        non_matching_reasons: dict[int, str] = {}
         for orig_idx, value in indexed_values:
             try:
                 if op_func(value, compare_value):
                     matching_indices.append(orig_idx)
+                    matching_reasons[orig_idx] = f"{value} matches {test.condition}"
                 else:
                     non_matching_indices.append(orig_idx)
-                    failure_reasons[orig_idx] = (
+                    non_matching_reasons[orig_idx] = (
                         f"{value} does not match {test.condition}"
                     )
             except (TypeError, ValueError):
                 non_matching_indices.append(orig_idx)
-                failure_reasons[orig_idx] = f"Cannot evaluate: {value}"
+                non_matching_reasons[orig_idx] = f"Cannot evaluate: {value}"
 
         matching_count = len(matching_indices)
         total_count = len(indexed_values)
@@ -525,18 +527,20 @@ class TestEngine:
         if test.min_percentage is not None and matching_pct < test.min_percentage:
             passed = False
 
-        # For min_percentage tests, affected samples are those that don't match
-        # For max_percentage tests, affected samples are those that do match
+        # For max_percentage: matching samples are problematic (they exceed quota)
+        # For min_percentage: non-matching samples are problematic
         if test.min_percentage is not None and not passed:
             affected_indices = non_matching_indices
             affected_count = len(non_matching_indices)
             affected_pct = (
                 100.0 * affected_count / total_count if total_count > 0 else 0.0
             )
+            failure_reasons = non_matching_reasons
         else:
             affected_indices = matching_indices
             affected_count = matching_count
             affected_pct = matching_pct
+            failure_reasons = matching_reasons
 
         # For single-value (dataset-level) metrics, include the actual value
         actual_value = None

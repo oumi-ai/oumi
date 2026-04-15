@@ -374,6 +374,27 @@ def test_percentage_test_fail(sample_results):
     assert summary.results[0].passed is False
 
 
+def test_percentage_test_fail_has_failure_reasons(sample_results):
+    """Test that max_percentage failure includes failure_reasons."""
+    tests = [
+        TestConfig(
+            id="issue_rate",
+            type=TestType.PERCENTAGE,
+            metric="Length.has_issue",
+            condition="== True",
+            max_percentage=25.0,  # 50% > 25% -> fail
+        )
+    ]
+    engine = TestEngine(tests)
+    summary = engine.run(sample_results)
+
+    result = summary.results[0]
+    assert result.passed is False
+    reasons = result.details.get("failure_reasons", {})
+    # Affected samples are the matching ones (has_issue=True at idx 1, 2)
+    assert len(reasons) > 0, "failure_reasons should not be empty"
+
+
 def test_percentage_test_min_percentage(sample_results):
     """Test percentage test with min_percentage."""
     tests = [
