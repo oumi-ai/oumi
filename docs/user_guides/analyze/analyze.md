@@ -21,7 +21,7 @@ Oumi's dataset analysis framework helps you understand training data before and 
 
 ::::{tab-set-code}
 :::{code-block} bash
-oumi analyze -c configs/examples/analyze/analyze.yaml
+oumi analyze --config configs/examples/analyze/analyze.yaml
 :::
 :::{code-block} python
 from oumi.analyze import run_typed_analysis, TypedAnalyzeConfig, AnalyzerConfig
@@ -39,6 +39,10 @@ results = run_typed_analysis(config)
 ::::
 
 Results are saved to the configured `output_path` (default: current directory) including per-conversation metrics, test results, and statistical summaries.
+
+:::{tip}
+You can use `-c` as a shorthand for `--config` in all CLI examples.
+:::
 
 ## Configuration
 
@@ -121,16 +125,16 @@ Use `oumi analyze --list-metrics` to see all available metrics and their descrip
 :::{code-block} bash
 
 # Export to CSV (default)
-oumi analyze -c config.yaml
+oumi analyze --config config.yaml
 
 # Export to JSON
-oumi analyze -c config.yaml --format json
+oumi analyze --config config.yaml --format json
 
 # Export to Parquet
-oumi analyze -c config.yaml --format parquet
+oumi analyze --config config.yaml --format parquet
 
 # Override output directory
-oumi analyze -c config.yaml --output ./my_results
+oumi analyze --config config.yaml --output ./my_results
 :::
 ::::
 

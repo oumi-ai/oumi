@@ -222,7 +222,7 @@ Custom metrics with `function` fields execute arbitrary Python code. Only load c
 Override the output directory via CLI:
 
 ```bash
-oumi analyze -c config.yaml --output /custom/path --format parquet
+oumi analyze --config config.yaml --output /custom/path --format parquet
 ```
 
 ## Complete Example
