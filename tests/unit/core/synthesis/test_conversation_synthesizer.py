@@ -36,6 +36,7 @@ from oumi.core.types.conversation import (
     Message,
     Role,
 )
+from oumi.environments import ToolParams as Tool
 
 
 @pytest.fixture
@@ -327,6 +328,62 @@ def test_format_persona_replaces_placeholders(
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_format_persona_injects_tools_for_assistant_only(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """Test assistant persona gets tool context without mutating config."""
+    mock_build_inference_engine.return_value = Mock()
+
+    synthesizer = ConversationSynthesizer(
+        GeneralSynthesisParams(),
+        mock_inference_config,
+    )
+    multiturn_attr = MultiTurnAttribute(
+        id="test_conversation",
+        min_turns=2,
+        max_turns=2,
+        role_instruction_messages={
+            Role.USER: "You are a user.",
+            Role.ASSISTANT: "You are a helpful agent.",
+        },
+    )
+    tool = Tool(
+        id="lookup_order",
+        name="Lookup Order",
+        description="Look up an order by id.",
+        parameters={
+            "type": "object",
+            "properties": {"order_id": {"type": "string"}},
+            "required": ["order_id"],
+        },
+    )
+
+    with patch.object(synthesizer, "_resolve_available_tools", return_value=[tool]):
+        assistant_message = synthesizer._format_persona(
+            {},
+            multiturn_attr.role_instruction_messages[Role.ASSISTANT],
+            Role.ASSISTANT,
+            multiturn_attribute=multiturn_attr,
+        )
+        user_message = synthesizer._format_persona(
+            {},
+            multiturn_attr.role_instruction_messages[Role.USER],
+            Role.USER,
+            multiturn_attribute=multiturn_attr,
+        )
+
+    assert "You have access to the following tools." in assistant_message.content
+    assert "- lookup_order: Look up an order by id." in assistant_message.content
+    assert '"order_id"' in assistant_message.content
+    assert "You have access to the following tools." not in user_message.content
+    assert (
+        multiturn_attr.role_instruction_messages[Role.ASSISTANT]
+        == "You are a helpful agent."
+    )
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
 def test_build_role_context_formats_personas(
     mock_build_inference_engine,
     mock_inference_config,
@@ -356,6 +413,42 @@ def test_build_role_context_formats_personas(
     assert "You are a frustrated customer." in result
     assert "[ASSISTANT]" in result
     assert "You are a helpful agent." in result
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_build_role_context_includes_tools_for_assistant(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """Test planner role context includes assistant tool awareness."""
+    mock_build_inference_engine.return_value = Mock()
+
+    synthesizer = ConversationSynthesizer(
+        GeneralSynthesisParams(),
+        mock_inference_config,
+    )
+    multiturn_attr = MultiTurnAttribute(
+        id="test_conversation",
+        min_turns=2,
+        max_turns=2,
+        role_instruction_messages={
+            Role.USER: "You are a customer.",
+            Role.ASSISTANT: "You are a helpful agent.",
+        },
+    )
+    tool = Tool(
+        id="check_status",
+        name="Check Status",
+        description="Check order status.",
+        parameters={"type": "object", "properties": {}, "required": []},
+    )
+
+    with patch.object(synthesizer, "_resolve_available_tools", return_value=[tool]):
+        result = synthesizer._build_role_context({}, multiturn_attr)
+
+    assert "[ASSISTANT]" in result
+    assert "You have access to the following tools." in result
+    assert "- check_status: Check order status." in result
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")

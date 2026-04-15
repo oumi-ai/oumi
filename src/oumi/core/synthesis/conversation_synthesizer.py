@@ -14,6 +14,7 @@
 
 import copy
 import dataclasses
+import json
 import random
 
 from oumi.builders.inference_engines import build_inference_engine
@@ -94,6 +95,46 @@ class ConversationSynthesizer:
                     f"role_instruction_messages. Available roles: "
                     f"{[r.value for r in available_roles]}"
                 )
+
+    def _format_tool_block(self, multiturn_attribute: MultiTurnAttribute) -> str:
+        """Build a tool-usage instruction block for the assistant persona."""
+        available_tools = self._resolve_available_tools(multiturn_attribute)
+        if not available_tools:
+            return ""
+
+        lines = [
+            "You have access to the following tools.",
+            "Do not invent tools. Use only the tools listed below.",
+            "When a tool is needed, emit the expected tool-call format exactly.",
+            "",
+            "Available tools:",
+        ]
+        for tool in available_tools:
+            schema = tool.to_llm_schema()
+            lines.append(f"- {tool.id}: {schema['description']}")
+            lines.append(
+                f"  Parameters: {json.dumps(schema['parameters'], sort_keys=True)}"
+            )
+        return "\n".join(lines)
+
+    def _format_role_persona(
+        self,
+        sample: dict,
+        persona: str,
+        role: Role,
+        multiturn_attribute: MultiTurnAttribute | None = None,
+    ) -> str:
+        """Format a role persona and append assistant tool context when available."""
+        formatted_content = self._formatter.format(
+            sample,
+            persona,
+            missing_values_allowed=False,
+        )
+        if role == Role.ASSISTANT and multiturn_attribute is not None:
+            tool_block = self._format_tool_block(multiturn_attribute)
+            if tool_block:
+                formatted_content = f"{formatted_content}\n\n{tool_block}"
+        return formatted_content
 
     def synthesize(
         self,
@@ -317,21 +358,29 @@ class ConversationSynthesizer:
                 return True
         return False
 
-    def _format_persona(self, sample: dict, persona: str, role: Role) -> Message:
+    def _format_persona(
+        self,
+        sample: dict,
+        persona: str,
+        role: Role,
+        multiturn_attribute: MultiTurnAttribute | None = None,
+    ) -> Message:
         """Format the persona for the sample.
 
         Args:
             sample: The sample dict containing all attributes.
             persona: The persona string to format.
             role: The role for this persona.
+            multiturn_attribute: Optional multiturn config for assistant tool context.
 
         Returns:
             A Message with the formatted persona as a SYSTEM message.
         """
-        formatted_content = self._formatter.format(
+        formatted_content = self._format_role_persona(
             sample,
             persona,
-            missing_values_allowed=False,
+            role,
+            multiturn_attribute=multiturn_attribute,
         )
         return Message(
             role=Role.SYSTEM,
@@ -349,8 +398,11 @@ class ConversationSynthesizer:
         """
         parts = []
         for role, persona in multiturn_attribute.role_instruction_messages.items():
-            formatted = self._formatter.format(
-                sample, persona, missing_values_allowed=False
+            formatted = self._format_role_persona(
+                sample,
+                persona,
+                role,
+                multiturn_attribute=multiturn_attribute,
             )
             parts.append(f"[{role.value.upper()}]\n{formatted}")
 
@@ -525,7 +577,10 @@ class ConversationSynthesizer:
 
                 persona = multiturn_attribute.role_instruction_messages[role]
                 formatted_persona = self._format_persona(
-                    sample_with_turn, persona, role
+                    sample_with_turn,
+                    persona,
+                    role,
+                    multiturn_attribute=multiturn_attribute,
                 )
                 prompt_messages.append(formatted_persona)
                 prompt_messages.extend(histories[i])
