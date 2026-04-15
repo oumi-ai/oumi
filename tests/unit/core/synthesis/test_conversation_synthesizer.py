@@ -20,6 +20,7 @@ import pytest
 
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.inference_engine_type import InferenceEngineType
+from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.configs.params.remote_params import RemoteParams
 from oumi.core.configs.params.synthesis_params import (
@@ -35,11 +36,12 @@ from oumi.core.types.conversation import Conversation, Message, Role
 @pytest.fixture
 def mock_inference_config():
     """Create a mock inference config."""
-    mock = Mock(spec=InferenceConfig)
-    mock.engine = InferenceEngineType.NATIVE
-    mock.model = Mock(spec=ModelParams)
-    mock.remote_params = Mock(spec=RemoteParams)
-    return mock
+    return InferenceConfig(
+        engine=InferenceEngineType.NATIVE,
+        model=Mock(spec=ModelParams),
+        remote_params=Mock(spec=RemoteParams),
+        generation=GenerationParams(),
+    )
 
 
 @pytest.fixture
@@ -393,9 +395,81 @@ def test_planner_prompt_includes_role_context(
     assert "You are a helpful agent." in user_message
 
     example_response = planner.messages[2].content
-    assert "```json" in example_response
+    assert example_response.startswith("[")
     assert '"turn": 1' in example_response
     assert '"instruction"' in example_response
+    assert "raw JSON array" in planner.messages[0].content
+    assert "```json" not in planner.messages[0].content
+    assert "No markdown" in user_message
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_generate_plan_uses_planner_only_guided_decoding(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_multiturn_attribute,
+    mock_inference_config,
+):
+    """Test planner calls get JSON guided decoding without affecting turn generation."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+
+    planner_result = Conversation(
+        messages=[
+            Message(
+                role=Role.ASSISTANT,
+                content='[{"turn": 1, "instruction": "Ask"}, {"turn": 2, "instruction": "Answer"}]',
+            )
+        ]
+    )
+    turn_result = Conversation(messages=[Message(role=Role.ASSISTANT, content="Turn")])
+    mock_inference_engine.infer.side_effect = [
+        [planner_result],
+        [turn_result],
+        [turn_result],
+    ]
+
+    synthesizer = ConversationSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+
+    result = synthesizer.synthesize(
+        [{"customer_type": "friendly", "issue": "product question"}],
+        MultiTurnAttribute(
+            id="test_conversation",
+            min_turns=2,
+            max_turns=2,
+            role_instruction_messages={
+                Role.USER: "You are a {customer_type} customer with issue: {issue}.",
+                Role.ASSISTANT: "You are a helpful support agent.",
+            },
+            conversation_planner="Plan a conversation about {issue}.",
+        ),
+    )
+
+    assert result[0] is not None
+    planner_call = mock_inference_engine.infer.call_args_list[0].kwargs["inference_config"]
+    turn_call = mock_inference_engine.infer.call_args_list[1].kwargs["inference_config"]
+
+    assert planner_call is not mock_inference_config
+    assert planner_call.generation is not mock_inference_config.generation
+    assert planner_call.generation.guided_decoding is not None
+    assert planner_call.generation.guided_decoding.json == {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {
+                "turn": {"type": "integer", "minimum": 1},
+                "instruction": {"type": "string"},
+            },
+            "required": ["turn", "instruction"],
+            "additionalProperties": False,
+        },
+    }
+    assert turn_call is mock_inference_config
+    assert turn_call.generation.guided_decoding is None
+    assert mock_inference_config.generation.guided_decoding is None
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
