@@ -113,50 +113,6 @@ def _run_typed_analysis_cli(
         if list_metrics:
             cli_utils.CONSOLE.print("\n[bold cyan]Available Metrics[/bold cyan]\n")
             list_metrics_func()
-
-            # Also show custom metrics from config if provided
-            try:
-                typed_config = TypedAnalyzeConfig.from_yaml(config)
-                if typed_config.custom_metrics:
-                    from rich.table import Table
-
-                    for cm in typed_config.custom_metrics:
-                        cli_utils.CONSOLE.print(
-                            f"\n[bold]{cm.id}[/bold] "
-                            f"[green]({cm.scope} scope)[/green] "
-                            f"[dim](custom)[/dim]"
-                        )
-                        if cm.description:
-                            cli_utils.CONSOLE.print(f"[dim]{cm.description}[/dim]\n")
-
-                        table = Table(
-                            show_header=True,
-                            header_style="bold",
-                            box=None,
-                            padding=(0, 2),
-                        )
-                        table.add_column("Metric Path", style="cyan")
-                        table.add_column("Type", style="yellow", width=15)
-                        table.add_column("Description", style="white")
-
-                        if cm.output_schema:
-                            for f in cm.output_schema:
-                                table.add_row(
-                                    f"{cm.id}.{f.name}",
-                                    f.type,
-                                    f.description,
-                                )
-                        else:
-                            table.add_row(
-                                f"{cm.id}.<field>",
-                                "any",
-                                "Add output_schema to config for field details",
-                            )
-
-                        cli_utils.CONSOLE.print(table)
-                        cli_utils.CONSOLE.print()
-            except Exception:
-                pass  # Config may not exist yet, that's OK
             return
 
         # Detect old config format before loading

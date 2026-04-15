@@ -61,16 +61,7 @@ from oumi.analyze.cli import (
 # Import config
 from oumi.analyze.config import (
     AnalyzerConfig,
-    CustomMetricConfig,
     TypedAnalyzeConfig,
-)
-
-# Import custom metrics
-from oumi.analyze.custom_metrics import (
-    CustomConversationMetric,
-    CustomMessageMetric,
-    CustomMetricResult,
-    create_custom_metric,
 )
 
 # Import discovery utilities
@@ -108,7 +99,6 @@ __all__ = [
     # Config
     "TypedAnalyzeConfig",
     "AnalyzerConfig",
-    "CustomMetricConfig",
     # Testing
     "TestEngine",
     "TestResult",
@@ -120,11 +110,6 @@ __all__ = [
     "print_summary",
     "list_metrics",
     "generate_tests",
-    # Custom metrics
-    "CustomConversationMetric",
-    "CustomMessageMetric",
-    "CustomMetricResult",
-    "create_custom_metric",
     # Discovery utilities
     "list_available_metrics",
     "print_analyzer_metrics",

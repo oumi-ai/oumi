@@ -321,8 +321,6 @@ def run_typed_analysis(
         - test_summary: Test results (if tests configured)
         - dataframe: Results as DataFrame
     """
-    from oumi.analyze.custom_metrics import create_custom_metric
-
     # Load conversations if not provided
     if conversations is None:
         if config.dataset_path:
@@ -356,17 +354,6 @@ def run_typed_analysis(
             # paths match (e.g. "Length.total_tokens").
             analyzer.analyzer_id = analyzer_config.display_name
             analyzers.append(analyzer)
-
-    # Create custom metrics
-    for custom_metric_config in config.custom_metrics:
-        try:
-            custom_metric = create_custom_metric(custom_metric_config)
-            analyzers.append(custom_metric)
-            logger.info(f"Created custom metric: {custom_metric_config.id}")
-        except Exception as e:
-            logger.error(
-                f"Failed to create custom metric {custom_metric_config.id}: {e}"
-            )
 
     if not analyzers:
         raise ValueError("No valid analyzers configured")

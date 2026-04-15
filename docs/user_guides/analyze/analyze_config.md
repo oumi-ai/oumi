@@ -75,22 +75,11 @@ HuggingFace models: any valid model ID (e.g., `meta-llama/Llama-3.1-8B-Instruct`
 
 ### `quality` Analyzer Parameters
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `check_turn_pattern` | `bool` | `true` | Check for alternating user/assistant turns |
-| `check_empty_content` | `bool` | `true` | Check for empty messages |
-| `check_invalid_values` | `bool` | `true` | Check for serialized NaN/null/None |
-| `check_truncation` | `bool` | `true` | Check for truncated messages |
-| `check_refusals` | `bool` | `true` | Check for policy refusal patterns |
-| `check_tags` | `bool` | `true` | Check for unbalanced tags |
-| `context_4k_threshold` | `int` | `4096` | Token threshold for 4K context check |
-| `context_8k_threshold` | `int` | `8192` | Token threshold for 8K context check |
+The `quality` analyzer has no configurable parameters. It always checks for non-alternating turns, missing user messages, misplaced system messages, empty messages, and invalid serialized values.
 
 ### `turn_stats` Analyzer Parameters
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `include_system_in_counts` | `bool` | `false` | Include system messages in total turn counts |
+The `turn_stats` analyzer has no configurable parameters. It computes turn counts by role, system message presence, and first/last turn roles.
 
 ## Tests
 
@@ -186,30 +175,6 @@ Check if metric values fall within a range.
   max_value: 8192
   max_percentage: 10.0
 ```
-
-## Custom Metrics
-
-Define custom Python functions to compute additional metrics:
-
-```yaml
-custom_metrics:
-  - id: word_to_char_ratio
-    scope: conversation
-    description: "Ratio of words to characters"
-    output_schema:
-      - name: ratio
-        type: float
-        description: "Words divided by characters"
-    function: |
-      def compute(conversation):
-          chars = sum(len(m.content) for m in conversation.messages)
-          words = sum(len(m.content.split()) for m in conversation.messages)
-          return {"ratio": words / chars if chars > 0 else 0.0}
-```
-
-:::{warning}
-Custom metrics with `function` fields execute arbitrary Python code. Only load configurations from trusted sources. Configs with custom code require `allow_custom_code=True` when loading programmatically.
-:::
 
 ## Output Settings
 

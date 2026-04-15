@@ -64,97 +64,6 @@ class AnalyzerConfig:
 
 
 @dataclass
-class OutputFieldSchema:
-    """Schema definition for a single output field.
-
-    Attributes:
-        name: Field name (key in the returned dict).
-        type: Field type ("int", "float", "bool", "str", "list").
-        description: Description of the field.
-    """
-
-    name: str
-    type: str = "float"
-    description: str = ""
-
-
-@dataclass
-class CustomMetricConfig:
-    """Configuration for a custom user-defined metric.
-
-    Custom metrics allow users to define Python functions that compute
-    additional metrics. These are executed during the analysis phase
-    and their results are cached.
-
-    .. warning::
-        **Security Warning**: The ``function`` field contains arbitrary Python
-        code that is executed via ``exec()``. Only load configurations from
-        trusted sources. Never load YAML configs from untrusted users or
-        external sources without review, as they could execute malicious code.
-
-    Example YAML:
-        ```yaml
-        custom_metrics:
-          - id: word_to_char_ratio
-            scope: conversation
-            description: "Ratio of words to characters"
-            output_schema:
-              - name: ratio
-                type: float
-                description: "Words divided by characters (0.15-0.20 is typical)"
-            function: |
-              def compute(conversation):
-                  chars = sum(len(m.content) for m in conversation.messages)
-                  words = sum(len(m.content.split()) for m in conversation.messages)
-                  return {"ratio": words / chars if chars > 0 else 0.0}
-        ```
-
-    Attributes:
-        id: Unique identifier for the metric.
-        scope: Scope of the metric ("message", "conversation", or "dataset").
-        function: Python code defining a compute() function.
-        description: Description of what the metric computes.
-        output_schema: List of output field definitions.
-    """
-
-    id: str
-    scope: str = "conversation"  # "message", "conversation", or "dataset"
-    function: str = ""
-    description: str | None = None
-    output_schema: list[OutputFieldSchema] = field(default_factory=list)
-    depends_on: list[str] = field(default_factory=list)
-
-    def __post_init__(self):
-        """Validate the configuration."""
-        if self.scope not in ("message", "conversation", "dataset"):
-            raise ValueError(
-                f"Invalid scope '{self.scope}'. "
-                "Must be 'message', 'conversation', or 'dataset'."
-            )
-
-    def get_metric_paths(self) -> list[str]:
-        """Get full metric paths for all output fields.
-
-        Returns:
-            List of metric paths like ["metric_id.field_name", ...].
-        """
-        if self.output_schema:
-            return [f"{self.id}.{f.name}" for f in self.output_schema]
-        return [f"{self.id}.<field>"]
-
-    def get_field_info(self) -> dict[str, dict[str, str]]:
-        """Get field information for display.
-
-        Returns:
-            Dict mapping field names to {"type": ..., "description": ...}.
-        """
-        return {
-            f.name: {"type": f.type, "description": f.description}
-            for f in self.output_schema
-        }
-
-
-@dataclass
 class TestConfigYAML:
     """YAML-friendly test configuration.
 
@@ -235,13 +144,6 @@ class TypedAnalyzeConfig:
           - type: quality
             display_name: Quality
 
-        custom_metrics:
-          - id: turn_pattern
-            scope: conversation
-            function: |
-              def compute(conversation):
-                  ...
-
         tests:
           - id: max_tokens
             type: threshold
@@ -259,7 +161,6 @@ class TypedAnalyzeConfig:
         sample_count: Number of samples to analyze.
         output_path: Directory for output artifacts.
         analyzers: List of analyzer configurations.
-        custom_metrics: List of custom metric configurations.
         tests: List of test configurations.
         tokenizer_name: Tokenizer for token counting.
         generate_report: Whether to generate HTML report.
@@ -285,9 +186,6 @@ class TypedAnalyzeConfig:
     # Analyzers
     analyzers: list[AnalyzerConfig] = field(default_factory=list)
 
-    # Custom metrics
-    custom_metrics: list[CustomMetricConfig] = field(default_factory=list)
-
     # Tests
     tests: list[TestConfigYAML] = field(default_factory=list)
 
@@ -300,53 +198,31 @@ class TypedAnalyzeConfig:
     report_title: str | None = None
 
     @classmethod
-    def from_yaml(
-        cls, path: str | Path, allow_custom_code: bool = False
-    ) -> "TypedAnalyzeConfig":
+    def from_yaml(cls, path: str | Path) -> "TypedAnalyzeConfig":
         """Load configuration from a YAML file.
-
-        .. warning::
-            **Security Warning**: If the YAML file contains ``custom_metrics``
-            with ``function`` fields, arbitrary Python code will be loaded.
-            Only load configurations from trusted sources. Set
-            ``allow_custom_code=True`` to explicitly acknowledge this risk.
 
         Args:
             path: Path to YAML configuration file.
-            allow_custom_code: If True, allow loading custom_metrics with
-                function code. If False (default) and the config contains
-                custom metrics with code, raises ValueError.
 
         Returns:
             TypedAnalyzeConfig instance.
-
-        Raises:
-            ValueError: If config contains custom code but allow_custom_code=False.
         """
         import yaml
 
         with open(path) as f:
             data = yaml.safe_load(f)
 
-        return cls.from_dict(data, allow_custom_code=allow_custom_code)
+        return cls.from_dict(data)
 
     @classmethod
-    def from_dict(
-        cls, data: dict[str, Any], allow_custom_code: bool = False
-    ) -> "TypedAnalyzeConfig":
+    def from_dict(cls, data: dict[str, Any]) -> "TypedAnalyzeConfig":
         """Create configuration from a dictionary.
 
         Args:
             data: Configuration dictionary.
-            allow_custom_code: If True, allow custom_metrics with function code.
-                If False (default) and the config contains custom metrics with
-                code, raises ValueError.
 
         Returns:
             TypedAnalyzeConfig instance.
-
-        Raises:
-            ValueError: If config contains custom code but allow_custom_code=False.
         """
         # Parse analyzers
         analyzers = []
@@ -382,29 +258,6 @@ class TypedAnalyzeConfig:
                 "result collisions."
             )
 
-        # Parse custom metrics
-        custom_metrics = []
-        for metric_data in data.get("custom_metrics", []):
-            # Parse output_schema if present
-            output_schema = []
-            for field_data in metric_data.pop("output_schema", []):
-                if isinstance(field_data, dict):
-                    output_schema.append(OutputFieldSchema(**field_data))
-            custom_metrics.append(
-                CustomMetricConfig(**metric_data, output_schema=output_schema)
-            )
-
-        # Security check: reject custom code unless explicitly allowed
-        if not allow_custom_code:
-            metrics_with_code = [m.id for m in custom_metrics if m.function.strip()]
-            if metrics_with_code:
-                raise ValueError(
-                    f"Configuration contains custom metrics with executable code: "
-                    f"{metrics_with_code}. This is a security risk if loading from "
-                    f"untrusted sources. Set allow_custom_code=True to explicitly "
-                    f"allow code execution, or remove the 'function' fields."
-                )
-
         # Parse tests
         tests = []
         for test_data in data.get("tests", []):
@@ -426,7 +279,6 @@ class TypedAnalyzeConfig:
             sample_count=data.get("sample_count"),
             output_path=data.get("output_path", "."),
             analyzers=analyzers,
-            custom_metrics=custom_metrics,
             tests=tests,
             tokenizer_name=data.get("tokenizer_name"),
             tokenizer_kwargs=data.get("tokenizer_kwargs", {}),
@@ -454,15 +306,6 @@ class TypedAnalyzeConfig:
                     "params": a.params,
                 }
                 for a in self.analyzers
-            ],
-            "custom_metrics": [
-                {
-                    "id": m.id,
-                    "scope": m.scope,
-                    "function": m.function,
-                    "description": m.description,
-                }
-                for m in self.custom_metrics
             ],
             "tests": [
                 {
