@@ -8,9 +8,9 @@ Generative benchmarks are vital to evaluate conversational agents, as well as ta
 
 That said, generative evaluations are significantly more challenging than closed-form evaluations, due to lack of a clear "correct" answer. This makes the evaluation criteria subjective to human judgment. But, even for an established set of criteria, aligning across raters ultimately depends on human perception, making consistent evaluations a very hard problem. Alternatively, fully-automating the rating process, by leveraging LLMs as judges of responses is recently getting more traction. LLM-as-a-judge platforms are significantly more cost- and time-effective, while they can provide reproducible and consistent results (under certain conditions).
 
-This section discusses the LLM-as-a-judge platforms that Oumi is using as its backend to provide reliable insights on generative model performance. The evaluation process consists of 2 steps: inference and judgement. Inference generates model responses for a predefined set of open-ended prompts, while judgement leverages an LLM to judge the quality of these responses. Oumi enables generative evaluation by integrating with popular platforms (AlpacaEval and MT-Bench), as well as offering a flexible framework (see {doc}`/user_guides/judge/judge`) for users to develop their own generative evaluations.
+This section discusses the LLM-as-a-judge platforms that Oumi OSS is using as its backend to provide reliable insights on generative model performance. The evaluation process consists of 2 steps: inference and judgement. Inference generates model responses for a predefined set of open-ended prompts, while judgement leverages an LLM to judge the quality of these responses. Oumi OSS enables generative evaluation by integrating with popular platforms (AlpacaEval and MT-Bench), as well as offering a flexible framework (see {doc}`/user_guides/judge/judge`) for users to develop their own generative evaluations.
 
-All evaluations in Oumi are automatically logged and versioned, capturing model configurations, evaluation parameters, and environmental details to ensure reproducible results.
+All evaluations in Oumi OSS are automatically logged and versioned, capturing model configurations, evaluation parameters, and environmental details to ensure reproducible results.
 
 ## Supported Out-of-the-box Benchmarks
 
@@ -57,7 +57,7 @@ HumanEval is a benchmark designed to evaluate language models' capabilities in g
 
 ## LLM-as-a-judge
 
-While the out-of-the-box benchmarks provided by Oumi cover a broad spectrum of generative use cases, we understand that many specialized applications require more tailored evaluation objectives. If the existing benchmarks do not fully meet your needs, Oumi offers a flexible and streamlined process to create and automate evaluations, by leveraging an {doc}`LLM Judge </user_guides/judge/judge>`.
+While the out-of-the-box benchmarks provided by Oumi OSS cover a broad spectrum of generative use cases, we understand that many specialized applications require more tailored evaluation objectives. If the existing benchmarks do not fully meet your needs, Oumi OSS offers a flexible and streamlined process to create and automate evaluations, by leveraging an {doc}`LLM Judge </user_guides/judge/judge>`.
 
 You can author your own set of evaluation prompts and customize the metrics to align with your specific domain or use case. By leveraging an LLM to assess your model's outputs, you can fully automate the evaluation pipeline, producing insightful scores that truly reflect your unique criteria.
 

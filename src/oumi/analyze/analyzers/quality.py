@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field
 
 from oumi.analyze.base import ConversationAnalyzer
 from oumi.core.registry import register_sample_analyzer
-from oumi.core.types.conversation import Conversation, Message
+from oumi.core.types.conversation import Conversation, Message, Role
 
 __all__ = ["DataQualityMetrics", "DataQualityAnalyzer"]
 
@@ -40,6 +40,8 @@ class DataQualityMetrics(BaseModel):
     Example:
         >>> result = DataQualityMetrics(
         ...     has_non_alternating_turns=False,
+        ...     has_no_user_message=False,
+        ...     has_system_message_not_at_start=False,
         ...     has_empty_turns=False,
         ...     empty_turn_count=0,
         ...     has_invalid_values=False,
@@ -53,6 +55,17 @@ class DataQualityMetrics(BaseModel):
         description=(
             "True if non-system messages do NOT strictly alternate between "
             "user and assistant roles (i.e. consecutive same-role messages exist)"
+        )
+    )
+    has_no_user_message: bool = Field(
+        description=(
+            "True if the conversation contains no user message "
+            "(including empty conversations)"
+        )
+    )
+    has_system_message_not_at_start: bool = Field(
+        description=(
+            "True if any system message appears after position 0 in the conversation"
         )
     )
     has_empty_turns: bool = Field(
@@ -76,8 +89,10 @@ class DataQualityMetrics(BaseModel):
 class DataQualityAnalyzer(ConversationAnalyzer[DataQualityMetrics]):
     """Analyzer for basic data quality checks on conversations.
 
-    Checks for three common data quality issues without requiring an LLM:
+    Checks for five common data quality issues without requiring an LLM:
     - Non-alternating user/assistant message patterns
+    - Missing user messages
+    - System messages not at the start of the conversation
     - Empty or whitespace-only turns
     - Values serialized as strings (NaN, null, None, undefined)
 
@@ -111,8 +126,10 @@ class DataQualityAnalyzer(ConversationAnalyzer[DataQualityMetrics]):
         Returns:
             DataQualityMetrics with the quality check results.
         """
+        messages = conversation.messages
+
         # 1. Non-alternating turns check (ignoring system messages)
-        roles = [m.role.value for m in conversation.messages]
+        roles = [m.role.value for m in messages]
         non_system = [r for r in roles if r != "system"]
         has_non_alternating = False
         for i in range(1, len(non_system)):
@@ -120,15 +137,21 @@ class DataQualityAnalyzer(ConversationAnalyzer[DataQualityMetrics]):
                 has_non_alternating = True
                 break
 
-        # 2. Empty turns check
+        # 2. No user message check
+        has_no_user = not any(m.role == Role.USER for m in messages)
+
+        # 3. System message not at position 0 check
+        has_system_not_at_start = any(m.role == Role.SYSTEM for m in messages[1:])
+
+        # 4. Empty turns check
         def _text(m: Message) -> str:
             return DataQualityAnalyzer.get_text_content(m)
 
-        empty_count = sum(1 for m in conversation.messages if not _text(m).strip())
+        empty_count = sum(1 for m in messages if not _text(m).strip())
 
-        # 3. Invalid serialized values check
+        # 5. Invalid serialized values check
         patterns_found: set[str] = set()
-        for message in conversation.messages:
+        for message in messages:
             content = _text(message)
             for pattern, name in _INVALID_VALUE_PATTERNS:
                 if pattern.search(content):
@@ -136,6 +159,8 @@ class DataQualityAnalyzer(ConversationAnalyzer[DataQualityMetrics]):
 
         return DataQualityMetrics(
             has_non_alternating_turns=has_non_alternating,
+            has_no_user_message=has_no_user,
+            has_system_message_not_at_start=has_system_not_at_start,
             has_empty_turns=empty_count > 0,
             empty_turn_count=empty_count,
             has_invalid_values=len(patterns_found) > 0,

@@ -6,9 +6,15 @@
 # Usage:
 #   oumi infer -i -c configs/recipes/qwen3_5/inference/0.8b_vllm_infer.yaml
 #
-# To use a fine-tuned model, override model_name:
+# To use a LoRA fine-tuned model:
 #   oumi infer -i -c configs/recipes/qwen3_5/inference/0.8b_vllm_infer.yaml \
-#     --model.model_name output/qwen3.5_0.8b.fft
+#     --model.model_name output/qwen3.5_0.8b.lora \
+#     --model.model_kwargs '{"language_model_only": true}'
+#
+# To use an FFT fine-tuned model:
+#   oumi infer -i -c configs/recipes/qwen3_5/inference/0.8b_vllm_infer.yaml \
+#     --model.model_name output/qwen3.5_0.8b.fft \
+#     --model.model_kwargs '{"language_model_only": true, "hf_config_path": "Qwen/Qwen3.5-0.8B"}'
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html

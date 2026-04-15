@@ -15,6 +15,7 @@ oumi = ["LICENSE", "README.md", "*.jinja"]
 # by default.
 [tool.uv]
 prerelease = "allow"
+override-dependencies = ["transformers>=5.5,<5.6"]
 
 [project]
 name = "oumi"
@@ -44,7 +45,7 @@ dependencies = [
     "aioresponses>=0.7,<0.8",     # User by inference engine tests
     "backoff>=2.2.1,<2.3",
     "click<8.4.0",                # Used by CLI. 8.2.0 is currently unsupported by Typer.
-    "datasets>=3.2,<4.8.3",       # 4.8.3 contains a breaking change
+    "datasets>=3.2,<4.8.5",
     "greenlet",                   # Required by skypilot 0.11+ (sqlalchemy asyncio)
     "hdrhistogram>=0.10,<0.11",
     "httpx>=0.27,<1.0",           # Used by deploy module (async HTTP client)
@@ -62,7 +63,7 @@ dependencies = [
     "peft>=0.17,<0.19",
     "pexpect>=4.9,<4.10",      # Used by Polaris client
     "posthog>=7.0,<8.0",
-    "pillow>=11.3,<12.2",      # Used by image datasets
+    "pillow>=11.3,<12.3",      # Used by image datasets
     "protobuf>=6.32",
     "pycares<6.0.0",
     "pydantic>=2.11,<2.13",
@@ -76,13 +77,11 @@ dependencies = [
     "torchao>=0.12,<0.16",     # Used by transformers
     "torchvision>=0.21,<0.26", # Used by some VLM-s (multimodal)
     "tqdm",
-    # Llama Vision attention is broken as late as 4.48.2 if gradient checkpointing is
-    # enabled. See OPE-875 and https://github.com/huggingface/transformers/issues/36040.
-    "transformers>=4.57,<4.58",
-    "trl>=0.24,<0.27",
+    "transformers>=4.57,<5.6",
+    "trl>=0.24,<1.1",
     "typer<0.24.2",             # Used by CLI. Pinned due to sphinxcontrib-typer compatibility. OPE-1806
     "typing_extensions",        # Backports of typing updates
-    "uvicorn<0.42.0",           # TODO: Remove on resolution of https://github.com/skypilot-org/skypilot/issues/7303
+    "uvicorn<0.43.0",           # TODO: Remove on resolution of https://github.com/skypilot-org/skypilot/issues/7303
     "wandb>=0.21,<0.26",        # Logging to Weights and Biases.
 ]
 
@@ -127,7 +126,7 @@ gpu = [
     # When updating verl version, make sure to also update the default config:
     # src/oumi/core/trainers/verl_trainer_config.yaml.
     "verl>=0.5,<0.8; python_version >= '3.10'", # Used for the VERL_GRPO trainer
-    "vllm>=0.10,<0.11",                         # For VLLMInferenceEngine, and vLLM-powered GRPO training.
+    "vllm>=0.10,<0.20",                         # For VLLMInferenceEngine, and vLLM-powered GRPO training.
     "kernels>=0.11,<0.13",                      # For compute kernel implementations (e.g., attn_implementation in gold trainer)
 ]
 
@@ -180,6 +179,12 @@ tune = ["optuna>=4.0.0,<5.0"]
 
 bitnet = ["onebitllms>=0.0.3"]
 
+mcp = [
+    "fastmcp>=3.0.0,<4",
+    "httpx>=0.28.1,<1",
+    "mcp>=1.25.0,<2",
+]
+
 file_formats = ["pdf2image>=1.17,<1.18"]
 
 llama_cpp = ["llama-cpp-python>=0.3.5,<0.4"]
@@ -192,8 +197,8 @@ torchdata = ["torchdata>=0.9,<0.10.0"]
 
 # CI targets
 ci_cpu = [
-    "oumi[dev,docs,gcp,synthesis,tune,torchdata,file_formats]",
-    "vllm>=0.10,<0.11",                            # For VLLMInferenceEngine
+    "oumi[dev,docs,gcp,mcp,synthesis,tune,torchdata,file_formats]",
+    "vllm>=0.10,<0.20",                            # For VLLMInferenceEngine
     "boto3",  # For bedrock inference engine tests
     # This may fail to install. As a temporary workaround, run:
     # CMAKE_ARGS="-DLLAVA_BUILD=OFF" pip install -U llama-cpp-python
@@ -208,6 +213,7 @@ ci_gpu = [
 
 [project.scripts]
 oumi = "oumi.cli.main:run"
+oumi-mcp = "oumi.mcp.server:main"
 
 [tool.ruff]
 extend-include = [
@@ -247,6 +253,7 @@ ban-relative-imports = "all" # Disallow all relative imports.
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["D", "PTH"] # Ignore docstring checks in tests
+"src/oumi/mcp/*" = ["ASYNC210", "ASYNC220", "ASYNC230", "ASYNC240"]  # fastmcp uses sync-over-async patterns
 "src/oumi/utils/verl_model_merger.*" = [
     "E501", # Line too long
     "D",    # Ignore docstring checks

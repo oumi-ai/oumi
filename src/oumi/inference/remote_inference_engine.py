@@ -479,6 +479,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         message = response["choices"][0].get("message")
         if not message:
             raise RuntimeError(f"No message found in API response: {response}")
+        content = message.get("content") or ""
         metadata = dict(original_conversation.metadata)
         usage = self._extract_usage_from_response(response)
         if usage is not None:
@@ -490,7 +491,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             messages=[
                 *original_conversation.messages,
                 Message(
-                    content=message["content"],
+                    content=content,
                     role=Role(message["role"]),
                 ),
             ],
@@ -858,6 +859,64 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         if inference_config and inference_config.output_path:
             self._save_conversations(conversations, inference_config.output_path)
         return conversations
+
+    #
+    # Model discovery
+    #
+
+    def get_models_api_url(self) -> str:
+        """Returns the URL for the models API."""
+        return str(
+            urllib.parse.urlparse(self._remote_params.api_url)
+            ._replace(path="/v1/models")
+            .geturl()
+        )
+
+    @override
+    def list_models(self, chat_only: bool = True) -> list[str]:
+        """Returns a list of model IDs available from the remote provider.
+
+        Queries the OpenAI-compatible ``/v1/models`` endpoint.
+
+        Args:
+            chat_only: If True (default), only return models that support
+                chat completions. If False, return all models.
+
+        Returns:
+            list[str]: A list of model ID strings.
+        """
+        models = safe_asyncio_run(self._fetch_models())
+        if chat_only:
+            models = self._filter_chat_models(models)
+        return sorted(m["id"] for m in models if "id" in m)
+
+    async def _fetch_models(self) -> list[dict[str, Any]]:
+        """Fetches raw model objects from the provider's models endpoint."""
+        async with self._create_session() as (session, headers):
+            async with session.get(
+                self.get_models_api_url(),
+                headers=headers,
+            ) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    raise RuntimeError(
+                        f"Failed to list models: {response.status} {error_text}"
+                    )
+                data = await response.json()
+                return data.get("data", [])
+
+    def _filter_chat_models(self, models: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Filters model list to chat-capable models only.
+
+        The default implementation returns all models unfiltered because
+        not all providers expose metadata to distinguish chat from non-chat
+        models. Subclasses that can distinguish (e.g., OpenAI, Together,
+        Fireworks) override this to provide actual filtering.
+
+        For providers without an override, ``chat_only=True`` and
+        ``chat_only=False`` return the same results.
+        """
+        return models
 
     #
     # Batch inference

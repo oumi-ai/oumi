@@ -54,6 +54,7 @@ from oumi.deploy.fireworks_api import (
     GatewayPEFTDetails,
     GatewayPrepareModelBody,
 )
+from oumi.deploy.utils import raise_api_error
 
 logger = logging.getLogger(__name__)
 
@@ -138,50 +139,7 @@ def _validate_fireworks_model_id(model_id: str) -> None:
         )
 
 
-def _raise_api_error(response: httpx.Response, context: str) -> None:
-    """Extract the human-readable message from a Fireworks error response and raise.
-
-    Fireworks returns JSON bodies on errors.  Common shapes::
-
-        {"error": {"message": "...", "code": "INVALID_ARGUMENT", ...}}
-        {"message": "...", "code": 400}
-
-    Args:
-        response: The failed HTTP response.
-        context: Short description of the operation that failed (used in the message).
-
-    Raises:
-        ValueError: Always, with a message that includes the API error detail,
-            HTTP status code, and the original request method + URL.
-            The request body is logged at DEBUG level (not included in the
-            exception) to avoid leaking sensitive payloads into error messages.
-    """
-    detail: str
-    try:
-        body = response.json()
-        if isinstance(body, dict):
-            if "error" in body:
-                err = body["error"]
-                detail = (
-                    err.get("message", str(err)) if isinstance(err, dict) else str(err)
-                )
-            else:
-                detail = body.get("message", str(body))
-        else:
-            detail = str(body)
-    except Exception:
-        detail = response.text or "(no details)"
-
-    req = response.request
-    try:
-        req_body = req.content.decode("utf-8", errors="replace") or "(empty)"
-    except Exception:
-        req_body = "(unreadable)"
-    logger.debug("API error request body for %s %s: %s", req.method, req.url, req_body)
-    raise ValueError(
-        f"Failed to {context}: {detail} "
-        f"(HTTP {response.status_code}, {req.method} {req.url})"
-    )
+_raise_api_error = raise_api_error
 
 
 class FireworksDeploymentClient(BaseDeploymentClient):

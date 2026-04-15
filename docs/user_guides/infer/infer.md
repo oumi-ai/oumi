@@ -15,7 +15,7 @@ Oumi Infer provides a unified interface for running models, whether you're deplo
 
 ## Why Use Oumi Infer?
 
-Running models in production environments presents several challenges that Oumi helps address:
+Running models in production environments presents several challenges that Oumi OSS helps address:
 
 - **Universal Model Support**: Run models locally (vLLM, LlamaCPP, Transformers) or connect to hosted APIs (Anthropic, Gemini, OpenAI, Together, Parasail, Vertex AI, SambaNova) through a single, consistent interface
 - **Production-Ready**: Support for batching, retries, error-handling, structured outputs, and high-performance inference via multi-threading to hit a target throughput.
@@ -49,7 +49,7 @@ engine = VLLMInferenceEngine(
 
 # Create a conversation
 conversation = Conversation(
-    messages=[Message(role=Role.USER, content="What is Oumi?")]
+    messages=[Message(role=Role.USER, content="What is Oumi OSS?")]
 )
 
 # Get response
@@ -88,7 +88,7 @@ response = result[0].messages[-1].content
 
 ### Inference Engines
 
-Inference Engines are simple tools for running inference on models in Oumi. This includes newly trained models, downloaded pretrained models, and even remote APIs such as Anthropic, Gemini, and OpenAI.
+Inference Engines are simple tools for running inference on models in Oumi OSS. This includes newly trained models, downloaded pretrained models, and even remote APIs such as Anthropic, Gemini, and OpenAI.
 
 #### Choosing an Engine
 
@@ -96,7 +96,7 @@ Our engines are broken into two categories: local inference vs remote inference.
 
 Generally, the answer is simple: if you have sufficient resources to run the model locally without OOMing, then use a local engine like {py:obj}`~oumi.inference.VLLMInferenceEngine`, {py:obj}`~oumi.inference.NativeTextInferenceEngine`, or {py:obj}`~oumi.inference.LlamaCppInferenceEngine`.
 
-If you don't have enough local compute resources, then the model must be hosted elsewhere. Our remote inference engines assume that your model is hosted behind a remote API. You can use {py:obj}`~oumi.inference.AnthropicInferenceEngine`, {py:obj}`~oumi.inference.GoogleGeminiInferenceEngine`, or {py:obj}`~oumi.inference.GoogleVertexInferenceEngine`, {py:obj}`~oumi.inference.SambanovaInferenceEngine`..., to call their respective APIs. You can also use {py:obj}`~oumi.inference.RemoteInferenceEngine` to call any API implementing the OpenAI Chat API format (including OpenAI's native API), or use {py:obj}`~oumi.inference.SGLangInferenceEngine` or {py:obj}`~oumi.inference.RemoteVLLMInferenceEngine` to call external SGLang or vLLM servers started remotely or locally outside of Oumi.
+If you don't have enough local compute resources, then the model must be hosted elsewhere. Our remote inference engines assume that your model is hosted behind a remote API. You can use {py:obj}`~oumi.inference.AnthropicInferenceEngine`, {py:obj}`~oumi.inference.GoogleGeminiInferenceEngine`, or {py:obj}`~oumi.inference.GoogleVertexInferenceEngine`, {py:obj}`~oumi.inference.SambanovaInferenceEngine`..., to call their respective APIs. You can also use {py:obj}`~oumi.inference.RemoteInferenceEngine` to call any API implementing the OpenAI Chat API format (including OpenAI's native API), or use {py:obj}`~oumi.inference.SGLangInferenceEngine` or {py:obj}`~oumi.inference.RemoteVLLMInferenceEngine` to call external SGLang or vLLM servers started remotely or locally outside of Oumi OSS.
 
 For a comprehensive list of engines, see the [Supported Engines](#supported-engines) section below.
 
@@ -123,7 +123,7 @@ from oumi.core.types.conversation import Conversation, Message, Role
 model_params = ModelParams(model_name="HuggingFaceTB/SmolLM2-135M-Instruct")
 engine = VLLMInferenceEngine(model_params)
 conversation = Conversation(
-    messages=[Message(role=Role.USER, content="What is Oumi?")]
+    messages=[Message(role=Role.USER, content="What is Oumi OSS?")]
 )
 
 inference_config = InferenceConfig()
@@ -135,7 +135,7 @@ print(output_conversations)
 
 #### Input Data
 
-Oumi supports several input formats for inference:
+Oumi OSS supports several input formats for inference:
 
 1. JSONL files
     - Prepare a JSONL file with your inputs, where each line is a JSON object containing your input data.
@@ -229,7 +229,7 @@ for inference with Llama 3.3 70B on {gh}`notebooks/Oumi - Using vLLM Engine for 
 
 ### Save and Resume
 
-Oumi's inference system provides robust failure recovery through automatic saving and resuming of inference results. This ensures that long-running inference jobs can recover gracefully from interruptions without losing progress.
+Oumi OSS's inference system provides robust failure recovery through automatic saving and resuming of inference results. This ensures that long-running inference jobs can recover gracefully from interruptions without losing progress.
 
 #### How It Works
 
@@ -262,7 +262,7 @@ The hash is generated from your model parameters, generation parameters, and dat
 
 ### Adaptive Inference
 
-Oumi now includes **adaptive concurrency control** for remote inference engines, which automatically adjusts the number of concurrent requests based on error rate. This feature helps optimize throughput while preventing rate limit violations and API overload.
+Oumi OSS now includes **adaptive concurrency control** for remote inference engines, which automatically adjusts the number of concurrent requests based on error rate. This feature helps optimize throughput while preventing rate limit violations and API overload.
 
 #### How It Works
 

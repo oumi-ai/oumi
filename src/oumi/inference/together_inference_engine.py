@@ -41,6 +41,27 @@ class TogetherInferenceEngine(RemoteInferenceEngine):
     See: https://docs.together.ai/docs/batch-inference
     """
 
+    @override
+    async def _fetch_models(self) -> list[dict[str, Any]]:
+        """Fetches models from Together's API, which returns a raw list."""
+        async with self._create_session() as (session, headers):
+            async with session.get(
+                self.get_models_api_url(),
+                headers=headers,
+            ) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    raise RuntimeError(
+                        f"Failed to list models: {response.status} {error_text}"
+                    )
+                data = await response.json()
+                return data if isinstance(data, list) else data.get("data", [])
+
+    @override
+    def _filter_chat_models(self, models: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Filters to chat models using Together's ``type`` field."""
+        return [m for m in models if m.get("type") == "chat"]
+
     @property
     @override
     def base_url(self) -> str | None:
@@ -52,6 +73,25 @@ class TogetherInferenceEngine(RemoteInferenceEngine):
     def api_key_env_varname(self) -> str | None:
         """Return the default environment variable name for the Together API key."""
         return "TOGETHER_API_KEY"
+
+    @staticmethod
+    @override
+    def _extract_usage_from_response(
+        response: dict[str, Any],
+    ) -> dict[str, int] | None:
+        """Extract normalized token usage from a Together AI API response.
+
+        Together AI returns cached_tokens as a flat field in the usage object
+        rather than nested under prompt_tokens_details like OpenAI.
+        """
+        result = RemoteInferenceEngine._extract_usage_from_response(response)
+        if result is None:
+            return None
+        usage = response.get("usage", {})
+        cached_tokens = usage.get("cached_tokens", 0)
+        if cached_tokens:
+            result["cached_tokens"] = cached_tokens
+        return result
 
     @property
     def _batch_purpose(self) -> str:

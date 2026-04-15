@@ -2086,6 +2086,29 @@ def test_convert_api_output_no_usage():
     assert result.metadata["key"] == "value"
 
 
+def test_convert_api_output_content_null_returns_empty_string():
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
+    )
+    original = Conversation(
+        messages=[Message(content="Hello", role=Role.USER)],
+    )
+    response = {
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                }
+            }
+        ],
+    }
+    result = engine._convert_api_output_to_conversation(response, original)
+    assert result.messages[-1].content == ""
+    assert result.messages[-1].role == Role.ASSISTANT
+
+
 @pytest.mark.asyncio
 async def test_upload_batch_file():
     """Test uploading a batch file."""

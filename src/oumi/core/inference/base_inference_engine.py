@@ -431,6 +431,22 @@ class BaseInferenceEngine(ABC):
                         "This parameter will be ignored."
                     )
 
+    def list_models(self, chat_only: bool = True) -> list[str]:
+        """Returns a list of model IDs supported by this engine.
+
+        Override this method in derived classes to query the provider's API
+        for available models. The default implementation returns the model
+        name this engine was initialized with.
+
+        Args:
+            chat_only: If True (default), only return models that support
+                chat completions. If False, return all models.
+
+        Returns:
+            list[str]: A list of supported model ID strings.
+        """
+        return [self._model_params.model_name]
+
     @abstractmethod
     def get_supported_params(self) -> set[str]:
         """Returns a set of supported generation parameters for this engine.

@@ -133,6 +133,12 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         if generation_params.stop_strings is not None:
             body["stop_sequences"] = generation_params.stop_strings
 
+        # Enable prompt caching. Anthropic automatically caches content up to
+        # the last cacheable block. This reduces latency and cost for repeated
+        # prefixes (system prompts, long context, multi-turn conversations).
+        # See: https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching
+        body["cache_control"] = {"type": "ephemeral"}
+
         return body
 
     @staticmethod
@@ -182,8 +188,17 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         self, response: dict[str, Any], original_conversation: Conversation
     ) -> Conversation:
         """Converts an Anthropic API response to a conversation."""
+        content_blocks = response.get(_CONTENT_KEY, [])
+        if not content_blocks:
+            raise RuntimeError(
+                f"Anthropic API returned empty content. "
+                f"stop_reason={response.get('stop_reason')}, "
+                f"type={response.get('type')}, "
+                f"model={response.get('model')}, "
+                f"usage={response.get('usage')}"
+            )
         new_message = Message(
-            content=response[_CONTENT_KEY][0]["text"],
+            content=content_blocks[0]["text"],
             role=Role.ASSISTANT,
         )
         metadata = dict(original_conversation.metadata)
