@@ -243,7 +243,10 @@ class TestEngine:
                 else:
                     return None
             else:
-                return None
+                raise TypeError(
+                    f"Cannot traverse type {type(current).__name__}. "
+                    f"Expected BaseModel or dict, got {current!r}"
+                )
         return current
 
     def _traverse_dict(self, d: dict, path: list[str]) -> Any | None:
