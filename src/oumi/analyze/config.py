@@ -242,7 +242,13 @@ class TypedAnalyzeConfig:
                     analyzer_data["display_name"] = analyzer_data.pop("instance_id")
                 elif "instance_id" in analyzer_data:
                     analyzer_data.pop("instance_id")  # "display_name" takes precedence
-                analyzers.append(AnalyzerConfig(**analyzer_data))
+                try:
+                    analyzers.append(AnalyzerConfig(**analyzer_data))
+                except TypeError as e:
+                    raise ValueError(
+                        f"Invalid analyzer config: {e}. "
+                        f"Valid fields: type, display_name, params"
+                    ) from None
             elif isinstance(analyzer_data, str):
                 analyzers.append(AnalyzerConfig(type=analyzer_data))
 
@@ -267,7 +273,15 @@ class TypedAnalyzeConfig:
                 test_data["display_name"] = test_data.pop("title")
             elif "title" in test_data:
                 test_data.pop("title")  # "display_name" takes precedence
-            tests.append(TestConfigYAML(**test_data))
+            try:
+                tests.append(TestConfigYAML(**test_data))
+            except TypeError as e:
+                raise ValueError(
+                    f"Invalid test config: {e}. "
+                    f"Valid fields: id, type, metric, severity, display_name, "
+                    f"description, operator, value, condition, "
+                    f"max_percentage, min_percentage, min_value, max_value"
+                ) from None
 
         return cls(
             eval_name=data.get("eval_name"),

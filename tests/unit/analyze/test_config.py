@@ -190,3 +190,37 @@ def test_from_dict_test_title_backward_compat():
 
     config = TypedAnalyzeConfig.from_dict(data)
     assert config.tests[0].display_name == "Token count check"
+
+
+# -----------------------------------------------------------------------------
+# Tests: Unknown YAML fields
+# -----------------------------------------------------------------------------
+
+
+def test_from_dict_unknown_analyzer_field_raises_value_error():
+    """Test that typos in analyzer config raise ValueError."""
+    data = {
+        "analyzers": [
+            {"type": "length", "typo_field": "oops"},
+        ]
+    }
+
+    with pytest.raises(ValueError, match="Invalid analyzer config"):
+        TypedAnalyzeConfig.from_dict(data)
+
+
+def test_from_dict_unknown_test_field_raises_value_error():
+    """Test that typos in test config raise ValueError."""
+    data = {
+        "tests": [
+            {
+                "id": "check",
+                "type": "threshold",
+                "metric": "Length.total_tokens",
+                "oops": "bad_field",
+            }
+        ]
+    }
+
+    with pytest.raises(ValueError, match="Invalid test config"):
+        TypedAnalyzeConfig.from_dict(data)
