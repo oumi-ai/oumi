@@ -21,89 +21,14 @@ instead of DataFrames. Tests are pure validation - no computation allowed.
 import logging
 import operator
 from collections.abc import Callable
-from dataclasses import dataclass
-from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel
 
 from oumi.analyze.testing.results import TestResult, TestSeverity, TestSummary
+from oumi.core.configs.params.test_params import TestParams, TestType
 
 logger = logging.getLogger(__name__)
-
-
-class TestType(str, Enum):
-    """Types of tests that can be run."""
-
-    __test__ = False  # Prevent pytest from collecting this as a test class
-
-    THRESHOLD = "threshold"
-    """Check if metric exceeds a threshold."""
-
-
-@dataclass
-class TestConfig:
-    """Configuration for a single test.
-
-    Accepts both typed enums and raw strings (for YAML parsing).
-    Strings are converted to enums in ``__post_init__``.
-
-    Attributes:
-        id: Unique identifier for the test.
-        type: Type of test to run (``TestType`` enum or string).
-        metric: Path to the metric field (e.g., "Length.total_tokens").
-        severity: Severity level if test fails (``TestSeverity`` enum or string).
-        title: Human-readable title.
-        description: Description of what the test checks.
-        operator: Comparison operator for threshold tests.
-        value: Value to compare against.
-        max_percentage: Maximum allowed percentage matching the condition.
-        min_percentage: Minimum required percentage matching the condition.
-    """
-
-    __test__ = False  # Prevent pytest from collecting this as a test class
-
-    id: str
-    type: TestType
-    metric: str
-    severity: TestSeverity = TestSeverity.MEDIUM
-    title: str = ""
-    description: str = ""
-
-    # Threshold test parameters
-    operator: str | None = None  # "<", ">", "<=", ">=", "==", "!="
-    value: float | int | str | None = None
-
-    # Percentage thresholds
-    max_percentage: float | None = None
-    min_percentage: float | None = None
-
-    def __init__(
-        self,
-        id: str,
-        type: "TestType | str",
-        metric: str,
-        severity: "TestSeverity | str" = TestSeverity.MEDIUM,
-        title: str = "",
-        description: str = "",
-        operator: str | None = None,
-        value: float | int | str | None = None,
-        max_percentage: float | None = None,
-        min_percentage: float | None = None,
-    ):
-        """Initialize, converting strings to enums."""
-        self.id = id
-        self.type = TestType(type) if isinstance(type, str) else type
-        self.metric = metric
-        self.severity = (
-            TestSeverity(severity) if isinstance(severity, str) else severity
-        )
-        self.title = title
-        self.description = description
-        self.operator = operator
-        self.value = value
-        self.max_percentage = max_percentage
-        self.min_percentage = min_percentage
 
 
 # Maximum number of sample indices to include in test results
@@ -130,10 +55,10 @@ class TestEngine:
     pre-computed by analyzers.
 
     Example:
-        >>> from oumi.analyze.testing import TestEngine, TestConfig, TestType
+        >>> from oumi.analyze.testing import TestEngine, TestParams, TestType
         >>>
         >>> tests = [
-        ...     TestConfig(
+        ...     TestParams(
         ...         id="max_words",
         ...         type=TestType.THRESHOLD,
         ...         metric="LengthAnalyzer.total_words",
@@ -153,7 +78,7 @@ class TestEngine:
 
     __test__ = False  # Prevent pytest from collecting this as a test class
 
-    def __init__(self, tests: list[TestConfig]):
+    def __init__(self, tests: list[TestParams]):
         """Initialize the test engine.
 
         Args:
@@ -161,12 +86,12 @@ class TestEngine:
         """
         self.tests = tests
 
-    def _create_error_result(self, test: TestConfig, error: str) -> TestResult:
+    def _create_error_result(self, test: TestParams, error: str) -> TestResult:
         """Create a TestResult for an error condition."""
         return TestResult(
             test_id=test.id,
             passed=False,
-            severity=test.severity,
+            severity=TestSeverity(test.severity),
             title=test.title or test.id,
             description=test.description or "",
             metric=test.metric or "",
@@ -219,7 +144,7 @@ class TestEngine:
 
     def _run_single_test(
         self,
-        test: TestConfig,
+        test: TestParams,
         results: dict[str, list[BaseModel] | BaseModel],
     ) -> TestResult:
         """Run a single test.
@@ -232,6 +157,8 @@ class TestEngine:
             TestResult for this test.
         """
         # Extract values for the metric (with original indices preserved)
+        if not test.metric:
+            return self._create_error_result(test, "Test requires 'metric' field")
         indexed_values = self._extract_metric_values(test.metric, results)
 
         if not indexed_values:
@@ -331,7 +258,7 @@ class TestEngine:
 
     def _run_threshold_test(
         self,
-        test: TestConfig,
+        test: TestParams,
         indexed_values: list[tuple[int, Any]],
     ) -> TestResult:
         """Run a threshold test.
@@ -432,9 +359,9 @@ class TestEngine:
         return TestResult(
             test_id=test.id,
             passed=passed,
-            severity=test.severity,
+            severity=TestSeverity(test.severity),
             title=test.title or test.id,
-            description=test.description,
+            description=test.description or "",
             metric=test.metric or "",
             affected_count=affected_count,
             total_count=total_count,

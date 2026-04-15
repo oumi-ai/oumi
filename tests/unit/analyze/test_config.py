@@ -159,7 +159,7 @@ def test_from_dict_display_name_takes_precedence_over_instance_id():
 
 
 def test_from_dict_test_display_name():
-    """Test that YAML display_name is mapped to TestConfig.title."""
+    """Test that YAML display_name is mapped to TestParams.title."""
     data = {
         "tests": [
             {

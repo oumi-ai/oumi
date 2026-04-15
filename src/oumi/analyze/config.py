@@ -23,7 +23,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from oumi.analyze.testing.engine import TestConfig
+from oumi.core.configs.params.test_params import TestParams
 
 
 class AnalyzerType(str, Enum):
@@ -127,7 +127,7 @@ class TypedAnalyzeConfig:
     analyzers: list[AnalyzerConfig] = field(default_factory=list)
 
     # Tests
-    tests: list[TestConfig] = field(default_factory=list)
+    tests: list[TestParams] = field(default_factory=list)
 
     # Tokenizer
     tokenizer_name: str | None = None
@@ -208,13 +208,13 @@ class TypedAnalyzeConfig:
         tests = []
         for test_data in data.get("tests", []):
             test_data = dict(test_data)  # don't mutate caller's dict
-            # YAML uses "display_name" or "title"; TestConfig uses "title"
+            # YAML uses "display_name" or "title"; TestParams uses "title"
             if "display_name" in test_data and "title" not in test_data:
                 test_data["title"] = test_data.pop("display_name")
             elif "display_name" in test_data:
                 test_data.pop("display_name")  # "title" takes precedence
             try:
-                tests.append(TestConfig(**test_data))
+                tests.append(TestParams(**test_data))
             except (TypeError, ValueError) as e:
                 raise ValueError(
                     f"Invalid test config: {e}. "
@@ -284,10 +284,10 @@ class TypedAnalyzeConfig:
             "report_title": self.report_title,
         }
 
-    def get_test_configs(self) -> list[TestConfig]:
+    def get_test_configs(self) -> list[TestParams]:
         """Get test configurations for the test engine.
 
         Returns:
-            List of TestConfig instances.
+            List of TestParams instances.
         """
         return list(self.tests)
