@@ -618,3 +618,23 @@ class TemplatedMessage(pydantic.BaseModel):
         """Returns the message in oumi format."""
         content = str(self.content)
         return Message(content=content, role=self.role)
+
+
+class PlannedTurn(pydantic.BaseModel):
+    """A single turn in a planned multi-turn conversation."""
+
+    model_config = pydantic.ConfigDict(extra="forbid")
+
+    turn: int = pydantic.Field(ge=1, description="1-indexed turn number.")
+    instruction: str = pydantic.Field(description="What should happen on this turn.")
+
+
+class PlannerOutput(pydantic.BaseModel):
+    """Top-level planner output: a list of planned turns wrapped in an object."""
+
+    model_config = pydantic.ConfigDict(extra="forbid")
+
+    turns: list[PlannedTurn]
+
+
+PLANNER_JSON_SCHEMA: dict = PlannerOutput.model_json_schema()

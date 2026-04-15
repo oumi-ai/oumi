@@ -12,19 +12,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
+import dataclasses
 import random
 
 from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.configs.environment_config import EnvironmentConfig
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.inference_engine_type import InferenceEngineType
+from oumi.core.configs.params.generation_params import GenerationParams
+from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.configs.params.synthesis_params import (
     GeneralSynthesisParams,
     MultiTurnAttribute,
 )
 from oumi.core.configs.params.tool_params import ToolParams
 from oumi.core.synthesis.attribute_formatter import AttributeFormatter
-from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.core.types.conversation import (
+    PLANNER_JSON_SCHEMA,
+    Conversation,
+    Message,
+    Role,
+)
 from oumi.utils.logging import logger
 from oumi.utils.str_utils import extract_json
 
@@ -223,8 +232,9 @@ class ConversationSynthesizer:
     def _parse_plan(self, plan: str, target_turns: int) -> list[str] | None:
         """Parse a JSON-formatted conversation plan.
 
-        Extracts turn instructions from JSON array. Expects format:
-        [{"turn": 1, "instruction": "..."}, ...]
+        Extracts turn instructions from the planner output. Expects the
+        guided-decoding object form ``{"turns": [{"turn": 1, ...}, ...]}``;
+        also accepts a bare array as a backward-compatible fallback.
 
         Args:
             plan: The full plan text from the planner.
@@ -236,12 +246,17 @@ class ConversationSynthesizer:
         if not plan:
             return None
 
-        turns = extract_json(plan, expected_type=list)
-        if turns is None:
-            single = extract_json(plan, expected_type=dict)
-            if single is not None:
-                turns = [single]
+        wrapped = extract_json(plan, expected_type=dict)
+        if isinstance(wrapped, dict):
+            if isinstance(wrapped.get("turns"), list):
+                turns = wrapped["turns"]
             else:
+                # Backward-compat: planner emitted a single-turn dict.
+                turns = [wrapped]
+        else:
+            # Backward-compat: planner emitted a bare array.
+            turns = extract_json(plan, expected_type=list)
+            if turns is None:
                 return None
 
         result = [""] * target_turns
@@ -361,11 +376,7 @@ class ConversationSynthesizer:
     def _create_planner_prompt(
         self, multiturn_attribute: MultiTurnAttribute, sample: dict
     ) -> Conversation:
-        """Create the planner prompt template with role context and turn order.
-
-        Returns a Conversation with a one-shot example for consistent formatting.
-        The prompt instructs the model to output JSON wrapped in code fences.
-        """
+        """Create the planner prompt template with role context and turn order."""
         role_context = self._build_role_context(sample, multiturn_attribute)
         turn_order = self._default_turn_order
         target_turns = sample["target_turns"]
@@ -374,8 +385,10 @@ class ConversationSynthesizer:
         system_prompt = (
             "You are a conversation planner. Create conversation outlines "
             "that flow logically from start to finish.\n\n"
-            "IMPORTANT: Output your plan as a JSON array wrapped in ```json code "
-            "fences. Each element must have: turn (number) and instruction (string).\n"
+            "IMPORTANT: Output your plan as a raw JSON object with a `turns` "
+            "array. Do not use markdown or code fences. "
+            "Each element of `turns` must have: turn (number) and instruction "
+            "(string).\n"
             "Your instructions MUST be specific to the role context provided. "
             "Each turn's instruction should reflect what that specific role "
             "would do at that point in the conversation."
@@ -393,14 +406,12 @@ class ConversationSynthesizer:
             "Additional instructions: Focus on resolving the order issue "
             "efficiently while maintaining a polite and helpful tone."
         )
-        example_response = """```json
-[
+        example_response = """{"turns": [
   {"turn": 1, "instruction": "Greet support and explain the issue with the order"},
   {"turn": 2, "instruction": "Acknowledge the issue and ask for order details"},
   {"turn": 3, "instruction": "Provide order number and describe the problem further"},
   {"turn": 4, "instruction": "Confirm the issue and offer a resolution"}
-]
-```"""
+]}"""
 
         base_prompt = (
             f"Plan a {target_turns}-turn conversation.\n"
@@ -423,10 +434,7 @@ class ConversationSynthesizer:
             )
             base_prompt += f"\nAdditional instructions: {formatted_planner}\n"
 
-        base_prompt += (
-            "\nOutput ONLY the JSON array wrapped in ```json code fences. "
-            "No other text."
-        )
+        base_prompt += "\nOutput ONLY the JSON object. No markdown. No other text."
 
         return Conversation(
             messages=[
@@ -448,10 +456,33 @@ class ConversationSynthesizer:
         """
         inference_results = self._inference_engine.infer(
             planners,
-            inference_config=self._inference_config,
+            inference_config=self._planner_inference_config(),
         )
 
         return self._extract_response(inference_results)
+
+    def _planner_inference_config(self) -> InferenceConfig:
+        """Create an inference config for planner calls with JSON guided decoding."""
+        base_generation = getattr(self._inference_config, "generation", None)
+        if isinstance(base_generation, GenerationParams):
+            planner_generation = dataclasses.replace(
+                base_generation,
+                guided_decoding=GuidedDecodingParams(json=PLANNER_JSON_SCHEMA),  # noqa: E501
+            )
+        else:
+            planner_generation = GenerationParams(
+                guided_decoding=GuidedDecodingParams(json=PLANNER_JSON_SCHEMA)
+            )
+
+        if isinstance(self._inference_config, InferenceConfig):
+            return dataclasses.replace(
+                self._inference_config,
+                generation=planner_generation,
+            )
+
+        planner_config = copy.copy(self._inference_config)
+        planner_config.generation = planner_generation
+        return planner_config
 
     def _synthesize_all_samples(
         self,
@@ -474,6 +505,7 @@ class ConversationSynthesizer:
         histories: list[list[Message]] = [[] for _ in samples]
         max_turns = max(sample["target_turns"] for sample in samples)
 
+        turn_order = self._default_turn_order
         for turn_idx in range(max_turns):
             current_turn = turn_idx + 1
 
@@ -485,7 +517,6 @@ class ConversationSynthesizer:
                 if turn_idx >= sample["target_turns"]:
                     continue
 
-                turn_order = self._default_turn_order
                 role = turn_order[turn_idx % len(turn_order)]
                 roles_for_turn.append(role)
 
