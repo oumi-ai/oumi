@@ -93,23 +93,23 @@ class _AnalyzerMetaMixin:
     def _get_result_type(cls) -> type | None:
         """Get the result type from the generic parameter.
 
-        Walks through the class's base classes to find the generic type
-        argument (TResult) from the analyzer base class.
+        Walks the MRO to find the generic type argument (TResult) from
+        the analyzer base class. This handles both direct generic
+        subclasses (e.g., ``class MyAnalyzer(ConversationAnalyzer[Metrics])``)
+        and subclasses of concrete analyzers (e.g., ``class Sub(MyAnalyzer)``).
 
         Returns:
             The result type class, or None if not found.
         """
-        # Walk through all original bases to find generic parameters
-        for base in getattr(cls, "__orig_bases__", []):
-            if hasattr(base, "__origin__"):
-                # Check if this base is one of our analyzer types
-                origin = base.__origin__
-                if origin in (
-                    MessageAnalyzer,
-                    ConversationAnalyzer,
-                    DatasetAnalyzer,
-                    PreferenceAnalyzer,
-                ):
+        analyzer_bases = (
+            MessageAnalyzer,
+            ConversationAnalyzer,
+            DatasetAnalyzer,
+            PreferenceAnalyzer,
+        )
+        for klass in cls.__mro__:
+            for base in getattr(klass, "__orig_bases__", []):
+                if hasattr(base, "__origin__") and base.__origin__ in analyzer_bases:
                     args = get_args(base)
                     if args:
                         return args[0]

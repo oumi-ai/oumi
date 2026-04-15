@@ -621,3 +621,33 @@ def test_duplicate_analyzer_names_raises_error():
 
     with pytest.raises(ValueError, match="Duplicate analyzer names"):
         AnalysisPipeline(analyzers=[analyzer1, analyzer2])
+
+
+# -----------------------------------------------------------------------------
+# Tests: _get_result_type for subclasses
+# -----------------------------------------------------------------------------
+
+
+class DerivedFromConcrete(SimpleConversationAnalyzer):
+    """Subclass of a concrete analyzer (not directly generic)."""
+
+    def analyze(self, conversation: Conversation) -> SimpleMetrics:
+        return SimpleMetrics(value=99, name="derived")
+
+
+def test_get_result_type_direct_generic():
+    """Test _get_result_type on a direct generic subclass."""
+    assert SimpleConversationAnalyzer._get_result_type() is SimpleMetrics
+
+
+def test_get_result_type_subclass_of_concrete():
+    """Test _get_result_type walks MRO to find the generic parameter."""
+    result_type = DerivedFromConcrete._get_result_type()
+    assert result_type is SimpleMetrics
+
+
+def test_get_metric_names_subclass_of_concrete():
+    """Test get_metric_names works for subclasses of concrete analyzers."""
+    names = DerivedFromConcrete.get_metric_names()
+    assert "value" in names
+    assert "name" in names
