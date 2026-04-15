@@ -13,7 +13,7 @@ Oumi's dataset analysis framework helps you understand training data before and 
 **Key capabilities:**
 
 - **Profile datasets**: Token counts, length distributions, turn statistics
-- **Quality control**: Empty messages, truncation, policy refusals, invalid values
+- **Quality control**: Turn alternation, empty messages, invalid values
 - **Validate data**: Configurable tests with threshold, percentage, and range checks
 - **Export results**: CSV, JSON, or Parquet output with statistical summaries
 
