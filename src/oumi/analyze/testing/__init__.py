@@ -14,15 +14,18 @@
 
 """Test engine for validating analysis results."""
 
-from oumi.analyze.testing.engine import TestConfig, TestEngine, TestType
+from oumi.analyze.testing.batch_engine import BatchTestEngine
+from oumi.analyze.testing.engine import TestConfig, TestEngine
+from oumi.analyze.testing.engine import TestType as TypedTestType
 from oumi.analyze.testing.results import TestResult, TestSeverity, TestSummary
 
-# Backward compatibility: API worker imports TestParams from here.
-# TestParams lives in oumi.core.configs.params.test_params and is the
-# older dataclass used by the batch engine and API layer.
-from oumi.core.configs.params.test_params import TestParams
+# Backward compatibility: API worker and batch engine import TestParams
+# and TestType from here.  Re-export the core versions to keep existing
+# ``from oumi.analyze.testing import TestType`` working.
+from oumi.core.configs.params.test_params import TestParams, TestType
 
 __all__ = [
+    "BatchTestEngine",
     "TestConfig",
     "TestEngine",
     "TestParams",
@@ -30,4 +33,5 @@ __all__ = [
     "TestSeverity",
     "TestSummary",
     "TestType",
+    "TypedTestType",
 ]
