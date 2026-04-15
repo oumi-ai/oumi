@@ -611,3 +611,13 @@ def test_multiple_analyzers_same_type(sample_conversations: list[Conversation]):
     # First conversation has 2 messages
     assert results["conv_analyzer_1"][0].value == 2  # 2 * 1
     assert results["conv_analyzer_2"][0].value == 4  # 2 * 2
+
+
+def test_duplicate_analyzer_names_raises_error():
+    """Test that duplicate analyzer names raise an error at construction time."""
+    analyzer1 = SimpleConversationAnalyzer(multiplier=1)
+    analyzer2 = SimpleConversationAnalyzer(multiplier=2)
+    # Both default to "SimpleConversationAnalyzer" without explicit analyzer_id
+
+    with pytest.raises(ValueError, match="Duplicate analyzer names"):
+        AnalysisPipeline(analyzers=[analyzer1, analyzer2])

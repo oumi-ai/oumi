@@ -96,6 +96,16 @@ class AnalysisPipeline:
         self.analyzers = analyzers
         self.cache_dir = Path(cache_dir) if cache_dir else None
 
+        # Validate unique analyzer names
+        names = [self._get_analyzer_name(a) for a in analyzers]
+        duplicates = [n for n in set(names) if names.count(n) > 1]
+        if duplicates:
+            raise ValueError(
+                f"Duplicate analyzer names: {duplicates}. "
+                "Set unique 'analyzer_id' attributes on each analyzer instance "
+                "to avoid result collisions."
+            )
+
         # Results storage
         self._results: AnalysisResults = {}
         self._conversations: list[Conversation] = []
