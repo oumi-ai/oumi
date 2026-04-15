@@ -16,11 +16,8 @@
 
 import pytest
 
-from oumi.analyze.analyzers.quality import (
-    DataQualityAnalyzer,
-    DataQualityMetrics,
-)
-from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.analyze.analyzers.quality import DataQualityAnalyzer, DataQualityMetrics
+from oumi.core.types.conversation import ContentItem, Conversation, Message, Role, Type
 
 # -----------------------------------------------------------------------------
 # Fixtures
@@ -28,64 +25,44 @@ from oumi.core.types.conversation import Conversation, Message, Role
 
 
 @pytest.fixture
-def simple_conversation() -> Conversation:
-    """Create a simple two-message conversation."""
-    return Conversation(
-        messages=[
-            Message(role=Role.USER, content="Hello, how are you?"),
-            Message(role=Role.ASSISTANT, content="I'm doing well, thanks!"),
-        ]
-    )
+def analyzer() -> DataQualityAnalyzer:
+    """Create a DataQualityAnalyzer instance."""
+    return DataQualityAnalyzer()
 
 
 @pytest.fixture
-def conversation_with_system() -> Conversation:
-    """Create a conversation with a system message."""
+def alternating_conversation() -> Conversation:
+    """Create a properly alternating user/assistant conversation."""
     return Conversation(
         messages=[
-            Message(role=Role.SYSTEM, content="You are a helpful assistant."),
-            Message(role=Role.USER, content="What is Python?"),
-            Message(
-                role=Role.ASSISTANT,
-                content="Python is a high-level programming language.",
-            ),
+            Message(role=Role.USER, content="Hello"),
+            Message(role=Role.ASSISTANT, content="Hi there!"),
+            Message(role=Role.USER, content="How are you?"),
+            Message(role=Role.ASSISTANT, content="I'm doing well, thanks."),
         ]
     )
 
 
 @pytest.fixture
 def non_alternating_conversation() -> Conversation:
-    """Create a conversation with non-alternating turns."""
+    """Create a conversation with consecutive assistant messages."""
     return Conversation(
         messages=[
             Message(role=Role.USER, content="Hello"),
-            Message(role=Role.USER, content="Are you there?"),
-            Message(role=Role.ASSISTANT, content="Yes, I'm here!"),
-        ]
-    )
-
-
-@pytest.fixture
-def conversation_with_empty_turns() -> Conversation:
-    """Create a conversation with empty messages."""
-    return Conversation(
-        messages=[
-            Message(role=Role.USER, content="Hello"),
-            Message(role=Role.ASSISTANT, content=""),
-            Message(role=Role.USER, content="  "),
-            Message(role=Role.ASSISTANT, content="Sorry about that!"),
+            Message(role=Role.ASSISTANT, content="Hi there!"),
+            Message(role=Role.ASSISTANT, content="Let me add more."),
         ]
     )
 
 
 @pytest.fixture
 def empty_conversation() -> Conversation:
-    """Create an empty conversation."""
+    """Create a conversation with no messages."""
     return Conversation(messages=[])
 
 
 # -----------------------------------------------------------------------------
-# DataQualityMetrics Model Tests
+# DataQualityMetrics Tests
 # -----------------------------------------------------------------------------
 
 
@@ -109,91 +86,86 @@ def test_metrics_creation():
     assert metrics.invalid_value_patterns == []
 
 
-def test_metrics_with_issues():
-    """Test DataQualityMetrics with quality issues detected."""
-    metrics = DataQualityMetrics(
-        has_non_alternating_turns=True,
-        has_no_user_message=True,
-        has_system_message_not_at_start=True,
-        has_empty_turns=True,
-        empty_turn_count=2,
-        has_invalid_values=True,
-        invalid_value_patterns=["NaN", "null"],
-    )
-    assert metrics.has_non_alternating_turns is True
-    assert metrics.has_no_user_message is True
-    assert metrics.has_system_message_not_at_start is True
-    assert metrics.has_empty_turns is True
-    assert metrics.empty_turn_count == 2
-    assert metrics.has_invalid_values is True
-    assert metrics.invalid_value_patterns == ["NaN", "null"]
-
-
 # -----------------------------------------------------------------------------
-# DataQualityAnalyzer Initialization Tests
+# Alternating Turns Tests
 # -----------------------------------------------------------------------------
 
 
-def test_default_initialization():
-    """Test DataQualityAnalyzer initializes without errors."""
-    analyzer = DataQualityAnalyzer()
-    assert analyzer is not None
-
-
-# -----------------------------------------------------------------------------
-# Turn Pattern Tests
-# -----------------------------------------------------------------------------
-
-
-def test_alternating_turns(simple_conversation):
-    """Test detection of proper alternating turns."""
-    analyzer = DataQualityAnalyzer()
-    result = analyzer.analyze(simple_conversation)
-
+def test_alternating_conversation_passes(analyzer, alternating_conversation):
+    """Properly alternating conversation is not flagged."""
+    result = analyzer.analyze(alternating_conversation)
     assert result.has_non_alternating_turns is False
 
 
-def test_non_alternating_turns(non_alternating_conversation):
-    """Test detection of non-alternating turns."""
-    analyzer = DataQualityAnalyzer()
+def test_consecutive_assistant_turns_flagged(analyzer, non_alternating_conversation):
+    """Consecutive assistant messages are flagged as non-alternating."""
     result = analyzer.analyze(non_alternating_conversation)
-
     assert result.has_non_alternating_turns is True
 
 
-def test_system_message_ignored_in_alternation(conversation_with_system):
-    """Test that system messages are excluded from alternation check."""
-    analyzer = DataQualityAnalyzer()
-    result = analyzer.analyze(conversation_with_system)
-
-    assert result.has_non_alternating_turns is False
-
-
-def test_consecutive_assistant_messages():
-    """Test detection of consecutive assistant messages."""
-    conv = Conversation(
+def test_consecutive_user_turns_flagged(analyzer):
+    """Consecutive user messages are flagged as non-alternating."""
+    conversation = Conversation(
         messages=[
+            Message(role=Role.USER, content="Hello"),
+            Message(role=Role.USER, content="Anyone there?"),
+            Message(role=Role.ASSISTANT, content="Hi!"),
+        ]
+    )
+    result = analyzer.analyze(conversation)
+    assert result.has_non_alternating_turns is True
+
+
+def test_system_message_ignored_in_alternation_check(analyzer):
+    """System messages are excluded from the alternation check."""
+    conversation = Conversation(
+        messages=[
+            Message(role=Role.SYSTEM, content="You are helpful."),
             Message(role=Role.USER, content="Hello"),
             Message(role=Role.ASSISTANT, content="Hi!"),
-            Message(role=Role.ASSISTANT, content="How can I help?"),
+            Message(role=Role.USER, content="Thanks"),
+            Message(role=Role.ASSISTANT, content="Sure!"),
         ]
     )
-    analyzer = DataQualityAnalyzer()
-    result = analyzer.analyze(conv)
-
-    assert result.has_non_alternating_turns is True
+    result = analyzer.analyze(conversation)
+    assert result.has_non_alternating_turns is False
 
 
-def test_single_message_no_alternation_issue():
-    """Test that a single message doesn't flag alternation issues."""
-    conv = Conversation(
+def test_tool_turn_breaks_alternation(analyzer):
+    """Tool turns count in the alternation sequence."""
+    conversation = Conversation(
         messages=[
-            Message(role=Role.USER, content="Hello"),
+            Message(role=Role.USER, content="What's the weather?"),
+            Message(role=Role.ASSISTANT, content="Let me check."),
+            Message(role=Role.TOOL, content='{"temp": 72}'),
+            Message(role=Role.ASSISTANT, content="It's 72 degrees."),
         ]
     )
-    analyzer = DataQualityAnalyzer()
-    result = analyzer.analyze(conv)
+    # assistant -> tool -> assistant: tool breaks it so assistant appears twice
+    # non-consecutively relative to itself, but tool != assistant so no consecutive pair
+    result = analyzer.analyze(conversation)
+    assert result.has_non_alternating_turns is False
 
+
+def test_empty_conversation_not_flagged(analyzer, empty_conversation):
+    """Empty conversation is not flagged as non-alternating."""
+    result = analyzer.analyze(empty_conversation)
+    assert result.has_non_alternating_turns is False
+
+
+def test_single_message_not_flagged(analyzer):
+    """Single-message conversation is not flagged as non-alternating."""
+    conversation = Conversation(messages=[Message(role=Role.USER, content="Hello")])
+    result = analyzer.analyze(conversation)
+    assert result.has_non_alternating_turns is False
+
+
+def test_system_only_conversation_not_flagged(analyzer):
+    """Conversation with only a system message is not flagged."""
+    conversation = Conversation(
+        messages=[Message(role=Role.SYSTEM, content="You are helpful.")]
+    )
+    result = analyzer.analyze(conversation)
     assert result.has_non_alternating_turns is False
 
 
@@ -202,315 +174,342 @@ def test_single_message_no_alternation_issue():
 # -----------------------------------------------------------------------------
 
 
-def test_has_user_message(simple_conversation):
-    """Test conversation with a user message."""
-    analyzer = DataQualityAnalyzer()
-    result = analyzer.analyze(simple_conversation)
-
+def test_conversation_with_user_message_not_flagged(analyzer, alternating_conversation):
+    """Conversation with user messages is not flagged."""
+    result = analyzer.analyze(alternating_conversation)
     assert result.has_no_user_message is False
 
 
-def test_no_user_message():
-    """Test detection of conversation with no user message."""
-    conv = Conversation(
+def test_no_user_message_flagged(analyzer):
+    """Conversation without any user message is flagged."""
+    conversation = Conversation(
         messages=[
+            Message(role=Role.SYSTEM, content="You are helpful."),
             Message(role=Role.ASSISTANT, content="Hello!"),
         ]
     )
-    analyzer = DataQualityAnalyzer()
-    result = analyzer.analyze(conv)
-
+    result = analyzer.analyze(conversation)
     assert result.has_no_user_message is True
 
 
-def test_no_user_message_empty_conversation(empty_conversation):
-    """Test that empty conversation flags no user message."""
-    analyzer = DataQualityAnalyzer()
+def test_empty_conversation_flagged_no_user(analyzer, empty_conversation):
+    """Empty conversation has no user message."""
     result = analyzer.analyze(empty_conversation)
+    assert result.has_no_user_message is True
 
+
+def test_system_only_flagged_no_user(analyzer):
+    """System-only conversation has no user message."""
+    conversation = Conversation(
+        messages=[Message(role=Role.SYSTEM, content="You are helpful.")]
+    )
+    result = analyzer.analyze(conversation)
+    assert result.has_no_user_message is True
+
+
+def test_assistant_only_flagged_no_user(analyzer):
+    """Assistant-only conversation has no user message."""
+    conversation = Conversation(
+        messages=[Message(role=Role.ASSISTANT, content="Hello!")]
+    )
+    result = analyzer.analyze(conversation)
     assert result.has_no_user_message is True
 
 
 # -----------------------------------------------------------------------------
-# System Message Not At Start Tests
+# System Message Not at Start Tests
 # -----------------------------------------------------------------------------
 
 
-def test_system_message_at_start(conversation_with_system):
-    """Test that system message at position 0 is fine."""
-    analyzer = DataQualityAnalyzer()
-    result = analyzer.analyze(conversation_with_system)
-
+def test_system_at_start_not_flagged(analyzer):
+    """System message at position 0 is not flagged."""
+    conversation = Conversation(
+        messages=[
+            Message(role=Role.SYSTEM, content="You are helpful."),
+            Message(role=Role.USER, content="Hello"),
+            Message(role=Role.ASSISTANT, content="Hi!"),
+        ]
+    )
+    result = analyzer.analyze(conversation)
     assert result.has_system_message_not_at_start is False
 
 
-def test_system_message_not_at_start():
-    """Test detection of system message not at position 0."""
-    conv = Conversation(
+def test_no_system_message_not_flagged(analyzer, alternating_conversation):
+    """Conversation without system message is not flagged."""
+    result = analyzer.analyze(alternating_conversation)
+    assert result.has_system_message_not_at_start is False
+
+
+def test_system_message_in_middle_flagged(analyzer):
+    """System message not at position 0 is flagged."""
+    conversation = Conversation(
         messages=[
             Message(role=Role.USER, content="Hello"),
             Message(role=Role.SYSTEM, content="You are helpful."),
             Message(role=Role.ASSISTANT, content="Hi!"),
         ]
     )
-    analyzer = DataQualityAnalyzer()
-    result = analyzer.analyze(conv)
-
+    result = analyzer.analyze(conversation)
     assert result.has_system_message_not_at_start is True
 
 
-def test_no_system_message(simple_conversation):
-    """Test conversation with no system message."""
-    analyzer = DataQualityAnalyzer()
-    result = analyzer.analyze(simple_conversation)
+def test_system_message_at_end_flagged(analyzer):
+    """System message at end is flagged."""
+    conversation = Conversation(
+        messages=[
+            Message(role=Role.USER, content="Hello"),
+            Message(role=Role.ASSISTANT, content="Hi!"),
+            Message(role=Role.SYSTEM, content="You are helpful."),
+        ]
+    )
+    result = analyzer.analyze(conversation)
+    assert result.has_system_message_not_at_start is True
 
+
+def test_multiple_system_messages_second_flagged(analyzer):
+    """When system message is at position 0 but another is later, it's flagged."""
+    conversation = Conversation(
+        messages=[
+            Message(role=Role.SYSTEM, content="System prompt."),
+            Message(role=Role.USER, content="Hello"),
+            Message(role=Role.SYSTEM, content="Another system message."),
+            Message(role=Role.ASSISTANT, content="Hi!"),
+        ]
+    )
+    result = analyzer.analyze(conversation)
+    assert result.has_system_message_not_at_start is True
+
+
+def test_empty_conversation_system_not_flagged(analyzer, empty_conversation):
+    """Empty conversation is not flagged for system position."""
+    result = analyzer.analyze(empty_conversation)
     assert result.has_system_message_not_at_start is False
 
 
 # -----------------------------------------------------------------------------
-# Empty Content Tests
+# Empty Turns Tests
 # -----------------------------------------------------------------------------
 
 
-def test_no_empty_turns(simple_conversation):
-    """Test conversation with no empty turns."""
-    analyzer = DataQualityAnalyzer()
-    result = analyzer.analyze(simple_conversation)
-
+def test_no_empty_turns(analyzer, alternating_conversation):
+    """Conversation with no empty messages is not flagged."""
+    result = analyzer.analyze(alternating_conversation)
     assert result.has_empty_turns is False
     assert result.empty_turn_count == 0
 
 
-def test_empty_turns_detected(conversation_with_empty_turns):
-    """Test detection of empty turns."""
-    analyzer = DataQualityAnalyzer()
-    result = analyzer.analyze(conversation_with_empty_turns)
+def test_empty_string_detected(analyzer):
+    """Empty string content is detected as an empty turn."""
+    conversation = Conversation(
+        messages=[
+            Message(role=Role.USER, content="Hello"),
+            Message(role=Role.ASSISTANT, content=""),
+        ]
+    )
+    result = analyzer.analyze(conversation)
+    assert result.has_empty_turns is True
+    assert result.empty_turn_count == 1
 
+
+def test_whitespace_only_detected(analyzer):
+    """Whitespace-only content is detected as an empty turn."""
+    conversation = Conversation(
+        messages=[
+            Message(role=Role.USER, content="  \t\n  "),
+            Message(role=Role.ASSISTANT, content="Hello"),
+        ]
+    )
+    result = analyzer.analyze(conversation)
+    assert result.has_empty_turns is True
+    assert result.empty_turn_count == 1
+
+
+def test_multiple_empty_turns_counted(analyzer):
+    """All empty turns are counted."""
+    conversation = Conversation(
+        messages=[
+            Message(role=Role.USER, content=""),
+            Message(role=Role.ASSISTANT, content=""),
+            Message(role=Role.USER, content="real message"),
+        ]
+    )
+    result = analyzer.analyze(conversation)
     assert result.has_empty_turns is True
     assert result.empty_turn_count == 2
 
 
-def test_whitespace_only_is_empty():
-    """Test that whitespace-only content counts as empty."""
-    conv = Conversation(
-        messages=[
-            Message(role=Role.USER, content="Hello"),
-            Message(role=Role.ASSISTANT, content="   \t\n  "),
-        ]
-    )
-    analyzer = DataQualityAnalyzer()
-    result = analyzer.analyze(conv)
-
-    assert result.has_empty_turns is True
-    assert result.empty_turn_count == 1
+def test_empty_conversation_no_empty_turns(analyzer, empty_conversation):
+    """Empty conversation has no empty turns."""
+    result = analyzer.analyze(empty_conversation)
+    assert result.has_empty_turns is False
+    assert result.empty_turn_count == 0
 
 
 # -----------------------------------------------------------------------------
-# Invalid Values Tests
+# Invalid Serialized Values Tests
 # -----------------------------------------------------------------------------
 
 
-def test_no_invalid_values(simple_conversation):
-    """Test conversation with no invalid values."""
-    analyzer = DataQualityAnalyzer()
-    result = analyzer.analyze(simple_conversation)
-
+def test_no_invalid_values(analyzer, alternating_conversation):
+    """Conversation with normal content has no invalid values."""
+    result = analyzer.analyze(alternating_conversation)
     assert result.has_invalid_values is False
     assert result.invalid_value_patterns == []
 
 
-def test_nan_detected():
-    """Test detection of NaN values in content."""
-    conv = Conversation(
+@pytest.mark.parametrize(
+    "content, expected_pattern",
+    [
+        ("The value is NaN", "NaN"),
+        ("result: nan", "nan"),
+        ("data: null", "null"),
+        ("field: None", "None"),
+        ("x: undefined", "undefined"),
+    ],
+)
+def test_invalid_value_patterns_detected(analyzer, content, expected_pattern):
+    """Each invalid value pattern is independently detected."""
+    conversation = Conversation(
         messages=[
-            Message(role=Role.USER, content="The value is NaN here."),
-            Message(role=Role.ASSISTANT, content="That's invalid."),
+            Message(role=Role.USER, content="What's the value?"),
+            Message(role=Role.ASSISTANT, content=content),
         ]
     )
-    analyzer = DataQualityAnalyzer()
-    result = analyzer.analyze(conv)
+    result = analyzer.analyze(conversation)
+    assert result.has_invalid_values is True
+    assert expected_pattern in result.invalid_value_patterns
 
+
+def test_multiple_patterns_all_detected(analyzer):
+    """Multiple invalid value patterns in the same message are all reported."""
+    conversation = Conversation(
+        messages=[
+            Message(role=Role.USER, content="values: NaN, null, undefined"),
+        ]
+    )
+    result = analyzer.analyze(conversation)
     assert result.has_invalid_values is True
     assert "NaN" in result.invalid_value_patterns
-
-
-def test_null_detected():
-    """Test detection of null values in content."""
-    conv = Conversation(
-        messages=[
-            Message(role=Role.USER, content="The result was null."),
-            Message(role=Role.ASSISTANT, content="Let me check."),
-        ]
-    )
-    analyzer = DataQualityAnalyzer()
-    result = analyzer.analyze(conv)
-
-    assert result.has_invalid_values is True
     assert "null" in result.invalid_value_patterns
-
-
-def test_none_detected():
-    """Test detection of None values in content."""
-    conv = Conversation(
-        messages=[
-            Message(role=Role.USER, content="It returned None instead."),
-            Message(role=Role.ASSISTANT, content="That's a bug."),
-        ]
-    )
-    analyzer = DataQualityAnalyzer()
-    result = analyzer.analyze(conv)
-
-    assert result.has_invalid_values is True
-    assert "None" in result.invalid_value_patterns
-
-
-def test_undefined_detected():
-    """Test detection of undefined values in content."""
-    conv = Conversation(
-        messages=[
-            Message(role=Role.USER, content="The variable is undefined."),
-            Message(role=Role.ASSISTANT, content="Check your code."),
-        ]
-    )
-    analyzer = DataQualityAnalyzer()
-    result = analyzer.analyze(conv)
-
-    assert result.has_invalid_values is True
     assert "undefined" in result.invalid_value_patterns
 
 
-def test_multiple_invalid_patterns():
-    """Test detection of multiple invalid value patterns."""
-    conv = Conversation(
-        messages=[
-            Message(role=Role.USER, content="Values are NaN and null here."),
-            Message(role=Role.ASSISTANT, content="Also None is bad."),
-        ]
+def test_invalid_patterns_returned_sorted(analyzer):
+    """Invalid value patterns list is returned sorted."""
+    conversation = Conversation(
+        messages=[Message(role=Role.USER, content="NaN null None undefined nan")]
     )
-    analyzer = DataQualityAnalyzer()
-    result = analyzer.analyze(conv)
-
-    assert result.has_invalid_values is True
-    assert len(result.invalid_value_patterns) >= 3
-    assert "NaN" in result.invalid_value_patterns
-    assert "null" in result.invalid_value_patterns
-    assert "None" in result.invalid_value_patterns
-
-
-def test_invalid_value_word_boundary():
-    """Test that invalid value detection respects word boundaries."""
-    conv = Conversation(
-        messages=[
-            Message(role=Role.USER, content="I like bananas."),
-            Message(role=Role.ASSISTANT, content="Me too!"),
-        ]
-    )
-    analyzer = DataQualityAnalyzer()
-    result = analyzer.analyze(conv)
-
-    # "banana" contains "nan" but shouldn't match due to word boundary
-    assert result.has_invalid_values is False
-
-
-def test_patterns_are_sorted():
-    """Test that invalid value patterns are returned sorted."""
-    conv = Conversation(
-        messages=[
-            Message(role=Role.USER, content="null and NaN"),
-            Message(role=Role.ASSISTANT, content="Also undefined."),
-        ]
-    )
-    analyzer = DataQualityAnalyzer()
-    result = analyzer.analyze(conv)
-
+    result = analyzer.analyze(conversation)
     assert result.invalid_value_patterns == sorted(result.invalid_value_patterns)
 
 
-# -----------------------------------------------------------------------------
-# Empty Conversation Tests
-# -----------------------------------------------------------------------------
-
-
-def test_empty_conversation(empty_conversation):
-    """Test analysis of an empty conversation."""
-    analyzer = DataQualityAnalyzer()
-    result = analyzer.analyze(empty_conversation)
-
-    assert isinstance(result, DataQualityMetrics)
-    assert result.has_non_alternating_turns is False
-    assert result.has_no_user_message is True
-    assert result.has_system_message_not_at_start is False
-    assert result.has_empty_turns is False
-    assert result.empty_turn_count == 0
-    assert result.has_invalid_values is False
-    assert result.invalid_value_patterns == []
-
-
-# -----------------------------------------------------------------------------
-# Combined Scenario Tests
-# -----------------------------------------------------------------------------
-
-
-def test_all_issues_present():
-    """Test conversation with multiple quality issues."""
-    conv = Conversation(
+def test_word_boundary_not_partial_match(analyzer):
+    """Patterns are matched at word boundaries — substrings do not trigger."""
+    conversation = Conversation(
         messages=[
-            Message(role=Role.ASSISTANT, content=""),
-            Message(role=Role.SYSTEM, content="Late system message."),
-            Message(role=Role.ASSISTANT, content="Value is NaN."),
+            # "channel" contains "nan" but should not match
+            # "nullable" contains "null" but should not match
+            Message(role=Role.USER, content="channel nullable notNaN"),
         ]
     )
-    analyzer = DataQualityAnalyzer()
-    result = analyzer.analyze(conv)
+    result = analyzer.analyze(conversation)
+    assert result.has_invalid_values is False
 
-    assert result.has_non_alternating_turns is True
-    assert result.has_no_user_message is True
-    assert result.has_system_message_not_at_start is True
-    assert result.has_empty_turns is True
-    assert result.empty_turn_count == 1
+
+def test_invalid_value_in_any_message_detected(analyzer):
+    """Invalid values anywhere in the conversation are detected."""
+    conversation = Conversation(
+        messages=[
+            Message(role=Role.SYSTEM, content="You are helpful."),
+            Message(role=Role.USER, content="The value was NaN"),
+            Message(role=Role.ASSISTANT, content="I see."),
+        ]
+    )
+    result = analyzer.analyze(conversation)
     assert result.has_invalid_values is True
     assert "NaN" in result.invalid_value_patterns
 
 
-def test_clean_conversation(simple_conversation):
-    """Test that a clean conversation has no quality issues."""
-    analyzer = DataQualityAnalyzer()
-    result = analyzer.analyze(simple_conversation)
+# -----------------------------------------------------------------------------
+# Multimodal ContentItem Tests
+# -----------------------------------------------------------------------------
 
-    assert result.has_non_alternating_turns is False
-    assert result.has_no_user_message is False
-    assert result.has_system_message_not_at_start is False
-    assert result.has_empty_turns is False
-    assert result.empty_turn_count == 0
-    assert result.has_invalid_values is False
-    assert result.invalid_value_patterns == []
+
+def test_empty_content_item_list_detected_as_empty(analyzer):
+    """A message with an empty ContentItem list is detected as an empty turn."""
+    conversation = Conversation(
+        messages=[
+            Message(role=Role.USER, content=[]),
+            Message(role=Role.ASSISTANT, content="Hi"),
+        ]
+    )
+    result = analyzer.analyze(conversation)
+    assert result.has_empty_turns is True
+    assert result.empty_turn_count == 1
+
+
+def test_content_item_text_scanned_for_invalid_values(analyzer):
+    """Text inside ContentItem objects is scanned for invalid value patterns."""
+    conversation = Conversation(
+        messages=[
+            Message(
+                role=Role.USER,
+                content=[ContentItem(type=Type.TEXT, content="value is NaN")],
+            ),
+        ]
+    )
+    result = analyzer.analyze(conversation)
+    assert result.has_invalid_values is True
+    assert "NaN" in result.invalid_value_patterns
+
+
+def test_content_item_none_content_no_false_positive(analyzer):
+    """A ContentItem with content=None does not trigger a 'None' pattern match."""
+    conversation = Conversation(
+        messages=[
+            Message(
+                role=Role.USER,
+                content=[ContentItem(type=Type.IMAGE_BINARY, binary=b"\x89PNG")],
+            ),
+        ]
+    )
+    result = analyzer.analyze(conversation)
+    assert "None" not in result.invalid_value_patterns
 
 
 # -----------------------------------------------------------------------------
-# Registry and Metadata Tests
+# Registry Tests
 # -----------------------------------------------------------------------------
 
 
 def test_analyzer_registered_in_registry():
-    """Test that DataQualityAnalyzer is registered in the core registry."""
-    from oumi.core.registry import REGISTRY
+    """DataQualityAnalyzer is registered under the 'quality' key."""
+    from oumi.core.registry import REGISTRY, RegistryType
 
-    assert REGISTRY.get_sample_analyzer("quality") is DataQualityAnalyzer
+    analyzer_class = REGISTRY.get(name="quality", type=RegistryType.SAMPLE_ANALYZER)
+    assert analyzer_class is DataQualityAnalyzer
+
+
+# -----------------------------------------------------------------------------
+# Analyzer Metadata Tests
+# -----------------------------------------------------------------------------
 
 
 def test_get_result_schema():
-    """Test that result schema can be retrieved."""
+    """Result schema includes all metric fields."""
     schema = DataQualityAnalyzer.get_result_schema()
     assert "properties" in schema
     assert "has_non_alternating_turns" in schema["properties"]
     assert "has_no_user_message" in schema["properties"]
     assert "has_system_message_not_at_start" in schema["properties"]
     assert "has_empty_turns" in schema["properties"]
+    assert "empty_turn_count" in schema["properties"]
     assert "has_invalid_values" in schema["properties"]
+    assert "invalid_value_patterns" in schema["properties"]
 
 
 def test_get_metric_names():
-    """Test that metric names can be retrieved."""
+    """All expected metric names are present."""
     names = DataQualityAnalyzer.get_metric_names()
     assert "has_non_alternating_turns" in names
     assert "has_no_user_message" in names
@@ -521,14 +520,12 @@ def test_get_metric_names():
     assert "invalid_value_patterns" in names
 
 
-def test_analyzer_is_conversation_analyzer():
-    """Test that DataQualityAnalyzer is a ConversationAnalyzer."""
-    from oumi.analyze.base import ConversationAnalyzer
-
-    assert issubclass(DataQualityAnalyzer, ConversationAnalyzer)
-
-
 def test_get_config_schema():
-    """Test that config schema can be retrieved."""
+    """Config schema is empty (no configuration options)."""
     schema = DataQualityAnalyzer.get_config_schema()
-    assert isinstance(schema, dict)
+    assert schema == {"properties": {}}
+
+
+def test_get_scope():
+    """Analyzer scope is conversation-level."""
+    assert DataQualityAnalyzer.get_scope() == "conversation"
