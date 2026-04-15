@@ -38,7 +38,7 @@ results = run_typed_analysis(config)
 :::
 ::::
 
-Results are saved to the configured `output_path` (default: current directory) including per-conversation metrics, test results, and statistical summaries.
+Results are saved to the output directory (default: current directory) including per-conversation metrics, test results, and statistical summaries. Set it via `--output` on the CLI or `output_path` in the YAML config.
 
 :::{tip}
 You can use `-c` as a shorthand for `--config` in all CLI examples.
