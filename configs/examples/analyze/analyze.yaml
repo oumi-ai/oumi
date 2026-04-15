@@ -1,5 +1,5 @@
 # Dataset Analysis Configuration
-# Usage: oumi analyze -c configs/examples/analyze/analyze.yaml
+# Usage: oumi analyze --config configs/examples/analyze/analyze.yaml
 #
 # Output files:
 #   - analysis.csv: Per-conversation metrics
