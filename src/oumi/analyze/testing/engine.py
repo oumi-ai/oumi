@@ -614,7 +614,15 @@ class TestEngine:
                 if outside_range:
                     affected_indices.append(orig_idx)
             except (TypeError, ValueError):
-                pass
+                # Non-comparable values count as outside range
+                logger.debug(
+                    "Non-comparable value in range test '%s' at "
+                    "index %s: %r — counting as outside range",
+                    test.id,
+                    orig_idx,
+                    value,
+                )
+                affected_indices.append(orig_idx)
 
         affected_count = len(affected_indices)
         total_count = len(indexed_values)

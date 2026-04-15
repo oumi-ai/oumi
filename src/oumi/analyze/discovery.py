@@ -31,7 +31,10 @@ Example:
     >>> print_analyzer_metrics("LengthAnalyzer")
 """
 
+import logging
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 def get_analyzer_info(analyzer_class: type) -> dict[str, Any]:
@@ -83,19 +86,22 @@ def get_analyzer_info(analyzer_class: type) -> dict[str, Any]:
         try:
             info["metric_names"] = analyzer_class.get_metric_names()
         except Exception:
-            pass
+            logger.debug("Could not get metric names for %s", analyzer_class.__name__)
 
     if hasattr(analyzer_class, "get_metric_descriptions"):
         try:
             info["metric_descriptions"] = analyzer_class.get_metric_descriptions()
         except Exception:
-            pass
+            logger.debug(
+                "Could not get metric descriptions for %s",
+                analyzer_class.__name__,
+            )
 
     if hasattr(analyzer_class, "get_result_schema"):
         try:
             info["schema"] = analyzer_class.get_result_schema()
         except Exception:
-            pass
+            logger.debug("Could not get result schema for %s", analyzer_class.__name__)
 
     return info
 

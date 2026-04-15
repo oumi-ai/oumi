@@ -279,8 +279,12 @@ def test_run_conversation_analyzer(sample_conversations: list[Conversation]):
     conv_results = results["SimpleConversationAnalyzer"]
     assert isinstance(conv_results, list)
     assert len(conv_results) == 2
-    assert conv_results[0].value == 2  # 2 messages in conv1
-    assert conv_results[1].value == 3  # 3 messages in conv2
+    first = conv_results[0]
+    second = conv_results[1]
+    assert isinstance(first, SimpleMetrics)
+    assert isinstance(second, SimpleMetrics)
+    assert first.value == 2  # 2 messages in conv1
+    assert second.value == 3  # 3 messages in conv2
 
 
 def test_run_message_analyzer(sample_conversations: list[Conversation]):
@@ -372,6 +376,7 @@ def test_derived_analyzer_receives_dependencies(
 
     assert "DerivedConversationAnalyzer" in results
     derived_results = results["DerivedConversationAnalyzer"]
+    assert isinstance(derived_results, list)
     assert len(derived_results) == 2
 
 
@@ -391,15 +396,25 @@ def test_derived_analyzer_uses_correct_dependency_index(
 
     base_results = results["SimpleConversationAnalyzer"]
     derived_results = results["DerivedConversationAnalyzer"]
+    assert isinstance(base_results, list)
+    assert isinstance(derived_results, list)
 
     # conv1 has 2 messages -> base_value = 2 -> derived_value = 4
     # conv2 has 3 messages -> base_value = 3 -> derived_value = 6
-    assert base_results[0].value == 2
-    assert base_results[1].value == 3
+    base0 = base_results[0]
+    base1 = base_results[1]
+    assert isinstance(base0, SimpleMetrics)
+    assert isinstance(base1, SimpleMetrics)
+    assert base0.value == 2
+    assert base1.value == 3
 
     # Derived should use the CORRESPONDING base result, not always base_results[0]
-    assert derived_results[0].value == 4  # 2 * 2
-    assert derived_results[1].value == 6  # 3 * 2 (NOT 2 * 2)
+    derived0 = derived_results[0]
+    derived1 = derived_results[1]
+    assert isinstance(derived0, SimpleMetrics)
+    assert isinstance(derived1, SimpleMetrics)
+    assert derived0.value == 4  # 2 * 2
+    assert derived1.value == 6  # 3 * 2 (NOT 2 * 2)
 
 
 def test_chained_dependencies(sample_conversations: list[Conversation]):
@@ -454,8 +469,11 @@ def test_run_preference(
 
     assert "SimplePreferenceAnalyzer" in results
     pref_results = results["SimplePreferenceAnalyzer"]
+    assert isinstance(pref_results, list)
     assert len(pref_results) == 1
-    assert pref_results[0].chosen_longer is True  # conv2 (3 msgs) > conv1 (2 msgs)
+    pref0 = pref_results[0]
+    assert isinstance(pref0, PreferenceMetrics)
+    assert pref0.chosen_longer is True  # conv2 (3 msgs) > conv1 (2 msgs)
 
 
 def test_preference_not_run_by_run(sample_conversations: list[Conversation]):
@@ -609,8 +627,16 @@ def test_multiple_analyzers_same_type(sample_conversations: list[Conversation]):
     assert "conv_analyzer_1" in results
     assert "conv_analyzer_2" in results
     # First conversation has 2 messages
-    assert results["conv_analyzer_1"][0].value == 2  # 2 * 1
-    assert results["conv_analyzer_2"][0].value == 4  # 2 * 2
+    r1 = results["conv_analyzer_1"]
+    r2 = results["conv_analyzer_2"]
+    assert isinstance(r1, list)
+    assert isinstance(r2, list)
+    r1_first = r1[0]
+    r2_first = r2[0]
+    assert isinstance(r1_first, SimpleMetrics)
+    assert isinstance(r2_first, SimpleMetrics)
+    assert r1_first.value == 2  # 2 * 1
+    assert r2_first.value == 4  # 2 * 2
 
 
 def test_duplicate_analyzer_names_raises_error():
