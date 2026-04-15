@@ -23,8 +23,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from oumi.analyze.testing.engine import TestConfig, TestType
-from oumi.analyze.testing.results import TestSeverity
+from oumi.analyze.testing.engine import TestConfig
 
 
 class AnalyzerType(str, Enum):
@@ -61,56 +60,6 @@ class AnalyzerConfig:
         """Auto-populate display_name if not provided."""
         if self.display_name is None:
             self.display_name = self.type
-
-
-@dataclass
-class TestConfigYAML:
-    """YAML-friendly test configuration.
-
-    This class mirrors TestConfig but uses simpler types for YAML parsing.
-
-    Attributes:
-        id: Unique identifier for the test.
-        type: Test type (``"threshold"``).
-        metric: Path to the metric (e.g., ``"Length.total_tokens"``).
-        severity: Severity level ("high", "medium", "low").
-        display_name: Human-readable title shown in results.  Alias: ``title``.
-        description: Description of the test.
-        operator: Comparison operator for threshold tests.
-        value: Value to compare against.
-        max_percentage: Maximum allowed percentage.
-        min_percentage: Minimum required percentage.
-    """
-
-    id: str
-    type: str
-    metric: str
-    severity: str = "medium"
-    display_name: str = ""
-    description: str = ""
-    operator: str | None = None
-    value: float | int | str | None = None
-    max_percentage: float | None = None
-    min_percentage: float | None = None
-
-    def to_test_config(self) -> TestConfig:
-        """Convert to TestConfig for the test engine.
-
-        Returns:
-            TestConfig instance.
-        """
-        return TestConfig(
-            id=self.id,
-            type=TestType(self.type),
-            metric=self.metric,
-            severity=TestSeverity(self.severity),
-            title=self.display_name,
-            description=self.description,
-            operator=self.operator,
-            value=self.value,
-            max_percentage=self.max_percentage,
-            min_percentage=self.min_percentage,
-        )
 
 
 @dataclass
@@ -178,7 +127,7 @@ class TypedAnalyzeConfig:
     analyzers: list[AnalyzerConfig] = field(default_factory=list)
 
     # Tests
-    tests: list[TestConfigYAML] = field(default_factory=list)
+    tests: list[TestConfig] = field(default_factory=list)
 
     # Tokenizer
     tokenizer_name: str | None = None
@@ -259,17 +208,17 @@ class TypedAnalyzeConfig:
         tests = []
         for test_data in data.get("tests", []):
             test_data = dict(test_data)  # don't mutate caller's dict
-            # Backward compat: accept "title" as alias for "display_name"
-            if "title" in test_data and "display_name" not in test_data:
-                test_data["display_name"] = test_data.pop("title")
-            elif "title" in test_data:
-                test_data.pop("title")  # "display_name" takes precedence
+            # YAML uses "display_name" or "title"; TestConfig uses "title"
+            if "display_name" in test_data and "title" not in test_data:
+                test_data["title"] = test_data.pop("display_name")
+            elif "display_name" in test_data:
+                test_data.pop("display_name")  # "title" takes precedence
             try:
-                tests.append(TestConfigYAML(**test_data))
-            except TypeError as e:
+                tests.append(TestConfig(**test_data))
+            except (TypeError, ValueError) as e:
                 raise ValueError(
                     f"Invalid test config: {e}. "
-                    f"Valid fields: id, type, metric, severity, display_name, "
+                    f"Valid fields: id, type, metric, severity, title, "
                     f"description, operator, value, "
                     f"max_percentage, min_percentage"
                 ) from None
@@ -315,10 +264,12 @@ class TypedAnalyzeConfig:
             "tests": [
                 {
                     "id": t.id,
-                    "type": t.type,
+                    "type": t.type.value if isinstance(t.type, Enum) else t.type,
                     "metric": t.metric,
-                    "severity": t.severity,
-                    "display_name": t.display_name,
+                    "severity": (
+                        t.severity.value if isinstance(t.severity, Enum) else t.severity
+                    ),
+                    "title": t.title,
                     "description": t.description,
                     "operator": t.operator,
                     "value": t.value,
@@ -339,4 +290,4 @@ class TypedAnalyzeConfig:
         Returns:
             List of TestConfig instances.
         """
-        return [t.to_test_config() for t in self.tests]
+        return list(self.tests)

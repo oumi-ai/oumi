@@ -159,7 +159,7 @@ def test_from_dict_display_name_takes_precedence_over_instance_id():
 
 
 def test_from_dict_test_display_name():
-    """Test that test display_name is parsed correctly."""
+    """Test that YAML display_name is mapped to TestConfig.title."""
     data = {
         "tests": [
             {
@@ -172,11 +172,11 @@ def test_from_dict_test_display_name():
     }
 
     config = TypedAnalyzeConfig.from_dict(data)
-    assert config.tests[0].display_name == "Token count check"
+    assert config.tests[0].title == "Token count check"
 
 
 def test_from_dict_test_title_backward_compat():
-    """Test that 'title' is accepted as alias for 'display_name' in tests."""
+    """Test that 'title' works directly in YAML test configs."""
     data = {
         "tests": [
             {
@@ -189,7 +189,7 @@ def test_from_dict_test_title_backward_compat():
     }
 
     config = TypedAnalyzeConfig.from_dict(data)
-    assert config.tests[0].display_name == "Token count check"
+    assert config.tests[0].title == "Token count check"
 
 
 # -----------------------------------------------------------------------------

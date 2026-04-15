@@ -45,11 +45,14 @@ class TestType(str, Enum):
 class TestConfig:
     """Configuration for a single test.
 
+    Accepts both typed enums and raw strings (for YAML parsing).
+    Strings are converted to enums in ``__post_init__``.
+
     Attributes:
         id: Unique identifier for the test.
-        type: Type of test to run.
-        metric: Path to the metric field (e.g., "LengthAnalyzer.total_words").
-        severity: Severity level if test fails.
+        type: Type of test to run (``TestType`` enum or string).
+        metric: Path to the metric field (e.g., "Length.total_tokens").
+        severity: Severity level if test fails (``TestSeverity`` enum or string).
         title: Human-readable title.
         description: Description of what the test checks.
         operator: Comparison operator for threshold tests.
@@ -74,6 +77,33 @@ class TestConfig:
     # Percentage thresholds
     max_percentage: float | None = None
     min_percentage: float | None = None
+
+    def __init__(
+        self,
+        id: str,
+        type: "TestType | str",
+        metric: str,
+        severity: "TestSeverity | str" = TestSeverity.MEDIUM,
+        title: str = "",
+        description: str = "",
+        operator: str | None = None,
+        value: float | int | str | None = None,
+        max_percentage: float | None = None,
+        min_percentage: float | None = None,
+    ):
+        """Initialize, converting strings to enums."""
+        self.id = id
+        self.type = TestType(type) if isinstance(type, str) else type
+        self.metric = metric
+        self.severity = (
+            TestSeverity(severity) if isinstance(severity, str) else severity
+        )
+        self.title = title
+        self.description = description
+        self.operator = operator
+        self.value = value
+        self.max_percentage = max_percentage
+        self.min_percentage = min_percentage
 
 
 # Maximum number of sample indices to include in test results
