@@ -35,6 +35,12 @@ class MockMetrics(BaseModel):
     has_issue: bool = False
 
 
+class SparseMetrics(BaseModel):
+    """Metrics model with optional field for testing None-filtering."""
+
+    value: int | None = None
+
+
 # -----------------------------------------------------------------------------
 # Fixtures
 # -----------------------------------------------------------------------------
@@ -718,3 +724,106 @@ def test_empty_results():
     assert summary.results[0].passed is False
     assert summary.results[0].error is not None
     assert "not found" in summary.results[0].error.lower()
+
+
+# -----------------------------------------------------------------------------
+# Index Preservation Tests
+# -----------------------------------------------------------------------------
+
+
+def test_sample_indices_preserved_with_none_values():
+    """Test sample_indices use original indices when Nones filtered.
+
+    When some results have None for a metric field, those entries are skipped.
+    The remaining entries' indices should still map back to the correct
+    original conversation positions, not positions in the filtered list.
+    """
+    # Conversations 0, 2, 4 have values; 1, 3 have None (will be filtered)
+    results: dict[str, Any] = {
+        "Analyzer": [
+            SparseMetrics(value=100),  # index 0
+            SparseMetrics(value=None),  # index 1 — filtered out
+            SparseMetrics(value=5000),  # index 2
+            SparseMetrics(value=None),  # index 3 — filtered out
+            SparseMetrics(value=200),  # index 4
+        ]
+    }
+
+    tests = [
+        TestConfig(
+            id="high_value",
+            type=TestType.THRESHOLD,
+            metric="Analyzer.value",
+            operator=">",
+            value=4096,
+            max_percentage=0.0,  # Fail if any match
+        )
+    ]
+    engine = TestEngine(tests)
+    summary = engine.run(results)
+
+    result = summary.results[0]
+    assert result.passed is False
+    assert result.affected_count == 1
+    assert result.total_count == 3  # Only non-None values counted
+    # The affected sample should be original index 2, not filtered-list index 1
+    assert result.sample_indices == [2]
+
+
+def test_range_indices_preserved_with_none_values():
+    """Test that range test sample_indices use original indices."""
+    results: dict[str, Any] = {
+        "Analyzer": [
+            SparseMetrics(value=50),  # index 0 — in range
+            SparseMetrics(value=None),  # index 1 — filtered out
+            SparseMetrics(value=None),  # index 2 — filtered out
+            SparseMetrics(value=999),  # index 3 — outside range
+            SparseMetrics(value=100),  # index 4 — in range
+        ]
+    }
+
+    tests = [
+        TestConfig(
+            id="range_check",
+            type=TestType.RANGE,
+            metric="Analyzer.value",
+            min_value=0,
+            max_value=500,
+        )
+    ]
+    engine = TestEngine(tests)
+    summary = engine.run(results)
+
+    result = summary.results[0]
+    assert result.passed is False
+    assert result.affected_count == 1
+    # The out-of-range sample is original index 3
+    assert result.sample_indices == [3]
+
+
+def test_percentage_indices_preserved_with_none_values():
+    """Test that percentage test sample_indices use original indices."""
+    results: dict[str, Any] = {
+        "Analyzer": [
+            MockMetrics(has_issue=True),  # index 0
+            MockMetrics(has_issue=False),  # index 1
+            MockMetrics(has_issue=True),  # index 2
+        ]
+    }
+
+    tests = [
+        TestConfig(
+            id="issue_check",
+            type=TestType.PERCENTAGE,
+            metric="Analyzer.has_issue",
+            condition="== True",
+            max_percentage=0.0,  # No issues allowed
+        )
+    ]
+    engine = TestEngine(tests)
+    summary = engine.run(results)
+
+    result = summary.results[0]
+    assert result.passed is False
+    # Affected (matching) indices should be 0 and 2
+    assert result.sample_indices == [0, 2]

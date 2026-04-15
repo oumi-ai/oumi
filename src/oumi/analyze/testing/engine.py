@@ -204,10 +204,10 @@ class TestEngine:
         Returns:
             TestResult for this test.
         """
-        # Extract values for the metric
-        values = self._extract_metric_values(test.metric, results)
+        # Extract values for the metric (with original indices preserved)
+        indexed_values = self._extract_metric_values(test.metric, results)
 
-        if not values:
+        if not indexed_values:
             return TestResult(
                 test_id=test.id,
                 passed=False,
@@ -220,11 +220,11 @@ class TestEngine:
 
         # Run appropriate test type
         if test.type == TestType.THRESHOLD:
-            return self._run_threshold_test(test, values)
+            return self._run_threshold_test(test, indexed_values)
         elif test.type == TestType.PERCENTAGE:
-            return self._run_percentage_test(test, values)
+            return self._run_percentage_test(test, indexed_values)
         elif test.type == TestType.RANGE:
-            return self._run_range_test(test, values)
+            return self._run_range_test(test, indexed_values)
         else:
             return TestResult(
                 test_id=test.id,
@@ -239,8 +239,8 @@ class TestEngine:
         self,
         metric: str,
         results: dict[str, list[BaseModel] | BaseModel],
-    ) -> list[Any]:
-        """Extract metric values from results.
+    ) -> list[tuple[int, Any]]:
+        """Extract metric values from results with their original indices.
 
         Metric format: "AnalyzerName.field_name" or "AnalyzerName.nested.field"
 
@@ -249,7 +249,9 @@ class TestEngine:
             results: Analysis results.
 
         Returns:
-            List of values for the metric.
+            List of (original_index, value) tuples. None values are filtered
+            out, but original indices are preserved so that sample_indices in
+            test results map back to the correct conversations.
         """
         parts = metric.split(".")
         if len(parts) < 2:
@@ -266,16 +268,16 @@ class TestEngine:
         # Handle single result (dataset-level) vs list (per-conversation)
         if isinstance(analyzer_results, BaseModel):
             value = self._get_nested_value(analyzer_results, field_path)
-            return [value] if value is not None else []
+            return [(0, value)] if value is not None else []
 
-        # List of results
-        values = []
-        for result in analyzer_results:
+        # List of results — preserve original index
+        indexed_values = []
+        for i, result in enumerate(analyzer_results):
             value = self._get_nested_value(result, field_path)
             if value is not None:
-                values.append(value)
+                indexed_values.append((i, value))
 
-        return values
+        return indexed_values
 
     def _get_nested_value(
         self,
@@ -302,7 +304,7 @@ class TestEngine:
     def _run_threshold_test(
         self,
         test: TestConfig,
-        values: list[Any],
+        indexed_values: list[tuple[int, Any]],
     ) -> TestResult:
         """Run a threshold test.
 
@@ -322,7 +324,7 @@ class TestEngine:
 
         Args:
             test: Test configuration.
-            values: Metric values to test.
+            indexed_values: List of (original_index, value) tuples.
 
         Returns:
             TestResult.
@@ -349,29 +351,26 @@ class TestEngine:
             )
 
         # Evaluate the condition for each value
-        matching_indices = []  # Samples that MATCH the condition
-        non_matching_indices = []  # Samples that DON'T match the condition
+        matching_indices = []  # Original indices of samples that MATCH
+        non_matching_indices = []  # Original indices of samples that DON'T match
         matching_reasons: dict[int, str] = {}
         non_matching_reasons: dict[int, str] = {}
 
-        for i, value in enumerate(values):
+        for orig_idx, value in indexed_values:
             try:
                 if op_func(value, test.value):
-                    # Value matches the condition (e.g., total_tokens > 4096)
-                    matching_indices.append(i)
-                    matching_reasons[i] = f"{value} {test.operator} {test.value}"
+                    matching_indices.append(orig_idx)
+                    matching_reasons[orig_idx] = f"{value} {test.operator} {test.value}"
                 else:
-                    # Value does NOT match the condition
-                    non_matching_indices.append(i)
-                    non_matching_reasons[i] = (
+                    non_matching_indices.append(orig_idx)
+                    non_matching_reasons[orig_idx] = (
                         f"{value} does not satisfy {test.operator} {test.value}"
                     )
             except (TypeError, ValueError):
-                # Can't evaluate - treat as non-matching
-                non_matching_indices.append(i)
-                non_matching_reasons[i] = f"Cannot evaluate: {value}"
+                non_matching_indices.append(orig_idx)
+                non_matching_reasons[orig_idx] = f"Cannot evaluate: {value}"
 
-        total_count = len(values)
+        total_count = len(indexed_values)
         matching_count = len(matching_indices)
         non_matching_count = len(non_matching_indices)
         matching_pct = 100.0 * matching_count / total_count if total_count > 0 else 0.0
@@ -380,21 +379,8 @@ class TestEngine:
         )
 
         # Determine pass/fail and which samples are "affected" (problematic)
-        # The semantics depend on whether max_percentage or min_percentage is used:
-        #
-        # max_percentage: "At most X% can match the condition"
-        #   - Matching samples are problematic (they exceed the threshold)
-        #   - Example: "At most 10% can have tokens > 4096"
-        #
-        # min_percentage: "At least X% must match the condition"
-        #   - Non-matching samples are problematic (they don't meet the requirement)
-        #   - Example: "At least 80% must have quality_score > 0.5"
-        #
-        # Neither set: ALL samples must match (any non-matching are problematic)
-
         passed = True
         if test.max_percentage is not None:
-            # max_percentage: matching samples are the problematic ones
             if matching_pct > test.max_percentage:
                 passed = False
             affected_indices = matching_indices
@@ -402,7 +388,6 @@ class TestEngine:
             affected_pct = matching_pct
             failure_reasons = matching_reasons
         elif test.min_percentage is not None:
-            # min_percentage: non-matching samples are the problematic ones
             if matching_pct < test.min_percentage:
                 passed = False
             affected_indices = non_matching_indices
@@ -410,7 +395,6 @@ class TestEngine:
             affected_pct = non_matching_pct
             failure_reasons = non_matching_reasons
         else:
-            # Neither set: ALL must match, non-matching are problematic
             passed = non_matching_count == 0
             affected_indices = non_matching_indices
             affected_count = non_matching_count
@@ -419,8 +403,8 @@ class TestEngine:
 
         # For single-value (dataset-level) metrics, include the actual value
         actual_value = None
-        if total_count == 1 and len(values) == 1:
-            val = values[0]
+        if total_count == 1:
+            val = indexed_values[0][1]
             if isinstance(val, (int, float)):
                 actual_value = float(val)
 
@@ -436,7 +420,7 @@ class TestEngine:
             affected_percentage=round(affected_pct, 2),
             threshold=test.max_percentage or test.min_percentage,
             actual_value=actual_value,
-            sample_indices=affected_indices[:50],  # Limit to first 50
+            sample_indices=affected_indices[:MAX_SAMPLE_INDICES],
             details={
                 "operator": test.operator,
                 "value": test.value,
@@ -445,7 +429,7 @@ class TestEngine:
                 "matching_count": matching_count,
                 "matching_percentage": round(matching_pct, 2),
                 "failure_reasons": {
-                    k: v for k, v in list(failure_reasons.items())[:50]
+                    k: v for k, v in list(failure_reasons.items())[:MAX_FAILURE_REASONS]
                 },
             },
         )
@@ -453,7 +437,7 @@ class TestEngine:
     def _run_percentage_test(
         self,
         test: TestConfig,
-        values: list[Any],
+        indexed_values: list[tuple[int, Any]],
     ) -> TestResult:
         """Run a percentage test.
 
@@ -461,7 +445,7 @@ class TestEngine:
 
         Args:
             test: Test configuration.
-            values: Metric values to test.
+            indexed_values: List of (original_index, value) tuples.
 
         Returns:
             TestResult.
@@ -513,23 +497,25 @@ class TestEngine:
         except ValueError:
             compare_value = value_str
 
-        # Count matches and non-matches
+        # Count matches and non-matches using original indices
         matching_indices = []
         non_matching_indices = []
         failure_reasons: dict[int, str] = {}
-        for i, value in enumerate(values):
+        for orig_idx, value in indexed_values:
             try:
                 if op_func(value, compare_value):
-                    matching_indices.append(i)
+                    matching_indices.append(orig_idx)
                 else:
-                    non_matching_indices.append(i)
-                    failure_reasons[i] = f"{value} does not match {test.condition}"
+                    non_matching_indices.append(orig_idx)
+                    failure_reasons[orig_idx] = (
+                        f"{value} does not match {test.condition}"
+                    )
             except (TypeError, ValueError):
-                non_matching_indices.append(i)
-                failure_reasons[i] = f"Cannot evaluate: {value}"
+                non_matching_indices.append(orig_idx)
+                failure_reasons[orig_idx] = f"Cannot evaluate: {value}"
 
         matching_count = len(matching_indices)
-        total_count = len(values)
+        total_count = len(indexed_values)
         matching_pct = 100.0 * matching_count / total_count if total_count > 0 else 0.0
 
         # Check against thresholds
@@ -554,8 +540,8 @@ class TestEngine:
 
         # For single-value (dataset-level) metrics, include the actual value
         actual_value = None
-        if total_count == 1 and len(values) == 1:
-            val = values[0]
+        if total_count == 1:
+            val = indexed_values[0][1]
             if isinstance(val, (int, float, bool)):
                 actual_value = (
                     float(val)
@@ -575,13 +561,13 @@ class TestEngine:
             affected_percentage=round(affected_pct, 2),
             threshold=test.max_percentage or test.min_percentage,
             actual_value=actual_value,
-            sample_indices=affected_indices[:50],
+            sample_indices=affected_indices[:MAX_SAMPLE_INDICES],
             details={
                 "condition": test.condition,
                 "matching_count": matching_count,
                 "matching_percentage": round(matching_pct, 2),
                 "failure_reasons": {
-                    k: v for k, v in list(failure_reasons.items())[:50]
+                    k: v for k, v in list(failure_reasons.items())[:MAX_FAILURE_REASONS]
                 },
             },
         )
@@ -589,7 +575,7 @@ class TestEngine:
     def _run_range_test(
         self,
         test: TestConfig,
-        values: list[Any],
+        indexed_values: list[tuple[int, Any]],
     ) -> TestResult:
         """Run a range test.
 
@@ -597,7 +583,7 @@ class TestEngine:
 
         Args:
             test: Test configuration.
-            values: Metric values to test.
+            indexed_values: List of (original_index, value) tuples.
 
         Returns:
             TestResult.
@@ -612,9 +598,9 @@ class TestEngine:
                 error="Range test requires 'min_value' and/or 'max_value'",
             )
 
-        # Find values outside range
+        # Find values outside range using original indices
         affected_indices = []
-        for i, value in enumerate(values):
+        for orig_idx, value in indexed_values:
             try:
                 outside_range = False
                 if test.min_value is not None and value < test.min_value:
@@ -622,12 +608,12 @@ class TestEngine:
                 if test.max_value is not None and value > test.max_value:
                     outside_range = True
                 if outside_range:
-                    affected_indices.append(i)
+                    affected_indices.append(orig_idx)
             except (TypeError, ValueError):
                 pass
 
         affected_count = len(affected_indices)
-        total_count = len(values)
+        total_count = len(indexed_values)
         affected_pct = 100.0 * affected_count / total_count if total_count > 0 else 0.0
 
         # Default: no values should be outside range
@@ -645,7 +631,7 @@ class TestEngine:
             total_count=total_count,
             affected_percentage=round(affected_pct, 2),
             threshold=max_pct,
-            sample_indices=affected_indices[:50],
+            sample_indices=affected_indices[:MAX_SAMPLE_INDICES],
             details={
                 "min_value": test.min_value,
                 "max_value": test.max_value,
