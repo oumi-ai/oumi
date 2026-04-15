@@ -8,7 +8,7 @@
 analyze_config
 ```
 
-Oumi's dataset analysis framework helps you understand training data before and after fine-tuning. Compute metrics, identify quality issues, compare datasets, and validate data with configurable tests.
+Oumi's dataset analysis framework helps you understand you datasets. Compute metrics, identify quality issues and validate data with configurable tests.
 
 **Key capabilities:**
 
@@ -66,14 +66,16 @@ For complete configuration options including tests, custom metrics, and tokenize
 
 Computes token and message count metrics using a configurable tokenizer.
 
-| Metric | Description |
-|--------|-------------|
-| `total_tokens` | Total tokens across all messages |
-| `avg_tokens_per_message` | Average tokens per message |
-| `num_messages` | Number of messages in the conversation |
-| `user_total_tokens` | Total tokens in user messages |
-| `assistant_total_tokens` | Total tokens in assistant messages |
-| `system_total_tokens` | Total tokens in system messages |
+
+| Metric                   | Description                            |
+| ------------------------ | -------------------------------------- |
+| `total_tokens`           | Total tokens across all messages       |
+| `avg_tokens_per_message` | Average tokens per message             |
+| `num_messages`           | Number of messages in the conversation |
+| `user_total_tokens`      | Total tokens in user messages          |
+| `assistant_total_tokens` | Total tokens in assistant messages     |
+| `system_total_tokens`    | Total tokens in system messages        |
+
 
 :::{tip}
 Configure the tokenizer via `params.tokenizer_name`. Supports tiktoken encodings (e.g., `cl100k_base`) and HuggingFace model IDs (e.g., `meta-llama/Llama-3.1-8B-Instruct`).
@@ -83,29 +85,33 @@ Configure the tokenizer via `params.tokenizer_name`. Supports tiktoken encodings
 
 Fast, non-LLM quality checks for data validation.
 
-| Metric | Description |
-|--------|-------------|
-| `has_non_alternating_turns` | Consecutive same-role messages exist (excluding system) |
-| `has_no_user_message` | Conversation contains no user message |
-| `has_system_message_not_at_start` | System message appears after position 0 |
-| `has_empty_turns` | Any message has empty or whitespace-only content |
-| `empty_turn_count` | Number of empty/whitespace-only messages |
-| `has_invalid_values` | Contains serialized `NaN`, `null`, `None`, `undefined` |
-| `invalid_value_patterns` | List of invalid value patterns found |
+
+| Metric                            | Description                                             |
+| --------------------------------- | ------------------------------------------------------- |
+| `has_non_alternating_turns`       | Consecutive same-role messages exist (excluding system) |
+| `has_no_user_message`             | Conversation contains no user message                   |
+| `has_system_message_not_at_start` | System message appears after position 0                 |
+| `has_empty_turns`                 | Any message has empty or whitespace-only content        |
+| `empty_turn_count`                | Number of empty/whitespace-only messages                |
+| `has_invalid_values`              | Contains serialized `NaN`, `null`, `None`, `undefined`  |
+| `invalid_value_patterns`          | List of invalid value patterns found                    |
+
 
 ### Turn Stats Analyzer (`turn_stats`)
 
 Conversation structure and turn count metrics.
 
-| Metric | Description |
-|--------|-------------|
-| `num_turns` | Total number of turns (messages) |
-| `num_user_turns` | Number of user turns |
-| `num_assistant_turns` | Number of assistant turns |
-| `num_tool_turns` | Number of tool turns |
-| `has_system_message` | Whether the conversation has a system message |
-| `first_turn_role` | Role of the first message |
-| `last_turn_role` | Role of the last message |
+
+| Metric                | Description                                   |
+| --------------------- | --------------------------------------------- |
+| `num_turns`           | Total number of turns (messages)              |
+| `num_user_turns`      | Number of user turns                          |
+| `num_assistant_turns` | Number of assistant turns                     |
+| `num_tool_turns`      | Number of tool turns                          |
+| `has_system_message`  | Whether the conversation has a system message |
+| `first_turn_role`     | Role of the first message                     |
+| `last_turn_role`      | Role of the last message                      |
+
 
 Use `oumi analyze --list-metrics` to see all available metrics and their descriptions.
 
@@ -113,11 +119,13 @@ Use `oumi analyze --list-metrics` to see all available metrics and their descrip
 
 ### Output Files
 
-| File | Description |
-|------|-------------|
+
+| File                | Description                                         |
+| ------------------- | --------------------------------------------------- |
 | `analysis.{format}` | Per-conversation metrics (one row per conversation) |
-| `test_results.json` | Test pass/fail details (if tests configured) |
-| `summary.json` | Statistical summary (mean, std, min, max) |
+| `test_results.json` | Test pass/fail details (if tests configured)        |
+| `summary.json`      | Statistical summary (mean, std, min, max)           |
+
 
 ### Exporting
 
@@ -125,15 +133,19 @@ Use `oumi analyze --list-metrics` to see all available metrics and their descrip
 :::{code-block} bash
 
 # Export to CSV (default)
+
 oumi analyze --config config.yaml
 
 # Export to JSON
+
 oumi analyze --config config.yaml --format json
 
 # Export to Parquet
+
 oumi analyze --config config.yaml --format parquet
 
 # Override output directory
+
 oumi analyze --config config.yaml --output ./my_results
 :::
 ::::
@@ -165,18 +177,20 @@ Analyze any HuggingFace Hub dataset directly:
 :::{code-block} yaml
 
 # hf_analyze.yaml
+
 dataset_name: argilla/databricks-dolly-15k-curated-en
 split: train
 sample_count: 100
 output_path: ./analysis_output/dolly
 
 analyzers:
-  - type: length
-    display_name: Length
-    params:
-      tokenizer_name: cl100k_base
-  - type: quality
-    display_name: Quality
+
+- type: length
+display_name: Length
+params:
+  tokenizer_name: cl100k_base
+- type: quality
+display_name: Quality
 :::
 :::{code-block} python
 from oumi.analyze import run_typed_analysis, TypedAnalyzeConfig, AnalyzerConfig

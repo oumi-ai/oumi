@@ -23,7 +23,7 @@ analyzers:
     display_name: Length
     params:
       # Tokenizer name - automatically detects tiktoken vs HuggingFace
-      tokenizer_name: cl100k_base  # tiktoken encoding (GPT-4)
+      tokenizer_name: cl100k_base # tiktoken encoding (GPT-4)
       # For HuggingFace tokenizers, use model ID:
       # tokenizer_name: meta-llama/Llama-3.1-8B-Instruct
   - type: quality
@@ -33,20 +33,20 @@ analyzers:
 
 # Tests validate analysis results against thresholds.
 # Metric paths use "{display_name}.{field_name}" format.
-# tests:
-#   - id: max_tokens
-#     type: threshold
-#     metric: Length.total_tokens
-#     operator: ">"
-#     value: 10000
-#     max_percentage: 5.0
-#     severity: high
-#     display_name: "Token count exceeds 10K"
-#   - id: empty_turns
-#     type: threshold
-#     metric: Quality.has_empty_turns
-#     operator: "=="
-#     value: true
-#     max_percentage: 5.0
-#     severity: high
-#     display_name: "Conversations with empty turns"
+tests:
+  - id: max_tokens
+    type: threshold
+    metric: Length.total_tokens
+    operator: ">"
+    value: 30
+    max_percentage: 5.0
+    severity: high
+    display_name: "Token count exceeds 30"
+  - id: empty_turns
+    type: threshold
+    metric: Quality.has_empty_turns
+    operator: "=="
+    value: true
+    max_percentage: 5.0
+    severity: high
+    display_name: "Conversations with empty turns"
