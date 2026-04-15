@@ -51,6 +51,7 @@ def _get_all_config_paths(exclude_yaml_suffixes: set[str] | None) -> list[str]:
         exclude_yaml_suffixes={
             "accelerate.yaml",
             "_deploy.yaml",  # Deploy configs use a different schema
+            "analyze/analyze.yaml",  # Uses TypedAnalyzeConfig (v2) format
         }
     ),
 )
@@ -86,6 +87,7 @@ def test_parse_configs(config_path: str):
         exclude_yaml_suffixes={
             "accelerate.yaml",
             "_deploy.yaml",  # Deploy configs use a different schema
+            "analyze/analyze.yaml",  # Uses TypedAnalyzeConfig (v2) format
         }
     ),
 )
