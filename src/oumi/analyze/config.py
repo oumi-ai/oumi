@@ -71,18 +71,15 @@ class TestConfigYAML:
 
     Attributes:
         id: Unique identifier for the test.
-        type: Test type ("threshold", "percentage", "range").
+        type: Test type (``"threshold"``).
         metric: Path to the metric (e.g., ``"Length.total_tokens"``).
         severity: Severity level ("high", "medium", "low").
         display_name: Human-readable title shown in results.  Alias: ``title``.
         description: Description of the test.
         operator: Comparison operator for threshold tests.
         value: Value to compare against.
-        condition: Condition for percentage tests.
         max_percentage: Maximum allowed percentage.
         min_percentage: Minimum required percentage.
-        min_value: Minimum value for range tests.
-        max_value: Maximum value for range tests.
     """
 
     id: str
@@ -93,11 +90,8 @@ class TestConfigYAML:
     description: str = ""
     operator: str | None = None
     value: float | int | str | None = None
-    condition: str | None = None
     max_percentage: float | None = None
     min_percentage: float | None = None
-    min_value: float | None = None
-    max_value: float | None = None
 
     def to_test_config(self) -> TestConfig:
         """Convert to TestConfig for the test engine.
@@ -276,8 +270,8 @@ class TypedAnalyzeConfig:
                 raise ValueError(
                     f"Invalid test config: {e}. "
                     f"Valid fields: id, type, metric, severity, display_name, "
-                    f"description, operator, value, condition, "
-                    f"max_percentage, min_percentage, min_value, max_value"
+                    f"description, operator, value, "
+                    f"max_percentage, min_percentage"
                 ) from None
 
         return cls(
@@ -328,11 +322,8 @@ class TypedAnalyzeConfig:
                     "description": t.description,
                     "operator": t.operator,
                     "value": t.value,
-                    "condition": t.condition,
                     "max_percentage": t.max_percentage,
                     "min_percentage": t.min_percentage,
-                    "min_value": t.min_value,
-                    "max_value": t.max_value,
                 }
                 for t in self.tests
             ],

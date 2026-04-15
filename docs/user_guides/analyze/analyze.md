@@ -14,7 +14,7 @@ Oumi's dataset analysis framework helps you understand training data before and 
 
 - **Profile datasets**: Token counts, length distributions, turn statistics
 - **Quality control**: Turn alternation, empty messages, invalid values
-- **Validate data**: Configurable tests with threshold, percentage, and range checks
+- **Validate data**: Configurable threshold tests with percentage tolerances
 - **Export results**: CSV, JSON, or Parquet output with statistical summaries
 
 ## Quick Start
@@ -216,21 +216,13 @@ tests:
     display_name: "Token count exceeds 10K"
 
   - id: no_empty_turns
-    type: percentage
+    type: threshold
     metric: Quality.has_empty_turns
-    condition: "== False"
-    min_percentage: 95.0
+    operator: "=="
+    value: true
+    max_percentage: 5.0
     severity: high
-    display_name: "No empty turns"
-
-  - id: token_range
-    type: range
-    metric: Length.total_tokens
-    min_value: 10
-    max_value: 8192
-    max_percentage: 10.0
-    severity: low
-    display_name: "Tokens within context window"
+    display_name: "Conversations with empty turns"
 ```
 
 Metrics are referenced as `"{display_name}.{field_name}"` (e.g., `Length.total_tokens`, `Quality.has_empty_turns`).

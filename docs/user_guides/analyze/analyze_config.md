@@ -102,7 +102,7 @@ tests:
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `id` | `str` | Yes | — | Unique test identifier |
-| `type` | `str` | Yes | — | Test type: `threshold`, `percentage`, or `range` |
+| `type` | `str` | Yes | — | Test type (`threshold`) |
 | `metric` | `str` | Yes | — | Metric path (e.g., `Length.total_tokens`) |
 | `severity` | `str` | No | `medium` | Failure severity: `high`, `medium`, or `low` |
 | `display_name` | `str` | No | `""` | Human-readable title shown in results |
@@ -135,45 +135,6 @@ Check if a metric exceeds a threshold across the dataset.
   operator: "=="
   value: true
   max_percentage: 5.0
-```
-
-### Percentage Tests
-
-Check what percentage of samples match a condition string.
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `condition` | `str` | Condition to evaluate (e.g., `"== True"`, `"> 0.5"`) |
-| `max_percentage` | `float` | Maximum allowed matching percentage |
-| `min_percentage` | `float` | Minimum required matching percentage |
-
-```yaml
-# At most 5% should have empty turns
-- id: empty_turns
-  type: percentage
-  metric: Quality.has_empty_turns
-  condition: "== True"
-  max_percentage: 5.0
-```
-
-### Range Tests
-
-Check if metric values fall within a range.
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `min_value` | `float` | Minimum allowed value |
-| `max_value` | `float` | Maximum allowed value |
-| `max_percentage` | `float` | Maximum % of samples allowed outside the range (default: 0%) |
-
-```yaml
-# Tokens should be between 10 and 8192
-- id: token_range
-  type: range
-  metric: Length.total_tokens
-  min_value: 10
-  max_value: 8192
-  max_percentage: 10.0
 ```
 
 ## Output Settings
@@ -217,20 +178,13 @@ tests:
     severity: high
     display_name: "Token count exceeds 10K"
   - id: empty_turns
-    type: percentage
+    type: threshold
     metric: Quality.has_empty_turns
-    condition: "== True"
+    operator: "=="
+    value: true
     max_percentage: 5.0
     severity: high
     display_name: "Conversations with empty turns"
-  - id: token_range
-    type: range
-    metric: Length.total_tokens
-    min_value: 10
-    max_value: 8192
-    max_percentage: 15.0
-    severity: low
-    display_name: "Tokens within context window"
 ```
 
 ## See Also

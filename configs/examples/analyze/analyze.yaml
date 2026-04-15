@@ -43,9 +43,10 @@ analyzers:
 #     severity: high
 #     display_name: "Token count exceeds 10K"
 #   - id: empty_turns
-#     type: percentage
+#     type: threshold
 #     metric: Quality.has_empty_turns
-#     condition: "== True"
+#     operator: "=="
+#     value: true
 #     max_percentage: 5.0
 #     severity: high
 #     display_name: "Conversations with empty turns"
