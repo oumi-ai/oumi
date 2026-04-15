@@ -144,7 +144,8 @@ class ToolParams(BaseParams):
     def to_llm_schema(self) -> dict[str, Any]:
         """Export a provider-agnostic schema for LLM tool registration."""
         schema: dict[str, Any] = {
-            "name": self.name,
+            "name": self.id,
+            "display_name": self.name,
             "description": self.description,
             "parameters": self.parameters.to_dict(),
         }

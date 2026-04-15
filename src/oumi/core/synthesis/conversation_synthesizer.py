@@ -104,18 +104,28 @@ class ConversationSynthesizer:
 
         lines = [
             "You have access to the following tools.",
-            "Do not invent tools. Use only the tools listed below.",
-            "When a tool is needed, emit the expected tool-call format exactly.",
+            "When a tool is needed, emit exactly one tool call in this format:",
+            "",
+            "<tool_call>",
+            '{"name": "<tool_name>", "arguments": {...}}',
+            "</tool_call>",
             "",
             "Available tools:",
         ]
         for tool in available_tools:
             schema = tool.to_llm_schema()
-            lines.append(f"- {tool.id}: {schema['description']}")
-            lines.append(
-                f"  Parameters: {json.dumps(schema['parameters'], sort_keys=True)}"
-            )
-        return "\n".join(lines)
+            lines.append("<tool>")
+            lines.append(json.dumps(schema, indent=2))
+            lines.append("</tool>")
+            lines.append("")
+            if tool.output_schema is not None:
+                lines.append(
+                    "  Output schema: "
+                    f"{json.dumps(tool.output_schema.to_dict(), sort_keys=True)}"
+                )
+            lines.append("")
+
+        return "\n".join(lines).rstrip()
 
     def _format_role_persona(
         self,

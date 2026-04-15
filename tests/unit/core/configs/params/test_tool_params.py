@@ -56,7 +56,8 @@ def test_tool_params_to_llm_schema():
         ),
     )
     assert tool.to_llm_schema() == {
-        "name": "Search",
+        "name": "search",
+        "display_name": "Search",
         "description": "Search the catalog.",
         "parameters": {
             "type": "object",
@@ -78,7 +79,8 @@ def test_tool_params_to_llm_schema_includes_output_schema():
         ),
     )
     assert tool.to_llm_schema() == {
-        "name": "Search",
+        "name": "search",
+        "display_name": "Search",
         "description": "Search the catalog.",
         "parameters": {"type": "object"},
         "output_schema": {

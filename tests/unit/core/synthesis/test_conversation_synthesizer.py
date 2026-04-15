@@ -29,6 +29,7 @@ from oumi.core.configs.params.synthesis_params import (
     SampledAttribute,
     SampledAttributeValue,
 )
+from oumi.core.configs.params.tool_params import ToolParams
 from oumi.core.synthesis.conversation_synthesizer import ConversationSynthesizer
 from oumi.core.types.conversation import (
     PLANNER_JSON_SCHEMA,
@@ -348,15 +349,17 @@ def test_format_persona_injects_tools_for_assistant_only(
             Role.ASSISTANT: "You are a helpful agent.",
         },
     )
-    tool = Tool(
-        id="lookup_order",
-        name="Lookup Order",
-        description="Look up an order by id.",
-        parameters={
-            "type": "object",
-            "properties": {"order_id": {"type": "string"}},
-            "required": ["order_id"],
-        },
+    tool = ToolParams.create(
+        {
+            "id": "lookup_order",
+            "name": "Lookup Order",
+            "description": "Look up an order by id.",
+            "parameters": {
+                "type": "object",
+                "properties": {"order_id": {"type": "string"}},
+                "required": ["order_id"],
+            },
+        }
     )
 
     with patch.object(synthesizer, "_resolve_available_tools", return_value=[tool]):
@@ -374,7 +377,9 @@ def test_format_persona_injects_tools_for_assistant_only(
         )
 
     assert "You have access to the following tools." in assistant_message.content
-    assert "- lookup_order: Look up an order by id." in assistant_message.content
+    assert '"name": "lookup_order"' in assistant_message.content
+    assert '"display_name": "Lookup Order"' in assistant_message.content
+    assert '"description": "Look up an order by id."' in assistant_message.content
     assert '"order_id"' in assistant_message.content
     assert "You have access to the following tools." not in user_message.content
     assert (
@@ -436,11 +441,13 @@ def test_build_role_context_includes_tools_for_assistant(
             Role.ASSISTANT: "You are a helpful agent.",
         },
     )
-    tool = Tool(
-        id="check_status",
-        name="Check Status",
-        description="Check order status.",
-        parameters={"type": "object", "properties": {}, "required": []},
+    tool = ToolParams.create(
+        {
+            "id": "check_status",
+            "name": "Check Status",
+            "description": "Check order status.",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        }
     )
 
     with patch.object(synthesizer, "_resolve_available_tools", return_value=[tool]):
@@ -448,7 +455,9 @@ def test_build_role_context_includes_tools_for_assistant(
 
     assert "[ASSISTANT]" in result
     assert "You have access to the following tools." in result
-    assert "- check_status: Check order status." in result
+    assert '"name": "check_status"' in result
+    assert '"display_name": "Check Status"' in result
+    assert '"description": "Check order status."' in result
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
@@ -520,7 +529,10 @@ def test_generate_plan_uses_planner_only_guided_decoding(
         messages=[
             Message(
                 role=Role.ASSISTANT,
-                content='[{"turn": 1, "instruction": "Ask"}, {"turn": 2, "instruction": "Answer"}]',
+                content=(
+                    '[{"turn": 1, "instruction": "Ask"}, '
+                    '{"turn": 2, "instruction": "Answer"}]'
+                ),
             )
         ]
     )
@@ -551,7 +563,9 @@ def test_generate_plan_uses_planner_only_guided_decoding(
     )
 
     assert result[0] is not None
-    planner_call = mock_inference_engine.infer.call_args_list[0].kwargs["inference_config"]
+    planner_call = mock_inference_engine.infer.call_args_list[0].kwargs[
+        "inference_config"
+    ]
     turn_call = mock_inference_engine.infer.call_args_list[1].kwargs["inference_config"]
 
     assert planner_call is not mock_inference_config
