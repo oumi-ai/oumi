@@ -321,13 +321,10 @@ def test_count_tokens_without_tokenizer_raises():
 
 
 def test_analyzer_registered_in_cli_registry():
-    """Test that LengthAnalyzer is registered in the CLI analyzer registry."""
-    from oumi.analyze.cli import ANALYZER_REGISTRY
+    """Test that LengthAnalyzer is registered in the core registry."""
+    from oumi.core.registry import REGISTRY
 
-    assert "length" in ANALYZER_REGISTRY
-    assert ANALYZER_REGISTRY["length"] is LengthAnalyzer
-    assert "LengthAnalyzer" in ANALYZER_REGISTRY
-    assert ANALYZER_REGISTRY["LengthAnalyzer"] is LengthAnalyzer
+    assert REGISTRY.get_sample_analyzer("length") is LengthAnalyzer
 
 
 # -----------------------------------------------------------------------------
@@ -419,7 +416,7 @@ def test_from_config_default():
 
 def test_create_analyzer_from_config_uses_from_config():
     """Test that create_analyzer_from_config uses from_config method."""
-    from oumi.analyze.cli import create_analyzer_from_config
+    from oumi.analyze import create_analyzer_from_config
 
     analyzer = create_analyzer_from_config("length", {"tokenizer_name": "cl100k_base"})
     assert analyzer is not None

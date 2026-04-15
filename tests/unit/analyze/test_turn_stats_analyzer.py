@@ -274,11 +274,10 @@ def test_single_message():
 
 
 def test_analyzer_registered_in_registry():
-    """Test that TurnStatsAnalyzer is registered in the CLI registry."""
-    from oumi.analyze.cli import ANALYZER_REGISTRY
+    """Test that TurnStatsAnalyzer is registered in the core registry."""
+    from oumi.core.registry import REGISTRY
 
-    assert "turn_stats" in ANALYZER_REGISTRY
-    assert ANALYZER_REGISTRY["turn_stats"] is TurnStatsAnalyzer
+    assert REGISTRY.get_sample_analyzer("turn_stats") is TurnStatsAnalyzer
 
 
 def test_get_result_schema():

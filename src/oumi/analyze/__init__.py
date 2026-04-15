@@ -46,18 +46,6 @@ from oumi.analyze.base import (
     PreferenceAnalyzer,
 )
 
-# Import CLI utilities
-from oumi.analyze.cli import (
-    create_analyzer_from_config,
-    generate_tests,
-    get_analyzer_class,
-    list_metrics,
-    print_summary,
-    run_from_config_file,
-    run_typed_analysis,
-    save_results,
-)
-
 # Import config
 from oumi.analyze.config import (
     AnalyzerConfig,
@@ -77,6 +65,18 @@ from oumi.analyze.pipeline import AnalysisPipeline
 # Import testing
 from oumi.analyze.testing import TestEngine, TestResult, TestSummary
 from oumi.analyze.utils.dataframe import to_analysis_dataframe
+
+# Import CLI / orchestration utilities
+from oumi.cli.analyze import (
+    create_analyzer_from_config,
+    generate_tests,
+    get_analyzer_class,
+    list_metrics,
+    print_summary,
+    run_from_config_file,
+    run_typed_analysis,
+    save_results,
+)
 
 __all__ = [
     # Base classes

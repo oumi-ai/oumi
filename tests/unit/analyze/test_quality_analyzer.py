@@ -492,11 +492,10 @@ def test_clean_conversation(simple_conversation):
 
 
 def test_analyzer_registered_in_registry():
-    """Test that DataQualityAnalyzer is registered in the CLI registry."""
-    from oumi.analyze.cli import ANALYZER_REGISTRY
+    """Test that DataQualityAnalyzer is registered in the core registry."""
+    from oumi.core.registry import REGISTRY
 
-    assert "quality" in ANALYZER_REGISTRY
-    assert ANALYZER_REGISTRY["quality"] is DataQualityAnalyzer
+    assert REGISTRY.get_sample_analyzer("quality") is DataQualityAnalyzer
 
 
 def test_get_result_schema():
