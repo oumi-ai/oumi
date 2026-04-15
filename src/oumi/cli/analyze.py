@@ -22,7 +22,6 @@ analysis execution, and result output.
 from __future__ import annotations
 
 import json
-import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any
 
@@ -35,9 +34,7 @@ if TYPE_CHECKING:
 import oumi.cli.cli_utils as cli_utils
 from oumi.cli.alias import AliasType, try_get_config_name_for_alias
 from oumi.cli.completions import complete_analyze_config
-from oumi.utils.logging import logger as cli_logger
-
-logger = logging.getLogger(__name__)
+from oumi.utils.logging import logger
 
 # Valid output formats for analysis results
 _VALID_OUTPUT_FORMATS = ("csv", "json", "parquet")
@@ -728,17 +725,17 @@ def _run_typed_analysis_cli(
             )
 
     except FileNotFoundError as e:
-        cli_logger.error(f"Configuration file not found: {e}")
+        logger.error(f"Configuration file not found: {e}")
         cli_utils.CONSOLE.print(f"[red]Error:[/red] Configuration file not found: {e}")
         raise typer.Exit(code=1)
 
     except ValueError as e:
-        cli_logger.error(f"Invalid configuration: {e}")
+        logger.error(f"Invalid configuration: {e}")
         cli_utils.CONSOLE.print(f"[red]Error:[/red] Invalid configuration: {e}")
         raise typer.Exit(code=1)
 
     except Exception as e:
-        cli_logger.error(f"Analysis failed: {e}", exc_info=True)
+        logger.error(f"Analysis failed: {e}", exc_info=True)
         cli_utils.CONSOLE.print(f"[red]Error:[/red] {e}")
         raise typer.Exit(code=1)
 
