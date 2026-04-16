@@ -36,8 +36,8 @@ _SENTINEL_USER = "<<__U__>>"
 _SENTINEL_ASST = "<<__A__>>"
 _FALLBACK_MSG = (
     "Cannot auto-detect collator templates from the chat template. "
-    "Use collator_kwargs to specify response_template and "
-    "end_of_turn_template manually instead of train_target."
+    "Provide response_template (and end_of_turn_template for "
+    "all_assistant_turns) via collator_kwargs."
 )
 
 

@@ -457,15 +457,29 @@ def test_train_target_unknown_tokenizer():
         build_collator_from_config(config, tokenizer=tok)
 
 
-def test_train_target_and_collator_kwargs_exclusive():
-    """train_target and collator_kwargs are mutually exclusive."""
-    with pytest.raises(ValueError, match="Cannot specify both"):
-        DatasetSplitParams(
-            collator_name="text_completions_only_with_padding",
-            train_target=TrainTarget.ALL_ASSISTANT_TURNS,
-            collator_kwargs={"response_template": "<|assistant|>"},
-            datasets=[DatasetParams(dataset_name="dummy", split="train")],
-        )
+def test_train_target_with_collator_kwargs_override():
+    """collator_kwargs overrides auto-resolved templates when train_target is set."""
+    tok = _chatml_tokenizer()
+    config = TrainingConfig(
+        data=DataParams(
+            train=DatasetSplitParams(
+                collator_name="text_completions_only_with_padding",
+                train_target=TrainTarget.ALL_ASSISTANT_TURNS,
+                collator_kwargs={"response_template": "<|im_end|>\n"},
+                datasets=[DatasetParams(dataset_name="dummy", split="train")],
+            )
+        ),
+        model=ModelParams(
+            model_name="MlpEncoder",
+            tokenizer_name="openai-community/gpt2",
+            model_max_length=512,
+        ),
+    )
+    collator = build_collator_from_config(config, tokenizer=tok)
+    assert collator is not None
+    inner = collator._default_collator
+    # Auto-resolved would be "<|im_start|>assistant\n"; user override wins
+    assert inner.response_template == "<|im_end|>\n"
 
 
 def test_train_target_on_wrong_collator():

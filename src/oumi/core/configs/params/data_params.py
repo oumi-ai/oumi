@@ -241,8 +241,8 @@ class DatasetSplitParams(BaseParams):
     """High-level training target for ``text_completions_only_with_padding``.
 
     When set, the builder auto-detects ``response_template`` and
-    ``end_of_turn_template`` from the tokenizer vocabulary.  Mutually
-    exclusive with ``collator_kwargs`` -- use one or the other.
+    ``end_of_turn_template`` from the tokenizer's chat template.
+    Use ``collator_kwargs`` to override individual auto-resolved values.
 
     See :class:`TrainTarget` for available options.
     """
@@ -306,14 +306,6 @@ class DatasetSplitParams(BaseParams):
         # Convert string train_target to enum if needed
         if isinstance(self.train_target, str):
             self.train_target = TrainTarget(self.train_target)
-
-        # train_target and collator_kwargs are mutually exclusive
-        if self.train_target is not None and self.collator_kwargs:
-            raise ValueError(
-                "Cannot specify both `train_target` and `collator_kwargs`. "
-                "`train_target` auto-resolves all collator keyword arguments; "
-                "use one or the other."
-            )
 
         if any([dataset.mixture_proportion is not None for dataset in self.datasets]):
             if not all(
