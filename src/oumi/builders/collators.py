@@ -96,7 +96,7 @@ def _resolve_collator_templates(
             break
         eot_len += 1
     eot_ids = after_ids[:eot_len]
-    end_of_turn = tokenizer.decode(eot_ids, skip_special_tokens=False)
+    end_of_turn_template = tokenizer.decode(eot_ids, skip_special_tokens=False)
 
     # Response template: strip the EOT prefix to get just the assistant header.
     resp_ids = tokenizer.encode(
@@ -121,7 +121,7 @@ def _resolve_collator_templates(
             "response_template manually."
         )
 
-    return response_template, end_of_turn
+    return response_template, end_of_turn_template
 
 
 def build_data_collator(
