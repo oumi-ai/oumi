@@ -46,7 +46,8 @@ def _resolve_collator_templates(
 ) -> tuple[str, str]:
     """Auto-detect response_template and end_of_turn_template.
 
-    Renders the tokenizer's chat template with sentinel content.
+    Applies the chat template to a known test conversation, then finds
+    the assistant boundary strings in the rendered output.
 
     Returns:
         (response_template, end_of_turn_template)
