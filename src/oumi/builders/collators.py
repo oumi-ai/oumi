@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from collections.abc import Callable
-from dataclasses import dataclass
 
 import oumi.core.constants as constants
 from oumi.core.collators.text_collator_with_padding import TextCollatorWithPadding
@@ -32,77 +31,96 @@ from oumi.core.configs.params.data_params import TrainTarget
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.utils.logging import logger
 
-# This is used to set the max input length for a model with infinite size input
 _VERY_LARGE_INTEGER = int(1e30)
-
-
-# ---------------------------------------------------------------------------
-# Template auto-detection for TrainTarget
-# ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class _CollatorTemplates:
-    """Chat-format template strings used by the completions collator."""
-
-    response_template: str
-    end_of_turn_template: str
-
-
-_CHATML_TEMPLATES = _CollatorTemplates(
-    response_template="<|im_start|>assistant\n",
-    end_of_turn_template="<|im_end|>",
+_SENTINEL_USER = "<<__U__>>"
+_SENTINEL_ASST = "<<__A__>>"
+_FALLBACK_MSG = (
+    "Cannot auto-detect collator templates from the chat template. "
+    "Use collator_kwargs to specify response_template and "
+    "end_of_turn_template manually instead of train_target."
 )
-
-_LLAMA3_TEMPLATES = _CollatorTemplates(
-    response_template="<|start_header_id|>assistant<|end_header_id|>\n\n",
-    end_of_turn_template="<|eot_id|>",
-)
-
-
-# Each entry is (detector_fn, templates).  The detector receives the
-# tokenizer vocabulary (dict[str, int]) and returns True when the format
-# matches.
-_COLLATOR_TEMPLATE_DETECTORS: list[
-    tuple[Callable[[dict[str, int]], bool], _CollatorTemplates]
-] = [
-    (lambda vocab: "<|im_start|>" in vocab, _CHATML_TEMPLATES),
-    (lambda vocab: "<|start_header_id|>" in vocab, _LLAMA3_TEMPLATES),
-]
 
 
 def _resolve_collator_templates(
     tokenizer: "BaseTokenizer",
-) -> _CollatorTemplates:
-    """Auto-detect collator templates from the tokenizer vocabulary.
+) -> tuple[str, str]:
+    """Auto-detect response_template and end_of_turn_template.
+
+    Renders the tokenizer's chat template with sentinel content.
+
+    Returns:
+        (response_template, end_of_turn_template)
 
     Raises:
-        ValueError: If no known chat format is detected.
+        ValueError: If templates cannot be extracted.
     """
-    vocab: dict[str, int] = tokenizer.get_vocab()
-    for detector, templates in _COLLATOR_TEMPLATE_DETECTORS:
-        if detector(vocab):
-            return templates
-    raise ValueError(
-        "Cannot auto-detect chat template format from the tokenizer "
-        "vocabulary. Please use `collator_kwargs` to specify templates "
-        "manually instead of `train_target`."
+    msgs = [
+        {"role": "user", "content": _SENTINEL_USER},
+        {"role": "assistant", "content": _SENTINEL_ASST},
+        {"role": "user", "content": _SENTINEL_USER},
+        {"role": "assistant", "content": _SENTINEL_ASST},
+    ]
+
+    try:
+        rendered = tokenizer.apply_chat_template(
+            msgs, tokenize=False, add_generation_prompt=False
+        )
+    except Exception as exc:
+        raise ValueError(_FALLBACK_MSG) from exc
+
+    if not isinstance(rendered, str):
+        raise ValueError(_FALLBACK_MSG)
+
+    # Locate boundaries around the second turn pair
+    # to avoid system-prompt effects on the first turn.
+    try:
+        a1 = rendered.index(_SENTINEL_ASST)
+        first_asst_end = a1 + len(_SENTINEL_ASST)
+        second_user = rendered.index(_SENTINEL_USER, first_asst_end)
+        second_user_end = second_user + len(_SENTINEL_USER)
+        second_asst = rendered.index(_SENTINEL_ASST, second_user_end)
+        second_asst_end = second_asst + len(_SENTINEL_ASST)
+    except ValueError:
+        raise ValueError(_FALLBACK_MSG)
+
+    # End-of-turn: common token-ID prefix of the two strings that
+    # follow assistant content (mid-conversation vs. end-of-sequence).
+    after_ids = tokenizer.encode(rendered[second_asst_end:], add_special_tokens=False)
+    between_ids = tokenizer.encode(
+        rendered[first_asst_end:second_user], add_special_tokens=False
     )
+    eot_len = 0
+    for a, b in zip(after_ids, between_ids):
+        if a != b:
+            break
+        eot_len += 1
+    eot_ids = after_ids[:eot_len]
+    end_of_turn = tokenizer.decode(eot_ids, skip_special_tokens=False)
 
+    # Response template: strip the EOT prefix to get just the assistant header.
+    resp_ids = tokenizer.encode(
+        rendered[second_user_end:second_asst], add_special_tokens=False
+    )
+    if eot_len > 0 and resp_ids[:eot_len] == eot_ids:
+        resp_ids = resp_ids[eot_len:]
+    response_template = tokenizer.decode(resp_ids, skip_special_tokens=False)
 
-def _build_train_target_kwargs(
-    train_target: TrainTarget,
-    templates: _CollatorTemplates,
-) -> dict:
-    """Build collator keyword arguments for the given train target."""
-    kwargs: dict = {
-        "response_template": templates.response_template,
-        "train_target": train_target.value,
-    }
-    if train_target == TrainTarget.ALL_ASSISTANT_TURNS:
-        kwargs["end_of_turn_template"] = templates.end_of_turn_template
-    # FINAL_ASSISTANT_TURN needs no extra kwargs beyond response_template
-    return kwargs
+    if not response_template.strip():
+        raise ValueError(_FALLBACK_MSG)
+
+    # Qwen3 and similar reasoning models inject <think>...</think> into
+    # every assistant turn via their chat template.  If training data was
+    # formatted without thinking tokens the response_template won't match
+    # and every example will be silently masked.
+    if "<think>" in response_template:
+        logger.warning(
+            "The extracted response_template contains <think> tokens "
+            "(from the model's chat template). If you're training without "
+            "thinking tokens, use collator_kwargs to specify "
+            "response_template manually."
+        )
+
+    return response_template, end_of_turn
 
 
 def build_data_collator(
@@ -281,11 +299,11 @@ def build_collator_from_config(
             )
         if tokenizer is None:
             raise ValueError("Tokenizer is required for `train_target` auto-detection.")
-        templates = _resolve_collator_templates(tokenizer)
-        train_target_kwargs = _build_train_target_kwargs(
-            train_split.train_target, templates
-        )
-        collator_kwargs.update(train_target_kwargs)
+        response_template, end_of_turn_template = _resolve_collator_templates(tokenizer)
+        collator_kwargs["response_template"] = response_template
+        collator_kwargs["train_target"] = train_split.train_target.value
+        if train_split.train_target == TrainTarget.ALL_ASSISTANT_TURNS:
+            collator_kwargs["end_of_turn_template"] = end_of_turn_template
 
     # Merge collator_kwargs from config with the existing kwargs
     # Config kwargs take precedence over automatically determined kwargs

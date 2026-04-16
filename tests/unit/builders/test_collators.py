@@ -258,36 +258,93 @@ def test_build_collator_from_config_collator_kwargs_override(mock_tokenizer):
 
 
 def _chatml_tokenizer():
-    """Return a mock tokenizer whose vocab contains ChatML special tokens."""
+    """Mock tokenizer that renders ChatML format."""
     tok = MagicMock()
     tok.pad_token_id = 0
     tok.model_max_length = 2048
-    tok.get_vocab.return_value = {
-        "<|im_start|>": 100,
-        "<|im_end|>": 101,
+
+    def _apply(messages, **kw):
+        out = "".join(
+            f"<|im_start|>{m['role']}\n{m['content']}<|im_end|>\n" for m in messages
+        )
+        if kw.get("add_generation_prompt"):
+            out += "<|im_start|>assistant\n"
+        return out
+
+    tok.apply_chat_template = MagicMock(side_effect=_apply)
+
+    # The production code encodes/decodes three substrings from the
+    # rendered template.  Map each to stable token IDs so the
+    # common-prefix logic works.
+    _encode_map = {
+        "<|im_end|>\n": [101, 10],
+        "<|im_end|>\n<|im_start|>user\n": [101, 10, 100, 20],
+        "<|im_end|>\n<|im_start|>assistant\n": [101, 10, 100, 30],
+        "<|im_start|>assistant\n": [100, 30],
     }
+    _decode_map = {
+        (101, 10): "<|im_end|>\n",
+        (100, 30): "<|im_start|>assistant\n",
+    }
+    tok.encode = MagicMock(side_effect=lambda text, **kw: _encode_map[text])
+    tok.decode = MagicMock(side_effect=lambda ids, **kw: _decode_map[tuple(ids)])
     return tok
 
 
 def _llama3_tokenizer():
-    """Return a mock tokenizer whose vocab contains Llama-3 special tokens."""
+    """Mock tokenizer that renders Llama-3 format."""
     tok = MagicMock()
     tok.pad_token_id = 0
     tok.model_max_length = 2048
-    tok.get_vocab.return_value = {
-        "<|start_header_id|>": 200,
-        "<|end_header_id|>": 201,
-        "<|eot_id|>": 202,
+
+    def _apply(messages, **kw):
+        parts = ["<|begin_of_text|>"]
+        for m in messages:
+            parts.append(
+                f"<|start_header_id|>{m['role']}<|end_header_id|>\n\n"
+                f"{m['content']}<|eot_id|>"
+            )
+        if kw.get("add_generation_prompt"):
+            parts.append("<|start_header_id|>assistant<|end_header_id|>\n\n")
+        return "".join(parts)
+
+    tok.apply_chat_template = MagicMock(side_effect=_apply)
+
+    _encode_map = {
+        "<|eot_id|>": [203],
+        "<|eot_id|><|start_header_id|>user<|end_header_id|>\n\n": [
+            203,
+            201,
+            20,
+            202,
+            10,
+        ],
+        "<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n": [
+            203,
+            201,
+            30,
+            202,
+            10,
+        ],
+        "<|start_header_id|>assistant<|end_header_id|>\n\n": [201, 30, 202, 10],
     }
+    _decode_map = {
+        (203,): "<|eot_id|>",
+        (201, 30, 202, 10): "<|start_header_id|>assistant<|end_header_id|>\n\n",
+    }
+    tok.encode = MagicMock(side_effect=lambda text, **kw: _encode_map[text])
+    tok.decode = MagicMock(side_effect=lambda ids, **kw: _decode_map[tuple(ids)])
     return tok
 
 
 def _unknown_tokenizer():
-    """Return a mock tokenizer with no recognisable chat tokens."""
+    """Mock tokenizer with no chat template."""
     tok = MagicMock()
     tok.pad_token_id = 0
     tok.model_max_length = 2048
-    tok.get_vocab.return_value = {"hello": 1, "world": 2}
+    tok.apply_chat_template = MagicMock(
+        side_effect=Exception("No chat template configured")
+    )
     return tok
 
 
@@ -396,7 +453,7 @@ def test_train_target_unknown_tokenizer():
             model_max_length=512,
         ),
     )
-    with pytest.raises(ValueError, match="Cannot auto-detect chat template format"):
+    with pytest.raises(ValueError, match="Cannot auto-detect collator templates"):
         build_collator_from_config(config, tokenizer=tok)
 
 
