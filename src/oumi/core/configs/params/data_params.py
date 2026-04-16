@@ -200,8 +200,7 @@ class DatasetSplitParams(BaseParams):
         - "text_completions_only_with_padding": Uses template matching to
             mask non-assistant tokens. Works for simple user/assistant turns.
             Supports optional ``end_of_turn_template`` in ``collator_kwargs``
-            for span-based masking. Use
-            ``masking_method="assistant_turn_no_tools"`` to mask tool calls.
+            for span-based masking.
         - "vision_language_with_padding": Uses VisionLanguageCollator
             for image+text multi-modal data.
         - "vision_language_sft": Uses VisionLanguageSftCollator.

@@ -132,7 +132,6 @@ def build_data_collator(
         response_template = kwargs.pop("response_template", None)
         end_of_turn_template = kwargs.pop("end_of_turn_template", None)
         masking_method = kwargs.pop("masking_method", None)
-        tool_call_start_template = kwargs.pop("tool_call_start_template", None)
 
         # Only default to Llama-style instruction template when NOT using
         # span-based masking (end_of_turn_template makes it unnecessary).
@@ -153,7 +152,6 @@ def build_data_collator(
             debug=debug,
             masking_method=masking_method,
             end_of_turn_template=end_of_turn_template,
-            tool_call_start_template=tool_call_start_template,
             ignore_index=(
                 label_ignore_index if label_ignore_index is not None else -100
             ),

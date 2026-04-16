@@ -32,7 +32,6 @@ class TextCompletionsCollatorWithPadding:
         debug: bool = False,
         masking_method: str | None = None,
         end_of_turn_template: str | None = None,
-        tool_call_start_template: str | None = None,
         ignore_index: int = -100,
     ):
         """Custom collator for text LLM training.
@@ -42,12 +41,10 @@ class TextCompletionsCollatorWithPadding:
         response_template: String marking assistant response start.
         instruction_template: String marking user instruction start.
         debug: If True, enables debug mode for logging.
-        masking_method: Masking strategy — ``"assistant_turn"``,
-            ``"assistant_turn_no_tools"``, or ``"final_assistant_turn"``.
+        masking_method: Masking strategy — ``"assistant_turn"``
+            or ``"final_assistant_turn"``.
         end_of_turn_template: String marking the end of a turn.
-            Required for ``assistant_turn`` and ``assistant_turn_no_tools``.
-        tool_call_start_template: String marking tool-call start.
-            Required for ``assistant_turn_no_tools``.
+            Required for ``assistant_turn``.
         ignore_index: Value used for masked labels. Must match the ignore_index
             of the loss function (default: -100).
         """
@@ -57,7 +54,6 @@ class TextCompletionsCollatorWithPadding:
             response_template=response_template,
             masking_method=masking_method,
             end_of_turn_template=end_of_turn_template,
-            tool_call_start_template=tool_call_start_template,
             ignore_index=ignore_index,
         )
 

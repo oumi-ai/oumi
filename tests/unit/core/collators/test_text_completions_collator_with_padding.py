@@ -20,7 +20,6 @@ IGNORE = constants.LABEL_IGNORE_INDEX
 # Template strings for span-masking tests — chosen to be unambiguous in GPT-2's vocab.
 _RESP_STR = " ASSISTANT_RESPONSE_START"
 _EOT_STR = " TURN_ENDS_HERE"
-_TC_STR = " TOOL_CALL_BEGINS"
 
 # Arbitrary token IDs used as "content" that must not appear in any template.
 _SENTINELS = [601, 602, 603, 604, 605, 606, 607, 608]
@@ -258,31 +257,26 @@ def test_debug_logging(caplog):
 
 
 @functools.cache
-def get_template_token_ids() -> tuple[list[int], list[int], list[int]]:
-    """Return (resp_ids, eot_ids, tc_ids) encoded once and cached."""
+def get_template_token_ids() -> tuple[list[int], list[int]]:
+    """Return (resp_ids, eot_ids) encoded once and cached."""
     tokenizer, _ = create_test_tokenizer()
     resp = tokenizer.encode(_RESP_STR, add_special_tokens=False)
     eot = tokenizer.encode(_EOT_STR, add_special_tokens=False)
-    tc = tokenizer.encode(_TC_STR, add_special_tokens=False)
-    forbidden = set(resp) | set(eot) | set(tc)
+    forbidden = set(resp) | set(eot)
     for sentinel in _SENTINELS:
         assert sentinel not in forbidden, (
             f"Sentinel {sentinel} collides with a template token ID. Adjust _SENTINELS."
         )
-    return resp, eot, tc
+    return resp, eot
 
 
-def make_span_collator(
-    mask_tool_calls: bool = False,
-) -> TextCompletionsCollatorWithPadding:
+def make_span_collator() -> TextCompletionsCollatorWithPadding:
     tokenizer, _ = create_test_tokenizer()
-    masking_method = "assistant_turn_no_tools" if mask_tool_calls else "assistant_turn"
     return TextCompletionsCollatorWithPadding(
         tokenizer=tokenizer,
         response_template=_RESP_STR,
-        masking_method=masking_method,
+        masking_method="assistant_turn",
         end_of_turn_template=_EOT_STR,
-        tool_call_start_template=_TC_STR if mask_tool_calls else None,
     )
 
 
@@ -303,7 +297,7 @@ def flat(*parts: list[int]) -> list[int]:
 
 
 def test_span_single_turn_content_is_unmasked():
-    resp, eot, _ = get_template_token_ids()
+    resp, eot = get_template_token_ids()
     prefix = [_SENTINELS[0], _SENTINELS[1]]
     content = [_SENTINELS[2], _SENTINELS[3]]
     seq = flat(prefix, resp, content, eot)
@@ -318,7 +312,7 @@ def test_span_single_turn_content_is_unmasked():
 
 
 def test_span_single_turn_response_template_tokens_are_masked():
-    resp, eot, _ = get_template_token_ids()
+    resp, eot = get_template_token_ids()
     seq = flat(resp, [_SENTINELS[0]], eot)
 
     labels = get_span_labels(make_span_collator(), seq)
@@ -328,7 +322,7 @@ def test_span_single_turn_response_template_tokens_are_masked():
 
 
 def test_span_single_turn_eot_tokens_are_unmasked():
-    resp, eot, _ = get_template_token_ids()
+    resp, eot = get_template_token_ids()
     content = [_SENTINELS[0]]
     seq = flat(resp, content, eot)
 
@@ -344,7 +338,7 @@ def test_span_single_turn_eot_tokens_are_unmasked():
 
 
 def test_span_two_turns_both_unmasked():
-    resp, eot, _ = get_template_token_ids()
+    resp, eot = get_template_token_ids()
     turn1 = [_SENTINELS[0], _SENTINELS[1]]
     middle = [_SENTINELS[2]]
     turn2 = [_SENTINELS[3], _SENTINELS[4]]
@@ -362,7 +356,7 @@ def test_span_two_turns_both_unmasked():
 
 
 def test_span_content_between_turns_is_masked():
-    resp, eot, _ = get_template_token_ids()
+    resp, eot = get_template_token_ids()
     turn1 = [_SENTINELS[0]]
     between = [_SENTINELS[1], _SENTINELS[2]]
     turn2 = [_SENTINELS[3]]
@@ -381,7 +375,7 @@ def test_span_content_between_turns_is_masked():
 
 
 def test_span_tool_result_is_masked():
-    resp, eot, _ = get_template_token_ids()
+    resp, eot = get_template_token_ids()
     tool_call_content = [_SENTINELS[0], _SENTINELS[1]]
     tool_result = [_SENTINELS[2], _SENTINELS[3]]
     final_answer = [_SENTINELS[4], _SENTINELS[5]]
@@ -395,7 +389,7 @@ def test_span_tool_result_is_masked():
 
 
 def test_span_final_answer_after_tool_result_is_unmasked():
-    resp, eot, _ = get_template_token_ids()
+    resp, eot = get_template_token_ids()
     tool_call_content = [_SENTINELS[0]]
     tool_result = [_SENTINELS[1]]
     final_answer = [_SENTINELS[2], _SENTINELS[3]]
@@ -409,69 +403,15 @@ def test_span_final_answer_after_tool_result_is_unmasked():
     assert labels[final_start : final_start + len(final_answer)] == final_answer
 
 
-# ---------------------------------------------------------------------------
-# mask_tool_calls option
-# ---------------------------------------------------------------------------
-
-
-def test_span_tool_call_turn_unmasked_by_default():
-    resp, eot, tc = get_template_token_ids()
-    tc_content = flat(tc, [_SENTINELS[0]])
-    seq = flat(resp, tc_content, eot)
-
-    labels = get_span_labels(make_span_collator(mask_tool_calls=False), seq)
-
-    content_start = len(resp)
-    assert labels[content_start : content_start + len(tc_content)] == tc_content
-
-
-def test_span_tool_call_turn_masked_when_option_set():
-    resp, eot, tc = get_template_token_ids()
-    tc_content = flat(tc, [_SENTINELS[0]])
-    seq = flat(resp, tc_content, eot)
-
-    labels = get_span_labels(make_span_collator(mask_tool_calls=True), seq)
-
-    content_start = len(resp)
-    assert all(
-        v == IGNORE for v in labels[content_start : content_start + len(tc_content)]
-    )
-
-
-def test_span_non_tool_call_turn_still_unmasked_when_mask_tool_calls_set():
-    resp, eot, tc = get_template_token_ids()
-    tc_content = flat(tc, [_SENTINELS[0]])
-    final_answer = [_SENTINELS[1], _SENTINELS[2]]
-    seq = flat(resp, tc_content, eot, resp, final_answer, eot)
-
-    labels = get_span_labels(make_span_collator(mask_tool_calls=True), seq)
-
-    final_start = len(resp) + len(tc_content) + len(eot) + len(resp)
-    assert labels[final_start : final_start + len(final_answer)] == final_answer
-
-
-def test_span_mask_tool_calls_requires_template():
+def test_span_masking_requires_end_of_turn_template():
     tokenizer, _ = create_test_tokenizer()
-    with pytest.raises(ValueError, match="tool_call_start_template"):
+    with pytest.raises(ValueError, match="end_of_turn_template"):
         TextCompletionsCollatorWithPadding(
             tokenizer=tokenizer,
             response_template=_RESP_STR,
-            masking_method="assistant_turn_no_tools",
-            end_of_turn_template=_EOT_STR,
-            tool_call_start_template=None,
+            masking_method="assistant_turn",
+            end_of_turn_template=None,
         )
-
-
-def test_span_masking_requires_end_of_turn_template():
-    tokenizer, _ = create_test_tokenizer()
-    for method in ("assistant_turn", "assistant_turn_no_tools"):
-        with pytest.raises(ValueError, match="end_of_turn_template"):
-            TextCompletionsCollatorWithPadding(
-                tokenizer=tokenizer,
-                response_template=_RESP_STR,
-                masking_method=method,
-                end_of_turn_template=None,
-            )
 
 
 # ---------------------------------------------------------------------------
@@ -491,7 +431,7 @@ def test_span_no_response_template_all_masked():
 
 
 def test_span_no_eot_unmasked_to_end_of_sequence():
-    resp, _, _ = get_template_token_ids()
+    resp, _ = get_template_token_ids()
     content = [_SENTINELS[0], _SENTINELS[1]]
     seq = flat(resp, content)
 
@@ -501,7 +441,7 @@ def test_span_no_eot_unmasked_to_end_of_sequence():
 
 
 def test_span_empty_content_span():
-    resp, eot, _ = get_template_token_ids()
+    resp, eot = get_template_token_ids()
     seq = flat(resp, eot)
 
     labels = get_span_labels(make_span_collator(), seq)
@@ -513,7 +453,7 @@ def test_span_padding_matching_eot_does_not_false_match():
     """When pad_token_id matches the EOT token, padding must not be treated as
     a real end-of-turn boundary."""
     tokenizer, pad_token_id = create_test_tokenizer()
-    resp, _, _ = get_template_token_ids()
+    resp, _ = get_template_token_ids()
 
     # Use pad_token_id itself as the EOT template — worst case scenario.
     eot_ids = [pad_token_id]
@@ -542,7 +482,7 @@ def test_span_padding_matching_eot_does_not_false_match():
 
 
 def test_span_batch_two_examples_processed_independently():
-    resp, eot, _ = get_template_token_ids()
+    resp, eot = get_template_token_ids()
     _, pad_token_id = create_test_tokenizer()
     content_a = [_SENTINELS[0], _SENTINELS[1]]
     content_b = [_SENTINELS[2]]
@@ -563,7 +503,7 @@ def test_span_batch_two_examples_processed_independently():
 
 
 def test_span_batch_bad_example_does_not_affect_others():
-    resp, eot, _ = get_template_token_ids()
+    resp, eot = get_template_token_ids()
     _, pad_token_id = create_test_tokenizer()
     good_seq = flat(resp, [_SENTINELS[0]], eot)
     bad_seq = [_SENTINELS[1], _SENTINELS[2]]
@@ -584,21 +524,21 @@ def test_span_batch_bad_example_does_not_affect_others():
 
 
 def test_span_output_labels_is_torch_tensor():
-    resp, eot, _ = get_template_token_ids()
+    resp, eot = get_template_token_ids()
     seq = flat(resp, [_SENTINELS[0]], eot)
     batch = make_span_collator()([{"input_ids": seq}])
     assert isinstance(batch["labels"], torch.Tensor)
 
 
 def test_span_labels_shape_matches_input_ids():
-    resp, eot, _ = get_template_token_ids()
+    resp, eot = get_template_token_ids()
     seq = flat(resp, [_SENTINELS[0], _SENTINELS[1]], eot)
     batch = make_span_collator()([{"input_ids": seq}])
     assert batch["labels"].shape == batch["input_ids"].shape
 
 
 def test_span_labels_numpy_values_match_expected():
-    resp, eot, _ = get_template_token_ids()
+    resp, eot = get_template_token_ids()
     content = [_SENTINELS[0], _SENTINELS[1]]
     seq = flat(resp, content, eot)
 
