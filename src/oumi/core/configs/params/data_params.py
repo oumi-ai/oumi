@@ -52,6 +52,28 @@ class MixtureStrategy(str, Enum):
             raise ValueError("Unsupported value for MixtureStrategy")
 
 
+class MaskingMethod(str, Enum):
+    """Controls which tokens contribute to the loss during SFT training.
+
+    Used with the ``text_completions_only_with_padding`` collator to
+    select the masking strategy. Template tokens are auto-resolved
+    from the tokenizer vocabulary.
+
+    Members:
+        ASSISTANT_TURN: Train on all assistant response turns including
+            tool calls. Uses span-based masking: system prompts, user
+            messages, and tool results are masked; everything between the
+            assistant header and the end-of-turn token (inclusive) is
+            unmasked.
+        FINAL_ASSISTANT_TURN: Train only on the final assistant response.
+            Masks all tokens before the last ``response_template``
+            occurrence. Suitable for single-turn completions.
+    """
+
+    ASSISTANT_TURN = "assistant_turn"
+    FINAL_ASSISTANT_TURN = "final_assistant_turn"
+
+
 @dataclass
 class DatasetParams(BaseParams):
     dataset_name: str = MISSING
@@ -215,6 +237,16 @@ class DatasetSplitParams(BaseParams):
     and can be used to customize collator behavior beyond the default parameters.
     """
 
+    masking_method: MaskingMethod | None = None
+    """High-level masking strategy for ``text_completions_only_with_padding``.
+
+    When set, the builder auto-detects ``response_template`` and
+    ``end_of_turn_template`` from the tokenizer vocabulary.  Mutually
+    exclusive with ``collator_kwargs`` -- use one or the other.
+
+    See :class:`MaskingMethod` for available options.
+    """
+
     pack: bool = False
     """Whether to pack the text into constant-length chunks.
 
@@ -271,6 +303,18 @@ class DatasetSplitParams(BaseParams):
 
     def __post_init__(self):
         """Verifies params."""
+        # Convert string masking_method to enum if needed
+        if isinstance(self.masking_method, str):
+            self.masking_method = MaskingMethod(self.masking_method)
+
+        # masking_method and collator_kwargs are mutually exclusive
+        if self.masking_method is not None and self.collator_kwargs:
+            raise ValueError(
+                "Cannot specify both `masking_method` and `collator_kwargs`. "
+                "`masking_method` auto-resolves all collator keyword arguments; "
+                "use one or the other."
+            )
+
         if any([dataset.mixture_proportion is not None for dataset in self.datasets]):
             if not all(
                 [dataset.mixture_proportion is not None for dataset in self.datasets]

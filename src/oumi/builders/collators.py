@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from collections.abc import Callable
+from dataclasses import dataclass
 
 import oumi.core.constants as constants
 from oumi.core.collators.text_collator_with_padding import TextCollatorWithPadding
@@ -27,11 +28,81 @@ from oumi.core.configs import DatasetSplit, TrainingConfig
 from oumi.core.configs.internal.supported_models import (
     find_internal_model_config,
 )
+from oumi.core.configs.params.data_params import MaskingMethod
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.utils.logging import logger
 
 # This is used to set the max input length for a model with infinite size input
 _VERY_LARGE_INTEGER = int(1e30)
+
+
+# ---------------------------------------------------------------------------
+# Template auto-detection for MaskingMethod
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class _CollatorTemplates:
+    """Chat-format template strings used by the completions collator."""
+
+    response_template: str
+    end_of_turn_template: str
+
+
+_CHATML_TEMPLATES = _CollatorTemplates(
+    response_template="<|im_start|>assistant\n",
+    end_of_turn_template="<|im_end|>",
+)
+
+_LLAMA3_TEMPLATES = _CollatorTemplates(
+    response_template="<|start_header_id|>assistant<|end_header_id|>\n\n",
+    end_of_turn_template="<|eot_id|>",
+)
+
+
+# Each entry is (detector_fn, templates).  The detector receives the
+# tokenizer vocabulary (dict[str, int]) and returns True when the format
+# matches.
+_COLLATOR_TEMPLATE_DETECTORS: list[
+    tuple[Callable[[dict[str, int]], bool], _CollatorTemplates]
+] = [
+    (lambda vocab: "<|im_start|>" in vocab, _CHATML_TEMPLATES),
+    (lambda vocab: "<|start_header_id|>" in vocab, _LLAMA3_TEMPLATES),
+]
+
+
+def _resolve_collator_templates(
+    tokenizer: "BaseTokenizer",
+) -> _CollatorTemplates:
+    """Auto-detect collator templates from the tokenizer vocabulary.
+
+    Raises:
+        ValueError: If no known chat format is detected.
+    """
+    vocab: dict[str, int] = tokenizer.get_vocab()
+    for detector, templates in _COLLATOR_TEMPLATE_DETECTORS:
+        if detector(vocab):
+            return templates
+    raise ValueError(
+        "Cannot auto-detect chat template format from the tokenizer "
+        "vocabulary. Please use `collator_kwargs` to specify templates "
+        "manually instead of `masking_method`."
+    )
+
+
+def _build_masking_kwargs(
+    masking_method: MaskingMethod,
+    templates: _CollatorTemplates,
+) -> dict:
+    """Build collator keyword arguments for the given masking method."""
+    kwargs: dict = {
+        "response_template": templates.response_template,
+        "masking_method": masking_method.value,
+    }
+    if masking_method == MaskingMethod.ASSISTANT_TURN:
+        kwargs["end_of_turn_template"] = templates.end_of_turn_template
+    # FINAL_ASSISTANT_TURN needs no extra kwargs beyond response_template
+    return kwargs
 
 
 def build_data_collator(
@@ -130,7 +201,9 @@ def build_data_collator(
         if not kwargs.get("response_template"):
             raise ValueError(
                 "'text_completions_only_with_padding' requires a "
-                "response_template. Provide it via collator_kwargs."
+                "response_template. Either set train_target in your config "
+                "(which auto-resolves templates from the tokenizer) or "
+                "provide response_template via collator_kwargs."
             )
 
         return TextCompletionsCollatorWithPadding(
@@ -197,6 +270,22 @@ def build_collator_from_config(
         collator_kwargs["trust_remote_code"] = collator_kwargs.get(
             "trust_remote_code", config.model.trust_remote_code
         )
+
+    # --- MaskingMethod auto-resolution ---
+    if train_split.masking_method is not None:
+        if collator_name != "text_completions_only_with_padding":
+            raise ValueError(
+                f"`masking_method` is only supported with the "
+                f"'text_completions_only_with_padding' collator, "
+                f"got '{collator_name}'."
+            )
+        if tokenizer is None:
+            raise ValueError(
+                "Tokenizer is required for `masking_method` auto-detection."
+            )
+        templates = _resolve_collator_templates(tokenizer)
+        masking_kwargs = _build_masking_kwargs(train_split.masking_method, templates)
+        collator_kwargs.update(masking_kwargs)
 
     # Merge collator_kwargs from config with the existing kwargs
     # Config kwargs take precedence over automatically determined kwargs
