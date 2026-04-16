@@ -9,10 +9,10 @@ from oumi.core.configs import (
     DataParams,
     DatasetParams,
     DatasetSplitParams,
-    MaskingMethod,
     ModelParams,
     TrainingConfig,
     TrainingParams,
+    TrainTarget,
 )
 
 
@@ -253,7 +253,7 @@ def test_build_collator_from_config_collator_kwargs_override(mock_tokenizer):
 
 
 # ---------------------------------------------------------------------------
-# MaskingMethod / builder auto-detection tests
+# TrainTarget / builder auto-detection tests
 # ---------------------------------------------------------------------------
 
 
@@ -300,7 +300,7 @@ def test_build_data_collator_text_completions_with_tool_kwargs(mock_tokenizer):
         label_ignore_index=-200,
         response_template="<|assistant|>",
         end_of_turn_template="<|end|>",
-        masking_method="assistant_turn",
+        train_target="all_assistant_turns",
     )
     assert collator is not None
     assert callable(collator)
@@ -308,14 +308,14 @@ def test_build_data_collator_text_completions_with_tool_kwargs(mock_tokenizer):
     assert inner.ignore_index == -200
 
 
-def test_masking_method_assistant_turn():
-    """ChatML auto-detection with ASSISTANT_TURN masking method."""
+def test_train_target_all_assistant_turns():
+    """ChatML auto-detection with ALL_ASSISTANT_TURNS train target."""
     tok = _chatml_tokenizer()
     config = TrainingConfig(
         data=DataParams(
             train=DatasetSplitParams(
                 collator_name="text_completions_only_with_padding",
-                masking_method=MaskingMethod.ASSISTANT_TURN,
+                train_target=TrainTarget.ALL_ASSISTANT_TURNS,
                 datasets=[DatasetParams(dataset_name="dummy", split="train")],
             )
         ),
@@ -331,14 +331,14 @@ def test_masking_method_assistant_turn():
     assert inner.response_template == "<|im_start|>assistant\n"
 
 
-def test_masking_method_final_assistant_turn():
-    """ChatML auto-detection with FINAL_ASSISTANT_TURN masking method."""
+def test_train_target_final_assistant_turn():
+    """ChatML auto-detection with FINAL_ASSISTANT_TURN train target."""
     tok = _chatml_tokenizer()
     config = TrainingConfig(
         data=DataParams(
             train=DatasetSplitParams(
                 collator_name="text_completions_only_with_padding",
-                masking_method=MaskingMethod.FINAL_ASSISTANT_TURN,
+                train_target=TrainTarget.FINAL_ASSISTANT_TURN,
                 datasets=[DatasetParams(dataset_name="dummy", split="train")],
             )
         ),
@@ -354,14 +354,14 @@ def test_masking_method_final_assistant_turn():
     assert inner.response_template == "<|im_start|>assistant\n"
 
 
-def test_masking_method_llama3():
-    """Llama-3 auto-detection with ASSISTANT_TURN masking method."""
+def test_train_target_llama3():
+    """Llama-3 auto-detection with ALL_ASSISTANT_TURNS train target."""
     tok = _llama3_tokenizer()
     config = TrainingConfig(
         data=DataParams(
             train=DatasetSplitParams(
                 collator_name="text_completions_only_with_padding",
-                masking_method=MaskingMethod.ASSISTANT_TURN,
+                train_target=TrainTarget.ALL_ASSISTANT_TURNS,
                 datasets=[DatasetParams(dataset_name="dummy", split="train")],
             )
         ),
@@ -379,14 +379,14 @@ def test_masking_method_llama3():
     )
 
 
-def test_masking_method_unknown_tokenizer():
+def test_train_target_unknown_tokenizer():
     """Error when tokenizer vocab does not match any known chat format."""
     tok = _unknown_tokenizer()
     config = TrainingConfig(
         data=DataParams(
             train=DatasetSplitParams(
                 collator_name="text_completions_only_with_padding",
-                masking_method=MaskingMethod.ASSISTANT_TURN,
+                train_target=TrainTarget.ALL_ASSISTANT_TURNS,
                 datasets=[DatasetParams(dataset_name="dummy", split="train")],
             )
         ),
@@ -400,25 +400,25 @@ def test_masking_method_unknown_tokenizer():
         build_collator_from_config(config, tokenizer=tok)
 
 
-def test_masking_method_and_collator_kwargs_exclusive():
-    """masking_method and collator_kwargs are mutually exclusive."""
+def test_train_target_and_collator_kwargs_exclusive():
+    """train_target and collator_kwargs are mutually exclusive."""
     with pytest.raises(ValueError, match="Cannot specify both"):
         DatasetSplitParams(
             collator_name="text_completions_only_with_padding",
-            masking_method=MaskingMethod.ASSISTANT_TURN,
+            train_target=TrainTarget.ALL_ASSISTANT_TURNS,
             collator_kwargs={"response_template": "<|assistant|>"},
             datasets=[DatasetParams(dataset_name="dummy", split="train")],
         )
 
 
-def test_masking_method_on_wrong_collator():
-    """masking_method is only valid for text_completions_only_with_padding."""
+def test_train_target_on_wrong_collator():
+    """train_target is only valid for text_completions_only_with_padding."""
     tok = _chatml_tokenizer()
     config = TrainingConfig(
         data=DataParams(
             train=DatasetSplitParams(
                 collator_name="text_with_padding",
-                masking_method=MaskingMethod.ASSISTANT_TURN,
+                train_target=TrainTarget.ALL_ASSISTANT_TURNS,
                 datasets=[DatasetParams(dataset_name="dummy", split="train")],
             )
         ),
@@ -432,8 +432,8 @@ def test_masking_method_on_wrong_collator():
         build_collator_from_config(config, tokenizer=tok)
 
 
-def test_no_masking_method_backward_compat(mock_tokenizer):
-    """collator_kwargs still work when masking_method is not set."""
+def test_no_train_target_backward_compat(mock_tokenizer):
+    """collator_kwargs still work when train_target is not set."""
     config = TrainingConfig(
         data=DataParams(
             train=DatasetSplitParams(
@@ -459,7 +459,7 @@ def test_no_masking_method_backward_compat(mock_tokenizer):
 
 
 def test_bare_collator_name_raises_without_templates(mock_tokenizer):
-    """Bare collator_name without kwargs or masking_method raises an error."""
+    """Bare collator_name without kwargs or train_target raises an error."""
     config = TrainingConfig(
         data=DataParams(
             train=DatasetSplitParams(
@@ -473,7 +473,7 @@ def test_bare_collator_name_raises_without_templates(mock_tokenizer):
             model_max_length=512,
         ),
     )
-    with pytest.raises(ValueError, match="requires a `response_template`"):
+    with pytest.raises(ValueError, match="response_template"):
         build_collator_from_config(config, tokenizer=mock_tokenizer)
 
 

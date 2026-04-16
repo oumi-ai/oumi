@@ -52,15 +52,15 @@ class MixtureStrategy(str, Enum):
             raise ValueError("Unsupported value for MixtureStrategy")
 
 
-class MaskingMethod(str, Enum):
+class TrainTarget(str, Enum):
     """Controls which tokens contribute to the loss during SFT training.
 
     Used with the ``text_completions_only_with_padding`` collator to
-    select the masking strategy. Template tokens are auto-resolved
+    select the training target. Template tokens are auto-resolved
     from the tokenizer vocabulary.
 
     Members:
-        ASSISTANT_TURN: Train on all assistant response turns including
+        ALL_ASSISTANT_TURNS: Train on all assistant response turns including
             tool calls. Uses span-based masking: system prompts, user
             messages, and tool results are masked; everything between the
             assistant header and the end-of-turn token (inclusive) is
@@ -70,7 +70,7 @@ class MaskingMethod(str, Enum):
             occurrence. Suitable for single-turn completions.
     """
 
-    ASSISTANT_TURN = "assistant_turn"
+    ALL_ASSISTANT_TURNS = "all_assistant_turns"
     FINAL_ASSISTANT_TURN = "final_assistant_turn"
 
 
@@ -237,14 +237,14 @@ class DatasetSplitParams(BaseParams):
     and can be used to customize collator behavior beyond the default parameters.
     """
 
-    masking_method: MaskingMethod | None = None
-    """High-level masking strategy for ``text_completions_only_with_padding``.
+    train_target: TrainTarget | None = None
+    """High-level training target for ``text_completions_only_with_padding``.
 
     When set, the builder auto-detects ``response_template`` and
     ``end_of_turn_template`` from the tokenizer vocabulary.  Mutually
     exclusive with ``collator_kwargs`` -- use one or the other.
 
-    See :class:`MaskingMethod` for available options.
+    See :class:`TrainTarget` for available options.
     """
 
     pack: bool = False
@@ -303,15 +303,15 @@ class DatasetSplitParams(BaseParams):
 
     def __post_init__(self):
         """Verifies params."""
-        # Convert string masking_method to enum if needed
-        if isinstance(self.masking_method, str):
-            self.masking_method = MaskingMethod(self.masking_method)
+        # Convert string train_target to enum if needed
+        if isinstance(self.train_target, str):
+            self.train_target = TrainTarget(self.train_target)
 
-        # masking_method and collator_kwargs are mutually exclusive
-        if self.masking_method is not None and self.collator_kwargs:
+        # train_target and collator_kwargs are mutually exclusive
+        if self.train_target is not None and self.collator_kwargs:
             raise ValueError(
-                "Cannot specify both `masking_method` and `collator_kwargs`. "
-                "`masking_method` auto-resolves all collator keyword arguments; "
+                "Cannot specify both `train_target` and `collator_kwargs`. "
+                "`train_target` auto-resolves all collator keyword arguments; "
                 "use one or the other."
             )
 

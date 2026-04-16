@@ -28,7 +28,7 @@ from oumi.core.configs import DatasetSplit, TrainingConfig
 from oumi.core.configs.internal.supported_models import (
     find_internal_model_config,
 )
-from oumi.core.configs.params.data_params import MaskingMethod
+from oumi.core.configs.params.data_params import TrainTarget
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.utils.logging import logger
 
@@ -37,7 +37,7 @@ _VERY_LARGE_INTEGER = int(1e30)
 
 
 # ---------------------------------------------------------------------------
-# Template auto-detection for MaskingMethod
+# Template auto-detection for TrainTarget
 # ---------------------------------------------------------------------------
 
 
@@ -86,20 +86,20 @@ def _resolve_collator_templates(
     raise ValueError(
         "Cannot auto-detect chat template format from the tokenizer "
         "vocabulary. Please use `collator_kwargs` to specify templates "
-        "manually instead of `masking_method`."
+        "manually instead of `train_target`."
     )
 
 
-def _build_masking_kwargs(
-    masking_method: MaskingMethod,
+def _build_train_target_kwargs(
+    train_target: TrainTarget,
     templates: _CollatorTemplates,
 ) -> dict:
-    """Build collator keyword arguments for the given masking method."""
+    """Build collator keyword arguments for the given train target."""
     kwargs: dict = {
         "response_template": templates.response_template,
-        "masking_method": masking_method.value,
+        "train_target": train_target.value,
     }
-    if masking_method == MaskingMethod.ASSISTANT_TURN:
+    if train_target == TrainTarget.ALL_ASSISTANT_TURNS:
         kwargs["end_of_turn_template"] = templates.end_of_turn_template
     # FINAL_ASSISTANT_TURN needs no extra kwargs beyond response_template
     return kwargs
@@ -271,21 +271,21 @@ def build_collator_from_config(
             "trust_remote_code", config.model.trust_remote_code
         )
 
-    # --- MaskingMethod auto-resolution ---
-    if train_split.masking_method is not None:
+    # --- TrainTarget auto-resolution ---
+    if train_split.train_target is not None:
         if collator_name != "text_completions_only_with_padding":
             raise ValueError(
-                f"`masking_method` is only supported with the "
+                f"`train_target` is only supported with the "
                 f"'text_completions_only_with_padding' collator, "
                 f"got '{collator_name}'."
             )
         if tokenizer is None:
-            raise ValueError(
-                "Tokenizer is required for `masking_method` auto-detection."
-            )
+            raise ValueError("Tokenizer is required for `train_target` auto-detection.")
         templates = _resolve_collator_templates(tokenizer)
-        masking_kwargs = _build_masking_kwargs(train_split.masking_method, templates)
-        collator_kwargs.update(masking_kwargs)
+        train_target_kwargs = _build_train_target_kwargs(
+            train_split.train_target, templates
+        )
+        collator_kwargs.update(train_target_kwargs)
 
     # Merge collator_kwargs from config with the existing kwargs
     # Config kwargs take precedence over automatically determined kwargs
