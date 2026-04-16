@@ -73,8 +73,8 @@ def create_analyzer_from_config(
 ) -> "MessageAnalyzer | ConversationAnalyzer | DatasetAnalyzer | None":
     """Create an analyzer instance from configuration.
 
-    Prefers using the analyzer's from_config() classmethod if available,
-    otherwise falls back to direct instantiation with **params.
+    Prefers using the analyzer's ``from_config()`` classmethod if available,
+    otherwise falls back to direct instantiation with ``**params``.
 
     Args:
         analyzer_id: Analyzer type identifier.
