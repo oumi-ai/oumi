@@ -71,6 +71,153 @@ The built-in `length` analyzer computes text length metrics:
 Enable token counting by adding `tokenizer_config` to your configuration. See {doc}`analyze_config` for setup details.
 :::
 
+### Data Quality Analyzer
+
+The built-in `quality` analyzer ({py:class}`~oumi.analyze.analyzers.quality.DataQualityAnalyzer`) catches five common data issues without running any model inference. It's meant as a cheap, first-pass sanity check before training or fine-tuning.
+
+| Field                              | What it flags                                                             |
+|------------------------------------|---------------------------------------------------------------------------|
+| `has_non_alternating_turns`        | Consecutive same-role messages (`user`, `user`, …) in non-system turns     |
+| `has_no_user_message`              | Conversation has no `user` message at all (including empty conversations) |
+| `has_system_message_not_at_start`  | A `system` message appears anywhere other than position 0                  |
+| `has_empty_turns` / `empty_turn_count` | Any message whose content is empty or whitespace-only                  |
+| `has_invalid_values` / `invalid_value_patterns` | Strings like `NaN`, `null`, `None`, `undefined` leaked into content |
+
+```yaml
+analyzers:
+  - id: quality
+```
+
+Because the output is typed ({py:class}`~oumi.analyze.analyzers.quality.DataQualityMetrics`), quality fields can be referenced by later **tests** using dotted metric paths (see [Testing Framework](#testing-framework)), e.g. `quality.has_no_user_message`.
+
+### Turn Stats Analyzer
+
+The built-in `turn_stats` analyzer ({py:class}`~oumi.analyze.analyzers.turn_stats.TurnStatsAnalyzer`) reports conversation shape: `num_turns`, `num_user_turns`, `num_assistant_turns`, `has_system_message`, `first_turn_role`, `last_turn_role`. Useful for finding malformed or single-sided conversations.
+
+```yaml
+analyzers:
+  - id: turn_stats
+```
+
+## Typed Analyzer Framework
+
+All built-in analyzers above (`length`, `quality`, `turn_stats`) are implemented in the **typed analyzer framework** ({py:class}`~oumi.analyze.base.BaseAnalyzer`). Each analyzer declares a pydantic result model, which gives you:
+
+- **Auto-generated JSON schemas** for result documentation and validation.
+- **Typed access** to analyzer output in Python (fields are proper attributes, not dict keys).
+- **Metric paths** for the testing framework — `{analyzer_id}.{field_name}`, or `{instance_id}.{field_name}` when you run multiple instances of the same analyzer.
+
+### Defining a Typed Analyzer
+
+```python
+from pydantic import BaseModel, Field
+from oumi.analyze.base import ConversationAnalyzer
+from oumi.core.registry import register_sample_analyzer
+from oumi.core.types.conversation import Conversation
+
+
+class QuestionMetrics(BaseModel):
+    num_questions: int = Field(description="Count of '?' characters")
+    density: float = Field(description="Questions per message")
+
+
+@register_sample_analyzer("questions")
+class QuestionAnalyzer(ConversationAnalyzer[QuestionMetrics]):
+    _result_model = QuestionMetrics
+
+    @classmethod
+    def get_config_schema(cls) -> dict:
+        return {"properties": {}}
+
+    def analyze(self, conversation: Conversation) -> QuestionMetrics:
+        total = sum(m.content.count("?") for m in conversation.messages)
+        return QuestionMetrics(
+            num_questions=total,
+            density=total / max(len(conversation.messages), 1),
+        )
+```
+
+Point the config at your typed analyzer the same way as built-ins:
+
+```yaml
+analyzers:
+  - id: questions
+    instance_id: questions            # required for typed analyzers
+```
+
+When you need two configurations of the same analyzer (e.g. two `length` analyzers with different tokenizers), give each one a unique `instance_id`.
+
+### Custom Metrics (No Code Registration Required)
+
+For quick one-offs you don't want to package as an analyzer, declare a `custom_metrics` block directly in YAML:
+
+```yaml
+custom_metrics:
+  - id: word_to_char_ratio
+    scope: conversation              # message | conversation | dataset
+    description: "Ratio of words to characters"
+    output_schema:
+      - name: ratio
+        type: float
+        description: "Words divided by characters"
+    function: |
+      def compute(conversation):
+          chars = sum(len(m.content) for m in conversation.messages)
+          words = sum(len(m.content.split()) for m in conversation.messages)
+          return {"ratio": words / chars if chars > 0 else 0.0}
+```
+
+```{warning}
+Custom metric `function` strings are compiled and run as arbitrary Python. Only load configs from sources you trust.
+```
+
+## Testing Framework
+
+The typed framework also ships a **testing** layer that evaluates analyzer output against thresholds and produces a pass/fail summary — useful for CI, regression detection, and "fail the run if more than 5% of conversations are missing a user message".
+
+### Defining Tests
+
+```yaml
+tests:
+  - id: max_words
+    type: threshold
+    metric: length.total_words        # <analyzer_id_or_instance_id>.<field>
+    operator: ">"
+    value: 10000
+    max_percentage: 5.0               # fail if >5% of conversations match
+
+  - id: no_missing_user_msg
+    type: threshold
+    metric: quality.has_no_user_message
+    operator: "=="
+    value: true
+    max_percentage: 0.0               # fail if any conversation is missing a user
+```
+
+Each test compares a metric to a `value` using `operator`, then checks whether the flagged fraction exceeds `max_percentage` (or falls below `min_percentage`).
+
+### Running Tests Incrementally with BatchTestEngine
+
+For large datasets where full analyzer output won't fit in memory, use {py:class}`~oumi.analyze.testing.batch_engine.BatchTestEngine`. It accumulates only lightweight counters and per-test affected conversation IDs as batches stream through, then returns a `TestSummary` at the end:
+
+```python
+from oumi.analyze.testing.batch_engine import BatchTestEngine
+
+engine = BatchTestEngine(config.tests)
+
+for batch_results, batch_conversation_ids in stream_batches():
+    engine.process_batch(batch_results, batch_conversation_ids)
+
+summary = engine.finalize()
+print(f"{summary.passed_tests}/{summary.total_tests} passed "
+      f"({summary.pass_rate}%)")
+
+# IDs of conversations that caused test failures, per test:
+affected = engine.get_affected_conversation_ids()
+```
+
+Use the standard `TestEngine` (same module) when the full dataset fits in memory; use `BatchTestEngine` when it doesn't.
+
 ## Working with Results
 
 ### Analysis Summary
