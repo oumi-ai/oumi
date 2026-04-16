@@ -292,12 +292,6 @@ def build_collator_from_config(
 
     # --- TrainTarget auto-resolution ---
     if train_split.train_target is not None:
-        if collator_name != "text_completions_only_with_padding":
-            raise ValueError(
-                f"`train_target` is only supported with the "
-                f"'text_completions_only_with_padding' collator, "
-                f"got '{collator_name}'."
-            )
         if tokenizer is None:
             raise ValueError("Tokenizer is required for `train_target` auto-detection.")
         response_template, end_of_turn_template = _resolve_collator_templates(tokenizer)

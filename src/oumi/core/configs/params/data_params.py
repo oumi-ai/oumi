@@ -307,6 +307,16 @@ class DatasetSplitParams(BaseParams):
         if isinstance(self.train_target, str):
             self.train_target = TrainTarget(self.train_target)
 
+        if self.train_target is not None and self.collator_name not in (
+            None,
+            "text_completions_only_with_padding",
+        ):
+            raise ValueError(
+                "`train_target` is only supported with the "
+                "'text_completions_only_with_padding' collator, "
+                f"got '{self.collator_name}'."
+            )
+
         if any([dataset.mixture_proportion is not None for dataset in self.datasets]):
             if not all(
                 [dataset.mixture_proportion is not None for dataset in self.datasets]

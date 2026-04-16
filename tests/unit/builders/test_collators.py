@@ -484,23 +484,12 @@ def test_train_target_with_collator_kwargs_override():
 
 def test_train_target_on_wrong_collator():
     """train_target is only valid for text_completions_only_with_padding."""
-    tok = _chatml_tokenizer()
-    config = TrainingConfig(
-        data=DataParams(
-            train=DatasetSplitParams(
-                collator_name="text_with_padding",
-                train_target=TrainTarget.ALL_ASSISTANT_TURNS,
-                datasets=[DatasetParams(dataset_name="dummy", split="train")],
-            )
-        ),
-        model=ModelParams(
-            model_name="MlpEncoder",
-            tokenizer_name="openai-community/gpt2",
-            model_max_length=512,
-        ),
-    )
     with pytest.raises(ValueError, match="only supported with"):
-        build_collator_from_config(config, tokenizer=tok)
+        DatasetSplitParams(
+            collator_name="text_with_padding",
+            train_target=TrainTarget.ALL_ASSISTANT_TURNS,
+            datasets=[DatasetParams(dataset_name="dummy", split="train")],
+        )
 
 
 def test_no_train_target_backward_compat(mock_tokenizer):
