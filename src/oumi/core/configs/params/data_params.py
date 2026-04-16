@@ -53,7 +53,7 @@ class MixtureStrategy(str, Enum):
 
 
 class TrainTarget(str, Enum):
-    """Controls which tokens contribute to the loss during SFT training.
+    """Controls which tokens contribute to the loss during training.
 
     Used with the ``text_completions_only_with_padding`` collator to
     select the training target. Template tokens are auto-resolved
