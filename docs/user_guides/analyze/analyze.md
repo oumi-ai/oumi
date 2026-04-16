@@ -156,17 +156,20 @@ oumi analyze --config config.yaml --output ./my_results
 from oumi.analyze import run_typed_analysis, TypedAnalyzeConfig
 
 config = TypedAnalyzeConfig.from_yaml("config.yaml")
-results = run_typed_analysis(config)
+output = run_typed_analysis(config)
 
-# results is a dict mapping analyzer display_name to list of result models
-for length_result in results["Length"]:
+# Analyzer results keyed by display_name
+for length_result in output["results"]["Length"]:
     print(f"Tokens: {length_result.total_tokens}")
 
-# Convert to DataFrame
-from oumi.analyze import to_analysis_dataframe
-
-df = to_analysis_dataframe(results)
+# Pre-built DataFrame (one row per conversation)
+df = output["dataframe"]
 print(df.describe())
+
+# Test summary (if tests were configured)
+if output["test_summary"]:
+    summary = output["test_summary"]
+    print(f"{summary.passed_tests}/{summary.total_tests} passed")
 ```
 
 ## Analyzing HuggingFace Datasets
@@ -184,13 +187,12 @@ sample_count: 100
 output_path: ./analysis_output/dolly
 
 analyzers:
-
-- type: length
-display_name: Length
-params:
-  tokenizer_name: cl100k_base
-- type: quality
-display_name: Quality
+  - type: length
+    display_name: Length
+    params:
+      tokenizer_name: cl100k_base
+  - type: quality
+    display_name: Quality
 :::
 :::{code-block} python
 from oumi.analyze import run_typed_analysis, TypedAnalyzeConfig, AnalyzerConfig
@@ -243,12 +245,63 @@ Metrics are referenced as `"{display_name}.{field_name}"` (e.g., `Length.total_t
 
 See {doc}`analyze_config` for full test configuration options.
 
+## Writing Custom Analyzers
+
+Create a custom analyzer by subclassing one of the base classes and registering it:
+
+```python
+from pydantic import BaseModel, Field
+from oumi.analyze.base import ConversationAnalyzer
+from oumi.core.registry import register_sample_analyzer
+from oumi.core.types.conversation import Conversation
+
+
+class QuestionMetrics(BaseModel):
+    num_questions: int = Field(description="Count of '?' in all messages")
+    density: float = Field(description="Questions per message")
+
+
+@register_sample_analyzer("questions")
+class QuestionAnalyzer(ConversationAnalyzer[QuestionMetrics]):
+    def analyze(self, conversation: Conversation) -> QuestionMetrics:
+        total = sum(
+            m.content.count("?")
+            for m in conversation.messages
+            if isinstance(m.content, str)
+        )
+        return QuestionMetrics(
+            num_questions=total,
+            density=total / max(len(conversation.messages), 1),
+        )
+```
+
+Then reference it in YAML the same way as built-ins:
+
+```yaml
+analyzers:
+  - type: questions
+    display_name: Questions
+```
+
+Base classes for different scopes:
+
+| Base Class | Scope | `analyze()` Input |
+|---|---|---|
+| {py:class}`~oumi.analyze.base.MessageAnalyzer` | Per message | `Message` |
+| {py:class}`~oumi.analyze.base.ConversationAnalyzer` | Per conversation | `Conversation` |
+| {py:class}`~oumi.analyze.base.DatasetAnalyzer` | Entire dataset | `list[Conversation]` |
+| {py:class}`~oumi.analyze.base.PreferenceAnalyzer` | Preference pairs | `(Conversation, Conversation)` |
+
 ## API Reference
 
 - {py:class}`~oumi.analyze.config.TypedAnalyzeConfig` - Configuration class
 - {py:class}`~oumi.analyze.config.AnalyzerConfig` - Analyzer configuration
 - {py:class}`~oumi.analyze.pipeline.AnalysisPipeline` - Analysis pipeline
-- {py:class}`~oumi.analyze.base.ConversationAnalyzer` - Base class for analyzers
+- {py:class}`~oumi.analyze.base.ConversationAnalyzer` - Base class for conversation-level analyzers
+- {py:class}`~oumi.analyze.base.MessageAnalyzer` - Base class for message-level analyzers
+- {py:class}`~oumi.analyze.base.DatasetAnalyzer` - Base class for dataset-level analyzers
 - {py:class}`~oumi.analyze.analyzers.length.LengthAnalyzer` - Length metrics
 - {py:class}`~oumi.analyze.analyzers.quality.DataQualityAnalyzer` - Quality checks
 - {py:class}`~oumi.analyze.analyzers.turn_stats.TurnStatsAnalyzer` - Turn statistics
+- {py:class}`~oumi.analyze.testing.engine.TestEngine` - Test engine (in-memory)
+- {py:class}`~oumi.analyze.testing.batch_engine.BatchTestEngine` - Incremental test engine

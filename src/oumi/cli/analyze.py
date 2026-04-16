@@ -12,12 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""CLI for the typed analyzer framework.
-
-This module provides the CLI entry point and orchestration logic for running
-the typed analyzer pipeline, including YAML configuration, data loading,
-analysis execution, and result output.
-"""
+"""CLI for the typed analyzer framework."""
 
 from __future__ import annotations
 
@@ -36,14 +31,12 @@ from oumi.cli.alias import AliasType, try_get_config_name_for_alias
 from oumi.cli.completions import complete_analyze_config
 from oumi.utils.logging import logger
 
-# Valid output formats for analysis results
 _VALID_OUTPUT_FORMATS = ("csv", "json", "parquet")
 
 _list_configs_callback = cli_utils.create_list_configs_callback(
     AliasType.ANALYZE, "Available Analysis Configs", "analyze"
 )
 
-# Fields that only exist in the old AnalyzeConfig (v1) format.
 _OLD_CONFIG_FIELDS = {
     "dataset_source",
     "dataset_format",
@@ -54,24 +47,11 @@ _OLD_CONFIG_FIELDS = {
 }
 
 
-# ---------------------------------------------------------------------------
-# Data Loading
-# ---------------------------------------------------------------------------
-
-
 def load_conversations_from_path(
     path: str | Path,
     sample_count: int | None = None,
 ) -> list[Conversation]:
-    """Load conversations from a JSONL file.
-
-    Args:
-        path: Path to JSONL file.
-        sample_count: Optional limit on number of conversations.
-
-    Returns:
-        List of Conversation objects.
-    """
+    """Load conversations from a JSONL file."""
     from oumi.core.types.conversation import Conversation  # noqa: F811
     from oumi.utils.io_utils import load_jsonlines
 
@@ -101,25 +81,12 @@ def load_conversations_from_dataset(
     subset: str | None = None,
     sample_count: int | None = None,
 ) -> list[Conversation]:
-    """Load conversations from a HuggingFace dataset.
-
-    Args:
-        dataset_name: HuggingFace dataset name (e.g., "OpenAssistant/oasst2").
-        split: Dataset split to use (default: "train").
-        subset: Optional dataset subset/config name.
-        sample_count: Optional limit on number of conversations.
-
-    Returns:
-        List of Conversation objects.
-    """
+    """Load conversations from a HuggingFace dataset."""
     from datasets import load_dataset
 
     logger.info(f"Loading dataset: {dataset_name} (split={split}, subset={subset})")
 
-    # Load dataset directly from HuggingFace
     dataset = load_dataset(dataset_name, subset, split=split)
-
-    # Convert to conversations
     conversations: list[Conversation] = []
     total = len(dataset)
     limit = sample_count if sample_count else total
@@ -127,7 +94,6 @@ def load_conversations_from_dataset(
     for i in range(min(limit, total)):
         try:
             item = dataset[i]
-            # Handle different dataset formats
             conv = _item_to_conversation(item, i)
             if conv is not None:
                 conversations.append(conv)
@@ -139,36 +105,19 @@ def load_conversations_from_dataset(
 
 
 def _item_to_conversation(item: Any, index: int) -> Any:
-    """Convert a dataset item to a Conversation object.
-
-    Handles multiple dataset formats:
-    - Oumi native format (has 'messages' key)
-    - Direct Conversation objects
-    - Dictionary with conversation data
-
-    Args:
-        item: Dataset item.
-        index: Item index for ID generation.
-
-    Returns:
-        Conversation object or None if conversion fails.
-    """
+    """Convert a dataset item to a Conversation, or None if conversion fails."""
     from oumi.core.types.conversation import Conversation, Message, Role
 
-    # Already a Conversation
     if isinstance(item, Conversation):
         return item
 
-    # Dictionary format
     if isinstance(item, dict):
-        # Check for 'messages' key (Oumi format)
         if "messages" in item:
             try:
                 return Conversation.from_dict(item)
             except Exception:
                 pass
 
-        # Check for 'conversation' key
         if "conversation" in item:
             conv_data = item["conversation"]
             if isinstance(conv_data, list):
@@ -190,12 +139,10 @@ def _item_to_conversation(item: Any, index: int) -> Any:
                         messages.append(Message(role=role, content=content))
                 return Conversation(messages=messages, metadata={"source_index": index})
 
-        # Check for prompt/response format (multiple common variations)
         prompt = None
         response = None
         context = None
 
-        # Try different field names for prompt/instruction
         for key in [
             "prompt",
             "instruction",
@@ -207,7 +154,6 @@ def _item_to_conversation(item: Any, index: int) -> Any:
                 prompt = item[key]
                 break
 
-        # Try different field names for response/output
         for key in [
             "response",
             "output",
@@ -220,14 +166,12 @@ def _item_to_conversation(item: Any, index: int) -> Any:
                 response = item[key]
                 break
 
-        # Try different field names for context (optional)
         for key in ["context", "original-context", "input_context"]:
             if key in item and item[key]:
                 context = item[key]
                 break
 
         if prompt:
-            # Combine context with prompt if available
             if context:
                 full_prompt = f"{context}\n\n{prompt}"
             else:
@@ -240,7 +184,6 @@ def _item_to_conversation(item: Any, index: int) -> Any:
                 messages.append(Message(role=Role.ASSISTANT, content=str(response)))
             return Conversation(messages=messages, metadata={"source_index": index})
 
-        # Try direct conversion
         try:
             return Conversation.from_dict(item)
         except Exception:
@@ -250,20 +193,8 @@ def _item_to_conversation(item: Any, index: int) -> Any:
     return None
 
 
-# ---------------------------------------------------------------------------
-# Analyzer Creation
-# ---------------------------------------------------------------------------
-
-
 def get_analyzer_class(name: str) -> Any:
-    """Get an analyzer class by name from the core registry.
-
-    Args:
-        name: Name of the analyzer (e.g., "length", "quality").
-
-    Returns:
-        The analyzer class or None if not found.
-    """
+    """Get an analyzer class by name from the core registry."""
     from oumi.core.registry import REGISTRY
 
     return REGISTRY.get_sample_analyzer(name)
@@ -273,22 +204,13 @@ def create_analyzer_from_config(
     analyzer_id: str,
     params: dict[str, Any],
 ) -> Any:
-    """Create an analyzer instance from configuration.
-
-    Args:
-        analyzer_id: Analyzer type identifier.
-        params: Analyzer-specific parameters.
-
-    Returns:
-        Analyzer instance or None if not found.
-    """
+    """Create an analyzer instance from configuration."""
     analyzer_class = get_analyzer_class(analyzer_id)
     if analyzer_class is None:
         logger.warning(f"Unknown analyzer: {analyzer_id}")
         return None
 
     try:
-        # Prefer from_config() if available for better config handling
         if hasattr(analyzer_class, "from_config") and callable(
             getattr(analyzer_class, "from_config")
         ):
@@ -300,31 +222,14 @@ def create_analyzer_from_config(
         return None
 
 
-# ---------------------------------------------------------------------------
-# Analysis Execution
-# ---------------------------------------------------------------------------
-
-
 def run_typed_analysis(
     config: TypedAnalyzeConfig,  # noqa: F821
     conversations: list | None = None,
 ) -> dict[str, Any]:
-    """Run the typed analysis pipeline.
-
-    Args:
-        config: Analysis configuration.
-        conversations: Optional pre-loaded conversations. If None, loads from config.
-
-    Returns:
-        Dictionary containing:
-        - results: Analyzer results
-        - test_summary: Test results (if tests configured)
-        - dataframe: Results as DataFrame
-    """
+    """Run the typed analysis pipeline."""
     from oumi.analyze.pipeline import AnalysisPipeline
     from oumi.analyze.testing.engine import TestEngine
 
-    # Load conversations if not provided
     if conversations is None:
         if config.dataset_path:
             conversations = load_conversations_from_path(
@@ -345,7 +250,6 @@ def run_typed_analysis(
 
     logger.info(f"Loaded {len(conversations)} conversations for analysis")
 
-    # Create analyzers
     analyzers = []
     for analyzer_config in config.analyzers:
         analyzer = create_analyzer_from_config(
@@ -361,7 +265,6 @@ def run_typed_analysis(
     if not analyzers:
         raise ValueError("No valid analyzers configured")
 
-    # Create and run pipeline
     pipeline = AnalysisPipeline(
         analyzers=analyzers,
         cache_dir=config.output_path if config.output_path != "." else None,
@@ -369,14 +272,12 @@ def run_typed_analysis(
 
     results = pipeline.run(conversations)
 
-    # Run tests if configured
     test_summary = None
     if config.tests:
         test_configs = config.get_test_configs()
         test_engine = TestEngine(test_configs)
         test_summary = test_engine.run(results)
 
-    # Convert to DataFrame
     df = pipeline.to_dataframe()
 
     return {
@@ -387,27 +288,15 @@ def run_typed_analysis(
     }
 
 
-# ---------------------------------------------------------------------------
-# Result Output
-# ---------------------------------------------------------------------------
-
-
 def save_results(
     output_path: str | Path,
     results: dict[str, Any],
     output_format: str = "parquet",
 ) -> None:
-    """Save analysis results to disk.
-
-    Args:
-        output_path: Output directory path.
-        results: Analysis results from run_typed_analysis.
-        output_format: Format for DataFrame ("csv", "json", "parquet").
-    """
+    """Save analysis results to disk."""
     output_dir = Path(output_path)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Save DataFrame
     df = results["dataframe"]
     if output_format == "csv":
         df.to_csv(output_dir / "analysis.csv", index=False)
@@ -418,14 +307,12 @@ def save_results(
 
     logger.info(f"Saved analysis DataFrame to {output_dir}/analysis.{output_format}")
 
-    # Save test results if available
     test_summary = results.get("test_summary")
     if test_summary:
         with open(output_dir / "test_results.json", "w") as f:
             json.dump(test_summary.to_dict(), f, indent=2, default=str)
         logger.info(f"Saved test results to {output_dir}/test_results.json")
 
-    # Save summary
     summary: dict[str, Any] = {
         "total_conversations": len(results["conversations"]),
         "analyzers_run": list(results["results"].keys()),
@@ -444,22 +331,16 @@ def save_results(
 
 
 def print_summary(results: dict[str, Any]) -> None:
-    """Print a summary of analysis results to console.
-
-    Args:
-        results: Analysis results from run_typed_analysis.
-    """
+    """Print a summary of analysis results to console."""
     from rich.console import Console
     from rich.table import Table
 
     console = Console()
 
-    # Print overview
     console.print("\n[bold cyan]Analysis Summary[/bold cyan]\n")
     console.print(f"Conversations analyzed: {len(results['conversations'])}")
     console.print(f"Analyzers run: {', '.join(results['results'].keys())}")
 
-    # Print test results if available
     test_summary = results.get("test_summary")
     if test_summary:
         console.print("\n[bold]Test Results:[/bold]")
@@ -473,7 +354,6 @@ def print_summary(results: dict[str, Any]) -> None:
                 f"{test_summary.high_severity_failures}[/red]"
             )
 
-        # Show failed tests
         failed = test_summary.get_failed_results()
         if failed:
             console.print("\n[bold red]Failed Tests:[/bold red]")
@@ -492,13 +372,11 @@ def print_summary(results: dict[str, Any]) -> None:
                 )
             console.print(table)
 
-    # Print sample metrics
     df = results["dataframe"]
     console.print(
         f"\n[bold]DataFrame Shape:[/bold] {df.shape[0]} rows x {df.shape[1]} columns"
     )
 
-    # Show first few columns
     metric_cols = [c for c in df.columns if "__" in c][:5]
     if metric_cols:
         console.print("\n[bold]Sample Metrics:[/bold]")
@@ -519,13 +397,7 @@ def print_summary(results: dict[str, Any]) -> None:
                             f"  {col}: {values.value_counts().head(3).to_dict()}"
                         )
                     except TypeError:
-                        # Skip unhashable types
                         continue
-
-
-# ---------------------------------------------------------------------------
-# Discovery / Helpers
-# ---------------------------------------------------------------------------
 
 
 def run_from_config_file(
@@ -533,31 +405,14 @@ def run_from_config_file(
     output_path: str | None = None,
     output_format: str = "parquet",
 ) -> dict[str, Any]:
-    """Run analysis from a YAML configuration file.
-
-    This is a convenience entry point for programmatic usage.
-
-    Args:
-        config_path: Path to YAML configuration file.
-        output_path: Optional output path override.
-        output_format: Output format for DataFrame.
-
-    Returns:
-        Analysis results.
-    """
+    """Run analysis from a YAML configuration file."""
     from oumi.analyze.config import TypedAnalyzeConfig
 
-    # Load config
     config = TypedAnalyzeConfig.from_yaml(config_path)
-
-    # Override output path if provided
     if output_path:
         config.output_path = output_path
 
-    # Run analysis
     results = run_typed_analysis(config)
-
-    # Save results
     if config.output_path:
         save_results(config.output_path, results, output_format)
 
@@ -565,57 +420,21 @@ def run_from_config_file(
 
 
 def list_metrics(analyzer_name: str | None = None) -> None:
-    """List available metrics for analyzers.
-
-    This helps users discover what metrics are available so they can
-    write test configurations before running analysis.
-
-    Args:
-        analyzer_name: Optional specific analyzer to show. If None, shows all.
-
-    Example:
-        >>> from oumi.analyze import list_metrics
-        >>> list_metrics()  # Shows all analyzers
-        >>> list_metrics("LengthAnalyzer")  # Shows specific analyzer
-    """
+    """List available metrics for analyzers."""
     from oumi.analyze.discovery import print_analyzer_metrics
 
     print_analyzer_metrics(analyzer_name)
 
 
 def generate_tests(analyzer_name: str) -> str:
-    """Generate example test configurations for an analyzer.
-
-    Args:
-        analyzer_name: Name of the analyzer.
-
-    Returns:
-        YAML string with example test configurations.
-
-    Example:
-        >>> from oumi.analyze import generate_tests
-        >>> yaml_config = generate_tests("LengthAnalyzer")
-        >>> print(yaml_config)
-    """
+    """Generate example test configurations for an analyzer."""
     from oumi.analyze.discovery import generate_test_template
 
     return generate_test_template(analyzer_name)
 
 
-# ---------------------------------------------------------------------------
-# Old Config Detection
-# ---------------------------------------------------------------------------
-
-
 def _check_old_config_format(config_path: str) -> None:
-    """Check if a config file uses the old AnalyzeConfig (v1) format.
-
-    If old-format fields are detected, prints a helpful migration message
-    and exits.
-
-    Args:
-        config_path: Path to the YAML config file.
-    """
+    """Check if a config file uses the old AnalyzeConfig (v1) format and exit if so."""
     import yaml
 
     try:
@@ -646,11 +465,6 @@ def _check_old_config_format(config_path: str) -> None:
         raise typer.Exit(code=1)
 
 
-# ---------------------------------------------------------------------------
-# CLI Runner
-# ---------------------------------------------------------------------------
-
-
 def _run_typed_analysis_cli(
     config: str,
     output: str | None,
@@ -661,37 +475,21 @@ def _run_typed_analysis_cli(
     dataset_path: str | None = None,
     sample_count: int | None = None,
 ) -> None:
-    """Run analysis using the typed analyzer system.
-
-    Args:
-        config: Path to the configuration file.
-        output: Output directory override.
-        output_format: Output format (csv, json, parquet).
-        list_metrics_flag: Whether to just list available metrics.
-        verbose: Enable verbose output.
-        dataset_name: Override dataset name from CLI.
-        dataset_path: Override dataset path from CLI.
-        sample_count: Override sample count from CLI.
-    """
+    """Run analysis using the typed analyzer system."""
     from oumi.analyze.config import TypedAnalyzeConfig
 
     try:
-        # Handle --list-metrics
         if list_metrics_flag:
             cli_utils.CONSOLE.print("\n[bold cyan]Available Metrics[/bold cyan]\n")
             list_metrics()
             return
 
-        # Detect old config format before loading
         _check_old_config_format(config)
-
-        # Load config
         with cli_utils.CONSOLE.status(
             "[green]Loading configuration...[/green]", spinner="dots"
         ):
             typed_config = TypedAnalyzeConfig.from_yaml(config)
 
-        # Apply CLI overrides
         if output:
             typed_config.output_path = output
         if dataset_name is not None:
@@ -708,16 +506,13 @@ def _run_typed_analysis_cli(
             analyzer_ids = [a.display_name for a in typed_config.analyzers]
             cli_utils.CONSOLE.print(f"[dim]Analyzers: {analyzer_ids}[/dim]")
 
-        # Run analysis
         with cli_utils.CONSOLE.status(
             "[green]Running analysis...[/green]", spinner="dots"
         ):
             results = run_typed_analysis(typed_config)
 
-        # Print summary
         print_summary(results)
 
-        # Save results
         if typed_config.output_path:
             save_results(typed_config.output_path, results, output_format)
             cli_utils.CONSOLE.print(
@@ -740,14 +535,8 @@ def _run_typed_analysis_cli(
         raise typer.Exit(code=1)
 
 
-# ---------------------------------------------------------------------------
-# Typer Command
-# ---------------------------------------------------------------------------
-
-
 def analyze(
     ctx: typer.Context,
-    # Main options
     config: Annotated[
         str | None,
         typer.Option(
@@ -797,7 +586,6 @@ def analyze(
             rich_help_panel="Options",
         ),
     ] = False,
-    # Data overrides
     dataset_name: Annotated[
         str | None,
         typer.Option(
@@ -822,7 +610,6 @@ def analyze(
             rich_help_panel="Data",
         ),
     ] = None,
-    # Output options
     output: Annotated[
         str | None,
         typer.Option(
@@ -842,28 +629,10 @@ def analyze(
         ),
     ] = "csv",
 ):
-    """Analyze a dataset to compute metrics and statistics.
-
-    Metrics are accessed via paths like 'Length.total_tokens'.
-
-    Args:
-        ctx: The Typer context object.
-        config: Path or config name for analysis.
-        list_configs: List all available analysis configs.
-        list_metrics_flag: List available metrics without running analysis.
-        level: The logging level for the specified command.
-        verbose: Enable verbose logging with additional debug information.
-        dataset_name: Dataset name override.
-        dataset_path: Dataset path override.
-        sample_count: Sample count override.
-        output: Output directory override.
-        output_format: Output format (csv, json, parquet).
-    """
-    # If a subcommand is being invoked, don't run the main analyze logic
+    """Analyze a dataset to compute metrics and statistics."""
     if ctx.invoked_subcommand is not None:
         return
 
-    # --list-metrics doesn't require a config
     if list_metrics_flag:
         _run_typed_analysis_cli(
             config=config or "",
@@ -874,7 +643,6 @@ def analyze(
         )
         return
 
-    # Resolve config aliases
     if config is not None:
         config = str(
             cli_utils.resolve_and_fetch_config(
@@ -882,7 +650,6 @@ def analyze(
             )
         )
 
-    # Config is required when running analyze directly (not as a subcommand)
     if config is None:
         cli_utils.CONSOLE.print(
             "[red]Error:[/red] Missing option '--config' / '-c'.\n"
@@ -890,7 +657,6 @@ def analyze(
         )
         raise typer.Exit(code=1)
 
-    # Validate output format early before any expensive operations
     output_format = output_format.lower()
     if output_format not in _VALID_OUTPUT_FORMATS:
         cli_utils.CONSOLE.print(
@@ -899,7 +665,6 @@ def analyze(
         )
         raise typer.Exit(code=1)
 
-    # Run analysis
     _run_typed_analysis_cli(
         config=config,
         output=output,

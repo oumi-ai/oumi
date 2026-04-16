@@ -12,24 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Metric discovery utilities for the typed analyzer framework.
-
-This module provides functions for discovering what metrics each analyzer
-produces, allowing users to write tests before running analysis.
-
-Example:
-    >>> from oumi.analyze.discovery import (
-    ...     list_available_metrics, print_analyzer_metrics,
-    ... )
-    >>>
-    >>> # List all metrics from all registered analyzers
-    >>> metrics = list_available_metrics()
-    >>> for analyzer_name, info in metrics.items():
-    ...     print(f"{analyzer_name}: {info['metric_names']}")
-    >>>
-    >>> # Pretty print metrics for a specific analyzer
-    >>> print_analyzer_metrics("LengthAnalyzer")
-"""
+"""Metric discovery utilities for the typed analyzer framework."""
 
 import logging
 from typing import Any
@@ -38,19 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_analyzer_info(analyzer_class: type) -> dict[str, Any]:
-    """Get detailed information about an analyzer's output metrics.
-
-    Args:
-        analyzer_class: The analyzer class to inspect.
-
-    Returns:
-        Dictionary containing:
-        - name: Analyzer class name
-        - metric_names: List of metric field names
-        - metric_descriptions: Dict of field name -> description
-        - schema: Full JSON schema for the result model
-        - scope: Analyzer scope (message, conversation, dataset)
-    """
+    """Get detailed information about an analyzer's output metrics."""
     from oumi.analyze.base import (
         ConversationAnalyzer,
         DatasetAnalyzer,
@@ -66,7 +37,6 @@ def get_analyzer_info(analyzer_class: type) -> dict[str, Any]:
         "scope": "unknown",
     }
 
-    # Determine scope
     for base in analyzer_class.__mro__:
         if base is MessageAnalyzer:
             info["scope"] = "message"
@@ -81,7 +51,6 @@ def get_analyzer_info(analyzer_class: type) -> dict[str, Any]:
             info["scope"] = "preference"
             break
 
-    # Get metric information if the analyzer has these methods
     if hasattr(analyzer_class, "get_metric_names"):
         try:
             info["metric_names"] = analyzer_class.get_metric_names()
@@ -109,30 +78,7 @@ def get_analyzer_info(analyzer_class: type) -> dict[str, Any]:
 def list_available_metrics(
     include_duplicates: bool = False,
 ) -> dict[str, dict[str, Any]]:
-    """List all available metrics from registered analyzers.
-
-    This is useful for programmatically discovering metrics before writing tests.
-
-    Example:
-        >>> from oumi.analyze import list_available_metrics
-        >>> metrics = list_available_metrics()
-        >>> for name, info in metrics.items():
-        ...     print(f"{name}: {info['metric_names']}")
-        LengthAnalyzer: ['total_chars', 'total_words', ...]
-
-    Args:
-        include_duplicates: If True, include all registry entries (e.g., both
-            "length" and "LengthAnalyzer"). Default False returns unique classes.
-
-    Returns:
-        Dictionary mapping analyzer names to their metric information.
-        Each value is a dict with keys:
-        - name: Analyzer class name
-        - metric_names: List of metric field names
-        - metric_descriptions: Dict of field name -> description
-        - schema: Full JSON schema for the result model
-        - scope: Analyzer scope (message, conversation, dataset, preference)
-    """
+    """List all available metrics from registered analyzers."""
     from oumi.core.registry import REGISTRY, RegistryType
 
     results = {}
@@ -151,23 +97,7 @@ def list_available_metrics(
 
 
 def describe_analyzer(analyzer_class: type) -> str:
-    """Get a human-readable description of an analyzer's metrics.
-
-    This is useful for understanding what an analyzer produces without
-    needing to run it.
-
-    Example:
-        >>> from oumi.analyze import LengthAnalyzer, describe_analyzer
-        >>> print(describe_analyzer(LengthAnalyzer))
-        LengthAnalyzer (conversation scope)
-        ...
-
-    Args:
-        analyzer_class: The analyzer class to describe.
-
-    Returns:
-        Human-readable string describing the analyzer's metrics.
-    """
+    """Get a human-readable description of an analyzer's metrics."""
     info = get_analyzer_info(analyzer_class)
     lines = [
         f"{info['name']} ({info['scope']} scope)",
@@ -193,30 +123,16 @@ def describe_analyzer(analyzer_class: type) -> str:
 
 
 def get_metric_path(analyzer_name: str, metric_name: str) -> str:
-    """Get the full metric path for use in test configurations.
-
-    Args:
-        analyzer_name: Name of the analyzer (e.g., "LengthAnalyzer").
-        metric_name: Name of the metric field (e.g., "total_words").
-
-    Returns:
-        Full metric path (e.g., "LengthAnalyzer.total_words").
-    """
+    """Get the full metric path for use in test configurations."""
     return f"{analyzer_name}.{metric_name}"
 
 
 def print_analyzer_metrics(
     analyzer_name: str | None = None, use_rich: bool = True
 ) -> None:
-    """Pretty print available metrics for analyzers.
-
-    Args:
-        analyzer_name: Optional specific analyzer to show. If None, shows all.
-        use_rich: If True, use rich formatting. If False, use plain text.
-    """
+    """Pretty print available metrics for analyzers."""
     metrics = list_available_metrics()
 
-    # Filter to unique analyzers (avoid duplicates like "length" and "LengthAnalyzer")
     unique_metrics = {}
     seen_classes = set()
     for name, info in metrics.items():
@@ -230,9 +146,7 @@ def print_analyzer_metrics(
             _print_metrics_rich(unique_metrics, analyzer_name)
             return
         except ImportError:
-            pass  # Fall back to plain text
-
-    # Plain text fallback
+            pass
     _print_metrics_plain(unique_metrics, analyzer_name)
 
 
@@ -287,7 +201,6 @@ def _print_metrics_rich(
     console = Console()
 
     if analyzer_name:
-        # Show specific analyzer
         if analyzer_name not in metrics:
             console.print(f"[red]Unknown analyzer: {analyzer_name}[/red]")
             console.print(f"Available: {', '.join(metrics.keys())}")
@@ -296,7 +209,6 @@ def _print_metrics_rich(
         info = metrics[analyzer_name]
         _print_single_analyzer(console, analyzer_name, info)
     else:
-        # Show all analyzers
         console.print("\n[bold cyan]Available Analyzers and Metrics[/bold cyan]\n")
         console.print(
             "Use these metric paths in your test configurations.\n"
@@ -341,7 +253,6 @@ def _print_single_analyzer(console: Any, name: str, info: dict[str, Any]) -> Non
         path = f"{name}.{metric_name}"
         description = metric_descriptions.get(metric_name, "")
 
-        # Get type from schema
         prop_info = properties.get(metric_name, {})
         metric_type = _get_type_str(prop_info)
 
@@ -356,7 +267,6 @@ def _get_type_str(prop_info: dict) -> str:
     if not prop_info:
         return "any"
 
-    # Handle anyOf (optional types)
     if "anyOf" in prop_info:
         types = []
         for option in prop_info["anyOf"]:
@@ -367,7 +277,6 @@ def _get_type_str(prop_info: dict) -> str:
 
     prop_type = prop_info.get("type", "any")
 
-    # Handle arrays
     if prop_type == "array":
         items = prop_info.get("items", {})
         item_type = items.get("type", "any")
@@ -377,14 +286,7 @@ def _get_type_str(prop_info: dict) -> str:
 
 
 def generate_test_template(analyzer_name: str) -> str:
-    """Generate a YAML test template for an analyzer's metrics.
-
-    Args:
-        analyzer_name: Name of the analyzer.
-
-    Returns:
-        YAML string with example test configurations.
-    """
+    """Generate a YAML test template for an analyzer's metrics."""
     metrics = list_available_metrics()
 
     if analyzer_name not in metrics:

@@ -12,11 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Configuration for the typed analyzer framework.
-
-This module provides configuration classes for the new typed analyzer
-architecture, supporting both programmatic and YAML-based configuration.
-"""
+"""Configuration for the typed analyzer framework."""
 
 from dataclasses import dataclass, field
 from enum import Enum
@@ -107,33 +103,18 @@ class TypedAnalyzeConfig:
         report_title: Custom title for the report.
     """
 
-    # Eval name (optional, for web viewer)
     eval_name: str | None = None
-
-    # Parent eval ID (for linking derived analyses)
     parent_eval_id: str | None = None
-
-    # Dataset source
     dataset_name: str | None = None
     dataset_path: str | None = None
     split: str = "train"
     subset: str | None = None
     sample_count: int | None = None
-
-    # Output
     output_path: str = "."
-
-    # Analyzers
     analyzers: list[AnalyzerConfig] = field(default_factory=list)
-
-    # Tests
     tests: list[TestParams] = field(default_factory=list)
-
-    # Tokenizer
     tokenizer_name: str | None = None
     tokenizer_kwargs: dict[str, Any] = field(default_factory=dict)
-
-    # Report
     generate_report: bool = False
     report_title: str | None = None
 
@@ -241,11 +222,7 @@ class TypedAnalyzeConfig:
         )
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert configuration to a dictionary.
-
-        Returns:
-            Configuration as dictionary.
-        """
+        """Convert configuration to a dictionary."""
         return {
             "dataset_name": self.dataset_name,
             "dataset_path": self.dataset_path,

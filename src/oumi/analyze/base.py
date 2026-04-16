@@ -12,16 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Base analyzer classes for the typed analyzer framework.
-
-This module defines the base classes for different analyzer scopes:
-- MessageAnalyzer: Analyzes individual messages
-- ConversationAnalyzer: Analyzes complete conversations
-- DatasetAnalyzer: Analyzes entire datasets (cross-sample operations)
-- PreferenceAnalyzer: Analyzes preference pairs (for DPO data)
-
-Each analyzer returns strongly-typed Pydantic models as results.
-"""
+"""Base analyzer classes for the typed analyzer framework."""
 
 from abc import ABC, abstractmethod
 from typing import Generic, TypeVar, get_args
@@ -30,15 +21,11 @@ from pydantic import BaseModel
 
 from oumi.core.types.conversation import Conversation, Message
 
-# Type variable for analyzer results - must be a Pydantic BaseModel
 TResult = TypeVar("TResult", bound=BaseModel)
 
 
 class _AnalyzerMetaMixin:
     """Mixin providing common metadata methods for all analyzer types.
-
-    This mixin provides methods to inspect the result type and schema
-    of an analyzer, enabling introspection of available metrics.
 
     Attributes:
         analyzer_id: Optional custom identifier for this analyzer instance.
@@ -49,14 +36,7 @@ class _AnalyzerMetaMixin:
 
     @classmethod
     def get_result_schema(cls) -> dict:
-        """Get the JSON schema for this analyzer's result model.
-
-        This allows users to discover what metrics the analyzer produces
-        before running analysis.
-
-        Returns:
-            JSON schema dictionary for the result model.
-        """
+        """Get the JSON schema for this analyzer's result model."""
         result_type = cls._get_result_type()
         if result_type and hasattr(result_type, "model_json_schema"):
             return result_type.model_json_schema()
@@ -64,11 +44,7 @@ class _AnalyzerMetaMixin:
 
     @classmethod
     def get_metric_names(cls) -> list[str]:
-        """Get the list of metric field names this analyzer produces.
-
-        Returns:
-            List of metric field names.
-        """
+        """Get the list of metric field names this analyzer produces."""
         result_type = cls._get_result_type()
         if result_type and hasattr(result_type, "model_fields"):
             return list(result_type.model_fields.keys())
@@ -76,11 +52,7 @@ class _AnalyzerMetaMixin:
 
     @classmethod
     def get_metric_descriptions(cls) -> dict[str, str]:
-        """Get descriptions for each metric field.
-
-        Returns:
-            Dictionary mapping field names to descriptions.
-        """
+        """Get descriptions for each metric field."""
         result_type = cls._get_result_type()
         if result_type and hasattr(result_type, "model_fields"):
             return {
@@ -94,12 +66,7 @@ class _AnalyzerMetaMixin:
         """Get the result type from the generic parameter.
 
         Walks the MRO to find the generic type argument (TResult) from
-        the analyzer base class. This handles both direct generic
-        subclasses (e.g., ``class MyAnalyzer(ConversationAnalyzer[Metrics])``)
-        and subclasses of concrete analyzers (e.g., ``class Sub(MyAnalyzer)``).
-
-        Returns:
-            The result type class, or None if not found.
+        the analyzer base class.
         """
         analyzer_bases = (
             MessageAnalyzer,
@@ -117,21 +84,7 @@ class _AnalyzerMetaMixin:
 
 
 class MessageAnalyzer(_AnalyzerMetaMixin, ABC, Generic[TResult]):
-    """Base class for analyzers that operate on individual messages.
-
-    MessageAnalyzers process single messages and return typed results.
-    Use this for metrics that are meaningful at the message level,
-    such as length, format detection, or content analysis.
-
-    Example:
-        class FormatAnalyzer(MessageAnalyzer[FormatMetrics]):
-            def analyze(self, message: Message) -> FormatMetrics:
-                text = self._get_text_content(message)
-                return FormatMetrics(
-                    has_markdown=self._detect_markdown(text),
-                    has_code_blocks=self._detect_code_blocks(text),
-                )
-    """
+    """Base class for analyzers that operate on individual messages."""
 
     @abstractmethod
     def analyze(self, message: Message) -> TResult:
@@ -160,14 +113,7 @@ class MessageAnalyzer(_AnalyzerMetaMixin, ABC, Generic[TResult]):
         return [self.analyze(m) for m in messages]
 
     def __call__(self, message: Message) -> TResult:
-        """Allow analyzer to be called directly.
-
-        Args:
-            message: The message to analyze.
-
-        Returns:
-            Typed result model.
-        """
+        """Call analyze() directly."""
         return self.analyze(message)
 
     @staticmethod
@@ -175,16 +121,9 @@ class MessageAnalyzer(_AnalyzerMetaMixin, ABC, Generic[TResult]):
         """Extract text content from a message.
 
         Handles both simple string content and multimodal content lists.
-
-        Args:
-            message: The message to extract text from.
-
-        Returns:
-            The text content as a string.
         """
         if isinstance(message.content, str):
             return message.content
-        # For multimodal content, concatenate text items
         text_parts = []
         for item in message.content:
             if hasattr(item, "content") and isinstance(item.content, str):
@@ -193,22 +132,7 @@ class MessageAnalyzer(_AnalyzerMetaMixin, ABC, Generic[TResult]):
 
 
 class ConversationAnalyzer(_AnalyzerMetaMixin, ABC, Generic[TResult]):
-    """Base class for analyzers that operate on complete conversations.
-
-    ConversationAnalyzers process entire conversations and return typed results.
-    Use this for metrics that require context across messages, such as
-    turn patterns, coherence analysis, or conversation-level quality scores.
-
-    Example:
-        class LengthAnalyzer(ConversationAnalyzer[LengthMetrics]):
-            def analyze(self, conversation: Conversation) -> LengthMetrics:
-                total_words = sum(
-                    len(m.content.split())
-                    for m in conversation.messages
-                    if isinstance(m.content, str)
-                )
-                return LengthMetrics(total_words=total_words, ...)
-    """
+    """Base class for analyzers that operate on complete conversations."""
 
     @abstractmethod
     def analyze(self, conversation: Conversation) -> TResult:
@@ -238,14 +162,7 @@ class ConversationAnalyzer(_AnalyzerMetaMixin, ABC, Generic[TResult]):
         return [self.analyze(c) for c in conversations]
 
     def __call__(self, conversation: Conversation) -> TResult:
-        """Allow analyzer to be called directly.
-
-        Args:
-            conversation: The conversation to analyze.
-
-        Returns:
-            Typed result model.
-        """
+        """Call analyze() directly."""
         return self.analyze(conversation)
 
     @staticmethod
@@ -253,12 +170,6 @@ class ConversationAnalyzer(_AnalyzerMetaMixin, ABC, Generic[TResult]):
         """Extract text content from a message.
 
         Handles both simple string content and multimodal content lists.
-
-        Args:
-            message: The message to extract text from.
-
-        Returns:
-            The text content as a string.
         """
         return MessageAnalyzer.get_text_content(message)
 
@@ -267,12 +178,6 @@ class ConversationAnalyzer(_AnalyzerMetaMixin, ABC, Generic[TResult]):
         """Get the full text content of a conversation.
 
         Concatenates all message contents with role prefixes.
-
-        Args:
-            conversation: The conversation to extract text from.
-
-        Returns:
-            Full conversation text as a single string.
         """
         parts = []
         for message in conversation.messages:
@@ -282,29 +187,11 @@ class ConversationAnalyzer(_AnalyzerMetaMixin, ABC, Generic[TResult]):
 
 
 class DatasetAnalyzer(_AnalyzerMetaMixin, ABC, Generic[TResult]):
-    """Base class for analyzers that operate on entire datasets.
-
-    DatasetAnalyzers have access to all conversations at once, enabling
-    cross-sample operations like deduplication, clustering, or computing
-    dataset-wide statistics.
-
-    Example:
-        class DeduplicationAnalyzer(DatasetAnalyzer[DeduplicationResult]):
-            def analyze(self, conversations: list[Conversation]) -> DeduplicationResult:
-                embeddings = self._compute_embeddings(conversations)
-                duplicates = self._find_duplicates(embeddings)
-                return DeduplicationResult(
-                    duplicate_groups=duplicates,
-                    total_duplicates=len(duplicates),
-                )
-    """
+    """Base class for analyzers that operate on entire datasets."""
 
     @abstractmethod
     def analyze(self, conversations: list[Conversation]) -> TResult:
         """Analyze an entire dataset and return typed results.
-
-        This method receives all conversations at once, enabling
-        cross-sample operations that require global context.
 
         Args:
             conversations: All conversations in the dataset.
@@ -315,37 +202,12 @@ class DatasetAnalyzer(_AnalyzerMetaMixin, ABC, Generic[TResult]):
         ...
 
     def __call__(self, conversations: list[Conversation]) -> TResult:
-        """Allow analyzer to be called directly.
-
-        Args:
-            conversations: All conversations to analyze.
-
-        Returns:
-            Typed result model.
-        """
+        """Call analyze() directly."""
         return self.analyze(conversations)
 
 
 class PreferenceAnalyzer(_AnalyzerMetaMixin, ABC, Generic[TResult]):
-    """Base class for analyzers that operate on preference pairs.
-
-    PreferenceAnalyzers process chosen/rejected conversation pairs,
-    which is the format used for DPO (Direct Preference Optimization)
-    and similar preference-based training methods.
-
-    Example:
-        class PreferenceMarginAnalyzer(PreferenceAnalyzer[PreferenceMetrics]):
-            def analyze(
-                self, chosen: Conversation, rejected: Conversation
-            ) -> PreferenceMetrics:
-                chosen_score = self._compute_quality(chosen)
-                rejected_score = self._compute_quality(rejected)
-                return PreferenceMetrics(
-                    margin=chosen_score - rejected_score,
-                    chosen_score=chosen_score,
-                    rejected_score=rejected_score,
-                )
-    """
+    """Base class for analyzers that operate on preference pairs."""
 
     @abstractmethod
     def analyze(self, chosen: Conversation, rejected: Conversation) -> TResult:
@@ -375,13 +237,5 @@ class PreferenceAnalyzer(_AnalyzerMetaMixin, ABC, Generic[TResult]):
         return [self.analyze(chosen, rejected) for chosen, rejected in pairs]
 
     def __call__(self, chosen: Conversation, rejected: Conversation) -> TResult:
-        """Allow analyzer to be called directly.
-
-        Args:
-            chosen: The preferred conversation.
-            rejected: The rejected conversation.
-
-        Returns:
-            Typed result model.
-        """
+        """Call analyze() directly."""
         return self.analyze(chosen, rejected)

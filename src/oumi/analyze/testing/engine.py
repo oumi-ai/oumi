@@ -12,11 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Test engine for validating typed analysis results.
-
-This module provides a test engine that operates on typed Pydantic results
-instead of DataFrames. Tests are pure validation - no computation allowed.
-"""
+"""Test engine for validating typed analysis results."""
 
 import logging
 import operator
@@ -36,7 +32,6 @@ MAX_SAMPLE_INDICES = 50
 # Maximum number of failure reasons to include in test details
 MAX_FAILURE_REASONS = 50
 
-# Operator mapping
 OPERATORS: dict[str, Callable[[Any, Any], bool]] = {
     "<": operator.lt,
     ">": operator.gt,
@@ -79,11 +74,7 @@ class TestEngine:
     __test__ = False  # Prevent pytest from collecting this as a test class
 
     def __init__(self, tests: list[TestParams]):
-        """Initialize the test engine.
-
-        Args:
-            tests: List of test configurations.
-        """
+        """Initialize the test engine."""
         self.tests = tests
 
     def _create_error_result(self, test: TestParams, error: str) -> TestResult:
@@ -147,16 +138,7 @@ class TestEngine:
         test: TestParams,
         results: dict[str, list[BaseModel] | BaseModel],
     ) -> TestResult:
-        """Run a single test.
-
-        Args:
-            test: Test configuration.
-            results: Analysis results.
-
-        Returns:
-            TestResult for this test.
-        """
-        # Extract values for the metric (with original indices preserved)
+        """Run a single test and return its result."""
         if not test.metric:
             return self._create_error_result(test, "Test requires 'metric' field")
         indexed_values = self._extract_metric_values(test.metric, results)
@@ -166,7 +148,6 @@ class TestEngine:
                 test, f"Metric '{test.metric}' not found in results"
             )
 
-        # Run appropriate test type
         if test.type == TestType.THRESHOLD:
             return self._run_threshold_test(test, indexed_values)
         else:
@@ -177,19 +158,7 @@ class TestEngine:
         metric: str,
         results: dict[str, list[BaseModel] | BaseModel],
     ) -> list[tuple[int, Any]]:
-        """Extract metric values from results with their original indices.
-
-        Metric format: "AnalyzerName.field_name" or "AnalyzerName.nested.field"
-
-        Args:
-            metric: Metric path string.
-            results: Analysis results.
-
-        Returns:
-            List of (original_index, value) tuples. None values are filtered
-            out, but original indices are preserved so that sample_indices in
-            test results map back to the correct conversations.
-        """
+        """Extract values for a metric path like "AnalyzerName.field_name"."""
         parts = metric.split(".")
         if len(parts) < 2:
             return []
@@ -202,12 +171,10 @@ class TestEngine:
 
         analyzer_results = results[analyzer_name]
 
-        # Handle single result (dataset-level) vs list (per-conversation)
         if isinstance(analyzer_results, BaseModel):
             value = self._get_nested_value(analyzer_results, field_path)
             return [(0, value)] if value is not None else []
 
-        # List of results -- preserve original index
         indexed_values = []
         for i, result in enumerate(analyzer_results):
             value = self._get_nested_value(result, field_path)
@@ -217,15 +184,7 @@ class TestEngine:
         return indexed_values
 
     def _get_nested_value(self, obj: Any, field_path: list[str]) -> Any:
-        """Get a nested field value from a Pydantic model or dict.
-
-        Args:
-            obj: Pydantic model instance or dict.
-            field_path: List of field names to traverse.
-
-        Returns:
-            Field value or None if not found.
-        """
+        """Get a nested field value from a Pydantic model or dict."""
         current: Any = obj
         for i, field in enumerate(field_path):
             if isinstance(current, BaseModel):
@@ -266,24 +225,10 @@ class TestEngine:
     ) -> TestResult:
         """Run a threshold test.
 
-        The semantics depend on max_percentage vs min_percentage:
-
-        - max_percentage: "At most X% can match the condition"
-          Samples MATCHING the condition are problematic.
-          Example: "At most 10% can have total_tokens > 4096"
-
-        - min_percentage: "At least X% must match the condition"
-          Samples NOT matching the condition are problematic.
-          Example: "At least 80% must have quality_score > 0.5"
-
-        - Neither set: ALL samples must match the condition.
-
-        Args:
-            test: Test configuration.
-            indexed_values: List of (original_index, value) tuples.
-
-        Returns:
-            TestResult.
+        Semantics depend on max_percentage vs min_percentage:
+        - max_percentage: at most X% can match (matching = problematic)
+        - min_percentage: at least X% must match (non-matching = problematic)
+        - neither: all samples must match
         """
         if test.operator is None or test.value is None:
             return self._create_error_result(
@@ -294,9 +239,8 @@ class TestEngine:
         if op_func is None:
             return self._create_error_result(test, f"Unknown operator: {test.operator}")
 
-        # Evaluate the condition for each value
-        matching_indices = []  # Original indices of samples that MATCH
-        non_matching_indices = []  # Original indices of samples that DON'T match
+        matching_indices: list[int] = []
+        non_matching_indices: list[int] = []
         matching_reasons: dict[int, str] = {}
         non_matching_reasons: dict[int, str] = {}
 
@@ -322,7 +266,6 @@ class TestEngine:
             100.0 * non_matching_count / total_count if total_count > 0 else 0.0
         )
 
-        # Determine pass/fail and which samples are "affected" (problematic)
         passed = True
         if test.max_percentage is not None:
             if matching_pct > test.max_percentage:
@@ -345,14 +288,12 @@ class TestEngine:
             affected_pct = non_matching_pct
             failure_reasons = non_matching_reasons
 
-        # For single-value (dataset-level) metrics, include the actual value
         actual_value = None
         if total_count == 1:
             val = indexed_values[0][1]
             if isinstance(val, (int, float)):
                 actual_value = float(val)
 
-        # Use `is not None` to avoid treating 0.0 as falsy
         threshold = (
             test.max_percentage
             if test.max_percentage is not None

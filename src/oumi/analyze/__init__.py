@@ -12,30 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Typed analyzer framework for dataset analysis.
+"""Typed analyzer framework for dataset analysis."""
 
-This module provides a typed, Pydantic-based approach to analyzing datasets,
-replacing the DataFrame-centric approach with typed Conversation objects
-and strongly-typed result models.
-
-Example usage:
-
-    from oumi.analyze import LengthAnalyzer, AnalysisPipeline
-
-    # Single conversation analysis
-    analyzer = LengthAnalyzer()
-    result = analyzer.analyze(conversation)
-    print(f"Total words: {result.total_words}")
-
-    # Batch processing with pipeline
-    pipeline = AnalysisPipeline(analyzers=[LengthAnalyzer()])
-    results = pipeline.run(conversations)
-
-    # Convert to DataFrame when needed
-    df = pipeline.to_dataframe()
-"""
-
-# Import analyzers and result models (co-located in analyzer files)
 from oumi.analyze.analyzers.length import LengthAnalyzer, LengthMetrics
 from oumi.analyze.analyzers.quality import DataQualityAnalyzer, DataQualityMetrics
 from oumi.analyze.analyzers.turn_stats import TurnStatsAnalyzer, TurnStatsMetrics
@@ -45,14 +23,10 @@ from oumi.analyze.base import (
     MessageAnalyzer,
     PreferenceAnalyzer,
 )
-
-# Import config
 from oumi.analyze.config import (
     AnalyzerConfig,
     TypedAnalyzeConfig,
 )
-
-# Import discovery utilities
 from oumi.analyze.discovery import (
     describe_analyzer,
     generate_test_template,
@@ -61,12 +35,8 @@ from oumi.analyze.discovery import (
     print_analyzer_metrics,
 )
 from oumi.analyze.pipeline import AnalysisPipeline
-
-# Import testing
 from oumi.analyze.testing import TestEngine, TestResult, TestSummary
 from oumi.analyze.utils.dataframe import to_analysis_dataframe
-
-# Import CLI / orchestration utilities
 from oumi.cli.analyze import (
     create_analyzer_from_config,
     generate_tests,
@@ -79,44 +49,34 @@ from oumi.cli.analyze import (
 )
 
 __all__ = [
-    # Base classes
-    "MessageAnalyzer",
-    "ConversationAnalyzer",
-    "DatasetAnalyzer",
-    "PreferenceAnalyzer",
-    # Pipeline
     "AnalysisPipeline",
-    # Utilities
-    "to_analysis_dataframe",
-    # Analyzers
-    "LengthAnalyzer",
-    "TurnStatsAnalyzer",
-    "DataQualityAnalyzer",
-    # Result models
-    "LengthMetrics",
-    "TurnStatsMetrics",
-    "DataQualityMetrics",
-    # Config
-    "TypedAnalyzeConfig",
     "AnalyzerConfig",
-    # Testing
+    "ConversationAnalyzer",
+    "DataQualityAnalyzer",
+    "DataQualityMetrics",
+    "DatasetAnalyzer",
+    "LengthAnalyzer",
+    "LengthMetrics",
+    "MessageAnalyzer",
+    "PreferenceAnalyzer",
     "TestEngine",
     "TestResult",
     "TestSummary",
-    # CLI utilities
-    "run_typed_analysis",
-    "run_from_config_file",
-    "save_results",
-    "print_summary",
-    "list_metrics",
-    "generate_tests",
-    # Discovery utilities
-    "list_available_metrics",
-    "print_analyzer_metrics",
-    "get_analyzer_info",
-    "generate_test_template",
-    "describe_analyzer",
-    # Backward-compatible exports (used by API worker)
+    "TurnStatsAnalyzer",
+    "TurnStatsMetrics",
+    "TypedAnalyzeConfig",
     "create_analyzer_from_config",
+    "describe_analyzer",
+    "generate_test_template",
+    "generate_tests",
     "get_analyzer_class",
+    "get_analyzer_info",
+    "list_available_metrics",
+    "list_metrics",
+    "print_analyzer_metrics",
+    "print_summary",
+    "run_from_config_file",
+    "run_typed_analysis",
+    "save_results",
+    "to_analysis_dataframe",
 ]
