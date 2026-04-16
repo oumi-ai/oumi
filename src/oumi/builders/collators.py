@@ -127,31 +127,15 @@ def build_data_collator(
             **kwargs,
         )
     elif collator_name == "text_completions_only_with_padding":
-        # Extract instruction and response templates from kwargs if provided
-        instruction_template = kwargs.pop("instruction_template", None)
-        response_template = kwargs.pop("response_template", None)
-        end_of_turn_template = kwargs.pop("end_of_turn_template", None)
-        masking_method = kwargs.pop("masking_method", None)
-
-        # Only default to Llama-style instruction template when NOT using
-        # span-based masking (end_of_turn_template makes it unnecessary).
-        if end_of_turn_template is None:
-            instruction_template = (
-                instruction_template
-                if instruction_template
-                else "<|start_header_id|>user<|end_header_id|>\n\n"
+        if not kwargs.get("response_template"):
+            raise ValueError(
+                "'text_completions_only_with_padding' requires a "
+                "response_template. Provide it via collator_kwargs."
             )
-
-        if not response_template:
-            response_template = "<|start_header_id|>assistant<|end_header_id|>\n\n"
 
         return TextCompletionsCollatorWithPadding(
             tokenizer=tokenizer,
-            response_template=response_template,
-            instruction_template=instruction_template,
             debug=debug,
-            masking_method=masking_method,
-            end_of_turn_template=end_of_turn_template,
             ignore_index=(
                 label_ignore_index if label_ignore_index is not None else -100
             ),

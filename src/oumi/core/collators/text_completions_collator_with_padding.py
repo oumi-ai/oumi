@@ -63,15 +63,11 @@ class TextCompletionsCollatorWithPadding:
         self._debug = debug
         self._has_logged_example = False
 
-    def _collate(self, inputs: list[Any]) -> dict[str, Any]:
-        result = self._default_collator(inputs)
-        return result
-
-    def __call__(self, batch) -> dict[str, Any]:
-        """Pads to the longest length present in the batch.
+    def __call__(self, batch: list[dict[str, Any]]) -> dict[str, Any]:
+        """Collates a batch, delegating to the underlying TRL collator.
 
         Args:
-            batch: List of batch items.
+            batch: List of batch items, each containing ``input_ids``.
 
         Returns:
             Dict[str, torch.Tensor]: Processed batch.
@@ -83,11 +79,9 @@ class TextCompletionsCollatorWithPadding:
                     f"Available keys: {item.keys()}"
                 )
 
-        # Collate batch prompts.
-        collated_text_inputs = self._collate(batch)
+        collated_text_inputs = self._default_collator(batch)
 
         if self._debug and not self._has_logged_example:
-            # Log an example of the data in the first step for debugging purposes.
             self._log_debug_example(batch, collated_text_inputs)
         return collated_text_inputs
 
