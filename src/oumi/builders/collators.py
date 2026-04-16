@@ -292,8 +292,6 @@ def build_collator_from_config(
 
     # --- TrainTarget auto-resolution ---
     if train_split.train_target is not None:
-        if tokenizer is None:
-            raise ValueError("Tokenizer is required for `train_target` auto-detection.")
         response_template, end_of_turn_template = _resolve_collator_templates(tokenizer)
         collator_kwargs["response_template"] = response_template
         collator_kwargs["train_target"] = train_split.train_target.value
