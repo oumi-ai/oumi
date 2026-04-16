@@ -27,9 +27,9 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
     tokens (typically assistant responses), while ignoring other tokens
     (system prompts, user messages, padding).
 
-    The ``masking_method`` parameter selects the masking strategy:
+    The ``train_target`` parameter selects the training target:
 
-    **``assistant_turn``**:
+    **``all_assistant_turns``**:
         Span-based masking for multi-turn and tool-calling conversations.
         Masks everything, then unmarks each assistant response span bounded
         by ``response_template`` .. ``end_of_turn_template`` (inclusive of EOT).
@@ -46,17 +46,17 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
         instruction_template: String or token IDs marking the start of a
             user instruction. Legacy — only used with the instruction+response
             fallback path.
-        masking_method: One of ``"assistant_turn"``,
+        train_target: One of ``"all_assistant_turns"``,
             ``"final_assistant_turn"``.
             When None, inferred from template presence for backward compat.
         end_of_turn_template: String or token IDs marking the end of a
-            conversational turn. Required for ``assistant_turn`` mode.
+            conversational turn. Required for ``all_assistant_turns`` mode.
         mlm: Whether to use masked language modeling. Default False.
         ignore_index: Label value for masked tokens. Default -100.
         padding_free: Remove padding and add position_ids. Default False.
     """
 
-    _VALID_MASKING_METHODS = {"assistant_turn", "final_assistant_turn"}
+    _VALID_TRAIN_TARGETS = {"all_assistant_turns", "final_assistant_turn"}
 
     def _tokenize_template(self, template: str | list[int] | None) -> list[int] | None:
         """Encode a template string into token IDs, or pass through if already IDs."""
@@ -71,7 +71,7 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
         response_template: str | list[int],
         instruction_template: str | list[int] | None = None,
         *args,
-        masking_method: str | None = None,
+        train_target: str | None = None,
         end_of_turn_template: str | list[int] | None = None,
         mlm: bool = False,
         ignore_index: int = -100,
@@ -89,34 +89,34 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
         self.end_of_turn_template = end_of_turn_template
         self.end_of_turn_token_ids = self._tokenize_template(end_of_turn_template)
 
-        # Resolve masking method: explicit value, or infer from templates.
-        if masking_method is not None:
-            if masking_method not in self._VALID_MASKING_METHODS:
+        # Resolve train target: explicit value, or infer from templates.
+        if train_target is not None:
+            if train_target not in self._VALID_TRAIN_TARGETS:
                 raise ValueError(
-                    f"Unknown masking_method='{masking_method}'. "
-                    f"Must be one of: {sorted(self._VALID_MASKING_METHODS)}"
+                    f"Unknown train_target='{train_target}'. "
+                    f"Must be one of: {sorted(self._VALID_TRAIN_TARGETS)}"
                 )
-            self.masking_method = masking_method
+            self.train_target = train_target
         elif end_of_turn_template is not None:
-            self.masking_method = "assistant_turn"
+            self.train_target = "all_assistant_turns"
         elif instruction_template is None:
-            self.masking_method = "final_assistant_turn"
+            self.train_target = "final_assistant_turn"
         else:
             warnings.warn(
                 "Instruction-based masking is deprecated. "
-                "Use masking_method='assistant_turn' with "
+                "Use train_target='all_assistant_turns' with "
                 "end_of_turn_template for multi-turn conversations, "
-                "or masking_method='final_assistant_turn' "
+                "or train_target='final_assistant_turn' "
                 "for single-turn completions.",
                 DeprecationWarning,
                 stacklevel=2,
             )
-            self.masking_method = "_legacy_instruction_response"
+            self.train_target = "_legacy_instruction_response"
 
-        if self.masking_method == "assistant_turn" and end_of_turn_template is None:
+        if self.train_target == "all_assistant_turns" and end_of_turn_template is None:
             raise ValueError(
                 "end_of_turn_template must be provided "
-                "when masking_method='assistant_turn'"
+                "when train_target='all_assistant_turns'"
             )
 
         if (
@@ -229,9 +229,9 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
         """Collates a list of examples into a batch."""
         batch = super().torch_call(examples)
 
-        if self.masking_method == "assistant_turn":
+        if self.train_target == "all_assistant_turns":
             self._apply_span_masking(batch, examples)
-        elif self.masking_method == "final_assistant_turn":
+        elif self.train_target == "final_assistant_turn":
             # Response-only: unmask only the final assistant response.
             for i in range(len(examples)):
                 response_token_ids_start_idx = None

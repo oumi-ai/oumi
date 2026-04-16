@@ -275,7 +275,7 @@ def make_span_collator() -> TextCompletionsCollatorWithPadding:
     return TextCompletionsCollatorWithPadding(
         tokenizer=tokenizer,
         response_template=_RESP_STR,
-        masking_method="assistant_turn",
+        train_target="all_assistant_turns",
         end_of_turn_template=_EOT_STR,
     )
 
@@ -409,7 +409,7 @@ def test_span_masking_requires_end_of_turn_template():
         TextCompletionsCollatorWithPadding(
             tokenizer=tokenizer,
             response_template=_RESP_STR,
-            masking_method="assistant_turn",
+            train_target="all_assistant_turns",
             end_of_turn_template=None,
         )
 

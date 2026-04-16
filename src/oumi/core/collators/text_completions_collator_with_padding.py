@@ -30,7 +30,7 @@ class TextCompletionsCollatorWithPadding:
         response_template: str,
         instruction_template: str | None = None,
         debug: bool = False,
-        masking_method: str | None = None,
+        train_target: str | None = None,
         end_of_turn_template: str | None = None,
         ignore_index: int = -100,
     ):
@@ -41,10 +41,10 @@ class TextCompletionsCollatorWithPadding:
         response_template: String marking assistant response start.
         instruction_template: String marking user instruction start.
         debug: If True, enables debug mode for logging.
-        masking_method: Masking strategy — ``"assistant_turn"``
+        train_target: Training target — ``"all_assistant_turns"``
             or ``"final_assistant_turn"``.
         end_of_turn_template: String marking the end of a turn.
-            Required for ``assistant_turn``.
+            Required for ``all_assistant_turns``.
         ignore_index: Value used for masked labels. Must match the ignore_index
             of the loss function (default: -100).
         """
@@ -52,7 +52,7 @@ class TextCompletionsCollatorWithPadding:
             tokenizer=tokenizer,
             instruction_template=instruction_template,
             response_template=response_template,
-            masking_method=masking_method,
+            train_target=train_target,
             end_of_turn_template=end_of_turn_template,
             ignore_index=ignore_index,
         )
