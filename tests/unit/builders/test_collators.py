@@ -484,7 +484,7 @@ def test_train_target_with_collator_kwargs_override():
 
 def test_train_target_on_wrong_collator():
     """train_target is only valid for text_completions_only_with_padding."""
-    with pytest.raises(ValueError, match="only supported with"):
+    with pytest.raises(ValueError, match="train_target.*requires"):
         DatasetSplitParams(
             collator_name="text_with_padding",
             train_target=TrainTarget.ALL_ASSISTANT_TURNS,
