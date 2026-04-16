@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Commits{% endblock %}
+{% block page_title %}Commits{% endblock %}
+
+{% block content %}
+<!-- Filter bar -->
+<div class="mb-4 flex items-center gap-3">
+  <div class="relative flex-1 min-w-48 max-w-sm">
+    <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+    </svg>
+    <input type="search" name="author" value="{{ author }}"
+           placeholder="Filter by author..."
+           hx-get="/commits"
+           hx-trigger="keyup changed delay:500ms, search"
+           hx-target="#list-container"
+           hx-push-url="true"
+           class="w-full pl-9 pr-3 py-1.5 rounded-md border border-input bg-background text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+  </div>
+  <div id="search-spinner" class="htmx-indicator">
+    <svg class="animate-spin h-4 w-4 text-muted-foreground" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+    </svg>
+  </div>
+</div>
+
+<div id="list-container">
+  {% include "partials/commits_list.html" %}
+</div>
+{% endblock %}

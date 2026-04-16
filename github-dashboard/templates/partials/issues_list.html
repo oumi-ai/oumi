@@ -1,0 +1,66 @@
+{% from "components/badge.html" import label_badge, state_badge %}
+
+{% if issues %}
+<div class="rounded-lg border border-border bg-card shadow-sm overflow-hidden">
+  <table class="w-full text-sm">
+    <thead>
+      <tr class="border-b border-border bg-muted/50">
+        <th class="text-left px-4 py-2.5 font-medium text-muted-foreground w-12">#</th>
+        <th class="text-left px-4 py-2.5 font-medium text-muted-foreground">Title</th>
+        <th class="text-left px-4 py-2.5 font-medium text-muted-foreground hidden md:table-cell">Author</th>
+        <th class="text-right px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell w-20">Comments</th>
+        <th class="text-right px-4 py-2.5 font-medium text-muted-foreground w-32">Updated</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-border">
+      {% for issue in issues %}
+      <tr class="hover:bg-muted/30 transition-colors">
+        <td class="px-4 py-3 text-muted-foreground font-mono text-xs align-top">{{ issue.number }}</td>
+        <td class="px-4 py-3 align-top">
+          <div class="flex flex-col gap-1">
+            <a href="{{ issue.html_url }}" target="_blank"
+               class="font-medium hover:text-primary transition-colors leading-snug">{{ issue.title }}</a>
+            {% if issue.labels %}
+            <div class="flex flex-wrap gap-1">
+              {% for lbl in issue.labels[:4] %}{{ label_badge(lbl) }}{% endfor %}
+              {% if issue.labels|length > 4 %}<span class="text-xs text-muted-foreground">+{{ issue.labels|length - 4 }}</span>{% endif %}
+            </div>
+            {% endif %}
+          </div>
+        </td>
+        <td class="px-4 py-3 align-top hidden md:table-cell">
+          {% if issue.user %}
+          <a href="{{ issue.user.html_url }}" target="_blank" class="flex items-center gap-1.5 group">
+            <img src="{{ issue.user.avatar_url }}" alt="{{ issue.user.login }}" class="h-5 w-5 rounded-full flex-shrink-0" />
+            <span class="text-xs text-muted-foreground group-hover:text-foreground transition-colors">{{ issue.user.login }}</span>
+          </a>
+          {% endif %}
+        </td>
+        <td class="px-4 py-3 text-right text-xs text-muted-foreground hidden sm:table-cell align-top">
+          {% if issue.comments > 0 %}
+          <span class="inline-flex items-center gap-1">
+            <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+            </svg>
+            {{ issue.comments }}
+          </span>
+          {% endif %}
+        </td>
+        <td class="px-4 py-3 text-right text-xs text-muted-foreground whitespace-nowrap align-top">{{ issue.updated_at | relative_time }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% set base_params = "state=" ~ state ~ "&q=" ~ q ~ "&label=" ~ label ~ "&per_page=" ~ per_page %}
+{% include "components/pagination.html" %}
+
+{% else %}
+<div class="flex flex-col items-center justify-center py-20 text-center">
+  <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-muted-foreground mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-3-3v6m-7 4a9 9 0 1118 0 9 9 0 01-18 0z"/>
+  </svg>
+  <p class="text-muted-foreground text-sm">No issues found</p>
+</div>
+{% endif %}

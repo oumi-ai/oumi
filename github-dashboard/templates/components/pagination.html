@@ -1,0 +1,56 @@
+{% if pagination.total_pages > 1 %}
+<div class="flex items-center justify-between mt-4">
+  <p class="text-sm text-muted-foreground">
+    Page {{ pagination.page }} of {{ pagination.total_pages }}
+    {% if pagination.total_count %} &mdash; {{ pagination.total_count | format_number }} total{% endif %}
+  </p>
+  <div class="flex items-center gap-1">
+    {% if pagination.has_prev %}
+    <a href="?{{ base_params }}&page={{ pagination.page - 1 }}"
+       hx-get="?{{ base_params }}&page={{ pagination.page - 1 }}"
+       hx-target="#list-container"
+       hx-push-url="true"
+       class="inline-flex items-center justify-center rounded-md text-sm h-8 w-8 border border-border hover:bg-accent transition-colors">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+      </svg>
+    </a>
+    {% else %}
+    <span class="inline-flex items-center justify-center rounded-md h-8 w-8 border border-border opacity-40 cursor-not-allowed">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+      </svg>
+    </span>
+    {% endif %}
+
+    {% for p in range([1, pagination.page - 2]|max, [pagination.total_pages + 1, pagination.page + 3]|min) %}
+    <a href="?{{ base_params }}&page={{ p }}"
+       hx-get="?{{ base_params }}&page={{ p }}"
+       hx-target="#list-container"
+       hx-push-url="true"
+       class="inline-flex items-center justify-center rounded-md text-sm h-8 w-8 border transition-colors
+         {% if p == pagination.page %}bg-primary text-primary-foreground border-primary{% else %}border-border hover:bg-accent{% endif %}">
+      {{ p }}
+    </a>
+    {% endfor %}
+
+    {% if pagination.has_next %}
+    <a href="?{{ base_params }}&page={{ pagination.page + 1 }}"
+       hx-get="?{{ base_params }}&page={{ pagination.page + 1 }}"
+       hx-target="#list-container"
+       hx-push-url="true"
+       class="inline-flex items-center justify-center rounded-md text-sm h-8 w-8 border border-border hover:bg-accent transition-colors">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+      </svg>
+    </a>
+    {% else %}
+    <span class="inline-flex items-center justify-center rounded-md h-8 w-8 border border-border opacity-40 cursor-not-allowed">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+      </svg>
+    </span>
+    {% endif %}
+  </div>
+</div>
+{% endif %}

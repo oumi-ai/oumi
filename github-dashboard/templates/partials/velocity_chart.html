@@ -1,0 +1,208 @@
+<!-- Velocity chart — HTMX lazy-loaded fragment -->
+<div class="rounded-lg border border-border bg-card shadow-sm overflow-hidden" id="velocity-card">
+
+  <!-- Header row with period stats -->
+  <div class="px-5 py-4 border-b border-border flex flex-wrap items-center gap-6">
+    <div>
+      <p class="text-xs text-muted-foreground">Total Stars</p>
+      <p class="text-xl font-bold">{{ total_stars | format_number }}</p>
+    </div>
+    <div>
+      <p class="text-xs text-muted-foreground">Last 7 days</p>
+      <div class="flex items-baseline gap-1.5">
+        <p class="text-xl font-bold">{{ period_stats.last_7d | format_number }}</p>
+        {% if period_stats.pct_7d is not none %}
+          {% if period_stats.pct_7d >= 0 %}
+          <span class="text-xs font-medium text-green-600">+{{ period_stats.pct_7d }}%</span>
+          {% else %}
+          <span class="text-xs font-medium text-red-500">{{ period_stats.pct_7d }}%</span>
+          {% endif %}
+          <span class="text-xs text-muted-foreground">vs prev 7d</span>
+        {% endif %}
+      </div>
+    </div>
+    <div>
+      <p class="text-xs text-muted-foreground">Last 30 days</p>
+      <div class="flex items-baseline gap-1.5">
+        <p class="text-xl font-bold">{{ period_stats.last_30d | format_number }}</p>
+        {% if period_stats.pct_30d is not none %}
+          {% if period_stats.pct_30d >= 0 %}
+          <span class="text-xs font-medium text-green-600">+{{ period_stats.pct_30d }}%</span>
+          {% else %}
+          <span class="text-xs font-medium text-red-500">{{ period_stats.pct_30d }}%</span>
+          {% endif %}
+          <span class="text-xs text-muted-foreground">vs prev 30d</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Momentum badge -->
+    {% if period_stats.pct_30d is not none %}
+      {% if period_stats.pct_30d >= 20 %}
+      <span class="ml-auto inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
+        Accelerating
+      </span>
+      {% elif period_stats.pct_30d >= 0 %}
+      <span class="ml-auto inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+        Growing
+      </span>
+      {% else %}
+      <span class="ml-auto inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold bg-orange-50 text-orange-700 border border-orange-200">
+        Slowing
+      </span>
+      {% endif %}
+    {% endif %}
+  </div>
+
+  <!-- Chart -->
+  <div class="p-5">
+    <div style="height: 280px; position: relative;">
+      <canvas id="velocityChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Top spikes -->
+  {% if velocity_json %}
+  <div class="px-5 pb-4">
+    <p class="text-xs font-medium text-muted-foreground mb-2">Biggest growth spikes — correlate with campaigns:</p>
+    <div id="velocity-spikes" class="flex flex-wrap gap-2"></div>
+  </div>
+  {% endif %}
+
+</div>
+
+<script>
+(function() {
+  const v = {{ velocity_json | safe }};
+  if (!v.labels) return;
+
+  const ctx = document.getElementById("velocityChart").getContext("2d");
+
+  Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
+  Chart.defaults.font.size = 11;
+
+  const chart = new Chart(ctx, {
+    data: {
+      labels: v.labels,
+      datasets: [
+        {
+          type: "bar",
+          label: v.granularity === "week" ? "New stars / week" : "New stars / day",
+          data: v.counts,
+          backgroundColor: "rgba(139,92,246,0.35)",
+          borderColor: "rgba(139,92,246,0.5)",
+          borderWidth: 1,
+          borderRadius: 2,
+          yAxisID: "yLeft",
+          order: 2,
+        },
+        {
+          type: "line",
+          label: "7-period rolling avg",
+          data: v.rolling,
+          borderColor: "rgba(245,158,11,0.9)",
+          borderDash: [5, 3],
+          borderWidth: 2,
+          pointRadius: 0,
+          fill: false,
+          tension: 0.4,
+          yAxisID: "yLeft",
+          order: 1,
+        },
+        {
+          type: "line",
+          label: "Cumulative",
+          data: v.cumulative,
+          borderColor: "rgba(59,130,246,1)",
+          borderWidth: 2.5,
+          pointRadius: 0,
+          fill: {target: "origin", above: "rgba(59,130,246,0.06)"},
+          tension: 0.2,
+          yAxisID: "yRight",
+          order: 0,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: {
+          position: "top",
+          align: "end",
+          labels: { boxWidth: 12, padding: 16, color: "#6b7280" },
+        },
+        tooltip: {
+          callbacks: {
+            title: (items) => {
+              const lbl = items[0].label;
+              return v.granularity === "week" ? "Week of " + lbl : lbl;
+            },
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { color: "#9ca3af", maxTicksLimit: 12, maxRotation: 0 },
+        },
+        yLeft: {
+          position: "left",
+          grid: { color: "rgba(0,0,0,0.05)" },
+          ticks: { color: "#9ca3af" },
+          title: {
+            display: true,
+            text: v.granularity === "week" ? "Stars / week" : "Stars / day",
+            color: "#9ca3af", font: { size: 10 },
+          },
+        },
+        yRight: {
+          position: "right",
+          grid: { drawOnChartArea: false },
+          ticks: { color: "#9ca3af" },
+          title: { display: true, text: "Cumulative", color: "#9ca3af", font: { size: 10 } },
+        },
+      },
+    },
+  });
+
+  // Render spike badges using safe DOM methods (no innerHTML)
+  const spikesEl = document.getElementById("velocity-spikes");
+  if (spikesEl && Array.isArray(v.spikes)) {
+    v.spikes.forEach(function(s, i) {
+      const badge = document.createElement("button");
+      badge.type = "button";
+      badge.className = "inline-flex items-center gap-1.5 text-xs rounded-full px-2.5 py-1 border transition-colors hover:bg-accent";
+      if (i === 0) {
+        badge.style.cssText = "background:#fef3c7;color:#b45309;border-color:#fde68a;";
+      } else {
+        badge.style.cssText = "background:#f3f4f6;color:#6b7280;border-color:#e5e7eb;";
+      }
+
+      const icon = document.createElement("span");
+      icon.textContent = i === 0 ? "\uD83C\uDFC6" : "\uD83D\uDCC5";
+
+      const label = document.createElement("span");
+      label.textContent = s.label + " \u2014 ";
+
+      const count = document.createElement("strong");
+      count.textContent = s.count + " stars";
+
+      badge.appendChild(icon);
+      badge.appendChild(label);
+      badge.appendChild(count);
+
+      badge.addEventListener("click", function() {
+        const idx = v.labels.indexOf(s.label);
+        if (idx >= 0) {
+          chart.tooltip.setActiveElements([{datasetIndex: 0, index: idx}], {x: 0, y: 0});
+          chart.update();
+        }
+      });
+
+      spikesEl.appendChild(badge);
+    });
+  }
+})();
+</script>

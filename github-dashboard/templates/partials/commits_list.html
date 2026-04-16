@@ -1,0 +1,43 @@
+{% if commits %}
+<div class="space-y-2">
+  {% for commit in commits %}
+  <div class="rounded-lg border border-border bg-card shadow-sm px-4 py-3 flex items-start gap-3 hover:bg-muted/30 transition-colors">
+    {% if commit.author_avatar %}
+    <img src="{{ commit.author_avatar }}" alt="{{ commit.author_login }}"
+         class="h-8 w-8 rounded-full flex-shrink-0 mt-0.5 border border-border" />
+    {% else %}
+    <div class="h-8 w-8 rounded-full bg-muted flex-shrink-0 mt-0.5 border border-border flex items-center justify-center">
+      <svg class="h-4 w-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+      </svg>
+    </div>
+    {% endif %}
+
+    <div class="min-w-0 flex-1">
+      <p class="text-sm font-medium leading-snug" title="{{ commit.message }}">{{ commit.short_message }}</p>
+      <div class="flex flex-wrap items-center gap-2 mt-1.5">
+        <a href="{{ commit.html_url }}" target="_blank"
+           class="font-mono text-xs bg-muted px-1.5 py-0.5 rounded border border-border text-muted-foreground hover:text-foreground transition-colors">{{ commit.short_sha }}</a>
+        {% if commit.author_login %}
+        <span class="text-xs text-muted-foreground">{{ commit.author_login }}</span>
+        {% elif commit.author_name %}
+        <span class="text-xs text-muted-foreground">{{ commit.author_name }}</span>
+        {% endif %}
+        <span class="text-xs text-muted-foreground">{{ commit.author_date | relative_time }}</span>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% set base_params = "author=" ~ author ~ "&per_page=" ~ per_page %}
+{% include "components/pagination.html" %}
+
+{% else %}
+<div class="flex flex-col items-center justify-center py-20 text-center">
+  <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-muted-foreground mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+  </svg>
+  <p class="text-muted-foreground text-sm">No commits found</p>
+</div>
+{% endif %}

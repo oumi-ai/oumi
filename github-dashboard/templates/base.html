@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}oumi Dashboard{% endblock %} — {{ repo_name }}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            border: "hsl(214.3 31.8% 91.4%)",
+            input: "hsl(214.3 31.8% 91.4%)",
+            ring: "hsl(215 20.2% 65.1%)",
+            background: "hsl(0 0% 100%)",
+            foreground: "hsl(222.2 47.4% 11.2%)",
+            primary: { DEFAULT: "hsl(222.2 47.4% 11.2%)", foreground: "hsl(210 40% 98%)" },
+            secondary: { DEFAULT: "hsl(210 40% 96.1%)", foreground: "hsl(222.2 47.4% 11.2%)" },
+            muted: { DEFAULT: "hsl(210 40% 96.1%)", foreground: "hsl(215.4 16.3% 46.9%)" },
+            accent: { DEFAULT: "hsl(210 40% 96.1%)", foreground: "hsl(222.2 47.4% 11.2%)" },
+            card: { DEFAULT: "hsl(0 0% 100%)", foreground: "hsl(222.2 47.4% 11.2%)" },
+          },
+          borderRadius: { lg: "0.5rem", md: "calc(0.5rem - 2px)", sm: "calc(0.5rem - 4px)" },
+        },
+      },
+    }
+  </script>
+  <link rel="stylesheet" href="/static/css/custom.css" />
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body class="h-full bg-background text-foreground font-sans antialiased">
+  <div class="flex h-full min-h-screen">
+
+    <!-- Sidebar -->
+    <aside class="w-56 flex-shrink-0 border-r border-border bg-card flex flex-col">
+      <!-- Logo -->
+      <div class="h-14 flex items-center px-4 border-b border-border gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-primary" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+        </svg>
+        <span class="font-semibold text-sm truncate">{{ repo_name }}</span>
+      </div>
+
+      <!-- Nav links -->
+      <nav class="flex-1 px-2 py-3 space-y-0.5">
+        {% set nav_items = [
+          ("overview", "/", "Overview", '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h18M3 12h18M3 17h18"/>'),
+          ("issues", "/issues", "Issues", '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>'),
+          ("pulls", "/pulls", "Pull Requests", '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/>'),
+          ("commits", "/commits", "Commits", '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>'),
+          ("contributors", "/contributors", "Contributors", '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6 5.87a4 4 0 100-8 4 4 0 000 8zm6-4a4 4 0 11-8 0"/>'),
+          ("releases", "/releases", "Releases", '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5l7 7-7 7-5-5V3z"/>'),
+          ("stargazers", "/stargazers", "Stargazers", '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>'),
+        ] %}
+
+        {% for key, href, label, icon_path in nav_items %}
+          <a href="{{ href }}"
+             class="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium transition-colors
+               {% if active == key %}
+                 bg-accent text-accent-foreground
+               {% else %}
+                 text-muted-foreground hover:bg-accent hover:text-accent-foreground
+               {% endif %}">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              {{ icon_path | safe }}
+            </svg>
+            {{ label }}
+          </a>
+        {% endfor %}
+      </nav>
+
+      <!-- Footer -->
+      <div class="px-4 py-3 border-t border-border text-xs text-muted-foreground">
+        <a href="https://github.com/{{ repo_name }}" target="_blank"
+           class="flex items-center gap-1.5 hover:text-foreground transition-colors">
+          <svg class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+          </svg>
+          View on GitHub
+        </a>
+      </div>
+    </aside>
+
+    <!-- Main content -->
+    <div class="flex-1 flex flex-col min-w-0">
+      <!-- Top nav -->
+      <header class="h-14 border-b border-border bg-card flex items-center px-6 gap-4 flex-shrink-0">
+        <h1 class="text-sm font-medium text-muted-foreground">{% block page_title %}Dashboard{% endblock %}</h1>
+        <div class="ml-auto flex items-center gap-2">
+          <span id="rate-limit-badge" class="text-xs text-muted-foreground px-2 py-1 rounded-md bg-muted hidden">
+            Rate limit exceeded
+          </span>
+        </div>
+      </header>
+
+      <!-- Page content -->
+      <main class="flex-1 overflow-auto p-6">
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

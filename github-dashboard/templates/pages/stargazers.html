@@ -1,0 +1,384 @@
+{% extends "base.html" %}
+{% block title %}Stargazers{% endblock %}
+{% block page_title %}Stargazers — GTM Intelligence{% endblock %}
+
+{% block content %}
+
+{% if rate_limit_error %}
+<div class="mb-6 rounded-lg border border-orange-200 bg-orange-50 p-5">
+  <p class="text-sm font-medium text-orange-800">GitHub rate limit exceeded</p>
+  <p class="text-xs text-orange-700 mt-1">
+    Add a <code class="bg-orange-100 px-1 rounded">GITHUB_TOKEN</code> to your <code class="bg-orange-100 px-1 rounded">.env</code> file
+    for 5,000 requests/hr. Limit resets at {{ rate_limit_reset }}.
+  </p>
+</div>
+{% else %}
+
+<!-- ── Velocity (lazy via HTMX) ───────────────────────────────────────────── -->
+<div class="mb-6"
+     hx-get="/stargazers/velocity"
+     hx-trigger="load"
+     hx-swap="outerHTML"
+     hx-indicator="#velocity-spinner">
+  <div class="rounded-lg border border-border bg-card shadow-sm p-8 flex items-center justify-center gap-3 text-muted-foreground text-sm" id="velocity-spinner">
+    <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+    </svg>
+    Loading full star history&hellip; (cached after first load)
+  </div>
+</div>
+
+<!-- ── Row 1: Company Intelligence + Hot Prospects ───────────────────────── -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+
+  <!-- Company Intelligence -->
+  <div class="rounded-lg border border-border bg-card shadow-sm flex flex-col">
+    <div class="px-5 py-4 border-b border-border flex items-center justify-between">
+      <div>
+        <h2 class="text-sm font-semibold">Company Intelligence</h2>
+        <p class="text-xs text-muted-foreground mt-0.5">Top orgs in your stargazer base</p>
+      </div>
+      <span class="text-xs text-muted-foreground bg-muted px-2 py-1 rounded border border-border">
+        sample: {{ sample_size }}
+      </span>
+    </div>
+    <div class="p-5 flex-1">
+      <div style="height: 240px; position:relative;">
+        <canvas id="companyChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Multi-star companies: team adoption signal -->
+    {% if analysis.multi_star %}
+    <div class="px-5 pb-4 border-t border-border pt-3">
+      <p class="text-xs font-medium text-muted-foreground mb-2">
+        Team adoption signals
+        <span class="ml-1 text-xs text-muted-foreground font-normal">(2+ engineers starred)</span>
+      </p>
+      <div class="flex flex-wrap gap-1.5">
+        {% for company, count in analysis.multi_star %}
+        <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
+          {{ company }}
+          <span class="font-bold">×{{ count }}</span>
+        </span>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Hot Prospects -->
+  <div class="rounded-lg border border-border bg-card shadow-sm flex flex-col">
+    <div class="px-5 py-4 border-b border-border">
+      <h2 class="text-sm font-semibold">Hot Prospects</h2>
+      <p class="text-xs text-muted-foreground mt-0.5">Recent high-value stargazers, sorted by ICP fit</p>
+    </div>
+    <div class="flex-1 overflow-auto" style="max-height: 360px;">
+      <table class="w-full text-xs">
+        <tbody class="divide-y divide-border">
+          {% for p in analysis.hot_prospects[:20] %}
+          {% set seg = p.segment %}
+          <tr class="hover:bg-muted/30 transition-colors">
+            <td class="px-3 py-2.5">
+              <div class="flex items-center gap-2">
+                <img src="{{ p.avatar_url }}" alt="{{ p.login }}"
+                     class="h-7 w-7 rounded-full border border-border flex-shrink-0" />
+                <div class="min-w-0">
+                  <a href="{{ p.html_url }}" target="_blank"
+                     class="font-medium text-foreground hover:text-primary transition-colors truncate block max-w-28">
+                    {{ p.name or p.login }}
+                  </a>
+                  {% if p.company %}
+                  <p class="text-muted-foreground truncate max-w-28">{{ p.company | replace("@","") | truncate(22, true, "…") }}</p>
+                  {% endif %}
+                </div>
+              </div>
+            </td>
+            <td class="px-3 py-2.5">
+              <!-- Segment badge -->
+              {% if seg == "enterprise" %}
+              <span class="rounded-full px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-100">Enterprise</span>
+              {% elif seg == "startup" %}
+              <span class="rounded-full px-2 py-0.5 bg-purple-50 text-purple-700 border border-purple-100">Startup</span>
+              {% elif seg == "academic" %}
+              <span class="rounded-full px-2 py-0.5 bg-green-50 text-green-700 border border-green-100">Academic</span>
+              {% elif seg == "independent" %}
+              <span class="rounded-full px-2 py-0.5 bg-yellow-50 text-yellow-700 border border-yellow-100">Indie</span>
+              {% else %}
+              <span class="rounded-full px-2 py-0.5 bg-muted text-muted-foreground border border-border">—</span>
+              {% endif %}
+            </td>
+            <td class="px-3 py-2.5 text-right">
+              <div class="flex flex-col items-end gap-0.5">
+                <span class="font-semibold">{{ p.followers | format_number }}</span>
+                <span class="text-muted-foreground">followers</span>
+              </div>
+            </td>
+            <td class="px-3 py-2.5 text-right">
+              <!-- ICP score bar -->
+              <div class="flex items-center gap-1.5 justify-end">
+                <div class="w-12 h-1.5 rounded-full bg-muted overflow-hidden">
+                  <div class="h-full rounded-full bg-primary transition-all"
+                       style="width: {{ [p.icp_score, 100] | min }}%"></div>
+                </div>
+                <span class="text-muted-foreground w-6 text-right">{{ p.icp_score }}</span>
+              </div>
+            </td>
+            <td class="px-3 py-2.5 text-right text-muted-foreground">
+              {{ p.starred_at | relative_time }}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="px-5 py-2.5 border-t border-border flex items-center gap-2">
+      <div class="w-6 h-1.5 rounded-full bg-primary"></div>
+      <p class="text-xs text-muted-foreground">ICP score = followers + company + activity signals</p>
+    </div>
+  </div>
+</div>
+
+<!-- ── Row 2: Market Segmentation + Location + Influencer Reach ──────────── -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+
+  <!-- Segment donut -->
+  <div class="rounded-lg border border-border bg-card shadow-sm">
+    <div class="px-5 py-4 border-b border-border">
+      <h2 class="text-sm font-semibold">Market Segments</h2>
+      <p class="text-xs text-muted-foreground mt-0.5">Who is starring?</p>
+    </div>
+    <div class="p-5">
+      <div style="height: 180px; position:relative;">
+        <canvas id="segmentChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Location -->
+  <div class="rounded-lg border border-border bg-card shadow-sm">
+    <div class="px-5 py-4 border-b border-border">
+      <h2 class="text-sm font-semibold">Locations</h2>
+      <p class="text-xs text-muted-foreground mt-0.5">Top markets</p>
+    </div>
+    <div class="p-5">
+      <div style="height: 180px; position:relative;">
+        <canvas id="locationChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Influencer reach card -->
+  <div class="rounded-lg border border-border bg-card shadow-sm flex flex-col">
+    <div class="px-5 py-4 border-b border-border">
+      <h2 class="text-sm font-semibold">Influencer Reach</h2>
+      <p class="text-xs text-muted-foreground mt-0.5">Amplification potential</p>
+    </div>
+    <div class="p-5 flex-1 flex flex-col gap-3">
+      <div class="text-center py-2">
+        <p class="text-3xl font-bold text-primary">{{ analysis.total_reach | format_number }}</p>
+        <p class="text-xs text-muted-foreground mt-1">combined followers<br>of top 100 stargazers</p>
+      </div>
+      <p class="text-xs text-center text-muted-foreground px-2">
+        If your top stargazers share your repo, this is your organic reach ceiling.
+      </p>
+      <div class="mt-auto space-y-2">
+        {% for c in analysis.influencers[:5] %}
+        <a href="{{ c.html_url }}" target="_blank"
+           class="flex items-center gap-2 hover:bg-muted/50 rounded-md p-1 transition-colors group">
+          <img src="{{ c.avatar_url }}" alt="{{ c.login }}"
+               class="h-6 w-6 rounded-full border border-border flex-shrink-0" />
+          <span class="text-xs font-medium truncate flex-1 group-hover:text-primary transition-colors">
+            {{ c.login }}
+          </span>
+          <span class="text-xs text-muted-foreground flex-shrink-0">
+            {{ c.followers | format_number }} followers
+          </span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Row 3: Influence Map scatter ──────────────────────────────────────── -->
+<div class="rounded-lg border border-border bg-card shadow-sm">
+  <div class="px-5 py-4 border-b border-border">
+    <div class="flex items-start justify-between">
+      <div>
+        <h2 class="text-sm font-semibold">Influence Map</h2>
+        <p class="text-xs text-muted-foreground mt-0.5">
+          Each dot is a stargazer. X = follower count (influence). Y = public repos (activity).
+          Top-right = your best champions.
+        </p>
+      </div>
+      <div class="flex flex-wrap gap-2 text-xs ml-4">
+        <span class="flex items-center gap-1"><span class="h-2.5 w-2.5 rounded-full bg-blue-500 inline-block"></span> Enterprise</span>
+        <span class="flex items-center gap-1"><span class="h-2.5 w-2.5 rounded-full bg-purple-500 inline-block"></span> Startup</span>
+        <span class="flex items-center gap-1"><span class="h-2.5 w-2.5 rounded-full bg-emerald-500 inline-block"></span> Academic</span>
+        <span class="flex items-center gap-1"><span class="h-2.5 w-2.5 rounded-full bg-amber-500 inline-block"></span> Independent</span>
+        <span class="flex items-center gap-1"><span class="h-2.5 w-2.5 rounded-full bg-gray-400 inline-block"></span> Unknown</span>
+      </div>
+    </div>
+  </div>
+  <div class="p-5">
+    <!-- Quadrant labels overlay -->
+    <div class="relative">
+      <div style="height: 320px; position:relative;">
+        <canvas id="influenceMap"></canvas>
+      </div>
+      <!-- Quadrant annotations (CSS positioned, not chart.js) -->
+      <div class="absolute inset-0 pointer-events-none flex" style="padding: 12px 48px 32px 56px;">
+        <div class="flex-1 grid grid-cols-2 grid-rows-2 gap-0">
+          <div class="flex items-start justify-start p-2">
+            <span class="text-xs text-muted-foreground/50 font-medium">Lurkers</span>
+          </div>
+          <div class="flex items-start justify-end p-2">
+            <span class="text-xs text-muted-foreground/50 font-medium">Champions</span>
+          </div>
+          <div class="flex items-end justify-start p-2">
+            <span class="text-xs text-muted-foreground/50 font-medium">Beginners</span>
+          </div>
+          <div class="flex items-end justify-end p-2">
+            <span class="text-xs text-muted-foreground/50 font-medium">Builders</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Charts init ────────────────────────────────────────────────────────── -->
+{% if analysis %}
+<script>
+(function() {
+  Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
+  Chart.defaults.font.size = 11;
+
+  // ── Company bar chart ──────────────────────────────────────────────────
+  const co = {{ company_chart_json | safe }};
+  new Chart(document.getElementById("companyChart"), {
+    type: "bar",
+    data: {
+      labels: co.labels,
+      datasets: [{
+        data: co.data,
+        backgroundColor: "rgba(99,102,241,0.7)",
+        borderColor: "rgba(99,102,241,0.9)",
+        borderWidth: 1,
+        borderRadius: 3,
+      }],
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: "#9ca3af" }, grid: { color: "rgba(0,0,0,0.04)" } },
+        y: { ticks: { color: "#374151", font: { size: 11 } }, grid: { display: false } },
+      },
+    },
+  });
+
+  // ── Segment donut ──────────────────────────────────────────────────────
+  const seg = {{ segment_chart_json | safe }};
+  new Chart(document.getElementById("segmentChart"), {
+    type: "doughnut",
+    data: {
+      labels: seg.labels,
+      datasets: [{
+        data: seg.data,
+        backgroundColor: seg.colors,
+        borderWidth: 2,
+        borderColor: "#fff",
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: "60%",
+      plugins: {
+        legend: { position: "bottom", labels: { boxWidth: 10, padding: 10, color: "#6b7280" } },
+      },
+    },
+  });
+
+  // ── Location horizontal bar ────────────────────────────────────────────
+  const loc = {{ location_chart_json | safe }};
+  new Chart(document.getElementById("locationChart"), {
+    type: "bar",
+    data: {
+      labels: loc.labels,
+      datasets: [{
+        data: loc.data,
+        backgroundColor: "rgba(16,185,129,0.7)",
+        borderColor: "rgba(16,185,129,0.9)",
+        borderWidth: 1,
+        borderRadius: 3,
+      }],
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: "#9ca3af" }, grid: { color: "rgba(0,0,0,0.04)" } },
+        y: { ticks: { color: "#374151", font: { size: 11 } }, grid: { display: false } },
+      },
+    },
+  });
+
+  // ── Influence Map scatter ──────────────────────────────────────────────
+  const scatterDatasets = {{ scatter_datasets_json | safe }};
+  new Chart(document.getElementById("influenceMap"), {
+    type: "scatter",
+    data: { datasets: scatterDatasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) {
+              const d = ctx.raw;
+              const co = d.company ? " @ " + d.company : "";
+              return d.login + co + " | " + d.followers + " followers, " + d.repos + " repos";
+            },
+          },
+        },
+      },
+      scales: {
+        x: {
+          title: { display: true, text: "log(followers) \u2192 Influence", color: "#9ca3af", font: { size: 10 } },
+          ticks: {
+            color: "#9ca3af",
+            callback: function(val) {
+              return Math.round(Math.pow(10, val));
+            },
+          },
+          grid: { color: "rgba(0,0,0,0.05)" },
+        },
+        y: {
+          title: { display: true, text: "log(repos) \u2192 Activity", color: "#9ca3af", font: { size: 10 } },
+          ticks: {
+            color: "#9ca3af",
+            callback: function(val) {
+              return Math.round(Math.pow(10, val));
+            },
+          },
+          grid: { color: "rgba(0,0,0,0.05)" },
+        },
+      },
+    },
+  });
+})();
+</script>
+{% endif %}{# end analysis #}
+
+{% endif %}{# end rate_limit_error #}
+
+{% endblock %}

@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}Overview{% endblock %}
+{% block page_title %}Overview{% endblock %}
+
+{% block content %}
+<!-- Stat cards -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+
+  {% set stat_cards = [
+    ("Stars", stats.stargazers_count, "text-yellow-500", '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>'),
+    ("Forks", stats.forks_count, "text-blue-500", '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/>'),
+    ("Open Issues", stats.open_issues_count, "text-orange-500", '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>'),
+    ("Watchers", stats.watchers_count, "text-green-500", '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>'),
+  ] %}
+
+  {% for title, value, icon_color, icon_path in stat_cards %}
+  <div class="rounded-lg border border-border bg-card shadow-sm p-5">
+    <div class="flex items-center justify-between mb-2">
+      <p class="text-sm font-medium text-muted-foreground">{{ title }}</p>
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 {{ icon_color }}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        {{ icon_path | safe }}
+      </svg>
+    </div>
+    <p class="text-2xl font-bold">{{ value | format_number }}</p>
+  </div>
+  {% endfor %}
+
+</div>
+
+<!-- Meta row -->
+<div class="flex flex-wrap gap-2 mb-6">
+  {% if stats.language %}
+  <span class="inline-flex items-center gap-1.5 text-xs bg-muted text-muted-foreground rounded-full px-3 py-1 border border-border">
+    <span class="h-2 w-2 rounded-full bg-blue-400 inline-block"></span>
+    {{ stats.language }}
+  </span>
+  {% endif %}
+  {% if stats.license_name %}
+  <span class="inline-flex items-center gap-1.5 text-xs bg-muted text-muted-foreground rounded-full px-3 py-1 border border-border">
+    <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+    {{ stats.license_name }}
+  </span>
+  {% endif %}
+  {% if stats.pushed_at %}
+  <span class="inline-flex items-center gap-1.5 text-xs bg-muted text-muted-foreground rounded-full px-3 py-1 border border-border">
+    <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    Last push {{ stats.pushed_at | relative_time }}
+  </span>
+  {% endif %}
+  {% for topic in stats.topics[:6] %}
+  <span class="inline-flex items-center text-xs bg-blue-50 text-blue-700 border border-blue-100 rounded-full px-3 py-1">{{ topic }}</span>
+  {% endfor %}
+</div>
+
+<!-- Description -->
+{% if stats.description %}
+<p class="text-sm text-muted-foreground mb-6 max-w-2xl">{{ stats.description }}</p>
+{% endif %}
+
+<!-- Two column content -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+  <!-- Recent commits -->
+  <div class="rounded-lg border border-border bg-card shadow-sm">
+    <div class="px-5 py-4 border-b border-border flex items-center justify-between">
+      <h2 class="text-sm font-semibold">Recent Commits</h2>
+      <a href="/commits" class="text-xs text-muted-foreground hover:text-foreground transition-colors">View all →</a>
+    </div>
+    <div class="divide-y divide-border">
+      {% for commit in recent_commits %}
+      <div class="px-5 py-3 flex items-start gap-3 hover:bg-muted/30 transition-colors">
+        {% if commit.author_avatar %}
+        <img src="{{ commit.author_avatar }}" alt="{{ commit.author_login }}" class="h-6 w-6 rounded-full flex-shrink-0 mt-0.5" />
+        {% else %}
+        <div class="h-6 w-6 rounded-full bg-muted flex-shrink-0 mt-0.5"></div>
+        {% endif %}
+        <div class="min-w-0 flex-1">
+          <p class="text-sm truncate">{{ commit.short_message }}</p>
+          <div class="flex items-center gap-2 mt-0.5">
+            <a href="{{ commit.html_url }}" target="_blank"
+               class="font-mono text-xs text-muted-foreground hover:text-foreground transition-colors">{{ commit.short_sha }}</a>
+            <span class="text-xs text-muted-foreground">{{ commit.author_date | relative_time }}</span>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Top contributors -->
+  <div class="rounded-lg border border-border bg-card shadow-sm">
+    <div class="px-5 py-4 border-b border-border flex items-center justify-between">
+      <h2 class="text-sm font-semibold">Top Contributors</h2>
+      <a href="/contributors" class="text-xs text-muted-foreground hover:text-foreground transition-colors">View all →</a>
+    </div>
+    <div class="px-5 py-4 grid grid-cols-4 gap-3">
+      {% for c in top_contributors %}
+      <a href="{{ c.html_url }}" target="_blank" class="flex flex-col items-center gap-1.5 group">
+        <img src="{{ c.avatar_url }}" alt="{{ c.login }}"
+             class="h-10 w-10 rounded-full border border-border group-hover:ring-2 group-hover:ring-ring transition-all" />
+        <span class="text-xs text-muted-foreground truncate w-full text-center group-hover:text-foreground transition-colors">{{ c.login }}</span>
+        <span class="text-xs font-medium text-muted-foreground">{{ c.contributions | format_number }}</span>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Recent releases -->
+  {% if recent_releases %}
+  <div class="rounded-lg border border-border bg-card shadow-sm lg:col-span-2">
+    <div class="px-5 py-4 border-b border-border flex items-center justify-between">
+      <h2 class="text-sm font-semibold">Recent Releases</h2>
+      <a href="/releases" class="text-xs text-muted-foreground hover:text-foreground transition-colors">View all →</a>
+    </div>
+    <div class="divide-y divide-border">
+      {% for release in recent_releases %}
+      <div class="px-5 py-3 flex items-center gap-4 hover:bg-muted/30 transition-colors">
+        <span class="font-mono text-xs bg-muted px-2 py-1 rounded border border-border flex-shrink-0">{{ release.tag_name }}</span>
+        <span class="text-sm flex-1 truncate">{{ release.name or release.tag_name }}</span>
+        {% if release.prerelease %}
+        <span class="text-xs bg-yellow-50 text-yellow-700 border border-yellow-200 rounded-full px-2 py-0.5">pre-release</span>
+        {% endif %}
+        <span class="text-xs text-muted-foreground flex-shrink-0">{{ release.published_at | relative_time }}</span>
+        <a href="{{ release.html_url }}" target="_blank" class="text-xs text-muted-foreground hover:text-foreground transition-colors flex-shrink-0">↗</a>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

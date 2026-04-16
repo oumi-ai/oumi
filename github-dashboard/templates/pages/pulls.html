@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% from "components/badge.html" import label_badge, state_badge %}
+{% block title %}Pull Requests{% endblock %}
+{% block page_title %}Pull Requests{% endblock %}
+
+{% block content %}
+<!-- Filter bar -->
+<div class="mb-4 flex flex-wrap items-center gap-3">
+  <!-- State toggle -->
+  <div class="flex rounded-md border border-border overflow-hidden text-sm">
+    {% for s, label in [("open", "Open"), ("closed", "Closed"), ("merged", "Merged")] %}
+    <a href="/pulls?state={{ s }}{% if q %}&q={{ q }}{% endif %}"
+       hx-get="/pulls?state={{ s }}{% if q %}&q={{ q }}{% endif %}"
+       hx-target="#list-container"
+       hx-push-url="true"
+       class="px-3 py-1.5 font-medium transition-colors
+         {% if state == s %}bg-primary text-primary-foreground{% else %}bg-card text-muted-foreground hover:bg-accent{% endif %}">
+      {{ label }}
+    </a>
+    {% endfor %}
+  </div>
+
+  <!-- Search -->
+  <div class="relative flex-1 min-w-48 max-w-sm">
+    <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+    </svg>
+    <input type="search" name="q" value="{{ q }}"
+           placeholder="Search pull requests..."
+           hx-get="/pulls"
+           hx-trigger="keyup changed delay:400ms, search"
+           hx-target="#list-container"
+           hx-push-url="true"
+           hx-include="[name='state_hidden']"
+           class="w-full pl-9 pr-3 py-1.5 rounded-md border border-input bg-background text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+  </div>
+  <input type="hidden" name="state_hidden" value="{{ state }}" />
+
+  <div id="search-spinner" class="htmx-indicator">
+    <svg class="animate-spin h-4 w-4 text-muted-foreground" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+    </svg>
+  </div>
+</div>
+
+<!-- PR list -->
+<div id="list-container">
+  {% include "partials/pulls_list.html" %}
+</div>
+{% endblock %}

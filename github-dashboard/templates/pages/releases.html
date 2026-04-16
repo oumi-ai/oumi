@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Releases{% endblock %}
+{% block page_title %}Releases{% endblock %}
+
+{% block content %}
+{% if releases %}
+<div class="space-y-4">
+  {% for release in releases %}
+  <div class="rounded-lg border border-border bg-card shadow-sm overflow-hidden">
+    <div class="px-5 py-4 border-b border-border flex flex-wrap items-center gap-3">
+      <a href="{{ release.html_url }}" target="_blank"
+         class="font-mono text-sm bg-muted px-2.5 py-1 rounded border border-border hover:bg-accent transition-colors flex-shrink-0">
+        {{ release.tag_name }}
+      </a>
+      {% if release.name and release.name != release.tag_name %}
+      <h2 class="text-base font-semibold">{{ release.name }}</h2>
+      {% endif %}
+      {% if release.prerelease %}
+      <span class="text-xs bg-yellow-50 text-yellow-700 border border-yellow-200 rounded-full px-2.5 py-0.5">pre-release</span>
+      {% endif %}
+      {% if release.draft %}
+      <span class="text-xs bg-muted text-muted-foreground border border-border rounded-full px-2.5 py-0.5">draft</span>
+      {% endif %}
+      <span class="ml-auto text-xs text-muted-foreground flex-shrink-0">{{ release.published_at | relative_time }}</span>
+    </div>
+
+    {% if release.body %}
+    <div class="px-5 py-4 prose prose-sm max-w-none text-sm text-foreground">
+      <pre class="whitespace-pre-wrap font-sans text-sm text-foreground bg-transparent p-0 border-0">{{ release.body }}</pre>
+    </div>
+    {% endif %}
+
+    {% if release.assets %}
+    <div class="px-5 py-3 bg-muted/30 border-t border-border">
+      <p class="text-xs font-medium text-muted-foreground mb-2">Assets ({{ release.total_downloads | format_number }} total downloads)</p>
+      <div class="flex flex-wrap gap-2">
+        {% for asset in release.assets %}
+        <div class="inline-flex items-center gap-2 text-xs bg-card border border-border rounded-md px-2.5 py-1.5">
+          <svg class="h-3 w-3 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          <span class="font-medium">{{ asset.name }}</span>
+          <span class="text-muted-foreground">{{ asset.size | format_bytes }}</span>
+          <span class="text-muted-foreground">↓ {{ asset.download_count | format_number }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+{% set base_params = "per_page=" ~ per_page %}
+{% include "components/pagination.html" %}
+
+{% else %}
+<div class="flex flex-col items-center justify-center py-20 text-center">
+  <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-muted-foreground mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 7h.01M7 3h5l7 7-7 7-5-5V3z"/>
+  </svg>
+  <p class="text-muted-foreground text-sm">No releases yet</p>
+</div>
+{% endif %}
+{% endblock %}

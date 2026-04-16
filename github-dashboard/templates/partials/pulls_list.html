@@ -1,0 +1,67 @@
+{% from "components/badge.html" import label_badge, state_badge %}
+
+{% if pulls %}
+<div class="rounded-lg border border-border bg-card shadow-sm overflow-hidden">
+  <table class="w-full text-sm">
+    <thead>
+      <tr class="border-b border-border bg-muted/50">
+        <th class="text-left px-4 py-2.5 font-medium text-muted-foreground w-12">#</th>
+        <th class="text-left px-4 py-2.5 font-medium text-muted-foreground">Title</th>
+        <th class="text-left px-4 py-2.5 font-medium text-muted-foreground hidden lg:table-cell">Branches</th>
+        <th class="text-left px-4 py-2.5 font-medium text-muted-foreground hidden md:table-cell">Author</th>
+        <th class="text-right px-4 py-2.5 font-medium text-muted-foreground w-32">Updated</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-border">
+      {% for pr in pulls %}
+      <tr class="hover:bg-muted/30 transition-colors">
+        <td class="px-4 py-3 text-muted-foreground font-mono text-xs align-top">{{ pr.number }}</td>
+        <td class="px-4 py-3 align-top">
+          <div class="flex flex-col gap-1">
+            <div class="flex items-start gap-2">
+              {{ state_badge(pr.state, pr.merged_at, pr.draft) }}
+              <a href="{{ pr.html_url }}" target="_blank"
+                 class="font-medium hover:text-primary transition-colors leading-snug">{{ pr.title }}</a>
+            </div>
+            {% if pr.labels %}
+            <div class="flex flex-wrap gap-1">
+              {% for lbl in pr.labels[:3] %}{{ label_badge(lbl) }}{% endfor %}
+            </div>
+            {% endif %}
+          </div>
+        </td>
+        <td class="px-4 py-3 align-top hidden lg:table-cell">
+          <div class="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span class="font-mono bg-muted px-1.5 py-0.5 rounded border border-border">{{ pr.head_ref }}</span>
+            <svg class="h-3 w-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+            </svg>
+            <span class="font-mono bg-muted px-1.5 py-0.5 rounded border border-border">{{ pr.base_ref }}</span>
+          </div>
+        </td>
+        <td class="px-4 py-3 align-top hidden md:table-cell">
+          {% if pr.user %}
+          <a href="{{ pr.user.html_url }}" target="_blank" class="flex items-center gap-1.5 group">
+            <img src="{{ pr.user.avatar_url }}" alt="{{ pr.user.login }}" class="h-5 w-5 rounded-full flex-shrink-0" />
+            <span class="text-xs text-muted-foreground group-hover:text-foreground transition-colors">{{ pr.user.login }}</span>
+          </a>
+          {% endif %}
+        </td>
+        <td class="px-4 py-3 text-right text-xs text-muted-foreground whitespace-nowrap align-top">{{ pr.updated_at | relative_time }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% set base_params = "state=" ~ state ~ "&q=" ~ q ~ "&per_page=" ~ per_page %}
+{% include "components/pagination.html" %}
+
+{% else %}
+<div class="flex flex-col items-center justify-center py-20 text-center">
+  <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-muted-foreground mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/>
+  </svg>
+  <p class="text-muted-foreground text-sm">No pull requests found</p>
+</div>
+{% endif %}

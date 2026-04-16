@@ -1,0 +1,26 @@
+{% if contributors %}
+<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+  {% for c in contributors %}
+  <a href="{{ c.html_url }}" target="_blank"
+     class="rounded-lg border border-border bg-card shadow-sm p-4 flex flex-col items-center gap-2.5 hover:bg-accent hover:border-ring transition-all group">
+    <img src="{{ c.avatar_url }}" alt="{{ c.login }}"
+         class="h-14 w-14 rounded-full border-2 border-border group-hover:border-ring transition-colors" />
+    <span class="text-sm font-medium text-center truncate w-full text-center">{{ c.login }}</span>
+    <span class="inline-flex items-center gap-1 text-xs text-muted-foreground">
+      <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+      </svg>
+      {{ c.contributions | format_number }} commits
+    </span>
+  </a>
+  {% endfor %}
+</div>
+
+{% set base_params = "per_page=" ~ per_page %}
+{% include "components/pagination.html" %}
+
+{% else %}
+<div class="flex flex-col items-center justify-center py-20 text-center">
+  <p class="text-muted-foreground text-sm">No contributors found</p>
+</div>
+{% endif %}

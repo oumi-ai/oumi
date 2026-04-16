@@ -1,0 +1,52 @@
+/* HTMX loading indicators */
+.htmx-indicator {
+  opacity: 0;
+  transition: opacity 150ms ease-in;
+}
+
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+  opacity: 1;
+}
+
+/* Smooth swap animations */
+.htmx-settling {
+  opacity: 0;
+}
+
+.htmx-settling.htmx-settling {
+  opacity: 1;
+  transition: opacity 150ms ease-out;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(214.3 31.8% 82%);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(214.3 31.8% 70%);
+}
+
+/* Focus ring */
+*:focus-visible {
+  outline: 2px solid hsl(215 20.2% 65.1%);
+  outline-offset: 2px;
+}
+
+/* Prose override for release notes */
+.prose pre {
+  background: transparent;
+  padding: 0;
+  border: none;
+}
