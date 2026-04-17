@@ -417,3 +417,52 @@ def test_results_to_dict_empty():
     output = results_to_dict({})
 
     assert output == {}
+
+
+# -----------------------------------------------------------------------------
+# Tests: Cached (raw dict) results
+# -----------------------------------------------------------------------------
+
+
+def test_dataset_level_cached_dict_in_dataframe(sample_conversations):
+    """Dataset-level results as raw dicts (from cache) are included."""
+    results = {
+        "Stats": {"total_count": 100, "avg_score": 75.5},
+    }
+
+    df = to_analysis_dataframe(sample_conversations, results)
+
+    assert "stats__total_count" in df.columns
+    assert "stats__avg_score" in df.columns
+    assert (df["stats__total_count"] == 100).all()
+    assert (df["stats__avg_score"] == 75.5).all()
+
+
+def test_per_conversation_cached_dicts_in_dataframe(sample_conversations):
+    """Per-conversation results as raw dicts (from cache) work."""
+    results = {
+        "Simple": [
+            {"score": 80, "name": "a"},
+            {"score": 90, "name": "b"},
+        ],
+    }
+
+    df = to_analysis_dataframe(sample_conversations, results)
+
+    assert "simple__score" in df.columns
+    assert "simple__name" in df.columns
+    assert df["simple__score"].tolist() == [80, 90]
+    assert df["simple__name"].tolist() == ["a", "b"]
+
+
+def test_results_to_dict_passes_through_cached_dicts():
+    """Raw dict results pass through without model_dump."""
+    results = {
+        "Stats": {"total_count": 100},
+        "PerConv": [{"score": 1}, {"score": 2}],
+    }
+
+    output = results_to_dict(results)
+
+    assert output["Stats"] == {"total_count": 100}
+    assert output["PerConv"] == [{"score": 1}, {"score": 2}]
