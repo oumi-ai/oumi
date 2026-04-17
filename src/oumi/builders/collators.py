@@ -35,10 +35,9 @@ from oumi.utils.logging import logger
 _VERY_LARGE_INTEGER = int(1e30)
 _SENTINEL_USER = "<<__U__>>"
 _SENTINEL_ASST = "<<__A__>>"
-_FALLBACK_MSG = (
-    "Cannot auto-detect collator templates from the chat template. "
-    "Provide response_template (and end_of_turn_template for "
-    "all_assistant_turns) via collator_kwargs."
+_FIX_HINT = (
+    "Fix: provide response_template (and end_of_turn_template for "
+    "all_assistant_turns) in collator_kwargs."
 )
 
 
@@ -68,10 +67,15 @@ def _resolve_collator_templates(
             msgs, tokenize=False, add_generation_prompt=False
         )
     except Exception as exc:
-        raise ValueError(_FALLBACK_MSG) from exc
+        raise ValueError(
+            f"Tokenizer has no chat template or it failed to render.\n{_FIX_HINT}"
+        ) from exc
 
     if not isinstance(rendered, str):
-        raise ValueError(_FALLBACK_MSG)
+        raise ValueError(
+            f"Chat template returned a non-string type ({type(rendered).__name__}).\n"
+            f"{_FIX_HINT}"
+        )
 
     # Locate boundaries around the second turn pair
     # to avoid system-prompt effects on the first turn.
@@ -83,7 +87,10 @@ def _resolve_collator_templates(
         second_asst = rendered.index(_SENTINEL_ASST, second_user_end)
         second_asst_end = second_asst + len(_SENTINEL_ASST)
     except ValueError:
-        raise ValueError(_FALLBACK_MSG)
+        raise ValueError(
+            "Could not locate assistant turn boundaries in the rendered "
+            f"chat template.\n{_FIX_HINT}"
+        )
 
     # End-of-turn: common token-ID prefix of the two strings that
     # follow assistant content (mid-conversation vs. end-of-sequence).
@@ -111,8 +118,10 @@ def _resolve_collator_templates(
     assert isinstance(_resp_decoded, str)
     response_template = _resp_decoded
 
-    if not response_template.strip() or not end_of_turn_template.strip():
-        raise ValueError(_FALLBACK_MSG)
+    if not response_template.strip():
+        raise ValueError(f"Extracted response_template is empty.\n{_FIX_HINT}")
+    if not end_of_turn_template.strip():
+        raise ValueError(f"Extracted end_of_turn_template is empty.\n{_FIX_HINT}")
 
     # Qwen3 and similar reasoning models inject <think>...</think> into
     # every assistant turn via their chat template.  If training data was
@@ -224,10 +233,9 @@ def build_data_collator(
     elif collator_name == "text_completions_only_with_padding":
         if not kwargs.get("response_template"):
             raise ValueError(
-                "'text_completions_only_with_padding' requires a "
-                "response_template. Either set train_target in your config "
-                "(which auto-resolves templates from the tokenizer) or "
-                "provide response_template via collator_kwargs."
+                "'text_completions_only_with_padding' requires a response_template.\n"
+                "Fix: set train_target in your data config (auto-resolves templates "
+                "from the tokenizer), or provide response_template in collator_kwargs."
             )
 
         return TextCompletionsCollatorWithPadding(
@@ -322,9 +330,9 @@ def build_collator_from_config(
                 and config_collator_kwargs.get("end_of_turn_template") is None
             ):
                 raise ValueError(
-                    "train_target='all_assistant_turns' requires an "
-                    "end_of_turn_template, but auto-detection failed and "
-                    "none was provided in collator_kwargs."
+                    "train_target='all_assistant_turns' requires end_of_turn_template, "
+                    "but auto-detection failed.\n"
+                    "Fix: provide end_of_turn_template in collator_kwargs."
                 )
 
         elif config_collator_kwargs.get("response_template") is not None:
@@ -337,11 +345,9 @@ def build_collator_from_config(
                 collator_kwargs["train_target"] = "all_assistant_turns"
             elif has_inst:
                 warnings.warn(
-                    "Instruction-based masking is deprecated. "
-                    "Use train_target='all_assistant_turns' with "
-                    "end_of_turn_template for multi-turn conversations, "
-                    "or train_target='final_assistant_turn' "
-                    "for single-turn completions.",
+                    "Instruction-based masking is deprecated.\n"
+                    "Use train_target='all_assistant_turns'"
+                    "or train_target='final_assistant_turn' instead.",
                     DeprecationWarning,
                     stacklevel=2,
                 )
@@ -350,8 +356,10 @@ def build_collator_from_config(
                 collator_kwargs["train_target"] = "final_assistant_turn"
         else:
             raise ValueError(
-                "'text_completions_only_with_padding' requires either "
-                "train_target or response_template in collator_kwargs."
+                "'text_completions_only_with_padding' collator requires"
+                " configuration.\n"
+                "Fix: set train_target in your data config, "
+                "or provide response_template in collator_kwargs."
             )
 
     # User-provided collator_kwargs override auto-resolved values

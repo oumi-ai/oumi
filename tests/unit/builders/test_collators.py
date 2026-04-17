@@ -453,7 +453,7 @@ def test_train_target_unknown_tokenizer():
             model_max_length=512,
         ),
     )
-    with pytest.raises(ValueError, match="Cannot auto-detect collator templates"):
+    with pytest.raises(ValueError, match="no chat template"):
         build_collator_from_config(config, tokenizer=tok)
 
 
