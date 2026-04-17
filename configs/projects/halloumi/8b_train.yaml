@@ -66,7 +66,7 @@ data:
         seed: 42
 
     collator_name: "text_completions_only_with_padding"
-    train_target: "all_assistant_turns"
+    train_target: "ALL_ASSISTANT_TURNS"
     seed: 42
   validation:
     datasets:
@@ -79,7 +79,7 @@ data:
           }
 
     collator_name: "text_completions_only_with_padding"
-    train_target: "all_assistant_turns"
+    train_target: "ALL_ASSISTANT_TURNS"
     seed: 42
 
 training:
