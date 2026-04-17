@@ -21,7 +21,12 @@ from dataclasses import dataclass, field
 from typing import Any, ClassVar
 
 from oumi.environments.base_environment import BaseEnvironment
-from oumi.environments.base_tool import DeterministicToolOutput, Tool, ToolResult
+from oumi.environments.base_tool import (
+    DeterministicToolOutput,
+    Tool,
+    ToolLookupError,
+    ToolResult,
+)
 
 
 @dataclass
@@ -65,9 +70,20 @@ class DeterministicEnvironment(BaseEnvironment):
                 seen.add(key)
 
     def step(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:
-        """Resolve a deterministic tool call to its output."""
+        """Resolve a deterministic tool call to its output.
+
+        Raises:
+            ToolLookupError: If no configured ``deterministic_outputs`` entry
+                matches the provided arguments. The error message lists the
+                configured inputs so the calling LLM can self-correct.
+        """
         tool = self._get_tool_or_raise(tool_id)
         for entry in tool.deterministic_outputs:
             if entry.matches(arguments):
                 return ToolResult(output=entry.output)
-        return ToolResult(output=None)
+        available = [entry.input for entry in tool.deterministic_outputs]
+        raise ToolLookupError(
+            f"No deterministic output matches arguments "
+            f"{json.dumps(arguments, sort_keys=True)} for tool '{tool_id}'. "
+            f"Configured inputs: {json.dumps(available, sort_keys=True)}"
+        )

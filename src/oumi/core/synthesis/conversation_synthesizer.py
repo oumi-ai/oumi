@@ -12,16 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import copy
 import dataclasses
 import json
 import random
+import re
 
 from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.configs.environment_config import EnvironmentConfig
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.inference_engine_type import InferenceEngineType
-from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.configs.params.synthesis_params import (
     GeneralSynthesisParams,
@@ -29,9 +28,26 @@ from oumi.core.configs.params.synthesis_params import (
 )
 from oumi.core.synthesis.attribute_formatter import AttributeFormatter
 from oumi.core.types.conversation import Conversation, Message, Role
-from oumi.environments import Tool
+from oumi.environments import Tool, ToolArgumentError, ToolError
 from oumi.utils.logging import logger
 from oumi.utils.str_utils import extract_json
+
+_TOOL_CALL_RE = re.compile(r"<tool_call>(.*?)</tool_call>", re.DOTALL)
+
+_FORCED_FINALIZE_NUDGE = (
+    "You have reached the tool-call limit. Do NOT emit any more "
+    "<tool_call> blocks. Based on the information gathered so far, "
+    "provide your final response to the user now."
+)
+
+
+def _strip_tool_call_blocks(text: str) -> str:
+    return _TOOL_CALL_RE.sub("", text)
+
+
+def _tool_error_msg(error: str) -> Message:
+    return Message(role=Role.TOOL, content=json.dumps({"error": error}))
+
 
 _PLANNER_JSON_SCHEMA: dict = {
     "type": "array",
@@ -104,6 +120,29 @@ class ConversationSynthesizer:
                     f"{[r.value for r in available_roles]}"
                 )
 
+    def _validate_tool_configuration(
+        self, multiturn_attribute: MultiTurnAttribute
+    ) -> None:
+        """Validate that tool/environment declarations have a backing environment_config.
+
+        Args:
+            multiturn_attribute: The multi-turn attribute to validate.
+
+        Raises:
+            ValueError: If ``available_tools`` or ``available_environments`` is
+                declared but no ``environment_config`` was provided to the
+                synthesizer.
+        """
+        declares_tools = bool(multiturn_attribute.available_tools) or bool(
+            multiturn_attribute.available_environments
+        )
+        if declares_tools and self._environment_config is None:
+            raise ValueError(
+                f"MultiTurnAttribute '{multiturn_attribute.id}' declares "
+                f"available_tools/available_environments but no environment_config "
+                f"was provided to ConversationSynthesizer."
+            )
+
     def _format_tool_block(self, multiturn_attribute: MultiTurnAttribute) -> str:
         """Build a tool-usage instruction block for the assistant persona."""
         available_tools = self._resolve_available_tools(multiturn_attribute)
@@ -112,7 +151,7 @@ class ConversationSynthesizer:
 
         lines = [
             "You have access to the following tools.",
-            "When a tool is needed, emit exactly one tool call in this format:",
+            "When tools are needed, emit one or more tool calls, each in this format:",
             "",
             "<tool_call>",
             '{"name": "<tool_name>", "arguments": {...}}',
@@ -176,6 +215,7 @@ class ConversationSynthesizer:
             return []
 
         self._validate_roles(multiturn_attributes)
+        self._validate_tool_configuration(multiturn_attributes)
 
         logger.info(
             f"Synthesizing {len(samples)} conversations for "
@@ -526,26 +566,13 @@ class ConversationSynthesizer:
 
     def _planner_inference_config(self) -> InferenceConfig:
         """Create an inference config for planner calls with JSON guided decoding."""
-        base_generation = getattr(self._inference_config, "generation", None)
-        if isinstance(base_generation, GenerationParams):
-            planner_generation = dataclasses.replace(
-                base_generation,
+        return dataclasses.replace(
+            self._inference_config,
+            generation=dataclasses.replace(
+                self._inference_config.generation,
                 guided_decoding=GuidedDecodingParams(json=_PLANNER_JSON_SCHEMA),
-            )
-        else:
-            planner_generation = GenerationParams(
-                guided_decoding=GuidedDecodingParams(json=_PLANNER_JSON_SCHEMA)
-            )
-
-        if isinstance(self._inference_config, InferenceConfig):
-            return dataclasses.replace(
-                self._inference_config,
-                generation=planner_generation,
-            )
-
-        planner_config = copy.copy(self._inference_config)
-        planner_config.generation = planner_generation
-        return planner_config
+            ),
+        )
 
     def _synthesize_all_samples(
         self,
@@ -566,78 +593,65 @@ class ConversationSynthesizer:
             return []
 
         histories: list[list[Message]] = [[] for _ in samples]
+        user_histories: list[list[Message]] = [[] for _ in samples]
+        tool_use = len(self._resolve_available_tools(multiturn_attribute)) > 0
         max_turns = max(sample["target_turns"] for sample in samples)
 
         turn_order = self._default_turn_order
         for turn_idx in range(max_turns):
             current_turn = turn_idx + 1
+            role = turn_order[turn_idx % len(turn_order)]
 
-            prompts: list[Conversation] = []
-            sample_indices: list[int] = []
-            roles_for_turn: list[Role] = []
-
-            for i, sample in enumerate(samples):
-                if turn_idx >= sample["target_turns"]:
-                    continue
-
-                role = turn_order[turn_idx % len(turn_order)]
-                roles_for_turn.append(role)
-
-                prompt_messages: list[Message] = []
-                sample_with_turn = {**sample, "current_turn": current_turn}
-
-                persona = multiturn_attribute.role_instruction_messages[role]
-                formatted_persona = self._format_persona(
-                    sample_with_turn,
-                    persona,
-                    role,
-                    multiturn_attribute=multiturn_attribute,
-                )
-                prompt_messages.append(formatted_persona)
-                prompt_messages.extend(histories[i])
-
-                target_turns = sample["target_turns"]
-                parsed_turn_plans = sample.get("parsed_turn_plans", [])
-
-                turn_instruction = ""
-                if turn_idx < len(parsed_turn_plans):
-                    turn_instruction = parsed_turn_plans[turn_idx]
-
-                turn_info = (
-                    f"You are generating turn {current_turn} of {target_turns} "
-                    f"as the {role.value.upper()}.\n\n"
-                )
-                if turn_instruction:
-                    turn_info += f"For this turn: {turn_instruction}\n\n"
-                turn_info += (
-                    "Generate ONLY your response for this turn. Stay in character."
-                )
-                prompt_messages.append(Message(role=Role.USER, content=turn_info))
-
-                prompts.append(Conversation(messages=prompt_messages))
-                sample_indices.append(i)
-
-            if not prompts:
+            sample_indices = [
+                i
+                for i, sample in enumerate(samples)
+                if turn_idx < sample["target_turns"]
+            ]
+            if not sample_indices:
                 break
 
-            inference_results = self._inference_engine.infer(
-                prompts,
-                inference_config=self._inference_config,
+            if role == Role.ASSISTANT and tool_use:
+                per_sample_msgs = self._run_assistant_turn(
+                    samples=samples,
+                    sample_indices=sample_indices,
+                    histories=histories,
+                    current_turn=current_turn,
+                    multiturn_attribute=multiturn_attribute,
+                )
+                for i, msgs in zip(sample_indices, per_sample_msgs):
+                    histories[i].extend(msgs)
+                    user_histories[i].append(msgs[-1])
+                continue
+
+            history_source = (
+                user_histories if (role == Role.USER and tool_use) else histories
             )
-
-            generated_texts = self._extract_response(inference_results)
-
+            prompts = [
+                self._build_turn_prompt(
+                    samples[i],
+                    role,
+                    history_source[i],
+                    current_turn,
+                    multiturn_attribute,
+                )
+                for i in sample_indices
+            ]
+            generated_texts = self._extract_response(
+                self._inference_engine.infer(
+                    prompts,
+                    inference_config=self._inference_config,
+                )
+            )
             if len(generated_texts) != len(prompts):
                 raise RuntimeError(
                     f"Inference engine returned {len(generated_texts)} results "
                     f"but {len(prompts)} prompts were submitted. "
                     f"This may indicate an inference engine error."
                 )
-
-            for idx, generated_text, role in zip(
-                sample_indices, generated_texts, roles_for_turn
-            ):
-                histories[idx].append(Message(role=role, content=generated_text))
+            for i, text in zip(sample_indices, generated_texts):
+                msg = Message(role=role, content=text)
+                histories[i].append(msg)
+                user_histories[i].append(msg)
 
         conversations: list[Conversation] = []
         for sample, history in zip(samples, histories):
@@ -651,6 +665,168 @@ class ConversationSynthesizer:
             conversations.append(Conversation(messages=output_messages))
 
         return conversations
+
+    def _build_turn_prompt(
+        self,
+        sample: dict,
+        role: Role,
+        history: list[Message],
+        current_turn: int,
+        multiturn_attribute: MultiTurnAttribute,
+        trailing: list[Message] | None = None,
+    ) -> Conversation:
+        """Build the inference prompt for one sample at one turn."""
+        target_turns = sample["target_turns"]
+        parsed_turn_plans = sample.get("parsed_turn_plans", [])
+        turn_idx = current_turn - 1
+        turn_instruction = (
+            parsed_turn_plans[turn_idx] if turn_idx < len(parsed_turn_plans) else ""
+        )
+
+        persona_msg = self._format_persona(
+            {**sample, "current_turn": current_turn},
+            multiturn_attribute.role_instruction_messages[role],
+            role,
+            multiturn_attribute=multiturn_attribute,
+        )
+
+        turn_info = (
+            f"You are generating turn {current_turn} of {target_turns} "
+            f"as the {role.value.upper()}.\n\n"
+        )
+        if turn_instruction:
+            turn_info += f"For this turn: {turn_instruction}\n\n"
+        turn_info += "Generate ONLY your response for this turn. Stay in character."
+
+        messages = [persona_msg, *history, Message(role=Role.USER, content=turn_info)]
+        if trailing:
+            messages.extend(trailing)
+        return Conversation(messages=messages)
+
+    def _run_assistant_turn(
+        self,
+        samples: list[dict],
+        sample_indices: list[int],
+        histories: list[list[Message]],
+        current_turn: int,
+        multiturn_attribute: MultiTurnAttribute,
+    ) -> list[list[Message]]:
+        """Run the inner tool-call loop for the assistant role at one turn."""
+        cap = multiturn_attribute.max_tool_calls_per_turn
+        turn_messages: dict[int, list[Message]] = {i: [] for i in sample_indices}
+        done: dict[int, bool] = {i: False for i in sample_indices}
+        tool_count: dict[int, int] = {i: 0 for i in sample_indices}
+
+        while True:
+            active = [i for i in sample_indices if not done[i] and tool_count[i] < cap]
+            if not active:
+                break
+
+            prompts = [
+                self._build_turn_prompt(
+                    samples[i],
+                    Role.ASSISTANT,
+                    histories[i] + turn_messages[i],
+                    current_turn,
+                    multiturn_attribute,
+                )
+                for i in active
+            ]
+            texts = self._extract_response(
+                self._inference_engine.infer(
+                    prompts,
+                    inference_config=self._inference_config,
+                )
+            )
+            for i, text in zip(active, texts):
+                turn_messages[i].append(Message(role=Role.ASSISTANT, content=text))
+                if self._is_final_response(text):
+                    done[i] = True
+                    continue
+                tool_messages = self._execute_tool_calls(text)
+                turn_messages[i].extend(tool_messages)
+                tool_count[i] += len(tool_messages)
+
+        stragglers = [i for i in sample_indices if not done[i]]
+        if stragglers:
+            nudge = Message(role=Role.USER, content=_FORCED_FINALIZE_NUDGE)
+            prompts = [
+                self._build_turn_prompt(
+                    samples[i],
+                    Role.ASSISTANT,
+                    histories[i] + turn_messages[i],
+                    current_turn,
+                    multiturn_attribute,
+                    trailing=[nudge],
+                )
+                for i in stragglers
+            ]
+            texts = self._extract_response(
+                self._inference_engine.infer(
+                    prompts,
+                    inference_config=self._inference_config,
+                )
+            )
+            for i, text in zip(stragglers, texts):
+                final = _strip_tool_call_blocks(text).strip()
+                turn_messages[i].append(Message(role=Role.ASSISTANT, content=final))
+
+        return [turn_messages[i] for i in sample_indices]
+
+    def _is_final_response(self, text: str) -> bool:
+        return _TOOL_CALL_RE.search(text) is None
+
+    def _execute_tool_calls(self, response_text: str) -> list[Message]:
+        return [
+            self._run_single_tool_call(match.group(1).strip())
+            for match in _TOOL_CALL_RE.finditer(response_text)
+        ]
+
+    def _run_single_tool_call(self, body: str) -> Message:
+        try:
+            parsed = json.loads(body)
+        except json.JSONDecodeError as e:
+            return _tool_error_msg(f"Malformed tool_call JSON: {e}")
+        if not isinstance(parsed, dict):
+            return _tool_error_msg("tool_call body must be a JSON object")
+
+        name = parsed.get("name")
+        arguments = parsed.get("arguments", {})
+
+        if not isinstance(name, str) or not name:
+            return _tool_error_msg("tool_call missing 'name'")
+        if not isinstance(arguments, dict):
+            return _tool_error_msg("tool_call 'arguments' must be an object")
+
+        assert self._environment_config is not None
+
+        tool = self._environment_config.get_tool(name)
+        if tool is None:
+            return _tool_error_msg(f"Unknown tool '{name}'")
+
+        try:
+            tool.validate_arguments(arguments)
+        except ToolArgumentError as e:
+            return _tool_error_msg(f"Invalid arguments for tool '{name}': {e}")
+
+        try:
+            result = self._environment_config.step(name, arguments)
+        except ToolError as e:
+            return _tool_error_msg(str(e))
+        except KeyError:
+            return _tool_error_msg(f"Unknown tool '{name}'")
+        except Exception as e:  # noqa: BLE001
+            return _tool_error_msg(f"Tool '{name}' raised: {e}")
+
+        output = result.output
+
+        if output is None:
+            content = ""
+        elif isinstance(output, str):
+            content = output
+        else:
+            content = json.dumps(output)
+        return Message(role=Role.TOOL, content=content)
 
     def _select_target_turns(
         self, multiturn_attribute: MultiTurnAttribute, turn_order: list[Role]

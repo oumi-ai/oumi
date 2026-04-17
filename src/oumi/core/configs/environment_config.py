@@ -23,7 +23,7 @@ from oumi.core.configs.base_config import BaseConfig
 
 if TYPE_CHECKING:
     from oumi.environments.base_environment import BaseEnvironment
-    from oumi.environments.base_tool import Tool
+    from oumi.environments.base_tool import Tool, ToolResult
 
 
 @dataclass
@@ -85,6 +85,19 @@ class EnvironmentConfig(BaseConfig):
             if tool.id == tool_id:
                 return tool
         return None
+
+    def step(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:
+        """Execute a tool call by routing to its owning environment.
+
+        Raises:
+            KeyError: If the tool id is not registered in any environment.
+        """
+        env_id = self.tool_environment_map.get(tool_id)
+        if env_id is None:
+            raise KeyError(f"Unknown tool id '{tool_id}'")
+        environment = self.get_environment(env_id)
+        assert environment is not None
+        return environment.step(tool_id, arguments)
 
     def resolve_tools(
         self,
