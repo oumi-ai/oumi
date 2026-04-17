@@ -15,11 +15,13 @@
 
 Provide either `dataset_name` (HuggingFace Hub) or `dataset_path` (local JSONL file):
 
+Both sources must already be in Oumi conversation format (each row / line: `{"messages": [{"role": "...", "content": "..."}]}`). Rows that fail to parse are skipped with a warning.
+
 ::::{tab-set}
 :::{tab-item} HuggingFace Dataset
 
 ```yaml
-dataset_name: argilla/databricks-dolly-15k-curated-en
+dataset_name: <org>/<repo>
 split: train
 sample_count: 1000
 ```
@@ -30,8 +32,6 @@ sample_count: 1000
 ```yaml
 dataset_path: /path/to/data.jsonl
 ```
-
-Local files must be in JSONL format with Oumi conversation structure (each line: `{"messages": [{"role": "...", "content": "..."}]}`).
 
 :::
 ::::
