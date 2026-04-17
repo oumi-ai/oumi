@@ -96,9 +96,25 @@ If `oumi-mcp` isn't on your client's `PATH`, use an absolute path or wrap it in 
 }
 ```
 
-```{tip}
-MCP clients inherit the environment they were launched in. Cloud credentials (`GOOGLE_APPLICATION_CREDENTIALS`, `WANDB_API_KEY`, `HF_TOKEN`, etc.) must be visible to the process that spawns `oumi-mcp`, which for desktop apps usually means exporting them in `~/.zshrc` / `~/.bashrc`, not just your terminal session.
+````{tip}
+`oumi-mcp` needs credentials (`HF_TOKEN`, `WANDB_API_KEY`, `GOOGLE_APPLICATION_CREDENTIALS`, etc.) in its process environment. The most reliable way is the MCP config's own `env` block, which every stdio-launching client supports:
+
+```json
+{
+  "mcpServers": {
+    "oumi": {
+      "command": "oumi-mcp",
+      "env": {
+        "HF_TOKEN": "hf_...",
+        "WANDB_API_KEY": "..."
+      }
+    }
+  }
+}
 ```
+
+Shell rc files (`~/.zshrc`, `~/.bashrc`) only cover terminal-launched clients like Claude Code — macOS GUI apps (Claude Desktop, Cursor from the Dock) are started by `launchd` and never read them. Don't commit secrets inside the client config; reference them from a local secret store or keep the config out of version control.
+````
 
 ## What's Exposed
 
