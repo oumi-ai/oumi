@@ -146,7 +146,7 @@ def run_typed_analysis(
             analyzer_config.params,
         )
         if analyzer is not None:
-            analyzer.analyzer_id = analyzer_config.display_name
+            analyzer.analyzer_id = analyzer_config.id
             analyzers.append(analyzer)
 
     if not analyzers:

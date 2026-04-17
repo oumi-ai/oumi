@@ -160,7 +160,7 @@ from oumi.cli.analyze import run_typed_analysis
 config = TypedAnalyzeConfig.from_yaml("config.yaml")
 output = run_typed_analysis(config)
 
-# Analyzer results keyed by display_name
+# Analyzer results keyed by id (defaults to display_name)
 for length_result in output["results"]["Length"]:
     print(f"Tokens: {length_result.total_tokens}")
 
@@ -250,7 +250,7 @@ tests:
     title: "Conversations with empty turns"
 ```
 
-Metrics are referenced as `"{display_name}.{field_name}"` (e.g., `Length.total_tokens`, `Quality.has_empty_turns`).
+Metrics are referenced as `"{id}.{field_name}"` (e.g., `Length.total_tokens`, `Quality.has_empty_turns`). When `id` is omitted it defaults to `display_name`.
 
 See {doc}`analyze_config` for full test configuration options.
 

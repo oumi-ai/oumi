@@ -38,7 +38,7 @@ dataset_path: /path/to/data.jsonl
 
 ## Analyzers
 
-Configure analyzers as a list with `type`, `display_name`, and optional `params`:
+Configure analyzers as a list with `type`, an optional `id`, `display_name`, and `params`:
 
 ```yaml
 analyzers:
@@ -55,13 +55,14 @@ analyzers:
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `type` | `str` | Yes | — | Analyzer identifier (e.g., `length`, `quality`, `turn_stats`) |
-| `display_name` | `str` | No | Same as `type` | Label used as result key and metric path prefix |
+| `id` | `str` | No | Same as `display_name` | Stable identifier. Canonical key for results, caches, and test metric paths. |
+| `display_name` | `str` | No | Same as `type` | Human-readable label shown in reports and logs |
 | `params` | `dict` | No | `{}` | Analyzer-specific parameters |
 
-The `display_name` is used in metric paths for tests (e.g., `Length.total_tokens`) and as the column prefix in output DataFrames.
+Test metric paths use `id`, so they look like `"{id}.{field_name}"`. When `id` is omitted it defaults to `display_name`, so YAMLs that only set `display_name` can still write metric paths like `Length.total_tokens`.
 
 :::{note}
-Each analyzer must have a unique `display_name`. If omitted, it defaults to the `type` value. The legacy keys `id` and `instance_id` are still accepted as aliases.
+Each analyzer must have a unique `id`. `display_name` may repeat — two analyzers can share a label as long as their ids differ. The legacy key `instance_id` is accepted as an alias for `display_name` with a deprecation warning.
 :::
 
 ### `length` Analyzer Parameters
@@ -83,7 +84,7 @@ The `turn_stats` analyzer has no configurable parameters. It computes turn count
 
 ## Tests
 
-Tests validate analysis results against configurable thresholds. Metrics are referenced as `"{display_name}.{field_name}"`.
+Tests validate analysis results against configurable thresholds. Metrics are referenced as `"{id}.{field_name}"` (which equals `"{display_name}.{field_name}"` when `id` is omitted).
 
 ```yaml
 tests:

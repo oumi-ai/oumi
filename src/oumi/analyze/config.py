@@ -14,6 +14,7 @@
 
 """Configuration for the typed analyzer framework."""
 
+import warnings
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -36,18 +37,28 @@ class AnalyzerType(str, Enum):
 class AnalyzerConfig:
     """Configuration for a single analyzer instance.
 
-    Each analyzer has a `type` (registry id) and a `display_name` used as the
-    result key and metric-path prefix. Multiple instances of the same type are
-    supported (e.g. two length analyzers with different tokenizers).
+    Three identity-related fields:
+
+    * ``type`` — registry id (e.g. ``"length"``). Picks the analyzer class.
+    * ``id`` — stable identity. Canonical key for results, caches, and test
+      metric paths. Defaults to ``display_name`` when omitted.
+    * ``display_name`` — human-readable label for UI and logs. Defaults to
+      ``type`` when omitted. May repeat across analyzers.
+
+    When callers don't set ``id`` or ``display_name``, all three collapse to
+    ``type`` and today's behavior is preserved. When the API populates ``id``
+    with a generated asset id, ``display_name`` becomes purely cosmetic.
 
     Attributes:
         type: Analyzer type (registry id, e.g. "length", "difficulty_judge").
-        display_name: Unique instance name. Used as the results key and in test
-            metric paths. Defaults to `type` when omitted.
+        id: Stable identifier. Used as the results key and in test metric
+            paths. Defaults to ``display_name`` when omitted.
+        display_name: Human-readable label. Defaults to ``type`` when omitted.
         params: Analyzer-specific parameters.
     """
 
     type: str = ""
+    id: str = ""
     display_name: str = ""
     params: dict[str, Any] = field(default_factory=dict)
 
@@ -57,6 +68,8 @@ class AnalyzerConfig:
             raise ValueError("AnalyzerConfig.type is required.")
         if not self.display_name:
             self.display_name = self.type
+        if not self.id:
+            self.id = self.display_name
 
 
 @dataclass
@@ -179,7 +192,7 @@ class TypedAnalyzeConfig:
         tests:
           - id: max_words
             type: threshold
-            metric: LengthAnalyzer.total_words
+            metric: length.total_words
             operator: ">"
             value: 10000
             max_percentage: 5.0
@@ -245,10 +258,10 @@ class TypedAnalyzeConfig:
 
     @classmethod
     def _parse_analyzers(cls, data: dict[str, Any]) -> list[AnalyzerConfig]:
-        """Parse analyzer configurations, raising on duplicate display names.
+        """Parse analyzer configurations, raising on duplicate ids.
 
-        Accepts either the new ``type``/``display_name`` keys or the legacy
-        ``id``/``instance_id`` keys (for backward compatibility).
+        Accepts the legacy ``instance_id`` key as an alias for ``display_name``
+        (with a ``DeprecationWarning``) for one release.
         """
         analyzers = []
         for analyzer_data in data.get("analyzers", []):
@@ -259,20 +272,21 @@ class TypedAnalyzeConfig:
                 continue
 
             normalized = dict(analyzer_data)
-            if "type" not in normalized and "id" in normalized:
-                normalized["type"] = normalized.pop("id")
             if "display_name" not in normalized and "instance_id" in normalized:
+                warnings.warn(
+                    "'instance_id' is deprecated; rename to 'display_name'.",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
                 normalized["display_name"] = normalized.pop("instance_id")
             analyzers.append(AnalyzerConfig(**normalized))
 
-        display_names = [a.display_name for a in analyzers]
-        duplicates = [
-            name for name in set(display_names) if display_names.count(name) > 1
-        ]
+        ids = [a.id for a in analyzers]
+        duplicates = sorted({i for i in ids if ids.count(i) > 1})
         if duplicates:
             raise ValueError(
-                f"Duplicate analyzer display_name values: {duplicates}. "
-                "Each analyzer must have a unique display_name to avoid collisions."
+                f"Duplicate analyzer id values: {duplicates}. "
+                "Each analyzer must have a unique id to avoid collisions."
             )
 
         return analyzers
@@ -372,6 +386,7 @@ class TypedAnalyzeConfig:
             "analyzers": [
                 {
                     "type": a.type,
+                    "id": a.id,
                     "display_name": a.display_name,
                     "params": a.params,
                 }
