@@ -134,6 +134,33 @@ class GroundingConfig(BaseParams):
             )
 
 
+def _format_grounding_value(value: Any) -> str:
+    """Render a fact value as a quoted string or bare literal."""
+    if isinstance(value, str):
+        return f'"{value}"'
+    return str(value)
+
+
+def describe_grounding_default(facts: list[DeterministicToolOutput]) -> str:
+    """Render grounding facts as a bulleted markdown block.
+
+    Each fact's ``input`` and ``output`` dicts are flattened into a single
+    key=value line. Output values win on key collisions.
+    Returns "" for an empty fact list.
+    """
+    if not facts:
+        return ""
+    lines: list[str] = []
+    for fact in facts:
+        merged = {**fact.input, **fact.output}
+        parts = [
+            f"{key}={_format_grounding_value(value)}"
+            for key, value in merged.items()
+        ]
+        lines.append(f"- {', '.join(parts)}")
+    return "\n".join(lines)
+
+
 @dataclass
 class ToolSchema(BaseParams):
     """JSON schema for tool inputs or outputs."""
