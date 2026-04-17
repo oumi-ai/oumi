@@ -1,145 +1,194 @@
 # Analysis Configuration
 
-{py:class}`~oumi.core.configs.AnalyzeConfig` controls how Oumi OSS analyzes datasets. See {doc}`analyze` for usage examples.
+{py:class}`~oumi.analyze.config.TypedAnalyzeConfig` controls how Oumi analyzes datasets. See {doc}`analyze` for usage examples.
 
 ## Core Settings
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
-| `dataset_name` | `str` | Conditional | `None` | Dataset name (HuggingFace Hub or registered) |
-| `dataset_path` | `str` | Conditional | `None` | Path to local dataset file |
+| `dataset_name` | `str` | Conditional | `None` | HuggingFace dataset name |
+| `dataset_path` | `str` | Conditional | `None` | Path to local JSONL file |
 | `split` | `str` | No | `"train"` | Dataset split to analyze |
 | `subset` | `str` | No | `None` | Dataset subset/config name |
-| `sample_count` | `int` | No | `None` | Max samples to analyze (None = all) |
+| `sample_count` | `int` | No | `None` | Max samples to analyze (`None` = all) |
+| `output_path` | `str` | No | `"."` | Directory for output files |
 
-## Dataset Specification
-
-Provide either a named dataset or local file path:
+Provide either `dataset_name` (HuggingFace Hub) or `dataset_path` (local JSONL file):
 
 ::::{tab-set}
-:::{tab-item} Named Dataset
+:::{tab-item} HuggingFace Dataset
 
 ```yaml
-dataset_name: "argilla/databricks-dolly-15k-curated-en"
+dataset_name: argilla/databricks-dolly-15k-curated-en
 split: train
-subset: null  # Optional
+sample_count: 1000
 ```
 
 :::
 :::{tab-item} Local File
 
 ```yaml
-dataset_path: data/dataset_examples/oumi_format.jsonl
-is_multimodal: false  # Required
+dataset_path: /path/to/data.jsonl
 ```
+
+Local files must be in JSONL format with Oumi conversation structure (each line: `{"messages": [{"role": "...", "content": "..."}]}`).
 
 :::
 ::::
 
-:::{tip}
-You can also pass a pre-loaded dataset directly to `DatasetAnalyzer`:
+## Analyzers
 
-```python
-from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
-analyzer = DatasetAnalyzer(config, dataset=my_dataset)
+Configure analyzers as a list with `id`, `instance_id`, and optional `params`:
+
+```yaml
+analyzers:
+  - id: length
+    instance_id: Length
+    params:
+      tokenizer_name: cl100k_base
+  - id: quality
+    instance_id: Quality
+  - id: turn_stats
+    instance_id: TurnStats
 ```
 
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `id` | `str` | Yes | — | Analyzer identifier (e.g., `length`, `quality`, `turn_stats`) |
+| `instance_id` | `str` | No | Same as `id` | Label used as result key and metric path prefix |
+| `params` | `dict` | No | `{}` | Analyzer-specific parameters |
+
+The `instance_id` is used in metric paths for tests (e.g., `Length.total_tokens`) and as the column prefix in output DataFrames.
+
+:::{note}
+Each analyzer must have a unique `instance_id`. If omitted, it defaults to the `id` value.
 :::
+
+### `length` Analyzer Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `tokenizer_name` | `str` | `cl100k_base` | Tokenizer name (tiktoken encoding or HuggingFace model ID) |
+
+Tiktoken encodings: `cl100k_base` (GPT-4), `p50k_base`, `o200k_base`.
+HuggingFace models: any valid model ID (e.g., `meta-llama/Llama-3.1-8B-Instruct`).
+
+### `quality` Analyzer Parameters
+
+The `quality` analyzer has no configurable parameters. It always checks for non-alternating turns, missing user messages, misplaced system messages, empty messages, and invalid serialized values.
+
+### `turn_stats` Analyzer Parameters
+
+The `turn_stats` analyzer has no configurable parameters. It computes turn counts by role, system message presence, and first/last turn roles.
+
+## Tests
+
+Tests validate analysis results against configurable thresholds. Metrics are referenced as `"{instance_id}.{field_name}"`.
+
+```yaml
+tests:
+  - id: max_tokens
+    type: threshold
+    metric: Length.total_tokens
+    operator: ">"
+    value: 10000
+    max_percentage: 5.0
+    severity: high
+    title: "Token count exceeds limit"
+```
+
+### Common Fields
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `id` | `str` | Yes | — | Unique test identifier |
+| `type` | `str` | Yes | — | Test type (`threshold`) |
+| `metric` | `str` | Yes | — | Metric path (e.g., `Length.total_tokens`) |
+| `severity` | `str` | No | `medium` | Failure severity: `high`, `medium`, or `low` |
+| `title` | `str` | No | `""` | Human-readable title shown in results |
+| `description` | `str` | No | `""` | Description of what the test checks |
+
+### Threshold Tests
+
+Check if a metric exceeds a threshold across the dataset.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `operator` | `str` | Comparison: `<`, `>`, `<=`, `>=`, `==`, `!=` |
+| `value` | `number` | Value to compare against |
+| `max_percentage` | `float` | At most this % of samples can match the condition |
+| `min_percentage` | `float` | At least this % of samples must match the condition |
+
+```yaml
+# At most 5% of conversations can have > 10K tokens
+- id: max_tokens
+  type: threshold
+  metric: Length.total_tokens
+  operator: ">"
+  value: 10000
+  max_percentage: 5.0
+
+# At most 5% of conversations can have non-alternating turns
+- id: non_alternating
+  type: threshold
+  metric: Quality.has_non_alternating_turns
+  operator: "=="
+  value: true
+  max_percentage: 5.0
+```
 
 ## Output Settings
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `output_path` | `str` | `"."` | Directory for output files |
+| `generate_report` | `bool` | `false` | Generate HTML report |
+| `report_title` | `str` | `None` | Custom title for the report |
 
-::::{tab-set-code}
-:::{code-block} yaml
-output_path: "./analysis_results"
-:::
-:::{code-block} bash
-oumi analyze --config config.yaml --output /custom/path
-:::
-::::
-
-## Analyzers
-
-Configure analyzers as a list with `id` and optional `params`:
-
-```yaml
-analyzers:
-  - id: length
-    params:
-      char_count: true
-      word_count: true
-```
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `id` | `str` | Yes | Analyzer identifier (must be registered) |
-| `params` | `dict` | No | Analyzer-specific parameters |
-
-### `length` Analyzer
-
-Computes text length metrics:
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `char_count` | `bool` | `true` | Character count |
-| `word_count` | `bool` | `true` | Word count |
-| `sentence_count` | `bool` | `true` | Sentence count |
-| `token_count` | `bool` | `false` | Token count (requires tokenizer) |
-| `include_special_tokens` | `bool` | `true` | Include special tokens in count |
-
-## Tokenizer Configuration
-
-Required when `token_count: true`:
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `model_name` | `str` | Yes | HuggingFace model/tokenizer name |
-| `tokenizer_kwargs` | `dict` | No | Additional tokenizer arguments |
-| `trust_remote_code` | `bool` | No | Allow remote code execution |
-
-```yaml
-tokenizer_config:
-  model_name: openai-community/gpt2
-  tokenizer_kwargs:
-    use_fast: true
-```
-
-## Multimodal Settings
-
-For vision-language datasets:
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `is_multimodal` | `bool` | `None` | Whether dataset is multimodal |
-| `processor_name` | `str` | `None` | Processor name for VL datasets |
-| `processor_kwargs` | `dict` | `{}` | Processor arguments |
-| `trust_remote_code` | `bool` | `false` | Allow remote code |
-
-```yaml
-dataset_path: "/path/to/vl_data.jsonl"
-is_multimodal: true
-processor_name: "llava-hf/llava-1.5-7b-hf"
-```
-
-:::{note}
-Multimodal datasets require a valid `processor_name`.
-:::
-
-## Example Configuration
-
-Run the example from the Oumi OSS repository root:
+Override the output directory via CLI:
 
 ```bash
-oumi analyze --config configs/examples/analyze/analyze.yaml
+oumi analyze --config config.yaml --output /custom/path --format parquet
 ```
 
-The example config at `configs/examples/analyze/analyze.yaml` demonstrates all available options with detailed comments explaining each setting.
+## Complete Example
+
+```yaml
+dataset_path: /path/to/data.jsonl
+sample_count: 1000
+output_path: ./analysis_output
+
+analyzers:
+  - id: length
+    instance_id: Length
+    params:
+      tokenizer_name: cl100k_base
+  - id: quality
+    instance_id: Quality
+  - id: turn_stats
+    instance_id: TurnStats
+
+tests:
+  - id: max_tokens
+    type: threshold
+    metric: Length.total_tokens
+    operator: ">"
+    value: 10000
+    max_percentage: 5.0
+    severity: high
+    title: "Token count exceeds 10K"
+  - id: empty_turns
+    type: threshold
+    metric: Quality.has_empty_turns
+    operator: "=="
+    value: true
+    max_percentage: 5.0
+    severity: high
+    title: "Conversations with empty turns"
+```
 
 ## See Also
 
 - {doc}`analyze` - Main analysis guide
-- {py:class}`~oumi.core.configs.AnalyzeConfig` - API reference
-- {py:class}`~oumi.core.configs.params.base_params.SampleAnalyzerParams` - Analyzer params
+- {py:class}`~oumi.analyze.config.TypedAnalyzeConfig` - Configuration API reference
+- {py:class}`~oumi.analyze.config.AnalyzerConfig` - Analyzer configuration
