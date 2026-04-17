@@ -565,3 +565,77 @@ def test_legacy_collator_kwargs_with_instruction_template(mock_tokenizer):
         inner.response_template == "<|start_header_id|>assistant<|end_header_id|>\n\n"
     )
     assert inner.instruction_template == "<|start_header_id|>user<|end_header_id|>\n\n"
+
+
+def test_old_recipe_instruction_template_sets_legacy(mock_tokenizer):
+    """Old recipe: instruction_template + response_template → _legacy + warning."""
+    config = TrainingConfig(
+        data=DataParams(
+            train=DatasetSplitParams(
+                collator_name="text_completions_only_with_padding",
+                collator_kwargs={
+                    "response_template": "<|assistant|>",
+                    "instruction_template": "<|user|>",
+                },
+                datasets=[DatasetParams(dataset_name="dummy", split="train")],
+            )
+        ),
+        model=ModelParams(
+            model_name="MlpEncoder",
+            tokenizer_name="openai-community/gpt2",
+            model_max_length=512,
+        ),
+    )
+    with pytest.warns(
+        DeprecationWarning, match="Instruction-based masking is deprecated"
+    ):
+        collator = build_collator_from_config(config, tokenizer=mock_tokenizer)
+    assert collator is not None
+    assert collator._default_collator.train_target == "_legacy_instruction_response"
+
+
+def test_old_recipe_response_only_sets_final(mock_tokenizer):
+    """Old recipe: response_template only → final_assistant_turn."""
+    config = TrainingConfig(
+        data=DataParams(
+            train=DatasetSplitParams(
+                collator_name="text_completions_only_with_padding",
+                collator_kwargs={
+                    "response_template": "<|assistant|>",
+                },
+                datasets=[DatasetParams(dataset_name="dummy", split="train")],
+            )
+        ),
+        model=ModelParams(
+            model_name="MlpEncoder",
+            tokenizer_name="openai-community/gpt2",
+            model_max_length=512,
+        ),
+    )
+    collator = build_collator_from_config(config, tokenizer=mock_tokenizer)
+    assert collator is not None
+    assert collator._default_collator.train_target == "final_assistant_turn"
+
+
+def test_old_recipe_eot_sets_all_assistant(mock_tokenizer):
+    """Old recipe: response_template + end_of_turn_template → all_assistant_turns."""
+    config = TrainingConfig(
+        data=DataParams(
+            train=DatasetSplitParams(
+                collator_name="text_completions_only_with_padding",
+                collator_kwargs={
+                    "response_template": "<|assistant|>",
+                    "end_of_turn_template": "<|end|>",
+                },
+                datasets=[DatasetParams(dataset_name="dummy", split="train")],
+            )
+        ),
+        model=ModelParams(
+            model_name="MlpEncoder",
+            tokenizer_name="openai-community/gpt2",
+            model_max_length=512,
+        ),
+    )
+    collator = build_collator_from_config(config, tokenizer=mock_tokenizer)
+    assert collator is not None
+    assert collator._default_collator.train_target == "all_assistant_turns"

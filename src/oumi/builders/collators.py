@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import warnings
 from collections.abc import Callable
 
 import oumi.core.constants as constants
@@ -290,17 +291,55 @@ def build_collator_from_config(
             "trust_remote_code", config.model.trust_remote_code
         )
 
-    # --- TrainTarget auto-resolution ---
-    if train_split.train_target is not None:
-        response_template, end_of_turn_template = _resolve_collator_templates(tokenizer)
-        collator_kwargs["response_template"] = response_template
-        collator_kwargs["train_target"] = train_split.train_target.value
-        if train_split.train_target == TrainTarget.ALL_ASSISTANT_TURNS:
-            collator_kwargs["end_of_turn_template"] = end_of_turn_template
-
-    # Merge collator_kwargs from config with the existing kwargs
-    # Config kwargs take precedence over automatically determined kwargs
+    # --- Resolve train_target and templates ---
     config_collator_kwargs = train_split.collator_kwargs or {}
+
+    if collator_name == "text_completions_only_with_padding":
+        if train_split.train_target is not None:
+            # Path 1: train_target is set, auto-detect templates from
+            # the tokenizer's chat template. Falls back to user-provided
+            # response_template in collator_kwargs if auto-detection fails.
+            collator_kwargs["train_target"] = train_split.train_target.value
+
+            try:
+                response_template, end_of_turn_template = _resolve_collator_templates(
+                    tokenizer
+                )
+                collator_kwargs["response_template"] = response_template
+                if train_split.train_target == TrainTarget.ALL_ASSISTANT_TURNS:
+                    collator_kwargs["end_of_turn_template"] = end_of_turn_template
+            except ValueError:
+                if config_collator_kwargs.get("response_template") is None:
+                    raise
+
+        elif config_collator_kwargs.get("response_template") is not None:
+            # Path 2: train_target not set, templates provided manually
+            # via collator_kwargs. Infer train_target from which templates
+            # are present.
+            has_eot = config_collator_kwargs.get("end_of_turn_template") is not None
+            has_inst = config_collator_kwargs.get("instruction_template") is not None
+            if has_eot:
+                collator_kwargs["train_target"] = "all_assistant_turns"
+            elif has_inst:
+                warnings.warn(
+                    "Instruction-based masking is deprecated. "
+                    "Use train_target='all_assistant_turns' with "
+                    "end_of_turn_template for multi-turn conversations, "
+                    "or train_target='final_assistant_turn' "
+                    "for single-turn completions.",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+                collator_kwargs["train_target"] = "_legacy_instruction_response"
+            else:
+                collator_kwargs["train_target"] = "final_assistant_turn"
+        else:
+            raise ValueError(
+                "'text_completions_only_with_padding' requires either "
+                "train_target or response_template in collator_kwargs."
+            )
+
+    # User-provided collator_kwargs override auto-resolved values
     collator_kwargs.update(config_collator_kwargs)
 
     return build_data_collator(

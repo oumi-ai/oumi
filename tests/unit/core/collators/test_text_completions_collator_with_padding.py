@@ -63,6 +63,7 @@ def test_success_basic():
         tokenizer=tokenizer,
         instruction_template=instruction_prefix,
         response_template=response_prefix,
+        train_target="_legacy_instruction_response",
     )
     assert callable(collator)
 
@@ -187,6 +188,7 @@ def test_debug_logging(caplog):
         tokenizer=tokenizer,
         instruction_template=instruction_prefix,
         response_template=response_prefix,
+        train_target="_legacy_instruction_response",
         debug=True,
     )
     assert callable(collator)
@@ -464,6 +466,7 @@ def test_span_padding_matching_eot_does_not_false_match():
     collator = TextCompletionsCollatorWithPadding(
         tokenizer=tokenizer,
         response_template=_RESP_STR,
+        train_target="all_assistant_turns",
         end_of_turn_template=str(tokenizer.decode(eot_ids)),
     )
     batch = collator([{"input_ids": seq}])

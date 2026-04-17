@@ -28,9 +28,9 @@ class TextCompletionsCollatorWithPadding:
         self,
         tokenizer: BaseTokenizer,
         response_template: str,
+        train_target: str,
         instruction_template: str | None = None,
         debug: bool = False,
-        train_target: str | None = None,
         end_of_turn_template: str | None = None,
         ignore_index: int = -100,
     ):

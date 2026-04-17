@@ -28,6 +28,7 @@ def _get_hf_collator_result(conversation, tokenizer):
         tokenizer=tokenizer,
         instruction_template=_INSTRUCTION_PREFIX,
         response_template=_RESPONSE_PREFIX,
+        train_target="_legacy_instruction_response",
     )
 
     return collator(batch)

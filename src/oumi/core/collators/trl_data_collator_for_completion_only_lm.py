@@ -19,6 +19,8 @@ import numpy as np
 import torch
 from transformers.data.data_collator import DataCollatorForLanguageModeling
 
+from oumi.core.configs.params.data_params import TrainTarget
+
 
 class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
     """Data collator for completion-only training.
@@ -47,8 +49,8 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
             user instruction. Legacy — only used with the instruction+response
             fallback path.
         train_target: One of ``"all_assistant_turns"``,
-            ``"final_assistant_turn"``.
-            When None, inferred from template presence for backward compat.
+            ``"final_assistant_turn"``, ``"_legacy_instruction_response"``.
+            Resolved by the builder before construction.
         end_of_turn_template: String or token IDs marking the end of a
             conversational turn. Required for ``all_assistant_turns`` mode.
         mlm: Whether to use masked language modeling. Default False.
@@ -56,9 +58,7 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
         padding_free: Remove padding and add position_ids. Default False.
     """
 
-    _VALID_TRAIN_TARGETS = {
-        "all_assistant_turns",
-        "final_assistant_turn",
+    _VALID_TRAIN_TARGETS = {t.value for t in TrainTarget} | {
         "_legacy_instruction_response",
     }
 
@@ -70,54 +70,12 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
             return self.tokenizer.encode(template, add_special_tokens=False)
         return list(template)
 
-    @classmethod
-    def _resolve_train_target(
-        cls,
-        train_target: str | None,
-        *,
-        end_of_turn_template: str | list[int] | None,
-        instruction_template: str | list[int] | None,
-    ) -> str:
-        """Resolve train_target from explicit value or template presence.
-
-        Priority (first match wins):
-          1. Explicit train_target (validated)
-          2. end_of_turn only             → all_assistant_turns
-          3. no instruction_template      → final_assistant_turn
-          4. fallback                     → _legacy_instruction_response
-        """
-        if train_target is not None:
-            if train_target not in cls._VALID_TRAIN_TARGETS:
-                valid = sorted(
-                    cls._VALID_TRAIN_TARGETS - {"_legacy_instruction_response"}
-                )
-                raise ValueError(
-                    f"Unknown train_target='{train_target}'. Must be one of: {valid}"
-                )
-            return train_target
-
-        if end_of_turn_template is not None:
-            return "all_assistant_turns"
-        elif instruction_template is None:
-            return "final_assistant_turn"
-        else:
-            warnings.warn(
-                "Instruction-based masking is deprecated. "
-                "Use train_target='all_assistant_turns' with "
-                "end_of_turn_template for multi-turn conversations, "
-                "or train_target='final_assistant_turn' "
-                "for single-turn completions.",
-                DeprecationWarning,
-                stacklevel=3,
-            )
-            return "_legacy_instruction_response"
-
     def __init__(
         self,
         response_template: str | list[int],
         instruction_template: str | list[int] | None = None,
         *args,
-        train_target: str | None = None,
+        train_target: str,
         end_of_turn_template: str | list[int] | None = None,
         mlm: bool = False,
         ignore_index: int = -100,
@@ -135,17 +93,23 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
         self.end_of_turn_template = end_of_turn_template
         self.end_of_turn_token_ids = self._tokenize_template(end_of_turn_template)
 
-        self.train_target = self._resolve_train_target(
-            train_target,
-            end_of_turn_template=end_of_turn_template,
-            instruction_template=instruction_template,
-        )
+        if train_target not in self._VALID_TRAIN_TARGETS:
+            valid = sorted(self._VALID_TRAIN_TARGETS - {"_legacy_instruction_response"})
+            raise ValueError(
+                f"Unknown train_target='{train_target}'. Must be one of: {valid}"
+            )
+        self.train_target = train_target
 
-        # Validate required templates for each train target.
         if self.train_target == "all_assistant_turns":
             if end_of_turn_template is None:
                 raise ValueError(
                     "end_of_turn_template must be provided "
+                    f"when train_target='{self.train_target}'"
+                )
+        if self.train_target == "_legacy_instruction_response":
+            if instruction_template is None:
+                raise ValueError(
+                    "instruction_template must be provided "
                     f"when train_target='{self.train_target}'"
                 )
 
