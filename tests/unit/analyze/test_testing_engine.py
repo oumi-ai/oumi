@@ -509,3 +509,55 @@ def test_multi_instance_metrics_resolve_correctly():
 
     assert summary.total_tests == 2
     assert summary.passed_tests == 2
+
+
+class _PartialMetrics(BaseModel):
+    """Metrics with an optional value for index-tracking tests."""
+
+    value: int | None = None
+
+
+def test_sample_indices_map_to_original_positions_when_values_are_missing():
+    """When some samples lack the metric, sample_indices must point to the
+    original conversation positions, not filtered-list positions."""
+    results: dict[str, list[BaseModel] | BaseModel] = {
+        "m": [
+            _PartialMetrics(value=1),
+            _PartialMetrics(value=None),  # index 1 is skipped during extraction
+            _PartialMetrics(value=999),  # the flagged one; must be reported as 2
+            _PartialMetrics(value=2),
+        ]
+    }
+    tests = [
+        TestParams(
+            id="flag_high",
+            type=TestType.THRESHOLD,
+            metric="m.value",
+            operator=">",
+            value=100,
+        )
+    ]
+    summary = TestEngine(tests).run(results)
+
+    result = summary.results[0]
+    assert result.passed is False
+    assert result.sample_indices == [2]
+    assert result.all_affected_indices == [2]
+
+
+def test_threshold_with_max_percentage_zero_sets_threshold_field():
+    """A max_percentage of 0 must surface as threshold=0.0, not fall through
+    to min_percentage (fixes the ``a or b`` truthiness bug)."""
+    results: dict[str, list[BaseModel] | BaseModel] = {"m": [_PartialMetrics(value=1)]}
+    tests = [
+        TestParams(
+            id="zero_pct",
+            type=TestType.THRESHOLD,
+            metric="m.value",
+            operator=">",
+            value=100,
+            max_percentage=0.0,
+        )
+    ]
+    summary = TestEngine(tests).run(results)
+    assert summary.results[0].threshold == 0.0
