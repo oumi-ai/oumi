@@ -111,7 +111,7 @@ def _resolve_collator_templates(
     assert isinstance(_resp_decoded, str)
     response_template = _resp_decoded
 
-    if not response_template.strip():
+    if not response_template.strip() or not end_of_turn_template.strip():
         raise ValueError(_FALLBACK_MSG)
 
     # Qwen3 and similar reasoning models inject <think>...</think> into
@@ -315,6 +315,17 @@ def build_collator_from_config(
             except ValueError:
                 if config_collator_kwargs.get("response_template") is None:
                     raise
+
+            if (
+                train_split.train_target == TrainTarget.ALL_ASSISTANT_TURNS
+                and "end_of_turn_template" not in collator_kwargs
+                and config_collator_kwargs.get("end_of_turn_template") is None
+            ):
+                raise ValueError(
+                    "train_target='all_assistant_turns' requires an "
+                    "end_of_turn_template, but auto-detection failed and "
+                    "none was provided in collator_kwargs."
+                )
 
         elif config_collator_kwargs.get("response_template") is not None:
             # Path 2: train_target not set, templates provided manually
