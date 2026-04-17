@@ -16,13 +16,20 @@
 
 from __future__ import annotations
 
+import random
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from dataclasses import dataclass, field, fields
 from typing import Any, ClassVar
 
 from oumi.core.configs.params.base_params import BaseParams
-from oumi.environments.base_tool import Tool, ToolResult
+from oumi.environments.base_tool import (
+    DeterministicToolOutput,
+    GroundingConfig,
+    Tool,
+    ToolResult,
+    describe_grounding_default,
+)
 
 
 @dataclass
@@ -35,6 +42,7 @@ class BaseEnvironment(BaseParams, ABC):
     name: str
     description: str
     tools: list[Tool] = field(default_factory=list)
+    grounding: GroundingConfig | None = None
 
     def __init_subclass__(cls, **kwargs):
         """Register subclass in the environment type registry."""
@@ -88,6 +96,28 @@ class BaseEnvironment(BaseParams, ABC):
             )
         return tool
 
+    def sample_grounding(
+        self, n: int, *, rng: random.Random
+    ) -> list[DeterministicToolOutput]:
+        """Sample n grounding facts from this environment.
+
+        Default: returns an empty list. Subclasses that support grounding
+        (currently only ``DeterministicEnvironment``) override this.
+        """
+        return []
+
+    def describe_grounding(
+        self, facts: list[DeterministicToolOutput]
+    ) -> str:
+        """Render grounding facts as a bulleted markdown block.
+
+        Default implementation flattens each fact's input and output dicts
+        (output wins on key collisions) into a single bullet line. Suitable
+        for any dict-shaped fact. Subclasses may override for custom
+        rendering.
+        """
+        return describe_grounding_default(facts)
+
     @classmethod
     def create(cls, raw: Any) -> BaseEnvironment:
         """Create a concrete environment from raw config data.
@@ -117,6 +147,9 @@ class BaseEnvironment(BaseParams, ABC):
         init_fields = {
             field_def.name for field_def in fields(environment_cls) if field_def.init
         }
-        return environment_cls(
-            **{key: value for key, value in raw.items() if key in init_fields}
-        )
+        coerced: dict[str, Any] = {
+            key: value for key, value in raw.items() if key in init_fields
+        }
+        if isinstance(coerced.get("grounding"), dict):
+            coerced["grounding"] = GroundingConfig(**coerced["grounding"])
+        return environment_cls(**coerced)

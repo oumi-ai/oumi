@@ -809,3 +809,71 @@ def test_describe_grounding_default_handles_non_string_values():
     assert "available=True" in rendered
     assert "count=3" in rendered
     assert "rating=4.5" in rendered
+
+
+# --- BaseEnvironment grounding defaults ---
+
+
+def test_base_environment_grounding_field_defaults_to_none():
+    env = SyntheticEnvironment(
+        id="faq",
+        name="FAQ",
+        description="FAQ tools",
+        system_prompt="Answer FAQs.",
+        tools=[_make_synthetic_tool(id="answer")],
+    )
+    assert env.grounding is None
+
+
+def test_base_environment_default_sample_grounding_returns_empty():
+    import random
+
+    env = SyntheticEnvironment(
+        id="faq",
+        name="FAQ",
+        description="FAQ tools",
+        system_prompt="Answer FAQs.",
+        tools=[_make_synthetic_tool(id="answer")],
+    )
+    assert env.sample_grounding(n=5, rng=random.Random(0)) == []
+
+
+def test_base_environment_default_describe_grounding_empty_list():
+    env = SyntheticEnvironment(
+        id="faq",
+        name="FAQ",
+        description="FAQ tools",
+        system_prompt="Answer FAQs.",
+        tools=[_make_synthetic_tool(id="answer")],
+    )
+    assert env.describe_grounding([]) == ""
+
+
+def test_base_environment_default_describe_grounding_delegates_to_helper():
+    env = SyntheticEnvironment(
+        id="faq",
+        name="FAQ",
+        description="FAQ tools",
+        system_prompt="Answer FAQs.",
+        tools=[_make_synthetic_tool(id="answer")],
+    )
+    facts = [
+        DeterministicToolOutput(input={"id": "42"}, output={"title": "Dune"})
+    ]
+    assert env.describe_grounding(facts) == '- id="42", title="Dune"'
+
+
+def test_base_environment_accepts_grounding_in_constructor():
+    from oumi.environments import GroundingConfig
+
+    env = SyntheticEnvironment(
+        id="faq",
+        name="FAQ",
+        description="FAQ tools",
+        system_prompt="Answer FAQs.",
+        grounding=GroundingConfig(sample_size=2, seed=7),
+        tools=[_make_synthetic_tool(id="answer")],
+    )
+    assert env.grounding is not None
+    assert env.grounding.sample_size == 2
+    assert env.grounding.seed == 7
