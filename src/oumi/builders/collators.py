@@ -97,7 +97,7 @@ def _resolve_collator_templates(
             break
         eot_len += 1
     eot_ids = after_ids[:eot_len]
-    end_of_turn_template = tokenizer.decode(eot_ids, skip_special_tokens=False)
+    end_of_turn_template: str = tokenizer.decode(eot_ids, skip_special_tokens=False)
 
     # Response template: strip the EOT prefix to get just the assistant header.
     resp_ids = tokenizer.encode(
@@ -105,7 +105,7 @@ def _resolve_collator_templates(
     )
     if eot_len > 0 and resp_ids[:eot_len] == eot_ids:
         resp_ids = resp_ids[eot_len:]
-    response_template = tokenizer.decode(resp_ids, skip_special_tokens=False)
+    response_template: str = tokenizer.decode(resp_ids, skip_special_tokens=False)
 
     if not response_template.strip():
         raise ValueError(_FALLBACK_MSG)
