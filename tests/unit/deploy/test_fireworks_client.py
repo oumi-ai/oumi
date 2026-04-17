@@ -32,8 +32,10 @@ from oumi.deploy.base_client import (
 from oumi.deploy.fireworks_api import (
     FW_STATE_TO_ENDPOINT,
     GatewayAcceleratorType,
+    GatewayCode,
     GatewayDeployment,
     GatewayDeploymentState,
+    GatewayStatus,
 )
 from oumi.deploy.fireworks_client import (
     FIREWORKS_ACCELERATORS,
@@ -193,6 +195,33 @@ class TestFireworksDeploymentClient:
         assert endpoint.autoscaling.max_replicas == 3
         assert endpoint.display_name == "My Deployment"
         assert endpoint.provider == DeploymentProvider.FIREWORKS
+        assert endpoint.status_code is None
+        assert endpoint.status_message is None
+
+    def test_parse_deployment_passes_through_status(self):
+        """Status code and message are surfaced on the Endpoint dataclass.
+
+        Fireworks reports scheduling failures (e.g. no A100s available) via
+        ``GatewayDeployment.status`` while the state remains ``CREATING``.
+        Callers polling the endpoint need that signal to fail fast instead of
+        waiting out the full poll budget.
+        """
+        client = FireworksDeploymentClient(api_key="test", account_id="test-account")
+
+        deployment = GatewayDeployment(
+            name="accounts/test-account/deployments/deploy-123",
+            baseModel="accounts/test-account/models/model-456",
+            state=GatewayDeploymentState.CREATING,
+            status=GatewayStatus(
+                code=GatewayCode.RESOURCE_EXHAUSTED,
+                message="No A100 capacity in us-central1",
+            ),
+        )
+
+        endpoint = client._parse_deployment(deployment)
+
+        assert endpoint.status_code == "RESOURCE_EXHAUSTED"
+        assert endpoint.status_message == "No A100 capacity in us-central1"
 
     @pytest.mark.asyncio
     async def test_create_endpoint_payload(self):

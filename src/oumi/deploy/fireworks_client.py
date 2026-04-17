@@ -281,6 +281,10 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         if not endpoint_url:
             endpoint_url = "https://api.fireworks.ai/inference/v1/chat/completions"
 
+        status = deployment.status
+        status_code = status.code.value if status and status.code else None
+        status_message = status.message if status else None
+
         return Endpoint(
             endpoint_id=endpoint_id,
             provider=DeploymentProvider.FIREWORKS,
@@ -292,6 +296,8 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             created_at=deployment.create_time,
             display_name=deployment.display_name,
             inference_model_name=name or None,
+            status_code=status_code,
+            status_message=status_message,
         )
 
     @staticmethod
