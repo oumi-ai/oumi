@@ -81,8 +81,15 @@ def load_conversations_from_dataset(
     subset: str | None = None,
     sample_count: int | None = None,
 ) -> list[Conversation]:
-    """Load conversations from a HuggingFace dataset."""
+    """Load conversations from a HuggingFace dataset in Oumi format.
+
+    Each item must be parseable by ``Conversation.from_dict`` — i.e., already
+    have the Oumi ``{"messages": [...]}`` shape. Items that don't parse are
+    skipped with a warning.
+    """
     from datasets import load_dataset
+
+    from oumi.core.types.conversation import Conversation  # noqa: F811
 
     logger.info(f"Loading dataset: {dataset_name} (split={split}, subset={subset})")
 
@@ -92,105 +99,14 @@ def load_conversations_from_dataset(
     limit = sample_count if sample_count else total
 
     for i in range(min(limit, total)):
+        item = dataset[i]
         try:
-            item = dataset[i]
-            conv = _item_to_conversation(item, i)
-            if conv is not None:
-                conversations.append(conv)
+            conversations.append(Conversation.from_dict(item))
         except Exception as e:
-            logger.warning(f"Failed to convert item at index {i}: {e}")
+            logger.warning(f"Failed to parse conversation at index {i}: {e}")
 
     logger.info(f"Loaded {len(conversations)} conversations from {dataset_name}")
     return conversations
-
-
-def _item_to_conversation(item: Any, index: int) -> Any:
-    """Convert a dataset item to a Conversation, or None if conversion fails."""
-    from oumi.core.types.conversation import Conversation, Message, Role
-
-    if isinstance(item, Conversation):
-        return item
-
-    if isinstance(item, dict):
-        if "messages" in item:
-            try:
-                return Conversation.from_dict(item)
-            except Exception:
-                pass
-
-        if "conversation" in item:
-            conv_data = item["conversation"]
-            if isinstance(conv_data, list):
-                messages = []
-                for msg in conv_data:
-                    if isinstance(msg, dict):
-                        role_str = msg.get("role", msg.get("from", "user"))
-                        content = msg.get(
-                            "content", msg.get("text", msg.get("value", ""))
-                        )
-                        try:
-                            role = Role(role_str.lower())
-                        except ValueError:
-                            role = (
-                                Role.USER
-                                if role_str.lower() in ("human", "user")
-                                else Role.ASSISTANT
-                            )
-                        messages.append(Message(role=role, content=content))
-                return Conversation(messages=messages, metadata={"source_index": index})
-
-        prompt = None
-        response = None
-        context = None
-
-        for key in [
-            "prompt",
-            "instruction",
-            "original-instruction",
-            "question",
-            "input",
-        ]:
-            if key in item and item[key]:
-                prompt = item[key]
-                break
-
-        for key in [
-            "response",
-            "output",
-            "completion",
-            "original-response",
-            "answer",
-            "target",
-        ]:
-            if key in item and item[key]:
-                response = item[key]
-                break
-
-        for key in ["context", "original-context", "input_context"]:
-            if key in item and item[key]:
-                context = item[key]
-                break
-
-        if prompt:
-            if context:
-                full_prompt = f"{context}\n\n{prompt}"
-            else:
-                full_prompt = str(prompt)
-
-            messages = [
-                Message(role=Role.USER, content=full_prompt),
-            ]
-            if response:
-                messages.append(Message(role=Role.ASSISTANT, content=str(response)))
-            return Conversation(messages=messages, metadata={"source_index": index})
-
-        try:
-            return Conversation.from_dict(item)
-        except Exception:
-            pass
-
-    logger.debug(f"Could not convert item at index {index} to Conversation")
-    return None
 
 
 def get_analyzer_class(name: str) -> Any:

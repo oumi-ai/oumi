@@ -8,8 +8,8 @@
 
 # Local file in Oumi format (JSONL with {"messages": [...]})
 dataset_path: data/dataset_examples/oumi_format.jsonl
-# Or, use a HuggingFace dataset
-# dataset_name: argilla/databricks-dolly-15k-curated-en
+# Or, a HuggingFace dataset already in Oumi format ({"messages": [...]} per row):
+# dataset_name: <org>/<repo>
 # split: train
 
 # sample_count: 1000  # Limit samples (null = all)

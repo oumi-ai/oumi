@@ -174,17 +174,18 @@ if output["test_summary"]:
 
 ## Analyzing HuggingFace Datasets
 
-Analyze any HuggingFace Hub dataset directly:
+Analyze a HuggingFace Hub dataset that is already in Oumi conversation format
+(each row: `{"messages": [{"role": "...", "content": "..."}]}`):
 
 ::::{tab-set-code}
 :::{code-block} yaml
 
 # hf_analyze.yaml
 
-dataset_name: argilla/databricks-dolly-15k-curated-en
+dataset_name: <org>/<repo>
 split: train
 sample_count: 100
-output_path: ./analysis_output/dolly
+output_path: ./analysis_output
 
 analyzers:
   - type: length
@@ -198,7 +199,7 @@ analyzers:
 from oumi.analyze import run_typed_analysis, TypedAnalyzeConfig, AnalyzerConfig
 
 config = TypedAnalyzeConfig(
-    dataset_name="argilla/databricks-dolly-15k-curated-en",
+    dataset_name="<org>/<repo>",
     split="train",
     sample_count=100,
     analyzers=[
@@ -209,6 +210,10 @@ config = TypedAnalyzeConfig(
 results = run_typed_analysis(config)
 :::
 ::::
+
+Rows that are not in Oumi conversation format are skipped with a warning. To
+analyze instruction-style datasets (e.g. `prompt`/`response` fields),
+pre-convert them to Oumi JSONL first and use `dataset_path`.
 
 ## Data Validation with Tests
 
