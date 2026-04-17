@@ -222,9 +222,7 @@ Run `sky check` and follow the provider-specific setup in {doc}`/user_guides/lau
 
 ### A job tool returns "job_id not found"
 
-The MCP job registry is persistent at `~/.oumi/mcp/oumi-jobs.json`, so records survive a server restart (old entries are pruned automatically after a retention window). Per-job runtime state — live subprocess handles and log tails — is in-memory, so a restart orphans a local subprocess even though the record sticks around.
-
-If the specific job ID you're passing isn't in the registry, call `list_jobs` first: for cloud jobs it queries the launcher directly, so anything still alive on the provider shows up with the provider's own job ID as `job_id` — use that ID (together with `cloud` and `cluster_name`) in subsequent `get_job_status` / `get_job_logs` calls. For local jobs, logs are on disk at `~/.oumi/mcp/job-logs/<job_id>/` and can be read without the server.
+Call `list_jobs` to see every job the server currently knows about. For cloud jobs it queries the launcher live, so anything still alive on the provider shows up with its real job ID — pass that ID (plus `cloud` and `cluster_name`) to `get_job_status` / `get_job_logs`. Local-job logs are always on disk at `~/.oumi/mcp/job-logs/<job_id>/`.
 
 ## Under the Hood
 
