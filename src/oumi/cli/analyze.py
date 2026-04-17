@@ -142,11 +142,11 @@ def run_typed_analysis(
     analyzers = []
     for analyzer_config in config.analyzers:
         analyzer = create_analyzer_from_config(
-            analyzer_config.id,
+            analyzer_config.type,
             analyzer_config.params,
         )
         if analyzer is not None:
-            analyzer.analyzer_id = analyzer_config.instance_id
+            analyzer.analyzer_id = analyzer_config.display_name
             analyzers.append(analyzer)
 
     if not analyzers:
@@ -357,8 +357,8 @@ def _run_typed_analysis_cli(
             cli_utils.CONSOLE.print(f"[dim]Config loaded from: {config}[/dim]")
             dataset = typed_config.dataset_name or typed_config.dataset_path
             cli_utils.CONSOLE.print(f"[dim]Dataset: {dataset}[/dim]")
-            analyzer_ids = [a.instance_id for a in typed_config.analyzers]
-            cli_utils.CONSOLE.print(f"[dim]Analyzers: {analyzer_ids}[/dim]")
+            analyzer_names = [a.display_name for a in typed_config.analyzers]
+            cli_utils.CONSOLE.print(f"[dim]Analyzers: {analyzer_names}[/dim]")
 
         with cli_utils.CONSOLE.status(
             "[green]Running analysis...[/green]", spinner="dots"

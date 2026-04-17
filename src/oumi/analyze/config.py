@@ -15,6 +15,7 @@
 """Configuration for the typed analyzer framework."""
 
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
 from typing import Any
 
@@ -23,24 +24,39 @@ import yaml
 from oumi.core.configs.params.test_params import TestParams
 
 
+class AnalyzerType(str, Enum):
+    """Built-in analyzer types."""
+
+    LENGTH = "length"
+    QUALITY = "quality"
+    TURN_STATS = "turn_stats"
+
+
 @dataclass
 class AnalyzerConfig:
     """Configuration for a single analyzer instance.
 
-    Each analyzer has a type (`id`) and a unique instance name (`instance_id`).
-    Multiple instances of the same type are supported (e.g. two length analyzers
-    with different tokenizers).
+    Each analyzer has a `type` (registry id) and a `display_name` used as the
+    result key and metric-path prefix. Multiple instances of the same type are
+    supported (e.g. two length analyzers with different tokenizers).
 
     Attributes:
-        id: Analyzer type (registry id, e.g. "length", "difficulty_judge").
-        instance_id: Unique instance name (always required). Used as the results
-            key and in test metric paths.
+        type: Analyzer type (registry id, e.g. "length", "difficulty_judge").
+        display_name: Unique instance name. Used as the results key and in test
+            metric paths. Defaults to `type` when omitted.
         params: Analyzer-specific parameters.
     """
 
-    id: str
-    instance_id: str
+    type: str = ""
+    display_name: str = ""
     params: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self):
+        """Validate and default the analyzer configuration."""
+        if not self.type:
+            raise ValueError("AnalyzerConfig.type is required.")
+        if not self.display_name:
+            self.display_name = self.type
 
 
 @dataclass
@@ -148,10 +164,10 @@ class TypedAnalyzeConfig:
         output_path: ./analysis_output
 
         analyzers:
-          - id: length
+          - type: length
             params:
               count_tokens: true
-          - id: quality
+          - type: quality
 
         custom_metrics:
           - id: turn_pattern
@@ -229,29 +245,34 @@ class TypedAnalyzeConfig:
 
     @classmethod
     def _parse_analyzers(cls, data: dict[str, Any]) -> list[AnalyzerConfig]:
-        """Parse analyzer configurations, raising on duplicate instance_ids."""
+        """Parse analyzer configurations, raising on duplicate display names.
+
+        Accepts either the new ``type``/``display_name`` keys or the legacy
+        ``id``/``instance_id`` keys (for backward compatibility).
+        """
         analyzers = []
         for analyzer_data in data.get("analyzers", []):
-            if isinstance(analyzer_data, dict):
-                # instance_id defaults to id if not provided in YAML
-                if "instance_id" not in analyzer_data:
-                    analyzer_data = {
-                        **analyzer_data,
-                        "instance_id": analyzer_data["id"],
-                    }
-                analyzers.append(AnalyzerConfig(**analyzer_data))
-            elif isinstance(analyzer_data, str):
-                analyzers.append(
-                    AnalyzerConfig(id=analyzer_data, instance_id=analyzer_data)
-                )
+            if isinstance(analyzer_data, str):
+                analyzers.append(AnalyzerConfig(type=analyzer_data))
+                continue
+            if not isinstance(analyzer_data, dict):
+                continue
 
-        # Validate unique instance_ids
-        instance_ids = [a.instance_id for a in analyzers]
-        duplicates = [id for id in set(instance_ids) if instance_ids.count(id) > 1]
+            normalized = dict(analyzer_data)
+            if "type" not in normalized and "id" in normalized:
+                normalized["type"] = normalized.pop("id")
+            if "display_name" not in normalized and "instance_id" in normalized:
+                normalized["display_name"] = normalized.pop("instance_id")
+            analyzers.append(AnalyzerConfig(**normalized))
+
+        display_names = [a.display_name for a in analyzers]
+        duplicates = [
+            name for name in set(display_names) if display_names.count(name) > 1
+        ]
         if duplicates:
             raise ValueError(
-                f"Duplicate analyzer instance_id values: {duplicates}. "
-                "Each analyzer must have a unique instance_id to avoid collisions."
+                f"Duplicate analyzer display_name values: {duplicates}. "
+                "Each analyzer must have a unique display_name to avoid collisions."
             )
 
         return analyzers
@@ -313,7 +334,7 @@ class TypedAnalyzeConfig:
 
         Raises:
             ValueError: If config contains custom code but allow_custom_code=False,
-                or if duplicate analyzer instance_ids found.
+                or if duplicate analyzer display_name values are found.
         """
         analyzers = cls._parse_analyzers(data)
         custom_metrics = cls._parse_custom_metrics(data, allow_custom_code)
@@ -349,7 +370,11 @@ class TypedAnalyzeConfig:
             "sample_count": self.sample_count,
             "output_path": self.output_path,
             "analyzers": [
-                {"id": a.id, "instance_id": a.instance_id, "params": a.params}
+                {
+                    "type": a.type,
+                    "display_name": a.display_name,
+                    "params": a.params,
+                }
                 for a in self.analyzers
             ],
             "custom_metrics": [

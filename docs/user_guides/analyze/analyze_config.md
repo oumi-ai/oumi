@@ -38,30 +38,30 @@ dataset_path: /path/to/data.jsonl
 
 ## Analyzers
 
-Configure analyzers as a list with `id`, `instance_id`, and optional `params`:
+Configure analyzers as a list with `type`, `display_name`, and optional `params`:
 
 ```yaml
 analyzers:
-  - id: length
-    instance_id: Length
+  - type: length
+    display_name: Length
     params:
       tokenizer_name: cl100k_base
-  - id: quality
-    instance_id: Quality
-  - id: turn_stats
-    instance_id: TurnStats
+  - type: quality
+    display_name: Quality
+  - type: turn_stats
+    display_name: TurnStats
 ```
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `id` | `str` | Yes | — | Analyzer identifier (e.g., `length`, `quality`, `turn_stats`) |
-| `instance_id` | `str` | No | Same as `id` | Label used as result key and metric path prefix |
+| `type` | `str` | Yes | — | Analyzer identifier (e.g., `length`, `quality`, `turn_stats`) |
+| `display_name` | `str` | No | Same as `type` | Label used as result key and metric path prefix |
 | `params` | `dict` | No | `{}` | Analyzer-specific parameters |
 
-The `instance_id` is used in metric paths for tests (e.g., `Length.total_tokens`) and as the column prefix in output DataFrames.
+The `display_name` is used in metric paths for tests (e.g., `Length.total_tokens`) and as the column prefix in output DataFrames.
 
 :::{note}
-Each analyzer must have a unique `instance_id`. If omitted, it defaults to the `id` value.
+Each analyzer must have a unique `display_name`. If omitted, it defaults to the `type` value. The legacy keys `id` and `instance_id` are still accepted as aliases.
 :::
 
 ### `length` Analyzer Parameters
@@ -83,7 +83,7 @@ The `turn_stats` analyzer has no configurable parameters. It computes turn count
 
 ## Tests
 
-Tests validate analysis results against configurable thresholds. Metrics are referenced as `"{instance_id}.{field_name}"`.
+Tests validate analysis results against configurable thresholds. Metrics are referenced as `"{display_name}.{field_name}"`.
 
 ```yaml
 tests:
@@ -159,14 +159,14 @@ sample_count: 1000
 output_path: ./analysis_output
 
 analyzers:
-  - id: length
-    instance_id: Length
+  - type: length
+    display_name: Length
     params:
       tokenizer_name: cl100k_base
-  - id: quality
-    instance_id: Quality
-  - id: turn_stats
-    instance_id: TurnStats
+  - type: quality
+    display_name: Quality
+  - type: turn_stats
+    display_name: TurnStats
 
 tests:
   - id: max_tokens
