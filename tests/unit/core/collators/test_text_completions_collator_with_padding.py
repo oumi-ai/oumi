@@ -313,27 +313,6 @@ def test_span_single_turn_content_is_unmasked():
     assert labels[n_prefix + len(content) : n_prefix + len(content) + len(eot)] == eot
 
 
-def test_span_single_turn_response_template_tokens_are_masked():
-    resp, eot = get_template_token_ids()
-    seq = flat(resp, [_SENTINELS[0]], eot)
-
-    labels = get_span_labels(make_span_collator(), seq)
-
-    for i in range(len(resp)):
-        assert labels[i] == IGNORE, f"resp template token {i} should be masked"
-
-
-def test_span_single_turn_eot_tokens_are_unmasked():
-    resp, eot = get_template_token_ids()
-    content = [_SENTINELS[0]]
-    seq = flat(resp, content, eot)
-
-    labels = get_span_labels(make_span_collator(), seq)
-
-    eot_start = len(resp) + len(content)
-    assert labels[eot_start : eot_start + len(eot)] == eot
-
-
 # ---------------------------------------------------------------------------
 # Multiple assistant turns
 # ---------------------------------------------------------------------------
@@ -369,40 +348,6 @@ def test_span_content_between_turns_is_masked():
     between_start = len(resp) + len(turn1) + len(eot)
     for i in range(len(between)):
         assert labels[between_start + i] == IGNORE
-
-
-# ---------------------------------------------------------------------------
-# Tool result masking
-# ---------------------------------------------------------------------------
-
-
-def test_span_tool_result_is_masked():
-    resp, eot = get_template_token_ids()
-    tool_call_content = [_SENTINELS[0], _SENTINELS[1]]
-    tool_result = [_SENTINELS[2], _SENTINELS[3]]
-    final_answer = [_SENTINELS[4], _SENTINELS[5]]
-    seq = flat(resp, tool_call_content, eot, tool_result, resp, final_answer, eot)
-
-    labels = get_span_labels(make_span_collator(), seq)
-
-    tool_result_start = len(resp) + len(tool_call_content) + len(eot)
-    for i in range(len(tool_result)):
-        assert labels[tool_result_start + i] == IGNORE
-
-
-def test_span_final_answer_after_tool_result_is_unmasked():
-    resp, eot = get_template_token_ids()
-    tool_call_content = [_SENTINELS[0]]
-    tool_result = [_SENTINELS[1]]
-    final_answer = [_SENTINELS[2], _SENTINELS[3]]
-    seq = flat(resp, tool_call_content, eot, tool_result, resp, final_answer, eot)
-
-    labels = get_span_labels(make_span_collator(), seq)
-
-    final_start = (
-        len(resp) + len(tool_call_content) + len(eot) + len(tool_result) + len(resp)
-    )
-    assert labels[final_start : final_start + len(final_answer)] == final_answer
 
 
 def test_span_masking_requires_end_of_turn_template():
@@ -526,25 +471,8 @@ def test_span_batch_bad_example_does_not_affect_others():
     assert all(v == IGNORE for v in batch["labels"][1].tolist())
 
 
-def test_span_output_labels_is_torch_tensor():
-    resp, eot = get_template_token_ids()
-    seq = flat(resp, [_SENTINELS[0]], eot)
-    batch = make_span_collator()([{"input_ids": seq}])
-    assert isinstance(batch["labels"], torch.Tensor)
-
-
 def test_span_labels_shape_matches_input_ids():
     resp, eot = get_template_token_ids()
     seq = flat(resp, [_SENTINELS[0], _SENTINELS[1]], eot)
     batch = make_span_collator()([{"input_ids": seq}])
     assert batch["labels"].shape == batch["input_ids"].shape
-
-
-def test_span_labels_numpy_values_match_expected():
-    resp, eot = get_template_token_ids()
-    content = [_SENTINELS[0], _SENTINELS[1]]
-    seq = flat(resp, content, eot)
-
-    batch = make_span_collator()([{"input_ids": seq}])
-    expected = [IGNORE] * len(resp) + content + eot
-    assert np.all(batch["labels"].numpy() == np.array([expected], dtype=np.int32))

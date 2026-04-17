@@ -492,83 +492,8 @@ def test_train_target_on_wrong_collator():
         )
 
 
-def test_no_train_target_backward_compat(mock_tokenizer):
-    """collator_kwargs still work when train_target is not set."""
-    config = TrainingConfig(
-        data=DataParams(
-            train=DatasetSplitParams(
-                collator_name="text_completions_only_with_padding",
-                collator_kwargs={
-                    "response_template": "<|assistant|>",
-                    "instruction_template": "<|user|>",
-                },
-                datasets=[DatasetParams(dataset_name="dummy", split="train")],
-            )
-        ),
-        model=ModelParams(
-            model_name="MlpEncoder",
-            tokenizer_name="openai-community/gpt2",
-            model_max_length=512,
-        ),
-    )
-    collator = build_collator_from_config(config, tokenizer=mock_tokenizer)
-    assert collator is not None
-    inner = collator._default_collator
-    assert inner.response_template == "<|assistant|>"
-    assert inner.instruction_template == "<|user|>"
-
-
-def test_bare_collator_name_raises_without_templates(mock_tokenizer):
-    """Bare collator_name without kwargs or train_target raises an error."""
-    config = TrainingConfig(
-        data=DataParams(
-            train=DatasetSplitParams(
-                collator_name="text_completions_only_with_padding",
-                datasets=[DatasetParams(dataset_name="dummy", split="train")],
-            )
-        ),
-        model=ModelParams(
-            model_name="MlpEncoder",
-            tokenizer_name="openai-community/gpt2",
-            model_max_length=512,
-        ),
-    )
-    with pytest.raises(ValueError, match="response_template"):
-        build_collator_from_config(config, tokenizer=mock_tokenizer)
-
-
-def test_legacy_collator_kwargs_with_instruction_template(mock_tokenizer):
-    """Legacy path: collator_kwargs with instruction_template still works."""
-    config = TrainingConfig(
-        data=DataParams(
-            train=DatasetSplitParams(
-                collator_name="text_completions_only_with_padding",
-                collator_kwargs={
-                    "response_template": "<|start_header_id|>assistant"
-                    "<|end_header_id|>\n\n",
-                    "instruction_template": "<|start_header_id|>user"
-                    "<|end_header_id|>\n\n",
-                },
-                datasets=[DatasetParams(dataset_name="dummy", split="train")],
-            )
-        ),
-        model=ModelParams(
-            model_name="MlpEncoder",
-            tokenizer_name="openai-community/gpt2",
-            model_max_length=512,
-        ),
-    )
-    collator = build_collator_from_config(config, tokenizer=mock_tokenizer)
-    assert collator is not None
-    inner = collator._default_collator
-    assert (
-        inner.response_template == "<|start_header_id|>assistant<|end_header_id|>\n\n"
-    )
-    assert inner.instruction_template == "<|start_header_id|>user<|end_header_id|>\n\n"
-
-
-def test_old_recipe_instruction_template_sets_legacy(mock_tokenizer):
-    """Old recipe: instruction_template + response_template → _legacy + warning."""
+def test_legacy_instruction_template_backward_compat(mock_tokenizer):
+    """Legacy path: instruction_template + response_template → _legacy + warning."""
     config = TrainingConfig(
         data=DataParams(
             train=DatasetSplitParams(
@@ -591,7 +516,29 @@ def test_old_recipe_instruction_template_sets_legacy(mock_tokenizer):
     ):
         collator = build_collator_from_config(config, tokenizer=mock_tokenizer)
     assert collator is not None
-    assert collator._default_collator.train_target == "_legacy_instruction_response"
+    inner = collator._default_collator
+    assert inner.response_template == "<|assistant|>"
+    assert inner.instruction_template == "<|user|>"
+    assert inner.train_target == "_legacy_instruction_response"
+
+
+def test_bare_collator_name_raises_without_templates(mock_tokenizer):
+    """Bare collator_name without kwargs or train_target raises an error."""
+    config = TrainingConfig(
+        data=DataParams(
+            train=DatasetSplitParams(
+                collator_name="text_completions_only_with_padding",
+                datasets=[DatasetParams(dataset_name="dummy", split="train")],
+            )
+        ),
+        model=ModelParams(
+            model_name="MlpEncoder",
+            tokenizer_name="openai-community/gpt2",
+            model_max_length=512,
+        ),
+    )
+    with pytest.raises(ValueError, match="response_template"):
+        build_collator_from_config(config, tokenizer=mock_tokenizer)
 
 
 def test_old_recipe_response_only_sets_final(mock_tokenizer):
