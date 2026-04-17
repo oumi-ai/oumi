@@ -37,7 +37,7 @@ python -m oumi.mcp # equivalent, if you prefer module invocation
 Both start the server on stdio.
 
 ```{note}
-Path-sensitive tools (job launch, pre-flight, validation) rely on you having a normal Oumi environment wherever the server runs. If you plan to launch cloud jobs, install the launcher extras (`pip install "oumi[cloud]"` or `oumi[gpu]`) and complete `sky check` per {doc}`/user_guides/launch/launch`.
+Path-sensitive tools (job launch, pre-flight, validation) rely on you having a normal Oumi environment wherever the server runs. To launch cloud jobs, also install the per-provider extras (`oumi[aws]`, `oumi[azure]`, `oumi[gcp]`, `oumi[kubernetes]`, `oumi[lambda]`, `oumi[nebius]`, `oumi[runpod]`) and complete `sky check` per {doc}`/user_guides/launch/launch`.
 ```
 
 ## Connecting from an MCP Client
@@ -153,7 +153,10 @@ Read-only content the assistant can fetch by URI.
 
 ## Path Handling
 
-The server accepts two kinds of paths: **bundled configs** (e.g. `oumi://configs/projects/.../train.yaml`), which are read-only references shipped with the `oumi` package, and **your project files**, which path-sensitive tools resolve relative to `client_cwd`.
+There are two path surfaces, and they do not overlap:
+
+- **Bundled config library.** `search_configs`, `get_config`, and `list_categories` browse the ~500 YAML files shipped with the `oumi` package. `get_config` accepts substring queries against those config paths (e.g. `"llama3_1/sft/8b_lora"`); it is read-only and its results should be treated as **references** — copy/adapt them into your own project, don't pass library paths to path-sensitive tools.
+- **Your project files.** `run_oumi_job`, `validate_config`, and `pre_flight_check` take local filesystem paths (absolute, or relative to `client_cwd`). They do not resolve `oumi://` URIs or library config names — you must point them at a YAML file that exists on disk.
 
 Assistants handle `client_cwd` automatically — `get_started` returns the full rules the model needs, and the assistant passes your project root on every path-sensitive call. You don't configure anything.
 
@@ -188,7 +191,7 @@ For local runs, drop the `cloud`/`cluster_name` arguments and point at a trainin
 
 ### The assistant says it can't see the Oumi tools
 
-- Confirm `oumi-mcp` runs in a terminal without errors: `oumi-mcp --help` (or just `oumi-mcp` — it waits on stdio).
+- Run `oumi-mcp` in a terminal to confirm the process starts without errors. It has no CLI flags — it blocks on stdio and logs to stderr; kill it with `Ctrl-C`.
 - Check the client's MCP logs. Claude Desktop logs to `~/Library/Logs/Claude/mcp*.log` on macOS.
 - Verify the client is spawning `oumi-mcp` with the Python environment where Oumi is installed. If `which oumi-mcp` only works inside a virtualenv, pass an absolute path in the client config.
 - Fully restart the client after editing its config.
@@ -203,7 +206,9 @@ Run `sky check` and follow the provider-specific setup in {doc}`/user_guides/lau
 
 ### A job tool returns "job_id not found"
 
-Job tracking is in-process. If the server restarted since the job was submitted, it won't remember it. For cloud jobs you can still recover by name with `get_job_status(cloud=..., cluster_name=..., job_id=<job_name>)`; for local jobs, check `JOB_LOGS_DIR` under your Oumi state directory.
+The MCP job registry is persistent at `~/.oumi/mcp/oumi-jobs.json`, so records survive a server restart (old entries are pruned automatically after a retention window). Per-job runtime state — live subprocess handles and log tails — is in-memory, so a restart orphans a local subprocess even though the record sticks around.
+
+If the specific job ID you're passing isn't in the registry, call `list_jobs` first: for cloud jobs it queries the launcher directly, so anything still alive on the provider shows up with the provider's own job ID as `job_id` — use that ID (together with `cloud` and `cluster_name`) in subsequent `get_job_status` / `get_job_logs` calls. For local jobs, logs are on disk at `~/.oumi/mcp/job-logs/<job_id>/` and can be read without the server.
 
 ## Under the Hood
 
