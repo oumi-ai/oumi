@@ -877,3 +877,118 @@ def test_base_environment_accepts_grounding_in_constructor():
     assert env.grounding is not None
     assert env.grounding.sample_size == 2
     assert env.grounding.seed == 7
+
+
+# --- DeterministicEnvironment.sample_grounding ---
+
+
+def _det_env_with_n_entries(n: int) -> DeterministicEnvironment:
+    """Build a DeterministicEnvironment with a single tool containing n entries."""
+    outputs = [
+        DeterministicToolOutput(
+            input={"id": str(i)}, output={"title": f"title-{i}"}
+        )
+        for i in range(n)
+    ]
+    return DeterministicEnvironment(
+        id="books",
+        name="Books",
+        description="Book lookup",
+        tools=[
+            Tool(
+                id="lookup",
+                name="Lookup",
+                description="Look up a book.",
+                deterministic_outputs=outputs,
+            )
+        ],
+    )
+
+
+def test_deterministic_sample_grounding_returns_n_facts():
+    import random
+
+    env = _det_env_with_n_entries(10)
+    facts = env.sample_grounding(n=3, rng=random.Random(0))
+    assert len(facts) == 3
+    for fact in facts:
+        assert isinstance(fact, DeterministicToolOutput)
+
+
+def test_deterministic_sample_grounding_no_replacement_within_call():
+    import random
+
+    env = _det_env_with_n_entries(10)
+    facts = env.sample_grounding(n=5, rng=random.Random(0))
+    ids = [fact.input["id"] for fact in facts]
+    assert len(set(ids)) == len(ids)
+
+
+def test_deterministic_sample_grounding_truncates_when_n_exceeds_pool():
+    import random
+
+    env = _det_env_with_n_entries(3)
+    facts = env.sample_grounding(n=10, rng=random.Random(0))
+    assert len(facts) == 3
+
+
+def test_deterministic_sample_grounding_seeded_rng_is_reproducible():
+    import random
+
+    env = _det_env_with_n_entries(20)
+    facts_a = env.sample_grounding(n=4, rng=random.Random(42))
+    facts_b = env.sample_grounding(n=4, rng=random.Random(42))
+    ids_a = [fact.input["id"] for fact in facts_a]
+    ids_b = [fact.input["id"] for fact in facts_b]
+    assert ids_a == ids_b
+
+
+def test_deterministic_sample_grounding_different_seeds_differ():
+    import random
+
+    env = _det_env_with_n_entries(20)
+    facts_a = env.sample_grounding(n=4, rng=random.Random(1))
+    facts_b = env.sample_grounding(n=4, rng=random.Random(999))
+    ids_a = sorted(fact.input["id"] for fact in facts_a)
+    ids_b = sorted(fact.input["id"] for fact in facts_b)
+    # With 20 entries and 4 picks, collision on both sets is vanishingly small.
+    assert ids_a != ids_b
+
+
+def test_deterministic_sample_grounding_pools_across_tools():
+    env = DeterministicEnvironment(
+        id="multi",
+        name="Multi",
+        description="Two tools",
+        tools=[
+            Tool(
+                id="tool_a",
+                name="A",
+                description="Tool A",
+                deterministic_outputs=[
+                    DeterministicToolOutput(
+                        input={"k": "a1"}, output={"v": "a1"}
+                    )
+                ],
+            ),
+            Tool(
+                id="tool_b",
+                name="B",
+                description="Tool B",
+                deterministic_outputs=[
+                    DeterministicToolOutput(
+                        input={"k": "b1"}, output={"v": "b1"}
+                    ),
+                    DeterministicToolOutput(
+                        input={"k": "b2"}, output={"v": "b2"}
+                    ),
+                ],
+            ),
+        ],
+    )
+    import random
+
+    facts = env.sample_grounding(n=3, rng=random.Random(0))
+    assert len(facts) == 3
+    keys = sorted(fact.input["k"] for fact in facts)
+    assert keys == ["a1", "b1", "b2"]
