@@ -29,7 +29,7 @@ from oumi.core.configs.params.synthesis_params import (
 from oumi.core.synthesis.attribute_formatter import AttributeFormatter
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.environments import (
-    DeterministicToolOutput,
+    GroundingFact,
     Tool,
     ToolArgumentError,
     ToolError,
@@ -129,8 +129,7 @@ class ConversationSynthesizer:
     def _validate_tool_configuration(
         self, multiturn_attribute: MultiTurnAttribute
     ) -> None:
-        """Validate that tool/environment declarations have a backing
-        environment_config, and warn about grounding placeholder misuse."""
+        """Validate that tool declarations have a backing environment_config."""
         declares_tools = bool(multiturn_attribute.available_tools) or bool(
             multiturn_attribute.available_environments
         )
@@ -140,9 +139,6 @@ class ConversationSynthesizer:
                 f"available_tools/available_environments but no environment_config "
                 f"was provided to ConversationSynthesizer."
             )
-
-        # grounding_facts is planner-only. Warn if a config author placed the
-        # placeholder in a user or assistant persona template.
         for role, persona in multiturn_attribute.role_instruction_messages.items():
             if not isinstance(persona, str):
                 continue
@@ -549,9 +545,6 @@ class ConversationSynthesizer:
 
         grounding_facts = sample.get("grounding_facts") or []
         if grounding_facts:
-            # Pick the first grounded env's describer. In v1 every env uses
-            # the default describer; future envs with custom describers
-            # should be revisited here.
             describer_env = next(
                 (
                     env
@@ -827,16 +820,8 @@ class ConversationSynthesizer:
             for match in _TOOL_CALL_RE.finditer(response_text)
         ]
 
-    def _make_grounding_rng(
-        self, seed: int | None, sample_index: int
-    ) -> random.Random:
-        """Build the RNG used for sampling grounding facts for one sample.
-
-        Unseeded (``seed=None``) uses the default ``random.Random()`` with
-        entropy from the OS, matching the non-reproducible behavior used by
-        ``DatasetPlanner`` for sampled attributes. Seeded mode makes each
-        sample's facts deterministic from ``(seed + sample_index)``.
-        """
+    def _make_grounding_rng(self, seed: int | None, sample_index: int) -> random.Random:
+        """Build the RNG used for sampling grounding facts for one sample."""
         if seed is None:
             return random.Random()
         return random.Random(seed + sample_index)
@@ -846,14 +831,7 @@ class ConversationSynthesizer:
         samples: list[dict],
         multiturn_attribute: MultiTurnAttribute,
     ) -> None:
-        """Attach per-sample grounding facts drawn from grounded envs in scope.
-
-        Writes ``sample["grounding_facts"]`` as a flat list concatenated
-        across all envs in scope that declare a ``GroundingConfig``. No-op
-        when ``environment_config`` is absent or no env in scope declares
-        grounding. Emits one ``logger.warning`` per env when truncation
-        occurs (sample_size > pool_size).
-        """
+        """Attach per-sample grounding facts drawn from grounded envs in scope."""
         if self._environment_config is None:
             return
 
@@ -872,13 +850,11 @@ class ConversationSynthesizer:
 
         warned_envs: set[str] = set()
         for sample_index, sample in enumerate(samples):
-            facts: list[DeterministicToolOutput] = []
+            facts: list[GroundingFact] = []
             for env in grounding_envs:
-                assert env.grounding is not None  # narrowed above
+                assert env.grounding is not None
                 rng = self._make_grounding_rng(env.grounding.seed, sample_index)
-                sampled = env.sample_grounding(
-                    n=env.grounding.sample_size, rng=rng
-                )
+                sampled = env.sample_grounding(n=env.grounding.sample_size, rng=rng)
                 if (
                     len(sampled) < env.grounding.sample_size
                     and env.id not in warned_envs

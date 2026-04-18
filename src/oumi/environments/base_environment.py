@@ -24,8 +24,8 @@ from typing import Any, ClassVar
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.environments.base_tool import (
-    DeterministicToolOutput,
     GroundingConfig,
+    GroundingFact,
     Tool,
     ToolResult,
     describe_grounding_default,
@@ -98,7 +98,7 @@ class BaseEnvironment(BaseParams, ABC):
 
     def sample_grounding(
         self, n: int, *, rng: random.Random
-    ) -> list[DeterministicToolOutput]:
+    ) -> list[GroundingFact]:
         """Sample n grounding facts from this environment.
 
         Default: returns an empty list. Subclasses that support grounding
@@ -107,14 +107,12 @@ class BaseEnvironment(BaseParams, ABC):
         return []
 
     def describe_grounding(
-        self, facts: list[DeterministicToolOutput]
+        self, facts: list[GroundingFact]
     ) -> str:
         """Render grounding facts as a bulleted markdown block.
 
-        Default implementation flattens each fact's input and output dicts
-        (output wins on key collisions) into a single bullet line. Suitable
-        for any dict-shaped fact. Subclasses may override for custom
-        rendering.
+        Default implementation renders each fact's data dict as a single
+        bullet line. Subclasses may override for custom rendering.
         """
         return describe_grounding_default(facts)
 

@@ -134,6 +134,21 @@ class GroundingConfig(BaseParams):
             )
 
 
+@dataclass
+class GroundingFact(BaseParams):
+    """Env-agnostic representation of a single grounding fact.
+
+    A fact is a flat key-value dict that environments produce during sampling
+    and the synthesizer renders into planner prompts. Environments convert
+    their native state (DeterministicToolOutput entries, synthetic state
+    snippets, DB rows, etc.) into GroundingFact instances. The data dict
+    is expected to be JSON-serializable scalars and is rendered verbatim
+    by ``describe_grounding_default``.
+    """
+
+    data: dict[str, Any] = field(default_factory=dict)
+
+
 def _format_grounding_value(value: Any) -> str:
     """Render a fact value as a quoted string or bare literal."""
     if isinstance(value, str):
@@ -141,21 +156,19 @@ def _format_grounding_value(value: Any) -> str:
     return str(value)
 
 
-def describe_grounding_default(facts: list[DeterministicToolOutput]) -> str:
+def describe_grounding_default(facts: list[GroundingFact]) -> str:
     """Render grounding facts as a bulleted markdown block.
 
-    Each fact's ``input`` and ``output`` dicts are flattened into a single
-    key=value line. Output values win on key collisions.
-    Returns "" for an empty fact list.
+    Each fact's ``data`` dict is rendered as a single ``key=value,
+    key=value`` line. Returns "" for an empty fact list.
     """
     if not facts:
         return ""
     lines: list[str] = []
     for fact in facts:
-        merged = {**fact.input, **fact.output}
         parts = [
             f"{key}={_format_grounding_value(value)}"
-            for key, value in merged.items()
+            for key, value in fact.data.items()
         ]
         lines.append(f"- {', '.join(parts)}")
     return "\n".join(lines)

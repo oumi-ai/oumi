@@ -36,6 +36,7 @@ from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.environments import (
     DeterministicEnvironment,
     DeterministicToolOutput,
+    GroundingFact,
     Tool,
     ToolResult,
     ToolSchema,
@@ -1894,7 +1895,7 @@ def test_attach_grounding_facts_populates_samples(mock_inference_config):
         assert "grounding_facts" in sample
         assert len(sample["grounding_facts"]) == 3
         for fact in sample["grounding_facts"]:
-            assert isinstance(fact, DeterministicToolOutput)
+            assert isinstance(fact, GroundingFact)
 
 
 def test_attach_grounding_facts_seeded_is_reproducible(mock_inference_config):
@@ -1924,8 +1925,8 @@ def test_attach_grounding_facts_seeded_is_reproducible(mock_inference_config):
     synth_b._attach_grounding_facts(samples_b, attr)
 
     for a, b in zip(samples_a, samples_b):
-        assert [f.input["id"] for f in a["grounding_facts"]] == [
-            f.input["id"] for f in b["grounding_facts"]
+        assert [f.data["id"] for f in a["grounding_facts"]] == [
+            f.data["id"] for f in b["grounding_facts"]
         ]
 
 
@@ -1951,8 +1952,8 @@ def test_attach_grounding_facts_seeded_different_samples_differ(
 
     synth._attach_grounding_facts(samples, attr)
 
-    ids_0 = sorted(f.input["id"] for f in samples[0]["grounding_facts"])
-    ids_1 = sorted(f.input["id"] for f in samples[1]["grounding_facts"])
+    ids_0 = sorted(f.data["id"] for f in samples[0]["grounding_facts"])
+    ids_1 = sorted(f.data["id"] for f in samples[1]["grounding_facts"])
     assert ids_0 != ids_1
 
 
@@ -2078,12 +2079,8 @@ def test_create_planner_prompt_injects_grounding_block_when_facts_present(
         "conversation_plan": "",
         "parsed_turn_plans": [""] * 2,
         "grounding_facts": [
-            DeterministicToolOutput(
-                input={"id": "42"}, output={"title": "Dune"}
-            ),
-            DeterministicToolOutput(
-                input={"id": "7"}, output={"title": "LotR"}
-            ),
+            GroundingFact(data={"id": "42", "title": "Dune"}),
+            GroundingFact(data={"id": "7", "title": "LotR"}),
         ],
     }
 
@@ -2373,6 +2370,6 @@ def test_end_to_end_grounded_conversation_uses_sampled_entity_ids(
     configured_ids = {str(i) for i in range(10)}
     facts = samples[0]["grounding_facts"]
     for fact in facts:
-        fact_id = fact.input["id"]
+        fact_id = fact.data["id"]
         assert fact_id in configured_ids
         assert f'id="{fact_id}"' in planner_prompt
