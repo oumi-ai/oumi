@@ -28,7 +28,12 @@ from oumi.core.configs.params.synthesis_params import (
 )
 from oumi.core.synthesis.attribute_formatter import AttributeFormatter
 from oumi.core.types.conversation import Conversation, Message, Role
-from oumi.environments import Tool, ToolArgumentError, ToolError
+from oumi.environments import (
+    DeterministicToolOutput,
+    Tool,
+    ToolArgumentError,
+    ToolError,
+)
 from oumi.utils.logging import logger
 from oumi.utils.str_utils import extract_json
 
@@ -795,6 +800,59 @@ class ConversationSynthesizer:
         if seed is None:
             return random.Random()
         return random.Random(seed + sample_index)
+
+    def _attach_grounding_facts(
+        self,
+        samples: list[dict],
+        multiturn_attribute: MultiTurnAttribute,
+    ) -> None:
+        """Attach per-sample grounding facts drawn from grounded envs in scope.
+
+        Writes ``sample["grounding_facts"]`` as a flat list concatenated
+        across all envs in scope that declare a ``GroundingConfig``. No-op
+        when ``environment_config`` is absent or no env in scope declares
+        grounding. Emits one ``logger.warning`` per env when truncation
+        occurs (sample_size > pool_size).
+        """
+        if self._environment_config is None:
+            return
+
+        scoped_env_ids = (
+            set(multiturn_attribute.available_environments)
+            if multiturn_attribute.available_environments
+            else {env.id for env in self._environment_config.environments}
+        )
+        grounding_envs = [
+            env
+            for env in self._environment_config.environments
+            if env.id in scoped_env_ids and env.grounding is not None
+        ]
+        if not grounding_envs:
+            return
+
+        warned_envs: set[str] = set()
+        for sample_index, sample in enumerate(samples):
+            facts: list[DeterministicToolOutput] = []
+            for env in grounding_envs:
+                assert env.grounding is not None  # narrowed above
+                rng = self._make_grounding_rng(env.grounding.seed, sample_index)
+                sampled = env.sample_grounding(
+                    n=env.grounding.sample_size, rng=rng
+                )
+                if (
+                    len(sampled) < env.grounding.sample_size
+                    and env.id not in warned_envs
+                ):
+                    logger.warning(
+                        "Grounding sample_size=%d exceeds pool size for "
+                        "environment '%s'; truncating to %d facts.",
+                        env.grounding.sample_size,
+                        env.id,
+                        len(sampled),
+                    )
+                    warned_envs.add(env.id)
+                facts.extend(sampled)
+            sample["grounding_facts"] = facts
 
     def _run_single_tool_call(self, body: str) -> Message:
         try:
