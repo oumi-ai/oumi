@@ -2050,3 +2050,129 @@ def test_attach_grounding_facts_truncation_emits_logger_warning(
     # Exactly one warning per env per synthesize invocation, even with 2 samples.
     assert len(truncation_records) == 1
     assert "env1" in truncation_records[0].getMessage()
+
+
+# --- Planner prompt grounding injection ---
+
+
+def test_create_planner_prompt_injects_grounding_block_when_facts_present(
+    mock_inference_config,
+):
+    env_config = _grounded_env_config(n_entries=10, sample_size=2, seed=1)
+    synth = _make_synthesizer(
+        mock_inference_config, environment_config=env_config
+    )
+    attr = MultiTurnAttribute(
+        id="t",
+        min_turns=2,
+        max_turns=2,
+        role_instruction_messages={
+            Role.USER: "You are a user.",
+            Role.ASSISTANT: "You are an assistant.",
+        },
+        available_environments=["env1"],
+        available_tools=["lookup"],
+    )
+    sample = {
+        "target_turns": 2,
+        "conversation_plan": "",
+        "parsed_turn_plans": [""] * 2,
+        "grounding_facts": [
+            DeterministicToolOutput(
+                input={"id": "42"}, output={"title": "Dune"}
+            ),
+            DeterministicToolOutput(
+                input={"id": "7"}, output={"title": "LotR"}
+            ),
+        ],
+    }
+
+    conversation = synth._create_planner_prompt(attr, sample)
+    planner_user_msg = conversation.messages[-1].content
+    assert isinstance(planner_user_msg, str)
+    assert "Ground this plan in these specific entities" in planner_user_msg
+    assert '- id="42", title="Dune"' in planner_user_msg
+    assert '- id="7", title="LotR"' in planner_user_msg
+    assert (
+        "Your turn plans must only reference these entities"
+        in planner_user_msg
+    )
+
+
+def test_create_planner_prompt_no_grounding_block_when_facts_absent(
+    mock_inference_config,
+):
+    env_config = _tool_env_config()  # no grounding configured
+    synth = _make_synthesizer(
+        mock_inference_config, environment_config=env_config
+    )
+    attr = _tool_multiturn_attr()
+    sample = {
+        "target_turns": 2,
+        "conversation_plan": "",
+        "parsed_turn_plans": [""] * 2,
+    }
+
+    conversation = synth._create_planner_prompt(attr, sample)
+    planner_user_msg = conversation.messages[-1].content
+    assert isinstance(planner_user_msg, str)
+    assert "Ground this plan" not in planner_user_msg
+
+
+def test_create_planner_prompt_empty_grounding_facts_omits_block(
+    mock_inference_config,
+):
+    synth = _make_synthesizer(
+        mock_inference_config, environment_config=_tool_env_config()
+    )
+    attr = _tool_multiturn_attr()
+    sample = {
+        "target_turns": 2,
+        "conversation_plan": "",
+        "parsed_turn_plans": [""] * 2,
+        "grounding_facts": [],
+    }
+
+    conversation = synth._create_planner_prompt(attr, sample)
+    planner_user_msg = conversation.messages[-1].content
+    assert isinstance(planner_user_msg, str)
+    assert "Ground this plan" not in planner_user_msg
+
+
+def test_synthesize_invokes_attach_grounding_facts(mock_inference_config):
+    """End-to-end: synthesize() calls _attach_grounding_facts before planning."""
+    env_config = _grounded_env_config(n_entries=10, sample_size=2, seed=5)
+    # Script the inference engine: 1 planner response, plus conversation turns.
+    plan_json = '[{"turn": 1, "instruction": "a"}, {"turn": 2, "instruction": "b"}]'
+    engine = _scripted_inference_engine(
+        [
+            [plan_json],  # planner call
+            ["user turn 1"],  # user turn 1
+            ["assistant final turn 2"],  # assistant turn 2 (non-tool)
+        ]
+    )
+    synth = _make_synthesizer(
+        mock_inference_config,
+        environment_config=env_config,
+        inference_engine=engine,
+    )
+    attr = MultiTurnAttribute(
+        id="t",
+        min_turns=2,
+        max_turns=2,
+        role_instruction_messages={
+            Role.USER: "You are a user.",
+            Role.ASSISTANT: "You are an assistant.",
+        },
+        available_environments=["env1"],
+        available_tools=["lookup"],
+    )
+
+    samples = [{}]
+    result = synth.synthesize(samples, attr)
+
+    # The sample dict passed in should have grounding_facts attached.
+    assert "grounding_facts" in samples[0]
+    assert len(samples[0]["grounding_facts"]) == 2
+    # Basic regression: result shape is preserved.
+    assert len(result) == 1
