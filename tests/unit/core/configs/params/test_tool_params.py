@@ -21,6 +21,7 @@ from oumi.environments import (
     BaseEnvironment,
     DeterministicEnvironment,
     DeterministicToolOutput,
+    GroundingFact,
     SyntheticEnvironment,
     SyntheticStateParams,
     Tool,
@@ -760,9 +761,7 @@ def test_describe_grounding_default_single_fact():
     from oumi.environments.base_tool import describe_grounding_default
 
     facts = [
-        DeterministicToolOutput(
-            input={"id": "42"}, output={"title": "Dune", "year": 1965}
-        )
+        GroundingFact(data={"id": "42", "title": "Dune", "year": 1965})
     ]
     rendered = describe_grounding_default(facts)
     assert rendered == '- id="42", title="Dune", year=1965'
@@ -772,8 +771,8 @@ def test_describe_grounding_default_multi_fact_preserves_order():
     from oumi.environments.base_tool import describe_grounding_default
 
     facts = [
-        DeterministicToolOutput(input={"id": "7"}, output={"title": "LotR"}),
-        DeterministicToolOutput(input={"id": "42"}, output={"title": "Dune"}),
+        GroundingFact(data={"id": "7", "title": "LotR"}),
+        GroundingFact(data={"id": "42", "title": "Dune"}),
     ]
     rendered = describe_grounding_default(facts)
     assert rendered == (
@@ -781,27 +780,12 @@ def test_describe_grounding_default_multi_fact_preserves_order():
     )
 
 
-def test_describe_grounding_default_output_wins_on_key_conflict():
-    from oumi.environments.base_tool import describe_grounding_default
-
-    facts = [
-        DeterministicToolOutput(
-            input={"id": "1", "note": "input-note"},
-            output={"note": "output-note"},
-        )
-    ]
-    rendered = describe_grounding_default(facts)
-    assert 'note="output-note"' in rendered
-    assert 'input-note' not in rendered
-
-
 def test_describe_grounding_default_handles_non_string_values():
     from oumi.environments.base_tool import describe_grounding_default
 
     facts = [
-        DeterministicToolOutput(
-            input={"id": 42},
-            output={"available": True, "count": 3, "rating": 4.5},
+        GroundingFact(
+            data={"id": 42, "available": True, "count": 3, "rating": 4.5}
         )
     ]
     rendered = describe_grounding_default(facts)
@@ -858,7 +842,7 @@ def test_base_environment_default_describe_grounding_delegates_to_helper():
         tools=[_make_synthetic_tool(id="answer")],
     )
     facts = [
-        DeterministicToolOutput(input={"id": "42"}, output={"title": "Dune"})
+        GroundingFact(data={"id": "42", "title": "Dune"})
     ]
     assert env.describe_grounding(facts) == '- id="42", title="Dune"'
 
@@ -912,7 +896,7 @@ def test_deterministic_sample_grounding_returns_n_facts():
     facts = env.sample_grounding(n=3, rng=random.Random(0))
     assert len(facts) == 3
     for fact in facts:
-        assert isinstance(fact, DeterministicToolOutput)
+        assert isinstance(fact, GroundingFact)
 
 
 def test_deterministic_sample_grounding_no_replacement_within_call():
@@ -920,7 +904,7 @@ def test_deterministic_sample_grounding_no_replacement_within_call():
 
     env = _det_env_with_n_entries(10)
     facts = env.sample_grounding(n=5, rng=random.Random(0))
-    ids = [fact.input["id"] for fact in facts]
+    ids = [fact.data["id"] for fact in facts]
     assert len(set(ids)) == len(ids)
 
 
@@ -938,8 +922,8 @@ def test_deterministic_sample_grounding_seeded_rng_is_reproducible():
     env = _det_env_with_n_entries(20)
     facts_a = env.sample_grounding(n=4, rng=random.Random(42))
     facts_b = env.sample_grounding(n=4, rng=random.Random(42))
-    ids_a = [fact.input["id"] for fact in facts_a]
-    ids_b = [fact.input["id"] for fact in facts_b]
+    ids_a = [fact.data["id"] for fact in facts_a]
+    ids_b = [fact.data["id"] for fact in facts_b]
     assert ids_a == ids_b
 
 
@@ -949,8 +933,8 @@ def test_deterministic_sample_grounding_different_seeds_differ():
     env = _det_env_with_n_entries(20)
     facts_a = env.sample_grounding(n=4, rng=random.Random(1))
     facts_b = env.sample_grounding(n=4, rng=random.Random(999))
-    ids_a = sorted(fact.input["id"] for fact in facts_a)
-    ids_b = sorted(fact.input["id"] for fact in facts_b)
+    ids_a = sorted(fact.data["id"] for fact in facts_a)
+    ids_b = sorted(fact.data["id"] for fact in facts_b)
     # With 20 entries and 4 picks, collision on both sets is vanishingly small.
     assert ids_a != ids_b
 
@@ -990,5 +974,30 @@ def test_deterministic_sample_grounding_pools_across_tools():
 
     facts = env.sample_grounding(n=3, rng=random.Random(0))
     assert len(facts) == 3
-    keys = sorted(fact.input["k"] for fact in facts)
+    keys = sorted(fact.data["k"] for fact in facts)
     assert keys == ["a1", "b1", "b2"]
+
+
+def test_deterministic_sample_grounding_output_wins_on_key_conflict():
+    import random
+    env = DeterministicEnvironment(
+        id="lookup",
+        name="Lookup",
+        description="Look up an id.",
+        tools=[
+            Tool(
+                id="lookup",
+                name="Lookup",
+                description="Look up an id.",
+                deterministic_outputs=[
+                    DeterministicToolOutput(
+                        input={"id": "1", "note": "input-note"},
+                        output={"note": "output-note"},
+                    )
+                ],
+            )
+        ],
+    )
+    facts = env.sample_grounding(n=1, rng=random.Random(0))
+    assert len(facts) == 1
+    assert facts[0].data == {"id": "1", "note": "output-note"}

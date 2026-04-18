@@ -18,6 +18,7 @@ from oumi.environments.base_environment import BaseEnvironment
 from oumi.environments.base_tool import (
     DeterministicToolOutput,
     GroundingConfig,
+    GroundingFact,
     Tool,
     ToolArgumentError,
     ToolError,
@@ -33,6 +34,7 @@ from oumi.environments.synthetic_environment import (
 
 __all__ = [
     "BaseEnvironment",
+    "GroundingFact",
     "GroundingConfig",
     "Tool",
     "ToolArgumentError",
