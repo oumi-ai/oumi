@@ -165,10 +165,18 @@ class BaseEnvironment(BaseParams, ABC):
         ...
 ```
 
-**`GroundingFact` type** — v1 uses `DeterministicToolOutput` directly. It already
-has the `input` and `output` dict fields we need. When synthetic-env grounding
-lands, we may promote this to a Protocol or abstract dataclass, but v1 doesn't
-need the abstraction.
+**`GroundingFact` type** — an env-agnostic dataclass with a single
+`data: dict[str, Any]` field (a flat key-value representation). Environments
+convert their native state (deterministic tool input/output pairs, synthetic
+state snippets, DB rows, etc.) into `GroundingFact` instances inside their
+`sample_grounding` implementation, so the grounding API is independent of any
+one env type's internal representation:
+
+```python
+@dataclass
+class GroundingFact(BaseParams):
+    data: dict[str, Any] = field(default_factory=dict)
+```
 
 ### `DeterministicEnvironment` overrides
 
@@ -178,17 +186,23 @@ class DeterministicEnvironment(BaseEnvironment):
 
     def sample_grounding(
         self, n: int, *, rng: random.Random
-    ) -> list[DeterministicToolOutput]:
-        pool = [
-            output
+    ) -> list[GroundingFact]:
+        pool: list[DeterministicToolOutput] = [
+            entry
             for tool in self.tools
-            for output in tool.deterministic_outputs
+            for entry in tool.deterministic_outputs
         ]
-        return rng.sample(pool, min(n, len(pool)))
+        sampled = rng.sample(pool, min(n, len(pool)))
+        return [
+            GroundingFact(data={**entry.input, **entry.output})
+            for entry in sampled
+        ]
 ```
 
-No `describe_grounding` override needed — the base default handles
-`DeterministicToolOutput` natively (flattening `input | output`).
+The flattening (`{**entry.input, **entry.output}`) collapses the deterministic
+env's native input/output-pair shape into the env-agnostic `GroundingFact.data`
+dict; output values win on key collisions. No `describe_grounding` override
+needed — the base default works for any `GroundingFact`.
 
 ### `ConversationSynthesizer` changes
 
@@ -392,6 +406,7 @@ environments:
 - **Progressive grounding per turn.** Currently all grounding is attached
   upfront. For very long conversations with many references, per-turn
   refinement may be needed; deferred.
-- **Formal `GroundingFact` type.** v1 uses `DeterministicToolOutput` concretely.
-  Introducing an abstract `GroundingFact` Protocol is a v2 concern when
-  synthetic envs need a different shape.
+- **Richer `GroundingFact` metadata.** v1 uses a minimal
+  `GroundingFact(data: dict[str, Any])`. Future fields (source env id, stable
+  fact id, per-env describer routing) are deferred until a use case motivates
+  them — notably the multi-env describer heterogeneity story.
