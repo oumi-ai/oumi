@@ -129,16 +129,8 @@ class ConversationSynthesizer:
     def _validate_tool_configuration(
         self, multiturn_attribute: MultiTurnAttribute
     ) -> None:
-        """Validate that tool/environment declarations have a backing environment_config.
-
-        Args:
-            multiturn_attribute: The multi-turn attribute to validate.
-
-        Raises:
-            ValueError: If ``available_tools`` or ``available_environments`` is
-                declared but no ``environment_config`` was provided to the
-                synthesizer.
-        """
+        """Validate that tool/environment declarations have a backing
+        environment_config, and warn about grounding placeholder misuse."""
         declares_tools = bool(multiturn_attribute.available_tools) or bool(
             multiturn_attribute.available_environments
         )
@@ -148,6 +140,25 @@ class ConversationSynthesizer:
                 f"available_tools/available_environments but no environment_config "
                 f"was provided to ConversationSynthesizer."
             )
+
+        # grounding_facts is planner-only. Warn if a config author placed the
+        # placeholder in a user or assistant persona template.
+        for role, persona in multiturn_attribute.role_instruction_messages.items():
+            if not isinstance(persona, str):
+                continue
+            if "{grounding_facts}" in persona and role in (
+                Role.USER,
+                Role.ASSISTANT,
+            ):
+                logger.warning(
+                    "MultiTurnAttribute '%s' references {grounding_facts} in "
+                    "the %s persona template. grounding is planner-only; "
+                    "placing {grounding_facts} in user/assistant templates "
+                    "defeats its purpose and may leak env state to roles that "
+                    "should not see it.",
+                    multiturn_attribute.id,
+                    role.value,
+                )
 
     def _format_tool_block(self, multiturn_attribute: MultiTurnAttribute) -> str:
         """Build a tool-usage instruction block for the assistant persona."""

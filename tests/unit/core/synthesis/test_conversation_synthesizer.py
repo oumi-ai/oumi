@@ -2176,3 +2176,105 @@ def test_synthesize_invokes_attach_grounding_facts(mock_inference_config):
     assert len(samples[0]["grounding_facts"]) == 2
     # Basic regression: result shape is preserved.
     assert len(result) == 1
+
+
+# --- {grounding_facts} placeholder misuse warning ---
+
+
+def test_validate_tool_configuration_warns_on_grounding_placeholder_in_user(
+    mock_inference_config, caplog
+):
+    import logging
+
+    env_config = _grounded_env_config(n_entries=5, sample_size=2, seed=1)
+    synth = _make_synthesizer(
+        mock_inference_config, environment_config=env_config
+    )
+    attr = MultiTurnAttribute(
+        id="t",
+        min_turns=2,
+        max_turns=2,
+        role_instruction_messages={
+            Role.USER: "You are a user interested in {grounding_facts}.",
+            Role.ASSISTANT: "You are an assistant.",
+        },
+        available_environments=["env1"],
+        available_tools=["lookup"],
+    )
+
+    with caplog.at_level(logging.WARNING, logger="oumi"):
+        synth._validate_tool_configuration(attr)
+
+    warnings = [
+        rec
+        for rec in caplog.records
+        if "grounding is planner-only" in rec.getMessage()
+        or "grounding_facts" in rec.getMessage()
+    ]
+    assert len(warnings) >= 1
+    assert "user" in warnings[0].getMessage().lower()
+
+
+def test_validate_tool_configuration_warns_on_grounding_placeholder_in_assistant(
+    mock_inference_config, caplog
+):
+    import logging
+
+    env_config = _grounded_env_config(n_entries=5, sample_size=2, seed=1)
+    synth = _make_synthesizer(
+        mock_inference_config, environment_config=env_config
+    )
+    attr = MultiTurnAttribute(
+        id="t",
+        min_turns=2,
+        max_turns=2,
+        role_instruction_messages={
+            Role.USER: "You are a user.",
+            Role.ASSISTANT: "You know these entities: {grounding_facts}.",
+        },
+        available_environments=["env1"],
+        available_tools=["lookup"],
+    )
+
+    with caplog.at_level(logging.WARNING, logger="oumi"):
+        synth._validate_tool_configuration(attr)
+
+    warnings = [
+        rec
+        for rec in caplog.records
+        if "grounding_facts" in rec.getMessage()
+    ]
+    assert len(warnings) >= 1
+    assert "assistant" in warnings[0].getMessage().lower()
+
+
+def test_validate_tool_configuration_no_warning_when_placeholder_absent(
+    mock_inference_config, caplog
+):
+    import logging
+
+    env_config = _grounded_env_config(n_entries=5, sample_size=2, seed=1)
+    synth = _make_synthesizer(
+        mock_inference_config, environment_config=env_config
+    )
+    attr = MultiTurnAttribute(
+        id="t",
+        min_turns=2,
+        max_turns=2,
+        role_instruction_messages={
+            Role.USER: "You are a user.",
+            Role.ASSISTANT: "You are an assistant.",
+        },
+        available_environments=["env1"],
+        available_tools=["lookup"],
+    )
+
+    with caplog.at_level(logging.WARNING, logger="oumi"):
+        synth._validate_tool_configuration(attr)
+
+    grounding_warnings = [
+        rec
+        for rec in caplog.records
+        if "grounding_facts" in rec.getMessage()
+    ]
+    assert grounding_warnings == []
