@@ -51,8 +51,30 @@ def _strip_tool_call_blocks(text: str) -> str:
     return _TOOL_CALL_RE.sub("", text)
 
 
+def _close_dangling_tool_call(text: str) -> str:
+    """Re-append ``</tool_call>`` when stop-sequence inference stripped it."""
+    opens = text.count("<tool_call>")
+    closes = text.count("</tool_call>")
+    if opens > closes:
+        return text + "</tool_call>"
+    return text
+
+
+def _truncate_after_last_tool_call(text: str) -> str:
+    """Return the text prefix up to and including the LAST ``</tool_call>``."""
+    last_close = text.rfind("</tool_call>")
+    if last_close == -1:
+        return text
+    return text[: last_close + len("</tool_call>")]
+
+
+def _tool_result_message(content: str) -> Message:
+    """Wrap a tool output as a user-role message with a <tool_result> marker."""
+    return Message(role=Role.USER, content=f"<tool_result>{content}</tool_result>")
+
+
 def _tool_error_msg(error: str) -> Message:
-    return Message(role=Role.TOOL, content=json.dumps({"error": error}))
+    return _tool_result_message(json.dumps({"error": error}))
 
 
 _PLANNER_JSON_SCHEMA: dict = {
@@ -164,11 +186,26 @@ class ConversationSynthesizer:
 
         lines = [
             "You have access to the following tools.",
-            "When tools are needed, emit one or more tool calls, each in this format:",
+            "",
+            "When you need information from a tool, emit EXACTLY ONE tool call",
+            "in this format and then STOP — do not write any text after the",
+            "closing </tool_call> tag:",
             "",
             "<tool_call>",
             '{"name": "<tool_name>", "arguments": {...}}',
             "</tool_call>",
+            "",
+            "Strict rules:",
+            "- Emit only the tool call. Do NOT include prose, explanation, or",
+            "  a fabricated answer after </tool_call>. The tool result will be",
+            "  delivered in the next turn — only then should you respond.",
+            "- Never invent fields like titles, names, IDs, or dates. State",
+            "  only facts that came back from a tool.",
+            "- If more than one tool call is needed, issue them one at a time",
+            "  across successive turns, waiting for each result before deciding",
+            "  the next call.",
+            "- When you have all the information you need, reply with a plain",
+            "  natural-language message (no <tool_call> block).",
             "",
             "Available tools:",
         ]
@@ -520,14 +557,16 @@ class ConversationSynthesizer:
             "You are a customer who has an issue with a recent order.\n\n"
             "[ASSISTANT]\n"
             "You are a helpful support agent who resolves customer issues.\n\n"
+            "Ground this plan in these specific entities:\n"
+            '- order_id="ORD-4421", item="laptop stand", status="delayed"\n\n'
             "Additional instructions: Focus on resolving the order issue "
             "efficiently while maintaining a polite and helpful tone."
         )
         example_response = """[
-  {"turn": 1, "instruction": "Greet support and explain the issue with the order"},
-  {"turn": 2, "instruction": "Acknowledge the issue and ask for order details"},
-  {"turn": 3, "instruction": "Provide order number and describe the problem further"},
-  {"turn": 4, "instruction": "Confirm the issue and offer a resolution"}
+  {"turn": 1, "instruction": "Greet support and explain that order ORD-4421 has not arrived"},
+  {"turn": 2, "instruction": "Acknowledge the issue and ask for details on order ORD-4421"},
+  {"turn": 3, "instruction": "Describe that the laptop stand from order ORD-4421 is late"},
+  {"turn": 4, "instruction": "Confirm the delay on order ORD-4421 and offer a resolution"}
 ]"""
 
         base_prompt = (
@@ -564,7 +603,11 @@ class ConversationSynthesizer:
             base_prompt += (
                 "\nGround this plan in these specific entities:\n"
                 f"{block}\n"
-                "Your turn plans must only reference these entities.\n"
+                "Every turn instruction that references one of these entities "
+                "MUST spell out the concrete identifier verbatim (e.g. write "
+                "'book B007', not 'the book'). The user persona cannot see "
+                "this list — only text you write into each instruction "
+                "reaches them.\n"
             )
 
         if multiturn_attribute.conversation_planner:
@@ -773,10 +816,12 @@ class ConversationSynthesizer:
             texts = self._extract_response(
                 self._inference_engine.infer(
                     prompts,
-                    inference_config=self._inference_config,
+                    inference_config=self._assistant_inference_config(),
                 )
             )
             for i, text in zip(active, texts):
+                text = _close_dangling_tool_call(text)
+                text = _truncate_after_last_tool_call(text)
                 turn_messages[i].append(Message(role=Role.ASSISTANT, content=text))
                 if self._is_final_response(text):
                     done[i] = True
@@ -810,6 +855,19 @@ class ConversationSynthesizer:
                 turn_messages[i].append(Message(role=Role.ASSISTANT, content=final))
 
         return [turn_messages[i] for i in sample_indices]
+
+    def _assistant_inference_config(self) -> InferenceConfig:
+        """Build the inference config used for assistant turns in the tool loop."""
+        existing_stops = list(self._inference_config.generation.stop_strings or [])
+        if "</tool_call>" not in existing_stops:
+            existing_stops = [*existing_stops, "</tool_call>"]
+        return dataclasses.replace(
+            self._inference_config,
+            generation=dataclasses.replace(
+                self._inference_config.generation,
+                stop_strings=existing_stops,
+            ),
+        )
 
     def _is_final_response(self, text: str) -> bool:
         return _TOOL_CALL_RE.search(text) is None
@@ -914,7 +972,7 @@ class ConversationSynthesizer:
             content = output
         else:
             content = json.dumps(output)
-        return Message(role=Role.TOOL, content=content)
+        return _tool_result_message(content)
 
     def _select_target_turns(
         self, multiturn_attribute: MultiTurnAttribute, turn_order: list[Role]
