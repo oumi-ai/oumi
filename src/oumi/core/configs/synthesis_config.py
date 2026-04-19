@@ -108,7 +108,17 @@ class SynthesisConfig(BaseConfig):
             )
 
         if self.environment_config is not None:
-            return self.environment_config
+            from oumi.core.configs.environment_config import EnvironmentConfig
+
+            if isinstance(self.environment_config, EnvironmentConfig):
+                return self.environment_config
+            if isinstance(self.environment_config, dict):
+                return EnvironmentConfig(**self.environment_config)
+            raise ValueError(
+                "SynthesisConfig.environment_config must be an "
+                "EnvironmentConfig instance or a dict; got "
+                f"{type(self.environment_config).__name__}."
+            )
 
         if self.environment_config_path is not None:
             if self.environment_config_path == "":
