@@ -1,0 +1,342 @@
+# Library Assistant — Tool-Use Conversation Synthesis
+#
+# Generates grounded multi-turn conversations between a library patron and a
+# library-assistant chatbot that looks up book circulation status via a
+# DeterministicEnvironment tool.
+#
+# Grounding is enabled on the environment: a small random subset of real
+# catalog entries is surfaced to the planner each conversation so turn plans
+# reference book IDs/titles that actually exist. The user persona enacts
+# those plans; the assistant persona is un-grounded and must call the
+# `lookup_book_status` tool to learn any circulation details.
+#
+# Requirements:
+#   - Set ANTHROPIC_API_KEY in the environment
+#     (example: `export ANTHROPIC_API_KEY=your_api_key`)
+#   - Or change the inference_config to use a different provider/engine.
+#
+# Usage:
+#   oumi synth -c configs/examples/synthesis/library_tool_use_synth.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/synth.html
+#   - Grounding spec: docs/superpowers/specs/2026-04-17-deterministic-env-grounding-design.md
+#   - Config class: oumi.core.configs.SynthesisConfig
+#   - Environment config: oumi.core.configs.EnvironmentConfig
+
+strategy: GENERAL
+num_samples: 10
+output_path: library_tool_use_dataset.jsonl
+
+environment_config:
+  environments:
+    - id: library_catalog
+      type: deterministic
+      name: Library Catalog
+      description: Circulation lookup for the city library.
+      grounding:
+        sample_size: 3
+        seed: 42
+      tools:
+        - id: lookup_book_status
+          name: Lookup Book Status
+          description: >-
+            Look up a book's circulation status by book_id. Returns the
+            title, author, current borrower, borrow date, and due date.
+          parameters:
+            type: object
+            properties:
+              book_id:
+                type: string
+                description: The library's book identifier (e.g. "B001").
+            required:
+              - book_id
+          output_schema:
+            type: object
+            properties:
+              title:
+                type: string
+              author:
+                type: string
+              borrower_name:
+                type: string
+              borrow_date:
+                type: string
+              return_date:
+                type: string
+              status:
+                type: string
+          deterministic_outputs:
+            - input: { book_id: "B001" }
+              output:
+                title: "The Great Gatsby"
+                author: "F. Scott Fitzgerald"
+                borrower_name: "Sarah Chen"
+                borrow_date: "2026-03-15"
+                return_date: "2026-04-15"
+                status: "overdue"
+            - input: { book_id: "B002" }
+              output:
+                title: "To Kill a Mockingbird"
+                author: "Harper Lee"
+                borrower_name: "Marcus Johnson"
+                borrow_date: "2026-04-01"
+                return_date: "2026-05-01"
+                status: "borrowed"
+            - input: { book_id: "B003" }
+              output:
+                title: "1984"
+                author: "George Orwell"
+                borrower_name: "Aisha Patel"
+                borrow_date: "2026-04-10"
+                return_date: "2026-05-10"
+                status: "borrowed"
+            - input: { book_id: "B004" }
+              output:
+                title: "Pride and Prejudice"
+                author: "Jane Austen"
+                borrower_name: "David Kim"
+                borrow_date: "2026-03-20"
+                return_date: "2026-04-20"
+                status: "borrowed"
+            - input: { book_id: "B005" }
+              output:
+                title: "Dune"
+                author: "Frank Herbert"
+                borrower_name: "Elena Rodriguez"
+                borrow_date: "2026-04-05"
+                return_date: "2026-05-05"
+                status: "borrowed"
+            - input: { book_id: "B006" }
+              output:
+                title: "The Catcher in the Rye"
+                author: "J.D. Salinger"
+                borrower_name: "James Wright"
+                borrow_date: "2026-02-28"
+                return_date: "2026-03-28"
+                status: "overdue"
+            - input: { book_id: "B007" }
+              output:
+                title: "Brave New World"
+                author: "Aldous Huxley"
+                borrower_name: "Priya Sharma"
+                borrow_date: "2026-04-12"
+                return_date: "2026-05-12"
+                status: "borrowed"
+            - input: { book_id: "B008" }
+              output:
+                title: "The Hobbit"
+                author: "J.R.R. Tolkien"
+                borrower_name: "Liam O'Connor"
+                borrow_date: "2026-04-14"
+                return_date: "2026-05-14"
+                status: "borrowed"
+            - input: { book_id: "B009" }
+              output:
+                title: "Fahrenheit 451"
+                author: "Ray Bradbury"
+                borrower_name: "Nina Volkov"
+                borrow_date: "2026-03-25"
+                return_date: "2026-04-25"
+                status: "borrowed"
+            - input: { book_id: "B010" }
+              output:
+                title: "One Hundred Years of Solitude"
+                author: "Gabriel García Márquez"
+                borrower_name: "Takeshi Yamamoto"
+                borrow_date: "2026-04-08"
+                return_date: "2026-05-08"
+                status: "borrowed"
+            - input: { book_id: "B011" }
+              output:
+                title: "The Name of the Wind"
+                author: "Patrick Rothfuss"
+                borrower_name: "Zoe Anderson"
+                borrow_date: "2026-04-02"
+                return_date: "2026-05-02"
+                status: "borrowed"
+            - input: { book_id: "B012" }
+              output:
+                title: "Project Hail Mary"
+                author: "Andy Weir"
+                borrower_name: "Omar Hassan"
+                borrow_date: "2026-03-30"
+                return_date: "2026-04-30"
+                status: "borrowed"
+            - input: { book_id: "B013" }
+              output:
+                title: "Klara and the Sun"
+                author: "Kazuo Ishiguro"
+                borrower_name: "Mira Gupta"
+                borrow_date: "2026-04-13"
+                return_date: "2026-05-13"
+                status: "borrowed"
+            - input: { book_id: "B014" }
+              output:
+                title: "The Midnight Library"
+                author: "Matt Haig"
+                borrower_name: "Chen Wei"
+                borrow_date: "2026-03-18"
+                return_date: "2026-04-18"
+                status: "overdue"
+            - input: { book_id: "B015" }
+              output:
+                title: "Circe"
+                author: "Madeline Miller"
+                borrower_name: "Ana Silva"
+                borrow_date: "2026-04-06"
+                return_date: "2026-05-06"
+                status: "borrowed"
+
+strategy_params:
+  sampled_attributes:
+    # Patron type drives tone + what they typically ask about
+    - id: patron_type
+      name: Patron Type
+      description: The type of library patron interacting with the assistant
+      possible_values:
+        - id: student
+          name: Student
+          description: A university student, often in a hurry, focused on due dates
+          sample_rate: 0.35
+        - id: professor
+          name: Professor
+          description: A faculty researcher, precise and expects efficient service
+          sample_rate: 0.2
+        - id: casual_reader
+          name: Casual Reader
+          description: A local resident browsing casually, friendly and chatty
+          sample_rate: 0.3
+        - id: parent
+          name: Parent
+          description: A parent borrowing on behalf of their child, sometimes uncertain
+          sample_rate: 0.15
+
+    # What the patron wants to accomplish this conversation
+    - id: query_intent
+      name: Query Intent
+      description: The reason the patron is contacting the library assistant
+      possible_values:
+        - id: due_date_check
+          name: Due Date Check
+          description: Wants to know when a specific book is due back
+          sample_rate: 0.35
+        - id: borrower_identification
+          name: Borrower Identification
+          description: Wants to find out who currently has a particular book
+          sample_rate: 0.2
+        - id: overdue_concern
+          name: Overdue Concern
+          description: Worried a book they borrowed is overdue, wants status
+          sample_rate: 0.25
+        - id: multi_book_inquiry
+          name: Multi-Book Inquiry
+          description: Asks about the status of more than one book in the same chat
+          sample_rate: 0.2
+
+    # Conversational style
+    - id: patron_demeanor
+      name: Patron Demeanor
+      description: The emotional tone the patron brings to the conversation
+      possible_values:
+        - id: polite
+          name: Polite
+          description: Courteous, patient, uses please/thank you
+          sample_rate: 0.45
+        - id: hurried
+          name: Hurried
+          description: Short messages, wants a quick answer
+          sample_rate: 0.25
+        - id: confused
+          name: Confused
+          description: Not sure what book IDs are or how to phrase the question
+          sample_rate: 0.15
+        - id: friendly
+          name: Friendly
+          description: Warm and conversational, likes small talk
+          sample_rate: 0.15
+
+  # Per-sample first name for realism
+  generated_attributes:
+    - id: patron_name
+      instruction_messages:
+        - role: SYSTEM
+          content: |
+            Generate a realistic first name only. Output just the name, nothing else.
+        - role: USER
+          content: |
+            Generate a common first name.
+
+  # The multi-turn conversation definition
+  multiturn_attributes:
+    - id: "library_conversation"
+      min_turns: 3
+      max_turns: 8
+      available_environments:
+        - library_catalog
+      available_tools:
+        - lookup_book_status
+      max_tool_calls_per_turn: 4
+
+      role_instruction_messages:
+        USER: |
+          You are {patron_name}, a {patron_type.name} visiting the city library's
+          online assistant.
+
+          Your background: {patron_type.description}
+          Your mood today: {patron_demeanor.name} — {patron_demeanor.description}
+          What you want: {query_intent.description}
+
+          Guidelines:
+          - Follow the plan's direction for this turn, but respond naturally.
+          - Stay in character. Do not break the fourth wall.
+          - You do NOT have access to the library database — only the assistant does.
+            When you want to know about a book, ask the assistant; do not claim to
+            know its status yourself.
+          - Keep messages conversational and to 1-3 sentences.
+
+          If this is your first message, open the conversation with a greeting and
+          your question.
+
+          Output only your message, nothing else.
+
+        ASSISTANT: |
+          You are LibBot, the city library's circulation assistant. You help
+          patrons look up book status using the tools provided to you.
+
+          Rules:
+          - When a patron asks about a specific book, call the `lookup_book_status`
+            tool with the relevant book_id to retrieve current circulation data.
+          - If the patron mentions a title without an ID, politely ask for the
+            book_id before calling the tool. The ID format is `B` followed by
+            three digits (e.g. B001).
+          - After you get the tool result, summarize it in friendly, natural
+            language. Include title, borrower, borrow date, due date, and status.
+          - If the tool returns an error (e.g. unknown book_id), apologize,
+            mention the ID was not found, and ask the patron to double-check.
+          - Never fabricate circulation details. Only state facts that came from
+            the tool.
+          - Keep responses under 3 sentences unless summarizing multiple books.
+
+          Follow the plan's direction for this turn. Output only your response.
+
+      output_system_prompt: |
+        You are LibBot, the city library's circulation assistant. You help
+        patrons look up book status using the lookup_book_status tool.
+        Always call the tool for circulation queries; never fabricate data.
+
+  passthrough_attributes:
+    - library_conversation
+    - library_conversation_plan
+
+inference_config:
+  model:
+    model_name: claude-sonnet-4-20250514
+  engine: ANTHROPIC
+  generation:
+    max_new_tokens: 4096
+    temperature: 0.7
+    top_p: 0.9
+  remote_params:
+    num_workers: 10
+    politeness_policy: 60
