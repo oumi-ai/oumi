@@ -267,7 +267,7 @@ class TypedAnalyzeConfig:
                 warnings.warn(
                     "'instance_id' is deprecated; rename to 'display_name'.",
                     DeprecationWarning,
-                    stacklevel=2,
+                    stacklevel=3,
                 )
                 normalized["display_name"] = normalized.pop("instance_id")
             analyzers.append(AnalyzerConfig(**normalized))
