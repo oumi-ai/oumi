@@ -18,25 +18,20 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Annotated, Any
+from typing import TYPE_CHECKING, Annotated, Any
 
 import typer
 import yaml
-from datasets import load_dataset
-from rich.console import Console
-from rich.table import Table
 
 import oumi.cli.cli_utils as cli_utils
-from oumi.analyze import create_analyzer_from_config
-from oumi.analyze.config import TypedAnalyzeConfig
-from oumi.analyze.discovery import print_analyzer_metrics
-from oumi.analyze.pipeline import AnalysisPipeline
-from oumi.analyze.testing.engine import TestEngine
 from oumi.cli.alias import AliasType, try_get_config_name_for_alias
 from oumi.cli.completions import complete_analyze_config
-from oumi.core.types.conversation import Conversation
 from oumi.utils.io_utils import load_jsonlines
 from oumi.utils.logging import logger
+
+if TYPE_CHECKING:
+    from oumi.analyze.config import TypedAnalyzeConfig
+    from oumi.core.types.conversation import Conversation
 
 _VALID_OUTPUT_FORMATS = ("csv", "json", "parquet")
 
@@ -59,6 +54,8 @@ def load_conversations_from_path(
     sample_count: int | None = None,
 ) -> list[Conversation]:
     """Load conversations from a JSONL file."""
+    from oumi.core.types.conversation import Conversation
+
     path = Path(path)
     if not path.exists():
         raise FileNotFoundError(f"Dataset file not found: {path}")
@@ -91,6 +88,10 @@ def load_conversations_from_dataset(
     have the Oumi ``{"messages": [...]}`` shape. Items that don't parse are
     skipped with a warning.
     """
+    from datasets import load_dataset
+
+    from oumi.core.types.conversation import Conversation
+
     logger.info(f"Loading dataset: {dataset_name} (split={split}, subset={subset})")
 
     dataset = load_dataset(dataset_name, subset, split=split)
@@ -114,6 +115,10 @@ def run_typed_analysis(
     conversations: list | None = None,
 ) -> dict[str, Any]:
     """Run the typed analysis pipeline."""
+    from oumi.analyze import create_analyzer_from_config
+    from oumi.analyze.pipeline import AnalysisPipeline
+    from oumi.analyze.testing.engine import TestEngine
+
     if conversations is None:
         if config.dataset_path:
             conversations = load_conversations_from_path(
@@ -213,6 +218,9 @@ def save_results(
 
 def print_summary(results: dict[str, Any]) -> None:
     """Print a summary of analysis results to console."""
+    from rich.console import Console
+    from rich.table import Table
+
     console = Console()
 
     console.print("\n[bold cyan]Analysis Summary[/bold cyan]\n")
@@ -262,6 +270,8 @@ def run_from_config_file(
     output_format: str = "parquet",
 ) -> dict[str, Any]:
     """Run analysis from a YAML configuration file."""
+    from oumi.analyze.config import TypedAnalyzeConfig
+
     config = TypedAnalyzeConfig.from_yaml(config_path)
     if output_path:
         config.output_path = output_path
@@ -275,6 +285,8 @@ def run_from_config_file(
 
 def list_metrics(analyzer_name: str | None = None) -> None:
     """List available metrics for analyzers."""
+    from oumi.analyze.discovery import print_analyzer_metrics
+
     print_analyzer_metrics(analyzer_name)
 
 
@@ -318,6 +330,8 @@ def _run_typed_analysis_cli(
     sample_count: int | None = None,
 ) -> None:
     """Run analysis using the typed analyzer system."""
+    from oumi.analyze.config import TypedAnalyzeConfig
+
     try:
         if list_metrics_flag:
             cli_utils.CONSOLE.print("\n[bold cyan]Available Metrics[/bold cyan]\n")
