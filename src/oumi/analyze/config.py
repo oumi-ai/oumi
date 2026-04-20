@@ -189,7 +189,7 @@ class TypedAnalyzeConfig:
     split: str = "train"
     subset: str | None = None
     sample_count: int | None = None
-    output_path: str = "."
+    output_path: str | None = None
     analyzers: list[AnalyzerConfig] = field(default_factory=list)
     custom_metrics: list[CustomMetricConfig] = field(default_factory=list)
     tests: list[TestParams] = field(default_factory=list)
@@ -327,7 +327,7 @@ class TypedAnalyzeConfig:
             split=data.get("split", "train"),
             subset=data.get("subset"),
             sample_count=data.get("sample_count"),
-            output_path=data.get("output_path", "."),
+            output_path=data.get("output_path"),
             analyzers=analyzers,
             custom_metrics=custom_metrics,
             tests=tests,

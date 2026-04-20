@@ -154,7 +154,7 @@ def run_typed_analysis(
 
     pipeline = AnalysisPipeline(
         analyzers=analyzers,
-        cache_dir=config.output_path if config.output_path != "." else None,
+        cache_dir=config.output_path,
     )
 
     results = pipeline.run(conversations)
@@ -177,7 +177,7 @@ def run_typed_analysis(
 def save_results(
     output_path: str | Path,
     results: dict[str, Any],
-    output_format: str = "parquet",
+    output_format: str = "csv",
 ) -> None:
     """Save analysis results to disk."""
     output_dir = Path(output_path)
@@ -267,7 +267,7 @@ def print_summary(results: dict[str, Any]) -> None:
 def run_from_config_file(
     config_path: str | Path,
     output_path: str | None = None,
-    output_format: str = "parquet",
+    output_format: str = "csv",
 ) -> dict[str, Any]:
     """Run analysis from a YAML configuration file."""
     from oumi.analyze.config import TypedAnalyzeConfig
