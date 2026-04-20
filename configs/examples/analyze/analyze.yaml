@@ -23,30 +23,60 @@ analyzers:
     instance_id: Length
     params:
       # Tokenizer name - automatically detects tiktoken vs HuggingFace
-      tokenizer_name: cl100k_base # tiktoken encoding (GPT-4)
+      tokenizer_name: o200k_base # tiktoken encoding (GPT-4o)
+      trust_remote_code: false
       # For HuggingFace tokenizers, use model ID:
       # tokenizer_name: meta-llama/Llama-3.1-8B-Instruct
-  - id: quality
-    instance_id: Quality
   - id: turn_stats
     instance_id: TurnStats
+  - id: quality
+    instance_id: Quality
 
 # Tests validate analysis results against thresholds.
 # Metric paths use "{instance_id}.{field_name}" format.
+# Without max_percentage/min_percentage, a test passes only if zero samples match.
 tests:
-  - id: max_tokens
+  - id: total_tokens
     type: threshold
+    severity: medium
+    title: "Total tokens exceed 8000"
+    description: "Flags conversations whose total token count exceeds 8000."
     metric: Length.total_tokens
     operator: ">"
-    value: 30
-    max_percentage: 5.0
+    value: 8000
+
+  - id: non_alternating_turns
+    type: threshold
     severity: high
-    title: "Token count exceeds 30"
+    title: "Non-alternating user/assistant turns"
+    description: "Flags conversations where user/assistant messages do not alternate."
+    metric: Quality.has_non_alternating_turns
+    operator: "=="
+    value: 1
+
   - id: empty_turns
     type: threshold
+    severity: high
+    title: "Empty turns detected"
+    description: "Flags conversations containing empty or whitespace-only messages."
     metric: Quality.has_empty_turns
     operator: "=="
-    value: true
-    max_percentage: 5.0
+    value: 1
+
+  - id: no_user_message
+    type: threshold
     severity: high
-    title: "Conversations with empty turns"
+    title: "No user message"
+    description: "Flags conversations that contain no user message."
+    metric: Quality.has_no_user_message
+    operator: "=="
+    value: 1
+
+  - id: system_message_not_at_start
+    type: threshold
+    severity: medium
+    title: "System message not at start"
+    description: "Flags conversations where a system message appears after position 0."
+    metric: Quality.has_system_message_not_at_start
+    operator: "=="
+    value: 1

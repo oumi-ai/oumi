@@ -494,6 +494,7 @@ def analyze(
     dataset_name: Annotated[
         str | None,
         typer.Option(
+            "--dataset-name",
             "--dataset_name",
             help="Dataset name to analyze (overrides config).",
             rich_help_panel="Data",
@@ -502,6 +503,7 @@ def analyze(
     dataset_path: Annotated[
         str | None,
         typer.Option(
+            "--dataset-path",
             "--dataset_path",
             help="Path to dataset file in JSONL format (overrides config).",
             rich_help_panel="Data",
@@ -510,6 +512,7 @@ def analyze(
     sample_count: Annotated[
         int | None,
         typer.Option(
+            "--sample-count",
             "--sample_count",
             help="Number of samples to analyze (overrides config).",
             rich_help_panel="Data",
