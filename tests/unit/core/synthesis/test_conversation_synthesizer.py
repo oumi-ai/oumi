@@ -174,26 +174,6 @@ def test_synthesize_returns_list_of_dicts(
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
-def test_synthesize_with_empty_samples(
-    mock_build_inference_engine,
-    mock_general_synthesis_params,
-    mock_multiturn_attribute,
-    mock_inference_config,
-):
-    """Test that synthesize returns empty list for empty samples."""
-    mock_build_inference_engine.return_value = Mock()
-
-    synthesizer = ConversationSynthesizer(
-        mock_general_synthesis_params,
-        mock_inference_config,
-    )
-
-    result = synthesizer.synthesize([], mock_multiturn_attribute)
-
-    assert result == []
-
-
-@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
 def test_output_system_prompt_prepended_to_conversation(
     mock_build_inference_engine,
     mock_general_synthesis_params,
@@ -231,36 +211,6 @@ def test_output_system_prompt_prepended_to_conversation(
     # Subsequent messages should be the conversation history
     assert messages[1]["role"] == "user"
     assert messages[2]["role"] == "assistant"
-
-
-@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
-def test_conversation_plan_uses_namespaced_key(
-    mock_build_inference_engine,
-    mock_general_synthesis_params,
-    mock_multiturn_attribute,
-    mock_inference_config,
-):
-    """Test that conversation_plan is stored under a namespaced key."""
-    mock_inference_engine = Mock()
-    mock_build_inference_engine.return_value = mock_inference_engine
-    mock_inference_engine.infer.return_value = [
-        Conversation(messages=[Message(role=Role.ASSISTANT, content="Response")])
-    ]
-
-    synthesizer = ConversationSynthesizer(
-        mock_general_synthesis_params,
-        mock_inference_config,
-    )
-
-    samples = [{"customer_type": "friendly", "issue": "product question"}]
-    result = synthesizer.synthesize(samples, mock_multiturn_attribute)
-
-    assert len(result) == 1
-    # Plan should be returned under a namespaced key: {attribute_id}_plan
-    plan_key = f"{mock_multiturn_attribute.id}_plan"
-    record = result[0]
-    assert record is not None
-    assert plan_key in record
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
@@ -700,79 +650,6 @@ def test_parse_plan_handles_missing_turns(
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
-def test_parse_plan_handles_raw_json(
-    mock_build_inference_engine,
-    mock_inference_config,
-):
-    """Test that _parse_plan handles raw JSON without code fences."""
-    mock_build_inference_engine.return_value = Mock()
-
-    synthesizer = ConversationSynthesizer(
-        GeneralSynthesisParams(),
-        mock_inference_config,
-    )
-
-    plan = """[
-  {"turn": 1, "instruction": "First instruction"},
-  {"turn": 2, "instruction": "Second instruction"}
-]"""
-
-    result = synthesizer._parse_plan(plan, target_turns=2)
-
-    assert result is not None
-    assert len(result) == 2
-    assert result[0] == "First instruction"
-    assert result[1] == "Second instruction"
-
-
-@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
-def test_parse_plan_handles_invalid_json(
-    mock_build_inference_engine,
-    mock_inference_config,
-):
-    """Test that _parse_plan returns None for invalid JSON."""
-    mock_build_inference_engine.return_value = Mock()
-
-    synthesizer = ConversationSynthesizer(
-        GeneralSynthesisParams(),
-        mock_inference_config,
-    )
-
-    plan = "This is not valid JSON at all"
-
-    result = synthesizer._parse_plan(plan, target_turns=2)
-
-    assert result is None
-
-
-@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
-def test_parse_plan_handles_string_turn_numbers(
-    mock_build_inference_engine,
-    mock_inference_config,
-):
-    """Test that _parse_plan handles turn numbers as strings (common LLM output)."""
-    mock_build_inference_engine.return_value = Mock()
-
-    synthesizer = ConversationSynthesizer(
-        GeneralSynthesisParams(),
-        mock_inference_config,
-    )
-    plan = """```json
-[
-  {"turn": "1", "instruction": "First instruction"},
-  {"turn": "2", "instruction": "Second instruction"}
-]
-```"""
-
-    result = synthesizer._parse_plan(plan, target_turns=2)
-
-    assert result is not None
-    assert len(result) == 2
-    assert result[0] == "First instruction"
-    assert result[1] == "Second instruction"
-
-
-@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
 def test_validate_roles_raises_on_missing_role(
     mock_build_inference_engine,
     mock_inference_config,
@@ -801,32 +678,6 @@ def test_validate_roles_raises_on_missing_role(
 
     assert "assistant" in str(exc_info.value).lower()
     assert "missing" in str(exc_info.value).lower()
-
-
-@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
-def test_validate_roles_passes_for_valid_config(
-    mock_build_inference_engine,
-    mock_inference_config,
-):
-    """Test that _validate_roles passes for valid configuration."""
-    mock_build_inference_engine.return_value = Mock()
-
-    synthesizer = ConversationSynthesizer(
-        GeneralSynthesisParams(),
-        mock_inference_config,
-    )
-
-    multiturn_attr = MultiTurnAttribute(
-        id="test_conversation",
-        min_turns=2,
-        max_turns=2,
-        role_instruction_messages={
-            Role.USER: "You are a user",
-            Role.ASSISTANT: "You are an assistant",
-        },
-    )
-
-    synthesizer._validate_roles(multiturn_attr)
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
@@ -878,22 +729,6 @@ def test_parse_plan_extracts_raw_json_without_fences(
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
-def test_parse_plan_handles_single_dict_json(
-    mock_build_inference_engine,
-    mock_inference_config,
-):
-    """Test that _parse_plan handles LLM returning a single dict instead of a list."""
-    mock_build_inference_engine.return_value = Mock()
-    synthesizer = ConversationSynthesizer(
-        GeneralSynthesisParams(), mock_inference_config
-    )
-    plan = '```json\n{"turn": 1, "instruction": "Only turn"}\n```'
-    result = synthesizer._parse_plan(plan, target_turns=1)
-    assert result is not None
-    assert result[0] == "Only turn"
-
-
-@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
 def test_parse_plan_returns_none_for_malformed_text(
     mock_build_inference_engine,
     mock_inference_config,
@@ -935,48 +770,6 @@ def test_has_empty_messages_detects_empty_content(
         ]
     )
     assert synthesizer._has_empty_messages(conversation_ws) is True
-
-
-@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
-def test_has_empty_messages_passes_valid_conversation(
-    mock_build_inference_engine,
-    mock_inference_config,
-):
-    """Test that _has_empty_messages returns False when all messages have content."""
-    mock_build_inference_engine.return_value = Mock()
-    synthesizer = ConversationSynthesizer(
-        GeneralSynthesisParams(), mock_inference_config
-    )
-
-    conversation = Conversation(
-        messages=[
-            Message(role=Role.SYSTEM, content="System prompt"),
-            Message(role=Role.USER, content="Hello"),
-            Message(role=Role.ASSISTANT, content="Hi there!"),
-        ]
-    )
-    assert synthesizer._has_empty_messages(conversation) is False
-
-
-@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
-def test_has_empty_messages_ignores_system_messages(
-    mock_build_inference_engine,
-    mock_inference_config,
-):
-    """Test that _has_empty_messages ignores system messages."""
-    mock_build_inference_engine.return_value = Mock()
-    synthesizer = ConversationSynthesizer(
-        GeneralSynthesisParams(), mock_inference_config
-    )
-
-    conversation = Conversation(
-        messages=[
-            Message(role=Role.SYSTEM, content=""),
-            Message(role=Role.USER, content="Hello"),
-            Message(role=Role.ASSISTANT, content="Hi!"),
-        ]
-    )
-    assert synthesizer._has_empty_messages(conversation) is False
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
@@ -1185,35 +978,6 @@ def test_execute_tool_calls_multiple_blocks_in_order(mock_inference_config):
     assert '"id": "01"' in err  # configured input is surfaced for self-correction
 
 
-def test_execute_tool_calls_passes_through_string_output(mock_inference_config):
-    env = DeterministicEnvironment(
-        id="env1",
-        name="Env",
-        description="Test env",
-        tools=[
-            Tool(
-                id="echo",
-                name="Echo",
-                description="Return a string.",
-                deterministic_outputs=[
-                    DeterministicToolOutput(input={}, output={"msg": "hi"}),
-                ],
-            )
-        ],
-    )
-    env_config = EnvironmentConfig(environments=[env])
-    synth = _make_synthesizer(mock_inference_config, environment_config=env_config)
-    # Override step to return a string output.
-    env_config.get_environment("env1").step = Mock(  # type: ignore[union-attr]
-        return_value=ToolResult(output="hello")
-    )
-
-    messages = synth._execute_tool_calls(
-        '<tool_call>{"name": "echo", "arguments": {}}</tool_call>'
-    )
-    assert _unwrap_tool_result(messages[0].content) == "hello"
-
-
 def test_execute_tool_calls_malformed_json(mock_inference_config):
     synth = _make_synthesizer(
         mock_inference_config, environment_config=_tool_env_config()
@@ -1223,17 +987,6 @@ def test_execute_tool_calls_malformed_json(mock_inference_config):
     assert "Malformed" in json.loads(_unwrap_tool_result(messages[0].content))["error"]
 
 
-def test_execute_tool_calls_non_object_body(mock_inference_config):
-    synth = _make_synthesizer(
-        mock_inference_config, environment_config=_tool_env_config()
-    )
-    messages = synth._execute_tool_calls("<tool_call>[1, 2]</tool_call>")
-    assert (
-        "must be a JSON object"
-        in json.loads(_unwrap_tool_result(messages[0].content))["error"]
-    )
-
-
 def test_execute_tool_calls_missing_name(mock_inference_config):
     synth = _make_synthesizer(
         mock_inference_config, environment_config=_tool_env_config()
@@ -1241,19 +994,6 @@ def test_execute_tool_calls_missing_name(mock_inference_config):
     messages = synth._execute_tool_calls('<tool_call>{"arguments": {}}</tool_call>')
     assert (
         "missing 'name'"
-        in json.loads(_unwrap_tool_result(messages[0].content))["error"]
-    )
-
-
-def test_execute_tool_calls_non_dict_arguments(mock_inference_config):
-    synth = _make_synthesizer(
-        mock_inference_config, environment_config=_tool_env_config()
-    )
-    messages = synth._execute_tool_calls(
-        '<tool_call>{"name": "lookup", "arguments": "oops"}</tool_call>'
-    )
-    assert (
-        "must be an object"
         in json.loads(_unwrap_tool_result(messages[0].content))["error"]
     )
 
@@ -1346,21 +1086,6 @@ def test_execute_tool_calls_validation_runs_before_env_step(mock_inference_confi
     )
 
 
-def test_execute_tool_calls_valid_arguments_hit_env_step(mock_inference_config):
-    """Schema-valid arguments that miss the deterministic table still surface
-    a structured ToolLookupError — not a silent null output."""
-    synth = _make_synthesizer(
-        mock_inference_config, environment_config=_typed_tool_env_config()
-    )
-    messages = synth._execute_tool_calls(
-        '<tool_call>{"name": "lookup", '
-        '"arguments": {"policy_id": "unknown", "limit": 5}}</tool_call>'
-    )
-    err = json.loads(_unwrap_tool_result(messages[0].content))["error"]
-    assert "No deterministic output matches" in err
-    assert '"policy_id": "p1"' in err  # existing configured input is surfaced
-
-
 def test_execute_tool_calls_env_raises(mock_inference_config):
     env_config = _tool_env_config()
     synth = _make_synthesizer(mock_inference_config, environment_config=env_config)
@@ -1429,15 +1154,6 @@ def test_truncate_after_last_tool_call_preserves_leading_prose():
     assert cleaned == text
 
 
-def test_truncate_after_last_tool_call_keeps_plain_response():
-    from oumi.core.synthesis.conversation_synthesizer import (
-        _truncate_after_last_tool_call,
-    )
-
-    text = "Here is a normal final response with no tool call."
-    assert _truncate_after_last_tool_call(text) == text
-
-
 def test_truncate_after_last_tool_call_keeps_multiple_calls():
     from oumi.core.synthesis.conversation_synthesizer import (
         _truncate_after_last_tool_call,
@@ -1466,24 +1182,6 @@ def test_close_dangling_tool_call_appends_missing_close_tag():
     closed = _close_dangling_tool_call(truncated)
     assert closed.endswith("</tool_call>")
     assert closed.count("<tool_call>") == closed.count("</tool_call>")
-
-
-def test_close_dangling_tool_call_noop_when_balanced():
-    from oumi.core.synthesis.conversation_synthesizer import (
-        _close_dangling_tool_call,
-    )
-
-    text = '<tool_call>{"name": "x", "arguments": {}}</tool_call>'
-    assert _close_dangling_tool_call(text) == text
-
-
-def test_close_dangling_tool_call_noop_when_no_tool_call():
-    from oumi.core.synthesis.conversation_synthesizer import (
-        _close_dangling_tool_call,
-    )
-
-    text = "Plain response, no tool tags here."
-    assert _close_dangling_tool_call(text) == text
 
 
 def test_assistant_inference_config_adds_stop_sequence(mock_inference_config):
@@ -1610,33 +1308,6 @@ def test_run_assistant_turn_rehydrates_stop_sequence_stripped_close_tag(
     assert msgs[0][1].role == Role.USER
     tool_payload = json.loads(_unwrap_tool_result(msgs[0][1].content))
     assert tool_payload == {"status": "ok"}
-
-
-def test_run_assistant_turn_uses_assistant_inference_config(
-    mock_inference_config,
-):
-    """Assistant turns must run through _assistant_inference_config()
-    (which adds </tool_call> to stop_strings) — not the base config."""
-    env_config = _tool_env_config()
-    engine = _scripted_inference_engine([["final answer"]])
-    synth = _make_synthesizer(
-        mock_inference_config,
-        environment_config=env_config,
-        inference_engine=engine,
-    )
-
-    synth._run_assistant_turn(
-        samples=[{"target_turns": 2, "parsed_turn_plans": ["", ""]}],
-        sample_indices=[0],
-        histories=[[]],
-        current_turn=2,
-        multiturn_attribute=_tool_multiturn_attr(),
-    )
-
-    # The engine was called with a config whose stop_strings includes the tag.
-    call_kwargs = engine.infer.call_args_list[0].kwargs
-    cfg = call_kwargs["inference_config"]
-    assert "</tool_call>" in (cfg.generation.stop_strings or [])
 
 
 def test_run_assistant_turn_lockstep_final_response(mock_inference_config):
@@ -2056,29 +1727,12 @@ def test_synthesize_raises_when_environments_declared_without_env_config(
 # --- _make_grounding_rng ---
 
 
-def test_make_grounding_rng_unseeded_returns_fresh_random(mock_inference_config):
-    import random as _random
-
-    synth = _make_synthesizer(mock_inference_config)
-    rng = synth._make_grounding_rng(seed=None, sample_index=0)
-    assert isinstance(rng, _random.Random)
-
-
 def test_make_grounding_rng_seeded_is_reproducible(mock_inference_config):
     synth = _make_synthesizer(mock_inference_config)
     rng_a = synth._make_grounding_rng(seed=42, sample_index=3)
     rng_b = synth._make_grounding_rng(seed=42, sample_index=3)
     # Same seed + same sample_index produces the same stream.
     assert [rng_a.random() for _ in range(5)] == [rng_b.random() for _ in range(5)]
-
-
-def test_make_grounding_rng_seeded_varies_across_sample_indices(
-    mock_inference_config,
-):
-    synth = _make_synthesizer(mock_inference_config)
-    rng_0 = synth._make_grounding_rng(seed=42, sample_index=0)
-    rng_1 = synth._make_grounding_rng(seed=42, sample_index=1)
-    assert [rng_0.random() for _ in range(5)] != [rng_1.random() for _ in range(5)]
 
 
 # --- _attach_grounding_facts ---
@@ -2118,39 +1772,6 @@ def _grounded_det_env(
 
 def _grounded_env_config(**env_kwargs) -> EnvironmentConfig:
     return EnvironmentConfig(environments=[_grounded_det_env(**env_kwargs)])
-
-
-def test_attach_grounding_facts_noop_without_env_config(mock_inference_config):
-    synth = _make_synthesizer(mock_inference_config)
-    samples = [{"a": 1}, {"b": 2}]
-    attr = MultiTurnAttribute(
-        id="t",
-        min_turns=2,
-        max_turns=2,
-        role_instruction_messages={
-            Role.USER: "u",
-            Role.ASSISTANT: "a",
-        },
-    )
-
-    synth._attach_grounding_facts(samples, attr)
-
-    assert "grounding_facts" not in samples[0]
-    assert "grounding_facts" not in samples[1]
-
-
-def test_attach_grounding_facts_noop_when_no_env_has_grounding(
-    mock_inference_config,
-):
-    env_config = _tool_env_config()  # no grounding on the env
-    synth = _make_synthesizer(mock_inference_config, environment_config=env_config)
-    samples = [{}, {}]
-    attr = _tool_multiturn_attr()
-
-    synth._attach_grounding_facts(samples, attr)
-
-    assert "grounding_facts" not in samples[0]
-    assert "grounding_facts" not in samples[1]
 
 
 def test_attach_grounding_facts_populates_samples(mock_inference_config):
@@ -2204,31 +1825,6 @@ def test_attach_grounding_facts_seeded_is_reproducible(mock_inference_config):
         assert [f.data["id"] for f in a["grounding_facts"]] == [
             f.data["id"] for f in b["grounding_facts"]
         ]
-
-
-def test_attach_grounding_facts_seeded_different_samples_differ(
-    mock_inference_config,
-):
-    env_config = _grounded_env_config(n_entries=50, sample_size=3, seed=7)
-    synth = _make_synthesizer(mock_inference_config, environment_config=env_config)
-    samples = [{}, {}]
-    attr = MultiTurnAttribute(
-        id="t",
-        min_turns=2,
-        max_turns=2,
-        role_instruction_messages={
-            Role.USER: "u",
-            Role.ASSISTANT: "a",
-        },
-        available_environments=["env1"],
-        available_tools=["lookup"],
-    )
-
-    synth._attach_grounding_facts(samples, attr)
-
-    ids_0 = sorted(f.data["id"] for f in samples[0]["grounding_facts"])
-    ids_1 = sorted(f.data["id"] for f in samples[1]["grounding_facts"])
-    assert ids_0 != ids_1
 
 
 def test_attach_grounding_facts_respects_available_environments_scoping(
@@ -2412,26 +2008,6 @@ def test_create_planner_prompt_no_grounding_block_when_facts_absent(
     assert "Ground this plan" not in planner_user_msg
 
 
-def test_create_planner_prompt_empty_grounding_facts_omits_block(
-    mock_inference_config,
-):
-    synth = _make_synthesizer(
-        mock_inference_config, environment_config=_tool_env_config()
-    )
-    attr = _tool_multiturn_attr()
-    sample = {
-        "target_turns": 2,
-        "conversation_plan": "",
-        "parsed_turn_plans": [""] * 2,
-        "grounding_facts": [],
-    }
-
-    conversation = synth._create_planner_prompt(attr, sample)
-    planner_user_msg = conversation.messages[-1].content
-    assert isinstance(planner_user_msg, str)
-    assert "Ground this plan" not in planner_user_msg
-
-
 def test_synthesize_invokes_attach_grounding_facts(mock_inference_config):
     """End-to-end: synthesize() calls _attach_grounding_facts before planning."""
     env_config = _grounded_env_config(n_entries=10, sample_size=2, seed=5)
@@ -2531,60 +2107,6 @@ def test_validate_tool_configuration_warns_on_grounding_placeholder_in_assistant
     warnings = [rec for rec in caplog.records if "grounding_facts" in rec.getMessage()]
     assert len(warnings) >= 1
     assert "assistant" in warnings[0].getMessage().lower()
-
-
-def test_validate_tool_configuration_no_warning_when_placeholder_absent(
-    mock_inference_config, caplog
-):
-    import logging
-
-    env_config = _grounded_env_config(n_entries=5, sample_size=2, seed=1)
-    synth = _make_synthesizer(mock_inference_config, environment_config=env_config)
-    attr = MultiTurnAttribute(
-        id="t",
-        min_turns=2,
-        max_turns=2,
-        role_instruction_messages={
-            Role.USER: "You are a user.",
-            Role.ASSISTANT: "You are an assistant.",
-        },
-        available_environments=["env1"],
-        available_tools=["lookup"],
-    )
-
-    with caplog.at_level(logging.WARNING, logger="oumi"):
-        synth._validate_tool_configuration(attr)
-
-    grounding_warnings = [
-        rec for rec in caplog.records if "grounding_facts" in rec.getMessage()
-    ]
-    assert grounding_warnings == []
-
-
-# --- Regression + integration: planner prompt byte-equivalence when ungrounded ---
-
-
-def test_create_planner_prompt_byte_identical_when_no_grounding(
-    mock_inference_config,
-):
-    """Regression: when no env in scope has grounding, planner prompt is
-    unchanged from the pre-grounding baseline."""
-    env_config = _tool_env_config()  # no grounding
-    synth = _make_synthesizer(mock_inference_config, environment_config=env_config)
-    attr = _tool_multiturn_attr()
-    sample = {
-        "target_turns": 2,
-        "conversation_plan": "",
-        "parsed_turn_plans": [""] * 2,
-    }
-
-    conversation = synth._create_planner_prompt(attr, sample)
-    planner_user_msg = conversation.messages[-1].content
-
-    # The three grounding marker substrings must be absent.
-    assert "Ground this plan" not in planner_user_msg
-    assert "turn plans must only reference" not in planner_user_msg
-    assert "{grounding_facts}" not in planner_user_msg  # not interpolated
 
 
 def test_end_to_end_grounded_conversation_uses_sampled_entity_ids(

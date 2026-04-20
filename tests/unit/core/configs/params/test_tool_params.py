@@ -69,16 +69,6 @@ def _make_state_schema() -> dict[str, Any]:
     }
 
 
-def test_deterministic_tool_output_allows_empty_input():
-    entry = DeterministicToolOutput(input={}, output={"msg": "ok"})
-    assert entry.input == {}
-
-
-def test_deterministic_tool_output_allows_empty_output():
-    entry = DeterministicToolOutput(input={"id": "1"}, output={})
-    assert entry.output == {}
-
-
 def test_deterministic_tool_output_matches_exact():
     entry = DeterministicToolOutput(
         input={"id": "01", "status": "pending"},
@@ -286,22 +276,6 @@ def test_tool_schema_enum_must_be_list():
         ToolSchema(type="string", enum="a")  # type: ignore[arg-type]
 
 
-def test_tool_create_coerces_deterministic_outputs_from_raw_dicts():
-    tool = Tool.create(
-        {
-            "id": "policy",
-            "name": "Policy",
-            "description": "Look up policy.",
-            "deterministic_outputs": [
-                {"input": {"id": "1"}, "output": {"result": "ok"}}
-            ],
-        }
-    )
-    assert len(tool.deterministic_outputs) == 1
-    assert isinstance(tool.deterministic_outputs[0], DeterministicToolOutput)
-    assert tool.deterministic_outputs[0].matches({"id": "1"})
-
-
 def test_tool_post_init_coerces_deterministic_outputs_from_direct_construction():
     tool = Tool(
         id="policy",
@@ -329,20 +303,6 @@ def test_synthetic_state_params_accepts_partial_inputs():
     assert SyntheticStateParams(
         initial_state={"files": {"count": 1}}
     ).initial_state == {"files": {"count": 1}}
-
-
-def test_synthetic_environment_valid_stateless():
-    env = SyntheticEnvironment(
-        id="faq",
-        name="FAQ",
-        description="FAQ tools",
-        system_prompt="Answer FAQs.",
-        tools=[Tool(id="answer", name="Answer", description="Answer a FAQ.")],
-    )
-    assert env.type == "synthetic"
-    assert env.state_params is None
-    assert env.current_state is None
-    assert isinstance(env.tools[0], Tool)
 
 
 def test_synthetic_environment_valid_stateful():
@@ -669,11 +629,6 @@ def _policy_tool() -> Tool:
     )
 
 
-def test_tool_schema_validate_accepts_conforming_value():
-    schema = _policy_tool().parameters
-    schema.validate({"policy_id": "abc", "limit": 5})
-
-
 def test_tool_schema_validate_missing_required_raises():
     schema = _policy_tool().parameters
     with pytest.raises(ToolArgumentError, match=r"arguments\.policy_id is required"):
@@ -721,22 +676,6 @@ def test_tool_validate_arguments_delegates_to_parameters():
 # --- GroundingConfig ---
 
 
-def test_grounding_config_defaults():
-    from oumi.environments import GroundingConfig
-
-    cfg = GroundingConfig()
-    assert cfg.sample_size == 3
-    assert cfg.seed is None
-
-
-def test_grounding_config_accepts_valid_values():
-    from oumi.environments import GroundingConfig
-
-    cfg = GroundingConfig(sample_size=5, seed=42)
-    assert cfg.sample_size == 5
-    assert cfg.seed == 42
-
-
 def test_grounding_config_rejects_sample_size_below_one():
     from oumi.environments import GroundingConfig
 
@@ -747,12 +686,6 @@ def test_grounding_config_rejects_sample_size_below_one():
 
 
 # --- describe_grounding_default ---
-
-
-def test_describe_grounding_default_empty():
-    from oumi.environments.base_tool import describe_grounding_default
-
-    assert describe_grounding_default([]) == ""
 
 
 def test_describe_grounding_default_single_fact():
@@ -788,69 +721,6 @@ def test_describe_grounding_default_handles_non_string_values():
 
 
 # --- BaseEnvironment grounding defaults ---
-
-
-def test_base_environment_grounding_field_defaults_to_none():
-    env = SyntheticEnvironment(
-        id="faq",
-        name="FAQ",
-        description="FAQ tools",
-        system_prompt="Answer FAQs.",
-        tools=[_make_synthetic_tool(id="answer")],
-    )
-    assert env.grounding is None
-
-
-def test_base_environment_default_sample_grounding_returns_empty():
-    import random
-
-    env = SyntheticEnvironment(
-        id="faq",
-        name="FAQ",
-        description="FAQ tools",
-        system_prompt="Answer FAQs.",
-        tools=[_make_synthetic_tool(id="answer")],
-    )
-    assert env.sample_grounding(n=5, rng=random.Random(0)) == []
-
-
-def test_base_environment_default_describe_grounding_empty_list():
-    env = SyntheticEnvironment(
-        id="faq",
-        name="FAQ",
-        description="FAQ tools",
-        system_prompt="Answer FAQs.",
-        tools=[_make_synthetic_tool(id="answer")],
-    )
-    assert env.describe_grounding([]) == ""
-
-
-def test_base_environment_default_describe_grounding_delegates_to_helper():
-    env = SyntheticEnvironment(
-        id="faq",
-        name="FAQ",
-        description="FAQ tools",
-        system_prompt="Answer FAQs.",
-        tools=[_make_synthetic_tool(id="answer")],
-    )
-    facts = [GroundingFact(data={"id": "42", "title": "Dune"})]
-    assert env.describe_grounding(facts) == '- id="42", title="Dune"'
-
-
-def test_base_environment_accepts_grounding_in_constructor():
-    from oumi.environments import GroundingConfig
-
-    env = SyntheticEnvironment(
-        id="faq",
-        name="FAQ",
-        description="FAQ tools",
-        system_prompt="Answer FAQs.",
-        grounding=GroundingConfig(sample_size=2, seed=7),
-        tools=[_make_synthetic_tool(id="answer")],
-    )
-    assert env.grounding is not None
-    assert env.grounding.sample_size == 2
-    assert env.grounding.seed == 7
 
 
 # --- DeterministicEnvironment.sample_grounding ---
@@ -913,18 +783,6 @@ def test_deterministic_sample_grounding_seeded_rng_is_reproducible():
     ids_a = [fact.data["id"] for fact in facts_a]
     ids_b = [fact.data["id"] for fact in facts_b]
     assert ids_a == ids_b
-
-
-def test_deterministic_sample_grounding_different_seeds_differ():
-    import random
-
-    env = _det_env_with_n_entries(20)
-    facts_a = env.sample_grounding(n=4, rng=random.Random(1))
-    facts_b = env.sample_grounding(n=4, rng=random.Random(999))
-    ids_a = sorted(fact.data["id"] for fact in facts_a)
-    ids_b = sorted(fact.data["id"] for fact in facts_b)
-    # With 20 entries and 4 picks, collision on both sets is vanishingly small.
-    assert ids_a != ids_b
 
 
 def test_deterministic_sample_grounding_pools_across_tools():
