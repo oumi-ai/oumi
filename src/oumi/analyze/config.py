@@ -263,13 +263,14 @@ class TypedAnalyzeConfig:
                 continue
 
             normalized = dict(analyzer_data)
-            if "display_name" not in normalized and "instance_id" in normalized:
+            if "instance_id" in normalized:
                 warnings.warn(
                     "'instance_id' is deprecated; rename to 'display_name'.",
                     DeprecationWarning,
                     stacklevel=3,
                 )
-                normalized["display_name"] = normalized.pop("instance_id")
+                legacy = normalized.pop("instance_id")
+                normalized.setdefault("display_name", legacy)
             analyzers.append(AnalyzerConfig(**normalized))
 
         ids = [a.id for a in analyzers]

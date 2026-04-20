@@ -151,6 +151,24 @@ def test_from_dict_accepts_legacy_instance_id_with_deprecation():
     assert config.analyzers[0].id == "length_custom"
 
 
+def test_from_dict_handles_both_instance_id_and_display_name():
+    """When both legacy and new keys are present, display_name wins."""
+    data = {
+        "analyzers": [
+            {
+                "type": "length",
+                "instance_id": "legacy_name",
+                "display_name": "new_name",
+            },
+        ]
+    }
+
+    with pytest.warns(DeprecationWarning, match="instance_id"):
+        config = TypedAnalyzeConfig.from_dict(data)
+
+    assert config.analyzers[0].display_name == "new_name"
+
+
 def test_from_dict_rejects_legacy_id_as_type():
     """Pre-#2376 YAMLs that used `id` in place of `type` now fail loudly.
 
