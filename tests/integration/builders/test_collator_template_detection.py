@@ -16,7 +16,6 @@ import functools
 
 import pytest
 import transformers
-from huggingface_hub import hf_hub_download
 
 from oumi.builders.collators import resolve_collator_templates
 from tests.markers import requires_hf_token
@@ -31,17 +30,9 @@ def _normalize(s: str) -> str:
 def _load_tokenizer(
     model_name: str, trust_remote_code: bool = False
 ) -> transformers.PreTrainedTokenizerBase:
-    tok = transformers.AutoTokenizer.from_pretrained(
+    return transformers.AutoTokenizer.from_pretrained(
         model_name, trust_remote_code=trust_remote_code
     )
-    if not tok.chat_template:
-        try:
-            jinja_path = hf_hub_download(model_name, "chat_template.jinja")
-            with open(jinja_path) as f:
-                tok.chat_template = f.read()
-        except Exception:
-            pass
-    return tok
 
 
 # -- Public models (no HF token required) ------------------------------------
