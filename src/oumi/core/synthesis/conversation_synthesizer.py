@@ -36,7 +36,7 @@ from oumi.environments import (
 )
 from oumi.environments.base_tool import describe_grounding_default
 from oumi.utils.logging import logger
-from oumi.utils.str_utils import extract_json
+from oumi.utils.str_utils import extract_json, repair_json_braces
 
 _TOOL_CALL_RE = re.compile(r"<tool_call>(.*?)</tool_call>", re.DOTALL)
 
@@ -66,6 +66,36 @@ def _truncate_after_last_tool_call(text: str) -> str:
     if last_close == -1:
         return text
     return text[: last_close + len("</tool_call>")]
+
+
+def _canonicalize_tool_call_bodies(text: str) -> str:
+    """Replace each ``<tool_call>`` body with a canonical JSON re-serialization.
+
+    Models occasionally emit malformed JSON inside tool calls — most commonly
+    an extra trailing ``}`` (``}}}``) or a missing close when the stop
+    sequence fires early. Without this pass, the malformation is persisted
+    verbatim into the output dataset (it would only be repaired transiently
+    during tool execution). Downstream consumers of the dataset would then
+    need to re-implement the repair.
+
+    For each ``<tool_call>...</tool_call>`` block, this function attempts to
+    brace-repair the body and, on success, substitutes it with the compact
+    ``json.dumps`` form. Bodies that cannot be repaired are left untouched;
+    the tool-executor surfaces a structured error message for those.
+    """
+
+    def _replace(match: re.Match[str]) -> str:
+        body = match.group(1).strip()
+        repaired = repair_json_braces(body)
+        if repaired is None:
+            return match.group(0)
+        try:
+            parsed = json.loads(repaired)
+        except json.JSONDecodeError:
+            return match.group(0)
+        return f"<tool_call>{json.dumps(parsed)}</tool_call>"
+
+    return _TOOL_CALL_RE.sub(_replace, text)
 
 
 def _tool_result_message(content: str) -> Message:
@@ -828,6 +858,7 @@ class ConversationSynthesizer:
             for i, text in zip(active, texts):
                 text = _close_dangling_tool_call(text)
                 text = _truncate_after_last_tool_call(text)
+                text = _canonicalize_tool_call_bodies(text)
                 turn_messages[i].append(Message(role=Role.ASSISTANT, content=text))
                 if self._is_final_response(text):
                     done[i] = True
@@ -938,7 +969,15 @@ class ConversationSynthesizer:
         try:
             parsed = json.loads(body)
         except json.JSONDecodeError as e:
-            return _tool_error_msg(f"Malformed tool_call JSON: {e}")
+            # Retry via brace repair to recover from stop-sequence truncation
+            # (missing closing braces) and over-emission (trailing }}).
+            repaired = repair_json_braces(body)
+            if repaired is None:
+                return _tool_error_msg(f"Malformed tool_call JSON: {e}")
+            logger.debug(
+                "Tool-call JSON repaired (len %d -> %d).", len(body), len(repaired)
+            )
+            parsed = json.loads(repaired)
         if not isinstance(parsed, dict):
             return _tool_error_msg("tool_call body must be a JSON object")
 

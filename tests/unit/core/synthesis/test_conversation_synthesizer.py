@@ -44,37 +44,17 @@ from oumi.environments import (
 
 
 def _unwrap_tool_result(content: str | list[ContentItem]) -> str:
-    """Strip the ``<tool_result>...</tool_result>`` wrapper from a tool-result
-    message so assertions can inspect the inner JSON/text payload.
-
-    The synthesizer emits tool results as ``Role.USER`` messages wrapped in
-    ``<tool_result>`` markers (keeps the conversation portable across provider
-    APIs that disallow a ``tool`` role). Tests use this helper to peek at the
-    underlying content. ``Message.content`` is typed as
-    ``str | list[ContentItem]`` so this helper accepts the union and asserts
-    a string at runtime (multimodal content has no string wrapping).
-    """
+    """Strip the <tool_result>...</tool_result> wrapper for assertions."""
     prefix = "<tool_result>"
     suffix = "</tool_result>"
-    assert isinstance(content, str), (
-        f"Expected string tool-result content, got: {type(content).__name__}"
-    )
-    assert content.startswith(prefix) and content.endswith(suffix), (
-        f"Expected <tool_result>-wrapped content, got: {content!r}"
-    )
+    assert isinstance(content, str)
+    assert content.startswith(prefix) and content.endswith(suffix)
     return content[len(prefix) : -len(suffix)]
 
 
 def _as_str(content: str | list[ContentItem]) -> str:
-    """Narrow ``Message.content`` to ``str`` for assertions in tests.
-
-    Tests that exercise plain-text turn output assume the synthesizer
-    populates ``Message.content`` as a string. This helper performs the
-    runtime assertion so static type checkers can narrow the union.
-    """
-    assert isinstance(content, str), (
-        f"Expected string message content, got: {type(content).__name__}"
-    )
+    """Narrow Message.content to str for assertions."""
+    assert isinstance(content, str)
     return content
 
 
@@ -881,11 +861,6 @@ def test_synthesize_filters_all_conversations_returns_empty(
     assert result == [None, None]
 
 
-# ---------------------------------------------------------------------------
-# Tool-call loop
-# ---------------------------------------------------------------------------
-
-
 def _tool_env_config(*, tool_id: str = "lookup") -> EnvironmentConfig:
     """Build an EnvironmentConfig wrapping a DeterministicEnvironment."""
     env = DeterministicEnvironment(
@@ -944,9 +919,6 @@ def _make_synthesizer(
         )
 
 
-# --- _execute_tool_calls ---
-
-
 def test_execute_tool_calls_happy_path(mock_inference_config):
     env_config = _tool_env_config()
     synth = _make_synthesizer(mock_inference_config, environment_config=env_config)
@@ -972,10 +944,9 @@ def test_execute_tool_calls_multiple_blocks_in_order(mock_inference_config):
 
     assert len(messages) == 2
     assert json.loads(_unwrap_tool_result(messages[0].content)) == {"status": "ok"}
-    # id=99 has no deterministic match -> structured lookup error surfaced.
     err = json.loads(_unwrap_tool_result(messages[1].content))["error"]
     assert "No deterministic output matches" in err
-    assert '"id": "01"' in err  # configured input is surfaced for self-correction
+    assert '"id": "01"' in err
 
 
 def test_execute_tool_calls_malformed_json(mock_inference_config):
@@ -985,6 +956,32 @@ def test_execute_tool_calls_malformed_json(mock_inference_config):
     messages = synth._execute_tool_calls("<tool_call>not json</tool_call>")
     assert len(messages) == 1
     assert "Malformed" in json.loads(_unwrap_tool_result(messages[0].content))["error"]
+
+
+def test_execute_tool_calls_recovers_from_trailing_extra_brace(mock_inference_config):
+    """Tool-call bodies with an extra ``}}`` (seen in synth output) execute."""
+    synth = _make_synthesizer(
+        mock_inference_config, environment_config=_tool_env_config()
+    )
+    response = (
+        '<tool_call>{"name": "lookup", "arguments": {"id": "01"}}}</tool_call>'
+    )
+    messages = synth._execute_tool_calls(response)
+    assert len(messages) == 1
+    assert json.loads(_unwrap_tool_result(messages[0].content)) == {"status": "ok"}
+
+
+def test_execute_tool_calls_recovers_from_missing_close_brace(mock_inference_config):
+    """Stop-sequence truncation that drops a closing ``}`` is repaired."""
+    synth = _make_synthesizer(
+        mock_inference_config, environment_config=_tool_env_config()
+    )
+    response = (
+        '<tool_call>{"name": "lookup", "arguments": {"id": "01"}</tool_call>'
+    )
+    messages = synth._execute_tool_calls(response)
+    assert len(messages) == 1
+    assert json.loads(_unwrap_tool_result(messages[0].content)) == {"status": "ok"}
 
 
 def test_execute_tool_calls_missing_name(mock_inference_config):
@@ -1149,7 +1146,6 @@ def test_truncate_after_last_tool_call_preserves_leading_prose():
         "Let me check that for you.\n"
         '<tool_call>{"name": "lookup", "arguments": {"id": "01"}}</tool_call>'
     )
-    # Leading prose ("Let me check...") is helpful scene-setting and is kept.
     cleaned = _truncate_after_last_tool_call(text)
     assert cleaned == text
 
@@ -1167,7 +1163,6 @@ def test_truncate_after_last_tool_call_keeps_multiple_calls():
     cleaned = _truncate_after_last_tool_call(text)
     assert cleaned.endswith("</tool_call>")
     assert "hallucinated" not in cleaned
-    # Both calls preserved — truncation only cuts AFTER the last close tag.
     assert cleaned.count("<tool_call>") == 2
 
 
@@ -1176,19 +1171,84 @@ def test_close_dangling_tool_call_appends_missing_close_tag():
         _close_dangling_tool_call,
     )
 
-    # Simulates what Anthropic returns when stop_sequence=</tool_call> fires:
-    # the matched close tag is stripped from the response.
     truncated = '<tool_call>{"name": "lookup", "arguments": {"id": "01"}}'
     closed = _close_dangling_tool_call(truncated)
     assert closed.endswith("</tool_call>")
     assert closed.count("<tool_call>") == closed.count("</tool_call>")
 
 
+def test_canonicalize_tool_call_bodies_strips_extra_brace():
+    """The observed ``}}}`` malformation is repaired into canonical JSON."""
+    from oumi.core.synthesis.conversation_synthesizer import (
+        _canonicalize_tool_call_bodies,
+    )
+
+    text = (
+        '<tool_call>{"name": "lookup_book_status", '
+        '"arguments": {"book_id": "B008"}}}</tool_call>'
+    )
+    out = _canonicalize_tool_call_bodies(text)
+    assert "}}}" not in out
+    assert out == (
+        '<tool_call>'
+        '{"name": "lookup_book_status", "arguments": {"book_id": "B008"}}'
+        '</tool_call>'
+    )
+
+
+def test_canonicalize_tool_call_bodies_appends_missing_close():
+    from oumi.core.synthesis.conversation_synthesizer import (
+        _canonicalize_tool_call_bodies,
+    )
+
+    text = '<tool_call>{"name": "lookup", "arguments": {"id": "01"}</tool_call>'
+    out = _canonicalize_tool_call_bodies(text)
+    assert out == (
+        '<tool_call>{"name": "lookup", "arguments": {"id": "01"}}</tool_call>'
+    )
+
+
+def test_canonicalize_tool_call_bodies_leaves_unfixable_body_intact():
+    """Non-structural breakage (unquoted keys) is left for the executor."""
+    from oumi.core.synthesis.conversation_synthesizer import (
+        _canonicalize_tool_call_bodies,
+    )
+
+    text = "<tool_call>{not valid at all}</tool_call>"
+    assert _canonicalize_tool_call_bodies(text) == text
+
+
+def test_canonicalize_tool_call_bodies_noop_when_no_calls_present():
+    from oumi.core.synthesis.conversation_synthesizer import (
+        _canonicalize_tool_call_bodies,
+    )
+
+    text = "Just a plain assistant reply, nothing to do here."
+    assert _canonicalize_tool_call_bodies(text) == text
+
+
+def test_canonicalize_tool_call_bodies_handles_multiple_blocks():
+    from oumi.core.synthesis.conversation_synthesizer import (
+        _canonicalize_tool_call_bodies,
+    )
+
+    text = (
+        '<tool_call>{"name": "a", "arguments": {"id": "1"}}}</tool_call>'
+        " some prose "
+        '<tool_call>{"name": "b", "arguments": {"id": "2"}</tool_call>'
+    )
+    out = _canonicalize_tool_call_bodies(text)
+    assert "}}}" not in out
+    assert out.count("<tool_call>") == 2
+    assert out.count("</tool_call>") == 2
+    assert '{"name": "a", "arguments": {"id": "1"}}' in out
+    assert '{"name": "b", "arguments": {"id": "2"}}' in out
+
+
 def test_assistant_inference_config_adds_stop_sequence(mock_inference_config):
     synth = _make_synthesizer(mock_inference_config)
     cfg = synth._assistant_inference_config()
     assert "</tool_call>" in (cfg.generation.stop_strings or [])
-    # Doesn't mutate the original config.
     base_stops = list(mock_inference_config.generation.stop_strings or [])
     assert "</tool_call>" not in base_stops
 
@@ -1196,7 +1256,6 @@ def test_assistant_inference_config_adds_stop_sequence(mock_inference_config):
 def test_assistant_inference_config_preserves_existing_stops(
     mock_inference_config,
 ):
-    # Seed an existing stop_strings list on the base config.
     mock_inference_config.generation.stop_strings = ["<|end|>", "STOP"]
     synth = _make_synthesizer(mock_inference_config)
     cfg = synth._assistant_inference_config()
@@ -1228,22 +1287,16 @@ def _tool_multiturn_attr(tool_id: str = "lookup", cap: int = 50) -> MultiTurnAtt
 def test_run_assistant_turn_strips_prose_after_tool_call_in_response(
     mock_inference_config,
 ):
-    """The pre-result hallucination pattern (C1): a real model often emits
-    a <tool_call> AND a fabricated "here's the answer" paragraph in the
-    same message. We must strip the trailing prose before storing the
-    assistant message, otherwise the conversation contains contradictory
-    data that poisons training."""
+    """Trailing hallucinated prose after a tool_call must be stripped."""
     env_config = _tool_env_config()
     engine = _scripted_inference_engine(
         [
-            [  # iter 1: tool_call + hallucinated follow-up answer
+            [
                 '<tool_call>{"name": "lookup", "arguments": {"id": "01"}}'
                 "</tool_call>\n\n"
                 "I found it! The book is 'Dune' by Frank Herbert. Due 2024-01-15."
             ],
-            [  # iter 2: final response after seeing real tool result
-                "The real status is ok.",
-            ],
+            ["The real status is ok."],
         ]
     )
     synth = _make_synthesizer(
@@ -1263,29 +1316,21 @@ def test_run_assistant_turn_strips_prose_after_tool_call_in_response(
     assistant_msg = msgs[0][0]
     assert assistant_msg.role == Role.ASSISTANT
     assistant_content = _as_str(assistant_msg.content)
-    # The trailing hallucinated prose must be stripped.
     assert "Dune" not in assistant_content
     assert "2024" not in assistant_content
     assert assistant_content.rstrip().endswith("</tool_call>")
-    # The final-response message is untouched.
     assert msgs[0][-1].content == "The real status is ok."
 
 
 def test_run_assistant_turn_rehydrates_stop_sequence_stripped_close_tag(
     mock_inference_config,
 ):
-    """When a provider strips the matched stop_sequence from the response
-    (Anthropic drops </tool_call>), the pipeline must re-append it so
-    downstream parsing round-trips."""
+    """A stripped </tool_call> stop_sequence is re-appended before parsing."""
     env_config = _tool_env_config()
     engine = _scripted_inference_engine(
         [
-            [  # iter 1: close tag stripped by stop_sequence
-                '<tool_call>{"name": "lookup", "arguments": {"id": "01"}}',
-            ],
-            [  # iter 2: final
-                "done",
-            ],
+            ['<tool_call>{"name": "lookup", "arguments": {"id": "01"}}'],
+            ["done"],
         ]
     )
     synth = _make_synthesizer(
@@ -1304,7 +1349,6 @@ def test_run_assistant_turn_rehydrates_stop_sequence_stripped_close_tag(
 
     assistant_msg = msgs[0][0]
     assert _as_str(assistant_msg.content).endswith("</tool_call>")
-    # And the tool call was actually executed (result is the next message).
     assert msgs[0][1].role == Role.USER
     tool_payload = json.loads(_unwrap_tool_result(msgs[0][1].content))
     assert tool_payload == {"status": "ok"}
@@ -1341,13 +1385,11 @@ def test_run_assistant_turn_asymmetric_batches(mock_inference_config):
     env_config = _tool_env_config()
     engine = _scripted_inference_engine(
         [
-            [  # iteration 1: sample 0 finalizes, sample 1 calls tool
+            [
                 "done!",
                 '<tool_call>{"name": "lookup", "arguments": {"id": "01"}}</tool_call>',
             ],
-            [  # iteration 2: only sample 1 re-enters the batch
-                "final for sample 1",
-            ],
+            ["final for sample 1"],
         ]
     )
     synth = _make_synthesizer(
@@ -1365,10 +1407,8 @@ def test_run_assistant_turn_asymmetric_batches(mock_inference_config):
     )
 
     assert engine.infer.call_count == 2
-    # sample 0: just one assistant message
     assert len(msgs[0]) == 1
     assert msgs[0][0].content == "done!"
-    # sample 1: assistant tool-call, tool result, final assistant
     assert [m.role for m in msgs[1]] == [Role.ASSISTANT, Role.USER, Role.ASSISTANT]
     assert json.loads(_unwrap_tool_result(msgs[1][1].content)) == {"status": "ok"}
     assert msgs[1][2].content == "final for sample 1"
@@ -1405,8 +1445,8 @@ def test_run_assistant_turn_cap_hit_forces_finalize(mock_inference_config):
     tool_call = '<tool_call>{"name": "lookup", "arguments": {"id": "01"}}</tool_call>'
     engine = _scripted_inference_engine(
         [
-            [tool_call],  # iter 1 — tool_count becomes 1, hits cap=1
-            ["forced final answer"],  # forced-finalize call
+            [tool_call],
+            ["forced final answer"],
         ]
     )
     synth = _make_synthesizer(
@@ -1422,7 +1462,6 @@ def test_run_assistant_turn_cap_hit_forces_finalize(mock_inference_config):
     )
 
     assert engine.infer.call_count == 2
-    # nudge was added to the prompt of the second call but not to the output.
     second_call_conv = engine.infer.call_args_list[1].args[0][0]
     assert "tool-call limit" in second_call_conv.messages[-1].content
     assert [m.role for m in msgs[0]] == [Role.ASSISTANT, Role.USER, Role.ASSISTANT]
@@ -1482,20 +1521,12 @@ def test_run_assistant_turn_cap_hit_only_tool_calls_yields_empty_final(
 
 
 def test_run_assistant_turn_self_corrects_after_tool_error(mock_inference_config):
-    """Model receives a structured tool error and recovers on next iteration.
-
-    Covers the feedback loop: a malformed tool call (id=99 missing from the
-    deterministic table) produces a <tool_result>-wrapped error message,
-    which the assistant then uses to issue a corrected call next iteration.
-    """
+    """Model receives a structured tool error and recovers on next iteration."""
     env_config = _tool_env_config()
     engine = _scripted_inference_engine(
         [
-            # iter 1: bad id -> ToolLookupError
             ['<tool_call>{"name": "lookup", "arguments": {"id": "99"}}</tool_call>'],
-            # iter 2: corrected call -> success
             ['<tool_call>{"name": "lookup", "arguments": {"id": "01"}}</tool_call>'],
-            # iter 3: final response (no tool_call)
             ["The lookup succeeded: status ok."],
         ]
     )
@@ -1522,37 +1553,26 @@ def test_run_assistant_turn_self_corrects_after_tool_error(mock_inference_config
         Role.ASSISTANT,
     ]
 
-    # First tool message is an error surfaced for the model to self-correct.
     first_tool_payload = json.loads(_unwrap_tool_result(sample_msgs[1].content))
     assert "error" in first_tool_payload
     assert "No deterministic output matches" in first_tool_payload["error"]
 
-    # Second tool message is the successful deterministic output.
     assert json.loads(_unwrap_tool_result(sample_msgs[3].content)) == {"status": "ok"}
-
-    # Final assistant message is the plain-text answer.
     assert sample_msgs[-1].content == "The lookup succeeded: status ok."
 
 
 def test_run_assistant_turn_self_corrects_after_invalid_arguments(
     mock_inference_config,
 ):
-    """Schema-level validation error is surfaced, then model corrects.
-
-    Uses a typed schema where `policy_id` is required. Iteration 1 omits it,
-    hitting the validator (before env.step()). Iteration 2 supplies it.
-    """
+    """Schema-level validation error is surfaced, then model corrects."""
     env_config = _typed_tool_env_config()
     engine = _scripted_inference_engine(
         [
-            # iter 1: missing required 'policy_id' -> validation error.
             ['<tool_call>{"name": "lookup", "arguments": {}}</tool_call>'],
-            # iter 2: corrected arguments -> success.
             [
                 '<tool_call>{"name": "lookup", '
                 '"arguments": {"policy_id": "p1", "limit": 5}}</tool_call>'
             ],
-            # iter 3: final response.
             ["Policy looks good."],
         ]
     )
@@ -1593,19 +1613,15 @@ def test_run_assistant_turn_self_corrects_after_invalid_arguments(
 
 def test_synthesize_end_to_end_with_tool_use(mock_inference_config):
     env_config = _tool_env_config()
-    # Planner returns a 2-turn JSON plan, then the USER turn, then the ASSISTANT
-    # tool-call iteration, then the ASSISTANT final answer.
     plan_json = (
         '[{"turn": 1, "instruction": "ask"}, {"turn": 2, "instruction": "answer"}]'
     )
     engine = _scripted_inference_engine(
         [
-            [plan_json],  # plan
-            ["What is the status of order 01?"],  # user turn
-            [  # assistant iter 1 (tool call)
-                '<tool_call>{"name": "lookup", "arguments": {"id": "01"}}</tool_call>'
-            ],
-            ["The order is ok."],  # assistant final
+            [plan_json],
+            ["What is the status of order 01?"],
+            ['<tool_call>{"name": "lookup", "arguments": {"id": "01"}}</tool_call>'],
+            ["The order is ok."],
         ]
     )
     synth = _make_synthesizer(
@@ -1631,7 +1647,6 @@ def test_synthesize_end_to_end_with_tool_use(mock_inference_config):
     conv = records[0]["tool_conv"]
     assert isinstance(conv, dict)
     roles = [m["role"] for m in conv["messages"]]
-    # user, assistant-with-tool-call, user(tool-result), assistant-final
     assert roles == [Role.USER, Role.ASSISTANT, Role.USER, Role.ASSISTANT]
     assert conv["messages"][-1]["content"] == "The order is ok."
 
@@ -1647,9 +1662,9 @@ def test_synthesize_drops_sample_when_cap_hit_produces_empty_final(
     engine = _scripted_inference_engine(
         [
             [plan_json],
-            ["ask"],  # user turn
-            [tool_call],  # assistant iter 1 — cap=1 hit
-            [tool_call],  # forced-finalize still only emits tool calls
+            ["ask"],
+            [tool_call],
+            [tool_call],
         ]
     )
     synth = _make_synthesizer(
@@ -1731,7 +1746,6 @@ def test_make_grounding_rng_seeded_is_reproducible(mock_inference_config):
     synth = _make_synthesizer(mock_inference_config)
     rng_a = synth._make_grounding_rng(seed=42, sample_index=3)
     rng_b = synth._make_grounding_rng(seed=42, sample_index=3)
-    # Same seed + same sample_index produces the same stream.
     assert [rng_a.random() for _ in range(5)] == [rng_b.random() for _ in range(5)]
 
 
@@ -1853,7 +1867,6 @@ def test_attach_grounding_facts_respects_available_environments_scoping(
 
     synth._attach_grounding_facts(samples, attr)
 
-    # Only env_a contributes facts (sample_size=2).
     assert len(samples[0]["grounding_facts"]) == 2
 
 
@@ -1912,7 +1925,6 @@ def test_attach_grounding_facts_truncation_emits_logger_warning(
     truncation_records = [
         rec for rec in caplog.records if "sample_size" in rec.getMessage()
     ]
-    # Exactly one warning per env per synthesize invocation, even with 2 samples.
     assert len(truncation_records) == 1
     assert "env1" in truncation_records[0].getMessage()
 
@@ -1952,9 +1964,6 @@ def test_create_planner_prompt_injects_grounding_block_when_facts_present(
     assert "Ground this plan in these specific entities" in planner_user_msg
     assert '- id="42", title="Dune"' in planner_user_msg
     assert '- id="7", title="LotR"' in planner_user_msg
-    # Instruction tells the planner to inline concrete identifiers into
-    # turn text (the user persona cannot see grounding_facts directly, so
-    # abstract references like "the book" leave the user to invent IDs).
     assert "spell out the concrete identifier verbatim" in planner_user_msg
     assert "user persona cannot see this list" in planner_user_msg
 
@@ -1962,12 +1971,7 @@ def test_create_planner_prompt_injects_grounding_block_when_facts_present(
 def test_create_planner_prompt_example_models_inlined_identifiers(
     mock_inference_config,
 ):
-    """The few-shot example should demonstrate inlining IDs into instructions.
-
-    The example carries a grounding block and the assistant response weaves
-    the concrete ``ORD-4421`` identifier into every turn that references the
-    order. This teaches the planner the same pattern for real prompts.
-    """
+    """The few-shot example demonstrates inlining IDs into instructions."""
     synth = _make_synthesizer(
         mock_inference_config, environment_config=_tool_env_config()
     )
@@ -1983,17 +1987,15 @@ def test_create_planner_prompt_example_models_inlined_identifiers(
     example_response = conversation.messages[2].content
     assert isinstance(example_request, str)
     assert isinstance(example_response, str)
-    # Example request includes a grounding block with a concrete ID.
     assert "Ground this plan in these specific entities" in example_request
     assert 'order_id="ORD-4421"' in example_request
-    # Example response inlines that ID in every turn that references the order.
     assert example_response.count("ORD-4421") >= 3
 
 
 def test_create_planner_prompt_no_grounding_block_when_facts_absent(
     mock_inference_config,
 ):
-    env_config = _tool_env_config()  # no grounding configured
+    env_config = _tool_env_config()
     synth = _make_synthesizer(mock_inference_config, environment_config=env_config)
     attr = _tool_multiturn_attr()
     sample = {
@@ -2011,13 +2013,12 @@ def test_create_planner_prompt_no_grounding_block_when_facts_absent(
 def test_synthesize_invokes_attach_grounding_facts(mock_inference_config):
     """End-to-end: synthesize() calls _attach_grounding_facts before planning."""
     env_config = _grounded_env_config(n_entries=10, sample_size=2, seed=5)
-    # Script the inference engine: 1 planner response, plus conversation turns.
     plan_json = '[{"turn": 1, "instruction": "a"}, {"turn": 2, "instruction": "b"}]'
     engine = _scripted_inference_engine(
         [
-            [plan_json],  # planner call
-            ["user turn 1"],  # user turn 1
-            ["assistant final turn 2"],  # assistant turn 2 (non-tool)
+            [plan_json],
+            ["user turn 1"],
+            ["assistant final turn 2"],
         ]
     )
     synth = _make_synthesizer(
@@ -2040,10 +2041,8 @@ def test_synthesize_invokes_attach_grounding_facts(mock_inference_config):
     samples = [{}]
     result = synth.synthesize(samples, attr)
 
-    # The sample dict passed in should have grounding_facts attached.
     assert "grounding_facts" in samples[0]
     assert len(samples[0]["grounding_facts"]) == 2
-    # Basic regression: result shape is preserved.
     assert len(result) == 1
 
 
@@ -2112,9 +2111,7 @@ def test_validate_tool_configuration_warns_on_grounding_placeholder_in_assistant
 def test_end_to_end_grounded_conversation_uses_sampled_entity_ids(
     mock_inference_config,
 ):
-    """Full synthesize() flow: grounded planner prompt drives the plan
-    through a scripted inference engine, confirming the facts make it all
-    the way into the planner call."""
+    """Grounded planner prompt receives sampled facts during synthesize()."""
     env_config = _grounded_env_config(n_entries=10, sample_size=3, seed=13)
 
     captured_planner_prompts: list[str] = []

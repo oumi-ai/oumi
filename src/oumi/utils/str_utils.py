@@ -182,6 +182,87 @@ def extract_json(text: str, expected_type: type | None = list) -> dict | list | 
     return None
 
 
+def repair_json_braces(text: str) -> str | None:
+    """Repair unbalanced ``{}`` / ``[]`` in a JSON string.
+
+    Targets two failure modes common to LLM output truncated at stop
+    sequences or token limits:
+
+    - **Extra trailing closes** (``{...}}``): truncate to the last index
+      where ``{`` / ``[`` depth returned to zero.
+    - **Missing closes** (``{...``): append the needed closers in the
+      correct reverse-open order (tracked as a stack, not a counter, so
+      ``{"a": [1, 2`` becomes ``{"a": [1, 2]}``).
+
+    The scanner is string-aware — ``{`` / ``}`` / ``[`` / ``]`` inside
+    JSON string literals are ignored (respecting ``\\"`` escapes). Non-
+    structural malformations (unquoted keys, single quotes, trailing
+    commas, unescaped quotes inside strings) are NOT handled; those
+    require guessing intent and tend to regress more often than they
+    help. If ``text`` still fails to parse after a brace repair attempt,
+    returns ``None``.
+
+    Args:
+        text: Candidate JSON. May be valid, have extra trailing closes,
+            or be truncated before its closing bracket(s).
+
+    Returns:
+        The minimal brace-repaired string that parses with ``json.loads``,
+        or ``None`` if no such repair exists. When the input already
+        parses, it is returned unchanged.
+    """
+    try:
+        json.loads(text)
+        return text
+    except json.JSONDecodeError:
+        pass
+
+    stack: list[str] = []
+    in_string = False
+    escape = False
+    last_balanced_end = 0
+    extra_close_at: int | None = None
+
+    for i, ch in enumerate(text):
+        if in_string:
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_string = False
+            continue
+        if ch == '"':
+            in_string = True
+            continue
+        if ch == "{":
+            stack.append("}")
+        elif ch == "[":
+            stack.append("]")
+        elif ch in "}]":
+            if not stack or stack[-1] != ch:
+                extra_close_at = i
+                break
+            stack.pop()
+            if not stack:
+                last_balanced_end = i + 1
+
+    if extra_close_at is not None:
+        if last_balanced_end == 0:
+            return None
+        repaired = text[:last_balanced_end]
+    elif stack:
+        repaired = text + "".join(reversed(stack))
+    else:
+        return None
+
+    try:
+        json.loads(repaired)
+    except json.JSONDecodeError:
+        return None
+    return repaired
+
+
 def get_editable_install_override_env_var() -> bool:
     """Returns whether OUMI_FORCE_EDITABLE_INSTALL env var is set to a truthy value."""
     s = os.environ.get("OUMI_FORCE_EDITABLE_INSTALL", "")

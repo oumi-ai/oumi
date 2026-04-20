@@ -1,16 +1,25 @@
-# Library Assistant — Tool-Use Conversation Synthesis
+# Library Assistant — Agentic Tool-Use Conversation Synthesis
 #
 # Generates grounded multi-turn conversations between a library patron and a
-# library-assistant chatbot. The assistant has two DeterministicEnvironment
-# tools:
+# library-assistant chatbot. The assistant has four DeterministicEnvironment
+# tools and must pick the right one based on patron intent:
 #   1. `list_book_catalog`  — returns the full {book_id, title, author}
 #      catalog. Used to resolve a patron-spoken title into a book_id.
 #   2. `lookup_book_status` — returns circulation details for a book_id.
+#   3. `checkout_book`      — borrows an available book for the patron.
+#      Fails if the book is already borrowed or overdue.
+#   4. `checkin_book`       — returns a borrowed (or overdue) book. Fails
+#      if the book is not currently checked out.
 #
-# Patrons in this synthesis only ever refer to books by TITLE (the way a real
-# patron would speak), never by internal IDs. The assistant must call
-# `list_book_catalog` first when a title is given, then chain into
-# `lookup_book_status` with the resolved id.
+# This makes the dataset *agentic* rather than a single-shot Q&A: the
+# assistant must reason about state before acting (look up before checkout,
+# respond to tool errors with alternatives, chain lookup→checkout or
+# catalog→lookup→checkout flows).
+#
+# Patrons only ever refer to books by TITLE (the way a real patron would
+# speak), never by internal IDs. The assistant calls `list_book_catalog` to
+# resolve titles, then chains into `lookup_book_status` / `checkout_book` /
+# `checkin_book` as appropriate.
 #
 # Grounding is enabled on the environment: a small random subset of real
 # catalog entries is surfaced to the planner each conversation so turn plans
@@ -19,8 +28,8 @@
 # circulation details.
 #
 # Requirements:
-#   - Set ANTHROPIC_API_KEY in the environment
-#     (example: `export ANTHROPIC_API_KEY=your_api_key`)
+#   - Set OPENAI_API_KEY in the environment
+#     (example: `export OPENAI_API_KEY=your_api_key`)
 #   - Or change the inference_config to use a different provider/engine.
 #
 # Usage:
@@ -33,7 +42,7 @@
 #   - Environment config: oumi.core.configs.EnvironmentConfig
 
 strategy: GENERAL
-num_samples: 10
+num_samples: 50
 output_path: library_tool_use_dataset.jsonl
 
 environment_config:
@@ -199,10 +208,10 @@ environment_config:
               output:
                 title: "Pride and Prejudice"
                 author: "Jane Austen"
-                borrower_name: "David Kim"
-                borrow_date: "2026-03-20"
-                return_date: "2026-04-20"
-                status: "borrowed"
+                borrower_name: ""
+                borrow_date: ""
+                return_date: ""
+                status: "available"
             - input: { book_id: "B005" }
               output:
                 title: "Dune"
@@ -271,10 +280,10 @@ environment_config:
               output:
                 title: "Klara and the Sun"
                 author: "Kazuo Ishiguro"
-                borrower_name: "Mira Gupta"
-                borrow_date: "2026-04-13"
-                return_date: "2026-05-13"
-                status: "borrowed"
+                borrower_name: ""
+                borrow_date: ""
+                return_date: ""
+                status: "available"
             - input: { book_id: "B014" }
               output:
                 title: "The Midnight Library"
@@ -291,6 +300,150 @@ environment_config:
                 borrow_date: ""
                 return_date: ""
                 status: "available"
+
+        # ----- Action tools: mutate circulation state -------------------
+        # The deterministic environment is stateless, so outcomes are
+        # pre-declared: available books checkout successfully, already-
+        # borrowed books error with a current-borrower message. Checkin
+        # is the mirror: borrowed/overdue books return successfully,
+        # available books error (nothing to return).
+        - id: checkout_book
+          name: Checkout Book
+          description: >-
+            Check a book out to the current patron. Succeeds only if the
+            book is available. Returns an error with the current borrower
+            if the book is already checked out or overdue.
+          parameters:
+            type: object
+            properties:
+              book_id:
+                type: string
+                description: The library's book identifier (e.g. "B004").
+            required:
+              - book_id
+          output_schema:
+            type: object
+            properties:
+              status:
+                type: string
+              book_id:
+                type: string
+              due_date:
+                type: string
+              error:
+                type: string
+              current_borrower:
+                type: string
+          deterministic_outputs:
+            # --- Available books → success ---
+            - input: { book_id: "B004" }
+              output:
+                status: "checked_out"
+                book_id: "B004"
+                due_date: "2026-05-20"
+            - input: { book_id: "B009" }
+              output:
+                status: "checked_out"
+                book_id: "B009"
+                due_date: "2026-05-20"
+            - input: { book_id: "B013" }
+              output:
+                status: "checked_out"
+                book_id: "B013"
+                due_date: "2026-05-20"
+            - input: { book_id: "B014" }
+              output:
+                status: "checked_out"
+                book_id: "B014"
+                due_date: "2026-05-20"
+            - input: { book_id: "B015" }
+              output:
+                status: "checked_out"
+                book_id: "B015"
+                due_date: "2026-05-20"
+            # --- Already-borrowed books → error ---
+            - input: { book_id: "B001" }
+              output:
+                status: "error"
+                error: "already_borrowed"
+                current_borrower: "Sarah Chen"
+            - input: { book_id: "B003" }
+              output:
+                status: "error"
+                error: "already_borrowed"
+                current_borrower: "Aisha Patel"
+            - input: { book_id: "B008" }
+              output:
+                status: "error"
+                error: "already_borrowed"
+                current_borrower: "Liam O'Connor"
+
+        - id: checkin_book
+          name: Checkin Book
+          description: >-
+            Return a borrowed or overdue book to the library. Succeeds for
+            books currently checked out. Returns an error if the book is
+            already on the shelf.
+          parameters:
+            type: object
+            properties:
+              book_id:
+                type: string
+                description: The library's book identifier (e.g. "B001").
+            required:
+              - book_id
+          output_schema:
+            type: object
+            properties:
+              status:
+                type: string
+              book_id:
+                type: string
+              late_days:
+                type: integer
+              error:
+                type: string
+          deterministic_outputs:
+            # --- Currently-borrowed books → success ---
+            - input: { book_id: "B002" }
+              output:
+                status: "returned"
+                book_id: "B002"
+                late_days: 0
+            - input: { book_id: "B005" }
+              output:
+                status: "returned"
+                book_id: "B005"
+                late_days: 0
+            - input: { book_id: "B011" }
+              output:
+                status: "returned"
+                book_id: "B011"
+                late_days: 0
+            # --- Overdue books → success (with late days flagged) ---
+            - input: { book_id: "B001" }
+              output:
+                status: "returned"
+                book_id: "B001"
+                late_days: 5
+            - input: { book_id: "B006" }
+              output:
+                status: "returned"
+                book_id: "B006"
+                late_days: 23
+            # --- Already-available books → error ---
+            - input: { book_id: "B004" }
+              output:
+                status: "error"
+                error: "not_checked_out"
+            - input: { book_id: "B009" }
+              output:
+                status: "error"
+                error: "not_checked_out"
+            - input: { book_id: "B015" }
+              output:
+                status: "error"
+                error: "not_checked_out"
 
 strategy_params:
   sampled_attributes:
@@ -372,6 +525,18 @@ strategy_params:
         - id: recommendation_followup
           name: Recommendation Follow-up
           description: Heard about a book from a friend or review and wants to check it on the spot
+        - id: borrow_book
+          name: Borrow Book
+          description: Wants to actually check out a specific titled book, not just see its status
+        - id: return_book
+          name: Return Book
+          description: Wants to return a book they currently have checked out
+        - id: borrow_fallback
+          name: Borrow with Fallback
+          description: Wants to borrow a specific title, but is open to alternatives if it's unavailable
+        - id: return_and_borrow
+          name: Return and Borrow
+          description: Wants to return one book and immediately check out another in the same visit
 
     # Conversational style — drives tone, length, vocabulary, and patience
     - id: patron_demeanor
@@ -439,6 +604,8 @@ strategy_params:
       available_tools:
         - list_book_catalog
         - lookup_book_status
+        - checkout_book
+        - checkin_book
       max_tool_calls_per_turn: 6
 
       role_instruction_messages:
@@ -480,30 +647,44 @@ strategy_params:
 
         ASSISTANT: |
           You are LibBot, the city library's circulation assistant. You have
-          two tools available:
+          four tools available:
 
           1. `list_book_catalog` — returns the full catalog as a list of
              {{book_id, title, author}} entries. Use this whenever the patron
              names a book by TITLE so you can resolve it to a book_id.
           2. `lookup_book_status` — returns circulation details (borrower,
              borrow date, due date, status) for a given book_id.
+          3. `checkout_book` — borrows an available book on behalf of the
+             patron. Fails with `{{"status": "error", "error":
+             "already_borrowed"}}` if the book is already out.
+          4. `checkin_book` — returns a borrowed or overdue book to the
+             library. Fails with `{{"status": "error", "error":
+             "not_checked_out"}}` if the book is already on the shelf.
 
-          Standard flow:
-          - Patron names one or more titles → call `list_book_catalog` once →
-            find the matching book_id(s) → call `lookup_book_status` for each
-            relevant id → summarize the result(s) in natural language.
-          - Patron supplies a book_id directly (rare) → skip the catalog and
-            call `lookup_book_status` immediately.
-          - If a title is partial or ambiguous, surface the closest catalog
-            match(es) and ask the patron to confirm before looking up status.
-          - If the title is not in the catalog at all, say so clearly and
-            offer to look for something similar.
-          - For catalog-browse intent, you may share the title list from
-            `list_book_catalog` without immediately calling `lookup_book_status`.
+          Standard flows:
+          - Status inquiry (availability / due date / borrower / overdue):
+            resolve title → `list_book_catalog` → `lookup_book_status` →
+            summarize.
+          - Borrow request: resolve title → `lookup_book_status` → if
+            `status == "available"`, call `checkout_book` and confirm the
+            due date; if borrowed/overdue, report the current due date and
+            offer alternatives instead of attempting checkout.
+          - Return request: resolve title → call `checkin_book`. If it
+            errors with `not_checked_out`, clarify with the patron. If the
+            book was overdue, acknowledge the late return without lecturing.
+          - Catalog-browse intent: share the title list from
+            `list_book_catalog` without chaining further.
+          - Patron supplies a book_id directly (rare): skip the catalog.
 
           Rules:
-          - ALWAYS use the tools for any circulation or catalog information.
-            Never fabricate titles, authors, borrowers, dates, or statuses.
+          - ALWAYS use the tools for any circulation, catalog, checkout, or
+            return action. Never fabricate titles, authors, borrowers, dates,
+            statuses, or confirmation numbers.
+          - NEVER call `checkout_book` without first confirming availability
+            via `lookup_book_status` — calling checkout on a borrowed book is
+            a wasted action and embarrasses the agent.
+          - When a tool returns an error, acknowledge it naturally (don't
+            paste the raw error) and offer the patron a concrete next step.
           - Do NOT invent procedural information you cannot verify (online
             renewal flows, PIN reset steps, fee amounts, hold queue length,
             etc.). If asked, acknowledge you don't have that capability and
@@ -521,13 +702,16 @@ strategy_params:
 
       output_system_prompt: |
         You are LibBot, the city library's circulation assistant. You help
-        patrons find books and check circulation status using two tools:
+        patrons find, borrow, and return books using four tools:
           - `list_book_catalog`  — returns {{book_id, title, author}} for the
             full catalog. Use this to resolve a patron-spoken title to a
             book_id.
           - `lookup_book_status` — returns circulation details for a book_id.
-        Always call the tools for catalog or circulation information; never
-        fabricate data. Stay professional with rude or angry patrons.
+          - `checkout_book`      — borrows an available book for the patron.
+          - `checkin_book`       — returns a borrowed or overdue book.
+        Always call the tools for catalog, circulation, or checkout/return
+        actions; never fabricate data. Confirm availability before checkout.
+        Stay professional with rude or angry patrons.
 
   passthrough_attributes:
     - library_conversation
@@ -535,8 +719,8 @@ strategy_params:
 
 inference_config:
   model:
-    model_name: claude-sonnet-4-20250514
-  engine: ANTHROPIC
+    model_name: gpt-4o
+  engine: OPENAI
   generation:
     max_new_tokens: 4096
     temperature: 0.7
