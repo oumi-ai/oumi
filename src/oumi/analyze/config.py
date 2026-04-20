@@ -339,7 +339,7 @@ class TypedAnalyzeConfig:
 
         Raises:
             ValueError: If config contains custom code but allow_custom_code=False,
-                or if duplicate analyzer display_name values are found.
+                or if duplicate analyzer id values are found.
         """
         analyzers = cls._parse_analyzers(data)
         custom_metrics = cls._parse_custom_metrics(data, allow_custom_code)
