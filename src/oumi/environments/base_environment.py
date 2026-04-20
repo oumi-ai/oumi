@@ -96,9 +96,7 @@ class BaseEnvironment(BaseParams, ABC):
             )
         return tool
 
-    def sample_grounding(
-        self, n: int, *, rng: random.Random
-    ) -> list[GroundingFact]:
+    def sample_grounding(self, n: int, *, rng: random.Random) -> list[GroundingFact]:
         """Sample n grounding facts from this environment.
 
         Default: returns an empty list. Subclasses that support grounding
@@ -106,9 +104,7 @@ class BaseEnvironment(BaseParams, ABC):
         """
         return []
 
-    def describe_grounding(
-        self, facts: list[GroundingFact]
-    ) -> str:
+    def describe_grounding(self, facts: list[GroundingFact]) -> str:
         """Render grounding facts as a bulleted markdown block.
 
         Default implementation renders each fact's data dict as a single

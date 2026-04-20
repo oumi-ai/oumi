@@ -562,12 +562,18 @@ class ConversationSynthesizer:
             "Additional instructions: Focus on resolving the order issue "
             "efficiently while maintaining a polite and helpful tone."
         )
-        example_response = """[
-  {"turn": 1, "instruction": "Greet support and explain that order ORD-4421 has not arrived"},
-  {"turn": 2, "instruction": "Acknowledge the issue and ask for details on order ORD-4421"},
-  {"turn": 3, "instruction": "Describe that the laptop stand from order ORD-4421 is late"},
-  {"turn": 4, "instruction": "Confirm the delay on order ORD-4421 and offer a resolution"}
-]"""
+        example_response = (
+            "[\n"
+            '  {"turn": 1, "instruction": "Greet support and explain that '
+            'order ORD-4421 has not arrived"},\n'
+            '  {"turn": 2, "instruction": "Acknowledge the issue and ask '
+            'for details on order ORD-4421"},\n'
+            '  {"turn": 3, "instruction": "Describe that the laptop stand '
+            'from order ORD-4421 is late"},\n'
+            '  {"turn": 4, "instruction": "Confirm the delay on order '
+            'ORD-4421 and offer a resolution"}\n'
+            "]"
+        )
 
         base_prompt = (
             f"Plan a {target_turns}-turn conversation.\n"

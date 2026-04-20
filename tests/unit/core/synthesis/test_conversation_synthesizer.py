@@ -32,7 +32,7 @@ from oumi.core.configs.params.synthesis_params import (
     SampledAttributeValue,
 )
 from oumi.core.synthesis.conversation_synthesizer import ConversationSynthesizer
-from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.core.types.conversation import ContentItem, Conversation, Message, Role
 from oumi.environments import (
     DeterministicEnvironment,
     DeterministicToolOutput,
@@ -43,22 +43,39 @@ from oumi.environments import (
 )
 
 
-def _unwrap_tool_result(content: str) -> str:
+def _unwrap_tool_result(content: str | list[ContentItem]) -> str:
     """Strip the ``<tool_result>...</tool_result>`` wrapper from a tool-result
     message so assertions can inspect the inner JSON/text payload.
 
     The synthesizer emits tool results as ``Role.USER`` messages wrapped in
     ``<tool_result>`` markers (keeps the conversation portable across provider
     APIs that disallow a ``tool`` role). Tests use this helper to peek at the
-    underlying content.
+    underlying content. ``Message.content`` is typed as
+    ``str | list[ContentItem]`` so this helper accepts the union and asserts
+    a string at runtime (multimodal content has no string wrapping).
     """
     prefix = "<tool_result>"
     suffix = "</tool_result>"
-    assert isinstance(content, str)
+    assert isinstance(content, str), (
+        f"Expected string tool-result content, got: {type(content).__name__}"
+    )
     assert content.startswith(prefix) and content.endswith(suffix), (
         f"Expected <tool_result>-wrapped content, got: {content!r}"
     )
     return content[len(prefix) : -len(suffix)]
+
+
+def _as_str(content: str | list[ContentItem]) -> str:
+    """Narrow ``Message.content`` to ``str`` for assertions in tests.
+
+    Tests that exercise plain-text turn output assume the synthesizer
+    populates ``Message.content`` as a string. This helper performs the
+    runtime assertion so static type checkers can narrow the union.
+    """
+    assert isinstance(content, str), (
+        f"Expected string message content, got: {type(content).__name__}"
+    )
+    return content
 
 
 @pytest.fixture
@@ -374,11 +391,13 @@ def test_format_persona_injects_tools_for_assistant_only(
         id="lookup_order",
         name="Lookup Order",
         description="Look up an order by id.",
-        parameters={
-            "type": "object",
-            "properties": {"order_id": {"type": "string"}},
-            "required": ["order_id"],
-        },
+        parameters=ToolSchema.create(
+            {
+                "type": "object",
+                "properties": {"order_id": {"type": "string"}},
+                "required": ["order_id"],
+            }
+        ),
     )
 
     with patch.object(synthesizer, "_resolve_available_tools", return_value=[tool]):
@@ -463,7 +482,9 @@ def test_build_role_context_includes_tools_for_assistant(
         id="check_status",
         name="Check Status",
         description="Check order status.",
-        parameters={"type": "object", "properties": {}, "required": []},
+        parameters=ToolSchema.create(
+            {"type": "object", "properties": {}, "required": []}
+        ),
     )
 
     with patch.object(synthesizer, "_resolve_available_tools", return_value=[tool]):
@@ -516,7 +537,7 @@ def test_planner_prompt_includes_role_context(
     assert "You are a frustrated customer." in user_message
     assert "You are a helpful agent." in user_message
 
-    example_response = planner.messages[2].content
+    example_response = _as_str(planner.messages[2].content)
     assert example_response.startswith("[")
     assert '"turn": 1' in example_response
     assert '"instruction"' in example_response
@@ -540,7 +561,10 @@ def test_generate_plan_uses_planner_only_guided_decoding(
         messages=[
             Message(
                 role=Role.ASSISTANT,
-                content='[{"turn": 1, "instruction": "Ask"}, {"turn": 2, "instruction": "Answer"}]',
+                content=(
+                    '[{"turn": 1, "instruction": "Ask"}, '
+                    '{"turn": 2, "instruction": "Answer"}]'
+                ),
             )
         ]
     )
@@ -1204,7 +1228,10 @@ def test_execute_tool_calls_non_object_body(mock_inference_config):
         mock_inference_config, environment_config=_tool_env_config()
     )
     messages = synth._execute_tool_calls("<tool_call>[1, 2]</tool_call>")
-    assert "must be a JSON object" in json.loads(_unwrap_tool_result(messages[0].content))["error"]
+    assert (
+        "must be a JSON object"
+        in json.loads(_unwrap_tool_result(messages[0].content))["error"]
+    )
 
 
 def test_execute_tool_calls_missing_name(mock_inference_config):
@@ -1212,7 +1239,10 @@ def test_execute_tool_calls_missing_name(mock_inference_config):
         mock_inference_config, environment_config=_tool_env_config()
     )
     messages = synth._execute_tool_calls('<tool_call>{"arguments": {}}</tool_call>')
-    assert "missing 'name'" in json.loads(_unwrap_tool_result(messages[0].content))["error"]
+    assert (
+        "missing 'name'"
+        in json.loads(_unwrap_tool_result(messages[0].content))["error"]
+    )
 
 
 def test_execute_tool_calls_non_dict_arguments(mock_inference_config):
@@ -1222,7 +1252,10 @@ def test_execute_tool_calls_non_dict_arguments(mock_inference_config):
     messages = synth._execute_tool_calls(
         '<tool_call>{"name": "lookup", "arguments": "oops"}</tool_call>'
     )
-    assert "must be an object" in json.loads(_unwrap_tool_result(messages[0].content))["error"]
+    assert (
+        "must be an object"
+        in json.loads(_unwrap_tool_result(messages[0].content))["error"]
+    )
 
 
 def test_execute_tool_calls_unknown_tool(mock_inference_config):
@@ -1232,7 +1265,10 @@ def test_execute_tool_calls_unknown_tool(mock_inference_config):
     messages = synth._execute_tool_calls(
         '<tool_call>{"name": "nope", "arguments": {}}</tool_call>'
     )
-    assert "Unknown tool 'nope'" in json.loads(_unwrap_tool_result(messages[0].content))["error"]
+    assert (
+        "Unknown tool 'nope'"
+        in json.loads(_unwrap_tool_result(messages[0].content))["error"]
+    )
 
 
 def _typed_tool_env_config() -> EnvironmentConfig:
@@ -1304,7 +1340,10 @@ def test_execute_tool_calls_validation_runs_before_env_step(mock_inference_confi
     )
 
     assert env.step.call_count == 0
-    assert "Invalid arguments" in json.loads(_unwrap_tool_result(messages[0].content))["error"]
+    assert (
+        "Invalid arguments"
+        in json.loads(_unwrap_tool_result(messages[0].content))["error"]
+    )
 
 
 def test_execute_tool_calls_valid_arguments_hit_env_step(mock_inference_config):
@@ -1331,7 +1370,10 @@ def test_execute_tool_calls_env_raises(mock_inference_config):
     messages = synth._execute_tool_calls(
         '<tool_call>{"name": "lookup", "arguments": {}}</tool_call>'
     )
-    assert "Tool 'lookup' raised" in json.loads(_unwrap_tool_result(messages[0].content))["error"]
+    assert (
+        "Tool 'lookup' raised"
+        in json.loads(_unwrap_tool_result(messages[0].content))["error"]
+    )
     assert "boom" in json.loads(_unwrap_tool_result(messages[0].content))["error"]
 
 
@@ -1461,6 +1503,7 @@ def test_assistant_inference_config_preserves_existing_stops(
     synth = _make_synthesizer(mock_inference_config)
     cfg = synth._assistant_inference_config()
     stops = cfg.generation.stop_strings
+    assert stops is not None
     assert "<|end|>" in stops
     assert "STOP" in stops
     assert "</tool_call>" in stops
@@ -1496,7 +1539,8 @@ def test_run_assistant_turn_strips_prose_after_tool_call_in_response(
     engine = _scripted_inference_engine(
         [
             [  # iter 1: tool_call + hallucinated follow-up answer
-                '<tool_call>{"name": "lookup", "arguments": {"id": "01"}}</tool_call>\n\n'
+                '<tool_call>{"name": "lookup", "arguments": {"id": "01"}}'
+                "</tool_call>\n\n"
                 "I found it! The book is 'Dune' by Frank Herbert. Due 2024-01-15."
             ],
             [  # iter 2: final response after seeing real tool result
@@ -1520,10 +1564,11 @@ def test_run_assistant_turn_strips_prose_after_tool_call_in_response(
 
     assistant_msg = msgs[0][0]
     assert assistant_msg.role == Role.ASSISTANT
+    assistant_content = _as_str(assistant_msg.content)
     # The trailing hallucinated prose must be stripped.
-    assert "Dune" not in assistant_msg.content
-    assert "2024" not in assistant_msg.content
-    assert assistant_msg.content.rstrip().endswith("</tool_call>")
+    assert "Dune" not in assistant_content
+    assert "2024" not in assistant_content
+    assert assistant_content.rstrip().endswith("</tool_call>")
     # The final-response message is untouched.
     assert msgs[0][-1].content == "The real status is ok."
 
@@ -1560,7 +1605,7 @@ def test_run_assistant_turn_rehydrates_stop_sequence_stripped_close_tag(
     )
 
     assistant_msg = msgs[0][0]
-    assert assistant_msg.content.endswith("</tool_call>")
+    assert _as_str(assistant_msg.content).endswith("</tool_call>")
     # And the tool call was actually executed (result is the next message).
     assert msgs[0][1].role == Role.USER
     tool_payload = json.loads(_unwrap_tool_result(msgs[0][1].content))
@@ -2098,9 +2143,7 @@ def test_attach_grounding_facts_noop_when_no_env_has_grounding(
     mock_inference_config,
 ):
     env_config = _tool_env_config()  # no grounding on the env
-    synth = _make_synthesizer(
-        mock_inference_config, environment_config=env_config
-    )
+    synth = _make_synthesizer(mock_inference_config, environment_config=env_config)
     samples = [{}, {}]
     attr = _tool_multiturn_attr()
 
@@ -2112,9 +2155,7 @@ def test_attach_grounding_facts_noop_when_no_env_has_grounding(
 
 def test_attach_grounding_facts_populates_samples(mock_inference_config):
     env_config = _grounded_env_config(n_entries=10, sample_size=3, seed=42)
-    synth = _make_synthesizer(
-        mock_inference_config, environment_config=env_config
-    )
+    synth = _make_synthesizer(mock_inference_config, environment_config=env_config)
     samples = [{}, {}, {}]
     attr = MultiTurnAttribute(
         id="t",
@@ -2140,12 +2181,8 @@ def test_attach_grounding_facts_populates_samples(mock_inference_config):
 def test_attach_grounding_facts_seeded_is_reproducible(mock_inference_config):
     env_config_a = _grounded_env_config(n_entries=20, sample_size=4, seed=7)
     env_config_b = _grounded_env_config(n_entries=20, sample_size=4, seed=7)
-    synth_a = _make_synthesizer(
-        mock_inference_config, environment_config=env_config_a
-    )
-    synth_b = _make_synthesizer(
-        mock_inference_config, environment_config=env_config_b
-    )
+    synth_a = _make_synthesizer(mock_inference_config, environment_config=env_config_a)
+    synth_b = _make_synthesizer(mock_inference_config, environment_config=env_config_b)
     samples_a = [{}, {}, {}]
     samples_b = [{}, {}, {}]
     attr = MultiTurnAttribute(
@@ -2173,9 +2210,7 @@ def test_attach_grounding_facts_seeded_different_samples_differ(
     mock_inference_config,
 ):
     env_config = _grounded_env_config(n_entries=50, sample_size=3, seed=7)
-    synth = _make_synthesizer(
-        mock_inference_config, environment_config=env_config
-    )
+    synth = _make_synthesizer(mock_inference_config, environment_config=env_config)
     samples = [{}, {}]
     attr = MultiTurnAttribute(
         id="t",
@@ -2206,9 +2241,7 @@ def test_attach_grounding_facts_respects_available_environments_scoping(
         env_id="env_b", tool_id="tool_b", n_entries=5, sample_size=2, seed=2
     )
     env_config = EnvironmentConfig(environments=[env_a, env_b])
-    synth = _make_synthesizer(
-        mock_inference_config, environment_config=env_config
-    )
+    synth = _make_synthesizer(mock_inference_config, environment_config=env_config)
     samples = [{}]
     attr = MultiTurnAttribute(
         id="t",
@@ -2238,9 +2271,7 @@ def test_attach_grounding_facts_concatenates_across_multiple_envs(
         env_id="env_b", tool_id="tool_b", n_entries=5, sample_size=3, seed=2
     )
     env_config = EnvironmentConfig(environments=[env_a, env_b])
-    synth = _make_synthesizer(
-        mock_inference_config, environment_config=env_config
-    )
+    synth = _make_synthesizer(mock_inference_config, environment_config=env_config)
     samples = [{}]
     attr = MultiTurnAttribute(
         id="t",
@@ -2265,9 +2296,7 @@ def test_attach_grounding_facts_truncation_emits_logger_warning(
     import logging
 
     env_config = _grounded_env_config(n_entries=2, sample_size=5, seed=1)
-    synth = _make_synthesizer(
-        mock_inference_config, environment_config=env_config
-    )
+    synth = _make_synthesizer(mock_inference_config, environment_config=env_config)
     samples = [{}, {}]
     attr = MultiTurnAttribute(
         id="t",
@@ -2299,9 +2328,7 @@ def test_create_planner_prompt_injects_grounding_block_when_facts_present(
     mock_inference_config,
 ):
     env_config = _grounded_env_config(n_entries=10, sample_size=2, seed=1)
-    synth = _make_synthesizer(
-        mock_inference_config, environment_config=env_config
-    )
+    synth = _make_synthesizer(mock_inference_config, environment_config=env_config)
     attr = MultiTurnAttribute(
         id="t",
         min_turns=2,
@@ -2371,9 +2398,7 @@ def test_create_planner_prompt_no_grounding_block_when_facts_absent(
     mock_inference_config,
 ):
     env_config = _tool_env_config()  # no grounding configured
-    synth = _make_synthesizer(
-        mock_inference_config, environment_config=env_config
-    )
+    synth = _make_synthesizer(mock_inference_config, environment_config=env_config)
     attr = _tool_multiturn_attr()
     sample = {
         "target_turns": 2,
@@ -2455,9 +2480,7 @@ def test_validate_tool_configuration_warns_on_grounding_placeholder_in_user(
     import logging
 
     env_config = _grounded_env_config(n_entries=5, sample_size=2, seed=1)
-    synth = _make_synthesizer(
-        mock_inference_config, environment_config=env_config
-    )
+    synth = _make_synthesizer(mock_inference_config, environment_config=env_config)
     attr = MultiTurnAttribute(
         id="t",
         min_turns=2,
@@ -2489,9 +2512,7 @@ def test_validate_tool_configuration_warns_on_grounding_placeholder_in_assistant
     import logging
 
     env_config = _grounded_env_config(n_entries=5, sample_size=2, seed=1)
-    synth = _make_synthesizer(
-        mock_inference_config, environment_config=env_config
-    )
+    synth = _make_synthesizer(mock_inference_config, environment_config=env_config)
     attr = MultiTurnAttribute(
         id="t",
         min_turns=2,
@@ -2507,11 +2528,7 @@ def test_validate_tool_configuration_warns_on_grounding_placeholder_in_assistant
     with caplog.at_level(logging.WARNING, logger="oumi"):
         synth._validate_tool_configuration(attr)
 
-    warnings = [
-        rec
-        for rec in caplog.records
-        if "grounding_facts" in rec.getMessage()
-    ]
+    warnings = [rec for rec in caplog.records if "grounding_facts" in rec.getMessage()]
     assert len(warnings) >= 1
     assert "assistant" in warnings[0].getMessage().lower()
 
@@ -2522,9 +2539,7 @@ def test_validate_tool_configuration_no_warning_when_placeholder_absent(
     import logging
 
     env_config = _grounded_env_config(n_entries=5, sample_size=2, seed=1)
-    synth = _make_synthesizer(
-        mock_inference_config, environment_config=env_config
-    )
+    synth = _make_synthesizer(mock_inference_config, environment_config=env_config)
     attr = MultiTurnAttribute(
         id="t",
         min_turns=2,
@@ -2541,9 +2556,7 @@ def test_validate_tool_configuration_no_warning_when_placeholder_absent(
         synth._validate_tool_configuration(attr)
 
     grounding_warnings = [
-        rec
-        for rec in caplog.records
-        if "grounding_facts" in rec.getMessage()
+        rec for rec in caplog.records if "grounding_facts" in rec.getMessage()
     ]
     assert grounding_warnings == []
 
@@ -2557,9 +2570,7 @@ def test_create_planner_prompt_byte_identical_when_no_grounding(
     """Regression: when no env in scope has grounding, planner prompt is
     unchanged from the pre-grounding baseline."""
     env_config = _tool_env_config()  # no grounding
-    synth = _make_synthesizer(
-        mock_inference_config, environment_config=env_config
-    )
+    synth = _make_synthesizer(mock_inference_config, environment_config=env_config)
     attr = _tool_multiturn_attr()
     sample = {
         "target_turns": 2,

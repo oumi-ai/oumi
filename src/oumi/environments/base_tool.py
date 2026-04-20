@@ -127,6 +127,7 @@ class GroundingConfig(BaseParams):
     reproducibility. If None, grounding uses an unseeded ``random.Random``."""
 
     def __post_init__(self) -> None:
+        """Validate ``sample_size`` is a positive integer."""
         if self.sample_size < 1:
             raise ValueError(
                 f"{type(self).__name__}.sample_size must be >= 1, "
@@ -203,9 +204,7 @@ class ToolSchema(BaseParams):
             },
             description=raw.get("description"),
             required=raw.get("required", []),
-            items=(
-                cls.create(raw["items"]) if raw.get("items") is not None else None
-            ),
+            items=(cls.create(raw["items"]) if raw.get("items") is not None else None),
             enum=list(raw["enum"]) if raw.get("enum") is not None else None,
         )
 

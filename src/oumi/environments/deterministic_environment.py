@@ -90,9 +90,7 @@ class DeterministicEnvironment(BaseEnvironment):
             f"Configured inputs: {json.dumps(available, sort_keys=True)}"
         )
 
-    def sample_grounding(
-        self, n: int, *, rng: random.Random
-    ) -> list[GroundingFact]:
+    def sample_grounding(self, n: int, *, rng: random.Random) -> list[GroundingFact]:
         """Sample grounding facts from the pool of deterministic outputs.
 
         Pools every ``DeterministicToolOutput`` across every tool owned by
@@ -103,12 +101,9 @@ class DeterministicEnvironment(BaseEnvironment):
         is responsible for surfacing a warning when applicable.
         """
         pool: list[DeterministicToolOutput] = [
-            entry
-            for tool in self.tools
-            for entry in tool.deterministic_outputs
+            entry for tool in self.tools for entry in tool.deterministic_outputs
         ]
         sampled = rng.sample(pool, min(n, len(pool)))
         return [
-            GroundingFact(data={**entry.input, **entry.output})
-            for entry in sampled
+            GroundingFact(data={**entry.input, **entry.output}) for entry in sampled
         ]

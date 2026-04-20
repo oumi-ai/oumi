@@ -270,9 +270,7 @@ def test_tool_schema_create_coerces_items_and_enum():
 
 
 def test_tool_schema_validate_rejects_wrong_item_type():
-    schema = ToolSchema.create(
-        {"type": "array", "items": {"type": "string"}}
-    )
+    schema = ToolSchema.create({"type": "array", "items": {"type": "string"}})
     with pytest.raises(ToolArgumentError, match=r"arguments\[1\] must be a string"):
         schema.validate(["ok", 2], path="arguments")
 
@@ -760,9 +758,7 @@ def test_describe_grounding_default_empty():
 def test_describe_grounding_default_single_fact():
     from oumi.environments.base_tool import describe_grounding_default
 
-    facts = [
-        GroundingFact(data={"id": "42", "title": "Dune", "year": 1965})
-    ]
+    facts = [GroundingFact(data={"id": "42", "title": "Dune", "year": 1965})]
     rendered = describe_grounding_default(facts)
     assert rendered == '- id="42", title="Dune", year=1965'
 
@@ -775,18 +771,14 @@ def test_describe_grounding_default_multi_fact_preserves_order():
         GroundingFact(data={"id": "42", "title": "Dune"}),
     ]
     rendered = describe_grounding_default(facts)
-    assert rendered == (
-        '- id="7", title="LotR"\n- id="42", title="Dune"'
-    )
+    assert rendered == ('- id="7", title="LotR"\n- id="42", title="Dune"')
 
 
 def test_describe_grounding_default_handles_non_string_values():
     from oumi.environments.base_tool import describe_grounding_default
 
     facts = [
-        GroundingFact(
-            data={"id": 42, "available": True, "count": 3, "rating": 4.5}
-        )
+        GroundingFact(data={"id": 42, "available": True, "count": 3, "rating": 4.5})
     ]
     rendered = describe_grounding_default(facts)
     assert "id=42" in rendered
@@ -841,9 +833,7 @@ def test_base_environment_default_describe_grounding_delegates_to_helper():
         system_prompt="Answer FAQs.",
         tools=[_make_synthetic_tool(id="answer")],
     )
-    facts = [
-        GroundingFact(data={"id": "42", "title": "Dune"})
-    ]
+    facts = [GroundingFact(data={"id": "42", "title": "Dune"})]
     assert env.describe_grounding(facts) == '- id="42", title="Dune"'
 
 
@@ -869,9 +859,7 @@ def test_base_environment_accepts_grounding_in_constructor():
 def _det_env_with_n_entries(n: int) -> DeterministicEnvironment:
     """Build a DeterministicEnvironment with a single tool containing n entries."""
     outputs = [
-        DeterministicToolOutput(
-            input={"id": str(i)}, output={"title": f"title-{i}"}
-        )
+        DeterministicToolOutput(input={"id": str(i)}, output={"title": f"title-{i}"})
         for i in range(n)
     ]
     return DeterministicEnvironment(
@@ -950,9 +938,7 @@ def test_deterministic_sample_grounding_pools_across_tools():
                 name="A",
                 description="Tool A",
                 deterministic_outputs=[
-                    DeterministicToolOutput(
-                        input={"k": "a1"}, output={"v": "a1"}
-                    )
+                    DeterministicToolOutput(input={"k": "a1"}, output={"v": "a1"})
                 ],
             ),
             Tool(
@@ -960,12 +946,8 @@ def test_deterministic_sample_grounding_pools_across_tools():
                 name="B",
                 description="Tool B",
                 deterministic_outputs=[
-                    DeterministicToolOutput(
-                        input={"k": "b1"}, output={"v": "b1"}
-                    ),
-                    DeterministicToolOutput(
-                        input={"k": "b2"}, output={"v": "b2"}
-                    ),
+                    DeterministicToolOutput(input={"k": "b1"}, output={"v": "b1"}),
+                    DeterministicToolOutput(input={"k": "b2"}, output={"v": "b2"}),
                 ],
             ),
         ],
@@ -980,6 +962,7 @@ def test_deterministic_sample_grounding_pools_across_tools():
 
 def test_deterministic_sample_grounding_output_wins_on_key_conflict():
     import random
+
     env = DeterministicEnvironment(
         id="lookup",
         name="Lookup",
