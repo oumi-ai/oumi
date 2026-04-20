@@ -103,6 +103,8 @@ class Endpoint:
     created_at: datetime | None = None
     display_name: str | None = None
     inference_model_name: str | None = None  # Model name to use for inference calls
+    status_code: str | None = None  # Provider status code, e.g. "RESOURCE_EXHAUSTED"
+    status_message: str | None = None  # Raw provider status message (operator-only)
 
 
 # Async callback for upload/deploy progress updates.

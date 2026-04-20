@@ -3752,3 +3752,74 @@ def test_cancel_batch_public():
         status = engine.cancel_batch("batch-123")
         assert status.id == "batch-123"
         assert status.status == BatchStatus.CANCELLING
+
+
+def test_rate_limiter_not_instantiated_when_no_limits():
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
+    )
+    assert engine._rate_limiter is None
+
+
+def test_rate_limiter_wait_if_needed_called_before_request():
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(),
+        remote_params=RemoteParams(
+            api_url=_TARGET_SERVER,
+            requests_per_minute=60,
+        ),
+    )
+    assert engine._rate_limiter is not None
+
+    mock_wait = AsyncMock()
+    with patch.object(engine._rate_limiter, "wait_if_needed", mock_wait):
+        with aioresponses() as m:
+            m.post(
+                _TARGET_SERVER,
+                status=200,
+                payload={
+                    "choices": [{"message": {"role": "assistant", "content": "Hello!"}}]
+                },
+            )
+            engine.infer(
+                [create_test_text_only_conversation()],
+                _get_default_inference_config(),
+            )
+
+    mock_wait.assert_called_once()
+
+
+def test_rate_limiter_record_usage_called_after_response():
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(),
+        remote_params=RemoteParams(
+            api_url=_TARGET_SERVER,
+            requests_per_minute=60,
+        ),
+    )
+    assert engine._rate_limiter is not None
+
+    mock_record = AsyncMock()
+    with patch.object(engine._rate_limiter, "record_usage", mock_record):
+        with aioresponses() as m:
+            m.post(
+                _TARGET_SERVER,
+                status=200,
+                payload={
+                    "choices": [
+                        {"message": {"role": "assistant", "content": "Hello!"}}
+                    ],
+                    "usage": {
+                        "prompt_tokens": 25,
+                        "completion_tokens": 10,
+                        "total_tokens": 35,
+                    },
+                },
+            )
+            engine.infer(
+                [create_test_text_only_conversation()],
+                _get_default_inference_config(),
+            )
+
+    mock_record.assert_called_once_with(input_tokens=25, output_tokens=10)

@@ -68,6 +68,7 @@ user_guides/synth
 user_guides/tune
 user_guides/quantization
 user_guides/customization
+user_guides/mcp
 ```
 
 ```{toctree}

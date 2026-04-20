@@ -32,8 +32,10 @@ from oumi.deploy.base_client import (
 from oumi.deploy.fireworks_api import (
     FW_STATE_TO_ENDPOINT,
     GatewayAcceleratorType,
+    GatewayCode,
     GatewayDeployment,
     GatewayDeploymentState,
+    GatewayStatus,
 )
 from oumi.deploy.fireworks_client import (
     FIREWORKS_ACCELERATORS,
@@ -193,6 +195,33 @@ class TestFireworksDeploymentClient:
         assert endpoint.autoscaling.max_replicas == 3
         assert endpoint.display_name == "My Deployment"
         assert endpoint.provider == DeploymentProvider.FIREWORKS
+        assert endpoint.status_code is None
+        assert endpoint.status_message is None
+
+    def test_parse_deployment_passes_through_status(self):
+        """Status code and message are surfaced on the Endpoint dataclass.
+
+        Fireworks reports scheduling failures (e.g. no A100s available) via
+        ``GatewayDeployment.status`` while the state remains ``CREATING``.
+        Callers polling the endpoint need that signal to fail fast instead of
+        waiting out the full poll budget.
+        """
+        client = FireworksDeploymentClient(api_key="test", account_id="test-account")
+
+        deployment = GatewayDeployment(
+            name="accounts/test-account/deployments/deploy-123",
+            baseModel="accounts/test-account/models/model-456",
+            state=GatewayDeploymentState.CREATING,
+            status=GatewayStatus(
+                code=GatewayCode.RESOURCE_EXHAUSTED,
+                message="No A100 capacity in us-central1",
+            ),
+        )
+
+        endpoint = client._parse_deployment(deployment)
+
+        assert endpoint.status_code == "RESOURCE_EXHAUSTED"
+        assert endpoint.status_message == "No A100 capacity in us-central1"
 
     @pytest.mark.asyncio
     async def test_create_endpoint_payload(self):
@@ -230,6 +259,43 @@ class TestFireworksDeploymentClient:
             assert payload["minReplicaCount"] == 1
             assert payload["maxReplicaCount"] == 2
             assert payload["displayName"] == "test-deployment"
+            # No caller-supplied ID → no deploymentId query param.
+            assert call_args[1].get("params", {}) == {}
+
+    @pytest.mark.asyncio
+    async def test_create_endpoint_with_endpoint_id(self):
+        """Test create_endpoint passes caller-supplied deploymentId as query param."""
+        client = FireworksDeploymentClient(api_key="test", account_id="test-account")
+
+        mock_response = MagicMock()
+        mock_response.is_success = True
+        mock_response.json.return_value = {
+            "name": "accounts/test-account/deployments/dep-42-m10-v1",
+            "baseModel": "model-456",
+            "state": "CREATING",
+            "acceleratorType": "NVIDIA_A100_80GB",
+            "acceleratorCount": 1,
+            "minReplicaCount": 1,
+            "maxReplicaCount": 2,
+        }
+
+        with patch.object(
+            client._client, "post", new_callable=AsyncMock, return_value=mock_response
+        ) as mock_post:
+            await client.create_endpoint(
+                model_id="model-456",
+                hardware=HardwareConfig(accelerator="nvidia_a100_80gb", count=1),
+                autoscaling=AutoscalingConfig(min_replicas=1, max_replicas=2),
+                endpoint_id="dep-42-m10-v1",
+            )
+
+            mock_post.assert_called_once()
+            call_args = mock_post.call_args
+            # deploymentId is a query param, not a body field.
+            assert call_args[1]["params"] == {"deploymentId": "dep-42-m10-v1"}
+            payload = call_args[1]["json"]
+            assert "deploymentId" not in payload
+            assert payload["baseModel"] == "model-456"
 
     @pytest.mark.asyncio
     async def test_get_endpoint(self):

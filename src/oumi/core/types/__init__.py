@@ -42,7 +42,7 @@ from oumi.core.types.conversation import (
     TemplatedMessage,
     Type,
 )
-from oumi.core.types.exceptions import HardwareException
+from oumi.exceptions import HardwareException
 
 __all__ = [
     "HardwareException",
