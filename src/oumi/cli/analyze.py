@@ -27,13 +27,13 @@ from rich.console import Console
 from rich.table import Table
 
 import oumi.cli.cli_utils as cli_utils
+from oumi.analyze import create_analyzer_from_config
 from oumi.analyze.config import TypedAnalyzeConfig
 from oumi.analyze.discovery import print_analyzer_metrics
 from oumi.analyze.pipeline import AnalysisPipeline
 from oumi.analyze.testing.engine import TestEngine
 from oumi.cli.alias import AliasType, try_get_config_name_for_alias
 from oumi.cli.completions import complete_analyze_config
-from oumi.core.registry import REGISTRY
 from oumi.core.types.conversation import Conversation
 from oumi.utils.io_utils import load_jsonlines
 from oumi.utils.logging import logger
@@ -107,33 +107,6 @@ def load_conversations_from_dataset(
 
     logger.info(f"Loaded {len(conversations)} conversations from {dataset_name}")
     return conversations
-
-
-def get_analyzer_class(name: str) -> Any:
-    """Get an analyzer class by name from the core registry."""
-    return REGISTRY.get_sample_analyzer(name)
-
-
-def create_analyzer_from_config(
-    analyzer_id: str,
-    params: dict[str, Any],
-) -> Any:
-    """Create an analyzer instance from configuration."""
-    analyzer_class = get_analyzer_class(analyzer_id)
-    if analyzer_class is None:
-        logger.warning(f"Unknown analyzer: {analyzer_id}")
-        return None
-
-    try:
-        if hasattr(analyzer_class, "from_config") and callable(
-            getattr(analyzer_class, "from_config")
-        ):
-            return analyzer_class.from_config(params)
-        else:
-            return analyzer_class(**params)
-    except Exception as e:
-        logger.error(f"Failed to create analyzer {analyzer_id}: {e}")
-        return None
 
 
 def run_typed_analysis(
