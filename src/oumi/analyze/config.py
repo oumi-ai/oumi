@@ -16,21 +16,12 @@
 
 import warnings
 from dataclasses import dataclass, field
-from enum import Enum
 from pathlib import Path
 from typing import Any
 
 import yaml
 
 from oumi.core.configs.params.test_params import TestParams
-
-
-class AnalyzerType(str, Enum):
-    """Built-in analyzer types."""
-
-    LENGTH = "length"
-    QUALITY = "quality"
-    TURN_STATS = "turn_stats"
 
 
 @dataclass

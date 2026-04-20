@@ -32,7 +32,6 @@ from oumi.analyze.base import (
 )
 from oumi.analyze.config import (
     AnalyzerConfig,
-    AnalyzerType,
     TypedAnalyzeConfig,
 )
 from oumi.analyze.discovery import (
@@ -106,7 +105,6 @@ def create_analyzer_from_config(
 __all__ = [
     "AnalysisPipeline",
     "AnalyzerConfig",
-    "AnalyzerType",
     "BaseAnalyzer",
     "ConversationAnalyzer",
     "DataQualityAnalyzer",
