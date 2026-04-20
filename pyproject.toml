@@ -60,7 +60,7 @@ dependencies = [
     "omegaconf==2.4.0.dev4",
     "packaging",
     "pandas>=2.3,<3",
-    "peft>=0.17,<0.19",
+    "peft>=0.17,<0.20",
     "pexpect>=4.9,<4.10",      # Used by Polaris client
     "posthog>=7.0,<8.0",
     "pillow>=11.3,<12.3",      # Used by image datasets
