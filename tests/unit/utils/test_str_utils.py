@@ -10,6 +10,7 @@ from oumi.utils.str_utils import (
     compute_utf8_len,
     extract_json,
     get_editable_install_override_env_var,
+    repair_json_braces,
     sanitize_run_name,
     set_oumi_install_editable,
     str_to_bool,
@@ -317,3 +318,76 @@ def test_extract_json_no_json():
 def test_extract_json_any_type():
     assert extract_json("[1, 2]", expected_type=None) == [1, 2]
     assert extract_json('Result: {"a": 1}', expected_type=None) == {"a": 1}
+
+
+# ---------------------------------------------------------------------------
+# repair_json_braces
+# ---------------------------------------------------------------------------
+
+
+def test_repair_json_braces_passes_valid_input_through():
+    text = '{"name": "lookup", "arguments": {"book_id": "B001"}}'
+    assert repair_json_braces(text) == text
+
+
+def test_repair_json_braces_strips_single_trailing_close():
+    """The exact failure mode observed in synth output: one extra ``}``."""
+    text = '{"name": "lookup_book_status", "arguments": {"book_id": "B008"}}}'
+    repaired = repair_json_braces(text)
+    assert repaired == (
+        '{"name": "lookup_book_status", "arguments": {"book_id": "B008"}}'
+    )
+
+
+def test_repair_json_braces_strips_many_trailing_closes():
+    text = '{"a": 1}}}}}'
+    assert repair_json_braces(text) == '{"a": 1}'
+
+
+def test_repair_json_braces_appends_missing_object_close():
+    """Stop-sequence truncation often cuts just before the final ``}``."""
+    text = '{"name": "lookup", "arguments": {"book_id": "B001"}'
+    repaired = repair_json_braces(text)
+    assert repaired == ('{"name": "lookup", "arguments": {"book_id": "B001"}}')
+
+
+def test_repair_json_braces_appends_missing_array_close():
+    text = '{"items": [1, 2, 3'
+    assert repair_json_braces(text) == '{"items": [1, 2, 3]}'
+
+
+def test_repair_json_braces_appends_mixed_closes_in_reverse_open_order():
+    """Reverse-open order matters: ``{"a": [...`` needs ``]}`` not ``}]``."""
+    text = '{"a": [1, 2'
+    assert repair_json_braces(text) == '{"a": [1, 2]}'
+
+
+def test_repair_json_braces_ignores_braces_inside_strings():
+    """``}`` inside a string literal must not count as a close."""
+    text = '{"msg": "hello }world{"}'
+    assert repair_json_braces(text) == text
+
+
+def test_repair_json_braces_handles_escaped_quotes_in_strings():
+    text = r'{"msg": "she said \"hi\""}'
+    assert repair_json_braces(text) == text
+
+
+def test_repair_json_braces_returns_none_for_non_structural_breakage():
+    """Unquoted keys are out of scope — sanitizer gives up rather than guess."""
+    assert repair_json_braces("{a: 1}") is None
+
+
+def test_repair_json_braces_returns_none_for_nonsense():
+    assert repair_json_braces("not json at all") is None
+
+
+def test_repair_json_braces_handles_valid_nested_structures():
+    text = '{"outer": {"inner": [1, {"k": "v"}]}}'
+    assert repair_json_braces(text) == text
+
+
+def test_repair_json_braces_truncates_after_last_balanced_point():
+    """Extra close after a balanced prefix keeps the prefix."""
+    text = '{"a": 1}}extra garbage'
+    assert repair_json_braces(text) == '{"a": 1}'

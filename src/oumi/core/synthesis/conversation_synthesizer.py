@@ -39,12 +39,13 @@ from oumi.environments import GroundingFact
 from oumi.environments.base_environment import BaseEnvironment
 from oumi.environments.utils import (
     TOOL_CALL_RE,
+    canonicalize_tool_call_bodies,
     close_dangling_tool_call,
     strip_tool_call_blocks,
     truncate_after_last_tool_call,
 )
 from oumi.utils.logging import logger
-from oumi.utils.str_utils import extract_json
+from oumi.utils.str_utils import extract_json, repair_json_braces
 
 _FORCED_FINALIZE_NUDGE = (
     "You have reached the tool-call limit. Do NOT emit any more "
@@ -830,6 +831,7 @@ class ConversationSynthesizer:
             for i, text in zip(active, texts):
                 text = close_dangling_tool_call(text)
                 text = truncate_after_last_tool_call(text)
+                text = canonicalize_tool_call_bodies(text)
                 turn_messages[i].append(Message(role=Role.ASSISTANT, content=text))
                 if self._is_final_response(text):
                     done[i] = True
@@ -894,7 +896,15 @@ class ConversationSynthesizer:
         try:
             parsed = json.loads(body)
         except json.JSONDecodeError as e:
-            return _tool_error_msg(f"Malformed tool_call JSON: {e}")
+            # Retry via brace repair to recover from stop-sequence truncation
+            # (missing closing braces) and over-emission (trailing }}).
+            repaired = repair_json_braces(body)
+            if repaired is None:
+                return _tool_error_msg(f"Malformed tool_call JSON: {e}")
+            logger.debug(
+                "Tool-call JSON repaired (len %d -> %d).", len(body), len(repaired)
+            )
+            parsed = json.loads(repaired)
         if not isinstance(parsed, dict):
             return _tool_error_msg("tool_call body must be a JSON object")
 

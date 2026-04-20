@@ -2601,3 +2601,88 @@ def test_end_to_end_grounded_conversation_uses_sampled_entity_ids(
         fact_id = fact.data["id"]
         assert fact_id in configured_ids
         assert f'id="{fact_id}"' in planner_prompt
+
+
+# --- JSON brace repair: tool-call recovery ---
+
+
+def test_execute_tool_calls_recovers_from_trailing_extra_brace(mock_inference_config):
+    """Tool-call bodies with an extra ``}}`` (seen in synth output) execute."""
+    synth = _make_synthesizer(
+        mock_inference_config, environment_config=_tool_env_config()
+    )
+    dispatch = synth._build_tool_dispatch(_tool_multiturn_attr())
+    response = '<tool_call>{"name": "lookup", "arguments": {"id": "01"}}}</tool_call>'
+    messages = synth._execute_tool_calls(response, dispatch)
+    assert len(messages) == 1
+    assert json.loads(_unwrap_tool_result(messages[0].content)) == {"status": "ok"}
+
+
+def test_execute_tool_calls_recovers_from_missing_close_brace(mock_inference_config):
+    """Stop-sequence truncation that drops a closing ``}`` is repaired."""
+    synth = _make_synthesizer(
+        mock_inference_config, environment_config=_tool_env_config()
+    )
+    dispatch = synth._build_tool_dispatch(_tool_multiturn_attr())
+    response = '<tool_call>{"name": "lookup", "arguments": {"id": "01"}</tool_call>'
+    messages = synth._execute_tool_calls(response, dispatch)
+    assert len(messages) == 1
+    assert json.loads(_unwrap_tool_result(messages[0].content)) == {"status": "ok"}
+
+
+def testcanonicalize_tool_call_bodies_strips_extra_brace():
+    """The observed ``}}}`` malformation is repaired into canonical JSON."""
+    from oumi.environments.utils import canonicalize_tool_call_bodies
+
+    text = (
+        '<tool_call>{"name": "lookup_book_status", '
+        '"arguments": {"book_id": "B008"}}}</tool_call>'
+    )
+    out = canonicalize_tool_call_bodies(text)
+    assert "}}}" not in out
+    assert out == (
+        "<tool_call>"
+        '{"name": "lookup_book_status", "arguments": {"book_id": "B008"}}'
+        "</tool_call>"
+    )
+
+
+def testcanonicalize_tool_call_bodies_appends_missing_close():
+    from oumi.environments.utils import canonicalize_tool_call_bodies
+
+    text = '<tool_call>{"name": "lookup", "arguments": {"id": "01"}</tool_call>'
+    out = canonicalize_tool_call_bodies(text)
+    assert out == (
+        '<tool_call>{"name": "lookup", "arguments": {"id": "01"}}</tool_call>'
+    )
+
+
+def testcanonicalize_tool_call_bodies_leaves_unfixable_body_intact():
+    """Non-structural breakage (unquoted keys) is left for the executor."""
+    from oumi.environments.utils import canonicalize_tool_call_bodies
+
+    text = "<tool_call>{not valid at all}</tool_call>"
+    assert canonicalize_tool_call_bodies(text) == text
+
+
+def testcanonicalize_tool_call_bodies_noop_when_no_calls_present():
+    from oumi.environments.utils import canonicalize_tool_call_bodies
+
+    text = "Just a plain assistant reply, nothing to do here."
+    assert canonicalize_tool_call_bodies(text) == text
+
+
+def testcanonicalize_tool_call_bodies_handles_multiple_blocks():
+    from oumi.environments.utils import canonicalize_tool_call_bodies
+
+    text = (
+        '<tool_call>{"name": "a", "arguments": {"id": "1"}}}</tool_call>'
+        " some prose "
+        '<tool_call>{"name": "b", "arguments": {"id": "2"}</tool_call>'
+    )
+    out = canonicalize_tool_call_bodies(text)
+    assert "}}}" not in out
+    assert out.count("<tool_call>") == 2
+    assert out.count("</tool_call>") == 2
+    assert '{"name": "a", "arguments": {"id": "1"}}' in out
+    assert '{"name": "b", "arguments": {"id": "2"}}' in out
