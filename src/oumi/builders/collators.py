@@ -41,7 +41,83 @@ _FIX_HINT = (
 )
 
 
-def _resolve_collator_templates(
+def _detect_eot_template(
+    tokenizer: "BaseTokenizer",
+    after_text: str,
+    between_text: str,
+) -> tuple[list[int], str]:
+    """Detect end-of-turn token IDs and template string.
+
+    Compares token-ID prefixes of the text after the last assistant turn
+    (end-of-sequence) with the text between assistant turns (mid-conversation).
+
+    Primary: longest common token-ID prefix.
+    Fallback: first token of between_text (for models like GPT OSS
+    that use different mid-conversation vs end-of-sequence tokens).
+
+    Returns:
+        (eot_ids, end_of_turn_template)
+    """
+    after_ids = tokenizer.encode(after_text, add_special_tokens=False)
+    between_ids = tokenizer.encode(between_text, add_special_tokens=False)
+
+    prefix_len = 0
+    for a, b in zip(after_ids, between_ids):
+        if a != b:
+            break
+        prefix_len += 1
+    eot_ids = after_ids[:prefix_len]
+
+    if not eot_ids and between_ids:
+        eot_ids = between_ids[:1]
+
+    eot_decoded = tokenizer.decode(eot_ids, skip_special_tokens=False)
+    assert isinstance(eot_decoded, str)
+    return eot_ids, eot_decoded
+
+
+def _detect_response_template(
+    tokenizer: "BaseTokenizer",
+    header_text: str,
+    eot_ids: list[int],
+) -> str:
+    """Detect the assistant response header from the user-to-assistant boundary.
+
+    Strips the leading end-of-turn prefix (which belongs to the previous
+    turn, not the response header) and any ``<think>`` blocks injected
+    by reasoning-model chat templates (e.g. Qwen3).
+
+    Returns:
+        response_template string
+    """
+    resp_ids = tokenizer.encode(header_text, add_special_tokens=False)
+    eot_len = len(eot_ids)
+    if eot_len > 0 and resp_ids[:eot_len] == eot_ids:
+        resp_ids = resp_ids[eot_len:]
+
+    resp_decoded = tokenizer.decode(resp_ids, skip_special_tokens=False)
+    assert isinstance(resp_decoded, str)
+    response_template = resp_decoded
+
+    if "<think>" in response_template:
+        idx = response_template.index("<think>")
+        stripped = response_template[:idx].rstrip()
+        if stripped:
+            logger.info(
+                "Stripped <think> block from auto-detected response_template: %r -> %r",
+                response_template,
+                stripped,
+            )
+            response_template = stripped
+        else:
+            raise ValueError(
+                f"Extracted response_template is only a <think> block.\n{_FIX_HINT}"
+            )
+
+    return response_template
+
+
+def resolve_collator_templates(
     tokenizer: "BaseTokenizer",
 ) -> tuple[str, str]:
     """Auto-detect response_template and end_of_turn_template.
@@ -80,8 +156,8 @@ def _resolve_collator_templates(
     # Locate boundaries around the second turn pair
     # to avoid system-prompt effects on the first turn.
     try:
-        a1 = rendered.index(_SENTINEL_ASST)
-        first_asst_end = a1 + len(_SENTINEL_ASST)
+        first_asst = rendered.index(_SENTINEL_ASST)
+        first_asst_end = first_asst + len(_SENTINEL_ASST)
         second_user = rendered.index(_SENTINEL_USER, first_asst_end)
         second_user_end = second_user + len(_SENTINEL_USER)
         second_asst = rendered.index(_SENTINEL_ASST, second_user_end)
@@ -92,48 +168,21 @@ def _resolve_collator_templates(
             f"chat template.\n{_FIX_HINT}"
         )
 
-    # End-of-turn: common token-ID prefix of the two strings that
-    # follow assistant content (mid-conversation vs. end-of-sequence).
-    after_ids = tokenizer.encode(rendered[second_asst_end:], add_special_tokens=False)
-    between_ids = tokenizer.encode(
-        rendered[first_asst_end:second_user], add_special_tokens=False
+    eot_ids, end_of_turn_template = _detect_eot_template(
+        tokenizer,
+        after_text=rendered[second_asst_end:],
+        between_text=rendered[first_asst_end:second_user],
     )
-    eot_len = 0
-    for a, b in zip(after_ids, between_ids):
-        if a != b:
-            break
-        eot_len += 1
-    eot_ids = after_ids[:eot_len]
-    _eot_decoded = tokenizer.decode(eot_ids, skip_special_tokens=False)
-    assert isinstance(_eot_decoded, str)
-    end_of_turn_template = _eot_decoded
-
-    # Response template: strip the EOT prefix to get just the assistant header.
-    resp_ids = tokenizer.encode(
-        rendered[second_user_end:second_asst], add_special_tokens=False
+    response_template = _detect_response_template(
+        tokenizer,
+        header_text=rendered[second_user_end:second_asst],
+        eot_ids=eot_ids,
     )
-    if eot_len > 0 and resp_ids[:eot_len] == eot_ids:
-        resp_ids = resp_ids[eot_len:]
-    _resp_decoded = tokenizer.decode(resp_ids, skip_special_tokens=False)
-    assert isinstance(_resp_decoded, str)
-    response_template = _resp_decoded
 
     if not response_template.strip():
         raise ValueError(f"Extracted response_template is empty.\n{_FIX_HINT}")
     if not end_of_turn_template.strip():
         raise ValueError(f"Extracted end_of_turn_template is empty.\n{_FIX_HINT}")
-
-    # Qwen3 and similar reasoning models inject <think>...</think> into
-    # every assistant turn via their chat template.  If training data was
-    # formatted without thinking tokens the response_template won't match
-    # and every example will be silently masked.
-    if "<think>" in response_template:
-        logger.warning(
-            "The extracted response_template contains <think> tokens "
-            "(from the model's chat template). If you're training without "
-            "thinking tokens, use collator_kwargs to specify "
-            "response_template manually."
-        )
 
     return response_template, end_of_turn_template
 
@@ -314,7 +363,7 @@ def build_collator_from_config(
             collator_kwargs["train_target"] = train_split.train_target.value
 
             try:
-                response_template, end_of_turn_template = _resolve_collator_templates(
+                response_template, end_of_turn_template = resolve_collator_templates(
                     tokenizer
                 )
                 collator_kwargs["response_template"] = response_template
