@@ -97,7 +97,7 @@ def load_conversations_from_dataset(
     dataset = load_dataset(dataset_name, subset, split=split)
     conversations: list[Conversation] = []
     total = len(dataset)
-    limit = sample_count if sample_count else total
+    limit = sample_count if sample_count is not None else total
 
     for i in range(min(limit, total)):
         item = dataset[i]
