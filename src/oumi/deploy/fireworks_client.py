@@ -410,6 +410,9 @@ class FireworksDeploymentClient(BaseDeploymentClient):
 
             # Step 2b: For adapters, read adapter_config.json so we can
             # populate peftDetails with the real r and target_modules.
+            # Remaining adapter validation (base_model present, base model
+            # exists on Fireworks) runs inside ``_do_upload`` so both entry
+            # points share it.
             adapter_config = None
             if model_type == ModelType.ADAPTER:
                 adapter_config = self._read_adapter_config(model_dir)
@@ -419,13 +422,6 @@ class FireworksDeploymentClient(BaseDeploymentClient):
                         f"found in '{model_dir}'. Ensure the directory contains "
                         f"a valid PEFT/LoRA adapter checkpoint."
                     )
-                if not base_model:
-                    raise ValueError(
-                        "Adapter uploads require --base-model. Provide the "
-                        "Fireworks model path of the base model this adapter "
-                        "was trained on (e.g. 'accounts/<account>/models/<id>')."
-                    )
-                await self._verify_base_model_exists(base_model)
 
             @asynccontextmanager
             async def local_resolver(filename: str):
@@ -450,8 +446,12 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         file_inventory: dict[str, int],
         file_resolver: FileResolver,
         progress_callback: ProgressCallback | None = None,
+        *,
+        model_type: ModelType = ModelType.FULL,
+        base_model: str | None = None,
+        adapter_config: dict[str, Any] | None = None,
     ) -> UploadedModel:
-        """Uploads a full model using a pre-computed file inventory and resolver.
+        """Uploads a model using a pre-computed file inventory and resolver.
 
         Unlike ``upload_model()`` which requires all files on local disk, this
         method accepts a ``file_inventory`` (filenames → sizes in bytes) and a
@@ -459,9 +459,10 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         streaming from cloud storage one file at a time, keeping peak disk usage
         to the size of a single shard rather than the full model.
 
-        Only FULL model uploads are supported. Adapter (LoRA) uploads require
-        reading adapter_config.json and verifying the base model — see
-        ``upload_model()`` for that path.
+        Both FULL and ADAPTER uploads are supported. For ADAPTER uploads the
+        caller must supply the adapter's parsed ``adapter_config`` dict and
+        the Fireworks-hosted ``base_model`` resource path — callers resolve
+        the HF → Fireworks base mapping before calling this method.
 
         Args:
             model_name: Fireworks model ID (e.g., ``"my-custom-model"``).
@@ -470,21 +471,34 @@ class FireworksDeploymentClient(BaseDeploymentClient):
                 ``file_resolver(filename)`` must yield a local ``Path`` to the
                 file and clean up after the ``async with`` block exits.
             progress_callback: Optional async progress callback.
+            model_type: FULL or ADAPTER. Defaults to FULL.
+            base_model: Fireworks-hosted base model resource path, required
+                when ``model_type == ADAPTER`` (e.g.
+                ``accounts/fireworks/models/llama-v3p1-8b-instruct``).
+            adapter_config: Parsed ``adapter_config.json`` dict, required when
+                ``model_type == ADAPTER``. Must contain a non-empty
+                ``target_modules`` list; ``r`` defaults to 8 if absent.
 
         Returns:
             ``UploadedModel`` with the Fireworks provider model ID.
+
+        Raises:
+            FireworksInvalidModelIdError: If ``model_name`` violates Fireworks
+                naming rules.
+            ValueError: When ``model_type == ADAPTER`` and ``base_model`` is
+                missing or refers to a model that does not exist / is not
+                ready on Fireworks, or when ``adapter_config`` is missing /
+                has an empty ``target_modules`` list (raised by ``_do_upload``
+                / ``_create_model_resource``).
         """
-        # TODO: Add adapter support. Requires accepting adapter_config dict
-        # and base_model, plus the same validation upload_model() does
-        # (_verify_base_model_exists, target_modules check).
         _validate_fireworks_model_id(model_name)
         return await self._do_upload(
             model_name,
             file_inventory,
             file_resolver,
-            ModelType.FULL,
-            None,
-            None,
+            model_type,
+            base_model,
+            adapter_config,
             progress_callback,
         )
 
@@ -505,8 +519,22 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         """Shared upload implementation: create model → upload files → validate.
 
         Both ``upload_model`` and ``upload_model_with_resolver`` delegate here
-        after their own prep work (source resolution, adapter validation, etc.).
+        after resolving their input to a ``(file_inventory, file_resolver)``
+        pair. Adapter-specific pre-flight (``base_model`` present and ready
+        on Fireworks) runs here so every entry path gets the same guarantees;
+        the ``target_modules`` invariant is enforced downstream in
+        ``_create_model_resource``.
         """
+        if model_type == ModelType.ADAPTER:
+            if not base_model:
+                raise ValueError(
+                    "Adapter uploads require 'base_model'. Provide the "
+                    "Fireworks model path of the base model this adapter "
+                    "was trained on (e.g. 'accounts/fireworks/models/"
+                    "llama-v3p1-8b-instruct')."
+                )
+            await self._verify_base_model_exists(base_model)
+
         hf_files = sorted(file_inventory.keys())
         create_payload = await self._create_model_resource(
             model_name,
@@ -841,17 +869,13 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         Raises:
             ValueError: If the base model does not exist or is not ready.
         """
-        model_path = self._model_api_path(base_model)
-        response = await self._client.get(model_path)
-        if response.status_code == 404:
+        model = await self.get_model(base_model)
+        if model is None:
             raise ValueError(
                 f"Base model '{base_model}' not found on Fireworks. "
                 f"Upload the base model first with 'oumi deploy upload "
                 f"--model-type full', then retry the adapter upload."
             )
-        self._check_response(response, f"verify base model '{base_model}'")
-
-        model = GatewayModel.model_validate(response.json())
         state = (model.state.value if model.state else "unknown").lower()
         if state != "ready":
             raise ValueError(
@@ -1194,12 +1218,36 @@ class FireworksDeploymentClient(BaseDeploymentClient):
 
         Returns:
             Status string
+
+        Raises:
+            ValueError: If the model does not exist.
+        """
+        model = await self.get_model(model_id)
+        if model is None:
+            raise ValueError(f"Model '{model_id}' does not exist")
+        return model.state.value if model.state else "unknown"
+
+    async def get_model(self, model_id: str) -> GatewayModel | None:
+        """Gets the full model resource for a Fireworks model, or None if missing.
+
+        Unlike ``get_model_status`` which returns only the state string, this
+        returns the full ``GatewayModel`` pydantic object so callers can
+        inspect additional fields (``kind``, ``peft_details``, etc.). Treats
+        HTTP 404 as "model does not exist" and returns ``None`` instead of
+        raising, so callers can distinguish "missing" from transient errors.
+
+        Args:
+            model_id: Fireworks model ID (short ID or full path).
+
+        Returns:
+            Parsed ``GatewayModel`` if the model exists, else ``None``.
         """
         model_path = self._model_api_path(model_id)
         response = await self._client.get(model_path)
-        self._check_response(response, f"get model status for '{model_id}'")
-        model = GatewayModel.model_validate(response.json())
-        return model.state.value if model.state else "unknown"
+        if response.status_code == 404:
+            return None
+        self._check_response(response, f"get model '{model_id}'")
+        return GatewayModel.model_validate(response.json())
 
     async def prepare_model(
         self, model_id: str, precision: str | None = None

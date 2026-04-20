@@ -737,6 +737,44 @@ class TestCollectFileInventory:
         assert len(inventory) == 4
 
 
+class TestGetModel:
+    """Tests for ``FireworksDeploymentClient.get_model``."""
+
+    @staticmethod
+    def _make_client() -> FireworksDeploymentClient:
+        return FireworksDeploymentClient(api_key="test-key", account_id="test-account")
+
+    @pytest.mark.asyncio
+    async def test_get_model_returns_parsed_model(self):
+        """200 response is parsed into a GatewayModel."""
+        client = self._make_client()
+        response = MagicMock()
+        response.status_code = 200
+        response.is_error = False
+        response.is_success = True
+        response.json.return_value = {
+            "name": "accounts/test-account/models/my-model",
+            "state": "READY",
+            "kind": "HF_PEFT_ADDON",
+        }
+        with patch.object(client._client, "get", new=AsyncMock(return_value=response)):
+            model = await client.get_model("my-model")
+        assert model is not None
+        assert model.name == "accounts/test-account/models/my-model"
+        assert model.kind is not None and model.kind.value == "HF_PEFT_ADDON"
+
+    @pytest.mark.asyncio
+    async def test_get_model_returns_none_on_404(self):
+        """404 yields None (model does not exist), not an exception."""
+        client = self._make_client()
+        response = MagicMock()
+        response.status_code = 404
+        response.is_error = True
+        response.is_success = False
+        with patch.object(client._client, "get", new=AsyncMock(return_value=response)):
+            assert await client.get_model("missing-model") is None
+
+
 class TestUploadModelFromInventory:
     """Tests for upload_model_with_resolver and _upload_model_files_with_resolver."""
 
@@ -810,6 +848,84 @@ class TestUploadModelFromInventory:
                 model_name="BadName",  # uppercase letters not allowed
                 file_inventory={"config.json": 10},
                 file_resolver=mock_resolver,
+            )
+
+    @pytest.mark.asyncio
+    async def test_upload_model_with_resolver_adapter_happy_path(self, tmp_path):
+        """ADAPTER upload forwards kwargs and delegates to _create_model_resource."""
+        client = self._make_client()
+
+        fake_file = tmp_path / "adapter_config.json"
+        fake_file.write_text("{}")
+
+        file_inventory = {"adapter_config.json": 2, "adapter_model.safetensors": 100}
+        captured_create_kwargs: dict = {}
+
+        async def mock_create(
+            model_id, model_type, base_model, *args, **kwargs
+        ) -> dict:
+            captured_create_kwargs.update(
+                {
+                    "model_id": model_id,
+                    "model_type": model_type,
+                    "base_model": base_model,
+                    "adapter_config": kwargs.get("adapter_config"),
+                }
+            )
+            return {"modelId": model_id}
+
+        async def noop(*args, **kwargs) -> None:
+            return None
+
+        @asynccontextmanager
+        async def mock_resolver(filename: str):
+            yield fake_file
+
+        with (
+            patch.object(client, "_verify_base_model_exists", side_effect=noop),
+            patch.object(client, "_create_model_resource", side_effect=mock_create),
+            patch.object(client, "_upload_model_files_with_resolver", side_effect=noop),
+            patch.object(client, "_wait_and_validate", side_effect=noop),
+        ):
+            result = await client.upload_model_with_resolver(
+                model_name="my-adapter",
+                file_inventory=file_inventory,
+                file_resolver=mock_resolver,
+                model_type=ModelType.ADAPTER,
+                base_model="accounts/fireworks/models/llama-v3p1-8b-instruct",
+                adapter_config={"r": 16, "target_modules": ["q_proj"]},
+            )
+
+        assert captured_create_kwargs["model_type"] == ModelType.ADAPTER
+        assert (
+            captured_create_kwargs["base_model"]
+            == "accounts/fireworks/models/llama-v3p1-8b-instruct"
+        )
+        assert captured_create_kwargs["adapter_config"] == {
+            "r": 16,
+            "target_modules": ["q_proj"],
+        }
+        assert result.provider_model_id == "accounts/test-account/models/my-adapter"
+
+    @pytest.mark.asyncio
+    async def test_upload_model_with_resolver_adapter_requires_base_model(
+        self, tmp_path
+    ):
+        """ADAPTER upload without base_model raises before any network call."""
+        client = self._make_client()
+
+        @asynccontextmanager
+        async def mock_resolver(filename: str):
+            yield tmp_path / filename
+
+        with pytest.raises(ValueError, match="base_model"):
+            await client.upload_model_with_resolver(
+                model_name="my-adapter",
+                file_inventory={"adapter_config.json": 2},
+                file_resolver=mock_resolver,
+                model_type=ModelType.ADAPTER,
+                base_model=None,
+                adapter_config={"target_modules": ["q_proj"]},
             )
 
     @pytest.mark.asyncio
