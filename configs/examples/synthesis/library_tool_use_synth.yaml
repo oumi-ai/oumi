@@ -1,14 +1,22 @@
 # Library Assistant — Tool-Use Conversation Synthesis
 #
 # Generates grounded multi-turn conversations between a library patron and a
-# library-assistant chatbot that looks up book circulation status via a
-# DeterministicEnvironment tool.
+# library-assistant chatbot. The assistant has two DeterministicEnvironment
+# tools:
+#   1. `list_book_catalog`  — returns the full {book_id, title, author}
+#      catalog. Used to resolve a patron-spoken title into a book_id.
+#   2. `lookup_book_status` — returns circulation details for a book_id.
+#
+# Patrons in this synthesis only ever refer to books by TITLE (the way a real
+# patron would speak), never by internal IDs. The assistant must call
+# `list_book_catalog` first when a title is given, then chain into
+# `lookup_book_status` with the resolved id.
 #
 # Grounding is enabled on the environment: a small random subset of real
 # catalog entries is surfaced to the planner each conversation so turn plans
-# reference book IDs/titles that actually exist. The user persona enacts
-# those plans; the assistant persona is un-grounded and must call the
-# `lookup_book_status` tool to learn any circulation details.
+# reference titles that actually exist. The user persona enacts those plans;
+# the assistant persona is un-grounded and must use the tools to learn any
+# circulation details.
 #
 # Requirements:
 #   - Set ANTHROPIC_API_KEY in the environment
@@ -38,6 +46,102 @@ environment_config:
         sample_size: 3
         seed: 42
       tools:
+        - id: list_book_catalog
+          name: List Book Catalog
+          description: >-
+            Returns the library's full catalog as a list of
+            {book_id, title, author} entries. Call this first whenever a
+            patron names a book by TITLE so you can resolve the title to a
+            book_id before calling lookup_book_status.
+          parameters:
+            type: object
+            properties: {}
+          output_schema:
+            type: object
+            properties:
+              books:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    book_id:
+                      type: string
+                    title:
+                      type: string
+                    author:
+                      type: string
+          deterministic_outputs:
+            - input: {}
+              output:
+                books:
+                  - {
+                      book_id: "B001",
+                      title: "The Great Gatsby",
+                      author: "F. Scott Fitzgerald",
+                    }
+                  - {
+                      book_id: "B002",
+                      title: "To Kill a Mockingbird",
+                      author: "Harper Lee",
+                    }
+                  - { book_id: "B003", title: "1984", author: "George Orwell" }
+                  - {
+                      book_id: "B004",
+                      title: "Pride and Prejudice",
+                      author: "Jane Austen",
+                    }
+                  - { book_id: "B005", title: "Dune", author: "Frank Herbert" }
+                  - {
+                      book_id: "B006",
+                      title: "The Catcher in the Rye",
+                      author: "J.D. Salinger",
+                    }
+                  - {
+                      book_id: "B007",
+                      title: "Brave New World",
+                      author: "Aldous Huxley",
+                    }
+                  - {
+                      book_id: "B008",
+                      title: "The Hobbit",
+                      author: "J.R.R. Tolkien",
+                    }
+                  - {
+                      book_id: "B009",
+                      title: "Fahrenheit 451",
+                      author: "Ray Bradbury",
+                    }
+                  - {
+                      book_id: "B010",
+                      title: "One Hundred Years of Solitude",
+                      author: "Gabriel García Márquez",
+                    }
+                  - {
+                      book_id: "B011",
+                      title: "The Name of the Wind",
+                      author: "Patrick Rothfuss",
+                    }
+                  - {
+                      book_id: "B012",
+                      title: "Project Hail Mary",
+                      author: "Andy Weir",
+                    }
+                  - {
+                      book_id: "B013",
+                      title: "Klara and the Sun",
+                      author: "Kazuo Ishiguro",
+                    }
+                  - {
+                      book_id: "B014",
+                      title: "The Midnight Library",
+                      author: "Matt Haig",
+                    }
+                  - {
+                      book_id: "B015",
+                      title: "Circe",
+                      author: "Madeline Miller",
+                    }
+
         - id: lookup_book_status
           name: Lookup Book Status
           description: >-
@@ -135,10 +239,10 @@ environment_config:
               output:
                 title: "Fahrenheit 451"
                 author: "Ray Bradbury"
-                borrower_name: "Nina Volkov"
-                borrow_date: "2026-03-25"
-                return_date: "2026-04-25"
-                status: "borrowed"
+                borrower_name: ""
+                borrow_date: ""
+                return_date: ""
+                status: "available"
             - input: { book_id: "B010" }
               output:
                 title: "One Hundred Years of Solitude"
@@ -175,18 +279,18 @@ environment_config:
               output:
                 title: "The Midnight Library"
                 author: "Matt Haig"
-                borrower_name: "Chen Wei"
-                borrow_date: "2026-03-18"
-                return_date: "2026-04-18"
-                status: "overdue"
+                borrower_name: ""
+                borrow_date: ""
+                return_date: ""
+                status: "available"
             - input: { book_id: "B015" }
               output:
                 title: "Circe"
                 author: "Madeline Miller"
-                borrower_name: "Ana Silva"
-                borrow_date: "2026-04-06"
-                return_date: "2026-05-06"
-                status: "borrowed"
+                borrower_name: ""
+                borrow_date: ""
+                return_date: ""
+                status: "available"
 
 strategy_params:
   sampled_attributes:
@@ -197,44 +301,79 @@ strategy_params:
       possible_values:
         - id: student
           name: Student
-          description: A university student, often in a hurry, focused on due dates
-          sample_rate: 0.35
+          description: A university student juggling deadlines, focused on due dates and renewals
+          sample_rate: 0.18
         - id: professor
           name: Professor
-          description: A faculty researcher, precise and expects efficient service
-          sample_rate: 0.2
+          description: A faculty researcher, precise and expects efficient service; can be condescending
+          sample_rate: 0.12
         - id: casual_reader
           name: Casual Reader
           description: A local resident browsing casually, friendly and chatty
-          sample_rate: 0.3
+          sample_rate: 0.15
         - id: parent
           name: Parent
           description: A parent borrowing on behalf of their child, sometimes uncertain
-          sample_rate: 0.15
+          sample_rate: 0.10
+        - id: new_patron
+          name: New Patron
+          description: First-time visitor, unfamiliar with how the library or its catalog works
+          sample_rate: 0.10
+        - id: frequent_borrower
+          name: Frequent Borrower
+          description: Power user who reads constantly and tracks several titles at once; can be impatient
+          sample_rate: 0.10
+        - id: elderly_patron
+          name: Elderly Patron
+          description: Long-time member who prefers titles to codes and likes a bit of small talk
+          sample_rate: 0.10
+        - id: book_club_member
+          name: Book Club Member
+          description: Coordinating reading lists for a group; asks about several titles at once
+          sample_rate: 0.07
+        - id: teen
+          name: Teen
+          description: A high-school student looking for novels for class; informal, sometimes terse
+          sample_rate: 0.05
+        - id: disgruntled_member
+          name: Disgruntled Member
+          description: Frustrated with past library experiences (lost holds, fees, slow service)
+          sample_rate: 0.03
 
     # What the patron wants to accomplish this conversation
     - id: query_intent
       name: Query Intent
       description: The reason the patron is contacting the library assistant
       possible_values:
+        - id: availability_check
+          name: Availability Check
+          description: Wants to know if a specific titled book is currently on the shelf to borrow
         - id: due_date_check
           name: Due Date Check
-          description: Wants to know when a specific book is due back
-          sample_rate: 0.35
+          description: Wants to know when a specific titled book is due back
         - id: borrower_identification
           name: Borrower Identification
-          description: Wants to find out who currently has a particular book
-          sample_rate: 0.2
+          description: Wants to find out who currently has a particular titled book
         - id: overdue_concern
           name: Overdue Concern
-          description: Worried a book they borrowed is overdue, wants status
-          sample_rate: 0.25
+          description: Worried a book they borrowed is overdue and wants the current status
         - id: multi_book_inquiry
           name: Multi-Book Inquiry
-          description: Asks about the status of more than one book in the same chat
-          sample_rate: 0.2
+          description: Asks about the status of two or more titles in the same chat
+        - id: title_recall
+          name: Title Recall
+          description: Half-remembers a title (partial name, fuzzy author) and needs help identifying it
+        - id: catalog_browse
+          name: Catalog Browse
+          description: Wants to see what's in the catalog before deciding what to borrow
+        - id: complaint
+          name: Service Complaint
+          description: Vents about fees, holds, or wait times while still trying to get information about a book
+        - id: recommendation_followup
+          name: Recommendation Follow-up
+          description: Heard about a book from a friend or review and wants to check it on the spot
 
-    # Conversational style
+    # Conversational style — drives tone, length, vocabulary, and patience
     - id: patron_demeanor
       name: Patron Demeanor
       description: The emotional tone the patron brings to the conversation
@@ -242,19 +381,42 @@ strategy_params:
         - id: polite
           name: Polite
           description: Courteous, patient, uses please/thank you
-          sample_rate: 0.45
         - id: hurried
           name: Hurried
-          description: Short messages, wants a quick answer
-          sample_rate: 0.25
+          description: Short, clipped messages; wants the answer in one shot
         - id: confused
           name: Confused
-          description: Not sure what book IDs are or how to phrase the question
-          sample_rate: 0.15
+          description: Unsure of titles or how to phrase the question; meanders a bit
         - id: friendly
           name: Friendly
-          description: Warm and conversational, likes small talk
-          sample_rate: 0.15
+          description: Warm and conversational; small talk and tangents are normal
+        - id: rude
+          name: Rude
+          description: Curt and dismissive; skips greetings, no please/thank you, treats the bot as a search box
+        - id: angry
+          name: Angry
+          description: Openly frustrated, may use ALL CAPS, exclamation points, complain before asking
+        - id: frustrated
+          name: Frustrated
+          description: Annoyed at having to ask at all; sighs, mutters, but still wants help
+        - id: sarcastic
+          name: Sarcastic
+          description: Dry, cynical humor; pokes fun at the bot or the library
+        - id: anxious
+          name: Anxious
+          description: Worried, asks the same question multiple ways, seeks reassurance
+        - id: distracted
+          name: Distracted
+          description: Multitasking; messages have typos, half sentences, sudden topic switches
+        - id: demanding
+          name: Demanding
+          description: Entitled, expects immediate and complete service; pushes back on partial answers
+        - id: apologetic
+          name: Apologetic
+          description: Over-apologizes for taking up time, even for normal questions
+        - id: chatty
+          name: Chatty
+          description: Talks at length about life details before getting to the actual question
 
   # Per-sample first name for realism
   generated_attributes:
@@ -270,13 +432,14 @@ strategy_params:
   # The multi-turn conversation definition
   multiturn_attributes:
     - id: "library_conversation"
-      min_turns: 3
-      max_turns: 8
+      min_turns: 2
+      max_turns: 6
       available_environments:
         - library_catalog
       available_tools:
+        - list_book_catalog
         - lookup_book_status
-      max_tool_calls_per_turn: 4
+      max_tool_calls_per_turn: 6
 
       role_instruction_messages:
         USER: |
@@ -288,42 +451,83 @@ strategy_params:
           What you want: {query_intent.description}
 
           Guidelines:
-          - Follow the plan's direction for this turn, but respond naturally.
-          - Stay in character. Do not break the fourth wall.
-          - You do NOT have access to the library database — only the assistant does.
-            When you want to know about a book, ask the assistant; do not claim to
-            know its status yourself.
-          - Keep messages conversational and to 1-3 sentences.
+          - Follow the plan's direction for this turn, but respond naturally and
+            in character. Let your mood shape word choice, message length, and
+            patience level — a rude patron does not say "please"; an angry one may
+            vent before getting to the point; a chatty one rambles; a hurried one
+            is curt; a confused one second-guesses themselves.
+          - You ONLY know books by their TITLE (and sometimes a vague author),
+            the way a normal person does. You do NOT know the library's internal
+            book IDs (the "B001" / "B042" codes). Always refer to books by title.
+            If the assistant asks for a book ID, tell them you don't know it and
+            give the title again.
+          - You do NOT have access to the library database — only the assistant
+            does. Don't claim to know the borrower, due date, or status of a book
+            until the assistant has told you.
+          - Keep messages conversational. Length should match your mood: hurried
+            and rude patrons stay terse; friendly, chatty, anxious, or confused
+            patrons can run longer; angry or frustrated ones may complain mid-message.
+          - Vary openings: not every conversation starts with "Hi there!" — some
+            patrons skip greetings entirely, others launch straight into a complaint,
+            others say only "hey".
+          - Do not break character or reference the simulation, the planner, or
+            the fact that you are an AI.
 
-          If this is your first message, open the conversation with a greeting and
-          your question.
+          If this is your first message, open the conversation in whatever way
+          fits your mood, then state what you want.
 
           Output only your message, nothing else.
 
         ASSISTANT: |
-          You are LibBot, the city library's circulation assistant. You help
-          patrons look up book status using the tools provided to you.
+          You are LibBot, the city library's circulation assistant. You have
+          two tools available:
+
+          1. `list_book_catalog` — returns the full catalog as a list of
+             {{book_id, title, author}} entries. Use this whenever the patron
+             names a book by TITLE so you can resolve it to a book_id.
+          2. `lookup_book_status` — returns circulation details (borrower,
+             borrow date, due date, status) for a given book_id.
+
+          Standard flow:
+          - Patron names one or more titles → call `list_book_catalog` once →
+            find the matching book_id(s) → call `lookup_book_status` for each
+            relevant id → summarize the result(s) in natural language.
+          - Patron supplies a book_id directly (rare) → skip the catalog and
+            call `lookup_book_status` immediately.
+          - If a title is partial or ambiguous, surface the closest catalog
+            match(es) and ask the patron to confirm before looking up status.
+          - If the title is not in the catalog at all, say so clearly and
+            offer to look for something similar.
+          - For catalog-browse intent, you may share the title list from
+            `list_book_catalog` without immediately calling `lookup_book_status`.
 
           Rules:
-          - When a patron asks about a specific book, call the `lookup_book_status`
-            tool with the relevant book_id to retrieve current circulation data.
-          - If the patron mentions a title without an ID, politely ask for the
-            book_id before calling the tool. The ID format is `B` followed by
-            three digits (e.g. B001).
-          - After you get the tool result, summarize it in friendly, natural
-            language. Include title, borrower, borrow date, due date, and status.
-          - If the tool returns an error (e.g. unknown book_id), apologize,
-            mention the ID was not found, and ask the patron to double-check.
-          - Never fabricate circulation details. Only state facts that came from
-            the tool.
-          - Keep responses under 3 sentences unless summarizing multiple books.
+          - ALWAYS use the tools for any circulation or catalog information.
+            Never fabricate titles, authors, borrowers, dates, or statuses.
+          - Do NOT invent procedural information you cannot verify (online
+            renewal flows, PIN reset steps, fee amounts, hold queue length,
+            etc.). If asked, acknowledge you don't have that capability and
+            suggest contacting the circulation desk.
+          - Stay calm, professional, and helpful no matter how rude, angry,
+            sarcastic, or demanding the patron is. Acknowledge frustration
+            briefly when appropriate, but do not grovel and do not match
+            their tone.
+          - Don't volunteer the borrower's name unless the patron specifically
+            asked who has the book.
+          - Keep responses tight (under 3 sentences) unless summarizing
+            multiple books, in which case use a short list.
 
           Follow the plan's direction for this turn. Output only your response.
 
       output_system_prompt: |
         You are LibBot, the city library's circulation assistant. You help
-        patrons look up book status using the lookup_book_status tool.
-        Always call the tool for circulation queries; never fabricate data.
+        patrons find books and check circulation status using two tools:
+          - `list_book_catalog`  — returns {{book_id, title, author}} for the
+            full catalog. Use this to resolve a patron-spoken title to a
+            book_id.
+          - `lookup_book_status` — returns circulation details for a book_id.
+        Always call the tools for catalog or circulation information; never
+        fabricate data. Stay professional with rude or angry patrons.
 
   passthrough_attributes:
     - library_conversation
@@ -338,5 +542,5 @@ inference_config:
     temperature: 0.7
     top_p: 0.9
   remote_params:
-    num_workers: 10
+    num_workers: 50
     politeness_policy: 60
