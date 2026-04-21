@@ -600,16 +600,23 @@ def test_generate_plan_uses_planner_only_guided_decoding(
     assert planner_call.generation is not mock_inference_config.generation
     assert planner_call.generation.guided_decoding is not None
     assert planner_call.generation.guided_decoding.json == {
-        "type": "array",
-        "items": {
-            "type": "object",
-            "properties": {
-                "turn": {"type": "integer", "minimum": 1},
-                "instruction": {"type": "string"},
+        "type": "object",
+        "properties": {
+            "turns": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "turn": {"type": "integer", "minimum": 1},
+                        "instruction": {"type": "string"},
+                    },
+                    "required": ["turn", "instruction"],
+                    "additionalProperties": False,
+                },
             },
-            "required": ["turn", "instruction"],
-            "additionalProperties": False,
         },
+        "required": ["turns"],
+        "additionalProperties": False,
     }
     assert turn_call is mock_inference_config
     assert turn_call.generation.guided_decoding is None
@@ -2686,3 +2693,23 @@ def testcanonicalize_tool_call_bodies_handles_multiple_blocks():
     assert out.count("</tool_call>") == 2
     assert '{"name": "a", "arguments": {"id": "1"}}' in out
     assert '{"name": "b", "arguments": {"id": "2"}}' in out
+
+
+def test_parse_plan_unwraps_openai_object_form(mock_inference_config):
+    """OpenAI structured-output returns ``{"turns": [...]}``; unwrap it."""
+    with patch(
+        "oumi.core.synthesis.conversation_synthesizer.build_inference_engine"
+    ) as _:
+        synthesizer = ConversationSynthesizer(
+            GeneralSynthesisParams(),
+            mock_inference_config,
+        )
+
+    plan = (
+        '{"turns": ['
+        '{"turn": 1, "instruction": "Greet"},'
+        '{"turn": 2, "instruction": "Answer"}'
+        "]}"
+    )
+    result = synthesizer._parse_plan(plan, target_turns=2)
+    assert result == ["Greet", "Answer"]
