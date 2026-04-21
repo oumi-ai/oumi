@@ -1407,7 +1407,8 @@ def test_create_planner_prompt_injects_grounding_block_when_facts_present(
     assert "Ground this plan in these specific entities" in planner_user_msg
     assert '- id="42", title="Dune"' in planner_user_msg
     assert '- id="7", title="LotR"' in planner_user_msg
-    assert "spell out the concrete identifier verbatim" in planner_user_msg
+    assert "USER turn instructions MAY inline concrete identifiers" in planner_user_msg
+    assert "ASSISTANT turn instructions MUST NOT pre-resolve" in planner_user_msg
     assert "user persona cannot see this list" in planner_user_msg
 
 
@@ -2544,7 +2545,10 @@ def test_create_planner_prompt_byte_identical_when_no_grounding(
     # the example_request still mentions "Ground this plan" once as part of
     # the few-shot demo, but the runtime base prompt must not include the
     # grounded section.
-    assert "spell out the concrete identifier verbatim" not in planner_user_msg
+    assert (
+        "USER turn instructions MAY inline concrete identifiers" not in planner_user_msg
+    )
+    assert "ASSISTANT turn instructions MUST NOT pre-resolve" not in planner_user_msg
     assert "user persona cannot see this list" not in planner_user_msg
     assert "{grounding_facts}" not in planner_user_msg
 
@@ -2713,3 +2717,46 @@ def test_parse_plan_unwraps_openai_object_form(mock_inference_config):
     )
     result = synthesizer._parse_plan(plan, target_turns=2)
     assert result == ["Greet", "Answer"]
+
+
+def test_create_planner_prompt_example_models_role_aware_grounding(
+    mock_inference_config,
+):
+    """Few-shot example: user turns inline IDs, assistant turns describe tool calls."""
+    synth = _make_synthesizer(
+        mock_inference_config, environment_config=_tool_env_config()
+    )
+    attr = _tool_multiturn_attr()
+    sample = {
+        "target_turns": 2,
+        "conversation_plan": "",
+        "parsed_turn_plans": [""] * 2,
+    }
+    conversation = synth._create_planner_prompt(attr, sample)
+
+    example_request = conversation.messages[1].content
+    example_response = conversation.messages[2].content
+    assert isinstance(example_request, str)
+    assert isinstance(example_response, str)
+    assert "Ground this plan in these specific entities" in example_request
+    assert 'order_id="ORD-4421"' in example_request
+
+    plan = json.loads(example_response)
+    turns_by_num = {t["turn"]: t["instruction"] for t in plan}
+
+    user_turns_with_id = sum(
+        1 for n, inst in turns_by_num.items() if n % 2 == 1 and "ORD-4421" in inst
+    )
+    assert user_turns_with_id >= 1, "user turn should mention the ID verbatim"
+
+    assistant_instructions = [inst for n, inst in turns_by_num.items() if n % 2 == 0]
+    assert any(
+        "lookup_order_status" in inst or "refund_order" in inst
+        for inst in assistant_instructions
+    ), "assistant turns should describe tool calls"
+
+    assistant_turn_2 = turns_by_num[2]
+    assert "ORD-4421" not in assistant_turn_2, (
+        "assistant turn 2 must not pre-resolve the order_id — it should come "
+        "from the user or the tool"
+    )

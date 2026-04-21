@@ -608,6 +608,37 @@ strategy_params:
         - checkin_book
       max_tool_calls_per_turn: 6
 
+      conversation_planner: |
+        The patron's query intent is "{query_intent.name}":
+        {query_intent.description}
+
+        Plan turn instructions according to the intent:
+
+        - If the intent is "Borrow Book", "Borrow with Fallback", or
+          "Return and Borrow": the FINAL assistant turn MUST instruct the
+          assistant to "call `checkout_book` with the resolved book_id"
+          (and report the due date). Never end on "offer to check it out"
+          or "ask if the patron wants to borrow" — the patron already
+          asked, that IS consent. Reserve at least one assistant turn for
+          `lookup_book_status` and the SAME or a later assistant turn for
+          `checkout_book`. If turns are tight, chain status and checkout
+          in the same assistant turn.
+        - If the intent is "Return Book" or "Return and Borrow": the
+          assistant turn handling the return MUST instruct "call
+          `checkin_book` with the resolved book_id". Do not end on
+          "offer to return" — call the tool.
+        - For any other intent (Availability Check, Due Date Check,
+          Borrower Identification, Overdue Concern, Multi-Book Inquiry,
+          Title Recall, Catalog Browse, Service Complaint,
+          Recommendation Follow-up): the assistant should use
+          `list_book_catalog` and/or `lookup_book_status` only — do NOT
+          plan a `checkout_book` / `checkin_book` call unless the patron
+          explicitly asks to borrow or return.
+
+        Use action verbs in instructions ("call `checkout_book`...",
+        "call `checkin_book`...") rather than soft offers ("offer to
+        check out", "ask if they want to borrow").
+
       role_instruction_messages:
         USER: |
           You are {patron_name}, a {patron_type.name} visiting the city library's
@@ -666,12 +697,17 @@ strategy_params:
             resolve title → `list_book_catalog` → `lookup_book_status` →
             summarize.
           - Borrow request: resolve title → `lookup_book_status` → if
-            `status == "available"`, call `checkout_book` and confirm the
-            due date; if borrowed/overdue, report the current due date and
-            offer alternatives instead of attempting checkout.
-          - Return request: resolve title → call `checkin_book`. If it
-            errors with `not_checked_out`, clarify with the patron. If the
-            book was overdue, acknowledge the late return without lecturing.
+            `status == "available"`, IMMEDIATELY call `checkout_book` in
+            the SAME assistant turn and report the due date. Do NOT ask
+            the patron "would you like me to check it out?" — they already
+            asked to borrow it, that IS consent. If borrowed/overdue,
+            report the current due date and offer alternatives instead of
+            attempting checkout.
+          - Return request: resolve title → call `checkin_book` in the
+            same turn (do not ask permission to return — the patron asked
+            you to). If it errors with `not_checked_out`, clarify with the
+            patron. If the book was overdue, acknowledge the late return
+            without lecturing.
           - Catalog-browse intent: share the title list from
             `list_book_catalog` without chaining further.
           - Patron supplies a book_id directly (rare): skip the catalog.
@@ -683,6 +719,11 @@ strategy_params:
           - NEVER call `checkout_book` without first confirming availability
             via `lookup_book_status` — calling checkout on a borrowed book is
             a wasted action and embarrasses the agent.
+          - For borrow/return intents, the conversation is NOT complete until
+            you have actually called `checkout_book` or `checkin_book`. A
+            response that only OFFERS to check out (e.g. "would you like me
+            to borrow it?") is a failure — the patron's original request
+            already authorized the action.
           - When a tool returns an error, acknowledge it naturally (don't
             paste the raw error) and offer the patron a concrete next step.
           - Do NOT invent procedural information you cannot verify (online
@@ -710,8 +751,13 @@ strategy_params:
           - `checkout_book`      — borrows an available book for the patron.
           - `checkin_book`       — returns a borrowed or overdue book.
         Always call the tools for catalog, circulation, or checkout/return
-        actions; never fabricate data. Confirm availability before checkout.
-        Stay professional with rude or angry patrons.
+        actions; never fabricate data. Verify availability with
+        `lookup_book_status` before calling `checkout_book` — but if a
+        patron has already asked to borrow a title, treat that as consent
+        and call `checkout_book` immediately once availability is confirmed.
+        Do not ask the patron "would you like me to check it out?" after
+        they've already requested the borrow. Stay professional with rude
+        or angry patrons.
 
   passthrough_attributes:
     - library_conversation
