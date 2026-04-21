@@ -534,16 +534,23 @@ def test_generate_plan_uses_planner_only_guided_decoding(
     assert planner_call.generation is not mock_inference_config.generation
     assert planner_call.generation.guided_decoding is not None
     assert planner_call.generation.guided_decoding.json == {
-        "type": "array",
-        "items": {
-            "type": "object",
-            "properties": {
-                "turn": {"type": "integer", "minimum": 1},
-                "instruction": {"type": "string"},
+        "type": "object",
+        "properties": {
+            "turns": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "turn": {"type": "integer", "minimum": 1},
+                        "instruction": {"type": "string"},
+                    },
+                    "required": ["turn", "instruction"],
+                    "additionalProperties": False,
+                },
             },
-            "required": ["turn", "instruction"],
-            "additionalProperties": False,
         },
+        "required": ["turns"],
+        "additionalProperties": False,
     }
     assert turn_call is mock_inference_config
     assert turn_call.generation.guided_decoding is None
@@ -580,6 +587,29 @@ def test_parse_plan_extracts_turn_instructions(
     assert result[1] == "Acknowledge and ask for details."
     assert result[2] == "Provide order number."
     assert result[3] == "Offer a resolution."
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_parse_plan_unwraps_openai_object_form(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """OpenAI structured-output returns ``{"turns": [...]}``; unwrap it."""
+    mock_build_inference_engine.return_value = Mock()
+    synthesizer = ConversationSynthesizer(
+        GeneralSynthesisParams(),
+        mock_inference_config,
+    )
+
+    plan = (
+        '{"turns": ['
+        '{"turn": 1, "instruction": "Greet"},'
+        '{"turn": 2, "instruction": "Answer"}'
+        "]}"
+    )
+    result = synthesizer._parse_plan(plan, target_turns=2)
+
+    assert result == ["Greet", "Answer"]
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
@@ -963,9 +993,7 @@ def test_execute_tool_calls_recovers_from_trailing_extra_brace(mock_inference_co
     synth = _make_synthesizer(
         mock_inference_config, environment_config=_tool_env_config()
     )
-    response = (
-        '<tool_call>{"name": "lookup", "arguments": {"id": "01"}}}</tool_call>'
-    )
+    response = '<tool_call>{"name": "lookup", "arguments": {"id": "01"}}}</tool_call>'
     messages = synth._execute_tool_calls(response)
     assert len(messages) == 1
     assert json.loads(_unwrap_tool_result(messages[0].content)) == {"status": "ok"}
@@ -976,9 +1004,7 @@ def test_execute_tool_calls_recovers_from_missing_close_brace(mock_inference_con
     synth = _make_synthesizer(
         mock_inference_config, environment_config=_tool_env_config()
     )
-    response = (
-        '<tool_call>{"name": "lookup", "arguments": {"id": "01"}</tool_call>'
-    )
+    response = '<tool_call>{"name": "lookup", "arguments": {"id": "01"}</tool_call>'
     messages = synth._execute_tool_calls(response)
     assert len(messages) == 1
     assert json.loads(_unwrap_tool_result(messages[0].content)) == {"status": "ok"}
@@ -1119,9 +1145,6 @@ def test_is_final_response_detects_tool_call(mock_inference_config):
     )
 
 
-# --- Pre-result hallucination hardening ---
-
-
 def test_truncate_after_last_tool_call_strips_trailing_prose():
     from oumi.core.synthesis.conversation_synthesizer import (
         _truncate_after_last_tool_call,
@@ -1190,9 +1213,9 @@ def test_canonicalize_tool_call_bodies_strips_extra_brace():
     out = _canonicalize_tool_call_bodies(text)
     assert "}}}" not in out
     assert out == (
-        '<tool_call>'
+        "<tool_call>"
         '{"name": "lookup_book_status", "arguments": {"book_id": "B008"}}'
-        '</tool_call>'
+        "</tool_call>"
     )
 
 
@@ -1264,9 +1287,6 @@ def test_assistant_inference_config_preserves_existing_stops(
     assert "<|end|>" in stops
     assert "STOP" in stops
     assert "</tool_call>" in stops
-
-
-# --- _run_assistant_turn ---
 
 
 def _tool_multiturn_attr(tool_id: str = "lookup", cap: int = 50) -> MultiTurnAttribute:
@@ -1608,9 +1628,6 @@ def test_run_assistant_turn_self_corrects_after_invalid_arguments(
     assert sample_msgs[-1].content == "Policy looks good."
 
 
-# --- end-to-end synthesize with tools ---
-
-
 def test_synthesize_end_to_end_with_tool_use(mock_inference_config):
     env_config = _tool_env_config()
     plan_json = (
@@ -1739,17 +1756,11 @@ def test_synthesize_raises_when_environments_declared_without_env_config(
         synth.synthesize([{}], attr)
 
 
-# --- _make_grounding_rng ---
-
-
 def test_make_grounding_rng_seeded_is_reproducible(mock_inference_config):
     synth = _make_synthesizer(mock_inference_config)
     rng_a = synth._make_grounding_rng(seed=42, sample_index=3)
     rng_b = synth._make_grounding_rng(seed=42, sample_index=3)
     assert [rng_a.random() for _ in range(5)] == [rng_b.random() for _ in range(5)]
-
-
-# --- _attach_grounding_facts ---
 
 
 def _grounded_det_env(
@@ -1929,9 +1940,6 @@ def test_attach_grounding_facts_truncation_emits_logger_warning(
     assert "env1" in truncation_records[0].getMessage()
 
 
-# --- Planner prompt grounding injection ---
-
-
 def test_create_planner_prompt_injects_grounding_block_when_facts_present(
     mock_inference_config,
 ):
@@ -2044,9 +2052,6 @@ def test_synthesize_invokes_attach_grounding_facts(mock_inference_config):
     assert "grounding_facts" in samples[0]
     assert len(samples[0]["grounding_facts"]) == 2
     assert len(result) == 1
-
-
-# --- {grounding_facts} placeholder misuse warning ---
 
 
 def test_validate_tool_configuration_warns_on_grounding_placeholder_in_user(
@@ -2163,11 +2168,9 @@ def test_end_to_end_grounded_conversation_uses_sampled_entity_ids(
     samples = [{}]
     synth.synthesize(samples, attr)
 
-    # The planner was invoked with a grounding block.
     assert captured_planner_prompts, "planner prompt was never captured"
     planner_prompt = captured_planner_prompts[0]
     assert "Ground this plan in these specific entities" in planner_prompt
-    # Every ID mentioned in the block must be one of the 10 configured inputs.
     configured_ids = {str(i) for i in range(10)}
     facts = samples[0]["grounding_facts"]
     for fact in facts:

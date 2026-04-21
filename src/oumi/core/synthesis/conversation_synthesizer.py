@@ -108,16 +108,23 @@ def _tool_error_msg(error: str) -> Message:
 
 
 _PLANNER_JSON_SCHEMA: dict = {
-    "type": "array",
-    "items": {
-        "type": "object",
-        "properties": {
-            "turn": {"type": "integer", "minimum": 1},
-            "instruction": {"type": "string"},
+    "type": "object",
+    "properties": {
+        "turns": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "turn": {"type": "integer", "minimum": 1},
+                    "instruction": {"type": "string"},
+                },
+                "required": ["turn", "instruction"],
+                "additionalProperties": False,
+            },
         },
-        "required": ["turn", "instruction"],
-        "additionalProperties": False,
     },
+    "required": ["turns"],
+    "additionalProperties": False,
 }
 
 
@@ -428,10 +435,13 @@ class ConversationSynthesizer:
         turns = extract_json(plan, expected_type=list)
         if turns is None:
             single = extract_json(plan, expected_type=dict)
-            if single is not None:
-                turns = [single]
-            else:
+            if not isinstance(single, dict):
                 return None
+            wrapped = single.get("turns")
+            if isinstance(wrapped, list):
+                turns = wrapped
+            else:
+                turns = [single]
 
         result = [""] * target_turns
         for turn in turns:
