@@ -295,6 +295,12 @@ def build_data_collator(
                 "Fix: set train_target in your data config (auto-resolves templates "
                 "from the tokenizer), or provide response_template in collator_kwargs."
             )
+        if not kwargs.get("train_target"):
+            raise ValueError(
+                "'text_completions_only_with_padding' requires a train_target.\n"
+                "Fix: set train_target in your data config, or provide "
+                "train_target in collator_kwargs."
+            )
 
         return TextCompletionsCollatorWithPadding(
             tokenizer=tokenizer,
