@@ -1972,14 +1972,17 @@ def test_create_planner_prompt_injects_grounding_block_when_facts_present(
     assert "Ground this plan in these specific entities" in planner_user_msg
     assert '- id="42", title="Dune"' in planner_user_msg
     assert '- id="7", title="LotR"' in planner_user_msg
-    assert "spell out the concrete identifier verbatim" in planner_user_msg
+    assert "USER turn instructions MAY inline concrete identifiers" in planner_user_msg
+    assert (
+        "ASSISTANT turn instructions MUST NOT pre-resolve" in planner_user_msg
+    )
     assert "user persona cannot see this list" in planner_user_msg
 
 
-def test_create_planner_prompt_example_models_inlined_identifiers(
+def test_create_planner_prompt_example_models_role_aware_grounding(
     mock_inference_config,
 ):
-    """The few-shot example demonstrates inlining IDs into instructions."""
+    """Few-shot example: user turns inline IDs, assistant turns describe tool calls."""
     synth = _make_synthesizer(
         mock_inference_config, environment_config=_tool_env_config()
     )
@@ -1997,7 +2000,28 @@ def test_create_planner_prompt_example_models_inlined_identifiers(
     assert isinstance(example_response, str)
     assert "Ground this plan in these specific entities" in example_request
     assert 'order_id="ORD-4421"' in example_request
-    assert example_response.count("ORD-4421") >= 3
+
+    plan = json.loads(example_response)
+    turns_by_num = {t["turn"]: t["instruction"] for t in plan}
+
+    user_turns_with_id = sum(
+        1 for n, inst in turns_by_num.items() if n % 2 == 1 and "ORD-4421" in inst
+    )
+    assert user_turns_with_id >= 1, "user turn should mention the ID verbatim"
+
+    assistant_instructions = [
+        inst for n, inst in turns_by_num.items() if n % 2 == 0
+    ]
+    assert any(
+        "lookup_order_status" in inst or "refund_order" in inst
+        for inst in assistant_instructions
+    ), "assistant turns should describe tool calls"
+
+    assistant_turn_2 = turns_by_num[2]
+    assert "ORD-4421" not in assistant_turn_2, (
+        "assistant turn 2 must not pre-resolve the order_id — it should come "
+        "from the user or the tool"
+    )
 
 
 def test_create_planner_prompt_no_grounding_block_when_facts_absent(
