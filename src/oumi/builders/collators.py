@@ -33,6 +33,7 @@ from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.utils.logging import logger
 
 _VERY_LARGE_INTEGER = int(1e30)
+_SENTINEL_SYS = "<<__S__>>"
 _SENTINEL_USER = "<<__U__>>"
 _SENTINEL_ASST = "<<__A__>>"
 _FIX_HINT = (
@@ -131,21 +132,28 @@ def resolve_collator_templates(
     Raises:
         ValueError: If templates cannot be extracted.
     """
-    msgs = [
+    msgs_with_sys = [
+        {"role": "system", "content": _SENTINEL_SYS},
         {"role": "user", "content": _SENTINEL_USER},
         {"role": "assistant", "content": _SENTINEL_ASST},
         {"role": "user", "content": _SENTINEL_USER},
         {"role": "assistant", "content": _SENTINEL_ASST},
     ]
+    msgs_no_sys = msgs_with_sys[1:]
 
-    try:
-        rendered = tokenizer.apply_chat_template(
-            msgs, tokenize=False, add_generation_prompt=False
-        )
-    except Exception as exc:
+    rendered = None
+    for msgs in (msgs_with_sys, msgs_no_sys):
+        try:
+            rendered = tokenizer.apply_chat_template(
+                msgs, tokenize=False, add_generation_prompt=False
+            )
+            break
+        except Exception:
+            continue
+    if rendered is None:
         raise ValueError(
             f"Tokenizer has no chat template or it failed to render.\n{_FIX_HINT}"
-        ) from exc
+        )
 
     if not isinstance(rendered, str):
         raise ValueError(
