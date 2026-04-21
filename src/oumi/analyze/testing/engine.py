@@ -196,7 +196,7 @@ class TestEngine:
         metric: str,
         results: dict[str, list[BaseModel] | BaseModel],
     ) -> list[Any]:
-        """Extract values for a metric path like "instance_id.field_name"."""
+        """Extract values for a metric path like "id.field_name"."""
         parts = metric.split(".")
         if len(parts) < 2:
             return []

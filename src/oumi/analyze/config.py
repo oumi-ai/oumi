@@ -271,6 +271,14 @@ class TypedAnalyzeConfig:
                 )
                 legacy = normalized.pop("instance_id")
                 normalized.setdefault("display_name", legacy)
+            if "type" not in normalized and "id" in normalized:
+                raise ValueError(
+                    "Legacy analyzer entry: 'id' is present without 'type'. "
+                    "The 'id' field now means stable identity, not analyzer "
+                    "type. Rename 'id' to 'type' (and 'instance_id' to "
+                    "'display_name', if present). See "
+                    "docs/user_guides/analyze/analyze_config.md."
+                )
             analyzers.append(AnalyzerConfig(**normalized))
 
         ids = [a.id for a in analyzers]

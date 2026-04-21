@@ -358,8 +358,8 @@ def _run_typed_analysis_cli(
             cli_utils.CONSOLE.print(f"[dim]Config loaded from: {config}[/dim]")
             dataset = typed_config.dataset_name or typed_config.dataset_path
             cli_utils.CONSOLE.print(f"[dim]Dataset: {dataset}[/dim]")
-            analyzer_names = [a.display_name for a in typed_config.analyzers]
-            cli_utils.CONSOLE.print(f"[dim]Analyzers: {analyzer_names}[/dim]")
+            analyzer_ids = [a.id for a in typed_config.analyzers]
+            cli_utils.CONSOLE.print(f"[dim]Analyzers: {analyzer_ids}[/dim]")
 
         with cli_utils.CONSOLE.status(
             "[green]Running analysis...[/green]", spinner="dots"

@@ -173,11 +173,12 @@ def test_from_dict_rejects_legacy_id_as_type():
     """Pre-#2376 YAMLs that used `id` in place of `type` now fail loudly.
 
     `id` has new semantics (stable identity), so a YAML entry with only
-    `id` and no `type` triggers the standard 'type is required' error.
+    `id` and no `type` triggers a targeted migration error pointing the
+    user at the rename.
     """
     data = {"analyzers": [{"id": "length"}]}
 
-    with pytest.raises(ValueError, match="type is required"):
+    with pytest.raises(ValueError, match="Legacy analyzer entry"):
         TypedAnalyzeConfig.from_dict(data)
 
 
