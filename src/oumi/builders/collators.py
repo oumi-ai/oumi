@@ -115,6 +115,7 @@ def _detect_response_template(
                 f"Extracted response_template is only a <think> block.\n{_FIX_HINT}"
             )
 
+    response_template = response_template.rstrip("\n")
     return response_template
 
 

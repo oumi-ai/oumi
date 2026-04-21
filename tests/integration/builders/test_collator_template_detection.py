@@ -44,7 +44,7 @@ def _load_tokenizer(
         pytest.param(
             "Qwen/Qwen2.5-0.5B-Instruct",
             False,
-            "<|im_start|>assistant\n",
+            "<|im_start|>assistant",
             "<|im_end|>\n",
             id="qwen2.5-chatml",
         ),
@@ -72,21 +72,21 @@ def _load_tokenizer(
         pytest.param(
             "allenai/Olmo-3-7B-Instruct",
             True,
-            "\n<|im_start|>assistant\n",
+            "\n<|im_start|>assistant",
             "<|im_end|>",
             id="olmo3",
         ),
         pytest.param(
             "HuggingFaceTB/SmolLM2-135M-Instruct",
             False,
-            "<|im_start|>assistant\n",
+            "<|im_start|>assistant",
             "<|im_end|>\n",
             id="smollm2",
         ),
         pytest.param(
             "HuggingFaceTB/SmolLM3-3B",
             False,
-            "<|im_start|>assistant\n",
+            "<|im_start|>assistant",
             "<|im_end|>\n",
             id="smollm3",
         ),
@@ -107,7 +107,7 @@ def _load_tokenizer(
         pytest.param(
             "MiniMaxAI/MiniMax-M2.5",
             True,
-            "]~b]ai\n",
+            "]~b]ai",
             "[e~[\n",
             id="minimax-m2.5",
         ),
@@ -134,14 +134,14 @@ def test_template_detection_public(
         pytest.param(
             "meta-llama/Llama-3.2-1B-Instruct",
             False,
-            "<|start_header_id|>assistant<|end_header_id|>\n\n",
+            "<|start_header_id|>assistant<|end_header_id|>",
             "<|eot_id|>",
             id="llama3",
         ),
         pytest.param(
             "google/gemma-3-4b-it",
             False,
-            "<start_of_turn>model\n",
+            "<start_of_turn>model",
             "<end_of_turn>\n",
             id="gemma3",
         ),
@@ -169,7 +169,7 @@ def test_template_detection_public(
         pytest.param(
             "Qwen/Qwen3-Next-80B-A3B-Instruct",
             True,
-            "<|im_start|>assistant\n",
+            "<|im_start|>assistant",
             "<|im_end|>\n",
             id="qwen3-next",
         ),
@@ -199,7 +199,7 @@ def test_template_detection_gated(
         pytest.param(
             "google/gemma-4-E2B-it",
             True,
-            "<|turn>model\n",
+            "<|turn>model",
             "<turn|>\n",
             id="gemma4",
         ),

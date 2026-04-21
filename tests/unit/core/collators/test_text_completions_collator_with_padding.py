@@ -476,3 +476,62 @@ def test_span_labels_shape_matches_input_ids():
     seq = flat(resp, [_SENTINELS[0], _SENTINELS[1]], eot)
     batch = make_span_collator()([{"input_ids": seq}])
     assert batch["labels"].shape == batch["input_ids"].shape
+
+
+# ---------------------------------------------------------------------------
+# Leading-newline BPE merge regression tests
+# ---------------------------------------------------------------------------
+
+
+def test_leading_newline_bpe_merge_regression():
+    """Stripped response_template matches even when BPE merges trailing \\n.
+
+    BPE tokenizers (e.g. Qwen2.5) merge \\n+\\n into a single \\n\\n
+    token.  A response_template ending with \\n will not be found
+    when the following content also starts with \\n because the
+    merged token differs from the standalone \\n token.  Stripping
+    the trailing \\n from the template avoids this.
+    """
+    from oumi.core.collators.trl_data_collator_for_completion_only_lm import (
+        DataCollatorForCompletionOnlyLM,
+    )
+
+    find = DataCollatorForCompletionOnlyLM._find_pattern
+
+    SPECIAL, ASST, NL, NL_NL, CONTENT = 100, 200, 198, 271, 300
+
+    stripped_pattern = [SPECIAL, ASST]
+    unstripped_pattern = [SPECIAL, ASST, NL]
+
+    # BPE merged template's \n + content's \n into \n\n token
+    merged_seq = [SPECIAL, ASST, NL_NL, CONTENT]
+    assert find(merged_seq, stripped_pattern) != []
+    assert find(merged_seq, unstripped_pattern) == []
+
+    # Normal case (no leading \n): both match
+    normal_seq = [SPECIAL, ASST, NL, CONTENT]
+    assert find(normal_seq, stripped_pattern) != []
+    assert find(normal_seq, unstripped_pattern) != []
+
+
+def test_span_masking_with_leading_newline_content():
+    """Content starting with \\n is correctly unmasked when template is stripped."""
+    tokenizer, _ = create_test_tokenizer()
+    resp_ids = tokenizer.encode(_RESP_STR, add_special_tokens=False)
+    eot_ids = tokenizer.encode(_EOT_STR, add_special_tokens=False)
+    nl_ids = tokenizer.encode("\n\n", add_special_tokens=False)
+    content = [_SENTINELS[0], _SENTINELS[1]]
+
+    seq = flat(resp_ids, nl_ids, content, eot_ids)
+
+    collator = TextCompletionsCollatorWithPadding(
+        tokenizer=tokenizer,
+        response_template=_RESP_STR,
+        train_target="all_assistant_turns",
+        end_of_turn_template=_EOT_STR,
+    )
+    labels = collator([{"input_ids": seq}])["labels"][0].tolist()
+
+    content_start = len(resp_ids)
+    content_region = labels[content_start : content_start + len(nl_ids) + len(content)]
+    assert all(v != IGNORE for v in content_region)
