@@ -14,7 +14,7 @@ for model, color in zip(models, colors):
         subset["examples"], subset["accuracy"], marker="o", label=model, color=color
     )
 
-qwen_acc = df[df["model"] == "qwen3.5-0.8b-tuned"]["accuracy"].values[0]
+qwen_acc = df[df["model"] == "qwen3.5-0.8b-tuned"]["accuracy"].to_numpy()[0]
 ax.axhline(y=qwen_acc, color="tab:red", linestyle="dotted", label="qwen3.5-0.8b-tuned")
 
 ax.set_xlabel("Number of Examples")

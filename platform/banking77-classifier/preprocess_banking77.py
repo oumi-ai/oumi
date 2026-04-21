@@ -12,10 +12,8 @@ LABELS_FILE = SCRIPT_DIR / "banking77_labels.txt"
 IN_CONTEXT_FILE = SCRIPT_DIR / "banking77_in_context_examples.txt"
 
 
-def load_labels() -> list[str]:
-    """
-    Create index between integers and label names
-    """
+def _load_labels() -> list[str]:
+    """Create index between integers and label names."""
     labels = []
     with open(LABELS_FILE) as f:
         for line in f:
@@ -25,10 +23,8 @@ def load_labels() -> list[str]:
     return labels
 
 
-def load_in_context_examples() -> list[str]:
-    """
-    Create list of in-context examples
-    """
+def _load_in_context_examples() -> list[str]:
+    """Create list of in-context examples."""
     examples = []
     with open(IN_CONTEXT_FILE) as f:
         for line in f:
@@ -38,12 +34,10 @@ def load_in_context_examples() -> list[str]:
     return examples
 
 
-def build_classifier_instruction(
+def _build_classifier_instruction(
     labels: list[str], in_context_examples: list[str] | None = None
 ) -> str:
-    """
-    Construct complete classifier prompt from components
-    """
+    """Construct complete classifier prompt from components."""
     id_list = "\n".join(f"{i}: {label}" for i, label in enumerate(labels))
     sep = "\n\n"
     examples_block = (
@@ -70,16 +64,14 @@ Examples: 0, 1, 42
 Remember: Respond with ONLY the numeric ID, nothing else."""
 
 
-def transform_row(
+def _transform_row(
     row: dict, labels: list[str], in_context_examples: list[str] | None = None
 ) -> dict:
-    """
-    Transform a single row of banking77 dataset into Oumi format
-    """
+    """Transform a single row of banking77 dataset into Oumi format."""
     label_id = row["label"]
     label_name = labels[label_id]
     query = row["text"]
-    classifier_instruction = build_classifier_instruction(
+    classifier_instruction = _build_classifier_instruction(
         labels, in_context_examples
     )
     return {
@@ -95,20 +87,16 @@ def transform_row(
     }
 
 
-def write_jsonl(samples: list[dict], output_path: Path) -> None:
-    """
-    Save data as JSONL
-    """
+def _write_jsonl(samples: list[dict], output_path: Path) -> None:
+    """Save data as JSONL."""
     with open(output_path, "w") as f:
         for sample in samples:
             f.write(json.dumps(sample) + "\n")
     print(f"  Wrote {len(samples)} samples to {output_path.name}")
 
 
-def confirm(step: str) -> None:
-    """
-    User confirmation dialog
-    """
+def _confirm(step: str) -> None:
+    """User confirmation dialog."""
     response = (
         input(f"\n[{step}] Press Enter to continue or 'q' to quit: ")
         .strip()
@@ -119,13 +107,11 @@ def confirm(step: str) -> None:
         raise SystemExit(0)
 
 
-def main() -> None:
-    """
-    Does all the things
-    """
-    labels = load_labels()
+def _main() -> None:
+    """Does all the things."""
+    labels = _load_labels()
     assert len(labels) == 77, f"Expected 77 labels, got {len(labels)}"
-    in_context_examples = load_in_context_examples()
+    in_context_examples = _load_in_context_examples()
     assert len(in_context_examples) == 8, (
         f"Expected 8 in-context examples, got {len(in_context_examples)}"
     )
@@ -139,11 +125,11 @@ def main() -> None:
     print(f"  Columns: {list(df.columns)}")
     print(f"  Sample train row: {df.iloc[0].to_dict()}")
 
-    confirm("Step 1 complete")
+    _confirm("Step 1 complete")
 
     # ── Step 2: Verify transform function ──────────────────────────────
     print("\nStep 2: Verifying transform function...")
-    sample_no_shot = transform_row(df.iloc[0].to_dict(), labels)
+    sample_no_shot = _transform_row(df.iloc[0].to_dict(), labels)
     print("  No-shot sample:")
     first_chars = sample_no_shot["messages"][0]["content"][:120]
     print(f"    system (first 120 chars): {first_chars!r}")
@@ -151,7 +137,7 @@ def main() -> None:
     print(f"    assistant: {sample_no_shot['messages'][2]}")
     print(f"    metadata: {sample_no_shot['metadata']}")
 
-    sample_2shot = transform_row(
+    sample_2shot = _transform_row(
         df.iloc[0].to_dict(),
         labels,
         in_context_examples=in_context_examples[:2],
@@ -159,7 +145,7 @@ def main() -> None:
     print("\n  2-shot sample (system prompt, last 200 chars):")
     print(f"    {sample_2shot['messages'][0]['content'][-200:]!r}")
 
-    confirm("Step 2 complete")
+    _confirm("Step 2 complete")
 
     # ── Step 3: Create JSONL datasets ───────────────────────────────────
     print("\nStep 3: Creating JSONL datasets...")
@@ -222,17 +208,17 @@ def main() -> None:
     # )
 
     print("  banking77-test-tiny.jsonl")
-    write_jsonl(
+    _write_jsonl(
         [
-            transform_row(row, labels, in_context_examples=[])
+            _transform_row(row, labels, in_context_examples=[])
             for row in random.sample(df_test.to_dict("records"), 100)
         ],
         SCRIPT_DIR / "banking77-test-tiny.jsonl",
     )
 
-    confirm("Step 3 complete — all datasets written")
+    _confirm("Step 3 complete — all datasets written")
     print("Done.")
 
 
 if __name__ == "__main__":
-    main()
+    _main()
