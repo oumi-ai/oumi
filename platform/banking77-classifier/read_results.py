@@ -1,5 +1,5 @@
-import pandas as pd
 import matplotlib.pyplot as plt
+import pandas as pd
 
 df = pd.read_csv("banking77-results.txt", sep=r"\s+", engine="python")
 
@@ -10,7 +10,9 @@ fig, ax = plt.subplots()
 
 for model, color in zip(models, colors):
     subset = df[df["model"] == model].sort_values("examples")
-    ax.plot(subset["examples"], subset["accuracy"], marker="o", label=model, color=color)
+    ax.plot(
+        subset["examples"], subset["accuracy"], marker="o", label=model, color=color
+    )
 
 qwen_acc = df[df["model"] == "qwen3.5-0.8b-tuned"]["accuracy"].values[0]
 ax.axhline(y=qwen_acc, color="tab:red", linestyle="dotted", label="qwen3.5-0.8b-tuned")
