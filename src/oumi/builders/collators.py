@@ -302,12 +302,15 @@ def build_data_collator(
                 "train_target in collator_kwargs."
             )
 
+        ignore_index = kwargs.pop(
+            "ignore_index",
+            label_ignore_index if label_ignore_index is not None else -100,
+        )
+
         return TextCompletionsCollatorWithPadding(
             tokenizer=tokenizer,
             debug=debug,
-            ignore_index=(
-                label_ignore_index if label_ignore_index is not None else -100
-            ),
+            ignore_index=ignore_index,
             **kwargs,
         )
     raise ValueError(f"Unknown data collator name: '{collator_name}'")
