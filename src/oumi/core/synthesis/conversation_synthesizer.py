@@ -534,7 +534,9 @@ class ConversationSynthesizer:
             "[USER]\n"
             "You are a customer who has an issue with a recent order.\n\n"
             "[ASSISTANT]\n"
-            "You are a helpful support agent who resolves customer issues.\n\n"
+            "You are a helpful support agent who resolves customer issues. "
+            "You have tools: lookup_order_status(order_id), "
+            "refund_order(order_id).\n\n"
             "Ground this plan in these specific entities:\n"
             '- order_id="ORD-4421", item="laptop stand", status="delayed"\n\n'
             "Additional instructions: Focus on resolving the order issue "
@@ -544,12 +546,14 @@ class ConversationSynthesizer:
             '{"turns": [\n'
             '  {"turn": 1, "instruction": "Greet support and explain that '
             'order ORD-4421 has not arrived"},\n'
-            '  {"turn": 2, "instruction": "Acknowledge the issue and ask '
-            'for details on order ORD-4421"},\n'
-            '  {"turn": 3, "instruction": "Describe that the laptop stand '
-            'from order ORD-4421 is late"},\n'
-            '  {"turn": 4, "instruction": "Confirm the delay on order '
-            'ORD-4421 and offer a resolution"}\n'
+            '  {"turn": 2, "instruction": "Acknowledge the issue and call '
+            "lookup_order_status with the order_id the customer just gave "
+            'to retrieve current status"},\n'
+            '  {"turn": 3, "instruction": "Confirm the laptop stand from '
+            'order ORD-4421 is the one in question and ask what can be done"},\n'
+            '  {"turn": 4, "instruction": "Report the status returned by '
+            "the tool, then call refund_order using the same order_id and "
+            'confirm the resolution to the customer"}\n'
             "]}"
         )
 
@@ -594,11 +598,22 @@ class ConversationSynthesizer:
             base_prompt += (
                 "\nGround this plan in these specific entities:\n"
                 f"{block}\n"
-                "Every turn instruction that references one of these entities "
-                "MUST spell out the concrete identifier verbatim (e.g. write "
-                "'book B007', not 'the book'). The user persona cannot see "
-                "this list — only text you write into each instruction "
-                "reaches them.\n"
+                "Grounding rules (role-aware):\n"
+                "- USER turn instructions MAY inline concrete identifiers "
+                "from the list above (e.g. 'order ORD-4421 is late', "
+                "'book B007'). The user persona cannot see this list, so "
+                "identifiers the user should mention must be written into "
+                "their turn instruction.\n"
+                "- ASSISTANT turn instructions MUST NOT pre-resolve or "
+                "pre-state any tool output — no identifiers, statuses, "
+                "borrower names, due dates, or other facts the assistant "
+                "would normally look up. Reference entities by what the "
+                "user said (e.g. the title) and describe which TOOL the "
+                "assistant should call to resolve or verify. Example — "
+                "write 'call lookup_book_status with the book_id from the "
+                "catalog', not 'tell the user book B007 is checked out'.\n"
+                "- The planner's job for assistant turns is to probe the "
+                "right tool usage, not to do the tool's work.\n"
             )
 
         if multiturn_attribute.conversation_planner:
