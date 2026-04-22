@@ -71,9 +71,7 @@ def _transform_row(
     label_id = row["label"]
     label_name = labels[label_id]
     query = row["text"]
-    classifier_instruction = _build_classifier_instruction(
-        labels, in_context_examples
-    )
+    classifier_instruction = _build_classifier_instruction(labels, in_context_examples)
     return {
         "messages": [
             {"role": "system", "content": classifier_instruction},
@@ -98,9 +96,7 @@ def _write_jsonl(samples: list[dict], output_path: Path) -> None:
 def _confirm(step: str) -> None:
     """User confirmation dialog."""
     response = (
-        input(f"\n[{step}] Press Enter to continue or 'q' to quit: ")
-        .strip()
-        .lower()
+        input(f"\n[{step}] Press Enter to continue or 'q' to quit: ").strip().lower()
     )
     if response == "q":
         print("Exiting.")
