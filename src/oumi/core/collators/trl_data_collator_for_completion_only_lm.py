@@ -19,18 +19,64 @@ import numpy as np
 import torch
 from transformers.data.data_collator import DataCollatorForLanguageModeling
 
+from oumi.core.configs.params.data_params import TrainTarget
+
 
 class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
-    """Data collator used for completion tasks.
+    """Data collator for completion-only training.
 
-    Copied from `trl`'s `DataCollatorForCompletionOnlyLM` class.
+    Masks input labels so that the loss is only computed on specific
+    tokens (typically assistant responses), while ignoring other tokens
+    (system prompts, user messages, padding).
+
+    The ``train_target`` parameter selects the training target:
+
+    **``all_assistant_turns``**:
+        Span-based masking for multi-turn and tool-calling conversations.
+        Masks everything, then unmarks each assistant response span bounded
+        by ``response_template`` .. ``end_of_turn_template`` (inclusive of EOT).
+        Correctly handles interleaved tool results and parallel tool calls.
+
+    **``final_assistant_turn``**:
+        Masks all tokens before the *last* ``response_template`` occurrence.
+        Only the final assistant response is trained on. Suitable for
+        single-turn completions.
+
+    Args:
+        response_template: String or token IDs marking the start of an
+            assistant response. Required for all modes.
+        instruction_template: String or token IDs marking the start of a
+            user instruction. Legacy — only used with the instruction+response
+            fallback path.
+        train_target: One of ``"all_assistant_turns"``,
+            ``"final_assistant_turn"``, ``"_legacy_instruction_response"``.
+            Resolved by the builder before construction.
+        end_of_turn_template: String or token IDs marking the end of a
+            conversational turn. Required for ``all_assistant_turns`` mode.
+        mlm: Whether to use masked language modeling. Default False.
+        ignore_index: Label value for masked tokens. Default -100.
+        padding_free: Remove padding and add position_ids. Default False.
     """
+
+    _VALID_TRAIN_TARGETS = {t.value for t in TrainTarget} | {
+        "_legacy_instruction_response",
+    }
+
+    def _tokenize_template(self, template: str | list[int] | None) -> list[int] | None:
+        """Encode a template string into token IDs, or pass through if already IDs."""
+        if template is None:
+            return None
+        if isinstance(template, str):
+            return self.tokenizer.encode(template, add_special_tokens=False)
+        return list(template)
 
     def __init__(
         self,
         response_template: str | list[int],
         instruction_template: str | list[int] | None = None,
         *args,
+        train_target: str,
+        end_of_turn_template: str | list[int] | None = None,
         mlm: bool = False,
         ignore_index: int = -100,
         padding_free: bool = False,
@@ -39,26 +85,33 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
         """Initializes the DataCollatorForCompletionOnlyLM."""
         super().__init__(*args, mlm=mlm, **kwargs)
 
+        # Tokenize templates.
         self.instruction_template = instruction_template
-        if isinstance(instruction_template, str):
-            # The user provides a string, must tokenize
-            self.instruction_token_ids = self.tokenizer.encode(
-                self.instruction_template,  # type: ignore
-                add_special_tokens=False,
-            )
-        else:
-            # The user already provides the token ids
-            self.instruction_token_ids = instruction_template
-
+        self.instruction_token_ids = self._tokenize_template(instruction_template)
         self.response_template = response_template
-        if isinstance(response_template, str):
-            # The user provides a string, must tokenize
-            self.response_token_ids = self.tokenizer.encode(
-                self.response_template, add_special_tokens=False
+        self.response_token_ids: list[int] = self._tokenize_template(response_template)  # type: ignore[assignment]
+        self.end_of_turn_template = end_of_turn_template
+        self.end_of_turn_token_ids = self._tokenize_template(end_of_turn_template)
+
+        if train_target not in self._VALID_TRAIN_TARGETS:
+            valid = sorted(self._VALID_TRAIN_TARGETS - {"_legacy_instruction_response"})
+            raise ValueError(
+                f"Unknown train_target='{train_target}'. Must be one of: {valid}"
             )
-        else:
-            # The user already provides the token ids
-            self.response_token_ids = response_template
+        self.train_target = train_target
+
+        if self.train_target == "all_assistant_turns":
+            if end_of_turn_template is None:
+                raise ValueError(
+                    "end_of_turn_template must be provided "
+                    f"when train_target='{self.train_target}'"
+                )
+        if self.train_target == "_legacy_instruction_response":
+            if instruction_template is None:
+                raise ValueError(
+                    "instruction_template must be provided "
+                    f"when train_target='{self.train_target}'"
+                )
 
         if (
             not self.mlm
@@ -78,13 +131,102 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
         self.ignore_index = ignore_index
         self.padding_free = padding_free
 
+    @staticmethod
+    def _find_pattern(seq: list[int], pattern: list[int]) -> list[int]:
+        """Return all start positions where *pattern* appears in *seq*."""
+        plen = len(pattern)
+        if plen == 0:
+            return []
+        first = pattern[0]
+        positions = []
+        for i in range(len(seq) - plen + 1):
+            if seq[i] == first and seq[i : i + plen] == pattern:
+                positions.append(i)
+        return positions
+
+    def _apply_span_masking(
+        self, batch: dict[str, Any], examples: list[list[int] | Any | dict[str, Any]]
+    ) -> None:
+        """Apply span-based masking for multi-turn conversations.
+
+        Masks all labels, then unmarks assistant response spans bounded by
+        response_template and end_of_turn_template (inclusive — the EOT token
+        is unmasked so the model learns to produce it).
+        """
+        resp_ids = self.response_token_ids
+        eot_ids = self.end_of_turn_token_ids
+        assert eot_ids is not None  # Caller checks end_of_turn_template is not None
+        resp_len = len(resp_ids)
+        pad_token_id = self.tokenizer.pad_token_id
+
+        for i in range(len(examples)):
+            # Step 1: mask everything.
+            batch["labels"][i, :] = self.ignore_index
+
+            seq: list[int] = batch["input_ids"][i].tolist()
+
+            # Compute effective sequence length excluding trailing padding.
+            # Prevents false matches when end_of_turn_token_ids overlaps
+            # with the pad token (common: e.g. <|im_end|> = eos = pad).
+            if pad_token_id is not None:
+                n = len(seq)
+                while n > 0 and seq[n - 1] == pad_token_id:
+                    n -= 1
+            else:
+                n = len(seq)
+
+            # Step 2: find every assistant response start position.
+            resp_positions = self._find_pattern(seq[:n], resp_ids)
+
+            if len(resp_positions) == 0:
+                warnings.warn(
+                    f"Could not find response template in the following instance: "
+                    f"{self.tokenizer.decode(batch['input_ids'][i])}. "
+                    "This instance will be ignored in loss calculation.",
+                    UserWarning,
+                )
+                continue
+
+            for resp_pos in resp_positions:
+                content_start = resp_pos + resp_len
+
+                # Step 3: find the next end_of_turn after content_start.
+                eot_positions = self._find_pattern(seq[content_start:n], eot_ids)
+                if eot_positions:
+                    content_end = content_start + eot_positions[0]
+                else:
+                    content_end = n
+
+                if content_start >= content_end:
+                    continue
+
+                # Step 4: unmask this assistant response span, including the
+                # end-of-turn token so the model learns when to stop.
+                if eot_positions:
+                    eot_len = len(self.end_of_turn_token_ids)  # type: ignore
+                    unmask_end = content_end + eot_len
+                else:
+                    # No EOT found — content_end == n (end of real content).
+                    # Do NOT extend past n or we'd unmask into padding.
+                    unmask_end = content_end
+                batch["labels"][i, content_start:unmask_end] = batch["input_ids"][
+                    i, content_start:unmask_end
+                ]
+
+    # ------------------------------------------------------------------
+    # Main collation
+    # ------------------------------------------------------------------
+
     def torch_call(
         self, examples: list[list[int] | Any | dict[str, Any]]
     ) -> dict[str, Any]:
         """Collates a list of examples into a batch."""
         batch = super().torch_call(examples)
 
-        if self.instruction_template is None:
+        if self.train_target == "all_assistant_turns":
+            self._apply_span_masking(batch, examples)
+        elif self.train_target == "final_assistant_turn":
+            # Response-only: unmask only the final assistant response.
             for i in range(len(examples)):
                 response_token_ids_start_idx = None
 
