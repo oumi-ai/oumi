@@ -183,7 +183,7 @@ def extract_json(text: str, expected_type: type | None = list) -> dict | list | 
 
 
 def repair_json_braces(text: str) -> str | None:
-    """Repair unbalanced ``{}`` / ``[]`` in a JSON string.
+    r"""Repair unbalanced ``{}`` / ``[]`` in a JSON string.
 
     Targets two failure modes common to LLM output truncated at stop
     sequences or token limits:
