@@ -22,7 +22,7 @@
 # `checkin_book` as appropriate.
 #
 # Grounding is enabled on the environment: a small random subset of real
-# catalog entries is surfaced to the planner each conversation so turn plans
+# catalog entries is surfaced to the each conversation so turn plans
 # reference titles that actually exist. The user persona enacts those plans;
 # the assistant persona is un-grounded and must use the tools to learn any
 # circulation details.
@@ -42,7 +42,7 @@
 #   - Environment config: oumi.core.configs.EnvironmentConfig
 
 strategy: GENERAL
-num_samples: 50
+num_samples: 150
 output_path: library_tool_use_dataset.jsonl
 
 environment_config:

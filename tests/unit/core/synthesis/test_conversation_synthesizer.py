@@ -1628,6 +1628,46 @@ def test_run_assistant_turn_self_corrects_after_invalid_arguments(
     assert sample_msgs[-1].content == "Policy looks good."
 
 
+def test_run_assistant_turn_continuation_replaces_plan_instruction(
+    mock_inference_config,
+):
+    """After the first tool call, subsequent prompts should use the continuation
+    directive instead of re-injecting the original plan instruction."""
+    env_config = _tool_env_config()
+    engine = _scripted_inference_engine(
+        [
+            ['<tool_call>{"name": "lookup", "arguments": {"id": "01"}}</tool_call>'],
+            ["The status is ok."],
+        ]
+    )
+    synth = _make_synthesizer(
+        mock_inference_config, environment_config=env_config, inference_engine=engine
+    )
+    plan_instruction = "Call lookup to check the order status"
+    msgs = synth._run_assistant_turn(
+        samples=[{"target_turns": 2, "parsed_turn_plans": ["", plan_instruction]}],
+        sample_indices=[0],
+        histories=[[]],
+        current_turn=2,
+        multiturn_attribute=_tool_multiturn_attr(),
+    )
+
+    assert engine.infer.call_count == 2
+
+    # First call should include the plan instruction
+    first_prompt = engine.infer.call_args_list[0].args[0][0]
+    first_trailing = first_prompt.messages[-1].content
+    assert plan_instruction in first_trailing
+
+    # Second call (after tool result) should use the continuation directive
+    second_prompt = engine.infer.call_args_list[1].args[0][0]
+    second_trailing = second_prompt.messages[-1].content
+    assert plan_instruction not in second_trailing
+    assert "Do NOT repeat a tool call" in second_trailing
+
+    assert msgs[0][-1].content == "The status is ok."
+
+
 def test_synthesize_end_to_end_with_tool_use(mock_inference_config):
     env_config = _tool_env_config()
     plan_json = (
@@ -1973,9 +2013,7 @@ def test_create_planner_prompt_injects_grounding_block_when_facts_present(
     assert '- id="42", title="Dune"' in planner_user_msg
     assert '- id="7", title="LotR"' in planner_user_msg
     assert "USER turn instructions MAY inline concrete identifiers" in planner_user_msg
-    assert (
-        "ASSISTANT turn instructions MUST NOT pre-resolve" in planner_user_msg
-    )
+    assert "ASSISTANT turn instructions MUST NOT pre-resolve" in planner_user_msg
     assert "user persona cannot see this list" in planner_user_msg
 
 
@@ -2009,9 +2047,7 @@ def test_create_planner_prompt_example_models_role_aware_grounding(
     )
     assert user_turns_with_id >= 1, "user turn should mention the ID verbatim"
 
-    assistant_instructions = [
-        inst for n, inst in turns_by_num.items() if n % 2 == 0
-    ]
+    assistant_instructions = [inst for n, inst in turns_by_num.items() if n % 2 == 0]
     assert any(
         "lookup_order_status" in inst or "refund_order" in inst
         for inst in assistant_instructions
