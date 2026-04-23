@@ -1,0 +1,32 @@
+{
+  "overall": {
+    "total": 1745,
+    "parse_failures": 82,
+    "name_accuracy": 0.9438395415472779,
+    "args_accuracy": 0.8320916905444126,
+    "exact_match": 0.8320916905444126
+  },
+  "per_category": {
+    "multistep": {
+      "total": 280,
+      "parse_failures": 33,
+      "name_accuracy": 0.8428571428571429,
+      "args_accuracy": 0.6392857142857142,
+      "exact_match": 0.6392857142857142
+    },
+    "multiturn": {
+      "total": 706,
+      "parse_failures": 7,
+      "name_accuracy": 0.990084985835694,
+      "args_accuracy": 0.9518413597733711,
+      "exact_match": 0.9518413597733711
+    },
+    "single": {
+      "total": 759,
+      "parse_failures": 42,
+      "name_accuracy": 0.9380764163372859,
+      "args_accuracy": 0.7918313570487484,
+      "exact_match": 0.7918313570487484
+    }
+  }
+}

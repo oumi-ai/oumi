@@ -1,0 +1,17 @@
+model:
+  model_name: "gpt-5-mini"
+  trust_remote_code: true
+  torch_dtype_str: "bfloat16"
+
+generation:
+  max_new_tokens: 4096
+  temperature: 0.0
+  skip_special_tokens: False
+
+remote_params:
+  num_workers: 150
+
+
+output_path: "output/gpt_5_mini.jsonl"
+
+engine: "OPENAI"

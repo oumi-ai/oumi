@@ -1,0 +1,8 @@
+model:
+  model_name: "/data/shanghong/oumi-pr2/tool_call_project/output/hermes_new_collator_main"
+  trust_remote_code: true
+  torch_dtype_str: "bfloat16"
+
+generation:
+  max_new_tokens: 4096
+  temperature: 0.0
