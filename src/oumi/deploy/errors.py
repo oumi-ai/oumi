@@ -76,7 +76,20 @@ class DeployNotFoundError(DeployApiError):
 
 
 class DeployRateLimitError(DeployApiError):
-    """HTTP 429 — rate-limited by the provider."""
+    """HTTP 429 — rate-limited by the provider.
+
+    The provider's response body can include internal identifiers (account
+    IDs, resource paths); :meth:`__str__` returns a sanitized retry message
+    rather than echoing :attr:`detail`. Raw detail, status code, method,
+    and URL remain available on structured attributes for logging.
+    """
+
+    def __str__(self) -> str:
+        """Sanitized retry message; raw detail/status/url remain on attributes."""
+        return (
+            "The deployment provider is currently rate-limiting requests. "
+            "Please retry shortly."
+        )
 
 
 class DeployTransientError(DeployApiError):
