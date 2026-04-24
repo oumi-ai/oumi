@@ -157,6 +157,8 @@ def to_message_dataframe(
 
             if isinstance(message.content, str):
                 row["text_content"] = message.content
+            elif message.content is None:
+                row["text_content"] = ""
             else:
                 text_parts = []
                 for item in message.content:

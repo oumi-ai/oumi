@@ -999,3 +999,158 @@ def test_conversation_messages_to_dict_list_hf_compatible():
     assert msg_dicts[1].get("content") == "Hello!"
     assert msg_dicts[2].get("role") == "user"
     assert msg_dicts[2].get("content") == "How are you?"
+
+
+# -----------------------------------------------------------------------------
+# Tool definitions + structured tool_calls (OpenAI format)
+# -----------------------------------------------------------------------------
+
+
+_TOOL_DEF_GET_WEATHER = {
+    "type": "function",
+    "function": {
+        "name": "get_weather",
+        "description": "Get the current weather for a city.",
+        "parameters": {
+            "type": "object",
+            "properties": {"city": {"type": "string"}},
+            "required": ["city"],
+        },
+    },
+}
+
+_TOOL_CALL = {
+    "id": "call_abc",
+    "type": "function",
+    "function": {"name": "get_weather", "arguments": '{"city": "SF"}'},
+}
+
+
+def test_message_with_tool_calls_allows_none_content():
+    """Assistant tool-call messages may have content=None (OpenAI format)."""
+    msg = Message(role=Role.ASSISTANT, content=None, tool_calls=[_TOOL_CALL])
+    assert msg.content is None
+    assert msg.tool_calls == [_TOOL_CALL]
+
+
+def test_message_tool_message_has_tool_call_id():
+    """Tool response messages carry a tool_call_id linking to the prior call."""
+    msg = Message(role=Role.TOOL, content='{"temp": 65}', tool_call_id="call_abc")
+    assert msg.role == Role.TOOL
+    assert msg.content == '{"temp": 65}'
+    assert msg.tool_call_id == "call_abc"
+
+
+def test_message_rejects_none_content_without_tool_calls():
+    """A message must have at least one of content or tool_calls."""
+    with pytest.raises(ValueError, match="at least one of `content` or `tool_calls`"):
+        Message(role=Role.ASSISTANT)
+
+
+def test_message_allows_content_with_tool_calls():
+    """Assistant messages can have both content and tool_calls (pre-text + call)."""
+    msg = Message(
+        role=Role.ASSISTANT,
+        content="Let me check that for you.",
+        tool_calls=[_TOOL_CALL],
+    )
+    assert msg.content == "Let me check that for you."
+    assert msg.tool_calls == [_TOOL_CALL]
+
+
+def test_conversation_accepts_top_level_tools():
+    """Conversation.tools stores the OpenAI-format tool definitions."""
+    conv = Conversation(
+        messages=[Message(role=Role.USER, content="Hi")],
+        tools=[_TOOL_DEF_GET_WEATHER],
+    )
+    assert conv.tools == [_TOOL_DEF_GET_WEATHER]
+
+
+def test_conversation_to_dict_includes_tools():
+    """to_dict() emits `tools` as a top-level key so TRL picks it up."""
+    conv = Conversation(
+        messages=[Message(role=Role.USER, content="Hi")],
+        tools=[_TOOL_DEF_GET_WEATHER],
+    )
+    data = conv.to_dict()
+    assert "tools" in data
+    assert data["tools"] == [_TOOL_DEF_GET_WEATHER]
+
+
+def test_conversation_to_dict_omits_tools_when_absent():
+    """Backward compat: non-tool conversations don't grow a `tools` key."""
+    conv = Conversation(messages=[Message(role=Role.USER, content="Hi")])
+    data = conv.to_dict()
+    assert "tools" not in data
+
+
+def test_conversation_to_dict_preserves_null_content_on_tool_call_message():
+    """Tool-call assistant messages keep `content: null` (OpenAI wire format)."""
+    conv = Conversation(
+        messages=[
+            Message(role=Role.USER, content="Weather in SF?"),
+            Message(role=Role.ASSISTANT, content=None, tool_calls=[_TOOL_CALL]),
+            Message(role=Role.TOOL, content='{"temp": 65}', tool_call_id="call_abc"),
+            Message(role=Role.ASSISTANT, content="It's 65 in SF."),
+        ],
+        tools=[_TOOL_DEF_GET_WEATHER],
+    )
+    data = conv.to_dict()
+    msgs = data["messages"]
+    # Tool-call message keeps `content` key with None value.
+    assert "content" in msgs[1]
+    assert msgs[1]["content"] is None
+    assert msgs[1]["tool_calls"] == [_TOOL_CALL]
+    # Tool response keeps tool_call_id.
+    assert msgs[2]["tool_call_id"] == "call_abc"
+    # Regular messages unaffected.
+    assert msgs[0]["content"] == "Weather in SF?"
+    assert msgs[3]["content"] == "It's 65 in SF."
+
+
+def test_conversation_to_dict_plain_messages_have_no_extra_null_keys():
+    """Backward compat: plain messages don't gain null tool_calls/tool_call_id."""
+    conv = Conversation(
+        messages=[
+            Message(role=Role.USER, content="Hi"),
+            Message(role=Role.ASSISTANT, content="Hello!"),
+        ]
+    )
+    data = conv.to_dict()
+    for msg in data["messages"]:
+        assert "tool_calls" not in msg
+        assert "tool_call_id" not in msg
+        assert msg["content"] is not None
+
+
+def test_conversation_roundtrip_openai_tool_format():
+    """Dict → Conversation → dict preserves all tool-calling fields."""
+    raw = {
+        "messages": [
+            {"role": "user", "content": "Weather in SF?"},
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [_TOOL_CALL],
+            },
+            {
+                "role": "tool",
+                "content": '{"temp": 65}',
+                "tool_call_id": "call_abc",
+            },
+            {"role": "assistant", "content": "It's 65 in SF."},
+        ],
+        "tools": [_TOOL_DEF_GET_WEATHER],
+    }
+    conv = Conversation.model_validate(raw)
+    assert conv.tools == [_TOOL_DEF_GET_WEATHER]
+    assert conv.messages[1].tool_calls == [_TOOL_CALL]
+    assert conv.messages[1].content is None
+    assert conv.messages[2].tool_call_id == "call_abc"
+
+    out = conv.to_dict()
+    assert out["tools"] == raw["tools"]
+    assert out["messages"][1]["content"] is None
+    assert out["messages"][1]["tool_calls"] == [_TOOL_CALL]
+    assert out["messages"][2]["tool_call_id"] == "call_abc"

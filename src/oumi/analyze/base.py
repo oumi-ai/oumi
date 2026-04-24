@@ -101,6 +101,8 @@ class BaseAnalyzer(ABC, Generic[TResult]):
         """
         if isinstance(message.content, str):
             return message.content
+        if message.content is None:
+            return ""
         text_parts = []
         for item in message.content:
             if isinstance(item, ContentItem) and isinstance(item.content, str):

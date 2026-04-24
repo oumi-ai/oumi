@@ -161,7 +161,14 @@ class BaseSftDataset(BaseMapDataset, ABC):
                 conversation_json = conversation.to_json()
                 return {"conversation_json": conversation_json}
             elif self._return_conversations_format == "dict":
-                return conversation.to_dict()
+                data = conversation.to_dict()
+                # Ensure `tools` is always present as a top-level key so the
+                # HF dataset schema stays consistent across rows. Without this,
+                # rows whose Conversation has no tools end up missing the key
+                # (exclude_none=True strips it), and `datasets.Dataset.from_generator`
+                # fails with KeyError when mixing tool and non-tool rows.
+                data.setdefault("tools", None)
+                return data
             else:
                 raise ValueError(
                     f"Invalid return_conversations_format: "

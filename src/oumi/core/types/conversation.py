@@ -228,31 +228,57 @@ class Message(pydantic.BaseModel):
         Optional[str]: The unique identifier of the message, if set; otherwise None.
     """
 
-    content: str | list[ContentItem]
+    content: str | list[ContentItem] | None = None
     """Content of the message.
 
     For text messages, `content` can be set to a string value.
     For multimodal messages, `content` should be a list of content items of
     potentially different types e.g., text and image.
+    May be ``None`` on assistant messages that only contain ``tool_calls``
+    (OpenAI tool-calling wire format).
     """
 
     role: Role
     """The role of the entity sending the message (e.g., user, assistant, system)."""
 
+    tool_calls: list[dict] | None = None
+    """Structured tool calls emitted by an assistant message.
+
+    Uses the OpenAI function-calling wire format, e.g.::
+
+        [{"id": "call_abc", "type": "function",
+          "function": {"name": "get_weather", "arguments": "{...}"}}]
+
+    Only set on assistant messages. The chat template renders these via
+    ``tokenizer.apply_chat_template(messages, tools=...)``.
+    """
+
+    tool_call_id: str | None = None
+    """Identifier linking a tool response message to the call it responds to.
+
+    Only set on messages with ``role == 'tool'``, matching the ``id`` of a
+    prior assistant ``tool_calls`` entry.
+    """
+
     def model_post_init(self, __context) -> None:
         """Post-initialization method for the Message model.
 
         This method is automatically called after the model is initialized.
-        It performs additional validation to ensure that either content or binary
-        is provided for the message.
+        It validates that the message has at least one of ``content`` or
+        ``tool_calls`` and that ``content``, when set, is a string or list.
 
         Raises:
-            ValueError: If both content and binary are None.
+            ValueError: If both ``content`` and ``tool_calls`` are ``None``,
+                or if ``content`` has an unsupported type.
         """
-        if not isinstance(self.content, str | list):
+        if self.content is None and not self.tool_calls:
+            raise ValueError(
+                "Message must have at least one of `content` or `tool_calls`."
+            )
+        if self.content is not None and not isinstance(self.content, str | list):
             raise ValueError(
                 f"Unexpected content type: {type(self.content)}. "
-                f"Must by a Python string or a list."
+                f"Must be a Python string, a list, or None."
             )
 
     def _iter_content_items(
@@ -383,6 +409,21 @@ class Conversation(pydantic.BaseModel):
     in a key-value format. It can be used to include any relevant contextual data.
     """
 
+    tools: list[dict] | None = None
+    """Tool definitions available to the model for this conversation.
+
+    Uses the OpenAI function-calling schema, e.g.::
+
+        [{"type": "function",
+          "function": {"name": "get_weather",
+                       "description": "...",
+                       "parameters": {...}}}]
+
+    When set, ``to_dict()`` emits ``tools`` as a top-level key, which TRL's
+    ``SFTTrainer`` forwards to ``tokenizer.apply_chat_template(messages, tools=...)``
+    so the model's chat template can render tools natively.
+    """
+
     def __getitem__(self, idx: int) -> Message:
         """Gets the message at the specified index.
 
@@ -452,9 +493,17 @@ class Conversation(pydantic.BaseModel):
 
     def to_dict(self):
         """Converts the conversation to a dictionary."""
-        return self.model_dump(
+        data = self.model_dump(
             mode="json", exclude_unset=True, exclude_defaults=False, exclude_none=True
         )
+        # Preserve `content: null` on assistant messages that only carry
+        # `tool_calls`, matching the OpenAI wire format. `exclude_none=True`
+        # strips `None` globally, which would drop the `content` key and
+        # trip HF chat templates that don't tolerate a missing `content`.
+        for msg_dict, msg in zip(data.get("messages", []), self.messages):
+            if msg.tool_calls and "content" not in msg_dict:
+                msg_dict["content"] = None
+        return data
 
     def append_id_to_string(self, s: str) -> str:
         """Appends conversation ID to a string.
