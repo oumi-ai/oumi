@@ -56,6 +56,7 @@ from oumi.deploy.fireworks_api import (
     GatewayPEFTDetails,
     GatewayPrepareModelBody,
 )
+from oumi.deploy.fireworks_errors import classify_fireworks_invalid_request
 from oumi.deploy.utils import raise_api_error
 
 logger = logging.getLogger(__name__)
@@ -208,9 +209,18 @@ class FireworksDeploymentClient(BaseDeploymentClient):
 
     @staticmethod
     def _check_response(response: httpx.Response, context: str) -> None:
-        """Raises if the response indicates an error."""
+        """Raises if the response indicates an error.
+
+        Threads the Fireworks 4xx classifier so 400/422 responses are
+        refined into Fireworks-specific subclasses when their detail
+        strings match.
+        """
         if not response.is_success:
-            _raise_api_error(response, context=context)
+            _raise_api_error(
+                response,
+                context=context,
+                classify_4xx=classify_fireworks_invalid_request,
+            )
 
     @staticmethod
     async def _notify(
