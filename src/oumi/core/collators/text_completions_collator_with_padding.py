@@ -27,22 +27,34 @@ class TextCompletionsCollatorWithPadding:
     def __init__(
         self,
         tokenizer: BaseTokenizer,
-        instruction_prefix: str,
-        response_prefix: str,
+        response_template: str,
+        train_target: str,
+        instruction_template: str | None = None,
         debug: bool = False,
+        end_of_turn_template: str | None = None,
+        ignore_index: int = -100,
     ):
         """Custom collator for text LLM training.
 
         Args:
         tokenizer: The tokenizer used for encoding the data.
-        instruction_prefix: The prefix marking the beginning of the user instruction.
-        response_prefix: The prefix marking the beginning of the assistant response.
+        response_template: String marking assistant response start.
+        instruction_template: String marking user instruction start.
         debug: If True, enables debug mode for logging.
+        train_target: Training target — ``"all_assistant_turns"``
+            or ``"final_assistant_turn"``.
+        end_of_turn_template: String marking the end of a turn.
+            Required for ``all_assistant_turns``.
+        ignore_index: Value used for masked labels. Must match the ignore_index
+            of the loss function (default: -100).
         """
         self._default_collator = DataCollatorForCompletionOnlyLM(
             tokenizer=tokenizer,
-            instruction_template=instruction_prefix,
-            response_template=response_prefix,
+            instruction_template=instruction_template,
+            response_template=response_template,
+            train_target=train_target,
+            end_of_turn_template=end_of_turn_template,
+            ignore_index=ignore_index,
         )
 
         if not hasattr(tokenizer, "pad_token_id") or tokenizer.pad_token_id is None:
@@ -55,7 +67,7 @@ class TextCompletionsCollatorWithPadding:
         result = self._default_collator(inputs)
         return result
 
-    def __call__(self, batch) -> dict[str, Any]:
+    def __call__(self, batch: list[dict[str, Any]]) -> dict[str, Any]:
         """Pads to the longest length present in the batch.
 
         Args:

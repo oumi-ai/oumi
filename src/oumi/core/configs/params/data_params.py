@@ -52,6 +52,28 @@ class MixtureStrategy(str, Enum):
             raise ValueError("Unsupported value for MixtureStrategy")
 
 
+class TrainTarget(str, Enum):
+    """Controls which tokens contribute to the loss during training.
+
+    Used with the ``text_completions_only_with_padding`` collator to
+    select the training target. Template tokens are auto-resolved
+    from the tokenizer vocabulary.
+
+    Members:
+        ALL_ASSISTANT_TURNS: Train on all assistant response turns including
+            tool calls. Uses span-based masking: system prompts, user
+            messages, and tool results are masked; everything between the
+            assistant header and the end-of-turn token (inclusive) is
+            unmasked.
+        FINAL_ASSISTANT_TURN: Train only on the final assistant response.
+            Masks all tokens before the last ``response_template``
+            occurrence. Suitable for single-turn completions.
+    """
+
+    ALL_ASSISTANT_TURNS = "all_assistant_turns"
+    FINAL_ASSISTANT_TURN = "final_assistant_turn"
+
+
 @dataclass
 class DatasetParams(BaseParams):
     dataset_name: str = MISSING
@@ -197,8 +219,13 @@ class DatasetSplitParams(BaseParams):
 
         - "text_with_padding": Dynamically pads the inputs received to
             the longest length.
+        - "text_completions_only_with_padding": Uses template matching to
+            mask non-assistant tokens. Works for simple user/assistant turns.
+            Supports optional ``end_of_turn_template`` in ``collator_kwargs``
+            for span-based masking.
         - "vision_language_with_padding": Uses VisionLanguageCollator
             for image+text multi-modal data.
+        - "vision_language_sft": Uses VisionLanguageSftCollator.
 
     If None, then a default collator will be assigned.
     """
@@ -208,6 +235,16 @@ class DatasetSplitParams(BaseParams):
 
     These arguments will be passed directly to the collator constructor
     and can be used to customize collator behavior beyond the default parameters.
+    """
+
+    train_target: TrainTarget | None = None
+    """High-level training target for ``text_completions_only_with_padding``.
+
+    When set, the builder auto-detects ``response_template`` and
+    ``end_of_turn_template`` from the tokenizer's chat template.
+    Use ``collator_kwargs`` to override individual auto-resolved values.
+
+    See :class:`TrainTarget` for available options.
     """
 
     pack: bool = False
@@ -266,6 +303,20 @@ class DatasetSplitParams(BaseParams):
 
     def __post_init__(self):
         """Verifies params."""
+        # Convert string train_target to enum if needed
+        if isinstance(self.train_target, str):
+            self.train_target = TrainTarget(self.train_target)
+
+        if (
+            self.train_target is not None
+            and self.collator_name != "text_completions_only_with_padding"
+        ):
+            raise ValueError(
+                "`train_target` requires "
+                "collator_name='text_completions_only_with_padding', "
+                f"got '{self.collator_name}'."
+            )
+
         if any([dataset.mixture_proportion is not None for dataset in self.datasets]):
             if not all(
                 [dataset.mixture_proportion is not None for dataset in self.datasets]
