@@ -31,6 +31,8 @@ from oumi.deploy.base_client import (
     HardwareConfig,
     ModelType,
 )
+from oumi.deploy.errors import DeployInvalidRequestError, DeployNotFoundError
+from oumi.deploy.fireworks_errors import FireworksUnsupportedHardwareError
 from oumi.deploy.parasail_api import (
     DeploymentResponse,
     DeviceConfig,
@@ -758,7 +760,7 @@ class TestParasailDeploymentClient:
 
     @pytest.mark.asyncio
     async def test_http_error_propagates_from_get_endpoint(self):
-        """4xx/5xx from the API surfaces as ValueError with error details."""
+        """4xx/5xx from the API surfaces as a typed DeployApiError subclass."""
         client = ParasailDeploymentClient(api_key="test-key")
         mock_response = MagicMock()
         mock_response.status_code = 404
@@ -778,5 +780,47 @@ class TestParasailDeploymentClient:
                 new_callable=AsyncMock,
                 return_value=mock_response,
             ):
-                with pytest.raises(ValueError, match="deployment not found"):
+                with pytest.raises(DeployNotFoundError, match="deployment not found"):
                     await client.get_endpoint("99999")
+
+    @pytest.mark.asyncio
+    async def test_parasail_400_does_not_produce_fireworks_subtype(self):
+        """Parasail 400 with a Fireworks-signature detail → DeployInvalidRequestError.
+
+        Load-bearing property of the Fireworks/Parasail split: the Fireworks
+        4xx classifier must only run for the Fireworks client. A Parasail
+        response whose detail happens to match a Fireworks signature must
+        still surface as the generic base class, not as a Fireworks-specific
+        subclass.
+        """
+        client = ParasailDeploymentClient(api_key="test-key")
+        mock_response = MagicMock()
+        mock_response.status_code = 400
+        mock_response.is_success = False
+        # Verbatim Fireworks-signature detail string
+        mock_response.json.return_value = {
+            "message": (
+                "invalid deployment: model type qwen3 is not supported on "
+                "NVIDIA_A100_80GB"
+            )
+        }
+        mock_request = MagicMock()
+        mock_request.method = "GET"
+        mock_request.url = "https://api.parasail.io/api/v1/dedicated/deployments/x"
+        mock_request.content = b""
+        mock_response.request = mock_request
+        mock_response.text = ""
+
+        async with client:
+            with patch.object(
+                client._client,
+                "get",
+                new_callable=AsyncMock,
+                return_value=mock_response,
+            ):
+                with pytest.raises(DeployInvalidRequestError) as exc_info:
+                    await client.get_endpoint("x")
+
+        exc = exc_info.value
+        assert type(exc) is DeployInvalidRequestError
+        assert not isinstance(exc, FireworksUnsupportedHardwareError)

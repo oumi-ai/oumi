@@ -26,8 +26,9 @@ def _get_hf_collator_result(conversation, tokenizer):
 
     collator = TextCompletionsCollatorWithPadding(
         tokenizer=tokenizer,
-        instruction_prefix=_INSTRUCTION_PREFIX,
-        response_prefix=_RESPONSE_PREFIX,
+        instruction_template=_INSTRUCTION_PREFIX,
+        response_template=_RESPONSE_PREFIX,
+        train_target="_legacy_instruction_response",
     )
 
     return collator(batch)

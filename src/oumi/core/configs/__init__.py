@@ -95,6 +95,7 @@ from oumi.core.configs.params.data_params import (
     DatasetSplit,
     DatasetSplitParams,
     MixtureStrategy,
+    TrainTarget,
 )
 from oumi.core.configs.params.evaluation_params import (
     EvaluationBackend,
@@ -192,6 +193,7 @@ __all__ = [
     "LMHarnessTaskParams",
     "LoraWeightInitialization",
     "MixedPrecisionDtype",
+    "TrainTarget",
     "MixtureStrategy",
     "ModelParams",
     "OumiConfigError",

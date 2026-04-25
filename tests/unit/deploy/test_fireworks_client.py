@@ -19,7 +19,6 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import httpx
 import pytest
 
 from oumi.deploy.base_client import (
@@ -43,7 +42,6 @@ from oumi.deploy.fireworks_client import (
     FireworksInvalidModelIdError,
     _validate_fireworks_model_id,
 )
-from oumi.deploy.utils import raise_api_error
 
 
 class TestFireworksStateMap:
@@ -463,56 +461,6 @@ class TestValidateFireworksModelId:
     def test_starts_with_digit(self):
         with pytest.raises(FireworksInvalidModelIdError, match="begin with a digit"):
             _validate_fireworks_model_id("1-model")
-
-
-class TestRaiseApiError:
-    """Tests for raise_api_error (shared helper in utils)."""
-
-    @staticmethod
-    def _make_response(
-        status_code: int, json_body: dict | None = None, text: str = ""
-    ) -> MagicMock:
-        resp = MagicMock(spec=httpx.Response)
-        resp.status_code = status_code
-        resp.text = text
-        if json_body is not None:
-            resp.json.return_value = json_body
-        else:
-            resp.json.side_effect = Exception("no json")
-        req = MagicMock()
-        req.method = "POST"
-        req.url = "https://api.fireworks.ai/v1/test"
-        req.content = b'{"key": "value"}'
-        resp.request = req
-        return resp
-
-    def test_extracts_nested_error_message(self):
-        resp = self._make_response(
-            400, {"error": {"message": "bad request", "code": "INVALID_ARGUMENT"}}
-        )
-        with pytest.raises(ValueError, match="bad request"):
-            raise_api_error(resp, "create model")
-
-    def test_extracts_top_level_message(self):
-        resp = self._make_response(404, {"message": "not found"})
-        with pytest.raises(ValueError, match="not found"):
-            raise_api_error(resp, "get model")
-
-    def test_falls_back_to_text(self):
-        resp = self._make_response(500, json_body=None, text="internal server error")
-        with pytest.raises(ValueError, match="internal server error"):
-            raise_api_error(resp, "delete model")
-
-    def test_does_not_include_request_body(self):
-        resp = self._make_response(400, {"message": "bad"})
-        with pytest.raises(ValueError) as exc_info:
-            raise_api_error(resp, "test")
-        assert "request body" not in str(exc_info.value)
-
-    def test_includes_http_status_and_method(self):
-        resp = self._make_response(409, {"message": "conflict"})
-        with pytest.raises(ValueError, match=r"HTTP 409.*POST"):
-            raise_api_error(resp, "create")
 
 
 class TestCheckModelSourceSupported:
