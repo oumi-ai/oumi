@@ -25,6 +25,31 @@ from oumi.core.configs.params.tool_params import ToolParams
 
 
 @dataclass
+class GroundingConfig(BaseParams):
+    """Per-environment grounding configuration.
+
+    When set on an environment, the ConversationSynthesizer samples facts from
+    that environment and injects them into the planner prompt so turn plans
+    reference real entities rather than hallucinated IDs.
+    """
+
+    sample_size: int = 3
+    """Number of grounding facts sampled per conversation."""
+
+    seed: int | None = None
+    """If set, per-sample RNG is seeded from ``(seed + sample_index)`` for
+    reproducibility. If None, grounding uses an unseeded ``random.Random``."""
+
+    def __post_init__(self) -> None:
+        """Validate ``sample_size`` is positive."""
+        if self.sample_size < 1:
+            raise ValueError(
+                f"{type(self).__name__}.sample_size must be >= 1, "
+                f"got {self.sample_size}."
+            )
+
+
+@dataclass
 class EnvironmentParams(BaseParams):
     """Pure-data description of an environment."""
 
@@ -37,6 +62,7 @@ class EnvironmentParams(BaseParams):
     # subclass is resolved by `__post_init__` based on env_type.
     tools: list[Any] = field(default_factory=list)
     env_kwargs: dict[str, Any] | None = None
+    grounding: GroundingConfig | None = None
 
     def __post_init__(self) -> None:
         """Coerce raw tool dicts into the appropriate ToolParams subclass."""
@@ -45,6 +71,10 @@ class EnvironmentParams(BaseParams):
             tool if isinstance(tool, tool_cls) else tool_cls.create(tool)
             for tool in self.tools
         ]
+        if self.grounding is not None and not isinstance(
+            self.grounding, GroundingConfig
+        ):
+            self.grounding = GroundingConfig(**self.grounding)
 
     def _resolve_tool_cls(self) -> type[ToolParams] | None:
         """Look up the registered env class, return its tool_params_cls.
