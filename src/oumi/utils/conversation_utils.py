@@ -216,6 +216,11 @@ def convert_message_to_json_content(
     return convert_content_items_to_json_list(message.content_items)
 
 
+def _has_tool_metadata(message: Message) -> bool:
+    """Whether a message carries tool-calling fields that need 1:1 dict mapping."""
+    return message.tool_calls is not None or message.tool_call_id is not None
+
+
 def create_list_of_message_json_dicts(
     messages: list[Message],
     *,
@@ -223,12 +228,18 @@ def create_list_of_message_json_dicts(
 ) -> list[dict[str, Any]]:
     """Returns a list of JSON dictionaries representing messages.
 
-    Loads image bytes and encodes them as base64.
+    Loads image bytes and encodes them as base64. Forwards ``tool_calls`` and
+    ``tool_call_id`` when set on the source message so tool-aware chat
+    templates can render multi-turn tool use; non-tool-aware templates
+    ignore the extra keys. Messages carrying tool metadata are never grouped
+    with adjacent same-role messages, so per-turn tool fields stay aligned.
 
     Args:
         messages: The input messages.
         group_adjacent_same_role_turns: Whether to pack adjacent messages
-            from the same role into a single element in output list.
+            from the same role into a single element in output list. Messages
+            with ``tool_calls`` or ``tool_call_id`` set are excluded from
+            grouping regardless of this flag.
 
     Returns:
         list[Dict[str, Any]]: The list of messages encoded as nested JSON dicts.
@@ -238,9 +249,11 @@ def create_list_of_message_json_dicts(
     idx = 0
     while idx < num_messages:
         end_idx = idx + 1
-        if group_adjacent_same_role_turns:
-            while end_idx < num_messages and (
-                messages[idx].role == messages[end_idx].role
+        if group_adjacent_same_role_turns and not _has_tool_metadata(messages[idx]):
+            while (
+                end_idx < num_messages
+                and messages[idx].role == messages[end_idx].role
+                and not _has_tool_metadata(messages[end_idx])
             ):
                 end_idx += 1
 
@@ -248,16 +261,26 @@ def create_list_of_message_json_dicts(
             "role": messages[idx].role.value,
         }
         group_size = end_idx - idx
-        if group_size == 1 and messages[idx].contains_single_text_content_item_only():
-            # Set "content" to a primitive string value, which is the common
-            # convention for text-only models.
-            item["content"] = messages[idx].text_content_items[0].content
+        if group_size == 1:
+            msg = messages[idx]
+            if msg.contains_single_text_content_item_only():
+                # Common case: text-only message; emit a primitive string.
+                item["content"] = msg.text_content_items[0].content
+            elif msg.content is None:
+                # Assistant message that only carries tool_calls; OpenAI wire
+                # format uses null content here.
+                item["content"] = None
+            else:
+                item["content"] = convert_message_to_json_content_list(msg)
+            if msg.tool_calls is not None:
+                item["tool_calls"] = msg.tool_calls
+            if msg.tool_call_id is not None:
+                item["tool_call_id"] = msg.tool_call_id
         else:
-            # Set "content" to be a list of dictionaries for more complex cases.
+            # Multi-message group: pack content items into a single list.
             content_list = []
-            while idx < end_idx:
-                content_list.extend(convert_message_to_json_content_list(messages[idx]))
-                idx += 1
+            for j in range(idx, end_idx):
+                content_list.extend(convert_message_to_json_content_list(messages[j]))
             item["content"] = content_list
 
         idx = end_idx
