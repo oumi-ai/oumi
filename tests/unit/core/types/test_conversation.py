@@ -3,6 +3,10 @@ from typing import Final, cast
 
 import pydantic
 import pytest
+from transformers.utils.chat_template_utils import (
+    DocstringParsingException,
+    get_json_schema,
+)
 
 from oumi.core.types.conversation import (
     ContentItem,
@@ -1154,3 +1158,82 @@ def test_conversation_roundtrip_openai_tool_format():
     assert out["messages"][1]["content"] is None
     assert out["messages"][1]["tool_calls"] == [_TOOL_CALL]
     assert out["messages"][2]["tool_call_id"] == "call_abc"
+
+
+# -----------------------------------------------------------------------------
+# Callable tool definitions (auto-converted to OpenAI schema dicts)
+# -----------------------------------------------------------------------------
+
+
+def _typed_get_weather(city: str) -> str:
+    """Get the current weather for a city.
+
+    Args:
+        city: The city to fetch weather for.
+
+    Returns:
+        A short weather description.
+    """
+    return f"Sunny in {city}"
+
+
+def test_conversation_tools_accepts_callable_and_coerces_to_openai_dict():
+    """A callable tool input is converted to its OpenAI-schema dict at validation."""
+    conv = Conversation(
+        messages=[Message(role=Role.USER, content="Weather?")],
+        tools=[_typed_get_weather],
+    )
+    assert conv.tools is not None
+    assert len(conv.tools) == 1
+    assert isinstance(conv.tools[0], dict)
+    assert conv.tools[0] == get_json_schema(_typed_get_weather)
+
+
+def test_conversation_tools_accepts_mixed_dicts_and_callables():
+    """Mixed input of dict + callable both end up as dicts after validation."""
+    conv = Conversation(
+        messages=[Message(role=Role.USER, content="Hi")],
+        tools=[_TOOL_DEF_GET_WEATHER, _typed_get_weather],
+    )
+    assert conv.tools is not None
+    assert all(isinstance(tool, dict) for tool in conv.tools)
+    assert conv.tools[0] == _TOOL_DEF_GET_WEATHER
+    assert conv.tools[1] == get_json_schema(_typed_get_weather)
+
+
+def test_conversation_tools_callable_without_docstring_raises_clear_error():
+    """get_json_schema requires a docstring; missing one raises a clear error.
+
+    Transformers' ``DocstringParsingException`` propagates through the
+    validator unchanged so the user sees the original informative message.
+    """
+
+    def no_docstring_func(x: int) -> int:
+        return x
+
+    with pytest.raises(DocstringParsingException, match="docstring"):
+        Conversation(
+            messages=[Message(role=Role.USER, content="Hi")],
+            tools=[no_docstring_func],
+        )
+
+
+def test_conversation_tools_rejects_non_dict_non_callable():
+    """Items that are neither dict nor callable are rejected with a clear message."""
+    with pytest.raises(pydantic.ValidationError, match="dict.*callable"):
+        Conversation(
+            messages=[Message(role=Role.USER, content="Hi")],
+            tools=[123],  # type: ignore[list-item]
+        )
+
+
+def test_conversation_tools_callable_round_trips_via_to_dict():
+    """Construct with callable, dump to dict, reload — the dict form is stable."""
+    conv = Conversation(
+        messages=[Message(role=Role.USER, content="Hi")],
+        tools=[_typed_get_weather],
+    )
+    dumped = conv.to_dict()
+    restored = Conversation.from_dict(dumped)
+    assert restored.tools == conv.tools  # both are dict lists
+    assert all(isinstance(tool, dict) for tool in restored.tools or [])

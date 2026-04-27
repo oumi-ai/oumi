@@ -19,6 +19,7 @@ from typing import Any, NamedTuple
 
 import pydantic
 from jinja2 import Template
+from transformers.utils.chat_template_utils import get_json_schema
 
 
 class Role(str, Enum):
@@ -409,8 +410,16 @@ class Conversation(pydantic.BaseModel):
     in a key-value format. It can be used to include any relevant contextual data.
     """
 
-    tools: list[dict] | None = None
+    tools: list[dict | Callable] | None = None
     """Tool definitions available to the model for this conversation.
+
+    Accepts either OpenAI-format dicts or Python callables. Callables are
+    converted to dicts at validation time via
+    ``transformers.utils.chat_template_utils.get_json_schema``, which requires
+    the callable to have a Google-style docstring and type hints on every
+    user-facing argument. After validation, every entry is a dict regardless
+    of the input shape, so persistence (``to_dict()``) and the HF Dataset
+    schema are unaffected.
 
     Uses the OpenAI function-calling schema, e.g.::
 
@@ -423,6 +432,32 @@ class Conversation(pydantic.BaseModel):
     ``SFTTrainer`` forwards to ``tokenizer.apply_chat_template(messages, tools=...)``
     so the model's chat template can render tools natively.
     """
+
+    @pydantic.field_validator("tools", mode="before")
+    @classmethod
+    def _coerce_callable_tools_to_openai_schema(
+        cls, raw_tools: list[dict | Callable] | None
+    ) -> list[dict] | None:
+        """Convert any callable tool definitions to OpenAI-format dicts.
+
+        Pydantic validators run on the input value before final field
+        assignment. We accept callables for ergonomics in inference / agent
+        flows but normalise to dicts so storage stays uniform.
+        """
+        if raw_tools is None:
+            return None
+        coerced_tools: list[dict] = []
+        for tool in raw_tools:
+            if isinstance(tool, dict):
+                coerced_tools.append(tool)
+            elif callable(tool):
+                coerced_tools.append(get_json_schema(tool))
+            else:
+                raise ValueError(
+                    f"Each tool must be a dict (OpenAI schema) or a callable; "
+                    f"got {type(tool).__name__}."
+                )
+        return coerced_tools
 
     def __getitem__(self, idx: int) -> Message:
         """Gets the message at the specified index.
