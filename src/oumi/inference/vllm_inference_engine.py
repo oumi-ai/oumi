@@ -530,8 +530,15 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             tool_calls_payload: list[dict] | None = None
 
             if self._tool_parser is not None:
-                # Some parsers read `request.tool_choice` even from the
+                # Some parsers read `request.tool_choice` from the
                 # non-streaming entry point; pass a stub so they don't crash.
+                # vLLM offline `LLM.chat()` has no `tool_choice` knob, so
+                # "auto" is the only honest value — it matches OpenAI's
+                # default-when-unset and the offline reality of "model
+                # decides based on the rendered tools". Other values would
+                # mislead the parser ("none" would drop real calls;
+                # "required" or a specific function would force/filter
+                # interpretations the model didn't actually make).
                 stub = SimpleNamespace(
                     tool_choice="auto",
                     tools=(conversation.tools or []),
