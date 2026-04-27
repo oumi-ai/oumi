@@ -1052,3 +1052,46 @@ def test_synthesize_filters_all_conversations_returns_empty(
         result = synthesizer.synthesize(samples, multiturn_attr)
 
     assert result == [None, None]
+
+
+# --- _make_grounding_rng ---
+
+
+def _make_synthesizer(mock_inference_config, environment_config=None):
+    """Build a synthesizer with the inference engine builder patched out.
+
+    Returns the synthesizer; callers can ignore the patch since the engine
+    isn't exercised by the methods these tests target.
+    """
+    with patch(
+        "oumi.core.synthesis.conversation_synthesizer.build_inference_engine"
+    ):
+        return ConversationSynthesizer(
+            GeneralSynthesisParams(),
+            mock_inference_config,
+            environment_config=environment_config,
+        )
+
+
+def test_make_grounding_rng_unseeded_returns_fresh_random(mock_inference_config):
+    import random as _random
+
+    synth = _make_synthesizer(mock_inference_config)
+    rng = synth._make_grounding_rng(seed=None, sample_index=0)
+    assert isinstance(rng, _random.Random)
+
+
+def test_make_grounding_rng_seeded_is_reproducible(mock_inference_config):
+    synth = _make_synthesizer(mock_inference_config)
+    rng_a = synth._make_grounding_rng(seed=42, sample_index=3)
+    rng_b = synth._make_grounding_rng(seed=42, sample_index=3)
+    assert [rng_a.random() for _ in range(5)] == [rng_b.random() for _ in range(5)]
+
+
+def test_make_grounding_rng_seeded_varies_across_sample_indices(
+    mock_inference_config,
+):
+    synth = _make_synthesizer(mock_inference_config)
+    rng_0 = synth._make_grounding_rng(seed=42, sample_index=0)
+    rng_1 = synth._make_grounding_rng(seed=42, sample_index=1)
+    assert [rng_0.random() for _ in range(5)] != [rng_1.random() for _ in range(5)]

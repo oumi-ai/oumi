@@ -686,3 +686,17 @@ class ConversationSynthesizer:
             system_message,
         )
         return Message(role=Role.SYSTEM, content=formatted_content.strip())
+
+    def _make_grounding_rng(
+        self, seed: int | None, sample_index: int
+    ) -> random.Random:
+        """Build the RNG used for sampling grounding facts for one sample.
+
+        Unseeded (``seed=None``) uses the default ``random.Random()`` with
+        entropy from the OS, matching the non-reproducible behavior used by
+        ``DatasetPlanner`` for sampled attributes. Seeded mode makes each
+        sample's facts deterministic from ``(seed + sample_index)``.
+        """
+        if seed is None:
+            return random.Random()
+        return random.Random(seed + sample_index)
