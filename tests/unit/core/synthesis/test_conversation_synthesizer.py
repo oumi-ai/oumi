@@ -1375,3 +1375,158 @@ def test_attach_grounding_facts_truncation_emits_logger_warning(
     # Exactly one warning per env per synthesize invocation, even with 2 samples.
     assert len(truncation_records) == 1
     assert "env1" in truncation_records[0].getMessage()
+
+
+# --- Planner prompt grounding injection ---
+
+
+def test_create_planner_prompt_injects_grounding_block_when_facts_present(
+    mock_inference_config,
+):
+    from oumi.core.configs.params.tool_params import DeterministicToolOutput
+
+    env_config = _grounded_env_config(n_entries=10, sample_size=2, seed=1)
+    synth = _make_synthesizer(
+        mock_inference_config, environment_config=env_config
+    )
+    attr = MultiTurnAttribute(
+        id="t",
+        min_turns=2,
+        max_turns=2,
+        role_instruction_messages={
+            Role.USER: "You are a user.",
+            Role.ASSISTANT: "You are an assistant.",
+        },
+        available_environments=["env1"],
+        available_tools=["lookup"],
+    )
+    sample = {
+        "target_turns": 2,
+        "conversation_plan": "",
+        "parsed_turn_plans": [""] * 2,
+        "grounding_facts": [
+            DeterministicToolOutput(
+                input={"id": "42"}, output={"title": "Dune"}
+            ),
+            DeterministicToolOutput(
+                input={"id": "7"}, output={"title": "LotR"}
+            ),
+        ],
+    }
+
+    conversation = synth._create_planner_prompt(attr, sample)
+    planner_user_msg = conversation.messages[-1].content
+    assert isinstance(planner_user_msg, str)
+    assert "Ground this plan in these specific entities" in planner_user_msg
+    assert '- id="42", title="Dune"' in planner_user_msg
+    assert '- id="7", title="LotR"' in planner_user_msg
+    assert (
+        "Your turn plans must only reference these entities" in planner_user_msg
+    )
+
+
+def test_create_planner_prompt_no_grounding_block_when_facts_absent(
+    mock_inference_config,
+):
+    synth = _make_synthesizer(
+        mock_inference_config, environment_config=_ungrounded_env_config()
+    )
+    attr = _grounding_attr(
+        available_envs=["env1"], available_tools=["lookup"]
+    )
+    sample = {
+        "target_turns": 2,
+        "conversation_plan": "",
+        "parsed_turn_plans": [""] * 2,
+    }
+
+    conversation = synth._create_planner_prompt(attr, sample)
+    planner_user_msg = conversation.messages[-1].content
+    assert isinstance(planner_user_msg, str)
+    assert "Ground this plan" not in planner_user_msg
+
+
+def test_create_planner_prompt_empty_grounding_facts_omits_block(
+    mock_inference_config,
+):
+    synth = _make_synthesizer(
+        mock_inference_config, environment_config=_ungrounded_env_config()
+    )
+    attr = _grounding_attr(
+        available_envs=["env1"], available_tools=["lookup"]
+    )
+    sample = {
+        "target_turns": 2,
+        "conversation_plan": "",
+        "parsed_turn_plans": [""] * 2,
+        "grounding_facts": [],
+    }
+
+    conversation = synth._create_planner_prompt(attr, sample)
+    planner_user_msg = conversation.messages[-1].content
+    assert isinstance(planner_user_msg, str)
+    assert "Ground this plan" not in planner_user_msg
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_synthesize_invokes_attach_grounding_facts(
+    mock_build_inference_engine, mock_inference_config
+):
+    """End-to-end: synthesize() calls _attach_grounding_facts before planning."""
+    plan_json = (
+        '```json\n'
+        '[{"turn": 1, "instruction": "a"}, {"turn": 2, "instruction": "b"}]\n'
+        '```'
+    )
+
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+
+    call_count = {"n": 0}
+
+    def infer_side_effect(conversations, **kwargs):
+        call_count["n"] += 1
+        if call_count["n"] == 1:
+            # Planner call.
+            return [
+                Conversation(
+                    messages=[Message(role=Role.ASSISTANT, content=plan_json)]
+                )
+                for _ in conversations
+            ]
+        # Subsequent calls are turn generations.
+        return [
+            Conversation(
+                messages=[Message(role=Role.ASSISTANT, content="response")]
+            )
+            for _ in conversations
+        ]
+
+    mock_inference_engine.infer.side_effect = infer_side_effect
+
+    env_config = _grounded_env_config(n_entries=10, sample_size=2, seed=5)
+    synth = ConversationSynthesizer(
+        GeneralSynthesisParams(),
+        mock_inference_config,
+        environment_config=env_config,
+    )
+    attr = MultiTurnAttribute(
+        id="t",
+        min_turns=2,
+        max_turns=2,
+        role_instruction_messages={
+            Role.USER: "You are a user.",
+            Role.ASSISTANT: "You are an assistant.",
+        },
+        available_environments=["env1"],
+        available_tools=["lookup"],
+    )
+
+    samples = [{}]
+    result = synth.synthesize(samples, attr)
+
+    # The sample dict passed in should have grounding_facts attached.
+    assert "grounding_facts" in samples[0]
+    assert len(samples[0]["grounding_facts"]) == 2
+    # Basic regression: result shape is preserved.
+    assert len(result) == 1
