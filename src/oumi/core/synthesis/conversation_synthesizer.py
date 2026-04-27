@@ -192,6 +192,7 @@ class ConversationSynthesizer:
                 [tool.id for tool in available_tools],
             )
 
+        self._attach_grounding_facts(samples, multiturn_attributes)
         samples = self._plan_samples(samples, multiturn_attributes)
         conversations = self._synthesize_all_samples(samples, multiturn_attributes)
 
@@ -491,6 +492,37 @@ class ConversationSynthesizer:
 
         if role_context:
             base_prompt += f"\nRole context:\n{role_context}\n"
+
+        grounding_facts = sample.get("grounding_facts") or []
+        if grounding_facts:
+            from oumi.builders.environments import build_environment
+            from oumi.environments._helpers import describe_grounding_default
+
+            # Pick the first grounded env's describer. In v1 every env uses
+            # the default describer; future envs with custom describers
+            # should be revisited here.
+            describer_env_params = next(
+                (
+                    env_params
+                    for env_params in (
+                        self._environment_config.environments
+                        if self._environment_config
+                        else []
+                    )
+                    if env_params.grounding is not None
+                ),
+                None,
+            )
+            if describer_env_params is not None:
+                describer_env = build_environment(describer_env_params)
+                block = describer_env.describe_grounding(grounding_facts)
+            else:
+                block = describe_grounding_default(grounding_facts)
+            base_prompt += (
+                "\nGround this plan in these specific entities:\n"
+                f"{block}\n"
+                "Your turn plans must only reference these entities.\n"
+            )
 
         if multiturn_attribute.conversation_planner:
             formatted_planner = self._formatter.format(
