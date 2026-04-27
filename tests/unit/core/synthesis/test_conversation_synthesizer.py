@@ -1063,9 +1063,7 @@ def _make_synthesizer(mock_inference_config, environment_config=None):
     Returns the synthesizer; callers can ignore the patch since the engine
     isn't exercised by the methods these tests target.
     """
-    with patch(
-        "oumi.core.synthesis.conversation_synthesizer.build_inference_engine"
-    ):
+    with patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine"):
         return ConversationSynthesizer(
             GeneralSynthesisParams(),
             mock_inference_config,
@@ -1178,7 +1176,10 @@ def _ungrounded_env_config():
     )
 
 
-def _grounding_attr(available_envs=None, available_tools=None):
+def _grounding_attr(
+    available_envs: list[str] | None = None,
+    available_tools: list[str] | None = None,
+):
     return MultiTurnAttribute(
         id="t",
         min_turns=2,
@@ -1187,8 +1188,8 @@ def _grounding_attr(available_envs=None, available_tools=None):
             Role.USER: "u",
             Role.ASSISTANT: "a",
         },
-        available_environments=available_envs,
-        available_tools=available_tools,
+        available_environments=available_envs or [],
+        available_tools=available_tools or [],
     )
 
 
@@ -1222,9 +1223,7 @@ def test_attach_grounding_facts_populates_samples(mock_inference_config):
     from oumi.core.configs.params.tool_params import DeterministicToolOutput
 
     env_config = _grounded_env_config(n_entries=10, sample_size=3, seed=42)
-    synth = _make_synthesizer(
-        mock_inference_config, environment_config=env_config
-    )
+    synth = _make_synthesizer(mock_inference_config, environment_config=env_config)
     samples = [{}, {}, {}]
 
     synth._attach_grounding_facts(
@@ -1265,9 +1264,7 @@ def test_attach_grounding_facts_seeded_different_samples_differ(
     mock_inference_config,
 ):
     env_config = _grounded_env_config(n_entries=50, sample_size=3, seed=7)
-    synth = _make_synthesizer(
-        mock_inference_config, environment_config=env_config
-    )
+    synth = _make_synthesizer(mock_inference_config, environment_config=env_config)
     samples = [{}, {}]
 
     synth._attach_grounding_facts(
@@ -1292,9 +1289,7 @@ def test_attach_grounding_facts_respects_available_environments_scoping(
         env_id="env_b", tool_id="tool_b", n_entries=5, sample_size=2, seed=2
     )
     env_config = EnvironmentConfig(environments=[env_a, env_b])
-    synth = _make_synthesizer(
-        mock_inference_config, environment_config=env_config
-    )
+    synth = _make_synthesizer(mock_inference_config, environment_config=env_config)
     samples = [{}]
 
     synth._attach_grounding_facts(
@@ -1318,9 +1313,7 @@ def test_attach_grounding_facts_concatenates_across_multiple_envs(
         env_id="env_b", tool_id="tool_b", n_entries=5, sample_size=3, seed=2
     )
     env_config = EnvironmentConfig(environments=[env_a, env_b])
-    synth = _make_synthesizer(
-        mock_inference_config, environment_config=env_config
-    )
+    synth = _make_synthesizer(mock_inference_config, environment_config=env_config)
     samples = [{}]
 
     # available_environments=None -> all envs in config are in scope
@@ -1337,9 +1330,7 @@ def test_attach_grounding_facts_truncation_emits_logger_warning(
     import logging
 
     env_config = _grounded_env_config(n_entries=2, sample_size=5, seed=1)
-    synth = _make_synthesizer(
-        mock_inference_config, environment_config=env_config
-    )
+    synth = _make_synthesizer(mock_inference_config, environment_config=env_config)
     samples = [{}, {}]
 
     with caplog.at_level(logging.WARNING, logger="oumi"):
@@ -1365,9 +1356,7 @@ def test_create_planner_prompt_injects_grounding_block_when_facts_present(
     from oumi.core.configs.params.tool_params import DeterministicToolOutput
 
     env_config = _grounded_env_config(n_entries=10, sample_size=2, seed=1)
-    synth = _make_synthesizer(
-        mock_inference_config, environment_config=env_config
-    )
+    synth = _make_synthesizer(mock_inference_config, environment_config=env_config)
     attr = MultiTurnAttribute(
         id="t",
         min_turns=2,
@@ -1384,12 +1373,8 @@ def test_create_planner_prompt_injects_grounding_block_when_facts_present(
         "conversation_plan": "",
         "parsed_turn_plans": [""] * 2,
         "grounding_facts": [
-            DeterministicToolOutput(
-                input={"id": "42"}, output={"title": "Dune"}
-            ),
-            DeterministicToolOutput(
-                input={"id": "7"}, output={"title": "LotR"}
-            ),
+            DeterministicToolOutput(input={"id": "42"}, output={"title": "Dune"}),
+            DeterministicToolOutput(input={"id": "7"}, output={"title": "LotR"}),
         ],
     }
 
@@ -1399,9 +1384,7 @@ def test_create_planner_prompt_injects_grounding_block_when_facts_present(
     assert "Ground this plan in these specific entities" in planner_user_msg
     assert '- id="42", title="Dune"' in planner_user_msg
     assert '- id="7", title="LotR"' in planner_user_msg
-    assert (
-        "Your turn plans must only reference these entities" in planner_user_msg
-    )
+    assert "Your turn plans must only reference these entities" in planner_user_msg
 
 
 def test_create_planner_prompt_no_grounding_block_when_facts_absent(
@@ -1410,9 +1393,7 @@ def test_create_planner_prompt_no_grounding_block_when_facts_absent(
     synth = _make_synthesizer(
         mock_inference_config, environment_config=_ungrounded_env_config()
     )
-    attr = _grounding_attr(
-        available_envs=["env1"], available_tools=["lookup"]
-    )
+    attr = _grounding_attr(available_envs=["env1"], available_tools=["lookup"])
     sample = {
         "target_turns": 2,
         "conversation_plan": "",
@@ -1431,9 +1412,7 @@ def test_create_planner_prompt_empty_grounding_facts_omits_block(
     synth = _make_synthesizer(
         mock_inference_config, environment_config=_ungrounded_env_config()
     )
-    attr = _grounding_attr(
-        available_envs=["env1"], available_tools=["lookup"]
-    )
+    attr = _grounding_attr(available_envs=["env1"], available_tools=["lookup"])
     sample = {
         "target_turns": 2,
         "conversation_plan": "",
@@ -1453,9 +1432,9 @@ def test_synthesize_invokes_attach_grounding_facts(
 ):
     """End-to-end: synthesize() calls _attach_grounding_facts before planning."""
     plan_json = (
-        '```json\n'
+        "```json\n"
         '[{"turn": 1, "instruction": "a"}, {"turn": 2, "instruction": "b"}]\n'
-        '```'
+        "```"
     )
 
     mock_inference_engine = Mock()
@@ -1468,16 +1447,12 @@ def test_synthesize_invokes_attach_grounding_facts(
         if call_count["n"] == 1:
             # Planner call.
             return [
-                Conversation(
-                    messages=[Message(role=Role.ASSISTANT, content=plan_json)]
-                )
+                Conversation(messages=[Message(role=Role.ASSISTANT, content=plan_json)])
                 for _ in conversations
             ]
         # Subsequent calls are turn generations.
         return [
-            Conversation(
-                messages=[Message(role=Role.ASSISTANT, content="response")]
-            )
+            Conversation(messages=[Message(role=Role.ASSISTANT, content="response")])
             for _ in conversations
         ]
 
@@ -1509,3 +1484,79 @@ def test_synthesize_invokes_attach_grounding_facts(
     assert len(samples[0]["grounding_facts"]) == 2
     # Basic regression: result shape is preserved.
     assert len(result) == 1
+
+
+# --- {grounding_facts} placeholder misuse warning ---
+
+
+def test_warn_on_grounding_placeholder_warns_in_user_persona(
+    mock_inference_config, caplog
+):
+    import logging
+
+    synth = _make_synthesizer(mock_inference_config)
+    attr = MultiTurnAttribute(
+        id="t",
+        min_turns=2,
+        max_turns=2,
+        role_instruction_messages={
+            Role.USER: "You are a user interested in {grounding_facts}.",
+            Role.ASSISTANT: "You are an assistant.",
+        },
+    )
+
+    with caplog.at_level(logging.WARNING, logger="oumi"):
+        synth._warn_on_grounding_placeholder(attr)
+
+    warnings = [rec for rec in caplog.records if "grounding_facts" in rec.getMessage()]
+    assert len(warnings) >= 1
+    assert "user" in warnings[0].getMessage().lower()
+
+
+def test_warn_on_grounding_placeholder_warns_in_assistant_persona(
+    mock_inference_config, caplog
+):
+    import logging
+
+    synth = _make_synthesizer(mock_inference_config)
+    attr = MultiTurnAttribute(
+        id="t",
+        min_turns=2,
+        max_turns=2,
+        role_instruction_messages={
+            Role.USER: "You are a user.",
+            Role.ASSISTANT: "You know these entities: {grounding_facts}.",
+        },
+    )
+
+    with caplog.at_level(logging.WARNING, logger="oumi"):
+        synth._warn_on_grounding_placeholder(attr)
+
+    warnings = [rec for rec in caplog.records if "grounding_facts" in rec.getMessage()]
+    assert len(warnings) >= 1
+    assert "assistant" in warnings[0].getMessage().lower()
+
+
+def test_warn_on_grounding_placeholder_no_warning_when_placeholder_absent(
+    mock_inference_config, caplog
+):
+    import logging
+
+    synth = _make_synthesizer(mock_inference_config)
+    attr = MultiTurnAttribute(
+        id="t",
+        min_turns=2,
+        max_turns=2,
+        role_instruction_messages={
+            Role.USER: "You are a user.",
+            Role.ASSISTANT: "You are an assistant.",
+        },
+    )
+
+    with caplog.at_level(logging.WARNING, logger="oumi"):
+        synth._warn_on_grounding_placeholder(attr)
+
+    grounding_warnings = [
+        rec for rec in caplog.records if "grounding_facts" in rec.getMessage()
+    ]
+    assert grounding_warnings == []

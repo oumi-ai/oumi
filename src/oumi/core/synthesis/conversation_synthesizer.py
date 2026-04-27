@@ -20,8 +20,8 @@ import random
 from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.configs.environment_config import EnvironmentConfig
 from oumi.core.configs.inference_config import InferenceConfig
-from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.core.configs.inference_engine_type import InferenceEngineType
+from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.configs.params.synthesis_params import (
@@ -192,6 +192,7 @@ class ConversationSynthesizer:
                 [tool.id for tool in available_tools],
             )
 
+        self._warn_on_grounding_placeholder(multiturn_attributes)
         self._attach_grounding_facts(samples, multiturn_attributes)
         samples = self._plan_samples(samples, multiturn_attributes)
         conversations = self._synthesize_all_samples(samples, multiturn_attributes)
@@ -722,9 +723,7 @@ class ConversationSynthesizer:
         )
         return Message(role=Role.SYSTEM, content=formatted_content.strip())
 
-    def _make_grounding_rng(
-        self, seed: int | None, sample_index: int
-    ) -> random.Random:
+    def _make_grounding_rng(self, seed: int | None, sample_index: int) -> random.Random:
         """Build the RNG used for sampling grounding facts for one sample.
 
         Unseeded (``seed=None``) uses the default ``random.Random()`` with
@@ -735,6 +734,32 @@ class ConversationSynthesizer:
         if seed is None:
             return random.Random()
         return random.Random(seed + sample_index)
+
+    def _warn_on_grounding_placeholder(
+        self, multiturn_attribute: MultiTurnAttribute
+    ) -> None:
+        """Warn if ``{grounding_facts}`` appears in user/assistant personas.
+
+        Grounding facts are planner-only — placing the placeholder in a
+        user or assistant persona template defeats its purpose and may
+        leak env state to roles that should not see it.
+        """
+        for role, persona in multiturn_attribute.role_instruction_messages.items():
+            if not isinstance(persona, str):
+                continue
+            if "{grounding_facts}" in persona and role in (
+                Role.USER,
+                Role.ASSISTANT,
+            ):
+                logger.warning(
+                    "MultiTurnAttribute '%s' references {grounding_facts} in "
+                    "the %s persona template. grounding is planner-only; "
+                    "placing {grounding_facts} in user/assistant templates "
+                    "defeats its purpose and may leak env state to roles "
+                    "that should not see it.",
+                    multiturn_attribute.id,
+                    role.value,
+                )
 
     def _attach_grounding_facts(
         self,
@@ -774,9 +799,7 @@ class ConversationSynthesizer:
                 grounding = env_params.grounding
                 assert grounding is not None  # filtered above
                 rng = self._make_grounding_rng(grounding.seed, sample_index)
-                sampled = env_runtime.sample_grounding(
-                    n=grounding.sample_size, rng=rng
-                )
+                sampled = env_runtime.sample_grounding(n=grounding.sample_size, rng=rng)
                 if (
                     len(sampled) < grounding.sample_size
                     and env_params.id not in warned_envs
