@@ -5,9 +5,15 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+import pytest
 from omegaconf import OmegaConf
 
-from oumi.core.configs.base_config import BaseConfig, _handle_non_primitives
+from oumi.core.configs.base_config import (
+    BaseConfig,
+    _handle_non_primitives,
+    _read_config_without_interpolation,
+)
+from oumi.exceptions import OumiConfigError
 
 
 class TestEnum(Enum):
@@ -331,3 +337,101 @@ def test_config_from_yaml_and_arg_list():
         assert new_config.bool_value is False
         assert new_config.list_value[0] == "override"
         assert new_config.dict_value["key"] == "override"
+
+
+def test_exception_class_hierarchy():
+    """Test that OumiConfigError forms the expected inheritance hierarchy."""
+    assert issubclass(OumiConfigError, Exception)
+
+
+def test_read_config_without_interpolation_file_not_found():
+    """Test that a non-existent path raises OumiConfigError."""
+    with pytest.raises(
+        OumiConfigError,
+        match="Config file not found or path is not a file",
+    ):
+        _read_config_without_interpolation("/nonexistent/path/config.yaml")
+
+
+def test_read_config_without_interpolation_directory_path(tmp_path: Path):
+    """Test that a directory path raises OumiConfigError."""
+    with pytest.raises(
+        OumiConfigError,
+        match="Config file not found or path is not a file",
+    ):
+        _read_config_without_interpolation(str(tmp_path))
+
+
+def test_from_yaml_file_not_found():
+    """from_yaml raises OumiConfigError for a missing config path."""
+    with pytest.raises(
+        OumiConfigError,
+        match="Config file not found or path is not a file",
+    ):
+        TestConfig.from_yaml("/nonexistent/path/config.yaml")
+
+
+def test_from_yaml_path_is_directory(tmp_path: Path):
+    """Test that from_yaml raises OumiConfigError when given a directory."""
+    with pytest.raises(
+        OumiConfigError,
+        match="Config file not found or path is not a file",
+    ):
+        TestConfig.from_yaml(tmp_path)
+
+
+def test_to_yaml_missing_parent_directory():
+    """Test that to_yaml raises OumiConfigError when the output directory is missing."""
+    config = TestConfig(
+        str_value="test",
+        int_value=1,
+        float_value=1.0,
+        bool_value=True,
+        none_value=None,
+        bytes_value=b"test",
+        path_value=Path("test/path"),
+        enum_value=TestEnum.VALUE1,
+        list_value=[],
+        dict_value={},
+    )
+    with pytest.raises(
+        OumiConfigError,
+        match="parent directory does not exist or is not a directory",
+    ):
+        config.to_yaml("/nonexistent/subdir/out.yaml")
+
+
+def test_from_yaml_file_not_found_no_interpolation():
+    """from_yaml with ignore_interpolation=False raises on missing file."""
+    with pytest.raises(
+        OumiConfigError,
+        match="Config file not found or path is not a file",
+    ):
+        TestConfig.from_yaml(
+            "/nonexistent/path/config.yaml", ignore_interpolation=False
+        )
+
+
+def test_from_yaml_and_arg_list_nonexistent_config():
+    """from_yaml_and_arg_list raises OumiConfigError if file missing."""
+    with pytest.raises(
+        OumiConfigError,
+        match="Config file not found or path is not a file",
+    ):
+        TestConfig.from_yaml_and_arg_list(
+            config_path="/nonexistent/path/config.yaml",
+            arg_list=[],
+        )
+
+
+def test_from_yaml_and_arg_list_nonexistent_config_no_interpolation(tmp_path: Path):
+    """Test OumiConfigError via the ignore_interpolation=False branch."""
+    with pytest.raises(
+        OumiConfigError,
+        match="Config file not found or path is not a file",
+    ):
+        TestConfig.from_yaml_and_arg_list(
+            config_path=str(tmp_path / "nonexistent.yaml"),
+            arg_list=[],
+            ignore_interpolation=False,
+        )

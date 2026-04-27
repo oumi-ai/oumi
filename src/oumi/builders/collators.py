@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import warnings
 from collections.abc import Callable
 
 import oumi.core.constants as constants
@@ -27,11 +28,172 @@ from oumi.core.configs import DatasetSplit, TrainingConfig
 from oumi.core.configs.internal.supported_models import (
     find_internal_model_config,
 )
+from oumi.core.configs.params.data_params import TrainTarget
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.utils.logging import logger
 
-# This is used to set the max input length for a model with infinite size input
 _VERY_LARGE_INTEGER = int(1e30)
+_SENTINEL_SYS = "<<__S__>>"
+_SENTINEL_USER = "<<__U__>>"
+_SENTINEL_ASST = "<<__A__>>"
+_FIX_HINT = (
+    "Fix: provide response_template (and end_of_turn_template for "
+    "all_assistant_turns) in collator_kwargs."
+)
+
+
+def _detect_eot_template(
+    tokenizer: "BaseTokenizer",
+    after_text: str,
+    between_text: str,
+) -> tuple[list[int], str]:
+    """Detect end-of-turn token IDs and template string.
+
+    Compares token-ID prefixes of the text after the last assistant turn
+    (end-of-sequence) with the text between assistant turns (mid-conversation).
+
+    Primary: longest common token-ID prefix.
+    Fallback: first token of between_text (for models like GPT OSS
+    that use different mid-conversation vs end-of-sequence tokens).
+
+    Returns:
+        (eot_ids, end_of_turn_template)
+    """
+    after_ids = tokenizer.encode(after_text, add_special_tokens=False)
+    between_ids = tokenizer.encode(between_text, add_special_tokens=False)
+
+    prefix_len = 0
+    for a, b in zip(after_ids, between_ids):
+        if a != b:
+            break
+        prefix_len += 1
+    eot_ids = after_ids[:prefix_len]
+
+    if not eot_ids and between_ids:
+        eot_ids = between_ids[:1]
+
+    eot_decoded = tokenizer.decode(eot_ids, skip_special_tokens=False)
+    assert isinstance(eot_decoded, str)
+    return eot_ids, eot_decoded
+
+
+def _detect_response_template(
+    tokenizer: "BaseTokenizer",
+    header_text: str,
+    eot_ids: list[int],
+) -> str:
+    """Detect the assistant response header from the user-to-assistant boundary.
+
+    Strips the leading end-of-turn prefix (which belongs to the previous
+    turn, not the response header) and any ``<think>`` blocks injected
+    by reasoning-model chat templates (e.g. Qwen3).
+
+    Returns:
+        response_template string
+    """
+    resp_ids = tokenizer.encode(header_text, add_special_tokens=False)
+    eot_len = len(eot_ids)
+    if eot_len > 0 and resp_ids[:eot_len] == eot_ids:
+        resp_ids = resp_ids[eot_len:]
+
+    resp_decoded = tokenizer.decode(resp_ids, skip_special_tokens=False)
+    assert isinstance(resp_decoded, str)
+    response_template = resp_decoded
+
+    if "<think>" in response_template:
+        idx = response_template.index("<think>")
+        stripped = response_template[:idx].rstrip()
+        if stripped:
+            logger.info(
+                "Stripped <think> block from auto-detected response_template: %r -> %r",
+                response_template,
+                stripped,
+            )
+            response_template = stripped
+        else:
+            raise ValueError(
+                f"Extracted response_template is only a <think> block.\n{_FIX_HINT}"
+            )
+
+    response_template = response_template.rstrip("\n")
+    return response_template
+
+
+def resolve_collator_templates(
+    tokenizer: "BaseTokenizer",
+) -> tuple[str, str]:
+    """Auto-detect response_template and end_of_turn_template.
+
+    Applies the chat template to a known test conversation, then finds
+    the assistant boundary strings in the rendered output.
+
+    Returns:
+        (response_template, end_of_turn_template)
+
+    Raises:
+        ValueError: If templates cannot be extracted.
+    """
+    msgs_with_sys = [
+        {"role": "system", "content": _SENTINEL_SYS},
+        {"role": "user", "content": _SENTINEL_USER},
+        {"role": "assistant", "content": _SENTINEL_ASST},
+        {"role": "user", "content": _SENTINEL_USER},
+        {"role": "assistant", "content": _SENTINEL_ASST},
+    ]
+    msgs_no_sys = msgs_with_sys[1:]
+
+    rendered = None
+    for msgs in (msgs_with_sys, msgs_no_sys):
+        try:
+            rendered = tokenizer.apply_chat_template(
+                msgs, tokenize=False, add_generation_prompt=False
+            )
+            break
+        except Exception:
+            continue
+    if rendered is None:
+        raise ValueError(
+            f"Tokenizer has no chat template or it failed to render.\n{_FIX_HINT}"
+        )
+
+    if not isinstance(rendered, str):
+        raise ValueError(
+            f"Chat template returned a non-string type ({type(rendered).__name__}).\n"
+            f"{_FIX_HINT}"
+        )
+
+    # Locate boundaries around the second turn pair
+    # to avoid system-prompt effects on the first turn.
+    try:
+        first_asst = rendered.index(_SENTINEL_ASST)
+        first_asst_end = first_asst + len(_SENTINEL_ASST)
+        second_user = rendered.index(_SENTINEL_USER, first_asst_end)
+        second_user_end = second_user + len(_SENTINEL_USER)
+        second_asst = rendered.index(_SENTINEL_ASST, second_user_end)
+        second_asst_end = second_asst + len(_SENTINEL_ASST)
+    except ValueError:
+        raise ValueError(
+            "Could not locate assistant turn boundaries in the rendered "
+            f"chat template.\n{_FIX_HINT}"
+        )
+
+    eot_ids, end_of_turn_template = _detect_eot_template(
+        tokenizer,
+        after_text=rendered[second_asst_end:],
+        between_text=rendered[first_asst_end:second_user],
+    )
+    response_template = _detect_response_template(
+        tokenizer,
+        header_text=rendered[second_user_end:second_asst],
+        eot_ids=eot_ids,
+    )
+
+    if not response_template.strip():
+        raise ValueError(f"Extracted response_template is empty.\n{_FIX_HINT}")
+    if not end_of_turn_template.strip():
+        raise ValueError(f"Extracted end_of_turn_template is empty.\n{_FIX_HINT}")
+
+    return response_template, end_of_turn_template
 
 
 def build_data_collator(
@@ -51,7 +213,8 @@ def build_data_collator(
 
             - "text_with_padding": Uses `TextCollatorWithPadding`.
             - "text_completions_only_with_padding": Uses
-                `TextCompletionsCollatorWithPadding`.
+                `TextCompletionsCollatorWithPadding`. Supports optional
+                ``end_of_turn_template`` for tool-aware span-based masking.
             - "vision_language_with_padding": Uses `VisionLanguageCollatorWithPadding`.
             - "vision_language_sft": Uses `VisionLanguageSftCollator`.
 
@@ -126,27 +289,28 @@ def build_data_collator(
             **kwargs,
         )
     elif collator_name == "text_completions_only_with_padding":
-        # Extract instruction and response templates from kwargs if provided
-        instruction_template = kwargs.pop("instruction_template", None)
-        response_template = kwargs.pop("response_template", None)
+        if not kwargs.get("response_template"):
+            raise ValueError(
+                "'text_completions_only_with_padding' requires a response_template.\n"
+                "Fix: set train_target in your data config (auto-resolves templates "
+                "from the tokenizer), or provide response_template in collator_kwargs."
+            )
+        if not kwargs.get("train_target"):
+            raise ValueError(
+                "'text_completions_only_with_padding' requires a train_target.\n"
+                "Fix: set train_target in your data config, or provide "
+                "train_target in collator_kwargs."
+            )
 
-        # Default to Llama-style templates if not provided
-        instruction_prefix = (
-            instruction_template
-            if instruction_template
-            else "<|start_header_id|>user<|end_header_id|>\n\n"
-        )
-        response_prefix = (
-            response_template
-            if response_template
-            else "<|start_header_id|>assistant<|end_header_id|>\n\n"
+        ignore_index = kwargs.pop(
+            "ignore_index",
+            label_ignore_index if label_ignore_index is not None else -100,
         )
 
         return TextCompletionsCollatorWithPadding(
             tokenizer=tokenizer,
-            instruction_prefix=instruction_prefix,
-            response_prefix=response_prefix,
             debug=debug,
+            ignore_index=ignore_index,
             **kwargs,
         )
     raise ValueError(f"Unknown data collator name: '{collator_name}'")
@@ -206,9 +370,66 @@ def build_collator_from_config(
             "trust_remote_code", config.model.trust_remote_code
         )
 
-    # Merge collator_kwargs from config with the existing kwargs
-    # Config kwargs take precedence over automatically determined kwargs
+    # --- Resolve train_target and templates ---
     config_collator_kwargs = train_split.collator_kwargs or {}
+
+    if collator_name == "text_completions_only_with_padding":
+        if train_split.train_target is not None:
+            # Path 1: train_target is set, auto-detect templates from
+            # the tokenizer's chat template. Falls back to user-provided
+            # response_template in collator_kwargs if auto-detection fails.
+            collator_kwargs["train_target"] = train_split.train_target.value
+
+            try:
+                response_template, end_of_turn_template = resolve_collator_templates(
+                    tokenizer
+                )
+                collator_kwargs["response_template"] = response_template
+                if train_split.train_target == TrainTarget.ALL_ASSISTANT_TURNS:
+                    collator_kwargs["end_of_turn_template"] = end_of_turn_template
+            except ValueError:
+                if config_collator_kwargs.get("response_template") is None:
+                    raise
+
+            if (
+                train_split.train_target == TrainTarget.ALL_ASSISTANT_TURNS
+                and "end_of_turn_template" not in collator_kwargs
+                and config_collator_kwargs.get("end_of_turn_template") is None
+            ):
+                raise ValueError(
+                    "train_target='all_assistant_turns' requires end_of_turn_template, "
+                    "but auto-detection failed.\n"
+                    "Fix: provide end_of_turn_template in collator_kwargs."
+                )
+
+        elif config_collator_kwargs.get("response_template") is not None:
+            # Path 2: train_target not set, templates provided manually
+            # via collator_kwargs. Infer train_target from which templates
+            # are present.
+            has_eot = config_collator_kwargs.get("end_of_turn_template") is not None
+            has_inst = config_collator_kwargs.get("instruction_template") is not None
+            if has_eot:
+                collator_kwargs["train_target"] = "all_assistant_turns"
+            elif has_inst:
+                warnings.warn(
+                    "Instruction-based masking is deprecated.\n"
+                    "Use train_target='all_assistant_turns'"
+                    "or train_target='final_assistant_turn' instead.",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+                collator_kwargs["train_target"] = "_legacy_instruction_response"
+            else:
+                collator_kwargs["train_target"] = "final_assistant_turn"
+        else:
+            raise ValueError(
+                "'text_completions_only_with_padding' collator requires"
+                " configuration.\n"
+                "Fix: set train_target in your data config, "
+                "or provide response_template in collator_kwargs."
+            )
+
+    # User-provided collator_kwargs override auto-resolved values
     collator_kwargs.update(config_collator_kwargs)
 
     return build_data_collator(

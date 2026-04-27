@@ -63,14 +63,14 @@ dependencies = [
     "peft>=0.17,<0.19",
     "pexpect>=4.9,<4.10",      # Used by Polaris client
     "posthog>=7.0,<8.0",
-    "pillow>=11.3,<12.2",      # Used by image datasets
+    "pillow>=11.3,<12.3",      # Used by image datasets
     "protobuf>=6.32",
     "pycares<6.0.0",
     "pydantic>=2.11,<2.13",
     "requests>=2.31,<3.0",        # Used by deploy module (GCS upload)
     "responses>=0.25,<0.27",
     "safetensors>=0.6,<0.8",
-    "skypilot>=0.11.1,<0.12", # 0.11.1 includes db locking fix
+    "skypilot>=0.11.1,<0.13", # 0.11.1 includes db locking fix
     "tensorboard>=2.20,<2.21", # Optional, for monitoring training
     "tiktoken>=0.7,<1.0",
     "torch>=2.6,<2.11.0",      # vllm only supports up to torch==2.7
@@ -78,10 +78,10 @@ dependencies = [
     "torchvision>=0.21,<0.26", # Used by some VLM-s (multimodal)
     "tqdm",
     "transformers>=4.57,<5.6",
-    "trl>=0.24,<1.1",
+    "trl>=0.24,<1.2",
     "typer<0.24.2",             # Used by CLI. Pinned due to sphinxcontrib-typer compatibility. OPE-1806
     "typing_extensions",        # Backports of typing updates
-    "uvicorn<0.43.0",           # TODO: Remove on resolution of https://github.com/skypilot-org/skypilot/issues/7303
+    "uvicorn<0.45.0",           # TODO: Remove on resolution of https://github.com/skypilot-org/skypilot/issues/7303
     "wandb>=0.21,<0.26",        # Logging to Weights and Biases.
 ]
 
@@ -126,8 +126,8 @@ gpu = [
     # When updating verl version, make sure to also update the default config:
     # src/oumi/core/trainers/verl_trainer_config.yaml.
     "verl>=0.5,<0.8; python_version >= '3.10'", # Used for the VERL_GRPO trainer
-    "vllm>=0.10,<0.19",                         # For VLLMInferenceEngine, and vLLM-powered GRPO training.
-    "kernels>=0.11,<0.13",                      # For compute kernel implementations (e.g., attn_implementation in gold trainer)
+    "vllm>=0.10,<0.20",                         # For VLLMInferenceEngine, and vLLM-powered GRPO training.
+    "kernels>=0.11,<0.14",                      # For compute kernel implementations (e.g., attn_implementation in gold trainer)
 ]
 
 deepspeed = [
@@ -198,7 +198,7 @@ torchdata = ["torchdata>=0.9,<0.10.0"]
 # CI targets
 ci_cpu = [
     "oumi[dev,docs,gcp,mcp,synthesis,tune,torchdata,file_formats]",
-    "vllm>=0.10,<0.19",                            # For VLLMInferenceEngine
+    "vllm>=0.10,<0.20",                            # For VLLMInferenceEngine
     "boto3",  # For bedrock inference engine tests
     # This may fail to install. As a temporary workaround, run:
     # CMAKE_ARGS="-DLLAVA_BUILD=OFF" pip install -U llama-cpp-python

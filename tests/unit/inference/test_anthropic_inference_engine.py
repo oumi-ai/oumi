@@ -64,6 +64,39 @@ def test_convert_api_output_to_conversation(anthropic_engine):
     assert result.conversation_id == "test_id"
 
 
+def test_convert_api_output_empty_content(anthropic_engine):
+    original_conversation = Conversation(
+        messages=[Message(content="User message", role=Role.USER)],
+    )
+    api_response = {
+        "content": [],
+        "stop_reason": "end_turn",
+        "type": "message",
+        "model": "claude-opus-4-6",
+        "usage": {"input_tokens": 100, "output_tokens": 0},
+    }
+
+    with pytest.raises(RuntimeError, match="Anthropic API returned empty content"):
+        anthropic_engine._convert_api_output_to_conversation(
+            api_response, original_conversation
+        )
+
+
+def test_convert_api_output_missing_content_key(anthropic_engine):
+    original_conversation = Conversation(
+        messages=[Message(content="User message", role=Role.USER)],
+    )
+    api_response = {
+        "stop_reason": "end_turn",
+        "type": "message",
+    }
+
+    with pytest.raises(RuntimeError, match="Anthropic API returned empty content"):
+        anthropic_engine._convert_api_output_to_conversation(
+            api_response, original_conversation
+        )
+
+
 @pytest.mark.parametrize(
     "api_usage,expected_usage",
     [

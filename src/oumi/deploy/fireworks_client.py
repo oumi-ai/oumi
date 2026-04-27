@@ -19,6 +19,7 @@ import json
 import logging
 import os
 import shutil
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, cast
 
@@ -31,6 +32,7 @@ from oumi.deploy.base_client import (
     DeploymentProvider,
     Endpoint,
     EndpointState,
+    FileResolver,
     HardwareConfig,
     Model,
     ModelType,
@@ -54,6 +56,7 @@ from oumi.deploy.fireworks_api import (
     GatewayPEFTDetails,
     GatewayPrepareModelBody,
 )
+from oumi.deploy.fireworks_errors import classify_fireworks_invalid_request
 from oumi.deploy.utils import raise_api_error
 
 logger = logging.getLogger(__name__)
@@ -187,6 +190,15 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             timeout=120.0,
         )
 
+    async def __aenter__(self) -> "FireworksDeploymentClient":
+        """Enters the async context manager.
+
+        Narrows the base ``__aenter__`` return type to this subclass so
+        callers using ``async with`` get full access to Fireworks-specific
+        methods without a cast.
+        """
+        return self
+
     async def close(self) -> None:
         """Closes the HTTP client and releases resources."""
         await self._client.aclose()
@@ -197,9 +209,18 @@ class FireworksDeploymentClient(BaseDeploymentClient):
 
     @staticmethod
     def _check_response(response: httpx.Response, context: str) -> None:
-        """Raises if the response indicates an error."""
+        """Raises if the response indicates an error.
+
+        Threads the Fireworks 4xx classifier so 400/422 responses are
+        refined into Fireworks-specific subclasses when their detail
+        strings match.
+        """
         if not response.is_success:
-            _raise_api_error(response, context=context)
+            _raise_api_error(
+                response,
+                context=context,
+                classify_4xx=classify_fireworks_invalid_request,
+            )
 
     @staticmethod
     async def _notify(
@@ -270,6 +291,10 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         if not endpoint_url:
             endpoint_url = "https://api.fireworks.ai/inference/v1/chat/completions"
 
+        status = deployment.status
+        status_code = status.code.value if status and status.code else None
+        status_message = status.message if status else None
+
         return Endpoint(
             endpoint_id=endpoint_id,
             provider=DeploymentProvider.FIREWORKS,
@@ -281,6 +306,8 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             created_at=deployment.create_time,
             display_name=deployment.display_name,
             inference_model_name=name or None,
+            status_code=status_code,
+            status_message=status_message,
         )
 
     @staticmethod
@@ -390,10 +417,12 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             # which files to expect.  For adapter uploads, only PEFT files are
             # included (Fireworks rejects non-adapter files for HF_PEFT_ADDON).
             file_inventory = self._collect_file_inventory(model_dir, model_type)
-            hf_files = sorted(file_inventory.keys())
 
             # Step 2b: For adapters, read adapter_config.json so we can
             # populate peftDetails with the real r and target_modules.
+            # Remaining adapter validation (base_model present, base model
+            # exists on Fireworks) runs inside ``_do_upload`` so both entry
+            # points share it.
             adapter_config = None
             if model_type == ModelType.ADAPTER:
                 adapter_config = self._read_adapter_config(model_dir)
@@ -403,42 +432,236 @@ class FireworksDeploymentClient(BaseDeploymentClient):
                         f"found in '{model_dir}'. Ensure the directory contains "
                         f"a valid PEFT/LoRA adapter checkpoint."
                     )
-                if not base_model:
-                    raise ValueError(
-                        "Adapter uploads require --base-model. Provide the "
-                        "Fireworks model path of the base model this adapter "
-                        "was trained on (e.g. 'accounts/<account>/models/<id>')."
-                    )
-                await self._verify_base_model_exists(base_model)
 
-            # Step 3: Create model resource on Fireworks
-            create_payload = await self._create_model_resource(
+            @asynccontextmanager
+            async def local_resolver(filename: str):
+                yield model_dir / filename
+
+            return await self._do_upload(
                 model_id,
+                file_inventory,
+                local_resolver,
                 model_type,
                 base_model,
+                adapter_config,
                 progress_callback,
-                huggingface_files=hf_files,
-                adapter_config=adapter_config,
             )
-
-            # Steps 4–5: Upload files, validate
-            await self._upload_model_files(
-                model_dir, model_id, progress_callback, file_inventory
-            )
-            await self._wait_and_validate(model_id, progress_callback)
         finally:
             if temp_dir and temp_dir.exists():
                 shutil.rmtree(temp_dir, ignore_errors=True)
 
-        return UploadedModel(
-            provider_model_id=f"accounts/{self.account_id}/models/{model_id}",
-            status="validating",
-            request_payload=create_payload,
+    async def upload_model_with_resolver(
+        self,
+        model_name: str,
+        file_inventory: dict[str, int],
+        file_resolver: FileResolver,
+        progress_callback: ProgressCallback | None = None,
+        *,
+        model_type: ModelType = ModelType.FULL,
+        base_model: str | None = None,
+        adapter_config: dict[str, Any] | None = None,
+    ) -> UploadedModel:
+        """Uploads a model using a pre-computed file inventory and resolver.
+
+        Unlike ``upload_model()`` which requires all files on local disk, this
+        method accepts a ``file_inventory`` (filenames → sizes in bytes) and a
+        ``file_resolver`` callback that yields each file on demand.  This enables
+        streaming from cloud storage one file at a time, keeping peak disk usage
+        to the size of a single shard rather than the full model.
+
+        Both FULL and ADAPTER uploads are supported. For ADAPTER uploads the
+        caller must supply the adapter's parsed ``adapter_config`` dict and
+        the Fireworks-hosted ``base_model`` resource path — callers resolve
+        the HF → Fireworks base mapping before calling this method.
+
+        Args:
+            model_name: Fireworks model ID (e.g., ``"my-custom-model"``).
+            file_inventory: Mapping of relative filename to file size in bytes.
+            file_resolver: Async context manager factory.  For each filename,
+                ``file_resolver(filename)`` must yield a local ``Path`` to the
+                file and clean up after the ``async with`` block exits.
+            progress_callback: Optional async progress callback.
+            model_type: FULL or ADAPTER. Defaults to FULL.
+            base_model: Fireworks-hosted base model resource path, required
+                when ``model_type == ADAPTER`` (e.g.
+                ``accounts/fireworks/models/llama-v3p1-8b-instruct``).
+            adapter_config: Parsed ``adapter_config.json`` dict, required when
+                ``model_type == ADAPTER``. Must contain a non-empty
+                ``target_modules`` list; ``r`` defaults to 8 if absent.
+
+        Returns:
+            ``UploadedModel`` with the Fireworks provider model ID.
+
+        Raises:
+            FireworksInvalidModelIdError: If ``model_name`` violates Fireworks
+                naming rules.
+            ValueError: When ``model_type == ADAPTER`` and ``base_model`` is
+                missing or refers to a model that does not exist / is not
+                ready on Fireworks, or when ``adapter_config`` is missing /
+                has an empty ``target_modules`` list (raised by ``_do_upload``
+                / ``_create_model_resource``).
+        """
+        _validate_fireworks_model_id(model_name)
+        return await self._do_upload(
+            model_name,
+            file_inventory,
+            file_resolver,
+            model_type,
+            base_model,
+            adapter_config,
+            progress_callback,
         )
 
     # ------------------------------------------------------------------
     # upload_model — private helpers
     # ------------------------------------------------------------------
+
+    async def _do_upload(
+        self,
+        model_name: str,
+        file_inventory: dict[str, int],
+        file_resolver: FileResolver,
+        model_type: ModelType,
+        base_model: str | None,
+        adapter_config: dict[str, Any] | None,
+        progress_callback: ProgressCallback | None,
+    ) -> UploadedModel:
+        """Shared upload implementation: create model → upload files → validate.
+
+        Both ``upload_model`` and ``upload_model_with_resolver`` delegate here
+        after resolving their input to a ``(file_inventory, file_resolver)``
+        pair. Adapter-specific pre-flight (``base_model`` present and ready
+        on Fireworks) runs here so every entry path gets the same guarantees;
+        the ``target_modules`` invariant is enforced downstream in
+        ``_create_model_resource``.
+        """
+        if model_type == ModelType.ADAPTER:
+            if not base_model:
+                raise ValueError(
+                    "Adapter uploads require 'base_model'. Provide the "
+                    "Fireworks model path of the base model this adapter "
+                    "was trained on (e.g. 'accounts/fireworks/models/"
+                    "llama-v3p1-8b-instruct')."
+                )
+            await self._verify_base_model_exists(base_model)
+
+        hf_files = sorted(file_inventory.keys())
+        create_payload = await self._create_model_resource(
+            model_name,
+            model_type,
+            base_model,
+            progress_callback,
+            huggingface_files=hf_files,
+            adapter_config=adapter_config,
+        )
+        await self._upload_model_files_with_resolver(
+            model_name,
+            file_inventory,
+            file_resolver,
+            progress_callback,
+        )
+        await self._wait_and_validate(model_name, progress_callback)
+        return UploadedModel(
+            provider_model_id=f"accounts/{self.account_id}/models/{model_name}",
+            status="validating",
+            request_payload=create_payload,
+        )
+
+    async def _upload_model_files_with_resolver(
+        self,
+        model_id: str,
+        file_sizes: dict[str, int],
+        file_resolver: FileResolver,
+        progress_callback: ProgressCallback | None,
+    ) -> None:
+        """Upload files using a resolver that provides each file on demand.
+
+        Fetches signed upload URLs for all files, then iterates them in upload
+        order.  For each file, it calls ``file_resolver(filename)`` as an async
+        context manager to obtain a local path, uploads the file, and lets the
+        resolver clean up (e.g., delete the temp file) before moving on.
+
+        Args:
+            model_id: Fireworks model ID used to request signed upload URLs.
+            file_sizes: Mapping of relative filename to file size in bytes.
+            file_resolver: Async context manager factory yielding a local Path.
+            progress_callback: Optional async progress callback.
+        """
+        total_bytes = sum(file_sizes.values())
+        _MB = 1024 * 1024
+        if "config.json" in file_sizes:
+            logger.info("config.json found (%d bytes)", file_sizes["config.json"])
+        else:
+            logger.error(
+                "config.json NOT found in model files: %s",
+                list(file_sizes.keys()),
+            )
+        logger.info(
+            "Uploading %d files (%.1f MB) via resolver",
+            len(file_sizes),
+            total_bytes / _MB,
+        )
+
+        upload_items = await self._get_signed_urls_ordered(model_id, file_sizes)
+        total_files = len(upload_items)
+
+        await self._notify(
+            progress_callback,
+            "uploading",
+            f"Starting upload of {total_files} files ({total_bytes / _MB:.1f} MB)",
+            {"total_files": total_files, "total_bytes": total_bytes},
+        )
+
+        uploaded_bytes = 0
+        for idx, (filename, signed_url) in enumerate(upload_items, 1):
+            file_size = file_sizes[filename]
+            logger.info(
+                "[%d/%d] Uploading %s (%.2f MB)",
+                idx,
+                total_files,
+                filename,
+                file_size / _MB,
+            )
+
+            async with file_resolver(filename) as file_path:
+                await self._upload_single_file(
+                    file_path, file_size, signed_url, filename, idx, total_files
+                )
+
+            uploaded_bytes += file_size
+            logger.info(
+                "[%d/%d] Uploaded %s (%.1f / %.1f MB)",
+                idx,
+                total_files,
+                filename,
+                uploaded_bytes / _MB,
+                total_bytes / _MB,
+            )
+            await self._notify(
+                progress_callback,
+                "uploading",
+                f"Uploaded {filename} ({idx}/{total_files}, "
+                f"{uploaded_bytes / _MB:.1f} / {total_bytes / _MB:.1f} MB)",
+                {
+                    "current_file": filename,
+                    "uploaded_count": idx,
+                    "total_files": total_files,
+                    "uploaded_bytes": uploaded_bytes,
+                    "total_bytes": total_bytes,
+                },
+            )
+
+        logger.info(
+            "All %d files uploaded via resolver (%.1f MB total)",
+            total_files,
+            total_bytes / _MB,
+        )
+        await self._notify(
+            progress_callback,
+            "uploading",
+            f"All {total_files} files uploaded ({total_bytes / _MB:.1f} MB total)",
+            {"status": "complete", "total_files": total_files},
+        )
 
     async def _create_model_resource(
         self,
@@ -656,17 +879,13 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         Raises:
             ValueError: If the base model does not exist or is not ready.
         """
-        model_path = self._model_api_path(base_model)
-        response = await self._client.get(model_path)
-        if response.status_code == 404:
+        model = await self.get_model(base_model)
+        if model is None:
             raise ValueError(
                 f"Base model '{base_model}' not found on Fireworks. "
                 f"Upload the base model first with 'oumi deploy upload "
                 f"--model-type full', then retry the adapter upload."
             )
-        self._check_response(response, f"verify base model '{base_model}'")
-
-        model = GatewayModel.model_validate(response.json())
         state = (model.state.value if model.state else "unknown").lower()
         if state != "ready":
             raise ValueError(
@@ -806,117 +1025,6 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             raise ValueError("No upload URLs received from Fireworks API.")
 
         return sorted(file_upload_urls.items(), key=self._upload_order_key)
-
-    async def _upload_model_files(
-        self,
-        model_dir: Path,
-        model_id: str,
-        progress_callback: ProgressCallback | None,
-        file_sizes: dict[str, int] | None = None,
-    ) -> None:
-        """Obtains signed URLs and uploads each file.
-
-        Follows the Fireworks REST API upload flow documented at
-        https://docs.fireworks.ai/models/uploading-custom-models-api:
-
-        1. Call ``getUploadEndpoint`` to obtain per-file signed URLs.
-        2. PUT each file to its signed URL (streamed from disk, with
-           retry and exponential back-off on transient failures).
-
-        Files are uploaded in deterministic order (config/tokenizer first) to
-        improve validation success (GCS propagation).
-
-        Args:
-            model_dir: Local directory containing model weight files.
-            model_id: Fireworks model ID used to request signed upload URLs.
-            progress_callback: Optional callback for upload progress events.
-            file_sizes: Pre-computed file inventory. When ``None`` the
-                inventory is collected from *model_dir* (backward compat).
-        """
-        if file_sizes is None:
-            file_sizes = self._collect_file_inventory(model_dir)
-        total_bytes = sum(file_sizes.values())
-        logger.info(
-            "Found %d files to upload (%.1f MB)",
-            len(file_sizes),
-            total_bytes / _MB,
-        )
-        if "config.json" in file_sizes:
-            logger.info("config.json found (%d bytes)", file_sizes["config.json"])
-        else:
-            logger.error(
-                "config.json NOT found in model files: %s", list(file_sizes.keys())
-            )
-
-        await self._notify(
-            progress_callback,
-            "extracting",
-            f"Found {len(file_sizes)} files ({total_bytes / _MB:.1f} MB total)",
-            {"file_count": len(file_sizes), "files": list(file_sizes.keys())},
-        )
-
-        upload_items = await self._get_signed_urls_ordered(model_id, file_sizes)
-        total_files = len(upload_items)
-        uploaded_bytes = 0
-
-        await self._notify(
-            progress_callback,
-            "uploading",
-            f"Starting upload of {total_files} files ({total_bytes / _MB:.1f} MB)",
-            {"total_files": total_files, "total_bytes": total_bytes},
-        )
-
-        for idx, (filename, signed_url) in enumerate(upload_items, 1):
-            file_path = model_dir / filename
-            file_size = file_sizes[filename]
-
-            logger.info(
-                "[%d/%d] Uploading %s (%.2f MB)",
-                idx,
-                total_files,
-                filename,
-                file_size / _MB,
-            )
-
-            await self._upload_single_file(
-                file_path, file_size, signed_url, filename, idx, total_files
-            )
-
-            uploaded_bytes += file_size
-            logger.info(
-                "[%d/%d] Uploaded %s (%.1f / %.1f MB)",
-                idx,
-                total_files,
-                filename,
-                uploaded_bytes / _MB,
-                total_bytes / _MB,
-            )
-
-            await self._notify(
-                progress_callback,
-                "uploading",
-                f"Uploaded {filename} ({idx}/{total_files}, "
-                f"{uploaded_bytes / _MB:.1f} / {total_bytes / _MB:.1f} MB)",
-                {
-                    "current_file": filename,
-                    "uploaded_count": idx,
-                    "total_files": total_files,
-                    "uploaded_bytes": uploaded_bytes,
-                    "total_bytes": total_bytes,
-                },
-            )
-
-        logger.info(
-            "All %d files uploaded (%.1f MB total)",
-            total_files,
-            total_bytes / _MB,
-        )
-        await self._notify(
-            progress_callback,
-            "uploading",
-            f"All {total_files} files uploaded ({total_bytes / _MB:.1f} MB total)",
-            {"status": "complete", "total_files": total_files},
-        )
 
     # ------------------------------------------------------------------
     # Per-file upload with retry
@@ -1120,12 +1228,36 @@ class FireworksDeploymentClient(BaseDeploymentClient):
 
         Returns:
             Status string
+
+        Raises:
+            ValueError: If the model does not exist.
+        """
+        model = await self.get_model(model_id)
+        if model is None:
+            raise ValueError(f"Model '{model_id}' does not exist")
+        return model.state.value if model.state else "unknown"
+
+    async def get_model(self, model_id: str) -> GatewayModel | None:
+        """Gets the full model resource for a Fireworks model, or None if missing.
+
+        Unlike ``get_model_status`` which returns only the state string, this
+        returns the full ``GatewayModel`` pydantic object so callers can
+        inspect additional fields (``kind``, ``peft_details``, etc.). Treats
+        HTTP 404 as "model does not exist" and returns ``None`` instead of
+        raising, so callers can distinguish "missing" from transient errors.
+
+        Args:
+            model_id: Fireworks model ID (short ID or full path).
+
+        Returns:
+            Parsed ``GatewayModel`` if the model exists, else ``None``.
         """
         model_path = self._model_api_path(model_id)
         response = await self._client.get(model_path)
-        self._check_response(response, f"get model status for '{model_id}'")
-        model = GatewayModel.model_validate(response.json())
-        return model.state.value if model.state else "unknown"
+        if response.status_code == 404:
+            return None
+        self._check_response(response, f"get model '{model_id}'")
+        return GatewayModel.model_validate(response.json())
 
     async def prepare_model(
         self, model_id: str, precision: str | None = None
@@ -1157,6 +1289,7 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         hardware: HardwareConfig,
         autoscaling: AutoscalingConfig,
         display_name: str | None = None,
+        endpoint_id: str | None = None,
     ) -> Endpoint:
         """Creates an inference endpoint (deployment) for a model.
 
@@ -1165,6 +1298,12 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             hardware: Hardware configuration
             autoscaling: Autoscaling configuration
             display_name: Optional display name
+            endpoint_id: Optional caller-supplied deployment ID. When provided,
+                it is passed as the ``deploymentId`` query parameter so the
+                resulting deployment has a deterministic resource path
+                ``accounts/{account_id}/deployments/{endpoint_id}``. When
+                omitted, Fireworks generates a random ID (the default
+                behavior).
 
         Returns:
             Created Endpoint
@@ -1180,9 +1319,14 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             displayName=display_name,
         )
 
+        params: dict[str, Any] = {}
+        if endpoint_id is not None:
+            params["deploymentId"] = endpoint_id
+
         response = await self._client.post(
             f"/v1/accounts/{self.account_id}/deployments",
             json=deployment.model_dump(by_alias=True, exclude_none=True),
+            params=params,
         )
         self._check_response(response, f"create endpoint for model '{model_id}'")
 

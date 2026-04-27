@@ -15,10 +15,10 @@
 """Unit tests for Fireworks.ai deployment client."""
 
 import os
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import httpx
 import pytest
 
 from oumi.deploy.base_client import (
@@ -31,8 +31,10 @@ from oumi.deploy.base_client import (
 from oumi.deploy.fireworks_api import (
     FW_STATE_TO_ENDPOINT,
     GatewayAcceleratorType,
+    GatewayCode,
     GatewayDeployment,
     GatewayDeploymentState,
+    GatewayStatus,
 )
 from oumi.deploy.fireworks_client import (
     FIREWORKS_ACCELERATORS,
@@ -40,7 +42,6 @@ from oumi.deploy.fireworks_client import (
     FireworksInvalidModelIdError,
     _validate_fireworks_model_id,
 )
-from oumi.deploy.utils import raise_api_error
 
 
 class TestFireworksStateMap:
@@ -192,6 +193,33 @@ class TestFireworksDeploymentClient:
         assert endpoint.autoscaling.max_replicas == 3
         assert endpoint.display_name == "My Deployment"
         assert endpoint.provider == DeploymentProvider.FIREWORKS
+        assert endpoint.status_code is None
+        assert endpoint.status_message is None
+
+    def test_parse_deployment_passes_through_status(self):
+        """Status code and message are surfaced on the Endpoint dataclass.
+
+        Fireworks reports scheduling failures (e.g. no A100s available) via
+        ``GatewayDeployment.status`` while the state remains ``CREATING``.
+        Callers polling the endpoint need that signal to fail fast instead of
+        waiting out the full poll budget.
+        """
+        client = FireworksDeploymentClient(api_key="test", account_id="test-account")
+
+        deployment = GatewayDeployment(
+            name="accounts/test-account/deployments/deploy-123",
+            baseModel="accounts/test-account/models/model-456",
+            state=GatewayDeploymentState.CREATING,
+            status=GatewayStatus(
+                code=GatewayCode.RESOURCE_EXHAUSTED,
+                message="No A100 capacity in us-central1",
+            ),
+        )
+
+        endpoint = client._parse_deployment(deployment)
+
+        assert endpoint.status_code == "RESOURCE_EXHAUSTED"
+        assert endpoint.status_message == "No A100 capacity in us-central1"
 
     @pytest.mark.asyncio
     async def test_create_endpoint_payload(self):
@@ -229,6 +257,43 @@ class TestFireworksDeploymentClient:
             assert payload["minReplicaCount"] == 1
             assert payload["maxReplicaCount"] == 2
             assert payload["displayName"] == "test-deployment"
+            # No caller-supplied ID → no deploymentId query param.
+            assert call_args[1].get("params", {}) == {}
+
+    @pytest.mark.asyncio
+    async def test_create_endpoint_with_endpoint_id(self):
+        """Test create_endpoint passes caller-supplied deploymentId as query param."""
+        client = FireworksDeploymentClient(api_key="test", account_id="test-account")
+
+        mock_response = MagicMock()
+        mock_response.is_success = True
+        mock_response.json.return_value = {
+            "name": "accounts/test-account/deployments/dep-42-m10-v1",
+            "baseModel": "model-456",
+            "state": "CREATING",
+            "acceleratorType": "NVIDIA_A100_80GB",
+            "acceleratorCount": 1,
+            "minReplicaCount": 1,
+            "maxReplicaCount": 2,
+        }
+
+        with patch.object(
+            client._client, "post", new_callable=AsyncMock, return_value=mock_response
+        ) as mock_post:
+            await client.create_endpoint(
+                model_id="model-456",
+                hardware=HardwareConfig(accelerator="nvidia_a100_80gb", count=1),
+                autoscaling=AutoscalingConfig(min_replicas=1, max_replicas=2),
+                endpoint_id="dep-42-m10-v1",
+            )
+
+            mock_post.assert_called_once()
+            call_args = mock_post.call_args
+            # deploymentId is a query param, not a body field.
+            assert call_args[1]["params"] == {"deploymentId": "dep-42-m10-v1"}
+            payload = call_args[1]["json"]
+            assert "deploymentId" not in payload
+            assert payload["baseModel"] == "model-456"
 
     @pytest.mark.asyncio
     async def test_get_endpoint(self):
@@ -396,56 +461,6 @@ class TestValidateFireworksModelId:
     def test_starts_with_digit(self):
         with pytest.raises(FireworksInvalidModelIdError, match="begin with a digit"):
             _validate_fireworks_model_id("1-model")
-
-
-class TestRaiseApiError:
-    """Tests for raise_api_error (shared helper in utils)."""
-
-    @staticmethod
-    def _make_response(
-        status_code: int, json_body: dict | None = None, text: str = ""
-    ) -> MagicMock:
-        resp = MagicMock(spec=httpx.Response)
-        resp.status_code = status_code
-        resp.text = text
-        if json_body is not None:
-            resp.json.return_value = json_body
-        else:
-            resp.json.side_effect = Exception("no json")
-        req = MagicMock()
-        req.method = "POST"
-        req.url = "https://api.fireworks.ai/v1/test"
-        req.content = b'{"key": "value"}'
-        resp.request = req
-        return resp
-
-    def test_extracts_nested_error_message(self):
-        resp = self._make_response(
-            400, {"error": {"message": "bad request", "code": "INVALID_ARGUMENT"}}
-        )
-        with pytest.raises(ValueError, match="bad request"):
-            raise_api_error(resp, "create model")
-
-    def test_extracts_top_level_message(self):
-        resp = self._make_response(404, {"message": "not found"})
-        with pytest.raises(ValueError, match="not found"):
-            raise_api_error(resp, "get model")
-
-    def test_falls_back_to_text(self):
-        resp = self._make_response(500, json_body=None, text="internal server error")
-        with pytest.raises(ValueError, match="internal server error"):
-            raise_api_error(resp, "delete model")
-
-    def test_does_not_include_request_body(self):
-        resp = self._make_response(400, {"message": "bad"})
-        with pytest.raises(ValueError) as exc_info:
-            raise_api_error(resp, "test")
-        assert "request body" not in str(exc_info.value)
-
-    def test_includes_http_status_and_method(self):
-        resp = self._make_response(409, {"message": "conflict"})
-        with pytest.raises(ValueError, match=r"HTTP 409.*POST"):
-            raise_api_error(resp, "create")
 
 
 class TestCheckModelSourceSupported:
@@ -668,3 +683,253 @@ class TestCollectFileInventory:
             tmp_path, model_type=ModelType.FULL
         )
         assert len(inventory) == 4
+
+
+class TestGetModel:
+    """Tests for ``FireworksDeploymentClient.get_model``."""
+
+    @staticmethod
+    def _make_client() -> FireworksDeploymentClient:
+        return FireworksDeploymentClient(api_key="test-key", account_id="test-account")
+
+    @pytest.mark.asyncio
+    async def test_get_model_returns_parsed_model(self):
+        """200 response is parsed into a GatewayModel."""
+        client = self._make_client()
+        response = MagicMock()
+        response.status_code = 200
+        response.is_error = False
+        response.is_success = True
+        response.json.return_value = {
+            "name": "accounts/test-account/models/my-model",
+            "state": "READY",
+            "kind": "HF_PEFT_ADDON",
+        }
+        with patch.object(client._client, "get", new=AsyncMock(return_value=response)):
+            model = await client.get_model("my-model")
+        assert model is not None
+        assert model.name == "accounts/test-account/models/my-model"
+        assert model.kind is not None and model.kind.value == "HF_PEFT_ADDON"
+
+    @pytest.mark.asyncio
+    async def test_get_model_returns_none_on_404(self):
+        """404 yields None (model does not exist), not an exception."""
+        client = self._make_client()
+        response = MagicMock()
+        response.status_code = 404
+        response.is_error = True
+        response.is_success = False
+        with patch.object(client._client, "get", new=AsyncMock(return_value=response)):
+            assert await client.get_model("missing-model") is None
+
+
+class TestUploadModelFromInventory:
+    """Tests for upload_model_with_resolver and _upload_model_files_with_resolver."""
+
+    @staticmethod
+    def _make_client() -> FireworksDeploymentClient:
+        return FireworksDeploymentClient(api_key="test-key", account_id="test-account")
+
+    @pytest.mark.asyncio
+    async def test_upload_model_with_resolver_calls_subflows(self, tmp_path):
+        """upload_model_with_resolver calls create, upload, and validate in order."""
+        client = self._make_client()
+
+        fake_file = tmp_path / "config.json"
+        fake_file.write_text("{}")
+
+        file_inventory = {"config.json": 2}
+        calls: list[str] = []
+
+        async def mock_create(*args, **kwargs) -> dict:
+            calls.append("create")
+            return {"modelId": "my-model"}
+
+        async def mock_upload_with_resolver(*args, **kwargs) -> None:
+            calls.append("upload")
+
+        async def mock_wait(*args, **kwargs) -> None:
+            calls.append("validate")
+
+        @asynccontextmanager
+        async def mock_resolver(filename: str):
+            yield fake_file
+
+        with (
+            patch.object(
+                client,
+                "_create_model_resource",
+                side_effect=mock_create,
+            ),
+            patch.object(
+                client,
+                "_upload_model_files_with_resolver",
+                side_effect=mock_upload_with_resolver,
+            ),
+            patch.object(
+                client,
+                "_wait_and_validate",
+                side_effect=mock_wait,
+            ),
+        ):
+            result = await client.upload_model_with_resolver(
+                model_name="my-model",
+                file_inventory=file_inventory,
+                file_resolver=mock_resolver,
+            )
+
+        assert calls == ["create", "upload", "validate"]
+        assert result.provider_model_id == "accounts/test-account/models/my-model"
+        assert result.status == "validating"
+
+    @pytest.mark.asyncio
+    async def test_upload_model_with_resolver_rejects_invalid_name(self, tmp_path):
+        """upload_model_with_resolver raises for names that violate Fireworks rules."""
+        client = self._make_client()
+
+        @asynccontextmanager
+        async def mock_resolver(filename: str):
+            yield tmp_path / filename
+
+        with pytest.raises(FireworksInvalidModelIdError):
+            await client.upload_model_with_resolver(
+                model_name="BadName",  # uppercase letters not allowed
+                file_inventory={"config.json": 10},
+                file_resolver=mock_resolver,
+            )
+
+    @pytest.mark.asyncio
+    async def test_upload_model_with_resolver_adapter_happy_path(self, tmp_path):
+        """ADAPTER upload forwards kwargs and delegates to _create_model_resource."""
+        client = self._make_client()
+
+        fake_file = tmp_path / "adapter_config.json"
+        fake_file.write_text("{}")
+
+        file_inventory = {"adapter_config.json": 2, "adapter_model.safetensors": 100}
+        captured_create_kwargs: dict = {}
+
+        async def mock_create(
+            model_id, model_type, base_model, *args, **kwargs
+        ) -> dict:
+            captured_create_kwargs.update(
+                {
+                    "model_id": model_id,
+                    "model_type": model_type,
+                    "base_model": base_model,
+                    "adapter_config": kwargs.get("adapter_config"),
+                }
+            )
+            return {"modelId": model_id}
+
+        async def noop(*args, **kwargs) -> None:
+            return None
+
+        @asynccontextmanager
+        async def mock_resolver(filename: str):
+            yield fake_file
+
+        with (
+            patch.object(client, "_verify_base_model_exists", side_effect=noop),
+            patch.object(client, "_create_model_resource", side_effect=mock_create),
+            patch.object(client, "_upload_model_files_with_resolver", side_effect=noop),
+            patch.object(client, "_wait_and_validate", side_effect=noop),
+        ):
+            result = await client.upload_model_with_resolver(
+                model_name="my-adapter",
+                file_inventory=file_inventory,
+                file_resolver=mock_resolver,
+                model_type=ModelType.ADAPTER,
+                base_model="accounts/fireworks/models/llama-v3p1-8b-instruct",
+                adapter_config={"r": 16, "target_modules": ["q_proj"]},
+            )
+
+        assert captured_create_kwargs["model_type"] == ModelType.ADAPTER
+        assert (
+            captured_create_kwargs["base_model"]
+            == "accounts/fireworks/models/llama-v3p1-8b-instruct"
+        )
+        assert captured_create_kwargs["adapter_config"] == {
+            "r": 16,
+            "target_modules": ["q_proj"],
+        }
+        assert result.provider_model_id == "accounts/test-account/models/my-adapter"
+
+    @pytest.mark.asyncio
+    async def test_upload_model_with_resolver_adapter_requires_base_model(
+        self, tmp_path
+    ):
+        """ADAPTER upload without base_model raises before any network call."""
+        client = self._make_client()
+
+        @asynccontextmanager
+        async def mock_resolver(filename: str):
+            yield tmp_path / filename
+
+        with pytest.raises(ValueError, match="base_model"):
+            await client.upload_model_with_resolver(
+                model_name="my-adapter",
+                file_inventory={"adapter_config.json": 2},
+                file_resolver=mock_resolver,
+                model_type=ModelType.ADAPTER,
+                base_model=None,
+                adapter_config={"target_modules": ["q_proj"]},
+            )
+
+    @pytest.mark.asyncio
+    async def test_upload_model_files_with_resolver_calls_resolver_per_file(
+        self, tmp_path
+    ):
+        """_upload_model_files_with_resolver calls file_resolver for each file."""
+        client = self._make_client()
+
+        file_a = tmp_path / "config.json"
+        file_a.write_text("{}")
+        file_b = tmp_path / "model.safetensors"
+        file_b.write_bytes(b"\x00" * 100)
+
+        file_inventory = {"config.json": 2, "model.safetensors": 100}
+        resolved: list[str] = []
+        uploaded: list[str] = []
+
+        # Map filename → temp file for the mock resolver
+        files_map = {"config.json": file_a, "model.safetensors": file_b}
+
+        @asynccontextmanager
+        async def mock_resolver(filename: str):
+            resolved.append(filename)
+            yield files_map[filename]
+
+        async def mock_upload_single_file(
+            file_path, file_size, signed_url, *args, **kwargs
+        ):
+            uploaded.append(str(file_path))
+
+        signed_urls = [
+            ("config.json", "https://gcs/config"),
+            ("model.safetensors", "https://gcs/model"),
+        ]
+        with (
+            patch.object(
+                client,
+                "_get_signed_urls_ordered",
+                new_callable=AsyncMock,
+                return_value=signed_urls,
+            ),
+            patch.object(
+                client,
+                "_upload_single_file",
+                side_effect=mock_upload_single_file,
+            ),
+        ):
+            await client._upload_model_files_with_resolver(
+                model_id="my-model",
+                file_sizes=file_inventory,
+                file_resolver=mock_resolver,
+                progress_callback=None,
+            )
+
+        # Resolver must be called for each file
+        assert sorted(resolved) == ["config.json", "model.safetensors"]
+        # Upload must be called for each resolved file
+        assert len(uploaded) == 2
