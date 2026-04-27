@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import json
+import random
 from dataclasses import dataclass
 from typing import Any
 
@@ -125,3 +126,18 @@ class DeterministicEnvironment(BaseEnvironment):
             f"Tool '{tool_id}' not found in environment '{self._params.id}'. "
             f"Available tools: {[tool.id for tool in self._params.tools]}"
         )
+
+    def sample_grounding(
+        self, n: int, *, rng: random.Random
+    ) -> list[DeterministicToolOutput]:
+        """Sample grounding facts from the pool of deterministic outputs.
+
+        Pools every ``DeterministicToolOutput`` across every tool owned by
+        this environment, then draws ``min(n, len(pool))`` entries without
+        replacement using the supplied RNG. Silent truncation — the
+        synthesizer is responsible for surfacing a warning when applicable.
+        """
+        pool: list[DeterministicToolOutput] = [
+            entry for tool in self._params.tools for entry in tool.deterministic_outputs
+        ]
+        return rng.sample(pool, min(n, len(pool)))
