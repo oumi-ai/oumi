@@ -325,3 +325,65 @@ def test_grounding_config_rejects_sample_size_below_one():
         GroundingConfig(sample_size=0)
     with pytest.raises(ValueError, match="sample_size must be >= 1"):
         GroundingConfig(sample_size=-3)
+
+
+# --- describe_grounding_default ---
+
+
+def test_describe_grounding_default_empty():
+    from oumi.environments._helpers import describe_grounding_default
+
+    assert describe_grounding_default([]) == ""
+
+
+def test_describe_grounding_default_single_fact():
+    from oumi.environments._helpers import describe_grounding_default
+
+    facts = [
+        DeterministicToolOutput(
+            input={"id": "42"}, output={"title": "Dune", "year": 1965}
+        )
+    ]
+    rendered = describe_grounding_default(facts)
+    assert rendered == '- id="42", title="Dune", year=1965'
+
+
+def test_describe_grounding_default_multi_fact_preserves_order():
+    from oumi.environments._helpers import describe_grounding_default
+
+    facts = [
+        DeterministicToolOutput(input={"id": "7"}, output={"title": "LotR"}),
+        DeterministicToolOutput(input={"id": "42"}, output={"title": "Dune"}),
+    ]
+    rendered = describe_grounding_default(facts)
+    assert rendered == ('- id="7", title="LotR"\n- id="42", title="Dune"')
+
+
+def test_describe_grounding_default_output_wins_on_key_conflict():
+    from oumi.environments._helpers import describe_grounding_default
+
+    facts = [
+        DeterministicToolOutput(
+            input={"id": "1", "note": "input-note"},
+            output={"note": "output-note"},
+        )
+    ]
+    rendered = describe_grounding_default(facts)
+    assert 'note="output-note"' in rendered
+    assert "input-note" not in rendered
+
+
+def test_describe_grounding_default_handles_non_string_values():
+    from oumi.environments._helpers import describe_grounding_default
+
+    facts = [
+        DeterministicToolOutput(
+            input={"id": 42},
+            output={"available": True, "count": 3, "rating": 4.5},
+        )
+    ]
+    rendered = describe_grounding_default(facts)
+    assert "id=42" in rendered
+    assert "available=True" in rendered
+    assert "count=3" in rendered
+    assert "rating=4.5" in rendered
