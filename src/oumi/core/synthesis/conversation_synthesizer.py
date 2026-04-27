@@ -20,6 +20,7 @@ import random
 from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.configs.environment_config import EnvironmentConfig
 from oumi.core.configs.inference_config import InferenceConfig
+from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.core.configs.inference_engine_type import InferenceEngineType
 from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
@@ -35,6 +36,8 @@ from oumi.core.types.conversation import (
     Message,
     Role,
 )
+from oumi.environments import DeterministicToolOutput
+from oumi.environments.base_environment import BaseEnvironment
 from oumi.utils.logging import logger
 from oumi.utils.str_utils import extract_json
 
@@ -699,3 +702,59 @@ class ConversationSynthesizer:
         if seed is None:
             return random.Random()
         return random.Random(seed + sample_index)
+
+    def _attach_grounding_facts(
+        self,
+        samples: list[dict],
+        multiturn_attribute: MultiTurnAttribute,
+    ) -> None:
+        """Attach per-sample grounding facts drawn from grounded envs in scope.
+
+        Writes ``sample["grounding_facts"]`` as a flat list concatenated
+        across all envs in scope that declare a ``GroundingConfig``. No-op
+        when ``environment_config`` is absent or no env in scope declares
+        grounding. Emits one ``logger.warning`` per env when truncation
+        occurs (sample_size > pool_size).
+        """
+        if self._environment_config is None:
+            return
+
+        from oumi.builders.environments import build_environment
+
+        scoped_env_ids = (
+            set(multiturn_attribute.available_environments)
+            if multiturn_attribute.available_environments
+            else {env.id for env in self._environment_config.environments}
+        )
+        grounding_env_pairs: list[tuple[EnvironmentParams, BaseEnvironment]] = [
+            (env_params, build_environment(env_params))
+            for env_params in self._environment_config.environments
+            if env_params.id in scoped_env_ids and env_params.grounding is not None
+        ]
+        if not grounding_env_pairs:
+            return
+
+        warned_envs: set[str] = set()
+        for sample_index, sample in enumerate(samples):
+            facts: list[DeterministicToolOutput] = []
+            for env_params, env_runtime in grounding_env_pairs:
+                grounding = env_params.grounding
+                assert grounding is not None  # filtered above
+                rng = self._make_grounding_rng(grounding.seed, sample_index)
+                sampled = env_runtime.sample_grounding(
+                    n=grounding.sample_size, rng=rng
+                )
+                if (
+                    len(sampled) < grounding.sample_size
+                    and env_params.id not in warned_envs
+                ):
+                    logger.warning(
+                        "Grounding sample_size=%d exceeds pool size for "
+                        "environment '%s'; truncating to %d facts.",
+                        grounding.sample_size,
+                        env_params.id,
+                        len(sampled),
+                    )
+                    warned_envs.add(env_params.id)
+                facts.extend(sampled)
+            sample["grounding_facts"] = facts
