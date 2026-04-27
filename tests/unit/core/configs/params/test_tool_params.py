@@ -17,6 +17,7 @@ from typing import Any
 import pytest
 
 from oumi.core.configs.params.tool_params import (
+    ToolArgumentError,
     ToolParams,
     ToolResult,
     ToolSchema,
@@ -193,3 +194,134 @@ def test_synthetic_state_params_accepts_partial_inputs():
     assert SyntheticStateParams(
         initial_state={"files": {"count": 1}}
     ).initial_state == {"files": {"count": 1}}
+
+
+# --- ToolSchema items / enum ---
+
+
+def test_tool_schema_create_coerces_items_and_enum():
+    schema = ToolSchema.create(
+        {
+            "type": "array",
+            "items": {"type": "string", "enum": ["a", "b"]},
+        }
+    )
+    assert isinstance(schema.items, ToolSchema)
+    assert schema.items.enum == ["a", "b"]
+    assert schema.to_dict() == {
+        "type": "array",
+        "items": {"type": "string", "enum": ["a", "b"]},
+    }
+
+
+def test_tool_schema_validate_rejects_wrong_item_type():
+    schema = ToolSchema.create({"type": "array", "items": {"type": "string"}})
+    with pytest.raises(ToolArgumentError, match=r"arguments\[1\] must be a string"):
+        schema.validate(["ok", 2], path="arguments")
+
+
+def test_tool_schema_validate_rejects_value_outside_enum():
+    schema = ToolSchema.create({"type": "string", "enum": ["a", "b"]})
+    with pytest.raises(ToolArgumentError, match="must be one of"):
+        schema.validate("c", path="arguments")
+
+
+def test_tool_schema_enum_must_be_list():
+    with pytest.raises(ValueError, match="enum must be a list"):
+        ToolSchema(type="string", enum="a")  # type: ignore[arg-type]
+
+
+# --- ToolSchema.validate / ToolParams.validate_arguments ---
+
+
+def _policy_tool() -> ToolParams:
+    return ToolParams(
+        id="policy",
+        name="Policy",
+        description="Look up policy.",
+        parameters=ToolSchema(
+            type="object",
+            properties={
+                "policy_id": ToolSchema(type="string"),
+                "limit": ToolSchema(type="integer"),
+            },
+            required=["policy_id"],
+        ),
+    )
+
+
+def test_tool_schema_validate_accepts_conforming_value():
+    schema = _policy_tool().parameters
+    schema.validate({"policy_id": "abc", "limit": 5})
+
+
+def test_tool_schema_validate_missing_required_raises():
+    schema = _policy_tool().parameters
+    with pytest.raises(ToolArgumentError, match=r"arguments\.policy_id is required"):
+        schema.validate({"limit": 5}, path="arguments")
+
+
+def test_tool_schema_validate_wrong_type_raises():
+    schema = _policy_tool().parameters
+    with pytest.raises(ToolArgumentError, match=r"arguments\.limit must be an integer"):
+        schema.validate({"policy_id": "abc", "limit": "five"}, path="arguments")
+
+
+def test_tool_schema_validate_nested_object():
+    schema = ToolSchema.create(
+        {
+            "type": "object",
+            "properties": {
+                "customer": {
+                    "type": "object",
+                    "properties": {"email": {"type": "string"}},
+                    "required": ["email"],
+                }
+            },
+            "required": ["customer"],
+        }
+    )
+    with pytest.raises(
+        ToolArgumentError, match=r"arguments\.customer\.email is required"
+    ):
+        schema.validate({"customer": {}}, path="arguments")
+
+
+def test_tool_schema_validate_empty_schema_accepts_any_object():
+    # Tools that don't declare parameters shouldn't force callers to pass {}.
+    tool = ToolParams(id="ping", name="Ping", description="No args.")
+    tool.validate_arguments({})
+    tool.validate_arguments({"extra": "ignored"})
+
+
+def test_tool_params_validate_arguments_delegates_to_parameters():
+    with pytest.raises(ToolArgumentError, match="arguments.policy_id is required"):
+        _policy_tool().validate_arguments({})
+
+
+# --- GroundingConfig ---
+
+
+def test_grounding_config_defaults():
+    from oumi.environments import GroundingConfig
+
+    cfg = GroundingConfig()
+    assert cfg.sample_size == 3
+    assert cfg.seed is None
+
+
+def test_grounding_config_accepts_valid_values():
+    from oumi.environments import GroundingConfig
+
+    cfg = GroundingConfig(sample_size=5, seed=42)
+    assert cfg.sample_size == 5
+    assert cfg.seed == 42
+
+
+def test_grounding_config_rejects_sample_size_below_one():
+    from oumi.environments import GroundingConfig
+
+    with pytest.raises(ValueError, match="sample_size must be >= 1"):
+        GroundingConfig(sample_size=0)
+    with pytest.raises(ValueError, match="sample_size must be >= 1"):
+        GroundingConfig(sample_size=-3)
