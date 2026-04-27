@@ -226,6 +226,20 @@ class ModelParams(BaseParams):
     This is used to specify the version of the model to use.
     """
 
+    tool_call_parser: str | None = None
+    """Name of a vLLM tool-call parser to apply to assistant outputs.
+
+    When set, the local ``VLLMInferenceEngine`` instantiates the matching
+    parser from ``vllm.tool_parsers`` (e.g. ``"hermes"``, ``"qwen3_xml"``,
+    ``"llama4_pythonic"``, ``"mistral"``), runs it over the model's output
+    text, and populates ``Message.tool_calls`` on the returned message
+    instead of leaving the tool-call tokens as raw text. ``finish_reason``
+    is set to ``tool_calls`` when calls are extracted.
+
+    Has no effect on engines other than vLLM. Tied to vLLM internals;
+    available parsers depend on the installed vLLM version.
+    """
+
     def __post_init__(self):
         """Populate additional params."""
         self.torch_dtype = None
