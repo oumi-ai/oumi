@@ -22,7 +22,7 @@ from typing import Any
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.environment_params import EnvironmentParams
-from oumi.core.configs.params.tool_params import ToolResult
+from oumi.core.configs.params.tool_params import ToolLookupError, ToolResult
 from oumi.core.registry import register_environment
 from oumi.environments.base_environment import BaseEnvironment
 from oumi.environments.deterministic_tool import (
@@ -62,12 +62,23 @@ class DeterministicEnvironment(BaseEnvironment):
         self._validate_tools(params.tools)
 
     def step(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:
-        """Resolve a deterministic tool call to its output."""
+        """Resolve a deterministic tool call to its output.
+
+        Raises:
+            ToolLookupError: If no configured ``deterministic_outputs`` entry
+                matches the provided arguments. The error message lists the
+                configured inputs so the calling LLM can self-correct.
+        """
         tool = self._lookup_tool(tool_id)
         for entry in tool.deterministic_outputs:
             if entry.matches(arguments):
                 return ToolResult(output=entry.output)
-        return ToolResult(output={})
+        available = [entry.input for entry in tool.deterministic_outputs]
+        raise ToolLookupError(
+            f"No deterministic output matches arguments "
+            f"{json.dumps(arguments, sort_keys=True)} for tool '{tool_id}'. "
+            f"Configured inputs: {json.dumps(available, sort_keys=True)}"
+        )
 
     @classmethod
     def from_params(cls, params: EnvironmentParams) -> DeterministicEnvironment:

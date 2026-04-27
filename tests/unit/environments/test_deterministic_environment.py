@@ -15,7 +15,7 @@
 import pytest
 
 from oumi.core.configs.params.environment_params import EnvironmentParams
-from oumi.core.configs.params.tool_params import ToolResult
+from oumi.core.configs.params.tool_params import ToolLookupError, ToolResult
 from oumi.environments.deterministic_environment import (
     DeterministicEnvironment,
     DeterministicEnvironmentKwargs,
@@ -101,9 +101,15 @@ def test_step_returns_matching_output():
     assert env.step("tool1", {"id": "02"}) == ToolResult(output={"msg": "delivered"})
 
 
-def test_step_no_match_returns_empty():
+def test_step_no_match_raises_with_hint():
     env = DeterministicEnvironment.from_params(_make_params())
-    assert env.step("tool1", {"id": "99"}) == ToolResult(output={})
+    with pytest.raises(ToolLookupError) as excinfo:
+        env.step("tool1", {"id": "99"})
+    message = str(excinfo.value)
+    assert "No deterministic output matches" in message
+    assert "tool1" in message
+    # The configured inputs are surfaced so the LLM can self-correct.
+    assert '"id": "01"' in message
 
 
 def test_step_supports_zero_arg_tool():
