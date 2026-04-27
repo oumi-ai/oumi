@@ -22,9 +22,9 @@ from oumi.core.configs.params.synthesis_params import (
     GeneralSynthesisParams,
     MultiTurnAttribute,
 )
+from oumi.core.configs.params.tool_params import ToolParams
 from oumi.core.synthesis.attribute_formatter import AttributeFormatter
 from oumi.core.types.conversation import Conversation, Message, Role
-from oumi.environments import Tool
 from oumi.utils.logging import logger
 from oumi.utils.str_utils import extract_json
 
@@ -58,7 +58,7 @@ class ConversationSynthesizer:
 
     def _resolve_available_tools(
         self, multiturn_attribute: MultiTurnAttribute
-    ) -> list[Tool]:
+    ) -> list[ToolParams]:
         """Resolve tools for a multiturn attribute from selected environments."""
         if self._environment_config is None:
             return []

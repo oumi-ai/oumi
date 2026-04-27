@@ -25,20 +25,6 @@ from oumi.core.configs.params.base_params import BaseParams
 
 
 @dataclass
-class DeterministicToolOutput(BaseParams):
-    """An input-to-output mapping for a deterministic tool."""
-
-    input: dict[str, Any] = field(default_factory=dict)
-    output: dict[str, Any] = field(default_factory=dict)
-
-    def matches(self, arguments: dict[str, Any]) -> bool:
-        """Check if the input matches the given arguments."""
-        return json.dumps(self.input, sort_keys=True) == json.dumps(
-            arguments, sort_keys=True
-        )
-
-
-@dataclass
 class ToolSchema(BaseParams):
     """JSON schema for tool inputs or outputs."""
 
@@ -109,7 +95,7 @@ class ToolSchema(BaseParams):
 
 
 @dataclass
-class Tool(BaseParams):
+class ToolParams(BaseParams):
     """Tool schema owned by an environment."""
 
     id: str
@@ -121,9 +107,9 @@ class Tool(BaseParams):
     deterministic_outputs: list[DeterministicToolOutput] = field(default_factory=list)
 
     @classmethod
-    def create(cls, raw: Any) -> Tool:
+    def create(cls, raw: Any) -> ToolParams:
         """Create a tool from raw config data."""
-        if isinstance(raw, Tool):
+        if isinstance(raw, ToolParams):
             return raw
         if not isinstance(raw, Mapping):
             raise TypeError(
@@ -168,6 +154,20 @@ class Tool(BaseParams):
         if self.output_schema is not None:
             schema["output_schema"] = self.output_schema.to_dict()
         return schema
+
+
+@dataclass
+class DeterministicToolOutput(BaseParams):
+    """An input-to-output mapping for a deterministic tool."""
+
+    input: dict[str, Any] = field(default_factory=dict)
+    output: dict[str, Any] = field(default_factory=dict)
+
+    def matches(self, arguments: dict[str, Any]) -> bool:
+        """Check if the input matches the given arguments."""
+        return json.dumps(self.input, sort_keys=True) == json.dumps(
+            arguments, sort_keys=True
+        )
 
 
 @dataclass

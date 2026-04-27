@@ -17,26 +17,24 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
 
 from oumi.core.configs.base_config import BaseConfig
-
-if TYPE_CHECKING:
-    from oumi.environments.base_environment import BaseEnvironment
-    from oumi.environments.base_tool import Tool
+from oumi.core.configs.params.environment_params import EnvironmentParams
+from oumi.core.configs.params.tool_params import ToolParams
 
 
 @dataclass
 class EnvironmentConfig(BaseConfig):
     """Top-level config for environment-first tool definitions."""
 
-    environments: list[Any] = field(default_factory=list)
+    environments: list[EnvironmentParams] = field(default_factory=list)
     """Reusable environments and their owned tools."""
 
-    def __post_init__(self):
-        """Verifies/populates params."""
+    def __post_init__(self) -> None:
+        """Coerce raw dicts into EnvironmentParams and check global uniqueness."""
         self.environments = [
-            self._coerce_environment(environment) for environment in self.environments
+            env if isinstance(env, EnvironmentParams) else EnvironmentParams(**env)
+            for env in self.environments
         ]
 
         env_ids: set[str] = set()
@@ -58,8 +56,13 @@ class EnvironmentConfig(BaseConfig):
                     )
                 tool_ids.add(tool.id)
 
+    def __finalize_and_validate__(self) -> None:
+        """Validate every environment in the list."""
+        for environment in self.environments:
+            environment.finalize_and_validate()
+
     @property
-    def all_tools(self) -> list[Tool]:
+    def all_tools(self) -> list[ToolParams]:
         """Flatten all tools across environments."""
         return [tool for environment in self.environments for tool in environment.tools]
 
@@ -72,14 +75,14 @@ class EnvironmentConfig(BaseConfig):
             for tool in environment.tools
         }
 
-    def get_environment(self, environment_id: str) -> BaseEnvironment | None:
+    def get_environment(self, environment_id: str) -> EnvironmentParams | None:
         """Look up an environment by id."""
         for environment in self.environments:
             if environment.id == environment_id:
                 return environment
         return None
 
-    def get_tool(self, tool_id: str) -> Tool | None:
+    def get_tool(self, tool_id: str) -> ToolParams | None:
         """Look up a tool by id."""
         for tool in self.all_tools:
             if tool.id == tool_id:
@@ -90,7 +93,7 @@ class EnvironmentConfig(BaseConfig):
         self,
         environment_ids: list[str] | None = None,
         tool_ids: list[str] | None = None,
-    ) -> list[Tool]:
+    ) -> list[ToolParams]:
         """Resolve tools from selected environments and optional tool ids.
 
         Raises:
@@ -131,9 +134,3 @@ class EnvironmentConfig(BaseConfig):
             tools = [tool for tool in tools if tool.id in allowed_tool_ids]
 
         return tools
-
-    def _coerce_environment(self, environment: Any) -> BaseEnvironment:
-        """Coerce a raw dict or environment instance into a concrete environment."""
-        from oumi.environments.base_environment import BaseEnvironment
-
-        return BaseEnvironment.create(environment)

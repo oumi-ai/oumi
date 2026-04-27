@@ -17,38 +17,78 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
-from typing import Any, ClassVar
+from dataclasses import dataclass
+from typing import Any
 
+from oumi.core.configs.params.base_params import BaseParams
+from oumi.core.configs.params.environment_params import EnvironmentParams
+from oumi.core.configs.params.tool_params import (
+    DeterministicToolOutput,
+    ToolParams,
+    ToolResult,
+)
+from oumi.core.registry import register_environment
 from oumi.environments.base_environment import BaseEnvironment
-from oumi.environments.base_tool import DeterministicToolOutput, Tool, ToolResult
 
 
 @dataclass
+class DeterministicEnvironmentKwargs(BaseParams):
+    """Type-specific kwargs for DeterministicEnvironment.
+
+    Deterministic environments take no additional configuration beyond the
+    common `EnvironmentParams` fields, so this is intentionally empty. Any
+    keys present in `params.env_kwargs` will trigger a validation error.
+    """
+
+
+@register_environment("deterministic")
 class DeterministicEnvironment(BaseEnvironment):
-    """Environment that resolves tools from fixed lookups."""
+    """Environment that resolves tools from fixed lookups.
 
-    ENVIRONMENT_TYPE: ClassVar[str] = "deterministic"
-    type: str = field(init=False, default=ENVIRONMENT_TYPE)
+    Tools must declare at least one `deterministic_outputs` entry; calling
+    `step()` returns the matching output (or `None` if no entry matches).
+    """
 
-    def _coerce_tools(self, tools: list[Any]) -> list[Tool]:
-        """Coerce tools and deterministic outputs into typed objects."""
-        coerced_tools: list[Tool] = []
-        for raw_tool in tools:
-            tool = Tool.create(raw_tool)
+    def __init__(
+        self,
+        params: EnvironmentParams,
+        kwargs: DeterministicEnvironmentKwargs,
+    ) -> None:
+        """Initialize a DeterministicEnvironment with the given params and kwargs."""
+        self._params = params
+        self._kwargs = kwargs
+        self._validate_tools(params.tools)
+
+    def step(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:
+        """Resolve a deterministic tool call to its output."""
+        tool = self._lookup_tool(tool_id)
+        for entry in tool.deterministic_outputs:
+            if entry.matches(arguments):
+                return ToolResult(output=entry.output)
+        return ToolResult(output=None)
+
+    @classmethod
+    def from_params(cls, params: EnvironmentParams) -> DeterministicEnvironment:
+        """Build a DeterministicEnvironment from its params object."""
+        if params.env_kwargs:
+            raise ValueError(
+                f"DeterministicEnvironment does not accept env_kwargs, "
+                f"got: {sorted(params.env_kwargs)}"
+            )
+        kwargs = DeterministicEnvironmentKwargs()
+        kwargs.finalize_and_validate()
+        for tool in params.tools:
             tool.deterministic_outputs = [
                 entry
                 if isinstance(entry, DeterministicToolOutput)
                 else DeterministicToolOutput(**entry)
                 for entry in tool.deterministic_outputs
             ]
-            coerced_tools.append(tool)
-        return coerced_tools
+        return cls(params, kwargs)
 
-    def __post_init__(self):
-        """Validate that deterministic tools have deterministic output entry."""
-        super().__post_init__()
-        for tool in self.tools:
+    @staticmethod
+    def _validate_tools(tools: list[ToolParams]) -> None:
+        for tool in tools:
             if not tool.deterministic_outputs:
                 raise ValueError(
                     f"Deterministic tool '{tool.id}' must have at least one "
@@ -64,10 +104,11 @@ class DeterministicEnvironment(BaseEnvironment):
                     )
                 seen.add(key)
 
-    def step(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:
-        """Resolve a deterministic tool call to its output."""
-        tool = self._get_tool_or_raise(tool_id)
-        for entry in tool.deterministic_outputs:
-            if entry.matches(arguments):
-                return ToolResult(output=entry.output)
-        return ToolResult(output=None)
+    def _lookup_tool(self, tool_id: str) -> ToolParams:
+        for tool in self._params.tools:
+            if tool.id == tool_id:
+                return tool
+        raise ValueError(
+            f"Tool '{tool_id}' not found in environment '{self._params.id}'. "
+            f"Available tools: {[tool.id for tool in self._params.tools]}"
+        )

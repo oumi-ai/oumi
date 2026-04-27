@@ -37,6 +37,7 @@ class RegistryType(Enum):
     EVALUATION_FUNCTION = auto()
     SAMPLE_ANALYZER = auto()
     RULE = auto()
+    ENVIRONMENT = auto()
 
 
 class RegistryKey(namedtuple("RegistryKey", ["name", "registry_type"])):
@@ -356,6 +357,24 @@ def register_sample_analyzer(registry_name: str) -> Callable:
         REGISTRY.register(
             name=registry_name, type=RegistryType.SAMPLE_ANALYZER, value=obj
         )
+        return obj
+
+    return decorator_register
+
+
+def register_environment(registry_name: str) -> Callable:
+    """Returns function to register an environment class in the Oumi global registry.
+
+    Args:
+        registry_name: The name to register the environment under.
+
+    Returns:
+        Decorator function to register the target environment class.
+    """
+
+    def decorator_register(obj):
+        """Decorator to register its target `obj`."""
+        REGISTRY.register(name=registry_name, type=RegistryType.ENVIRONMENT, value=obj)
         return obj
 
     return decorator_register

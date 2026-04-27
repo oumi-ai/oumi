@@ -18,12 +18,14 @@ from __future__ import annotations
 
 import copy
 import json
-from dataclasses import dataclass, field
-from typing import Any, ClassVar
+from dataclasses import dataclass
+from typing import Any
 
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.core.configs.params.environment_params import EnvironmentParams
+from oumi.core.configs.params.tool_params import ToolParams, ToolResult
+from oumi.core.registry import register_environment
 from oumi.environments.base_environment import BaseEnvironment
-from oumi.environments.base_tool import ToolResult
 
 
 def _validate_json_schema_value(
@@ -86,35 +88,62 @@ class SyntheticStateParams(BaseParams):
 
 
 @dataclass
+class SyntheticEnvironmentKwargs(BaseParams):
+    """Type-specific kwargs for SyntheticEnvironment."""
+
+    system_prompt: str = ""
+    state_params: SyntheticStateParams | None = None
+    cache_by_input: bool = True
+
+    def __post_init__(self) -> None:
+        """Coerce state_params dict into SyntheticStateParams if needed."""
+        if isinstance(self.state_params, dict):
+            self.state_params = SyntheticStateParams(**self.state_params)
+
+    def __finalize_and_validate__(self) -> None:
+        """Finalize and validate the kwargs."""
+        if not self.system_prompt:
+            raise ValueError(
+                "SyntheticEnvironmentKwargs.system_prompt cannot be empty."
+            )
+        if self.state_params is not None and self.cache_by_input:
+            raise ValueError(
+                "SyntheticEnvironmentKwargs.cache_by_input must be False when "
+                "state_params is provided."
+            )
+
+
+@register_environment("synthetic")
 class SyntheticEnvironment(BaseEnvironment):
     """LLM-simulated environment with optional mutable state."""
 
-    ENVIRONMENT_TYPE: ClassVar[str] = "synthetic"
-    type: str = field(init=False, default=ENVIRONMENT_TYPE)
-    system_prompt: str = ""
-    state_params: SyntheticStateParams | dict[str, Any] | None = None
-    cache_by_input: bool = True
-
-    def __post_init__(self):
-        """Validate synthetic-only fields after common environment validation."""
-        if isinstance(self.state_params, dict):
-            self.state_params = SyntheticStateParams(**self.state_params)
-        super().__post_init__()
+    def __init__(
+        self,
+        params: EnvironmentParams,
+        kwargs: SyntheticEnvironmentKwargs,
+    ) -> None:
+        """Initialize a SyntheticEnvironment with the given params and kwargs."""
+        self._params = params
+        self._kwargs = kwargs
+        self._validate_tools(params.tools)
         self._cache: dict[str, ToolResult] = {}
         self._state: dict[str, Any] | None = (
-            copy.deepcopy(self.state_params.initial_state)
-            if self.state_params is not None
-            and self.state_params.initial_state is not None
+            copy.deepcopy(kwargs.state_params.initial_state)
+            if kwargs.state_params is not None
+            and kwargs.state_params.initial_state is not None
             else None
         )
-        if not self.system_prompt:
-            raise ValueError("SyntheticEnvironment.system_prompt cannot be empty.")
-        if self.state_params is not None and self.cache_by_input:
-            raise ValueError(
-                "SyntheticEnvironment.cache_by_input must be False when "
-                "state_params is provided."
-            )
-        for tool in self.tools:
+
+    @classmethod
+    def from_params(cls, params: EnvironmentParams) -> SyntheticEnvironment:
+        """Build a SyntheticEnvironment from its params object."""
+        kwargs = SyntheticEnvironmentKwargs(**(params.env_kwargs or {}))
+        kwargs.finalize_and_validate()
+        return cls(params, kwargs)
+
+    @staticmethod
+    def _validate_tools(tools: list[ToolParams]) -> None:
+        for tool in tools:
             if tool.deterministic_outputs:
                 raise ValueError(
                     f"Synthetic tool '{tool.id}' cannot define deterministic_outputs."
@@ -136,7 +165,7 @@ class SyntheticEnvironment(BaseEnvironment):
         self, tool_id: str, arguments: dict[str, Any]
     ) -> ToolResult | None:
         """Look up a cached result for the given tool call."""
-        if not self.cache_by_input:
+        if not self._kwargs.cache_by_input:
             return None
         result = self._cache.get(self._cache_key(tool_id, arguments))
         if result is None:
@@ -150,14 +179,23 @@ class SyntheticEnvironment(BaseEnvironment):
         self, tool_id: str, arguments: dict[str, Any], result: ToolResult
     ) -> None:
         """Store a generated result in the cache."""
-        if not self.cache_by_input:
+        if not self._kwargs.cache_by_input:
             return
         self._cache[self._cache_key(tool_id, arguments)] = ToolResult(
             output=copy.deepcopy(result.output),
             updated_state=copy.deepcopy(result.updated_state),
         )
 
+    def _lookup_tool(self, tool_id: str) -> ToolParams:
+        for tool in self._params.tools:
+            if tool.id == tool_id:
+                return tool
+        raise ValueError(
+            f"Tool '{tool_id}' not found in environment '{self._params.id}'. "
+            f"Available tools: {[tool.id for tool in self._params.tools]}"
+        )
+
     def step(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:
         """Execute a synthetic tool call."""
-        self._get_tool_or_raise(tool_id)
+        self._lookup_tool(tool_id)
         raise NotImplementedError("SyntheticEnvironment.step() is not implemented yet.")

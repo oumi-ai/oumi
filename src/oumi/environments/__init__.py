@@ -12,28 +12,38 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Environments for agentic tool interactions."""
+"""Environments for agentic tool interactions.
 
-from oumi.environments.base_environment import BaseEnvironment
-from oumi.environments.base_tool import (
+Importing this package populates the environment registry by triggering each
+concrete environment's `@register_environment(...)` decorator.
+"""
+
+from oumi.core.configs.params.tool_params import (
     DeterministicToolOutput,
-    Tool,
+    ToolParams,
     ToolResult,
     ToolSchema,
 )
-from oumi.environments.deterministic_environment import DeterministicEnvironment
+from oumi.environments.base_environment import BaseEnvironment
+from oumi.environments.deterministic_environment import (
+    DeterministicEnvironment,
+    DeterministicEnvironmentKwargs,
+)
 from oumi.environments.synthetic_environment import (
     SyntheticEnvironment,
+    SyntheticEnvironmentKwargs,
     SyntheticStateParams,
 )
 
 __all__ = [
     "BaseEnvironment",
-    "Tool",
-    "ToolSchema",
-    "ToolResult",
-    "SyntheticEnvironment",
-    "SyntheticStateParams",
     "DeterministicEnvironment",
+    "DeterministicEnvironmentKwargs",
     "DeterministicToolOutput",
+    "SyntheticEnvironment",
+    "SyntheticEnvironmentKwargs",
+    "SyntheticStateParams",
+    "ToolParams",
+    "ToolResult",
+    "ToolSchema",
 ]

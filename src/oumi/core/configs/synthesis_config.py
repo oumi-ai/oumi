@@ -17,19 +17,16 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
 
 from oumi.core.configs.base_config import BaseConfig
+from oumi.core.configs.environment_config import EnvironmentConfig
 from oumi.core.configs.inference_config import InferenceConfig
+from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.core.configs.params.synthesis_params import (
     GeneralSynthesisParams,
     MultiTurnAttribute,
 )
-
-if TYPE_CHECKING:
-    from oumi.core.configs.environment_config import EnvironmentConfig
-    from oumi.environments.base_environment import BaseEnvironment
-    from oumi.environments.base_tool import Tool
+from oumi.core.configs.params.tool_params import ToolParams
 
 
 class SynthesisStrategy(str, Enum):
@@ -57,8 +54,8 @@ class SynthesisConfig(BaseConfig):
     )
     """The synthesis strategy parameters to use."""
 
-    environment_config: Any | None = None
-    """Reusable environment-first tool configuration (EnvironmentConfig)."""
+    environment_config: EnvironmentConfig | None = None
+    """Reusable environment-first tool configuration."""
 
     environment_config_path: str | None = None
     """Optional path to an EnvironmentConfig YAML file."""
@@ -122,15 +119,13 @@ class SynthesisConfig(BaseConfig):
                     f"Environment config path does not exist: "
                     f"{self.environment_config_path}"
                 )
-            from oumi.core.configs.environment_config import EnvironmentConfig
-
             return EnvironmentConfig.from_yaml(config_path)
 
         return None
 
     def resolve_multiturn_environments(
         self, multiturn_attribute: MultiTurnAttribute
-    ) -> list[BaseEnvironment]:
+    ) -> list[EnvironmentParams]:
         """Resolve the environments available to a multiturn attribute."""
         if self.environment_config is None:
             return []
@@ -138,7 +133,7 @@ class SynthesisConfig(BaseConfig):
         if not multiturn_attribute.available_environments:
             return list(self.environment_config.environments)
 
-        resolved_environments: list[BaseEnvironment] = []
+        resolved_environments: list[EnvironmentParams] = []
         for environment_id in multiturn_attribute.available_environments:
             environment = self.environment_config.get_environment(environment_id)
             if environment is None:
@@ -152,7 +147,7 @@ class SynthesisConfig(BaseConfig):
 
     def resolve_multiturn_tools(
         self, multiturn_attribute: MultiTurnAttribute
-    ) -> list[Tool]:
+    ) -> list[ToolParams]:
         """Resolve the tools available to a multiturn attribute."""
         if self.environment_config is None:
             return []
