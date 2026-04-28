@@ -67,7 +67,7 @@ class DeterministicEnvironment(BaseEnvironment):
         for entry in tool.deterministic_outputs:
             if entry.matches(arguments):
                 return ToolResult(output=entry.output)
-        return ToolResult(output=None)
+        return ToolResult(output={})
 
     @classmethod
     def from_params(cls, params: EnvironmentParams) -> DeterministicEnvironment:

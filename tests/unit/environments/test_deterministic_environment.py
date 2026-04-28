@@ -101,9 +101,9 @@ def test_step_returns_matching_output():
     assert env.step("tool1", {"id": "02"}) == ToolResult(output={"msg": "delivered"})
 
 
-def test_step_no_match_returns_none():
+def test_step_no_match_returns_empty():
     env = DeterministicEnvironment.from_params(_make_params())
-    assert env.step("tool1", {"id": "99"}) == ToolResult(output=None)
+    assert env.step("tool1", {"id": "99"}) == ToolResult(output={})
 
 
 def test_step_supports_zero_arg_tool():

@@ -157,5 +157,5 @@ class ToolParams(BaseParams):
 class ToolResult(BaseParams):
     """Result returned by an environment step."""
 
-    output: str | dict[str, Any] | None
+    output: str | dict[str, Any]
     updated_state: dict[str, Any] | None = None
