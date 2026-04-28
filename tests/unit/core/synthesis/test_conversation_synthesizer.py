@@ -2403,6 +2403,51 @@ def test_run_assistant_turn_self_corrects_after_invalid_arguments(
 # --- end-to-end synthesize with tools ---
 
 
+def test_run_assistant_turn_continuation_replaces_plan_instruction(
+    mock_inference_config,
+):
+    """After the first tool call, subsequent prompts use the continuation
+    directive instead of re-injecting the original plan instruction.
+
+    Without this redirect, the assistant tends to interpret the plan
+    instruction as license to fire more tool calls — driving up the
+    extra-content failure mode the synth pipeline is supposed to avoid.
+    """
+    env_config = _tool_env_config()
+    engine = _scripted_inference_engine(
+        [
+            ['<tool_call>{"name": "lookup", "arguments": {"id": "01"}}</tool_call>'],
+            ["The status is ok."],
+        ]
+    )
+    synth = _make_synthesizer(
+        mock_inference_config, environment_config=env_config, inference_engine=engine
+    )
+    dispatch = synth._build_tool_dispatch(_tool_multiturn_attr())
+    plan_instruction = "Call lookup to check the order status"
+    msgs = synth._run_assistant_turn(
+        samples=[{"target_turns": 2, "parsed_turn_plans": ["", plan_instruction]}],
+        sample_indices=[0],
+        histories=[[]],
+        current_turn=2,
+        multiturn_attribute=_tool_multiturn_attr(),
+        tool_dispatch=dispatch,
+    )
+
+    assert engine.infer.call_count == 2
+
+    first_prompt = engine.infer.call_args_list[0].args[0][0]
+    first_trailing = first_prompt.messages[-1].content
+    assert plan_instruction in first_trailing
+
+    second_prompt = engine.infer.call_args_list[1].args[0][0]
+    second_trailing = second_prompt.messages[-1].content
+    assert plan_instruction not in second_trailing
+    assert "Do NOT repeat a tool call" in second_trailing
+
+    assert msgs[0][-1].content == "The status is ok."
+
+
 def test_synthesize_end_to_end_with_tool_use(mock_inference_config):
     env_config = _tool_env_config()
     plan_json = (
