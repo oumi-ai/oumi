@@ -21,6 +21,8 @@ import pydantic
 from jinja2 import Template
 from transformers.utils.chat_template_utils import get_json_schema
 
+from oumi.core.types.tool_call import ToolCall, ToolDefinition
+
 
 class Role(str, Enum):
     """Role of the entity sending the message."""
@@ -242,16 +244,18 @@ class Message(pydantic.BaseModel):
     role: Role
     """The role of the entity sending the message (e.g., user, assistant, system)."""
 
-    tool_calls: list[dict] | None = None
+    tool_calls: list[ToolCall] | None = None
     """Structured tool calls emitted by an assistant message.
 
-    Uses the OpenAI function-calling wire format, e.g.::
+    Uses the OpenAI function-calling wire format. Pydantic auto-coerces
+    dict input (e.g., from JSONL) into ``ToolCall`` instances::
 
         [{"id": "call_abc", "type": "function",
           "function": {"name": "get_weather", "arguments": "{...}"}}]
 
     Only set on assistant messages. The chat template renders these via
-    ``tokenizer.apply_chat_template(messages, tools=...)``.
+    ``tokenizer.apply_chat_template(messages, tools=...)``; serialization
+    (``to_dict()`` / ``to_json()``) emits them in the OpenAI dict shape.
     """
 
     tool_call_id: str | None = None
@@ -269,12 +273,14 @@ class Message(pydantic.BaseModel):
         ``tool_calls`` and that ``content``, when set, is a string or list.
 
         Raises:
-            ValueError: If both ``content`` and ``tool_calls`` are ``None``,
-                or if ``content`` has an unsupported type.
+            ValueError: If ``content`` is ``None`` and ``tool_calls`` is
+                missing or empty, or if ``content`` has an unsupported type.
         """
         if self.content is None and not self.tool_calls:
             raise ValueError(
-                "Message must have at least one of `content` or `tool_calls`."
+                "Message must have at least one of `content` (string/list) "
+                "or a non-empty `tool_calls`. An empty list of tool calls "
+                "is not valid."
             )
         if self.content is not None and not isinstance(self.content, str | list):
             raise ValueError(
@@ -410,16 +416,15 @@ class Conversation(pydantic.BaseModel):
     in a key-value format. It can be used to include any relevant contextual data.
     """
 
-    tools: list[dict | Callable] | None = None
+    tools: list[ToolDefinition] | None = None
     """Tool definitions available to the model for this conversation.
 
-    Accepts either OpenAI-format dicts or Python callables. Callables are
-    converted to dicts at validation time via
-    ``transformers.utils.chat_template_utils.get_json_schema``, which requires
-    the callable to have a Google-style docstring and type hints on every
-    user-facing argument. After validation, every entry is a dict regardless
-    of the input shape, so persistence (``to_dict()``) and the HF Dataset
-    schema are unaffected.
+    Accepts ``ToolDefinition`` instances, OpenAI-format dicts, or Python
+    callables on input. Callables are converted via
+    ``transformers.utils.chat_template_utils.get_json_schema`` (which
+    requires a Google-style docstring and type hints on every user-facing
+    argument) and dicts are validated by Pydantic into ``ToolDefinition``.
+    After construction, every entry is a ``ToolDefinition`` instance.
 
     Uses the OpenAI function-calling schema, e.g.::
 
@@ -428,34 +433,35 @@ class Conversation(pydantic.BaseModel):
                        "description": "...",
                        "parameters": {...}}}]
 
-    When set, ``to_dict()`` emits ``tools`` as a top-level key, which TRL's
+    When set, ``to_dict()`` emits ``tools`` as a top-level key (in dict
+    form, via Pydantic's ``model_dump(mode="json")``), which TRL's
     ``SFTTrainer`` forwards to ``tokenizer.apply_chat_template(messages, tools=...)``
     so the model's chat template can render tools natively.
     """
 
     @pydantic.field_validator("tools", mode="before")
     @classmethod
-    def _coerce_callable_tools_to_openai_schema(
-        cls, raw_tools: list[dict | Callable] | None
-    ) -> list[dict] | None:
-        """Convert any callable tool definitions to OpenAI-format dicts.
+    def _coerce_tools_input(cls, raw_tools: list[Any] | None) -> list[Any] | None:
+        """Normalize each tool input to a shape Pydantic can validate.
 
-        Pydantic validators run on the input value before final field
-        assignment. We accept callables for ergonomics in inference / agent
-        flows but normalise to dicts so storage stays uniform.
+        Runs in ``mode="before"`` so we can intercept callables (which
+        Pydantic doesn't know how to validate into ``ToolDefinition``)
+        and convert them via ``get_json_schema``. ``ToolDefinition``
+        instances and dicts pass through; Pydantic's main validator
+        coerces dicts into ``ToolDefinition`` after this hook returns.
         """
         if raw_tools is None:
             return None
-        coerced_tools: list[dict] = []
+        coerced_tools: list[Any] = []
         for tool in raw_tools:
-            if isinstance(tool, dict):
+            if isinstance(tool, ToolDefinition) or isinstance(tool, dict):
                 coerced_tools.append(tool)
             elif callable(tool):
                 coerced_tools.append(get_json_schema(tool))
             else:
                 raise ValueError(
-                    f"Each tool must be a dict (OpenAI schema) or a callable; "
-                    f"got {type(tool).__name__}."
+                    f"Each tool must be a ToolDefinition, dict (OpenAI "
+                    f"schema), or a callable; got {type(tool).__name__}."
                 )
         return coerced_tools
 
@@ -535,7 +541,12 @@ class Conversation(pydantic.BaseModel):
         # `tool_calls`, matching the OpenAI wire format. `exclude_none=True`
         # strips `None` globally, which would drop the `content` key and
         # trip HF chat templates that don't tolerate a missing `content`.
-        for msg_dict, msg in zip(data.get("messages", []), self.messages):
+        msg_dicts = data.get("messages", [])
+        assert len(msg_dicts) == len(self.messages), (
+            "Pydantic dump produced a different number of messages than "
+            f"the source ({len(msg_dicts)} vs {len(self.messages)})."
+        )
+        for msg_dict, msg in zip(msg_dicts, self.messages):
             if msg.tool_calls and "content" not in msg_dict:
                 msg_dict["content"] = None
         return data

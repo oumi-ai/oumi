@@ -17,6 +17,7 @@ from oumi.core.types.conversation import (
     Role,
     Type,
 )
+from oumi.core.types.tool_call import ToolCall, ToolDefinition
 from oumi.utils.image_utils import load_image_png_bytes_from_path
 
 _SMALL_B64_IMAGE: Final[str] = (
@@ -1010,7 +1011,7 @@ def test_conversation_messages_to_dict_list_hf_compatible():
 # -----------------------------------------------------------------------------
 
 
-_TOOL_DEF_GET_WEATHER = {
+_TOOL_DEF_GET_WEATHER_DICT = {
     "type": "function",
     "function": {
         "name": "get_weather",
@@ -1023,18 +1024,26 @@ _TOOL_DEF_GET_WEATHER = {
     },
 }
 
-_TOOL_CALL = {
+_TOOL_CALL_DICT = {
     "id": "call_abc",
     "type": "function",
     "function": {"name": "get_weather", "arguments": '{"city": "SF"}'},
 }
+
+# Typed fixtures for direct constructor calls. The dict variants stay
+# around to test the legacy-input / model_validate path.
+_TOOL_DEF_GET_WEATHER = ToolDefinition.model_validate(_TOOL_DEF_GET_WEATHER_DICT)
+_TOOL_CALL = ToolCall.model_validate(_TOOL_CALL_DICT)
 
 
 def test_message_with_tool_calls_allows_none_content():
     """Assistant tool-call messages may have content=None (OpenAI format)."""
     msg = Message(role=Role.ASSISTANT, content=None, tool_calls=[_TOOL_CALL])
     assert msg.content is None
-    assert msg.tool_calls == [_TOOL_CALL]
+    assert msg.tool_calls is not None
+    assert len(msg.tool_calls) == 1
+    assert msg.tool_calls[0].id == "call_abc"
+    assert msg.tool_calls[0].function.name == "get_weather"
 
 
 def test_message_tool_message_has_tool_call_id():
@@ -1047,7 +1056,7 @@ def test_message_tool_message_has_tool_call_id():
 
 def test_message_rejects_none_content_without_tool_calls():
     """A message must have at least one of content or tool_calls."""
-    with pytest.raises(ValueError, match="at least one of `content` or `tool_calls`"):
+    with pytest.raises(ValueError, match="at least one of `content`"):
         Message(role=Role.ASSISTANT)
 
 
@@ -1059,7 +1068,8 @@ def test_message_allows_content_with_tool_calls():
         tool_calls=[_TOOL_CALL],
     )
     assert msg.content == "Let me check that for you."
-    assert msg.tool_calls == [_TOOL_CALL]
+    assert msg.tool_calls is not None
+    assert msg.tool_calls[0].function.name == "get_weather"
 
 
 def test_conversation_accepts_top_level_tools():
@@ -1068,7 +1078,9 @@ def test_conversation_accepts_top_level_tools():
         messages=[Message(role=Role.USER, content="Hi")],
         tools=[_TOOL_DEF_GET_WEATHER],
     )
-    assert conv.tools == [_TOOL_DEF_GET_WEATHER]
+    assert conv.tools is not None
+    assert len(conv.tools) == 1
+    assert conv.tools[0].function.name == "get_weather"
 
 
 def test_conversation_to_dict_includes_tools():
@@ -1079,7 +1091,8 @@ def test_conversation_to_dict_includes_tools():
     )
     data = conv.to_dict()
     assert "tools" in data
-    assert data["tools"] == [_TOOL_DEF_GET_WEATHER]
+    # to_dict() emits dict wire format regardless of typed-class storage.
+    assert data["tools"] == [_TOOL_DEF_GET_WEATHER_DICT]
 
 
 def test_conversation_to_dict_omits_tools_when_absent():
@@ -1105,7 +1118,7 @@ def test_conversation_to_dict_preserves_null_content_on_tool_call_message():
     # Tool-call message keeps `content` key with None value.
     assert "content" in msgs[1]
     assert msgs[1]["content"] is None
-    assert msgs[1]["tool_calls"] == [_TOOL_CALL]
+    assert msgs[1]["tool_calls"] == [_TOOL_CALL_DICT]
     # Tool response keeps tool_call_id.
     assert msgs[2]["tool_call_id"] == "call_abc"
     # Regular messages unaffected.
@@ -1136,7 +1149,7 @@ def test_conversation_roundtrip_openai_tool_format():
             {
                 "role": "assistant",
                 "content": None,
-                "tool_calls": [_TOOL_CALL],
+                "tool_calls": [_TOOL_CALL_DICT],
             },
             {
                 "role": "tool",
@@ -1145,18 +1158,21 @@ def test_conversation_roundtrip_openai_tool_format():
             },
             {"role": "assistant", "content": "It's 65 in SF."},
         ],
-        "tools": [_TOOL_DEF_GET_WEATHER],
+        "tools": [_TOOL_DEF_GET_WEATHER_DICT],
     }
     conv = Conversation.model_validate(raw)
-    assert conv.tools == [_TOOL_DEF_GET_WEATHER]
-    assert conv.messages[1].tool_calls == [_TOOL_CALL]
+    assert conv.tools is not None
+    assert conv.tools[0].function.name == "get_weather"
+    assert conv.messages[1].tool_calls is not None
+    assert conv.messages[1].tool_calls[0].id == "call_abc"
     assert conv.messages[1].content is None
     assert conv.messages[2].tool_call_id == "call_abc"
 
+    # to_dict() output is the dict wire format; compare directly.
     out = conv.to_dict()
     assert out["tools"] == raw["tools"]
     assert out["messages"][1]["content"] is None
-    assert out["messages"][1]["tool_calls"] == [_TOOL_CALL]
+    assert out["messages"][1]["tool_calls"] == [_TOOL_CALL_DICT]
     assert out["messages"][2]["tool_call_id"] == "call_abc"
 
 
@@ -1178,27 +1194,35 @@ def _typed_get_weather(city: str) -> str:
 
 
 def test_conversation_tools_accepts_callable_and_coerces_to_openai_dict():
-    """A callable tool input is converted to its OpenAI-schema dict at validation."""
+    """A callable tool input is converted to a ToolDefinition at validation."""
     conv = Conversation(
         messages=[Message(role=Role.USER, content="Weather?")],
-        tools=[_typed_get_weather],
+        tools=[_typed_get_weather],  # type: ignore[list-item]
     )
     assert conv.tools is not None
     assert len(conv.tools) == 1
-    assert isinstance(conv.tools[0], dict)
-    assert conv.tools[0] == get_json_schema(_typed_get_weather)
+    assert isinstance(conv.tools[0], ToolDefinition)
+    # The dumped form matches what get_json_schema produces.
+    assert conv.tools[0].model_dump(mode="json", exclude_none=True) == get_json_schema(
+        _typed_get_weather
+    )
 
 
 def test_conversation_tools_accepts_mixed_dicts_and_callables():
-    """Mixed input of dict + callable both end up as dicts after validation."""
-    conv = Conversation(
-        messages=[Message(role=Role.USER, content="Hi")],
-        tools=[_TOOL_DEF_GET_WEATHER, _typed_get_weather],
+    """Mixed input of dict + callable both end up as ToolDefinition instances."""
+    conv = Conversation.model_validate(
+        {
+            "messages": [{"role": "user", "content": "Hi"}],
+            # Mix dict input with a callable; the validator handles both.
+            "tools": [_TOOL_DEF_GET_WEATHER_DICT, _typed_get_weather],
+        }
     )
     assert conv.tools is not None
-    assert all(isinstance(tool, dict) for tool in conv.tools)
-    assert conv.tools[0] == _TOOL_DEF_GET_WEATHER
-    assert conv.tools[1] == get_json_schema(_typed_get_weather)
+    assert all(isinstance(tool, ToolDefinition) for tool in conv.tools)
+    assert conv.tools[0].function.name == "get_weather"
+    assert conv.tools[1].model_dump(mode="json", exclude_none=True) == get_json_schema(
+        _typed_get_weather
+    )
 
 
 def test_conversation_tools_callable_without_docstring_raises_clear_error():
@@ -1214,7 +1238,7 @@ def test_conversation_tools_callable_without_docstring_raises_clear_error():
     with pytest.raises(DocstringParsingException, match="docstring"):
         Conversation(
             messages=[Message(role=Role.USER, content="Hi")],
-            tools=[no_docstring_func],
+            tools=[no_docstring_func],  # type: ignore[list-item]
         )
 
 
@@ -1228,12 +1252,101 @@ def test_conversation_tools_rejects_non_dict_non_callable():
 
 
 def test_conversation_tools_callable_round_trips_via_to_dict():
-    """Construct with callable, dump to dict, reload — the dict form is stable."""
+    """Construct with callable, dump to dict, reload — the typed form is stable."""
     conv = Conversation(
         messages=[Message(role=Role.USER, content="Hi")],
-        tools=[_typed_get_weather],
+        tools=[_typed_get_weather],  # type: ignore[list-item]
     )
     dumped = conv.to_dict()
     restored = Conversation.from_dict(dumped)
-    assert restored.tools == conv.tools  # both are dict lists
-    assert all(isinstance(tool, dict) for tool in restored.tools or [])
+    # Both are list[ToolDefinition]; Pydantic's frozen-model __eq__ compares
+    # field values, so the typed objects compare equal across the round-trip.
+    assert restored.tools == conv.tools
+    assert all(isinstance(tool, ToolDefinition) for tool in restored.tools or [])
+
+
+# -----------------------------------------------------------------------------
+# Typed-class validation wins (the reason for the typed amendment)
+# -----------------------------------------------------------------------------
+
+
+def test_message_tool_call_missing_id_raises_at_construction():
+    """Pydantic catches a missing required field on ToolCall at construction."""
+    with pytest.raises(pydantic.ValidationError, match="id"):
+        Message.model_validate(
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {
+                        # missing "id"
+                        "type": "function",
+                        "function": {"name": "x", "arguments": "{}"},
+                    }
+                ],
+            }
+        )
+
+
+def test_tool_definition_missing_function_name_raises_at_construction():
+    """Pydantic catches a missing function.name on ToolDefinition at construction."""
+    with pytest.raises(pydantic.ValidationError, match="name"):
+        Conversation.model_validate(
+            {
+                "messages": [{"role": "user", "content": "Hi"}],
+                "tools": [{"type": "function", "function": {}}],
+            }
+        )
+
+
+def test_message_rejects_empty_tool_calls_with_none_content():
+    """Empty tool_calls list with no content is rejected with a sharper error."""
+    with pytest.raises(ValueError, match="non-empty"):
+        Message(role=Role.ASSISTANT, content=None, tool_calls=[])
+
+
+def test_to_dict_byte_identical_to_dict_input_for_tool_round_trip():
+    """Round-trip dict → Conversation → to_dict produces identical bytes.
+
+    Locks in the wire-format compatibility property the typed-class
+    amendment is meant to preserve: anything you load from JSONL dumps
+    back the same way, regardless of the typed storage shape.
+    """
+    raw = {
+        "messages": [
+            {"role": "user", "content": "Weather in SF?"},
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [_TOOL_CALL_DICT],
+            },
+            {
+                "role": "tool",
+                "content": '{"temp": 65}',
+                "tool_call_id": "call_abc",
+            },
+        ],
+        "tools": [_TOOL_DEF_GET_WEATHER_DICT],
+    }
+    assert Conversation.model_validate(raw).to_dict() == raw
+
+
+def test_typed_field_access_on_conversation_tools():
+    """The typed-class win: attribute access works without dict subscripts."""
+    conv = Conversation(
+        messages=[Message(role=Role.USER, content="x")],
+        tools=[_TOOL_DEF_GET_WEATHER],
+    )
+    assert conv.tools is not None
+    assert conv.tools[0].function.name == "get_weather"
+    assert conv.tools[0].function.parameters is not None
+    assert conv.tools[0].function.parameters["required"] == ["city"]
+
+
+def test_typed_field_access_on_message_tool_calls():
+    """The typed-class win: attribute access on tool_calls works the same way."""
+    msg = Message(role=Role.ASSISTANT, content=None, tool_calls=[_TOOL_CALL])
+    assert msg.tool_calls is not None
+    assert msg.tool_calls[0].id == "call_abc"
+    assert msg.tool_calls[0].function.name == "get_weather"
+    assert msg.tool_calls[0].function.arguments == '{"city": "SF"}'
