@@ -14,12 +14,15 @@
 
 """Tests for ConversationSynthesizer."""
 
+import json
 from unittest.mock import Mock, patch
 
 import pytest
 
+from oumi.core.configs.environment_config import EnvironmentConfig
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.inference_engine_type import InferenceEngineType
+from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.configs.params.remote_params import RemoteParams
@@ -29,7 +32,11 @@ from oumi.core.configs.params.synthesis_params import (
     SampledAttribute,
     SampledAttributeValue,
 )
-from oumi.core.configs.params.tool_params import ToolParams
+from oumi.core.configs.params.tool_params import (
+    DeterministicToolOutput,
+    ToolParams,
+    ToolSchema,
+)
 from oumi.core.synthesis.conversation_synthesizer import ConversationSynthesizer
 from oumi.core.types.conversation import (
     PLANNER_JSON_SCHEMA,
@@ -1581,3 +1588,712 @@ def test_warn_on_grounding_placeholder_no_warning_when_placeholder_absent(
         rec for rec in caplog.records if "grounding_facts" in rec.getMessage()
     ]
     assert grounding_warnings == []
+
+
+# ---------------------------------------------------------------------------
+# Tool-call loop tests
+# ---------------------------------------------------------------------------
+
+
+def _tool_env_params(*, tool_id: str = "lookup") -> EnvironmentParams:
+    """Build an EnvironmentParams wrapping a deterministic tool."""
+    return EnvironmentParams(
+        id="env1",
+        name="Env",
+        description="Test env",
+        env_type="deterministic",
+        tools=[
+            ToolParams(
+                id=tool_id,
+                name="Lookup",
+                description="Look up an id.",
+                deterministic_outputs=[
+                    DeterministicToolOutput(
+                        input={"id": "01"}, output={"status": "ok"}
+                    ),
+                ],
+            )
+        ],
+    )
+
+
+def _tool_env_config(*, tool_id: str = "lookup") -> EnvironmentConfig:
+    """Build an EnvironmentConfig wrapping a deterministic environment."""
+    return EnvironmentConfig(environments=[_tool_env_params(tool_id=tool_id)])
+
+
+def _typed_tool_env_config() -> EnvironmentConfig:
+    """Env with a typed parameter schema so we can exercise validation."""
+    env = EnvironmentParams(
+        id="env1",
+        name="Env",
+        description="Test env",
+        env_type="deterministic",
+        tools=[
+            ToolParams(
+                id="lookup",
+                name="Lookup",
+                description="Look up a policy.",
+                parameters=ToolSchema(
+                    type="object",
+                    properties={
+                        "policy_id": ToolSchema(type="string"),
+                        "limit": ToolSchema(type="integer"),
+                    },
+                    required=["policy_id"],
+                ),
+                deterministic_outputs=[
+                    DeterministicToolOutput(
+                        input={"policy_id": "p1", "limit": 5},
+                        output={"policy": "ok"},
+                    ),
+                ],
+            )
+        ],
+    )
+    return EnvironmentConfig(environments=[env])
+
+
+def _scripted_inference_engine(responses_per_call: list[list[str]]) -> Mock:
+    """Inference engine mock returning one batched response set per call."""
+    engine = Mock()
+    iterator = iter(responses_per_call)
+
+    def infer_side_effect(conversations, **kwargs):
+        batch = next(iterator)
+        assert len(batch) == len(conversations), (
+            f"scripted batch size {len(batch)} != prompt count {len(conversations)}"
+        )
+        return [
+            Conversation(messages=[Message(role=Role.ASSISTANT, content=text)])
+            for text in batch
+        ]
+
+    engine.infer.side_effect = infer_side_effect
+    return engine
+
+
+def _make_synthesizer(
+    mock_inference_config,
+    *,
+    environment_config: EnvironmentConfig | None = None,
+    inference_engine: Mock | None = None,
+) -> ConversationSynthesizer:
+    with patch(
+        "oumi.core.synthesis.conversation_synthesizer.build_inference_engine"
+    ) as mock_build:
+        mock_build.return_value = inference_engine or Mock()
+        return ConversationSynthesizer(
+            GeneralSynthesisParams(),
+            mock_inference_config,
+            environment_config=environment_config,
+        )
+
+
+def _tool_multiturn_attr(tool_id: str = "lookup", cap: int = 50) -> MultiTurnAttribute:
+    return MultiTurnAttribute(
+        id="tool_conv",
+        min_turns=2,
+        max_turns=2,
+        role_instruction_messages={
+            Role.USER: "You are a user.",
+            Role.ASSISTANT: "You are an assistant.",
+        },
+        available_environments=["env1"],
+        available_tools=[tool_id],
+        max_tool_calls_per_turn=cap,
+    )
+
+
+# --- _execute_tool_calls ---
+
+
+def test_execute_tool_calls_happy_path(mock_inference_config):
+    env_config = _tool_env_config()
+    synth = _make_synthesizer(mock_inference_config, environment_config=env_config)
+    dispatch = synth._build_tool_dispatch(_tool_multiturn_attr())
+    response = '<tool_call>{"name": "lookup", "arguments": {"id": "01"}}</tool_call>'
+
+    messages = synth._execute_tool_calls(response, dispatch)
+
+    assert len(messages) == 1
+    assert messages[0].role == Role.TOOL
+    assert json.loads(messages[0].content) == {"status": "ok"}
+
+
+def test_execute_tool_calls_multiple_blocks_in_order(mock_inference_config):
+    env_config = _tool_env_config()
+    synth = _make_synthesizer(mock_inference_config, environment_config=env_config)
+    dispatch = synth._build_tool_dispatch(_tool_multiturn_attr())
+    response = (
+        '<tool_call>{"name": "lookup", "arguments": {"id": "01"}}</tool_call>'
+        "some prose between"
+        '<tool_call>{"name": "lookup", "arguments": {"id": "99"}}</tool_call>'
+    )
+
+    messages = synth._execute_tool_calls(response, dispatch)
+
+    assert len(messages) == 2
+    assert json.loads(messages[0].content) == {"status": "ok"}
+    err = json.loads(messages[1].content)["error"]
+    assert "No deterministic output matches" in err
+    assert '"id": "01"' in err  # configured input is surfaced for self-correction
+
+
+def test_execute_tool_calls_passes_through_string_output(mock_inference_config):
+    from oumi.core.configs.params.tool_params import ToolResult
+
+    env_config = _tool_env_config()
+    synth = _make_synthesizer(mock_inference_config, environment_config=env_config)
+    dispatch = synth._build_tool_dispatch(_tool_multiturn_attr())
+    dispatch["lookup"].step = Mock(return_value=ToolResult(output="hello"))
+
+    messages = synth._execute_tool_calls(
+        '<tool_call>{"name": "lookup", "arguments": {"id": "01"}}</tool_call>',
+        dispatch,
+    )
+    assert messages[0].content == "hello"
+
+
+def test_execute_tool_calls_malformed_json(mock_inference_config):
+    synth = _make_synthesizer(
+        mock_inference_config, environment_config=_tool_env_config()
+    )
+    dispatch = synth._build_tool_dispatch(_tool_multiturn_attr())
+    messages = synth._execute_tool_calls("<tool_call>not json</tool_call>", dispatch)
+    assert len(messages) == 1
+    assert "Malformed" in json.loads(messages[0].content)["error"]
+
+
+def test_execute_tool_calls_non_object_body(mock_inference_config):
+    synth = _make_synthesizer(
+        mock_inference_config, environment_config=_tool_env_config()
+    )
+    dispatch = synth._build_tool_dispatch(_tool_multiturn_attr())
+    messages = synth._execute_tool_calls("<tool_call>[1, 2]</tool_call>", dispatch)
+    assert "must be a JSON object" in json.loads(messages[0].content)["error"]
+
+
+def test_execute_tool_calls_missing_name(mock_inference_config):
+    synth = _make_synthesizer(
+        mock_inference_config, environment_config=_tool_env_config()
+    )
+    dispatch = synth._build_tool_dispatch(_tool_multiturn_attr())
+    messages = synth._execute_tool_calls(
+        '<tool_call>{"arguments": {}}</tool_call>', dispatch
+    )
+    assert "missing 'name'" in json.loads(messages[0].content)["error"]
+
+
+def test_execute_tool_calls_non_dict_arguments(mock_inference_config):
+    synth = _make_synthesizer(
+        mock_inference_config, environment_config=_tool_env_config()
+    )
+    dispatch = synth._build_tool_dispatch(_tool_multiturn_attr())
+    messages = synth._execute_tool_calls(
+        '<tool_call>{"name": "lookup", "arguments": "oops"}</tool_call>', dispatch
+    )
+    assert "must be an object" in json.loads(messages[0].content)["error"]
+
+
+def test_execute_tool_calls_unknown_tool(mock_inference_config):
+    synth = _make_synthesizer(
+        mock_inference_config, environment_config=_tool_env_config()
+    )
+    dispatch = synth._build_tool_dispatch(_tool_multiturn_attr())
+    messages = synth._execute_tool_calls(
+        '<tool_call>{"name": "nope", "arguments": {}}</tool_call>', dispatch
+    )
+    assert "Unknown tool 'nope'" in json.loads(messages[0].content)["error"]
+
+
+def test_execute_tool_calls_missing_required_argument(mock_inference_config):
+    synth = _make_synthesizer(
+        mock_inference_config, environment_config=_typed_tool_env_config()
+    )
+    dispatch = synth._build_tool_dispatch(_tool_multiturn_attr())
+    messages = synth._execute_tool_calls(
+        '<tool_call>{"name": "lookup", "arguments": {"limit": 5}}</tool_call>', dispatch
+    )
+    err = json.loads(messages[0].content)["error"]
+    assert "Invalid arguments for tool 'lookup'" in err
+    assert "arguments.policy_id is required" in err
+
+
+def test_execute_tool_calls_wrong_argument_type(mock_inference_config):
+    synth = _make_synthesizer(
+        mock_inference_config, environment_config=_typed_tool_env_config()
+    )
+    dispatch = synth._build_tool_dispatch(_tool_multiturn_attr())
+    messages = synth._execute_tool_calls(
+        '<tool_call>{"name": "lookup", '
+        '"arguments": {"policy_id": "p1", "limit": "five"}}</tool_call>',
+        dispatch,
+    )
+    err = json.loads(messages[0].content)["error"]
+    assert "Invalid arguments for tool 'lookup'" in err
+    assert "arguments.limit must be an integer" in err
+
+
+def test_execute_tool_calls_validation_runs_before_env_step(mock_inference_config):
+    """Argument validation should short-circuit before hitting env.step()."""
+    env_config = _typed_tool_env_config()
+    synth = _make_synthesizer(mock_inference_config, environment_config=env_config)
+    dispatch = synth._build_tool_dispatch(_tool_multiturn_attr())
+    dispatch["lookup"].step = Mock(
+        side_effect=AssertionError("step() must not be called")
+    )
+
+    messages = synth._execute_tool_calls(
+        '<tool_call>{"name": "lookup", "arguments": {}}</tool_call>', dispatch
+    )
+
+    assert dispatch["lookup"].step.call_count == 0
+    assert "Invalid arguments" in json.loads(messages[0].content)["error"]
+
+
+def test_execute_tool_calls_valid_arguments_hit_env_step(mock_inference_config):
+    """Schema-valid arguments that miss the deterministic table still surface
+    a structured ToolLookupError — not a silent null output.
+    """
+    synth = _make_synthesizer(
+        mock_inference_config, environment_config=_typed_tool_env_config()
+    )
+    dispatch = synth._build_tool_dispatch(_tool_multiturn_attr())
+    messages = synth._execute_tool_calls(
+        '<tool_call>{"name": "lookup", '
+        '"arguments": {"policy_id": "unknown", "limit": 5}}</tool_call>',
+        dispatch,
+    )
+    err = json.loads(messages[0].content)["error"]
+    assert "No deterministic output matches" in err
+    assert '"policy_id": "p1"' in err  # existing configured input is surfaced
+
+
+def test_execute_tool_calls_env_raises(mock_inference_config):
+    env_config = _tool_env_config()
+    synth = _make_synthesizer(mock_inference_config, environment_config=env_config)
+    dispatch = synth._build_tool_dispatch(_tool_multiturn_attr())
+    dispatch["lookup"].step = Mock(side_effect=RuntimeError("boom"))
+    messages = synth._execute_tool_calls(
+        '<tool_call>{"name": "lookup", "arguments": {}}</tool_call>', dispatch
+    )
+    assert "Tool 'lookup' raised" in json.loads(messages[0].content)["error"]
+    assert "boom" in json.loads(messages[0].content)["error"]
+
+
+def test_execute_tool_calls_no_block_returns_empty(mock_inference_config):
+    synth = _make_synthesizer(
+        mock_inference_config, environment_config=_tool_env_config()
+    )
+    dispatch = synth._build_tool_dispatch(_tool_multiturn_attr())
+    assert synth._execute_tool_calls("just plain prose", dispatch) == []
+
+
+def test_is_final_response_detects_tool_call(mock_inference_config):
+    synth = _make_synthesizer(
+        mock_inference_config, environment_config=_tool_env_config()
+    )
+    assert synth._is_final_response("answer to user") is True
+    assert (
+        synth._is_final_response(
+            'chatty <tool_call>{"name": "lookup", "arguments": {}}</tool_call>'
+        )
+        is False
+    )
+
+
+# --- _run_assistant_turn ---
+
+
+def test_run_assistant_turn_lockstep_final_response(mock_inference_config):
+    env_config = _tool_env_config()
+    engine = _scripted_inference_engine([["final answer A", "final answer B"]])
+    synth = _make_synthesizer(
+        mock_inference_config, environment_config=env_config, inference_engine=engine
+    )
+    dispatch = synth._build_tool_dispatch(_tool_multiturn_attr())
+
+    samples = [
+        {"target_turns": 2, "parsed_turn_plans": ["", ""]},
+        {"target_turns": 2, "parsed_turn_plans": ["", ""]},
+    ]
+    msgs = synth._run_assistant_turn(
+        samples=samples,
+        sample_indices=[0, 1],
+        histories=[[], []],
+        current_turn=2,
+        multiturn_attribute=_tool_multiturn_attr(),
+        tool_dispatch=dispatch,
+    )
+
+    assert engine.infer.call_count == 1
+    assert len(msgs) == 2
+    assert len(msgs[0]) == 1
+    assert msgs[0][0].role == Role.ASSISTANT
+    assert msgs[0][0].content == "final answer A"
+    assert msgs[1][0].content == "final answer B"
+
+
+def test_run_assistant_turn_asymmetric_batches(mock_inference_config):
+    env_config = _tool_env_config()
+    engine = _scripted_inference_engine(
+        [
+            [  # iteration 1: sample 0 finalizes, sample 1 calls tool
+                "done!",
+                '<tool_call>{"name": "lookup", "arguments": {"id": "01"}}</tool_call>',
+            ],
+            [  # iteration 2: only sample 1 re-enters the batch
+                "final for sample 1",
+            ],
+        ]
+    )
+    synth = _make_synthesizer(
+        mock_inference_config, environment_config=env_config, inference_engine=engine
+    )
+    dispatch = synth._build_tool_dispatch(_tool_multiturn_attr())
+    msgs = synth._run_assistant_turn(
+        samples=[
+            {"target_turns": 2, "parsed_turn_plans": ["", ""]},
+            {"target_turns": 2, "parsed_turn_plans": ["", ""]},
+        ],
+        sample_indices=[0, 1],
+        histories=[[], []],
+        current_turn=2,
+        multiturn_attribute=_tool_multiturn_attr(),
+        tool_dispatch=dispatch,
+    )
+
+    assert engine.infer.call_count == 2
+    assert len(msgs[0]) == 1
+    assert msgs[0][0].content == "done!"
+    assert [m.role for m in msgs[1]] == [Role.ASSISTANT, Role.TOOL, Role.ASSISTANT]
+    assert json.loads(msgs[1][1].content) == {"status": "ok"}
+    assert msgs[1][2].content == "final for sample 1"
+
+
+def test_run_assistant_turn_multiple_tool_calls_one_response(mock_inference_config):
+    env_config = _tool_env_config()
+    engine = _scripted_inference_engine(
+        [
+            [
+                '<tool_call>{"name": "lookup", "arguments": {"id": "01"}}</tool_call>'
+                '<tool_call>{"name": "lookup", "arguments": {"id": "01"}}</tool_call>'
+            ],
+            ["all done"],
+        ]
+    )
+    synth = _make_synthesizer(
+        mock_inference_config, environment_config=env_config, inference_engine=engine
+    )
+    dispatch = synth._build_tool_dispatch(_tool_multiturn_attr())
+    msgs = synth._run_assistant_turn(
+        samples=[{"target_turns": 2, "parsed_turn_plans": ["", ""]}],
+        sample_indices=[0],
+        histories=[[]],
+        current_turn=2,
+        multiturn_attribute=_tool_multiturn_attr(),
+        tool_dispatch=dispatch,
+    )
+    roles = [m.role for m in msgs[0]]
+    assert roles == [Role.ASSISTANT, Role.TOOL, Role.TOOL, Role.ASSISTANT]
+    assert msgs[0][-1].content == "all done"
+
+
+def test_run_assistant_turn_cap_hit_forces_finalize(mock_inference_config):
+    env_config = _tool_env_config()
+    tool_call = '<tool_call>{"name": "lookup", "arguments": {"id": "01"}}</tool_call>'
+    engine = _scripted_inference_engine(
+        [
+            [tool_call],
+            ["forced final answer"],
+        ]
+    )
+    synth = _make_synthesizer(
+        mock_inference_config, environment_config=env_config, inference_engine=engine
+    )
+    attr = _tool_multiturn_attr(cap=1)
+    dispatch = synth._build_tool_dispatch(attr)
+    msgs = synth._run_assistant_turn(
+        samples=[{"target_turns": 2, "parsed_turn_plans": ["", ""]}],
+        sample_indices=[0],
+        histories=[[]],
+        current_turn=2,
+        multiturn_attribute=attr,
+        tool_dispatch=dispatch,
+    )
+
+    assert engine.infer.call_count == 2
+    second_call_conv = engine.infer.call_args_list[1].args[0][0]
+    assert "tool-call limit" in second_call_conv.messages[-1].content
+    assert [m.role for m in msgs[0]] == [Role.ASSISTANT, Role.TOOL, Role.ASSISTANT]
+    assert msgs[0][-1].content == "forced final answer"
+
+
+def test_run_assistant_turn_cap_hit_strips_residual_tool_calls(mock_inference_config):
+    env_config = _tool_env_config()
+    engine = _scripted_inference_engine(
+        [
+            ['<tool_call>{"name": "lookup", "arguments": {"id": "01"}}</tool_call>'],
+            [
+                "leftover prose "
+                '<tool_call>{"name": "lookup", "arguments": {}}</tool_call>'
+                " tail"
+            ],
+        ]
+    )
+    synth = _make_synthesizer(
+        mock_inference_config, environment_config=env_config, inference_engine=engine
+    )
+    attr = _tool_multiturn_attr(cap=1)
+    dispatch = synth._build_tool_dispatch(attr)
+    msgs = synth._run_assistant_turn(
+        samples=[{"target_turns": 2, "parsed_turn_plans": ["", ""]}],
+        sample_indices=[0],
+        histories=[[]],
+        current_turn=2,
+        multiturn_attribute=attr,
+        tool_dispatch=dispatch,
+    )
+    final = msgs[0][-1]
+    assert final.role == Role.ASSISTANT
+    assert "<tool_call>" not in final.content
+    assert "leftover prose" in final.content
+    assert "tail" in final.content
+
+
+def test_run_assistant_turn_cap_hit_only_tool_calls_yields_empty_final(
+    mock_inference_config,
+):
+    env_config = _tool_env_config()
+    engine = _scripted_inference_engine(
+        [
+            ['<tool_call>{"name": "lookup", "arguments": {"id": "01"}}</tool_call>'],
+            ['<tool_call>{"name": "lookup", "arguments": {}}</tool_call>'],
+        ]
+    )
+    synth = _make_synthesizer(
+        mock_inference_config, environment_config=env_config, inference_engine=engine
+    )
+    attr = _tool_multiturn_attr(cap=1)
+    dispatch = synth._build_tool_dispatch(attr)
+    msgs = synth._run_assistant_turn(
+        samples=[{"target_turns": 2, "parsed_turn_plans": ["", ""]}],
+        sample_indices=[0],
+        histories=[[]],
+        current_turn=2,
+        multiturn_attribute=attr,
+        tool_dispatch=dispatch,
+    )
+    assert msgs[0][-1].content == ""
+
+
+def test_run_assistant_turn_self_corrects_after_tool_error(mock_inference_config):
+    """Model receives a structured tool error and recovers on next iteration."""
+    env_config = _tool_env_config()
+    engine = _scripted_inference_engine(
+        [
+            ['<tool_call>{"name": "lookup", "arguments": {"id": "99"}}</tool_call>'],
+            ['<tool_call>{"name": "lookup", "arguments": {"id": "01"}}</tool_call>'],
+            ["The lookup succeeded: status ok."],
+        ]
+    )
+    synth = _make_synthesizer(
+        mock_inference_config, environment_config=env_config, inference_engine=engine
+    )
+    dispatch = synth._build_tool_dispatch(_tool_multiturn_attr())
+
+    msgs = synth._run_assistant_turn(
+        samples=[{"target_turns": 2, "parsed_turn_plans": ["", ""]}],
+        sample_indices=[0],
+        histories=[[]],
+        current_turn=2,
+        multiturn_attribute=_tool_multiturn_attr(),
+        tool_dispatch=dispatch,
+    )
+
+    assert engine.infer.call_count == 3
+    sample_msgs = msgs[0]
+    roles = [m.role for m in sample_msgs]
+    assert roles == [
+        Role.ASSISTANT,
+        Role.TOOL,
+        Role.ASSISTANT,
+        Role.TOOL,
+        Role.ASSISTANT,
+    ]
+
+    first_tool_payload = json.loads(sample_msgs[1].content)
+    assert "error" in first_tool_payload
+    assert "No deterministic output matches" in first_tool_payload["error"]
+
+    assert json.loads(sample_msgs[3].content) == {"status": "ok"}
+    assert sample_msgs[-1].content == "The lookup succeeded: status ok."
+
+
+def test_run_assistant_turn_self_corrects_after_invalid_arguments(
+    mock_inference_config,
+):
+    """Schema-level validation error is surfaced, then model corrects."""
+    env_config = _typed_tool_env_config()
+    engine = _scripted_inference_engine(
+        [
+            ['<tool_call>{"name": "lookup", "arguments": {}}</tool_call>'],
+            [
+                '<tool_call>{"name": "lookup", '
+                '"arguments": {"policy_id": "p1", "limit": 5}}</tool_call>'
+            ],
+            ["Policy looks good."],
+        ]
+    )
+    synth = _make_synthesizer(
+        mock_inference_config, environment_config=env_config, inference_engine=engine
+    )
+    dispatch = synth._build_tool_dispatch(_tool_multiturn_attr())
+
+    msgs = synth._run_assistant_turn(
+        samples=[{"target_turns": 2, "parsed_turn_plans": ["", ""]}],
+        sample_indices=[0],
+        histories=[[]],
+        current_turn=2,
+        multiturn_attribute=_tool_multiturn_attr(),
+        tool_dispatch=dispatch,
+    )
+
+    assert engine.infer.call_count == 3
+    sample_msgs = msgs[0]
+    roles = [m.role for m in sample_msgs]
+    assert roles == [
+        Role.ASSISTANT,
+        Role.TOOL,
+        Role.ASSISTANT,
+        Role.TOOL,
+        Role.ASSISTANT,
+    ]
+
+    first_tool_payload = json.loads(sample_msgs[1].content)
+    assert "error" in first_tool_payload
+    assert "Invalid arguments for tool 'lookup'" in first_tool_payload["error"]
+    assert "arguments.policy_id is required" in first_tool_payload["error"]
+
+    assert json.loads(sample_msgs[3].content) == {"policy": "ok"}
+    assert sample_msgs[-1].content == "Policy looks good."
+
+
+# --- end-to-end synthesize with tools ---
+
+
+def test_synthesize_end_to_end_with_tool_use(mock_inference_config):
+    env_config = _tool_env_config()
+    plan_json = (
+        '[{"turn": 1, "instruction": "ask"}, {"turn": 2, "instruction": "answer"}]'
+    )
+    engine = _scripted_inference_engine(
+        [
+            [plan_json],
+            ["What is the status of order 01?"],
+            ['<tool_call>{"name": "lookup", "arguments": {"id": "01"}}</tool_call>'],
+            ["The order is ok."],
+        ]
+    )
+    synth = _make_synthesizer(
+        mock_inference_config, environment_config=env_config, inference_engine=engine
+    )
+
+    attr = MultiTurnAttribute(
+        id="tool_conv",
+        min_turns=2,
+        max_turns=2,
+        role_instruction_messages={
+            Role.USER: "You are a user.",
+            Role.ASSISTANT: "You are an assistant.",
+        },
+        available_environments=["env1"],
+        available_tools=["lookup"],
+    )
+
+    records = synth.synthesize([{}], attr)
+
+    assert len(records) == 1
+    assert records[0] is not None
+    conv = records[0]["tool_conv"]
+    assert isinstance(conv, dict)
+    roles = [m["role"] for m in conv["messages"]]
+    assert roles == [Role.USER, Role.ASSISTANT, Role.TOOL, Role.ASSISTANT]
+    assert conv["messages"][-1]["content"] == "The order is ok."
+
+
+def test_synthesize_drops_sample_when_cap_hit_produces_empty_final(
+    mock_inference_config,
+):
+    env_config = _tool_env_config()
+    plan_json = (
+        '[{"turn": 1, "instruction": "ask"}, {"turn": 2, "instruction": "answer"}]'
+    )
+    tool_call = '<tool_call>{"name": "lookup", "arguments": {"id": "01"}}</tool_call>'
+    engine = _scripted_inference_engine(
+        [
+            [plan_json],
+            ["ask"],
+            [tool_call],
+            [tool_call],
+        ]
+    )
+    synth = _make_synthesizer(
+        mock_inference_config, environment_config=env_config, inference_engine=engine
+    )
+    attr = MultiTurnAttribute(
+        id="tool_conv",
+        min_turns=2,
+        max_turns=2,
+        role_instruction_messages={
+            Role.USER: "You are a user.",
+            Role.ASSISTANT: "You are an assistant.",
+        },
+        available_environments=["env1"],
+        available_tools=["lookup"],
+        max_tool_calls_per_turn=1,
+    )
+
+    records = synth.synthesize([{}], attr)
+    assert records == [None]
+
+
+def test_synthesize_raises_when_tools_declared_without_env_config(
+    mock_inference_config,
+):
+    """available_tools without environment_config must fail loudly."""
+    synth = _make_synthesizer(mock_inference_config)
+    attr = MultiTurnAttribute(
+        id="tool_conv",
+        min_turns=2,
+        max_turns=2,
+        role_instruction_messages={
+            Role.USER: "You are a user.",
+            Role.ASSISTANT: "You are an assistant.",
+        },
+        available_tools=["lookup"],
+    )
+
+    with pytest.raises(ValueError, match="available_tools"):
+        synth.synthesize([{}], attr)
+
+
+def test_synthesize_raises_when_environments_declared_without_env_config(
+    mock_inference_config,
+):
+    """available_environments without environment_config must fail loudly."""
+    synth = _make_synthesizer(mock_inference_config)
+    attr = MultiTurnAttribute(
+        id="tool_conv",
+        min_turns=2,
+        max_turns=2,
+        role_instruction_messages={
+            Role.USER: "You are a user.",
+            Role.ASSISTANT: "You are an assistant.",
+        },
+        available_environments=["env1"],
+    )
+
+    with pytest.raises(ValueError, match="environment_config"):
+        synth.synthesize([{}], attr)
