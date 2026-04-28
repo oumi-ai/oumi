@@ -2548,3 +2548,95 @@ def test_synthesize_raises_when_environments_declared_without_env_config(
 
     with pytest.raises(ValueError, match="environment_config"):
         synth.synthesize([{}], attr)
+
+
+# --- Regression + integration: planner prompt byte-equivalence when ungrounded ---
+
+
+def test_create_planner_prompt_byte_identical_when_no_grounding(
+    mock_inference_config,
+):
+    """Regression: when no env in scope has grounding, planner prompt is
+    unchanged from the pre-grounding baseline.
+    """
+    env_config = _tool_env_config()
+    synth = _make_synthesizer(mock_inference_config, environment_config=env_config)
+    attr = _tool_multiturn_attr()
+    sample = {
+        "target_turns": 2,
+        "conversation_plan": "",
+        "parsed_turn_plans": [""] * 2,
+    }
+
+    conversation = synth._create_planner_prompt(attr, sample)
+    planner_user_msg = conversation.messages[-1].content
+    assert isinstance(planner_user_msg, str)
+
+    # Real-text grounding markers must be absent. The strict-rules version of
+    # the example_request still mentions "Ground this plan" once as part of
+    # the few-shot demo, but the runtime base prompt must not include the
+    # grounded section.
+    assert "spell out the concrete identifier verbatim" not in planner_user_msg
+    assert "user persona cannot see this list" not in planner_user_msg
+    assert "{grounding_facts}" not in planner_user_msg
+
+
+def test_end_to_end_grounded_conversation_uses_sampled_entity_ids(
+    mock_inference_config,
+):
+    """Full synthesize() flow: grounded planner prompt drives the plan
+    through a scripted inference engine, confirming the facts make it all
+    the way into the planner call.
+    """
+    env_config = _grounded_env_config(n_entries=10, sample_size=3, seed=13)
+
+    captured_planner_prompts: list[str] = []
+
+    def infer_side_effect(conversations, **kwargs):
+        results = []
+        for conv in conversations:
+            last = conv.messages[-1].content
+            is_planner = isinstance(last, str) and "Plan" in last
+            if is_planner:
+                captured_planner_prompts.append(last)
+                content = (
+                    '[{"turn": 1, "instruction": "a"}, {"turn": 2, "instruction": "b"}]'
+                )
+            else:
+                content = "turn content"
+            results.append(
+                Conversation(messages=[Message(role=Role.ASSISTANT, content=content)])
+            )
+        return results
+
+    engine = Mock()
+    engine.infer.side_effect = infer_side_effect
+
+    synth = _make_synthesizer(
+        mock_inference_config,
+        environment_config=env_config,
+        inference_engine=engine,
+    )
+    attr = MultiTurnAttribute(
+        id="t",
+        min_turns=2,
+        max_turns=2,
+        role_instruction_messages={
+            Role.USER: "You are a user.",
+            Role.ASSISTANT: "You are an assistant.",
+        },
+        available_environments=["env1"],
+        available_tools=["lookup"],
+    )
+    samples = [{}]
+    synth.synthesize(samples, attr)
+
+    assert captured_planner_prompts, "planner prompt was never captured"
+    planner_prompt = captured_planner_prompts[0]
+    assert "Ground this plan in these specific entities" in planner_prompt
+    configured_ids = {str(i) for i in range(10)}
+    facts = samples[0]["grounding_facts"]
+    for fact in facts:
+        fact_id = fact.data["id"]
+        assert fact_id in configured_ids
+        assert f'id="{fact_id}"' in planner_prompt
