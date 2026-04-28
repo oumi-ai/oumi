@@ -14,24 +14,16 @@
 
 """Fireworks-specific typed errors and 4xx classifier.
 
-These subclass :class:`oumi.deploy.errors.DeployInvalidRequestError` so
-consumers can still catch the generic base, but they expose Fireworks-only
-failure modes that are detected via Fireworks-specific detail strings.
+Two patterns:
 
-Add new Fireworks error types here as they're discovered. Each new type
-needs:
-
-1. A subclass of :class:`DeployInvalidRequestError` below.
-2. A signature check in :func:`classify_fireworks_invalid_request`.
-3. One unit test for the classifier (detail string → class) in
-   ``tests/unit/deploy/test_fireworks_errors.py``.
-
-The classifier is wired into :class:`FireworksDeploymentClient` via the
-``classify_4xx`` hook on :func:`oumi.deploy.utils.check_response`, so no
-shared-module changes are required when extending.
+- 400/422: subclass :class:`DeployInvalidRequestError`, routed by
+  :func:`classify_fireworks_invalid_request` (used as the ``classify_4xx``
+  hook in :func:`oumi.deploy.utils.check_response`).
+- Other 4xx (e.g. 409): subclass :class:`DeployApiError` and raise
+  inline from the client where the status is detected.
 """
 
-from oumi.deploy.errors import DeployInvalidRequestError
+from oumi.deploy.errors import DeployApiError, DeployInvalidRequestError
 
 
 class FireworksUnsupportedHardwareError(DeployInvalidRequestError):
@@ -55,6 +47,16 @@ class FireworksAdapterMismatchError(DeployInvalidRequestError):
     """HTTP 400 — Fireworks rejected an adapter mismatched with its base model.
 
     Detected on responses whose detail begins with ``"LoRA validation failed"``.
+    """
+
+
+class FireworksConflictError(DeployApiError):
+    """HTTP 409 — model resource already exists on Fireworks.
+
+    Concurrent callers that hit ``POST /v1/accounts/{id}/models`` for the
+    same model ID race; the loser sees 409. Catch this to wait for the
+    winner (e.g. poll :meth:`FireworksDeploymentClient.get_model`) instead
+    of retrying.
     """
 
 

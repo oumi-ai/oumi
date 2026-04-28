@@ -56,7 +56,10 @@ from oumi.deploy.fireworks_api import (
     GatewayPEFTDetails,
     GatewayPrepareModelBody,
 )
-from oumi.deploy.fireworks_errors import classify_fireworks_invalid_request
+from oumi.deploy.fireworks_errors import (
+    FireworksConflictError,
+    classify_fireworks_invalid_request,
+)
 from oumi.deploy.utils import raise_api_error
 
 logger = logging.getLogger(__name__)
@@ -738,17 +741,23 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         )
 
         if response.is_error:
+            if response.status_code == 409:
+                # Benign under concurrency: another caller created the same
+                # model first. Surface as a typed error so the caller can handle
+                # it accordingly.
+                logger.info("Model '%s' already exists (409).", model_id)
+                raise FireworksConflictError(
+                    detail=response.text or "model already exists",
+                    status_code=409,
+                    method="POST",
+                    url=str(response.request.url),
+                    context=f"create model resource '{model_id}'",
+                )
             logger.error(
                 "Fireworks API error response (HTTP %d): %s",
                 response.status_code,
                 response.text,
             )
-            if response.status_code == 409:
-                logger.error(
-                    "Model ID '%s' already exists. "
-                    "Delete it manually or use a different name.",
-                    model_id,
-                )
             self._check_response(response, f"create model resource '{model_id}'")
 
         created = GatewayModel.model_validate(response.json())
