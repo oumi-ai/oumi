@@ -31,7 +31,7 @@ from oumi.core.configs.params.synthesis_params import (
 from oumi.core.configs.params.tool_params import ToolParams
 from oumi.core.synthesis.attribute_formatter import AttributeFormatter
 from oumi.core.types.conversation import Conversation, Message, Role
-from oumi.environments import DeterministicToolOutput
+from oumi.environments import GroundingFact
 from oumi.environments.base_environment import BaseEnvironment
 from oumi.utils.logging import logger
 from oumi.utils.str_utils import extract_json
@@ -794,7 +794,7 @@ class ConversationSynthesizer:
 
         warned_envs: set[str] = set()
         for sample_index, sample in enumerate(samples):
-            facts: list[DeterministicToolOutput] = []
+            facts: list[GroundingFact] = []
             for env_params, env_runtime in grounding_env_pairs:
                 grounding = env_params.grounding
                 assert grounding is not None  # filtered above

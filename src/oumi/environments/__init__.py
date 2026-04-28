@@ -18,7 +18,10 @@ Importing this package populates the environment registry by triggering each
 concrete environment's `@register_environment(...)` decorator.
 """
 
-from oumi.core.configs.params.grounding_params import GroundingConfig
+from oumi.core.configs.params.grounding_params import (
+    GroundingConfig,
+    GroundingFact,
+)
 from oumi.core.configs.params.tool_params import (
     ToolArgumentError,
     ToolError,
@@ -49,6 +52,7 @@ __all__ = [
     "DeterministicTool",
     "DeterministicToolOutput",
     "GroundingConfig",
+    "GroundingFact",
     "SyntheticEnvironment",
     "SyntheticEnvironmentKwargs",
     "SyntheticStateParams",

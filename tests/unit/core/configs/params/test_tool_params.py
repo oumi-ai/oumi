@@ -338,50 +338,32 @@ def test_describe_grounding_default_empty():
 
 
 def test_describe_grounding_default_single_fact():
+    from oumi.core.configs.params.grounding_params import GroundingFact
     from oumi.environments.utils import describe_grounding_default
 
-    facts = [
-        DeterministicToolOutput(
-            input={"id": "42"}, output={"title": "Dune", "year": 1965}
-        )
-    ]
+    facts = [GroundingFact(data={"id": "42", "title": "Dune", "year": 1965})]
     rendered = describe_grounding_default(facts)
     assert rendered == '- id="42", title="Dune", year=1965'
 
 
 def test_describe_grounding_default_multi_fact_preserves_order():
+    from oumi.core.configs.params.grounding_params import GroundingFact
     from oumi.environments.utils import describe_grounding_default
 
     facts = [
-        DeterministicToolOutput(input={"id": "7"}, output={"title": "LotR"}),
-        DeterministicToolOutput(input={"id": "42"}, output={"title": "Dune"}),
+        GroundingFact(data={"id": "7", "title": "LotR"}),
+        GroundingFact(data={"id": "42", "title": "Dune"}),
     ]
     rendered = describe_grounding_default(facts)
     assert rendered == ('- id="7", title="LotR"\n- id="42", title="Dune"')
 
 
-def test_describe_grounding_default_output_wins_on_key_conflict():
-    from oumi.environments.utils import describe_grounding_default
-
-    facts = [
-        DeterministicToolOutput(
-            input={"id": "1", "note": "input-note"},
-            output={"note": "output-note"},
-        )
-    ]
-    rendered = describe_grounding_default(facts)
-    assert 'note="output-note"' in rendered
-    assert "input-note" not in rendered
-
-
 def test_describe_grounding_default_handles_non_string_values():
+    from oumi.core.configs.params.grounding_params import GroundingFact
     from oumi.environments.utils import describe_grounding_default
 
     facts = [
-        DeterministicToolOutput(
-            input={"id": 42},
-            output={"available": True, "count": 3, "rating": 4.5},
-        )
+        GroundingFact(data={"id": 42, "available": True, "count": 3, "rating": 4.5})
     ]
     rendered = describe_grounding_default(facts)
     assert "id=42" in rendered

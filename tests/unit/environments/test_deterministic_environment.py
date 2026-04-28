@@ -15,6 +15,7 @@
 import pytest
 
 from oumi.core.configs.params.environment_params import EnvironmentParams
+from oumi.core.configs.params.grounding_params import GroundingFact
 from oumi.core.configs.params.tool_params import ToolLookupError, ToolResult
 from oumi.environments.deterministic_environment import (
     DeterministicEnvironment,
@@ -178,7 +179,39 @@ def test_sample_grounding_returns_n_facts():
     facts = env.sample_grounding(n=3, rng=random.Random(0))
     assert len(facts) == 3
     for fact in facts:
-        assert isinstance(fact, DeterministicToolOutput)
+        assert isinstance(fact, GroundingFact)
+        assert "id" in fact.data
+        assert "title" in fact.data
+
+
+def test_sample_grounding_merges_input_and_output_into_data():
+    import random
+
+    # Override-on-conflict: output values win over input values for matching keys.
+    env = DeterministicEnvironment.from_params(
+        _make_params(
+            tools=[
+                ToolParams(
+                    id="lookup",
+                    name="Lookup",
+                    description="Look up.",
+                    deterministic_outputs=[
+                        DeterministicToolOutput(
+                            input={"id": "1", "note": "input-note"},
+                            output={"note": "output-note", "title": "Dune"},
+                        ),
+                    ],
+                )
+            ]
+        )
+    )
+    facts = env.sample_grounding(n=1, rng=random.Random(0))
+    assert len(facts) == 1
+    assert facts[0].data == {
+        "id": "1",
+        "note": "output-note",  # output wins on key collision
+        "title": "Dune",
+    }
 
 
 def test_sample_grounding_no_replacement_within_call():
@@ -186,7 +219,7 @@ def test_sample_grounding_no_replacement_within_call():
 
     env = _det_env_with_n_entries(10)
     facts = env.sample_grounding(n=5, rng=random.Random(0))
-    ids = [fact.input["id"] for fact in facts]
+    ids = [fact.data["id"] for fact in facts]
     assert len(set(ids)) == len(ids)
 
 
@@ -204,8 +237,8 @@ def test_sample_grounding_seeded_rng_is_reproducible():
     env = _det_env_with_n_entries(20)
     facts_a = env.sample_grounding(n=4, rng=random.Random(42))
     facts_b = env.sample_grounding(n=4, rng=random.Random(42))
-    ids_a = [fact.input["id"] for fact in facts_a]
-    ids_b = [fact.input["id"] for fact in facts_b]
+    ids_a = [fact.data["id"] for fact in facts_a]
+    ids_b = [fact.data["id"] for fact in facts_b]
     assert ids_a == ids_b
 
 
@@ -215,8 +248,8 @@ def test_sample_grounding_different_seeds_differ():
     env = _det_env_with_n_entries(20)
     facts_a = env.sample_grounding(n=4, rng=random.Random(1))
     facts_b = env.sample_grounding(n=4, rng=random.Random(999))
-    ids_a = sorted(fact.input["id"] for fact in facts_a)
-    ids_b = sorted(fact.input["id"] for fact in facts_b)
+    ids_a = sorted(fact.data["id"] for fact in facts_a)
+    ids_b = sorted(fact.data["id"] for fact in facts_b)
     # With 20 entries and 4 picks, collision on both sets is vanishingly small.
     assert ids_a != ids_b
 
@@ -248,5 +281,5 @@ def test_sample_grounding_pools_across_tools():
     env = DeterministicEnvironment.from_params(params)
     facts = env.sample_grounding(n=3, rng=random.Random(0))
     assert len(facts) == 3
-    keys = sorted(fact.input["k"] for fact in facts)
+    keys = sorted(fact.data["k"] for fact in facts)
     assert keys == ["a1", "b1", "b2"]

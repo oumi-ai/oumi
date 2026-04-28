@@ -23,6 +23,7 @@ from typing import Any
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.environment_params import EnvironmentParams
+from oumi.core.configs.params.grounding_params import GroundingFact
 from oumi.core.configs.params.tool_params import ToolLookupError, ToolResult
 from oumi.core.registry import register_environment
 from oumi.environments.base_environment import BaseEnvironment
@@ -127,17 +128,20 @@ class DeterministicEnvironment(BaseEnvironment):
             f"Available tools: {[tool.id for tool in self._params.tools]}"
         )
 
-    def sample_grounding(
-        self, n: int, *, rng: random.Random
-    ) -> list[DeterministicToolOutput]:
+    def sample_grounding(self, n: int, *, rng: random.Random) -> list[GroundingFact]:
         """Sample grounding facts from the pool of deterministic outputs.
 
         Pools every ``DeterministicToolOutput`` across every tool owned by
-        this environment, then draws ``min(n, len(pool))`` entries without
-        replacement using the supplied RNG. Silent truncation — the
-        synthesizer is responsible for surfacing a warning when applicable.
+        this environment, draws ``min(n, len(pool))`` entries without
+        replacement using the supplied RNG, and converts each entry into a
+        ``GroundingFact`` by flattening its ``input`` and ``output`` dicts
+        (output wins on key collisions). Silent truncation — the synthesizer
+        is responsible for surfacing a warning when applicable.
         """
         pool: list[DeterministicToolOutput] = [
             entry for tool in self._params.tools for entry in tool.deterministic_outputs
         ]
-        return rng.sample(pool, min(n, len(pool)))
+        sampled = rng.sample(pool, min(n, len(pool)))
+        return [
+            GroundingFact(data={**entry.input, **entry.output}) for entry in sampled
+        ]

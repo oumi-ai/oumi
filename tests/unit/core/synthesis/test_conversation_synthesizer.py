@@ -1218,7 +1218,7 @@ def test_attach_grounding_facts_noop_when_no_env_has_grounding(
 
 
 def test_attach_grounding_facts_populates_samples(mock_inference_config):
-    from oumi.environments.deterministic_tool import DeterministicToolOutput
+    from oumi.core.configs.params.grounding_params import GroundingFact
 
     env_config = _grounded_env_config(n_entries=10, sample_size=3, seed=42)
     synth = _make_synthesizer(mock_inference_config, environment_config=env_config)
@@ -1233,7 +1233,9 @@ def test_attach_grounding_facts_populates_samples(mock_inference_config):
         assert "grounding_facts" in sample
         assert len(sample["grounding_facts"]) == 3
         for fact in sample["grounding_facts"]:
-            assert isinstance(fact, DeterministicToolOutput)
+            assert isinstance(fact, GroundingFact)
+            assert "id" in fact.data
+            assert "title" in fact.data
 
 
 def test_attach_grounding_facts_seeded_is_reproducible(mock_inference_config):
@@ -1253,8 +1255,8 @@ def test_attach_grounding_facts_seeded_is_reproducible(mock_inference_config):
     synth_b._attach_grounding_facts(samples_b, attr)
 
     for a, b in zip(samples_a, samples_b):
-        assert [f.input["id"] for f in a["grounding_facts"]] == [
-            f.input["id"] for f in b["grounding_facts"]
+        assert [f.data["id"] for f in a["grounding_facts"]] == [
+            f.data["id"] for f in b["grounding_facts"]
         ]
 
 
@@ -1270,8 +1272,8 @@ def test_attach_grounding_facts_seeded_different_samples_differ(
         _grounding_attr(available_envs=["env1"], available_tools=["lookup"]),
     )
 
-    ids_0 = sorted(f.input["id"] for f in samples[0]["grounding_facts"])
-    ids_1 = sorted(f.input["id"] for f in samples[1]["grounding_facts"])
+    ids_0 = sorted(f.data["id"] for f in samples[0]["grounding_facts"])
+    ids_1 = sorted(f.data["id"] for f in samples[1]["grounding_facts"])
     assert ids_0 != ids_1
 
 
@@ -1351,7 +1353,7 @@ def test_attach_grounding_facts_truncation_emits_logger_warning(
 def test_create_planner_prompt_injects_grounding_block_when_facts_present(
     mock_inference_config,
 ):
-    from oumi.environments.deterministic_tool import DeterministicToolOutput
+    from oumi.core.configs.params.grounding_params import GroundingFact
 
     env_config = _grounded_env_config(n_entries=10, sample_size=2, seed=1)
     synth = _make_synthesizer(mock_inference_config, environment_config=env_config)
@@ -1371,8 +1373,8 @@ def test_create_planner_prompt_injects_grounding_block_when_facts_present(
         "conversation_plan": "",
         "parsed_turn_plans": [""] * 2,
         "grounding_facts": [
-            DeterministicToolOutput(input={"id": "42"}, output={"title": "Dune"}),
-            DeterministicToolOutput(input={"id": "7"}, output={"title": "LotR"}),
+            GroundingFact(data={"id": "42", "title": "Dune"}),
+            GroundingFact(data={"id": "7", "title": "LotR"}),
         ],
     }
 

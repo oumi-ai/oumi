@@ -18,6 +18,7 @@ from typing import Any
 
 import pytest
 
+from oumi.core.configs.params.grounding_params import GroundingFact
 from oumi.core.configs.params.tool_params import ToolResult
 from oumi.environments.base_environment import BaseEnvironment
 from oumi.environments.deterministic_tool import DeterministicToolOutput
@@ -59,5 +60,5 @@ def test_default_describe_grounding_empty_list_returns_empty_string():
 
 def test_default_describe_grounding_delegates_to_helper():
     env = _MinimalEnv()
-    facts = [DeterministicToolOutput(input={"id": "42"}, output={"title": "Dune"})]
+    facts = [GroundingFact(data={"id": "42", "title": "Dune"})]
     assert env.describe_grounding(facts) == '- id="42", title="Dune"'
