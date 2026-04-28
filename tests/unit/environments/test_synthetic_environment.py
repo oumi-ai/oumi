@@ -16,9 +16,12 @@ import pytest
 
 from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.core.configs.params.tool_params import (
-    DeterministicToolOutput,
     ToolParams,
     ToolResult,
+)
+from oumi.environments.deterministic_tool import (
+    DeterministicTool,
+    DeterministicToolOutput,
 )
 from oumi.environments.synthetic_environment import (
     SyntheticEnvironment,
@@ -89,7 +92,10 @@ def test_empty_system_prompt_raises():
 
 
 def test_rejects_deterministic_outputs_on_tool():
-    bad_tool = _make_tool(
+    bad_tool = DeterministicTool(
+        id="answer",
+        name="Answer",
+        description="Answer.",
         deterministic_outputs=[
             DeterministicToolOutput(input={"id": "01"}, output={"msg": "ok"}),
         ],

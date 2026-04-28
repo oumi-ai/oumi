@@ -32,15 +32,31 @@ class EnvironmentParams(BaseParams):
     name: str = ""
     description: str = ""
     env_type: str = ""
-    tools: list[ToolParams] = field(default_factory=list)
+    # `Any` here so OmegaConf accepts subclass-only fields (e.g.,
+    # `deterministic_outputs` on DeterministicTool) at parse time. The actual
+    # subclass is resolved by `__post_init__` based on env_type.
+    tools: list[Any] = field(default_factory=list)
     env_kwargs: dict[str, Any] | None = None
 
     def __post_init__(self) -> None:
-        """Coerce raw tool dicts into ToolParams instances."""
+        """Coerce raw tool dicts into the appropriate ToolParams subclass."""
+        tool_cls = self._resolve_tool_cls() or ToolParams
         self.tools = [
-            tool if isinstance(tool, ToolParams) else ToolParams.create(tool)
+            tool if isinstance(tool, tool_cls) else tool_cls.create(tool)
             for tool in self.tools
         ]
+
+    def _resolve_tool_cls(self) -> type[ToolParams] | None:
+        """Look up the registered env class, return its tool_params_cls.
+
+        Returns None if env_type isn't registered (validation later catches it).
+        Lazy import to avoid circular dependency between
+        `core/configs/params/` and `environments/`.
+        """
+        from oumi.core.registry import REGISTRY, RegistryType
+
+        env_cls = REGISTRY.get(self.env_type, RegistryType.ENVIRONMENT)
+        return getattr(env_cls, "tool_params_cls", None) if env_cls else None
 
     def __finalize_and_validate__(self) -> None:
         """Validate common fields and registry membership."""

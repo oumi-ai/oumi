@@ -22,13 +22,13 @@ from typing import Any
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.environment_params import EnvironmentParams
-from oumi.core.configs.params.tool_params import (
-    DeterministicToolOutput,
-    ToolParams,
-    ToolResult,
-)
+from oumi.core.configs.params.tool_params import ToolResult
 from oumi.core.registry import register_environment
 from oumi.environments.base_environment import BaseEnvironment
+from oumi.environments.deterministic_tool import (
+    DeterministicTool,
+    DeterministicToolOutput,
+)
 
 
 @dataclass
@@ -48,6 +48,8 @@ class DeterministicEnvironment(BaseEnvironment):
     Tools must declare at least one `deterministic_outputs` entry; calling
     `step()` returns the matching output (or `None` if no entry matches).
     """
+
+    tool_params_cls = DeterministicTool
 
     def __init__(
         self,
@@ -87,7 +89,7 @@ class DeterministicEnvironment(BaseEnvironment):
         return cls(params, kwargs)
 
     @staticmethod
-    def _validate_tools(tools: list[ToolParams]) -> None:
+    def _validate_tools(tools: list[DeterministicTool]) -> None:
         for tool in tools:
             if not tool.deterministic_outputs:
                 raise ValueError(
@@ -104,7 +106,7 @@ class DeterministicEnvironment(BaseEnvironment):
                     )
                 seen.add(key)
 
-    def _lookup_tool(self, tool_id: str) -> ToolParams:
+    def _lookup_tool(self, tool_id: str) -> DeterministicTool:
         for tool in self._params.tools:
             if tool.id == tool_id:
                 return tool

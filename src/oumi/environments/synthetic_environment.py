@@ -144,7 +144,7 @@ class SyntheticEnvironment(BaseEnvironment):
     @staticmethod
     def _validate_tools(tools: list[ToolParams]) -> None:
         for tool in tools:
-            if tool.deterministic_outputs:
+            if getattr(tool, "deterministic_outputs", None):
                 raise ValueError(
                     f"Synthetic tool '{tool.id}' cannot define deterministic_outputs."
                 )

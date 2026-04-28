@@ -16,7 +16,6 @@
 
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
@@ -104,7 +103,6 @@ class ToolParams(BaseParams):
     parameters: ToolSchema = field(default_factory=ToolSchema)
     output_schema: ToolSchema | None = None
     read_only: bool = True
-    deterministic_outputs: list[DeterministicToolOutput] = field(default_factory=list)
 
     @classmethod
     def create(cls, raw: Any) -> ToolParams:
@@ -126,7 +124,6 @@ class ToolParams(BaseParams):
                 else None
             ),
             read_only=raw.get("read_only", True),
-            deterministic_outputs=raw.get("deterministic_outputs", []),
         )
 
     def __post_init__(self):
@@ -154,20 +151,6 @@ class ToolParams(BaseParams):
         if self.output_schema is not None:
             schema["output_schema"] = self.output_schema.to_dict()
         return schema
-
-
-@dataclass
-class DeterministicToolOutput(BaseParams):
-    """An input-to-output mapping for a deterministic tool."""
-
-    input: dict[str, Any] = field(default_factory=dict)
-    output: dict[str, Any] = field(default_factory=dict)
-
-    def matches(self, arguments: dict[str, Any]) -> bool:
-        """Check if the input matches the given arguments."""
-        return json.dumps(self.input, sort_keys=True) == json.dumps(
-            arguments, sort_keys=True
-        )
 
 
 @dataclass

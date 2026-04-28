@@ -17,7 +17,6 @@ from typing import Any
 import pytest
 
 from oumi.core.configs.params.tool_params import (
-    DeterministicToolOutput,
     ToolParams,
     ToolResult,
     ToolSchema,
@@ -37,34 +36,6 @@ def _make_state_schema() -> dict[str, Any]:
         },
         "required": ["files"],
     }
-
-
-def test_deterministic_tool_output_allows_empty_input():
-    entry = DeterministicToolOutput(input={}, output={"msg": "ok"})
-    assert entry.input == {}
-
-
-def test_deterministic_tool_output_allows_empty_output():
-    entry = DeterministicToolOutput(input={"id": "1"}, output={})
-    assert entry.output == {}
-
-
-def test_deterministic_tool_output_matches_exact():
-    entry = DeterministicToolOutput(
-        input={"id": "01", "status": "pending"},
-        output={"message": "Order is pending"},
-    )
-    assert entry.matches({"id": "01", "status": "pending"}) is True
-    assert entry.matches({"status": "pending", "id": "01"}) is True
-
-
-def test_deterministic_tool_output_no_match():
-    entry = DeterministicToolOutput(
-        input={"id": "01"},
-        output={"message": "ok"},
-    )
-    assert entry.matches({"id": "02"}) is False
-    assert entry.matches({"id": "01", "extra": "arg"}) is False
 
 
 @pytest.mark.parametrize("field,value", [("id", ""), ("name", ""), ("description", "")])

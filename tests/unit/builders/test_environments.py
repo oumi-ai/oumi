@@ -16,9 +16,12 @@ import pytest
 
 from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.core.configs.params.tool_params import (
-    DeterministicToolOutput,
     ToolParams,
     ToolResult,
+)
+from oumi.environments.deterministic_tool import (
+    DeterministicTool,
+    DeterministicToolOutput,
 )
 
 
@@ -31,7 +34,7 @@ def test_build_environment_imports_without_explicit_env_package():
         description="A deterministic lookup environment",
         env_type="deterministic",
         tools=[
-            ToolParams(
+            DeterministicTool(
                 id="get",
                 name="Get",
                 description="Lookup something.",
@@ -84,7 +87,7 @@ def test_build_environment_dispatches_deterministic():
         description="d",
         env_type="deterministic",
         tools=[
-            ToolParams(
+            DeterministicTool(
                 id="t",
                 name="t",
                 description="t",

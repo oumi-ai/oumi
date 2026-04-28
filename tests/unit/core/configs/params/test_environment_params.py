@@ -19,14 +19,15 @@ import pytest
 import oumi.environments  # noqa: F401  populates env registry
 from oumi.core.configs.environment_config import EnvironmentConfig
 from oumi.core.configs.params.environment_params import EnvironmentParams
-from oumi.core.configs.params.tool_params import (
+from oumi.core.configs.params.tool_params import ToolParams
+from oumi.environments.deterministic_tool import (
+    DeterministicTool,
     DeterministicToolOutput,
-    ToolParams,
 )
 
 
-def _make_tool() -> ToolParams:
-    return ToolParams(
+def _make_tool() -> DeterministicTool:
+    return DeterministicTool(
         id="t",
         name="t",
         description="t",
@@ -78,13 +79,13 @@ def test_finalize_and_validate_rejects_duplicate_tool_ids():
         description="d",
         env_type="deterministic",
         tools=[
-            ToolParams(
+            DeterministicTool(
                 id="dup",
                 name="A",
                 description="A",
                 deterministic_outputs=[DeterministicToolOutput(input={}, output={})],
             ),
-            ToolParams(
+            DeterministicTool(
                 id="dup",
                 name="B",
                 description="B",

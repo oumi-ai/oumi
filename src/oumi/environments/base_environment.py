@@ -19,11 +19,13 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any
 
-from oumi.core.configs.params.tool_params import ToolResult
+from oumi.core.configs.params.tool_params import ToolParams, ToolResult
 
 
 class BaseEnvironment(ABC):
     """Abstract base class for tool environments."""
+
+    tool_params_cls: type[ToolParams] = ToolParams
 
     @abstractmethod
     def step(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:

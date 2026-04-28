@@ -19,7 +19,6 @@ concrete environment's `@register_environment(...)` decorator.
 """
 
 from oumi.core.configs.params.tool_params import (
-    DeterministicToolOutput,
     ToolParams,
     ToolResult,
     ToolSchema,
@@ -28,6 +27,10 @@ from oumi.environments.base_environment import BaseEnvironment
 from oumi.environments.deterministic_environment import (
     DeterministicEnvironment,
     DeterministicEnvironmentKwargs,
+)
+from oumi.environments.deterministic_tool import (
+    DeterministicTool,
+    DeterministicToolOutput,
 )
 from oumi.environments.synthetic_environment import (
     SyntheticEnvironment,
@@ -39,6 +42,7 @@ __all__ = [
     "BaseEnvironment",
     "DeterministicEnvironment",
     "DeterministicEnvironmentKwargs",
+    "DeterministicTool",
     "DeterministicToolOutput",
     "SyntheticEnvironment",
     "SyntheticEnvironmentKwargs",

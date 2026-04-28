@@ -15,18 +15,18 @@
 import pytest
 
 from oumi.core.configs.params.environment_params import EnvironmentParams
-from oumi.core.configs.params.tool_params import (
-    DeterministicToolOutput,
-    ToolParams,
-    ToolResult,
-)
+from oumi.core.configs.params.tool_params import ToolResult
 from oumi.environments.deterministic_environment import (
     DeterministicEnvironment,
     DeterministicEnvironmentKwargs,
 )
+from oumi.environments.deterministic_tool import (
+    DeterministicTool,
+    DeterministicToolOutput,
+)
 
 
-def _make_tool(**overrides) -> ToolParams:
+def _make_tool(**overrides) -> DeterministicTool:
     defaults: dict = dict(
         id="tool1",
         name="MyTool",
@@ -36,7 +36,7 @@ def _make_tool(**overrides) -> ToolParams:
         ],
     )
     defaults.update(overrides)
-    return ToolParams(**defaults)
+    return DeterministicTool(**defaults)
 
 
 def _make_params(**overrides) -> EnvironmentParams:
@@ -109,7 +109,7 @@ def test_step_no_match_returns_none():
 def test_step_supports_zero_arg_tool():
     params = _make_params(
         tools=[
-            ToolParams(
+            DeterministicTool(
                 id="ping",
                 name="Ping",
                 description="Zero-arg tool.",
@@ -130,7 +130,7 @@ def test_step_unknown_tool_raises():
 
 
 def test_from_params_coerces_raw_deterministic_outputs():
-    tool = ToolParams(
+    tool = DeterministicTool(
         id="tool1",
         name="MyTool",
         description="A tool",
