@@ -1,5 +1,6 @@
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.core.types.tool_call import ToolDefinition
 from oumi.inference import VLLMInferenceEngine
 from tests.markers import requires_cuda_initialized, requires_gpus
 
@@ -52,18 +53,20 @@ def test_qwen_no_think_block_with_enable_thinking_false():
     assert "<think>" not in output
 
 
-_WEATHER_TOOL = {
-    "type": "function",
-    "function": {
-        "name": "get_weather",
-        "description": "Get the current weather for a city.",
-        "parameters": {
-            "type": "object",
-            "properties": {"city": {"type": "string"}},
-            "required": ["city"],
+_WEATHER_TOOL = ToolDefinition.model_validate(
+    {
+        "type": "function",
+        "function": {
+            "name": "get_weather",
+            "description": "Get the current weather for a city.",
+            "parameters": {
+                "type": "object",
+                "properties": {"city": {"type": "string"}},
+                "required": ["city"],
+            },
         },
-    },
-}
+    }
+)
 
 
 @requires_cuda_initialized()
@@ -123,5 +126,5 @@ def test_qwen_tool_call_parser_populates_tool_calls():
     # 0.6B may not always emit a call; the strict gate is the unit-test suite.
     # When it does, verify the parsed payload and finish_reason are correct.
     if assistant.tool_calls:
-        assert assistant.tool_calls[0]["function"]["name"] == "get_weather"
+        assert assistant.tool_calls[0].function.name == "get_weather"
         assert outputs[-1].metadata.get("finish_reason") == "tool_calls"
