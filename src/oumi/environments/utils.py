@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Shared helpers for environment runtimes."""
+"""Shared utilities for environment runtimes."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from oumi.core.configs.params.tool_params import DeterministicToolOutput
+from oumi.environments.deterministic_tool import DeterministicToolOutput
 
 
 def _format_grounding_value(value: Any) -> str:

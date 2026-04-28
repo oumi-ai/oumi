@@ -21,32 +21,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.core.configs.params.grounding_params import GroundingConfig
 from oumi.core.configs.params.tool_params import ToolParams
-
-
-@dataclass
-class GroundingConfig(BaseParams):
-    """Per-environment grounding configuration.
-
-    When set on an environment, the ConversationSynthesizer samples facts from
-    that environment and injects them into the planner prompt so turn plans
-    reference real entities rather than hallucinated IDs.
-    """
-
-    sample_size: int = 3
-    """Number of grounding facts sampled per conversation."""
-
-    seed: int | None = None
-    """If set, per-sample RNG is seeded from ``(seed + sample_index)`` for
-    reproducibility. If None, grounding uses an unseeded ``random.Random``."""
-
-    def __post_init__(self) -> None:
-        """Validate ``sample_size`` is positive."""
-        if self.sample_size < 1:
-            raise ValueError(
-                f"{type(self).__name__}.sample_size must be >= 1, "
-                f"got {self.sample_size}."
-            )
 
 
 @dataclass
