@@ -39,7 +39,7 @@ output_path: library_tool_use_dataset.jsonl
 environment_config:
   environments:
     - id: library_catalog
-      type: deterministic
+      env_type: deterministic
       name: Library Catalog
       description: Circulation lookup for the city library.
       grounding:
