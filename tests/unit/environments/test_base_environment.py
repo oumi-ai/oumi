@@ -18,11 +18,9 @@ from typing import Any
 
 import pytest
 
-from oumi.core.configs.params.tool_params import (
-    DeterministicToolOutput,
-    ToolResult,
-)
+from oumi.core.configs.params.tool_params import ToolResult
 from oumi.environments.base_environment import BaseEnvironment
+from oumi.environments.deterministic_tool import DeterministicToolOutput
 
 
 def test_base_environment_is_not_a_dataclass():
@@ -46,7 +44,7 @@ class _MinimalEnv(BaseEnvironment):
     """Concrete BaseEnvironment subclass that doesn't override grounding hooks."""
 
     def step(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:
-        return ToolResult(output=None)
+        return ToolResult(output={})
 
 
 def test_default_sample_grounding_returns_empty():
