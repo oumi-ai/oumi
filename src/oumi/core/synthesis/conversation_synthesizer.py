@@ -58,6 +58,13 @@ _FORCED_FINALIZE_NUDGE = (
     "provide your final response to the user now."
 )
 
+_TOOL_LOOP_CONTINUATION = (
+    "Based on the tool results above, decide your next step: call another "
+    "tool ONLY if you need NEW information you do not already have, or "
+    "respond to the user with a final text answer. Do NOT repeat a tool "
+    "call you have already made with the same arguments."
+)
+
 
 def _tool_result_message(content: str) -> Message:
     """Wrap a tool output as a user-role message with a <tool_result> marker."""
@@ -776,6 +783,7 @@ class ConversationSynthesizer:
         current_turn: int,
         multiturn_attribute: MultiTurnAttribute,
         trailing: list[Message] | None = None,
+        is_tool_continuation: bool = False,
     ) -> Conversation:
         """Build the inference prompt for one sample at one turn."""
         target_turns = sample["target_turns"]
@@ -792,13 +800,16 @@ class ConversationSynthesizer:
             multiturn_attribute=multiturn_attribute,
         )
 
-        turn_info = (
-            f"You are generating turn {current_turn} of {target_turns} "
-            f"as the {role.value.upper()}.\n\n"
-        )
-        if turn_instruction:
-            turn_info += f"For this turn: {turn_instruction}\n\n"
-        turn_info += "Generate ONLY your response for this turn. Stay in character."
+        if is_tool_continuation:
+            turn_info = _TOOL_LOOP_CONTINUATION
+        else:
+            turn_info = (
+                f"You are generating turn {current_turn} of {target_turns} "
+                f"as the {role.value.upper()}.\n\n"
+            )
+            if turn_instruction:
+                turn_info += f"For this turn: {turn_instruction}\n\n"
+            turn_info += "Generate ONLY your response for this turn. Stay in character."
 
         messages = [persona_msg, *history, Message(role=Role.USER, content=turn_info)]
         if trailing:
@@ -832,6 +843,7 @@ class ConversationSynthesizer:
                     histories[i] + turn_messages[i],
                     current_turn,
                     multiturn_attribute,
+                    is_tool_continuation=tool_count[i] > 0,
                 )
                 for i in active
             ]
