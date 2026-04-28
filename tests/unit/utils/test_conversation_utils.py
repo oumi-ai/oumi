@@ -11,6 +11,7 @@ from oumi.builders import build_tokenizer
 from oumi.core.configs import ModelParams
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.types.conversation import ContentItem, Conversation, Message, Role, Type
+from oumi.core.types.tool_call import ToolCall
 from oumi.utils.conversation_utils import (
     base64encode_content_item_image_bytes,
     convert_message_to_json_content,
@@ -809,14 +810,18 @@ def test_truncate_text_in_content_items(
 #
 def test_create_list_of_message_json_dicts_forwards_tool_calls():
     """Assistant tool_calls survive into the dict; content=None preserved."""
-    tool_call = {
+    tool_call_dict = {
         "id": "call_abc",
         "type": "function",
         "function": {"name": "get_weather", "arguments": "{}"},
     }
     messages = [
         Message(role=Role.USER, content="weather?"),
-        Message(role=Role.ASSISTANT, content=None, tool_calls=[tool_call]),
+        Message(
+            role=Role.ASSISTANT,
+            content=None,
+            tool_calls=[ToolCall.model_validate(tool_call_dict)],
+        ),
     ]
 
     result = create_list_of_message_json_dicts(
@@ -827,7 +832,7 @@ def test_create_list_of_message_json_dicts_forwards_tool_calls():
     assert result[0] == {"role": "user", "content": "weather?"}
     assert result[1]["role"] == "assistant"
     assert result[1]["content"] is None
-    assert result[1]["tool_calls"] == [tool_call]
+    assert result[1]["tool_calls"] == [tool_call_dict]
 
 
 def test_create_list_of_message_json_dicts_forwards_tool_call_id():

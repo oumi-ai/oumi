@@ -11,6 +11,7 @@ import pytest
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.types.conversation import ContentItem, Conversation, Message, Role, Type
+from oumi.core.types.tool_call import ToolCall, ToolDefinition
 from oumi.inference import VLLMInferenceEngine
 from oumi.utils.conversation_utils import base64encode_content_item_image_bytes
 from oumi.utils.image_utils import (
@@ -711,7 +712,7 @@ def test_no_passthrough_kwargs_by_default(mock_vllm):
 #
 # Tool-calling tests
 #
-_WEATHER_TOOL: Final = {
+_WEATHER_TOOL_DICT: Final = {
     "type": "function",
     "function": {
         "name": "get_weather",
@@ -724,7 +725,7 @@ _WEATHER_TOOL: Final = {
     },
 }
 
-_CALENDAR_TOOL: Final = {
+_CALENDAR_TOOL_DICT: Final = {
     "type": "function",
     "function": {
         "name": "create_event",
@@ -736,6 +737,9 @@ _CALENDAR_TOOL: Final = {
         },
     },
 }
+
+_WEATHER_TOOL: Final = ToolDefinition.model_validate(_WEATHER_TOOL_DICT)
+_CALENDAR_TOOL: Final = ToolDefinition.model_validate(_CALENDAR_TOOL_DICT)
 
 
 @pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
@@ -755,7 +759,8 @@ def test_infer_forwards_tools_kwarg(mock_vllm):
 
     mock_vllm_instance.chat.assert_called_once()
     call_kwargs = mock_vllm_instance.chat.call_args.kwargs
-    assert call_kwargs["tools"] == [_WEATHER_TOOL]
+    # Tools are dumped to OpenAI-format dicts before being handed to vLLM.
+    assert call_kwargs["tools"] == [_WEATHER_TOOL_DICT]
 
 
 @pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
@@ -794,7 +799,7 @@ def test_infer_groups_conversations_by_tools(mock_vllm):
     # original (A, B, C) input order.
     def chat_side_effect(messages, **kwargs):
         tools = kwargs.get("tools")
-        prefix = "weather" if tools == [_WEATHER_TOOL] else "calendar"
+        prefix = "weather" if tools == [_WEATHER_TOOL_DICT] else "calendar"
         return [_create_vllm_output([f"{prefix}-out"], f"{prefix}-id")] * len(messages)
 
     mock_vllm_instance.chat.side_effect = chat_side_effect
@@ -823,8 +828,8 @@ def test_infer_groups_conversations_by_tools(mock_vllm):
     tools_per_call = [
         call.kwargs.get("tools") for call in mock_vllm_instance.chat.call_args_list
     ]
-    assert [_WEATHER_TOOL] in tools_per_call
-    assert [_CALENDAR_TOOL] in tools_per_call
+    assert [_WEATHER_TOOL_DICT] in tools_per_call
+    assert [_CALENDAR_TOOL_DICT] in tools_per_call
 
     # Original input order is preserved on the way out.
     assert [r.conversation_id for r in results] == ["A", "B", "C"]
@@ -842,7 +847,7 @@ def test_infer_input_preserves_tool_calls_and_tool_call_id(mock_vllm):
     mock_vllm_instance.chat.return_value = [_create_vllm_output(["ok"], "1")]
 
     engine = VLLMInferenceEngine(_get_default_model_params())
-    tool_call = {
+    tool_call_dict = {
         "id": "call_abc",
         "type": "function",
         "function": {"name": "get_weather", "arguments": '{"city":"Tokyo"}'},
@@ -851,7 +856,11 @@ def test_infer_input_preserves_tool_calls_and_tool_call_id(mock_vllm):
         tools=[_WEATHER_TOOL],
         messages=[
             Message(role=Role.USER, content="What's the weather in Tokyo?"),
-            Message(role=Role.ASSISTANT, content=None, tool_calls=[tool_call]),
+            Message(
+                role=Role.ASSISTANT,
+                content=None,
+                tool_calls=[ToolCall.model_validate(tool_call_dict)],
+            ),
             Message(role=Role.TOOL, content="22C, sunny", tool_call_id="call_abc"),
         ],
         conversation_id="1",
@@ -861,10 +870,10 @@ def test_infer_input_preserves_tool_calls_and_tool_call_id(mock_vllm):
     sent = mock_vllm_instance.chat.call_args.args[0][0]
     # User message unchanged.
     assert sent[0]["role"] == "user"
-    # Assistant tool-call message: content=None, tool_calls forwarded.
+    # Assistant tool-call message: content=None, tool_calls forwarded as dicts.
     assert sent[1]["role"] == "assistant"
     assert sent[1]["content"] is None
-    assert sent[1]["tool_calls"] == [tool_call]
+    assert sent[1]["tool_calls"] == [tool_call_dict]
     # Tool response: content + tool_call_id forwarded.
     assert sent[2]["role"] == "tool"
     assert sent[2]["content"] == "22C, sunny"
@@ -916,7 +925,13 @@ def test_tool_call_parser_populates_message_tool_calls(mock_vllm):
     results = engine.infer([conv], _get_default_inference_config())
 
     assistant = results[0].messages[-1]
-    assert assistant.tool_calls == [fake_call.model_dump.return_value]
+    # `Message.tool_calls` is `list[ToolCall]` after Pydantic validation;
+    # round-trip through `model_dump` to compare against the OpenAI-format
+    # dict produced by the (mocked) parser.
+    assert assistant.tool_calls is not None
+    assert [tc.model_dump(mode="json") for tc in assistant.tool_calls] == [
+        fake_call.model_dump.return_value
+    ]
     assert assistant.content is None
     assert results[0].metadata["finish_reason"] == "tool_calls"
 

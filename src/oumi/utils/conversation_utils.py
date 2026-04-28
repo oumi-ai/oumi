@@ -273,7 +273,14 @@ def create_list_of_message_json_dicts(
             else:
                 item["content"] = convert_message_to_json_content_list(msg)
             if msg.tool_calls is not None:
-                item["tool_calls"] = msg.tool_calls
+                # Pydantic ToolCall → OpenAI-format dict so downstream
+                # consumers (vLLM, chat templates) get plain JSON-serializable
+                # dicts. `exclude_none` keeps the wire format minimal and
+                # matches the user's original input shape.
+                item["tool_calls"] = [
+                    tc.model_dump(mode="json", exclude_none=True)
+                    for tc in msg.tool_calls
+                ]
             if msg.tool_call_id is not None:
                 item["tool_call_id"] = msg.tool_call_id
         else:

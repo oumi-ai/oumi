@@ -28,6 +28,7 @@ from oumi.builders import build_tokenizer
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Conversation, FinishReason, Message, Role
+from oumi.core.types.tool_call import ToolCall
 from oumi.utils.conversation_utils import create_list_of_message_json_dicts
 from oumi.utils.logging import logger
 from oumi.utils.model_caching import get_local_filepath_for_gguf
@@ -487,9 +488,11 @@ class VLLMInferenceEngine(BaseInferenceEngine):
     ) -> list[tuple[list[int], list[dict] | None]]:
         """Groups conversation indices by identical tool definitions.
 
-        Tools come from ``Conversation.tools`` (post-validation always a list
-        of OpenAI-schema dicts, or ``None``). vLLM's ``LLM.chat(tools=...)``
-        kwarg is batch-global, so heterogeneous batches must be split.
+        Tools come from ``Conversation.tools`` (post-validation a list of
+        ``ToolDefinition`` Pydantic models, or ``None``). vLLM's
+        ``LLM.chat(tools=...)`` kwarg expects OpenAI-format dicts and is
+        batch-global, so we dump to dicts up front and split heterogeneous
+        batches.
 
         Returns:
             A list of ``(indices, tools)`` tuples in the order each unique
@@ -498,13 +501,15 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         groups: list[tuple[list[int], list[dict] | None]] = []
         key_to_group: dict[str, int] = {}
         for i, conv in enumerate(conversations):
-            # `Conversation.tools` is `list[dict] | None` after validation;
-            # cast keeps pyright happy without affecting runtime behavior.
-            tools = cast("list[dict] | None", conv.tools)
+            tools: list[dict] | None = (
+                None
+                if conv.tools is None
+                else [t.model_dump(mode="json", exclude_none=True) for t in conv.tools]
+            )
             if tools is None:
                 key = "__none__"
             else:
-                key = json.dumps(tools, sort_keys=True, default=str)
+                key = json.dumps(tools, sort_keys=True)
             if key not in key_to_group:
                 key_to_group[key] = len(groups)
                 groups.append(([], tools))
@@ -527,7 +532,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         for completion in chat_response.outputs:
             text = completion.text
             content: str | None = text
-            tool_calls_payload: list[dict] | None = None
+            tool_calls_payload: list[ToolCall] | None = None
 
             if self._tool_parser is not None:
                 # Some parsers read `request.tool_choice` from the
@@ -541,7 +546,10 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 # interpretations the model didn't actually make).
                 stub = SimpleNamespace(
                     tool_choice="auto",
-                    tools=(conversation.tools or []),
+                    tools=[
+                        t.model_dump(mode="json", exclude_none=True)
+                        for t in (conversation.tools or [])
+                    ],
                 )
                 try:
                     extracted = self._tool_parser.extract_tool_calls(
@@ -557,7 +565,8 @@ class VLLMInferenceEngine(BaseInferenceEngine):
 
                 if extracted is not None and getattr(extracted, "tools_called", False):
                     tool_calls_payload = [
-                        tc.model_dump() for tc in extracted.tool_calls
+                        ToolCall.model_validate(tc.model_dump())
+                        for tc in extracted.tool_calls
                     ]
                     # Empty leading content is rendered as `None` to match
                     # the OpenAI wire format for tool-only assistant turns.
