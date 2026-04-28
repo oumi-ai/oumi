@@ -22,6 +22,7 @@ from oumi.core.configs.params.tool_params import (
     ToolResult,
     ToolSchema,
 )
+from oumi.environments.deterministic_tool import DeterministicToolOutput
 from oumi.environments.synthetic_environment import SyntheticStateParams
 
 
@@ -331,13 +332,13 @@ def test_grounding_config_rejects_sample_size_below_one():
 
 
 def test_describe_grounding_default_empty():
-    from oumi.environments._helpers import describe_grounding_default
+    from oumi.environments.utils import describe_grounding_default
 
     assert describe_grounding_default([]) == ""
 
 
 def test_describe_grounding_default_single_fact():
-    from oumi.environments._helpers import describe_grounding_default
+    from oumi.environments.utils import describe_grounding_default
 
     facts = [
         DeterministicToolOutput(
@@ -349,7 +350,7 @@ def test_describe_grounding_default_single_fact():
 
 
 def test_describe_grounding_default_multi_fact_preserves_order():
-    from oumi.environments._helpers import describe_grounding_default
+    from oumi.environments.utils import describe_grounding_default
 
     facts = [
         DeterministicToolOutput(input={"id": "7"}, output={"title": "LotR"}),
@@ -360,7 +361,7 @@ def test_describe_grounding_default_multi_fact_preserves_order():
 
 
 def test_describe_grounding_default_output_wins_on_key_conflict():
-    from oumi.environments._helpers import describe_grounding_default
+    from oumi.environments.utils import describe_grounding_default
 
     facts = [
         DeterministicToolOutput(
@@ -374,7 +375,7 @@ def test_describe_grounding_default_output_wins_on_key_conflict():
 
 
 def test_describe_grounding_default_handles_non_string_values():
-    from oumi.environments._helpers import describe_grounding_default
+    from oumi.environments.utils import describe_grounding_default
 
     facts = [
         DeterministicToolOutput(
