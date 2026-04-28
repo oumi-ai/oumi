@@ -26,6 +26,7 @@ from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.core.configs.params.tool_params import ToolParams, ToolResult
 from oumi.core.registry import register_environment
 from oumi.environments.base_environment import BaseEnvironment
+from oumi.environments.deterministic_tool import DeterministicTool
 
 
 def _validate_json_schema_value(
@@ -144,7 +145,7 @@ class SyntheticEnvironment(BaseEnvironment):
     @staticmethod
     def _validate_tools(tools: list[ToolParams]) -> None:
         for tool in tools:
-            if getattr(tool, "deterministic_outputs", None):
+            if isinstance(tool, DeterministicTool):
                 raise ValueError(
                     f"Synthetic tool '{tool.id}' cannot define deterministic_outputs."
                 )

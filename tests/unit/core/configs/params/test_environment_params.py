@@ -111,7 +111,7 @@ def test_environment_config_duplicate_env_ids_raises():
         EnvironmentConfig(environments=[a, b])
 
 
-def test_post_init_coerces_dict_tools_to_tool_params():
+def test_post_init_coerces_dict_tools_to_deterministic_tool():
     p = EnvironmentParams(
         id="e1",
         name="E1",
@@ -119,7 +119,21 @@ def test_post_init_coerces_dict_tools_to_tool_params():
         env_type="deterministic",
         tools=[{"id": "t", "name": "t", "description": "t"}],  # type: ignore[list-item]
     )
-    assert isinstance(p.tools[0], ToolParams)
+    assert isinstance(p.tools[0], DeterministicTool)
+    assert p.tools[0].id == "t"
+
+
+def test_post_init_coerces_dict_tools_to_tool_params_for_synthetic():
+    p = EnvironmentParams(
+        id="e1",
+        name="E1",
+        description="d",
+        env_type="synthetic",
+        tools=[{"id": "t", "name": "t", "description": "t"}],  # type: ignore[list-item]
+    )
+    # Exact-type check guards against future regressions where non-deterministic
+    # env types accidentally route to DeterministicTool.
+    assert type(p.tools[0]) is ToolParams
     assert p.tools[0].id == "t"
 
 
