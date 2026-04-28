@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from oumi.environments.deterministic_tool import DeterministicToolOutput
+from oumi.core.configs.params.grounding_params import GroundingFact
 
 
 def _format_grounding_value(value: Any) -> str:
@@ -28,20 +28,19 @@ def _format_grounding_value(value: Any) -> str:
     return str(value)
 
 
-def describe_grounding_default(facts: list[DeterministicToolOutput]) -> str:
+def describe_grounding_default(facts: list[GroundingFact]) -> str:
     """Render grounding facts as a bulleted markdown block.
 
-    Each fact's ``input`` and ``output`` dicts are flattened into a single
-    key=value line. Output values win on key collisions.
-    Returns "" for an empty fact list.
+    Each fact's ``data`` dict is rendered as a single ``key=value,
+    key=value`` line. Returns "" for an empty fact list.
     """
     if not facts:
         return ""
     lines: list[str] = []
     for fact in facts:
-        merged = {**fact.input, **fact.output}
         parts = [
-            f"{key}={_format_grounding_value(value)}" for key, value in merged.items()
+            f"{key}={_format_grounding_value(value)}"
+            for key, value in fact.data.items()
         ]
         lines.append(f"- {', '.join(parts)}")
     return "\n".join(lines)

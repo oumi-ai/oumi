@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Per-environment grounding configuration."""
+"""Per-environment grounding configuration and fact types."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any
 
 from oumi.core.configs.params.base_params import BaseParams
 
@@ -44,3 +45,18 @@ class GroundingConfig(BaseParams):
                 f"{type(self).__name__}.sample_size must be >= 1, "
                 f"got {self.sample_size}."
             )
+
+
+@dataclass
+class GroundingFact(BaseParams):
+    """Env-agnostic representation of a single grounding fact.
+
+    A fact is a flat key-value dict that environments produce during sampling
+    and the synthesizer renders into planner prompts. Environments convert
+    their native state (DeterministicToolOutput entries, synthetic state
+    snippets, DB rows, etc.) into GroundingFact instances. The data dict
+    is expected to be JSON-serializable scalars and is rendered verbatim
+    by ``describe_grounding_default``.
+    """
+
+    data: dict[str, Any] = field(default_factory=dict)
