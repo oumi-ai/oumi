@@ -160,7 +160,7 @@ def _det_env_with_n_entries(n: int) -> DeterministicEnvironment:
     return DeterministicEnvironment.from_params(
         _make_params(
             tools=[
-                ToolParams(
+                DeterministicTool(
                     id="lookup",
                     name="Lookup",
                     description="Look up a book.",
@@ -226,7 +226,7 @@ def test_sample_grounding_pools_across_tools():
 
     params = _make_params(
         tools=[
-            ToolParams(
+            DeterministicTool(
                 id="tool_a",
                 name="A",
                 description="Tool A",
@@ -234,7 +234,7 @@ def test_sample_grounding_pools_across_tools():
                     DeterministicToolOutput(input={"k": "a1"}, output={"v": "a1"})
                 ],
             ),
-            ToolParams(
+            DeterministicTool(
                 id="tool_b",
                 name="B",
                 description="Tool B",
