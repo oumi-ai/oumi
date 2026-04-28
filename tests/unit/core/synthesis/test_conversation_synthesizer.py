@@ -1105,13 +1105,11 @@ def _grounded_env_params(
     sample_size: int = 3,
     seed: int | None = None,
 ):
-    from oumi.core.configs.params.environment_params import (
-        EnvironmentParams,
-        GroundingConfig,
-    )
-    from oumi.core.configs.params.tool_params import (
+    from oumi.core.configs.params.environment_params import EnvironmentParams
+    from oumi.core.configs.params.grounding_params import GroundingConfig
+    from oumi.environments.deterministic_tool import (
+        DeterministicTool,
         DeterministicToolOutput,
-        ToolParams,
     )
 
     outputs = [
@@ -1128,7 +1126,7 @@ def _grounded_env_params(
         env_type="deterministic",
         grounding=GroundingConfig(sample_size=sample_size, seed=seed),
         tools=[
-            ToolParams(
+            DeterministicTool(
                 id=tool_id,
                 name=tool_id,
                 description="Look up an id.",
@@ -1147,9 +1145,9 @@ def _grounded_env_config(**env_kwargs):
 def _ungrounded_env_config():
     from oumi.core.configs.environment_config import EnvironmentConfig
     from oumi.core.configs.params.environment_params import EnvironmentParams
-    from oumi.core.configs.params.tool_params import (
+    from oumi.environments.deterministic_tool import (
+        DeterministicTool,
         DeterministicToolOutput,
-        ToolParams,
     )
 
     return EnvironmentConfig(
@@ -1160,7 +1158,7 @@ def _ungrounded_env_config():
                 description="ungrounded env",
                 env_type="deterministic",
                 tools=[
-                    ToolParams(
+                    DeterministicTool(
                         id="lookup",
                         name="lookup",
                         description="Look up an id.",
@@ -1220,7 +1218,7 @@ def test_attach_grounding_facts_noop_when_no_env_has_grounding(
 
 
 def test_attach_grounding_facts_populates_samples(mock_inference_config):
-    from oumi.core.configs.params.tool_params import DeterministicToolOutput
+    from oumi.environments.deterministic_tool import DeterministicToolOutput
 
     env_config = _grounded_env_config(n_entries=10, sample_size=3, seed=42)
     synth = _make_synthesizer(mock_inference_config, environment_config=env_config)
@@ -1353,7 +1351,7 @@ def test_attach_grounding_facts_truncation_emits_logger_warning(
 def test_create_planner_prompt_injects_grounding_block_when_facts_present(
     mock_inference_config,
 ):
-    from oumi.core.configs.params.tool_params import DeterministicToolOutput
+    from oumi.environments.deterministic_tool import DeterministicToolOutput
 
     env_config = _grounded_env_config(n_entries=10, sample_size=2, seed=1)
     synth = _make_synthesizer(mock_inference_config, environment_config=env_config)
