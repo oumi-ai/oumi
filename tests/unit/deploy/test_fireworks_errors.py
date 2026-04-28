@@ -52,6 +52,20 @@ class TestClassifyFireworksInvalidRequest:
             is FireworksUnsupportedHardwareError
         )
 
+    def test_unsupported_hardware_requires_one_of_signature(self):
+        """Variant emitted for newer model families (e.g. gpt-oss): instead of
+        naming the rejected accelerator, Fireworks lists the allowed ones.
+        """
+        detail = (
+            "invalid deployment: model type gpt_oss requires one of: "
+            "NVIDIA_H100_80GB, NVIDIA_B200_180GB, NVIDIA_GB200, "
+            "NVIDIA_B300_288GB, NVIDIA_H200_141GB"
+        )
+        assert (
+            classify_fireworks_invalid_request(detail)
+            is FireworksUnsupportedHardwareError
+        )
+
     def test_adapter_mismatch_signature(self):
         detail = (
             "LoRA validation failed: LoRA keys reference non-existent base "
@@ -120,6 +134,27 @@ class TestFireworksClassifierWiring:
         rendered = str(exc)
         # Provider-specific detail preserved; method/URL must NOT leak
         assert "NVIDIA_A100_80GB" in rendered
+        assert "POST" not in rendered
+        assert "fireworks.ai" not in rendered
+
+    def test_unsupported_hardware_requires_one_of_wires_through(self):
+        detail = (
+            "invalid deployment: model type gpt_oss requires one of: "
+            "NVIDIA_H100_80GB, NVIDIA_B200_180GB, NVIDIA_GB200, "
+            "NVIDIA_B300_288GB, NVIDIA_H200_141GB"
+        )
+        resp = _make_response(400, {"message": detail})
+        with pytest.raises(FireworksUnsupportedHardwareError) as exc_info:
+            raise_api_error(
+                resp,
+                "create endpoint for model 'foo'",
+                classify_4xx=classify_fireworks_invalid_request,
+            )
+        exc = exc_info.value
+        assert exc.status_code == 400
+        assert exc.detail == detail
+        rendered = str(exc)
+        assert "NVIDIA_H100_80GB" in rendered
         assert "POST" not in rendered
         assert "fireworks.ai" not in rendered
 
