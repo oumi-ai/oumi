@@ -496,7 +496,7 @@ class ConversationSynthesizer:
         grounding_facts = sample.get("grounding_facts") or []
         if grounding_facts:
             from oumi.builders.environments import build_environment
-            from oumi.environments._helpers import describe_grounding_default
+            from oumi.environments.utils import describe_grounding_default
 
             # Pick the first grounded env's describer. In v1 every env uses
             # the default describer; future envs with custom describers
