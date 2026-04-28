@@ -2758,7 +2758,6 @@ def testcanonicalize_tool_call_bodies_handles_multiple_blocks():
     assert '{"name": "b", "arguments": {"id": "2"}}' in out
 
 
-
 def test_parse_plan_unwraps_openai_object_form(mock_inference_config):
     """OpenAI structured-output returns ``{"turns": [...]}``; unwrap it."""
     with patch(
