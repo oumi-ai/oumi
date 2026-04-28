@@ -184,7 +184,7 @@ def extract_json(text: str, expected_type: type | None = list) -> dict | list | 
 
 
 def repair_json_braces(text: str) -> str | None:
-    """Repair unbalanced ``{}`` / ``[]`` in a JSON string.
+    r"""Repair unbalanced ``{}`` / ``[]`` in a JSON string.
 
     Targets two failure modes common to LLM output truncated at stop
     sequences or token limits:
@@ -196,7 +196,7 @@ def repair_json_braces(text: str) -> str | None:
       ``{"a": [1, 2`` becomes ``{"a": [1, 2]}``).
 
     The scanner is string-aware — ``{`` / ``}`` / ``[`` / ``]`` inside
-    JSON string literals are ignored (respecting ``\\"`` escapes). Non-
+    JSON string literals are ignored (respecting ``\"`` escapes). Non-
     structural malformations (unquoted keys, single quotes, trailing
     commas, unescaped quotes inside strings) are NOT handled; those
     require guessing intent and tend to regress more often than they
