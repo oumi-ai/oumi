@@ -41,18 +41,20 @@ from oumi.core.synthesis.conversation_synthesizer import ConversationSynthesizer
 from oumi.core.types.conversation import Conversation, Message, Role
 
 
-def _unwrap_tool_result(content: str) -> str:
+def _unwrap_tool_result(content: object) -> str:
     """Strip the ``<tool_result>...</tool_result>`` wrapper from a tool-result
     message so assertions can inspect the inner JSON/text payload.
 
     The synthesizer emits tool results as ``Role.USER`` messages wrapped in
     ``<tool_result>`` markers (keeps the conversation portable across provider
     APIs that disallow a ``tool`` role). Tests use this helper to peek at the
-    underlying content.
+    underlying content. ``content`` is typed as ``object`` so callers can
+    pass ``Message.content`` (a ``str | list[ContentItem]``) without first
+    narrowing the type; the runtime assertion makes str-ness explicit.
     """
     prefix = "<tool_result>"
     suffix = "</tool_result>"
-    assert isinstance(content, str)
+    assert isinstance(content, str), f"expected str content, got {type(content)}"
     assert content.startswith(prefix) and content.endswith(suffix), (
         f"Expected <tool_result>-wrapped content, got: {content!r}"
     )
@@ -1082,20 +1084,6 @@ def test_synthesize_filters_all_conversations_returns_empty(
 # --- _make_grounding_rng ---
 
 
-def _make_synthesizer(mock_inference_config, environment_config=None):
-    """Build a synthesizer with the inference engine builder patched out.
-
-    Returns the synthesizer; callers can ignore the patch since the engine
-    isn't exercised by the methods these tests target.
-    """
-    with patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine"):
-        return ConversationSynthesizer(
-            GeneralSynthesisParams(),
-            mock_inference_config,
-            environment_config=environment_config,
-        )
-
-
 def test_make_grounding_rng_unseeded_returns_fresh_random(mock_inference_config):
     import random as _random
 
@@ -2019,6 +2007,7 @@ def test_assistant_inference_config_preserves_existing_stops(
     synth = _make_synthesizer(mock_inference_config)
     cfg = synth._assistant_inference_config()
     stops = cfg.generation.stop_strings
+    assert stops is not None
     assert "<|end|>" in stops
     assert "STOP" in stops
     assert "</tool_call>" in stops
@@ -2064,6 +2053,7 @@ def test_run_assistant_turn_strips_prose_after_tool_call_in_response(
 
     assistant_msg = msgs[0][0]
     assert assistant_msg.role == Role.ASSISTANT
+    assert isinstance(assistant_msg.content, str)
     assert "Dune" not in assistant_msg.content
     assert "2024" not in assistant_msg.content
     assert assistant_msg.content.rstrip().endswith("</tool_call>")
@@ -2101,6 +2091,7 @@ def test_run_assistant_turn_rehydrates_stop_sequence_stripped_close_tag(
     )
 
     assistant_msg = msgs[0][0]
+    assert isinstance(assistant_msg.content, str)
     assert assistant_msg.content.endswith("</tool_call>")
     assert msgs[0][1].role == Role.USER
     tool_payload = json.loads(_unwrap_tool_result(msgs[0][1].content))
