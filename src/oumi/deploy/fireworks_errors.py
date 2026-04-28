@@ -38,7 +38,16 @@ class FireworksUnsupportedHardwareError(DeployInvalidRequestError):
     """HTTP 400 — Fireworks rejected an unsupported model/hardware pair.
 
     Detected on responses whose detail begins with ``"invalid deployment"``
-    and contains ``"is not supported on"``.
+    and contains either:
+
+    - ``"is not supported on"`` (e.g. ``"model type qwen3 is not supported
+      on NVIDIA_A100_80GB"``), or
+    - ``"requires one of"`` (e.g. ``"model type gpt_oss requires one of:
+      NVIDIA_H100_80GB, NVIDIA_B200_180GB, ..."``).
+
+    Both phrasings mean the same thing semantically — the requested
+    accelerator is incompatible with the model — and consumers fall back
+    to the next accelerator on either.
     """
 
 
@@ -66,7 +75,9 @@ def classify_fireworks_invalid_request(
         The matching :class:`DeployInvalidRequestError` subclass, or the
         base class when no signature applies.
     """
-    if detail.startswith("invalid deployment") and "is not supported on" in detail:
+    if detail.startswith("invalid deployment") and (
+        "is not supported on" in detail or "requires one of" in detail
+    ):
         return FireworksUnsupportedHardwareError
     if detail.startswith("LoRA validation failed"):
         return FireworksAdapterMismatchError
