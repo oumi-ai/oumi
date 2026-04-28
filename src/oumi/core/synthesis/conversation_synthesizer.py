@@ -976,13 +976,7 @@ class ConversationSynthesizer:
             return _tool_error_msg(f"Tool '{name}' raised: {e}")
 
         output = result.output
-
-        if output is None:
-            content = ""
-        elif isinstance(output, str):
-            content = output
-        else:
-            content = json.dumps(output)
+        content = output if isinstance(output, str) else json.dumps(output)
         return _tool_result_message(content)
 
     def _build_tool_dispatch(
