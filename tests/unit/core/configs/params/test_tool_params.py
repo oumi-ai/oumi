@@ -22,7 +22,6 @@ from oumi.core.configs.params.tool_params import (
     ToolResult,
     ToolSchema,
 )
-from oumi.environments.deterministic_tool import DeterministicToolOutput
 from oumi.environments.synthetic_environment import SyntheticStateParams
 
 

@@ -21,7 +21,6 @@ import pytest
 from oumi.core.configs.params.grounding_params import GroundingFact
 from oumi.core.configs.params.tool_params import ToolResult
 from oumi.environments.base_environment import BaseEnvironment
-from oumi.environments.deterministic_tool import DeterministicToolOutput
 
 
 def test_base_environment_is_not_a_dataclass():
