@@ -191,7 +191,7 @@ def test_sample_grounding_merges_input_and_output_into_data():
     env = DeterministicEnvironment.from_params(
         _make_params(
             tools=[
-                ToolParams(
+                DeterministicTool(
                     id="lookup",
                     name="Lookup",
                     description="Look up.",

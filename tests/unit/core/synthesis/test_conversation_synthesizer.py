@@ -33,12 +33,15 @@ from oumi.core.configs.params.synthesis_params import (
     SampledAttributeValue,
 )
 from oumi.core.configs.params.tool_params import (
-    DeterministicToolOutput,
     ToolParams,
     ToolSchema,
 )
 from oumi.core.synthesis.conversation_synthesizer import ConversationSynthesizer
 from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.environments.deterministic_tool import (
+    DeterministicTool,
+    DeterministicToolOutput,
+)
 
 
 def _unwrap_tool_result(content: object) -> str:
@@ -1589,7 +1592,7 @@ def _tool_env_params(*, tool_id: str = "lookup") -> EnvironmentParams:
         description="Test env",
         env_type="deterministic",
         tools=[
-            ToolParams(
+            DeterministicTool(
                 id=tool_id,
                 name="Lookup",
                 description="Look up an id.",
@@ -1616,7 +1619,7 @@ def _typed_tool_env_config() -> EnvironmentConfig:
         description="Test env",
         env_type="deterministic",
         tools=[
-            ToolParams(
+            DeterministicTool(
                 id="lookup",
                 name="Lookup",
                 description="Look up a policy.",
