@@ -113,7 +113,11 @@ class TestEngine:
             affected_count=len(affected_indices),
             total_count=total_count,
             affected_percentage=round(affected_pct, 2),
-            threshold=test.max_percentage or test.min_percentage,
+            threshold=(
+                test.max_percentage
+                if test.max_percentage is not None
+                else test.min_percentage
+            ),
             actual_value=actual_value,
             sample_indices=affected_indices[:MAX_SAMPLE_INDICES],
             all_affected_indices=affected_indices,
@@ -179,15 +183,15 @@ class TestEngine:
         if not test.metric:
             return self._create_error_result(test, "Test requires 'metric' field")
 
-        values = self._extract_metric_values(test.metric, results)
+        indexed_values = self._extract_metric_values(test.metric, results)
 
-        if not values:
+        if not indexed_values:
             return self._create_error_result(
                 test, f"Metric '{test.metric}' not found in results"
             )
 
         if test.type == TestType.THRESHOLD:
-            return self._run_threshold_test(test, values)
+            return self._run_threshold_test(test, indexed_values)
         else:
             return self._create_error_result(test, f"Unknown test type: {test.type}")
 
@@ -195,8 +199,26 @@ class TestEngine:
         self,
         metric: str,
         results: dict[str, list[BaseModel] | BaseModel],
-    ) -> list[Any]:
-        """Extract values for a metric path like "id.field_name"."""
+    ) -> list[tuple[int, Any]]:
+        """Extract ``(original_index, value)`` pairs for a metric path.
+
+        The metric path is "id.field_name" (e.g., "length.total_tokens").
+
+        A sample can be "missing" a metric for several reasons:
+          - The analyzer's result model declares the field as optional and
+            leaves it ``None`` for that sample (e.g., couldn't compute on an
+            empty conversation, or a conditional code path that doesn't
+            produce the field).
+          - The metric lives in a ``CustomMetricResult.values`` dict whose
+            keys vary per sample (custom metric functions are user-written
+            and may emit different keys).
+          - A nested dict path has a missing intermediate key.
+
+        Such samples are filtered out, but we keep their original index so
+        ``sample_indices`` and ``all_affected_indices`` on the resulting
+        ``TestResult`` still point at real dataset positions instead of
+        offsets into the filtered list.
+        """
         parts = metric.split(".")
         if len(parts) < 2:
             return []
@@ -211,15 +233,15 @@ class TestEngine:
 
         if isinstance(analyzer_results, BaseModel):
             value = self._get_nested_value(analyzer_results, field_path)
-            return [value] if value is not None else []
+            return [(0, value)] if value is not None else []
 
-        values = []
-        for result in analyzer_results:
+        indexed_values: list[tuple[int, Any]] = []
+        for i, result in enumerate(analyzer_results):
             value = self._get_nested_value(result, field_path)
             if value is not None:
-                values.append(value)
+                indexed_values.append((i, value))
 
-        return values
+        return indexed_values
 
     def _get_nested_value(self, obj: Any, field_path: list[str]) -> Any:
         """Get a nested field value from a Pydantic model or dict."""
@@ -259,7 +281,7 @@ class TestEngine:
     def _run_threshold_test(
         self,
         test: TestParams,
-        values: list[Any],
+        indexed_values: list[tuple[int, Any]],
     ) -> TestResult:
         """Run a threshold test against metric values."""
         if test.operator is None or test.value is None:
@@ -276,25 +298,25 @@ class TestEngine:
         matching_reasons: dict[int, str] = {}
         non_matching_reasons: dict[int, str] = {}
 
-        for i, value in enumerate(values):
+        for orig_idx, value in indexed_values:
             try:
                 if op_func(value, test.value):
-                    matching_indices.append(i)
-                    matching_reasons[i] = (
+                    matching_indices.append(orig_idx)
+                    matching_reasons[orig_idx] = (
                         f"Flagged: {test.metric} {test.operator} {test.value}"
                         f" (value={value})"
                     )
                 else:
-                    non_matching_indices.append(i)
-                    non_matching_reasons[i] = (
+                    non_matching_indices.append(orig_idx)
+                    non_matching_reasons[orig_idx] = (
                         f"Not flagged: {test.metric} {test.operator} {test.value}"
                         f" (value={value})"
                     )
             except (TypeError, ValueError):
-                non_matching_indices.append(i)
-                non_matching_reasons[i] = f"Cannot evaluate: {value}"
+                non_matching_indices.append(orig_idx)
+                non_matching_reasons[orig_idx] = f"Cannot evaluate: {value}"
 
-        total_count = len(values)
+        total_count = len(indexed_values)
         matching_count = len(matching_indices)
         if total_count > 0:
             matching_pct = 100.0 * matching_count / total_count
@@ -330,13 +352,15 @@ class TestEngine:
             affected_pct = matching_pct
             failure_reasons = matching_reasons
 
+        raw_values = [v for _, v in indexed_values]
+
         return self._build_test_result(
             test=test,
             passed=passed,
             total_count=total_count,
             affected_indices=affected_indices,
             affected_pct=affected_pct,
-            actual_value=self._get_actual_value(values),
+            actual_value=self._get_actual_value(raw_values),
             details={
                 "operator": test.operator,
                 "value": test.value,
