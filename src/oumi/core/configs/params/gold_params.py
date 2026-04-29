@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import math
+import warnings
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -217,6 +218,17 @@ class GoldParams(BaseParams):
     Only relevant when use_uld_loss=True.
     """
 
+    use_transformers_paged: bool = False
+    """Whether to use transformers paged attention for generation.
+
+    .. deprecated::
+        This field is deprecated and ignored. Upstream removed
+        ``use_transformers_paged`` from ``trl.GOLDConfig`` in trl 1.2 — the
+        paged generation path was both slower and substantially more
+        VRAM-hungry than the default and is now superseded by transformers
+        continuous batching. The field will be removed in a future release.
+    """
+
     use_vllm: bool = False
     """Whether to use vLLM for generating completions.
 
@@ -288,6 +300,15 @@ class GoldParams(BaseParams):
 
     def __post_init__(self):
         """Validates GOLD parameters."""
+        if self.use_transformers_paged:
+            warnings.warn(
+                "GoldParams.use_transformers_paged is deprecated and ignored: "
+                "trl 1.2 removed `use_transformers_paged` from `GOLDConfig`. "
+                "The field will be removed in a future release.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
         if self.teacher_model_name_or_path is not None:
             if not isinstance(self.teacher_model_name_or_path, str):
                 raise TypeError(
