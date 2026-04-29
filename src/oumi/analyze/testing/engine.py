@@ -200,12 +200,24 @@ class TestEngine:
         metric: str,
         results: dict[str, list[BaseModel] | BaseModel],
     ) -> list[tuple[int, Any]]:
-        """Extract ``(original_index, value)`` pairs for a metric path like "id.field_name".
+        """Extract ``(original_index, value)`` pairs for a metric path.
 
-        Preserving the original sample index ensures that ``sample_indices``
-        and ``all_affected_indices`` in the resulting ``TestResult`` map back
-        to actual conversation positions, even if some samples are missing
-        the metric (and therefore filtered out).
+        The metric path is "id.field_name" (e.g., "length.total_tokens").
+
+        A sample can be "missing" a metric for several reasons:
+          - The analyzer's result model declares the field as optional and
+            leaves it ``None`` for that sample (e.g., couldn't compute on an
+            empty conversation, or a conditional code path that doesn't
+            produce the field).
+          - The metric lives in a ``CustomMetricResult.values`` dict whose
+            keys vary per sample (custom metric functions are user-written
+            and may emit different keys).
+          - A nested dict path has a missing intermediate key.
+
+        Such samples are filtered out, but we keep their original index so
+        ``sample_indices`` and ``all_affected_indices`` on the resulting
+        ``TestResult`` still point at real dataset positions instead of
+        offsets into the filtered list.
         """
         parts = metric.split(".")
         if len(parts) < 2:
