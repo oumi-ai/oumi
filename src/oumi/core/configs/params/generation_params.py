@@ -130,6 +130,25 @@ class GenerationParams(BaseParams):
     format (e.g., reasoning tokens, tool call markers).
     """
 
+    # Should be Union[str, dict[str, Any], None], but omegaconf does not
+    # support unions of containers, so we widen to Any.
+    tool_choice: Any | None = None
+    """Controls how the model selects tools when ``Conversation.tools`` is set.
+
+    Uses the OpenAI value space: ``"none"``, ``"auto"``, ``"required"``, or
+    ``{"type": "function", "function": {"name": "..."}}``. Default ``None``
+    omits the field from the request, letting the API apply its own default
+    (``"auto"`` when tools are present). Engines targeting non-OpenAI providers
+    (e.g. Anthropic) translate this value to the provider's wire shape.
+    """
+
+    parallel_tool_calls: bool = True
+    """Whether the model may emit multiple tool calls in one response.
+
+    OpenAI-specific. Default ``True`` matches the OpenAI API default; the
+    request body only carries the field when explicitly set to ``False``.
+    """
+
     def __post_init__(self):
         """Validates generation-specific parameters."""
         if self.batch_size is not None and self.batch_size < 1:
