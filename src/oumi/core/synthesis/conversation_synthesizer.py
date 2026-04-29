@@ -16,7 +16,6 @@ import copy
 import dataclasses
 import json
 import random
-import re
 
 from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.configs.environment_config import EnvironmentConfig
@@ -43,37 +42,20 @@ from oumi.core.types.conversation import (
 )
 from oumi.environments import GroundingFact
 from oumi.environments.base_environment import BaseEnvironment
+from oumi.environments.utils import (
+    TOOL_CALL_RE,
+    close_dangling_tool_call,
+    strip_tool_call_blocks,
+    truncate_after_last_tool_call,
+)
 from oumi.utils.logging import logger
 from oumi.utils.str_utils import extract_json
-
-_TOOL_CALL_RE = re.compile(r"<tool_call>(.*?)</tool_call>", re.DOTALL)
 
 _FORCED_FINALIZE_NUDGE = (
     "You have reached the tool-call limit. Do NOT emit any more "
     "<tool_call> blocks. Based on the information gathered so far, "
     "provide your final response to the user now."
 )
-
-
-def _strip_tool_call_blocks(text: str) -> str:
-    return _TOOL_CALL_RE.sub("", text)
-
-
-def _close_dangling_tool_call(text: str) -> str:
-    """Re-append ``</tool_call>`` when stop-sequence inference stripped it."""
-    opens = text.count("<tool_call>")
-    closes = text.count("</tool_call>")
-    if opens > closes:
-        return text + "</tool_call>"
-    return text
-
-
-def _truncate_after_last_tool_call(text: str) -> str:
-    """Return the text prefix up to and including the LAST ``</tool_call>``."""
-    last_close = text.rfind("</tool_call>")
-    if last_close == -1:
-        return text
-    return text[: last_close + len("</tool_call>")]
 
 
 def _tool_result_message(content: str) -> Message:
@@ -845,8 +827,8 @@ class ConversationSynthesizer:
                 )
             )
             for i, text in zip(active, texts):
-                text = _close_dangling_tool_call(text)
-                text = _truncate_after_last_tool_call(text)
+                text = close_dangling_tool_call(text)
+                text = truncate_after_last_tool_call(text)
                 turn_messages[i].append(Message(role=Role.ASSISTANT, content=text))
                 if self._is_final_response(text):
                     done[i] = True
@@ -876,7 +858,7 @@ class ConversationSynthesizer:
                 )
             )
             for i, text in zip(stragglers, texts):
-                final = _strip_tool_call_blocks(text).strip()
+                final = strip_tool_call_blocks(text).strip()
                 turn_messages[i].append(Message(role=Role.ASSISTANT, content=final))
 
         return [turn_messages[i] for i in sample_indices]
@@ -895,14 +877,14 @@ class ConversationSynthesizer:
         )
 
     def _is_final_response(self, text: str) -> bool:
-        return _TOOL_CALL_RE.search(text) is None
+        return TOOL_CALL_RE.search(text) is None
 
     def _execute_tool_calls(
         self, response_text: str, tool_dispatch: dict[str, BaseEnvironment]
     ) -> list[Message]:
         return [
             self._run_single_tool_call(match.group(1).strip(), tool_dispatch)
-            for match in _TOOL_CALL_RE.finditer(response_text)
+            for match in TOOL_CALL_RE.finditer(response_text)
         ]
 
     def _run_single_tool_call(

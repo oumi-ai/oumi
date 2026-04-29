@@ -1934,86 +1934,72 @@ def test_is_final_response_detects_tool_call(mock_inference_config):
 # --- Pre-result hallucination hardening ---
 
 
-def test_truncate_after_last_tool_call_strips_trailing_prose():
-    from oumi.core.synthesis.conversation_synthesizer import (
-        _truncate_after_last_tool_call,
-    )
+def testtruncate_after_last_tool_call_strips_trailing_prose():
+    from oumi.environments.utils import truncate_after_last_tool_call
 
     text = (
         '<tool_call>{"name": "lookup", "arguments": {"id": "01"}}</tool_call>\n\n'
         "I found it! The book is 'Dune' by Frank Herbert. Due back 2024-01-15."
     )
-    cleaned = _truncate_after_last_tool_call(text)
+    cleaned = truncate_after_last_tool_call(text)
     assert cleaned.endswith("</tool_call>")
     assert "Dune" not in cleaned
     assert "2024" not in cleaned
 
 
-def test_truncate_after_last_tool_call_preserves_leading_prose():
-    from oumi.core.synthesis.conversation_synthesizer import (
-        _truncate_after_last_tool_call,
-    )
+def testtruncate_after_last_tool_call_preserves_leading_prose():
+    from oumi.environments.utils import truncate_after_last_tool_call
 
     text = (
         "Let me check that for you.\n"
         '<tool_call>{"name": "lookup", "arguments": {"id": "01"}}</tool_call>'
     )
-    cleaned = _truncate_after_last_tool_call(text)
+    cleaned = truncate_after_last_tool_call(text)
     assert cleaned == text
 
 
-def test_truncate_after_last_tool_call_keeps_plain_response():
-    from oumi.core.synthesis.conversation_synthesizer import (
-        _truncate_after_last_tool_call,
-    )
+def testtruncate_after_last_tool_call_keeps_plain_response():
+    from oumi.environments.utils import truncate_after_last_tool_call
 
     text = "Here is a normal final response with no tool call."
-    assert _truncate_after_last_tool_call(text) == text
+    assert truncate_after_last_tool_call(text) == text
 
 
-def test_truncate_after_last_tool_call_keeps_multiple_calls():
-    from oumi.core.synthesis.conversation_synthesizer import (
-        _truncate_after_last_tool_call,
-    )
+def testtruncate_after_last_tool_call_keeps_multiple_calls():
+    from oumi.environments.utils import truncate_after_last_tool_call
 
     text = (
         '<tool_call>{"name": "a", "arguments": {}}</tool_call>'
         '<tool_call>{"name": "b", "arguments": {}}</tool_call>'
         "Trailing hallucinated answer."
     )
-    cleaned = _truncate_after_last_tool_call(text)
+    cleaned = truncate_after_last_tool_call(text)
     assert cleaned.endswith("</tool_call>")
     assert "hallucinated" not in cleaned
     assert cleaned.count("<tool_call>") == 2
 
 
-def test_close_dangling_tool_call_appends_missing_close_tag():
-    from oumi.core.synthesis.conversation_synthesizer import (
-        _close_dangling_tool_call,
-    )
+def testclose_dangling_tool_call_appends_missing_close_tag():
+    from oumi.environments.utils import close_dangling_tool_call
 
     truncated = '<tool_call>{"name": "lookup", "arguments": {"id": "01"}}'
-    closed = _close_dangling_tool_call(truncated)
+    closed = close_dangling_tool_call(truncated)
     assert closed.endswith("</tool_call>")
     assert closed.count("<tool_call>") == closed.count("</tool_call>")
 
 
-def test_close_dangling_tool_call_noop_when_balanced():
-    from oumi.core.synthesis.conversation_synthesizer import (
-        _close_dangling_tool_call,
-    )
+def testclose_dangling_tool_call_noop_when_balanced():
+    from oumi.environments.utils import close_dangling_tool_call
 
     text = '<tool_call>{"name": "x", "arguments": {}}</tool_call>'
-    assert _close_dangling_tool_call(text) == text
+    assert close_dangling_tool_call(text) == text
 
 
-def test_close_dangling_tool_call_noop_when_no_tool_call():
-    from oumi.core.synthesis.conversation_synthesizer import (
-        _close_dangling_tool_call,
-    )
+def testclose_dangling_tool_call_noop_when_no_tool_call():
+    from oumi.environments.utils import close_dangling_tool_call
 
     text = "Plain response, no tool tags here."
-    assert _close_dangling_tool_call(text) == text
+    assert close_dangling_tool_call(text) == text
 
 
 def test_assistant_inference_config_adds_stop_sequence(mock_inference_config):
