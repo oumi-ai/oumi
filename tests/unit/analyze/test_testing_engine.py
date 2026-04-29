@@ -470,7 +470,7 @@ def test_multi_instance_metrics_resolve_correctly():
 
     from pydantic import BaseModel
 
-    # Two length analyzers with different instance_ids
+    # Two length analyzers with different ids
     results: dict[str, list[BaseModel] | BaseModel] = {
         "length_tiktoken": cast(
             list[BaseModel],

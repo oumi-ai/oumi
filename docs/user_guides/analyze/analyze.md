@@ -30,8 +30,8 @@ from oumi.cli.analyze import run_typed_analysis
 config = TypedAnalyzeConfig(
     dataset_path="data/dataset_examples/oumi_format.jsonl",
     analyzers=[
-        AnalyzerConfig(id="length", instance_id="Length"),
-        AnalyzerConfig(id="quality", instance_id="Quality"),
+        AnalyzerConfig(type="length", display_name="Length"),
+        AnalyzerConfig(type="quality", display_name="Quality"),
     ],
 )
 
@@ -53,8 +53,8 @@ A minimal YAML configuration:
 dataset_path: data/dataset_examples/oumi_format.jsonl
 
 analyzers:
-  - id: length
-    instance_id: Length
+  - type: length
+    display_name: Length
     params:
       tokenizer_name: cl100k_base
 ```
@@ -160,7 +160,7 @@ from oumi.cli.analyze import run_typed_analysis
 config = TypedAnalyzeConfig.from_yaml("config.yaml")
 output = run_typed_analysis(config)
 
-# Analyzer results keyed by instance_id
+# Analyzer results keyed by id (defaults to display_name)
 for length_result in output["results"]["Length"]:
     print(f"Tokens: {length_result.total_tokens}")
 
@@ -195,12 +195,12 @@ sample_count: 100
 output_path: ./analysis_output
 
 analyzers:
-  - id: length
-    instance_id: Length
+  - type: length
+    display_name: Length
     params:
       tokenizer_name: cl100k_base
-  - id: quality
-    instance_id: Quality
+  - type: quality
+    display_name: Quality
 :::
 :::{code-block} python
 from oumi.analyze import TypedAnalyzeConfig, AnalyzerConfig
@@ -211,8 +211,8 @@ config = TypedAnalyzeConfig(
     split="train",
     sample_count=100,
     analyzers=[
-        AnalyzerConfig(id="length", instance_id="Length"),
-        AnalyzerConfig(id="quality", instance_id="Quality"),
+        AnalyzerConfig(type="length", display_name="Length"),
+        AnalyzerConfig(type="quality", display_name="Quality"),
     ],
 )
 results = run_typed_analysis(config)
@@ -225,10 +225,10 @@ Configure tests to automatically validate your dataset against quality threshold
 
 ```yaml
 analyzers:
-  - id: length
-    instance_id: Length
-  - id: quality
-    instance_id: Quality
+  - type: length
+    display_name: Length
+  - type: quality
+    display_name: Quality
 
 tests:
   - id: max_tokens
@@ -250,7 +250,7 @@ tests:
     title: "Conversations with empty turns"
 ```
 
-Metrics are referenced as `"{instance_id}.{field_name}"` (e.g., `Length.total_tokens`, `Quality.has_empty_turns`).
+Metrics are referenced as `"{id}.{field_name}"` (e.g., `Length.total_tokens`, `Quality.has_empty_turns`). When `id` is omitted it defaults to `display_name`.
 
 See {doc}`analyze_config` for full test configuration options.
 
@@ -288,8 +288,8 @@ Then reference it in YAML the same way as built-ins:
 
 ```yaml
 analyzers:
-  - id: questions
-    instance_id: Questions
+  - type: questions
+    display_name: Questions
 ```
 
 Base classes for different scopes:

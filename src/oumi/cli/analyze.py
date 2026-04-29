@@ -142,11 +142,11 @@ def run_typed_analysis(
     analyzers = []
     for analyzer_config in config.analyzers:
         analyzer = create_analyzer_from_config(
-            analyzer_config.id,
+            analyzer_config.type,
             analyzer_config.params,
         )
         if analyzer is not None:
-            analyzer.analyzer_id = analyzer_config.instance_id
+            analyzer.analyzer_id = analyzer_config.id
             analyzers.append(analyzer)
 
     if not analyzers:
@@ -308,9 +308,10 @@ def _check_old_config_format(config_path: str) -> None:
             "format.\n\n"
             f"Detected v1 fields: {', '.join(sorted(old_fields_found))}\n\n"
             "The analyze CLI now uses TypedAnalyzeConfig (v2). Key changes:\n"
-            "  - 'analyzers' entries use 'id' and 'instance_id'\n"
-            "  - Metrics are accessed as '{instance_id}.{field}' "
-            "(e.g. 'Length.total_tokens')\n"
+            "  - 'analyzers' entries use 'type' and 'display_name' "
+            "(plus optional 'id')\n"
+            "  - Metrics are accessed as '{id}.{field}' "
+            "(id defaults to display_name, e.g. 'Length.total_tokens')\n"
             "  - 'dataset_source', 'processor_name', 'is_multimodal' "
             "are no longer needed\n\n"
             "See: docs/user_guides/analyze/analyze_config.md for the new format.\n"
@@ -357,7 +358,7 @@ def _run_typed_analysis_cli(
             cli_utils.CONSOLE.print(f"[dim]Config loaded from: {config}[/dim]")
             dataset = typed_config.dataset_name or typed_config.dataset_path
             cli_utils.CONSOLE.print(f"[dim]Dataset: {dataset}[/dim]")
-            analyzer_ids = [a.instance_id for a in typed_config.analyzers]
+            analyzer_ids = [a.id for a in typed_config.analyzers]
             cli_utils.CONSOLE.print(f"[dim]Analyzers: {analyzer_ids}[/dim]")
 
         with cli_utils.CONSOLE.status(

@@ -16,24 +16,24 @@ dataset_path: data/dataset_examples/oumi_format.jsonl
 
 output_path: ./analysis_output
 
-# Analyzers to run. Each needs a unique instance_id.
+# Analyzers to run. Each needs a unique `id` (defaults to display_name).
 # Metrics are accessed via paths like "Length.total_tokens".
 analyzers:
-  - id: length
-    instance_id: Length
+  - type: length
+    display_name: Length
     params:
       # Tokenizer name - automatically detects tiktoken vs HuggingFace
       tokenizer_name: o200k_base # tiktoken encoding (GPT-4o)
       trust_remote_code: false
       # For HuggingFace tokenizers, use model ID:
       # tokenizer_name: meta-llama/Llama-3.1-8B-Instruct
-  - id: turn_stats
-    instance_id: TurnStats
-  - id: quality
-    instance_id: Quality
+  - type: turn_stats
+    display_name: TurnStats
+  - type: quality
+    display_name: Quality
 
 # Tests validate analysis results against thresholds.
-# Metric paths use "{instance_id}.{field_name}" format.
+# Metric paths use "{id}.{field_name}" format (id defaults to display_name).
 # Without max_percentage/min_percentage, a test passes only if zero samples match.
 tests:
   - id: total_tokens

@@ -35,7 +35,7 @@ def _create_typed_config_yaml(
         "dataset_path": dataset_path,
         "output_path": output_path,
         "analyzers": [
-            {"id": "length", "instance_id": "Length"},
+            {"type": "length", "display_name": "Length"},
         ],
     }
 
@@ -100,7 +100,7 @@ def test_analyze_invalid_format():
     with tempfile.TemporaryDirectory() as tmpdir:
         config_path = str(Path(tmpdir) / "config.yaml")
         with open(config_path, "w") as f:
-            yaml.dump({"analyzers": [{"id": "length"}]}, f)
+            yaml.dump({"analyzers": [{"type": "length"}]}, f)
 
         result = runner.invoke(
             app, ["--config", config_path, "--format", "invalid_format"]
