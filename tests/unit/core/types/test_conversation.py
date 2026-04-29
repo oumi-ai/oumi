@@ -1340,7 +1340,7 @@ def test_typed_field_access_on_conversation_tools():
     assert conv.tools is not None
     assert conv.tools[0].function.name == "get_weather"
     assert conv.tools[0].function.parameters is not None
-    assert conv.tools[0].function.parameters["required"] == ["city"]
+    assert conv.tools[0].function.parameters.required == ["city"]
 
 
 def test_typed_field_access_on_message_tool_calls():

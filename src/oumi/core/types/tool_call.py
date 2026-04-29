@@ -26,9 +26,56 @@ downstream code relies on.
 """
 
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
 import pydantic
+
+# The seven primitive types defined by JSON Schema.
+JSONSchemaType = Literal[
+    "object", "string", "number", "integer", "boolean", "array", "null"
+]
+
+
+class JSONSchema(pydantic.BaseModel):
+    """A JSON Schema object describing the shape of a value.
+
+    Models the subset of JSON Schema commonly used in LLM tool
+    definitions. ``extra="allow"`` lets less-common keywords
+    (``$ref``, ``$defs``, ``additionalProperties``, ``anyOf``, numeric
+    constraints, etc.) round-trip unchanged, matching the rest of this
+    module — see the module docstring for why round-tripping matters.
+    """
+
+    model_config = pydantic.ConfigDict(frozen=True, extra="allow")
+
+    type: JSONSchemaType | list[JSONSchemaType] | None = None
+    """JSON type(s) of this value. A list expresses a union
+    (e.g., ``["string", "null"]`` for a nullable string).
+    """
+
+    description: str | None = None
+    """Human-readable description, used by the model to choose values."""
+
+    title: str | None = None
+    """Short human-readable label."""
+
+    properties: dict[str, "JSONSchema"] | None = None
+    """For ``type="object"``: schema for each named property."""
+
+    required: list[str] | None = None
+    """For ``type="object"``: names of properties that must be present."""
+
+    items: "JSONSchema | None" = None
+    """For ``type="array"``: schema for array elements."""
+
+    enum: list[Any] | None = None
+    """Restricts the value to a fixed set of allowed values."""
+
+    default: Any = None
+    """Default value used when the field is omitted."""
+
+    format: str | None = None
+    """Semantic format hint (e.g., ``"date-time"``, ``"email"``)."""
 
 
 class ToolType(str, Enum):
@@ -60,7 +107,7 @@ class FunctionDefinition(pydantic.BaseModel):
     Used by the model to choose when and how to call the function.
     """
 
-    parameters: dict[str, Any] | None = None
+    parameters: JSONSchema | None = None
     """The parameters the function accepts, as a JSON Schema object.
 
     See https://json-schema.org/understanding-json-schema/ for the
