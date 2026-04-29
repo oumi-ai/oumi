@@ -16,11 +16,13 @@ import math
 import warnings
 from dataclasses import dataclass, field, fields
 from enum import Enum
+from pathlib import Path
 from typing import Any, Literal
 
 from omegaconf import MISSING
 
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.exceptions import OumiConfigError
 
 
 # Training Params
@@ -203,6 +205,11 @@ class DatasetParams(BaseParams):
                     f"reserved fields: {conflicting_keys}. "
                     "Use properties of DatasetParams instead."
                 )
+
+    def __finalize_and_validate__(self):
+        """Verifies params."""
+        if self.dataset_path and not Path(self.dataset_path).exists():
+            raise OumiConfigError(f"dataset_path '{self.dataset_path}' does not exist.")
 
 
 @dataclass
