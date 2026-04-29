@@ -518,14 +518,26 @@ class _PartialMetrics(BaseModel):
 
 
 def test_sample_indices_map_to_original_positions_when_values_are_missing():
-    """When some samples lack the metric, sample_indices must point to the
-    original conversation positions, not filtered-list positions."""
+    """Regression test: when some samples lack the metric, ``sample_indices``
+    must point to the original conversation positions, not offsets into the
+    filtered list.
+
+    Previous code built ``values: list[Any]`` by enumerating analyzer
+    results and dropping ``None``s, then re-numbered the survivors 0..N-1.
+    With the dataset below, the flagged sample is at dataset index ``2``,
+    but the old code reported it as ``1`` (its position after filtering).
+    Downstream "drop these rows" tooling that consumed ``all_affected_indices``
+    therefore deleted the wrong rows.
+
+    The fix changes extraction to return ``(original_index, value)`` pairs,
+    so the index reported in the result still maps to the dataset.
+    """
     results: dict[str, list[BaseModel] | BaseModel] = {
         "m": [
-            _PartialMetrics(value=1),
-            _PartialMetrics(value=None),  # index 1 is skipped during extraction
-            _PartialMetrics(value=999),  # the flagged one; must be reported as 2
-            _PartialMetrics(value=2),
+            _PartialMetrics(value=1),  # dataset idx 0 — not flagged
+            _PartialMetrics(value=None),  # dataset idx 1 — filtered out
+            _PartialMetrics(value=999),  # dataset idx 2 — the flagged sample
+            _PartialMetrics(value=2),  # dataset idx 3 — not flagged
         ]
     }
     tests = [
@@ -545,19 +557,69 @@ def test_sample_indices_map_to_original_positions_when_values_are_missing():
     assert result.all_affected_indices == [2]
 
 
-def test_threshold_with_max_percentage_zero_sets_threshold_field():
-    """A max_percentage of 0 must surface as threshold=0.0, not fall through
-    to min_percentage (fixes the ``a or b`` truthiness bug)."""
+def test_zero_tolerance_threshold_is_reported_as_zero_not_none():
+    """Regression test: ``max_percentage=0.0`` must surface as
+    ``threshold=0.0`` on the TestResult.
+
+    Previous code built the result with::
+
+        threshold=test.max_percentage or test.min_percentage
+
+    Because ``0.0`` is falsy in Python, ``0.0 or None`` evaluated to
+    ``None`` — so a "zero tolerance" policy (e.g., ``max_percentage=0.0``
+    on a "no PII allowed" rule) was reported with ``threshold=None``,
+    making the rendered CLI/JSON output gaslight reviewers about which
+    threshold actually fired. The pass/fail decision was still correct
+    (it uses ``is not None`` checks), but the reported threshold was wrong.
+
+    This test pins the reporting fix.
+    """
+    # A single sample that flags the rule (value=1 > 0), driving the
+    # test to FAIL with matching_pct=100% > max_percentage=0.0%.
     results: dict[str, list[BaseModel] | BaseModel] = {"m": [_PartialMetrics(value=1)]}
     tests = [
         TestParams(
-            id="zero_pct",
+            id="no_pii_allowed",  # mimics a real "zero tolerance" rule
             type=TestType.THRESHOLD,
             metric="m.value",
             operator=">",
-            value=100,
-            max_percentage=0.0,
+            value=0,
+            max_percentage=0.0,  # the value the old `a or b` swallowed
         )
     ]
     summary = TestEngine(tests).run(results)
-    assert summary.results[0].threshold == 0.0
+
+    result = summary.results[0]
+    assert result.passed is False, "1/1 samples flagged > 0% allowed → must fail"
+    assert result.threshold == 0.0, (
+        "threshold must reflect the user-configured 0.0, not fall through to "
+        "min_percentage via Python's truthy `or` semantics"
+    )
+
+
+def test_zero_tolerance_threshold_picks_max_when_both_are_set():
+    """Regression test for the "both set" variant of the truthiness bug.
+
+    With ``max_percentage=0.0`` and ``min_percentage=50.0``, the old
+    ``test.max_percentage or test.min_percentage`` evaluated to ``50.0``
+    — confidently misattributing the threshold to the min rule when the
+    max rule is the one that fired. The fix's explicit ``is not None``
+    check picks ``max_percentage`` whenever it was set, regardless of value.
+    """
+    results: dict[str, list[BaseModel] | BaseModel] = {"m": [_PartialMetrics(value=1)]}
+    tests = [
+        TestParams(
+            id="zero_max_with_min",
+            type=TestType.THRESHOLD,
+            metric="m.value",
+            operator=">",
+            value=0,
+            max_percentage=0.0,
+            min_percentage=50.0,
+        )
+    ]
+    summary = TestEngine(tests).run(results)
+
+    assert summary.results[0].threshold == 0.0, (
+        "max_percentage=0.0 was explicitly set; it must win over min_percentage"
+    )
