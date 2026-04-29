@@ -93,13 +93,10 @@ def create_analyzer_from_config(
         return None
 
     try:
-        # Prefer from_config() if available for better config handling
-        if hasattr(analyzer_class, "from_config") and callable(
-            getattr(analyzer_class, "from_config")
-        ):
-            return analyzer_class.from_config(params)  # type: ignore[union-attr]
-        else:
-            return analyzer_class(**params)
+        from_config = getattr(analyzer_class, "from_config", None)
+        if callable(from_config):
+            return from_config(params)  # type: ignore[no-any-return]
+        return analyzer_class(**params)
     except Exception as e:
         logger.error(f"Failed to create analyzer {analyzer_id}: {e}")
         return None

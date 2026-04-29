@@ -2,35 +2,81 @@
 # Usage: oumi analyze --config configs/examples/analyze/analyze.yaml
 #
 # Output files:
-#   - message_analysis.csv: Per-message metrics
-#   - conversation_analysis.csv: Per-conversation aggregated metrics
-#   - analysis_summary.json: Statistical summary (mean, std, min, max, median)
-# Local file in Oumi or Alpaca format
+#   - analysis.csv: Per-conversation metrics
+#   - test_results.json: Test pass/fail details
+#   - summary.json: Statistical summary (mean, std, min, max, median)
+
+# Local file in Oumi format (JSONL with {"messages": [...]})
 dataset_path: data/dataset_examples/oumi_format.jsonl
-# Or, use a HuggingFace dataset
-# dataset_name: argilla/databricks-dolly-15k-curated-en
+# Or, a HuggingFace dataset already in Oumi format ({"messages": [...]} per row):
+# dataset_name: <org>/<repo>
 # split: train
 
 # sample_count: 1000  # Limit samples (null = all)
 
-# Tokenizer for token_count metric (use same tokenizer as your target model)
-# tokenizer_name: openai-community/gpt2
-# tokenizer_kwargs: {}
-
-# For multimodal (vision-language) datasets, specify a processor
-# Presence of processor_name automatically enables multimodal mode
-# processor_name: llava-hf/llava-1.5-7b-hf
-# processor_kwargs: {}
-
-# trust_remote_code: false
-
 output_path: ./analysis_output
 
+# Analyzers to run. Each needs a unique `id` (defaults to display_name).
+# Metrics are accessed via paths like "Length.total_tokens".
 analyzers:
-  - id: length
+  - type: length
+    display_name: Length
     params:
       # Tokenizer name - automatically detects tiktoken vs HuggingFace
-      tokenizer_name: cl100k_base  # tiktoken encoding (GPT-4)
+      tokenizer_name: o200k_base # tiktoken encoding (GPT-4o)
+      trust_remote_code: false
       # For HuggingFace tokenizers, use model ID:
       # tokenizer_name: meta-llama/Llama-3.1-8B-Instruct
-      # trust_remote_code: false
+  - type: turn_stats
+    display_name: TurnStats
+  - type: quality
+    display_name: Quality
+
+# Tests validate analysis results against thresholds.
+# Metric paths use "{id}.{field_name}" format (id defaults to display_name).
+# Without max_percentage/min_percentage, a test passes only if zero samples match.
+tests:
+  - id: total_tokens
+    type: threshold
+    severity: medium
+    title: "Total tokens exceed 8000"
+    description: "Flags conversations whose total token count exceeds 8000."
+    metric: Length.total_tokens
+    operator: ">"
+    value: 8000
+
+  - id: non_alternating_turns
+    type: threshold
+    severity: high
+    title: "Non-alternating user/assistant turns"
+    description: "Flags conversations where user/assistant messages do not alternate."
+    metric: Quality.has_non_alternating_turns
+    operator: "=="
+    value: 1
+
+  - id: empty_turns
+    type: threshold
+    severity: high
+    title: "Empty turns detected"
+    description: "Flags conversations containing empty or whitespace-only messages."
+    metric: Quality.has_empty_turns
+    operator: "=="
+    value: 1
+
+  - id: no_user_message
+    type: threshold
+    severity: high
+    title: "No user message"
+    description: "Flags conversations that contain no user message."
+    metric: Quality.has_no_user_message
+    operator: "=="
+    value: 1
+
+  - id: system_message_not_at_start
+    type: threshold
+    severity: medium
+    title: "System message not at start"
+    description: "Flags conversations where a system message appears after position 0."
+    metric: Quality.has_system_message_not_at_start
+    operator: "=="
+    value: 1
