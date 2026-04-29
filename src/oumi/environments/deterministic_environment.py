@@ -64,7 +64,7 @@ class DeterministicEnvironment(BaseEnvironment):
         self._kwargs = kwargs
         self._validate_tools(params.tools)
 
-    def step(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:
+    def _step_one(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:
         """Resolve a deterministic tool call to its output.
 
         Raises:

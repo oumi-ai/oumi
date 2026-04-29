@@ -1996,7 +1996,7 @@ def test_execute_tool_calls_passes_through_string_output(mock_inference_config):
     env_config = _tool_env_config()
     synth = _make_synthesizer(mock_inference_config, environment_config=env_config)
     dispatch = synth._build_tool_dispatch(_tool_multiturn_attr())
-    dispatch["lookup"].step = Mock(return_value=ToolResult(output="hello"))
+    dispatch["lookup"].step = Mock(return_value=[ToolResult(output="hello")])
 
     messages = synth._execute_tool_calls(
         '<tool_call>{"name": "lookup", "arguments": {"id": "01"}}</tool_call>',

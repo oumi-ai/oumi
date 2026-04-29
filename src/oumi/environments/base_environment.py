@@ -31,9 +31,22 @@ class BaseEnvironment(ABC):
 
     tool_params_cls: type[ToolParams] = ToolParams
 
+    def step(self, calls: list[tuple[str, dict[str, Any]]]) -> list[ToolResult]:
+        """Execute one or more tool calls within this environment.
+
+        Default implementation loops over ``_step_one`` and is suitable for
+        environments where execution is independent per call (e.g. lookups).
+        Environments that benefit from true batching (e.g. LLM-backed tool
+        simulation) should override this method to fold the batch into a
+        single backend call.
+
+        The order of returned ``ToolResult`` instances matches ``calls``.
+        """
+        return [self._step_one(tool_id, arguments) for tool_id, arguments in calls]
+
     @abstractmethod
-    def step(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:
-        """Execute a tool call within this environment."""
+    def _step_one(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:
+        """Execute a single tool call within this environment."""
 
     def sample_grounding(
         self,

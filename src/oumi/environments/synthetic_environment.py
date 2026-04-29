@@ -154,7 +154,23 @@ class SyntheticEnvironment(BaseEnvironment):
             f"Available tools: {[tool.id for tool in self._params.tools]}"
         )
 
-    def step(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:
-        """Execute a synthetic tool call."""
-        self._lookup_tool(tool_id)
+    def step(
+        self, calls: list[tuple[str, dict[str, Any]]]
+    ) -> list[ToolResult]:
+        """Execute one or more synthetic tool calls."""
+        if not calls:
+            return []
+        for tool_id, _ in calls:
+            self._lookup_tool(tool_id)
         raise NotImplementedError("SyntheticEnvironment.step() is not implemented yet.")
+
+    def _step_one(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:
+        """Single-call entry point.
+
+        Synthetic environments override ``step`` directly to batch inference;
+        this implementation is provided to satisfy ``BaseEnvironment``'s
+        abstract contract and is unreachable in normal use.
+        """
+        raise NotImplementedError(
+            "SyntheticEnvironment._step_one() is not implemented yet."
+        )

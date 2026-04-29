@@ -127,10 +127,10 @@ def test_cache_round_trip_stateless_caching():
 def test_step_unknown_tool_raises():
     env = SyntheticEnvironment.from_params(_make_params())
     with pytest.raises(ValueError, match="Tool 'missing' not found"):
-        env.step("missing", {})
+        env.step([("missing", {})])
 
 
 def test_step_known_tool_is_stub():
     env = SyntheticEnvironment.from_params(_make_params())
     with pytest.raises(NotImplementedError, match="not implemented yet"):
-        env.step("answer", {})
+        env.step([("answer", {})])

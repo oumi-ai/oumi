@@ -43,7 +43,7 @@ def test_build_environment_imports_without_explicit_env_package():
         ],
     )
     env = build_environment(params)
-    assert env.step("get", {"q": "hi"}) == ToolResult(output={"a": "hi"})
+    assert env.step([("get", {"q": "hi"})]) == [ToolResult(output={"a": "hi"})]
 
 
 def test_build_environment_unknown_env_type_raises():

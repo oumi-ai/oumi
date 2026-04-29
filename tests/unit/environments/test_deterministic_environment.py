@@ -103,14 +103,23 @@ def test_step_returns_matching_output():
         ]
     )
     env = DeterministicEnvironment.from_params(params)
-    assert env.step("tool1", {"id": "01"}) == ToolResult(output={"msg": "pending"})
-    assert env.step("tool1", {"id": "02"}) == ToolResult(output={"msg": "delivered"})
+    assert env.step([("tool1", {"id": "01"})]) == [
+        ToolResult(output={"msg": "pending"})
+    ]
+    assert env.step([("tool1", {"id": "02"})]) == [
+        ToolResult(output={"msg": "delivered"})
+    ]
+    # Batched: order preserved across multiple calls in one invocation.
+    assert env.step([("tool1", {"id": "01"}), ("tool1", {"id": "02"})]) == [
+        ToolResult(output={"msg": "pending"}),
+        ToolResult(output={"msg": "delivered"}),
+    ]
 
 
 def test_step_no_match_raises_with_hint():
     env = DeterministicEnvironment.from_params(_make_params())
     with pytest.raises(ToolLookupError) as excinfo:
-        env.step("tool1", {"id": "99"})
+        env.step([("tool1", {"id": "99"})])
     message = str(excinfo.value)
     assert "No deterministic output matches" in message
     assert "tool1" in message
@@ -132,13 +141,13 @@ def test_step_supports_zero_arg_tool():
         ]
     )
     env = DeterministicEnvironment.from_params(params)
-    assert env.step("ping", {}) == ToolResult(output={})
+    assert env.step([("ping", {})]) == [ToolResult(output={})]
 
 
 def test_step_unknown_tool_raises():
     env = DeterministicEnvironment.from_params(_make_params())
     with pytest.raises(ValueError, match="Tool 'missing' not found"):
-        env.step("missing", {"id": "01"})
+        env.step([("missing", {"id": "01"})])
 
 
 def test_from_params_coerces_raw_deterministic_outputs():
