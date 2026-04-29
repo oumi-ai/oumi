@@ -56,7 +56,6 @@ from oumi.inference.adaptive_concurrency_controller import AdaptiveConcurrencyCo
 from oumi.inference.adaptive_semaphore import PoliteAdaptiveSemaphore
 from oumi.inference.rate_limiter import RateLimiter, UsageTracker
 from oumi.utils.conversation_utils import (
-    convert_message_to_json_content_list,
     create_list_of_message_json_dicts,
 )
 from oumi.utils.http import (
@@ -368,16 +367,25 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
         api_input = {
             "model": model_params.model_name,
-            "messages": [
-                {
-                    "content": convert_message_to_json_content_list(message),
-                    "role": message.role.value,
-                }
-                for message in conversation.messages
-            ],
+            "messages": self._get_list_of_message_json_dicts(
+                conversation.messages,
+                group_adjacent_same_role_turns=False,
+            ),
             "n": 1,  # Number of completions to generate for each prompt.
             **generation_params_dict,
         }
+
+        if conversation.tools:
+            api_input["tools"] = [
+                tool.model_dump(mode="json", exclude_none=True)
+                for tool in conversation.tools
+            ]
+        if generation_params.tool_choice is not None:
+            api_input["tool_choice"] = generation_params.tool_choice
+        # Default parallel_tool_calls=True matches the OpenAI API default; only
+        # send the field when explicitly disabled.
+        if generation_params.parallel_tool_calls is False:
+            api_input["parallel_tool_calls"] = False
 
         if generation_params.guided_decoding:
             json_schema = generation_params.guided_decoding.json
@@ -498,7 +506,15 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         message = response["choices"][0].get("message")
         if not message:
             raise RuntimeError(f"No message found in API response: {response}")
-        content = message.get("content") or ""
+        raw_content = message.get("content")
+        tool_calls = message.get("tool_calls")
+        # OpenAI emits content=null on assistant messages that only carry
+        # tool_calls. Preserve None so Message can reconstruct the typed
+        # ToolCalls without forcing an empty string body.
+        if tool_calls:
+            content = raw_content
+        else:
+            content = raw_content or ""
         metadata = dict(original_conversation.metadata)
         usage = self._extract_usage_from_response(response)
         if usage is not None:
@@ -512,10 +528,12 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 Message(
                     content=content,
                     role=Role(message["role"]),
+                    tool_calls=tool_calls,
                 ),
             ],
             metadata=metadata,
             conversation_id=original_conversation.conversation_id,
+            tools=original_conversation.tools,
         )
 
     def _get_api_key(self, remote_params: RemoteParams) -> str | None:
@@ -839,11 +857,13 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             "logit_bias",
             "max_new_tokens",
             "min_p",
+            "parallel_tool_calls",
             "presence_penalty",
             "seed",
             "stop_strings",
             "stop_token_ids",
             "temperature",
+            "tool_choice",
             "top_p",
         }
 
