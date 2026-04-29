@@ -161,21 +161,7 @@ class BaseSftDataset(BaseMapDataset, ABC):
                 conversation_json = conversation.to_json()
                 return {"conversation_json": conversation_json}
             elif self._return_conversations_format == "dict":
-                data = conversation.to_dict()
-                # HF Datasets infers a single arrow struct schema across rows
-                # and requires every top-level key to exist on every row with
-                # the same type. Without this, rows whose Conversation has no
-                # tools end up missing the key (`exclude_none=True` strips it),
-                # and `datasets.Dataset.from_generator` fails with KeyError
-                # when mixing tool and non-tool rows.
-                #
-                # Note that this rule applies at the column level only —
-                # inside a list-of-dicts column like `messages`, items can
-                # have heterogeneous keys (e.g., assistant messages with
-                # `tool_calls`, tool messages with `tool_call_id`, plain
-                # messages with neither), and that's fine.
-                data.setdefault("tools", None)
-                return data
+                return self._conversation_to_hf_compatible_dict(conversation)
             else:
                 raise ValueError(
                     f"Invalid return_conversations_format: "
@@ -183,6 +169,25 @@ class BaseSftDataset(BaseMapDataset, ABC):
                     "Supported formats are 'json' and 'dict'."
                 )
         return self.tokenize(conversation)
+
+    def _conversation_to_hf_compatible_dict(self, conversation: Conversation) -> dict:
+        """Convert a Conversation to a dict with an HF-Datasets-stable schema.
+
+        HF Datasets infers a single arrow struct schema across rows and
+        requires every top-level key to exist on every row with the same
+        type. Without forcing `tools` to be present, rows whose Conversation
+        has no tools end up missing the key (`exclude_none=True` strips it),
+        and `datasets.Dataset.from_generator` fails with KeyError when mixing
+        tool and non-tool rows.
+
+        This rule applies at the column level only — inside a list-of-dicts
+        column like `messages`, items can have heterogeneous keys (e.g.,
+        assistant messages with `tool_calls`, tool messages with
+        `tool_call_id`, plain messages with neither), and that's fine.
+        """
+        data = conversation.to_dict()
+        data.setdefault("tools", None)
+        return data
 
     def tokenize(
         self,
