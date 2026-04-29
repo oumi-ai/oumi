@@ -7,13 +7,14 @@ from typing import Any
 
 import pytest
 from omegaconf import OmegaConf
+from omegaconf.errors import ConfigKeyError, GrammarParseError
 
 from oumi.core.configs.base_config import (
     BaseConfig,
     _handle_non_primitives,
     _read_config_without_interpolation,
 )
-from oumi.exceptions import OumiConfigError
+from oumi.exceptions import OumiConfigError, OumiConfigParsingError
 
 
 class TestEnum(Enum):
@@ -38,6 +39,25 @@ class TestConfig(BaseConfig):
     list_value: list[Any]
     dict_value: dict[str, Any]
     func_value: Any | None = None
+
+
+# Full valid TestConfig YAML (shared by from_str tests).
+_TEST_CONFIG_YAML = """
+        str_value: "test"
+        int_value: 42
+        float_value: 3.14
+        bool_value: true
+        none_value: null
+        bytes_value: !!binary dGVzdA==
+        path_value: "test/path"
+        enum_value: "VALUE1"
+        list_value: ["primitive", [1, 2, 3]]
+        dict_value:
+            primitive: "value"
+            nested:
+                list: [1, 2, 3]
+        func_value: "def test_func(x): return x * 2"
+    """
 
 
 def test_primitive_types():
@@ -174,24 +194,7 @@ def test_config_serialization():
 
 def test_config_loading_from_str():
     """Test loading config from YAML string."""
-    yaml_str = """
-        str_value: "test"
-        int_value: 42
-        float_value: 3.14
-        bool_value: true
-        none_value: null
-        bytes_value: !!binary dGVzdA==
-        path_value: "test/path"
-        enum_value: "VALUE1"
-        list_value: ["primitive", [1, 2, 3]]
-        dict_value:
-            primitive: "value"
-            nested:
-                list: [1, 2, 3]
-        func_value: "def test_func(x): return x * 2"
-    """
-
-    config = TestConfig.from_str(yaml_str)
+    config = TestConfig.from_str(_TEST_CONFIG_YAML)
     assert config.str_value == "test"
     assert config.int_value == 42
     assert config.float_value == 3.14
@@ -202,6 +205,25 @@ def test_config_loading_from_str():
     assert config.enum_value == TestEnum.VALUE1
     assert config.list_value == ["primitive", [1, 2, 3]]
     assert config.dict_value == {"primitive": "value", "nested": {"list": [1, 2, 3]}}
+
+
+def test_from_str_unknown_field_raises_config_parsing_error():
+    """Unknown YAML key raises OumiConfigParsingError with chained cause."""
+    yaml_str = _TEST_CONFIG_YAML + "\n        unknown_key: 1\n"
+    with pytest.raises(OumiConfigParsingError) as exc_info:
+        TestConfig.from_str(yaml_str)
+    assert exc_info.value.config_key == "unknown_key"
+    assert isinstance(exc_info.value.__cause__, ConfigKeyError)
+
+
+def test_from_str_malformed_interpolation_raises_config_parsing_error():
+    """Malformed interpolation raises OumiConfigParsingError with chained cause."""
+    # Standalone YAML overriding str_value with an unclosed interpolation.
+    # GrammarParseError is raised by OmegaConf during OmegaConf.to_object().
+    yaml_str = 'str_value: "${bad"'
+    with pytest.raises(OumiConfigParsingError) as exc_info:
+        TestConfig.from_str(yaml_str)
+    assert isinstance(exc_info.value.__cause__, GrammarParseError)
 
 
 def test_config_equality():

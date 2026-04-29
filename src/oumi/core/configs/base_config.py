@@ -23,9 +23,14 @@ from pathlib import Path
 from typing import Any, TypeVar, cast
 
 from omegaconf import OmegaConf
+from omegaconf.errors import OmegaConfBaseException
 
 from oumi.core.configs.params.base_params import BaseParams
-from oumi.exceptions import OumiConfigError
+from oumi.exceptions import (
+    OumiConfigError,
+    OumiConfigParsingError,
+    OumiConfigTypeError,
+)
 
 T = TypeVar("T", bound="BaseConfig")
 
@@ -193,20 +198,24 @@ class BaseConfig:
         Returns:
             BaseConfig: The merged configuration object.
         """
-        schema = OmegaConf.structured(cls)
-        if ignore_interpolation:
-            stringified_config = _read_config_without_interpolation(str(config_path))
-            file_config = OmegaConf.create(stringified_config)
-        else:
-            try:
+        if not Path(config_path).is_file():
+            raise OumiConfigError(
+                f"Config file not found or path is not a file: {config_path}"
+            )
+        try:
+            schema = OmegaConf.structured(cls)
+            if ignore_interpolation:
+                stringified_config = _read_config_without_interpolation(
+                    str(config_path)
+                )
+                file_config = OmegaConf.create(stringified_config)
+            else:
                 file_config = OmegaConf.load(config_path)
-            except (FileNotFoundError, IsADirectoryError, NotADirectoryError) as e:
-                raise OumiConfigError(
-                    f"Config file not found or path is not a file: {config_path}"
-                ) from e
-        config = OmegaConf.to_object(OmegaConf.merge(schema, file_config))
+            config = OmegaConf.to_object(OmegaConf.merge(schema, file_config))
+        except OmegaConfBaseException as e:
+            raise OumiConfigParsingError(e) from e
         if not isinstance(config, cls):
-            raise TypeError(f"config is not {cls}")
+            raise OumiConfigTypeError(config_type=cls, config_value=config)
         return cast(T, config)
 
     @classmethod
@@ -219,11 +228,14 @@ class BaseConfig:
         Returns:
             BaseConfig: The configuration object.
         """
-        schema = OmegaConf.structured(cls)
-        file_config = OmegaConf.create(config_str)
-        config = OmegaConf.to_object(OmegaConf.merge(schema, file_config))
+        try:
+            schema = OmegaConf.structured(cls)
+            file_config = OmegaConf.create(config_str)
+            config = OmegaConf.to_object(OmegaConf.merge(schema, file_config))
+        except OmegaConfBaseException as e:
+            raise OumiConfigParsingError(e) from e
         if not isinstance(config, cls):
-            raise TypeError(f"config is not {cls}")
+            raise OumiConfigTypeError(config_type=cls, config_value=config)
         return cast(T, config)
 
     @classmethod
@@ -251,23 +263,21 @@ class BaseConfig:
         """
         # Start with an empty typed config. This forces OmegaConf to validate
         # that all other configs are of this structured type as well.
-        all_configs = [OmegaConf.structured(cls)]
-
-        # Override with configuration file if provided.
-        if config_path is not None:
-            if ignore_interpolation:
-                stringified_config = _read_config_without_interpolation(config_path)
-                all_configs.append(OmegaConf.create(stringified_config))
-            else:
-                all_configs.append(cls.from_yaml(config_path))
-
-        # Merge base config and config from yaml.
+        all_configs: list[Any] = []
         try:
-            # Merge and validate configs
+            all_configs.append(OmegaConf.structured(cls))
+            if config_path is not None:
+                if ignore_interpolation:
+                    stringified_config = _read_config_without_interpolation(config_path)
+                    all_configs.append(OmegaConf.create(stringified_config))
+                else:
+                    all_configs.append(cls.from_yaml(config_path))
             config = OmegaConf.merge(*all_configs)
+        except OmegaConfBaseException as e:
+            raise OumiConfigParsingError(e) from e
         except Exception:
             if logger:
-                configs_str = "\n\n".join([f"{config}" for config in all_configs])
+                configs_str = "\n\n".join(f"{c}" for c in all_configs)
                 logger.exception(
                     f"Failed to merge {len(all_configs)} Omega configs:\n{configs_str}"
                 )
@@ -284,16 +294,18 @@ class BaseConfig:
             arg_list = _filter_ignored_args(arg_list)
             # Override with CLI arguments.
             config.merge_with_dotlist(arg_list)
+            config = OmegaConf.to_object(config)
+        except OmegaConfBaseException as e:
+            raise OumiConfigParsingError(e) from e
         except Exception:
             if logger:
                 logger.exception(
-                    f"Failed to merge arglist {arg_list} with Omega config:\n{config}"
+                    f"Failed to apply CLI args {arg_list} to Omega config:\n{config}"
                 )
             raise
 
-        config = OmegaConf.to_object(config)
         if not isinstance(config, cls):
-            raise TypeError(f"config {type(config)} is not {type(cls)}")
+            raise OumiConfigTypeError(config_type=cls, config_value=config)
 
         return cast(T, config)
 
