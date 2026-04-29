@@ -127,7 +127,10 @@ def should_use_rich_logging() -> bool:
     ):
         return False
 
-    return sys.stdout.isatty()  # is in a terminal
+    try:
+        return sys.stdout.isatty()  # is in a terminal
+    except AttributeError:
+        return False  # stdout redirected (e.g., AIDE subprocess)
 
 
 def _configure_rich_handler(

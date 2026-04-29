@@ -76,6 +76,8 @@ Note:
         which provides common functionality such as serialization and validation.
 """
 
+# AIDE agentic optimization
+from oumi.core.configs.aide_config import AideConfig
 from oumi.core.configs.analyze_config import (
     AnalyzeConfig,
     DatasetSource,
@@ -88,6 +90,13 @@ from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.inference_engine_type import InferenceEngineType
 from oumi.core.configs.job_config import JobConfig, JobResources, StorageMount
 from oumi.core.configs.judge_config import JudgeConfig
+from oumi.core.configs.params.aide_params import (
+    AideExecParams,
+    AideLLMParams,
+    AideOptimizationSurface,
+    AideParams,
+    AideSearchParams,
+)
 from oumi.core.configs.params.data_params import (
     DataParams,
     DatasetParams,
@@ -162,6 +171,12 @@ from oumi.core.configs.tuning_config import TuningConfig
 from oumi.exceptions import OumiConfigError
 
 __all__ = [
+    "AideConfig",
+    "AideExecParams",
+    "AideLLMParams",
+    "AideOptimizationSurface",
+    "AideParams",
+    "AideSearchParams",
     "AsyncEvaluationConfig",
     "AutoWrapPolicy",
     "BackwardPrefetch",
