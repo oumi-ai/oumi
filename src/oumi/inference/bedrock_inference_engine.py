@@ -357,12 +357,23 @@ class BedrockInferenceEngine(RemoteInferenceEngine):
     def _convert_api_output_to_conversation(
         self, response: dict[str, Any], original: Conversation
     ) -> Conversation:
-        text = ""
+        text_parts: list[str] = []
+        reasoning_parts: list[str] = []
         msg = response.get("output", {}).get("message", {})
         for block in msg.get("content", []):
-            if "text" in block:
-                text += block["text"]
-        new_message = Message(content=text, role=Role.ASSISTANT)
+            if block.get("type") == "thinking":
+                thinking = block.get("thinking")
+                if thinking is not None and thinking != "":
+                    reasoning_parts.append(thinking)
+            elif "text" in block:
+                part = block.get("text")
+                if part is not None and part != "":
+                    text_parts.append(part)
+        text = "".join(text_parts)
+        reasoning = "".join(reasoning_parts) if reasoning_parts else None
+        new_message = Message(
+            content=text, role=Role.ASSISTANT, reasoning_content=reasoning
+        )
         metadata = dict(original.metadata)
         finish_reason = self._extract_finish_reason_from_response(response)
         if finish_reason is not None:

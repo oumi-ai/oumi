@@ -218,6 +218,7 @@ def create_list_of_message_json_dicts(
     messages: list[Message],
     *,
     group_adjacent_same_role_turns: bool,
+    include_reasoning: bool = False,
 ) -> list[dict[str, Any]]:
     """Returns a list of JSON dictionaries representing messages.
 
@@ -227,6 +228,11 @@ def create_list_of_message_json_dicts(
         messages: The input messages.
         group_adjacent_same_role_turns: Whether to pack adjacent messages
             from the same role into a single element in output list.
+        include_reasoning: Whether to include ``reasoning_content`` and
+            ``reasoning`` keys in the output dicts. Set to ``True`` when
+            building dicts for chat templates (training). Set to ``False``
+            (default) when building dicts for API requests, since some
+            providers (e.g., Anthropic) reject unknown fields.
 
     Returns:
         list[Dict[str, Any]]: The list of messages encoded as nested JSON dicts.
@@ -235,6 +241,7 @@ def create_list_of_message_json_dicts(
     result = []
     idx = 0
     while idx < num_messages:
+        start_idx = idx
         end_idx = idx + 1
         if group_adjacent_same_role_turns:
             while end_idx < num_messages and (
@@ -257,6 +264,21 @@ def create_list_of_message_json_dicts(
                 content_list.extend(convert_message_to_json_content_list(messages[idx]))
                 idx += 1
             item["content"] = content_list
+
+        if include_reasoning:
+            # Collect reasoning from all messages in the group and
+            # concatenate. Include under both key names so that any chat
+            # template can find it (Qwen3 uses "reasoning_content", others
+            # may use "reasoning").
+            reasoning_parts: list[str] = [
+                rc
+                for i in range(start_idx, end_idx)
+                if (rc := messages[i].reasoning_content) is not None
+            ]
+            if reasoning_parts:
+                reasoning = "".join(reasoning_parts)
+                item["reasoning_content"] = reasoning
+                item["reasoning"] = reasoning
 
         idx = end_idx
         result.append(item)
@@ -308,12 +330,20 @@ def remove_excessive_images(
         if len(filtered_items) == 1 and isinstance(filtered_items[0].content, str):
             result.append(
                 Message(
-                    id=message.id, content=filtered_items[0].content, role=message.role
+                    id=message.id,
+                    content=filtered_items[0].content,
+                    role=message.role,
+                    reasoning_content=message.reasoning_content,
                 )
             )
         else:
             result.append(
-                Message(id=message.id, content=filtered_items, role=message.role)
+                Message(
+                    id=message.id,
+                    content=filtered_items,
+                    role=message.role,
+                    reasoning_content=message.reasoning_content,
+                )
             )
 
     return result
@@ -425,11 +455,17 @@ def truncate_text_in_content_items(
             ):
                 assert isinstance(items[0].content, str)
                 result[msg_idx] = Message(
-                    id=message.id, content=items[0].content, role=message.role
+                    id=message.id,
+                    content=items[0].content,
+                    role=message.role,
+                    reasoning_content=message.reasoning_content,
                 )
             else:
                 result[msg_idx] = Message(
-                    id=message.id, content=items, role=message.role
+                    id=message.id,
+                    content=items,
+                    role=message.role,
+                    reasoning_content=message.reasoning_content,
                 )
 
     return result

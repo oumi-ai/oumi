@@ -18,6 +18,7 @@ from oumi.utils.conversation_utils import (
     create_list_of_message_json_dicts,
     load_image_bytes_to_content_item,
     load_pil_image_from_content_item,
+    remove_excessive_images,
     remove_excessive_images_from_conversation,
     truncate_text_in_content_items,
 )
@@ -802,3 +803,46 @@ def test_truncate_text_in_content_items(
         assert truncated_messages == expected_messages
     else:
         assert truncated_messages == messages
+
+
+def test_remove_excessive_images_preserves_reasoning():
+    """Test that reasoning is preserved when images are removed."""
+    messages = [
+        Message(
+            content=[
+                ContentItem(type=Type.IMAGE_URL, content="http://img1.png"),
+                ContentItem(type=Type.IMAGE_URL, content="http://img2.png"),
+                ContentItem(type=Type.TEXT, content="describe these"),
+            ],
+            role=Role.USER,
+            reasoning_content="User-side reasoning",
+        ),
+    ]
+    result = remove_excessive_images(messages, max_images=1)
+    # Message gets reconstructed with filtered items; reasoning must survive
+    assert result[0].reasoning_content == "User-side reasoning"
+
+
+def test_truncate_text_preserves_reasoning(gpt2_tokenizer):
+    """Test that reasoning is preserved when text is truncated."""
+    messages = [
+        Message(
+            content="This is a very long message that should get truncated",
+            role=Role.ASSISTANT,
+            reasoning_content="My reasoning process",
+        ),
+    ]
+    result = truncate_text_in_content_items(messages, gpt2_tokenizer, max_tokens=3)
+    assert result[0].content != messages[0].content
+    assert result[0].reasoning_content == "My reasoning process"
+
+
+def test_message_reasoning_content_serialization():
+    """Test that reasoning_content is included in model_dump when set."""
+    m = Message(content="answer", role=Role.ASSISTANT, reasoning_content="thinking")
+    d = m.model_dump(exclude_none=True)
+    assert d["reasoning_content"] == "thinking"
+
+    m_none = Message(content="answer", role=Role.ASSISTANT)
+    d_none = m_none.model_dump(exclude_none=True)
+    assert "reasoning_content" not in d_none

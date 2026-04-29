@@ -197,9 +197,26 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
                 f"model={response.get('model')}, "
                 f"usage={response.get('usage')}"
             )
+        # Thinking models include {"type": "thinking", "thinking": "..."}
+        # blocks alongside text blocks. Blocks without a "type" key are
+        # treated as text (backward compat with older response formats).
+        text_parts: list[str] = []
+        reasoning_parts: list[str] = []
+        for block in content_blocks:
+            if block.get("type") == "thinking":
+                thinking = block.get("thinking")
+                if thinking is not None and thinking != "":
+                    reasoning_parts.append(thinking)
+            elif block.get("type") == "text" or "text" in block:
+                part = block.get("text")
+                if part is not None and part != "":
+                    text_parts.append(part)
+        text = "".join(text_parts)
+        reasoning = "".join(reasoning_parts) if reasoning_parts else None
         new_message = Message(
-            content=content_blocks[0]["text"],
+            content=text,
             role=Role.ASSISTANT,
+            reasoning_content=reasoning,
         )
         metadata = dict(original_conversation.metadata)
         usage = self._extract_usage_from_response(response)

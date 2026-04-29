@@ -338,3 +338,134 @@ def test_processor_apply_chat_template_multimodal_text_content():
     prompt = processor.apply_chat_template(messages)
     assert isinstance(prompt, str)
     assert "Describe the following:" in prompt
+
+
+def test_convert_messages_reasoning_with_supporting_template():
+    """When chat template references reasoning, pass as separate keys."""
+    from unittest.mock import MagicMock, PropertyMock
+
+    from oumi.core.processors.default_processor import DefaultProcessor
+
+    processor = MagicMock(spec=DefaultProcessor)
+    processor._convert_messages_to_dicts = (
+        DefaultProcessor._convert_messages_to_dicts.__get__(processor)
+    )
+    processor._template_supports_reasoning = (
+        DefaultProcessor._template_supports_reasoning.__get__(processor)
+    )
+    type(processor).chat_template = PropertyMock(
+        return_value="{% if message.reasoning_content %}...{% endif %}"
+    )
+
+    messages = [
+        Message(
+            role=Role.ASSISTANT,
+            content="The answer is 4.",
+            reasoning_content="2+2=4",
+        ),
+    ]
+    result = processor._convert_messages_to_dicts(messages)
+    assert result[0]["reasoning_content"] == "2+2=4"
+    assert result[0]["reasoning"] == "2+2=4"
+    assert result[0]["content"] == "The answer is 4."
+
+
+def test_convert_messages_reasoning_with_unsupporting_template():
+    """When chat template doesn't reference reasoning, fold into content."""
+    from unittest.mock import MagicMock, PropertyMock
+
+    from oumi.core.processors.default_processor import DefaultProcessor
+
+    processor = MagicMock(spec=DefaultProcessor)
+    processor._convert_messages_to_dicts = (
+        DefaultProcessor._convert_messages_to_dicts.__get__(processor)
+    )
+    processor._template_supports_reasoning = (
+        DefaultProcessor._template_supports_reasoning.__get__(processor)
+    )
+    type(processor).chat_template = PropertyMock(
+        return_value="{% for message in messages %}{{ message.content }}{% endfor %}"
+    )
+
+    messages = [
+        Message(
+            role=Role.ASSISTANT,
+            content="The answer is 4.",
+            reasoning_content="2+2=4",
+        ),
+    ]
+    result = processor._convert_messages_to_dicts(messages)
+    assert "reasoning_content" not in result[0]
+    assert "reasoning" not in result[0]
+    assert result[0]["content"] == "<think>\n2+2=4\n</think>\n\nThe answer is 4."
+
+
+def test_convert_messages_no_reasoning():
+    """When message has no reasoning, no reasoning keys in output."""
+    from unittest.mock import MagicMock, PropertyMock
+
+    from oumi.core.processors.default_processor import DefaultProcessor
+
+    processor = MagicMock(spec=DefaultProcessor)
+    processor._convert_messages_to_dicts = (
+        DefaultProcessor._convert_messages_to_dicts.__get__(processor)
+    )
+    processor._template_supports_reasoning = (
+        DefaultProcessor._template_supports_reasoning.__get__(processor)
+    )
+    type(processor).chat_template = PropertyMock(return_value="simple template")
+
+    messages = [
+        Message(role=Role.ASSISTANT, content="Hello"),
+    ]
+    result = processor._convert_messages_to_dicts(messages)
+    assert "reasoning_content" not in result[0]
+    assert "reasoning" not in result[0]
+    assert result[0]["content"] == "Hello"
+
+
+def test_template_supports_reasoning_false_positive_comment():
+    """Template with 'reasoning' in a comment should NOT match."""
+    from oumi.core.processors.default_processor import _template_references_reasoning
+
+    template = """{# This template handles reasoning models #}
+{% for message in messages %}{{ message.content }}{% endfor %}"""
+    assert _template_references_reasoning(template) is False
+
+
+def test_template_supports_reasoning_false_positive_string_literal():
+    """Template with 'reasoning' in a string literal should NOT match."""
+    from oumi.core.processors.default_processor import _template_references_reasoning
+
+    template = (
+        "{% for message in messages %}"
+        '{{ "reasoning_content is not used" }}'
+        "{{ message.content }}{% endfor %}"
+    )
+    assert _template_references_reasoning(template) is False
+
+
+def test_template_supports_reasoning_attribute_access():
+    """Template with message.reasoning_content attribute access should match."""
+    from oumi.core.processors.default_processor import _template_references_reasoning
+
+    template = (
+        "{% if message.reasoning_content %}{{ message.reasoning_content }}{% endif %}"
+    )
+    assert _template_references_reasoning(template) is True
+
+
+def test_template_supports_reasoning_dict_access():
+    """Template with message['reasoning'] dict access should match."""
+    from oumi.core.processors.default_processor import _template_references_reasoning
+
+    template = """{% if message['reasoning'] %}{{ message['reasoning'] }}{% endif %}"""
+    assert _template_references_reasoning(template) is True
+
+
+def test_template_supports_reasoning_no_reasoning():
+    """Template with no reasoning references should not match."""
+    from oumi.core.processors.default_processor import _template_references_reasoning
+
+    template = """{% for m in messages %}{{ m.content }}{% endfor %}"""
+    assert _template_references_reasoning(template) is False

@@ -109,9 +109,16 @@ class SambanovaInferenceEngine(RemoteInferenceEngine):
         if not message:
             raise RuntimeError("No message found in API response")
 
+        content = message.get("content")
+        if content is None:
+            content = ""
+        reasoning = message.get("reasoning")
+        if reasoning is None:
+            reasoning = message.get("reasoning_content")
         new_message = Message(
-            content=message.get("content", ""),
+            content=content,
             role=Role.ASSISTANT,
+            reasoning_content=reasoning,
         )
 
         return Conversation(

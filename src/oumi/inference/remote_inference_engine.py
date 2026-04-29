@@ -506,12 +506,25 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         finish_reason = self._extract_finish_reason_from_response(response)
         if finish_reason is not None:
             metadata["finish_reason"] = finish_reason.value
+        # Some providers (e.g., Together) return content=null for thinking
+        # models when the token budget is consumed by reasoning. Default to
+        # empty string so Message validation doesn't fail.
+        content = message.get("content")
+        if content is None:
+            content = ""
+        # Providers use "reasoning" (Together, Kimi, DeepSeek V3.1) or
+        # "reasoning_content" (GLM-5) for the thinking chain.
+        reasoning = message.get("reasoning")
+        if reasoning is None:
+            reasoning = message.get("reasoning_content")
+
         return Conversation(
             messages=[
                 *original_conversation.messages,
                 Message(
                     content=content,
                     role=Role(message["role"]),
+                    reasoning_content=reasoning,
                 ),
             ],
             metadata=metadata,
