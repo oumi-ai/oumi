@@ -537,10 +537,18 @@ class Conversation(pydantic.BaseModel):
         data = self.model_dump(
             mode="json", exclude_unset=True, exclude_defaults=False, exclude_none=True
         )
-        # Preserve `content: null` on assistant messages that only carry
-        # `tool_calls`, matching the OpenAI wire format. `exclude_none=True`
-        # strips `None` globally, which would drop the `content` key and
-        # trip HF chat templates that don't tolerate a missing `content`.
+        self._restore_null_content_on_tool_call_messages(data)
+        return data
+
+    def _restore_null_content_on_tool_call_messages(self, data: dict) -> None:
+        """Re-add ``content: null`` on assistant messages that only carry tool_calls.
+
+        Matches the OpenAI wire format. ``exclude_none=True`` strips
+        ``None`` globally, which would drop the ``content`` key and trip
+        HF chat templates that don't tolerate a missing ``content``.
+
+        Mutates ``data`` in place.
+        """
         msg_dicts = data.get("messages", [])
         assert len(msg_dicts) == len(self.messages), (
             "Pydantic dump produced a different number of messages than "
@@ -549,7 +557,6 @@ class Conversation(pydantic.BaseModel):
         for msg_dict, msg in zip(msg_dicts, self.messages):
             if msg.tool_calls and "content" not in msg_dict:
                 msg_dict["content"] = None
-        return data
 
     def append_id_to_string(self, s: str) -> str:
         """Appends conversation ID to a string.
