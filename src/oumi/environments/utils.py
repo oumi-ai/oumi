@@ -16,9 +16,34 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from oumi.core.configs.params.grounding_params import GroundingFact
+
+TOOL_CALL_RE = re.compile(r"<tool_call>(.*?)</tool_call>", re.DOTALL)
+
+
+def strip_tool_call_blocks(text: str) -> str:
+    """Remove every ``<tool_call>...</tool_call>`` block from ``text``."""
+    return TOOL_CALL_RE.sub("", text)
+
+
+def close_dangling_tool_call(text: str) -> str:
+    """Re-append ``</tool_call>`` when stop-sequence inference stripped it."""
+    opens = text.count("<tool_call>")
+    closes = text.count("</tool_call>")
+    if opens > closes:
+        return text + "</tool_call>"
+    return text
+
+
+def truncate_after_last_tool_call(text: str) -> str:
+    """Return the text prefix up to and including the LAST ``</tool_call>``."""
+    last_close = text.rfind("</tool_call>")
+    if last_close == -1:
+        return text
+    return text[: last_close + len("</tool_call>")]
 
 
 def _format_grounding_value(value: Any) -> str:
