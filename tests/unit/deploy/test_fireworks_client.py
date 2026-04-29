@@ -723,6 +723,42 @@ class TestGetModel:
             assert await client.get_model("missing-model") is None
 
 
+class TestCreateModelResourceConflict:
+    """409 → FireworksConflictError."""
+
+    @staticmethod
+    def _make_client() -> FireworksDeploymentClient:
+        return FireworksDeploymentClient(api_key="test-key", account_id="test-account")
+
+    @pytest.mark.asyncio
+    async def test_create_model_resource_409_raises_typed(self):
+        from oumi.deploy.errors import DeployApiError
+        from oumi.deploy.fireworks_errors import FireworksConflictError
+
+        client = self._make_client()
+        response = MagicMock()
+        response.status_code = 409
+        response.is_error = True
+        response.is_success = False
+        response.text = "model already exists"
+        response.request = MagicMock(
+            url="https://api.fireworks.ai/v1/accounts/test-account/models"
+        )
+
+        with patch.object(client._client, "post", new=AsyncMock(return_value=response)):
+            with pytest.raises(FireworksConflictError) as exc_info:
+                await client._create_model_resource(
+                    "my-model",
+                    ModelType.FULL,
+                    None,
+                    None,
+                    huggingface_files=["config.json"],
+                )
+        assert exc_info.value.status_code == 409
+        # Existing ``except DeployApiError`` handlers must still catch this.
+        assert isinstance(exc_info.value, DeployApiError)
+
+
 class TestUploadModelFromInventory:
     """Tests for upload_model_with_resolver and _upload_model_files_with_resolver."""
 
