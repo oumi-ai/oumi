@@ -506,15 +506,13 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         message = response["choices"][0].get("message")
         if not message:
             raise RuntimeError(f"No message found in API response: {response}")
-        raw_content = message.get("content")
+        content = message.get("content")
         tool_calls = message.get("tool_calls")
-        # OpenAI emits content=null on assistant messages that only carry
-        # tool_calls. Preserve None so Message can reconstruct the typed
-        # ToolCalls without forcing an empty string body.
-        if tool_calls:
-            content = raw_content
-        else:
-            content = raw_content or ""
+        # Message requires at least one of content/tool_calls. The OpenAI wire
+        # format uses content=null on tool-only assistant turns, which Message
+        # accepts; only fall back to "" when there are no tool_calls either.
+        if content is None and not tool_calls:
+            content = ""
         metadata = dict(original_conversation.metadata)
         usage = self._extract_usage_from_response(response)
         if usage is not None:
