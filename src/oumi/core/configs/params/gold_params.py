@@ -217,13 +217,6 @@ class GoldParams(BaseParams):
     Only relevant when use_uld_loss=True.
     """
 
-    use_transformers_paged: bool = False
-    """Whether to use transformers paged attention for generation.
-
-    If True, uses paged implementation instead of default padded implementation.
-    Can improve memory efficiency for generation.
-    """
-
     use_vllm: bool = False
     """Whether to use vLLM for generating completions.
 
@@ -435,7 +428,6 @@ class GoldParams(BaseParams):
             "uld_teacher_temperature": self.uld_teacher_temperature,
             "uld_skip_student_eos": self.uld_skip_student_eos,
             "uld_skip_teacher_eos": self.uld_skip_teacher_eos,
-            "use_transformers_paged": self.use_transformers_paged,
             "use_vllm": self.use_vllm,
             "vllm_mode": self.vllm_mode,
             "vllm_server_host": self.vllm_server_host,
