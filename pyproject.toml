@@ -15,7 +15,7 @@ oumi = ["LICENSE", "README.md", "*.jinja"]
 # by default.
 [tool.uv]
 prerelease = "allow"
-override-dependencies = ["transformers>=5.5,<5.6"]
+override-dependencies = ["transformers>=5.5,<5.8"]
 
 [project]
 name = "oumi"
@@ -77,7 +77,7 @@ dependencies = [
     "torchao>=0.12,<0.16",     # Used by transformers
     "torchvision>=0.21,<0.26", # Used by some VLM-s (multimodal)
     "tqdm",
-    "transformers>=4.57,<5.7",
+    "transformers>=4.57,<5.8",
     "trl>=0.24,<1.4",
     "typer<0.24.2",             # Used by CLI. Pinned due to sphinxcontrib-typer compatibility. OPE-1806
     "typing_extensions",        # Backports of typing updates
