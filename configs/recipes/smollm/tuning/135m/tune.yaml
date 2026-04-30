@@ -63,10 +63,10 @@ tuning:
   fixed_peft_params:
     q_lora: false
 
-  # eval_mean_token_accuracy is logged by TRL during eval but its log() override
-  # only writes to external loggers (wandb/tensorboard); the metric is not
-  # propagated through Trainer.evaluate()'s return dict, so the tuner can't read
-  # it. Restore once trl#3694 / similar lands.
+  # TRL>=0.27 regressed SFTTrainer.log() from `logs.update(metrics)` to
+  # `logs = {**logs, **metrics}`, so the metrics no longer flow back through
+  # Trainer.evaluate()'s returned dict (only into external loggers). Restore
+  # eval_mean_token_accuracy once the TRL fix lands. See trl@4cb07d36.
   evaluation_metrics: [ "eval_loss" ]
   evaluation_direction: [ "minimize" ]
   tuner_type: OPTUNA
