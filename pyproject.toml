@@ -121,7 +121,7 @@ docs = [
 # Useful dependencies when running on GPU
 gpu = [
     "liger-kernel>=0.6,<0.8",
-    "npyproject.tomlidia-ml-py>=13.580,<13.596",
+    "nvidia-ml-py>=13.580,<13.596",
     "bitsandbytes>=0.47,<0.50",     # Used for QLora, and PagedAdam implementation
     # When updating verl version, make sure to also update the default config:
     # src/oumi/core/trainers/verl_trainer_config.yaml.
