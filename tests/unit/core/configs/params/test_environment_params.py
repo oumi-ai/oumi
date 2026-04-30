@@ -19,6 +19,7 @@ import pytest
 import oumi.environments  # noqa: F401  populates env registry
 from oumi.core.configs.environment_config import EnvironmentConfig
 from oumi.core.configs.params.environment_params import EnvironmentParams
+from oumi.core.configs.params.grounding_params import GroundingConfig
 from oumi.core.configs.params.tool_params import ToolParams
 from oumi.environments.deterministic_tool import (
     DeterministicTool,
@@ -33,6 +34,20 @@ def _make_tool() -> DeterministicTool:
         description="t",
         deterministic_outputs=[DeterministicToolOutput(input={}, output={})],
     )
+
+
+def _make_grounding_tool(id_: str, *, grounded: bool = False) -> DeterministicTool:
+    raw: dict[str, Any] = {
+        "id": id_,
+        "name": id_,
+        "description": "d",
+        "deterministic_outputs": [
+            {"input": {"x": "1"}, "output": {"y": "2"}},
+        ],
+    }
+    if grounded:
+        raw["grounding"] = {"key": "x", "fields": ["x", "y"]}
+    return DeterministicTool.create(raw)
 
 
 def test_constructs_with_required_fields():
@@ -95,6 +110,48 @@ def test_finalize_and_validate_rejects_duplicate_tool_ids():
     )
     with pytest.raises(ValueError, match="duplicate tool id 'dup'"):
         p.finalize_and_validate()
+
+
+def test_env_grounding_requires_at_least_one_grounded_tool():
+    p = EnvironmentParams(
+        id="env",
+        name="env",
+        description="d",
+        env_type="deterministic",
+        tools=[_make_grounding_tool("a", grounded=False)],
+        grounding=GroundingConfig(sample_size=3),
+    )
+    with pytest.raises(ValueError, match="declares grounding but no tool"):
+        p.finalize_and_validate()
+
+
+def test_env_grounding_accepts_one_grounded_tool():
+    p = EnvironmentParams(
+        id="env",
+        name="env",
+        description="d",
+        env_type="deterministic",
+        tools=[
+            _make_grounding_tool("a", grounded=True),
+            _make_grounding_tool("b", grounded=False),
+        ],
+        grounding=GroundingConfig(sample_size=3),
+    )
+    p.finalize_and_validate()
+    assert p.grounding is not None
+
+
+def test_env_without_grounding_does_not_require_grounded_tools():
+    p = EnvironmentParams(
+        id="env",
+        name="env",
+        description="d",
+        env_type="deterministic",
+        tools=[_make_grounding_tool("a", grounded=False)],
+        grounding=None,
+    )
+    p.finalize_and_validate()
+    assert p.grounding is None
 
 
 def test_environment_config_finalize_and_validate_descends_into_list():

@@ -82,6 +82,7 @@ class EnvironmentParams(BaseParams):
 
         self._validate_unique_tool_ids()
         self._validate_env_type_registered()
+        self._validate_env_grounding_has_grounded_tool()
 
     def _validate_unique_tool_ids(self) -> None:
         seen: set[str] = set()
@@ -100,4 +101,15 @@ class EnvironmentParams(BaseParams):
             known = sorted(REGISTRY.get_all(RegistryType.ENVIRONMENT))
             raise ValueError(
                 f"Unknown env_type '{self.env_type}'. Known types: {known}"
+            )
+
+    def _validate_env_grounding_has_grounded_tool(self) -> None:
+        if self.grounding is None:
+            return
+        if not any(getattr(tool, "grounding", None) is not None for tool in self.tools):
+            raise ValueError(
+                f"{type(self).__name__} '{self.id}' declares grounding but "
+                f"no tool in this environment declares a grounding block. "
+                f"Add a 'grounding: {{key, fields}}' block to at least one "
+                f"tool, or remove the env-level grounding to disable it."
             )
