@@ -129,6 +129,7 @@ def extract_json(text: str, expected_type: type | None = list) -> dict | list | 
     """Extract a JSON object or array from text that may contain surrounding prose.
 
     Extraction strategy (first match wins):
+
     1. Code-fenced JSON (```json ... ``` or ``` ... ```).
     2. Raw delimiters — takes the span from the *first* opening delimiter
        (``[`` or ``{``) to the *last* matching closing delimiter (``]`` or
