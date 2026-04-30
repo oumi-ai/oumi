@@ -60,3 +60,40 @@ class GroundingFact(BaseParams):
     """
 
     data: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class ToolGroundingConfig(BaseParams):
+    """Per-tool grounding configuration.
+
+    When set on a tool, the owning environment's ``sample_grounding`` includes
+    that tool's ``deterministic_outputs`` in the grounding pool, projected to
+    ``fields``. Tools without this block contribute nothing.
+
+    The ``key`` field names the entity primary key. In v1 it is metadata only;
+    v2 will use it to merge facts from multiple lookup tools that refer to the
+    same entity.
+    """
+
+    key: str
+    """Name of the entity primary-key field. Must appear in ``fields``."""
+
+    fields: list[str]
+    """Whitelisted field names projected into each ``GroundingFact.data`` dict."""
+
+    def __post_init__(self) -> None:
+        """Validate ``key`` and ``fields`` invariants."""
+        if not self.key:
+            raise ValueError(f"{type(self).__name__}.key cannot be empty.")
+        if not self.fields:
+            raise ValueError(f"{type(self).__name__}.fields must be non-empty.")
+        if self.key not in self.fields:
+            raise ValueError(
+                f"{type(self).__name__}.fields must include 'key' "
+                f"({self.key!r}); got {self.fields!r}."
+            )
+        if len(set(self.fields)) != len(self.fields):
+            raise ValueError(
+                f"{type(self).__name__}.fields contains duplicate entries: "
+                f"{self.fields!r}."
+            )
