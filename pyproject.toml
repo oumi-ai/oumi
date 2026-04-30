@@ -74,7 +74,7 @@ dependencies = [
     "tensorboard>=2.20,<2.21", # Optional, for monitoring training
     "tiktoken>=0.7,<1.0",
     "torch>=2.6,<2.11.0",      # vllm only supports up to torch==2.7
-    "torchao>=0.12,<0.16",     # Used by transformers
+    "torchao>=0.12,<0.17",     # Used by transformers; >=0.16 required by peft>=0.19
     "torchvision>=0.21,<0.26", # Used by some VLM-s (multimodal)
     "tqdm",
     "transformers>=4.57,<5.8",
@@ -121,7 +121,7 @@ docs = [
 # Useful dependencies when running on GPU
 gpu = [
     "liger-kernel>=0.6,<0.8",
-    "nvidia-ml-py>=13.580,<13.596",
+    "npyproject.tomlidia-ml-py>=13.580,<13.596",
     "bitsandbytes>=0.47,<0.50",     # Used for QLora, and PagedAdam implementation
     # When updating verl version, make sure to also update the default config:
     # src/oumi/core/trainers/verl_trainer_config.yaml.
