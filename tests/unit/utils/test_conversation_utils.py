@@ -11,6 +11,7 @@ from oumi.builders import build_tokenizer
 from oumi.core.configs import ModelParams
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.types.conversation import ContentItem, Conversation, Message, Role, Type
+from oumi.core.types.tool_call import ToolCall
 from oumi.utils.conversation_utils import (
     base64encode_content_item_image_bytes,
     convert_message_to_json_content,
@@ -802,3 +803,80 @@ def test_truncate_text_in_content_items(
         assert truncated_messages == expected_messages
     else:
         assert truncated_messages == messages
+
+
+#
+# Tool-calling helper tests
+#
+def test_create_list_of_message_json_dicts_forwards_tool_calls():
+    """Assistant tool_calls survive into the dict; content=None preserved."""
+    tool_call_dict = {
+        "id": "call_abc",
+        "type": "function",
+        "function": {"name": "get_weather", "arguments": "{}"},
+    }
+    messages = [
+        Message(role=Role.USER, content="weather?"),
+        Message(
+            role=Role.ASSISTANT,
+            content=None,
+            tool_calls=[ToolCall.model_validate(tool_call_dict)],
+        ),
+    ]
+
+    result = create_list_of_message_json_dicts(
+        messages, group_adjacent_same_role_turns=True
+    )
+
+    assert len(result) == 2
+    assert result[0] == {"role": "user", "content": "weather?"}
+    assert result[1]["role"] == "assistant"
+    assert result[1]["content"] is None
+    assert result[1]["tool_calls"] == [tool_call_dict]
+
+
+def test_create_list_of_message_json_dicts_forwards_tool_call_id():
+    """Tool messages carry tool_call_id linking them to the prior call."""
+    messages = [
+        Message(role=Role.TOOL, content="22C, sunny", tool_call_id="call_abc"),
+    ]
+
+    result = create_list_of_message_json_dicts(
+        messages, group_adjacent_same_role_turns=True
+    )
+
+    assert result == [
+        {"role": "tool", "content": "22C, sunny", "tool_call_id": "call_abc"}
+    ]
+
+
+def test_create_list_of_message_json_dicts_does_not_group_tool_messages():
+    """Adjacent tool messages stay 1:1 even with grouping enabled."""
+    messages = [
+        Message(role=Role.TOOL, content="r1", tool_call_id="a"),
+        Message(role=Role.TOOL, content="r2", tool_call_id="b"),
+    ]
+
+    result = create_list_of_message_json_dicts(
+        messages, group_adjacent_same_role_turns=True
+    )
+
+    assert len(result) == 2
+    assert result[0] == {"role": "tool", "content": "r1", "tool_call_id": "a"}
+    assert result[1] == {"role": "tool", "content": "r2", "tool_call_id": "b"}
+
+
+def test_create_list_of_message_json_dicts_no_tool_keys_when_unset():
+    """Plain conversations are unchanged: no tool_calls/tool_call_id keys."""
+    messages = [
+        Message(role=Role.USER, content="hi"),
+        Message(role=Role.ASSISTANT, content="hello"),
+    ]
+
+    result = create_list_of_message_json_dicts(
+        messages, group_adjacent_same_role_turns=True
+    )
+
+    for d in result:
+        assert "tool_calls" not in d
+        assert "tool_call_id" not in d
