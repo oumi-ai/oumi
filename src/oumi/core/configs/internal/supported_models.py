@@ -269,6 +269,16 @@ def _create_qwen2_vl_vlm_config() -> InternalModelConfig:
             for feature_name in ("image_grid_thw",)
         }
     )
+    # transformers>=5 ships a Qwen2-VL processor that emits mm_token_type_ids
+    # with a leading batch dimension; strip it for per-example feature
+    # generation so the collator stacks shape [seq_len] -> [B, seq_len]
+    # rather than [1, seq_len] -> [B, 1, seq_len].
+    config.model_input_features["mm_token_type_ids"] = InternalFeatureSpec(
+        name="mm_token_type_ids",
+        required=False,
+        variable_shape=False,
+        first_dim_action=InternalFeatureFirstDimAction.DROP_IF_DUMMY,
+    )
     config.processor_kwargs.update(
         {
             "min_pixels": 256 * 28 * 28,
