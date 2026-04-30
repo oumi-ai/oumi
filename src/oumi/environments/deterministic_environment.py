@@ -157,7 +157,9 @@ class DeterministicEnvironment(BaseEnvironment):
             whitelist = set(grounding.fields)
             for entry in tool.deterministic_outputs:
                 row = {**entry.input, **entry.output}
-                projected = {key: value for key, value in row.items() if key in whitelist}
+                projected = {
+                    key: value for key, value in row.items() if key in whitelist
+                }
                 pool.append(GroundingFact(data=projected))
         sampled = rng.sample(pool, min(n, len(pool)))
         return sampled
