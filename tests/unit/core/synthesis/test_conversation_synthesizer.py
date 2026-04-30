@@ -1474,6 +1474,38 @@ def test_create_planner_prompt_injects_grounding_block_when_facts_present(
     assert "user persona cannot see this list" in planner_user_msg
 
 
+def test_create_planner_prompt_includes_state_aware_branching_nudge(
+    mock_inference_config,
+):
+    from oumi.core.configs.params.grounding_params import GroundingFact
+
+    synth = _make_synthesizer(mock_inference_config)
+    attr = MultiTurnAttribute(
+        id="t",
+        min_turns=4,
+        max_turns=4,
+        role_instruction_messages={
+            Role.USER: "You are a user.",
+            Role.ASSISTANT: "You are an assistant.",
+        },
+    )
+    sample = {
+        "target_turns": 4,
+        "conversation_plan": "",
+        "parsed_turn_plans": [""] * 4,
+        "grounding_facts": [
+            GroundingFact(data={"book_id": "B001", "status": "borrowed"}),
+        ],
+    }
+
+    conversation = synth._create_planner_prompt(attr, sample)
+    planner_user_msg = conversation.messages[-1].content
+    assert isinstance(planner_user_msg, str)
+    assert "preconditions" in planner_user_msg
+    assert "recovery flow" in planner_user_msg
+    assert "happy-path" in planner_user_msg
+
+
 def test_create_planner_prompt_no_grounding_block_when_facts_absent(
     mock_inference_config,
 ):
