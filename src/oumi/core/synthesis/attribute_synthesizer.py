@@ -66,16 +66,23 @@ class AttributeSynthesizer:
         """Initialize the synthesizer."""
         self._params = params
         self._formatter = AttributeFormatter(params)
-
-        self._inference_engine = build_inference_engine(
-            engine_type=inference_config.engine or InferenceEngineType.NATIVE,
-            model_params=inference_config.model,
-            remote_params=inference_config.remote_params,
-        )
         self._inference_config = inference_config
+        self._inference_engine_cache = None
         self._total_input_tokens: int = 0
         self._total_output_tokens: int = 0
         self._total_cached_tokens: int = 0
+
+    @property
+    def _inference_engine(self):
+        """Lazily build and cache the inference engine on first access."""
+        if self._inference_engine_cache is None:
+            self._inference_engine_cache = build_inference_engine(
+                engine_type=self._inference_config.engine
+                or InferenceEngineType.NATIVE,
+                model_params=self._inference_config.model,
+                remote_params=self._inference_config.remote_params,
+            )
+        return self._inference_engine_cache
 
     def synthesize(
         self,
@@ -109,7 +116,7 @@ class AttributeSynthesizer:
         )
         self._accumulate_token_usage(inference_results)
 
-        return self._process_inference_results(inference_results, generated_attribute)
+        return self.process_inference_results(inference_results, generated_attribute)
 
     def synthesize_batch(
         self,
@@ -134,7 +141,7 @@ class AttributeSynthesizer:
                 "support batch inference. Use synthesize() instead."
             )
 
-        conversations = self._build_batch_conversations(samples, generated_attribute)
+        conversations = self.build_batch_conversations(samples, generated_attribute)
 
         batch_id = self._inference_engine.infer_batch(  # type: ignore[attr-defined]
             conversations,
@@ -221,7 +228,7 @@ class AttributeSynthesizer:
         """Get partial results from a completed batch inference job.
 
         This method returns successful results alongside failure information.
-        Parse failures from _process_inference_results are also captured.
+        Parse failures from process_inference_results are also captured.
 
         Args:
             batch_id: The batch ID returned from synthesize_batch().
@@ -234,7 +241,7 @@ class AttributeSynthesizer:
         Raises:
             NotImplementedError: If the inference engine does not support batch.
         """
-        conversations = self._build_batch_conversations(samples, generated_attribute)
+        conversations = self.build_batch_conversations(samples, generated_attribute)
 
         logger.info(
             f"Retrieving partial synthesis results for batch {batch_id} "
@@ -251,7 +258,7 @@ class AttributeSynthesizer:
 
         for idx, conv in batch_result.successful:
             try:
-                processed = self._process_inference_results([conv], generated_attribute)
+                processed = self.process_inference_results([conv], generated_attribute)
                 successful_outputs.append((idx, processed[0]))
                 self._accumulate_token_usage([conv])
             except Exception as e:
@@ -276,7 +283,7 @@ class AttributeSynthesizer:
             error_messages=error_messages,
         )
 
-    def _build_batch_conversations(
+    def build_batch_conversations(
         self,
         samples: list[dict],
         generated_attribute: GeneratedAttribute,
@@ -350,7 +357,7 @@ class AttributeSynthesizer:
 
         return Conversation(messages=new_messages)
 
-    def _process_inference_results(
+    def process_inference_results(
         self,
         inference_results: list[Conversation],
         generated_attribute: GeneratedAttribute,
