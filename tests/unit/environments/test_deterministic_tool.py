@@ -62,6 +62,26 @@ def test_deterministic_tool_create_coerces_outputs():
     assert tool.deterministic_outputs[0].input == {"id": "1"}
 
 
+def test_deterministic_tool_create_propagates_grounding():
+    tool = DeterministicTool.create(
+        {
+            "id": "lookup_book_status",
+            "name": "Lookup",
+            "description": "lookup",
+            "grounding": {
+                "key": "book_id",
+                "fields": ["book_id", "title", "status"],
+            },
+            "deterministic_outputs": [
+                {"input": {"book_id": "B001"}, "output": {"title": "X"}},
+            ],
+        }
+    )
+    assert tool.grounding is not None
+    assert tool.grounding.fields == ["book_id", "title", "status"]
+    assert len(tool.deterministic_outputs) == 1
+
+
 def test_deterministic_tool_create_passthrough():
     tool = DeterministicTool(
         id="lookup",
