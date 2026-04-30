@@ -48,11 +48,12 @@ class GenerationParams(BaseParams):
     If specified, APIs may use this parameter to make a best-effort at determinism.
     """
 
-    temperature: float = 0.0
+    temperature: float | None = 0.0
     """Controls randomness in the output.
 
     Higher values (e.g., 1.0) make output more random, while lower values (e.g., 0.2)
-    make it more focused and deterministic.
+    make it more focused and deterministic. Set to None to omit the parameter
+    entirely on APIs that reject it (e.g., Claude Opus 4.7 with extended thinking).
     """
 
     top_p: float | None = None
@@ -138,7 +139,7 @@ class GenerationParams(BaseParams):
         if self.num_beams < 1:
             raise ValueError("num_beams must be strictly larger than 0.")
 
-        if self.temperature < 0:
+        if self.temperature is not None and self.temperature < 0:
             raise ValueError("Temperature must be non-negative.")
 
         if self.top_p is not None and not 0 <= self.top_p <= 1:

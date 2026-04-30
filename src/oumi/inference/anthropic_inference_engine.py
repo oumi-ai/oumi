@@ -119,11 +119,14 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
                 messages, group_adjacent_same_role_turns=True
             ),
             "max_tokens": generation_params.max_new_tokens,
-            "temperature": generation_params.temperature,
         }
 
-        # Only include top_p if it's explicitly set (Sonnet 4.5 requires only one of
-        # temperature or top_p to be set, not both)
+        # Only include temperature/top_p when explicitly set. Some Anthropic
+        # models reject `temperature` (e.g., Claude Opus 4.7 with extended
+        # thinking), and Sonnet 4.5 requires that only one of temperature or
+        # top_p be set, not both.
+        if generation_params.temperature is not None:
+            body["temperature"] = generation_params.temperature
         if generation_params.top_p is not None:
             body["top_p"] = generation_params.top_p
 
