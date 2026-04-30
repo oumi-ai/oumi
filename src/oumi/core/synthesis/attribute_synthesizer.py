@@ -15,7 +15,7 @@
 import re
 from dataclasses import dataclass, field
 
-from oumi.builders.inference_engines import build_inference_engine
+from oumi.builders.inference_engines import ENGINE_MAP, build_inference_engine
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.inference_engine_type import InferenceEngineType
 from oumi.core.configs.params.synthesis_params import (
@@ -67,6 +67,11 @@ class AttributeSynthesizer:
         self._params = params
         self._formatter = AttributeFormatter(params)
         self._inference_config = inference_config
+
+        engine_type = inference_config.engine or InferenceEngineType.NATIVE
+        if engine_type not in ENGINE_MAP:
+            raise ValueError(f"Unsupported inference engine: {engine_type}")
+
         self._inference_engine_cache = None
         self._total_input_tokens: int = 0
         self._total_output_tokens: int = 0

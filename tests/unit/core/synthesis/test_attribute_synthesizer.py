@@ -273,11 +273,11 @@ def test_synthesize_with_empty_samples(
 
 
 @patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
-def test_postprocess_sample(mock_build_inference_engine):
+def test_postprocess_sample(mock_build_inference_engine, mock_inference_config):
     """Test postprocessing a sample."""
     mock_build_inference_engine.return_value = Mock()
 
-    synthesizer = AttributeSynthesizer(GeneralSynthesisParams(), Mock())
+    synthesizer = AttributeSynthesizer(GeneralSynthesisParams(), mock_inference_config)
 
     response = "Response: Here is the formal text [END]"
     postprocessing_params = GeneratedAttributePostprocessingParams(
@@ -295,11 +295,13 @@ def test_postprocess_sample(mock_build_inference_engine):
 
 
 @patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
-def test_postprocess_sample_with_regex(mock_build_inference_engine):
+def test_postprocess_sample_with_regex(
+    mock_build_inference_engine, mock_inference_config
+):
     """Test postprocessing a sample with regex."""
     mock_build_inference_engine.return_value = Mock()
 
-    synthesizer = AttributeSynthesizer(GeneralSynthesisParams(), Mock())
+    synthesizer = AttributeSynthesizer(GeneralSynthesisParams(), mock_inference_config)
 
     response = "The answer is 42 and that's final."
     postprocessing_params = GeneratedAttributePostprocessingParams(
@@ -314,10 +316,12 @@ def test_postprocess_sample_with_regex(mock_build_inference_engine):
 
 
 @patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
-def test_postprocess_sample_with_no_regex_match(mock_build_inference_engine):
+def test_postprocess_sample_with_no_regex_match(
+    mock_build_inference_engine, mock_inference_config
+):
     """Test postprocessing a sample when regex doesn't match."""
     mock_build_inference_engine.return_value = Mock()
-    synthesizer = AttributeSynthesizer(GeneralSynthesisParams(), Mock())
+    synthesizer = AttributeSynthesizer(GeneralSynthesisParams(), mock_inference_config)
 
     response = "No numbers here!"
     postprocessing_params = GeneratedAttributePostprocessingParams(
@@ -1007,6 +1011,23 @@ def test_inference_engine_not_built_on_init(
         mock_general_synthesis_params,
         mock_inference_config,
     )
+
+    mock_build_inference_engine.assert_not_called()
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_init_raises_for_unsupported_engine_type(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+):
+    """Test that __init__ fails fast on an unsupported engine type."""
+    inference_config = Mock(spec=InferenceConfig)
+    inference_config.engine = "not_a_real_engine"
+    inference_config.model = Mock(spec=ModelParams)
+    inference_config.remote_params = Mock(spec=RemoteParams)
+
+    with pytest.raises(ValueError, match="Unsupported inference engine"):
+        AttributeSynthesizer(mock_general_synthesis_params, inference_config)
 
     mock_build_inference_engine.assert_not_called()
 
