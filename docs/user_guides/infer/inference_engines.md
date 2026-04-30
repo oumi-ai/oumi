@@ -412,6 +412,17 @@ The Anthropic models available via this API as of late Jan'2025 are listed below
 | Claude 3.0 Sonnet                     | claude-3-sonnet-20240229  |
 | Claude 3.0 Haiku                      | claude-3-haiku-20240307   |
 
+**Prompt Caching**
+
+The Anthropic engine enables [prompt caching](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching) automatically by setting `cache_control: ephemeral` on every request. Anthropic caches content up to the last cacheable block, so repeated prefixes (system prompts, long context, multi-turn conversations) re-use the cache and reduce latency and cost.
+
+When caching is active, the per-response usage metadata includes two extra fields:
+
+- `cached_tokens` — tokens served from the prompt cache (populated from Anthropic's `cache_read_input_tokens`).
+- `cache_creation_tokens` — tokens written to the cache on this request (populated from `cache_creation_input_tokens`).
+
+These are exposed on each `Message`'s `usage` metadata alongside `prompt_tokens`, `completion_tokens`, and `total_tokens`. See [Token Usage Tracking](#token-usage-tracking) for accumulating usage across a run.
+
 **Resources**
 
 - [Anthropic API Documentation](https://docs.anthropic.com/en/api/getting-started)
@@ -554,6 +565,38 @@ engine = TogetherInferenceEngine(
 ```
 
 The models available via this API can be found at [together.ai](https://www.together.ai/).
+
+**Cache Token Reporting**
+
+The Together engine extracts `cached_tokens` from Together's usage response (a flat field in the `usage` object) and surfaces it on each `Message`'s `usage` metadata. This is useful when comparing cache hit rates across providers — see [Token Usage Tracking](#token-usage-tracking).
+
+### Cerebras
+
+[Cerebras](https://cerebras.ai) offers an extreme-low-latency inference platform backed by wafer-scale hardware. It exposes an OpenAI-compatible chat completions API.
+
+Set the `CEREBRAS_API_KEY` environment variable (get a key from [cloud.cerebras.ai](https://cloud.cerebras.ai/)).
+
+**Basic Usage**
+
+```{testcode}
+from oumi.inference import CerebrasInferenceEngine
+from oumi.core.configs import ModelParams, RemoteParams
+
+engine = CerebrasInferenceEngine(
+    model_params=ModelParams(
+        model_name="llama3.1-8b"
+    )
+)
+```
+
+**Supported Models**
+
+The models available via this API can be found at [inference-docs.cerebras.ai/models](https://inference-docs.cerebras.ai/models).
+
+**Resources**
+
+- [Cerebras Inference Documentation](https://inference-docs.cerebras.ai/)
+- [Available Models](https://inference-docs.cerebras.ai/models)
 
 ### DeepSeek
 
@@ -772,26 +815,93 @@ if status.status.value == "completed":
     results = engine.get_batch_results(batch_id, conversations)
 ```
 
+### Cancelling a Batch Job
+
+Submitted batches can be cancelled before they complete. This is useful if you submitted by mistake, want to change parameters, or realise partial results are enough.
+
+```python
+batch_info = engine.cancel_batch(batch_id)
+print(f"Status: {batch_info.status}")  # typically "cancelling" or "cancelled"
+```
+
+`cancel_batch` returns a `BatchInfo` with the updated status. Cancelling does not delete requests that have already been processed — you can still retrieve partial results (see below).
+
+### Partial Batch Results
+
+When a batch fails, is cancelled, or finishes with some errored rows, you can still recover the successfully completed conversations using `get_batch_results_partial`:
+
+```python
+partial = engine.get_batch_results_partial(batch_id, conversations)
+print(f"Completed: {len(partial.conversations)}")
+print(f"Failed: {len(partial.failures)}")
+
+for failure in partial.failures:
+    print(f"Row {failure.index}: {failure.error}")
+```
+
+This returns a `BatchResult` containing successful conversations and a structured list of failures (with per-row error details), rather than raising on the first error. Combined with the partial-retry support in `RemoteInferenceEngine`, this lets you re-submit only the failed rows instead of re-running the whole batch.
+
+### Listing Available Models
+
+Every `InferenceEngine` exposes a `list_models()` method that returns the model IDs usable with that engine:
+
+```python
+from oumi.inference import OpenAIInferenceEngine
+from oumi.core.configs import ModelParams
+
+engine = OpenAIInferenceEngine(
+    model_params=ModelParams(model_name="gpt-4o-mini")
+)
+
+# Chat-capable models only (default)
+print(engine.list_models())
+
+# Include non-chat models (e.g. embeddings, moderation)
+print(engine.list_models(chat_only=False))
+```
+
+For remote engines that expose a `/models` endpoint (OpenAI, Vertex AI, Bedrock, Parasail, Fireworks, and any OpenAI-compatible engine), this queries the provider's API for the live model list. For engines that do not expose a listing API, `list_models()` falls back to returning just the model the engine was initialised with.
+
+### Token Usage Tracking
+
+All remote inference engines attach per-message usage metadata to the returned `Conversation`s when the provider reports it. Each final assistant `Message` carries a `usage` dict with:
+
+- `prompt_tokens`, `completion_tokens`, `total_tokens` — standard OpenAI-style accounting.
+- `cached_tokens` — prompt tokens served from a provider-side cache (populated for OpenAI, Anthropic, and Together today).
+- `cache_creation_tokens` — tokens *written* to the cache on this request (Anthropic only).
+
+```python
+results = engine.infer(conversations)
+for conv in results:
+    usage = conv.messages[-1].usage or {}
+    print(usage.get("prompt_tokens"), usage.get("completion_tokens"),
+          usage.get("cached_tokens"))
+```
+
+Higher-level components that call inference internally — `BaseJudge`, `AttributeSynthesizer`, and the batch inference flows — accumulate the per-response usage into a run-level total so you can report aggregate cost without re-walking every conversation. See the relevant component docs for their aggregate accessors.
+
 ### Supported Engines
 
 The following table shows which engines support batch inference:
 
-| Engine | Batch Support | Notes |
-|--------|---------------|-------|
-| OpenAI | ✅ Supported | OpenAI Batch API |
-| Parasail | ✅ Supported | OpenAI-compatible Batch API |
-| Anthropic | 🔜 Coming soon | Message Batches API |
-| Together | 🔜 Coming soon | Together Batch API |
-| Fireworks | 🔜 Coming soon | Fireworks Batch API |
-| DeepSeek | ❌ Not supported | |
-| Gemini | ❌ Not supported | |
-| Vertex AI | ❌ Not supported | |
-| Bedrock | ❌ Not supported | |
-| Lambda | ❌ Not supported | |
-| SambaNova | ❌ Not supported | |
-| OpenRouter | ❌ Not supported | |
-| Remote vLLM | ❌ Not supported | |
-| SGLang | ❌ Not supported | |
+| Engine     | Batch Support     | Notes                              |
+|------------|-------------------|------------------------------------|
+| OpenAI     | ✅ Supported      | OpenAI Batch API                   |
+| Parasail   | ✅ Supported      | OpenAI-compatible Batch API        |
+| Anthropic  | ✅ Supported      | Message Batches API                |
+| Together   | ✅ Supported      | Together Batch API                 |
+| Fireworks  | ✅ Supported      | Fireworks Batch API                |
+| Cerebras   | ❌ Not supported  |                                    |
+| DeepSeek   | ❌ Not supported  |                                    |
+| Gemini     | ❌ Not supported  |                                    |
+| Vertex AI  | ❌ Not supported  |                                    |
+| Bedrock    | ❌ Not supported  |                                    |
+| SambaNova  | ❌ Not supported  |                                    |
+| OpenRouter | ❌ Not supported  |                                    |
+| Remote vLLM| ❌ Not supported  |                                    |
+| SGLang     | ❌ Not supported  |                                    |
+
+Engines that support batch also support `cancel_batch` and `get_batch_results_partial`.
 
 ## See Also
 

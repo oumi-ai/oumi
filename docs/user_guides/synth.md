@@ -121,6 +121,53 @@ input_documents:
   - path: "textbook.pdf"
 ```
 
+**Supported dataset formats** (`input_data`): JSONL, JSON, CSV, TSV, Parquet, and **XLSX**. For XLSX files, every sheet is concatenated into a single dataset, so you can keep related tabs in one workbook. Globs are supported:
+
+```yaml
+input_data:
+  - path: "data/**/*.xlsx"
+```
+
+**Supported document formats** (`input_documents`): `.pdf`, `.txt`, `.md`, `.html`, and **`.docx`**. DOCX files are parsed paragraph-by-paragraph.
+
+```{note}
+XLSX / DOCX parsing require the synthesis extras: `pip install oumi[synthesis]`.
+```
+
+### Few-Shot Sampling From Sources
+
+When you want each synthesised sample to see *multiple* randomly-drawn items from a source (examples, datasets, or documents), use `num_shots`. This turns the source into a dynamic few-shot pool instead of round-robin enumeration.
+
+```yaml
+input_examples:
+  - id: few_shot_examples
+    num_shots: 3                       # draw 3 examples per synthesis sample
+    examples:
+      - task_type: "summarization"
+        example_input: "..."
+      - task_type: "translation"
+        example_input: "..."
+      # ...
+
+generated_attributes:
+  - id: instruction
+    instruction_messages:
+      - role: USER
+        content: |
+          Example 1: {few_shot_examples[0].example_input}
+          Example 2: {few_shot_examples[1].example_input}
+          Example 3: {few_shot_examples[2].example_input}
+          Now produce a new, different example.
+```
+
+Rules:
+
+- `num_shots: None` or `1` → the source behaves as before (round-robin), reference fields as `{id.field}`.
+- `num_shots > 1` → bracket notation `{id[i].field}` is required, and `id` must be set.
+- Works uniformly across `input_examples`, `input_data`, and `input_documents`.
+
+A runnable example lives at {gh}`configs/examples/synthesis/dynamic_few_shot_synth.yaml`.
+
 ### Creating Conversations
 
 Build multi-turn dialogues with fixed structure using transformed attributes:
@@ -542,6 +589,38 @@ data:
       - dataset_name: "text_sft_jsonl"
         dataset_path: "synthetic_qa_dataset.jsonl"
 ```
+
+## Batch Inference
+
+When your synthesis provider supports batch inference (OpenAI, Anthropic, Together, Fireworks, Parasail — see {doc}`/user_guides/infer/inference_engines`), you can submit all prompts for a single attribute as a batch job rather than calling the API online:
+
+```python
+from oumi.core.synthesis.attribute_synthesizer import AttributeSynthesizer
+
+synth = AttributeSynthesizer(config)
+
+# Submit a batch job for one generated attribute
+batch_id = synth.synthesize_batch(samples, generated_attribute)
+
+# Later, retrieve results
+results = synth.get_batch_results(batch_id, samples, generated_attribute)
+# Or tolerate per-row failures:
+partial = synth.get_batch_results_partial(batch_id, samples, generated_attribute)
+```
+
+Batches are typically 50% cheaper than online inference at the cost of a 24-hour completion window. Attributes are batched one at a time (not across attributes), so chained `generated_attributes` still run sequentially.
+
+## Token Usage Tracking
+
+`AttributeSynthesizer` accumulates token usage across every online and batch call:
+
+```python
+print(synth.total_input_tokens)    # prompt_tokens across all calls
+print(synth.total_output_tokens)   # completion_tokens
+print(synth.total_cached_tokens)   # prompt tokens served from provider cache
+```
+
+Use these counters for cost reporting across an entire synthesis run. See also [Token Usage Tracking](/user_guides/infer/inference_engines.md#token-usage-tracking) on the inference engine side.
 
 ## Best Practices
 
