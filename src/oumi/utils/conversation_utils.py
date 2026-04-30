@@ -209,6 +209,8 @@ def convert_message_to_json_content(
     """
     if isinstance(message.content, str):
         return message.content
+    if message.content is None:
+        return ""
 
     assert isinstance(message.content, list)
     return convert_content_items_to_json_list(message.content_items)

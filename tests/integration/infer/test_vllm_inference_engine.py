@@ -30,6 +30,7 @@ def test_qwen_think_block_with_enable_thinking_true():
     outputs = engine.infer([convo], inference_config=inference_config)
     output = outputs[-1].messages[-1].content
     print(output)
+    assert isinstance(output, str)
     assert "<think>" in output
 
 
@@ -47,4 +48,5 @@ def test_qwen_no_think_block_with_enable_thinking_false():
     outputs = engine.infer([convo], inference_config=inference_config)
     output = outputs[-1].messages[-1].content
     print(output)
+    assert isinstance(output, str)
     assert "<think>" not in output

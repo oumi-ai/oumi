@@ -388,11 +388,13 @@ def test_planner_prompt_includes_role_context(
     assert planner.messages[3].role == Role.USER
 
     user_message = planner.messages[3].content
+    assert isinstance(user_message, str)
     assert "Role context:" in user_message
     assert "You are a frustrated customer." in user_message
     assert "You are a helpful agent." in user_message
 
     example_response = planner.messages[2].content
+    assert isinstance(example_response, str)
     assert "```json" in example_response
     assert '"turn": 1' in example_response
     assert '"instruction"' in example_response
