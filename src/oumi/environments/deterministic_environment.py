@@ -128,20 +128,36 @@ class DeterministicEnvironment(BaseEnvironment):
             f"Available tools: {[tool.id for tool in self._params.tools]}"
         )
 
-    def sample_grounding(self, n: int, *, rng: random.Random) -> list[GroundingFact]:
-        """Sample grounding facts from the pool of deterministic outputs.
+    def sample_grounding(
+        self,
+        n: int,
+        *,
+        rng: random.Random,
+        tool_ids: set[str] | None = None,
+    ) -> list[GroundingFact]:
+        """Sample grounding facts from per-tool projected pools.
 
-        Pools every ``DeterministicToolOutput`` across every tool owned by
-        this environment, draws ``min(n, len(pool))`` entries without
-        replacement using the supplied RNG, and converts each entry into a
-        ``GroundingFact`` by flattening its ``input`` and ``output`` dicts
-        (output wins on key collisions). Silent truncation — the synthesizer
-        is responsible for surfacing a warning when applicable.
+        Walks every tool in this environment that declares a ``grounding`` block.
+        For each row in that tool's ``deterministic_outputs``, projects
+        ``{**input, **output}`` to the configured ``fields`` and emits a
+        ``GroundingFact``. Fields whitelisted but absent from a row are silently
+        dropped.
+
+        Tools without a ``grounding`` block contribute nothing. Tools whose
+        ``id`` is not in ``tool_ids`` are also skipped when a filter is supplied.
+        Per-tool projections are concatenated, then sampled without replacement.
         """
-        pool: list[DeterministicToolOutput] = [
-            entry for tool in self._params.tools for entry in tool.deterministic_outputs
-        ]
+        pool: list[GroundingFact] = []
+        for tool in self._params.tools:
+            grounding = getattr(tool, "grounding", None)
+            if grounding is None:
+                continue
+            if tool_ids is not None and tool.id not in tool_ids:
+                continue
+            whitelist = set(grounding.fields)
+            for entry in tool.deterministic_outputs:
+                row = {**entry.input, **entry.output}
+                projected = {key: value for key, value in row.items() if key in whitelist}
+                pool.append(GroundingFact(data=projected))
         sampled = rng.sample(pool, min(n, len(pool)))
-        return [
-            GroundingFact(data={**entry.input, **entry.output}) for entry in sampled
-        ]
+        return sampled

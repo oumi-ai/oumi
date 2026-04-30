@@ -15,7 +15,11 @@
 import pytest
 
 from oumi.core.configs.params.environment_params import EnvironmentParams
-from oumi.core.configs.params.grounding_params import GroundingFact
+from oumi.core.configs.params.grounding_params import (
+    GroundingConfig,
+    GroundingFact,
+    ToolGroundingConfig,
+)
 from oumi.core.configs.params.tool_params import ToolLookupError, ToolResult
 from oumi.environments.deterministic_environment import (
     DeterministicEnvironment,
@@ -165,11 +169,148 @@ def _det_env_with_n_entries(n: int) -> DeterministicEnvironment:
                     id="lookup",
                     name="Lookup",
                     description="Look up a book.",
+                    grounding=ToolGroundingConfig(
+                        key="id", fields=["id", "title"]
+                    ),
                     deterministic_outputs=outputs,
                 )
             ]
         )
     )
+
+
+def test_sample_grounding_only_includes_grounded_tools():
+    """Tools without a grounding block contribute zero facts."""
+    import random
+
+    grounded = DeterministicTool.create(
+        {
+            "id": "lookup",
+            "name": "Lookup",
+            "description": "d",
+            "grounding": {
+                "key": "book_id",
+                "fields": ["book_id", "title", "status"],
+            },
+            "deterministic_outputs": [
+                {
+                    "input": {"book_id": "B001"},
+                    "output": {
+                        "title": "X",
+                        "status": "borrowed",
+                        "borrower_name": "Sarah",
+                        "borrow_date": "2026-01-01",
+                    },
+                },
+                {
+                    "input": {"book_id": "B002"},
+                    "output": {
+                        "title": "Y",
+                        "status": "available",
+                        "borrower_name": "",
+                        "borrow_date": "",
+                    },
+                },
+            ],
+        }
+    )
+    not_grounded = DeterministicTool.create(
+        {
+            "id": "checkout",
+            "name": "Checkout",
+            "description": "d",
+            "deterministic_outputs": [
+                {"input": {"book_id": "B001"}, "output": {"status": "error"}},
+                {"input": {"book_id": "B002"}, "output": {"status": "checked_out"}},
+            ],
+        }
+    )
+    params = EnvironmentParams(
+        id="env",
+        env_type="deterministic",
+        tools=[grounded, not_grounded],
+        grounding=GroundingConfig(sample_size=2, seed=0),
+    )
+    env = DeterministicEnvironment.from_params(params)
+
+    facts = env.sample_grounding(n=10, rng=random.Random(0))
+
+    assert len(facts) == 2
+    book_ids = {fact.data["book_id"] for fact in facts}
+    assert book_ids == {"B001", "B002"}
+    for fact in facts:
+        assert "borrower_name" not in fact.data
+        assert "borrow_date" not in fact.data
+        assert set(fact.data.keys()) <= {"book_id", "title", "status"}
+
+
+def test_sample_grounding_respects_tool_ids_filter():
+    """When tool_ids is supplied, only those tools contribute facts."""
+    import random
+
+    tool_a = DeterministicTool.create(
+        {
+            "id": "lookup_a",
+            "name": "A",
+            "description": "d",
+            "grounding": {"key": "id", "fields": ["id", "v"]},
+            "deterministic_outputs": [
+                {"input": {"id": "A1"}, "output": {"v": "from_a"}},
+            ],
+        }
+    )
+    tool_b = DeterministicTool.create(
+        {
+            "id": "lookup_b",
+            "name": "B",
+            "description": "d",
+            "grounding": {"key": "id", "fields": ["id", "v"]},
+            "deterministic_outputs": [
+                {"input": {"id": "B1"}, "output": {"v": "from_b"}},
+            ],
+        }
+    )
+    params = EnvironmentParams(
+        id="env",
+        env_type="deterministic",
+        tools=[tool_a, tool_b],
+        grounding=GroundingConfig(sample_size=2, seed=0),
+    )
+    env = DeterministicEnvironment.from_params(params)
+
+    facts = env.sample_grounding(n=10, rng=random.Random(0), tool_ids={"lookup_a"})
+
+    assert len(facts) == 1
+    assert facts[0].data == {"id": "A1", "v": "from_a"}
+
+
+def test_sample_grounding_field_missing_in_row_is_dropped():
+    """Fields listed in `fields` but absent from a row are silently dropped."""
+    import random
+
+    tool = DeterministicTool.create(
+        {
+            "id": "t",
+            "name": "T",
+            "description": "d",
+            "grounding": {"key": "id", "fields": ["id", "v", "missing_in_row"]},
+            "deterministic_outputs": [
+                {"input": {"id": "X1"}, "output": {"v": "ok"}},
+            ],
+        }
+    )
+    params = EnvironmentParams(
+        id="env",
+        env_type="deterministic",
+        tools=[tool],
+        grounding=GroundingConfig(sample_size=1),
+    )
+    env = DeterministicEnvironment.from_params(params)
+
+    facts = env.sample_grounding(n=1, rng=random.Random(0))
+
+    assert facts[0].data == {"id": "X1", "v": "ok"}
+    assert "missing_in_row" not in facts[0].data
 
 
 def test_sample_grounding_returns_n_facts():
@@ -195,6 +336,9 @@ def test_sample_grounding_merges_input_and_output_into_data():
                     id="lookup",
                     name="Lookup",
                     description="Look up.",
+                    grounding=ToolGroundingConfig(
+                        key="id", fields=["id", "note", "title"]
+                    ),
                     deterministic_outputs=[
                         DeterministicToolOutput(
                             input={"id": "1", "note": "input-note"},
@@ -263,6 +407,7 @@ def test_sample_grounding_pools_across_tools():
                 id="tool_a",
                 name="A",
                 description="Tool A",
+                grounding=ToolGroundingConfig(key="k", fields=["k", "v"]),
                 deterministic_outputs=[
                     DeterministicToolOutput(input={"k": "a1"}, output={"v": "a1"})
                 ],
@@ -271,6 +416,7 @@ def test_sample_grounding_pools_across_tools():
                 id="tool_b",
                 name="B",
                 description="Tool B",
+                grounding=ToolGroundingConfig(key="k", fields=["k", "v"]),
                 deterministic_outputs=[
                     DeterministicToolOutput(input={"k": "b1"}, output={"v": "b1"}),
                     DeterministicToolOutput(input={"k": "b2"}, output={"v": "b2"}),

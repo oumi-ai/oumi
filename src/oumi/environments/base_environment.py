@@ -34,11 +34,25 @@ class BaseEnvironment(ABC):
     def step(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:
         """Execute a tool call within this environment."""
 
-    def sample_grounding(self, n: int, *, rng: random.Random) -> list[GroundingFact]:
-        """Sample ``n`` grounding facts from this environment.
+    def sample_grounding(
+        self,
+        n: int,
+        *,
+        rng: random.Random,
+        tool_ids: set[str] | None = None,
+    ) -> list[GroundingFact]:
+        """Sample grounding facts from this environment.
 
-        Default: returns an empty list. Subclasses that support grounding
-        (currently only ``DeterministicEnvironment``) override this.
+        Args:
+            n: Maximum number of facts to return. Implementations may return fewer
+                if the pool is smaller than ``n``.
+            rng: RNG used for sampling. Callers are expected to seed it
+                deterministically when reproducibility is required.
+            tool_ids: When non-None, restrict sampling to facts produced by the
+                named tools. ``None`` means all grounded tools in this environment.
+
+        Returns:
+            Up to ``n`` ``GroundingFact`` instances.
         """
         return []
 
