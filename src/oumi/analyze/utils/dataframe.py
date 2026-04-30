@@ -21,7 +21,8 @@ from typing import Any
 import pandas as pd
 from pydantic import BaseModel
 
-from oumi.core.types.conversation import ContentItem, Conversation
+from oumi.analyze.base import BaseAnalyzer
+from oumi.core.types.conversation import Conversation
 
 logger = logging.getLogger(__name__)
 
@@ -155,14 +156,7 @@ def to_message_dataframe(
                 "role": message.role.value,
             }
 
-            if isinstance(message.content, str):
-                row["text_content"] = message.content
-            else:
-                text_parts = []
-                for item in message.content:
-                    if isinstance(item, ContentItem) and isinstance(item.content, str):
-                        text_parts.append(item.content)
-                row["text_content"] = " ".join(text_parts)
+            row["text_content"] = BaseAnalyzer.get_text_content(message)
 
             # Add results from each message-level analyzer
             for analyzer_name, analyzer_results in results.items():

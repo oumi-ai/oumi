@@ -1,5 +1,7 @@
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
+from typing import Final
 from unittest.mock import ANY, MagicMock, Mock, patch
 
 import jsonlines
@@ -9,6 +11,7 @@ import pytest
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.types.conversation import ContentItem, Conversation, Message, Role, Type
+from oumi.core.types.tool_call import ToolCall, ToolDefinition
 from oumi.inference import VLLMInferenceEngine
 from oumi.utils.conversation_utils import base64encode_content_item_image_bytes
 from oumi.utils.image_utils import (
@@ -704,3 +707,308 @@ def test_no_passthrough_kwargs_by_default(mock_vllm):
     call_kwargs = mock_vllm.LLM.call_args[1]
     assert "language_model_only" not in call_kwargs
     assert "hf_config_path" not in call_kwargs
+
+
+#
+# Tool-calling tests
+#
+_WEATHER_TOOL_DICT: Final = {
+    "type": "function",
+    "function": {
+        "name": "get_weather",
+        "description": "Get current weather for a city.",
+        "parameters": {
+            "type": "object",
+            "properties": {"city": {"type": "string"}},
+            "required": ["city"],
+        },
+    },
+}
+
+_CALENDAR_TOOL_DICT: Final = {
+    "type": "function",
+    "function": {
+        "name": "create_event",
+        "description": "Create a calendar event.",
+        "parameters": {
+            "type": "object",
+            "properties": {"title": {"type": "string"}},
+            "required": ["title"],
+        },
+    },
+}
+
+_WEATHER_TOOL: Final = ToolDefinition.model_validate(_WEATHER_TOOL_DICT)
+_CALENDAR_TOOL: Final = ToolDefinition.model_validate(_CALENDAR_TOOL_DICT)
+
+
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_infer_forwards_tools_kwarg(mock_vllm):
+    """Conversation.tools is forwarded to LLM.chat(tools=...)."""
+    mock_vllm_instance = Mock()
+    mock_vllm.LLM.return_value = mock_vllm_instance
+    mock_vllm_instance.chat.return_value = [_create_vllm_output(["ok"], "1")]
+
+    engine = VLLMInferenceEngine(_get_default_model_params())
+    conv = Conversation(
+        tools=[_WEATHER_TOOL],
+        messages=[Message(role=Role.USER, content="weather in Tokyo?")],
+        conversation_id="1",
+    )
+    engine.infer([conv], _get_default_inference_config())
+
+    mock_vllm_instance.chat.assert_called_once()
+    call_kwargs = mock_vllm_instance.chat.call_args.kwargs
+    # Tools are dumped to OpenAI-format dicts before being handed to vLLM.
+    assert call_kwargs["tools"] == [_WEATHER_TOOL_DICT]
+
+
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_infer_fast_path_when_no_tools(mock_vllm):
+    """When no conversation has tools, chat() is called once without `tools`."""
+    mock_vllm_instance = Mock()
+    mock_vllm.LLM.return_value = mock_vllm_instance
+    mock_vllm_instance.chat.return_value = [
+        _create_vllm_output(["a"], "1"),
+        _create_vllm_output(["b"], "2"),
+    ]
+
+    engine = VLLMInferenceEngine(_get_default_model_params())
+    convs = [
+        Conversation(
+            messages=[Message(role=Role.USER, content="hi")], conversation_id="1"
+        ),
+        Conversation(
+            messages=[Message(role=Role.USER, content="bye")], conversation_id="2"
+        ),
+    ]
+    engine.infer(convs, _get_default_inference_config())
+
+    assert mock_vllm_instance.chat.call_count == 1
+    assert "tools" not in mock_vllm_instance.chat.call_args.kwargs
+
+
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_infer_groups_conversations_by_tools(mock_vllm):
+    """Heterogeneous tool sets dispatch as separate chat() calls in input order."""
+    mock_vllm_instance = Mock()
+    mock_vllm.LLM.return_value = mock_vllm_instance
+
+    # Two groups: T1 used by indices [0, 2], T2 used by [1]. Each group's
+    # response is tagged so the stitched result can be verified to preserve
+    # original (A, B, C) input order.
+    def chat_side_effect(messages, **kwargs):
+        tools = kwargs.get("tools")
+        prefix = "weather" if tools == [_WEATHER_TOOL_DICT] else "calendar"
+        return [_create_vllm_output([f"{prefix}-out"], f"{prefix}-id")] * len(messages)
+
+    mock_vllm_instance.chat.side_effect = chat_side_effect
+
+    engine = VLLMInferenceEngine(_get_default_model_params())
+    convs = [
+        Conversation(
+            tools=[_WEATHER_TOOL],
+            messages=[Message(role=Role.USER, content="A")],
+            conversation_id="A",
+        ),
+        Conversation(
+            tools=[_CALENDAR_TOOL],
+            messages=[Message(role=Role.USER, content="B")],
+            conversation_id="B",
+        ),
+        Conversation(
+            tools=[_WEATHER_TOOL],
+            messages=[Message(role=Role.USER, content="C")],
+            conversation_id="C",
+        ),
+    ]
+    results = engine.infer(convs, _get_default_inference_config())
+
+    assert mock_vllm_instance.chat.call_count == 2
+    tools_per_call = [
+        call.kwargs.get("tools") for call in mock_vllm_instance.chat.call_args_list
+    ]
+    assert [_WEATHER_TOOL_DICT] in tools_per_call
+    assert [_CALENDAR_TOOL_DICT] in tools_per_call
+
+    # Original input order is preserved on the way out.
+    assert [r.conversation_id for r in results] == ["A", "B", "C"]
+    # And each conversation got the response for its own tool group.
+    assert results[0].messages[-1].content == "weather-out"
+    assert results[1].messages[-1].content == "calendar-out"
+    assert results[2].messages[-1].content == "weather-out"
+
+
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_infer_input_preserves_tool_calls_and_tool_call_id(mock_vllm):
+    """Multi-turn tool-use messages round-trip into the chat() input."""
+    mock_vllm_instance = Mock()
+    mock_vllm.LLM.return_value = mock_vllm_instance
+    mock_vllm_instance.chat.return_value = [_create_vllm_output(["ok"], "1")]
+
+    engine = VLLMInferenceEngine(_get_default_model_params())
+    tool_call_dict = {
+        "id": "call_abc",
+        "type": "function",
+        "function": {"name": "get_weather", "arguments": '{"city":"Tokyo"}'},
+    }
+    conv = Conversation(
+        tools=[_WEATHER_TOOL],
+        messages=[
+            Message(role=Role.USER, content="What's the weather in Tokyo?"),
+            Message(
+                role=Role.ASSISTANT,
+                content=None,
+                tool_calls=[ToolCall.model_validate(tool_call_dict)],
+            ),
+            Message(role=Role.TOOL, content="22C, sunny", tool_call_id="call_abc"),
+        ],
+        conversation_id="1",
+    )
+    engine.infer([conv], _get_default_inference_config())
+
+    sent = mock_vllm_instance.chat.call_args.args[0][0]
+    # User message unchanged.
+    assert sent[0]["role"] == "user"
+    # Assistant tool-call message: content=None, tool_calls forwarded as dicts.
+    assert sent[1]["role"] == "assistant"
+    assert sent[1]["content"] is None
+    assert sent[1]["tool_calls"] == [tool_call_dict]
+    # Tool response: content + tool_call_id forwarded.
+    assert sent[2]["role"] == "tool"
+    assert sent[2]["content"] == "22C, sunny"
+    assert sent[2]["tool_call_id"] == "call_abc"
+
+
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_tool_call_parser_populates_message_tool_calls(mock_vllm):
+    """When tool_call_parser is set, parsed tool calls land on Message.tool_calls."""
+    mock_vllm_instance = Mock()
+    mock_vllm.LLM.return_value = mock_vllm_instance
+    mock_vllm_instance.chat.return_value = [
+        _create_vllm_output(["<tool_call>...</tool_call>"], "1")
+    ]
+
+    # Stub tool call object exposing `.model_dump()`.
+    fake_call = Mock()
+    fake_call.model_dump.return_value = {
+        "id": "call_1",
+        "type": "function",
+        "function": {"name": "get_weather", "arguments": '{"city":"Tokyo"}'},
+    }
+    fake_extracted = SimpleNamespace(
+        tools_called=True,
+        tool_calls=[fake_call],
+        content=None,
+    )
+    parser_instance = Mock()
+    parser_instance.extract_tool_calls.return_value = fake_extracted
+    parser_cls = Mock(return_value=parser_instance)
+    manager = Mock()
+    manager.get_tool_parser.return_value = parser_cls
+
+    with (
+        patch("oumi.inference.vllm_inference_engine.ToolParserManager", manager),
+        patch(
+            "oumi.inference.vllm_inference_engine._VLLM_TOOL_PARSERS_AVAILABLE", True
+        ),
+    ):
+        engine = VLLMInferenceEngine(
+            _get_default_model_params(), tool_call_parser="hermes"
+        )
+
+    conv = Conversation(
+        tools=[_WEATHER_TOOL],
+        messages=[Message(role=Role.USER, content="weather?")],
+        conversation_id="1",
+    )
+    results = engine.infer([conv], _get_default_inference_config())
+
+    assistant = results[0].messages[-1]
+    # `Message.tool_calls` is `list[ToolCall]` after Pydantic validation;
+    # round-trip through `model_dump` to compare against the OpenAI-format
+    # dict produced by the (mocked) parser.
+    assert assistant.tool_calls is not None
+    assert [tc.model_dump(mode="json") for tc in assistant.tool_calls] == [
+        fake_call.model_dump.return_value
+    ]
+    assert assistant.content is None
+    assert results[0].metadata["finish_reason"] == "tool_calls"
+
+
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_tool_call_parser_error_falls_back_to_text(mock_vllm):
+    """A parser exception leaves Message.tool_calls=None and keeps raw text."""
+    mock_vllm_instance = Mock()
+    mock_vllm.LLM.return_value = mock_vllm_instance
+    mock_vllm_instance.chat.return_value = [_create_vllm_output(["raw"], "1")]
+
+    parser_instance = Mock()
+    parser_instance.extract_tool_calls.side_effect = RuntimeError("boom")
+    parser_cls = Mock(return_value=parser_instance)
+    manager = Mock()
+    manager.get_tool_parser.return_value = parser_cls
+
+    with (
+        patch("oumi.inference.vllm_inference_engine.ToolParserManager", manager),
+        patch(
+            "oumi.inference.vllm_inference_engine._VLLM_TOOL_PARSERS_AVAILABLE", True
+        ),
+    ):
+        engine = VLLMInferenceEngine(
+            _get_default_model_params(), tool_call_parser="hermes"
+        )
+
+    conv = Conversation(
+        messages=[Message(role=Role.USER, content="hi")], conversation_id="1"
+    )
+    results = engine.infer([conv], _get_default_inference_config())
+
+    assistant = results[0].messages[-1]
+    assert assistant.tool_calls is None
+    assert assistant.content == "raw"
+    # Falls back to the raw vLLM finish reason (not overridden to "tool_calls").
+    assert results[0].metadata.get("finish_reason") != "tool_calls"
+
+
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_tool_call_parser_unknown_name_raises(mock_vllm):
+    """An unknown parser name raises a clear ValueError."""
+    mock_vllm.LLM.return_value = Mock()
+
+    manager = Mock()
+    manager.get_tool_parser.side_effect = KeyError("not-a-parser")
+
+    with (
+        patch("oumi.inference.vllm_inference_engine.ToolParserManager", manager),
+        patch(
+            "oumi.inference.vllm_inference_engine._VLLM_TOOL_PARSERS_AVAILABLE", True
+        ),
+    ):
+        with pytest.raises(ValueError, match="Unknown vLLM tool_call_parser"):
+            VLLMInferenceEngine(
+                _get_default_model_params(), tool_call_parser="not-a-parser"
+            )
+
+
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_tool_call_parser_from_model_params(mock_vllm):
+    """`model_params.tool_call_parser` is used when no kwarg is supplied."""
+    mock_vllm.LLM.return_value = Mock()
+
+    manager = Mock()
+    parser_cls = Mock(return_value=Mock())
+    manager.get_tool_parser.return_value = parser_cls
+
+    params = _get_default_model_params()
+    params.tool_call_parser = "hermes"
+
+    with (
+        patch("oumi.inference.vllm_inference_engine.ToolParserManager", manager),
+        patch(
+            "oumi.inference.vllm_inference_engine._VLLM_TOOL_PARSERS_AVAILABLE", True
+        ),
+    ):
+        VLLMInferenceEngine(params)
+
+    manager.get_tool_parser.assert_called_once_with("hermes")
