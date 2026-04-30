@@ -73,14 +73,7 @@ def build_trainer(
             hf_args = training_args.to_hf(training_config)
             if verbose and is_world_process_zero():
                 logger.info(pformat(hf_args))
-            hf_trainer = cls(*args, **kwargs, args=hf_args)
-            if cls is trl.SFTTrainer:
-                # PEFT-wrapped models cause transformers' Trainer to set
-                # can_return_loss=False, which makes TRL's SFTTrainer skip its
-                # eval-time _metrics flush (eval_loss, eval_mean_token_accuracy).
-                # See https://github.com/huggingface/trl/issues/3694.
-                hf_trainer.can_return_loss = True
-            trainer = HuggingFaceTrainer(hf_trainer, processor)
+            trainer = HuggingFaceTrainer(cls(*args, **kwargs, args=hf_args), processor)
             if callbacks:
                 # TODO(OPE-250): Define generalizable callback abstraction
                 # Incredibly ugly, but this is the only way to add callbacks that add

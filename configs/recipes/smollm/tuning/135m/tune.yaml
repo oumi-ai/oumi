@@ -63,7 +63,11 @@ tuning:
   fixed_peft_params:
     q_lora: false
 
-  evaluation_metrics: [ "eval_loss", "eval_mean_token_accuracy" ]
-  evaluation_direction: [ "minimize", "maximize" ]
+  # eval_mean_token_accuracy is logged by TRL during eval but its log() override
+  # only writes to external loggers (wandb/tensorboard); the metric is not
+  # propagated through Trainer.evaluate()'s return dict, so the tuner can't read
+  # it. Restore once trl#3694 / similar lands.
+  evaluation_metrics: [ "eval_loss" ]
+  evaluation_direction: [ "minimize" ]
   tuner_type: OPTUNA
   tuner_sampler: "RandomSampler"
