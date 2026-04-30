@@ -1129,7 +1129,10 @@ def _grounded_env_params(
     seed: int | None = None,
 ):
     from oumi.core.configs.params.environment_params import EnvironmentParams
-    from oumi.core.configs.params.grounding_params import GroundingConfig
+    from oumi.core.configs.params.grounding_params import (
+        GroundingConfig,
+        ToolGroundingConfig,
+    )
     from oumi.environments.deterministic_tool import (
         DeterministicTool,
         DeterministicToolOutput,
@@ -1153,6 +1156,7 @@ def _grounded_env_params(
                 id=tool_id,
                 name=tool_id,
                 description="Look up an id.",
+                grounding=ToolGroundingConfig(key="id", fields=["id", "title"]),
                 deterministic_outputs=outputs,
             )
         ],
@@ -1322,6 +1326,64 @@ def test_attach_grounding_facts_respects_available_environments_scoping(
 
     # Only env_a contributes facts (sample_size=2).
     assert len(samples[0]["grounding_facts"]) == 2
+
+
+def test_attach_grounding_facts_filters_by_available_tools(
+    mock_inference_config,
+):
+    from oumi.core.configs.params.grounding_params import GroundingConfig
+
+    tool_a = DeterministicTool.create(
+        {
+            "id": "lookup_a",
+            "name": "A",
+            "description": "d",
+            "grounding": {"key": "id", "fields": ["id", "v"]},
+            "deterministic_outputs": [
+                {"input": {"id": "A1"}, "output": {"v": "from_a"}},
+            ],
+        }
+    )
+    tool_b = DeterministicTool.create(
+        {
+            "id": "lookup_b",
+            "name": "B",
+            "description": "d",
+            "grounding": {"key": "id", "fields": ["id", "v"]},
+            "deterministic_outputs": [
+                {"input": {"id": "B1"}, "output": {"v": "from_b"}},
+            ],
+        }
+    )
+    env_params = EnvironmentParams(
+        id="env",
+        name="Env",
+        description="d",
+        env_type="deterministic",
+        tools=[tool_a, tool_b],
+        grounding=GroundingConfig(sample_size=10, seed=0),
+    )
+    env_config = EnvironmentConfig(environments=[env_params])
+    multiturn = MultiTurnAttribute(
+        id="mt",
+        min_turns=2,
+        max_turns=2,
+        role_instruction_messages={
+            Role.USER: "user persona",
+            Role.ASSISTANT: "assistant persona",
+        },
+        available_environments=["env"],
+        available_tools=["lookup_a"],
+    )
+    synth = _make_synthesizer(mock_inference_config, environment_config=env_config)
+    samples = [{}, {}]
+
+    synth._attach_grounding_facts(samples, multiturn)
+
+    for sample in samples:
+        facts = sample["grounding_facts"]
+        assert len(facts) == 1
+        assert facts[0].data == {"id": "A1", "v": "from_a"}
 
 
 def test_attach_grounding_facts_concatenates_across_multiple_envs(

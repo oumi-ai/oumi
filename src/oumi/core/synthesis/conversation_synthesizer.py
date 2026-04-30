@@ -1127,13 +1127,22 @@ class ConversationSynthesizer:
             return
 
         warned_envs: set[str] = set()
+        tool_scope = (
+            set(multiturn_attribute.available_tools)
+            if multiturn_attribute.available_tools
+            else None
+        )
         for sample_index, sample in enumerate(samples):
             facts: list[GroundingFact] = []
             for env_params, env_runtime in grounding_env_pairs:
                 grounding = env_params.grounding
                 assert grounding is not None  # filtered above
                 rng = self._make_grounding_rng(grounding.seed, sample_index)
-                sampled = env_runtime.sample_grounding(n=grounding.sample_size, rng=rng)
+                sampled = env_runtime.sample_grounding(
+                    n=grounding.sample_size,
+                    rng=rng,
+                    tool_ids=tool_scope,
+                )
                 if (
                     len(sampled) < grounding.sample_size
                     and env_params.id not in warned_envs
