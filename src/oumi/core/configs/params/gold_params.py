@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import math
+import warnings
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -220,8 +221,12 @@ class GoldParams(BaseParams):
     use_transformers_paged: bool = False
     """Whether to use transformers paged attention for generation.
 
-    If True, uses paged implementation instead of default padded implementation.
-    Can improve memory efficiency for generation.
+    .. deprecated::
+        This field is deprecated and ignored. Upstream removed
+        ``use_transformers_paged`` from ``trl.GOLDConfig`` in trl 1.2 — the
+        paged generation path was both slower and substantially more
+        VRAM-hungry than the default and is now superseded by transformers
+        continuous batching. The field will be removed in a future release.
     """
 
     use_vllm: bool = False
@@ -295,6 +300,15 @@ class GoldParams(BaseParams):
 
     def __post_init__(self):
         """Validates GOLD parameters."""
+        if self.use_transformers_paged:
+            warnings.warn(
+                "GoldParams.use_transformers_paged is deprecated and ignored: "
+                "trl 1.2 removed `use_transformers_paged` from `GOLDConfig`. "
+                "The field will be removed in a future release.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
         if self.teacher_model_name_or_path is not None:
             if not isinstance(self.teacher_model_name_or_path, str):
                 raise TypeError(
@@ -435,7 +449,6 @@ class GoldParams(BaseParams):
             "uld_teacher_temperature": self.uld_teacher_temperature,
             "uld_skip_student_eos": self.uld_skip_student_eos,
             "uld_skip_teacher_eos": self.uld_skip_teacher_eos,
-            "use_transformers_paged": self.use_transformers_paged,
             "use_vllm": self.use_vllm,
             "vllm_mode": self.vllm_mode,
             "vllm_server_host": self.vllm_server_host,
