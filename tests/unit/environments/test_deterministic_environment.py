@@ -169,9 +169,7 @@ def _det_env_with_n_entries(n: int) -> DeterministicEnvironment:
                     id="lookup",
                     name="Lookup",
                     description="Look up a book.",
-                    grounding=ToolGroundingConfig(
-                        key="id", fields=["id", "title"]
-                    ),
+                    grounding=ToolGroundingConfig(key="id", fields=["id", "title"]),
                     deterministic_outputs=outputs,
                 )
             ]
