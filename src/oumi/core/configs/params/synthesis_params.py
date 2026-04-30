@@ -793,7 +793,8 @@ class GeneralSynthesisParams(BaseParams):
             system_prompt: "You are a helpful support agent."
 
     The conversation length is controlled by min_turns and max_turns. The output
-    is a list of message dictionaries:
+    is a list of message dictionaries::
+
         [
             {"role": "user", "content": "I need help with my order."},
             {"role": "assistant",

@@ -350,6 +350,34 @@ verl requires paths to Parquet files for the training and validation data. Oumi 
 
 Instead of training a separate reward model which estimates the reward value of a completion, it is common to use reward functions instead. Both the trl and verl frameworks have specific interfaces required for the reward functions used. These are documented in the [trl documentation](https://huggingface.co/docs/trl/main/en/grpo_trainer#using-a-custom-reward-function) and [verl documentation](https://verl.readthedocs.io/en/latest/preparation/reward_function.html) respectively.
 
+#### Per-Function kwargs
+
+Reward functions that take configuration (e.g. a rubric judge panel path, a strictness flag) can be wired via `training.reward_function_kwargs`. The kwargs are a dict keyed by **reward function name**, with each value being that function's kwargs dict:
+
+```yaml
+training:
+  trainer_type: "TRL_GRPO"   # or VERL_GRPO
+
+  reward_functions:
+    - rubric_reward
+    - gsm8k
+
+  reward_function_kwargs:
+    rubric_reward:
+      judge_panel_path: "configs/projects/judges/rubric_judge_panel.yaml"
+    gsm8k:
+      strict: true
+```
+
+Rules:
+
+- Keys in `reward_function_kwargs` must also appear in `reward_functions`; extra keys raise a validation error.
+- Omit the key (or use `{}`) for functions with no configuration.
+- Configured kwargs take precedence over per-sample kwargs passed by the trainer at call time.
+- Only `TRL_GRPO` and `VERL_GRPO` support `reward_function_kwargs` today — setting it with any other trainer raises a validation error.
+
+This is particularly useful with rubric-based reward functions (see {gh}`RaR datasets <src/oumi/datasets/grpo/rar_dataset.py>`) where a single function is reused across configs with different judge panels or scoring rules.
+
 ### Configuration
 
 #### TRL_GRPO

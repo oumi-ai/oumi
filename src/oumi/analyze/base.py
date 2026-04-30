@@ -14,6 +14,7 @@
 
 """Base analyzer classes for the typed analyzer framework."""
 
+import json
 from abc import ABC, abstractmethod
 from typing import Any, ClassVar, Generic, TypeVar
 
@@ -89,23 +90,49 @@ class BaseAnalyzer(ABC, Generic[TResult]):
 
     @staticmethod
     def get_text_content(message: Message) -> str:
-        """Extract text content from a message.
+        """Extract a text-content proxy from a message for analysis.
 
-        Handles both simple string content and multimodal content lists.
+        Returns an approximate, model-agnostic string representation
+        suitable for length, regex, and rough token-count analyses — NOT
+        a faithful representation of what a model's tokenizer will see.
+        Different models render tool calls to wildly different token
+        counts via their chat templates (Qwen ``<tool_call>...``, Mistral
+        ``[TOOL_CALLS]``, Llama JSON, Hermes XML, etc.); this helper
+        can't and doesn't try to replicate that. For exact, model-specific
+        counts, apply the model's tokenizer to
+        ``tokenizer.apply_chat_template(messages, tools=...)`` rather than
+        using this proxy.
+
+        The proxy concatenates, separated by single spaces:
+
+        - Simple ``str`` content (returned as-is)
+        - Multimodal content lists (text items joined)
+        - ``tool_calls`` (JSON-stringified via OpenAI wire format)
+
+        Including ``tool_calls`` matters because tool-only assistant
+        turns (``content=None``) would otherwise contribute zero to every
+        length-based metric, systematically under-counting tool-heavy
+        datasets. The JSON form gives them a representative size.
 
         Args:
             message: The message to extract text from.
 
         Returns:
-            The text content as a string.
+            The combined text proxy as a string. Empty if the message has
+            neither content nor tool_calls.
         """
+        parts: list[str] = []
         if isinstance(message.content, str):
-            return message.content
-        text_parts = []
-        for item in message.content:
-            if isinstance(item, ContentItem) and isinstance(item.content, str):
-                text_parts.append(item.content)
-        return " ".join(text_parts)
+            parts.append(message.content)
+        elif isinstance(message.content, list):
+            for item in message.content:
+                if isinstance(item, ContentItem) and isinstance(item.content, str):
+                    parts.append(item.content)
+        if message.tool_calls:
+            parts.append(
+                json.dumps([tc.model_dump(mode="json") for tc in message.tool_calls])
+            )
+        return " ".join(parts)
 
 
 class MessageAnalyzer(BaseAnalyzer[TResult]):

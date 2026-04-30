@@ -15,7 +15,7 @@ oumi = ["LICENSE", "README.md", "*.jinja"]
 # by default.
 [tool.uv]
 prerelease = "allow"
-override-dependencies = ["transformers>=5.5,<5.6"]
+override-dependencies = ["transformers>=5.5,<5.8"]
 
 [project]
 name = "oumi"
@@ -74,11 +74,11 @@ dependencies = [
     "tensorboard>=2.20,<2.21", # Optional, for monitoring training
     "tiktoken>=0.7,<1.0",
     "torch>=2.6,<2.11.0",      # vllm only supports up to torch==2.7
-    "torchao>=0.12,<0.16",     # Used by transformers
+    "torchao>=0.12,<0.17",     # Used by transformers; >=0.16 required by peft>=0.19
     "torchvision>=0.21,<0.26", # Used by some VLM-s (multimodal)
     "tqdm",
-    "transformers>=4.57,<5.7",
-    "trl>=0.24,<1.2",
+    "transformers>=4.57,<5.8",
+    "trl>=0.24,<1.4",
     "typer<0.24.2",             # Used by CLI. Pinned due to sphinxcontrib-typer compatibility. OPE-1806
     "typing_extensions",        # Backports of typing updates
     "uvicorn<0.45.0",           # TODO: Remove on resolution of https://github.com/skypilot-org/skypilot/issues/7303

@@ -265,6 +265,7 @@ def is_vllm_v0_12_or_later() -> bool:
     """Checks if vLLM version is 0.12.0 or later.
 
     In vLLM v0.12, several APIs were changed:
+
     - GuidedDecodingParams was removed (replaced by StructuredOutputsParams in v0.11)
     - The SamplingParams 'guided_decoding' kwarg was removed
       (replaced by 'structured_outputs' in v0.11)
