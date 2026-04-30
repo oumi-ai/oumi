@@ -156,6 +156,9 @@ environment_config:
           description: >-
             Look up a book's circulation status by book_id. Returns the
             title, author, current borrower, borrow date, and due date.
+          grounding:
+            key: book_id
+            fields: [book_id, title, status, return_date]
           parameters:
             type: object
             properties:
