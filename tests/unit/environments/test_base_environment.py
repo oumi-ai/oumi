@@ -19,7 +19,7 @@ from typing import Any
 import pytest
 
 from oumi.core.configs.params.grounding_params import GroundingFact
-from oumi.core.configs.params.tool_params import ToolResult
+from oumi.core.types.tool_call import ToolResult
 from oumi.environments.base_environment import BaseEnvironment
 
 

@@ -237,11 +237,3 @@ class ToolParams(BaseParams):
             ToolArgumentError: If ``arguments`` do not conform.
         """
         validate_arguments_against_schema(arguments, self.parameters)
-
-
-@dataclass
-class ToolResult(BaseParams):
-    """Result returned by an environment step."""
-
-    output: str | dict[str, Any]
-    updated_state: dict[str, Any] | None = None

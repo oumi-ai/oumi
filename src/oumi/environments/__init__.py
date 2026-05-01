@@ -27,9 +27,8 @@ from oumi.core.configs.params.tool_params import (
     ToolError,
     ToolLookupError,
     ToolParams,
-    ToolResult,
 )
-from oumi.core.types.tool_call import JSONSchema
+from oumi.core.types.tool_call import JSONSchema, ToolResult
 from oumi.environments.base_environment import BaseEnvironment
 from oumi.environments.deterministic_environment import (
     DeterministicEnvironment,

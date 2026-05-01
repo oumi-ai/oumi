@@ -21,7 +21,8 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 from oumi.core.configs.params.grounding_params import GroundingFact
-from oumi.core.configs.params.tool_params import ToolParams, ToolResult
+from oumi.core.configs.params.tool_params import ToolParams
+from oumi.core.types.tool_call import ToolResult
 from oumi.environments.utils import describe_grounding_default
 
 
