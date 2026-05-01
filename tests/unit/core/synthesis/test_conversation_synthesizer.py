@@ -370,12 +370,16 @@ def test_format_persona_injects_tools_for_assistant_only(
             multiturn_attribute=multiturn_attr,
         )
 
-    assert "You have access to the following tools." in assistant_message.content
-    assert '"name": "lookup_order"' in assistant_message.content
-    assert '"display_name": "Lookup Order"' in assistant_message.content
-    assert '"description": "Look up an order by id."' in assistant_message.content
-    assert '"order_id"' in assistant_message.content
-    assert "You have access to the following tools." not in user_message.content
+    assistant_content = assistant_message.content
+    user_content = user_message.content
+    assert isinstance(assistant_content, str)
+    assert isinstance(user_content, str)
+    assert "You have access to the following tools." in assistant_content
+    assert '"name": "lookup_order"' in assistant_content
+    assert '"display_name": "Lookup Order"' in assistant_content
+    assert '"description": "Look up an order by id."' in assistant_content
+    assert '"order_id"' in assistant_content
+    assert "You have access to the following tools." not in user_content
     assert (
         multiturn_attr.role_instruction_messages[Role.ASSISTANT]
         == "You are a helpful agent."
@@ -501,8 +505,10 @@ def test_planner_prompt_includes_role_context(
     assert example_response.startswith("[")
     assert '"turn": 1' in example_response
     assert '"instruction"' in example_response
-    assert "raw JSON array" in planner.messages[0].content
-    assert "```json" not in planner.messages[0].content
+    system_content = planner.messages[0].content
+    assert isinstance(system_content, str)
+    assert "raw JSON array" in system_content
+    assert "```json" not in system_content
     assert "No markdown" in user_message
 
 
