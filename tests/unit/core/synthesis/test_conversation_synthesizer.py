@@ -37,7 +37,6 @@ from oumi.core.types.conversation import (
     Message,
     Role,
 )
-from oumi.environments import ToolParams as Tool
 
 
 @pytest.fixture
@@ -376,12 +375,16 @@ def test_format_persona_injects_tools_for_assistant_only(
             multiturn_attribute=multiturn_attr,
         )
 
-    assert "You have access to the following tools." in assistant_message.content
-    assert '"name": "lookup_order"' in assistant_message.content
-    assert '"display_name": "Lookup Order"' in assistant_message.content
-    assert '"description": "Look up an order by id."' in assistant_message.content
-    assert '"order_id"' in assistant_message.content
-    assert "You have access to the following tools." not in user_message.content
+    assistant_content = assistant_message.content
+    user_content = user_message.content
+    assert isinstance(assistant_content, str)
+    assert isinstance(user_content, str)
+    assert "You have access to the following tools." in assistant_content
+    assert '"name": "lookup_order"' in assistant_content
+    assert '"display_name": "Lookup Order"' in assistant_content
+    assert '"description": "Look up an order by id."' in assistant_content
+    assert '"order_id"' in assistant_content
+    assert "You have access to the following tools." not in user_content
     assert (
         multiturn_attr.role_instruction_messages[Role.ASSISTANT]
         == "You are a helpful agent."
@@ -507,10 +510,10 @@ def test_planner_prompt_includes_role_context(
     assert example_response.startswith('{"turns":')
     assert '"turn": 1' in example_response
     assert '"instruction"' in example_response
-    system_prompt = planner.messages[0].content
-    assert isinstance(system_prompt, str)
-    assert "raw JSON object" in system_prompt
-    assert "```json" not in system_prompt
+    system_content = planner.messages[0].content
+    assert isinstance(system_content, str)
+    assert "raw JSON object" in system_content
+    assert "```json" not in system_content
     assert "No markdown" in user_message
 
 
@@ -571,9 +574,7 @@ def test_generate_plan_uses_planner_only_guided_decoding(
     assert planner_call is not mock_inference_config
     assert planner_call.generation is not mock_inference_config.generation
     assert planner_call.generation.guided_decoding is not None
-    assert (
-        planner_call.generation.guided_decoding.json == PLANNER_JSON_SCHEMA
-    )
+    assert planner_call.generation.guided_decoding.json == PLANNER_JSON_SCHEMA
     assert turn_call is mock_inference_config
     assert turn_call.generation.guided_decoding is None
     assert mock_inference_config.generation.guided_decoding is None
