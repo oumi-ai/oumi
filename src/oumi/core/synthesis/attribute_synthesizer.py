@@ -82,8 +82,7 @@ class AttributeSynthesizer:
         """Lazily build and cache the inference engine on first access."""
         if self._inference_engine_cache is None:
             self._inference_engine_cache = build_inference_engine(
-                engine_type=self._inference_config.engine
-                or InferenceEngineType.NATIVE,
+                engine_type=self._inference_config.engine or InferenceEngineType.NATIVE,
                 model_params=self._inference_config.model,
                 remote_params=self._inference_config.remote_params,
             )
