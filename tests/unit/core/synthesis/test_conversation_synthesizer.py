@@ -1813,6 +1813,106 @@ def _tool_multiturn_attr(tool_id: str = "lookup", cap: int = 50) -> MultiTurnAtt
 # --- Conversation.tools projection on output ---
 
 
+# --- Structured tool-message projection ---
+
+
+def test_project_tool_call_assistant_to_structured_form():
+    from oumi.core.synthesis.conversation_synthesizer import (
+        _project_messages_to_structured_form,
+    )
+
+    call_text = '<tool_call>{"name": "lookup", "arguments": {"id": "x"}}</tool_call>'
+    result_text = '<tool_result>{"status": "ok"}</tool_result>'
+    msgs = [
+        Message(role=Role.USER, content="Hi"),
+        Message(role=Role.ASSISTANT, content=call_text),
+        Message(role=Role.USER, content=result_text),
+        Message(role=Role.ASSISTANT, content="Final answer."),
+    ]
+
+    out = _project_messages_to_structured_form(msgs)
+
+    assert [m.role for m in out] == [
+        Role.USER,
+        Role.ASSISTANT,
+        Role.TOOL,
+        Role.ASSISTANT,
+    ]
+    assistant = out[1]
+    assert assistant.content is None
+    assert assistant.tool_calls is not None
+    assert len(assistant.tool_calls) == 1
+    assert assistant.tool_calls[0].function.name == "lookup"
+    assert json.loads(assistant.tool_calls[0].function.arguments) == {"id": "x"}
+    tool = out[2]
+    assert tool.tool_call_id == assistant.tool_calls[0].id
+    assert tool.content == '{"status": "ok"}'
+
+
+def test_project_preserves_prose_around_tool_call():
+    from oumi.core.synthesis.conversation_synthesizer import (
+        _project_messages_to_structured_form,
+    )
+
+    msgs = [
+        Message(
+            role=Role.ASSISTANT,
+            content=(
+                'Let me check.\n<tool_call>{"name": "f", "arguments": {}}</tool_call>'
+            ),
+        ),
+        Message(role=Role.USER, content="<tool_result>done</tool_result>"),
+    ]
+
+    out = _project_messages_to_structured_form(msgs)
+
+    assert out[0].content == "Let me check."
+    assert out[0].tool_calls is not None
+    assert out[1].role == Role.TOOL
+
+
+def test_project_matches_multiple_calls_in_one_turn_to_results_in_order():
+    from oumi.core.synthesis.conversation_synthesizer import (
+        _project_messages_to_structured_form,
+    )
+
+    msgs = [
+        Message(
+            role=Role.ASSISTANT,
+            content=(
+                '<tool_call>{"name": "a", "arguments": {}}</tool_call>'
+                '<tool_call>{"name": "b", "arguments": {}}</tool_call>'
+            ),
+        ),
+        Message(role=Role.USER, content="<tool_result>r-a</tool_result>"),
+        Message(role=Role.USER, content="<tool_result>r-b</tool_result>"),
+    ]
+
+    out = _project_messages_to_structured_form(msgs)
+
+    assistant = out[0]
+    assert assistant.tool_calls is not None
+    assert [tc.function.name for tc in assistant.tool_calls] == ["a", "b"]
+    assert out[1].tool_call_id == assistant.tool_calls[0].id
+    assert out[2].tool_call_id == assistant.tool_calls[1].id
+
+
+def test_project_passes_through_messages_without_tool_markers():
+    from oumi.core.synthesis.conversation_synthesizer import (
+        _project_messages_to_structured_form,
+    )
+
+    msgs = [
+        Message(role=Role.SYSTEM, content="Be helpful."),
+        Message(role=Role.USER, content="Hello"),
+        Message(role=Role.ASSISTANT, content="Hi there."),
+    ]
+
+    out = _project_messages_to_structured_form(msgs)
+
+    assert out == msgs
+
+
 def test_synthesize_output_populates_conversation_tools(mock_inference_config):
     inference_engine = Mock()
     inference_engine.infer.side_effect = lambda prompts, inference_config: [
@@ -2634,7 +2734,13 @@ def test_synthesize_end_to_end_with_tool_use(mock_inference_config):
     conv = records[0]["tool_conv"]
     assert isinstance(conv, dict)
     roles = [m["role"] for m in conv["messages"]]
-    assert roles == [Role.USER, Role.ASSISTANT, Role.USER, Role.ASSISTANT]
+    # Tool-result message is projected to Role.TOOL with tool_call_id linking
+    # back to the assistant's structured tool_calls.
+    assert roles == ["user", "assistant", "tool", "assistant"]
+    assistant_with_tool = conv["messages"][1]
+    assert assistant_with_tool["tool_calls"][0]["function"]["name"] == "lookup"
+    tool_msg = conv["messages"][2]
+    assert tool_msg["tool_call_id"] == assistant_with_tool["tool_calls"][0]["id"]
     assert conv["messages"][-1]["content"] == "The order is ok."
 
 
