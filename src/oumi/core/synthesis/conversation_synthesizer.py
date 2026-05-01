@@ -67,7 +67,6 @@ def _tool_error_msg(error: str) -> Message:
     return _tool_result_message(json.dumps({"error": error}))
 
 
-
 class ConversationSynthesizer:
     """Synthesizes a conversation.
 

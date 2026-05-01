@@ -2288,9 +2288,11 @@ def test_run_assistant_turn_cap_hit_strips_residual_tool_calls(mock_inference_co
     )
     final = msgs[0][-1]
     assert final.role == Role.ASSISTANT
-    assert "<tool_call>" not in final.content
-    assert "leftover prose" in final.content
-    assert "tail" in final.content
+    final_content = final.content
+    assert isinstance(final_content, str)
+    assert "<tool_call>" not in final_content
+    assert "leftover prose" in final_content
+    assert "tail" in final_content
 
 
 def test_run_assistant_turn_cap_hit_only_tool_calls_yields_empty_final(
