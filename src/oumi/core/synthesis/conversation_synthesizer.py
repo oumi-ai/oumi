@@ -65,15 +65,15 @@ _TOOL_LOOP_CONTINUATION = (
 
 
 def _tool_result_message(content: str) -> Message:
-    """Wrap a tool output as a user-role message with a <tool_result> marker."""
-    return Message(role=Role.USER, content=f"<tool_result>{content}</tool_result>")
+    """Wrap a tool output as a user-role message with a <tool_response> marker."""
+    return Message(role=Role.USER, content=f"<tool_response>{content}</tool_response>")
 
 
 def _tool_error_msg(error: str) -> Message:
     return _tool_result_message(json.dumps({"error": error}))
 
 
-_TOOL_RESULT_RE = re.compile(r"<tool_result>(.*)</tool_result>", re.DOTALL)
+_TOOL_RESPONSE_RE = re.compile(r"<tool_response>(.*)</tool_response>", re.DOTALL)
 
 
 def _generate_tool_call_id() -> str:
@@ -89,7 +89,7 @@ def _project_messages_to_structured_form(
     - ``Role.ASSISTANT`` content containing ``<tool_call>{...}</tool_call>``
       blocks → assistant ``Message`` with ``tool_calls=[ToolCall(...)]``
       and ``content`` set to any surrounding prose (or ``None``).
-    - ``Role.USER`` content wrapped in ``<tool_result>...</tool_result>``
+    - ``Role.USER`` content wrapped in ``<tool_response>...</tool_response>``
       → ``Role.TOOL`` ``Message`` with ``tool_call_id`` matched
       positionally to the preceding assistant tool calls.
 
@@ -165,11 +165,11 @@ def _extract_tool_calls(text: str) -> list[ToolCall]:
 
 
 def _strip_tool_result_wrapper(content: str) -> str | None:
-    """Return the inner body of a ``<tool_result>...</tool_result>`` wrapper.
+    """Return the inner body of a ``<tool_response>...</tool_response>`` wrapper.
 
     Returns ``None`` when ``content`` isn't a tool-result-shaped string.
     """
-    match = _TOOL_RESULT_RE.fullmatch(content)
+    match = _TOOL_RESPONSE_RE.fullmatch(content)
     return match.group(1) if match else None
 
 
@@ -281,42 +281,42 @@ class ConversationSynthesizer:
             return ""
 
         lines = [
-            "You have access to the following tools.",
+            "You may call one or more functions to assist with the user query.",
             "",
-            "When you need information from a tool, emit EXACTLY ONE tool call",
-            "in this format and then STOP — do not write any text after the",
-            "closing </tool_call> tag:",
-            "",
-            "<tool_call>",
-            '{"name": "<tool_name>", "arguments": {...}}',
-            "</tool_call>",
-            "",
-            "Strict rules:",
-            "- Emit only the tool call. Do NOT include prose, explanation, or",
-            "  a fabricated answer after </tool_call>. The tool result will be",
-            "  delivered in the next turn — only then should you respond.",
-            "- Never invent fields like titles, names, IDs, or dates. State",
-            "  only facts that came back from a tool.",
-            "- If more than one tool call is needed, issue them one at a time",
-            "  across successive turns, waiting for each result before deciding",
-            "  the next call.",
-            "- When you have all the information you need, reply with a plain",
-            "  natural-language message (no <tool_call> block).",
-            "",
-            "Available tools:",
+            "You are provided with function signatures within <tools></tools> "
+            "XML tags:",
+            "<tools>",
         ]
         for tool in available_tools:
-            schema = tool.to_llm_schema()
-            lines.append("<tool>")
-            lines.append(json.dumps(schema, indent=2))
-            lines.append("</tool>")
-            lines.append("")
-            if tool.output_schema is not None:
-                lines.append(
-                    "  Output schema: "
-                    f"{json.dumps(tool.output_schema.to_dict(), sort_keys=True)}"
-                )
-            lines.append("")
+            schema = tool.to_tool_definition().model_dump(
+                mode="json", exclude_none=True
+            )
+            lines.append(json.dumps(schema))
+        lines.extend(
+            [
+                "</tools>",
+                "",
+                "For each function call, return a json object with function name "
+                "and arguments within <tool_call></tool_call> XML tags:",
+                "<tool_call>",
+                '{"name": <function-name>, "arguments": <args-json-object>}',
+                "</tool_call>",
+                "",
+                "Synthesis constraints:",
+                "- Emit exactly one tool call at a time and then STOP; do not write "
+                "any text after the closing </tool_call> tag.",
+                "- Do not include prose, explanation, or a fabricated answer in the "
+                "same message as a tool call. The tool response will be delivered "
+                "in the next turn.",
+                "- Never invent fields like titles, names, IDs, or dates. State "
+                "only facts that came back from a tool.",
+                "- If more than one tool call is needed, issue them one at a time "
+                "across successive turns, waiting for each response before "
+                "deciding the next call.",
+                "- When you have all the information you need, reply with a plain "
+                "natural-language message and no <tool_call> block.",
+            ]
+        )
 
         return "\n".join(lines).rstrip()
 

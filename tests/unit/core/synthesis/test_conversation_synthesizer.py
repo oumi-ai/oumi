@@ -45,21 +45,21 @@ from oumi.environments.deterministic_tool import (
 
 
 def _unwrap_tool_result(content: object) -> str:
-    """Strip the ``<tool_result>...</tool_result>`` wrapper from a tool-result
+    """Strip the ``<tool_response>...</tool_response>`` wrapper from a tool-result
     message so assertions can inspect the inner JSON/text payload.
 
     The synthesizer emits tool results as ``Role.USER`` messages wrapped in
-    ``<tool_result>`` markers (keeps the conversation portable across provider
+    ``<tool_response>`` markers (keeps the conversation portable across provider
     APIs that disallow a ``tool`` role). Tests use this helper to peek at the
     underlying content. ``content`` is typed as ``object`` so callers can
     pass ``Message.content`` (a ``str | list[ContentItem]``) without first
     narrowing the type; the runtime assertion makes str-ness explicit.
     """
-    prefix = "<tool_result>"
-    suffix = "</tool_result>"
+    prefix = "<tool_response>"
+    suffix = "</tool_response>"
     assert isinstance(content, str), f"expected str content, got {type(content)}"
     assert content.startswith(prefix) and content.endswith(suffix), (
-        f"Expected <tool_result>-wrapped content, got: {content!r}"
+        f"Expected <tool_response>-wrapped content, got: {content!r}"
     )
     return content[len(prefix) : -len(suffix)]
 
@@ -404,12 +404,15 @@ def test_format_persona_injects_tools_for_assistant_only(
     user_content = user_message.content
     assert isinstance(assistant_content, str)
     assert isinstance(user_content, str)
-    assert "You have access to the following tools." in assistant_content
+    assert (
+        "You are provided with function signatures within <tools></tools> XML tags:"
+        in assistant_content
+    )
     assert '"name": "lookup_order"' in assistant_content
-    assert '"display_name": "Lookup Order"' in assistant_content
+    assert '"display_name"' not in assistant_content
     assert '"description": "Look up an order by id."' in assistant_content
     assert '"order_id"' in assistant_content
-    assert "You have access to the following tools." not in user_content
+    assert "<tools>" not in user_content
     assert (
         multiturn_attr.role_instruction_messages[Role.ASSISTANT]
         == "You are a helpful agent."
@@ -482,10 +485,38 @@ def test_build_role_context_includes_tools_for_assistant(
         result = synthesizer._build_role_context({}, multiturn_attr)
 
     assert "[ASSISTANT]" in result
-    assert "You have access to the following tools." in result
-    assert '"name": "check_status"' in result
-    assert '"display_name": "Check Status"' in result
-    assert '"description": "Check order status."' in result
+    assert "You may call one or more functions to assist with the user query." in result
+    assert (
+        "You are provided with function signatures within <tools></tools> XML tags:"
+        in result
+    )
+    assert "<tools>" in result
+    assert "</tools>" in result
+    assert "<tool>" not in result
+    assert '"display_name"' not in result
+    assert '"output_schema"' not in result
+    expected_schema = json.dumps(
+        {
+            "type": "function",
+            "function": {
+                "name": "check_status",
+                "description": "Check order status.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {},
+                    "required": [],
+                },
+            },
+        }
+    )
+    escaped_expected_schema = expected_schema.replace("{", "{{").replace("}", "}}")
+    assert escaped_expected_schema in result
+    assert f"\n{escaped_expected_schema}\n" in result
+    assert (
+        "For each function call, return a json object with function name and "
+        "arguments within <tool_call></tool_call> XML tags:"
+        in result
+    )
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
@@ -1808,7 +1839,7 @@ def test_project_tool_call_assistant_to_structured_form():
     )
 
     call_text = '<tool_call>{"name": "lookup", "arguments": {"id": "x"}}</tool_call>'
-    result_text = '<tool_result>{"status": "ok"}</tool_result>'
+    result_text = '<tool_response>{"status": "ok"}</tool_response>'
     msgs = [
         Message(role=Role.USER, content="Hi"),
         Message(role=Role.ASSISTANT, content=call_text),
@@ -1847,7 +1878,7 @@ def test_project_preserves_prose_around_tool_call():
                 'Let me check.\n<tool_call>{"name": "f", "arguments": {}}</tool_call>'
             ),
         ),
-        Message(role=Role.USER, content="<tool_result>done</tool_result>"),
+        Message(role=Role.USER, content="<tool_response>done</tool_response>"),
     ]
 
     out = _project_messages_to_structured_form(msgs)
@@ -1870,8 +1901,8 @@ def test_project_matches_multiple_calls_in_one_turn_to_results_in_order():
                 '<tool_call>{"name": "b", "arguments": {}}</tool_call>'
             ),
         ),
-        Message(role=Role.USER, content="<tool_result>r-a</tool_result>"),
-        Message(role=Role.USER, content="<tool_result>r-b</tool_result>"),
+        Message(role=Role.USER, content="<tool_response>r-a</tool_response>"),
+        Message(role=Role.USER, content="<tool_response>r-b</tool_response>"),
     ]
 
     out = _project_messages_to_structured_form(msgs)
