@@ -20,8 +20,9 @@ from oumi.core.configs.params.tool_params import (
     ToolArgumentError,
     ToolParams,
     ToolResult,
-    ToolSchema,
+    validate_arguments_against_schema,
 )
+from oumi.core.types.tool_call import JSONSchema
 from oumi.environments.synthetic_environment import SyntheticStateParams
 
 
@@ -50,9 +51,9 @@ def test_tool_params_to_llm_schema():
         id="search",
         name="Search",
         description="Search the catalog.",
-        parameters=ToolSchema(
+        parameters=JSONSchema(
             type="object",
-            properties={"query": ToolSchema(type="string")},
+            properties={"query": JSONSchema(type="string")},
             required=["query"],
         ),
     )
@@ -73,10 +74,10 @@ def test_tool_params_to_llm_schema_includes_output_schema():
         id="search",
         name="Search",
         description="Search the catalog.",
-        parameters=ToolSchema(type="object", properties={}),
-        output_schema=ToolSchema(
+        parameters=JSONSchema(type="object"),
+        output_schema=JSONSchema(
             type="object",
-            properties={"result": ToolSchema(type="string")},
+            properties={"result": JSONSchema(type="string")},
         ),
     )
     assert tool.to_llm_schema() == {
@@ -108,7 +109,9 @@ def test_tool_params_create_reads_extended_fields():
         }
     )
     assert tool.parameters.required == ["policy_id"]
-    assert tool.output_schema == ToolSchema(type="object", properties={})
+    assert tool.output_schema == JSONSchema.model_validate(
+        {"type": "object", "properties": {}}
+    )
 
 
 def test_tool_params_grounding_default_none():
@@ -151,16 +154,16 @@ def test_tool_result_round_trip():
     assert result.updated_state is None
 
 
-def test_tool_schema_to_dict():
-    schema = ToolSchema(
+def test_tool_schema_round_trip():
+    schema = JSONSchema(
         type="object",
         properties={
-            "query": ToolSchema(type="string"),
+            "query": JSONSchema(type="string"),
         },
         description="Tool input schema.",
         required=["query"],
     )
-    assert schema.to_dict() == {
+    assert schema.model_dump(mode="json", exclude_none=True) == {
         "type": "object",
         "properties": {"query": {"type": "string"}},
         "description": "Tool input schema.",
@@ -169,7 +172,7 @@ def test_tool_schema_to_dict():
 
 
 def test_tool_schema_create_recursively_coerces_nested_properties():
-    schema = ToolSchema.create(
+    schema = JSONSchema.model_validate(
         {
             "type": "object",
             "properties": {
@@ -184,9 +187,12 @@ def test_tool_schema_create_recursively_coerces_nested_properties():
             "required": ["customer"],
         }
     )
-    assert isinstance(schema.properties["customer"], ToolSchema)
-    assert isinstance(schema.properties["customer"].properties["email"], ToolSchema)
-    assert schema.to_dict() == {
+    assert schema.properties is not None
+    customer = schema.properties["customer"]
+    assert isinstance(customer, JSONSchema)
+    assert customer.properties is not None
+    assert isinstance(customer.properties["email"], JSONSchema)
+    assert schema.model_dump(mode="json", exclude_none=True) == {
         "type": "object",
         "properties": {
             "customer": {
@@ -204,13 +210,18 @@ def test_tool_schema_create_recursively_coerces_nested_properties():
     }
 
 
-def test_tool_schema_required_must_exist_in_properties():
-    with pytest.raises(ValueError, match="required contains unknown properties"):
-        ToolSchema(
-            type="object",
-            properties={"query": ToolSchema(type="string")},
-            required=["missing"],
-        )
+def test_tool_schema_construction_does_not_validate_required_against_properties():
+    # Pydantic-backed JSONSchema permits ``required`` keys that aren't in
+    # ``properties`` — JSON Schema itself allows this (extensions, $ref'd
+    # properties, etc.). Argument validation will surface the mismatch at
+    # call time via `validate_arguments_against_schema` if the caller omits
+    # the required key.
+    schema = JSONSchema(
+        type="object",
+        properties={"query": JSONSchema(type="string")},
+        required=["missing"],
+    )
+    assert schema.required == ["missing"]
 
 
 def test_synthetic_state_params_validates_initial_state_against_schema():
@@ -230,42 +241,43 @@ def test_synthetic_state_params_accepts_partial_inputs():
     ).initial_state == {"files": {"count": 1}}
 
 
-# --- ToolSchema items / enum ---
+# --- JSONSchema items / enum ---
 
 
 def test_tool_schema_create_coerces_items_and_enum():
-    schema = ToolSchema.create(
+    schema = JSONSchema.model_validate(
         {
             "type": "array",
             "items": {"type": "string", "enum": ["a", "b"]},
         }
     )
-    assert isinstance(schema.items, ToolSchema)
+    assert isinstance(schema.items, JSONSchema)
     assert schema.items.enum == ["a", "b"]
-    assert schema.to_dict() == {
+    assert schema.model_dump(mode="json", exclude_none=True) == {
         "type": "array",
         "items": {"type": "string", "enum": ["a", "b"]},
     }
 
 
 def test_tool_schema_validate_rejects_wrong_item_type():
-    schema = ToolSchema.create({"type": "array", "items": {"type": "string"}})
+    schema = JSONSchema.model_validate({"type": "array", "items": {"type": "string"}})
     with pytest.raises(ToolArgumentError, match=r"arguments\[1\] must be a string"):
-        schema.validate(["ok", 2], path="arguments")
+        validate_arguments_against_schema(["ok", 2], schema)
 
 
 def test_tool_schema_validate_rejects_value_outside_enum():
-    schema = ToolSchema.create({"type": "string", "enum": ["a", "b"]})
+    schema = JSONSchema.model_validate({"type": "string", "enum": ["a", "b"]})
     with pytest.raises(ToolArgumentError, match="must be one of"):
-        schema.validate("c", path="arguments")
+        validate_arguments_against_schema("c", schema)
 
 
 def test_tool_schema_enum_must_be_list():
-    with pytest.raises(ValueError, match="enum must be a list"):
-        ToolSchema(type="string", enum="a")  # type: ignore[arg-type]
+    # Pydantic surfaces the type mismatch via its own validation error.
+    with pytest.raises(ValueError, match="Input should be a valid list"):
+        JSONSchema(type="string", enum="a")  # type: ignore[arg-type]
 
 
-# --- ToolSchema.validate / ToolParams.validate_arguments ---
+# --- JSONSchema.validate / ToolParams.validate_arguments ---
 
 
 def _policy_tool() -> ToolParams:
@@ -273,11 +285,11 @@ def _policy_tool() -> ToolParams:
         id="policy",
         name="Policy",
         description="Look up policy.",
-        parameters=ToolSchema(
+        parameters=JSONSchema(
             type="object",
             properties={
-                "policy_id": ToolSchema(type="string"),
-                "limit": ToolSchema(type="integer"),
+                "policy_id": JSONSchema(type="string"),
+                "limit": JSONSchema(type="integer"),
             },
             required=["policy_id"],
         ),
@@ -286,23 +298,23 @@ def _policy_tool() -> ToolParams:
 
 def test_tool_schema_validate_accepts_conforming_value():
     schema = _policy_tool().parameters
-    schema.validate({"policy_id": "abc", "limit": 5})
+    validate_arguments_against_schema({"policy_id": "abc", "limit": 5}, schema)
 
 
 def test_tool_schema_validate_missing_required_raises():
     schema = _policy_tool().parameters
     with pytest.raises(ToolArgumentError, match=r"arguments\.policy_id is required"):
-        schema.validate({"limit": 5}, path="arguments")
+        validate_arguments_against_schema({"limit": 5}, schema)
 
 
 def test_tool_schema_validate_wrong_type_raises():
     schema = _policy_tool().parameters
     with pytest.raises(ToolArgumentError, match=r"arguments\.limit must be an integer"):
-        schema.validate({"policy_id": "abc", "limit": "five"}, path="arguments")
+        validate_arguments_against_schema({"policy_id": "abc", "limit": "five"}, schema)
 
 
 def test_tool_schema_validate_nested_object():
-    schema = ToolSchema.create(
+    schema = JSONSchema.model_validate(
         {
             "type": "object",
             "properties": {
@@ -318,7 +330,7 @@ def test_tool_schema_validate_nested_object():
     with pytest.raises(
         ToolArgumentError, match=r"arguments\.customer\.email is required"
     ):
-        schema.validate({"customer": {}}, path="arguments")
+        validate_arguments_against_schema({"customer": {}}, schema)
 
 
 def test_tool_schema_validate_empty_schema_accepts_any_object():

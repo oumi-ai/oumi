@@ -22,6 +22,11 @@ from typing import Any
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.grounding_params import ToolGroundingConfig
+from oumi.core.types.tool_call import (
+    FunctionDefinition,
+    JSONSchema,
+    ToolDefinition,
+)
 
 
 class ToolError(Exception):
@@ -96,116 +101,56 @@ def _validate_json_schema_value(
         raise ValueError(f"{path} must be one of {enum_values}.")
 
 
-@dataclass
-class ToolSchema(BaseParams):
-    """JSON schema for tool inputs or outputs."""
+def validate_arguments_against_schema(
+    arguments: Any, schema: JSONSchema, *, path: str = "arguments"
+) -> None:
+    """Validate tool-call arguments against a ``JSONSchema``.
 
-    type: str = "object"
-    properties: dict[str, ToolSchema] = field(default_factory=dict)
-    description: str | None = None
-    required: list[str] = field(default_factory=list)
-    items: ToolSchema | None = None
-    enum: list[Any] | None = None
-
-    @classmethod
-    def create(cls, raw: Any) -> ToolSchema:
-        """Create a schema from raw config data."""
-        if isinstance(raw, ToolSchema):
-            return raw
-        if not isinstance(raw, Mapping):
-            raise TypeError(
-                f"Tool schema definitions must be schema objects or mappings, got "
-                f"{type(raw)}"
-            )
-        return cls(
-            type=raw.get("type", "object"),
-            properties={
-                key: cls.create(value)
-                for key, value in raw.get("properties", {}).items()
-            },
-            description=raw.get("description"),
-            required=raw.get("required", []),
-            items=(cls.create(raw["items"]) if raw.get("items") is not None else None),
-            enum=list(raw["enum"]) if raw.get("enum") is not None else None,
+    Raises:
+        ToolArgumentError: If ``arguments`` do not conform.
+    """
+    try:
+        _validate_json_schema_value(
+            arguments,
+            schema.model_dump(mode="json", exclude_none=True),
+            path=path,
         )
+    except ValueError as e:
+        raise ToolArgumentError(str(e)) from e
 
-    def __post_init__(self):
-        """Validate schema fields."""
-        if not self.type:
-            raise ValueError(f"{type(self).__name__}.type cannot be empty.")
-        if not isinstance(self.properties, dict):
-            raise ValueError(f"{type(self).__name__}.properties must be a dict.")
-        if not all(isinstance(value, ToolSchema) for value in self.properties.values()):
-            raise ValueError(
-                f"{type(self).__name__}.properties values must be ToolSchema."
-            )
-        if self.description is not None and not isinstance(self.description, str):
-            raise ValueError(
-                f"{type(self).__name__}.description must be a string when specified."
-            )
-        if not isinstance(self.required, list) or not all(
-            isinstance(param, str) for param in self.required
-        ):
-            raise ValueError(
-                f"{type(self).__name__}.required must be a list of strings."
-            )
-        missing_required = set(self.required) - set(self.properties)
-        if missing_required:
-            raise ValueError(
-                f"{type(self).__name__}.required contains unknown properties: "
-                f"{sorted(missing_required)}"
-            )
-        if self.items is not None and not isinstance(self.items, ToolSchema):
-            self.items = ToolSchema.create(self.items)
-        if self.enum is not None and not isinstance(self.enum, list):
-            raise ValueError(
-                f"{type(self).__name__}.enum must be a list when specified."
-            )
 
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to a JSON-schema-shaped dict."""
-        schema: dict[str, Any] = {"type": self.type}
-        if self.properties:
-            schema["properties"] = {
-                key: value.to_dict() for key, value in self.properties.items()
-            }
-        if self.description is not None:
-            schema["description"] = self.description
-        if self.required:
-            schema["required"] = list(self.required)
-        if self.items is not None:
-            schema["items"] = self.items.to_dict()
-        if self.enum is not None:
-            schema["enum"] = list(self.enum)
-        return schema
+def _coerce_json_schema(raw: Any) -> JSONSchema:
+    """Coerce a mapping, ``JSONSchema``, or ``None`` into a ``JSONSchema``.
 
-    def validate(self, value: Any, *, path: str = "$") -> None:
-        """Validate a value against this schema.
-
-        Args:
-            value: The value to validate.
-            path: JSONPath-style prefix used in error messages. Callers
-                validating tool arguments should pass ``path="arguments"``
-                to produce model-friendly messages.
-
-        Raises:
-            ToolArgumentError: If ``value`` does not conform to the schema.
-        """
-        try:
-            _validate_json_schema_value(value, self.to_dict(), path=path)
-        except ValueError as e:
-            raise ToolArgumentError(str(e)) from e
+    ``None`` resolves to ``{"type": "object"}`` — OmegaConf strips Pydantic
+    defaults when round-tripping through YAML, so loaded configs may surface
+    ``parameters=None``.
+    """
+    if raw is None:
+        return JSONSchema(type="object")
+    if isinstance(raw, JSONSchema):
+        return raw
+    if isinstance(raw, Mapping):
+        return JSONSchema.model_validate(dict(raw))
+    raise TypeError(
+        f"Tool schema definitions must be JSONSchema or mappings, got {type(raw)}"
+    )
 
 
 @dataclass
 class ToolParams(BaseParams):
-    """Tool schema owned by an environment."""
+    """Tool schema owned by an environment.
+
+    ``parameters`` and ``output_schema`` are typed as ``Any`` so OmegaConf
+    carries them as plain dicts through YAML; ``__post_init__`` coerces to
+    ``JSONSchema``.
+    """
 
     id: str
     name: str
     description: str
-    parameters: ToolSchema = field(default_factory=ToolSchema)
-    output_schema: ToolSchema | None = None
+    parameters: Any = field(default_factory=lambda: {"type": "object"})
+    output_schema: Any = None
     read_only: bool = True
     grounding: ToolGroundingConfig | None = None
 
@@ -223,9 +168,9 @@ class ToolParams(BaseParams):
             id=raw["id"],
             name=raw["name"],
             description=raw["description"],
-            parameters=ToolSchema.create(raw.get("parameters", {})),
+            parameters=_coerce_json_schema(raw.get("parameters", {"type": "object"})),
             output_schema=(
-                ToolSchema.create(raw["output_schema"])
+                _coerce_json_schema(raw["output_schema"])
                 if raw.get("output_schema") is not None
                 else None
             ),
@@ -246,12 +191,12 @@ class ToolParams(BaseParams):
             raise ValueError(f"{type(self).__name__}.name cannot be empty.")
         if not self.description:
             raise ValueError(f"{type(self).__name__}.description cannot be empty.")
-        if not isinstance(self.parameters, ToolSchema):
-            self.parameters = ToolSchema.create(self.parameters)
+        if not isinstance(self.parameters, JSONSchema):
+            self.parameters = _coerce_json_schema(self.parameters)
         if self.output_schema is not None and not isinstance(
-            self.output_schema, ToolSchema
+            self.output_schema, JSONSchema
         ):
-            self.output_schema = ToolSchema.create(self.output_schema)
+            self.output_schema = _coerce_json_schema(self.output_schema)
         if self.grounding is not None and not isinstance(
             self.grounding, ToolGroundingConfig
         ):
@@ -263,11 +208,27 @@ class ToolParams(BaseParams):
             "name": self.id,
             "display_name": self.name,
             "description": self.description,
-            "parameters": self.parameters.to_dict(),
+            "parameters": self.parameters.model_dump(mode="json", exclude_none=True),
         }
         if self.output_schema is not None:
-            schema["output_schema"] = self.output_schema.to_dict()
+            schema["output_schema"] = self.output_schema.model_dump(
+                mode="json", exclude_none=True
+            )
         return schema
+
+    def to_tool_definition(self) -> ToolDefinition:
+        """Project to OpenAI-wire-format ``ToolDefinition``.
+
+        Drops chain-internal fields (``output_schema``, ``read_only``,
+        ``name`` display label) that have no slot in the OpenAI contract.
+        """
+        return ToolDefinition(
+            function=FunctionDefinition(
+                name=self.id,
+                description=self.description,
+                parameters=self.parameters,
+            ),
+        )
 
     def validate_arguments(self, arguments: dict[str, Any]) -> None:
         """Validate call-time arguments against this tool's ``parameters`` schema.
@@ -275,7 +236,7 @@ class ToolParams(BaseParams):
         Raises:
             ToolArgumentError: If ``arguments`` do not conform.
         """
-        self.parameters.validate(arguments, path="arguments")
+        validate_arguments_against_schema(arguments, self.parameters)
 
 
 @dataclass

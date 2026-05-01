@@ -771,6 +771,9 @@ class ConversationSynthesizer:
                 histories[i].append(msg)
                 user_histories[i].append(msg)
 
+        available_tools = self._resolve_available_tools(multiturn_attribute)
+        tool_definitions = [t.to_tool_definition() for t in available_tools] or None
+
         conversations: list[Conversation] = []
         for sample, history in zip(samples, histories):
             output_messages: list[Message] = []
@@ -780,7 +783,9 @@ class ConversationSynthesizer:
             if output_message:
                 output_messages.append(output_message)
             output_messages.extend(history)
-            conversations.append(Conversation(messages=output_messages))
+            conversations.append(
+                Conversation(messages=output_messages, tools=tool_definitions)
+            )
 
         return conversations
 
