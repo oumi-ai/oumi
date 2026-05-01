@@ -36,8 +36,12 @@ from oumi.core.configs.params.tool_params import (
     ToolParams,
 )
 from oumi.core.synthesis.attribute_formatter import AttributeFormatter
-from oumi.core.synthesis.planner_models import PLANNER_JSON_SCHEMA
-from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.core.types.conversation import (
+    PLANNER_JSON_SCHEMA,
+    Conversation,
+    Message,
+    Role,
+)
 from oumi.core.types.tool_call import FunctionCall, ToolCall
 from oumi.environments import GroundingFact
 from oumi.environments.base_environment import BaseEnvironment
@@ -65,6 +69,9 @@ _TOOL_LOOP_CONTINUATION = (
 )
 
 
+_TOOL_RESPONSE_RE = re.compile(r"<tool_response>(.*)</tool_response>", re.DOTALL)
+
+
 def _tool_result_message(content: str) -> Message:
     """Wrap a tool output as a user-role message with a <tool_response> marker."""
     return Message(role=Role.USER, content=f"<tool_response>{content}</tool_response>")
@@ -72,9 +79,6 @@ def _tool_result_message(content: str) -> Message:
 
 def _tool_error_msg(error: str) -> Message:
     return _tool_result_message(json.dumps({"error": error}))
-
-
-_TOOL_RESPONSE_RE = re.compile(r"<tool_response>(.*)</tool_response>", re.DOTALL)
 
 
 def _generate_tool_call_id() -> str:

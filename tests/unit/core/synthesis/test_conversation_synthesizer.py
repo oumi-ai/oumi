@@ -36,8 +36,12 @@ from oumi.core.configs.params.tool_params import (
     ToolParams,
 )
 from oumi.core.synthesis.conversation_synthesizer import ConversationSynthesizer
-from oumi.core.synthesis.planner_models import PLANNER_JSON_SCHEMA
-from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.core.types.conversation import (
+    PLANNER_JSON_SCHEMA,
+    Conversation,
+    Message,
+    Role,
+)
 from oumi.core.types.tool_call import JSONSchema
 from oumi.environments.deterministic_tool import (
     DeterministicTool,
@@ -515,8 +519,7 @@ def test_build_role_context_includes_tools_for_assistant(
     assert f"\n{escaped_expected_schema}\n" in result
     assert (
         "For each function call, return a json object with function name and "
-        "arguments within <tool_call></tool_call> XML tags:"
-        in result
+        "arguments within <tool_call></tool_call> XML tags:" in result
     )
 
 
