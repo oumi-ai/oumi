@@ -12,28 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""A framework used for registering and accessing objects across Oumi."""
+"""Abstract base class for tool environments."""
 
-from oumi.core.registry.registry import (
-    REGISTRY,
-    Registry,
-    RegistryType,
-    register,
-    register_cloud_builder,
-    register_dataset,
-    register_environment,
-    register_evaluation_function,
-    register_sample_analyzer,
-)
+from __future__ import annotations
 
-__all__ = [
-    "REGISTRY",
-    "Registry",
-    "RegistryType",
-    "register",
-    "register_cloud_builder",
-    "register_dataset",
-    "register_environment",
-    "register_evaluation_function",
-    "register_sample_analyzer",
-]
+from abc import ABC, abstractmethod
+from typing import Any
+
+from oumi.core.configs.params.tool_params import ToolParams, ToolResult
+
+
+class BaseEnvironment(ABC):
+    """Abstract base class for tool environments."""
+
+    tool_params_cls: type[ToolParams] = ToolParams
+
+    @abstractmethod
+    def step(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:
+        """Execute a tool call within this environment."""

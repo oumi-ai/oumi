@@ -83,6 +83,7 @@ from oumi.core.configs.analyze_config import (
 )
 from oumi.core.configs.async_evaluation_config import AsyncEvaluationConfig
 from oumi.core.configs.base_config import BaseConfig
+from oumi.core.configs.environment_config import EnvironmentConfig
 from oumi.core.configs.evaluation_config import EvaluationConfig
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.inference_engine_type import InferenceEngineType
@@ -124,7 +125,9 @@ from oumi.core.configs.params.peft_params import (
 from oumi.core.configs.params.profiler_params import ProfilerParams
 from oumi.core.configs.params.remote_params import RemoteParams
 from oumi.core.configs.params.synthesis_params import (
-    AttributeCombination,
+    DatasetSource as DatasetSourceParam,
+)
+from oumi.core.configs.params.synthesis_params import (
     DocumentSegmentationParams,
     DocumentSource,
     ExampleSource,
@@ -140,9 +143,6 @@ from oumi.core.configs.params.synthesis_params import (
     TransformationStrategy,
     TransformationType,
     TransformedAttribute,
-)
-from oumi.core.configs.params.synthesis_params import (
-    DatasetSource as DatasetSourceParam,
 )
 from oumi.core.configs.params.telemetry_params import TelemetryParams
 from oumi.core.configs.params.training_params import (
@@ -177,6 +177,7 @@ __all__ = [
     "EvaluationConfig",
     "EvaluationBackend",
     "EvaluationConfig",
+    "EnvironmentConfig",
     "EvaluationTaskParams",
     "FSDPParams",
     "GenerationParams",
@@ -213,7 +214,6 @@ __all__ = [
     "TunerType",
     "TuningConfig",
     "TuningParams",
-    "AttributeCombination",
     "DatasetSourceParam",
     "DocumentSegmentationParams",
     "DocumentSource",

@@ -46,7 +46,11 @@ class SynthesisPipeline:
             else None
         )
         self._conversation_synthesizer = (
-            ConversationSynthesizer(config.strategy_params, config.inference_config)
+            ConversationSynthesizer(
+                config.strategy_params,
+                config.inference_config,
+                environment_config=config.environment_config,
+            )
             if config.strategy_params.multiturn_attributes
             else None
         )
@@ -88,6 +92,22 @@ class SynthesisPipeline:
                     if result is None:
                         continue
                     sample.update(result)
+
+            required_multiturn_ids = {
+                attr.id for attr in self._config.strategy_params.multiturn_attributes
+            }
+            before_count = len(dataset)
+            dataset = [
+                sample
+                for sample in dataset
+                if all(attr_id in sample for attr_id in required_multiturn_ids)
+            ]
+            dropped_count = before_count - len(dataset)
+            if dropped_count > 0:
+                logger.warning(
+                    f"Dropped {dropped_count} sample(s) missing required "
+                    f"multiturn outputs: {sorted(required_multiturn_ids)}"
+                )
 
         # Add the transformed attributes to the dataset
         logger.info("Adding transformed attributes")

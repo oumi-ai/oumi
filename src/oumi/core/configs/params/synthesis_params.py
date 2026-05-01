@@ -474,6 +474,16 @@ class MultiTurnAttribute:
     Allows user to specify custom instructions for the planner while planning
     out the conversation."""
 
+    available_environments: list[str] = field(default_factory=list)
+    """List of environment ids availabe in this conversation."""
+
+    available_tools: list[str] = field(default_factory=list)
+    """List of tool ids available in this conversation."""
+
+    max_tool_calls_per_turn: int = 50
+    """Safety ceiling for tool calls per ASSISTANT turn. The agent naturally stops
+    when it decides no more tools are needed. This only prevents runaway loops."""
+
     def __post_init__(self):
         """Verifies/populates params."""
         if not self.id:
@@ -542,6 +552,29 @@ class MultiTurnAttribute:
                     "MultiTurnAttribute.output_system_prompt must be a non-empty "
                     "string."
                 )
+
+        if self.available_tools is not None:
+            if not isinstance(self.available_tools, list):
+                raise ValueError(
+                    "MultiTurnAttribute.available_tools must be a list of tool names."
+                )
+            for tool in self.available_tools:
+                if not isinstance(tool, str):
+                    raise ValueError(
+                        "MultiTurnAttribute.available_tools must be a list of strings."
+                    )
+        if self.available_environments is not None:
+            if not isinstance(self.available_environments, list):
+                raise ValueError(
+                    "MultiTurnAttribute.available_environments must be a list of "
+                    "environment ids."
+                )
+            for environment in self.available_environments:
+                if not isinstance(environment, str):
+                    raise ValueError(
+                        "MultiTurnAttribute.available_environments must be a list "
+                        "of strings."
+                    )
 
 
 class TransformationType(str, Enum):
