@@ -29,7 +29,7 @@ from typing import Any
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.grounding_params import ToolGroundingConfig
-from oumi.core.configs.params.tool_params import ToolParams, ToolSchema
+from oumi.core.configs.params.tool_params import ToolParams, _coerce_json_schema
 
 
 @dataclass
@@ -78,9 +78,9 @@ class DeterministicTool(ToolParams):
             id=raw["id"],
             name=raw["name"],
             description=raw["description"],
-            parameters=ToolSchema.create(raw.get("parameters", {})),
+            parameters=_coerce_json_schema(raw.get("parameters", {"type": "object"})),
             output_schema=(
-                ToolSchema.create(raw["output_schema"])
+                _coerce_json_schema(raw["output_schema"])
                 if raw.get("output_schema") is not None
                 else None
             ),

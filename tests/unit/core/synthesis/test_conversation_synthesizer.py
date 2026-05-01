@@ -34,10 +34,10 @@ from oumi.core.configs.params.synthesis_params import (
 )
 from oumi.core.configs.params.tool_params import (
     ToolParams,
-    ToolSchema,
 )
 from oumi.core.synthesis.conversation_synthesizer import ConversationSynthesizer
 from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.core.types.tool_call import JSONSchema
 from oumi.environments.deterministic_tool import (
     DeterministicTool,
     DeterministicToolOutput,
@@ -1725,11 +1725,11 @@ def _typed_tool_env_config() -> EnvironmentConfig:
                 id="lookup",
                 name="Lookup",
                 description="Look up a policy.",
-                parameters=ToolSchema(
+                parameters=JSONSchema(
                     type="object",
                     properties={
-                        "policy_id": ToolSchema(type="string"),
-                        "limit": ToolSchema(type="integer"),
+                        "policy_id": JSONSchema(type="string"),
+                        "limit": JSONSchema(type="integer"),
                     },
                     required=["policy_id"],
                 ),
@@ -1794,6 +1794,48 @@ def _tool_multiturn_attr(tool_id: str = "lookup", cap: int = 50) -> MultiTurnAtt
         available_tools=[tool_id],
         max_tool_calls_per_turn=cap,
     )
+
+
+# --- Conversation.tools projection on output ---
+
+
+def test_synthesize_output_populates_conversation_tools(mock_inference_config):
+    inference_engine = Mock()
+    inference_engine.infer.side_effect = lambda prompts, inference_config: [
+        Conversation(messages=[Message(role=Role.ASSISTANT, content=f"reply {i}")])
+        for i, _ in enumerate(prompts)
+    ]
+    synth = _make_synthesizer(
+        mock_inference_config,
+        environment_config=_tool_env_config(),
+        inference_engine=inference_engine,
+    )
+
+    samples = [{"target_turns": 1, "parsed_turn_plans": ["start"]}]
+    attr = MultiTurnAttribute(
+        id="conv",
+        min_turns=1,
+        max_turns=1,
+        role_instruction_messages={
+            Role.USER: "user.",
+            Role.ASSISTANT: "assistant.",
+        },
+        available_environments=["env1"],
+        available_tools=["lookup"],
+    )
+
+    conversations = synth._synthesize_all_samples(samples, attr)
+
+    assert len(conversations) == 1
+    output = conversations[0]
+    assert output.tools is not None
+    assert len(output.tools) == 1
+    assert output.tools[0].function.name == "lookup"
+    assert output.tools[0].function.description == "Look up an id."
+
+    serialized = output.to_dict()
+    assert "tools" in serialized
+    assert serialized["tools"][0]["function"]["name"] == "lookup"
 
 
 # --- _execute_tool_calls ---

@@ -336,6 +336,45 @@ def test_span_two_turns_both_unmasked():
     assert labels[t2_start:t2_end] == turn2
 
 
+def test_span_chain_format_tool_call_assistant_unmasks_correctly():
+    # Chain-format tool calls live as text in assistant content and tool
+    # results as text in USER-role messages. Span masking must unmask the
+    # whole assistant span (tool-call text included) and mask the user-role
+    # tool-result span — so chain datasets feed the SFT path unchanged.
+    resp, eot = get_template_token_ids()
+    user_q = [_SENTINELS[0]]
+    asst_with_tool_call = [_SENTINELS[1], _SENTINELS[2], _SENTINELS[3]]
+    user_tool_result = [_SENTINELS[4], _SENTINELS[5]]
+    asst_final = [_SENTINELS[6], _SENTINELS[7]]
+    seq = flat(
+        user_q,
+        eot,
+        resp,
+        asst_with_tool_call,
+        eot,
+        user_tool_result,
+        eot,
+        resp,
+        asst_final,
+        eot,
+    )
+
+    labels = get_span_labels(make_span_collator(), seq)
+
+    asst1_start = len(user_q) + len(eot) + len(resp)
+    asst1_end = asst1_start + len(asst_with_tool_call)
+    assert labels[asst1_start:asst1_end] == asst_with_tool_call
+
+    tr_start = asst1_end + len(eot)
+    tr_end = tr_start + len(user_tool_result)
+    for i in range(tr_start, tr_end):
+        assert labels[i] == IGNORE
+
+    asst2_start = tr_end + len(eot) + len(resp)
+    asst2_end = asst2_start + len(asst_final)
+    assert labels[asst2_start:asst2_end] == asst_final
+
+
 def test_span_content_between_turns_is_masked():
     resp, eot = get_template_token_ids()
     turn1 = [_SENTINELS[0]]

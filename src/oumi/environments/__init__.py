@@ -28,8 +28,8 @@ from oumi.core.configs.params.tool_params import (
     ToolLookupError,
     ToolParams,
     ToolResult,
-    ToolSchema,
 )
+from oumi.core.types.tool_call import JSONSchema
 from oumi.environments.base_environment import BaseEnvironment
 from oumi.environments.deterministic_environment import (
     DeterministicEnvironment,
@@ -53,6 +53,7 @@ __all__ = [
     "DeterministicToolOutput",
     "GroundingConfig",
     "GroundingFact",
+    "JSONSchema",
     "SyntheticEnvironment",
     "SyntheticEnvironmentKwargs",
     "SyntheticStateParams",
@@ -61,5 +62,4 @@ __all__ = [
     "ToolLookupError",
     "ToolParams",
     "ToolResult",
-    "ToolSchema",
 ]
