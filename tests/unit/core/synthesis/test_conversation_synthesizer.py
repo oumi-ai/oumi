@@ -3064,3 +3064,99 @@ def test_create_planner_prompt_example_models_role_aware_grounding(
         "assistant turn 2 must not pre-resolve the order_id — it should come "
         "from the user or the tool"
     )
+
+
+# ============================================================
+# Synthetic env integration: synthesizer wires step() through
+# ============================================================
+
+
+def _synthetic_tool_env_config() -> EnvironmentConfig:
+    """Single synthetic env with one typed tool. Uses env_id=`env1` and
+    tool_id=`lookup` so it works with ``_tool_multiturn_attr()`` defaults."""
+    env = EnvironmentParams(
+        id="env1",
+        name="Synthetic Env",
+        description="Test synth env",
+        env_type="synthetic",
+        tools=[
+            ToolParams(
+                id="lookup",
+                name="Lookup",
+                description="Look up something synthetically.",
+                parameters=JSONSchema(
+                    type="object",
+                    properties={"q": JSONSchema(type="string")},
+                    required=["q"],
+                ),
+                output_schema=JSONSchema(
+                    type="object",
+                    properties={"answer": JSONSchema(type="string")},
+                    required=["answer"],
+                ),
+            )
+        ],
+        env_kwargs={"system_prompt": "Simulate the lookup tool."},
+    )
+    return EnvironmentConfig(environments=[env])
+
+
+def test_synthesizer_attaches_inference_to_synthetic_env(mock_inference_config):
+    """_build_tool_dispatch must attach the synthesizer's engine + base config
+    to any SyntheticEnvironment it builds."""
+    from oumi.environments.synthetic_environment import SyntheticEnvironment
+
+    env_config = _synthetic_tool_env_config()
+    mock_engine = Mock()
+    synth = _make_synthesizer(
+        mock_inference_config,
+        environment_config=env_config,
+        inference_engine=mock_engine,
+    )
+
+    dispatch = synth._build_tool_dispatch(_tool_multiturn_attr())
+
+    assert "lookup" in dispatch
+    env = dispatch["lookup"]
+    assert isinstance(env, SyntheticEnvironment)
+    assert env._engine is mock_engine
+    assert env._base_inference_config is mock_inference_config
+
+
+def test_synthesizer_dispatch_invokes_synthetic_step_through_to_message(
+    mock_inference_config,
+):
+    """End-to-end: assistant emits a <tool_call>, the synthesizer dispatches
+    to SyntheticEnvironment.step (via _execute_tool_calls), the simulator
+    engine produces a JSON response, and the resulting <tool_result> message
+    contains the simulated output."""
+    env_config = _synthetic_tool_env_config()
+
+    sim_engine = Mock()
+    sim_engine.infer = Mock(
+        return_value=[
+            Conversation(
+                messages=[
+                    Message(role=Role.SYSTEM, content="x"),
+                    Message(role=Role.USER, content="y"),
+                    Message(role=Role.ASSISTANT, content='{"answer": "simulated!"}'),
+                ]
+            )
+        ]
+    )
+    synth = _make_synthesizer(
+        mock_inference_config,
+        environment_config=env_config,
+        inference_engine=sim_engine,
+    )
+    dispatch = synth._build_tool_dispatch(_tool_multiturn_attr())
+
+    messages = synth._execute_tool_calls(
+        '<tool_call>{"name": "lookup", "arguments": {"q": "hello"}}</tool_call>',
+        dispatch,
+    )
+
+    assert len(messages) == 1
+    payload = json.loads(_unwrap_tool_result(messages[0].content))
+    assert payload == {"answer": "simulated!"}
+    assert sim_engine.infer.call_count == 1

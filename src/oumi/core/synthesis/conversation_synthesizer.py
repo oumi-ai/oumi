@@ -35,7 +35,6 @@ from oumi.core.configs.params.tool_params import (
     ToolArgumentError,
     ToolError,
     ToolParams,
-    ToolResult,
 )
 from oumi.core.synthesis.attribute_formatter import AttributeFormatter
 from oumi.core.types.conversation import (
@@ -44,7 +43,7 @@ from oumi.core.types.conversation import (
     Message,
     Role,
 )
-from oumi.core.types.tool_call import FunctionCall, ToolCall
+from oumi.core.types.tool_call import FunctionCall, ToolCall, ToolResult
 from oumi.environments import GroundingFact
 from oumi.environments.base_environment import BaseEnvironment
 from oumi.environments.utils import (
@@ -1145,19 +1144,12 @@ class ConversationSynthesizer:
     ) -> list[Message]:
         """Validate, batch-dispatch, and format a list of parsed tool calls.
 
-        Calls that fail parsing or argument validation are short-circuited
-        into error messages without invoking the environment. The remaining
-        calls are dispatched as a single batch via
-        ``_dispatch_calls_grouped``, which routes each call to its owning
-        runtime environment and folds same-env calls into one ``step``
-        invocation. If the batch raises, we fall back to per-call dispatch
-        so individual errors can be attributed to their originating call.
-        The fallback path re-executes each call individually, which assumes
-        that ``step`` implementations are either all-or-nothing on the batch
-        (no partial side-effects before the raise) or idempotent on retry
-        — stateful environments must guarantee one of these.
+        Parse / validation failures short-circuit to error messages.
+        Survivors batch through ``_dispatch_calls_grouped``; on batch
+        exception we fall back to per-call dispatch — stateful envs must
+        therefore make ``step`` either all-or-nothing or idempotent on retry.
 
-        The returned list has the same length and order as ``parsed``.
+        Output order matches ``parsed``.
         """
         if not parsed:
             return []
@@ -1237,6 +1229,7 @@ class ConversationSynthesizer:
             return {}
 
         from oumi.builders.environments import build_environment
+        from oumi.environments.synthetic_environment import SyntheticEnvironment
 
         scoped_env_ids = (
             set(multiturn_attribute.available_environments)
@@ -1261,6 +1254,11 @@ class ConversationSynthesizer:
             if not tools_in_scope:
                 continue
             runtime_env = build_environment(env_params)
+            if isinstance(runtime_env, SyntheticEnvironment):
+                runtime_env.attach_inference(
+                    engine=self._inference_engine,
+                    base_config=self._inference_config,
+                )
             for tool in tools_in_scope:
                 dispatch[tool.id] = runtime_env
         return dispatch
