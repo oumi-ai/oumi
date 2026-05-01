@@ -36,6 +36,7 @@ from oumi.core.configs.params.tool_params import (
     ToolParams,
 )
 from oumi.core.synthesis.conversation_synthesizer import ConversationSynthesizer
+from oumi.core.synthesis.planner_models import PLANNER_JSON_SCHEMA
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.core.types.tool_call import JSONSchema
 from oumi.environments.deterministic_tool import (
@@ -630,25 +631,7 @@ def test_generate_plan_uses_planner_only_guided_decoding(
     assert planner_call is not mock_inference_config
     assert planner_call.generation is not mock_inference_config.generation
     assert planner_call.generation.guided_decoding is not None
-    assert planner_call.generation.guided_decoding.json == {
-        "type": "object",
-        "properties": {
-            "turns": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "turn": {"type": "integer", "minimum": 1},
-                        "instruction": {"type": "string"},
-                    },
-                    "required": ["turn", "instruction"],
-                    "additionalProperties": False,
-                },
-            },
-        },
-        "required": ["turns"],
-        "additionalProperties": False,
-    }
+    assert planner_call.generation.guided_decoding.json == PLANNER_JSON_SCHEMA
     assert turn_call is mock_inference_config
     assert turn_call.generation.guided_decoding is None
     assert mock_inference_config.generation.guided_decoding is None

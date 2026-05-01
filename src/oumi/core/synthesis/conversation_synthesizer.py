@@ -36,6 +36,7 @@ from oumi.core.configs.params.tool_params import (
     ToolParams,
 )
 from oumi.core.synthesis.attribute_formatter import AttributeFormatter
+from oumi.core.synthesis.planner_models import PLANNER_JSON_SCHEMA
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.core.types.tool_call import FunctionCall, ToolCall
 from oumi.environments import GroundingFact
@@ -171,27 +172,6 @@ def _strip_tool_result_wrapper(content: str) -> str | None:
     """
     match = _TOOL_RESPONSE_RE.fullmatch(content)
     return match.group(1) if match else None
-
-
-_PLANNER_JSON_SCHEMA: dict = {
-    "type": "object",
-    "properties": {
-        "turns": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "turn": {"type": "integer", "minimum": 1},
-                    "instruction": {"type": "string"},
-                },
-                "required": ["turn", "instruction"],
-                "additionalProperties": False,
-            },
-        },
-    },
-    "required": ["turns"],
-    "additionalProperties": False,
-}
 
 
 class ConversationSynthesizer:
@@ -792,11 +772,11 @@ class ConversationSynthesizer:
         if isinstance(base_generation, GenerationParams):
             planner_generation = dataclasses.replace(
                 base_generation,
-                guided_decoding=GuidedDecodingParams(json=_PLANNER_JSON_SCHEMA),
+                guided_decoding=GuidedDecodingParams(json=PLANNER_JSON_SCHEMA),
             )
         else:
             planner_generation = GenerationParams(
-                guided_decoding=GuidedDecodingParams(json=_PLANNER_JSON_SCHEMA)
+                guided_decoding=GuidedDecodingParams(json=PLANNER_JSON_SCHEMA)
             )
 
         if isinstance(self._inference_config, InferenceConfig):
