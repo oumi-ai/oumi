@@ -19,10 +19,9 @@ import pytest
 from oumi.core.configs.params.tool_params import (
     ToolArgumentError,
     ToolParams,
-    ToolResult,
     validate_arguments_against_schema,
 )
-from oumi.core.types.tool_call import JSONSchema
+from oumi.core.types.tool_call import JSONSchema, ToolResult
 from oumi.environments.synthetic_environment import SyntheticStateParams
 
 

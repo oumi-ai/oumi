@@ -1988,7 +1988,7 @@ def test_execute_tool_calls_multiple_blocks_in_order(mock_inference_config):
 
 
 def test_execute_tool_calls_passes_through_string_output(mock_inference_config):
-    from oumi.core.configs.params.tool_params import ToolResult
+    from oumi.core.types.tool_call import ToolResult
 
     env_config = _tool_env_config()
     synth = _make_synthesizer(mock_inference_config, environment_config=env_config)

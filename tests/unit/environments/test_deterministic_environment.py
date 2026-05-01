@@ -20,7 +20,8 @@ from oumi.core.configs.params.grounding_params import (
     GroundingFact,
     ToolGroundingConfig,
 )
-from oumi.core.configs.params.tool_params import ToolLookupError, ToolResult
+from oumi.core.configs.params.tool_params import ToolLookupError
+from oumi.core.types.tool_call import ToolResult
 from oumi.environments.deterministic_environment import (
     DeterministicEnvironment,
     DeterministicEnvironmentKwargs,

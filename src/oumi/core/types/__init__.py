@@ -48,6 +48,7 @@ from oumi.core.types.tool_call import (
     JSONSchema,
     ToolCall,
     ToolDefinition,
+    ToolResult,
     ToolType,
 )
 from oumi.exceptions import HardwareException
@@ -66,6 +67,7 @@ __all__ = [
     "TemplatedMessage",
     "ToolCall",
     "ToolDefinition",
+    "ToolResult",
     "ToolType",
     "Type",
 ]
