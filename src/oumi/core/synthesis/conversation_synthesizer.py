@@ -18,6 +18,7 @@ import json
 import random
 import re
 import uuid
+from typing import Any
 
 from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.configs.environment_config import EnvironmentConfig
@@ -42,7 +43,7 @@ from oumi.core.types.conversation import (
     Message,
     Role,
 )
-from oumi.core.types.tool_call import FunctionCall, ToolCall
+from oumi.core.types.tool_call import FunctionCall, ToolCall, ToolResult
 from oumi.environments import GroundingFact
 from oumi.environments.base_environment import BaseEnvironment
 from oumi.environments.utils import (
@@ -176,6 +177,90 @@ def _strip_tool_result_wrapper(content: str) -> str | None:
     """
     match = _TOOL_RESPONSE_RE.fullmatch(content)
     return match.group(1) if match else None
+
+
+@dataclasses.dataclass
+class _ParsedToolCall:
+    """Result of parsing one ``<tool_call>`` body."""
+
+    name: str | None = None
+    arguments: dict[str, Any] | None = None
+    parse_error: str | None = None
+
+
+def _parse_tool_call_body(body: str) -> _ParsedToolCall:
+    """Parse a single ``<tool_call>`` body into name + arguments.
+
+    Attempts brace-repair on malformed JSON before giving up. Returns a
+    ``_ParsedToolCall`` with ``parse_error`` set when the body cannot be
+    coerced into the expected shape.
+    """
+    try:
+        parsed = json.loads(body)
+    except json.JSONDecodeError as e:
+        repaired = repair_json_braces(body)
+        if repaired is None:
+            return _ParsedToolCall(parse_error=f"Malformed tool_call JSON: {e}")
+        try:
+            parsed = json.loads(repaired)
+        except json.JSONDecodeError as e2:
+            return _ParsedToolCall(parse_error=f"Malformed tool_call JSON: {e2}")
+        logger.debug(
+            "Tool-call JSON repaired (len %d -> %d).", len(body), len(repaired)
+        )
+    if not isinstance(parsed, dict):
+        return _ParsedToolCall(parse_error="tool_call body must be a JSON object")
+    name = parsed.get("name")
+    arguments = parsed.get("arguments", {})
+    if not isinstance(name, str) or not name:
+        return _ParsedToolCall(parse_error="tool_call missing 'name'")
+    if not isinstance(arguments, dict):
+        return _ParsedToolCall(parse_error="tool_call 'arguments' must be an object")
+    return _ParsedToolCall(name=name, arguments=arguments)
+
+
+def _format_tool_output(output: str | dict[str, Any]) -> str:
+    """Render a ToolResult.output value as the string body of a tool_response."""
+    return output if isinstance(output, str) else json.dumps(output)
+
+
+def _dispatch_calls_grouped(
+    calls: list[tuple[str, dict[str, Any]]],
+    tool_dispatch: dict[str, BaseEnvironment],
+) -> list[ToolResult]:
+    """Group calls by their owning environment and batch-dispatch each env once.
+
+    Calls owned by the same runtime ``BaseEnvironment`` instance are bundled
+    into a single ``env.step(sub_calls)`` invocation. Returned results match
+    the input order regardless of grouping.
+
+    Raises:
+        KeyError: If any tool id is not present in ``tool_dispatch``.
+    """
+    if not calls:
+        return []
+    groups: dict[int, tuple[BaseEnvironment, list[int]]] = {}
+    for idx, (tool_id, _) in enumerate(calls):
+        env = tool_dispatch.get(tool_id)
+        if env is None:
+            raise KeyError(f"Unknown tool id '{tool_id}'")
+        env_key = id(env)
+        if env_key not in groups:
+            groups[env_key] = (env, [])
+        groups[env_key][1].append(idx)
+
+    results: list[ToolResult | None] = [None] * len(calls)
+    for env, indices in groups.values():
+        sub_calls = [calls[i] for i in indices]
+        sub_results = env.step(sub_calls)
+        if len(sub_results) != len(sub_calls):
+            raise RuntimeError(
+                f"Environment.step returned {len(sub_results)} results "
+                f"for {len(sub_calls)} calls."
+            )
+        for i, r in zip(indices, sub_results):
+            results[i] = r
+    return results  # type: ignore[return-value]
 
 
 class ConversationSynthesizer:
@@ -971,6 +1056,7 @@ class ConversationSynthesizer:
                     inference_config=self._assistant_inference_config(),
                 )
             )
+            sample_parsed: dict[int, list[_ParsedToolCall]] = {}
             for i, text in zip(active, texts):
                 text = close_dangling_tool_call(text)
                 text = truncate_after_last_tool_call(text)
@@ -979,9 +1065,18 @@ class ConversationSynthesizer:
                 if self._is_final_response(text):
                     done[i] = True
                     continue
-                tool_messages = self._execute_tool_calls(text, tool_dispatch)
-                turn_messages[i].extend(tool_messages)
-                tool_count[i] += len(tool_messages)
+                sample_parsed[i] = self._parse_response_tool_calls(text)
+
+            flat: list[tuple[int, _ParsedToolCall]] = [
+                (i, call) for i, parsed in sample_parsed.items() for call in parsed
+            ]
+            if flat:
+                flat_messages = self._dispatch_parsed_calls(
+                    [p for _, p in flat], tool_dispatch
+                )
+                for (i, _), msg in zip(flat, flat_messages):
+                    turn_messages[i].append(msg)
+                    tool_count[i] += 1
 
         stragglers = [i for i in sample_indices if not done[i]]
         if stragglers:
@@ -1026,64 +1121,98 @@ class ConversationSynthesizer:
         return TOOL_CALL_RE.search(text) is None
 
     def _execute_tool_calls(
-        self, response_text: str, tool_dispatch: dict[str, BaseEnvironment]
+        self,
+        response_text: str,
+        tool_dispatch: dict[str, BaseEnvironment],
     ) -> list[Message]:
+        """Parse and execute every tool call in one assistant response."""
+        parsed = self._parse_response_tool_calls(response_text)
+        return self._dispatch_parsed_calls(parsed, tool_dispatch)
+
+    @staticmethod
+    def _parse_response_tool_calls(response_text: str) -> list[_ParsedToolCall]:
+        """Extract every ``<tool_call>`` body in ``response_text`` as a parsed call."""
         return [
-            self._run_single_tool_call(match.group(1).strip(), tool_dispatch)
+            _parse_tool_call_body(match.group(1).strip())
             for match in TOOL_CALL_RE.finditer(response_text)
         ]
 
-    def _run_single_tool_call(
-        self, body: str, tool_dispatch: dict[str, BaseEnvironment]
-    ) -> Message:
-        try:
-            parsed = json.loads(body)
-        except json.JSONDecodeError as e:
-            # Retry via brace repair to recover from stop-sequence truncation
-            # (missing closing braces) and over-emission (trailing }}).
-            repaired = repair_json_braces(body)
-            if repaired is None:
-                return _tool_error_msg(f"Malformed tool_call JSON: {e}")
-            logger.debug(
-                "Tool-call JSON repaired (len %d -> %d).", len(body), len(repaired)
-            )
-            parsed = json.loads(repaired)
-        if not isinstance(parsed, dict):
-            return _tool_error_msg("tool_call body must be a JSON object")
+    def _dispatch_parsed_calls(
+        self,
+        parsed: list[_ParsedToolCall],
+        tool_dispatch: dict[str, BaseEnvironment],
+    ) -> list[Message]:
+        """Validate, batch-dispatch, and format a list of parsed tool calls.
 
-        name = parsed.get("name")
-        arguments = parsed.get("arguments", {})
+        Parse / validation failures short-circuit to error messages.
+        Survivors batch through ``_dispatch_calls_grouped``; on batch
+        exception we fall back to per-call dispatch — stateful envs must
+        therefore make ``step`` either all-or-nothing or idempotent on retry.
 
-        if not isinstance(name, str) or not name:
-            return _tool_error_msg("tool_call missing 'name'")
-        if not isinstance(arguments, dict):
-            return _tool_error_msg("tool_call 'arguments' must be an object")
+        Output order matches ``parsed``.
+        """
+        if not parsed:
+            return []
 
         assert self._environment_config is not None
 
-        tool = self._environment_config.get_tool(name)
-        if tool is None:
-            return _tool_error_msg(f"Unknown tool '{name}'")
+        out: list[Message | None] = [None] * len(parsed)
+        batch_calls: list[tuple[str, dict[str, Any]]] = []
+        batch_indices: list[int] = []
 
+        for i, call in enumerate(parsed):
+            if call.parse_error is not None:
+                out[i] = _tool_error_msg(call.parse_error)
+                continue
+            assert call.name is not None and call.arguments is not None
+            tool = self._environment_config.get_tool(call.name)
+            if tool is None or call.name not in tool_dispatch:
+                out[i] = _tool_error_msg(f"Unknown tool '{call.name}'")
+                continue
+            try:
+                tool.validate_arguments(call.arguments)
+            except ToolArgumentError as e:
+                out[i] = _tool_error_msg(
+                    f"Invalid arguments for tool '{call.name}': {e}"
+                )
+                continue
+            batch_indices.append(i)
+            batch_calls.append((call.name, call.arguments))
+
+        if batch_calls:
+            try:
+                batch_results = _dispatch_calls_grouped(batch_calls, tool_dispatch)
+                for idx, result in zip(batch_indices, batch_results):
+                    out[idx] = _tool_result_message(_format_tool_output(result.output))
+            except Exception:  # noqa: BLE001
+                # Per-call fallback so each call's error is attributed inline.
+                for idx, (tool_id, args) in zip(batch_indices, batch_calls):
+                    out[idx] = self._dispatch_one_with_errors(
+                        tool_id, args, tool_dispatch
+                    )
+
+        assert all(m is not None for m in out), (
+            "every parsed call must produce a message"
+        )
+        return out  # type: ignore[return-value]
+
+    def _dispatch_one_with_errors(
+        self,
+        tool_id: str,
+        arguments: dict[str, Any],
+        tool_dispatch: dict[str, BaseEnvironment],
+    ) -> Message:
+        """Execute a single call, wrapping any exception as a tool-error message."""
+        env = tool_dispatch.get(tool_id)
+        if env is None:
+            return _tool_error_msg(f"Unknown tool '{tool_id}'")
         try:
-            tool.validate_arguments(arguments)
-        except ToolArgumentError as e:
-            return _tool_error_msg(f"Invalid arguments for tool '{name}': {e}")
-
-        environment = tool_dispatch.get(name)
-        if environment is None:
-            return _tool_error_msg(f"Unknown tool '{name}'")
-
-        try:
-            result = environment.step(name, arguments)
+            results = env.step([(tool_id, arguments)])
+            return _tool_result_message(_format_tool_output(results[0].output))
         except ToolError as e:
             return _tool_error_msg(str(e))
         except Exception as e:  # noqa: BLE001
-            return _tool_error_msg(f"Tool '{name}' raised: {e}")
-
-        output = result.output
-        content = output if isinstance(output, str) else json.dumps(output)
-        return _tool_result_message(content)
+            return _tool_error_msg(f"Tool '{tool_id}' raised: {e}")
 
     def _build_tool_dispatch(
         self, multiturn_attribute: MultiTurnAttribute
@@ -1100,6 +1229,7 @@ class ConversationSynthesizer:
             return {}
 
         from oumi.builders.environments import build_environment
+        from oumi.environments.synthetic_environment import SyntheticEnvironment
 
         scoped_env_ids = (
             set(multiturn_attribute.available_environments)
@@ -1124,6 +1254,11 @@ class ConversationSynthesizer:
             if not tools_in_scope:
                 continue
             runtime_env = build_environment(env_params)
+            if isinstance(runtime_env, SyntheticEnvironment):
+                runtime_env.attach_inference(
+                    engine=self._inference_engine,
+                    base_config=self._inference_config,
+                )
             for tool in tools_in_scope:
                 dispatch[tool.id] = runtime_env
         return dispatch

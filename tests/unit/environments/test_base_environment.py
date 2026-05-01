@@ -43,7 +43,7 @@ def test_subclass_without_step_cannot_instantiate():
 class _MinimalEnv(BaseEnvironment):
     """Concrete BaseEnvironment subclass that doesn't override grounding hooks."""
 
-    def step(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:
+    def _step_one(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:
         return ToolResult(output={})
 
 
