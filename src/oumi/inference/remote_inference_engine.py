@@ -52,11 +52,11 @@ from oumi.core.types.conversation import (
     Message,
     Role,
 )
+from oumi.core.types.tool_call import ToolCall
 from oumi.inference.adaptive_concurrency_controller import AdaptiveConcurrencyController
 from oumi.inference.adaptive_semaphore import PoliteAdaptiveSemaphore
 from oumi.inference.rate_limiter import RateLimiter, UsageTracker
 from oumi.utils.conversation_utils import (
-    convert_message_to_json_content_list,
     create_list_of_message_json_dicts,
 )
 from oumi.utils.http import (
@@ -368,16 +368,17 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
         api_input = {
             "model": model_params.model_name,
-            "messages": [
-                {
-                    "content": convert_message_to_json_content_list(message),
-                    "role": message.role.value,
-                }
-                for message in conversation.messages
-            ],
+            "messages": self._get_list_of_message_json_dicts(
+                conversation.messages, group_adjacent_same_role_turns=False
+            ),
             "n": 1,  # Number of completions to generate for each prompt.
             **generation_params_dict,
         }
+
+        if conversation.tools:
+            api_input["tools"] = [
+                t.model_dump(mode="json", exclude_none=True) for t in conversation.tools
+            ]
 
         if generation_params.guided_decoding:
             json_schema = generation_params.guided_decoding.json
@@ -498,7 +499,18 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         message = response["choices"][0].get("message")
         if not message:
             raise RuntimeError(f"No message found in API response: {response}")
-        content = message.get("content") or ""
+
+        raw_tool_calls = message.get("tool_calls")
+        tool_calls: list[ToolCall] | None = (
+            [ToolCall.model_validate(tc) for tc in raw_tool_calls]
+            if raw_tool_calls
+            else None
+        )
+        # Preserve null content when tool_calls are set (OpenAI's tool-only
+        # assistant turn shape); otherwise coerce to empty string.
+        raw_content = message.get("content")
+        content = raw_content if tool_calls is not None else (raw_content or "")
+
         metadata = dict(original_conversation.metadata)
         usage = self._extract_usage_from_response(response)
         if usage is not None:
@@ -512,6 +524,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 Message(
                     content=content,
                     role=Role(message["role"]),
+                    tool_calls=tool_calls,
                 ),
             ],
             metadata=metadata,

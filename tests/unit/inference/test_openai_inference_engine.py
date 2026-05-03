@@ -1,7 +1,22 @@
-import pytest
+from typing import Any
 
-from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
+import pytest
+from aioresponses import aioresponses
+
+from oumi.core.configs import (
+    GenerationParams,
+    InferenceConfig,
+    ModelParams,
+    RemoteParams,
+)
 from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.core.types.tool_call import (
+    FunctionCall,
+    FunctionDefinition,
+    JSONSchema,
+    ToolCall,
+    ToolDefinition,
+)
 from oumi.inference.openai_inference_engine import (
     OpenAIInferenceEngine,
     _is_reasoning_model,
@@ -137,3 +152,153 @@ def test_default_params(
 def test_is_reasoning_model(model_name: str, expected: bool):
     """Test _is_reasoning_model correctly identifies reasoning models."""
     assert _is_reasoning_model(model_name) == expected
+
+
+_OPENAI_TEST_URL = "http://fakeopenai/v1/chat/completions"
+
+
+def _weather_tool() -> ToolDefinition:
+    return ToolDefinition(
+        function=FunctionDefinition(
+            name="get_weather",
+            description="Get the current weather for a city.",
+            parameters=JSONSchema(
+                type="object",
+                properties={"city": JSONSchema(type="string")},
+                required=["city"],
+            ),
+        ),
+    )
+
+
+def test_openai_native_tool_calling_round_trip():
+    """End-to-end: tools forward in request, tool_calls parse from response."""
+    captured: dict[str, Any] = {}
+
+    def callback(url: str, **kwargs: Any):
+        from aioresponses import CallbackResult
+
+        captured["body"] = kwargs.get("json")
+        return CallbackResult(
+            status=200,
+            payload={
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": None,
+                            "tool_calls": [
+                                {
+                                    "id": "call_xyz",
+                                    "type": "function",
+                                    "function": {
+                                        "name": "get_weather",
+                                        "arguments": '{"city": "Paris"}',
+                                    },
+                                }
+                            ],
+                        },
+                        "finish_reason": "tool_calls",
+                    }
+                ]
+            },
+        )
+
+    with aioresponses() as m:
+        m.post(_OPENAI_TEST_URL, callback=callback)
+
+        engine = OpenAIInferenceEngine(
+            model_params=ModelParams(model_name="gpt-4o"),
+            remote_params=RemoteParams(api_url=_OPENAI_TEST_URL, api_key="key"),
+        )
+        tool = _weather_tool()
+        conversation = Conversation(
+            messages=[Message(content="Weather in Paris?", role=Role.USER)],
+            tools=[tool],
+        )
+        result = engine.infer(
+            [conversation],
+            InferenceConfig(generation=GenerationParams(max_new_tokens=5)),
+        )
+
+    # Request side: tools forwarded in OpenAI shape.
+    assert "tools" in captured["body"]
+    assert captured["body"]["tools"] == [
+        tool.model_dump(mode="json", exclude_none=True)
+    ]
+
+    # Response side: tool_calls parsed into structured Message field.
+    assert len(result) == 1
+    assistant = result[0].messages[-1]
+    assert assistant.role == Role.ASSISTANT
+    assert assistant.content is None
+    assert assistant.tool_calls is not None
+    assert len(assistant.tool_calls) == 1
+    tc = assistant.tool_calls[0]
+    assert tc.id == "call_xyz"
+    assert tc.function.name == "get_weather"
+    assert tc.function.arguments == '{"city": "Paris"}'
+    assert result[0].metadata.get("finish_reason") == "tool_calls"
+
+
+def test_openai_multiturn_tool_dialogue_replays_tool_messages():
+    """Assistant tool_calls + Role.TOOL response round-trip into the request body."""
+    captured: dict[str, Any] = {}
+
+    def callback(url: str, **kwargs: Any):
+        from aioresponses import CallbackResult
+
+        captured["body"] = kwargs.get("json")
+        return CallbackResult(
+            status=200,
+            payload={
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "It's 18C in Paris.",
+                        },
+                        "finish_reason": "stop",
+                    }
+                ]
+            },
+        )
+
+    with aioresponses() as m:
+        m.post(_OPENAI_TEST_URL, callback=callback)
+
+        engine = OpenAIInferenceEngine(
+            model_params=ModelParams(model_name="gpt-4o"),
+            remote_params=RemoteParams(api_url=_OPENAI_TEST_URL, api_key="key"),
+        )
+        tool_call = ToolCall(
+            id="call_abc",
+            function=FunctionCall(name="get_weather", arguments='{"city": "Paris"}'),
+        )
+        conversation = Conversation(
+            messages=[
+                Message(content="Weather in Paris?", role=Role.USER),
+                Message(role=Role.ASSISTANT, tool_calls=[tool_call]),
+                Message(
+                    role=Role.TOOL,
+                    tool_call_id="call_abc",
+                    content='{"temp_c": 18}',
+                ),
+            ],
+            tools=[_weather_tool()],
+        )
+        engine.infer(
+            [conversation],
+            InferenceConfig(generation=GenerationParams(max_new_tokens=5)),
+        )
+
+    sent_messages = captured["body"]["messages"]
+    assert len(sent_messages) == 3
+    assert sent_messages[1]["role"] == "assistant"
+    assert sent_messages[1]["content"] is None
+    assert sent_messages[1]["tool_calls"] == [
+        tool_call.model_dump(mode="json", exclude_none=True)
+    ]
+    assert sent_messages[2]["role"] == "tool"
+    assert sent_messages[2]["tool_call_id"] == "call_abc"
+    assert sent_messages[2]["content"] == '{"temp_c": 18}'

@@ -30,6 +30,13 @@ from oumi.core.types.conversation import (
     Role,
     Type,
 )
+from oumi.core.types.tool_call import (
+    FunctionCall,
+    FunctionDefinition,
+    JSONSchema,
+    ToolCall,
+    ToolDefinition,
+)
 from oumi.inference import RemoteInferenceEngine
 from oumi.inference.remote_inference_engine import BatchStatus
 from oumi.utils.conversation_utils import (
@@ -919,10 +926,13 @@ def test_infer_online_multiple_requests():
         messages = request.get("messages", [])
         if not messages:
             raise ValueError("No messages in request")
-        content = messages[0].get("content", [])
-        if not content:
+        content = messages[0].get("content")
+        if isinstance(content, list):
+            conversation_id = content[0].get("text") if content else None
+        else:
+            conversation_id = content
+        if not conversation_id:
             raise ValueError("No content in message")
-        conversation_id = content[0].get("text")
 
         if response := response_by_conversation_id.get(conversation_id):
             # Extract status and payload from the response dict
@@ -1039,10 +1049,13 @@ def test_infer_online_multiple_requests_politeness():
         messages = request.get("messages", [])
         if not messages:
             raise ValueError("No messages in request")
-        content = messages[0].get("content", [])
-        if not content:
+        content = messages[0].get("content")
+        if isinstance(content, list):
+            conversation_id = content[0].get("text") if content else None
+        else:
+            conversation_id = content
+        if not conversation_id:
             raise ValueError("No content in message")
-        conversation_id = content[0].get("text")
 
         if response := response_by_conversation_id.get(conversation_id):
             # Extract status and payload from the response dict
@@ -1181,10 +1194,13 @@ def test_infer_online_multiple_requests_politeness_multiple_workers():
         messages = request.get("messages", [])
         if not messages:
             raise ValueError("No messages in request")
-        content = messages[0].get("content", [])
-        if not content:
+        content = messages[0].get("content")
+        if isinstance(content, list):
+            conversation_id = content[0].get("text") if content else None
+        else:
+            conversation_id = content
+        if not conversation_id:
             raise ValueError("No content in message")
-        conversation_id = content[0].get("text")
 
         if response := response_by_conversation_id.get(conversation_id):
             # Extract status and payload from the response dict
@@ -1365,10 +1381,13 @@ def test_infer_from_file_to_file():
             messages = request.get("messages", [])
             if not messages:
                 raise ValueError("No messages in request")
-            content = messages[0].get("content", [])
-            if not content:
+            content = messages[0].get("content")
+            if isinstance(content, list):
+                conversation_id = content[0].get("text") if content else None
+            else:
+                conversation_id = content
+            if not conversation_id:
                 raise ValueError("No content in message")
-            conversation_id = content[0].get("text")
 
             if response := response_by_conversation_id.get(conversation_id):
                 # Extract status and payload from the response dict
@@ -1496,10 +1515,13 @@ def test_infer_from_file_to_file_failure_midway():
             messages = request.get("messages", [])
             if not messages:
                 raise ValueError("No messages in request")
-            content = messages[0].get("content", [])
-            if not content:
+            content = messages[0].get("content")
+            if isinstance(content, list):
+                conversation_id = content[0].get("text") if content else None
+            else:
+                conversation_id = content
+            if not conversation_id:
                 raise ValueError("No content in message")
-            conversation_id = content[0].get("text")
 
             if response := response_by_conversation_id.get(conversation_id):
                 # Extract status and payload from the response dict
@@ -1968,6 +1990,120 @@ def test_convert_conversation_to_api_input_with_unsupported_schema_type():
         )
 
 
+def _get_weather_tool() -> ToolDefinition:
+    return ToolDefinition(
+        function=FunctionDefinition(
+            name="get_weather",
+            description="Get the current weather for a location.",
+            parameters=JSONSchema(
+                type="object",
+                properties={"city": JSONSchema(type="string")},
+                required=["city"],
+            ),
+        ),
+    )
+
+
+def test_convert_conversation_to_api_input_with_tools():
+    """Conversation.tools is serialized into the OpenAI ``tools`` field."""
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(), remote_params=RemoteParams(api_url=_TARGET_SERVER)
+    )
+    tool = _get_weather_tool()
+    conversation = Conversation(
+        messages=[Message(content="Weather in Paris?", role=Role.USER)],
+        tools=[tool],
+    )
+
+    result = engine._convert_conversation_to_api_input(
+        conversation, GenerationParams(max_new_tokens=5), _get_default_model_params()
+    )
+
+    assert "tools" in result
+    assert result["tools"] == [tool.model_dump(mode="json", exclude_none=True)]
+
+
+def test_convert_conversation_to_api_input_without_tools_omits_field():
+    """No ``tools`` key when conversation has no tools (avoid sending null)."""
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(), remote_params=RemoteParams(api_url=_TARGET_SERVER)
+    )
+    conversation = Conversation(
+        messages=[Message(content="Hello", role=Role.USER)],
+    )
+
+    result = engine._convert_conversation_to_api_input(
+        conversation, GenerationParams(max_new_tokens=5), _get_default_model_params()
+    )
+
+    assert "tools" not in result
+
+
+def test_convert_conversation_to_api_input_assistant_tool_calls_propagate():
+    """An assistant message with ``tool_calls`` round-trips into the request payload."""
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(), remote_params=RemoteParams(api_url=_TARGET_SERVER)
+    )
+    tool_call = ToolCall(
+        id="call_abc123",
+        function=FunctionCall(name="get_weather", arguments='{"city": "Paris"}'),
+    )
+    conversation = Conversation(
+        messages=[
+            Message(content="Weather in Paris?", role=Role.USER),
+            Message(role=Role.ASSISTANT, tool_calls=[tool_call]),
+        ],
+    )
+
+    result = engine._convert_conversation_to_api_input(
+        conversation, GenerationParams(max_new_tokens=5), _get_default_model_params()
+    )
+
+    assistant_msg = result["messages"][-1]
+    assert assistant_msg["role"] == "assistant"
+    assert assistant_msg["content"] is None
+    assert assistant_msg["tool_calls"] == [
+        tool_call.model_dump(mode="json", exclude_none=True)
+    ]
+
+
+def test_convert_conversation_to_api_input_tool_role_message_propagates():
+    """A ``Role.TOOL`` message with ``tool_call_id`` round-trips into the request."""
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(), remote_params=RemoteParams(api_url=_TARGET_SERVER)
+    )
+    conversation = Conversation(
+        messages=[
+            Message(content="Weather?", role=Role.USER),
+            Message(
+                role=Role.ASSISTANT,
+                tool_calls=[
+                    ToolCall(
+                        id="call_abc123",
+                        function=FunctionCall(
+                            name="get_weather", arguments='{"city": "Paris"}'
+                        ),
+                    )
+                ],
+            ),
+            Message(
+                role=Role.TOOL,
+                tool_call_id="call_abc123",
+                content='{"temp_c": 18}',
+            ),
+        ],
+    )
+
+    result = engine._convert_conversation_to_api_input(
+        conversation, GenerationParams(max_new_tokens=5), _get_default_model_params()
+    )
+
+    tool_msg = result["messages"][-1]
+    assert tool_msg["role"] == "tool"
+    assert tool_msg["tool_call_id"] == "call_abc123"
+    assert tool_msg["content"] == '{"temp_c": 18}'
+
+
 def test_get_request_headers_no_remote_params():
     engine = RemoteInferenceEngine(
         _get_default_model_params(), remote_params=RemoteParams(api_url=_TARGET_SERVER)
@@ -2112,6 +2248,78 @@ def test_convert_api_output_content_null_returns_empty_string():
     result = engine._convert_api_output_to_conversation(response, original)
     assert result.messages[-1].content == ""
     assert result.messages[-1].role == Role.ASSISTANT
+
+
+def test_convert_api_output_extracts_tool_calls():
+    """Response ``message.tool_calls`` populates ``Message.tool_calls``."""
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
+    )
+    original = Conversation(messages=[Message(content="Weather?", role=Role.USER)])
+    response = {
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "id": "call_abc123",
+                            "type": "function",
+                            "function": {
+                                "name": "get_weather",
+                                "arguments": '{"city": "Paris"}',
+                            },
+                        }
+                    ],
+                },
+                "finish_reason": "tool_calls",
+            }
+        ],
+    }
+    result = engine._convert_api_output_to_conversation(response, original)
+    assistant_msg = result.messages[-1]
+    assert assistant_msg.role == Role.ASSISTANT
+    assert assistant_msg.tool_calls is not None
+    assert len(assistant_msg.tool_calls) == 1
+    tc = assistant_msg.tool_calls[0]
+    assert tc.id == "call_abc123"
+    assert tc.function.name == "get_weather"
+    assert tc.function.arguments == '{"city": "Paris"}'
+
+
+def test_convert_api_output_with_tool_calls_preserves_null_content():
+    """Tool-only assistant message keeps ``content=None`` (OpenAI wire format)."""
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
+    )
+    original = Conversation(messages=[Message(content="Weather?", role=Role.USER)])
+    response = {
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "id": "call_xyz",
+                            "type": "function",
+                            "function": {
+                                "name": "get_weather",
+                                "arguments": "{}",
+                            },
+                        }
+                    ],
+                },
+            }
+        ],
+    }
+    result = engine._convert_api_output_to_conversation(response, original)
+    assistant_msg = result.messages[-1]
+    assert assistant_msg.content is None
+    assert assistant_msg.tool_calls is not None and len(assistant_msg.tool_calls) == 1
 
 
 @pytest.mark.asyncio
