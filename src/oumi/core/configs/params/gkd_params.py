@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.exceptions import OumiConfigError
 
 
 @dataclass
@@ -106,7 +107,7 @@ class GkdParams(BaseParams):
                     f"Actual type: {type(self.teacher_model_name_or_path)}"
                 )
             if not self.teacher_model_name_or_path.strip():
-                raise ValueError(
+                raise OumiConfigError(
                     "GkdParams.teacher_model_name_or_path cannot be empty."
                 )
 
@@ -115,23 +116,23 @@ class GkdParams(BaseParams):
             and self.temperature > 0.0
             and self.temperature <= 1.0
         ):
-            raise ValueError(
+            raise OumiConfigError(
                 "GkdParams.temperature must be in range (0.0, 1.0]. "
                 f"Actual: {self.temperature}"
             )
 
         if not (math.isfinite(self.lmbda) and 0.0 <= self.lmbda <= 1.0):
-            raise ValueError(
+            raise OumiConfigError(
                 f"GkdParams.lmbda must be in range [0.0, 1.0]. Actual: {self.lmbda}"
             )
 
         if not (math.isfinite(self.beta) and 0.0 <= self.beta <= 1.0):
-            raise ValueError(
+            raise OumiConfigError(
                 f"GkdParams.beta must be in range [0.0, 1.0]. Actual: {self.beta}"
             )
 
         if self.max_new_tokens <= 0:
-            raise ValueError(
+            raise OumiConfigError(
                 "GkdParams.max_new_tokens must be positive. "
                 f"Actual: {self.max_new_tokens}"
             )

@@ -17,6 +17,7 @@ from enum import Enum
 from typing import Any
 
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.exceptions import OumiConfigError
 
 
 class EvaluationBackend(Enum):
@@ -108,7 +109,7 @@ class EvaluationTaskParams(BaseParams):
     def get_evaluation_backend(self) -> EvaluationBackend:
         """Returns the evaluation backend as an Enum."""
         if not self.evaluation_backend:
-            raise ValueError(
+            raise OumiConfigError(
                 "Missing `evaluation_backend`. When running evaluations, it is "
                 "necessary to specify the evaluation backend to use for EACH task. "
                 "The available backends can be found in the following enum: "
@@ -120,7 +121,9 @@ class EvaluationTaskParams(BaseParams):
         elif self.evaluation_backend == EvaluationBackend.CUSTOM.value:
             return EvaluationBackend.CUSTOM
         else:
-            raise ValueError(f"Unknown evaluation backend: {self.evaluation_backend}")
+            raise OumiConfigError(
+                f"Unknown evaluation backend: {self.evaluation_backend}"
+            )
 
     @staticmethod
     def list_evaluation_backends() -> str:
@@ -130,7 +133,7 @@ class EvaluationTaskParams(BaseParams):
     def __post_init__(self):
         """Verifies params."""
         if self.num_samples is not None and self.num_samples <= 0:
-            raise ValueError("`num_samples` must be None or a positive integer.")
+            raise OumiConfigError("`num_samples` must be None or a positive integer.")
 
 
 @dataclass
@@ -152,6 +155,6 @@ class LMHarnessTaskParams(EvaluationTaskParams):
     def __post_init__(self):
         """Verifies params."""
         if not self.task_name:
-            raise ValueError("`task_name` must be a valid LM Harness task.")
+            raise OumiConfigError("`task_name` must be a valid LM Harness task.")
         if self.num_fewshot and self.num_fewshot < 0:
-            raise ValueError("`num_fewshot` must be non-negative.")
+            raise OumiConfigError("`num_fewshot` must be non-negative.")
