@@ -27,7 +27,14 @@ from oumi.core.configs import (
     RemoteParams,
 )
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
-from oumi.core.types.conversation import Conversation, FinishReason, Message, Role
+from oumi.core.types.conversation import (
+    ContentItem,
+    Conversation,
+    FinishReason,
+    Message,
+    Role,
+    Type,
+)
 from oumi.inference.remote_inference_engine import (
     BatchInfo,
     BatchListResponse,
@@ -35,9 +42,42 @@ from oumi.inference.remote_inference_engine import (
     BatchStatus,
     RemoteInferenceEngine,
 )
+from oumi.utils.conversation_utils import (
+    base64encode_content_item_image_bytes,
+    load_image_bytes_to_content_item,
+)
 from oumi.utils.logging import logger
 
 _CONTENT_KEY: str = "content"
+
+# Anthropic accepts image/jpeg, image/png, image/gif, image/webp for `image`
+# content blocks. https://docs.anthropic.com/en/docs/build-with-claude/vision
+_IMAGE_MAGIC_PREFIXES: tuple[tuple[bytes, str], ...] = (
+    (b"\x89PNG\r\n\x1a\n", "image/png"),
+    (b"\xff\xd8\xff", "image/jpeg"),
+    (b"GIF87a", "image/gif"),
+    (b"GIF89a", "image/gif"),
+)
+
+
+def _detect_image_media_type(data: bytes) -> str:
+    """Sniffs an Anthropic-supported image media type from magic bytes.
+
+    Falls back to ``image/png`` for unrecognized formats; Anthropic will reject
+    a mismatched media_type, surfacing the issue rather than silently corrupting
+    the image.
+    """
+    for magic, mime in _IMAGE_MAGIC_PREFIXES:
+        if data.startswith(magic):
+            return mime
+    # WebP: "RIFF" + 4-byte size + "WEBP".
+    if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    logger.warning(
+        "Unrecognized image format; defaulting media_type to image/png. "
+        "Anthropic accepts image/jpeg, image/png, image/gif, image/webp."
+    )
+    return "image/png"
 
 
 class AnthropicInferenceEngine(RemoteInferenceEngine):
@@ -116,11 +156,9 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
 
         # Build request body
         # See https://docs.anthropic.com/claude/reference/messages_post
-        body = {
+        body: dict[str, Any] = {
             "model": model_params.model_name,
-            "messages": self._get_list_of_message_json_dicts(
-                messages, group_adjacent_same_role_turns=True
-            ),
+            "messages": self._messages_to_anthropic_blocks(messages),
             "max_tokens": generation_params.max_new_tokens,
             "temperature": generation_params.temperature,
         }
@@ -150,6 +188,79 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         body["cache_control"] = {"type": "ephemeral"}
 
         return body
+
+    @staticmethod
+    def _messages_to_anthropic_blocks(
+        messages: list[Message],
+    ) -> list[dict[str, Any]]:
+        """Converts non-system messages to Anthropic's role-and-blocks shape.
+
+        Translates each message into a list of content blocks (text, image)
+        and merges adjacent same-role messages into a single turn — Anthropic
+        requires alternating user/assistant turns. For pure-text turns
+        originating from a single ``content: str`` message, the wire shape is
+        collapsed back to ``content: "string"`` to keep the payload tidy;
+        both forms are valid.
+        """
+        result: list[dict[str, Any]] = []
+        idx = 0
+        while idx < len(messages):
+            role = messages[idx].role.value
+            blocks: list[dict[str, Any]] = []
+            group_start = idx
+            while idx < len(messages) and messages[idx].role.value == role:
+                blocks.extend(
+                    AnthropicInferenceEngine._content_to_anthropic_blocks(messages[idx])
+                )
+                idx += 1
+            single_msg = messages[group_start]
+            if (
+                idx - group_start == 1
+                and len(blocks) == 1
+                and blocks[0].get("type") == "text"
+                and isinstance(single_msg.content, str)
+            ):
+                result.append({"role": role, "content": single_msg.content})
+            else:
+                result.append({"role": role, "content": blocks})
+        return result
+
+    @staticmethod
+    def _content_to_anthropic_blocks(message: Message) -> list[dict[str, Any]]:
+        """Converts a message's content into a list of Anthropic content blocks."""
+        if message.content is None:
+            return []
+        if isinstance(message.content, str):
+            return [{"type": "text", "text": message.content}]
+        return [
+            AnthropicInferenceEngine._content_item_to_anthropic_block(item)
+            for item in message.content
+        ]
+
+    @staticmethod
+    def _content_item_to_anthropic_block(item: ContentItem) -> dict[str, Any]:
+        """Translates a single ``ContentItem`` into an Anthropic content block."""
+        if item.type == Type.TEXT:
+            return {"type": "text", "text": item.content or ""}
+        if item.type == Type.IMAGE_URL and not item.binary:
+            return {
+                "type": "image",
+                "source": {"type": "url", "url": item.content or ""},
+            }
+        # IMAGE_PATH carries a filesystem path; load the bytes once. IMAGE_BINARY
+        # already has them, and IMAGE_URL with prefetched bytes also skips load.
+        if item.type == Type.IMAGE_PATH and not item.binary:
+            item = load_image_bytes_to_content_item(item)
+        b64_data = base64encode_content_item_image_bytes(item, add_mime_prefix=False)
+        media_type = _detect_image_media_type(item.binary or b"")
+        return {
+            "type": "image",
+            "source": {
+                "type": "base64",
+                "media_type": media_type,
+                "data": b64_data,
+            },
+        }
 
     @staticmethod
     @override
