@@ -180,9 +180,7 @@ def test_synthesis_config_requires_environment_config_for_available_tools():
         ]
     )
 
-    with pytest.raises(
-        OumiConfigError, match="Environment or tool references require"
-    ):
+    with pytest.raises(OumiConfigError, match="Environment or tool references require"):
         SynthesisConfig(strategy_params=params)
 
 
