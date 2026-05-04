@@ -31,6 +31,7 @@ from oumi.core.configs.params.gold_params import GoldParams
 from oumi.core.configs.params.grpo_params import GrpoParams
 from oumi.core.configs.params.profiler_params import ProfilerParams
 from oumi.core.configs.params.telemetry_params import TelemetryParams
+from oumi.exceptions import OumiConfigError
 from oumi.utils.str_utils import sanitize_run_name
 
 
@@ -813,7 +814,7 @@ class TrainingParams(BaseParams):
         if isinstance(self.dataloader_num_workers, int):
             dataloader_num_workers = self.dataloader_num_workers
         else:
-            raise ValueError(
+            raise OumiConfigError(
                 "Unexpected type of dataloader_num_workers: "
                 f"{type(self.dataloader_num_workers)} "
                 f"({self.dataloader_num_workers}). Must be `int`."
@@ -893,7 +894,7 @@ class TrainingParams(BaseParams):
                 grpo_kwargs.keys()
             )
             if len(conflicting_keys) > 0:
-                raise ValueError(
+                raise OumiConfigError(
                     "trainer_kwargs attempt to override the following "
                     f"GRPO kwargs: {conflicting_keys}. "
                     "Use properties of GrpoParams instead."
@@ -906,7 +907,7 @@ class TrainingParams(BaseParams):
                 gkd_kwargs.keys()
             )
             if len(conflicting_keys) > 0:
-                raise ValueError(
+                raise OumiConfigError(
                     "trainer_kwargs attempt to override the following "
                     f"GKD kwargs: {conflicting_keys}. "
                     "Use properties of GkdParams instead."
@@ -919,7 +920,7 @@ class TrainingParams(BaseParams):
                 gold_kwargs.keys()
             )
             if len(conflicting_keys) > 0:
-                raise ValueError(
+                raise OumiConfigError(
                     "trainer_kwargs attempt to override the following "
                     f"GOLD kwargs: {conflicting_keys}. "
                     "Use properties of GoldParams instead."
@@ -1015,19 +1016,19 @@ class TrainingParams(BaseParams):
         if isinstance(self.dataloader_num_workers, str) and not (
             self.dataloader_num_workers == "auto"
         ):
-            raise ValueError(
+            raise OumiConfigError(
                 "Unknown value of "
                 f"dataloader_num_workers: {self.dataloader_num_workers}"
             )
 
         if self.gradient_accumulation_steps < 1:
-            raise ValueError("gradient_accumulation_steps must be >= 1.")
+            raise OumiConfigError("gradient_accumulation_steps must be >= 1.")
 
         if self.max_grad_norm is not None and self.max_grad_norm < 0:
-            raise ValueError("max_grad_norm must be >= 0.")
+            raise OumiConfigError("max_grad_norm must be >= 0.")
 
         if not (self.max_steps > 0 or self.num_train_epochs > 0):
-            raise ValueError(
+            raise OumiConfigError(
                 "At least one of max_steps and num_train_epochs must be positive. "
                 f"Actual: max_steps: {self.max_steps}, "
                 f"num_train_epochs: {self.num_train_epochs}."
@@ -1039,12 +1040,12 @@ class TrainingParams(BaseParams):
                 self.trainer_type not in (TrainerType.TRL_GRPO, TrainerType.VERL_GRPO)
                 and len(function_names) > 0
             ):
-                raise ValueError(
+                raise OumiConfigError(
                     "reward_functions may only be defined for the TRL_GRPO or VERL_GRPO"
                     f"trainers. Actual: {self.trainer_type}"
                 )
             if self.trainer_type == TrainerType.VERL_GRPO and len(function_names) > 1:
-                raise ValueError(
+                raise OumiConfigError(
                     "VERL_GRPO only supports a single reward function. "
                     f"Actual: {function_names}"
                 )
@@ -1052,7 +1053,7 @@ class TrainingParams(BaseParams):
             TrainerType.TRL_GRPO,
             TrainerType.VERL_GRPO,
         ):
-            raise ValueError(
+            raise OumiConfigError(
                 "reward_function_kwargs is only supported for the TRL_GRPO or "
                 "VERL_GRPO trainers. Either remove reward_function_kwargs or set "
                 f"trainer_type accordingly. Actual: {self.trainer_type}"
@@ -1063,7 +1064,7 @@ class TrainingParams(BaseParams):
             self.trainer_type == TrainerType.TRL_GRPO
             and self.include_performance_metrics
         ):
-            raise ValueError(
+            raise OumiConfigError(
                 "`include_performance_metrics` is not supported for TRL_GRPO trainer."
             )
 

@@ -17,6 +17,7 @@ from typing import Any
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
+from oumi.exceptions import OumiConfigError
 
 
 @dataclass
@@ -133,27 +134,27 @@ class GenerationParams(BaseParams):
     def __post_init__(self):
         """Validates generation-specific parameters."""
         if self.batch_size is not None and self.batch_size < 1:
-            raise ValueError("Batch size must be positive.")
+            raise OumiConfigError("Batch size must be positive.")
 
         if self.num_beams < 1:
-            raise ValueError("num_beams must be strictly larger than 0.")
+            raise OumiConfigError("num_beams must be strictly larger than 0.")
 
         if self.temperature < 0:
-            raise ValueError("Temperature must be non-negative.")
+            raise OumiConfigError("Temperature must be non-negative.")
 
         if self.top_p is not None and not 0 <= self.top_p <= 1:
-            raise ValueError("top_p must be between 0 and 1.")
+            raise OumiConfigError("top_p must be between 0 and 1.")
 
         for token_id, bias in self.logit_bias.items():
             if not isinstance(token_id, str | int):
-                raise ValueError(
+                raise OumiConfigError(
                     f"Logit bias token ID {token_id} must be an integer or a string."
                 )
 
             if not -100 <= bias <= 100:
-                raise ValueError(
+                raise OumiConfigError(
                     f"Logit bias for token {token_id} must be between -100 and 100."
                 )
 
         if not 0 <= self.min_p <= 1:
-            raise ValueError("min_p must be between 0 and 1.")
+            raise OumiConfigError("min_p must be between 0 and 1.")

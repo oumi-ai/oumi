@@ -16,6 +16,7 @@ import dataclasses
 from typing import Any
 
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.exceptions import OumiConfigError
 
 
 @dataclasses.dataclass
@@ -52,6 +53,6 @@ class GuidedDecodingParams(BaseParams):
         """Validate parameters."""
         provided = sum(x is not None for x in [self.json, self.regex, self.choice])
         if provided > 1:
-            raise ValueError(
+            raise OumiConfigError(
                 "Only one of 'json', 'regex', or 'choice' can be specified"
             )

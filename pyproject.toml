@@ -45,7 +45,7 @@ dependencies = [
     "aioresponses>=0.7,<0.8",     # User by inference engine tests
     "backoff>=2.2.1,<2.3",
     "click<8.4.0",                # Used by CLI. 8.2.0 is currently unsupported by Typer.
-    "datasets>=3.2,<4.8.5",
+    "datasets>=3.2,<4.8.6",
     "greenlet",                   # Required by skypilot 0.11+ (sqlalchemy asyncio)
     "hdrhistogram>=0.10,<0.11",
     "httpx>=0.27,<1.0",           # Used by deploy module (async HTTP client)
@@ -79,7 +79,7 @@ dependencies = [
     "tqdm",
     "transformers>=4.57,<5.8",
     "trl>=0.24,<1.4",
-    "typer<0.24.2",             # Used by CLI. Pinned due to sphinxcontrib-typer compatibility. OPE-1806
+    "typer<0.25.2",             # Used by CLI. Pinned due to sphinxcontrib-typer compatibility. OPE-1806
     "typing_extensions",        # Backports of typing updates
     "uvicorn<0.45.0",           # TODO: Remove on resolution of https://github.com/skypilot-org/skypilot/issues/7303
     "wandb>=0.21,<0.26",        # Logging to Weights and Biases.
@@ -120,7 +120,7 @@ docs = [
 
 # Useful dependencies when running on GPU
 gpu = [
-    "liger-kernel>=0.6,<0.8",
+    "liger-kernel>=0.6,<0.9",
     "nvidia-ml-py>=13.580,<13.596",
     "bitsandbytes>=0.47,<0.50",     # Used for QLora, and PagedAdam implementation
     # When updating verl version, make sure to also update the default config:

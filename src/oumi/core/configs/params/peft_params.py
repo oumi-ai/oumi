@@ -21,6 +21,7 @@ from peft.utils.peft_types import TaskType
 from transformers import BitsAndBytesConfig
 
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.exceptions import OumiConfigError
 
 
 class PeftSaveMode(Enum):
@@ -89,7 +90,7 @@ class LoraWeightInitialization(str, Enum):
             "loftq",
             "olora",
         }:
-            raise ValueError(f"Invalid enum value: {self.value}")
+            raise OumiConfigError(f"Invalid enum value: {self.value}")
 
         return self.value
 
