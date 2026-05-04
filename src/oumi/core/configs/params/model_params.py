@@ -251,7 +251,7 @@ class ModelParams(BaseParams):
                 self.processor_kwargs.keys()
             )
             if len(conflicting_keys) > 0:
-                raise ValueError(
+                raise OumiConfigError(
                     "processor_kwargs attempts to override the following "
                     f"reserved fields: {conflicting_keys}. "
                     "Use properties of ModelParams instead."
@@ -312,7 +312,7 @@ class ModelParams(BaseParams):
                         ) from e
                     model_name = adapter_config.get("base_model_name_or_path")
                     if not model_name:
-                        raise ValueError(
+                        raise OumiConfigError(
                             "`model_name` specifies an adapter model only,"
                             " but the base model could not be found!"
                         )
@@ -332,4 +332,6 @@ class ModelParams(BaseParams):
             )
 
         if self.model_max_length is not None and self.model_max_length <= 0:
-            raise ValueError("model_max_length must be a positive integer or None.")
+            raise OumiConfigError(
+                "model_max_length must be a positive integer or None."
+            )

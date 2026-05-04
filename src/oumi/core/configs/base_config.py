@@ -346,8 +346,8 @@ class BaseConfig:
         This method can be overridden by subclasses to implement custom
         validation logic.
 
-        In case of validation errors, this method should raise a `ValueError`
-        or other appropriate exception.
+        In case of validation errors, this method should raise
+        `OumiConfigError` or another appropriate exception.
         """
 
     def __iter__(self) -> Iterator[tuple[str, Any]]:

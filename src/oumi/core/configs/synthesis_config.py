@@ -27,6 +27,7 @@ from oumi.core.configs.params.synthesis_params import (
     MultiTurnAttribute,
 )
 from oumi.core.configs.params.tool_params import ToolParams
+from oumi.exceptions import OumiConfigError
 
 
 class SynthesisStrategy(str, Enum):
@@ -71,24 +72,24 @@ class SynthesisConfig(BaseConfig):
         if self.strategy == SynthesisStrategy.GENERAL:
             pass
         else:
-            raise ValueError(f"Unsupported synthesis strategy: {self.strategy}")
+            raise OumiConfigError(f"Unsupported synthesis strategy: {self.strategy}")
 
         if self.inference_config.input_path is not None:
-            raise ValueError(
+            raise OumiConfigError(
                 "Input path is not supported for general synthesis strategy."
             )
 
         if self.inference_config.output_path is not None:
-            raise ValueError(
+            raise OumiConfigError(
                 "Output path is not supported for general synthesis strategy."
             )
 
         if self.output_path is not None:
             if self.output_path == "":
-                raise ValueError("Output path cannot be empty.")
+                raise OumiConfigError("Output path cannot be empty.")
 
             if not self.output_path.endswith(".jsonl"):
-                raise ValueError("Output path must end with .jsonl.")
+                raise OumiConfigError("Output path must end with .jsonl.")
 
         self.environment_config = self._resolve_environment_config()
         self._validate_available_tooling()
@@ -99,7 +100,7 @@ class SynthesisConfig(BaseConfig):
             self.environment_config is not None
             and self.environment_config_path is not None
         ):
-            raise ValueError(
+            raise OumiConfigError(
                 "SynthesisConfig.environment_config and "
                 "SynthesisConfig.environment_config_path cannot both be set."
             )
@@ -109,13 +110,13 @@ class SynthesisConfig(BaseConfig):
 
         if self.environment_config_path is not None:
             if self.environment_config_path == "":
-                raise ValueError(
+                raise OumiConfigError(
                     "SynthesisConfig.environment_config_path cannot be empty."
                 )
 
             config_path = Path(self.environment_config_path)
             if not config_path.exists():
-                raise ValueError(
+                raise OumiConfigError(
                     f"Environment config path does not exist: "
                     f"{self.environment_config_path}"
                 )
@@ -137,7 +138,7 @@ class SynthesisConfig(BaseConfig):
         for environment_id in multiturn_attribute.available_environments:
             environment = self.environment_config.get_environment(environment_id)
             if environment is None:
-                raise ValueError(
+                raise OumiConfigError(
                     f"MultiTurnAttribute '{multiturn_attribute.id}' references unknown "
                     f"environment '{environment_id}'. Defined environment ids: "
                     f"{sorted(env.id for env in self.environment_config.environments)}"
@@ -177,7 +178,7 @@ class SynthesisConfig(BaseConfig):
             return
 
         if self.environment_config is None:
-            raise ValueError(
+            raise OumiConfigError(
                 "Environment or tool references require "
                 "SynthesisConfig.environment_config, or "
                 "SynthesisConfig.environment_config_path."
@@ -195,7 +196,7 @@ class SynthesisConfig(BaseConfig):
 
             for tool_id in mt_attr.available_tools:
                 if tool_id not in selected_tool_ids:
-                    raise ValueError(
+                    raise OumiConfigError(
                         f"MultiTurnAttribute '{mt_attr.id}' references unknown "
                         f"tool '{tool_id}' for environments "
                         f"{sorted(selected_environment_ids)}. Defined tool ids: "

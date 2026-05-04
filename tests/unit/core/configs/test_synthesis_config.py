@@ -25,6 +25,7 @@ from oumi.core.configs.params.synthesis_params import (
 from oumi.core.configs.params.tool_params import ToolParams
 from oumi.core.configs.synthesis_config import SynthesisConfig, SynthesisStrategy
 from oumi.core.types.conversation import Role
+from oumi.exceptions import OumiConfigError
 
 
 def test_default_synthesis_config():
@@ -51,6 +52,23 @@ def test_custom_synthesis_config():
     assert config.strategy_params is custom_params
     assert config.inference_config is custom_inference
     assert config.num_samples == 10
+
+
+def test_invalid_strategy():
+    """Test that invalid strategy raises OumiConfigError."""
+    config = SynthesisConfig()
+    config.strategy = "invalid_strategy"  # type: ignore
+
+    with pytest.raises(OumiConfigError, match="Unsupported synthesis strategy"):
+        config.__post_init__()
+
+
+def test_invalid_input_path():
+    """Test that setting input_path raises OumiConfigError."""
+    inference_config = InferenceConfig(input_path="some/path")
+
+    with pytest.raises(OumiConfigError, match="Input path is not supported"):
+        SynthesisConfig(inference_config=inference_config)
 
 
 def _make_faq_tool() -> ToolParams:
@@ -81,6 +99,14 @@ def _synthetic_env_params(
         tools=tools or [_make_faq_tool()],
         env_kwargs=env_kwargs,
     )
+
+
+def test_invalid_output_path():
+    """Test that setting output_path raises OumiConfigError."""
+    inference_config = InferenceConfig(output_path="some/path")
+
+    with pytest.raises(OumiConfigError, match="Output path is not supported"):
+        SynthesisConfig(inference_config=inference_config)
 
 
 def test_synthesis_config_with_top_level_environment_config():
@@ -154,7 +180,7 @@ def test_synthesis_config_requires_environment_config_for_available_tools():
         ]
     )
 
-    with pytest.raises(ValueError, match="Environment or tool references require"):
+    with pytest.raises(OumiConfigError, match="Environment or tool references require"):
         SynthesisConfig(strategy_params=params)
 
 
@@ -175,7 +201,7 @@ def test_synthesis_config_validates_available_environments():
         ]
     )
 
-    with pytest.raises(ValueError, match="references unknown environment"):
+    with pytest.raises(OumiConfigError, match="references unknown environment"):
         SynthesisConfig(strategy_params=params, environment_config=env_config)
 
 
@@ -217,7 +243,7 @@ def test_synthesis_config_restricts_tools_to_selected_environments():
         ]
     )
 
-    with pytest.raises(ValueError, match="references unknown tool"):
+    with pytest.raises(OumiConfigError, match="references unknown tool"):
         SynthesisConfig(strategy_params=params, environment_config=env_config)
 
 
