@@ -17,6 +17,7 @@ from dataclasses import dataclass, field, fields
 from typing import Any
 
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.exceptions import OumiConfigError
 
 
 @dataclass
@@ -112,17 +113,17 @@ class GrpoParams(BaseParams):
     def __post_init__(self):
         """Verifies params."""
         if self.max_prompt_length is not None and self.max_prompt_length <= 0:
-            raise ValueError(
+            raise OumiConfigError(
                 "GrpoParams.max_prompt_length must be positive. "
                 f"Actual: {self.max_prompt_length}"
             )
         if self.max_completion_length is not None and self.max_completion_length <= 0:
-            raise ValueError(
+            raise OumiConfigError(
                 "GrpoParams.max_completion_length must be positive. "
                 f"Actual: {self.max_completion_length}"
             )
         if self.num_generations is not None and self.num_generations <= 0:
-            raise ValueError(
+            raise OumiConfigError(
                 "GrpoParams.num_generations must be positive. "
                 f"Actual: {self.num_generations}"
             )
@@ -131,7 +132,7 @@ class GrpoParams(BaseParams):
             and self.temperature >= 0.0
             and self.temperature <= 1.0
         ):
-            raise ValueError(
+            raise OumiConfigError(
                 "GrpoParams.temperature must be within [0.0, 1.0] range. "
                 f"Actual: {self.temperature}"
             )

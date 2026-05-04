@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.exceptions import OumiConfigError
 from oumi.utils.placeholders import get_placeholders, resolve_placeholders
 
 
@@ -155,11 +156,13 @@ class JudgeParams(BaseParams):
         """
         # Validate prompt template is not empty
         if not self.prompt_template.strip():
-            raise ValueError("prompt_template cannot be empty")
+            raise OumiConfigError("prompt_template cannot be empty")
 
         # Validate judgment scores for ENUM judgment type
         if self.judgment_type == JudgeOutputType.ENUM and not self.judgment_scores:
-            raise ValueError("judgment_scores must be provided for ENUM judgment_type")
+            raise OumiConfigError(
+                "judgment_scores must be provided for ENUM judgment_type"
+            )
 
         # Validate judgment scores are numeric if provided
         if self.judgment_scores:
@@ -167,16 +170,16 @@ class JudgeParams(BaseParams):
                 isinstance(score, int | float)
                 for score in self.judgment_scores.values()
             ):
-                raise ValueError("All judgment_scores values must be numeric")
+                raise OumiConfigError("All judgment_scores values must be numeric")
             if not self.judgment_scores:
-                raise ValueError("judgment_scores cannot be empty when provided")
+                raise OumiConfigError("judgment_scores cannot be empty when provided")
 
         # Validate prompt_template_placeholders
         if self.prompt_template_placeholders:
             actual_placeholders = self.get_placeholders()
             declared_placeholders = set(self.prompt_template_placeholders)
             if declared_placeholders != actual_placeholders:
-                raise ValueError(
+                raise OumiConfigError(
                     f"prompt_template_placeholders ({declared_placeholders}) are "
                     "inconsistent with placeholders found in the prompt_template "
                     f"({actual_placeholders})"

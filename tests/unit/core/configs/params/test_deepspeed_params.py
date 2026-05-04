@@ -24,6 +24,7 @@ from oumi.core.configs.params.deepspeed_params import (
     OffloadConfig,
     ZeRORuntimeStage,
 )
+from oumi.exceptions import OumiConfigError
 
 
 def test_deepspeed_params_basic_instantiation():
@@ -65,7 +66,8 @@ def test_deepspeed_params_validation():
     """Test that DeepSpeedParams validation works correctly."""
     # Test parameter offloading validation - only supported with ZeRO stage 3
     with pytest.raises(
-        ValueError, match="Parameter offloading is only supported with ZeRO stage 3"
+        OumiConfigError,
+        match="Parameter offloading is only supported with ZeRO stage 3",
     ):
         DeepSpeedParams(
             zero_stage=ZeRORuntimeStage.ZERO_2, offload_param=OffloadConfig()
@@ -73,7 +75,7 @@ def test_deepspeed_params_validation():
 
     # Test optimizer offloading validation - requires ZeRO stage 1, 2, or 3
     with pytest.raises(
-        ValueError, match="Optimizer offloading requires ZeRO stage 1, 2, or 3"
+        OumiConfigError, match="Optimizer offloading requires ZeRO stage 1, 2, or 3"
     ):
         DeepSpeedParams(
             zero_stage=ZeRORuntimeStage.ZERO_0, offload_optimizer=OffloadConfig()

@@ -35,6 +35,7 @@ from enum import Enum
 from typing import Any
 
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.exceptions import OumiConfigError
 
 
 class TestType(str, Enum):
@@ -212,10 +213,10 @@ class TestParams(BaseParams):
     def __finalize_and_validate__(self) -> None:
         """Validate test configuration based on test type."""
         if not self.id:
-            raise ValueError("Test 'id' is required.")
+            raise OumiConfigError("Test 'id' is required.")
 
         if not self.type:
-            raise ValueError(f"Test 'type' is required for test '{self.id}'.")
+            raise OumiConfigError(f"Test 'type' is required for test '{self.id}'.")
 
         self._validate_enum_field("type", TestType, "test type")
         self._validate_enum_field("severity", TestSeverity, "severity")
@@ -236,7 +237,7 @@ class TestParams(BaseParams):
         value = getattr(self, field_name)
         valid_values = [e.value for e in enum_class]
         if value not in valid_values:
-            raise ValueError(
+            raise OumiConfigError(
                 f"Invalid {label} '{value}' for test '{self.id}'. "
                 f"Valid values: {valid_values}"
             )
@@ -251,7 +252,7 @@ class TestParams(BaseParams):
         for field_name in validation_rules.get("required", []):
             value = getattr(self, field_name)
             if value is None or (isinstance(value, str) and not value):
-                raise ValueError(
+                raise OumiConfigError(
                     f"Test '{self.id}': '{field_name}' is required for "
                     f"{self.type} tests."
                 )
@@ -260,7 +261,7 @@ class TestParams(BaseParams):
         for field_group in validation_rules.get("either_required", []):
             if not any(getattr(self, f) is not None for f in field_group):
                 fields_str = "' or '".join(field_group)
-                raise ValueError(
+                raise OumiConfigError(
                     f"Test '{self.id}': Either '{fields_str}' "
                     f"is required for {self.type} tests."
                 )
@@ -271,7 +272,7 @@ class TestParams(BaseParams):
         ).items():
             value = getattr(self, field_name)
             if value and value not in valid_values:
-                raise ValueError(
+                raise OumiConfigError(
                     f"Test '{self.id}': Invalid {field_name} '{value}'. "
                     f"Valid values: {valid_values}"
                 )
@@ -283,7 +284,7 @@ class TestParams(BaseParams):
                 enum_class = globals()[enum_name]
                 valid_values = [e.value for e in enum_class]
                 if value not in valid_values:
-                    raise ValueError(
+                    raise OumiConfigError(
                         f"Test '{self.id}': Invalid {field_name} '{value}'. "
                         f"Valid values: {valid_values}"
                     )
@@ -293,7 +294,7 @@ class TestParams(BaseParams):
         if custom_validator:
             result = custom_validator(self)
             if isinstance(result, str):
-                raise ValueError(f"Test '{self.id}': {result}")
+                raise OumiConfigError(f"Test '{self.id}': {result}")
 
     def get_title(self) -> str:
         """Get the display title for this test."""

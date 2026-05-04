@@ -18,6 +18,7 @@ from omegaconf import MISSING
 
 from oumi.core.configs.base_config import BaseConfig
 from oumi.core.configs.evaluation_config import EvaluationConfig
+from oumi.exceptions import OumiConfigError
 
 
 @dataclass
@@ -48,6 +49,6 @@ class AsyncEvaluationConfig(BaseConfig):
     def __post_init__(self):
         """Verifies/populates params."""
         if self.polling_interval < 0:
-            raise ValueError("`polling_interval` must be non-negative.")
+            raise OumiConfigError("`polling_interval` must be non-negative.")
         if self.num_retries < 0:
-            raise ValueError("`num_retries` must be non-negative.")
+            raise OumiConfigError("`num_retries` must be non-negative.")

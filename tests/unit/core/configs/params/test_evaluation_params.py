@@ -5,6 +5,7 @@ from oumi.core.configs.params.evaluation_params import (
     EvaluationTaskParams,
     LMHarnessTaskParams,
 )
+from oumi.exceptions import OumiConfigError
 
 
 @pytest.mark.parametrize(
@@ -91,7 +92,7 @@ def test_valid_initialization(
 
 
 def test_invalid_initialization_unknown_backend():
-    with pytest.raises(ValueError, match="^Unknown evaluation backend"):
+    with pytest.raises(OumiConfigError, match="^Unknown evaluation backend"):
         task_params = EvaluationTaskParams(
             evaluation_backend="non_existing_backend",
             task_name="some_task",
@@ -101,7 +102,7 @@ def test_invalid_initialization_unknown_backend():
 
 
 def test_invalid_initialization_no_backend():
-    with pytest.raises(ValueError):
+    with pytest.raises(OumiConfigError):
         task_params = EvaluationTaskParams(
             task_name="some_task",
             num_samples=None,
@@ -118,7 +119,7 @@ def test_invalid_initialization_no_backend():
     ],
 )
 def test_invalid_initialization_num_samples(num_samples):
-    with pytest.raises(ValueError):
+    with pytest.raises(OumiConfigError):
         EvaluationTaskParams(
             evaluation_backend="lm_harness",
             task_name="some_task",
@@ -128,7 +129,7 @@ def test_invalid_initialization_num_samples(num_samples):
 
 def test_lm_harness_invalid_initialization_missing_task():
     with pytest.raises(
-        ValueError, match="`task_name` must be a valid LM Harness task."
+        OumiConfigError, match="`task_name` must be a valid LM Harness task."
     ):
         _ = LMHarnessTaskParams(
             evaluation_backend="lm_harness",
@@ -137,7 +138,7 @@ def test_lm_harness_invalid_initialization_missing_task():
 
 
 def test_lm_harness_invalid_initialization_num_fewshot_negative():
-    with pytest.raises(ValueError, match="`num_fewshot` must be non-negative."):
+    with pytest.raises(OumiConfigError, match="`num_fewshot` must be non-negative."):
         _ = LMHarnessTaskParams(
             evaluation_backend="lm_harness",
             task_name="some_task",

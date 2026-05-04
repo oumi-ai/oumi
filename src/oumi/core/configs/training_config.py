@@ -29,6 +29,7 @@ from oumi.core.configs.params.training_params import (
     TrainerType,
     TrainingParams,
 )
+from oumi.exceptions import OumiConfigError
 from oumi.utils.logging import logger
 
 
@@ -89,20 +90,20 @@ class TrainingConfig(BaseConfig):
     def __post_init__(self):
         """Verifies/populates params."""
         if self.model.compile:
-            raise ValueError(
+            raise OumiConfigError(
                 "Use `training.compile` instead of `model.compile` to "
                 "enable model compilation during training."
             )
         if self.training.compile and (
             self.fsdp.use_orig_params is not None and not self.fsdp.use_orig_params
         ):
-            raise ValueError(
+            raise OumiConfigError(
                 "`fsdp.use_orig_params` must be True for model compilation."
             )
 
         # Validate distributed training configurations
         if self.fsdp.enable_fsdp and self.deepspeed.enable_deepspeed:
-            raise ValueError(
+            raise OumiConfigError(
                 "Cannot enable both FSDP and DeepSpeed simultaneously. "
                 "Please enable only one distributed training method."
             )
@@ -122,7 +123,7 @@ class TrainingConfig(BaseConfig):
             )
             and self.deepspeed.train_batch_size != "auto"
         ):
-            raise ValueError(
+            raise OumiConfigError(
                 f"When using TRL trainer ({trainer_type}) with DeepSpeed, "
                 "train_batch_size must be set to 'auto' to allow proper batch size "
                 "management. "
@@ -135,7 +136,7 @@ class TrainingConfig(BaseConfig):
             MixedPrecisionDtype.BF16,
         ]:
             if self.model.torch_dtype != torch.float32:
-                raise ValueError(
+                raise OumiConfigError(
                     "Model must be loaded in fp32 to enable mixed precision training."
                 )
 
@@ -188,7 +189,7 @@ class TrainingConfig(BaseConfig):
                 # We need to Liger patch ourselves for our own training loop.
                 pass
             else:
-                raise ValueError("Unrecognized trainer type!")
+                raise OumiConfigError("Unrecognized trainer type!")
 
         # Setup and validate params for "vision_language_sft" collator.
         # The collator expects VLM SFT dataset to only produce just
@@ -201,7 +202,7 @@ class TrainingConfig(BaseConfig):
                 self.data.test.datasets,
             ):
                 if not dataset_params.dataset_kwargs.get("return_conversations", True):
-                    raise ValueError(
+                    raise OumiConfigError(
                         "`return_conversations` must be True "
                         f"for the dataset '{dataset_params.dataset_name}' "
                         f"when using '{collator_name}' collator!"
@@ -210,7 +211,7 @@ class TrainingConfig(BaseConfig):
             # Extra setup for TRL_SFT.
             if trainer_type == TrainerType.TRL_SFT:
                 if self.training.trainer_kwargs.get("remove_unused_columns", False):
-                    raise ValueError(
+                    raise OumiConfigError(
                         "`remove_unused_columns` must be False "
                         f"when using '{collator_name}' collator! "
                         'The "unused" columns are consumed by the collator, '
@@ -252,6 +253,6 @@ class TrainingConfig(BaseConfig):
             self.training.trainer_type == TrainerType.VERL_GRPO
             and not self.data.validation.datasets
         ):
-            raise ValueError(
+            raise OumiConfigError(
                 "At least one validation dataset is required for VERL_GRPO training."
             )

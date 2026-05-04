@@ -5,6 +5,7 @@ import pytest
 from oumi.core.configs.params.telemetry_params import TelemetryParams
 from oumi.core.configs.params.training_params import TrainerType
 from oumi.core.configs.params.tuning_params import TuningParams
+from oumi.exceptions import OumiConfigError
 
 
 def test_post_init_tunable_fixed_training_params():
@@ -61,7 +62,7 @@ def test_post_init_tunable_fixed_peft_params():
 
 def test_post_init_non_existing_params():
     """Test that invalid training and peft params fail."""
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(OumiConfigError) as excinfo:
         tunable_params = {
             "some_wrong_named_param": {
                 "type": "float",
@@ -78,7 +79,7 @@ def test_post_init_non_existing_params():
     assert "Invalid tunable parameter: some_wrong_named_param" in str(excinfo.value)
     assert "Must be a valid `TrainingParams` field." in str(excinfo.value)
 
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(OumiConfigError) as excinfo:
         tunable_params = {
             "invalid_peft_param": {"type": "categorical", "choices": [4, 8, 16]},
         }
@@ -91,7 +92,7 @@ def test_post_init_non_existing_params():
     assert "Invalid tunable parameter: invalid_peft_param" in str(excinfo.value)
     assert "Must be a valid `PeftParams` field." in str(excinfo.value)
 
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(OumiConfigError) as excinfo:
         tunable_params = {
             "learning_rate": {
                 "type": "float",
@@ -108,7 +109,7 @@ def test_post_init_non_existing_params():
     assert "Invalid fixed parameter: some_wrong_param" in str(excinfo.value)
     assert "Must be a valid `TrainingParams` field." in str(excinfo.value)
 
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(OumiConfigError) as excinfo:
         tunable_params = {
             "lora_r": {"type": "categorical", "choices": [4, 8, 16]},
         }
@@ -124,7 +125,7 @@ def test_post_init_non_existing_params():
 
 def test_invalid_param_type():
     """Test that invalid ParamType values are rejected."""
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(OumiConfigError) as excinfo:
         params = TuningParams(
             tunable_training_params={
                 "learning_rate": {
@@ -142,7 +143,7 @@ def test_invalid_param_type():
 
 def test_categorical_missing_choices():
     """Test that categorical params require 'choices' key."""
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(OumiConfigError) as excinfo:
         params = TuningParams(
             tunable_training_params={
                 "optimizer": {
@@ -157,7 +158,7 @@ def test_categorical_missing_choices():
 
 def test_categorical_empty_choices():
     """Test that categorical params require non-empty choices."""
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(OumiConfigError) as excinfo:
         params = TuningParams(
             tunable_training_params={
                 "optimizer": {
@@ -173,7 +174,7 @@ def test_categorical_empty_choices():
 
 def test_numeric_missing_low_high():
     """Test that numeric params require 'low' and 'high' keys."""
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(OumiConfigError) as excinfo:
         params = TuningParams(
             tunable_training_params={
                 "learning_rate": {
@@ -190,7 +191,7 @@ def test_numeric_missing_low_high():
 
 def test_evaluation_direction_mismatch():
     """Test that evaluation_direction length must match evaluation_metrics."""
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(OumiConfigError) as excinfo:
         params = TuningParams(
             evaluation_metrics=["eval_loss", "accuracy"],
             evaluation_direction=["minimize", "maximize", "minimize"],  # Too many
@@ -213,7 +214,7 @@ def test_evaluation_direction_single_broadcast():
 
 def test_invalid_evaluation_direction():
     """Test that invalid evaluation directions are rejected."""
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(OumiConfigError) as excinfo:
         params = TuningParams(
             evaluation_metrics=["eval_loss"],
             evaluation_direction=["invalid"],
@@ -226,7 +227,7 @@ def test_invalid_evaluation_direction():
 
 def test_invalid_logging_strategy():
     """Test that invalid logging strategies are rejected."""
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(OumiConfigError) as excinfo:
         params = TuningParams(logging_strategy="invalid")
         params.finalize_and_validate()
 
@@ -235,7 +236,7 @@ def test_invalid_logging_strategy():
 
 def test_invalid_trainer_type():
     """Test that only TRL_SFT trainer is currently supported."""
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(OumiConfigError) as excinfo:
         params = TuningParams(trainer_type=TrainerType.TRL_DPO)
         params.finalize_and_validate()
 
