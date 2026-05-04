@@ -1,3 +1,4 @@
+import base64
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -5,11 +6,14 @@ import pytest
 
 from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
 from oumi.core.types.conversation import (
+    ContentItem,
     Conversation,
     FinishReason,
     Message,
     Role,
+    Type,
 )
+from oumi.core.types.tool_call import ToolCall, ToolDefinition
 from oumi.inference.anthropic_inference_engine import AnthropicInferenceEngine
 from oumi.inference.remote_inference_engine import BatchInfo, BatchStatus
 
@@ -454,11 +458,338 @@ def test_convert_api_output_to_conversation_with_usage_and_finish_reason(
     assert result.metadata["usage"]["completion_tokens"] == 5
 
 
+#
+# Tool-calling tests
+#
+_WEATHER_TOOL = ToolDefinition.model_validate(
+    {
+        "type": "function",
+        "function": {
+            "name": "get_weather",
+            "description": "Get current weather for a city.",
+            "parameters": {
+                "type": "object",
+                "properties": {"city": {"type": "string"}},
+                "required": ["city"],
+            },
+        },
+    }
+)
+
+_CALENDAR_TOOL = ToolDefinition.model_validate(
+    {
+        "type": "function",
+        "function": {
+            "name": "create_event",
+            "description": "Create a calendar event.",
+            "parameters": {
+                "type": "object",
+                "properties": {"title": {"type": "string"}},
+                "required": ["title"],
+            },
+        },
+    }
+)
+
+
 def _build_body(engine, conversation, **gen_overrides):
     generation_params = GenerationParams(max_new_tokens=100, **gen_overrides)
     return engine._convert_conversation_to_api_input(
         conversation, generation_params, engine._model_params
     )
+
+
+def test_openai_tools_translated_to_anthropic_schema(anthropic_engine):
+    """``parameters`` becomes ``input_schema``; the ``function`` wrapper drops."""
+    conversation = Conversation(
+        tools=[_WEATHER_TOOL, _CALENDAR_TOOL],
+        messages=[Message(role=Role.USER, content="hi")],
+    )
+    body = _build_body(anthropic_engine, conversation)
+    assert "tools" in body
+    assert body["tools"][0]["name"] == "get_weather"
+    assert body["tools"][0]["description"] == "Get current weather for a city."
+    assert body["tools"][0]["input_schema"] == {
+        "type": "object",
+        "properties": {"city": {"type": "string"}},
+        "required": ["city"],
+    }
+    assert "function" not in body["tools"][0]
+    assert "parameters" not in body["tools"][0]
+
+
+def test_last_tool_has_cache_control_marker(anthropic_engine):
+    """Cache marker stamps only the last tool entry; nothing on the others."""
+    conversation = Conversation(
+        tools=[_WEATHER_TOOL, _CALENDAR_TOOL],
+        messages=[Message(role=Role.USER, content="hi")],
+    )
+    body = _build_body(anthropic_engine, conversation)
+    assert "cache_control" not in body["tools"][0]
+    assert body["tools"][-1]["cache_control"] == {"type": "ephemeral"}
+
+
+def test_assistant_tool_calls_emit_tool_use_blocks(anthropic_engine):
+    """Assistant ``tool_calls`` become ``tool_use`` blocks with parsed input."""
+    tool_call_dict = {
+        "id": "call_abc",
+        "type": "function",
+        "function": {"name": "get_weather", "arguments": '{"city":"Tokyo"}'},
+    }
+    conversation = Conversation(
+        tools=[_WEATHER_TOOL],
+        messages=[
+            Message(role=Role.USER, content="weather?"),
+            Message(
+                role=Role.ASSISTANT,
+                content=None,
+                tool_calls=[ToolCall.model_validate(tool_call_dict)],
+            ),
+            Message(role=Role.TOOL, content="22C", tool_call_id="call_abc"),
+        ],
+    )
+    body = _build_body(anthropic_engine, conversation)
+    assistant_msg = body["messages"][1]
+    assert assistant_msg["role"] == "assistant"
+    assert assistant_msg["content"] == [
+        {
+            "type": "tool_use",
+            "id": "call_abc",
+            "name": "get_weather",
+            # Anthropic expects parsed input, not the JSON-string OpenAI sends.
+            "input": {"city": "Tokyo"},
+        }
+    ]
+
+
+def test_tool_role_string_emits_user_tool_result(anthropic_engine):
+    """Role.TOOL with a string body emits a user/tool_result with string content."""
+    conversation = Conversation(
+        tools=[_WEATHER_TOOL],
+        messages=[
+            Message(role=Role.USER, content="weather?"),
+            Message(
+                role=Role.ASSISTANT,
+                content=None,
+                tool_calls=[
+                    ToolCall.model_validate(
+                        {
+                            "id": "call_abc",
+                            "type": "function",
+                            "function": {
+                                "name": "get_weather",
+                                "arguments": '{"city":"Tokyo"}',
+                            },
+                        }
+                    )
+                ],
+            ),
+            Message(role=Role.TOOL, content="22C, sunny", tool_call_id="call_abc"),
+        ],
+    )
+    body = _build_body(anthropic_engine, conversation)
+    tool_msg = body["messages"][2]
+    assert tool_msg["role"] == "user"
+    assert tool_msg["content"] == [
+        {
+            "type": "tool_result",
+            "tool_use_id": "call_abc",
+            "content": "22C, sunny",
+        }
+    ]
+
+
+def test_tool_role_multimodal_emits_blocks_in_tool_result(anthropic_engine):
+    """Multimodal Role.TOOL content emits a list of text/image blocks."""
+    png_bytes = b"\x89PNG\r\n\x1a\nfakeimg"
+    conversation = Conversation(
+        tools=[_WEATHER_TOOL],
+        messages=[
+            Message(role=Role.USER, content="map?"),
+            Message(
+                role=Role.ASSISTANT,
+                content=None,
+                tool_calls=[
+                    ToolCall.model_validate(
+                        {
+                            "id": "call_xyz",
+                            "type": "function",
+                            "function": {
+                                "name": "get_weather",
+                                "arguments": "{}",
+                            },
+                        }
+                    )
+                ],
+            ),
+            Message(
+                role=Role.TOOL,
+                tool_call_id="call_xyz",
+                content=[
+                    ContentItem(type=Type.TEXT, content="See attached:"),
+                    ContentItem(type=Type.IMAGE_BINARY, binary=png_bytes),
+                ],
+            ),
+        ],
+    )
+    body = _build_body(anthropic_engine, conversation)
+    tool_msg = body["messages"][2]
+    assert tool_msg["role"] == "user"
+    blocks = tool_msg["content"][0]["content"]
+    assert blocks[0] == {"type": "text", "text": "See attached:"}
+    assert blocks[1]["type"] == "image"
+    assert blocks[1]["source"] == {
+        "type": "base64",
+        "media_type": "image/png",
+        "data": base64.b64encode(png_bytes).decode("ascii"),
+    }
+
+
+@pytest.mark.parametrize(
+    "magic_bytes,expected_media_type",
+    [
+        (b"\x89PNG\r\n\x1a\n", "image/png"),
+        (b"\xff\xd8\xff\xe0\x00\x10JFIF", "image/jpeg"),
+        (b"GIF89a", "image/gif"),
+        (b"RIFF\x00\x00\x00\x00WEBPVP8 ", "image/webp"),
+    ],
+)
+def test_image_media_type_sniffed_from_magic_bytes(
+    anthropic_engine, magic_bytes, expected_media_type
+):
+    """media_type reflects the actual image format, not a hardcoded image/png."""
+    image_bytes = magic_bytes + b"...rest of payload..."
+    conversation = Conversation(
+        tools=[_WEATHER_TOOL],
+        messages=[
+            Message(role=Role.USER, content="map?"),
+            Message(
+                role=Role.ASSISTANT,
+                content=None,
+                tool_calls=[
+                    ToolCall.model_validate(
+                        {
+                            "id": "call_1",
+                            "type": "function",
+                            "function": {"name": "get_weather", "arguments": "{}"},
+                        }
+                    )
+                ],
+            ),
+            Message(
+                role=Role.TOOL,
+                tool_call_id="call_1",
+                content=[ContentItem(type=Type.IMAGE_BINARY, binary=image_bytes)],
+            ),
+        ],
+    )
+    body = _build_body(anthropic_engine, conversation)
+    image_block = body["messages"][2]["content"][0]["content"][0]
+    assert image_block["type"] == "image"
+    assert image_block["source"]["media_type"] == expected_media_type
+    assert image_block["source"]["data"] == base64.b64encode(image_bytes).decode(
+        "ascii"
+    )
+
+
+def test_unrecognized_image_bytes_fall_back_to_png(anthropic_engine, caplog):
+    """Unknown formats default to image/png and emit a warning."""
+    conversation = Conversation(
+        tools=[_WEATHER_TOOL],
+        messages=[
+            Message(role=Role.USER, content="map?"),
+            Message(
+                role=Role.ASSISTANT,
+                content=None,
+                tool_calls=[
+                    ToolCall.model_validate(
+                        {
+                            "id": "call_1",
+                            "type": "function",
+                            "function": {"name": "get_weather", "arguments": "{}"},
+                        }
+                    )
+                ],
+            ),
+            Message(
+                role=Role.TOOL,
+                tool_call_id="call_1",
+                content=[
+                    ContentItem(type=Type.IMAGE_BINARY, binary=b"unknown-format-bytes")
+                ],
+            ),
+        ],
+    )
+    with caplog.at_level("WARNING"):
+        body = _build_body(anthropic_engine, conversation)
+    image_block = body["messages"][2]["content"][0]["content"][0]
+    assert image_block["source"]["media_type"] == "image/png"
+    assert any("Unrecognized image format" in rec.message for rec in caplog.records)
+
+
+def test_response_tool_use_blocks_populate_tool_calls(anthropic_engine):
+    """tool_use blocks in the response become OpenAI-format Message.tool_calls."""
+    api_response = {
+        "content": [
+            {"type": "text", "text": "Looking up weather."},
+            {
+                "type": "tool_use",
+                "id": "toolu_01",
+                "name": "get_weather",
+                "input": {"city": "Tokyo"},
+            },
+        ],
+        "stop_reason": "tool_use",
+    }
+    original = Conversation(
+        tools=[_WEATHER_TOOL],
+        messages=[Message(role=Role.USER, content="weather?")],
+    )
+    result = anthropic_engine._convert_api_output_to_conversation(
+        api_response, original
+    )
+    assistant = result.messages[-1]
+    assert assistant.role == Role.ASSISTANT
+    assert assistant.content == "Looking up weather."
+    assert assistant.tool_calls is not None
+    assert [tc.model_dump(mode="json") for tc in assistant.tool_calls] == [
+        {
+            "id": "toolu_01",
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                # OpenAI keeps arguments as a JSON-encoded string.
+                "arguments": json.dumps({"city": "Tokyo"}),
+            },
+        }
+    ]
+    assert result.metadata["finish_reason"] == "tool_calls"
+    assert result.tools == [_WEATHER_TOOL]
+
+
+def test_tool_choice_translation(anthropic_engine):
+    """tool_choice translates: auto/required/by-name; 'none' drops tools."""
+    conversation = Conversation(
+        tools=[_WEATHER_TOOL],
+        messages=[Message(role=Role.USER, content="hi")],
+    )
+
+    body_auto = _build_body(anthropic_engine, conversation, tool_choice="auto")
+    assert body_auto["tool_choice"] == {"type": "auto"}
+
+    body_required = _build_body(anthropic_engine, conversation, tool_choice="required")
+    assert body_required["tool_choice"] == {"type": "any"}
+
+    body_named = _build_body(
+        anthropic_engine,
+        conversation,
+        tool_choice={"type": "function", "function": {"name": "get_weather"}},
+    )
+    assert body_named["tool_choice"] == {"type": "tool", "name": "get_weather"}
+
+    body_none = _build_body(anthropic_engine, conversation, tool_choice="none")
+    assert "tools" not in body_none
+    assert "tool_choice" not in body_none
 
 
 def test_pure_text_conversation_emits_string_content(anthropic_engine):
@@ -498,3 +829,40 @@ def test_adjacent_same_role_messages_are_merged(anthropic_engine):
         {"type": "text", "text": "Second user line."},
     ]
     assert body["messages"][1] == {"role": "assistant", "content": "Reply."}
+
+
+def test_tool_role_merges_into_adjacent_user_turn(anthropic_engine):
+    """Role.TOOL collapses to a user turn and merges with adjacent user content."""
+    conversation = Conversation(
+        tools=[_WEATHER_TOOL],
+        messages=[
+            Message(role=Role.USER, content="weather?"),
+            Message(
+                role=Role.ASSISTANT,
+                content=None,
+                tool_calls=[
+                    ToolCall.model_validate(
+                        {
+                            "id": "call_1",
+                            "type": "function",
+                            "function": {
+                                "name": "get_weather",
+                                "arguments": '{"city":"Tokyo"}',
+                            },
+                        }
+                    )
+                ],
+            ),
+            Message(role=Role.TOOL, content="22C, sunny", tool_call_id="call_1"),
+            Message(role=Role.USER, content="And tomorrow?"),
+        ],
+    )
+    body = _build_body(anthropic_engine, conversation)
+    assert [m["role"] for m in body["messages"]] == ["user", "assistant", "user"]
+    merged_user_turn = body["messages"][2]["content"]
+    assert merged_user_turn[0] == {
+        "type": "tool_result",
+        "tool_use_id": "call_1",
+        "content": "22C, sunny",
+    }
+    assert merged_user_turn[1] == {"type": "text", "text": "And tomorrow?"}
