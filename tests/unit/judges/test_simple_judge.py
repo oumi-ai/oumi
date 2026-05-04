@@ -29,6 +29,7 @@ from oumi.core.configs.params.judge_params import (
     JudgeResponseFormat,
 )
 from oumi.core.configs.params.model_params import ModelParams
+from oumi.exceptions import OumiConfigError
 from oumi.judges.simple_judge import (
     EXPLANATION_KEY,
     JSON_SUFFIX,
@@ -523,7 +524,8 @@ class TestSimpleJudge:
     def test_enum_judgment_type_requires_scores(self):
         """Test that ENUM judgment type requires judgment_scores to be provided."""
         with pytest.raises(
-            ValueError, match="judgment_scores must be provided for ENUM judgment_type"
+            OumiConfigError,
+            match="judgment_scores must be provided for ENUM judgment_type",
         ):
             JudgeParams(
                 prompt_template="Rate this: {text}",
@@ -535,7 +537,8 @@ class TestSimpleJudge:
     def test_enum_judgment_type_with_empty_scores(self):
         """Test that ENUM judgment type with empty scores fails validation."""
         with pytest.raises(
-            ValueError, match="judgment_scores must be provided for ENUM judgment_type"
+            OumiConfigError,
+            match="judgment_scores must be provided for ENUM judgment_type",
         ):
             JudgeParams(
                 prompt_template="Rate this: {text}",
@@ -639,6 +642,7 @@ inference_config:
         mock_create_engine.return_value = mock_engine
 
         with pytest.raises(
-            ValueError, match="Could not resolve JudgeConfig from path: unknown_judge"
+            OumiConfigError,
+            match="Could not resolve JudgeConfig from path: unknown_judge",
         ):
             SimpleJudge(judge_config="unknown_judge")

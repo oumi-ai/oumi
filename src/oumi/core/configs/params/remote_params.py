@@ -17,6 +17,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.exceptions import OumiConfigError
 
 
 @dataclass
@@ -126,37 +127,43 @@ class RemoteParams(BaseParams):
     def __post_init__(self):
         """Validate the remote parameters."""
         if self.num_workers < 1:
-            raise ValueError(
+            raise OumiConfigError(
                 "Number of num_workers must be greater than or equal to 1."
             )
         if self.requests_per_minute is not None and self.requests_per_minute < 1:
-            raise ValueError("requests_per_minute must be greater than or equal to 1.")
+            raise OumiConfigError(
+                "requests_per_minute must be greater than or equal to 1."
+            )
         if (
             self.input_tokens_per_minute is not None
             and self.input_tokens_per_minute < 1
         ):
-            raise ValueError(
+            raise OumiConfigError(
                 "input_tokens_per_minute must be greater than or equal to 1."
             )
         if (
             self.output_tokens_per_minute is not None
             and self.output_tokens_per_minute < 1
         ):
-            raise ValueError(
+            raise OumiConfigError(
                 "output_tokens_per_minute must be greater than or equal to 1."
             )
         if self.politeness_policy < 0:
-            raise ValueError("Politeness policy must be greater than or equal to 0.")
+            raise OumiConfigError(
+                "Politeness policy must be greater than or equal to 0."
+            )
         if self.connection_timeout < 0:
-            raise ValueError("Connection timeout must be greater than or equal to 0.")
+            raise OumiConfigError(
+                "Connection timeout must be greater than or equal to 0."
+            )
         if not np.isfinite(self.politeness_policy):
-            raise ValueError("Politeness policy must be finite.")
+            raise OumiConfigError("Politeness policy must be finite.")
         if self.max_retries < 0:
-            raise ValueError("Max retries must be greater than or equal to 0.")
+            raise OumiConfigError("Max retries must be greater than or equal to 0.")
         if self.retry_backoff_base <= 0:
-            raise ValueError("Retry backoff base must be greater than 0.")
+            raise OumiConfigError("Retry backoff base must be greater than 0.")
         if self.retry_backoff_max < self.retry_backoff_base:
-            raise ValueError(
+            raise OumiConfigError(
                 "Retry backoff max must be greater than or equal to retry backoff base."
             )
 
@@ -237,24 +244,28 @@ class AdaptiveConcurrencyParams(BaseParams):
     def __post_init__(self):
         """Validate the adaptive concurrency parameters."""
         if self.min_concurrency < 1:
-            raise ValueError("Min concurrency must be greater than or equal to 1.")
+            raise OumiConfigError("Min concurrency must be greater than or equal to 1.")
         if self.max_concurrency < self.min_concurrency:
-            raise ValueError(
+            raise OumiConfigError(
                 "Max concurrency must be greater than or equal to min concurrency."
             )
         if self.initial_concurrency_factor < 0 or self.initial_concurrency_factor > 1:
-            raise ValueError("Initial concurrency factor must be between 0 and 1.")
+            raise OumiConfigError("Initial concurrency factor must be between 0 and 1.")
         if self.concurrency_step < 1:
-            raise ValueError("Concurrency step must be greater than or equal to 1.")
+            raise OumiConfigError(
+                "Concurrency step must be greater than or equal to 1."
+            )
         if self.min_update_time <= 0:
-            raise ValueError("Min update time must be greater than 0.")
+            raise OumiConfigError("Min update time must be greater than 0.")
         if self.error_threshold < 0 or self.error_threshold > 1:
-            raise ValueError("Error threshold must be between 0 and 1.")
+            raise OumiConfigError("Error threshold must be between 0 and 1.")
         if self.backoff_factor <= 0:
-            raise ValueError("Backoff factor must be greater than 0.")
+            raise OumiConfigError("Backoff factor must be greater than 0.")
         if self.recovery_threshold < 0 or self.recovery_threshold > 1:
-            raise ValueError("Recovery threshold must be between 0 and 1.")
+            raise OumiConfigError("Recovery threshold must be between 0 and 1.")
         if self.recovery_threshold >= self.error_threshold:
-            raise ValueError("Recovery threshold must be less than error threshold.")
+            raise OumiConfigError(
+                "Recovery threshold must be less than error threshold."
+            )
         if self.min_window_size < 1:
-            raise ValueError("Min window size must be greater than or equal to 1.")
+            raise OumiConfigError("Min window size must be greater than or equal to 1.")

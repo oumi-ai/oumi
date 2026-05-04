@@ -21,6 +21,7 @@ from omegaconf import MISSING
 
 from oumi.core.configs.base_config import BaseConfig
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.exceptions import OumiConfigError
 
 
 class DatasetSource(Enum):
@@ -167,14 +168,14 @@ class AnalyzeConfig(BaseConfig):
 
         # Validate sample_count
         if self.sample_count is not None and self.sample_count <= 0:
-            raise ValueError("`sample_count` must be greater than 0.")
+            raise OumiConfigError("`sample_count` must be greater than 0.")
 
         # Validate analyzer configurations
         analyzer_ids = set()
         for analyzer in self.analyzers:
             # Validate analyzer ID
             if not analyzer.id:
-                raise ValueError("Analyzer 'id' must be provided")
+                raise OumiConfigError("Analyzer 'id' must be provided")
             if analyzer.id in analyzer_ids:
-                raise ValueError(f"Duplicate analyzer ID found: '{analyzer.id}'")
+                raise OumiConfigError(f"Duplicate analyzer ID found: '{analyzer.id}'")
             analyzer_ids.add(analyzer.id)

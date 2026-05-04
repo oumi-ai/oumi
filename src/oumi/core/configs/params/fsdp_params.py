@@ -18,6 +18,7 @@ from enum import Enum
 import torch.distributed.fsdp as torch_fsdp
 
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.exceptions import OumiConfigError
 
 
 class ShardingStrategy(str, Enum):
@@ -60,7 +61,7 @@ class ShardingStrategy(str, Enum):
         }
 
         if self not in strategy_map:
-            raise ValueError(f"Unsupported sharding strategy: {self}")
+            raise OumiConfigError(f"Unsupported sharding strategy: {self}")
 
         return strategy_map[self]
 
@@ -101,7 +102,7 @@ class StateDictType(str, Enum):
         }
 
         if self not in state_dict_map:
-            raise ValueError(f"Unsupported state dict type: {self}")
+            raise OumiConfigError(f"Unsupported state dict type: {self}")
 
         return state_dict_map[self]
 
@@ -127,7 +128,7 @@ class BackwardPrefetch(str, Enum):
         }
 
         if self not in map:
-            raise ValueError(f"Unsupported backward prefetch option: {self}")
+            raise OumiConfigError(f"Unsupported backward prefetch option: {self}")
         return map[self]
 
 

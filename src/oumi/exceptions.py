@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 
 class OumiConfigError(Exception):
-    """Base class for all configuration-related errors."""
+    """Raised for invalid or inconsistent configuration (paths, values, structure)."""
 
 
 class OumiConfigTypeError(OumiConfigError):
