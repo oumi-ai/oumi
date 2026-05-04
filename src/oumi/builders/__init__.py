@@ -32,6 +32,7 @@ from oumi.builders.data import (
     build_dataset,
     build_dataset_mixture,
 )
+from oumi.builders.environments import build_environment
 from oumi.builders.metrics import build_metrics_function
 from oumi.builders.models import (
     build_chat_template,
@@ -53,6 +54,7 @@ __all__ = [
     "build_dataset_mixture",
     "build_dataset",
     "build_data_collator",
+    "build_environment",
     "build_metrics_function",
     "build_model",
     "build_optimizer",

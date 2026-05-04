@@ -108,6 +108,7 @@ faq/oom
 
 development/dev_setup
 development/contributing
+development/agentic_synthesis_environments
 development/code_of_conduct
 development/style_guide
 development/docs_guide

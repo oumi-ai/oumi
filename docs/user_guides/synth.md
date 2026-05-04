@@ -211,6 +211,104 @@ Ready to dive deeper? The sections below cover all available options in detail.
 
 ---
 
+## Environment-First Tool Synthesis
+
+Agentic synthesis now follows an environment-first model. Tools do not declare an output strategy directly. Instead, each tool is bound to an environment, and the environment type defines how tool calls are executed via its `step()` method.
+
+- **`synthetic` environments** are backed by an LLM that simulates tool execution. They can be stateless (no persistent state) or stateful (mutable JSON state across turns). Statefulness is controlled by the optional `state_params` field — when provided, the environment tracks and mutates state across calls; when absent, each call is independent.
+- **`deterministic` environments** behave like lookup tables. Each tool defines a set of input-to-output mappings, and `step()` resolves tool calls by matching arguments against those mappings. No LLM is involved.
+
+At the config level:
+
+- Environments own their tool definitions.
+- Reusable environment catalogs live in top-level `environment_config` or `environment_config_path`.
+- Tools do not declare an `environment` field. The parent environment owns the binding.
+- `deterministic_outputs` is only used for tools in `deterministic` environments.
+- `read_only` is only meaningful for tools in stateful `synthetic` environments.
+- Multiturn attributes reference environments (not individual tools) to select which tools are available.
+
+Example:
+
+```yaml
+environment_config:
+  environments:
+    - id: support_backend
+      name: Support Backend
+      description: Simulated support system with tickets and users
+      type: synthetic
+      system_prompt: You manage a customer support system with tickets and users.
+      state_params:
+        state_schema:
+          type: object
+          properties:
+            tickets: { type: array }
+            users: { type: array }
+        initial_state:
+          tickets: []
+          users: []
+      tools:
+        - id: get_ticket
+          name: GetTicket
+          description: Read a ticket from the support backend.
+          read_only: true
+          parameters:
+            type: object
+            properties:
+              ticket_id: { type: string }
+        - id: create_ticket
+          name: CreateTicket
+          description: Create a new support ticket.
+          read_only: false
+          parameters:
+            type: object
+            properties:
+              subject: { type: string }
+              priority: { type: string, enum: [low, medium, high] }
+
+    - id: faq_lookup
+      name: FAQ Lookup
+      description: Cached LLM-backed FAQ answers
+      type: synthetic
+      system_prompt: Generate concise FAQ answers grounded in the tool contract.
+      cache_by_input: true
+      tools:
+        - id: answer_faq
+          name: AnswerFAQ
+          description: Answer common support questions.
+          parameters:
+            type: object
+            properties:
+              question: { type: string }
+
+    - id: policy_table
+      name: Policy Table
+      description: Predefined policy responses
+      type: deterministic
+      tools:
+        - id: get_refund_policy
+          name: GetRefundPolicy
+          description: Return the matching refund policy.
+          parameters:
+            type: object
+            properties:
+              policy_type: { type: string }
+          deterministic_outputs:
+            - input:
+                policy_type: standard
+              output:
+                policy: Standard 30-day refund policy
+
+strategy_params:
+  multiturn_attributes:
+    - id: support_chat
+      min_turns: 2
+      max_turns: 4
+      role_instruction_messages:
+        USER: You are a customer contacting support.
+        ASSISTANT: You are a helpful support agent.
+      available_environments: [support_backend, faq_lookup, policy_table]
+```
+
 ## Complete Configuration Reference
 
 ### Top-Level Parameters
