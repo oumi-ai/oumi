@@ -98,6 +98,10 @@ def _list_algorithms_callback(value: bool) -> None:
     table.add_column("Description", style="white")
 
     for algo in QuantizationAlgorithm:
+        # 'bnb' is auto-selected for bnb_* schemes and rejected for LLM
+        # Compressor schemes; it is never user-selectable.
+        if algo == QuantizationAlgorithm.BNB:
+            continue
         info = ALGORITHM_REGISTRY[algo]
         if info.needs_calibration is None:
             calib_display = "[dim]depends on scheme[/dim]"
@@ -204,7 +208,9 @@ def quantize(
             "--algorithm",
             help=(
                 "Quantization algorithm: auto, rtn, gptq, awq. "
-                "'auto' selects the best algorithm for the chosen scheme."
+                "'auto' selects the best algorithm for the chosen scheme. "
+                "Not applicable to bnb_* schemes (the BitsAndBytes algorithm "
+                "is auto-selected)."
             ),
             rich_help_panel="Quantization",
         ),
@@ -287,9 +293,6 @@ def quantize(
             "[green]Quantizing model...[/green]", spinner="dots"
         ):
             result = oumi_quantize(parsed_config)
-
-        if not result or not result.output_path:
-            raise typer.Exit(1)
 
         table = Table(
             title="Quantization Results",

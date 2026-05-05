@@ -16,7 +16,89 @@
 
 from pathlib import Path
 
+from oumi.utils.logging import logger
+
 _SIZE_UNITS = ("B", "KB", "MB", "GB", "TB", "PB")
+
+
+def warn_if_local_gpu_below_inference_capability(scheme) -> None:
+    """Warn if the local GPU's compute capability is below the scheme's
+    inference threshold.
+
+    Quantization itself runs in higher precision and doesn't require the
+    target SM, so we don't block. But the same-machine quant-and-serve
+    workflow would otherwise burn hours of calibration before vLLM rejects
+    the saved model — this gives the user an early signal.
+    """
+    import torch
+
+    from oumi.quantize.constants import SCHEME_REGISTRY
+
+    if not torch.cuda.is_available():
+        return
+    info = SCHEME_REGISTRY.get(scheme)
+    if info is None:
+        return
+    major, minor = torch.cuda.get_device_capability()
+    local_cc = major + minor / 10.0
+    if local_cc < info.min_compute_capability:
+        logger.warning(
+            f"Local GPU compute capability is SM {local_cc:.1f} but scheme "
+            f"'{scheme.value}' requires SM {info.min_compute_capability:.1f} "
+            "for inference. Quantization will still run, but the resulting "
+            "model cannot be served on this GPU. Confirm your serving target "
+            f"supports SM {info.min_compute_capability:.1f}+ before continuing."
+        )
+
+
+def pop_with_override_warning(
+    kwargs: dict, keys: tuple[str, ...], context: str
+) -> None:
+    """Drop ``keys`` from ``kwargs`` in place, warning for any that were set.
+
+    Used when a quantizer needs to pass these kwargs explicitly to
+    ``from_pretrained`` and a user-supplied value would silently lose.
+    """
+    for key in keys:
+        if key in kwargs:
+            logger.warning(
+                f"Ignoring user-supplied model_kwargs['{key}']={kwargs[key]!r}: "
+                f"{context} sets this explicitly during quantization."
+            )
+            kwargs.pop(key)
+
+
+def assert_output_path_writable(output_path: str) -> None:
+    """Fail fast if the output path is not writable.
+
+    Saves the user from discovering a read-only / full disk after hours of
+    calibration. Creates parent directories if needed.
+    """
+    import os
+    import tempfile
+
+    path = Path(output_path)
+    if path.exists() and path.is_file():
+        raise RuntimeError(
+            f"Output path '{output_path}' exists and is a file, not a directory."
+        )
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        raise RuntimeError(
+            f"Cannot create output directory '{output_path}': {e}"
+        ) from e
+    if not os.access(path, os.W_OK):
+        raise RuntimeError(f"Output directory '{output_path}' is not writable.")
+    try:
+        with tempfile.NamedTemporaryFile(
+            dir=path, prefix=".oumi_writable_probe_", delete=True
+        ):
+            pass
+    except OSError as e:
+        raise RuntimeError(
+            f"Cannot write to output directory '{output_path}': {e}"
+        ) from e
 
 
 def get_directory_size(path: str) -> int:

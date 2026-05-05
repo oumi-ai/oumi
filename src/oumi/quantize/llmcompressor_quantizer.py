@@ -37,7 +37,13 @@ from oumi.quantize.constants import (
     QuantizationAlgorithm,
     SchemeInfo,
 )
-from oumi.quantize.utils import format_size, get_directory_size
+from oumi.quantize.utils import (
+    assert_output_path_writable,
+    format_size,
+    get_directory_size,
+    pop_with_override_warning,
+    warn_if_local_gpu_below_inference_capability,
+)
 from oumi.utils.logging import logger
 
 _VALID_LLMC_ALGORITHMS = frozenset(
@@ -116,6 +122,9 @@ class LLMCompressorQuantization(BaseQuantization):
         scheme = cast(QuantizationScheme, config.scheme)
         scheme_info = SCHEME_REGISTRY[scheme]
 
+        warn_if_local_gpu_below_inference_capability(scheme)
+        assert_output_path_writable(config.output_path)
+
         logger.info(
             f"Starting LLM Compressor quantization: "
             f"scheme={scheme.value}, llmc_scheme={scheme_info.llmc_scheme}"
@@ -123,9 +132,11 @@ class LLMCompressorQuantization(BaseQuantization):
 
         logger.info(f"Loading model: {config.model.model_name}")
         model_kwargs = dict(config.model.model_kwargs or {})
-        # Drop keys we pass explicitly to avoid duplicate keyword args.
-        model_kwargs.pop("device_map", None)
-        model_kwargs.pop("torch_dtype", None)
+        pop_with_override_warning(
+            model_kwargs,
+            ("device_map", "torch_dtype"),
+            "LLM Compressor quantization",
+        )
         model_kwargs["trust_remote_code"] = config.model.trust_remote_code
         model = AutoModelForCausalLM.from_pretrained(
             config.model.model_name,
@@ -274,12 +285,30 @@ class LLMCompressorQuantization(BaseQuantization):
 
         def _get_text_column(dataset) -> str:
             """Detect the text column in the dataset."""
-            for col in ("text", "content", "messages"):
+            recognized = (
+                "text",
+                "content",
+                "messages",
+                "prompt",
+                "instruction",
+                "input",
+                "question",
+                "query",
+                "body",
+            )
+            for col in recognized:
                 if col in dataset.column_names:
                     return col
-            return dataset.column_names[0]
+            raise ValueError(
+                f"Calibration dataset '{config.calibration_dataset}' has no "
+                f"recognized text column. Available columns: "
+                f"{dataset.column_names}. Recognized names: {list(recognized)}. "
+                "Use a dataset that contains one of these columns, or rename "
+                "the relevant column before quantization."
+            )
 
         text_column = _get_text_column(ds)
+        logger.info(f"Using calibration text column: '{text_column}'")
 
         def _tokenize(sample):
             text = sample[text_column]

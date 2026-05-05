@@ -29,7 +29,13 @@ from oumi.core.configs.quantization_config import (
 )
 from oumi.quantize.base import BaseQuantization, QuantizationResult
 from oumi.quantize.constants import BNB_SCHEMES
-from oumi.quantize.utils import format_size, get_directory_size
+from oumi.quantize.utils import (
+    assert_output_path_writable,
+    format_size,
+    get_directory_size,
+    pop_with_override_warning,
+    warn_if_local_gpu_below_inference_capability,
+)
 from oumi.utils.logging import logger
 
 
@@ -81,6 +87,10 @@ class BitsAndBytesQuantization(BaseQuantization):
         # Validate configuration for this quantizer
         self.validate_config(config)
 
+        scheme = cast(QuantizationScheme, config.scheme)
+        warn_if_local_gpu_below_inference_capability(scheme)
+        assert_output_path_writable(config.output_path)
+
         logger.info("Starting BitsAndBytes quantization pipeline...")
 
         # Perform quantization
@@ -119,9 +129,11 @@ class BitsAndBytesQuantization(BaseQuantization):
         logger.info(f"Using {scheme.value} quantization")
 
         model_kwargs = dict(config.model.model_kwargs or {})
-        # Drop keys we pass explicitly to avoid duplicate keyword args.
-        model_kwargs.pop("device_map", None)
-        model_kwargs.pop("torch_dtype", None)
+        pop_with_override_warning(
+            model_kwargs,
+            ("device_map", "torch_dtype"),
+            "BitsAndBytes quantization",
+        )
         model_kwargs["trust_remote_code"] = config.model.trust_remote_code
 
         model = AutoModelForCausalLM.from_pretrained(

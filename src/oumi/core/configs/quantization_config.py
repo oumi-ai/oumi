@@ -182,8 +182,16 @@ class QuantizationConfig(BaseConfig):
             self.algorithm, QuantizationAlgorithm, "algorithm"
         )
 
-        # BnB backend forces the BnB algorithm.
+        # BnB backend only supports the BnB algorithm; AUTO resolves to it.
         if self.backend == QuantizationBackend.BNB:
+            if self.algorithm not in (
+                QuantizationAlgorithm.AUTO,
+                QuantizationAlgorithm.BNB,
+            ):
+                raise OumiConfigError(
+                    f"Algorithm '{self.algorithm.value}' is not compatible with "
+                    "BitsAndBytes schemes (bnb_*). Use 'auto' or 'bnb'."
+                )
             self.algorithm = QuantizationAlgorithm.BNB
 
         # LLM Compressor backend rejects the BnB algorithm.

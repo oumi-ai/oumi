@@ -142,6 +142,13 @@ class TestQuantizationConfigAlgorithm:
         )
         assert config.algorithm == QuantizationAlgorithm.BNB
 
+    def test_bnb_scheme_rejects_non_bnb_algorithm(self):
+        with pytest.raises(OumiConfigError, match="not compatible with"):
+            _make_config(
+                scheme=QuantizationScheme.BNB_NF4,
+                algorithm=QuantizationAlgorithm.GPTQ,
+            )
+
     def test_llmc_scheme_rejects_bnb_algorithm(self):
         with pytest.raises(OumiConfigError, match="not compatible with"):
             _make_config(

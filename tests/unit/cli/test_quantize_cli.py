@@ -125,11 +125,16 @@ def test_list_algorithms_callback_false_noop(app):
     assert "--list-algorithms" in result.stdout
 
 
-def test_list_algorithms_prints_all_algorithms(app):
+def test_list_algorithms_prints_user_selectable_algorithms(app):
     result = runner.invoke(app, ["--list-algorithms"])
     assert result.exit_code == 0
     for algo in QuantizationAlgorithm:
-        assert algo.value in result.stdout
+        # 'bnb' is auto-selected for bnb_* schemes; intentionally hidden from
+        # the user-facing listing.
+        if algo == QuantizationAlgorithm.BNB:
+            assert algo.value not in result.stdout
+        else:
+            assert algo.value in result.stdout
 
 
 def test_list_algorithms_table_columns(app):
