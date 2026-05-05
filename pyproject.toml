@@ -12,9 +12,10 @@ oumi = ["LICENSE", "README.md", "*.jinja"]
 # default setuptools config.
 
 # We currently use the Omegaconf dev version, and uv doesn't allow pre-release versions
-# by default.
+# by default. "explicit" only permits pre-releases when a package is
+# explicitly pinned to one (e.g. omegaconf==2.4.0.dev4)
 [tool.uv]
-prerelease = "allow"
+prerelease = "explicit"
 override-dependencies = ["transformers>=5.5,<5.8"]
 
 [project]
