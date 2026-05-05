@@ -15,7 +15,7 @@
 import pytest
 
 from oumi.core.configs.params.environment_params import EnvironmentParams
-from oumi.core.configs.params.tool_params import ToolResult
+from oumi.core.types.tool_call import ToolResult
 from oumi.environments.deterministic_environment import (
     DeterministicEnvironment,
     DeterministicEnvironmentKwargs,

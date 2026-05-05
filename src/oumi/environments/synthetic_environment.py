@@ -21,58 +21,15 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
+import jsonschema
+
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.environment_params import EnvironmentParams
-from oumi.core.configs.params.tool_params import ToolParams, ToolResult
+from oumi.core.configs.params.tool_params import ToolParams
 from oumi.core.registry import register_environment
+from oumi.core.types.tool_call import ToolResult
 from oumi.environments.base_environment import BaseEnvironment
 from oumi.environments.deterministic_tool import DeterministicTool
-
-
-def _validate_json_schema_value(
-    value: Any,
-    schema: dict[str, Any],
-    path: str = "$",
-) -> None:
-    """Validate a JSON-like value against a minimal schema subset."""
-    expected_type = schema.get("type")
-    if expected_type == "object":
-        if not isinstance(value, dict):
-            raise ValueError(f"{path} must be an object.")
-        required = schema.get("required", [])
-        for key in required:
-            if key not in value:
-                raise ValueError(f"{path}.{key} is required.")
-        for key, child_value in value.items():
-            child_schema = schema.get("properties", {}).get(key)
-            if child_schema is not None:
-                _validate_json_schema_value(child_value, child_schema, f"{path}.{key}")
-    elif expected_type == "array":
-        if not isinstance(value, list):
-            raise ValueError(f"{path} must be an array.")
-        item_schema = schema.get("items")
-        if item_schema is not None:
-            for idx, item in enumerate(value):
-                _validate_json_schema_value(item, item_schema, f"{path}[{idx}]")
-    elif expected_type == "string":
-        if not isinstance(value, str):
-            raise ValueError(f"{path} must be a string.")
-    elif expected_type == "integer":
-        if isinstance(value, bool) or not isinstance(value, int):
-            raise ValueError(f"{path} must be an integer.")
-    elif expected_type == "number":
-        if isinstance(value, bool) or not isinstance(value, (int, float)):
-            raise ValueError(f"{path} must be a number.")
-    elif expected_type == "boolean":
-        if not isinstance(value, bool):
-            raise ValueError(f"{path} must be a boolean.")
-    elif expected_type == "null":
-        if value is not None:
-            raise ValueError(f"{path} must be null.")
-
-    enum_values = schema.get("enum")
-    if enum_values is not None and value not in enum_values:
-        raise ValueError(f"{path} must be one of {enum_values}.")
 
 
 @dataclass
@@ -85,7 +42,7 @@ class SyntheticStateParams(BaseParams):
     def __post_init__(self):
         """Validate state config consistency."""
         if self.state_schema is not None and self.initial_state is not None:
-            _validate_json_schema_value(self.initial_state, self.state_schema)
+            jsonschema.validate(self.initial_state, self.state_schema)
 
 
 @dataclass

@@ -14,13 +14,11 @@
 
 from typing import Any
 
+import jsonschema
 import pytest
 
-from oumi.core.configs.params.tool_params import (
-    ToolParams,
-    ToolResult,
-    ToolSchema,
-)
+from oumi.core.configs.params.tool_params import ToolArgumentError, ToolParams
+from oumi.core.types.tool_call import JSONSchema, ToolDefinition, ToolResult
 from oumi.environments.synthetic_environment import SyntheticStateParams
 
 
@@ -49,14 +47,15 @@ def test_tool_params_to_llm_schema():
         id="search",
         name="Search",
         description="Search the catalog.",
-        parameters=ToolSchema(
-            type="object",
-            properties={"query": ToolSchema(type="string")},
-            required=["query"],
-        ),
+        parameters={
+            "type": "object",
+            "properties": {"query": {"type": "string"}},
+            "required": ["query"],
+        },
     )
     assert tool.to_llm_schema() == {
-        "name": "Search",
+        "name": "search",
+        "display_name": "Search",
         "description": "Search the catalog.",
         "parameters": {
             "type": "object",
@@ -71,16 +70,17 @@ def test_tool_params_to_llm_schema_includes_output_schema():
         id="search",
         name="Search",
         description="Search the catalog.",
-        parameters=ToolSchema(type="object", properties={}),
-        output_schema=ToolSchema(
-            type="object",
-            properties={"result": ToolSchema(type="string")},
-        ),
+        parameters={"type": "object", "properties": {}},
+        output_schema={
+            "type": "object",
+            "properties": {"result": {"type": "string"}},
+        },
     )
     assert tool.to_llm_schema() == {
-        "name": "Search",
+        "name": "search",
+        "display_name": "Search",
         "description": "Search the catalog.",
-        "parameters": {"type": "object"},
+        "parameters": {"type": "object", "properties": {}},
         "output_schema": {
             "type": "object",
             "properties": {"result": {"type": "string"}},
@@ -104,8 +104,53 @@ def test_tool_params_create_reads_extended_fields():
             "output_schema": {"type": "object", "properties": {}},
         }
     )
-    assert tool.parameters.required == ["policy_id"]
-    assert tool.output_schema == ToolSchema(type="object", properties={})
+    assert tool.parameters["required"] == ["policy_id"]
+    assert tool.output_schema == {"type": "object", "properties": {}}
+
+
+def test_tool_params_accepts_jsonschema_pydantic_instance():
+    """Direct construction with a Pydantic JSONSchema is supported via post_init."""
+    tool = ToolParams(
+        id="search",
+        name="Search",
+        description="Search.",
+        parameters=JSONSchema(  # type: ignore[arg-type]
+            type="object",
+            properties={"q": JSONSchema(type="string")},
+            required=["q"],
+        ),
+    )
+    assert isinstance(tool.parameters, dict)
+    assert tool.parameters == {
+        "type": "object",
+        "properties": {"q": {"type": "string"}},
+        "required": ["q"],
+    }
+
+
+def test_tool_params_to_tool_definition_drops_chain_internals():
+    tool = ToolParams(
+        id="search",
+        name="Search Display",
+        description="Search the catalog.",
+        parameters={
+            "type": "object",
+            "properties": {"query": {"type": "string"}},
+            "required": ["query"],
+        },
+        output_schema={"type": "object"},
+        read_only=False,
+    )
+    td = tool.to_tool_definition()
+    assert isinstance(td, ToolDefinition)
+    # name/description/parameters preserved; display name and output_schema dropped.
+    assert td.function.name == "search"
+    assert td.function.description == "Search the catalog."
+    assert td.function.parameters == JSONSchema(
+        type="object",
+        properties={"query": JSONSchema(type="string")},
+        required=["query"],
+    )
 
 
 def test_tool_result_round_trip():
@@ -114,70 +159,67 @@ def test_tool_result_round_trip():
     assert result.updated_state is None
 
 
-def test_tool_schema_to_dict():
-    schema = ToolSchema(
-        type="object",
-        properties={
-            "query": ToolSchema(type="string"),
-        },
-        description="Tool input schema.",
-        required=["query"],
+def test_validate_arguments_rejects_wrong_item_type():
+    tool = ToolParams(
+        id="t",
+        name="T",
+        description="d",
+        parameters={"type": "array", "items": {"type": "string"}},
     )
-    assert schema.to_dict() == {
-        "type": "object",
-        "properties": {"query": {"type": "string"}},
-        "description": "Tool input schema.",
-        "required": ["query"],
-    }
+    with pytest.raises(ToolArgumentError):
+        tool.validate_arguments(["ok", 2])  # type: ignore[arg-type]
 
 
-def test_tool_schema_create_recursively_coerces_nested_properties():
-    schema = ToolSchema.create(
-        {
+def test_validate_arguments_rejects_value_outside_enum():
+    tool = ToolParams(
+        id="t",
+        name="T",
+        description="d",
+        parameters={"type": "string", "enum": ["a", "b"]},
+    )
+    with pytest.raises(ToolArgumentError):
+        tool.validate_arguments("c")  # type: ignore[arg-type]
+
+
+def _policy_tool() -> ToolParams:
+    return ToolParams(
+        id="policy",
+        name="Policy",
+        description="Look up policy.",
+        parameters={
             "type": "object",
             "properties": {
-                "customer": {
-                    "type": "object",
-                    "properties": {
-                        "email": {"type": "string", "description": "Customer email."}
-                    },
-                    "required": ["email"],
-                }
+                "policy_id": {"type": "string"},
+                "limit": {"type": "integer"},
             },
-            "required": ["customer"],
-        }
-    )
-    assert isinstance(schema.properties["customer"], ToolSchema)
-    assert isinstance(schema.properties["customer"].properties["email"], ToolSchema)
-    assert schema.to_dict() == {
-        "type": "object",
-        "properties": {
-            "customer": {
-                "type": "object",
-                "properties": {
-                    "email": {
-                        "type": "string",
-                        "description": "Customer email.",
-                    }
-                },
-                "required": ["email"],
-            }
+            "required": ["policy_id"],
         },
-        "required": ["customer"],
-    }
+    )
 
 
-def test_tool_schema_required_must_exist_in_properties():
-    with pytest.raises(ValueError, match="required contains unknown properties"):
-        ToolSchema(
-            type="object",
-            properties={"query": ToolSchema(type="string")},
-            required=["missing"],
-        )
+def test_validate_arguments_accepts_conforming_value():
+    _policy_tool().validate_arguments({"policy_id": "abc", "limit": 5})
+
+
+def test_validate_arguments_missing_required_raises():
+    with pytest.raises(ToolArgumentError, match=r"policy_id"):
+        _policy_tool().validate_arguments({"limit": 5})
+
+
+def test_validate_arguments_wrong_type_raises():
+    with pytest.raises(ToolArgumentError, match=r"integer"):
+        _policy_tool().validate_arguments({"policy_id": "abc", "limit": "five"})
+
+
+def test_validate_arguments_empty_schema_accepts_any_object():
+    # Tools that don't declare parameters shouldn't force callers to pass {}.
+    tool = ToolParams(id="ping", name="Ping", description="No args.")
+    tool.validate_arguments({})
+    tool.validate_arguments({"extra": "ignored"})
 
 
 def test_synthetic_state_params_validates_initial_state_against_schema():
-    with pytest.raises(ValueError, match=r"\$\.files\.count must be an integer"):
+    with pytest.raises(jsonschema.ValidationError):
         SyntheticStateParams(
             state_schema=_make_state_schema(),
             initial_state={"files": {"count": "bad"}},

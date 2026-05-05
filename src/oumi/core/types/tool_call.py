@@ -25,6 +25,7 @@ keys at validation time would silently lose information that
 downstream code relies on.
 """
 
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Literal
 
@@ -174,3 +175,17 @@ class ToolCall(pydantic.BaseModel):
 
     function: FunctionCall
     """The function the model called."""
+
+
+@dataclass
+class ToolResult:
+    """Result returned by an environment ``step()``.
+
+    Runtime value (not an OpenAI wire-format type) — projected by the
+    synthesizer into ``Message(role=TOOL, content=...)`` before output.
+    ``output`` may be a string or a JSON-serializable dict; the
+    synthesizer json-encodes dicts at the message boundary.
+    """
+
+    output: str | dict[str, Any]
+    updated_state: dict[str, Any] | None = None
