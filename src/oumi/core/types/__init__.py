@@ -45,8 +45,10 @@ from oumi.core.types.conversation import (
 from oumi.core.types.tool_call import (
     FunctionCall,
     FunctionDefinition,
+    JSONSchema,
     ToolCall,
     ToolDefinition,
+    ToolResult,
     ToolType,
 )
 from oumi.exceptions import HardwareException
@@ -59,11 +61,13 @@ __all__ = [
     "FunctionCall",
     "FunctionDefinition",
     "HardwareException",
+    "JSONSchema",
     "Message",
     "Role",
     "TemplatedMessage",
     "ToolCall",
     "ToolDefinition",
+    "ToolResult",
     "ToolType",
     "Type",
 ]
