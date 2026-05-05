@@ -15,6 +15,7 @@
 import json
 from typing import Any
 
+import pydantic
 from typing_extensions import override
 
 from oumi.core.async_utils import safe_asyncio_run
@@ -24,6 +25,7 @@ from oumi.core.configs import (
     ModelParams,
     RemoteParams,
 )
+from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.types.conversation import Conversation, FinishReason, Message, Role
 from oumi.inference.remote_inference_engine import (
     BatchInfo,
@@ -133,6 +135,13 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         if generation_params.stop_strings is not None:
             body["stop_sequences"] = generation_params.stop_strings
 
+        if generation_params.guided_decoding:
+            body.update(
+                _convert_guided_decoding_config_to_api_input(
+                    generation_params.guided_decoding
+                )
+            )
+
         # Enable prompt caching. Anthropic automatically caches content up to
         # the last cacheable block. This reduces latency and cost for repeated
         # prefixes (system prompts, long context, multi-turn conversations).
@@ -197,8 +206,16 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
                 f"model={response.get('model')}, "
                 f"usage={response.get('usage')}"
             )
+        # Forced tool use returns the structured payload in a tool_use block.
+        message_content: str | None = None
+        for block in content_blocks:
+            if block.get("type") == "tool_use":
+                message_content = json.dumps(block.get("input", {}))
+                break
+        if message_content is None:
+            message_content = content_blocks[0]["text"]
         new_message = Message(
-            content=content_blocks[0]["text"],
+            content=message_content,
             role=Role.ASSISTANT,
         )
         metadata = dict(original_conversation.metadata)
@@ -226,6 +243,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
     def get_supported_params(self) -> set[str]:
         """Returns a set of supported generation parameters for this engine."""
         return {
+            "guided_decoding",
             "max_new_tokens",
             "stop_strings",
             "temperature",
@@ -679,3 +697,37 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
                     raise RuntimeError(f"Failed to cancel batch: {error_text}")
                 data = await response.json()
                 return self._convert_anthropic_batch_to_batch_info(data)
+
+
+def _convert_guided_decoding_config_to_api_input(
+    guided_config: GuidedDecodingParams,
+) -> dict:
+    """Converts a guided decoding configuration to an Anthropic API input."""
+    if guided_config.json is None:
+        raise ValueError(
+            "Only JSON schema guided decoding is supported, got '%s'",
+            guided_config,
+        )
+
+    json_schema = guided_config.json
+
+    if isinstance(json_schema, type) and issubclass(json_schema, pydantic.BaseModel):
+        schema_name = json_schema.__name__
+        schema_value = json_schema.model_json_schema()
+    elif isinstance(json_schema, dict):
+        schema_name = "Response"  # Generic name if no schema name is provided.
+        schema_value = json_schema
+    elif isinstance(json_schema, str):
+        schema_name = "Response"  # Generic name if no schema name is provided.
+        schema_value = json.loads(json_schema)
+    else:
+        raise ValueError(
+            f"Got unsupported JSON schema type: {type(json_schema)}"
+            "Please provide a Pydantic model or a JSON schema as a "
+            "string or dict."
+        )
+
+    return {
+        "tools": [{"name": schema_name, "input_schema": schema_value}],
+        "tool_choice": {"type": "tool", "name": schema_name},
+    }
