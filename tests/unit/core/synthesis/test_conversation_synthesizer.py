@@ -20,6 +20,7 @@ import pytest
 
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.inference_engine_type import InferenceEngineType
+from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.configs.params.remote_params import RemoteParams
 from oumi.core.configs.params.synthesis_params import (
@@ -29,17 +30,27 @@ from oumi.core.configs.params.synthesis_params import (
     SampledAttributeValue,
 )
 from oumi.core.synthesis.conversation_synthesizer import ConversationSynthesizer
-from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.core.types.conversation import (
+    PLANNER_JSON_SCHEMA,
+    Conversation,
+    Message,
+    Role,
+)
 
 
 @pytest.fixture
 def mock_inference_config():
-    """Create a mock inference config."""
-    mock = Mock(spec=InferenceConfig)
-    mock.engine = InferenceEngineType.NATIVE
-    mock.model = Mock(spec=ModelParams)
-    mock.remote_params = Mock(spec=RemoteParams)
-    return mock
+    """Create a real InferenceConfig.
+
+    Uses a real config rather than ``Mock(spec=InferenceConfig)`` so that
+    ``dataclasses.replace`` works in ``_planner_inference_config``.
+    """
+    return InferenceConfig(
+        engine=InferenceEngineType.NATIVE,
+        model=Mock(spec=ModelParams),
+        remote_params=Mock(spec=RemoteParams),
+        generation=GenerationParams(),
+    )
 
 
 @pytest.fixture
@@ -395,7 +406,9 @@ def test_planner_prompt_includes_role_context(
 
     example_response = planner.messages[2].content
     assert isinstance(example_response, str)
-    assert "```json" in example_response
+    # Wrapped object form, no markdown fences (matches PLANNER_JSON_SCHEMA).
+    assert example_response.startswith('{"turns":')
+    assert "```" not in example_response
     assert '"turn": 1' in example_response
     assert '"instruction"' in example_response
 
@@ -413,14 +426,14 @@ def test_parse_plan_extracts_turn_instructions(
         mock_inference_config,
     )
 
-    plan = """```json
-[
-  {"turn": 1, "instruction": "Greet support and explain the issue."},
-  {"turn": 2, "instruction": "Acknowledge and ask for details."},
-  {"turn": 3, "instruction": "Provide order number."},
-  {"turn": 4, "instruction": "Offer a resolution."}
-]
-```"""
+    plan = (
+        '{"turns": ['
+        '{"turn": 1, "instruction": "Greet support and explain the issue."},'
+        '{"turn": 2, "instruction": "Acknowledge and ask for details."},'
+        '{"turn": 3, "instruction": "Provide order number."},'
+        '{"turn": 4, "instruction": "Offer a resolution."}'
+        "]}"
+    )
 
     result = synthesizer._parse_plan(plan, target_turns=4)
 
@@ -430,6 +443,100 @@ def test_parse_plan_extracts_turn_instructions(
     assert result[1] == "Acknowledge and ask for details."
     assert result[2] == "Provide order number."
     assert result[3] == "Offer a resolution."
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_parse_plan_unwraps_object_form(
+    mock_build_inference_engine,
+    mock_inference_config,
+):
+    """``_parse_plan`` extracts turns from the ``{"turns": [...]}`` object form.
+
+    This is the primary shape enforced by ``PLANNER_JSON_SCHEMA`` for guided
+    decoding, so the happy path must be covered directly.
+    """
+    mock_build_inference_engine.return_value = Mock()
+
+    synthesizer = ConversationSynthesizer(
+        GeneralSynthesisParams(),
+        mock_inference_config,
+    )
+
+    plan = (
+        '{"turns": ['
+        '{"turn": 1, "instruction": "Greet"},'
+        '{"turn": 2, "instruction": "Answer"}'
+        "]}"
+    )
+    result = synthesizer._parse_plan(plan, target_turns=2)
+    assert result == ["Greet", "Answer"]
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_generate_plan_uses_planner_only_guided_decoding(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_inference_config,
+):
+    """Planner calls get JSON guided decoding without affecting turn generation."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+
+    planner_result = Conversation(
+        messages=[
+            Message(
+                role=Role.ASSISTANT,
+                content=(
+                    '{"turns": ['
+                    '{"turn": 1, "instruction": "Ask"},'
+                    '{"turn": 2, "instruction": "Answer"}'
+                    "]}"
+                ),
+            )
+        ]
+    )
+    turn_result = Conversation(messages=[Message(role=Role.ASSISTANT, content="Turn")])
+    mock_inference_engine.infer.side_effect = [
+        [planner_result],
+        [turn_result],
+        [turn_result],
+    ]
+
+    synthesizer = ConversationSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+
+    result = synthesizer.synthesize(
+        [{"customer_type": "friendly", "issue": "product question"}],
+        MultiTurnAttribute(
+            id="test_conversation",
+            min_turns=2,
+            max_turns=2,
+            role_instruction_messages={
+                Role.USER: "You are a {customer_type} customer with issue: {issue}.",
+                Role.ASSISTANT: "You are a helpful support agent.",
+            },
+            conversation_planner="Plan a conversation about {issue}.",
+        ),
+    )
+
+    assert result[0] is not None
+    planner_call = mock_inference_engine.infer.call_args_list[0].kwargs[
+        "inference_config"
+    ]
+    turn_call = mock_inference_engine.infer.call_args_list[1].kwargs["inference_config"]
+
+    # Planner config is a fresh copy with guided decoding set.
+    assert planner_call is not mock_inference_config
+    assert planner_call.generation is not mock_inference_config.generation
+    assert planner_call.generation.guided_decoding is not None
+    assert planner_call.generation.guided_decoding.json == PLANNER_JSON_SCHEMA
+    # Turn calls use the original config — no guided decoding.
+    assert turn_call is mock_inference_config
+    assert turn_call.generation.guided_decoding is None
+    # Original config is left untouched.
+    assert mock_inference_config.generation.guided_decoding is None
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
@@ -463,12 +570,12 @@ def test_parse_plan_handles_missing_turns(
         mock_inference_config,
     )
 
-    plan = """```json
-[
-  {"turn": 1, "instruction": "First message."},
-  {"turn": 3, "instruction": "Third message."}
-]
-```"""
+    plan = (
+        '{"turns": ['
+        '{"turn": 1, "instruction": "First message."},'
+        '{"turn": 3, "instruction": "Third message."}'
+        "]}"
+    )
 
     result = synthesizer._parse_plan(plan, target_turns=3)
 
@@ -492,10 +599,12 @@ def test_parse_plan_handles_raw_json(
         mock_inference_config,
     )
 
-    plan = """[
-  {"turn": 1, "instruction": "First instruction"},
-  {"turn": 2, "instruction": "Second instruction"}
-]"""
+    plan = (
+        '{"turns": ['
+        '{"turn": 1, "instruction": "First instruction"},'
+        '{"turn": 2, "instruction": "Second instruction"}'
+        "]}"
+    )
 
     result = synthesizer._parse_plan(plan, target_turns=2)
 
@@ -537,12 +646,12 @@ def test_parse_plan_handles_string_turn_numbers(
         GeneralSynthesisParams(),
         mock_inference_config,
     )
-    plan = """```json
-[
-  {"turn": "1", "instruction": "First instruction"},
-  {"turn": "2", "instruction": "Second instruction"}
-]
-```"""
+    plan = (
+        '{"turns": ['
+        '{"turn": "1", "instruction": "First instruction"},'
+        '{"turn": "2", "instruction": "Second instruction"}'
+        "]}"
+    )
 
     result = synthesizer._parse_plan(plan, target_turns=2)
 
@@ -614,63 +723,23 @@ def test_parse_plan_extracts_json_with_surrounding_prose(
     mock_build_inference_engine,
     mock_inference_config,
 ):
-    """Test that _parse_plan extracts JSON when LLM wraps it in prose."""
+    """Tolerate stray prose around the wrapped object — `extract_json` finds it."""
     mock_build_inference_engine.return_value = Mock()
     synthesizer = ConversationSynthesizer(
         GeneralSynthesisParams(), mock_inference_config
     )
     plan = (
         "Sure! Here is a conversation plan:\n"
-        "```json\n"
-        "[\n"
-        '  {"turn": 1, "instruction": "Ask about the product"},\n'
-        '  {"turn": 2, "instruction": "Provide product details"}\n'
-        "]\n"
-        "```\n"
+        '{"turns": ['
+        '{"turn": 1, "instruction": "Ask about the product"},'
+        '{"turn": 2, "instruction": "Provide product details"}'
+        "]}\n"
         "Let me know if you need any changes."
     )
     result = synthesizer._parse_plan(plan, target_turns=2)
     assert result is not None
     assert result[0] == "Ask about the product"
     assert result[1] == "Provide product details"
-
-
-@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
-def test_parse_plan_extracts_raw_json_without_fences(
-    mock_build_inference_engine,
-    mock_inference_config,
-):
-    """Test that _parse_plan extracts raw JSON without code fences."""
-    mock_build_inference_engine.return_value = Mock()
-    synthesizer = ConversationSynthesizer(
-        GeneralSynthesisParams(), mock_inference_config
-    )
-    plan = (
-        "Here is the plan:\n"
-        '[{"turn": 1, "instruction": "Greet"}, '
-        '{"turn": 2, "instruction": "Respond"}]\n'
-        "That should work."
-    )
-    result = synthesizer._parse_plan(plan, target_turns=2)
-    assert result is not None
-    assert result[0] == "Greet"
-    assert result[1] == "Respond"
-
-
-@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
-def test_parse_plan_handles_single_dict_json(
-    mock_build_inference_engine,
-    mock_inference_config,
-):
-    """Test that _parse_plan handles LLM returning a single dict instead of a list."""
-    mock_build_inference_engine.return_value = Mock()
-    synthesizer = ConversationSynthesizer(
-        GeneralSynthesisParams(), mock_inference_config
-    )
-    plan = '```json\n{"turn": 1, "instruction": "Only turn"}\n```'
-    result = synthesizer._parse_plan(plan, target_turns=1)
-    assert result is not None
-    assert result[0] == "Only turn"
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
