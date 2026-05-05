@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from oumi.core.configs.params.grounding_params import GroundingFact
@@ -24,7 +25,7 @@ from oumi.core.configs.params.grounding_params import GroundingFact
 def _format_grounding_value(value: Any) -> str:
     """Render a fact value as a quoted string or bare literal."""
     if isinstance(value, str):
-        return f'"{value}"'
+        return json.dumps(value)
     return str(value)
 
 
@@ -32,12 +33,12 @@ def describe_grounding_default(facts: list[GroundingFact]) -> str:
     """Render grounding facts as a bulleted markdown block.
 
     Each fact's ``data`` dict is rendered as a single ``key=value,
-    key=value`` line. Returns "" for an empty fact list.
+    key=value`` line. Facts with empty ``data`` are skipped.
     """
-    if not facts:
-        return ""
     lines: list[str] = []
     for fact in facts:
+        if not fact.data:
+            continue
         parts = [
             f"{key}={_format_grounding_value(value)}"
             for key, value in fact.data.items()

@@ -61,3 +61,19 @@ def test_default_describe_grounding_delegates_to_helper():
     env = _MinimalEnv()
     facts = [GroundingFact(data={"id": "42", "title": "Dune"})]
     assert env.describe_grounding(facts) == '- id="42", title="Dune"'
+
+
+def test_default_describe_grounding_skips_empty_data_facts():
+    env = _MinimalEnv()
+    facts = [
+        GroundingFact(data={}),
+        GroundingFact(data={"id": "1"}),
+        GroundingFact(data={}),
+    ]
+    assert env.describe_grounding(facts) == '- id="1"'
+
+
+def test_default_describe_grounding_escapes_embedded_quotes():
+    env = _MinimalEnv()
+    facts = [GroundingFact(data={"title": 'Foo "the" Bar'})]
+    assert env.describe_grounding(facts) == r'- title="Foo \"the\" Bar"'
