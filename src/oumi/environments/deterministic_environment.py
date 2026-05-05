@@ -150,17 +150,15 @@ class DeterministicEnvironment(BaseEnvironment):
         """
         pool: list[GroundingFact] = []
         for tool in self._params.tools:
-            grounding = getattr(tool, "grounding", None)
-            if grounding is None:
+            if tool.grounding is None:
                 continue
             if tool_ids is not None and tool.id not in tool_ids:
                 continue
-            whitelist = set(grounding.fields)
+            whitelist = set(tool.grounding.fields)
             for entry in tool.deterministic_outputs:
                 row = {**entry.input, **entry.output}
                 projected = {
                     key: value for key, value in row.items() if key in whitelist
                 }
                 pool.append(GroundingFact(data=projected))
-        sampled = rng.sample(pool, min(n, len(pool)))
-        return sampled
+        return rng.sample(pool, min(n, len(pool)))

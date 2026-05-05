@@ -106,7 +106,7 @@ class EnvironmentParams(BaseParams):
     def _validate_env_grounding_has_grounded_tool(self) -> None:
         if self.grounding is None:
             return
-        if not any(getattr(tool, "grounding", None) is not None for tool in self.tools):
+        if not any(tool.grounding is not None for tool in self.tools):
             raise ValueError(
                 f"{type(self).__name__} '{self.id}' declares grounding but "
                 f"no tool in this environment declares a grounding block. "

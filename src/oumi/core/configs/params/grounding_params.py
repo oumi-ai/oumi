@@ -35,8 +35,7 @@ class GroundingConfig(BaseParams):
     """Number of grounding facts sampled per conversation."""
 
     seed: int | None = None
-    """If set, per-sample RNG is seeded from ``(seed + sample_index)`` for
-    reproducibility. If None, grounding uses an unseeded ``random.Random``."""
+    """Optional seed for reproducible grounding sampling."""
 
     def __post_init__(self) -> None:
         """Validate ``sample_size`` is positive."""
@@ -51,12 +50,9 @@ class GroundingConfig(BaseParams):
 class GroundingFact(BaseParams):
     """Env-agnostic representation of a single grounding fact.
 
-    A fact is a flat key-value dict that environments produce during sampling
-    and the synthesizer renders into planner prompts. Environments convert
-    their native state (DeterministicToolOutput entries, synthetic state
-    snippets, DB rows, etc.) into GroundingFact instances. The data dict
-    is expected to be JSON-serializable scalars and is rendered verbatim
-    by ``describe_grounding_default``.
+    Environments produce these during sampling; the planner prompt renders
+    each fact's ``data`` dict as one bullet line. Values are expected to be
+    JSON-serializable scalars.
     """
 
     data: dict[str, Any] = field(default_factory=dict)
@@ -66,13 +62,9 @@ class GroundingFact(BaseParams):
 class ToolGroundingConfig(BaseParams):
     """Per-tool grounding configuration.
 
-    When set on a tool, the owning environment's ``sample_grounding`` includes
-    that tool's ``deterministic_outputs`` in the grounding pool, projected to
-    ``fields``. Tools without this block contribute nothing.
-
-    The ``key`` field names the entity primary key. In v1 it is metadata only;
-    v2 will use it to merge facts from multiple lookup tools that refer to the
-    same entity.
+    Tools that declare this block contribute facts to the environment's
+    grounding pool, projected to ``fields``. Tools without it contribute
+    nothing.
     """
 
     key: str

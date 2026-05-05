@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import random
+
 import pytest
 
 from oumi.core.configs.params.environment_params import EnvironmentParams
@@ -180,7 +182,6 @@ def _det_env_with_n_entries(n: int) -> DeterministicEnvironment:
 
 def test_sample_grounding_only_includes_grounded_tools():
     """Tools without a grounding block contribute zero facts."""
-    import random
 
     grounded = DeterministicTool.create(
         {
@@ -245,7 +246,6 @@ def test_sample_grounding_only_includes_grounded_tools():
 
 def test_sample_grounding_respects_tool_ids_filter():
     """When tool_ids is supplied, only those tools contribute facts."""
-    import random
 
     tool_a = DeterministicTool.create(
         {
@@ -285,7 +285,6 @@ def test_sample_grounding_respects_tool_ids_filter():
 
 def test_sample_grounding_field_missing_in_row_is_dropped():
     """Fields listed in `fields` but absent from a row are silently dropped."""
-    import random
 
     tool = DeterministicTool.create(
         {
@@ -313,8 +312,6 @@ def test_sample_grounding_field_missing_in_row_is_dropped():
 
 
 def test_sample_grounding_returns_n_facts():
-    import random
-
     env = _det_env_with_n_entries(10)
     facts = env.sample_grounding(n=3, rng=random.Random(0))
     assert len(facts) == 3
@@ -325,8 +322,6 @@ def test_sample_grounding_returns_n_facts():
 
 
 def test_sample_grounding_merges_input_and_output_into_data():
-    import random
-
     # Override-on-conflict: output values win over input values for matching keys.
     env = DeterministicEnvironment.from_params(
         _make_params(
@@ -358,8 +353,6 @@ def test_sample_grounding_merges_input_and_output_into_data():
 
 
 def test_sample_grounding_no_replacement_within_call():
-    import random
-
     env = _det_env_with_n_entries(10)
     facts = env.sample_grounding(n=5, rng=random.Random(0))
     ids = [fact.data["id"] for fact in facts]
@@ -367,16 +360,12 @@ def test_sample_grounding_no_replacement_within_call():
 
 
 def test_sample_grounding_truncates_when_n_exceeds_pool():
-    import random
-
     env = _det_env_with_n_entries(3)
     facts = env.sample_grounding(n=10, rng=random.Random(0))
     assert len(facts) == 3
 
 
 def test_sample_grounding_seeded_rng_is_reproducible():
-    import random
-
     env = _det_env_with_n_entries(20)
     facts_a = env.sample_grounding(n=4, rng=random.Random(42))
     facts_b = env.sample_grounding(n=4, rng=random.Random(42))
@@ -386,8 +375,6 @@ def test_sample_grounding_seeded_rng_is_reproducible():
 
 
 def test_sample_grounding_different_seeds_differ():
-    import random
-
     env = _det_env_with_n_entries(20)
     facts_a = env.sample_grounding(n=4, rng=random.Random(1))
     facts_b = env.sample_grounding(n=4, rng=random.Random(999))
@@ -398,8 +385,6 @@ def test_sample_grounding_different_seeds_differ():
 
 
 def test_sample_grounding_pools_across_tools():
-    import random
-
     params = _make_params(
         tools=[
             DeterministicTool(

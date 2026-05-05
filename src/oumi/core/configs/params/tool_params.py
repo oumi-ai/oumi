@@ -79,7 +79,6 @@ class ToolParams(BaseParams):
             raise TypeError(
                 f"Tool definitions must be tool objects or mappings, got {type(raw)}"
             )
-        grounding_raw = raw.get("grounding")
         return cls(
             id=raw["id"],
             name=raw["name"],
@@ -91,12 +90,7 @@ class ToolParams(BaseParams):
                 else None
             ),
             read_only=raw.get("read_only", True),
-            grounding=(
-                grounding_raw
-                if grounding_raw is None
-                or isinstance(grounding_raw, ToolGroundingConfig)
-                else ToolGroundingConfig(**grounding_raw)
-            ),
+            grounding=raw.get("grounding"),
         )
 
     def __post_init__(self):

@@ -28,7 +28,6 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from oumi.core.configs.params.base_params import BaseParams
-from oumi.core.configs.params.grounding_params import ToolGroundingConfig
 from oumi.core.configs.params.tool_params import ToolParams
 
 
@@ -73,7 +72,6 @@ class DeterministicTool(ToolParams):
             else DeterministicToolOutput(**o)
             for o in outputs_raw
         ]
-        grounding_raw = raw.get("grounding")
         return cls(
             id=raw["id"],
             name=raw["name"],
@@ -85,11 +83,6 @@ class DeterministicTool(ToolParams):
                 else None
             ),
             read_only=raw.get("read_only", True),
-            grounding=(
-                grounding_raw
-                if grounding_raw is None
-                or isinstance(grounding_raw, ToolGroundingConfig)
-                else ToolGroundingConfig(**grounding_raw)
-            ),
+            grounding=raw.get("grounding"),
             deterministic_outputs=outputs,
         )
