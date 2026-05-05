@@ -51,7 +51,7 @@ class MixtureStrategy(str, Enum):
         elif self.value == MixtureStrategy.ALL_EXHAUSTED:
             return "all_exhausted"
         else:
-            raise ValueError("Unsupported value for MixtureStrategy")
+            raise OumiConfigError("Unsupported value for MixtureStrategy")
 
 
 class TrainTarget(str, Enum):
@@ -173,24 +173,26 @@ class DatasetParams(BaseParams):
         """Verifies params."""
         if self.sample_count is not None:
             if self.sample_count < 0:
-                raise ValueError("`sample_count` must be greater than 0.")
+                raise OumiConfigError("`sample_count` must be greater than 0.")
         if self.mixture_proportion is not None:
             if self.mixture_proportion < 0:
-                raise ValueError("`mixture_proportion` must be greater than 0.")
+                raise OumiConfigError("`mixture_proportion` must be greater than 0.")
             if self.mixture_proportion > 1:
-                raise ValueError("`mixture_proportion` must not be greater than 1.0 .")
+                raise OumiConfigError(
+                    "`mixture_proportion` must not be greater than 1.0 ."
+                )
 
         if self.transform_num_workers is not None:
             if isinstance(self.transform_num_workers, str):
                 if not (self.transform_num_workers == "auto"):
-                    raise ValueError(
+                    raise OumiConfigError(
                         "Unknown value of transform_num_workers: "
                         f"{self.transform_num_workers}. Must be 'auto' if string."
                     )
             elif (not isinstance(self.transform_num_workers, int)) or (
                 self.transform_num_workers <= 0
             ):
-                raise ValueError(
+                raise OumiConfigError(
                     "Non-positive value of transform_num_workers: "
                     f"{self.transform_num_workers}."
                 )
@@ -200,7 +202,7 @@ class DatasetParams(BaseParams):
                 self.dataset_kwargs.keys()
             )
             if len(conflicting_keys) > 0:
-                raise ValueError(
+                raise OumiConfigError(
                     "dataset_kwargs attempts to override the following "
                     f"reserved fields: {conflicting_keys}. "
                     "Use properties of DatasetParams instead."
@@ -328,7 +330,7 @@ class DatasetSplitParams(BaseParams):
             if not all(
                 [dataset.mixture_proportion is not None for dataset in self.datasets]
             ):
-                raise ValueError(
+                raise OumiConfigError(
                     "If `mixture_proportion` is specified it must be "
                     " specified for all datasets"
                 )
@@ -336,7 +338,7 @@ class DatasetSplitParams(BaseParams):
                 filter(None, [dataset.mixture_proportion for dataset in self.datasets])
             )
             if not self._is_sum_normalized(mix_sum):
-                raise ValueError(
+                raise OumiConfigError(
                     "The sum of `mixture_proportion` must be 1.0. "
                     f"The current sum is {mix_sum} ."
                 )
@@ -344,7 +346,7 @@ class DatasetSplitParams(BaseParams):
             self.mixture_strategy != MixtureStrategy.ALL_EXHAUSTED
             and self.mixture_strategy != MixtureStrategy.FIRST_EXHAUSTED
         ):
-            raise ValueError(
+            raise OumiConfigError(
                 "`mixture_strategy` must be one of "
                 f'["{MixtureStrategy.FIRST_EXHAUSTED.value}", '
                 f'"{MixtureStrategy.ALL_EXHAUSTED.value}"].'
@@ -382,12 +384,12 @@ class DataParams(BaseParams):
         elif split == DatasetSplit.VALIDATION:
             return self.validation
         else:
-            raise ValueError(f"Received invalid split: {split}.")
+            raise OumiConfigError(f"Received invalid split: {split}.")
 
     def __finalize_and_validate__(self):
         """Verifies params."""
         if len(self.train.datasets) == 0:
-            raise ValueError("At least one training dataset is required.")
+            raise OumiConfigError("At least one training dataset is required.")
 
         all_collators = set()
         if self.train.collator_name:
@@ -397,11 +399,11 @@ class DataParams(BaseParams):
         if self.test.collator_name:
             all_collators.add(self.test.collator_name)
         if len(all_collators) >= 2:
-            raise ValueError(
+            raise OumiConfigError(
                 f"Different data collators are not supported yet: {all_collators}"
             )
         elif len(all_collators) == 1 and not self.train.collator_name:
-            raise ValueError(
+            raise OumiConfigError(
                 "Data collator must be also specified "
                 f"on the `train` split: {all_collators}"
             )

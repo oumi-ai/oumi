@@ -29,7 +29,7 @@ def test_dataset_params_reserved_kwargs(field_names: list[str]):
         field_names
     )
     with pytest.raises(
-        ValueError,
+        OumiConfigError,
         match=(
             "dataset_kwargs attempts to override the following reserved fields: "
             f"{invalid_names}"

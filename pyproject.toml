@@ -51,6 +51,7 @@ dependencies = [
     "hdrhistogram>=0.10,<0.11",
     "httpx>=0.27,<1.0",           # Used by deploy module (async HTTP client)
     "jsonlines",
+    "jsonschema>=4.0,<5.0",       # Used for tool argument validation
     "lm_eval[wandb]>=0.4,<0.5.0",
     "mlflow>=3.1",                # >=3.1.4 requires Python3.10>=
     "numpy>=1.26,<2.4",           # verl==0.5.0 depends on numpy<2.0.0

@@ -22,8 +22,8 @@ from typing import Any
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.environment_params import EnvironmentParams
-from oumi.core.configs.params.tool_params import ToolResult
 from oumi.core.registry import register_environment
+from oumi.core.types.tool_call import ToolResult
 from oumi.environments.base_environment import BaseEnvironment
 from oumi.environments.deterministic_tool import (
     DeterministicTool,
