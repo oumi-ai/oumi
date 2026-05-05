@@ -311,6 +311,12 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             inference_model_name=name or None,
             status_code=status_code,
             status_message=status_message,
+            replica_count=deployment.replica_count,
+            accelerator_type=(
+                deployment.accelerator_type.value
+                if deployment.accelerator_type
+                else None
+            ),
         )
 
     @staticmethod
