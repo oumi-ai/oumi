@@ -12,9 +12,12 @@ oumi = ["LICENSE", "README.md", "*.jinja"]
 # default setuptools config.
 
 # We currently use the Omegaconf dev version, and uv doesn't allow pre-release versions
-# by default.
+# by default. "if-necessary-or-explicit" permits pre-releases when a package is
+# explicitly pinned to one (e.g. omegaconf==2.4.0.dev4) or when no stable release
+# satisfies the requirement (e.g. opentelemetry-semantic-conventions, which only
+# ships beta versions on PyPI).
 [tool.uv]
-prerelease = "allow"
+prerelease = "if-necessary-or-explicit"
 override-dependencies = ["transformers>=5.5,<5.8"]
 
 [project]
