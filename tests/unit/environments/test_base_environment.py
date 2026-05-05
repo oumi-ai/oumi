@@ -13,9 +13,13 @@
 # limitations under the License.
 
 import dataclasses
+import random
+from typing import Any
 
 import pytest
 
+from oumi.core.configs.params.grounding_params import GroundingFact
+from oumi.core.types.tool_call import ToolResult
 from oumi.environments.base_environment import BaseEnvironment
 
 
@@ -34,3 +38,26 @@ def test_subclass_without_step_cannot_instantiate():
 
     with pytest.raises(TypeError, match=r"abstract|instantiate"):
         Incomplete()  # type: ignore[abstract]
+
+
+class _MinimalEnv(BaseEnvironment):
+    """Concrete BaseEnvironment subclass that doesn't override grounding hooks."""
+
+    def step(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:
+        return ToolResult(output={})
+
+
+def test_default_sample_grounding_returns_empty():
+    env = _MinimalEnv()
+    assert env.sample_grounding(n=5, rng=random.Random(0)) == []
+
+
+def test_default_describe_grounding_empty_list_returns_empty_string():
+    env = _MinimalEnv()
+    assert env.describe_grounding([]) == ""
+
+
+def test_default_describe_grounding_delegates_to_helper():
+    env = _MinimalEnv()
+    facts = [GroundingFact(data={"id": "42", "title": "Dune"})]
+    assert env.describe_grounding(facts) == '- id="42", title="Dune"'

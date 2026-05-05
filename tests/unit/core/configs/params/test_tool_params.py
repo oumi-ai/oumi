@@ -153,6 +153,40 @@ def test_tool_params_to_tool_definition_drops_chain_internals():
     )
 
 
+def test_tool_params_grounding_default_none():
+    tool = ToolParams(id="t", name="T", description="d")
+    assert tool.grounding is None
+
+
+def test_tool_params_grounding_from_dict_via_create():
+    tool = ToolParams.create(
+        {
+            "id": "lookup_book_status",
+            "name": "Lookup",
+            "description": "lookup",
+            "grounding": {
+                "key": "book_id",
+                "fields": ["book_id", "title", "status"],
+            },
+        }
+    )
+    assert tool.grounding is not None
+    assert tool.grounding.key == "book_id"
+    assert tool.grounding.fields == ["book_id", "title", "status"]
+
+
+def test_tool_params_grounding_from_post_init_dict():
+    """ToolParams coerces raw grounding dicts from direct dataclass construction."""
+    tool = ToolParams(
+        id="t",
+        name="T",
+        description="d",
+        grounding={"key": "k", "fields": ["k", "v"]},  # type: ignore[arg-type]
+    )
+    assert tool.grounding is not None
+    assert tool.grounding.key == "k"
+
+
 def test_tool_result_round_trip():
     result = ToolResult(output={"msg": "ok"})
     assert result.output == {"msg": "ok"}

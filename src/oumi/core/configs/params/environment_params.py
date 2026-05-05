@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.core.configs.params.grounding_params import GroundingConfig
 from oumi.core.configs.params.tool_params import ToolParams
 
 
@@ -37,6 +38,7 @@ class EnvironmentParams(BaseParams):
     # subclass is resolved by `__post_init__` based on env_type.
     tools: list[Any] = field(default_factory=list)
     env_kwargs: dict[str, Any] | None = None
+    grounding: GroundingConfig | None = None
 
     def __post_init__(self) -> None:
         """Coerce raw tool dicts into the appropriate ToolParams subclass."""
@@ -45,6 +47,10 @@ class EnvironmentParams(BaseParams):
             tool if isinstance(tool, tool_cls) else tool_cls.create(tool)
             for tool in self.tools
         ]
+        if self.grounding is not None and not isinstance(
+            self.grounding, GroundingConfig
+        ):
+            self.grounding = GroundingConfig(**self.grounding)
 
     def _resolve_tool_cls(self) -> type[ToolParams] | None:
         """Look up the registered env class, return its tool_params_cls.
@@ -76,6 +82,7 @@ class EnvironmentParams(BaseParams):
 
         self._validate_unique_tool_ids()
         self._validate_env_type_registered()
+        self._validate_env_grounding_has_grounded_tool()
 
     def _validate_unique_tool_ids(self) -> None:
         seen: set[str] = set()
@@ -94,4 +101,15 @@ class EnvironmentParams(BaseParams):
             known = sorted(REGISTRY.get_all(RegistryType.ENVIRONMENT))
             raise ValueError(
                 f"Unknown env_type '{self.env_type}'. Known types: {known}"
+            )
+
+    def _validate_env_grounding_has_grounded_tool(self) -> None:
+        if self.grounding is None:
+            return
+        if not any(getattr(tool, "grounding", None) is not None for tool in self.tools):
+            raise ValueError(
+                f"{type(self).__name__} '{self.id}' declares grounding but "
+                f"no tool in this environment declares a grounding block. "
+                f"Add a 'grounding: {{key, fields}}' block to at least one "
+                f"tool, or remove the env-level grounding to disable it."
             )
