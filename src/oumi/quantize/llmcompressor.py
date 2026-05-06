@@ -42,6 +42,7 @@ from oumi.quantize.utils import (
     assert_output_path_writable,
     format_size,
     get_directory_size,
+    load_calibration_dataset,
     load_model_and_tokenizer,
     warn_if_local_gpu_below_inference_capability,
 )
@@ -212,19 +213,15 @@ class LLMCompressorQuantization(BaseQuantization):
         return AWQModifier(**common)
 
     def _prepare_calibration_data(self, config: QuantizationConfig, tokenizer):
-        """Load and tokenize calibration data for calibration-based methods."""
-        from datasets import load_dataset
+        """Load and tokenize calibration data for calibration-based methods.
 
-        logger.info(
-            f"Loading calibration data: {config.calibration_dataset} "
-            f"(split={config.calibration_split}, "
-            f"samples={config.calibration_samples})"
-        )
-
-        ds = load_dataset(
-            config.calibration_dataset,
-            split=f"{config.calibration_split}[:{config.calibration_samples}]",
-        )
+        Accepts either a HF Hub repo id or a local file path
+        (``.jsonl`` / ``.json`` / ``.parquet`` / ``.csv`` / ``.txt``) via
+        :func:`load_calibration_dataset`. ``messages`` columns get the
+        model's chat template applied; other text columns are tokenized
+        directly.
+        """
+        ds = load_calibration_dataset(config)
 
         recognized = (
             "text",

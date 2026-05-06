@@ -14,6 +14,7 @@
 
 """Unit tests for the LlamaCppQuantization (GGUF) backend."""
 
+from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -360,3 +361,240 @@ class TestRunSubprocess:
                 ["sh", "-c", "echo hello-from-subprocess; exit 7"],
                 log_prefix="test",
             )
+
+
+# Path to the oumi-format jsonl examples in the repo. Used to verify that
+# the calibration loader / row-to-text helpers work on real oumi data.
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+_OUMI_JSONL = _REPO_ROOT / "data" / "dataset_examples" / "oumi_format.jsonl"
+_ALPACA_JSONL = _REPO_ROOT / "data" / "dataset_examples" / "alpaca_format.jsonl"
+
+
+class TestCalibrationRowToText:
+    """Row-to-text recognizer covers oumi/alpaca/Q+A/plain shapes."""
+
+    def test_oumi_messages_format(self):
+        from oumi.quantize.utils import calibration_row_to_text
+
+        row = {
+            "messages": [
+                {"role": "user", "content": "hello"},
+                {"role": "assistant", "content": "hi there"},
+            ]
+        }
+        text = calibration_row_to_text(row)
+        assert "hello" in text
+        assert "hi there" in text
+        assert text.count("\n\n") >= 1
+
+    def test_oumi_messages_with_system_role(self):
+        from oumi.quantize.utils import calibration_row_to_text
+
+        row = {
+            "messages": [
+                {"role": "system", "content": "You are helpful."},
+                {"role": "user", "content": "Question?"},
+                {"role": "assistant", "content": "Answer."},
+            ]
+        }
+        text = calibration_row_to_text(row)
+        assert "You are helpful." in text
+        assert "Question?" in text
+        assert "Answer." in text
+
+    def test_oumi_multimodal_text_segments(self):
+        from oumi.quantize.utils import calibration_row_to_text
+
+        # Multimodal message: content is a list of segments. We pick text segments.
+        row = {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "image_url", "image_url": "..."},
+                        {"type": "text", "text": "What is in the image?"},
+                    ],
+                },
+                {"role": "assistant", "content": "A cat."},
+            ]
+        }
+        text = calibration_row_to_text(row)
+        assert "What is in the image?" in text
+        assert "A cat." in text
+
+    def test_alpaca_format_includes_output(self):
+        from oumi.quantize.utils import calibration_row_to_text
+
+        row = {
+            "instruction": "Translate to French.",
+            "input": "Hello.",
+            "output": "Bonjour.",
+        }
+        text = calibration_row_to_text(row)
+        assert "Translate to French." in text
+        assert "Hello." in text
+        assert "Bonjour." in text
+
+    def test_alpaca_format_empty_input(self):
+        from oumi.quantize.utils import calibration_row_to_text
+
+        row = {"instruction": "Just an instruction.", "input": "", "output": "Done."}
+        text = calibration_row_to_text(row)
+        assert "Just an instruction." in text
+        assert "Done." in text
+
+    def test_judge_input_request_response(self):
+        from oumi.quantize.utils import calibration_row_to_text
+
+        row = {"request": "What is 2+2?", "response": "4."}
+        text = calibration_row_to_text(row)
+        assert "What is 2+2?" in text
+        assert "4." in text
+
+    def test_plain_text_column(self):
+        from oumi.quantize.utils import calibration_row_to_text
+
+        row = {"text": "Some plaintext example."}
+        assert calibration_row_to_text(row) == "Some plaintext example."
+
+    def test_no_recognized_columns_returns_empty(self):
+        from oumi.quantize.utils import calibration_row_to_text
+
+        assert calibration_row_to_text({"random_field": 42}) == ""
+
+    def test_empty_messages_list_falls_through(self):
+        from oumi.quantize.utils import calibration_row_to_text
+
+        # No content extractable from empty list, but row also has a text col.
+        row = {"messages": [], "text": "fallback"}
+        assert calibration_row_to_text(row) == "fallback"
+
+
+class TestLoadCalibrationDataset:
+    """The shared loader accepts HF repos and local jsonl files."""
+
+    def test_local_oumi_format_jsonl(self, tmp_path):
+        from oumi.quantize.utils import load_calibration_dataset
+
+        assert _OUMI_JSONL.is_file(), f"missing example: {_OUMI_JSONL}"
+        config = QuantizationConfig(
+            model=ModelParams(model_name="x"),
+            scheme=QuantizationScheme.Q4_K_M,
+            output_format="gguf",
+            output_path=str(tmp_path / "out"),
+            calibration_dataset=str(_OUMI_JSONL),
+            calibration_samples=2,
+        )
+        ds = load_calibration_dataset(config)
+        # Subset is capped at calibration_samples (data file may contain more).
+        assert len(ds) <= 2
+        assert "messages" in ds.column_names
+
+    def test_local_alpaca_format_jsonl(self, tmp_path):
+        from oumi.quantize.utils import load_calibration_dataset
+
+        assert _ALPACA_JSONL.is_file(), f"missing example: {_ALPACA_JSONL}"
+        config = QuantizationConfig(
+            model=ModelParams(model_name="x"),
+            scheme=QuantizationScheme.Q4_K_M,
+            output_format="gguf",
+            output_path=str(tmp_path / "out"),
+            calibration_dataset=str(_ALPACA_JSONL),
+            calibration_samples=2,
+        )
+        ds = load_calibration_dataset(config)
+        assert len(ds) <= 2
+        for col in ("instruction", "input", "output"):
+            assert col in ds.column_names
+
+    def test_local_unsupported_extension_raises(self, tmp_path):
+        from oumi.quantize.utils import load_calibration_dataset
+
+        bogus = tmp_path / "calib.xyz"
+        bogus.write_text("garbage")
+        config = QuantizationConfig(
+            model=ModelParams(model_name="x"),
+            scheme=QuantizationScheme.Q4_K_M,
+            output_format="gguf",
+            output_path=str(tmp_path / "out"),
+            calibration_dataset=str(bogus),
+        )
+        with pytest.raises(ValueError, match="unsupported extension"):
+            load_calibration_dataset(config)
+
+    def test_hf_repo_id_routed_to_load_dataset(self, tmp_path):
+        from oumi.quantize.utils import load_calibration_dataset
+
+        config = QuantizationConfig(
+            model=ModelParams(model_name="x"),
+            scheme=QuantizationScheme.Q4_K_M,
+            output_format="gguf",
+            output_path=str(tmp_path / "out"),
+            calibration_dataset="some-org/some-dataset",
+            calibration_split="train_sft",
+            calibration_samples=10,
+        )
+        with patch("datasets.load_dataset") as mock_load:
+            load_calibration_dataset(config)
+        mock_load.assert_called_once_with(
+            "some-org/some-dataset", split="train_sft[:10]"
+        )
+
+
+class TestWriteCalibrationCorpusEndToEnd:
+    """Integration: write an actual corpus from oumi-format jsonl."""
+
+    def test_writes_concatenated_messages_to_corpus(self, tmp_path):
+        quantizer = LlamaCppQuantization()
+        config = QuantizationConfig(
+            model=ModelParams(model_name="x"),
+            scheme=QuantizationScheme.Q4_K_M,
+            output_format="gguf",
+            output_path=str(tmp_path / "out"),
+            calibration_dataset=str(_OUMI_JSONL),
+            calibration_samples=2,
+        )
+        corpus_path = tmp_path / "calib.txt"
+        quantizer._write_calibration_corpus(config, corpus_path)
+        text = corpus_path.read_text(encoding="utf-8")
+        # First two lines from oumi_format.jsonl reference Seattle weather and
+        # Golden Gate Bridge — verify both content fields landed in the corpus.
+        assert "Seattle" in text
+        assert "Golden Gate Bridge" in text
+        # Documents must be separated by blank lines (chunk boundary).
+        assert "\n\n" in text
+
+    def test_writes_alpaca_with_output_to_corpus(self, tmp_path):
+        quantizer = LlamaCppQuantization()
+        config = QuantizationConfig(
+            model=ModelParams(model_name="x"),
+            scheme=QuantizationScheme.Q4_K_M,
+            output_format="gguf",
+            output_path=str(tmp_path / "out"),
+            calibration_dataset=str(_ALPACA_JSONL),
+            calibration_samples=2,
+        )
+        corpus_path = tmp_path / "calib.txt"
+        quantizer._write_calibration_corpus(config, corpus_path)
+        text = corpus_path.read_text(encoding="utf-8")
+        # Alpaca rows must contribute both instruction and output text — the
+        # old naive implementation only used `instruction`, dropping responses.
+        assert "Seattle" in text  # from instruction
+        assert "real-time weather information" in text  # from output
+
+    def test_empty_corpus_raises(self, tmp_path):
+        quantizer = LlamaCppQuantization()
+        # JSONL with no recognized text columns.
+        bogus = tmp_path / "bogus.jsonl"
+        bogus.write_text('{"unknown_field": 1}\n{"unknown_field": 2}\n')
+        config = QuantizationConfig(
+            model=ModelParams(model_name="x"),
+            scheme=QuantizationScheme.Q4_K_M,
+            output_format="gguf",
+            output_path=str(tmp_path / "out"),
+            calibration_dataset=str(bogus),
+            calibration_samples=2,
+        )
+        corpus_path = tmp_path / "calib.txt"
+        with pytest.raises(ValueError, match="no usable text"):
+            quantizer._write_calibration_corpus(config, corpus_path)

@@ -29,7 +29,15 @@ scheme: "q4_k_m"
 output_path: "smollm2-135m-q4_k_m"
 output_format: "gguf"
 
-# Calibration (imatrix) — used by all k-quants.
+# Calibration (imatrix) — used by all k-quants. ``calibration_dataset``
+# accepts either a HuggingFace Hub repo id (with ``calibration_split``)
+# or a local file path. Supported local formats: .jsonl, .json, .parquet,
+# .csv, .tsv, .txt. JSONL rows can use oumi messages format
+# ({"messages": [{"role", "content"}, ...]}), alpaca format
+# ({"instruction", "input", "output"}), Q/A pairs, or single-text columns.
+#
+# Example (local jsonl in oumi format):
+#   calibration_dataset: "/path/to/calib.jsonl"
 calibration_dataset: "HuggingFaceH4/ultrachat_200k"
 calibration_split: "train_sft"
 calibration_samples: 32       # llama-imatrix is fast; 32 chunks is enough for 135M

@@ -17,6 +17,7 @@
 import collections
 import subprocess
 from pathlib import Path
+from typing import Any
 
 from oumi.core.configs import QuantizationConfig
 from oumi.core.configs.quantization_config import QuantizationScheme
@@ -139,6 +140,141 @@ def format_size(size_bytes: int) -> str:
             return f"{size:.1f} {unit}"
         size /= 1024.0
     return f"{size:.1f} PB"
+
+
+# Mapping from local-file extension to the HuggingFace ``datasets`` builtin
+# loader name. Anything not in this map falls back to the HF Hub path.
+_LOCAL_DATASET_LOADERS: dict[str, str] = {
+    ".jsonl": "json",
+    ".json": "json",
+    ".parquet": "parquet",
+    ".csv": "csv",
+    ".tsv": "csv",
+    ".txt": "text",
+}
+
+
+def load_calibration_dataset(config: QuantizationConfig):
+    """Load calibration data from either a HuggingFace Hub repo or a local file.
+
+    Resolution order:
+      1. If ``config.calibration_dataset`` is an existing local file with a
+         recognized extension (``.jsonl``, ``.json``, ``.parquet``, ``.csv``,
+         ``.tsv``, ``.txt``), load it via the matching ``datasets`` builtin
+         loader. ``calibration_split`` is ignored — local files always live
+         under the synthetic ``train`` split.
+      2. Otherwise treat the value as a HF Hub repo id (or a directory with
+         a custom dataset script) and pass it through to ``load_dataset``
+         along with ``calibration_split``.
+
+    Returns a HuggingFace ``Dataset`` truncated to ``calibration_samples``.
+    """
+    from datasets import load_dataset
+
+    src = config.calibration_dataset
+    src_path = Path(src).expanduser()
+
+    if src_path.is_file():
+        suffix = src_path.suffix.lower()
+        if suffix not in _LOCAL_DATASET_LOADERS:
+            raise ValueError(
+                f"Calibration file '{src}' has unsupported extension '{suffix}'. "
+                f"Supported: {sorted(_LOCAL_DATASET_LOADERS)}."
+            )
+        loader = _LOCAL_DATASET_LOADERS[suffix]
+        logger.info(
+            f"Loading local calibration data: {src_path} "
+            f"(loader={loader}, samples={config.calibration_samples})"
+        )
+        return load_dataset(
+            loader,
+            data_files=str(src_path),
+            split=f"train[:{config.calibration_samples}]",
+        )
+
+    logger.info(
+        f"Loading calibration data: {src} "
+        f"(split={config.calibration_split}, samples={config.calibration_samples})"
+    )
+    return load_dataset(
+        src,
+        split=f"{config.calibration_split}[:{config.calibration_samples}]",
+    )
+
+
+# Single-text columns recognized when no chat/instruction structure is found.
+# Listed in preference order — first match wins.
+_TEXT_COLUMNS = (
+    "text",
+    "content",
+    "body",
+    "prompt",
+    "instruction",
+    "input",
+    "question",
+    "query",
+)
+
+
+def calibration_row_to_text(row: dict[str, Any]) -> str:
+    """Render a calibration sample to plaintext for ``llama-imatrix``.
+
+    Recognizes:
+      * Oumi/chat format: ``{"messages": [{"role": ..., "content": ...}, ...]}``
+        — concatenates content fields.
+      * Alpaca format: ``{"instruction": ..., "input": ..., "output": ...}``
+        — concatenates instruction + input + output.
+      * Q/A pair formats: ``{"request": ..., "response": ...}``,
+        ``{"question": ..., "answer": ...}``, ``{"prompt": ..., "response": ...}``.
+      * Plain-text columns: ``text``, ``content``, ``body``, etc.
+
+    Returns an empty string if no recognized text could be extracted.
+    """
+    # Oumi/chat format.
+    messages = row.get("messages")
+    if isinstance(messages, list) and messages:
+        parts: list[str] = []
+        for msg in messages:
+            if isinstance(msg, dict):
+                content = msg.get("content")
+                if isinstance(content, str) and content:
+                    parts.append(content)
+                elif isinstance(content, list):
+                    # Multimodal turns: pick the text segments.
+                    for seg in content:
+                        if isinstance(seg, dict) and seg.get("type") == "text":
+                            text = seg.get("text")
+                            if isinstance(text, str) and text:
+                                parts.append(text)
+        if parts:
+            return "\n\n".join(parts)
+
+    # Alpaca-style instruction/output (with optional input).
+    if "instruction" in row and "output" in row:
+        chunks = [str(row["instruction"]).strip()]
+        inp = row.get("input")
+        if isinstance(inp, str) and inp.strip():
+            chunks.append(inp.strip())
+        chunks.append(str(row["output"]).strip())
+        return "\n\n".join(c for c in chunks if c)
+
+    # Q/A pair shapes.
+    for q_key, a_key in (
+        ("request", "response"),
+        ("question", "answer"),
+        ("prompt", "response"),
+    ):
+        q, a = row.get(q_key), row.get(a_key)
+        if isinstance(q, str) and isinstance(a, str):
+            return f"{q}\n\n{a}"
+
+    # Single-text columns.
+    for key in _TEXT_COLUMNS:
+        value = row.get(key)
+        if isinstance(value, str) and value.strip():
+            return value
+
+    return ""
 
 
 def run_subprocess(

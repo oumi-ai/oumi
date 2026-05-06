@@ -51,8 +51,10 @@ from oumi.quantize._bootstrap import (
 from oumi.quantize.base import BaseQuantization, QuantizationResult, SchemeSpec
 from oumi.quantize.utils import (
     assert_output_path_writable,
+    calibration_row_to_text,
     format_size,
     get_directory_size,
+    load_calibration_dataset,
     run_subprocess,
     warn_if_local_gpu_below_inference_capability,
 )
@@ -267,54 +269,30 @@ class LlamaCppQuantization(BaseQuantization):
     def _write_calibration_corpus(
         self, config: QuantizationConfig, corpus_path: Path
     ) -> None:
-        """Stream calibration samples to a plaintext file for llama-imatrix."""
-        from datasets import load_dataset
+        """Stream calibration samples to a plaintext file for llama-imatrix.
 
-        logger.info(
-            f"Loading calibration data: {config.calibration_dataset} "
-            f"(split={config.calibration_split}, "
-            f"samples={config.calibration_samples})"
-        )
-        ds = load_dataset(
-            config.calibration_dataset,
-            split=f"{config.calibration_split}[:{config.calibration_samples}]",
-        )
+        Accepts either a HF Hub repo id or a local file path
+        (``.jsonl`` / ``.json`` / ``.parquet`` / ``.csv`` / ``.txt``). Each
+        row is rendered to plaintext via :func:`calibration_row_to_text`
+        which recognizes oumi/messages format, alpaca instruction/output,
+        Q/A pairs, and single-text columns.
+        """
+        ds = load_calibration_dataset(config)
 
-        recognized = (
-            "text",
-            "content",
-            "messages",
-            "prompt",
-            "instruction",
-            "input",
-            "question",
-            "query",
-            "body",
-        )
-        text_column = next((c for c in recognized if c in ds.column_names), None)
-        if text_column is None:
-            raise ValueError(
-                f"Calibration dataset '{config.calibration_dataset}' has no "
-                f"recognized text column. Available columns: {ds.column_names}. "
-                f"Recognized names: {list(recognized)}."
-            )
-        logger.info(f"Using calibration text column: '{text_column}'")
-
-        def _flatten(value) -> str:
-            # Handles chat-style list-of-dicts: extract content fields.
-            if isinstance(value, list):
-                parts: list[str] = []
-                for item in value:
-                    if isinstance(item, dict) and "content" in item:
-                        parts.append(str(item["content"]))
-                    else:
-                        parts.append(str(item))
-                return "\n".join(parts)
-            return str(value)
-
+        written = 0
         with corpus_path.open("w", encoding="utf-8") as f:
             for row in ds:
-                text = _flatten(row[text_column]).strip()  # type: ignore[index]
+                text = calibration_row_to_text(row).strip()  # type: ignore[arg-type]
                 if text:
                     f.write(text)
                     f.write("\n\n")
+                    written += 1
+
+        if written == 0:
+            raise ValueError(
+                f"Calibration dataset '{config.calibration_dataset}' yielded "
+                "no usable text. Expected one of: messages list, "
+                "instruction/output pair, request/response pair, or a "
+                "text-bearing column."
+            )
+        logger.info(f"Wrote {written} calibration sample(s) to {corpus_path}")
