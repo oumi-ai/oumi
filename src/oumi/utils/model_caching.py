@@ -26,17 +26,36 @@ def get_local_filepath_for_gguf(
 ) -> str:
     """Return a local path for the provided GGUF file, downloading it if necessary.
 
+    Resolution order:
+      1. If ``repo_id`` is a local directory that already contains
+         ``filename``, return that path directly. (Lets users point at
+         locally-produced GGUFs, e.g. from ``oumi quantize``.)
+      2. If ``cache_dir/filename`` exists, return it.
+      3. Otherwise download from the Hugging Face Hub.
+
     Args:
         repo_id: HuggingFace Hub repo ID (e.g., `bartowski/Llama-3.2-3B-Instruct-GGUF`)
-        filename: HuggingFace Hub filename (e.g., `Llama-3.2-3B-Instruct-Q8_0.gguf`)
+            **or** a local directory path containing ``filename``.
+        filename: HuggingFace Hub filename (e.g., `Llama-3.2-3B-Instruct-Q8_0.gguf`).
         cache_dir: Local path to cached models. Defaults to `HUGGINGFACE_CACHE`.
 
     Returns:
-        A local path caching the GGUF file.
+        A local path to the GGUF file.
     """
     # Ensure that the filename corresponds to a `GGUF` file.
     if Path(filename).suffix != ".gguf":
         raise ValueError(f"The `filename` provided is not a `.gguf` file: `{filename}`")
+
+    # Local directory shortcut — useful for GGUFs produced by `oumi quantize`.
+    repo_path = Path(repo_id)
+    if repo_path.is_dir():
+        local_path = repo_path / filename
+        if local_path.is_file():
+            logger.info(f"Loading GGUF file from local directory ({local_path}).")
+            return local_path.absolute().as_posix()
+        raise FileNotFoundError(
+            f"`{repo_id}` is a local directory but does not contain `{filename}`."
+        )
 
     # Ensure the cache directory exists. If not, create it.
     cache_dir = Path(cache_dir)

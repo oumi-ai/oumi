@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import torch
 import torch.nn as nn
@@ -314,6 +314,16 @@ def build_huggingface_model(
     # currently can only be "auto").
     torch_dtype = model_params.torch_dtype or model_params.torch_dtype_str
 
+    # Forward GGUF-loading hint from model_kwargs into from_pretrained.
+    # transformers.AutoModelForCausalLM.from_pretrained accepts ``gguf_file``
+    # to load a quantized .gguf checkpoint from the directory pointed at by
+    # ``pretrained_model_name_or_path``. The remaining model_kwargs are
+    # consumed earlier by find_model_hf_config(); only gguf_file needs to
+    # reach the actual loader.
+    extra_loader_kwargs: dict[str, Any] = {}
+    if model_params.model_kwargs and "gguf_file" in model_params.model_kwargs:
+        extra_loader_kwargs["gguf_file"] = model_params.model_kwargs["gguf_file"]
+
     if model_params.load_pretrained_weights:
         model = transformers_model_class.from_pretrained(
             config=hf_config,
@@ -324,6 +334,7 @@ def build_huggingface_model(
             quantization_config=quantization_config,
             attn_implementation=model_params.attn_implementation,
             revision=model_params.model_revision,
+            **extra_loader_kwargs,
             **kwargs,
         )
     else:
