@@ -121,7 +121,7 @@ def test_list_algorithms_flag_no_longer_exists(app):
 def test_config_required(app):
     result = runner.invoke(app, [])
     assert result.exit_code != 0
-    assert "Missing option '--config'" in result.stdout
+    assert "Missing option '--config'" in result.output
 
 
 def test_scheme_override_applied(app):

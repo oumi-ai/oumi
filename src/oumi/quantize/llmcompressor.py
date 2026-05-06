@@ -103,6 +103,7 @@ class LLMCompressorQuantization(BaseQuantization):
     }
 
     def __init__(self):
+        """Cache dependency availability for fast requirement checks."""
         self._llmcompressor_available = (
             importlib.util.find_spec("llmcompressor") is not None
         )
@@ -122,7 +123,7 @@ class LLMCompressorQuantization(BaseQuantization):
 
     @override
     def quantize(self, config: QuantizationConfig) -> QuantizationResult:
-        from llmcompressor import oneshot  # pyright: ignore[reportMissingImports]
+        import llmcompressor  # pyright: ignore[reportMissingImports]
 
         scheme = cast(QuantizationScheme, config.scheme)
         spec = self.schemes[scheme]
@@ -131,7 +132,9 @@ class LLMCompressorQuantization(BaseQuantization):
         )
         needs_calibration = spec.needs_calibration_for(algorithm)
 
-        warn_if_local_gpu_below_inference_capability(scheme, spec.min_compute_capability)
+        warn_if_local_gpu_below_inference_capability(
+            scheme, spec.min_compute_capability
+        )
         assert_output_path_writable(config.output_path)
 
         logger.info(
@@ -146,11 +149,14 @@ class LLMCompressorQuantization(BaseQuantization):
         recipe = self._build_recipe(config, scheme, algorithm)
         oneshot_kwargs: dict[str, Any] = {"model": model, "recipe": recipe}
         if needs_calibration:
-            oneshot_kwargs["dataset"] = self._prepare_calibration_data(config, tokenizer)
+            oneshot_kwargs["dataset"] = self._prepare_calibration_data(
+                config, tokenizer
+            )
             oneshot_kwargs["max_seq_length"] = config.max_seq_length
             oneshot_kwargs["num_calibration_samples"] = config.calibration_samples
 
         logger.info("Running oneshot quantization...")
+        oneshot = getattr(llmcompressor, "oneshot")
         oneshot(**oneshot_kwargs)
 
         logger.info(f"Saving quantized model to: {config.output_path}")

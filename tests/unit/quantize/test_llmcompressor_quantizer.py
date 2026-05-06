@@ -98,9 +98,7 @@ class _LLMCompressorModuleInjector:
 
 class TestLLMCompressorSchemeMetadata:
     def test_backend_identity(self):
-        assert (
-            LLMCompressorQuantization.backend is QuantizationBackend.LLM_COMPRESSOR
-        )
+        assert LLMCompressorQuantization.backend is QuantizationBackend.LLM_COMPRESSOR
 
     def test_output_format(self):
         assert LLMCompressorQuantization.output_format == "safetensors"
@@ -127,16 +125,14 @@ class TestLLMCompressorSchemeMetadata:
             is QuantizationAlgorithm.RTN
         )
         assert (
-            s[QuantizationScheme.W4A16].default_algorithm
-            is QuantizationAlgorithm.GPTQ
+            s[QuantizationScheme.W4A16].default_algorithm is QuantizationAlgorithm.GPTQ
         )
         assert (
             s[QuantizationScheme.W4A16_ASYM].default_algorithm
             is QuantizationAlgorithm.AWQ
         )
         assert (
-            s[QuantizationScheme.W8A16].default_algorithm
-            is QuantizationAlgorithm.GPTQ
+            s[QuantizationScheme.W8A16].default_algorithm is QuantizationAlgorithm.GPTQ
         )
 
     def test_calibration_required_for_overrides(self):
@@ -265,9 +261,7 @@ class TestBuildRecipe:
         _, mocks = self._run(
             config, QuantizationScheme.FP8_DYNAMIC, QuantizationAlgorithm.GPTQ
         )
-        mocks[
-            "llmcompressor.modifiers.quantization"
-        ].GPTQModifier.assert_called_once()
+        mocks["llmcompressor.modifiers.quantization"].GPTQModifier.assert_called_once()
 
 
 class TestQuantizeIntegration:

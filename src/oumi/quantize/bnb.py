@@ -90,6 +90,7 @@ class BitsAndBytesQuantization(BaseQuantization):
     }
 
     def __init__(self):
+        """Cache dependency availability for fast requirement checks."""
         self._bnb_available = importlib.util.find_spec("bitsandbytes") is not None
 
     @override
@@ -116,7 +117,9 @@ class BitsAndBytesQuantization(BaseQuantization):
         # Validate scheme×algorithm combination (algorithm always BNB here).
         spec.resolve_algorithm(cast(QuantizationAlgorithm, config.algorithm))
 
-        warn_if_local_gpu_below_inference_capability(scheme, spec.min_compute_capability)
+        warn_if_local_gpu_below_inference_capability(
+            scheme, spec.min_compute_capability
+        )
         assert_output_path_writable(config.output_path)
 
         logger.info(f"Starting BitsAndBytes {scheme.value} quantization...")

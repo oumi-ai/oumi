@@ -78,9 +78,7 @@ class TestQuantizeDispatch:
 
     def test_bnb_nf4_dispatches(self):
         config = _make_config(QuantizationScheme.BNB_NF4)
-        cls = _mock_backend_class(
-            QuantizationBackend.BNB, QuantizationScheme.BNB_NF4
-        )
+        cls = _mock_backend_class(QuantizationBackend.BNB, QuantizationScheme.BNB_NF4)
         with patch("oumi.quantize.backend_for_scheme", return_value=cls) as mock:
             result = quantize(config)
         assert result.backend is QuantizationBackend.BNB

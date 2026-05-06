@@ -25,7 +25,6 @@ from oumi.core.configs.quantization_config import (
 from oumi.exceptions import OumiConfigError
 from oumi.quantize.base import BaseQuantization, QuantizationResult, SchemeSpec
 
-
 _LLMC_ALGOS = (
     QuantizationAlgorithm.RTN,
     QuantizationAlgorithm.GPTQ,

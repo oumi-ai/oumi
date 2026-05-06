@@ -76,8 +76,7 @@ def all_schemes() -> dict[
 ]:
     """Merged view of every backend's schemes. For ``--list-schemes``."""
     return {
-        scheme: (cls, cls.schemes[scheme])
-        for scheme, cls in _SCHEME_TO_BACKEND.items()
+        scheme: (cls, cls.schemes[scheme]) for scheme, cls in _SCHEME_TO_BACKEND.items()
     }
 
 

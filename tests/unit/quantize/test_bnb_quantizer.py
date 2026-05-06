@@ -62,9 +62,7 @@ class TestBitsAndBytesSchemeMetadata:
         assert BitsAndBytesQuantization.owns(scheme) is True
 
     def test_does_not_own_llmc_scheme(self):
-        assert (
-            BitsAndBytesQuantization.owns(QuantizationScheme.FP8_DYNAMIC) is False
-        )
+        assert BitsAndBytesQuantization.owns(QuantizationScheme.FP8_DYNAMIC) is False
 
     @pytest.mark.parametrize(
         "scheme",

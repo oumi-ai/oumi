@@ -79,7 +79,9 @@ class SchemeSpec:
 
     def needs_calibration_for(self, algorithm: QuantizationAlgorithm) -> bool:
         """Whether the given algorithm requires calibration data."""
-        return self.needs_calibration_default or algorithm in self.calibration_required_for
+        return (
+            self.needs_calibration_default or algorithm in self.calibration_required_for
+        )
 
 
 @dataclass
