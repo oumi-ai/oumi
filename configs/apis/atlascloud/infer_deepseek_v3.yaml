@@ -1,0 +1,26 @@
+# Inference config for DeepSeek V3 via AtlasCloud.
+#
+# Requirements:
+#   - Set the `ATLASCLOUD_API_KEY` env var to your AtlasCloud API key.
+#   - AtlasCloud's OpenAI-compatible base URL must include the `/v1` suffix.
+#
+# Usage:
+#   source .env.local
+#   oumi infer -i -c configs/apis/atlascloud/infer_deepseek_v3.yaml
+#
+# See Also:
+#   - AtlasCloud docs: https://www.atlascloud.ai/docs/models/llm
+#   - Oumi infer docs: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+
+model:
+  model_name: "deepseek-ai/DeepSeek-V3-0324"
+
+remote_params:
+  api_url: "https://api.atlascloud.ai/v1/chat/completions"
+  api_key_env_varname: "ATLASCLOUD_API_KEY"
+
+engine: OPENAI
+
+generation:
+  max_new_tokens: 4096
+  temperature: 0.7
