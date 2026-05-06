@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Unit tests for LLM Compressor quantization."""
+"""Unit tests for LLM Compressor quantization backend."""
 
 import sys
 import types
@@ -23,18 +23,15 @@ import pytest
 
 from oumi.core.configs import ModelParams, QuantizationConfig
 from oumi.core.configs.quantization_config import (
+    QuantizationAlgorithm,
     QuantizationBackend,
     QuantizationScheme,
 )
 from oumi.exceptions import OumiConfigError
 from oumi.quantize.base import QuantizationResult
-from oumi.quantize.constants import (
-    LLMCOMPRESSOR_SCHEMES,
-    SCHEME_REGISTRY,
-    QuantizationAlgorithm,
-    SchemeInfo,
-)
-from oumi.quantize.llmcompressor_quantizer import LLMCompressorQuantization
+from oumi.quantize.llmcompressor import LLMCompressorQuantization
+
+LLMCOMPRESSOR_SCHEMES = list(LLMCompressorQuantization.schemes.keys())
 
 
 def _make_config(
@@ -51,7 +48,6 @@ def _make_config(
 
 
 def _make_llmcompressor_mock_modules():
-    """Create a hierarchy of mock modules mimicking llmcompressor."""
     llmcompressor = types.ModuleType("llmcompressor")
     llmcompressor.__spec__ = None  # type: ignore[assignment]
 
@@ -82,8 +78,6 @@ def _make_llmcompressor_mock_modules():
 
 
 class _LLMCompressorModuleInjector:
-    """Context manager that injects mock llmcompressor modules into sys.modules."""
-
     def __init__(self):
         self.mock_modules = _make_llmcompressor_mock_modules()
         self._saved: dict[str, types.ModuleType | None] = {}
@@ -102,46 +96,54 @@ class _LLMCompressorModuleInjector:
                 sys.modules[name] = prev
 
 
-class TestLLMCompressorSupportsAndValidation:
-    def setup_method(self):
-        self.quantizer = LLMCompressorQuantization()
+class TestLLMCompressorSchemeMetadata:
+    def test_backend_identity(self):
+        assert (
+            LLMCompressorQuantization.backend is QuantizationBackend.LLM_COMPRESSOR
+        )
 
-    def test_supported_schemes(self):
-        assert sorted(self.quantizer.supported_schemes) == sorted(LLMCOMPRESSOR_SCHEMES)
-
-    def test_supported_formats(self):
-        assert self.quantizer.supported_formats == ["safetensors"]
+    def test_output_format(self):
+        assert LLMCompressorQuantization.output_format == "safetensors"
 
     @pytest.mark.parametrize("scheme", LLMCOMPRESSOR_SCHEMES)
-    def test_supports_scheme_valid(self, scheme):
-        assert self.quantizer.supports_scheme(scheme) is True
+    def test_owns(self, scheme):
+        assert LLMCompressorQuantization.owns(scheme) is True
 
-    @pytest.mark.parametrize(
-        "scheme",
-        [
-            QuantizationScheme.BNB_NF4,
-            QuantizationScheme.BNB_FP4,
-            QuantizationScheme.BNB_INT8,
-        ],
-    )
-    def test_supports_scheme_invalid(self, scheme):
-        assert self.quantizer.supports_scheme(scheme) is False
+    def test_does_not_own_bnb(self):
+        assert LLMCompressorQuantization.owns(QuantizationScheme.BNB_NF4) is False
 
-    def test_validate_config_valid(self):
-        self.quantizer.validate_config(_make_config(QuantizationScheme.FP8_DYNAMIC))
+    def test_config_rejects_bnb_algorithm(self):
+        with pytest.raises(OumiConfigError, match="not allowed"):
+            _make_config(QuantizationScheme.FP8_DYNAMIC, algorithm="bnb")
 
-    def test_validate_config_wrong_scheme(self):
-        config = QuantizationConfig(
-            model=ModelParams(model_name="test/model"),
-            scheme=QuantizationScheme.BNB_NF4,
-            output_path="test",
+    def test_default_algorithms(self):
+        s = LLMCompressorQuantization.schemes
+        assert (
+            s[QuantizationScheme.FP8_DYNAMIC].default_algorithm
+            is QuantizationAlgorithm.RTN
         )
-        with pytest.raises(ValueError, match="not supported by"):
-            self.quantizer.validate_config(config)
+        assert (
+            s[QuantizationScheme.FP8_BLOCK].default_algorithm
+            is QuantizationAlgorithm.RTN
+        )
+        assert (
+            s[QuantizationScheme.W4A16].default_algorithm
+            is QuantizationAlgorithm.GPTQ
+        )
+        assert (
+            s[QuantizationScheme.W4A16_ASYM].default_algorithm
+            is QuantizationAlgorithm.AWQ
+        )
+        assert (
+            s[QuantizationScheme.W8A16].default_algorithm
+            is QuantizationAlgorithm.GPTQ
+        )
 
-    def test_validate_config_wrong_format(self):
-        with pytest.raises(OumiConfigError, match="Unsupported output format"):
-            _make_config(QuantizationScheme.FP8_DYNAMIC, output_format="pytorch")
+    def test_calibration_required_for_overrides(self):
+        spec = LLMCompressorQuantization.schemes[QuantizationScheme.FP8_DYNAMIC]
+        assert spec.needs_calibration_for(QuantizationAlgorithm.RTN) is False
+        assert spec.needs_calibration_for(QuantizationAlgorithm.GPTQ) is True
+        assert spec.needs_calibration_for(QuantizationAlgorithm.AWQ) is True
 
 
 class TestLLMCompressorRequirements:
@@ -169,15 +171,16 @@ class TestBuildRecipe:
     def setup_method(self):
         self.quantizer = LLMCompressorQuantization()
 
-    def _run_recipe(self, config, scheme_info):
+    def _run(self, config, scheme, algorithm):
         with _LLMCompressorModuleInjector() as mocks:
-            recipe = self.quantizer._build_recipe(config, scheme_info)
+            recipe = self.quantizer._build_recipe(config, scheme, algorithm)
             return recipe, mocks
 
-    def test_build_recipe_fp8_dynamic(self):
+    def test_fp8_dynamic_rtn_uses_quantization_modifier(self):
         config = _make_config(QuantizationScheme.FP8_DYNAMIC)
-        info = SCHEME_REGISTRY[QuantizationScheme.FP8_DYNAMIC]
-        _, mocks = self._run_recipe(config, info)
+        _, mocks = self._run(
+            config, QuantizationScheme.FP8_DYNAMIC, QuantizationAlgorithm.RTN
+        )
         mocks[
             "llmcompressor.modifiers.quantization"
         ].QuantizationModifier.assert_called_once_with(
@@ -186,10 +189,11 @@ class TestBuildRecipe:
             ignore=["lm_head"],
         )
 
-    def test_build_recipe_fp8_block(self):
+    def test_fp8_block_rtn(self):
         config = _make_config(QuantizationScheme.FP8_BLOCK)
-        info = SCHEME_REGISTRY[QuantizationScheme.FP8_BLOCK]
-        _, mocks = self._run_recipe(config, info)
+        _, mocks = self._run(
+            config, QuantizationScheme.FP8_BLOCK, QuantizationAlgorithm.RTN
+        )
         mocks[
             "llmcompressor.modifiers.quantization"
         ].QuantizationModifier.assert_called_once_with(
@@ -198,10 +202,11 @@ class TestBuildRecipe:
             ignore=["lm_head"],
         )
 
-    def test_build_recipe_w4a16(self):
+    def test_w4a16_gptq_uses_gptq_modifier(self):
         config = _make_config(QuantizationScheme.W4A16)
-        info = SCHEME_REGISTRY[QuantizationScheme.W4A16]
-        _, mocks = self._run_recipe(config, info)
+        _, mocks = self._run(
+            config, QuantizationScheme.W4A16, QuantizationAlgorithm.GPTQ
+        )
         mocks[
             "llmcompressor.modifiers.quantization"
         ].GPTQModifier.assert_called_once_with(
@@ -211,10 +216,11 @@ class TestBuildRecipe:
             dampening_frac=0.1,
         )
 
-    def test_build_recipe_w8a16(self):
+    def test_w8a16_gptq(self):
         config = _make_config(QuantizationScheme.W8A16)
-        info = SCHEME_REGISTRY[QuantizationScheme.W8A16]
-        _, mocks = self._run_recipe(config, info)
+        _, mocks = self._run(
+            config, QuantizationScheme.W8A16, QuantizationAlgorithm.GPTQ
+        )
         mocks[
             "llmcompressor.modifiers.quantization"
         ].GPTQModifier.assert_called_once_with(
@@ -224,24 +230,25 @@ class TestBuildRecipe:
             dampening_frac=0.1,
         )
 
-    def test_build_recipe_w4a16_asym(self):
+    def test_w4a16_asym_awq(self):
         config = _make_config(QuantizationScheme.W4A16_ASYM)
-        info = SCHEME_REGISTRY[QuantizationScheme.W4A16_ASYM]
-        _, mocks = self._run_recipe(config, info)
+        _, mocks = self._run(
+            config, QuantizationScheme.W4A16_ASYM, QuantizationAlgorithm.AWQ
+        )
         mocks["llmcompressor.modifiers.awq"].AWQModifier.assert_called_once_with(
             targets="Linear",
             scheme="W4A16_ASYM",
             ignore=["lm_head"],
         )
 
-    def test_build_recipe_respects_ignore_layers(self):
+    def test_respects_ignore_layers(self):
         custom_ignore = ["lm_head", "re:.*gate$"]
         config = _make_config(
-            QuantizationScheme.FP8_DYNAMIC,
-            ignore_layers=custom_ignore,
+            QuantizationScheme.FP8_DYNAMIC, ignore_layers=custom_ignore
         )
-        info = SCHEME_REGISTRY[QuantizationScheme.FP8_DYNAMIC]
-        _, mocks = self._run_recipe(config, info)
+        _, mocks = self._run(
+            config, QuantizationScheme.FP8_DYNAMIC, QuantizationAlgorithm.RTN
+        )
         mocks[
             "llmcompressor.modifiers.quantization"
         ].QuantizationModifier.assert_called_once_with(
@@ -250,130 +257,92 @@ class TestBuildRecipe:
             ignore=custom_ignore,
         )
 
-    def test_algorithm_auto_defers_to_scheme_info(self):
-        config = _make_config(QuantizationScheme.FP8_DYNAMIC)
-        info = SCHEME_REGISTRY[QuantizationScheme.FP8_DYNAMIC]
-        _, mocks = self._run_recipe(config, info)
+    def test_explicit_algorithm_override_to_gptq(self):
+        # User picks GPTQ on FP8_DYNAMIC: recipe should use GPTQModifier.
+        config = _make_config(
+            QuantizationScheme.FP8_DYNAMIC, algorithm=QuantizationAlgorithm.GPTQ
+        )
+        _, mocks = self._run(
+            config, QuantizationScheme.FP8_DYNAMIC, QuantizationAlgorithm.GPTQ
+        )
         mocks[
             "llmcompressor.modifiers.quantization"
-        ].QuantizationModifier.assert_called_once()
-
-    def test_explicit_algorithm_override(self):
-        config = _make_config(
-            QuantizationScheme.FP8_DYNAMIC,
-            algorithm=QuantizationAlgorithm.GPTQ,
-        )
-        info = SchemeInfo(
-            backend=QuantizationBackend.LLM_COMPRESSOR,
-            llmc_scheme="FP8_DYNAMIC",
-            default_algorithm=QuantizationAlgorithm.RTN,
-            needs_calibration=False,
-            min_compute_capability=8.9,
-            description="test",
-        )
-        _, mocks = self._run_recipe(config, info)
-        mocks["llmcompressor.modifiers.quantization"].GPTQModifier.assert_called_once()
-
-    def test_unsupported_algorithm_raises(self):
-        # BNB algorithm on LLM Compressor backend is rejected at config level,
-        # so we use a valid config (auto algorithm) and test _build_recipe
-        # with a synthetic SchemeInfo whose default is BNB.
-        config = _make_config(QuantizationScheme.FP8_DYNAMIC)
-        info = SchemeInfo(
-            backend=QuantizationBackend.LLM_COMPRESSOR,
-            llmc_scheme="FP8_DYNAMIC",
-            default_algorithm=QuantizationAlgorithm.BNB,
-            needs_calibration=False,
-            min_compute_capability=8.9,
-            description="test",
-        )
-        with pytest.raises(ValueError, match="Unsupported algorithm"):
-            self._run_recipe(config, info)
+        ].GPTQModifier.assert_called_once()
 
 
 class TestQuantizeIntegration:
     def setup_method(self):
         self.quantizer = LLMCompressorQuantization()
 
-    @patch(
-        "oumi.quantize.llmcompressor_quantizer.get_directory_size", return_value=4096
-    )
-    @patch("transformers.AutoTokenizer")
-    @patch("transformers.AutoModelForCausalLM")
-    def test_quantize_calls_oneshot(self, mock_auto_model, mock_auto_tok, _mock_size):
+    @patch("oumi.quantize.llmcompressor.warn_if_local_gpu_below_inference_capability")
+    @patch("oumi.quantize.llmcompressor.assert_output_path_writable")
+    @patch("oumi.quantize.llmcompressor.get_directory_size", return_value=4096)
+    @patch("oumi.quantize.llmcompressor.load_model_and_tokenizer")
+    def test_quantize_calls_oneshot(
+        self, mock_load, _mock_size, _mock_writable, _mock_warn
+    ):
         config = _make_config(
             QuantizationScheme.FP8_DYNAMIC, output_path="/tmp/test_output"
         )
         mock_model = MagicMock()
-        mock_auto_model.from_pretrained.return_value = mock_model
-        mock_auto_tok.from_pretrained.return_value = MagicMock()
+        mock_load.return_value = (mock_model, MagicMock())
 
         with _LLMCompressorModuleInjector() as mocks:
             mock_oneshot = mocks["llmcompressor"].oneshot
             self.quantizer.quantize(config)
-
             mock_oneshot.assert_called_once()
             assert mock_oneshot.call_args.kwargs["model"] is mock_model
 
-    @patch(
-        "oumi.quantize.llmcompressor_quantizer.get_directory_size", return_value=4096
-    )
-    @patch("transformers.AutoTokenizer")
-    @patch("transformers.AutoModelForCausalLM")
+    @patch("oumi.quantize.llmcompressor.warn_if_local_gpu_below_inference_capability")
+    @patch("oumi.quantize.llmcompressor.assert_output_path_writable")
+    @patch("oumi.quantize.llmcompressor.get_directory_size", return_value=4096)
+    @patch("oumi.quantize.llmcompressor.load_model_and_tokenizer")
     def test_quantize_saves_model_and_tokenizer(
-        self, mock_auto_model, mock_auto_tok, _mock_size
+        self, mock_load, _mock_size, _mock_writable, _mock_warn
     ):
         config = _make_config(
             QuantizationScheme.FP8_DYNAMIC, output_path="/tmp/test_output"
         )
         mock_model = MagicMock()
         mock_tokenizer = MagicMock()
-        mock_auto_model.from_pretrained.return_value = mock_model
-        mock_auto_tok.from_pretrained.return_value = mock_tokenizer
+        mock_load.return_value = (mock_model, mock_tokenizer)
 
         with _LLMCompressorModuleInjector():
             self.quantizer.quantize(config)
 
         mock_model.save_pretrained.assert_called_once_with(
-            config.output_path,
-            save_compressed=True,
+            config.output_path, save_compressed=True
         )
         mock_tokenizer.save_pretrained.assert_called_once_with(config.output_path)
 
-    @patch(
-        "oumi.quantize.llmcompressor_quantizer.get_directory_size", return_value=2048
-    )
-    @patch("transformers.AutoTokenizer")
-    @patch("transformers.AutoModelForCausalLM")
+    @patch("oumi.quantize.llmcompressor.warn_if_local_gpu_below_inference_capability")
+    @patch("oumi.quantize.llmcompressor.assert_output_path_writable")
+    @patch("oumi.quantize.llmcompressor.get_directory_size", return_value=2048)
+    @patch("oumi.quantize.llmcompressor.load_model_and_tokenizer")
     def test_quantize_returns_quantization_result(
-        self, mock_auto_model, mock_auto_tok, _mock_size
+        self, mock_load, _mock_size, _mock_writable, _mock_warn
     ):
         config = _make_config(
             QuantizationScheme.FP8_DYNAMIC, output_path="/tmp/test_output"
         )
-        mock_auto_model.from_pretrained.return_value = MagicMock()
-        mock_auto_tok.from_pretrained.return_value = MagicMock()
+        mock_load.return_value = (MagicMock(), MagicMock())
 
         with _LLMCompressorModuleInjector():
             result = self.quantizer.quantize(config)
 
         assert isinstance(result, QuantizationResult)
-        assert result.backend == QuantizationBackend.LLM_COMPRESSOR
-        assert result.scheme == QuantizationScheme.FP8_DYNAMIC
+        assert result.backend is QuantizationBackend.LLM_COMPRESSOR
+        assert result.scheme is QuantizationScheme.FP8_DYNAMIC
         assert result.output_path == "/tmp/test_output"
         assert result.format_type == "safetensors"
         assert result.quantized_size_bytes == 2048
-        assert result.additional_info["llmc_scheme"] == "FP8_DYNAMIC"
-        assert result.additional_info["algorithm"] == "rtn"
-        assert result.additional_info["needs_calibration"] is False
 
-    @patch(
-        "oumi.quantize.llmcompressor_quantizer.get_directory_size", return_value=1024
-    )
-    @patch("transformers.AutoTokenizer")
-    @patch("transformers.AutoModelForCausalLM")
+    @patch("oumi.quantize.llmcompressor.warn_if_local_gpu_below_inference_capability")
+    @patch("oumi.quantize.llmcompressor.assert_output_path_writable")
+    @patch("oumi.quantize.llmcompressor.get_directory_size", return_value=1024)
+    @patch("oumi.quantize.llmcompressor.load_model_and_tokenizer")
     def test_quantize_calibration_method_passes_dataset(
-        self, mock_auto_model, mock_auto_tok, _mock_size
+        self, mock_load, _mock_size, _mock_writable, _mock_warn
     ):
         config = _make_config(
             QuantizationScheme.W4A16,
@@ -381,8 +350,7 @@ class TestQuantizeIntegration:
             calibration_samples=64,
             max_seq_length=512,
         )
-        mock_auto_model.from_pretrained.return_value = MagicMock()
-        mock_auto_tok.from_pretrained.return_value = MagicMock()
+        mock_load.return_value = (MagicMock(), MagicMock())
         mock_dataset = MagicMock()
 
         with _LLMCompressorModuleInjector() as mocks:
@@ -418,10 +386,7 @@ class TestPrepareCalibrationData:
         mock_ds.column_names = ["text"]
         mock_ds.map.return_value = mock_ds
 
-        with patch(
-            "datasets.load_dataset",
-            return_value=mock_ds,
-        ) as mock_load:
+        with patch("datasets.load_dataset", return_value=mock_ds) as mock_load:
             result = self.quantizer._prepare_calibration_data(config, mock_tokenizer)
 
             mock_load.assert_called_once_with(

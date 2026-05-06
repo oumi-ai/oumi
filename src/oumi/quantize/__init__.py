@@ -14,51 +14,105 @@
 
 """Quantization module for Oumi.
 
-This module provides model quantization via LLM Compressor (FP8, GPTQ, AWQ)
-and BitsAndBytes (NF4, FP4, INT8).
+Provides model quantization via LLM Compressor (FP8, GPTQ, AWQ) and
+BitsAndBytes (NF4, FP4, INT8). Each backend's full business logic lives
+in its own file (``llmcompressor.py``, ``bnb.py``).
+
+To add a new backend:
+  1. Create a new file under ``src/oumi/quantize/`` with a subclass of
+     :class:`BaseQuantization` declaring its ``schemes`` map.
+  2. Add it to ``_BACKENDS`` below.
+  3. Add any new scheme/algorithm names to the enums in
+     ``oumi.core.configs.quantization_config``.
 """
+
+from typing import cast
 
 from oumi.core.configs import QuantizationConfig
 from oumi.core.configs.quantization_config import QuantizationScheme
-from oumi.quantize.base import BaseQuantization, QuantizationResult
-from oumi.quantize.bnb_quantizer import BitsAndBytesQuantization
-from oumi.quantize.constants import QuantizationAlgorithm
-from oumi.quantize.llmcompressor_quantizer import LLMCompressorQuantization
+from oumi.exceptions import OumiConfigError
+from oumi.quantize.base import BaseQuantization, QuantizationResult, SchemeSpec
+from oumi.quantize.bnb import BitsAndBytesQuantization
+from oumi.quantize.llmcompressor import LLMCompressorQuantization
+
+# Adding a new backend = create file + add import above + append here.
+_BACKENDS: list[type[BaseQuantization]] = [
+    LLMCompressorQuantization,
+    BitsAndBytesQuantization,
+]
+
+
+def _build_scheme_index() -> dict[QuantizationScheme, type[BaseQuantization]]:
+    """Build the scheme→backend index, validating uniqueness at import time."""
+    index: dict[QuantizationScheme, type[BaseQuantization]] = {}
+    for cls in _BACKENDS:
+        for scheme in cls.schemes:
+            if scheme in index:
+                raise RuntimeError(
+                    f"Scheme {scheme.value!r} declared by both "
+                    f"{index[scheme].__name__} and {cls.__name__}."
+                )
+            index[scheme] = cls
+    return index
+
+
+_SCHEME_TO_BACKEND: dict[QuantizationScheme, type[BaseQuantization]] = (
+    _build_scheme_index()
+)
+
+
+def backend_for_scheme(scheme: QuantizationScheme) -> type[BaseQuantization]:
+    """Return the backend class that owns ``scheme``."""
+    try:
+        return _SCHEME_TO_BACKEND[scheme]
+    except KeyError:
+        raise OumiConfigError(
+            f"No backend registered for scheme {scheme.value!r}."
+        ) from None
+
+
+def all_schemes() -> dict[
+    QuantizationScheme, tuple[type[BaseQuantization], SchemeSpec]
+]:
+    """Merged view of every backend's schemes. For ``--list-schemes``."""
+    return {
+        scheme: (cls, cls.schemes[scheme])
+        for scheme, cls in _SCHEME_TO_BACKEND.items()
+    }
 
 
 def quantize(config: QuantizationConfig) -> QuantizationResult:
-    """Main quantization function that routes to appropriate quantizer.
+    """Quantize a model. Backend is dispatched from ``config.scheme``.
 
     Args:
-        config: Quantization configuration containing scheme, model
-            parameters, and other settings. The backend is inferred
-            from the scheme.
+        config: Quantization configuration. The backend is inferred from
+            ``config.scheme``.
 
     Returns:
-        QuantizationResult containing quantization results including file sizes
-        and compression ratios.
+        :class:`QuantizationResult` with output path, backend, scheme,
+        format, and size.
 
     Raises:
-        ValueError: If quantization configuration is invalid
-        RuntimeError: If quantization fails
+        OumiConfigError: If configuration is invalid.
+        RuntimeError: If backend dependencies or hardware are missing,
+            or if quantization itself fails.
     """
     if not isinstance(config, QuantizationConfig):
         raise ValueError(f"Expected QuantizationConfig, got {type(config)}")
 
-    from oumi.builders.quantizers import build_quantizer
-
-    quantizer = build_quantizer(config.backend)
-    quantizer.raise_if_requirements_not_met()
-
-    return quantizer.quantize(config)
+    backend = backend_for_scheme(cast(QuantizationScheme, config.scheme))()
+    backend.raise_if_requirements_not_met()
+    return backend.quantize(config)
 
 
 __all__ = [
     "BaseQuantization",
     "BitsAndBytesQuantization",
     "LLMCompressorQuantization",
-    "QuantizationAlgorithm",
     "QuantizationResult",
     "QuantizationScheme",
+    "SchemeSpec",
+    "all_schemes",
+    "backend_for_scheme",
     "quantize",
 ]

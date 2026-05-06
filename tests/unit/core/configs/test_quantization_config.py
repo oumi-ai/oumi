@@ -48,9 +48,11 @@ class TestQuantizationConfigDefaults:
                 output_path="test",
             )
 
-    def test_algorithm_defaults_to_auto(self):
+    def test_algorithm_auto_resolves_to_scheme_default(self):
+        # AUTO is resolved to the scheme's default at construction time.
+        # FP8_DYNAMIC's default is RTN.
         config = _make_config()
-        assert config.algorithm == QuantizationAlgorithm.AUTO
+        assert config.algorithm == QuantizationAlgorithm.RTN
 
     def test_new_fields_have_defaults(self):
         config = _make_config()
@@ -121,7 +123,8 @@ class TestQuantizationConfigAlgorithm:
     @pytest.mark.parametrize(
         "algo_str,expected",
         [
-            ("auto", QuantizationAlgorithm.AUTO),
+            # 'auto' on FP8_DYNAMIC resolves to the scheme's default (RTN).
+            ("auto", QuantizationAlgorithm.RTN),
             ("rtn", QuantizationAlgorithm.RTN),
             ("gptq", QuantizationAlgorithm.GPTQ),
             ("awq", QuantizationAlgorithm.AWQ),
@@ -143,14 +146,14 @@ class TestQuantizationConfigAlgorithm:
         assert config.algorithm == QuantizationAlgorithm.BNB
 
     def test_bnb_scheme_rejects_non_bnb_algorithm(self):
-        with pytest.raises(OumiConfigError, match="not compatible with"):
+        with pytest.raises(OumiConfigError, match="not allowed"):
             _make_config(
                 scheme=QuantizationScheme.BNB_NF4,
                 algorithm=QuantizationAlgorithm.GPTQ,
             )
 
     def test_llmc_scheme_rejects_bnb_algorithm(self):
-        with pytest.raises(OumiConfigError, match="not compatible with"):
+        with pytest.raises(OumiConfigError, match="not allowed"):
             _make_config(
                 scheme=QuantizationScheme.FP8_DYNAMIC,
                 algorithm=QuantizationAlgorithm.BNB,
@@ -163,7 +166,7 @@ class TestQuantizationConfigOutputFormat:
         assert config.output_format == "safetensors"
 
     def test_invalid_format_rejected(self):
-        with pytest.raises(OumiConfigError, match="Unsupported output format"):
+        with pytest.raises(OumiConfigError, match="only supports output format"):
             _make_config(output_format="pytorch")
 
 
@@ -208,7 +211,8 @@ class TestQuantizationConfigYaml:
         assert loaded.scheme == QuantizationScheme.W4A16
         assert loaded.model.model_name == "meta-llama/Llama-3.1-8B-Instruct"
         assert loaded.output_path == "llama3-w4a16"
-        assert loaded.algorithm == QuantizationAlgorithm.AUTO
+        # AUTO on W4A16 resolves to the scheme's default (GPTQ).
+        assert loaded.algorithm == QuantizationAlgorithm.GPTQ
         assert loaded.save_compressed is True
 
     def test_from_yaml_bnb_config(self):

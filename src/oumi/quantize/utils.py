@@ -16,14 +16,21 @@
 
 from pathlib import Path
 
+from oumi.core.configs import QuantizationConfig
+from oumi.core.configs.quantization_config import QuantizationScheme
 from oumi.utils.logging import logger
 
 _SIZE_UNITS = ("B", "KB", "MB", "GB", "TB", "PB")
 
+# kwargs that quantizers must control directly when calling from_pretrained;
+# user-supplied values would silently lose. See load_model_and_tokenizer.
+_FORCED_MODEL_KWARGS = ("device_map", "torch_dtype", "quantization_config")
 
-def warn_if_local_gpu_below_inference_capability(scheme) -> None:
-    """Warn if the local GPU's compute capability is below the scheme's
-    inference threshold.
+
+def warn_if_local_gpu_below_inference_capability(
+    scheme: QuantizationScheme, min_compute_capability: float
+) -> None:
+    """Warn if the local GPU's compute capability is below ``min_compute_capability``.
 
     Quantization itself runs in higher precision and doesn't require the
     target SM, so we don't block. But the same-machine quant-and-serve
@@ -32,40 +39,18 @@ def warn_if_local_gpu_below_inference_capability(scheme) -> None:
     """
     import torch
 
-    from oumi.quantize.constants import SCHEME_REGISTRY
-
     if not torch.cuda.is_available():
-        return
-    info = SCHEME_REGISTRY.get(scheme)
-    if info is None:
         return
     major, minor = torch.cuda.get_device_capability()
     local_cc = major + minor / 10.0
-    if local_cc < info.min_compute_capability:
+    if local_cc < min_compute_capability:
         logger.warning(
             f"Local GPU compute capability is SM {local_cc:.1f} but scheme "
-            f"'{scheme.value}' requires SM {info.min_compute_capability:.1f} "
+            f"'{scheme.value}' requires SM {min_compute_capability:.1f} "
             "for inference. Quantization will still run, but the resulting "
             "model cannot be served on this GPU. Confirm your serving target "
-            f"supports SM {info.min_compute_capability:.1f}+ before continuing."
+            f"supports SM {min_compute_capability:.1f}+ before continuing."
         )
-
-
-def pop_with_override_warning(
-    kwargs: dict, keys: tuple[str, ...], context: str
-) -> None:
-    """Drop ``keys`` from ``kwargs`` in place, warning for any that were set.
-
-    Used when a quantizer needs to pass these kwargs explicitly to
-    ``from_pretrained`` and a user-supplied value would silently lose.
-    """
-    for key in keys:
-        if key in kwargs:
-            logger.warning(
-                f"Ignoring user-supplied model_kwargs['{key}']={kwargs[key]!r}: "
-                f"{context} sets this explicitly during quantization."
-            )
-            kwargs.pop(key)
 
 
 def assert_output_path_writable(output_path: str) -> None:
@@ -99,6 +84,39 @@ def assert_output_path_writable(output_path: str) -> None:
         raise RuntimeError(
             f"Cannot write to output directory '{output_path}': {e}"
         ) from e
+
+
+def load_model_and_tokenizer(config: QuantizationConfig, **forced_kwargs):
+    """Load model + tokenizer for a quantizer, owning the load-time kwargs.
+
+    ``forced_kwargs`` are passed directly to ``from_pretrained``. Any
+    overlapping keys in ``config.model.model_kwargs`` are dropped with a
+    warning so the quantizer's choice always wins.
+    """
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+
+    model_kwargs = dict(config.model.model_kwargs or {})
+    for key in _FORCED_MODEL_KWARGS:
+        if key in model_kwargs:
+            logger.warning(
+                f"Ignoring user-supplied model_kwargs[{key!r}]={model_kwargs[key]!r}: "
+                "quantization sets this explicitly."
+            )
+            model_kwargs.pop(key)
+    model_kwargs["trust_remote_code"] = config.model.trust_remote_code
+
+    forced = {"device_map": "auto", **forced_kwargs}
+    model = AutoModelForCausalLM.from_pretrained(
+        config.model.model_name,
+        **forced,
+        **model_kwargs,
+    )
+    tokenizer = AutoTokenizer.from_pretrained(
+        config.model.tokenizer_name or config.model.model_name,
+        trust_remote_code=config.model.trust_remote_code,
+        **(config.model.tokenizer_kwargs or {}),
+    )
+    return model, tokenizer
 
 
 def get_directory_size(path: str) -> int:

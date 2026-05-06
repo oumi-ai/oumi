@@ -28,21 +28,8 @@ from oumi.quantize import quantize
 from oumi.quantize.base import QuantizationResult
 
 
-def _mock_quantizer(backend, scheme, size=1024, path="/test/output"):
-    """Create a mock quantizer that returns a canned QuantizationResult."""
-    mock = MagicMock()
-    mock.raise_if_requirements_not_met.return_value = None
-    mock.quantize.return_value = QuantizationResult(
-        quantized_size_bytes=size,
-        output_path=path,
-        backend=backend,
-        scheme=scheme,
-        format_type="safetensors",
-    )
-    return mock
-
-
 def _make_config(scheme):
+    """Build a real QuantizationConfig (no patch active here)."""
     return QuantizationConfig(
         model=ModelParams(model_name="test/model"),
         scheme=scheme,
@@ -50,39 +37,55 @@ def _make_config(scheme):
     )
 
 
+def _mock_backend_class(backend, scheme, size=1024, path="/test/output"):
+    """Mock callable (class) whose instantiation yields a stubbed quantizer."""
+    instance = MagicMock()
+    instance.raise_if_requirements_not_met.return_value = None
+    instance.quantize.return_value = QuantizationResult(
+        output_path=path,
+        backend=backend,
+        scheme=scheme,
+        format_type="safetensors",
+        quantized_size_bytes=size,
+    )
+    cls = MagicMock(return_value=instance)
+    cls._instance = instance  # for assertions
+    return cls
+
+
 class TestQuantizeDispatch:
-    @patch("oumi.builders.quantizers.build_quantizer")
-    def test_fp8_dynamic_dispatches(self, mock_build):
-        mock_build.return_value = _mock_quantizer(
+    def test_fp8_dynamic_dispatches(self):
+        config = _make_config(QuantizationScheme.FP8_DYNAMIC)
+        cls = _mock_backend_class(
             QuantizationBackend.LLM_COMPRESSOR, QuantizationScheme.FP8_DYNAMIC
         )
-        result = quantize(_make_config(QuantizationScheme.FP8_DYNAMIC))
+        with patch("oumi.quantize.backend_for_scheme", return_value=cls) as mock:
+            result = quantize(config)
+        assert result.backend is QuantizationBackend.LLM_COMPRESSOR
+        assert result.scheme is QuantizationScheme.FP8_DYNAMIC
+        mock.assert_called_with(QuantizationScheme.FP8_DYNAMIC)
 
-        assert result.backend == QuantizationBackend.LLM_COMPRESSOR
-        assert result.scheme == QuantizationScheme.FP8_DYNAMIC
-        mock_build.assert_called_once_with(QuantizationBackend.LLM_COMPRESSOR)
-
-    @patch("oumi.builders.quantizers.build_quantizer")
-    def test_w4a16_dispatches(self, mock_build):
-        mock_build.return_value = _mock_quantizer(
+    def test_w4a16_dispatches(self):
+        config = _make_config(QuantizationScheme.W4A16)
+        cls = _mock_backend_class(
             QuantizationBackend.LLM_COMPRESSOR, QuantizationScheme.W4A16
         )
-        result = quantize(_make_config(QuantizationScheme.W4A16))
+        with patch("oumi.quantize.backend_for_scheme", return_value=cls) as mock:
+            result = quantize(config)
+        assert result.backend is QuantizationBackend.LLM_COMPRESSOR
+        assert result.scheme is QuantizationScheme.W4A16
+        mock.assert_called_with(QuantizationScheme.W4A16)
 
-        assert result.backend == QuantizationBackend.LLM_COMPRESSOR
-        assert result.scheme == QuantizationScheme.W4A16
-        mock_build.assert_called_once_with(QuantizationBackend.LLM_COMPRESSOR)
-
-    @patch("oumi.builders.quantizers.build_quantizer")
-    def test_bnb_nf4_dispatches(self, mock_build):
-        mock_build.return_value = _mock_quantizer(
+    def test_bnb_nf4_dispatches(self):
+        config = _make_config(QuantizationScheme.BNB_NF4)
+        cls = _mock_backend_class(
             QuantizationBackend.BNB, QuantizationScheme.BNB_NF4
         )
-        result = quantize(_make_config(QuantizationScheme.BNB_NF4))
-
-        assert result.backend == QuantizationBackend.BNB
-        assert result.scheme == QuantizationScheme.BNB_NF4
-        mock_build.assert_called_once_with(QuantizationBackend.BNB)
+        with patch("oumi.quantize.backend_for_scheme", return_value=cls) as mock:
+            result = quantize(config)
+        assert result.backend is QuantizationBackend.BNB
+        assert result.scheme is QuantizationScheme.BNB_NF4
+        mock.assert_called_with(QuantizationScheme.BNB_NF4)
 
 
 class TestQuantizeErrorHandling:
@@ -94,33 +97,31 @@ class TestQuantizeErrorHandling:
         with pytest.raises(OumiConfigError, match="Unsupported scheme"):
             _make_config("invalid_scheme")
 
-    @patch("oumi.builders.quantizers.build_quantizer")
-    def test_requirements_not_met(self, mock_build):
-        mock_q = MagicMock()
-        mock_q.raise_if_requirements_not_met.side_effect = RuntimeError("No GPU")
-        mock_build.return_value = mock_q
+    def test_requirements_not_met(self):
+        config = _make_config(QuantizationScheme.FP8_DYNAMIC)
+        instance = MagicMock()
+        instance.raise_if_requirements_not_met.side_effect = RuntimeError("No GPU")
+        cls = MagicMock(return_value=instance)
+        with patch("oumi.quantize.backend_for_scheme", return_value=cls):
+            with pytest.raises(RuntimeError, match="No GPU"):
+                quantize(config)
 
-        with pytest.raises(RuntimeError, match="No GPU"):
-            quantize(_make_config(QuantizationScheme.FP8_DYNAMIC))
+    def test_quantizer_failure(self):
+        config = _make_config(QuantizationScheme.FP8_DYNAMIC)
+        instance = MagicMock()
+        instance.raise_if_requirements_not_met.return_value = None
+        instance.quantize.side_effect = RuntimeError("Quantization failed")
+        cls = MagicMock(return_value=instance)
+        with patch("oumi.quantize.backend_for_scheme", return_value=cls):
+            with pytest.raises(RuntimeError, match="Quantization failed"):
+                quantize(config)
 
-    @patch("oumi.builders.quantizers.build_quantizer")
-    def test_quantizer_failure(self, mock_build):
-        mock_q = MagicMock()
-        mock_q.raise_if_requirements_not_met.return_value = None
-        mock_q.quantize.side_effect = RuntimeError("Quantization failed")
-        mock_build.return_value = mock_q
-
-        with pytest.raises(RuntimeError, match="Quantization failed"):
-            quantize(_make_config(QuantizationScheme.FP8_DYNAMIC))
-
-    @patch("oumi.builders.quantizers.build_quantizer")
-    def test_quantize_calls_raise_if_requirements_not_met(self, mock_build):
-        mock_q = _mock_quantizer(
+    def test_quantize_calls_raise_if_requirements_not_met(self):
+        config = _make_config(QuantizationScheme.FP8_DYNAMIC)
+        cls = _mock_backend_class(
             QuantizationBackend.LLM_COMPRESSOR, QuantizationScheme.FP8_DYNAMIC
         )
-        mock_build.return_value = mock_q
-
-        quantize(_make_config(QuantizationScheme.FP8_DYNAMIC))
-
-        mock_q.raise_if_requirements_not_met.assert_called_once()
-        mock_q.quantize.assert_called_once()
+        with patch("oumi.quantize.backend_for_scheme", return_value=cls):
+            quantize(config)
+        cls._instance.raise_if_requirements_not_met.assert_called_once()
+        cls._instance.quantize.assert_called_once()

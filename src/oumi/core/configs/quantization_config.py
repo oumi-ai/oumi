@@ -50,8 +50,8 @@ class QuantizationScheme(str, Enum):
 class QuantizationAlgorithm(str, Enum):
     """Quantization algorithm selection.
 
-    AUTO defers to the default algorithm defined in SCHEME_REGISTRY for the
-    chosen quantization scheme.
+    AUTO defers to the chosen scheme's ``default_algorithm`` declared on the
+    owning backend's :class:`~oumi.quantize.base.SchemeSpec`.
     """
 
     AUTO = "auto"
@@ -165,10 +165,16 @@ class QuantizationConfig(BaseConfig):
     """Quantization backend, inferred from scheme. Not user-settable."""
 
     def __post_init__(self):
-        """Post-initialization validation."""
-        # Imported lazily to avoid a circular import: quantize.constants imports
-        # the enums defined above.
-        from oumi.quantize.constants import SCHEME_REGISTRY, SUPPORTED_OUTPUT_FORMATS
+        """Post-initialization validation.
+
+        Coerces ``scheme`` and ``algorithm`` to their enum types, infers
+        ``backend`` from the scheme's owning quantization backend, and
+        validates the algorithm × scheme combination via the backend's
+        :class:`SchemeSpec`.
+        """
+        # Lazy import: oumi.quantize imports backends which reference this
+        # module's QuantizationConfig at type-check time.
+        from oumi.quantize import backend_for_scheme
 
         if self.scheme is None:
             raise OumiConfigError(
@@ -176,38 +182,21 @@ class QuantizationConfig(BaseConfig):
                 f"Must be one of: {[s.value for s in QuantizationScheme]}."
             )
         self.scheme = _coerce_enum(self.scheme, QuantizationScheme, "scheme")
-        self.backend = SCHEME_REGISTRY[self.scheme].backend
-
         self.algorithm = _coerce_enum(
             self.algorithm, QuantizationAlgorithm, "algorithm"
         )
 
-        # BnB backend only supports the BnB algorithm; AUTO resolves to it.
-        if self.backend == QuantizationBackend.BNB:
-            if self.algorithm not in (
-                QuantizationAlgorithm.AUTO,
-                QuantizationAlgorithm.BNB,
-            ):
-                raise OumiConfigError(
-                    f"Algorithm '{self.algorithm.value}' is not compatible with "
-                    "BitsAndBytes schemes (bnb_*). Use 'auto' or 'bnb'."
-                )
-            self.algorithm = QuantizationAlgorithm.BNB
+        backend_cls = backend_for_scheme(self.scheme)
+        self.backend = backend_cls.backend
+        # Resolve AUTO to the scheme default and validate the combination.
+        self.algorithm = backend_cls.schemes[self.scheme].resolve_algorithm(
+            self.algorithm
+        )
 
-        # LLM Compressor backend rejects the BnB algorithm.
-        if (
-            self.backend == QuantizationBackend.LLM_COMPRESSOR
-            and self.algorithm == QuantizationAlgorithm.BNB
-        ):
+        if self.output_format != backend_cls.output_format:
             raise OumiConfigError(
-                "Algorithm 'bnb' is not compatible with LLM Compressor schemes. "
-                "Use 'auto', 'rtn', 'gptq', or 'awq'."
-            )
-
-        if self.output_format not in SUPPORTED_OUTPUT_FORMATS:
-            raise OumiConfigError(
-                f"Unsupported output format: {self.output_format}. "
-                f"Must be one of: {SUPPORTED_OUTPUT_FORMATS}."
+                f"Backend {backend_cls.backend.value!r} only supports output "
+                f"format {backend_cls.output_format!r}, got {self.output_format!r}."
             )
 
     def __finalize_and_validate__(self) -> None:

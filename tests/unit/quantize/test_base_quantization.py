@@ -12,32 +12,102 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Unit tests for base quantization functionality."""
+"""Unit tests for base quantization types: SchemeSpec, QuantizationResult, ABC."""
 
 import pytest
 
-from oumi.core.configs import ModelParams, QuantizationConfig
+from oumi.core.configs import QuantizationConfig
 from oumi.core.configs.quantization_config import (
+    QuantizationAlgorithm,
     QuantizationBackend,
     QuantizationScheme,
 )
-from oumi.quantize.base import BaseQuantization, QuantizationResult
+from oumi.exceptions import OumiConfigError
+from oumi.quantize.base import BaseQuantization, QuantizationResult, SchemeSpec
+
+
+_LLMC_ALGOS = (
+    QuantizationAlgorithm.RTN,
+    QuantizationAlgorithm.GPTQ,
+    QuantizationAlgorithm.AWQ,
+)
+
+
+class TestSchemeSpec:
+    def test_resolve_auto_returns_default(self):
+        spec = SchemeSpec(
+            default_algorithm=QuantizationAlgorithm.RTN,
+            allowed_algorithms=_LLMC_ALGOS,
+            needs_calibration_default=False,
+        )
+        assert (
+            spec.resolve_algorithm(QuantizationAlgorithm.AUTO)
+            is QuantizationAlgorithm.RTN
+        )
+
+    def test_resolve_explicit_allowed(self):
+        spec = SchemeSpec(
+            default_algorithm=QuantizationAlgorithm.RTN,
+            allowed_algorithms=_LLMC_ALGOS,
+            needs_calibration_default=False,
+        )
+        assert (
+            spec.resolve_algorithm(QuantizationAlgorithm.GPTQ)
+            is QuantizationAlgorithm.GPTQ
+        )
+
+    def test_resolve_disallowed_raises(self):
+        spec = SchemeSpec(
+            default_algorithm=QuantizationAlgorithm.BNB,
+            allowed_algorithms=(QuantizationAlgorithm.BNB,),
+            needs_calibration_default=False,
+        )
+        with pytest.raises(OumiConfigError, match="not allowed"):
+            spec.resolve_algorithm(QuantizationAlgorithm.GPTQ)
+
+    def test_needs_calibration_default_only(self):
+        spec = SchemeSpec(
+            default_algorithm=QuantizationAlgorithm.GPTQ,
+            allowed_algorithms=_LLMC_ALGOS,
+            needs_calibration_default=True,
+        )
+        assert spec.needs_calibration_for(QuantizationAlgorithm.GPTQ) is True
+        assert spec.needs_calibration_for(QuantizationAlgorithm.RTN) is True
+
+    def test_needs_calibration_only_when_overridden_with_calib_algo(self):
+        spec = SchemeSpec(
+            default_algorithm=QuantizationAlgorithm.RTN,
+            allowed_algorithms=_LLMC_ALGOS,
+            needs_calibration_default=False,
+            calibration_required_for=(
+                QuantizationAlgorithm.GPTQ,
+                QuantizationAlgorithm.AWQ,
+            ),
+        )
+        assert spec.needs_calibration_for(QuantizationAlgorithm.RTN) is False
+        assert spec.needs_calibration_for(QuantizationAlgorithm.GPTQ) is True
+        assert spec.needs_calibration_for(QuantizationAlgorithm.AWQ) is True
 
 
 class _StubQuantizer(BaseQuantization):
-    """Minimal concrete subclass for testing BaseQuantization."""
+    """Minimal concrete subclass for ABC-shape testing."""
 
-    supported_schemes = [QuantizationScheme.FP8_DYNAMIC]
-    supported_formats = ["safetensors"]
+    backend = QuantizationBackend.LLM_COMPRESSOR
+    schemes = {
+        QuantizationScheme.FP8_DYNAMIC: SchemeSpec(
+            default_algorithm=QuantizationAlgorithm.RTN,
+            allowed_algorithms=_LLMC_ALGOS,
+            needs_calibration_default=False,
+        )
+    }
 
     def quantize(self, config: QuantizationConfig) -> QuantizationResult:
         return QuantizationResult(
-            quantized_size_bytes=1000,
             output_path="/fake/path",
-            backend=QuantizationBackend.LLM_COMPRESSOR,
+            backend=self.backend,
             scheme=QuantizationScheme.FP8_DYNAMIC,
-            format_type="safetensors",
-            additional_info={},
+            format_type=self.output_format,
+            quantized_size_bytes=1000,
         )
 
     def raise_if_requirements_not_met(self) -> None:
@@ -45,76 +115,36 @@ class _StubQuantizer(BaseQuantization):
 
 
 class TestBaseQuantization:
-    def setup_method(self):
-        self.quantizer = _StubQuantizer()
-        self.valid_config = QuantizationConfig(
-            model=ModelParams(model_name="test/model"),
-            scheme="fp8_dynamic",
-            output_path="test_output",
-            output_format="safetensors",
+    def test_owns_true(self):
+        assert _StubQuantizer.owns(QuantizationScheme.FP8_DYNAMIC) is True
+
+    def test_owns_false(self):
+        assert _StubQuantizer.owns(QuantizationScheme.BNB_NF4) is False
+
+    def test_default_output_format(self):
+        assert _StubQuantizer.output_format == "safetensors"
+
+    def test_quantize_returns_result(self):
+        quantizer = _StubQuantizer()
+        result = quantizer.quantize(
+            QuantizationConfig(scheme="fp8_dynamic", output_path="x")
         )
-
-    def test_supports_scheme_true(self):
-        assert self.quantizer.supports_scheme(QuantizationScheme.FP8_DYNAMIC) is True
-
-    def test_supports_scheme_false(self):
-        assert self.quantizer.supports_scheme(QuantizationScheme.BNB_NF4) is False
-
-    def test_supports_format_true(self):
-        assert self.quantizer.supports_format("safetensors") is True
-
-    def test_supports_format_false(self):
-        assert self.quantizer.supports_format("gguf") is False
-
-    def test_validate_config_valid(self):
-        self.quantizer.validate_config(self.valid_config)
-
-    def test_validate_config_invalid_scheme(self):
-        config = QuantizationConfig(
-            model=ModelParams(model_name="test/model"),
-            scheme=QuantizationScheme.BNB_NF4,
-            output_path="test",
-            output_format="safetensors",
-        )
-        with pytest.raises(ValueError, match="not supported by"):
-            self.quantizer.validate_config(config)
-
-    def test_quantize_implementation(self):
-        result = self.quantizer.quantize(self.valid_config)
-
         assert isinstance(result, QuantizationResult)
-        assert result.quantized_size_bytes == 1000
-        assert result.output_path == "/fake/path"
-        assert result.backend == QuantizationBackend.LLM_COMPRESSOR
-        assert result.scheme == QuantizationScheme.FP8_DYNAMIC
-        assert result.format_type == "safetensors"
+        assert result.backend is QuantizationBackend.LLM_COMPRESSOR
+        assert result.scheme is QuantizationScheme.FP8_DYNAMIC
 
 
 class TestQuantizationResult:
     def test_creation_with_all_fields(self):
         result = QuantizationResult(
-            quantized_size_bytes=2048,
             output_path="/path/to/model",
             backend=QuantizationBackend.LLM_COMPRESSOR,
             scheme=QuantizationScheme.FP8_DYNAMIC,
             format_type="safetensors",
-            additional_info={"compression_ratio": 0.25},
+            quantized_size_bytes=2048,
         )
-
         assert result.quantized_size_bytes == 2048
         assert result.output_path == "/path/to/model"
-        assert result.backend == QuantizationBackend.LLM_COMPRESSOR
-        assert result.scheme == QuantizationScheme.FP8_DYNAMIC
+        assert result.backend is QuantizationBackend.LLM_COMPRESSOR
+        assert result.scheme is QuantizationScheme.FP8_DYNAMIC
         assert result.format_type == "safetensors"
-        assert result.additional_info["compression_ratio"] == 0.25
-
-    def test_default_additional_info(self):
-        result = QuantizationResult(
-            quantized_size_bytes=1024,
-            output_path="/path",
-            backend=QuantizationBackend.LLM_COMPRESSOR,
-            scheme=QuantizationScheme.FP8_DYNAMIC,
-            format_type="format",
-        )
-
-        assert result.additional_info == {}

@@ -284,11 +284,11 @@ def quantize(config: QuantizationConfig) -> QuantizationResult:
 
     Returns:
         QuantizationResult containing:
-        - quantized_size_bytes: Size of the quantized model in bytes
         - output_path: Path to the quantized model
-        - quantization_method: Quantization method used
+        - backend: Quantization backend used
+        - scheme: Quantization scheme used
         - format_type: Format type of the quantized model
-        - additional_info: Additional method-specific information
+        - quantized_size_bytes: Size of the quantized model in bytes
 
     Raises:
         RuntimeError: If quantization fails for any reason

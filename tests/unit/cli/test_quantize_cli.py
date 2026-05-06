@@ -41,7 +41,6 @@ def _quantization_result() -> QuantizationResult:
         backend=QuantizationBackend.LLM_COMPRESSOR,
         scheme=QuantizationScheme.FP8_DYNAMIC,
         format_type="safetensors",
-        additional_info={"TestKey": "TestValue"},
     )
 
 
@@ -114,34 +113,9 @@ def test_list_schemes_table_columns(app):
     assert "Algorithm" in result.stdout
 
 
-def test_list_algorithms_callback_exits_zero(app):
+def test_list_algorithms_flag_no_longer_exists(app):
     result = runner.invoke(app, ["--list-algorithms"])
-    assert result.exit_code == 0
-
-
-def test_list_algorithms_callback_false_noop(app):
-    result = runner.invoke(app, ["--help"])
-    assert result.exit_code == 0
-    assert "--list-algorithms" in result.stdout
-
-
-def test_list_algorithms_prints_user_selectable_algorithms(app):
-    result = runner.invoke(app, ["--list-algorithms"])
-    assert result.exit_code == 0
-    for algo in QuantizationAlgorithm:
-        # 'bnb' is auto-selected for bnb_* schemes; intentionally hidden from
-        # the user-facing listing.
-        if algo == QuantizationAlgorithm.BNB:
-            assert algo.value not in result.stdout
-        else:
-            assert algo.value in result.stdout
-
-
-def test_list_algorithms_table_columns(app):
-    result = runner.invoke(app, ["--list-algorithms"])
-    assert result.exit_code == 0
-    for col in ["Algorithm", "Calibration", "Default For Schemes", "Description"]:
-        assert col in result.stdout
+    assert result.exit_code != 0
 
 
 def test_config_required(app):

@@ -12,25 +12,79 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Base quantization class and common utilities."""
+"""Base quantization types and contract.
+
+A backend is a subclass of :class:`BaseQuantization` that declares the schemes
+it owns as a class-level ``schemes`` mapping. All backend-specific metadata
+(allowed algorithms, default algorithm, calibration rules, min compute
+capability, description) lives in the :class:`SchemeSpec` values of that map.
+
+To add a new backend: create a file under ``src/oumi/quantize/``, subclass
+``BaseQuantization``, then register it in ``oumi/quantize/__init__.py``.
+"""
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from typing import Any, cast
+from dataclasses import dataclass
+from typing import ClassVar
 
+from oumi.core.configs import QuantizationConfig
 from oumi.core.configs.quantization_config import (
+    QuantizationAlgorithm,
     QuantizationBackend,
-    QuantizationConfig,
     QuantizationScheme,
 )
+from oumi.exceptions import OumiConfigError
+
+
+@dataclass(frozen=True)
+class SchemeSpec:
+    """Per-scheme metadata declared on a backend class.
+
+    Attributes:
+        default_algorithm: Algorithm used when ``QuantizationAlgorithm.AUTO``
+            is requested.
+        allowed_algorithms: Algorithms accepted for this scheme. ``AUTO`` is
+            always implicitly allowed (it resolves to ``default_algorithm``).
+        needs_calibration_default: Whether the scheme's default algorithm
+            requires calibration data.
+        calibration_required_for: Algorithms that always require calibration
+            data, even when the scheme's default does not (e.g. user
+            overrides FP8_DYNAMIC's RTN with GPTQ).
+        min_compute_capability: Minimum NVIDIA GPU compute capability
+            required for *inference* (not quantization). See
+            https://docs.vllm.ai/projects/llm-compressor/en/latest/steps/choosing-scheme/
+        description: Human-readable description for ``--list-schemes``.
+    """
+
+    default_algorithm: QuantizationAlgorithm
+    allowed_algorithms: tuple[QuantizationAlgorithm, ...]
+    needs_calibration_default: bool
+    calibration_required_for: tuple[QuantizationAlgorithm, ...] = ()
+    min_compute_capability: float = 0.0
+    description: str = ""
+
+    def resolve_algorithm(
+        self, requested: QuantizationAlgorithm
+    ) -> QuantizationAlgorithm:
+        """Return the concrete algorithm to use, or raise if disallowed."""
+        if requested is QuantizationAlgorithm.AUTO:
+            return self.default_algorithm
+        if requested not in self.allowed_algorithms:
+            allowed = sorted(a.value for a in self.allowed_algorithms)
+            raise OumiConfigError(
+                f"Algorithm {requested.value!r} is not allowed for this scheme. "
+                f"Use 'auto' or one of: {allowed}."
+            )
+        return requested
+
+    def needs_calibration_for(self, algorithm: QuantizationAlgorithm) -> bool:
+        """Whether the given algorithm requires calibration data."""
+        return self.needs_calibration_default or algorithm in self.calibration_required_for
 
 
 @dataclass
 class QuantizationResult:
     """Result of quantization."""
-
-    quantized_size_bytes: int
-    """Size of the quantized model in bytes."""
 
     output_path: str
     """Path to the quantized model."""
@@ -42,94 +96,37 @@ class QuantizationResult:
     """Quantization scheme used."""
 
     format_type: str
-    """Format type of the quantized model."""
+    """Output format of the quantized model."""
 
-    additional_info: dict[str, Any] = field(default_factory=dict)
-    """Additional information about the quantization process."""
+    quantized_size_bytes: int
+    """Size of the quantized model in bytes."""
 
 
 class BaseQuantization(ABC):
-    """Abstract base class for all quantization methods.
+    """Self-contained quantization backend.
 
-    This class defines the common interface that all quantization implementations
-    must follow, ensuring consistency across different quantization approaches.
+    Subclasses declare:
+      * ``backend`` — the :class:`QuantizationBackend` they implement.
+      * ``schemes`` — every scheme they support, with metadata.
+      * ``output_format`` — defaults to ``"safetensors"``.
+
+    and implement two methods (``raise_if_requirements_not_met`` and
+    ``quantize``).
     """
 
-    supported_schemes: list[QuantizationScheme] = []
-    supported_formats: list[str] = []
+    backend: ClassVar[QuantizationBackend]
+    output_format: ClassVar[str] = "safetensors"
+    schemes: ClassVar[dict[QuantizationScheme, SchemeSpec]]
 
-    @abstractmethod
-    def quantize(self, config: QuantizationConfig) -> QuantizationResult:
-        """Main quantization method - must be implemented by subclasses.
-
-        Args:
-            config: Quantization configuration containing model parameters,
-                backend, scheme, output path, and other settings.
-
-        Returns:
-            QuantizationResult containing:
-            - quantized_size_bytes: Size of the quantized model in bytes
-            - output_path: Path to the quantized model
-            - backend: Quantization backend used
-            - scheme: Quantization scheme used
-            - format_type: Format type of the quantized model
-            - additional_info: Additional method-specific information
-
-        Raises:
-            RuntimeError: If quantization fails for any reason
-            ValueError: If configuration is invalid for this quantizer
-        """
-        raise NotImplementedError("Subclasses must implement quantize method")
+    @classmethod
+    def owns(cls, scheme: QuantizationScheme) -> bool:
+        """Whether this backend implements the given scheme."""
+        return scheme in cls.schemes
 
     @abstractmethod
     def raise_if_requirements_not_met(self) -> None:
-        """Raise an error if the requirements are not met."""
-        raise NotImplementedError(
-            "Subclasses must implement raise_if_requirements_not_met method"
-        )
+        """Raise ``RuntimeError`` if dependencies / hardware are missing."""
 
-    def supports_scheme(self, scheme: QuantizationScheme) -> bool:
-        """Check if this quantizer supports the given scheme.
-
-        Args:
-            scheme: Quantization scheme to check
-
-        Returns:
-            True if scheme is supported, False otherwise
-        """
-        return scheme in self.supported_schemes
-
-    def supports_format(self, format_name: str) -> bool:
-        """Check if this quantizer supports the given output format.
-
-        Args:
-            format_name: Output format name to check
-
-        Returns:
-            True if format is supported, False otherwise
-        """
-        return format_name in self.supported_formats
-
-    def validate_config(self, config: QuantizationConfig) -> None:
-        """Validate configuration for this quantizer.
-
-        Args:
-            config: Quantization configuration to validate
-
-        Raises:
-            ValueError: If configuration is invalid for this quantizer
-        """
-        scheme = cast(QuantizationScheme, config.scheme)
-        if not self.supports_scheme(scheme):
-            raise ValueError(
-                f"Scheme '{scheme}' not supported by "
-                f"{self.__class__.__name__}. "
-                f"Supported schemes: {self.supported_schemes}"
-            )
-
-        if not self.supports_format(config.output_format):
-            raise ValueError(
-                f"Format '{config.output_format}' not supported by "
-                f"{self.__class__.__name__}. "
-                f"Supported formats: {self.supported_formats}"
-            )
+    @abstractmethod
+    def quantize(self, config: QuantizationConfig) -> QuantizationResult:
+        """Quantize a model end-to-end and return the result."""

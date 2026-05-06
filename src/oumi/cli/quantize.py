@@ -27,13 +27,7 @@ def _list_schemes_callback(value: bool) -> None:
     if not value:
         return
 
-    from oumi.core.configs.quantization_config import QuantizationBackend
-    from oumi.quantize.constants import SCHEME_REGISTRY
-
-    _BACKEND_LABELS = {
-        QuantizationBackend.LLM_COMPRESSOR: "LLM Compressor",
-        QuantizationBackend.BNB: "BitsAndBytes",
-    }
+    from oumi.quantize import all_schemes
 
     table = Table(
         title="Available Quantization Schemes",
@@ -49,17 +43,19 @@ def _list_schemes_callback(value: bool) -> None:
     table.add_column("Min GPU", style="dim")
     table.add_column("Description", style="white")
 
-    for scheme, info in SCHEME_REGISTRY.items():
+    for scheme, (backend_cls, spec) in all_schemes().items():
         calib = (
-            "[yellow]yes[/yellow]" if info.needs_calibration else "[green]no[/green]"
+            "[yellow]yes[/yellow]"
+            if spec.needs_calibration_default
+            else "[green]no[/green]"
         )
         table.add_row(
             scheme.value,
-            _BACKEND_LABELS.get(info.backend, info.backend.value),
-            info.default_algorithm.value,
+            backend_cls.backend.value,
+            spec.default_algorithm.value,
             calib,
-            f"SM {info.min_compute_capability}",
-            info.description,
+            f"SM {spec.min_compute_capability}",
+            spec.description,
         )
 
     cli_utils.CONSOLE.print()
@@ -68,58 +64,6 @@ def _list_schemes_callback(value: bool) -> None:
     cli_utils.CONSOLE.print(
         "[dim]Use --scheme <name> to select a scheme, "
         "e.g.: oumi quantize -c config.yaml --scheme fp8_dynamic[/dim]"
-    )
-    cli_utils.CONSOLE.print()
-    raise typer.Exit(code=0)
-
-
-def _list_algorithms_callback(value: bool) -> None:
-    if not value:
-        return
-
-    from oumi.core.configs.quantization_config import QuantizationAlgorithm
-    from oumi.quantize.constants import (
-        ALGORITHM_REGISTRY,
-        get_default_schemes_by_algorithm,
-    )
-
-    schemes_by_algo = get_default_schemes_by_algorithm()
-
-    table = Table(
-        title="Available Quantization Algorithms",
-        title_style="bold",
-        show_header=True,
-        header_style="bold cyan",
-        show_lines=True,
-    )
-    table.add_column("Algorithm", style="green")
-    table.add_column("Calibration", style="cyan")
-    table.add_column("Default For Schemes", style="yellow")
-    table.add_column("Description", style="white")
-
-    for algo in QuantizationAlgorithm:
-        # 'bnb' is auto-selected for bnb_* schemes and rejected for LLM
-        # Compressor schemes; it is never user-selectable.
-        if algo == QuantizationAlgorithm.BNB:
-            continue
-        info = ALGORITHM_REGISTRY[algo]
-        if info.needs_calibration is None:
-            calib_display = "[dim]depends on scheme[/dim]"
-        elif info.needs_calibration:
-            calib_display = "[yellow]yes[/yellow]"
-        else:
-            calib_display = "[green]no[/green]"
-        default_schemes = (
-            ", ".join(s.value for s in schemes_by_algo.get(algo, [])) or "-"
-        )
-        table.add_row(algo.value, calib_display, default_schemes, info.description)
-
-    cli_utils.CONSOLE.print()
-    cli_utils.CONSOLE.print(table)
-    cli_utils.CONSOLE.print()
-    cli_utils.CONSOLE.print(
-        "[dim]Use --algorithm <name> to override, "
-        "e.g.: oumi quantize -c config.yaml --algorithm gptq[/dim]"
     )
     cli_utils.CONSOLE.print()
     raise typer.Exit(code=0)
@@ -143,16 +87,6 @@ def quantize(
             "--list-schemes",
             help="List all available quantization schemes and exit.",
             callback=_list_schemes_callback,
-            is_eager=True,
-            rich_help_panel="Options",
-        ),
-    ] = False,
-    list_algorithms: Annotated[
-        bool,
-        typer.Option(
-            "--list-algorithms",
-            help="List all available quantization algorithms and exit.",
-            callback=_list_algorithms_callback,
             is_eager=True,
             rich_help_panel="Options",
         ),
@@ -231,7 +165,6 @@ def quantize(
         ctx: The Typer context object.
         config: Path to the configuration file for quantization.
         list_schemes: List all available quantization schemes.
-        list_algorithms: List all available quantization algorithms.
         level: The logging level for the specified command.
         verbose: Enable verbose logging with additional debug information.
         model_name: Model name or HuggingFace path.
@@ -306,9 +239,6 @@ def quantize(
         table.add_row("Scheme", result.scheme.value)
         table.add_row("Format", result.format_type)
         table.add_row("Quantized Size", format_size(result.quantized_size_bytes))
-        if result.additional_info:
-            for key, value in result.additional_info.items():
-                table.add_row(key, str(value))
 
         cli_utils.CONSOLE.print(table)
     finally:
