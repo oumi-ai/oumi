@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import contextvars
 import json
 from typing import Any
 
@@ -37,6 +38,11 @@ from oumi.inference.remote_inference_engine import (
 from oumi.utils.logging import logger
 
 _CONTENT_KEY: str = "content"
+
+# Tool name we forced via guided_decoding; matched in the response parser.
+_forced_tool_name: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "_forced_tool_name", default=None
+)
 
 
 class AnthropicInferenceEngine(RemoteInferenceEngine):
@@ -206,12 +212,17 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
                 f"model={response.get('model')}, "
                 f"usage={response.get('usage')}"
             )
-        # Forced tool use returns the structured payload in a tool_use block.
+        # Match only the tool_use block we forced; organic calls fall through.
+        expected_tool = _forced_tool_name.get()
         message_content: str | None = None
-        for block in content_blocks:
-            if block.get("type") == "tool_use":
-                message_content = json.dumps(block.get("input", {}))
-                break
+        if expected_tool is not None:
+            for block in content_blocks:
+                if (
+                    block.get("type") == "tool_use"
+                    and block.get("name") == expected_tool
+                ):
+                    message_content = json.dumps(block.get("input", {}))
+                    break
         if message_content is None:
             message_content = content_blocks[0]["text"]
         new_message = Message(
@@ -727,6 +738,7 @@ def _convert_guided_decoding_config_to_api_input(
             "string or dict."
         )
 
+    _forced_tool_name.set(schema_name)
     return {
         "tools": [{"name": schema_name, "input_schema": schema_value}],
         "tool_choice": {"type": "tool", "name": schema_name},
