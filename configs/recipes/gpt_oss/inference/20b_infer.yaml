@@ -17,7 +17,6 @@
 model:
   model_name: "openai/gpt-oss-20b"
   model_max_length: 131072
-  trust_remote_code: True
   attn_implementation: "kernels-community/vllm-flash-attn3"
 
 generation:

@@ -18,7 +18,6 @@ model:
   torch_dtype_str: "bfloat16"
   model_max_length: 3072
   chat_template: "llava"
-  trust_remote_code: True
 
 generation:
   max_new_tokens: 32

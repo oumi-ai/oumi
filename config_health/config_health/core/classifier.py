@@ -223,6 +223,28 @@ def _validate_with_oumi(
         except Exception:
             continue
 
+    # Before reporting failure, check if this file has ANY oumi-recognized keys.
+    # Files with zero oumi keys (e.g. HF Accelerate configs, Fireworks deploy
+    # configs) are not oumi configs and should be skipped, not flagged as broken.
+    _OUMI_TOP_LEVEL_KEYS = frozenset(
+        {
+            "model", "data", "training", "peft", "fsdp", "deepspeed",
+            "resources", "run", "setup", "tasks", "judge_model", "synthesis",
+            "quantization", "analyzers", "dataset_source", "evaluation",
+            "checkpoints_dir", "polling_interval", "tuning", "generation",
+            "engine", "inference_engine",
+        }
+    )
+    try:
+        import yaml as _yaml
+
+        with open(yaml_path) as _f:
+            _raw = _yaml.safe_load(_f)
+        if isinstance(_raw, dict) and not (set(_raw.keys()) & _OUMI_TOP_LEVEL_KEYS):
+            return "Unknown", "Not an oumi config file (no recognized oumi keys)"
+    except Exception:
+        pass
+
     return "Unknown", "Could not parse with any oumi config class"
 
 

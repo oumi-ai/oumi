@@ -11,6 +11,7 @@
 
 model:
   model_name: "Qwen/Qwen2.5-0.5B-Instruct"
+  torch_dtype_str: "bfloat16"
 
 data:
   train:

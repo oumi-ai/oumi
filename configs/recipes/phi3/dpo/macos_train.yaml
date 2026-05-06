@@ -11,8 +11,9 @@
 
 model:
   model_name: "microsoft/Phi-3-mini-4k-instruct"
+  tokenizer_pad_token: "<unk>"  # Avoid pad==eos; use <unk> as padding token per Microsoft's official fine-tuning guide:
+  # https://huggingface.co/microsoft/Phi-3-mini-4k-instruct/blob/main/sample_finetune.py
   torch_dtype_str: "float16"
-  trust_remote_code: True
 
 data:
   train:
@@ -26,6 +27,7 @@ training:
   trainer_type: "TRL_DPO"
   per_device_train_batch_size: 1
   gradient_accumulation_steps: 8
+  logging_steps: 10
 
   # Use for debugging purposes
   # max_steps: 10

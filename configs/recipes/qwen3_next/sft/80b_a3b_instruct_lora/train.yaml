@@ -26,7 +26,6 @@ model:
   model_max_length: 32768
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"  # Use "flash_attention_2" if flash-attn is installed
-  trust_remote_code: True
 
 data:
   train:

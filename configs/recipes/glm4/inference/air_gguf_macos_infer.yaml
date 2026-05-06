@@ -22,7 +22,6 @@ model:
   tokenizer_name: "THUDM/glm-4-9b-chat"
   model_max_length: 8192
   torch_dtype_str: "float16"
-  trust_remote_code: True
   model_kwargs:
     filename: "GLM-4.5-Air-UD-Q2_K_XL.gguf"
 

@@ -12,11 +12,10 @@ model:
   model_name: "EleutherAI/pythia-14m"
   tokenizer_name: "EleutherAI/pythia-14m"
   tokenizer_pad_token:  "<|padding|>"
-  model_max_length: 4096
+  model_max_length: 2048
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
   load_pretrained_weights: True
-  trust_remote_code: True
 
 data:
   train:

@@ -23,7 +23,6 @@ model:
   model_name: "Qwen/Qwen3-VL-2B-Instruct"
   torch_dtype_str: "bfloat16"
   model_max_length: 8192
-  trust_remote_code: True
 
 generation:
   max_new_tokens: 512

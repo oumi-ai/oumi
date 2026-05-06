@@ -15,6 +15,7 @@
 model:
   # For 7B model "Qwen/Qwen2.5-VL-7B-Instruct", a node with 8 GPUs is recommended.
   model_name: "Qwen/Qwen2.5-VL-3B-Instruct"
+  torch_dtype_str: "bfloat16"
 
 data:
   train:
@@ -46,6 +47,7 @@ training:
   save_steps: 150
   eval_strategy: "steps"
   eval_steps: 12
+  logging_steps: 10
 
   learning_rate: 1.0e-6
   enable_gradient_checkpointing: True

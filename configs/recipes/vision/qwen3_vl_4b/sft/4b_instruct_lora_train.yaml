@@ -16,7 +16,6 @@ model:
   model_name: "Qwen/Qwen3-VL-4B-Instruct"
   torch_dtype_str: "bfloat16"
   model_max_length: 4096
-  trust_remote_code: True
   # TODO: Enable flash attention
   attn_implementation: "sdpa"
   chat_template: "qwen3-vl-instruct"

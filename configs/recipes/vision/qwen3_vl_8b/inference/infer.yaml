@@ -27,7 +27,6 @@ model:
   torch_dtype_str: "bfloat16"
   model_max_length: 8192
   attn_implementation: "flash_attention_2"
-  trust_remote_code: True
 
 generation:
   max_new_tokens: 512

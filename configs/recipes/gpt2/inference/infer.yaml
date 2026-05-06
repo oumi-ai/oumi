@@ -11,9 +11,9 @@
 
 model:
   model_name: "openai-community/gpt2"
+  torch_dtype_str: "bfloat16"
   chat_template: "gpt2"
   tokenizer_pad_token: "<|endoftext|>"
-  trust_remote_code: True
 
 generation:
   max_new_tokens: 32

@@ -16,7 +16,6 @@ model:
   model_name: "Qwen/Qwen2-VL-2B-Instruct"
   torch_dtype_str: "bfloat16"
   model_max_length: 4096
-  trust_remote_code: True
   attn_implementation: "sdpa"
   chat_template: "qwen2-vl-instruct"
   freeze_layers:

@@ -18,8 +18,8 @@ model:
   model_name: "meta-llama/Llama-3.1-8B-Instruct"
   model_max_length: 4096
   torch_dtype_str: "bfloat16"
-  trust_remote_code: True
   attn_implementation: "sdpa"
+  tokenizer_pad_token: "<|finetune_right_pad_id|>"
 
 data:
   train:

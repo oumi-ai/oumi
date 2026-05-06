@@ -13,7 +13,6 @@ model:
   model_name: "llava-hf/llava-1.5-7b-hf"
   torch_dtype_str: "bfloat16"
   model_max_length: 2048
-  trust_remote_code: True
   attn_implementation: "sdpa"
   chat_template: "llava"
   freeze_layers:
@@ -63,3 +62,4 @@ fsdp:
   forward_prefetch: True
   use_orig_params: True
   auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
+  transformer_layer_cls: "LlamaDecoderLayer,CLIPEncoderLayer"

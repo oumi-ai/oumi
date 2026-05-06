@@ -15,7 +15,6 @@ model:
   torch_dtype_str: "bfloat16"
   model_max_length: 4096
   chat_template: "qwen2-vl-instruct" # 2.5 uses the same template as 2.0
-  trust_remote_code: True
 
 generation:
   max_new_tokens: 64

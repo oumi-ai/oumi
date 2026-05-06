@@ -545,6 +545,12 @@ def _check_max_length_vs_context(
             # RoPE scaling is configured — this is intentional, not an error
             return results
 
+        # If the config explicitly overrides max_position_embeddings via model_kwargs,
+        # the context extension is intentional (e.g. Molmo configs that set
+        # model_kwargs.max_position_embeddings to match model_max_length).
+        if isinstance(model_kwargs, dict) and model_kwargs.get("max_position_embeddings"):
+            return results
+
         results.append(
             CheckResult(
                 config_path=entry.path,

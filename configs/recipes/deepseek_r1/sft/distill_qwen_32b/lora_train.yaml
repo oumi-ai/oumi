@@ -14,10 +14,11 @@
 
 model:
   model_name: "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B"
+  tokenizer_pad_token: "<|vision_pad|>"  # Avoid pad==eos; use unused Qwen vision token as padding (Unsloth patched tokenizer):
+  # https://huggingface.co/unsloth/DeepSeek-R1-Distill-Qwen-7B
   model_max_length: 2048
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
-  trust_remote_code: True
 
 data:
   train:

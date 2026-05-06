@@ -66,8 +66,8 @@ class HubChecker:
                 severity=Severity.INFO,
             )
 
-        # Skip local paths
-        if model_name.startswith(("./", "/", "~")):
+        # Skip local paths (absolute, relative, home-relative, or output/ dirs)
+        if model_name.startswith(("./", "/", "~", "output/")):
             return CheckResult(
                 config_path=entry.path,
                 check_name="model_exists",
@@ -110,6 +110,17 @@ class HubChecker:
                 check_name="dataset_exists",
                 status=CheckStatus.SKIP,
                 message=f"Non-HF dataset: {ds_name}",
+                severity=Severity.INFO,
+            )
+
+        # Skip oumi-registered dataset class names (e.g. "text_sft_jsonl",
+        # "HuggingFaceDataset", "hf_vision"). HF Hub IDs always contain a "/".
+        if "/" not in ds_name:
+            return CheckResult(
+                config_path=entry.path,
+                check_name="dataset_exists",
+                status=CheckStatus.SKIP,
+                message=f"Oumi registered dataset (not an HF Hub ID): {ds_name}",
                 severity=Severity.INFO,
             )
 

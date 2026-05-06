@@ -17,7 +17,6 @@ model:
   tokenizer_name: "meta-llama/Llama-4-Scout-17B-16E-Instruct"
   model_max_length: 8192
   torch_dtype_str: "float16"
-  trust_remote_code: True
   attn_implementation: "sdpa"
   model_kwargs:
     filename: "Llama-4-Scout-17B-16E-Instruct-UD-Q4_K_M.gguf"

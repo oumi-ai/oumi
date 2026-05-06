@@ -11,7 +11,7 @@
 
 model:
   model_name: "Qwen/Qwen2.5-VL-3B-Instruct"
-  trust_remote_code: True
+  torch_dtype_str: "bfloat16"
 
 data:
   train:

@@ -17,7 +17,6 @@ model:
   model_name: "HuggingFaceTB/SmolVLM-Instruct"
   torch_dtype_str: "bfloat16"
   model_max_length: 3072
-  trust_remote_code: True
   attn_implementation: "flash_attention_2" # The model requires Flash Attention!
   chat_template: "llava"
   freeze_layers:

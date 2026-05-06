@@ -22,7 +22,6 @@ model:
   tokenizer_name: "Qwen/Qwen3-4B-Instruct-2507"
   model_max_length: 16384
   torch_dtype_str: "float16"
-  trust_remote_code: True
   model_kwargs:
     filename: "Qwen3-4B-Instruct-2507-UD-Q5_K_XL.gguf"
 

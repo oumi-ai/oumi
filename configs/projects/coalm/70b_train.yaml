@@ -6,7 +6,6 @@ model:
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
   load_pretrained_weights: True
-  trust_remote_code: True
   tokenizer_pad_token: "<|finetune_right_pad_id|>"
   enable_liger_kernel: True
 

@@ -13,3 +13,6 @@ model:
   model_name: "openai/gpt-oss-120b"
 
 engine: TOGETHER
+
+generation:
+  max_new_tokens: 2048

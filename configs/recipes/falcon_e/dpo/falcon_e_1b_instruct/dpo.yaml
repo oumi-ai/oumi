@@ -14,7 +14,6 @@ model:
   model_max_length: 2048
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
-  trust_remote_code: True
   enable_liger_kernel: False
   tokenizer_kwargs:
     pad_token: "<|pad|>"
@@ -31,3 +30,4 @@ training:
   output_dir: "output/falcon-e-1b.dpo"
   trainer_type: "TRL_DPO"
   per_device_train_batch_size: 2
+  logging_steps: 10

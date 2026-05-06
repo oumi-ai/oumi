@@ -11,10 +11,9 @@
 
 model:
   model_name: "tiiuae/Falcon-H1-0.5B-Instruct"
-  model_max_length: 16385
+  model_max_length: 16384
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
-  trust_remote_code: True
   shard_for_eval: True
 
 data:

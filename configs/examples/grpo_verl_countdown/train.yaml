@@ -14,6 +14,9 @@
 
 model:
   model_name: "d1shs0ap/cognitive-behaviors-Llama-3.2-3B"
+  tokenizer_pad_token: "<|finetune_right_pad_id|>"  # Avoid pad==eos; use Llama-3.2's designated fine-tuning pad slot:
+  # https://huggingface.co/meta-llama/Llama-3.2-3B/blob/main/tokenizer_config.json
+  torch_dtype_str: "bfloat16"
 
 data:
   train:
@@ -31,6 +34,7 @@ training:
   save_steps: -1
   eval_strategy: "steps"
   eval_steps: 50
+  logging_steps: 10
 
   learning_rate: 1.0e-6
   enable_gradient_checkpointing: True

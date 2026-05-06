@@ -19,7 +19,6 @@ model:
   torch_dtype_str: "bfloat16"
   attn_implementation: sdpa # as of 04/05/2025, flex_attention is not working
   load_pretrained_weights: True
-  trust_remote_code: True
 
 data:
   train:

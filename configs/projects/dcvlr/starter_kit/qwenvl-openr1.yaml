@@ -15,7 +15,6 @@ model:
   model_name: "Qwen/Qwen2.5-VL-7B-Instruct"
   torch_dtype_str: "bfloat16"
   model_max_length: 10000
-  trust_remote_code: True
   attn_implementation: "sdpa" # You can also use `flash_attention_2` if you install it
   chat_template: "qwen2-vl-instruct" # 2.5 uses the same template as 2.0
 

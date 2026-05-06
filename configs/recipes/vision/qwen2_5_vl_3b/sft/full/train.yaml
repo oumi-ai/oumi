@@ -19,7 +19,6 @@ model:
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
   load_pretrained_weights: True
-  trust_remote_code: True
   enable_liger_kernel: False
   chat_template: "qwen2-vl-instruct"
 

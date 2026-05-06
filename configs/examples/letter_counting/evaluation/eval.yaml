@@ -19,7 +19,6 @@ model:
   model_max_length: 131072
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
-  trust_remote_code: True
 
 generation:
   max_new_tokens: 2048

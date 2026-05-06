@@ -19,7 +19,6 @@ model:
   attn_implementation: "sdpa"
   tokenizer_pad_token: "<|endoftext|>"
   load_pretrained_weights: False
-  trust_remote_code: True
 
 data:
   train:

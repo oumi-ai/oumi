@@ -16,3 +16,6 @@ model:
   model_name: "accounts/fireworks/models/qwen3-235b-a22b"
 
 engine: FIREWORKS
+
+generation:
+  max_new_tokens: 2048

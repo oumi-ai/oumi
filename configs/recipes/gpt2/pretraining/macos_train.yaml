@@ -16,7 +16,6 @@ model:
   torch_dtype_str: "bfloat16"
   tokenizer_pad_token: "<|endoftext|>"
   load_pretrained_weights: False
-  trust_remote_code: True
   model_kwargs:
     disable_dropout: True
 
@@ -54,3 +53,4 @@ training:
   run_name: "gpt2_pt"
   output_dir: "output/gpt2.pt"
   include_performance_metrics: True
+  logging_steps: 10

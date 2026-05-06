@@ -23,7 +23,6 @@ model:
   model_max_length: 8192
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
-  trust_remote_code: true
   enable_liger_kernel: false  # Disabled (may conflict with Gemma3 output format)
 
 data:

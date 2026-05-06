@@ -23,8 +23,8 @@ model:
   model_name: "microsoft/Phi-4-multimodal-instruct"
   torch_dtype_str: "bfloat16"
   model_max_length: 4096
-  trust_remote_code: True
   attn_implementation: "flash_attention_2" # The model requires Flash Attention.
+  trust_remote_code: True
 
   # The model by default freezes the following audio/image-related modules:
   #   model.embed_tokens_extend.audio_embed

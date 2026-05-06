@@ -19,6 +19,7 @@ model:
   model_max_length: 8192
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
+  tokenizer_pad_token: "<|finetune_right_pad_id|>"
 
 data:
   train:

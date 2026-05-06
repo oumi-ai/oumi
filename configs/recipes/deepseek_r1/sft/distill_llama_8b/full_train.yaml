@@ -14,10 +14,11 @@
 
 model:
   model_name: "deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
+  tokenizer_pad_token: "<|finetune_right_pad_id|>"  # Avoid pad==eos; use Llama-3's designated fine-tuning pad slot (Unsloth patched tokenizer):
+  # https://huggingface.co/unsloth/DeepSeek-R1-Distill-Llama-8B
   model_max_length: 8192
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
-  trust_remote_code: True
   # Improves training speed by 20% with default config.
   enable_liger_kernel: True
 

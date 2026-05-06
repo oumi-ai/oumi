@@ -13,7 +13,6 @@
 model:
   model_name: "openai/gpt-oss-20b"
   torch_dtype_str: "bfloat16"
-  trust_remote_code: true
   chat_template: "auto"  # Use model's built-in chat template
 
   # Enable MXFP4 quantization for efficient inference

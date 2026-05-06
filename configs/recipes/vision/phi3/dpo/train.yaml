@@ -11,11 +11,14 @@
 
 model:
   model_name: "microsoft/Phi-3-vision-128k-instruct"
+  tokenizer_pad_token: "<unk>"  # Avoid pad==eos; use <unk> as padding token per Microsoft's official fine-tuning guide:
+  # https://huggingface.co/microsoft/Phi-3-mini-4k-instruct/blob/main/sample_finetune.py
+  torch_dtype_str: "bfloat16"
   tokenizer_name: "microsoft/Phi-3-vision-128k-instruct"
-  trust_remote_code: True
   attn_implementation: "eager"
   chat_template: "phi3-instruct"
   model_max_length: 3072
+  trust_remote_code: True
 
 data:
   train:
@@ -47,8 +50,7 @@ peft:
     - "k_proj"
     - "v_proj"
     - "o_proj"
-    - "gate_proj"
-    - "up_proj"
+    - "gate_up_proj"
     - "down_proj"
   lora_r: 16
   lora_alpha: 32

@@ -20,11 +20,10 @@
 #   - Other inference configs: configs/**/inference/
 
 model:
-  model_name: "allenai/Olmo-3-32B-Instruct"
+  model_name: "allenai/Olmo-3.1-32B-Instruct"
   model_max_length: 8192
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
-  trust_remote_code: True
 
 generation:
   max_new_tokens: 2048

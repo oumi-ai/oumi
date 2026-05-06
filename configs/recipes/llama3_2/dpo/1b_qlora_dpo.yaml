@@ -15,7 +15,7 @@ model:
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
   load_pretrained_weights: True
-  trust_remote_code: True
+  tokenizer_pad_token: "<|finetune_right_pad_id|>"
 
 data:
   train:
@@ -28,6 +28,7 @@ training:
   output_dir: "output/llama3_2_1b.dpo"
   trainer_type: "TRL_DPO"
   per_device_train_batch_size: 2
+  logging_steps: 10
 
 peft:
   q_lora: True

@@ -19,11 +19,10 @@
 #   - Other training configs: configs/**/*train.yaml
 
 model:
-  model_name: "Qwen/Qwen3-Next-80B-A3B"
+  model_name: "Qwen/Qwen3-Next-80B-A3B-Instruct"
   model_max_length: 32768
   torch_dtype_str: "bfloat16"
   attn_implementation: "flash_attention_2"
-  trust_remote_code: True
 
 data:
   train:

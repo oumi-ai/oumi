@@ -46,6 +46,16 @@ def run_static_checks(
 def _check_parse(entry: ConfigEntry) -> CheckResult:
     """Check that the config parses into an oumi config class."""
     if entry.parse_error:
+        # Non-oumi files (e.g. HF Accelerate configs, provider deploy configs)
+        # should be skipped, not flagged as broken oumi configs.
+        if entry.parse_error.startswith("Not an oumi config file"):
+            return CheckResult(
+                config_path=entry.path,
+                check_name="parse",
+                status=CheckStatus.SKIP,
+                message=entry.parse_error,
+                severity=Severity.INFO,
+            )
         return CheckResult(
             config_path=entry.path,
             check_name="parse",

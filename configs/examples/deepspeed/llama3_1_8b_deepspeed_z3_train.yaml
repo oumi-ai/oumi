@@ -27,6 +27,7 @@ model:
   torch_dtype_str: "bfloat16"
   load_pretrained_weights: True
   trust_remote_code: False
+  tokenizer_pad_token: "<|finetune_right_pad_id|>"
 
 data:
   train:

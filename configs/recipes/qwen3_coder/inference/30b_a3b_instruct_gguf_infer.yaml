@@ -17,7 +17,6 @@ model:
   tokenizer_name: "Qwen/Qwen3-Coder-30B-A3B-Instruct"
   model_max_length: 8192
   torch_dtype_str: "float16"
-  trust_remote_code: True
   attn_implementation: "sdpa"
   model_kwargs:
     filename: "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf"

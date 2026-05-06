@@ -6,7 +6,6 @@ model:
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
   load_pretrained_weights: True
-  trust_remote_code: True
   tokenizer_pad_token: "<|finetune_right_pad_id|>"
   enable_liger_kernel: True
 
@@ -57,6 +56,19 @@ training:
   include_performance_metrics: True
   output_dir: "output/llama8b.sft"
   enable_wandb: True
+
+peft:
+  q_lora: False
+  lora_r: 16
+  lora_alpha: 32
+  lora_target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
 
 fsdp:
   enable_fsdp: True

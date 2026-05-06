@@ -37,7 +37,6 @@ model:
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
   load_pretrained_weights: True
-  trust_remote_code: True
 
 generation:
   max_new_tokens: 2048

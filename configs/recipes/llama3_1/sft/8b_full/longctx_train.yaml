@@ -22,7 +22,7 @@ model:
   torch_dtype_str: "bfloat16" # Train in BF16 to save memory
   attn_implementation: "sdpa" # pytorch native flash-attention, helps reduce vram
   load_pretrained_weights: True
-  trust_remote_code: True
+  tokenizer_pad_token: "<|finetune_right_pad_id|>"
   enable_liger_kernel: True # Helps reduce required vram
 
 training:

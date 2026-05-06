@@ -21,6 +21,8 @@
 
 model:
   model_name: "HuggingFaceTB/SmolLM2-135M-Instruct"
+  tokenizer_pad_token: "<|endoftext|>"  # Avoid pad==eos; use unk_token as padding token (alignment-handbook recommendation):
+  # https://github.com/huggingface/alignment-handbook/issues/127
   model_max_length: 1024
   torch_dtype_str: "bfloat16"
   load_pretrained_weights: True
