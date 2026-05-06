@@ -30,6 +30,7 @@ from oumi.core.types.conversation import (
     Role,
     Type,
 )
+from oumi.core.types.tool_call import ToolCall, ToolDefinition
 from oumi.inference import RemoteInferenceEngine
 from oumi.inference.remote_inference_engine import BatchStatus
 from oumi.utils.conversation_utils import (
@@ -919,10 +920,12 @@ def test_infer_online_multiple_requests():
         messages = request.get("messages", [])
         if not messages:
             raise ValueError("No messages in request")
-        content = messages[0].get("content", [])
+        content = messages[0].get("content", "")
         if not content:
             raise ValueError("No content in message")
-        conversation_id = content[0].get("text")
+        conversation_id = (
+            content if isinstance(content, str) else content[0].get("text")
+        )
 
         if response := response_by_conversation_id.get(conversation_id):
             # Extract status and payload from the response dict
@@ -1039,10 +1042,12 @@ def test_infer_online_multiple_requests_politeness():
         messages = request.get("messages", [])
         if not messages:
             raise ValueError("No messages in request")
-        content = messages[0].get("content", [])
+        content = messages[0].get("content", "")
         if not content:
             raise ValueError("No content in message")
-        conversation_id = content[0].get("text")
+        conversation_id = (
+            content if isinstance(content, str) else content[0].get("text")
+        )
 
         if response := response_by_conversation_id.get(conversation_id):
             # Extract status and payload from the response dict
@@ -1181,10 +1186,12 @@ def test_infer_online_multiple_requests_politeness_multiple_workers():
         messages = request.get("messages", [])
         if not messages:
             raise ValueError("No messages in request")
-        content = messages[0].get("content", [])
+        content = messages[0].get("content", "")
         if not content:
             raise ValueError("No content in message")
-        conversation_id = content[0].get("text")
+        conversation_id = (
+            content if isinstance(content, str) else content[0].get("text")
+        )
 
         if response := response_by_conversation_id.get(conversation_id):
             # Extract status and payload from the response dict
@@ -1365,10 +1372,12 @@ def test_infer_from_file_to_file():
             messages = request.get("messages", [])
             if not messages:
                 raise ValueError("No messages in request")
-            content = messages[0].get("content", [])
+            content = messages[0].get("content", "")
             if not content:
                 raise ValueError("No content in message")
-            conversation_id = content[0].get("text")
+            conversation_id = (
+                content if isinstance(content, str) else content[0].get("text")
+            )
 
             if response := response_by_conversation_id.get(conversation_id):
                 # Extract status and payload from the response dict
@@ -1496,10 +1505,12 @@ def test_infer_from_file_to_file_failure_midway():
             messages = request.get("messages", [])
             if not messages:
                 raise ValueError("No messages in request")
-            content = messages[0].get("content", [])
+            content = messages[0].get("content", "")
             if not content:
                 raise ValueError("No content in message")
-            conversation_id = content[0].get("text")
+            conversation_id = (
+                content if isinstance(content, str) else content[0].get("text")
+            )
 
             if response := response_by_conversation_id.get(conversation_id):
                 # Extract status and payload from the response dict
@@ -3823,3 +3834,191 @@ def test_rate_limiter_record_usage_called_after_response():
             )
 
     mock_record.assert_called_once_with(input_tokens=25, output_tokens=10)
+
+
+#
+# Tool-calling tests
+#
+_WEATHER_TOOL_DICT: Final = {
+    "type": "function",
+    "function": {
+        "name": "get_weather",
+        "description": "Get current weather for a city.",
+        "parameters": {
+            "type": "object",
+            "properties": {"city": {"type": "string"}},
+            "required": ["city"],
+        },
+    },
+}
+
+_WEATHER_TOOL: Final = ToolDefinition.model_validate(_WEATHER_TOOL_DICT)
+
+
+def _capture_request_body() -> tuple[Any, Any]:
+    """Returns (callback, captured) where captured["body"] receives the JSON body."""
+    captured: dict[str, Any] = {}
+
+    def callback(url: str, **kwargs: Any) -> CallbackResult:
+        captured["body"] = kwargs.get("json", {})
+        return CallbackResult(
+            status=200,
+            payload={
+                "choices": [
+                    {
+                        "message": {"role": "assistant", "content": "ok"},
+                        "finish_reason": "stop",
+                    }
+                ]
+            },
+        )
+
+    return callback, captured
+
+
+def test_request_body_includes_tools():
+    """Conversation.tools is dumped to the OpenAI wire shape on the request."""
+    callback, captured = _capture_request_body()
+    with aioresponses() as m:
+        m.post(_TARGET_SERVER, callback=callback)
+        engine = RemoteInferenceEngine(
+            _get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+        )
+        conversation = Conversation(
+            tools=[_WEATHER_TOOL],
+            messages=[Message(role=Role.USER, content="weather in Tokyo?")],
+        )
+        engine.infer([conversation], _get_default_inference_config())
+
+    assert captured["body"]["tools"] == [_WEATHER_TOOL_DICT]
+
+
+def test_request_body_includes_tool_choice():
+    """tool_choice lands on the request when set; absent when None."""
+    callback, captured = _capture_request_body()
+    with aioresponses() as m:
+        m.post(_TARGET_SERVER, callback=callback, repeat=True)
+        engine = RemoteInferenceEngine(
+            _get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+        )
+        conversation = Conversation(
+            tools=[_WEATHER_TOOL],
+            messages=[Message(role=Role.USER, content="hi")],
+        )
+        # Default: not present.
+        engine.infer([conversation], _get_default_inference_config())
+        assert "tool_choice" not in captured["body"]
+
+        # Explicit value lands as-is.
+        config = _get_default_inference_config()
+        config.generation.tool_choice = "auto"
+        engine.infer([conversation], config)
+        assert captured["body"]["tool_choice"] == "auto"
+
+
+def test_request_body_includes_parallel_tool_calls():
+    """parallel_tool_calls=False is forwarded; True (default) is omitted."""
+    callback, captured = _capture_request_body()
+    with aioresponses() as m:
+        m.post(_TARGET_SERVER, callback=callback, repeat=True)
+        engine = RemoteInferenceEngine(
+            _get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+        )
+        conversation = Conversation(
+            tools=[_WEATHER_TOOL],
+            messages=[Message(role=Role.USER, content="hi")],
+        )
+        engine.infer([conversation], _get_default_inference_config())
+        assert "parallel_tool_calls" not in captured["body"]
+
+        config = _get_default_inference_config()
+        config.generation.parallel_tool_calls = False
+        engine.infer([conversation], config)
+        assert captured["body"]["parallel_tool_calls"] is False
+
+
+def test_request_forwards_tool_calls_and_tool_call_id():
+    """Multi-turn tool messages survive the round-trip into the request body."""
+    callback, captured = _capture_request_body()
+    tool_call_dict = {
+        "id": "call_abc",
+        "type": "function",
+        "function": {"name": "get_weather", "arguments": '{"city":"Tokyo"}'},
+    }
+    with aioresponses() as m:
+        m.post(_TARGET_SERVER, callback=callback)
+        engine = RemoteInferenceEngine(
+            _get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+        )
+        conversation = Conversation(
+            tools=[_WEATHER_TOOL],
+            messages=[
+                Message(role=Role.USER, content="weather in Tokyo?"),
+                Message(
+                    role=Role.ASSISTANT,
+                    content=None,
+                    tool_calls=[ToolCall.model_validate(tool_call_dict)],
+                ),
+                Message(role=Role.TOOL, content="22C, sunny", tool_call_id="call_abc"),
+            ],
+        )
+        engine.infer([conversation], _get_default_inference_config())
+
+    sent = captured["body"]["messages"]
+    assert sent[0]["role"] == "user"
+    assert sent[1]["role"] == "assistant"
+    assert sent[1]["content"] is None
+    assert sent[1]["tool_calls"] == [tool_call_dict]
+    assert sent[2]["role"] == "tool"
+    assert sent[2]["content"] == "22C, sunny"
+    assert sent[2]["tool_call_id"] == "call_abc"
+
+
+def test_response_populates_tool_calls():
+    """An API response with tool_calls produces typed Message.tool_calls."""
+    tool_call_payload = {
+        "id": "call_xyz",
+        "type": "function",
+        "function": {"name": "get_weather", "arguments": '{"city":"Paris"}'},
+    }
+    with aioresponses() as m:
+        m.post(
+            _TARGET_SERVER,
+            status=200,
+            payload={
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": None,
+                            "tool_calls": [tool_call_payload],
+                        },
+                        "finish_reason": "tool_calls",
+                    }
+                ]
+            },
+        )
+        engine = RemoteInferenceEngine(
+            _get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+        )
+        conversation = Conversation(
+            tools=[_WEATHER_TOOL],
+            messages=[Message(role=Role.USER, content="weather in Paris?")],
+        )
+        results = engine.infer([conversation], _get_default_inference_config())
+
+    assistant = results[0].messages[-1]
+    assert assistant.role == Role.ASSISTANT
+    assert assistant.content is None
+    assert assistant.tool_calls is not None
+    assert [tc.model_dump(mode="json") for tc in assistant.tool_calls] == [
+        tool_call_payload
+    ]
+    assert results[0].metadata["finish_reason"] == "tool_calls"
+    # Tools propagate through to the result so downstream callers can inspect.
+    assert results[0].tools == [_WEATHER_TOOL]
