@@ -240,9 +240,9 @@ def _run_case(
     do_reload: bool,
     cleanup: bool,
 ) -> CaseResult:
-    from oumi import quantize as oumi_quantize
     from oumi.core.configs import QuantizationConfig
     from oumi.core.configs.params.model_params import ModelParams
+    from oumi.quantize import quantize as oumi_quantize
 
     output_path = output_root / case.label.replace(":", "_")
     if output_path.exists():
