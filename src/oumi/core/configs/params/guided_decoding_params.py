@@ -54,6 +54,10 @@ class GuidedDecodingParams(BaseParams):
 
     Only honored by OpenAI-compatible engines (OpenAI, Gemini, Vertex, Together,
     Fireworks, OpenRouter). Anthropic is always strict, so this flag is a no-op.
+
+    Schemas must have all properties required and no ``$defs``/``$ref`` — Pydantic
+    models with ``Optional`` fields or submodels typically fail. Gemini/Vertex
+    inline ``$ref``; OpenAI does not.
     """
 
     def __post_init__(self) -> None:

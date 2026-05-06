@@ -18,6 +18,7 @@ import copy
 from typing_extensions import override
 
 from oumi.core.configs.inference_config import InferenceConfig
+from oumi.core.configs.inference_engine_type import InferenceEngineType
 from oumi.core.configs.judge_config import JudgeConfig
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.configs.params.judge_params import (
@@ -247,9 +248,13 @@ class SimpleJudge(BaseJudge):
         # structurally guaranteed to match the expected schema.
         if self._judge_params.response_format == JudgeResponseFormat.JSON:
             inference_config = copy.deepcopy(inference_config)
+
+            # Bedrock uses a different request shape and doesn't accept `strict`.
+            strict_supported = inference_config.engine != InferenceEngineType.BEDROCK
+
             inference_config.generation.guided_decoding = GuidedDecodingParams(
                 json=self._build_response_schema(),
-                strict=True,
+                strict=strict_supported,
             )
 
         if inference_config.engine is None:
