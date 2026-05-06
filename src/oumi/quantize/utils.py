@@ -14,6 +14,8 @@
 
 """Common utilities for quantization operations."""
 
+import collections
+import subprocess
 from pathlib import Path
 
 from oumi.core.configs import QuantizationConfig
@@ -137,3 +139,64 @@ def format_size(size_bytes: int) -> str:
             return f"{size:.1f} {unit}"
         size /= 1024.0
     return f"{size:.1f} PB"
+
+
+def run_subprocess(
+    cmd: list[str],
+    *,
+    log_prefix: str,
+    timeout: float | None = None,
+    env: dict[str, str] | None = None,
+    cwd: str | Path | None = None,
+    tail_lines: int = 60,
+) -> None:
+    """Run a subprocess, streaming output line-by-line to oumi's logger.
+
+    Each stdout/stderr line is logged as ``"[{log_prefix}] {line}"``. On
+    non-zero exit, the last ``tail_lines`` of combined output are included
+    in the raised RuntimeError so the caller doesn't lose error context.
+
+    Args:
+        cmd: Command and arguments. Passed to ``subprocess.Popen`` directly
+            (no shell).
+        log_prefix: Prepended to every emitted log line.
+        timeout: Optional wall-clock timeout in seconds.
+        env: Environment variables. ``None`` means inherit the parent's.
+        cwd: Working directory.
+        tail_lines: How many trailing output lines to include in the error
+            message on failure.
+
+    Raises:
+        RuntimeError: If the subprocess exits non-zero or times out.
+    """
+    logger.info(f"[{log_prefix}] $ {' '.join(cmd)}")
+    proc = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        env=env,
+        cwd=str(cwd) if cwd else None,
+        bufsize=1,
+    )
+    tail: collections.deque[str] = collections.deque(maxlen=tail_lines)
+    assert proc.stdout is not None
+    try:
+        for line in proc.stdout:
+            line = line.rstrip()
+            tail.append(line)
+            logger.info(f"[{log_prefix}] {line}")
+        rc = proc.wait(timeout=timeout)
+    except subprocess.TimeoutExpired as e:
+        proc.kill()
+        proc.wait()
+        raise RuntimeError(
+            f"{log_prefix} timed out after {timeout}s. Last output:\n"
+            + "\n".join(tail)
+        ) from e
+
+    if rc != 0:
+        raise RuntimeError(
+            f"{log_prefix} failed (exit {rc}). Last {len(tail)} line(s):\n"
+            + "\n".join(tail)
+        )

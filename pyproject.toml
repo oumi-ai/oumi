@@ -179,6 +179,14 @@ quantization = [
     "bitsandbytes>=0.47,<0.50", # Used for BNB quantization
  ]
 
+# GGUF quantization via llama.cpp. The llama-quantize and llama-imatrix
+# binaries must be installed separately (e.g. `brew install llama.cpp` on
+# macOS); this extra only covers Python deps for the convert script.
+gguf_quantization = [
+    "sentencepiece>=0.1.98,<0.3.0", # convert_hf_to_gguf.py vocab loaders
+    "protobuf>=4.21.0,<6.0.0", # convert_hf_to_gguf.py protobuf vocabs
+]
+
 tune = ["optuna>=4.0.0,<5.0"]
 
 bitnet = ["onebitllms>=0.0.3"]

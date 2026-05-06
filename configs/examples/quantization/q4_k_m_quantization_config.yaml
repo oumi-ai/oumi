@@ -1,0 +1,36 @@
+# GGUF Q4_K_M quantization config (via llama.cpp).
+#
+# Q4_K_M is 4-bit k-quant with imatrix-based importance weighting — the most
+# popular quality/size tradeoff for GGUF inference (works on CPU and most GPUs).
+#
+# Setup:
+#   pip install -e ".[gguf_quantization]"        # Python deps (sentencepiece, protobuf)
+#   brew install llama.cpp                        # macOS: provides llama-quantize + llama-imatrix
+#   # Linux: build llama.cpp from source or use a distro package.
+#
+# On first run oumi will sparse-clone llama.cpp's gguf-py + convert_hf_to_gguf.py
+# (~2MB) into ~/.cache/oumi/llamacpp after asking for confirmation. To skip the
+# prompt set OUMI_LLAMACPP_AUTO_INSTALL=1; to use a pre-existing checkout set
+# OUMI_LLAMACPP_HOME=/path/to/llama.cpp.
+#
+# Usage:
+#   oumi quantize -c configs/examples/quantization/q4_k_m_quantization_config.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/quantization.html
+#   - llama.cpp: https://github.com/ggml-org/llama.cpp
+
+# Model configuration
+model:
+  model_name: "HuggingFaceTB/SmolLM2-135M-Instruct"
+
+# Quantization settings
+scheme: "q4_k_m"
+output_path: "smollm2-135m-q4_k_m"
+output_format: "gguf"
+
+# Calibration (imatrix) — used by all k-quants.
+calibration_dataset: "HuggingFaceH4/ultrachat_200k"
+calibration_split: "train_sft"
+calibration_samples: 32       # llama-imatrix is fast; 32 chunks is enough for 135M
+max_seq_length: 512

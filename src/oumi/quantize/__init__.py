@@ -33,12 +33,14 @@ from oumi.core.configs.quantization_config import QuantizationScheme
 from oumi.exceptions import OumiConfigError
 from oumi.quantize.base import BaseQuantization, QuantizationResult, SchemeSpec
 from oumi.quantize.bnb import BitsAndBytesQuantization
+from oumi.quantize.llamacpp import LlamaCppQuantization
 from oumi.quantize.llmcompressor import LLMCompressorQuantization
 
 # Adding a new backend = create file + add import above + append here.
 _BACKENDS: list[type[BaseQuantization]] = [
     LLMCompressorQuantization,
     BitsAndBytesQuantization,
+    LlamaCppQuantization,
 ]
 
 
@@ -108,6 +110,7 @@ __all__ = [
     "BaseQuantization",
     "BitsAndBytesQuantization",
     "LLMCompressorQuantization",
+    "LlamaCppQuantization",
     "QuantizationResult",
     "QuantizationScheme",
     "SchemeSpec",

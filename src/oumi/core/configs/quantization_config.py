@@ -25,6 +25,7 @@ class QuantizationBackend(str, Enum):
 
     LLM_COMPRESSOR = "llm_compressor"
     BNB = "bnb"
+    LLAMACPP = "llamacpp"
 
 
 class QuantizationScheme(str, Enum):
@@ -32,6 +33,7 @@ class QuantizationScheme(str, Enum):
 
     LLM Compressor schemes are passed directly to LLM Compressor modifiers.
     BnB schemes (prefixed with ``bnb_``) map to BitsAndBytes quantization types.
+    GGUF schemes (Q*) are passed to ``llama-quantize`` (via the LLAMACPP backend).
     """
 
     # LLM Compressor schemes
@@ -46,6 +48,13 @@ class QuantizationScheme(str, Enum):
     BNB_FP4 = "bnb_fp4"
     BNB_INT8 = "bnb_int8"
 
+    # GGUF (llama.cpp) schemes
+    Q4_0 = "q4_0"
+    Q4_K_M = "q4_k_m"
+    Q5_K_M = "q5_k_m"
+    Q6_K = "q6_k"
+    Q8_0 = "q8_0"
+
 
 class QuantizationAlgorithm(str, Enum):
     """Quantization algorithm selection.
@@ -59,6 +68,7 @@ class QuantizationAlgorithm(str, Enum):
     GPTQ = "gptq"
     AWQ = "awq"
     BNB = "bnb"
+    LLAMACPP = "llamacpp"
 
 
 def _coerce_enum(value, enum_cls: type[Enum], label: str):
