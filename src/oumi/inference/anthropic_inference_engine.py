@@ -836,7 +836,7 @@ def _convert_guided_decoding_config_to_api_input(
 
     # Anthropic's output_config requires `additionalProperties: false` on every
     # object schema; inject it where missing.
-    _enforce_additional_properties_false(schema_value)
+    RemoteInferenceEngine._enforce_additional_properties_false(schema_value)
 
     return {
         "output_config": {
@@ -855,15 +855,3 @@ def _model_supports_output_config(model_name: str) -> bool:
     version_re = re.compile(r"^claude-(?:opus|sonnet|haiku)-(\d+)-(\d+)")
     match = version_re.match(model_name)
     return (int(match[1]), int(match[2])) >= (4, 5) if match else False
-
-
-def _enforce_additional_properties_false(schema: Any) -> None:
-    """Recursively set ``additionalProperties: false`` on object schemas in-place."""
-    if isinstance(schema, dict):
-        if schema.get("type") == "object" and "additionalProperties" not in schema:
-            schema["additionalProperties"] = False
-        for value in schema.values():
-            _enforce_additional_properties_false(value)
-    elif isinstance(schema, list):
-        for value in schema:
-            _enforce_additional_properties_false(value)

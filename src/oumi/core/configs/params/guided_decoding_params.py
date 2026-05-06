@@ -49,6 +49,13 @@ class GuidedDecodingParams(BaseParams):
     the model to select from a predefined set of options.
     """
 
+    strict: bool = False
+    """Whether to enforce the JSON schema strictly at the API level.
+
+    Only honored by OpenAI-compatible engines (OpenAI, Gemini, Vertex, Together,
+    Fireworks, OpenRouter). Anthropic is always strict, so this flag is a no-op.
+    """
+
     def __post_init__(self) -> None:
         """Validate parameters."""
         provided = sum(x is not None for x in [self.json, self.regex, self.choice])

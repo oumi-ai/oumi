@@ -292,12 +292,20 @@ def _convert_guided_decoding_config_to_api_input(
             "string or dict."
         )
 
+    schema_value = _replace_refs_in_schema(schema_value)
+    json_schema_body: dict = {
+        "name": schema_name,
+        "schema": schema_value,
+    }
+    if guided_config.strict:
+        # Strict mode requires `additionalProperties: false` on every object
+        # schema; inject it where missing.
+        RemoteInferenceEngine._enforce_additional_properties_false(schema_value)
+        json_schema_body["strict"] = True
+
     return {
         "type": "json_schema",
-        "json_schema": {
-            "name": schema_name,
-            "schema": _replace_refs_in_schema(schema_value),
-        },
+        "json_schema": json_schema_body,
     }
 
 

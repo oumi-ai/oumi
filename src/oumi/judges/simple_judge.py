@@ -248,7 +248,8 @@ class SimpleJudge(BaseJudge):
         if self._judge_params.response_format == JudgeResponseFormat.JSON:
             inference_config = copy.deepcopy(inference_config)
             inference_config.generation.guided_decoding = GuidedDecodingParams(
-                json=self._build_response_schema()
+                json=self._build_response_schema(),
+                strict=True,
             )
 
         if inference_config.engine is None:

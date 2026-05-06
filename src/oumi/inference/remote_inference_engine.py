@@ -404,7 +404,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             elif isinstance(json_schema, dict):
                 # Use a generic name if no schema is provided.
                 schema_name = "Response"
-                schema_value = json_schema
+                schema_value = copy.deepcopy(json_schema)
             elif isinstance(json_schema, str):
                 # Use a generic name if no schema is provided.
                 schema_name = "Response"
@@ -417,15 +417,38 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                     "string or dict."
                 )
 
+            json_schema_body: dict[str, Any] = {
+                "name": schema_name,
+                "schema": schema_value,
+            }
+            if generation_params.guided_decoding.strict:
+                # Strict mode requires `additionalProperties: false` on every
+                # object schema; inject it where missing.
+                self._enforce_additional_properties_false(schema_value)
+                json_schema_body["strict"] = True
+
             api_input["response_format"] = {
                 "type": "json_schema",
-                "json_schema": {
-                    "name": schema_name,
-                    "schema": schema_value,
-                },
+                "json_schema": json_schema_body,
             }
 
         return api_input
+
+    @staticmethod
+    def _enforce_additional_properties_false(schema: Any) -> None:
+        """Recursively set ``additionalProperties: false`` on object schemas.
+
+        Mutates ``schema`` in place. Used by guided-decoding paths that need
+        OpenAI-style strict schemas (which require this on every object).
+        """
+        if isinstance(schema, dict):
+            if schema.get("type") == "object" and "additionalProperties" not in schema:
+                schema["additionalProperties"] = False
+            for value in schema.values():
+                RemoteInferenceEngine._enforce_additional_properties_false(value)
+        elif isinstance(schema, list):
+            for value in schema:
+                RemoteInferenceEngine._enforce_additional_properties_false(value)
 
     @staticmethod
     def _extract_usage_from_response(
