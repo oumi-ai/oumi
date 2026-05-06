@@ -15,10 +15,13 @@
 import dataclasses
 import random
 
+from oumi.builders.environments import build_environment
 from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.configs.environment_config import EnvironmentConfig
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.inference_engine_type import InferenceEngineType
+from oumi.core.configs.params.environment_params import EnvironmentParams
+from oumi.core.configs.params.grounding_params import GroundingConfig
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.configs.params.synthesis_params import (
     GeneralSynthesisParams,
@@ -32,6 +35,9 @@ from oumi.core.types.conversation import (
     Message,
     Role,
 )
+from oumi.environments import GroundingFact
+from oumi.environments.base_environment import BaseEnvironment
+from oumi.environments.utils import describe_grounding_default
 from oumi.utils.logging import logger
 from oumi.utils.str_utils import extract_json
 
@@ -128,6 +134,8 @@ class ConversationSynthesizer:
                 [tool.id for tool in available_tools],
             )
 
+        self._warn_on_grounding_placeholder(multiturn_attributes)
+        self._attach_grounding_facts(samples, multiturn_attributes)
         samples = self._plan_samples(samples, multiturn_attributes)
         conversations = self._synthesize_all_samples(samples, multiturn_attributes)
 
@@ -427,6 +435,39 @@ class ConversationSynthesizer:
         if role_context:
             base_prompt += f"\nRole context:\n{role_context}\n"
 
+        grounding_facts = sample.get("grounding_facts") or []
+        if grounding_facts:
+            block = describe_grounding_default(grounding_facts)
+            base_prompt += (
+                "\nGround this plan in these specific entities:\n"
+                f"{block}\n"
+                "Grounding rules (role-aware):\n"
+                "- USER turn instructions MAY inline concrete identifiers "
+                "from the list above (e.g. 'order ORD-4421 is late', "
+                "'book B007'). The user persona cannot see this list, so "
+                "identifiers the user should mention must be written into "
+                "their turn instruction.\n"
+                "- Treat each entity's non-identifier fields (e.g. status, "
+                "due_date, return_date) as preconditions. If a field's value "
+                "contradicts the conversation intent -- for example trying "
+                "to borrow a book whose status is 'borrowed' or 'overdue', "
+                "or trying to return one that is 'available' -- plan a "
+                "recovery flow that handles the conflict (offer an "
+                "alternative entity from the list, explain the conflict, ask "
+                "a clarifying question) instead of a happy-path that the "
+                "tool will reject.\n"
+                "- ASSISTANT turn instructions MUST NOT pre-resolve or "
+                "pre-state any tool output — no identifiers, statuses, "
+                "borrower names, due dates, or other facts the assistant "
+                "would normally look up. Reference entities by what the "
+                "user said (e.g. the title) and describe which TOOL the "
+                "assistant should call to resolve or verify. Example — "
+                "write 'call lookup_book_status with the book_id from the "
+                "catalog', not 'tell the user book B007 is checked out'.\n"
+                "- The planner's job for assistant turns is to probe the "
+                "right tool usage, not to do the tool's work.\n"
+            )
+
         if multiturn_attribute.conversation_planner:
             formatted_planner = self._formatter.format(
                 sample,
@@ -614,3 +655,100 @@ class ConversationSynthesizer:
             system_message,
         )
         return Message(role=Role.SYSTEM, content=formatted_content.strip())
+
+    def _make_grounding_rng(self, seed: int | None, sample_index: int) -> random.Random:
+        """Build the per-sample RNG for grounding.
+
+        Seeded mode makes facts deterministic from ``(seed + sample_index)``;
+        unseeded uses OS entropy.
+        """
+        if seed is None:
+            return random.Random()
+        return random.Random(seed + sample_index)
+
+    def _warn_on_grounding_placeholder(
+        self, multiturn_attribute: MultiTurnAttribute
+    ) -> None:
+        """Warn if ``{grounding_facts}`` appears in user/assistant personas.
+
+        Grounding facts are planner-only — placing the placeholder in a
+        user or assistant persona template defeats its purpose and may
+        leak env state to roles that should not see it.
+        """
+        for role, persona in multiturn_attribute.role_instruction_messages.items():
+            if not isinstance(persona, str):
+                continue
+            if "{grounding_facts}" in persona and role in (
+                Role.USER,
+                Role.ASSISTANT,
+            ):
+                logger.warning(
+                    "MultiTurnAttribute '%s' references {grounding_facts} in "
+                    "the %s persona template. grounding is planner-only; "
+                    "placing {grounding_facts} in user/assistant templates "
+                    "defeats its purpose and may leak env state to roles "
+                    "that should not see it.",
+                    multiturn_attribute.id,
+                    role.value,
+                )
+
+    def _attach_grounding_facts(
+        self,
+        samples: list[dict],
+        multiturn_attribute: MultiTurnAttribute,
+    ) -> None:
+        """Attach per-sample grounding facts drawn from grounded envs in scope.
+
+        Writes ``sample["grounding_facts"]`` as a flat list concatenated
+        across all envs in scope that declare a ``GroundingConfig``. No-op
+        when ``environment_config`` is absent or no env in scope declares
+        grounding. Emits one ``logger.warning`` per env when truncation
+        occurs (sample_size > pool_size).
+        """
+        if self._environment_config is None:
+            return
+
+        scoped_env_ids = (
+            set(multiturn_attribute.available_environments)
+            if multiturn_attribute.available_environments
+            else {env.id for env in self._environment_config.environments}
+        )
+        grounding_envs: list[
+            tuple[EnvironmentParams, GroundingConfig, BaseEnvironment]
+        ] = [
+            (env_params, env_params.grounding, build_environment(env_params))
+            for env_params in self._environment_config.environments
+            if env_params.id in scoped_env_ids and env_params.grounding is not None
+        ]
+        if not grounding_envs:
+            return
+
+        warned_envs: set[str] = set()
+        tool_scope = (
+            set(multiturn_attribute.available_tools)
+            if multiturn_attribute.available_tools
+            else None
+        )
+        for sample_index, sample in enumerate(samples):
+            facts: list[GroundingFact] = []
+            for env_params, grounding, env_runtime in grounding_envs:
+                rng = self._make_grounding_rng(grounding.seed, sample_index)
+                sampled = env_runtime.sample_grounding(
+                    n=grounding.sample_size,
+                    rng=rng,
+                    tool_ids=tool_scope,
+                )
+                if (
+                    len(sampled) < grounding.sample_size
+                    and env_params.id not in warned_envs
+                ):
+                    logger.warning(
+                        "Grounding sample_size=%d exceeds pool size for "
+                        "environment '%s'; truncating to %d facts.",
+                        grounding.sample_size,
+                        env_params.id,
+                        len(sampled),
+                    )
+                    warned_envs.add(env_params.id)
+                facts.extend(sampled)
+            sample["grounding_facts"] = facts
