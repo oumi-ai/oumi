@@ -12,9 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 import json
 from typing import Any
 
+import pydantic
 from typing_extensions import override
 
 from oumi.core.async_utils import safe_asyncio_run
@@ -24,6 +26,7 @@ from oumi.core.configs import (
     ModelParams,
     RemoteParams,
 )
+from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.types.conversation import Conversation, FinishReason, Message, Role
 from oumi.inference.remote_inference_engine import (
     BatchInfo,
@@ -133,6 +136,13 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         if generation_params.stop_strings is not None:
             body["stop_sequences"] = generation_params.stop_strings
 
+        if generation_params.guided_decoding:
+            body.update(
+                _convert_guided_decoding_config_to_api_input(
+                    generation_params.guided_decoding
+                )
+            )
+
         # Enable prompt caching. Anthropic automatically caches content up to
         # the last cacheable block. This reduces latency and cost for repeated
         # prefixes (system prompts, long context, multi-turn conversations).
@@ -226,6 +236,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
     def get_supported_params(self) -> set[str]:
         """Returns a set of supported generation parameters for this engine."""
         return {
+            "guided_decoding",
             "max_new_tokens",
             "stop_strings",
             "temperature",
@@ -679,3 +690,51 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
                     raise RuntimeError(f"Failed to cancel batch: {error_text}")
                 data = await response.json()
                 return self._convert_anthropic_batch_to_batch_info(data)
+
+
+def _convert_guided_decoding_config_to_api_input(
+    guided_config: GuidedDecodingParams,
+) -> dict:
+    """Converts a guided decoding configuration to an Anthropic API input."""
+    if guided_config.json is None:
+        raise ValueError(
+            "Only JSON schema guided decoding is supported, got '%s'",
+            guided_config,
+        )
+
+    json_schema = guided_config.json
+
+    if isinstance(json_schema, type) and issubclass(json_schema, pydantic.BaseModel):
+        schema_value = json_schema.model_json_schema()
+    elif isinstance(json_schema, dict):
+        schema_value = copy.deepcopy(json_schema)
+    elif isinstance(json_schema, str):
+        schema_value = json.loads(json_schema)
+    else:
+        raise ValueError(
+            f"Got unsupported JSON schema type: {type(json_schema)}"
+            "Please provide a Pydantic model or a JSON schema as a "
+            "string or dict."
+        )
+
+    # Anthropic's output_config requires `additionalProperties: false` on every
+    # object schema; inject it where missing.
+    _enforce_additional_properties_false(schema_value)
+
+    return {
+        "output_config": {
+            "format": {"type": "json_schema", "schema": schema_value},
+        },
+    }
+
+
+def _enforce_additional_properties_false(schema: Any) -> None:
+    """Recursively set ``additionalProperties: false`` on object schemas in-place."""
+    if isinstance(schema, dict):
+        if schema.get("type") == "object" and "additionalProperties" not in schema:
+            schema["additionalProperties"] = False
+        for value in schema.values():
+            _enforce_additional_properties_false(value)
+    elif isinstance(schema, list):
+        for value in schema:
+            _enforce_additional_properties_false(value)
