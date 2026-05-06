@@ -12,9 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import random
+
 import pytest
 
 from oumi.core.configs.params.environment_params import EnvironmentParams
+from oumi.core.configs.params.grounding_params import (
+    GroundingConfig,
+    GroundingFact,
+    ToolGroundingConfig,
+)
+from oumi.core.configs.params.tool_params import ToolLookupError
 from oumi.core.types.tool_call import ToolResult
 from oumi.environments.deterministic_environment import (
     DeterministicEnvironment,
@@ -101,9 +109,15 @@ def test_step_returns_matching_output():
     assert env.step("tool1", {"id": "02"}) == ToolResult(output={"msg": "delivered"})
 
 
-def test_step_no_match_returns_empty():
+def test_step_no_match_raises_with_hint():
     env = DeterministicEnvironment.from_params(_make_params())
-    assert env.step("tool1", {"id": "99"}) == ToolResult(output={})
+    with pytest.raises(ToolLookupError) as excinfo:
+        env.step("tool1", {"id": "99"})
+    message = str(excinfo.value)
+    assert "No deterministic output matches" in message
+    assert "tool1" in message
+    # The configured inputs are surfaced so the LLM can self-correct.
+    assert '"id": "01"' in message
 
 
 def test_step_supports_zero_arg_tool():
@@ -140,3 +154,262 @@ def test_from_params_coerces_raw_deterministic_outputs():
     assert isinstance(
         env._params.tools[0].deterministic_outputs[0], DeterministicToolOutput
     )
+
+
+# --- DeterministicEnvironment.sample_grounding ---
+
+
+def _det_env_with_n_entries(n: int) -> DeterministicEnvironment:
+    """Build a DeterministicEnvironment with a single tool containing n entries."""
+    outputs = [
+        DeterministicToolOutput(input={"id": str(i)}, output={"title": f"title-{i}"})
+        for i in range(n)
+    ]
+    return DeterministicEnvironment.from_params(
+        _make_params(
+            tools=[
+                DeterministicTool(
+                    id="lookup",
+                    name="Lookup",
+                    description="Look up a book.",
+                    grounding=ToolGroundingConfig(key="id", fields=["id", "title"]),
+                    deterministic_outputs=outputs,
+                )
+            ]
+        )
+    )
+
+
+def test_sample_grounding_only_includes_grounded_tools():
+    """Tools without a grounding block contribute zero facts."""
+
+    grounded = DeterministicTool.create(
+        {
+            "id": "lookup",
+            "name": "Lookup",
+            "description": "d",
+            "grounding": {
+                "key": "book_id",
+                "fields": ["book_id", "title", "status"],
+            },
+            "deterministic_outputs": [
+                {
+                    "input": {"book_id": "B001"},
+                    "output": {
+                        "title": "X",
+                        "status": "borrowed",
+                        "borrower_name": "Sarah",
+                        "borrow_date": "2026-01-01",
+                    },
+                },
+                {
+                    "input": {"book_id": "B002"},
+                    "output": {
+                        "title": "Y",
+                        "status": "available",
+                        "borrower_name": "",
+                        "borrow_date": "",
+                    },
+                },
+            ],
+        }
+    )
+    not_grounded = DeterministicTool.create(
+        {
+            "id": "checkout",
+            "name": "Checkout",
+            "description": "d",
+            "deterministic_outputs": [
+                {"input": {"book_id": "B001"}, "output": {"status": "error"}},
+                {"input": {"book_id": "B002"}, "output": {"status": "checked_out"}},
+            ],
+        }
+    )
+    params = EnvironmentParams(
+        id="env",
+        env_type="deterministic",
+        tools=[grounded, not_grounded],
+        grounding=GroundingConfig(sample_size=2, seed=0),
+    )
+    env = DeterministicEnvironment.from_params(params)
+
+    facts = env.sample_grounding(n=10, rng=random.Random(0))
+
+    assert len(facts) == 2
+    book_ids = {fact.data["book_id"] for fact in facts}
+    assert book_ids == {"B001", "B002"}
+    for fact in facts:
+        assert "borrower_name" not in fact.data
+        assert "borrow_date" not in fact.data
+        assert set(fact.data.keys()) <= {"book_id", "title", "status"}
+
+
+def test_sample_grounding_respects_tool_ids_filter():
+    """When tool_ids is supplied, only those tools contribute facts."""
+
+    tool_a = DeterministicTool.create(
+        {
+            "id": "lookup_a",
+            "name": "A",
+            "description": "d",
+            "grounding": {"key": "id", "fields": ["id", "v"]},
+            "deterministic_outputs": [
+                {"input": {"id": "A1"}, "output": {"v": "from_a"}},
+            ],
+        }
+    )
+    tool_b = DeterministicTool.create(
+        {
+            "id": "lookup_b",
+            "name": "B",
+            "description": "d",
+            "grounding": {"key": "id", "fields": ["id", "v"]},
+            "deterministic_outputs": [
+                {"input": {"id": "B1"}, "output": {"v": "from_b"}},
+            ],
+        }
+    )
+    params = EnvironmentParams(
+        id="env",
+        env_type="deterministic",
+        tools=[tool_a, tool_b],
+        grounding=GroundingConfig(sample_size=2, seed=0),
+    )
+    env = DeterministicEnvironment.from_params(params)
+
+    facts = env.sample_grounding(n=10, rng=random.Random(0), tool_ids={"lookup_a"})
+
+    assert len(facts) == 1
+    assert facts[0].data == {"id": "A1", "v": "from_a"}
+
+
+def test_sample_grounding_field_missing_in_row_is_dropped():
+    """Fields listed in `fields` but absent from a row are silently dropped."""
+
+    tool = DeterministicTool.create(
+        {
+            "id": "t",
+            "name": "T",
+            "description": "d",
+            "grounding": {"key": "id", "fields": ["id", "v", "missing_in_row"]},
+            "deterministic_outputs": [
+                {"input": {"id": "X1"}, "output": {"v": "ok"}},
+            ],
+        }
+    )
+    params = EnvironmentParams(
+        id="env",
+        env_type="deterministic",
+        tools=[tool],
+        grounding=GroundingConfig(sample_size=1),
+    )
+    env = DeterministicEnvironment.from_params(params)
+
+    facts = env.sample_grounding(n=1, rng=random.Random(0))
+
+    assert facts[0].data == {"id": "X1", "v": "ok"}
+    assert "missing_in_row" not in facts[0].data
+
+
+def test_sample_grounding_returns_n_facts():
+    env = _det_env_with_n_entries(10)
+    facts = env.sample_grounding(n=3, rng=random.Random(0))
+    assert len(facts) == 3
+    for fact in facts:
+        assert isinstance(fact, GroundingFact)
+        assert "id" in fact.data
+        assert "title" in fact.data
+
+
+def test_sample_grounding_merges_input_and_output_into_data():
+    # Override-on-conflict: output values win over input values for matching keys.
+    env = DeterministicEnvironment.from_params(
+        _make_params(
+            tools=[
+                DeterministicTool(
+                    id="lookup",
+                    name="Lookup",
+                    description="Look up.",
+                    grounding=ToolGroundingConfig(
+                        key="id", fields=["id", "note", "title"]
+                    ),
+                    deterministic_outputs=[
+                        DeterministicToolOutput(
+                            input={"id": "1", "note": "input-note"},
+                            output={"note": "output-note", "title": "Dune"},
+                        ),
+                    ],
+                )
+            ]
+        )
+    )
+    facts = env.sample_grounding(n=1, rng=random.Random(0))
+    assert len(facts) == 1
+    assert facts[0].data == {
+        "id": "1",
+        "note": "output-note",  # output wins on key collision
+        "title": "Dune",
+    }
+
+
+def test_sample_grounding_no_replacement_within_call():
+    env = _det_env_with_n_entries(10)
+    facts = env.sample_grounding(n=5, rng=random.Random(0))
+    ids = [fact.data["id"] for fact in facts]
+    assert len(set(ids)) == len(ids)
+
+
+def test_sample_grounding_truncates_when_n_exceeds_pool():
+    env = _det_env_with_n_entries(3)
+    facts = env.sample_grounding(n=10, rng=random.Random(0))
+    assert len(facts) == 3
+
+
+def test_sample_grounding_seeded_rng_is_reproducible():
+    env = _det_env_with_n_entries(20)
+    facts_a = env.sample_grounding(n=4, rng=random.Random(42))
+    facts_b = env.sample_grounding(n=4, rng=random.Random(42))
+    ids_a = [fact.data["id"] for fact in facts_a]
+    ids_b = [fact.data["id"] for fact in facts_b]
+    assert ids_a == ids_b
+
+
+def test_sample_grounding_different_seeds_differ():
+    env = _det_env_with_n_entries(20)
+    facts_a = env.sample_grounding(n=4, rng=random.Random(1))
+    facts_b = env.sample_grounding(n=4, rng=random.Random(999))
+    ids_a = sorted(fact.data["id"] for fact in facts_a)
+    ids_b = sorted(fact.data["id"] for fact in facts_b)
+    # With 20 entries and 4 picks, collision on both sets is vanishingly small.
+    assert ids_a != ids_b
+
+
+def test_sample_grounding_pools_across_tools():
+    params = _make_params(
+        tools=[
+            DeterministicTool(
+                id="tool_a",
+                name="A",
+                description="Tool A",
+                grounding=ToolGroundingConfig(key="k", fields=["k", "v"]),
+                deterministic_outputs=[
+                    DeterministicToolOutput(input={"k": "a1"}, output={"v": "a1"})
+                ],
+            ),
+            DeterministicTool(
+                id="tool_b",
+                name="B",
+                description="Tool B",
+                grounding=ToolGroundingConfig(key="k", fields=["k", "v"]),
+                deterministic_outputs=[
+                    DeterministicToolOutput(input={"k": "b1"}, output={"v": "b1"}),
+                    DeterministicToolOutput(input={"k": "b2"}, output={"v": "b2"}),
+                ],
+            ),
+        ],
+    )
+    env = DeterministicEnvironment.from_params(params)
+    facts = env.sample_grounding(n=3, rng=random.Random(0))
+    assert len(facts) == 3
+    keys = sorted(fact.data["k"] for fact in facts)
+    assert keys == ["a1", "b1", "b2"]

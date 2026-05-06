@@ -83,5 +83,6 @@ class DeterministicTool(ToolParams):
                 else None
             ),
             read_only=raw.get("read_only", True),
+            grounding=raw.get("grounding"),
             deterministic_outputs=outputs,
         )

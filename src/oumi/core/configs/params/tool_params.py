@@ -23,6 +23,7 @@ from typing import Any
 import jsonschema
 
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.core.configs.params.grounding_params import ToolGroundingConfig
 from oumi.core.types.tool_call import (
     FunctionDefinition,
     JSONSchema,
@@ -67,6 +68,7 @@ class ToolParams(BaseParams):
     parameters: dict[str, Any] = field(default_factory=lambda: {"type": "object"})
     output_schema: dict[str, Any] | None = None
     read_only: bool = True
+    grounding: ToolGroundingConfig | None = None
 
     @classmethod
     def create(cls, raw: Any) -> ToolParams:
@@ -88,6 +90,7 @@ class ToolParams(BaseParams):
                 else None
             ),
             read_only=raw.get("read_only", True),
+            grounding=raw.get("grounding"),
         )
 
     def __post_init__(self):
@@ -109,6 +112,10 @@ class ToolParams(BaseParams):
             self.output_schema = self.output_schema.model_dump(
                 mode="json", exclude_none=True
             )
+        if self.grounding is not None and not isinstance(
+            self.grounding, ToolGroundingConfig
+        ):
+            self.grounding = ToolGroundingConfig(**self.grounding)
 
     def to_llm_schema(self) -> dict[str, Any]:
         """Export a provider-agnostic schema for LLM tool registration."""

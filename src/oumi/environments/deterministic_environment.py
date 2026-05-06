@@ -17,11 +17,14 @@
 from __future__ import annotations
 
 import json
+import random
 from dataclasses import dataclass
 from typing import Any
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.environment_params import EnvironmentParams
+from oumi.core.configs.params.grounding_params import GroundingFact
+from oumi.core.configs.params.tool_params import ToolLookupError
 from oumi.core.registry import register_environment
 from oumi.core.types.tool_call import ToolResult
 from oumi.environments.base_environment import BaseEnvironment
@@ -62,12 +65,23 @@ class DeterministicEnvironment(BaseEnvironment):
         self._validate_tools(params.tools)
 
     def step(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:
-        """Resolve a deterministic tool call to its output."""
+        """Resolve a deterministic tool call to its output.
+
+        Raises:
+            ToolLookupError: If no configured ``deterministic_outputs`` entry
+                matches the provided arguments. The error message lists the
+                configured inputs so the calling LLM can self-correct.
+        """
         tool = self._lookup_tool(tool_id)
         for entry in tool.deterministic_outputs:
             if entry.matches(arguments):
                 return ToolResult(output=entry.output)
-        return ToolResult(output={})
+        available = [entry.input for entry in tool.deterministic_outputs]
+        raise ToolLookupError(
+            f"No deterministic output matches arguments "
+            f"{json.dumps(arguments, sort_keys=True)} for tool '{tool_id}'. "
+            f"Configured inputs: {json.dumps(available, sort_keys=True)}"
+        )
 
     @classmethod
     def from_params(cls, params: EnvironmentParams) -> DeterministicEnvironment:
@@ -114,3 +128,37 @@ class DeterministicEnvironment(BaseEnvironment):
             f"Tool '{tool_id}' not found in environment '{self._params.id}'. "
             f"Available tools: {[tool.id for tool in self._params.tools]}"
         )
+
+    def sample_grounding(
+        self,
+        n: int,
+        *,
+        rng: random.Random,
+        tool_ids: set[str] | None = None,
+    ) -> list[GroundingFact]:
+        """Sample grounding facts from per-tool projected pools.
+
+        Walks every tool in this environment that declares a ``grounding`` block.
+        For each row in that tool's ``deterministic_outputs``, projects
+        ``{**input, **output}`` to the configured ``fields`` and emits a
+        ``GroundingFact``. Fields whitelisted but absent from a row are silently
+        dropped.
+
+        Tools without a ``grounding`` block contribute nothing. Tools whose
+        ``id`` is not in ``tool_ids`` are also skipped when a filter is supplied.
+        Per-tool projections are concatenated, then sampled without replacement.
+        """
+        pool: list[GroundingFact] = []
+        for tool in self._params.tools:
+            if tool.grounding is None:
+                continue
+            if tool_ids is not None and tool.id not in tool_ids:
+                continue
+            whitelist = set(tool.grounding.fields)
+            for entry in tool.deterministic_outputs:
+                row = {**entry.input, **entry.output}
+                projected = {
+                    key: value for key, value in row.items() if key in whitelist
+                }
+                pool.append(GroundingFact(data=projected))
+        return rng.sample(pool, min(n, len(pool)))
