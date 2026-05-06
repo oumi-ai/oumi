@@ -1,0 +1,300 @@
+
+Config Health Report  (3720.4s)
+
+  Total configs: 495
+  Healthy:  367
+  Failing:  108
+  Warnings: 20
+  Timing: classify: 13.91s, static: 38.54s, hub: 0.01s, tier0: 150.86s, vram: 19.28s, dry_run: 3431.24s
+
+       By Config Type       
+┏━━━━━━━━━━━━━━━━━━┳━━━━━━━┓
+┃ Type             ┃ Count ┃
+┡━━━━━━━━━━━━━━━━━━╇━━━━━━━┩
+│ training         │   150 │
+│ job              │   140 │
+│ inference        │   126 │
+│ evaluation       │    52 │
+│ judge            │    15 │
+│ synthesis        │     7 │
+│ quantization     │     2 │
+│ analyze          │     1 │
+│ async_evaluation │     1 │
+│ tuning           │     1 │
+└──────────────────┴───────┘
+
+     By GPU Tier      
+┏━━━━━━━━━━━━┳━━━━━━━┓
+┃ Tier       ┃ Count ┃
+┡━━━━━━━━━━━━╇━━━━━━━┩
+│ CPU/MPS    │    97 │
+│ Multi-GPU  │   166 │
+│ Single GPU │   232 │
+└────────────┴───────┘
+
+Failures (112):
+  ✗ configs/recipes/vision/phi3/sft/full/completions_only_train.yaml: Could not parse with any oumi config class
+  ✗ configs/recipes/vision/phi3/sft/full/train.yaml: Could not parse with any oumi config class
+  ✗ configs/recipes/olmo3/evaluation/32b/eval.yaml: Model not found on HF Hub: allenai/Olmo-3-32B-Instruct
+  ✗ configs/recipes/olmo3/inference/32b_infer.yaml: Model not found on HF Hub: allenai/Olmo-3-32B-Instruct
+  ✗ configs/recipes/olmo3/sft/32b_lora/train.yaml: Model not found on HF Hub: allenai/Olmo-3-32B-Instruct
+  ✗ configs/recipes/qwen3/inference/30b_a3b_instruct_vllm_infer.yaml: Model not found on HF Hub: 
+Qwen/Qwen3-30B-A3B-Instruct
+  ✗ configs/recipes/qwen3_next/evaluation/80b_a3b_eval.yaml: Model not found on HF Hub: Qwen/Qwen3-Next-80B-A3B
+  ✗ configs/recipes/qwen3_next/inference/80b_a3b_infer.yaml: Model not found on HF Hub: Qwen/Qwen3-Next-80B-A3B
+  ✗ configs/recipes/qwen3_next/sft/80b_a3b_lora/train.yaml: Model not found on HF Hub: Qwen/Qwen3-Next-80B-A3B
+  ✗ configs/examples/deepspeed/llama3_1_8b_deepspeed_z2_train.yaml: Dry-run failed: Skipped: model needs ~83.9 GB GPU 
+but only 44.0 GB free (7.5B params)
+  ✗ configs/examples/deepspeed/llama3_1_8b_deepspeed_z3_offload_train.yaml: Dry-run failed: Skipped: model needs ~83.9 
+GB GPU but only 44.0 GB free (7.5B params)
+  ✗ configs/examples/deepspeed/llama3_1_8b_deepspeed_z3_train.yaml: Dry-run failed: Skipped: model needs ~83.9 GB GPU 
+but only 44.0 GB free (7.5B params)
+  ✗ configs/examples/gold/train_gptoss120b_qwen8b.yaml: Dry-run failed: Skipped: model needs ~84.6 GB GPU but only 43.7 
+GB free (7.6B params)
+  ✗ configs/examples/grpo_verl_geometry3k/train.yaml: Dry-run failed: ValueError: Image features and image tokens do not
+match, tokens: 0, features: 4
+  ✗ configs/projects/aya/sft/train.yaml: Dry-run failed: Skipped: model needs ~83.9 GB GPU but only 43.8 GB free (7.5B 
+params)
+  ✗ configs/projects/chatqa/chatqa_stage1_train.yaml: Dry-run failed: Skipped: model needs ~41.6 GB GPU but only 43.9 GB
+free (3.7B params)
+  ✗ configs/projects/chatqa/chatqa_stage2_train.yaml: Dry-run failed: Skipped: model needs ~41.6 GB GPU but only 43.9 GB
+free (3.7B params)
+  ✗ configs/projects/coalm/405b_train.yaml: Dry-run failed: Skipped: model needs ~1504 GB CPU RAM but only 58 GB 
+available (403.8B params)
+  ✗ configs/projects/coalm/70b_train.yaml: Dry-run failed: Skipped: model needs ~259 GB CPU RAM but only 58 GB available
+(69.5B params)
+  ✗ configs/projects/dcvlr/starter_kit/molmo-d-train-openr1.yaml: Dry-run failed: Skipped: model needs ~95 GB CPU RAM 
+but only 58 GB available (12.8B params)
+  ... and 92 more
+
+Coverage Gaps (11):
+  ⚠ openrouter (apis): missing evaluation
+  ⚠ falcon_e (recipes): missing inference
+  ⚠ gemma2 (recipes): missing evaluation, inference
+  ⚠ glm4 (recipes): missing evaluation, training
+  ⚠ gpt2 (recipes): missing evaluation
+  ⚠ gpt_oss (recipes): missing evaluation
+  ⚠ phi3 (recipes): missing inference
+  ⚠ qwen2_5 (recipes): missing evaluation, inference
+  ⚠ qwen3_5 (recipes): missing evaluation
+  ⚠ qwen3_coder (recipes): missing evaluation, training
+  ⚠ qwen3_instruct (recipes): missing evaluation, inference
+
+Optimization Suggestions: 225
+  performance: 183
+  efficiency: 37
+  best_practice: 5
+
+VRAM Estimates: 147 training configs, 0.6 — 36342.6 GB
+
+Dry-runs: 46 passed, 104 failed
+  ✗ configs/examples/deepspeed/llama3_1_8b_deepspeed_z2_train.yaml: Skipped: model needs ~83.9 GB GPU but only 44.0 GB 
+free (7.5B params)
+  ✗ configs/examples/deepspeed/llama3_1_8b_deepspeed_z3_offload_train.yaml: Skipped: model needs ~83.9 GB GPU but only 
+44.0 GB free (7.5B params)
+  ✗ configs/examples/deepspeed/llama3_1_8b_deepspeed_z3_train.yaml: Skipped: model needs ~83.9 GB GPU but only 44.0 GB 
+free (7.5B params)
+  ✗ configs/examples/gold/train_gptoss120b_qwen8b.yaml: Skipped: model needs ~84.6 GB GPU but only 43.7 GB free (7.6B 
+params)
+  ✗ configs/examples/grpo_verl_geometry3k/train.yaml: ValueError: Image features and image tokens do not match, tokens: 
+0, features: 4
+  ✗ configs/projects/aya/sft/train.yaml: Skipped: model needs ~83.9 GB GPU but only 43.8 GB free (7.5B params)
+  ✗ configs/projects/chatqa/chatqa_stage1_train.yaml: Skipped: model needs ~41.6 GB GPU but only 43.9 GB free (3.7B 
+params)
+  ✗ configs/projects/chatqa/chatqa_stage2_train.yaml: Skipped: model needs ~41.6 GB GPU but only 43.9 GB free (3.7B 
+params)
+  ✗ configs/projects/coalm/405b_train.yaml: Skipped: model needs ~1504 GB CPU RAM but only 58 GB available (403.8B 
+params)
+  ✗ configs/projects/coalm/70b_train.yaml: Skipped: model needs ~259 GB CPU RAM but only 58 GB available (69.5B params)
+  ✗ configs/projects/dcvlr/starter_kit/molmo-d-train-openr1.yaml: Skipped: model needs ~95 GB CPU RAM but only 58 GB 
+available (12.8B params)
+  ✗ configs/projects/dcvlr/starter_kit/molmo-o-train-openr1.yaml: Skipped: model needs ~84 GB CPU RAM but only 58 GB 
+available (11.2B params)
+  ✗ configs/projects/dcvlr/starter_kit/qwenvl-openr1.yaml: Skipped: model needs ~79.0 GB GPU but only 43.9 GB free (7.1B
+params)
+  ✗ configs/projects/halloumi/8b_train.yaml: Skipped: model needs ~83.9 GB GPU but only 43.9 GB free (7.5B params)
+  ✗ configs/projects/limo/qwen2.5_7b_fft.yaml: Skipped: model needs ~79.0 GB GPU but only 43.9 GB free (7.1B params)
+  ✗ configs/projects/limo/qwen2.5_7b_fft_yarn.yaml: Skipped: model needs ~79.0 GB GPU but only 43.9 GB free (7.1B 
+params)
+  ✗ configs/projects/limo/qwen2.5_7b_fft_yarn_deepspeed.yaml: Skipped: model needs ~79.0 GB GPU but only 43.9 GB free 
+(7.1B params)
+  ✗ configs/projects/limo/qwen2.5_7b_fft_yarn_deepspeed_memory_optimized_train.yaml: Skipped: model needs ~79.0 GB GPU 
+but only 43.9 GB free (7.1B params)
+  ✗ configs/projects/wc50m/configs/base_ultrachat.yaml: Skipped: model needs ~83.9 GB GPU but only 43.9 GB free (7.5B 
+params)
+  ✗ configs/recipes/deepseek_r1/sft/distill_llama_70b/full_train.yaml: Skipped: model needs ~259 GB CPU RAM but only 58 
+GB available (69.5B params)
+  ✗ configs/recipes/deepseek_r1/sft/distill_llama_70b/lora_train.yaml: Skipped: model needs ~259 GB CPU RAM but only 58 
+GB available (69.5B params)
+  ✗ configs/recipes/deepseek_r1/sft/distill_llama_70b/qlora_train.yaml: Skipped: model needs ~259 GB CPU RAM but only 58
+GB available (69.5B params)
+  ✗ configs/recipes/deepseek_r1/sft/distill_llama_8b/full_train.yaml: Skipped: model needs ~83.9 GB GPU but only 43.9 GB
+free (7.5B params)
+  ✗ configs/recipes/deepseek_r1/sft/distill_qwen_32b/lora_train.yaml: Skipped: model needs ~119 GB CPU RAM but only 58 
+GB available (32.0B params)
+  ✗ configs/recipes/falcon_h1/dpo/falcon_h1_0_5b/qlora_dpo.yaml: AssertionError: causal_conv1d_cuda is not available. 
+Please install causal-conv1d.
+  ✗ configs/recipes/falcon_h1/sft/falcon_h1_0_5b/full_train.yaml: AssertionError: causal_conv1d_cuda is not available. 
+Please install causal-conv1d.
+  ✗ configs/recipes/falcon_h1/sft/falcon_h1_1_5b/full_train.yaml: AssertionError: causal_conv1d_cuda is not available. 
+Please install causal-conv1d.
+  ✗ configs/recipes/falcon_h1/sft/falcon_h1_1_5b_deep/full_train.yaml: AssertionError: causal_conv1d_cuda is not 
+available. Please install causal-conv1d.
+  ✗ configs/recipes/falcon_h1/sft/falcon_h1_34b/full_train.yaml: Skipped: model needs ~110 GB CPU RAM but only 58 GB 
+available (29.6B params)
+  ✗ configs/recipes/falcon_h1/sft/falcon_h1_3b/full_train.yaml: AssertionError: causal_conv1d_cuda is not available. 
+Please install causal-conv1d.
+  ✗ configs/recipes/falcon_h1/sft/falcon_h1_7b/full_train.yaml: Skipped: model needs ~71.0 GB GPU but only 43.8 GB free 
+(6.4B params)
+  ✗ configs/recipes/gemma3/sft/12b_lora/train.yaml: ValueError: Prompt contained 0 image tokens but received 1 images.
+  ✗ configs/recipes/gemma3/sft/27b_lora/train.yaml: Skipped: model needs ~105 GB CPU RAM but only 58 GB available (28.3B
+params)
+  ✗ configs/recipes/gemma3/sft/4b_full/train.yaml: Skipped: model needs ~44.9 GB GPU but only 43.9 GB free (4.0B params)
+  ✗ configs/recipes/gpt_oss/sft/120b_lora_multi_gpu_train.yaml: Skipped: model needs ~432 GB CPU RAM but only 58 GB 
+available (115.9B params)
+  ✗ configs/recipes/gpt_oss/sft/20b_lora_multi_gpu_train.yaml: Skipped: model needs ~75 GB CPU RAM but only 58 GB 
+available (20.1B params)
+  ✗ configs/recipes/gpt_oss/sft/20b_lora_single_gpu_train.yaml: Skipped: model needs ~75 GB CPU RAM but only 58 GB 
+available (20.1B params)
+  ✗ configs/recipes/llama3_1/pretraining/8b/train.yaml: Skipped: model needs ~83.9 GB GPU but only 43.9 GB free (7.5B 
+params)
+  ✗ configs/recipes/llama3_1/sft/405b_full/train.yaml: Skipped: model needs ~1504 GB CPU RAM but only 58 GB available 
+(403.8B params)
+  ✗ configs/recipes/llama3_1/sft/405b_lora/train.yaml: Skipped: model needs ~1504 GB CPU RAM but only 58 GB available 
+(403.8B params)
+  ✗ configs/recipes/llama3_1/sft/405b_qlora/train.yaml: Skipped: model needs ~1504 GB CPU RAM but only 58 GB available 
+(403.8B params)
+  ✗ configs/recipes/llama3_1/sft/70b_full/train.yaml: Skipped: model needs ~259 GB CPU RAM but only 58 GB available 
+(69.5B params)
+  ✗ configs/recipes/llama3_1/sft/70b_lora/train.yaml: Skipped: model needs ~259 GB CPU RAM but only 58 GB available 
+(69.5B params)
+  ✗ configs/recipes/llama3_1/sft/70b_qlora/train.yaml: Skipped: model needs ~259 GB CPU RAM but only 58 GB available 
+(69.5B params)
+  ✗ configs/recipes/llama3_1/sft/8b_full/accelerate.yaml: No model_name
+  ✗ configs/recipes/llama3_1/sft/8b_full/longctx_train.yaml: Skipped: model needs ~83.9 GB GPU but only 43.9 GB free 
+(7.5B params)
+  ✗ configs/recipes/llama3_1/sft/8b_full/train.yaml: Skipped: model needs ~83.9 GB GPU but only 43.9 GB free (7.5B 
+params)
+  ✗ configs/recipes/llama3_3/sft/70b_full/train.yaml: Skipped: model needs ~259 GB CPU RAM but only 58 GB available 
+(69.5B params)
+  ✗ configs/recipes/llama3_3/sft/70b_lora/train.yaml: Skipped: model needs ~259 GB CPU RAM but only 58 GB available 
+(69.5B params)
+  ✗ configs/recipes/llama3_3/sft/70b_qlora/train.yaml: Skipped: model needs ~259 GB CPU RAM but only 58 GB available 
+(69.5B params)
+  ✗ configs/recipes/llama4/sft/scout_base_full/train.yaml: Skipped: model needs ~375 GB CPU RAM but only 58 GB available
+(100.7B params)
+  ✗ configs/recipes/llama4/sft/scout_instruct_full/train.yaml: Skipped: model needs ~375 GB CPU RAM but only 58 GB 
+available (100.7B params)
+  ✗ configs/recipes/llama4/sft/scout_instruct_lora/train.yaml: Skipped: model needs ~375 GB CPU RAM but only 58 GB 
+available (100.7B params)
+  ✗ configs/recipes/llama4/sft/scout_instruct_qlora/train.yaml: Skipped: model needs ~375 GB CPU RAM but only 58 GB 
+available (100.7B params)
+  ✗ configs/recipes/olmo3/sft/32b_lora/train.yaml: OSError: allenai/Olmo-3-32B-Instruct is not a local folder and is not
+a valid model identifier listed on 'https://huggingface.co/models'
+If this is a private repository, make sure to pass a token having permission to this repo either by logging in with `hf 
+auth login` or by passing `token=<your_token>`
+  ✗ configs/recipes/olmo3/sft/7b_full/train.yaml: Skipped: model needs ~77.0 GB GPU but only 43.9 GB free (6.9B params)
+  ✗ configs/recipes/phi4/sft/reasoning_plus/full_train.yaml: Skipped: model needs ~53 GB CPU RAM but only 58 GB 
+available (14.1B params)
+  ✗ configs/recipes/phi4/sft/reasoning_plus/lora_train.yaml: Skipped: model needs ~53 GB CPU RAM but only 58 GB 
+available (14.1B params)
+  ✗ configs/recipes/phi4/sft/reasoning_plus/qlora_train.yaml: Skipped: model needs ~53 GB CPU RAM but only 58 GB 
+available (14.1B params)
+  ✗ configs/recipes/qwen2_5/sft/7b_full/train.yaml: Skipped: model needs ~79.0 GB GPU but only 43.8 GB free (7.1B 
+params)
+  ✗ configs/recipes/qwen3/sft/14b_lora/train.yaml: Skipped: model needs ~52 GB CPU RAM but only 58 GB available (14.0B 
+params)
+  ✗ configs/recipes/qwen3/sft/235b_lora/train.yaml: Skipped: model needs ~6783 GB CPU RAM but only 58 GB available 
+(1820.8B params)
+  ✗ configs/recipes/qwen3/sft/30b_a3b_lora/train.yaml: Skipped: model needs ~867 GB CPU RAM but only 58 GB available 
+(232.7B params)
+  ✗ configs/recipes/qwen3/sft/32b_lora/train.yaml: Skipped: model needs ~111 GB CPU RAM but only 58 GB available (29.7B 
+params)
+  ✗ configs/recipes/qwen3/sft/4b_full/train.yaml: Skipped: model needs ~41.0 GB GPU but only 43.9 GB free (3.7B params)
+  ✗ configs/recipes/qwen3/sft/8b_full/train.yaml: Skipped: model needs ~84.6 GB GPU but only 43.9 GB free (7.6B params)
+  ✗ configs/recipes/qwen3_5/sft/0.8b_full/train.yaml: ValueError: Image features and image tokens do not match, tokens: 
+0, features: 64
+  ✗ configs/recipes/qwen3_5/sft/0.8b_lora/train.yaml: ValueError: Image features and image tokens do not match, tokens: 
+0, features: 64
+  ✗ configs/recipes/qwen3_instruct/sft/30b_a3b_lora/train.yaml: Skipped: model needs ~867 GB CPU RAM but only 58 GB 
+available (232.7B params)
+  ✗ configs/recipes/qwen3_next/sft/80b_a3b_instruct_lora/train.yaml: Skipped: model needs ~2883 GB CPU RAM but only 58 
+GB available (773.9B params)
+  ✗ configs/recipes/qwen3_next/sft/80b_a3b_lora/train.yaml: OSError: Qwen/Qwen3-Next-80B-A3B is not a local folder and 
+is not a valid model identifier listed on 'https://huggingface.co/models'
+If this is a private repository, make sure to pass a token having permission to this repo either by logging in with `hf 
+auth login` or by passing `token=<your_token>`
+  ✗ configs/recipes/qwq/sft/full_train.yaml: Skipped: model needs ~119 GB CPU RAM but only 58 GB available (32.0B 
+params)
+  ✗ configs/recipes/qwq/sft/lora_train.yaml: Skipped: model needs ~119 GB CPU RAM but only 58 GB available (32.0B 
+params)
+  ✗ configs/recipes/qwq/sft/qlora_train.yaml: Skipped: model needs ~119 GB CPU RAM but only 58 GB available (32.0B 
+params)
+  ✗ configs/recipes/vision/internvl3/sft/full/train.yaml: ValueError: Number of image placeholders in the prompt does 
+not match the number of images.
+  ✗ configs/recipes/vision/llama3_2_vision/sft/11b_full/train.yaml: Skipped: model needs ~103.4 GB GPU but only 43.9 GB 
+free (9.2B params)
+  ✗ configs/recipes/vision/llama3_2_vision/sft/11b_lora/train.yaml: RuntimeError: The expanded size of the tensor (6404)
+must match the existing size (0) at non-singleton dimension 3.  Target sizes: [1, 32, 3, 6404].  Tensor sizes: [1, 1, 3,
+0]
+  ✗ configs/recipes/vision/llama3_2_vision/sft/90b_full/train.yaml: Skipped: model needs ~323 GB CPU RAM but only 58 GB 
+available (86.6B params)
+  ✗ configs/recipes/vision/llava_7b/dpo/train.yaml: Skipped: model needs ~73.8 GB GPU but only 43.9 GB free (6.6B 
+params)
+  ✗ configs/recipes/vision/llava_7b/sft/train.yaml: Skipped: model needs ~73.8 GB GPU but only 43.9 GB free (6.6B 
+params)
+  ✗ configs/recipes/vision/molmo/grpo/train.yaml: Skipped: model needs ~84 GB CPU RAM but only 58 GB available (11.2B 
+params)
+  ✗ configs/recipes/vision/molmo/sft/molmo_d_full/train.yaml: Skipped: model needs ~95 GB CPU RAM but only 58 GB 
+available (12.8B params)
+  ✗ configs/recipes/vision/molmo/sft/molmo_o_full/train.yaml: Skipped: model needs ~84 GB CPU RAM but only 58 GB 
+available (11.2B params)
+  ✗ configs/recipes/vision/phi3/dpo/train.yaml: ImportError: cannot import name 'is_flash_attn_greater_or_equal_2_10' 
+from 'transformers.utils' (/root/miniconda3/envs/oumi/lib/python3.11/site-packages/transformers/utils/__init__.py)
+  ✗ configs/recipes/vision/phi3/sft/full/completions_only_train.yaml: ValidationError: field 'model.freeze_layers' is 
+not Optional
+    full_key: model.freeze_layers
+    reference_type=ModelParams
+    object_type=ModelParams
+  ✗ configs/recipes/vision/phi3/sft/full/train.yaml: ValidationError: field 'model.freeze_layers' is not Optional
+    full_key: model.freeze_layers
+    reference_type=ModelParams
+    object_type=ModelParams
+  ✗ configs/recipes/vision/phi3/sft/lora/train.yaml: ImportError: cannot import name 
+'is_flash_attn_greater_or_equal_2_10' from 'transformers.utils' 
+(/root/miniconda3/envs/oumi/lib/python3.11/site-packages/transformers/utils/__init__.py)
+  ✗ configs/recipes/vision/phi4/sft/full/train.yaml: Skipped: model needs ~42.9 GB GPU but only 43.9 GB free (3.8B 
+params)
+  ✗ configs/recipes/vision/phi4/sft/lora/train.yaml: ImportError: cannot import name 'SlidingWindowCache' from 
+'transformers.cache_utils' (/root/miniconda3/envs/oumi/lib/python3.11/site-packages/transformers/cache_utils.py)
+  ✗ configs/recipes/vision/qwen2_5_vl_3b/dpo/train.yaml: ValueError: Image features and image tokens do not match, 
+tokens: 0, features: 4
+  ✗ configs/recipes/vision/qwen2_5_vl_3b/sft/full/train.yaml: ValueError: Image features and image tokens do not match, 
+tokens: 0, features: 4
+  ✗ configs/recipes/vision/qwen2_5_vl_3b/sft/lora/train.yaml: ValueError: Image features and image tokens do not match, 
+tokens: 0, features: 4
+  ✗ configs/recipes/vision/qwen2_5_vl_7b/sft/full/train.yaml: Skipped: model needs ~79.0 GB GPU but only 42.5 GB free 
+(7.1B params)
+  ✗ configs/recipes/vision/qwen2_vl_2b/dpo/train.yaml: ValueError: Image features and image tokens do not match, tokens:
+0, features: 4
+  ✗ configs/recipes/vision/qwen2_vl_2b/sft/full/train.yaml: ValueError: Image features and image tokens do not match, 
+tokens: 0, features: 4
+  ✗ configs/recipes/vision/qwen2_vl_2b/sft/lora/train.yaml: ValueError: Image features and image tokens do not match, 
+tokens: 0, features: 4
+  ✗ configs/recipes/vision/qwen3_vl_2b/sft/2b_instruct_fft_train.yaml: ValueError: Image features and image tokens do 
+not match, tokens: 0, features: 64
+  ✗ configs/recipes/vision/qwen3_vl_2b/sft/2b_instruct_lora_train.yaml: ValueError: Image features and image tokens do 
+not match, tokens: 0, features: 64
+  ✗ configs/recipes/vision/qwen3_vl_30b_a3b/sft/30b_a3b_instruct_fft_train.yaml: Skipped: model needs ~867 GB CPU RAM 
+but only 58 GB available (232.7B params)
+  ✗ configs/recipes/vision/qwen3_vl_30b_a3b/sft/30b_a3b_instruct_lora_train.yaml: Skipped: model needs ~867 GB CPU RAM 
+but only 58 GB available (232.7B params)
+  ✗ configs/recipes/vision/qwen3_vl_4b/sft/4b_instruct_fft_train.yaml: Skipped: model needs ~41.0 GB GPU but only 43.9 
+GB free (3.7B params)
+  ✗ configs/recipes/vision/qwen3_vl_4b/sft/4b_instruct_lora_train.yaml: ValueError: Image features and image tokens do 
+not match, tokens: 0, features: 64
+  ✗ configs/recipes/vision/smolvlm/sft/full/train.yaml: ValueError: The number of images in the text [0] and images [1] 
+should be the same.
+  ✗ configs/recipes/vision/smolvlm/sft/lora/train.yaml: ValueError: The number of images in the text [0] and images [1] 
+should be the same.
+

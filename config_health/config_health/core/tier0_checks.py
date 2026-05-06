@@ -166,15 +166,19 @@ def run_tier0_checks(entry: ConfigEntry) -> list[CheckResult]:
     if needs_arch:
         arch = _load_architecture_info(model_name)
         if arch.error:
-            results.append(
-                CheckResult(
-                    config_path=entry.path,
-                    check_name="arch_load",
-                    status=CheckStatus.WARN,
-                    message=f"Could not load architecture: {arch.error[:150]}",
-                    severity=Severity.WARNING,
+            # Suppress warning when the failure is an environment compatibility
+            # issue (e.g. missing flash-attn symbol in remote code), not a real
+            # config problem.
+            if not _is_arch_env_skip(arch.error):
+                results.append(
+                    CheckResult(
+                        config_path=entry.path,
+                        check_name="arch_load",
+                        status=CheckStatus.WARN,
+                        message=f"Could not load architecture: {arch.error}",
+                        severity=Severity.WARNING,
+                    )
                 )
-            )
         else:
             results.extend(_check_fsdp_layer_cls(entry, data, arch))
             results.extend(_check_lora_targets(entry, data, arch))
@@ -243,6 +247,20 @@ def _is_transient_error(e: Exception) -> bool:
     return any(s in err_str for s in transient_signals)
 
 
+_ARCH_ENV_SKIP_SUBSTRINGS = (
+    # Removed from transformers in newer versions; present in remote code for Phi-3-Vision
+    "is_flash_attn_greater_or_equal_2_10",
+    # Renamed/removed in transformers v5+; present in remote code for Phi-4-Multimodal
+    "SlidingWindowCache",
+    # Mamba/SSM kernels not installed
+    "causal_conv1d_cuda is not available",
+)
+
+
+def _is_arch_env_skip(error: str) -> bool:
+    return any(s in error for s in _ARCH_ENV_SKIP_SUBSTRINGS)
+
+
 from config_health.core.scanner import load_yaml_cached as _load_yaml  # shared cache
 
 
@@ -269,24 +287,40 @@ def _load_architecture_info_uncached(model_name: str) -> _ArchInfo:
         instantiation_config, model_class = _get_config_and_class(config)
 
         model = None
+        _all_errors: list[str] = []
         if model_class is not None:
             try:
                 with torch.device("meta"):
                     model = model_class(instantiation_config)
-            except Exception:
-                pass
+            except Exception as _e:
+                _all_errors.append(str(_e))
 
         if model is None:
-            try:
-                with torch.device("meta"):
-                    model = transformers.AutoModelForCausalLM.from_config(
-                        config, trust_remote_code=True
-                    )
-            except Exception:
-                pass
+            for _auto_cls_name in (
+                "AutoModelForCausalLM",
+                "AutoModelForImageTextToText",
+                "AutoModelForVision2Seq",
+            ):
+                _auto_cls = getattr(transformers, _auto_cls_name, None)
+                if _auto_cls is None:
+                    continue
+                try:
+                    with torch.device("meta"):
+                        model = _auto_cls.from_config(config, trust_remote_code=True)
+                    _all_errors.clear()
+                    break
+                except Exception as _e:
+                    _all_errors.append(str(_e))
 
         if model is None:
-            return _ArchInfo(error="Could not instantiate model on meta device")
+            # Surface any env-compat error first so callers can suppress it
+            _env_err = next(
+                (e for e in _all_errors if _is_arch_env_skip(e)), None
+            )
+            _reason = _env_err or (_all_errors[-1] if _all_errors else "unknown")
+            return _ArchInfo(
+                error=f"Could not instantiate model on meta device: {_reason}"
+            )
 
         module_names: set[str] = set()
         layer_classes: list[str] = []
@@ -311,7 +345,7 @@ def _load_architecture_info_uncached(model_name: str) -> _ArchInfo:
             transformer_layer_classes=layer_classes,
         )
     except Exception as e:
-        return _ArchInfo(error=str(e)[:200])
+        return _ArchInfo(error=str(e))
 
 
 def _get_config_and_class(config: Any) -> tuple[Any, Any]:
@@ -496,7 +530,7 @@ def _check_lora_targets(
                 status=CheckStatus.FAIL,
                 message=f"LoRA target modules not found in model: {missing}",
                 severity=Severity.ERROR,
-                details=f"Available: {sorted(arch.module_names)[:30]}",
+                details=f"Available: {sorted(arch.module_names)}",
             )
         )
     else:
@@ -915,7 +949,7 @@ def _check_chat_templates(entry: ConfigEntry, tokenizer: Any) -> list[CheckResul
                         "The model uses a different format."
                     ),
                     severity=Severity.ERROR,
-                    details=f"Rendered: {rendered[:300]}",
+                    details=f"Rendered: {rendered}",
                 )
             )
         else:
@@ -955,7 +989,7 @@ def _check_chat_templates(entry: ConfigEntry, tokenizer: Any) -> list[CheckResul
                         "The model uses a different format."
                     ),
                     severity=Severity.ERROR,
-                    details=f"Rendered: {rendered[:300]}",
+                    details=f"Rendered: {rendered}",
                 )
             )
         else:
@@ -1020,7 +1054,7 @@ def _check_collator_token_ids(
                     message=(
                         "response_template token IDs not found in tokenized conversation. "
                         "The collator will silently mask all labels — training will learn nothing. "
-                        f"Template tokens: {template_ids[:10]}{'...' if len(template_ids) > 10 else ''}"
+                        f"Template tokens: {template_ids}"
                     ),
                     severity=Severity.ERROR,
                     details=(

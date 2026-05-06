@@ -851,7 +851,7 @@ def check(
                 log_console.print(msg)
             for p, v in report.dry_run_results.items():
                 if not v["success"] and v["error"]:
-                    line = f"  [red]✗[/red] {p}: {v['error'][:100]}"
+                    line = f"  [red]✗[/red] {p}: {v['error']}"
                     console.print(line)
                     if log_console:
                         log_console.print(line)

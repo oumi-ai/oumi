@@ -1,0 +1,391 @@
+
+Config Health Report  (314.9s)
+
+  Total configs: 495
+  Healthy:  336
+  Failing:  154
+  Warnings: 5
+  Timing: classify: 13.17s, static: 32.87s, hub: 0.41s, tier0: 136.44s, vram: 13.29s, dry_run: 69.61s
+
+       By Config Type       
+┏━━━━━━━━━━━━━━━━━━┳━━━━━━━┓
+┃ Type             ┃ Count ┃
+┡━━━━━━━━━━━━━━━━━━╇━━━━━━━┩
+│ training         │   150 │
+│ job              │   140 │
+│ inference        │   126 │
+│ evaluation       │    52 │
+│ judge            │    15 │
+│ synthesis        │     7 │
+│ quantization     │     2 │
+│ analyze          │     1 │
+│ async_evaluation │     1 │
+│ tuning           │     1 │
+└──────────────────┴───────┘
+
+     By GPU Tier      
+┏━━━━━━━━━━━━┳━━━━━━━┓
+┃ Tier       ┃ Count ┃
+┡━━━━━━━━━━━━╇━━━━━━━┩
+│ CPU/MPS    │    97 │
+│ Multi-GPU  │   166 │
+│ Single GPU │   232 │
+└────────────┴───────┘
+
+Failures (156):
+  ✗ configs/recipes/olmo3/evaluation/32b/eval.yaml: Model not found on HF Hub: allenai/Olmo-3-32B-Instruct
+  ✗ configs/recipes/olmo3/inference/32b_infer.yaml: Model not found on HF Hub: allenai/Olmo-3-32B-Instruct
+  ✗ configs/recipes/olmo3/sft/32b_lora/train.yaml: Model not found on HF Hub: allenai/Olmo-3-32B-Instruct
+  ✗ configs/recipes/qwen3/inference/30b_a3b_instruct_vllm_infer.yaml: Model not found on HF Hub: 
+Qwen/Qwen3-30B-A3B-Instruct
+  ✗ configs/recipes/qwen3_next/evaluation/80b_a3b_eval.yaml: Model not found on HF Hub: Qwen/Qwen3-Next-80B-A3B
+  ✗ configs/recipes/qwen3_next/inference/80b_a3b_infer.yaml: Model not found on HF Hub: Qwen/Qwen3-Next-80B-A3B
+  ✗ configs/recipes/qwen3_next/sft/80b_a3b_lora/train.yaml: Model not found on HF Hub: Qwen/Qwen3-Next-80B-A3B
+  ✗ configs/examples/deepspeed/llama3_1_8b_deepspeed_z2_train.yaml: Dry-run failed: TypeError: _LazyAutoMapping.get() 
+missing 1 required positional argument: 'default'
+  ✗ configs/examples/deepspeed/llama3_1_8b_deepspeed_z3_offload_train.yaml: Dry-run failed: TypeError: 
+_LazyAutoMapping.get() missing 1 required positional argument: 'default'
+  ✗ configs/examples/deepspeed/llama3_1_8b_deepspeed_z3_train.yaml: Dry-run failed: TypeError: _LazyAutoMapping.get() 
+missing 1 required positional argument: 'default'
+  ✗ configs/examples/fineweb_ablation_pretraining/ddp/train.yaml: Dry-run failed: TypeError: _LazyAutoMapping.get() 
+missing 1 required positional argument: 'default'
+  ✗ configs/examples/fineweb_ablation_pretraining/fsdp/train.yaml: Dry-run failed: TypeError: _LazyAutoMapping.get() 
+missing 1 required positional argument: 'default'
+  ✗ configs/examples/gkd/train.yaml: Dry-run failed: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/examples/gold/train.yaml: Dry-run failed: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/examples/gold/train_gptoss120b_qwen06b.yaml: Dry-run failed: TypeError: _LazyAutoMapping.get() missing 1 
+required positional argument: 'default'
+  ✗ configs/examples/gold/train_gptoss120b_qwen8b.yaml: Dry-run failed: TypeError: _LazyAutoMapping.get() missing 1 
+required positional argument: 'default'
+  ✗ configs/examples/grpo_tldr/train.yaml: Dry-run failed: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/examples/grpo_verl_countdown/train.yaml: Dry-run failed: TypeError: _LazyAutoMapping.get() missing 1 
+required positional argument: 'default'
+  ✗ configs/examples/grpo_verl_geometry3k/train.yaml: Dry-run failed: TypeError: _LazyAutoMapping.get() missing 1 
+required positional argument: 'default'
+  ✗ configs/examples/grpo_verl_gsm8k/train.yaml: Dry-run failed: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ... and 136 more
+
+Coverage Gaps (11):
+  ⚠ openrouter (apis): missing evaluation
+  ⚠ falcon_e (recipes): missing inference
+  ⚠ gemma2 (recipes): missing evaluation, inference
+  ⚠ glm4 (recipes): missing evaluation, training
+  ⚠ gpt2 (recipes): missing evaluation
+  ⚠ gpt_oss (recipes): missing evaluation
+  ⚠ phi3 (recipes): missing inference
+  ⚠ qwen2_5 (recipes): missing evaluation, inference
+  ⚠ qwen3_5 (recipes): missing evaluation
+  ⚠ qwen3_coder (recipes): missing evaluation, training
+  ⚠ qwen3_instruct (recipes): missing evaluation, inference
+
+Optimization Suggestions: 225
+  performance: 183
+  efficiency: 37
+  best_practice: 5
+
+VRAM Estimates: 147 training configs, 0.6 — 36342.6 GB
+
+Dry-runs: 0 passed, 150 failed
+  ✗ configs/examples/deepspeed/llama3_1_8b_deepspeed_z2_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required
+positional argument: 'default'
+  ✗ configs/examples/deepspeed/llama3_1_8b_deepspeed_z3_offload_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 
+required positional argument: 'default'
+  ✗ configs/examples/deepspeed/llama3_1_8b_deepspeed_z3_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required
+positional argument: 'default'
+  ✗ configs/examples/fineweb_ablation_pretraining/ddp/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/examples/fineweb_ablation_pretraining/fsdp/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/examples/gkd/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional argument: 'default'
+  ✗ configs/examples/gold/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional argument: 
+'default'
+  ✗ configs/examples/gold/train_gptoss120b_qwen06b.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional
+argument: 'default'
+  ✗ configs/examples/gold/train_gptoss120b_qwen8b.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/examples/grpo_tldr/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional argument: 
+'default'
+  ✗ configs/examples/grpo_verl_countdown/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/examples/grpo_verl_geometry3k/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/examples/grpo_verl_gsm8k/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/examples/letter_counting/grpo/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/examples/misc/tulu3_sft_mini.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional argument:
+'default'
+  ✗ configs/projects/aya/sft/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional argument: 
+'default'
+  ✗ configs/projects/chatqa/chatqa_stage1_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/projects/chatqa/chatqa_stage2_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/projects/coalm/405b_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional argument: 
+'default'
+  ✗ configs/projects/coalm/70b_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional argument: 
+'default'
+  ✗ configs/projects/coalm/8b_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional argument: 
+'default'
+  ✗ configs/projects/dcvlr/starter_kit/molmo-d-train-openr1.yaml: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/projects/dcvlr/starter_kit/molmo-o-train-openr1.yaml: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/projects/dcvlr/starter_kit/qwenvl-openr1.yaml: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/projects/halloumi/8b_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional argument: 
+'default'
+  ✗ configs/projects/limo/qwen2.5_7b_fft.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional argument:
+'default'
+  ✗ configs/projects/limo/qwen2.5_7b_fft_yarn.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/projects/limo/qwen2.5_7b_fft_yarn_deepspeed.yaml: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/projects/limo/qwen2.5_7b_fft_yarn_deepspeed_memory_optimized_train.yaml: TypeError: _LazyAutoMapping.get() 
+missing 1 required positional argument: 'default'
+  ✗ configs/projects/wc50m/configs/base_ultrachat.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/deepseek_r1/sft/distill_llama_70b/full_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 
+required positional argument: 'default'
+  ✗ configs/recipes/deepseek_r1/sft/distill_llama_70b/lora_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 
+required positional argument: 'default'
+  ✗ configs/recipes/deepseek_r1/sft/distill_llama_70b/qlora_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 
+required positional argument: 'default'
+  ✗ configs/recipes/deepseek_r1/sft/distill_llama_8b/full_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 
+required positional argument: 'default'
+  ✗ configs/recipes/deepseek_r1/sft/distill_llama_8b/lora_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 
+required positional argument: 'default'
+  ✗ configs/recipes/deepseek_r1/sft/distill_llama_8b/qlora_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 
+required positional argument: 'default'
+  ✗ configs/recipes/deepseek_r1/sft/distill_qwen_1_5b/full_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 
+required positional argument: 'default'
+  ✗ configs/recipes/deepseek_r1/sft/distill_qwen_1_5b/lora_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 
+required positional argument: 'default'
+  ✗ configs/recipes/deepseek_r1/sft/distill_qwen_32b/lora_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 
+required positional argument: 'default'
+  ✗ configs/recipes/falcon_e/dpo/falcon_e_1b_instruct/dpo.yaml: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/recipes/falcon_e/sft/falcon_e_1b/full_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/recipes/falcon_e/sft/falcon_e_1b_instruct/full_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 
+required positional argument: 'default'
+  ✗ configs/recipes/falcon_e/sft/falcon_e_3b/full_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/recipes/falcon_e/sft/falcon_e_3b_instruct/full_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 
+required positional argument: 'default'
+  ✗ configs/recipes/falcon_h1/dpo/falcon_h1_0_5b/qlora_dpo.yaml: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/recipes/falcon_h1/sft/falcon_h1_0_5b/full_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/recipes/falcon_h1/sft/falcon_h1_1_5b/full_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/recipes/falcon_h1/sft/falcon_h1_1_5b_deep/full_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 
+required positional argument: 'default'
+  ✗ configs/recipes/falcon_h1/sft/falcon_h1_34b/full_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/recipes/falcon_h1/sft/falcon_h1_3b/full_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/recipes/falcon_h1/sft/falcon_h1_7b/full_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/recipes/gemma2/sft/2b_full/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/gemma3/sft/12b_lora/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/gemma3/sft/27b_lora/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/gemma3/sft/4b_full/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/gpt2/pretraining/macos_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/gpt2/pretraining/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/gpt_oss/sft/120b_lora_multi_gpu_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/recipes/gpt_oss/sft/20b_lora_multi_gpu_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/recipes/gpt_oss/sft/20b_lora_single_gpu_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/recipes/llama3_1/pretraining/8b/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/llama3_1/sft/405b_full/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/llama3_1/sft/405b_lora/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/llama3_1/sft/405b_qlora/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/llama3_1/sft/70b_full/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/llama3_1/sft/70b_lora/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/llama3_1/sft/70b_qlora/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/llama3_1/sft/8b_full/accelerate.yaml: No model_name
+  ✗ configs/recipes/llama3_1/sft/8b_full/longctx_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/recipes/llama3_1/sft/8b_full/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/llama3_1/sft/8b_lora/fsdp_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/recipes/llama3_1/sft/8b_lora/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/llama3_1/sft/8b_qlora/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/llama3_2/dpo/1b_qlora_dpo.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/llama3_2/sft/1b_full/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/llama3_2/sft/3b_full/fsdp_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/recipes/llama3_2/sft/3b_full/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/llama3_2/sft/3b_lora/fsdp_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/recipes/llama3_2/sft/3b_lora/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/llama3_2/sft/3b_qlora/fsdp_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/recipes/llama3_2/sft/3b_qlora/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/llama3_3/sft/70b_full/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/llama3_3/sft/70b_lora/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/llama3_3/sft/70b_qlora/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/llama4/sft/scout_base_full/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/recipes/llama4/sft/scout_instruct_full/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/recipes/llama4/sft/scout_instruct_lora/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/recipes/llama4/sft/scout_instruct_qlora/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/recipes/olmo3/sft/32b_lora/train.yaml: OSError: allenai/Olmo-3-32B-Instruct is not a local folder and is not
+a valid model identifier liste
+  ✗ configs/recipes/olmo3/sft/7b_full/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/phi3/dpo/macos_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional argument:
+'default'
+  ✗ configs/recipes/phi3/dpo/nvidia_24g_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/phi3/dpo/nvidia_80g_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/phi3/dpo/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional argument: 
+'default'
+  ✗ configs/recipes/phi3/kto/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional argument: 
+'default'
+  ✗ configs/recipes/phi3/sft/lora_macos_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/phi3/sft/lora_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional argument: 
+'default'
+  ✗ configs/recipes/phi4/sft/reasoning_plus/full_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/recipes/phi4/sft/reasoning_plus/lora_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/recipes/phi4/sft/reasoning_plus/qlora_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/recipes/qwen2_5/sft/3b_full/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/qwen2_5/sft/7b_full/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/qwen3/sft/0.6b_full/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/qwen3/sft/1.7b_full/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/qwen3/sft/14b_lora/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/qwen3/sft/235b_lora/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/qwen3/sft/30b_a3b_lora/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/qwen3/sft/32b_lora/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/qwen3/sft/4b_full/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/qwen3/sft/8b_full/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/qwen3_5/sft/0.8b_full/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/qwen3_5/sft/0.8b_lora/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/qwen3_instruct/sft/30b_a3b_lora/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/recipes/qwen3_next/sft/80b_a3b_instruct_lora/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 
+required positional argument: 'default'
+  ✗ configs/recipes/qwen3_next/sft/80b_a3b_lora/train.yaml: OSError: Qwen/Qwen3-Next-80B-A3B is not a local folder and 
+is not a valid model identifier listed on
+  ✗ configs/recipes/qwq/sft/full_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional argument: 
+'default'
+  ✗ configs/recipes/qwq/sft/lora_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional argument: 
+'default'
+  ✗ configs/recipes/qwq/sft/qlora_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional argument: 
+'default'
+  ✗ configs/recipes/smollm/sft/135m/quickstart_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/recipes/smollm/sft/135m/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/vision/internvl3/sft/full/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/recipes/vision/llama3_2_vision/sft/11b_full/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required
+positional argument: 'default'
+  ✗ configs/recipes/vision/llama3_2_vision/sft/11b_lora/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required
+positional argument: 'default'
+  ✗ configs/recipes/vision/llama3_2_vision/sft/90b_full/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required
+positional argument: 'default'
+  ✗ configs/recipes/vision/llava_7b/dpo/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/vision/llava_7b/sft/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/vision/molmo/grpo/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/vision/molmo/sft/molmo_d_full/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/recipes/vision/molmo/sft/molmo_o_full/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/recipes/vision/phi3/dpo/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/vision/phi3/sft/full/completions_only_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 
+required positional argument: 'default'
+  ✗ configs/recipes/vision/phi3/sft/full/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/vision/phi3/sft/lora/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/vision/phi4/sft/full/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/vision/phi4/sft/lora/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/vision/qwen2_5_vl_3b/dpo/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional
+argument: 'default'
+  ✗ configs/recipes/vision/qwen2_5_vl_3b/sft/full/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/recipes/vision/qwen2_5_vl_3b/sft/lora/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/recipes/vision/qwen2_5_vl_7b/sft/full/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/recipes/vision/qwen2_vl_2b/dpo/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/vision/qwen2_vl_2b/sft/full/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/recipes/vision/qwen2_vl_2b/sft/lora/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required 
+positional argument: 'default'
+  ✗ configs/recipes/vision/qwen3_vl_2b/sft/2b_instruct_fft_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 
+required positional argument: 'default'
+  ✗ configs/recipes/vision/qwen3_vl_2b/sft/2b_instruct_lora_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 
+required positional argument: 'default'
+  ✗ configs/recipes/vision/qwen3_vl_30b_a3b/sft/30b_a3b_instruct_fft_train.yaml: TypeError: _LazyAutoMapping.get() 
+missing 1 required positional argument: 'default'
+  ✗ configs/recipes/vision/qwen3_vl_30b_a3b/sft/30b_a3b_instruct_lora_train.yaml: TypeError: _LazyAutoMapping.get() 
+missing 1 required positional argument: 'default'
+  ✗ configs/recipes/vision/qwen3_vl_4b/sft/4b_instruct_fft_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 
+required positional argument: 'default'
+  ✗ configs/recipes/vision/qwen3_vl_4b/sft/4b_instruct_lora_train.yaml: TypeError: _LazyAutoMapping.get() missing 1 
+required positional argument: 'default'
+  ✗ configs/recipes/vision/smolvlm/sft/full/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+  ✗ configs/recipes/vision/smolvlm/sft/lora/train.yaml: TypeError: _LazyAutoMapping.get() missing 1 required positional 
+argument: 'default'
+

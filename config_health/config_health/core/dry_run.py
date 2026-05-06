@@ -72,7 +72,7 @@ def run_dry_run(entry: ConfigEntry, *, max_steps: int = 2) -> DryRunResult:
     try:
         _execute_dry_run(entry, result, max_steps)
     except Exception as e:
-        result.error = f"{type(e).__name__}: {str(e)[:300]}"
+        result.error = f"{type(e).__name__}: {str(e)}"
     result.duration_s = time.time() - start
     return result
 
@@ -258,22 +258,35 @@ def _execute_dry_run(entry: ConfigEntry, result: DryRunResult, max_steps: int) -
                 config.model.model_name, trust_remote_code=True
             )
 
-            # Handle composite configs
-            if hasattr(hf_config, "text_config") and hf_config.text_config is not None:
-                text_config = hf_config.text_config
-                model_class = transformers.AutoModelForCausalLM._model_mapping.get(
-                    type(text_config), None
-                )
-                if model_class:
-                    hf_config = text_config
+            # Detect VLMs — they live in AutoModelForImageTextToText or
+            # AutoModelForVision2Seq, not AutoModelForCausalLM.
+            _vlm_auto_cls = None
+            for _vlm_cls_name in ("AutoModelForImageTextToText", "AutoModelForVision2Seq"):
+                _vlm_auto = getattr(transformers, _vlm_cls_name, None)
+                if _vlm_auto and hasattr(_vlm_auto, "_model_mapping"):
+                    if _vlm_auto._model_mapping.get(type(hf_config), None) is not None:
+                        _vlm_auto_cls = _vlm_auto
+                        break
+
+            # For text models, narrow to the specific model class if possible
+            # (avoids fallback to from_config which is slower).
+            model_class = None
+            if _vlm_auto_cls is None:
+                if hasattr(hf_config, "text_config") and hf_config.text_config is not None:
+                    text_config = hf_config.text_config
+                    model_class = transformers.AutoModelForCausalLM._model_mapping.get(
+                        type(text_config), None
+                    )
+                    if model_class:
+                        hf_config = text_config
+                    else:
+                        model_class = transformers.AutoModelForCausalLM._model_mapping.get(
+                            type(hf_config), None
+                        )
                 else:
                     model_class = transformers.AutoModelForCausalLM._model_mapping.get(
                         type(hf_config), None
                     )
-            else:
-                model_class = transformers.AutoModelForCausalLM._model_mapping.get(
-                    type(hf_config), None
-                )
 
             dtype = getattr(
                 torch, config.model.torch_dtype_str or "bfloat16", torch.bfloat16
@@ -317,7 +330,12 @@ def _execute_dry_run(entry: ConfigEntry, result: DryRunResult, max_steps: int) -
                         return
 
             # Instantiate with random weights (no download!)
-            if model_class is not None:
+            if _vlm_auto_cls is not None:
+                model = _vlm_auto_cls.from_config(
+                    hf_config, trust_remote_code=True, torch_dtype=dtype
+                )
+                result.notes.append("vlm: True")
+            elif model_class is not None:
                 model = model_class(hf_config).to(dtype=dtype)
             else:
                 model = transformers.AutoModelForCausalLM.from_config(
@@ -358,34 +376,147 @@ def _execute_dry_run(entry: ConfigEntry, result: DryRunResult, max_steps: int) -
             model = model.to(device)
             result.notes.append(f"device: {device}")
 
-            # Load tokenizer
-            tokenizer = transformers.AutoTokenizer.from_pretrained(
-                config.model.model_name, trust_remote_code=True
-            )
-            if tokenizer.pad_token is None:
-                tokenizer.pad_token = tokenizer.eos_token
+            # Create dummy batch — VLMs need image+text via AutoProcessor;
+            # text models just need token ids from the tokenizer.
+            if _vlm_auto_cls is not None:
+                from PIL import Image as _PILImage
 
-            # Create dummy batch
-            seq_len = min(config.model.model_max_length or 128, 128)
-            dummy_ids = torch.randint(
-                0, tokenizer.vocab_size, (1, seq_len), device=device
-            )
-            dummy_labels = dummy_ids.clone()
+                processor = transformers.AutoProcessor.from_pretrained(
+                    config.model.model_name, trust_remote_code=True
+                )
+                # 224x224 is the standard ViT input size and satisfies minimum-
+                # size requirements for tile-based processors (e.g. LLaMA-3.2-Vision).
+                _dummy_img = _PILImage.new("RGB", (224, 224))
 
-            # Simple training loop (no Trainer overhead)
-            optimizer = torch.optim.AdamW(
-                [p for p in model.parameters() if p.requires_grad], lr=1e-5
-            )
+                # Build a chat-template message with an explicit image placeholder
+                # so the processor inserts the correct image tokens into input_ids.
+                # Without this, models raise "image features and image tokens do not
+                # match" because pixel_values has N patches but input_ids has 0 image
+                # token positions.
+                _dummy_messages = [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "image"},
+                            {"type": "text", "text": "dummy"},
+                        ],
+                    }
+                ]
+                _proc_inputs = None
+                _proc_exc: Exception | None = None
 
-            model.train()
-            for step in range(max_steps):
-                outputs = model(input_ids=dummy_ids, labels=dummy_labels)
-                loss = outputs.loss
-                loss.backward()
-                optimizer.step()
-                optimizer.zero_grad()
-                result.steps_completed = step + 1
-                result.notes.append(f"step {step + 1}: loss={loss.item():.4f}")
+                # Attempt 1: apply_chat_template with an image+text message so
+                # the processor inserts the correct image placeholder tokens into
+                # input_ids before tokenising.
+                try:
+                    _text_prompt = processor.apply_chat_template(
+                        _dummy_messages,
+                        tokenize=False,
+                        add_generation_prompt=False,
+                    )
+                    _proc_inputs = processor(
+                        images=[_dummy_img],
+                        text=[_text_prompt],
+                        return_tensors="pt",
+                        padding=True,
+                    )
+                except Exception as _e1:
+                    _proc_exc = _e1
+
+                # Attempt 2: find the processor's image_token attribute and
+                # insert it manually into a plain text prompt.
+                if _proc_inputs is None:
+                    _img_tok = getattr(processor, "image_token", None)
+                    if _img_tok:
+                        try:
+                            _text_with_tok = f"{_img_tok} dummy"
+                            _proc_inputs = processor(
+                                images=[_dummy_img],
+                                text=[_text_with_tok],
+                                return_tensors="pt",
+                                padding=True,
+                            )
+                            _proc_exc = None
+                        except Exception as _e2:
+                            _proc_exc = _e2
+
+                # Attempt 3: text-only processor call (no pixel_values) — avoids
+                # the image-token / image-feature mismatch at the cost of not
+                # exercising vision inputs.
+                if _proc_inputs is None:
+                    try:
+                        _proc_inputs = processor(
+                            text=["dummy"],
+                            return_tensors="pt",
+                            padding=True,
+                        )
+                        _proc_exc = None
+                        result.notes.append(
+                            "VLM processor: text-only fallback (vision not exercised)"
+                        )
+                    except Exception as _e3:
+                        _proc_exc = _e3
+
+                if _proc_inputs is None:
+                    raise RuntimeError(
+                        f"VLM processor failed all input-construction attempts: {_proc_exc}"
+                    ) from _proc_exc
+                dummy_batch = {
+                    k: v.to(device) if isinstance(v, torch.Tensor) else v
+                    for k, v in _proc_inputs.items()
+                }
+                if "input_ids" in dummy_batch:
+                    _labels = dummy_batch["input_ids"].clone()
+                    # Mask any token IDs that exceed the LM head output size.
+                    # VLM processors can inject image-placeholder tokens (e.g.
+                    # LLaMA-3.2-Vision's <|image|> = 128256) whose IDs live
+                    # outside the text vocabulary, causing an out-of-range label
+                    # assertion in nll_loss.  -100 tells the loss to skip them.
+                    _lm_head = getattr(model, "lm_head", None)
+                    if _lm_head is not None and hasattr(_lm_head, "weight"):
+                        _n_classes = _lm_head.weight.shape[0]
+                        _labels[_labels >= _n_classes] = -100
+                    dummy_batch["labels"] = _labels
+
+                # Simple training loop (no Trainer overhead)
+                optimizer = torch.optim.AdamW(
+                    [p for p in model.parameters() if p.requires_grad], lr=1e-5
+                )
+                model.train()
+                for step in range(max_steps):
+                    outputs = model(**dummy_batch)
+                    loss = outputs.loss
+                    loss.backward()
+                    optimizer.step()
+                    optimizer.zero_grad()
+                    result.steps_completed = step + 1
+                    result.notes.append(f"step {step + 1}: loss={loss.item():.4f}")
+            else:
+                # Text-only model path
+                tokenizer = transformers.AutoTokenizer.from_pretrained(
+                    config.model.model_name, trust_remote_code=True
+                )
+                if tokenizer.pad_token is None:
+                    tokenizer.pad_token = tokenizer.eos_token
+
+                seq_len = min(config.model.model_max_length or 128, 128)
+                dummy_ids = torch.randint(
+                    0, tokenizer.vocab_size, (1, seq_len), device=device
+                )
+                dummy_labels = dummy_ids.clone()
+
+                optimizer = torch.optim.AdamW(
+                    [p for p in model.parameters() if p.requires_grad], lr=1e-5
+                )
+                model.train()
+                for step in range(max_steps):
+                    outputs = model(input_ids=dummy_ids, labels=dummy_labels)
+                    loss = outputs.loss
+                    loss.backward()
+                    optimizer.step()
+                    optimizer.zero_grad()
+                    result.steps_completed = step + 1
+                    result.notes.append(f"step {step + 1}: loss={loss.item():.4f}")
 
             # Record peak memory
             if device == "cuda":
@@ -414,19 +545,51 @@ _SKIP_ERRORS = frozenset(
     }
 )
 
+# Substrings in error messages that indicate an environment-level missing package,
+# not a config error. The model is valid; the test environment just lacks the dep.
+_ENV_SKIP_SUBSTRINGS = (
+    # causal-conv1d (required by Mamba/Falcon-H1)
+    "causal_conv1d_cuda is not available",
+    # flash-attn symbols that may be missing in older versions
+    "is_flash_attn_greater_or_equal_2_10",
+    # SlidingWindowCache added in newer transformers; older envs lack it
+    "SlidingWindowCache",
+    # Model not found on HF Hub — already caught by model_exists check; dry-run
+    # cannot proceed but the config itself is not necessarily wrong.
+    "is not a local folder and is not a valid model identifier",
+)
+
+
+def _is_env_skip(error: str) -> bool:
+    """Return True if the error is due to a missing environment package."""
+    for substr in _ENV_SKIP_SUBSTRINGS:
+        if substr in error:
+            return True
+    return False
+
 
 def dry_run_to_check_results(dr: DryRunResult) -> list[CheckResult]:
     """Convert a DryRunResult into CheckResults for the report."""
     results: list[CheckResult] = []
 
     if dr.error:
-        if dr.error in _SKIP_ERRORS:
+        if dr.error in _SKIP_ERRORS or dr.error.startswith("Skipped:"):
             results.append(
                 CheckResult(
                     config_path=dr.config_path,
                     check_name="dry_run",
                     status=CheckStatus.SKIP,
                     message=f"Dry-run skipped: {dr.error}",
+                    severity=Severity.INFO,
+                )
+            )
+        elif _is_env_skip(dr.error):
+            results.append(
+                CheckResult(
+                    config_path=dr.config_path,
+                    check_name="dry_run",
+                    status=CheckStatus.SKIP,
+                    message=f"Dry-run skipped: missing environment package — {dr.error}",
                     severity=Severity.INFO,
                 )
             )

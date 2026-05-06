@@ -144,16 +144,15 @@ def _check_finalize_and_validate(entry: ConfigEntry) -> CheckResult:
                 config_path=entry.path,
                 check_name="finalize_validate",
                 status=CheckStatus.SKIP,
-                message=f"Hardware requirement: {msg[:120]}",
+                message=f"Hardware requirement: {msg}",
                 severity=Severity.INFO,
             )
         return CheckResult(
             config_path=entry.path,
             check_name="finalize_validate",
             status=CheckStatus.FAIL,
-            message=f"finalize_and_validate failed: {msg[:200]}",
+            message=f"finalize_and_validate failed: {msg}",
             severity=Severity.ERROR,
-            details=msg[:500] if len(msg) > 200 else None,
         )
 
 
