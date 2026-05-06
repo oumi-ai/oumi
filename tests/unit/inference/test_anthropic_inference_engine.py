@@ -4,7 +4,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
-from oumi.core.types.conversation import Conversation, FinishReason, Message, Role
+from oumi.core.types.conversation import (
+    Conversation,
+    FinishReason,
+    Message,
+    Role,
+)
 from oumi.inference.anthropic_inference_engine import AnthropicInferenceEngine
 from oumi.inference.remote_inference_engine import BatchInfo, BatchStatus
 
@@ -447,3 +452,49 @@ def test_convert_api_output_to_conversation_with_usage_and_finish_reason(
     assert result.metadata.get("finish_reason") == "stop"
     assert result.metadata["usage"]["prompt_tokens"] == 10
     assert result.metadata["usage"]["completion_tokens"] == 5
+
+
+def _build_body(engine, conversation, **gen_overrides):
+    generation_params = GenerationParams(max_new_tokens=100, **gen_overrides)
+    return engine._convert_conversation_to_api_input(
+        conversation, generation_params, engine._model_params
+    )
+
+
+def test_pure_text_conversation_emits_string_content(anthropic_engine):
+    """No tool fields => request body uses primitive-string content shape."""
+    conversation = Conversation(
+        messages=[
+            Message(role=Role.SYSTEM, content="You are helpful."),
+            Message(role=Role.USER, content="Hello"),
+            Message(role=Role.ASSISTANT, content="Hi!"),
+            Message(role=Role.USER, content="How are you?"),
+        ]
+    )
+    body = _build_body(anthropic_engine, conversation)
+    assert "tools" not in body
+    assert "tool_choice" not in body
+    # Single text-only turns collapse to primitive-string content rather than
+    # wrapping in a [{"type": "text", ...}] block list.
+    assert body["messages"][0] == {"role": "user", "content": "Hello"}
+    assert body["messages"][1] == {"role": "assistant", "content": "Hi!"}
+    assert body["messages"][2] == {"role": "user", "content": "How are you?"}
+
+
+def test_adjacent_same_role_messages_are_merged(anthropic_engine):
+    """Consecutive same-role messages merge into one turn (Anthropic alternation)."""
+    conversation = Conversation(
+        messages=[
+            Message(role=Role.USER, content="First user line."),
+            Message(role=Role.USER, content="Second user line."),
+            Message(role=Role.ASSISTANT, content="Reply."),
+        ]
+    )
+    body = _build_body(anthropic_engine, conversation)
+    assert len(body["messages"]) == 2
+    assert body["messages"][0]["role"] == "user"
+    assert body["messages"][0]["content"] == [
+        {"type": "text", "text": "First user line."},
+        {"type": "text", "text": "Second user line."},
+    ]
+    assert body["messages"][1] == {"role": "assistant", "content": "Reply."}
