@@ -14,109 +14,208 @@
 
 """Unit tests for BitsAndBytes quantization."""
 
-import pytest  # type: ignore
+from typing import Any
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from oumi.core.configs import ModelParams, QuantizationConfig
+from oumi.core.configs.quantization_config import (
+    QuantizationBackend,
+    QuantizationScheme,
+)
 from oumi.exceptions import OumiConfigError
+from oumi.quantize.base import QuantizationResult
 from oumi.quantize.bnb_quantizer import BitsAndBytesQuantization
+from oumi.quantize.constants import BNB_SCHEMES
 
 
-class TestBitsAndBytesQuantization:
-    """Test cases for BitsAndBytes quantization functionality."""
+def _make_config(
+    scheme: QuantizationScheme = QuantizationScheme.BNB_NF4,
+    **overrides: Any,
+) -> QuantizationConfig:
+    defaults = {
+        "model": ModelParams(model_name="test/model"),
+        "scheme": scheme,
+        "output_path": "test",
+    }
+    defaults.update(overrides)
+    return QuantizationConfig(**defaults)
 
+
+class TestBitsAndBytesSupportsAndValidation:
     def setup_method(self):
-        """Set up test fixtures."""
-        self.bnb_quantizer = BitsAndBytesQuantization()
-        self.valid_config_4bit = QuantizationConfig(
-            model=ModelParams(model_name="openai-community/gpt2"),
-            method="bnb_4bit",
-            output_path="test_model_4bit",
-        )
-        self.valid_config_8bit = QuantizationConfig(
-            model=ModelParams(model_name="openai-community/gpt2"),
-            method="bnb_8bit",
-            output_path="test_model_8bit",
-        )
+        self.quantizer = BitsAndBytesQuantization()
 
-    def test_supported_methods(self):
-        """Test BitsAndBytes supported methods."""
-        expected_methods = ["bnb_4bit", "bnb_8bit"]
-        assert self.bnb_quantizer.supported_methods == expected_methods
+    def test_supported_schemes(self):
+        assert self.quantizer.supported_schemes == BNB_SCHEMES
 
     def test_supported_formats(self):
-        """Test BitsAndBytes supported output formats."""
-        expected_formats = ["safetensors"]
-        assert self.bnb_quantizer.supported_formats == expected_formats
+        assert self.quantizer.supported_formats == ["safetensors"]
 
-    def test_supports_method_4bit(self):
-        """Test supports_method for 4-bit BitsAndBytes."""
-        assert self.bnb_quantizer.supports_method("bnb_4bit") is True
+    @pytest.mark.parametrize(
+        "scheme",
+        [
+            QuantizationScheme.BNB_NF4,
+            QuantizationScheme.BNB_FP4,
+            QuantizationScheme.BNB_INT8,
+        ],
+    )
+    def test_supports_scheme_valid(self, scheme):
+        assert self.quantizer.supports_scheme(scheme) is True
 
-    def test_supports_method_8bit(self):
-        """Test supports_method for 8-bit BitsAndBytes."""
-        assert self.bnb_quantizer.supports_method("bnb_8bit") is True
+    def test_supports_scheme_invalid(self):
+        assert self.quantizer.supports_scheme(QuantizationScheme.FP8_DYNAMIC) is False
 
-    def test_supports_method_invalid(self):
-        """Test supports_method for invalid methods."""
-        assert self.bnb_quantizer.supports_method("awq_q4_0") is False
-        assert self.bnb_quantizer.supports_method("invalid") is False
+    @pytest.mark.parametrize(
+        "scheme",
+        [
+            QuantizationScheme.BNB_NF4,
+            QuantizationScheme.BNB_FP4,
+            QuantizationScheme.BNB_INT8,
+        ],
+    )
+    def test_validate_config_valid(self, scheme):
+        self.quantizer.validate_config(_make_config(scheme))
 
-    def test_validate_config_valid_4bit(self):
-        """Test validate_config with valid 4-bit configuration."""
-        # Should not raise any exception
-        self.bnb_quantizer.validate_config(self.valid_config_4bit)
+    def test_validate_config_wrong_scheme(self):
+        config = QuantizationConfig(
+            model=ModelParams(model_name="test/model"),
+            scheme=QuantizationScheme.FP8_DYNAMIC,
+            output_path="test",
+            output_format="safetensors",
+        )
+        with pytest.raises(ValueError, match="not supported by"):
+            self.quantizer.validate_config(config)
 
-    def test_validate_config_valid_8bit(self):
-        """Test validate_config with valid 8-bit configuration."""
-        # Should not raise any exception
-        self.bnb_quantizer.validate_config(self.valid_config_8bit)
-
-    def test_validate_config_invalid_method(self):
-        """Test validate_config with non-BNB method."""
+    def test_validate_config_invalid_format(self):
         with pytest.raises(OumiConfigError, match="Unsupported output format"):
-            QuantizationConfig(
-                model=ModelParams(model_name="test/model"),
-                method="awq_q4_0",
-                output_path="test",
-                output_format="unknown",
-            )
+            _make_config(output_format="unknown")
 
     def test_str_representation(self):
-        """Test string representation of BNB quantizer."""
-        assert self.bnb_quantizer.__class__.__name__ == "BitsAndBytesQuantization"
+        assert self.quantizer.__class__.__name__ == "BitsAndBytesQuantization"
 
-    def test_raise_if_requirements_not_met_missing_bnb(self):
-        """Test requirements check when BitsAndBytes is not installed."""
-        # Set _bitsandbytes to None to simulate missing BitsAndBytes
-        self.bnb_quantizer._bitsandbytes = None
 
+class TestBitsAndBytesRequirements:
+    def test_missing_bitsandbytes(self):
+        quantizer = BitsAndBytesQuantization()
+        quantizer._bitsandbytes = None
         with pytest.raises(
             RuntimeError,
             match="BitsAndBytes quantization requires bitsandbytes library",
         ):
-            self.bnb_quantizer.raise_if_requirements_not_met()
+            quantizer.raise_if_requirements_not_met()
 
 
-class TestBitsAndBytesQuantizationSimple:
-    """Additional simplified test cases for BitsAndBytes quantization."""
+class TestGetQuantizationConfig:
+    def setup_method(self):
+        self.quantizer = BitsAndBytesQuantization()
+
+    @patch("transformers.BitsAndBytesConfig")
+    def test_nf4_config(self, mock_bnb_config_cls):
+        self.quantizer._get_quantization_config(QuantizationScheme.BNB_NF4)
+        mock_bnb_config_cls.assert_called_once()
+        call_kwargs = mock_bnb_config_cls.call_args.kwargs
+        assert call_kwargs["load_in_4bit"] is True
+        assert call_kwargs["bnb_4bit_quant_type"] == "nf4"
+        assert call_kwargs["bnb_4bit_use_double_quant"] is True
+
+    @patch("transformers.BitsAndBytesConfig")
+    def test_fp4_config(self, mock_bnb_config_cls):
+        self.quantizer._get_quantization_config(QuantizationScheme.BNB_FP4)
+        mock_bnb_config_cls.assert_called_once()
+        call_kwargs = mock_bnb_config_cls.call_args.kwargs
+        assert call_kwargs["load_in_4bit"] is True
+        assert call_kwargs["bnb_4bit_quant_type"] == "fp4"
+
+    @patch("transformers.BitsAndBytesConfig")
+    def test_int8_config(self, mock_bnb_config_cls):
+        self.quantizer._get_quantization_config(QuantizationScheme.BNB_INT8)
+        mock_bnb_config_cls.assert_called_once()
+        call_kwargs = mock_bnb_config_cls.call_args.kwargs
+        assert call_kwargs["load_in_8bit"] is True
+        assert call_kwargs["llm_int8_threshold"] == 6.0
+
+    def test_unsupported_scheme(self):
+        with pytest.raises(ValueError, match="Unsupported BitsAndBytes scheme"):
+            self.quantizer._get_quantization_config(QuantizationScheme.FP8_DYNAMIC)
+
+
+class TestBitsAndBytesQuantize:
+    def setup_method(self):
+        self.quantizer = BitsAndBytesQuantization()
+
+    @patch("oumi.quantize.bnb_quantizer.get_directory_size", return_value=2048)
+    @patch("oumi.quantize.bnb_quantizer.Path")
+    def test_quantize_delegates_to_quantize_model(self, _mock_path, _mock_size):
+        config = _make_config(output_path="/tmp/bnb_test_output")
+
+        with patch.object(
+            self.quantizer,
+            "_quantize_model",
+            return_value=(MagicMock(), MagicMock()),
+        ) as mock_qm:
+            self.quantizer.quantize(config)
+            mock_qm.assert_called_once_with(config)
+
+    @patch("oumi.quantize.bnb_quantizer.get_directory_size", return_value=2048)
+    @patch("oumi.quantize.bnb_quantizer.Path")
+    def test_quantize_saves_model_and_tokenizer(self, _mock_path, _mock_size):
+        config = _make_config()
+        mock_model = MagicMock()
+        mock_tokenizer = MagicMock()
+
+        with patch.object(
+            self.quantizer,
+            "_quantize_model",
+            return_value=(mock_model, mock_tokenizer),
+        ):
+            self.quantizer.quantize(config)
+
+        mock_model.save_pretrained.assert_called_once()
+        _, save_kwargs = mock_model.save_pretrained.call_args
+        assert save_kwargs.get("safe_serialization") is True
+        mock_tokenizer.save_pretrained.assert_called_once()
+
+    @patch("oumi.quantize.bnb_quantizer.get_directory_size", return_value=4096)
+    @patch("oumi.quantize.bnb_quantizer.Path")
+    def test_quantize_returns_quantization_result(self, _mock_path, _mock_size):
+        config = _make_config(output_path="/tmp/bnb_test_output")
+
+        with patch.object(
+            self.quantizer,
+            "_quantize_model",
+            return_value=(MagicMock(), MagicMock()),
+        ):
+            result = self.quantizer.quantize(config)
+
+        assert isinstance(result, QuantizationResult)
+        assert result.backend == QuantizationBackend.BNB
+        assert result.scheme == QuantizationScheme.BNB_NF4
+        assert result.format_type == "safetensors"
+        assert result.quantized_size_bytes == 4096
+
+
+class TestQuantizeModelInternal:
+    """Tests for _quantize_model calling from_pretrained with quantization_config."""
 
     def setup_method(self):
-        """Set up test fixtures."""
-        self.bnb_quantizer = BitsAndBytesQuantization()
+        self.quantizer = BitsAndBytesQuantization()
 
-    def test_supports_method(self):
-        """Test supports_method for BNB methods."""
-        assert self.bnb_quantizer.supports_method("bnb_4bit") is True
-        assert self.bnb_quantizer.supports_method("bnb_8bit") is True
-        assert self.bnb_quantizer.supports_method("awq_q4_0") is False
+    @patch("oumi.quantize.bnb_quantizer.AutoTokenizer")
+    @patch("oumi.quantize.bnb_quantizer.AutoModelForCausalLM")
+    @patch("transformers.BitsAndBytesConfig")
+    def test_quantize_model_passes_quantization_config(
+        self, mock_bnb_config_cls, mock_auto_model, mock_auto_tok
+    ):
+        config = _make_config()
+        mock_bnb_cfg = MagicMock()
+        mock_bnb_config_cls.return_value = mock_bnb_cfg
+        mock_auto_model.from_pretrained.return_value = MagicMock()
+        mock_auto_tok.from_pretrained.return_value = MagicMock()
 
-    def test_validate_config_valid(self):
-        """Test validate_config with valid configuration."""
-        config = QuantizationConfig(
-            model=ModelParams(model_name="test/model"),
-            method="bnb_4bit",
-            output_path="test",
-            output_format="safetensors",
-        )
-        # Should not raise
-        self.bnb_quantizer.validate_config(config)
+        self.quantizer._quantize_model(config)
+
+        mock_auto_model.from_pretrained.assert_called_once()
+        call_kwargs = mock_auto_model.from_pretrained.call_args.kwargs
+        assert call_kwargs["quantization_config"] is mock_bnb_cfg
