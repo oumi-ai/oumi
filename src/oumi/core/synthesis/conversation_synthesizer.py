@@ -15,11 +15,13 @@
 import dataclasses
 import random
 
+from oumi.builders.environments import build_environment
 from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.configs.environment_config import EnvironmentConfig
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.inference_engine_type import InferenceEngineType
 from oumi.core.configs.params.environment_params import EnvironmentParams
+from oumi.core.configs.params.grounding_params import GroundingConfig
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.configs.params.synthesis_params import (
     GeneralSynthesisParams,
@@ -35,6 +37,7 @@ from oumi.core.types.conversation import (
 )
 from oumi.environments import GroundingFact
 from oumi.environments.base_environment import BaseEnvironment
+from oumi.environments.utils import describe_grounding_default
 from oumi.utils.logging import logger
 from oumi.utils.str_utils import extract_json
 
@@ -434,29 +437,7 @@ class ConversationSynthesizer:
 
         grounding_facts = sample.get("grounding_facts") or []
         if grounding_facts:
-            from oumi.builders.environments import build_environment
-            from oumi.environments.utils import describe_grounding_default
-
-            # Pick the first grounded env's describer. In v1 every env uses
-            # the default describer; future envs with custom describers
-            # should be revisited here.
-            describer_env_params = next(
-                (
-                    env_params
-                    for env_params in (
-                        self._environment_config.environments
-                        if self._environment_config
-                        else []
-                    )
-                    if env_params.grounding is not None
-                ),
-                None,
-            )
-            if describer_env_params is not None:
-                describer_env = build_environment(describer_env_params)
-                block = describer_env.describe_grounding(grounding_facts)
-            else:
-                block = describe_grounding_default(grounding_facts)
+            block = describe_grounding_default(grounding_facts)
             base_prompt += (
                 "\nGround this plan in these specific entities:\n"
                 f"{block}\n"
@@ -676,12 +657,10 @@ class ConversationSynthesizer:
         return Message(role=Role.SYSTEM, content=formatted_content.strip())
 
     def _make_grounding_rng(self, seed: int | None, sample_index: int) -> random.Random:
-        """Build the RNG used for sampling grounding facts for one sample.
+        """Build the per-sample RNG for grounding.
 
-        Unseeded (``seed=None``) uses the default ``random.Random()`` with
-        entropy from the OS, matching the non-reproducible behavior used by
-        ``DatasetPlanner`` for sampled attributes. Seeded mode makes each
-        sample's facts deterministic from ``(seed + sample_index)``.
+        Seeded mode makes facts deterministic from ``(seed + sample_index)``;
+        unseeded uses OS entropy.
         """
         if seed is None:
             return random.Random()
@@ -729,19 +708,19 @@ class ConversationSynthesizer:
         if self._environment_config is None:
             return
 
-        from oumi.builders.environments import build_environment
-
         scoped_env_ids = (
             set(multiturn_attribute.available_environments)
             if multiturn_attribute.available_environments
             else {env.id for env in self._environment_config.environments}
         )
-        grounding_env_pairs: list[tuple[EnvironmentParams, BaseEnvironment]] = [
-            (env_params, build_environment(env_params))
+        grounding_envs: list[
+            tuple[EnvironmentParams, GroundingConfig, BaseEnvironment]
+        ] = [
+            (env_params, env_params.grounding, build_environment(env_params))
             for env_params in self._environment_config.environments
             if env_params.id in scoped_env_ids and env_params.grounding is not None
         ]
-        if not grounding_env_pairs:
+        if not grounding_envs:
             return
 
         warned_envs: set[str] = set()
@@ -752,9 +731,7 @@ class ConversationSynthesizer:
         )
         for sample_index, sample in enumerate(samples):
             facts: list[GroundingFact] = []
-            for env_params, env_runtime in grounding_env_pairs:
-                grounding = env_params.grounding
-                assert grounding is not None  # filtered above
+            for env_params, grounding, env_runtime in grounding_envs:
                 rng = self._make_grounding_rng(grounding.seed, sample_index)
                 sampled = env_runtime.sample_grounding(
                     n=grounding.sample_size,
