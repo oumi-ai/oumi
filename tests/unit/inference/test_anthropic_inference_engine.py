@@ -518,17 +518,6 @@ def test_openai_tools_translated_to_anthropic_schema(anthropic_engine):
     assert "parameters" not in body["tools"][0]
 
 
-def test_last_tool_has_cache_control_marker(anthropic_engine):
-    """Cache marker stamps only the last tool entry; nothing on the others."""
-    conversation = Conversation(
-        tools=[_WEATHER_TOOL, _CALENDAR_TOOL],
-        messages=[Message(role=Role.USER, content="hi")],
-    )
-    body = _build_body(anthropic_engine, conversation)
-    assert "cache_control" not in body["tools"][0]
-    assert body["tools"][-1]["cache_control"] == {"type": "ephemeral"}
-
-
 def test_assistant_tool_calls_emit_tool_use_blocks(anthropic_engine):
     """Assistant ``tool_calls`` become ``tool_use`` blocks with parsed input."""
     tool_call_dict = {
@@ -788,8 +777,7 @@ def test_tool_choice_translation(anthropic_engine):
     assert body_named["tool_choice"] == {"type": "tool", "name": "get_weather"}
 
     body_none = _build_body(anthropic_engine, conversation, tool_choice="none")
-    assert "tools" not in body_none
-    assert "tool_choice" not in body_none
+    assert body_none["tool_choice"] == {"type": "none"}
 
 
 def test_pure_text_conversation_emits_string_content(anthropic_engine):

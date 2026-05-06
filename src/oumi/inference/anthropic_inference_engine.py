@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import copy
+import itertools
 import json
 from typing import Any
 
@@ -52,9 +53,12 @@ from oumi.utils.logging import logger
 
 _CONTENT_KEY: str = "content"
 
+# We are only constraining to ToolChoiceOptions in OpenAI
+# https://developers.openai.com/api/reference/resources/responses/methods/create#(resource)%20responses%20%3E%20(method)%20create%20%3E%20(params)%200.non_streaming%20%3E%20(param)%20tool_choice%20%3E%20(schema)
 _OPENAI_TO_ANTHROPIC_TOOL_CHOICE: dict[str, dict[str, str]] = {
     "auto": {"type": "auto"},
     "required": {"type": "any"},
+    "none": {"type": "none"},
 }
 
 # Anthropic accepts image/jpeg, image/png, image/gif, image/webp for `image`
@@ -196,18 +200,9 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
 
         tool_choice = generation_params.tool_choice
         if conversation.tools:
-            anthropic_tools = self._openai_tools_to_anthropic(conversation.tools)
-            if tool_choice == "none":
-                # Anthropic has no `none` tool_choice — omitting the tools
-                # field entirely is the equivalent.
-                logger.info(
-                    "tool_choice='none' is not directly supported by the "
-                    "Anthropic API; dropping the tools field instead."
-                )
-            else:
-                body["tools"] = anthropic_tools
-                if tool_choice is not None:
-                    body["tool_choice"] = self._translate_tool_choice(tool_choice)
+            body["tools"] = self._openai_tools_to_anthropic(conversation.tools)
+            if tool_choice is not None:
+                body["tool_choice"] = self._translate_tool_choice(tool_choice)
 
         return body
 
@@ -218,11 +213,8 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         """Translates OpenAI-format tool definitions to Anthropic shape.
 
         Anthropic uses ``input_schema`` instead of ``parameters`` and lifts
-        ``name`` / ``description`` to the top level (no ``function`` wrapper).
-        Marks the last tool with ``cache_control: {"type": "ephemeral"}`` so
-        Anthropic caches the tools section across turns — tools are typically
-        large static JSON Schema and identical from turn to turn, making them
-        the highest-ROI cache marker.
+        ``name``, ``description`` and ``input_schema`` to the top level (no
+        ``function`` wrapper).
         """
         anthropic_tools: list[dict[str, Any]] = [
             {
@@ -234,13 +226,11 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
                 "input_schema": (
                     tool.function.parameters.model_dump(mode="json", exclude_none=True)
                     if tool.function.parameters is not None
-                    else {"type": "object"}
+                    else {"type": "object", "properties": {}}
                 ),
             }
             for tool in tools
         ]
-        if anthropic_tools:
-            anthropic_tools[-1]["cache_control"] = {"type": "ephemeral"}
         return anthropic_tools
 
     @staticmethod
@@ -263,7 +253,6 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
                     f"tool_choice dict missing function.name: {tool_choice}"
                 )
             return {"type": "tool", "name": name}
-        raise ValueError(f"Unsupported tool_choice type: {type(tool_choice).__name__}")
 
     @staticmethod
     def _messages_to_anthropic_blocks(
@@ -273,34 +262,33 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
 
         Translates each message into a list of content blocks (text, image,
         tool_use, tool_result) and merges adjacent same-role messages into a
-        single turn — Anthropic requires alternating user/assistant turns, and
-        ``Role.TOOL`` collapses to user. For pure-text turns originating from a
-        single ``content: str`` message, the wire shape is collapsed back to
-        ``content: "string"`` to keep the payload tidy; both forms are valid.
+        single turn (Anthropic requires alternating user/assistant turns).
+        ``Role.TOOL`` collapses to user.
+
+        For pure-text turns originating from a single ``content: str`` message,
+        the wire shape is collapsed back to ``content: "string"`` to keep the
+        payload tidy; both forms are valid.
         """
         result: list[dict[str, Any]] = []
-        idx = 0
-        while idx < len(messages):
-            role = AnthropicInferenceEngine._effective_anthropic_role(messages[idx])
+        for role, group_iter in itertools.groupby(
+            messages, key=AnthropicInferenceEngine._effective_anthropic_role
+        ):
+            group = list(group_iter)
             blocks: list[dict[str, Any]] = []
-            group_start = idx
-            while (
-                idx < len(messages)
-                and AnthropicInferenceEngine._effective_anthropic_role(messages[idx])
-                == role
-            ):
+            for msg in group:
                 blocks.extend(
-                    AnthropicInferenceEngine._message_to_anthropic_blocks(messages[idx])
+                    AnthropicInferenceEngine._message_to_anthropic_blocks(msg)
                 )
-                idx += 1
-            single_msg = messages[group_start]
+            # Collapse a solo single-text-block turn back to bare-string content.
+            # The type check matters — a Role.TOOL message with str content
+            # produces a tool_result block, which must stay in the list form.
             if (
-                idx - group_start == 1
+                len(group) == 1
                 and len(blocks) == 1
                 and blocks[0].get("type") == "text"
-                and isinstance(single_msg.content, str)
+                and isinstance(group[0].content, str)
             ):
-                result.append({"role": role, "content": single_msg.content})
+                result.append({"role": role, "content": group[0].content})
             else:
                 result.append({"role": role, "content": blocks})
         return result
@@ -314,38 +302,51 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
     def _message_to_anthropic_blocks(message: Message) -> list[dict[str, Any]]:
         """Translates one Oumi ``Message`` into a list of Anthropic content blocks."""
         if message.role == Role.TOOL:
-            tool_result: dict[str, Any] = {
-                "type": "tool_result",
-                "tool_use_id": message.tool_call_id or "",
-            }
-            if isinstance(message.content, str):
-                tool_result["content"] = message.content
-            elif isinstance(message.content, list):
-                tool_result["content"] = [
-                    AnthropicInferenceEngine._content_item_to_anthropic_block(item)
-                    for item in message.content
-                ]
-            else:
-                tool_result["content"] = ""
-            return [tool_result]
-        blocks: list[dict[str, Any]] = []
-        if message.content is not None:
-            blocks.extend(
-                AnthropicInferenceEngine._content_to_anthropic_blocks(message)
-            )
+            return [AnthropicInferenceEngine._tool_result_block(message)]
+        blocks = AnthropicInferenceEngine._content_to_anthropic_blocks(message)
         if message.role == Role.ASSISTANT and message.tool_calls:
-            for tc in message.tool_calls:
-                blocks.append(
-                    {
-                        "type": "tool_use",
-                        "id": tc.id,
-                        "name": tc.function.name,
-                        "input": json.loads(tc.function.arguments)
-                        if tc.function.arguments
-                        else {},
-                    }
-                )
+            blocks.extend(
+                AnthropicInferenceEngine._tool_use_block(tc)
+                for tc in message.tool_calls
+            )
         return blocks
+
+    @staticmethod
+    def _tool_result_block(message: Message) -> dict[str, Any]:
+        """Builds an Anthropic ``tool_result`` block from a ``Role.TOOL`` message.
+
+        Anthropic accepts either a plain string or a list of content blocks for
+        ``content``; the string form is preserved when the source was a plain
+        ``str`` to keep the wire payload tidy.
+        """
+        if not message.tool_call_id:
+            raise ValueError("Role.TOOL message is missing tool_call_id")
+        if message.content is None:
+            content: str | list[dict[str, Any]] = ""
+        elif isinstance(message.content, str):
+            content = message.content
+        else:
+            content = AnthropicInferenceEngine._content_to_anthropic_blocks(message)
+        return {
+            "type": "tool_result",
+            "tool_use_id": message.tool_call_id,
+            "content": content,
+        }
+
+    @staticmethod
+    def _tool_use_block(tool_call: ToolCall) -> dict[str, Any]:
+        """Builds an Anthropic ``tool_use`` block from an OpenAI-shaped ``ToolCall``.
+
+        Anthropic expects a parsed ``input`` dict; OpenAI keeps ``arguments`` as
+        a JSON string, so it is decoded here.
+        """
+        args = tool_call.function.arguments
+        return {
+            "type": "tool_use",
+            "id": tool_call.id,
+            "name": tool_call.function.name,
+            "input": json.loads(args) if args else {},
+        }
 
     @staticmethod
     def _content_to_anthropic_blocks(message: Message) -> list[dict[str, Any]]:
