@@ -33,8 +33,10 @@ from oumi.core.types.conversation import (
     FinishReason,
     Message,
     Role,
+    ToolCall,
     Type,
 )
+from oumi.core.types.tool_call import ToolDefinition
 from oumi.inference.remote_inference_engine import (
     BatchInfo,
     BatchListResponse,
@@ -49,6 +51,11 @@ from oumi.utils.conversation_utils import (
 from oumi.utils.logging import logger
 
 _CONTENT_KEY: str = "content"
+
+_OPENAI_TO_ANTHROPIC_TOOL_CHOICE: dict[str, dict[str, str]] = {
+    "auto": {"type": "auto"},
+    "required": {"type": "any"},
+}
 
 # Anthropic accepts image/jpeg, image/png, image/gif, image/webp for `image`
 # content blocks. https://docs.anthropic.com/en/docs/build-with-claude/vision
@@ -187,7 +194,76 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         # See: https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching
         body["cache_control"] = {"type": "ephemeral"}
 
+        tool_choice = generation_params.tool_choice
+        if conversation.tools:
+            anthropic_tools = self._openai_tools_to_anthropic(conversation.tools)
+            if tool_choice == "none":
+                # Anthropic has no `none` tool_choice — omitting the tools
+                # field entirely is the equivalent.
+                logger.info(
+                    "tool_choice='none' is not directly supported by the "
+                    "Anthropic API; dropping the tools field instead."
+                )
+            else:
+                body["tools"] = anthropic_tools
+                if tool_choice is not None:
+                    body["tool_choice"] = self._translate_tool_choice(tool_choice)
+
         return body
+
+    @staticmethod
+    def _openai_tools_to_anthropic(
+        tools: list[ToolDefinition],
+    ) -> list[dict[str, Any]]:
+        """Translates OpenAI-format tool definitions to Anthropic shape.
+
+        Anthropic uses ``input_schema`` instead of ``parameters`` and lifts
+        ``name`` / ``description`` to the top level (no ``function`` wrapper).
+        Marks the last tool with ``cache_control: {"type": "ephemeral"}`` so
+        Anthropic caches the tools section across turns — tools are typically
+        large static JSON Schema and identical from turn to turn, making them
+        the highest-ROI cache marker.
+        """
+        anthropic_tools: list[dict[str, Any]] = [
+            {
+                "name": tool.function.name,
+                "description": tool.function.description,
+                # ``parameters`` is a typed JSONSchema; dump to the wire-format
+                # dict so Anthropic's ``input_schema`` (and downstream JSON
+                # serialization) gets a plain dict.
+                "input_schema": (
+                    tool.function.parameters.model_dump(mode="json", exclude_none=True)
+                    if tool.function.parameters is not None
+                    else {"type": "object"}
+                ),
+            }
+            for tool in tools
+        ]
+        if anthropic_tools:
+            anthropic_tools[-1]["cache_control"] = {"type": "ephemeral"}
+        return anthropic_tools
+
+    @staticmethod
+    def _translate_tool_choice(tool_choice: str | dict[str, Any]) -> dict[str, Any]:
+        """Translates an OpenAI-format ``tool_choice`` value to Anthropic shape."""
+        if isinstance(tool_choice, str):
+            mapped = _OPENAI_TO_ANTHROPIC_TOOL_CHOICE.get(tool_choice)
+            if mapped is None:
+                raise ValueError(
+                    f"Unsupported tool_choice value '{tool_choice}'. "
+                    "Expected one of: 'auto', 'required', 'none', "
+                    "or a {'type': 'function', 'function': {'name': ...}} dict."
+                )
+            return mapped
+        if isinstance(tool_choice, dict):
+            function = tool_choice.get("function") or {}
+            name = function.get("name")
+            if not name:
+                raise ValueError(
+                    f"tool_choice dict missing function.name: {tool_choice}"
+                )
+            return {"type": "tool", "name": name}
+        raise ValueError(f"Unsupported tool_choice type: {type(tool_choice).__name__}")
 
     @staticmethod
     def _messages_to_anthropic_blocks(
@@ -195,22 +271,26 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
     ) -> list[dict[str, Any]]:
         """Converts non-system messages to Anthropic's role-and-blocks shape.
 
-        Translates each message into a list of content blocks (text, image)
-        and merges adjacent same-role messages into a single turn — Anthropic
-        requires alternating user/assistant turns. For pure-text turns
-        originating from a single ``content: str`` message, the wire shape is
-        collapsed back to ``content: "string"`` to keep the payload tidy;
-        both forms are valid.
+        Translates each message into a list of content blocks (text, image,
+        tool_use, tool_result) and merges adjacent same-role messages into a
+        single turn — Anthropic requires alternating user/assistant turns, and
+        ``Role.TOOL`` collapses to user. For pure-text turns originating from a
+        single ``content: str`` message, the wire shape is collapsed back to
+        ``content: "string"`` to keep the payload tidy; both forms are valid.
         """
         result: list[dict[str, Any]] = []
         idx = 0
         while idx < len(messages):
-            role = messages[idx].role.value
+            role = AnthropicInferenceEngine._effective_anthropic_role(messages[idx])
             blocks: list[dict[str, Any]] = []
             group_start = idx
-            while idx < len(messages) and messages[idx].role.value == role:
+            while (
+                idx < len(messages)
+                and AnthropicInferenceEngine._effective_anthropic_role(messages[idx])
+                == role
+            ):
                 blocks.extend(
-                    AnthropicInferenceEngine._content_to_anthropic_blocks(messages[idx])
+                    AnthropicInferenceEngine._message_to_anthropic_blocks(messages[idx])
                 )
                 idx += 1
             single_msg = messages[group_start]
@@ -224,6 +304,48 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
             else:
                 result.append({"role": role, "content": blocks})
         return result
+
+    @staticmethod
+    def _effective_anthropic_role(message: Message) -> str:
+        """Anthropic merges ``Role.TOOL`` messages into ``user`` turns."""
+        return Role.USER.value if message.role == Role.TOOL else message.role.value
+
+    @staticmethod
+    def _message_to_anthropic_blocks(message: Message) -> list[dict[str, Any]]:
+        """Translates one Oumi ``Message`` into a list of Anthropic content blocks."""
+        if message.role == Role.TOOL:
+            tool_result: dict[str, Any] = {
+                "type": "tool_result",
+                "tool_use_id": message.tool_call_id or "",
+            }
+            if isinstance(message.content, str):
+                tool_result["content"] = message.content
+            elif isinstance(message.content, list):
+                tool_result["content"] = [
+                    AnthropicInferenceEngine._content_item_to_anthropic_block(item)
+                    for item in message.content
+                ]
+            else:
+                tool_result["content"] = ""
+            return [tool_result]
+        blocks: list[dict[str, Any]] = []
+        if message.content is not None:
+            blocks.extend(
+                AnthropicInferenceEngine._content_to_anthropic_blocks(message)
+            )
+        if message.role == Role.ASSISTANT and message.tool_calls:
+            for tc in message.tool_calls:
+                blocks.append(
+                    {
+                        "type": "tool_use",
+                        "id": tc.id,
+                        "name": tc.function.name,
+                        "input": json.loads(tc.function.arguments)
+                        if tc.function.arguments
+                        else {},
+                    }
+                )
+        return blocks
 
     @staticmethod
     def _content_to_anthropic_blocks(message: Message) -> list[dict[str, Any]]:
@@ -318,9 +440,34 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
                 f"model={response.get('model')}, "
                 f"usage={response.get('usage')}"
             )
+        text_parts: list[str] = []
+        tool_calls: list[ToolCall] = []
+        for block in content_blocks:
+            block_type = block.get("type")
+            if block_type == "tool_use":
+                # Translate to OpenAI wire format. Anthropic returns a parsed
+                # ``input`` dict; OpenAI keeps ``arguments`` as a JSON string.
+                tool_calls.append(
+                    ToolCall.model_validate(
+                        {
+                            "id": block["id"],
+                            "type": "function",
+                            "function": {
+                                "name": block["name"],
+                                "arguments": json.dumps(block.get("input", {})),
+                            },
+                        }
+                    )
+                )
+            elif block_type == "text" or "text" in block:
+                # Real Anthropic responses always set type="text"; tolerate
+                # fixtures that omit type when only `text` is present.
+                text_parts.append(block.get("text", ""))
+        text_content = "".join(text_parts)
         new_message = Message(
-            content=content_blocks[0]["text"],
+            content=text_content if text_content else None,
             role=Role.ASSISTANT,
+            tool_calls=tool_calls or None,
         )
         metadata = dict(original_conversation.metadata)
         usage = self._extract_usage_from_response(response)
@@ -333,6 +480,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
             messages=[*original_conversation.messages, new_message],
             metadata=metadata,
             conversation_id=original_conversation.conversation_id,
+            tools=original_conversation.tools,
         )
 
     @override
@@ -351,6 +499,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
             "max_new_tokens",
             "stop_strings",
             "temperature",
+            "tool_choice",
             "top_p",
         }
 
