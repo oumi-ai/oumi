@@ -13,10 +13,13 @@
 # limitations under the License.
 
 
+import copy
+
 from typing_extensions import override
 
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.judge_config import JudgeConfig
+from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.configs.params.judge_params import (
     JudgeOutputType,
     JudgeParams,
@@ -200,11 +203,53 @@ class SimpleJudge(BaseJudge):
             field_scores=None,
         )
 
+    def _build_response_schema(self) -> dict:
+        """JSON schema describing the expected judge response."""
+        properties: dict[str, dict] = {}
+
+        # Add explanation field, if required (Note: MUST BE the first field to add)
+        if self._judge_params.include_explanation:
+            properties[EXPLANATION_KEY] = {"type": "string"}
+
+        # Add judgment field
+        if judgment_scores := self._judge_params.judgment_scores:
+            # Use the user-provided categorical values as the enum, if provided.
+            # Note that these are always set for ENUM, optional for other types.
+            judgment_field_schema = {
+                "type": "string",
+                "enum": list(judgment_scores.keys()),
+            }
+        elif self._judge_params.judgment_type == JudgeOutputType.BOOL:
+            # SimpleJudge is hardcoding boolean to Yes/No (see JUDGMENT_OPTIONS_BOOL)
+            judgment_field_schema = {"type": "string", "enum": ["Yes", "No"]}
+        elif self._judge_params.judgment_type == JudgeOutputType.INT:
+            judgment_field_schema = {"type": "integer"}
+        elif self._judge_params.judgment_type == JudgeOutputType.FLOAT:
+            judgment_field_schema = {"type": "number"}
+        else:
+            judgment_field_schema = {"type": "string"}
+        properties[JUDGMENT_KEY] = judgment_field_schema
+
+        return {
+            "type": "object",
+            "properties": properties,
+            "required": list(properties.keys()),
+            "additionalProperties": False,
+        }
+
     def _create_inference_engine(
         self, inference_config: InferenceConfig
     ) -> BaseInferenceEngine:
         """Create the inference engine based on the provided configuration."""
         from oumi.builders.inference_engines import build_inference_engine
+
+        # For JSON responses, enable guided_decoding so that the judge model's output is
+        # structurally guaranteed to match the expected schema.
+        if self._judge_params.response_format == JudgeResponseFormat.JSON:
+            inference_config = copy.deepcopy(inference_config)
+            inference_config.generation.guided_decoding = GuidedDecodingParams(
+                json=self._build_response_schema()
+            )
 
         if inference_config.engine is None:
             raise ValueError("Inference engine not specified in the configuration.")

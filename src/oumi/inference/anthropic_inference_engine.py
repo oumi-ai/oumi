@@ -14,6 +14,7 @@
 
 import copy
 import json
+import re
 from typing import Any
 
 import pydantic
@@ -137,11 +138,16 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
             body["stop_sequences"] = generation_params.stop_strings
 
         if generation_params.guided_decoding:
-            body.update(
-                _convert_guided_decoding_config_to_api_input(
-                    generation_params.guided_decoding
+            if _model_supports_output_config(model_params.model_name):
+                body.update(
+                    _convert_guided_decoding_config_to_api_input(
+                        generation_params.guided_decoding
+                    )
                 )
-            )
+            else:
+                logger.warning(
+                    f"{model_params.model_name!r} does not support structured outputs"
+                )
 
         # Enable prompt caching. Anthropic automatically caches content up to
         # the last cacheable block. This reduces latency and cost for repeated
@@ -726,6 +732,18 @@ def _convert_guided_decoding_config_to_api_input(
             "format": {"type": "json_schema", "schema": schema_value},
         },
     }
+
+
+def _model_supports_output_config(model_name: str) -> bool:
+    """Returns True if the model accepts the output_config field, False otherwise."""
+    # Anthropic's `output_config` (structured outputs) is GA on Claude 4.5+ (Opus,
+    # Sonnet, Haiku) and Mythos. Older models (Claude 3.x, 3.5) reject the field.
+    if model_name.startswith("claude-mythos"):
+        return True
+
+    version_re = re.compile(r"^claude-(?:opus|sonnet|haiku)-(\d+)-(\d+)")
+    match = version_re.match(model_name)
+    return (int(match[1]), int(match[2])) >= (4, 5) if match else False
 
 
 def _enforce_additional_properties_false(schema: Any) -> None:
