@@ -14,12 +14,14 @@
 
 """Tests for ConversationSynthesizer."""
 
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
+from oumi.core.configs.environment_config import EnvironmentConfig
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.inference_engine_type import InferenceEngineType
+from oumi.core.configs.params.tool_params import ToolParams
 from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.configs.params.remote_params import RemoteParams
@@ -948,11 +950,6 @@ def test_init_raises_on_unsupported_engine_with_tools(
     mock_general_synthesis_params,
 ):
     """Unsupported engine + env with tools → ValueError at init."""
-    from unittest.mock import MagicMock
-
-    from oumi.core.configs.environment_config import EnvironmentConfig
-    from oumi.core.configs.params.tool_params import ToolParams
-
     mock_build_inference_engine.return_value = Mock()
 
     env_config = MagicMock(spec=EnvironmentConfig)
@@ -978,11 +975,6 @@ def test_init_no_error_on_supported_engine_with_tools(
     mock_general_synthesis_params,
 ):
     """Supported engine + env with tools → no error at init."""
-    from unittest.mock import MagicMock
-
-    from oumi.core.configs.environment_config import EnvironmentConfig
-    from oumi.core.configs.params.tool_params import ToolParams
-
     mock_build_inference_engine.return_value = Mock()
 
     env_config = MagicMock(spec=EnvironmentConfig)
