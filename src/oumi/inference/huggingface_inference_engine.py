@@ -38,7 +38,7 @@ class HuggingFaceInferenceEngine(RemoteInferenceEngine):
 
         * ``"meta-llama/Llama-3.1-8B-Instruct"``          — auto-route (``:fastest``)
         * ``"meta-llama/Llama-3.1-8B-Instruct:cheapest"`` — prefer cheapest provider
-        * ``"meta-llama/Llama-3.1-8B-Instruct:preferred"`` — your provider preference order
+        * ``"meta-llama/Llama-3.1-8B-Instruct:preferred"`` — your preference order
         * ``"meta-llama/Llama-3.1-8B-Instruct:together"`` — pin to Together AI
 
     References:
