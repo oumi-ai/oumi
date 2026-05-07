@@ -1,0 +1,38 @@
+# Anthropic Messages inference config with tool calling.
+#
+# Translates ``Conversation.tools`` and ``Message.tool_calls`` between
+# OpenAI's and Anthropic's wire formats so the same conversation works
+# across engines. Includes per-block ``cache_control`` on the last tool
+# definition to enable Anthropic's prompt-caching for the tools section
+# across turns.
+#
+# Requirements:
+#   - Set the ``ANTHROPIC_API_KEY`` environment variable.
+#
+# Usage:
+#   oumi infer -i -c configs/apis/anthropic/infer_claude_sonnet_tool_calling.yaml
+#
+# The input JSONL should carry a top-level ``tools`` field on each
+# conversation (OpenAI function-calling schema; the engine translates to
+# Anthropic shape internally). Output messages will populate
+# ``tool_calls`` when the model emits ``tool_use`` blocks, and
+# ``metadata.finish_reason`` will be set to ``tool_calls``.
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+#   - Config class: oumi.core.configs.InferenceConfig
+#   - Other inference configs: configs/**/inference/
+
+model:
+  model_name: "claude-sonnet-4-5"
+
+engine: ANTHROPIC
+
+generation:
+  max_new_tokens: 4096
+  temperature: 0.3
+  # OpenAI-style values that the engine translates: "auto" → {type: auto},
+  # "required" → {type: any}, "none" → drops the tools field (Anthropic
+  # has no `none` choice), or {"type": "function", "function": {"name":
+  # X}} → {type: tool, name: X}.
+  tool_choice: "auto"

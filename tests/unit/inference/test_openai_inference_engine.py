@@ -2,9 +2,25 @@ import pytest
 
 from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
 from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.core.types.tool_call import ToolDefinition
 from oumi.inference.openai_inference_engine import (
     OpenAIInferenceEngine,
     _is_reasoning_model,
+)
+
+_WEATHER_TOOL = ToolDefinition.model_validate(
+    {
+        "type": "function",
+        "function": {
+            "name": "get_weather",
+            "description": "Get current weather for a city.",
+            "parameters": {
+                "type": "object",
+                "properties": {"city": {"type": "string"}},
+                "required": ["city"],
+            },
+        },
+    }
 )
 
 
@@ -137,3 +153,33 @@ def test_default_params(
 def test_is_reasoning_model(model_name: str, expected: bool):
     """Test _is_reasoning_model correctly identifies reasoning models."""
     assert _is_reasoning_model(model_name) == expected
+
+
+def test_reasoning_model_does_not_drop_tool_fields():
+    """Reasoning-model overrides (temperature, logit_bias) preserve tool fields."""
+    engine = OpenAIInferenceEngine(
+        model_params=ModelParams(model_name="o1"),
+        remote_params=RemoteParams(api_key="x", api_url="<placeholder>"),
+        generation_params=GenerationParams(
+            max_new_tokens=64,
+            tool_choice="auto",
+            parallel_tool_calls=False,
+        ),
+    )
+    conversation = Conversation(
+        tools=[_WEATHER_TOOL],
+        messages=[Message(role=Role.USER, content="weather?")],
+    )
+
+    api_input = engine._convert_conversation_to_api_input(
+        conversation, engine._generation_params, engine._model_params
+    )
+    # Reasoning-model overrides apply.
+    assert api_input["temperature"] == 1.0
+    assert "logit_bias" not in api_input
+    # Tool fields are not dropped.
+    assert api_input["tools"] == [
+        _WEATHER_TOOL.model_dump(mode="json", exclude_none=True)
+    ]
+    assert api_input["tool_choice"] == "auto"
+    assert api_input["parallel_tool_calls"] is False
