@@ -1722,7 +1722,7 @@ def test_synthesize_no_tools_when_env_has_none(
 
 
 # ---------------------------------------------------------------------------
-# Tests for native tool-call loop (Task 5)
+# Tests for native tool-call loop
 # ---------------------------------------------------------------------------
 
 

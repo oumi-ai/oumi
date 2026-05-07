@@ -115,6 +115,20 @@ class ConversationSynthesizer:
             tool_ids=multiturn_attribute.available_tools or None,
         )
 
+    @staticmethod
+    def _tool_error(tool_call: ToolCall, msg: str) -> Message:
+        return Message(
+            role=Role.TOOL,
+            tool_call_id=tool_call.id,
+            content=json.dumps({"error": msg}),
+        )
+
+    @staticmethod
+    def _final_assistant_text(msg: Message | None) -> str:
+        if msg is None or not isinstance(msg.content, str):
+            return ""
+        return msg.content
+
     def _run_tool_call(self, tool_call: ToolCall) -> Message:
         """Dispatch a structured ``ToolCall`` and project the result into a Message.
 
@@ -127,34 +141,18 @@ class ConversationSynthesizer:
         try:
             arguments = json.loads(tool_call.function.arguments)
         except json.JSONDecodeError as exc:
-            return Message(
-                role=Role.TOOL,
-                tool_call_id=tool_call.id,
-                content=json.dumps({"error": f"Malformed tool_call arguments: {exc}"}),
-            )
+            return self._tool_error(tool_call, f"Malformed tool_call arguments: {exc}")
         if not isinstance(arguments, dict):
-            return Message(
-                role=Role.TOOL,
-                tool_call_id=tool_call.id,
-                content=json.dumps(
-                    {"error": "tool_call arguments must be a JSON object"}
-                ),
+            return self._tool_error(
+                tool_call, "tool_call arguments must be a JSON object"
             )
         environment = self._tool_dispatch.get(name)
         if environment is None:
-            return Message(
-                role=Role.TOOL,
-                tool_call_id=tool_call.id,
-                content=json.dumps({"error": f"Unknown tool '{name}'"}),
-            )
+            return self._tool_error(tool_call, f"Unknown tool '{name}'")
         try:
             result = environment.step(name, arguments)
         except Exception as exc:
-            return Message(
-                role=Role.TOOL,
-                tool_call_id=tool_call.id,
-                content=json.dumps({"error": f"Tool '{name}' raised: {exc}"}),
-            )
+            return self._tool_error(tool_call, f"Tool '{name}' raised: {exc}")
         content = (
             result.output
             if isinstance(result.output, str)
@@ -688,13 +686,9 @@ class ConversationSynthesizer:
             if not prompts:
                 break
 
+            # roles_for_turn is uniform by construction: role is picked from
+            # turn_order using turn_idx, not the sample.
             uniform_role = roles_for_turn[0]
-            if not all(r == uniform_role for r in roles_for_turn):
-                raise RuntimeError(
-                    "Mixed roles in a single turn are not supported by "
-                    "_synthesize_all_samples; the default turn order should "
-                    "produce uniform per-turn roles."
-                )
 
             if uniform_role == Role.ASSISTANT:
                 self._run_assistant_turn_native(
@@ -750,7 +744,7 @@ class ConversationSynthesizer:
         # Each round's prompt for sample ``idx`` is ``base_msgs[idx] + staging[idx]``;
         # staging is flushed to histories only after the sample converges.
         base_msgs: dict[int, list[Message]] = {
-            idx: list(prompt.messages) for idx, prompt in zip(sample_indices, prompts)
+            idx: prompt.messages for idx, prompt in zip(sample_indices, prompts)
         }
         staging: dict[int, list[Message]] = {idx: [] for idx in sample_indices}
         tool_count: dict[int, int] = {idx: 0 for idx in sample_indices}
@@ -792,14 +786,12 @@ class ConversationSynthesizer:
                         staging[idx].append(self._run_tool_call(tc))
                     tool_count[idx] += len(calls_to_dispatch)
                 else:
-                    content = (
-                        assistant_msg.content
-                        if assistant_msg is not None and assistant_msg.content
-                        else ""
+                    staging[idx].append(
+                        Message(
+                            role=Role.ASSISTANT,
+                            content=self._final_assistant_text(assistant_msg),
+                        )
                     )
-                    if not isinstance(content, str):
-                        content = ""
-                    staging[idx].append(Message(role=Role.ASSISTANT, content=content))
                     done[idx] = True
 
         stragglers = [idx for idx in sample_indices if not done[idx]]
@@ -815,14 +807,12 @@ class ConversationSynthesizer:
             )
             for idx, result in zip(stragglers, results):
                 assistant_msg = result.messages[-1] if result.messages else None
-                content = (
-                    assistant_msg.content
-                    if assistant_msg is not None and assistant_msg.content
-                    else ""
+                staging[idx].append(
+                    Message(
+                        role=Role.ASSISTANT,
+                        content=self._final_assistant_text(assistant_msg),
+                    )
                 )
-                if not isinstance(content, str):
-                    content = ""
-                staging[idx].append(Message(role=Role.ASSISTANT, content=content))
 
         for idx in sample_indices:
             histories[idx].extend(staging[idx])
