@@ -1652,8 +1652,8 @@ def test_assistant_turn_clamps_multi_call_batch_to_cap(
                 for _ in prompts
             ]
         # Assistant turn: first call returns 3 tool calls in one batch.
-        # After cap-clamp (cap=2), 2 are dispatched, sample becomes a straggler.
-        # Nudge round (last message starts with "Stop calling tools") returns plain text.
+        # After cap-clamp (cap=2), 2 dispatched, sample becomes a straggler.
+        # Nudge round returns plain text.
         if last_text.startswith("Stop calling tools"):
             return [
                 Conversation(messages=[Message(role=Role.ASSISTANT, content="done")])
