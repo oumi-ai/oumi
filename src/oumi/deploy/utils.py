@@ -17,10 +17,24 @@
 import logging
 import os
 import re
+from collections.abc import Callable
 
 import httpx
 
+from oumi.deploy.errors import (
+    DeployApiError,
+    DeployInvalidRequestError,
+    DeployNotFoundError,
+    DeployRateLimitError,
+    DeployTransientError,
+)
+
 logger = logging.getLogger(__name__)
+
+# Callable that refines a 4xx (400/422) detail string to a specific subclass.
+# Convention: return DeployInvalidRequestError itself when no provider-specific
+# signature matches. Never return None; never raise.
+InvalidRequestClassifier = Callable[[str], type[DeployInvalidRequestError]]
 
 _HF_REPO_ID_RE = re.compile(r"^[A-Za-z0-9_.\-]+/[A-Za-z0-9_.\-]+$")
 
@@ -129,7 +143,12 @@ def warn_if_private_model_missing_token(
 # ---------------------------------------------------------------------------
 
 
-def raise_api_error(response: httpx.Response, context: str) -> None:
+def raise_api_error(
+    response: httpx.Response,
+    context: str,
+    *,
+    classify_4xx: InvalidRequestClassifier | None = None,
+) -> None:
     """Extract the human-readable message from a provider error response and raise.
 
     Provider APIs (Fireworks, Parasail, etc.) return JSON bodies on errors in
@@ -140,16 +159,42 @@ def raise_api_error(response: httpx.Response, context: str) -> None:
         {"message": "...", "code": 400}
         {"detail": "..."}
 
+    The HTTP status code selects a typed subclass of
+    :class:`~oumi.deploy.errors.DeployApiError`. The raised exception's
+    string form contains only ``context`` and ``detail`` — the request
+    method, URL, and body are attached as structured attributes and logged
+    at DEBUG level so internal attribution never leaks into user-facing
+    error messages.
+
+    Provider-specific 4xx sub-types (for example Fireworks'
+    ``FireworksUnsupportedHardwareError``) live in the provider's module.
+    Callers pass an ``classify_4xx`` function to refine 400/422 responses
+    by detail-string signature. By convention the classifier returns
+    :class:`DeployInvalidRequestError` itself when no signature matches.
+
     Args:
         response: The failed HTTP response.
         context: Short description of the operation that failed (used in the
             raised message, e.g. ``"create deployment 'my-ep'"``).
+        classify_4xx: Optional provider-specific classifier for 400/422
+            responses. Called with the extracted detail string; must return
+            a :class:`DeployInvalidRequestError` subclass (or the base class
+            itself when no provider-specific signature matches). Only
+            consulted for 400/422 — other statuses use the generic mapping.
 
     Raises:
-        ValueError: Always, with a message that includes the API error detail,
-            HTTP status code, and the original request method + URL.
-            The request body is logged at DEBUG level (not included in the
-            exception) to avoid leaking sensitive payloads into error messages.
+        DeployNotFoundError: Response status is 404.
+        DeployRateLimitError: Response status is 429.
+        DeployInvalidRequestError: Response status is 400 or 422. May be
+            a more specific subclass when ``classify_4xx`` is provided and
+            recognizes the detail.
+        DeployTransientError: Response status is 5xx.
+        DeployApiError: Any other 4xx status (401/403/409/etc.) — handled
+            via the base class since the appropriate disposition depends on
+            the specific code and no modeled subclass applies.
+        ValueError: ``raise_api_error`` was called on a non-error response
+            (status ``< 400``). Indicates a caller bug — :func:`check_response`
+            is supposed to gate this path on ``not response.is_success``.
     """
     detail: str
     try:
@@ -176,19 +221,61 @@ def raise_api_error(response: httpx.Response, context: str) -> None:
         req_body = req.content.decode("utf-8", errors="replace") or "(empty)"
     except Exception:
         req_body = "(unreadable)"
+    logger.debug(
+        "API error for %s %s (HTTP %d): %s",
+        req.method,
+        req.url,
+        response.status_code,
+        detail,
+    )
     logger.debug("API error request body for %s %s: %s", req.method, req.url, req_body)
-    raise ValueError(
-        f"Failed to {context}: {detail} "
-        f"(HTTP {response.status_code}, {req.method} {req.url})"
+
+    status = response.status_code
+    exc_cls: type[DeployApiError]
+    if status == 404:
+        exc_cls = DeployNotFoundError
+    elif status == 429:
+        exc_cls = DeployRateLimitError
+    elif status in (400, 422):
+        exc_cls = classify_4xx(detail) if classify_4xx else DeployInvalidRequestError
+    elif status >= 500:
+        exc_cls = DeployTransientError
+    elif status >= 400:
+        # Unclassified 4xx (401/403/409/etc.). Use the base class rather
+        # than DeployInvalidRequestError — 401/403 especially are backend
+        # config issues, not user-input errors, and shouldn't be routed to
+        # InvalidArgumentError-style downstream handling.
+        exc_cls = DeployApiError
+    else:
+        raise ValueError(
+            f"raise_api_error called with non-error status {status}; "
+            "check_response should gate on response.is_success."
+        )
+
+    raise exc_cls(
+        detail=detail,
+        status_code=status,
+        method=req.method,
+        url=str(req.url),
+        context=context,
     )
 
 
-def check_response(response: httpx.Response, context: str) -> None:
-    """Raises :class:`ValueError` with API error details if response is not successful.
+def check_response(
+    response: httpx.Response,
+    context: str,
+    *,
+    classify_4xx: InvalidRequestClassifier | None = None,
+) -> None:
+    """Raises a typed :class:`DeployApiError` if the response is not successful.
 
     Args:
         response: The HTTP response to check.
         context: Short description of the operation (passed to :func:`raise_api_error`).
+        classify_4xx: Optional provider-specific 4xx classifier, passed
+            through to :func:`raise_api_error`. See that function for the
+            convention (return :class:`DeployInvalidRequestError` when no
+            signature matches).
     """
     if not response.is_success:
-        raise_api_error(response, context)
+        raise_api_error(response, context, classify_4xx=classify_4xx)

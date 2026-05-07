@@ -16,9 +16,11 @@
 
 from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable
+from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
+from pathlib import Path
 from typing import Any
 
 
@@ -101,11 +103,26 @@ class Endpoint:
     created_at: datetime | None = None
     display_name: str | None = None
     inference_model_name: str | None = None  # Model name to use for inference calls
+    status_code: str | None = None  # Provider status code, e.g. "RESOURCE_EXHAUSTED"
+    status_message: str | None = None  # Raw provider status message (operator-only)
+    # Live replica count reported by the provider at fetch time. Distinct from
+    # autoscaling.min/max_replicas — this is the actual currently-running count,
+    # used for billing GPU-hours against the real footprint.
+    replica_count: int | None = None
+    # Raw upstream accelerator type (e.g. ``"NVIDIA_A100_80GB"``). Preserved
+    # alongside the normalized ``hardware.accelerator`` so billing can map to
+    # SkyPilot-canonical names without re-deriving from the lower-cased form.
+    accelerator_type: str | None = None
 
 
 # Async callback for upload/deploy progress updates.
 # Signature: ``async def callback(stage: str, message: str, details: dict)``
 ProgressCallback = Callable[[str, str, dict[str, Any]], Awaitable[None]]
+
+# Async context manager that yields a local Path for a given filename.
+# Used to provide model files one-at-a-time during upload so only one shard
+# is on disk at any moment (peak disk usage = size of one shard, not full model).
+FileResolver = Callable[[str], AbstractAsyncContextManager[Path]]
 
 
 class BaseDeploymentClient(ABC):

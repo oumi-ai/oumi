@@ -13,6 +13,7 @@ from oumi.core.configs import (
     RemoteParams,
 )
 from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.exceptions import OumiConfigError
 from oumi.inference import (
     AnthropicInferenceEngine,
     GoogleVertexInferenceEngine,
@@ -140,18 +141,18 @@ def _mock_engine(engine_class):
 
 
 def test_generation_params_validation():
-    with pytest.raises(ValueError, match="Temperature must be non-negative."):
+    with pytest.raises(OumiConfigError, match="Temperature must be non-negative."):
         GenerationParams(temperature=-0.1)
 
-    with pytest.raises(ValueError, match="top_p must be between 0 and 1."):
+    with pytest.raises(OumiConfigError, match="top_p must be between 0 and 1."):
         GenerationParams(top_p=1.1)
 
     with pytest.raises(
-        ValueError, match="Logit bias for token 1 must be between -100 and 100."
+        OumiConfigError, match="Logit bias for token 1 must be between -100 and 100."
     ):
         GenerationParams(logit_bias={1: 101})
 
-    with pytest.raises(ValueError, match="min_p must be between 0 and 1."):
+    with pytest.raises(OumiConfigError, match="min_p must be between 0 and 1."):
         GenerationParams(min_p=1.1)
 
 

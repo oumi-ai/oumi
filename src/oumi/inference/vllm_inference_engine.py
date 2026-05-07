@@ -15,8 +15,10 @@
 from __future__ import annotations
 
 import copy
+import json
 import math
 import warnings
+from types import SimpleNamespace
 from typing import cast, get_args
 
 import torch
@@ -26,6 +28,7 @@ from oumi.builders import build_tokenizer
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Conversation, FinishReason, Message, Role
+from oumi.core.types.tool_call import ToolCall
 from oumi.utils.conversation_utils import create_list_of_message_json_dicts
 from oumi.utils.logging import logger
 from oumi.utils.model_caching import get_local_filepath_for_gguf
@@ -64,9 +67,30 @@ try:
         from vllm.sampling_params import (  # pyright: ignore[reportMissingImports]
             GuidedDecodingParams as VLLMGuidedDecodingParams,  # pyright: ignore[reportAttributeAccessIssue]
         )
+
+    # Tool-call parsers ship at vllm.tool_parsers in 0.14+; earlier versions
+    # exposed them at vllm.entrypoints.openai.tool_parsers. Guard both paths.
+    try:
+        from vllm.tool_parsers import (  # pyright: ignore[reportMissingImports]
+            ToolParserManager,
+        )
+
+        _VLLM_TOOL_PARSERS_AVAILABLE = True
+    except ImportError:
+        try:
+            from vllm.entrypoints.openai.tool_parsers import (  # pyright: ignore[reportMissingImports]
+                ToolParserManager,
+            )
+
+            _VLLM_TOOL_PARSERS_AVAILABLE = True
+        except ImportError:
+            ToolParserManager = None  # type: ignore[assignment]
+            _VLLM_TOOL_PARSERS_AVAILABLE = False
 except ModuleNotFoundError:
     vllm = None
     _VLLM_V0_12 = False
+    ToolParserManager = None  # type: ignore[assignment]
+    _VLLM_TOOL_PARSERS_AVAILABLE = False
 
 
 class VLLMInferenceEngine(BaseInferenceEngine):
@@ -83,6 +107,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         gpu_memory_utilization: float = 0.9,
         enforce_eager: bool = True,
         max_num_seqs: int | None = None,
+        tool_call_parser: str | None = None,
     ):
         """Initializes the inference Engine.
 
@@ -99,6 +124,14 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             enforce_eager: Whether to enforce eager execution. Defaults to True.
                 If False, will use eager mode and CUDA graph in hybrid mode.
             max_num_seqs: Maximum number of sequences per iteration.
+            tool_call_parser: Optional name of a vLLM tool-call parser
+                (e.g. ``"hermes"``, ``"qwen3_xml"``, ``"llama4_pythonic"``,
+                ``"mistral"``). When set, the engine parses the model's
+                output text into ``Message.tool_calls`` and sets
+                ``finish_reason`` to ``tool_calls``. If left ``None``, falls
+                back to ``model_params.tool_call_parser``. Tied to vLLM
+                internals; available parsers depend on the installed
+                vLLM version.
         """
         super().__init__(model_params=model_params, generation_params=generation_params)
 
@@ -241,6 +274,24 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         if not _VLLM_V0_12:
             self._llm.set_tokenizer(self._tokenizer)  # pyright: ignore[reportAttributeAccessIssue]
 
+        # Optional tool-call parser. Direct kwarg wins over model_params.
+        parser_name = tool_call_parser or model_params.tool_call_parser
+        self._tool_parser = None
+        if parser_name is not None:
+            if not _VLLM_TOOL_PARSERS_AVAILABLE:
+                raise RuntimeError(
+                    "vLLM tool parsers are not available in this vLLM version. "
+                    "Upgrade vLLM or unset `tool_call_parser`."
+                )
+            try:
+                parser_cls = ToolParserManager.get_tool_parser(parser_name)  # pyright: ignore[reportOptionalMemberAccess]
+            except KeyError as e:
+                raise ValueError(
+                    f"Unknown vLLM tool_call_parser '{parser_name}'."
+                ) from e
+            self._tool_parser = parser_cls(self._tokenizer)  # pyright: ignore[reportArgumentType]
+            logger.info(f"VLLM engine will parse tool calls with '{parser_name}'.")
+
     @staticmethod
     def _normalize_vllm_finish_reason(raw_reason: str | None) -> FinishReason | None:
         """Normalize vLLM finish_reason string to FinishReason enum."""
@@ -267,15 +318,19 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         for json_dict in create_list_of_message_json_dicts(
             conversation.messages, group_adjacent_same_role_turns=True
         ):
-            for key in ("role", "content"):
-                if key not in json_dict:
-                    raise RuntimeError(f"The required field '{key}' is missing!")
-            if not isinstance(json_dict["content"], str | list):
+            if "role" not in json_dict:
+                raise RuntimeError("The required field 'role' is missing!")
+            if "content" not in json_dict:
+                raise RuntimeError("The required field 'content' is missing!")
+            content = json_dict["content"]
+            # Assistant messages with only `tool_calls` legitimately have
+            # `content=None` per the OpenAI wire format.
+            if content is not None and not isinstance(content, str | list):
                 raise RuntimeError(
-                    "The 'content' field must be `str` or `list`. "
-                    f"Actual: {type(json_dict['content'])}."
+                    "The 'content' field must be `str`, `list`, or `None`. "
+                    f"Actual: {type(content)}."
                 )
-            result.append({"role": json_dict["role"], "content": json_dict["content"]})
+            result.append(json_dict)  # type: ignore[arg-type]
         return result
 
     def _infer(
@@ -362,38 +417,58 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         if len(vllm_conversations) == 0:
             return []
 
-        enable_tqdm = len(vllm_conversations) >= 2
-
-        # Note: vLLM performs continuous batching under the hood.
-        # We pass all the conversations and let vLLM handle the rest.
-        chat_responses = self._llm.chat(
-            vllm_conversations,
-            sampling_params=sampling_params,
-            lora_request=self._lora_request,
-            use_tqdm=enable_tqdm,
-            chat_template=None,
-            chat_template_content_format="auto",
-            chat_template_kwargs=model_params.chat_template_kwargs,
-        )
+        any_tools = any(c.tools for c in non_skipped_conversations)
+        if not any_tools:
+            # Fast path: single batched call, unchanged from prior behavior.
+            chat_responses = self._llm.chat(
+                vllm_conversations,
+                sampling_params=sampling_params,
+                lora_request=self._lora_request,
+                use_tqdm=(len(vllm_conversations) >= 2),
+                chat_template=None,
+                chat_template_content_format="auto",
+                chat_template_kwargs=model_params.chat_template_kwargs,
+            )
+        else:
+            # vLLM's `chat(tools=...)` applies one tool list to the whole
+            # batch, so we group conversations by identical tools and dispatch
+            # one chat() per group. Original input order is preserved.
+            chat_responses: list = [None] * len(non_skipped_conversations)
+            for indices, group_tools in self._group_by_tools(non_skipped_conversations):
+                group_inputs = [vllm_conversations[i] for i in indices]
+                group_responses = self._llm.chat(
+                    group_inputs,
+                    sampling_params=sampling_params,
+                    lora_request=self._lora_request,
+                    use_tqdm=(len(group_inputs) >= 2),
+                    chat_template=None,
+                    chat_template_content_format="auto",
+                    chat_template_kwargs=model_params.chat_template_kwargs,
+                    tools=group_tools,
+                )
+                for idx, resp in zip(indices, group_responses):
+                    chat_responses[idx] = resp
 
         for conversation, chat_response in zip(
             non_skipped_conversations, chat_responses
         ):
-            new_messages = [
-                Message(content=message.text, role=Role.ASSISTANT)
-                for message in chat_response.outputs
-                if len(chat_response.outputs) > 0
-            ]
+            assert chat_response is not None
+            new_messages, finish_reason_override = self._build_response_messages(
+                conversation, chat_response
+            )
             messages = [
                 *conversation.messages,
                 *new_messages,
             ]
             metadata = dict(conversation.metadata)
             if chat_response.outputs:
-                raw_reason = chat_response.outputs[0].finish_reason
-                finish_reason = self._normalize_vllm_finish_reason(raw_reason)
-                if finish_reason is not None:
-                    metadata["finish_reason"] = finish_reason.value
+                if finish_reason_override is not None:
+                    metadata["finish_reason"] = finish_reason_override.value
+                else:
+                    raw_reason = chat_response.outputs[0].finish_reason
+                    finish_reason = self._normalize_vllm_finish_reason(raw_reason)
+                    if finish_reason is not None:
+                        metadata["finish_reason"] = finish_reason.value
             new_conversation = Conversation(
                 messages=messages,
                 metadata=metadata,
@@ -406,6 +481,106 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             output_conversations.append(new_conversation)
 
         return output_conversations
+
+    @staticmethod
+    def _group_by_tools(
+        conversations: list[Conversation],
+    ) -> list[tuple[list[int], list[dict] | None]]:
+        """Groups conversation indices by identical tool definitions.
+
+        Tools come from ``Conversation.tools`` (post-validation a list of
+        ``ToolDefinition`` Pydantic models, or ``None``). vLLM's
+        ``LLM.chat(tools=...)`` kwarg expects OpenAI-format dicts and is
+        batch-global, so we dump to dicts up front and split heterogeneous
+        batches.
+
+        Returns:
+            A list of ``(indices, tools)`` tuples in the order each unique
+            tools list is first seen.
+        """
+        groups: list[tuple[list[int], list[dict] | None]] = []
+        key_to_group: dict[str, int] = {}
+        for i, conv in enumerate(conversations):
+            tools: list[dict] | None = (
+                None
+                if conv.tools is None
+                else [t.model_dump(mode="json", exclude_none=True) for t in conv.tools]
+            )
+            if tools is None:
+                key = "__none__"
+            else:
+                key = json.dumps(tools, sort_keys=True)
+            if key not in key_to_group:
+                key_to_group[key] = len(groups)
+                groups.append(([], tools))
+            groups[key_to_group[key]][0].append(i)
+        return groups
+
+    def _build_response_messages(
+        self,
+        conversation: Conversation,
+        chat_response,
+    ) -> tuple[list[Message], FinishReason | None]:
+        """Builds assistant messages from a vLLM chat response.
+
+        When ``self._tool_parser`` is set, runs it over each completion's
+        text and populates ``Message.tool_calls`` with the extracted payload.
+        On parser failure, falls back to raw text.
+        """
+        new_messages: list[Message] = []
+        finish_reason_override: FinishReason | None = None
+        for completion in chat_response.outputs:
+            text = completion.text
+            content: str | None = text
+            tool_calls_payload: list[ToolCall] | None = None
+
+            if self._tool_parser is not None:
+                # Some parsers read `request.tool_choice` from the
+                # non-streaming entry point; pass a stub so they don't crash.
+                # vLLM offline `LLM.chat()` has no `tool_choice` knob, so
+                # "auto" is the only honest value — it matches OpenAI's
+                # default-when-unset and the offline reality of "model
+                # decides based on the rendered tools". Other values would
+                # mislead the parser ("none" would drop real calls;
+                # "required" or a specific function would force/filter
+                # interpretations the model didn't actually make).
+                stub = SimpleNamespace(
+                    tool_choice="auto",
+                    tools=[
+                        t.model_dump(mode="json", exclude_none=True)
+                        for t in (conversation.tools or [])
+                    ],
+                )
+                try:
+                    extracted = self._tool_parser.extract_tool_calls(
+                        text,
+                        request=stub,  # type: ignore[arg-type]
+                    )
+                except Exception:
+                    logger.exception(
+                        "Tool-call parser %s failed; falling back to raw text.",
+                        type(self._tool_parser).__name__,
+                    )
+                    extracted = None
+
+                if extracted is not None and getattr(extracted, "tools_called", False):
+                    tool_calls_payload = [
+                        ToolCall.model_validate(tc.model_dump())
+                        for tc in extracted.tool_calls
+                    ]
+                    # Empty leading content is rendered as `None` to match
+                    # the OpenAI wire format for tool-only assistant turns.
+                    content = extracted.content or None
+                    finish_reason_override = FinishReason.TOOL_CALLS
+
+            new_messages.append(
+                Message(
+                    content=content,
+                    role=Role.ASSISTANT,
+                    tool_calls=tool_calls_payload,
+                )
+            )
+        return new_messages, finish_reason_override
 
     def infer_online(
         self,

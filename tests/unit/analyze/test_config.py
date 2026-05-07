@@ -23,16 +23,33 @@ from oumi.analyze.config import AnalyzerConfig, TypedAnalyzeConfig
 # -----------------------------------------------------------------------------
 
 
-def test_analyzer_config_requires_instance_id():
-    """Test that instance_id is required."""
-    config = AnalyzerConfig(id="length", instance_id="length")
-    assert config.instance_id == "length"
+def test_analyzer_config_defaults_display_name_to_type():
+    """display_name falls back to type when omitted."""
+    config = AnalyzerConfig(type="length")
+    assert config.type == "length"
+    assert config.display_name == "length"
+    assert config.id == "length"
 
 
-def test_analyzer_config_preserves_explicit_instance_id():
-    """Test that explicit instance_id is preserved."""
-    config = AnalyzerConfig(id="length", instance_id="length_custom")
-    assert config.instance_id == "length_custom"
+def test_analyzer_config_defaults_id_to_display_name():
+    """id falls back to display_name when omitted."""
+    config = AnalyzerConfig(type="length", display_name="My Length")
+    assert config.display_name == "My Length"
+    assert config.id == "My Length"
+
+
+def test_analyzer_config_preserves_explicit_id_and_display_name():
+    """Explicit id and display_name both survive __post_init__."""
+    config = AnalyzerConfig(type="length", id="asset-123", display_name="My Length")
+    assert config.type == "length"
+    assert config.id == "asset-123"
+    assert config.display_name == "My Length"
+
+
+def test_analyzer_config_requires_type():
+    """type must be provided."""
+    with pytest.raises(ValueError, match="type is required"):
+        AnalyzerConfig()
 
 
 # -----------------------------------------------------------------------------
@@ -41,11 +58,11 @@ def test_analyzer_config_preserves_explicit_instance_id():
 
 
 def test_from_dict_parses_analyzers():
-    """Test parsing analyzers from dict."""
+    """Parse analyzers using new field names."""
     data = {
         "analyzers": [
-            {"id": "length"},
-            {"id": "quality", "instance_id": "quality_check"},
+            {"type": "length"},
+            {"type": "quality", "display_name": "quality_check"},
             "turn_stats",  # String shorthand
         ]
     }
@@ -53,57 +70,120 @@ def test_from_dict_parses_analyzers():
     config = TypedAnalyzeConfig.from_dict(data)
 
     assert len(config.analyzers) == 3
+    assert config.analyzers[0].type == "length"
+    assert config.analyzers[0].display_name == "length"
     assert config.analyzers[0].id == "length"
-    assert config.analyzers[0].instance_id == "length"
-    assert config.analyzers[1].id == "quality"
-    assert config.analyzers[1].instance_id == "quality_check"
-    assert config.analyzers[2].id == "turn_stats"
+    assert config.analyzers[1].type == "quality"
+    assert config.analyzers[1].display_name == "quality_check"
+    assert config.analyzers[1].id == "quality_check"
+    assert config.analyzers[2].type == "turn_stats"
 
 
-def test_from_dict_raises_on_duplicate_instance_ids():
-    """Test that duplicate instance_id values raise an error."""
+def test_from_dict_accepts_explicit_id():
+    """An explicit id in YAML becomes the canonical identity."""
     data = {
         "analyzers": [
-            {"id": "length"},
-            {"id": "quality", "instance_id": "length"},  # Duplicate!
+            {"type": "length", "id": "asset-1", "display_name": "Length A"},
+            {"type": "length", "id": "asset-2", "display_name": "Length B"},
         ]
     }
 
-    with pytest.raises(ValueError, match="Duplicate analyzer instance_id"):
-        TypedAnalyzeConfig.from_dict(data)
+    config = TypedAnalyzeConfig.from_dict(data)
+
+    assert [a.id for a in config.analyzers] == ["asset-1", "asset-2"]
+    assert [a.display_name for a in config.analyzers] == ["Length A", "Length B"]
 
 
-def test_from_dict_raises_on_duplicate_default_instance_ids():
-    """Test that duplicate default instance_ids (from same id) raise an error."""
+def test_from_dict_allows_duplicate_display_names_when_ids_differ():
+    """Two analyzers may share a display_name as long as ids differ."""
     data = {
         "analyzers": [
-            {"id": "length"},
-            {"id": "length"},  # Same id -> same default instance_id
-        ]
-    }
-
-    with pytest.raises(ValueError, match="Duplicate analyzer instance_id"):
-        TypedAnalyzeConfig.from_dict(data)
-
-
-def test_from_dict_allows_same_type_with_different_instance_ids():
-    """Test that same analyzer type with different instance_ids is allowed."""
-    data = {
-        "analyzers": [
-            {"id": "length", "instance_id": "length_1"},
-            {"id": "length", "instance_id": "length_2"},
+            {"type": "length", "id": "asset-1", "display_name": "Length"},
+            {"type": "length", "id": "asset-2", "display_name": "Length"},
         ]
     }
 
     config = TypedAnalyzeConfig.from_dict(data)
 
     assert len(config.analyzers) == 2
-    assert config.analyzers[0].instance_id == "length_1"
-    assert config.analyzers[1].instance_id == "length_2"
+    assert config.analyzers[0].display_name == "Length"
+    assert config.analyzers[1].display_name == "Length"
+
+
+def test_from_dict_raises_on_duplicate_ids():
+    """Duplicate id values raise."""
+    data = {
+        "analyzers": [
+            {"type": "length", "id": "dup"},
+            {"type": "quality", "id": "dup"},
+        ]
+    }
+
+    with pytest.raises(ValueError, match="Duplicate analyzer id"):
+        TypedAnalyzeConfig.from_dict(data)
+
+
+def test_from_dict_raises_on_duplicate_defaulted_ids():
+    """Duplicate default ids (same type, no id/display_name) raise."""
+    data = {
+        "analyzers": [
+            {"type": "length"},
+            {"type": "length"},
+        ]
+    }
+
+    with pytest.raises(ValueError, match="Duplicate analyzer id"):
+        TypedAnalyzeConfig.from_dict(data)
+
+
+def test_from_dict_accepts_legacy_instance_id_with_deprecation():
+    """Legacy instance_id key still maps to display_name (with a warning)."""
+    data = {
+        "analyzers": [
+            {"type": "length", "instance_id": "length_custom"},
+        ]
+    }
+
+    with pytest.warns(DeprecationWarning, match="instance_id"):
+        config = TypedAnalyzeConfig.from_dict(data)
+
+    assert config.analyzers[0].display_name == "length_custom"
+    assert config.analyzers[0].id == "length_custom"
+
+
+def test_from_dict_handles_both_instance_id_and_display_name():
+    """When both legacy and new keys are present, display_name wins."""
+    data = {
+        "analyzers": [
+            {
+                "type": "length",
+                "instance_id": "legacy_name",
+                "display_name": "new_name",
+            },
+        ]
+    }
+
+    with pytest.warns(DeprecationWarning, match="instance_id"):
+        config = TypedAnalyzeConfig.from_dict(data)
+
+    assert config.analyzers[0].display_name == "new_name"
+
+
+def test_from_dict_rejects_legacy_id_as_type():
+    """Pre-#2376 YAMLs that used `id` in place of `type` now fail loudly.
+
+    `id` has new semantics (stable identity), so a YAML entry with only
+    `id` and no `type` triggers a targeted migration error pointing the
+    user at the rename.
+    """
+    data = {"analyzers": [{"id": "length"}]}
+
+    with pytest.raises(ValueError, match="Legacy analyzer entry"):
+        TypedAnalyzeConfig.from_dict(data)
 
 
 def test_from_dict_empty_analyzers():
-    """Test that empty analyzers list is valid."""
+    """Empty analyzers list is valid."""
     data = {"analyzers": []}
 
     config = TypedAnalyzeConfig.from_dict(data)
@@ -112,12 +192,32 @@ def test_from_dict_empty_analyzers():
 
 
 # -----------------------------------------------------------------------------
+# Tests: TypedAnalyzeConfig.to_dict
+# -----------------------------------------------------------------------------
+
+
+def test_to_dict_includes_id_field():
+    """to_dict round-trips type, id, and display_name."""
+    config = TypedAnalyzeConfig(
+        analyzers=[
+            AnalyzerConfig(type="length", id="asset-1", display_name="Length"),
+        ],
+    )
+
+    out = config.to_dict()
+
+    assert out["analyzers"][0]["type"] == "length"
+    assert out["analyzers"][0]["id"] == "asset-1"
+    assert out["analyzers"][0]["display_name"] == "Length"
+
+
+# -----------------------------------------------------------------------------
 # Tests: Custom Code Security
 # -----------------------------------------------------------------------------
 
 
 def test_from_dict_rejects_custom_code_by_default():
-    """Test that custom metrics with code are rejected by default."""
+    """Custom metrics with code are rejected by default."""
     data = {
         "custom_metrics": [
             {
@@ -132,7 +232,7 @@ def test_from_dict_rejects_custom_code_by_default():
 
 
 def test_from_dict_allows_custom_code_when_opted_in():
-    """Test that custom metrics with code work when allow_custom_code=True."""
+    """Custom metrics with code work when allow_custom_code=True."""
     data = {
         "custom_metrics": [
             {
@@ -149,7 +249,7 @@ def test_from_dict_allows_custom_code_when_opted_in():
 
 
 def test_from_dict_allows_empty_function():
-    """Test that custom metrics without function code are allowed."""
+    """Custom metrics without function code are allowed."""
     data = {
         "custom_metrics": [
             {

@@ -184,6 +184,50 @@ class TestJudgeOutput:
         parsed = JudgeOutput._parse_json_output(json_output)
         assert parsed == {}
 
+    def test_strip_thinking_tags_think(self):
+        assert (
+            JudgeOutput._strip_thinking_tags(
+                "<think>reasoning here</think><judgment>True</judgment>"
+            )
+            == "<judgment>True</judgment>"
+        )
+
+    def test_strip_thinking_tags_thinking(self):
+        assert (
+            JudgeOutput._strip_thinking_tags(
+                "<thinking>reasoning here</thinking><judgment>True</judgment>"
+            )
+            == "<judgment>True</judgment>"
+        )
+
+    def test_strip_thinking_tags_no_tags(self):
+        assert JudgeOutput._strip_thinking_tags("<judgment>True</judgment>") == (
+            "<judgment>True</judgment>"
+        )
+
+    def test_strip_thinking_tags_empty(self):
+        assert JudgeOutput._strip_thinking_tags("") == ""
+
+    def test_from_raw_output_strips_thinking_tags(self):
+        raw_output = "<think>internal reasoning</think><judgment>True</judgment>"
+        output_fields = [
+            JudgeOutputField(
+                field_key="judgment",
+                field_type=JudgeOutputType.BOOL,
+                field_scores=None,
+            )
+        ]
+
+        judge_output = JudgeOutput.from_raw_output(
+            raw_output=raw_output,
+            response_format=JudgeResponseFormat.XML,
+            output_fields=output_fields,
+        )
+
+        assert judge_output.raw_output == raw_output
+        assert judge_output.parsed_output == {"judgment": "True"}
+        assert judge_output.field_values == {"judgment": True}
+
     def test_from_raw_output_bool_no_scores(self):
         raw_output = "<judgment>True</judgment>"
         output_fields = [
@@ -1022,6 +1066,78 @@ class TestBaseJudge:
         mock_engine.get_batch_results_partial.assert_called_once_with(
             "batch_123", input_convs
         )
+
+    def test_batch_result_token_usage_accumulated(self, sample_output_fields):
+        """Test that token usage from batch results is accumulated."""
+        mock_engine = MagicMock()
+        mock_engine.get_batch_results_partial.return_value = BatchResult(
+            successful=[
+                (
+                    0,
+                    Conversation(
+                        messages=[
+                            Message(content="Test prompt", role=Role.USER),
+                            Message(
+                                content="<judgment>True</judgment>",
+                                role=Role.ASSISTANT,
+                            ),
+                        ],
+                        metadata={
+                            "usage": {
+                                "prompt_tokens": 100,
+                                "completion_tokens": 20,
+                                "cached_tokens": 5,
+                            }
+                        },
+                    ),
+                ),
+                (
+                    1,
+                    Conversation(
+                        messages=[
+                            Message(content="Test prompt 2", role=Role.USER),
+                            Message(
+                                content="<judgment>False</judgment>",
+                                role=Role.ASSISTANT,
+                            ),
+                        ],
+                        metadata={
+                            "usage": {
+                                "prompt_tokens": 150,
+                                "completion_tokens": 30,
+                                "cached_tokens": 10,
+                            }
+                        },
+                    ),
+                ),
+            ],
+            failed_indices=[],
+            error_messages={},
+        )
+
+        judge = BaseJudge(
+            prompt_template="Is this helpful? Question: {question}, Answer: {answer}",
+            prompt_template_placeholders={"question", "answer"},
+            system_instruction=None,
+            example_field_values=[],
+            response_format=JudgeResponseFormat.XML,
+            output_fields=sample_output_fields,
+            inference_engine=mock_engine,
+        )
+
+        input_convs = [
+            Conversation(messages=[Message(content="p1", role=Role.USER)]),
+            Conversation(messages=[Message(content="p2", role=Role.USER)]),
+        ]
+
+        with patch(
+            "oumi.judges.base_judge.isinstance", side_effect=lambda obj, cls: True
+        ):
+            judge.judge_batch_result_partial("batch_123", input_convs)
+
+        assert judge.total_input_tokens == 250
+        assert judge.total_output_tokens == 50
+        assert judge.total_cached_tokens == 15
 
     def test_cached_token_usage_accumulated(
         self, base_judge, mock_inference_engine, sample_output_fields

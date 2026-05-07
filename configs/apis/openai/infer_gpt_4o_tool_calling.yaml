@@ -1,0 +1,35 @@
+# OpenAI Chat Completions inference config with tool calling.
+#
+# Sends ``Conversation.tools`` (OpenAI function-calling schema) on every
+# request and parses ``message.tool_calls`` out of the response into
+# structured ``Message.tool_calls``.
+#
+# Requirements:
+#   - Set the ``OPENAI_API_KEY`` environment variable.
+#
+# Usage:
+#   oumi infer -i -c configs/apis/openai/infer_gpt_4o_tool_calling.yaml
+#
+# The input JSONL should carry a top-level ``tools`` field on each
+# conversation (OpenAI function-calling schema). Output messages will
+# populate ``tool_calls`` when the model emits a structured call, and
+# ``metadata.finish_reason`` will be set to ``tool_calls``.
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+#   - Config class: oumi.core.configs.InferenceConfig
+#   - Other inference configs: configs/**/inference/
+
+model:
+  model_name: "gpt-4o"
+
+engine: OPENAI
+
+generation:
+  max_new_tokens: 4096
+  temperature: 0.3
+  # Let the model decide whether to call a tool. Other valid values:
+  # "none" (force a text reply), "required" (force a tool call), or
+  # {"type": "function", "function": {"name": "..."}} to force a
+  # specific tool.
+  tool_choice: "auto"

@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.exceptions import OumiConfigError
 
 
 class ZeRORuntimeStage(str, Enum):
@@ -287,7 +288,7 @@ class DeepSpeedParams(BaseParams):
             self.offload_param is not None
             and self.zero_stage != ZeRORuntimeStage.ZERO_3
         ):
-            raise ValueError(
+            raise OumiConfigError(
                 "Parameter offloading is only supported with ZeRO stage 3. "
                 f"Current stage: {self.zero_stage}"
             )
@@ -297,7 +298,7 @@ class DeepSpeedParams(BaseParams):
             ZeRORuntimeStage.ZERO_2,
             ZeRORuntimeStage.ZERO_3,
         ]:
-            raise ValueError(
+            raise OumiConfigError(
                 "Optimizer offloading requires ZeRO stage 1, 2, or 3. "
                 f"Current stage: {self.zero_stage}"
             )

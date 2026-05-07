@@ -15,6 +15,7 @@ from oumi.core.configs import (
 )
 from oumi.core.configs.params.gkd_params import GkdParams
 from oumi.core.configs.params.gold_params import GoldParams
+from oumi.core.configs.params.peft_params import PeftParams
 from oumi.utils.packaging import (
     is_gold_trainer_available,
     verify_trl_vllm_compatibility,
@@ -57,6 +58,48 @@ def test_train_basic():
                 output_dir=output_training_dir,
                 try_resume_from_last_checkpoint=True,
                 save_final_model=True,
+            ),
+        )
+
+        train(config)
+
+
+def test_train_lora():
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        output_training_dir = str(pathlib.Path(output_temp_dir) / "train")
+        config: TrainingConfig = TrainingConfig(
+            data=DataParams(
+                train=DatasetSplitParams(
+                    datasets=[
+                        DatasetParams(
+                            dataset_name="yahma/alpaca-cleaned",
+                        )
+                    ],
+                ),
+            ),
+            model=ModelParams(
+                model_name="openai-community/gpt2",
+                model_max_length=1024,
+                trust_remote_code=True,
+                tokenizer_pad_token="<|endoftext|>",
+            ),
+            training=TrainingParams(
+                trainer_type=TrainerType.TRL_SFT,
+                use_peft=True,
+                max_steps=3,
+                logging_steps=3,
+                enable_wandb=False,
+                enable_tensorboard=False,
+                enable_mlflow=False,
+                output_dir=output_training_dir,
+                try_resume_from_last_checkpoint=False,
+                save_final_model=True,
+            ),
+            peft=PeftParams(
+                lora_r=8,
+                lora_alpha=16,
+                lora_dropout=0.0,
+                lora_target_modules=["c_attn"],
             ),
         )
 

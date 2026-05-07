@@ -19,6 +19,7 @@ from unittest.mock import MagicMock, patch
 import pytest  # type: ignore
 
 from oumi.core.configs import ModelParams, QuantizationConfig
+from oumi.exceptions import OumiConfigError
 from oumi.quantize import quantize
 from oumi.quantize.base import QuantizationResult
 
@@ -103,7 +104,7 @@ class TestQuantizeModule:
 
     def test_quantize_unsupported_method(self):
         """Test quantization with unsupported method."""
-        with pytest.raises(ValueError, match="Unsupported quantization method"):
+        with pytest.raises(OumiConfigError, match="Unsupported quantization method"):
             QuantizationConfig(
                 model=ModelParams(model_name="test/model"),
                 method="invalid_method",

@@ -1,0 +1,40 @@
+# vLLM Inference config for Qwen3-Coder-30B-A3B-Instruct with tool calling.
+#
+# Adds a Qwen-aware tool-call parser so the model's emitted tool calls are
+# parsed into structured `Message.tool_calls` rather than left as raw
+# <tool_call>...</tool_call> tokens in the response text.
+#
+# Requirements:
+#   - Run `pip install oumi[gpu]`
+#
+# Usage:
+#   oumi infer -i -c configs/recipes/qwen3_coder/inference/30b_a3b_instruct_vllm_tool_calling_infer.yaml
+#
+# The input JSONL should carry a top-level "tools" field on each conversation
+# (OpenAI function-calling schema). Output messages will populate "tool_calls"
+# when the model emits a structured call, and "finish_reason" will be set to
+# "tool_calls".
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+#   - Config class: oumi.core.configs.InferenceConfig
+#   - Other inference configs: configs/**/inference/
+
+model:
+  model_name: "Qwen/Qwen3-Coder-30B-A3B-Instruct"
+  model_max_length: 8192
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: True
+  # vLLM ships several Qwen tool-call parsers; the right one depends on the
+  # exact Qwen variant. "hermes" works for Qwen3 instruct/chat variants that
+  # emit <tool_call>...</tool_call>. For coder-specific XML-style tags, try
+  # "qwen3_xml" or "qwen3_coder".
+  tool_call_parser: "hermes"
+
+generation:
+  max_new_tokens: 4096
+  temperature: 0.3
+  top_p: 0.9
+
+engine: VLLM

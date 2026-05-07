@@ -117,7 +117,8 @@ def test_openai_batch_inference():
     for result in results:
         assert len(result.messages) > 0
         assert result.messages[-1].role == Role.ASSISTANT
-        assert len(result.messages[-1].content) > 0
+        last_content = result.messages[-1].content
+        assert last_content is not None and len(last_content) > 0
 
 
 # =============================================================================
@@ -157,7 +158,8 @@ def test_parasail_batch_inference():
     for result in results:
         assert len(result.messages) > 0
         assert result.messages[-1].role == Role.ASSISTANT
-        assert len(result.messages[-1].content) > 0
+        last_content = result.messages[-1].content
+        assert last_content is not None and len(last_content) > 0
 
 
 # =============================================================================
@@ -197,7 +199,8 @@ def test_anthropic_batch_inference():
     for result in results:
         assert len(result.messages) > 0
         assert result.messages[-1].role == Role.ASSISTANT
-        assert len(result.messages[-1].content) > 0
+        last_content = result.messages[-1].content
+        assert last_content is not None and len(last_content) > 0
 
 
 # =============================================================================
@@ -239,7 +242,8 @@ def test_together_batch_inference():
     for result in results:
         assert len(result.messages) > 0
         assert result.messages[-1].role == Role.ASSISTANT
-        assert len(result.messages[-1].content) > 0
+        last_content = result.messages[-1].content
+        assert last_content is not None and len(last_content) > 0
 
 
 # =============================================================================
@@ -284,4 +288,5 @@ def test_fireworks_batch_inference():
     for result in results:
         assert len(result.messages) > 0
         assert result.messages[-1].role == Role.ASSISTANT
-        assert len(result.messages[-1].content) > 0
+        last_content = result.messages[-1].content
+        assert last_content is not None and len(last_content) > 0

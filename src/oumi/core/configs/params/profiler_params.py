@@ -15,6 +15,7 @@
 from dataclasses import dataclass, field
 
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.exceptions import OumiConfigError
 
 
 @dataclass
@@ -73,13 +74,13 @@ class ProfilerScheduleParams(BaseParams):
             and self.repeat >= 0
             and self.skip_first >= 0
         ):
-            raise ValueError(
+            raise OumiConfigError(
                 "Invalid profiler schedule arguments. The parameters "
                 "wait: {self.wait}, warmup: {self.warmup}, repeat: {self.repeat}"
                 "skip_first: {self.skip_first} must be non-negative."
             )
         if not (self.active > 0):
-            raise ValueError(
+            raise OumiConfigError(
                 "Invalid profiler schedule arguments. The parameter "
                 "active: {self.active} must be positive."
             )
