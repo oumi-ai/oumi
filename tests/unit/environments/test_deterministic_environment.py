@@ -28,7 +28,7 @@ from oumi.core.types.tool_call import ToolResult
 from oumi.environments.deterministic_environment import (
     DeterministicEnvironment,
     DeterministicEnvironmentKwargs,
-    LookupEntry,
+    ToolLookupEntry,
 )
 
 
@@ -38,7 +38,7 @@ def _make_tool(tool_id: str = "tool1") -> ToolParams:
 
 def _make_params(
     tools: list[ToolParams] | None = None,
-    lookup_table: dict[str, list[LookupEntry]] | None = None,
+    lookup_table: dict[str, list[ToolLookupEntry]] | None = None,
     grounding: GroundingConfig | None = None,
     **overrides,
 ) -> EnvironmentParams:
@@ -47,7 +47,7 @@ def _make_params(
         tools = [_make_tool()]
     if lookup_table is None:
         lookup_table = {
-            "tool1": [LookupEntry(input={"id": "01"}, output={"msg": "ok"})]
+            "tool1": [ToolLookupEntry(input={"id": "01"}, output={"msg": "ok"})]
         }
     defaults: dict = dict(
         id="lookup",
@@ -72,7 +72,7 @@ def test_from_params_constructs_runtime_instance():
 
 
 def test_from_params_coerces_raw_lookup_entries():
-    """Raw dict entries in lookup_table are coerced to LookupEntry."""
+    """Raw dict entries in lookup_table are coerced to ToolLookupEntry."""
     env = DeterministicEnvironment.from_params(
         _make_params(
             lookup_table={  # type: ignore[arg-type]
@@ -81,7 +81,7 @@ def test_from_params_coerces_raw_lookup_entries():
         )
     )
     entry = env._kwargs.lookup_table["tool1"][0]
-    assert isinstance(entry, LookupEntry)
+    assert isinstance(entry, ToolLookupEntry)
     assert entry.input == {"id": "1"}
 
 
@@ -92,7 +92,7 @@ def test_tool_without_entries_raises():
             _make_params(
                 tools=[_make_tool("tool1"), _make_tool("tool2")],
                 lookup_table={
-                    "tool1": [LookupEntry(input={"id": "01"}, output={"msg": "ok"})]
+                    "tool1": [ToolLookupEntry(input={"id": "01"}, output={"msg": "ok"})]
                     # tool2 missing
                 },
             )
@@ -105,8 +105,12 @@ def test_stale_lookup_table_keys_warn(caplog):
         DeterministicEnvironment.from_params(
             _make_params(
                 lookup_table={
-                    "tool1": [LookupEntry(input={"id": "01"}, output={"msg": "ok"})],
-                    "ghost_tool": [LookupEntry(input={"id": "x"}, output={"msg": "y"})],
+                    "tool1": [
+                        ToolLookupEntry(input={"id": "01"}, output={"msg": "ok"})
+                    ],
+                    "ghost_tool": [
+                        ToolLookupEntry(input={"id": "x"}, output={"msg": "y"})
+                    ],
                 }
             )
         )
@@ -116,14 +120,25 @@ def test_stale_lookup_table_keys_warn(caplog):
     )
 
 
+def test_unknown_env_kwargs_raises_with_known_keys():
+    """Typos in env_kwargs surface as a clear ValueError naming known keys."""
+    params = _make_params()
+    params.env_kwargs = {
+        "lookup_table": {"tool1": [{"input": {}, "output": {}}]},
+        "lookup_tabel": {},
+    }
+    with pytest.raises(ValueError, match="unknown env_kwargs.*lookup_tabel"):
+        DeterministicEnvironment.from_params(params)
+
+
 def test_duplicate_inputs_raises():
     with pytest.raises(ValueError, match="duplicate input"):
         DeterministicEnvironment.from_params(
             _make_params(
                 lookup_table={
                     "tool1": [
-                        LookupEntry(input={"id": "01"}, output={"msg": "a"}),
-                        LookupEntry(input={"id": "01"}, output={"msg": "b"}),
+                        ToolLookupEntry(input={"id": "01"}, output={"msg": "a"}),
+                        ToolLookupEntry(input={"id": "01"}, output={"msg": "b"}),
                     ]
                 }
             )
@@ -138,8 +153,8 @@ def test_step_returns_matching_output():
         _make_params(
             lookup_table={
                 "tool1": [
-                    LookupEntry(input={"id": "01"}, output={"msg": "pending"}),
-                    LookupEntry(input={"id": "02"}, output={"msg": "delivered"}),
+                    ToolLookupEntry(input={"id": "01"}, output={"msg": "pending"}),
+                    ToolLookupEntry(input={"id": "02"}, output={"msg": "delivered"}),
                 ]
             }
         )
@@ -162,7 +177,7 @@ def test_step_supports_zero_arg_tool():
     env = DeterministicEnvironment.from_params(
         _make_params(
             tools=[_make_tool("ping")],
-            lookup_table={"ping": [LookupEntry(input={}, output={})]},
+            lookup_table={"ping": [ToolLookupEntry(input={}, output={})]},
         )
     )
     assert env.step("ping", {}) == ToolResult(output={})
@@ -188,7 +203,7 @@ def _grounded_env(
             tools=[_make_tool("lookup")],
             lookup_table={
                 "lookup": [
-                    LookupEntry(input={"id": str(i)}, output={"title": f"t-{i}"})
+                    ToolLookupEntry(input={"id": str(i)}, output={"title": f"t-{i}"})
                     for i in range(n_entries)
                 ]
             },
@@ -224,10 +239,10 @@ def test_sample_grounding_only_grounded_tools_contribute():
             tools=[_make_tool("grounded"), _make_tool("plain")],
             lookup_table={
                 "grounded": [
-                    LookupEntry(input={"id": "G1"}, output={"v": "g"}),
+                    ToolLookupEntry(input={"id": "G1"}, output={"v": "g"}),
                 ],
                 "plain": [
-                    LookupEntry(input={"id": "P1"}, output={"v": "p"}),
+                    ToolLookupEntry(input={"id": "P1"}, output={"v": "p"}),
                 ],
             },
             grounding=GroundingConfig(
@@ -249,8 +264,8 @@ def test_sample_grounding_respects_tool_ids_filter():
         _make_params(
             tools=[_make_tool("a"), _make_tool("b")],
             lookup_table={
-                "a": [LookupEntry(input={"id": "A1"}, output={"v": "from_a"})],
-                "b": [LookupEntry(input={"id": "B1"}, output={"v": "from_b"})],
+                "a": [ToolLookupEntry(input={"id": "A1"}, output={"v": "from_a"})],
+                "b": [ToolLookupEntry(input={"id": "B1"}, output={"v": "from_b"})],
             },
             grounding=GroundingConfig(
                 sample_size=10,
@@ -270,7 +285,9 @@ def test_sample_grounding_field_missing_in_row_is_dropped():
     env = DeterministicEnvironment.from_params(
         _make_params(
             tools=[_make_tool("t")],
-            lookup_table={"t": [LookupEntry(input={"id": "X1"}, output={"v": "ok"})]},
+            lookup_table={
+                "t": [ToolLookupEntry(input={"id": "X1"}, output={"v": "ok"})]
+            },
             grounding=GroundingConfig(
                 sample_size=1,
                 tools={
@@ -291,7 +308,7 @@ def test_sample_grounding_merges_input_and_output():
             tools=[_make_tool("lookup")],
             lookup_table={
                 "lookup": [
-                    LookupEntry(
+                    ToolLookupEntry(
                         input={"id": "1", "note": "input-note"},
                         output={"note": "output-note", "title": "Dune"},
                     ),
@@ -334,10 +351,10 @@ def test_sample_grounding_pools_across_tools():
         _make_params(
             tools=[_make_tool("a"), _make_tool("b")],
             lookup_table={
-                "a": [LookupEntry(input={"k": "a1"}, output={"v": "a1"})],
+                "a": [ToolLookupEntry(input={"k": "a1"}, output={"v": "a1"})],
                 "b": [
-                    LookupEntry(input={"k": "b1"}, output={"v": "b1"}),
-                    LookupEntry(input={"k": "b2"}, output={"v": "b2"}),
+                    ToolLookupEntry(input={"k": "b1"}, output={"v": "b1"}),
+                    ToolLookupEntry(input={"k": "b2"}, output={"v": "b2"}),
                 ],
             },
             grounding=GroundingConfig(

@@ -31,7 +31,7 @@ class ToolGroundingConfig(BaseParams):
     contribute nothing.
     """
 
-    fields: list[str] = field(default_factory=list)
+    fields: list[str]
 
     def __post_init__(self) -> None:
         """Validate ``fields`` invariants."""

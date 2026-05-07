@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import random
 from dataclasses import dataclass, field
@@ -32,31 +33,35 @@ from oumi.utils.logging import logger
 
 
 @dataclass
-class LookupEntry(BaseParams):
+class ToolLookupEntry(BaseParams):
     """One (input, output) pair in a deterministic env's lookup table."""
 
     input: dict[str, Any] = field(default_factory=dict)
     output: dict[str, Any] = field(default_factory=dict)
 
+    def input_key(self) -> str:
+        """Canonical JSON form of ``input`` for matching and dedup."""
+        return json.dumps(self.input, sort_keys=True)
+
     def matches(self, arguments: dict[str, Any]) -> bool:
         """Check if the input matches the given arguments."""
-        return json.dumps(self.input, sort_keys=True) == json.dumps(
-            arguments, sort_keys=True
-        )
+        return self.input_key() == json.dumps(arguments, sort_keys=True)
 
 
 @dataclass
 class DeterministicEnvironmentKwargs(BaseParams):
     """Type-specific kwargs for DeterministicEnvironment."""
 
-    lookup_table: dict[str, list[LookupEntry]] = field(default_factory=dict)
+    lookup_table: dict[str, list[ToolLookupEntry]] = field(default_factory=dict)
     """Per-tool list of (input, output) entries, keyed by tool id."""
 
     def __post_init__(self) -> None:
-        """Coerce raw entry dicts into ``LookupEntry`` instances."""
+        """Coerce raw entry dicts into ``ToolLookupEntry`` instances."""
         self.lookup_table = {
             tool_id: [
-                entry if isinstance(entry, LookupEntry) else LookupEntry(**entry)
+                entry
+                if isinstance(entry, ToolLookupEntry)
+                else ToolLookupEntry(**entry)
                 for entry in entries
             ]
             for tool_id, entries in self.lookup_table.items()
@@ -82,6 +87,7 @@ class DeterministicEnvironment(BaseEnvironment):
         """Initialize a DeterministicEnvironment."""
         self._params = params
         self._kwargs = kwargs
+        self._tool_ids = {tool.id for tool in params.tools}
         self._validate_lookup_table()
 
     def step(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:
@@ -92,11 +98,10 @@ class DeterministicEnvironment(BaseEnvironment):
             ToolLookupError: If no entry in the env's lookup table matches
                 the provided arguments.
         """
-        known_tool_ids = {tool.id for tool in self._params.tools}
-        if tool_id not in known_tool_ids:
+        if tool_id not in self._tool_ids:
             raise ValueError(
                 f"Tool '{tool_id}' not found in environment '{self._params.id}'. "
-                f"Available tools: {sorted(known_tool_ids)}"
+                f"Available tools: {sorted(self._tool_ids)}"
             )
         entries = self._kwargs.lookup_table.get(tool_id, [])
         for entry in entries:
@@ -147,6 +152,13 @@ class DeterministicEnvironment(BaseEnvironment):
     def from_params(cls, params: EnvironmentParams) -> DeterministicEnvironment:
         """Build a DeterministicEnvironment from its params object."""
         raw_kwargs = params.env_kwargs or {}
+        known = {f.name for f in dataclasses.fields(DeterministicEnvironmentKwargs)}
+        unknown = set(raw_kwargs) - known
+        if unknown:
+            raise ValueError(
+                f"DeterministicEnvironment got unknown env_kwargs: "
+                f"{sorted(unknown)}. Known: {sorted(known)}"
+            )
         kwargs = DeterministicEnvironmentKwargs(**raw_kwargs)
         kwargs.finalize_and_validate()
         return cls(params, kwargs)
@@ -159,9 +171,8 @@ class DeterministicEnvironment(BaseEnvironment):
         - Tools without entries: hard error.
         - Duplicate inputs within a tool's entries: hard error.
         """
-        tool_ids = {tool.id for tool in self._params.tools}
         for tool_id in self._kwargs.lookup_table:
-            if tool_id not in tool_ids:
+            if tool_id not in self._tool_ids:
                 logger.warning(
                     "Environment '%s': lookup_table.'%s' references unknown "
                     "tool. Entries will be ignored.",
@@ -177,7 +188,7 @@ class DeterministicEnvironment(BaseEnvironment):
                 )
             seen: set[str] = set()
             for entry in entries:
-                key = json.dumps(entry.input, sort_keys=True)
+                key = entry.input_key()
                 if key in seen:
                     raise ValueError(
                         f"Tool '{tool.id}' has duplicate input entry: {entry.input}"

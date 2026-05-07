@@ -34,7 +34,7 @@ from oumi.environments.base_environment import BaseEnvironment
 from oumi.environments.deterministic_environment import (
     DeterministicEnvironment,
     DeterministicEnvironmentKwargs,
-    LookupEntry,
+    ToolLookupEntry,
 )
 from oumi.environments.synthetic_environment import (
     SyntheticEnvironment,
@@ -49,7 +49,7 @@ __all__ = [
     "GroundingConfig",
     "GroundingFact",
     "JSONSchema",
-    "LookupEntry",
+    "ToolLookupEntry",
     "SyntheticEnvironment",
     "SyntheticEnvironmentKwargs",
     "SyntheticStateParams",
