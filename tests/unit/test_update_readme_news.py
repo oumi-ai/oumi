@@ -151,3 +151,64 @@ def test_rewrite_preserves_rest_of_readme():
     result = rewrite_readme_news(readme, "- [2026/05] New Item")
     assert "## 🔎 About" in result
     assert "Some text." in result
+
+
+from unittest.mock import patch, MagicMock
+from update_readme_news import get_release_info, has_open_pr_for_tag
+
+
+def _mock_response(json_data, status_code=200):
+    mock = MagicMock()
+    mock.status_code = status_code
+    mock.json.return_value = json_data
+    mock.raise_for_status = MagicMock()
+    return mock
+
+
+def test_get_release_info_by_tag():
+    payload = {
+        "tag_name": "v0.8",
+        "html_url": "https://github.com/oumi-ai/oumi/releases/tag/v0.8",
+        "body": "## What's new\n- Feature A\n- Feature B",
+        "published_at": "2026-05-01T12:00:00Z",
+    }
+    with patch("update_readme_news.requests.get", return_value=_mock_response(payload)):
+        info = get_release_info("oumi-ai/oumi", "v0.8")
+    assert info["tag_name"] == "v0.8"
+    assert info["html_url"] == "https://github.com/oumi-ai/oumi/releases/tag/v0.8"
+
+
+def test_get_release_info_latest_when_no_tag():
+    payload = {
+        "tag_name": "v0.8",
+        "html_url": "https://github.com/oumi-ai/oumi/releases/tag/v0.8",
+        "body": "Latest release notes",
+        "published_at": "2026-05-01T12:00:00Z",
+    }
+    with patch("update_readme_news.requests.get", return_value=_mock_response(payload)) as mock_get:
+        info = get_release_info("oumi-ai/oumi", "")
+    # Should have called the /releases/latest endpoint
+    call_url = mock_get.call_args[0][0]
+    assert "latest" in call_url
+    assert info["tag_name"] == "v0.8"
+
+
+def test_has_open_pr_for_tag_true():
+    prs = [
+        {"title": "chore: add README news item for v0.8", "state": "open"},
+    ]
+    with patch("update_readme_news.requests.get", return_value=_mock_response(prs)):
+        assert has_open_pr_for_tag("oumi-ai/oumi", "v0.8") is True
+
+
+def test_has_open_pr_for_tag_false():
+    prs = [
+        {"title": "fix: some unrelated fix", "state": "open"},
+    ]
+    with patch("update_readme_news.requests.get", return_value=_mock_response(prs)):
+        assert has_open_pr_for_tag("oumi-ai/oumi", "v0.8") is False
+
+
+def test_has_open_pr_for_tag_empty():
+    with patch("update_readme_news.requests.get", return_value=_mock_response([])):
+        assert has_open_pr_for_tag("oumi-ai/oumi", "v0.8") is False

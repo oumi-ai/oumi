@@ -113,12 +113,24 @@ def format_news_item(tag: str, url: str, published_at: str, summary: str) -> str
 
 def get_release_info(repo: str, tag: str) -> dict:
     """Fetch release metadata from GitHub API. tag='' fetches latest."""
-    raise NotImplementedError
+    headers = {"Authorization": f"Bearer {GITHUB_TOKEN}", "Accept": "application/vnd.github+json"}
+    if tag:
+        url = f"https://api.github.com/repos/{repo}/releases/tags/{tag}"
+    else:
+        url = f"https://api.github.com/repos/{repo}/releases/latest"
+    resp = requests.get(url, headers=headers)
+    resp.raise_for_status()
+    return resp.json()
 
 
 def has_open_pr_for_tag(repo: str, tag: str) -> bool:
     """Return True if an open PR title already references this release tag."""
-    raise NotImplementedError
+    headers = {"Authorization": f"Bearer {GITHUB_TOKEN}", "Accept": "application/vnd.github+json"}
+    url = f"https://api.github.com/repos/{repo}/pulls"
+    resp = requests.get(url, headers=headers, params={"state": "open", "per_page": 100})
+    resp.raise_for_status()
+    prs = resp.json()
+    return any(tag in pr.get("title", "") for pr in prs)
 
 
 def generate_summary(release_body: str, tag: str) -> str:
