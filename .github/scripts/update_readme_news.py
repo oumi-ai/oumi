@@ -136,16 +136,109 @@ def has_open_pr_for_tag(repo: str, tag: str) -> bool:
 
 def generate_summary(release_body: str, tag: str) -> str:
     """Call Anthropic API and return a short 'with X, Y, and Z' summary."""
-    raise NotImplementedError
+    prompt = (
+        f"You are writing a one-line summary for the {tag} release of Oumi "
+        "(an open-source foundation model platform) to appear in the project README.\n\n"
+        "Release notes:\n"
+        f"{release_body}\n\n"
+        "Write a concise phrase (max 120 characters) starting with 'with' that highlights "
+        "the 2-4 most important new features or changes. "
+        "Example: 'with Python 3.13 support, `oumi analyze` CLI command, and TRL 0.26+ support'. "
+        "Output only the phrase, nothing else. Do not end with a period."
+    )
+    headers = {
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+    }
+    payload = {
+        "model": "claude-sonnet-4-6",
+        "max_tokens": 200,
+        "messages": [{"role": "user", "content": prompt}],
+    }
+    resp = requests.post("https://api.anthropic.com/v1/messages", headers=headers, json=payload)
+    resp.raise_for_status()
+    text = resp.json()["content"][0]["text"].strip().rstrip(".")
+    return text
 
 
 def create_pr(repo: str, branch: str, tag: str, news_item: str, release_body: str) -> str:
     """Push branch and open a PR. Returns the PR URL."""
-    raise NotImplementedError
+    subprocess.run(["git", "config", "user.email", "github-actions[bot]@users.noreply.github.com"], check=True)
+    subprocess.run(["git", "config", "user.name", "github-actions[bot]"], check=True)
+    subprocess.run(["git", "checkout", "-b", branch], check=True)
+    subprocess.run(["git", "add", "README.md"], check=True)
+    subprocess.run(["git", "commit", "-m", f"chore: add news item for {tag} release"], check=True)
+    subprocess.run(["git", "push", "origin", branch], check=True)
+
+    headers = {"Authorization": f"Bearer {GITHUB_TOKEN}", "Accept": "application/vnd.github+json"}
+    pr_body = (
+        f"## Proposed news item\n\n```\n{news_item}\n```\n\n"
+        "Please review and edit the news item text above if needed.\n\n"
+        f"---\n\n<details>\n<summary>Full release notes for {tag}</summary>\n\n"
+        f"{release_body}\n\n</details>"
+    )
+    resp = requests.post(
+        f"https://api.github.com/repos/{repo}/pulls",
+        headers=headers,
+        json={
+            "title": f"chore: add README news item for {tag}",
+            "body": pr_body,
+            "head": branch,
+            "base": "main",
+        },
+    )
+    resp.raise_for_status()
+    return resp.json()["html_url"]
 
 
 def main() -> None:
-    raise NotImplementedError
+    repo = GITHUB_REPOSITORY
+    if not repo:
+        print("ERROR: GITHUB_REPOSITORY not set", file=sys.stderr)
+        sys.exit(1)
+    if not GITHUB_TOKEN:
+        print("ERROR: GITHUB_TOKEN not set", file=sys.stderr)
+        sys.exit(1)
+    if not ANTHROPIC_API_KEY:
+        print("ERROR: ANTHROPIC_API_KEY not set", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"Fetching release info for tag='{INPUT_TAG}' in {repo}...")
+    release = get_release_info(repo, INPUT_TAG)
+    tag = release["tag_name"]
+    url = release["html_url"]
+    published_at = release["published_at"]
+    body = release.get("body") or ""
+    print(f"Release: {tag} published at {published_at}")
+
+    readme_path = "README.md"
+    with open(readme_path, encoding="utf-8") as f:
+        readme = f.read()
+
+    if is_release_in_news(readme, tag):
+        print(f"News item for {tag} already exists in README. Nothing to do.")
+        return
+
+    if has_open_pr_for_tag(repo, tag):
+        print(f"An open PR for {tag} news item already exists. Nothing to do.")
+        return
+
+    print("Generating news summary via Claude...")
+    summary = generate_summary(body, tag)
+    print(f"Summary: {summary}")
+
+    news_item = format_news_item(tag=tag, url=url, published_at=published_at, summary=summary)
+    print(f"News item: {news_item}")
+
+    updated_readme = rewrite_readme_news(readme, news_item)
+    with open(readme_path, "w", encoding="utf-8") as f:
+        f.write(updated_readme)
+    print("README.md updated.")
+
+    branch = f"chore/news-{tag}"
+    pr_url = create_pr(repo=repo, branch=branch, tag=tag, news_item=news_item, release_body=body)
+    print(f"PR created: {pr_url}")
 
 
 if __name__ == "__main__":

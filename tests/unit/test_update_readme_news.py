@@ -12,6 +12,8 @@ from update_readme_news import (
     format_news_item,
     get_release_info,
     has_open_pr_for_tag,
+    generate_summary,
+    create_pr,
 )
 
 SAMPLE_README = """\
@@ -215,3 +217,38 @@ def test_has_open_pr_for_tag_false():
 def test_has_open_pr_for_tag_empty():
     with patch("update_readme_news.requests.get", return_value=_mock_response([])):
         assert has_open_pr_for_tag("oumi-ai/oumi", "v0.8") is False
+
+
+def test_generate_summary_returns_string():
+    mock_response = _mock_response({
+        "content": [{"text": "with feature A, feature B, and feature C"}]
+    })
+    with patch("update_readme_news.requests.post", return_value=mock_response):
+        result = generate_summary("## What's new\n- Feature A\n- Feature B\n- Feature C", "v0.8")
+    assert isinstance(result, str)
+    assert len(result) > 0
+    assert result.startswith("with ")
+
+
+def test_generate_summary_strips_trailing_period():
+    mock_response = _mock_response({
+        "content": [{"text": "with feature A and feature B."}]
+    })
+    with patch("update_readme_news.requests.post", return_value=mock_response):
+        result = generate_summary("notes", "v0.8")
+    assert not result.endswith(".")
+
+
+def test_create_pr_returns_url():
+    pr_response = _mock_response({"html_url": "https://github.com/oumi-ai/oumi/pull/9999"})
+    with patch("update_readme_news.subprocess.run") as mock_run, \
+         patch("update_readme_news.requests.post", return_value=pr_response):
+        mock_run.return_value = MagicMock(returncode=0)
+        url = create_pr(
+            repo="oumi-ai/oumi",
+            branch="chore/news-v0.8",
+            tag="v0.8",
+            news_item="- [2026/05] [Oumi v0.8 released](https://...) with stuff",
+            release_body="## Notes\n- Feature A",
+        )
+    assert url == "https://github.com/oumi-ai/oumi/pull/9999"
