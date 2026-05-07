@@ -126,6 +126,121 @@ for output in outputs:
     explanation = output.field_values["explanation"]  # The correct answer is Paris.
 ```
 
+## Rule-Based Judges
+
+```{admonition} Experimental
+:class: warning
+Rule-based judges are experimental and subject to change.
+```
+
+Some evaluations don't need an LLM: "does the response contain a phone number?", "does the output avoid the words `error` or `traceback`?", "is the answer an exact match for the expected string?". For these cases Oumi provides {py:class}`~oumi.judges.rule_based_judge.RuleBasedJudge`, which applies a deterministic rule to each input — no inference, no token cost, no LLM variance.
+
+### Quick Start
+
+```python
+from oumi.judges.rule_based_judge import RuleBasedJudge
+
+judge = RuleBasedJudge(judge_config="oumi://configs/projects/judges/rule_based/regex_match_phone.yaml")
+
+outputs = judge.judge([
+    {"response": "Call me at 555-1234."},
+    {"response": "Send an email."},
+])
+
+for out in outputs:
+    print(out.field_values["judgment"], out.field_scores["judgment"])
+# True 1.0
+# False 0.0
+```
+
+### Config Schema
+
+Rule-based judges reuse {py:class}`~oumi.core.configs.judge_config.JudgeConfig` but drive evaluation from a new `rule_judge_params` block ({py:class}`~oumi.core.configs.params.rule_judge_params.RuleJudgeParams`) instead of calling an LLM. `inference_config` is not required.
+
+```yaml
+judge_params:
+  prompt_template: "{response}"   # still required; placeholders are validated
+
+rule_judge_params:
+  rule_type: "regex"               # rule registered in the RULE registry
+  input_fields: ["response"]       # fields expected on each input dict
+
+  rule_config:                      # rule-specific options
+    pattern: "\\d{3}-\\d{4}"
+    input_field: "response"
+    match_mode: "search"            # "search" | "match" | "fullmatch"
+    inverse: false                   # pass when pattern does NOT match
+    flags: 0                         # optional re.* flag bitmask
+
+  response_format: XML              # XML | JSON | RAW
+  judgment_type: BOOL               # BOOL | INT | FLOAT | TEXT | ENUM
+```
+
+### Built-in Rules
+
+| Rule      | Description                                               | Key `rule_config` options |
+|-----------|-----------------------------------------------------------|---------------------------|
+| `regex`   | Python `re` match against a named input field              | `pattern`, `input_field`, `match_mode`, `inverse`, `flags` |
+
+New rules register themselves via `@register("my_rule", RegistryType.RULE)` on a class that implements {py:class}`~oumi.judges.rules.base_rule.BaseRule` and returns `(judgment: bool, score: float)` from `apply()`.
+
+### Ready-Made Configs
+
+| Config                                                                                                     | What it checks                                                |
+|------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------|
+| {gh}`regex_match_phone.yaml <configs/projects/judges/rule_based/regex_match_phone.yaml>`                   | Response contains an `XXX-XXXX` phone number                  |
+| {gh}`regex_no_error_keywords.yaml <configs/projects/judges/rule_based/regex_no_error_keywords.yaml>`       | Response does NOT contain `error`, `fail`, `exception`, etc.  |
+
+### CLI Usage
+
+```bash
+oumi judge dataset \
+    -c oumi://configs/projects/judges/rule_based/regex_match_phone.yaml \
+    --input data/dataset_examples/judge_input.jsonl
+```
+
+Rule-based judges are run through the same `oumi judge dataset` command as LLM judges — the CLI dispatches to `RuleBasedJudge` automatically when `rule_judge_params` is present in the config.
+
+## Batch Judging
+
+For providers that support batch inference (OpenAI, Anthropic, Together, Fireworks, Parasail — see {doc}`inference_engines <../infer/inference_engines>`), `BaseJudge` can submit, poll, and collect judgments asynchronously at reduced cost.
+
+```python
+from oumi.judges.simple_judge import SimpleJudge
+
+judge = SimpleJudge("oumi://configs/projects/judges/generic/truthfulness.yaml")
+
+inputs = [{"request": "...", "response": "..."}, ...]
+
+# Submit as a single batch
+batch_id, conversations = judge.judge_batch_submit(inputs)
+
+# ... later, possibly in a different process ...
+# Poll the engine directly if you need a status update
+status = judge.inference_engine.get_batch_status(batch_id)
+
+# Collect when done
+outputs = judge.judge_batch_result(batch_id, conversations)  # raises on any failure
+
+# Or tolerate per-row failures:
+result = judge.judge_batch_result_partial(batch_id, conversations)
+print(f"Succeeded: {len(result.successful)}, failed: {len(result.failed_indices)}")
+```
+
+`judge_batch_submit` returns the provider batch ID and the `Conversation`s used to build it — you must pass both back to `judge_batch_result(_partial)` so that inputs and outputs can be re-aligned. Rule-based judges don't call inference, so batch judging does not apply to them.
+
+## Token Usage Tracking
+
+Both `SimpleJudge` and `RuleBasedJudge` inherit from `BaseJudge`, which accumulates per-request token usage across every call to `judge()` / `judge_batch_result()`. After a run you can read:
+
+```python
+print(judge.total_input_tokens)    # sum of prompt_tokens across requests
+print(judge.total_output_tokens)   # sum of completion_tokens
+print(judge.total_cached_tokens)   # prompt tokens served from provider cache
+```
+
+Usage is recorded whether the request went through `infer()` (online) or `infer_batch()` (batch), so the totals are directly comparable across modes. Rule-based judges make no LLM calls and leave these counters at zero.
+
 ## Next Steps
 
 - Explore our {doc}`Built-In Judges </user_guides/judge/built_in_judges>` for out-of-the-box evaluation criteria

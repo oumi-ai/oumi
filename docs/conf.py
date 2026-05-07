@@ -10,10 +10,17 @@ import os
 # Configure logging to suppress specific warnings
 class DuplicateObjectFilter(logging.Filter):
     def filter(self, record):
-        """Filter out duplicate object description warnings."""
+        """Filter out duplicate-target warnings caused by package re-exports.
+
+        Classes re-exported in ``oumi.core.configs.__init__`` (e.g. ``ModelParams``)
+        are documented at both the package and submodule paths; both warnings are
+        false positives.
+        """
         if hasattr(record, "msg") and record.msg:
             msg = str(record.msg)
             if "duplicate object description" in msg:
+                return False
+            if "more than one target found for cross-reference" in msg:
                 return False
         return True
 
@@ -161,7 +168,7 @@ pygments_style = "github-dark"
 # Mapping for intersphinx
 # modeule name -> (url, inventory file)
 intersphinx_mapping = {
-    "torch": ("https://pytorch.org/docs/stable", None),
+    "torch": ("https://docs.pytorch.org/docs/main", None),
     "transformers": ("https://huggingface.co/docs/transformers/main/en", None),
     "trl": ("https://huggingface.co/docs/trl/main/en", None),
     "datasets": ("https://huggingface.co/docs/datasets/main/en", None),

@@ -23,11 +23,16 @@ allowing for easier setup and configuration of machine learning experiments.
 """
 
 from oumi.builders.callbacks import build_training_callbacks
-from oumi.builders.collators import build_collator_from_config, build_data_collator
+from oumi.builders.collators import (
+    build_collator_from_config,
+    build_data_collator,
+    resolve_collator_templates,
+)
 from oumi.builders.data import (
     build_dataset,
     build_dataset_mixture,
 )
+from oumi.builders.environments import build_environment
 from oumi.builders.metrics import build_metrics_function
 from oumi.builders.models import (
     build_chat_template,
@@ -49,6 +54,7 @@ __all__ = [
     "build_dataset_mixture",
     "build_dataset",
     "build_data_collator",
+    "build_environment",
     "build_metrics_function",
     "build_model",
     "build_optimizer",
@@ -63,4 +69,5 @@ __all__ = [
     "build_training_callbacks",
     "is_image_text_llm",
     "build_collator_from_config",
+    "resolve_collator_templates",
 ]

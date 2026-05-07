@@ -17,6 +17,7 @@ from oumi.core.configs import (
     DatasetParams,
     DatasetSplitParams,
     ModelParams,
+    OumiConfigError,
     TrainerType,
     TrainingConfig,
     TrainingParams,
@@ -699,7 +700,7 @@ def test_launch_up_job_not_found(
             done=True,
             state=JobState.SUCCEEDED,
         )
-        with pytest.raises(FileNotFoundError) as exception_info:
+        with pytest.raises(OumiConfigError) as exception_info:
             res = runner.invoke(
                 app,
                 [
@@ -710,7 +711,9 @@ def test_launch_up_job_not_found(
             )
             if res.exception:
                 raise res.exception
-        assert "No such file or directory" in str(exception_info.value)
+        assert "Config file not found or path is not a file" in str(
+            exception_info.value
+        )
 
 
 def test_launch_run_job(

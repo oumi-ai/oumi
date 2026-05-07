@@ -18,6 +18,7 @@ from oumi.core.configs.analyze_config import (
     AnalyzeConfig,
     SampleAnalyzerParams,
 )
+from oumi.exceptions import OumiConfigError
 
 
 def test_sample_analyzer_param_validation_success():
@@ -29,7 +30,7 @@ def test_sample_analyzer_param_validation_success():
 
 def test_sample_analyzer_param_validation_missing_id():
     """Test validation failure when id is missing."""
-    with pytest.raises(ValueError, match="Analyzer 'id' must be provided"):
+    with pytest.raises(OumiConfigError, match="Analyzer 'id' must be provided"):
         AnalyzeConfig(
             dataset_name="test_dataset",
             analyzers=[SampleAnalyzerParams(id="")],
@@ -140,7 +141,10 @@ def test_analyze_config_validation_duplicate_analyzer_ids():
         SampleAnalyzerParams(id="duplicate_id"),
     ]
 
-    with pytest.raises(ValueError, match="Duplicate analyzer ID found: 'duplicate_id'"):
+    with pytest.raises(
+        OumiConfigError,
+        match="Duplicate analyzer ID found: 'duplicate_id'",
+    ):
         AnalyzeConfig(dataset_name="test_dataset", analyzers=analyzers)
 
 
@@ -201,13 +205,13 @@ def test_analyze_config_processor_fields_custom_values():
 
 def test_analyze_config_sample_count_zero():
     """Test validation failure when sample_count is zero."""
-    with pytest.raises(ValueError, match="`sample_count` must be greater than 0."):
+    with pytest.raises(OumiConfigError, match="`sample_count` must be greater than 0."):
         AnalyzeConfig(dataset_name="test_dataset", sample_count=0)
 
 
 def test_analyze_config_sample_count_negative():
     """Test validation failure when sample_count is negative."""
-    with pytest.raises(ValueError, match="`sample_count` must be greater than 0."):
+    with pytest.raises(OumiConfigError, match="`sample_count` must be greater than 0."):
         AnalyzeConfig(dataset_name="test_dataset", sample_count=-5)
 
 

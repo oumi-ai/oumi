@@ -57,6 +57,7 @@ from oumi.cli.quantize import quantize
 from oumi.cli.synth import synth
 from oumi.cli.train import train
 from oumi.cli.tune import tune
+from oumi.exceptions import OumiConfigError
 from oumi.utils.logging import should_use_rich_logging
 
 _ASCII_LOGO = r"""
@@ -165,13 +166,21 @@ def get_app() -> typer.Typer:
     )(quantize)
 
     # Data
-    app.command(
+    analyze_app = typer.Typer(
+        pretty_exceptions_enable=False, context_settings=_HELP_OPTION_NAMES
+    )
+    analyze_app.callback(
+        invoke_without_command=True,
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
+    )(analyze)
+    app.add_typer(
+        analyze_app,
+        name="analyze",
         help=get_command_help(
             "Compute statistics and metrics for a dataset.", AliasType.ANALYZE
         ),
         rich_help_panel="Data",
-    )(analyze)
+    )
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help=get_command_help(
@@ -365,6 +374,9 @@ def run():
             telemetry = TelemetryManager.get_instance()
             with telemetry.capture_operation(event_name, event_properties):
                 return app()
+    except OumiConfigError as e:
+        CONSOLE.print(f"[red]Error:[/red] {e}")
+        sys.exit(1)
     except Exception as e:
         tb_str = traceback.format_exc()
         CONSOLE.print(tb_str)

@@ -60,6 +60,7 @@ get_started/tutorials
 
 user_guides/train/train
 user_guides/infer/infer
+user_guides/deploy
 user_guides/evaluate/evaluate
 user_guides/analyze/analyze
 user_guides/judge/judge
@@ -68,6 +69,7 @@ user_guides/synth
 user_guides/tune
 user_guides/quantization
 user_guides/customization
+user_guides/mcp
 ```
 
 ```{toctree}
@@ -106,6 +108,7 @@ faq/oom
 
 development/dev_setup
 development/contributing
+development/agentic_synthesis_environments
 development/code_of_conduct
 development/style_guide
 development/docs_guide

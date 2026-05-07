@@ -123,11 +123,14 @@ class JudgeOutput(pydantic.BaseModel):
         field_values = {}
         field_scores = {}
 
+        # Strip thinking tags produced by reasoning models before parsing
+        stripped_output = cls._strip_thinking_tags(raw_output)
+
         # Parse the judge's response based on the expected format
         if response_format == JudgeResponseFormat.XML:
-            parsed_output = cls._parse_xml_output(raw_output)
+            parsed_output = cls._parse_xml_output(stripped_output)
         elif response_format == JudgeResponseFormat.JSON:
-            parsed_output = cls._parse_json_output(raw_output)
+            parsed_output = cls._parse_json_output(stripped_output)
         else:  # JudgeResponseFormat.RAW
             parsed_output = {}
 
@@ -164,6 +167,16 @@ class JudgeOutput(pydantic.BaseModel):
             response_format=response_format,
             output_fields=output_fields,
         )
+
+    @staticmethod
+    def _strip_thinking_tags(text: str) -> str:
+        """Remove thinking blocks by reasoning models."""
+        return re.sub(
+            r"<think(?:ing)?>.*?</think(?:ing)?>",
+            "",
+            text,
+            flags=re.DOTALL | re.IGNORECASE,
+        ).strip()
 
     @classmethod
     def _parse_xml_output(cls, xml_output: str | None) -> dict[str, str]:
@@ -360,13 +373,15 @@ class BaseJudge:
 
     def judge(
         self,
-        inputs: list[dict[str, str]],
+        inputs: list[Conversation] | list[dict[str, str]],
     ) -> list[JudgeOutput]:
         """Evaluate a batch of inputs and return structured judgments.
 
         Args:
-            inputs: List of dictionaries containing input data for evaluation.
-                    Each dict must contain values for all prompt_template placeholders.
+            inputs: Either a list of pre-built Conversation objects, or a list of
+                    dictionaries containing input data for evaluation. When dicts are
+                    provided, each must contain values for all prompt_template
+                    placeholders.
 
         Returns:
             List of structured judge outputs with parsed results
@@ -374,20 +389,25 @@ class BaseJudge:
         Raises:
             ValueError: If inference returns unexpected number of conversations
         """
-        conversations = self.build_conversations(inputs)
+        conversations: list[Conversation] = (
+            self.build_conversations(inputs)  # type: ignore[arg-type]
+            if inputs and isinstance(inputs[0], dict)
+            else inputs
+        )
         completed_conversations = self._infer(conversations)
         return self.parse_judge_outputs(completed_conversations)
 
     def judge_batch_submit(
-        self, inputs: list[dict[str, str]]
+        self, inputs: list[Conversation] | list[dict[str, str]]
     ) -> tuple[str, list[Conversation]]:
         """Submit a batch judging job.
 
-        Builds conversations from inputs and submits them as a batch job
-        via the inference engine's batch API.
+        Builds conversations from inputs (if not already built) and submits them
+        as a batch job via the inference engine's batch API.
 
         Args:
-            inputs: List of dictionaries containing input data for evaluation.
+            inputs: Either a list of pre-built Conversation objects, or a list of
+                    dictionaries containing input data for evaluation.
 
         Returns:
             Tuple of (batch_id, conversations) — the batch_id for polling,
@@ -396,7 +416,11 @@ class BaseJudge:
         Raises:
             ValueError: If inference_engine is None or not a RemoteInferenceEngine.
         """
-        conversations = self.build_conversations(inputs)
+        conversations: list[Conversation] = (
+            self.build_conversations(inputs)  # type: ignore[arg-type]
+            if inputs and isinstance(inputs[0], dict)
+            else inputs
+        )
         if not isinstance(self.inference_engine, RemoteInferenceEngine):
             raise ValueError("Batch judging requires a RemoteInferenceEngine")
         batch_id = self.inference_engine.infer_batch(conversations)

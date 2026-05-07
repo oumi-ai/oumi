@@ -12,9 +12,13 @@ oumi = ["LICENSE", "README.md", "*.jinja"]
 # default setuptools config.
 
 # We currently use the Omegaconf dev version, and uv doesn't allow pre-release versions
-# by default.
+# by default. "if-necessary-or-explicit" permits pre-releases when a package is
+# explicitly pinned to one (e.g. omegaconf==2.4.0.dev4) or when no stable release
+# satisfies the requirement (e.g. opentelemetry-semantic-conventions, which only
+# ships beta versions on PyPI).
 [tool.uv]
-prerelease = "allow"
+prerelease = "if-necessary-or-explicit"
+override-dependencies = ["transformers>=5.5,<5.8"]
 
 [project]
 name = "oumi"
@@ -44,11 +48,12 @@ dependencies = [
     "aioresponses>=0.7,<0.8",     # User by inference engine tests
     "backoff>=2.2.1,<2.3",
     "click<8.4.0",                # Used by CLI. 8.2.0 is currently unsupported by Typer.
-    "datasets>=3.2,<4.8.5",
+    "datasets>=3.2,<4.8.6",
     "greenlet",                   # Required by skypilot 0.11+ (sqlalchemy asyncio)
     "hdrhistogram>=0.10,<0.11",
     "httpx>=0.27,<1.0",           # Used by deploy module (async HTTP client)
     "jsonlines",
+    "jsonschema>=4.0,<5.0",       # Used for tool argument validation
     "lm_eval[wandb]>=0.4,<0.5.0",
     "mlflow>=3.1",                # >=3.1.4 requires Python3.10>=
     "numpy>=1.26,<2.4",           # verl==0.5.0 depends on numpy<2.0.0
@@ -59,28 +64,28 @@ dependencies = [
     "omegaconf==2.4.0.dev4",
     "packaging",
     "pandas>=2.3,<3",
-    "peft>=0.17,<0.19",
+    "peft>=0.17,<0.20",
     "pexpect>=4.9,<4.10",      # Used by Polaris client
     "posthog>=7.0,<8.0",
-    "pillow>=11.3,<12.2",      # Used by image datasets
+    "pillow>=11.3,<12.3",      # Used by image datasets
     "protobuf>=6.32",
     "pycares<6.0.0",
-    "pydantic>=2.11,<2.13",
+    "pydantic>=2.11,<2.14",
     "requests>=2.31,<3.0",        # Used by deploy module (GCS upload)
     "responses>=0.25,<0.27",
     "safetensors>=0.6,<0.8",
-    "skypilot>=0.11.1,<0.12", # 0.11.1 includes db locking fix
+    "skypilot>=0.11.1,<0.13", # 0.11.1 includes db locking fix
     "tensorboard>=2.20,<2.21", # Optional, for monitoring training
     "tiktoken>=0.7,<1.0",
     "torch>=2.6,<2.11.0",      # vllm only supports up to torch==2.7
-    "torchao>=0.12,<0.16",     # Used by transformers
+    "torchao>=0.16,<0.17",     # Used by transformers; >=0.16 required by peft>=0.19
     "torchvision>=0.21,<0.26", # Used by some VLM-s (multimodal)
     "tqdm",
-    "transformers>=4.57,<5.5",
-    "trl>=0.24,<0.30",
-    "typer<0.24.2",             # Used by CLI. Pinned due to sphinxcontrib-typer compatibility. OPE-1806
+    "transformers>=4.57,<5.8",
+    "trl>=0.24,<1.4",
+    "typer<0.25.2",             # Used by CLI. Pinned due to sphinxcontrib-typer compatibility. OPE-1806
     "typing_extensions",        # Backports of typing updates
-    "uvicorn<0.43.0",           # TODO: Remove on resolution of https://github.com/skypilot-org/skypilot/issues/7303
+    "uvicorn<0.45.0",           # TODO: Remove on resolution of https://github.com/skypilot-org/skypilot/issues/7303
     "wandb>=0.21,<0.26",        # Logging to Weights and Biases.
 ]
 
@@ -119,14 +124,14 @@ docs = [
 
 # Useful dependencies when running on GPU
 gpu = [
-    "liger-kernel>=0.6,<0.8",
+    "liger-kernel>=0.6,<0.9",
     "nvidia-ml-py>=13.580,<13.596",
     "bitsandbytes>=0.47,<0.50",     # Used for QLora, and PagedAdam implementation
     # When updating verl version, make sure to also update the default config:
     # src/oumi/core/trainers/verl_trainer_config.yaml.
     "verl>=0.5,<0.8; python_version >= '3.10'", # Used for the VERL_GRPO trainer
-    "vllm>=0.10,<0.19",                         # For VLLMInferenceEngine, and vLLM-powered GRPO training.
-    "kernels>=0.11,<0.13",                      # For compute kernel implementations (e.g., attn_implementation in gold trainer)
+    "vllm>=0.14,<0.21",                         # For VLLMInferenceEngine, and vLLM-powered GRPO training.
+    "kernels>=0.11,<0.14",                      # For compute kernel implementations (e.g., attn_implementation in gold trainer)
 ]
 
 deepspeed = [
@@ -197,7 +202,7 @@ torchdata = ["torchdata>=0.9,<0.10.0"]
 # CI targets
 ci_cpu = [
     "oumi[dev,docs,gcp,mcp,synthesis,tune,torchdata,file_formats]",
-    "vllm>=0.10,<0.19",                            # For VLLMInferenceEngine
+    "vllm>=0.14,<0.21",                            # For VLLMInferenceEngine
     "boto3",  # For bedrock inference engine tests
     # This may fail to install. As a temporary workaround, run:
     # CMAKE_ARGS="-DLLAVA_BUILD=OFF" pip install -U llama-cpp-python
