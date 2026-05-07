@@ -164,7 +164,10 @@ class TestVerlConfigAndDatasetPipeline:
         with tempfile.TemporaryDirectory() as tmpdir:
             config = _make_verl_training_config(tmpdir)
             trainer = _create_trainer_no_ray(
-                config, _make_countdown_dataset(4), _make_countdown_dataset(2)
+                config,
+                _make_countdown_dataset(4),
+                _make_countdown_dataset(2),
+                cache_dir=pathlib.Path(tmpdir) / "cache",
             )
             verl_config = trainer._create_config()
 
@@ -178,8 +181,7 @@ class TestVerlConfigAndDatasetPipeline:
 
             if is_verl_v0_7_or_later():
                 assert (
-                    verl_config.reward.custom_reward_function.name
-                    == "countdown_reward"
+                    verl_config.reward.custom_reward_function.name == "countdown_reward"
                 )
 
     def test_create_dataset_files(self):
@@ -209,14 +211,15 @@ class TestVerlConfigAndDatasetPipeline:
             config.training.grpo.vllm_gpu_memory_utilization = 0.85
 
             trainer = _create_trainer_no_ray(
-                config, _make_countdown_dataset(4), _make_countdown_dataset(2)
+                config,
+                _make_countdown_dataset(4),
+                _make_countdown_dataset(2),
+                cache_dir=pathlib.Path(tmpdir) / "cache",
             )
             verl_config = trainer._create_config()
 
             assert verl_config.actor_rollout_ref.rollout.name == "vllm"
-            assert (
-                verl_config.actor_rollout_ref.rollout.gpu_memory_utilization == 0.85
-            )
+            assert verl_config.actor_rollout_ref.rollout.gpu_memory_utilization == 0.85
 
     def test_conversation_dataset_pipeline(self):
         """Verifies conversation-format datasets are properly detected and converted."""
@@ -335,3 +338,5 @@ def test_verl_grpo_train_1_step():
         )
 
         train(config)
+
+        assert (pathlib.Path(output_dir) / "verl_output").exists()
