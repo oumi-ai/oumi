@@ -1,6 +1,8 @@
 # Local experiments
 tmp/
 wandb/
+# Superpowers planning/spec artifacts
+docs/superpowers/
 # ignore outputs from databricks MLflow telemetry
 mlruns/
 # default output directory for training, evaluation, inference, etc.
