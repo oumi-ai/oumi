@@ -762,20 +762,17 @@ class ConversationSynthesizer:
             )
             for idx, result in zip(active, results):
                 assistant_msg = result.messages[-1] if result.messages else None
-                tool_calls = (
-                    assistant_msg.tool_calls if assistant_msg is not None else None
-                )
-                if tool_calls:
+                if assistant_msg is not None and assistant_msg.tool_calls:
                     staging[idx].append(
                         Message(
                             role=Role.ASSISTANT,
                             content=assistant_msg.content,
-                            tool_calls=tool_calls,
+                            tool_calls=assistant_msg.tool_calls,
                         )
                     )
-                    for tc in tool_calls:
+                    for tc in assistant_msg.tool_calls:
                         staging[idx].append(self._run_tool_call(tc))
-                    tool_count[idx] += len(tool_calls)
+                    tool_count[idx] += len(assistant_msg.tool_calls)
                 else:
                     content = (
                         assistant_msg.content
