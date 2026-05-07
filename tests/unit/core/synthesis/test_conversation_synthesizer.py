@@ -1469,3 +1469,91 @@ def test_warn_on_grounding_placeholder_no_warning_when_placeholder_absent(
         rec for rec in caplog.records if "grounding_facts" in rec.getMessage()
     ]
     assert grounding_warnings == []
+
+
+# ---------------------------------------------------------------------------
+# Tests for init-time engine validation
+# ---------------------------------------------------------------------------
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_init_raises_on_unsupported_engine_with_tools(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+):
+    """Unsupported engine + env with tools → ValueError at init."""
+    from unittest.mock import MagicMock
+
+    from oumi.core.configs.environment_config import EnvironmentConfig
+    from oumi.core.configs.params.tool_params import ToolParams
+
+    mock_build_inference_engine.return_value = Mock()
+
+    env_config = MagicMock(spec=EnvironmentConfig)
+    env_config.all_tools = [ToolParams(id="my_tool", name="My Tool", description="x")]
+
+    inference_config = InferenceConfig(
+        engine=InferenceEngineType.LLAMACPP,
+        model=Mock(spec=ModelParams),
+        generation=GenerationParams(),
+    )
+
+    with pytest.raises(ValueError, match="native tool-calling"):
+        ConversationSynthesizer(
+            mock_general_synthesis_params,
+            inference_config,
+            environment_config=env_config,
+        )
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_init_no_error_on_supported_engine_with_tools(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+):
+    """Supported engine + env with tools → no error at init."""
+    from unittest.mock import MagicMock
+
+    from oumi.core.configs.environment_config import EnvironmentConfig
+    from oumi.core.configs.params.tool_params import ToolParams
+
+    mock_build_inference_engine.return_value = Mock()
+
+    env_config = MagicMock(spec=EnvironmentConfig)
+    env_config.all_tools = [ToolParams(id="my_tool", name="My Tool", description="x")]
+
+    inference_config = InferenceConfig(
+        engine=InferenceEngineType.OPENAI,
+        model=Mock(spec=ModelParams),
+        remote_params=Mock(spec=RemoteParams),
+        generation=GenerationParams(),
+    )
+
+    # Should not raise
+    ConversationSynthesizer(
+        mock_general_synthesis_params,
+        inference_config,
+        environment_config=env_config,
+    )
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_init_no_error_on_unsupported_engine_without_tools(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+):
+    """Unsupported engine but no env tools → no error at init."""
+    mock_build_inference_engine.return_value = Mock()
+
+    inference_config = InferenceConfig(
+        engine=InferenceEngineType.LLAMACPP,
+        model=Mock(spec=ModelParams),
+        generation=GenerationParams(),
+    )
+
+    # No environment_config at all → should not raise
+    ConversationSynthesizer(
+        mock_general_synthesis_params,
+        inference_config,
+        environment_config=None,
+    )
