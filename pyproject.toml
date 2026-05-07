@@ -342,3 +342,26 @@ markers = [
     "single_gpu: The test uses max 1 GPU (can be potentially skipped on multi-GPU machine to conserve GPU resources)",
     "multi_gpu: The test should run on a machine with multiple GPU-s",
 ]
+
+[tool.coverage.run]
+source = ["src/oumi"]
+branch = true
+omit = [
+    "src/oumi/__main__.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.",
+    "raise NotImplementedError",
+    "@abstractmethod",
+    "@overload",
+    "def __repr__",
+]
+
+[tool.coverage.html]
+directory = "coverage_html"
