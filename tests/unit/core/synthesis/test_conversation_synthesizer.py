@@ -836,6 +836,42 @@ def test_has_empty_messages_ignores_system_messages(
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_has_empty_messages_skips_assistant_tool_call_messages(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_inference_config,
+):
+    """Assistant messages with tool_calls and content=None must NOT be flagged
+    as empty — that's the legitimate OpenAI wire format for a tool-only turn.
+    """
+    mock_build_inference_engine.return_value = Mock()
+    synthesizer = ConversationSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+
+    conversation = Conversation(
+        messages=[
+            Message(role=Role.USER, content="Hello"),
+            Message(
+                role=Role.ASSISTANT,
+                content=None,
+                tool_calls=[
+                    ToolCall(
+                        id="c1",
+                        function=FunctionCall(name="t", arguments="{}"),
+                    )
+                ],
+            ),
+            Message(role=Role.TOOL, tool_call_id="c1", content='{"result": 1}'),
+            Message(role=Role.ASSISTANT, content="Final answer"),
+        ]
+    )
+
+    assert synthesizer._has_empty_messages(conversation) is False
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
 def test_synthesize_filters_conversations_with_empty_messages(
     mock_build_inference_engine,
     mock_inference_config,
@@ -1785,6 +1821,47 @@ def test_run_tool_call_handles_malformed_arguments(
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_environment")
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_run_tool_call_handles_non_dict_arguments(
+    mock_build_inference_engine,
+    mock_build_environment,
+    mock_general_synthesis_params,
+):
+    """Tool arguments that parse as JSON but aren't a dict yield an error."""
+    mock_build_inference_engine.return_value = Mock()
+
+    fake_env = Mock(spec=BaseEnvironment)
+    mock_build_environment.return_value = fake_env
+
+    env_params = EnvironmentParams(
+        id="e", name="x", description="x", env_type="deterministic", tools=[]
+    )
+    env_config = MagicMock(spec=EnvironmentConfig)
+    env_config.environments = [env_params]
+    env_config.all_tools = [ToolParams(id="t", name="x", description="x")]
+    env_config.tool_environment_map = {"t": "e"}
+
+    inference_config = InferenceConfig(
+        engine=InferenceEngineType.OPENAI,
+        model=Mock(spec=ModelParams),
+        remote_params=Mock(spec=RemoteParams),
+        generation=GenerationParams(),
+    )
+    synth = ConversationSynthesizer(
+        mock_general_synthesis_params,
+        inference_config,
+        environment_config=env_config,
+    )
+
+    tc = ToolCall(id="c", function=FunctionCall(name="t", arguments="[1, 2, 3]"))
+    msg = synth._run_tool_call(tc)
+    assert msg.role == Role.TOOL
+    assert msg.tool_call_id == "c"
+    assert "must be a JSON object" in str(msg.content)
+    fake_env.step.assert_not_called()
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_environment")
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
 def test_run_tool_call_handles_unknown_tool(
     mock_build_inference_engine,
     mock_build_environment,
@@ -2074,4 +2151,125 @@ def test_assistant_turn_caps_at_max_tool_calls_then_finalizes(
         f"Expected nudge to produce final answer, got contents: {contents}"
     )
     # Env should have been called exactly max_tool_calls_per_turn (2) times.
+    assert fake_env.step.call_count == 2
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_environment")
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_assistant_turn_clamps_multi_call_batch_to_cap(
+    mock_build_inference_engine,
+    mock_build_environment,
+    mock_general_synthesis_params,
+):
+    """When the model returns more tool calls than remain in the cap, only
+    the cap-budgeted prefix is dispatched and the assistant message reflects
+    that prefix.
+    """
+    fake_env = Mock(spec=BaseEnvironment)
+    fake_env.step.return_value = ToolResult(output={"ok": True})
+    mock_build_environment.return_value = fake_env
+
+    # Model returns 3 tool calls in one round; cap is 2 → only 2 dispatched.
+    assistant_turn_count = {"n": 0}
+
+    def scripted_infer(prompts, inference_config=None):
+        if (
+            inference_config is not None
+            and inference_config.generation.guided_decoding is not None
+        ):
+            return [
+                Conversation(
+                    messages=[
+                        Message(
+                            role=Role.ASSISTANT, content='{"turns": []}'
+                        )
+                    ]
+                )
+                for _ in prompts
+            ]
+        last_msg = prompts[0].messages[-1]
+        last_text = last_msg.content if isinstance(last_msg.content, str) else ""
+        if "USER" in last_text:
+            # User-turn infer: return plain text.
+            return [
+                Conversation(messages=[Message(role=Role.ASSISTANT, content="hello")])
+                for _ in prompts
+            ]
+        # Assistant turn: first call returns 3 tool calls in one batch.
+        # After cap-clamp (cap=2), 2 are dispatched, sample becomes a straggler.
+        # Nudge round (last message starts with "Stop calling tools") returns plain text.
+        if last_text.startswith("Stop calling tools"):
+            return [
+                Conversation(messages=[Message(role=Role.ASSISTANT, content="done")])
+                for _ in prompts
+            ]
+        assistant_turn_count["n"] += 1
+        if assistant_turn_count["n"] == 1:
+            # First assistant-turn call: 3 tool calls in one batch.
+            return [
+                Conversation(
+                    messages=[
+                        Message(
+                            role=Role.ASSISTANT,
+                            content=None,
+                            tool_calls=[
+                                ToolCall(
+                                    id=f"c{i}",
+                                    function=FunctionCall(name="t", arguments="{}"),
+                                )
+                                for i in range(3)
+                            ],
+                        )
+                    ]
+                )
+                for _ in prompts
+            ]
+        # Subsequent assistant-turn calls return plain text.
+        return [
+            Conversation(messages=[Message(role=Role.ASSISTANT, content="done")])
+            for _ in prompts
+        ]
+
+    mock_engine = Mock()
+    mock_engine.infer.side_effect = scripted_infer
+    mock_build_inference_engine.return_value = mock_engine
+
+    env_params = EnvironmentParams(
+        id="e", name="x", description="x", env_type="deterministic", tools=[]
+    )
+    env_config = MagicMock(spec=EnvironmentConfig)
+    env_config.environments = [env_params]
+    env_config.all_tools = [ToolParams(id="t", name="x", description="x")]
+    env_config.tool_environment_map = {"t": "e"}
+
+    multiturn_attr = MultiTurnAttribute(
+        id="dialog",
+        min_turns=2,
+        max_turns=2,
+        role_instruction_messages={
+            Role.USER: "user",
+            Role.ASSISTANT: "assistant",
+        },
+        max_tool_calls_per_turn=2,
+    )
+    inference_config = InferenceConfig(
+        engine=InferenceEngineType.OPENAI,
+        model=Mock(spec=ModelParams),
+        remote_params=Mock(spec=RemoteParams),
+        generation=GenerationParams(),
+    )
+    synth = ConversationSynthesizer(
+        mock_general_synthesis_params,
+        inference_config,
+        environment_config=env_config,
+    )
+    with patch.object(
+        synth, "_resolve_available_tools", return_value=env_config.all_tools
+    ):
+        synth.synthesize(
+            samples=[{"target_turns": 2, "parsed_turn_plans": []}],
+            multiturn_attributes=multiturn_attr,
+        )
+
+    # Cap is 2; model returned 3 in one batch; only 2 should have been dispatched.
     assert fake_env.step.call_count == 2
