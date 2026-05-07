@@ -21,10 +21,10 @@ import pytest
 from oumi.core.configs.environment_config import EnvironmentConfig
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.inference_engine_type import InferenceEngineType
-from oumi.core.configs.params.tool_params import ToolParams
 from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.configs.params.remote_params import RemoteParams
+from oumi.core.configs.params.tool_params import ToolParams
 from oumi.core.configs.params.synthesis_params import (
     GeneralSynthesisParams,
     MultiTurnAttribute,
