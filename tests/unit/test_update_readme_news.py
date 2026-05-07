@@ -252,3 +252,6 @@ def test_create_pr_returns_url():
             release_body="## Notes\n- Feature A",
         )
     assert url == "https://github.com/oumi-ai/oumi/pull/9999"
+    assert mock_run.call_count == 6  # git config x2, checkout, add, commit, push
+    push_call = mock_run.call_args_list[-1]
+    assert push_call[0][0] == ["git", "push", "origin", "chore/news-v0.8"]

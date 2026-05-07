@@ -6,7 +6,7 @@ import os
 import re
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import datetime
 
 import requests
 
@@ -210,6 +210,8 @@ def main() -> None:
     url = release["html_url"]
     published_at = release["published_at"]
     body = release.get("body") or ""
+    if not body:
+        print(f"WARNING: Release {tag} has no body — Claude will generate a summary from an empty description.", file=sys.stderr)
     print(f"Release: {tag} published at {published_at}")
 
     readme_path = "README.md"
