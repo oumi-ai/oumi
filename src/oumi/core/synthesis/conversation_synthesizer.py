@@ -88,9 +88,6 @@ class ConversationSynthesizer:
                 f"not support it. Use one of: {supported}."
             )
 
-        # Build a tool_id -> environment dispatch table once. Synthesis
-        # may issue many tool calls per sample; resolving the owning
-        # environment per call would be O(N_envs * N_tools) each time.
         self._tool_dispatch: dict[str, BaseEnvironment] = {}
         if self._environment_config is not None:
             envs_by_id: dict[str, BaseEnvironment] = {
@@ -652,10 +649,6 @@ class ConversationSynthesizer:
             if not prompts:
                 break
 
-            # The default turn order is [USER, ASSISTANT], so within a single
-            # turn_idx every active sample shares the same role. Dispatch on
-            # that uniform role: the assistant path is a native tool-call
-            # sub-loop; the user path is a single batched infer.
             uniform_role = roles_for_turn[0]
             if not all(r == uniform_role for r in roles_for_turn):
                 raise RuntimeError(
@@ -714,26 +707,9 @@ class ConversationSynthesizer:
         max_tool_calls: int,
         assistant_tools: list[ToolDefinition] | None,
     ) -> None:
-        """Run a single assistant turn using native tool calling.
-
-        Each sample may go through several ``infer()`` rounds: the model
-        emits tool calls, those are dispatched through the env, the
-        results become Role.TOOL messages, and the model is re-prompted
-        until it produces a plain-text answer or hits
-        ``max_tool_calls``. When the cap is hit, a final "stop calling
-        tools" nudge forces a textual finalize.
-
-        Mutates ``histories`` in place: each sample's per-turn output
-        (assistant message[s] plus any tool messages) is appended once
-        the sample is done.
-        """
-        # Per-sample bookkeeping. Staging holds the messages that will
-        # be appended to histories[idx] when the sample finishes; we
-        # don't write to histories until the loop converges so a
-        # half-finished sample never leaks partial state. ``base_msgs``
-        # is the immutable initial prompt body (system persona + prior
-        # history + turn instruction) — each round's prompt is
-        # ``base_msgs + staging[idx]``.
+        """Run an assistant turn using native tool calling, mutating histories."""
+        # Each round's prompt for sample ``idx`` is ``base_msgs[idx] + staging[idx]``;
+        # staging is flushed to histories only after the sample converges.
         base_msgs: dict[int, list[Message]] = {
             idx: list(prompt.messages) for idx, prompt in zip(sample_indices, prompts)
         }
