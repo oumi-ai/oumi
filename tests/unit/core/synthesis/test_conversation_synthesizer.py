@@ -1832,13 +1832,7 @@ def test_run_tool_call_handles_non_dict_arguments(
     fake_env = Mock(spec=BaseEnvironment)
     mock_build_environment.return_value = fake_env
 
-    env_params = EnvironmentParams(
-        id="e", name="x", description="x", env_type="deterministic", tools=[]
-    )
-    env_config = MagicMock(spec=EnvironmentConfig)
-    env_config.environments = [env_params]
-    env_config.all_tools = [ToolParams(id="t", name="x", description="x")]
-    env_config.tool_environment_map = {"t": "e"}
+    env_config = _make_env_config("e", "t")
 
     inference_config = InferenceConfig(
         engine=InferenceEngineType.OPENAI,
@@ -2179,11 +2173,7 @@ def test_assistant_turn_clamps_multi_call_batch_to_cap(
         ):
             return [
                 Conversation(
-                    messages=[
-                        Message(
-                            role=Role.ASSISTANT, content='{"turns": []}'
-                        )
-                    ]
+                    messages=[Message(role=Role.ASSISTANT, content='{"turns": []}')]
                 )
                 for _ in prompts
             ]
@@ -2234,13 +2224,7 @@ def test_assistant_turn_clamps_multi_call_batch_to_cap(
     mock_engine.infer.side_effect = scripted_infer
     mock_build_inference_engine.return_value = mock_engine
 
-    env_params = EnvironmentParams(
-        id="e", name="x", description="x", env_type="deterministic", tools=[]
-    )
-    env_config = MagicMock(spec=EnvironmentConfig)
-    env_config.environments = [env_params]
-    env_config.all_tools = [ToolParams(id="t", name="x", description="x")]
-    env_config.tool_environment_map = {"t": "e"}
+    env_config = _make_env_config("e", "t")
 
     multiturn_attr = MultiTurnAttribute(
         id="dialog",
