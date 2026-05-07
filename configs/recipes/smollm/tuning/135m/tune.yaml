@@ -68,7 +68,7 @@ tuning:
   # `logs.update(metrics)` to `logs = {**logs, **metrics}`, so the metrics no
   # longer flow back through Trainer.evaluate()'s returned dict (only into
   # external loggers). Restore eval_mean_token_accuracy once the TRL fix lands.
-  # See trl@4cb07d36 and https://linear.app/oumi/issue/OPE-1846.
+  # See trl@4cb07d36 and OPE-1846.
   evaluation_metrics: ["eval_loss"]
   evaluation_direction: ["minimize"]
   tuner_type: OPTUNA
