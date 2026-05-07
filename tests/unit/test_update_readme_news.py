@@ -3,7 +3,6 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", ".github", "scripts"))
 
-import pytest
 from update_readme_news import (
     parse_news_items,
     rewrite_readme_news,
