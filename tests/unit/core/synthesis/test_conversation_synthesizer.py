@@ -50,10 +50,12 @@ def mock_inference_config():
     """Create a real InferenceConfig.
 
     Uses a real config rather than ``Mock(spec=InferenceConfig)`` so that
-    ``dataclasses.replace`` works in ``_planner_inference_config``.
+    ``dataclasses.replace`` works in ``_planner_inference_config``. The engine
+    is set to OPENAI so the synthesizer's tool-calling capability check passes
+    when grounding tests pass an environment with tools.
     """
     return InferenceConfig(
-        engine=InferenceEngineType.NATIVE,
+        engine=InferenceEngineType.OPENAI,
         model=Mock(spec=ModelParams),
         remote_params=Mock(spec=RemoteParams),
         generation=GenerationParams(),
