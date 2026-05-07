@@ -3,11 +3,15 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", ".github", "scripts"))
 
+from unittest.mock import patch, MagicMock
+
 from update_readme_news import (
     parse_news_items,
     rewrite_readme_news,
     is_release_in_news,
     format_news_item,
+    get_release_info,
+    has_open_pr_for_tag,
 )
 
 SAMPLE_README = """\
@@ -153,10 +157,6 @@ def test_rewrite_preserves_rest_of_readme():
     assert "Some text." in result
 
 
-from unittest.mock import patch, MagicMock
-from update_readme_news import get_release_info, has_open_pr_for_tag
-
-
 def _mock_response(json_data, status_code=200):
     mock = MagicMock()
     mock.status_code = status_code
@@ -172,8 +172,11 @@ def test_get_release_info_by_tag():
         "body": "## What's new\n- Feature A\n- Feature B",
         "published_at": "2026-05-01T12:00:00Z",
     }
-    with patch("update_readme_news.requests.get", return_value=_mock_response(payload)):
+    with patch("update_readme_news.requests.get", return_value=_mock_response(payload)) as mock_get:
         info = get_release_info("oumi-ai/oumi", "v0.8")
+    call_url = mock_get.call_args[0][0]
+    assert "releases/tags" in call_url
+    assert "v0.8" in call_url
     assert info["tag_name"] == "v0.8"
     assert info["html_url"] == "https://github.com/oumi-ai/oumi/releases/tag/v0.8"
 

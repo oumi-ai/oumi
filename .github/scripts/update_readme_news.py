@@ -127,6 +127,7 @@ def has_open_pr_for_tag(repo: str, tag: str) -> bool:
     """Return True if an open PR title already references this release tag."""
     headers = {"Authorization": f"Bearer {GITHUB_TOKEN}", "Accept": "application/vnd.github+json"}
     url = f"https://api.github.com/repos/{repo}/pulls"
+    # Fetches only the first page (max 100). Sufficient for this repo in practice.
     resp = requests.get(url, headers=headers, params={"state": "open", "per_page": 100})
     resp.raise_for_status()
     prs = resp.json()
