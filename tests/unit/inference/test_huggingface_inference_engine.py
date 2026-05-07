@@ -20,15 +20,8 @@ import pytest
 
 from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
 from oumi.core.types.conversation import Conversation, Message, Role
-from oumi.inference.huggingface_inference_engine import (
-    HuggingFaceInferenceEngine,
-    _split_model_and_provider,
-)
+from oumi.inference.huggingface_inference_engine import HuggingFaceInferenceEngine
 
-
-# ---------------------------------------------------------------------------
-# Helper
-# ---------------------------------------------------------------------------
 
 def _make_engine(**kwargs) -> HuggingFaceInferenceEngine:
     model_params = kwargs.pop("model_params", ModelParams(model_name="owner/model"))
@@ -37,57 +30,8 @@ def _make_engine(**kwargs) -> HuggingFaceInferenceEngine:
 
 
 def _simple_conversation() -> Conversation:
-    return Conversation(
-        messages=[Message(role=Role.USER, content="Hello")]
-    )
+    return Conversation(messages=[Message(role=Role.USER, content="Hello")])
 
-
-# ---------------------------------------------------------------------------
-# _split_model_and_provider
-# ---------------------------------------------------------------------------
-
-class TestSplitModelAndProvider:
-    def test_no_provider_suffix(self):
-        model_id, provider = _split_model_and_provider("meta-llama/Llama-3.1-8B-Instruct")
-        assert model_id == "meta-llama/Llama-3.1-8B-Instruct"
-        assert provider is None
-
-    def test_fastest_suffix(self):
-        model_id, provider = _split_model_and_provider(
-            "meta-llama/Llama-3.1-8B-Instruct:fastest"
-        )
-        assert model_id == "meta-llama/Llama-3.1-8B-Instruct"
-        assert provider == "fastest"
-
-    def test_cheapest_suffix(self):
-        model_id, provider = _split_model_and_provider(
-            "meta-llama/Llama-3.1-8B-Instruct:cheapest"
-        )
-        assert model_id == "meta-llama/Llama-3.1-8B-Instruct"
-        assert provider == "cheapest"
-
-    def test_named_provider_suffix(self):
-        model_id, provider = _split_model_and_provider(
-            "Qwen/Qwen2.5-7B-Instruct:together"
-        )
-        assert model_id == "Qwen/Qwen2.5-7B-Instruct"
-        assert provider == "together"
-
-    def test_no_slash_no_suffix(self):
-        model_id, provider = _split_model_and_provider("some-model")
-        assert model_id == "some-model"
-        assert provider is None
-
-    def test_empty_suffix_treated_as_no_provider(self):
-        # "owner/model:" has an empty suffix — treated as no provider.
-        model_id, provider = _split_model_and_provider("owner/model:")
-        assert model_id == "owner/model"
-        assert provider is None
-
-
-# ---------------------------------------------------------------------------
-# Engine initialisation
-# ---------------------------------------------------------------------------
 
 class TestHuggingFaceInferenceEngineInit:
     def test_default_base_url(self):
@@ -118,43 +62,35 @@ class TestHuggingFaceInferenceEngineInit:
             HuggingFaceInferenceEngine()  # type: ignore[call-arg]
 
 
-# ---------------------------------------------------------------------------
-# _convert_conversation_to_api_input
-# ---------------------------------------------------------------------------
+class TestProviderSuffixPassThrough:
+    """The HF router parses the ``:provider`` suffix server-side; the engine must
+    pass ``model_name`` through to the request body unchanged."""
 
-class TestConvertConversationToApiInput:
-    def _convert(
-        self,
-        model_name: str,
-        generation_params: GenerationParams | None = None,
-    ) -> dict:
+    def _convert(self, model_name: str) -> dict:
         engine = _make_engine(model_params=ModelParams(model_name=model_name))
-        gen_params = generation_params or GenerationParams()
         return engine._convert_conversation_to_api_input(
             conversation=_simple_conversation(),
-            generation_params=gen_params,
+            generation_params=GenerationParams(),
             model_params=ModelParams(model_name=model_name),
         )
 
-    def test_model_name_without_provider(self):
+    def test_plain_model_name(self):
         result = self._convert("owner/plain-model")
         assert result["model"] == "owner/plain-model"
         assert "provider" not in result
 
-    def test_model_name_with_provider_suffix_stripped(self):
-        result = self._convert("owner/model:together")
-        assert result["model"] == "owner/model"
-        assert result["provider"] == "together"
-
-    def test_fastest_provider(self):
+    def test_fastest_suffix_preserved(self):
         result = self._convert("owner/model:fastest")
-        assert result["model"] == "owner/model"
-        assert result["provider"] == "fastest"
+        assert result["model"] == "owner/model:fastest"
+        assert "provider" not in result
 
-    def test_cheapest_provider(self):
+    def test_cheapest_suffix_preserved(self):
         result = self._convert("owner/model:cheapest")
-        assert result["model"] == "owner/model"
-        assert result["provider"] == "cheapest"
+        assert result["model"] == "owner/model:cheapest"
+
+    def test_named_provider_suffix_preserved(self):
+        result = self._convert("Qwen/Qwen2.5-7B-Instruct:together")
+        assert result["model"] == "Qwen/Qwen2.5-7B-Instruct:together"
 
     def test_messages_included(self):
         result = self._convert("owner/model")
@@ -162,7 +98,11 @@ class TestConvertConversationToApiInput:
         assert any(m.get("role") == "user" for m in result["messages"])
 
     def test_max_new_tokens_forwarded(self):
-        gen = GenerationParams(max_new_tokens=512)
-        result = self._convert("owner/model", generation_params=gen)
+        engine = _make_engine(model_params=ModelParams(model_name="owner/model"))
+        result = engine._convert_conversation_to_api_input(
+            conversation=_simple_conversation(),
+            generation_params=GenerationParams(max_new_tokens=512),
+            model_params=ModelParams(model_name="owner/model"),
+        )
         # RemoteInferenceEngine maps max_new_tokens -> max_completion_tokens.
         assert result.get("max_completion_tokens") == 512
