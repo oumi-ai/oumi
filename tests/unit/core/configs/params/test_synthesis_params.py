@@ -765,7 +765,7 @@ def test_general_synthesis_params_empty_lists_normalized_to_none():
 def test_general_synthesis_params_invalid():
     # Test duplicate attribute IDs
     with pytest.raises(
-        OumiConfigError, match="GeneralSynthesisParams contains duplicate attribute IDs"
+        OumiConfigError, match="Attribute ID 'new_attr1' is used more than once"
     ):
         GeneralSynthesisParams(
             input_data=[
@@ -778,8 +778,7 @@ def test_general_synthesis_params_invalid():
     for reserved_id in reserved_ids:
         with pytest.raises(
             OumiConfigError,
-            match=f"GeneralSynthesisParams does not allow '{reserved_id}' as an "
-            "attribute ID",
+            match=f"Attribute ID '{reserved_id}' is reserved for multiturn synthesis",
         ):
             GeneralSynthesisParams(
                 generated_attributes=[
@@ -794,8 +793,7 @@ def test_general_synthesis_params_invalid():
 
     with pytest.raises(
         OumiConfigError,
-        match="GeneralSynthesisParams does not allow 'conversation_plan' "
-        "as an attribute ID because it is reserved for multiturn synthesis.",
+        match="Attribute ID 'conversation_plan' is reserved for multiturn synthesis",
     ):
         GeneralSynthesisParams(
             generated_attributes=[
@@ -821,8 +819,7 @@ def test_general_synthesis_params_invalid():
 
     with pytest.raises(
         OumiConfigError,
-        match="GeneralSynthesisParams.combination_sampling sample rates must be "
-        "less than or equal to 1.0",
+        match="Combination sampling rates must sum to 1.0 or less",
     ):
         GeneralSynthesisParams(
             combination_sampling=[
