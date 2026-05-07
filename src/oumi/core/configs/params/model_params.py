@@ -21,7 +21,10 @@ from huggingface_hub.errors import HFValidationError
 from omegaconf import MISSING
 
 from oumi.core.configs.params.base_params import BaseParams
-from oumi.core.types.exceptions import HardwareException
+from oumi.exceptions import (
+    HardwareException,
+    OumiConfigError,
+)
 from oumi.utils.logging import logger
 from oumi.utils.torch_utils import get_torch_dtype
 
@@ -222,6 +225,20 @@ class ModelParams(BaseParams):
     This is used to specify the version of the model to use.
     """
 
+    tool_call_parser: str | None = None
+    """Name of a vLLM tool-call parser to apply to assistant outputs.
+
+    When set, the local ``VLLMInferenceEngine`` instantiates the matching
+    parser from ``vllm.tool_parsers`` (e.g. ``"hermes"``, ``"qwen3_xml"``,
+    ``"llama4_pythonic"``, ``"mistral"``), runs it over the model's output
+    text, and populates ``Message.tool_calls`` on the returned message
+    instead of leaving the tool-call tokens as raw text. ``finish_reason``
+    is set to ``tool_calls`` when calls are extracted.
+
+    Has no effect on engines other than vLLM. Tied to vLLM internals;
+    available parsers depend on the installed vLLM version.
+    """
+
     def __post_init__(self):
         """Populate additional params."""
         self.torch_dtype = None
@@ -233,7 +250,7 @@ class ModelParams(BaseParams):
                 self.processor_kwargs.keys()
             )
             if len(conflicting_keys) > 0:
-                raise ValueError(
+                raise OumiConfigError(
                     "processor_kwargs attempts to override the following "
                     f"reserved fields: {conflicting_keys}. "
                     "Use properties of ModelParams instead."
@@ -249,7 +266,10 @@ class ModelParams(BaseParams):
     def __finalize_and_validate__(self):
         """Finalizes and validates final config params."""
         # Lazy imports: transformers.utils is heavy (~800ms)
-        from transformers.utils import find_adapter_config_file, is_flash_attn_2_available
+        from transformers.utils import (
+            find_adapter_config_file,
+            is_flash_attn_2_available,
+        )
 
         # If the user didn't specify a LoRA adapter, check to see if the dir/repo
         # specified by `model_name` contains an adapter, and set `adapter_name` if so.
@@ -282,11 +302,22 @@ class ModelParams(BaseParams):
                 # present, set it to the base model name found in the adapter config,
                 # if present. Error otherwise.
                 if len(list(adapter_dir.glob("config.json"))) == 0:
-                    with open(adapter_config_file) as f:
-                        adapter_config = json.load(f)
+                    try:
+                        with open(adapter_config_file) as f:
+                            adapter_config = json.load(f)
+                    except OSError as e:
+                        raise OumiConfigError(
+                            f"Failed to read adapter config at "
+                            f"{adapter_config_file}: {e}"
+                        ) from e
+                    except json.JSONDecodeError as e:
+                        raise OumiConfigError(
+                            f"Adapter config at {adapter_config_file} contains invalid "
+                            f"JSON: (line {e.lineno}, col {e.colno}): {e.msg}"
+                        ) from e
                     model_name = adapter_config.get("base_model_name_or_path")
                     if not model_name:
-                        raise ValueError(
+                        raise OumiConfigError(
                             "`model_name` specifies an adapter model only,"
                             " but the base model could not be found!"
                         )
@@ -306,4 +337,6 @@ class ModelParams(BaseParams):
             )
 
         if self.model_max_length is not None and self.model_max_length <= 0:
-            raise ValueError("model_max_length must be a positive integer or None.")
+            raise OumiConfigError(
+                "model_max_length must be a positive integer or None."
+            )

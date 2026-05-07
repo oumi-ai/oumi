@@ -85,12 +85,17 @@ from __future__ import annotations
 import importlib
 from typing import TYPE_CHECKING, Any
 
+from oumi.exceptions import OumiConfigError as OumiConfigError
+
 # Mapping of attribute names to their module paths
 _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     # analyze_config
     "AnalyzeConfig": ("oumi.core.configs.analyze_config", "AnalyzeConfig"),
     "DatasetSource": ("oumi.core.configs.analyze_config", "DatasetSource"),
-    "SampleAnalyzerParams": ("oumi.core.configs.analyze_config", "SampleAnalyzerParams"),
+    "SampleAnalyzerParams": (
+        "oumi.core.configs.analyze_config",
+        "SampleAnalyzerParams",
+    ),
     # async_evaluation_config
     "AsyncEvaluationConfig": (
         "oumi.core.configs.async_evaluation_config",
@@ -98,6 +103,11 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     ),
     # base_config
     "BaseConfig": ("oumi.core.configs.base_config", "BaseConfig"),
+    # environment_config
+    "EnvironmentConfig": (
+        "oumi.core.configs.environment_config",
+        "EnvironmentConfig",
+    ),
     # evaluation_config
     "EvaluationConfig": ("oumi.core.configs.evaluation_config", "EvaluationConfig"),
     # inference_config
@@ -128,8 +138,12 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     "DataParams": ("oumi.core.configs.params.data_params", "DataParams"),
     "DatasetParams": ("oumi.core.configs.params.data_params", "DatasetParams"),
     "DatasetSplit": ("oumi.core.configs.params.data_params", "DatasetSplit"),
-    "DatasetSplitParams": ("oumi.core.configs.params.data_params", "DatasetSplitParams"),
+    "DatasetSplitParams": (
+        "oumi.core.configs.params.data_params",
+        "DatasetSplitParams",
+    ),
     "MixtureStrategy": ("oumi.core.configs.params.data_params", "MixtureStrategy"),
+    "TrainTarget": ("oumi.core.configs.params.data_params", "TrainTarget"),
     # params/evaluation_params
     "EvaluationBackend": (
         "oumi.core.configs.params.evaluation_params",
@@ -283,13 +297,20 @@ def __dir__() -> list[str]:
 if TYPE_CHECKING:
     from oumi.core.configs.analyze_config import (
         AnalyzeConfig as AnalyzeConfig,
+    )
+    from oumi.core.configs.analyze_config import (
         DatasetSource as DatasetSource,
+    )
+    from oumi.core.configs.analyze_config import (
         SampleAnalyzerParams as SampleAnalyzerParams,
     )
     from oumi.core.configs.async_evaluation_config import (
         AsyncEvaluationConfig as AsyncEvaluationConfig,
     )
     from oumi.core.configs.base_config import BaseConfig as BaseConfig
+    from oumi.core.configs.environment_config import (
+        EnvironmentConfig as EnvironmentConfig,
+    )
     from oumi.core.configs.evaluation_config import (
         EvaluationConfig as EvaluationConfig,
     )
@@ -299,27 +320,54 @@ if TYPE_CHECKING:
     )
     from oumi.core.configs.job_config import (
         JobConfig as JobConfig,
+    )
+    from oumi.core.configs.job_config import (
         JobResources as JobResources,
+    )
+    from oumi.core.configs.job_config import (
         StorageMount as StorageMount,
     )
     from oumi.core.configs.judge_config import JudgeConfig as JudgeConfig
     from oumi.core.configs.params.data_params import (
         DataParams as DataParams,
+    )
+    from oumi.core.configs.params.data_params import (
         DatasetParams as DatasetParams,
+    )
+    from oumi.core.configs.params.data_params import (
         DatasetSplit as DatasetSplit,
+    )
+    from oumi.core.configs.params.data_params import (
         DatasetSplitParams as DatasetSplitParams,
+    )
+    from oumi.core.configs.params.data_params import (
         MixtureStrategy as MixtureStrategy,
+    )
+    from oumi.core.configs.params.data_params import (
+        TrainTarget as TrainTarget,
     )
     from oumi.core.configs.params.evaluation_params import (
         EvaluationBackend as EvaluationBackend,
+    )
+    from oumi.core.configs.params.evaluation_params import (
         EvaluationTaskParams as EvaluationTaskParams,
+    )
+    from oumi.core.configs.params.evaluation_params import (
         LMHarnessTaskParams as LMHarnessTaskParams,
     )
     from oumi.core.configs.params.fsdp_params import (
         AutoWrapPolicy as AutoWrapPolicy,
+    )
+    from oumi.core.configs.params.fsdp_params import (
         BackwardPrefetch as BackwardPrefetch,
+    )
+    from oumi.core.configs.params.fsdp_params import (
         FSDPParams as FSDPParams,
+    )
+    from oumi.core.configs.params.fsdp_params import (
         ShardingStrategy as ShardingStrategy,
+    )
+    from oumi.core.configs.params.fsdp_params import (
         StateDictType as StateDictType,
     )
     from oumi.core.configs.params.generation_params import (
@@ -331,12 +379,18 @@ if TYPE_CHECKING:
     )
     from oumi.core.configs.params.judge_params import (
         JudgeOutputType as JudgeOutputType,
+    )
+    from oumi.core.configs.params.judge_params import (
         JudgeResponseFormat as JudgeResponseFormat,
     )
     from oumi.core.configs.params.model_params import ModelParams as ModelParams
     from oumi.core.configs.params.peft_params import (
         LoraWeightInitialization as LoraWeightInitialization,
+    )
+    from oumi.core.configs.params.peft_params import (
         PeftParams as PeftParams,
+    )
+    from oumi.core.configs.params.peft_params import (
         PeftSaveMode as PeftSaveMode,
     )
     from oumi.core.configs.params.profiler_params import (
@@ -345,36 +399,74 @@ if TYPE_CHECKING:
     from oumi.core.configs.params.remote_params import RemoteParams as RemoteParams
     from oumi.core.configs.params.synthesis_params import (
         AttributeCombination as AttributeCombination,
-        DocumentSegmentationParams as DocumentSegmentationParams,
-        DocumentSource as DocumentSource,
-        ExampleSource as ExampleSource,
-        GeneralSynthesisParams as GeneralSynthesisParams,
-        GeneratedAttribute as GeneratedAttribute,
-        GeneratedAttributePostprocessingParams as GeneratedAttributePostprocessingParams,
-        MultiTurnAttribute as MultiTurnAttribute,
-        SampledAttribute as SampledAttribute,
-        SampledAttributeValue as SampledAttributeValue,
-        SegmentationStrategy as SegmentationStrategy,
-        TextConversation as TextConversation,
-        TextMessage as TextMessage,
-        TransformationStrategy as TransformationStrategy,
-        TransformationType as TransformationType,
-        TransformedAttribute as TransformedAttribute,
     )
     from oumi.core.configs.params.synthesis_params import (
         DatasetSource as DatasetSourceParam,
+    )
+    from oumi.core.configs.params.synthesis_params import (
+        DocumentSegmentationParams as DocumentSegmentationParams,
+    )
+    from oumi.core.configs.params.synthesis_params import (
+        DocumentSource as DocumentSource,
+    )
+    from oumi.core.configs.params.synthesis_params import (
+        ExampleSource as ExampleSource,
+    )
+    from oumi.core.configs.params.synthesis_params import (
+        GeneralSynthesisParams as GeneralSynthesisParams,
+    )
+    from oumi.core.configs.params.synthesis_params import (
+        GeneratedAttribute as GeneratedAttribute,
+    )
+    from oumi.core.configs.params.synthesis_params import (
+        GeneratedAttributePostprocessingParams as GeneratedAttributePostprocessingParams,  # noqa: E501
+    )
+    from oumi.core.configs.params.synthesis_params import (
+        MultiTurnAttribute as MultiTurnAttribute,
+    )
+    from oumi.core.configs.params.synthesis_params import (
+        SampledAttribute as SampledAttribute,
+    )
+    from oumi.core.configs.params.synthesis_params import (
+        SampledAttributeValue as SampledAttributeValue,
+    )
+    from oumi.core.configs.params.synthesis_params import (
+        SegmentationStrategy as SegmentationStrategy,
+    )
+    from oumi.core.configs.params.synthesis_params import (
+        TextConversation as TextConversation,
+    )
+    from oumi.core.configs.params.synthesis_params import (
+        TextMessage as TextMessage,
+    )
+    from oumi.core.configs.params.synthesis_params import (
+        TransformationStrategy as TransformationStrategy,
+    )
+    from oumi.core.configs.params.synthesis_params import (
+        TransformationType as TransformationType,
+    )
+    from oumi.core.configs.params.synthesis_params import (
+        TransformedAttribute as TransformedAttribute,
     )
     from oumi.core.configs.params.telemetry_params import (
         TelemetryParams as TelemetryParams,
     )
     from oumi.core.configs.params.training_params import (
         MixedPrecisionDtype as MixedPrecisionDtype,
+    )
+    from oumi.core.configs.params.training_params import (
         SchedulerType as SchedulerType,
+    )
+    from oumi.core.configs.params.training_params import (
         TrainerType as TrainerType,
+    )
+    from oumi.core.configs.params.training_params import (
         TrainingParams as TrainingParams,
     )
     from oumi.core.configs.params.tuning_params import (
         TunerType as TunerType,
+    )
+    from oumi.core.configs.params.tuning_params import (
         TuningParams as TuningParams,
     )
     from oumi.core.configs.quantization_config import (
@@ -383,7 +475,6 @@ if TYPE_CHECKING:
     from oumi.core.configs.synthesis_config import SynthesisConfig as SynthesisConfig
     from oumi.core.configs.training_config import TrainingConfig as TrainingConfig
     from oumi.core.configs.tuning_config import TuningConfig as TuningConfig
-
 
 __all__ = [
     "AsyncEvaluationConfig",
@@ -401,6 +492,7 @@ __all__ = [
     "EvaluationConfig",
     "EvaluationBackend",
     "EvaluationConfig",
+    "EnvironmentConfig",
     "EvaluationTaskParams",
     "FSDPParams",
     "GenerationParams",
@@ -416,8 +508,10 @@ __all__ = [
     "LMHarnessTaskParams",
     "LoraWeightInitialization",
     "MixedPrecisionDtype",
+    "TrainTarget",
     "MixtureStrategy",
     "ModelParams",
+    "OumiConfigError",
     "PeftParams",
     "PeftSaveMode",
     "ProfilerParams",
@@ -435,7 +529,6 @@ __all__ = [
     "TunerType",
     "TuningConfig",
     "TuningParams",
-    "AttributeCombination",
     "DatasetSourceParam",
     "DocumentSegmentationParams",
     "DocumentSource",

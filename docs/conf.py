@@ -10,10 +10,17 @@ import os
 # Configure logging to suppress specific warnings
 class DuplicateObjectFilter(logging.Filter):
     def filter(self, record):
-        """Filter out duplicate object description warnings."""
+        """Filter out duplicate-target warnings caused by package re-exports.
+
+        Classes re-exported in ``oumi.core.configs.__init__`` (e.g. ``ModelParams``)
+        are documented at both the package and submodule paths; both warnings are
+        false positives.
+        """
         if hasattr(record, "msg") and record.msg:
             msg = str(record.msg)
             if "duplicate object description" in msg:
+                return False
+            if "more than one target found for cross-reference" in msg:
                 return False
         return True
 
@@ -33,9 +40,9 @@ sphinx_logger.addFilter(DuplicateObjectFilter())
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = "Oumi"
-copyright = "2025 - Oumi"
-author = "Oumi Community"
+project = "Oumi OSS"
+copyright = "2025-2026 - Oumi"
+author = "Oumi OSS Community"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -106,7 +113,7 @@ autodoc_mock_imports = ["oumi.models.experimental"]
 html_theme = "sphinx_book_theme"
 html_show_sourcelink = True
 html_show_sphinx = False
-html_title = "Oumi"
+html_title = "Oumi OSS"
 html_favicon = "_static/logo/favicon.png"
 html_static_path = ["_static"]
 html_css_files = ["custom.css"]
@@ -134,7 +141,7 @@ html_theme_options = {
         # Note: the light logo is intentionally used for the dark theme
         "image_light": "_static/logo/oumi_logo_dark.png",
         "image_dark": "_static/logo/oumi_logo_light.png",
-        "alt_text": "Oumi Documentation - Home",
+        "alt_text": "Oumi OSS Documentation - Home",
     },
     "analytics": {
         "google_analytics_id": "G-YZE0YFDLPT",
@@ -161,7 +168,7 @@ pygments_style = "github-dark"
 # Mapping for intersphinx
 # modeule name -> (url, inventory file)
 intersphinx_mapping = {
-    "torch": ("https://pytorch.org/docs/stable", None),
+    "torch": ("https://docs.pytorch.org/docs/main", None),
     "transformers": ("https://huggingface.co/docs/transformers/main/en", None),
     "trl": ("https://huggingface.co/docs/trl/main/en", None),
     "datasets": ("https://huggingface.co/docs/datasets/main/en", None),

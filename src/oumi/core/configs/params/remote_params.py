@@ -17,6 +17,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.exceptions import OumiConfigError
 
 
 @dataclass
@@ -47,11 +48,53 @@ class RemoteParams(BaseParams):
     num_workers: int = 1
     """Number of workers to use for parallel inference."""
 
+    requests_per_minute: int | None = None
+    """Maximum number of API requests per minute (RPM).
+
+    When set, the engine enforces this limit the sliding window algo in RateLimiter. If
+    the limit is reached, workers sleep until the oldest request in the 60 second window
+    expires. In line with the RPM limits per OpenAI and Anthropic docs.
+
+    - OpenAI: https://platform.openai.com/settings/organization/limits
+    - OpenAI: https://developers.openai.com/api/docs/guides/rate-limits
+    - Anthropic: https://console.anthropic.com/settings/limits
+    - vLLM: configured per-server
+
+    Default is None, to disable request-rate limiting.
+    """
+
+    input_tokens_per_minute: int | None = None
+    """Maximum input (prompt) tokens per minute (input TPM).
+
+    When set, the inference engine tracks input token usage from each API response and
+    sleeps before the next request if the 60-second rolling total would exceed
+    this limit. Token counts are read from the normalized output of
+    "_extract_usage_from_response()", which maps all supported APIs to the
+    "prompt_tokens" key.
+
+    Default is None, to disable input-token-rate limiting.
+    """
+
+    output_tokens_per_minute: int | None = None
+    """Maximum output (completion) tokens per minute (output TPM).
+
+    When set, the inference engine tracks output token usage from each API response and
+    sleeps before the next request if the 60-second rolling total would exceed
+    this limit. Token counts are read from the normalized output of
+    "_extract_usage_from_response()", which maps all supported APIs to the
+    "completion_tokens" key.
+
+    Default is None, to disable output-token-rate limiting.
+    """
+
     politeness_policy: float = 0.0
     """Politeness policy to use when calling an API.
 
-    If greater than zero, this is the amount of time in seconds a worker will sleep
-    before making a subsequent request.
+    If greater than zero, this is the amount of time in seconds a worker will
+    sleep before making a subsequent request.
+
+    .. deprecated::
+        Use ``requests_per_minute`` instead.
     """
 
     batch_completion_window: str | None = "24h"
@@ -84,21 +127,43 @@ class RemoteParams(BaseParams):
     def __post_init__(self):
         """Validate the remote parameters."""
         if self.num_workers < 1:
-            raise ValueError(
+            raise OumiConfigError(
                 "Number of num_workers must be greater than or equal to 1."
             )
+        if self.requests_per_minute is not None and self.requests_per_minute < 1:
+            raise OumiConfigError(
+                "requests_per_minute must be greater than or equal to 1."
+            )
+        if (
+            self.input_tokens_per_minute is not None
+            and self.input_tokens_per_minute < 1
+        ):
+            raise OumiConfigError(
+                "input_tokens_per_minute must be greater than or equal to 1."
+            )
+        if (
+            self.output_tokens_per_minute is not None
+            and self.output_tokens_per_minute < 1
+        ):
+            raise OumiConfigError(
+                "output_tokens_per_minute must be greater than or equal to 1."
+            )
         if self.politeness_policy < 0:
-            raise ValueError("Politeness policy must be greater than or equal to 0.")
+            raise OumiConfigError(
+                "Politeness policy must be greater than or equal to 0."
+            )
         if self.connection_timeout < 0:
-            raise ValueError("Connection timeout must be greater than or equal to 0.")
+            raise OumiConfigError(
+                "Connection timeout must be greater than or equal to 0."
+            )
         if not np.isfinite(self.politeness_policy):
-            raise ValueError("Politeness policy must be finite.")
+            raise OumiConfigError("Politeness policy must be finite.")
         if self.max_retries < 0:
-            raise ValueError("Max retries must be greater than or equal to 0.")
+            raise OumiConfigError("Max retries must be greater than or equal to 0.")
         if self.retry_backoff_base <= 0:
-            raise ValueError("Retry backoff base must be greater than 0.")
+            raise OumiConfigError("Retry backoff base must be greater than 0.")
         if self.retry_backoff_max < self.retry_backoff_base:
-            raise ValueError(
+            raise OumiConfigError(
                 "Retry backoff max must be greater than or equal to retry backoff base."
             )
 
@@ -179,24 +244,28 @@ class AdaptiveConcurrencyParams(BaseParams):
     def __post_init__(self):
         """Validate the adaptive concurrency parameters."""
         if self.min_concurrency < 1:
-            raise ValueError("Min concurrency must be greater than or equal to 1.")
+            raise OumiConfigError("Min concurrency must be greater than or equal to 1.")
         if self.max_concurrency < self.min_concurrency:
-            raise ValueError(
+            raise OumiConfigError(
                 "Max concurrency must be greater than or equal to min concurrency."
             )
         if self.initial_concurrency_factor < 0 or self.initial_concurrency_factor > 1:
-            raise ValueError("Initial concurrency factor must be between 0 and 1.")
+            raise OumiConfigError("Initial concurrency factor must be between 0 and 1.")
         if self.concurrency_step < 1:
-            raise ValueError("Concurrency step must be greater than or equal to 1.")
+            raise OumiConfigError(
+                "Concurrency step must be greater than or equal to 1."
+            )
         if self.min_update_time <= 0:
-            raise ValueError("Min update time must be greater than 0.")
+            raise OumiConfigError("Min update time must be greater than 0.")
         if self.error_threshold < 0 or self.error_threshold > 1:
-            raise ValueError("Error threshold must be between 0 and 1.")
+            raise OumiConfigError("Error threshold must be between 0 and 1.")
         if self.backoff_factor <= 0:
-            raise ValueError("Backoff factor must be greater than 0.")
+            raise OumiConfigError("Backoff factor must be greater than 0.")
         if self.recovery_threshold < 0 or self.recovery_threshold > 1:
-            raise ValueError("Recovery threshold must be between 0 and 1.")
+            raise OumiConfigError("Recovery threshold must be between 0 and 1.")
         if self.recovery_threshold >= self.error_threshold:
-            raise ValueError("Recovery threshold must be less than error threshold.")
+            raise OumiConfigError(
+                "Recovery threshold must be less than error threshold."
+            )
         if self.min_window_size < 1:
-            raise ValueError("Min window size must be greater than or equal to 1.")
+            raise OumiConfigError("Min window size must be greater than or equal to 1.")

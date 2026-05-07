@@ -12,17 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import dataclasses
 import random
 
 from oumi.builders.inference_engines import build_inference_engine
+from oumi.core.configs.environment_config import EnvironmentConfig
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.inference_engine_type import InferenceEngineType
+from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.configs.params.synthesis_params import (
     GeneralSynthesisParams,
     MultiTurnAttribute,
 )
+from oumi.core.configs.params.tool_params import ToolParams
 from oumi.core.synthesis.attribute_formatter import AttributeFormatter
-from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.core.types.conversation import (
+    PLANNER_JSON_SCHEMA,
+    Conversation,
+    Message,
+    Role,
+)
 from oumi.utils.logging import logger
 from oumi.utils.str_utils import extract_json
 
@@ -39,9 +48,11 @@ class ConversationSynthesizer:
         self,
         params: GeneralSynthesisParams,
         inference_config: InferenceConfig,
+        environment_config: EnvironmentConfig | None = None,
     ):
         """Initialize the synthesizer."""
         self._params = params
+        self._environment_config = environment_config
         self._formatter = AttributeFormatter(params)
 
         self._inference_engine = build_inference_engine(
@@ -51,6 +62,17 @@ class ConversationSynthesizer:
         )
         self._inference_config = inference_config
         self._default_turn_order = [Role.USER, Role.ASSISTANT]
+
+    def _resolve_available_tools(
+        self, multiturn_attribute: MultiTurnAttribute
+    ) -> list[ToolParams]:
+        """Resolve tools for a multiturn attribute from selected environments."""
+        if self._environment_config is None:
+            return []
+        return self._environment_config.resolve_tools(
+            environment_ids=multiturn_attribute.available_environments or None,
+            tool_ids=multiturn_attribute.available_tools or None,
+        )
 
     def _validate_roles(self, multiturn_attribute: MultiTurnAttribute) -> None:
         """Validate that required roles have corresponding personas.
@@ -98,6 +120,13 @@ class ConversationSynthesizer:
             f"Synthesizing {len(samples)} conversations for "
             f"attribute '{multiturn_attributes.id}'"
         )
+        available_tools = self._resolve_available_tools(multiturn_attributes)
+        if available_tools:
+            logger.debug(
+                "Resolved tools for '%s': %s",
+                multiturn_attributes.id,
+                [tool.id for tool in available_tools],
+            )
 
         samples = self._plan_samples(samples, multiturn_attributes)
         conversations = self._synthesize_all_samples(samples, multiturn_attributes)
@@ -199,10 +228,11 @@ class ConversationSynthesizer:
         return augmented_samples
 
     def _parse_plan(self, plan: str, target_turns: int) -> list[str] | None:
-        """Parse a JSON-formatted conversation plan.
+        """Parse a guided-decoded planner output into per-turn instructions.
 
-        Extracts turn instructions from JSON array. Expects format:
-        [{"turn": 1, "instruction": "..."}, ...]
+        Expects the ``{"turns": [{"turn": 1, "instruction": "..."}, ...]}``
+        shape enforced by ``PLANNER_JSON_SCHEMA``. Anything else returns
+        ``None`` so ``_plan_samples``'s retry loop can re-prompt.
 
         Args:
             plan: The full plan text from the planner.
@@ -214,13 +244,10 @@ class ConversationSynthesizer:
         if not plan:
             return None
 
-        turns = extract_json(plan, expected_type=list)
-        if turns is None:
-            single = extract_json(plan, expected_type=dict)
-            if single is not None:
-                turns = [single]
-            else:
-                return None
+        wrapped = extract_json(plan, expected_type=dict)
+        if not isinstance(wrapped, dict) or not isinstance(wrapped.get("turns"), list):
+            return None
+        turns = wrapped["turns"]
 
         result = [""] * target_turns
         for turn in turns:
@@ -342,7 +369,8 @@ class ConversationSynthesizer:
         """Create the planner prompt template with role context and turn order.
 
         Returns a Conversation with a one-shot example for consistent formatting.
-        The prompt instructs the model to output JSON wrapped in code fences.
+        Pairs with :meth:`_planner_inference_config` to drive guided JSON
+        decoding against ``PLANNER_JSON_SCHEMA``.
         """
         role_context = self._build_role_context(sample, multiturn_attribute)
         turn_order = self._default_turn_order
@@ -352,8 +380,10 @@ class ConversationSynthesizer:
         system_prompt = (
             "You are a conversation planner. Create conversation outlines "
             "that flow logically from start to finish.\n\n"
-            "IMPORTANT: Output your plan as a JSON array wrapped in ```json code "
-            "fences. Each element must have: turn (number) and instruction (string).\n"
+            "IMPORTANT: Output your plan as a raw JSON object with a `turns` "
+            "array. Do not use markdown or code fences. "
+            "Each element of `turns` must have: turn (number) and instruction "
+            "(string).\n"
             "Your instructions MUST be specific to the role context provided. "
             "Each turn's instruction should reflect what that specific role "
             "would do at that point in the conversation."
@@ -371,14 +401,18 @@ class ConversationSynthesizer:
             "Additional instructions: Focus on resolving the order issue "
             "efficiently while maintaining a polite and helpful tone."
         )
-        example_response = """```json
-[
-  {"turn": 1, "instruction": "Greet support and explain the issue with the order"},
-  {"turn": 2, "instruction": "Acknowledge the issue and ask for order details"},
-  {"turn": 3, "instruction": "Provide order number and describe the problem further"},
-  {"turn": 4, "instruction": "Confirm the issue and offer a resolution"}
-]
-```"""
+        example_response = (
+            '{"turns": [\n'
+            '  {"turn": 1, "instruction": "Greet support and explain the '
+            'issue with the order"},\n'
+            '  {"turn": 2, "instruction": "Acknowledge the issue and ask '
+            'for order details"},\n'
+            '  {"turn": 3, "instruction": "Provide order number and describe '
+            'the problem further"},\n'
+            '  {"turn": 4, "instruction": "Confirm the issue and offer a '
+            'resolution"}\n'
+            "]}"
+        )
 
         base_prompt = (
             f"Plan a {target_turns}-turn conversation.\n"
@@ -401,10 +435,7 @@ class ConversationSynthesizer:
             )
             base_prompt += f"\nAdditional instructions: {formatted_planner}\n"
 
-        base_prompt += (
-            "\nOutput ONLY the JSON array wrapped in ```json code fences. "
-            "No other text."
-        )
+        base_prompt += "\nOutput ONLY the JSON object. No markdown. No other text."
 
         return Conversation(
             messages=[
@@ -426,10 +457,26 @@ class ConversationSynthesizer:
         """
         inference_results = self._inference_engine.infer(
             planners,
-            inference_config=self._inference_config,
+            inference_config=self._planner_inference_config(),
         )
 
         return self._extract_response(inference_results)
+
+    def _planner_inference_config(self) -> InferenceConfig:
+        """Create an inference config for planner calls with JSON guided decoding.
+
+        Returns a copy of ``self._inference_config`` whose ``generation`` block
+        carries ``GuidedDecodingParams(json=PLANNER_JSON_SCHEMA)``. The base
+        config is left untouched so per-turn (non-planner) inference is not
+        constrained.
+        """
+        return dataclasses.replace(
+            self._inference_config,
+            generation=dataclasses.replace(
+                self._inference_config.generation,
+                guided_decoding=GuidedDecodingParams(json=PLANNER_JSON_SCHEMA),
+            ),
+        )
 
     def _synthesize_all_samples(
         self,

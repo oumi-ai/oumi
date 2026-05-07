@@ -78,6 +78,11 @@ class GoogleGeminiInferenceEngine(RemoteInferenceEngine):
         return api_input
 
     @override
+    def get_models_api_url(self) -> str:
+        """Returns the URL for the Gemini models API."""
+        return "https://generativelanguage.googleapis.com/v1beta/openai/models"
+
+    @override
     def get_supported_params(self) -> set[str]:
         """Returns a set of supported generation parameters for this engine."""
         return {

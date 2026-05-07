@@ -8,7 +8,7 @@ These benchmarks assess a model's general and domain-specific knowledge, its com
 
 The most common method to limit the answer space for standardized tasks is asking the model to select the correct answer from set of multiple-choice options (e.g., A, B, C, D), based on its understanding and reasoning about the input. Another way is limiting the answer space to a single word or a short phrase, which can be directly extracted from the text. In this case, the model's task is to identify the correct word/phrase that answers a question or matches the entity required. An alternative setup is asking the model to chronologically rank a set of statements, rank them to achieve logical consistency, or rank them on metrics such as plausibility/correctness, importance, or relevance. Finally, fill-in-the-blank questions, masking answer tasks, and True/False questions are also popular options for limiting the answer space.
 
-Oumi uses EleutherAI’s [LM Evaluation Harness](https://github.com/EleutherAI/lm-evaluation-harness) to power scalable, high-performance evaluations of LLMs, providing robust and consistent benchmarking across a wide range of [standardized tasks](https://github.com/EleutherAI/lm-evaluation-harness/tree/main/lm_eval/tasks).
+Oumi OSS uses EleutherAI’s [LM Evaluation Harness](https://github.com/EleutherAI/lm-evaluation-harness) to power scalable, high-performance evaluations of LLMs, providing robust and consistent benchmarking across a wide range of [standardized tasks](https://github.com/EleutherAI/lm-evaluation-harness/tree/main/lm_eval/tasks).
 
 ## Popular Benchmarks
 
@@ -104,7 +104,7 @@ The closed nature of standardized benchmarks allows for more precise and objecti
 
 1. **Objective and consistent evaluation**. With a closed answer space, there are no subjective interpretations of what constitutes the correct answer, since there’s a clear right answer among a set of predefined choices. This ensures consistency in scoring, allowing evaluators to use standard metrics (F1 score, precision, recall, accuracy, etc.) in a straightforward manner. In addition, results from different models can be directly compared because the possible answers are fixed, ensuring consistency across evaluations.
 
-2. **Reproducibility**. When models are tested on the same benchmark with the same set of options, other researchers can replicate the results and verify claims, as long as (i) all the environmental settings are the same (Oumi thoroughly logs all settings that could affect evaluation variability) and (ii) the model is prompted with temperature 0.0 and a consistent seed. Reproducibility is crucial to track improvements across models or versions, as well as scientific rigor and advancing the state of the art in AI research.
+2. **Reproducibility**. When models are tested on the same benchmark with the same set of options, other researchers can replicate the results and verify claims, as long as (i) all the environmental settings are the same (Oumi OSS thoroughly logs all settings that could affect evaluation variability) and (ii) the model is prompted with temperature 0.0 and a consistent seed. Reproducibility is crucial to track improvements across models or versions, as well as scientific rigor and advancing the state of the art in AI research.
 
 3. **Task and domain diversity**. These benchmarks have very wide coverage and include a broad spectrum of tasks, which can highlight specific areas where a model excels or falls short. They reflect real-world challenges and complexities. There is also a multitude of benchmarks that test a model on domain-specific intricacies, assessing its ability to apply specialized knowledge within a particular field, ensuring that evaluation is closely tied to practical performance.
 
@@ -126,6 +126,6 @@ While standardized benchmarks offer several advantages, they also come with seve
 
 ## Custom LM-Harness Tasks
 
-While Oumi provides integration with the LM Evaluation Harness and its extensive task collection, you may need to create a custom evaluation tasks for specific use cases. For this case, we refer you to the [new task guide](https://github.com/EleutherAI/lm-evaluation-harness/blob/main/docs/new_task_guide.md), which walks you through the process of creating and implementing custom evaluation tasks using the `LM Evaluation Harness` (`lm_eval`) framework.
+While Oumi OSS provides integration with the LM Evaluation Harness and its extensive task collection, you may need to create a custom evaluation tasks for specific use cases. For this case, we refer you to the [new task guide](https://github.com/EleutherAI/lm-evaluation-harness/blob/main/docs/new_task_guide.md), which walks you through the process of creating and implementing custom evaluation tasks using the `LM Evaluation Harness` (`lm_eval`) framework.
 
 -->

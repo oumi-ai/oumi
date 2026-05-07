@@ -2,7 +2,7 @@
 # Other Datasets
 
 In addition to the common LLM dataset formats (e.g., [Pretraining](pretraining_datasets.md), [SFT](sft_datasets.md), [VL-SFT](vl_sft_datasets.md)),
-Oumi infrastructure also allows users to define arbitrary ad-hoc datasets,
+Oumi OSS infrastructure also allows users to define arbitrary ad-hoc datasets,
 which can be used not just for text-centric LLM models, but for alternative model architectures
 and applications such as Vision models (e.g., convolutional networks), scientific computing, etc.
 
@@ -22,7 +22,7 @@ which can be used to [save](https://numpy.org/doc/stable/reference/generated/num
 
 ### Adding a New Numpy (.npz) Dataset
 
-To add a new Oumi dataset that can load data from `.npz` files, follow these steps:
+To add a new Oumi OSS dataset that can load data from `.npz` files, follow these steps:
 
 1. Subclass {py:class}`~oumi.core.datasets.BaseMapDataset`
 2. Implement the methods to handle initialization, data loading, and data transformation.

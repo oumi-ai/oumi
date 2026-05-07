@@ -1,14 +1,14 @@
 # Dev Environment Setup
 
-This guide will help you set up a development environment for contributing to Oumi.
+This guide will help you set up a development environment for contributing to Oumi OSS.
 
-## 1. Set up Oumi
+## 1. Set up Oumi OSS
 
-### 1.1 Fork the Oumi repository
+### 1.1 Fork the Oumi OSS repository
 
-You can create a fork of Oumi by clicking the [Fork button](https://github.com/oumi-ai/oumi/fork) in the upper right of the repository. This will create a fork of Oumi associated with your GitHub account.
+You can create a fork of Oumi OSS by clicking the [Fork button](https://github.com/oumi-ai/oumi/fork) in the upper right of the repository. This will create a fork of Oumi OSS associated with your GitHub account.
 
-### 1.2 Clone your fork of the Oumi repository
+### 1.2 Clone your fork of the Oumi OSS repository
 
 Now you're ready to clone your fork to your local disk and set up the original repository as a remote:
 
@@ -20,7 +20,7 @@ git remote add upstream https://github.com/oumi-ai/oumi.git
 
 ### 1.3 Install Miniconda (if not done already)
 
-The simplest way to install Miniconda is to run the following code after cloning the Oumi repository:
+The simplest way to install Miniconda is to run the following code after cloning the Oumi OSS repository:
 
 ```shell
 make install-miniconda
@@ -40,7 +40,7 @@ Your changes should live on a development branch so you can later create a Pull 
 git checkout -b the-name-of-your-branch
 ```
 
-### 1.5 Install Oumi package and its dependencies
+### 1.5 Install Oumi OSS package and its dependencies
 
 This command creates a new Conda env, installs relevant packages, and installs pre-commit.
 
@@ -74,7 +74,7 @@ pre-commit install --install-hooks --hook-type pre-push
 
 Follow [these instructions](../get_started/installation.md#optional-dependencies) to install optional dependencies you may want depending on your use case.
 
-### 1.6 [optional] Add an Oumi alias to your shell
+### 1.6 [optional] Add an Oumi OSS alias to your shell
 
 Add the following alias to {.zshrc or .bashrc}:
 
@@ -82,7 +82,7 @@ Add the following alias to {.zshrc or .bashrc}:
 alias oumi-conda="cd ~/<YOUR_PATH>/oumi && conda activate oumi"
 ```
 
-This will change your directory into the Oumi repo and activate the Oumi Conda
+This will change your directory into the Oumi OSS repo and activate the Oumi Conda
 environment. Test that this works with:
 
 ```shell
@@ -92,11 +92,11 @@ oumi-conda
 
 ## 2. [optional] Set up SkyPilot
 
-The Oumi launcher can be used to launch jobs on remote clusters. Our launcher integrates with SkyPilot to launch jobs on popular cloud providers (GCP, Lambda, etc.). To enable the Oumi launcher to run on your preferred cloud, make sure to follow the setup instructions in our [launch guide](../user_guides/launch/launch.md).
+The Oumi OSS launcher can be used to launch jobs on remote clusters. Our launcher integrates with SkyPilot to launch jobs on popular cloud providers (GCP, Lambda, etc.). To enable the Oumi OSS launcher to run on your preferred cloud, make sure to follow the setup instructions in our [launch guide](../user_guides/launch/launch.md).
 
-### 2.1 [optional] Force all job configs to do Oumi editable install
+### 2.1 [optional] Force all job configs to do Oumi OSS editable install
 
-If you're making changes to the Oumi codebase which you can't test locally (ex. training of large 8B+ models), you can use the Oumi launcher to launch remote jobs on GPU clusters and test your changes there. By default, most Oumi configs in the [`configs` directory](https://github.com/oumi-ai/oumi/tree/main/configs) install oumi from PyPI (i.e. `pip install oumi`). However, for the remote job to pick up your local changes, you need to install from your local copy of the repo (i.e. `pip install -e .`).
+If you're making changes to the Oumi OSS codebase which you can't test locally (ex. training of large 8B+ models), you can use the Oumi OSS launcher to launch remote jobs on GPU clusters and test your changes there. By default, most Oumi OSS configs in the [`configs` directory](https://github.com/oumi-ai/oumi/tree/main/configs) install oumi from PyPI (i.e. `pip install oumi`). However, for the remote job to pick up your local changes, you need to install from your local copy of the repo (i.e. `pip install -e .`).
 
 To automate this process, you can set the `OUMI_FORCE_EDITABLE_INSTALL` environment variable to `"true"`. This experimental feature will automatically detect and modify oumi PyPI installs to instead install in editable mode from source using regex.
 
@@ -104,7 +104,7 @@ To automate this process, you can set the `OUMI_FORCE_EDITABLE_INSTALL` environm
 
 ## 3. [optional] Set up HuggingFace
 
-Oumi integrates with HuggingFace (HF) Hub for access to models and datasets. While most models and datasets are publicly accessible, some like Llama are gated, requiring you to be logged in and be approved for access.
+Oumi OSS integrates with HuggingFace (HF) Hub for access to models and datasets. While most models and datasets are publicly accessible, some like Llama are gated, requiring you to be logged in and be approved for access.
 
 1. [Sign up for HuggingFace](https://huggingface.co/join) if you haven't done so already.
 2. Create a [user access token](https://huggingface.co/docs/hub/en/security-tokens). If you only need to read content from the Hub, create a `read` token. If you also plan to push datasets or models to the Hub, create a `write` token.
@@ -114,7 +114,7 @@ Oumi integrates with HuggingFace (HF) Hub for access to models and datasets. Whi
    hf auth login
    ```
 
-   This will save your token in the HF cache directory at `~/.cache/huggingface/token`. Oumi jobs mount this file to remote clusters to access gated content there. See [this config](https://github.com/oumi-ai/oumi/blob/535f28b3c93a6423abc247e921a00d2b27de14df/configs/recipes/llama3_1/sft/8b_full/gcp_job.yaml#L19) for an example.
+   This will save your token in the HF cache directory at `~/.cache/huggingface/token`. Oumi OSS jobs mount this file to remote clusters to access gated content there. See [this config](https://github.com/oumi-ai/oumi/blob/535f28b3c93a6423abc247e921a00d2b27de14df/configs/recipes/llama3_1/sft/8b_full/gcp_job.yaml#L19) for an example.
 
 ### 3.1 Getting access to Llama
 
@@ -131,19 +131,19 @@ Llama models are gated on HF Hub. To gain access, sign the agreement on your des
 
 ## 4. [optional] Set up Weights and Biases
 
-Oumi integrates with Weights and Biases (WandB) to track the results of training and evaluation runs. Run the following to log in on your machine:
+Oumi OSS integrates with Weights and Biases (WandB) to track the results of training and evaluation runs. Run the following to log in on your machine:
 
 ```shell
 wandb login
 ```
 
-This will save your login info at `~/.netrc`. Oumi jobs mount this file to remote clusters to allow them to log to WandB. See [this config](https://github.com/oumi-ai/oumi/blob/535f28b3c93a6423abc247e921a00d2b27de14df/configs/recipes/llama3_1/sft/8b_full/gcp_job.yaml#L16) for an example.
+This will save your login info at `~/.netrc`. Oumi OSS jobs mount this file to remote clusters to allow them to log to WandB. See [this config](https://github.com/oumi-ai/oumi/blob/535f28b3c93a6423abc247e921a00d2b27de14df/configs/recipes/llama3_1/sft/8b_full/gcp_job.yaml#L16) for an example.
 
 ## 5. [optional] Set up VSCode
 
 We recommend using [VSCode](https://code.visualstudio.com/) as the IDE. See our {doc}`/user_guides/train/environments/vscode` guide for recommended setup instructions.
 
-You can also use VSCode to run Jupyter notebooks in the Oumi repository. See our {doc}`/user_guides/train/environments/notebooks` guide for more information.
+You can also use VSCode to run Jupyter notebooks in the Oumi OSS repository. See our {doc}`/user_guides/train/environments/notebooks` guide for more information.
 
 ## 6. [optional] Test your setup
 

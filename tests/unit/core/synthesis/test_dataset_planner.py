@@ -31,6 +31,7 @@ from oumi.core.configs.params.synthesis_params import (
 from oumi.core.synthesis.dataset_ingestion import DatasetReader
 from oumi.core.synthesis.dataset_planner import DatasetPlanner
 from oumi.core.synthesis.document_ingestion import DocumentReader
+from oumi.exceptions import OumiConfigError
 
 
 @pytest.fixture(autouse=True)
@@ -1427,7 +1428,7 @@ def test_dynamic_sampling_num_shots_larger_than_dataset(planner):
 
 def test_example_source_validation_num_shots_without_id():
     """Test that ExampleSource raises error when num_shots > 1 without id."""
-    with pytest.raises(ValueError, match="ExampleSource.id must be set"):
+    with pytest.raises(OumiConfigError, match="ExampleSource.id must be set"):
         ExampleSource(
             examples=[
                 {"prompt": "Example 1"},
@@ -1439,7 +1440,7 @@ def test_example_source_validation_num_shots_without_id():
 
 def test_dataset_source_validation_num_shots_without_id():
     """Test that DatasetSource raises error when num_shots > 1 without id."""
-    with pytest.raises(ValueError, match="DatasetSource.id must be set"):
+    with pytest.raises(OumiConfigError, match="DatasetSource.id must be set"):
         DatasetSource(
             path="data/dataset.jsonl",
             num_shots=3,  # num_shots > 1 requires id

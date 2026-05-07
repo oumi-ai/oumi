@@ -289,7 +289,11 @@ class BatchTestEngine:
             affected_count=len(affected_ids),
             total_count=acc.total_count,
             affected_percentage=round(affected_pct, 2),
-            threshold=test.max_percentage or test.min_percentage,
+            threshold=(
+                test.max_percentage
+                if test.max_percentage is not None
+                else test.min_percentage
+            ),
             actual_value=None,
             sample_indices=[],  # Not meaningful for batch mode
             all_affected_indices=[],  # Not meaningful for batch mode

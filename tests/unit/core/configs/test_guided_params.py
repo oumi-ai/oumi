@@ -1,6 +1,7 @@
 import pytest
 
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
+from oumi.exceptions import OumiConfigError
 
 
 def test_guided_decoding_params_mutually_exclusive():
@@ -14,14 +15,14 @@ def test_guided_decoding_params_mutually_exclusive():
     # Invalid cases - multiple specified
     error_msg = "Only one of 'json', 'regex', or 'choice' can be specified"
 
-    with pytest.raises(ValueError, match=error_msg):
+    with pytest.raises(OumiConfigError, match=error_msg):
         GuidedDecodingParams(json={"type": "object"}, regex=r"\d+")
 
-    with pytest.raises(ValueError, match=error_msg):
+    with pytest.raises(OumiConfigError, match=error_msg):
         GuidedDecodingParams(json={"type": "object"}, choice=["option1"])
 
-    with pytest.raises(ValueError, match=error_msg):
+    with pytest.raises(OumiConfigError, match=error_msg):
         GuidedDecodingParams(regex=r"\d+", choice=["option1"])
 
-    with pytest.raises(ValueError, match=error_msg):
+    with pytest.raises(OumiConfigError, match=error_msg):
         GuidedDecodingParams(json={"type": "object"}, regex=r"\d+", choice=["option1"])

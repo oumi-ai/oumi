@@ -244,7 +244,7 @@ class CustomCloud(BaseCloud):
 Now all that's left to do is register your CustomCloud!
 
 ## Registering Your CustomCloud
-By implementing the BaseCloud class, you are now ready to register your cloud with Oumi. First, let's take a look at the clouds that are already registered:
+By implementing the BaseCloud class, you are now ready to register your cloud with Oumi OSS. First, let's take a look at the clouds that are already registered:
 
 ``` {code-block} python
 import oumi.launcher as launcher
@@ -279,7 +279,7 @@ Great, our CustomCloud is there!
 First, you need to create a `requirements.txt` file.
 
 This is a simple text file where each line contains the absolute filepath to any python
-that interface with the Oumi registry. In this guide, that means any files we wrote that
+that interface with the Oumi OSS registry. In this guide, that means any files we wrote that
 contain a `@register_cloud_builder` decorator.
 
 Let's say you created your CustomCloud class in a file saved at
@@ -292,7 +292,7 @@ Your `requirements.txt` file should look like:
 
 Now that you've created your `requirements.txt` file, you simply need to set the
 `OUMI_EXTRA_DEPS_FILE` environment variable with the path of your `requirements.txt`
-file and the Oumi CLI will automatically pick up your changes!
+file and the Oumi OSS CLI will automatically pick up your changes!
 
 ``` {code-block} shell
 export OUMI_EXTRA_DEPS_FILE=/another/path/requirements.txt

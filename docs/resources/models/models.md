@@ -9,18 +9,18 @@ supported_models
 custom_models
 ```
 
-Oumi provides a _unified_ interface for working with foundation models from multiple providers, including `HuggingFace`, `Meta`, `NanoGPT`, or your own custom models. Whether you’re performing inference, fine-tuning, pre-training, or evaluation, Oumi simplifies the process with _seamless_ integrations.
+Oumi OSS provides a _unified_ interface for working with foundation models from multiple providers, including `HuggingFace`, `Meta`, `NanoGPT`, or your own custom models. Whether you’re performing inference, fine-tuning, pre-training, or evaluation, Oumi OSS simplifies the process with _seamless_ integrations.
 
-Out-of-the-box, Oumi supports popular causal LLMs and large vision-language models, with optimized implementations available for efficient use. For a comprehensive list of supported models, configuration examples, and best practices, see the {doc}`/resources/recipes` page.
+Out-of-the-box, Oumi OSS supports popular causal LLMs and large vision-language models, with optimized implementations available for efficient use. For a comprehensive list of supported models, configuration examples, and best practices, see the {doc}`/resources/recipes` page.
 
-This guide provides a quick overview of Oumi’s unified interface, demonstrating how to instantiate models, customize their parameters, configure underlying tokenizers, and more, enabling seamless integration with your applications.
+This guide provides a quick overview of Oumi OSS’s unified interface, demonstrating how to instantiate models, customize their parameters, configure underlying tokenizers, and more, enabling seamless integration with your applications.
 
 ## Main Model Interface
 
 Using the functions {py:func}`oumi.builders.build_model` and {py:func}`oumi.builders.build_tokenizer`, you can instantiate models and tokenizers, regardless of their architecture. To further configure and customize a model, you can use the {py:class}`oumi.core.configs.ModelParams` class.
 
 ```python
-# Example using Oumi's main model interface
+# Example using Oumi OSS's main model interface
 import torch
 from oumi.builders import build_model, build_tokenizer
 from oumi.core.configs import ModelParams
@@ -43,7 +43,7 @@ print(tokenizer.decode(outputs[0]))
 
 ### Hugging Face Hub Integration
 
-Oumi integrates directly with the Hugging Face Hub and Hugging Face `transformers` library, allowing you to use any model available on Hugging Face Hub:
+Oumi OSS integrates directly with the Hugging Face Hub and Hugging Face `transformers` library, allowing you to use any model available on Hugging Face Hub:
 
 ```python
 from oumi.builders import build_model, build_tokenizer
@@ -77,7 +77,7 @@ For detailed implementation guidance on this subject, see the {doc}`/resources/m
 
 ### Tokenizer Integration
 
-Oumi ensures consistent tokenizer handling through the {py:mod}`oumi.core.tokenizers` module. Tokenizers can be configured independently of models while maintaining full compatibility.
+Oumi OSS ensures consistent tokenizer handling through the {py:mod}`oumi.core.tokenizers` module. Tokenizers can be configured independently of models while maintaining full compatibility.
 
 ```python
 from oumi.builders import build_tokenizer
@@ -99,7 +99,7 @@ For details on handling special tokens, refer to {py:func}`oumi.core.tokenizers.
 
 ### Parameter Adapters and Quantization
 
-Oumi supports loading models with [PEFT adapters](https://arxiv.org/pdf/2403.14608){target="_blank"} and quantization for efficiency purposes. You can configure these through `ModelParams`:
+Oumi OSS supports loading models with [PEFT adapters](https://arxiv.org/pdf/2403.14608){target="_blank"} and quantization for efficiency purposes. You can configure these through `ModelParams`:
 
 ```python
 from oumi.core.configs import ModelParams, PeftParams
@@ -136,7 +136,7 @@ For more details on training with adapters and quantization, see {doc}`/user_gui
 
 ### Chat Templates
 
-Oumi uses Jinja2 templates to format conversations for different model architectures. Oumi's default templates ensure that messages are formatted correctly for each model's expected input format.
+Oumi OSS uses Jinja2 templates to format conversations for different model architectures. Oumi OSS's default templates ensure that messages are formatted correctly for each model's expected input format.
 
 Available templates include:
 

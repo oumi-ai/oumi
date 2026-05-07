@@ -22,10 +22,10 @@ from typing import TYPE_CHECKING, Literal
 # They are only imported when actually needed in to_lora() and to_bits_and_bytes()
 if TYPE_CHECKING:
     from peft import LoraConfig
-    from peft.utils.peft_types import TaskType
     from transformers import BitsAndBytesConfig
 
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.exceptions import OumiConfigError
 
 
 class PeftSaveMode(Enum):
@@ -94,7 +94,7 @@ class LoraWeightInitialization(str, Enum):
             "loftq",
             "olora",
         }:
-            raise ValueError(f"Invalid enum value: {self.value}")
+            raise OumiConfigError(f"Invalid enum value: {self.value}")
 
         return self.value
 
