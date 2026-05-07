@@ -1549,3 +1549,121 @@ def test_init_no_error_on_unsupported_engine_without_tools(
         inference_config,
         environment_config=None,
     )
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_synthesize_attaches_tools_to_assistant_prompt(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+):
+    """Assistant prompts must have Conversation.tools populated when env has tools."""
+    # Capture only the turn prompts (not the planner prompts).
+    # The planner infer call uses a config with guided_decoding set; turn prompts don't.
+    turn_prompts: list[Conversation] = []
+
+    def capturing_infer(prompts, inference_config=None):
+        if inference_config is None or inference_config.generation.guided_decoding is None:
+            turn_prompts.extend(prompts)
+        return [
+            Conversation(messages=[Message(role=Role.ASSISTANT, content="ok")])
+            for _ in prompts
+        ]
+
+    mock_engine = Mock()
+    mock_engine.infer.side_effect = capturing_infer
+    mock_build_inference_engine.return_value = mock_engine
+
+    env_config = MagicMock(spec=EnvironmentConfig)
+    env_config.all_tools = [
+        ToolParams(id="lookup", name="lookup", description="x")
+    ]
+
+    inference_config = InferenceConfig(
+        engine=InferenceEngineType.OPENAI,
+        model=Mock(spec=ModelParams),
+        remote_params=Mock(spec=RemoteParams),
+        generation=GenerationParams(),
+    )
+
+    multiturn_attr = MultiTurnAttribute(
+        id="dialog",
+        min_turns=2,
+        max_turns=2,
+        role_instruction_messages={
+            Role.USER: "user",
+            Role.ASSISTANT: "assistant",
+        },
+    )
+
+    synth = ConversationSynthesizer(
+        mock_general_synthesis_params,
+        inference_config,
+        environment_config=env_config,
+    )
+    with patch.object(
+        synth,
+        "_resolve_available_tools",
+        return_value=env_config.all_tools,
+    ):
+        synth.synthesize(
+            samples=[{"target_turns": 2, "parsed_turn_plans": []}],
+            multiturn_attributes=multiturn_attr,
+        )
+
+    # Two turns: USER (turn 0), ASSISTANT (turn 1).
+    # Only the assistant prompt should have tools attached.
+    assert len(turn_prompts) == 2
+    user_prompt, assistant_prompt = turn_prompts[0], turn_prompts[1]
+    assert user_prompt.tools is None
+    assert assistant_prompt.tools is not None
+    assert len(assistant_prompt.tools) == 1
+    assert assistant_prompt.tools[0].function.name == "lookup"
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_synthesize_no_tools_when_env_has_none(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+):
+    """If env has no tools, no prompt gets tools attached."""
+    captured_prompts: list[Conversation] = []
+
+    def capturing_infer(prompts, inference_config=None):
+        captured_prompts.extend(prompts)
+        return [
+            Conversation(messages=[Message(role=Role.ASSISTANT, content="ok")])
+            for _ in prompts
+        ]
+
+    mock_engine = Mock()
+    mock_engine.infer.side_effect = capturing_infer
+    mock_build_inference_engine.return_value = mock_engine
+
+    inference_config = InferenceConfig(
+        engine=InferenceEngineType.OPENAI,
+        model=Mock(spec=ModelParams),
+        remote_params=Mock(spec=RemoteParams),
+        generation=GenerationParams(),
+    )
+
+    multiturn_attr = MultiTurnAttribute(
+        id="dialog",
+        min_turns=2,
+        max_turns=2,
+        role_instruction_messages={
+            Role.USER: "user",
+            Role.ASSISTANT: "assistant",
+        },
+    )
+
+    synth = ConversationSynthesizer(
+        mock_general_synthesis_params,
+        inference_config,
+        environment_config=None,
+    )
+    synth.synthesize(
+        samples=[{"target_turns": 2, "parsed_turn_plans": []}],
+        multiturn_attributes=multiturn_attr,
+    )
+
+    assert all(p.tools is None for p in captured_prompts)

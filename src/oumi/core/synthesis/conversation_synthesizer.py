@@ -35,6 +35,7 @@ from oumi.core.types.conversation import (
     Message,
     Role,
 )
+from oumi.core.types.tool_call import ToolDefinition
 from oumi.environments import GroundingFact
 from oumi.environments.base_environment import BaseEnvironment
 from oumi.environments.utils import describe_grounding_default
@@ -599,7 +600,14 @@ class ConversationSynthesizer:
                 )
                 prompt_messages.append(Message(role=Role.USER, content=turn_info))
 
-                prompts.append(Conversation(messages=prompt_messages))
+                tools: list[ToolDefinition] | None = None
+                if role == Role.ASSISTANT:
+                    available_tools = self._resolve_available_tools(
+                        multiturn_attribute
+                    )
+                    if available_tools:
+                        tools = [t.to_tool_definition() for t in available_tools]
+                prompts.append(Conversation(messages=prompt_messages, tools=tools))
                 sample_indices.append(i)
 
             if not prompts:
