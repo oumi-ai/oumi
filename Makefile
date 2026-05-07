@@ -13,6 +13,9 @@ TEST_DIR := tests
 DOCS_DIR := docs
 OUMI_SRC_DIR := src/oumi
 
+# Marker filter mirroring the unit-test CI workflow (.github/workflows/pretest.yaml).
+UNIT_TEST_MARKERS := not e2e and not e2e_eternal and not single_gpu and not multi_gpu
+
 # Sphinx documentation variables
 SPHINXOPTS    ?= -v
 SPHINXBUILD   ?= sphinx-build
@@ -139,10 +142,10 @@ test:
 	$(CONDA_RUN) pytest $(TEST_DIR)
 
 coverage:
-	$(CONDA_RUN) pytest --cov --cov-report=term-missing --cov-report=html:coverage_html $(TEST_DIR)
+	$(CONDA_RUN) pytest --cov --cov-report=term-missing --cov-report=html:coverage_html -m "$(UNIT_TEST_MARKERS)" --durations=50 --timeout=300 $(TEST_DIR)
 
 coverage-unit:
-	$(CONDA_RUN) pytest --cov --cov-report=term-missing --cov-report=html:coverage_html $(TEST_DIR)/unit/
+	$(CONDA_RUN) pytest --cov --cov-report=term-missing --cov-report=html:coverage_html -m "$(UNIT_TEST_MARKERS)" --durations=50 --timeout=300 $(TEST_DIR)/unit/
 
 # To adjust the accelerators: `make gcpcode ARGS="--resources.accelerators A100:4"`
 # To run on a different cloud: `make gcpssh ARGS="--resources.cloud aws"`
