@@ -516,6 +516,14 @@ class ConversationSynthesizer:
         histories: list[list[Message]] = [[] for _ in samples]
         max_turns = max(sample["target_turns"] for sample in samples)
 
+        # Tool resolution is invariant across the call; compute once.
+        available_tools = self._resolve_available_tools(multiturn_attribute)
+        assistant_tools: list[ToolDefinition] | None = (
+            [t.to_tool_definition() for t in available_tools]
+            if available_tools
+            else None
+        )
+
         for turn_idx in range(max_turns):
             current_turn = turn_idx + 1
 
@@ -559,13 +567,7 @@ class ConversationSynthesizer:
                 )
                 prompt_messages.append(Message(role=Role.USER, content=turn_info))
 
-                tools: list[ToolDefinition] | None = None
-                if role == Role.ASSISTANT:
-                    available_tools = self._resolve_available_tools(
-                        multiturn_attribute
-                    )
-                    if available_tools:
-                        tools = [t.to_tool_definition() for t in available_tools]
+                tools = assistant_tools if role == Role.ASSISTANT else None
                 prompts.append(Conversation(messages=prompt_messages, tools=tools))
                 sample_indices.append(i)
 
