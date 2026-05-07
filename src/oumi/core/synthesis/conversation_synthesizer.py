@@ -657,11 +657,12 @@ class ConversationSynthesizer:
             # that uniform role: the assistant path is a native tool-call
             # sub-loop; the user path is a single batched infer.
             uniform_role = roles_for_turn[0]
-            assert all(r == uniform_role for r in roles_for_turn), (
-                "Mixed roles in a single turn are not supported by "
-                "_synthesize_all_samples; the default turn order should "
-                "produce uniform per-turn roles."
-            )
+            if not all(r == uniform_role for r in roles_for_turn):
+                raise RuntimeError(
+                    "Mixed roles in a single turn are not supported by "
+                    "_synthesize_all_samples; the default turn order should "
+                    "produce uniform per-turn roles."
+                )
 
             if uniform_role == Role.ASSISTANT:
                 self._run_assistant_turn_native(
