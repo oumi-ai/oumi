@@ -28,7 +28,7 @@ oumi launch up -c configs/recipes/smollm/evaluation/135m/leaderboards/huggingfac
 A few things to pay attention to:
 
 - **GPQA Gating**. Access to GPQA is restricted through gating mechanisms, to minimize the risk of data contamination. Before running the leaderboard evaluation, you must first log in to HuggingFace and accept the [terms of use for QPQA](https://huggingface.co/datasets/Idavidrein/gpqa). In addition, you need to authenticate on the Hub using HuggingFace's [User Access Token](https://huggingface.co/docs/hub/security-tokens#user-access-tokens) when launching the evaluation job. You can do so either by setting the environmental HuggingFace token variable [HF_TOKEN](https://huggingface.co/docs/huggingface_hub/en/package_reference/environment_variables#hftoken) or by storing its value at [HF_TOKEN_PATH](https://huggingface.co/docs/huggingface_hub/en/package_reference/environment_variables#hftokenpath) (default location is `~/.cache/huggingface/token`).
-- **Dependencies**. This leaderboard (specifically the `IFEval` and `MATH` benchmarks) requires specific packages to be deployed to function correctly. You can either install all Oumi evaluation packages with `pip install oumi[evaluation]`, or explore the required packages for each benchmark at {gh}`src/oumi/evaluation/platform_prerequisites.py` and only install the packages needed for your specific case.
+- **Dependencies**. This leaderboard (specifically the `IFEval` and `MATH` benchmarks) requires specific packages to be deployed to function correctly. You can either install all Oumi OSS evaluation packages with `pip install oumi[evaluation]`, or explore the required packages for each benchmark at {gh}`src/oumi/evaluation/platform_prerequisites.py` and only install the packages needed for your specific case.
 
 ## HuggingFace Leaderboard V1
 
@@ -82,7 +82,7 @@ oumi launch up -c configs/recipes/smollm/evaluation/135m/leaderboards/huggingfac
 ```
 
 ```{tip}
-In addition to GCP, Oumi supports out-of-the-box various cloud providers (including AWS, Azure, Runpod, Lambda) or even your own custom cluster. To explore these, visit the {doc}`running code on clusters </user_guides/launch/launch>` page.
+In addition to GCP, Oumi OSS supports out-of-the-box various cloud providers (including AWS, Azure, Runpod, Lambda) or even your own custom cluster. To explore these, visit the {doc}`running code on clusters </user_guides/launch/launch>` page.
 ```
 
 A few things to pay attention to:
@@ -112,7 +112,7 @@ file_mounts:
   ~/.netrc: ~/.netrc
 ```
 
-- **Dependencies**. If you need to deploy packages in the remote machine, such as Oumi's evaluation packages, make sure that these are installed in the setup script, which is executed before the job starts (typically during cluster creation).
+- **Dependencies**. If you need to deploy packages in the remote machine, such as Oumi OSS's evaluation packages, make sure that these are installed in the setup script, which is executed before the job starts (typically during cluster creation).
 
 ```yaml
 setup: |

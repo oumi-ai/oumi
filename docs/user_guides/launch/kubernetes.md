@@ -1,15 +1,15 @@
-# Deploying Oumi on Kubernetes
+# Deploying Oumi OSS on Kubernetes
 
-This guide covers deploying Oumi on Kubernetes (k8s) clusters. For automated cluster provisioning and job management using the Oumi launcher, see the {doc}`launch` guide instead.
+This guide covers deploying Oumi OSS on Kubernetes (k8s) clusters. For automated cluster provisioning and job management using the Oumi launcher, see the {doc}`launch` guide instead.
 
-Please follow this guide to deploy Oumi onto an existing k8s cluster with GPU nodes. For examples per cloud providers on setting up a k8s cluster, you may follow [platform specific examples](#platform-examples).
+Please follow this guide to deploy Oumi OSS onto an existing k8s cluster with GPU nodes. For examples per cloud providers on setting up a k8s cluster, you may follow [platform specific examples](#platform-examples).
 
 ## Prerequisites
 
 - A running k8s cluster with GPU nodes
 - `kubectl` configured to access your cluster
 - For GPU workloads: [NVIDIA Device Plugin](https://github.com/NVIDIA/k8s-device-plugin) installed
-- Cluster must have internet access to pull Oumi container images from [ghcr.io/oumi-ai/oumi](https://github.com/oumi-ai/oumi/pkgs/container/oumi)
+- Cluster must have internet access to pull Oumi OSS container images from [ghcr.io/oumi-ai/oumi](https://github.com/oumi-ai/oumi/pkgs/container/oumi)
 
 ```{note}
 Most cloud k8s clusters (EKS, GKE, AKS) use amd64/x86_64 architecture. Verify your node architecture with `kubectl get nodes -o wide` and select the appropriate image from the [container registry](https://github.com/oumi-ai/oumi/pkgs/container/oumi) to use below.
@@ -23,7 +23,7 @@ Most cloud k8s clusters (EKS, GKE, AKS) use amd64/x86_64 architecture. Verify yo
 kubectl create namespace oumi
 ```
 
-### 2. Deploy Oumi
+### 2. Deploy Oumi OSS
 
 Create `oumi-deployment.yaml`:
 
@@ -75,9 +75,9 @@ Apply the deployment:
 kubectl apply -f oumi-deployment.yaml
 ```
 
-Deployment can take about 15 minutes for the cluster to pull and load the Oumi container image.
+Deployment can take about 15 minutes for the cluster to pull and load the Oumi OSS container image.
 
-### 3. Access Oumi
+### 3. Access Oumi OSS
 
 ```bash
 # Get pod name
@@ -87,7 +87,7 @@ POD_NAME=$(kubectl get pods -n oumi -l app=oumi -o jsonpath='{.items[0].metadata
 kubectl exec -it $POD_NAME -n oumi -- /bin/bash
 ```
 
-Inside the pod, run Oumi commands:
+Inside the pod, run Oumi OSS commands:
 
 ```bash
 oumi train -c /path/to/config.yaml
@@ -181,7 +181,7 @@ eksctl create cluster -f gpu-cluster.yaml
 # Create namespace
 kubectl create namespace oumi
 
-# Apply Oumi deployment
+# Apply Oumi OSS deployment
 kubectl apply -f oumi-deployment.yaml
 
 # Access pod
@@ -230,7 +230,7 @@ gcloud container clusters get-credentials $CLUSTER_NAME --zone=$ZONE
 kubectl apply -f https://raw.githubusercontent.com/GoogleCloudPlatform/container-engine-accelerators/master/nvidia-driver-installer/cos/daemonset-preloaded.yaml
 ```
 
-### Deploy Oumi
+### Deploy Oumi OSS
 
 Create `oumi-deployment.yaml` (adjust nodeSelector):
 

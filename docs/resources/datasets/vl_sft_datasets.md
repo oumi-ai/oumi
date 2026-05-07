@@ -2,7 +2,7 @@
 
 Vision-Language Supervised Finetuning (VL-SFT) extends the concept of Supervised Fine-Tuning (SFT) to handle both images and text. This enables the model to understand and reason about visual information, opening up a wide range of multimodal applications.
 
-This guide covers Vision-Language datasets used for instruction tuning and supervised learning in Oumi.
+This guide covers Vision-Language datasets used for instruction tuning and supervised learning in Oumi OSS.
 
 (vl-sft-datasets)=
 ## VL-SFT Datasets
@@ -93,7 +93,7 @@ VL-SFT batches typically include additional keys for image data, such as `pixel_
 
 ### VisionLanguageSftDataset Base Class
 
-All VL-SFT datasets in Oumi are subclasses of {py:class}`~oumi.core.datasets.VisionLanguageSftDataset`. This class extends the functionality of {py:class}`~oumi.core.datasets.BaseSftDataset` to handle image data alongside text.
+All VL-SFT datasets in Oumi OSS are subclasses of {py:class}`~oumi.core.datasets.VisionLanguageSftDataset`. This class extends the functionality of {py:class}`~oumi.core.datasets.BaseSftDataset` to handle image data alongside text.
 
 ### Adding a New VL-SFT Dataset
 
@@ -102,7 +102,7 @@ To add a new VL-SFT dataset, follow these steps:
 1. Subclass {py:class}`~oumi.core.datasets.VisionLanguageSftDataset`
 2. Implement the {py:meth}`~oumi.core.datasets.VisionLanguageSftDataset.transform_conversation` method to handle both text and image data.
 
-Here's a basic example, which loads data from the hypothetical `example/foo` HuggingFace dataset (image + text),
+Here's a basic example, which loads data from the hypothetical `example/foo` Hugging Face dataset (image + text),
 and formats the data as Oumi `Conversation`-s for SFT tuning:
 
 ```python

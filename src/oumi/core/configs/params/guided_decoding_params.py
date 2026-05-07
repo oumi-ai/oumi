@@ -16,6 +16,7 @@ import dataclasses
 from typing import Any
 
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.exceptions import OumiConfigError
 
 
 @dataclasses.dataclass
@@ -48,10 +49,21 @@ class GuidedDecodingParams(BaseParams):
     the model to select from a predefined set of options.
     """
 
+    strict: bool = False
+    """Whether to enforce the JSON schema strictly at the API level.
+
+    Only honored by OpenAI-compatible engines (OpenAI, Gemini, Vertex, Together,
+    Fireworks, OpenRouter). Anthropic is always strict, so this flag is a no-op.
+
+    Schemas must have all properties required and no ``$defs``/``$ref`` — Pydantic
+    models with ``Optional`` fields or submodels typically fail. Gemini/Vertex
+    inline ``$ref``; OpenAI does not.
+    """
+
     def __post_init__(self) -> None:
         """Validate parameters."""
         provided = sum(x is not None for x in [self.json, self.regex, self.choice])
         if provided > 1:
-            raise ValueError(
+            raise OumiConfigError(
                 "Only one of 'json', 'regex', or 'choice' can be specified"
             )

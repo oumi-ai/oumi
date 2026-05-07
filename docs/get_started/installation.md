@@ -1,10 +1,10 @@
 # Installation
 
-This guide will help you install Oumi and its dependencies.
+This guide will help you install Oumi OSS and its dependencies.
 
 ## Requirements
 
-❗NOTE: Since PyTorch dropped support for Intel Macs, you cannot install Oumi on those machines. Consider running Oumi on free Colab GPU instances, using our {doc}`notebook tutorials </get_started/tutorials>`!
+❗NOTE: Since PyTorch dropped support for Intel Macs, you cannot install Oumi OSS on those machines. Consider running Oumi OSS on free Colab GPU instances, using our {doc}`notebook tutorials </get_started/tutorials>`!
 
 Before installing Oumi, ensure you have the following:
 
@@ -13,11 +13,11 @@ Before installing Oumi, ensure you have the following:
 - Git (if cloning the repository; required for steps 2 and 3)
 - 10-20GB of disk space
 
-We recommend using a virtual environment to install Oumi. You can find instructions for setting up a Conda environment in the {doc}`/development/dev_setup` guide.
+We recommend using a virtual environment to install Oumi OSS. You can find instructions for setting up a Conda environment in the {doc}`/development/dev_setup` guide.
 
 ## Installation Methods
 
-You can install Oumi using one of the following methods:
+You can install Oumi OSS using one of the following methods:
 
 ### 1. Install from PyPI (Recommended)
 
@@ -43,9 +43,9 @@ python -m venv .env
 :::
 ::::
 
-Once that's done, you're ready to install Oumi!
+Once that's done, you're ready to install Oumi OSS!
 
-To install the latest stable version of Oumi, run:
+To install the latest stable version of Oumi OSS, run:
 
 ```bash
 uv pip install oumi
@@ -55,7 +55,7 @@ Don't have uv? [Install it](https://docs.astral.sh/uv/getting-started/installati
 
 ### 2. Install from Source
 
-For the latest development version, you can install Oumi directly from the GitHub repository:
+For the latest development version, you can install Oumi OSS directly from the GitHub repository:
 
 ::::{tab-set}
 :::{tab-item} SSH
@@ -77,7 +77,7 @@ uv pip install git+https://github.com/oumi-ai/oumi.git
 
 ### 3. Clone and Install
 
-If you want to contribute to Oumi or need the full source code, you can clone the repository and install it:
+If you want to contribute to Oumi OSS or need the full source code, you can clone the repository and install it:
 
 ::::{tab-set}
 :::{tab-item} SSH
@@ -101,14 +101,14 @@ uv pip install -e ".[dev]"
 :::
 ::::
 
-For more information on setting up your dev environment for contributing to Oumi, please
+For more information on setting up your dev environment for contributing to Oumi OSS , please
 see our [dev setup guide](../development/dev_setup.md).
 
 The `-e` flag installs the project in "editable" mode. This means that changes made to the source code will be immediately reflected in the installed package without needing to reinstall it. This is particularly helpful when you're actively developing features and want to test your changes quickly. It creates a link to the project's source code instead of copying the files, allowing you to modify the code and see the effects immediately in your Python environment.
 
 ### 4. Quick Install Script (Experimental)
 
-Try Oumi without setting up a Python environment. This installs Oumi in an isolated environment:
+Try Oumi OSS without setting up a Python environment. This installs Oumi OSS in an isolated environment:
 
 ```bash
 curl -LsSf https://oumi.ai/install.sh | bash
@@ -116,7 +116,7 @@ curl -LsSf https://oumi.ai/install.sh | bash
 
 ## Optional Dependencies
 
-Oumi has several optional features that require additional dependencies:
+Oumi OSS has several optional features that require additional dependencies:
 
 - For GPU support:
 
@@ -148,13 +148,13 @@ Oumi has several optional features that require additional dependencies:
 
 ## Verifying the Installation
 
-After installation, you can verify that Oumi is installed correctly by running:
+After installation, you can verify that Oumi OSS is installed correctly by running:
 
 ```bash
 oumi --help
 ```
 
-This should print the help message for Oumi.
+This should print the help message for Oumi OSS.
 
 ### Using Docker
 
@@ -178,4 +178,4 @@ If you're still having problems, please [open an issue](https://github.com/oumi-
 
 ## Next Steps
 
-Now that you have Oumi installed, you can proceed to the [Quickstart Guide](quickstart.md) to begin using the library.
+Now that you have Oumi OSS installed, you can proceed to the [Quickstart Guide](quickstart.md) to begin using the library.

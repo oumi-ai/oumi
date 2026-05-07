@@ -1,10 +1,10 @@
 # Using Docker
 
-Oumi provides pre-built Docker images that include all necessary dependencies for training, evaluation, and inference. Using Docker eliminates installation complexity and ensures consistent environments across different systems.
+Oumi OSS provides pre-built Docker images that include all necessary dependencies for training, evaluation, and inference. Using Docker eliminates installation complexity and ensures consistent environments across different systems.
 
 ## Available Images
 
-Oumi Docker images are published to the GitHub Container Registry at: [ghcr.io/oumi-ai/oumi](https://ghcr.io/oumi-ai/oumi)
+Oumi OSS Docker images are published to the GitHub Container Registry at: [ghcr.io/oumi-ai/oumi](https://ghcr.io/oumi-ai/oumi)
 
 ### Image Tags
 
@@ -16,7 +16,7 @@ Oumi Docker images are published to the GitHub Container Registry at: [ghcr.io/o
 
 ### Platform Support
 
-Oumi Docker images support multiple architectures:
+Oumi OSS Docker images support multiple architectures:
 
 | Platform | Architecture | GPU Support | PyTorch Version | Image Size |
 |----------|--------------|-------------|-----------------|------------|
@@ -54,13 +54,13 @@ docker run --rm ghcr.io/oumi-ai/oumi:latest oumi --help
 
 ### Interactive Shell
 
-Launch an interactive container to explore Oumi:
+Launch an interactive container to explore Oumi OSS:
 
 ```bash
 docker run -it --rm ghcr.io/oumi-ai/oumi:latest bash
 ```
 
-Once inside, you can run any Oumi command:
+Once inside, you can run any Oumi OSS command:
 
 ```bash
 oumi env  # Check environment info
@@ -107,7 +107,7 @@ This command:
 
 If you need custom dependencies or configurations, you can build your own image:
 
-1. Clone the Oumi repository:
+1. Clone the Oumi OSS repository:
 
    ```bash
    git clone https://github.com/oumi-ai/oumi.git
@@ -130,7 +130,7 @@ If you need custom dependencies or configurations, you can build your own image:
 
 ## Environment Variables
 
-You can pass environment variables to configure Oumi behavior:
+You can pass environment variables to configure Oumi OSS behavior:
 
 ```bash
 docker run -it --rm \
@@ -152,4 +152,4 @@ docker run -it --rm \
 
 - [Docker Documentation](https://docs.docker.com/)
 - [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
-- [Oumi GitHub Container Registry](https://github.com/oumi-ai/oumi/pkgs/container/oumi)
+- [Oumi OSS GitHub Container Registry](https://github.com/oumi-ai/oumi/pkgs/container/oumi)

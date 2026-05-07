@@ -1,6 +1,6 @@
 # Local Training
 
-This guide covers how to train models on your local machine or server using Oumi's command-line interface. Whether you're working on a laptop or a multi-GPU server, this guide will help you get started with local training.
+This guide covers how to train models on your local machine or server using Oumi OSS's command-line interface. Whether you're working on a laptop or a multi-GPU server, this guide will help you get started with local training.
 
 For cloud-based training options, see {doc}`/user_guides/launch/launch`.
 
@@ -38,7 +38,7 @@ For a complete reference of configuration options, see {doc}`/user_guides/train/
 
 ## Training with GPUs
 
-Oumi supports both single and multi-GPU training setups.
+Oumi OSS supports both single and multi-GPU training setups.
 
 ### Single GPU Training
 

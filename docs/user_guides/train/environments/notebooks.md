@@ -1,6 +1,6 @@
 # Notebook Integration
 
-This guide covers how to use Oumi in `Jupyter` notebooks, `VSCode`, and `Google Colab` for interactive model training and experimentation.
+This guide covers how to use Oumi OSS in `Jupyter` notebooks, `VSCode`, and `Google Colab` for interactive model training and experimentation.
 
 ## Jupyter Setup
 
@@ -11,17 +11,17 @@ You can install `oumi` with `Jupyter` in two ways:
 **Option 1:** Install everything at once with dev dependencies:
 
 ```bash
-# Install Oumi with development dependencies (includes Jupyter)
+# Install Oumi OSS with development dependencies (includes Jupyter)
 pip install oumi[dev]
 ```
 
-**Option 2:** Install Jupyter and Oumi separately:
+**Option 2:** Install Jupyter and Oumi OSS separately:
 
 ```bash
 # Install Jupyter
 pip install jupyterlab ipykernel
 
-# Install Oumi
+# Install Oumi OSS
 pip install oumi
 ```
 
@@ -48,7 +48,7 @@ When creating a new notebook, select the "oumi" kernel from the kernel selector.
 
 ## VSCode Setup
 
-[Notebooks in the Oumi repository](https://github.com/oumi-ai/oumi/tree/main/notebooks) can be run directly in VSCode on your local machine. Make sure to select the `oumi` Conda environment as the kernel when first running the notebook.
+[Notebooks in the Oumi OSS repository](https://github.com/oumi-ai/oumi/tree/main/notebooks) can be run directly in VSCode on your local machine. Make sure to select the `oumi` Conda environment as the kernel when first running the notebook.
 
 It's also possible to use VSCode to run notebooks backed by a cloud node, if you need more powerful GPUs for your workload. For example, to create and connect to a GCP node with 4 A100s, run:
 
@@ -56,7 +56,7 @@ It's also possible to use VSCode to run notebooks backed by a cloud node, if you
 make gcpcode ARGS="--resources.accelerators A100:4"
 ```
 
-This command is defined in our [Makefile](https://github.com/oumi-ai/oumi/blob/main/Makefile), and uses the {doc}`Oumi launcher </user_guides/launch/launch>` to create the remote node. Edit the `ARGS` to adjust the accelerators and remote cloud to your needs; see the {py:class}`~oumi.core.configs.JobConfig` class for an overview of configurable parameters.
+This command is defined in our [Makefile](https://github.com/oumi-ai/oumi/blob/main/Makefile), and uses the {doc}`Oumi Launcher </user_guides/launch/launch>` to create the remote node. Edit the `ARGS` to adjust the accelerators and remote cloud to your needs; see the {py:class}`~oumi.core.configs.JobConfig` class for an overview of configurable parameters.
 
 After the new VSCode window backed by the remote node is open, install the [Jupyter extension](https://marketplace.visualstudio.com/items?itemName=ms-toolsai.jupyter) on the remote VSCode instance.  Then, select "Python Environments..." after trying to run your notebook in order to select the correct kernel.
 

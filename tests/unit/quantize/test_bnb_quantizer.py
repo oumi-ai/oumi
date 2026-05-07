@@ -17,6 +17,7 @@
 import pytest  # type: ignore
 
 from oumi.core.configs import ModelParams, QuantizationConfig
+from oumi.exceptions import OumiConfigError
 from oumi.quantize.bnb_quantizer import BitsAndBytesQuantization
 
 
@@ -72,7 +73,7 @@ class TestBitsAndBytesQuantization:
 
     def test_validate_config_invalid_method(self):
         """Test validate_config with non-BNB method."""
-        with pytest.raises(ValueError, match="Unsupported output format"):
+        with pytest.raises(OumiConfigError, match="Unsupported output format"):
             QuantizationConfig(
                 model=ModelParams(model_name="test/model"),
                 method="awq_q4_0",
