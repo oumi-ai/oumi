@@ -17,6 +17,10 @@ import random
 
 from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.configs.environment_config import EnvironmentConfig
+from oumi.inference.native_tool_calling import (
+    NATIVE_TOOL_CALLING_ENGINES,
+    supports_native_tool_calling,
+)
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.inference_engine_type import InferenceEngineType
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
@@ -62,6 +66,18 @@ class ConversationSynthesizer:
         )
         self._inference_config = inference_config
         self._default_turn_order = [Role.USER, Role.ASSISTANT]
+
+        if (
+            self._environment_config is not None
+            and self._environment_config.all_tools
+            and not supports_native_tool_calling(inference_config.engine)
+        ):
+            supported = sorted(e.value for e in NATIVE_TOOL_CALLING_ENGINES)
+            raise ValueError(
+                f"Tool synthesis requires an engine with native tool-calling "
+                f"support. Configured engine '{inference_config.engine}' does "
+                f"not support it. Use one of: {supported}."
+            )
 
     def _resolve_available_tools(
         self, multiturn_attribute: MultiTurnAttribute
