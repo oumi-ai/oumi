@@ -29,7 +29,6 @@ from oumi.core.configs.params.tool_params import ToolParams
 from oumi.core.registry import register_environment
 from oumi.core.types.tool_call import ToolResult
 from oumi.environments.base_environment import BaseEnvironment
-from oumi.environments.deterministic_tool import DeterministicTool
 
 
 @dataclass
@@ -83,7 +82,6 @@ class SyntheticEnvironment(BaseEnvironment):
         """Initialize a SyntheticEnvironment with the given params and kwargs."""
         self._params = params
         self._kwargs = kwargs
-        self._validate_tools(params.tools)
         self._cache: dict[str, ToolResult] = {}
         self._state: dict[str, Any] | None = (
             copy.deepcopy(kwargs.state_params.initial_state)
@@ -98,14 +96,6 @@ class SyntheticEnvironment(BaseEnvironment):
         kwargs = SyntheticEnvironmentKwargs(**(params.env_kwargs or {}))
         kwargs.finalize_and_validate()
         return cls(params, kwargs)
-
-    @staticmethod
-    def _validate_tools(tools: list[ToolParams]) -> None:
-        for tool in tools:
-            if isinstance(tool, DeterministicTool):
-                raise ValueError(
-                    f"Synthetic tool '{tool.id}' cannot define deterministic_outputs."
-                )
 
     @property
     def current_state(self) -> dict[str, Any] | None:

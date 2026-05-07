@@ -17,100 +17,169 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+import random
+from dataclasses import dataclass, field
 from typing import Any
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.environment_params import EnvironmentParams
+from oumi.core.configs.params.grounding_params import GroundingFact
+from oumi.core.configs.params.tool_params import ToolLookupError, ToolParams
 from oumi.core.registry import register_environment
 from oumi.core.types.tool_call import ToolResult
 from oumi.environments.base_environment import BaseEnvironment
-from oumi.environments.deterministic_tool import (
-    DeterministicTool,
-    DeterministicToolOutput,
-)
+from oumi.utils.logging import logger
+
+
+@dataclass
+class LookupEntry(BaseParams):
+    """One (input, output) pair in a deterministic env's lookup table."""
+
+    input: dict[str, Any] = field(default_factory=dict)
+    output: dict[str, Any] = field(default_factory=dict)
+
+    def matches(self, arguments: dict[str, Any]) -> bool:
+        """Check if the input matches the given arguments."""
+        return json.dumps(self.input, sort_keys=True) == json.dumps(
+            arguments, sort_keys=True
+        )
 
 
 @dataclass
 class DeterministicEnvironmentKwargs(BaseParams):
-    """Type-specific kwargs for DeterministicEnvironment.
+    """Type-specific kwargs for DeterministicEnvironment."""
 
-    Deterministic environments take no additional configuration beyond the
-    common `EnvironmentParams` fields, so this is intentionally empty. Any
-    keys present in `params.env_kwargs` will trigger a validation error.
-    """
+    lookup_table: dict[str, list[LookupEntry]] = field(default_factory=dict)
+    """Per-tool list of (input, output) entries, keyed by tool id."""
+
+    def __post_init__(self) -> None:
+        """Coerce raw entry dicts into ``LookupEntry`` instances."""
+        self.lookup_table = {
+            tool_id: [
+                entry if isinstance(entry, LookupEntry) else LookupEntry(**entry)
+                for entry in entries
+            ]
+            for tool_id, entries in self.lookup_table.items()
+        }
 
 
 @register_environment("deterministic")
 class DeterministicEnvironment(BaseEnvironment):
-    """Environment that resolves tools from fixed lookups.
+    """Environment that resolves tools from a per-tool lookup table.
 
-    Tools must declare at least one `deterministic_outputs` entry; calling
-    `step()` returns the matching output (or `None` if no entry matches).
+    The env's ``env_kwargs.lookup_table`` is the source of truth for tool
+    behavior. Tools listed in ``params.tools`` declare contracts only;
+    their data lives on the env.
     """
 
-    tool_params_cls = DeterministicTool
+    tool_params_cls = ToolParams
 
     def __init__(
         self,
         params: EnvironmentParams,
         kwargs: DeterministicEnvironmentKwargs,
     ) -> None:
-        """Initialize a DeterministicEnvironment with the given params and kwargs."""
+        """Initialize a DeterministicEnvironment."""
         self._params = params
         self._kwargs = kwargs
-        self._validate_tools(params.tools)
+        self._validate_lookup_table()
 
     def step(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:
-        """Resolve a deterministic tool call to its output."""
-        tool = self._lookup_tool(tool_id)
-        for entry in tool.deterministic_outputs:
+        """Resolve a deterministic tool call to its output.
+
+        Raises:
+            ValueError: If ``tool_id`` is not declared in this env's tools list.
+            ToolLookupError: If no entry in the env's lookup table matches
+                the provided arguments.
+        """
+        known_tool_ids = {tool.id for tool in self._params.tools}
+        if tool_id not in known_tool_ids:
+            raise ValueError(
+                f"Tool '{tool_id}' not found in environment '{self._params.id}'. "
+                f"Available tools: {sorted(known_tool_ids)}"
+            )
+        entries = self._kwargs.lookup_table.get(tool_id, [])
+        for entry in entries:
             if entry.matches(arguments):
                 return ToolResult(output=entry.output)
-        return ToolResult(output={})
+        available = [entry.input for entry in entries]
+        raise ToolLookupError(
+            f"No deterministic output matches arguments "
+            f"{json.dumps(arguments, sort_keys=True)} for tool '{tool_id}'. "
+            f"Configured inputs: {json.dumps(available, sort_keys=True)}"
+        )
+
+    def sample_grounding(
+        self,
+        n: int,
+        *,
+        rng: random.Random,
+        tool_ids: set[str] | None = None,
+    ) -> list[GroundingFact]:
+        """Sample grounding facts from per-tool projected pools.
+
+        Walks every tool that has a per-tool entry in
+        ``params.grounding.tools``. Each entry in that tool's lookup table
+        is projected via ``{**input, **output}`` filtered through the
+        configured ``fields`` whitelist. Tools without a grounding entry
+        contribute nothing.
+        """
+        grounding = self._params.grounding
+        if grounding is None or not grounding.tools:
+            return []
+        pool: list[GroundingFact] = []
+        for tool in self._params.tools:
+            tool_grounding = grounding.tools.get(tool.id)
+            if tool_grounding is None:
+                continue
+            if tool_ids is not None and tool.id not in tool_ids:
+                continue
+            whitelist = set(tool_grounding.fields)
+            for entry in self._kwargs.lookup_table.get(tool.id, []):
+                row = {**entry.input, **entry.output}
+                projected = {
+                    key: value for key, value in row.items() if key in whitelist
+                }
+                pool.append(GroundingFact(data=projected))
+        return rng.sample(pool, min(n, len(pool)))
 
     @classmethod
     def from_params(cls, params: EnvironmentParams) -> DeterministicEnvironment:
         """Build a DeterministicEnvironment from its params object."""
-        if params.env_kwargs:
-            raise ValueError(
-                f"DeterministicEnvironment does not accept env_kwargs, "
-                f"got: {sorted(params.env_kwargs)}"
-            )
-        kwargs = DeterministicEnvironmentKwargs()
+        raw_kwargs = params.env_kwargs or {}
+        kwargs = DeterministicEnvironmentKwargs(**raw_kwargs)
         kwargs.finalize_and_validate()
-        for tool in params.tools:
-            tool.deterministic_outputs = [
-                entry
-                if isinstance(entry, DeterministicToolOutput)
-                else DeterministicToolOutput(**entry)
-                for entry in tool.deterministic_outputs
-            ]
         return cls(params, kwargs)
 
-    @staticmethod
-    def _validate_tools(tools: list[DeterministicTool]) -> None:
-        for tool in tools:
-            if not tool.deterministic_outputs:
+    def _validate_lookup_table(self) -> None:
+        """Validate the env's lookup_table against its tool list.
+
+        - Stale ``lookup_table`` keys (no matching tool): log a warning;
+          entries are dormant.
+        - Tools without entries: hard error.
+        - Duplicate inputs within a tool's entries: hard error.
+        """
+        tool_ids = {tool.id for tool in self._params.tools}
+        for tool_id in self._kwargs.lookup_table:
+            if tool_id not in tool_ids:
+                logger.warning(
+                    "Environment '%s': lookup_table.'%s' references unknown "
+                    "tool. Entries will be ignored.",
+                    self._params.id,
+                    tool_id,
+                )
+        for tool in self._params.tools:
+            entries = self._kwargs.lookup_table.get(tool.id, [])
+            if not entries:
                 raise ValueError(
-                    f"Deterministic tool '{tool.id}' must have at least one "
-                    "deterministic_output entry."
+                    f"Tool '{tool.id}' has no entries in lookup_table for "
+                    f"environment '{self._params.id}'."
                 )
             seen: set[str] = set()
-            for entry in tool.deterministic_outputs:
+            for entry in entries:
                 key = json.dumps(entry.input, sort_keys=True)
                 if key in seen:
                     raise ValueError(
-                        f"Deterministic tool '{tool.id}' has duplicate "
-                        f"deterministic input entry: {entry.input}"
+                        f"Tool '{tool.id}' has duplicate input entry: {entry.input}"
                     )
                 seen.add(key)
-
-    def _lookup_tool(self, tool_id: str) -> DeterministicTool:
-        for tool in self._params.tools:
-            if tool.id == tool_id:
-                return tool
-        raise ValueError(
-            f"Tool '{tool_id}' not found in environment '{self._params.id}'. "
-            f"Available tools: {[tool.id for tool in self._params.tools]}"
-        )

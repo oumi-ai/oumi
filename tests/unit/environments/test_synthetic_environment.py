@@ -17,10 +17,6 @@ import pytest
 from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.core.configs.params.tool_params import ToolParams
 from oumi.core.types.tool_call import ToolResult
-from oumi.environments.deterministic_tool import (
-    DeterministicTool,
-    DeterministicToolOutput,
-)
 from oumi.environments.synthetic_environment import (
     SyntheticEnvironment,
     SyntheticEnvironmentKwargs,
@@ -86,20 +82,6 @@ def test_from_params_constructs_stateful():
 def test_empty_system_prompt_raises():
     params = _make_params(env_kwargs={"system_prompt": ""})
     with pytest.raises(ValueError, match="system_prompt cannot be empty"):
-        SyntheticEnvironment.from_params(params)
-
-
-def test_rejects_deterministic_outputs_on_tool():
-    bad_tool = DeterministicTool(
-        id="answer",
-        name="Answer",
-        description="Answer.",
-        deterministic_outputs=[
-            DeterministicToolOutput(input={"id": "01"}, output={"msg": "ok"}),
-        ],
-    )
-    params = _make_params(tools=[bad_tool])
-    with pytest.raises(ValueError, match="cannot define deterministic_outputs"):
         SyntheticEnvironment.from_params(params)
 
 

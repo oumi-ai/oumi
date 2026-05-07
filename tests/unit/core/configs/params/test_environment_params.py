@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 from typing import Any
 
 import pytest
@@ -19,20 +20,15 @@ import pytest
 import oumi.environments  # noqa: F401  populates env registry
 from oumi.core.configs.environment_config import EnvironmentConfig
 from oumi.core.configs.params.environment_params import EnvironmentParams
-from oumi.core.configs.params.tool_params import ToolParams
-from oumi.environments.deterministic_tool import (
-    DeterministicTool,
-    DeterministicToolOutput,
+from oumi.core.configs.params.grounding_params import (
+    GroundingConfig,
+    ToolGroundingConfig,
 )
+from oumi.core.configs.params.tool_params import ToolParams
 
 
-def _make_tool() -> DeterministicTool:
-    return DeterministicTool(
-        id="t",
-        name="t",
-        description="t",
-        deterministic_outputs=[DeterministicToolOutput(input={}, output={})],
-    )
+def _make_tool(tool_id: str = "t") -> ToolParams:
+    return ToolParams(id=tool_id, name=tool_id, description="t")
 
 
 def test_constructs_with_required_fields():
@@ -78,20 +74,7 @@ def test_finalize_and_validate_rejects_duplicate_tool_ids():
         name="E1",
         description="d",
         env_type="deterministic",
-        tools=[
-            DeterministicTool(
-                id="dup",
-                name="A",
-                description="A",
-                deterministic_outputs=[DeterministicToolOutput(input={}, output={})],
-            ),
-            DeterministicTool(
-                id="dup",
-                name="B",
-                description="B",
-                deterministic_outputs=[DeterministicToolOutput(input={}, output={})],
-            ),
-        ],
+        tools=[_make_tool("dup"), _make_tool("dup")],
     )
     with pytest.raises(ValueError, match="duplicate tool id 'dup'"):
         p.finalize_and_validate()
@@ -111,7 +94,7 @@ def test_environment_config_duplicate_env_ids_raises():
         EnvironmentConfig(environments=[a, b])
 
 
-def test_post_init_coerces_dict_tools_to_deterministic_tool():
+def test_post_init_coerces_dict_tools_to_tool_params():
     p = EnvironmentParams(
         id="e1",
         name="E1",
@@ -119,20 +102,6 @@ def test_post_init_coerces_dict_tools_to_deterministic_tool():
         env_type="deterministic",
         tools=[{"id": "t", "name": "t", "description": "t"}],  # type: ignore[list-item]
     )
-    assert isinstance(p.tools[0], DeterministicTool)
-    assert p.tools[0].id == "t"
-
-
-def test_post_init_coerces_dict_tools_to_tool_params_for_synthetic():
-    p = EnvironmentParams(
-        id="e1",
-        name="E1",
-        description="d",
-        env_type="synthetic",
-        tools=[{"id": "t", "name": "t", "description": "t"}],  # type: ignore[list-item]
-    )
-    # Exact-type check guards against future regressions where non-deterministic
-    # env types accidentally route to DeterministicTool.
     assert type(p.tools[0]) is ToolParams
     assert p.tools[0].id == "t"
 
@@ -154,3 +123,87 @@ def test_environment_config_duplicate_tool_ids_across_envs_raises():
     )
     with pytest.raises(ValueError, match="duplicate tool id 't'"):
         EnvironmentConfig(environments=[a, b])
+
+
+# --- grounding ---
+
+
+def test_grounding_post_init_coerces_dict_to_grounding_config():
+    p = EnvironmentParams(
+        id="e1",
+        name="E1",
+        description="d",
+        env_type="deterministic",
+        tools=[_make_tool()],
+        grounding={"sample_size": 5, "tools": {"t": {"fields": ["a"]}}},  # type: ignore[arg-type]
+    )
+    assert isinstance(p.grounding, GroundingConfig)
+    assert p.grounding.sample_size == 5
+    assert isinstance(p.grounding.tools["t"], ToolGroundingConfig)
+
+
+def test_grounding_validate_rejects_empty_tools_dict():
+    p = EnvironmentParams(
+        id="e1",
+        name="E1",
+        description="d",
+        env_type="deterministic",
+        tools=[_make_tool()],
+        grounding=GroundingConfig(sample_size=3, tools={}),
+    )
+    with pytest.raises(ValueError, match="grounding.tools is empty"):
+        p.finalize_and_validate()
+
+
+def test_grounding_validate_passes_with_at_least_one_tool():
+    p = EnvironmentParams(
+        id="e1",
+        name="E1",
+        description="d",
+        env_type="deterministic",
+        tools=[_make_tool()],
+        grounding=GroundingConfig(
+            sample_size=3,
+            tools={"t": ToolGroundingConfig(fields=["a"])},
+        ),
+    )
+    p.finalize_and_validate()
+    assert p.grounding is not None
+
+
+def test_grounding_warns_on_stale_tool_ids(caplog):
+    """Warning, not error, when grounding.tools names a tool not in env.tools."""
+    p = EnvironmentParams(
+        id="e1",
+        name="E1",
+        description="d",
+        env_type="deterministic",
+        tools=[_make_tool("real_tool")],
+        grounding=GroundingConfig(
+            sample_size=3,
+            tools={
+                "real_tool": ToolGroundingConfig(fields=["a"]),
+                "ghost_tool": ToolGroundingConfig(fields=["b"]),
+            },
+        ),
+    )
+    with caplog.at_level(logging.WARNING, logger="oumi"):
+        p.finalize_and_validate()
+    assert any(
+        "ghost_tool" in rec.getMessage() and "unknown tool" in rec.getMessage()
+        for rec in caplog.records
+    )
+
+
+def test_no_grounding_does_not_validate_tools():
+    """env.grounding is None → no grounding-related validation runs."""
+    p = EnvironmentParams(
+        id="e1",
+        name="E1",
+        description="d",
+        env_type="deterministic",
+        tools=[_make_tool()],
+        grounding=None,
+    )
+    p.finalize_and_validate()
+    assert p.grounding is None

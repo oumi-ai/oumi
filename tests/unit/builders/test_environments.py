@@ -17,10 +17,6 @@ import pytest
 from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.core.configs.params.tool_params import ToolParams
 from oumi.core.types.tool_call import ToolResult
-from oumi.environments.deterministic_tool import (
-    DeterministicTool,
-    DeterministicToolOutput,
-)
 
 
 def test_build_environment_imports_without_explicit_env_package():
@@ -31,16 +27,12 @@ def test_build_environment_imports_without_explicit_env_package():
         name="Lookup",
         description="A deterministic lookup environment",
         env_type="deterministic",
-        tools=[
-            DeterministicTool(
-                id="get",
-                name="Get",
-                description="Lookup something.",
-                deterministic_outputs=[
-                    DeterministicToolOutput(input={"q": "hi"}, output={"a": "hi"}),
-                ],
-            )
-        ],
+        tools=[ToolParams(id="get", name="Get", description="Lookup something.")],
+        env_kwargs={
+            "lookup_table": {
+                "get": [{"input": {"q": "hi"}, "output": {"a": "hi"}}],
+            }
+        },
     )
     env = build_environment(params)
     assert env.step("get", {"q": "hi"}) == ToolResult(output={"a": "hi"})
@@ -84,16 +76,8 @@ def test_build_environment_dispatches_deterministic():
         name="Lookup",
         description="d",
         env_type="deterministic",
-        tools=[
-            DeterministicTool(
-                id="t",
-                name="t",
-                description="t",
-                deterministic_outputs=[
-                    DeterministicToolOutput(input={}, output={}),
-                ],
-            )
-        ],
+        tools=[ToolParams(id="t", name="t", description="t")],
+        env_kwargs={"lookup_table": {"t": [{"input": {}, "output": {}}]}},
     )
     env = build_environment(params)
     assert isinstance(env, DeterministicEnvironment)

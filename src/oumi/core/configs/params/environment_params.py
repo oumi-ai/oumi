@@ -21,7 +21,9 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.core.configs.params.grounding_params import GroundingConfig
 from oumi.core.configs.params.tool_params import ToolParams
+from oumi.utils.logging import logger
 
 
 @dataclass
@@ -32,19 +34,21 @@ class EnvironmentParams(BaseParams):
     name: str = ""
     description: str = ""
     env_type: str = ""
-    # `Any` here so OmegaConf accepts subclass-only fields (e.g.,
-    # `deterministic_outputs` on DeterministicTool) at parse time. The actual
-    # subclass is resolved by `__post_init__` based on env_type.
     tools: list[Any] = field(default_factory=list)
     env_kwargs: dict[str, Any] | None = None
+    grounding: GroundingConfig | None = None
 
     def __post_init__(self) -> None:
-        """Coerce raw tool dicts into the appropriate ToolParams subclass."""
+        """Coerce raw tool dicts and grounding config."""
         tool_cls = self._resolve_tool_cls() or ToolParams
         self.tools = [
             tool if isinstance(tool, tool_cls) else tool_cls.create(tool)
             for tool in self.tools
         ]
+        if self.grounding is not None and not isinstance(
+            self.grounding, GroundingConfig
+        ):
+            self.grounding = GroundingConfig(**self.grounding)
 
     def _resolve_tool_cls(self) -> type[ToolParams] | None:
         """Look up the registered env class, return its tool_params_cls.
@@ -76,6 +80,8 @@ class EnvironmentParams(BaseParams):
 
         self._validate_unique_tool_ids()
         self._validate_env_type_registered()
+        self._validate_grounding_has_tools()
+        self._warn_on_stale_grounding_tool_ids()
 
     def _validate_unique_tool_ids(self) -> None:
         seen: set[str] = set()
@@ -95,3 +101,28 @@ class EnvironmentParams(BaseParams):
             raise ValueError(
                 f"Unknown env_type '{self.env_type}'. Known types: {known}"
             )
+
+    def _validate_grounding_has_tools(self) -> None:
+        """If env-level grounding is set, ``grounding.tools`` must be non-empty."""
+        if self.grounding is None:
+            return
+        if not self.grounding.tools:
+            raise ValueError(
+                f"{type(self).__name__} '{self.id}' declares grounding but "
+                f"grounding.tools is empty. Add at least one tool entry, or "
+                f"remove env-level grounding."
+            )
+
+    def _warn_on_stale_grounding_tool_ids(self) -> None:
+        """Log a warning for ``grounding.tools`` entries naming unknown tools."""
+        if self.grounding is None:
+            return
+        tool_ids = {tool.id for tool in self.tools}
+        for tool_id in self.grounding.tools:
+            if tool_id not in tool_ids:
+                logger.warning(
+                    "Environment '%s': grounding.tools.'%s' references unknown "
+                    "tool. Entry will be ignored.",
+                    self.id,
+                    tool_id,
+                )

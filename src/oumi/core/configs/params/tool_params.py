@@ -47,7 +47,7 @@ class ToolLookupError(ToolError):
     """Raised when a tool cannot resolve an output for the given arguments.
 
     Currently used by ``DeterministicEnvironment`` when no configured
-    ``DeterministicToolOutput`` matches the provided arguments.
+    ``LookupEntry`` matches the provided arguments.
     """
 
 

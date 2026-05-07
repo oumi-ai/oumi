@@ -16,11 +16,14 @@
 
 from __future__ import annotations
 
+import random
 from abc import ABC, abstractmethod
 from typing import Any
 
+from oumi.core.configs.params.grounding_params import GroundingFact
 from oumi.core.configs.params.tool_params import ToolParams
 from oumi.core.types.tool_call import ToolResult
+from oumi.environments.utils import describe_grounding_default
 
 
 class BaseEnvironment(ABC):
@@ -31,3 +34,17 @@ class BaseEnvironment(ABC):
     @abstractmethod
     def step(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:
         """Execute a tool call within this environment."""
+
+    def sample_grounding(
+        self,
+        n: int,
+        *,
+        rng: random.Random,
+        tool_ids: set[str] | None = None,
+    ) -> list[GroundingFact]:
+        """Sample grounding facts from this environment. Default: ``[]``."""
+        return []
+
+    def describe_grounding(self, facts: list[GroundingFact]) -> str:
+        """Render grounding facts as a bulleted markdown block."""
+        return describe_grounding_default(facts)

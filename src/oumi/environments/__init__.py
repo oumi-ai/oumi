@@ -18,6 +18,11 @@ Importing this package populates the environment registry by triggering each
 concrete environment's `@register_environment(...)` decorator.
 """
 
+from oumi.core.configs.params.grounding_params import (
+    GroundingConfig,
+    GroundingFact,
+    ToolGroundingConfig,
+)
 from oumi.core.configs.params.tool_params import (
     ToolArgumentError,
     ToolError,
@@ -29,10 +34,7 @@ from oumi.environments.base_environment import BaseEnvironment
 from oumi.environments.deterministic_environment import (
     DeterministicEnvironment,
     DeterministicEnvironmentKwargs,
-)
-from oumi.environments.deterministic_tool import (
-    DeterministicTool,
-    DeterministicToolOutput,
+    LookupEntry,
 )
 from oumi.environments.synthetic_environment import (
     SyntheticEnvironment,
@@ -44,14 +46,16 @@ __all__ = [
     "BaseEnvironment",
     "DeterministicEnvironment",
     "DeterministicEnvironmentKwargs",
-    "DeterministicTool",
-    "DeterministicToolOutput",
+    "GroundingConfig",
+    "GroundingFact",
     "JSONSchema",
+    "LookupEntry",
     "SyntheticEnvironment",
     "SyntheticEnvironmentKwargs",
     "SyntheticStateParams",
     "ToolArgumentError",
     "ToolError",
+    "ToolGroundingConfig",
     "ToolLookupError",
     "ToolParams",
     "ToolResult",

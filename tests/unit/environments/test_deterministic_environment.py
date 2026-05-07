@@ -12,43 +12,57 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
+import random
+
 import pytest
 
 from oumi.core.configs.params.environment_params import EnvironmentParams
+from oumi.core.configs.params.grounding_params import (
+    GroundingConfig,
+    GroundingFact,
+    ToolGroundingConfig,
+)
+from oumi.core.configs.params.tool_params import ToolLookupError, ToolParams
 from oumi.core.types.tool_call import ToolResult
 from oumi.environments.deterministic_environment import (
     DeterministicEnvironment,
     DeterministicEnvironmentKwargs,
-)
-from oumi.environments.deterministic_tool import (
-    DeterministicTool,
-    DeterministicToolOutput,
+    LookupEntry,
 )
 
 
-def _make_tool(**overrides) -> DeterministicTool:
-    defaults: dict = dict(
-        id="tool1",
-        name="MyTool",
-        description="A tool",
-        deterministic_outputs=[
-            DeterministicToolOutput(input={"id": "01"}, output={"msg": "ok"}),
-        ],
-    )
-    defaults.update(overrides)
-    return DeterministicTool(**defaults)
+def _make_tool(tool_id: str = "tool1") -> ToolParams:
+    return ToolParams(id=tool_id, name=tool_id, description="A tool")
 
 
-def _make_params(**overrides) -> EnvironmentParams:
+def _make_params(
+    tools: list[ToolParams] | None = None,
+    lookup_table: dict[str, list[LookupEntry]] | None = None,
+    grounding: GroundingConfig | None = None,
+    **overrides,
+) -> EnvironmentParams:
+    """Build EnvironmentParams with defaults that pass validation."""
+    if tools is None:
+        tools = [_make_tool()]
+    if lookup_table is None:
+        lookup_table = {
+            "tool1": [LookupEntry(input={"id": "01"}, output={"msg": "ok"})]
+        }
     defaults: dict = dict(
         id="lookup",
         name="Lookup",
         description="A deterministic lookup environment",
         env_type="deterministic",
-        tools=[_make_tool()],
+        tools=tools,
+        env_kwargs={"lookup_table": lookup_table},
+        grounding=grounding,
     )
     defaults.update(overrides)
     return EnvironmentParams(**defaults)
+
+
+# --- from_params + lookup_table validation ---
 
 
 def test_from_params_constructs_runtime_instance():
@@ -57,69 +71,100 @@ def test_from_params_constructs_runtime_instance():
     assert isinstance(env._kwargs, DeterministicEnvironmentKwargs)
 
 
-def test_rejects_env_kwargs():
-    params = _make_params(env_kwargs={"unexpected": True})
-    with pytest.raises(ValueError, match="does not accept env_kwargs"):
-        DeterministicEnvironment.from_params(params)
-
-
-def test_requires_deterministic_outputs_on_tool():
-    params = _make_params(
-        tools=[_make_tool(deterministic_outputs=[])],
+def test_from_params_coerces_raw_lookup_entries():
+    """Raw dict entries in lookup_table are coerced to LookupEntry."""
+    env = DeterministicEnvironment.from_params(
+        _make_params(
+            lookup_table={  # type: ignore[arg-type]
+                "tool1": [{"input": {"id": "1"}, "output": {"msg": "ok"}}],
+            }
+        )
     )
-    with pytest.raises(ValueError, match="must have at least one"):
-        DeterministicEnvironment.from_params(params)
+    entry = env._kwargs.lookup_table["tool1"][0]
+    assert isinstance(entry, LookupEntry)
+    assert entry.input == {"id": "1"}
 
 
-def test_duplicate_deterministic_inputs_raises():
-    outputs = [
-        DeterministicToolOutput(input={"id": "01"}, output={"msg": "a"}),
-        DeterministicToolOutput(input={"id": "01"}, output={"msg": "b"}),
-    ]
-    params = _make_params(tools=[_make_tool(deterministic_outputs=outputs)])
-    with pytest.raises(ValueError, match="duplicate"):
-        DeterministicEnvironment.from_params(params)
+def test_tool_without_entries_raises():
+    """Hard error: tool declared but lookup_table has no entries for it."""
+    with pytest.raises(ValueError, match="has no entries in lookup_table"):
+        DeterministicEnvironment.from_params(
+            _make_params(
+                tools=[_make_tool("tool1"), _make_tool("tool2")],
+                lookup_table={
+                    "tool1": [LookupEntry(input={"id": "01"}, output={"msg": "ok"})]
+                    # tool2 missing
+                },
+            )
+        )
+
+
+def test_stale_lookup_table_keys_warn(caplog):
+    """Warning (not error) when lookup_table has entries for unknown tool."""
+    with caplog.at_level(logging.WARNING, logger="oumi"):
+        DeterministicEnvironment.from_params(
+            _make_params(
+                lookup_table={
+                    "tool1": [LookupEntry(input={"id": "01"}, output={"msg": "ok"})],
+                    "ghost_tool": [LookupEntry(input={"id": "x"}, output={"msg": "y"})],
+                }
+            )
+        )
+    assert any(
+        "ghost_tool" in rec.getMessage() and "unknown tool" in rec.getMessage()
+        for rec in caplog.records
+    )
+
+
+def test_duplicate_inputs_raises():
+    with pytest.raises(ValueError, match="duplicate input"):
+        DeterministicEnvironment.from_params(
+            _make_params(
+                lookup_table={
+                    "tool1": [
+                        LookupEntry(input={"id": "01"}, output={"msg": "a"}),
+                        LookupEntry(input={"id": "01"}, output={"msg": "b"}),
+                    ]
+                }
+            )
+        )
+
+
+# --- step ---
 
 
 def test_step_returns_matching_output():
-    params = _make_params(
-        tools=[
-            _make_tool(
-                deterministic_outputs=[
-                    DeterministicToolOutput(
-                        input={"id": "01"}, output={"msg": "pending"}
-                    ),
-                    DeterministicToolOutput(
-                        input={"id": "02"}, output={"msg": "delivered"}
-                    ),
+    env = DeterministicEnvironment.from_params(
+        _make_params(
+            lookup_table={
+                "tool1": [
+                    LookupEntry(input={"id": "01"}, output={"msg": "pending"}),
+                    LookupEntry(input={"id": "02"}, output={"msg": "delivered"}),
                 ]
-            )
-        ]
+            }
+        )
     )
-    env = DeterministicEnvironment.from_params(params)
     assert env.step("tool1", {"id": "01"}) == ToolResult(output={"msg": "pending"})
     assert env.step("tool1", {"id": "02"}) == ToolResult(output={"msg": "delivered"})
 
 
-def test_step_no_match_returns_empty():
+def test_step_no_match_raises_with_hint():
     env = DeterministicEnvironment.from_params(_make_params())
-    assert env.step("tool1", {"id": "99"}) == ToolResult(output={})
+    with pytest.raises(ToolLookupError) as excinfo:
+        env.step("tool1", {"id": "99"})
+    msg = str(excinfo.value)
+    assert "No deterministic output matches" in msg
+    assert "tool1" in msg
+    assert '"id": "01"' in msg  # configured inputs surfaced for self-correction
 
 
 def test_step_supports_zero_arg_tool():
-    params = _make_params(
-        tools=[
-            DeterministicTool(
-                id="ping",
-                name="Ping",
-                description="Zero-arg tool.",
-                deterministic_outputs=[
-                    DeterministicToolOutput(input={}, output={}),
-                ],
-            )
-        ]
+    env = DeterministicEnvironment.from_params(
+        _make_params(
+            tools=[_make_tool("ping")],
+            lookup_table={"ping": [LookupEntry(input={}, output={})]},
+        )
     )
-    env = DeterministicEnvironment.from_params(params)
     assert env.step("ping", {}) == ToolResult(output={})
 
 
@@ -129,14 +174,181 @@ def test_step_unknown_tool_raises():
         env.step("missing", {"id": "01"})
 
 
-def test_from_params_coerces_raw_deterministic_outputs():
-    tool = DeterministicTool(
-        id="tool1",
-        name="MyTool",
-        description="A tool",
-        deterministic_outputs=[{"input": {"id": "1"}, "output": {"msg": "ok"}}],  # type: ignore[list-item]
+# --- sample_grounding ---
+
+
+def _grounded_env(
+    n_entries: int = 10,
+    sample_size: int = 3,
+    seed: int | None = None,
+) -> DeterministicEnvironment:
+    """Build a DeterministicEnvironment with one grounded tool."""
+    return DeterministicEnvironment.from_params(
+        _make_params(
+            tools=[_make_tool("lookup")],
+            lookup_table={
+                "lookup": [
+                    LookupEntry(input={"id": str(i)}, output={"title": f"t-{i}"})
+                    for i in range(n_entries)
+                ]
+            },
+            grounding=GroundingConfig(
+                sample_size=sample_size,
+                seed=seed,
+                tools={
+                    "lookup": ToolGroundingConfig(fields=["id", "title"]),
+                },
+            ),
+        )
     )
-    env = DeterministicEnvironment.from_params(_make_params(tools=[tool]))
-    assert isinstance(
-        env._params.tools[0].deterministic_outputs[0], DeterministicToolOutput
+
+
+def test_sample_grounding_returns_facts():
+    env = _grounded_env(n_entries=10, sample_size=3)
+    facts = env.sample_grounding(n=3, rng=random.Random(0))
+    assert len(facts) == 3
+    for fact in facts:
+        assert isinstance(fact, GroundingFact)
+        assert set(fact.data.keys()) == {"id", "title"}
+
+
+def test_sample_grounding_no_grounding_returns_empty():
+    env = DeterministicEnvironment.from_params(_make_params())
+    assert env.sample_grounding(n=5, rng=random.Random(0)) == []
+
+
+def test_sample_grounding_only_grounded_tools_contribute():
+    """Tools without an entry in grounding.tools contribute nothing."""
+    env = DeterministicEnvironment.from_params(
+        _make_params(
+            tools=[_make_tool("grounded"), _make_tool("plain")],
+            lookup_table={
+                "grounded": [
+                    LookupEntry(input={"id": "G1"}, output={"v": "g"}),
+                ],
+                "plain": [
+                    LookupEntry(input={"id": "P1"}, output={"v": "p"}),
+                ],
+            },
+            grounding=GroundingConfig(
+                sample_size=10,
+                seed=0,
+                tools={
+                    "grounded": ToolGroundingConfig(fields=["id", "v"]),
+                },
+            ),
+        )
     )
+    facts = env.sample_grounding(n=10, rng=random.Random(0))
+    assert len(facts) == 1
+    assert facts[0].data == {"id": "G1", "v": "g"}
+
+
+def test_sample_grounding_respects_tool_ids_filter():
+    env = DeterministicEnvironment.from_params(
+        _make_params(
+            tools=[_make_tool("a"), _make_tool("b")],
+            lookup_table={
+                "a": [LookupEntry(input={"id": "A1"}, output={"v": "from_a"})],
+                "b": [LookupEntry(input={"id": "B1"}, output={"v": "from_b"})],
+            },
+            grounding=GroundingConfig(
+                sample_size=10,
+                tools={
+                    "a": ToolGroundingConfig(fields=["id", "v"]),
+                    "b": ToolGroundingConfig(fields=["id", "v"]),
+                },
+            ),
+        )
+    )
+    facts = env.sample_grounding(n=10, rng=random.Random(0), tool_ids={"a"})
+    assert len(facts) == 1
+    assert facts[0].data == {"id": "A1", "v": "from_a"}
+
+
+def test_sample_grounding_field_missing_in_row_is_dropped():
+    env = DeterministicEnvironment.from_params(
+        _make_params(
+            tools=[_make_tool("t")],
+            lookup_table={"t": [LookupEntry(input={"id": "X1"}, output={"v": "ok"})]},
+            grounding=GroundingConfig(
+                sample_size=1,
+                tools={
+                    "t": ToolGroundingConfig(fields=["id", "v", "missing"]),
+                },
+            ),
+        )
+    )
+    facts = env.sample_grounding(n=1, rng=random.Random(0))
+    assert facts[0].data == {"id": "X1", "v": "ok"}
+    assert "missing" not in facts[0].data
+
+
+def test_sample_grounding_merges_input_and_output():
+    """Output values win over input values on key collision."""
+    env = DeterministicEnvironment.from_params(
+        _make_params(
+            tools=[_make_tool("lookup")],
+            lookup_table={
+                "lookup": [
+                    LookupEntry(
+                        input={"id": "1", "note": "input-note"},
+                        output={"note": "output-note", "title": "Dune"},
+                    ),
+                ]
+            },
+            grounding=GroundingConfig(
+                sample_size=1,
+                tools={
+                    "lookup": ToolGroundingConfig(fields=["id", "note", "title"]),
+                },
+            ),
+        )
+    )
+    facts = env.sample_grounding(n=1, rng=random.Random(0))
+    assert facts[0].data == {"id": "1", "note": "output-note", "title": "Dune"}
+
+
+def test_sample_grounding_seeded_is_reproducible():
+    env = _grounded_env(n_entries=20)
+    a = env.sample_grounding(n=4, rng=random.Random(42))
+    b = env.sample_grounding(n=4, rng=random.Random(42))
+    assert [f.data["id"] for f in a] == [f.data["id"] for f in b]
+
+
+def test_sample_grounding_truncates_when_n_exceeds_pool():
+    env = _grounded_env(n_entries=3)
+    facts = env.sample_grounding(n=10, rng=random.Random(0))
+    assert len(facts) == 3
+
+
+def test_sample_grounding_no_replacement_within_call():
+    env = _grounded_env(n_entries=10)
+    facts = env.sample_grounding(n=5, rng=random.Random(0))
+    ids = [f.data["id"] for f in facts]
+    assert len(set(ids)) == len(ids)
+
+
+def test_sample_grounding_pools_across_tools():
+    env = DeterministicEnvironment.from_params(
+        _make_params(
+            tools=[_make_tool("a"), _make_tool("b")],
+            lookup_table={
+                "a": [LookupEntry(input={"k": "a1"}, output={"v": "a1"})],
+                "b": [
+                    LookupEntry(input={"k": "b1"}, output={"v": "b1"}),
+                    LookupEntry(input={"k": "b2"}, output={"v": "b2"}),
+                ],
+            },
+            grounding=GroundingConfig(
+                sample_size=3,
+                tools={
+                    "a": ToolGroundingConfig(fields=["k", "v"]),
+                    "b": ToolGroundingConfig(fields=["k", "v"]),
+                },
+            ),
+        )
+    )
+    facts = env.sample_grounding(n=3, rng=random.Random(0))
+    assert len(facts) == 3
+    assert sorted(f.data["k"] for f in facts) == ["a1", "b1", "b2"]
