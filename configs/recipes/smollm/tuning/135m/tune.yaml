@@ -33,7 +33,7 @@ tuning:
     # Categorical (list format)
     optimizer:
       type: categorical
-      choices: ["adamw_torch", "sgd", "adafactor"]
+      choices: [ "adamw_torch", "sgd", "adafactor" ]
 
     # Log-uniform float
     learning_rate:
@@ -63,7 +63,11 @@ tuning:
   fixed_peft_params:
     q_lora: false
 
-  evaluation_metrics: ["eval_loss", "eval_mean_token_accuracy"]
-  evaluation_direction: ["minimize", "maximize"]
+  # TRL>=0.27 regressed SFTTrainer.log() from `logs.update(metrics)` to
+  # `logs = {**logs, **metrics}`, so the metrics no longer flow back through
+  # Trainer.evaluate()'s returned dict (only into external loggers). Restore
+  # eval_mean_token_accuracy once the TRL fix lands. See trl@4cb07d36.
+  evaluation_metrics: [ "eval_loss" ]
+  evaluation_direction: [ "minimize" ]
   tuner_type: OPTUNA
   tuner_sampler: "RandomSampler"

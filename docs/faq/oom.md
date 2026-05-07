@@ -9,7 +9,7 @@ In this guide, we will discuss a few strategies to reduce GPU memory requirement
 ```{admonition} Best Practices
 :class: tip
 
-- Always monitor memory usage and performance metrics when applying these optimizations, using `nvidia-smi` and Oumi's telemetry output.
+- Always monitor memory usage and performance metrics when applying these optimizations, using `nvidia-smi` and Oumi OSS's telemetry output.
 - Combine multiple techniques for best results, but introduce changes gradually to isolate their effects.
 - Some techniques may trade off speed and model accuracy for memory efficiency. Choose the right balance for your specific use case.
 ```

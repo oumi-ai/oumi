@@ -15,6 +15,7 @@ from oumi.core.analyze.dataset_analyzer import (
 from oumi.core.configs import AnalyzeConfig, SampleAnalyzerParams
 from oumi.core.datasets import BaseMapDataset
 from oumi.datasets import TextSftJsonLinesDataset
+from oumi.exceptions import OumiConfigError
 
 
 def check_no_nans(obj):
@@ -461,7 +462,7 @@ def test_analyze_dataset_sample_count_none(test_data_path, mock_config):
 def test_analyze_dataset_sample_count_zero(test_data_path, mock_config):
     """Test analysis with sample_count=0 raises ValueError."""
     # Create config with sample_count=0
-    with pytest.raises(ValueError, match="`sample_count` must be greater than 0."):
+    with pytest.raises(OumiConfigError, match="`sample_count` must be greater than 0."):
         AnalyzeConfig(
             dataset_name="text_sft",
             split="train",
@@ -473,7 +474,7 @@ def test_analyze_dataset_sample_count_zero(test_data_path, mock_config):
 def test_analyze_dataset_sample_count_negative(test_data_path, mock_config):
     """Test analysis with negative sample_count raises ValueError."""
     # Create config with negative sample_count
-    with pytest.raises(ValueError, match="`sample_count` must be greater than 0."):
+    with pytest.raises(OumiConfigError, match="`sample_count` must be greater than 0."):
         AnalyzeConfig(
             dataset_name="text_sft",
             split="train",

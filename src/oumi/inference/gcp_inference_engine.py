@@ -170,6 +170,20 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
         return headers
 
     @override
+    def list_models(self, chat_only: bool = True) -> list[str]:
+        """Returns the configured model name.
+
+        Vertex AI does not expose a public REST endpoint for listing
+        available foundation models. Use the Google Cloud Console or
+        ``gcloud ai models list`` to browse the Model Garden.
+
+        Note:
+            The ``chat_only`` parameter has no effect for this engine since
+            only the configured model name is returned.
+        """
+        return [self._model_params.model_name]
+
+    @override
     def _default_remote_params(self) -> RemoteParams:
         """Returns the default remote parameters."""
         return RemoteParams(num_workers=10, politeness_policy=60.0)
@@ -278,12 +292,20 @@ def _convert_guided_decoding_config_to_api_input(
             "string or dict."
         )
 
+    schema_value = _replace_refs_in_schema(schema_value)
+    json_schema_body: dict = {
+        "name": schema_name,
+        "schema": schema_value,
+    }
+    if guided_config.strict:
+        # Strict mode requires `additionalProperties: false` on every object
+        # schema; inject it where missing.
+        RemoteInferenceEngine._enforce_additional_properties_false(schema_value)
+        json_schema_body["strict"] = True
+
     return {
         "type": "json_schema",
-        "json_schema": {
-            "name": schema_name,
-            "schema": _replace_refs_in_schema(schema_value),
-        },
+        "json_schema": json_schema_body,
     }
 
 

@@ -4,7 +4,7 @@
 
 ## Introduction
 
-Oumi supports several training methods to accommodate different use cases.
+Oumi OSS supports several training methods to accommodate different use cases.
 
 Here's a quick comparison:
 
@@ -17,7 +17,7 @@ Here's a quick comparison:
 | [Group Relative Policy Optimization (GRPO)](#group-relative-policy-optimization-grpo) | Reasoning | Input-output pairs | Moderate | Trains a model to improve reasoning skills by providing training examples with concrete answers. |
 
 ```{tip}
-Oumi supports GRPO on Vision-Language Models with the `VERL_GRPO` trainer.
+Oumi OSS supports GRPO on Vision-Language Models with the `VERL_GRPO` trainer.
 ```
 
 (supervised-fine-tuning-sft)=
@@ -343,18 +343,46 @@ The `VERL_GRPO` trainer has a specific format required for its input dataset. Re
 ```
 
 ```{tip}
-verl requires paths to Parquet files for the training and validation data. Oumi allows you to use HuggingFace Datasets instead by automatically creating the necessary Parquet files before training.
+verl requires paths to Parquet files for the training and validation data. Oumi OSS allows you to use HuggingFace Datasets instead by automatically creating the necessary Parquet files before training.
 ```
 
 ### Reward function
 
 Instead of training a separate reward model which estimates the reward value of a completion, it is common to use reward functions instead. Both the trl and verl frameworks have specific interfaces required for the reward functions used. These are documented in the [trl documentation](https://huggingface.co/docs/trl/main/en/grpo_trainer#using-a-custom-reward-function) and [verl documentation](https://verl.readthedocs.io/en/latest/preparation/reward_function.html) respectively.
 
+#### Per-Function kwargs
+
+Reward functions that take configuration (e.g. a rubric judge panel path, a strictness flag) can be wired via `training.reward_function_kwargs`. The kwargs are a dict keyed by **reward function name**, with each value being that function's kwargs dict:
+
+```yaml
+training:
+  trainer_type: "TRL_GRPO"   # or VERL_GRPO
+
+  reward_functions:
+    - rubric_reward
+    - gsm8k
+
+  reward_function_kwargs:
+    rubric_reward:
+      judge_panel_path: "configs/projects/judges/rubric_judge_panel.yaml"
+    gsm8k:
+      strict: true
+```
+
+Rules:
+
+- Keys in `reward_function_kwargs` must also appear in `reward_functions`; extra keys raise a validation error.
+- Omit the key (or use `{}`) for functions with no configuration.
+- Configured kwargs take precedence over per-sample kwargs passed by the trainer at call time.
+- Only `TRL_GRPO` and `VERL_GRPO` support `reward_function_kwargs` today — setting it with any other trainer raises a validation error.
+
+This is particularly useful with rubric-based reward functions (see {gh}`RaR datasets <src/oumi/datasets/grpo/rar_dataset.py>`) where a single function is reused across configs with different judge panels or scoring rules.
+
 ### Configuration
 
 #### TRL_GRPO
 
-Configuring the `TRL_GRPO` trainer is similar to most other trl-based trainers in Oumi, like `TRL_SFT`. Most Oumi config fields will be used, as trl's [GRPO config](https://huggingface.co/docs/trl/main/en/grpo_trainer#trl.GRPOConfig) is built on top of HF's config. The following configuration highlights some relevant fields for GRPO:
+Configuring the `TRL_GRPO` trainer is similar to most other trl-based trainers in Oumi OSS, like `TRL_SFT`. Most Oumi OSS config fields will be used, as trl's [GRPO config](https://huggingface.co/docs/trl/main/en/grpo_trainer#trl.GRPOConfig) is built on top of HF's config. The following configuration highlights some relevant fields for GRPO:
 
 ```yaml
 model:
@@ -378,9 +406,9 @@ training:
 
 #### VERL_GRPO
 
-verl is an RL training framework created by Alibaba. Many Oumi config fields, which generally correspond to HF config fields, thus are not consumed by verl. The following table shows all Oumi config fields used by the verl trainer, and what fields they map to. An overview of fields in the verl config can be found in their [documentation](https://verl.readthedocs.io/en/latest/examples/config.html).
+verl is an RL training framework created by Alibaba. Many Oumi OSS config fields, which generally correspond to HF config fields, thus are not consumed by verl. The following table shows all Oumi OSS config fields used by the verl trainer, and what fields they map to. An overview of fields in the verl config can be found in their [documentation](https://verl.readthedocs.io/en/latest/examples/config.html).
 
-| Oumi                                            | verl                                                  |
+| Oumi OSS                                        | verl                                                  |
 |-------------------------------------------------|-------------------------------------------------------|
 | model.model_name                                | actor_rollout_ref.model.path                          |
 | data.train.datasets                             | data.train_files                                      |
@@ -402,10 +430,10 @@ verl is an RL training framework created by Alibaba. Many Oumi config fields, wh
 | training.output_dir                             | trainer.default_local_dir                             |
 
 ```{tip}
-The `training.verl_config_overrides` field can be used to specify any field in the verl config. The values specified in this field will override any values set by the Oumi -> verl mapping above. For example, if you already have your own training/validation Parquet files you want to use, you can directly set `data.train_files` in the override.
+The `training.verl_config_overrides` field can be used to specify any field in the verl config. The values specified in this field will override any values set by the Oumi OSS -> verl mapping above. For example, if you already have your own training/validation Parquet files you want to use, you can directly set `data.train_files` in the override.
 ```
 
-The following shows a bare-bones Oumi `VERL_GRPO` config.
+The following shows a bare-bones Oumi OSS `VERL_GRPO` config.
 
 ```yaml
 model:

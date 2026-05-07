@@ -31,7 +31,7 @@ jobs:
           - python-version: "3.13"
             torch-version: "2.8.0"
           - python-version: "3.14"
-            torch-version: "2.9.0" # Python 3.14 requires PyTorch 2.9
+            torch-version: "2.10.0" # Python 3.14 requires PyTorch 2.10+
           # Test all PyTorch versions with recommended Python
           - python-version: "3.12"
             torch-version: "2.6.0"

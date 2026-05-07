@@ -12,9 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
+import itertools
 import json
+import re
 from typing import Any
 
+import pydantic
 from typing_extensions import override
 
 from oumi.core.async_utils import safe_asyncio_run
@@ -24,7 +28,17 @@ from oumi.core.configs import (
     ModelParams,
     RemoteParams,
 )
-from oumi.core.types.conversation import Conversation, FinishReason, Message, Role
+from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
+from oumi.core.types.conversation import (
+    ContentItem,
+    Conversation,
+    FinishReason,
+    Message,
+    Role,
+    ToolCall,
+    Type,
+)
+from oumi.core.types.tool_call import ToolDefinition
 from oumi.inference.remote_inference_engine import (
     BatchInfo,
     BatchListResponse,
@@ -32,9 +46,50 @@ from oumi.inference.remote_inference_engine import (
     BatchStatus,
     RemoteInferenceEngine,
 )
+from oumi.utils.conversation_utils import (
+    base64encode_content_item_image_bytes,
+    load_image_bytes_to_content_item,
+)
 from oumi.utils.logging import logger
 
 _CONTENT_KEY: str = "content"
+
+# We are only constraining to ToolChoiceOptions in OpenAI
+# https://developers.openai.com/api/reference/resources/responses/methods/create#(resource)%20responses%20%3E%20(method)%20create%20%3E%20(params)%200.non_streaming%20%3E%20(param)%20tool_choice%20%3E%20(schema)
+_OPENAI_TO_ANTHROPIC_TOOL_CHOICE: dict[str, dict[str, str]] = {
+    "auto": {"type": "auto"},
+    "required": {"type": "any"},
+    "none": {"type": "none"},
+}
+
+# Anthropic accepts image/jpeg, image/png, image/gif, image/webp for `image`
+# content blocks. https://docs.anthropic.com/en/docs/build-with-claude/vision
+_IMAGE_MAGIC_PREFIXES: tuple[tuple[bytes, str], ...] = (
+    (b"\x89PNG\r\n\x1a\n", "image/png"),
+    (b"\xff\xd8\xff", "image/jpeg"),
+    (b"GIF87a", "image/gif"),
+    (b"GIF89a", "image/gif"),
+)
+
+
+def _detect_image_media_type(data: bytes) -> str:
+    """Sniffs an Anthropic-supported image media type from magic bytes.
+
+    Falls back to ``image/png`` for unrecognized formats; Anthropic will reject
+    a mismatched media_type, surfacing the issue rather than silently corrupting
+    the image.
+    """
+    for magic, mime in _IMAGE_MAGIC_PREFIXES:
+        if data.startswith(magic):
+            return mime
+    # WebP: "RIFF" + 4-byte size + "WEBP".
+    if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    logger.warning(
+        "Unrecognized image format; defaulting media_type to image/png. "
+        "Anthropic accepts image/jpeg, image/png, image/gif, image/webp."
+    )
+    return "image/png"
 
 
 class AnthropicInferenceEngine(RemoteInferenceEngine):
@@ -113,11 +168,9 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
 
         # Build request body
         # See https://docs.anthropic.com/claude/reference/messages_post
-        body = {
+        body: dict[str, Any] = {
             "model": model_params.model_name,
-            "messages": self._get_list_of_message_json_dicts(
-                messages, group_adjacent_same_role_turns=True
-            ),
+            "messages": self._messages_to_anthropic_blocks(messages),
             "max_tokens": generation_params.max_new_tokens,
             "temperature": generation_params.temperature,
         }
@@ -133,7 +186,210 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         if generation_params.stop_strings is not None:
             body["stop_sequences"] = generation_params.stop_strings
 
+        if generation_params.guided_decoding:
+            if _model_supports_output_config(model_params.model_name):
+                body.update(
+                    _convert_guided_decoding_config_to_api_input(
+                        generation_params.guided_decoding
+                    )
+                )
+            else:
+                logger.warning(
+                    f"{model_params.model_name!r} does not support structured outputs"
+                )
+
+        # Enable prompt caching. Anthropic automatically caches content up to
+        # the last cacheable block. This reduces latency and cost for repeated
+        # prefixes (system prompts, long context, multi-turn conversations).
+        # See: https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching
+        body["cache_control"] = {"type": "ephemeral"}
+
+        tool_choice = generation_params.tool_choice
+        if conversation.tools:
+            body["tools"] = self._openai_tools_to_anthropic(conversation.tools)
+            if tool_choice is not None:
+                body["tool_choice"] = self._translate_tool_choice(tool_choice)
+
         return body
+
+    @staticmethod
+    def _openai_tools_to_anthropic(
+        tools: list[ToolDefinition],
+    ) -> list[dict[str, Any]]:
+        """Translates OpenAI-format tool definitions to Anthropic shape.
+
+        Anthropic uses ``input_schema`` instead of ``parameters`` and lifts
+        ``name``, ``description`` and ``input_schema`` to the top level (no
+        ``function`` wrapper).
+        """
+        anthropic_tools: list[dict[str, Any]] = [
+            {
+                "name": tool.function.name,
+                "description": tool.function.description,
+                # ``parameters`` is a typed JSONSchema; dump to the wire-format
+                # dict so Anthropic's ``input_schema`` (and downstream JSON
+                # serialization) gets a plain dict.
+                "input_schema": (
+                    tool.function.parameters.model_dump(mode="json", exclude_none=True)
+                    if tool.function.parameters is not None
+                    else {"type": "object", "properties": {}}
+                ),
+            }
+            for tool in tools
+        ]
+        return anthropic_tools
+
+    @staticmethod
+    def _translate_tool_choice(tool_choice: str | dict[str, Any]) -> dict[str, Any]:
+        """Translates an OpenAI-format ``tool_choice`` value to Anthropic shape."""
+        if isinstance(tool_choice, str):
+            mapped = _OPENAI_TO_ANTHROPIC_TOOL_CHOICE.get(tool_choice)
+            if mapped is None:
+                raise ValueError(
+                    f"Unsupported tool_choice value '{tool_choice}'. "
+                    "Expected one of: 'auto', 'required', 'none', "
+                    "or a {'type': 'function', 'function': {'name': ...}} dict."
+                )
+            return mapped
+        if isinstance(tool_choice, dict):
+            function = tool_choice.get("function") or {}
+            name = function.get("name")
+            if not name:
+                raise ValueError(
+                    f"tool_choice dict missing function.name: {tool_choice}"
+                )
+            return {"type": "tool", "name": name}
+
+    @staticmethod
+    def _messages_to_anthropic_blocks(
+        messages: list[Message],
+    ) -> list[dict[str, Any]]:
+        """Converts non-system messages to Anthropic's role-and-blocks shape.
+
+        Translates each message into a list of content blocks (text, image,
+        tool_use, tool_result) and merges adjacent same-role messages into a
+        single turn (Anthropic requires alternating user/assistant turns).
+        ``Role.TOOL`` collapses to user.
+
+        For pure-text turns originating from a single ``content: str`` message,
+        the wire shape is collapsed back to ``content: "string"`` to keep the
+        payload tidy; both forms are valid.
+        """
+        result: list[dict[str, Any]] = []
+        for role, group_iter in itertools.groupby(
+            messages, key=AnthropicInferenceEngine._effective_anthropic_role
+        ):
+            group = list(group_iter)
+            blocks: list[dict[str, Any]] = []
+            for msg in group:
+                blocks.extend(
+                    AnthropicInferenceEngine._message_to_anthropic_blocks(msg)
+                )
+            # Collapse a solo single-text-block turn back to bare-string content.
+            # The type check matters — a Role.TOOL message with str content
+            # produces a tool_result block, which must stay in the list form.
+            if (
+                len(group) == 1
+                and len(blocks) == 1
+                and blocks[0].get("type") == "text"
+                and isinstance(group[0].content, str)
+            ):
+                result.append({"role": role, "content": group[0].content})
+            else:
+                result.append({"role": role, "content": blocks})
+        return result
+
+    @staticmethod
+    def _effective_anthropic_role(message: Message) -> str:
+        """Anthropic merges ``Role.TOOL`` messages into ``user`` turns."""
+        return Role.USER.value if message.role == Role.TOOL else message.role.value
+
+    @staticmethod
+    def _message_to_anthropic_blocks(message: Message) -> list[dict[str, Any]]:
+        """Translates one Oumi ``Message`` into a list of Anthropic content blocks."""
+        if message.role == Role.TOOL:
+            return [AnthropicInferenceEngine._tool_result_block(message)]
+        blocks = AnthropicInferenceEngine._content_to_anthropic_blocks(message)
+        if message.role == Role.ASSISTANT and message.tool_calls:
+            blocks.extend(
+                AnthropicInferenceEngine._tool_use_block(tc)
+                for tc in message.tool_calls
+            )
+        return blocks
+
+    @staticmethod
+    def _tool_result_block(message: Message) -> dict[str, Any]:
+        """Builds an Anthropic ``tool_result`` block from a ``Role.TOOL`` message.
+
+        Anthropic accepts either a plain string or a list of content blocks for
+        ``content``; the string form is preserved when the source was a plain
+        ``str`` to keep the wire payload tidy.
+        """
+        if not message.tool_call_id:
+            raise ValueError("Role.TOOL message is missing tool_call_id")
+        if message.content is None:
+            content: str | list[dict[str, Any]] = ""
+        elif isinstance(message.content, str):
+            content = message.content
+        else:
+            content = AnthropicInferenceEngine._content_to_anthropic_blocks(message)
+        return {
+            "type": "tool_result",
+            "tool_use_id": message.tool_call_id,
+            "content": content,
+        }
+
+    @staticmethod
+    def _tool_use_block(tool_call: ToolCall) -> dict[str, Any]:
+        """Builds an Anthropic ``tool_use`` block from an OpenAI-shaped ``ToolCall``.
+
+        Anthropic expects a parsed ``input`` dict; OpenAI keeps ``arguments`` as
+        a JSON string, so it is decoded here.
+        """
+        args = tool_call.function.arguments
+        return {
+            "type": "tool_use",
+            "id": tool_call.id,
+            "name": tool_call.function.name,
+            "input": json.loads(args) if args else {},
+        }
+
+    @staticmethod
+    def _content_to_anthropic_blocks(message: Message) -> list[dict[str, Any]]:
+        """Converts a message's content into a list of Anthropic content blocks."""
+        if message.content is None:
+            return []
+        if isinstance(message.content, str):
+            return [{"type": "text", "text": message.content}]
+        return [
+            AnthropicInferenceEngine._content_item_to_anthropic_block(item)
+            for item in message.content
+        ]
+
+    @staticmethod
+    def _content_item_to_anthropic_block(item: ContentItem) -> dict[str, Any]:
+        """Translates a single ``ContentItem`` into an Anthropic content block."""
+        if item.type == Type.TEXT:
+            return {"type": "text", "text": item.content or ""}
+        if item.type == Type.IMAGE_URL and not item.binary:
+            return {
+                "type": "image",
+                "source": {"type": "url", "url": item.content or ""},
+            }
+        # IMAGE_PATH carries a filesystem path; load the bytes once. IMAGE_BINARY
+        # already has them, and IMAGE_URL with prefetched bytes also skips load.
+        if item.type == Type.IMAGE_PATH and not item.binary:
+            item = load_image_bytes_to_content_item(item)
+        b64_data = base64encode_content_item_image_bytes(item, add_mime_prefix=False)
+        media_type = _detect_image_media_type(item.binary or b"")
+        return {
+            "type": "image",
+            "source": {
+                "type": "base64",
+                "media_type": media_type,
+                "data": b64_data,
+            },
+        }
 
     @staticmethod
     @override
@@ -182,9 +438,43 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         self, response: dict[str, Any], original_conversation: Conversation
     ) -> Conversation:
         """Converts an Anthropic API response to a conversation."""
+        content_blocks = response.get(_CONTENT_KEY, [])
+        if not content_blocks:
+            raise RuntimeError(
+                f"Anthropic API returned empty content. "
+                f"stop_reason={response.get('stop_reason')}, "
+                f"type={response.get('type')}, "
+                f"model={response.get('model')}, "
+                f"usage={response.get('usage')}"
+            )
+        text_parts: list[str] = []
+        tool_calls: list[ToolCall] = []
+        for block in content_blocks:
+            block_type = block.get("type")
+            if block_type == "tool_use":
+                # Translate to OpenAI wire format. Anthropic returns a parsed
+                # ``input`` dict; OpenAI keeps ``arguments`` as a JSON string.
+                tool_calls.append(
+                    ToolCall.model_validate(
+                        {
+                            "id": block["id"],
+                            "type": "function",
+                            "function": {
+                                "name": block["name"],
+                                "arguments": json.dumps(block.get("input", {})),
+                            },
+                        }
+                    )
+                )
+            elif block_type == "text" or "text" in block:
+                # Real Anthropic responses always set type="text"; tolerate
+                # fixtures that omit type when only `text` is present.
+                text_parts.append(block.get("text", ""))
+        text_content = "".join(text_parts)
         new_message = Message(
-            content=response[_CONTENT_KEY][0]["text"],
+            content=text_content if text_content else None,
             role=Role.ASSISTANT,
+            tool_calls=tool_calls or None,
         )
         metadata = dict(original_conversation.metadata)
         usage = self._extract_usage_from_response(response)
@@ -197,6 +487,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
             messages=[*original_conversation.messages, new_message],
             metadata=metadata,
             conversation_id=original_conversation.conversation_id,
+            tools=original_conversation.tools,
         )
 
     @override
@@ -211,9 +502,11 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
     def get_supported_params(self) -> set[str]:
         """Returns a set of supported generation parameters for this engine."""
         return {
+            "guided_decoding",
             "max_new_tokens",
             "stop_strings",
             "temperature",
+            "tool_choice",
             "top_p",
         }
 
@@ -664,3 +957,51 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
                     raise RuntimeError(f"Failed to cancel batch: {error_text}")
                 data = await response.json()
                 return self._convert_anthropic_batch_to_batch_info(data)
+
+
+def _convert_guided_decoding_config_to_api_input(
+    guided_config: GuidedDecodingParams,
+) -> dict:
+    """Converts a guided decoding configuration to an Anthropic API input."""
+    if guided_config.json is None:
+        raise ValueError(
+            "Only JSON schema guided decoding is supported, got '%s'",
+            guided_config,
+        )
+
+    json_schema = guided_config.json
+
+    if isinstance(json_schema, type) and issubclass(json_schema, pydantic.BaseModel):
+        schema_value = json_schema.model_json_schema()
+    elif isinstance(json_schema, dict):
+        schema_value = copy.deepcopy(json_schema)
+    elif isinstance(json_schema, str):
+        schema_value = json.loads(json_schema)
+    else:
+        raise ValueError(
+            f"Got unsupported JSON schema type: {type(json_schema)}"
+            "Please provide a Pydantic model or a JSON schema as a "
+            "string or dict."
+        )
+
+    # Anthropic's output_config requires `additionalProperties: false` on every
+    # object schema; inject it where missing.
+    RemoteInferenceEngine._enforce_additional_properties_false(schema_value)
+
+    return {
+        "output_config": {
+            "format": {"type": "json_schema", "schema": schema_value},
+        },
+    }
+
+
+def _model_supports_output_config(model_name: str) -> bool:
+    """Returns True if the model accepts the output_config field, False otherwise."""
+    # Anthropic's `output_config` (structured outputs) is GA on Claude 4.5+ (Opus,
+    # Sonnet, Haiku) and Mythos. Older models (Claude 3.x, 3.5) reject the field.
+    if model_name.startswith("claude-mythos"):
+        return True
+
+    version_re = re.compile(r"^claude-(?:opus|sonnet|haiku)-(\d+)-(\d+)")
+    match = version_re.match(model_name)
+    return (int(match[1]), int(match[2])) >= (4, 5) if match else False

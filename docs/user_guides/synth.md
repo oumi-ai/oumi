@@ -121,6 +121,53 @@ input_documents:
   - path: "textbook.pdf"
 ```
 
+**Supported dataset formats** (`input_data`): JSONL, JSON, CSV, TSV, Parquet, and **XLSX**. For XLSX files, every sheet is concatenated into a single dataset, so you can keep related tabs in one workbook. Globs are supported:
+
+```yaml
+input_data:
+  - path: "data/**/*.xlsx"
+```
+
+**Supported document formats** (`input_documents`): `.pdf`, `.txt`, `.md`, `.html`, and **`.docx`**. DOCX files are parsed paragraph-by-paragraph.
+
+```{note}
+XLSX / DOCX parsing require the synthesis extras: `pip install oumi[synthesis]`.
+```
+
+### Few-Shot Sampling From Sources
+
+When you want each synthesised sample to see *multiple* randomly-drawn items from a source (examples, datasets, or documents), use `num_shots`. This turns the source into a dynamic few-shot pool instead of round-robin enumeration.
+
+```yaml
+input_examples:
+  - id: few_shot_examples
+    num_shots: 3                       # draw 3 examples per synthesis sample
+    examples:
+      - task_type: "summarization"
+        example_input: "..."
+      - task_type: "translation"
+        example_input: "..."
+      # ...
+
+generated_attributes:
+  - id: instruction
+    instruction_messages:
+      - role: USER
+        content: |
+          Example 1: {few_shot_examples[0].example_input}
+          Example 2: {few_shot_examples[1].example_input}
+          Example 3: {few_shot_examples[2].example_input}
+          Now produce a new, different example.
+```
+
+Rules:
+
+- `num_shots: None` or `1` → the source behaves as before (round-robin), reference fields as `{id.field}`.
+- `num_shots > 1` → bracket notation `{id[i].field}` is required, and `id` must be set.
+- Works uniformly across `input_examples`, `input_data`, and `input_documents`.
+
+A runnable example lives at {gh}`configs/examples/synthesis/dynamic_few_shot_synth.yaml`.
+
 ### Creating Conversations
 
 Build multi-turn dialogues with fixed structure using transformed attributes:
@@ -163,6 +210,104 @@ multiturn_attributes:
 Ready to dive deeper? The sections below cover all available options in detail.
 
 ---
+
+## Environment-First Tool Synthesis
+
+Agentic synthesis now follows an environment-first model. Tools do not declare an output strategy directly. Instead, each tool is bound to an environment, and the environment type defines how tool calls are executed via its `step()` method.
+
+- **`synthetic` environments** are backed by an LLM that simulates tool execution. They can be stateless (no persistent state) or stateful (mutable JSON state across turns). Statefulness is controlled by the optional `state_params` field — when provided, the environment tracks and mutates state across calls; when absent, each call is independent.
+- **`deterministic` environments** behave like lookup tables. Each tool defines a set of input-to-output mappings, and `step()` resolves tool calls by matching arguments against those mappings. No LLM is involved.
+
+At the config level:
+
+- Environments own their tool definitions.
+- Reusable environment catalogs live in top-level `environment_config` or `environment_config_path`.
+- Tools do not declare an `environment` field. The parent environment owns the binding.
+- `deterministic_outputs` is only used for tools in `deterministic` environments.
+- `read_only` is only meaningful for tools in stateful `synthetic` environments.
+- Multiturn attributes reference environments (not individual tools) to select which tools are available.
+
+Example:
+
+```yaml
+environment_config:
+  environments:
+    - id: support_backend
+      name: Support Backend
+      description: Simulated support system with tickets and users
+      type: synthetic
+      system_prompt: You manage a customer support system with tickets and users.
+      state_params:
+        state_schema:
+          type: object
+          properties:
+            tickets: { type: array }
+            users: { type: array }
+        initial_state:
+          tickets: []
+          users: []
+      tools:
+        - id: get_ticket
+          name: GetTicket
+          description: Read a ticket from the support backend.
+          read_only: true
+          parameters:
+            type: object
+            properties:
+              ticket_id: { type: string }
+        - id: create_ticket
+          name: CreateTicket
+          description: Create a new support ticket.
+          read_only: false
+          parameters:
+            type: object
+            properties:
+              subject: { type: string }
+              priority: { type: string, enum: [low, medium, high] }
+
+    - id: faq_lookup
+      name: FAQ Lookup
+      description: Cached LLM-backed FAQ answers
+      type: synthetic
+      system_prompt: Generate concise FAQ answers grounded in the tool contract.
+      cache_by_input: true
+      tools:
+        - id: answer_faq
+          name: AnswerFAQ
+          description: Answer common support questions.
+          parameters:
+            type: object
+            properties:
+              question: { type: string }
+
+    - id: policy_table
+      name: Policy Table
+      description: Predefined policy responses
+      type: deterministic
+      tools:
+        - id: get_refund_policy
+          name: GetRefundPolicy
+          description: Return the matching refund policy.
+          parameters:
+            type: object
+            properties:
+              policy_type: { type: string }
+          deterministic_outputs:
+            - input:
+                policy_type: standard
+              output:
+                policy: Standard 30-day refund policy
+
+strategy_params:
+  multiturn_attributes:
+    - id: support_chat
+      min_turns: 2
+      max_turns: 4
+      role_instruction_messages:
+        USER: You are a customer contacting support.
+        ASSISTANT: You are a helpful support agent.
+      available_environments: [support_backend, faq_lookup, policy_table]
+```
 
 ## Complete Configuration Reference
 
@@ -542,6 +687,38 @@ data:
       - dataset_name: "text_sft_jsonl"
         dataset_path: "synthetic_qa_dataset.jsonl"
 ```
+
+## Batch Inference
+
+When your synthesis provider supports batch inference (OpenAI, Anthropic, Together, Fireworks, Parasail — see {doc}`/user_guides/infer/inference_engines`), you can submit all prompts for a single attribute as a batch job rather than calling the API online:
+
+```python
+from oumi.core.synthesis.attribute_synthesizer import AttributeSynthesizer
+
+synth = AttributeSynthesizer(config)
+
+# Submit a batch job for one generated attribute
+batch_id = synth.synthesize_batch(samples, generated_attribute)
+
+# Later, retrieve results
+results = synth.get_batch_results(batch_id, samples, generated_attribute)
+# Or tolerate per-row failures:
+partial = synth.get_batch_results_partial(batch_id, samples, generated_attribute)
+```
+
+Batches are typically 50% cheaper than online inference at the cost of a 24-hour completion window. Attributes are batched one at a time (not across attributes), so chained `generated_attributes` still run sequentially.
+
+## Token Usage Tracking
+
+`AttributeSynthesizer` accumulates token usage across every online and batch call:
+
+```python
+print(synth.total_input_tokens)    # prompt_tokens across all calls
+print(synth.total_output_tokens)   # completion_tokens
+print(synth.total_cached_tokens)   # prompt tokens served from provider cache
+```
+
+Use these counters for cost reporting across an entire synthesis run. See also [Token Usage Tracking](/user_guides/infer/inference_engines.md#token-usage-tracking) on the inference engine side.
 
 ## Best Practices
 

@@ -253,6 +253,39 @@ run: |
 ````
 :::
 
+:::{tab-item} Nebius
+````{dropdown} sample-nebius-job.yaml
+```yaml
+name: sample-nebius-job
+
+resources:
+  cloud: nebius
+  accelerators: "A100"
+  # Nebius currently supports on-demand GPU VMs. Spot is not supported.
+  use_spot: false
+  disk_size: 500  # Disk size in GBs
+
+num_nodes: 1  # Set to a larger number for multi-node training.
+
+working_dir: .
+
+envs:
+  OUMI_RUN_NAME: sample.nebius.job
+
+setup: |
+  set -e
+  pip install uv && uv pip install --system 'oumi[gpu]'
+
+# NOTE: Update this section with your training command.
+run: |
+  set -e  # Exit if any command failed.
+  oumi train -c ./path/to/your/config
+```
+````
+
+Nebius support is provided through SkyPilot. Enable it the same way as other providers: run `sky check` and follow the instructions for the "Nebius" row (see the [SkyPilot Nebius docs](https://docs.skypilot.co/en/latest/reference/cloud-setup/cloud-permissions/nebius.html)).
+:::
+
 :::{tab-item} Lambda
 ````{dropdown} sample-lambda-job.yaml
 ```yaml

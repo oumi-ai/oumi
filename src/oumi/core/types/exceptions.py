@@ -12,6 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Backward-compatibility shim.
 
-class HardwareException(Exception):
-    """An exception thrown for invalid hardware configurations."""
+The canonical location for Oumi exceptions is :mod:`oumi.exceptions`. This
+module is kept only so that existing callers importing
+``HardwareException`` from ``oumi.core.types.exceptions`` continue to work.
+New code should import from :mod:`oumi.exceptions` (or, for convenience,
+from :mod:`oumi.core.types`) instead.
+"""
+
+from oumi.exceptions import HardwareException
+
+__all__ = ["HardwareException"]

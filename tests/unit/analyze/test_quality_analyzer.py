@@ -70,12 +70,16 @@ def test_metrics_creation():
     """Test that DataQualityMetrics can be created with required fields."""
     metrics = DataQualityMetrics(
         has_non_alternating_turns=False,
+        has_no_user_message=False,
+        has_system_message_not_at_start=False,
         has_empty_turns=False,
         empty_turn_count=0,
         has_invalid_values=False,
         invalid_value_patterns=[],
     )
     assert metrics.has_non_alternating_turns is False
+    assert metrics.has_no_user_message is False
+    assert metrics.has_system_message_not_at_start is False
     assert metrics.has_empty_turns is False
     assert metrics.empty_turn_count == 0
     assert metrics.has_invalid_values is False
@@ -163,6 +167,123 @@ def test_system_only_conversation_not_flagged(analyzer):
     )
     result = analyzer.analyze(conversation)
     assert result.has_non_alternating_turns is False
+
+
+# -----------------------------------------------------------------------------
+# No User Message Tests
+# -----------------------------------------------------------------------------
+
+
+def test_conversation_with_user_message_not_flagged(analyzer, alternating_conversation):
+    """Conversation with user messages is not flagged."""
+    result = analyzer.analyze(alternating_conversation)
+    assert result.has_no_user_message is False
+
+
+def test_no_user_message_flagged(analyzer):
+    """Conversation without any user message is flagged."""
+    conversation = Conversation(
+        messages=[
+            Message(role=Role.SYSTEM, content="You are helpful."),
+            Message(role=Role.ASSISTANT, content="Hello!"),
+        ]
+    )
+    result = analyzer.analyze(conversation)
+    assert result.has_no_user_message is True
+
+
+def test_empty_conversation_flagged_no_user(analyzer, empty_conversation):
+    """Empty conversation has no user message."""
+    result = analyzer.analyze(empty_conversation)
+    assert result.has_no_user_message is True
+
+
+def test_system_only_flagged_no_user(analyzer):
+    """System-only conversation has no user message."""
+    conversation = Conversation(
+        messages=[Message(role=Role.SYSTEM, content="You are helpful.")]
+    )
+    result = analyzer.analyze(conversation)
+    assert result.has_no_user_message is True
+
+
+def test_assistant_only_flagged_no_user(analyzer):
+    """Assistant-only conversation has no user message."""
+    conversation = Conversation(
+        messages=[Message(role=Role.ASSISTANT, content="Hello!")]
+    )
+    result = analyzer.analyze(conversation)
+    assert result.has_no_user_message is True
+
+
+# -----------------------------------------------------------------------------
+# System Message Not at Start Tests
+# -----------------------------------------------------------------------------
+
+
+def test_system_at_start_not_flagged(analyzer):
+    """System message at position 0 is not flagged."""
+    conversation = Conversation(
+        messages=[
+            Message(role=Role.SYSTEM, content="You are helpful."),
+            Message(role=Role.USER, content="Hello"),
+            Message(role=Role.ASSISTANT, content="Hi!"),
+        ]
+    )
+    result = analyzer.analyze(conversation)
+    assert result.has_system_message_not_at_start is False
+
+
+def test_no_system_message_not_flagged(analyzer, alternating_conversation):
+    """Conversation without system message is not flagged."""
+    result = analyzer.analyze(alternating_conversation)
+    assert result.has_system_message_not_at_start is False
+
+
+def test_system_message_in_middle_flagged(analyzer):
+    """System message not at position 0 is flagged."""
+    conversation = Conversation(
+        messages=[
+            Message(role=Role.USER, content="Hello"),
+            Message(role=Role.SYSTEM, content="You are helpful."),
+            Message(role=Role.ASSISTANT, content="Hi!"),
+        ]
+    )
+    result = analyzer.analyze(conversation)
+    assert result.has_system_message_not_at_start is True
+
+
+def test_system_message_at_end_flagged(analyzer):
+    """System message at end is flagged."""
+    conversation = Conversation(
+        messages=[
+            Message(role=Role.USER, content="Hello"),
+            Message(role=Role.ASSISTANT, content="Hi!"),
+            Message(role=Role.SYSTEM, content="You are helpful."),
+        ]
+    )
+    result = analyzer.analyze(conversation)
+    assert result.has_system_message_not_at_start is True
+
+
+def test_multiple_system_messages_second_flagged(analyzer):
+    """When system message is at position 0 but another is later, it's flagged."""
+    conversation = Conversation(
+        messages=[
+            Message(role=Role.SYSTEM, content="System prompt."),
+            Message(role=Role.USER, content="Hello"),
+            Message(role=Role.SYSTEM, content="Another system message."),
+            Message(role=Role.ASSISTANT, content="Hi!"),
+        ]
+    )
+    result = analyzer.analyze(conversation)
+    assert result.has_system_message_not_at_start is True
+
+
+def test_empty_conversation_system_not_flagged(analyzer, empty_conversation):
+    """Empty conversation is not flagged for system position."""
+    result = analyzer.analyze(empty_conversation)
+    assert result.has_system_message_not_at_start is False
 
 
 # -----------------------------------------------------------------------------
@@ -379,6 +500,8 @@ def test_get_result_schema():
     schema = DataQualityAnalyzer.get_result_schema()
     assert "properties" in schema
     assert "has_non_alternating_turns" in schema["properties"]
+    assert "has_no_user_message" in schema["properties"]
+    assert "has_system_message_not_at_start" in schema["properties"]
     assert "has_empty_turns" in schema["properties"]
     assert "empty_turn_count" in schema["properties"]
     assert "has_invalid_values" in schema["properties"]
@@ -389,6 +512,8 @@ def test_get_metric_names():
     """All expected metric names are present."""
     names = DataQualityAnalyzer.get_metric_names()
     assert "has_non_alternating_turns" in names
+    assert "has_no_user_message" in names
+    assert "has_system_message_not_at_start" in names
     assert "has_empty_turns" in names
     assert "empty_turn_count" in names
     assert "has_invalid_values" in names

@@ -24,6 +24,7 @@ from oumi.core.configs.params.training_params import (
     TrainingParams,
 )
 from oumi.core.registry import REGISTRY, RegistryType
+from oumi.exceptions import OumiConfigError
 from oumi.utils.logging import logger
 from oumi.utils.str_utils import sanitize_run_name
 
@@ -52,14 +53,14 @@ class ParamType(Enum):
     ) -> None:
         """Verifies that a parameter specification is valid."""
         if param_name not in valid_training_params:
-            raise ValueError(
+            raise OumiConfigError(
                 f"Invalid tunable parameter: {param_name}. "
                 f"Must be a valid `{type_name}` field."
             )
         elif isinstance(param_spec, dict):
             # Validate required keys
             if "type" not in param_spec:
-                raise ValueError(
+                raise OumiConfigError(
                     f"Tunable parameter '{param_name}' must have 'type' key"
                 )
 
@@ -70,21 +71,21 @@ class ParamType(Enum):
                 param_type = ParamType(param_type_str)
             except ValueError:
                 valid_types = [t.value for t in ParamType]
-                raise ValueError(
+                raise OumiConfigError(
                     f"Invalid type '{param_type_str}' for parameter"
                     f" '{param_name}'. Must be one of: {valid_types}"
                 )
             # Validate based on parameter type
             if param_type == ParamType.CATEGORICAL:
                 if "choices" not in param_spec:
-                    raise ValueError(
+                    raise OumiConfigError(
                         f"Categorical parameter '{param_name}' must have 'choices' key"
                     )
                 if (
                     not isinstance(param_spec["choices"], list)
                     or len(param_spec["choices"]) == 0
                 ):
-                    raise ValueError(
+                    raise OumiConfigError(
                         f"Categorical parameter '{param_name}' must have"
                         " non-empty choices list"
                     )
@@ -92,11 +93,11 @@ class ParamType(Enum):
                 # All other types need low and high
                 required_keys = {"low", "high"}
                 if not required_keys.issubset(param_spec.keys()):
-                    raise ValueError(
+                    raise OumiConfigError(
                         f"Parameter '{param_name}' must have 'low' and 'high' keys"
                     )
         else:
-            raise ValueError(f"Tunable parameter '{param_name}' must be a dict")
+            raise OumiConfigError(f"Tunable parameter '{param_name}' must be a dict")
 
 
 @dataclass
@@ -284,7 +285,7 @@ class TuningParams(BaseParams):
         # Validate logging strategy
         valid_logging_strategies = {"trials", "epoch", "no"}
         if self.logging_strategy not in valid_logging_strategies:
-            raise ValueError(
+            raise OumiConfigError(
                 f"Invalid logging_strategy: {self.logging_strategy}. "
                 f"Choose from {valid_logging_strategies}."
             )
@@ -298,7 +299,7 @@ class TuningParams(BaseParams):
                     "Applying it to all evaluation_metrics."
                 )
             else:
-                raise ValueError(
+                raise OumiConfigError(
                     "Length of evaluation_metrics must match length of "
                     "evaluation_direction, or evaluation_direction must be of length 1."
                 )
@@ -306,7 +307,7 @@ class TuningParams(BaseParams):
         # Validate each evaluation direction
         for direction in self.evaluation_direction:
             if direction not in {"minimize", "maximize"}:
-                raise ValueError(
+                raise OumiConfigError(
                     f"Invalid evaluation_direction: {direction}. "
                     'Choose either "minimize" or "maximize".'
                 )
@@ -321,7 +322,7 @@ class TuningParams(BaseParams):
         # Validate trainer type
         # TODO: Add more options in the future.
         if self.trainer_type != TrainerType.TRL_SFT:
-            raise ValueError(
+            raise OumiConfigError(
                 f"Invalid trainer_type: {self.trainer_type}. "
                 f"Choose from {[t.value for t in [TrainerType.TRL_SFT]]}."
             )
@@ -334,7 +335,7 @@ class TuningParams(BaseParams):
         # Verify fixed training params keys are valid TrainingParams fields
         for param_name in self.fixed_training_params.keys():
             if param_name not in valid_training_params:
-                raise ValueError(
+                raise OumiConfigError(
                     f"Invalid fixed parameter: {param_name}. "
                     f"Must be a valid `TrainingParams` field."
                 )
@@ -352,7 +353,7 @@ class TuningParams(BaseParams):
         # Verify fixed training params keys are valid PEFT fields
         for param_name in self.fixed_peft_params.keys():
             if param_name not in valid_training_params:
-                raise ValueError(
+                raise OumiConfigError(
                     f"Invalid fixed parameter: {param_name}. "
                     f"Must be a valid `PeftParams` field."
                 )
@@ -385,7 +386,7 @@ class TuningParams(BaseParams):
                 available = sorted(
                     REGISTRY.get_all(RegistryType.EVALUATION_FUNCTION).keys()
                 )
-                raise ValueError(
+                raise OumiConfigError(
                     "Unregistered custom_eval_metrics detected: "
                     f"{unknown}. Available evaluation functions: {available}"
                 )

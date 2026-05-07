@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 
 from oumi.core.configs.base_config import BaseConfig
 from oumi.core.configs.params.model_params import ModelParams
+from oumi.exceptions import OumiConfigError
 
 
 @dataclass
@@ -76,14 +77,14 @@ class QuantizationConfig(BaseConfig):
 
         # Validate output format
         if self.output_format not in SUPPORTED_OUTPUT_FORMATS:
-            raise ValueError(
+            raise OumiConfigError(
                 f"Unsupported output format: {self.output_format}. "
                 f"Must be one of: {SUPPORTED_OUTPUT_FORMATS}."
             )
 
         # Validate quantization method
         if self.method not in SUPPORTED_METHODS:
-            raise ValueError(
+            raise OumiConfigError(
                 f"Unsupported quantization method: {self.method}. "
                 f"Must be one of: {SUPPORTED_METHODS}."
             )
