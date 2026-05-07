@@ -17,7 +17,7 @@ INPUT_TAG = os.environ.get("INPUT_TAG", "")
 
 NEWS_HEADER = "## 🔥 News"
 VISIBLE_ITEM_LIMIT = 12
-OLDER_ITEMS_SUMMARY = "Older items"
+OLDER_ITEMS_SUMMARY = "Older updates"
 
 
 def parse_news_items(readme: str) -> list[str]:

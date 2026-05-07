@@ -30,7 +30,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install requests anthropic
+        run: pip install requests
 
       - name: Run news update script
         env:

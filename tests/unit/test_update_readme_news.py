@@ -146,10 +146,10 @@ def test_rewrite_under_12_no_details_block():
     assert len(items) == 6
 
 
-def test_rewrite_normalizes_older_summary_label():
+def test_rewrite_preserves_older_summary_label():
     readme = _make_readme(visible_count=12, older_count=3)
     result = rewrite_readme_news(readme, "- [2026/06] Brand New")
-    assert "<summary>Older items</summary>" in result
+    assert "<summary>Older updates</summary>" in result
 
 
 def test_rewrite_preserves_rest_of_readme():
