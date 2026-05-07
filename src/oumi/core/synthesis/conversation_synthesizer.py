@@ -18,10 +18,6 @@ import random
 from oumi.builders.environments import build_environment
 from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.configs.environment_config import EnvironmentConfig
-from oumi.inference.native_tool_calling import (
-    NATIVE_TOOL_CALLING_ENGINES,
-    supports_native_tool_calling,
-)
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.inference_engine_type import InferenceEngineType
 from oumi.core.configs.params.environment_params import EnvironmentParams
@@ -42,6 +38,10 @@ from oumi.core.types.conversation import (
 from oumi.environments import GroundingFact
 from oumi.environments.base_environment import BaseEnvironment
 from oumi.environments.utils import describe_grounding_default
+from oumi.inference.native_tool_calling import (
+    NATIVE_TOOL_CALLING_ENGINES,
+    supports_native_tool_calling,
+)
 from oumi.utils.logging import logger
 from oumi.utils.str_utils import extract_json
 
