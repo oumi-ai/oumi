@@ -60,7 +60,7 @@ def rewrite_readme_news(readme: str, new_item: str) -> str:
     existing_bullets: list[str] = []
     for line in lines[news_idx + 1 : next_section_idx]:
         if line.startswith("- ["):
-            existing_bullets.append(line.rstrip("\n"))
+            existing_bullets.append(line.rstrip("\r\n"))
 
     # Build the new ordered list (new item first)
     all_items = [new_item] + existing_bullets
@@ -104,6 +104,7 @@ def is_release_in_news(readme: str, tag: str) -> bool:
 
 def format_news_item(tag: str, url: str, published_at: str, summary: str) -> str:
     """Return a formatted news bullet: `- [YYYY/MM] [Oumi {tag} released]({url}) {summary}`."""
+    summary = summary.strip()
     dt = datetime.fromisoformat(published_at.replace("Z", "+00:00"))
     date_str = dt.strftime("%Y/%m")
     base = f"- [{date_str}] [Oumi {tag} released]({url})"
