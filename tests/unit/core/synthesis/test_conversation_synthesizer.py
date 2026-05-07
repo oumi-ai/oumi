@@ -31,6 +31,7 @@ from oumi.core.configs.params.synthesis_params import (
     SampledAttribute,
     SampledAttributeValue,
 )
+from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.core.synthesis.conversation_synthesizer import ConversationSynthesizer
 from oumi.core.types.conversation import (
     PLANNER_JSON_SCHEMA,
@@ -38,6 +39,8 @@ from oumi.core.types.conversation import (
     Message,
     Role,
 )
+from oumi.core.types.tool_call import FunctionCall, ToolCall, ToolResult
+from oumi.environments.base_environment import BaseEnvironment
 
 
 @pytest.fixture
@@ -969,16 +972,21 @@ def test_init_raises_on_unsupported_engine_with_tools(
         )
 
 
+@patch("oumi.core.synthesis.conversation_synthesizer.build_environment")
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
 def test_init_no_error_on_supported_engine_with_tools(
     mock_build_inference_engine,
+    mock_build_environment,
     mock_general_synthesis_params,
 ):
     """Supported engine + env with tools → no error at init."""
     mock_build_inference_engine.return_value = Mock()
+    mock_build_environment.return_value = Mock()
 
     env_config = MagicMock(spec=EnvironmentConfig)
     env_config.all_tools = [ToolParams(id="my_tool", name="My Tool", description="x")]
+    env_config.environments = []
+    env_config.tool_environment_map = {}
 
     inference_config = InferenceConfig(
         engine=InferenceEngineType.OPENAI,
@@ -1017,9 +1025,11 @@ def test_init_no_error_on_unsupported_engine_without_tools(
     )
 
 
+@patch("oumi.core.synthesis.conversation_synthesizer.build_environment")
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
 def test_synthesize_attaches_tools_to_assistant_prompt(
     mock_build_inference_engine,
+    mock_build_environment,
     mock_general_synthesis_params,
 ):
     """Assistant prompts must have Conversation.tools populated when env has tools."""
@@ -1028,7 +1038,10 @@ def test_synthesize_attaches_tools_to_assistant_prompt(
     turn_prompts: list[Conversation] = []
 
     def capturing_infer(prompts, inference_config=None):
-        if inference_config is None or inference_config.generation.guided_decoding is None:
+        if (
+            inference_config is None
+            or inference_config.generation.guided_decoding is None
+        ):
             turn_prompts.extend(prompts)
         return [
             Conversation(messages=[Message(role=Role.ASSISTANT, content="ok")])
@@ -1038,11 +1051,12 @@ def test_synthesize_attaches_tools_to_assistant_prompt(
     mock_engine = Mock()
     mock_engine.infer.side_effect = capturing_infer
     mock_build_inference_engine.return_value = mock_engine
+    mock_build_environment.return_value = Mock()
 
     env_config = MagicMock(spec=EnvironmentConfig)
-    env_config.all_tools = [
-        ToolParams(id="lookup", name="lookup", description="x")
-    ]
+    env_config.all_tools = [ToolParams(id="lookup", name="lookup", description="x")]
+    env_config.environments = []
+    env_config.tool_environment_map = {}
 
     inference_config = InferenceConfig(
         engine=InferenceEngineType.OPENAI,
@@ -1133,3 +1147,395 @@ def test_synthesize_no_tools_when_env_has_none(
     )
 
     assert all(p.tools is None for p in captured_prompts)
+
+
+# ---------------------------------------------------------------------------
+# Tests for native tool-call loop (Task 5)
+# ---------------------------------------------------------------------------
+
+
+def _make_env_config(env_id: str, tool_id: str) -> MagicMock:
+    """Build a MagicMock(spec=EnvironmentConfig) with a single tool/env."""
+    env_params = EnvironmentParams(
+        id=env_id,
+        name="x",
+        description="x",
+        env_type="deterministic",
+        tools=[],
+    )
+    env_config = MagicMock(spec=EnvironmentConfig)
+    env_config.environments = [env_params]
+    env_config.all_tools = [ToolParams(id=tool_id, name="x", description="x")]
+    env_config.tool_environment_map = {tool_id: env_id}
+    return env_config
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_environment")
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_run_tool_call_dispatches_through_env(
+    mock_build_inference_engine,
+    mock_build_environment,
+    mock_general_synthesis_params,
+):
+    """A valid ToolCall produces a Role.TOOL message via env.step()."""
+    mock_build_inference_engine.return_value = Mock()
+
+    fake_env = Mock(spec=BaseEnvironment)
+    fake_env.step.return_value = ToolResult(output={"city": "Paris"})
+    mock_build_environment.return_value = fake_env
+
+    env_config = _make_env_config("weather", "get_weather")
+
+    inference_config = InferenceConfig(
+        engine=InferenceEngineType.OPENAI,
+        model=Mock(spec=ModelParams),
+        remote_params=Mock(spec=RemoteParams),
+        generation=GenerationParams(),
+    )
+
+    synth = ConversationSynthesizer(
+        mock_general_synthesis_params,
+        inference_config,
+        environment_config=env_config,
+    )
+
+    tc = ToolCall(
+        id="call_1",
+        function=FunctionCall(name="get_weather", arguments='{"city": "Paris"}'),
+    )
+    msg = synth._run_tool_call(tc)
+
+    assert msg.role == Role.TOOL
+    assert msg.tool_call_id == "call_1"
+    # Dict outputs are JSON-encoded at the message boundary.
+    assert isinstance(msg.content, str)
+    assert msg.content == '{"city": "Paris"}'
+    fake_env.step.assert_called_once_with("get_weather", {"city": "Paris"})
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_environment")
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_run_tool_call_handles_malformed_arguments(
+    mock_build_inference_engine,
+    mock_build_environment,
+    mock_general_synthesis_params,
+):
+    """Malformed JSON in function.arguments → error TOOL message, env not called."""
+    mock_build_inference_engine.return_value = Mock()
+    fake_env = Mock(spec=BaseEnvironment)
+    mock_build_environment.return_value = fake_env
+
+    env_config = _make_env_config("e", "t")
+    inference_config = InferenceConfig(
+        engine=InferenceEngineType.OPENAI,
+        model=Mock(spec=ModelParams),
+        remote_params=Mock(spec=RemoteParams),
+        generation=GenerationParams(),
+    )
+    synth = ConversationSynthesizer(
+        mock_general_synthesis_params,
+        inference_config,
+        environment_config=env_config,
+    )
+
+    tc = ToolCall(
+        id="call_x",
+        function=FunctionCall(name="t", arguments="{not valid json"),
+    )
+    msg = synth._run_tool_call(tc)
+    assert msg.role == Role.TOOL
+    assert msg.tool_call_id == "call_x"
+    assert "Malformed tool_call arguments" in str(msg.content)
+    fake_env.step.assert_not_called()
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_environment")
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_run_tool_call_handles_unknown_tool(
+    mock_build_inference_engine,
+    mock_build_environment,
+    mock_general_synthesis_params,
+):
+    """Unknown tool name → error TOOL message, env not invoked."""
+    mock_build_inference_engine.return_value = Mock()
+    fake_env = Mock(spec=BaseEnvironment)
+    mock_build_environment.return_value = fake_env
+
+    env_config = _make_env_config("e", "known_tool")
+    inference_config = InferenceConfig(
+        engine=InferenceEngineType.OPENAI,
+        model=Mock(spec=ModelParams),
+        remote_params=Mock(spec=RemoteParams),
+        generation=GenerationParams(),
+    )
+    synth = ConversationSynthesizer(
+        mock_general_synthesis_params,
+        inference_config,
+        environment_config=env_config,
+    )
+
+    tc = ToolCall(
+        id="c",
+        function=FunctionCall(name="ghost_tool", arguments="{}"),
+    )
+    msg = synth._run_tool_call(tc)
+    assert msg.role == Role.TOOL
+    assert "Unknown tool 'ghost_tool'" in str(msg.content)
+    fake_env.step.assert_not_called()
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_environment")
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_run_tool_call_handles_env_exception(
+    mock_build_inference_engine,
+    mock_build_environment,
+    mock_general_synthesis_params,
+):
+    """env.step() raising → error TOOL message, loop stays alive."""
+    mock_build_inference_engine.return_value = Mock()
+    fake_env = Mock(spec=BaseEnvironment)
+    fake_env.step.side_effect = RuntimeError("boom")
+    mock_build_environment.return_value = fake_env
+
+    env_config = _make_env_config("e", "t")
+    inference_config = InferenceConfig(
+        engine=InferenceEngineType.OPENAI,
+        model=Mock(spec=ModelParams),
+        remote_params=Mock(spec=RemoteParams),
+        generation=GenerationParams(),
+    )
+    synth = ConversationSynthesizer(
+        mock_general_synthesis_params,
+        inference_config,
+        environment_config=env_config,
+    )
+
+    tc = ToolCall(id="c", function=FunctionCall(name="t", arguments="{}"))
+    msg = synth._run_tool_call(tc)
+    assert msg.role == Role.TOOL
+    assert "Tool 't' raised: boom" in str(msg.content)
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_environment")
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_assistant_turn_loops_on_tool_calls(
+    mock_build_inference_engine,
+    mock_build_environment,
+    mock_general_synthesis_params,
+):
+    """Assistant turn loops: tool_calls -> dispatch -> re-infer -> final text."""
+    fake_env = Mock(spec=BaseEnvironment)
+    fake_env.step.return_value = ToolResult(output={"answer": 42})
+    mock_build_environment.return_value = fake_env
+
+    # Track which assistant-turn infer call we're on (planner uses guided_decoding).
+    turn_call_count = {"n": 0}
+
+    def scripted_infer(prompts, inference_config=None):
+        if (
+            inference_config is not None
+            and inference_config.generation.guided_decoding is not None
+        ):
+            return [
+                Conversation(
+                    messages=[Message(role=Role.ASSISTANT, content='{"turns": []}')]
+                )
+                for _ in prompts
+            ]
+        turn_call_count["n"] += 1
+        # First assistant call for turn 2 returns a tool call;
+        # second call returns a final text answer.
+        # User turns produce plain text and only invoke once for turn 1.
+        last_msg = prompts[0].messages[-1]
+        last_text = last_msg.content if isinstance(last_msg.content, str) else ""
+        if "USER" in last_text:
+            # User-turn prompts mention "as the USER".
+            return [
+                Conversation(messages=[Message(role=Role.ASSISTANT, content="hello")])
+                for _ in prompts
+            ]
+        # Assistant turn — first round emits a tool call, second emits text.
+        if turn_call_count["n"] == 2:
+            return [
+                Conversation(
+                    messages=[
+                        Message(
+                            role=Role.ASSISTANT,
+                            content=None,
+                            tool_calls=[
+                                ToolCall(
+                                    id="c1",
+                                    function=FunctionCall(name="t", arguments="{}"),
+                                )
+                            ],
+                        )
+                    ]
+                )
+                for _ in prompts
+            ]
+        return [
+            Conversation(messages=[Message(role=Role.ASSISTANT, content="done")])
+            for _ in prompts
+        ]
+
+    mock_engine = Mock()
+    mock_engine.infer.side_effect = scripted_infer
+    mock_build_inference_engine.return_value = mock_engine
+
+    env_config = _make_env_config("e", "t")
+
+    multiturn_attr = MultiTurnAttribute(
+        id="dialog",
+        min_turns=2,
+        max_turns=2,
+        role_instruction_messages={
+            Role.USER: "user",
+            Role.ASSISTANT: "assistant",
+        },
+        max_tool_calls_per_turn=5,
+    )
+    inference_config = InferenceConfig(
+        engine=InferenceEngineType.OPENAI,
+        model=Mock(spec=ModelParams),
+        remote_params=Mock(spec=RemoteParams),
+        generation=GenerationParams(),
+    )
+    synth = ConversationSynthesizer(
+        mock_general_synthesis_params,
+        inference_config,
+        environment_config=env_config,
+    )
+    with patch.object(
+        synth, "_resolve_available_tools", return_value=env_config.all_tools
+    ):
+        result = synth.synthesize(
+            samples=[{"target_turns": 2, "parsed_turn_plans": []}],
+            multiturn_attributes=multiturn_attr,
+        )
+
+    assert len(result) == 1
+    record = result[0]
+    assert record is not None
+    conv = record["dialog"]
+    assert isinstance(conv, dict)
+    msgs = conv["messages"]
+    roles = [m["role"] for m in msgs]
+    # Tool-result message must be present, and a final assistant text after it.
+    assert "tool" in roles, f"Expected a tool message in {roles}"
+    # Sequence after the user turn 1 should be:
+    # user, assistant(tool_calls), tool, assistant("done")
+    # Find the last 'tool' message and verify there's an assistant after it.
+    last_tool = max(i for i, m in enumerate(msgs) if m["role"] == "tool")
+    assert any(
+        m["role"] == "assistant" and m.get("content") == "done"
+        for m in msgs[last_tool + 1 :]
+    ), f"Expected final assistant text after tool message: {msgs}"
+    # Env.step was called exactly once.
+    assert fake_env.step.call_count == 1
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_environment")
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_assistant_turn_caps_at_max_tool_calls_then_finalizes(
+    mock_build_inference_engine,
+    mock_build_environment,
+    mock_general_synthesis_params,
+):
+    """When max_tool_calls_per_turn is hit, the nudge forces a final text answer."""
+    fake_env = Mock(spec=BaseEnvironment)
+    fake_env.step.return_value = ToolResult(output="ok")
+    mock_build_environment.return_value = fake_env
+
+    def scripted_infer(prompts, inference_config=None):
+        if (
+            inference_config is not None
+            and inference_config.generation.guided_decoding is not None
+        ):
+            return [
+                Conversation(
+                    messages=[Message(role=Role.ASSISTANT, content='{"turns": []}')]
+                )
+                for _ in prompts
+            ]
+        last_msg = prompts[0].messages[-1]
+        last_text = last_msg.content if isinstance(last_msg.content, str) else ""
+        # Detect the straggler nudge: it's a USER message with the nudge text
+        # appended to a prompt that already contains tool messages.
+        if last_text.startswith("Stop calling tools"):
+            return [
+                Conversation(
+                    messages=[
+                        Message(role=Role.ASSISTANT, content="forced final answer")
+                    ]
+                )
+                for _ in prompts
+            ]
+        if "USER" in last_text:
+            return [
+                Conversation(messages=[Message(role=Role.ASSISTANT, content="hello")])
+                for _ in prompts
+            ]
+        # Assistant turn: keep emitting tool calls forever (until cap).
+        return [
+            Conversation(
+                messages=[
+                    Message(
+                        role=Role.ASSISTANT,
+                        content=None,
+                        tool_calls=[
+                            ToolCall(
+                                id="loop",
+                                function=FunctionCall(name="t", arguments="{}"),
+                            )
+                        ],
+                    )
+                ]
+            )
+            for _ in prompts
+        ]
+
+    mock_engine = Mock()
+    mock_engine.infer.side_effect = scripted_infer
+    mock_build_inference_engine.return_value = mock_engine
+
+    env_config = _make_env_config("e", "t")
+
+    multiturn_attr = MultiTurnAttribute(
+        id="dialog",
+        min_turns=2,
+        max_turns=2,
+        role_instruction_messages={
+            Role.USER: "user",
+            Role.ASSISTANT: "assistant",
+        },
+        max_tool_calls_per_turn=2,
+    )
+    inference_config = InferenceConfig(
+        engine=InferenceEngineType.OPENAI,
+        model=Mock(spec=ModelParams),
+        remote_params=Mock(spec=RemoteParams),
+        generation=GenerationParams(),
+    )
+    synth = ConversationSynthesizer(
+        mock_general_synthesis_params,
+        inference_config,
+        environment_config=env_config,
+    )
+    with patch.object(
+        synth, "_resolve_available_tools", return_value=env_config.all_tools
+    ):
+        result = synth.synthesize(
+            samples=[{"target_turns": 2, "parsed_turn_plans": []}],
+            multiturn_attributes=multiturn_attr,
+        )
+
+    assert len(result) == 1
+    record = result[0]
+    assert record is not None
+    msgs = record["dialog"]["messages"]  # type: ignore[index]
+    contents = [m.get("content") for m in msgs]
+    assert "forced final answer" in contents, (
+        f"Expected nudge to produce final answer, got contents: {contents}"
+    )
+    # Env should have been called exactly max_tool_calls_per_turn (2) times.
+    assert fake_env.step.call_count == 2
