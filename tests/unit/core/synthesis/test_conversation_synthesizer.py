@@ -1532,7 +1532,9 @@ def test_assistant_turn_caps_at_max_tool_calls_then_finalizes(
     assert len(result) == 1
     record = result[0]
     assert record is not None
-    msgs = record["dialog"]["messages"]  # type: ignore[index]
+    conv = record["dialog"]
+    assert isinstance(conv, dict)
+    msgs = conv["messages"]
     contents = [m.get("content") for m in msgs]
     assert "forced final answer" in contents, (
         f"Expected nudge to produce final answer, got contents: {contents}"
