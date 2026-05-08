@@ -168,3 +168,90 @@ def test_step_runs_executor_and_returns_rows():
             }
         finally:
             env.close()
+
+
+def _try_insert_executor(arguments, db):
+    """Catches OperationalError and returns the message."""
+    try:
+        db.execute(
+            sqlalchemy.text("INSERT INTO patients (id, name) VALUES (3, 'Aisha')")
+        )
+        return ToolResult(output={"status": "ok"})
+    except sqlalchemy.exc.OperationalError as e:
+        return ToolResult(
+            output={"status": "error", "message": str(e.orig) if e.orig else str(e)}
+        )
+
+
+def test_dialect_guards_sqlite_read_only_rejects_writes():
+    """With read_only=True the SQLite connection has PRAGMA query_only=ON."""
+    with tempfile.TemporaryDirectory() as tmp:
+        db_path = Path(tmp) / "ro.db"
+        # Seed a row first under a separate, non-read-only env.
+        seed_params = _make_params(
+            [
+                _make_tool(
+                    "tests.unit.environments.test_database_executable_environment._create_table_executor",
+                    tool_id="setup",
+                    read_only=False,
+                )
+            ],
+            env_kwargs={
+                "connection": {"driver": "sqlite", "database": str(db_path)}
+            },
+        )
+        seed_env = DatabaseExecutableEnvironment.from_params(seed_params)
+        try:
+            seed_env.step("setup", {})
+        finally:
+            seed_env.close()
+
+        # Now open a read-only env on the same file.
+        ro_params = _make_params(
+            [
+                _make_tool(
+                    "tests.unit.environments.test_database_executable_environment._try_insert_executor",
+                    tool_id="try_write",
+                    read_only=True,
+                )
+            ],
+            env_kwargs={
+                "connection": {"driver": "sqlite", "database": str(db_path)},
+                "read_only": True,
+            },
+        )
+        ro_env = DatabaseExecutableEnvironment.from_params(ro_params)
+        try:
+            result = ro_env.step("try_write", {})
+            assert isinstance(result.output, dict)
+            assert result.output["status"] == "error"
+            msg = result.output["message"].lower()
+            assert "read" in msg or "readonly" in msg
+        finally:
+            ro_env.close()
+
+
+def test_dialect_guards_sqlite_statement_timeout_warns(caplog):
+    """SQLite doesn't support statement_timeout — env warns instead of failing."""
+    import logging
+    params = _make_params(
+        [
+            _make_tool(
+                "tests.unit.environments.test_database_executable_environment._select_one_executor"
+            )
+        ],
+        env_kwargs={
+            "connection": {"driver": "sqlite", "database": ":memory:"},
+            "statement_timeout_ms": 5000,
+        },
+    )
+    with caplog.at_level(logging.WARNING):
+        env = DatabaseExecutableEnvironment.from_params(params)
+        try:
+            env.step("t1", {})
+        finally:
+            env.close()
+    assert any(
+        "SQLite" in record.message and "statement_timeout" in record.message
+        for record in caplog.records
+    )

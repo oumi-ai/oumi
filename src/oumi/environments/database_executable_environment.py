@@ -11,6 +11,7 @@ from typing import Any, ClassVar
 
 import sqlalchemy
 import sqlalchemy.engine
+import sqlalchemy.event as sa_event
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.database_connection_params import (
@@ -24,6 +25,57 @@ from oumi.environments.executable_environment import (
     _import_executor,
 )
 from oumi.environments.executable_tool import ExecutableTool
+from oumi.utils.logging import logger
+
+
+def _install_dialect_guards(
+    engine: sqlalchemy.engine.Engine,
+    kwargs: "DatabaseExecutableEnvironmentKwargs",
+) -> None:
+    """Install dialect-specific read-only / statement-timeout session settings.
+
+    Wired as a SQLAlchemy ``connect`` event so every new pooled connection
+    gets the right session config on first acquisition.
+    """
+    dialect = engine.dialect.name
+    read_only = kwargs.read_only
+    timeout_ms = kwargs.statement_timeout_ms
+
+    @sa_event.listens_for(engine, "connect")
+    def _on_connect(dbapi_conn, connection_record):  # noqa: ANN001
+        cursor = dbapi_conn.cursor()
+        try:
+            if dialect == "postgresql":
+                if read_only:
+                    cursor.execute("SET default_transaction_read_only = on")
+                if timeout_ms is not None:
+                    cursor.execute(f"SET statement_timeout = {int(timeout_ms)}")
+            elif dialect == "mysql":
+                if read_only:
+                    cursor.execute("SET SESSION TRANSACTION READ ONLY")
+                if timeout_ms is not None:
+                    cursor.execute(
+                        f"SET SESSION max_execution_time = {int(timeout_ms)}"
+                    )
+            elif dialect == "sqlite":
+                if read_only:
+                    cursor.execute("PRAGMA query_only = ON")
+                if timeout_ms is not None:
+                    logger.warning(
+                        "SQLite does not support statement_timeout; ignoring "
+                        "statement_timeout_ms=%s.",
+                        timeout_ms,
+                    )
+            else:
+                if read_only or timeout_ms is not None:
+                    logger.warning(
+                        "Dialect '%s' has no registered guard handler; "
+                        "read_only=%s and statement_timeout_ms=%s will not be "
+                        "enforced. Set them at the DB role / DSN level instead.",
+                        dialect, read_only, timeout_ms,
+                    )
+        finally:
+            cursor.close()
 
 
 @dataclass
@@ -99,6 +151,7 @@ class DatabaseExecutableEnvironment(ExecutableEnvironment):
             engine_kwargs["pool_size"] = kwargs.connection.pool_size
             engine_kwargs["max_overflow"] = kwargs.connection.pool_max_overflow
         engine = sqlalchemy.create_engine(url, **engine_kwargs)
+        _install_dialect_guards(engine, kwargs)
 
         # Fail-fast: prove the connection works before any tool runs.
         try:
