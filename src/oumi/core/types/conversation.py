@@ -625,7 +625,9 @@ class PlannedTurn(pydantic.BaseModel):
 
     model_config = pydantic.ConfigDict(extra="forbid")
 
-    turn: int = pydantic.Field(ge=1, description="1-indexed turn number.")
+    # No `ge=1`: Anthropic's structured output rejects `minimum` on integers,
+    # and `_parse_plan` drops out-of-range turns at runtime anyway.
+    turn: int = pydantic.Field(description="1-indexed turn number.")
     instruction: str = pydantic.Field(description="What should happen on this turn.")
 
 
