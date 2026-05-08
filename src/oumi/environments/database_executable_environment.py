@@ -35,14 +35,17 @@ def _install_dialect_guards(
     engine: sqlalchemy.engine.Engine,
     kwargs: "DatabaseExecutableEnvironmentKwargs",
 ) -> None:
-    """Install dialect-specific read-only / statement-timeout session settings.
+    """Install dialect-specific session settings.
 
-    Wired as a SQLAlchemy ``connect`` event so every new pooled connection
-    gets the right session config on first acquisition.
+    - ``connect`` event: every new pool connection gets read-only + env-level
+      timeout.
+    - ``checkin`` event: when a connection returns to the pool, reset its
+      timeout to env-level (or RESET if env-level is unset) so per-tool
+      overrides don't leak across checkouts.
     """
     dialect = engine.dialect.name
     read_only = kwargs.read_only
-    timeout_ms = kwargs.statement_timeout_ms
+    env_timeout_ms = kwargs.statement_timeout_ms
 
     @sa_event.listens_for(engine, "connect")
     def _on_connect(dbapi_conn, connection_record):  # noqa: ANN001
@@ -51,34 +54,65 @@ def _install_dialect_guards(
             if dialect == "postgresql":
                 if read_only:
                     cursor.execute("SET default_transaction_read_only = on")
-                if timeout_ms is not None:
-                    cursor.execute(f"SET statement_timeout = {int(timeout_ms)}")
+                if env_timeout_ms is not None:
+                    cursor.execute(f"SET statement_timeout = {int(env_timeout_ms)}")
             elif dialect == "mysql":
                 if read_only:
                     cursor.execute("SET SESSION TRANSACTION READ ONLY")
-                if timeout_ms is not None:
+                if env_timeout_ms is not None:
                     cursor.execute(
-                        f"SET SESSION max_execution_time = {int(timeout_ms)}"
+                        f"SET SESSION max_execution_time = {int(env_timeout_ms)}"
                     )
             elif dialect == "sqlite":
                 if read_only:
                     cursor.execute("PRAGMA query_only = ON")
-                if timeout_ms is not None:
+                if env_timeout_ms is not None:
                     logger.warning(
                         "SQLite does not support statement_timeout; ignoring "
                         "statement_timeout_ms=%s.",
-                        timeout_ms,
+                        env_timeout_ms,
                     )
             else:
-                if read_only or timeout_ms is not None:
+                if read_only or env_timeout_ms is not None:
                     logger.warning(
                         "Dialect '%s' has no registered guard handler; "
                         "read_only=%s and statement_timeout_ms=%s will not be "
                         "enforced. Set them at the DB role / DSN level instead.",
-                        dialect, read_only, timeout_ms,
+                        dialect, read_only, env_timeout_ms,
                     )
         finally:
             cursor.close()
+
+    @sa_event.listens_for(engine, "checkin")
+    def _on_checkin(dbapi_conn, connection_record):  # noqa: ANN001
+        """Reset per-tool overrides to env-level when connection returns to pool."""
+        if dialect not in {"postgresql", "mysql"}:
+            return
+        try:
+            cursor = dbapi_conn.cursor()
+        except Exception:
+            return  # connection may already be in a bad state; best-effort
+        try:
+            if dialect == "postgresql":
+                if env_timeout_ms is not None:
+                    cursor.execute(f"SET statement_timeout = {int(env_timeout_ms)}")
+                else:
+                    cursor.execute("RESET statement_timeout")
+            elif dialect == "mysql":
+                if env_timeout_ms is not None:
+                    cursor.execute(
+                        f"SET SESSION max_execution_time = {int(env_timeout_ms)}"
+                    )
+                else:
+                    cursor.execute("SET SESSION max_execution_time = 0")
+        except Exception:
+            # Connection may already be closing/dead; checkin reset is best-effort.
+            pass
+        finally:
+            try:
+                cursor.close()
+            except Exception:
+                pass
 
 
 @dataclass
@@ -176,12 +210,34 @@ class DatabaseExecutableEnvironment(ExecutableEnvironment):
     def _build_execution_context(
         self, tool: ExecutableTool, arguments: dict[str, Any]
     ) -> Iterator[sqlalchemy.engine.Connection]:
-        """Check out a connection from the pool for one tool call."""
+        """Check out a connection from the pool for one tool call.
+
+        Per-tool ``statement_timeout_ms`` is applied as a session-level SET on
+        the checked-out connection. The engine's ``checkin`` event handler
+        (installed by ``_install_dialect_guards``) resets the session timeout
+        back to env-level on connection return, so the override doesn't leak.
+        """
         conn = self._engine.connect()
         try:
+            assert isinstance(tool, DatabaseExecutableTool)
+            if tool.statement_timeout_ms is not None:
+                self._set_session_timeout(conn, tool.statement_timeout_ms)
             yield conn
         finally:
-            conn.close()
+            conn.close()  # returns to pool; checkin handler resets timeout
+
+    def _set_session_timeout(
+        self, conn: sqlalchemy.engine.Connection, timeout_ms: int
+    ) -> None:
+        """Apply a per-tool session-level timeout to a checked-out connection."""
+        dialect = self._engine.dialect.name
+        if dialect == "postgresql":
+            conn.exec_driver_sql(f"SET statement_timeout = {int(timeout_ms)}")
+        elif dialect == "mysql":
+            conn.exec_driver_sql(
+                f"SET SESSION max_execution_time = {int(timeout_ms)}"
+            )
+        # sqlite / unknown: no-op (warned at engine setup time).
 
     def close(self) -> None:
         """Dispose the engine and its connection pool."""

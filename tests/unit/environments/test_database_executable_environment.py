@@ -359,3 +359,19 @@ def test_auto_wrap_skips_output_schema_validation():
         assert result.output["status"] == "error"
     finally:
         env.close()
+
+
+def test_per_tool_timeout_override_on_sqlite_is_no_op_smoke():
+    """SQLite can't enforce per-statement timeouts, but the SET path must not crash."""
+    params = _make_params([
+        _make_tool(
+            "tests.unit.environments.test_database_executable_environment._select_one_executor",
+            statement_timeout_ms=500,
+        )
+    ])
+    env = DatabaseExecutableEnvironment.from_params(params)
+    try:
+        result = env.step("t1", {})
+        assert result.output == {"rows": [{"one": 1}]}
+    finally:
+        env.close()
