@@ -111,3 +111,60 @@ def test_close_disposes_engine():
     # After dispose() we still hold the engine reference; the test confirms
     # close() ran without error.
     assert env._engine is engine
+
+
+def _create_table_executor(arguments, db):
+    db.execute(sqlalchemy.text(
+        "CREATE TABLE patients (id INTEGER PRIMARY KEY, name TEXT)"
+    ))
+    db.execute(sqlalchemy.text(
+        "INSERT INTO patients (id, name) VALUES (1, 'Jane'), (2, 'Marcus')"
+    ))
+    return ToolResult(output={"status": "ok"})
+
+
+def _list_patients_executor(arguments, db):
+    rows = db.execute(
+        sqlalchemy.text("SELECT id, name FROM patients ORDER BY id")
+    ).mappings().all()
+    return ToolResult(output={"patients": [dict(r) for r in rows]})
+
+
+def test_step_runs_executor_and_returns_rows():
+    # Use a file-backed SQLite DB so two tool calls hit the same database.
+    with tempfile.TemporaryDirectory() as tmp:
+        db_path = Path(tmp) / "test.db"
+        env_kwargs = {
+            "connection": {
+                "driver": "sqlite",
+                "database": str(db_path),
+            }
+        }
+        params = _make_params(
+            [
+                _make_tool(
+                    "tests.unit.environments.test_database_executable_environment._create_table_executor",
+                    tool_id="setup",
+                    read_only=False,
+                ),
+                _make_tool(
+                    "tests.unit.environments.test_database_executable_environment._list_patients_executor",
+                    tool_id="list",
+                ),
+            ],
+            env_kwargs=env_kwargs,
+        )
+        env = DatabaseExecutableEnvironment.from_params(params)
+        try:
+            setup_result = env.step("setup", {})
+            assert setup_result.output == {"status": "ok"}
+
+            list_result = env.step("list", {})
+            assert list_result.output == {
+                "patients": [
+                    {"id": 1, "name": "Jane"},
+                    {"id": 2, "name": "Marcus"},
+                ]
+            }
+        finally:
+            env.close()
