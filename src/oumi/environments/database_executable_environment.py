@@ -88,7 +88,6 @@ def _install_dialect_guards(
 
     @sa_event.listens_for(engine, "checkin")
     def _on_checkin(dbapi_conn, connection_record):  # noqa: ANN001
-        """Reset per-tool overrides to env-level when connection returns to pool."""
         if dialect not in {"postgresql", "mysql"}:
             return
         try:
@@ -133,7 +132,7 @@ class DatabaseExecutableEnvironmentKwargs(BaseParams):
             self.connection = DatabaseConnectionConfig(**self.connection)
 
     def __finalize_and_validate__(self) -> None:
-        """Validate kwargs and the nested connection config."""
+        """Validate that connection is set and numeric fields are in range."""
         if self.connection is None:
             raise ValueError(
                 "DatabaseExecutableEnvironmentKwargs.connection is required."
@@ -151,8 +150,7 @@ class DatabaseExecutableEnvironment(ExecutableEnvironment):
     The DB *is* the state. Each ``step`` checks out a connection from the
     SQLAlchemy pool, runs the executor in autocommit mode, and returns the
     connection. SQL errors that escape the executor are auto-wrapped as a
-    structured ``ToolResult`` so the agent can self-correct (added in a
-    later task).
+    structured ``ToolResult`` so the agent can self-correct.
     """
 
     tool_params_cls = DatabaseExecutableTool
@@ -289,10 +287,9 @@ class DatabaseExecutableEnvironment(ExecutableEnvironment):
     ):
         """Run the executor; auto-wrap SQL errors as structured ToolResults.
 
-        Returns ``(result, was_auto_wrapped)``. The flag tells
-        ``ExecutableEnvironment._step_one`` (the parent's ``step``) to skip
-        ``output_schema`` validation when the wrap shape was substituted for
-        the executor's normal return value.
+        Returns ``(result, was_auto_wrapped)``. When ``was_auto_wrapped`` is
+        True the caller skips ``output_schema`` validation because the wrap
+        shape replaces the executor's normal return value.
         """
         try:
             return executor(arguments=arguments, db=ctx), False

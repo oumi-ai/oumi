@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import logging
 import tempfile
 from pathlib import Path
 
@@ -11,6 +12,7 @@ import pytest
 import sqlalchemy
 import sqlalchemy.exc
 
+from oumi.builders.environments import build_environment
 from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.core.types.tool_call import ToolResult
 from oumi.environments.database_executable_environment import (
@@ -240,8 +242,6 @@ def test_dialect_guards_sqlite_read_only_rejects_writes():
 
 def test_dialect_guards_sqlite_statement_timeout_warns(caplog):
     """SQLite doesn't support statement_timeout — env warns instead of failing."""
-    import logging
-
     params = _make_params(
         [
             _make_tool(
@@ -451,8 +451,6 @@ def test_per_tool_timeout_at_env_level_ok():
 
 
 def test_audit_off_by_default(caplog):
-    import logging
-
     params = _make_params(
         [
             _make_tool(
@@ -471,8 +469,6 @@ def test_audit_off_by_default(caplog):
 
 
 def test_audit_on_logs_per_tool_call(caplog):
-    import logging
-
     params = _make_params(
         [
             _make_tool(
@@ -504,8 +500,6 @@ def _executor_raises_value_error(arguments, db):
 
 def test_audit_logs_error_status_when_executor_raises_non_db_error(caplog):
     """Bugs (non-DBAPIError exceptions) propagate but still get an audit entry."""
-    import logging
-
     params = _make_params(
         [
             _make_tool(
@@ -531,8 +525,6 @@ def test_audit_logs_error_status_when_executor_raises_non_db_error(caplog):
 
 
 def test_env_registered_under_database_key():
-    from oumi.builders.environments import build_environment
-
     params = _make_params(
         [
             _make_tool(
