@@ -2220,5 +2220,4 @@ def test_assistant_turn_dispatches_parallel_batch_unrestricted(
             multiturn_attributes=multiturn_attr,
         )
 
-    # Model emitted 5 parallel calls in one round; all 5 dispatched (no clamping).
     assert fake_env.step.call_count == 5

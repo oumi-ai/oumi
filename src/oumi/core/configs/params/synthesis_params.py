@@ -486,10 +486,7 @@ class MultiTurnAttribute:
     """List of tool ids available in this conversation."""
 
     max_tool_rounds_per_turn: int = 50
-    """Safety ceiling on assistant→tool→assistant rounds within a single assistant
-    turn. Each round is one inference call that emits tool_calls (parallel batches
-    count as one round). The agent naturally stops when it decides no more tools
-    are needed; this only circuit-breaks runaway loops."""
+    """Circuit breaker on assistant→tool round-trips (parallel batches = one round)."""
 
     def __post_init__(self):
         """Verifies/populates params."""

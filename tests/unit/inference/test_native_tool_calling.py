@@ -21,6 +21,7 @@ _SUPPORTED = [
     InferenceEngineType.SAMBANOVA,
     InferenceEngineType.TOGETHER,
     InferenceEngineType.GOOGLE_VERTEX,
+    InferenceEngineType.HUGGING_FACE_ROUTER,
 ]
 
 _UNSUPPORTED = [

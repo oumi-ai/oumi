@@ -36,6 +36,7 @@ NATIVE_TOOL_CALLING_ENGINES: frozenset[InferenceEngineType] = frozenset(
         InferenceEngineType.SAMBANOVA,
         InferenceEngineType.TOGETHER,
         InferenceEngineType.GOOGLE_VERTEX,
+        InferenceEngineType.HUGGING_FACE_ROUTER,
     }
 )
 
