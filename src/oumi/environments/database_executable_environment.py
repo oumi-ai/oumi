@@ -12,13 +12,16 @@ from typing import Any, ClassVar
 import sqlalchemy
 import sqlalchemy.engine
 import sqlalchemy.event as sa_event
+import sqlalchemy.exc
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.database_connection_params import (
     DatabaseConnectionConfig,
 )
 from oumi.core.configs.params.environment_params import EnvironmentParams
+from oumi.core.configs.params.tool_params import ToolError
 from oumi.core.registry import register_environment
+from oumi.core.types.tool_call import ToolResult
 from oumi.environments.database_executable_tool import DatabaseExecutableTool
 from oumi.environments.executable_environment import (
     ExecutableEnvironment,
@@ -183,3 +186,40 @@ class DatabaseExecutableEnvironment(ExecutableEnvironment):
     def close(self) -> None:
         """Dispose the engine and its connection pool."""
         self._engine.dispose()
+
+    def _invoke_executor(
+        self,
+        executor,
+        arguments,
+        ctx,
+        tool,
+    ):
+        """Run the executor; auto-wrap SQL errors as structured ToolResults.
+
+        Returns ``(result, was_auto_wrapped)``. The flag tells
+        ``ExecutableEnvironment._step_one`` (the parent's ``step``) to skip
+        ``output_schema`` validation when the wrap shape was substituted for
+        the executor's normal return value.
+        """
+        try:
+            return executor(arguments=arguments, db=ctx), False
+        except sqlalchemy.exc.DBAPIError as e:
+            wrapped = ToolResult(
+                output={
+                    "status": "error",
+                    "error": type(e).__name__,
+                    "message": str(e.orig) if e.orig else str(e),
+                    "sql_state": (
+                        getattr(e.orig, "sqlstate", None) if e.orig else None
+                    ),
+                }
+            )
+            return wrapped, True
+
+    def _absorb_result(self, tool, result) -> None:
+        """DB envs hold state in the DB; reject any ToolResult.updated_state."""
+        if result.updated_state is not None:
+            raise ToolError(
+                f"DatabaseExecutable tool '{tool.id}' returned updated_state; "
+                f"DB-backed envs hold state in the database, not in ToolResult."
+            )

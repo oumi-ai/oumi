@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 import sqlalchemy
+import sqlalchemy.exc
 
 from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.core.types.tool_call import ToolResult
@@ -255,3 +256,106 @@ def test_dialect_guards_sqlite_statement_timeout_warns(caplog):
         "SQLite" in record.message and "statement_timeout" in record.message
         for record in caplog.records
     )
+
+
+def _executor_returns_updated_state(arguments, db):
+    return ToolResult(output={"status": "ok"}, updated_state={"x": 1})
+
+
+def _executor_lets_integrity_error_escape(arguments, db):
+    db.execute(sqlalchemy.text(
+        "CREATE TABLE IF NOT EXISTS uq (id INTEGER PRIMARY KEY)"
+    ))
+    db.execute(sqlalchemy.text("INSERT INTO uq (id) VALUES (1)"))
+    db.execute(sqlalchemy.text("INSERT INTO uq (id) VALUES (1)"))  # PK conflict
+    return ToolResult(output={"status": "should not reach"})
+
+
+def _executor_lets_programming_error_escape(arguments, db):
+    db.execute(sqlalchemy.text("SELECT * FROM table_that_does_not_exist"))
+    return ToolResult(output={"status": "should not reach"})
+
+
+def test_step_rejects_updated_state_in_result():
+    """DB envs hold state in the DB; ToolResult.updated_state is forbidden."""
+    params = _make_params([
+        _make_tool(
+            "tests.unit.environments.test_database_executable_environment._executor_returns_updated_state",
+            read_only=False,
+        )
+    ])
+    env = DatabaseExecutableEnvironment.from_params(params)
+    try:
+        with pytest.raises(Exception, match="updated_state"):
+            env.step("t1", {})
+    finally:
+        env.close()
+
+
+def test_step_auto_wraps_integrity_error():
+    with tempfile.TemporaryDirectory() as tmp:
+        db_path = Path(tmp) / "iw.db"
+        params = _make_params(
+            [
+                _make_tool(
+                    "tests.unit.environments.test_database_executable_environment._executor_lets_integrity_error_escape",
+                    read_only=False,
+                )
+            ],
+            env_kwargs={
+                "connection": {"driver": "sqlite", "database": str(db_path)},
+            },
+        )
+        env = DatabaseExecutableEnvironment.from_params(params)
+        try:
+            result = env.step("t1", {})
+            assert isinstance(result.output, dict)
+            assert result.output["status"] == "error"
+            assert result.output["error"] == "IntegrityError"
+            msg_lower = result.output["message"].lower()
+            assert ("unique" in msg_lower) or ("primary key" in msg_lower)
+        finally:
+            env.close()
+
+
+def test_step_auto_wraps_programming_error():
+    params = _make_params([
+        _make_tool(
+            "tests.unit.environments.test_database_executable_environment._executor_lets_programming_error_escape"
+        )
+    ])
+    env = DatabaseExecutableEnvironment.from_params(params)
+    try:
+        result = env.step("t1", {})
+        assert isinstance(result.output, dict)
+        assert result.output["status"] == "error"
+        # SQLite raises OperationalError, not ProgrammingError, for missing tables.
+        assert result.output["error"] in {"OperationalError", "ProgrammingError"}
+        assert (
+            "table_that_does_not_exist" in result.output["message"]
+            or "no such table" in result.output["message"].lower()
+        )
+    finally:
+        env.close()
+
+
+def test_auto_wrap_skips_output_schema_validation():
+    """A tool with strict output_schema still surfaces auto-wrap shape on SQL error."""
+    params = _make_params([
+        _make_tool(
+            "tests.unit.environments.test_database_executable_environment._executor_lets_programming_error_escape",
+            output_schema={
+                "type": "object",
+                "properties": {"some_field": {"type": "string"}},
+                "required": ["some_field"],
+            },
+        )
+    ])
+    env = DatabaseExecutableEnvironment.from_params(params)
+    try:
+        result = env.step("t1", {})
+        # The wrap shape doesn't include "some_field"; we should get the wrap,
+        # not a schema-validation error.
+        assert result.output["status"] == "error"
+    finally:
+        env.close()
