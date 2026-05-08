@@ -509,3 +509,19 @@ def test_audit_logs_error_status_when_executor_raises_non_db_error(caplog):
     audit_records = [r for r in caplog.records if "db_tool_call" in r.message]
     assert len(audit_records) == 1
     assert "status=error" in audit_records[0].message
+
+
+def test_env_registered_under_database_key():
+    from oumi.builders.environments import build_environment
+
+    params = _make_params([
+        _make_tool(
+            "tests.unit.environments.test_database_executable_environment._select_one_executor"
+        )
+    ])
+    env = build_environment(params)
+    try:
+        assert isinstance(env, DatabaseExecutableEnvironment)
+    finally:
+        if isinstance(env, DatabaseExecutableEnvironment):
+            env.close()
