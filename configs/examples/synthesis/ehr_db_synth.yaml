@@ -1,0 +1,141 @@
+# EHR Database Agent — Tool-Use Conversation Synthesis (real DB)
+#
+# Six tools that read or mutate live SQL state via SQLAlchemy. The DB *is*
+# the state — nothing lives in memory.
+#
+# Setup before `oumi synth`:
+#   1. Create the demo DB and load schema + seed:
+#        sqlite3 /tmp/ehr_demo.db < src/oumi/examples/ehr_db/schema.sql
+#        sqlite3 /tmp/ehr_demo.db < src/oumi/examples/ehr_db/seed.sql
+#   2. Set env var (or change `database:` below):
+#        export EHR_DB_PATH=/tmp/ehr_demo.db
+#   3. Set OPENAI_API_KEY (or change inference_config).
+#
+# Usage:
+#   oumi synth -c configs/examples/synthesis/ehr_db_synth.yaml
+#
+# See also:
+#   - Executors: src/oumi/examples/ehr_db/executors.py
+#   - Schema:    src/oumi/examples/ehr_db/schema.sql
+#   - Seed:      src/oumi/examples/ehr_db/seed.sql
+
+strategy: GENERAL
+num_samples: 50
+output_path: ehr_db_dataset.jsonl
+
+environment_config:
+  environments:
+    - id: ehr_db
+      env_type: database
+      name: EHR Database
+      description: A clinical EHR database backed by real SQL.
+      env_kwargs:
+        connection:
+          driver: sqlite
+          database: ${oc.env:EHR_DB_PATH,/tmp/ehr_demo.db}
+          pool_size: 10
+          pool_max_overflow: 10
+        read_only: false
+        audit: true
+      tools:
+        - id: list_patients
+          name: list_patients
+          description: >-
+            Return a list of patient summaries (patient_id, name, dob, status).
+            Call this first when the clinician refers to a patient by NAME so
+            you can resolve the name to a patient_id.
+          parameters:
+            type: object
+            properties: {}
+          read_only: true
+          executor: oumi.examples.ehr_db.executors.list_patients
+
+        - id: get_patient
+          name: get_patient
+          description: >-
+            Return the full record for a patient_id, including allergies,
+            active medications, diagnoses, and vitals history.
+          parameters:
+            type: object
+            properties:
+              patient_id: { type: string }
+            required: [patient_id]
+          read_only: true
+          executor: oumi.examples.ehr_db.executors.get_patient
+
+        - id: record_vitals
+          name: record_vitals
+          description: >-
+            Append a vitals reading (timestamp, blood pressure, heart rate,
+            temperature in F) to a patient's vitals_history.
+          parameters:
+            type: object
+            properties:
+              patient_id: { type: string }
+              timestamp: { type: string }
+              bp: { type: string }
+              hr: { type: integer }
+              temp_f: { type: number }
+            required: [patient_id, timestamp, bp, hr, temp_f]
+          read_only: false
+          executor: oumi.examples.ehr_db.executors.record_vitals
+
+        - id: add_diagnosis
+          name: add_diagnosis
+          description: >-
+            Append a new diagnosis (ICD-10 code, description, date) to a
+            patient. Returns an error if the same code is already present.
+          parameters:
+            type: object
+            properties:
+              patient_id: { type: string }
+              code: { type: string }
+              description: { type: string }
+              date: { type: string }
+            required: [patient_id, code, description, date]
+          read_only: false
+          executor: oumi.examples.ehr_db.executors.add_diagnosis
+
+        - id: prescribe_medication
+          name: prescribe_medication
+          description: >-
+            Add an active medication to a patient's medication list. Returns
+            an error if the same medication is already prescribed or if it
+            conflicts with a known allergy.
+          parameters:
+            type: object
+            properties:
+              patient_id: { type: string }
+              name: { type: string }
+              dose: { type: string }
+            required: [patient_id, name, dose]
+          read_only: false
+          executor: oumi.examples.ehr_db.executors.prescribe_medication
+
+        - id: update_allergies
+          name: update_allergies
+          description: >-
+            Replace a patient's allergy list with the supplied list. Pass an
+            empty list to clear all allergies.
+          parameters:
+            type: object
+            properties:
+              patient_id: { type: string }
+              allergies:
+                type: array
+                items: { type: string }
+            required: [patient_id, allergies]
+          read_only: false
+          executor: oumi.examples.ehr_db.executors.update_allergies
+
+inference_config:
+  model:
+    model_name: gpt-4o-mini
+  engine: OPENAI
+  generation:
+    max_new_tokens: 2048
+    temperature: 0.7
+    top_p: 0.9
+  remote_params:
+    num_workers: 8
+    politeness_policy: 60
