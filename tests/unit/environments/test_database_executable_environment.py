@@ -363,15 +363,74 @@ def test_auto_wrap_skips_output_schema_validation():
 
 def test_per_tool_timeout_override_on_sqlite_is_no_op_smoke():
     """SQLite can't enforce per-statement timeouts, but the SET path must not crash."""
-    params = _make_params([
-        _make_tool(
-            "tests.unit.environments.test_database_executable_environment._select_one_executor",
-            statement_timeout_ms=500,
-        )
-    ])
+    params = _make_params(
+        [
+            _make_tool(
+                "tests.unit.environments.test_database_executable_environment._select_one_executor",
+                statement_timeout_ms=500,
+            )
+        ],
+        env_kwargs={
+            "connection": {"driver": "sqlite", "database": ":memory:"},
+            "statement_timeout_ms": 5000,
+        },
+    )
     env = DatabaseExecutableEnvironment.from_params(params)
     try:
         result = env.step("t1", {})
         assert result.output == {"rows": [{"one": 1}]}
     finally:
         env.close()
+
+
+def test_read_only_env_requires_read_only_tools():
+    params = _make_params(
+        [
+            _make_tool(
+                "tests.unit.environments.test_database_executable_environment._select_one_executor",
+                tool_id="writer",
+                read_only=False,
+            )
+        ],
+        env_kwargs={
+            "connection": {"driver": "sqlite", "database": ":memory:"},
+            "read_only": True,
+        },
+    )
+    with pytest.raises(ValueError, match="read_only"):
+        DatabaseExecutableEnvironment.from_params(params)
+
+
+def test_per_tool_timeout_must_be_stricter_than_env():
+    params = _make_params(
+        [
+            _make_tool(
+                "tests.unit.environments.test_database_executable_environment._select_one_executor",
+                statement_timeout_ms=10000,
+            )
+        ],
+        env_kwargs={
+            "connection": {"driver": "sqlite", "database": ":memory:"},
+            "statement_timeout_ms": 5000,
+        },
+    )
+    with pytest.raises(ValueError, match="statement_timeout"):
+        DatabaseExecutableEnvironment.from_params(params)
+
+
+def test_per_tool_timeout_at_env_level_ok():
+    params = _make_params(
+        [
+            _make_tool(
+                "tests.unit.environments.test_database_executable_environment._select_one_executor",
+                statement_timeout_ms=5000,
+            )
+        ],
+        env_kwargs={
+            "connection": {"driver": "sqlite", "database": ":memory:"},
+            "statement_timeout_ms": 5000,
+        },
+    )
+    # Equal is acceptable.
+    env = DatabaseExecutableEnvironment.from_params(params)
+    env.close()

@@ -168,12 +168,50 @@ class DatabaseExecutableEnvironment(ExecutableEnvironment):
         self._executors: dict[str, Any] = {}
 
     @classmethod
+    def _validate_tools(
+        cls,
+        tools: list[Any],
+        kwargs: DatabaseExecutableEnvironmentKwargs,
+    ) -> None:
+        """Validate per-tool config invariants relative to env-level kwargs."""
+        env_timeout = kwargs.statement_timeout_ms
+        for tool in tools:
+            if not isinstance(tool, DatabaseExecutableTool):
+                raise ValueError(
+                    f"DatabaseExecutableEnvironment tool "
+                    f"'{getattr(tool, 'id', '?')}' must be a "
+                    f"DatabaseExecutableTool, got {type(tool).__name__}."
+                )
+            if kwargs.read_only and not tool.read_only:
+                raise ValueError(
+                    f"DatabaseExecutableEnvironment is read_only=True but "
+                    f"tool '{tool.id}' has read_only=False. Read-only envs "
+                    f"require all tools to be read_only=True."
+                )
+            if tool.statement_timeout_ms is not None:
+                if env_timeout is None:
+                    raise ValueError(
+                        f"Tool '{tool.id}' has statement_timeout_ms="
+                        f"{tool.statement_timeout_ms} but the env has no "
+                        f"statement_timeout_ms set. Set env-level timeout "
+                        f"first, or remove the per-tool override."
+                    )
+                if tool.statement_timeout_ms > env_timeout:
+                    raise ValueError(
+                        f"Tool '{tool.id}' has statement_timeout_ms="
+                        f"{tool.statement_timeout_ms} which exceeds env-level "
+                        f"statement_timeout_ms={env_timeout}. Per-tool overrides "
+                        f"must be stricter (<=) than env-level."
+                    )
+
+    @classmethod
     def from_params(
         cls, params: EnvironmentParams
     ) -> DatabaseExecutableEnvironment:
         """Build a DatabaseExecutableEnvironment from its params object."""
         kwargs = DatabaseExecutableEnvironmentKwargs(**(params.env_kwargs or {}))
         kwargs.finalize_and_validate()
+        cls._validate_tools(params.tools, kwargs)
         assert kwargs.connection is not None  # validated above
 
         url = kwargs.connection.resolve_url()
