@@ -1,0 +1,41 @@
+name: "Security Audit"
+
+on:
+  schedule:
+    - cron: "0 12 * * 1" # Weekly, Mondays at 12:00 UTC
+  workflow_dispatch:
+
+env:
+  DO_NOT_TRACK: "1"
+
+jobs:
+  pip-audit:
+    permissions:
+      contents: "read"
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
+
+      - name: "Set up Python"
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install Dependencies
+        run: |
+          uv pip install --system -e '.[ci_cpu]'
+
+      - name: Run pip-audit
+        # --skip-editable so pip-audit doesn't refuse to audit the editable
+        # oumi install (which isn't on PyPI). --strict is incompatible with
+        # --skip-editable: it treats the skip as a collection failure.
+        run: |
+          pip-audit --skip-editable --format columns
