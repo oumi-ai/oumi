@@ -434,3 +434,78 @@ def test_per_tool_timeout_at_env_level_ok():
     # Equal is acceptable.
     env = DatabaseExecutableEnvironment.from_params(params)
     env.close()
+
+
+def test_audit_off_by_default(caplog):
+    import logging
+    params = _make_params([
+        _make_tool(
+            "tests.unit.environments.test_database_executable_environment._select_one_executor"
+        )
+    ])
+    with caplog.at_level(logging.INFO):
+        env = DatabaseExecutableEnvironment.from_params(params)
+        try:
+            env.step("t1", {})
+        finally:
+            env.close()
+    audit_records = [r for r in caplog.records if "db_tool_call" in r.message]
+    assert audit_records == []
+
+
+def test_audit_on_logs_per_tool_call(caplog):
+    import logging
+    params = _make_params(
+        [
+            _make_tool(
+                "tests.unit.environments.test_database_executable_environment._select_one_executor"
+            )
+        ],
+        env_kwargs={
+            "connection": {"driver": "sqlite", "database": ":memory:"},
+            "audit": True,
+        },
+    )
+    with caplog.at_level(logging.INFO):
+        env = DatabaseExecutableEnvironment.from_params(params)
+        try:
+            env.step("t1", {})
+        finally:
+            env.close()
+    audit_records = [r for r in caplog.records if "db_tool_call" in r.message]
+    assert len(audit_records) == 1
+    msg = audit_records[0].message
+    assert "env1" in msg
+    assert "t1" in msg
+    assert "status=ok" in msg
+
+
+def _executor_raises_value_error(arguments, db):
+    raise ValueError("boom")
+
+
+def test_audit_logs_error_status_when_executor_raises_non_db_error(caplog):
+    """Bugs (non-DBAPIError exceptions) propagate but still get an audit entry."""
+    import logging
+    params = _make_params(
+        [
+            _make_tool(
+                "tests.unit.environments.test_database_executable_environment._executor_raises_value_error",
+                tool_id="bad",
+            )
+        ],
+        env_kwargs={
+            "connection": {"driver": "sqlite", "database": ":memory:"},
+            "audit": True,
+        },
+    )
+    env = DatabaseExecutableEnvironment.from_params(params)
+    with caplog.at_level(logging.INFO):
+        try:
+            with pytest.raises(ValueError):
+                env.step("bad", {})
+        finally:
+            env.close()
+    audit_records = [r for r in caplog.records if "db_tool_call" in r.message]
+    assert len(audit_records) == 1
+    assert "status=error" in audit_records[0].message

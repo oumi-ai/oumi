@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -316,4 +317,25 @@ class DatabaseExecutableEnvironment(ExecutableEnvironment):
             raise ToolError(
                 f"DatabaseExecutable tool '{tool.id}' returned updated_state; "
                 f"DB-backed envs hold state in the database, not in ToolResult."
+            )
+
+    def step(
+        self, tool_id: str, arguments: dict[str, Any]
+    ) -> ToolResult:
+        """Run a tool call with optional per-call audit logging."""
+        if not self._kwargs.audit:
+            return super().step(tool_id, arguments)
+
+        started = time.monotonic()
+        status = "ok"
+        try:
+            return super().step(tool_id, arguments)
+        except Exception:
+            status = "error"
+            raise
+        finally:
+            duration_ms = (time.monotonic() - started) * 1000.0
+            logger.info(
+                "db_tool_call env_id=%s tool_id=%s status=%s duration_ms=%.2f",
+                self._params.id, tool_id, status, duration_ms,
             )
