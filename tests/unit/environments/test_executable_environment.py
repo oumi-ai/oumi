@@ -79,9 +79,9 @@ def _make_params(tools):
 
 
 def test_step_returns_executor_result():
-    params = _make_params([
-        _make_tool("tests.unit.environments.test_executable_environment._ok_executor")
-    ])
+    params = _make_params(
+        [_make_tool("tests.unit.environments.test_executable_environment._ok_executor")]
+    )
     env = _FakeExecutableEnvironment.from_params(params)
     result = env.step("t1", {"k": "v"})
     assert isinstance(result, ToolResult)
@@ -89,22 +89,26 @@ def test_step_returns_executor_result():
 
 
 def test_step_rejects_non_toolresult_return():
-    params = _make_params([
-        _make_tool(
-            "tests.unit.environments.test_executable_environment._bad_executor_returns_str"
-        )
-    ])
+    params = _make_params(
+        [
+            _make_tool(
+                "tests.unit.environments.test_executable_environment._bad_executor_returns_str"
+            )
+        ]
+    )
     env = _FakeExecutableEnvironment.from_params(params)
     with pytest.raises(ToolError, match="ToolResult"):
         env.step("t1", {})
 
 
 def test_step_propagates_executor_value_error():
-    params = _make_params([
-        _make_tool(
-            "tests.unit.environments.test_executable_environment._executor_raises_value_error"
-        )
-    ])
+    params = _make_params(
+        [
+            _make_tool(
+                "tests.unit.environments.test_executable_environment._executor_raises_value_error"
+            )
+        ]
+    )
     env = _FakeExecutableEnvironment.from_params(params)
     with pytest.raises(ValueError, match="boom"):
         env.step("t1", {})
@@ -134,8 +138,8 @@ def test_import_executor_rejects_non_dotted_path():
 
 
 def test_close_default_is_no_op():
-    params = _make_params([
-        _make_tool("tests.unit.environments.test_executable_environment._ok_executor")
-    ])
+    params = _make_params(
+        [_make_tool("tests.unit.environments.test_executable_environment._ok_executor")]
+    )
     env = _FakeExecutableEnvironment.from_params(params)
     env.close()  # should not raise

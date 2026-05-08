@@ -59,9 +59,7 @@ def _setup_executor(arguments, db):
 
 
 def _try_insert_executor(arguments, db):
-    db.execute(
-        sqlalchemy.text("INSERT INTO patients (id, name) VALUES (2, 'Marcus')")
-    )
+    db.execute(sqlalchemy.text("INSERT INTO patients (id, name) VALUES (2, 'Marcus')"))
     return ToolResult(output={"status": "ok"})
 
 
@@ -81,9 +79,7 @@ def postgres_dsn():
     from testcontainers.postgres import PostgresContainer
 
     with PostgresContainer("postgres:16-alpine") as pg:
-        yield pg.get_connection_url().replace(
-            "postgresql://", "postgresql+psycopg://"
-        )
+        yield pg.get_connection_url().replace("postgresql://", "postgresql+psycopg://")
 
 
 @pytest.fixture

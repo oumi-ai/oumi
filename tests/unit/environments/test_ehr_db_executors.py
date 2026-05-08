@@ -24,6 +24,7 @@ def db():
     )
     schema_sql = (SCHEMA_DIR / "schema.sql").read_text()
     seed_sql = (SCHEMA_DIR / "seed.sql").read_text()
+
     def _exec_sql(conn: sqlalchemy.engine.Connection, raw: str) -> None:
         # Strip single-line comments before splitting on ";" so that
         # leading comment lines don't get concatenated into the first statement.
@@ -54,6 +55,7 @@ def test_list_patients(db):
 def test_get_patient_known(db):
     with db.connect() as conn:
         result = ehr_db.get_patient({"patient_id": "P001"}, conn)
+    assert isinstance(result.output, dict)
     assert result.output["status"] == "ok"
     patient = result.output["patient"]
     assert patient["name"] == "Jane Smith"
@@ -81,14 +83,19 @@ def test_record_vitals_appends(db):
     }
     with db.connect() as conn:
         result = ehr_db.record_vitals(args, conn)
+    assert isinstance(result.output, dict)
     assert result.output["status"] == "ok"
     with db.connect() as conn:
-        rows = conn.execute(
-            sqlalchemy.text(
-                "SELECT timestamp, bp, hr, temp_f FROM vitals "
-                "WHERE patient_id='P001' ORDER BY timestamp"
+        rows = (
+            conn.execute(
+                sqlalchemy.text(
+                    "SELECT timestamp, bp, hr, temp_f FROM vitals "
+                    "WHERE patient_id='P001' ORDER BY timestamp"
+                )
             )
-        ).mappings().all()
+            .mappings()
+            .all()
+        )
     assert any(r["timestamp"] == "2026-05-01T09:00" for r in rows)
 
 
@@ -101,6 +108,7 @@ def test_add_diagnosis_duplicate_returns_error(db):
     }
     with db.connect() as conn:
         result = ehr_db.add_diagnosis(args, conn)
+    assert isinstance(result.output, dict)
     assert result.output["status"] == "error"
     assert result.output["error"] == "duplicate_diagnosis"
 
@@ -109,6 +117,7 @@ def test_prescribe_medication_allergy_conflict(db):
     args = {"patient_id": "P001", "name": "Penicillin", "dose": "500mg"}
     with db.connect() as conn:
         result = ehr_db.prescribe_medication(args, conn)
+    assert isinstance(result.output, dict)
     assert result.output["status"] == "error"
     assert result.output["error"] == "allergy_conflict"
 
@@ -117,6 +126,7 @@ def test_prescribe_medication_already_prescribed(db):
     args = {"patient_id": "P001", "name": "lisinopril", "dose": "20mg daily"}
     with db.connect() as conn:
         result = ehr_db.prescribe_medication(args, conn)
+    assert isinstance(result.output, dict)
     assert result.output["status"] == "error"
     assert result.output["error"] == "already_prescribed"
 
@@ -125,11 +135,16 @@ def test_update_allergies_replaces(db):
     args = {"patient_id": "P001", "allergies": ["latex"]}
     with db.connect() as conn:
         result = ehr_db.update_allergies(args, conn)
+    assert isinstance(result.output, dict)
     assert result.output["status"] == "ok"
     with db.connect() as conn:
-        rows = conn.execute(
-            sqlalchemy.text(
-                "SELECT substance FROM allergies WHERE patient_id='P001'"
+        rows = (
+            conn.execute(
+                sqlalchemy.text(
+                    "SELECT substance FROM allergies WHERE patient_id='P001'"
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
     assert sorted(rows) == ["latex"]

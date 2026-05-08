@@ -56,11 +56,13 @@ def _make_params(tools, env_kwargs=None, env_id="env1"):
 
 
 def test_from_params_constructs_engine():
-    params = _make_params([
-        _make_tool(
-            "tests.unit.environments.test_database_executable_environment._select_one_executor"
-        )
-    ])
+    params = _make_params(
+        [
+            _make_tool(
+                "tests.unit.environments.test_database_executable_environment._select_one_executor"
+            )
+        ]
+    )
     env = DatabaseExecutableEnvironment.from_params(params)
     assert isinstance(env, DatabaseExecutableEnvironment)
     assert isinstance(env._kwargs, DatabaseExecutableEnvironmentKwargs)
@@ -100,11 +102,13 @@ def test_from_params_fail_fast_on_bad_url():
 
 
 def test_close_disposes_engine():
-    params = _make_params([
-        _make_tool(
-            "tests.unit.environments.test_database_executable_environment._select_one_executor"
-        )
-    ])
+    params = _make_params(
+        [
+            _make_tool(
+                "tests.unit.environments.test_database_executable_environment._select_one_executor"
+            )
+        ]
+    )
     env = DatabaseExecutableEnvironment.from_params(params)
     engine = env._engine
     assert engine is not None
@@ -115,19 +119,23 @@ def test_close_disposes_engine():
 
 
 def _create_table_executor(arguments, db):
-    db.execute(sqlalchemy.text(
-        "CREATE TABLE patients (id INTEGER PRIMARY KEY, name TEXT)"
-    ))
-    db.execute(sqlalchemy.text(
-        "INSERT INTO patients (id, name) VALUES (1, 'Jane'), (2, 'Marcus')"
-    ))
+    db.execute(
+        sqlalchemy.text("CREATE TABLE patients (id INTEGER PRIMARY KEY, name TEXT)")
+    )
+    db.execute(
+        sqlalchemy.text(
+            "INSERT INTO patients (id, name) VALUES (1, 'Jane'), (2, 'Marcus')"
+        )
+    )
     return ToolResult(output={"status": "ok"})
 
 
 def _list_patients_executor(arguments, db):
-    rows = db.execute(
-        sqlalchemy.text("SELECT id, name FROM patients ORDER BY id")
-    ).mappings().all()
+    rows = (
+        db.execute(sqlalchemy.text("SELECT id, name FROM patients ORDER BY id"))
+        .mappings()
+        .all()
+    )
     return ToolResult(output={"patients": [dict(r) for r in rows]})
 
 
@@ -197,9 +205,7 @@ def test_dialect_guards_sqlite_read_only_rejects_writes():
                     read_only=False,
                 )
             ],
-            env_kwargs={
-                "connection": {"driver": "sqlite", "database": str(db_path)}
-            },
+            env_kwargs={"connection": {"driver": "sqlite", "database": str(db_path)}},
         )
         seed_env = DatabaseExecutableEnvironment.from_params(seed_params)
         try:
@@ -235,6 +241,7 @@ def test_dialect_guards_sqlite_read_only_rejects_writes():
 def test_dialect_guards_sqlite_statement_timeout_warns(caplog):
     """SQLite doesn't support statement_timeout — env warns instead of failing."""
     import logging
+
     params = _make_params(
         [
             _make_tool(
@@ -263,9 +270,9 @@ def _executor_returns_updated_state(arguments, db):
 
 
 def _executor_lets_integrity_error_escape(arguments, db):
-    db.execute(sqlalchemy.text(
-        "CREATE TABLE IF NOT EXISTS uq (id INTEGER PRIMARY KEY)"
-    ))
+    db.execute(
+        sqlalchemy.text("CREATE TABLE IF NOT EXISTS uq (id INTEGER PRIMARY KEY)")
+    )
     db.execute(sqlalchemy.text("INSERT INTO uq (id) VALUES (1)"))
     db.execute(sqlalchemy.text("INSERT INTO uq (id) VALUES (1)"))  # PK conflict
     return ToolResult(output={"status": "should not reach"})
@@ -278,12 +285,14 @@ def _executor_lets_programming_error_escape(arguments, db):
 
 def test_step_rejects_updated_state_in_result():
     """DB envs hold state in the DB; ToolResult.updated_state is forbidden."""
-    params = _make_params([
-        _make_tool(
-            "tests.unit.environments.test_database_executable_environment._executor_returns_updated_state",
-            read_only=False,
-        )
-    ])
+    params = _make_params(
+        [
+            _make_tool(
+                "tests.unit.environments.test_database_executable_environment._executor_returns_updated_state",
+                read_only=False,
+            )
+        ]
+    )
     env = DatabaseExecutableEnvironment.from_params(params)
     try:
         with pytest.raises(Exception, match="updated_state"):
@@ -319,11 +328,13 @@ def test_step_auto_wraps_integrity_error():
 
 
 def test_step_auto_wraps_programming_error():
-    params = _make_params([
-        _make_tool(
-            "tests.unit.environments.test_database_executable_environment._executor_lets_programming_error_escape"
-        )
-    ])
+    params = _make_params(
+        [
+            _make_tool(
+                "tests.unit.environments.test_database_executable_environment._executor_lets_programming_error_escape"
+            )
+        ]
+    )
     env = DatabaseExecutableEnvironment.from_params(params)
     try:
         result = env.step("t1", {})
@@ -341,21 +352,24 @@ def test_step_auto_wraps_programming_error():
 
 def test_auto_wrap_skips_output_schema_validation():
     """A tool with strict output_schema still surfaces auto-wrap shape on SQL error."""
-    params = _make_params([
-        _make_tool(
-            "tests.unit.environments.test_database_executable_environment._executor_lets_programming_error_escape",
-            output_schema={
-                "type": "object",
-                "properties": {"some_field": {"type": "string"}},
-                "required": ["some_field"],
-            },
-        )
-    ])
+    params = _make_params(
+        [
+            _make_tool(
+                "tests.unit.environments.test_database_executable_environment._executor_lets_programming_error_escape",
+                output_schema={
+                    "type": "object",
+                    "properties": {"some_field": {"type": "string"}},
+                    "required": ["some_field"],
+                },
+            )
+        ]
+    )
     env = DatabaseExecutableEnvironment.from_params(params)
     try:
         result = env.step("t1", {})
         # The wrap shape doesn't include "some_field"; we should get the wrap,
         # not a schema-validation error.
+        assert isinstance(result.output, dict)
         assert result.output["status"] == "error"
     finally:
         env.close()
@@ -438,11 +452,14 @@ def test_per_tool_timeout_at_env_level_ok():
 
 def test_audit_off_by_default(caplog):
     import logging
-    params = _make_params([
-        _make_tool(
-            "tests.unit.environments.test_database_executable_environment._select_one_executor"
-        )
-    ])
+
+    params = _make_params(
+        [
+            _make_tool(
+                "tests.unit.environments.test_database_executable_environment._select_one_executor"
+            )
+        ]
+    )
     with caplog.at_level(logging.INFO):
         env = DatabaseExecutableEnvironment.from_params(params)
         try:
@@ -455,6 +472,7 @@ def test_audit_off_by_default(caplog):
 
 def test_audit_on_logs_per_tool_call(caplog):
     import logging
+
     params = _make_params(
         [
             _make_tool(
@@ -487,6 +505,7 @@ def _executor_raises_value_error(arguments, db):
 def test_audit_logs_error_status_when_executor_raises_non_db_error(caplog):
     """Bugs (non-DBAPIError exceptions) propagate but still get an audit entry."""
     import logging
+
     params = _make_params(
         [
             _make_tool(
@@ -514,11 +533,13 @@ def test_audit_logs_error_status_when_executor_raises_non_db_error(caplog):
 def test_env_registered_under_database_key():
     from oumi.builders.environments import build_environment
 
-    params = _make_params([
-        _make_tool(
-            "tests.unit.environments.test_database_executable_environment._select_one_executor"
-        )
-    ])
+    params = _make_params(
+        [
+            _make_tool(
+                "tests.unit.environments.test_database_executable_environment._select_one_executor"
+            )
+        ]
+    )
     env = build_environment(params)
     try:
         assert isinstance(env, DatabaseExecutableEnvironment)

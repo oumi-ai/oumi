@@ -31,52 +31,76 @@ def _patient_exists(conn: Connection, patient_id: str) -> bool:
 
 def list_patients(arguments: dict[str, Any], db: Connection) -> ToolResult:
     """Return patient summaries (read-only)."""
-    rows = db.execute(
-        sqlalchemy.text(
-            "SELECT patient_id, name, dob, status FROM patients ORDER BY name"
+    rows = (
+        db.execute(
+            sqlalchemy.text(
+                "SELECT patient_id, name, dob, status FROM patients ORDER BY name"
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
     return ToolResult(output={"patients": [dict(r) for r in rows]})
 
 
 def get_patient(arguments: dict[str, Any], db: Connection) -> ToolResult:
     """Fetch the full record for a patient_id (read-only)."""
     patient_id = arguments["patient_id"]
-    base = db.execute(
-        sqlalchemy.text(
-            "SELECT patient_id, name, dob, status FROM patients "
-            "WHERE patient_id = :pid"
-        ),
-        {"pid": patient_id},
-    ).mappings().first()
+    base = (
+        db.execute(
+            sqlalchemy.text(
+                "SELECT patient_id, name, dob, status FROM patients "
+                "WHERE patient_id = :pid"
+            ),
+            {"pid": patient_id},
+        )
+        .mappings()
+        .first()
+    )
     if base is None:
         return ToolResult(
             output={"status": "error", "error": "not_found", "patient_id": patient_id}
         )
 
-    allergies = db.execute(
-        sqlalchemy.text("SELECT substance FROM allergies WHERE patient_id = :pid"),
-        {"pid": patient_id},
-    ).scalars().all()
-    medications = db.execute(
-        sqlalchemy.text(
-            "SELECT name, dose FROM medications WHERE patient_id = :pid"
-        ),
-        {"pid": patient_id},
-    ).mappings().all()
-    diagnoses = db.execute(
-        sqlalchemy.text(
-            "SELECT code, description, date FROM diagnoses WHERE patient_id = :pid"
-        ),
-        {"pid": patient_id},
-    ).mappings().all()
-    vitals_history = db.execute(
-        sqlalchemy.text(
-            "SELECT timestamp, bp, hr, temp_f FROM vitals "
-            "WHERE patient_id = :pid ORDER BY timestamp"
-        ),
-        {"pid": patient_id},
-    ).mappings().all()
+    allergies = (
+        db.execute(
+            sqlalchemy.text("SELECT substance FROM allergies WHERE patient_id = :pid"),
+            {"pid": patient_id},
+        )
+        .scalars()
+        .all()
+    )
+    medications = (
+        db.execute(
+            sqlalchemy.text(
+                "SELECT name, dose FROM medications WHERE patient_id = :pid"
+            ),
+            {"pid": patient_id},
+        )
+        .mappings()
+        .all()
+    )
+    diagnoses = (
+        db.execute(
+            sqlalchemy.text(
+                "SELECT code, description, date FROM diagnoses WHERE patient_id = :pid"
+            ),
+            {"pid": patient_id},
+        )
+        .mappings()
+        .all()
+    )
+    vitals_history = (
+        db.execute(
+            sqlalchemy.text(
+                "SELECT timestamp, bp, hr, temp_f FROM vitals "
+                "WHERE patient_id = :pid ORDER BY timestamp"
+            ),
+            {"pid": patient_id},
+        )
+        .mappings()
+        .all()
+    )
 
     return ToolResult(
         output={

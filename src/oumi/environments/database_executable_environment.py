@@ -79,7 +79,9 @@ def _install_dialect_guards(
                         "Dialect '%s' has no registered guard handler; "
                         "read_only=%s and statement_timeout_ms=%s will not be "
                         "enforced. Set them at the DB role / DSN level instead.",
-                        dialect, read_only, env_timeout_ms,
+                        dialect,
+                        read_only,
+                        env_timeout_ms,
                     )
         finally:
             cursor.close()
@@ -206,9 +208,7 @@ class DatabaseExecutableEnvironment(ExecutableEnvironment):
                     )
 
     @classmethod
-    def from_params(
-        cls, params: EnvironmentParams
-    ) -> DatabaseExecutableEnvironment:
+    def from_params(cls, params: EnvironmentParams) -> DatabaseExecutableEnvironment:
         """Build a DatabaseExecutableEnvironment from its params object."""
         kwargs = DatabaseExecutableEnvironmentKwargs(**(params.env_kwargs or {}))
         kwargs.finalize_and_validate()
@@ -273,9 +273,7 @@ class DatabaseExecutableEnvironment(ExecutableEnvironment):
         if dialect == "postgresql":
             conn.exec_driver_sql(f"SET statement_timeout = {int(timeout_ms)}")
         elif dialect == "mysql":
-            conn.exec_driver_sql(
-                f"SET SESSION max_execution_time = {int(timeout_ms)}"
-            )
+            conn.exec_driver_sql(f"SET SESSION max_execution_time = {int(timeout_ms)}")
         # sqlite / unknown: no-op (warned at engine setup time).
 
     def close(self) -> None:
@@ -319,9 +317,7 @@ class DatabaseExecutableEnvironment(ExecutableEnvironment):
                 f"DB-backed envs hold state in the database, not in ToolResult."
             )
 
-    def step(
-        self, tool_id: str, arguments: dict[str, Any]
-    ) -> ToolResult:
+    def step(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:
         """Run a tool call with optional per-call audit logging."""
         if not self._kwargs.audit:
             return super().step(tool_id, arguments)
@@ -337,5 +333,8 @@ class DatabaseExecutableEnvironment(ExecutableEnvironment):
             duration_ms = (time.monotonic() - started) * 1000.0
             logger.info(
                 "db_tool_call env_id=%s tool_id=%s status=%s duration_ms=%.2f",
-                self._params.id, tool_id, status, duration_ms,
+                self._params.id,
+                tool_id,
+                status,
+                duration_ms,
             )

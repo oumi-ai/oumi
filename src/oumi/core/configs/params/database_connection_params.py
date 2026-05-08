@@ -38,15 +38,15 @@ class DatabaseConnectionConfig(BaseParams):
     """
 
     # Mode 1: structured fields
-    driver: str = ""              # e.g. "postgresql+psycopg", "mysql+pymysql", "sqlite"
+    driver: str = ""  # e.g. "postgresql+psycopg", "mysql+pymysql", "sqlite"
     host: str = ""
     port: int | None = None
     database: str = ""
     username: str = ""
-    password_env_var: str = ""    # name of env var holding the password
+    password_env_var: str = ""  # name of env var holding the password
 
     # Mode 2: full DSN from env (escape hatch)
-    dsn_env_var: str = ""         # mutually exclusive with structured fields
+    dsn_env_var: str = ""  # mutually exclusive with structured fields
 
     # Pool / timeouts
     pool_size: int = 5
@@ -99,9 +99,7 @@ class DatabaseConnectionConfig(BaseParams):
                 )
             return sqlalchemy.engine.make_url(dsn)
         password = (
-            os.environ.get(self.password_env_var)
-            if self.password_env_var
-            else None
+            os.environ.get(self.password_env_var) if self.password_env_var else None
         )
         return sqlalchemy.URL.create(
             drivername=self.driver,

@@ -40,21 +40,14 @@ CONFIG_PATH = (
     / "ehr_db_synth.yaml"
 )
 SCHEMA_DIR = (
-    Path(__file__).resolve().parents[3]
-    / "src"
-    / "oumi"
-    / "examples"
-    / "ehr_db"
+    Path(__file__).resolve().parents[3] / "src" / "oumi" / "examples" / "ehr_db"
 )
 
 
 def _exec_sql_file(conn, path: Path) -> None:
     """Execute statements in a `.sql` file. Strips line comments before splitting."""
     raw = path.read_text()
-    lines = [
-        line for line in raw.splitlines()
-        if not line.lstrip().startswith("--")
-    ]
+    lines = [line for line in raw.splitlines() if not line.lstrip().startswith("--")]
     body = "\n".join(lines)
     for stmt in body.split(";"):
         if stmt.strip():
@@ -138,9 +131,11 @@ def test_record_vitals_flow(env_params):
                 "temp_f": 98.4,
             },
         )
+        assert isinstance(write.output, dict)
         assert write.output["status"] == "ok"
 
         read = env.step("get_patient", {"patient_id": "P002"})
+        assert isinstance(read.output, dict)
         history = read.output["patient"]["vitals_history"]
         assert any(v["timestamp"] == "2026-05-01T08:00" for v in history)
     finally:
@@ -156,6 +151,7 @@ def test_allergy_conflict_blocks_prescription(env_params):
             "prescribe_medication",
             {"patient_id": "P001", "name": "penicillin", "dose": "500mg"},
         )
+        assert isinstance(result.output, dict)
         assert result.output["status"] == "error"
         assert result.output["error"] == "allergy_conflict"
     finally:
@@ -175,6 +171,7 @@ def test_duplicate_diagnosis_returns_error(env_params):
                 "date": "2026-05-01",
             },
         )
+        assert isinstance(result.output, dict)
         assert result.output["status"] == "error"
         assert result.output["error"] == "duplicate_diagnosis"
     finally:
