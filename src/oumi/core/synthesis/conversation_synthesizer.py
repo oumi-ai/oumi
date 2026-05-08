@@ -94,14 +94,14 @@ class ConversationSynthesizer:
 
         self._tool_dispatch: dict[str, BaseEnvironment] = {}
         if self._environment_config is not None:
+            tool_env_map = self._environment_config.tool_environment_map
+            reachable_env_ids = set(tool_env_map.values())
             envs_by_id: dict[str, BaseEnvironment] = {
                 env_params.id: build_environment(env_params)
                 for env_params in self._environment_config.environments
+                if env_params.id in reachable_env_ids
             }
-            for (
-                tool_id,
-                env_id,
-            ) in self._environment_config.tool_environment_map.items():
+            for tool_id, env_id in tool_env_map.items():
                 self._tool_dispatch[tool_id] = envs_by_id[env_id]
 
     def _resolve_available_tools(
@@ -397,7 +397,7 @@ class ConversationSynthesizer:
         for message in conversation.messages:
             if message.role == Role.SYSTEM:
                 continue
-            if message.tool_calls:
+            if message.role == Role.ASSISTANT and message.tool_calls:
                 continue
             if not isinstance(message.content, str) or not message.content.strip():
                 return True
@@ -679,8 +679,7 @@ class ConversationSynthesizer:
                 )
                 prompt_messages.append(Message(role=Role.USER, content=turn_info))
 
-                tools = assistant_tools if role == Role.ASSISTANT else None
-                prompts.append(Conversation(messages=prompt_messages, tools=tools))
+                prompts.append(Conversation(messages=prompt_messages))
                 sample_indices.append(i)
 
             if not prompts:
@@ -770,6 +769,11 @@ class ConversationSynthesizer:
                 active_prompts,
                 inference_config=self._inference_config,
             )
+            if len(results) != len(active):
+                raise RuntimeError(
+                    f"Inference engine returned {len(results)} results for "
+                    f"{len(active)} prompts in the assistant tool-call loop."
+                )
             for idx, result in zip(active, results):
                 assistant_msg = result.messages[-1] if result.messages else None
                 if assistant_msg is not None and assistant_msg.tool_calls:
@@ -805,14 +809,31 @@ class ConversationSynthesizer:
                 nudged_prompts,
                 inference_config=self._inference_config,
             )
+            if len(results) != len(stragglers):
+                raise RuntimeError(
+                    f"Inference engine returned {len(results)} results for "
+                    f"{len(stragglers)} straggler prompts."
+                )
             for idx, result in zip(stragglers, results):
                 assistant_msg = result.messages[-1] if result.messages else None
-                staging[idx].append(
-                    Message(
-                        role=Role.ASSISTANT,
-                        content=self._final_assistant_text(assistant_msg),
+                if assistant_msg is not None and assistant_msg.tool_calls:
+                    # Defiant model: still emitting tool calls past the cap.
+                    # Preserve the calls so _has_empty_messages doesn't filter
+                    # the whole conversation as empty; the calls are not dispatched.
+                    staging[idx].append(
+                        Message(
+                            role=Role.ASSISTANT,
+                            content=assistant_msg.content,
+                            tool_calls=assistant_msg.tool_calls,
+                        )
                     )
-                )
+                else:
+                    staging[idx].append(
+                        Message(
+                            role=Role.ASSISTANT,
+                            content=self._final_assistant_text(assistant_msg),
+                        )
+                    )
 
         for idx in sample_indices:
             histories[idx].extend(staging[idx])
