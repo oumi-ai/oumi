@@ -87,8 +87,8 @@ def test_post_init_config_file_empty(mock_logger, tmp_path: Path):
     params = ModelParams(model_name=str(tmp_path))
     with pytest.raises(
         OumiConfigError,
-        match="`model_name` specifies an adapter model only,"
-        " but the base model could not be found!",
+        match="`model_name` specifies an adapter model only, "
+        "but the base model could not be found",
     ):
         params.finalize_and_validate()
 
@@ -117,7 +117,7 @@ def test_model_params_reserved_processor_kwargs(field_names: list[str], tmp_path
     with pytest.raises(
         OumiConfigError,
         match=(
-            "processor_kwargs attempts to override the following reserved fields: "
+            "processor_kwargs attempts to override reserved fields: "
             f"{invalid_names}"
         ),
     ):
