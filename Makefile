@@ -36,6 +36,7 @@ help:
 	@echo "  format            - Run code formatter"
 	@echo "  test              - Run tests"
 	@echo "  coverage          - Run tests with coverage"
+	@echo "  security-audit    - Run pip-audit security vulnerability scan"
 	@echo "  gcpssh            - Launch a GCP VM and ssh into it"
 	@echo "  gcpcode           - Launch a VS Code remote session on a GCP VM"
 	@echo "  docs              - Build Sphinx documentation"
@@ -138,6 +139,9 @@ format:
 test:
 	$(CONDA_RUN) pytest $(TEST_DIR)
 
+security-audit:
+	$(CONDA_RUN) pip-audit --skip-editable --format columns
+
 coverage:
 	$(CONDA_RUN) pytest --cov=$(OUMI_SRC_DIR) --cov-report=term-missing --cov-report=html:coverage_html $(TEST_DIR)
 
@@ -188,4 +192,4 @@ doctest-file:
 	fi
 	$(CONDA_RUN) $(SPHINXBUILD) -b doctest "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(FILE)
 
-.PHONY: help setup upgrade clean check torchfix ty format test coverage gcpssh gcpcode docs docs-help docs-serve docs-rebuild copy-doc-files clean-docs doctest doctest-file
+.PHONY: help setup upgrade clean check torchfix ty format test security-audit coverage gcpssh gcpcode docs docs-help docs-serve docs-rebuild copy-doc-files clean-docs doctest doctest-file
