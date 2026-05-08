@@ -34,7 +34,7 @@ from oumi.utils.logging import logger
 
 def _install_dialect_guards(
     engine: sqlalchemy.engine.Engine,
-    kwargs: "DatabaseExecutableEnvironmentKwargs",
+    kwargs: DatabaseExecutableEnvironmentKwargs,
 ) -> None:
     """Install dialect-specific session settings.
 

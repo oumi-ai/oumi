@@ -12,8 +12,8 @@ import sqlalchemy
 from oumi.core.types.tool_call import ToolResult
 from oumi.examples.ehr_db import executors as ehr_db
 
-
-SCHEMA_DIR = Path(__file__).resolve().parents[3] / "src" / "oumi" / "examples" / "ehr_db"
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+SCHEMA_DIR = _REPO_ROOT / "src" / "oumi" / "examples" / "ehr_db"
 
 
 @pytest.fixture

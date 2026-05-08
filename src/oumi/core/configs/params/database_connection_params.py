@@ -55,6 +55,7 @@ class DatabaseConnectionConfig(BaseParams):
     connect_timeout_s: float = 10.0
 
     def __finalize_and_validate__(self) -> None:
+        """Validate mode XOR (structured vs DSN) and pool/timeout numeric bounds."""
         structured = bool(self.driver and self.database)
         dsn = bool(self.dsn_env_var)
         if structured and dsn:

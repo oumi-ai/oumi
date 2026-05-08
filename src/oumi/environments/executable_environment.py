@@ -1,6 +1,6 @@
 # Copyright 2025 - Oumi
 # Licensed under the Apache License, Version 2.0
-"""Abstract base class for environments backed by user-supplied dotted-path executors."""
+"""Abstract base for envs backed by user-supplied dotted-path executors."""
 
 from __future__ import annotations
 

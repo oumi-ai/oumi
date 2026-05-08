@@ -20,6 +20,7 @@ class ExecutableTool(ToolParams):
     executor: str = ""
 
     def __post_init__(self) -> None:
+        """Validate inherited fields plus the non-empty executor invariant."""
         super().__post_init__()
         if not self.executor:
             raise ValueError(
