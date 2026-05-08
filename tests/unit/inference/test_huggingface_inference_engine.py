@@ -12,28 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Unit tests for HuggingFaceInferenceEngine."""
-
-from unittest.mock import patch
+"""Unit tests for HuggingFaceRouterInferenceEngine."""
 
 import pytest
 
 from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
 from oumi.core.types.conversation import Conversation, Message, Role
-from oumi.inference.huggingface_inference_engine import HuggingFaceInferenceEngine
+from oumi.inference.huggingface_inference_engine import (
+    HuggingFaceRouterInferenceEngine,
+)
 
 
-def _make_engine(**kwargs) -> HuggingFaceInferenceEngine:
+def _make_engine(**kwargs) -> HuggingFaceRouterInferenceEngine:
     model_params = kwargs.pop("model_params", ModelParams(model_name="owner/model"))
-    with patch("aiohttp.ClientSession"):
-        return HuggingFaceInferenceEngine(model_params=model_params, **kwargs)
+    return HuggingFaceRouterInferenceEngine(model_params=model_params, **kwargs)
 
 
 def _simple_conversation() -> Conversation:
     return Conversation(messages=[Message(role=Role.USER, content="Hello")])
 
 
-class TestHuggingFaceInferenceEngineInit:
+class TestHuggingFaceRouterInferenceEngineInit:
     def test_default_base_url(self):
         engine = _make_engine()
         assert engine.base_url == "https://router.huggingface.co/v1/chat/completions"
@@ -59,7 +58,7 @@ class TestHuggingFaceInferenceEngineInit:
 
     def test_missing_model_params_raises(self):
         with pytest.raises(TypeError):
-            HuggingFaceInferenceEngine()  # type: ignore[call-arg]
+            HuggingFaceRouterInferenceEngine()  # type: ignore[call-arg]
 
 
 class TestProviderSuffixPassThrough:
@@ -106,3 +105,18 @@ class TestProviderSuffixPassThrough:
         )
         # RemoteInferenceEngine maps max_new_tokens -> max_completion_tokens.
         assert result.get("max_completion_tokens") == 512
+
+
+class TestUnsupportedOperations:
+    """HF Inference Providers does not expose OpenAI-style /v1/batches, /v1/files,
+    or /v1/models; calls to the inherited methods must surface clearly."""
+
+    def test_infer_batch_raises(self):
+        engine = _make_engine()
+        with pytest.raises(NotImplementedError, match="Batch inference"):
+            engine.infer_batch([_simple_conversation()])
+
+    def test_list_models_raises(self):
+        engine = _make_engine()
+        with pytest.raises(NotImplementedError, match="Listing models"):
+            engine.list_models()

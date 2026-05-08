@@ -694,10 +694,10 @@ Set the `HF_TOKEN` environment variable to a HuggingFace token with the *Make ca
 **Basic Usage**
 
 ```{testcode}
-from oumi.inference import HuggingFaceInferenceEngine
+from oumi.inference import HuggingFaceRouterInferenceEngine
 from oumi.core.configs import ModelParams
 
-engine = HuggingFaceInferenceEngine(
+engine = HuggingFaceRouterInferenceEngine(
     model_params=ModelParams(
         model_name="meta-llama/Llama-3.1-8B-Instruct"
     )

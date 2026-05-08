@@ -72,5 +72,8 @@ class InferenceEngineType(str, Enum):
     CEREBRAS = "CEREBRAS"
     """The inference engine for Cerebras API."""
 
-    HUGGING_FACE = "HUGGING_FACE"
-    """The inference engine for HuggingFace Inference Providers API."""
+    HUGGING_FACE_ROUTER = "HUGGING_FACE_ROUTER"
+    """The inference engine for the HuggingFace Inference Providers router.
+
+    Distinct from ``NATIVE``, which runs HuggingFace Transformers locally.
+    """

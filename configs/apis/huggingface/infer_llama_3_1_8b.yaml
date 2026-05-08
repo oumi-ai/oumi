@@ -22,7 +22,7 @@
 model:
   model_name: "meta-llama/Llama-3.1-8B-Instruct"
 
-engine: HUGGING_FACE
+engine: HUGGING_FACE_ROUTER
 
 generation:
   max_new_tokens: 4096
