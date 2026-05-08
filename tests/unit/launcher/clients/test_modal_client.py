@@ -11,7 +11,6 @@ tests stub it out with ``unittest.mock``.
 
 from __future__ import annotations
 
-from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -46,10 +45,11 @@ def fake_modal():
     """Constructs a fake ``modal`` SDK with the surface area we touch."""
     fake = MagicMock(name="modal")
 
-    # Image chain: Image.debian_slim().pip_install("uv").run_commands([...])
+    # Image chain: Image.debian_slim().apt_install(...).pip_install(...).
     image_obj = MagicMock(name="Image")
-    image_obj.run_commands.return_value = image_obj
+    image_obj.apt_install.return_value = image_obj
     image_obj.pip_install.return_value = image_obj
+    image_obj.run_commands.return_value = image_obj
     fake.Image.debian_slim.return_value = image_obj
     fake.Image.from_registry.return_value = image_obj
 
@@ -57,43 +57,31 @@ def fake_modal():
     secret_obj = MagicMock(name="Secret")
     fake.Secret.from_dict.return_value = secret_obj
 
-    # App.run() context manager.
+    # App.lookup returns a persistent app reference (no context manager).
     app_obj = MagicMock(name="App")
-    app_run_ctx = MagicMock()
-    app_run_ctx.__enter__ = MagicMock(return_value=app_run_ctx)
-    app_run_ctx.__exit__ = MagicMock(return_value=False)
-    app_obj.run.return_value = app_run_ctx
+    fake.App.lookup.return_value = app_obj
 
-    # @app.function(...) returns a decorator that returns a function-like
-    # object exposing .spawn(...) → FunctionCall(object_id=...).
-    fn_obj = MagicMock(name="Function")
-    function_call = SimpleNamespace(object_id="fc-deadbeef")
-    fn_obj.spawn.return_value = function_call
-    decorator = MagicMock(return_value=fn_obj)
-    app_obj.function.return_value = decorator
-    fake.App.return_value = app_obj
-
-    # Exception namespace used by _function_call_state.
-    fake.exception = SimpleNamespace(
-        OutputExpiredError=type("OutputExpiredError", (Exception,), {}),
-        FunctionTimeoutError=type("FunctionTimeoutError", (Exception,), {}),
-    )
+    # Sandbox.create returns a sandbox handle with a stable object_id.
+    sandbox_obj = MagicMock(name="Sandbox")
+    sandbox_obj.object_id = "sb-deadbeef"
+    fake.Sandbox.create.return_value = sandbox_obj
     return fake
 
 
-def test_launch_returns_pending_status_with_call_id(fake_modal):
+def test_launch_returns_pending_status_with_sandbox_id(fake_modal):
     with patch(
         "oumi.launcher.clients.modal_client._import_modal", return_value=fake_modal
     ):
         client = ModalClient()
         status = client.launch(_job(), cluster_name="my-cluster")
-    assert status.id == "fc-deadbeef"
-    assert status.cluster == "fc-deadbeef"
+    assert status.id == "sb-deadbeef"
+    assert status.cluster == "sb-deadbeef"
     assert status.state == JobState.PENDING
     assert not status.done
     # H100 list price * 8 ≈ 31.6.
     assert status.cost_per_hour == pytest.approx(31.6)
-    fake_modal.App.assert_called_once()
+    fake_modal.Sandbox.create.assert_called_once()
+    fake_modal.App.lookup.assert_called_once()
 
 
 def test_launch_uses_image_from_registry_when_image_id_set(fake_modal):
@@ -112,59 +100,78 @@ def test_launch_omits_secrets_when_envs_empty(fake_modal):
     fake_modal.Secret.from_dict.assert_not_called()
 
 
+def test_launch_concatenates_setup_and_run_with_sudo_stripped(fake_modal):
+    """Setup script (with sudo) and run script are joined and sudo-stripped."""
+    with patch(
+        "oumi.launcher.clients.modal_client._import_modal", return_value=fake_modal
+    ):
+        ModalClient().launch(
+            _job(
+                setup="sudo apt-get update && sudo apt-get install -y zip",
+                run="echo done",
+            )
+        )
+    # Sandbox.create is called with /bin/bash -lc <script>.
+    args, _ = fake_modal.Sandbox.create.call_args
+    script = args[2]  # ("/bin/bash", "-lc", script)
+    assert "sudo" not in script
+    assert "apt-get update && apt-get install -y zip" in script
+    assert "echo done" in script
+
+
 def test_get_call_raises_cluster_not_found_on_lookup_failure(fake_modal):
-    fake_modal.FunctionCall.from_id.side_effect = RuntimeError("no such call")
+    fake_modal.Sandbox.from_id.side_effect = RuntimeError("no such sandbox")
     with patch(
         "oumi.launcher.clients.modal_client._import_modal", return_value=fake_modal
     ):
         client = ModalClient()
         with pytest.raises(ClusterNotFoundError):
-            client.get_call("fc-missing")
+            client.get_call("sb-missing")
 
 
 def test_cancel_swallows_underlying_errors(fake_modal):
-    call = MagicMock()
-    call.cancel.side_effect = RuntimeError("nope")
-    fake_modal.FunctionCall.from_id.return_value = call
+    sandbox = MagicMock()
+    sandbox.terminate.side_effect = RuntimeError("nope")
+    fake_modal.Sandbox.from_id.return_value = sandbox
     with patch(
         "oumi.launcher.clients.modal_client._import_modal", return_value=fake_modal
     ):
         # Should not raise.
-        ModalClient().cancel("fc-id")
+        ModalClient().cancel("sb-id")
 
 
-def test_get_status_running_when_call_pending(fake_modal):
-    call = MagicMock()
-    call.get.side_effect = TimeoutError("still running")
-    fake_modal.FunctionCall.from_id.return_value = call
+def test_get_status_running_when_sandbox_poll_returns_none(fake_modal):
+    sandbox = MagicMock()
+    sandbox.poll.return_value = None
+    fake_modal.Sandbox.from_id.return_value = sandbox
     with patch(
         "oumi.launcher.clients.modal_client._import_modal", return_value=fake_modal
     ):
-        status = ModalClient().get_status("fc-id")
+        status = ModalClient().get_status("sb-id")
     assert status.state == JobState.RUNNING
     assert status.done is False
 
 
-def test_get_status_succeeded_when_call_returns(fake_modal):
-    call = MagicMock()
-    call.get.return_value = 0
-    fake_modal.FunctionCall.from_id.return_value = call
+def test_get_status_succeeded_when_sandbox_exits_zero(fake_modal):
+    sandbox = MagicMock()
+    sandbox.poll.return_value = 0
+    fake_modal.Sandbox.from_id.return_value = sandbox
     with patch(
         "oumi.launcher.clients.modal_client._import_modal", return_value=fake_modal
     ):
-        status = ModalClient().get_status("fc-id")
+        status = ModalClient().get_status("sb-id")
     assert status.state == JobState.SUCCEEDED
     assert status.done is True
 
 
-def test_get_status_failed_when_call_raises_user_exception(fake_modal):
-    call = MagicMock()
-    call.get.side_effect = ValueError("user code blew up")
-    fake_modal.FunctionCall.from_id.return_value = call
+def test_get_status_failed_when_sandbox_exits_nonzero(fake_modal):
+    sandbox = MagicMock()
+    sandbox.poll.return_value = 1
+    fake_modal.Sandbox.from_id.return_value = sandbox
     with patch(
         "oumi.launcher.clients.modal_client._import_modal", return_value=fake_modal
     ):
-        status = ModalClient().get_status("fc-id")
+        status = ModalClient().get_status("sb-id")
     assert status.state == JobState.FAILED
     assert status.done is True
 
@@ -176,12 +183,24 @@ def test_estimate_cost_per_hour_known_and_unknown():
     assert ModalClient.estimate_cost_per_hour("H100:8") == pytest.approx(31.6)
 
 
-def test_get_logs_stream_returns_no_op_when_logs_unsupported(fake_modal):
-    call = MagicMock(spec=[])  # no `logs` attribute
-    fake_modal.FunctionCall.from_id.return_value = call
+def test_get_logs_stream_returns_concatenated_stdout_and_stderr(fake_modal):
+    sandbox = MagicMock()
+    sandbox.stdout = iter(["hello\n", "world\n"])
+    sandbox.stderr = iter([])
+    fake_modal.Sandbox.from_id.return_value = sandbox
     with patch(
         "oumi.launcher.clients.modal_client._import_modal", return_value=fake_modal
     ):
-        stream = ModalClient().get_logs_stream("fc-id")
-    # readline on an empty iterator returns "".
+        stream = ModalClient().get_logs_stream("sb-id")
+    assert stream.readline() == "hello\n"
+    assert stream.readline() == "world\n"
     assert stream.readline() == ""
+
+
+def test_strip_sudo_removes_inline_and_chained_invocations():
+    from oumi.launcher.clients.modal_client import _strip_sudo
+
+    src = "sudo apt-get update && sudo apt-get install -y zip\nsudo dpkg -i bar.deb"
+    assert _strip_sudo(src) == (
+        "apt-get update && apt-get install -y zip\ndpkg -i bar.deb"
+    )

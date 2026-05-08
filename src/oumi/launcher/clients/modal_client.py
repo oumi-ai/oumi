@@ -27,8 +27,8 @@ executed by a remote subprocess inside the function.
 from __future__ import annotations
 
 import io
+import re
 import shlex
-import time
 from collections.abc import Iterator
 from typing import TYPE_CHECKING, Any, cast
 
@@ -41,7 +41,6 @@ if TYPE_CHECKING:
 
 
 _DEFAULT_TIMEOUT_S = 24 * 60 * 60  # 24h
-_DEFAULT_BASE_IMAGE = "python:3.11-slim"
 
 
 def _import_modal() -> Any:
@@ -71,22 +70,42 @@ def _build_image(modal_lib: Any, job: JobConfig) -> Any:
     """Builds a ``modal.Image`` from the JobConfig.
 
     ``resources.image_id`` (``docker:<ref>``) → ``Image.from_registry(<ref>)``.
-    Otherwise we start from a slim Python base image. ``setup`` is baked in
-    via ``run_commands`` so Modal's content-addressed cache reuses it across
-    jobs with identical setup scripts.
+    Otherwise we start from a generic Python base image with ``apt`` tooling
+    baked in for the common setup paths.
+
+    Note: ``job.setup`` is intentionally NOT baked into the image. Modal's
+    image build runs without secrets attached, so any setup step that
+    consumes ``$HF_TOKEN`` (e.g. ``hf download``) or other env-derived
+    credentials would fail at build time. We instead concatenate ``setup``
+    and ``run`` and execute them together inside the function body, where
+    secrets are present and the SkyPilot-compatible script can run with
+    ``set -e`` semantics. Modal's apt/pip caches still amortize across
+    jobs that reuse the same base image.
     """
-    base = (
-        modal_lib.Image.from_registry(job.resources.image_id.removeprefix("docker:"))
-        if job.resources.image_id
-        and str(job.resources.image_id).startswith("docker:")
-        else modal_lib.Image.debian_slim().pip_install("uv")
+    if job.resources.image_id and str(job.resources.image_id).startswith("docker:"):
+        return modal_lib.Image.from_registry(
+            job.resources.image_id.removeprefix("docker:")
+        )
+    return (
+        modal_lib.Image.debian_slim()
+        .apt_install("zip", "curl", "git")
+        .pip_install("uv", "awscli")
     )
-    if not job.resources.image_id:
-        # Fall back to a generic registry image when none is specified.
-        base = modal_lib.Image.from_registry(_DEFAULT_BASE_IMAGE)
-    if job.setup:
-        base = base.run_commands([job.setup])
-    return base
+
+
+_SUDO_RE = re.compile(r"\bsudo\s+")
+
+
+def _strip_sudo(script: str) -> str:
+    """Strips ``sudo`` invocations from a shell script.
+
+    Modal containers run as root and don't ship ``sudo``. SkyPilot setup
+    scripts authored for cloud VMs (Lambda, Nebius, GCP) frequently call
+    ``sudo apt-get …`` directly or chained after ``&&``/``;``/``||``.
+    Stripping the token in-place lets the same script run unchanged
+    inside a Modal function.
+    """
+    return _SUDO_RE.sub("", script)
 
 
 def _build_secret(modal_lib: Any, envs: dict[str, str]) -> Any | None:
@@ -96,25 +115,20 @@ def _build_secret(modal_lib: Any, envs: dict[str, str]) -> Any | None:
     return modal_lib.Secret.from_dict({k: str(v) for k, v in envs.items()})
 
 
-def _function_call_state(call: Any) -> JobState:
-    """Maps a ``modal.FunctionCall`` status to a :class:`JobState`."""
-    # Modal's public API does not expose status directly. Probe with get(timeout=0).
-    # Raises TimeoutError while pending/running, returns on success, raises
-    # FunctionCallTerminationError or the user exception on failure.
-    modal_lib = _import_modal()
-    try:
-        call.get(timeout=0)
+_LAUNCHER_APP_NAME = "oumi-launcher"
+
+
+def _sandbox_state(sandbox: Any) -> JobState:
+    """Maps a ``modal.Sandbox`` poll result to a :class:`JobState`."""
+    rc = sandbox.poll()
+    if rc is None:
+        # ``poll()`` returns None while the sandbox is still running. Modal
+        # transitions through internal pending → running states which we
+        # collapse into RUNNING for caller-facing reporting.
+        return JobState.RUNNING
+    if rc == 0:
         return JobState.SUCCEEDED
-    except modal_lib.exception.OutputExpiredError:
-        # Result was discarded — treat as terminal failure.
-        return JobState.FAILED
-    except getattr(modal_lib.exception, "FunctionTimeoutError", Exception):
-        return JobState.RUNNING
-    except TimeoutError:
-        return JobState.RUNNING
-    except Exception:
-        # Any other surfaced exception means the user code raised → failed.
-        return JobState.FAILED
+    return JobState.FAILED
 
 
 class ModalClient:
@@ -129,68 +143,74 @@ class ModalClient:
     def launch(
         self, job: JobConfig, cluster_name: str | None = None, **kwargs: Any
     ) -> JobStatus:
-        """Spawns a Modal FunctionCall for the provided job.
+        """Creates a detached ``modal.Sandbox`` for the provided job.
 
-        ``cluster_name`` is ignored — Modal generates a stable opaque ID
-        which is returned as the cluster name on the resulting JobStatus.
+        ``cluster_name`` is ignored — Modal generates a stable opaque
+        ``Sandbox.object_id`` returned as the cluster name on the
+        resulting JobStatus.
+
+        We use ``Sandbox`` (not ``Function.spawn``) because sandboxes
+        persist beyond the Python process that creates them, which is
+        the lifecycle our launcher pattern needs.
         """
         modal_lib = self._modal
-        app_name = (
-            cluster_name or job.name or f"oumi-{int(time.time() * 1000)}"
-        ).replace("_", "-")
-        app = modal_lib.App(app_name)
         image = _build_image(modal_lib, job)
         secret = _build_secret(modal_lib, job.envs)
 
         gpu = job.resources.accelerators
         timeout = int(kwargs.get("timeout", _DEFAULT_TIMEOUT_S))
 
-        @app.function(
+        # ``setup`` runs inside the sandbox (not at image-build time) so
+        # secrets injected via ``modal.Secret`` are visible.
+        cleaned_setup = _strip_sudo(job.setup) if job.setup else ""
+        full_script = (
+            f"set -e\n{cleaned_setup}\n{job.run}" if cleaned_setup else job.run
+        )
+
+        # ``App.lookup`` returns a persistent app reference; sandboxes
+        # don't require an active ``with app.run()`` context.
+        app = modal_lib.App.lookup(_LAUNCHER_APP_NAME, create_if_missing=True)
+
+        sandbox = modal_lib.Sandbox.create(
+            "/bin/bash",
+            "-lc",
+            full_script,
+            app=app,
             image=image,
             gpu=gpu,
             secrets=[secret] if secret else [],
             timeout=timeout,
         )
-        def _run(run_script: str) -> int:
-            import subprocess  # noqa: PLC0415
-
-            return subprocess.run(
-                ["/bin/bash", "-lc", run_script], check=True
-            ).returncode
-
-        with app.run():
-            call = _run.spawn(job.run)
-            call_id = call.object_id
+        sandbox_id = sandbox.object_id
 
         logger.info(
-            f"Launched Modal app={app_name} call_id={call_id} gpu={gpu} "
-            f"timeout={timeout}s"
+            f"Launched Modal sandbox={sandbox_id} gpu={gpu} timeout={timeout}s"
         )
         return JobStatus(
-            name=job.name or app_name,
-            id=call_id,
-            cluster=call_id,
+            name=job.name or sandbox_id,
+            id=sandbox_id,
+            cluster=sandbox_id,
             status=str(JobState.PENDING.value),
-            metadata=shlex.quote(app_name),
+            metadata=shlex.quote(_LAUNCHER_APP_NAME),
             done=False,
             state=JobState.PENDING,
             cost_per_hour=self.estimate_cost_per_hour(gpu),
         )
 
     def get_call(self, call_id: str) -> Any:
-        """Resolves a ``FunctionCall`` by its opaque ID, raising if missing."""
+        """Resolves a ``Sandbox`` by its opaque ID, raising if missing."""
         modal_lib = self._modal
         try:
-            return modal_lib.FunctionCall.from_id(call_id)
+            return modal_lib.Sandbox.from_id(call_id)
         except Exception as e:  # noqa: BLE001
             raise ClusterNotFoundError(
-                f"Modal FunctionCall '{call_id}' not found"
+                f"Modal sandbox '{call_id}' not found"
             ) from e
 
     def get_status(self, call_id: str) -> JobStatus:
         """Returns the current :class:`JobStatus` for ``call_id``."""
-        call = self.get_call(call_id)
-        state = _function_call_state(call)
+        sandbox = self.get_call(call_id)
+        state = _sandbox_state(sandbox)
         return JobStatus(
             name=call_id,
             id=call_id,
@@ -202,21 +222,29 @@ class ModalClient:
         )
 
     def cancel(self, call_id: str) -> None:
-        """Cancels the FunctionCall if it is still pending or running."""
-        call = self.get_call(call_id)
+        """Terminates the sandbox if it is still running."""
+        sandbox = self.get_call(call_id)
         try:
-            call.cancel()
+            sandbox.terminate()
         except Exception as e:  # noqa: BLE001
-            logger.warning(f"Modal cancel({call_id}) failed: {e!r}")
+            logger.warning(f"Modal terminate({call_id}) failed: {e!r}")
 
     def get_logs_stream(self, call_id: str) -> ModalLogStream:
         """Returns a streaming readline()-style log stream for ``call_id``."""
-        call = self.get_call(call_id)
-        # ``FunctionCall.logs`` is the supported log iterator on recent
-        # modal versions; fall back to a no-op iterator otherwise.
-        logs_fn: Any = getattr(call, "logs", None)
-        raw: Any = logs_fn() if callable(logs_fn) else []
-        return ModalLogStream(cast("Iterator[str]", iter(raw)))
+        sandbox = self.get_call(call_id)
+        # ``Sandbox.stdout`` is an async iterator of log chunks. Materialize
+        # to a list synchronously for the worker's blocking log-tail path.
+        chunks: list[str] = []
+        for stream_attr in ("stdout", "stderr"):
+            stream = getattr(sandbox, stream_attr, None)
+            if stream is None:
+                continue
+            try:
+                for line in stream:
+                    chunks.append(str(line))
+            except Exception as e:  # noqa: BLE001
+                logger.warning(f"Modal {stream_attr} read failed: {e!r}")
+        return ModalLogStream(cast("Iterator[str]", iter(chunks)))
 
     # ----- pricing -----
 
