@@ -678,7 +678,7 @@ class ConversationSynthesizer:
                     prompts=prompts,
                     sample_indices=sample_indices,
                     histories=histories,
-                    max_tool_calls=multiturn_attribute.max_tool_calls_per_turn,
+                    max_tool_rounds=multiturn_attribute.max_tool_rounds_per_turn,
                     assistant_tools=assistant_tools,
                 )
                 continue
@@ -720,7 +720,7 @@ class ConversationSynthesizer:
         prompts: list[Conversation],
         sample_indices: list[int],
         histories: list[list[Message]],
-        max_tool_calls: int,
+        max_tool_rounds: int,
         assistant_tools: list[ToolDefinition] | None,
     ) -> None:
         """Run an assistant turn, dispatching emitted tool calls; mutates histories."""
@@ -728,14 +728,14 @@ class ConversationSynthesizer:
             idx: prompt.messages for idx, prompt in zip(sample_indices, prompts)
         }
         staging: dict[int, list[Message]] = {idx: [] for idx in sample_indices}
-        tool_count: dict[int, int] = {idx: 0 for idx in sample_indices}
+        round_count: dict[int, int] = {idx: 0 for idx in sample_indices}
         done: dict[int, bool] = {idx: False for idx in sample_indices}
 
         while True:
             active = [
                 idx
                 for idx in sample_indices
-                if not done[idx] and tool_count[idx] < max_tool_calls
+                if not done[idx] and round_count[idx] < max_tool_rounds
             ]
             if not active:
                 break
@@ -759,18 +759,16 @@ class ConversationSynthesizer:
             for idx, result in zip(active, results):
                 assistant_msg = result.messages[-1] if result.messages else None
                 if assistant_msg is not None and assistant_msg.tool_calls:
-                    remaining = max_tool_calls - tool_count[idx]
-                    calls_to_dispatch = assistant_msg.tool_calls[:remaining]
                     staging[idx].append(
                         Message(
                             role=Role.ASSISTANT,
                             content=assistant_msg.content,
-                            tool_calls=calls_to_dispatch,
+                            tool_calls=assistant_msg.tool_calls,
                         )
                     )
-                    for tc in calls_to_dispatch:
+                    for tc in assistant_msg.tool_calls:
                         staging[idx].append(self._run_tool_call(tc))
-                    tool_count[idx] += len(calls_to_dispatch)
+                    round_count[idx] += 1
                 else:
                     staging[idx].append(
                         Message(

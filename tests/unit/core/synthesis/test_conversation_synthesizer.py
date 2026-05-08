@@ -1986,7 +1986,7 @@ def test_assistant_turn_loops_on_tool_calls(
             Role.USER: "user",
             Role.ASSISTANT: "assistant",
         },
-        max_tool_calls_per_turn=5,
+        max_tool_rounds_per_turn=5,
     )
     inference_config = InferenceConfig(
         engine=InferenceEngineType.OPENAI,
@@ -2025,12 +2025,12 @@ def test_assistant_turn_loops_on_tool_calls(
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_environment")
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
-def test_assistant_turn_caps_at_max_tool_calls_then_finalizes(
+def test_assistant_turn_caps_at_max_tool_rounds_then_finalizes(
     mock_build_inference_engine,
     mock_build_environment,
     mock_general_synthesis_params,
 ):
-    """When max_tool_calls_per_turn is hit, the nudge forces a final text answer."""
+    """When max_tool_rounds_per_turn is hit, the nudge forces a final text answer."""
     fake_env = Mock(spec=BaseEnvironment)
     fake_env.step.return_value = ToolResult(output="ok")
     mock_build_environment.return_value = fake_env
@@ -2094,7 +2094,7 @@ def test_assistant_turn_caps_at_max_tool_calls_then_finalizes(
             Role.USER: "user",
             Role.ASSISTANT: "assistant",
         },
-        max_tool_calls_per_turn=2,
+        max_tool_rounds_per_turn=2,
     )
     inference_config = InferenceConfig(
         engine=InferenceEngineType.OPENAI,
@@ -2130,12 +2130,12 @@ def test_assistant_turn_caps_at_max_tool_calls_then_finalizes(
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_environment")
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
-def test_assistant_turn_clamps_multi_call_batch_to_cap(
+def test_assistant_turn_dispatches_parallel_batch_unrestricted(
     mock_build_inference_engine,
     mock_build_environment,
     mock_general_synthesis_params,
 ):
-    """When tool calls exceed the cap, only the budgeted prefix is dispatched."""
+    """A parallel tool_calls batch dispatches in full; cap is on rounds, not calls."""
     fake_env = Mock(spec=BaseEnvironment)
     fake_env.step.return_value = ToolResult(output={"ok": True})
     mock_build_environment.return_value = fake_env
@@ -2160,11 +2160,6 @@ def test_assistant_turn_clamps_multi_call_batch_to_cap(
                 Conversation(messages=[Message(role=Role.ASSISTANT, content="hello")])
                 for _ in prompts
             ]
-        if last_text.startswith("Stop calling tools"):
-            return [
-                Conversation(messages=[Message(role=Role.ASSISTANT, content="done")])
-                for _ in prompts
-            ]
         assistant_turn_count["n"] += 1
         if assistant_turn_count["n"] == 1:
             return [
@@ -2178,7 +2173,7 @@ def test_assistant_turn_clamps_multi_call_batch_to_cap(
                                     id=f"c{i}",
                                     function=FunctionCall(name="t", arguments="{}"),
                                 )
-                                for i in range(3)
+                                for i in range(5)
                             ],
                         )
                     ]
@@ -2204,7 +2199,7 @@ def test_assistant_turn_clamps_multi_call_batch_to_cap(
             Role.USER: "user",
             Role.ASSISTANT: "assistant",
         },
-        max_tool_calls_per_turn=2,
+        max_tool_rounds_per_turn=2,
     )
     inference_config = InferenceConfig(
         engine=InferenceEngineType.OPENAI,
@@ -2225,4 +2220,5 @@ def test_assistant_turn_clamps_multi_call_batch_to_cap(
             multiturn_attributes=multiturn_attr,
         )
 
-    assert fake_env.step.call_count == 2
+    # Model emitted 5 parallel calls in one round; all 5 dispatched (no clamping).
+    assert fake_env.step.call_count == 5
