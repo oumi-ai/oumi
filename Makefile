@@ -4,7 +4,7 @@ SHELL := /bin/bash
 # Conda environment name
 CONDA_ENV := oumi
 CONDA_ACTIVE := $(shell conda info --envs | grep -q "*" && echo "true" || echo "false")
-CONDA_RUN := conda run -n $(CONDA_ENV)
+CONDA_RUN := conda run --no-capture-output -n $(CONDA_ENV)
 CONDA_INSTALL_PATH := $(HOME)/miniconda3
 
 # Source directory
@@ -12,6 +12,9 @@ SRC_DIR := .
 TEST_DIR := tests
 DOCS_DIR := docs
 OUMI_SRC_DIR := src/oumi
+
+# Marker filter mirroring the unit-test CI workflow (.github/workflows/pretest.yaml).
+UNIT_TEST_MARKERS := not e2e and not e2e_eternal and not single_gpu and not multi_gpu
 
 # Sphinx documentation variables
 SPHINXOPTS    ?= -v
@@ -139,7 +142,10 @@ test:
 	$(CONDA_RUN) pytest $(TEST_DIR)
 
 coverage:
-	$(CONDA_RUN) pytest --cov=$(OUMI_SRC_DIR) --cov-report=term-missing --cov-report=html:coverage_html $(TEST_DIR)
+	$(CONDA_RUN) pytest --cov --cov-report=term-missing --cov-report=html:coverage_html -m "$(UNIT_TEST_MARKERS)" --durations=50 --timeout=300 $(TEST_DIR)
+
+coverage-unit:
+	$(CONDA_RUN) pytest --cov --cov-report=term-missing --cov-report=html:coverage_html -m "$(UNIT_TEST_MARKERS)" --durations=50 --timeout=300 $(TEST_DIR)/unit/
 
 # To adjust the accelerators: `make gcpcode ARGS="--resources.accelerators A100:4"`
 # To run on a different cloud: `make gcpssh ARGS="--resources.cloud aws"`
@@ -188,4 +194,4 @@ doctest-file:
 	fi
 	$(CONDA_RUN) $(SPHINXBUILD) -b doctest "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(FILE)
 
-.PHONY: help setup upgrade clean check torchfix ty format test coverage gcpssh gcpcode docs docs-help docs-serve docs-rebuild copy-doc-files clean-docs doctest doctest-file
+.PHONY: help setup upgrade clean check torchfix ty format test coverage coverage-unit gcpssh gcpcode docs docs-help docs-serve docs-rebuild copy-doc-files clean-docs doctest doctest-file

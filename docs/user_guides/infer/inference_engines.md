@@ -685,6 +685,41 @@ For a full list of available models, visit [openrouter.ai/models](https://openro
 - [OpenRouter Documentation](https://openrouter.ai/docs)
 - [Available Models](https://openrouter.ai/models)
 
+### HuggingFace Inference Providers
+
+[HuggingFace Inference Providers](https://huggingface.co/docs/inference-providers/index) offers serverless, OpenAI-compatible access to hundreds of open models hosted by HuggingFace and partner providers (Together AI, Fireworks, SambaNova, Cerebras, and more) through a single endpoint.
+
+Set the `HF_TOKEN` environment variable to a HuggingFace token with the *Make calls to Inference Providers* permission.
+
+**Basic Usage**
+
+```{testcode}
+from oumi.inference import HuggingFaceRouterInferenceEngine
+from oumi.core.configs import ModelParams
+
+engine = HuggingFaceRouterInferenceEngine(
+    model_params=ModelParams(
+        model_name="meta-llama/Llama-3.1-8B-Instruct"
+    )
+)
+```
+
+**Provider Selection**
+
+The HF router parses an optional provider/policy suffix off the model name server-side, so just include it on `model_name`:
+
+| Model Name                                        | Behavior                                                  |
+|---------------------------------------------------|-----------------------------------------------------------|
+| `meta-llama/Llama-3.1-8B-Instruct`                | Auto-route (equivalent to `:fastest`)                     |
+| `meta-llama/Llama-3.1-8B-Instruct:cheapest`       | Lowest price per output token                             |
+| `meta-llama/Llama-3.1-8B-Instruct:preferred`      | Follows your preference order in HF Inference settings    |
+| `meta-llama/Llama-3.1-8B-Instruct:together`       | Pin to Together AI (or any partner provider name)         |
+
+**Resources**
+
+- [Inference Providers Documentation](https://huggingface.co/docs/inference-providers/index)
+- [Available Models](https://huggingface.co/models?inference_provider=all)
+
 ### SambaNova
 
 [SambaNova](https://www.sambanova.ai/) offers an extreme-speed inference platform on cloud infrastructure with wide variety of models.
