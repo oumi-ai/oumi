@@ -152,6 +152,7 @@ gcp = [
 ]
 kubernetes = ["skypilot[kubernetes]"]
 lambda = ["skypilot[lambda]"]
+modal = ["modal>=0.64,<2"]
 runpod = ["skypilot[runpod]"]
 nebius = ["skypilot[nebius]"]
 
