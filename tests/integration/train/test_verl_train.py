@@ -1,3 +1,4 @@
+import importlib.util
 import pathlib
 import tempfile
 from unittest.mock import patch
@@ -19,12 +20,7 @@ from oumi.core.trainers.verl_grpo_trainer import VerlGrpoTrainer
 from oumi.utils.packaging import is_verl_v0_7_or_later
 from tests.markers import requires_gpus
 
-try:
-    import verl  # pyright: ignore[reportMissingImports]  # noqa: F401
-
-    _verl_available = True
-except ModuleNotFoundError:
-    _verl_available = False
+_verl_available = importlib.util.find_spec("verl") is not None
 
 _MODEL_NAME = "Qwen/Qwen2.5-0.5B"
 
@@ -262,7 +258,7 @@ def test_verl_grpo_train_1_step():
     """End-to-end verl GRPO training for 1 step on a single GPU.
 
     Uses Qwen2.5-0.5B with the countdown dataset and vLLM rollout.
-    Requires ~48GB GPU (L40S/A100) due to FSDP actor + vLLM coexisting.
+    Requires ~40GB GPU (L40S/A100) due to FSDP actor + vLLM coexisting.
     """
     from oumi import train
 
@@ -339,4 +335,6 @@ def test_verl_grpo_train_1_step():
 
         train(config)
 
-        assert (pathlib.Path(output_dir) / "verl_output").exists()
+        verl_output = pathlib.Path(output_dir) / "verl_output"
+        assert verl_output.exists(), f"verl_output dir not created: {verl_output}"
+        assert any(verl_output.iterdir()), f"verl_output dir is empty: {verl_output}"
