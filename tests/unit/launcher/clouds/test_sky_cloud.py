@@ -94,8 +94,13 @@ def test_sky_cloud_up_cluster(mock_sky_client, mock_sky_cluster):
     mock_lambda_handler.launched_resources.cloud = mock_lambda_cluster
     mock_sky_lambda = Mock(spec=SkyCluster)
     mock_sky_lambda.name.return_value = "lambda_cluster"
+
+    mock_sky_gcp_init = Mock(spec=SkyCluster)
+    mock_sky_gcp_init.name.return_value = "init_cluster_name"
+
     mock_sky_cluster.side_effect = [
         mock_sky_gcp,
+        mock_sky_gcp_init,
         mock_sky_runpod,
         mock_sky_lambda,
     ]
@@ -304,7 +309,10 @@ def test_sky_cloud_list_clusters_gcp(mock_sky_client):
     ]
     clusters = cloud.list_clusters()
     mock_sky_client.status.assert_called_once()
-    assert clusters == [SkyCluster("gcp_cluster", mock_sky_client)]
+    assert clusters == [
+        SkyCluster("gcp_cluster", mock_sky_client),
+        SkyCluster("init_cluster_name", mock_sky_client),
+    ]
 
 
 def test_sky_cloud_list_clusters_runpod(mock_sky_client):
@@ -767,3 +775,7 @@ def test_azure_cloud_builder_registered():
 
 def test_k8s_cloud_builder_registered():
     assert REGISTRY.contains("k8s", RegistryType.CLOUD)
+
+
+def test_nebius_cloud_builder_registered():
+    assert REGISTRY.contains("nebius", RegistryType.CLOUD)

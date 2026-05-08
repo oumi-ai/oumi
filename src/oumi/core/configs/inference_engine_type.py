@@ -30,9 +30,6 @@ class InferenceEngineType(str, Enum):
     SGLANG = "SGLANG"
     """The SGLang inference engine."""
 
-    LAMBDA = "LAMBDA"
-    """The Lambda inference engine."""
-
     LLAMACPP = "LLAMACPP"
     """The LlamaCPP inference engine."""
 
@@ -51,6 +48,9 @@ class InferenceEngineType(str, Enum):
     DEEPSEEK = "DEEPSEEK"
     """The inference engine for DeepSeek Platform API."""
 
+    FIREWORKS = "FIREWORKS"
+    """The inference engine for Fireworks AI API."""
+
     PARASAIL = "PARASAIL"
     """The inference engine for Parasail API."""
 
@@ -60,8 +60,14 @@ class InferenceEngineType(str, Enum):
     OPENAI = "OPENAI"
     """The inference engine for OpenAI API."""
 
+    OPENROUTER = "OPENROUTER"
+    """The inference engine for OpenRouter API."""
+
     SAMBANOVA = "SAMBANOVA"
     """The inference engine for SambaNova API."""
 
     BEDROCK = "BEDROCK"
     """The inference engine for AWS Bedrock API."""
+
+    CEREBRAS = "CEREBRAS"
+    """The inference engine for Cerebras API."""

@@ -58,7 +58,9 @@ class SkyCluster(BaseCluster):
             return JobState.FAILED
         return JobState.PENDING
 
-    def _convert_sky_job_to_status(self, sky_job: dict) -> JobStatus:
+    def _convert_sky_job_to_status(
+        self, sky_job: dict, cost_per_hour: float | None = None
+    ) -> JobStatus:
         """Converts a sky job to a JobStatus."""
         required_fields = ["job_id", "job_name", "status"]
         for field in required_fields:
@@ -75,6 +77,9 @@ class SkyCluster(BaseCluster):
             or state == JobState.FAILED
             or state == JobState.CANCELLED,
             state=state,
+            cost_per_hour=cost_per_hour,
+            start_at=sky_job.get("start_at") or None,
+            end_at=sky_job.get("end_at") or None,
         )
 
     def name(self) -> str:
@@ -91,8 +96,9 @@ class SkyCluster(BaseCluster):
     def get_jobs(self) -> list[JobStatus]:
         """Lists the jobs on this cluster."""
         try:
+            cost_per_hour = self._client.get_cluster_hourly_price(self.name())
             return [
-                self._convert_sky_job_to_status(job)
+                self._convert_sky_job_to_status(job, cost_per_hour=cost_per_hour)
                 for job in self._client.queue(self.name())
             ]
         except self._sky_exceptions.ClusterNotUpError:

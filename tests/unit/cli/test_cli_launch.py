@@ -17,6 +17,7 @@ from oumi.core.configs import (
     DatasetParams,
     DatasetSplitParams,
     ModelParams,
+    OumiConfigError,
     TrainerType,
     TrainingConfig,
     TrainingParams,
@@ -24,6 +25,7 @@ from oumi.core.configs import (
 from oumi.core.launcher import JobState, JobStatus
 from oumi.launcher import JobConfig, JobResources
 from oumi.utils.logging import logger
+from oumi.utils.version_utils import get_oumi_version
 
 
 @pytest.fixture
@@ -109,9 +111,13 @@ def mock_confirm():
 
 @pytest.fixture
 def mock_version():
+    # Clear the lru_cache to ensure fresh version checks in each test
+    get_oumi_version.cache_clear()
     with patch("oumi.utils.version_utils.version") as version_mock:
         version_mock.return_value = ""
         yield version_mock
+    # Clear again after the test to avoid polluting other tests
+    get_oumi_version.cache_clear()
 
 
 @pytest.fixture
@@ -694,7 +700,7 @@ def test_launch_up_job_not_found(
             done=True,
             state=JobState.SUCCEEDED,
         )
-        with pytest.raises(FileNotFoundError) as exception_info:
+        with pytest.raises(OumiConfigError) as exception_info:
             res = runner.invoke(
                 app,
                 [
@@ -705,7 +711,9 @@ def test_launch_up_job_not_found(
             )
             if res.exception:
                 raise res.exception
-        assert "No such file or directory" in str(exception_info.value)
+        assert "Config file not found or path is not a file" in str(
+            exception_info.value
+        )
 
 
 def test_launch_run_job(

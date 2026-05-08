@@ -21,6 +21,7 @@ from omegaconf import MISSING
 
 from oumi.core.configs.base_config import BaseConfig
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.exceptions import OumiConfigError
 
 
 class DatasetSource(Enum):
@@ -111,14 +112,6 @@ class AnalyzeConfig(BaseConfig):
     tokenizer_kwargs: dict[str, Any] = field(default_factory=dict)
     """Additional keyword arguments to pass to the tokenizer constructor."""
 
-    tokenizer_config: dict[str, Any] | None = None
-    """Tokenizer configuration for building a tokenizer.
-
-    .. deprecated::
-        This field is deprecated and will be removed in a future release.
-        Use 'tokenizer_name' and 'tokenizer_kwargs' instead.
-    """
-
     # Processor parameters for vision-language datasets
     processor_name: str | None = None
     """Processor name for vision-language datasets.
@@ -163,31 +156,6 @@ class AnalyzeConfig(BaseConfig):
                 stacklevel=2,
             )
 
-        # Handle deprecated tokenizer_config field
-        if self.tokenizer_config is not None:
-            warnings.warn(
-                "The 'tokenizer_config' field is deprecated and will be removed in a "
-                "future release. Use 'tokenizer_name' and 'tokenizer_kwargs' instead. "
-                "Values from 'tokenizer_config' will be used for this run.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            # Migrate values from tokenizer_config to new fields if not already set
-            if self.tokenizer_name is None and "model_name" in self.tokenizer_config:
-                self.tokenizer_name = self.tokenizer_config["model_name"]
-            if (
-                not self.tokenizer_kwargs
-                and "tokenizer_kwargs" in self.tokenizer_config
-            ):
-                self.tokenizer_kwargs = self.tokenizer_config["tokenizer_kwargs"]
-            # trust_remote_code from tokenizer_config only applies if not explicitly set
-            if (
-                "trust_remote_code" in self.tokenizer_config
-                and self.tokenizer_config["trust_remote_code"]
-                and not self.trust_remote_code
-            ):
-                self.trust_remote_code = self.tokenizer_config["trust_remote_code"]
-
         # Handle deprecated is_multimodal field
         if self.is_multimodal is not None:
             warnings.warn(
@@ -200,14 +168,14 @@ class AnalyzeConfig(BaseConfig):
 
         # Validate sample_count
         if self.sample_count is not None and self.sample_count <= 0:
-            raise ValueError("`sample_count` must be greater than 0.")
+            raise OumiConfigError("`sample_count` must be greater than 0.")
 
         # Validate analyzer configurations
         analyzer_ids = set()
         for analyzer in self.analyzers:
             # Validate analyzer ID
             if not analyzer.id:
-                raise ValueError("Analyzer 'id' must be provided")
+                raise OumiConfigError("Analyzer 'id' must be provided")
             if analyzer.id in analyzer_ids:
-                raise ValueError(f"Duplicate analyzer ID found: '{analyzer.id}'")
+                raise OumiConfigError(f"Duplicate analyzer ID found: '{analyzer.id}'")
             analyzer_ids.add(analyzer.id)

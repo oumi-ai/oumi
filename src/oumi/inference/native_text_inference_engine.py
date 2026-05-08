@@ -34,7 +34,7 @@ from oumi.core.configs.internal.supported_models import (
 )
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.processors.base_processor import BaseProcessor
-from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.core.types.conversation import Conversation, FinishReason, Message, Role
 from oumi.utils.conversation_utils import load_image_bytes_to_content_item
 from oumi.utils.image_utils import load_pil_image_from_bytes
 from oumi.utils.logging import logger
@@ -357,16 +357,39 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                 clean_up_tokenization_spaces=True,
                 skip_special_tokens=generation_params.skip_special_tokens,
             )
-            for conversation, response in zip(
-                batched_input[batch_index], output_batch_decoded
+
+            # Calculate the number of newly generated tokens (excluding prompt).
+            # This is needed for correct finish_reason determination regardless
+            # of the exclude_prompt_from_response setting.
+            prompt_lengths = [
+                len(input_batches[batch_index]["input_ids"][i])  # type: ignore
+                for i in range(len(output_batch.data))
+            ]
+            if generation_params.exclude_prompt_from_response:
+                # Prompt already stripped, output_batch.data contains only new tokens
+                generated_token_counts = [len(seq) for seq in output_batch.data]
+            else:
+                # Prompt included, subtract prompt length to get new token count
+                generated_token_counts = [
+                    len(seq) - prompt_len
+                    for seq, prompt_len in zip(output_batch.data, prompt_lengths)
+                ]
+
+            for conversation, response, gen_token_count in zip(
+                batched_input[batch_index], output_batch_decoded, generated_token_counts
             ):
                 messages = [
                     *conversation.messages,
                     Message(role=Role.ASSISTANT, content=response),
                 ]
+                metadata = dict(conversation.metadata)
+                if gen_token_count >= generation_params.max_new_tokens:
+                    metadata["finish_reason"] = FinishReason.LENGTH.value
+                else:
+                    metadata["finish_reason"] = FinishReason.STOP.value
                 new_conversation = Conversation(
                     messages=messages,
-                    metadata=conversation.metadata,
+                    metadata=metadata,
                     conversation_id=conversation.conversation_id,
                 )
                 self._save_conversation_to_scratch(

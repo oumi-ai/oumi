@@ -27,22 +27,34 @@ class TextCompletionsCollatorWithPadding:
     def __init__(
         self,
         tokenizer: BaseTokenizer,
-        instruction_prefix: str,
-        response_prefix: str,
+        response_template: str,
+        train_target: str,
+        instruction_template: str | None = None,
         debug: bool = False,
+        end_of_turn_template: str | None = None,
+        ignore_index: int = -100,
     ):
         """Custom collator for text LLM training.
 
         Args:
         tokenizer: The tokenizer used for encoding the data.
-        instruction_prefix: The prefix marking the beginning of the user instruction.
-        response_prefix: The prefix marking the beginning of the assistant response.
+        response_template: String marking assistant response start.
+        instruction_template: String marking user instruction start.
         debug: If True, enables debug mode for logging.
+        train_target: Training target — ``"all_assistant_turns"``
+            or ``"final_assistant_turn"``.
+        end_of_turn_template: String marking the end of a turn.
+            Required for ``all_assistant_turns``.
+        ignore_index: Value used for masked labels. Must match the ignore_index
+            of the loss function (default: -100).
         """
         self._default_collator = DataCollatorForCompletionOnlyLM(
             tokenizer=tokenizer,
-            instruction_template=instruction_prefix,
-            response_template=response_prefix,
+            instruction_template=instruction_template,
+            response_template=response_template,
+            train_target=train_target,
+            end_of_turn_template=end_of_turn_template,
+            ignore_index=ignore_index,
         )
 
         if not hasattr(tokenizer, "pad_token_id") or tokenizer.pad_token_id is None:
@@ -55,7 +67,7 @@ class TextCompletionsCollatorWithPadding:
         result = self._default_collator(inputs)
         return result
 
-    def __call__(self, batch) -> dict[str, Any]:
+    def __call__(self, batch: list[dict[str, Any]]) -> dict[str, Any]:
         """Pads to the longest length present in the batch.
 
         Args:
@@ -98,11 +110,17 @@ class TextCompletionsCollatorWithPadding:
         formatted_example = self._default_collator.tokenizer.decode(
             token_ids, skip_special_tokens=False
         )
-        tokenized_ids = raw_example[_INPUT_IDS_KEY]
-        tokenized_example = [
-            (token_id, self._default_collator.tokenizer.decode([token_id]))
-            for token_id in tokenized_ids
-        ]
+        # Decode() returns str | list[str]. For single sequences
+        # (non-batched input), it always returns str. Assert this for type narrowing
+        # to avoid type errors.
+        assert isinstance(raw_text, str), "Expected str from decode for single sequence"
+        assert isinstance(formatted_example, str)
+
+        tokenized_example: list[tuple[int, str]] = []
+        for token_id in token_ids:
+            decoded = self._default_collator.tokenizer.decode([token_id])
+            assert isinstance(decoded, str)
+            tokenized_example.append((token_id, decoded))
         self._has_logged_example = True
 
         # Extract the first example from the batched tensors for cleaner debug output

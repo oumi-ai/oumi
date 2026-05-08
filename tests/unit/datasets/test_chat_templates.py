@@ -3,12 +3,10 @@ import copy
 import functools
 import random
 import string
-import warnings
 from typing import Final, NamedTuple
 
 import pytest
 import transformers
-from packaging import version
 
 from oumi.builders.models import build_chat_template, build_tokenizer
 from oumi.core.configs import ModelParams
@@ -167,35 +165,51 @@ _ALL_CHAT_TEMPLATE_TESTS: Final[list[ChatTemplateTestSpec]] = [
         chat_template_name="zephyr",
         model_name="openai-community/gpt2",
     ),
-    # TODO: Uncomment when we update to a newer version of transformers.
-    # ChatTemplateTestSpec(
-    #     chat_template_name="internvl3",
-    #     model_name="OpenGVLab/InternVL3-1B-hf",
-    #     test_image=True,
-    #     image_placeholder="<IMG_CONTEXT>",
-    # ),
+    ChatTemplateTestSpec(
+        chat_template_name="qwen3-vl-instruct",
+        model_name="openai-community/gpt2",
+        test_image=True,
+        image_placeholder="<|vision_start|><|image_pad|><|vision_end|>",
+    ),
+    ChatTemplateTestSpec(
+        chat_template_name="molmo",
+        model_name="openai-community/gpt2",
+    ),
+    ChatTemplateTestSpec(
+        chat_template_name="gemma2-it",
+        model_name="openai-community/gpt2",
+    ),
+    ChatTemplateTestSpec(
+        chat_template_name="default_gen",
+        model_name="openai-community/gpt2",
+    ),
+    ChatTemplateTestSpec(
+        chat_template_name="internvl3",
+        model_name="openai-community/gpt2",
+        test_image=True,
+        image_placeholder="<IMG_CONTEXT>",
+    ),
 ]
 
 
 def _generate_all_test_specs() -> list[ChatTemplateTestSpec]:
     result = copy.deepcopy(_ALL_CHAT_TEMPLATE_TESTS)
 
-    # Backfill with templates for which there is no explicit test defined yet.
+    # Verify all chat templates have explicit test entries.
     known_template_names = {t.chat_template_name for t in result}
     chat_template_dir = get_oumi_root_directory() / "datasets" / "chat_templates"
+    missing_templates = []
     for f in chat_template_dir.glob("*.jinja"):
         template_name = f.stem
-        if template_name in known_template_names:
-            continue
-        logger.warning(
-            f"No explicit chat template test is configured for '{f}' yet! "
-            "Consider adding a new entry to _ALL_CHAT_TEMPLATE_TESTS."
+        if template_name not in known_template_names:
+            missing_templates.append(str(f))
+
+    if missing_templates:
+        raise ValueError(
+            f"Missing chat template tests for: {missing_templates}. "
+            "Add entries to _ALL_CHAT_TEMPLATE_TESTS in test_chat_templates.py."
         )
-        result.append(
-            ChatTemplateTestSpec(
-                chat_template_name=template_name, model_name="openai-community/gpt2"
-            )
-        )
+
     return result
 
 
@@ -575,24 +589,20 @@ def test_qwen2_chat_template(model_name: str, is_vision: bool):
             assert oumi_result == expected, debug_tag
 
 
-# # TODO: Update to more internvl versions when we incorporate them.
-# Uncomment when we have a newer version of transformers.
+# TODO: Enable when we want to test against the actual HF tokenizer.
+# This test downloads the InternVL3 tokenizer from HuggingFace.
 # @pytest.mark.parametrize(
 #     "model_name, is_vision, oumi_template_name",
 #     [
 #         ("OpenGVLab/InternVL3-1B-hf", True, "internvl3"),
 #     ],
 # )
-def _future_test_internvl_chat_template(
+# def test_internvl_chat_template(
+#     model_name: str, is_vision: bool, oumi_template_name: str
+# ):
+def _disabled_test_internvl_chat_template(
     model_name: str, is_vision: bool, oumi_template_name: str
 ):
-    # this model *requires* >=4.52.0.dev0 version of transformers.
-    if version.parse(transformers.__version__) < version.parse("4.52.0.dev0"):
-        warnings.warn(
-            f"Skipping test_internvl_chat_template for {model_name} "
-            f"because transformers version is too old: {transformers.__version__}"
-        )
-        return True
 
     oumi_chat_template: str = build_chat_template(oumi_template_name)
     hf_chat_template = get_hf_chat_template(model_name)

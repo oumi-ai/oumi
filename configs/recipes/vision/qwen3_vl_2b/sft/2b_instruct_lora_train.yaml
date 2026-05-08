@@ -1,0 +1,86 @@
+# LoRA fine-tune config for Qwen3 VL 2B Instruct.
+# Based on the Qwen3 VL 4B Instruct LoRA config.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   oumi train -c configs/recipes/vision/qwen3_vl_2b/sft/2b_instruct_lora_train.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/*train.yaml
+
+model:
+  model_name: "Qwen/Qwen3-VL-2B-Instruct"
+  torch_dtype_str: "bfloat16"
+  model_max_length: 8192
+  trust_remote_code: True
+  attn_implementation: "sdpa"
+  chat_template: "qwen3-vl-instruct"
+  freeze_layers:
+    - "visual"
+
+data:
+  train:
+    collator_name: "vision_language_with_padding"
+    use_torchdata: False
+    datasets:
+      - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
+        split: "train[:512]"
+        shuffle: True
+        seed: 42
+        transform_num_workers: 1
+        dataset_kwargs:
+          processor_name: "Qwen/Qwen3-VL-2B-Instruct"
+          return_tensors: True
+          limit: 512
+          processor_kwargs:
+            max_pixels: 502400  # ~500K pixels, keeps visual tokens manageable
+
+training:
+  output_dir: "output/qwen3_vl_2b_lora"
+  trainer_type: "TRL_SFT"
+  enable_gradient_checkpointing: True
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 32
+  max_steps: 100
+  use_peft: True
+
+  gradient_checkpointing_kwargs:
+    use_reentrant: False
+  max_grad_norm: 0.5
+  ddp_find_unused_parameters: False
+  empty_device_cache_steps: 1
+  compile: False
+
+  optimizer: "adamw_torch_fused"
+  learning_rate: 2e-5
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  lr_scheduler_type: "cosine"
+
+  logging_steps: 10
+  save_steps: 0
+  dataloader_main_process_only: False
+  dataloader_num_workers: 2
+  dataloader_prefetch_factor: 8
+  include_performance_metrics: True
+  log_model_summary: False
+  enable_wandb: False
+
+peft:
+  peft_save_mode: "MERGED"
+  lora_r: 8
+  lora_alpha: 16
+  lora_dropout: 0.05
+  lora_target_modules:
+    - "q_proj"
+    - "v_proj"
+    - "o_proj"
+    - "k_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"

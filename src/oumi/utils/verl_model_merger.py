@@ -58,10 +58,16 @@ from transformers import (
     AutoConfig,
     AutoModelForCausalLM,
     AutoModelForTokenClassification,
-    AutoModelForVision2Seq,
     GenerationConfig,
     PretrainedConfig,
 )
+
+from oumi.utils.packaging import is_transformers_v5
+
+if is_transformers_v5():
+    from transformers import AutoModelForImageTextToText
+else:
+    from transformers import AutoModelForVision2Seq as AutoModelForImageTextToText
 
 try:
     # for torch 2.5+
@@ -124,7 +130,7 @@ class BaseModelMerger(ABC):
         elif "ForCausalLM" in self.model_config.architectures[0]:
             return AutoModelForCausalLM
         elif "ForConditionalGeneration" in self.model_config.architectures[0]:
-            return AutoModelForVision2Seq
+            return AutoModelForImageTextToText
 
         raise NotImplementedError(
             f"Unknown architecture {self.model_config.architectures}"

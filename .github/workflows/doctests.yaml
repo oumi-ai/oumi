@@ -8,7 +8,11 @@ on:
     paths:
       - "docs/**"
       - "README.md"
+      - ".github/workflows/doctests.yaml"
   merge_group:
+
+env:
+  DO_NOT_TRACK: "1"
 
 jobs:
   static-checks:
@@ -34,6 +38,11 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y poppler-utils
+
       - name: Install Dependencies
         run: |
           # Install in system python as we're in a sandbox env
@@ -49,6 +58,13 @@ jobs:
       - name: Run pre-commit checks
         run: |
           pre-commit run --all-files --show-diff-on-failure
+
+      - name: Build documentation
+        run: |
+          python docs/_manage_doclinks.py copy docs/_doclinks.config
+          bash docs/_docsummaries.sh
+          sphinx-apidoc src/oumi --output-dir docs/api --remove-old --force --module-first --implicit-namespaces --maxdepth 2 --templatedir docs/_templates/apidoc
+          sphinx-build -M html docs docs/_build -v
 
     # - name: Run doctests
     #   run: |

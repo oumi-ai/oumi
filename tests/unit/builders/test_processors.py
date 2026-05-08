@@ -257,3 +257,84 @@ def test_build_processor_basic_multimodal_success():
     assert image_proc_pixel_values.shape == (2, 3, 336, 336)
 
     assert np.all(image_proc_pixel_values.numpy() == pixel_values.numpy())
+
+
+def test_processor_converts_messages_to_dict_internally():
+    """Test DefaultProcessor converts Message objects to dicts for HF compatibility.
+
+    This test verifies the fix for transformers v5+ where apply_chat_template
+    requires dict messages with .get() access, not Message objects.
+    """
+    from oumi.core.processors.default_processor import DefaultProcessor
+
+    model_params = ModelParams(
+        model_name="llava-hf/llava-1.5-7b-hf", chat_template="llava"
+    )
+    tokenizer: BaseTokenizer = build_tokenizer(model_params)
+    processor: BaseProcessor = build_processor(
+        model_params.model_name, tokenizer, trust_remote_code=False
+    )
+
+    # Verify processor is a DefaultProcessor
+    assert isinstance(processor, DefaultProcessor)
+
+    # Test the internal conversion method
+    messages = [
+        Message(role=Role.USER, content="Hello"),
+        Message(role=Role.ASSISTANT, content="Hi there!"),
+    ]
+    converted = processor._convert_messages_to_dicts(messages)
+
+    # Verify conversion produces dict format with .get() access
+    assert len(converted) == 2
+    assert all(isinstance(m, dict) for m in converted)
+    assert converted[0].get("role") == "user"
+    assert converted[0].get("content") == "Hello"
+    assert converted[1].get("role") == "assistant"
+    assert converted[1].get("content") == "Hi there!"
+
+
+def test_processor_apply_chat_template_with_message_objects():
+    """Test processor.apply_chat_template works with Message objects.
+
+    This verifies the v5 compatibility fix works end-to-end.
+    """
+    model_params = ModelParams(
+        model_name="llava-hf/llava-1.5-7b-hf", chat_template="llava"
+    )
+    tokenizer: BaseTokenizer = build_tokenizer(model_params)
+    processor: BaseProcessor = build_processor(
+        model_params.model_name, tokenizer, trust_remote_code=False
+    )
+
+    # This should work on both transformers v4 and v5
+    messages = [
+        Message(role=Role.USER, content="Test message"),
+    ]
+    prompt = processor.apply_chat_template(messages)
+    assert isinstance(prompt, str)
+    assert "Test message" in prompt
+
+
+def test_processor_apply_chat_template_multimodal_text_content():
+    """Test processor handles multimodal Message content items."""
+    model_params = ModelParams(
+        model_name="llava-hf/llava-1.5-7b-hf", chat_template="llava"
+    )
+    tokenizer: BaseTokenizer = build_tokenizer(model_params)
+    processor: BaseProcessor = build_processor(
+        model_params.model_name, tokenizer, trust_remote_code=False
+    )
+
+    # Message with ContentItem list (text only - images handled separately)
+    messages = [
+        Message(
+            role=Role.USER,
+            content=[
+                ContentItem(type=Type.TEXT, content="Describe the following:"),
+            ],
+        ),
+    ]
+    prompt = processor.apply_chat_template(messages)
+    assert isinstance(prompt, str)
+    assert "Describe the following:" in prompt

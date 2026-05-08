@@ -38,21 +38,25 @@ download_with_retry() {
 
 # Download models with retry logic
 download_with_retry "HuggingFaceTB/SmolLM2-135M-Instruct" \
-    --include "config.json" "model.safetensors" "tokenizer.json" "tokenizer_config.json" \
-    "vocab.json" "merges.txt" "special_tokens_map.json" "generation_config.json"
+    --include "config.json" --include "model.safetensors" --include "tokenizer.json" \
+    --include "tokenizer_config.json" --include "vocab.json" --include "merges.txt" \
+    --include "special_tokens_map.json" --include "generation_config.json"
 
 download_with_retry "HuggingFaceTB/SmolVLM-256M-Instruct" \
-    --include "config.json" "model.safetensors" "tokenizer.json" "tokenizer_config.json" \
-    "vocab.json" "merges.txt" "special_tokens_map.json" "generation_config.json" \
-    "preprocessor_config.json" "processor_config.json"
+    --include "config.json" --include "model.safetensors" --include "tokenizer.json" \
+    --include "tokenizer_config.json" --include "vocab.json" --include "merges.txt" \
+    --include "special_tokens_map.json" --include "generation_config.json" \
+    --include "preprocessor_config.json" --include "processor_config.json"
 
 download_with_retry "openai-community/gpt2" \
-    --include "config.json" "model.safetensors" "tokenizer.json" "tokenizer_config.json" \
-    "vocab.json" "merges.txt" "generation_config.json"
+    --include "config.json" --include "model.safetensors" --include "tokenizer.json" \
+    --include "tokenizer_config.json" --include "vocab.json" --include "merges.txt" \
+    --include "generation_config.json"
 
 download_with_retry "Qwen/Qwen3-0.6B" \
-    --include "config.json" "model.safetensors" "tokenizer.json" "tokenizer_config.json" \
-    "vocab.json" "merges.txt" "special_tokens_map.json" "generation_config.json"
+    --include "config.json" --include "model.safetensors" --include "tokenizer.json" \
+    --include "tokenizer_config.json" --include "vocab.json" --include "merges.txt" \
+    --include "special_tokens_map.json" --include "generation_config.json"
 
 # ========================================
 # DATASETS USED IN ACTIVE TESTS
@@ -60,8 +64,8 @@ download_with_retry "Qwen/Qwen3-0.6B" \
 
 # MMLU dataset used in unit tests (test_data_mixtures.py)
 download_with_retry "tasksource/mmlu" --repo-type dataset \
-    --include "college_computer_science/*" "abstract_algebra/*"
+    --include "college_computer_science/*" --include "abstract_algebra/*"
 
 # Alpaca dataset used in integration tests (test_train.py)
 download_with_retry "yahma/alpaca-cleaned" --repo-type dataset \
-    --include "alpaca_data.json" "alpaca_data_gpt4.json"
+    --include "alpaca_data.json" --include "alpaca_data_gpt4.json"

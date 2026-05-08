@@ -17,11 +17,15 @@ from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Any
 
+from huggingface_hub.errors import HFValidationError
 from omegaconf import MISSING
 from transformers.utils import find_adapter_config_file, is_flash_attn_2_available
 
 from oumi.core.configs.params.base_params import BaseParams
-from oumi.core.types.exceptions import ConfigurationError, HardwareException
+from oumi.exceptions import (
+    HardwareException,
+    OumiConfigError,
+)
 from oumi.utils.logging import logger
 from oumi.utils.torch_utils import get_torch_dtype
 
@@ -96,6 +100,10 @@ class ModelParams(BaseParams):
     If True, the model will be initialized with pretrained weights.
     If False, the model will be initialized from the pretrained config without loading
     weights.
+
+    For custom Oumi models, when True, `model_name` should be a path to a directory
+    containing 'config.json' and 'model.safetensors' files created by
+    `BaseModel.save_pretrained()`.
     """
 
     trust_remote_code: bool = False
@@ -218,6 +226,20 @@ class ModelParams(BaseParams):
     This is used to specify the version of the model to use.
     """
 
+    tool_call_parser: str | None = None
+    """Name of a vLLM tool-call parser to apply to assistant outputs.
+
+    When set, the local ``VLLMInferenceEngine`` instantiates the matching
+    parser from ``vllm.tool_parsers`` (e.g. ``"hermes"``, ``"qwen3_xml"``,
+    ``"llama4_pythonic"``, ``"mistral"``), runs it over the model's output
+    text, and populates ``Message.tool_calls`` on the returned message
+    instead of leaving the tool-call tokens as raw text. ``finish_reason``
+    is set to ``tool_calls`` when calls are extracted.
+
+    Has no effect on engines other than vLLM. Tied to vLLM internals;
+    available parsers depend on the installed vLLM version.
+    """
+
     def __post_init__(self):
         """Populate additional params."""
         self.torch_dtype = None
@@ -229,7 +251,7 @@ class ModelParams(BaseParams):
                 self.processor_kwargs.keys()
             )
             if len(conflicting_keys) > 0:
-                raise ConfigurationError(
+                raise OumiConfigError(
                     f"processor_kwargs attempts to override reserved fields: "
                     f"{conflicting_keys}",
                     fix="Use properties of ModelParams instead of processor_kwargs "
@@ -247,7 +269,7 @@ class ModelParams(BaseParams):
         """Finalizes and validates final config params."""
         # Check for MISSING model_name with a helpful error message
         if self.model_name is MISSING:
-            raise ConfigurationError(
+            raise OumiConfigError(
                 "model_name is required but was not specified",
                 fix="Set model.model_name to a HuggingFace model ID "
                 "(e.g., 'meta-llama/Llama-3.2-1B') or a local path to model files. "
@@ -264,9 +286,13 @@ class ModelParams(BaseParams):
             # will be downloaded from HF Hub if it's not already cached.
             try:
                 adapter_config_file = find_adapter_config_file(self.model_name)
-            except OSError:
+            except (OSError, HFValidationError) as e:
+                # OSError: model folder doesn't exist or doesn't contain adapter
+                # HFValidationError: model_name is not a valid HuggingFace repo ID
+                # (e.g., remote API model names like "accounts/fireworks/models/...")
                 logger.debug(
-                    f"Model folder does not contain an adapter: {self.model_name}"
+                    f"Model folder does not contain an adapter: {self.model_name} "
+                    f"({type(e).__name__})"
                 )
                 adapter_config_file = None
             # If this check fails, it means this is not a LoRA model.
@@ -283,16 +309,28 @@ class ModelParams(BaseParams):
                 # present, set it to the base model name found in the adapter config,
                 # if present. Error otherwise.
                 if len(list(adapter_dir.glob("config.json"))) == 0:
-                    with open(adapter_config_file) as f:
-                        adapter_config = json.load(f)
+                    try:
+                        with open(adapter_config_file) as f:
+                            adapter_config = json.load(f)
+                    except OSError as e:
+                        raise OumiConfigError(
+                            f"Failed to read adapter config at "
+                            f"{adapter_config_file}: {e}"
+                        ) from e
+                    except json.JSONDecodeError as e:
+                        raise OumiConfigError(
+                            f"Adapter config at {adapter_config_file} contains invalid "
+                            f"JSON: (line {e.lineno}, col {e.colno}): {e.msg}"
+                        ) from e
                     model_name = adapter_config.get("base_model_name_or_path")
                     if not model_name:
-                        raise ConfigurationError(
+                        raise OumiConfigError(
                             "`model_name` specifies an adapter model only, "
                             "but the base model could not be found",
-                            fix="Either place the base model files in the same directory "
-                            "as the adapter, or ensure 'base_model_name_or_path' is set "
-                            "in the adapter's config file.",
+                            fix="Either place the base model files in the same "
+                            "directory as the adapter, or ensure "
+                            "'base_model_name_or_path' is set in the adapter's "
+                            "config file.",
                         )
                     self.model_name = model_name
                     logger.info(
@@ -310,7 +348,7 @@ class ModelParams(BaseParams):
             )
 
         if self.model_max_length is not None and self.model_max_length <= 0:
-            raise ConfigurationError(
+            raise OumiConfigError(
                 f"model_max_length must be a positive integer or None, "
                 f"got {self.model_max_length}",
                 fix="Set model.model_max_length to a positive integer "

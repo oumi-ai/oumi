@@ -1,0 +1,50 @@
+# Example deployment configuration for Fireworks.ai
+# Usage: oumi deploy up --config configs/examples/deploy/fireworks_deploy.yaml
+
+# Model source — local directory path (required).
+# Fireworks only supports models stored on local disk:
+# - A HuggingFace model downloaded to a local directory
+# - An Oumi training checkpoint
+#
+# To deploy a HuggingFace model, download it first:
+#   huggingface-cli download meta-llama/Llama-3-8B --local-dir /tmp/llama3-8b
+model_source: /path/to/my-finetuned-model/
+
+# Provider: "fireworks"
+provider: fireworks
+
+# Display name for the model in the provider's dashboard
+model_name: my-finetuned-model-v1
+
+# Model type: "full" or "adapter"
+# Use "adapter" for LoRA adapters
+model_type: full
+
+# Base model (required only if model_type is "adapter")
+# base_model: accounts/fireworks/models/llama-v3p1-8b-instruct
+
+# Hardware configuration
+hardware:
+  # Available accelerators for Fireworks.ai:
+  # - nvidia_a100_80gb
+  # - nvidia_h100_80gb
+  # - nvidia_h200_141gb
+  # - amd_mi300x_192gb
+  # Run `oumi deploy list-hardware --provider fireworks` to see all options
+  accelerator: nvidia_h100_80gb
+
+  # Number of GPUs
+  count: 2
+
+# Autoscaling configuration
+autoscaling:
+  # Minimum number of replicas
+  min_replicas: 1
+
+  # Maximum number of replicas
+  max_replicas: 4
+
+# Optional: test prompts to run after deployment
+test_prompts:
+  - "Hello, how are you?"
+  - "Write a Python function to calculate fibonacci numbers."

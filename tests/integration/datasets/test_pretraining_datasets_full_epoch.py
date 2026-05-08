@@ -10,21 +10,24 @@ LIMIT_SAMPLES: int = 1_000_000  # set to 0 to iterate through the entire dataset
 
 @pytest.fixture(
     # (dataset_name, dataset_subset)
+    # Note: The following datasets are excluded because they require datasets<4.0.0
+    # due to HuggingFace removing support for dataset loading scripts:
+    # - ("allenai/dolma", "v1_7")
+    # - ("EleutherAI/pile", "default")
+    # - ("togethercomputer/RedPajama-Data-1T", "common_crawl")
+    # - ("togethercomputer/RedPajama-Data-V2", "default")
+    # The cerebras/SlimPajama-627B repo was removed, using the re-upload instead.
     params=[
         ("allenai/c4", "en"),
-        ("allenai/dolma", "v1_7"),
         ("bigcode/starcoderdata", "python"),
         ("bigcode/the-stack", "python"),
-        ("cerebras/SlimPajama-627B", None),
-        ("EleutherAI/pile", "default"),
+        ("gmongaras/SlimPajama-627B_Reupload", None),
         ("HuggingFaceFW/fineweb-edu", "sample-10BT"),
         ("nampdn-ai/tiny-textbooks", None),
         ("PleIAs/YouTube-Commons", None),
         ("roneneldan/TinyStories", None),
         ("Salesforce/wikitext", "wikitext-2-raw-v1"),
         ("tiiuae/falcon-refinedweb", None),
-        ("togethercomputer/RedPajama-Data-1T", "common_crawl"),
-        ("togethercomputer/RedPajama-Data-V2", "default"),
         ("wikimedia/wikipedia", "20231101.en"),
     ]
 )

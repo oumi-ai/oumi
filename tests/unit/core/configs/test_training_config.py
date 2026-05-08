@@ -32,15 +32,17 @@ def test_training_config_processor_kwargs():
                         },
                     ),
                     DatasetParams(
-                        dataset_name="coco_captions",
+                        dataset_name="HuggingFaceM4/the_cauldron",
                         split="train",
+                        subset="ocrvqa",
                         dataset_kwargs={
                             "processor_name": "microsoft/Phi-3-vision-128k-instruct"
                         },
                     ),
                     DatasetParams(
-                        dataset_name="coco_captions",
+                        dataset_name="HuggingFaceM4/the_cauldron",
                         split="test",
+                        subset="ocrvqa",
                         dataset_kwargs={
                             "processor_name": "llava-hf/llava-1.5-7b-hf",
                             "processor_kwargs": {},
@@ -90,13 +92,15 @@ def test_training_config_processor_kwargs():
         },
     )
     assert config.data.train.datasets[2] == DatasetParams(
-        dataset_name="coco_captions",
+        dataset_name="HuggingFaceM4/the_cauldron",
         split="train",
+        subset="ocrvqa",
         dataset_kwargs={"processor_name": "microsoft/Phi-3-vision-128k-instruct"},
     )
     assert config.data.train.datasets[3] == DatasetParams(
-        dataset_name="coco_captions",
+        dataset_name="HuggingFaceM4/the_cauldron",
         split="test",
+        subset="ocrvqa",
         dataset_kwargs={
             "processor_name": "llava-hf/llava-1.5-7b-hf",
             "processor_kwargs": {},

@@ -24,6 +24,8 @@ from oumi.cli.alias import AliasType, try_get_config_name_for_alias
 from oumi.core.configs import BaseConfig
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.params.judge_params import JudgeParams
+from oumi.core.configs.params.rule_judge_params import RuleJudgeParams
+from oumi.exceptions import OumiConfigError
 
 JUDGE_CONFIG_REPO_PATH_TEMPLATE = "oumi://configs/projects/judges/{path}.yaml"
 
@@ -54,7 +56,10 @@ class JudgeConfig(BaseConfig):
     judge_params: JudgeParams
     """Parameters for the judge prompt and response format."""
 
-    inference_config: InferenceConfig
+    rule_judge_params: RuleJudgeParams | None = None
+    """Parameters for the rule-based deterministic judge."""
+
+    inference_config: InferenceConfig | None = None
     """Configuration for the inference engine and generation parameters."""
 
     @classmethod
@@ -105,14 +110,14 @@ class JudgeConfig(BaseConfig):
             try:
                 return cls.from_yaml_and_arg_list(resolved_path, extra_args)
             except Exception as e:
-                raise ValueError(
+                raise OumiConfigError(
                     f"Failed to parse {resolved_path} as JudgeConfig. "
                     f"Please ensure the YAML file contains both 'judge_params' and "
                     f"'inference_config' sections with valid fields. "
                     f"Original error: {e}"
                 ) from e
         else:
-            raise ValueError(
+            raise OumiConfigError(
                 f"Could not resolve JudgeConfig from path: {path}. "
                 "Please provide a valid local or GitHub repo path."
             )

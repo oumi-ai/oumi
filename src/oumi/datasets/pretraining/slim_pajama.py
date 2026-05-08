@@ -16,7 +16,10 @@ from oumi.core.datasets import BasePretrainingDataset
 from oumi.core.registry import register_dataset
 
 
-@register_dataset("cerebras/SlimPajama-627B")
+# Note: The original cerebras/SlimPajama-627B repository has been removed.
+# This dataset now uses a community re-upload at gmongaras/SlimPajama-627B_Reupload.
+@register_dataset("gmongaras/SlimPajama-627B_Reupload")
+@register_dataset("cerebras/SlimPajama-627B")  # Keep for backwards compatibility
 class SlimPajamaDataset(BasePretrainingDataset):
     """SlimPajama-627B: A cleaned and deduplicated version of RedPajama.
 
@@ -26,6 +29,11 @@ class SlimPajamaDataset(BasePretrainingDataset):
 
     The dataset consists of 59166 jsonl files and is ~895GB compressed. It includes
     training, validation, and test splits :footcite:`2023_slimpajama`.
+
+    Note:
+        The original ``cerebras/SlimPajama-627B`` repository has been removed from
+        HuggingFace Hub. This dataset now uses a community re-upload at
+        ``gmongaras/SlimPajama-627B_Reupload``.
 
     Key Features:
         - 627B tokens
@@ -46,7 +54,7 @@ class SlimPajamaDataset(BasePretrainingDataset):
     See Also:
         - Blog post: https://www.cerebras.net/blog/slimpajama-a-627b-token-cleaned-and-deduplicated-version-of-redpajama
         - Repository: https://github.com/Cerebras/modelzoo/tree/main/modelzoo/transformers/data_processing/slimpajama
-        - Hugging Face: https://huggingface.co/datasets/cerebras/SlimPajama-627B
+        - Hugging Face (re-upload): https://huggingface.co/datasets/gmongaras/SlimPajama-627B_Reupload
 
     Dataset Structure:
         Each example is a JSON object with the following structure:
@@ -64,4 +72,4 @@ class SlimPajamaDataset(BasePretrainingDataset):
         .. footbibliography::
     """
 
-    default_dataset = "cerebras/SlimPajama-627B"
+    default_dataset = "gmongaras/SlimPajama-627B_Reupload"

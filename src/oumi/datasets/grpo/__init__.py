@@ -18,6 +18,8 @@ from oumi.datasets.grpo.berry_bench import BerryBenchGrpoDataset
 from oumi.datasets.grpo.countdown import CountdownGrpoDataset
 from oumi.datasets.grpo.gsm8k import Gsm8kGrpoDataset
 from oumi.datasets.grpo.letter_count import LetterCountGrpoDataset
+from oumi.datasets.grpo.rar_dataset import RaRMedicineDataset, RaRScienceDataset
+from oumi.datasets.grpo.rlvr_rubric import RlvrRubricDataset
 from oumi.datasets.grpo.tldr import TldrGrpoDataset
 
 __all__ = [
@@ -25,5 +27,8 @@ __all__ = [
     "CountdownGrpoDataset",
     "Gsm8kGrpoDataset",
     "LetterCountGrpoDataset",
+    "RaRMedicineDataset",
+    "RaRScienceDataset",
+    "RlvrRubricDataset",
     "TldrGrpoDataset",
 ]

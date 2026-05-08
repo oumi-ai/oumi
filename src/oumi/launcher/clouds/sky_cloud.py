@@ -50,17 +50,22 @@ class SkyCloud(BaseCloud):
             for cluster in self._client.status()
             if (
                 isinstance(cluster["handle"].launched_resources.cloud, cloud_class)
-                and cluster["status"] == sky.ClusterStatus.UP
+                and cluster["status"] in (sky.ClusterStatus.UP, sky.ClusterStatus.INIT)
             )
         ]
 
     def up_cluster(self, job: JobConfig, name: str | None, **kwargs) -> JobStatus:
         """Creates a cluster and starts the provided Job."""
-        job_status = self._client.launch(job, name, **kwargs)
-        cluster = self.get_cluster(job_status.cluster)
+        launch_status = self._client.launch(job, name, **kwargs)
+        cluster = self.get_cluster(launch_status.cluster)
         if not cluster:
-            raise RuntimeError(f"Cluster {job_status.cluster} not found.")
-        return cluster.get_job(job_status.id)
+            raise RuntimeError(f"Cluster {launch_status.cluster} not found.")
+        final_status = cluster.get_job(launch_status.id)
+        if not final_status:
+            raise RuntimeError(
+                f"Job {launch_status.id} not found on cluster {launch_status.cluster}."
+            )
+        return final_status
 
     def get_cluster(self, name) -> BaseCluster | None:
         """Gets the cluster with the specified name, or None if not found."""
@@ -87,6 +92,8 @@ class SkyCloud(BaseCloud):
             return self._get_clusters_by_class(sky.clouds.Azure)
         elif self._cloud_name == SkyClient.SupportedClouds.K8S.value:
             return self._get_clusters_by_class(sky.clouds.Kubernetes)
+        elif self._cloud_name == SkyClient.SupportedClouds.NEBIUS.value:
+            return self._get_clusters_by_class(sky.clouds.Nebius)
         raise ValueError(f"Unsupported cloud: {self._cloud_name}")
 
 
@@ -124,3 +131,9 @@ def azure_cloud_builder() -> SkyCloud:
 def k8s_cloud_builder() -> SkyCloud:
     """Builds a SkyCloud instance for Kubernetes."""
     return SkyCloud(SkyClient.SupportedClouds.K8S.value)
+
+
+@register_cloud_builder("nebius")
+def nebius_cloud_builder() -> SkyCloud:
+    """Builds a SkyCloud instance for Nebius."""
+    return SkyCloud(SkyClient.SupportedClouds.NEBIUS.value)

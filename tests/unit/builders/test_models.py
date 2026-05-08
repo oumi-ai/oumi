@@ -1,3 +1,4 @@
+import json
 from unittest.mock import Mock, patch
 
 import pytest
@@ -8,6 +9,7 @@ from oumi.builders.models import (
     _patch_model_for_liger_kernel,
     build_chat_template,
     build_huggingface_model,
+    build_oumi_model,
     build_tokenizer,
     is_image_text_llm,
 )
@@ -289,3 +291,32 @@ def test_build_huggingface_model_passes_model_kwargs_to_find_model_hf_config():
 
         # Verify the model was built successfully
         assert result == mock_model
+
+
+def test_build_oumi_model_missing_config_raises(tmp_path):
+    pretrained_dir = tmp_path / "missing_config"
+    pretrained_dir.mkdir()
+
+    params = ModelParams(
+        model_name=str(pretrained_dir),
+        load_pretrained_weights=True,
+    )
+
+    with pytest.raises(ValueError, match="Cannot load pretrained custom model"):
+        build_oumi_model(params)
+
+
+def test_build_oumi_model_invalid_model_type_raises(tmp_path):
+    pretrained_dir = tmp_path / "invalid_config"
+    pretrained_dir.mkdir()
+    (pretrained_dir / "config.json").write_text(
+        json.dumps({"model_type": "NotARealModel"}), encoding="utf-8"
+    )
+
+    params = ModelParams(
+        model_name=str(pretrained_dir),
+        load_pretrained_weights=True,
+    )
+
+    with pytest.raises(ValueError, match="does not contain a valid 'model_type'"):
+        build_oumi_model(params)

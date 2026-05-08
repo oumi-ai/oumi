@@ -49,6 +49,7 @@ from oumi.core.distributed import (
     is_world_process_zero,
     prepare_model_for_distributed,
 )
+from oumi.core.models.base_model import BaseModel
 from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.trainers.base_trainer import BaseTrainer
@@ -61,7 +62,9 @@ from oumi.utils.serialization_utils import flatten_config
 # Conditional import for StatefulDataLoader
 _TORCHDATA_AVAILABLE = is_torchdata_available()
 if _TORCHDATA_AVAILABLE:
-    from torchdata.stateful_dataloader import StatefulDataLoader
+    from torchdata.stateful_dataloader import (  # pyright: ignore[reportMissingImports]
+        StatefulDataLoader,
+    )
 
 
 class TrainingState(pydantic.BaseModel):
@@ -488,6 +491,14 @@ class Trainer(BaseTrainer):
             safetensors.torch.save_model(model=self.model, filename=str(model_path))
             self.log(f"Model saved to {model_path}.")
 
+            if isinstance(self.model, BaseModel):
+                pretrained_dir = output_dir / "pretrained"
+                self.model.save_pretrained(pretrained_dir)
+                self.log(
+                    f"Custom model saved. Reload with: "
+                    f"model_name='{pretrained_dir}', load_pretrained_weights=True"
+                )
+
             if self._processor is not None:
                 self._processor.save_config(output_dir)
                 logger.info(f"Processor config has been saved at {output_dir}.")
@@ -772,7 +783,6 @@ class Trainer(BaseTrainer):
             "num_workers": self.params.dataloader_num_workers,
             "pin_memory": self.device_type == "cuda",
             "prefetch_factor": prefetch_factor,
-            "pin_memory_device": self.device,
             "collate_fn": self.collator_fn,
         }
 

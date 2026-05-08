@@ -71,7 +71,10 @@ training:
   gradient_checkpointing_kwargs:
     # Reentrant docs: https://pytorch.org/docs/stable/checkpoint.html#torch.utils.checkpoint.checkpoint
     use_reentrant: False
-  ddp_find_unused_parameters: False
+  # transformers 5.x's Llava forward leaves a contiguous block of params
+  # (~373-390) without grad in some training steps, so DDP needs to traverse
+  # the autograd graph to detect them. Small per-step overhead.
+  ddp_find_unused_parameters: True
   empty_device_cache_steps: 2
   compile: False
 

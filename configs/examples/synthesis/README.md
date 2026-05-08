@@ -4,6 +4,14 @@ This directory contains example configurations for different data synthesis use 
 
 ## Available Examples
 
+1. [Question-Answer Generation](#1-question-answer-generation-question_answer_synthyaml) - Generate QA pairs with varying difficulty
+2. [Data Augmentation](#2-data-augmentation-data_augmentation_synthyaml) - Create variations of existing datasets
+3. [Instruction Following](#3-instruction-following-instruction_following_synthyaml) - Generate diverse task instructions
+4. [Multi-turn Conversations](#4-multi-turn-conversations-conversation_synthyaml) - Create dialogue datasets
+5. [Domain-specific QA](#5-domain-specific-qa-domain_qa_synthyaml) - Generate domain-focused training data
+6. [Dynamic Few-Shot Sampling](#6-dynamic-few-shot-sampling-dynamic_few_shot_synthyaml) - Randomly sample examples for diversity
+7. [Multi-turn Conversation Synthesis](#7-multi-turn-conversation-synthesis-multiturn_conversation_synthyaml) - Generate dynamic, variable-length conversations
+
 ### 1. Question-Answer Generation (`question_answer_synth.yaml`)
 
 **Purpose**: Generate QA pairs from documents or contexts for training conversational models.
@@ -250,6 +258,176 @@ oumi synth -c configs/examples/synthesis/domain_qa_synth.yaml
 
 </details>
 
+### 6. Dynamic Few-Shot Sampling (`dynamic_few_shot_synth.yaml`)
+
+**Purpose**: Demonstrate the dynamic few-shot sampling feature for creating diverse training tasks with randomly selected examples.
+
+**What it does**: Randomly samples N examples from a pool for each synthesis sample, enabling dynamic few-shot learning patterns. Each synthesis sample gets a different combination of examples, increasing diversity.
+
+**Key features**:
+- **Dynamic sampling**: Randomly selects 3 examples per synthesis sample from a pool of 6
+- **Bracket notation**: Reference sampled items using `{source_id[0].field}` syntax
+- **Multiple source types**: Works with `input_examples`, `input_data`, and `input_documents`
+- **Backwards compatible**: Default round-robin mode still works when `num_shots` is not specified
+
+**How it works**:
+```yaml
+input_examples:
+  - id: few_shot_examples
+    num_shots: 3        # Randomly sample 3 examples per synthesis sample
+    examples:
+      - task_type: "summarization"
+        example_input: "..."
+        example_output: "..."
+      # ... more examples ...
+
+generated_attributes:
+  - id: instruction
+    instruction_messages:
+      - role: USER
+        content: |
+          Example 1:
+          Task Type: {few_shot_examples[0].task_type}
+          Input: {few_shot_examples[0].example_input}
+
+          Example 2:
+          Task Type: {few_shot_examples[1].task_type}
+          Input: {few_shot_examples[1].example_input}
+```
+
+**Run with**:
+```bash
+oumi synth -c configs/examples/synthesis/dynamic_few_shot_synth.yaml
+```
+
+<details>
+<summary><strong>Example Output</strong></summary>
+
+```
+{
+  "conversation": {
+    "conversation_id": "conversation-a23bad45-6d12-4c1a-9864-80eeda592ce3",
+    "messages": [
+      {
+        "content": "Task Type: extraction\nInput: Dr. Sarah Chen will be presenting her research on quantum computing at the International Technology Conference on March 15th, 2024, at 2:30 PM in Room 405 of the Convention Center. Registration costs $150 per person.",
+        "role": "user"
+      },
+      {
+        "content": "Here are the extracted details from the text:\n\n**Event Information:**\n- **Presenter:** Dr. Sarah Chen\n- **Topic:** Research on quantum computing\n- **Event Name:** International Technology Conference\n- **Date:** March 15th, 2024\n- **Time:** 2:30 PM\n- **Location:** Room 405, Convention Center\n- **Registration Cost:** $150 per person",
+        "role": "assistant"
+      }
+    ],
+    "metadata": {}
+  },
+  "few_shot_examples[0].task_type": "sentiment_analysis",
+  "few_shot_examples[0].example_input": "This movie was absolutely fantastic! I loved every minute of it.",
+  "few_shot_examples[1].task_type": "extraction",
+  "few_shot_examples[1].example_input": "John Smith lives at 123 Main St, New York, NY 10001.",
+  "few_shot_examples[2].task_type": "rewriting",
+  "few_shot_examples[2].example_input": "The cat sat on the mat."
+}
+```
+</details>
+
+### 7. Multi-turn Conversation Synthesis (`multiturn_conversation_synth.yaml`)
+
+**Purpose**: Generate dynamic, variable-length multi-turn conversations using `multiturn_attributes` with conversation planning and role-based turn generation.
+
+**What it does**: Creates realistic customer support conversations where the system first plans the conversation flow, then generates each turn sequentially with full conversation context. Unlike the chained approach in `conversation_synth.yaml`, this produces variable-length conversations (4-12 turns) with natural back-and-forth dialogue.
+
+**Key features**:
+- **Multi-turn conversation generation** with variable length (4-12 turns per conversation)
+- **Conversation planning**: The system automatically generates a turn-by-turn plan before generating the conversation
+- **Role-based instructions**: Separate instruction templates for USER and ASSISTANT roles
+- **Generated context attributes**: Customer name, issue details, and opening message are generated before the conversation begins
+- **Multiple sampled dimensions**: Support scenarios, customer personalities (concise, friendly, frustrated, confused, demanding, curious, skeptical), and interaction styles (cooperative, escalated, incomplete, difficult)
+- **Weighted sampling**: Custom `sample_rate` values control the distribution of customer types and interaction styles
+- **System prompt injection**: `output_system_prompt` prepends a system message to the final conversation output
+- **Plan passthrough**: Both the conversation and its plan are included in the output via `passthrough_attributes`
+
+**How it differs from `conversation_synth.yaml`**:
+
+| Feature | `conversation_synth.yaml` | `multiturn_conversation_synth.yaml` |
+|---|---|---|
+| Approach | Chained `generated_attributes` | `multiturn_attributes` |
+| Turn count | Fixed (4 messages) | Variable (4-12 turns) |
+| Context threading | Manual via attribute references | Automatic conversation history |
+| Conversation planning | None | Automatic turn-by-turn plan |
+| Output format | `transformed_attributes` (CHAT) | Native conversation object |
+
+**How it works**:
+```yaml
+multiturn_attributes:
+  - id: "support_conversation"
+    min_turns: 4
+    max_turns: 12
+
+    role_instruction_messages:
+      USER: |
+        You are {customer_name}, a {customer_type.name} customer...
+        Your specific issue: {issue_detail}
+      ASSISTANT: |
+        {system_instruction.description}
+        Follow the plan's direction for this turn.
+
+    output_system_prompt: |
+      {system_instruction.description}
+
+passthrough_attributes:
+  - support_conversation
+  - support_conversation_plan
+```
+
+**Run with**:
+```bash
+oumi synth -c configs/examples/synthesis/multiturn_conversation_synth.yaml
+```
+
+<details>
+<summary><strong>Example Output</strong></summary>
+
+```json
+{
+  "support_conversation": {
+    "conversation_id": "conversation-a1b2c3d4-5678-90ab-cdef-1234567890ab",
+    "messages": [
+      {
+        "content": "You are CareBot, a customer service assistant for BrightTech Electronics...",
+        "role": "system"
+      },
+      {
+        "content": "Hey, my order BT-78234 says delivered but I never got it. What's going on?",
+        "role": "user"
+      },
+      {
+        "content": "<ACTION>\ntype: LOOKUP_ORDER\nparameters: { \"order_id\": \"BT-78234\" }\n</ACTION>\nI'm sorry to hear that. Let me look up order BT-78234 for you right away.",
+        "role": "assistant"
+      },
+      {
+        "content": "Yeah, it's been 3 days since it supposedly arrived.",
+        "role": "user"
+      },
+      {
+        "content": "<ACTION>\ntype: CLARIFY\nparameters: { \"reason\": \"Need to verify delivery details before escalating\" }\n</ACTION>\nI understand your frustration. Could you confirm the shipping address on the order so I can investigate further?",
+        "role": "assistant"
+      },
+      {
+        "content": "123 Main St, Apt 4B.",
+        "role": "user"
+      },
+      {
+        "content": "<ACTION>\ntype: ESCALATE\nparameters: { \"account_email\": \"customer@example.com\", \"reason\": \"Package marked delivered but not received at 123 Main St Apt 4B\" }\n</ACTION>\nThank you for confirming. I've escalated this to our shipping team for investigation. You should hear back within 24 hours.",
+        "role": "assistant"
+      }
+    ],
+    "metadata": {}
+  },
+  "support_conversation_plan": "Turn 1 (User): Customer reports missing package with order ID.\nTurn 2 (Assistant): Look up the order and acknowledge the issue.\nTurn 3 (User): Provide additional context about the delivery timeline.\nTurn 4 (Assistant): Ask for address verification.\nTurn 5 (User): Confirm the shipping address.\nTurn 6 (Assistant): Escalate to shipping team for investigation."
+}
+```
+
+</details>
+
 ## Usage Tips
 
 ### Before Running
@@ -285,6 +463,25 @@ strategy_params:
     - path: "path/to/your/data.jsonl"
       attribute_map:
         old_field: new_attribute
+
+# Enable dynamic few-shot sampling
+strategy_params:
+  input_examples:
+    - id: my_examples
+      num_shots: 3      # Sample 3 random examples per synthesis sample
+      examples:
+        - field1: value1
+          field2: value2
+        # ... more examples ...
+
+# Reference dynamic examples in templates
+generated_attributes:
+  - id: my_attribute
+    instruction_messages:
+      - role: USER
+        content: |
+          Example 1: {my_examples[0].field1}
+          Example 2: {my_examples[1].field1}
 
 # Generate more samples
 num_samples: 100

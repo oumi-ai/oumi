@@ -21,9 +21,51 @@ from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
 from oumi.core.types.conversation import Conversation
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 
+# OpenAI reasoning models that only support temperature=1.0 and don't support
+# logit_bias.
+# This includes o-series models and GPT-5 family.
+# Reference: https://platform.openai.com/docs/guides/reasoning
+_REASONING_MODEL_PREFIXES = ("o1", "o3", "o4", "gpt-5")
+
+
+def _is_reasoning_model(model_name: str) -> bool:
+    """Check if a model is an OpenAI reasoning model.
+
+    Reasoning models only support temperature=1.0 and don't support logit_bias.
+
+    Args:
+        model_name: The name of the model to check.
+
+    Returns:
+        True if the model is a reasoning model, False otherwise.
+    """
+    return model_name.startswith(_REASONING_MODEL_PREFIXES)
+
+
+# Blocklist of OpenAI model prefixes that are not chat models.
+# OpenAI's /v1/models endpoint does not expose a "type" or "capability" field,
+# so prefix matching is the only reliable heuristic.
+# This list needs updating when OpenAI adds new non-chat model families.
+# Reference: https://platform.openai.com/docs/models
+_NON_CHAT_PREFIXES = (
+    "babbage-",
+    "dall-e-",
+    "davinci-",
+    "omni-moderation-",
+    "sora-",
+    "text-embedding-",
+    "tts-",
+    "whisper-",
+)
+
 
 class OpenAIInferenceEngine(RemoteInferenceEngine):
     """Engine for running inference against the OpenAI API."""
+
+    @override
+    def _filter_chat_models(self, models: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Filters out non-chat OpenAI models (embeddings, TTS, DALL-E, etc.)."""
+        return [m for m in models if not m.get("id", "").startswith(_NON_CHAT_PREFIXES)]
 
     @property
     @override
@@ -56,13 +98,13 @@ class OpenAIInferenceEngine(RemoteInferenceEngine):
         Returns:
             Dict[str, Any]: A dictionary representing the OpenAI input.
         """
-        if model_params.model_name == "o1-preview":
+        if _is_reasoning_model(model_params.model_name):
             generation_params = copy.deepcopy(generation_params)
 
-            # o1-preview does NOT support logit_bias.
+            # Reasoning models do NOT support logit_bias.
             generation_params.logit_bias = {}
 
-            # o1-preview only supports temperature = 1.
+            # Reasoning models only support temperature = 1.0.
             generation_params.temperature = 1.0
 
         return super()._convert_conversation_to_api_input(

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import copy
+import os
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -30,6 +31,7 @@ from oumi.core.configs.params.gold_params import GoldParams
 from oumi.core.configs.params.grpo_params import GrpoParams
 from oumi.core.configs.params.profiler_params import ProfilerParams
 from oumi.core.configs.params.telemetry_params import TelemetryParams
+from oumi.exceptions import OumiConfigError
 from oumi.utils.str_utils import sanitize_run_name
 
 
@@ -369,6 +371,16 @@ class TrainingParams(BaseParams):
     For VERL_GRPO, refer to
     https://verl.readthedocs.io/en/latest/preparation/reward_function.html
     for documentation about the function signature.
+    """
+
+    reward_function_kwargs: dict[str, Any] = field(default_factory=dict)
+    """Keyword arguments passed to reward functions.
+
+    This must be a dict keyed by reward function name, with each value being that
+    function's kwargs dict. For reward functions with no kwargs, omit the key or
+    pass an empty dict.
+
+    This is only supported for the TRL_GRPO and VERL_GRPO trainers.
     """
 
     grpo: GrpoParams = field(default_factory=GrpoParams)
@@ -740,6 +752,52 @@ class TrainingParams(BaseParams):
     not satisfactory, or for new models not yet fully-integrated by Oumi.
     """
 
+    def _get_token_tracking_kwargs(self) -> dict[str, Any]:
+        """Returns token tracking kwargs for the installed transformers version.
+
+        In transformers v5, `include_tokens_per_second` was removed and merged
+        into `include_num_input_tokens_seen`.
+        """
+        from oumi.utils.packaging import is_transformers_v5
+
+        if is_transformers_v5():
+            # v5: only include_num_input_tokens_seen is available
+            # (tokens_per_second is now automatically included when this is enabled)
+            return {
+                "include_num_input_tokens_seen": self.include_performance_metrics,
+            }
+        else:
+            # v4: both parameters exist separately
+            return {
+                "include_tokens_per_second": self.include_performance_metrics,
+                "include_num_input_tokens_seen": self.include_performance_metrics,
+            }
+
+    def _get_warmup_kwargs(self) -> dict[str, Any]:
+        """Returns warmup kwargs for the installed transformers version.
+
+        In transformers v5, `warmup_ratio` is deprecated. The `warmup_steps`
+        parameter now accepts float values (ratio) in addition to int values.
+        """
+        from oumi.utils.packaging import is_transformers_v5
+
+        if is_transformers_v5():
+            # v5: warmup_ratio is deprecated, use warmup_steps for both int and float
+            # If warmup_steps is set, use it directly (takes precedence)
+            # If warmup_ratio is set, pass it as warmup_steps (float)
+            if self.warmup_steps is not None:
+                return {"warmup_steps": self.warmup_steps}
+            elif self.warmup_ratio is not None:
+                return {"warmup_steps": self.warmup_ratio}
+            else:
+                return {"warmup_steps": 0}
+        else:
+            # v4: both parameters exist separately
+            return {
+                "warmup_ratio": self.warmup_ratio or 0.0,
+                "warmup_steps": self.warmup_steps or 0,
+            }
+
     def to_hf(self, training_config: Optional["TrainingConfig"] = None):
         """Converts Oumi config to HuggingFace's TrainingArguments.
 
@@ -756,7 +814,7 @@ class TrainingParams(BaseParams):
         if isinstance(self.dataloader_num_workers, int):
             dataloader_num_workers = self.dataloader_num_workers
         else:
-            raise ValueError(
+            raise OumiConfigError(
                 "Unexpected type of dataloader_num_workers: "
                 f"{type(self.dataloader_num_workers)} "
                 f"({self.dataloader_num_workers}). Must be `int`."
@@ -779,11 +837,25 @@ class TrainingParams(BaseParams):
         elif self.trainer_type == TrainerType.TRL_DPO:
             config_class = trl.DPOConfig
         elif self.trainer_type == TrainerType.TRL_KTO:
-            config_class = trl.KTOConfig
+            from oumi.utils.packaging import is_trl_v0_28_or_later
+
+            if is_trl_v0_28_or_later():
+                from trl.experimental.kto import KTOConfig
+
+                config_class = KTOConfig
+            else:
+                config_class = trl.KTOConfig
         elif self.trainer_type == TrainerType.TRL_GRPO:
             config_class = trl.GRPOConfig
         elif self.trainer_type == TrainerType.TRL_GKD:
-            config_class = trl.GKDConfig
+            from oumi.utils.packaging import is_trl_v0_28_or_later
+
+            if is_trl_v0_28_or_later():
+                from trl.experimental.gkd import GKDConfig
+
+                config_class = GKDConfig
+            else:
+                config_class = trl.GKDConfig  # type: ignore[attr-defined]
         elif self.trainer_type == TrainerType.TRL_GOLD:
             from oumi.utils.packaging import require_gold_trainer
 
@@ -822,7 +894,7 @@ class TrainingParams(BaseParams):
                 grpo_kwargs.keys()
             )
             if len(conflicting_keys) > 0:
-                raise ValueError(
+                raise OumiConfigError(
                     "trainer_kwargs attempt to override the following "
                     f"GRPO kwargs: {conflicting_keys}. "
                     "Use properties of GrpoParams instead."
@@ -835,7 +907,7 @@ class TrainingParams(BaseParams):
                 gkd_kwargs.keys()
             )
             if len(conflicting_keys) > 0:
-                raise ValueError(
+                raise OumiConfigError(
                     "trainer_kwargs attempt to override the following "
                     f"GKD kwargs: {conflicting_keys}. "
                     "Use properties of GkdParams instead."
@@ -848,17 +920,21 @@ class TrainingParams(BaseParams):
                 gold_kwargs.keys()
             )
             if len(conflicting_keys) > 0:
-                raise ValueError(
+                raise OumiConfigError(
                     "trainer_kwargs attempt to override the following "
                     f"GOLD kwargs: {conflicting_keys}. "
                     "Use properties of GoldParams instead."
                 )
             trainer_kwargs.update(gold_kwargs)
 
+        # Set TENSORBOARD_LOGGING_DIR env var for TensorBoard logging
+        if self.enable_tensorboard:
+            tensorboard_dir = self.logging_dir or f"{self.output_dir}/tensorboard"
+            os.environ["TENSORBOARD_LOGGING_DIR"] = tensorboard_dir
+
         result = config_class(
             gradient_accumulation_steps=self.gradient_accumulation_steps,
             log_level=self.dep_log_level,
-            logging_dir=self.logging_dir,
             logging_nan_inf_filter=True,
             logging_steps=self.logging_steps,
             logging_strategy=self.logging_strategy,
@@ -874,16 +950,14 @@ class TrainingParams(BaseParams):
             learning_rate=self.learning_rate,
             lr_scheduler_type=self.lr_scheduler_type,
             lr_scheduler_kwargs=self.lr_scheduler_kwargs,
-            warmup_ratio=self.warmup_ratio or 0.0,  # same default as transformers
-            warmup_steps=self.warmup_steps or 0,  # same default as transformers
+            **self._get_warmup_kwargs(),
             weight_decay=self.weight_decay,
             adam_beta1=self.adam_beta1,
             adam_beta2=self.adam_beta2,
             adam_epsilon=self.adam_epsilon,
             gradient_checkpointing=self.enable_gradient_checkpointing,
             gradient_checkpointing_kwargs=self.gradient_checkpointing_kwargs,
-            include_tokens_per_second=self.include_performance_metrics,
-            include_num_input_tokens_seen=self.include_performance_metrics,
+            **self._get_token_tracking_kwargs(),
             fp16=self.mixed_precision_dtype == MixedPrecisionDtype.FP16,
             bf16=self.mixed_precision_dtype == MixedPrecisionDtype.BF16,
             torch_compile=self.compile,
@@ -902,7 +976,7 @@ class TrainingParams(BaseParams):
             dataloader_persistent_workers=self.dataloader_persistent_workers,
             dataloader_pin_memory=True,  # Set it to True to be explicit.
             ddp_find_unused_parameters=self.ddp_find_unused_parameters,
-            max_grad_norm=self.max_grad_norm,  # type: ignore
+            max_grad_norm=self.max_grad_norm if self.max_grad_norm is not None else 0.0,
             accelerator_config={  # accelerator config for multi-device training
                 "dispatch_batches": dispatch_batches,
                 # The params below are set to their default values.
@@ -942,48 +1016,55 @@ class TrainingParams(BaseParams):
         if isinstance(self.dataloader_num_workers, str) and not (
             self.dataloader_num_workers == "auto"
         ):
-            raise ValueError(
+            raise OumiConfigError(
                 "Unknown value of "
                 f"dataloader_num_workers: {self.dataloader_num_workers}"
             )
 
         if self.gradient_accumulation_steps < 1:
-            raise ValueError("gradient_accumulation_steps must be >= 1.")
+            raise OumiConfigError("gradient_accumulation_steps must be >= 1.")
 
         if self.max_grad_norm is not None and self.max_grad_norm < 0:
-            raise ValueError("max_grad_norm must be >= 0.")
+            raise OumiConfigError("max_grad_norm must be >= 0.")
 
         if not (self.max_steps > 0 or self.num_train_epochs > 0):
-            raise ValueError(
+            raise OumiConfigError(
                 "At least one of max_steps and num_train_epochs must be positive. "
                 f"Actual: max_steps: {self.max_steps}, "
                 f"num_train_epochs: {self.num_train_epochs}."
             )
 
-        if (
-            self.trainer_type != TrainerType.TRL_GRPO
-            and self.trainer_type != TrainerType.VERL_GRPO
-            and self.reward_functions is not None
-        ):
+        if self.reward_functions is not None:
             function_names = [name for name in self.reward_functions if name]
-            if len(function_names) > 0:
-                raise ValueError(
+            if (
+                self.trainer_type not in (TrainerType.TRL_GRPO, TrainerType.VERL_GRPO)
+                and len(function_names) > 0
+            ):
+                raise OumiConfigError(
                     "reward_functions may only be defined for the TRL_GRPO or VERL_GRPO"
                     f"trainers. Actual: {self.trainer_type}"
                 )
-            if self.trainer_type == TrainerType.VERL_GRPO:
-                if len(function_names) > 1:
-                    raise ValueError(
-                        "VERL_GRPO only supports a single reward function. "
-                        f"Actual: {function_names}"
-                    )
+            if self.trainer_type == TrainerType.VERL_GRPO and len(function_names) > 1:
+                raise OumiConfigError(
+                    "VERL_GRPO only supports a single reward function. "
+                    f"Actual: {function_names}"
+                )
+        if self.reward_function_kwargs and self.trainer_type not in (
+            TrainerType.TRL_GRPO,
+            TrainerType.VERL_GRPO,
+        ):
+            raise OumiConfigError(
+                "reward_function_kwargs is only supported for the TRL_GRPO or "
+                "VERL_GRPO trainers. Either remove reward_function_kwargs or set "
+                f"trainer_type accordingly. Actual: {self.trainer_type}"
+            )
 
         # TODO: #1540 - Remove when TRL bug is fixed.
         if (
             self.trainer_type == TrainerType.TRL_GRPO
             and self.include_performance_metrics
         ):
-            raise ValueError(
+            raise OumiConfigError(
                 "`include_performance_metrics` is not supported for TRL_GRPO trainer."
             )
 

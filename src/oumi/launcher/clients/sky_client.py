@@ -46,6 +46,8 @@ def _get_sky_cloud_from_job(job: JobConfig) -> "sky.clouds.Cloud":
         return sky.clouds.Azure()
     elif job.resources.cloud == SkyClient.SupportedClouds.K8S.value:
         return sky.clouds.Kubernetes()
+    elif job.resources.cloud == SkyClient.SupportedClouds.NEBIUS.value:
+        return sky.clouds.Nebius()
     raise ValueError(f"Unsupported cloud: {job.resources.cloud}")
 
 
@@ -166,6 +168,7 @@ class SkyClient:
         RUNPOD = "runpod"
         LAMBDA = "lambda"
         K8S = "k8s"
+        NEBIUS = "nebius"
 
     def __init__(self):
         """Initializes a new instance of the SkyClient class."""
@@ -228,6 +231,12 @@ class SkyClient:
         job_id, resource_handle = self._sky_lib.stream_and_get(job_id)
         if job_id is None or resource_handle is None:
             raise RuntimeError("Failed to launch job.")
+        # Extract hourly cost from launched resources (includes all nodes).
+        try:
+            cost_per_hour = resource_handle.get_hourly_price()  # pyright: ignore[reportAttributeAccessIssue]
+        except Exception:
+            cost_per_hour = None
+
         return JobStatus(
             name="",
             id=str(job_id),
@@ -236,7 +245,26 @@ class SkyClient:
             metadata="",
             done=False,
             state=JobState.PENDING,
+            cost_per_hour=cost_per_hour,
         )
+
+    def get_cluster_hourly_price(self, cluster_name: str) -> float | None:
+        """Gets the hourly price for a cluster from its resource handle.
+
+        Args:
+            cluster_name: The name of the cluster.
+
+        Returns:
+            The hourly price in USD, or None if unavailable.
+        """
+        try:
+            statuses = self._sky_lib.stream_and_get(self._sky_lib.status())
+            for cluster in statuses:
+                if cluster["name"] == cluster_name:
+                    return cluster["handle"].get_hourly_price()  # pyright: ignore[reportAttributeAccessIssue]
+        except Exception:
+            pass
+        return None
 
     def status(self):  # type hinting will force sky to be imported and not lazy loaded
         """Gets a list of cluster statuses.

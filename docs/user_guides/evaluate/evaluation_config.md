@@ -1,6 +1,6 @@
 # Evaluation Configuration
 
-Oumi allows users to define their evaluation configurations through a `YAML` file, providing a flexible, human-readable, and easily customizable format for setting up experiments. By using `YAML`, users can effortlessly configure model and generation parameters, and define a list of tasks to evaluate with. This approach not only streamlines the process of configuring evaluations but also ensures that configurations are easily versioned, shared, and reproduced across different environments and teams.
+Oumi OSS allows users to define their evaluation configurations through a `YAML` file, providing a flexible, human-readable, and easily customizable format for setting up experiments. By using `YAML`, users can effortlessly configure model and generation parameters, and define a list of tasks to evaluate with. This approach not only streamlines the process of configuring evaluations but also ensures that configurations are easily versioned, shared, and reproduced across different environments and teams.
 
 # Configuration Structure
 

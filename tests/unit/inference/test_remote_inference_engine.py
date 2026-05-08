@@ -25,15 +25,18 @@ from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.types.conversation import (
     ContentItem,
     Conversation,
+    FinishReason,
     Message,
     Role,
     Type,
 )
+from oumi.core.types.tool_call import ToolCall, ToolDefinition
 from oumi.inference import RemoteInferenceEngine
 from oumi.inference.remote_inference_engine import BatchStatus
 from oumi.utils.conversation_utils import (
     base64encode_content_item_image_bytes,
 )
+from oumi.utils.http import APIStatusError
 from oumi.utils.image_utils import (
     create_png_bytes_from_image,
 )
@@ -157,6 +160,59 @@ def create_test_multimodal_text_image_conversation():
                 ],
             ),
         ]
+    )
+
+
+def _make_batch_result_line(custom_id: str, content: str) -> str:
+    """Build a single JSONL line for a batch output file."""
+    return json.dumps(
+        {
+            "custom_id": custom_id,
+            "response": {
+                "body": {
+                    "choices": [{"message": {"role": "assistant", "content": content}}]
+                }
+            },
+        }
+    )
+
+
+def _make_batch_status_payload(
+    total: int,
+    completed: int,
+    failed: int,
+    output_file_id: str | None = "file-output-123",
+    error_file_id: str | None = None,
+    status: str = "completed",
+    error: str | None = None,
+) -> dict:
+    """Build the batch status API response payload."""
+    payload: dict[str, Any] = {
+        "id": "batch-123",
+        "status": status,
+        "request_counts": {"total": total, "completed": completed, "failed": failed},
+    }
+    if output_file_id:
+        payload["output_file_id"] = output_file_id
+    if error_file_id:
+        payload["error_file_id"] = error_file_id
+    if error:
+        payload["error"] = error
+    return payload
+
+
+def _make_conversations(*contents: str) -> list[Conversation]:
+    """Build conversations from user message content strings."""
+    return [
+        Conversation(messages=[Message(content=c, role=Role.USER)]) for c in contents
+    ]
+
+
+def _make_engine() -> RemoteInferenceEngine:
+    """Create a RemoteInferenceEngine with default test params."""
+    return RemoteInferenceEngine(
+        _get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
     )
 
 
@@ -668,38 +724,48 @@ def test_infer_online_fails_with_message(mock_asyncio_sleep):
         if config.remote_params is not None:
             config.remote_params.max_retries = 0
 
-        with pytest.raises(
-            RuntimeError,
-            match="Failed to query API after 1 attempts. Reason: Gateway timeout",
-        ):
+        with pytest.raises(APIStatusError) as exc_info:
             _ = engine.infer(
                 [conversation],
                 config,
             )
-        with pytest.raises(
-            RuntimeError,
-            match="Failed to query API after 1 attempts. Reason: Too many requests",
-        ):
+        assert "Failed to query API after 1 attempts. Reason: Gateway timeout" in str(
+            exc_info.value
+        )
+        assert exc_info.value.status_code == 504
+        assert exc_info.value.api_input is not None
+        with pytest.raises(APIStatusError) as exc_info:
             _ = engine.infer(
                 [conversation],
                 config,
             )
-        with pytest.raises(
-            RuntimeError,
-            match="Failed to query API after 1 attempts. Reason: Service unavailable",
-        ):
+        assert "Failed to query API after 1 attempts. Reason: Too many requests" in str(
+            exc_info.value
+        )
+        assert exc_info.value.status_code == 429
+        assert exc_info.value.api_input is not None
+        with pytest.raises(APIStatusError) as exc_info:
             _ = engine.infer(
                 [conversation],
                 config,
             )
-        with pytest.raises(
-            RuntimeError,
-            match="Failed to query API after 1 attempts. Reason: Internal server error",
-        ):
+        assert (
+            "Failed to query API after 1 attempts. Reason: Service unavailable"
+            in str(exc_info.value)
+        )
+        assert exc_info.value.status_code == 503
+        assert exc_info.value.api_input is not None
+        with pytest.raises(APIStatusError) as exc_info:
             _ = engine.infer(
                 [conversation],
                 config,
             )
+        assert (
+            "Failed to query API after 1 attempts. Reason: Internal server error"
+            in str(exc_info.value)
+        )
+        assert exc_info.value.status_code == 500
+        assert exc_info.value.api_input is not None
 
         # No retries
         assert mock_asyncio_sleep.call_count == 0
@@ -748,13 +814,14 @@ def test_infer_online_fails_with_message_and_retries(mock_asyncio_sleep):
             conversation_id="123",
         )
         with pytest.raises(
-            RuntimeError,
+            APIStatusError,
             match="Failed to query API after 4 attempts. Reason: Internal server error",
-        ):
+        ) as exc_info:
             _ = engine.infer(
                 [conversation],
                 config,
             )
+        assert exc_info.value.api_input is not None
         # 3 retries
         assert mock_asyncio_sleep.call_count == 3
 
@@ -853,10 +920,12 @@ def test_infer_online_multiple_requests():
         messages = request.get("messages", [])
         if not messages:
             raise ValueError("No messages in request")
-        content = messages[0].get("content", [])
+        content = messages[0].get("content", "")
         if not content:
             raise ValueError("No content in message")
-        conversation_id = content[0].get("text")
+        conversation_id = (
+            content if isinstance(content, str) else content[0].get("text")
+        )
 
         if response := response_by_conversation_id.get(conversation_id):
             # Extract status and payload from the response dict
@@ -973,10 +1042,12 @@ def test_infer_online_multiple_requests_politeness():
         messages = request.get("messages", [])
         if not messages:
             raise ValueError("No messages in request")
-        content = messages[0].get("content", [])
+        content = messages[0].get("content", "")
         if not content:
             raise ValueError("No content in message")
-        conversation_id = content[0].get("text")
+        conversation_id = (
+            content if isinstance(content, str) else content[0].get("text")
+        )
 
         if response := response_by_conversation_id.get(conversation_id):
             # Extract status and payload from the response dict
@@ -1064,7 +1135,6 @@ def test_infer_online_multiple_requests_politeness():
         assert expected_result == result
 
 
-@pytest.mark.asyncio
 def test_infer_online_multiple_requests_politeness_multiple_workers():
     # Note: We use the first message's content as the key to avoid
     # stringifying the message object.
@@ -1116,10 +1186,12 @@ def test_infer_online_multiple_requests_politeness_multiple_workers():
         messages = request.get("messages", [])
         if not messages:
             raise ValueError("No messages in request")
-        content = messages[0].get("content", [])
+        content = messages[0].get("content", "")
         if not content:
             raise ValueError("No content in message")
-        conversation_id = content[0].get("text")
+        conversation_id = (
+            content if isinstance(content, str) else content[0].get("text")
+        )
 
         if response := response_by_conversation_id.get(conversation_id):
             # Extract status and payload from the response dict
@@ -1300,10 +1372,12 @@ def test_infer_from_file_to_file():
             messages = request.get("messages", [])
             if not messages:
                 raise ValueError("No messages in request")
-            content = messages[0].get("content", [])
+            content = messages[0].get("content", "")
             if not content:
                 raise ValueError("No content in message")
-            conversation_id = content[0].get("text")
+            conversation_id = (
+                content if isinstance(content, str) else content[0].get("text")
+            )
 
             if response := response_by_conversation_id.get(conversation_id):
                 # Extract status and payload from the response dict
@@ -1431,10 +1505,12 @@ def test_infer_from_file_to_file_failure_midway():
             messages = request.get("messages", [])
             if not messages:
                 raise ValueError("No messages in request")
-            content = messages[0].get("content", [])
+            content = messages[0].get("content", "")
             if not content:
                 raise ValueError("No content in message")
-            conversation_id = content[0].get("text")
+            conversation_id = (
+                content if isinstance(content, str) else content[0].get("text")
+            )
 
             if response := response_by_conversation_id.get(conversation_id):
                 # Extract status and payload from the response dict
@@ -1908,7 +1984,7 @@ def test_get_request_headers_no_remote_params():
         _get_default_model_params(), remote_params=RemoteParams(api_url=_TARGET_SERVER)
     )
     headers = engine._get_request_headers(None)
-    assert headers == {}
+    assert headers == {"Accept-Encoding": "gzip, deflate"}
 
 
 def test_get_request_headers_with_api_key():
@@ -1917,7 +1993,10 @@ def test_get_request_headers_with_api_key():
         _get_default_model_params(), remote_params=remote_params
     )
     headers = engine._get_request_headers(remote_params)
-    assert headers == {"Authorization": "Bearer test-key"}
+    assert headers == {
+        "Accept-Encoding": "gzip, deflate",
+        "Authorization": "Bearer test-key",
+    }
 
 
 def test_get_request_headers_without_api_key():
@@ -1926,7 +2005,7 @@ def test_get_request_headers_without_api_key():
         _get_default_model_params(), remote_params=remote_params
     )
     headers = engine._get_request_headers(remote_params)
-    assert headers == {}
+    assert headers == {"Accept-Encoding": "gzip, deflate"}
 
 
 def test_get_request_headers_with_env_var():
@@ -1939,7 +2018,10 @@ def test_get_request_headers_with_env_var():
             remote_params=remote_params,
         )
         headers = engine._get_request_headers(remote_params)
-        assert headers == {"Authorization": "Bearer env-test-key"}
+        assert headers == {
+            "Accept-Encoding": "gzip, deflate",
+            "Authorization": "Bearer env-test-key",
+        }
 
 
 def test_get_request_headers_missing_env_var():
@@ -1952,7 +2034,95 @@ def test_get_request_headers_missing_env_var():
             remote_params=remote_params,
         )
         headers = engine._get_request_headers(remote_params)
-        assert headers == {}
+        assert headers == {"Accept-Encoding": "gzip, deflate"}
+
+
+@pytest.mark.parametrize(
+    "response_usage,expected_usage",
+    [
+        # Full usage with all fields
+        (
+            {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+            {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+        ),
+        # total_tokens computed when missing
+        (
+            {"prompt_tokens": 10, "completion_tokens": 5},
+            {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+        ),
+        # With cached tokens from prompt_tokens_details
+        (
+            {
+                "prompt_tokens": 10,
+                "completion_tokens": 5,
+                "total_tokens": 15,
+                "prompt_tokens_details": {"cached_tokens": 7},
+            },
+            {
+                "prompt_tokens": 10,
+                "completion_tokens": 5,
+                "total_tokens": 15,
+                "cached_tokens": 7,
+            },
+        ),
+    ],
+)
+def test_convert_api_output_captures_usage(response_usage, expected_usage):
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
+    )
+    original = Conversation(
+        messages=[Message(content="Hello", role=Role.USER)],
+        metadata={"key": "value"},
+    )
+    response = {
+        "choices": [{"message": {"role": "assistant", "content": "Hi"}}],
+        "usage": response_usage,
+    }
+    result = engine._convert_api_output_to_conversation(response, original)
+    assert result.metadata["usage"] == expected_usage
+    assert result.metadata["key"] == "value"
+
+
+def test_convert_api_output_no_usage():
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
+    )
+    original = Conversation(
+        messages=[Message(content="Hello", role=Role.USER)],
+        metadata={"key": "value"},
+    )
+    response = {
+        "choices": [{"message": {"role": "assistant", "content": "Hi"}}],
+    }
+    result = engine._convert_api_output_to_conversation(response, original)
+    assert "usage" not in result.metadata
+    assert result.metadata["key"] == "value"
+
+
+def test_convert_api_output_content_null_returns_empty_string():
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
+    )
+    original = Conversation(
+        messages=[Message(content="Hello", role=Role.USER)],
+    )
+    response = {
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                }
+            }
+        ],
+    }
+    result = engine._convert_api_output_to_conversation(response, original)
+    assert result.messages[-1].content == ""
+    assert result.messages[-1].role == Role.ASSISTANT
 
 
 @pytest.mark.asyncio
@@ -2057,59 +2227,20 @@ async def test_get_batch_status():
 async def test_get_batch_results():
     """Test getting batch results."""
     with aioresponses() as m:
-        # Mock batch status request
         m.get(
             f"{_TARGET_SERVER_BASE}/v1/batches/batch-123",
             status=200,
-            payload={
-                "id": "batch-123",
-                "status": "completed",
-                "request_counts": {
-                    "total": 1,
-                    "completed": 1,
-                    "failed": 0,
-                },
-                "output_file_id": "file-output-123",
-            },
+            payload=_make_batch_status_payload(total=1, completed=1, failed=0),
         )
-
-        # Mock file content request
         m.get(
             f"{_TARGET_SERVER_BASE}/v1/files/file-output-123/content",
             status=200,
-            body=json.dumps(
-                {
-                    "custom_id": "request-1",
-                    "response": {
-                        "body": {
-                            "choices": [
-                                {
-                                    "message": {
-                                        "role": "assistant",
-                                        "content": "Hello there!",
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                }
-            ),
+            body=_make_batch_result_line("request-0", "Hello there!"),
         )
 
-        engine = RemoteInferenceEngine(
-            _get_default_model_params(),
-            remote_params=RemoteParams(api_url=_TARGET_SERVER),
-        )
-
-        conversation = Conversation(
-            messages=[
-                Message(content="Hello", role=Role.USER),
-            ]
-        )
-
+        engine = _make_engine()
         results = await engine._get_batch_results_with_mapping(
-            "batch-123",
-            [conversation],
+            "batch-123", _make_conversations("Hello")
         )
 
         assert len(results) == 1
@@ -2120,34 +2251,21 @@ async def test_get_batch_results():
 def test_infer_batch():
     """Test the public infer_batch method."""
     with aioresponses() as m:
-        # Mock file upload
         m.post(
             f"{_TARGET_SERVER_BASE}/v1/files",
             status=200,
             payload={"id": "file-123"},
         )
-        # Mock batch creation
         m.post(
             f"{_TARGET_SERVER_BASE}/v1/batches",
             status=200,
             payload={"id": "batch-456"},
         )
 
-        engine = RemoteInferenceEngine(
-            _get_default_model_params(),
-            remote_params=RemoteParams(api_url=_TARGET_SERVER),
-        )
-
-        conversation = Conversation(
-            messages=[
-                Message(content="Hello", role=Role.USER),
-            ]
-        )
-
-        # Use AsyncContextManagerMock instead of AsyncMock
+        engine = _make_engine()
         with patch("aiofiles.open", return_value=AsyncContextManagerMock()):
             batch_id = engine.infer_batch(
-                [conversation], _get_default_inference_config()
+                _make_conversations("Hello"), _get_default_inference_config()
             )
             assert batch_id == "batch-456"
 
@@ -2158,22 +2276,16 @@ def test_get_batch_status_public():
         m.get(
             f"{_TARGET_SERVER_BASE}/v1/batches/batch-123",
             status=200,
-            payload={
-                "id": "batch-123",
-                "status": "in_progress",
-                "request_counts": {
-                    "total": 10,
-                    "completed": 5,
-                    "failed": 0,
-                },
-            },
+            payload=_make_batch_status_payload(
+                total=10,
+                completed=5,
+                failed=0,
+                status="in_progress",
+                output_file_id=None,
+            ),
         )
 
-        engine = RemoteInferenceEngine(
-            _get_default_model_params(),
-            remote_params=RemoteParams(api_url=_TARGET_SERVER),
-        )
-
+        engine = _make_engine()
         status = engine.get_batch_status("batch-123")
         assert status.id == "batch-123"
         assert status.status == BatchStatus.IN_PROGRESS
@@ -2185,64 +2297,301 @@ def test_get_batch_status_public():
 def test_get_batch_results_public():
     """Test the public get_batch_results method."""
     with aioresponses() as m:
-        # Mock batch status request
         m.get(
             f"{_TARGET_SERVER_BASE}/v1/batches/batch-123",
             status=200,
-            payload={
-                "id": "batch-123",
-                "status": "completed",
-                "request_counts": {
-                    "total": 1,
-                    "completed": 1,
-                    "failed": 0,
-                },
-                "output_file_id": "file-output-123",
-            },
+            payload=_make_batch_status_payload(total=1, completed=1, failed=0),
         )
-
-        # Mock file content request
         m.get(
             f"{_TARGET_SERVER_BASE}/v1/files/file-output-123/content",
             status=200,
-            body=json.dumps(
-                {
-                    "custom_id": "request-1",
-                    "response": {
-                        "body": {
-                            "choices": [
-                                {
-                                    "message": {
-                                        "role": "assistant",
-                                        "content": "Hello there!",
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                }
-            ),
+            body=_make_batch_result_line("request-0", "Hello there!"),
         )
 
-        engine = RemoteInferenceEngine(
-            _get_default_model_params(),
-            remote_params=RemoteParams(api_url=_TARGET_SERVER),
-        )
-
-        conversation = Conversation(
-            messages=[
-                Message(content="Hello", role=Role.USER),
-            ]
-        )
-
-        results = engine.get_batch_results(
-            "batch-123",
-            [conversation],
-        )
+        engine = _make_engine()
+        results = engine.get_batch_results("batch-123", _make_conversations("Hello"))
 
         assert len(results) == 1
         assert results[0].messages[-1].content == "Hello there!"
         assert results[0].messages[-1].role == Role.ASSISTANT
+
+
+@pytest.mark.asyncio
+async def test_get_batch_results_maps_by_custom_id_not_position():
+    """Test that batch results are mapped by custom_id, not positional order."""
+    with aioresponses() as m:
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/batches/batch-123",
+            status=200,
+            payload=_make_batch_status_payload(total=3, completed=3, failed=0),
+        )
+        # Results returned out of order (2, 0, 1)
+        results_content = "\n".join(
+            [
+                _make_batch_result_line("request-2", "Response for conversation 2"),
+                _make_batch_result_line("request-0", "Response for conversation 0"),
+                _make_batch_result_line("request-1", "Response for conversation 1"),
+            ]
+        )
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/files/file-output-123/content",
+            status=200,
+            body=results_content,
+        )
+
+        engine = _make_engine()
+        conversations = _make_conversations("Question 0", "Question 1", "Question 2")
+        results = await engine._get_batch_results_with_mapping(
+            "batch-123", conversations
+        )
+
+        assert len(results) == 3
+        assert results[0].messages[-1].content == "Response for conversation 0"
+        assert results[1].messages[-1].content == "Response for conversation 1"
+        assert results[2].messages[-1].content == "Response for conversation 2"
+
+
+@pytest.mark.asyncio
+async def test_batch_results_partial_failure_retries():
+    """Test that missing results are retried via online inference."""
+    with aioresponses() as m:
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/batches/batch-123",
+            status=200,
+            payload=_make_batch_status_payload(
+                total=3, completed=2, failed=1, error_file_id="file-error-123"
+            ),
+        )
+        # Output file has results for request-0 and request-2 only
+        results_content = "\n".join(
+            [
+                _make_batch_result_line("request-0", "Response 0"),
+                _make_batch_result_line("request-2", "Response 2"),
+            ]
+        )
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/files/file-output-123/content",
+            status=200,
+            body=results_content,
+        )
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/files/file-error-123/content",
+            status=200,
+            body='{"custom_id": "request-1", "error": {"message": "rate limited"}}',
+        )
+
+        engine = _make_engine()
+        conversations = _make_conversations("Q0", "Q1", "Q2")
+
+        retry_result = Conversation(
+            messages=[
+                Message(content="Q1", role=Role.USER),
+                Message(content="Retry Response 1", role=Role.ASSISTANT),
+            ]
+        )
+        with patch.object(
+            engine, "_infer", new_callable=AsyncMock, return_value=[retry_result]
+        ) as mock_infer:
+            results = await engine._get_batch_results_with_mapping(
+                "batch-123", conversations
+            )
+
+        assert len(results) == 3
+        assert results[0].messages[-1].content == "Response 0"
+        assert results[1].messages[-1].content == "Retry Response 1"
+        assert results[2].messages[-1].content == "Response 2"
+        mock_infer.assert_called_once()
+        failed_convs = mock_infer.call_args[0][0]
+        assert len(failed_convs) == 1
+        assert failed_convs[0].messages[0].content == "Q1"
+
+
+@pytest.mark.asyncio
+async def test_batch_results_error_in_response_body():
+    """Test error parsing when top-level error null and detail is in response.body."""
+    with aioresponses() as m:
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/batches/batch-123",
+            status=200,
+            payload=_make_batch_status_payload(
+                total=2, completed=1, failed=1, error_file_id="file-error-123"
+            ),
+        )
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/files/file-output-123/content",
+            status=200,
+            body=_make_batch_result_line("request-0", "Response 0"),
+        )
+        # OpenAI-style error: top-level "error" is null, detail in response.body.error
+        error_line = json.dumps(
+            {
+                "custom_id": "request-1",
+                "error": None,
+                "response": {
+                    "body": {
+                        "error": {
+                            "message": "The model produced invalid content.",
+                            "type": "model_error",
+                            "code": "model_error",
+                        }
+                    }
+                },
+            }
+        )
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/files/file-error-123/content",
+            status=200,
+            body=error_line,
+        )
+
+        engine = _make_engine()
+        conversations = _make_conversations("Q0", "Q1")
+
+        retry_result = Conversation(
+            messages=[
+                Message(content="Q1", role=Role.USER),
+                Message(content="Retry Response 1", role=Role.ASSISTANT),
+            ]
+        )
+        with patch.object(
+            engine, "_infer", new_callable=AsyncMock, return_value=[retry_result]
+        ):
+            results = await engine._get_batch_results_with_mapping(
+                "batch-123", conversations
+            )
+
+        assert len(results) == 2
+        assert results[0].messages[-1].content == "Response 0"
+        assert results[1].messages[-1].content == "Retry Response 1"
+
+
+@pytest.mark.asyncio
+async def test_batch_results_error_null_no_body_error():
+    """Test error parsing falls back to 'unknown error' when no error detail exists."""
+    with aioresponses() as m:
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/batches/batch-123",
+            status=200,
+            payload=_make_batch_status_payload(
+                total=2, completed=1, failed=1, error_file_id="file-error-123"
+            ),
+        )
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/files/file-output-123/content",
+            status=200,
+            body=_make_batch_result_line("request-0", "Response 0"),
+        )
+        # Error is null with no response.body.error either
+        error_line = json.dumps(
+            {
+                "custom_id": "request-1",
+                "error": None,
+            }
+        )
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/files/file-error-123/content",
+            status=200,
+            body=error_line,
+        )
+
+        engine = _make_engine()
+        conversations = _make_conversations("Q0", "Q1")
+
+        retry_result = Conversation(
+            messages=[
+                Message(content="Q1", role=Role.USER),
+                Message(content="Retry Response 1", role=Role.ASSISTANT),
+            ]
+        )
+        with patch.object(
+            engine, "_infer", new_callable=AsyncMock, return_value=[retry_result]
+        ):
+            results = await engine._get_batch_results_with_mapping(
+                "batch-123", conversations
+            )
+
+        assert len(results) == 2
+        assert results[0].messages[-1].content == "Response 0"
+        assert results[1].messages[-1].content == "Retry Response 1"
+
+
+@pytest.mark.asyncio
+async def test_batch_results_error_null_response_null():
+    """Test no AttributeError when both error and response are null."""
+    with aioresponses() as m:
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/batches/batch-123",
+            status=200,
+            payload=_make_batch_status_payload(
+                total=2, completed=1, failed=1, error_file_id="file-error-123"
+            ),
+        )
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/files/file-output-123/content",
+            status=200,
+            body=_make_batch_result_line("request-0", "Response 0"),
+        )
+        # Both error and response are null
+        error_line = json.dumps(
+            {
+                "custom_id": "request-1",
+                "error": None,
+                "response": None,
+            }
+        )
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/files/file-error-123/content",
+            status=200,
+            body=error_line,
+        )
+
+        engine = _make_engine()
+        conversations = _make_conversations("Q0", "Q1")
+
+        retry_result = Conversation(
+            messages=[
+                Message(content="Q1", role=Role.USER),
+                Message(content="Retry Response 1", role=Role.ASSISTANT),
+            ]
+        )
+        with patch.object(
+            engine, "_infer", new_callable=AsyncMock, return_value=[retry_result]
+        ):
+            results = await engine._get_batch_results_with_mapping(
+                "batch-123", conversations
+            )
+
+        assert len(results) == 2
+        assert results[0].messages[-1].content == "Response 0"
+        assert results[1].messages[-1].content == "Retry Response 1"
+
+
+@pytest.mark.asyncio
+async def test_batch_results_retry_failure_propagates():
+    """Test that exceptions from _infer during retry propagate up."""
+    with aioresponses() as m:
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/batches/batch-123",
+            status=200,
+            payload=_make_batch_status_payload(total=2, completed=1, failed=1),
+        )
+        m.get(
+            f"{_TARGET_SERVER_BASE}/v1/files/file-output-123/content",
+            status=200,
+            body=_make_batch_result_line("request-0", "Response 0"),
+        )
+
+        engine = _make_engine()
+        conversations = _make_conversations("Q0", "Q1")
+
+        with patch.object(
+            engine,
+            "_infer",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("API error during retry"),
+        ):
+            with pytest.raises(RuntimeError, match="API error during retry"):
+                await engine._get_batch_results_with_mapping("batch-123", conversations)
 
 
 @pytest.mark.asyncio
@@ -2546,12 +2895,14 @@ def test_non_retriable_errors(mock_asyncio_sleep):
             )
             conversation = create_test_text_only_conversation()
 
-            with pytest.raises(RuntimeError) as exc_info:
+            with pytest.raises(APIStatusError) as exc_info:
                 engine.infer([conversation])
 
             assert f"Non-retriable error: {error_messages[status_code]}" in str(
                 exc_info.value
             )
+            assert exc_info.value.status_code == status_code
+            assert exc_info.value.api_input is not None
             # Verify no retries were attempted
             assert mock_asyncio_sleep.call_count == 0
             mock_asyncio_sleep.reset_mock()
@@ -3168,3 +3519,506 @@ async def test_adaptive_concurrency_full_adjustment_cycle():
             assert len(result) == 50
 
         assert asserts_passed
+
+
+# FinishReason extraction tests
+class TestNormalizeFinishReason:
+    """Tests for RemoteInferenceEngine._normalize_finish_reason."""
+
+    def test_normalize_finish_reason_stop(self):
+        result = RemoteInferenceEngine._normalize_finish_reason("stop")
+        assert result == FinishReason.STOP
+
+    def test_normalize_finish_reason_length(self):
+        result = RemoteInferenceEngine._normalize_finish_reason("length")
+        assert result == FinishReason.LENGTH
+
+    def test_normalize_finish_reason_tool_calls(self):
+        result = RemoteInferenceEngine._normalize_finish_reason("tool_calls")
+        assert result == FinishReason.TOOL_CALLS
+
+    def test_normalize_finish_reason_content_filter(self):
+        result = RemoteInferenceEngine._normalize_finish_reason("content_filter")
+        assert result == FinishReason.CONTENT_FILTER
+
+    def test_normalize_finish_reason_unknown_value(self):
+        result = RemoteInferenceEngine._normalize_finish_reason("some_other_reason")
+        assert result == FinishReason.UNKNOWN
+
+    def test_normalize_finish_reason_none(self):
+        result = RemoteInferenceEngine._normalize_finish_reason(None)
+        assert result is None
+
+    def test_normalize_finish_reason_case_insensitive(self):
+        assert (
+            RemoteInferenceEngine._normalize_finish_reason("STOP") == FinishReason.STOP
+        )
+        assert (
+            RemoteInferenceEngine._normalize_finish_reason("Length")
+            == FinishReason.LENGTH
+        )
+
+
+class TestExtractFinishReasonFromResponse:
+    """Tests for RemoteInferenceEngine._extract_finish_reason_from_response."""
+
+    def test_extract_finish_reason_stop(self):
+        response = {"choices": [{"finish_reason": "stop"}]}
+        result = RemoteInferenceEngine._extract_finish_reason_from_response(response)
+        assert result == FinishReason.STOP
+
+    def test_extract_finish_reason_length(self):
+        response = {"choices": [{"finish_reason": "length"}]}
+        result = RemoteInferenceEngine._extract_finish_reason_from_response(response)
+        assert result == FinishReason.LENGTH
+
+    def test_extract_finish_reason_empty_choices(self):
+        response = {"choices": []}
+        result = RemoteInferenceEngine._extract_finish_reason_from_response(response)
+        assert result is None
+
+    def test_extract_finish_reason_no_choices(self):
+        response = {}
+        result = RemoteInferenceEngine._extract_finish_reason_from_response(response)
+        assert result is None
+
+    def test_extract_finish_reason_none_value(self):
+        response = {"choices": [{"finish_reason": None}]}
+        result = RemoteInferenceEngine._extract_finish_reason_from_response(response)
+        assert result is None
+
+
+def test_infer_online_extracts_finish_reason():
+    """Test that finish_reason is extracted and added to conversation metadata."""
+    with aioresponses() as m:
+        m.post(
+            _TARGET_SERVER,
+            status=200,
+            payload=dict(
+                choices=[
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "Hello!",
+                        },
+                        "finish_reason": "stop",
+                    }
+                ]
+            ),
+        )
+
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+        )
+        conversation = Conversation(
+            messages=[Message(role=Role.USER, content="Hi")],
+        )
+        result = engine.infer([conversation], _get_default_inference_config())
+
+        assert len(result) == 1
+        assert result[0].metadata.get("finish_reason") == "stop"
+
+
+def test_infer_online_extracts_length_finish_reason():
+    """Test that length finish_reason is extracted correctly."""
+    with aioresponses() as m:
+        m.post(
+            _TARGET_SERVER,
+            status=200,
+            payload=dict(
+                choices=[
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "Truncated response",
+                        },
+                        "finish_reason": "length",
+                    }
+                ]
+            ),
+        )
+
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+        )
+        conversation = Conversation(
+            messages=[Message(role=Role.USER, content="Tell me a long story")],
+        )
+        result = engine.infer([conversation], _get_default_inference_config())
+
+        assert len(result) == 1
+        assert result[0].metadata.get("finish_reason") == "length"
+
+
+def test_infer_online_preserves_existing_metadata_with_finish_reason():
+    """Test that finish_reason is added while preserving existing metadata."""
+    with aioresponses() as m:
+        m.post(
+            _TARGET_SERVER,
+            status=200,
+            payload=dict(
+                choices=[
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "Response",
+                        },
+                        "finish_reason": "stop",
+                    }
+                ]
+            ),
+        )
+
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+        )
+        conversation = Conversation(
+            messages=[Message(role=Role.USER, content="Hi")],
+            metadata={"custom_key": "custom_value"},
+        )
+        result = engine.infer([conversation], _get_default_inference_config())
+
+        assert len(result) == 1
+        assert result[0].metadata.get("finish_reason") == "stop"
+        assert result[0].metadata.get("custom_key") == "custom_value"
+
+
+@pytest.mark.asyncio
+async def test_cancel_batch():
+    """Test cancelling a batch job."""
+    with aioresponses() as m:
+        m.post(
+            f"{_TARGET_SERVER_BASE}/v1/batches/batch-123/cancel",
+            status=200,
+            payload={
+                "id": "batch-123",
+                "status": "cancelling",
+                "request_counts": {
+                    "total": 10,
+                    "completed": 3,
+                    "failed": 0,
+                },
+            },
+        )
+
+        engine = _make_engine()
+        status = await engine._cancel_batch("batch-123")
+        assert status.id == "batch-123"
+        assert status.status == BatchStatus.CANCELLING
+        assert status.total_requests == 10
+        assert status.completed_requests == 3
+
+
+@pytest.mark.asyncio
+async def test_cancel_batch_http_400_error():
+    """Test cancel_batch raises RuntimeError on 400 (batch already terminal)."""
+    with aioresponses() as m:
+        m.post(
+            f"{_TARGET_SERVER_BASE}/v1/batches/batch-123/cancel",
+            status=400,
+            body="Batch already completed",
+        )
+
+        engine = _make_engine()
+        with pytest.raises(RuntimeError, match="Failed to cancel batch"):
+            await engine._cancel_batch("batch-123")
+
+
+@pytest.mark.asyncio
+async def test_cancel_batch_http_404_error():
+    """Test cancel_batch raises RuntimeError on 404 (batch not found)."""
+    with aioresponses() as m:
+        m.post(
+            f"{_TARGET_SERVER_BASE}/v1/batches/batch-123/cancel",
+            status=404,
+            body="Batch not found",
+        )
+
+        engine = _make_engine()
+        with pytest.raises(RuntimeError, match="Failed to cancel batch"):
+            await engine._cancel_batch("batch-123")
+
+
+def test_cancel_batch_public():
+    """Test the public cancel_batch method."""
+    with aioresponses() as m:
+        m.post(
+            f"{_TARGET_SERVER_BASE}/v1/batches/batch-123/cancel",
+            status=200,
+            payload={
+                "id": "batch-123",
+                "status": "cancelling",
+                "request_counts": {
+                    "total": 10,
+                    "completed": 3,
+                    "failed": 0,
+                },
+            },
+        )
+
+        engine = _make_engine()
+        status = engine.cancel_batch("batch-123")
+        assert status.id == "batch-123"
+        assert status.status == BatchStatus.CANCELLING
+
+
+def test_rate_limiter_not_instantiated_when_no_limits():
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
+    )
+    assert engine._rate_limiter is None
+
+
+def test_rate_limiter_wait_if_needed_called_before_request():
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(),
+        remote_params=RemoteParams(
+            api_url=_TARGET_SERVER,
+            requests_per_minute=60,
+        ),
+    )
+    assert engine._rate_limiter is not None
+
+    mock_wait = AsyncMock()
+    with patch.object(engine._rate_limiter, "wait_if_needed", mock_wait):
+        with aioresponses() as m:
+            m.post(
+                _TARGET_SERVER,
+                status=200,
+                payload={
+                    "choices": [{"message": {"role": "assistant", "content": "Hello!"}}]
+                },
+            )
+            engine.infer(
+                [create_test_text_only_conversation()],
+                _get_default_inference_config(),
+            )
+
+    mock_wait.assert_called_once()
+
+
+def test_rate_limiter_record_usage_called_after_response():
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(),
+        remote_params=RemoteParams(
+            api_url=_TARGET_SERVER,
+            requests_per_minute=60,
+        ),
+    )
+    assert engine._rate_limiter is not None
+
+    mock_record = AsyncMock()
+    with patch.object(engine._rate_limiter, "record_usage", mock_record):
+        with aioresponses() as m:
+            m.post(
+                _TARGET_SERVER,
+                status=200,
+                payload={
+                    "choices": [
+                        {"message": {"role": "assistant", "content": "Hello!"}}
+                    ],
+                    "usage": {
+                        "prompt_tokens": 25,
+                        "completion_tokens": 10,
+                        "total_tokens": 35,
+                    },
+                },
+            )
+            engine.infer(
+                [create_test_text_only_conversation()],
+                _get_default_inference_config(),
+            )
+
+    mock_record.assert_called_once_with(input_tokens=25, output_tokens=10)
+
+
+#
+# Tool-calling tests
+#
+_WEATHER_TOOL_DICT: Final = {
+    "type": "function",
+    "function": {
+        "name": "get_weather",
+        "description": "Get current weather for a city.",
+        "parameters": {
+            "type": "object",
+            "properties": {"city": {"type": "string"}},
+            "required": ["city"],
+        },
+    },
+}
+
+_WEATHER_TOOL: Final = ToolDefinition.model_validate(_WEATHER_TOOL_DICT)
+
+
+def _capture_request_body() -> tuple[Any, Any]:
+    """Returns (callback, captured) where captured["body"] receives the JSON body."""
+    captured: dict[str, Any] = {}
+
+    def callback(url: str, **kwargs: Any) -> CallbackResult:
+        captured["body"] = kwargs.get("json", {})
+        return CallbackResult(
+            status=200,
+            payload={
+                "choices": [
+                    {
+                        "message": {"role": "assistant", "content": "ok"},
+                        "finish_reason": "stop",
+                    }
+                ]
+            },
+        )
+
+    return callback, captured
+
+
+def test_request_body_includes_tools():
+    """Conversation.tools is dumped to the OpenAI wire shape on the request."""
+    callback, captured = _capture_request_body()
+    with aioresponses() as m:
+        m.post(_TARGET_SERVER, callback=callback)
+        engine = RemoteInferenceEngine(
+            _get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+        )
+        conversation = Conversation(
+            tools=[_WEATHER_TOOL],
+            messages=[Message(role=Role.USER, content="weather in Tokyo?")],
+        )
+        engine.infer([conversation], _get_default_inference_config())
+
+    assert captured["body"]["tools"] == [_WEATHER_TOOL_DICT]
+
+
+def test_request_body_includes_tool_choice():
+    """tool_choice lands on the request when set; absent when None."""
+    callback, captured = _capture_request_body()
+    with aioresponses() as m:
+        m.post(_TARGET_SERVER, callback=callback, repeat=True)
+        engine = RemoteInferenceEngine(
+            _get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+        )
+        conversation = Conversation(
+            tools=[_WEATHER_TOOL],
+            messages=[Message(role=Role.USER, content="hi")],
+        )
+        # Default: not present.
+        engine.infer([conversation], _get_default_inference_config())
+        assert "tool_choice" not in captured["body"]
+
+        # Explicit value lands as-is.
+        config = _get_default_inference_config()
+        config.generation.tool_choice = "auto"
+        engine.infer([conversation], config)
+        assert captured["body"]["tool_choice"] == "auto"
+
+
+def test_request_body_includes_parallel_tool_calls():
+    """parallel_tool_calls=False is forwarded; True (default) is omitted."""
+    callback, captured = _capture_request_body()
+    with aioresponses() as m:
+        m.post(_TARGET_SERVER, callback=callback, repeat=True)
+        engine = RemoteInferenceEngine(
+            _get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+        )
+        conversation = Conversation(
+            tools=[_WEATHER_TOOL],
+            messages=[Message(role=Role.USER, content="hi")],
+        )
+        engine.infer([conversation], _get_default_inference_config())
+        assert "parallel_tool_calls" not in captured["body"]
+
+        config = _get_default_inference_config()
+        config.generation.parallel_tool_calls = False
+        engine.infer([conversation], config)
+        assert captured["body"]["parallel_tool_calls"] is False
+
+
+def test_request_forwards_tool_calls_and_tool_call_id():
+    """Multi-turn tool messages survive the round-trip into the request body."""
+    callback, captured = _capture_request_body()
+    tool_call_dict = {
+        "id": "call_abc",
+        "type": "function",
+        "function": {"name": "get_weather", "arguments": '{"city":"Tokyo"}'},
+    }
+    with aioresponses() as m:
+        m.post(_TARGET_SERVER, callback=callback)
+        engine = RemoteInferenceEngine(
+            _get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+        )
+        conversation = Conversation(
+            tools=[_WEATHER_TOOL],
+            messages=[
+                Message(role=Role.USER, content="weather in Tokyo?"),
+                Message(
+                    role=Role.ASSISTANT,
+                    content=None,
+                    tool_calls=[ToolCall.model_validate(tool_call_dict)],
+                ),
+                Message(role=Role.TOOL, content="22C, sunny", tool_call_id="call_abc"),
+            ],
+        )
+        engine.infer([conversation], _get_default_inference_config())
+
+    sent = captured["body"]["messages"]
+    assert sent[0]["role"] == "user"
+    assert sent[1]["role"] == "assistant"
+    assert sent[1]["content"] is None
+    assert sent[1]["tool_calls"] == [tool_call_dict]
+    assert sent[2]["role"] == "tool"
+    assert sent[2]["content"] == "22C, sunny"
+    assert sent[2]["tool_call_id"] == "call_abc"
+
+
+def test_response_populates_tool_calls():
+    """An API response with tool_calls produces typed Message.tool_calls."""
+    tool_call_payload = {
+        "id": "call_xyz",
+        "type": "function",
+        "function": {"name": "get_weather", "arguments": '{"city":"Paris"}'},
+    }
+    with aioresponses() as m:
+        m.post(
+            _TARGET_SERVER,
+            status=200,
+            payload={
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": None,
+                            "tool_calls": [tool_call_payload],
+                        },
+                        "finish_reason": "tool_calls",
+                    }
+                ]
+            },
+        )
+        engine = RemoteInferenceEngine(
+            _get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+        )
+        conversation = Conversation(
+            tools=[_WEATHER_TOOL],
+            messages=[Message(role=Role.USER, content="weather in Paris?")],
+        )
+        results = engine.infer([conversation], _get_default_inference_config())
+
+    assistant = results[0].messages[-1]
+    assert assistant.role == Role.ASSISTANT
+    assert assistant.content is None
+    assert assistant.tool_calls is not None
+    assert [tc.model_dump(mode="json") for tc in assistant.tool_calls] == [
+        tool_call_payload
+    ]
+    assert results[0].metadata["finish_reason"] == "tool_calls"
+    # Tools propagate through to the result so downstream callers can inspect.
+    assert results[0].tools == [_WEATHER_TOOL]

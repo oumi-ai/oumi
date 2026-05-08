@@ -81,25 +81,25 @@ def test_phi3_tokenization(phi3_tokenizer):
 
     tokens = phi3_tokenizer.encode(prompt, add_special_tokens=False)
     expected_tokens = [
-        32010,
-        29871,
-        13,
-        5618,
-        338,
-        445,
-        29973,
-        32007,
-        29871,
-        13,
-        32001,
-        910,
-        338,
-        263,
-        1243,
-        29889,
-        32007,
-        29871,
-        13,
+        32010,  # <|user|>
+        29871,  # whitespace
+        13,  # \n
+        5618,  # What
+        338,  # is
+        445,  # this
+        29973,  # ?
+        32007,  # <|end|>
+        29871,  # whitespace
+        13,  # \n
+        32001,  # <|assistant|>
+        910,  # This (with leading space)
+        338,  # is
+        263,  # a
+        1243,  # test
+        29889,  # .
+        32007,  # <|end|>
+        29871,  # whitespace
+        13,  # \n
     ]
     assert tokens == expected_tokens, f"Expected {expected_tokens}, got {tokens}"
 

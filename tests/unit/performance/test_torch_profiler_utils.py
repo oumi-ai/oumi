@@ -80,7 +80,7 @@ def test_torch_profile(params: ProfilerParams):
 
     x = torch.from_numpy(x.astype(dtype=np.float32))
     targets = torch.from_numpy(
-        np.reshape(targets, newshape=(BATCH_SIZE, 1)).astype(dtype=np.float32)
+        np.reshape(targets, (BATCH_SIZE, 1)).astype(dtype=np.float32)
     )
     mlp = SimpleMLP()
 

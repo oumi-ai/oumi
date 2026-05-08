@@ -1,4 +1,4 @@
-![Oumi Logo](https://github.com/oumi-ai/oumi/raw/main/docs/_static/logo/header_logo.png)
+![Oumi Logo](https://github.com/oumi-ai/oumi/raw/main/docs/_static/logo/header_readme.svg)
 
 [![Documentation](https://img.shields.io/badge/Documentation-oumi-blue.svg)](https://oumi.ai/docs/en/latest/index.html)
 [![Blog](https://img.shields.io/badge/Blog-oumi-blue.svg)](https://oumi.ai/blog)
@@ -13,7 +13,7 @@
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 [![About](https://img.shields.io/badge/About-oumi-blue.svg)](https://oumi.ai)
 
-### Everything you need to build state-of-the-art foundation models, end-to-end.
+### Everything you need to build state-of-the-art foundation models, end-to-end
 
 <p align="center">
   <a href="https://trendshift.io/repositories/12865">
@@ -22,10 +22,23 @@
 </p>
 
 ## 🔥 News
+
+- [2026/05] [Oumi v0.8 released](https://github.com/oumi-ai/oumi/releases/tag/v0.8) with `oumi deploy` CLI for dedicated inference endpoints, an `oumi-mcp` MCP server for Claude/Cursor integration, batch API support across Anthropic/Fireworks/Together, and Transformers v5 / TRL / vLLM dependency upgrades
+- [2026/03] Upgraded to Transformers v5, TRL v0.30, vLLM v0.19, and veRL v0.7 compatibility
+- [2026/03] [MCP Integration Phase 1](https://github.com/oumi-ai/oumi/pull/2234): package scaffold and dependencies for MCP server support
+- [2026/03] New: `oumi deploy` command for deploying oumi models dedicated inference endpoints on fireworks.ai and parasail
+- [2026/03] Added support for Qwen3.5 model family
+- [2026/03] Inference engines received multiple improvements: list_models api, improved error reporting
+- [2026/02] [Preview of using the Oumi Platform and Lambda to fine-tune and deploy a 4B model for user intent classification](https://youtu.be/0XpfYRpd_FA)
+- [2026/02] [Lambda and Oumi partner for end-to-end custom model development](https://blog.oumi.ai/p/lambda-and-oumi-partner-for-end-to)
 - [2025/12] [Oumi v0.6.0 released](https://github.com/oumi-ai/oumi/releases/tag/v0.6.0) with Python 3.13 support, `oumi analyze` CLI command, TRL 0.26+ support, and more
 - [2025/12] [WeMakeDevs AI Agents Assemble Hackathon: Oumi webinar on Finetuning for Text-to-SQL](https://www.youtube.com/watch?v=6wPikqRZ7bQ&t=3203s)
 - [2025/12] [Oumi co-sponsors WeMakeDevs AI Agents Assemble Hackathon with over 2000 project submissions](https://www.wemakedevs.org/hackathons/assemblehack25)
 - [2025/11] [Oumi v0.5.0 released](https://github.com/oumi-ai/oumi/releases/tag/v0.5) with advanced data synthesis, hyperparameter tuning automation, support for OpenEnv, and more
+
+<details>
+<summary>Older updates</summary>
+
 - [2025/11] [Example notebook to perform RLVF fine-tuning with OpenEnv](https://github.com/oumi-ai/oumi/blob/main/notebooks/Oumi%20-%20OpenEnv%20GRPO%20with%20trl.ipynb), an open source library from the Meta PyTorch team for creating, deploying, and distributing agentic RL environments
 - [2025/10] [Oumi v0.4.1](https://github.com/oumi-ai/oumi/releases/tag/v0.4.1) and [v0.4.2](https://github.com/oumi-ai/oumi/releases/tag/v0.4.2) released] with support for Qwen3-VL and Transformers v4.56, data synthesis documentation and examples, and many bug fixes
 - [2025/09] [Oumi v0.4.0 released](https://github.com/oumi-ai/oumi/releases/tag/v0.4.0) with DeepSpeed support, a Hugging Face Hub cache management tool, KTO/Vision DPO trainer support
@@ -43,7 +56,10 @@
 - [2025/04] Introducing HallOumi: a State-of-the-Art Claim-Verification Model [(technical overview)](https://oumi.ai/blog/posts/introducing-halloumi)
 - [2025/04] Oumi now supports two new Vision-Language models: [Phi4](https://github.com/oumi-ai/oumi/tree/main/configs/recipes/vision/phi4) and [Qwen 2.5](https://github.com/oumi-ai/oumi/tree/main/configs/recipes/vision/qwen2_5_vl_3b)
 
+</details>
+
 ## 🔎 About
+
 Oumi is a fully open-source platform that streamlines the entire lifecycle of foundation models - from data preparation and training to evaluation and deployment. Whether you're developing on a laptop, launching large scale experiments on a cluster, or deploying models in production, Oumi provides the tools and workflows you need.
 
 With Oumi, you can:
@@ -75,21 +91,55 @@ Learn more at [oumi.ai](https://oumi.ai/docs), or jump right in with the [quicks
 
 ### Installation
 
-Installing oumi in your environment is straightforward:
+Choose the installation method that works best for you:
 
-```shell
-# Install the package (CPU & NPU only)
-pip install oumi  # For local development & testing
+<details open>
+<summary><b>Using pip (Recommended)</b></summary>
 
-# OR, with GPU support (Requires Nvidia or AMD GPU)
-pip install oumi[gpu]  # For GPU training
+```bash
+# Basic installation
+uv pip install oumi
 
-# To get the latest version, install from the source
-pip install git+https://github.com/oumi-ai/oumi.git
+# With GPU support
+uv pip install 'oumi[gpu]'
+
+# Latest development version
+uv pip install git+https://github.com/oumi-ai/oumi.git
 ```
 
-For more advanced installation options, see the [installation guide](https://oumi.ai/docs/en/latest/get_started/installation.html).
+Don't have uv? [Install it](https://docs.astral.sh/uv/getting-started/installation/) or use `pip` instead.
 
+</details>
+
+<details>
+<summary><b>Using Docker</b></summary>
+
+```bash
+# Pull the latest image
+docker pull ghcr.io/oumi-ai/oumi:latest
+
+# Run oumi commands
+docker run --gpus all -it ghcr.io/oumi-ai/oumi:latest oumi --help
+
+# Train with a mounted config
+docker run --gpus all -v $(pwd):/workspace -it ghcr.io/oumi-ai/oumi:latest \
+    oumi train --config /workspace/my_config.yaml
+```
+
+</details>
+
+<details>
+<summary><b>Quick Install Script (Experimental)</b></summary>
+
+Try Oumi without setting up a Python environment. This installs Oumi in an isolated environment:
+
+```bash
+curl -LsSf https://oumi.ai/install.sh | bash
+```
+
+</details>
+
+For more advanced installation options, see the [installation guide](https://oumi.ai/docs/en/latest/get_started/installation.html).
 
 ### Oumi CLI
 
@@ -127,7 +177,6 @@ oumi launch up -c configs/recipes/smollm/sft/135m/quickstart_gcp_job.yaml --reso
 ```
 
 **Note:** Oumi is in <ins>beta</ins> and under active development. The core features are stable, but some advanced features might change as the platform improves.
-
 
 ## 💻 Why use Oumi?
 
@@ -317,7 +366,7 @@ Models prefixed with a checkmark (✅) have been thoroughly tested and validated
 
 To learn more about all the platform's capabilities, see the [Oumi documentation](https://oumi.ai/docs).
 
-## 🤝 Join the Community!
+## 🤝 Join the Community
 
 Oumi is a community-first effort. Whether you are a developer, a researcher, or a non-technical user, all contributions are very welcome!
 
@@ -346,6 +395,5 @@ If you find Oumi useful in your research, please consider citing it:
 ## 📜 License
 
 This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details.
-
 
 [^1]: Open models are defined as models with fully open weights, training code, and data, and a permissive license. See [Open Source Definitions](https://opensource.org/ai) for more information.

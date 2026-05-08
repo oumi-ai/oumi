@@ -24,6 +24,7 @@ from oumi.core.configs.params.synthesis_params import (
     ExampleSource,
     GeneralSynthesisParams,
     GeneratedAttribute,
+    MultiTurnAttribute,
     SampledAttribute,
     SampledAttributeValue,
     SegmentationStrategy,
@@ -34,6 +35,7 @@ from oumi.core.configs.params.synthesis_params import (
     TransformedAttribute,
 )
 from oumi.core.types.conversation import Role
+from oumi.exceptions import OumiConfigError
 
 
 def test_dataset_source_valid():
@@ -62,10 +64,10 @@ def test_dataset_source_valid():
 
 
 def test_dataset_source_invalid():
-    with pytest.raises(ValueError, match="DatasetSource.path cannot be empty."):
+    with pytest.raises(OumiConfigError, match="DatasetSource.path cannot be empty."):
         DatasetSource(path="")
 
-    with pytest.raises(ValueError, match="Unsupported dataset file type:"):
+    with pytest.raises(OumiConfigError, match="Unsupported dataset file type:"):
         DatasetSource(path="data.txt")
 
 
@@ -94,16 +96,16 @@ def test_document_segmentation_params_valid():
 def test_document_segmentation_params_invalid():
     # Test overlap >= length
     with pytest.raises(
-        ValueError, match="Segment overlap must be less than segment length"
+        OumiConfigError, match="Segment overlap must be less than segment length"
     ):
         DocumentSegmentationParams(id="test", segment_length=100, segment_overlap=100)
 
     # Test negative overlap
-    with pytest.raises(ValueError, match="Segment overlap must be non-negative"):
+    with pytest.raises(OumiConfigError, match="Segment overlap must be non-negative"):
         DocumentSegmentationParams(id="test", segment_overlap=-1)
 
     # Test non-positive length
-    with pytest.raises(ValueError, match="Segment length must be positive"):
+    with pytest.raises(OumiConfigError, match="Segment length must be positive"):
         DocumentSegmentationParams(id="test", segment_length=0)
 
 
@@ -122,11 +124,11 @@ def test_document_source_valid():
 
 def test_document_source_invalid():
     # Test empty path
-    with pytest.raises(ValueError, match="DocumentSource.path cannot be empty"):
+    with pytest.raises(OumiConfigError, match="DocumentSource.path cannot be empty"):
         DocumentSource(path="", id="test")
 
     # Test empty id
-    with pytest.raises(ValueError, match="DocumentSource.id cannot be empty"):
+    with pytest.raises(OumiConfigError, match="DocumentSource.id cannot be empty"):
         DocumentSource(path="doc.txt", id="")
 
 
@@ -142,11 +144,11 @@ def test_example_source_valid():
 
 def test_example_source_invalid():
     # Test empty examples
-    with pytest.raises(ValueError, match="ExampleSource.examples cannot be empty"):
+    with pytest.raises(OumiConfigError, match="ExampleSource.examples cannot be empty"):
         ExampleSource(examples=[])
 
     # Test inconsistent keys
-    with pytest.raises(ValueError, match="All examples must have the same keys"):
+    with pytest.raises(OumiConfigError, match="All examples must have the same keys"):
         ExampleSource(
             examples=[
                 {"field1": "value1", "field2": "value2"},
@@ -174,22 +176,29 @@ def test_permutable_attribute_value_valid():
 
 def test_permutable_attribute_value_invalid():
     # Test empty id
-    with pytest.raises(ValueError, match="SampledAttributeValue.id cannot be empty"):
+    with pytest.raises(
+        OumiConfigError,
+        match="SampledAttributeValue.id cannot be empty",
+    ):
         SampledAttributeValue(id="", name="test", description="test")
 
     # Test empty value
-    with pytest.raises(ValueError, match="SampledAttributeValue.name cannot be empty"):
+    with pytest.raises(
+        OumiConfigError,
+        match="SampledAttributeValue.name cannot be empty",
+    ):
         SampledAttributeValue(id="test", name="", description="test")
 
     # Test empty description
     with pytest.raises(
-        ValueError, match="SampledAttributeValue.description cannot be empty"
+        OumiConfigError, match="SampledAttributeValue.description cannot be empty"
     ):
         SampledAttributeValue(id="test", name="test", description="")
 
     # Test invalid sample rate
     with pytest.raises(
-        ValueError, match="SampledAttributeValue.sample_rate must be between 0 and 1"
+        OumiConfigError,
+        match="SampledAttributeValue.sample_rate must be between 0 and 1",
     ):
         SampledAttributeValue(
             id="test", name="test", description="test", sample_rate=1.5
@@ -236,7 +245,7 @@ def test_permutable_attribute_valid():
 
 def test_permutable_attribute_invalid():
     # Test empty id
-    with pytest.raises(ValueError, match="SampledAttribute.id cannot be empty"):
+    with pytest.raises(OumiConfigError, match="SampledAttribute.id cannot be empty"):
         SampledAttribute(
             id="",
             name="test",
@@ -247,7 +256,7 @@ def test_permutable_attribute_invalid():
         )
 
     # Test empty attribute
-    with pytest.raises(ValueError, match="SampledAttribute.name cannot be empty"):
+    with pytest.raises(OumiConfigError, match="SampledAttribute.name cannot be empty"):
         SampledAttribute(
             id="test",
             name="",
@@ -259,7 +268,7 @@ def test_permutable_attribute_invalid():
 
     # Test empty description
     with pytest.raises(
-        ValueError, match="SampledAttribute.description cannot be empty"
+        OumiConfigError, match="SampledAttribute.description cannot be empty"
     ):
         SampledAttribute(
             id="test",
@@ -272,13 +281,13 @@ def test_permutable_attribute_invalid():
 
     # Test empty possible values
     with pytest.raises(
-        ValueError, match="SampledAttribute.possible_values cannot be empty"
+        OumiConfigError, match="SampledAttribute.possible_values cannot be empty"
     ):
         SampledAttribute(id="test", name="test", description="test", possible_values=[])
 
     # Test duplicate value ids
     with pytest.raises(
-        ValueError, match="SampledAttribute.possible_values must have unique IDs"
+        OumiConfigError, match="SampledAttribute.possible_values must have unique IDs"
     ):
         SampledAttribute(
             id="test",
@@ -292,7 +301,8 @@ def test_permutable_attribute_invalid():
 
     # Test sample rates sum > 1
     with pytest.raises(
-        ValueError, match="SampledAttribute.possible_values must sum to at most 1.0"
+        OumiConfigError,
+        match="SampledAttribute.possible_values must sum to at most 1.0",
     ):
         SampledAttribute(
             id="test",
@@ -381,31 +391,33 @@ def test_attribute_combination_valid():
 def test_attribute_combination_invalid():
     # Test invalid sample rate
     with pytest.raises(
-        ValueError, match="AttributeCombination.sample_rate must be between 0 and 1"
+        OumiConfigError,
+        match="AttributeCombination.sample_rate must be between 0 and 1",
     ):
         AttributeCombination(combination={"attr1": "value1"}, sample_rate=1.5)
 
     # Test single key combination
     with pytest.raises(
-        ValueError, match="AttributeCombination.combination must have at least two keys"
+        OumiConfigError,
+        match="AttributeCombination.combination must have at least two keys",
     ):
         AttributeCombination(combination={"attr1": "value1"}, sample_rate=0.5)
 
     # Test empty combination
     with pytest.raises(
-        ValueError, match="AttributeCombination.combination cannot be empty"
+        OumiConfigError, match="AttributeCombination.combination cannot be empty"
     ):
         AttributeCombination(combination={}, sample_rate=0.5)
 
     # Test empty key
     with pytest.raises(
-        ValueError, match="AttributeCombination.combination key cannot be empty"
+        OumiConfigError, match="AttributeCombination.combination key cannot be empty"
     ):
         AttributeCombination(combination={"": "value1"}, sample_rate=0.5)
 
     # Test empty value
     with pytest.raises(
-        ValueError, match="AttributeCombination.combination value cannot be empty"
+        OumiConfigError, match="AttributeCombination.combination value cannot be empty"
     ):
         AttributeCombination(combination={"attr1": ""}, sample_rate=0.5)
 
@@ -426,16 +438,100 @@ def test_generated_attribute_invalid():
     # Test empty id
     messages = [TextMessage(role=Role.SYSTEM, content="System message")]
 
-    with pytest.raises(ValueError, match="GeneratedAttribute.id cannot be empty"):
+    with pytest.raises(OumiConfigError, match="GeneratedAttribute.id cannot be empty"):
         GeneratedAttribute(id="", instruction_messages=messages)
 
     # Test None instruction messages
     with pytest.raises(
-        ValueError, match="GeneratedAttribute.instruction_messages cannot be empty"
+        OumiConfigError, match="GeneratedAttribute.instruction_messages cannot be empty"
     ):
         GeneratedAttribute(
             id="test",
             instruction_messages=None,  # type: ignore
+        )
+
+
+def test_multiturn_attribute_invalid_min_turns():
+    with pytest.raises(
+        OumiConfigError, match="MultiTurnAttribute.min_turns must be at least 1."
+    ):
+        MultiTurnAttribute(
+            id="conversation",
+            min_turns=0,
+            max_turns=2,
+            role_instruction_messages={
+                Role.USER: "You are a user.",
+                Role.ASSISTANT: "You are an assistant.",
+            },
+        )
+
+
+def test_multiturn_attribute_invalid_max_turns():
+    with pytest.raises(
+        OumiConfigError,
+        match=(
+            "MultiTurnAttribute.max_turns must be greater than or equal to min_turns."
+        ),
+    ):
+        MultiTurnAttribute(
+            id="conversation",
+            min_turns=2,
+            max_turns=1,
+            role_instruction_messages={
+                Role.USER: "You are a user.",
+                Role.ASSISTANT: "You are an assistant.",
+            },
+        )
+
+
+def test_multiturn_attribute_invalid_output_system_prompt():
+    with pytest.raises(
+        OumiConfigError,
+        match="MultiTurnAttribute.output_system_prompt must be a non-empty string.",
+    ):
+        MultiTurnAttribute(
+            id="conversation",
+            min_turns=1,
+            max_turns=2,
+            role_instruction_messages={
+                Role.USER: "You are a user.",
+                Role.ASSISTANT: "You are an assistant.",
+            },
+            output_system_prompt="",
+        )
+
+
+def test_multiturn_attribute_missing_role_instructions():
+    with pytest.raises(
+        OumiConfigError,
+        match="MultiTurnAttribute.role_instruction_messages must define instructions",
+    ):
+        MultiTurnAttribute(
+            id="conversation",
+            min_turns=1,
+            max_turns=2,
+            role_instruction_messages={
+                Role.USER: "You are a user.",
+            },
+        )
+
+
+def test_multiturn_attribute_empty_role_instructions():
+    with pytest.raises(
+        OumiConfigError,
+        match=(
+            "MultiTurnAttribute.role_instruction_messages must include a "
+            "non-empty persona"
+        ),
+    ):
+        MultiTurnAttribute(
+            id="conversation",
+            min_turns=1,
+            max_turns=2,
+            role_instruction_messages={
+                Role.USER: "",
+                Role.ASSISTANT: "You are an assistant.",
+            },
         )
 
 
@@ -451,7 +547,7 @@ def test_list_transform_valid():
 def test_list_transform_invalid():
     # Test empty transforms
     with pytest.raises(
-        ValueError, match="list_transform cannot be empty when type=LIST"
+        OumiConfigError, match="list_transform cannot be empty when type=LIST"
     ):
         TransformationStrategy(type=TransformationType.LIST, list_transform=[])
 
@@ -468,7 +564,7 @@ def test_dict_transform_valid():
 def test_dict_transform_invalid():
     # Test empty transforms
     with pytest.raises(
-        ValueError, match="dict_transform cannot be empty when type=DICT"
+        OumiConfigError, match="dict_transform cannot be empty when type=DICT"
     ):
         TransformationStrategy(type=TransformationType.DICT, dict_transform={})
 
@@ -491,7 +587,7 @@ def test_chat_transform_invalid():
     # Test empty messages list
     empty_conversation = TextConversation(messages=[])
     with pytest.raises(
-        ValueError,
+        OumiConfigError,
         match="chat_transform cannot be empty when type=CHAT",
     ):
         TransformationStrategy(
@@ -504,7 +600,7 @@ def test_chat_transform_invalid():
     mock_message.role = Role.SYSTEM
     conversation = TextConversation(messages=[mock_message])
     with pytest.raises(
-        ValueError,
+        OumiConfigError,
         match="chat_transform message content must be a string",
     ):
         TransformationStrategy(
@@ -516,7 +612,7 @@ def test_chat_transform_invalid():
         messages=[TextMessage(role=Role.SYSTEM, content="")]
     )
     with pytest.raises(
-        ValueError,
+        OumiConfigError,
         match="chat_transform message content cannot be empty",
     ):
         TransformationStrategy(
@@ -538,7 +634,10 @@ def test_transformed_attribute_valid():
 
 def test_transformed_attribute_invalid():
     # Test empty id
-    with pytest.raises(ValueError, match="TransformedAttribute.id cannot be empty"):
+    with pytest.raises(
+        OumiConfigError,
+        match="TransformedAttribute.id cannot be empty",
+    ):
         TransformedAttribute(
             id="",
             transformation_strategy=TransformationStrategy(
@@ -591,6 +690,18 @@ def test_general_synthesis_params_valid():
                 ],
             )
         ],
+        multiturn_attributes=[
+            MultiTurnAttribute(
+                id="conversation",
+                min_turns=1,
+                max_turns=2,
+                role_instruction_messages={
+                    Role.USER: "You are a user. Turn {current_turn}",
+                    Role.ASSISTANT: "You are an assistant. Turn {current_turn}",
+                },
+                conversation_planner="Plan a {target_turns}-turn conversation.",
+            )
+        ],
         transformed_attributes=[
             TransformedAttribute(
                 id="trans1",
@@ -621,54 +732,40 @@ def test_general_synthesis_params_valid():
     assert sum(c.sample_rate for c in params.combination_sampling) <= 1.0
 
 
+def test_general_synthesis_params_empty_lists_normalized_to_none():
+    """Empty lists should be treated as if the attribute was not provided (None)."""
+    params = GeneralSynthesisParams(input_data=[])
+    assert params.input_data is None
+
+    params = GeneralSynthesisParams(input_documents=[])
+    assert params.input_documents is None
+
+    params = GeneralSynthesisParams(input_examples=[])
+    assert params.input_examples is None
+
+    params = GeneralSynthesisParams(sampled_attributes=[])
+    assert params.sampled_attributes is None
+
+    params = GeneralSynthesisParams(combination_sampling=[])
+    assert params.combination_sampling is None
+
+    params = GeneralSynthesisParams(generated_attributes=[])
+    assert params.generated_attributes is None
+
+    params = GeneralSynthesisParams(transformed_attributes=[])
+    assert params.transformed_attributes is None
+
+    params = GeneralSynthesisParams(multiturn_attributes=[])
+    assert params.multiturn_attributes is None
+
+    params = GeneralSynthesisParams(passthrough_attributes=[])
+    assert params.passthrough_attributes is None
+
+
 def test_general_synthesis_params_invalid():
-    # Test empty lists
-    with pytest.raises(
-        ValueError, match="GeneralSynthesisParams.input_data cannot be empty."
-    ):
-        GeneralSynthesisParams(input_data=[])
-
-    with pytest.raises(
-        ValueError, match="GeneralSynthesisParams.input_documents cannot be empty."
-    ):
-        GeneralSynthesisParams(input_documents=[])
-
-    with pytest.raises(
-        ValueError, match="GeneralSynthesisParams.input_examples cannot be empty."
-    ):
-        GeneralSynthesisParams(input_examples=[])
-
-    with pytest.raises(
-        ValueError,
-        match="GeneralSynthesisParams.sampled_attributes cannot be empty.",
-    ):
-        GeneralSynthesisParams(sampled_attributes=[])
-
-    with pytest.raises(
-        ValueError, match="GeneralSynthesisParams.combination_sampling cannot be empty."
-    ):
-        GeneralSynthesisParams(combination_sampling=[])
-
-    with pytest.raises(
-        ValueError, match="GeneralSynthesisParams.generated_attributes cannot be empty."
-    ):
-        GeneralSynthesisParams(generated_attributes=[])
-
-    with pytest.raises(
-        ValueError,
-        match="GeneralSynthesisParams.transformed_attributes cannot be empty.",
-    ):
-        GeneralSynthesisParams(transformed_attributes=[])
-
-    with pytest.raises(
-        ValueError,
-        match="GeneralSynthesisParams.passthrough_attributes cannot be empty.",
-    ):
-        GeneralSynthesisParams(passthrough_attributes=[])
-
     # Test duplicate attribute IDs
     with pytest.raises(
-        ValueError, match="GeneralSynthesisParams contains duplicate attribute IDs"
+        OumiConfigError, match="Attribute ID 'new_attr1' is used more than once"
     ):
         GeneralSynthesisParams(
             input_data=[
@@ -677,11 +774,52 @@ def test_general_synthesis_params_invalid():
             ]
         )
 
-    # Test combination sampling rates sum > 1.0
+    reserved_ids = ["target_turns", "current_turn"]
+    for reserved_id in reserved_ids:
+        with pytest.raises(
+            OumiConfigError,
+            match=f"Attribute ID '{reserved_id}' is reserved for multiturn synthesis",
+        ):
+            GeneralSynthesisParams(
+                generated_attributes=[
+                    GeneratedAttribute(
+                        id=reserved_id,
+                        instruction_messages=[
+                            TextMessage(role=Role.SYSTEM, content="System message"),
+                        ],
+                    )
+                ]
+            )
+
     with pytest.raises(
-        ValueError,
-        match="GeneralSynthesisParams.combination_sampling sample rates must be "
-        "less than or equal to 1.0",
+        OumiConfigError,
+        match="Attribute ID 'conversation_plan' is reserved for multiturn synthesis",
+    ):
+        GeneralSynthesisParams(
+            generated_attributes=[
+                GeneratedAttribute(
+                    id="conversation_plan",
+                    instruction_messages=[
+                        TextMessage(role=Role.SYSTEM, content="System message"),
+                    ],
+                )
+            ],
+            multiturn_attributes=[
+                MultiTurnAttribute(
+                    id="conversation",
+                    min_turns=1,
+                    max_turns=2,
+                    role_instruction_messages={
+                        Role.USER: "You are a user.",
+                        Role.ASSISTANT: "You are an assistant.",
+                    },
+                )
+            ],
+        )
+
+    with pytest.raises(
+        OumiConfigError,
+        match="Combination sampling rates must sum to 1.0 or less",
     ):
         GeneralSynthesisParams(
             combination_sampling=[

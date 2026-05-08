@@ -16,11 +16,13 @@ import math
 import warnings
 from dataclasses import dataclass, field, fields
 from enum import Enum
+from pathlib import Path
 from typing import Any, Literal
 
 from omegaconf import MISSING
 
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.exceptions import OumiConfigError
 
 
 # Training Params
@@ -49,7 +51,29 @@ class MixtureStrategy(str, Enum):
         elif self.value == MixtureStrategy.ALL_EXHAUSTED:
             return "all_exhausted"
         else:
-            raise ValueError("Unsupported value for MixtureStrategy")
+            raise OumiConfigError("Unsupported value for MixtureStrategy")
+
+
+class TrainTarget(str, Enum):
+    """Controls which tokens contribute to the loss during training.
+
+    Used with the ``text_completions_only_with_padding`` collator to
+    select the training target. Template tokens are auto-resolved
+    from the tokenizer vocabulary.
+
+    Members:
+        ALL_ASSISTANT_TURNS: Train on all assistant response turns including
+            tool calls. Uses span-based masking: system prompts, user
+            messages, and tool results are masked; everything between the
+            assistant header and the end-of-turn token (inclusive) is
+            unmasked.
+        FINAL_ASSISTANT_TURN: Train only on the final assistant response.
+            Masks all tokens before the last ``response_template``
+            occurrence. Suitable for single-turn completions.
+    """
+
+    ALL_ASSISTANT_TURNS = "all_assistant_turns"
+    FINAL_ASSISTANT_TURN = "final_assistant_turn"
 
 
 @dataclass
@@ -124,10 +148,11 @@ class DatasetParams(BaseParams):
     """The size of the shuffle buffer used for shuffling the dataset before sampling."""
 
     trust_remote_code: bool = False
-    """Whether to trust remote code when loading the dataset.
+    """Whether to trust remote code when loading the tokenizer and/or processor.
 
-    Deprecated:
-        This parameter is deprecated and will be removed in the future.
+    Note: HuggingFace datasets that require custom code are no longer supported.
+    This parameter is used for tokenizers and processors that contain custom code
+    (e.g., Phi-3-vision).
     """
 
     transform_num_workers: str | int | None = None
@@ -148,42 +173,47 @@ class DatasetParams(BaseParams):
         """Verifies params."""
         if self.sample_count is not None:
             if self.sample_count < 0:
-                raise ValueError(
-                    f"`sample_count` must be greater than 0, got {self.sample_count}.\n\n"
-                    "How to fix: Set sample_count to a positive integer or remove it "
-                    "to use the full dataset."
+                raise OumiConfigError(
+                    f"`sample_count` must be greater than 0, "
+                    f"got {self.sample_count}.",
+                    fix="Set sample_count to a positive integer or remove it "
+                    "to use the full dataset.",
                 )
         if self.mixture_proportion is not None:
             if self.mixture_proportion < 0:
-                raise ValueError(
-                    f"`mixture_proportion` must be >= 0, got {self.mixture_proportion}.\n\n"
-                    "How to fix: Set mixture_proportion to a value between 0.0 and 1.0."
+                raise OumiConfigError(
+                    f"`mixture_proportion` must be >= 0, "
+                    f"got {self.mixture_proportion}.",
+                    fix="Set mixture_proportion to a value between 0.0 and 1.0.",
                 )
             if self.mixture_proportion > 1:
-                raise ValueError(
-                    f"`mixture_proportion` must be <= 1.0, got {self.mixture_proportion}.\n\n"
-                    "How to fix: Set mixture_proportion to a value between 0.0 and 1.0. "
-                    "The sum of all mixture_proportions in a dataset split must equal 1.0."
+                raise OumiConfigError(
+                    f"`mixture_proportion` must be <= 1.0, "
+                    f"got {self.mixture_proportion}.",
+                    fix="Set mixture_proportion to a value between 0.0 and 1.0. "
+                    "The sum of all mixture_proportions in a dataset split "
+                    "must equal 1.0.",
                 )
 
         if self.transform_num_workers is not None:
             if isinstance(self.transform_num_workers, str):
                 if not (self.transform_num_workers == "auto"):
-                    raise ValueError(
-                        f"Invalid transform_num_workers value: '{self.transform_num_workers}'.\n\n"
-                        "How to fix: Set transform_num_workers to:\n"
+                    raise OumiConfigError(
+                        f"Invalid transform_num_workers value: "
+                        f"'{self.transform_num_workers}'.",
+                        fix="Set transform_num_workers to:\n"
                         "  - 'auto' (string) to let Oumi choose automatically\n"
                         "  - A positive integer (e.g., 4) for explicit worker count\n"
-                        "  - null/None to disable multiprocessing"
+                        "  - null/None to disable multiprocessing",
                     )
             elif (not isinstance(self.transform_num_workers, int)) or (
                 self.transform_num_workers <= 0
             ):
-                raise ValueError(
+                raise OumiConfigError(
                     f"transform_num_workers must be a positive integer, "
-                    f"got {self.transform_num_workers}.\n\n"
-                    "How to fix: Set transform_num_workers to a positive integer "
-                    "(e.g., 4) or 'auto'."
+                    f"got {self.transform_num_workers}.",
+                    fix="Set transform_num_workers to a positive integer "
+                    "(e.g., 4) or 'auto'.",
                 )
 
         if len(self.dataset_kwargs) > 0:
@@ -191,21 +221,18 @@ class DatasetParams(BaseParams):
                 self.dataset_kwargs.keys()
             )
             if len(conflicting_keys) > 0:
-                raise ValueError(
+                raise OumiConfigError(
                     f"dataset_kwargs attempts to override reserved fields: "
-                    f"{conflicting_keys}.\n\n"
-                    "How to fix: Use the dedicated DatasetParams properties instead of "
-                    "passing these as dataset_kwargs. For example, use 'split: train' "
-                    "instead of 'dataset_kwargs: {split: train}'."
+                    f"{conflicting_keys}.",
+                    fix="Use the dedicated DatasetParams properties instead of "
+                    "passing these as dataset_kwargs. For example, use "
+                    "'split: train' instead of 'dataset_kwargs: {split: train}'.",
                 )
 
-        if self.trust_remote_code:
-            warnings.warn(
-                "`trust_remote_code` is deprecated and will be removed in the future.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            self.trust_remote_code = False
+    def __finalize_and_validate__(self):
+        """Verifies params."""
+        if self.dataset_path and not Path(self.dataset_path).exists():
+            raise OumiConfigError(f"dataset_path '{self.dataset_path}' does not exist.")
 
 
 @dataclass
@@ -222,8 +249,13 @@ class DatasetSplitParams(BaseParams):
 
         - "text_with_padding": Dynamically pads the inputs received to
             the longest length.
+        - "text_completions_only_with_padding": Uses template matching to
+            mask non-assistant tokens. Works for simple user/assistant turns.
+            Supports optional ``end_of_turn_template`` in ``collator_kwargs``
+            for span-based masking.
         - "vision_language_with_padding": Uses VisionLanguageCollator
             for image+text multi-modal data.
+        - "vision_language_sft": Uses VisionLanguageSftCollator.
 
     If None, then a default collator will be assigned.
     """
@@ -233,6 +265,16 @@ class DatasetSplitParams(BaseParams):
 
     These arguments will be passed directly to the collator constructor
     and can be used to customize collator behavior beyond the default parameters.
+    """
+
+    train_target: TrainTarget | None = None
+    """High-level training target for ``text_completions_only_with_padding``.
+
+    When set, the builder auto-detects ``response_template`` and
+    ``end_of_turn_template`` from the tokenizer's chat template.
+    Use ``collator_kwargs`` to override individual auto-resolved values.
+
+    See :class:`TrainTarget` for available options.
     """
 
     pack: bool = False
@@ -291,6 +333,20 @@ class DatasetSplitParams(BaseParams):
 
     def __post_init__(self):
         """Verifies params."""
+        # Convert string train_target to enum if needed
+        if isinstance(self.train_target, str):
+            self.train_target = TrainTarget(self.train_target)
+
+        if (
+            self.train_target is not None
+            and self.collator_name != "text_completions_only_with_padding"
+        ):
+            raise ValueError(
+                "`train_target` requires "
+                "collator_name='text_completions_only_with_padding', "
+                f"got '{self.collator_name}'."
+            )
+
         if any([dataset.mixture_proportion is not None for dataset in self.datasets]):
             if not all(
                 [dataset.mixture_proportion is not None for dataset in self.datasets]
@@ -305,34 +361,34 @@ class DatasetSplitParams(BaseParams):
                     for d in self.datasets
                     if d.mixture_proportion is None
                 ]
-                raise ValueError(
-                    "If `mixture_proportion` is specified for any dataset, it must be "
-                    "specified for all datasets in the split.\n"
+                raise OumiConfigError(
+                    "If `mixture_proportion` is specified for any dataset, it must "
+                    "be specified for all datasets in the split.\n"
                     f"Datasets with mixture_proportion: {datasets_with}\n"
-                    f"Datasets without mixture_proportion: {datasets_without}\n\n"
-                    "How to fix: Either specify mixture_proportion for all datasets, "
-                    "or remove it from all datasets to use concatenation instead."
+                    f"Datasets without mixture_proportion: {datasets_without}",
+                    fix="Either specify mixture_proportion for all datasets, "
+                    "or remove it from all datasets to use concatenation instead.",
                 )
             mix_sum = sum(
                 filter(None, [dataset.mixture_proportion for dataset in self.datasets])
             )
             if not self._is_sum_normalized(mix_sum):
-                raise ValueError(
-                    f"The sum of `mixture_proportion` must be 1.0, got {mix_sum}.\n\n"
-                    "How to fix: Adjust the mixture_proportion values so they sum to 1.0. "
-                    "For example, for two datasets use 0.5 and 0.5, or 0.7 and 0.3."
+                raise OumiConfigError(
+                    f"The sum of `mixture_proportion` must be 1.0, got {mix_sum}.",
+                    fix="Adjust the mixture_proportion values so they sum to 1.0. "
+                    "For example, for two datasets use 0.5 and 0.5, or 0.7 and 0.3.",
                 )
         if (
             self.mixture_strategy != MixtureStrategy.ALL_EXHAUSTED
             and self.mixture_strategy != MixtureStrategy.FIRST_EXHAUSTED
         ):
-            raise ValueError(
-                f"Invalid mixture_strategy: '{self.mixture_strategy}'.\n\n"
-                "How to fix: Set mixture_strategy to one of:\n"
+            raise OumiConfigError(
+                f"Invalid mixture_strategy: '{self.mixture_strategy}'.",
+                fix="Set mixture_strategy to one of:\n"
                 f'  - "{MixtureStrategy.FIRST_EXHAUSTED.value}" (default): '
                 "Stop when any dataset is exhausted\n"
                 f'  - "{MixtureStrategy.ALL_EXHAUSTED.value}": '
-                "Continue until all datasets are exhausted (may oversample)"
+                "Continue until all datasets are exhausted (may oversample)",
             )
         if self.target_col is not None:
             warnings.warn(
@@ -368,22 +424,22 @@ class DataParams(BaseParams):
             return self.validation
         else:
             valid_splits = [s.value for s in DatasetSplit]
-            raise ValueError(
-                f"Invalid dataset split: '{split}'.\n\n"
-                f"How to fix: Use one of the valid splits: {valid_splits}"
+            raise OumiConfigError(
+                f"Invalid dataset split: '{split}'.",
+                fix=f"Use one of the valid splits: {valid_splits}",
             )
 
     def __finalize_and_validate__(self):
         """Verifies params."""
         if len(self.train.datasets) == 0:
-            raise ValueError(
-                "At least one training dataset is required.\n\n"
-                "How to fix: Add a dataset to the training split in your config:\n"
+            raise OumiConfigError(
+                "At least one training dataset is required.",
+                fix="Add a dataset to the training split in your config:\n"
                 "  data:\n"
                 "    train:\n"
                 "      datasets:\n"
                 "        - dataset_name: 'your-dataset-name'\n"
-                "          split: 'train'"
+                "          split: 'train'",
             )
 
         all_collators = set()
@@ -394,18 +450,18 @@ class DataParams(BaseParams):
         if self.test.collator_name:
             all_collators.add(self.test.collator_name)
         if len(all_collators) >= 2:
-            raise ValueError(
+            raise OumiConfigError(
                 f"Using different data collators across splits is not supported.\n"
-                f"Found collators: {all_collators}\n\n"
-                "How to fix: Use the same collator_name for all dataset splits "
-                "(train, validation, test)."
+                f"Found collators: {all_collators}",
+                fix="Use the same collator_name for all dataset splits "
+                "(train, validation, test).",
             )
         elif len(all_collators) == 1 and not self.train.collator_name:
-            raise ValueError(
+            raise OumiConfigError(
                 f"Data collator must be specified on the train split.\n"
-                f"Found collator on other splits: {all_collators}\n\n"
-                "How to fix: Set collator_name on the train split:\n"
+                f"Found collator on other splits: {all_collators}",
+                fix="Set collator_name on the train split:\n"
                 "  data:\n"
                 "    train:\n"
-                f"      collator_name: '{next(iter(all_collators))}'"
+                f"      collator_name: '{next(iter(all_collators))}'",
             )

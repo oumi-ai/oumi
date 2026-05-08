@@ -205,6 +205,17 @@ def train(
     )
     parsed_config.finalize_and_validate()
 
+    from oumi.telemetry import TelemetryManager
+
+    TelemetryManager.get_instance().tags(
+        model_name=parsed_config.model.model_name,
+        trainer_type=parsed_config.training.trainer_type.value,
+        use_peft=parsed_config.training.use_peft,
+        q_lora=parsed_config.peft.q_lora,
+        fsdp=parsed_config.fsdp.enable_fsdp,
+        deepspeed=parsed_config.deepspeed.enable_deepspeed,
+    )
+
     limit_per_process_memory()
     device_cleanup()
     set_random_seeds(

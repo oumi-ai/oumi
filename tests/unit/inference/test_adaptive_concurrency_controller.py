@@ -938,7 +938,7 @@ async def test_realistic_request_pattern():
         error_threshold=0.15,
         recovery_threshold=0.05,
         min_window_size=10,
-        min_update_time=0.1,
+        min_update_time=0.2,  # Increased to make timing more reliable
     )
     controller = AdaptiveConcurrencyController(config, politeness_policy=0.0)
 
@@ -946,7 +946,7 @@ async def test_realistic_request_pattern():
     async def simulate_request(success_rate: float):
         async with controller:
             # Simulate request processing time
-            await asyncio.sleep(0.09)
+            await asyncio.sleep(0.05)
             if asyncio.get_event_loop().time() % 1.0 < success_rate:
                 await controller.record_success()
             else:
@@ -960,9 +960,19 @@ async def test_realistic_request_pattern():
     assert controller._current_concurrency > config.min_concurrency
     warmup_concurrency = controller._current_concurrency
 
+    # Wait for min_update_time to ensure the controller can check for backoff
+    await asyncio.sleep(config.min_update_time + 0.1)
+
     # Phase 2: Lower success rate (1%) - should trigger backoff
     tasks = [simulate_request(0.01) for _ in range(50)]
     await asyncio.gather(*tasks)
+
+    # Wait for min_update_time again to ensure backoff is triggered
+    await asyncio.sleep(config.min_update_time + 0.1)
+
+    # Trigger one more adjustment check by making a request
+    async with controller:
+        await controller.record_error()
 
     # Should have backed off
     assert controller._in_backoff

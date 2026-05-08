@@ -2,7 +2,7 @@ import io
 import logging
 import tempfile
 from pathlib import Path
-from unittest.mock import call, patch
+from unittest.mock import MagicMock, call, patch
 
 import PIL.Image
 import pytest
@@ -10,6 +10,7 @@ import typer
 from typer.testing import CliRunner
 
 import oumi
+import oumi.cli.cli_utils as cli_utils
 from oumi.cli.alias import AliasType
 from oumi.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
 from oumi.cli.infer import infer
@@ -78,7 +79,14 @@ def test_infer_runs(app, mock_infer, mock_infer_interactive):
         config.to_yaml(yaml_path)
         _ = runner.invoke(app, ["-i", "--config", yaml_path])
         mock_infer_interactive.assert_has_calls(
-            [call(config, input_image_bytes=None, system_prompt=None)]
+            [
+                call(
+                    config,
+                    input_image_bytes=None,
+                    system_prompt=None,
+                    console=cli_utils.CONSOLE,
+                )
+            ]
         )
 
 
@@ -91,7 +99,14 @@ def test_infer_with_alias_runs(app, mock_infer, mock_infer_interactive, mock_ali
         _ = runner.invoke(app, ["-i", "--config", "random_alias"])
         mock_alias.assert_called_once_with("random_alias", AliasType.INFER)
         mock_infer_interactive.assert_has_calls(
-            [call(config, input_image_bytes=None, system_prompt=None)]
+            [
+                call(
+                    config,
+                    input_image_bytes=None,
+                    system_prompt=None,
+                    console=cli_utils.CONSOLE,
+                )
+            ]
         )
 
 
@@ -102,7 +117,14 @@ def test_infer_runs_interactive_by_default(app, mock_infer, mock_infer_interacti
         config.to_yaml(yaml_path)
         _ = runner.invoke(app, ["--config", yaml_path])
         mock_infer_interactive.assert_has_calls(
-            [call(config, input_image_bytes=None, system_prompt=None)]
+            [
+                call(
+                    config,
+                    input_image_bytes=None,
+                    system_prompt=None,
+                    console=cli_utils.CONSOLE,
+                )
+            ]
         )
 
 
@@ -140,7 +162,14 @@ def test_infer_with_overrides(app, mock_infer, mock_infer_interactive):
         expected_config.generation.max_new_tokens = 5
         expected_config.engine = InferenceEngineType.VLLM
         mock_infer_interactive.assert_has_calls(
-            [call(expected_config, input_image_bytes=None, system_prompt=None)]
+            [
+                call(
+                    expected_config,
+                    input_image_bytes=None,
+                    system_prompt=None,
+                    console=cli_utils.CONSOLE,
+                )
+            ]
         )
 
 
@@ -163,7 +192,14 @@ def test_infer_runs_with_image(app, mock_infer, mock_infer_interactive):
             app, ["-i", "--config", yaml_path, "--image", str(image_path)]
         )
         mock_infer_interactive.assert_has_calls(
-            [call(config, input_image_bytes=[image_bytes], system_prompt=None)]
+            [
+                call(
+                    config,
+                    input_image_bytes=[image_bytes],
+                    system_prompt=None,
+                    console=cli_utils.CONSOLE,
+                )
+            ]
         )
 
 
@@ -232,7 +268,10 @@ def test_infer_with_system_prompt(app, mock_infer_interactive):
         )
         assert result.exit_code == 0
         mock_infer_interactive.assert_called_once_with(
-            config, system_prompt="You are a mighty assistant", input_image_bytes=None
+            config,
+            system_prompt="You are a mighty assistant",
+            input_image_bytes=None,
+            console=cli_utils.CONSOLE,
         )
         mock_infer_interactive.reset_mock()
 
@@ -270,6 +309,7 @@ def test_infer_with_system_prompt_and_image(app, mock_infer_interactive):
             config,
             system_prompt="You are not an average assistant",
             input_image_bytes=[image_bytes],
+            console=cli_utils.CONSOLE,
         )
 
 
@@ -292,5 +332,35 @@ def test_infer_with_oumi_prefix_and_explicit_output_dir(
         assert result.exit_code == 0
         mock_fetch.assert_called_once_with(config_path)
         mock_infer_interactive.assert_called_once_with(
-            config, input_image_bytes=None, system_prompt=None
+            config,
+            input_image_bytes=None,
+            system_prompt=None,
+            console=cli_utils.CONSOLE,
         )
+
+
+def test_infer_batch_shows_loading_spinner(app, mock_infer, mock_infer_interactive):
+    """Test that batch inference displays a loading spinner."""
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        yaml_path = str(Path(output_temp_dir) / "infer.yaml")
+        config: InferenceConfig = _create_inference_config()
+        config.input_path = "some/path"
+        config.to_yaml(yaml_path)
+
+        # Mock the CONSOLE.status context manager
+        mock_status = MagicMock()
+        mock_status.__enter__ = MagicMock(return_value=None)
+        mock_status.__exit__ = MagicMock(return_value=None)
+
+        with patch.object(
+            cli_utils.CONSOLE, "status", return_value=mock_status
+        ) as mock_console_status:
+            result = runner.invoke(app, ["--config", yaml_path])
+
+            # Verify that CONSOLE.status was called with the spinner message
+            mock_console_status.assert_called_once_with(
+                "[green]Running inference...[/green]", spinner="dots"
+            )
+
+        mock_infer.assert_has_calls([call(config)])
+        assert result.exit_code == 0

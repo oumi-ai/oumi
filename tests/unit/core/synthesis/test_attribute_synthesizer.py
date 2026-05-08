@@ -28,7 +28,11 @@ from oumi.core.configs.params.synthesis_params import (
     SampledAttributeValue,
     TextMessage,
 )
-from oumi.core.synthesis.attribute_synthesizer import AttributeSynthesizer
+from oumi.core.inference.base_inference_engine import BatchResult
+from oumi.core.synthesis.attribute_synthesizer import (
+    AttributeSynthesizer,
+    SynthBatchResult,
+)
 from oumi.core.types.conversation import Conversation, Message, Role
 
 
@@ -269,11 +273,11 @@ def test_synthesize_with_empty_samples(
 
 
 @patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
-def test_postprocess_sample(mock_build_inference_engine):
+def test_postprocess_sample(mock_build_inference_engine, mock_inference_config):
     """Test postprocessing a sample."""
     mock_build_inference_engine.return_value = Mock()
 
-    synthesizer = AttributeSynthesizer(GeneralSynthesisParams(), Mock())
+    synthesizer = AttributeSynthesizer(GeneralSynthesisParams(), mock_inference_config)
 
     response = "Response: Here is the formal text [END]"
     postprocessing_params = GeneratedAttributePostprocessingParams(
@@ -291,11 +295,13 @@ def test_postprocess_sample(mock_build_inference_engine):
 
 
 @patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
-def test_postprocess_sample_with_regex(mock_build_inference_engine):
+def test_postprocess_sample_with_regex(
+    mock_build_inference_engine, mock_inference_config
+):
     """Test postprocessing a sample with regex."""
     mock_build_inference_engine.return_value = Mock()
 
-    synthesizer = AttributeSynthesizer(GeneralSynthesisParams(), Mock())
+    synthesizer = AttributeSynthesizer(GeneralSynthesisParams(), mock_inference_config)
 
     response = "The answer is 42 and that's final."
     postprocessing_params = GeneratedAttributePostprocessingParams(
@@ -310,10 +316,12 @@ def test_postprocess_sample_with_regex(mock_build_inference_engine):
 
 
 @patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
-def test_postprocess_sample_with_no_regex_match(mock_build_inference_engine):
+def test_postprocess_sample_with_no_regex_match(
+    mock_build_inference_engine, mock_inference_config
+):
     """Test postprocessing a sample when regex doesn't match."""
     mock_build_inference_engine.return_value = Mock()
-    synthesizer = AttributeSynthesizer(GeneralSynthesisParams(), Mock())
+    synthesizer = AttributeSynthesizer(GeneralSynthesisParams(), mock_inference_config)
 
     response = "No numbers here!"
     postprocessing_params = GeneratedAttributePostprocessingParams(
@@ -325,3 +333,958 @@ def test_postprocess_sample_with_no_regex_match(mock_build_inference_engine):
     result = synthesizer._postprocess_sample(response, postprocessing_params)
 
     assert result == "Number: No numbers here!"
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_synthesize_batch_returns_batch_id(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_generated_attribute,
+    mock_inference_config,
+):
+    """Test that synthesize_batch returns a batch ID."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+
+    mock_inference_engine.infer_batch.return_value = "batch_123"
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+    samples = [
+        {"style": "formal", "topic": "tech"},
+        {"style": "casual", "topic": "science"},
+    ]
+
+    result = synthesizer.synthesize_batch(samples, mock_generated_attribute)
+
+    assert result == "batch_123"
+    mock_inference_engine.infer_batch.assert_called_once()
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_synthesize_batch_raises_when_not_supported(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_generated_attribute,
+    mock_inference_config,
+):
+    """Test that synthesize_batch raises NotImplementedError for unsupported engines."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+
+    del mock_inference_engine.infer_batch
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+    samples = [{"style": "formal", "topic": "tech"}]
+
+    with pytest.raises(NotImplementedError) as exc_info:
+        synthesizer.synthesize_batch(samples, mock_generated_attribute)
+
+    assert "does not support batch inference" in str(exc_info.value)
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_get_batch_status_raises_when_not_supported(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_inference_config,
+):
+    """Test that get_batch_status raises NotImplementedError for unsupported engines."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+
+    del mock_inference_engine.get_batch_status
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+
+    with pytest.raises(NotImplementedError) as exc_info:
+        synthesizer.get_batch_status("batch_123")
+
+    assert "does not support batch inference" in str(exc_info.value)
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_get_batch_results_returns_processed_results(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_generated_attribute,
+    mock_inference_config,
+):
+    """Test that get_batch_results returns processed results with postprocessing."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+
+    mock_inference_engine.get_batch_results_partial.return_value = BatchResult(
+        successful=[
+            (
+                0,
+                Conversation(
+                    messages=[
+                        Message(role=Role.USER, content="Test query"),
+                        Message(role=Role.ASSISTANT, content="Test response 1"),
+                    ]
+                ),
+            ),
+            (
+                1,
+                Conversation(
+                    messages=[
+                        Message(role=Role.USER, content="Test query"),
+                        Message(role=Role.ASSISTANT, content="Test response 2"),
+                    ]
+                ),
+            ),
+        ],
+        failed_indices=[],
+        error_messages={},
+    )
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+    samples = [
+        {"style": "formal", "topic": "tech"},
+        {"style": "casual", "topic": "science"},
+    ]
+
+    result = synthesizer.get_batch_results(
+        "batch_123", samples, mock_generated_attribute
+    )
+
+    assert isinstance(result, list)
+    assert len(result) == 2
+    assert result[0] == {"generated_content": "Test response 1"}
+    assert result[1] == {"generated_content": "Test response 2"}
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_get_batch_results_raises_when_not_supported(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_generated_attribute,
+    mock_inference_config,
+):
+    """Test that get_batch_results raises for unsupported engines."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+
+    mock_inference_engine.get_batch_results_partial.side_effect = NotImplementedError(
+        "MockEngine does not support partial batch results."
+    )
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+    samples = [{"style": "formal", "topic": "tech"}]
+
+    with pytest.raises(NotImplementedError) as exc_info:
+        synthesizer.get_batch_results("batch_123", samples, mock_generated_attribute)
+
+    assert "does not support partial batch results" in str(exc_info.value)
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_get_batch_results_with_postprocessing(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_inference_config,
+):
+    """Test that get_batch_results applies postprocessing correctly."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+
+    mock_inference_engine.get_batch_results_partial.return_value = BatchResult(
+        successful=[
+            (
+                0,
+                Conversation(
+                    messages=[
+                        Message(role=Role.USER, content="Test query"),
+                        Message(
+                            role=Role.ASSISTANT,
+                            content="Response: Hello World [END]",
+                        ),
+                    ]
+                ),
+            ),
+        ],
+        failed_indices=[],
+        error_messages={},
+    )
+
+    generated_attribute_with_postprocessing = GeneratedAttribute(
+        id="original_content",
+        instruction_messages=[
+            TextMessage(role=Role.USER, content="Generate something for {style}"),
+        ],
+        postprocessing_params=GeneratedAttributePostprocessingParams(
+            id="processed_content",
+            cut_prefix="Response: ",
+            cut_suffix=" [END]",
+            strip_whitespace=True,
+        ),
+    )
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+    samples = [{"style": "formal"}]
+
+    result = synthesizer.get_batch_results(
+        "batch_123", samples, generated_attribute_with_postprocessing
+    )
+
+    assert len(result) == 1
+    assert "processed_content" in result[0]
+    assert result[0]["processed_content"] == "Hello World"
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_token_usage_starts_at_zero(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_inference_config,
+):
+    """Test that token usage counters start at zero."""
+    mock_build_inference_engine.return_value = Mock()
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+
+    assert synthesizer.total_input_tokens == 0
+    assert synthesizer.total_output_tokens == 0
+    assert synthesizer.total_cached_tokens == 0
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_token_usage_accumulated_from_synthesize(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_generated_attribute,
+    mock_inference_config,
+):
+    """Test that token usage is accumulated after synthesize() calls."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+
+    mock_inference_engine.infer.return_value = [
+        Conversation(
+            messages=[
+                Message(role=Role.USER, content="Test query"),
+                Message(role=Role.ASSISTANT, content="Test response 1"),
+            ],
+            metadata={
+                "usage": {
+                    "prompt_tokens": 10,
+                    "completion_tokens": 20,
+                    "cached_tokens": 4,
+                }
+            },
+        ),
+        Conversation(
+            messages=[
+                Message(role=Role.USER, content="Test query"),
+                Message(role=Role.ASSISTANT, content="Test response 2"),
+            ],
+            metadata={
+                "usage": {
+                    "prompt_tokens": 15,
+                    "completion_tokens": 25,
+                    "cached_tokens": 6,
+                }
+            },
+        ),
+    ]
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+    samples = [
+        {"style": "formal", "topic": "tech"},
+        {"style": "casual", "topic": "science"},
+    ]
+
+    synthesizer.synthesize(samples, mock_generated_attribute)
+
+    assert synthesizer.total_input_tokens == 25
+    assert synthesizer.total_output_tokens == 45
+    assert synthesizer.total_cached_tokens == 10
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_token_usage_accumulates_across_multiple_synthesize_calls(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_generated_attribute,
+    mock_inference_config,
+):
+    """Test that token usage accumulates across multiple synthesize() calls."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+
+    mock_inference_engine.infer.return_value = [
+        Conversation(
+            messages=[
+                Message(role=Role.USER, content="Test query"),
+                Message(role=Role.ASSISTANT, content="Test response"),
+            ],
+            metadata={"usage": {"prompt_tokens": 10, "completion_tokens": 20}},
+        ),
+    ]
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+    samples = [{"style": "formal", "topic": "tech"}]
+
+    synthesizer.synthesize(samples, mock_generated_attribute)
+    synthesizer.synthesize(samples, mock_generated_attribute)
+
+    assert synthesizer.total_input_tokens == 20
+    assert synthesizer.total_output_tokens == 40
+    assert synthesizer.total_cached_tokens == 0
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_token_usage_accumulated_from_get_batch_results(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_generated_attribute,
+    mock_inference_config,
+):
+    """Test that token usage is accumulated after get_batch_results() calls."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+
+    mock_inference_engine.get_batch_results_partial.return_value = BatchResult(
+        successful=[
+            (
+                0,
+                Conversation(
+                    messages=[
+                        Message(role=Role.USER, content="Test query"),
+                        Message(role=Role.ASSISTANT, content="Test response 1"),
+                    ],
+                    metadata={"usage": {"prompt_tokens": 30, "completion_tokens": 40}},
+                ),
+            ),
+        ],
+        failed_indices=[],
+        error_messages={},
+    )
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+    samples = [{"style": "formal", "topic": "tech"}]
+
+    synthesizer.get_batch_results("batch_123", samples, mock_generated_attribute)
+
+    assert synthesizer.total_input_tokens == 30
+    assert synthesizer.total_output_tokens == 40
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_token_usage_handles_missing_metadata(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_generated_attribute,
+    mock_inference_config,
+):
+    """Test that token usage handles conversations without usage metadata."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+
+    mock_inference_engine.infer.return_value = [
+        Conversation(
+            messages=[
+                Message(role=Role.USER, content="Test query"),
+                Message(role=Role.ASSISTANT, content="Test response"),
+            ],
+        ),
+    ]
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+    samples = [{"style": "formal", "topic": "tech"}]
+
+    synthesizer.synthesize(samples, mock_generated_attribute)
+
+    assert synthesizer.total_input_tokens == 0
+    assert synthesizer.total_output_tokens == 0
+    assert synthesizer.total_cached_tokens == 0
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_cached_token_usage_accumulated(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_generated_attribute,
+    mock_inference_config,
+):
+    """Test that cached and cache creation tokens are accumulated."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+
+    mock_inference_engine.infer.return_value = [
+        Conversation(
+            messages=[
+                Message(role=Role.USER, content="Test query"),
+                Message(role=Role.ASSISTANT, content="Test response 1"),
+            ],
+            metadata={
+                "usage": {
+                    "prompt_tokens": 10,
+                    "completion_tokens": 5,
+                    "cached_tokens": 3,
+                }
+            },
+        ),
+        Conversation(
+            messages=[
+                Message(role=Role.USER, content="Test query"),
+                Message(role=Role.ASSISTANT, content="Test response 2"),
+            ],
+            metadata={
+                "usage": {
+                    "prompt_tokens": 20,
+                    "completion_tokens": 8,
+                    "cached_tokens": 7,
+                }
+            },
+        ),
+    ]
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+    samples = [
+        {"style": "formal", "topic": "tech"},
+        {"style": "casual", "topic": "science"},
+    ]
+
+    synthesizer.synthesize(samples, mock_generated_attribute)
+
+    assert synthesizer.total_input_tokens == 30
+    assert synthesizer.total_output_tokens == 13
+    assert synthesizer.total_cached_tokens == 10
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_get_batch_results_partial_all_successful(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_generated_attribute,
+    mock_inference_config,
+):
+    """Test get_batch_results_partial when all items succeed."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+
+    mock_inference_engine.get_batch_results_partial.return_value = BatchResult(
+        successful=[
+            (
+                0,
+                Conversation(
+                    messages=[
+                        Message(role=Role.USER, content="Test query"),
+                        Message(role=Role.ASSISTANT, content="Response 1"),
+                    ],
+                    metadata={"usage": {"prompt_tokens": 10, "completion_tokens": 20}},
+                ),
+            ),
+            (
+                1,
+                Conversation(
+                    messages=[
+                        Message(role=Role.USER, content="Test query"),
+                        Message(role=Role.ASSISTANT, content="Response 2"),
+                    ],
+                    metadata={"usage": {"prompt_tokens": 15, "completion_tokens": 25}},
+                ),
+            ),
+        ],
+        failed_indices=[],
+        error_messages={},
+    )
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+    samples = [
+        {"style": "formal", "topic": "tech"},
+        {"style": "casual", "topic": "science"},
+    ]
+
+    result = synthesizer.get_batch_results_partial(
+        "batch_123", samples, mock_generated_attribute
+    )
+
+    assert isinstance(result, SynthBatchResult)
+    assert len(result.successful) == 2
+    assert not result.has_failures
+    assert result.successful[0] == (0, {"generated_content": "Response 1"})
+    assert result.successful[1] == (1, {"generated_content": "Response 2"})
+    # Token usage should be accumulated
+    assert synthesizer.total_input_tokens == 25
+    assert synthesizer.total_output_tokens == 45
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_get_batch_results_partial_with_inference_failures(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_generated_attribute,
+    mock_inference_config,
+):
+    """Test get_batch_results_partial when some items fail at inference level."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+
+    mock_inference_engine.get_batch_results_partial.return_value = BatchResult(
+        successful=[
+            (
+                0,
+                Conversation(
+                    messages=[
+                        Message(role=Role.USER, content="Test query"),
+                        Message(role=Role.ASSISTANT, content="Response 1"),
+                    ],
+                    metadata={"usage": {"prompt_tokens": 10, "completion_tokens": 20}},
+                ),
+            ),
+        ],
+        failed_indices=[1],
+        error_messages={1: "Rate limit exceeded"},
+    )
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+    samples = [
+        {"style": "formal", "topic": "tech"},
+        {"style": "casual", "topic": "science"},
+    ]
+
+    result = synthesizer.get_batch_results_partial(
+        "batch_123", samples, mock_generated_attribute
+    )
+
+    assert isinstance(result, SynthBatchResult)
+    assert len(result.successful) == 1
+    assert result.has_failures
+    assert result.failed_indices == [1]
+    assert result.error_messages[1] == "Rate limit exceeded"
+    # Token usage only accumulated for successful items
+    assert synthesizer.total_input_tokens == 10
+    assert synthesizer.total_output_tokens == 20
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_get_batch_results_partial_with_parse_failures(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_inference_config,
+):
+    """Test get_batch_results_partial when processing/parsing fails for some items."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+
+    # Use a generated attribute with postprocessing
+    generated_attribute = GeneratedAttribute(
+        id="original_content",
+        instruction_messages=[
+            TextMessage(role=Role.USER, content="Generate something for {style}"),
+        ],
+        postprocessing_params=GeneratedAttributePostprocessingParams(
+            id="processed_content",
+            cut_prefix="Response: ",
+            strip_whitespace=True,
+        ),
+    )
+
+    mock_inference_engine.get_batch_results_partial.return_value = BatchResult(
+        successful=[
+            (
+                0,
+                Conversation(
+                    messages=[
+                        Message(role=Role.USER, content="Test query"),
+                        Message(role=Role.ASSISTANT, content="Response: Good output"),
+                    ],
+                    metadata={"usage": {"prompt_tokens": 10, "completion_tokens": 20}},
+                ),
+            ),
+            (
+                1,
+                Conversation(
+                    messages=[
+                        Message(role=Role.USER, content="Test query"),
+                        Message(role=Role.ASSISTANT, content="Normal response"),
+                    ],
+                    metadata={"usage": {"prompt_tokens": 15, "completion_tokens": 25}},
+                ),
+            ),
+        ],
+        failed_indices=[],
+        error_messages={},
+    )
+
+    synthesizer = AttributeSynthesizer(
+        GeneralSynthesisParams(),
+        mock_inference_config,
+    )
+    samples = [
+        {"style": "formal"},
+        {"style": "casual"},
+    ]
+
+    result = synthesizer.get_batch_results_partial(
+        "batch_123", samples, generated_attribute
+    )
+
+    # Both should succeed since postprocessing doesn't throw exceptions
+    # (it applies transforms best-effort)
+    assert isinstance(result, SynthBatchResult)
+    assert len(result.successful) == 2
+    assert not result.has_failures
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_get_batch_results_partial_not_supported(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_generated_attribute,
+    mock_inference_config,
+):
+    """Test get_batch_results_partial raises for unsupported engines."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+
+    mock_inference_engine.get_batch_results_partial.side_effect = NotImplementedError(
+        "MockEngine does not support partial batch results."
+    )
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+    samples = [{"style": "formal", "topic": "tech"}]
+
+    with pytest.raises(NotImplementedError) as exc_info:
+        synthesizer.get_batch_results_partial(
+            "batch_123", samples, mock_generated_attribute
+        )
+
+    assert "does not support partial batch results" in str(exc_info.value)
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_inference_engine_not_built_on_init(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_inference_config,
+):
+    """Test that the inference engine is not built during __init__."""
+    AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+
+    mock_build_inference_engine.assert_not_called()
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_init_raises_for_unsupported_engine_type(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+):
+    """Test that __init__ fails fast on an unsupported engine type."""
+    inference_config = Mock(spec=InferenceConfig)
+    inference_config.engine = "not_a_real_engine"
+    inference_config.model = Mock(spec=ModelParams)
+    inference_config.remote_params = Mock(spec=RemoteParams)
+
+    with pytest.raises(ValueError, match="Unsupported inference engine"):
+        AttributeSynthesizer(mock_general_synthesis_params, inference_config)
+
+    mock_build_inference_engine.assert_not_called()
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_inference_engine_built_on_first_access(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_inference_config,
+):
+    """Test that the inference engine is built lazily on first access."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+
+    mock_build_inference_engine.assert_not_called()
+
+    engine = synthesizer._inference_engine
+
+    mock_build_inference_engine.assert_called_once_with(
+        engine_type=mock_inference_config.engine,
+        model_params=mock_inference_config.model,
+        remote_params=mock_inference_config.remote_params,
+    )
+    assert engine is mock_inference_engine
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_inference_engine_cached_across_accesses(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_inference_config,
+):
+    """Test that the inference engine is built only once and cached."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+
+    engine_first = synthesizer._inference_engine
+    engine_second = synthesizer._inference_engine
+    engine_third = synthesizer._inference_engine
+
+    mock_build_inference_engine.assert_called_once()
+    assert engine_first is engine_second is engine_third
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_inference_engine_defaults_to_native_when_engine_none(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+):
+    """Test that engine_type defaults to NATIVE when inference_config.engine is None."""
+    inference_config = Mock(spec=InferenceConfig)
+    inference_config.engine = None
+    inference_config.model = Mock(spec=ModelParams)
+    inference_config.remote_params = Mock(spec=RemoteParams)
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        inference_config,
+    )
+
+    _ = synthesizer._inference_engine
+
+    mock_build_inference_engine.assert_called_once_with(
+        engine_type=InferenceEngineType.NATIVE,
+        model_params=inference_config.model,
+        remote_params=inference_config.remote_params,
+    )
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_build_batch_conversations_does_not_build_engine(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_generated_attribute,
+    mock_inference_config,
+):
+    """Test that build_batch_conversations does not require the inference engine."""
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+    samples = [
+        {"style": "formal", "topic": "tech"},
+        {"style": "casual", "topic": "science"},
+    ]
+
+    conversations = synthesizer.build_batch_conversations(
+        samples, mock_generated_attribute
+    )
+
+    mock_build_inference_engine.assert_not_called()
+    assert len(conversations) == 2
+    for conv in conversations:
+        assert isinstance(conv, Conversation)
+        assert len(conv.messages) == 2
+        assert conv.messages[0].role == Role.SYSTEM
+        assert conv.messages[1].role == Role.USER
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_build_batch_conversations_formats_per_sample(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_generated_attribute,
+    mock_inference_config,
+):
+    """Test that build_batch_conversations formats placeholders per sample."""
+    mock_build_inference_engine.return_value = Mock()
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+    samples = [
+        {"style": "formal", "topic": "tech"},
+        {"style": "casual", "topic": "science"},
+    ]
+
+    conversations = synthesizer.build_batch_conversations(
+        samples, mock_generated_attribute
+    )
+
+    assert (
+        conversations[0].messages[1].content
+        == "Write a Formal paragraph about Technology."
+    )
+    assert (
+        conversations[1].messages[1].content
+        == "Write a Casual paragraph about Science."
+    )
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_process_inference_results_applies_postprocessing(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_inference_config,
+):
+    """Test that process_inference_results applies postprocessing params."""
+    mock_build_inference_engine.return_value = Mock()
+
+    generated_attribute = GeneratedAttribute(
+        id="original_content",
+        instruction_messages=[
+            TextMessage(role=Role.USER, content="Generate something for {style}"),
+        ],
+        postprocessing_params=GeneratedAttributePostprocessingParams(
+            id="processed_content",
+            cut_prefix="Response: ",
+            cut_suffix=" [END]",
+            strip_whitespace=True,
+        ),
+    )
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+    inference_results = [
+        Conversation(
+            messages=[
+                Message(role=Role.USER, content="Test query"),
+                Message(
+                    role=Role.ASSISTANT,
+                    content="Response: Hello World [END]",
+                ),
+            ]
+        ),
+    ]
+
+    results = synthesizer.process_inference_results(
+        inference_results, generated_attribute
+    )
+
+    assert results == [
+        {
+            "original_content": "Response: Hello World [END]",
+            "processed_content": "Hello World",
+        }
+    ]
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_process_inference_results_handles_postprocessing_value_error(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_inference_config,
+):
+    """Test that a ValueError during postprocessing leaves the response as-is."""
+    mock_build_inference_engine.return_value = Mock()
+
+    generated_attribute = GeneratedAttribute(
+        id="original_content",
+        instruction_messages=[
+            TextMessage(role=Role.USER, content="Generate something for {style}"),
+        ],
+        postprocessing_params=GeneratedAttributePostprocessingParams(
+            id="processed_content",
+            strip_whitespace=True,
+        ),
+    )
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+    inference_results = [
+        Conversation(
+            messages=[
+                Message(role=Role.USER, content="Test query"),
+                Message(role=Role.ASSISTANT, content="raw response"),
+            ]
+        ),
+    ]
+
+    with patch.object(
+        synthesizer,
+        "_postprocess_sample",
+        side_effect=ValueError("postprocessing boom"),
+    ):
+        results = synthesizer.process_inference_results(
+            inference_results, generated_attribute
+        )
+
+    assert results == [
+        {
+            "original_content": "raw response",
+            "processed_content": "raw response",
+        }
+    ]
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_process_inference_results_with_empty_results(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_generated_attribute,
+    mock_inference_config,
+):
+    """Test that process_inference_results returns an empty list for empty input."""
+    mock_build_inference_engine.return_value = Mock()
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+
+    results = synthesizer.process_inference_results([], mock_generated_attribute)
+
+    assert results == []

@@ -10,7 +10,7 @@ Still can't find a solution? Let us know by filing a new [GitHub Issue](https://
 
 ### Installing on Windows
 
-If you'd like to use Oumi on Windows, we strongly suggest using
+If you'd like to use Oumi OSS on Windows, we strongly suggest using
 [Windows Subsystem for Linux (WSL)](https://learn.microsoft.com/en-us/windows/wsl/install).
 
 Installing natively on Windows outside of a WSL environment can lead to installation errors such as:
@@ -27,7 +27,7 @@ ModuleNotFoundError: No module named 'resource'
 
 ### Installing on macOS
 
-Oumi only supports Apple Silicon Macs, not Intel Macs. This is because PyTorch dropped support for the latter. Installing on Intel Macs can lead to errors like:
+Oumi OSS only supports Apple Silicon Macs, not Intel Macs. This is because PyTorch dropped support for the latter. Installing on Intel Macs can lead to errors like:
 
 ```text
 Using Python 3.11.11 environment at: /Users/moonshine/miniconda3/envs/oumi
@@ -57,7 +57,7 @@ Using Python 3.11.11 environment at: /Users/moonshine/miniconda3/envs/oumi
 
      ```shell
      conda activate oumi
-     code .  # inside the Oumi directory
+     code .  # inside the Oumi OSS directory
      ```
 
 ### Out of Memory (OOM)
@@ -78,13 +78,13 @@ It's common to see failures with errors like:
 ValueError: File mount source '~/.netrc' does not exist locally. To fix: check if it exists, and correct the path.
 ```
 
-These errors indicate that your JobConfig contains a reference to a file that does not exist on your local machine. You can remove the offending line from your yaml file's {py:attr}`~oumi.core.configs.JobConfig.file_mounts` to resolve the error if it's unneeded. Otherwise, here's how to resolve the error for specific files often mounted by Oumi jobs:
+These errors indicate that your JobConfig contains a reference to a file that does not exist on your local machine. You can remove the offending line from your yaml file's {py:attr}`~oumi.core.configs.JobConfig.file_mounts` to resolve the error if it's unneeded. Otherwise, here's how to resolve the error for specific files often mounted by Oumi OSS jobs:
 
 - `~/.netrc`: This file contains your Weights and Biases (WandB) credentials, which are needed to log your run's metrics to WandB.
-  - To fix, follow [these instructions](/development/dev_setup.md#optional-set-up-weights-and-biases)
+  - To fix, follow {ref}`these instructions <optional-set-up-weights-and-biases>`
   - If you don't require WandB logging, disable either TrainingParams.{py:attr}`~oumi.core.configs.TrainingParams.enable_wandb` or EvaluationConfig.{py:attr}`~oumi.core.configs.EvaluationConfig.enable_wandb`, for training and evaluation jobs respectively. This is needed in addition to removing the file mount to prevent an error.
 - `~/.cache/huggingface/token`: This file contains your Huggingface credentials, which are needed to access gated datasets/models on HuggingFace Hub.
-  - To fix, follow [these instructions](/development/dev_setup.md#optional-set-up-huggingface)
+  - To fix, follow {ref}`these instructions <optional-set-up-huggingface>`
 
 ### Training Stability & NaN Loss
 

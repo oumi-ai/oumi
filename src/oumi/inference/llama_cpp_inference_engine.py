@@ -21,7 +21,7 @@ from typing_extensions import override
 
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.inference import BaseInferenceEngine
-from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.core.types.conversation import Conversation, FinishReason, Message, Role
 from oumi.utils.logging import logger
 
 try:
@@ -147,6 +147,17 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
                 repo_id=model_params.model_name, n_ctx=model_max_length, **kwargs
             )
 
+    @staticmethod
+    def _normalize_finish_reason(raw_reason: str | None) -> FinishReason | None:
+        """Normalize llama.cpp finish_reason string to FinishReason enum."""
+        if raw_reason is None:
+            return None
+        mapping = {
+            "stop": FinishReason.STOP,
+            "length": FinishReason.LENGTH,
+        }
+        return mapping.get(raw_reason.lower(), FinishReason.UNKNOWN)
+
     def _convert_conversation_to_llama_input(
         self, conversation: Conversation
     ) -> list[dict[str, str]]:
@@ -221,13 +232,20 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
                 role=Role.ASSISTANT,
             )
 
+            metadata = dict(conversation.metadata)
+            raw_reason = response.get("choices", [{}])[0].get("finish_reason")
+            if raw_reason:
+                finish_reason = self._normalize_finish_reason(raw_reason)
+                if finish_reason is not None:
+                    metadata["finish_reason"] = finish_reason.value
+
             messages = [
                 *conversation.messages,
                 new_message,
             ]
             new_conversation = Conversation(
                 messages=messages,
-                metadata=conversation.metadata,
+                metadata=metadata,
                 conversation_id=conversation.conversation_id,
             )
             output_conversations.append(new_conversation)

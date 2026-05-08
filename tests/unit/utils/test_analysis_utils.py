@@ -318,7 +318,6 @@ def test_load_custom_dataset_conversation_format(temp_conversation_file):
     """Test loading custom dataset in conversation format (auto-detected)."""
     config = AnalyzeConfig(
         dataset_path=temp_conversation_file,
-        is_multimodal=False,  # Explicitly set as text-only
     )
 
     dataset = load_dataset_from_config(config)
@@ -339,7 +338,6 @@ def test_load_custom_dataset_alpaca_format(temp_alpaca_file):
     """Test loading custom dataset in alpaca format (auto-detected)."""
     config = AnalyzeConfig(
         dataset_path=temp_alpaca_file,
-        is_multimodal=False,  # Explicitly set as text-only
     )
 
     dataset = load_dataset_from_config(config)
@@ -364,7 +362,6 @@ def test_load_custom_dataset_multi_modal(temp_vision_language_file):
     config = AnalyzeConfig(
         dataset_path=temp_vision_language_file,
         processor_name="HuggingFaceTB/SmolVLM-256M-Instruct",  # Processor provided
-        is_multimodal=True,  # Explicitly mark as multimodal
     )
 
     dataset = load_dataset_from_config(config, tokenizer=mock_tokenizer)
@@ -377,7 +374,6 @@ def test_load_custom_dataset_text(temp_conversation_file):
     TextSftJsonLinesDataset."""
     config = AnalyzeConfig(
         dataset_path=temp_conversation_file,
-        is_multimodal=False,  # Explicitly set as text-only
     )
 
     dataset = load_dataset_from_config(config)
@@ -391,7 +387,6 @@ def test_load_custom_dataset_file_not_found():
     """Test error handling when custom dataset file doesn't exist."""
     config = AnalyzeConfig(
         dataset_path="nonexistent_file.json",
-        is_multimodal=False,  # Required for custom datasets
     )
 
     with pytest.raises(
@@ -405,7 +400,6 @@ def test_load_custom_dataset_directory_path():
     with tempfile.TemporaryDirectory() as temp_dir:
         config = AnalyzeConfig(
             dataset_path=temp_dir,
-            is_multimodal=False,  # Required for custom datasets
         )
 
         with pytest.raises(

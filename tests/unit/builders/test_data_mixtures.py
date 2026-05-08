@@ -463,7 +463,10 @@ def test_packing_without_streaming_with_pretraining_dataset(stream: bool):
     """Test that packing works regardless of streaming flag"""
 
     if not stream:
-        pytest.skip("Iterable datasets must be streamed")
+        pytest.skip(
+            "OK To Skip: packing without streaming with "
+            "pretraining dataset is not supported"
+        )
 
     config = TrainingConfig(
         data=DataParams(
@@ -506,7 +509,10 @@ def test_packing_without_streaming_with_pretraining_dataset(stream: bool):
 def test_multiple_pretraining_datasets_with_streaming(stream: bool):
     """Test that multiple pretraining datasets can be concatenated when streaming."""
     if not stream:
-        pytest.skip("Iterable datasets must be streamed")
+        pytest.skip(
+            "OK To Skip: packing without streaming with "
+            "pretraining dataset is not supported"
+        )
 
     config = TrainingConfig(
         data=DataParams(
@@ -552,11 +558,14 @@ def test_multiple_pretraining_datasets_with_streaming(stream: bool):
     assert len(items) == 4
 
 
-@pytest.mark.skip(
-    reason="FIXME: this test is inconsistent, and fails depending on cache state"
-)
 def test_mixed_dataset_packing(stream: bool):
     """Test packing with mixed datasets"""
+    if stream:
+        pytest.skip(
+            "Streaming mode has inconsistent feature inference that causes "
+            "interleave_datasets to fail with type mismatches (int32 vs int64)"
+        )
+
     config = TrainingConfig(
         data=DataParams(
             train=DatasetSplitParams(
@@ -593,7 +602,7 @@ def test_mixed_dataset_packing(stream: bool):
 
     # Check interleaving is working by sampling first few items
     items = []
-    for idx, item in enumerate(dataset):
+    for item in dataset:
         items.append(item)
         assert isinstance(item, dict)
         assert "input_ids" in item

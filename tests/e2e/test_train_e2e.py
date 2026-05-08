@@ -13,6 +13,7 @@ import yaml
 from oumi.core.configs import TrainingConfig
 from oumi.core.configs.params.training_params import TrainerType
 from oumi.utils.io_utils import load_json
+from oumi.utils.packaging import is_transformers_v5
 from oumi.utils.torch_utils import device_cleanup
 from tests import get_configs_dir
 from tests.e2e import get_e2e_test_output_dir, is_file_not_empty
@@ -43,13 +44,21 @@ def _check_checkpoint_dir(
 ):
     """Helper to verify model directory structure."""
     # Check essential model files
-    essential_files = [
-        "special_tokens_map.json",
-        "tokenizer_config.json",
-        "tokenizer.json",
-        "trainer_state.json",
-        "training_args.bin",
-    ]
+    if is_transformers_v5():
+        essential_files = [
+            "tokenizer_config.json",
+            "tokenizer.json",
+            "trainer_state.json",
+            "training_args.bin",
+        ]
+    else:
+        essential_files = [
+            "special_tokens_map.json",
+            "tokenizer_config.json",
+            "tokenizer.json",
+            "trainer_state.json",
+            "training_args.bin",
+        ]
     if is_lora:
         essential_files = ["adapter_config.json"] + essential_files  # OPE-938
     else:
@@ -106,10 +115,11 @@ def _check_checkpoint_dir(
         gen_config = load_json(dir_path / "generation_config.json")
         assert isinstance(gen_config, dict), "Invalid generation config"
 
-    # Verify special tokens map
-    with open(dir_path / "special_tokens_map.json") as f:
-        tokens_map = json.load(f)
-        assert isinstance(tokens_map, dict), "Invalid special tokens map"
+    # Verify special tokens map (not generated in transformers v5)
+    if not is_transformers_v5():
+        with open(dir_path / "special_tokens_map.json") as f:
+            tokens_map = json.load(f)
+            assert isinstance(tokens_map, dict), "Invalid special tokens map"
 
     # Verify tokenizer config
     with open(dir_path / "tokenizer_config.json") as f:

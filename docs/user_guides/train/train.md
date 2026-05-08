@@ -13,9 +13,9 @@ monitoring
 
 ## Overview
 
-Oumi provides an end-to-end training framework designed to handle everything from small fine-tuning experiments to large-scale pre-training runs.
+Oumi OSS provides an end-to-end training framework designed to handle everything from small fine-tuning experiments to large-scale pre-training runs.
 
-Oumi enables you to start small—in a notebook or local machine—and easily scale up as your needs grow while maintaining a consistent interface across different training scenarios and environments.
+Oumi OSS enables you to start small—in a notebook or local machine—and easily scale up as your needs grow while maintaining a consistent interface across different training scenarios and environments.
 
 Key features include:
 
@@ -29,7 +29,7 @@ Key features include:
 
 The fastest way to get started with training is using one of our pre-configured recipes.
 
-For example, to train a small model (`SmolLM-135M`) on a sample dataset (`tatsu-lab/alpaca`), you can use the following command:
+For example, to train a small model (`SmolLM-135M`) on a sample dataset (`yahma/alpaca-cleaned`), you can use the following command:
 
 ::::{tab-set-code}
 :::{code-block} bash
@@ -56,13 +56,13 @@ train(config)
 Running this config will:
 
 1. Download a small pre-trained model: `SmolLM-135M`
-2. Load a sample dataset: `tatsu-lab/alpaca`
+2. Load a sample dataset: `yahma/alpaca-cleaned`
 3. Run supervised fine-tuning using the `TRL_SFT` trainer
 4. Save the trained model to `config.output_dir`
 
 ## Configuration Guide
 
-At the heart of Oumi's training system is a YAML-based configuration framework. This allows you to define all aspects of your training run in a single, version-controlled file.
+At the heart of Oumi OSS's training system is a YAML-based configuration framework. This allows you to define all aspects of your training run in a single, version-controlled file.
 
 Here's a basic example with key parameters explained:
 
@@ -70,13 +70,13 @@ Here's a basic example with key parameters explained:
 model:
   model_name: "HuggingFaceTB/SmolLM2-135M-Instruct"  # Base model to fine-tune
   trust_remote_code: true  # Required for some model architectures
-  dtype: "bfloat16"  # Training precision (float32, float16, or bfloat16)
+  torch_dtype_str: "bfloat16"  # Model precision: float32, float16, or bfloat16
 
 data:
   train:  # Training dataset mixture
     datasets:
-      - dataset_name: "tatsu-lab/alpaca"  # Training dataset
-        split: "train"  # Dataset split to use
+      - dataset_name: "yahma/alpaca-cleaned"
+        split: "train"
 
 training:
   output_dir: "output/my_training_run" # Where to save outputs
@@ -125,12 +125,12 @@ The simplest workflow is to fine-tune a pre-trained model on a dataset. The foll
 model:
   model_name: "meta-llama/Llama-3.2-3B-Instruct"  # Replace with your model
   trust_remote_code: true
-  dtype: "bfloat16"
+  torch_dtype_str: "bfloat16"
 
 data:
   train:  # Training dataset mixture, can be a single dataset or a list of datasets
     datasets:
-      - dataset_name: "yahma/alpaca-cleaned" # Replace with your dataset, or add more datasets
+      - dataset_name: "yahma/alpaca-cleaned"
         split: "train"
 
 training:
@@ -150,25 +150,25 @@ Excellent results can be achieved at a fraction of the computational cost by fin
 model:
   model_name: "meta-llama/Llama-3.2-3B-Instruct"  # Replace with your model
   trust_remote_code: true
-  dtype: "bfloat16"
+  torch_dtype_str: "bfloat16"
 
 data:
   train:  # Training dataset mixture, can be a single dataset or a list of datasets
     datasets:
-      - dataset_name: "yahma/alpaca-cleaned" # Replace with your dataset, or add more datasets
+      - dataset_name: "yahma/alpaca-cleaned"
         split: "train"
 
 training:
   output_dir: "output/llama-finetuned"  # Where to save outputs
   optimizer: "adamw_torch_fused"
   learning_rate: 2e-5
-  max_steps: 10  # Number of training steps
-  use_peft: True  # Activate Parameter Efficient Fine-Tuning
+  max_steps: 10
+  use_peft: true  # Enable Parameter-Efficient Fine-Tuning
 
 peft: # Control key hyper-parameters of the PEFT training process
   lora_r: 64
   lora_alpha: 128
-  lora_target_modules: # Select the modules for which adapters will be added
+  lora_target_modules:  # Modules to apply LoRA adapters to
     - "q_proj"
     - "v_proj"
     - "o_proj"
@@ -179,7 +179,7 @@ peft: # Control key hyper-parameters of the PEFT training process
 
 ### Fine-tuning a Vision-Language Model
 
-Multimodal support in Oumi is similar to support for text-only models with few config changes e.g., data collation.
+Multimodal support in Oumi OSS is similar to support for text-only models with few config changes e.g., data collation.
 You can find more details in {ref}`Vision-Language SFT <vision-language-sft>`, {ref}`VL SFT Datasets <vl-sft-datasets>`,
 {ref}`Multi-modal Inference <multi-modal-inference>`, and {ref}`Multi-modal Benchmarks <multi-modal-standardized-benchmarks>`.
 
@@ -215,7 +215,7 @@ Thanks to the integration with [Skypilot](https://skypilot.readthedocs.io/en/lat
 
 #### Multi-node Training
 
-To train with multiple nodes using the Oumi launcher, set {py:attr}`~oumi.core.configs.JobConfig.num_nodes` to your desired number of nodes.
+To train with multiple nodes using the Oumi OSS launcher, set {py:attr}`~oumi.core.configs.JobConfig.num_nodes` to your desired number of nodes.
 
 ### Using Custom Datasets
 

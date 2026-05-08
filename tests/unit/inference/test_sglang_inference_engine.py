@@ -272,6 +272,62 @@ def test_convert_api_output_to_conversation(engine):
     "engine",
     _generate_all_engines(),
 )
+@pytest.mark.parametrize(
+    "finish_reason_input,expected_finish_reason",
+    [
+        # SGLang Native API returns finish_reason as a dict with "type" field
+        ({"type": "stop", "matched": 128009}, "stop"),
+        ({"type": "length", "length": 128}, "length"),
+        ({"type": "STOP"}, "stop"),  # case-insensitive
+        ({"type": "unknown_reason"}, "unknown"),
+        ({"other_field": "value"}, "unknown"),  # missing type field
+        # String format (for compatibility/future-proofing)
+        ("stop", "stop"),
+        ("length", "length"),
+        ("LENGTH", "length"),  # case-insensitive
+        (None, None),  # no finish_reason
+    ],
+)
+def test_convert_api_output_to_conversation_with_finish_reason(
+    engine, finish_reason_input, expected_finish_reason
+):
+    """Test that SGLang finish_reason dict is properly normalized."""
+    original_conversation = Conversation(
+        messages=[
+            Message(content="User message", role=Role.USER),
+        ],
+        metadata={"key": "value"},
+        conversation_id="test_id",
+    )
+
+    meta_info = {}
+    if finish_reason_input is not None:
+        meta_info["finish_reason"] = finish_reason_input
+
+    api_response = {
+        "text": "Assistant response",
+        "meta_info": meta_info if meta_info else None,
+    }
+
+    result = engine._convert_api_output_to_conversation(
+        api_response, original_conversation
+    )
+
+    assert len(result.messages) == 2
+    assert result.messages[1].content == "Assistant response"
+
+    if expected_finish_reason is not None:
+        assert result.metadata.get("finish_reason") == expected_finish_reason
+    else:
+        assert "finish_reason" not in result.metadata or result.metadata.get(
+            "finish_reason"
+        ) == original_conversation.metadata.get("finish_reason")
+
+
+@pytest.mark.parametrize(
+    "engine",
+    _generate_all_engines(),
+)
 def test_get_request_headers(engine):
     remote_params = RemoteParams(api_key="test_api_key", api_url="<placeholder>")
 

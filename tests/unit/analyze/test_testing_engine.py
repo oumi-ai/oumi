@@ -1,0 +1,625 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Tests for the testing engine module."""
+
+import pytest
+from pydantic import BaseModel
+
+from oumi.analyze.testing.engine import TestEngine
+from oumi.analyze.testing.results import TestResult, TestSeverity, TestSummary
+from oumi.core.configs.params.test_params import TestParams, TestType
+
+# -----------------------------------------------------------------------------
+# Test Fixtures
+# -----------------------------------------------------------------------------
+
+
+class SampleMetrics(BaseModel):
+    """Sample metrics for testing."""
+
+    total_tokens: int
+    total_chars: int
+    is_valid: bool = True
+
+
+class NestedMetrics(BaseModel):
+    """Metrics with nested structure."""
+
+    values: dict
+
+
+@pytest.fixture
+def sample_results() -> dict[str, list[BaseModel]]:
+    """Create sample analysis results for testing."""
+    return {
+        "length": [
+            SampleMetrics(total_tokens=100, total_chars=500),
+            SampleMetrics(total_tokens=200, total_chars=1000),
+            SampleMetrics(total_tokens=50, total_chars=250),
+            SampleMetrics(total_tokens=150, total_chars=750),
+        ]
+    }
+
+
+@pytest.fixture
+def mixed_results() -> dict[str, list[BaseModel]]:
+    """Create results with mixed valid/invalid flags."""
+    return {
+        "quality": [
+            SampleMetrics(total_tokens=100, total_chars=500, is_valid=True),
+            SampleMetrics(total_tokens=200, total_chars=1000, is_valid=False),
+            SampleMetrics(total_tokens=50, total_chars=250, is_valid=True),
+            SampleMetrics(total_tokens=150, total_chars=750, is_valid=False),
+        ]
+    }
+
+
+# -----------------------------------------------------------------------------
+# Tests: TestParams
+# -----------------------------------------------------------------------------
+
+
+def test_test_config_creation():
+    """Test creating a TestParams."""
+    config = TestParams(
+        id="test_1",
+        type=TestType.THRESHOLD,
+        metric="length.total_tokens",
+        operator=">",
+        value=100,
+    )
+    assert config.id == "test_1"
+    assert config.type == TestType.THRESHOLD
+    assert config.metric == "length.total_tokens"
+
+
+def test_test_config_defaults():
+    """Test TestParams default values."""
+    config = TestParams(
+        id="test_1",
+        type=TestType.THRESHOLD,
+        metric="test",
+    )
+    assert config.severity == "medium"
+    assert config.title is None
+    assert config.operator is None
+    assert config.value is None
+
+
+# -----------------------------------------------------------------------------
+# Tests: TestEngine Initialization
+# -----------------------------------------------------------------------------
+
+
+def test_engine_initialization():
+    """Test TestEngine initialization."""
+    tests = [
+        TestParams(id="t1", type=TestType.THRESHOLD, metric="m"),
+        TestParams(
+            id="t2", type=TestType.THRESHOLD, metric="n", operator="<=", value=100
+        ),
+    ]
+    engine = TestEngine(tests)
+    assert len(engine.tests) == 2
+
+
+def test_engine_empty_tests():
+    """Test TestEngine with empty tests list."""
+    engine = TestEngine([])
+    assert len(engine.tests) == 0
+
+
+# -----------------------------------------------------------------------------
+# Tests: Threshold Tests
+# -----------------------------------------------------------------------------
+
+
+def test_threshold_test_all_pass(sample_results):
+    """Test threshold where no values are flagged."""
+    tests = [
+        TestParams(
+            id="min_tokens",
+            type=TestType.THRESHOLD,
+            metric="length.total_tokens",
+            operator=">",
+            value=1000,
+        )
+    ]
+    engine = TestEngine(tests)
+    summary = engine.run(sample_results)
+
+    assert summary.passed_tests == 1
+    assert summary.failed_tests == 0
+
+
+def test_threshold_test_some_fail(sample_results):
+    """Test threshold where some values are flagged."""
+    tests = [
+        TestParams(
+            id="max_tokens",
+            type=TestType.THRESHOLD,
+            metric="length.total_tokens",
+            operator="<",
+            value=100,
+        )
+    ]
+    engine = TestEngine(tests)
+    summary = engine.run(sample_results)
+
+    # 1 out of 4 values is < 100, so one conversation is flagged.
+    assert summary.failed_tests == 1
+
+
+def test_threshold_test_with_max_percentage(sample_results):
+    """Test threshold with max_percentage tolerance."""
+    tests = [
+        TestParams(
+            id="high_tokens",
+            type=TestType.THRESHOLD,
+            metric="length.total_tokens",
+            operator=">",
+            value=100,
+            max_percentage=50.0,  # Allow up to 50% to exceed 100
+        )
+    ]
+    engine = TestEngine(tests)
+    summary = engine.run(sample_results)
+
+    # 2 out of 4 (50%) have tokens > 100, which equals max_percentage
+    assert summary.passed_tests == 1
+
+
+def test_threshold_test_with_min_percentage(sample_results):
+    """Test threshold with min_percentage requirement."""
+    tests = [
+        TestParams(
+            id="most_valid",
+            type=TestType.THRESHOLD,
+            metric="length.total_tokens",
+            operator=">=",
+            value=50,
+            min_percentage=100.0,  # Require all to pass
+        )
+    ]
+    engine = TestEngine(tests)
+    summary = engine.run(sample_results)
+
+    # All 4 have tokens >= 50, so 100% pass
+    assert summary.passed_tests == 1
+
+
+def test_threshold_test_both_min_and_max_percentage(sample_results):
+    """Test threshold with both min and max percentage."""
+    tests = [
+        TestParams(
+            id="bounded_tokens",
+            type=TestType.THRESHOLD,
+            metric="length.total_tokens",
+            operator=">",
+            value=75,
+            min_percentage=25.0,  # At least 25% must exceed
+            max_percentage=75.0,  # No more than 75% can exceed
+        )
+    ]
+    engine = TestEngine(tests)
+    summary = engine.run(sample_results)
+
+    # 3 out of 4 (75%) have tokens > 75, which is within bounds
+    assert summary.passed_tests == 1
+
+
+def test_threshold_test_missing_operator():
+    """Test threshold test returns error with missing operator."""
+    tests = [
+        TestParams(
+            id="missing_op",
+            type=TestType.THRESHOLD,
+            metric="length.total_tokens",
+            value=100,
+        )
+    ]
+    engine = TestEngine(tests)
+    summary = engine.run({"length": [SampleMetrics(total_tokens=50, total_chars=100)]})
+
+    assert summary.error_tests == 1
+    assert summary.results[0].error is not None
+
+
+def test_threshold_test_unknown_operator():
+    """Test threshold test returns error with unknown operator."""
+    tests = [
+        TestParams(
+            id="bad_op",
+            type=TestType.THRESHOLD,
+            metric="length.total_tokens",
+            operator="~=",
+            value=100,
+        )
+    ]
+    engine = TestEngine(tests)
+    summary = engine.run({"length": [SampleMetrics(total_tokens=50, total_chars=100)]})
+
+    assert summary.error_tests == 1
+    assert summary.results[0].error is not None
+    assert "Unknown operator" in summary.results[0].error
+
+
+# -----------------------------------------------------------------------------
+# Tests: Metric Extraction
+# -----------------------------------------------------------------------------
+
+
+def test_extract_metric_not_found():
+    """Test that missing metric returns error."""
+    tests = [
+        TestParams(
+            id="missing_metric",
+            type=TestType.THRESHOLD,
+            metric="NonExistent.field",
+            operator=">",
+            value=0,
+        )
+    ]
+    engine = TestEngine(tests)
+    summary = engine.run({"length": [SampleMetrics(total_tokens=50, total_chars=100)]})
+
+    assert summary.error_tests == 1
+    assert summary.results[0].error is not None
+    assert "not found" in summary.results[0].error
+
+
+def test_extract_metric_invalid_format():
+    """Test that invalid metric format returns error."""
+    tests = [
+        TestParams(
+            id="bad_format",
+            type=TestType.THRESHOLD,
+            metric="no_dot_separator",
+            operator=">",
+            value=0,
+        )
+    ]
+    engine = TestEngine(tests)
+    summary = engine.run({"length": [SampleMetrics(total_tokens=50, total_chars=100)]})
+
+    assert summary.error_tests == 1
+
+
+def test_extract_metric_single_result():
+    """Test extracting metric from single result (not list)."""
+    tests = [
+        TestParams(
+            id="single_result",
+            type=TestType.THRESHOLD,
+            metric="length.total_tokens",
+            operator=">",
+            value=1000,
+        )
+    ]
+    engine = TestEngine(tests)
+    # Single result, not a list
+    summary = engine.run({"length": SampleMetrics(total_tokens=100, total_chars=500)})
+
+    assert summary.passed_tests == 1
+
+
+# -----------------------------------------------------------------------------
+# Tests: Nested Value Traversal
+# -----------------------------------------------------------------------------
+
+
+def test_get_nested_value_from_dict():
+    """Test traversing nested dicts."""
+    engine = TestEngine([])
+    result = engine._traverse_dict({"a": {"b": {"c": 42}}}, ["a", "b", "c"])
+    assert result == 42
+
+
+def test_get_nested_value_dict_missing_key():
+    """Test traversing dict with missing key returns None."""
+    engine = TestEngine([])
+    result = engine._traverse_dict({"a": {"b": 1}}, ["a", "x"])
+    assert result is None
+
+
+def test_get_nested_value_unsupported_type():
+    """Test that unsupported types raise TypeError."""
+    engine = TestEngine([])
+
+    # Create a non-BaseModel, non-dict object
+    class CustomObj:
+        pass
+
+    with pytest.raises(TypeError, match="Cannot traverse type"):
+        engine._get_nested_value(CustomObj(), ["field"])
+
+
+# -----------------------------------------------------------------------------
+# Tests: TestSummary
+# -----------------------------------------------------------------------------
+
+
+def test_test_summary_from_results():
+    """Test creating TestSummary from results."""
+    results = [
+        TestResult(test_id="t1", passed=True),
+        TestResult(test_id="t2", passed=False, severity=TestSeverity.HIGH),
+        TestResult(test_id="t3", passed=False, severity=TestSeverity.LOW),
+        TestResult(test_id="t4", passed=False, error="Some error"),
+    ]
+    summary = TestSummary.from_results(results)
+
+    assert summary.total_tests == 4
+    assert summary.passed_tests == 1
+    assert summary.failed_tests == 2
+    assert summary.error_tests == 1
+    assert summary.high_severity_failures == 1
+    assert summary.low_severity_failures == 1
+    assert summary.pass_rate == 25.0
+
+
+def test_test_summary_empty_results():
+    """Test TestSummary with empty results."""
+    summary = TestSummary.from_results([])
+
+    assert summary.total_tests == 0
+    assert summary.pass_rate == 0.0
+
+
+def test_test_summary_get_methods():
+    """Test TestSummary getter methods."""
+    results = [
+        TestResult(test_id="t1", passed=True),
+        TestResult(test_id="t2", passed=False),
+        TestResult(test_id="t3", passed=False, error="Error"),
+    ]
+    summary = TestSummary.from_results(results)
+
+    assert len(summary.get_passed_results()) == 1
+    assert len(summary.get_failed_results()) == 1
+    assert len(summary.get_error_results()) == 1
+
+
+# -----------------------------------------------------------------------------
+# Tests: TestResult
+# -----------------------------------------------------------------------------
+
+
+def test_test_result_to_dict():
+    """Test TestResult.to_dict() method."""
+    result = TestResult(
+        test_id="test_1",
+        passed=True,
+        severity=TestSeverity.HIGH,
+        affected_count=5,
+        total_count=100,
+    )
+    data = result.to_dict()
+
+    assert data["test_id"] == "test_1"
+    assert data["passed"] is True
+    assert data["severity"] == "high"
+    assert data["affected_count"] == 5
+
+
+# -----------------------------------------------------------------------------
+# Tests: Engine Run
+# -----------------------------------------------------------------------------
+
+
+def test_engine_run_multiple_tests(sample_results):
+    """Test running multiple tests."""
+    tests = [
+        TestParams(
+            id="test_1",
+            type=TestType.THRESHOLD,
+            metric="length.total_tokens",
+            operator=">",
+            value=1000,
+        ),
+        TestParams(
+            id="test_2",
+            type=TestType.THRESHOLD,
+            metric="length.total_chars",
+            operator=">",
+            value=2000,
+        ),
+    ]
+    engine = TestEngine(tests)
+    summary = engine.run(sample_results)
+
+    assert summary.total_tests == 2
+    assert summary.passed_tests == 2
+
+
+def test_engine_handles_test_exception():
+    """Test that engine handles exceptions gracefully."""
+    tests = [
+        TestParams(
+            id="error_test",
+            type=TestType.THRESHOLD,
+            metric="Bad.metric",
+            operator=">",
+            value=0,
+        )
+    ]
+    engine = TestEngine(tests)
+
+    # Should not raise, should return error result
+    summary = engine.run({})
+
+    assert summary.total_tests == 1
+    assert summary.results[0].error is not None
+
+
+def test_multi_instance_metrics_resolve_correctly():
+    """Test that metrics resolve correctly with multiple analyzer instances."""
+    from typing import cast
+
+    from pydantic import BaseModel
+
+    # Two length analyzers with different ids
+    results: dict[str, list[BaseModel] | BaseModel] = {
+        "length_tiktoken": cast(
+            list[BaseModel],
+            [
+                SampleMetrics(total_tokens=100, total_chars=400),
+                SampleMetrics(total_tokens=200, total_chars=800),
+            ],
+        ),
+        "length_hf": cast(
+            list[BaseModel],
+            [
+                SampleMetrics(total_tokens=95, total_chars=380),
+                SampleMetrics(total_tokens=210, total_chars=840),
+            ],
+        ),
+    }
+    # Tests that each instance's metrics are resolved independently
+    tests = [
+        TestParams(
+            id="tiktoken_tokens",
+            type=TestType.THRESHOLD,
+            metric="length_tiktoken.total_tokens",
+            operator=">",
+            value=1000,  # No samples exceed -> test passes
+        ),
+        TestParams(
+            id="hf_tokens",
+            type=TestType.THRESHOLD,
+            metric="length_hf.total_tokens",
+            operator=">",
+            value=1000,  # No samples exceed -> test passes
+        ),
+    ]
+    engine = TestEngine(tests)
+    summary = engine.run(results)
+
+    assert summary.total_tests == 2
+    assert summary.passed_tests == 2
+
+
+class _PartialMetrics(BaseModel):
+    """Metrics with an optional value for index-tracking tests."""
+
+    value: int | None = None
+
+
+def test_sample_indices_map_to_original_positions_when_values_are_missing():
+    """Regression test: when some samples lack the metric, ``sample_indices``
+    must point to the original conversation positions, not offsets into the
+    filtered list.
+
+    Previous code built ``values: list[Any]`` by enumerating analyzer
+    results and dropping ``None``s, then re-numbered the survivors 0..N-1.
+    With the dataset below, the flagged sample is at dataset index ``2``,
+    but the old code reported it as ``1`` (its position after filtering).
+    Downstream "drop these rows" tooling that consumed ``all_affected_indices``
+    therefore deleted the wrong rows.
+
+    The fix changes extraction to return ``(original_index, value)`` pairs,
+    so the index reported in the result still maps to the dataset.
+    """
+    results: dict[str, list[BaseModel] | BaseModel] = {
+        "m": [
+            _PartialMetrics(value=1),  # dataset idx 0 — not flagged
+            _PartialMetrics(value=None),  # dataset idx 1 — filtered out
+            _PartialMetrics(value=999),  # dataset idx 2 — the flagged sample
+            _PartialMetrics(value=2),  # dataset idx 3 — not flagged
+        ]
+    }
+    tests = [
+        TestParams(
+            id="flag_high",
+            type=TestType.THRESHOLD,
+            metric="m.value",
+            operator=">",
+            value=100,
+        )
+    ]
+    summary = TestEngine(tests).run(results)
+
+    result = summary.results[0]
+    assert result.passed is False
+    assert result.sample_indices == [2]
+    assert result.all_affected_indices == [2]
+
+
+def test_zero_tolerance_threshold_is_reported_as_zero_not_none():
+    """Regression test: ``max_percentage=0.0`` must surface as
+    ``threshold=0.0`` on the TestResult.
+
+    Previous code built the result with::
+
+        threshold=test.max_percentage or test.min_percentage
+
+    Because ``0.0`` is falsy in Python, ``0.0 or None`` evaluated to
+    ``None`` — so a "zero tolerance" policy (e.g., ``max_percentage=0.0``
+    on a "no PII allowed" rule) was reported with ``threshold=None``,
+    making the rendered CLI/JSON output gaslight reviewers about which
+    threshold actually fired. The pass/fail decision was still correct
+    (it uses ``is not None`` checks), but the reported threshold was wrong.
+
+    This test pins the reporting fix.
+    """
+    # A single sample that flags the rule (value=1 > 0), driving the
+    # test to FAIL with matching_pct=100% > max_percentage=0.0%.
+    results: dict[str, list[BaseModel] | BaseModel] = {"m": [_PartialMetrics(value=1)]}
+    tests = [
+        TestParams(
+            id="no_pii_allowed",  # mimics a real "zero tolerance" rule
+            type=TestType.THRESHOLD,
+            metric="m.value",
+            operator=">",
+            value=0,
+            max_percentage=0.0,  # the value the old `a or b` swallowed
+        )
+    ]
+    summary = TestEngine(tests).run(results)
+
+    result = summary.results[0]
+    assert result.passed is False, "1/1 samples flagged > 0% allowed → must fail"
+    assert result.threshold == 0.0, (
+        "threshold must reflect the user-configured 0.0, not fall through to "
+        "min_percentage via Python's truthy `or` semantics"
+    )
+
+
+def test_zero_tolerance_threshold_picks_max_when_both_are_set():
+    """Regression test for the "both set" variant of the truthiness bug.
+
+    With ``max_percentage=0.0`` and ``min_percentage=50.0``, the old
+    ``test.max_percentage or test.min_percentage`` evaluated to ``50.0``
+    — confidently misattributing the threshold to the min rule when the
+    max rule is the one that fired. The fix's explicit ``is not None``
+    check picks ``max_percentage`` whenever it was set, regardless of value.
+    """
+    results: dict[str, list[BaseModel] | BaseModel] = {"m": [_PartialMetrics(value=1)]}
+    tests = [
+        TestParams(
+            id="zero_max_with_min",
+            type=TestType.THRESHOLD,
+            metric="m.value",
+            operator=">",
+            value=0,
+            max_percentage=0.0,
+            min_percentage=50.0,
+        )
+    ]
+    summary = TestEngine(tests).run(results)
+
+    assert summary.results[0].threshold == 0.0, (
+        "max_percentage=0.0 was explicitly set; it must win over min_percentage"
+    )

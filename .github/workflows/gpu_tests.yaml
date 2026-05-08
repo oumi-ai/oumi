@@ -8,10 +8,12 @@ on:
   pull_request:
     paths:
       - "tests/integration/**"
+      - "pyproject.toml"
 
 env:
   SETUPTOOLS_SCM_PRETEND_VERSION_FOR_OUMI: v0.0.1
   NCCL_DEBUG: INFO
+  DO_NOT_TRACK: "1"
 
 jobs:
   gpu-tests:
@@ -31,7 +33,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libcurl4 wget software-properties-common
+          sudo apt-get install -y libcurl4 wget software-properties-common poppler-utils
 
       - name: Install CUDA Toolkit
         run: |

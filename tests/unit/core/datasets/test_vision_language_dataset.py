@@ -60,8 +60,8 @@ def create_mock_processor(label_ignore_index: int | None):
     processor.image_token = _IMAGE_TOKEN
     processor.image_token_id = _IMAGE_TOKEN_ID
     processor.label_ignore_index = label_ignore_index
-    processor.side_effect = (
-        lambda images, text, return_tensors, padding: transformers.BatchEncoding(
+    processor.side_effect = lambda images, text, return_tensors, padding: (
+        transformers.BatchEncoding(
             data={
                 "input_ids": [[101, 102, _IMAGE_TOKEN_ID, 104]],
                 "attention_mask": [[1, 1, 1, 1]],

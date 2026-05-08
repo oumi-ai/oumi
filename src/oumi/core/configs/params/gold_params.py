@@ -13,10 +13,12 @@
 # limitations under the License.
 
 import math
+import warnings
 from dataclasses import dataclass, field
 from typing import Any
 
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.exceptions import OumiConfigError
 
 
 @dataclass
@@ -220,8 +222,12 @@ class GoldParams(BaseParams):
     use_transformers_paged: bool = False
     """Whether to use transformers paged attention for generation.
 
-    If True, uses paged implementation instead of default padded implementation.
-    Can improve memory efficiency for generation.
+    .. deprecated::
+        This field is deprecated and ignored. Upstream removed
+        ``use_transformers_paged`` from ``trl.GOLDConfig`` in trl 1.2 — the
+        paged generation path was both slower and substantially more
+        VRAM-hungry than the default and is now superseded by transformers
+        continuous batching. The field will be removed in a future release.
     """
 
     use_vllm: bool = False
@@ -295,6 +301,15 @@ class GoldParams(BaseParams):
 
     def __post_init__(self):
         """Validates GOLD parameters."""
+        if self.use_transformers_paged:
+            warnings.warn(
+                "GoldParams.use_transformers_paged is deprecated and ignored: "
+                "trl 1.2 removed `use_transformers_paged` from `GOLDConfig`. "
+                "The field will be removed in a future release.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
         if self.teacher_model_name_or_path is not None:
             if not isinstance(self.teacher_model_name_or_path, str):
                 raise TypeError(
@@ -302,7 +317,7 @@ class GoldParams(BaseParams):
                     f"Actual type: {type(self.teacher_model_name_or_path)}"
                 )
             if not self.teacher_model_name_or_path.strip():
-                raise ValueError(
+                raise OumiConfigError(
                     "GoldParams.teacher_model_name_or_path cannot be empty."
                 )
 
@@ -311,33 +326,33 @@ class GoldParams(BaseParams):
             and self.temperature > 0.0
             and self.temperature <= 1.0
         ):
-            raise ValueError(
+            raise OumiConfigError(
                 "GoldParams.temperature must be in range (0.0, 1.0]. "
                 f"Actual: {self.temperature}"
             )
 
         if not (math.isfinite(self.top_p) and 0.0 < self.top_p <= 1.0):
-            raise ValueError(
+            raise OumiConfigError(
                 f"GoldParams.top_p must be in range (0.0, 1.0]. Actual: {self.top_p}"
             )
 
         if self.top_k < 0:
-            raise ValueError(
+            raise OumiConfigError(
                 f"GoldParams.top_k must be non-negative. Actual: {self.top_k}"
             )
 
         if not (math.isfinite(self.lmbda) and 0.0 <= self.lmbda <= 1.0):
-            raise ValueError(
+            raise OumiConfigError(
                 f"GoldParams.lmbda must be in range [0.0, 1.0]. Actual: {self.lmbda}"
             )
 
         if not (math.isfinite(self.beta) and 0.0 <= self.beta <= 1.0):
-            raise ValueError(
+            raise OumiConfigError(
                 f"GoldParams.beta must be in range [0.0, 1.0]. Actual: {self.beta}"
             )
 
         if self.max_completion_length <= 0:
-            raise ValueError(
+            raise OumiConfigError(
                 "GoldParams.max_completion_length must be positive. "
                 f"Actual: {self.max_completion_length}"
             )
@@ -345,25 +360,25 @@ class GoldParams(BaseParams):
         # Validate ULD parameters
         if self.use_uld_loss:
             if self.uld_crossentropy_weight < 0.0:
-                raise ValueError(
+                raise OumiConfigError(
                     "GoldParams.uld_crossentropy_weight must be non-negative. "
                     f"Actual: {self.uld_crossentropy_weight}"
                 )
 
             if self.uld_distillation_weight < 0.0:
-                raise ValueError(
+                raise OumiConfigError(
                     "GoldParams.uld_distillation_weight must be non-negative. "
                     f"Actual: {self.uld_distillation_weight}"
                 )
 
             if self.uld_student_temperature <= 0.0:
-                raise ValueError(
+                raise OumiConfigError(
                     "GoldParams.uld_student_temperature must be positive. "
                     f"Actual: {self.uld_student_temperature}"
                 )
 
             if self.uld_teacher_temperature <= 0.0:
-                raise ValueError(
+                raise OumiConfigError(
                     "GoldParams.uld_teacher_temperature must be positive. "
                     f"Actual: {self.uld_teacher_temperature}"
                 )
@@ -373,7 +388,7 @@ class GoldParams(BaseParams):
                 if (self.uld_hybrid_matched_weight is None) != (
                     self.uld_hybrid_unmatched_weight is None
                 ):
-                    raise ValueError(
+                    raise OumiConfigError(
                         "GoldParams.uld_hybrid_matched_weight and "
                         "uld_hybrid_unmatched_weight must both be None (for adaptive "
                         "weighting) or both be set to numeric values. "
@@ -388,18 +403,18 @@ class GoldParams(BaseParams):
                     and self.uld_hybrid_unmatched_weight is not None
                 ):
                     if self.uld_hybrid_matched_weight < 0.0:
-                        raise ValueError(
+                        raise OumiConfigError(
                             "GoldParams.uld_hybrid_matched_weight must be "
                             f"non-negative. Actual: {self.uld_hybrid_matched_weight}"
                         )
                     if self.uld_hybrid_unmatched_weight < 0.0:
-                        raise ValueError(
+                        raise OumiConfigError(
                             "GoldParams.uld_hybrid_unmatched_weight must be "
                             f"non-negative. Actual: {self.uld_hybrid_unmatched_weight}"
                         )
 
         if self.vllm_mode not in ("server", "colocate"):
-            raise ValueError(
+            raise OumiConfigError(
                 f"GoldParams.vllm_mode must be 'server' or 'colocate'. "
                 f"Actual: {self.vllm_mode}"
             )
@@ -435,7 +450,6 @@ class GoldParams(BaseParams):
             "uld_teacher_temperature": self.uld_teacher_temperature,
             "uld_skip_student_eos": self.uld_skip_student_eos,
             "uld_skip_teacher_eos": self.uld_skip_teacher_eos,
-            "use_transformers_paged": self.use_transformers_paged,
             "use_vllm": self.use_vllm,
             "vllm_mode": self.vllm_mode,
             "vllm_server_host": self.vllm_server_host,

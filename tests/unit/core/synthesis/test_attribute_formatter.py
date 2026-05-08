@@ -278,3 +278,66 @@ def test_format_with_none_sampled_attributes():
     expected = "Hello Bob"
 
     assert result == expected
+
+
+def test_format_with_sampled_attribute_property_access():
+    """Test all property access patterns for sampled attributes."""
+    tone_values = [
+        SampledAttributeValue(
+            id="professional",
+            name="Professional",
+            description="A professional tone",
+        ),
+    ]
+
+    style_values = [
+        SampledAttributeValue(
+            id="minimal",
+            name="Minimalist",
+            description="A clean, minimal approach",
+        ),
+    ]
+
+    sampled_attrs = [
+        SampledAttribute(
+            id="tone",
+            name="Tone",
+            description="Communication tone",
+            possible_values=tone_values,
+        ),
+        SampledAttribute(
+            id="style",
+            name="Design Style",
+            description="The visual design approach",
+            possible_values=style_values,
+        ),
+    ]
+
+    params = GeneralSynthesisParams(sampled_attributes=sampled_attrs)
+    formatter = AttributeFormatter(params)
+
+    sample = {"tone": "professional", "style": "minimal"}
+
+    # Test all property access patterns
+    test_cases = [
+        # Basic value access
+        ("{tone}", "Professional"),
+        ("{tone.name}", "Professional"),
+        ("{tone.description}", "A professional tone"),
+        # Parent (attribute) access
+        ("{tone.parent}", "Tone"),
+        ("{tone.parent.name}", "Tone"),
+        ("{tone.parent.description}", "Communication tone"),
+        # Multiple attributes with mixed syntax
+        ("{style.name} with {tone.name}", "Minimalist with Professional"),
+        (
+            "{style.parent}: {style.description}",
+            "Design Style: A clean, minimal approach",
+        ),
+    ]
+
+    for format_string, expected in test_cases:
+        result = formatter.format(sample, format_string)
+        assert result == expected, (
+            f"Failed for '{format_string}': expected '{expected}', got '{result}'"
+        )

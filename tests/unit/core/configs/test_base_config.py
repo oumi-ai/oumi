@@ -5,18 +5,29 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+import pytest
 from omegaconf import OmegaConf
+from omegaconf.errors import ConfigKeyError, GrammarParseError
 
-from oumi.core.configs.base_config import BaseConfig, _handle_non_primitives
+from oumi.core.configs.base_config import (
+    BaseConfig,
+    _handle_non_primitives,
+    _read_config_without_interpolation,
+)
+from oumi.exceptions import OumiConfigError, OumiConfigParsingError
 
 
 class TestEnum(Enum):
+    __test__ = False  # Prevent pytest collection
+
     VALUE1 = "value1"
     VALUE2 = "value2"
 
 
 @dataclass(eq=False)
 class TestConfig(BaseConfig):
+    __test__ = False  # Prevent pytest collection
+
     str_value: str
     int_value: int
     float_value: float
@@ -28,6 +39,25 @@ class TestConfig(BaseConfig):
     list_value: list[Any]
     dict_value: dict[str, Any]
     func_value: Any | None = None
+
+
+# Full valid TestConfig YAML (shared by from_str tests).
+_TEST_CONFIG_YAML = """
+        str_value: "test"
+        int_value: 42
+        float_value: 3.14
+        bool_value: true
+        none_value: null
+        bytes_value: !!binary dGVzdA==
+        path_value: "test/path"
+        enum_value: "VALUE1"
+        list_value: ["primitive", [1, 2, 3]]
+        dict_value:
+            primitive: "value"
+            nested:
+                list: [1, 2, 3]
+        func_value: "def test_func(x): return x * 2"
+    """
 
 
 def test_primitive_types():
@@ -164,24 +194,7 @@ def test_config_serialization():
 
 def test_config_loading_from_str():
     """Test loading config from YAML string."""
-    yaml_str = """
-        str_value: "test"
-        int_value: 42
-        float_value: 3.14
-        bool_value: true
-        none_value: null
-        bytes_value: !!binary dGVzdA==
-        path_value: "test/path"
-        enum_value: "VALUE1"
-        list_value: ["primitive", [1, 2, 3]]
-        dict_value:
-            primitive: "value"
-            nested:
-                list: [1, 2, 3]
-        func_value: "def test_func(x): return x * 2"
-    """
-
-    config = TestConfig.from_str(yaml_str)
+    config = TestConfig.from_str(_TEST_CONFIG_YAML)
     assert config.str_value == "test"
     assert config.int_value == 42
     assert config.float_value == 3.14
@@ -192,6 +205,25 @@ def test_config_loading_from_str():
     assert config.enum_value == TestEnum.VALUE1
     assert config.list_value == ["primitive", [1, 2, 3]]
     assert config.dict_value == {"primitive": "value", "nested": {"list": [1, 2, 3]}}
+
+
+def test_from_str_unknown_field_raises_config_parsing_error():
+    """Unknown YAML key raises OumiConfigParsingError with chained cause."""
+    yaml_str = _TEST_CONFIG_YAML + "\n        unknown_key: 1\n"
+    with pytest.raises(OumiConfigParsingError) as exc_info:
+        TestConfig.from_str(yaml_str)
+    assert exc_info.value.config_key == "unknown_key"
+    assert isinstance(exc_info.value.__cause__, ConfigKeyError)
+
+
+def test_from_str_malformed_interpolation_raises_config_parsing_error():
+    """Malformed interpolation raises OumiConfigParsingError with chained cause."""
+    # Standalone YAML overriding str_value with an unclosed interpolation.
+    # GrammarParseError is raised by OmegaConf during OmegaConf.to_object().
+    yaml_str = 'str_value: "${bad"'
+    with pytest.raises(OumiConfigParsingError) as exc_info:
+        TestConfig.from_str(yaml_str)
+    assert isinstance(exc_info.value.__cause__, GrammarParseError)
 
 
 def test_config_equality():
@@ -327,3 +359,101 @@ def test_config_from_yaml_and_arg_list():
         assert new_config.bool_value is False
         assert new_config.list_value[0] == "override"
         assert new_config.dict_value["key"] == "override"
+
+
+def test_exception_class_hierarchy():
+    """Test that OumiConfigError forms the expected inheritance hierarchy."""
+    assert issubclass(OumiConfigError, Exception)
+
+
+def test_read_config_without_interpolation_file_not_found():
+    """Test that a non-existent path raises OumiConfigError."""
+    with pytest.raises(
+        OumiConfigError,
+        match="Config file not found or path is not a file",
+    ):
+        _read_config_without_interpolation("/nonexistent/path/config.yaml")
+
+
+def test_read_config_without_interpolation_directory_path(tmp_path: Path):
+    """Test that a directory path raises OumiConfigError."""
+    with pytest.raises(
+        OumiConfigError,
+        match="Config file not found or path is not a file",
+    ):
+        _read_config_without_interpolation(str(tmp_path))
+
+
+def test_from_yaml_file_not_found():
+    """from_yaml raises OumiConfigError for a missing config path."""
+    with pytest.raises(
+        OumiConfigError,
+        match="Config file not found or path is not a file",
+    ):
+        TestConfig.from_yaml("/nonexistent/path/config.yaml")
+
+
+def test_from_yaml_path_is_directory(tmp_path: Path):
+    """Test that from_yaml raises OumiConfigError when given a directory."""
+    with pytest.raises(
+        OumiConfigError,
+        match="Config file not found or path is not a file",
+    ):
+        TestConfig.from_yaml(tmp_path)
+
+
+def test_to_yaml_missing_parent_directory():
+    """Test that to_yaml raises OumiConfigError when the output directory is missing."""
+    config = TestConfig(
+        str_value="test",
+        int_value=1,
+        float_value=1.0,
+        bool_value=True,
+        none_value=None,
+        bytes_value=b"test",
+        path_value=Path("test/path"),
+        enum_value=TestEnum.VALUE1,
+        list_value=[],
+        dict_value={},
+    )
+    with pytest.raises(
+        OumiConfigError,
+        match="parent directory does not exist or is not a directory",
+    ):
+        config.to_yaml("/nonexistent/subdir/out.yaml")
+
+
+def test_from_yaml_file_not_found_no_interpolation():
+    """from_yaml with ignore_interpolation=False raises on missing file."""
+    with pytest.raises(
+        OumiConfigError,
+        match="Config file not found or path is not a file",
+    ):
+        TestConfig.from_yaml(
+            "/nonexistent/path/config.yaml", ignore_interpolation=False
+        )
+
+
+def test_from_yaml_and_arg_list_nonexistent_config():
+    """from_yaml_and_arg_list raises OumiConfigError if file missing."""
+    with pytest.raises(
+        OumiConfigError,
+        match="Config file not found or path is not a file",
+    ):
+        TestConfig.from_yaml_and_arg_list(
+            config_path="/nonexistent/path/config.yaml",
+            arg_list=[],
+        )
+
+
+def test_from_yaml_and_arg_list_nonexistent_config_no_interpolation(tmp_path: Path):
+    """Test OumiConfigError via the ignore_interpolation=False branch."""
+    with pytest.raises(
+        OumiConfigError,
+        match="Config file not found or path is not a file",
+    ):
+        TestConfig.from_yaml_and_arg_list(
+            config_path=str(tmp_path / "nonexistent.yaml"),
+            arg_list=[],
+            ignore_interpolation=False,
+        )

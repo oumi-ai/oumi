@@ -20,7 +20,7 @@ from tqdm.asyncio import tqdm
 from typing_extensions import override
 
 from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
-from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.core.types.conversation import Conversation, FinishReason, Message, Role
 from oumi.inference.adaptive_semaphore import PoliteAdaptiveSemaphore
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 from oumi.utils.logging import logger
@@ -90,11 +90,11 @@ class BedrockInferenceEngine(RemoteInferenceEngine):
         """Return the default environment variable name for the Bedrock API key."""
         return None
 
-    def _bedrock_client(self, remote_params: RemoteParams) -> Any:
+    def _get_aws_region(self) -> str:
         region = os.getenv(_AWS_REGION_ENV_VAR)
         if not region:
             raise ValueError(f"Environment variable {_AWS_REGION_ENV_VAR} not set.")
-        return boto3.client("bedrock-runtime", region_name=region)  # type: ignore
+        return region
 
     @override
     def _convert_conversation_to_api_input(
@@ -188,6 +188,22 @@ class BedrockInferenceEngine(RemoteInferenceEngine):
         return result
 
     @override
+    def list_models(self, chat_only: bool = True) -> list[str]:
+        """Returns model IDs available in AWS Bedrock."""
+        region = self._get_aws_region()
+        client = boto3.client("bedrock", region_name=region)  # type: ignore
+        response = client.list_foundation_models()
+        summaries = response.get("modelSummaries", [])
+        if chat_only:
+            summaries = [
+                m
+                for m in summaries
+                if "TEXT" in m.get("outputModalities", [])
+                and "TEXT" in m.get("inputModalities", [])
+            ]
+        return sorted(m["modelId"] for m in summaries if "modelId" in m)
+
+    @override
     def _default_remote_params(self) -> RemoteParams:
         """Returns the default remote parameters."""
         return RemoteParams()
@@ -230,7 +246,7 @@ class BedrockInferenceEngine(RemoteInferenceEngine):
         body: dict[str, Any],
     ) -> dict[str, Any]:
         """Synchronously invokes Bedrock Converse via boto3."""
-        client = self._bedrock_client(remote_params)
+        client = boto3.client("bedrock-runtime", region_name=self._get_aws_region())  # type: ignore
         kwargs: dict[str, Any] = {
             "modelId": model_params.model_name,
             "messages": body["messages"],
@@ -320,6 +336,23 @@ class BedrockInferenceEngine(RemoteInferenceEngine):
                 + (f"Reason: {failure_reason}" if failure_reason else "")
             )
 
+    @staticmethod
+    def _extract_finish_reason_from_response(
+        response: dict[str, Any],
+    ) -> FinishReason | None:
+        """Extract normalized finish_reason from a Bedrock Converse response."""
+        raw_reason = response.get("stopReason")
+        if raw_reason is None:
+            return None
+        mapping = {
+            "end_turn": FinishReason.STOP,
+            "max_tokens": FinishReason.LENGTH,
+            "stop_sequence": FinishReason.STOP,
+            "tool_use": FinishReason.TOOL_CALLS,
+            "content_filtered": FinishReason.CONTENT_FILTER,
+        }
+        return mapping.get(raw_reason, FinishReason.UNKNOWN)
+
     @override
     def _convert_api_output_to_conversation(
         self, response: dict[str, Any], original: Conversation
@@ -330,9 +363,13 @@ class BedrockInferenceEngine(RemoteInferenceEngine):
             if "text" in block:
                 text += block["text"]
         new_message = Message(content=text, role=Role.ASSISTANT)
+        metadata = dict(original.metadata)
+        finish_reason = self._extract_finish_reason_from_response(response)
+        if finish_reason is not None:
+            metadata["finish_reason"] = finish_reason.value
         return Conversation(
             messages=[*original.messages, new_message],
-            metadata=original.metadata,
+            metadata=metadata,
             conversation_id=original.conversation_id,
         )
 

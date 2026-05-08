@@ -380,7 +380,8 @@ def prepare_model_for_distributed(
             )
             transformer_layer_classes = (
                 resolve_transformer_layer_cls_string_as_module_set(
-                    fsdp_params.transformer_layer_cls
+                    fsdp_params.transformer_layer_cls,
+                    model=model,
                 )
             )
 

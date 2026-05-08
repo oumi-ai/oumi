@@ -17,15 +17,14 @@
 This module provides custom types and exceptions used throughout the Oumi framework.
 
 Exceptions:
+    :class:`OumiError`: Base exception for all Oumi errors.
+    :class:`ConfigurationError`: Exception raised for invalid configuration.
+    :class:`ModelError`: Exception raised for model-related errors.
+    :class:`ModelNotFoundError`: Exception raised when a model cannot be found.
+    :class:`DatasetError`: Exception raised for dataset-related errors.
+    :class:`InferenceError`: Exception raised for errors during inference.
+    :class:`TrainingError`: Exception raised for errors during training.
     :class:`HardwareException`: Exception raised for hardware-related errors.
-
-Example:
-    >>> from oumi.core.types import HardwareException
-    >>> try:
-    ...     # Some hardware-related operation
-    ...     pass
-    ... except HardwareException as e:
-    ...     print(f"Hardware error occurred: {e}")
 
 Note:
     This module is part of the core Oumi framework and is used across various
@@ -36,12 +35,22 @@ from oumi.core.types.conversation import (
     ContentItem,
     ContentItemCounts,
     Conversation,
+    FinishReason,
     Message,
     Role,
     TemplatedMessage,
     Type,
 )
-from oumi.core.types.exceptions import (
+from oumi.core.types.tool_call import (
+    FunctionCall,
+    FunctionDefinition,
+    JSONSchema,
+    ToolCall,
+    ToolDefinition,
+    ToolResult,
+    ToolType,
+)
+from oumi.exceptions import (
     ConfigurationError,
     DatasetError,
     HardwareException,
@@ -66,8 +75,16 @@ __all__ = [
     "ContentItem",
     "ContentItemCounts",
     "Conversation",
+    "FinishReason",
+    "FunctionCall",
+    "FunctionDefinition",
+    "JSONSchema",
     "Message",
     "Role",
-    "Type",
     "TemplatedMessage",
+    "ToolCall",
+    "ToolDefinition",
+    "ToolResult",
+    "ToolType",
+    "Type",
 ]
