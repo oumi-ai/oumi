@@ -843,9 +843,7 @@ def test_has_empty_messages_skips_assistant_tool_call_messages(
     mock_general_synthesis_params,
     mock_inference_config,
 ):
-    """Assistant messages with tool_calls and content=None must NOT be flagged
-    as empty — that's the legitimate OpenAI wire format for a tool-only turn.
-    """
+    """Assistant messages with tool_calls but content=None must NOT be flagged empty."""
     mock_build_inference_engine.return_value = Mock()
     synthesizer = ConversationSynthesizer(
         mock_general_synthesis_params,
@@ -1567,7 +1565,6 @@ def test_init_no_error_on_supported_engine_with_tools(
         generation=GenerationParams(),
     )
 
-    # Should not raise
     ConversationSynthesizer(
         mock_general_synthesis_params,
         inference_config,
@@ -1589,7 +1586,6 @@ def test_init_no_error_on_unsupported_engine_without_tools(
         generation=GenerationParams(),
     )
 
-    # No environment_config at all → should not raise
     ConversationSynthesizer(
         mock_general_synthesis_params,
         inference_config,
@@ -1662,8 +1658,6 @@ def test_synthesize_attaches_tools_to_assistant_prompt(
             multiturn_attributes=multiturn_attr,
         )
 
-    # Two turns: USER (turn 0), ASSISTANT (turn 1).
-    # Only the assistant prompt should have tools attached.
     assert len(turn_prompts) == 2
     user_prompt, assistant_prompt = turn_prompts[0], turn_prompts[1]
     assert user_prompt.tools is None
@@ -1722,7 +1716,7 @@ def test_synthesize_no_tools_when_env_has_none(
 
 
 # ---------------------------------------------------------------------------
-# Tests for native tool-call loop
+# Tests for the assistant tool-call loop
 # ---------------------------------------------------------------------------
 
 
@@ -1779,8 +1773,6 @@ def test_run_tool_call_dispatches_through_env(
 
     assert msg.role == Role.TOOL
     assert msg.tool_call_id == "call_1"
-    # Dict outputs are JSON-encoded at the message boundary.
-    assert isinstance(msg.content, str)
     assert msg.content == '{"city": "Paris"}'
     fake_env.step.assert_called_once_with("get_weather", {"city": "Paris"})
 
@@ -1935,10 +1927,10 @@ def test_assistant_turn_loops_on_tool_calls(
     fake_env.step.return_value = ToolResult(output={"answer": 42})
     mock_build_environment.return_value = fake_env
 
-    # Track which assistant-turn infer call we're on (planner uses guided_decoding).
     turn_call_count = {"n": 0}
 
     def scripted_infer(prompts, inference_config=None):
+        # Planner inference uses guided_decoding; turn inference doesn't.
         if (
             inference_config is not None
             and inference_config.generation.guided_decoding is not None
@@ -1950,18 +1942,13 @@ def test_assistant_turn_loops_on_tool_calls(
                 for _ in prompts
             ]
         turn_call_count["n"] += 1
-        # First assistant call for turn 2 returns a tool call;
-        # second call returns a final text answer.
-        # User turns produce plain text and only invoke once for turn 1.
         last_msg = prompts[0].messages[-1]
         last_text = last_msg.content if isinstance(last_msg.content, str) else ""
         if "USER" in last_text:
-            # User-turn prompts mention "as the USER".
             return [
                 Conversation(messages=[Message(role=Role.ASSISTANT, content="hello")])
                 for _ in prompts
             ]
-        # Assistant turn — first round emits a tool call, second emits text.
         if turn_call_count["n"] == 2:
             return [
                 Conversation(
@@ -2027,17 +2014,12 @@ def test_assistant_turn_loops_on_tool_calls(
     assert isinstance(conv, dict)
     msgs = conv["messages"]
     roles = [m["role"] for m in msgs]
-    # Tool-result message must be present, and a final assistant text after it.
     assert "tool" in roles, f"Expected a tool message in {roles}"
-    # Sequence after the user turn 1 should be:
-    # user, assistant(tool_calls), tool, assistant("done")
-    # Find the last 'tool' message and verify there's an assistant after it.
     last_tool = max(i for i, m in enumerate(msgs) if m["role"] == "tool")
     assert any(
         m["role"] == "assistant" and m.get("content") == "done"
         for m in msgs[last_tool + 1 :]
     ), f"Expected final assistant text after tool message: {msgs}"
-    # Env.step was called exactly once.
     assert fake_env.step.call_count == 1
 
 
@@ -2066,8 +2048,6 @@ def test_assistant_turn_caps_at_max_tool_calls_then_finalizes(
             ]
         last_msg = prompts[0].messages[-1]
         last_text = last_msg.content if isinstance(last_msg.content, str) else ""
-        # Detect the straggler nudge: it's a USER message with the nudge text
-        # appended to a prompt that already contains tool messages.
         if last_text.startswith("Stop calling tools"):
             return [
                 Conversation(
@@ -2082,7 +2062,6 @@ def test_assistant_turn_caps_at_max_tool_calls_then_finalizes(
                 Conversation(messages=[Message(role=Role.ASSISTANT, content="hello")])
                 for _ in prompts
             ]
-        # Assistant turn: keep emitting tool calls forever (until cap).
         return [
             Conversation(
                 messages=[
@@ -2146,7 +2125,6 @@ def test_assistant_turn_caps_at_max_tool_calls_then_finalizes(
     assert "forced final answer" in contents, (
         f"Expected nudge to produce final answer, got contents: {contents}"
     )
-    # Env should have been called exactly max_tool_calls_per_turn (2) times.
     assert fake_env.step.call_count == 2
 
 
@@ -2157,15 +2135,11 @@ def test_assistant_turn_clamps_multi_call_batch_to_cap(
     mock_build_environment,
     mock_general_synthesis_params,
 ):
-    """When the model returns more tool calls than remain in the cap, only
-    the cap-budgeted prefix is dispatched and the assistant message reflects
-    that prefix.
-    """
+    """When tool calls exceed the cap, only the budgeted prefix is dispatched."""
     fake_env = Mock(spec=BaseEnvironment)
     fake_env.step.return_value = ToolResult(output={"ok": True})
     mock_build_environment.return_value = fake_env
 
-    # Model returns 3 tool calls in one round; cap is 2 → only 2 dispatched.
     assistant_turn_count = {"n": 0}
 
     def scripted_infer(prompts, inference_config=None):
@@ -2182,14 +2156,10 @@ def test_assistant_turn_clamps_multi_call_batch_to_cap(
         last_msg = prompts[0].messages[-1]
         last_text = last_msg.content if isinstance(last_msg.content, str) else ""
         if "USER" in last_text:
-            # User-turn infer: return plain text.
             return [
                 Conversation(messages=[Message(role=Role.ASSISTANT, content="hello")])
                 for _ in prompts
             ]
-        # Assistant turn: first call returns 3 tool calls in one batch.
-        # After cap-clamp (cap=2), 2 dispatched, sample becomes a straggler.
-        # Nudge round returns plain text.
         if last_text.startswith("Stop calling tools"):
             return [
                 Conversation(messages=[Message(role=Role.ASSISTANT, content="done")])
@@ -2197,7 +2167,6 @@ def test_assistant_turn_clamps_multi_call_batch_to_cap(
             ]
         assistant_turn_count["n"] += 1
         if assistant_turn_count["n"] == 1:
-            # First assistant-turn call: 3 tool calls in one batch.
             return [
                 Conversation(
                     messages=[
@@ -2216,7 +2185,6 @@ def test_assistant_turn_clamps_multi_call_batch_to_cap(
                 )
                 for _ in prompts
             ]
-        # Subsequent assistant-turn calls return plain text.
         return [
             Conversation(messages=[Message(role=Role.ASSISTANT, content="done")])
             for _ in prompts
@@ -2257,5 +2225,4 @@ def test_assistant_turn_clamps_multi_call_batch_to_cap(
             multiturn_attributes=multiturn_attr,
         )
 
-    # Cap is 2; model returned 3 in one batch; only 2 should have been dispatched.
     assert fake_env.step.call_count == 2
