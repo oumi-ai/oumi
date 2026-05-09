@@ -486,7 +486,10 @@ class MultiTurnAttribute:
     """List of tool ids available in this conversation."""
 
     max_consecutive_tool_turns: int = 50
-    """Circuit breaker on consecutive assistant tool-using turns (parallel batches = one turn)."""
+    """Circuit breaker on consecutive tool-using assistant turns.
+
+    A parallel batch of tool calls counts as one turn.
+    """
 
     def __post_init__(self):
         """Verifies/populates params."""
