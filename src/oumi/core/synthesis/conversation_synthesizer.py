@@ -715,6 +715,99 @@ class ConversationSynthesizer:
 
         return conversations
 
+    def _run_assistant_tool_round(
+        self,
+        active: list[int],
+        base_msgs: dict[int, list[Message]],
+        staging: dict[int, list[Message]],
+        round_count: dict[int, int],
+        done: dict[int, bool],
+        assistant_tools: list[ToolDefinition] | None,
+    ) -> None:
+        """One round of the assistant→tool agentic loop for the active subset.
+
+        For each active sample: run one assistant inference, then either
+        - dispatch the emitted ``tool_calls`` (and bump ``round_count``), or
+        - commit the emitted text as the final assistant message and mark ``done``.
+        """
+        active_prompts = [
+            Conversation(
+                messages=base_msgs[idx] + staging[idx],
+                tools=assistant_tools,
+            )
+            for idx in active
+        ]
+        results = self._inference_engine.infer(
+            active_prompts,
+            inference_config=self._inference_config,
+        )
+        if len(results) != len(active):
+            raise RuntimeError(
+                f"Inference engine returned {len(results)} results for "
+                f"{len(active)} prompts in the assistant tool-call loop."
+            )
+        for idx, result in zip(active, results):
+            assistant_msg = result.messages[-1] if result.messages else None
+            if assistant_msg is not None and assistant_msg.tool_calls:
+                staging[idx].append(
+                    Message(
+                        role=Role.ASSISTANT,
+                        content=assistant_msg.content,
+                        tool_calls=assistant_msg.tool_calls,
+                    )
+                )
+                for tc in assistant_msg.tool_calls:
+                    staging[idx].append(self._run_tool_call(tc))
+                round_count[idx] += 1
+            else:
+                staging[idx].append(
+                    Message(
+                        role=Role.ASSISTANT,
+                        content=self._final_assistant_text(assistant_msg),
+                    )
+                )
+                done[idx] = True
+
+    def _finalize_stragglers(
+        self,
+        stragglers: list[int],
+        nudged_prompts: list[Conversation],
+        staging: dict[int, list[Message]],
+    ) -> None:
+        """Force a final assistant answer for stragglers — samples that hit the round cap.
+
+        Each straggler gets one nudged inference (see ``_STRAGGLER_NUDGE``); whatever
+        the model emits is committed as the final assistant message. If the model
+        defies the nudge and emits more ``tool_calls``, they are preserved on the
+        message so it isn't dropped by ``_has_empty_messages`` when ``content`` is None.
+        """
+        results = self._inference_engine.infer(
+            nudged_prompts,
+            inference_config=self._inference_config,
+        )
+        if len(results) != len(stragglers):
+            raise RuntimeError(
+                f"Inference engine returned {len(results)} results for "
+                f"{len(stragglers)} straggler prompts."
+            )
+        for idx, result in zip(stragglers, results):
+            assistant_msg = result.messages[-1] if result.messages else None
+            if assistant_msg is not None and assistant_msg.tool_calls:
+                staging[idx].append(
+                    Message(
+                        role=Role.ASSISTANT,
+                        content=assistant_msg.content,
+                        tool_calls=assistant_msg.tool_calls,
+                    )
+                )
+            else:
+                staging[idx].append(
+                    Message(
+                        role=Role.ASSISTANT,
+                        content=self._final_assistant_text(assistant_msg),
+                    )
+                )
+
     def _run_assistant_turn(
         self,
         prompts: list[Conversation],
@@ -723,7 +816,16 @@ class ConversationSynthesizer:
         max_consecutive_tool_turns: int,
         assistant_tools: list[ToolDefinition] | None,
     ) -> None:
-        """Run an assistant turn, dispatching emitted tool calls; mutates histories."""
+        """Drive the assistant→tool agentic loop until each sample finishes or hits the cap.
+
+        Each iteration calls ``_run_assistant_tool_round`` on the active subset
+        (samples that aren't done and haven't hit ``max_consecutive_tool_turns``).
+        Samples that exit by hitting the cap are then handled by
+        ``_finalize_stragglers`` to force a final answer.
+
+        Mutates ``histories`` in place by extending each per-sample list with the
+        assistant + tool messages produced during this turn.
+        """
         base_msgs: dict[int, list[Message]] = {
             idx: prompt.messages for idx, prompt in zip(sample_indices, prompts)
         }
@@ -740,43 +842,14 @@ class ConversationSynthesizer:
             if not active:
                 break
 
-            active_prompts = [
-                Conversation(
-                    messages=base_msgs[idx] + staging[idx],
-                    tools=assistant_tools,
-                )
-                for idx in active
-            ]
-            results = self._inference_engine.infer(
-                active_prompts,
-                inference_config=self._inference_config,
+            self._run_assistant_tool_round(
+                active=active,
+                base_msgs=base_msgs,
+                staging=staging,
+                round_count=round_count,
+                done=done,
+                assistant_tools=assistant_tools,
             )
-            if len(results) != len(active):
-                raise RuntimeError(
-                    f"Inference engine returned {len(results)} results for "
-                    f"{len(active)} prompts in the assistant tool-call loop."
-                )
-            for idx, result in zip(active, results):
-                assistant_msg = result.messages[-1] if result.messages else None
-                if assistant_msg is not None and assistant_msg.tool_calls:
-                    staging[idx].append(
-                        Message(
-                            role=Role.ASSISTANT,
-                            content=assistant_msg.content,
-                            tool_calls=assistant_msg.tool_calls,
-                        )
-                    )
-                    for tc in assistant_msg.tool_calls:
-                        staging[idx].append(self._run_tool_call(tc))
-                    round_count[idx] += 1
-                else:
-                    staging[idx].append(
-                        Message(
-                            role=Role.ASSISTANT,
-                            content=self._final_assistant_text(assistant_msg),
-                        )
-                    )
-                    done[idx] = True
 
         stragglers = [idx for idx in sample_indices if not done[idx]]
         if stragglers:
@@ -785,33 +858,7 @@ class ConversationSynthesizer:
                 Conversation(messages=base_msgs[idx] + staging[idx] + [nudge])
                 for idx in stragglers
             ]
-            results = self._inference_engine.infer(
-                nudged_prompts,
-                inference_config=self._inference_config,
-            )
-            if len(results) != len(stragglers):
-                raise RuntimeError(
-                    f"Inference engine returned {len(results)} results for "
-                    f"{len(stragglers)} straggler prompts."
-                )
-            for idx, result in zip(stragglers, results):
-                assistant_msg = result.messages[-1] if result.messages else None
-                if assistant_msg is not None and assistant_msg.tool_calls:
-                    # Past the cap; preserve calls so the message isn't filtered.
-                    staging[idx].append(
-                        Message(
-                            role=Role.ASSISTANT,
-                            content=assistant_msg.content,
-                            tool_calls=assistant_msg.tool_calls,
-                        )
-                    )
-                else:
-                    staging[idx].append(
-                        Message(
-                            role=Role.ASSISTANT,
-                            content=self._final_assistant_text(assistant_msg),
-                        )
-                    )
+            self._finalize_stragglers(stragglers, nudged_prompts, staging)
 
         for idx in sample_indices:
             histories[idx].extend(staging[idx])
