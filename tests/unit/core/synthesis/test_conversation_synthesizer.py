@@ -1986,7 +1986,7 @@ def test_assistant_turn_loops_on_tool_calls(
             Role.USER: "user",
             Role.ASSISTANT: "assistant",
         },
-        max_tool_rounds_per_turn=5,
+        max_consecutive_tool_turns=5,
     )
     inference_config = InferenceConfig(
         engine=InferenceEngineType.OPENAI,
@@ -2025,12 +2025,12 @@ def test_assistant_turn_loops_on_tool_calls(
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_environment")
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
-def test_assistant_turn_caps_at_max_tool_rounds_then_finalizes(
+def test_assistant_turn_caps_at_max_consecutive_tool_turns_then_finalizes(
     mock_build_inference_engine,
     mock_build_environment,
     mock_general_synthesis_params,
 ):
-    """When max_tool_rounds_per_turn is hit, the nudge forces a final text answer."""
+    """When max_consecutive_tool_turns is hit, the nudge forces a final text answer."""
     fake_env = Mock(spec=BaseEnvironment)
     fake_env.step.return_value = ToolResult(output="ok")
     mock_build_environment.return_value = fake_env
@@ -2094,7 +2094,7 @@ def test_assistant_turn_caps_at_max_tool_rounds_then_finalizes(
             Role.USER: "user",
             Role.ASSISTANT: "assistant",
         },
-        max_tool_rounds_per_turn=2,
+        max_consecutive_tool_turns=2,
     )
     inference_config = InferenceConfig(
         engine=InferenceEngineType.OPENAI,
@@ -2199,7 +2199,7 @@ def test_assistant_turn_dispatches_parallel_batch_unrestricted(
             Role.USER: "user",
             Role.ASSISTANT: "assistant",
         },
-        max_tool_rounds_per_turn=2,
+        max_consecutive_tool_turns=2,
     )
     inference_config = InferenceConfig(
         engine=InferenceEngineType.OPENAI,

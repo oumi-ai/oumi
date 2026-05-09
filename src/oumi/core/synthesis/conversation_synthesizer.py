@@ -678,7 +678,7 @@ class ConversationSynthesizer:
                     prompts=prompts,
                     sample_indices=sample_indices,
                     histories=histories,
-                    max_tool_rounds=multiturn_attribute.max_tool_rounds_per_turn,
+                    max_consecutive_tool_turns=multiturn_attribute.max_consecutive_tool_turns,
                     assistant_tools=assistant_tools,
                 )
                 continue
@@ -720,7 +720,7 @@ class ConversationSynthesizer:
         prompts: list[Conversation],
         sample_indices: list[int],
         histories: list[list[Message]],
-        max_tool_rounds: int,
+        max_consecutive_tool_turns: int,
         assistant_tools: list[ToolDefinition] | None,
     ) -> None:
         """Run an assistant turn, dispatching emitted tool calls; mutates histories."""
@@ -735,7 +735,7 @@ class ConversationSynthesizer:
             active = [
                 idx
                 for idx in sample_indices
-                if not done[idx] and round_count[idx] < max_tool_rounds
+                if not done[idx] and round_count[idx] < max_consecutive_tool_turns
             ]
             if not active:
                 break

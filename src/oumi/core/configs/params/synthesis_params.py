@@ -485,8 +485,8 @@ class MultiTurnAttribute:
     available_tools: list[str] = field(default_factory=list)
     """List of tool ids available in this conversation."""
 
-    max_tool_rounds_per_turn: int = 50
-    """Circuit breaker on assistant→tool round-trips (parallel batches = one round)."""
+    max_consecutive_tool_turns: int = 50
+    """Circuit breaker on consecutive assistant tool-using turns (parallel batches = one turn)."""
 
     def __post_init__(self):
         """Verifies/populates params."""
