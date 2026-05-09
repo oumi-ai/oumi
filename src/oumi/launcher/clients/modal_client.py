@@ -132,11 +132,19 @@ def _sandbox_state(sandbox: Any) -> JobState:
 
 
 class ModalClient:
-    """A wrapped client for communicating with Modal."""
+    """A wrapped client for communicating with Modal.
+
+    Tracks the cluster_name → sandbox_ids mapping in-process so
+    ``ModalCluster.down()`` can find the sandboxes spawned under a
+    given logical cluster name. Across worker restarts the mapping is
+    lost, so cleanup falls back to per-sandbox cancel via job_id which
+    the worker also persists in the operation record.
+    """
 
     def __init__(self) -> None:
         """Initializes a new instance of the ModalClient class."""
         self._modal = _import_modal()
+        self._cluster_to_sandboxes: dict[str, list[str]] = {}
 
     # ----- launch / lifecycle -----
 
@@ -145,9 +153,11 @@ class ModalClient:
     ) -> JobStatus:
         """Creates a detached ``modal.Sandbox`` for the provided job.
 
-        ``cluster_name`` is ignored — Modal generates a stable opaque
-        ``Sandbox.object_id`` returned as the cluster name on the
-        resulting JobStatus.
+        Modal has no native cluster concept. The ``cluster_name`` argument
+        becomes a logical label returned on ``JobStatus.cluster`` so the
+        caller can group multiple sandboxes (e.g. retries) under one name.
+        ``JobStatus.id`` is the opaque ``Sandbox.object_id`` and is the
+        canonical handle for status / cancel / log lookups.
 
         We use ``Sandbox`` (not ``Function.spawn``) because sandboxes
         persist beyond the Python process that creates them, which is
@@ -182,20 +192,27 @@ class ModalClient:
             timeout=timeout,
         )
         sandbox_id = sandbox.object_id
+        effective_cluster = cluster_name or sandbox_id
+        self._cluster_to_sandboxes.setdefault(effective_cluster, []).append(sandbox_id)
 
         logger.info(
-            f"Launched Modal sandbox={sandbox_id} gpu={gpu} timeout={timeout}s"
+            f"Launched Modal sandbox={sandbox_id} cluster={effective_cluster} "
+            f"gpu={gpu} timeout={timeout}s"
         )
         return JobStatus(
             name=job.name or sandbox_id,
             id=sandbox_id,
-            cluster=sandbox_id,
+            cluster=effective_cluster,
             status=str(JobState.PENDING.value),
             metadata=shlex.quote(_LAUNCHER_APP_NAME),
             done=False,
             state=JobState.PENDING,
             cost_per_hour=self.estimate_cost_per_hour(gpu),
         )
+
+    def sandboxes_for_cluster(self, cluster_name: str) -> list[str]:
+        """Returns the sandbox IDs spawned under ``cluster_name`` in this process."""
+        return list(self._cluster_to_sandboxes.get(cluster_name, []))
 
     def get_call(self, call_id: str) -> Any:
         """Resolves a ``Sandbox`` by its opaque ID, raising if missing."""

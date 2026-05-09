@@ -74,14 +74,26 @@ def test_launch_returns_pending_status_with_sandbox_id(fake_modal):
     ):
         client = ModalClient()
         status = client.launch(_job(), cluster_name="my-cluster")
+    # ``id`` is the sandbox object_id; ``cluster`` honors the caller's name.
     assert status.id == "sb-deadbeef"
-    assert status.cluster == "sb-deadbeef"
+    assert status.cluster == "my-cluster"
+    assert client.sandboxes_for_cluster("my-cluster") == ["sb-deadbeef"]
     assert status.state == JobState.PENDING
     assert not status.done
     # H100 list price * 8 ≈ 31.6.
     assert status.cost_per_hour == pytest.approx(31.6)
     fake_modal.Sandbox.create.assert_called_once()
     fake_modal.App.lookup.assert_called_once()
+
+
+def test_launch_uses_sandbox_id_as_cluster_when_name_omitted(fake_modal):
+    with patch(
+        "oumi.launcher.clients.modal_client._import_modal", return_value=fake_modal
+    ):
+        client = ModalClient()
+        status = client.launch(_job(), cluster_name=None)
+    assert status.cluster == "sb-deadbeef"
+    assert client.sandboxes_for_cluster("sb-deadbeef") == ["sb-deadbeef"]
 
 
 def test_launch_uses_image_from_registry_when_image_id_set(fake_modal):

@@ -14,10 +14,18 @@
 
 """Modal-backed cluster implementation.
 
-A "cluster" on Modal corresponds to a single ``FunctionCall``. Modal is
-serverless — there is no shared compute pool to bring up or down. ``stop()``
-and ``down()`` therefore best-effort cancel the call if it is still in
-flight; once the call is terminal, both methods are no-ops.
+Modal has no native cluster concept — every job is a single ``Sandbox``.
+``ModalCluster`` is a thin façade that maps a logical cluster name (the
+SkyPilot-style identifier callers like the Oumi worker pass to
+``oumi.launcher.up``) onto sandbox lookups by ``object_id``. Job lookups
+use the ``job_id`` argument directly so callers don't need to know the
+mapping.
+
+``stop()`` and ``down()`` cancel every sandbox the in-process
+``ModalClient`` has launched under this cluster name. Across worker
+restarts the mapping is lost; cleanup at that point should fall back
+to per-sandbox ``cancel_job`` using the ``job_id`` persisted by the
+caller alongside the cluster name.
 """
 
 from __future__ import annotations
@@ -25,19 +33,20 @@ from __future__ import annotations
 from typing import Any
 
 from oumi.core.configs import JobConfig
-from oumi.core.launcher import BaseCluster, JobStatus
+from oumi.core.launcher import BaseCluster, ClusterNotFoundError, JobStatus
 from oumi.launcher.clients.modal_client import ModalClient, ModalLogStream
 
 
 class ModalCluster(BaseCluster):
-    """A cluster implementation backed by a single Modal FunctionCall."""
+    """A cluster implementation backed by Modal sandboxes."""
 
     def __init__(self, name: str, client: ModalClient) -> None:
         """Initializes a new instance of the ModalCluster class.
 
         Args:
-            name: The Modal ``FunctionCall.object_id`` used as the cluster
-                identifier.
+            name: Logical cluster name (typically the
+                ``cluster-job-{project}-{op}-...`` style identifier the
+                caller used when invoking ``oumi.launcher.up``).
             client: A configured ``ModalClient``.
         """
         self._name = name
@@ -54,55 +63,74 @@ class ModalCluster(BaseCluster):
         return hash(self._name)
 
     def name(self) -> str:
-        """Gets the name (FunctionCall ID) of the cluster."""
+        """Gets the cluster name."""
         return self._name
 
     def get_job(self, job_id: str) -> JobStatus | None:
-        """Gets the single job tracked by this cluster, if it matches.
+        """Gets the status of the sandbox identified by ``job_id``.
 
-        Modal clusters host exactly one FunctionCall (the one named after the
-        cluster). Anything else returns ``None``.
+        ``job_id`` is the opaque ``Sandbox.object_id`` returned at launch
+        time (and persisted by the caller). The cluster name is purely
+        logical, so this method ignores ``self._name`` and goes straight
+        to the sandbox lookup.
         """
-        if job_id != self._name:
+        try:
+            return self._client.get_status(job_id)
+        except ClusterNotFoundError:
             return None
-        return self._client.get_status(self._name)
 
     def get_jobs(self) -> list[JobStatus]:
-        """Lists the jobs on this cluster (always exactly one for Modal)."""
-        return [self._client.get_status(self._name)]
+        """Lists the jobs spawned under this cluster name in this process."""
+        statuses: list[JobStatus] = []
+        for sandbox_id in self._client.sandboxes_for_cluster(self._name):
+            try:
+                statuses.append(self._client.get_status(sandbox_id))
+            except ClusterNotFoundError:
+                continue
+        return statuses
 
     def cancel_job(self, job_id: str) -> JobStatus:
-        """Cancels the FunctionCall tied to this cluster."""
-        if job_id != self._name:
-            raise RuntimeError(f"Job {job_id} not found on cluster {self._name}.")
-        self._client.cancel(self._name)
-        return self._client.get_status(self._name)
+        """Cancels the sandbox identified by ``job_id`` and returns its status."""
+        self._client.cancel(job_id)
+        return self._client.get_status(job_id)
 
     def run_job(self, job: JobConfig) -> JobStatus:
-        """Re-running on a Modal "cluster" is unsupported.
+        """Re-running on a Modal cluster is unsupported.
 
-        Modal jobs are 1:1 with FunctionCalls. To run a new job, allocate a
-        new cluster via ``ModalCloud.up_cluster``.
+        Modal jobs are 1:1 with sandboxes. To run a new job, allocate a
+        new sandbox via ``ModalCloud.up_cluster``.
         """
         raise NotImplementedError(
             "Modal does not support re-running jobs on an existing cluster. "
-            "Call ModalCloud.up_cluster(...) to spawn a new FunctionCall."
+            "Call ModalCloud.up_cluster(...) to spawn a new sandbox."
         )
 
     def stop(self) -> None:
-        """Best-effort cancel — Modal has no separate stop semantics."""
-        self._client.cancel(self._name)
+        """Best-effort cancel of every sandbox tracked under this cluster name."""
+        for sandbox_id in self._client.sandboxes_for_cluster(self._name):
+            self._client.cancel(sandbox_id)
 
     def down(self) -> None:
-        """Best-effort cancel — Modal is serverless so there is nothing to tear down."""
-        self._client.cancel(self._name)
+        """Alias for ``stop`` — Modal is serverless, nothing else to tear down."""
+        self.stop()
 
     def get_logs_stream(
         self, cluster_name: str, job_id: str | None = None
     ) -> ModalLogStream:
-        """Returns a stream of logs for the underlying FunctionCall.
+        """Returns a stream of logs for ``job_id`` (sandbox object_id).
 
-        ``cluster_name`` and ``job_id`` are accepted for interface
-        compatibility but ignored — a Modal cluster has exactly one job.
+        ``cluster_name`` is accepted for interface compatibility and
+        ignored. ``job_id`` is the canonical handle. If ``job_id`` is
+        omitted, falls back to the most recently launched sandbox under
+        this cluster name (in this process).
         """
-        return self._client.get_logs_stream(self._name)
+        target_sandbox = job_id
+        if target_sandbox is None:
+            tracked = self._client.sandboxes_for_cluster(self._name)
+            if not tracked:
+                raise ClusterNotFoundError(
+                    f"No sandboxes tracked for cluster '{self._name}' "
+                    "and no job_id provided."
+                )
+            target_sandbox = tracked[-1]
+        return self._client.get_logs_stream(target_sandbox)
