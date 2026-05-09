@@ -96,6 +96,57 @@ def test_launch_uses_sandbox_id_as_cluster_when_name_omitted(fake_modal):
     assert client.sandboxes_for_cluster("sb-deadbeef") == ["sb-deadbeef"]
 
 
+def test_launch_tags_sandbox_with_cluster_name(fake_modal):
+    """Sandbox is tagged so cleanup can find it across worker restarts."""
+    with patch(
+        "oumi.launcher.clients.modal_client._import_modal", return_value=fake_modal
+    ):
+        ModalClient().launch(_job(), cluster_name="my-cluster")
+    fake_modal.Sandbox.create.return_value.set_tags.assert_called_once_with(
+        {"oumi_cluster": "my-cluster"}
+    )
+
+
+def test_launch_swallows_set_tags_failure(fake_modal):
+    """A tagging failure shouldn't abort the launch — fallback to in-process map."""
+    fake_modal.Sandbox.create.return_value.set_tags.side_effect = RuntimeError("boom")
+    with patch(
+        "oumi.launcher.clients.modal_client._import_modal", return_value=fake_modal
+    ):
+        client = ModalClient()
+        status = client.launch(_job(), cluster_name="my-cluster")
+    assert status.id == "sb-deadbeef"
+    assert client.sandboxes_for_cluster("my-cluster") == ["sb-deadbeef"]
+
+
+def test_find_sandboxes_for_cluster_uses_modal_list(fake_modal):
+    """``find_sandboxes_for_cluster`` queries Modal by tag — stateless across restarts."""
+    sb1, sb2 = MagicMock(), MagicMock()
+    sb1.object_id, sb2.object_id = "sb-a", "sb-b"
+    fake_modal.Sandbox.list.return_value = iter([sb1, sb2])
+    with patch(
+        "oumi.launcher.clients.modal_client._import_modal", return_value=fake_modal
+    ):
+        client = ModalClient()
+        ids = client.find_sandboxes_for_cluster("my-cluster")
+    assert ids == ["sb-a", "sb-b"]
+    fake_modal.Sandbox.list.assert_called_once_with(
+        tags={"oumi_cluster": "my-cluster"}
+    )
+
+
+def test_find_sandboxes_falls_back_to_in_process_tracker_on_list_failure(fake_modal):
+    fake_modal.Sandbox.list.side_effect = RuntimeError("api down")
+    with patch(
+        "oumi.launcher.clients.modal_client._import_modal", return_value=fake_modal
+    ):
+        client = ModalClient()
+        # Populate the in-process tracker by launching.
+        client.launch(_job(), cluster_name="my-cluster")
+        ids = client.find_sandboxes_for_cluster("my-cluster")
+    assert ids == ["sb-deadbeef"]
+
+
 def test_launch_uses_image_from_registry_when_image_id_set(fake_modal):
     with patch(
         "oumi.launcher.clients.modal_client._import_modal", return_value=fake_modal

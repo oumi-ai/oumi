@@ -82,7 +82,7 @@ class ModalCluster(BaseCluster):
     def get_jobs(self) -> list[JobStatus]:
         """Lists the jobs spawned under this cluster name in this process."""
         statuses: list[JobStatus] = []
-        for sandbox_id in self._client.sandboxes_for_cluster(self._name):
+        for sandbox_id in self._client.find_sandboxes_for_cluster(self._name):
             try:
                 statuses.append(self._client.get_status(sandbox_id))
             except ClusterNotFoundError:
@@ -107,7 +107,7 @@ class ModalCluster(BaseCluster):
 
     def stop(self) -> None:
         """Best-effort cancel of every sandbox tracked under this cluster name."""
-        for sandbox_id in self._client.sandboxes_for_cluster(self._name):
+        for sandbox_id in self._client.find_sandboxes_for_cluster(self._name):
             self._client.cancel(sandbox_id)
 
     def down(self) -> None:
@@ -126,7 +126,7 @@ class ModalCluster(BaseCluster):
         """
         target_sandbox = job_id
         if target_sandbox is None:
-            tracked = self._client.sandboxes_for_cluster(self._name)
+            tracked = self._client.find_sandboxes_for_cluster(self._name)
             if not tracked:
                 raise ClusterNotFoundError(
                     f"No sandboxes tracked for cluster '{self._name}' "

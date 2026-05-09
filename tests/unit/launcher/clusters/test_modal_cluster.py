@@ -60,7 +60,7 @@ def test_get_job_returns_none_when_sandbox_not_found():
 
 def test_get_jobs_returns_status_for_each_tracked_sandbox():
     client = MagicMock(spec=ModalClient)
-    client.sandboxes_for_cluster.return_value = ["sb-1", "sb-2"]
+    client.find_sandboxes_for_cluster.return_value = ["sb-1", "sb-2"]
     client.get_status.side_effect = [
         _status("sb-1", JobState.SUCCEEDED),
         _status("sb-2", JobState.RUNNING),
@@ -68,12 +68,12 @@ def test_get_jobs_returns_status_for_each_tracked_sandbox():
     cluster = ModalCluster("cluster-foo", client)
     jobs = cluster.get_jobs()
     assert [j.id for j in jobs] == ["sb-1", "sb-2"]
-    client.sandboxes_for_cluster.assert_called_once_with("cluster-foo")
+    client.find_sandboxes_for_cluster.assert_called_once_with("cluster-foo")
 
 
 def test_get_jobs_skips_sandboxes_that_404():
     client = MagicMock(spec=ModalClient)
-    client.sandboxes_for_cluster.return_value = ["sb-1", "sb-gone"]
+    client.find_sandboxes_for_cluster.return_value = ["sb-1", "sb-gone"]
     client.get_status.side_effect = [
         _status("sb-1", JobState.RUNNING),
         ClusterNotFoundError("gone"),
@@ -112,7 +112,7 @@ def test_run_job_unsupported():
 
 def test_stop_and_down_cancel_every_tracked_sandbox():
     client = MagicMock(spec=ModalClient)
-    client.sandboxes_for_cluster.return_value = ["sb-1", "sb-2"]
+    client.find_sandboxes_for_cluster.return_value = ["sb-1", "sb-2"]
     cluster = ModalCluster("cluster-foo", client)
     cluster.down()
     cancelled = [c.args[0] for c in client.cancel.call_args_list]
@@ -128,7 +128,7 @@ def test_get_logs_stream_uses_job_id_when_provided():
 
 def test_get_logs_stream_falls_back_to_most_recent_sandbox():
     client = MagicMock(spec=ModalClient)
-    client.sandboxes_for_cluster.return_value = ["sb-old", "sb-new"]
+    client.find_sandboxes_for_cluster.return_value = ["sb-old", "sb-new"]
     cluster = ModalCluster("cluster-foo", client)
     cluster.get_logs_stream("cluster-foo", job_id=None)
     client.get_logs_stream.assert_called_once_with("sb-new")
@@ -136,7 +136,7 @@ def test_get_logs_stream_falls_back_to_most_recent_sandbox():
 
 def test_get_logs_stream_raises_when_no_tracked_sandbox_and_no_job_id():
     client = MagicMock(spec=ModalClient)
-    client.sandboxes_for_cluster.return_value = []
+    client.find_sandboxes_for_cluster.return_value = []
     cluster = ModalCluster("cluster-foo", client)
     with pytest.raises(ClusterNotFoundError):
         cluster.get_logs_stream("cluster-foo", job_id=None)

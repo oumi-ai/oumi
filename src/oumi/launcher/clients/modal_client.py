@@ -117,6 +117,11 @@ def _build_secret(modal_lib: Any, envs: dict[str, str]) -> Any | None:
 
 _LAUNCHER_APP_NAME = "oumi-launcher"
 
+#: Tag key applied to every sandbox at launch time. Used by
+#: ``ModalCluster.down()`` to find sandboxes across worker restarts via
+#: ``Sandbox.list(tags=...)``, so cleanup doesn't depend on in-process state.
+_CLUSTER_TAG = "oumi_cluster"
+
 
 def _sandbox_state(sandbox: Any) -> JobState:
     """Maps a ``modal.Sandbox`` poll result to a :class:`JobState`."""
@@ -194,6 +199,16 @@ class ModalClient:
         sandbox_id = sandbox.object_id
         effective_cluster = cluster_name or sandbox_id
         self._cluster_to_sandboxes.setdefault(effective_cluster, []).append(sandbox_id)
+        # Tag the sandbox so ``find_sandboxes_for_cluster`` can locate it
+        # across worker restarts. Best-effort — if tagging fails the
+        # in-process tracker still works for the same-process case.
+        try:
+            sandbox.set_tags({_CLUSTER_TAG: effective_cluster})
+        except Exception as e:  # noqa: BLE001
+            logger.warning(
+                f"Failed to tag Modal sandbox {sandbox_id} with cluster="
+                f"{effective_cluster}: {e!r}"
+            )
 
         logger.info(
             f"Launched Modal sandbox={sandbox_id} cluster={effective_cluster} "
@@ -213,6 +228,30 @@ class ModalClient:
     def sandboxes_for_cluster(self, cluster_name: str) -> list[str]:
         """Returns the sandbox IDs spawned under ``cluster_name`` in this process."""
         return list(self._cluster_to_sandboxes.get(cluster_name, []))
+
+    def find_sandboxes_for_cluster(self, cluster_name: str) -> list[str]:
+        """Returns the sandbox IDs tagged with ``cluster_name`` on Modal.
+
+        Stateless lookup via ``Sandbox.list(tags=...)`` — works across
+        worker restarts (unlike :meth:`sandboxes_for_cluster`, which
+        only sees launches from the current process). Falls back to
+        the in-process tracker if the Modal API call fails or returns
+        nothing.
+        """
+        ids: list[str] = []
+        try:
+            for sandbox in self._modal.Sandbox.list(
+                tags={_CLUSTER_TAG: cluster_name}
+            ):
+                ids.append(sandbox.object_id)
+        except Exception as e:  # noqa: BLE001
+            logger.warning(
+                f"Modal Sandbox.list(tags={{{_CLUSTER_TAG}={cluster_name}}}) "
+                f"failed: {e!r}; falling back to in-process tracker"
+            )
+        if ids:
+            return ids
+        return self.sandboxes_for_cluster(cluster_name)
 
     def get_call(self, call_id: str) -> Any:
         """Resolves a ``Sandbox`` by its opaque ID, raising if missing."""
