@@ -774,7 +774,7 @@ class ConversationSynthesizer:
         nudged_prompts: list[Conversation],
         staging: dict[int, list[Message]],
     ) -> None:
-        """Force a final assistant answer for stragglers — samples that hit the round cap.
+        """Force a final assistant answer for stragglers (samples at the round cap).
 
         Each straggler gets one nudged inference (see ``_STRAGGLER_NUDGE``); whatever
         the model emits is committed as the final assistant message. If the model
@@ -816,7 +816,7 @@ class ConversationSynthesizer:
         max_consecutive_tool_turns: int,
         assistant_tools: list[ToolDefinition] | None,
     ) -> None:
-        """Drive the assistant→tool agentic loop until each sample finishes or hits the cap.
+        """Drive the agentic loop for an assistant turn.
 
         Each iteration calls ``_run_assistant_tool_round`` on the active subset
         (samples that aren't done and haven't hit ``max_consecutive_tool_turns``).
