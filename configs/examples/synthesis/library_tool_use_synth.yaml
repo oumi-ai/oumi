@@ -6,8 +6,9 @@
 #
 # Requirements:
 #   - Set OPENAI_API_KEY in the environment.
-#   - Or change the inference_config to your preferred native-tool-calling engine
-#     (Anthropic, vLLM, Remote, Fireworks, etc. — see oumi/inference/native_tool_calling.py).
+#   - Or change the inference_config to your preferred native-tool-calling engine.
+#     See `NATIVE_TOOL_CALLING_ENGINES` in oumi/inference/native_tool_calling.py
+#     for the supported engines.
 #
 # Usage:
 #   oumi synth -c oumi://configs/examples/synthesis/library_tool_use_synth.yaml
@@ -15,7 +16,11 @@
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/synth.html
 #   - Config class: oumi.core.configs.SynthesisConfig
+#   - Params class: oumi.core.configs.params.synthesis_params.GeneralSynthesisParams
 #   - Environment-first tool config: oumi.core.configs.EnvironmentConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/synthesis_config.py
+#   - Params source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/params/synthesis_params.py
+#   - Other synthesis configs: configs/**/*synth.yaml
 
 strategy: GENERAL
 num_samples: 10
@@ -162,4 +167,3 @@ inference_config:
     temperature: 0.4
   remote_params:
     num_workers: 10
-    politeness_policy: 60
