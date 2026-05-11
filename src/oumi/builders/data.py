@@ -240,6 +240,45 @@ def _build_iterable_dataset_sampler(
     return _generator
 
 
+def _maybe_load_oumi_platform_dataset(
+    dataset_params: DatasetParams,
+    stream: bool,
+) -> (
+    datasets.DatasetDict
+    | datasets.Dataset
+    | datasets.IterableDatasetDict
+    | datasets.IterableDataset
+    | None
+):
+    """If ``dataset_name`` is an ``oumi://datasets/...`` URI, fetch and load it.
+
+    Returns the resulting HF dataset, or ``None`` if the dataset name is not
+    an ``oumi://`` URI (in which case the caller falls back to normal
+    loading).
+    """
+    name = dataset_params.dataset_name
+    if not isinstance(name, str) or not name.startswith("oumi://"):
+        return None
+    from oumi.platform.resolver import parse_uri, resolve_dataset
+
+    parsed = parse_uri(name)
+    if parsed.kind != "datasets":
+        raise ValueError(
+            f"dataset_name expects an oumi://datasets/... URI, got {name!r}"
+        )
+    local_path = resolve_dataset(parsed)
+    logger.info(
+        f"Resolved {name} -> {local_path} for dataset loading."
+    )
+    return datasets.load_dataset(
+        "json",
+        data_files=str(local_path),
+        split=dataset_params.split,
+        streaming=stream,
+        **dataset_params.dataset_kwargs,
+    )
+
+
 def _load_dataset(
     dataset_params: DatasetParams,
     stream: bool,
@@ -261,6 +300,10 @@ def _load_dataset(
            feature generation i.e., `transform()` is called on-demand during
            training.
     """
+    platform_dataset = _maybe_load_oumi_platform_dataset(dataset_params, stream)
+    if platform_dataset is not None:
+        return platform_dataset
+
     dataset_class = REGISTRY.get_dataset(
         dataset_params.dataset_name, subset=dataset_params.subset
     )

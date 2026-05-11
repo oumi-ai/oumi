@@ -52,6 +52,31 @@ except ImportError:
     onebitllms = None
 
 
+def _maybe_resolve_oumi_model_uri(model_params: ModelParams) -> None:
+    """Rewrite an ``oumi://models/...`` model_name to a local directory in place.
+
+    Downloads the model from the Oumi Enterprise platform on first use and
+    caches it. Non-``oumi://`` names are left untouched. Imports
+    :mod:`oumi.platform.resolver` lazily so callers that never pass an
+    ``oumi://`` URI do not pay for credential resolution.
+    """
+    name = model_params.model_name
+    if not isinstance(name, str) or not name.startswith("oumi://"):
+        return
+    from oumi.platform.resolver import parse_uri, resolve_model
+
+    parsed = parse_uri(name)
+    if parsed.kind != "models":
+        raise ValueError(
+            f"model_name expects an oumi://models/... URI, got {name!r}"
+        )
+    local_dir = resolve_model(parsed)
+    logger.info(
+        f"Resolved {name} -> {local_dir} for model loading."
+    )
+    model_params.model_name = str(local_dir)
+
+
 def build_model(
     model_params: ModelParams,
     peft_params: PeftParams | None = None,
@@ -67,6 +92,8 @@ def build_model(
     Returns:
         model: The built model.
     """
+    _maybe_resolve_oumi_model_uri(model_params)
+
     if is_custom_model(model_params.model_name):
         model = build_oumi_model(
             model_params=model_params,
