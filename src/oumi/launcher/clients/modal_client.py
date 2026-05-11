@@ -30,22 +30,30 @@ import io
 import re
 import shlex
 from collections.abc import Iterator
-from typing import TYPE_CHECKING, Any, cast
+from typing import Any, cast
 
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import ClusterNotFoundError, JobState, JobStatus
 from oumi.utils.logging import logger
 
-if TYPE_CHECKING:
-    import modal  # noqa: F401  # imported lazily at runtime via _import_modal
-
+# ``modal`` is an optional extra (``oumi[modal]``); we lazy-import at
+# runtime via :func:`_import_modal` so importing this module doesn't
+# require the SDK. Public types are kept as ``Any`` rather than
+# referencing ``modal.*`` so pyright does not require ``modal`` on the
+# typecheck path.
 
 _DEFAULT_TIMEOUT_S = 24 * 60 * 60  # 24h
 
 
 def _import_modal() -> Any:
-    """Imports the modal SDK lazily to avoid hard-importing it at module load."""
-    import modal  # noqa: PLC0415
+    """Imports the modal SDK lazily to avoid hard-importing it at module load.
+
+    ``modal`` is shipped as an optional extra (``oumi[modal]``) so the
+    SDK is absent from default install / typecheck environments. The
+    ``pyright: ignore`` keeps CI green when ``modal`` isn't present;
+    runtime callers that hit this path must have installed the extra.
+    """
+    import modal  # noqa: PLC0415 # pyright: ignore[reportMissingImports]
 
     return modal
 
