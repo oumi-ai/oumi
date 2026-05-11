@@ -829,6 +829,12 @@ def list_modules() -> ListModulesResponse:
     return get_module_list()
 
 
+# --- Oumi Enterprise platform tools (no-op unless OUMI_API_KEY is set) ---
+from oumi.mcp.platform_service import register_platform_tools  # noqa: E402
+
+register_platform_tools(mcp)
+
+
 @mcp.resource("jobs://running", mime_type="application/json")
 async def list_running_jobs() -> str:
     """List all currently running Oumi jobs.
