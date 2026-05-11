@@ -23,10 +23,13 @@ launchers for running machine learning jobs.
 
 from oumi.core.launcher.base_cloud import BaseCloud
 from oumi.core.launcher.base_cluster import BaseCluster, JobState, JobStatus
+from oumi.core.launcher.exceptions import ClusterNotFoundError, LauncherError
 
 __all__ = [
     "BaseCloud",
     "BaseCluster",
+    "ClusterNotFoundError",
     "JobState",
     "JobStatus",
+    "LauncherError",
 ]
