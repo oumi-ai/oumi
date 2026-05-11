@@ -37,7 +37,7 @@ from oumi.core.launcher import ClusterNotFoundError, JobState, JobStatus
 from oumi.utils.logging import logger
 
 if TYPE_CHECKING:
-    import modal
+    import modal  # noqa: F401  # imported lazily at runtime via _import_modal
 
 
 _DEFAULT_TIMEOUT_S = 24 * 60 * 60  # 24h
@@ -240,9 +240,7 @@ class ModalClient:
         """
         ids: list[str] = []
         try:
-            for sandbox in self._modal.Sandbox.list(
-                tags={_CLUSTER_TAG: cluster_name}
-            ):
+            for sandbox in self._modal.Sandbox.list(tags={_CLUSTER_TAG: cluster_name}):
                 ids.append(sandbox.object_id)
         except Exception as e:  # noqa: BLE001
             logger.warning(
@@ -259,9 +257,7 @@ class ModalClient:
         try:
             return modal_lib.Sandbox.from_id(call_id)
         except Exception as e:  # noqa: BLE001
-            raise ClusterNotFoundError(
-                f"Modal sandbox '{call_id}' not found"
-            ) from e
+            raise ClusterNotFoundError(f"Modal sandbox '{call_id}' not found") from e
 
     def get_status(self, call_id: str) -> JobStatus:
         """Returns the current :class:`JobStatus` for ``call_id``."""

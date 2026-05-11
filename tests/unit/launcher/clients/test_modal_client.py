@@ -120,7 +120,7 @@ def test_launch_swallows_set_tags_failure(fake_modal):
 
 
 def test_find_sandboxes_for_cluster_uses_modal_list(fake_modal):
-    """``find_sandboxes_for_cluster`` queries Modal by tag — stateless across restarts."""
+    """Stateless lookup via Modal tag filter survives worker restarts."""
     sb1, sb2 = MagicMock(), MagicMock()
     sb1.object_id, sb2.object_id = "sb-a", "sb-b"
     fake_modal.Sandbox.list.return_value = iter([sb1, sb2])
@@ -130,9 +130,7 @@ def test_find_sandboxes_for_cluster_uses_modal_list(fake_modal):
         client = ModalClient()
         ids = client.find_sandboxes_for_cluster("my-cluster")
     assert ids == ["sb-a", "sb-b"]
-    fake_modal.Sandbox.list.assert_called_once_with(
-        tags={"oumi_cluster": "my-cluster"}
-    )
+    fake_modal.Sandbox.list.assert_called_once_with(tags={"oumi_cluster": "my-cluster"})
 
 
 def test_find_sandboxes_falls_back_to_in_process_tracker_on_list_failure(fake_modal):
