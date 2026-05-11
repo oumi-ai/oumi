@@ -77,3 +77,10 @@ class InferenceEngineType(str, Enum):
 
     Distinct from ``NATIVE``, which runs HuggingFace Transformers locally.
     """
+
+    OUMI_PLATFORM = "OUMI_PLATFORM"
+    """The inference engine for the Oumi Enterprise platform endpoint.
+
+    Points at ``${OUMI_API_URL}/inference/v1/chat/completions`` (which is
+    OpenAI-compatible) and authenticates with ``OUMI_API_KEY``.
+    """
