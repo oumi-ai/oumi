@@ -285,6 +285,41 @@ def resolve_recipe(
     return resolved_client.recipes.get(parsed.resource_id)
 
 
+def push_back_dataset(
+    output_uri: str,
+    local_path: Path,
+    *,
+    client: Client | None = None,
+) -> dict[str, Any]:
+    """Upload ``local_path`` to the platform as a new dataset.
+
+    Called by ``oumi synth`` / ``oumi judge`` when the user's output target
+    is an ``oumi://datasets/...`` URI. The URI's ``resource_id`` is used as
+    the new dataset's display name.
+
+    Args:
+        output_uri: The ``oumi://datasets/...`` URI from the user's config.
+        local_path: Path to the file produced by the local run.
+        client: Override the platform client.
+
+    Returns:
+        The :upload response from the platform.
+
+    Raises:
+        ValueError: If ``output_uri`` is not an ``oumi://datasets/...`` URI.
+        PlatformError: If the platform rejects the upload.
+    """
+    parsed = parse_uri(output_uri)
+    if parsed.kind != "datasets":
+        raise ValueError(
+            f"Cannot push-back to {output_uri!r}: kind must be 'datasets'."
+        )
+    resolved_client = client or get_default_client()
+    return resolved_client.datasets.upload(
+        local_path, display_name=parsed.resource_id
+    )
+
+
 def _resolve_dataset_version(
     client: Client, parsed: ParsedURI
 ) -> str:

@@ -163,6 +163,20 @@ def synth(
         print_operation_summary(op)
         return
 
+    # Detect oumi://datasets/... output: write locally to a tmp file, then
+    # upload to the platform after synthesis completes.
+    push_back_target: str | None = None
+    if (
+        parsed_config.output_path
+        and parsed_config.output_path.startswith("oumi://")
+    ):
+        push_back_target = parsed_config.output_path
+        tmp_path = (
+            Path.cwd()
+            / f"oumi_synth_pushback_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jsonl"
+        )
+        parsed_config.output_path = tmp_path.as_posix()
+
     config_output_path = parsed_config.output_path
     if not config_output_path:
         cwd = Path.cwd()
@@ -180,6 +194,18 @@ def synth(
         "[green]Synthesizing dataset...[/green]", spinner="dots"
     ):
         results = oumi_synthesize(parsed_config)
+
+    if push_back_target is not None and parsed_config.output_path:
+        from oumi.platform import push_back_dataset
+
+        cli_utils.CONSOLE.print(
+            f"[green]Uploading[/green] {parsed_config.output_path} -> "
+            f"{push_back_target}"
+        )
+        push_back_dataset(push_back_target, Path(parsed_config.output_path))
+        cli_utils.CONSOLE.print(
+            f"[green]Uploaded[/green] dataset as {push_back_target}."
+        )
 
     if not results:
         cli_utils.CONSOLE.print(

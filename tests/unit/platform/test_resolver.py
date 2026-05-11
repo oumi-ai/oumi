@@ -392,6 +392,46 @@ def test_resolve_rejects_wrong_kind_helpers():
         resolve_dataset(parsed, client=None)  # wrong dispatcher
 
 
+def test_push_back_dataset_uploads_via_client(tmp_path):
+    source = tmp_path / "results.jsonl"
+    source.write_text('{"row":1}\n')
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/datasets:upload"):
+            return httpx.Response(
+                200,
+                json={
+                    "upload": {
+                        "uploadUrl": "https://storage.test/post",
+                        "fields": {},
+                        "uploadKey": "k",
+                    },
+                    "operation": {"id": 1, "status": "completed", "done": True},
+                },
+            )
+        if request.url.host == "storage.test":
+            return httpx.Response(204)
+        if request.url.path.endswith("/operations/1"):
+            return httpx.Response(
+                200, json={"id": 1, "status": "completed", "done": True}
+            )
+        raise AssertionError(f"Unexpected URL: {request.url}")
+
+    from oumi.platform import push_back_dataset
+
+    client = _make_client(handler)
+    out = push_back_dataset("oumi://datasets/my-synth", source, client=client)
+
+    assert out["operation"]["status"] == "completed"
+
+
+def test_push_back_dataset_rejects_non_dataset_uri(tmp_path):
+    from oumi.platform import push_back_dataset
+
+    with pytest.raises(ValueError, match="kind must be 'datasets'"):
+        push_back_dataset("oumi://models/m1", tmp_path / "x")
+
+
 def test_resolve_model_finds_version_via_metadata_when_unpinned(tmp_path):
     """When the model lookup payload lacks a versionName, fall back to version."""
 

@@ -367,6 +367,110 @@ def test_model_download_raises_on_empty_url_list(tmp_path):
         client.models.download("m1", tmp_path / "model")
 
 
+def test_dataset_upload_uses_presigned_post(tmp_path):
+    """upload posts metadata to :upload, then the file to the presigned URL."""
+    source = tmp_path / "data.jsonl"
+    source.write_text('{"row":1}\n')
+
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(f"{request.method} {request.url}")
+        if request.url.path.endswith("/datasets:upload"):
+            assert request.method == "POST"
+            body = json.loads(request.content.decode())
+            assert body["fileName"] == "data.jsonl"
+            assert body["fileSize"] > 0
+            return httpx.Response(
+                200,
+                json={
+                    "upload": {
+                        "uploadUrl": "https://storage.test/post",
+                        "fields": {"key": "abc/data.jsonl"},
+                        "uploadKey": "abc/data.jsonl",
+                    },
+                    "operation": {"id": 99, "status": "completed", "done": True},
+                },
+            )
+        if request.url.host == "storage.test":
+            assert request.method == "POST"
+            return httpx.Response(204)
+        if request.url.path.endswith("/operations/99"):
+            return httpx.Response(
+                200, json={"id": 99, "status": "completed", "done": True}
+            )
+        raise AssertionError(f"Unexpected URL: {request.url}")
+
+    client = _make_client(handler)
+
+    response = client.datasets.upload(source, display_name="my-data")
+
+    assert any(":upload" in s for s in seen)
+    assert any("storage.test" in s for s in seen)
+    assert response["operation"]["id"] == 99
+
+
+def test_dataset_upload_rejects_missing_file(tmp_path):
+    """Uploading a non-file path is a programming error, not a network error."""
+    client = _make_client(
+        lambda _request: httpx.Response(500, json={})
+    )
+
+    with pytest.raises(PlatformError, match="not a file"):
+        client.datasets.upload(tmp_path / "does-not-exist")
+
+
+def test_dataset_upload_surfaces_storage_failure(tmp_path):
+    source = tmp_path / "data.jsonl"
+    source.write_text("x")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/datasets:upload"):
+            return httpx.Response(
+                200,
+                json={
+                    "upload": {
+                        "uploadUrl": "https://storage.test/post",
+                        "fields": {},
+                        "uploadKey": "k",
+                    },
+                    "operation": {"id": 1, "status": "pending"},
+                },
+            )
+        return httpx.Response(403, text="denied")
+
+    client = _make_client(handler)
+
+    with pytest.raises(PlatformError, match="Presigned upload"):
+        client.datasets.upload(source)
+
+
+def test_dataset_upload_handles_multipart_response_today(tmp_path):
+    """Multipart sessions are not yet supported; surface an explicit error."""
+    source = tmp_path / "data.jsonl"
+    source.write_text("x")
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "uploadSession": {
+                    "uploadId": "u",
+                    "uploadKey": "k",
+                    "partSize": 1024,
+                    "totalParts": 5,
+                    "expiresAt": "2030-01-01T00:00:00Z",
+                },
+                "operation": {"id": 1},
+            },
+        )
+
+    client = _make_client(handler)
+
+    with pytest.raises(PlatformError, match="Multipart"):
+        client.datasets.upload(source)
+
+
 def test_close_only_closes_owned_http_client():
     """If the caller passes their own httpx.Client, close() should not close it."""
     transport = httpx.MockTransport(

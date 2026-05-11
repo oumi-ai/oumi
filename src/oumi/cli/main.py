@@ -63,6 +63,7 @@ from oumi.cli.platform import (
     operation_stop,
     pull_dataset,
     pull_model,
+    push_dataset,
     whoami,
 )
 from oumi.cli.quantize import quantize
@@ -337,6 +338,9 @@ def get_app() -> typer.Typer:
     platform_datasets_app.command(
         name="pull", help="Download a platform dataset to a local file."
     )(pull_dataset)
+    platform_datasets_app.command(
+        name="push", help="Upload a local file as a new platform dataset."
+    )(push_dataset)
     platform_app.add_typer(platform_datasets_app, name="datasets")
 
     platform_models_app = typer.Typer(

@@ -236,6 +236,38 @@ class Client:
                 f"Failed to download {url} to {destination}: {exc}"
             ) from exc
 
+    def _post_presigned_file(
+        self,
+        url: str,
+        source: Path,
+        *,
+        fields: dict[str, str],
+    ) -> None:
+        """POST ``source`` to a presigned URL with the given form fields.
+
+        S3 presigned-POST uploads require the form fields returned by the
+        sign step to be sent verbatim alongside the file. Authorization
+        headers must be stripped so we don't confuse the storage backend.
+        """
+        try:
+            with source.open("rb") as fh:
+                response = self._http.post(
+                    url,
+                    files={"file": (source.name, fh)},
+                    data=fields,
+                    timeout=None,
+                    headers={"Authorization": "", "X-API-Key": ""},
+                )
+        except httpx.HTTPError as exc:
+            raise PlatformError(
+                f"Failed to upload {source} to {url}: {exc}"
+            ) from exc
+        if response.status_code >= 400:
+            raise PlatformError(
+                f"Presigned upload to {url} failed: "
+                f"{response.status_code} {response.text[:200]}"
+            )
+
     def _default_headers(self) -> dict[str, str]:
         return {
             "Authorization": f"Bearer {self._credentials.api_key}",
@@ -333,6 +365,72 @@ class _DatasetsClient(_ResourceClient):
         dest.parent.mkdir(parents=True, exist_ok=True)
         self._client._stream_to_file(url, dest)
         return dest
+
+    def upload(
+        self,
+        source: str | Path,
+        *,
+        display_name: str | None = None,
+        project_id: str | None = None,
+        wait: bool = True,
+    ) -> dict[str, Any]:
+        """Upload a local file as a new dataset.
+
+        Uses the platform's two-phase upload: first POST :upload to request a
+        presigned form, then PUT the file contents directly to cloud storage.
+        Optionally waits for the ingestion operation to complete.
+
+        Args:
+            source: Path to a local file to upload.
+            display_name: Display name for the new dataset. Defaults to the
+                file's base name.
+            project_id: Override the default project id.
+            wait: When ``True``, block until the platform's ingestion
+                operation reaches a terminal state.
+
+        Returns:
+            The :upload response payload (including the operation record).
+        """
+        path = Path(source)
+        if not path.is_file():
+            raise PlatformError(f"Upload source is not a file: {path}")
+        size_bytes = path.stat().st_size
+        name = display_name or path.name
+        payload = {
+            "displayName": name,
+            "fileName": path.name,
+            "fileSize": size_bytes,
+        }
+        response = self._client.request(
+            "POST",
+            self._project_path(project_id, "/datasets:upload"),
+            params={"file_size_bytes": size_bytes},
+            json_body=payload,
+        )
+        upload_block = (
+            response.get("upload") if isinstance(response, dict) else None
+        )
+        if not isinstance(upload_block, dict) or "uploadUrl" not in upload_block:
+            raise PlatformError(
+                "Dataset :upload response missing presigned URL. "
+                "Multipart upload sessions are not yet supported by this "
+                f"client. Response: {response!r}"
+            )
+        self._client._post_presigned_file(
+            upload_block["uploadUrl"],
+            path,
+            fields=upload_block.get("fields") or {},
+        )
+        operation = (
+            response.get("operation") if isinstance(response, dict) else None
+        )
+        if wait and isinstance(operation, dict):
+            op_id = operation.get("id") or operation.get("operationId")
+            if op_id is not None:
+                self._client.operations.wait(
+                    op_id, project_id=project_id
+                )
+        return response
 
 
 class _ModelsClient(_ResourceClient):

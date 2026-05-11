@@ -204,6 +204,49 @@ def pull_dataset(
     CONSOLE.print(f"[green]Downloaded[/green] {dataset_id} -> {result}")
 
 
+def push_dataset(
+    source: Annotated[
+        Path, typer.Argument(help="Path to the local file to upload.")
+    ],
+    name: Annotated[
+        str | None,
+        typer.Option(
+            "--name",
+            help="Display name for the new dataset. Defaults to the file's basename.",
+        ),
+    ] = None,
+    project: Annotated[
+        str | None, typer.Option("--project", help="Override default project id.")
+    ] = None,
+    wait: Annotated[
+        bool,
+        typer.Option(
+            "--wait/--detach",
+            help="Block until the platform finishes ingestion.",
+        ),
+    ] = True,
+):
+    """Upload a local dataset file to the platform.
+
+    Args:
+        source: Path to the local file to upload.
+        name: Display name for the new dataset.
+        project: Override the default project id.
+        wait: When set, block until ingestion completes.
+    """
+    client = _client()
+    if not source.is_file():
+        CONSOLE.print(f"[red]No such file:[/red] {source}")
+        raise typer.Exit(code=2)
+    response = client.datasets.upload(
+        source, display_name=name, project_id=project, wait=wait
+    )
+    op = response.get("operation", {}) if isinstance(response, dict) else {}
+    CONSOLE.print(
+        f"[green]Uploaded[/green] {source} (operation id: {op.get('id')})."
+    )
+
+
 # ----------------------------------------------------------------- models ---
 
 
