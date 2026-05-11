@@ -77,6 +77,33 @@ def synth(
             rich_help_panel="Output",
         ),
     ] = None,
+    remote: Annotated[
+        bool,
+        typer.Option(
+            "--remote",
+            help=(
+                "Submit to the Oumi Enterprise platform instead of running "
+                "locally. Requires OUMI_API_KEY."
+            ),
+            rich_help_panel="Remote",
+        ),
+    ] = False,
+    wait: Annotated[
+        bool,
+        typer.Option(
+            "--wait/--detach",
+            help="When using --remote, block until the platform job completes.",
+            rich_help_panel="Remote",
+        ),
+    ] = True,
+    project: Annotated[
+        str | None,
+        typer.Option(
+            "--project",
+            help="Override the Oumi Enterprise project id for --remote.",
+            rich_help_panel="Remote",
+        ),
+    ] = None,
 ):
     """Synthesize a dataset.
 
@@ -86,6 +113,11 @@ def synth(
         list_configs: List all available synthesis configs.
         level: The logging level for the specified command.
         output_path: Output path for synthesized dataset.
+        remote: Submit the job to the Oumi Enterprise platform instead of
+            running locally.
+        wait: When ``--remote`` is set, block until the platform job
+            completes. Use ``--detach`` to return immediately.
+        project: Override the Oumi Enterprise project id for ``--remote``.
     """
     # Auto-collect overrides from dot-notation options
     option_overrides = cli_utils.collect_config_overrides(ctx)
@@ -118,6 +150,18 @@ def synth(
         parsed_config.output_path = output_path
 
     parsed_config.finalize_and_validate()
+
+    if remote:
+        from oumi.cli._remote import print_operation_summary, submit_remote_run
+
+        op = submit_remote_run(
+            parsed_config,
+            kind="synth",
+            project_id=project,
+            wait=wait,
+        )
+        print_operation_summary(op)
+        return
 
     config_output_path = parsed_config.output_path
     if not config_output_path:

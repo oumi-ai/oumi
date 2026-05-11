@@ -153,6 +153,36 @@ def train(
             rich_help_panel="Data",
         ),
     ] = None,
+    remote: Annotated[
+        bool,
+        typer.Option(
+            "--remote",
+            help=(
+                "Submit the job to the Oumi Enterprise platform instead of "
+                "running locally. Requires OUMI_API_KEY to be set."
+            ),
+            rich_help_panel="Remote",
+        ),
+    ] = False,
+    wait: Annotated[
+        bool,
+        typer.Option(
+            "--wait/--detach",
+            help=(
+                "When using --remote, block until the platform operation "
+                "completes. Use --detach to return immediately."
+            ),
+            rich_help_panel="Remote",
+        ),
+    ] = True,
+    project: Annotated[
+        str | None,
+        typer.Option(
+            "--project",
+            help="Override the Oumi Enterprise project id for --remote.",
+            rich_help_panel="Remote",
+        ),
+    ] = None,
 ):
     """Train a model.
 
@@ -172,6 +202,12 @@ def train(
         output_dir: Output directory for checkpoints.
         save_steps: Save checkpoint every N steps.
         dataset_name: Training dataset name.
+        remote: Submit the job to the Oumi Enterprise platform instead of
+            running locally.
+        wait: When ``--remote`` is set, block until the platform operation
+            reaches a terminal state. Use ``--detach`` to return immediately.
+        project: Override the Oumi Enterprise project id for the
+            ``--remote`` submission.
     """
     # Auto-collect overrides from dot-notation options (e.g., --model.model_name)
     option_overrides = cli_utils.collect_config_overrides(ctx)
@@ -204,6 +240,18 @@ def train(
         config, all_overrides, logger=logger
     )
     parsed_config.finalize_and_validate()
+
+    if remote:
+        from oumi.cli._remote import print_operation_summary, submit_remote_run
+
+        op = submit_remote_run(
+            parsed_config,
+            kind="train",
+            project_id=project,
+            wait=wait,
+        )
+        print_operation_summary(op)
+        return
 
     from oumi.telemetry import TelemetryManager
 

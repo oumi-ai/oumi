@@ -106,6 +106,36 @@ def evaluate(
             rich_help_panel="Output",
         ),
     ] = None,
+    remote: Annotated[
+        bool,
+        typer.Option(
+            "--remote",
+            help=(
+                "Submit to the Oumi Enterprise platform instead of running "
+                "locally. Requires OUMI_API_KEY."
+            ),
+            rich_help_panel="Remote",
+        ),
+    ] = False,
+    wait: Annotated[
+        bool,
+        typer.Option(
+            "--wait/--detach",
+            help=(
+                "When using --remote, block until the platform operation "
+                "completes."
+            ),
+            rich_help_panel="Remote",
+        ),
+    ] = True,
+    project: Annotated[
+        str | None,
+        typer.Option(
+            "--project",
+            help="Override the Oumi Enterprise project id for --remote.",
+            rich_help_panel="Remote",
+        ),
+    ] = None,
 ):
     """Evaluate a model.
 
@@ -119,6 +149,11 @@ def evaluate(
         max_new_tokens: Maximum number of new tokens to generate.
         temperature: Sampling temperature.
         output_dir: Output directory for evaluation results.
+        remote: Submit the job to the Oumi Enterprise platform instead of
+            running locally.
+        wait: When ``--remote`` is set, block until the platform operation
+            completes. Use ``--detach`` to return immediately.
+        project: Override the Oumi Enterprise project id for ``--remote``.
     """
     # Auto-collect overrides from dot-notation options (e.g., --model.model_name)
     option_overrides = cli_utils.collect_config_overrides(ctx)
@@ -155,6 +190,18 @@ def evaluate(
     if verbose:
         # Print configuration for verification
         parsed_config.print_config(logger)
+
+    if remote:
+        from oumi.cli._remote import print_operation_summary, submit_remote_run
+
+        op = submit_remote_run(
+            parsed_config,
+            kind="evaluate",
+            project_id=project,
+            wait=wait,
+        )
+        print_operation_summary(op)
+        return
 
     # Run evaluation
     with cli_utils.CONSOLE.status(
