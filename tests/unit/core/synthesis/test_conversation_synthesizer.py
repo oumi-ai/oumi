@@ -2271,3 +2271,53 @@ def test_assistant_turn_dispatches_parallel_batch_unrestricted(
     assert fake_env.step.call_count == 1
     [call] = fake_env.step.call_args_list
     assert len(call.args[0]) == 5
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_synthesizer_attaches_inference_to_synthetic_env(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+):
+    """SyntheticEnvironments built via _tool_dispatch get attach_inference()."""
+    from oumi.environments.synthetic_environment import SyntheticEnvironment
+
+    mock_engine = Mock()
+    mock_build_inference_engine.return_value = mock_engine
+
+    env_params = EnvironmentParams(
+        id="docs",
+        name="Docs",
+        description="Synthetic docs env",
+        env_type="synthetic",
+        tools=[
+            ToolParams(
+                id="lookup",
+                name="Lookup",
+                description="Look up docs.",
+                parameters={
+                    "type": "object",
+                    "properties": {"q": {"type": "string"}},
+                    "required": ["q"],
+                },
+            )
+        ],
+        env_kwargs={"system_prompt": "Simulate the lookup tool."},
+    )
+    env_config = EnvironmentConfig(environments=[env_params])
+
+    inference_config = InferenceConfig(
+        engine=InferenceEngineType.OPENAI,
+        model=Mock(spec=ModelParams),
+        remote_params=Mock(spec=RemoteParams),
+        generation=GenerationParams(),
+    )
+    synth = ConversationSynthesizer(
+        mock_general_synthesis_params,
+        inference_config,
+        environment_config=env_config,
+    )
+
+    env = synth._tool_dispatch["lookup"]
+    assert isinstance(env, SyntheticEnvironment)
+    assert env._engine is mock_engine
+    assert env._base_inference_config is inference_config

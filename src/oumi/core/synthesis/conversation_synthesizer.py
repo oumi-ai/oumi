@@ -40,6 +40,7 @@ from oumi.core.types.conversation import (
 from oumi.core.types.tool_call import ToolCall, ToolDefinition, ToolResult
 from oumi.environments import GroundingFact
 from oumi.environments.base_environment import BaseEnvironment
+from oumi.environments.synthetic_environment import SyntheticEnvironment
 from oumi.environments.utils import describe_grounding_default
 from oumi.inference.native_tool_calling import (
     NATIVE_TOOL_CALLING_ENGINES,
@@ -97,11 +98,14 @@ class ConversationSynthesizer:
         if self._environment_config is not None:
             tool_env_map = self._environment_config.tool_environment_map
             reachable_env_ids = set(tool_env_map.values())
-            envs_by_id: dict[str, BaseEnvironment] = {
-                env_params.id: build_environment(env_params)
-                for env_params in self._environment_config.environments
-                if env_params.id in reachable_env_ids
-            }
+            envs_by_id: dict[str, BaseEnvironment] = {}
+            for env_params in self._environment_config.environments:
+                if env_params.id not in reachable_env_ids:
+                    continue
+                env = build_environment(env_params)
+                if isinstance(env, SyntheticEnvironment):
+                    env.attach_inference(self._inference_engine, inference_config)
+                envs_by_id[env_params.id] = env
             for tool_id, env_id in tool_env_map.items():
                 self._tool_dispatch[tool_id] = envs_by_id[env_id]
 
