@@ -53,6 +53,18 @@ from oumi.cli.infer import infer
 from oumi.cli.judge import judge_conversations_file, judge_dataset_file
 from oumi.cli.launch import cancel, down, logs, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
+from oumi.cli.platform import (
+    list_datasets,
+    list_judges,
+    list_models_,
+    login,
+    logout,
+    operation_status,
+    operation_stop,
+    pull_dataset,
+    pull_model,
+    whoami,
+)
 from oumi.cli.quantize import quantize
 from oumi.cli.synth import synth
 from oumi.cli.train import train
@@ -303,6 +315,66 @@ def get_app() -> typer.Typer:
         help="Show status of launched jobs and clusters.",
         rich_help_panel="Compute",
     )(status)
+
+    # Oumi Enterprise platform
+    platform_app = typer.Typer(
+        pretty_exceptions_enable=False, context_settings=_HELP_OPTION_NAMES
+    )
+    platform_app.command(name="login", help="Save Oumi Enterprise credentials.")(
+        login
+    )
+    platform_app.command(name="logout", help="Remove saved credentials.")(logout)
+    platform_app.command(
+        name="whoami", help="Show the platform and project the current key targets."
+    )(whoami)
+
+    platform_datasets_app = typer.Typer(
+        pretty_exceptions_enable=False, context_settings=_HELP_OPTION_NAMES
+    )
+    platform_datasets_app.command(name="list", help="List platform datasets.")(
+        list_datasets
+    )
+    platform_datasets_app.command(
+        name="pull", help="Download a platform dataset to a local file."
+    )(pull_dataset)
+    platform_app.add_typer(platform_datasets_app, name="datasets")
+
+    platform_models_app = typer.Typer(
+        pretty_exceptions_enable=False, context_settings=_HELP_OPTION_NAMES
+    )
+    platform_models_app.command(name="list", help="List platform models.")(
+        list_models_
+    )
+    platform_models_app.command(
+        name="pull", help="Download a platform model into a local directory."
+    )(pull_model)
+    platform_app.add_typer(platform_models_app, name="models")
+
+    platform_judges_app = typer.Typer(
+        pretty_exceptions_enable=False, context_settings=_HELP_OPTION_NAMES
+    )
+    platform_judges_app.command(name="list", help="List platform judges.")(
+        list_judges
+    )
+    platform_app.add_typer(platform_judges_app, name="judges")
+
+    platform_ops_app = typer.Typer(
+        pretty_exceptions_enable=False, context_settings=_HELP_OPTION_NAMES
+    )
+    platform_ops_app.command(
+        name="status", help="Show the status of a platform operation."
+    )(operation_status)
+    platform_ops_app.command(
+        name="stop", help="Cancel an in-flight platform operation."
+    )(operation_stop)
+    platform_app.add_typer(platform_ops_app, name="operations")
+
+    app.add_typer(
+        platform_app,
+        name="platform",
+        help="Talk to the Oumi Enterprise platform.",
+        rich_help_panel="Compute",
+    )
 
     # Tools
     app.command(
