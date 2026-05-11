@@ -43,16 +43,36 @@ from oumi.platform.exceptions import (
     PlatformError,
     PlatformOperationError,
 )
+from oumi.platform.resolver import (
+    ParsedURI,
+    default_cache_dir,
+    is_oumi_uri,
+    parse_uri,
+    resolve,
+    resolve_dataset,
+    resolve_evaluator,
+    resolve_model,
+    resolve_recipe,
+)
 
 __all__ = [
     "Client",
     "Credentials",
     "CredentialsNotFoundError",
+    "ParsedURI",
     "PlatformAPIError",
     "PlatformAuthError",
     "PlatformError",
     "PlatformOperationError",
+    "default_cache_dir",
     "get_default_client",
+    "is_oumi_uri",
     "load_credentials",
+    "parse_uri",
+    "resolve",
+    "resolve_dataset",
+    "resolve_evaluator",
+    "resolve_model",
+    "resolve_recipe",
     "save_credentials",
 ]
