@@ -102,7 +102,7 @@ strategy_params:
     - id: library_dialog
       min_turns: 4
       max_turns: 6
-      max_tool_rounds_per_turn: 6
+      max_consecutive_tool_turns: 6
       available_environments:
         - library
 
