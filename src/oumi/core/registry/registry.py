@@ -13,6 +13,8 @@
 # limitations under the License.
 
 import functools
+import importlib
+import importlib.metadata
 import importlib.util
 import os
 import sys
@@ -23,6 +25,11 @@ from pathlib import Path
 from typing import Any
 
 from oumi.utils.logging import logger
+
+# Entry-point group that third-party packages (e.g. the Oumi Enterprise
+# platform) use to register additional datasets, judges, clouds, etc. with
+# the global registry without modifying oumi itself.
+_PLUGIN_ENTRY_POINT_GROUP = "oumi.plugins"
 
 
 class RegistryType(Enum):
@@ -88,6 +95,45 @@ def _load_user_requirements(requirements_file: str):
         logger.info(f"Loaded {import_count} user-defined registry modules.")
 
 
+def _load_entry_point_plugins() -> None:
+    """Discover and import every package registered under ``oumi.plugins``.
+
+    Third-party distributions can declare an entry point like::
+
+        [project.entry-points."oumi.plugins"]
+        my_company = "my_company.oumi_plugin"
+
+    On first registry access we import each such module, which gives the
+    module a chance to call :func:`register`, :func:`register_dataset`,
+    :func:`register_cloud_builder`, etc. at import time.
+
+    Failures are logged and skipped rather than raised so a single broken
+    plugin can't prevent the rest of oumi from booting.
+    """
+    try:
+        eps = importlib.metadata.entry_points()
+    except Exception as exc:  # pragma: no cover - importlib.metadata edge cases
+        logger.warning(f"Could not enumerate oumi plugin entry points: {exc}")
+        return
+    # The shape of `entry_points()` differs across Python versions; both the
+    # newer Selectable interface (`eps.select(group=...)`) and the older
+    # dict-style fallback (`eps.get(group, ())`) are supported here.
+    if hasattr(eps, "select"):
+        plugins = eps.select(group=_PLUGIN_ENTRY_POINT_GROUP)
+    else:  # pragma: no cover - Python < 3.10 backport behavior
+        plugins = eps.get(_PLUGIN_ENTRY_POINT_GROUP, [])  # type: ignore[attr-defined]
+    for ep in plugins:
+        try:
+            module = ep.load()
+            module_name = getattr(module, "__name__", str(module))
+            logger.info(f"Loaded oumi plugin {ep.name!r} from {module_name}.")
+        except Exception as exc:
+            logger.warning(
+                f"Failed to load oumi plugin {ep.name!r} "
+                f"({getattr(ep, 'value', '?')}): {exc}"
+            )
+
+
 def _register_dependencies(cls_function):
     """Decorator to ensure core dependencies are added to the Registry."""
 
@@ -106,6 +152,9 @@ def _register_dependencies(cls_function):
             user_req_file = os.environ.get("OUMI_EXTRA_DEPS_FILE", None)
             if user_req_file:
                 _load_user_requirements(user_req_file)
+
+            # Import third-party plugin entry points.
+            _load_entry_point_plugins()
 
         return cls_function(self, *args, **kwargs)
 
