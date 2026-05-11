@@ -81,11 +81,11 @@ dependencies = [
     "torchao>=0.16,<0.17",     # Used by transformers; >=0.16 required by peft>=0.19
     "torchvision>=0.21,<0.26", # Used by some VLM-s (multimodal)
     "tqdm",
-    "transformers>=4.57,<5.8",
+    "transformers>=4.57,<5.9",
     "trl>=0.24,<1.5",
     "typer<0.25.2",             # Used by CLI. Pinned due to sphinxcontrib-typer compatibility. OPE-1806
     "typing_extensions",        # Backports of typing updates
-    "uvicorn<0.45.0",           # TODO: Remove on resolution of https://github.com/skypilot-org/skypilot/issues/7303
+    "uvicorn<0.47.0",           # TODO: Remove on resolution of https://github.com/skypilot-org/skypilot/issues/7303
     "wandb>=0.21,<0.26",        # Logging to Weights and Biases.
 ]
 
@@ -131,12 +131,12 @@ gpu = [
     # src/oumi/core/trainers/verl_trainer_config.yaml.
     "verl>=0.5,<0.8; python_version >= '3.10'", # Used for the VERL_GRPO trainer
     "vllm>=0.14,<0.21",                         # For VLLMInferenceEngine, and vLLM-powered GRPO training.
-    "kernels>=0.11,<0.14",                      # For compute kernel implementations (e.g., attn_implementation in gold trainer)
+    "kernels>=0.11,<0.15",                      # For compute kernel implementations (e.g., attn_implementation in gold trainer)
 ]
 
 deepspeed = [
     # Note: May require nvcc (CUDA compiler) if no pre-built wheel is available.
-    "deepspeed>=0.17.0,<0.19.0",
+    "deepspeed>=0.17.0,<0.20.0",
 ]
 
 # Targets for supported cloud providers
