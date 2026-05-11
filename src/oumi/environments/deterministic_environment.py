@@ -90,14 +90,17 @@ class DeterministicEnvironment(BaseEnvironment):
         self._tool_ids = {tool.id for tool in params.tools}
         self._validate_lookup_table()
 
-    def step(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:
-        """Resolve a deterministic tool call to its output.
+    def step(self, calls: list[tuple[str, dict[str, Any]]]) -> list[ToolResult]:
+        """Resolve a batch of deterministic tool calls to their outputs.
 
         Raises:
-            ValueError: If ``tool_id`` is not declared in this env's tools list.
+            ValueError: If any ``tool_id`` is not declared in this env's tools list.
             ToolLookupError: If no entry in the env's lookup table matches
-                the provided arguments.
+                the provided arguments for any call.
         """
+        return [self._resolve_one(tool_id, args) for tool_id, args in calls]
+
+    def _resolve_one(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:
         if tool_id not in self._tool_ids:
             raise ValueError(
                 f"Tool '{tool_id}' not found in environment '{self._params.id}'. "

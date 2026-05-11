@@ -32,8 +32,8 @@ class BaseEnvironment(ABC):
     tool_params_cls: type[ToolParams] = ToolParams
 
     @abstractmethod
-    def step(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:
-        """Execute a tool call within this environment."""
+    def step(self, calls: list[tuple[str, dict[str, Any]]]) -> list[ToolResult]:
+        """Execute a batch of tool calls; returns results in the same order."""
 
     def sample_grounding(
         self,

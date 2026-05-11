@@ -15,6 +15,7 @@
 import dataclasses
 import json
 import random
+from typing import Any
 
 from oumi.builders.environments import build_environment
 from oumi.builders.inference_engines import build_inference_engine
@@ -36,7 +37,7 @@ from oumi.core.types.conversation import (
     Message,
     Role,
 )
-from oumi.core.types.tool_call import ToolCall, ToolDefinition
+from oumi.core.types.tool_call import ToolCall, ToolDefinition, ToolResult
 from oumi.environments import GroundingFact
 from oumi.environments.base_environment import BaseEnvironment
 from oumi.environments.utils import describe_grounding_default
@@ -129,24 +130,8 @@ class ConversationSynthesizer:
             return ""
         return msg.content
 
-    def _run_tool_call(self, tool_call: ToolCall) -> Message:
-        """Dispatch a tool call; failures become a TOOL message with an error."""
-        name = tool_call.function.name
-        try:
-            arguments = json.loads(tool_call.function.arguments)
-        except json.JSONDecodeError as exc:
-            return self._tool_error(tool_call, f"Malformed tool_call arguments: {exc}")
-        if not isinstance(arguments, dict):
-            return self._tool_error(
-                tool_call, "tool_call arguments must be a JSON object"
-            )
-        environment = self._tool_dispatch.get(name)
-        if environment is None:
-            return self._tool_error(tool_call, f"Unknown tool '{name}'")
-        try:
-            result = environment.step(name, arguments)
-        except Exception as exc:
-            return self._tool_error(tool_call, f"Tool '{name}' raised: {exc}")
+    @staticmethod
+    def _tool_message(tool_call: ToolCall, result: ToolResult) -> Message:
         content = (
             result.output
             if isinstance(result.output, str)
@@ -157,6 +142,59 @@ class ConversationSynthesizer:
             tool_call_id=tool_call.id,
             content=content,
         )
+
+    def _dispatch_tool_calls(self, tool_calls: list[ToolCall]) -> list[Message]:
+        """Dispatch a batch of tool calls; returns one TOOL message per call.
+
+        Calls bound to the same environment are folded into one ``step()``
+        invocation so environments that benefit from batching (e.g. LLM-backed
+        simulators) can amortize backend cost. If a batched ``step()`` raises,
+        the dispatcher falls back to per-call dispatch within that group so
+        individual errors stay attributed.
+        """
+        results: list[Message | None] = [None] * len(tool_calls)
+        groups: dict[int, list[tuple[int, ToolCall, dict[str, Any]]]] = {}
+        for idx, tc in enumerate(tool_calls):
+            name = tc.function.name
+            try:
+                arguments = json.loads(tc.function.arguments)
+            except json.JSONDecodeError as exc:
+                results[idx] = self._tool_error(
+                    tc, f"Malformed tool_call arguments: {exc}"
+                )
+                continue
+            if not isinstance(arguments, dict):
+                results[idx] = self._tool_error(
+                    tc, "tool_call arguments must be a JSON object"
+                )
+                continue
+            environment = self._tool_dispatch.get(name)
+            if environment is None:
+                results[idx] = self._tool_error(tc, f"Unknown tool '{name}'")
+                continue
+            groups.setdefault(id(environment), []).append((idx, tc, arguments))
+
+        for group in groups.values():
+            environment = self._tool_dispatch[group[0][1].function.name]
+            calls = [(tc.function.name, args) for _, tc, args in group]
+            try:
+                outputs = environment.step(calls)
+            except Exception:
+                for idx, tc, args in group:
+                    try:
+                        [single] = environment.step([(tc.function.name, args)])
+                    except Exception as exc:
+                        results[idx] = self._tool_error(
+                            tc, f"Tool '{tc.function.name}' raised: {exc}"
+                        )
+                        continue
+                    results[idx] = self._tool_message(tc, single)
+                continue
+            for (idx, tc, _), out in zip(group, outputs):
+                results[idx] = self._tool_message(tc, out)
+
+        assert all(r is not None for r in results), "every call must produce a message"
+        return results  # type: ignore[return-value]
 
     def _validate_roles(self, multiturn_attribute: MultiTurnAttribute) -> None:
         """Validate that required roles have corresponding personas.
@@ -756,8 +794,9 @@ class ConversationSynthesizer:
                         tool_calls=assistant_msg.tool_calls,
                     )
                 )
-                for tc in assistant_msg.tool_calls:
-                    staging[idx].append(self._run_tool_call(tc))
+                staging[idx].extend(
+                    self._dispatch_tool_calls(list(assistant_msg.tool_calls))
+                )
                 round_count[idx] += 1
             else:
                 staging[idx].append(

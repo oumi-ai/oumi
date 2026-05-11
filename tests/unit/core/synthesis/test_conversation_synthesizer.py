@@ -1738,16 +1738,16 @@ def _make_env_config(env_id: str, tool_id: str) -> MagicMock:
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_environment")
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
-def test_run_tool_call_dispatches_through_env(
+def test_dispatch_tool_calls_routes_through_env(
     mock_build_inference_engine,
     mock_build_environment,
     mock_general_synthesis_params,
 ):
-    """A valid ToolCall produces a Role.TOOL message via env.step()."""
+    """A valid ToolCall produces a Role.TOOL message via batched env.step()."""
     mock_build_inference_engine.return_value = Mock()
 
     fake_env = Mock(spec=BaseEnvironment)
-    fake_env.step.return_value = ToolResult(output={"city": "Paris"})
+    fake_env.step.return_value = [ToolResult(output={"city": "Paris"})]
     mock_build_environment.return_value = fake_env
 
     env_config = _make_env_config("weather", "get_weather")
@@ -1769,17 +1769,60 @@ def test_run_tool_call_dispatches_through_env(
         id="call_1",
         function=FunctionCall(name="get_weather", arguments='{"city": "Paris"}'),
     )
-    msg = synth._run_tool_call(tc)
+    [msg] = synth._dispatch_tool_calls([tc])
 
     assert msg.role == Role.TOOL
     assert msg.tool_call_id == "call_1"
     assert msg.content == '{"city": "Paris"}'
-    fake_env.step.assert_called_once_with("get_weather", {"city": "Paris"})
+    fake_env.step.assert_called_once_with([("get_weather", {"city": "Paris"})])
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_environment")
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
-def test_run_tool_call_handles_malformed_arguments(
+def test_dispatch_tool_calls_folds_same_env_calls_into_one_step(
+    mock_build_inference_engine,
+    mock_build_environment,
+    mock_general_synthesis_params,
+):
+    """Multiple calls to the same env collapse into one batched step()."""
+    mock_build_inference_engine.return_value = Mock()
+
+    fake_env = Mock(spec=BaseEnvironment)
+    fake_env.step.return_value = [
+        ToolResult(output={"i": 0}),
+        ToolResult(output={"i": 1}),
+        ToolResult(output={"i": 2}),
+    ]
+    mock_build_environment.return_value = fake_env
+
+    env_config = _make_env_config("e", "t")
+    inference_config = InferenceConfig(
+        engine=InferenceEngineType.OPENAI,
+        model=Mock(spec=ModelParams),
+        remote_params=Mock(spec=RemoteParams),
+        generation=GenerationParams(),
+    )
+    synth = ConversationSynthesizer(
+        mock_general_synthesis_params,
+        inference_config,
+        environment_config=env_config,
+    )
+
+    tcs = [
+        ToolCall(id=f"c{i}", function=FunctionCall(name="t", arguments=f'{{"i": {i}}}'))
+        for i in range(3)
+    ]
+    msgs = synth._dispatch_tool_calls(tcs)
+    assert [m.tool_call_id for m in msgs] == ["c0", "c1", "c2"]
+    assert [m.content for m in msgs] == ['{"i": 0}', '{"i": 1}', '{"i": 2}']
+    fake_env.step.assert_called_once_with(
+        [("t", {"i": 0}), ("t", {"i": 1}), ("t", {"i": 2})]
+    )
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_environment")
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_dispatch_tool_calls_handles_malformed_arguments(
     mock_build_inference_engine,
     mock_build_environment,
     mock_general_synthesis_params,
@@ -1806,7 +1849,7 @@ def test_run_tool_call_handles_malformed_arguments(
         id="call_x",
         function=FunctionCall(name="t", arguments="{not valid json"),
     )
-    msg = synth._run_tool_call(tc)
+    [msg] = synth._dispatch_tool_calls([tc])
     assert msg.role == Role.TOOL
     assert msg.tool_call_id == "call_x"
     assert "Malformed tool_call arguments" in str(msg.content)
@@ -1815,7 +1858,7 @@ def test_run_tool_call_handles_malformed_arguments(
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_environment")
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
-def test_run_tool_call_handles_non_dict_arguments(
+def test_dispatch_tool_calls_handles_non_dict_arguments(
     mock_build_inference_engine,
     mock_build_environment,
     mock_general_synthesis_params,
@@ -1841,7 +1884,7 @@ def test_run_tool_call_handles_non_dict_arguments(
     )
 
     tc = ToolCall(id="c", function=FunctionCall(name="t", arguments="[1, 2, 3]"))
-    msg = synth._run_tool_call(tc)
+    [msg] = synth._dispatch_tool_calls([tc])
     assert msg.role == Role.TOOL
     assert msg.tool_call_id == "c"
     assert "must be a JSON object" in str(msg.content)
@@ -1850,7 +1893,7 @@ def test_run_tool_call_handles_non_dict_arguments(
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_environment")
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
-def test_run_tool_call_handles_unknown_tool(
+def test_dispatch_tool_calls_handles_unknown_tool(
     mock_build_inference_engine,
     mock_build_environment,
     mock_general_synthesis_params,
@@ -1877,7 +1920,7 @@ def test_run_tool_call_handles_unknown_tool(
         id="c",
         function=FunctionCall(name="ghost_tool", arguments="{}"),
     )
-    msg = synth._run_tool_call(tc)
+    [msg] = synth._dispatch_tool_calls([tc])
     assert msg.role == Role.TOOL
     assert "Unknown tool 'ghost_tool'" in str(msg.content)
     fake_env.step.assert_not_called()
@@ -1885,12 +1928,12 @@ def test_run_tool_call_handles_unknown_tool(
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_environment")
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
-def test_run_tool_call_handles_env_exception(
+def test_dispatch_tool_calls_handles_env_exception_with_per_call_fallback(
     mock_build_inference_engine,
     mock_build_environment,
     mock_general_synthesis_params,
 ):
-    """env.step() raising → error TOOL message, loop stays alive."""
+    """Batched step() raising → fall back to per-call dispatch for attribution."""
     mock_build_inference_engine.return_value = Mock()
     fake_env = Mock(spec=BaseEnvironment)
     fake_env.step.side_effect = RuntimeError("boom")
@@ -1910,7 +1953,7 @@ def test_run_tool_call_handles_env_exception(
     )
 
     tc = ToolCall(id="c", function=FunctionCall(name="t", arguments="{}"))
-    msg = synth._run_tool_call(tc)
+    [msg] = synth._dispatch_tool_calls([tc])
     assert msg.role == Role.TOOL
     assert "Tool 't' raised: boom" in str(msg.content)
 
@@ -1924,7 +1967,9 @@ def test_assistant_turn_loops_on_tool_calls(
 ):
     """Assistant turn loops: tool_calls -> dispatch -> re-infer -> final text."""
     fake_env = Mock(spec=BaseEnvironment)
-    fake_env.step.return_value = ToolResult(output={"answer": 42})
+    fake_env.step.side_effect = lambda calls: [
+        ToolResult(output={"answer": 42}) for _ in calls
+    ]
     mock_build_environment.return_value = fake_env
 
     turn_call_count = {"n": 0}
@@ -2032,7 +2077,7 @@ def test_assistant_turn_caps_at_max_consecutive_tool_turns_then_finalizes(
 ):
     """When max_consecutive_tool_turns is hit, the nudge forces a final text answer."""
     fake_env = Mock(spec=BaseEnvironment)
-    fake_env.step.return_value = ToolResult(output="ok")
+    fake_env.step.side_effect = lambda calls: [ToolResult(output="ok") for _ in calls]
     mock_build_environment.return_value = fake_env
 
     def scripted_infer(prompts, inference_config=None):
@@ -2135,9 +2180,11 @@ def test_assistant_turn_dispatches_parallel_batch_unrestricted(
     mock_build_environment,
     mock_general_synthesis_params,
 ):
-    """A parallel tool_calls batch dispatches in full; cap is on rounds, not calls."""
+    """A parallel tool_calls batch is folded into one step() invocation."""
     fake_env = Mock(spec=BaseEnvironment)
-    fake_env.step.return_value = ToolResult(output={"ok": True})
+    fake_env.step.side_effect = lambda calls: [
+        ToolResult(output={"ok": True}) for _ in calls
+    ]
     mock_build_environment.return_value = fake_env
 
     assistant_turn_count = {"n": 0}
@@ -2220,4 +2267,7 @@ def test_assistant_turn_dispatches_parallel_batch_unrestricted(
             multiturn_attributes=multiturn_attr,
         )
 
-    assert fake_env.step.call_count == 5
+    # 5 parallel tool calls fold into a single batched step() invocation.
+    assert fake_env.step.call_count == 1
+    [call] = fake_env.step.call_args_list
+    assert len(call.args[0]) == 5
