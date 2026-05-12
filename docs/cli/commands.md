@@ -163,6 +163,23 @@ For a detailed guide on model quantization, see {doc}`/user_guides/quantization`
   :width: 80
 ```
 
+## Oumi Enterprise Platform
+
+`oumi platform` exposes Oumi Enterprise resources (datasets, models, judges,
+deployments, operations) to your local environment, and lets you submit
+training / evaluation / synthesis jobs to managed platform compute.
+
+For a complete walkthrough — credentials, `oumi://` URIs, `--remote` flow,
+Python API, and MCP tools — see {doc}`/user_guides/platform`.
+
+```{typer} oumi.cli.main.app.platform
+  :prog: oumi platform
+  :make-sections:
+  :preferred: svg
+  :theme: monokai
+  :width: 80
+```
+
 ## Environment
 
 This command is a great tool for debugging!
