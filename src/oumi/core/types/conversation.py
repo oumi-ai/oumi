@@ -625,7 +625,7 @@ class PlannedTurn(pydantic.BaseModel):
 
     model_config = pydantic.ConfigDict(extra="forbid")
 
-    turn: int = pydantic.Field(ge=1, description="1-indexed turn number.")
+    turn: int = pydantic.Field(description="1-indexed turn number.")
     instruction: str = pydantic.Field(description="What should happen on this turn.")
 
 

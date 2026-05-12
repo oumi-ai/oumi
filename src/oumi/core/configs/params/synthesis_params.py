@@ -485,9 +485,11 @@ class MultiTurnAttribute:
     available_tools: list[str] = field(default_factory=list)
     """List of tool ids available in this conversation."""
 
-    max_tool_calls_per_turn: int = 50
-    """Safety ceiling for tool calls per ASSISTANT turn. The agent naturally stops
-    when it decides no more tools are needed. This only prevents runaway loops."""
+    max_consecutive_tool_turns: int = 50
+    """Circuit breaker on consecutive tool-using assistant turns.
+
+    A parallel batch of tool calls counts as one turn.
+    """
 
     def __post_init__(self):
         """Verifies/populates params."""
