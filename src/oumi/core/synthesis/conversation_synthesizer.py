@@ -790,9 +790,7 @@ class ConversationSynthesizer:
                         tool_calls=assistant_msg.tool_calls,
                     )
                 )
-                staging[idx].extend(
-                    self._dispatch_tool_calls(list(assistant_msg.tool_calls))
-                )
+                staging[idx].extend(self._dispatch_tool_calls(assistant_msg.tool_calls))
                 round_count[idx] += 1
             else:
                 staging[idx].append(

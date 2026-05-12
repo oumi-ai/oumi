@@ -27,7 +27,6 @@ import jsonschema
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.environment_params import EnvironmentParams
-from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.configs.params.tool_params import ToolError, ToolParams
 from oumi.core.registry import register_environment
@@ -250,15 +249,10 @@ class SyntheticEnvironment(BaseEnvironment):
         """
         assert self._base_inference_config is not None
         schema = tool.output_schema or {"type": "object"}
-        base_gen = self._base_inference_config.generation
-        if isinstance(base_gen, GenerationParams):
-            sim_gen = dataclasses.replace(
-                base_gen, guided_decoding=GuidedDecodingParams(json=schema)
-            )
-        else:
-            sim_gen = GenerationParams(
-                guided_decoding=GuidedDecodingParams(json=schema)
-            )
+        sim_gen = dataclasses.replace(
+            self._base_inference_config.generation,
+            guided_decoding=GuidedDecodingParams(json=schema),
+        )
         return dataclasses.replace(self._base_inference_config, generation=sim_gen)
 
     @staticmethod
