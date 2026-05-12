@@ -674,7 +674,7 @@ class ConversationSynthesizer:
             uniform_role = roles_for_turn[0]
 
             if uniform_role == Role.ASSISTANT:
-                self._run_assistant_turn(
+                self._run_assistant_agentic_loop(
                     prompts=prompts,
                     sample_indices=sample_indices,
                     histories=histories,
@@ -808,7 +808,7 @@ class ConversationSynthesizer:
                     )
                 )
 
-    def _run_assistant_turn(
+    def _run_assistant_agentic_loop(
         self,
         prompts: list[Conversation],
         sample_indices: list[int],
@@ -816,7 +816,7 @@ class ConversationSynthesizer:
         max_consecutive_tool_turns: int,
         assistant_tools: list[ToolDefinition] | None,
     ) -> None:
-        """Drive the agentic loop for an assistant turn.
+        """Drive the agentic loop that produces one assistant turn.
 
         Each iteration calls ``_run_assistant_tool_round`` on the active subset
         (samples that aren't done and haven't hit ``max_consecutive_tool_turns``).
@@ -824,7 +824,7 @@ class ConversationSynthesizer:
         ``_finalize_stragglers`` to force a final answer.
 
         Mutates ``histories`` in place by extending each per-sample list with the
-        assistant + tool messages produced during this turn.
+        assistant + tool messages produced during this loop.
         """
         base_msgs: dict[int, list[Message]] = {
             idx: prompt.messages for idx, prompt in zip(sample_indices, prompts)
