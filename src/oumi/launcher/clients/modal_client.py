@@ -335,4 +335,3 @@ class ModalClient:
             except Exception as e:  # noqa: BLE001
                 logger.warning(f"Modal {stream_attr} read failed: {e!r}")
         return ModalLogStream(cast("Iterator[str]", iter(chunks)))
-
