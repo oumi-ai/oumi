@@ -41,13 +41,15 @@ environment_config:
             properties: {}
         - id: lookup_book_status
           name: lookup_book_status
-          description: Look up the borrow status of a book by book_id.
+          description: |
+            Look up borrow status for a book by book_id. Returns title, status,
+            and (when checked out) due_date.
           parameters:
             type: object
             properties:
               book_id:
                 type: string
-                description: "Catalog ID of the book, e.g. 'B001'."
+                description: Catalog ID of the book (from list_book_catalog).
             required:
               - book_id
       env_kwargs:
@@ -163,7 +165,7 @@ inference_config:
   model:
     model_name: gpt-4o-mini
   generation:
-    max_new_tokens: 512
+    max_new_tokens: 1024
     temperature: 0.4
   remote_params:
     num_workers: 10
