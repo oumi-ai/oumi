@@ -1542,7 +1542,7 @@ def test_init_raises_on_unsupported_engine_with_tools(
         )
 
 
-@patch("oumi.core.synthesis.conversation_synthesizer.build_environment")
+@patch("oumi.core.synthesis.tool_router.build_environment")
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
 def test_init_no_error_on_supported_engine_with_tools(
     mock_build_inference_engine,
@@ -1593,7 +1593,7 @@ def test_init_no_error_on_unsupported_engine_without_tools(
     )
 
 
-@patch("oumi.core.synthesis.conversation_synthesizer.build_environment")
+@patch("oumi.core.synthesis.tool_router.build_environment")
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
 def test_synthesize_attaches_tools_to_assistant_prompt(
     mock_build_inference_engine,
@@ -1736,7 +1736,7 @@ def _make_env_config(env_id: str, tool_id: str) -> MagicMock:
     return env_config
 
 
-@patch("oumi.core.synthesis.conversation_synthesizer.build_environment")
+@patch("oumi.core.synthesis.tool_router.build_environment")
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
 def test_dispatch_tool_calls_routes_through_env(
     mock_build_inference_engine,
@@ -1777,7 +1777,7 @@ def test_dispatch_tool_calls_routes_through_env(
     fake_env.step.assert_called_once_with([("get_weather", {"city": "Paris"})])
 
 
-@patch("oumi.core.synthesis.conversation_synthesizer.build_environment")
+@patch("oumi.core.synthesis.tool_router.build_environment")
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
 def test_dispatch_tool_calls_folds_same_env_calls_into_one_step(
     mock_build_inference_engine,
@@ -1820,7 +1820,7 @@ def test_dispatch_tool_calls_folds_same_env_calls_into_one_step(
     )
 
 
-@patch("oumi.core.synthesis.conversation_synthesizer.build_environment")
+@patch("oumi.core.synthesis.tool_router.build_environment")
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
 def test_dispatch_tool_calls_handles_malformed_arguments(
     mock_build_inference_engine,
@@ -1852,11 +1852,11 @@ def test_dispatch_tool_calls_handles_malformed_arguments(
     [msg] = synth._dispatch_tool_calls([tc])
     assert msg.role == Role.TOOL
     assert msg.tool_call_id == "call_x"
-    assert "Malformed tool_call arguments" in str(msg.content)
+    assert "arguments are not valid JSON" in str(msg.content)
     fake_env.step.assert_not_called()
 
 
-@patch("oumi.core.synthesis.conversation_synthesizer.build_environment")
+@patch("oumi.core.synthesis.tool_router.build_environment")
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
 def test_dispatch_tool_calls_handles_non_dict_arguments(
     mock_build_inference_engine,
@@ -1891,7 +1891,7 @@ def test_dispatch_tool_calls_handles_non_dict_arguments(
     fake_env.step.assert_not_called()
 
 
-@patch("oumi.core.synthesis.conversation_synthesizer.build_environment")
+@patch("oumi.core.synthesis.tool_router.build_environment")
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
 def test_dispatch_tool_calls_handles_unknown_tool(
     mock_build_inference_engine,
@@ -1926,7 +1926,7 @@ def test_dispatch_tool_calls_handles_unknown_tool(
     fake_env.step.assert_not_called()
 
 
-@patch("oumi.core.synthesis.conversation_synthesizer.build_environment")
+@patch("oumi.core.synthesis.tool_router.build_environment")
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
 def test_dispatch_tool_calls_handles_env_exception_with_per_call_fallback(
     mock_build_inference_engine,
@@ -1958,7 +1958,7 @@ def test_dispatch_tool_calls_handles_env_exception_with_per_call_fallback(
     assert "Tool 't' raised: boom" in str(msg.content)
 
 
-@patch("oumi.core.synthesis.conversation_synthesizer.build_environment")
+@patch("oumi.core.synthesis.tool_router.build_environment")
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
 def test_assistant_turn_loops_on_tool_calls(
     mock_build_inference_engine,
@@ -2068,7 +2068,7 @@ def test_assistant_turn_loops_on_tool_calls(
     assert fake_env.step.call_count == 1
 
 
-@patch("oumi.core.synthesis.conversation_synthesizer.build_environment")
+@patch("oumi.core.synthesis.tool_router.build_environment")
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
 def test_assistant_turn_caps_at_max_consecutive_tool_turns_then_finalizes(
     mock_build_inference_engine,
@@ -2173,7 +2173,7 @@ def test_assistant_turn_caps_at_max_consecutive_tool_turns_then_finalizes(
     assert fake_env.step.call_count == 2
 
 
-@patch("oumi.core.synthesis.conversation_synthesizer.build_environment")
+@patch("oumi.core.synthesis.tool_router.build_environment")
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
 def test_assistant_turn_dispatches_parallel_batch_unrestricted(
     mock_build_inference_engine,
@@ -2317,7 +2317,8 @@ def test_synthesizer_attaches_inference_to_synthetic_env(
         environment_config=env_config,
     )
 
-    env = synth._tool_dispatch["lookup"]
+    assert synth._router is not None
+    env = synth._router.tool_to_env["lookup"]
     assert isinstance(env, SyntheticEnvironment)
     assert env._engine is mock_engine
     assert env._base_inference_config is inference_config

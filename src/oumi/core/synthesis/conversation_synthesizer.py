@@ -29,8 +29,13 @@ from oumi.core.configs.params.synthesis_params import (
     GeneralSynthesisParams,
     MultiTurnAttribute,
 )
-from oumi.core.configs.params.tool_params import ToolParams
+from oumi.core.configs.params.tool_params import (
+    ToolArgumentError,
+    ToolLookupError,
+    ToolParams,
+)
 from oumi.core.synthesis.attribute_formatter import AttributeFormatter
+from oumi.core.synthesis.tool_router import ToolRouter
 from oumi.core.types.conversation import (
     PLANNER_JSON_SCHEMA,
     Conversation,
@@ -94,20 +99,17 @@ class ConversationSynthesizer:
                 f"not support it. Use one of: {supported}."
             )
 
-        self._tool_dispatch: dict[str, BaseEnvironment] = {}
+        self._router: ToolRouter | None = None
         if self._environment_config is not None:
-            tool_env_map = self._environment_config.tool_environment_map
-            reachable_env_ids = set(tool_env_map.values())
-            envs_by_id: dict[str, BaseEnvironment] = {}
-            for env_params in self._environment_config.environments:
-                if env_params.id not in reachable_env_ids:
-                    continue
-                env = build_environment(env_params)
-                if isinstance(env, SyntheticEnvironment):
-                    env.attach_inference(self._inference_engine, inference_config)
-                envs_by_id[env_params.id] = env
-            for tool_id, env_id in tool_env_map.items():
-                self._tool_dispatch[tool_id] = envs_by_id[env_id]
+            self._router = ToolRouter.from_environment_config(
+                self._environment_config,
+                on_env_built=self._wire_inference,
+            )
+
+    def _wire_inference(self, env: BaseEnvironment) -> None:
+        """Inject the synthesizer's engine + base config into synthetic envs."""
+        if isinstance(env, SyntheticEnvironment):
+            env.attach_inference(self._inference_engine, self._inference_config)
 
     def _resolve_available_tools(
         self, multiturn_attribute: MultiTurnAttribute
@@ -150,43 +152,33 @@ class ConversationSynthesizer:
     def _dispatch_tool_calls(self, tool_calls: list[ToolCall]) -> list[Message]:
         """Dispatch a batch of tool calls; returns one TOOL message per call.
 
-        Calls bound to the same environment are folded into one ``step()``
-        invocation so environments that benefit from batching (e.g. LLM-backed
-        simulators) can amortize backend cost. If a batched ``step()`` raises,
-        the dispatcher falls back to per-call dispatch within that group so
-        individual errors stay attributed.
+        Validates each call via the router, then groups surviving calls by env
+        and routes each group in one batched ``env.step()``. If the batched
+        route raises, falls back to per-call routing so individual errors stay
+        attributed.
         """
+        assert self._router is not None, "tool calls require an environment_config"
         results: list[Message | None] = [None] * len(tool_calls)
         groups: dict[int, list[tuple[int, ToolCall, dict[str, Any]]]] = {}
         for idx, tc in enumerate(tool_calls):
-            name = tc.function.name
             try:
-                arguments = json.loads(tc.function.arguments)
-            except json.JSONDecodeError as exc:
-                results[idx] = self._tool_error(
-                    tc, f"Malformed tool_call arguments: {exc}"
+                arguments = self._router.parse_and_validate_arguments(
+                    tc.function.name, tc.function.arguments
                 )
+            except (ToolArgumentError, ToolLookupError) as exc:
+                results[idx] = self._tool_error(tc, str(exc))
                 continue
-            if not isinstance(arguments, dict):
-                results[idx] = self._tool_error(
-                    tc, "tool_call arguments must be a JSON object"
-                )
-                continue
-            environment = self._tool_dispatch.get(name)
-            if environment is None:
-                results[idx] = self._tool_error(tc, f"Unknown tool '{name}'")
-                continue
-            groups.setdefault(id(environment), []).append((idx, tc, arguments))
+            env = self._router.tool_to_env[tc.function.name]
+            groups.setdefault(id(env), []).append((idx, tc, arguments))
 
         for group in groups.values():
-            environment = self._tool_dispatch[group[0][1].function.name]
             calls = [(tc.function.name, args) for _, tc, args in group]
             try:
-                outputs = environment.step(calls)
+                outputs = self._router.route_batch(calls)
             except Exception:
                 for idx, tc, args in group:
                     try:
-                        [single] = environment.step([(tc.function.name, args)])
+                        [single] = self._router.route_batch([(tc.function.name, args)])
                     except Exception as exc:
                         results[idx] = self._tool_error(
                             tc, f"Tool '{tc.function.name}' raised: {exc}"
