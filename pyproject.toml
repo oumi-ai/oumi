@@ -134,6 +134,10 @@ gpu = [
     "kernels>=0.11,<0.15",                      # For compute kernel implementations (e.g., attn_implementation in gold trainer)
 ]
 
+litellm = [
+    "litellm>=1.55.0,<1.85",
+]
+
 deepspeed = [
     # Note: May require nvcc (CUDA compiler) if no pre-built wheel is available.
     "deepspeed>=0.17.0,<0.20.0",
