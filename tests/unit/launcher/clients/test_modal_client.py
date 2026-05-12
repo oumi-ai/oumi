@@ -45,10 +45,11 @@ def fake_modal():
     """Constructs a fake ``modal`` SDK with the surface area we touch."""
     fake = MagicMock(name="modal")
 
-    # Image chain: Image.debian_slim().apt_install(...).pip_install(...).
+    # Image chain: Image.debian_slim().apt_install(...).uv_pip_install(...).
     image_obj = MagicMock(name="Image")
     image_obj.apt_install.return_value = image_obj
     image_obj.pip_install.return_value = image_obj
+    image_obj.uv_pip_install.return_value = image_obj
     image_obj.run_commands.return_value = image_obj
     fake.Image.debian_slim.return_value = image_obj
     fake.Image.from_registry.return_value = image_obj
@@ -56,6 +57,10 @@ def fake_modal():
     # Secret.from_dict
     secret_obj = MagicMock(name="Secret")
     fake.Secret.from_dict.return_value = secret_obj
+
+    # Volume.from_name returns a workspace-scoped volume handle.
+    volume_obj = MagicMock(name="Volume")
+    fake.Volume.from_name.return_value = volume_obj
 
     # App.lookup returns a persistent app reference (no context manager).
     app_obj = MagicMock(name="App")
@@ -84,6 +89,30 @@ def test_launch_returns_pending_status_with_sandbox_id(fake_modal):
     assert status.cost_per_hour == pytest.approx(31.6)
     fake_modal.Sandbox.create.assert_called_once()
     fake_modal.App.lookup.assert_called_once()
+
+
+def test_launch_mounts_hf_cache_volume(fake_modal):
+    """A workspace-scoped Volume is mounted at the HF cache path."""
+    with patch(
+        "oumi.launcher.clients.modal_client._import_modal", return_value=fake_modal
+    ):
+        ModalClient().launch(_job(), cluster_name="my-cluster")
+    fake_modal.Volume.from_name.assert_called_once_with(
+        "oumi-hf-cache", create_if_missing=True
+    )
+    _, kwargs = fake_modal.Sandbox.create.call_args
+    assert "/root/.cache/huggingface" in kwargs["volumes"]
+
+
+def test_launch_default_image_uses_uv_pip_install(fake_modal):
+    """Default image installs awscli via uv_pip_install (Modal-recommended)."""
+    with patch(
+        "oumi.launcher.clients.modal_client._import_modal", return_value=fake_modal
+    ):
+        ModalClient().launch(_job())
+    image_obj = fake_modal.Image.debian_slim.return_value
+    image_obj.uv_pip_install.assert_called_once_with("awscli")
+    image_obj.apt_install.assert_called_once_with("zip", "curl", "git")
 
 
 def test_launch_uses_sandbox_id_as_cluster_when_name_omitted(fake_modal):

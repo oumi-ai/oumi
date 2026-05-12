@@ -15,13 +15,18 @@
 """Client wrapping the Modal SDK for the Oumi launcher.
 
 Modal (modal.com) is a serverless GPU platform. There is no long-lived
-``cluster`` concept — every job is a ``FunctionCall``. We model each
-``FunctionCall`` as a single-job cluster: the cluster name is the
-``FunctionCall.object_id`` and ``down()`` cancels the call if still pending.
+``cluster`` concept — every job is a ``modal.Sandbox`` that persists
+beyond the calling Python process. ``ModalClient`` translates a
+``JobConfig`` into a sandbox launch and exposes status/cancel/log
+primitives via the sandbox's opaque ``object_id``.
 
-Image, GPU, and secrets are derived from the ``JobConfig`` at launch time.
-``setup`` is baked into the image (content-addressed cache) and ``run`` is
-executed by a remote subprocess inside the function.
+Image, GPU, secrets, and a workspace-scoped HuggingFace cache volume
+are derived from the ``JobConfig`` at launch time. ``setup`` and
+``run`` are concatenated into a single shell script and executed
+together inside the sandbox so secrets injected via ``modal.Secret``
+are visible (image-build time has no secrets attached). Sandboxes are
+tagged with the caller's logical cluster name so ``ModalCluster.down()``
+can find and terminate them across worker restarts.
 """
 
 from __future__ import annotations
@@ -94,10 +99,13 @@ def _build_image(modal_lib: Any, job: JobConfig) -> Any:
         return modal_lib.Image.from_registry(
             job.resources.image_id.removeprefix("docker:")
         )
+    # ``uv_pip_install`` is Modal's recommended replacement for
+    # ``pip_install`` — uv is faster and Modal handles its bootstrap
+    # internally so we don't need to install uv as a separate step.
     return (
         modal_lib.Image.debian_slim()
         .apt_install("zip", "curl", "git")
-        .pip_install("uv", "awscli")
+        .uv_pip_install("awscli")
     )
 
 
@@ -129,6 +137,16 @@ _LAUNCHER_APP_NAME = "oumi-launcher"
 #: ``ModalCluster.down()`` to find sandboxes across worker restarts via
 #: ``Sandbox.list(tags=...)``, so cleanup doesn't depend on in-process state.
 _CLUSTER_TAG = "oumi_cluster"
+
+#: Name of the Modal Volume mounted at ``/root/.cache/huggingface``. Persists
+#: HuggingFace model/tokenizer downloads across sandboxes so repeated
+#: training of the same model skips the multi-GB ``hf download`` step.
+_HF_CACHE_VOLUME_NAME = "oumi-hf-cache"
+
+#: Container path where the HuggingFace cache volume is mounted. Matches
+#: the default ``HF_HOME``/``HUGGINGFACE_HUB_CACHE`` location for root,
+#: so no setup-script changes are needed to take advantage of the cache.
+_HF_CACHE_MOUNT_PATH = "/root/.cache/huggingface"
 
 
 def _sandbox_state(sandbox: Any) -> JobState:
@@ -194,6 +212,13 @@ class ModalClient:
         # don't require an active ``with app.run()`` context.
         app = modal_lib.App.lookup(_LAUNCHER_APP_NAME, create_if_missing=True)
 
+        # Workspace-scoped HF cache. Mounting at the default cache path
+        # means ``hf download`` populates the volume on first run and
+        # short-circuits on subsequent runs of the same model.
+        hf_cache_volume = modal_lib.Volume.from_name(
+            _HF_CACHE_VOLUME_NAME, create_if_missing=True
+        )
+
         sandbox = modal_lib.Sandbox.create(
             "/bin/bash",
             "-lc",
@@ -203,6 +228,7 @@ class ModalClient:
             gpu=gpu,
             secrets=[secret] if secret else [],
             timeout=timeout,
+            volumes={_HF_CACHE_MOUNT_PATH: hf_cache_volume},
         )
         sandbox_id = sandbox.object_id
         effective_cluster = cluster_name or sandbox_id
