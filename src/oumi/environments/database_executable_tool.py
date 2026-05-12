@@ -13,11 +13,7 @@ from oumi.environments.executable_tool import ExecutableTool
 
 @dataclass
 class DatabaseExecutableTool(ExecutableTool):
-    """`ExecutableTool` for ``DatabaseExecutableEnvironment``.
-
-    Adds an optional per-tool ``statement_timeout_ms`` that may **only** tighten
-    the env-level timeout (validated by the env at construction time).
-    """
+    """`ExecutableTool` for ``DatabaseExecutableEnvironment``."""
 
     statement_timeout_ms: int | None = None
 

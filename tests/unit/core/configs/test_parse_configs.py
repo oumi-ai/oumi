@@ -4,6 +4,7 @@ import os
 import pytest
 
 from oumi.core.configs import (
+    AgentHarnessConfig,
     AnalyzeConfig,
     AsyncEvaluationConfig,
     EvaluationConfig,
@@ -57,6 +58,7 @@ def _get_all_config_paths(exclude_yaml_suffixes: set[str] | None) -> list[str]:
 )
 def test_parse_configs(config_path: str):
     valid_config_classes = [
+        AgentHarnessConfig,
         AnalyzeConfig,
         AsyncEvaluationConfig,
         EvaluationConfig,
@@ -93,6 +95,7 @@ def test_parse_configs(config_path: str):
 )
 def test_parse_configs_from_yaml_and_arg_list(config_path: str):
     valid_config_classes = [
+        AgentHarnessConfig,
         AnalyzeConfig,
         AsyncEvaluationConfig,
         EvaluationConfig,

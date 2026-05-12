@@ -36,14 +36,7 @@ def _install_dialect_guards(
     engine: sqlalchemy.engine.Engine,
     kwargs: DatabaseExecutableEnvironmentKwargs,
 ) -> None:
-    """Install dialect-specific session settings.
-
-    - ``connect`` event: every new pool connection gets read-only + env-level
-      timeout.
-    - ``checkin`` event: when a connection returns to the pool, reset its
-      timeout to env-level (or RESET if env-level is unset) so per-tool
-      overrides don't leak across checkouts.
-    """
+    """Install dialect-specific session settings."""
     dialect = engine.dialect.name
     read_only = kwargs.read_only
     env_timeout_ms = kwargs.statement_timeout_ms
@@ -145,13 +138,7 @@ class DatabaseExecutableEnvironmentKwargs(BaseParams):
 
 @register_environment("database")
 class DatabaseExecutableEnvironment(ExecutableEnvironment):
-    """Environment that runs user-supplied executors against a real SQL database.
-
-    The DB *is* the state. Each ``step`` checks out a connection from the
-    SQLAlchemy pool, runs the executor in autocommit mode, and returns the
-    connection. SQL errors that escape the executor are auto-wrapped as a
-    structured ``ToolResult`` so the agent can self-correct.
-    """
+    """Environment that runs user-supplied executors against a real SQL database."""
 
     tool_params_cls = DatabaseExecutableTool
     _executor_context_kwarg: ClassVar[str] = "db"
@@ -283,7 +270,6 @@ class DatabaseExecutableEnvironment(ExecutableEnvironment):
         executor,
         arguments,
         ctx,
-        tool,
     ):
         """Run the executor; auto-wrap SQL errors as structured ToolResults.
 

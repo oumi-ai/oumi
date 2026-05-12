@@ -52,20 +52,10 @@ def _import_executor(dotted: str, tool_id: str) -> Callable[..., Any]:
 
 
 class ExecutableEnvironment(BaseEnvironment, ABC):
-    """Abstract base for envs that run user-supplied dotted-path executors.
-
-    Subclasses provide the per-call execution context (DB connection, HTTP
-    client, ...) by implementing ``_build_execution_context`` as a context
-    manager. The orchestration (executor resolution, ``ToolResult``
-    validation, schema validation, ``_absorb_result`` post-hook, ``close``
-    lifecycle) lives here.
-    """
+    """Abstract base for envs that run user-supplied dotted-path executors."""
 
     tool_params_cls: type[ToolParams] = ExecutableTool
 
-    #: Keyword name under which subclasses pass the execution context to
-    #: user executors. Defaults to ``"context"``; ``DatabaseExecutableEnvironment``
-    #: overrides to ``"db"``.
     _executor_context_kwarg: ClassVar[str] = "context"
 
     _params: EnvironmentParams
@@ -81,16 +71,11 @@ class ExecutableEnvironment(BaseEnvironment, ABC):
         """Post-hook called after a successful executor call. Default no-op."""
         return None
 
-    def close(self) -> None:
-        """Release any resources owned by this env. Default no-op."""
-        return None
-
     def _invoke_executor(
         self,
         executor: Callable[..., Any],
         arguments: dict[str, Any],
         ctx: Any,
-        tool: ExecutableTool,
     ) -> tuple[ToolResult, bool]:
         """Run the executor; return (result, was_auto_wrapped).
 
@@ -112,6 +97,9 @@ class ExecutableEnvironment(BaseEnvironment, ABC):
             f"Available tools: {[tool.id for tool in self._params.tools]}"
         )
 
+    def close(self) -> None:
+        """Dispose resources held by the environment."""
+
     def step(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:
         """Execute a single tool call and return its result."""
         tool = self._lookup_tool(tool_id)
@@ -119,7 +107,7 @@ class ExecutableEnvironment(BaseEnvironment, ABC):
         executor = self._executors[tool_id]
 
         with self._build_execution_context(tool, arguments) as ctx:
-            result, auto_wrapped = self._invoke_executor(executor, arguments, ctx, tool)
+            result, auto_wrapped = self._invoke_executor(executor, arguments, ctx)
 
         if not isinstance(result, ToolResult):
             raise ToolError(

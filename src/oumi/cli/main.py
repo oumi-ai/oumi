@@ -19,6 +19,7 @@ from typing import Any
 
 import typer
 
+from oumi.cli.agent import agent
 from oumi.cli.alias import AliasType
 from oumi.cli.analyze import analyze
 from oumi.cli.cache import card as cache_card
@@ -305,6 +306,11 @@ def get_app() -> typer.Typer:
     )(status)
 
     # Tools
+    app.command(
+        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
+        help="Run a tool-using agent chat session against configured environments.",
+        rich_help_panel="Model",
+    )(agent)
     app.command(
         help="Show Oumi environment and system information.",
         rich_help_panel="Tools",

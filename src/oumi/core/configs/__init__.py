@@ -76,6 +76,7 @@ Note:
         which provides common functionality such as serialization and validation.
 """
 
+from oumi.core.configs.agent_harness_config import AgentHarnessConfig
 from oumi.core.configs.analyze_config import (
     AnalyzeConfig,
     DatasetSource,
@@ -162,6 +163,7 @@ from oumi.core.configs.tuning_config import TuningConfig
 from oumi.exceptions import OumiConfigError
 
 __all__ = [
+    "AgentHarnessConfig",
     "AsyncEvaluationConfig",
     "AutoWrapPolicy",
     "BackwardPrefetch",

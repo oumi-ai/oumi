@@ -11,11 +11,7 @@ from oumi.core.configs.params.tool_params import ToolParams
 
 @dataclass
 class ExecutableTool(ToolParams):
-    """`ToolParams` variant for envs that take user-supplied dotted-path executors.
-
-    Subclasses (``DatabaseExecutableTool``, future ``HTTPExecutableTool``, etc.)
-    inherit this and may add transport-specific per-tool overrides.
-    """
+    """`ToolParams` variant for envs that take user-supplied dotted-path executors."""
 
     executor: str = ""
 

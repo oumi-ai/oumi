@@ -35,6 +35,9 @@ class BaseEnvironment(ABC):
     def step(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:
         """Execute a tool call within this environment."""
 
+    def close(self) -> None:
+        """Release resources held by this environment. Default: no-op."""
+
     def sample_grounding(
         self,
         n: int,
