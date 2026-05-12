@@ -17,7 +17,7 @@ import os
 import re
 from collections.abc import Iterator
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import JobState, JobStatus
@@ -129,7 +129,7 @@ def _convert_job_to_task(job: JobConfig) -> "sky.Task":
     elif job.resources.image_id_map is not None:
         image_id = job.resources.image_id_map  # type: ignore[assignment]
 
-    resources = sky.Resources(
+    resources_kwargs: dict[str, Any] = dict(
         cloud=sky_cloud,
         instance_type=job.resources.instance_type,
         cpus=job.resources.cpus,
@@ -142,6 +142,10 @@ def _convert_job_to_task(job: JobConfig) -> "sky.Task":
         disk_tier=job.resources.disk_tier,
         image_id=image_id,
     )
+    if job.resources.config_overrides is not None:
+        # Maps to SkyPilot's `experimental.config_overrides` (see sky/task.py).
+        resources_kwargs["_cluster_config_overrides"] = job.resources.config_overrides
+    resources = sky.Resources(**resources_kwargs)
     sky_task = sky.Task(
         name=job.name,
         setup=job.setup,
