@@ -19,7 +19,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Recommended versions: Python 3.12, PyTorch 2.8.0
+        # Tests the base install across (Python, torch) combinations.
+        # The targeted `torch29` / `tf4` / `tf5` extras are exercised by
+        # gpu_install_test.yaml (GPU runner) and by the dedicated
+        # `tf5` row below — kept off the CPU matrix because they pull vLLM,
+        # which is heavy and not installable on every CPU wheel.
         include:
           # Test all Python versions with recommended PyTorch
           - python-version: "3.10"
@@ -78,8 +82,10 @@ jobs:
           uv pip install --system -e .
 
       - name: Override PyTorch ${{ matrix.torch-version }}
+        env:
+          TORCH_VERSION: ${{ matrix.torch-version }}
         run: |
-          uv pip install --system torch==${{ matrix.torch-version }} torchvision torchaudio
+          uv pip install --system "torch==${TORCH_VERSION}" torchvision torchaudio
 
       - name: Verify installation
         run: |
@@ -95,3 +101,28 @@ jobs:
         run: |
           cd ./tests/unit/
           pytest -q -s -m "not e2e and not e2e_eternal and not single_gpu and not multi_gpu" --durations=50 --timeout=300
+
+  # Lightweight resolution check for the targeted stack extras. Doesn't
+  # install or run anything — just verifies the extras are well-formed and
+  # resolvable on the public index.
+  stack-extras-resolve:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v7
+
+      - name: Resolve oumi[torch29,tf4] (GPU stable stack)
+        run: |
+          uv pip compile --python-platform x86_64-unknown-linux-gnu \
+            --extra torch29 --extra tf4 pyproject.toml -o /tmp/r1.txt
+          grep -E '^(torch|vllm|transformers|trl)==' /tmp/r1.txt
+
+      - name: Resolve oumi[tf5] (CPU-only stack)
+        run: |
+          uv pip compile --python-platform x86_64-unknown-linux-gnu \
+            --prerelease=allow \
+            --extra tf5 pyproject.toml -o /tmp/r2.txt
+          grep -E '^(torch|transformers|trl)==' /tmp/r2.txt

@@ -25,19 +25,28 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # Each row installs `oumi[torch29,tf4,<cuda-extra>,dev,synthesis]`.
+        # `cuda-extra` selects the pytorch wheel index via [tool.uv.sources]
+        # in pyproject.toml. pytorch dropped cu124 wheels after torch 2.6,
+        # so CUDA 12.2 / 12.4 drivers forward-route to cuda126 (cu126
+        # wheels are forward-compatible via CUDA enhanced compatibility).
         include:
           - cuda-version: "12.2.2"
             cuda-image: "nvidia/cuda:12.2.2-cudnn8-devel-ubuntu22.04"
             python-version: "3.11"
+            cuda-extra: "cuda126"
           - cuda-version: "12.4.1"
             cuda-image: "nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04"
             python-version: "3.11"
+            cuda-extra: "cuda126"
           - cuda-version: "12.6.3"
             cuda-image: "nvidia/cuda:12.6.3-cudnn-devel-ubuntu22.04"
             python-version: "3.11"
+            cuda-extra: "cuda126"
           - cuda-version: "12.8.1"
             cuda-image: "nvidia/cuda:12.8.1-cudnn-devel-ubuntu22.04"
             python-version: "3.11"
+            cuda-extra: "cuda128"
 
     steps:
       - name: Checkout
@@ -70,9 +79,11 @@ jobs:
           restore-keys: |
             hf-models-${{ runner.os }}-
 
-      - name: Install oumi with GPU dependencies
+      - name: Install oumi (torch29 + tf4 + ${{ matrix.cuda-extra }})
+        env:
+          CUDA_EXTRA: ${{ matrix.cuda-extra }}
         run: |
-          uv pip install --system -e '.[gpu,dev,synthesis]'
+          uv pip install --system -e ".[torch29,tf4,dev,synthesis,${CUDA_EXTRA}]"
 
       - name: Verify GPU installation
         run: |

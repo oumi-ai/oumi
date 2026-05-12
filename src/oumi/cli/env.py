@@ -106,3 +106,35 @@ def env():
             )
             cuda_table.add_row("GPU memory", f"{total_memory_gb:.1f}GB")
         cli_utils.CONSOLE.print(cuda_table)
+
+        if torch.version.cuda is None and _cuda_hardware_detected():
+            cli_utils.CONSOLE.print(
+                "\n[yellow]⚠  PyTorch is CPU-only but CUDA hardware was detected."
+                "[/yellow]\n"
+                "   If you installed via [bold]pip install oumi[cudaNNN][/bold], "
+                "note that pip ignores [tool.uv.sources] in pyproject.toml. Use uv:\n"
+                "       [cyan]uv pip install \"oumi[torch29,tf4,cuda128]\"[/cyan]\n"
+                "   or pip with an explicit index:\n"
+                "       [cyan]pip install \"oumi[torch29,tf4]\" \\\\\n"
+                "           --index-url https://download.pytorch.org/whl/cu128 \\\\\n"
+                "           --extra-index-url https://pypi.org/simple[/cyan]"
+            )
+
+
+def _cuda_hardware_detected() -> bool:
+    """Best-effort check for an attached NVIDIA GPU when torch is CPU-only.
+
+    Tries pynvml (pulled by oumi[gpu] via nvidia-ml-py), falls back to looking
+    for nvidia-smi on PATH. All errors swallowed — this is advisory only.
+    """
+    try:
+        pynvml = importlib.import_module("pynvml")
+        pynvml.nvmlInit()
+        try:
+            return pynvml.nvmlDeviceGetCount() > 0
+        finally:
+            pynvml.nvmlShutdown()
+    except Exception:
+        pass
+    import shutil
+    return shutil.which("nvidia-smi") is not None

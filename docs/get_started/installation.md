@@ -114,11 +114,42 @@ Try Oumi OSS without setting up a Python environment. This installs Oumi OSS in 
 curl -LsSf https://oumi.ai/install.sh | bash
 ```
 
+## Recommended: pick a tested stack
+
+Oumi's base install uses wide version bands so `pip install oumi` works in many environments, but the resolver can pick incompatible combinations from those bands silently. Compose a `cudaNNN` extra (which routes torch to the matching PyTorch wheel index) with `torch29,tf4` for the GPU stack, or use `tf5` alone for CPU/dev:
+
+| Stack | Install command (uv) |
+|-------|----------------------|
+| GPU, CUDA 12.6 | `uv pip install "oumi[torch29,tf4,cuda126]"` |
+| GPU, CUDA 12.8 (Docker default) | `uv pip install "oumi[torch29,tf4,cuda128]"` |
+| GPU, CUDA 12.9 | `uv pip install "oumi[torch29,tf4,cuda129]"` |
+| CPU / dev | `uv pip install "oumi[tf5]"` |
+
+Compose with cloud and dev extras as usual: `uv pip install "oumi[torch29,tf4,cuda128,dev,gcp]"`.
+
+```{warning}
+**uv only.** The `cudaNNN` extras are no-ops under plain `pip` because pip ignores `[tool.uv.sources]` in `pyproject.toml`. A pip install of `oumi[cuda128]` will silently pull the CPU torch wheel. For pip, pass an explicit index:
+
+​```bash
+pip install "oumi[torch29,tf4]" \
+    --index-url https://download.pytorch.org/whl/cu128 \
+    --extra-index-url https://pypi.org/simple
+​```
+
+If you suspect this happened, `oumi env` will warn you when CUDA hardware is detected but the installed torch is CPU-only.
+```
+
+**CUDA 12.2 / 12.3 / 12.4 / 12.5 drivers**: use the `cuda126` extra. PyTorch dropped cu124 wheels after torch 2.6, so cu126 is the lowest available index for the `torch29` stack; cu126 wheels are forward-compatible via CUDA enhanced compatibility.
+
+These extras cover the two regimes the codebase actively supports (see `src/oumi/utils/packaging.py` for the runtime version branches). When vLLM ships a release that supports transformers v5, a combined `torch2X + tf5` stack will be added.
+
 ## Optional Dependencies
 
 Oumi OSS has several optional features that require additional dependencies:
 
-- For GPU support:
+- For GPU support without pinning a specific torch minor (resolver picks the
+  newest compatible versions in the wide base bands — convenient for one-off
+  installs, but use a `torch{NN}` extra above if you want reproducibility):
 
   ```bash
   uv pip install "oumi[gpu]"  # Only if you have an Nvidia or AMD GPU

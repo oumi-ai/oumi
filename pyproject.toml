@@ -18,7 +18,48 @@ oumi = ["LICENSE", "README.md", "*.jinja"]
 # ships beta versions on PyPI).
 [tool.uv]
 prerelease = "if-necessary-or-explicit"
-override-dependencies = ["transformers>=5.5,<5.8"]
+# The previous override `transformers>=5.5,<5.8` lived here as a workaround.
+# Users now opt into a transformers regime via the tf4 / tf5 extras
+# (see [project.optional-dependencies]); a global override would conflict with
+# the tf4 path. Re-add a narrow override here only if a specific dependency
+# starts pulling an incompatible range during dev installs.
+
+# CUDA wheel index routing for the `cudaNNN` extras in
+# [project.optional-dependencies]. Each index is `explicit = true` so uv only
+# consults it when an extra activates the corresponding source rule below.
+# uv-only: plain `pip` ignores [tool.uv.sources]. See installation.md.
+# Note: cu124 is intentionally omitted — pytorch stopped publishing cu124
+# wheels after torch 2.6, so a `cuda124` extra would not resolve with the
+# `torch29` stack. CUDA 12.2/12.4 drivers should use the `cuda126` extra
+# (cu126 wheels are forward-compatible).
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu129"
+url = "https://download.pytorch.org/whl/cu129"
+explicit = true
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cu126", extra = "cuda126" },
+    { index = "pytorch-cu128", extra = "cuda128" },
+    { index = "pytorch-cu129", extra = "cuda129" },
+]
+torchvision = [
+    { index = "pytorch-cu126", extra = "cuda126" },
+    { index = "pytorch-cu128", extra = "cuda128" },
+    { index = "pytorch-cu129", extra = "cuda129" },
+]
+# torchao is NOT routed — its abi3 wheels live on PyPI, and the cu12X
+# indexes don't host torchao for every minor.
 
 [project]
 name = "oumi"
@@ -139,6 +180,69 @@ deepspeed = [
     "deepspeed>=0.17.0,<0.20.0",
 ]
 
+# --- Targeted "stack" extras ---
+# The base dependency bands are intentionally wide for compatibility, but
+# `uv pip compile` shows only a narrow corner of those bands resolves today:
+#   - vllm 0.14-0.19 requires transformers <5 AND torchvision 0.24-0.25
+#     (so torch 2.9 or 2.10 only).
+#   - vllm 0.20 requires torchvision 0.26 (torch 2.11+, outside the base
+#     band).
+#   - No vllm version currently in band pairs with transformers v5.
+# These extras pin to one of the *actually-resolving* corners so users get a
+# reproducible install instead of a silent narrow corner. Re-evaluate when
+# the upstream wheel matrix changes.
+
+# torchao pairing convention. torchao publishes abi3 wheels and has no hard
+# torch dependency in its PyPI metadata, so this is a recommended pairing
+# rather than an enforced one. Each torchNN extra below pins torchao to the
+# minor that ships alongside that torch release:
+#   torch 2.8  -> torchao 0.15
+#   torch 2.9  -> torchao 0.16  (current stack)
+#   torch 2.10 -> torchao 0.17
+# Update when a new torchao minor lands and a new torchNN extra is added.
+
+# Stable GPU stack: transformers v4 + TRL <0.27 + vLLM 0.14 + torch 2.9.
+# Pulls the full GPU extra (vllm, liger-kernel, bitsandbytes, kernels, verl).
+# Combine with a `cudaNNN` extra (uv only) to route torch to the matching
+# CUDA wheel index, plus `dev`/`docs`/cloud extras as needed.
+# Example: `uv pip install "oumi[torch29,tf4,cuda128]"`
+torch29 = [
+    "oumi[gpu]",
+    "torch>=2.9,<2.10",
+    "torchvision>=0.24,<0.25",
+    "torchao>=0.16,<0.17",
+]
+tf4 = [
+    "transformers>=4.57,<5.0",
+    "trl>=0.24,<0.27",
+    "peft>=0.17,<0.19",
+]
+
+# CPU-only transformers v5 stack: for development, evaluation, or non-vLLM
+# inference on transformers v5 (which no current vLLM release supports).
+# Does NOT pull `gpu` — use `oumi[gpu]` separately only when an in-band vLLM
+# release adds transformers v5 support.
+# Example: `pip install "oumi[tf5]"`
+tf5 = [
+    "transformers>=5.5,<5.9",
+    "trl>=0.27,<1.5",
+    "peft>=0.17,<0.20",
+]
+
+# CUDA-anchored extras (uv only). Compose with `torch29,tf4`:
+#   uv pip install "oumi[torch29,tf4,cuda128]"
+# uv requires the routed packages (`torch`, `torchvision`) to appear in the
+# extra; the version intersection with `torch29`'s pins is what the resolver
+# uses, and [tool.uv.sources] above routes them to the matching pytorch
+# wheel index. Plain `pip` ignores [tool.uv.sources], so pip users must pass
+# `--index-url` manually; see docs/get_started/installation.md.
+# CUDA 12.2 / 12.3 / 12.4 / 12.5 drivers: use `cuda126` (forward-compatible
+# via CUDA enhanced compatibility; pytorch dropped cu124 wheels after torch
+# 2.6).
+cuda126 = ["torch", "torchvision"]
+cuda128 = ["torch", "torchvision"]
+cuda129 = ["torch", "torchvision"]
+
 # Targets for supported cloud providers
 aws = ["skypilot[aws]"]
 azure = ["skypilot[azure]"]
@@ -199,10 +303,12 @@ llama_cpp = ["llama-cpp-python>=0.3.5,<0.4"]
 # if python >= 3.13, install from source for now.
 torchdata = ["torchdata>=0.9,<0.10.0"]
 
-# CI targets
+# CI targets — exercise the recommended user stacks.
+# CPU CI uses tf4 (the only transformers regime that pairs with current vLLM);
+# GPU CI uses the full torch29+tf4 stack so it matches what users install.
 ci_cpu = [
-    "oumi[dev,docs,gcp,mcp,synthesis,tune,torchdata,file_formats]",
-    "vllm>=0.14,<0.21",                            # For VLLMInferenceEngine
+    "oumi[dev,docs,gcp,mcp,synthesis,tune,torchdata,file_formats,tf4]",
+    "vllm>=0.14,<0.17",                            # For VLLMInferenceEngine (tf4 regime)
     "boto3",  # For bedrock inference engine tests
     # This may fail to install. As a temporary workaround, run:
     # CMAKE_ARGS="-DLLAVA_BUILD=OFF" pip install -U llama-cpp-python
@@ -211,7 +317,7 @@ ci_cpu = [
 # llama-cpp-python is not compatible with the github
 # gpu actions runner, so we skip it for now
 ci_gpu = [
-    "oumi[dev,docs,gcp,gpu,deepspeed,synthesis,tune,torchdata,file_formats]",
+    "oumi[torch29,tf4,dev,docs,gcp,deepspeed,synthesis,tune,torchdata,file_formats]",
     "boto3",  # For bedrock inference engine tests
 ]
 

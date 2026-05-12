@@ -1,4 +1,4 @@
-ARG PYTORCH_VERSION=2.8.0
+ARG PYTORCH_VERSION=2.9.1
 ARG CUDA_VERSION=12.8
 ARG PYTHON_VERSION=3.11
 
@@ -51,22 +51,22 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 
-# Install Oumi dependencies
-# AMD64: Install with GPU support + CUDA-matched PyTorch wheels
-# ARM64: Install CPU-only version
+# Install Oumi dependencies.
+# AMD64: install with the recommended GPU stack and CUDA-matched PyTorch
+# wheels via the `cudaNNN` extra (one resolver pass, no separate torch
+# pre-install). See docs/get_started/installation.md.
+# ARM64: install CPU-only.
 RUN pip install --no-cache-dir uv && \
     if [ "$TARGETARCH" = "arm64" ]; then \
         OUMI_EXTRAS=""; \
     else \
-        OUMI_EXTRAS="[gpu]"; \
-        # Extract CUDA version (e.g., 12.4 -> 124 for PyTorch index)
         CUDA_VERSION_SHORT=$(echo ${CUDA_VERSION} | cut -d. -f1,2 | tr -d .); \
-        # Install torch and torchvision from PyTorch index first
-        uv pip install --system --no-cache-dir \
-            --index-url https://download.pytorch.org/whl/cu${CUDA_VERSION_SHORT} \
-            torch torchvision; \
+        case "$CUDA_VERSION_SHORT" in \
+            126|128|129) ;; \
+            *) echo "ERROR: CUDA_VERSION=${CUDA_VERSION} not supported. Use 12.6, 12.8, or 12.9." >&2; exit 1 ;; \
+        esac; \
+        OUMI_EXTRAS="[torch29,tf4,cuda${CUDA_VERSION_SHORT}]"; \
     fi && \
-    # Install oumi using regular pip (without PyTorch index)
     if [ -z "$OUMI_VERSION" ]; then \
         uv pip install --system --no-cache-dir --prerelease=allow "oumi${OUMI_EXTRAS}"; \
     else \
