@@ -21,11 +21,15 @@
 #   - Set OPENAI_API_KEY in the environment.
 #
 # Usage:
-#   oumi synth -c configs/examples/synthesis/mcp_docs_lookup_synth.yaml
+#   oumi synth -c oumi://configs/examples/synthesis/mcp_docs_lookup_synth.yaml
 #
 # See Also:
-#   - oumi.environments.synthetic_environment.SyntheticEnvironment
-#   - oumi.core.configs.EnvironmentConfig
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/synth.html
+#   - Config class: oumi.core.configs.SynthesisConfig
+#   - Params class: oumi.core.configs.params.synthesis_params.GeneralSynthesisParams
+#   - Env config class: oumi.core.configs.environment_config.EnvironmentConfig
+#   - SyntheticEnvironment: oumi.environments.synthetic_environment.SyntheticEnvironment
+#   - Other synthesis configs: configs/**/*synth.yaml
 
 strategy: GENERAL
 num_samples: 150
