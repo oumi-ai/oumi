@@ -1,24 +1,25 @@
 [build-system]
-requires = ["setuptools>=64", "setuptools_scm>=8"]
+requires = ["setuptools>=77", "setuptools_scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.package-data]
-oumi = ["LICENSE", "README.md", "*.jinja"]
+oumi = ["*.jinja"]
 
 [tool.setuptools_scm]
 # default scm config.
-
-[tool.setuptools]
-# default setuptools config.
 
 # We currently use the Omegaconf dev version, and uv doesn't allow pre-release versions
 # by default. "if-necessary-or-explicit" permits pre-releases when a package is
 # explicitly pinned to one (e.g. omegaconf==2.4.0.dev4) or when no stable release
 # satisfies the requirement (e.g. opentelemetry-semantic-conventions, which only
 # ships beta versions on PyPI).
+#
+# override-dependencies forces transformers into the range we test against,
+# bypassing constraints from transitive deps (e.g. trl, vllm) that may pin to
+# an older major. Keep aligned with the `transformers` entry in [project].dependencies.
 [tool.uv]
 prerelease = "if-necessary-or-explicit"
-override-dependencies = ["transformers>=5.5,<5.8"]
+override-dependencies = ["transformers>=4.57,<5.9"]
 
 [project]
 name = "oumi"
@@ -27,7 +28,20 @@ readme = "README.md"
 requires-python = ">=3.10,<3.15"
 description = "Oumi - Modeling Platform"
 authors = [{ name = "Oumi Team", email = "contact@oumi.ai" }]
-license = { file = "LICENSE" }
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+keywords = [
+    "ai",
+    "deep-learning",
+    "fine-tuning",
+    "inference",
+    "llm",
+    "machine-learning",
+    "nlp",
+    "pytorch",
+    "training",
+    "transformers",
+]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
@@ -43,50 +57,48 @@ classifiers = [
 
 dependencies = [
     "accelerate>=1.10.0,<2.0",
-    "aiohttp>=3.12,<3.16",        # Used by inference engine
-    "aiofiles>=24.1.0,<26",       # Allows to use async file operations
-    "aioresponses>=0.7,<0.8",     # User by inference engine tests
+    "aiohttp>=3.12,<3.16",       # Used by inference engine
+    "aiofiles>=24.1.0,<26",      # Async file operations
     "backoff>=2.2.1,<2.3",
-    "click<8.4.0",                # Used by CLI. 8.2.0 is currently unsupported by Typer.
+    "click>=8.1,<8.4.0",         # Used by CLI. 8.2.0 is currently unsupported by Typer.
     "datasets>=3.2,<4.8.6",
-    "greenlet",                   # Required by skypilot 0.11+ (sqlalchemy asyncio)
+    "greenlet>=3.0",             # Required by skypilot 0.11+ (sqlalchemy asyncio)
     "hdrhistogram>=0.10,<0.11",
-    "httpx>=0.27,<1.0",           # Used by deploy module (async HTTP client)
-    "jsonlines",
-    "jsonschema>=4.0,<5.0",       # Used for tool argument validation
+    "httpx>=0.28.1,<1.0",        # Used by deploy module (async HTTP client)
+    "jsonlines>=3.0",
+    "jsonschema>=4.0,<5.0",      # Used for tool argument validation
     "lm_eval[wandb]>=0.4,<0.5.0",
-    "mlflow>=3.1",                # >=3.1.4 requires Python3.10>=
-    "numpy>=1.26,<2.4",           # verl==0.5.0 depends on numpy<2.0.0
+    "mlflow>=3.1",
+    "numpy>=1.26,<2.4",          # verl==0.5.0 depends on numpy<2.0.0
     # The latest stable version, 2.3.0, is two years old and is causing dependency
     # conflicts. We'll use the dev version until a new stable version is released.
     # See https://github.com/oumi-ai/oumi/issues/1377
     # We pin the exact dev version so that the --pre flag isn't needed for uv pip install.
     "omegaconf==2.4.0.dev4",
-    "packaging",
+    "packaging>=23.0",
     "pandas>=2.3,<3",
     "peft>=0.17,<0.20",
-    "pexpect>=4.9,<4.10",      # Used by Polaris client
+    "pexpect>=4.9,<4.10",        # Used by Polaris client
     "posthog>=7.0,<8.0",
-    "pillow>=11.3,<12.3",      # Used by image datasets
+    "pillow>=11.3,<12.3",        # Used by image datasets
     "protobuf>=6.32",
-    "pycares<6.0.0",
+    "pycares>=4.0,<6.0.0",
     "pydantic>=2.11,<2.14",
-    "requests>=2.31,<3.0",        # Used by deploy module (GCS upload)
-    "responses>=0.25,<0.27",
+    "requests>=2.31,<3.0",       # Used by deploy module (GCS upload)
     "safetensors>=0.6,<0.8",
-    "skypilot>=0.11.1,<0.13", # 0.11.1 includes db locking fix
-    "tensorboard>=2.20,<2.21", # Optional, for monitoring training
+    "skypilot>=0.11.1,<0.13",    # 0.11.1 includes db locking fix
+    "tensorboard>=2.20,<2.21",   # Used by training (oumi_trainer)
     "tiktoken>=0.7,<1.0",
-    "torch>=2.6,<2.11.0",      # vllm only supports up to torch==2.7
-    "torchao>=0.16,<0.17",     # Used by transformers; >=0.16 required by peft>=0.19
-    "torchvision>=0.21,<0.26", # Used by some VLM-s (multimodal)
-    "tqdm",
+    "torch>=2.6,<2.11.0",        # vllm only supports up to torch==2.7
+    "torchao>=0.16,<0.17",       # Used by transformers; >=0.16 required by peft>=0.19
+    "torchvision>=0.21,<0.26",   # Used by some VLM-s (multimodal)
+    "tqdm>=4.65",
     "transformers>=4.57,<5.9",
     "trl>=0.24,<1.5",
-    "typer<0.25.2",             # Used by CLI. Pinned due to sphinxcontrib-typer compatibility. OPE-1806
-    "typing_extensions",        # Backports of typing updates
-    "uvicorn<0.47.0",           # TODO: Remove on resolution of https://github.com/skypilot-org/skypilot/issues/7303
-    "wandb>=0.21,<0.26",        # Logging to Weights and Biases.
+    "typer>=0.12,<0.25.2",       # Used by CLI. Pinned due to sphinxcontrib-typer compatibility. OPE-1806
+    "typing_extensions>=4.5",    # Backports of typing updates
+    "uvicorn>=0.30,<0.47.0",     # TODO: Remove upper bound on resolution of https://github.com/skypilot-org/skypilot/issues/7303
+    "wandb>=0.21,<0.26",         # Logging to Weights and Biases.
 ]
 
 [project.urls]
@@ -95,20 +107,21 @@ Issues = "https://github.com/oumi-ai/oumi/issues"
 
 [project.optional-dependencies]
 dev = [
+    "aioresponses>=0.7,<0.8", # HTTP mocking for inference engine tests
     "ipykernel",
-    "ipywidgets",     # Interactive widgets for Jupyter notebooks
+    "ipywidgets",             # Interactive widgets for Jupyter notebooks
     "jupyterlab",
-    "nbconvert",      # For notebook execution in tests
-    "nbformat",       # For notebook execution in tests
+    "nbconvert",              # For notebook execution in tests
+    "nbformat",               # For notebook execution in tests
     "pre-commit",
     "pyright",
-    "pytest-asyncio", # Asyncio plugin for pytest
-    "pytest-cov",     # Test coverage plugin for pytest
-    "pytest-timeout", # Timeout plugin for pytest
+    "pytest-asyncio",         # Asyncio plugin for pytest
+    "pytest-cov",             # Test coverage plugin for pytest
+    "pytest-timeout",         # Timeout plugin for pytest
     "pytest",
-    "responses",
+    "responses>=0.25,<0.27",  # HTTP mocking for unit tests
     "ruff",
-    "torchfix",       # Tool for automatically fixing common PyTorch issues
+    "torchfix",               # Tool for automatically fixing common PyTorch issues
 ]
 docs = [
     "myst_parser",           # Allows us to write docs in markdown
@@ -129,7 +142,7 @@ gpu = [
     "bitsandbytes>=0.47,<0.50",     # Used for QLora, and PagedAdam implementation
     # When updating verl version, make sure to also update the default config:
     # src/oumi/core/trainers/verl_trainer_config.yaml.
-    "verl>=0.5,<0.8; python_version >= '3.10'", # Used for the VERL_GRPO trainer
+    "verl>=0.5,<0.8",                           # Used for the VERL_GRPO trainer
     "vllm>=0.14,<0.21",                         # For VLLMInferenceEngine, and vLLM-powered GRPO training.
     "kernels>=0.11,<0.15",                      # For compute kernel implementations (e.g., attn_implementation in gold trainer)
 ]
@@ -156,9 +169,9 @@ runpod = ["skypilot[runpod]"]
 nebius = ["skypilot[nebius]"]
 
 synthesis = [
-    "pdftext>=0.6.3; python_version >= '3.10'", # Document ingestion for synthesis
-    "python-docx>=1.1.0",  # DOCX document ingestion for synthesis
-    "openpyxl>=3.1.0",  # Excel engine for pandas
+    "pdftext>=0.6.3",     # Document ingestion for synthesis
+    "python-docx>=1.1.0", # DOCX document ingestion for synthesis
+    "openpyxl>=3.1.0",    # Excel engine for pandas
 ]
 
 # Flash Attention - separate group due to special installation requirements
