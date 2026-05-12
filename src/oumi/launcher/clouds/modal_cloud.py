@@ -14,11 +14,12 @@
 
 """Modal-backed :class:`BaseCloud`.
 
-Each :class:`ModalCluster` instance corresponds to a single Modal
-``FunctionCall``. The cloud keeps an in-process registry of clusters it has
-launched so that ``get_cluster``/``list_clusters`` can return them without
-round-tripping to Modal's control plane (which has no native "list my
-in-flight FunctionCalls for app X" endpoint that maps cleanly).
+Each :class:`ModalCluster` instance maps to one or more Modal sandboxes
+sharing a logical cluster name (the cluster name is a caller-provided
+label; the sandboxes are addressed by ``Sandbox.object_id``). The cloud
+keeps an in-process registry of clusters it has launched so that
+``get_cluster`` / ``list_clusters`` can return them without
+round-tripping to Modal's control plane.
 """
 
 from __future__ import annotations
@@ -50,7 +51,7 @@ class ModalCloud(BaseCloud):
         return self._modal_client
 
     def up_cluster(self, job: JobConfig, name: str | None, **kwargs) -> JobStatus:
-        """Spawns a Modal FunctionCall and registers a cluster wrapping it."""
+        """Spawns a Modal Sandbox and registers a cluster wrapping it."""
         status = self._client.launch(job, cluster_name=name, **kwargs)
         cluster = ModalCluster(status.cluster, self._client)
         self._clusters[status.cluster] = cluster
@@ -60,8 +61,10 @@ class ModalCloud(BaseCloud):
         """Gets the cluster with the specified name, or None if not found.
 
         Falls back to constructing a :class:`ModalCluster` for any cluster
-        name we have not seen in this process — Modal FunctionCall IDs are
-        opaque and stable, so this is safe.
+        name we have not seen in this process. The cluster's sandbox
+        lookups happen lazily via ``ModalClient.find_sandboxes_for_cluster``
+        (Modal tag-based query) so a freshly-constructed instance still
+        sees prior sandboxes across worker restarts.
         """
         if name in self._clusters:
             return self._clusters[name]

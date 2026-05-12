@@ -256,7 +256,11 @@ class ModalClient:
             metadata=shlex.quote(_LAUNCHER_APP_NAME),
             done=False,
             state=JobState.PENDING,
-            cost_per_hour=self.estimate_cost_per_hour(gpu),
+            # ``cost_per_hour`` is intentionally left unset (None). Modal
+            # doesn't expose pricing via its Python SDK, so any $/hr
+            # number would have to come from a hand-maintained table.
+            # That table belongs in the caller (e.g. an enterprise
+            # billing layer) rather than in the OSS launcher.
         )
 
     def sandboxes_for_cluster(self, cluster_name: str) -> list[str]:
@@ -332,36 +336,3 @@ class ModalClient:
                 logger.warning(f"Modal {stream_attr} read failed: {e!r}")
         return ModalLogStream(cast("Iterator[str]", iter(chunks)))
 
-    # ----- pricing -----
-
-    # GPU $/hr list pricing as of 2026-05. Used for billing parity with
-    # SkyPilot's ``handle.get_hourly_price()``. Kept conservative and easy to
-    # bump; not authoritative.
-    _GPU_HOURLY_USD: dict[str, float] = {
-        "T4": 0.59,
-        "L4": 0.80,
-        "A10G": 1.10,
-        "A100": 2.10,
-        "A100-40GB": 2.10,
-        "A100-80GB": 2.50,
-        "L40S": 1.95,
-        "H100": 3.95,
-        "H200": 4.55,
-        "B200": 6.25,
-    }
-
-    @classmethod
-    def estimate_cost_per_hour(cls, gpu: str | None) -> float | None:
-        """Estimates total $/hr for a Modal GPU spec like ``H100:8``.
-
-        Returns ``None`` if the GPU type is unknown.
-        """
-        if not gpu:
-            return None
-        spec = str(gpu).split(":")
-        gpu_type = spec[0].strip()
-        count = int(spec[1]) if len(spec) > 1 else 1
-        unit = cls._GPU_HOURLY_USD.get(gpu_type)
-        if unit is None:
-            return None
-        return round(unit * count, 4)

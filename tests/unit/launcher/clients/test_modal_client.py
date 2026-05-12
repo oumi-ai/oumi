@@ -85,8 +85,10 @@ def test_launch_returns_pending_status_with_sandbox_id(fake_modal):
     assert client.sandboxes_for_cluster("my-cluster") == ["sb-deadbeef"]
     assert status.state == JobState.PENDING
     assert not status.done
-    # H100 list price * 8 ≈ 31.6.
-    assert status.cost_per_hour == pytest.approx(31.6)
+    # Modal pricing isn't exposed via SDK; the OSS launcher leaves
+    # ``cost_per_hour`` unset and lets callers fill it from their own
+    # pricing source.
+    assert status.cost_per_hour is None
     fake_modal.Sandbox.create.assert_called_once()
     fake_modal.App.lookup.assert_called_once()
 
@@ -264,13 +266,6 @@ def test_get_status_failed_when_sandbox_exits_nonzero(fake_modal):
         status = ModalClient().get_status("sb-id")
     assert status.state == JobState.FAILED
     assert status.done is True
-
-
-def test_estimate_cost_per_hour_known_and_unknown():
-    assert ModalClient.estimate_cost_per_hour(None) is None
-    assert ModalClient.estimate_cost_per_hour("XYZ:4") is None
-    assert ModalClient.estimate_cost_per_hour("A100-80GB") == pytest.approx(2.5)
-    assert ModalClient.estimate_cost_per_hour("H100:8") == pytest.approx(31.6)
 
 
 def test_get_logs_stream_returns_concatenated_stdout_and_stderr(fake_modal):
