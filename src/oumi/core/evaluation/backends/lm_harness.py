@@ -18,7 +18,7 @@ import os
 import random
 from collections.abc import Callable
 from pprint import pformat
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 import torch
@@ -192,7 +192,7 @@ def _get_task_dict(
         assert len(task_dict) == 1
         task_name = next(iter(task_dict))
         if isinstance(task_name, ConfigurableGroup):
-            task_name: str = task_name.group_name
+            task_name = task_name.group_name
         if task_name != task_params.task_name:
             raise ValueError(
                 f"Inconsistent task naming. Task `{task_params.task_name}` was "
@@ -334,8 +334,11 @@ def evaluate(
         return EvaluationResult()
 
     assert lm_eval_output is not None
+    # `evaluate()` returns a tight TypedDict; downstream code treats it as an
+    # open config dict (adds `config`, `git_hash`, env+tokenizer info, etc.).
+    lm_eval_output = cast(dict[str, Any], lm_eval_output)
     task_name = task_params.task_name
-    metric_dict = lm_eval_output["results"][task_name]  # type: ignore
+    metric_dict = lm_eval_output["results"][task_name]
     logger.info(f"{task_name}'s metric dict is {pformat(metric_dict)}")
 
     if config.enable_wandb:
