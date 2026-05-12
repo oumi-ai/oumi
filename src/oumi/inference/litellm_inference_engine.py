@@ -20,19 +20,31 @@ The provider is specified via the model string in ``ModelParams.model_name``
 (e.g. ``anthropic/claude-sonnet-4-5``, ``bedrock/anthropic.claude-v2``).
 """
 
-import aiohttp
+from typing import Any
+
 from typing_extensions import override
 
-from oumi.core.configs import InferenceConfig, RemoteParams
-from oumi.core.types.conversation import Conversation
-from oumi.inference.adaptive_semaphore import PoliteAdaptiveSemaphore
-from oumi.inference.remote_inference_engine import RemoteInferenceEngine
+from oumi.core.async_utils import safe_asyncio_run
+from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
+from oumi.core.inference import BaseInferenceEngine
+from oumi.core.types.conversation import (
+    Conversation,
+    FinishReason,
+    Message,
+    Role,
+)
+from oumi.utils.conversation_utils import create_list_of_message_json_dicts
 from oumi.utils.logging import logger
 
-_LITELLM_PLACEHOLDER_URL = "https://litellm.sdk.local/v1/chat/completions"
+_FINISH_REASON_MAP = {
+    'stop': FinishReason.STOP,
+    'length': FinishReason.LENGTH,
+    'tool_calls': FinishReason.TOOL_CALLS,
+    'content_filter': FinishReason.CONTENT_FILTER,
+}
 
 
-class LiteLLMInferenceEngine(RemoteInferenceEngine):
+class LiteLLMInferenceEngine(BaseInferenceEngine):
     """Engine for running inference via the LiteLLM SDK.
 
     LiteLLM routes requests to the correct provider based on the model string.
@@ -55,93 +67,130 @@ class LiteLLMInferenceEngine(RemoteInferenceEngine):
         ... )
     """
 
-    @property
     @override
-    def base_url(self) -> str | None:
-        """Placeholder URL to satisfy parent validation.
+    def get_supported_params(self) -> set[str]:
+        """Returns supported generation parameters."""
+        return {
+            'frequency_penalty',
+            'max_new_tokens',
+            'presence_penalty',
+            'seed',
+            'stop_strings',
+            'temperature',
+            'top_p',
+        }
 
-        The actual routing is handled by the LiteLLM SDK, not via HTTP.
-        """
-        return _LITELLM_PLACEHOLDER_URL
-
-    @property
-    @override
-    def api_key_env_varname(self) -> str | None:
-        """LiteLLM reads provider-specific env vars automatically."""
-        return None
-
-    @override
-    def _default_remote_params(self) -> RemoteParams:
-        """Returns the default remote parameters for LiteLLM."""
-        return RemoteParams(num_workers=50, politeness_policy=60.0)
-
-    @override
-    def _set_required_fields_for_inference(self, remote_params: RemoteParams):
-        """Override to skip the api_key requirement.
-
-        LiteLLM manages authentication internally via provider-specific
-        environment variables, so no single api_key is needed.
-        """
-        if not remote_params.api_url:
-            remote_params.api_url = _LITELLM_PLACEHOLDER_URL
-
-    @override
-    async def _query_api(
+    def _build_api_input(
         self,
         conversation: Conversation,
-        semaphore: PoliteAdaptiveSemaphore,
-        session: aiohttp.ClientSession,
-        inference_config: InferenceConfig | None = None,
+        generation_params: GenerationParams,
+        model_params: ModelParams,
+    ) -> dict[str, Any]:
+        """Converts a conversation to a litellm.completion() kwargs dict."""
+        messages = create_list_of_message_json_dicts(
+            conversation.messages,
+            group_adjacent_same_role_turns=False,
+        )
+
+        api_input: dict[str, Any] = {
+            'model': model_params.model_name,
+            'messages': messages,
+            'temperature': generation_params.temperature,
+            'max_completion_tokens': generation_params.max_new_tokens,
+            'drop_params': True,
+        }
+
+        if generation_params.seed is not None:
+            api_input['seed'] = generation_params.seed
+        if generation_params.top_p is not None:
+            api_input['top_p'] = generation_params.top_p
+        if generation_params.frequency_penalty is not None:
+            api_input['frequency_penalty'] = generation_params.frequency_penalty
+        if generation_params.presence_penalty is not None:
+            api_input['presence_penalty'] = generation_params.presence_penalty
+        if generation_params.stop_strings:
+            api_input['stop'] = generation_params.stop_strings
+
+        return api_input
+
+    def _parse_response(
+        self, response_json: dict[str, Any], original: Conversation
     ) -> Conversation:
-        """Queries a provider via the LiteLLM SDK instead of raw HTTP.
+        """Converts a litellm response dict back into a Conversation."""
+        if 'error' in response_json:
+            raise RuntimeError(
+                f"API error: {response_json['error'].get('message', response_json['error'])}"
+            )
+        choices = response_json.get('choices')
+        if not choices:
+            raise RuntimeError(f'No choices in response: {response_json}')
+
+        message = choices[0].get('message', {})
+        content = message.get('content')
+        tool_calls = message.get('tool_calls')
+        if content is None and not tool_calls:
+            content = ''
+
+        metadata = dict(original.metadata)
+        usage = response_json.get('usage')
+        if usage:
+            metadata['usage'] = {
+                'prompt_tokens': usage.get('prompt_tokens', 0),
+                'completion_tokens': usage.get('completion_tokens', 0),
+                'total_tokens': usage.get('total_tokens', 0),
+            }
+        raw_reason = choices[0].get('finish_reason')
+        if raw_reason:
+            finish = _FINISH_REASON_MAP.get(raw_reason.lower(), FinishReason.UNKNOWN)
+            metadata['finish_reason'] = finish.value
+
+        return Conversation(
+            messages=[
+                *original.messages,
+                Message(content=content, role=Role(message.get('role', 'assistant'))),
+            ],
+            metadata=metadata,
+            conversation_id=original.conversation_id,
+            tools=original.tools,
+        )
+
+    @override
+    def _infer_online(
+        self,
+        input: list[Conversation],
+        inference_config: InferenceConfig | None = None,
+    ) -> list[Conversation]:
+        """Runs inference via litellm.acompletion().
 
         Args:
-            conversation: The conversation to run inference on.
-            semaphore: Semaphore to limit concurrent requests.
-            session: The aiohttp session (unused; kept for interface compat).
+            input: A list of conversations to run inference on.
             inference_config: Parameters for inference.
 
         Returns:
-            Conversation: Inference output with the model's response appended.
+            List[Conversation]: Inference output.
         """
         import litellm
 
-        if inference_config is None:
-            generation_params = self._generation_params
-            model_params = self._model_params
-        else:
+        if inference_config is not None:
             generation_params = inference_config.generation or self._generation_params
             model_params = inference_config.model or self._model_params
+        else:
+            generation_params = self._generation_params
+            model_params = self._model_params
 
-        api_input = self._convert_conversation_to_api_input(
-            conversation, generation_params, model_params
-        )
-
-        model = api_input.pop('model', model_params.model_name)
-        messages = api_input.pop('messages', [])
-
-        semaphore_or_controller = (
-            self._adaptive_concurrency_controller
-            if self._remote_params.use_adaptive_concurrency
-            else semaphore
-        )
-
-        async with semaphore_or_controller:
-            try:
-                response = await litellm.acompletion(
-                    model=model,
-                    messages=messages,
-                    drop_params=True,
-                    **api_input,
+        async def _run_all() -> list[Conversation]:
+            results: list[Conversation] = []
+            for conversation in input:
+                api_input = self._build_api_input(
+                    conversation, generation_params, model_params
                 )
-                response_json = response.model_dump(mode='json')
+                try:
+                    response = await litellm.acompletion(**api_input)
+                    response_json = response.model_dump(mode='json')
+                    results.append(self._parse_response(response_json, conversation))
+                except Exception as e:
+                    logger.error(f'LiteLLMInferenceEngine - inference error: {e}')
+                    raise
+            return results
 
-                result = self._convert_api_output_to_conversation(
-                    response_json, conversation
-                )
-                await self._try_record_success()
-                return result
-            except Exception as e:
-                await self._try_record_error()
-                logger.error(f'LiteLLMInferenceEngine - inference error: {e}')
-                raise
+        return safe_asyncio_run(_run_all())
