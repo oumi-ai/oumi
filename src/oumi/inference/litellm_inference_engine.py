@@ -20,6 +20,11 @@ The provider is specified via the model string in ``ModelParams.model_name``
 (e.g. ``anthropic/claude-sonnet-4-5``, ``bedrock/anthropic.claude-v2``).
 """
 
+try:
+    import litellm  # pyright: ignore[reportMissingImports]
+except ModuleNotFoundError:
+    litellm = None  # type: ignore[assignment]
+
 from typing import Any
 
 from typing_extensions import override
@@ -37,10 +42,10 @@ from oumi.utils.conversation_utils import create_list_of_message_json_dicts
 from oumi.utils.logging import logger
 
 _FINISH_REASON_MAP = {
-    'stop': FinishReason.STOP,
-    'length': FinishReason.LENGTH,
-    'tool_calls': FinishReason.TOOL_CALLS,
-    'content_filter': FinishReason.CONTENT_FILTER,
+    "stop": FinishReason.STOP,
+    "length": FinishReason.LENGTH,
+    "tool_calls": FinishReason.TOOL_CALLS,
+    "content_filter": FinishReason.CONTENT_FILTER,
 }
 
 
@@ -67,17 +72,40 @@ class LiteLLMInferenceEngine(BaseInferenceEngine):
         ... )
     """
 
+    def __init__(
+        self,
+        model_params: ModelParams,
+        *,
+        generation_params: GenerationParams | None = None,
+    ):
+        """Initializes the LiteLLM inference engine.
+
+        Args:
+            model_params: The model parameters. ``model_name`` should use the
+                LiteLLM model string format (e.g. ``anthropic/claude-sonnet-4-5``).
+            generation_params: The generation parameters.
+
+        Raises:
+            RuntimeError: If the ``litellm`` package is not installed.
+        """
+        if litellm is None:
+            raise RuntimeError(
+                "litellm is not installed. "
+                "Install it with `pip install oumi[litellm]`."
+            )
+        super().__init__(model_params=model_params, generation_params=generation_params)
+
     @override
     def get_supported_params(self) -> set[str]:
         """Returns supported generation parameters."""
         return {
-            'frequency_penalty',
-            'max_new_tokens',
-            'presence_penalty',
-            'seed',
-            'stop_strings',
-            'temperature',
-            'top_p',
+            "frequency_penalty",
+            "max_new_tokens",
+            "presence_penalty",
+            "seed",
+            "stop_strings",
+            "temperature",
+            "top_p",
         }
 
     def _build_api_input(
@@ -93,23 +121,22 @@ class LiteLLMInferenceEngine(BaseInferenceEngine):
         )
 
         api_input: dict[str, Any] = {
-            'model': model_params.model_name,
-            'messages': messages,
-            'temperature': generation_params.temperature,
-            'max_completion_tokens': generation_params.max_new_tokens,
-            'drop_params': True,
+            "model": model_params.model_name,
+            "messages": messages,
+            "temperature": generation_params.temperature,
+            "max_completion_tokens": generation_params.max_new_tokens,
         }
 
         if generation_params.seed is not None:
-            api_input['seed'] = generation_params.seed
+            api_input["seed"] = generation_params.seed
         if generation_params.top_p is not None:
-            api_input['top_p'] = generation_params.top_p
-        if generation_params.frequency_penalty is not None:
-            api_input['frequency_penalty'] = generation_params.frequency_penalty
-        if generation_params.presence_penalty is not None:
-            api_input['presence_penalty'] = generation_params.presence_penalty
+            api_input["top_p"] = generation_params.top_p
+        if generation_params.frequency_penalty:
+            api_input["frequency_penalty"] = generation_params.frequency_penalty
+        if generation_params.presence_penalty:
+            api_input["presence_penalty"] = generation_params.presence_penalty
         if generation_params.stop_strings:
-            api_input['stop'] = generation_params.stop_strings
+            api_input["stop"] = generation_params.stop_strings
 
         return api_input
 
@@ -117,37 +144,41 @@ class LiteLLMInferenceEngine(BaseInferenceEngine):
         self, response_json: dict[str, Any], original: Conversation
     ) -> Conversation:
         """Converts a litellm response dict back into a Conversation."""
-        if 'error' in response_json:
+        if "error" in response_json:
             raise RuntimeError(
-                f"API error: {response_json['error'].get('message', response_json['error'])}"
+                f"API error: "
+                f"{response_json['error'].get('message', response_json['error'])}"
             )
-        choices = response_json.get('choices')
+        choices = response_json.get("choices")
         if not choices:
-            raise RuntimeError(f'No choices in response: {response_json}')
+            raise RuntimeError(f"No choices in response: {response_json}")
 
-        message = choices[0].get('message', {})
-        content = message.get('content')
-        tool_calls = message.get('tool_calls')
+        message = choices[0].get("message", {})
+        content = message.get("content")
+        tool_calls = message.get("tool_calls")
         if content is None and not tool_calls:
-            content = ''
+            content = ""
 
         metadata = dict(original.metadata)
-        usage = response_json.get('usage')
+        usage = response_json.get("usage")
         if usage:
-            metadata['usage'] = {
-                'prompt_tokens': usage.get('prompt_tokens', 0),
-                'completion_tokens': usage.get('completion_tokens', 0),
-                'total_tokens': usage.get('total_tokens', 0),
+            metadata["usage"] = {
+                "prompt_tokens": usage.get("prompt_tokens", 0),
+                "completion_tokens": usage.get("completion_tokens", 0),
+                "total_tokens": usage.get("total_tokens", 0),
             }
-        raw_reason = choices[0].get('finish_reason')
+        raw_reason = choices[0].get("finish_reason")
         if raw_reason:
             finish = _FINISH_REASON_MAP.get(raw_reason.lower(), FinishReason.UNKNOWN)
-            metadata['finish_reason'] = finish.value
+            metadata["finish_reason"] = finish.value
 
         return Conversation(
             messages=[
                 *original.messages,
-                Message(content=content, role=Role(message.get('role', 'assistant'))),
+                Message(
+                    content=content,
+                    role=Role(message.get("role", "assistant")),
+                ),
             ],
             metadata=metadata,
             conversation_id=original.conversation_id,
@@ -169,8 +200,6 @@ class LiteLLMInferenceEngine(BaseInferenceEngine):
         Returns:
             List[Conversation]: Inference output.
         """
-        import litellm
-
         if inference_config is not None:
             generation_params = inference_config.generation or self._generation_params
             model_params = inference_config.model or self._model_params
@@ -186,10 +215,14 @@ class LiteLLMInferenceEngine(BaseInferenceEngine):
                 )
                 try:
                     response = await litellm.acompletion(**api_input)
-                    response_json = response.model_dump(mode='json')
-                    results.append(self._parse_response(response_json, conversation))
+                    response_json = response.model_dump(mode="json")
+                    results.append(
+                        self._parse_response(response_json, conversation)
+                    )
                 except Exception as e:
-                    logger.error(f'LiteLLMInferenceEngine - inference error: {e}')
+                    logger.error(
+                        f"LiteLLMInferenceEngine - inference error: {e}"
+                    )
                     raise
             return results
 
