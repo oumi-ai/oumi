@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from dataclasses import dataclass, field
+from typing import Any
 
 from omegaconf import MISSING
 from typing_extensions import override
@@ -137,6 +138,19 @@ class JobResources:
     multiple region support.
 
     Overridden by image_id if both are specified.
+    """
+
+    config_overrides: dict[str, Any] | None = None
+    """Cloud-specific config overrides (optional).
+
+    Passed through to SkyPilot as `experimental.config_overrides`. For Kubernetes,
+    the shape is typically::
+
+        {"kubernetes": {"pod_config": {"spec": {"affinity": {...},
+                                                "tolerations": [...]}}}}
+
+    Other clouds support keys like `{"docker": {"run_options": [...]}}`. See the
+    SkyPilot docs for the supported schema per cloud.
     """
 
 
