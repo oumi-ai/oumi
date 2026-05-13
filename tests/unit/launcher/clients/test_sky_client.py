@@ -604,3 +604,19 @@ def test_sky_client_stop():
         client = SkyClient()
         client.stop("mycluster")
         mock_stop.assert_called_once_with("mycluster")
+
+
+def test_convert_job_to_task_config_overrides_reaches_real_sky_resources(
+    mock_sky_data_storage,
+):
+    # Guards SkyPilot's private `_cluster_config_overrides` kwarg from silent
+    # signature drift across minor-version bumps.
+    overrides = {"docker": {"run_options": ["--shm-size=2g"]}}
+    job = _get_default_job("gcp")
+    job.resources.config_overrides = overrides
+
+    with patch.dict(os.environ, {"OUMI_USE_SPOT_VM": "nonspot"}, clear=True):
+        task = _convert_job_to_task(job)
+
+    resources = next(iter(task.resources))
+    assert resources.cluster_config_overrides == overrides
