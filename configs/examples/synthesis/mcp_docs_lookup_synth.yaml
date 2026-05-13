@@ -1,7 +1,13 @@
 # MCP-style Documentation Lookup — Stateless Synthetic Tool-Use Synthesis
 #
 # Generates multi-turn conversations between a developer asking how to use a
-# library and an assistant that answers via three MCP-style stateless tools:
+# library and an assistant that answers via three MCP-style stateless tools.
+# The tool set is modeled on Context7 (https://context7.com/), a multi-library
+# documentation MCP: developers reference libraries by free-form name, the
+# server resolves each name to a canonical `library_id`, and docs/examples
+# are then queried per resolved id. `resolve_library_id` is the entry point
+# that makes the multi-library framing work — without it the assistant would
+# have to invent or guess ids.
 #
 #   1. `resolve_library_id` — turns a library NAME (e.g. "react") into a
 #      canonical `library_id` (e.g. "/facebook/react").

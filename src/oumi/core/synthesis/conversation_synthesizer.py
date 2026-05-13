@@ -176,6 +176,11 @@ class ConversationSynthesizer:
             try:
                 outputs = self._router.route_batch(calls)
             except Exception:
+                # On batch failure, re-route each call individually so per-call
+                # errors stay attributed. SyntheticEnvironment's in-batch cache
+                # shields earlier successes from re-inference, but calls past
+                # the failing index re-infer. Acceptable for attribution today;
+                # Phase 2's corrective-retry should replace this fallback.
                 for idx, tc, args in group:
                     try:
                         [single] = self._router.route_batch([(tc.function.name, args)])
