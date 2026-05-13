@@ -257,10 +257,21 @@ class SyntheticEnvironment(BaseEnvironment):
 
     @staticmethod
     def _extract_text(conv: Conversation) -> str:
-        """Pull the simulator's text response from an inferred conversation."""
+        """Pull the simulator's text response from an inferred conversation.
+
+        Returns ``""`` (which forces the ``ToolError`` path in
+        ``_parse_and_validate``) when the last message is not an assistant
+        turn — guards against a passthrough/partial-failure path where the
+        engine returns ``convs`` unchanged and ``messages[-1]`` is still the
+        user payload (itself valid JSON of the form
+        ``{"tool": ..., "arguments": ...}``).
+        """
         if not conv.messages:
             return ""
-        content = conv.messages[-1].content
+        last = conv.messages[-1]
+        if last.role != Role.ASSISTANT:
+            return ""
+        content = last.content
         return content.strip() if isinstance(content, str) else ""
 
     @staticmethod
