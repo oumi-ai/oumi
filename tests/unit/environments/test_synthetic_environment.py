@@ -84,7 +84,7 @@ def test_from_params_constructs_stateful():
                 initial_state={"files": {"count": 1}},
             ),
             "cache_by_input": False,
-        }
+        },
     )
     env = SyntheticEnvironment.from_params(params)
     assert env.current_state == {"files": {"count": 1}}
@@ -100,9 +100,11 @@ def test_stateful_mode_requires_executor_on_every_tool():
             "system_prompt": "p",
             "state_params": SyntheticStateParams(),
             "cache_by_input": False,
-        }
+        },
     )
-    with pytest.raises(ValueError, match=r"requires every tool to define an executor.*without_exec"):
+    with pytest.raises(
+        ValueError, match=r"requires every tool to define an executor.*without_exec"
+    ):
         SyntheticEnvironment.from_params(params)
 
 
