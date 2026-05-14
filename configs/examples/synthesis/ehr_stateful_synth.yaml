@@ -357,7 +357,7 @@ strategy_params:
         - add_diagnosis
         - prescribe_medication
         - update_allergies
-      max_tool_calls_per_turn: 6
+      max_consecutive_tool_turns: 6
 
       conversation_planner: |
         The clinician's intent is "{encounter_intent.name}":
