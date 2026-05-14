@@ -320,18 +320,22 @@ class ModalClient:
             logger.warning(f"Modal terminate({call_id}) failed: {e!r}")
 
     def get_logs_stream(self, call_id: str) -> ModalLogStream:
-        """Returns a streaming readline()-style log stream for ``call_id``."""
+        """Returns a readline()-capable stream of stdout+stderr.
+
+        Uses ``StreamReader.read()`` rather than iterating the stream
+        directly — iteration only works while the sandbox is still live;
+        after termination it returns nothing. Workers call this after a
+        FAILED transition, so the batch-read path is the right default.
+        """
         sandbox = self.get_call(call_id)
-        # ``Sandbox.stdout`` is an async iterator of log chunks. Materialize
-        # to a list synchronously for the worker's blocking log-tail path.
-        chunks: list[str] = []
+        lines: list[str] = []
         for stream_attr in ("stdout", "stderr"):
             stream = getattr(sandbox, stream_attr, None)
-            if stream is None:
+            if stream is None or not hasattr(stream, "read"):
                 continue
             try:
-                for line in stream:
-                    chunks.append(str(line))
+                content = stream.read() or ""
+                lines.extend(content.splitlines(keepends=True))
             except Exception as e:  # noqa: BLE001
-                logger.warning(f"Modal {stream_attr} read failed: {e!r}")
-        return ModalLogStream(cast("Iterator[str]", iter(chunks)))
+                logger.warning(f"Modal {stream_attr}.read() failed: {e!r}")
+        return ModalLogStream(cast("Iterator[str]", iter(lines)))

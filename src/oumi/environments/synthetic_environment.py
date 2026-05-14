@@ -17,18 +17,26 @@
 from __future__ import annotations
 
 import copy
+import dataclasses
 import json
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import jsonschema
 
+from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.environment_params import EnvironmentParams
-from oumi.core.configs.params.tool_params import ToolParams
+from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
+from oumi.core.configs.params.tool_params import ToolError, ToolParams
 from oumi.core.registry import register_environment
+from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.core.types.tool_call import ToolResult
 from oumi.environments.base_environment import BaseEnvironment
+from oumi.utils.str_utils import extract_json
+
+if TYPE_CHECKING:
+    from oumi.core.inference.base_inference_engine import BaseInferenceEngine
 
 
 @dataclass
@@ -89,6 +97,17 @@ class SyntheticEnvironment(BaseEnvironment):
             and kwargs.state_params.initial_state is not None
             else None
         )
+        self._engine: BaseInferenceEngine | None = None
+        self._base_inference_config: InferenceConfig | None = None
+
+    def attach_inference(
+        self,
+        engine: BaseInferenceEngine,
+        base_config: InferenceConfig,
+    ) -> None:
+        """Inject the orchestrator's inference engine + base config."""
+        self._engine = engine
+        self._base_inference_config = base_config
 
     @classmethod
     def from_params(cls, params: EnvironmentParams) -> SyntheticEnvironment:
@@ -143,7 +162,142 @@ class SyntheticEnvironment(BaseEnvironment):
             f"Available tools: {[tool.id for tool in self._params.tools]}"
         )
 
-    def step(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:
-        """Execute a synthetic tool call."""
-        self._lookup_tool(tool_id)
-        raise NotImplementedError("SyntheticEnvironment.step() is not implemented yet.")
+    def step(self, calls: list[tuple[str, dict[str, Any]]]) -> list[ToolResult]:
+        """Execute synthetic tool calls. Cache-misses batched per tool_id.
+
+        Raises:
+            RuntimeError: If ``attach_inference`` was not called.
+            ValueError: If any tool id is unknown.
+            ToolError: On simulator parse failure or output_schema mismatch.
+        """
+        if not calls:
+            return []
+        for tool_id, _ in calls:
+            self._lookup_tool(tool_id)
+        if self._engine is None or self._base_inference_config is None:
+            raise RuntimeError(
+                "SyntheticEnvironment.step called before attach_inference(). "
+                "Wire the synthesizer's engine via attach_inference(engine, "
+                "base_config) before invoking step()."
+            )
+
+        results: list[ToolResult | None] = [None] * len(calls)
+        misses: list[tuple[int, str, dict[str, Any]]] = []
+        for i, (tool_id, args) in enumerate(calls):
+            cached = self._resolve_cached(tool_id, args)
+            if cached is not None:
+                results[i] = cached
+            else:
+                misses.append((i, tool_id, args))
+
+        groups: dict[str, list[tuple[int, dict[str, Any]]]] = {}
+        for i, tool_id, args in misses:
+            groups.setdefault(tool_id, []).append((i, args))
+
+        for tool_id, group in groups.items():
+            tool = self._lookup_tool(tool_id)
+            convs = [self._build_call_conv(tool, args) for _, args in group]
+            inferred = self._engine.infer(convs, self._simulator_inference_config(tool))
+            if len(inferred) != len(group):
+                raise RuntimeError(
+                    f"Simulator returned {len(inferred)} responses for "
+                    f"{len(group)} calls to '{tool_id}'."
+                )
+            for (idx, args), conv in zip(group, inferred):
+                raw = self._extract_text(conv)
+                result = self._parse_and_validate(raw, tool)
+                self._cache_result(tool_id, args, result)
+                results[idx] = result
+
+        assert all(r is not None for r in results), (
+            "every call must produce a ToolResult"
+        )
+        return results  # type: ignore[return-value]
+
+    def _build_simulator_system_prompt(self, tool: ToolParams) -> str:
+        """Compose the simulator system prompt: env persona + tool schema."""
+        return (
+            f"{self._kwargs.system_prompt}\n\n"
+            f"You are simulating the `{tool.id}` tool. Respond ONLY with a "
+            f"JSON object matching the tool's output schema. Do NOT include "
+            f"explanations, markdown, or surrounding prose.\n\n"
+            f"Tool schema:\n{json.dumps(tool.to_llm_schema(), indent=2)}"
+        )
+
+    def _build_call_conv(
+        self, tool: ToolParams, arguments: dict[str, Any]
+    ) -> Conversation:
+        """Build the simulator conversation for one tool call."""
+        user_payload = json.dumps(
+            {"tool": tool.id, "arguments": arguments}, sort_keys=True
+        )
+        return Conversation(
+            messages=[
+                Message(
+                    role=Role.SYSTEM,
+                    content=self._build_simulator_system_prompt(tool),
+                ),
+                Message(role=Role.USER, content=user_payload),
+            ]
+        )
+
+    def _simulator_inference_config(self, tool: ToolParams) -> InferenceConfig:
+        """Overlay guided decoding for the tool's output_schema onto base_config.
+
+        Tools without ``output_schema`` get the permissive ``{"type": "object"}``
+        constraint. Mirrors ``ConversationSynthesizer._planner_inference_config``.
+        """
+        assert self._base_inference_config is not None
+        schema = tool.output_schema or {"type": "object"}
+        sim_gen = dataclasses.replace(
+            self._base_inference_config.generation,
+            guided_decoding=GuidedDecodingParams(json=schema),
+        )
+        return dataclasses.replace(self._base_inference_config, generation=sim_gen)
+
+    @staticmethod
+    def _extract_text(conv: Conversation) -> str:
+        """Pull the simulator's text response from an inferred conversation.
+
+        Returns ``""`` (which forces the ``ToolError`` path in
+        ``_parse_and_validate``) when the last message is not an assistant
+        turn — guards against a passthrough/partial-failure path where the
+        engine returns ``convs`` unchanged and ``messages[-1]`` is still the
+        user payload (itself valid JSON of the form
+        ``{"tool": ..., "arguments": ...}``).
+        """
+        if not conv.messages:
+            return ""
+        last = conv.messages[-1]
+        if last.role != Role.ASSISTANT:
+            return ""
+        content = last.content
+        return content.strip() if isinstance(content, str) else ""
+
+    @staticmethod
+    def _parse_and_validate(raw: str, tool: ToolParams) -> ToolResult:
+        """Parse simulator output and validate against ``tool.output_schema``."""
+        if not raw:
+            raise ToolError(f"Simulator returned empty response for '{tool.id}'.")
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            extracted = extract_json(raw, expected_type=dict)
+            if extracted is None:
+                raise ToolError(
+                    f"Simulator output for '{tool.id}' is not valid JSON: {raw[:200]!r}"
+                ) from None
+            parsed = extracted
+        if not isinstance(parsed, dict):
+            raise ToolError(
+                f"Simulator output for '{tool.id}' must be a JSON object, "
+                f"got {type(parsed).__name__}."
+            )
+        if tool.output_schema is not None:
+            try:
+                jsonschema.validate(parsed, tool.output_schema)
+            except jsonschema.ValidationError as e:
+                raise ToolError(
+                    f"Simulator output for '{tool.id}' failed schema validation: {e}"
+                ) from e
+        return ToolResult(output=parsed)

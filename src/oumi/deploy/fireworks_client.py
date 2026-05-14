@@ -1130,7 +1130,12 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         automatically via ``seek``/``tell``.
         """
         with open(file_path, "rb") as f:
-            response = _requests.put(signed_url, data=f, headers=headers, timeout=600)
+            response = _requests.put(
+                signed_url,
+                data=f,
+                headers=cast(dict[str, str | bytes], headers),
+                timeout=600,
+            )
         if not response.ok:
             logger.error(
                 "GCS upload failed (HTTP %d, %s %s): %s",

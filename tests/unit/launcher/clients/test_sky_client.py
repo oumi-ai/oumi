@@ -260,6 +260,76 @@ def test_convert_job_to_task_with_populated_image_and_dict(
                     mock_task.set_resources.assert_called_once()
 
 
+def test_convert_job_to_task_without_config_overrides(
+    mock_sky_data_storage,
+):
+    with patch.dict(os.environ, {"OUMI_USE_SPOT_VM": "nonspot"}, clear=True):
+        with patch("sky.Resources") as mock_resources:
+            with patch("sky.clouds.GCP") as mock_cloud:
+                mock_gcp = Mock()
+                mock_cloud.return_value = mock_gcp
+                with patch("sky.Task"):
+                    job = _get_default_job("gcp")
+                    assert job.resources.config_overrides is None
+
+                    _ = _convert_job_to_task(job)
+
+                    mock_resources.assert_called_once()
+                    _, kwargs = mock_resources.call_args
+                    assert "_cluster_config_overrides" not in kwargs
+
+
+def test_convert_job_to_task_with_config_overrides(
+    mock_sky_data_storage,
+):
+    with patch.dict(os.environ, {"OUMI_USE_SPOT_VM": "nonspot"}, clear=True):
+        with patch("sky.Resources") as mock_resources:
+            with patch("sky.clouds.Kubernetes") as mock_cloud:
+                mock_k8s = Mock()
+                mock_cloud.return_value = mock_k8s
+                with patch("sky.Task") as mock_task_cls:
+                    mock_task = Mock()
+                    mock_task_cls.return_value = mock_task
+                    job = _get_default_job("k8s")
+                    overrides = {
+                        "kubernetes": {
+                            "pod_config": {
+                                "spec": {
+                                    "tolerations": [
+                                        {
+                                            "key": "nvidia.com/gpu",
+                                            "operator": "Exists",
+                                            "effect": "NoSchedule",
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                    job.resources.config_overrides = overrides
+
+                    _ = _convert_job_to_task(job)
+
+                    mock_resources.assert_has_calls(
+                        [
+                            call(
+                                cloud=mock_k8s,
+                                instance_type=job.resources.instance_type,
+                                cpus=job.resources.cpus,
+                                memory=job.resources.memory,
+                                accelerators=job.resources.accelerators,
+                                use_spot=False,
+                                region=job.resources.region,
+                                zone=job.resources.zone,
+                                disk_size=job.resources.disk_size,
+                                disk_tier=job.resources.disk_tier,
+                                image_id=job.resources.image_id,
+                                _cluster_config_overrides=overrides,
+                            )
+                        ]
+                    )
+
+
 @pytest.mark.parametrize(
     "env_var_use_spot_vm,expected_use_spot_vm",
     [
@@ -534,3 +604,19 @@ def test_sky_client_stop():
         client = SkyClient()
         client.stop("mycluster")
         mock_stop.assert_called_once_with("mycluster")
+
+
+def test_convert_job_to_task_config_overrides_reaches_real_sky_resources(
+    mock_sky_data_storage,
+):
+    # Guards SkyPilot's private `_cluster_config_overrides` kwarg from silent
+    # signature drift across minor-version bumps.
+    overrides = {"docker": {"run_options": ["--shm-size=2g"]}}
+    job = _get_default_job("gcp")
+    job.resources.config_overrides = overrides
+
+    with patch.dict(os.environ, {"OUMI_USE_SPOT_VM": "nonspot"}, clear=True):
+        task = _convert_job_to_task(job)
+
+    resources = next(iter(task.resources))
+    assert resources.cluster_config_overrides == overrides

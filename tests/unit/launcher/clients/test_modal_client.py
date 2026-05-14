@@ -270,8 +270,10 @@ def test_get_status_failed_when_sandbox_exits_nonzero(fake_modal):
 
 def test_get_logs_stream_returns_concatenated_stdout_and_stderr(fake_modal):
     sandbox = MagicMock()
-    sandbox.stdout = iter(["hello\n", "world\n"])
-    sandbox.stderr = iter([])
+    sandbox.stdout = MagicMock()
+    sandbox.stdout.read.return_value = "hello\nworld\n"
+    sandbox.stderr = MagicMock()
+    sandbox.stderr.read.return_value = ""
     fake_modal.Sandbox.from_id.return_value = sandbox
     with patch(
         "oumi.launcher.clients.modal_client._import_modal", return_value=fake_modal

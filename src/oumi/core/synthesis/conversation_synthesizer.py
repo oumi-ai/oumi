@@ -15,6 +15,7 @@
 import dataclasses
 import json
 import random
+from typing import Any
 
 from oumi.builders.environments import build_environment
 from oumi.builders.inference_engines import build_inference_engine
@@ -28,17 +29,23 @@ from oumi.core.configs.params.synthesis_params import (
     GeneralSynthesisParams,
     MultiTurnAttribute,
 )
-from oumi.core.configs.params.tool_params import ToolParams
+from oumi.core.configs.params.tool_params import (
+    ToolArgumentError,
+    ToolLookupError,
+    ToolParams,
+)
 from oumi.core.synthesis.attribute_formatter import AttributeFormatter
+from oumi.core.synthesis.tool_router import ToolRouter
 from oumi.core.types.conversation import (
     PLANNER_JSON_SCHEMA,
     Conversation,
     Message,
     Role,
 )
-from oumi.core.types.tool_call import ToolCall, ToolDefinition
+from oumi.core.types.tool_call import ToolCall, ToolDefinition, ToolResult
 from oumi.environments import GroundingFact
 from oumi.environments.base_environment import BaseEnvironment
+from oumi.environments.synthetic_environment import SyntheticEnvironment
 from oumi.environments.utils import describe_grounding_default
 from oumi.inference.native_tool_calling import (
     NATIVE_TOOL_CALLING_ENGINES,
@@ -92,17 +99,17 @@ class ConversationSynthesizer:
                 f"not support it. Use one of: {supported}."
             )
 
-        self._tool_dispatch: dict[str, BaseEnvironment] = {}
+        self._router: ToolRouter | None = None
         if self._environment_config is not None:
-            tool_env_map = self._environment_config.tool_environment_map
-            reachable_env_ids = set(tool_env_map.values())
-            envs_by_id: dict[str, BaseEnvironment] = {
-                env_params.id: build_environment(env_params)
-                for env_params in self._environment_config.environments
-                if env_params.id in reachable_env_ids
-            }
-            for tool_id, env_id in tool_env_map.items():
-                self._tool_dispatch[tool_id] = envs_by_id[env_id]
+            self._router = ToolRouter.from_environment_config(
+                self._environment_config,
+                on_env_built=self._wire_inference,
+            )
+
+    def _wire_inference(self, env: BaseEnvironment) -> None:
+        """Inject the synthesizer's engine + base config into synthetic envs."""
+        if isinstance(env, SyntheticEnvironment):
+            env.attach_inference(self._inference_engine, self._inference_config)
 
     def _resolve_available_tools(
         self, multiturn_attribute: MultiTurnAttribute
@@ -129,24 +136,8 @@ class ConversationSynthesizer:
             return ""
         return msg.content
 
-    def _run_tool_call(self, tool_call: ToolCall) -> Message:
-        """Dispatch a tool call; failures become a TOOL message with an error."""
-        name = tool_call.function.name
-        try:
-            arguments = json.loads(tool_call.function.arguments)
-        except json.JSONDecodeError as exc:
-            return self._tool_error(tool_call, f"Malformed tool_call arguments: {exc}")
-        if not isinstance(arguments, dict):
-            return self._tool_error(
-                tool_call, "tool_call arguments must be a JSON object"
-            )
-        environment = self._tool_dispatch.get(name)
-        if environment is None:
-            return self._tool_error(tool_call, f"Unknown tool '{name}'")
-        try:
-            result = environment.step(name, arguments)
-        except Exception as exc:
-            return self._tool_error(tool_call, f"Tool '{name}' raised: {exc}")
+    @staticmethod
+    def _tool_message(tool_call: ToolCall, result: ToolResult) -> Message:
         content = (
             result.output
             if isinstance(result.output, str)
@@ -157,6 +148,54 @@ class ConversationSynthesizer:
             tool_call_id=tool_call.id,
             content=content,
         )
+
+    def _dispatch_tool_calls(self, tool_calls: list[ToolCall]) -> list[Message]:
+        """Dispatch a batch of tool calls; returns one TOOL message per call.
+
+        Validates each call via the router, then groups surviving calls by env
+        and routes each group in one batched ``env.step()``. If the batched
+        route raises, falls back to per-call routing so individual errors stay
+        attributed.
+        """
+        assert self._router is not None, "tool calls require an environment_config"
+        results: list[Message | None] = [None] * len(tool_calls)
+        groups: dict[int, list[tuple[int, ToolCall, dict[str, Any]]]] = {}
+        for idx, tc in enumerate(tool_calls):
+            try:
+                arguments = self._router.parse_and_validate_arguments(
+                    tc.function.name, tc.function.arguments
+                )
+            except (ToolArgumentError, ToolLookupError) as exc:
+                results[idx] = self._tool_error(tc, str(exc))
+                continue
+            env = self._router.tool_to_env[tc.function.name]
+            groups.setdefault(id(env), []).append((idx, tc, arguments))
+
+        for group in groups.values():
+            calls = [(tc.function.name, args) for _, tc, args in group]
+            try:
+                outputs = self._router.route_batch(calls)
+            except Exception:
+                # On batch failure, re-route each call individually so per-call
+                # errors stay attributed. SyntheticEnvironment's in-batch cache
+                # shields earlier successes from re-inference, but calls past
+                # the failing index re-infer. Acceptable for attribution today;
+                # Phase 2's corrective-retry should replace this fallback.
+                for idx, tc, args in group:
+                    try:
+                        [single] = self._router.route_batch([(tc.function.name, args)])
+                    except Exception as exc:
+                        results[idx] = self._tool_error(
+                            tc, f"Tool '{tc.function.name}' raised: {exc}"
+                        )
+                        continue
+                    results[idx] = self._tool_message(tc, single)
+                continue
+            for (idx, tc, _), out in zip(group, outputs):
+                results[idx] = self._tool_message(tc, out)
+
+        assert all(r is not None for r in results), "every call must produce a message"
+        return results  # type: ignore[return-value]
 
     def _validate_roles(self, multiturn_attribute: MultiTurnAttribute) -> None:
         """Validate that required roles have corresponding personas.
@@ -756,8 +795,7 @@ class ConversationSynthesizer:
                         tool_calls=assistant_msg.tool_calls,
                     )
                 )
-                for tc in assistant_msg.tool_calls:
-                    staging[idx].append(self._run_tool_call(tc))
+                staging[idx].extend(self._dispatch_tool_calls(assistant_msg.tool_calls))
                 round_count[idx] += 1
             else:
                 staging[idx].append(

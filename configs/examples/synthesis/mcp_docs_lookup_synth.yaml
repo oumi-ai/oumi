@@ -1,0 +1,368 @@
+# MCP-style Documentation Lookup — Stateless Synthetic Tool-Use Synthesis
+#
+# Generates multi-turn conversations between a developer asking how to use a
+# library and an assistant that answers via three MCP-style stateless tools.
+# The tool set is modeled on Context7 (https://context7.com/), a multi-library
+# documentation MCP: developers reference libraries by free-form name, the
+# server resolves each name to a canonical `library_id`, and docs/examples
+# are then queried per resolved id. `resolve_library_id` is the entry point
+# that makes the multi-library framing work — without it the assistant would
+# have to invent or guess ids.
+#
+#   1. `resolve_library_id` — turns a library NAME (e.g. "react") into a
+#      canonical `library_id` (e.g. "/facebook/react").
+#   2. `query_docs`         — returns documentation snippets for a topic
+#      under a resolved `library_id`.
+#   3. `search_examples`    — returns runnable example code for a topic
+#      under a resolved `library_id`.
+#
+# This config exercises the new SyntheticEnvironment: tool outputs are
+# *simulated* by the same LLM that drives planner/assistant — there are no
+# pre-declared deterministic outputs. Each tool defines an `output_schema`
+# that we use as guided-decoding JSON schema, so the simulator must produce
+# valid structured output. Because the env is stateless (no `state_params`),
+# results are cached by (tool_id, arguments).
+#
+# Requirements:
+#   - Set OPENAI_API_KEY in the environment.
+#
+# Usage:
+#   oumi synth -c oumi://configs/examples/synthesis/mcp_docs_lookup_synth.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/synth.html
+#   - Config class: oumi.core.configs.SynthesisConfig
+#   - Params class: oumi.core.configs.params.synthesis_params.GeneralSynthesisParams
+#   - Env config class: oumi.core.configs.environment_config.EnvironmentConfig
+#   - SyntheticEnvironment: oumi.environments.synthetic_environment.SyntheticEnvironment
+#   - Other synthesis configs: configs/**/*synth.yaml
+
+strategy: GENERAL
+num_samples: 150
+output_path: mcp_docs_lookup_dataset.jsonl
+
+environment_config:
+  environments:
+    - id: docs_lookup
+      env_type: synthetic
+      name: Docs Lookup
+      description: MCP-style documentation lookup tools (LLM-simulated).
+      env_kwargs:
+        system_prompt: |
+          You are simulating an MCP-style documentation server that resolves
+          library names to canonical IDs and returns documentation snippets
+          and example code. Every response MUST be a JSON object that exactly
+          matches the requested tool's output_schema. Do not include prose,
+          markdown, or commentary outside the JSON. Be plausible and concise:
+          a few snippets / examples per call, real-feeling library IDs (use
+          `/<owner>/<repo>` style for GitHub-hosted libraries), and code
+          that would actually compile/run.
+        cache_by_input: true
+      tools:
+        - id: resolve_library_id
+          name: Resolve Library ID
+          description: >-
+            Resolve a free-form library or framework name (e.g. "react",
+            "next.js", "react query") into a canonical `library_id` string
+            (e.g. "/facebook/react"). When the name is ambiguous, return up
+            to 3 plausible candidates with short descriptions.
+          parameters:
+            type: object
+            properties:
+              name:
+                type: string
+                description: Library or framework name as the developer would say it.
+            required:
+              - name
+          output_schema:
+            type: object
+            properties:
+              library_id:
+                type: string
+                description: Canonical id of the best match (e.g. "/facebook/react").
+              candidates:
+                type: array
+                description: Other plausible matches.
+                items:
+                  type: object
+                  properties:
+                    library_id:
+                      type: string
+                    description:
+                      type: string
+                  required: [library_id, description]
+            required: [library_id, candidates]
+
+        - id: query_docs
+          name: Query Docs
+          description: >-
+            Return up to 5 documentation snippets matching `query` for the
+            given `library_id`. Each snippet has a title, a short prose
+            description, and an optional code excerpt.
+          parameters:
+            type: object
+            properties:
+              library_id:
+                type: string
+                description: Canonical library id from `resolve_library_id`.
+              query:
+                type: string
+                description: What the developer is trying to find out.
+            required:
+              - library_id
+              - query
+          output_schema:
+            type: object
+            properties:
+              snippets:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    title:
+                      type: string
+                    description:
+                      type: string
+                    code:
+                      type: string
+                  required: [title, description]
+            required: [snippets]
+
+        - id: search_examples
+          name: Search Examples
+          description: >-
+            Return up to 4 runnable example snippets demonstrating `topic`
+            under the given `library_id`. Each example has a one-line
+            description and a code block.
+          parameters:
+            type: object
+            properties:
+              library_id:
+                type: string
+                description: Canonical library id from `resolve_library_id`.
+              topic:
+                type: string
+                description: The technique or feature to demonstrate.
+            required:
+              - library_id
+              - topic
+          output_schema:
+            type: object
+            properties:
+              examples:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    description:
+                      type: string
+                    code:
+                      type: string
+                  required: [description, code]
+            required: [examples]
+
+strategy_params:
+  sampled_attributes:
+    - id: developer_experience
+      name: Developer Experience
+      description: How experienced the developer is
+      possible_values:
+        - id: beginner
+          name: Beginner
+          description: New to programming or new to this language; asks fundamental questions
+          sample_rate: 0.25
+        - id: intermediate
+          name: Intermediate
+          description: Comfortable with the language; asks about specific APIs or patterns
+          sample_rate: 0.45
+        - id: senior
+          name: Senior Engineer
+          description: Deep experience; asks targeted questions about edge cases, perf, internals
+          sample_rate: 0.20
+        - id: ml_engineer
+          name: ML/AI Engineer
+          description: Domain-specialized; asks about training loops, distributed setup, GPU usage
+          sample_rate: 0.10
+
+    - id: query_intent
+      name: Query Intent
+      description: What the developer wants out of this conversation
+      possible_values:
+        - id: getting_started
+          name: Getting Started
+          description: New to a library; wants minimal setup + hello-world snippet
+        - id: api_reference
+          name: API Reference Lookup
+          description: Knows the library; needs the exact signature / config of one specific function
+        - id: example_request
+          name: Example Code Request
+          description: Wants a concrete code example of a specific feature or pattern
+        - id: ambiguous_name
+          name: Ambiguous Library Name
+          description: References a library by an ambiguous nickname; needs disambiguation first
+        - id: comparison
+          name: Library Comparison
+          description: Mentions two libraries and wants to know how they relate or differ on a topic
+        - id: migration
+          name: Migration Question
+          description: Migrating between versions / libraries; needs the new equivalent of an old API
+        - id: debugging
+          name: Debugging Lookup
+          description: Has an error or unexpected behavior; wants to find the doc page that explains it
+
+    - id: tone
+      name: Developer Tone
+      description: The tone the developer brings to the conversation
+      possible_values:
+        - id: focused
+          name: Focused
+          description: Direct, to-the-point; no small talk
+        - id: chatty
+          name: Chatty
+          description: Adds context about their project, mentions what they tried
+        - id: rushed
+          name: Rushed
+          description: Short messages; wants the answer in one shot
+        - id: skeptical
+          name: Skeptical
+          description: Doubts the answer; asks follow-ups, wants source links
+        - id: stuck
+          name: Stuck
+          description: Has tried several things; mildly frustrated, wants progress
+
+  generated_attributes:
+    - id: developer_name
+      instruction_messages:
+        - role: SYSTEM
+          content: |
+            Generate a realistic first name only. Output just the name, nothing else.
+        - role: USER
+          content: |
+            Generate a common developer first name.
+
+  multiturn_attributes:
+    - id: docs_lookup_conversation
+      min_turns: 2
+      max_turns: 5
+      available_environments:
+        - docs_lookup
+      available_tools:
+        - resolve_library_id
+        - query_docs
+        - search_examples
+      max_consecutive_tool_turns: 4
+
+      conversation_planner: |
+        The developer's intent is "{query_intent.name}":
+        {query_intent.description}
+
+        Plan turn instructions according to the intent:
+        - Whenever the developer mentions a library by NAME, the assistant
+          MUST call `resolve_library_id` first to obtain the canonical
+          `library_id` before any `query_docs` / `search_examples` call.
+          Never invent a library_id.
+        - For "Ambiguous Library Name": expect `resolve_library_id` to
+          return multiple candidates. The assistant should ask a brief
+          clarifying question and resolve in a later turn.
+        - For "Example Code Request": chain
+          `resolve_library_id` → `search_examples`.
+        - For "API Reference Lookup", "Getting Started", "Debugging
+          Lookup": chain `resolve_library_id` → `query_docs` (and
+          optionally a follow-up `query_docs` for a sub-topic).
+        - For "Library Comparison": resolve BOTH library names in one
+          assistant turn, then `query_docs` against each.
+        - For "Migration Question": `resolve_library_id` (target lib) →
+          `query_docs` for the new equivalent.
+
+        Use action verbs ("call `resolve_library_id` for ...", "call
+        `query_docs` with library_id and ...") rather than soft phrasing.
+
+      role_instruction_messages:
+        USER: |
+          You are {developer_name}, a {developer_experience.name} developer
+          asking a documentation assistant for help.
+
+          Your background: {developer_experience.description}
+          Your tone: {tone.name} — {tone.description}
+          What you want: {query_intent.description}
+
+          Guidelines:
+          - You only know libraries by NAME (e.g. "react", "next.js",
+            "tensorflow"). You do NOT know canonical library IDs (the
+            "/facebook/react" form). Always refer to libraries by name.
+          - You have NO access to documentation yourself — only the
+            assistant does. Don't pretend to know API signatures, config
+            options, or behavior until the assistant has shared them.
+          - Keep messages natural and matched to your tone. Focused/rushed
+            developers stay terse; chatty ones add project context;
+            skeptical ones push back; stuck ones describe what they tried.
+          - Vary openings: not every conversation starts with "Hi" — many
+            developers paste an error, name a library, or jump straight in.
+          - Do not break character or reference the simulation.
+
+          If this is your first message, open in whatever way fits your
+          tone, then state what you want.
+
+          Output only your message, nothing else.
+
+        ASSISTANT: |
+          You are DocBot, a documentation lookup assistant powered by three
+          tools:
+
+          1. `resolve_library_id(name)` — turns a library NAME into a
+             canonical `library_id`. May return multiple `candidates` if
+             the name is ambiguous.
+          2. `query_docs(library_id, query)` — returns documentation
+             snippets for a topic under a resolved library.
+          3. `search_examples(library_id, topic)` — returns runnable
+             example code for a topic under a resolved library.
+
+          Standard flows:
+          - User mentions a library by name → ALWAYS call
+            `resolve_library_id` first; never invent or guess a
+            `library_id`.
+          - User wants explanation/setup/API → resolve, then `query_docs`.
+          - User wants concrete code → resolve, then `search_examples`.
+          - User mentions two libraries (comparison/migration) → resolve
+            both in the SAME assistant turn before any `query_docs`.
+          - If `resolve_library_id` returns ambiguous `candidates`, ask
+            the user a short clarifying question and resolve again in a
+            later turn — do NOT guess.
+
+          Rules:
+          - ALWAYS use the tools for any concrete API, config, or example
+            answer. Never fabricate function names, signatures, options,
+            or version numbers.
+          - Quote tool results when you summarize — don't paraphrase a
+            snippet's `code` field; copy it verbatim into a fenced code
+            block.
+          - When the user asks a follow-up that doesn't need new info,
+            answer directly without re-calling tools.
+          - Keep responses tight: one short paragraph + relevant code if
+            applicable. Long flat documentation dumps are bad UX.
+
+          Follow the plan's direction for this turn. Output only your
+          response.
+
+      output_system_prompt: |
+        You are DocBot, a documentation lookup assistant. You have three
+        tools: `resolve_library_id`, `query_docs`, `search_examples`.
+        Always resolve a library NAME to its canonical `library_id` before
+        querying docs or examples for it. Quote tool results verbatim
+        for code; never invent function signatures or options.
+
+  passthrough_attributes:
+    - docs_lookup_conversation
+    - docs_lookup_conversation_plan
+
+inference_config:
+  model:
+    model_name: gpt-4o-mini
+  engine: OPENAI
+  generation:
+    max_new_tokens: 2048
+    temperature: 0.7
+    top_p: 0.9
+  remote_params:
+    num_workers: 30
+    politeness_policy: 60

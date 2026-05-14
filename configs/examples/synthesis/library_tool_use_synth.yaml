@@ -1,0 +1,171 @@
+# Synthesize multi-turn library-assistant conversations that exercise tool calling.
+#
+# A library patron (one of three personas) chats with LibBot, an assistant that
+# uses two tools to help: list_book_catalog and lookup_book_status. The
+# deterministic environment serves the tool calls from a small lookup table.
+#
+# Requirements:
+#   - Set OPENAI_API_KEY in the environment.
+#   - Or change the inference_config to your preferred native-tool-calling engine.
+#     See `NATIVE_TOOL_CALLING_ENGINES` in oumi/inference/native_tool_calling.py
+#     for the supported engines.
+#
+# Usage:
+#   oumi synth -c oumi://configs/examples/synthesis/library_tool_use_synth.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/synth.html
+#   - Config class: oumi.core.configs.SynthesisConfig
+#   - Params class: oumi.core.configs.params.synthesis_params.GeneralSynthesisParams
+#   - Environment-first tool config: oumi.core.configs.EnvironmentConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/synthesis_config.py
+#   - Params source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/params/synthesis_params.py
+#   - Other synthesis configs: configs/**/*synth.yaml
+
+strategy: GENERAL
+num_samples: 10
+output_path: library_tool_use_dataset.jsonl
+
+environment_config:
+  environments:
+    - id: library
+      name: library
+      description: A small library catalog with book lookup tools.
+      env_type: deterministic
+      tools:
+        - id: list_book_catalog
+          name: list_book_catalog
+          description: List all books in the library catalog with their book_ids.
+          parameters:
+            type: object
+            properties: {}
+        - id: lookup_book_status
+          name: lookup_book_status
+          description: |
+            Look up borrow status for a book by book_id. Returns title, status,
+            and (when checked out) due_date.
+          parameters:
+            type: object
+            properties:
+              book_id:
+                type: string
+                description: Catalog ID of the book (from list_book_catalog).
+            required:
+              - book_id
+      env_kwargs:
+        lookup_table:
+          list_book_catalog:
+            - input: {}
+              output:
+                books:
+                  - { book_id: B001, title: "The Name of the Wind" }
+                  - { book_id: B002, title: "The Great Gatsby" }
+                  - { book_id: B003, title: "1984" }
+                  - { book_id: B004, title: "Pride and Prejudice" }
+                  - { book_id: B005, title: "Dune" }
+                  - { book_id: B006, title: "The Hobbit" }
+                  - { book_id: B007, title: "The Catcher in the Rye" }
+                  - { book_id: B008, title: "Brave New World" }
+          lookup_book_status:
+            - input: { book_id: B001 }
+              output: { title: "The Name of the Wind", status: available }
+            - input: { book_id: B002 }
+              output: { title: "The Great Gatsby", status: checked_out, due_date: "2026-05-15" }
+            - input: { book_id: B003 }
+              output: { title: "1984", status: available }
+            - input: { book_id: B004 }
+              output: { title: "Pride and Prejudice", status: available }
+            - input: { book_id: B005 }
+              output: { title: "Dune", status: checked_out, due_date: "2026-05-20" }
+            - input: { book_id: B006 }
+              output: { title: "The Hobbit", status: available }
+            - input: { book_id: B007 }
+              output: { title: "The Catcher in the Rye", status: checked_out, due_date: "2026-05-12" }
+            - input: { book_id: B008 }
+              output: { title: "Brave New World", status: available }
+
+strategy_params:
+  sampled_attributes:
+    - id: user_persona
+      name: User persona
+      description: The kind of patron calling the library bot.
+      possible_values:
+        - id: anxious_parent
+          name: An anxious parent looking for a book for their child
+          description: Speaks with worry, references deadlines, needs reassurance.
+        - id: enthusiastic_reader
+          name: An enthusiastic reader looking for their next read
+          description: Curious, asks open-ended questions, friendly.
+        - id: busy_professional
+          name: A busy professional with limited time
+          description: Terse, wants quick answers, no small talk.
+
+  multiturn_attributes:
+    - id: library_dialog
+      min_turns: 4
+      max_turns: 6
+      max_consecutive_tool_turns: 6
+      available_environments:
+        - library
+
+      role_instruction_messages:
+        USER: |
+          You are {user_persona.name}: {user_persona.description}
+
+          You are talking to LibBot, a library assistant, to find or check out a book.
+
+          Guidelines:
+          - Stay in character — match the persona's tone exactly.
+          - Don't call tools yourself; only LibBot has tools.
+          - Follow the plan's direction for this turn but respond naturally.
+          - Keep responses concise.
+
+          Output only the patron's message, nothing else.
+
+        ASSISTANT: |
+          You are LibBot, a helpful library assistant. You have access to two tools:
+          - list_book_catalog(): list all books in the catalog.
+          - lookup_book_status(book_id): look up borrow status by book_id.
+
+          Guidelines:
+          - Use tools when you need information; don't guess book IDs or statuses.
+          - If a patron's requested title is NOT in the list_book_catalog results,
+            DO NOT call lookup_book_status with a different book's ID. Tell the
+            patron the title isn't in the catalog and offer titles that are.
+          - Only call lookup_book_status with a book_id you saw in a recent
+            list_book_catalog response.
+          - Confirm details with the patron before assuming intent.
+          - When you have what you need, give a clear final answer in plain text.
+          - Stay polite and helpful.
+
+      conversation_planner: |
+        Plan a {target_turns}-turn conversation between {user_persona.name}
+        ({user_persona.description}) and LibBot. The dialog must require LibBot
+        to call list_book_catalog at least once and lookup_book_status at least
+        once across the conversation.
+
+        Match the plan to the persona's communication style — terse personas
+        should have shorter, more direct turns with no filler; chatty personas
+        can include open-ended exchanges. Don't plan small-talk turns for
+        personas described as terse or in a hurry.
+
+        Be specific about what each turn should accomplish.
+
+      output_system_prompt: |
+        This is a conversation between a library patron and LibBot, a
+        tool-using library assistant.
+
+  passthrough_attributes:
+    - user_persona
+    - library_dialog
+    - library_dialog_plan
+
+inference_config:
+  engine: OPENAI
+  model:
+    model_name: gpt-4o-mini
+  generation:
+    max_new_tokens: 1024
+    temperature: 0.4
+  remote_params:
+    num_workers: 10
