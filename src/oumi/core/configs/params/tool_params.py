@@ -23,6 +23,7 @@ from typing import Any
 import jsonschema
 
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.core.configs.params.grounding_params import ToolGroundingConfig
 from oumi.core.types.tool_call import (
     FunctionDefinition,
     JSONSchema,
@@ -67,6 +68,14 @@ class ToolParams(BaseParams):
     parameters: dict[str, Any] = field(default_factory=lambda: {"type": "object"})
     output_schema: dict[str, Any] | None = None
     read_only: bool = True
+    grounding: ToolGroundingConfig | None = None
+    executor: str = ""
+    """Optional dotted import path to a callable that executes this tool.
+
+    When set, the host env dispatches calls to it instead of LLM-simulating.
+    ``SyntheticEnvironment`` passes ``(arguments, state)`` when
+    ``state_params`` is set, else ``(arguments,)``.
+    """
 
     @classmethod
     def create(cls, raw: Any) -> ToolParams:
@@ -77,6 +86,7 @@ class ToolParams(BaseParams):
             raise TypeError(
                 f"Tool definitions must be tool objects or mappings, got {type(raw)}"
             )
+        grounding_raw = raw.get("grounding")
         return cls(
             id=raw["id"],
             name=raw["name"],
@@ -88,6 +98,13 @@ class ToolParams(BaseParams):
                 else None
             ),
             read_only=raw.get("read_only", True),
+            grounding=(
+                grounding_raw
+                if grounding_raw is None
+                or isinstance(grounding_raw, ToolGroundingConfig)
+                else ToolGroundingConfig(**grounding_raw)
+            ),
+            executor=raw.get("executor", ""),
         )
 
     def __post_init__(self):
@@ -109,6 +126,10 @@ class ToolParams(BaseParams):
             self.output_schema = self.output_schema.model_dump(
                 mode="json", exclude_none=True
             )
+        if self.grounding is not None and not isinstance(
+            self.grounding, ToolGroundingConfig
+        ):
+            self.grounding = ToolGroundingConfig(**self.grounding)
 
     def to_llm_schema(self) -> dict[str, Any]:
         """Export a provider-agnostic schema for LLM tool registration."""

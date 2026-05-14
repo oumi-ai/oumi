@@ -12,13 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Synthetic environment backed by LLM-simulated tool execution."""
+"""Synthetic environment backed by LLM-simulated or Python-executed tools.
+
+Stateless mode (``state_params=None``) batches LLM-simulated tool outputs
+per tool id, cached by ``(tool_id, args)``. Stateful mode runs the per-tool
+``executor`` callables sequentially so state mutations thread through the
+batch. Tools without an ``executor`` always fall back to LLM simulation.
+"""
 
 from __future__ import annotations
 
 import copy
 import dataclasses
+import importlib
 import json
+import random
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -27,6 +36,10 @@ import jsonschema
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.environment_params import EnvironmentParams
+from oumi.core.configs.params.grounding_params import (
+    GroundingFact,
+    StateGroundingConfig,
+)
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.configs.params.tool_params import ToolError, ToolParams
 from oumi.core.registry import register_environment
@@ -41,13 +54,26 @@ if TYPE_CHECKING:
 
 @dataclass
 class SyntheticStateParams(BaseParams):
-    """Optional state configuration for a synthetic environment."""
+    """Optional state configuration for a synthetic environment.
+
+    ``grounding`` declares one or more state pools (``state_path``) to
+    project ``GroundingFact``s from. Each entry's ``state_path`` must
+    resolve to a ``list[dict]`` in ``initial_state``.
+    """
 
     state_schema: dict[str, Any] | None = None
     initial_state: dict[str, Any] | None = None
+    grounding: list[StateGroundingConfig] | None = None
 
     def __post_init__(self):
         """Validate state config consistency."""
+        if self.grounding is not None:
+            self.grounding = [
+                cfg
+                if isinstance(cfg, StateGroundingConfig)
+                else StateGroundingConfig(**cfg)
+                for cfg in self.grounding
+            ]
         if self.state_schema is not None and self.initial_state is not None:
             jsonschema.validate(self.initial_state, self.state_schema)
 
@@ -78,9 +104,38 @@ class SyntheticEnvironmentKwargs(BaseParams):
             )
 
 
+def _import_executor(dotted: str, tool_id: str) -> Callable[..., Any]:
+    """Resolve a dotted import path to a callable. Raises ValueError on failure."""
+    module_path, _, attr = dotted.rpartition(".")
+    if not module_path or not attr:
+        raise ValueError(
+            f"Tool '{tool_id}': executor '{dotted}' must be a dotted import "
+            f"path (e.g. 'pkg.module.fn')."
+        )
+    try:
+        module = importlib.import_module(module_path)
+    except ImportError as e:
+        raise ValueError(
+            f"Tool '{tool_id}': cannot import executor module '{module_path}': {e}"
+        ) from e
+    executor = getattr(module, attr, None)
+    if executor is None:
+        raise ValueError(
+            f"Tool '{tool_id}': module '{module_path}' has no attribute '{attr}'."
+        )
+    if not callable(executor):
+        raise ValueError(
+            f"Tool '{tool_id}': executor '{dotted}' resolved to a non-callable."
+        )
+    return executor
+
+
 @register_environment("synthetic")
 class SyntheticEnvironment(BaseEnvironment):
-    """LLM-simulated environment with optional mutable state."""
+    """LLM-simulated environment with optional mutable state.
+
+    See the module docstring for the stateless vs stateful contract.
+    """
 
     def __init__(
         self,
@@ -97,6 +152,23 @@ class SyntheticEnvironment(BaseEnvironment):
             and kwargs.state_params.initial_state is not None
             else None
         )
+        self._state_schema: dict[str, Any] | None = (
+            kwargs.state_params.state_schema
+            if kwargs.state_params is not None
+            else None
+        )
+        self._state_grounding: list[StateGroundingConfig] = (
+            kwargs.state_params.grounding or []
+            if kwargs.state_params is not None
+            else []
+        )
+        self._executors: dict[str, Callable[..., Any]] = {
+            tool.id: _import_executor(tool.executor, tool.id)
+            for tool in params.tools
+            if tool.executor
+        }
+        if self._state is not None:
+            self._validate_state_grounding()
         self._engine: BaseInferenceEngine | None = None
         self._base_inference_config: InferenceConfig | None = None
 
@@ -163,56 +235,173 @@ class SyntheticEnvironment(BaseEnvironment):
         )
 
     def step(self, calls: list[tuple[str, dict[str, Any]]]) -> list[ToolResult]:
-        """Execute synthetic tool calls. Cache-misses batched per tool_id.
+        """Execute tool calls. See module docstring for routing rules.
 
         Raises:
-            RuntimeError: If ``attach_inference`` was not called.
             ValueError: If any tool id is unknown.
-            ToolError: On simulator parse failure or output_schema mismatch.
+            RuntimeError: If an LLM-simulated tool is invoked before
+                ``attach_inference`` was called.
+            ToolError: On simulator parse failure or schema mismatch.
         """
         if not calls:
             return []
         for tool_id, _ in calls:
             self._lookup_tool(tool_id)
-        if self._engine is None or self._base_inference_config is None:
-            raise RuntimeError(
-                "SyntheticEnvironment.step called before attach_inference(). "
-                "Wire the synthesizer's engine via attach_inference(engine, "
-                "base_config) before invoking step()."
-            )
 
+        stateful = self._state is not None
         results: list[ToolResult | None] = [None] * len(calls)
-        misses: list[tuple[int, str, dict[str, Any]]] = []
+        sim_misses: list[tuple[int, str, dict[str, Any]]] = []
         for i, (tool_id, args) in enumerate(calls):
+            if tool_id in self._executors:
+                if stateful:
+                    results[i] = self._step_stateful_one(tool_id, args)
+                else:
+                    results[i] = self._step_executor_one(tool_id, args)
+                continue
             cached = self._resolve_cached(tool_id, args)
             if cached is not None:
                 results[i] = cached
             else:
-                misses.append((i, tool_id, args))
+                sim_misses.append((i, tool_id, args))
 
-        groups: dict[str, list[tuple[int, dict[str, Any]]]] = {}
-        for i, tool_id, args in misses:
-            groups.setdefault(tool_id, []).append((i, args))
-
-        for tool_id, group in groups.items():
-            tool = self._lookup_tool(tool_id)
-            convs = [self._build_call_conv(tool, args) for _, args in group]
-            inferred = self._engine.infer(convs, self._simulator_inference_config(tool))
-            if len(inferred) != len(group):
+        if sim_misses:
+            if self._engine is None or self._base_inference_config is None:
                 raise RuntimeError(
-                    f"Simulator returned {len(inferred)} responses for "
-                    f"{len(group)} calls to '{tool_id}'."
+                    "SyntheticEnvironment.step called before "
+                    "attach_inference(). Wire the synthesizer's engine via "
+                    "attach_inference(engine, base_config) before invoking "
+                    "step()."
                 )
-            for (idx, args), conv in zip(group, inferred):
-                raw = self._extract_text(conv)
-                result = self._parse_and_validate(raw, tool)
-                self._cache_result(tool_id, args, result)
-                results[idx] = result
+            groups: dict[str, list[tuple[int, dict[str, Any]]]] = {}
+            for i, tool_id, args in sim_misses:
+                groups.setdefault(tool_id, []).append((i, args))
+
+            for tool_id, group in groups.items():
+                tool = self._lookup_tool(tool_id)
+                convs = [self._build_call_conv(tool, args) for _, args in group]
+                inferred = self._engine.infer(
+                    convs, self._simulator_inference_config(tool)
+                )
+                if len(inferred) != len(group):
+                    raise RuntimeError(
+                        f"Simulator returned {len(inferred)} responses for "
+                        f"{len(group)} calls to '{tool_id}'."
+                    )
+                for (idx, args), conv in zip(group, inferred):
+                    raw = self._extract_text(conv)
+                    result = self._parse_and_validate(raw, tool)
+                    self._cache_result(tool_id, args, result)
+                    results[idx] = result
 
         assert all(r is not None for r in results), (
             "every call must produce a ToolResult"
         )
         return results  # type: ignore[return-value]
+
+    def _step_executor_one(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:
+        """Execute a stateless tool via its executor callable."""
+        tool = self._lookup_tool(tool_id)
+        tool.validate_arguments(arguments)
+        result = self._executors[tool_id](arguments=arguments)
+        self._validate_executor_output(tool, result)
+        if result.updated_state is not None:
+            raise ToolError(
+                f"Tool '{tool.id}' executor returned updated_state but the "
+                f"environment is stateless."
+            )
+        return result
+
+    def _step_stateful_one(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:
+        """Dispatch a stateful tool and commit ``updated_state`` after validation.
+
+        ``state_in`` is a deep copy so in-place mutation by the executor
+        doesn't bleed through if validation later rejects the result.
+        """
+        assert self._state is not None
+        tool = self._lookup_tool(tool_id)
+        tool.validate_arguments(arguments)
+        state_in = copy.deepcopy(self._state)
+        result = self._executors[tool_id](arguments=arguments, state=state_in)
+        self._validate_executor_output(tool, result)
+        if result.updated_state is not None:
+            if tool.read_only:
+                raise ToolError(
+                    f"Tool '{tool_id}' is read_only but executor returned "
+                    f"updated_state. Read-only tools must not mutate state."
+                )
+            if self._state_schema is not None:
+                try:
+                    jsonschema.validate(result.updated_state, self._state_schema)
+                except jsonschema.ValidationError as e:
+                    raise ToolError(
+                        f"Tool '{tool_id}' updated_state failed state_schema "
+                        f"validation: {e}"
+                    ) from e
+            self._state = copy.deepcopy(result.updated_state)
+        return result
+
+    def _validate_executor_output(self, tool: ToolParams, result: Any) -> None:
+        """Validate executor return type + ``output_schema`` conformance."""
+        if not isinstance(result, ToolResult):
+            raise ToolError(
+                f"Tool '{tool.id}' executor must return ToolResult, got "
+                f"{type(result).__name__}."
+            )
+        if tool.output_schema is not None:
+            try:
+                jsonschema.validate(result.output, tool.output_schema)
+            except jsonschema.ValidationError as e:
+                raise ToolError(
+                    f"Tool '{tool.id}' executor output failed schema validation: {e}"
+                ) from e
+
+    def sample_grounding(
+        self,
+        n: int,
+        *,
+        rng: random.Random,
+        tool_ids: set[str] | None = None,
+    ) -> list[GroundingFact]:
+        """Project grounding facts from ``state_params.grounding`` pools.
+
+        No-op for stateless envs or envs without ``state_params.grounding``.
+        ``tool_ids`` is accepted for ``BaseEnvironment`` signature compatibility
+        but ignored — state grounding is pool-scoped, not tool-scoped.
+
+        ``_validate_state_grounding`` at init guarantees each ``state_path``
+        resolves to a list in ``self._state``, and ``state_schema`` validation
+        on every commit keeps it that way, so the projection loop trusts the
+        shape.
+        """
+        del tool_ids
+        if self._state is None or not self._state_grounding:
+            return []
+        pool: list[GroundingFact] = []
+        for cfg in self._state_grounding:
+            whitelist = set(cfg.fields)
+            for row in self._state[cfg.state_path]:
+                projected = {k: v for k, v in row.items() if k in whitelist}
+                pool.append(GroundingFact(data=projected))
+        return rng.sample(pool, min(n, len(pool)))
+
+    def _validate_state_grounding(self) -> None:
+        """Validate each ``state_params.grounding`` entry against state."""
+        assert self._state is not None
+        for cfg in self._state_grounding:
+            if cfg.state_path not in self._state:
+                raise ValueError(
+                    f"SyntheticEnvironment '{self._params.id}': grounding "
+                    f"state_path '{cfg.state_path}' is not present in "
+                    f"initial_state. Top-level keys: "
+                    f"{sorted(self._state.keys())}."
+                )
+            rows = self._state[cfg.state_path]
+            if not isinstance(rows, list):
+                raise ValueError(
+                    f"SyntheticEnvironment '{self._params.id}': grounding "
+                    f"state_path '{cfg.state_path}' must resolve to a list, "
+                    f"got {type(rows).__name__}."
+                )
 
     def _build_simulator_system_prompt(self, tool: ToolParams) -> str:
         """Compose the simulator system prompt: env persona + tool schema."""
@@ -257,14 +446,11 @@ class SyntheticEnvironment(BaseEnvironment):
 
     @staticmethod
     def _extract_text(conv: Conversation) -> str:
-        """Pull the simulator's text response from an inferred conversation.
+        """Return the assistant's text response, or ``""`` to trigger a ToolError.
 
-        Returns ``""`` (which forces the ``ToolError`` path in
-        ``_parse_and_validate``) when the last message is not an assistant
-        turn — guards against a passthrough/partial-failure path where the
-        engine returns ``convs`` unchanged and ``messages[-1]`` is still the
-        user payload (itself valid JSON of the form
-        ``{"tool": ..., "arguments": ...}``).
+        Engines that passthrough on partial failure can leave the user payload
+        (itself valid JSON) as ``messages[-1]``; the role guard forces the
+        ToolError path so we don't echo arguments back as a tool result.
         """
         if not conv.messages:
             return ""

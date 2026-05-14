@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import random
 from unittest.mock import Mock
 
 import pytest
@@ -19,6 +20,9 @@ import pytest
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.core.configs.params.generation_params import GenerationParams
+from oumi.core.configs.params.grounding_params import (
+    StateGroundingConfig,
+)
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.configs.params.tool_params import ToolError, ToolParams
 from oumi.core.types.conversation import Conversation, Message, Role
@@ -320,3 +324,218 @@ def test_build_call_conv_has_system_and_user_messages():
     assert "answer" in str(conv.messages[0].content)
     user_payload = str(conv.messages[1].content)
     assert '"tool"' in user_payload and '"answer"' in user_payload
+
+
+def _ok_stateless_exec(arguments):
+    return ToolResult(output={"echo": arguments})
+
+
+def _state_increment(arguments, state):
+    new_state = {"files": {"count": state["files"]["count"] + 1}}
+    return ToolResult(
+        output={"new_count": new_state["files"]["count"]},
+        updated_state=new_state,
+    )
+
+
+def _bad_returns_non_toolresult(arguments, state):
+    return {"not": "a tool result"}
+
+
+def _bad_invalid_state(arguments, state):
+    return ToolResult(output={}, updated_state={"files": {"count": "not-an-int"}})
+
+
+def _stateless_returns_state(arguments):
+    return ToolResult(output={}, updated_state={"oops": True})
+
+
+def test_stateless_executor_dispatches_callable_no_state():
+    tool = ToolParams(
+        id="echo",
+        name="Echo",
+        description="Echo",
+        executor=f"{__name__}._ok_stateless_exec",
+    )
+    params = _make_params(tools=[tool])
+    env = SyntheticEnvironment.from_params(params)
+    results = env.step([("echo", {"x": 1})])
+    assert results == [ToolResult(output={"echo": {"x": 1}})]
+
+
+def test_stateful_executor_threads_state_and_mutates():
+    tool = ToolParams(
+        id="bump",
+        name="Bump",
+        description="Bump count",
+        read_only=False,
+        executor=f"{__name__}._state_increment",
+    )
+    params = _make_params(
+        tools=[tool],
+        env_kwargs={
+            "system_prompt": "p",
+            "state_params": SyntheticStateParams(
+                state_schema=_make_state_schema(),
+                initial_state={"files": {"count": 1}},
+            ),
+            "cache_by_input": False,
+        },
+    )
+    env = SyntheticEnvironment.from_params(params)
+    out = env.step([("bump", {}), ("bump", {})])
+    assert out[0].output == {"new_count": 2}
+    assert out[1].output == {"new_count": 3}
+    assert env.current_state == {"files": {"count": 3}}
+
+
+def test_read_only_tool_rejected_when_executor_returns_state():
+    tool = ToolParams(
+        id="bump",
+        name="Bump",
+        description="Bump",
+        read_only=True,
+        executor=f"{__name__}._state_increment",
+    )
+    params = _make_params(
+        tools=[tool],
+        env_kwargs={
+            "system_prompt": "p",
+            "state_params": SyntheticStateParams(
+                state_schema=_make_state_schema(),
+                initial_state={"files": {"count": 1}},
+            ),
+            "cache_by_input": False,
+        },
+    )
+    env = SyntheticEnvironment.from_params(params)
+    with pytest.raises(ToolError, match="read_only"):
+        env.step([("bump", {})])
+
+
+def test_updated_state_validated_against_schema():
+    tool = ToolParams(
+        id="bad",
+        name="Bad",
+        description="Returns bad state",
+        read_only=False,
+        executor=f"{__name__}._bad_invalid_state",
+    )
+    params = _make_params(
+        tools=[tool],
+        env_kwargs={
+            "system_prompt": "p",
+            "state_params": SyntheticStateParams(
+                state_schema=_make_state_schema(),
+                initial_state={"files": {"count": 1}},
+            ),
+            "cache_by_input": False,
+        },
+    )
+    env = SyntheticEnvironment.from_params(params)
+    with pytest.raises(ToolError, match="state_schema"):
+        env.step([("bad", {})])
+
+
+def test_stateless_executor_rejecting_state_return():
+    tool = ToolParams(
+        id="oops",
+        name="Oops",
+        description="Stateless tool returning updated_state",
+        executor=f"{__name__}._stateless_returns_state",
+    )
+    params = _make_params(tools=[tool])
+    env = SyntheticEnvironment.from_params(params)
+    with pytest.raises(ToolError, match="stateless"):
+        env.step([("oops", {})])
+
+
+def test_executor_returning_non_toolresult_raises():
+    tool = ToolParams(
+        id="x",
+        name="X",
+        description="X",
+        executor=f"{__name__}._bad_returns_non_toolresult",
+    )
+    params = _make_params(
+        tools=[tool],
+        env_kwargs={
+            "system_prompt": "p",
+            "state_params": SyntheticStateParams(
+                state_schema=_make_state_schema(),
+                initial_state={"files": {"count": 1}},
+            ),
+            "cache_by_input": False,
+        },
+    )
+    env = SyntheticEnvironment.from_params(params)
+    with pytest.raises(ToolError, match="must return ToolResult"):
+        env.step([("x", {})])
+
+
+def test_state_grounding_projects_from_state_path():
+    tool = ToolParams(
+        id="bump",
+        name="Bump",
+        description="Bump",
+        read_only=False,
+        executor=f"{__name__}._state_increment",
+    )
+    params = _make_params(
+        tools=[tool],
+        env_kwargs={
+            "system_prompt": "p",
+            "state_params": SyntheticStateParams(
+                state_schema={"type": "object"},
+                initial_state={
+                    "books": [
+                        {"book_id": "B1", "title": "A"},
+                        {"book_id": "B2", "title": "B"},
+                        {"book_id": "B3", "title": "C"},
+                    ]
+                },
+                grounding=[
+                    StateGroundingConfig(
+                        state_path="books",
+                        key="book_id",
+                        fields=["book_id", "title"],
+                    )
+                ],
+            ),
+            "cache_by_input": False,
+        },
+    )
+    env = SyntheticEnvironment.from_params(params)
+    facts = env.sample_grounding(n=10, rng=random.Random(0))
+    assert len(facts) == 3
+    assert {f.data["book_id"] for f in facts} == {"B1", "B2", "B3"}
+
+
+def test_state_grounding_state_path_missing_raises_at_init():
+    tool = ToolParams(
+        id="bump",
+        name="Bump",
+        description="Bump",
+        read_only=False,
+        executor=f"{__name__}._state_increment",
+    )
+    params = _make_params(
+        tools=[tool],
+        env_kwargs={
+            "system_prompt": "p",
+            "state_params": SyntheticStateParams(
+                state_schema={"type": "object"},
+                initial_state={"files": {"count": 0}},
+                grounding=[
+                    StateGroundingConfig(
+                        state_path="books",
+                        key="book_id",
+                        fields=["book_id"],
+                    )
+                ],
+            ),
+            "cache_by_input": False,
+        },
+    )
+    with pytest.raises(ValueError, match="state_path"):
+        SyntheticEnvironment.from_params(params)

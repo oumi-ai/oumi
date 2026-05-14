@@ -24,23 +24,50 @@ from oumi.core.configs.params.base_params import BaseParams
 
 @dataclass
 class ToolGroundingConfig(BaseParams):
-    """Per-tool field whitelist for grounding projection.
-
-    Tools listed in ``GroundingConfig.tools`` are projected through
-    ``fields`` when the env samples grounding facts. Tools not listed
-    contribute nothing.
-    """
+    """Per-tool field whitelist for deterministic-env grounding projection."""
 
     fields: list[str]
 
     def __post_init__(self) -> None:
-        """Validate ``fields`` invariants."""
+        """Validate ``fields`` is non-empty and de-duplicated."""
         if not self.fields:
             raise ValueError(f"{type(self).__name__}.fields must be non-empty.")
         if len(set(self.fields)) != len(self.fields):
             raise ValueError(
                 f"{type(self).__name__}.fields contains duplicate entries: "
                 f"{self.fields!r}."
+            )
+
+
+@dataclass
+class StateGroundingConfig(BaseParams):
+    """Per-state-pool grounding for stateful synthetic environments.
+
+    Projects rows from ``initial_state[state_path]`` through ``fields``;
+    ``key`` names the primary-key field and must appear in ``fields``.
+    """
+
+    state_path: str
+    fields: list[str]
+    key: str
+
+    def __post_init__(self) -> None:
+        """Validate ``state_path``, ``fields``, and ``key`` invariants."""
+        if not self.state_path:
+            raise ValueError(f"{type(self).__name__}.state_path must be non-empty.")
+        if not self.fields:
+            raise ValueError(f"{type(self).__name__}.fields must be non-empty.")
+        if len(set(self.fields)) != len(self.fields):
+            raise ValueError(
+                f"{type(self).__name__}.fields contains duplicate entries: "
+                f"{self.fields!r}."
+            )
+        if not self.key:
+            raise ValueError(f"{type(self).__name__}.key must be non-empty.")
+        if self.key not in self.fields:
+            raise ValueError(
+                f"{type(self).__name__}.fields must include 'key' "
+                f"({self.key!r}); got {self.fields!r}."
             )
 
 
