@@ -15,9 +15,11 @@
 """Synthetic environment backed by LLM-simulated or Python-executed tools.
 
 Stateless mode (``state_params=None``) batches LLM-simulated tool outputs
-per tool id, cached by ``(tool_id, args)``. Stateful mode runs the per-tool
-``executor`` callables sequentially so state mutations thread through the
-batch. Tools without an ``executor`` always fall back to LLM simulation.
+per tool id, cached by ``(tool_id, args)``. Individual tools may still
+opt into Python execution by setting ``executor`` -- LLM simulation is
+the fallback for tools without one. Stateful mode (``state_params`` is
+set) requires every tool to define ``executor``; the env runs them
+sequentially so state mutations thread through the batch.
 """
 
 from __future__ import annotations
@@ -167,6 +169,14 @@ class SyntheticEnvironment(BaseEnvironment):
             for tool in params.tools
             if tool.executor
         }
+        if kwargs.state_params is not None:
+            missing = [t.id for t in params.tools if not t.executor]
+            if missing:
+                raise ValueError(
+                    "SyntheticEnvironment in stateful mode (state_params set) "
+                    "requires every tool to define an executor; LLM-simulated "
+                    f"tools cannot mutate state. Missing executor: {missing}"
+                )
         if self._state is not None:
             self._validate_state_grounding()
         self._engine: BaseInferenceEngine | None = None

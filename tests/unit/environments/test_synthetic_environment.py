@@ -76,6 +76,7 @@ def test_from_params_constructs_stateless():
 
 def test_from_params_constructs_stateful():
     params = _make_params(
+        tools=[_make_tool(executor=f"{__name__}._state_increment")],
         env_kwargs={
             "system_prompt": "You manage a filesystem.",
             "state_params": SyntheticStateParams(
@@ -87,6 +88,22 @@ def test_from_params_constructs_stateful():
     )
     env = SyntheticEnvironment.from_params(params)
     assert env.current_state == {"files": {"count": 1}}
+
+
+def test_stateful_mode_requires_executor_on_every_tool():
+    params = _make_params(
+        tools=[
+            _make_tool(id="with_exec", executor=f"{__name__}._state_increment"),
+            _make_tool(id="without_exec"),
+        ],
+        env_kwargs={
+            "system_prompt": "p",
+            "state_params": SyntheticStateParams(),
+            "cache_by_input": False,
+        }
+    )
+    with pytest.raises(ValueError, match=r"requires every tool to define an executor.*without_exec"):
+        SyntheticEnvironment.from_params(params)
 
 
 def test_empty_system_prompt_raises():
