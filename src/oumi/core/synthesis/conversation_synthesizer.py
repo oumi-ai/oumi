@@ -17,13 +17,10 @@ import json
 import random
 from typing import Any
 
-from oumi.builders.environments import build_environment
 from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.configs.environment_config import EnvironmentConfig
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.inference_engine_type import InferenceEngineType
-from oumi.core.configs.params.environment_params import EnvironmentParams
-from oumi.core.configs.params.grounding_params import GroundingConfig
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.configs.params.synthesis_params import (
     GeneralSynthesisParams,
@@ -106,6 +103,24 @@ class ConversationSynthesizer:
                 on_env_built=self._wire_inference,
             )
 
+        self._sample_routers: list[ToolRouter | None] = []
+
+    def _prepare_sample_routers(self, n_samples: int) -> None:
+        """Build per-sample router clones for one ``synthesize()`` batch.
+
+        Replaces ``self._sample_routers`` with a fresh list of length
+        ``n_samples`` so every sample's tool dispatch and grounding read
+        hit an env instance with state independent of every other sample.
+        ``synthesize()`` calls this at batch entry and clears the list in
+        ``finally``; tests that exercise ``_dispatch_tool_calls`` or
+        ``_attach_grounding_facts`` directly call it themselves.
+        """
+        self._sample_routers = (
+            [self._router.for_sample() for _ in range(n_samples)]
+            if self._router is not None
+            else [None] * n_samples
+        )
+
     def _wire_inference(self, env: BaseEnvironment) -> None:
         """Inject the synthesizer's engine + base config into synthetic envs."""
         if isinstance(env, SyntheticEnvironment):
@@ -149,32 +164,39 @@ class ConversationSynthesizer:
             content=content,
         )
 
-    def _dispatch_tool_calls(self, tool_calls: list[ToolCall]) -> list[Message]:
+    def _dispatch_tool_calls(
+        self, tool_calls: list[ToolCall], sample_idx: int
+    ) -> list[Message]:
         """Dispatch a batch of tool calls; returns one TOOL message per call.
 
         Validates each call via the router, then groups surviving calls by env
         and routes each group in one batched ``env.step()``. If the batched
         route raises, falls back to per-call routing so individual errors stay
         attributed.
+
+        ``sample_idx`` selects the per-sample router clone built at
+        ``synthesize()`` entry; routing through it keeps state mutations
+        scoped to one sample's env instances.
         """
-        assert self._router is not None, "tool calls require an environment_config"
+        router = self._sample_routers[sample_idx]
+        assert router is not None, "tool calls require an environment_config"
         results: list[Message | None] = [None] * len(tool_calls)
         groups: dict[int, list[tuple[int, ToolCall, dict[str, Any]]]] = {}
         for idx, tc in enumerate(tool_calls):
             try:
-                arguments = self._router.parse_and_validate_arguments(
+                arguments = router.parse_and_validate_arguments(
                     tc.function.name, tc.function.arguments
                 )
             except (ToolArgumentError, ToolLookupError) as exc:
                 results[idx] = self._tool_error(tc, str(exc))
                 continue
-            env = self._router.tool_to_env[tc.function.name]
+            env = router.tool_to_env[tc.function.name]
             groups.setdefault(id(env), []).append((idx, tc, arguments))
 
         for group in groups.values():
             calls = [(tc.function.name, args) for _, tc, args in group]
             try:
-                outputs = self._router.route_batch(calls)
+                outputs = router.route_batch(calls)
             except Exception:
                 # On batch failure, re-route each call individually so per-call
                 # errors stay attributed. SyntheticEnvironment's in-batch cache
@@ -183,7 +205,7 @@ class ConversationSynthesizer:
                 # Phase 2's corrective-retry should replace this fallback.
                 for idx, tc, args in group:
                     try:
-                        [single] = self._router.route_batch([(tc.function.name, args)])
+                        [single] = router.route_batch([(tc.function.name, args)])
                     except Exception as exc:
                         results[idx] = self._tool_error(
                             tc, f"Tool '{tc.function.name}' raised: {exc}"
@@ -251,10 +273,16 @@ class ConversationSynthesizer:
                 [tool.id for tool in available_tools],
             )
 
-        self._warn_on_grounding_placeholder(multiturn_attributes)
-        self._attach_grounding_facts(samples, multiturn_attributes)
-        samples = self._plan_samples(samples, multiturn_attributes)
-        conversations = self._synthesize_all_samples(samples, multiturn_attributes)
+        self._prepare_sample_routers(len(samples))
+        try:
+            self._warn_on_grounding_placeholder(multiturn_attributes)
+            self._attach_grounding_facts(samples, multiturn_attributes)
+            samples = self._plan_samples(samples, multiturn_attributes)
+            conversations = self._synthesize_all_samples(
+                samples, multiturn_attributes
+            )
+        finally:
+            self._sample_routers = []
 
         records: list[dict[str, dict | str] | None] = []
         plan_key = f"{multiturn_attributes.id}_plan"
@@ -795,7 +823,9 @@ class ConversationSynthesizer:
                         tool_calls=assistant_msg.tool_calls,
                     )
                 )
-                staging[idx].extend(self._dispatch_tool_calls(assistant_msg.tool_calls))
+                staging[idx].extend(
+                    self._dispatch_tool_calls(assistant_msg.tool_calls, idx)
+                )
                 round_count[idx] += 1
             else:
                 staging[idx].append(
@@ -984,6 +1014,14 @@ class ConversationSynthesizer:
         when ``environment_config`` is absent or no env in scope declares
         grounding. Emits one ``logger.warning`` per env when truncation
         occurs (sample_size > pool_size).
+
+        Grounding reads each sample's env from ``self._sample_routers`` so
+        sample ``i``'s grounding pool comes from the same env instance that
+        will later receive sample ``i``'s tool calls. Today grounding runs
+        before any tool fires, so this is observationally identical to a
+        shared-instance read of ``initial_state``; the per-sample wiring
+        keeps the two phases consistent if grounding ever moves into the
+        per-turn loop.
         """
         if self._environment_config is None:
             return
@@ -993,14 +1031,12 @@ class ConversationSynthesizer:
             if multiturn_attribute.available_environments
             else {env.id for env in self._environment_config.environments}
         )
-        grounding_envs: list[
-            tuple[EnvironmentParams, GroundingConfig, BaseEnvironment]
-        ] = [
-            (env_params, env_params.grounding, build_environment(env_params))
+        grounding_env_params = [
+            env_params
             for env_params in self._environment_config.environments
             if env_params.id in scoped_env_ids and env_params.grounding is not None
         ]
-        if not grounding_envs:
+        if not grounding_env_params:
             return
 
         warned_envs: set[str] = set()
@@ -1010,8 +1046,13 @@ class ConversationSynthesizer:
             else None
         )
         for sample_index, sample in enumerate(samples):
+            router = self._sample_routers[sample_index]
+            assert router is not None, "grounding requires an environment_config"
             facts: list[GroundingFact] = []
-            for env_params, grounding, env_runtime in grounding_envs:
+            for env_params in grounding_env_params:
+                grounding = env_params.grounding
+                assert grounding is not None
+                env_runtime = router.env_by_id[env_params.id]
                 rng = self._make_grounding_rng(grounding.seed, sample_index)
                 sampled = env_runtime.sample_grounding(
                     n=grounding.sample_size,

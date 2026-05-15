@@ -169,11 +169,17 @@ def test_parse_and_validate_arguments_empty_string_defaults_to_empty_dict():
 def _mock_router(tool_to_env: dict[str, BaseEnvironment]) -> ToolRouter:
     """Build a ToolRouter directly with mocked envs (skip from_environment_config)."""
     env_by_id = {f"env_{i}": env for i, env in enumerate(set(tool_to_env.values()))}
+    inv_env_by_id = {id(env): env_id for env_id, env in env_by_id.items()}
     return ToolRouter(
         tool_specs=[],
         tools_by_id={},
         env_by_id=env_by_id,
         tool_to_env=tool_to_env,
+        env_params_by_id={},
+        tool_env_map={
+            tool_id: inv_env_by_id[id(env)] for tool_id, env in tool_to_env.items()
+        },
+        on_env_built=None,
     )
 
 
@@ -261,3 +267,101 @@ def test_route_batch_env_exception_propagates():
     router = _mock_router({"t1": fake_env})
     with pytest.raises(RuntimeError, match="boom"):
         router.route_batch([("t1", {})])
+
+
+# ---------- for_sample ----------
+
+
+def test_for_sample_returns_router_with_fresh_env_instances():
+    """Each for_sample() build_environment-s a new env per env_id."""
+    env_config = EnvironmentConfig(
+        environments=[
+            _det_env_params("env1", [_tool("t1")]),
+            _det_env_params("env2", [_tool("t2")]),
+        ]
+    )
+    router = ToolRouter.from_environment_config(env_config)
+
+    clone = router.for_sample()
+
+    assert set(clone.env_by_id) == {"env1", "env2"}
+    assert clone.env_by_id["env1"] is not router.env_by_id["env1"]
+    assert clone.env_by_id["env2"] is not router.env_by_id["env2"]
+
+
+def test_for_sample_two_clones_have_independent_envs():
+    """Sibling clones don't share env instances either."""
+    env_config = EnvironmentConfig(
+        environments=[_det_env_params("env1", [_tool("t1")])]
+    )
+    router = ToolRouter.from_environment_config(env_config)
+
+    clone_a = router.for_sample()
+    clone_b = router.for_sample()
+
+    assert clone_a.env_by_id["env1"] is not clone_b.env_by_id["env1"]
+
+
+def test_for_sample_invokes_on_env_built_for_each_clone():
+    """on_env_built is re-run for each fresh env in each clone."""
+    env_config = EnvironmentConfig(
+        environments=[
+            _det_env_params("env1", [_tool("t1")]),
+            _det_env_params("env2", [_tool("t2")]),
+        ]
+    )
+    seen: list[BaseEnvironment] = []
+    router = ToolRouter.from_environment_config(env_config, on_env_built=seen.append)
+
+    seen.clear()
+    router.for_sample()
+    router.for_sample()
+
+    assert len(seen) == 4
+    assert all(isinstance(env, DeterministicEnvironment) for env in seen)
+
+
+def test_for_sample_preserves_tool_routing_topology():
+    """Cloned tool_to_env points at the cloned env_by_id entries."""
+    env_config = EnvironmentConfig(
+        environments=[
+            _det_env_params("env1", [_tool("t1"), _tool("t2")]),
+            _det_env_params("env2", [_tool("t3")]),
+        ]
+    )
+    router = ToolRouter.from_environment_config(env_config)
+
+    clone = router.for_sample()
+
+    assert clone.tool_to_env["t1"] is clone.env_by_id["env1"]
+    assert clone.tool_to_env["t2"] is clone.env_by_id["env1"]
+    assert clone.tool_to_env["t3"] is clone.env_by_id["env2"]
+
+
+def test_for_sample_shares_immutable_metadata_with_parent():
+    """Specs/params dicts are reference-shared (immutable across samples)."""
+    env_config = EnvironmentConfig(
+        environments=[_det_env_params("env1", [_tool("t1")])]
+    )
+    router = ToolRouter.from_environment_config(env_config)
+
+    clone = router.for_sample()
+
+    assert clone.tool_specs is router.tool_specs
+    assert clone.tools_by_id is router.tools_by_id
+    assert clone.env_params_by_id is router.env_params_by_id
+    assert clone.tool_env_map is router.tool_env_map
+
+
+def test_for_sample_mutation_does_not_bleed_back_to_parent():
+    """A clone's env_by_id is a fresh dict; reassigning it doesn't touch parent."""
+    env_config = EnvironmentConfig(
+        environments=[_det_env_params("env1", [_tool("t1")])]
+    )
+    router = ToolRouter.from_environment_config(env_config)
+    parent_env = router.env_by_id["env1"]
+
+    clone = router.for_sample()
+    clone.env_by_id["env1"] = Mock(spec=BaseEnvironment)
+
+    assert router.env_by_id["env1"] is parent_env
