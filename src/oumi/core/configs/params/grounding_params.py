@@ -111,6 +111,12 @@ class GroundingConfig(BaseParams):
             else StateGroundingConfig(**cfg)
             for cfg in self.state
         ]
+        state_paths = [cfg.state_path for cfg in self.state]
+        if len(set(state_paths)) != len(state_paths):
+            raise ValueError(
+                f"{type(self).__name__}.state contains duplicate state_path "
+                f"entries: {state_paths!r}."
+            )
 
 
 @dataclass

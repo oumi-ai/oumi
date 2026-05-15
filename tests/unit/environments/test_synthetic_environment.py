@@ -99,7 +99,7 @@ def test_stateful_mode_requires_executor_on_every_tool():
         ],
         env_kwargs={
             "system_prompt": "p",
-            "state_params": SyntheticStateParams(),
+            "state_params": SyntheticStateParams(initial_state={"counter": 0}),
             "cache_by_input": False,
         },
     )

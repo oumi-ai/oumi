@@ -165,13 +165,14 @@ class SyntheticEnvironment(BaseEnvironment):
             for tool in params.tools
             if tool.executor
         }
-        if kwargs.state_params is not None:
+        if self._state is not None:
             missing = [t.id for t in params.tools if not t.executor]
             if missing:
                 raise ValueError(
-                    "SyntheticEnvironment in stateful mode (state_params set) "
-                    "requires every tool to define an executor; LLM-simulated "
-                    f"tools cannot mutate state. Missing executor: {missing}"
+                    "SyntheticEnvironment in stateful mode (state_params with "
+                    "initial_state set) requires every tool to define an executor; "
+                    "LLM-simulated tools cannot mutate state. Missing executor: "
+                    f"{missing}"
                 )
         if self._state is not None:
             self._validate_state_grounding()
@@ -320,8 +321,11 @@ class SyntheticEnvironment(BaseEnvironment):
     def _step_stateful_one(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:
         """Dispatch a stateful tool and commit ``updated_state`` after validation.
 
-        ``state_in`` is a deep copy so in-place mutation by the executor
-        doesn't bleed through if validation later rejects the result.
+        ``state_in`` is a deep copy so the executor's reference to ``state``
+        can't reach back into ``self._state``: executors that mutate ``state``
+        in place (or hand the same dict back as ``updated_state``) end up
+        touching the copy, and ``self._state`` is only reassigned via the
+        explicit deepcopy of ``result.updated_state`` below.
         """
         assert self._state is not None
         tool = self._lookup_tool(tool_id)
