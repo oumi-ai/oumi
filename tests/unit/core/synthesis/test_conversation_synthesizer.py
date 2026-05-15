@@ -2379,7 +2379,7 @@ def test_dispatch_tool_calls_uses_distinct_envs_across_samples(
     """Two samples' dispatches land on different env instances."""
     mock_build_inference_engine.return_value = Mock()
 
-    built_envs: list[BaseEnvironment] = []
+    built_envs: list[Mock] = []
 
     def _fresh_env(_params):
         env = Mock(spec=BaseEnvironment)
@@ -2407,10 +2407,9 @@ def test_dispatch_tool_calls_uses_distinct_envs_across_samples(
     synth._dispatch_tool_calls([tc], 0)
     synth._dispatch_tool_calls([tc], 1)
 
-    router_0, router_1 = synth._sample_routers
-    assert router_0 is not None and router_1 is not None
-    env_sample_0 = router_0.env_by_id["e"]
-    env_sample_1 = router_1.env_by_id["e"]
+    # __init__ builds the parent env; _prepare_sample_routers(2) builds 2 more.
+    assert len(built_envs) == 3
+    env_sample_0, env_sample_1 = built_envs[1], built_envs[2]
     assert env_sample_0 is not env_sample_1
     assert env_sample_0.step.call_count == 1
     assert env_sample_1.step.call_count == 1
@@ -2472,9 +2471,7 @@ def test_synthesize_clears_sample_routers_on_exception(
         environment_config=env_config,
     )
 
-    with patch.object(
-        synth, "_plan_samples", side_effect=RuntimeError("plan boom")
-    ):
+    with patch.object(synth, "_plan_samples", side_effect=RuntimeError("plan boom")):
         with pytest.raises(RuntimeError, match="plan boom"):
             synth.synthesize([{"x": 1}], mock_multiturn_attribute)
     assert synth._sample_routers == []

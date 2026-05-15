@@ -278,9 +278,7 @@ class ConversationSynthesizer:
             self._warn_on_grounding_placeholder(multiturn_attributes)
             self._attach_grounding_facts(samples, multiturn_attributes)
             samples = self._plan_samples(samples, multiturn_attributes)
-            conversations = self._synthesize_all_samples(
-                samples, multiturn_attributes
-            )
+            conversations = self._synthesize_all_samples(samples, multiturn_attributes)
         finally:
             self._sample_routers = []
 
