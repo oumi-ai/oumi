@@ -106,14 +106,11 @@ class ConversationSynthesizer:
         self._sample_routers: list[ToolRouter | None] = []
 
     def _prepare_sample_routers(self, n_samples: int) -> None:
-        """Build per-sample router clones for one ``synthesize()`` batch.
+        """Replace ``self._sample_routers`` with one router clone per sample.
 
-        Replaces ``self._sample_routers`` with a fresh list of length
-        ``n_samples`` so every sample's tool dispatch and grounding read
-        hit an env instance with state independent of every other sample.
-        ``synthesize()`` calls this at batch entry and clears the list in
-        ``finally``; tests that exercise ``_dispatch_tool_calls`` or
-        ``_attach_grounding_facts`` directly call it themselves.
+        Each sample's tool dispatch and grounding read hit an env with state
+        independent of every other sample's. ``synthesize()`` calls this at
+        batch entry and clears the list in ``finally``.
         """
         self._sample_routers = (
             [self._router.for_sample() for _ in range(n_samples)]
@@ -1011,15 +1008,9 @@ class ConversationSynthesizer:
         across all envs in scope that declare a ``GroundingConfig``. No-op
         when ``environment_config`` is absent or no env in scope declares
         grounding. Emits one ``logger.warning`` per env when truncation
-        occurs (sample_size > pool_size).
-
-        Grounding reads each sample's env from ``self._sample_routers`` so
-        sample ``i``'s grounding pool comes from the same env instance that
-        will later receive sample ``i``'s tool calls. Today grounding runs
-        before any tool fires, so this is observationally identical to a
-        shared-instance read of ``initial_state``; the per-sample wiring
-        keeps the two phases consistent if grounding ever moves into the
-        per-turn loop.
+        occurs (sample_size > pool_size). Each sample reads its grounding
+        pool from the same per-sample router that will later receive its
+        tool calls.
         """
         if self._environment_config is None:
             return

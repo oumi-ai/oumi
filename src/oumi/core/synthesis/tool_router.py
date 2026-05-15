@@ -90,11 +90,9 @@ class ToolRouter:
     def for_sample(self) -> ToolRouter:
         """Return a router with fresh env instances for one sample.
 
-        Each ``BaseEnvironment`` is rebuilt via ``build_environment`` so its
-        mutable state (e.g. ``SyntheticEnvironment._state``) is independent
-        from the parent router and from any sibling ``for_sample`` clone.
-        ``on_env_built`` is re-invoked on every fresh env so synthetic envs
-        get their inference engine re-attached.
+        Each env is rebuilt via ``build_environment`` so its mutable state
+        is independent from the parent and from any sibling clone.
+        ``on_env_built`` re-runs on every fresh env.
         """
         env_by_id_new: dict[str, BaseEnvironment] = {}
         for env_id, env_params in self.env_params_by_id.items():
