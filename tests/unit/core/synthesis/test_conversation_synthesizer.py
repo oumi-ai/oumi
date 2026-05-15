@@ -1079,7 +1079,6 @@ def _grounding_attr(
 
 
 def test_make_grounding_rng_unseeded_returns_fresh_random(mock_inference_config):
-
     synth = _make_synthesizer(mock_inference_config)
     rng = synth._make_grounding_rng(seed=None, sample_index=0)
     assert isinstance(rng, random.Random)
@@ -1277,7 +1276,6 @@ def test_attach_grounding_facts_concatenates_across_multiple_envs(
 def test_attach_grounding_facts_truncation_emits_logger_warning(
     mock_inference_config, caplog
 ):
-
     env_config = _grounded_env_config(n_entries=2, sample_size=5, seed=1)
     synth = _make_synthesizer(mock_inference_config, environment_config=env_config)
     samples = [{}, {}]
@@ -1459,7 +1457,6 @@ def test_synthesize_invokes_attach_grounding_facts(
 def test_warn_on_grounding_placeholder_warns_in_user_persona(
     mock_inference_config, caplog
 ):
-
     synth = _make_synthesizer(mock_inference_config)
     attr = MultiTurnAttribute(
         id="t",
@@ -1480,7 +1477,6 @@ def test_warn_on_grounding_placeholder_warns_in_user_persona(
 def test_warn_on_grounding_placeholder_warns_in_assistant_persona(
     mock_inference_config, caplog
 ):
-
     synth = _make_synthesizer(mock_inference_config)
     attr = MultiTurnAttribute(
         id="t",
@@ -1501,7 +1497,6 @@ def test_warn_on_grounding_placeholder_warns_in_assistant_persona(
 def test_warn_on_grounding_placeholder_no_warning_when_placeholder_absent(
     mock_inference_config, caplog
 ):
-
     synth = _make_synthesizer(mock_inference_config)
     attr = MultiTurnAttribute(
         id="t",
