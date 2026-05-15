@@ -79,7 +79,7 @@ def postgres_dsn():
     from testcontainers.postgres import PostgresContainer
 
     with PostgresContainer("postgres:16-alpine") as pg:
-        yield pg.get_connection_url().replace("postgresql://", "postgresql+psycopg://")
+        yield pg.get_connection_url()
 
 
 @pytest.fixture

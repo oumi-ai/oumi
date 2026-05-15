@@ -294,14 +294,19 @@ class DatabaseExecutableEnvironment(ExecutableEnvironment):
         try:
             return executor(arguments=arguments, db=ctx), False
         except sqlalchemy.exc.DBAPIError as e:
+            orig = e.orig
+            # psycopg3 exposes SQLSTATE as ``sqlstate``; psycopg2 as ``pgcode``.
+            sql_state = (
+                getattr(orig, "sqlstate", None) or getattr(orig, "pgcode", None)
+                if orig
+                else None
+            )
             wrapped = ToolResult(
                 output={
                     "status": "error",
                     "error": type(e).__name__,
-                    "message": str(e.orig) if e.orig else str(e),
-                    "sql_state": (
-                        getattr(e.orig, "sqlstate", None) if e.orig else None
-                    ),
+                    "message": str(orig) if orig else str(e),
+                    "sql_state": sql_state,
                 }
             )
             return wrapped, True
