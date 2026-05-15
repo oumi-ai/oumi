@@ -21,6 +21,7 @@ from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.grounding_params import (
+    GroundingConfig,
     StateGroundingConfig,
 )
 from oumi.core.configs.params.model_params import ModelParams
@@ -513,16 +514,18 @@ def test_state_grounding_projects_from_state_path():
                         {"book_id": "B3", "title": "C"},
                     ]
                 },
-                grounding=[
-                    StateGroundingConfig(
-                        state_path="books",
-                        key="book_id",
-                        fields=["book_id", "title"],
-                    )
-                ],
             ),
             "cache_by_input": False,
         },
+        grounding=GroundingConfig(
+            state=[
+                StateGroundingConfig(
+                    state_path="books",
+                    key="book_id",
+                    fields=["book_id", "title"],
+                )
+            ],
+        ),
     )
     env = SyntheticEnvironment.from_params(params)
     facts = env.sample_grounding(n=10, rng=random.Random(0))
@@ -545,16 +548,33 @@ def test_state_grounding_state_path_missing_raises_at_init():
             "state_params": SyntheticStateParams(
                 state_schema={"type": "object"},
                 initial_state={"files": {"count": 0}},
-                grounding=[
-                    StateGroundingConfig(
-                        state_path="books",
-                        key="book_id",
-                        fields=["book_id"],
-                    )
-                ],
             ),
             "cache_by_input": False,
         },
+        grounding=GroundingConfig(
+            state=[
+                StateGroundingConfig(
+                    state_path="books",
+                    key="book_id",
+                    fields=["book_id"],
+                )
+            ],
+        ),
     )
     with pytest.raises(ValueError, match="state_path"):
+        SyntheticEnvironment.from_params(params)
+
+
+def test_state_grounding_without_state_raises():
+    """grounding.state on a stateless synthetic env is a config error."""
+    params = _make_params(
+        grounding=GroundingConfig(
+            state=[
+                StateGroundingConfig(
+                    state_path="books", key="book_id", fields=["book_id"]
+                )
+            ],
+        ),
+    )
+    with pytest.raises(ValueError, match="grounding.state is configured"):
         SyntheticEnvironment.from_params(params)

@@ -73,7 +73,12 @@ class StateGroundingConfig(BaseParams):
 
 @dataclass
 class GroundingConfig(BaseParams):
-    """Per-environment grounding configuration."""
+    """Per-environment grounding configuration.
+
+    Both sub-blocks are optional; envs read whichever applies. Deterministic
+    envs project from ``tools`` (per-tool lookup-table entries); stateful
+    synthetic envs project from ``state`` (per-pool ``initial_state`` rows).
+    """
 
     sample_size: int = 3
     """Number of grounding facts sampled per conversation."""
@@ -84,8 +89,11 @@ class GroundingConfig(BaseParams):
     tools: dict[str, ToolGroundingConfig] = field(default_factory=dict)
     """Per-tool field whitelists, keyed by tool id."""
 
+    state: list[StateGroundingConfig] = field(default_factory=list)
+    """Per-state-pool projections for stateful synthetic envs."""
+
     def __post_init__(self) -> None:
-        """Validate ``sample_size`` and coerce ``tools`` entries."""
+        """Validate ``sample_size`` and coerce ``tools``/``state`` entries."""
         if self.sample_size < 1:
             raise ValueError(
                 f"{type(self).__name__}.sample_size must be >= 1, "
@@ -97,6 +105,12 @@ class GroundingConfig(BaseParams):
             else ToolGroundingConfig(**cfg)
             for tool_id, cfg in self.tools.items()
         }
+        self.state = [
+            cfg
+            if isinstance(cfg, StateGroundingConfig)
+            else StateGroundingConfig(**cfg)
+            for cfg in self.state
+        ]
 
 
 @dataclass

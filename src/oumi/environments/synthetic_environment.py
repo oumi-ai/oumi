@@ -58,24 +58,16 @@ if TYPE_CHECKING:
 class SyntheticStateParams(BaseParams):
     """Optional state configuration for a synthetic environment.
 
-    ``grounding`` declares one or more state pools (``state_path``) to
-    project ``GroundingFact``s from. Each entry's ``state_path`` must
-    resolve to a ``list[dict]`` in ``initial_state``.
+    State grounding for these pools is declared at the env level
+    via ``EnvironmentParams.grounding.state`` — each entry's
+    ``state_path`` must resolve to a ``list[dict]`` in ``initial_state``.
     """
 
     state_schema: dict[str, Any] | None = None
     initial_state: dict[str, Any] | None = None
-    grounding: list[StateGroundingConfig] | None = None
 
     def __post_init__(self):
         """Validate state config consistency."""
-        if self.grounding is not None:
-            self.grounding = [
-                cfg
-                if isinstance(cfg, StateGroundingConfig)
-                else StateGroundingConfig(**cfg)
-                for cfg in self.grounding
-            ]
         if self.state_schema is not None and self.initial_state is not None:
             jsonschema.validate(self.initial_state, self.state_schema)
 
@@ -160,10 +152,14 @@ class SyntheticEnvironment(BaseEnvironment):
             else None
         )
         self._state_grounding: list[StateGroundingConfig] = (
-            kwargs.state_params.grounding or []
-            if kwargs.state_params is not None
-            else []
+            list(params.grounding.state) if params.grounding is not None else []
         )
+        if self._state is None and self._state_grounding:
+            raise ValueError(
+                f"SyntheticEnvironment '{params.id}': grounding.state is "
+                f"configured but the env has no state (state_params with "
+                f"initial_state is required)."
+            )
         self._executors: dict[str, Callable[..., Any]] = {
             tool.id: _import_executor(tool.executor, tool.id)
             for tool in params.tools
@@ -372,9 +368,9 @@ class SyntheticEnvironment(BaseEnvironment):
         rng: random.Random,
         tool_ids: set[str] | None = None,
     ) -> list[GroundingFact]:
-        """Project grounding facts from ``state_params.grounding`` pools.
+        """Project grounding facts from ``grounding.state`` pools.
 
-        No-op for stateless envs or envs without ``state_params.grounding``.
+        No-op for stateless envs or envs without ``grounding.state`` entries.
         ``tool_ids`` is accepted for ``BaseEnvironment`` signature compatibility
         but ignored — state grounding is pool-scoped, not tool-scoped.
 
@@ -395,7 +391,7 @@ class SyntheticEnvironment(BaseEnvironment):
         return rng.sample(pool, min(n, len(pool)))
 
     def _validate_state_grounding(self) -> None:
-        """Validate each ``state_params.grounding`` entry against state."""
+        """Validate each ``grounding.state`` entry against current state."""
         assert self._state is not None
         for cfg in self._state_grounding:
             if cfg.state_path not in self._state:
