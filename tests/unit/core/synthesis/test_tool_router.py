@@ -108,6 +108,37 @@ def test_from_environment_config_routes_tools_across_envs():
     assert {spec.function.name for spec in router.tool_specs} == {"t1", "t2", "t3"}
 
 
+def test_from_environment_config_includes_grounding_only_envs():
+    """Envs with grounding but no tools are still built by from_environment_config."""
+    from oumi.core.configs.params.grounding_params import (
+        GroundingConfig,
+        StateGroundingConfig,
+    )
+
+    state_env = EnvironmentParams(
+        id="state_only",
+        name="state_only",
+        description="grounding-only env",
+        env_type="synthetic",
+        tools=[],
+        env_kwargs={
+            "system_prompt": "p",
+            "state_params": {"initial_state": {"rows": [{"id": "1"}]}},
+            "cache_by_input": False,
+        },
+        grounding=GroundingConfig(
+            sample_size=1,
+            state=[StateGroundingConfig(state_path="rows", fields=["id"], key="id")],
+        ),
+    )
+    env_config = EnvironmentConfig(environments=[state_env])
+
+    router = ToolRouter.from_environment_config(env_config)
+
+    assert "state_only" in router.env_by_id
+    assert "state_only" in router.env_params_by_id
+
+
 # ---------- parse_and_validate_arguments ----------
 
 

@@ -2437,7 +2437,11 @@ def test_synthesize_clears_sample_routers_on_normal_exit(
         environment_config=env_config,
     )
 
-    synth.synthesize([], mock_multiturn_attribute)
+    with (
+        patch.object(synth, "_plan_samples", side_effect=lambda samples, _: samples),
+        patch.object(synth, "_synthesize_all_samples", return_value=[]),
+    ):
+        synth.synthesize([{"x": 1}], mock_multiturn_attribute)
     assert synth._sample_routers == []
 
 

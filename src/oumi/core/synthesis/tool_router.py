@@ -58,12 +58,16 @@ class ToolRouter:
     ) -> ToolRouter:
         """Build a router from an env config."""
         tool_env_map = env_config.tool_environment_map
-        reachable_env_ids = set(tool_env_map.values())
+        included_env_ids = set(tool_env_map.values()) | {
+            env_params.id
+            for env_params in env_config.environments
+            if env_params.grounding is not None
+        }
 
         env_params_by_id: dict[str, EnvironmentParams] = {}
         env_by_id: dict[str, BaseEnvironment] = {}
         for env_params in env_config.environments:
-            if env_params.id not in reachable_env_ids:
+            if env_params.id not in included_env_ids:
                 continue
             env_params_by_id[env_params.id] = env_params
             env = build_environment(env_params)
