@@ -1350,3 +1350,56 @@ def test_typed_field_access_on_message_tool_calls():
     assert msg.tool_calls[0].id == "call_abc"
     assert msg.tool_calls[0].function.name == "get_weather"
     assert msg.tool_calls[0].function.arguments == '{"city": "SF"}'
+
+
+# -----------------------------------------------------------------------------
+# reasoning_content (Fireworks/Together separate-field format)
+# -----------------------------------------------------------------------------
+
+
+def test_message_reasoning_content_field():
+    """reasoning_content is preserved alongside content."""
+    msg = Message(role=Role.ASSISTANT, content="answer", reasoning_content="thought")
+    assert msg.reasoning_content == "thought"
+    assert msg.content == "answer"
+
+
+def test_message_reasoning_content_defaults_to_none():
+    """reasoning_content defaults to None when unset."""
+    msg = Message(role=Role.ASSISTANT, content="answer")
+    assert msg.reasoning_content is None
+
+
+def test_message_reasoning_content_round_trips_through_dict():
+    """reasoning_content survives a model_dump / re-construct cycle."""
+    msg = Message(role=Role.ASSISTANT, content="answer", reasoning_content="thought")
+    restored = Message(**msg.model_dump(mode="json", exclude_none=True))
+    assert restored.reasoning_content == "thought"
+
+
+def test_message_with_only_reasoning_content_is_invalid():
+    """Validator still requires content or tool_calls; reasoning alone isn't enough."""
+    with pytest.raises(ValueError, match="at least one of `content`"):
+        Message(role=Role.ASSISTANT, reasoning_content="thought")
+
+
+def test_conversation_to_dict_excludes_none_reasoning_content():
+    """to_dict() omits reasoning_content when None (exclude_none semantics)."""
+    conv = Conversation(messages=[Message(role=Role.USER, content="hi")])
+    d = conv.to_dict()
+    assert "reasoning_content" not in d["messages"][0]
+
+
+def test_conversation_to_dict_includes_set_reasoning_content():
+    """to_dict() includes reasoning_content when present."""
+    conv = Conversation(
+        messages=[
+            Message(
+                role=Role.ASSISTANT,
+                content="answer",
+                reasoning_content="thought",
+            )
+        ]
+    )
+    d = conv.to_dict()
+    assert d["messages"][0]["reasoning_content"] == "thought"

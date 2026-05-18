@@ -19,6 +19,7 @@ from oumi.utils.conversation_utils import (
     create_list_of_message_json_dicts,
     load_image_bytes_to_content_item,
     load_pil_image_from_content_item,
+    remove_excessive_images,
     remove_excessive_images_from_conversation,
     truncate_text_in_content_items,
 )
@@ -880,3 +881,35 @@ def test_create_list_of_message_json_dicts_no_tool_keys_when_unset():
     for d in result:
         assert "tool_calls" not in d
         assert "tool_call_id" not in d
+
+
+#
+# reasoning_content preservation through utility reconstructions
+#
+def test_remove_excessive_images_preserves_reasoning_content():
+    """reasoning_content survives image-dropping reconstruction."""
+    img = ContentItem(
+        type=Type.IMAGE_BINARY,
+        binary=create_png_bytes_from_image(PIL.Image.new("RGB", (2, 2))),
+    )
+    msg = Message(
+        role=Role.ASSISTANT,
+        content=[ContentItem(type=Type.TEXT, content="answer"), img],
+        reasoning_content="thinking",
+    )
+    result = remove_excessive_images([msg], max_images=0)
+    assert len(result) == 1
+    assert result[0].reasoning_content == "thinking"
+
+
+def test_truncate_text_in_content_items_preserves_reasoning_content():
+    """reasoning_content survives text-truncation reconstruction."""
+    tokenizer = build_tokenizer(ModelParams(model_name="gpt2"))
+    msg = Message(
+        role=Role.ASSISTANT,
+        content="the quick brown fox jumps over the lazy dog",
+        reasoning_content="thinking",
+    )
+    result = truncate_text_in_content_items([msg], tokenizer=tokenizer, max_tokens=3)
+    assert len(result) == 1
+    assert result[0].reasoning_content == "thinking"
