@@ -13,7 +13,7 @@ oumi = ["LICENSE", "README.md", "*.jinja"]
 
 # We currently use the Omegaconf dev version, and uv doesn't allow pre-release versions
 # by default. "if-necessary-or-explicit" permits pre-releases when a package is
-# explicitly pinned to one (e.g. omegaconf==2.4.0.dev4) or when no stable release
+# explicitly pinned to one (e.g. omegaconf==2.4.0.dev11) or when no stable release
 # satisfies the requirement (e.g. opentelemetry-semantic-conventions, which only
 # ships beta versions on PyPI).
 [tool.uv]
