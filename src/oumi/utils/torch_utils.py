@@ -78,54 +78,67 @@ def format_cudnn_version(v: int | None) -> str:
 def log_versioning_info() -> None:
     """Logs misc versioning information."""
     logger.info(f"Torch version: {torch.__version__}. NumPy version: {np.__version__}")
-    if not torch.cuda.is_available():
-        logger.info("CUDA is not available!")
-        return
+    if torch.cuda.is_available():
+        # pyright seems to have an issue with torch==2.5.1
+        # torch.version is always available, but pyright doesn't know that
+        if hasattr(torch, "version"):
+            logger.info(f"CUDA version: {torch.version.cuda} ")  # type: ignore
 
-    # pyright seems to have an issue with torch==2.5.1
-    # torch.version is always available, but pyright doesn't know that
-    if hasattr(torch, "version"):
-        logger.info(f"CUDA version: {torch.version.cuda} ")  # type: ignore
-
-    # For AMD GPUs, these functions return ROCm, MlOpen versions respectively.
-    logger.info(
-        f"CuDNN version: {format_cudnn_version(torch.backends.cudnn.version())}"
-    )
+        # For AMD GPUs, these functions return ROCm, MlOpen versions respectively.
+        logger.info(
+            f"CuDNN version: {format_cudnn_version(torch.backends.cudnn.version())}"
+        )
+    elif torch.backends.mps.is_available():
+        logger.info("Using Apple MPS (Metal Performance Shaders) backend.")
+    else:
+        logger.info("No accelerator (CUDA/MPS) available.")
 
 
 def log_devices_info(filepath: Path | None = None) -> None:
     """Logs high-level info about all available accelerator devices."""
-    if not torch.cuda.is_available():
-        return
-
-    ncpus = os.cpu_count()
-    num_devices = torch.cuda.device_count()
-    log_lines = [f"CPU cores: {ncpus} CUDA devices: {num_devices}"]
 
     def _mem_to_gib(x):
         return round(float(x) / 1024**3, 2)
 
-    for i in range(num_devices):
-        device_name = torch.cuda.get_device_name(i)
-        mem_free, mem_total = torch.cuda.mem_get_info(i)
-        mem_allocated = torch.cuda.memory_allocated(i)
-        mem_reserved = torch.cuda.memory_reserved(i)
-        capability = torch.cuda.get_device_capability(i)
+    log_lines: list[str] = []
+    if torch.cuda.is_available():
+        ncpus = os.cpu_count()
+        num_devices = torch.cuda.device_count()
+        log_lines.append(f"CPU cores: {ncpus} CUDA devices: {num_devices}")
+
+        for i in range(num_devices):
+            device_name = torch.cuda.get_device_name(i)
+            mem_free, mem_total = torch.cuda.mem_get_info(i)
+            mem_allocated = torch.cuda.memory_allocated(i)
+            mem_reserved = torch.cuda.memory_reserved(i)
+            capability = torch.cuda.get_device_capability(i)
+            log_lines.append(
+                f"device({i})='{device_name}' "
+                f"Capability: {capability} "
+                f"Memory: [Total: {_mem_to_gib(mem_total)}GiB "
+                f"Free: {_mem_to_gib(mem_free)}GiB "
+                f"Allocated: {_mem_to_gib(mem_allocated)}GiB "
+                f"Cached: {_mem_to_gib(mem_reserved)}GiB]"
+            )
+    elif torch.backends.mps.is_available():
+        ncpus = os.cpu_count()
+        mem_allocated = torch.mps.current_allocated_memory()
+        mem_driver = torch.mps.driver_allocated_memory()
+        mem_recommended_max = torch.mps.recommended_max_memory()
+        log_lines.append(f"CPU cores: {ncpus} MPS devices: 1 (Apple Silicon)")
         log_lines.append(
-            f"device({i})='{device_name}' "
-            f"Capability: {capability} "
-            f"Memory: [Total: {_mem_to_gib(mem_total)}GiB "
-            f"Free: {_mem_to_gib(mem_free)}GiB "
+            f"Memory: [Recommended Max: {_mem_to_gib(mem_recommended_max)}GiB "
             f"Allocated: {_mem_to_gib(mem_allocated)}GiB "
-            f"Cached: {_mem_to_gib(mem_reserved)}GiB]"
+            f"Driver Reserved: {_mem_to_gib(mem_driver)}GiB]"
         )
 
-    all_text = "\n".join(log_lines)
-    logger.info(all_text)
+    if log_lines:
+        all_text = "\n".join(log_lines)
+        logger.info(all_text)
 
-    if filepath:
-        with filepath.open("w", encoding="utf-8") as f:
-            f.write(all_text)
+        if filepath:
+            with filepath.open("w", encoding="utf-8") as f:
+                f.write(all_text)
 
 
 def log_peak_gpu_memory():
@@ -133,6 +146,9 @@ def log_peak_gpu_memory():
     if torch.cuda.is_available():
         peak_memory = torch.cuda.max_memory_allocated() / 1024**3  # Convert to GB
         logger.info(f"Peak GPU memory usage: {peak_memory:.2f} GB")
+    elif torch.backends.mps.is_available():
+        current_memory = torch.mps.current_allocated_memory() / 1024**3
+        logger.info(f"Current MPS memory allocated: {current_memory:.2f} GB")
 
 
 def create_model_summary(model: Any) -> str:
