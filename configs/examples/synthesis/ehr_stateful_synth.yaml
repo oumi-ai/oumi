@@ -172,6 +172,171 @@ environment_config:
                       hr: 78,
                       temp_f: 98.6,
                     }
+              - patient_id: P004
+                name: Elena Vasquez
+                dob: "1990-07-22"
+                status: active
+                allergies: [sulfa]
+                medications: []
+                diagnoses: []
+                vitals_history: []
+              - patient_id: P005
+                name: James O'Brien
+                dob: "1965-01-08"
+                status: active
+                allergies: [aspirin]
+                medications:
+                  - { name: omeprazole, dose: "20mg daily" }
+                diagnoses:
+                  - {
+                      code: K21.9,
+                      description: "Gastroesophageal reflux disease without esophagitis",
+                      date: "2023-11-02",
+                    }
+                vitals_history:
+                  - {
+                      timestamp: "2025-12-03T11:15",
+                      bp: "128/80",
+                      hr: 70,
+                      temp_f: 98.2,
+                    }
+              - patient_id: P006
+                name: Priya Patel
+                dob: "2001-04-17"
+                status: active
+                allergies: []
+                medications:
+                  - { name: albuterol, dose: "2 puffs PRN" }
+                diagnoses:
+                  - {
+                      code: J45.909,
+                      description: "Unspecified asthma, uncomplicated",
+                      date: "2024-02-14",
+                    }
+                vitals_history: []
+              - patient_id: P007
+                name: William Chen
+                dob: "1948-12-30"
+                status: active
+                allergies: []
+                medications:
+                  - { name: tiotropium, dose: "18mcg daily" }
+                  - { name: furosemide, dose: "40mg daily" }
+                diagnoses:
+                  - {
+                      code: J44.9,
+                      description: "Chronic obstructive pulmonary disease, unspecified",
+                      date: "2021-08-05",
+                    }
+                vitals_history:
+                  - {
+                      timestamp: "2026-02-20T08:45",
+                      bp: "132/76",
+                      hr: 88,
+                      temp_f: 98.1,
+                    }
+              - patient_id: P008
+                name: Sofia Nguyen
+                dob: "1979-06-11"
+                status: inactive
+                allergies: [latex]
+                medications: []
+                diagnoses: []
+                vitals_history: []
+              - patient_id: P009
+                name: David Kim
+                dob: "1995-10-03"
+                status: active
+                allergies: [peanuts, shellfish]
+                medications: []
+                diagnoses: []
+                vitals_history: []
+              - patient_id: P010
+                name: Amara Diallo
+                dob: "1988-02-28"
+                status: active
+                allergies: []
+                medications:
+                  - { name: levothyroxine, dose: "75mcg daily" }
+                diagnoses:
+                  - {
+                      code: E03.9,
+                      description: "Hypothyroidism, unspecified",
+                      date: "2020-05-18",
+                    }
+                vitals_history:
+                  - {
+                      timestamp: "2025-09-10T16:30",
+                      bp: "118/72",
+                      hr: 64,
+                      temp_f: 98.0,
+                    }
+              - patient_id: P011
+                name: Thomas Wright
+                dob: "2005-08-19"
+                status: active
+                allergies: []
+                medications: []
+                diagnoses: []
+                vitals_history: []
+              - patient_id: P012
+                name: Lisa Anderson
+                dob: "1960-03-07"
+                status: active
+                allergies: [codeine]
+                medications:
+                  - { name: amlodipine, dose: "5mg daily" }
+                  - { name: metoprolol, dose: "25mg twice daily" }
+                  - { name: aspirin, dose: "81mg daily" }
+                diagnoses:
+                  - {
+                      code: I25.10,
+                      description: "Atherosclerotic heart disease of native coronary artery without angina pectoris",
+                      date: "2019-07-22",
+                    }
+                vitals_history:
+                  - {
+                      timestamp: "2026-03-01T09:00",
+                      bp: "142/88",
+                      hr: 76,
+                      temp_f: 98.3,
+                    }
+              - patient_id: P013
+                name: Carlos Mendez
+                dob: "1974-12-01"
+                status: active
+                allergies: []
+                medications:
+                  - { name: sertraline, dose: "50mg daily" }
+                diagnoses:
+                  - {
+                      code: F32.9,
+                      description: "Major depressive disorder, single episode, unspecified",
+                      date: "2023-03-15",
+                    }
+                vitals_history: []
+              - patient_id: P014
+                name: Hannah Brooks
+                dob: "1992-09-14"
+                status: active
+                allergies: [penicillin, amoxicillin]
+                medications: []
+                diagnoses: []
+                vitals_history: []
+              - patient_id: P015
+                name: Kevin Nguyen
+                dob: "1983-11-25"
+                status: active
+                allergies: []
+                medications:
+                  - { name: ibuprofen, dose: "400mg PRN" }
+                diagnoses:
+                  - {
+                      code: M54.5,
+                      description: "Low back pain",
+                      date: "2025-01-08",
+                    }
+                vitals_history: []
       tools:
         - id: list_patients
           name: list_patients

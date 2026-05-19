@@ -14,13 +14,15 @@
 
 """Stateful EHR tool executors.
 
-Each executor takes a deepcopy of the env's current state and returns a
-:class:`ToolResult`. Read-only executors leave ``updated_state=None``; write
-executors return a fully replaced state dict, with the patient list rebuilt
-to reflect the mutation. Executor-level errors that the assistant should be
-able to recover from (unknown patient, etc.) are returned as structured
-``{"status": "error", ...}`` payloads — *not* raised — so the model can
-self-correct on the next turn.
+``SyntheticEnvironment`` passes an isolated ``state`` snapshot (deep-copied
+before each call). Executors must not mutate ``state`` in place.
+
+Read-only executors return ``updated_state=None``. Write executors return a
+new top-level state dict with the ``patients`` list rebuilt for the mutation;
+the environment deep-copies ``updated_state`` before committing.
+
+Recoverable errors (unknown patient, duplicate diagnosis, etc.) are returned
+as structured ``{"status": "error", ...}`` payloads in ``output``, not raised.
 """
 
 from __future__ import annotations

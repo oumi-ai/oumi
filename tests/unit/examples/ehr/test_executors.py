@@ -73,10 +73,9 @@ def state():
 
 def test_list_patients_returns_summaries(state):
     result = list_patients({}, state)
-    assert isinstance(result.output, dict)
     assert isinstance(result, ToolResult)
-    assert result.updated_state is None
     assert isinstance(result.output, dict)
+    assert result.updated_state is None
     assert {p["patient_id"] for p in result.output["patients"]} == {"P001", "P002"}
     # summaries omit nested fields
     assert "medications" not in result.output["patients"][0]
