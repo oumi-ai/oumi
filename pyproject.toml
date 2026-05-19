@@ -77,7 +77,7 @@ dependencies = [
     "skypilot>=0.11.1,<0.13", # 0.11.1 includes db locking fix
     "tensorboard>=2.20,<2.21", # Optional, for monitoring training
     "tiktoken>=0.7,<1.0",
-    "torch>=2.6,<2.11.0",      # vllm only supports up to torch==2.7
+    "torch>=2.6,<2.13.0",      # vllm only supports up to torch==2.7
     "torchao>=0.16,<0.17",     # Used by transformers; >=0.16 required by peft>=0.19
     "torchvision>=0.21,<0.26", # Used by some VLM-s (multimodal)
     "tqdm",
@@ -85,7 +85,7 @@ dependencies = [
     "trl>=0.24,<1.5",
     "typer<0.25.2",             # Used by CLI. Pinned due to sphinxcontrib-typer compatibility. OPE-1806
     "typing_extensions",        # Backports of typing updates
-    "uvicorn<0.47.0",           # TODO: Remove on resolution of https://github.com/skypilot-org/skypilot/issues/7303
+    "uvicorn<0.48.0",           # TODO: Remove on resolution of https://github.com/skypilot-org/skypilot/issues/7303
     "wandb>=0.21,<0.26",        # Logging to Weights and Biases.
 ]
 
@@ -130,7 +130,7 @@ gpu = [
     # When updating verl version, make sure to also update the default config:
     # src/oumi/core/trainers/verl_trainer_config.yaml.
     "verl>=0.5,<0.8; python_version >= '3.10'", # Used for the VERL_GRPO trainer
-    "vllm>=0.14,<0.21",                         # For VLLMInferenceEngine, and vLLM-powered GRPO training.
+    "vllm>=0.14,<0.22",                         # For VLLMInferenceEngine, and vLLM-powered GRPO training.
     "kernels>=0.11,<0.15",                      # For compute kernel implementations (e.g., attn_implementation in gold trainer)
 ]
 
@@ -203,7 +203,7 @@ torchdata = ["torchdata>=0.9,<0.10.0"]
 # CI targets
 ci_cpu = [
     "oumi[dev,docs,gcp,mcp,synthesis,tune,torchdata,file_formats]",
-    "vllm>=0.14,<0.21",                            # For VLLMInferenceEngine
+    "vllm>=0.14,<0.22",                            # For VLLMInferenceEngine
     "boto3",  # For bedrock inference engine tests
     # This may fail to install. As a temporary workaround, run:
     # CMAKE_ARGS="-DLLAVA_BUILD=OFF" pip install -U llama-cpp-python
