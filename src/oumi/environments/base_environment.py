@@ -35,6 +35,15 @@ class BaseEnvironment(ABC):
     def step(self, calls: list[tuple[str, dict[str, Any]]]) -> list[ToolResult]:
         """Execute a batch of tool calls; returns results in the same order."""
 
+    def requires_isolation(self) -> bool:
+        """Whether this env must be rebuilt per sample to avoid cross-sample leakage.
+
+        Default ``False`` — the env is safe to share across samples.
+        Override and return ``True`` for envs carrying mutable per-sample
+        state (e.g. stateful synthetic tool execution).
+        """
+        return False
+
     def sample_grounding(
         self,
         n: int,

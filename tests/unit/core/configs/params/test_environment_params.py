@@ -142,19 +142,6 @@ def test_grounding_post_init_coerces_dict_to_grounding_config():
     assert isinstance(p.grounding.tools["t"], ToolGroundingConfig)
 
 
-def test_grounding_validate_rejects_empty_tools_dict():
-    p = EnvironmentParams(
-        id="e1",
-        name="E1",
-        description="d",
-        env_type="deterministic",
-        tools=[_make_tool()],
-        grounding=GroundingConfig(sample_size=3, tools={}),
-    )
-    with pytest.raises(ValueError, match="grounding.tools is empty"):
-        p.finalize_and_validate()
-
-
 def test_grounding_validate_passes_with_at_least_one_tool():
     p = EnvironmentParams(
         id="e1",

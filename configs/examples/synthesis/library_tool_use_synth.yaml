@@ -32,6 +32,12 @@ environment_config:
       name: library
       description: A small library catalog with book lookup tools.
       env_type: deterministic
+      grounding:
+        sample_size: 2
+        seed: 13
+        tools:
+          lookup_book_status:
+            fields: [book_id, title, status]
       tools:
         - id: list_book_catalog
           name: list_book_catalog
