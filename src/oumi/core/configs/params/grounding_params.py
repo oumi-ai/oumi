@@ -43,16 +43,14 @@ class ToolGroundingConfig(BaseParams):
 class StateGroundingConfig(BaseParams):
     """Per-state-pool grounding for stateful synthetic environments.
 
-    Projects rows from ``initial_state[state_path]`` through ``fields``;
-    ``key`` names the primary-key field and must appear in ``fields``.
+    Projects rows from ``initial_state[state_path]`` through ``fields``.
     """
 
     state_path: str
     fields: list[str]
-    key: str
 
     def __post_init__(self) -> None:
-        """Validate ``state_path``, ``fields``, and ``key`` invariants."""
+        """Validate ``state_path`` and ``fields`` invariants."""
         if not self.state_path:
             raise ValueError(f"{type(self).__name__}.state_path must be non-empty.")
         if not self.fields:
@@ -61,13 +59,6 @@ class StateGroundingConfig(BaseParams):
             raise ValueError(
                 f"{type(self).__name__}.fields contains duplicate entries: "
                 f"{self.fields!r}."
-            )
-        if not self.key:
-            raise ValueError(f"{type(self).__name__}.key must be non-empty.")
-        if self.key not in self.fields:
-            raise ValueError(
-                f"{type(self).__name__}.fields must include 'key' "
-                f"({self.key!r}); got {self.fields!r}."
             )
 
 

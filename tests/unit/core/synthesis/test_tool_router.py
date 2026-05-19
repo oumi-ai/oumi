@@ -128,7 +128,7 @@ def test_from_environment_config_includes_grounding_only_envs():
         },
         grounding=GroundingConfig(
             sample_size=1,
-            state=[StateGroundingConfig(state_path="rows", fields=["id"], key="id")],
+            state=[StateGroundingConfig(state_path="rows", fields=["id"])],
         ),
     )
     env_config = EnvironmentConfig(environments=[state_env])

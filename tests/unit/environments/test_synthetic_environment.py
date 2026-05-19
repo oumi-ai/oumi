@@ -521,7 +521,6 @@ def test_state_grounding_projects_from_state_path():
             state=[
                 StateGroundingConfig(
                     state_path="books",
-                    key="book_id",
                     fields=["book_id", "title"],
                 )
             ],
@@ -555,7 +554,6 @@ def test_state_grounding_state_path_missing_raises_at_init():
             state=[
                 StateGroundingConfig(
                     state_path="books",
-                    key="book_id",
                     fields=["book_id"],
                 )
             ],
@@ -569,11 +567,7 @@ def test_state_grounding_without_state_raises():
     """grounding.state on a stateless synthetic env is a config error."""
     params = _make_params(
         grounding=GroundingConfig(
-            state=[
-                StateGroundingConfig(
-                    state_path="books", key="book_id", fields=["book_id"]
-                )
-            ],
+            state=[StateGroundingConfig(state_path="books", fields=["book_id"])],
         ),
     )
     with pytest.raises(ValueError, match="grounding.state is configured"):

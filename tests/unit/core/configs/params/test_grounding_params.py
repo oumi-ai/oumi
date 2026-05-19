@@ -74,17 +74,16 @@ def test_grounding_config_coerces_state_entries():
     """Raw state entries are coerced to StateGroundingConfig instances."""
     cfg = GroundingConfig(
         state=[  # type: ignore[list-item]
-            {"state_path": "books", "key": "book_id", "fields": ["book_id", "title"]},
+            {"state_path": "books", "fields": ["book_id", "title"]},
         ],
     )
     assert isinstance(cfg.state[0], StateGroundingConfig)
     assert cfg.state[0].state_path == "books"
-    assert cfg.state[0].key == "book_id"
     assert cfg.state[0].fields == ["book_id", "title"]
 
 
 def test_grounding_config_passthrough_for_typed_state_entries():
-    sg = StateGroundingConfig(state_path="books", key="id", fields=["id", "title"])
+    sg = StateGroundingConfig(state_path="books", fields=["id", "title"])
     cfg = GroundingConfig(state=[sg])
     assert cfg.state[0] is sg
 
