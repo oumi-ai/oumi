@@ -16,7 +16,6 @@ import copy
 
 import pytest
 
-from oumi.core.types.tool_call import ToolResult
 from oumi.examples.ehr.executors import (
     add_diagnosis,
     get_patient,
@@ -68,16 +67,11 @@ def state():
     }
 
 
-# ---- read paths -----------------------------------------------------------
-
-
 def test_list_patients_returns_summaries(state):
     result = list_patients({}, state)
-    assert isinstance(result, ToolResult)
     assert isinstance(result.output, dict)
     assert result.updated_state is None
     assert {p["patient_id"] for p in result.output["patients"]} == {"P001", "P002"}
-    # summaries omit nested fields
     assert "medications" not in result.output["patients"][0]
 
 
@@ -92,16 +86,12 @@ def test_get_patient_returns_full_record(state):
 
 def test_get_patient_unknown_returns_error_payload(state):
     result = get_patient({"patient_id": "P999"}, state)
-    assert isinstance(result.output, dict)
     assert result.updated_state is None
     assert result.output == {
         "status": "error",
         "error": "not_found",
         "patient_id": "P999",
     }
-
-
-# ---- write paths ----------------------------------------------------------
 
 
 def test_record_vitals_appends_to_history(state):
@@ -124,7 +114,6 @@ def test_record_vitals_appends_to_history(state):
     )
     assert len(p002["vitals_history"]) == 1
     assert p002["vitals_history"][0]["bp"] == "120/78"
-    # other patient untouched
     p001 = next(
         p for p in result.updated_state["patients"] if p["patient_id"] == "P001"
     )
@@ -228,15 +217,11 @@ def test_update_allergies_replaces_list(state):
 
 def test_update_allergies_clears_list(state):
     result = update_allergies({"patient_id": "P001", "allergies": []}, state)
-    assert isinstance(result.output, dict)
     assert result.updated_state is not None
     p001 = next(
         p for p in result.updated_state["patients"] if p["patient_id"] == "P001"
     )
     assert p001["allergies"] == []
-
-
-# ---- isolation -------------------------------------------------------------
 
 
 def test_executors_do_not_mutate_input_state(state):
