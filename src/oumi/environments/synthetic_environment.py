@@ -188,6 +188,10 @@ class SyntheticEnvironment(BaseEnvironment):
         self._engine = engine
         self._base_inference_config = base_config
 
+    def requires_isolation(self) -> bool:
+        """Stateful synth envs need per-sample isolation; stateless do not."""
+        return self._state is not None
+
     @classmethod
     def from_params(cls, params: EnvironmentParams) -> SyntheticEnvironment:
         """Build a SyntheticEnvironment from its params object."""

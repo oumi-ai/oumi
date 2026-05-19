@@ -2339,7 +2339,11 @@ def test_synthesizer_attaches_inference_to_synthetic_env(
 def test_prepare_sample_routers_builds_one_router_per_sample(
     mock_inference_config,
 ):
-    """_prepare_sample_routers materializes a router clone per sample."""
+    """_prepare_sample_routers materializes a router clone per sample.
+
+    The deterministic env carries no mutable state so it is shared across
+    routers; only the router wrappers themselves are per-sample.
+    """
     env_config = _grounded_env_config(n_entries=5, sample_size=2, seed=1)
     synth = _make_synthesizer(mock_inference_config, environment_config=env_config)
     synth._prepare_sample_routers(3)
@@ -2351,8 +2355,7 @@ def test_prepare_sample_routers_builds_one_router_per_sample(
     envs_0 = routers[0].env_by_id["env1"]
     envs_1 = routers[1].env_by_id["env1"]
     envs_2 = routers[2].env_by_id["env1"]
-    assert envs_0 is not envs_1
-    assert envs_1 is not envs_2
+    assert envs_0 is envs_1 is envs_2
 
 
 def test_prepare_sample_routers_without_env_config_yields_none_slots(

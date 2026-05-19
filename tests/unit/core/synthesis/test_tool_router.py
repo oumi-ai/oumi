@@ -58,6 +58,31 @@ def _det_env_params(
     )
 
 
+def _stateful_synth_env_params(env_id: str) -> EnvironmentParams:
+    """Build a stateful synth params block; grounding pins router enrollment."""
+    from oumi.core.configs.params.grounding_params import (
+        GroundingConfig,
+        StateGroundingConfig,
+    )
+
+    return EnvironmentParams(
+        id=env_id,
+        name=env_id,
+        description=f"Env {env_id}",
+        env_type="synthetic",
+        tools=[],
+        env_kwargs={
+            "system_prompt": "p",
+            "state_params": {"initial_state": {"rows": [{"id": "1"}]}},
+            "cache_by_input": False,
+        },
+        grounding=GroundingConfig(
+            sample_size=1,
+            state=[StateGroundingConfig(state_path="rows", fields=["id"])],
+        ),
+    )
+
+
 # ---------- from_environment_config ----------
 
 
@@ -303,42 +328,53 @@ def test_route_batch_env_exception_propagates():
 # ---------- for_sample ----------
 
 
-def test_for_sample_returns_router_with_fresh_env_instances():
-    """Each for_sample() build_environment-s a new env per env_id."""
+def test_for_sample_clones_envs_that_require_isolation():
+    """Stateful synth envs are rebuilt per sample so state can't bleed across."""
+    env_config = EnvironmentConfig(
+        environments=[_stateful_synth_env_params("stateful")]
+    )
+    router = ToolRouter.from_environment_config(env_config)
+
+    clone = router.for_sample()
+
+    assert clone.env_by_id["stateful"] is not router.env_by_id["stateful"]
+
+
+def test_for_sample_shares_envs_that_do_not_require_isolation():
+    """Deterministic envs carry no mutable state, so they are shared with parent."""
     env_config = EnvironmentConfig(
         environments=[
-            _det_env_params("env1", [_tool("t1")]),
-            _det_env_params("env2", [_tool("t2")]),
+            _det_env_params("det1", [_tool("t1")]),
+            _det_env_params("det2", [_tool("t2")]),
         ]
     )
     router = ToolRouter.from_environment_config(env_config)
 
     clone = router.for_sample()
 
-    assert set(clone.env_by_id) == {"env1", "env2"}
-    assert clone.env_by_id["env1"] is not router.env_by_id["env1"]
-    assert clone.env_by_id["env2"] is not router.env_by_id["env2"]
+    assert clone.env_by_id["det1"] is router.env_by_id["det1"]
+    assert clone.env_by_id["det2"] is router.env_by_id["det2"]
 
 
-def test_for_sample_two_clones_have_independent_envs():
-    """Sibling clones don't share env instances either."""
+def test_for_sample_two_clones_have_independent_stateful_envs():
+    """Sibling clones get distinct stateful env instances."""
     env_config = EnvironmentConfig(
-        environments=[_det_env_params("env1", [_tool("t1")])]
+        environments=[_stateful_synth_env_params("stateful")]
     )
     router = ToolRouter.from_environment_config(env_config)
 
     clone_a = router.for_sample()
     clone_b = router.for_sample()
 
-    assert clone_a.env_by_id["env1"] is not clone_b.env_by_id["env1"]
+    assert clone_a.env_by_id["stateful"] is not clone_b.env_by_id["stateful"]
 
 
-def test_for_sample_invokes_on_env_built_for_each_clone():
-    """on_env_built is re-run for each fresh env in each clone."""
+def test_for_sample_invokes_on_env_built_only_for_isolated_envs():
+    """on_env_built re-runs on per-sample clones but not on shared envs."""
     env_config = EnvironmentConfig(
         environments=[
-            _det_env_params("env1", [_tool("t1")]),
-            _det_env_params("env2", [_tool("t2")]),
+            _det_env_params("det", [_tool("t1")]),
+            _stateful_synth_env_params("stateful"),
         ]
     )
     seen: list[BaseEnvironment] = []
@@ -348,12 +384,13 @@ def test_for_sample_invokes_on_env_built_for_each_clone():
     router.for_sample()
     router.for_sample()
 
-    assert len(seen) == 4
-    assert all(isinstance(env, DeterministicEnvironment) for env in seen)
+    # Only the stateful env is rebuilt per for_sample() call (2 calls -> 2 envs).
+    assert len(seen) == 2
+    assert all(env is not router.env_by_id["det"] for env in seen)
 
 
 def test_for_sample_preserves_tool_routing_topology():
-    """Cloned tool_to_env points at the cloned env_by_id entries."""
+    """Cloned tool_to_env points at the right env_by_id entries (shared or fresh)."""
     env_config = EnvironmentConfig(
         environments=[
             _det_env_params("env1", [_tool("t1"), _tool("t2")]),

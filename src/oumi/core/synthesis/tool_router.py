@@ -92,15 +92,21 @@ class ToolRouter:
         )
 
     def for_sample(self) -> ToolRouter:
-        """Return a router with fresh env instances for one sample.
+        """Return a router safe to use for one sample.
 
-        Each env is rebuilt via ``build_environment`` so its mutable state
-        is independent from the parent and from any sibling clone.
-        ``on_env_built`` re-runs on every fresh env.
+        Envs whose ``requires_isolation()`` returns ``True`` are rebuilt via
+        ``build_environment`` so their mutable state stays independent across
+        samples; ``on_env_built`` re-runs on those fresh instances. Envs that
+        don't require isolation (e.g. ``DeterministicEnvironment`` and
+        stateless ``SyntheticEnvironment``) are shared with the parent
+        router to avoid the per-sample build + inference-engine attach cost.
         """
         env_by_id_new: dict[str, BaseEnvironment] = {}
-        for env_id, env_params in self.env_params_by_id.items():
-            fresh = build_environment(env_params)
+        for env_id, parent_env in self.env_by_id.items():
+            if not parent_env.requires_isolation():
+                env_by_id_new[env_id] = parent_env
+                continue
+            fresh = build_environment(self.env_params_by_id[env_id])
             if self.on_env_built is not None:
                 self.on_env_built(fresh)
             env_by_id_new[env_id] = fresh
