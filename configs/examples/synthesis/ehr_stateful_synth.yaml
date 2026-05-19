@@ -62,7 +62,6 @@ environment_config:
         state_params:
           grounding:
             - state_path: patients
-              key: patient_id
               fields: [patient_id, name, dob]
           state_schema:
             type: object
