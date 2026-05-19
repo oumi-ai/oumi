@@ -16,9 +16,13 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
-from oumi.core.configs import QuantizationConfig
+from oumi.core.configs.quantization_config import (
+    QuantizationBackend,
+    QuantizationConfig,
+    QuantizationScheme,
+)
 
 
 @dataclass
@@ -31,8 +35,11 @@ class QuantizationResult:
     output_path: str
     """Path to the quantized model."""
 
-    quantization_method: str
-    """Quantization method used."""
+    backend: QuantizationBackend
+    """Quantization backend used."""
+
+    scheme: QuantizationScheme
+    """Quantization scheme used."""
 
     format_type: str
     """Format type of the quantized model."""
@@ -48,8 +55,7 @@ class BaseQuantization(ABC):
     must follow, ensuring consistency across different quantization approaches.
     """
 
-    # Subclasses should define these class attributes
-    supported_methods: list[str] = []
+    supported_schemes: list[QuantizationScheme] = []
     supported_formats: list[str] = []
 
     @abstractmethod
@@ -58,13 +64,14 @@ class BaseQuantization(ABC):
 
         Args:
             config: Quantization configuration containing model parameters,
-                method, output path, and other settings.
+                backend, scheme, output path, and other settings.
 
         Returns:
             QuantizationResult containing:
             - quantized_size_bytes: Size of the quantized model in bytes
             - output_path: Path to the quantized model
-            - quantization_method: Quantization method used
+            - backend: Quantization backend used
+            - scheme: Quantization scheme used
             - format_type: Format type of the quantized model
             - additional_info: Additional method-specific information
 
@@ -81,32 +88,16 @@ class BaseQuantization(ABC):
             "Subclasses must implement raise_if_requirements_not_met method"
         )
 
-    def get_supported_methods(self) -> list[str]:
-        """Return list of quantization methods supported by this quantizer.
-
-        Returns:
-            List of method names (e.g., ["awq_q4_0", "awq_q8_0"])
-        """
-        return self.supported_methods.copy()
-
-    def get_supported_formats(self) -> list[str]:
-        """Return list of output formats supported by this quantizer.
-
-        Returns:
-            List of format names (e.g., ["gguf", "pytorch"])
-        """
-        return self.supported_formats.copy()
-
-    def supports_method(self, method: str) -> bool:
-        """Check if this quantizer supports the given method.
+    def supports_scheme(self, scheme: QuantizationScheme) -> bool:
+        """Check if this quantizer supports the given scheme.
 
         Args:
-            method: Quantization method name to check
+            scheme: Quantization scheme to check
 
         Returns:
-            True if method is supported, False otherwise
+            True if scheme is supported, False otherwise
         """
-        return method in self.supported_methods
+        return scheme in self.supported_schemes
 
     def supports_format(self, format_name: str) -> bool:
         """Check if this quantizer supports the given output format.
@@ -128,10 +119,12 @@ class BaseQuantization(ABC):
         Raises:
             ValueError: If configuration is invalid for this quantizer
         """
-        if not self.supports_method(config.method):
+        scheme = cast(QuantizationScheme, config.scheme)
+        if not self.supports_scheme(scheme):
             raise ValueError(
-                f"Method '{config.method}' not supported by {self.__class__.__name__}."
-                f"Supported methods: {self.supported_methods}"
+                f"Scheme '{scheme}' not supported by "
+                f"{self.__class__.__name__}. "
+                f"Supported schemes: {self.supported_schemes}"
             )
 
         if not self.supports_format(config.output_format):
@@ -140,16 +133,3 @@ class BaseQuantization(ABC):
                 f"{self.__class__.__name__}. "
                 f"Supported formats: {self.supported_formats}"
             )
-
-    def validate_requirements(self) -> bool:
-        """Check if all required dependencies are available.
-
-        Returns:
-            True if all dependencies are available and quantization can proceed,
-            False otherwise.
-        """
-        try:
-            self.raise_if_requirements_not_met()
-            return True
-        except Exception:
-            return False
