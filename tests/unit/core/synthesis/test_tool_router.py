@@ -58,6 +58,31 @@ def _det_env_params(
     )
 
 
+def _stateful_synth_env_params(env_id: str) -> EnvironmentParams:
+    """Build a stateful synth params block; grounding pins router enrollment."""
+    from oumi.core.configs.params.grounding_params import (
+        GroundingConfig,
+        StateGroundingConfig,
+    )
+
+    return EnvironmentParams(
+        id=env_id,
+        name=env_id,
+        description=f"Env {env_id}",
+        env_type="synthetic",
+        tools=[],
+        env_kwargs={
+            "system_prompt": "p",
+            "state_params": {"initial_state": {"rows": [{"id": "1"}]}},
+            "cache_by_input": False,
+        },
+        grounding=GroundingConfig(
+            sample_size=1,
+            state=[StateGroundingConfig(state_path="rows", fields=["id"])],
+        ),
+    )
+
+
 # ---------- from_environment_config ----------
 
 
@@ -106,6 +131,37 @@ def test_from_environment_config_routes_tools_across_envs():
     assert router.tool_to_env["t2"] is router.env_by_id["env1"]
     assert router.tool_to_env["t3"] is router.env_by_id["env2"]
     assert {spec.function.name for spec in router.tool_specs} == {"t1", "t2", "t3"}
+
+
+def test_from_environment_config_includes_grounding_only_envs():
+    """Envs with grounding but no tools are still built by from_environment_config."""
+    from oumi.core.configs.params.grounding_params import (
+        GroundingConfig,
+        StateGroundingConfig,
+    )
+
+    state_env = EnvironmentParams(
+        id="state_only",
+        name="state_only",
+        description="grounding-only env",
+        env_type="synthetic",
+        tools=[],
+        env_kwargs={
+            "system_prompt": "p",
+            "state_params": {"initial_state": {"rows": [{"id": "1"}]}},
+            "cache_by_input": False,
+        },
+        grounding=GroundingConfig(
+            sample_size=1,
+            state=[StateGroundingConfig(state_path="rows", fields=["id"])],
+        ),
+    )
+    env_config = EnvironmentConfig(environments=[state_env])
+
+    router = ToolRouter.from_environment_config(env_config)
+
+    assert "state_only" in router.env_by_id
+    assert "state_only" in router.env_params_by_id
 
 
 # ---------- parse_and_validate_arguments ----------
@@ -169,11 +225,17 @@ def test_parse_and_validate_arguments_empty_string_defaults_to_empty_dict():
 def _mock_router(tool_to_env: dict[str, BaseEnvironment]) -> ToolRouter:
     """Build a ToolRouter directly with mocked envs (skip from_environment_config)."""
     env_by_id = {f"env_{i}": env for i, env in enumerate(set(tool_to_env.values()))}
+    inv_env_by_id = {id(env): env_id for env_id, env in env_by_id.items()}
     return ToolRouter(
         tool_specs=[],
         tools_by_id={},
         env_by_id=env_by_id,
         tool_to_env=tool_to_env,
+        env_params_by_id={},
+        tool_env_map={
+            tool_id: inv_env_by_id[id(env)] for tool_id, env in tool_to_env.items()
+        },
+        on_env_built=None,
     )
 
 
@@ -261,3 +323,113 @@ def test_route_batch_env_exception_propagates():
     router = _mock_router({"t1": fake_env})
     with pytest.raises(RuntimeError, match="boom"):
         router.route_batch([("t1", {})])
+
+
+# ---------- for_sample ----------
+
+
+def test_for_sample_clones_envs_that_require_isolation():
+    """Stateful synth envs are rebuilt per sample so state can't bleed across."""
+    env_config = EnvironmentConfig(
+        environments=[_stateful_synth_env_params("stateful")]
+    )
+    router = ToolRouter.from_environment_config(env_config)
+
+    clone = router.for_sample()
+
+    assert clone.env_by_id["stateful"] is not router.env_by_id["stateful"]
+
+
+def test_for_sample_shares_envs_that_do_not_require_isolation():
+    """Deterministic envs carry no mutable state, so they are shared with parent."""
+    env_config = EnvironmentConfig(
+        environments=[
+            _det_env_params("det1", [_tool("t1")]),
+            _det_env_params("det2", [_tool("t2")]),
+        ]
+    )
+    router = ToolRouter.from_environment_config(env_config)
+
+    clone = router.for_sample()
+
+    assert clone.env_by_id["det1"] is router.env_by_id["det1"]
+    assert clone.env_by_id["det2"] is router.env_by_id["det2"]
+
+
+def test_for_sample_two_clones_have_independent_stateful_envs():
+    """Sibling clones get distinct stateful env instances."""
+    env_config = EnvironmentConfig(
+        environments=[_stateful_synth_env_params("stateful")]
+    )
+    router = ToolRouter.from_environment_config(env_config)
+
+    clone_a = router.for_sample()
+    clone_b = router.for_sample()
+
+    assert clone_a.env_by_id["stateful"] is not clone_b.env_by_id["stateful"]
+
+
+def test_for_sample_invokes_on_env_built_only_for_isolated_envs():
+    """on_env_built re-runs on per-sample clones but not on shared envs."""
+    env_config = EnvironmentConfig(
+        environments=[
+            _det_env_params("det", [_tool("t1")]),
+            _stateful_synth_env_params("stateful"),
+        ]
+    )
+    seen: list[BaseEnvironment] = []
+    router = ToolRouter.from_environment_config(env_config, on_env_built=seen.append)
+
+    seen.clear()
+    router.for_sample()
+    router.for_sample()
+
+    # Only the stateful env is rebuilt per for_sample() call (2 calls -> 2 envs).
+    assert len(seen) == 2
+    assert all(env is not router.env_by_id["det"] for env in seen)
+
+
+def test_for_sample_preserves_tool_routing_topology():
+    """Cloned tool_to_env points at the right env_by_id entries (shared or fresh)."""
+    env_config = EnvironmentConfig(
+        environments=[
+            _det_env_params("env1", [_tool("t1"), _tool("t2")]),
+            _det_env_params("env2", [_tool("t3")]),
+        ]
+    )
+    router = ToolRouter.from_environment_config(env_config)
+
+    clone = router.for_sample()
+
+    assert clone.tool_to_env["t1"] is clone.env_by_id["env1"]
+    assert clone.tool_to_env["t2"] is clone.env_by_id["env1"]
+    assert clone.tool_to_env["t3"] is clone.env_by_id["env2"]
+
+
+def test_for_sample_shares_immutable_metadata_with_parent():
+    """Specs/params dicts are reference-shared (immutable across samples)."""
+    env_config = EnvironmentConfig(
+        environments=[_det_env_params("env1", [_tool("t1")])]
+    )
+    router = ToolRouter.from_environment_config(env_config)
+
+    clone = router.for_sample()
+
+    assert clone.tool_specs is router.tool_specs
+    assert clone.tools_by_id is router.tools_by_id
+    assert clone.env_params_by_id is router.env_params_by_id
+    assert clone.tool_env_map is router.tool_env_map
+
+
+def test_for_sample_mutation_does_not_bleed_back_to_parent():
+    """A clone's env_by_id is a fresh dict; reassigning it doesn't touch parent."""
+    env_config = EnvironmentConfig(
+        environments=[_det_env_params("env1", [_tool("t1")])]
+    )
+    router = ToolRouter.from_environment_config(env_config)
+    parent_env = router.env_by_id["env1"]
+
+    clone = router.for_sample()
+    clone.env_by_id["env1"] = Mock(spec=BaseEnvironment)
+
+    assert router.env_by_id["env1"] is parent_env

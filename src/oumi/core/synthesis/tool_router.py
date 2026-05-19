@@ -23,6 +23,7 @@ from typing import Any
 
 from oumi.builders.environments import build_environment
 from oumi.core.configs.environment_config import EnvironmentConfig
+from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.core.configs.params.tool_params import (
     ToolArgumentError,
     ToolLookupError,
@@ -34,12 +35,20 @@ from oumi.environments.base_environment import BaseEnvironment
 
 @dataclass
 class ToolRouter:
-    """Routes LLM tool calls to environment-owned tools."""
+    """Routes LLM tool calls to environment-owned tools.
+
+    Use :meth:`for_sample` to obtain a per-sample clone whose envs have
+    independent state; the synthesizer builds one clone per sample at
+    batch entry so tool mutations don't leak across samples.
+    """
 
     tool_specs: list[ToolDefinition]
     tools_by_id: dict[str, ToolParams]
     env_by_id: dict[str, BaseEnvironment]
     tool_to_env: dict[str, BaseEnvironment]
+    env_params_by_id: dict[str, EnvironmentParams]
+    tool_env_map: dict[str, str]
+    on_env_built: Callable[[BaseEnvironment], None] | None
 
     @classmethod
     def from_environment_config(
@@ -49,12 +58,18 @@ class ToolRouter:
     ) -> ToolRouter:
         """Build a router from an env config."""
         tool_env_map = env_config.tool_environment_map
-        reachable_env_ids = set(tool_env_map.values())
+        included_env_ids = set(tool_env_map.values()) | {
+            env_params.id
+            for env_params in env_config.environments
+            if env_params.grounding is not None
+        }
 
+        env_params_by_id: dict[str, EnvironmentParams] = {}
         env_by_id: dict[str, BaseEnvironment] = {}
         for env_params in env_config.environments:
-            if env_params.id not in reachable_env_ids:
+            if env_params.id not in included_env_ids:
                 continue
+            env_params_by_id[env_params.id] = env_params
             env = build_environment(env_params)
             if on_env_built is not None:
                 on_env_built(env)
@@ -71,6 +86,42 @@ class ToolRouter:
             tools_by_id=tools_by_id,
             env_by_id=env_by_id,
             tool_to_env=tool_to_env,
+            env_params_by_id=env_params_by_id,
+            tool_env_map=tool_env_map,
+            on_env_built=on_env_built,
+        )
+
+    def for_sample(self) -> ToolRouter:
+        """Return a router safe to use for one sample.
+
+        Envs whose ``requires_isolation()`` returns ``True`` are rebuilt via
+        ``build_environment`` so their mutable state stays independent across
+        samples; ``on_env_built`` re-runs on those fresh instances. Envs that
+        don't require isolation (e.g. ``DeterministicEnvironment`` and
+        stateless ``SyntheticEnvironment``) are shared with the parent
+        router to avoid the per-sample build + inference-engine attach cost.
+        """
+        env_by_id_new: dict[str, BaseEnvironment] = {}
+        for env_id, parent_env in self.env_by_id.items():
+            if not parent_env.requires_isolation():
+                env_by_id_new[env_id] = parent_env
+                continue
+            fresh = build_environment(self.env_params_by_id[env_id])
+            if self.on_env_built is not None:
+                self.on_env_built(fresh)
+            env_by_id_new[env_id] = fresh
+
+        return ToolRouter(
+            tool_specs=self.tool_specs,
+            tools_by_id=self.tools_by_id,
+            env_by_id=env_by_id_new,
+            tool_to_env={
+                tool_id: env_by_id_new[env_id]
+                for tool_id, env_id in self.tool_env_map.items()
+            },
+            env_params_by_id=self.env_params_by_id,
+            tool_env_map=self.tool_env_map,
+            on_env_built=self.on_env_built,
         )
 
     def parse_and_validate_arguments(

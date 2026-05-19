@@ -17,6 +17,7 @@ import pytest
 from oumi.core.configs.params.grounding_params import (
     GroundingConfig,
     GroundingFact,
+    StateGroundingConfig,
     ToolGroundingConfig,
 )
 
@@ -46,6 +47,7 @@ def test_grounding_config_defaults():
     assert cfg.sample_size == 3
     assert cfg.seed is None
     assert cfg.tools == {}
+    assert cfg.state == []
 
 
 def test_grounding_config_rejects_zero_sample_size():
@@ -66,6 +68,24 @@ def test_grounding_config_passthrough_for_already_typed_entries():
     tg = ToolGroundingConfig(fields=["a", "b"])
     cfg = GroundingConfig(tools={"t": tg})
     assert cfg.tools["t"] is tg
+
+
+def test_grounding_config_coerces_state_entries():
+    """Raw state entries are coerced to StateGroundingConfig instances."""
+    cfg = GroundingConfig(
+        state=[  # type: ignore[list-item]
+            {"state_path": "books", "fields": ["book_id", "title"]},
+        ],
+    )
+    assert isinstance(cfg.state[0], StateGroundingConfig)
+    assert cfg.state[0].state_path == "books"
+    assert cfg.state[0].fields == ["book_id", "title"]
+
+
+def test_grounding_config_passthrough_for_typed_state_entries():
+    sg = StateGroundingConfig(state_path="books", fields=["id", "title"])
+    cfg = GroundingConfig(state=[sg])
+    assert cfg.state[0] is sg
 
 
 # --- GroundingFact ---

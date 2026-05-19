@@ -67,6 +67,13 @@ class ToolParams(BaseParams):
     parameters: dict[str, Any] = field(default_factory=lambda: {"type": "object"})
     output_schema: dict[str, Any] | None = None
     read_only: bool = True
+    executor: str = ""
+    """Optional dotted import path to a callable that executes this tool.
+
+    When set, the host env dispatches calls to it instead of LLM-simulating.
+    ``SyntheticEnvironment`` passes ``(arguments, state)`` when
+    ``state_params`` is set, else ``(arguments,)``.
+    """
 
     @classmethod
     def create(cls, raw: Any) -> ToolParams:
@@ -88,6 +95,7 @@ class ToolParams(BaseParams):
                 else None
             ),
             read_only=raw.get("read_only", True),
+            executor=raw.get("executor", ""),
         )
 
     def __post_init__(self):

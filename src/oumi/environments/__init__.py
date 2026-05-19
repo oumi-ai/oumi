@@ -24,6 +24,7 @@ from oumi.core.configs.params.database_connection_params import (
 from oumi.core.configs.params.grounding_params import (
     GroundingConfig,
     GroundingFact,
+    StateGroundingConfig,
     ToolGroundingConfig,
 )
 from oumi.core.configs.params.tool_params import (
@@ -65,13 +66,14 @@ __all__ = [
     "GroundingConfig",
     "GroundingFact",
     "JSONSchema",
-    "ToolLookupEntry",
+    "StateGroundingConfig",
     "SyntheticEnvironment",
     "SyntheticEnvironmentKwargs",
     "SyntheticStateParams",
     "ToolArgumentError",
     "ToolError",
     "ToolGroundingConfig",
+    "ToolLookupEntry",
     "ToolLookupError",
     "ToolParams",
     "ToolResult",
