@@ -408,7 +408,7 @@ class TestFireworksDeploymentClient:
 
     @pytest.mark.asyncio
     async def test_list_deployment_shapes_filters_invalid_and_paginates(self):
-        """list_deployment_shapes drops shapes missing required fields and walks pages."""
+        """Shapes missing required fields are dropped; pages walk to completion."""
         client = FireworksDeploymentClient(api_key="test", account_id="test-account")
 
         page_one = MagicMock()
@@ -416,21 +416,15 @@ class TestFireworksDeploymentClient:
         page_one.json.return_value = {
             "deploymentShapeVersions": [
                 {
-                    "name": "accounts/fireworks/deploymentShapes/qwen3-8b-minimal/versions/v1",
                     "latestValidated": True,
-                    "public": True,
-                    "validated": True,
                     "snapshot": {
                         "baseModel": "accounts/fireworks/models/qwen3-8b",
                         "acceleratorType": "NVIDIA_H200_141GB",
                         "acceleratorCount": 1,
-                        "precision": "FP8",
-                        "presetType": "MINIMAL",
                     },
                 },
                 # Skipped: snapshot missing accelerator fields.
                 {
-                    "name": "accounts/fireworks/deploymentShapes/incomplete/versions/v2",
                     "latestValidated": True,
                     "snapshot": {
                         "baseModel": "accounts/fireworks/models/qwen3-8b",
@@ -445,14 +439,13 @@ class TestFireworksDeploymentClient:
         page_two.json.return_value = {
             "deploymentShapeVersions": [
                 {
-                    "name": "accounts/fireworks/deploymentShapes/llama-v3p1-8b/versions/v3",
                     "latestValidated": True,
                     "snapshot": {
-                        "baseModel": "accounts/fireworks/models/llama-v3p1-8b-instruct",
+                        "baseModel": (
+                            "accounts/fireworks/models/llama-v3p1-8b-instruct"
+                        ),
                         "acceleratorType": "NVIDIA_H100_80GB",
                         "acceleratorCount": 1,
-                        "precision": "FP8_MM",
-                        "presetType": "THROUGHPUT",
                     },
                 },
             ],
