@@ -407,6 +407,107 @@ class TestFireworksDeploymentClient:
             assert hw.count == 1
 
     @pytest.mark.asyncio
+    async def test_list_deployment_shapes_filters_invalid_and_paginates(self):
+        """list_deployment_shapes drops shapes missing required fields and walks pages."""
+        client = FireworksDeploymentClient(api_key="test", account_id="test-account")
+
+        page_one = MagicMock()
+        page_one.is_success = True
+        page_one.json.return_value = {
+            "deploymentShapeVersions": [
+                {
+                    "name": "accounts/fireworks/deploymentShapes/qwen3-8b-minimal/versions/v1",
+                    "latestValidated": True,
+                    "public": True,
+                    "validated": True,
+                    "snapshot": {
+                        "baseModel": "accounts/fireworks/models/qwen3-8b",
+                        "acceleratorType": "NVIDIA_H200_141GB",
+                        "acceleratorCount": 1,
+                        "precision": "FP8",
+                        "presetType": "MINIMAL",
+                    },
+                },
+                # Skipped: snapshot missing accelerator fields.
+                {
+                    "name": "accounts/fireworks/deploymentShapes/incomplete/versions/v2",
+                    "latestValidated": True,
+                    "snapshot": {
+                        "baseModel": "accounts/fireworks/models/qwen3-8b",
+                    },
+                },
+            ],
+            "nextPageToken": "next",
+            "totalSize": 3,
+        }
+        page_two = MagicMock()
+        page_two.is_success = True
+        page_two.json.return_value = {
+            "deploymentShapeVersions": [
+                {
+                    "name": "accounts/fireworks/deploymentShapes/llama-v3p1-8b/versions/v3",
+                    "latestValidated": True,
+                    "snapshot": {
+                        "baseModel": "accounts/fireworks/models/llama-v3p1-8b-instruct",
+                        "acceleratorType": "NVIDIA_H100_80GB",
+                        "acceleratorCount": 1,
+                        "precision": "FP8_MM",
+                        "presetType": "THROUGHPUT",
+                    },
+                },
+            ],
+            "nextPageToken": "",
+        }
+
+        with patch.object(
+            client._client,
+            "get",
+            new_callable=AsyncMock,
+            side_effect=[page_one, page_two],
+        ) as mock_get:
+            shapes = await client.list_deployment_shapes()
+
+            assert mock_get.call_count == 2
+            # Second call carries the page token from the first response.
+            assert mock_get.call_args_list[1].kwargs["params"]["pageToken"] == "next"
+            assert mock_get.call_args_list[0].kwargs["params"]["filter"] == (
+                "latest_validated=true"
+            )
+
+        assert len(shapes) == 2
+        assert shapes[0].base_model == "accounts/fireworks/models/qwen3-8b"
+        assert shapes[0].accelerator_type == "NVIDIA_H200_141GB"
+        assert shapes[0].accelerator_count == 1
+        assert shapes[1].base_model == (
+            "accounts/fireworks/models/llama-v3p1-8b-instruct"
+        )
+        assert shapes[1].accelerator_type == "NVIDIA_H100_80GB"
+
+    @pytest.mark.asyncio
+    async def test_list_deployment_shapes_scopes_filter_to_base_model(self):
+        """A base_model argument is added as a snapshot.base_model AND clause."""
+        client = FireworksDeploymentClient(api_key="test", account_id="test-account")
+
+        mock_response = MagicMock()
+        mock_response.is_success = True
+        mock_response.json.return_value = {
+            "deploymentShapeVersions": [],
+            "nextPageToken": "",
+        }
+
+        with patch.object(
+            client._client, "get", new_callable=AsyncMock, return_value=mock_response
+        ) as mock_get:
+            await client.list_deployment_shapes(
+                base_model="accounts/fireworks/models/qwen3-8b"
+            )
+
+            assert mock_get.call_args.kwargs["params"]["filter"] == (
+                'snapshot.base_model="accounts/fireworks/models/qwen3-8b" AND '
+                "latest_validated=true"
+            )
+
+    @pytest.mark.asyncio
     async def test_start_endpoint_not_supported(self):
         """Fireworks does not support start_endpoint; raises NotImplementedError."""
         client = FireworksDeploymentClient(api_key="test", account_id="test-account")
