@@ -74,12 +74,12 @@ def test_absorb_result_is_noop():
 def test_step_batch_dispatches_to_step_one():
     """Batch step() iterates the call list and dispatches each to _step_one."""
     env = _MinimalExecEnv()
-    with pytest.raises(NotImplementedError, match="_step_one"):
+    with pytest.raises(NotImplementedError):
         env.step([("tool_a", {})])
 
 
-def test_step_one_is_skeleton():
-    """_step_one is the per-call dispatch hook; the skeleton phase raises."""
+def test_step_one_raises_not_implemented():
+    """_step_one is the per-call dispatch hook; the base implementation raises."""
     env = _MinimalExecEnv()
-    with pytest.raises(NotImplementedError, match="skeleton"):
+    with pytest.raises(NotImplementedError):
         env._step_one("tool_a", {})

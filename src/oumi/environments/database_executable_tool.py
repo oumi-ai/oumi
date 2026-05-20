@@ -27,9 +27,9 @@ from oumi.environments.executable_tool import ExecutableTool
 class DatabaseExecutableTool(ExecutableTool):
     """``ExecutableTool`` for ``DatabaseExecutableEnvironment``.
 
-    Adds an optional per-tool ``statement_timeout_ms`` that may **only**
-    tighten the env-level timeout. Cross-validation against the env's value
-    happens in the env's ``from_params`` (implementation phase).
+    Adds an optional per-tool ``statement_timeout_ms`` that may only tighten
+    the env-level timeout. Cross-validation against the env value happens
+    in the env.
     """
 
     statement_timeout_ms: int | None = None

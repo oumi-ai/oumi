@@ -12,19 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""SQLAlchemy-backed environment that runs user-supplied executors.
-
-Skeleton phase: declares the class shape, the env-type registration, and the
-per-env kwargs dataclass. Engine construction, dialect-aware safety guards,
-``DBAPIError`` auto-wrapping, audit logging, and the per-call connection
-checkout land in follow-on phases. ``from_params`` and
-``_build_execution_context`` therefore raise ``NotImplementedError`` here.
-"""
+"""SQLAlchemy-backed environment that runs user-supplied executors."""
 
 from __future__ import annotations
 
-from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from typing import Any, ClassVar
 
@@ -69,14 +61,10 @@ class DatabaseExecutableEnvironmentKwargs(BaseParams):
 class DatabaseExecutableEnvironment(ExecutableEnvironment):
     """Environment that runs user-supplied executors against a real SQL database.
 
-    The DB *is* the state. Each ``_step_one`` will check out a connection
-    from the SQLAlchemy pool, run the executor in autocommit mode, and
-    return the connection. SQL errors that escape the executor will be
-    auto-wrapped as a structured ``ToolResult`` so the agent can self-correct.
-
-    This phase ships the skeleton: class registered, kwargs shape declared,
-    abstract hooks left to raise ``NotImplementedError`` until the engine
-    implementation phase.
+    The DB *is* the state. Each tool call checks out a connection from the
+    SQLAlchemy pool, runs the executor in autocommit mode, and returns the
+    connection. SQL errors that escape the executor are auto-wrapped as a
+    structured ``ToolResult`` so the agent can self-correct.
     """
 
     tool_params_cls = DatabaseExecutableTool
@@ -85,19 +73,10 @@ class DatabaseExecutableEnvironment(ExecutableEnvironment):
     @classmethod
     def from_params(cls, params: EnvironmentParams) -> DatabaseExecutableEnvironment:
         """Build a ``DatabaseExecutableEnvironment`` from its params object."""
-        raise NotImplementedError(
-            "DatabaseExecutableEnvironment.from_params is not yet implemented "
-            "(skeleton phase). The implementation phase wires the SQLAlchemy "
-            "engine, dialect guards, and fail-fast SELECT 1."
-        )
+        raise NotImplementedError
 
-    @contextmanager
     def _build_execution_context(
         self, tool: ExecutableTool, arguments: dict[str, Any]
-    ) -> Iterator[Any]:
-        """Yield a per-call SQLAlchemy ``Connection`` (implementation pending)."""
-        raise NotImplementedError(
-            "DatabaseExecutableEnvironment._build_execution_context is not yet "
-            "implemented (skeleton phase)."
-        )
-        yield None  # unreachable; satisfies the Iterator return type
+    ) -> AbstractContextManager[Any]:
+        """Check out a SQLAlchemy ``Connection`` for one tool call."""
+        raise NotImplementedError

@@ -12,12 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Connection parameters for ``DatabaseExecutableEnvironment``.
-
-Skeleton phase: declares the data shape and the structured-vs-DSN XOR
-validation. URL resolution (``resolve_url``) and the SQLAlchemy dependency
-arrive in the implementation phase.
-"""
+"""Connection parameters for ``DatabaseExecutableEnvironment``."""
 
 from __future__ import annotations
 

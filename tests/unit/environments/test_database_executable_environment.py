@@ -39,10 +39,10 @@ def test_tool_params_cls_is_database_executable_tool():
     assert DatabaseExecutableEnvironment.tool_params_cls is DatabaseExecutableTool
 
 
-def test_from_params_is_skeleton():
-    """``from_params`` raises NotImplementedError until the implementation phase."""
+def test_from_params_raises_not_implemented():
+    """``from_params`` raises NotImplementedError until the engine wiring lands."""
     params = EnvironmentParams(id="test", env_type="database")
-    with pytest.raises(NotImplementedError, match="skeleton"):
+    with pytest.raises(NotImplementedError):
         DatabaseExecutableEnvironment.from_params(params)
 
 

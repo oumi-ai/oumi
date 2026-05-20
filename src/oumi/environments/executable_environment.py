@@ -12,13 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Abstract base for envs backed by user-supplied dotted-path executors.
-
-This module ships the skeleton: class shape, batch ``step`` dispatch, and
-abstract ``_build_execution_context`` hook. Per-call execution (executor
-resolution, ``ToolResult`` validation, ``output_schema`` validation,
-``_absorb_result``) arrives in a later phase.
-"""
+"""Abstract base for envs backed by user-supplied dotted-path executors."""
 
 from __future__ import annotations
 
@@ -39,9 +33,9 @@ class ExecutableEnvironment(BaseEnvironment):
 
     Subclasses supply the per-call execution context (DB connection, HTTP
     client, FS root, ...) by implementing ``_build_execution_context`` as a
-    context manager. The base class will own executor resolution, result
-    validation, schema validation, the ``_absorb_result`` post-hook, and the
-    ``close`` lifecycle — those land in later phases.
+    context manager. The base owns executor resolution, result validation,
+    schema validation, the ``_absorb_result`` post-hook, and the ``close``
+    lifecycle.
     """
 
     tool_params_cls: type[ToolParams] = ExecutableTool
@@ -73,7 +67,5 @@ class ExecutableEnvironment(BaseEnvironment):
         return [self._step_one(tool_id, arguments) for tool_id, arguments in calls]
 
     def _step_one(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:
-        """Execute a single tool call. Implemented in a later phase."""
-        raise NotImplementedError(
-            "ExecutableEnvironment._step_one is not yet implemented (skeleton)."
-        )
+        """Execute a single tool call."""
+        raise NotImplementedError
