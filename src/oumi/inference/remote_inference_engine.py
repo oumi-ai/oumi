@@ -536,6 +536,9 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         # accepts; only fall back to "" when there are no tool_calls either.
         if content is None and not tool_calls:
             content = ""
+        # Reasoning content: providers expose it under different keys.
+        # Together uses ``reasoning``; Fireworks uses ``reasoning_content``.
+        reasoning_content = message.get("reasoning") or message.get("reasoning_content")
         metadata = dict(original_conversation.metadata)
         usage = self._extract_usage_from_response(response)
         if usage is not None:
@@ -550,6 +553,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                     content=content,
                     role=Role(message["role"]),
                     tool_calls=tool_calls,
+                    reasoning_content=reasoning_content,
                 ),
             ],
             metadata=metadata,

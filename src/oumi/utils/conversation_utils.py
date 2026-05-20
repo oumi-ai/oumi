@@ -340,12 +340,20 @@ def remove_excessive_images(
         if len(filtered_items) == 1 and isinstance(filtered_items[0].content, str):
             result.append(
                 Message(
-                    id=message.id, content=filtered_items[0].content, role=message.role
+                    id=message.id,
+                    content=filtered_items[0].content,
+                    role=message.role,
+                    reasoning_content=message.reasoning_content,
                 )
             )
         else:
             result.append(
-                Message(id=message.id, content=filtered_items, role=message.role)
+                Message(
+                    id=message.id,
+                    content=filtered_items,
+                    role=message.role,
+                    reasoning_content=message.reasoning_content,
+                )
             )
 
     return result
@@ -457,11 +465,17 @@ def truncate_text_in_content_items(
             ):
                 assert isinstance(items[0].content, str)
                 result[msg_idx] = Message(
-                    id=message.id, content=items[0].content, role=message.role
+                    id=message.id,
+                    content=items[0].content,
+                    role=message.role,
+                    reasoning_content=message.reasoning_content,
                 )
             else:
                 result[msg_idx] = Message(
-                    id=message.id, content=items, role=message.role
+                    id=message.id,
+                    content=items,
+                    role=message.role,
+                    reasoning_content=message.reasoning_content,
                 )
 
     return result
