@@ -4022,3 +4022,131 @@ def test_response_populates_tool_calls():
     assert results[0].metadata["finish_reason"] == "tool_calls"
     # Tools propagate through to the result so downstream callers can inspect.
     assert results[0].tools == [_WEATHER_TOOL]
+
+
+# -----------------------------------------------------------------------------
+# reasoning_content parsing (Fireworks / Together)
+# -----------------------------------------------------------------------------
+
+
+def _reasoning_engine_and_original() -> tuple[RemoteInferenceEngine, Conversation]:
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
+    )
+    original = Conversation(messages=[Message(role=Role.USER, content="Hi")])
+    return engine, original
+
+
+def test_response_populates_reasoning_content_fireworks_style():
+    """Fireworks exposes reasoning as `reasoning_content`."""
+    engine, original = _reasoning_engine_and_original()
+    response = {
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": "final answer",
+                    "reasoning_content": "let me think...",
+                }
+            }
+        ]
+    }
+    result = engine._convert_api_output_to_conversation(response, original)
+    assert result.messages[-1].content == "final answer"
+    assert result.messages[-1].reasoning_content == "let me think..."
+
+
+def test_response_populates_reasoning_content_together_style():
+    """Together exposes reasoning as `reasoning`."""
+    engine, original = _reasoning_engine_and_original()
+    response = {
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": "final answer",
+                    "reasoning": "let me think...",
+                }
+            }
+        ]
+    }
+    result = engine._convert_api_output_to_conversation(response, original)
+    assert result.messages[-1].content == "final answer"
+    assert result.messages[-1].reasoning_content == "let me think..."
+
+
+def test_response_reasoning_field_takes_precedence_over_reasoning_content():
+    """When both keys are present, `reasoning` wins (Together-style first)."""
+    engine, original = _reasoning_engine_and_original()
+    response = {
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": "final answer",
+                    "reasoning": "from reasoning",
+                    "reasoning_content": "from reasoning_content",
+                }
+            }
+        ]
+    }
+    result = engine._convert_api_output_to_conversation(response, original)
+    assert result.messages[-1].reasoning_content == "from reasoning"
+
+
+def test_response_leaves_think_tags_in_content_untouched():
+    """`<think>` tags are not auto-extracted; content is preserved verbatim."""
+    engine, original = _reasoning_engine_and_original()
+    response = {
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": "<think>let me think...</think>final answer",
+                }
+            }
+        ]
+    }
+    result = engine._convert_api_output_to_conversation(response, original)
+    assert result.messages[-1].content == "<think>let me think...</think>final answer"
+    assert result.messages[-1].reasoning_content is None
+
+
+def test_response_no_reasoning_leaves_field_none():
+    """Plain responses (no reasoning anywhere) have reasoning_content=None."""
+    engine, original = _reasoning_engine_and_original()
+    response = {
+        "choices": [{"message": {"role": "assistant", "content": "final answer"}}]
+    }
+    result = engine._convert_api_output_to_conversation(response, original)
+    assert result.messages[-1].content == "final answer"
+    assert result.messages[-1].reasoning_content is None
+
+
+def test_response_combines_reasoning_with_tool_calls():
+    """Reasoning + tool_calls coexist on the same assistant message."""
+    engine, original = _reasoning_engine_and_original()
+    tool_call_payload = {
+        "id": "call_xyz",
+        "type": "function",
+        "function": {"name": "get_weather", "arguments": '{"city":"Paris"}'},
+    }
+    response = {
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "reasoning_content": "i should call the tool",
+                    "tool_calls": [tool_call_payload],
+                }
+            }
+        ]
+    }
+    result = engine._convert_api_output_to_conversation(response, original)
+    assistant = result.messages[-1]
+    assert assistant.content is None
+    assert assistant.reasoning_content == "i should call the tool"
+    assert assistant.tool_calls is not None
+    assert assistant.tool_calls[0].function.name == "get_weather"

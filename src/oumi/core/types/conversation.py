@@ -265,6 +265,17 @@ class Message(pydantic.BaseModel):
     prior assistant ``tool_calls`` entry.
     """
 
+    reasoning_content: str | None = None
+    """Model-emitted reasoning / chain-of-thought content.
+
+    Populated by inference engines that surface a separate reasoning field
+    in the API response (e.g., Fireworks ``reasoning_content``, Together
+    ``reasoning``). Distinct from ``content``: this is the model's
+    internal deliberation, not the final answer.
+
+    Only set on assistant messages.
+    """
+
     def model_post_init(self, __context) -> None:
         """Post-initialization method for the Message model.
 
