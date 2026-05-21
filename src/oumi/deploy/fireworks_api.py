@@ -451,6 +451,38 @@ class GatewayListDeploymentsResponse(_FWBaseModel):
     total_size: int | None = Field(default=None, alias="totalSize")
 
 
+class GatewayDeploymentShapeSnapshot(_FWBaseModel):
+    """gatewayDeploymentShapeSnapshot — hardware spec captured by a shape."""
+
+    # ``accelerator_type`` and ``precision`` are ``str`` so that values
+    # Fireworks adds before we bump the enum don't fail response parsing.
+    base_model: str | None = Field(default=None, alias="baseModel")
+    accelerator_type: str | None = Field(default=None, alias="acceleratorType")
+    accelerator_count: int | None = Field(default=None, alias="acceleratorCount")
+    precision: str | None = None
+    preset_type: str | None = Field(default=None, alias="presetType")
+
+
+class GatewayDeploymentShapeVersion(_FWBaseModel):
+    """gatewayDeploymentShapeVersion — one validated version of a shape."""
+
+    name: str | None = None
+    snapshot: GatewayDeploymentShapeSnapshot | None = None
+    validated: bool | None = None
+    public: bool | None = None
+    latest_validated: bool | None = Field(default=None, alias="latestValidated")
+
+
+class GatewayListDeploymentShapeVersionsResponse(_FWBaseModel):
+    """gatewayListDeploymentShapeVersionsResponse — paginated list of shapes."""
+
+    deployment_shape_versions: list[GatewayDeploymentShapeVersion] | None = Field(
+        default=None, alias="deploymentShapeVersions"
+    )
+    next_page_token: str | None = Field(default=None, alias="nextPageToken")
+    total_size: int | None = Field(default=None, alias="totalSize")
+
+
 # ---------------------------------------------------------------------------
 # Mapping from GatewayDeploymentState → EndpointState
 # ---------------------------------------------------------------------------

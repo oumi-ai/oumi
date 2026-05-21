@@ -19,6 +19,7 @@ from oumi.utils.conversation_utils import (
     create_list_of_message_json_dicts,
     load_image_bytes_to_content_item,
     load_pil_image_from_content_item,
+    remove_excessive_images,
     remove_excessive_images_from_conversation,
     truncate_text_in_content_items,
 )
@@ -880,3 +881,88 @@ def test_create_list_of_message_json_dicts_no_tool_keys_when_unset():
     for d in result:
         assert "tool_calls" not in d
         assert "tool_call_id" not in d
+
+
+#
+# reasoning_content preservation through utility reconstructions
+#
+def test_remove_excessive_images_preserves_reasoning_content():
+    """reasoning_content survives image-dropping reconstruction."""
+    img = ContentItem(
+        type=Type.IMAGE_BINARY,
+        binary=create_png_bytes_from_image(PIL.Image.new("RGB", (2, 2))),
+    )
+    msg = Message(
+        role=Role.ASSISTANT,
+        content=[ContentItem(type=Type.TEXT, content="answer"), img],
+        reasoning_content="thinking",
+    )
+    result = remove_excessive_images([msg], max_images=0)
+    assert len(result) == 1
+    assert result[0].reasoning_content == "thinking"
+
+
+def test_truncate_text_in_content_items_preserves_reasoning_content():
+    """reasoning_content survives text-truncation reconstruction."""
+    tokenizer = build_tokenizer(ModelParams(model_name="gpt2"))
+    msg = Message(
+        role=Role.ASSISTANT,
+        content="the quick brown fox jumps over the lazy dog",
+        reasoning_content="thinking",
+    )
+    result = truncate_text_in_content_items([msg], tokenizer=tokenizer, max_tokens=3)
+    assert len(result) == 1
+    assert result[0].reasoning_content == "thinking"
+
+
+#
+# Other Message fields (id, tool_calls, tool_call_id) are also preserved by the
+# reconstructions in remove_excessive_images / truncate_text_in_content_items.
+# Previously these utilities dropped any field not explicitly threaded through;
+# switching to ``model_copy(update=...)`` keeps the model schema-additive.
+#
+_TOOL_CALL_DICT_FOR_PRESERVATION = {
+    "id": "call_xyz",
+    "type": "function",
+    "function": {"name": "get_weather", "arguments": "{}"},
+}
+
+
+def test_remove_excessive_images_preserves_id():
+    """Message.id survives image-dropping reconstruction."""
+    img = ContentItem(
+        type=Type.IMAGE_BINARY,
+        binary=create_png_bytes_from_image(PIL.Image.new("RGB", (2, 2))),
+    )
+    msg = Message(
+        id="msg-1",
+        role=Role.USER,
+        content=[ContentItem(type=Type.TEXT, content="hi"), img],
+    )
+    [out] = remove_excessive_images([msg], max_images=0)
+    assert out.id == "msg-1"
+
+
+def test_truncate_text_preserves_tool_calls():
+    """Assistant tool-call messages preserve tool_calls through truncation."""
+    tokenizer = build_tokenizer(ModelParams(model_name="gpt2"))
+    msg = Message(
+        role=Role.ASSISTANT,
+        content="i should call a tool to answer this question precisely",
+        tool_calls=[ToolCall.model_validate(_TOOL_CALL_DICT_FOR_PRESERVATION)],
+    )
+    [out] = truncate_text_in_content_items([msg], tokenizer=tokenizer, max_tokens=3)
+    assert out.tool_calls is not None
+    assert out.tool_calls[0].id == "call_xyz"
+
+
+def test_truncate_text_preserves_tool_call_id():
+    """Tool response messages preserve tool_call_id through truncation."""
+    tokenizer = build_tokenizer(ModelParams(model_name="gpt2"))
+    msg = Message(
+        role=Role.TOOL,
+        content="the weather is great here today and the sky is very blue",
+        tool_call_id="call_xyz",
+    )
+    [out] = truncate_text_in_content_items([msg], tokenizer=tokenizer, max_tokens=3)
+    assert out.tool_call_id == "call_xyz"

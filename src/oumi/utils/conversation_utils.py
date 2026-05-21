@@ -338,15 +338,10 @@ def remove_excessive_images(
                 images_to_keep -= 1
             filtered_items.append(item)
         if len(filtered_items) == 1 and isinstance(filtered_items[0].content, str):
-            result.append(
-                Message(
-                    id=message.id, content=filtered_items[0].content, role=message.role
-                )
-            )
+            new_content: str | list[ContentItem] = filtered_items[0].content
         else:
-            result.append(
-                Message(id=message.id, content=filtered_items, role=message.role)
-            )
+            new_content = filtered_items
+        result.append(message.model_copy(update={"content": new_content}))
 
     return result
 
@@ -456,12 +451,9 @@ def truncate_text_in_content_items(
                 and isinstance(messages[msg_idx].content, str)
             ):
                 assert isinstance(items[0].content, str)
-                result[msg_idx] = Message(
-                    id=message.id, content=items[0].content, role=message.role
-                )
+                new_content: str | list[ContentItem] = items[0].content
             else:
-                result[msg_idx] = Message(
-                    id=message.id, content=items, role=message.role
-                )
+                new_content = items
+            result[msg_idx] = message.model_copy(update={"content": new_content})
 
     return result

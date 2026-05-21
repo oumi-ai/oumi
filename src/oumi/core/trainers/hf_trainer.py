@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import pathlib
 from typing import cast
 
@@ -24,6 +25,26 @@ from oumi.core.distributed import is_world_process_zero
 from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.trainers.base_trainer import BaseTrainer
 from oumi.utils.logging import logger
+
+
+def _patch_name_or_path_in_config(output_dir: str, model_name: str) -> None:
+    """Set ``_name_or_path`` in the saved ``config.json`` if null/missing.
+
+    ``build_huggingface_model`` loads with a pre-instantiated ``hf_config``,
+    which overrides HF's default behavior of populating this field.
+    """
+    config_path = pathlib.Path(output_dir) / "config.json"
+    if not config_path.exists():
+        return
+    try:
+        cfg = json.loads(config_path.read_text())
+    except json.JSONDecodeError:
+        logger.warning(f"Failed to parse {config_path}; skipping _name_or_path patch.")
+        return
+    if cfg.get("_name_or_path"):
+        return
+    cfg["_name_or_path"] = model_name
+    config_path.write_text(json.dumps(cfg, indent=2))
 
 
 class HuggingFaceTrainer(BaseTrainer):
@@ -130,6 +151,8 @@ class HuggingFaceTrainer(BaseTrainer):
             self._processor.save_config(output_dir)
             logger.info(f"Processor config has been saved at {output_dir}")
 
+        _patch_name_or_path_in_config(output_dir, config.model.model_name)
+
     def _save_fsdp_model(self, config: TrainingConfig, final: bool = True) -> None:
         """Saves the model's weights to the specified output directory.
 
@@ -154,6 +177,10 @@ class HuggingFaceTrainer(BaseTrainer):
         if self._processor is not None:
             self._processor.save_config(output_dir)
             logger.info(f"Processor config has been saved at {output_dir}")
+
+        # FSDP path: all ranks call in, but only rank 0 should touch config.json.
+        if is_world_process_zero():
+            _patch_name_or_path_in_config(output_dir, config.model.model_name)
 
     def get_last_eval_metrics(self) -> dict:
         """Gets the last evaluation metrics from the trainer.

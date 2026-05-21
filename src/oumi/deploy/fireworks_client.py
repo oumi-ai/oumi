@@ -30,6 +30,7 @@ from oumi.deploy.base_client import (
     AutoscalingConfig,
     BaseDeploymentClient,
     DeploymentProvider,
+    DeploymentShape,
     Endpoint,
     EndpointState,
     FileResolver,
@@ -49,6 +50,7 @@ from oumi.deploy.fireworks_api import (
     GatewayDeployment,
     GatewayGetModelUploadEndpointBody,
     GatewayGetModelUploadEndpointResponse,
+    GatewayListDeploymentShapeVersionsResponse,
     GatewayListDeploymentsResponse,
     GatewayListModelsResponse,
     GatewayModel,
@@ -1137,7 +1139,9 @@ class FireworksDeploymentClient(BaseDeploymentClient):
                 timeout=600,
             )
         if not response.ok:
-            logger.error(
+            # WARNING per attempt; ``_upload_single_file`` retries and
+            # only the final exhaustion is logged at ERROR.
+            logger.warning(
                 "GCS upload failed (HTTP %d, %s %s): %s",
                 response.status_code,
                 response.request.method,
@@ -1210,7 +1214,8 @@ class FireworksDeploymentClient(BaseDeploymentClient):
 
             # Failure handling
             error_body = response.text
-            logger.error(
+            # WARNING per attempt; only the final exhaustion below is ERROR.
+            logger.warning(
                 "Validation attempt %d/%d failed (HTTP %d): %s",
                 attempt + 1,
                 max_retries,
@@ -1472,6 +1477,63 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         return [
             HardwareConfig(accelerator=name, count=1) for name in FIREWORKS_ACCELERATORS
         ]
+
+    async def list_deployment_shapes(
+        self, base_model: str | None = None
+    ) -> list[DeploymentShape]:
+        """Lists ``latest_validated`` deployment shapes published by Fireworks.
+
+        Paginates ``/v1/accounts/-/deploymentShapes/-/versions``, optionally
+        scoped to one base-model resource path. Shapes missing any of the
+        three load-bearing fields are dropped.
+        """
+        filter_clauses = ["latest_validated=true"]
+        if base_model:
+            filter_clauses.insert(0, f'snapshot.base_model="{base_model}"')
+        params_base = {
+            "filter": " AND ".join(filter_clauses),
+            "order_by": "create_time desc",
+        }
+
+        shapes: list[DeploymentShape] = []
+        page_token: str | None = None
+        while True:
+            params = dict(params_base)
+            if page_token:
+                params["pageToken"] = page_token
+
+            response = await self._client.get(
+                "/v1/accounts/-/deploymentShapes/-/versions",
+                params=params,
+            )
+            self._check_response(response, "list deployment shapes")
+            resp = GatewayListDeploymentShapeVersionsResponse.model_validate(
+                response.json()
+            )
+
+            for version in resp.deployment_shape_versions or []:
+                snapshot = version.snapshot
+                if snapshot is None:
+                    continue
+                if (
+                    snapshot.base_model is None
+                    or snapshot.accelerator_type is None
+                    or snapshot.accelerator_count is None
+                ):
+                    continue
+                shapes.append(
+                    DeploymentShape(
+                        base_model=snapshot.base_model,
+                        accelerator_type=snapshot.accelerator_type,
+                        accelerator_count=snapshot.accelerator_count,
+                    )
+                )
+
+            page_token = resp.next_page_token
+            if not page_token:
+                break
+
+        return shapes
 
     async def list_models(
         self, include_public: bool = False, organization: str | None = None
