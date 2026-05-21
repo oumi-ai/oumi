@@ -1139,7 +1139,9 @@ class FireworksDeploymentClient(BaseDeploymentClient):
                 timeout=600,
             )
         if not response.ok:
-            logger.error(
+            # WARNING per attempt; ``_upload_single_file`` retries and
+            # only the final exhaustion is logged at ERROR.
+            logger.warning(
                 "GCS upload failed (HTTP %d, %s %s): %s",
                 response.status_code,
                 response.request.method,
@@ -1212,7 +1214,8 @@ class FireworksDeploymentClient(BaseDeploymentClient):
 
             # Failure handling
             error_body = response.text
-            logger.error(
+            # WARNING per attempt; only the final exhaustion below is ERROR.
+            logger.warning(
                 "Validation attempt %d/%d failed (HTTP %d): %s",
                 attempt + 1,
                 max_retries,
