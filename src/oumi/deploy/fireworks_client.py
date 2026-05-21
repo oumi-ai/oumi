@@ -1139,7 +1139,12 @@ class FireworksDeploymentClient(BaseDeploymentClient):
                 timeout=600,
             )
         if not response.ok:
-            logger.error(
+            # WARNING, not ERROR: the caller (``_upload_single_file``)
+            # retries up to ``UPLOAD_MAX_RETRIES`` and only the final
+            # exhaustion log is ERROR. A WARNING per intermediate retry
+            # keeps Sentry from fingerprinting each failed PUT into its
+            # own issue.
+            logger.warning(
                 "GCS upload failed (HTTP %d, %s %s): %s",
                 response.status_code,
                 response.request.method,
@@ -1212,7 +1217,10 @@ class FireworksDeploymentClient(BaseDeploymentClient):
 
             # Failure handling
             error_body = response.text
-            logger.error(
+            # WARNING per attempt — the loop retries up to ``max_retries``;
+            # the final ERROR below (and the raised exception) signal the
+            # actual failure. See _sync_put_file for the same pattern.
+            logger.warning(
                 "Validation attempt %d/%d failed (HTTP %d): %s",
                 attempt + 1,
                 max_retries,
