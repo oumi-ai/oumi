@@ -45,6 +45,7 @@ from oumi.deploy.fireworks_api import (
     BaseModelDetailsCheckpointFormat,
     DeploymentPrecision,
     GatewayAcceleratorType,
+    GatewayAutoscalingPolicy,
     GatewayBaseModelDetails,
     GatewayCreateModelBody,
     GatewayDeployment,
@@ -67,6 +68,32 @@ from oumi.deploy.utils import raise_api_error
 logger = logging.getLogger(__name__)
 
 _MB = 1024 * 1024
+
+
+def _build_autoscaling_policy(
+    scale_down_window_seconds: int | None,
+    scale_to_zero_window_seconds: int | None,
+) -> GatewayAutoscalingPolicy | None:
+    """Builds a ``GatewayAutoscalingPolicy`` when idle-window kwargs are set.
+
+    Returns ``None`` when neither window is set so the request omits
+    ``autoscalingPolicy`` entirely and Fireworks applies its provider default
+    (10min scale-down, 1h scale-to-zero, 5min minimum).
+    """
+    if scale_down_window_seconds is None and scale_to_zero_window_seconds is None:
+        return None
+    return GatewayAutoscalingPolicy(
+        scaleDownWindow=(
+            f"{scale_down_window_seconds}s"
+            if scale_down_window_seconds is not None
+            else None
+        ),
+        scaleToZeroWindow=(
+            f"{scale_to_zero_window_seconds}s"
+            if scale_to_zero_window_seconds is not None
+            else None
+        ),
+    )
 
 
 # Mapping from Oumi-standard accelerator names (lowercase) to Fireworks REST API
@@ -1315,6 +1342,8 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         autoscaling: AutoscalingConfig,
         display_name: str | None = None,
         endpoint_id: str | None = None,
+        scale_down_window_seconds: int | None = None,
+        scale_to_zero_window_seconds: int | None = None,
     ) -> Endpoint:
         """Creates an inference endpoint (deployment) for a model.
 
@@ -1329,6 +1358,11 @@ class FireworksDeploymentClient(BaseDeploymentClient):
                 ``accounts/{account_id}/deployments/{endpoint_id}``. When
                 omitted, Fireworks generates a random ID (the default
                 behavior).
+            scale_down_window_seconds: Idle seconds before removing a replica.
+                ``None`` → Fireworks default (10min).
+            scale_to_zero_window_seconds: Idle seconds before scaling to zero
+                replicas. ``None`` → Fireworks default (1h, 5min minimum).
+                Only meaningful when ``autoscaling.min_replicas == 0``.
 
         Returns:
             Created Endpoint
@@ -1341,6 +1375,9 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             acceleratorCount=hardware.count,
             minReplicaCount=autoscaling.min_replicas,
             maxReplicaCount=autoscaling.max_replicas,
+            autoscalingPolicy=_build_autoscaling_policy(
+                scale_down_window_seconds, scale_to_zero_window_seconds
+            ),
             displayName=display_name,
         )
 
