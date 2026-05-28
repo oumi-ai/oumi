@@ -1410,7 +1410,6 @@ def test_message_get_dict_accessor():
     message = Message(role=Role.USER, content="hello")
     assert message.get("content") == "hello"
     assert message.get("role") == Role.USER
-    # Unset / non-field keys return the default (None unless specified).
     assert message.get("tool_calls") is None
     assert message.get("reasoning_content") is None
     assert message.get("nonexistent_key") is None

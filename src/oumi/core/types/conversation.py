@@ -302,12 +302,9 @@ class Message(pydantic.BaseModel):
     def get(self, key: str, default: Any = None) -> Any:
         """Returns a field by name, dict-style, or ``default`` if absent.
 
-        Hugging Face chat templates access message fields with the mapping
-        ``.get()`` method (e.g. Gemma 4's template reads
-        ``message.get('reasoning_content')`` and ``message.get('tool_calls')``).
-        ``Message`` is passed to ``apply_chat_template`` as a message object, so
-        it must emulate that part of the mapping interface. Keys that are not
-        fields return ``default``.
+        Some chat templates (e.g. Gemma 4's) read message fields via the mapping
+        ``.get()`` method, and ``Message`` is passed to ``apply_chat_template`` as
+        a message object, so it must support it.
         """
         return getattr(self, key, default)
 
