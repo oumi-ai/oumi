@@ -314,9 +314,7 @@ run: |
 ```
 ````
 
-`sky-slurm` routes jobs to an existing Slurm cluster via SkyPilot 0.12's Slurm integration. Configure SSH access to the login node in `~/.slurm/config`, then reference the `Host` entry via `region` (and optionally a partition via `zone`). See the [SkyPilot Slurm docs](https://docs.skypilot.co/en/latest/reference/slurm/slurm-getting-started.html) for cluster setup.
-
-This is distinct from oumi's native `cloud: slurm`, which talks to Slurm directly via SSH+`sbatch` (see [custom_cluster.md](custom_cluster.md)). Use `sky-slurm` when you want unified handling with other SkyPilot clouds (dashboard, status, log streaming).
+`sky-slurm` routes jobs to an existing Slurm cluster via SkyPilot. Configure SSH access to the login node in `~/.slurm/config`, then reference the `Host` entry via `region` (and an optional partition via `zone`). See the [SkyPilot Slurm docs](https://docs.skypilot.co/en/latest/reference/slurm/slurm-getting-started.html) for cluster setup. Distinct from the native `cloud: slurm` (SSH+`sbatch`); use `sky-slurm` for unified handling with other SkyPilot clouds.
 :::
 
 :::{tab-item} Lambda
