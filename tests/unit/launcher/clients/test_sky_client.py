@@ -91,6 +91,11 @@ def test_sky_client_nebius_name():
     assert client.SupportedClouds.NEBIUS.value == "nebius"
 
 
+def test_sky_client_slurm_name():
+    client = SkyClient()
+    assert client.SupportedClouds.SLURM.value == "sky-slurm"
+
+
 def test_convert_job_to_task(
     mock_sky_data_storage,
 ):
