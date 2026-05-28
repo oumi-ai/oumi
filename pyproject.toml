@@ -155,6 +155,7 @@ lambda = ["skypilot[lambda]"]
 modal = ["modal>=0.64,<2"]
 runpod = ["skypilot[runpod]"]
 nebius = ["skypilot[nebius]"]
+slurm = ["skypilot[slurm]"]
 
 synthesis = [
     "pdftext>=0.6.3; python_version >= '3.10'", # Document ingestion for synthesis
