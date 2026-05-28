@@ -1403,3 +1403,32 @@ def test_conversation_to_dict_includes_set_reasoning_content():
     )
     d = conv.to_dict()
     assert d["messages"][0]["reasoning_content"] == "thought"
+
+
+def test_message_get_dict_accessor():
+    """Message.get() emulates the dict accessor used by chat templates."""
+    message = Message(role=Role.USER, content="hello")
+    assert message.get("content") == "hello"
+    assert message.get("role") == Role.USER
+    # Unset / non-field keys return the default (None unless specified).
+    assert message.get("tool_calls") is None
+    assert message.get("reasoning_content") is None
+    assert message.get("nonexistent_key") is None
+    assert message.get("nonexistent_key", "default") == "default"
+
+
+def test_message_get_supports_gemma4_chat_template_pattern():
+    """Regression for OPE-1861: Gemma 4's chat template reads message fields via
+    ``.get()`` (e.g. ``message.get('reasoning') or message.get('reasoning_content')``
+    and ``message.get('tool_calls')``). Message is passed to apply_chat_template as
+    a message object, so it must support that access pattern."""
+    message = Message(
+        role=Role.ASSISTANT,
+        content="answer",
+        reasoning_content="because",
+    )
+    # `reasoning` is not a field; the template falls through to `reasoning_content`.
+    assert (message.get("reasoning") or message.get("reasoning_content")) == "because"
+    # The template guards optional sections on these keys.
+    assert message.get("tool_calls") is None
+    assert message.get("tool_responses") is None
