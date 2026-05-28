@@ -146,9 +146,8 @@ class PeftParams(BaseParams):
           - ".*language_model.*q_proj"
           - ".*language_model.*v_proj"
 
-    When any item contains regex metacharacters (.*+?|), all items are
-    joined into a single regex string and matched via re.fullmatch against
-    full module paths.
+    When any item contains a regex metacharacter, all items are joined into a
+    single regex string and matched via re.fullmatch against full module paths.
 
     Finally, specifying [] to avoid targeting any modules (ex. if you want to set
     lora_target_parameters instead).
@@ -336,7 +335,7 @@ class PeftParams(BaseParams):
         if target_modules == ["all-linear"]:
             target_modules = "all-linear"
         elif target_modules and any(
-            re.search(r"[.*+?\\^$|()]", m) for m in target_modules
+            re.search(r"[.*+?\\^$|()\[\]{}]", m) for m in target_modules
         ):
             # Items contain regex metacharacters — join into a single regex
             # string so PEFT uses re.fullmatch instead of suffix matching.

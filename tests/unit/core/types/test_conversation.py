@@ -1414,6 +1414,10 @@ def test_message_get_dict_accessor():
     assert message.get("reasoning_content") is None
     assert message.get("nonexistent_key") is None
     assert message.get("nonexistent_key", "default") == "default"
+    # Keys that collide with method/attribute names return the default, not the
+    # bound method — get exposes declared fields only.
+    assert message.get("get") is None
+    assert message.get("model_dump", "x") == "x"
 
 
 def test_message_get_supports_gemma4_chat_template_pattern():

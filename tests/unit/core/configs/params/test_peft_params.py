@@ -128,3 +128,13 @@ def test_to_lora_mixed_plain_and_regex_detected():
         config.target_modules,
         "gate_proj",
     )
+
+
+def test_to_lora_detects_regex_with_character_class():
+    """An item whose only metacharacters are a character class ([...]) or
+    quantifier braces ({...}) is still detected as regex."""
+    params = PeftParams(lora_target_modules=["q_[pk]roj"])
+    config = params.to_lora()
+    assert isinstance(config.target_modules, str)
+    assert re.fullmatch(config.target_modules, "q_proj")
+    assert re.fullmatch(config.target_modules, "q_kroj")
