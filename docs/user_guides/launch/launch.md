@@ -286,6 +286,39 @@ run: |
 Nebius support is provided through SkyPilot. Enable it the same way as other providers: run `sky check` and follow the instructions for the "Nebius" row (see the [SkyPilot Nebius docs](https://docs.skypilot.co/en/latest/reference/cloud-setup/cloud-permissions/nebius.html)).
 :::
 
+:::{tab-item} Slurm (via SkyPilot)
+````{dropdown} sample-sky-slurm-job.yaml
+```yaml
+name: sample-sky-slurm-job
+
+resources:
+  cloud: sky-slurm
+  region: my-slurm-cluster  # Matches a `Host` entry in ~/.slurm/config
+  zone: gpu                 # Optional Slurm partition (queue)
+  accelerators: "H100:8"
+
+num_nodes: 1
+
+working_dir: .
+
+envs:
+  OUMI_RUN_NAME: sample.sky-slurm.job
+
+setup: |
+  set -e
+  pip install uv && uv pip install --system 'oumi[gpu]'
+
+run: |
+  set -e
+  oumi train -c ./path/to/your/config
+```
+````
+
+`sky-slurm` routes jobs to an existing Slurm cluster via SkyPilot 0.12's Slurm integration. Configure SSH access to the login node in `~/.slurm/config`, then reference the `Host` entry via `region` (and optionally a partition via `zone`). See the [SkyPilot Slurm docs](https://docs.skypilot.co/en/latest/reference/slurm/slurm-getting-started.html) for cluster setup.
+
+This is distinct from oumi's native `cloud: slurm`, which talks to Slurm directly via SSH+`sbatch` (see [custom_cluster.md](custom_cluster.md)). Use `sky-slurm` when you want unified handling with other SkyPilot clouds (dashboard, status, log streaming).
+:::
+
 :::{tab-item} Lambda
 ````{dropdown} sample-lambda-job.yaml
 ```yaml
