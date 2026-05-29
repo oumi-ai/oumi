@@ -36,10 +36,7 @@ def test_to_lora_regex_items_joined_into_string():
     )
     config = params.to_lora()
 
-    # Should be a string (regex), not a list/set
     assert isinstance(config.target_modules, str)
-
-    # Should match language_model paths
     assert re.fullmatch(
         config.target_modules,
         "model.language_model.layers.0.self_attn.q_proj",
@@ -48,14 +45,10 @@ def test_to_lora_regex_items_joined_into_string():
         config.target_modules,
         "model.language_model.layers.15.self_attn.v_proj",
     )
-
-    # Should NOT match vision_tower paths
     assert not re.fullmatch(
         config.target_modules,
         "model.vision_tower.encoder.layers.0.self_attn.q_proj",
     )
-
-    # Should NOT match audio_tower paths
     assert not re.fullmatch(
         config.target_modules,
         "model.audio_tower.layers.0.self_attn.q_proj",
@@ -110,20 +103,16 @@ def test_to_lora_mixed_plain_and_regex_detected():
     params = PeftParams(
         lora_target_modules=[
             ".*language_model.*q_proj",
-            "gate_proj",  # plain, but will be treated as regex too
+            "gate_proj",
         ],
     )
     config = params.to_lora()
 
-    # Should be joined as regex string
     assert isinstance(config.target_modules, str)
-
-    # The regex item matches scoped
     assert re.fullmatch(
         config.target_modules,
         "model.language_model.layers.0.self_attn.q_proj",
     )
-    # The plain item "gate_proj" as regex matches literally
     assert re.fullmatch(
         config.target_modules,
         "gate_proj",
