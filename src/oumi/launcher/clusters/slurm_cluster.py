@@ -120,13 +120,15 @@ def _parse_accelerators_to_gres(accelerators: str | None) -> str | None:
         ``":8"``          -> ``"gpu:8"`` (untyped count)
         ``"8"``           -> ``"gpu:8"`` (untyped count)
     """
-    if not accelerators:
+    spec = _strip_modifier(accelerators)
+    if not spec:
         return None
-    spec = accelerators.strip()
     if ":" in spec:
         gpu_type, _, count = spec.partition(":")
         gpu_type = gpu_type.strip()
-        count = count.strip() or "1"
+        # Count may still carry a SkyPilot ``+`` if it came after the colon
+        # (e.g. ``"H100:8+"``). Strip it before formatting.
+        count = _strip_modifier(count) or "1"
         if gpu_type:
             return f"gpu:{gpu_type}:{count}"
         return f"gpu:{count}"
@@ -147,7 +149,7 @@ def _strip_modifier(value: str | None) -> str | None:
     """
     if value is None:
         return None
-    stripped = value.rstrip("+").strip()
+    stripped = value.strip().rstrip("+").strip()
     return stripped or None
 
 

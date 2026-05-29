@@ -819,8 +819,14 @@ def test_slurm_cluster_stop(mock_datetime, mock_slurm_client):
         (":8", "gpu:8"),
         ("8", "gpu:8"),
         ("  H100:2  ", "gpu:H100:2"),
+        # SkyPilot "at least" modifier — accelerators behaves like cpus/memory.
+        ("H100:8+", "gpu:H100:8"),
+        ("8+", "gpu:8"),
+        (" H100:8+ ", "gpu:H100:8"),
         (None, None),
         ("", None),
+        ("   ", None),
+        ("+", None),
     ],
 )
 def test_parse_accelerators_to_gres(accelerators, expected_gres):
