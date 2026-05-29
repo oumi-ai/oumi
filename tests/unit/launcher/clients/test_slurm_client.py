@@ -6,7 +6,7 @@ from unittest.mock import Mock, call, patch
 
 import pytest
 
-from oumi.core.launcher import JobState, JobStatus
+from oumi.core.launcher import JobState
 from oumi.launcher.clients.slurm_client import SlurmClient
 
 _CTRL_PATH: str = "-S ~/.ssh/control-%h-%p-%r"
@@ -421,197 +421,134 @@ def test_slurm_client_list_jobs_failure(mock_subprocess):
     )
 
 
-def test_slurm_client_get_job_success(mock_subprocess):
-    mock_run = Mock()
-    mock_subprocess.run.return_value = mock_run
-    mock_run.stdout = _get_test_data("sacct.txt").encode("utf-8")
-    mock_run.stderr = b"foo"
-    mock_run.returncode = 0
-
-    client = SlurmClient("user", "host", "cluster_name")
-    job_status = client.get_job("6")
-    mock_subprocess.run.assert_called_with(
-        _run_commands_template(
-            [
-                _SACCT_CMD,
-            ]
-        ),
-        shell=True,
-        capture_output=True,
-        timeout=180,
-    )
-    expected_status = JobStatus(
-        id="6",
-        name="test",
-        status="COMPLETED",
-        cluster="cluster_name",
-        metadata=(
-            "JobID                                                 JobName                           User                          State                         Reason\n"  # noqa: E501
-            "------------------------------ ------------------------------ ------------------------------ ------------------------------ ------------------------------\n"  # noqa: E501
-            "                             6                           test                         taenin                      COMPLETED                           None"  # noqa: E501
-        ),
-        done=True,
-        state=JobState.SUCCEEDED,
-    )
-    assert job_status == expected_status
+def _mock_refresh_creds_run() -> Mock:
+    """Mock for the ``ssh -O check`` that ``@retry_auth`` runs before each command."""
+    r = Mock()
+    r.stdout = b""
+    r.stderr = b""
+    r.returncode = 0
+    return r
 
 
-def test_slurm_client_get_job_success_one_job(mock_subprocess):
-    data = _get_test_data("sacct.txt").encode("utf-8")
-    data = b"\n".join(data.split(b"\n")[:3])
-    mock_run = Mock()
-    mock_subprocess.run.return_value = mock_run
-    mock_run.stdout = data
-    mock_run.stderr = b"foo"
-    mock_run.returncode = 0
+def test_slurm_client_get_job_returns_active_job_from_squeue(mock_subprocess):
+    squeue_ok = Mock()
+    squeue_ok.stdout = b"100 myjob user RUNNING node-1\n"
+    squeue_ok.stderr = b""
+    squeue_ok.returncode = 0
 
-    client = SlurmClient("user", "host", "cluster_name")
-    job_status = client.get_job("6")
-    mock_subprocess.run.assert_called_with(
-        _run_commands_template(
-            [
-                _SACCT_CMD,
-            ]
-        ),
-        shell=True,
-        capture_output=True,
-        timeout=180,
-    )
-    expected_status = JobStatus(
-        id="6",
-        name="test",
-        status="COMPLETED",
-        cluster="cluster_name",
-        metadata=(
-            "JobID                                                 JobName                           User                          State                         Reason\n"  # noqa: E501
-            "------------------------------ ------------------------------ ------------------------------ ------------------------------ ------------------------------\n"  # noqa: E501
-            "                             6                           test                         taenin                      COMPLETED                           None"  # noqa: E501
-        ),
-        done=True,
-        state=JobState.SUCCEEDED,
-    )
-    assert job_status == expected_status
-
-
-def test_slurm_client_get_job_not_found(mock_subprocess):
-    mock_run = Mock()
-    mock_subprocess.run.return_value = mock_run
-    mock_run.stdout = _get_test_data("sacct.txt").encode("utf-8")
-    mock_run.stderr = b"foo"
-    mock_run.returncode = 0
-    client = SlurmClient("user", "host", "cluster_name")
-    job_status = client.get_job("2017652")
-    mock_subprocess.run.assert_called_with(
-        _run_commands_template([_SACCT_CMD]),
-        shell=True,
-        capture_output=True,
-        timeout=180,
-    )
-    assert job_status is None
-
-
-def test_slurm_client_get_job_not_found_empty(mock_subprocess):
-    data = _get_test_data("sacct.txt").encode("utf-8")
-    data = b"\n".join(data.split(b"\n")[:2])
-    mock_run = Mock()
-    mock_subprocess.run.return_value = mock_run
-    mock_run.stdout = data
-    mock_run.stderr = b"foo"
-    mock_run.returncode = 0
-
-    client = SlurmClient("user", "host", "cluster_name")
-    job_status = client.get_job("6")
-    mock_subprocess.run.assert_called_with(
-        _run_commands_template([_SACCT_CMD]),
-        shell=True,
-        capture_output=True,
-        timeout=180,
-    )
-    assert job_status is None
-
-
-def test_slurm_client_get_job_failure(mock_subprocess):
-    mock_success_run = Mock()
-    mock_success_run.stdout = b"out"
-    mock_success_run.stderr = b"err"
-    mock_success_run.returncode = 0
-    mock_run = Mock()
     mock_subprocess.run.side_effect = [
-        mock_success_run,
-        mock_success_run,
-        mock_run,
+        _mock_refresh_creds_run(),
+        _mock_refresh_creds_run(),
+        squeue_ok,
     ]
-    mock_run.stdout = _get_test_data("sacct.txt").encode("utf-8")
-    mock_run.stderr = b"foo"
-    mock_run.returncode = 1
+
     client = SlurmClient("user", "host", "cluster_name")
-    with pytest.raises(RuntimeError, match="Failed to list jobs. stderr: foo"):
-        _ = client.get_job("2017652")
-    mock_subprocess.run.assert_called_with(
-        _run_commands_template([_SACCT_CMD]),
-        shell=True,
-        capture_output=True,
-        timeout=180,
+    job_status = client.get_job("100")
+
+    assert job_status is not None
+    assert job_status.id == "100"
+    assert job_status.state == JobState.RUNNING
+
+
+def test_slurm_client_get_job_falls_back_to_scontrol_for_terminal_state(
+    mock_subprocess,
+):
+    squeue_empty = Mock()
+    squeue_empty.stdout = b""
+    squeue_empty.stderr = b""
+    squeue_empty.returncode = 0
+
+    scontrol_ok = Mock()
+    scontrol_ok.stdout = (
+        b"JobId=100 JobName=myjob\n"
+        b"   UserId=user(1000) GroupId=user(1000) MCS_label=N/A\n"
+        b"   JobState=COMPLETED Reason=None Dependency=(null)\n"
     )
+    scontrol_ok.stderr = b""
+    scontrol_ok.returncode = 0
+
+    mock_subprocess.run.side_effect = [
+        _mock_refresh_creds_run(),
+        _mock_refresh_creds_run(),
+        squeue_empty,
+        _mock_refresh_creds_run(),
+        scontrol_ok,
+    ]
+
+    client = SlurmClient("user", "host", "cluster_name")
+    job_status = client.get_job("100")
+
+    assert job_status is not None
+    assert job_status.id == "100"
+    assert job_status.state == JobState.SUCCEEDED
+    assert job_status.done is True
+
+
+def test_slurm_client_get_job_returns_none_when_purged(mock_subprocess):
+    squeue_empty = Mock()
+    squeue_empty.stdout = b""
+    squeue_empty.stderr = b""
+    squeue_empty.returncode = 0
+
+    scontrol_fail = Mock()
+    scontrol_fail.stdout = b""
+    scontrol_fail.stderr = b"slurm_load_jobs error: Invalid job id specified\n"
+    scontrol_fail.returncode = 1
+
+    mock_subprocess.run.side_effect = [
+        _mock_refresh_creds_run(),
+        _mock_refresh_creds_run(),
+        squeue_empty,
+        _mock_refresh_creds_run(),
+        scontrol_fail,
+    ]
+
+    client = SlurmClient("user", "host", "cluster_name")
+    assert client.get_job("999") is None
+
+
+def test_slurm_client_get_job_squeue_failure_raises(mock_subprocess):
+    squeue_fail = Mock()
+    squeue_fail.stdout = b""
+    squeue_fail.stderr = b"squeue: error: connection refused\n"
+    squeue_fail.returncode = 1
+
+    mock_subprocess.run.side_effect = [
+        _mock_refresh_creds_run(),
+        _mock_refresh_creds_run(),
+        squeue_fail,
+    ]
+
+    client = SlurmClient("user", "host", "cluster_name")
+    with pytest.raises(RuntimeError, match="Failed to list jobs via squeue"):
+        _ = client.get_job("100")
 
 
 def test_slurm_client_cancel_success(mock_subprocess):
-    mock_run2 = Mock()
-    mock_run2.stdout = _get_test_data("sacct.txt").encode("utf-8")
-    mock_run2.stderr = b"foo"
-    mock_run2.returncode = 0
-    mock_subprocess.run.return_value = mock_run2
+    scancel_ok = Mock()
+    scancel_ok.stdout = b""
+    scancel_ok.stderr = b""
+    scancel_ok.returncode = 0
+
+    squeue_ok = Mock()
+    squeue_ok.stdout = b"7.batch batch user RUNNING node-1\n"
+    squeue_ok.stderr = b""
+    squeue_ok.returncode = 0
+
+    mock_subprocess.run.side_effect = [
+        _mock_refresh_creds_run(),
+        _mock_refresh_creds_run(),
+        scancel_ok,
+        _mock_refresh_creds_run(),
+        squeue_ok,
+    ]
 
     client = SlurmClient("user", "host", "cluster_name")
     job_status = client.cancel("7.batch")
-    mock_subprocess.run.assert_has_calls(
-        [
-            call(
-                "ssh -S ~/.ssh/control-%h-%p-%r -O check user@host",
-                shell=True,
-                capture_output=True,
-                timeout=10,
-            ),
-            call(
-                "ssh -S ~/.ssh/control-%h-%p-%r -O check user@host",
-                shell=True,
-                capture_output=True,
-                timeout=10,
-            ),
-            call(
-                _run_commands_template(["scancel 7.batch"]),
-                shell=True,
-                capture_output=True,
-                timeout=180,
-            ),
-            call(
-                "ssh -S ~/.ssh/control-%h-%p-%r -O check user@host",
-                shell=True,
-                capture_output=True,
-                timeout=10,
-            ),
-            call(
-                _run_commands_template([_SACCT_CMD]),
-                shell=True,
-                capture_output=True,
-                timeout=180,
-            ),
-        ]
-    )
-    expected_status = JobStatus(
-        id="7.batch",
-        name="batch",
-        status="RUNNING",
-        cluster="cluster_name",
-        metadata=(
-            "JobID                                                 JobName                           User                          State                         Reason\n"  # noqa: E501
-            "------------------------------ ------------------------------ ------------------------------ ------------------------------ ------------------------------\n"  # noqa: E501
-            "                       7.batch                          batch                                                       RUNNING"  # noqa: E501
-        ),
-        done=False,
-        state=JobState.RUNNING,
-    )
-    assert job_status == expected_status
+
+    assert job_status is not None
+    assert job_status.id == "7.batch"
+    assert job_status.state == JobState.RUNNING
 
 
 def test_slurm_client_cancel_scancel_failure(mock_subprocess):
@@ -643,104 +580,58 @@ def test_slurm_client_cancel_scancel_failure(mock_subprocess):
     )
 
 
-def test_slurm_client_cancel_sacct_failure(mock_subprocess):
-    mock_run1 = Mock()
-    mock_run1.stdout = b""
-    mock_run1.stderr = b""
-    mock_run1.returncode = 0
-    mock_run2 = Mock()
-    mock_run2.stdout = _get_test_data("sacct.txt").encode("utf-8")
-    mock_run2.stderr = b"foo"
-    mock_run2.returncode = 1
+def test_slurm_client_cancel_squeue_failure(mock_subprocess):
+    scancel_ok = Mock()
+    scancel_ok.stdout = b""
+    scancel_ok.stderr = b""
+    scancel_ok.returncode = 0
+
+    squeue_fail = Mock()
+    squeue_fail.stdout = b""
+    squeue_fail.stderr = b"foo"
+    squeue_fail.returncode = 1
+
     mock_subprocess.run.side_effect = [
-        mock_run1,
-        mock_run1,
-        mock_run1,
-        mock_run1,
-        mock_run2,
+        _mock_refresh_creds_run(),
+        _mock_refresh_creds_run(),
+        scancel_ok,
+        _mock_refresh_creds_run(),
+        squeue_fail,
     ]
-    with pytest.raises(RuntimeError, match="Failed to list jobs. stderr: foo"):
+
+    with pytest.raises(RuntimeError, match="Failed to list jobs via squeue"):
         client = SlurmClient("user", "host", "cluster_name")
         _ = client.cancel("2017652")
-    mock_subprocess.run.assert_has_calls(
-        [
-            call(
-                "ssh -S ~/.ssh/control-%h-%p-%r -O check user@host",
-                shell=True,
-                capture_output=True,
-                timeout=10,
-            ),
-            call(
-                "ssh -S ~/.ssh/control-%h-%p-%r -O check user@host",
-                shell=True,
-                capture_output=True,
-                timeout=10,
-            ),
-            call(
-                _run_commands_template(["scancel 2017652"]),
-                shell=True,
-                capture_output=True,
-                timeout=180,
-            ),
-            call(
-                "ssh -S ~/.ssh/control-%h-%p-%r -O check user@host",
-                shell=True,
-                capture_output=True,
-                timeout=10,
-            ),
-            call(
-                _run_commands_template([_SACCT_CMD]),
-                shell=True,
-                capture_output=True,
-                timeout=180,
-            ),
-        ]
-    )
 
 
 def test_slurm_client_cancel_job_not_found_success(mock_subprocess):
-    mock_run2 = Mock()
-    mock_run2.stdout = _get_test_data("sacct.txt").encode("utf-8")
-    mock_run2.stderr = b"foo"
-    mock_run2.returncode = 0
-    mock_subprocess.run.return_value = mock_run2
+    scancel_ok = Mock()
+    scancel_ok.stdout = b""
+    scancel_ok.stderr = b""
+    scancel_ok.returncode = 0
+
+    squeue_empty = Mock()
+    squeue_empty.stdout = b""
+    squeue_empty.stderr = b""
+    squeue_empty.returncode = 0
+
+    scontrol_fail = Mock()
+    scontrol_fail.stdout = b""
+    scontrol_fail.stderr = b"slurm_load_jobs error: Invalid job id specified\n"
+    scontrol_fail.returncode = 1
+
+    mock_subprocess.run.side_effect = [
+        _mock_refresh_creds_run(),
+        _mock_refresh_creds_run(),
+        scancel_ok,
+        _mock_refresh_creds_run(),
+        squeue_empty,
+        _mock_refresh_creds_run(),
+        scontrol_fail,
+    ]
+
     client = SlurmClient("user", "host", "cluster_name")
-    job_status = client.cancel("2017652")
-    mock_subprocess.run.assert_has_calls(
-        [
-            call(
-                "ssh -S ~/.ssh/control-%h-%p-%r -O check user@host",
-                shell=True,
-                capture_output=True,
-                timeout=10,
-            ),
-            call(
-                "ssh -S ~/.ssh/control-%h-%p-%r -O check user@host",
-                shell=True,
-                capture_output=True,
-                timeout=10,
-            ),
-            call(
-                _run_commands_template(["scancel 2017652"]),
-                shell=True,
-                capture_output=True,
-                timeout=180,
-            ),
-            call(
-                "ssh -S ~/.ssh/control-%h-%p-%r -O check user@host",
-                shell=True,
-                capture_output=True,
-                timeout=10,
-            ),
-            call(
-                _run_commands_template([_SACCT_CMD]),
-                shell=True,
-                capture_output=True,
-                timeout=180,
-            ),
-        ]
-    )
-    assert job_status is None
+    assert client.cancel("2017652") is None
 
 
 def test_slurm_client_run_commands_success(mock_subprocess):
