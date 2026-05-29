@@ -296,6 +296,95 @@ class TestFireworksDeploymentClient:
             assert payload["baseModel"] == "model-456"
 
     @pytest.mark.asyncio
+    async def test_create_endpoint_omits_autoscaling_policy_without_idle_fields(
+        self,
+    ):
+        """Idle windows unset → request omits autoscalingPolicy entirely."""
+        client = FireworksDeploymentClient(api_key="test", account_id="test-account")
+
+        mock_response = MagicMock()
+        mock_response.is_success = True
+        mock_response.json.return_value = {
+            "name": "accounts/test-account/deployments/deploy-123",
+            "baseModel": "model-456",
+            "state": "CREATING",
+            "acceleratorType": "NVIDIA_A100_80GB",
+            "acceleratorCount": 1,
+        }
+
+        with patch.object(
+            client._client, "post", new_callable=AsyncMock, return_value=mock_response
+        ) as mock_post:
+            await client.create_endpoint(
+                model_id="model-456",
+                hardware=HardwareConfig(accelerator="nvidia_a100_80gb", count=1),
+                autoscaling=AutoscalingConfig(min_replicas=1, max_replicas=1),
+            )
+
+            payload = mock_post.call_args[1]["json"]
+            assert "autoscalingPolicy" not in payload
+
+    @pytest.mark.asyncio
+    async def test_create_endpoint_sends_idle_windows(self):
+        """Idle-window kwargs serialize as ``"{n}s"`` under autoscalingPolicy."""
+        client = FireworksDeploymentClient(api_key="test", account_id="test-account")
+
+        mock_response = MagicMock()
+        mock_response.is_success = True
+        mock_response.json.return_value = {
+            "name": "accounts/test-account/deployments/deploy-123",
+            "baseModel": "model-456",
+            "state": "CREATING",
+            "acceleratorType": "NVIDIA_A100_80GB",
+            "acceleratorCount": 1,
+        }
+
+        with patch.object(
+            client._client, "post", new_callable=AsyncMock, return_value=mock_response
+        ) as mock_post:
+            await client.create_endpoint(
+                model_id="model-456",
+                hardware=HardwareConfig(accelerator="nvidia_a100_80gb", count=1),
+                autoscaling=AutoscalingConfig(min_replicas=0, max_replicas=1),
+                scale_down_window_seconds=600,
+                scale_to_zero_window_seconds=900,
+            )
+
+            payload = mock_post.call_args[1]["json"]
+            assert payload["autoscalingPolicy"] == {
+                "scaleDownWindow": "600s",
+                "scaleToZeroWindow": "900s",
+            }
+
+    @pytest.mark.asyncio
+    async def test_create_endpoint_sends_only_scale_down_window(self):
+        """Only one idle window set → only that key appears in the payload."""
+        client = FireworksDeploymentClient(api_key="test", account_id="test-account")
+
+        mock_response = MagicMock()
+        mock_response.is_success = True
+        mock_response.json.return_value = {
+            "name": "accounts/test-account/deployments/deploy-123",
+            "baseModel": "model-456",
+            "state": "CREATING",
+            "acceleratorType": "NVIDIA_A100_80GB",
+            "acceleratorCount": 1,
+        }
+
+        with patch.object(
+            client._client, "post", new_callable=AsyncMock, return_value=mock_response
+        ) as mock_post:
+            await client.create_endpoint(
+                model_id="model-456",
+                hardware=HardwareConfig(accelerator="nvidia_a100_80gb", count=1),
+                autoscaling=AutoscalingConfig(min_replicas=1, max_replicas=1),
+                scale_down_window_seconds=600,
+            )
+
+            payload = mock_post.call_args[1]["json"]
+            assert payload["autoscalingPolicy"] == {"scaleDownWindow": "600s"}
+
+    @pytest.mark.asyncio
     async def test_get_endpoint(self):
         """Test get_endpoint fetches and parses correctly."""
         client = FireworksDeploymentClient(api_key="test", account_id="test-account")
