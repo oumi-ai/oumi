@@ -108,6 +108,47 @@ def _is_job_done(job_state: JobState) -> bool:
     )
 
 
+def _parse_squeue_line(line: str, cluster_name: str) -> JobStatus | None:
+    """Parses one row of ``squeue --noheader --format='%i %j %u %T %R'``."""
+    parts = line.strip().split(None, 4)
+    if len(parts) < 4:
+        return None
+    job_id, name, _user, raw_state = parts[0], parts[1], parts[2], parts[3]
+    state = _get_job_state(raw_state)
+    return JobStatus(
+        id=job_id,
+        name=name,
+        status=raw_state,
+        cluster=cluster_name,
+        metadata=line,
+        done=_is_job_done(state),
+        state=state,
+    )
+
+
+def _parse_scontrol_show_job(output: str, cluster_name: str) -> JobStatus | None:
+    """Parses ``scontrol show job <id>`` output into a JobStatus."""
+    fields: dict[str, str] = {}
+    for line in output.split("\n"):
+        for kv in line.strip().split(" "):
+            if "=" in kv:
+                key, value = kv.split("=", 1)
+                fields.setdefault(key, value)
+    if "JobId" not in fields or "JobState" not in fields:
+        return None
+    raw_state = fields["JobState"]
+    state = _get_job_state(raw_state)
+    return JobStatus(
+        id=fields["JobId"],
+        name=fields.get("JobName", ""),
+        status=raw_state,
+        cluster=cluster_name,
+        metadata=output,
+        done=_is_job_done(state),
+        state=state,
+    )
+
+
 def _split_status_line(
     line: str, column_lengths: list[int], cluster_name: str, metadata: str
 ) -> JobStatus:
@@ -656,8 +697,37 @@ class SlurmClient:
             jobs.append(status)
         return jobs
 
+    def _list_active_jobs_squeue(self) -> list[JobStatus]:
+        """Lists active jobs via ``squeue``."""
+        command = f"squeue --user={self._user} --noheader --format='%i %j %u %T %R'"
+        result = self.run_commands([command])
+        if result.exit_code != 0:
+            raise RuntimeError(
+                f"Failed to list jobs via squeue. stderr: {result.stderr}"
+            )
+        jobs: list[JobStatus] = []
+        for line in result.stdout.splitlines():
+            if not line.strip():
+                continue
+            status = _parse_squeue_line(line, self._cluster_name)
+            if status is not None:
+                jobs.append(status)
+        return jobs
+
+    def _scontrol_get_job(self, job_id: str) -> JobStatus | None:
+        """Looks up a single job via ``scontrol show job <id>``."""
+        command = f"scontrol show job {job_id}"
+        result = self.run_commands([command])
+        if result.exit_code != 0:
+            return None
+        return _parse_scontrol_show_job(result.stdout, self._cluster_name)
+
     def get_job(self, job_id: str) -> JobStatus | None:
         """Gets the specified job's status.
+
+        Queries ``squeue`` for active jobs, then falls back to
+        ``scontrol show job`` for jobs that have left the queue but
+        are still retained by ``slurmctld`` (per ``MinJobAge``).
 
         Args:
             job_id: The ID of the job to get.
@@ -665,11 +735,10 @@ class SlurmClient:
         Returns:
             The job status if found, None otherwise.
         """
-        job_list = self.list_jobs()
-        for job in job_list:
+        for job in self._list_active_jobs_squeue():
             if job.id == job_id:
                 return job
-        return None
+        return self._scontrol_get_job(job_id)
 
     def get_latest_job(self) -> JobStatus | None:
         """Gets the most recent job on this cluster."""

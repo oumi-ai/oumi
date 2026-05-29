@@ -206,11 +206,11 @@ class SlurmCluster(BaseCluster):
         return self._connection.name
 
     def get_job(self, job_id: str) -> JobStatus | None:
-        """Gets the jobs on this cluster if it exists, else returns None."""
-        for job in self.get_jobs():
-            if job.id == job_id:
-                return job
-        return None
+        """Gets the job's status if it exists on this cluster, else returns None."""
+        status = self._client.get_job(job_id)
+        if status is not None:
+            status.cluster = self._connection.name
+        return status
 
     def get_jobs(self) -> list[JobStatus]:
         """Lists the jobs on this cluster."""
