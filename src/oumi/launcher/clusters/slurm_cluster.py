@@ -22,8 +22,7 @@ from functools import reduce
 from pathlib import Path
 from typing import Any
 
-from oumi.core.configs import JobConfig
-from oumi.core.configs.job_config import JobResources
+from oumi.core.configs import JobConfig, JobResources
 from oumi.core.launcher import BaseCluster, JobStatus
 from oumi.launcher.clients.slurm_client import SlurmClient, SlurmLogStream
 from oumi.utils.logging import logger
@@ -107,6 +106,13 @@ def _parse_accelerators_to_gres(accelerators: str | None) -> str | None:
     cluster only has untyped GRES configured, the user can pass ``":8"``
     or ``"8"`` to skip the type.
 
+    Args:
+        accelerators: The oumi accelerator string, e.g. ``"H100:8"``.
+
+    Returns:
+        The ``--gres`` value (e.g. ``"gpu:H100:8"``, ``"gpu:8"``), or
+        ``None`` if ``accelerators`` is unset.
+
     Examples:
         ``"H100:8"``      -> ``"gpu:H100:8"``
         ``"H100"``        -> ``"gpu:H100:1"``
@@ -130,7 +136,15 @@ def _parse_accelerators_to_gres(accelerators: str | None) -> str | None:
 
 
 def _strip_modifier(value: str | None) -> str | None:
-    """Strips the SkyPilot ``+`` modifier from a numeric resource string."""
+    """Strips the SkyPilot ``+`` modifier from a numeric resource string.
+
+    Args:
+        value: A string like ``"4"``, ``"4+"``, or ``None``.
+
+    Returns:
+        The numeric string with any trailing ``+`` removed, or ``None``
+        if the input was ``None`` or empty after stripping.
+    """
     if value is None:
         return None
     stripped = value.rstrip("+").strip()
@@ -145,9 +159,15 @@ def _resources_to_sbatch_kwargs(resources: JobResources) -> dict[str, Any]:
     (e.g. ``cpus_per_task``); :meth:`SlurmClient.submit_job` converts
     them to ``--cpus-per-task`` automatically.
 
-    Return type is ``dict[str, Any]`` because :meth:`SlurmClient.submit_job`
+    The return type is ``dict[str, Any]`` because :meth:`SlurmClient.submit_job`
     has typed kwargs (e.g. ``ntasks: int``) that ``**``-unpacking could
     collide with; ``Any`` lets the call type-check.
+
+    Args:
+        resources: The job's resource request.
+
+    Returns:
+        Kwargs to pass to :meth:`SlurmClient.submit_job`.
     """
     kwargs: dict[str, Any] = {}
     gres = _parse_accelerators_to_gres(resources.accelerators)
