@@ -2477,3 +2477,65 @@ def test_synthesize_clears_sample_routers_on_exception(
         with pytest.raises(RuntimeError, match="plan boom"):
             synth.synthesize([{"x": 1}], mock_multiturn_attribute)
     assert synth._sample_routers == []
+
+
+# ---------------------------------------------------------------------------
+# Token usage accounting
+# ---------------------------------------------------------------------------
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_token_usage_accumulates_from_inference_metadata(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_multiturn_attribute,
+    mock_inference_config,
+):
+    """Token counts accumulate from inference response usage metadata.
+
+    Mirrors AttributeSynthesizer's token accounting: every infer() result
+    carries usage metadata, and the synthesizer must sum it across the
+    planner and per-turn calls so downstream consumers can bill multi-turn
+    conversations.
+    """
+    mock_engine = Mock()
+    mock_build_inference_engine.return_value = mock_engine
+
+    def infer_side_effect(conversations, **kwargs):
+        return [
+            Conversation(
+                messages=[Message(role=Role.ASSISTANT, content="Response")],
+                metadata={
+                    "usage": {
+                        "prompt_tokens": 10,
+                        "completion_tokens": 4,
+                        "cached_tokens": 1,
+                    }
+                },
+            )
+            for _ in conversations
+        ]
+
+    mock_engine.infer.side_effect = infer_side_effect
+
+    synth = ConversationSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+
+    assert synth.total_input_tokens == 0
+    assert synth.total_output_tokens == 0
+    assert synth.total_cached_tokens == 0
+
+    synth.synthesize(
+        [{"customer_type": "frustrated", "issue": "billing"}],
+        mock_multiturn_attribute,
+    )
+
+    assert synth.total_input_tokens > 0
+    assert synth.total_output_tokens > 0
+    assert synth.total_cached_tokens > 0
+    # Counts are consistent: cached <= input, and the ratios match the per-call
+    # metadata (10 prompt : 4 completion : 1 cached).
+    assert synth.total_output_tokens * 10 == synth.total_input_tokens * 4
+    assert synth.total_cached_tokens * 10 == synth.total_input_tokens * 1

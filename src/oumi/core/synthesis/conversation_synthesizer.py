@@ -83,6 +83,9 @@ class ConversationSynthesizer:
         )
         self._inference_config = inference_config
         self._default_turn_order = [Role.USER, Role.ASSISTANT]
+        self._total_input_tokens: int = 0
+        self._total_output_tokens: int = 0
+        self._total_cached_tokens: int = 0
 
         if (
             self._environment_config is not None
@@ -414,6 +417,29 @@ class ConversationSynthesizer:
 
         return result
 
+    @property
+    def total_input_tokens(self) -> int:
+        """Total input/prompt tokens accumulated across all synthesize() calls."""
+        return self._total_input_tokens
+
+    @property
+    def total_output_tokens(self) -> int:
+        """Total output/completion tokens accumulated across all synthesize() calls."""
+        return self._total_output_tokens
+
+    @property
+    def total_cached_tokens(self) -> int:
+        """Total cached tokens accumulated across all synthesize() calls."""
+        return self._total_cached_tokens
+
+    def _accumulate_token_usage(self, inference_results: list[Conversation]) -> None:
+        """Accumulate token usage from inference response metadata."""
+        for result in inference_results:
+            usage = result.metadata.get("usage", {})
+            self._total_input_tokens += usage.get("prompt_tokens", 0)
+            self._total_output_tokens += usage.get("completion_tokens", 0)
+            self._total_cached_tokens += usage.get("cached_tokens", 0)
+
     def _extract_response(
         self,
         inference_conversations: list[Conversation],
@@ -636,6 +662,7 @@ class ConversationSynthesizer:
             planners,
             inference_config=self._planner_inference_config(),
         )
+        self._accumulate_token_usage(inference_results)
 
         return self._extract_response(inference_results)
 
@@ -749,6 +776,7 @@ class ConversationSynthesizer:
                 prompts,
                 inference_config=self._inference_config,
             )
+            self._accumulate_token_usage(inference_results)
 
             generated_texts = self._extract_response(inference_results)
 
@@ -803,6 +831,7 @@ class ConversationSynthesizer:
             active_prompts,
             inference_config=self._inference_config,
         )
+        self._accumulate_token_usage(results)
         if len(results) != len(active):
             raise RuntimeError(
                 f"Inference engine returned {len(results)} results for "
@@ -848,6 +877,7 @@ class ConversationSynthesizer:
             nudged_prompts,
             inference_config=self._inference_config,
         )
+        self._accumulate_token_usage(results)
         if len(results) != len(stragglers):
             raise RuntimeError(
                 f"Inference engine returned {len(results)} results for "
