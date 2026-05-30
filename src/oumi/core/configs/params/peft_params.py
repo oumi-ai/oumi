@@ -349,9 +349,7 @@ class PeftParams(BaseParams):
             # `(.*\.)?name` to preserve PEFT's normal suffix-match semantics —
             # otherwise mixing plain + regex entries silently under-targets.
             target_modules = "|".join(
-                f"({m})"
-                if re.search(metachar, m)
-                else rf"((.*\.)?{re.escape(m)})"
+                f"({m})" if re.search(metachar, m) else rf"((.*\.)?{re.escape(m)})"
                 for m in target_modules
             )
 
