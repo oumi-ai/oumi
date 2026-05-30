@@ -340,11 +340,8 @@ class PeftParams(BaseParams):
         if target_modules == ["all-linear"]:
             target_modules = "all-linear"
         elif target_modules and any(re.search(metachar, m) for m in target_modules):
-            # A regex metacharacter in any entry switches PEFT to re.fullmatch
-            # (instead of suffix matching) — needed to scope LoRA to e.g. Gemma4's
-            # language_model and skip the vision/audio towers PEFT can't adapt.
-            # Bare names are promoted to `(.*\.)?name` so they keep suffix-match
-            # semantics under fullmatch instead of silently matching nothing.
+            # Compile to one fullmatch regex; bare names get promoted so they
+            # still suffix-match (see the lora_target_modules docstring).
             target_modules = "|".join(
                 f"({m})" if re.search(metachar, m) else rf"((.*\.)?{re.escape(m)})"
                 for m in target_modules
