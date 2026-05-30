@@ -148,6 +148,10 @@ class PeftParams(BaseParams):
 
     When any item contains a regex metacharacter, all items are joined into a
     single regex string and matched via re.fullmatch against full module paths.
+    Bare names (no metacharacters) in such a mixed list are auto-promoted so they
+    keep their suffix-match meaning (e.g. "gate_proj" still matches any module
+    ending in ".gate_proj"); without this they would only match the literal
+    string under re.fullmatch and silently target nothing.
 
     Finally, specifying [] to avoid targeting any modules (ex. if you want to set
     lora_target_parameters instead).
@@ -332,17 +336,24 @@ class PeftParams(BaseParams):
         # This is special handling for the "all-linear" special case.
         # See: https://huggingface.co/docs/peft/en/package_reference/lora#peft.LoraConfig.target_modules
         target_modules = self.lora_target_modules
+        metachar = r"[.*+?\\^$|()\[\]{}]"
         if target_modules == ["all-linear"]:
             target_modules = "all-linear"
-        elif target_modules and any(
-            re.search(r"[.*+?\\^$|()\[\]{}]", m) for m in target_modules
-        ):
-            # Items contain regex metacharacters — join into a single regex
-            # string so PEFT uses re.fullmatch instead of suffix matching.
-            # This is needed for multimodal models (e.g. Gemma4) where
-            # plain names like "q_proj" would match both language model and
-            # vision/audio tower layers, causing errors on unsupported types.
-            target_modules = "|".join(f"({m})" for m in target_modules)
+        elif target_modules and any(re.search(metachar, m) for m in target_modules):
+            # An entry contains regex metacharacters, so PEFT matches the whole
+            # list with re.fullmatch instead of suffix matching. This is needed
+            # for multimodal models (e.g. Gemma4) where a plain "q_proj" would
+            # match both the language model and the vision/audio towers, crashing
+            # PEFT on unsupported layer types. Under fullmatch a bare name only
+            # matches its literal string, so promote bare entries to
+            # `(.*\.)?name` to preserve PEFT's normal suffix-match semantics —
+            # otherwise mixing plain + regex entries silently under-targets.
+            target_modules = "|".join(
+                f"({m})"
+                if re.search(metachar, m)
+                else rf"((.*\.)?{re.escape(m)})"
+                for m in target_modules
+            )
 
         return LoraConfig(
             r=self.lora_r,

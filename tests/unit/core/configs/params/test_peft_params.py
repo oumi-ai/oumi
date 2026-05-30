@@ -98,8 +98,10 @@ def test_to_lora_regex_single_item():
     )
 
 
-def test_to_lora_mixed_plain_and_regex_detected():
-    """If any item has regex chars, all items are joined as regex."""
+def test_to_lora_mixed_plain_and_regex_promotes_bare_names():
+    """When the regex heuristic fires, bare names are promoted to
+    `(.*\\.)?name` so they keep PEFT's suffix-match semantics instead of
+    silently only matching the bare string under re.fullmatch."""
     params = PeftParams(
         lora_target_modules=[
             ".*language_model.*q_proj",
@@ -115,7 +117,12 @@ def test_to_lora_mixed_plain_and_regex_detected():
     )
     assert re.fullmatch(
         config.target_modules,
-        "gate_proj",
+        "model.language_model.layers.0.mlp.gate_proj",
+    )
+    assert re.fullmatch(config.target_modules, "gate_proj")
+    assert not re.fullmatch(
+        config.target_modules,
+        "model.vision_tower.layers.0.mlp.gate_proj_other",
     )
 
 
