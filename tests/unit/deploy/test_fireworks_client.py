@@ -40,6 +40,7 @@ from oumi.deploy.fireworks_client import (
     FIREWORKS_ACCELERATORS,
     FireworksDeploymentClient,
     FireworksInvalidModelIdError,
+    _strip_version_suffix,
     _validate_fireworks_model_id,
 )
 
@@ -259,6 +260,57 @@ class TestFireworksDeploymentClient:
             assert payload["displayName"] == "test-deployment"
             # No caller-supplied ID → no deploymentId query param.
             assert call_args[1].get("params", {}) == {}
+
+    @pytest.mark.asyncio
+    async def test_create_endpoint_by_shape_omits_accelerator(self):
+        """deployment_shape set → sends deploymentShape, not acceleratorType/Count."""
+        client = FireworksDeploymentClient(api_key="test", account_id="test-account")
+
+        mock_response = MagicMock()
+        mock_response.is_success = True
+        mock_response.json.return_value = {
+            "name": "accounts/test-account/deployments/deploy-123",
+            "baseModel": "model-456",
+            "state": "CREATING",
+            "acceleratorType": "NVIDIA_H200_141GB",
+            "acceleratorCount": 1,
+        }
+
+        with patch.object(
+            client._client, "post", new_callable=AsyncMock, return_value=mock_response
+        ) as mock_post:
+            await client.create_endpoint(
+                model_id="model-456",
+                hardware=None,
+                autoscaling=AutoscalingConfig(min_replicas=1, max_replicas=2),
+                deployment_shape="accounts/fireworks/deploymentShapes/rft-qwen3-8b",
+            )
+
+            payload = mock_post.call_args[1]["json"]
+            assert payload["deploymentShape"] == (
+                "accounts/fireworks/deploymentShapes/rft-qwen3-8b"
+            )
+            # Shape carries the hardware; raw accelerator fields must be absent.
+            assert "acceleratorType" not in payload
+            assert "acceleratorCount" not in payload
+
+    @pytest.mark.asyncio
+    async def test_create_endpoint_requires_exactly_one_of_hardware_or_shape(self):
+        """Passing both, or neither, raises instead of silently picking one."""
+        client = FireworksDeploymentClient(api_key="test", account_id="test-account")
+        autoscaling = AutoscalingConfig(min_replicas=1, max_replicas=1)
+
+        with pytest.raises(ValueError, match="exactly one"):
+            await client.create_endpoint(
+                model_id="m", hardware=None, autoscaling=autoscaling
+            )
+        with pytest.raises(ValueError, match="exactly one"):
+            await client.create_endpoint(
+                model_id="m",
+                hardware=HardwareConfig(accelerator="nvidia_a100_80gb", count=1),
+                autoscaling=autoscaling,
+                deployment_shape="accounts/fireworks/deploymentShapes/rft-qwen3-8b",
+            )
 
     @pytest.mark.asyncio
     async def test_create_endpoint_with_endpoint_id(self):
@@ -566,6 +618,42 @@ class TestFireworksDeploymentClient:
         assert shapes[1].accelerator_type == "NVIDIA_H100_80GB"
 
     @pytest.mark.asyncio
+    async def test_list_deployment_shapes_populates_resource_path_stripping_version(
+        self,
+    ):
+        """``resource_path`` is the family path with the version suffix stripped."""
+        client = FireworksDeploymentClient(api_key="test", account_id="test-account")
+
+        mock_response = MagicMock()
+        mock_response.is_success = True
+        mock_response.json.return_value = {
+            "deploymentShapeVersions": [
+                {
+                    "name": (
+                        "accounts/fireworks/deploymentShapes/rft-qwen3-8b/versions/v123"
+                    ),
+                    "latestValidated": True,
+                    "snapshot": {
+                        "baseModel": "accounts/fireworks/models/qwen3-8b",
+                        "acceleratorType": "NVIDIA_H200_141GB",
+                        "acceleratorCount": 1,
+                    },
+                },
+            ],
+            "nextPageToken": "",
+        }
+
+        with patch.object(
+            client._client, "get", new_callable=AsyncMock, return_value=mock_response
+        ):
+            shapes = await client.list_deployment_shapes()
+
+        assert len(shapes) == 1
+        assert shapes[0].resource_path == (
+            "accounts/fireworks/deploymentShapes/rft-qwen3-8b"
+        )
+
+    @pytest.mark.asyncio
     async def test_list_deployment_shapes_scopes_filter_to_base_model(self):
         """A base_model argument is added as a snapshot.base_model AND clause."""
         client = FireworksDeploymentClient(api_key="test", account_id="test-account")
@@ -608,6 +696,30 @@ class TestFireworksDeploymentClient:
         client = FireworksDeploymentClient(api_key="test", account_id="test-account")
         headers = client._get_inference_auth_headers()
         assert headers == {"Authorization": "Bearer test"}
+
+
+class TestStripVersionSuffix:
+    """Tests for _strip_version_suffix."""
+
+    @pytest.mark.parametrize(
+        "name, expected",
+        [
+            # Versioned path -> family path.
+            (
+                "accounts/fireworks/deploymentShapes/rft-qwen3-8b/versions/v123",
+                "accounts/fireworks/deploymentShapes/rft-qwen3-8b",
+            ),
+            # Already a family path -> unchanged.
+            (
+                "accounts/fireworks/deploymentShapes/rft-qwen3-8b",
+                "accounts/fireworks/deploymentShapes/rft-qwen3-8b",
+            ),
+            # Missing name -> None.
+            (None, None),
+        ],
+    )
+    def test_strip_version_suffix(self, name, expected):
+        assert _strip_version_suffix(name) == expected
 
 
 class TestValidateFireworksModelId:
