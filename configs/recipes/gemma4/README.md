@@ -43,9 +43,9 @@ oumi launch up -c oumi://configs/recipes/gemma4/sft/e4b_full/gcp_job.yaml --clus
 
 LoRA is scoped to the language-model layers only. Gemma 4's vision/audio towers
 use `Gemma4ClippableLinear` wrappers that PEFT cannot adapt, so the recipes target
-modules by regex (`.*language_model.*q_proj`, ...). This relies on oumi's
-`to_lora()` regex auto-detection: when any `lora_target_modules` entry contains
-regex metacharacters, the whole list is compiled to a single regex.
+modules by regex (`.*language_model.*q_proj`, ...). The recipes set
+`lora_target_modules_regex: true`, which tells oumi's `to_lora()` to match the
+`lora_target_modules` patterns against full module paths instead of by name.
 
 To launch Gemma 4 E4B LoRA training locally (fits a single A100/H100):
 

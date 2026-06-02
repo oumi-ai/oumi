@@ -4,12 +4,18 @@ from oumi.core.configs.params.peft_params import PeftParams
 
 
 def test_to_lora_plain_list_passes_through():
-    """Plain module names (no regex) are passed as-is to LoraConfig."""
-    params = PeftParams(
-        lora_target_modules=["q_proj", "v_proj"],
-    )
+    """Plain module names are passed to LoraConfig as a list (suffix match)."""
+    params = PeftParams(lora_target_modules=["q_proj", "v_proj"])
     config = params.to_lora()
     assert config.target_modules == {"q_proj", "v_proj"}
+
+
+def test_to_lora_dotted_names_not_regex_by_default():
+    """Without the regex flag, dotted entries like "self_attn.q_proj" are passed
+    through as literal names for PEFT to suffix-match, not compiled to a regex."""
+    params = PeftParams(lora_target_modules=["self_attn.q_proj"])
+    config = params.to_lora()
+    assert config.target_modules == {"self_attn.q_proj"}
 
 
 def test_to_lora_none_modules():
@@ -26,13 +32,21 @@ def test_to_lora_all_linear():
     assert config.target_modules == "all-linear"
 
 
-def test_to_lora_regex_items_joined_into_string():
-    """Items with regex metacharacters are joined into a single regex string."""
+def test_to_lora_empty_list():
+    """Empty list targets no modules."""
+    params = PeftParams(lora_target_modules=[])
+    config = params.to_lora()
+    assert config.target_modules == set()
+
+
+def test_to_lora_regex_flag_joins_items_into_string():
+    """With the regex flag set, items are joined into one fullmatch regex string."""
     params = PeftParams(
         lora_target_modules=[
             ".*language_model.*q_proj",
             ".*language_model.*v_proj",
         ],
+        lora_target_modules_regex=True,
     )
     config = params.to_lora()
 
@@ -55,18 +69,33 @@ def test_to_lora_regex_items_joined_into_string():
     )
 
 
-def test_to_lora_regex_vision_tower():
-    """Regex targeting vision tower with .linear suffix."""
+def test_to_lora_regex_flag_single_item():
+    """A single regex item is joined into a string under the flag."""
+    params = PeftParams(
+        lora_target_modules=[".*language_model.*q_proj"],
+        lora_target_modules_regex=True,
+    )
+    config = params.to_lora()
+
+    assert isinstance(config.target_modules, str)
+    assert re.fullmatch(
+        config.target_modules,
+        "model.language_model.layers.0.self_attn.q_proj",
+    )
+
+
+def test_to_lora_regex_flag_vision_tower():
+    """Regex targeting the vision tower with a ".linear" suffix."""
     params = PeftParams(
         lora_target_modules=[
             ".*vision_tower.*q_proj\\.linear",
             ".*vision_tower.*v_proj\\.linear",
         ],
+        lora_target_modules_regex=True,
     )
     config = params.to_lora()
 
     assert isinstance(config.target_modules, str)
-
     assert re.fullmatch(
         config.target_modules,
         "model.vision_tower.encoder.layers.0.self_attn.q_proj.linear",
@@ -77,60 +106,11 @@ def test_to_lora_regex_vision_tower():
     )
 
 
-def test_to_lora_empty_list_no_regex():
-    """Empty list passes through without regex detection."""
-    params = PeftParams(lora_target_modules=[])
-    config = params.to_lora()
-    assert config.target_modules == set()
-
-
-def test_to_lora_regex_single_item():
-    """Single regex item works."""
+def test_to_lora_all_linear_ignores_regex_flag():
+    """all-linear stays a passthrough string even when the regex flag is set."""
     params = PeftParams(
-        lora_target_modules=[".*language_model.*q_proj"],
+        lora_target_modules=["all-linear"],
+        lora_target_modules_regex=True,
     )
     config = params.to_lora()
-
-    assert isinstance(config.target_modules, str)
-    assert re.fullmatch(
-        config.target_modules,
-        "model.language_model.layers.0.self_attn.q_proj",
-    )
-
-
-def test_to_lora_mixed_plain_and_regex_promotes_bare_names():
-    """When the regex heuristic fires, bare names are promoted to
-    `(.*\\.)?name` so they keep PEFT's suffix-match semantics instead of
-    silently only matching the bare string under re.fullmatch."""
-    params = PeftParams(
-        lora_target_modules=[
-            ".*language_model.*q_proj",
-            "gate_proj",
-        ],
-    )
-    config = params.to_lora()
-
-    assert isinstance(config.target_modules, str)
-    assert re.fullmatch(
-        config.target_modules,
-        "model.language_model.layers.0.self_attn.q_proj",
-    )
-    assert re.fullmatch(
-        config.target_modules,
-        "model.language_model.layers.0.mlp.gate_proj",
-    )
-    assert re.fullmatch(config.target_modules, "gate_proj")
-    assert not re.fullmatch(
-        config.target_modules,
-        "model.vision_tower.layers.0.mlp.gate_proj_other",
-    )
-
-
-def test_to_lora_detects_regex_with_character_class():
-    """An item whose only metacharacters are a character class ([...]) or
-    quantifier braces ({...}) is still detected as regex."""
-    params = PeftParams(lora_target_modules=["q_[pk]roj"])
-    config = params.to_lora()
-    assert isinstance(config.target_modules, str)
-    assert re.fullmatch(config.target_modules, "q_proj")
-    assert re.fullmatch(config.target_modules, "q_kroj")
+    assert config.target_modules == "all-linear"

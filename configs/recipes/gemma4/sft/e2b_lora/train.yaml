@@ -75,10 +75,9 @@ peft:
   lora_r: 8
   lora_alpha: 16
   lora_dropout: 0.05
-  # Regex patterns scope LoRA to the language_model only. A plain "q_proj" would
-  # also match the vision/audio tower Gemma4ClippableLinear modules and crash
-  # PEFT. This relies on oumi's to_lora() regex auto-detect: when any entry
-  # contains regex metacharacters, the whole list is compiled to one regex.
+  # Scope LoRA to the language_model only; a plain "q_proj" would also match the
+  # vision/audio tower Gemma4ClippableLinear modules, which PEFT cannot adapt.
+  lora_target_modules_regex: true
   lora_target_modules:
     - ".*language_model.*q_proj"
     - ".*language_model.*k_proj"

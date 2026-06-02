@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import re
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Literal
@@ -137,24 +136,32 @@ class PeftParams(BaseParams):
     Specify ["all-linear"] to apply LoRA to all linear/Conv1D layers in the model.
     Specify a list of module names to only apply LoRA to those modules in the model
     (matched by suffix, e.g. "q_proj" matches any module ending in ".q_proj").
+    Specify [] to avoid targeting any modules (ex. if you want to set
+    lora_target_parameters instead).
 
-    For multimodal models where you need to target specific model components,
-    use regex patterns to scope targeting. For example, to target only the
-    language model layers in Gemma4 (avoiding vision/audio tower layers):
+    To match by regex instead of by name, set `lora_target_modules_regex`.
+    """
+
+    lora_target_modules_regex: bool = field(
+        default=False,
+        metadata={"help": "Match `lora_target_modules` entries as regex patterns."},
+    )
+    """Whether to treat `lora_target_modules` entries as regex patterns.
+
+    When False (default), entries are passed to PEFT as module names matched by
+    suffix. When True, the entries are joined into a single regex that PEFT matches
+    against full module paths with `re.fullmatch`. This is useful for multimodal
+    models where LoRA must be scoped to specific components: e.g. to target only the
+    language model layers in Gemma4 (avoiding the vision/audio towers, whose
+    Gemma4ClippableLinear layers PEFT cannot adapt):
 
         lora_target_modules:
           - ".*language_model.*q_proj"
           - ".*language_model.*v_proj"
+        lora_target_modules_regex: true
 
-    When any item contains a regex metacharacter, all items are joined into a
-    single regex string and matched via re.fullmatch against full module paths.
-    Bare names (no metacharacters) in such a mixed list are auto-promoted so they
-    keep their suffix-match meaning (e.g. "gate_proj" still matches any module
-    ending in ".gate_proj"); without this they would only match the literal
-    string under re.fullmatch and silently target nothing.
-
-    Finally, specifying [] to avoid targeting any modules (ex. if you want to set
-    lora_target_parameters instead).
+    Each pattern must full-match the module path, so include leading/trailing
+    ".*" as needed.
     """
 
     lora_target_parameters: list[str] | None = field(
@@ -331,21 +338,14 @@ class PeftParams(BaseParams):
 
         # LoraConfig's target_modules is type Optional[Union[list[str], str]], but
         # since OmegaConf doesn't support a union between a list and a primitive type,
-        # our field's type is Optional[list[str]].
-        #
-        # This is special handling for the "all-linear" special case.
+        # our field's type is Optional[list[str]]. We pass PEFT either a list (matched
+        # by name), the "all-linear" string, or a single regex (matched by fullmatch).
         # See: https://huggingface.co/docs/peft/en/package_reference/lora#peft.LoraConfig.target_modules
         target_modules = self.lora_target_modules
-        metachar = r"[.*+?\\^$|()\[\]{}]"
         if target_modules == ["all-linear"]:
             target_modules = "all-linear"
-        elif target_modules and any(re.search(metachar, m) for m in target_modules):
-            # Compile to one fullmatch regex; bare names get promoted so they
-            # still suffix-match (see the lora_target_modules docstring).
-            target_modules = "|".join(
-                f"({m})" if re.search(metachar, m) else rf"((.*\.)?{re.escape(m)})"
-                for m in target_modules
-            )
+        elif target_modules and self.lora_target_modules_regex:
+            target_modules = "|".join(f"({m})" for m in target_modules)
 
         return LoraConfig(
             r=self.lora_r,
