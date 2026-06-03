@@ -83,8 +83,7 @@ peft:
     - "gate_proj"
     - "up_proj"
     - "down_proj"
-  # Keep LoRA on the text model only; the vision/audio towers contain q_proj/v_proj
-  # projections as Gemma4ClippableLinear layers that PEFT cannot adapt.
+  # Exclude the vision/audio towers (Gemma4ClippableLinear layers PEFT can't adapt).
   lora_exclude_modules:
     - ".*vision_tower.*"
     - ".*audio_tower.*"

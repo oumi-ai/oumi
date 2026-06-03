@@ -1422,9 +1422,7 @@ def test_message_get_dict_accessor():
 
 def test_message_get_supports_gemma4_chat_template_pattern():
     """Regression for OPE-1861: Gemma 4's chat template reads message fields via
-    ``.get()`` (e.g. ``message.get('reasoning') or message.get('reasoning_content')``
-    and ``message.get('tool_calls')``). Message is passed to apply_chat_template as
-    a message object, so it must support that access pattern."""
+    ``.get()``, so Message must support that access pattern."""
     message = Message(
         role=Role.ASSISTANT,
         content="answer",
