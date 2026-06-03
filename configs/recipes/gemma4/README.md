@@ -8,7 +8,7 @@ Configs for Google's Gemma 4 model family. See the [Hugging Face announcement](h
   - [google/gemma-4-E2B-it](https://huggingface.co/google/gemma-4-E2B-it) (~5B) — **LoRA config available**
   - [google/gemma-4-E4B-it](https://huggingface.co/google/gemma-4-E4B-it) (~8B) — **FFT + LoRA configs available**
 - Larger (image + text, 256K context)
-  - [google/gemma-4-26B-A4B-it](https://huggingface.co/google/gemma-4-26B-A4B-it) (MoE, 27B)
+  - [google/gemma-4-26B-A4B-it](https://huggingface.co/google/gemma-4-26B-A4B-it) (MoE, 27B) — **LoRA config available**
   - [google/gemma-4-31B-it](https://huggingface.co/google/gemma-4-31B-it) (dense, 31B)
 
 Gemma 4 requires accepting the model license on Hugging Face before downloading.
@@ -64,4 +64,10 @@ To launch Gemma 4 E4B LoRA training on a remote GCP A100 cluster:
 
 ```shell
 oumi launch up -c oumi://configs/recipes/gemma4/sft/e4b_lora/gcp_job.yaml --cluster gemma4-e4b-lora
+```
+
+To launch Gemma 4 27B (MoE) LoRA training on a remote GCP 8x A100 cluster:
+
+```shell
+oumi launch up -c configs/recipes/gemma4/sft/27b_lora/gcp_job.yaml --cluster gemma4-27b-lora
 ```
