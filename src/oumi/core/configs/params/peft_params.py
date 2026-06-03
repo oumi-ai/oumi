@@ -130,7 +130,7 @@ class PeftParams(BaseParams):
         default=None,
         metadata={"help": "LoRA target modules."},
     )
-    """List of module names or regex patterns to apply LoRA to.
+    """List of module names to apply LoRA to.
 
     If None, modules that are LoRA-trained are chosen based on the model's architecture.
     Specify ["all-linear"] to apply LoRA to all linear/Conv1D layers in the model.
@@ -139,29 +139,25 @@ class PeftParams(BaseParams):
     Specify [] to avoid targeting any modules (ex. if you want to set
     lora_target_parameters instead).
 
-    To match by regex instead of by name, set `lora_target_modules_regex`.
+    To keep LoRA off modules that share these names (e.g. multimodal vision/audio
+    towers), use `lora_exclude_modules`.
     """
 
-    lora_target_modules_regex: bool = field(
-        default=False,
-        metadata={"help": "Match `lora_target_modules` entries as regex patterns."},
+    lora_exclude_modules: list[str] | None = field(
+        default=None,
+        metadata={"help": "Regex patterns for modules to exclude from LoRA."},
     )
-    """Whether to treat `lora_target_modules` entries as regex patterns.
+    """List of regex patterns for modules to exclude from LoRA.
 
-    When False (default), entries are passed to PEFT as module names matched by
-    suffix. When True, the entries are joined into a single regex that PEFT matches
-    against full module paths with `re.fullmatch`. This is useful for multimodal
-    models where LoRA must be scoped to specific components: e.g. to target only the
-    language model layers in Gemma4 (avoiding the vision/audio towers, whose
-    Gemma4ClippableLinear layers PEFT cannot adapt):
+    Entries are joined into a single regex matched against full module paths with
+    `re.fullmatch` (PEFT's `exclude_modules`); exclusion takes precedence over
+    `lora_target_modules` (and over "all-linear"). Use this to scope LoRA away from
+    components that share leaf names with the target modules. For example, Gemma 4's
+    vision and audio towers contain `q_proj`/`v_proj` projections (Gemma4ClippableLinear
+    layers PEFT cannot adapt), so excluding the towers keeps LoRA on the text model:
 
-        lora_target_modules:
-          - ".*language_model.*q_proj"
-          - ".*language_model.*v_proj"
-        lora_target_modules_regex: true
-
-    Each pattern must full-match the module path, so include leading/trailing
-    ".*" as needed.
+        lora_target_modules: ["q_proj", "v_proj", ...]
+        lora_exclude_modules: [".*vision_tower.*", ".*audio_tower.*"]
     """
 
     lora_target_parameters: list[str] | None = field(
@@ -338,20 +334,25 @@ class PeftParams(BaseParams):
 
         # LoraConfig's target_modules is type Optional[Union[list[str], str]], but
         # since OmegaConf doesn't support a union between a list and a primitive type,
-        # our field's type is Optional[list[str]]. We pass PEFT either a list (matched
-        # by name), the "all-linear" string, or a single regex (matched by fullmatch).
+        # our field's type is Optional[list[str]]. We pass PEFT either a list of names
+        # (matched by suffix) or the "all-linear" string.
         # See: https://huggingface.co/docs/peft/en/package_reference/lora#peft.LoraConfig.target_modules
         target_modules = self.lora_target_modules
         if target_modules == ["all-linear"]:
             target_modules = "all-linear"
-        elif target_modules and self.lora_target_modules_regex:
-            target_modules = "|".join(f"({m})" for m in target_modules)
+
+        # Join exclude patterns into a single regex: PEFT matches exclude_modules with
+        # re.fullmatch, so a plain list wouldn't reach modules nested under a tower.
+        exclude_modules = self.lora_exclude_modules
+        if exclude_modules:
+            exclude_modules = "|".join(f"({m})" for m in exclude_modules)
 
         return LoraConfig(
             r=self.lora_r,
             lora_alpha=self.lora_alpha,
             lora_dropout=self.lora_dropout,
             target_modules=target_modules,
+            exclude_modules=exclude_modules or None,
             target_parameters=self.lora_target_parameters,
             modules_to_save=self.lora_modules_to_save,
             bias=self.lora_bias,  # type: ignore

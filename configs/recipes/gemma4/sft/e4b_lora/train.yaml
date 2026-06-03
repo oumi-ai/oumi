@@ -73,14 +73,16 @@ peft:
   lora_r: 8
   lora_alpha: 16
   lora_dropout: 0.05
-  # Scope LoRA to the language_model only; a plain "q_proj" would also match the
-  # vision/audio tower Gemma4ClippableLinear modules, which PEFT cannot adapt.
-  lora_target_modules_regex: true
   lora_target_modules:
-    - ".*language_model.*q_proj"
-    - ".*language_model.*k_proj"
-    - ".*language_model.*v_proj"
-    - ".*language_model.*o_proj"
-    - ".*language_model.*gate_proj"
-    - ".*language_model.*up_proj"
-    - ".*language_model.*down_proj"
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+  # Keep LoRA on the text model only; the vision/audio towers contain q_proj/v_proj
+  # projections as Gemma4ClippableLinear layers that PEFT cannot adapt.
+  lora_exclude_modules:
+    - ".*vision_tower.*"
+    - ".*audio_tower.*"
