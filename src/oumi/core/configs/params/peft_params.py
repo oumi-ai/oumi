@@ -151,8 +151,11 @@ class PeftParams(BaseParams):
 
     Entries are joined into a single regex matched against full module paths with
     `re.fullmatch` (PEFT's `exclude_modules`); exclusion takes precedence over
-    `lora_target_modules` (and over "all-linear"). Use this to scope LoRA away from
-    components that share leaf names with the target modules. For example, Gemma 4's
+    `lora_target_modules` (and over "all-linear"). Note the asymmetry with
+    `lora_target_modules`, which takes bare names matched by suffix: entries here
+    must be regexes, because PEFT matches a bare-name exclude list by leaf-suffix, so
+    "vision_tower" would exclude only that module and not the `q_proj`/etc. nested
+    under it — which is exactly what we need to keep off LoRA. For example, Gemma 4's
     vision and audio towers contain `q_proj`/`v_proj` projections (Gemma4ClippableLinear
     layers PEFT cannot adapt), so excluding the towers keeps LoRA on the text model:
 
