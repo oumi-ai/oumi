@@ -130,13 +130,37 @@ class PeftParams(BaseParams):
         default=None,
         metadata={"help": "LoRA target modules."},
     )
-    """List of module names/regexes to apply LoRA to.
+    """List of module names to apply LoRA to.
 
     If None, modules that are LoRA-trained are chosen based on the model's architecture.
     Specify ["all-linear"] to apply LoRA to all linear/Conv1D layers in the model.
-    Specify a list of module names to only apply LoRA to those modules in the model.
-    Finally, specifying [] to avoid targeting any modules (ex. if you want to set
+    Specify a list of module names to only apply LoRA to those modules in the model
+    (matched by suffix, e.g. "q_proj" matches any module ending in ".q_proj").
+    Specify [] to avoid targeting any modules (ex. if you want to set
     lora_target_parameters instead).
+
+    To keep LoRA off modules that share these names (e.g. multimodal vision/audio
+    towers), use `lora_exclude_modules`.
+    """
+
+    lora_exclude_modules: list[str] | None = field(
+        default=None,
+        metadata={"help": "Regex patterns for modules to exclude from LoRA."},
+    )
+    """List of regex patterns for modules to exclude from LoRA.
+
+    Entries are joined into a single regex matched against full module paths with
+    `re.fullmatch` (PEFT's `exclude_modules`); exclusion takes precedence over
+    `lora_target_modules` (and over "all-linear"). Note the asymmetry with
+    `lora_target_modules`, which takes bare names matched by suffix: entries here
+    must be regexes, because PEFT matches a bare-name exclude list by leaf-suffix, so
+    "vision_tower" would exclude only that module and not the `q_proj`/etc. nested
+    under it — which is exactly what we need to keep off LoRA. For example, Gemma 4's
+    vision and audio towers contain `q_proj`/`v_proj` projections (Gemma4ClippableLinear
+    layers PEFT cannot adapt), so excluding the towers keeps LoRA on the text model:
+
+        lora_target_modules: ["q_proj", "v_proj", ...]
+        lora_exclude_modules: [".*vision_tower.*", ".*audio_tower.*"]
     """
 
     lora_target_parameters: list[str] | None = field(
@@ -313,19 +337,25 @@ class PeftParams(BaseParams):
 
         # LoraConfig's target_modules is type Optional[Union[list[str], str]], but
         # since OmegaConf doesn't support a union between a list and a primitive type,
-        # our field's type is Optional[list[str]].
-        #
-        # This is special handling for the "all-linear" special case.
+        # our field's type is Optional[list[str]]. We pass PEFT either a list of names
+        # (matched by suffix) or the "all-linear" string.
         # See: https://huggingface.co/docs/peft/en/package_reference/lora#peft.LoraConfig.target_modules
         target_modules = self.lora_target_modules
         if target_modules == ["all-linear"]:
             target_modules = "all-linear"
+
+        # Join exclude patterns into a single regex: PEFT matches exclude_modules with
+        # re.fullmatch, so a plain list wouldn't reach modules nested under a tower.
+        exclude_modules = self.lora_exclude_modules
+        if exclude_modules:
+            exclude_modules = "|".join(f"({m})" for m in exclude_modules)
 
         return LoraConfig(
             r=self.lora_r,
             lora_alpha=self.lora_alpha,
             lora_dropout=self.lora_dropout,
             target_modules=target_modules,
+            exclude_modules=exclude_modules or None,
             target_parameters=self.lora_target_parameters,
             modules_to_save=self.lora_modules_to_save,
             bias=self.lora_bias,  # type: ignore
