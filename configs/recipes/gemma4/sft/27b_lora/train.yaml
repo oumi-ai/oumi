@@ -7,11 +7,12 @@
 #   - LoRA is scoped to the text transformer only. The vision tower and the
 #     multimodal projector are excluded via `lora_exclude_modules` below; they
 #     share projection-like names with the text model but PEFT cannot adapt them.
-#     The standard projection targets suffix-match the expert MLPs; the MoE
-#     router ("gate") is left untouched.
+#     NOTE: on this MoE the standard gate_proj/up_proj/down_proj names do not
+#     match the (fused) expert MLP modules, so LoRA adapts only the attention
+#     projections (~9.3M params). Adapting the experts needs their module names.
 #
 # Requirements:
-#   - transformers >= 5.10.0
+#   - transformers >= 5.5.4
 #   - peft (installed automatically with oumi)
 #   - apache-2.0 license, no gating: https://huggingface.co/google/gemma-4-26B-A4B-it
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
@@ -44,6 +45,10 @@ training:
   save_final_model: true
   num_train_epochs: 1
   per_device_train_batch_size: 1
+  # NOTE: gradient accumulation inflates reported loss for Gemma 4 (~4x) due
+  # to a missing `accepts_loss_kwargs = False` on Gemma4ForConditionalGeneration.
+  # Fixed on transformers main but not yet released as of 5.5.4. See
+  # huggingface/transformers#40564 (same bug existed in Gemma 3).
   gradient_accumulation_steps: 8
   max_grad_norm: 1.0
 

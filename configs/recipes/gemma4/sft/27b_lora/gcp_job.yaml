@@ -1,17 +1,12 @@
 # Job config to LoRA tune Gemma 4 27B (Mixture-of-Experts).
 #
-# NOTE: This recipe installs Oumi in EDITABLE mode from the synced working dir
-# (`-e '.[gpu]'`) and runs the LOCAL config path (no `oumi://` prefix). This is
-# required while the Gemma 4 27B recipe and the `lora_exclude_modules` feature
-# are pre-release and not yet on `main`.
-#
 # Requirements:
 #   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
 #   - apache-2.0 license, no gating: https://huggingface.co/google/gemma-4-26B-A4B-it
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
-#   oumi launch up -c configs/recipes/gemma4/sft/27b_lora/gcp_job.yaml --cluster gemma4-27b-lora
+#   oumi launch up -c oumi://configs/recipes/gemma4/sft/27b_lora/gcp_job.yaml --cluster gemma4-27b-lora
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
@@ -24,8 +19,7 @@ name: gemma4-27b-lora
 resources:
   cloud: gcp
   accelerators: "A100:8"
-  use_spot: true
-  region: europe-west4  # 40GB A100s available here with abundant spot quota.
+  use_spot: false
   disk_size: 500  # Disk size in GBs
 
 working_dir: .
@@ -39,7 +33,7 @@ envs:
 
 setup: |
   set -e
-  pip install uv && SETUPTOOLS_SCM_PRETEND_VERSION_FOR_OUMI=0.0.0.dev0 uv pip install --system -e '.[gpu]' hf_transfer
+  pip install uv && uv pip install --system oumi[gpu] hf_transfer
 
 run: |
   set -e  # Exit if any command failed.
@@ -47,7 +41,7 @@ run: |
 
   set -x
   oumi distributed torchrun -m oumi train \
-      -c configs/recipes/gemma4/sft/27b_lora/train.yaml \
+      -c oumi://configs/recipes/gemma4/sft/27b_lora/train.yaml \
       --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
