@@ -69,5 +69,5 @@ oumi launch up -c oumi://configs/recipes/gemma4/sft/e4b_lora/gcp_job.yaml --clus
 To launch Gemma 4 31B LoRA training on a remote GCP 8x A100 cluster:
 
 ```shell
-oumi launch up -c configs/recipes/gemma4/sft/31b_lora/gcp_job.yaml --cluster gemma4-31b-lora
+oumi launch up -c oumi://configs/recipes/gemma4/sft/31b_lora/gcp_job.yaml --cluster gemma4-31b-lora
 ```
