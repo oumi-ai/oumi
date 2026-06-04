@@ -1097,3 +1097,55 @@ def test_slurm_client_get_active_users_failure(mock_subprocess):
         capture_output=True,
     )
     assert active_users == []
+
+
+#
+# SlurmLogStream — tail-subprocess termination
+#
+def _build_log_stream(mock_proc, mock_client):
+    """Construct a SlurmLogStream that bypasses the live SSH preflight.
+
+    ``__init__`` normally calls ``_start_job_checking`` inside
+    ``_start_tail_process`` — patching the latter skips it, so we invoke
+    the watcher explicitly here.
+    """
+    from oumi.launcher.clients.slurm_client import SlurmLogStream
+
+    with patch.object(SlurmLogStream, "_start_tail_process", return_value=mock_proc):
+        stream = SlurmLogStream("test-cluster", "job-123", mock_client)
+    stream._start_job_checking(mock_proc)
+    return stream
+
+
+def test_slurm_log_stream_terminates_tail_when_job_done():
+    """Happy path: job completes, watcher terminates the ``tail`` proc."""
+    mock_proc = Mock()
+    mock_job = Mock()
+    mock_job.done = True
+    mock_client = Mock()
+    mock_client.get_job.return_value = mock_job
+
+    stream = _build_log_stream(mock_proc, mock_client)
+    assert stream._job_check_thread is not None
+    stream._job_check_thread.join(timeout=2)
+
+    assert not stream._job_check_thread.is_alive()
+    mock_proc.terminate.assert_called_once()
+
+
+def test_slurm_log_stream_terminates_tail_when_get_job_raises():
+    """Regression: a transient ``get_job`` exception used to ``break`` out
+    of the watcher loop without calling ``proc.terminate()``, leaving the
+    ``tail -F`` running against a static log file. The ``finally``-block
+    must always terminate the proc.
+    """
+    mock_proc = Mock()
+    mock_client = Mock()
+    mock_client.get_job.side_effect = RuntimeError("ssh wedged")
+
+    stream = _build_log_stream(mock_proc, mock_client)
+    assert stream._job_check_thread is not None
+    stream._job_check_thread.join(timeout=2)
+
+    assert not stream._job_check_thread.is_alive()
+    mock_proc.terminate.assert_called_once()

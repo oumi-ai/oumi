@@ -395,16 +395,30 @@ class SlurmLogStream(io.TextIOBase):
         """Start background thread to check job status."""
 
         def check_job_status():
-            while True:
-                try:
-                    job = self._client.get_job(self.job_id)
+            try:
+                while True:
+                    try:
+                        job = self._client.get_job(self.job_id)
+                    except Exception as e:
+                        # A transient ``get_job`` failure shouldn't strand
+                        # the tail subprocess waiting on a static file.
+                        logger.warning(
+                            f"Job-status check for {self.job_id} failed: {e}; "
+                            "terminating log tail."
+                        )
+                        return
                     if job is None or job.done:
-                        proc.terminate()
-                        proc.wait()
-                        break
+                        return
                     time.sleep(2)
+            finally:
+                # Always terminate the tail on thread exit so a long-blocking
+                # ``tail -F`` against a no-longer-growing log file doesn't
+                # outlive the stream consumer.
+                try:
+                    proc.terminate()
+                    proc.wait(timeout=5)
                 except Exception:
-                    break
+                    pass
 
         self._job_check_thread = threading.Thread(target=check_job_status, daemon=True)
         self._job_check_thread.start()
