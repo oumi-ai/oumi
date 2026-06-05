@@ -1,3 +1,4 @@
+import signal
 import subprocess
 import tempfile
 from datetime import datetime, timedelta
@@ -1097,3 +1098,83 @@ def test_slurm_client_get_active_users_failure(mock_subprocess):
         capture_output=True,
     )
     assert active_users == []
+
+
+#
+# SlurmLogStream — tail-subprocess termination
+#
+def _build_log_stream(mock_proc, mock_client):
+    """Construct a SlurmLogStream that bypasses the live SSH preflight.
+
+    ``__init__`` normally calls ``_start_job_checking`` inside
+    ``_start_tail_process`` — patching the latter skips it, so we invoke
+    the watcher explicitly here.
+    """
+    from oumi.launcher.clients.slurm_client import SlurmLogStream
+
+    with patch.object(SlurmLogStream, "_start_tail_process", return_value=mock_proc):
+        stream = SlurmLogStream("test-cluster", "job-123", mock_client)
+    stream._start_job_checking(mock_proc)
+    return stream
+
+
+def test_slurm_log_stream_terminates_tail_when_job_done():
+    """Happy path: job completes, watcher signals the ``tail`` process
+    group so the SSH child gets the signal too (not just the ``sh`` wrapper).
+    """
+    mock_proc = Mock()
+    mock_proc.pid = 12345
+    mock_job = Mock(done=True)
+    mock_client = Mock()
+    mock_client.get_job.return_value = mock_job
+
+    with patch("oumi.launcher.clients.slurm_client.os.killpg") as mock_killpg:
+        stream = _build_log_stream(mock_proc, mock_client)
+        assert stream._job_check_thread is not None
+        stream._job_check_thread.join(timeout=2)
+        assert not stream._job_check_thread.is_alive()
+        mock_killpg.assert_any_call(12345, signal.SIGTERM)
+
+
+def test_slurm_log_stream_terminates_tail_when_get_job_raises():
+    """Regression: a transient ``get_job`` exception used to ``break`` out
+    of the watcher loop without calling ``proc.terminate()``, leaving the
+    ``tail -F`` running against a static log file. The ``finally``-block
+    must always signal the proc.
+    """
+    mock_proc = Mock()
+    mock_proc.pid = 12345
+    mock_client = Mock()
+    mock_client.get_job.side_effect = RuntimeError("ssh wedged")
+
+    with patch("oumi.launcher.clients.slurm_client.os.killpg") as mock_killpg:
+        stream = _build_log_stream(mock_proc, mock_client)
+        assert stream._job_check_thread is not None
+        stream._job_check_thread.join(timeout=2)
+        assert not stream._job_check_thread.is_alive()
+        mock_killpg.assert_any_call(12345, signal.SIGTERM)
+
+
+def test_slurm_log_stream_escalates_to_sigkill_when_wait_times_out():
+    """If ``proc.wait`` times out after SIGTERM, the watcher must escalate
+    to SIGKILL on the process group so the consumer always sees EOF.
+    """
+    mock_proc = Mock()
+    mock_proc.pid = 12345
+    mock_proc.wait.side_effect = subprocess.TimeoutExpired(cmd="tail", timeout=5)
+    mock_job = Mock(done=True)
+    mock_client = Mock()
+    mock_client.get_job.return_value = mock_job
+
+    with patch("oumi.launcher.clients.slurm_client.os.killpg") as mock_killpg:
+        stream = _build_log_stream(mock_proc, mock_client)
+        assert stream._job_check_thread is not None
+        stream._job_check_thread.join(timeout=2)
+        sigterm = [
+            c for c in mock_killpg.call_args_list if c == call(12345, signal.SIGTERM)
+        ]
+        sigkill = [
+            c for c in mock_killpg.call_args_list if c == call(12345, signal.SIGKILL)
+        ]
+        assert sigterm, "SIGTERM should be sent first"
+        assert sigkill, "SIGKILL should escalate after wait timeout"
