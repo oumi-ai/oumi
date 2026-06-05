@@ -11,7 +11,7 @@
 # Requirements:
 #   - transformers >= 5.5.4
 #   - peft (installed automatically with oumi)
-#   - apache-2.0 license, no gating: https://huggingface.co/google/gemma-4-31B-it
+#   - Gemma license acceptance required: https://huggingface.co/google/gemma-4-31B-it
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
