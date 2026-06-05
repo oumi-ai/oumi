@@ -8,7 +8,7 @@ Configs for Google's Gemma 4 model family. See the [Hugging Face announcement](h
   - [google/gemma-4-E2B-it](https://huggingface.co/google/gemma-4-E2B-it) (~5B) — **LoRA config available**
   - [google/gemma-4-E4B-it](https://huggingface.co/google/gemma-4-E4B-it) (~8B) — **FFT + LoRA configs available**
 - Larger (image + text, 256K context)
-  - [google/gemma-4-26B-A4B-it](https://huggingface.co/google/gemma-4-26B-A4B-it) (MoE, 27B)
+  - [google/gemma-4-26B-A4B-it](https://huggingface.co/google/gemma-4-26B-A4B-it) (MoE, 27B) — **LoRA config available**
   - [google/gemma-4-31B-it](https://huggingface.co/google/gemma-4-31B-it) (dense, 31B)
 
 Gemma 4 requires accepting the model license on Hugging Face before downloading.
@@ -41,12 +41,13 @@ oumi launch up -c oumi://configs/recipes/gemma4/sft/e4b_full/gcp_job.yaml --clus
 
 ### LoRA Training
 
-LoRA is scoped to the language-model layers only. Gemma 4's vision/audio towers
-use `Gemma4ClippableLinear` wrappers that PEFT cannot adapt, and they share
-projection names (`q_proj`, `v_proj`, ...) with the text model. The recipes target
-the plain projection names and set `lora_exclude_modules: [".*vision_tower.*",
-".*audio_tower.*"]`, which oumi passes to PEFT's `exclude_modules` to keep LoRA off
-the towers.
+LoRA is scoped to the language-model layers only. Gemma 4's non-text towers use
+`Gemma4ClippableLinear` wrappers that PEFT cannot adapt, and they share projection
+names (`q_proj`, `v_proj`, ...) with the text model. The recipes target the plain
+projection names and set `lora_exclude_modules` to keep LoRA off the towers: the
+Efficient (text+image+audio) models exclude `[".*vision_tower.*", ".*audio_tower.*"]`,
+and the Larger (image+text) models exclude `[".*vision_tower.*", ".*multi_modal_projector.*"]`.
+oumi passes this list to PEFT's `exclude_modules`.
 
 To launch Gemma 4 E4B LoRA training locally (fits a single A100/H100):
 
@@ -64,4 +65,10 @@ To launch Gemma 4 E4B LoRA training on a remote GCP A100 cluster:
 
 ```shell
 oumi launch up -c oumi://configs/recipes/gemma4/sft/e4b_lora/gcp_job.yaml --cluster gemma4-e4b-lora
+```
+
+To launch Gemma 4 27B (MoE) LoRA training on a remote GCP 8x A100 cluster:
+
+```shell
+oumi launch up -c oumi://configs/recipes/gemma4/sft/27b_lora/gcp_job.yaml --cluster gemma4-27b-lora
 ```
