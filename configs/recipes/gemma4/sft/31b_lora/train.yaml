@@ -4,8 +4,9 @@
 #   - 32.7B parameter dense multimodal model from Google (Gemma 4 Larger series)
 #   - 256K context length; image + text inputs
 #   - LoRA is scoped to the text transformer only. The vision tower and the
-#     multimodal projector are excluded via `lora_exclude_modules` below; they
-#     share projection-like names with the text model but PEFT cannot adapt them.
+#     multimodal projector use `Gemma4ClippableLinear` wrappers that PEFT cannot
+#     adapt, and share projection names with the text model — so they are excluded
+#     via `lora_exclude_modules` below.
 #
 # Requirements:
 #   - transformers >= 5.5.4
@@ -51,7 +52,6 @@ training:
   enable_gradient_checkpointing: true
   gradient_checkpointing_kwargs:
     use_reentrant: false
-  ddp_find_unused_parameters: true  # LoRA leaves the vision tower frozen.
   compile: false
 
   optimizer: "adamw_torch_fused"
