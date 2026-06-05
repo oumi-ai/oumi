@@ -2,7 +2,7 @@
 #
 # Requirements:
 #   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
-#   - apache-2.0 license, no gating: https://huggingface.co/google/gemma-4-26B-A4B-it
+#   - Gemma license acceptance required: https://huggingface.co/google/gemma-4-26B-A4B-it
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
