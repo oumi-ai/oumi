@@ -9,7 +9,8 @@
 #     projection layers, so LoRA excludes those modality projections below.
 #
 # Requirements:
-#   - transformers >= 5.10.0
+#   - Run `uv pip install -U "transformers>=5.10"` (the gemma4_unified arch needs
+#     transformers >= 5.10, newer than oumi's pin).
 #   - peft (installed automatically with oumi)
 #   - Gemma license acceptance required: https://huggingface.co/google/gemma-4-12B
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
@@ -25,6 +26,7 @@
 
 model:
   model_name: "google/gemma-4-12B"
+  chat_template: "gemma2-it"  # base checkpoint ships no chat template
   model_max_length: 8192
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
@@ -89,4 +91,4 @@ fsdp:
   sharding_strategy: "FULL_SHARD"
   forward_prefetch: true
   auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
-  transformer_layer_cls: "Gemma4TextDecoderLayer"
+  transformer_layer_cls: "Gemma4UnifiedTextDecoderLayer"

@@ -3,6 +3,7 @@
 # Requirements:
 #   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
 #   - Gemma license acceptance required: https://huggingface.co/google/gemma-4-12B
+#   - transformers >= 5.10 (for the gemma4_unified arch) — upgraded in `setup` below
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
@@ -34,6 +35,8 @@ envs:
 setup: |
   set -e
   pip install uv && uv pip install --system oumi[gpu] hf_transfer
+  # gemma4_unified arch needs transformers >= 5.10 (newer than oumi's pin).
+  uv pip install --system -U "transformers>=5.10"
 
 run: |
   set -e  # Exit if any command failed.
