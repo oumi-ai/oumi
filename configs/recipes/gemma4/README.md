@@ -14,8 +14,10 @@ Configs for Google's Gemma 4 model family. See the [Hugging Face announcement](h
   - [google/gemma-4-31B-it](https://huggingface.co/google/gemma-4-31B-it) (dense, 31B) — **LoRA config available**
 
 Gemma 4 requires accepting the model license on Hugging Face before downloading.
-Training requires `transformers >= 5.5.4` for E2B/E4B and `transformers >= 5.10.0`
-for 12B, which oumi installs automatically.
+Training requires `transformers >= 5.5.4` for the E2B/E4B/31B recipes (installed
+automatically by oumi) and `transformers >= 5.10.0` for 12B, which must be upgraded
+manually (`uv pip install -U "transformers>=5.10"`) because oumi currently pins
+`transformers<5.10`.
 
 ## Quickstart
 
@@ -50,6 +52,8 @@ names (`q_proj`, `v_proj`, ...) with the text model. The recipes target the plai
 projection names and set `lora_exclude_modules` to keep LoRA off the towers: the
 Efficient (text+image+audio) models exclude `[".*vision_tower.*", ".*audio_tower.*"]`,
 and the Larger (image+text) models exclude `[".*vision_tower.*", ".*multi_modal_projector.*"]`.
+The Unified 12B is encoder-free — image/audio enter through `embed_vision`/`embed_audio`
+modules rather than named towers — so it excludes `[".*vision.*", ".*audio.*"]`.
 oumi passes this list to PEFT's `exclude_modules`.
 
 To launch Gemma 4 E4B LoRA training locally (fits a single A100/H100):

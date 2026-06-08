@@ -4,9 +4,10 @@
 #   - 11.95B parameter unified multimodal model from Google
 #   - 48 text transformer layers
 #   - Multimodal: text + image + audio inputs
-#   - LoRA is scoped to the text transformer only. Gemma 4 12B projects
-#     image/audio inputs directly into the text model through multimodal
-#     projection layers, so LoRA excludes those modality projections below.
+#   - LoRA is scoped to the text transformer (`model.language_model.layers.*`) only.
+#     The unified arch is encoder-free: image/audio enter through `embed_vision`/
+#     `embed_audio` modules that reuse text projection names, so LoRA excludes them
+#     (see the `peft` block below).
 #
 # Requirements:
 #   - Run `uv pip install -U "transformers>=5.10"` (the gemma4_unified arch needs
@@ -50,7 +51,6 @@ training:
   enable_gradient_checkpointing: true
   gradient_checkpointing_kwargs:
     use_reentrant: false
-  ddp_find_unused_parameters: true  # LoRA leaves non-text multimodal weights frozen.
   compile: false
 
   optimizer: "adamw_torch_fused"
@@ -79,12 +79,11 @@ peft:
     - "gate_proj"
     - "up_proj"
     - "down_proj"
-  # Keep LoRA on the text model only; Gemma 4 unified modality projections can
-  # share projection-like names with the text transformer.
+  # Keep LoRA on the text model only. The unified arch routes image/audio through
+  # `embed_vision`/`embed_audio` modules that reuse text projection names (q_proj, ...).
   lora_exclude_modules:
     - ".*vision.*"
     - ".*audio.*"
-    - ".*multi_modal_projector.*"
 
 fsdp:
   enable_fsdp: true
