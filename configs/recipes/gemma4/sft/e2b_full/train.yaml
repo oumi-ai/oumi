@@ -1,17 +1,17 @@
-# FFT config for Gemma 4 E4B Instruct.
+# FFT config for Gemma 4 E2B Instruct.
 #
 # Model highlights:
-#   - ~8B parameter multimodal model from Google (Gemma 4 Efficient series)
+#   - ~5.1B parameter multimodal model from Google (Gemma 4 Efficient series)
 #   - 128K context length
 #   - Multimodal: text + image + audio inputs
 #
 # Requirements:
 #   - transformers >= 5.5.4
-#   - Gemma license acceptance required: https://huggingface.co/google/gemma-4-E4B-it
+#   - Gemma license acceptance required: https://huggingface.co/google/gemma-4-E2B-it
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
-#   oumi distributed torchrun -m oumi train -c oumi://configs/recipes/gemma4/sft/e4b_full/train.yaml
+#   oumi distributed torchrun -m oumi train -c oumi://configs/recipes/gemma4/sft/e2b_full/train.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
@@ -20,7 +20,7 @@
 #   - Other training configs: configs/**/*train.yaml
 
 model:
-  model_name: "google/gemma-4-E4B-it"
+  model_name: "google/gemma-4-E2B-it"
   model_max_length: 8192
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
@@ -55,10 +55,9 @@ training:
 
   dataloader_num_workers: "auto"
   dataloader_prefetch_factor: 8
-
   logging_steps: 5
   empty_device_cache_steps: 50
-  output_dir: "output/gemma4_e4b.fft"
+  output_dir: "output/gemma4_e2b.fft"
   include_performance_metrics: true
   enable_wandb: true
 

@@ -5,7 +5,7 @@
 Configs for Google's Gemma 4 model family. See the [Hugging Face announcement](https://huggingface.co/blog/gemma4) and the [Google blog post](https://blog.google/technology/developers/gemma-4/) for more information. Models in this family include:
 
 - Efficient (edge-targeted, multimodal: text + image + audio)
-  - [google/gemma-4-E2B-it](https://huggingface.co/google/gemma-4-E2B-it) (~5B) — **LoRA config available**
+  - [google/gemma-4-E2B-it](https://huggingface.co/google/gemma-4-E2B-it) (~5B) — **FFT + LoRA configs available**
   - [google/gemma-4-E4B-it](https://huggingface.co/google/gemma-4-E4B-it) (~8B) — **FFT + LoRA configs available**
 - Larger (image + text, 256K context)
   - [google/gemma-4-26B-A4B-it](https://huggingface.co/google/gemma-4-26B-A4B-it) (MoE, 27B)
@@ -37,6 +37,18 @@ To launch Gemma 4 E4B FFT training on a remote GCP 4x A100 cluster:
 
 ```shell
 oumi launch up -c oumi://configs/recipes/gemma4/sft/e4b_full/gcp_job.yaml --cluster gemma4-e4b-full
+```
+
+To launch Gemma 4 E2B FFT training locally with FSDP:
+
+```shell
+oumi distributed torchrun -m oumi train -c oumi://configs/recipes/gemma4/sft/e2b_full/train.yaml
+```
+
+To launch Gemma 4 E2B FFT training on a remote GCP 4x A100 cluster:
+
+```shell
+oumi launch up -c oumi://configs/recipes/gemma4/sft/e2b_full/gcp_job.yaml --cluster gemma4-e2b-full
 ```
 
 ### LoRA Training
