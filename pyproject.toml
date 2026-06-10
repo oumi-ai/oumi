@@ -77,7 +77,10 @@ dependencies = [
     "skypilot>=0.12,<0.13", # 0.12 adds Slurm cloud support
     "tensorboard>=2.20,<2.21", # Optional, for monitoring training
     "tiktoken>=0.7,<1.0",
-    "torch>=2.6,<2.13.0",      # vllm only supports up to torch==2.7
+    # torch 2.9.x ships an NCCL build that SIGSEGVs during distributed init on
+    # H100 multi-GPU topologies (e.g. RunPod Instant Cluster). Cap below 2.9
+    # until upstream lands a fix.
+    "torch>=2.6,<2.9",
     "torchao>=0.16,<0.17",     # Used by transformers; >=0.16 required by peft>=0.19
     "torchvision>=0.21,<0.26", # Used by some VLM-s (multimodal)
     "tqdm",
