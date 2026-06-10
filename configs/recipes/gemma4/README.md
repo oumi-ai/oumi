@@ -8,7 +8,7 @@ Configs for Google's Gemma 4 model family. See the [Hugging Face announcement](h
   - [google/gemma-4-E2B-it](https://huggingface.co/google/gemma-4-E2B-it) (~5B) — **LoRA config available**
   - [google/gemma-4-E4B-it](https://huggingface.co/google/gemma-4-E4B-it) (~8B) — **FFT + LoRA configs available**
 - Unified (encoder-free, multimodal: text + image + audio)
-  - [google/gemma-4-12B-it](https://huggingface.co/google/gemma-4-12B-it) (12B) — **LoRA config available**
+  - [google/gemma-4-12B-it](https://huggingface.co/google/gemma-4-12B-it) (12B) — **FFT + LoRA configs available**
 - Larger (image + text, 256K context)
   - [google/gemma-4-26B-A4B-it](https://huggingface.co/google/gemma-4-26B-A4B-it) (MoE, 27B)
   - [google/gemma-4-31B-it](https://huggingface.co/google/gemma-4-31B-it) (dense, 31B) — **LoRA config available**
@@ -42,6 +42,18 @@ To launch Gemma 4 E4B FFT training on a remote GCP 4x A100 cluster:
 
 ```shell
 oumi launch up -c oumi://configs/recipes/gemma4/sft/e4b_full/gcp_job.yaml --cluster gemma4-e4b-full
+```
+
+To launch Gemma 4 12B FFT training locally with FSDP (needs a multi-GPU node):
+
+```shell
+oumi distributed torchrun -m oumi train -c oumi://configs/recipes/gemma4/sft/12b_full/train.yaml
+```
+
+To launch Gemma 4 12B FFT training on a remote GCP 8x A100 cluster:
+
+```shell
+oumi launch up -c oumi://configs/recipes/gemma4/sft/12b_full/gcp_job.yaml --cluster gemma4-12b-full
 ```
 
 ### LoRA Training
