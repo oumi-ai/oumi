@@ -55,6 +55,61 @@ class BatchResult:
         return len(self.failed_indices) > 0
 
 
+@dataclass(frozen=True)
+class FailureDetail:
+    """Details about a single failed inference request.
+
+    A retryable failure has already consumed the engine's internal retries
+    (``RemoteParams.max_retries``); ``is_retryable=True`` means a fresh
+    submission could plausibly succeed (transient cause), not that the engine
+    will retry it.
+    """
+
+    error_message: str
+    """Human-readable description of the failure."""
+
+    status_code: int | None = None
+    """HTTP status code of the final failed attempt, if applicable."""
+
+    is_retryable: bool = True
+    """Whether resubmitting this request could plausibly succeed."""
+
+    error_type: str = "unknown"
+    """Failure category: "api_status", "connection", "runtime", "config",
+    "parse_error", "engine_failure", or "unexpected"."""
+
+
+@dataclass
+class InferenceResult:
+    """Result of partial online inference, separating successes from failures.
+
+    Returned by :meth:`BaseInferenceEngine.infer_partial`. Unlike
+    :meth:`BaseInferenceEngine.infer`, which raises if any conversation fails,
+    this pairs each successful conversation with its original input index and
+    reports per-row failures separately so callers can keep successes and
+    decide which failures to resubmit.
+    """
+
+    successful: list[tuple[int, Conversation]]
+    """List of (original_index, conversation) for successful requests."""
+
+    failed_indices: list[int]
+    """Sorted indices of requests that failed."""
+
+    failures: dict[int, FailureDetail]
+    """Mapping of failed index to structured failure info."""
+
+    @property
+    def error_messages(self) -> dict[int, str]:
+        """Mapping of failed index to error message."""
+        return {i: detail.error_message for i, detail in self.failures.items()}
+
+    @property
+    def has_failures(self) -> bool:
+        """Return True if any requests failed."""
+        return len(self.failed_indices) > 0
+
+
 class BaseInferenceEngine(ABC):
     """Base class for running model inference."""
 
