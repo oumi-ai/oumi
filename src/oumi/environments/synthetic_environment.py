@@ -309,6 +309,17 @@ class SyntheticEnvironment(BaseEnvironment):
         )
         return results  # type: ignore[return-value]
 
+    def build_call_conversation(
+        self, tool_id: str, arguments: dict[str, Any]
+    ) -> Conversation:
+        """Build the simulator conversation for one tool call."""
+        return self._build_call_conv(self._lookup_tool(tool_id), arguments)
+
+    def parse_tool_response(self, tool_id: str, response: Conversation) -> ToolResult:
+        """Extract a ToolResult from a simulator response conversation."""
+        tool = self._lookup_tool(tool_id)
+        return self._parse_and_validate(self._extract_text(response), tool)
+
     def _step_executor_one(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:
         """Execute a stateless tool via its executor callable."""
         tool = self._lookup_tool(tool_id)
