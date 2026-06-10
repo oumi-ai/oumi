@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import json
-import os
 import threading
 import time
 from datetime import datetime, timezone
@@ -94,11 +93,11 @@ class ProgressFileReporter:
         try:
             path = Path(self._path)
             path.parent.mkdir(parents=True, exist_ok=True)
-            # Write to a temp file in the same directory so os.replace is atomic.
-            tmp_path = str(path) + ".tmp"
+            # Write to a temp file in the same directory so the replace is atomic.
+            tmp_path = path.with_name(path.name + ".tmp")
             with open(tmp_path, "w") as f:
                 json.dump(snapshot, f)
-            os.replace(tmp_path, str(path))
+            tmp_path.replace(path)
         except Exception as e:
             if not self._warned:
                 logger.warning(f"Failed to write inference progress file: {e}")

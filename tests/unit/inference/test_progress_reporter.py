@@ -123,9 +123,7 @@ def test_write_failure_never_raises(progress_path):
 
 def test_write_failure_warns_once(progress_path):
     reporter = ProgressFileReporter(progress_path, total=2, min_write_interval=0.0)
-    with patch(
-        "oumi.core.inference.progress_reporter.logger.warning"
-    ) as mock_warning:
+    with patch("oumi.core.inference.progress_reporter.logger.warning") as mock_warning:
         with patch("os.replace", side_effect=OSError("disk full")):
             reporter.start()
             reporter.record_completed()
