@@ -1,0 +1,89 @@
+# LoRA SFT config for Gemma 4 E2B Instruct.
+#
+# Model highlights:
+#   - ~5.1B params (2.75B embeddings + ~2.35B compute), Gemma 4 Efficient series
+#   - Multimodal: text + image + audio inputs
+#   - Fits a single 32GB GPU at batch 2-4; ~28GB VRAM during LoRA training
+#   - LoRA is scoped to the text transformer only; the vision/audio towers use
+#     Gemma4ClippableLinear wrappers that PEFT cannot adapt. See the `peft`
+#     section below.
+#
+# Requirements:
+#   - transformers >= 5.5.4
+#   - peft (installed automatically with oumi)
+#   - Gemma license acceptance required: https://huggingface.co/google/gemma-4-E2B-it
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   oumi train -c oumi://configs/recipes/gemma4/sft/e2b_lora/train.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/*train.yaml
+
+model:
+  model_name: "google/gemma-4-E2B-it"
+  model_max_length: 8192
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: false
+  enable_liger_kernel: false  # Disabled (may conflict with Gemma output format).
+
+data:
+  train:
+    datasets:
+      - dataset_name: "yahma/alpaca-cleaned"  # 51,760 examples
+
+training:
+  use_peft: true
+  trainer_type: "TRL_SFT"
+  save_final_model: true
+  num_train_epochs: 1
+  per_device_train_batch_size: 2
+  # NOTE: gradient accumulation inflates reported loss for Gemma 4 (~4x) due
+  # to a missing `accepts_loss_kwargs = False` on Gemma4ForConditionalGeneration.
+  # Fixed on transformers main but not yet released as of 5.5.4. See
+  # huggingface/transformers#40564 (same bug existed in Gemma 3).
+  gradient_accumulation_steps: 4
+  max_grad_norm: 1.0
+
+  enable_gradient_checkpointing: true
+  gradient_checkpointing_kwargs:
+    use_reentrant: false
+  ddp_find_unused_parameters: true  # LoRA leaves the vision/audio towers frozen.
+  compile: false
+
+  optimizer: "adamw_torch_fused"
+  # NOTE: E2B uses 5e-5 (lower than E4B's 2e-4). At 2e-4 the smaller compute path
+  # overfits and degrades downstream accuracy.
+  learning_rate: 5.0e-05
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.05
+  weight_decay: 0.01
+
+  dataloader_num_workers: "auto"
+  dataloader_prefetch_factor: 8
+  logging_steps: 5
+  empty_device_cache_steps: 50
+  output_dir: "output/gemma4_e2b.lora"
+  include_performance_metrics: true
+  enable_wandb: true
+
+peft:
+  lora_r: 8
+  lora_alpha: 16
+  lora_dropout: 0.05
+  lora_target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+  # Exclude the vision/audio towers (Gemma4ClippableLinear layers PEFT can't adapt).
+  lora_exclude_modules:
+    - ".*vision_tower.*"
+    - ".*audio_tower.*"

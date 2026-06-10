@@ -395,16 +395,51 @@ class SlurmLogStream(io.TextIOBase):
         """Start background thread to check job status."""
 
         def check_job_status():
-            while True:
-                try:
-                    job = self._client.get_job(self.job_id)
+            try:
+                while True:
+                    try:
+                        job = self._client.get_job(self.job_id)
+                    except Exception as e:
+                        # A transient ``get_job`` failure shouldn't strand
+                        # the tail subprocess waiting on a static file.
+                        logger.warning(
+                            f"Job-status check for {self.job_id} failed: {e}; "
+                            "terminating log tail."
+                        )
+                        return
                     if job is None or job.done:
-                        proc.terminate()
-                        proc.wait()
-                        break
+                        return
                     time.sleep(2)
+            finally:
+                # Always terminate the tail on thread exit so a long-blocking
+                # ``tail -F`` against a no-longer-growing log file doesn't
+                # outlive the stream consumer. The subprocess was started with
+                # ``shell=True`` + ``start_new_session=True``, so ``proc.pid``
+                # is the ``/bin/sh`` wrapper's pid and ``proc.terminate()``
+                # alone wouldn't reach the ``ssh`` child if the shell didn't
+                # ``exec`` into it. Signal the whole process group instead —
+                # same pattern as ``close()`` above.
+                try:
+                    os.killpg(proc.pid, signal.SIGTERM)
+                except ProcessLookupError:
+                    pass  # process already gone — race with self.close()
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to terminate log tail (pgid={proc.pid}): {e}"
+                    )
+                try:
+                    proc.wait(timeout=5)
                 except Exception:
-                    break
+                    # If SIGTERM didn't take, escalate. SIGKILL is unhandleable
+                    # so the process group is guaranteed to be reaped after.
+                    try:
+                        os.killpg(proc.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to SIGKILL log tail (pgid={proc.pid}): {e}"
+                        )
 
         self._job_check_thread = threading.Thread(target=check_job_status, daemon=True)
         self._job_check_thread.start()
