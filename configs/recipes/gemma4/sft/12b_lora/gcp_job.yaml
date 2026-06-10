@@ -2,7 +2,7 @@
 #
 # Requirements:
 #   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
-#   - Gemma license acceptance required: https://huggingface.co/google/gemma-4-12B
+#   - Gemma license acceptance required: https://huggingface.co/google/gemma-4-12B-it
 #   - transformers >= 5.10 (for the gemma4_unified arch) — upgraded in `setup` below
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #

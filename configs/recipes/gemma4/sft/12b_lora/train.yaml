@@ -13,7 +13,7 @@
 #   - Run `uv pip install -U "transformers>=5.10"` (the gemma4_unified arch needs
 #     transformers >= 5.10, newer than oumi's pin).
 #   - peft (installed automatically with oumi)
-#   - Gemma license acceptance required: https://huggingface.co/google/gemma-4-12B
+#   - Gemma license acceptance required: https://huggingface.co/google/gemma-4-12B-it
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
@@ -26,8 +26,7 @@
 #   - Other training configs: configs/**/*train.yaml
 
 model:
-  model_name: "google/gemma-4-12B"
-  chat_template: "gemma2-it"  # base checkpoint ships no chat template
+  model_name: "google/gemma-4-12B-it"
   model_max_length: 8192
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
