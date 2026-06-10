@@ -229,6 +229,27 @@ print(f"Succeeded: {len(result.successful)}, failed: {len(result.failed_indices)
 
 `judge_batch_submit` returns the provider batch ID and the `Conversation`s used to build it — you must pass both back to `judge_batch_result(_partial)` so that inputs and outputs can be re-aligned. Rule-based judges don't call inference, so batch judging does not apply to them.
 
+## Partial Results for Online Judging
+
+`judge()` raises if any row's inference fails. For online (non-batch) judging that should tolerate per-row failures — e.g. against providers without a batch API, like OpenRouter — use `judge_partial`:
+
+```python
+result = judge.judge_partial(inputs)
+
+for index, judge_output in result.successful:
+    print(f"Row {index}: {judge_output.field_values}")
+
+for index in result.failed_indices:
+    detail = result.failures[index]
+    print(f"Row {index} failed ({detail.error_type}): {detail.error_message}")
+
+retry_rows = [
+    inputs[i] for i in result.failed_indices if result.failures[i].is_retryable
+]
+```
+
+This returns a `JudgePartialResult` pairing each successful `JudgeOutput` with its original input index. Inference failures carry through the engine's `FailureDetail` (status code, `error_type`, `is_retryable`); judge responses that complete but cannot be parsed are reported with `error_type="parse_error"` and are retryable, since re-sampling can plausibly produce a parseable output. It is built on {py:meth}`~oumi.core.inference.BaseInferenceEngine.infer_partial`, so per-row progress can be reported to an external poller via the `progress_path` argument (see {doc}`inference_engines <../infer/inference_engines>`).
+
 ## Token Usage Tracking
 
 Both `SimpleJudge` and `RuleBasedJudge` inherit from `BaseJudge`, which accumulates per-request token usage across every call to `judge()` / `judge_batch_result()`. After a run you can read:
