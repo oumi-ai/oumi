@@ -21,6 +21,7 @@ from oumi.core.inference.base_inference_engine import (
     BaseInferenceEngine,
     BatchResult,
     FailureDetail,
+    InferenceErrorType,
     InferenceResult,
 )
 from oumi.core.inference.progress_reporter import ProgressFileReporter
@@ -29,6 +30,7 @@ __all__ = [
     "BaseInferenceEngine",
     "BatchResult",
     "FailureDetail",
+    "InferenceErrorType",
     "InferenceResult",
     "ProgressFileReporter",
 ]

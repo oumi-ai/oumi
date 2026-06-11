@@ -40,14 +40,7 @@ class InferenceConfig(BaseConfig):
     """Path to the output file where the generated text will be saved."""
 
     progress_path: str | None = None
-    """Path to a JSON file where inference progress counters are written.
-
-    When set, partial inference (see `BaseInferenceEngine.infer_partial`)
-    periodically writes an atomic JSON snapshot of the form
-    ``{"total": N, "completed": n, "failed": f, "updated_at": "<iso8601 utc>"}``
-    so an external process can poll row-level progress. The run is complete
-    when ``completed + failed == total``.
-    """
+    """Path to a JSON file where inference progress counters are written."""
 
     engine: InferenceEngineType | None = None
     """The inference engine to use for generation.

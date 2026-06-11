@@ -7,7 +7,12 @@ import jsonlines
 import pytest
 
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
-from oumi.core.inference import BaseInferenceEngine, FailureDetail, InferenceResult
+from oumi.core.inference import (
+    BaseInferenceEngine,
+    FailureDetail,
+    InferenceErrorType,
+    InferenceResult,
+)
 from oumi.core.types.conversation import Conversation, Message, Role
 
 
@@ -463,12 +468,14 @@ def test_inference_result_error_messages_derived_from_failures():
         successful=[(0, conversation)],
         failed_indices=[1, 2],
         failures={
-            1: FailureDetail(error_message="timeout", error_type="runtime"),
+            1: FailureDetail(
+                error_message="timeout", error_type=InferenceErrorType.RUNTIME
+            ),
             2: FailureDetail(
                 error_message="bad request",
                 status_code=400,
                 is_retryable=False,
-                error_type="api_status",
+                error_type=InferenceErrorType.API_STATUS,
             ),
         },
     )
@@ -492,4 +499,4 @@ def test_failure_detail_defaults():
 
     assert detail.status_code is None
     assert detail.is_retryable
-    assert detail.error_type == "unknown"
+    assert detail.error_type == InferenceErrorType.UNKNOWN
