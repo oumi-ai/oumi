@@ -2908,6 +2908,66 @@ def test_non_retriable_errors(mock_asyncio_sleep):
             mock_asyncio_sleep.reset_mock()
 
 
+def test_non_retriable_error_not_recorded_in_adaptive_concurrency():
+    """A non-retriable 4xx fails fast without notifying the adaptive controller."""
+    with aioresponses() as m:
+        m.post(
+            _TARGET_SERVER,
+            status=403,
+            payload={"error": {"message": "forbidden"}},
+        )
+
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=RemoteParams(
+                api_url=_TARGET_SERVER,
+                use_adaptive_concurrency=True,
+                num_workers=10,
+                max_retries=3,
+            ),
+        )
+        conversation = create_test_text_only_conversation()
+
+        mock_controller = AsyncContextManagerMock()
+        with patch.object(engine, "_adaptive_concurrency_controller", mock_controller):
+            with pytest.raises(APIStatusError) as exc_info:
+                engine._infer_online([conversation])
+
+        assert exc_info.value.status_code == 403
+        mock_controller.record_error.assert_not_called()
+        mock_controller.record_success.assert_not_called()
+
+
+def test_retriable_error_recorded_in_adaptive_concurrency(mock_asyncio_sleep):
+    """A retriable status (429) still drives the controller so backoff engages."""
+    with aioresponses() as m:
+        m.post(
+            _TARGET_SERVER,
+            status=429,
+            payload={"error": {"message": "rate limit"}},
+            repeat=True,
+        )
+
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=RemoteParams(
+                api_url=_TARGET_SERVER,
+                use_adaptive_concurrency=True,
+                num_workers=10,
+                max_retries=2,
+            ),
+        )
+        conversation = create_test_text_only_conversation()
+
+        mock_controller = AsyncContextManagerMock()
+        with patch.object(engine, "_adaptive_concurrency_controller", mock_controller):
+            with pytest.raises((APIStatusError, RuntimeError)):
+                engine._infer_online([conversation])
+
+        mock_controller.record_error.assert_called()
+        mock_controller.record_success.assert_not_called()
+
+
 def test_response_processing_error(mock_polite_adaptive_semaphore, mock_asyncio_sleep):
     """Test handling of errors during response processing."""
     with aioresponses() as m:
