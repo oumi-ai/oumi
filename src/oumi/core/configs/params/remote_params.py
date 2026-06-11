@@ -228,10 +228,12 @@ class AdaptiveConcurrencyParams(BaseParams):
     is 100, and the backoff factor is 0.8, the concurrency will be reduced to 80).
     """
 
-    recovery_threshold: float = 0.00
-    """Error rate threshold (0.00 = 0%) to allow recovery.
+    recovery_threshold: float = 0.005
+    """Error rate at or below which recovery from backoff is allowed.
 
-    If the error rate is less than this threshold, recovery will be triggered.
+    Sits just below ``error_threshold`` to form a hysteresis band: back off above
+    ``error_threshold``, recover at or below ``recovery_threshold``, hold between.
+    A value of ``0.0`` would require a perfectly error-free window to ever recover.
     """
 
     min_window_size: int = 10
