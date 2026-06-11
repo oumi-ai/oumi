@@ -6,7 +6,8 @@
 #   - Multimodal: text + image + audio inputs
 #
 # Requirements:
-#   - transformers >= 5.5.4
+#   - transformers >= 5.6 (5.5.x inflates reported loss ~4x under gradient
+#     accumulation; fixed in 5.6.0, see huggingface/transformers#40564)
 #   - Gemma license acceptance required: https://huggingface.co/google/gemma-4-E2B-it
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
