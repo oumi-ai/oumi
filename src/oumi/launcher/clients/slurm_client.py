@@ -108,12 +108,26 @@ def _is_job_done(job_state: JobState) -> bool:
     )
 
 
-def _parse_squeue_line(line: str, cluster_name: str) -> JobStatus | None:
-    """Parses one row of ``squeue --noheader --format='%i %j %u %T %R'``."""
-    parts = line.strip().split(None, 4)
-    if len(parts) < 4:
+def _parse_slurm_epoch(value: str | None) -> float | None:
+    """Parses a Unix-epoch time string from Slurm into a float.
+
+    Slurm renders times as epoch seconds when ``SLURM_TIME_FORMAT=%s`` is set
+    (tz-safe). Returns None for missing or sentinel values (``Unknown``, ``N/A``).
+    """
+    if not value or value in ("Unknown", "N/A", "(null)"):
         return None
-    job_id, name, _user, raw_state = parts[0], parts[1], parts[2], parts[3]
+    try:
+        return float(value)
+    except ValueError:
+        return None
+
+
+def _parse_squeue_line(line: str, cluster_name: str) -> JobStatus | None:
+    """Parses one row of ``squeue --noheader --format='%i %j %u %T %V %R'``."""
+    parts = line.strip().split(None, 5)
+    if len(parts) < 5:
+        return None
+    job_id, name, _user, raw_state, submit = parts[:5]
     state = _get_job_state(raw_state)
     return JobStatus(
         id=job_id,
@@ -123,6 +137,7 @@ def _parse_squeue_line(line: str, cluster_name: str) -> JobStatus | None:
         metadata=line,
         done=_is_job_done(state),
         state=state,
+        submit_time=_parse_slurm_epoch(submit),
     )
 
 
@@ -146,6 +161,7 @@ def _parse_scontrol_show_job(output: str, cluster_name: str) -> JobStatus | None
         metadata=output,
         done=_is_job_done(state),
         state=state,
+        submit_time=_parse_slurm_epoch(fields.get("SubmitTime")),
     )
 
 
@@ -734,7 +750,11 @@ class SlurmClient:
 
     def _list_active_jobs_squeue(self) -> list[JobStatus]:
         """Lists active jobs via ``squeue``."""
-        command = f"squeue --user={self._user} --noheader --format='%i %j %u %T %R'"
+        # SLURM_TIME_FORMAT=%s renders %V (submit time) as a tz-safe Unix epoch.
+        command = (
+            "SLURM_TIME_FORMAT=%s "
+            f"squeue --user={self._user} --noheader --format='%i %j %u %T %V %R'"
+        )
         result = self.run_commands([command])
         if result.exit_code != 0:
             raise RuntimeError(
@@ -751,7 +771,7 @@ class SlurmClient:
 
     def _scontrol_get_job(self, job_id: str) -> JobStatus | None:
         """Looks up a single job via ``scontrol show job <id>``."""
-        command = f"scontrol show job {job_id}"
+        command = f"SLURM_TIME_FORMAT=%s scontrol show job {job_id}"
         result = self.run_commands([command])
         if result.exit_code != 0:
             return None
