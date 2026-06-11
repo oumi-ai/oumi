@@ -24,7 +24,11 @@ from oumi.core.configs.params.synthesis_params import (
     GeneratedAttributePostprocessingParams,
     TextMessage,
 )
-from oumi.core.inference.base_inference_engine import BatchResult
+from oumi.core.inference.base_inference_engine import (
+    BatchResult,
+    FailureDetail,
+    InferenceErrorType,
+)
 from oumi.core.synthesis.attribute_formatter import AttributeFormatter
 from oumi.core.types.conversation import Conversation, Message
 from oumi.inference.remote_inference_engine import BatchInfo
@@ -47,6 +51,36 @@ class SynthBatchResult:
     @property
     def has_failures(self) -> bool:
         """Return True if any items in the batch failed synthesis."""
+        return len(self.failed_indices) > 0
+
+
+@dataclass
+class SynthPartialResult:
+    """Result from partial online synthesis, separating successes from failures.
+
+    Returned by :meth:`AttributeSynthesizer.synthesize_partial`. Unlike
+    synthesize(), which raises if any row's inference fails, this pairs each
+    successfully synthesized attribute dict with its original sample index and
+    reports inference and processing failures separately.
+    """
+
+    successful: list[tuple[int, dict[str, str]]]
+    """List of (original_index, attribute_dict) for successfully synthesized items."""
+
+    failed_indices: list[int]
+    """Sorted indices of items that failed synthesis."""
+
+    failures: dict[int, FailureDetail]
+    """Mapping of failed index to structured failure info."""
+
+    @property
+    def error_messages(self) -> dict[int, str]:
+        """Mapping of failed index to error message."""
+        return {idx: detail.error_message for idx, detail in self.failures.items()}
+
+    @property
+    def has_failures(self) -> bool:
+        """Return True if any items failed synthesis."""
         return len(self.failed_indices) > 0
 
 
@@ -121,6 +155,77 @@ class AttributeSynthesizer:
         self._accumulate_token_usage(inference_results)
 
         return self.process_inference_results(inference_results, generated_attribute)
+
+    def synthesize_partial(
+        self,
+        samples: list[dict],
+        generated_attribute: GeneratedAttribute,
+        *,
+        progress_path: str | None = None,
+    ) -> SynthPartialResult:
+        """Synthesize attribute values online, tolerating per-row failures.
+
+        Unlike synthesize(), which raises if any row's inference fails, this
+        returns a SynthPartialResult pairing each successfully synthesized
+        attribute dict with its original sample index and reporting inference
+        failures and processing failures separately, so callers can keep
+        successes and decide which samples to resubmit.
+
+        Args:
+            samples: The samples to synthesize values for.
+            generated_attribute: The generated attribute to synthesize a value for.
+            progress_path: Path to a JSON file where inference progress
+                counters are periodically written for external pollers.
+
+        Returns:
+            SynthPartialResult with successful outputs and failure info.
+        """
+        if not samples:
+            return SynthPartialResult(successful=[], failed_indices=[], failures={})
+
+        conversations = self.build_batch_conversations(samples, generated_attribute)
+
+        result = self._inference_engine.infer_partial(
+            conversations,
+            inference_config=self._inference_config,
+            progress_path=progress_path,
+        )
+
+        successful_outputs: list[tuple[int, dict[str, str]]] = []
+        failed_indices: list[int] = list(result.failed_indices)
+        failures: dict[int, FailureDetail] = dict(result.failures)
+        parse_failures = 0
+
+        for idx, conv in result.successful:
+            # Tokens were spent even if processing the output fails below.
+            self._accumulate_token_usage([conv])
+            try:
+                processed = self.process_inference_results([conv], generated_attribute)
+                successful_outputs.append((idx, processed[0]))
+            except Exception as e:
+                parse_failures += 1
+                failed_indices.append(idx)
+                failures[idx] = FailureDetail(
+                    error_message=f"Failed to process synthesis output: {e}",
+                    is_retryable=True,
+                    error_type=InferenceErrorType.PARSE_ERROR,
+                )
+                logger.warning(
+                    f"Request {idx}: failed to process synthesis output: {e}"
+                )
+
+        logger.info(
+            f"Online synthesis results: "
+            f"{len(successful_outputs)} processed successfully, "
+            f"{len(result.failed_indices)} inference failures, "
+            f"{parse_failures} parse failures"
+        )
+
+        return SynthPartialResult(
+            successful=successful_outputs,
+            failed_indices=sorted(failed_indices),
+            failures=failures,
+        )
 
     def synthesize_batch(
         self,

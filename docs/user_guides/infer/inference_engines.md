@@ -876,6 +876,56 @@ for failure in partial.failures:
 
 This returns a `BatchResult` containing successful conversations and a structured list of failures (with per-row error details), rather than raising on the first error. Combined with the partial-retry support in `RemoteInferenceEngine`, this lets you re-submit only the failed rows instead of re-running the whole batch.
 
+## Partial-Failure Online Inference
+
+By default, `infer()` raises if any conversation fails after exhausting its retries, losing the rest of the call. `infer_partial()` instead tolerates per-row failures: it returns an `InferenceResult` pairing each successful conversation with its original input index and reporting failures separately, so you can keep the successes and decide which rows to re-submit.
+
+```python
+result = engine.infer_partial(conversations, inference_config)
+
+for index, conversation in result.successful:
+    print(f"Row {index}: {conversation.last_message().content}")
+
+for index in result.failed_indices:
+    detail = result.failures[index]
+    print(f"Row {index} failed ({detail.error_type}): {detail.error_message}")
+
+# Re-submit only the rows worth retrying.
+retry_rows = [
+    conversations[i]
+    for i in result.failed_indices
+    if result.failures[i].is_retryable
+]
+```
+
+Each failure carries a `FailureDetail` with the error message, the HTTP status code of the final attempt (if applicable), an `error_type` category, and an `is_retryable` flag. A retryable failure has already consumed the engine's internal retries (`RemoteParams.max_retries`); `is_retryable=True` means a fresh submission could plausibly succeed (e.g. a 429 or timeout), while `is_retryable=False` marks deterministic failures (e.g. a 400/422 or a missing API key) that would fail again.
+
+Remote engines (everything derived from `RemoteInferenceEngine`, including OpenRouter, OpenAI, Anthropic, etc.) isolate failures per row: one conversation exhausting its retries does not affect the others. Local engines (vLLM, native, LlamaCPP) fall back to all-or-nothing behavior, crediting any conversations already checkpointed to the scratch file as successes.
+
+Row-level failures never raise — even configuration errors such as a missing API key are reported as per-row failures with `error_type="config"` and `is_retryable=False`, so check `result.has_failures` rather than relying on exceptions. Invalid call shapes (duplicate conversation IDs, or providing both `input` and `input_path`) still raise.
+
+Successful conversations are checkpointed to the scratch file as they complete. When the result has failures, the scratch file is retained, so calling `infer_partial()` again with the identical input and config resumes from the completed conversations instead of re-running them. If `output_path` is set, only successful conversations are written.
+
+### Progress Reporting
+
+For long runs polled by another process (e.g. a job wrapper on a remote cluster), set a progress path and `infer_partial()` will periodically write an atomic JSON snapshot of its counters:
+
+```python
+result = engine.infer_partial(
+    conversations,
+    inference_config,
+    progress_path="/tmp/progress.json",  # or InferenceConfig.progress_path
+)
+```
+
+The file contains:
+
+```json
+{"total": 1000, "completed": 412, "failed": 3, "updated_at": "2026-06-10T18:02:11.512345+00:00"}
+```
+
+The run is complete when `completed + failed == total`. Writes are atomic (a poller never sees partial JSON) and throttled to about one per second; conversations resumed from the scratch file are counted as completed in the first snapshot. The `progress_path` argument takes precedence over `InferenceConfig.progress_path`. A progress file that cannot be written is logged and ignored — it never fails the inference call.
+
 ### Listing Available Models
 
 Every `InferenceEngine` exposes a `list_models()` method that returns the model IDs usable with that engine:
