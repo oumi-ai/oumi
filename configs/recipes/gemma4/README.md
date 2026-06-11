@@ -7,12 +7,17 @@ Configs for Google's Gemma 4 model family. See the [Hugging Face announcement](h
 - Efficient (edge-targeted, multimodal: text + image + audio)
   - [google/gemma-4-E2B-it](https://huggingface.co/google/gemma-4-E2B-it) (~5B) — **FFT + LoRA configs available**
   - [google/gemma-4-E4B-it](https://huggingface.co/google/gemma-4-E4B-it) (~8B) — **FFT + LoRA configs available**
+- Unified (encoder-free, multimodal: text + image + audio)
+  - [google/gemma-4-12B-it](https://huggingface.co/google/gemma-4-12B-it) (12B) — **LoRA config available**
 - Larger (image + text, 256K context)
   - [google/gemma-4-26B-A4B-it](https://huggingface.co/google/gemma-4-26B-A4B-it) (MoE, 27B)
   - [google/gemma-4-31B-it](https://huggingface.co/google/gemma-4-31B-it) (dense, 31B) — **LoRA config available**
 
 Gemma 4 requires accepting the model license on Hugging Face before downloading.
-Training requires `transformers >= 5.5.4`, which oumi installs automatically.
+Training requires `transformers >= 5.5.4` for the E2B/E4B/31B recipes (installed
+automatically by oumi) and `transformers >= 5.10.0` for 12B, which must be upgraded
+manually (`uv pip install -U "transformers>=5.10"`) because oumi currently pins
+`transformers<5.10`.
 
 ## Quickstart
 
@@ -59,12 +64,20 @@ names (`q_proj`, `v_proj`, ...) with the text model. The recipes target the plai
 projection names and set `lora_exclude_modules` to keep LoRA off the towers: the
 Efficient (text+image+audio) models exclude `[".*vision_tower.*", ".*audio_tower.*"]`,
 and the Larger (image+text) models exclude `[".*vision_tower.*", ".*multi_modal_projector.*"]`.
+The Unified 12B is encoder-free — image/audio enter through `embed_vision`/`embed_audio`
+modules rather than named towers — so it excludes `[".*vision.*", ".*audio.*"]`.
 oumi passes this list to PEFT's `exclude_modules`.
 
 To launch Gemma 4 E4B LoRA training locally (fits a single A100/H100):
 
 ```shell
 oumi train -c oumi://configs/recipes/gemma4/sft/e4b_lora/train.yaml
+```
+
+To launch Gemma 4 12B LoRA training locally with FSDP:
+
+```shell
+oumi distributed torchrun -m oumi train -c oumi://configs/recipes/gemma4/sft/12b_lora/train.yaml
 ```
 
 To launch Gemma 4 E2B LoRA training locally (fits a single 32GB GPU):
@@ -83,4 +96,10 @@ To launch Gemma 4 31B LoRA training on a remote GCP 8x A100 cluster:
 
 ```shell
 oumi launch up -c oumi://configs/recipes/gemma4/sft/31b_lora/gcp_job.yaml --cluster gemma4-31b-lora
+```
+
+To launch Gemma 4 12B LoRA training on a remote GCP 4x A100 cluster:
+
+```shell
+oumi launch up -c oumi://configs/recipes/gemma4/sft/12b_lora/gcp_job.yaml --cluster gemma4-12b-lora
 ```
