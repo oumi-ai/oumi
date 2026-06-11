@@ -83,8 +83,15 @@ def _build_image(modal_lib: Any, job: JobConfig) -> Any:
     """Builds a ``modal.Image`` from the JobConfig.
 
     ``resources.image_id`` (``docker:<ref>``) → ``Image.from_registry(<ref>)``.
-    Otherwise we start from a generic Python base image with ``apt`` tooling
-    baked in for the common setup paths.
+    Otherwise we start from a CUDA-devel base with ``apt`` tooling baked in
+    for the common setup paths.
+
+    The default base ships the CUDA toolkit (``nvcc`` at ``/usr/local/cuda``)
+    rather than a runtime-only image. Models whose vLLM path JIT-compiles
+    flashinfer kernels at runtime — e.g. Qwen3.5 / Qwen3-Next GDN linear
+    attention — need ``nvcc`` on the first forward pass; a runtime-only base
+    fails with "Could not find nvcc". A ``debian_slim`` base does not provide
+    it, whereas most managed GPU images do.
 
     Note: ``job.setup`` is intentionally NOT baked into the image. Modal's
     image build runs without secrets attached, so any setup step that
@@ -103,7 +110,9 @@ def _build_image(modal_lib: Any, job: JobConfig) -> Any:
     # ``pip_install`` — uv is faster and Modal handles its bootstrap
     # internally so we don't need to install uv as a separate step.
     return (
-        modal_lib.Image.debian_slim()
+        modal_lib.Image.from_registry(
+            "nvidia/cuda:12.6.2-devel-ubuntu22.04", add_python="3.11"
+        )
         .apt_install("zip", "curl", "git")
         .uv_pip_install("awscli")
     )
