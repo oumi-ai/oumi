@@ -2477,3 +2477,139 @@ def test_synthesize_clears_sample_routers_on_exception(
         with pytest.raises(RuntimeError, match="plan boom"):
             synth.synthesize([{"x": 1}], mock_multiturn_attribute)
     assert synth._sample_routers == []
+
+
+# ---------------------------------------------------------------------------
+# Token usage accounting
+# ---------------------------------------------------------------------------
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_token_usage_accumulates_from_inference_metadata(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_multiturn_attribute,
+    mock_inference_config,
+):
+    """Token counts accumulate from inference response usage metadata.
+
+    Mirrors AttributeSynthesizer's token accounting: every infer() result
+    carries usage metadata, and the synthesizer must sum it across the
+    planner and per-turn calls so downstream consumers can bill multi-turn
+    conversations.
+    """
+    mock_engine = Mock()
+    mock_build_inference_engine.return_value = mock_engine
+
+    def infer_side_effect(conversations, **kwargs):
+        return [
+            Conversation(
+                messages=[Message(role=Role.ASSISTANT, content="Response")],
+                metadata={
+                    "usage": {
+                        "prompt_tokens": 10,
+                        "completion_tokens": 4,
+                        "cached_tokens": 1,
+                    }
+                },
+            )
+            for _ in conversations
+        ]
+
+    mock_engine.infer.side_effect = infer_side_effect
+
+    synth = ConversationSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+
+    assert synth.total_input_tokens == 0
+    assert synth.total_output_tokens == 0
+    assert synth.total_cached_tokens == 0
+
+    synth.synthesize(
+        [{"customer_type": "frustrated", "issue": "billing"}],
+        mock_multiturn_attribute,
+    )
+
+    # Assert exact totals, not just ratios. With a single sample every infer()
+    # returns exactly one result, and each accumulate site adds the same usage,
+    # so the totals must equal the number of infer() calls times the per-call
+    # usage. A ratio-only check is scale-invariant — it would still pass if some
+    # accumulate sites were deleted (totals shrink but ratios hold); tying the
+    # totals to infer.call_count catches a missing site.
+    calls = mock_engine.infer.call_count
+    assert calls > 0
+    assert synth.total_input_tokens == calls * 10
+    assert synth.total_output_tokens == calls * 4
+    assert synth.total_cached_tokens == calls * 1
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_token_usage_accumulates_in_straggler_finalization(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_inference_config,
+):
+    """Straggler-finalization inference is also counted.
+
+    With ``max_consecutive_tool_turns=0`` the assistant agentic loop never runs
+    a tool round, so the assistant turn is forced down the
+    ``_finalize_stragglers`` path — the fourth accumulate site, which the
+    happy-path test above does not reach (no stragglers there). The exact-total
+    check fails if that site does not accumulate.
+    """
+    mock_engine = Mock()
+    mock_build_inference_engine.return_value = mock_engine
+
+    def infer_side_effect(conversations, **kwargs):
+        return [
+            Conversation(
+                messages=[Message(role=Role.ASSISTANT, content="Response")],
+                metadata={
+                    "usage": {
+                        "prompt_tokens": 10,
+                        "completion_tokens": 4,
+                        "cached_tokens": 1,
+                    }
+                },
+            )
+            for _ in conversations
+        ]
+
+    mock_engine.infer.side_effect = infer_side_effect
+
+    # min == max == 2 makes the turn order deterministic (USER then ASSISTANT);
+    # max_consecutive_tool_turns=0 routes the ASSISTANT turn through
+    # _finalize_stragglers instead of a tool round.
+    multiturn_attr = MultiTurnAttribute(
+        id="straggler_conversation",
+        min_turns=2,
+        max_turns=2,
+        role_instruction_messages={
+            Role.USER: "You are a user.",
+            Role.ASSISTANT: "You are an assistant.",
+        },
+        max_consecutive_tool_turns=0,
+    )
+
+    synth = ConversationSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+
+    result = synth.synthesize([{}], multiturn_attr)
+
+    # The straggler turn produced a (non-filtered) assistant message...
+    record = result[0]
+    assert record is not None
+    conversation = record[multiturn_attr.id]
+    assert isinstance(conversation, dict)
+    roles = [message["role"] for message in conversation["messages"]]
+    assert "assistant" in roles
+    # ...and its inference tokens were counted along with every other call.
+    calls = mock_engine.infer.call_count
+    assert calls > 0
+    assert synth.total_input_tokens == calls * 10
+    assert synth.total_output_tokens == calls * 4
+    assert synth.total_cached_tokens == calls * 1
