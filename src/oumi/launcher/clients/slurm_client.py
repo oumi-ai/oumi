@@ -109,11 +109,7 @@ def _is_job_done(job_state: JobState) -> bool:
 
 
 def _parse_slurm_epoch(value: str | None) -> float | None:
-    """Parses a Unix-epoch time string from Slurm into a float.
-
-    Slurm renders times as epoch seconds when ``SLURM_TIME_FORMAT=%s`` is set
-    (tz-safe). Returns None for missing or sentinel values (``Unknown``, ``N/A``).
-    """
+    """Parses a Slurm epoch-seconds time string, or None for sentinel values."""
     if not value or value in ("Unknown", "N/A", "(null)"):
         return None
     try:
