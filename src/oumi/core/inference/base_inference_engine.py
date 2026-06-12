@@ -57,7 +57,7 @@ class BatchResult:
 
 
 class InferenceErrorType(str, Enum):
-    """Failure category for a partial-inference request."""
+    """Failure category for an inference request."""
 
     API_STATUS = "api_status"
     """The API returned a non-success HTTP status code."""
