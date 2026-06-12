@@ -33,7 +33,8 @@ envs:
 setup: |
   set -e
   pip install uv && uv pip install --system -U ".[ci_gpu]" hf_transfer --system
-  pip install -U flash-attn --no-build-isolation
+  # Prefer a prebuilt flash-attn wheel (seconds) over the source build (25-60 min).
+  bash "./tests/scripts/install_flash_attn.sh"
 
 run: |
   set -xe  # Exit if any command failed.
