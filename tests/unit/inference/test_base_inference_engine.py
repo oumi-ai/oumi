@@ -466,7 +466,6 @@ def test_inference_result_error_messages_derived_from_failures():
     )
     result = InferenceResult(
         successful=[(0, conversation)],
-        failed_indices=[1, 2],
         failures={
             1: FailureDetail(
                 error_message="timeout", error_type=InferenceErrorType.RUNTIME
@@ -481,6 +480,7 @@ def test_inference_result_error_messages_derived_from_failures():
     )
 
     assert result.has_failures
+    assert result.failed_indices == [1, 2]
     assert result.error_messages == {1: "timeout", 2: "bad request"}
     assert result.failures[2].status_code == 400
     assert not result.failures[2].is_retryable
@@ -488,9 +488,10 @@ def test_inference_result_error_messages_derived_from_failures():
 
 
 def test_inference_result_no_failures():
-    result = InferenceResult(successful=[], failed_indices=[], failures={})
+    result = InferenceResult(successful=[], failures={})
 
     assert not result.has_failures
+    assert result.failed_indices == []
     assert result.error_messages == {}
 
 

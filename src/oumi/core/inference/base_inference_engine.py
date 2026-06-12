@@ -105,11 +105,13 @@ class InferenceResult:
     successful: list[tuple[int, Conversation]]
     """List of (original_index, conversation) for successful requests."""
 
-    failed_indices: list[int]
-    """Sorted indices of requests that failed."""
-
     failures: dict[int, FailureDetail]
     """Mapping of failed index to structured failure info."""
+
+    @property
+    def failed_indices(self) -> list[int]:
+        """Sorted indices of requests that failed."""
+        return sorted(self.failures)
 
     @property
     def error_messages(self) -> dict[int, str]:
@@ -119,7 +121,7 @@ class InferenceResult:
     @property
     def has_failures(self) -> bool:
         """Return True if any requests failed."""
-        return len(self.failed_indices) > 0
+        return len(self.failures) > 0
 
 
 class BaseInferenceEngine(ABC):
