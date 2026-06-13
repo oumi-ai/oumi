@@ -70,7 +70,7 @@ def build_training_callbacks(
 
     dtype = next(model.parameters()).dtype
     add_mfu_callbacks: bool = True
-    if not torch.cuda.is_available():
+    if not torch.cuda.is_available() and not torch.backends.mps.is_available():
         logger.warning("MFU logging is only supported on GPU. Skipping MFU callbacks.")
         add_mfu_callbacks = False
     elif config.training.use_peft:
