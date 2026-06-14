@@ -7,7 +7,12 @@ import jsonlines
 import pytest
 
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
-from oumi.core.inference import BaseInferenceEngine
+from oumi.core.inference import (
+    BaseInferenceEngine,
+    FailureDetail,
+    InferenceErrorType,
+    InferenceResult,
+)
 from oumi.core.types.conversation import Conversation, Message, Role
 
 
@@ -453,3 +458,46 @@ def test_final_conversations_saved_to_output_file(mock_engine):
         assert not scratch_path.exists(), (
             "Scratch file should be cleaned up after successful inference"
         )
+
+
+def test_inference_result_error_messages_derived_from_failures():
+    conversation = Conversation(
+        messages=[Message(role=Role.USER, content="hi")],
+    )
+    result = InferenceResult(
+        successful=[(0, conversation)],
+        failures={
+            1: FailureDetail(
+                error_message="timeout", error_type=InferenceErrorType.RUNTIME
+            ),
+            2: FailureDetail(
+                error_message="bad request",
+                status_code=400,
+                is_retryable=False,
+                error_type=InferenceErrorType.API_STATUS,
+            ),
+        },
+    )
+
+    assert result.has_failures
+    assert result.failed_indices == [1, 2]
+    assert result.error_messages == {1: "timeout", 2: "bad request"}
+    assert result.failures[2].status_code == 400
+    assert not result.failures[2].is_retryable
+    assert result.failures[1].is_retryable
+
+
+def test_inference_result_no_failures():
+    result = InferenceResult(successful=[], failures={})
+
+    assert not result.has_failures
+    assert result.failed_indices == []
+    assert result.error_messages == {}
+
+
+def test_failure_detail_defaults():
+    detail = FailureDetail(error_message="boom")
+
+    assert detail.status_code is None
+    assert detail.is_retryable
+    assert detail.error_type == InferenceErrorType.UNKNOWN
