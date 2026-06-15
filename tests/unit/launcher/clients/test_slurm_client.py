@@ -433,7 +433,7 @@ def _mock_refresh_creds_run() -> Mock:
 
 def test_slurm_client_get_job_returns_active_job_from_squeue(mock_subprocess):
     squeue_ok = Mock()
-    squeue_ok.stdout = b"100 myjob user RUNNING 1700000000 node-1\n"
+    squeue_ok.stdout = b"100 myjob user RUNNING 1700000000 1700000005 node-1\n"
     squeue_ok.stderr = b""
     squeue_ok.returncode = 0
 
@@ -450,6 +450,29 @@ def test_slurm_client_get_job_returns_active_job_from_squeue(mock_subprocess):
     assert job_status.id == "100"
     assert job_status.state == JobState.RUNNING
     assert job_status.submit_time == 1700000000.0
+    assert job_status.start_at == 1700000005.0
+
+
+def test_slurm_client_get_job_pending_has_no_start_at(mock_subprocess):
+    squeue_pending = Mock()
+    squeue_pending.stdout = b"102 myjob user PENDING 1700000000 N/A (Resources)\n"
+    squeue_pending.stderr = b""
+    squeue_pending.returncode = 0
+
+    mock_subprocess.run.side_effect = [
+        _mock_refresh_creds_run(),
+        _mock_refresh_creds_run(),
+        squeue_pending,
+    ]
+
+    client = SlurmClient("user", "host", "cluster_name")
+    job_status = client.get_job("102")
+
+    assert job_status is not None
+    assert job_status.state == JobState.PENDING
+    assert job_status.submit_time == 1700000000.0
+    # Never started -> no start time -> consumer treats it as "did not run".
+    assert job_status.start_at is None
 
 
 def test_slurm_client_get_job_falls_back_to_scontrol_for_terminal_state(
@@ -486,6 +509,7 @@ def test_slurm_client_get_job_falls_back_to_scontrol_for_terminal_state(
     assert job_status.state == JobState.SUCCEEDED
     assert job_status.done is True
     assert job_status.submit_time == 1700000000.0
+    assert job_status.start_at == 1700000050.0
 
 
 def test_slurm_client_get_job_returns_none_when_purged(mock_subprocess):

@@ -119,11 +119,11 @@ def _parse_slurm_epoch(value: str | None) -> float | None:
 
 
 def _parse_squeue_line(line: str, cluster_name: str) -> JobStatus | None:
-    """Parses one row of ``squeue --noheader --format='%i %j %u %T %V %R'``."""
-    parts = line.strip().split(None, 5)
-    if len(parts) < 5:
+    """Parses one row of ``squeue --noheader --format='%i %j %u %T %V %S %R'``."""
+    parts = line.strip().split(None, 6)
+    if len(parts) < 6:
         return None
-    job_id, name, _user, raw_state, submit = parts[:5]
+    job_id, name, _user, raw_state, submit, start = parts[:6]
     state = _get_job_state(raw_state)
     return JobStatus(
         id=job_id,
@@ -134,6 +134,7 @@ def _parse_squeue_line(line: str, cluster_name: str) -> JobStatus | None:
         done=_is_job_done(state),
         state=state,
         submit_time=_parse_slurm_epoch(submit),
+        start_at=_parse_slurm_epoch(start),
     )
 
 
@@ -158,6 +159,7 @@ def _parse_scontrol_show_job(output: str, cluster_name: str) -> JobStatus | None
         done=_is_job_done(state),
         state=state,
         submit_time=_parse_slurm_epoch(fields.get("SubmitTime")),
+        start_at=_parse_slurm_epoch(fields.get("StartTime")),
     )
 
 
@@ -746,10 +748,10 @@ class SlurmClient:
 
     def _list_active_jobs_squeue(self) -> list[JobStatus]:
         """Lists active jobs via ``squeue``."""
-        # SLURM_TIME_FORMAT=%s renders %V (submit time) as a tz-safe Unix epoch.
+        # SLURM_TIME_FORMAT=%s renders %V (submit) and %S (start) as tz-safe epochs.
         command = (
             "SLURM_TIME_FORMAT=%s "
-            f"squeue --user={self._user} --noheader --format='%i %j %u %T %V %R'"
+            f"squeue --user={self._user} --noheader --format='%i %j %u %T %V %S %R'"
         )
         result = self.run_commands([command])
         if result.exit_code != 0:
