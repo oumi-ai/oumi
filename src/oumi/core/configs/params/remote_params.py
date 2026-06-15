@@ -33,7 +33,7 @@ class RemoteParams(BaseParams):
     api_key_env_varname: str | None = None
     """Name of the environment variable containing the API key for authentication."""
 
-    max_retries: int = 3
+    max_retries: int = 5
     """Maximum number of retries to attempt when calling an API."""
 
     retry_backoff_base: float = 1.0
