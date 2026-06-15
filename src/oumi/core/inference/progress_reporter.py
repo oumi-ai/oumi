@@ -45,7 +45,8 @@ class ProgressFileReporter:
             total: Total number of rows in the run.
             min_write_interval: Minimum seconds between snapshot writes.
         """
-        self._path = path
+        self._path = Path(path)
+        self._tmp_path = self._path.with_name(self._path.name + ".tmp")
         self._total = total
         self._min_write_interval = min_write_interval
         self._completed = 0
@@ -91,13 +92,11 @@ class ProgressFileReporter:
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
         try:
-            path = Path(self._path)
-            path.parent.mkdir(parents=True, exist_ok=True)
+            self._path.parent.mkdir(parents=True, exist_ok=True)
             # Write to a temp file in the same directory so the replace is atomic.
-            tmp_path = path.with_name(path.name + ".tmp")
-            with open(tmp_path, "w") as f:
+            with open(self._tmp_path, "w") as f:
                 json.dump(snapshot, f)
-            tmp_path.replace(path)
+            self._tmp_path.replace(self._path)
         except Exception as e:
             if not self._warned:
                 logger.warning(f"Failed to write inference progress file: {e}")
