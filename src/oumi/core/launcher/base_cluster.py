@@ -62,6 +62,10 @@ class JobStatus:
     #: Includes all nodes. None if cost information is unavailable.
     cost_per_hour: float | None = None
 
+    #: Unix timestamp when the job was submitted to the queue.
+    #: None if timing data is unavailable.
+    submit_time: float | None = None
+
     #: Unix timestamp when the job started running.
     #: None if the job hasn't started yet or timing data is unavailable.
     start_at: float | None = None

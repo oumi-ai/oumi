@@ -715,13 +715,14 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                         timeout=remote_params.connection_timeout,
                     ) as response:
                         if response.status != 200:
-                            await self._try_record_error()
                             last_status_code = response.status
                             failure_reason = await get_failure_reason_from_response(
                                 response
                             )
 
-                            # Check for non-retriable status codes to fail fast.
+                            # Non-retriable statuses are terminal request errors,
+                            # not load signals: fail fast without recording them
+                            # against adaptive concurrency.
                             if is_non_retriable_status_code(
                                 response.status, failure_reason
                             ):
@@ -730,6 +731,9 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                                     status_code=response.status,
                                     api_input=api_input,
                                 )
+
+                            # Retriable failure: record for backoff, then retry.
+                            await self._try_record_error()
                             continue
 
                         # Try to parse the response as JSON

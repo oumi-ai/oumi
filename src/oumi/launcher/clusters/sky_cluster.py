@@ -78,6 +78,7 @@ class SkyCluster(BaseCluster):
             or state == JobState.CANCELLED,
             state=state,
             cost_per_hour=cost_per_hour,
+            submit_time=sky_job.get("submitted_at") or None,
             start_at=sky_job.get("start_at") or None,
             end_at=sky_job.get("end_at") or None,
         )
