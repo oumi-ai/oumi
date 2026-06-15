@@ -237,7 +237,7 @@ def _failure_detail_from_exception(e: Exception) -> FailureDetail:
             error_type=InferenceErrorType.CONNECTION,
         )
     if isinstance(e, ValueError):
-        # Missing api_url/api_key: deterministic, resubmission is futile.
+        # Deterministic config/input error (bad credentials/schema); retry is futile.
         return FailureDetail(
             error_message=str(e),
             is_retryable=False,
