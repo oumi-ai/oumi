@@ -19,12 +19,12 @@ import os
 import tempfile
 import urllib.parse
 import warnings
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import Any, TypeVar
 
 import aiofiles
 import aiofiles.os
@@ -45,7 +45,10 @@ from oumi.core.configs.params.remote_params import AdaptiveConcurrencyParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.inference.base_inference_engine import (
     BatchResult,
+    FailureDetail,
+    InferenceErrorType,
 )
+from oumi.core.inference.progress_reporter import ProgressFileReporter
 from oumi.core.types.conversation import (
     Conversation,
     FinishReason,
@@ -69,6 +72,8 @@ _AUTHORIZATION_KEY: str = "Authorization"
 _BATCH_PURPOSE = "batch"
 _BATCH_ENDPOINT = "/v1/chat/completions"
 _MAX_CONNECTION_LIMIT = 200
+
+_QueryResultT = TypeVar("_QueryResultT")
 
 
 class BatchStatus(Enum):
@@ -208,6 +213,48 @@ class FileListResponse:
 
     files: list[FileInfo]
     has_more: bool = False
+
+
+def _failure_detail_from_exception(e: Exception) -> FailureDetail:
+    """Maps an exception raised by _query_api to a FailureDetail.
+
+    Retryability reflects whether a fresh submission could plausibly succeed;
+    the engine's internal retries (RemoteParams.max_retries) have already been
+    exhausted by the time an exception reaches this mapper.
+    """
+    if isinstance(e, APIStatusError):
+        return FailureDetail(
+            error_message=str(e),
+            status_code=e.status_code,
+            is_retryable=not is_non_retriable_status_code(e.status_code, str(e)),
+            error_type=InferenceErrorType.API_STATUS,
+        )
+    if isinstance(e, (aiohttp.ClientError, asyncio.TimeoutError)):
+        # Defensive: _query_api wraps these in RuntimeError after retries.
+        return FailureDetail(
+            error_message=str(e),
+            is_retryable=True,
+            error_type=InferenceErrorType.CONNECTION,
+        )
+    if isinstance(e, ValueError):
+        # Deterministic config/input error (bad credentials/schema); retry is futile.
+        return FailureDetail(
+            error_message=str(e),
+            is_retryable=False,
+            error_type=InferenceErrorType.CONFIG,
+        )
+    if isinstance(e, RuntimeError):
+        # Retries-exhausted parse/conversion/connection/unexpected errors.
+        return FailureDetail(
+            error_message=str(e),
+            is_retryable=True,
+            error_type=InferenceErrorType.RUNTIME,
+        )
+    return FailureDetail(
+        error_message=str(e),
+        is_retryable=False,
+        error_type=InferenceErrorType.UNKNOWN,
+    )
 
 
 class RemoteInferenceEngine(BaseInferenceEngine):
@@ -822,6 +869,33 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 )
             raise RuntimeError(message)
 
+    async def _gather_query_tasks(
+        self,
+        input: list[Conversation],
+        make_task: Callable[
+            [Conversation, PoliteAdaptiveSemaphore, aiohttp.ClientSession],
+            Awaitable[_QueryResultT],
+        ],
+    ) -> list[_QueryResultT]:
+        """Gathers one task per conversation under a shared session/semaphore.
+
+        ``make_task`` builds the coroutine for each conversation, letting callers
+        pick the raising (``_query_api``) or guarded (``_query_api_guarded``) path.
+        """
+        # Limit number of HTTP connections to prevent file descriptor exhaustion.
+        connector = aiohttp.TCPConnector(limit=self._get_connection_limit())
+        # Control the number of concurrent tasks via a semaphore.
+        semaphore = PoliteAdaptiveSemaphore(
+            capacity=self._remote_params.num_workers,
+            politeness_policy=self._remote_params.politeness_policy,
+        )
+        async with aiohttp.ClientSession(connector=connector) as session:
+            tasks = [
+                make_task(conversation, semaphore, session) for conversation in input
+            ]
+            disable_tqdm = len(tasks) < 2
+            return await tqdm.gather(*tasks, disable=disable_tqdm)
+
     async def _infer(
         self,
         input: list[Conversation],
@@ -837,27 +911,15 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             List[Conversation]: Inference output.
         """
-        # Limit number of HTTP connections to prevent file descriptor exhaustion.
-        connector = aiohttp.TCPConnector(limit=self._get_connection_limit())
-        # Control the number of concurrent tasks via a semaphore.
-        semaphore = PoliteAdaptiveSemaphore(
-            capacity=self._remote_params.num_workers,
-            politeness_policy=self._remote_params.politeness_policy,
+        return await self._gather_query_tasks(
+            input,
+            lambda conversation, semaphore, session: self._query_api(
+                conversation,
+                semaphore,
+                session,
+                inference_config=inference_config,
+            ),
         )
-        async with aiohttp.ClientSession(connector=connector) as session:
-            tasks = [
-                self._query_api(
-                    conversation,
-                    semaphore,
-                    session,
-                    inference_config=inference_config,
-                )
-                for conversation in input
-            ]
-
-            disable_tqdm = len(tasks) < 2
-            results = await tqdm.gather(*tasks, disable=disable_tqdm)
-            return results
 
     @override
     def _infer_online(
@@ -876,6 +938,81 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         """
         conversations = safe_asyncio_run(self._infer(input, inference_config))
         return conversations
+
+    @override
+    def _infer_online_partial(
+        self,
+        input: list[Conversation],
+        inference_config: InferenceConfig | None = None,
+        progress: ProgressFileReporter | None = None,
+    ) -> list[Conversation | FailureDetail]:
+        """Runs online inference, capturing failures per conversation.
+
+        Unlike the base implementation, each conversation fails independently:
+        one row exhausting its retries does not affect the others.
+        """
+        if not input:
+            return []
+        return safe_asyncio_run(self._infer_partial(input, inference_config, progress))
+
+    async def _query_api_guarded(
+        self,
+        conversation: Conversation,
+        semaphore: PoliteAdaptiveSemaphore,
+        session: aiohttp.ClientSession,
+        inference_config: InferenceConfig | None = None,
+        progress: ProgressFileReporter | None = None,
+    ) -> Conversation | FailureDetail:
+        """Queries the API, converting per-row exceptions to FailureDetails.
+
+        CancelledError and other BaseExceptions propagate so cancellation
+        still works.
+        """
+        try:
+            result = await self._query_api(
+                conversation,
+                semaphore,
+                session,
+                inference_config=inference_config,
+            )
+        except Exception as e:
+            if progress:
+                progress.record_failed()
+            return _failure_detail_from_exception(e)
+        if progress:
+            progress.record_completed()
+        return result
+
+    async def _infer_partial(
+        self,
+        input: list[Conversation],
+        inference_config: InferenceConfig | None = None,
+        progress: ProgressFileReporter | None = None,
+    ) -> list[Conversation | FailureDetail]:
+        """Runs model inference on the provided input, tolerating failures.
+
+        Like _infer(), but wraps each per-conversation task in a guard so one
+        failed row cannot fail the whole call.
+
+        Args:
+            input: A list of conversations to run inference on.
+            inference_config: Parameters for inference.
+            progress: Optional progress reporter, ticked as rows complete.
+
+        Returns:
+            list[Conversation | FailureDetail]: Per-row outcomes, aligned
+                with input.
+        """
+        return await self._gather_query_tasks(
+            input,
+            lambda conversation, semaphore, session: self._query_api_guarded(
+                conversation,
+                semaphore,
+                session,
+                inference_config=inference_config,
+                progress=progress,
+            ),
+        )
 
     @override
     def get_supported_params(self) -> set[str]:
