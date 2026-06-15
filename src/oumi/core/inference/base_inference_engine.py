@@ -20,6 +20,7 @@ import time
 import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 
 import jsonlines
@@ -53,6 +54,74 @@ class BatchResult:
     def has_failures(self) -> bool:
         """Return True if any requests failed."""
         return len(self.failed_indices) > 0
+
+
+class InferenceErrorType(str, Enum):
+    """Failure category for an inference request."""
+
+    API_STATUS = "api_status"
+    """The API returned a non-success HTTP status code."""
+
+    CONNECTION = "connection"
+    """A network-level error prevented reaching the API."""
+
+    RUNTIME = "runtime"
+    """An error was raised while running inference."""
+
+    CONFIG = "config"
+    """The request failed due to invalid configuration."""
+
+    PARSE_ERROR = "parse_error"
+    """The API response could not be parsed into a conversation."""
+
+    ENGINE_FAILURE = "engine_failure"
+    """The inference engine itself failed."""
+
+    UNKNOWN = "unknown"
+    """Default and catch-all: the failure fits no other category."""
+
+
+@dataclass(frozen=True)
+class FailureDetail:
+    """Details about a single failed inference request."""
+
+    error_message: str
+    """Human-readable description of the failure."""
+
+    status_code: int | None = None
+    """HTTP status code of the final failed attempt, if applicable."""
+
+    is_retryable: bool = True
+    """Whether resubmitting this request could plausibly succeed."""
+
+    error_type: InferenceErrorType = InferenceErrorType.UNKNOWN
+    """Failure category for this request."""
+
+
+@dataclass
+class InferenceResult:
+    """Result of partial online inference, separating successes from failures."""
+
+    successful: list[tuple[int, Conversation]]
+    """List of (original_index, conversation) for successful requests."""
+
+    failures: dict[int, FailureDetail]
+    """Mapping of failed index to structured failure info."""
+
+    @property
+    def failed_indices(self) -> list[int]:
+        """Sorted indices of requests that failed."""
+        return sorted(self.failures)
+
+    @property
+    def error_messages(self) -> dict[int, str]:
+        """Mapping of failed index to error message."""
+        return {idx: detail.error_message for idx, detail in self.failures.items()}
+
+    @property
+    def has_failures(self) -> bool:
+        """Return True if any requests failed."""
+        return len(self.failures) > 0
 
 
 class BaseInferenceEngine(ABC):
