@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock
 
 import aiohttp
@@ -20,6 +21,7 @@ import pytest
 from oumi.utils.http import (
     get_failure_reason_from_response,
     is_non_retriable_status_code,
+    parse_retry_after,
 )
 
 
@@ -125,3 +127,35 @@ async def test_get_failure_reason_from_response_with_json_error():
 
     result = await get_failure_reason_from_response(mock_response)
     assert result == "HTTP 400"
+
+
+_NOW = datetime(2026, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
+
+
+def test_parse_retry_after_delta_seconds():
+    assert parse_retry_after("120", _NOW) == 120.0
+
+
+def test_parse_retry_after_zero():
+    assert parse_retry_after("0", _NOW) == 0.0
+
+
+def test_parse_retry_after_http_date():
+    # 30 seconds after _NOW.
+    assert parse_retry_after("Sun, 15 Jun 2026 12:00:30 GMT", _NOW) == 30.0
+
+
+def test_parse_retry_after_past_http_date_clamps_to_zero():
+    assert parse_retry_after("Sun, 15 Jun 2026 11:59:00 GMT", _NOW) == 0.0
+
+
+def test_parse_retry_after_negative_delta_clamps_to_zero():
+    assert parse_retry_after("-5", _NOW) == 0.0
+
+
+def test_parse_retry_after_absent_returns_none():
+    assert parse_retry_after(None, _NOW) is None
+
+
+def test_parse_retry_after_garbage_returns_none():
+    assert parse_retry_after("not-a-date", _NOW) is None
