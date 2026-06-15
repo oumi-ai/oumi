@@ -20,8 +20,10 @@ different criteria such as helpfulness, honesty, and safety.
 
 from oumi.judges.base_judge import (
     BaseJudge,
+    JudgeBatchResult,
     JudgeOutput,
     JudgeOutputField,
+    JudgePartialResult,
 )
 from oumi.judges.rule_based_judge import RuleBasedJudge
 from oumi.judges.rules import BaseRule, RegexRule
@@ -30,8 +32,10 @@ from oumi.judges.simple_judge import SimpleJudge
 __all__ = [
     "BaseJudge",
     "BaseRule",
+    "JudgeBatchResult",
     "JudgeOutput",
     "JudgeOutputField",
+    "JudgePartialResult",
     "RegexRule",
     "RuleBasedJudge",
     "SimpleJudge",

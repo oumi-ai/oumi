@@ -646,3 +646,65 @@ inference_config:
             match="Could not resolve JudgeConfig from path: unknown_judge",
         ):
             SimpleJudge(judge_config="unknown_judge")
+
+
+class TestSimpleJudgePartial:
+    """Smoke test for the judge_partial method inherited from BaseJudge."""
+
+    @pytest.fixture
+    def xml_config(self):
+        return JudgeConfig(
+            judge_params=JudgeParams(
+                prompt_template="Is this helpful? {question}",
+                response_format=JudgeResponseFormat.XML,
+                judgment_type=JudgeOutputType.BOOL,
+                include_explanation=False,
+            ),
+            inference_config=InferenceConfig(
+                model=ModelParams(model_name="gpt-4.1"),
+                engine=InferenceEngineType.OPENAI,
+            ),
+        )
+
+    @patch("oumi.judges.simple_judge.SimpleJudge._create_inference_engine")
+    def test_judge_partial_inherited(self, mock_create_engine, xml_config):
+        from oumi.core.inference.base_inference_engine import (
+            FailureDetail,
+            InferenceErrorType,
+            InferenceResult,
+        )
+        from oumi.core.types.conversation import Conversation, Message, Role
+
+        mock_engine = Mock()
+        mock_create_engine.return_value = mock_engine
+        mock_engine.infer_partial.return_value = InferenceResult(
+            successful=[
+                (
+                    0,
+                    Conversation(
+                        messages=[
+                            Message(content="prompt", role=Role.USER),
+                            Message(
+                                content="<judgment>True</judgment>",
+                                role=Role.ASSISTANT,
+                            ),
+                        ]
+                    ),
+                )
+            ],
+            failures={
+                1: FailureDetail(
+                    error_message="HTTP 500",
+                    status_code=500,
+                    error_type=InferenceErrorType.API_STATUS,
+                )
+            },
+        )
+
+        judge = SimpleJudge(judge_config=xml_config)
+        result = judge.judge_partial([{"question": "q1"}, {"question": "q2"}])
+
+        assert [idx for idx, _ in result.successful] == [0]
+        assert result.successful[0][1].field_values == {JUDGMENT_KEY: True}
+        assert result.failed_indices == [1]
+        assert result.failures[1].status_code == 500

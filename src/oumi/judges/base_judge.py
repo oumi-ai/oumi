@@ -25,7 +25,11 @@ from oumi.core.configs.params.judge_params import (
     JudgeResponseFormat,
 )
 from oumi.core.inference import BaseInferenceEngine
-from oumi.core.inference.base_inference_engine import BatchResult
+from oumi.core.inference.base_inference_engine import (
+    BatchResult,
+    FailureDetail,
+    InferenceErrorType,
+)
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 from oumi.utils.placeholders import resolve_placeholders
@@ -325,6 +329,37 @@ class JudgeBatchResult:
         return len(self.failed_indices) > 0
 
 
+@dataclass
+class JudgePartialResult:
+    """Result from partial online judging, separating successes from failures.
+
+    Returned by :meth:`BaseJudge.judge_partial`. Unlike judge(), which raises
+    if inference fails, this pairs each successful JudgeOutput with its
+    original input index and reports inference and parse failures separately.
+    """
+
+    successful: list[tuple[int, JudgeOutput]]
+    """List of (original_index, JudgeOutput) for successfully judged items."""
+
+    failures: dict[int, FailureDetail]
+    """Mapping of failed index to structured failure info."""
+
+    @property
+    def failed_indices(self) -> list[int]:
+        """Sorted indices of items that failed judging."""
+        return sorted(self.failures)
+
+    @property
+    def error_messages(self) -> dict[int, str]:
+        """Mapping of failed index to error message."""
+        return {idx: detail.error_message for idx, detail in self.failures.items()}
+
+    @property
+    def has_failures(self) -> bool:
+        """Return True if any items failed judgment."""
+        return len(self.failures) > 0
+
+
 class BaseJudge:
     """Base class for implementing judges that evaluate model outputs.
 
@@ -396,6 +431,96 @@ class BaseJudge:
         )
         completed_conversations = self._infer(conversations)
         return self.parse_judge_outputs(completed_conversations)
+
+    def judge_partial(
+        self,
+        inputs: list[Conversation] | list[dict[str, str]],
+        *,
+        progress_path: str | None = None,
+    ) -> JudgePartialResult:
+        """Evaluate a batch of inputs online, tolerating per-row failures.
+
+        Unlike judge(), which raises if any row's inference fails, this
+        returns a JudgePartialResult pairing each successful JudgeOutput with
+        its original input index and reporting inference failures and parse
+        failures separately, so callers can keep successes and decide which
+        rows to resubmit.
+
+        Args:
+            inputs: Either a list of pre-built Conversation objects, or a list
+                    of dictionaries containing input data for evaluation. When
+                    dicts are provided, each must contain values for all
+                    prompt_template placeholders.
+            progress_path: Path to a JSON file where inference progress
+                counters are periodically written for external pollers.
+
+        Returns:
+            JudgePartialResult with successful outputs and failure info.
+
+        Raises:
+            ValueError: If inference_engine is None.
+        """
+        conversations: list[Conversation] = (
+            self.build_conversations(inputs)  # type: ignore[arg-type]
+            if inputs and isinstance(inputs[0], dict)
+            else inputs
+        )
+        if not conversations:
+            return JudgePartialResult(successful=[], failures={})
+
+        if self.inference_engine is None:
+            raise ValueError(
+                "Cannot run inference: inference_engine is None. "
+                "Subclasses that don't use inference should override the "
+                "judge() method."
+            )
+
+        # Preserve original metadata from input conversations
+        original_metadata = [conv.metadata for conv in conversations]
+
+        result = self.inference_engine.infer_partial(
+            input=conversations, progress_path=progress_path
+        )
+
+        successful_outputs: list[tuple[int, JudgeOutput]] = []
+        failures = dict(result.failures)
+        parse_failures = 0
+
+        for idx, conv in result.successful:
+            # Restore original metadata by original index: partial results may
+            # be out of order or have gaps, so a positional zip would misalign.
+            conv.metadata.update(original_metadata[idx])
+
+            usage = conv.metadata.get("usage", {})
+            self._total_input_tokens += usage.get("prompt_tokens", 0)
+            self._total_output_tokens += usage.get("completion_tokens", 0)
+            self._total_cached_tokens += usage.get("cached_tokens", 0)
+
+            try:
+                self._validate_completed_conversation(conv)
+                raw_output = str(conv.messages[-1].content)
+                judge_output = self._transform_judge_output(raw_output)
+                successful_outputs.append((idx, judge_output))
+            except Exception as e:
+                parse_failures += 1
+                failures[idx] = FailureDetail(
+                    error_message=f"Failed to parse judge output: {e}",
+                    is_retryable=True,
+                    error_type=InferenceErrorType.PARSE_ERROR,
+                )
+                logger.warning(f"Request {idx}: failed to parse judge output: {e}")
+
+        logger.info(
+            f"Online judge results: "
+            f"{len(successful_outputs)} parsed successfully, "
+            f"{len(result.failed_indices)} inference failures, "
+            f"{parse_failures} parse failures"
+        )
+
+        return JudgePartialResult(
+            successful=successful_outputs,
+            failures=failures,
+        )
 
     def judge_batch_submit(
         self, inputs: list[Conversation] | list[dict[str, str]]
