@@ -795,9 +795,11 @@ def test_infer_online_fails_with_message_and_retries(mock_asyncio_sleep):
         )
 
         config = _get_default_inference_config()
+        if config.remote_params is not None:
+            config.remote_params.max_retries = 3
         engine = RemoteInferenceEngine(
             _get_default_model_params(),
-            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER, max_retries=3),
         )
         conversation = Conversation(
             messages=[
@@ -848,6 +850,94 @@ def test_infer_online_fallback_backoff_curve(mock_asyncio_sleep):
                 _ = engine.infer([conversation], config)
             delays = [call.args[0] for call in mock_asyncio_sleep.call_args_list]
             assert delays == [1.0, 10.0, 30.0, 30.0, 30.0]
+
+
+def test_infer_online_honors_retry_after_delta(mock_asyncio_sleep):
+    with patch("random.uniform", return_value=1.0):
+        with aioresponses() as m:
+            m.post(
+                _TARGET_SERVER,
+                status=429,
+                headers={"Retry-After": "45"},
+                payload={"error": {"message": "Rate limited"}},
+            )
+            m.post(
+                _TARGET_SERVER,
+                payload={
+                    "choices": [{"message": {"role": "assistant", "content": "ok"}}]
+                },
+            )
+            engine = RemoteInferenceEngine(
+                _get_default_model_params(),
+                remote_params=RemoteParams(api_url=_TARGET_SERVER),
+            )
+            config = _get_default_inference_config()
+            conversation = Conversation(
+                messages=[Message(content="Hello world!", role=Role.USER)],
+                conversation_id="123",
+            )
+            result = engine.infer([conversation], config)
+            assert result[0].messages[-1].content == "ok"
+            delays = [call.args[0] for call in mock_asyncio_sleep.call_args_list]
+            assert delays == [45.0]  # honored header, not the 1s backoff
+
+
+def test_infer_online_retry_after_capped(mock_asyncio_sleep):
+    with patch("random.uniform", return_value=1.0):
+        with aioresponses() as m:
+            m.post(
+                _TARGET_SERVER,
+                status=429,
+                headers={"Retry-After": "100000"},
+                payload={"error": {"message": "Rate limited"}},
+            )
+            m.post(
+                _TARGET_SERVER,
+                payload={
+                    "choices": [{"message": {"role": "assistant", "content": "ok"}}]
+                },
+            )
+            engine = RemoteInferenceEngine(
+                _get_default_model_params(),
+                remote_params=RemoteParams(api_url=_TARGET_SERVER),
+            )
+            config = _get_default_inference_config()
+            conversation = Conversation(
+                messages=[Message(content="Hello world!", role=Role.USER)],
+                conversation_id="123",
+            )
+            engine.infer([conversation], config)
+            delays = [call.args[0] for call in mock_asyncio_sleep.call_args_list]
+            assert delays == [120.0]  # capped at _MAX_RETRY_AFTER_SLEEP
+
+
+def test_infer_online_retry_after_jitter_applied(mock_asyncio_sleep):
+    with patch("random.uniform", return_value=1.2):
+        with aioresponses() as m:
+            m.post(
+                _TARGET_SERVER,
+                status=429,
+                headers={"Retry-After": "10"},
+                payload={"error": {"message": "Rate limited"}},
+            )
+            m.post(
+                _TARGET_SERVER,
+                payload={
+                    "choices": [{"message": {"role": "assistant", "content": "ok"}}]
+                },
+            )
+            engine = RemoteInferenceEngine(
+                _get_default_model_params(),
+                remote_params=RemoteParams(api_url=_TARGET_SERVER),
+            )
+            config = _get_default_inference_config()
+            conversation = Conversation(
+                messages=[Message(content="Hello world!", role=Role.USER)],
+                conversation_id="123",
+            )
+            engine.infer([conversation], config)
+            delays = [call.args[0] for call in mock_asyncio_sleep.call_args_list]
+            assert delays == [12.0]  # 10 * 1.2 jitter factor
 
 
 def test_infer_online_recovers_from_retries():
@@ -2855,40 +2945,43 @@ async def test_infer_online_exponential_backoff(mock_polite_adaptive_semaphore):
         m.post(_TARGET_SERVER, callback=callback, repeat=True)
 
         with patch("asyncio.sleep", side_effect=mock_sleep):
-            engine = RemoteInferenceEngine(
-                model_params=_get_default_model_params(),
-                remote_params=RemoteParams(
+            with patch("random.uniform", return_value=1.0):
+                engine = RemoteInferenceEngine(
+                    model_params=_get_default_model_params(),
+                    remote_params=RemoteParams(
+                        api_url=_TARGET_SERVER,
+                        max_retries=3,
+                        retry_backoff_base=0.2,  # Small values for testing
+                        retry_backoff_max=1.0,
+                    ),
+                )
+                conversation = Conversation(
+                    messages=[Message(role=Role.USER, content="Hello")],
+                )
+
+                remote_params = RemoteParams(
                     api_url=_TARGET_SERVER,
                     max_retries=3,
-                    retry_backoff_base=0.2,  # Small values for testing
+                    retry_backoff_base=0.2,
                     retry_backoff_max=1.0,
-                ),
-            )
-            conversation = Conversation(
-                messages=[Message(role=Role.USER, content="Hello")],
-            )
+                )
+                inference_config = _get_default_inference_config()
+                inference_config.remote_params = remote_params
 
-            remote_params = RemoteParams(
-                api_url=_TARGET_SERVER,
-                max_retries=3,
-                retry_backoff_base=0.2,
-                retry_backoff_max=1.0,
-            )
-            inference_config = _get_default_inference_config()
-            inference_config.remote_params = remote_params
+                result = engine.infer([conversation], inference_config)
 
-            result = engine.infer([conversation], inference_config)
+                # Verify the result
+                assert len(result) == 1
+                assert result[0].messages[-1].content == "Success after retries"
 
-            # Verify the result
-            assert len(result) == 1
-            assert result[0].messages[-1].content == "Success after retries"
-
-            # Verify sleep calls
-            backoff_sleeps = [s for s in sleep_calls if s > 0]
-            assert backoff_sleeps[0] == pytest.approx(0.2)  # First retry: base delay
-            assert backoff_sleeps[1] == pytest.approx(
-                0.4
-            )  # Second retry: base delay * 2
+                # Verify sleep calls. Multiplier is 10, max is 1.0:
+                # attempt 1: min(0.2 * 10^0, 1.0) = 0.2
+                # attempt 2: min(0.2 * 10^1, 1.0) = 1.0 (capped)
+                backoff_sleeps = [s for s in sleep_calls if s > 0]
+                # First retry: base delay (0.2 * 10^0, no cap)
+                assert backoff_sleeps[0] == pytest.approx(0.2)
+                # Second retry: capped at retry_backoff_max (0.2 * 10^1 > 1.0)
+                assert backoff_sleeps[1] == pytest.approx(1.0)
 
 
 def test_non_retriable_errors(mock_asyncio_sleep):

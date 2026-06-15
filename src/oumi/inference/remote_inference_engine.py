@@ -16,13 +16,14 @@ import asyncio
 import copy
 import json
 import os
+import random
 import tempfile
 import urllib.parse
 import warnings
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, TypeVar
 
@@ -65,6 +66,7 @@ from oumi.utils.http import (
     APIStatusError,
     get_failure_reason_from_response,
     is_non_retriable_status_code,
+    parse_retry_after,
 )
 from oumi.utils.logging import logger
 
@@ -746,16 +748,36 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             headers = self._get_request_headers(remote_params)
             failure_reason = None
             last_status_code = None
+            next_retry_after: float | None = None
 
             # Retry the request if it fails
             for attempt in range(remote_params.max_retries + 1):
                 try:
-                    # Calculate exponential backoff delay
+                    # Sleep before retrying. Honor a server-provided Retry-After
+                    # when present, else use exponential backoff. Jitter spreads
+                    # a concurrent batch that all hit the same rate window.
                     if attempt > 0:
-                        delay = min(
-                            remote_params.retry_backoff_base
-                            * (_RETRY_BACKOFF_MULTIPLIER ** (attempt - 1)),
-                            remote_params.retry_backoff_max,
+                        if next_retry_after is not None:
+                            delay = min(next_retry_after, _MAX_RETRY_AFTER_SLEEP)
+                            from_header = True
+                            next_retry_after = None
+                        else:
+                            delay = min(
+                                remote_params.retry_backoff_base
+                                * (_RETRY_BACKOFF_MULTIPLIER ** (attempt - 1)),
+                                remote_params.retry_backoff_max,
+                            )
+                            from_header = False
+                        delay *= random.uniform(1.0, 1.0 + _RETRY_JITTER_FRACTION)
+                        logger.warning(
+                            "Retrying request to %s after %.1fs (%s); "
+                            "attempt %d/%d. Reason: %s",
+                            remote_params.api_url,
+                            delay,
+                            "Retry-After" if from_header else "backoff",
+                            attempt + 1,
+                            remote_params.max_retries + 1,
+                            failure_reason,
                         )
                         await asyncio.sleep(delay)
 
@@ -783,7 +805,12 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                                     api_input=api_input,
                                 )
 
-                            # Retriable failure: record for backoff, then retry.
+                            # Retriable failure: honor Retry-After if present,
+                            # record for backoff, then retry.
+                            next_retry_after = parse_retry_after(
+                                response.headers.get("Retry-After"),
+                                datetime.now(timezone.utc),
+                            )
                             await self._try_record_error()
                             continue
 
