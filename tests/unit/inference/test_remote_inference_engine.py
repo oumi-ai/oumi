@@ -826,6 +826,30 @@ def test_infer_online_fails_with_message_and_retries(mock_asyncio_sleep):
         assert mock_asyncio_sleep.call_count == 3
 
 
+def test_infer_online_fallback_backoff_curve(mock_asyncio_sleep):
+    with patch("random.uniform", return_value=1.0):
+        with aioresponses() as m:
+            for _ in range(6):  # max_retries=5 -> 6 attempts
+                m.post(
+                    _TARGET_SERVER,
+                    status=500,
+                    payload={"error": {"message": "Internal server error"}},
+                )
+            engine = RemoteInferenceEngine(
+                _get_default_model_params(),
+                remote_params=RemoteParams(api_url=_TARGET_SERVER),
+            )
+            config = _get_default_inference_config()
+            conversation = Conversation(
+                messages=[Message(content="Hello world!", role=Role.USER)],
+                conversation_id="123",
+            )
+            with pytest.raises(APIStatusError):
+                _ = engine.infer([conversation], config)
+            delays = [call.args[0] for call in mock_asyncio_sleep.call_args_list]
+            assert delays == [1.0, 10.0, 30.0, 30.0, 30.0]
+
+
 def test_infer_online_recovers_from_retries():
     with aioresponses() as m:
         m.post(_TARGET_SERVER, status=500)

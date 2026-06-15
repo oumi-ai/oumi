@@ -72,6 +72,9 @@ _AUTHORIZATION_KEY: str = "Authorization"
 _BATCH_PURPOSE = "batch"
 _BATCH_ENDPOINT = "/v1/chat/completions"
 _MAX_CONNECTION_LIMIT = 200
+_RETRY_BACKOFF_MULTIPLIER: float = 10.0
+_MAX_RETRY_AFTER_SLEEP: float = 120.0
+_RETRY_JITTER_FRACTION: float = 0.25
 
 _QueryResultT = TypeVar("_QueryResultT")
 
@@ -750,7 +753,8 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                     # Calculate exponential backoff delay
                     if attempt > 0:
                         delay = min(
-                            remote_params.retry_backoff_base * (2 ** (attempt - 1)),
+                            remote_params.retry_backoff_base
+                            * (_RETRY_BACKOFF_MULTIPLIER ** (attempt - 1)),
                             remote_params.retry_backoff_max,
                         )
                         await asyncio.sleep(delay)
