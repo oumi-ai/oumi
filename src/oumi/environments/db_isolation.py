@@ -59,6 +59,7 @@ class RollbackSession:
     """
 
     def __init__(self, db_path: Path | str, *, owns_file: bool = False) -> None:
+        """Open a per-rollout connection; set owns_file to delete the DB on close."""
         self._path = Path(db_path)
         self._owns_file = owns_file
         self.connection = sqlite3.connect(self._path)

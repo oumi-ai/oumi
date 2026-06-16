@@ -15,7 +15,6 @@
 from __future__ import annotations
 
 import sqlite3
-from pathlib import Path
 
 from oumi.environments.db_isolation import RollbackSession, materialize_sqlite_snapshot
 
