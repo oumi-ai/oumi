@@ -883,13 +883,15 @@ def test_infer_online_honors_retry_after_delta(mock_asyncio_sleep):
             assert delays == [45.0]  # honored header, not the 1s backoff
 
 
-def test_infer_online_retry_after_capped(mock_asyncio_sleep):
+def test_infer_online_retry_after_honored_in_full(mock_asyncio_sleep):
+    # Retry-After takes precedence over our backoff and is NOT capped; only the
+    # exponential fallback is bounded by retry_backoff_max.
     with patch("random.uniform", return_value=1.0):
         with aioresponses() as m:
             m.post(
                 _TARGET_SERVER,
                 status=429,
-                headers={"Retry-After": "100000"},
+                headers={"Retry-After": "600"},
                 payload={"error": {"message": "Rate limited"}},
             )
             m.post(
@@ -909,7 +911,7 @@ def test_infer_online_retry_after_capped(mock_asyncio_sleep):
             )
             engine.infer([conversation], config)
             delays = [call.args[0] for call in mock_asyncio_sleep.call_args_list]
-            assert delays == [120.0]  # capped at _MAX_RETRY_AFTER_SLEEP
+            assert delays == [600.0]  # honored in full, not truncated
 
 
 def test_infer_online_retry_after_jitter_applied(mock_asyncio_sleep):
@@ -939,6 +941,73 @@ def test_infer_online_retry_after_jitter_applied(mock_asyncio_sleep):
             engine.infer([conversation], config)
             delays = [call.args[0] for call in mock_asyncio_sleep.call_args_list]
             assert delays == [12.0]  # 10 * 1.2 jitter factor
+
+
+def test_infer_online_retry_jitter_widens_with_num_workers(mock_asyncio_sleep):
+    # The jitter window scales with num_workers (capped) so a large batch spreads
+    # its retries instead of waking in a tight cluster.
+    with patch("random.uniform", return_value=1.0) as mock_uniform:
+        with aioresponses() as m:
+            m.post(
+                _TARGET_SERVER,
+                status=429,
+                headers={"Retry-After": "10"},
+                payload={"error": {"message": "Rate limited"}},
+            )
+            m.post(
+                _TARGET_SERVER,
+                payload={
+                    "choices": [{"message": {"role": "assistant", "content": "ok"}}]
+                },
+            )
+            engine = RemoteInferenceEngine(
+                _get_default_model_params(),
+                remote_params=RemoteParams(api_url=_TARGET_SERVER),
+            )
+            config = _get_default_inference_config()
+            assert config.remote_params is not None
+            config.remote_params.num_workers = 10  # 0.25 * 10 = 2.5 -> capped at 1.0
+            conversation = Conversation(
+                messages=[Message(content="Hello world!", role=Role.USER)],
+                conversation_id="123",
+            )
+            engine.infer([conversation], config)
+            # jitter_fraction capped at _MAX_RETRY_JITTER_FRACTION -> uniform(1.0, 2.0)
+            mock_uniform.assert_called_with(1.0, 2.0)
+
+
+def test_infer_online_rate_limiter_repaces_each_retry(mock_asyncio_sleep):
+    # Every attempt (not just the first) re-paces through the rate limiter, so a
+    # burst of retries still respects the configured RPM/TPM window.
+    with patch("random.uniform", return_value=1.0):
+        engine = RemoteInferenceEngine(
+            _get_default_model_params(),
+            remote_params=RemoteParams(
+                api_url=_TARGET_SERVER,
+                requests_per_minute=1000,
+                use_adaptive_concurrency=False,
+            ),
+        )
+        assert engine._rate_limiter is not None
+        mock_wait = AsyncMock()
+        with patch.object(engine._rate_limiter, "wait_if_needed", mock_wait):
+            with aioresponses() as m:
+                m.post(
+                    _TARGET_SERVER,
+                    status=500,
+                    payload={"error": {"message": "server error"}},
+                )
+                m.post(
+                    _TARGET_SERVER,
+                    payload={
+                        "choices": [{"message": {"role": "assistant", "content": "ok"}}]
+                    },
+                )
+                result = engine.infer(
+                    [Conversation(messages=[Message(content="hi", role=Role.USER)])]
+                )
+        assert result[0].messages[-1].content == "ok"
+        assert mock_wait.call_count == 2  # one per attempt (500 then 200)
 
 
 def test_infer_online_recovers_from_retries():

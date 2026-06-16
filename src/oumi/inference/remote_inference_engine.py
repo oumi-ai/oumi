@@ -76,8 +76,8 @@ _BATCH_PURPOSE = "batch"
 _BATCH_ENDPOINT = "/v1/chat/completions"
 _MAX_CONNECTION_LIMIT = 200
 _RETRY_BACKOFF_MULTIPLIER: float = 10.0
-_MAX_RETRY_AFTER_SLEEP: float = 120.0
 _RETRY_JITTER_FRACTION: float = 0.25
+_MAX_RETRY_JITTER_FRACTION: float = 1.0
 
 _QueryResultT = TypeVar("_QueryResultT")
 
@@ -734,9 +734,6 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                     "Please set the environment variable "
                     f"`{remote_params.api_key_env_varname}`."
                 )
-        if self._rate_limiter is not None:
-            await self._rate_limiter.wait_if_needed()
-
         semaphore_or_controller = (
             self._adaptive_concurrency_controller
             if self._remote_params.use_adaptive_concurrency
@@ -753,11 +750,12 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         # Retry the request if it fails
         for attempt in range(remote_params.max_retries + 1):
             try:
-                # Honor a server Retry-After if present, else exponential
-                # backoff. Jitter de-correlates a batch hitting one rate window.
+                # Honor a server Retry-After in full if present, else exponential
+                # backoff. Jitter widens with num_workers so a large batch hitting
+                # one rate window spreads its retries instead of waking together.
                 if attempt > 0:
                     if next_retry_after is not None:
-                        delay = min(next_retry_after, _MAX_RETRY_AFTER_SLEEP)
+                        delay = next_retry_after
                         from_header = True
                         next_retry_after = None
                     else:
@@ -767,7 +765,11 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                             remote_params.retry_backoff_max,
                         )
                         from_header = False
-                    delay *= random.uniform(1.0, 1.0 + _RETRY_JITTER_FRACTION)
+                    jitter_fraction = min(
+                        _RETRY_JITTER_FRACTION * remote_params.num_workers,
+                        _MAX_RETRY_JITTER_FRACTION,
+                    )
+                    delay *= random.uniform(1.0, 1.0 + jitter_fraction)
                     logger.warning(
                         "Retrying request to %s after %.1fs (%s); "
                         "attempt %d/%d. Reason: %s",
@@ -779,6 +781,11 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                         failure_reason,
                     )
                     await asyncio.sleep(delay)
+
+                # Re-pace every attempt through the rate limiter so a burst of
+                # retries waking together still respects the RPM/TPM window.
+                if self._rate_limiter is not None:
+                    await self._rate_limiter.wait_if_needed()
 
                 async with semaphore_or_controller:
                     async with session.post(
