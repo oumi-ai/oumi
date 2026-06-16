@@ -132,30 +132,18 @@ async def test_get_failure_reason_from_response_with_json_error():
 _NOW = datetime(2026, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
 
 
-def test_parse_retry_after_delta_seconds():
-    assert parse_retry_after("120", _NOW) == 120.0
-
-
-def test_parse_retry_after_zero():
-    assert parse_retry_after("0", _NOW) == 0.0
-
-
-def test_parse_retry_after_http_date():
-    # 30 seconds after _NOW.
-    assert parse_retry_after("Sun, 15 Jun 2026 12:00:30 GMT", _NOW) == 30.0
-
-
-def test_parse_retry_after_past_http_date_clamps_to_zero():
-    assert parse_retry_after("Sun, 15 Jun 2026 11:59:00 GMT", _NOW) == 0.0
-
-
-def test_parse_retry_after_negative_delta_clamps_to_zero():
-    assert parse_retry_after("-5", _NOW) == 0.0
-
-
-def test_parse_retry_after_absent_returns_none():
-    assert parse_retry_after(None, _NOW) is None
-
-
-def test_parse_retry_after_garbage_returns_none():
-    assert parse_retry_after("not-a-date", _NOW) is None
+@pytest.mark.parametrize(
+    "header_value,expected",
+    [
+        ("120", 120.0),  # delta-seconds
+        ("0", 0.0),
+        ("-5", 0.0),  # negative delta clamps to 0
+        ("Sun, 15 Jun 2026 12:00:30 GMT", 30.0),  # HTTP-date, 30s ahead of _NOW
+        ("Sun, 15 Jun 2026 11:59:00 GMT", 0.0),  # past HTTP-date clamps to 0
+        (None, None),  # absent header
+        ("", None),  # empty / whitespace-only
+        ("not-a-date", None),  # unparseable
+    ],
+)
+def test_parse_retry_after(header_value: str | None, expected: float | None):
+    assert parse_retry_after(header_value, _NOW) == expected

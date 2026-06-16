@@ -71,6 +71,7 @@ from oumi.utils.http import (
 from oumi.utils.logging import logger
 
 _AUTHORIZATION_KEY: str = "Authorization"
+_RETRY_AFTER_HEADER: str = "Retry-After"
 _BATCH_PURPOSE = "batch"
 _BATCH_ENDPOINT = "/v1/chat/completions"
 _MAX_CONNECTION_LIMIT = 200
@@ -753,9 +754,8 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             # Retry the request if it fails
             for attempt in range(remote_params.max_retries + 1):
                 try:
-                    # Sleep before retrying. Honor a server-provided Retry-After
-                    # when present, else use exponential backoff. Jitter spreads
-                    # a concurrent batch that all hit the same rate window.
+                    # Honor a server Retry-After if present, else exponential
+                    # backoff. Jitter de-correlates a batch hitting one rate window.
                     if attempt > 0:
                         if next_retry_after is not None:
                             delay = min(next_retry_after, _MAX_RETRY_AFTER_SLEEP)
@@ -805,10 +805,9 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                                     api_input=api_input,
                                 )
 
-                            # Retriable failure: honor Retry-After if present,
-                            # record for backoff, then retry.
+                            # Retriable: capture any Retry-After, record, retry.
                             next_retry_after = parse_retry_after(
-                                response.headers.get("Retry-After"),
+                                response.headers.get(_RETRY_AFTER_HEADER),
                                 datetime.now(timezone.utc),
                             )
                             await self._try_record_error()

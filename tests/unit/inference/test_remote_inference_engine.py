@@ -795,11 +795,12 @@ def test_infer_online_fails_with_message_and_retries(mock_asyncio_sleep):
         )
 
         config = _get_default_inference_config()
+        # _query_api uses config.remote_params over the engine's, so pin it here.
         if config.remote_params is not None:
             config.remote_params.max_retries = 3
         engine = RemoteInferenceEngine(
             _get_default_model_params(),
-            remote_params=RemoteParams(api_url=_TARGET_SERVER, max_retries=3),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
         )
         conversation = Conversation(
             messages=[
@@ -2970,17 +2971,12 @@ async def test_infer_online_exponential_backoff(mock_polite_adaptive_semaphore):
 
                 result = engine.infer([conversation], inference_config)
 
-                # Verify the result
                 assert len(result) == 1
                 assert result[0].messages[-1].content == "Success after retries"
 
-                # Verify sleep calls. Multiplier is 10, max is 1.0:
-                # attempt 1: min(0.2 * 10^0, 1.0) = 0.2
-                # attempt 2: min(0.2 * 10^1, 1.0) = 1.0 (capped)
+                # base=0.2, multiplier=10, max=1.0: 0.2, then 1.0 (capped).
                 backoff_sleeps = [s for s in sleep_calls if s > 0]
-                # First retry: base delay (0.2 * 10^0, no cap)
                 assert backoff_sleeps[0] == pytest.approx(0.2)
-                # Second retry: capped at retry_backoff_max (0.2 * 10^1 > 1.0)
                 assert backoff_sleeps[1] == pytest.approx(1.0)
 
 

@@ -89,18 +89,16 @@ def parse_retry_after(header_value: str | None, now: datetime) -> float | None:
     """
     if header_value is None:
         return None
-    value = header_value.strip()
-    if not value:
+    stripped_header = header_value.strip()
+    if not stripped_header:
         return None
     try:
-        return max(0.0, float(value))
+        return max(0.0, float(stripped_header))
     except (ValueError, TypeError):
         pass
     try:
-        parsed = parsedate_to_datetime(value)
+        parsed = parsedate_to_datetime(stripped_header)
     except (ValueError, TypeError):
-        return None
-    if parsed is None:
         return None
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
