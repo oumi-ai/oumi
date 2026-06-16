@@ -32,7 +32,9 @@ class _MinimalExecEnv(ExecutableEnvironment):
     """Smallest concrete subclass that satisfies the abstract surface."""
 
     def __init__(self) -> None:
-        self._params = EnvironmentParams(id="test", env_type="executable")
+        self._params = EnvironmentParams(
+            id="test", name="test", description="d", env_type="executable"
+        )
         self._executors = {}
 
     @contextmanager
@@ -72,14 +74,63 @@ def test_absorb_result_is_noop():
 
 
 def test_step_batch_dispatches_to_step_one():
-    """Batch step() iterates the call list and dispatches each to _step_one."""
+    """Batch step() dispatches each call to _step_one, which looks up the tool."""
+    from oumi.core.configs.params.tool_params import ToolLookupError
+
     env = _MinimalExecEnv()
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(ToolLookupError):
         env.step([("tool_a", {})])
 
 
-def test_step_one_raises_not_implemented():
-    """_step_one is the per-call dispatch hook; the base implementation raises."""
+def test_step_one_unknown_tool_raises_lookup_error_minimal():
+    """_step_one raises a lookup error when the tool id is unknown."""
+    from oumi.core.configs.params.tool_params import ToolLookupError
+
     env = _MinimalExecEnv()
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(ToolLookupError):
         env._step_one("tool_a", {})
+
+
+class _EchoExecEnv(ExecutableEnvironment):
+    """Concrete env whose executor echoes the context it was handed."""
+
+    def __init__(self, tools: list[ExecutableTool]) -> None:
+        self._params = EnvironmentParams(
+            id="echo", name="echo", description="d", env_type="executable", tools=tools
+        )
+        self._executors = {t.id: _echo_executor for t in tools}
+
+    @contextmanager
+    def _build_execution_context(
+        self, tool: ExecutableTool, arguments: dict[str, Any]
+    ) -> Iterator[Any]:
+        yield {"ctx_for": tool.id}
+
+
+def _echo_executor(*, arguments: dict[str, Any], context: Any) -> ToolResult:
+    return ToolResult(output={"args": arguments, "context": context})
+
+
+def test_step_one_dispatches_to_executor_with_context():
+    tool = ExecutableTool(id="t", name="t", description="d", executor="x.y")
+    env = _EchoExecEnv([tool])
+    [result] = env.step([("t", {"a": 1})])
+    assert result.output == {"args": {"a": 1}, "context": {"ctx_for": "t"}}
+
+
+def test_step_one_unknown_tool_raises_lookup_error():
+    from oumi.core.configs.params.tool_params import ToolLookupError
+
+    env = _EchoExecEnv([])
+    with pytest.raises(ToolLookupError):
+        env.step([("missing", {})])
+
+
+def test_step_one_rejects_non_toolresult_executor_return():
+    from oumi.core.configs.params.tool_params import ToolError
+
+    tool = ExecutableTool(id="bad", name="bad", description="d", executor="x.y")
+    env = _EchoExecEnv([tool])
+    env._executors["bad"] = lambda **_: {"not": "a ToolResult"}
+    with pytest.raises(ToolError):
+        env.step([("bad", {})])
