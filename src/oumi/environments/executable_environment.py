@@ -16,11 +16,12 @@
 
 from __future__ import annotations
 
-import jsonschema
 from abc import abstractmethod
 from collections.abc import Callable
 from contextlib import AbstractContextManager
 from typing import Any, ClassVar
+
+import jsonschema
 
 from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.core.configs.params.tool_params import ToolError, ToolLookupError, ToolParams
