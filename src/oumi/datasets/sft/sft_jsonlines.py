@@ -161,7 +161,9 @@ class TextSftJsonLinesDataset(BaseSftDataset):
 
         if "messages" in first_item:
             if isinstance(first_item["messages"], list) and all(
-                isinstance(m, dict) and "role" in m and "content" in m
+                isinstance(m, dict)
+                and "role" in m
+                and ("content" in m or "tool_calls" in m)
                 for m in first_item["messages"]
             ):
                 return "oumi"
@@ -172,7 +174,9 @@ class TextSftJsonLinesDataset(BaseSftDataset):
                 and "messages" in first_item["conversation"]
                 and isinstance(first_item["conversation"]["messages"], list)
                 and all(
-                    isinstance(m, dict) and "role" in m and "content" in m
+                    isinstance(m, dict)
+                    and "role" in m
+                    and ("content" in m or "tool_calls" in m)
                     for m in first_item["conversation"]["messages"]
                 )
             ):
