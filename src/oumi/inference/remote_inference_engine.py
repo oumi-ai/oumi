@@ -16,13 +16,14 @@ import asyncio
 import copy
 import json
 import os
+import random
 import tempfile
 import urllib.parse
 import warnings
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, TypeVar
 
@@ -65,13 +66,18 @@ from oumi.utils.http import (
     APIStatusError,
     get_failure_reason_from_response,
     is_non_retriable_status_code,
+    parse_retry_after,
 )
 from oumi.utils.logging import logger
 
 _AUTHORIZATION_KEY: str = "Authorization"
+_RETRY_AFTER_HEADER: str = "Retry-After"
 _BATCH_PURPOSE = "batch"
 _BATCH_ENDPOINT = "/v1/chat/completions"
 _MAX_CONNECTION_LIMIT = 200
+_RETRY_BACKOFF_MULTIPLIER: float = 10.0
+_RETRY_JITTER_FRACTION: float = 0.25
+_MAX_RETRY_JITTER_FRACTION: float = 1.0
 
 _QueryResultT = TypeVar("_QueryResultT")
 
@@ -728,9 +734,6 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                     "Please set the environment variable "
                     f"`{remote_params.api_key_env_varname}`."
                 )
-        if self._rate_limiter is not None:
-            await self._rate_limiter.wait_if_needed()
-
         semaphore_or_controller = (
             self._adaptive_concurrency_controller
             if self._remote_params.use_adaptive_concurrency
@@ -742,17 +745,47 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         headers = self._get_request_headers(remote_params)
         failure_reason = None
         last_status_code = None
+        next_retry_after: float | None = None
 
         # Retry the request if it fails
         for attempt in range(remote_params.max_retries + 1):
             try:
-                # Calculate exponential backoff delay
+                # Honor a server Retry-After in full if present, else exponential
+                # backoff. Jitter widens with num_workers so a large batch hitting
+                # one rate window spreads its retries instead of waking together.
                 if attempt > 0:
-                    delay = min(
-                        remote_params.retry_backoff_base * (2 ** (attempt - 1)),
-                        remote_params.retry_backoff_max,
+                    if next_retry_after is not None:
+                        delay = next_retry_after
+                        from_header = True
+                        next_retry_after = None
+                    else:
+                        delay = min(
+                            remote_params.retry_backoff_base
+                            * (_RETRY_BACKOFF_MULTIPLIER ** (attempt - 1)),
+                            remote_params.retry_backoff_max,
+                        )
+                        from_header = False
+                    jitter_fraction = min(
+                        _RETRY_JITTER_FRACTION * remote_params.num_workers,
+                        _MAX_RETRY_JITTER_FRACTION,
+                    )
+                    delay *= random.uniform(1.0, 1.0 + jitter_fraction)
+                    logger.warning(
+                        "Retrying request to %s after %.1fs (%s); "
+                        "attempt %d/%d. Reason: %s",
+                        remote_params.api_url,
+                        delay,
+                        "Retry-After" if from_header else "backoff",
+                        attempt + 1,
+                        remote_params.max_retries + 1,
+                        failure_reason,
                     )
                     await asyncio.sleep(delay)
+
+                # Re-pace every attempt through the rate limiter so a burst of
+                # retries waking together still respects the RPM/TPM window.
+                if self._rate_limiter is not None:
+                    await self._rate_limiter.wait_if_needed()
 
                 async with semaphore_or_controller:
                     async with session.post(
@@ -779,7 +812,11 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                                     api_input=api_input,
                                 )
 
-                            # Retriable failure: record for backoff, then retry.
+                            # Retriable: capture any Retry-After, record, retry.
+                            next_retry_after = parse_retry_after(
+                                response.headers.get(_RETRY_AFTER_HEADER),
+                                datetime.now(timezone.utc),
+                            )
                             await self._try_record_error()
                             continue
 

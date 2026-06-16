@@ -33,14 +33,29 @@ class RemoteParams(BaseParams):
     api_key_env_varname: str | None = None
     """Name of the environment variable containing the API key for authentication."""
 
-    max_retries: int = 3
-    """Maximum number of retries to attempt when calling an API."""
+    max_retries: int = 5
+    """Maximum number of retries when an API call fails with a retriable error.
+
+    Applies to every retriable failure (429, 5xx, connection/timeout errors),
+    not just rate limits. With the default backoff this allows roughly 100s of
+    total wait across attempts before giving up.
+    """
 
     retry_backoff_base: float = 1.0
-    """Base delay in seconds for exponential backoff between retries."""
+    """Base delay in seconds for exponential backoff between retries.
+
+    The delay is ``min(retry_backoff_base * 10 ** (attempt - 1),
+    retry_backoff_max)`` (a 10x step per attempt), so with the defaults the
+    waits are ~1s, 10s, then 30s (capped). A server-provided Retry-After takes
+    precedence over this schedule and is honored in full.
+    """
 
     retry_backoff_max: float = 30.0
-    """Maximum delay in seconds between retries."""
+    """Maximum delay in seconds for the exponential backoff schedule.
+
+    Caps the computed backoff only; a server-provided Retry-After is honored in
+    full and is not bounded by this value.
+    """
 
     connection_timeout: float = 300.0
     """Timeout in seconds for a request to an API."""
