@@ -742,45 +742,45 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             if self._remote_params.use_adaptive_concurrency
             else semaphore
         )
-        async with semaphore_or_controller:
-            api_input = self._convert_conversation_to_api_input(
-                conversation, generation_params, model_params
-            )
-            headers = self._get_request_headers(remote_params)
-            failure_reason = None
-            last_status_code = None
-            next_retry_after: float | None = None
+        api_input = self._convert_conversation_to_api_input(
+            conversation, generation_params, model_params
+        )
+        headers = self._get_request_headers(remote_params)
+        failure_reason = None
+        last_status_code = None
+        next_retry_after: float | None = None
 
-            # Retry the request if it fails
-            for attempt in range(remote_params.max_retries + 1):
-                try:
-                    # Honor a server Retry-After if present, else exponential
-                    # backoff. Jitter de-correlates a batch hitting one rate window.
-                    if attempt > 0:
-                        if next_retry_after is not None:
-                            delay = min(next_retry_after, _MAX_RETRY_AFTER_SLEEP)
-                            from_header = True
-                            next_retry_after = None
-                        else:
-                            delay = min(
-                                remote_params.retry_backoff_base
-                                * (_RETRY_BACKOFF_MULTIPLIER ** (attempt - 1)),
-                                remote_params.retry_backoff_max,
-                            )
-                            from_header = False
-                        delay *= random.uniform(1.0, 1.0 + _RETRY_JITTER_FRACTION)
-                        logger.warning(
-                            "Retrying request to %s after %.1fs (%s); "
-                            "attempt %d/%d. Reason: %s",
-                            remote_params.api_url,
-                            delay,
-                            "Retry-After" if from_header else "backoff",
-                            attempt + 1,
-                            remote_params.max_retries + 1,
-                            failure_reason,
+        # Retry the request if it fails
+        for attempt in range(remote_params.max_retries + 1):
+            try:
+                # Honor a server Retry-After if present, else exponential
+                # backoff. Jitter de-correlates a batch hitting one rate window.
+                if attempt > 0:
+                    if next_retry_after is not None:
+                        delay = min(next_retry_after, _MAX_RETRY_AFTER_SLEEP)
+                        from_header = True
+                        next_retry_after = None
+                    else:
+                        delay = min(
+                            remote_params.retry_backoff_base
+                            * (_RETRY_BACKOFF_MULTIPLIER ** (attempt - 1)),
+                            remote_params.retry_backoff_max,
                         )
-                        await asyncio.sleep(delay)
+                        from_header = False
+                    delay *= random.uniform(1.0, 1.0 + _RETRY_JITTER_FRACTION)
+                    logger.warning(
+                        "Retrying request to %s after %.1fs (%s); "
+                        "attempt %d/%d. Reason: %s",
+                        remote_params.api_url,
+                        delay,
+                        "Retry-After" if from_header else "backoff",
+                        attempt + 1,
+                        remote_params.max_retries + 1,
+                        failure_reason,
+                    )
+                    await asyncio.sleep(delay)
 
+                async with semaphore_or_controller:
                     async with session.post(
                         remote_params.api_url,
                         json=api_input,
@@ -864,40 +864,40 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                                 raise RuntimeError(failure_reason) from e
                             continue
 
-                except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-                    # Connection or timeout errors are retriable.
-                    failure_reason = f"Connection error: {str(e)}"
-                    await self._try_record_error()
-                    if attempt >= remote_params.max_retries:
-                        raise RuntimeError(
-                            f"Failed to query API after {attempt + 1} attempts due to "
-                            f"connection error: {str(e)}"
-                        ) from e
-                    continue
-                except RuntimeError:
-                    # RuntimeError is raised by our code, so we don't need to retry.
-                    raise
-                except Exception as e:
-                    # If we get here, we've hit an unexpected error.
-                    failure_reason = f"Unexpected error: {str(e)}"
-                    await self._try_record_error()
-                    if attempt >= remote_params.max_retries:
-                        raise RuntimeError(
-                            f"Failed to query API after {attempt + 1} attempts due to "
-                            f"unexpected error: {str(e)}"
-                        ) from e
-                    continue
-            # This should only be reached if all retries failed
-            message = f"Failed to query API after {attempt + 1} attempts. " + (
-                f"Reason: {failure_reason}" if failure_reason else ""
+            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                # Connection or timeout errors are retriable.
+                failure_reason = f"Connection error: {str(e)}"
+                await self._try_record_error()
+                if attempt >= remote_params.max_retries:
+                    raise RuntimeError(
+                        f"Failed to query API after {attempt + 1} attempts due to "
+                        f"connection error: {str(e)}"
+                    ) from e
+                continue
+            except RuntimeError:
+                # RuntimeError is raised by our code, so we don't need to retry.
+                raise
+            except Exception as e:
+                # If we get here, we've hit an unexpected error.
+                failure_reason = f"Unexpected error: {str(e)}"
+                await self._try_record_error()
+                if attempt >= remote_params.max_retries:
+                    raise RuntimeError(
+                        f"Failed to query API after {attempt + 1} attempts due to "
+                        f"unexpected error: {str(e)}"
+                    ) from e
+                continue
+        # This should only be reached if all retries failed
+        message = f"Failed to query API after {attempt + 1} attempts. " + (
+            f"Reason: {failure_reason}" if failure_reason else ""
+        )
+        if last_status_code is not None:
+            raise APIStatusError(
+                message,
+                status_code=last_status_code,
+                api_input=api_input,
             )
-            if last_status_code is not None:
-                raise APIStatusError(
-                    message,
-                    status_code=last_status_code,
-                    api_input=api_input,
-                )
-            raise RuntimeError(message)
+        raise RuntimeError(message)
 
     async def _gather_query_tasks(
         self,

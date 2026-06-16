@@ -3634,7 +3634,8 @@ async def test_adaptive_concurrency_full_adjustment_cycle():
                     )
                 elif attempt_count >= recovery_step:
                     # Two good windows have passed, so we should warmup again
-                    assert current_concurrency == backoff_concurrency + step_size
+                    assert not controller._in_backoff
+                    assert current_concurrency >= backoff_concurrency + step_size
                     return CallbackResult(
                         status=200,
                         payload={
@@ -3692,6 +3693,60 @@ async def test_adaptive_concurrency_full_adjustment_cycle():
             assert len(result) == 50
 
         assert asserts_passed
+
+
+@pytest.mark.asyncio
+async def test_retriable_failure_reacquires_controller_each_attempt():
+    """A retriable failure re-acquires the controller slot on each attempt.
+
+    Each retry is re-paced at the controller's current concurrency instead of
+    retrying inside one held slot, and the request still succeeds.
+    """
+    statuses = [500, 200]
+
+    def get_response(*args, **kwargs):
+        status = statuses.pop(0)
+        if status != 200:
+            return CallbackResult(
+                status=status, payload={"error": {"message": "rate limited"}}
+            )
+        return CallbackResult(
+            status=200,
+            payload={"choices": [{"message": {"role": "assistant", "content": "ok"}}]},
+        )
+
+    with aioresponses() as m:
+        m.post(_TARGET_SERVER, callback=get_response, repeat=True)
+        remote_params = RemoteParams(
+            api_url=_TARGET_SERVER,
+            use_adaptive_concurrency=True,
+            num_workers=20,
+            max_retries=1,
+            retry_backoff_base=0.001,
+        )
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=remote_params,
+        )
+        controller = engine._adaptive_concurrency_controller
+        acquisitions = 0
+        original_acquire = controller.acquire
+
+        async def counting_acquire():
+            nonlocal acquisitions
+            acquisitions += 1
+            await original_acquire()
+
+        controller.acquire = counting_acquire
+
+        result = engine.infer(
+            [Conversation(messages=[Message(content="hi", role=Role.USER)])]
+        )
+
+    assert len(result) == 1
+    # Two attempts (500 then 200) -> two acquisitions. Holding the slot around
+    # the whole retry loop would acquire once.
+    assert acquisitions == 2
 
 
 # FinishReason extraction tests
