@@ -107,11 +107,14 @@ class OpenAIInferenceEngine(RemoteInferenceEngine):
             # Reasoning models only support temperature = 1.0.
             generation_params.temperature = 1.0
 
-        return super()._convert_conversation_to_api_input(
+        api_input = super()._convert_conversation_to_api_input(
             conversation=conversation,
             generation_params=generation_params,
             model_params=model_params,
         )
+        if self._remote_params.user_id:
+            api_input["user"] = self._remote_params.user_id
+        return api_input
 
     @override
     def _default_remote_params(self) -> RemoteParams:
