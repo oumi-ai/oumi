@@ -596,6 +596,24 @@ def get_all_models_map() -> Mapping[
             model_class=default_vlm_class,
             config=_create_qwen3_vl_vlm_config(),
         ),
+        # INTERIM: Qwen3.5 is a dual-mode architecture (both text-only
+        # `Qwen3_5ForCausalLM` and multimodal `Qwen3_5ForConditionalGeneration` load
+        # from the same checkpoint). Registering it as a VLM here routes ALL qwen3_5
+        # runs through the multimodal class, which makes vision fine-tuning work but
+        # would flip existing text-only qwen3_5 jobs onto the VLM class. This is a
+        # stopgap for vision users; the real fix is a per-run text-vs-vision opt-in.
+        # The processor for these checkpoints resolves to `Qwen3VLProcessor`, so the
+        # Qwen3-VL config (chat template, image features, pixel limits) applies as-is.
+        _ModelTypeInfo(
+            model_type="qwen3_5",
+            model_class=default_vlm_class,
+            config=_create_qwen3_vl_vlm_config(),
+        ),
+        _ModelTypeInfo(
+            model_type="qwen3_5_moe",
+            model_class=default_vlm_class,
+            config=_create_qwen3_vl_vlm_config(),
+        ),
         _ModelTypeInfo(
             model_type="vipllava",
             model_class=default_vlm_class,
