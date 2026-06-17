@@ -54,12 +54,18 @@ def sql_execution_match(
             schema_sql=info["schema_sql"], seed_sql=info.get("seed_sql")
         )
         owns = True
-    session = RollbackSession(path, owns_file=owns)
+    # Grade gold and candidate on separate sessions so each runs against the
+    # pristine snapshot — a mutating gold query can't contaminate the candidate.
+    gold_session = RollbackSession(path)
     try:
-        gold_rows = _run(session.connection, ground_truth)
-        cand_rows = _run(session.connection, solution_str)
+        gold_rows = _run(gold_session.connection, ground_truth)
     finally:
-        session.close()
+        gold_session.close()
+    cand_session = RollbackSession(path, owns_file=owns)
+    try:
+        cand_rows = _run(cand_session.connection, solution_str)
+    finally:
+        cand_session.close()
     if gold_rows is None or cand_rows is None:
         return 0.0
     return 1.0 if gold_rows == cand_rows else 0.0

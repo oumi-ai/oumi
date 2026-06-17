@@ -26,7 +26,8 @@ from oumi.environments.database_executable_environment import (
     DatabaseExecutableEnvironment,
 )
 
-_CONFIG = Path("configs/examples/database_env/ehr_database_env.yaml")
+_REPO_ROOT = Path(__file__).parents[3]
+_CONFIG = _REPO_ROOT / "configs/examples/database_env/ehr_database_env.yaml"
 
 
 def test_build_environment_from_yaml():

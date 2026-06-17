@@ -59,10 +59,20 @@ class RollbackSession:
     """
 
     def __init__(self, db_path: Path | str, *, owns_file: bool = False) -> None:
-        """Open a per-rollout connection; set owns_file to delete the DB on close."""
+        """Open a per-rollout connection; set owns_file to delete the DB on close.
+
+        Opens with ``isolation_level=None`` and an explicit ``BEGIN`` so the whole
+        session is one transaction. ``sqlite3``'s legacy mode only opens an
+        implicit transaction before DML, which would let a leading DDL statement
+        (e.g. ``CREATE TABLE`` as the first call) run in autocommit and escape the
+        rollback; the explicit ``BEGIN`` brings DDL under transaction control too.
+        Executors still must not call ``commit()`` — an explicit commit persists
+        regardless and there is no way to undo it.
+        """
         self._path = Path(db_path)
         self._owns_file = owns_file
-        self.connection = sqlite3.connect(self._path)
+        self.connection = sqlite3.connect(self._path, isolation_level=None)
+        self.connection.execute("BEGIN")
 
     def close(self) -> None:
         """Roll back any open transaction, close, and delete an owned file."""

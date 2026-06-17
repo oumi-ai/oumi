@@ -66,7 +66,14 @@ class DatabaseExecutableEnvironment(ExecutableEnvironment):
 
     @classmethod
     def from_params(cls, params: EnvironmentParams) -> DatabaseExecutableEnvironment:
-        """Build the env, opening a rollback session over its configured DB."""
+        """Build the env, opening a rollback session over its configured DB.
+
+        ``db_path`` shares one snapshot file across rollouts (rollback isolation,
+        scales to large DBs). It is safe for concurrent *readers*, but SQLite
+        serializes concurrent *writers* on one file, so concurrent rollouts that
+        write will contend — those tasks should use ``schema_sql`` (a fresh
+        per-rollout file) until copy-on-write isolation lands.
+        """
         kwargs = dict(params.env_kwargs or {})
         db_path = kwargs.get("db_path")
         schema_sql = kwargs.get("schema_sql")

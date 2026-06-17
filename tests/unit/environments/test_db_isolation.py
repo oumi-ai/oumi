@@ -65,6 +65,24 @@ def test_two_sessions_on_one_snapshot_do_not_see_each_others_uncommitted_writes(
         b.close()
 
 
+def test_leading_ddl_is_rolled_back(tmp_path):
+    # DDL as the first statement must still roll back. Legacy sqlite3 only opens
+    # an implicit transaction before DML, so without the explicit BEGIN a leading
+    # CREATE TABLE would run in autocommit and persist past close().
+    path = materialize_sqlite_snapshot(
+        schema_sql=_SCHEMA, seed_sql=_SEED, dest=tmp_path / "seed.sqlite"
+    )
+    session = RollbackSession(path)
+    session.connection.execute("CREATE TABLE leaked (x INTEGER)")
+    session.close()
+    conn = sqlite3.connect(path)
+    leaked = conn.execute(
+        "SELECT count(*) FROM sqlite_master WHERE name = 'leaked'"
+    ).fetchone()[0]
+    conn.close()
+    assert leaked == 0
+
+
 def test_owned_session_deletes_its_file_on_close(tmp_path):
     path = materialize_sqlite_snapshot(
         schema_sql=_SCHEMA, dest=tmp_path / "owned.sqlite"
