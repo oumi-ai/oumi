@@ -1,0 +1,34 @@
+# Minimal EHR database executable environment.
+# Swap schema_sql/seed_sql for `db_path: /path/to/your.sqlite` to bring your own DB.
+id: ehr_demo
+name: EHR demo
+description: Example EHR database environment with three tools.
+env_type: database
+env_kwargs:
+  schema_sql: "CREATE TABLE patients (id INTEGER PRIMARY KEY, name TEXT, meds TEXT);"
+  seed_sql: "INSERT INTO patients VALUES (1,'Bob','aspirin'),(2,'Alice','ibuprofen');"
+tools:
+  - id: list_patients
+    name: list_patients
+    description: List all patients.
+    parameters: {type: object, properties: {}}
+    executor: oumi.environments.examples.ehr.list_patients
+    read_only: true
+  - id: lookup_patient
+    name: lookup_patient
+    description: Look up one patient by id.
+    parameters:
+      type: object
+      properties: {pat_id: {type: integer}}
+      required: [pat_id]
+    executor: oumi.environments.examples.ehr.lookup_patient
+    read_only: true
+  - id: update_meds
+    name: update_meds
+    description: Update a patient's medication.
+    parameters:
+      type: object
+      properties: {pat_id: {type: integer}, medication: {type: string}}
+      required: [pat_id, medication]
+    executor: oumi.environments.examples.ehr.update_meds
+    read_only: false
