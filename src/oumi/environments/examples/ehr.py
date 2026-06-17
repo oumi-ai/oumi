@@ -36,11 +36,13 @@ EHR_SEED = (
 
 
 def list_patients(*, arguments: dict[str, Any], db: sqlite3.Connection) -> ToolResult:
+    """List every patient's id and name."""
     rows = db.execute("SELECT id, name FROM patients ORDER BY id").fetchall()
     return ToolResult(output={"patients": [{"id": r[0], "name": r[1]} for r in rows]})
 
 
 def lookup_patient(*, arguments: dict[str, Any], db: sqlite3.Connection) -> ToolResult:
+    """Return one patient's name and meds by id, or an error if absent."""
     row = db.execute(
         "SELECT name, meds FROM patients WHERE id = ?", (arguments["pat_id"],)
     ).fetchone()
@@ -50,6 +52,7 @@ def lookup_patient(*, arguments: dict[str, Any], db: sqlite3.Connection) -> Tool
 
 
 def update_meds(*, arguments: dict[str, Any], db: sqlite3.Connection) -> ToolResult:
+    """Set a patient's medication (uncommitted; rolled back at episode end)."""
     # No commit: the environment rolls back at episode end. The write is
     # visible to later calls on this same connection within the episode.
     cur = db.execute(
