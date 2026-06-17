@@ -107,7 +107,7 @@ def test_close_rolls_back_so_a_fresh_env_starts_clean():
     fresh = DatabaseExecutableEnvironment.from_params(params)
     try:
         [seen] = fresh.step([("lookup", {"pat_id": 1})])
-        assert seen.output["meds"] == "aspirin"
+        assert seen.output == {"name": "Bob", "meds": "aspirin"}
     finally:
         fresh.close()
 
@@ -121,7 +121,7 @@ def test_writes_do_not_leak_across_concurrent_rollouts():
             env.step([("update", {"pat_id": 1, "medication": f"drug_{i}"})])
         for i, env in enumerate(envs):
             [seen] = env.step([("lookup", {"pat_id": 1})])
-            assert seen.output["meds"] == f"drug_{i}"
+            assert seen.output == {"name": "Bob", "meds": f"drug_{i}"}
     finally:
         for env in envs:
             env.close()
@@ -146,6 +146,6 @@ def test_shared_snapshot_is_never_mutated(tmp_path):
     fresh = DatabaseExecutableEnvironment.from_params(params)
     try:
         [seen] = fresh.step([("lookup", {"pat_id": 1})])
-        assert seen.output["meds"] == "aspirin"
+        assert seen.output == {"name": "Bob", "meds": "aspirin"}
     finally:
         fresh.close()
