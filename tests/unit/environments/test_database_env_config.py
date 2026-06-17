@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any, cast
 
 from omegaconf import OmegaConf
 
@@ -31,7 +32,10 @@ _CONFIG = _REPO_ROOT / "configs/examples/database_env/ehr_database_env.yaml"
 
 
 def test_build_environment_from_yaml():
-    raw = OmegaConf.to_container(OmegaConf.load(_CONFIG), resolve=True)
+    raw = cast(
+        "dict[str, Any]",
+        OmegaConf.to_container(OmegaConf.load(_CONFIG), resolve=True),
+    )
     params = EnvironmentParams(**raw)
     env = build_environment(params)
     assert isinstance(env, DatabaseExecutableEnvironment)
