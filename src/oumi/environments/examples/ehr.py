@@ -27,8 +27,7 @@ from typing import Any
 from oumi.core.types.tool_call import ToolResult
 
 EHR_SCHEMA = (
-    "CREATE TABLE patients ("
-    " id INTEGER PRIMARY KEY, name TEXT NOT NULL, meds TEXT);"
+    "CREATE TABLE patients ( id INTEGER PRIMARY KEY, name TEXT NOT NULL, meds TEXT);"
 )
 EHR_SEED = (
     "INSERT INTO patients (id, name, meds) VALUES"
