@@ -33,6 +33,12 @@ class RemoteParams(BaseParams):
     api_key_env_varname: str | None = None
     """Name of the environment variable containing the API key for authentication."""
 
+    user_id: str | None = None
+    """Opaque end-user identifier forwarded to the provider for abuse attribution.
+
+    Sent as OpenAI ``user`` / Anthropic ``metadata.user_id``; omitted when unset.
+    """
+
     max_retries: int = 5
     """Maximum number of retries when an API call fails with a retriable error.
 
