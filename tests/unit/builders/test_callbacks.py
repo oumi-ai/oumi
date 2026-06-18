@@ -41,7 +41,8 @@ def test_build_training_callbacks_no_cuda(mock_logger_warning):
     config = TrainingConfig()
     config.training.include_performance_metrics = True
     model = torch.nn.Sequential(torch.nn.Linear(10, 10))
-    with patch("torch.cuda.is_available", return_value=False):
+    with patch("torch.cuda.is_available", return_value=False), \
+         patch("torch.backends.mps.is_available", return_value=False):
         result = build_training_callbacks(config, model, None)
     assert len(result) == 3
     assert isinstance(result[0], MetricsLoggerCallback)
