@@ -496,6 +496,7 @@ def _add_multimodal_args(
             tokenizer,
             trust_remote_code=model_params.trust_remote_code,
             processor_kwargs=model_params.processor_kwargs,
+            model_revision=model_params.model_revision,
         )
         if image_token := processor.image_token:
             model_args["image_string"] = image_token

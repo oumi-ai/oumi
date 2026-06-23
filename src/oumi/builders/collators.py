@@ -369,6 +369,7 @@ def build_collator_from_config(
         collator_kwargs["trust_remote_code"] = collator_kwargs.get(
             "trust_remote_code", config.model.trust_remote_code
         )
+        collator_kwargs["model_revision"] = config.model.model_revision
 
     # --- Resolve train_target and templates ---
     config_collator_kwargs = train_split.collator_kwargs or {}

@@ -342,6 +342,7 @@ def train(
             tokenizer,
             trust_remote_code=config.model.trust_remote_code,
             processor_kwargs=config.model.processor_kwargs,
+            model_revision=config.model.model_revision,
         )
         # Setting remove_unused_columns to False is needed for VLM training with the
         # TRL_SFT trainer.
