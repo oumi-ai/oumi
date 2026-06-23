@@ -235,6 +235,7 @@ def test_generate_lm_harness_model_args(
             mock_build_tokenizer.return_value,
             trust_remote_code=model_params.trust_remote_code,
             processor_kwargs={},
+            model_revision=model_params.model_revision,
         )
     else:
         mock_build_tokenizer.assert_not_called()
@@ -314,6 +315,7 @@ def test_evaluate(mock_patches_for_evaluate):
     mock_is_image_text_llm.assert_called_once_with(
         model_name=evaluation_config.model.model_name,
         trust_remote_code=evaluation_config.model.trust_remote_code,
+        revision=evaluation_config.model.model_revision,
     )
     mock_get_task_dict.assert_called_once_with(task_params)
     mock_generate_lm_harness_model_args.assert_called_once_with(

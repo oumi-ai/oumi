@@ -71,6 +71,7 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
         processor_kwargs: dict[str, Any] | None = None,
         limit: int | None = None,
         trust_remote_code: bool = False,
+        model_revision: str | None = None,
         max_images: int | None = None,
         **kwargs,
     ) -> None:
@@ -91,6 +92,7 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
                 They can override model-specific parameters.
             limit: An optional limit on the number of examples to load.
             trust_remote_code: Whether to trust remote code execution for the processor.
+            model_revision: The HuggingFace model revision to load, if any.
             return_conversations: Whether to return raw `Conversation` objects.
             max_images: The maximum number of images per conversation.
                 If the limit is exceeded, the first N images are kept.
@@ -111,6 +113,7 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
                 processor_name=processor_name,
                 processor_kwargs=processor_kwargs,
                 trust_remote_code=trust_remote_code,
+                model_revision=model_revision,
                 return_tensors=self._return_tensors,
             )
         )
