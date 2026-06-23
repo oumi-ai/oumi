@@ -418,6 +418,8 @@ def build_tokenizer(
     )
 
     tokenizer_kwargs = {**model_params.tokenizer_kwargs}
+    # `revision` may already be pinned via tokenizer_kwargs; don't pass it twice.
+    tokenizer_kwargs.setdefault("revision", model_params.model_revision)
     if internal_config is not None:
         if (
             "padding_side" not in tokenizer_kwargs
@@ -436,7 +438,6 @@ def build_tokenizer(
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         tokenizer_name,
         trust_remote_code=model_params.trust_remote_code,
-        revision=model_params.model_revision,
         **tokenizer_kwargs,
     )
 

@@ -73,6 +73,39 @@ def test_build_processor_passes_model_revision_to_hf_loads(mock_tokenizer):
     )
 
 
+def test_build_processor_does_not_duplicate_revision_from_processor_kwargs(
+    mock_tokenizer,
+):
+    """A revision pinned in processor_kwargs must not collide with model_revision."""
+    processor = Mock()
+    wrapped_processor = Mock(spec=BaseProcessor)
+
+    with (
+        patch(
+            "oumi.builders.processors.find_internal_model_config_using_model_name"
+        ) as mock_find_internal_config,
+        patch(
+            "oumi.builders.processors.transformers.AutoProcessor.from_pretrained"
+        ) as mock_from_pretrained,
+        patch("oumi.builders.processors.DefaultProcessor") as mock_default_processor,
+    ):
+        mock_find_internal_config.return_value = None
+        mock_from_pretrained.return_value = processor
+        mock_default_processor.return_value = wrapped_processor
+
+        build_processor(
+            "test-model",
+            mock_tokenizer,
+            trust_remote_code=True,
+            model_revision="abc123",
+            processor_kwargs={"revision": "abc123"},
+        )
+
+    mock_from_pretrained.assert_called_once_with(
+        "test-model", trust_remote_code=True, revision="abc123"
+    )
+
+
 @pytest.mark.parametrize(
     "processor_kwargs",
     [
