@@ -70,16 +70,14 @@ def build_processor(
         # Override model-specific params with user-defined ones.
         effective_processor_kwargs.update(processor_kwargs)
 
+    # `revision` may already be pinned via processor_kwargs; don't pass it twice.
+    effective_processor_kwargs.setdefault("revision", model_revision)
     create_processor_fn = functools.partial(
         transformers.AutoProcessor.from_pretrained,
         processor_name,
         trust_remote_code=trust_remote_code,
-        revision=model_revision,
     )
-    if len(effective_processor_kwargs) > 0:
-        worker_processor = create_processor_fn(**effective_processor_kwargs)
-    else:
-        worker_processor = create_processor_fn()
+    worker_processor = create_processor_fn(**effective_processor_kwargs)
 
     return DefaultProcessor(
         processor_name,
