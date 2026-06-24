@@ -308,15 +308,16 @@ def test_build_tokenizer_does_not_duplicate_revision_from_tokenizer_kwargs():
         build_tokenizer(
             ModelParams(
                 model_name="test-model",
-                model_revision="abc123",
-                tokenizer_kwargs={"revision": "abc123"},
+                model_revision="from-model-revision",
+                tokenizer_kwargs={"revision": "from-kwargs"},
             )
         )
 
+    # An explicit revision in tokenizer_kwargs wins over model_revision.
     mock_from_pretrained.assert_called_once_with(
         "test-model",
         trust_remote_code=False,
-        revision="abc123",
+        revision="from-kwargs",
     )
 
 

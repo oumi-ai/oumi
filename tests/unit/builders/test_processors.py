@@ -97,12 +97,13 @@ def test_build_processor_does_not_duplicate_revision_from_processor_kwargs(
             "test-model",
             mock_tokenizer,
             trust_remote_code=True,
-            model_revision="abc123",
-            processor_kwargs={"revision": "abc123"},
+            model_revision="from-model-revision",
+            processor_kwargs={"revision": "from-kwargs"},
         )
 
+    # An explicit revision in processor_kwargs wins over model_revision.
     mock_from_pretrained.assert_called_once_with(
-        "test-model", trust_remote_code=True, revision="abc123"
+        "test-model", trust_remote_code=True, revision="from-kwargs"
     )
 
 
