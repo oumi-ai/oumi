@@ -53,7 +53,9 @@ def _check_connection(user: str, slurm_host: str) -> None:
     if child.returncode == 0:
         return
     if error_msg:
-        logger.error(f"Error checking connection: {error_msg}")
+        # Recoverable: caller (_refresh_creds) catches this and opens a fresh
+        # tunnel. Logging at error spuriously pages on every first connect.
+        logger.debug(f"Error checking connection: {error_msg}")
         error_msg = f" Error: {error_msg}"
     raise _SlurmAuthException("Connection to Slurm host is closed." + error_msg)
 

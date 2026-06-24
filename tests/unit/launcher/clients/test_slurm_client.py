@@ -63,6 +63,41 @@ def test_slurm_client_init(mock_subprocess):
     )
 
 
+def test_slurm_client_init_reconnect_does_not_log_error(mock_subprocess):
+    # No existing control socket -> recoverable; we open a fresh tunnel and must
+    # not log at error level (which spuriously pages on every first connect).
+    check_no_socket = Mock()
+    check_no_socket.returncode = 1
+    check_no_socket.stderr = (
+        b"Control socket connect(/root/.ssh/control-host-22-user): "
+        b"No such file or directory\n"
+    )
+    tunnel_ok = Mock()
+    tunnel_ok.returncode = 0
+    tunnel_ok.stdout = b""
+    tunnel_ok.stderr = b""
+    mock_subprocess.run.side_effect = [check_no_socket, tunnel_ok]
+    with patch("oumi.launcher.clients.slurm_client.logger") as mock_logger:
+        _ = SlurmClient("user", "host", "cluster_name")
+    mock_logger.error.assert_not_called()
+
+
+def test_slurm_client_init_tunnel_failure_logs_error_and_raises(mock_subprocess):
+    # Genuine connection failure (tunnel can't be established) must still surface.
+    check_no_socket = Mock()
+    check_no_socket.returncode = 1
+    check_no_socket.stderr = b"No such file or directory\n"
+    tunnel_fail = Mock()
+    tunnel_fail.returncode = 1
+    tunnel_fail.stdout = b""
+    tunnel_fail.stderr = b"Connection timed out"
+    mock_subprocess.run.side_effect = [check_no_socket, tunnel_fail]
+    with patch("oumi.launcher.clients.slurm_client.logger") as mock_logger:
+        with pytest.raises(RuntimeError, match="Failed to refresh Slurm credentials"):
+            _ = SlurmClient("user", "host", "cluster_name")
+    mock_logger.error.assert_called_once()
+
+
 def test_slurm_client_submit_job(mock_subprocess):
     mock_run = Mock()
     mock_subprocess.run.return_value = mock_run
