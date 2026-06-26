@@ -1,0 +1,85 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Skeleton-shape tests for ExecutableEnvironment."""
+
+from __future__ import annotations
+
+from collections.abc import Iterator
+from contextlib import contextmanager
+from typing import Any
+
+import pytest
+
+from oumi.core.configs.params.environment_params import EnvironmentParams
+from oumi.core.types.tool_call import ToolResult
+from oumi.environments.executable_environment import ExecutableEnvironment
+from oumi.environments.executable_tool import ExecutableTool
+
+
+class _MinimalExecEnv(ExecutableEnvironment):
+    """Smallest concrete subclass that satisfies the abstract surface."""
+
+    def __init__(self) -> None:
+        self._params = EnvironmentParams(id="test", env_type="executable")
+        self._executors = {}
+
+    @contextmanager
+    def _build_execution_context(
+        self, tool: ExecutableTool, arguments: dict[str, Any]
+    ) -> Iterator[Any]:
+        yield None
+
+
+def test_cannot_instantiate_abstract_base():
+    """ExecutableEnvironment is abstract — _build_execution_context must be supplied."""
+    with pytest.raises(TypeError, match="abstract"):
+        ExecutableEnvironment()  # type: ignore[abstract]
+
+
+def test_default_executor_context_kwarg_is_context():
+    """Subclasses (e.g. database) override this; the default is ``"context"``."""
+    assert ExecutableEnvironment._executor_context_kwarg == "context"
+
+
+def test_default_tool_params_cls_is_executable_tool():
+    """ExecutableEnvironment binds to ExecutableTool by default."""
+    assert ExecutableEnvironment.tool_params_cls is ExecutableTool
+
+
+def test_close_is_noop():
+    """Default close() returns None without raising."""
+    env = _MinimalExecEnv()
+    assert env.close() is None
+
+
+def test_absorb_result_is_noop():
+    """Default _absorb_result returns None for any ToolResult."""
+    env = _MinimalExecEnv()
+    tool = ExecutableTool(id="t", name="t", description="d", executor="x.y")
+    assert env._absorb_result(tool, ToolResult(output={"ok": True})) is None
+
+
+def test_step_batch_dispatches_to_step_one():
+    """Batch step() iterates the call list and dispatches each to _step_one."""
+    env = _MinimalExecEnv()
+    with pytest.raises(NotImplementedError):
+        env.step([("tool_a", {})])
+
+
+def test_step_one_raises_not_implemented():
+    """_step_one is the per-call dispatch hook; the base implementation raises."""
+    env = _MinimalExecEnv()
+    with pytest.raises(NotImplementedError):
+        env._step_one("tool_a", {})
