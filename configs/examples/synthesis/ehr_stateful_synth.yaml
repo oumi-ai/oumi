@@ -1,0 +1,663 @@
+# EHR Agent — Stateful Tool-Use Conversation Synthesis
+#
+# Generates grounded multi-turn conversations between a clinician (the user)
+# and an EHR agent (the assistant) operating against a stateful patient
+# database. The assistant has six tools that read or mutate live state:
+#
+#   READ
+#     1. `list_patients`        — returns {patient_id, name, dob, status}
+#                                  summaries for the whole roster.
+#     2. `get_patient`          — returns the full record (allergies,
+#                                  medications, diagnoses, vitals_history)
+#                                  for one patient_id.
+#
+#   WRITE / UPDATE
+#     3. `record_vitals`        — appends a vitals reading to a patient's
+#                                  history.
+#     4. `add_diagnosis`        — appends an ICD-coded diagnosis. Refuses
+#                                  duplicates.
+#     5. `prescribe_medication` — adds an active prescription. Refuses
+#                                  duplicates and blocks on allergy conflicts.
+#     6. `update_allergies`     — replaces a patient's allergy list.
+#
+# All write tools persist to the env's mutable state, so within one
+# conversation the assistant can record vitals → add a diagnosis → prescribe,
+# and a follow-up `get_patient` will see all the new entries. Per-sample
+# isolation is guaranteed by the synthesizer's per-sample tool-dispatch
+# refactor.
+#
+# Grounding: `list_patients` and `get_patient` ground from
+# `state.patients`, projecting {patient_id, name, dob}. The planner sees a
+# small random sample of real patients each conversation so turn plans
+# reference real names.
+#
+# Requirements:
+#   - Set OPENAI_API_KEY in the environment, or change the inference_config.
+#
+# Usage:
+#   oumi synth -c configs/examples/synthesis/ehr_stateful_synth.yaml
+#
+# See also:
+#   - Spec: docs/superpowers/specs/2026-04-30-stateful-tool-executors-design.md
+#   - Executors: src/oumi/examples/ehr/executors.py
+
+strategy: GENERAL
+num_samples: 150
+output_path: ehr_stateful_dataset.jsonl
+
+environment_config:
+  environments:
+    - id: ehr
+      env_type: synthetic
+      name: EHR
+      description: A clinical record system with mutable patient state.
+      grounding:
+        sample_size: 3
+        seed: 7
+      env_kwargs:
+        system_prompt: |
+          You are simulating a clinical EHR system. Tools are executed by
+          Python; you do not need to produce tool outputs.
+        cache_by_input: false
+        state_params:
+          grounding:
+            - state_path: patients
+              fields: [patient_id, name, dob]
+          state_schema:
+            type: object
+            properties:
+              patients:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    patient_id: { type: string }
+                    name: { type: string }
+                    dob: { type: string }
+                    status: { type: string }
+                    allergies:
+                      type: array
+                      items: { type: string }
+                    medications:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          name: { type: string }
+                          dose: { type: string }
+                        required: [name, dose]
+                    diagnoses:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          code: { type: string }
+                          description: { type: string }
+                          date: { type: string }
+                        required: [code, description, date]
+                    vitals_history:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          timestamp: { type: string }
+                          bp: { type: string }
+                          hr: { type: integer }
+                          temp_f: { type: number }
+                        required: [timestamp, bp, hr, temp_f]
+                  required:
+                    - patient_id
+                    - name
+                    - dob
+                    - status
+                    - allergies
+                    - medications
+                    - diagnoses
+                    - vitals_history
+            required: [patients]
+          initial_state:
+            patients:
+              - patient_id: P001
+                name: Jane Smith
+                dob: "1985-03-15"
+                status: active
+                allergies: [penicillin]
+                medications:
+                  - { name: lisinopril, dose: "10mg daily" }
+                diagnoses:
+                  - {
+                      code: I10,
+                      description: "Essential hypertension",
+                      date: "2024-06-12",
+                    }
+                vitals_history:
+                  - {
+                      timestamp: "2024-06-12T10:00",
+                      bp: "138/85",
+                      hr: 72,
+                      temp_f: 98.4,
+                    }
+              - patient_id: P002
+                name: Marcus Lee
+                dob: "1972-11-04"
+                status: active
+                allergies: []
+                medications: []
+                diagnoses: []
+                vitals_history: []
+              - patient_id: P003
+                name: Rafael Ortiz
+                dob: "1958-09-30"
+                status: active
+                allergies: []
+                medications:
+                  - { name: metformin, dose: "1000mg twice daily" }
+                  - { name: atorvastatin, dose: "20mg nightly" }
+                diagnoses:
+                  - {
+                      code: E11.9,
+                      description: "Type 2 diabetes mellitus without complications",
+                      date: "2022-04-19",
+                    }
+                  - {
+                      code: E78.5,
+                      description: "Hyperlipidemia, unspecified",
+                      date: "2022-04-19",
+                    }
+                vitals_history:
+                  - {
+                      timestamp: "2026-01-15T14:00",
+                      bp: "146/92",
+                      hr: 78,
+                      temp_f: 98.6,
+                    }
+              - patient_id: P004
+                name: Elena Vasquez
+                dob: "1990-07-22"
+                status: active
+                allergies: [sulfa]
+                medications: []
+                diagnoses: []
+                vitals_history: []
+              - patient_id: P005
+                name: James O'Brien
+                dob: "1965-01-08"
+                status: active
+                allergies: [aspirin]
+                medications:
+                  - { name: omeprazole, dose: "20mg daily" }
+                diagnoses:
+                  - {
+                      code: K21.9,
+                      description: "Gastroesophageal reflux disease without esophagitis",
+                      date: "2023-11-02",
+                    }
+                vitals_history:
+                  - {
+                      timestamp: "2025-12-03T11:15",
+                      bp: "128/80",
+                      hr: 70,
+                      temp_f: 98.2,
+                    }
+              - patient_id: P006
+                name: Priya Patel
+                dob: "2001-04-17"
+                status: active
+                allergies: []
+                medications:
+                  - { name: albuterol, dose: "2 puffs PRN" }
+                diagnoses:
+                  - {
+                      code: J45.909,
+                      description: "Unspecified asthma, uncomplicated",
+                      date: "2024-02-14",
+                    }
+                vitals_history: []
+              - patient_id: P007
+                name: William Chen
+                dob: "1948-12-30"
+                status: active
+                allergies: []
+                medications:
+                  - { name: tiotropium, dose: "18mcg daily" }
+                  - { name: furosemide, dose: "40mg daily" }
+                diagnoses:
+                  - {
+                      code: J44.9,
+                      description: "Chronic obstructive pulmonary disease, unspecified",
+                      date: "2021-08-05",
+                    }
+                vitals_history:
+                  - {
+                      timestamp: "2026-02-20T08:45",
+                      bp: "132/76",
+                      hr: 88,
+                      temp_f: 98.1,
+                    }
+              - patient_id: P008
+                name: Sofia Nguyen
+                dob: "1979-06-11"
+                status: inactive
+                allergies: [latex]
+                medications: []
+                diagnoses: []
+                vitals_history: []
+              - patient_id: P009
+                name: David Kim
+                dob: "1995-10-03"
+                status: active
+                allergies: [peanuts, shellfish]
+                medications: []
+                diagnoses: []
+                vitals_history: []
+              - patient_id: P010
+                name: Amara Diallo
+                dob: "1988-02-28"
+                status: active
+                allergies: []
+                medications:
+                  - { name: levothyroxine, dose: "75mcg daily" }
+                diagnoses:
+                  - {
+                      code: E03.9,
+                      description: "Hypothyroidism, unspecified",
+                      date: "2020-05-18",
+                    }
+                vitals_history:
+                  - {
+                      timestamp: "2025-09-10T16:30",
+                      bp: "118/72",
+                      hr: 64,
+                      temp_f: 98.0,
+                    }
+              - patient_id: P011
+                name: Thomas Wright
+                dob: "2005-08-19"
+                status: active
+                allergies: []
+                medications: []
+                diagnoses: []
+                vitals_history: []
+              - patient_id: P012
+                name: Lisa Anderson
+                dob: "1960-03-07"
+                status: active
+                allergies: [codeine]
+                medications:
+                  - { name: amlodipine, dose: "5mg daily" }
+                  - { name: metoprolol, dose: "25mg twice daily" }
+                  - { name: aspirin, dose: "81mg daily" }
+                diagnoses:
+                  - {
+                      code: I25.10,
+                      description: "Atherosclerotic heart disease of native coronary artery without angina pectoris",
+                      date: "2019-07-22",
+                    }
+                vitals_history:
+                  - {
+                      timestamp: "2026-03-01T09:00",
+                      bp: "142/88",
+                      hr: 76,
+                      temp_f: 98.3,
+                    }
+              - patient_id: P013
+                name: Carlos Mendez
+                dob: "1974-12-01"
+                status: active
+                allergies: []
+                medications:
+                  - { name: sertraline, dose: "50mg daily" }
+                diagnoses:
+                  - {
+                      code: F32.9,
+                      description: "Major depressive disorder, single episode, unspecified",
+                      date: "2023-03-15",
+                    }
+                vitals_history: []
+              - patient_id: P014
+                name: Hannah Brooks
+                dob: "1992-09-14"
+                status: active
+                allergies: [penicillin, amoxicillin]
+                medications: []
+                diagnoses: []
+                vitals_history: []
+              - patient_id: P015
+                name: Kevin Nguyen
+                dob: "1983-11-25"
+                status: active
+                allergies: []
+                medications:
+                  - { name: ibuprofen, dose: "400mg PRN" }
+                diagnoses:
+                  - {
+                      code: M54.5,
+                      description: "Low back pain",
+                      date: "2025-01-08",
+                    }
+                vitals_history: []
+      tools:
+        - id: list_patients
+          name: list_patients
+          description: >-
+            Return a list of patient summaries (patient_id, name, dob, status).
+            Call this first when the clinician refers to a patient by NAME so
+            you can resolve the name to a patient_id.
+          parameters:
+            type: object
+            properties: {}
+          read_only: true
+          executor: oumi.examples.ehr.executors.list_patients
+
+        - id: get_patient
+          name: get_patient
+          description: >-
+            Return the full record for a patient_id, including allergies,
+            active medications, diagnoses, and vitals history.
+          parameters:
+            type: object
+            properties:
+              patient_id: { type: string }
+            required: [patient_id]
+          read_only: true
+          executor: oumi.examples.ehr.executors.get_patient
+
+        - id: record_vitals
+          name: record_vitals
+          description: >-
+            Append a vitals reading (timestamp, blood pressure, heart rate,
+            temperature in F) to a patient's vitals_history.
+          parameters:
+            type: object
+            properties:
+              patient_id: { type: string }
+              timestamp: { type: string }
+              bp: { type: string }
+              hr: { type: integer }
+              temp_f: { type: number }
+            required: [patient_id, timestamp, bp, hr, temp_f]
+          read_only: false
+          executor: oumi.examples.ehr.executors.record_vitals
+
+        - id: add_diagnosis
+          name: add_diagnosis
+          description: >-
+            Append a new diagnosis (ICD-10 code, description, date) to a
+            patient. Returns an error if the same code is already present.
+          parameters:
+            type: object
+            properties:
+              patient_id: { type: string }
+              code: { type: string }
+              description: { type: string }
+              date: { type: string }
+            required: [patient_id, code, description, date]
+          read_only: false
+          executor: oumi.examples.ehr.executors.add_diagnosis
+
+        - id: prescribe_medication
+          name: prescribe_medication
+          description: >-
+            Add an active medication to a patient's medication list. Returns
+            an error if the same medication is already prescribed or if it
+            conflicts with a known allergy.
+          parameters:
+            type: object
+            properties:
+              patient_id: { type: string }
+              name: { type: string }
+              dose: { type: string }
+            required: [patient_id, name, dose]
+          read_only: false
+          executor: oumi.examples.ehr.executors.prescribe_medication
+
+        - id: update_allergies
+          name: update_allergies
+          description: >-
+            Replace a patient's allergy list with the supplied list. Pass an
+            empty list to clear all allergies.
+          parameters:
+            type: object
+            properties:
+              patient_id: { type: string }
+              allergies:
+                type: array
+                items: { type: string }
+            required: [patient_id, allergies]
+          read_only: false
+          executor: oumi.examples.ehr.executors.update_allergies
+
+strategy_params:
+  sampled_attributes:
+    - id: clinician_role
+      name: Clinician Role
+      description: The kind of clinician interacting with the EHR agent
+      possible_values:
+        - id: attending
+          name: Attending Physician
+          description: Senior physician seeing scheduled patients; concise, decisive
+          sample_rate: 0.30
+        - id: resident
+          name: Resident
+          description: Trainee physician; thorough, asks for confirmations, mentions teaching plan
+          sample_rate: 0.20
+        - id: nurse
+          name: Nurse
+          description: Floor or clinic nurse; focused on vitals, medications, allergies
+          sample_rate: 0.25
+        - id: pharmacist
+          name: Clinical Pharmacist
+          description: Reviews medications and allergies; flags interactions
+          sample_rate: 0.10
+        - id: case_manager
+          name: Case Manager
+          description: Coordinates discharge and follow-up; reads more than writes
+          sample_rate: 0.15
+
+    - id: encounter_intent
+      name: Encounter Intent
+      description: Why the clinician is consulting the EHR agent this time
+      possible_values:
+        - id: record_visit_vitals
+          name: Record Visit Vitals
+          description: Patient is in the room; clinician needs to log vitals taken at intake
+        - id: prescribe_new_med
+          name: Prescribe New Medication
+          description: Adding a new prescription after assessing the patient
+        - id: diagnose_new_condition
+          name: Diagnose New Condition
+          description: Adding a new ICD-10 diagnosis to the patient's chart
+        - id: chart_review
+          name: Chart Review
+          description: Pulling up a patient's record to brief on history before an encounter
+        - id: update_allergy_history
+          name: Update Allergy History
+          description: Patient reported a new allergy; chart needs updating
+        - id: full_encounter
+          name: Full Encounter
+          description: Multiple updates in one visit (vitals + diagnosis + prescription)
+
+    - id: clinician_demeanor
+      name: Clinician Demeanor
+      description: The conversational style the clinician brings
+      possible_values:
+        - id: efficient
+          name: Efficient
+          description: Terse, professional, names the patient and the action and expects execution
+        - id: collaborative
+          name: Collaborative
+          description: Talks through reasoning, double-checks before mutating the chart
+        - id: hurried
+          name: Hurried
+          description: Multitasking, sometimes leaves out IDs and expects the agent to resolve names
+        - id: cautious
+          name: Cautious
+          description: Asks for confirmation before each write; double-reads back values
+        - id: chatty
+          name: Chatty
+          description: Adds context about the patient before getting to the action
+
+  generated_attributes:
+    - id: clinician_name
+      instruction_messages:
+        - role: SYSTEM
+          content: |
+            Generate a realistic last name only. Output just the surname,
+            no prefix, no first name.
+        - role: USER
+          content: |
+            Generate a common surname.
+
+  multiturn_attributes:
+    - id: ehr_conversation
+      min_turns: 2
+      max_turns: 6
+      available_environments:
+        - ehr
+      available_tools:
+        - list_patients
+        - get_patient
+        - record_vitals
+        - add_diagnosis
+        - prescribe_medication
+        - update_allergies
+      max_consecutive_tool_turns: 6
+
+      conversation_planner: |
+        The clinician's intent is "{encounter_intent.name}":
+        {encounter_intent.description}
+
+        Plan turn instructions according to the intent. Use action verbs
+        ("call `record_vitals`...", "call `add_diagnosis`...") rather than
+        soft offers. Reserve at least one assistant turn for resolving the
+        patient by name (`list_patients`) when the clinician only said the
+        patient's name. Then chain into the appropriate write tool.
+
+        - Record Visit Vitals: assistant must call `record_vitals` in the
+          final assistant turn. Pull the timestamp from the conversation
+          (use today's clinic time if unspecified).
+        - Prescribe New Medication: assistant must call
+          `prescribe_medication`. If the medication conflicts with a known
+          allergy, surface the error and pivot to a safe alternative.
+        - Diagnose New Condition: assistant must call `add_diagnosis`. If
+          the code is already present, surface the duplicate error.
+        - Chart Review: read-only. Use `get_patient` to summarize. Do NOT
+          mutate the chart.
+        - Update Allergy History: assistant must call `update_allergies`
+          with the new full list (not a delta).
+        - Full Encounter: chain `record_vitals` → `add_diagnosis` →
+          `prescribe_medication` across the conversation, in that clinical
+          order.
+
+      role_instruction_messages:
+        USER: |
+          You are Dr. {clinician_name}, a {clinician_role.name}.
+
+          Your background: {clinician_role.description}
+          Your style today: {clinician_demeanor.name} —
+          {clinician_demeanor.description}
+          What you need to do: {encounter_intent.description}
+
+          Guidelines:
+          - You speak about patients by NAME (e.g., "Jane Smith"), the way
+            a clinician naturally would. You do NOT memorize internal
+            patient IDs (the "P001" / "P004" codes). If the agent asks for
+            a patient_id, tell it the name and let it resolve.
+          - You do not have direct database access — only the EHR agent
+            does. Don't claim to know vitals history, medication lists,
+            allergies, or diagnoses until the agent has told you.
+          - Stay in character: an efficient attending is terse; a chatty
+            one provides social context; a cautious one double-reads back
+            values before authorizing a write.
+          - Do not break character or reference the simulation.
+
+          If this is your first message, open the conversation in whatever
+          way fits your style and state what you need.
+
+          Output only your message, nothing else.
+
+        ASSISTANT: |
+          You are EHRBot, a clinical record assistant. You have six tools:
+
+          1. `list_patients` — returns {{patient_id, name, dob, status}}
+             summaries. Use this first when the clinician names a patient
+             to resolve the name to a patient_id.
+          2. `get_patient` — returns the full record (allergies,
+             medications, diagnoses, vitals_history) for a patient_id.
+          3. `record_vitals` — appends a vitals reading.
+          4. `add_diagnosis` — appends an ICD-10 diagnosis. Returns
+             `{{"status": "error", "error": "duplicate_diagnosis"}}` if the
+             code is already present.
+          5. `prescribe_medication` — adds an active prescription. Returns
+             `{{"status": "error", "error": "already_prescribed"}}` for
+             duplicates and `{{"status": "error", "error":
+             "allergy_conflict"}}` if the drug is on the allergy list.
+          6. `update_allergies` — replaces the allergy list with the
+             supplied list (full replacement, not a delta).
+
+          Standard flows:
+          - Clinician names a patient: resolve via `list_patients` first,
+            then read or write against the resolved patient_id.
+          - Vitals at intake: `list_patients` (if name only) →
+            `record_vitals`. Confirm what was logged.
+          - Diagnosis: `list_patients` (if name only) → `add_diagnosis`.
+            On `duplicate_diagnosis`, acknowledge and don't retry.
+          - Prescription: `list_patients` (if name only) →
+            `prescribe_medication`. On `allergy_conflict`, do NOT bypass —
+            surface the conflict and ask the clinician for an alternative.
+          - Chart review: `list_patients` (if name only) → `get_patient`.
+            Summarize allergies, active meds, recent diagnoses, latest
+            vitals. Do NOT mutate the chart.
+
+          Rules:
+          - ALWAYS use the tools for any read or write. Never fabricate
+            patient data, IDs, codes, doses, or vitals.
+          - For write intents (record vitals, add diagnosis, prescribe,
+            update allergies), the conversation is NOT complete until you
+            have actually called the matching write tool. Saying "I'll
+            update the chart" without a tool call is a failure.
+          - When a tool returns a structured error
+            (`{{"status": "error", ...}}`), acknowledge it naturally
+            (don't paste the raw payload) and either pivot or ask the
+            clinician for clarification.
+          - Confirm patient_id once resolved, before performing any write.
+            Read back the patient's name in your response so the clinician
+            can catch a wrong-patient error.
+          - Stay professional and clinical in tone.
+          - Keep responses tight (under 3 sentences) unless summarizing a
+            full chart.
+
+          Follow the plan's direction for this turn. Output only your
+          response.
+
+      output_system_prompt: |
+        You are EHRBot, a clinical record assistant. You help clinicians
+        read and update patient records using six tools:
+          - `list_patients`        — list of {{patient_id, name, dob, status}}.
+          - `get_patient`          — full record for a patient_id.
+          - `record_vitals`        — append a vitals reading.
+          - `add_diagnosis`        — append an ICD-10 diagnosis.
+          - `prescribe_medication` — add an active medication (rejected on
+            duplicate or allergy conflict).
+          - `update_allergies`     — replace the allergy list.
+        Always call the tools for reads and writes; never fabricate
+        patient data. Resolve patient names to patient_ids via
+        `list_patients` before any other action. Acknowledge structured
+        tool errors and pivot when appropriate. Read back the patient's
+        name when confirming a write.
+
+  passthrough_attributes:
+    - ehr_conversation
+    - ehr_conversation_plan
+
+inference_config:
+  model:
+    model_name: gpt-4o-mini
+  engine: OPENAI
+  generation:
+    max_new_tokens: 2048
+    temperature: 0.7
+    top_p: 0.9
+  remote_params:
+    num_workers: 50
+    politeness_policy: 60
