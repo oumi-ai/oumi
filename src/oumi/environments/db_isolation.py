@@ -46,8 +46,13 @@ def materialize_sqlite_snapshot(
         if seed_sql:
             conn.executescript(seed_sql)
         conn.commit()
-    finally:
+    except BaseException:
         conn.close()
+        # Drop the partial temp file we just created so a bad DDL/seed can't leak it.
+        if dest is None:
+            path.unlink(missing_ok=True)
+        raise
+    conn.close()
     return path
 
 
@@ -72,7 +77,13 @@ class RollbackSession:
         self._path = Path(db_path)
         self._owns_file = owns_file
         self.connection = sqlite3.connect(self._path, isolation_level=None)
-        self.connection.execute("BEGIN")
+        try:
+            self.connection.execute("BEGIN")
+        except BaseException:
+            self.connection.close()
+            if self._owns_file:
+                self._path.unlink(missing_ok=True)
+            raise
 
     def close(self) -> None:
         """Roll back any open transaction, close, and delete an owned file."""

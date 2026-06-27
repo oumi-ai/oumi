@@ -49,23 +49,34 @@ def sql_execution_match(
     owns = False
     if info.get("db_path"):
         path = Path(info["db_path"])
-    else:
+    elif info.get("schema_sql"):
         path = materialize_sqlite_snapshot(
             schema_sql=info["schema_sql"], seed_sql=info.get("seed_sql")
         )
         owns = True
+    else:
+        raise ValueError(
+            "sql_execution_match: extra_info must provide either 'db_path' or "
+            "'schema_sql'."
+        )
     # Grade gold and candidate on separate sessions so each runs against the
     # pristine snapshot — a mutating gold query can't contaminate the candidate.
-    gold_session = RollbackSession(path)
+    # The outer finally owns deletion of a materialized snapshot so it can't leak
+    # if a session fails to open or close.
     try:
-        gold_rows = _run(gold_session.connection, ground_truth)
+        gold_session = RollbackSession(path)
+        try:
+            gold_rows = _run(gold_session.connection, ground_truth)
+        finally:
+            gold_session.close()
+        cand_session = RollbackSession(path)
+        try:
+            cand_rows = _run(cand_session.connection, solution_str)
+        finally:
+            cand_session.close()
     finally:
-        gold_session.close()
-    cand_session = RollbackSession(path, owns_file=owns)
-    try:
-        cand_rows = _run(cand_session.connection, solution_str)
-    finally:
-        cand_session.close()
+        if owns:
+            path.unlink(missing_ok=True)
     if gold_rows is None or cand_rows is None:
         return 0.0
     return 1.0 if gold_rows == cand_rows else 0.0
