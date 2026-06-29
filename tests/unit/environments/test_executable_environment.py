@@ -58,7 +58,8 @@ def test_default_tool_params_cls_is_executable_tool():
 def test_close_is_noop():
     """Default close() returns None without raising."""
     env = _MinimalExecEnv()
-    assert env.close() is None
+    result = env.close()
+    assert result is None
 
 
 def test_absorb_result_is_noop():
