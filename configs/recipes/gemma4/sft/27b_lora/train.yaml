@@ -46,10 +46,11 @@ training:
   save_final_model: true
   num_train_epochs: 1
   per_device_train_batch_size: 1
-  # NOTE: gradient accumulation inflates reported loss for Gemma 4 (~4x) due
-  # to a missing `accepts_loss_kwargs = False` on Gemma4ForConditionalGeneration.
-  # Fixed on transformers main but not yet released as of 5.5.4. See
-  # huggingface/transformers#40564 (same bug existed in Gemma 3).
+  # NOTE: gradient accumulation inflates the reported (logged) loss for Gemma 4 —
+  # the displayed curve reads higher than the true loss but still descends as
+  # expected. Caused by a missing `accepts_loss_kwargs = False` on
+  # Gemma4ForConditionalGeneration; fixed on transformers main but not yet
+  # released as of 5.5.4. See huggingface/transformers#40564 (same bug in Gemma 3).
   gradient_accumulation_steps: 8
   max_grad_norm: 1.0
 
