@@ -20,7 +20,7 @@ from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.environments.database_executable_environment import (
     DatabaseExecutableEnvironment,
 )
-from oumi.environments.db_isolation import materialize_sqlite_snapshot
+from oumi.environments.database_session import materialize_sqlite_snapshot
 
 _SCHEMA = "CREATE TABLE patients (id INTEGER PRIMARY KEY, name TEXT, meds TEXT);"
 _SEED = "INSERT INTO patients VALUES (1, 'Bob', 'aspirin');"

@@ -54,7 +54,7 @@ class DatabaseExecutableEnvironment(ExecutableEnvironment):
     One instance owns one session for the duration of an episode. Executors
     must NOT commit; the env rolls back on ``close()`` so writes never persist.
     ``requires_isolation()`` is ``True``, so the router builds a fresh instance
-    (hence a fresh session) per rollout. See ``db_isolation`` for the contract.
+    (hence a fresh session) per rollout. See ``database_session`` for the contract.
     """
 
     _executor_context_kwarg: ClassVar[str] = "db"

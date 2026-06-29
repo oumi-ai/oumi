@@ -21,7 +21,10 @@ from pathlib import Path
 from typing import Any
 
 from oumi.core.registry import RegistryType, register
-from oumi.environments.db_isolation import RollbackSession, materialize_sqlite_snapshot
+from oumi.environments.database_session import (
+    DatabaseSession,
+    materialize_sqlite_snapshot,
+)
 
 
 def _run(connection: sqlite3.Connection, sql: str) -> list[tuple] | None:
@@ -64,12 +67,12 @@ def sql_execution_match(
     # The outer finally owns deletion of a materialized snapshot so it can't leak
     # if a session fails to open or close.
     try:
-        gold_session = RollbackSession(path)
+        gold_session = DatabaseSession(path)
         try:
             gold_rows = _run(gold_session.connection, ground_truth)
         finally:
             gold_session.close()
-        cand_session = RollbackSession(path)
+        cand_session = DatabaseSession(path)
         try:
             cand_rows = _run(cand_session.connection, solution_str)
         finally:
