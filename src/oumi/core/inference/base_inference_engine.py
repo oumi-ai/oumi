@@ -20,6 +20,7 @@ import time
 import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 
 import jsonlines
@@ -31,6 +32,7 @@ from oumi.core.configs import (
     InferenceConfig,
     ModelParams,
 )
+from oumi.core.inference.progress_reporter import ProgressFileReporter
 from oumi.core.types.conversation import Conversation
 from oumi.utils.logging import logger
 from oumi.utils.math_utils import is_power_of_two
@@ -53,6 +55,91 @@ class BatchResult:
     def has_failures(self) -> bool:
         """Return True if any requests failed."""
         return len(self.failed_indices) > 0
+
+
+class InferenceErrorType(str, Enum):
+    """Failure category for an inference request."""
+
+    API_STATUS = "api_status"
+    """The API returned a non-success HTTP status code."""
+
+    CONNECTION = "connection"
+    """A network-level error prevented reaching the API."""
+
+    RUNTIME = "runtime"
+    """An error was raised while running inference."""
+
+    CONFIG = "config"
+    """The request failed due to invalid configuration."""
+
+    PARSE_ERROR = "parse_error"
+    """The API response could not be parsed into a conversation."""
+
+    ENGINE_FAILURE = "engine_failure"
+    """The inference engine itself failed."""
+
+    UNKNOWN = "unknown"
+    """Default and catch-all: the failure fits no other category."""
+
+
+@dataclass(frozen=True)
+class FailureDetail:
+    """Details about a single failed inference request."""
+
+    error_message: str
+    """Human-readable description of the failure."""
+
+    status_code: int | None = None
+    """HTTP status code of the final failed attempt, if applicable."""
+
+    is_retryable: bool = True
+    """Whether resubmitting this request could plausibly succeed."""
+
+    error_type: InferenceErrorType = InferenceErrorType.UNKNOWN
+    """Failure category for this request."""
+
+
+@dataclass
+class InferenceResult:
+    """Result of partial online inference, separating successes from failures."""
+
+    successful: list[tuple[int, Conversation]]
+    """List of (original_index, conversation) for successful requests."""
+
+    failures: dict[int, FailureDetail]
+    """Mapping of failed index to structured failure info."""
+
+    @property
+    def failed_indices(self) -> list[int]:
+        """Sorted indices of requests that failed."""
+        return sorted(self.failures)
+
+    @property
+    def error_messages(self) -> dict[int, str]:
+        """Mapping of failed index to error message."""
+        return {idx: detail.error_message for idx, detail in self.failures.items()}
+
+    @property
+    def has_failures(self) -> bool:
+        """Return True if any requests failed."""
+        return len(self.failures) > 0
+
+
+@dataclass
+class _PreparedInferenceRun:
+    """Validated inputs shared by infer() and infer_partial()."""
+
+    inference_config: InferenceConfig | None
+    """The inference config, possibly updated with the engine's generation params."""
+
+    conversations: list[Conversation]
+    """All conversations to process, with conversation ids assigned."""
+
+    completed_from_scratch: list[Conversation]
+    """Conversations already completed in a previous run, loaded from scratch."""
+
+    remaining: list[Conversation]
+    """Conversations that still need inference."""
 
 
 class BaseInferenceEngine(ABC):
@@ -87,20 +174,19 @@ class BaseInferenceEngine(ABC):
         self._latency_histogram_from_file = HdrHistogram(20, 180 * 1000, 1)
         self._dataset_hash = None
 
-    def infer(
+    def _prepare_inference_run(
         self,
         input: list[Conversation] | None = None,
         inference_config: InferenceConfig | None = None,
-    ) -> list[Conversation]:
-        """Runs model inference.
+    ) -> _PreparedInferenceRun:
+        """Validates inputs and prepares conversations for an inference run.
 
         Args:
             input: A list of conversations to run inference on. Optional.
             inference_config: Parameters for inference.
-                If not specified, a default config is inferred.
 
         Returns:
-            List[Conversation]: Inference output.
+            _PreparedInferenceRun: The validated, prepared run inputs.
         """
         if input is not None and (
             inference_config and inference_config.input_path is not None
@@ -140,7 +226,7 @@ class BaseInferenceEngine(ABC):
             )
 
         unique_conversation_ids = set()
-        for i, conversation in enumerate(conversations_to_process):
+        for idx, conversation in enumerate(conversations_to_process):
             if conversation.conversation_id is not None:
                 if conversation.conversation_id in unique_conversation_ids:
                     raise ValueError(
@@ -159,7 +245,7 @@ class BaseInferenceEngine(ABC):
                 ]
             )
             content_hash = hashlib.sha256(all_str_message_content.encode()).hexdigest()
-            id_name = str(i) + "_" + content_hash
+            id_name = str(idx) + "_" + content_hash
 
             conversation.conversation_id = str(
                 uuid.uuid5(
@@ -192,6 +278,34 @@ class BaseInferenceEngine(ABC):
                 f"Found {len(completed_conversations)} completed conversations. "
                 f"Processing remaining {len(remaining_conversations)} conversations."
             )
+
+        return _PreparedInferenceRun(
+            inference_config=inference_config,
+            conversations=conversations_to_process,
+            completed_from_scratch=completed_conversations,
+            remaining=remaining_conversations,
+        )
+
+    def infer(
+        self,
+        input: list[Conversation] | None = None,
+        inference_config: InferenceConfig | None = None,
+    ) -> list[Conversation]:
+        """Runs model inference.
+
+        Args:
+            input: A list of conversations to run inference on. Optional.
+            inference_config: Parameters for inference.
+                If not specified, a default config is inferred.
+
+        Returns:
+            List[Conversation]: Inference output.
+        """
+        prepared = self._prepare_inference_run(input, inference_config)
+        inference_config = prepared.inference_config
+        conversations_to_process = prepared.conversations
+        remaining_conversations = prepared.remaining
+        output_path = inference_config.output_path if inference_config else None
 
         # Run inference only on remaining conversations
         start_time = time.perf_counter()
@@ -235,6 +349,184 @@ class BaseInferenceEngine(ABC):
             self._save_conversations(final_results, inference_config.output_path)
 
         return final_results
+
+    def infer_partial(
+        self,
+        input: list[Conversation] | None = None,
+        inference_config: InferenceConfig | None = None,
+        *,
+        progress_path: str | None = None,
+    ) -> InferenceResult:
+        """Runs model inference, tolerating per-row failures.
+
+        Unlike infer(), which raises if any conversation fails, this returns
+        an InferenceResult pairing each successful conversation with its
+        original input index and reporting per-row failures separately, so
+        callers can keep successes and decide which failures to resubmit.
+
+        Args:
+            input: A list of conversations to run inference on. Optional.
+            inference_config: Parameters for inference.
+            progress_path: Path to a JSON file where progress counters are
+                periodically written for external pollers. Takes precedence
+                over inference_config.progress_path.
+
+        Returns:
+            InferenceResult: Successful conversations and per-row failures.
+        """
+        prepared = self._prepare_inference_run(input, inference_config)
+        inference_config = prepared.inference_config
+        output_path = inference_config.output_path if inference_config else None
+
+        id_to_index = {
+            conversation.conversation_id: idx
+            for idx, conversation in enumerate(prepared.conversations)
+        }
+
+        # Seed successes with conversations completed in a previous run,
+        # ignoring stale scratch entries that aren't part of this input.
+        successful: list[tuple[int, Conversation]] = [
+            (id_to_index[conversation.conversation_id], conversation)
+            for conversation in prepared.completed_from_scratch
+            if conversation.conversation_id in id_to_index
+        ]
+
+        if progress_path is None and inference_config:
+            progress_path = inference_config.progress_path
+        progress: ProgressFileReporter | None = None
+        if progress_path:
+            progress = ProgressFileReporter(
+                progress_path, total=len(prepared.conversations)
+            )
+            progress.start(completed=len(successful))
+
+        try:
+            start_time = time.perf_counter()
+            histogram = self._latency_histogram_online
+            outcomes = self._infer_online_partial(
+                prepared.remaining, inference_config, progress
+            )
+            histogram.record_value((time.perf_counter() - start_time) * 1e3)
+            self._maybe_log_latency_histogram(histogram)
+        finally:
+            if progress:
+                progress.finalize()
+
+        if len(outcomes) != len(prepared.remaining):
+            raise RuntimeError(
+                f"_infer_online_partial returned {len(outcomes)} outcomes for "
+                f"{len(prepared.remaining)} conversations."
+            )
+
+        failures: dict[int, FailureDetail] = {}
+        for conversation, outcome in zip(prepared.remaining, outcomes):
+            index = id_to_index[conversation.conversation_id]
+            if isinstance(outcome, FailureDetail):
+                failures[index] = outcome
+            else:
+                successful.append((index, outcome))
+
+        result = InferenceResult(
+            successful=sorted(successful, key=lambda pair: pair[0]),
+            failures=failures,
+        )
+
+        # Keep the scratch file when there are failures so that re-invoking
+        # with the same input and config resumes from completed conversations.
+        if not result.has_failures:
+            self._cleanup_scratch_file(output_path)
+
+        if inference_config and inference_config.output_path:
+            self._save_conversations(
+                [conversation for _, conversation in result.successful],
+                inference_config.output_path,
+            )
+
+        return result
+
+    def _infer_online_partial(
+        self,
+        input: list[Conversation],
+        inference_config: InferenceConfig | None = None,
+        progress: ProgressFileReporter | None = None,
+    ) -> list["Conversation | FailureDetail"]:
+        """Runs online inference, capturing per-row failures.
+
+        Returns a list aligned 1:1 with input: a Conversation for each row
+        that succeeded, or a FailureDetail for each row that failed.
+
+        Args:
+            input: A list of conversations to run inference on.
+            inference_config: Parameters for inference.
+            progress: Optional progress reporter, ticked as rows complete.
+
+        Returns:
+            list[Conversation | FailureDetail]: Per-row outcomes, aligned
+                with input.
+        """
+        if not input:
+            return []
+        output_path = inference_config.output_path if inference_config else None
+        try:
+            results = self._infer_online(input, inference_config)
+        except Exception as e:
+            completed_by_id = {
+                conversation.conversation_id: conversation
+                for conversation in self._load_from_scratch(output_path)
+                if conversation.conversation_id is not None
+            }
+            failure = FailureDetail(
+                error_message=str(e),
+                status_code=getattr(e, "status_code", None),
+                is_retryable=True,
+                error_type=InferenceErrorType.ENGINE_FAILURE,
+            )
+            outcomes: list[Conversation | FailureDetail] = []
+            num_completed = 0
+            for conversation in input:
+                conversation_id = conversation.conversation_id
+                checkpointed = (
+                    completed_by_id.get(conversation_id) if conversation_id else None
+                )
+                if checkpointed is not None:
+                    outcomes.append(checkpointed)
+                    num_completed += 1
+                else:
+                    outcomes.append(failure)
+            if progress:
+                if num_completed:
+                    progress.record_completed(num_completed)
+                progress.record_failed(len(input) - num_completed)
+            return outcomes
+
+        # Map results by conversation id to guard against engines returning
+        # results in a different order than the input.
+        results_by_id = {
+            conversation.conversation_id: conversation
+            for conversation in results
+            if conversation.conversation_id is not None
+        }
+        missing = FailureDetail(
+            error_message="Engine returned no result for this conversation.",
+            is_retryable=True,
+            error_type=InferenceErrorType.ENGINE_FAILURE,
+        )
+        outcomes = []
+        num_completed = 0
+        for conversation in input:
+            conversation_id = conversation.conversation_id
+            match = results_by_id.get(conversation_id) if conversation_id else None
+            if match is not None:
+                outcomes.append(match)
+                num_completed += 1
+            else:
+                outcomes.append(missing)
+        if progress:
+            if num_completed:
+                progress.record_completed(num_completed)
+            if num_completed != len(input):
+                progress.record_failed(len(input) - num_completed)
+        return outcomes
 
     def _maybe_log_latency_histogram(self, histogram: HdrHistogram | None) -> None:
         """Logs the histogram if it is not None.

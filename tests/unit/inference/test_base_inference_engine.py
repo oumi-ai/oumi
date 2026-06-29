@@ -7,7 +7,12 @@ import jsonlines
 import pytest
 
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
-from oumi.core.inference import BaseInferenceEngine
+from oumi.core.inference import (
+    BaseInferenceEngine,
+    FailureDetail,
+    InferenceErrorType,
+    InferenceResult,
+)
 from oumi.core.types.conversation import Conversation, Message, Role
 
 
@@ -453,3 +458,279 @@ def test_final_conversations_saved_to_output_file(mock_engine):
         assert not scratch_path.exists(), (
             "Scratch file should be cleaned up after successful inference"
         )
+
+
+def test_inference_result_error_messages_derived_from_failures():
+    conversation = Conversation(
+        messages=[Message(role=Role.USER, content="hi")],
+    )
+    result = InferenceResult(
+        successful=[(0, conversation)],
+        failures={
+            1: FailureDetail(
+                error_message="timeout", error_type=InferenceErrorType.RUNTIME
+            ),
+            2: FailureDetail(
+                error_message="bad request",
+                status_code=400,
+                is_retryable=False,
+                error_type=InferenceErrorType.API_STATUS,
+            ),
+        },
+    )
+
+    assert result.has_failures
+    assert result.failed_indices == [1, 2]
+    assert result.error_messages == {1: "timeout", 2: "bad request"}
+    assert result.failures[2].status_code == 400
+    assert not result.failures[2].is_retryable
+    assert result.failures[1].is_retryable
+
+
+def test_inference_result_no_failures():
+    result = InferenceResult(successful=[], failures={})
+
+    assert not result.has_failures
+    assert result.failed_indices == []
+    assert result.error_messages == {}
+
+
+def test_failure_detail_defaults():
+    detail = FailureDetail(error_message="boom")
+
+    assert detail.status_code is None
+    assert detail.is_retryable
+    assert detail.error_type == InferenceErrorType.UNKNOWN
+
+
+class FailAfterFirstMockEngine(MockInferenceEngine):
+    """Mock engine that checkpoints the first conversation then fails."""
+
+    def _infer_online(
+        self,
+        input: list[Conversation],
+        inference_config: InferenceConfig | None = None,
+    ) -> list[Conversation]:
+        for idx, conv in enumerate(input):
+            if idx >= 1:
+                raise RuntimeError("Simulated failure")
+            new_conv = conv.model_copy(deep=True)
+            new_conv.messages.append(
+                Message(role=Role.ASSISTANT, content=f"Mock response {idx}")
+            )
+            self._save_conversation_to_scratch(
+                new_conv,
+                inference_config.output_path if inference_config else None,
+            )
+        raise RuntimeError("Simulated failure")
+
+
+@pytest.fixture
+def failing_engine():
+    return FailAfterFirstMockEngine(model_params=ModelParams(model_name="test-model"))
+
+
+def test_infer_partial_all_success(mock_engine):
+    with tempfile.TemporaryDirectory() as temp_dir:
+        output_path = str(Path(temp_dir) / "output.jsonl")
+        inference_config = InferenceConfig(
+            output_path=output_path,
+            generation=GenerationParams(max_new_tokens=10),
+        )
+        conversations = [create_test_conversation(idx) for idx in range(3)]
+
+        result = mock_engine.infer_partial(
+            input=conversations, inference_config=inference_config
+        )
+
+        assert not result.has_failures
+        assert result.failed_indices == []
+        assert result.error_messages == {}
+        assert [idx for idx, _ in result.successful] == [0, 1, 2]
+        for idx, conv in result.successful:
+            assert conv.conversation_id == f"test-{idx}"
+            assert conv.messages[-1].role == Role.ASSISTANT
+
+        # Scratch cleaned up on success; output contains all successes.
+        scratch_path = Path(mock_engine._get_scratch_filepath(output_path))
+        assert not scratch_path.exists()
+        with jsonlines.open(output_path) as reader:
+            saved = [Conversation.from_dict(line) for line in reader]
+        assert len(saved) == 3
+
+
+def test_infer_partial_parity_with_infer(mock_engine):
+    conversations = [create_test_conversation(idx) for idx in range(3)]
+
+    infer_results = mock_engine.infer(
+        input=[c.model_copy(deep=True) for c in conversations]
+    )
+    partial_result = mock_engine.infer_partial(
+        input=[c.model_copy(deep=True) for c in conversations]
+    )
+
+    assert [c.conversation_id for c in infer_results] == [
+        conv.conversation_id for _, conv in partial_result.successful
+    ]
+    assert [str(c.messages[-1].content) for c in infer_results] == [
+        str(conv.messages[-1].content) for _, conv in partial_result.successful
+    ]
+
+
+def test_infer_partial_default_wrapper_credits_checkpointed_rows(failing_engine):
+    with tempfile.TemporaryDirectory() as temp_dir:
+        output_path = str(Path(temp_dir) / "output.jsonl")
+        inference_config = InferenceConfig(
+            output_path=output_path,
+            generation=GenerationParams(max_new_tokens=10),
+        )
+        conversations = [create_test_conversation(idx) for idx in range(3)]
+
+        result = failing_engine.infer_partial(
+            input=conversations, inference_config=inference_config
+        )
+
+        assert result.has_failures
+        assert [idx for idx, _ in result.successful] == [0]
+        assert result.failed_indices == [1, 2]
+        for idx in result.failed_indices:
+            assert result.failures[idx].error_type == InferenceErrorType.ENGINE_FAILURE
+            assert result.failures[idx].is_retryable
+            assert "Simulated failure" in result.failures[idx].error_message
+
+        # Scratch retained on failure for resume.
+        scratch_path = Path(failing_engine._get_scratch_filepath(output_path))
+        assert scratch_path.exists()
+
+        # Output contains only the successful conversation.
+        with jsonlines.open(output_path) as reader:
+            saved = [Conversation.from_dict(line) for line in reader]
+        assert len(saved) == 1
+        assert saved[0].conversation_id == "test-0"
+
+
+def test_infer_partial_resumes_from_scratch_after_failure(failing_engine, mock_engine):
+    with tempfile.TemporaryDirectory() as temp_dir:
+        output_path = str(Path(temp_dir) / "output.jsonl")
+        inference_config = InferenceConfig(
+            output_path=output_path,
+            generation=GenerationParams(max_new_tokens=10),
+        )
+        conversations = [create_test_conversation(idx) for idx in range(3)]
+
+        first = failing_engine.infer_partial(
+            input=[c.model_copy(deep=True) for c in conversations],
+            inference_config=inference_config,
+        )
+        assert first.failed_indices == [1, 2]
+
+        # Re-run with a healthy engine: row 0 must come from scratch, only
+        # the remaining rows are re-processed.
+        with patch.object(
+            mock_engine, "_infer_online", wraps=mock_engine._infer_online
+        ) as mock_infer:
+            second = mock_engine.infer_partial(
+                input=[c.model_copy(deep=True) for c in conversations],
+                inference_config=inference_config,
+            )
+
+        assert not second.has_failures
+        assert [idx for idx, _ in second.successful] == [0, 1, 2]
+        processed_ids = [c.conversation_id for c in mock_infer.call_args[0][0]]
+        assert processed_ids == ["test-1", "test-2"]
+
+        # Scratch cleaned after the fully successful run.
+        scratch_path = Path(mock_engine._get_scratch_filepath(output_path))
+        assert not scratch_path.exists()
+
+
+def test_infer_partial_empty_input(mock_engine):
+    result = mock_engine.infer_partial(input=[])
+
+    assert result.successful == []
+    assert result.failed_indices == []
+    assert not result.has_failures
+
+
+def test_infer_partial_duplicate_conversation_ids_raise(mock_engine):
+    conversations = [create_test_conversation(1), create_test_conversation(1)]
+
+    with pytest.raises(ValueError, match="is not unique"):
+        mock_engine.infer_partial(input=conversations)
+
+
+def test_infer_partial_writes_progress_file(mock_engine):
+    import json as json_lib
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        progress_path = str(Path(temp_dir) / "progress.json")
+        conversations = [create_test_conversation(idx) for idx in range(3)]
+
+        mock_engine.infer_partial(input=conversations, progress_path=progress_path)
+
+        with open(progress_path) as f:
+            snapshot = json_lib.load(f)
+        assert snapshot["total"] == 3
+        assert snapshot["completed"] == 3
+        assert snapshot["failed"] == 0
+
+
+def test_infer_partial_progress_file_via_config_with_failures(failing_engine):
+    import json as json_lib
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        progress_path = str(Path(temp_dir) / "progress.json")
+        output_path = str(Path(temp_dir) / "output.jsonl")
+        inference_config = InferenceConfig(
+            output_path=output_path,
+            progress_path=progress_path,
+            generation=GenerationParams(max_new_tokens=10),
+        )
+        conversations = [create_test_conversation(idx) for idx in range(3)]
+
+        result = failing_engine.infer_partial(
+            input=conversations, inference_config=inference_config
+        )
+
+        assert result.failed_indices == [1, 2]
+        with open(progress_path) as f:
+            snapshot = json_lib.load(f)
+        assert snapshot["total"] == 3
+        assert snapshot["completed"] == 1
+        assert snapshot["failed"] == 2
+        assert snapshot["completed"] + snapshot["failed"] == snapshot["total"]
+
+
+def test_infer_partial_progress_write_failure_does_not_raise(mock_engine):
+    with tempfile.TemporaryDirectory() as temp_dir:
+        progress_path = str(Path(temp_dir) / "progress.json")
+        conversations = [create_test_conversation(idx) for idx in range(2)]
+
+        with patch("os.replace", side_effect=OSError("disk full")):
+            result = mock_engine.infer_partial(
+                input=conversations, progress_path=progress_path
+            )
+
+        assert not result.has_failures
+        assert len(result.successful) == 2
+
+
+def test_infer_partial_outcome_count_mismatch_raises(mock_engine):
+    conversations = [create_test_conversation(idx) for idx in range(2)]
+
+    with patch.object(mock_engine, "_infer_online_partial", return_value=[]):
+        with pytest.raises(RuntimeError, match="returned 0 outcomes"):
+            mock_engine.infer_partial(input=conversations)
+
+
+def test_existing_infer_tests_unaffected_by_partial_run(mock_engine):
+    """infer() after infer_partial() on the same engine behaves normally."""
+    conversations = [create_test_conversation(idx) for idx in range(2)]
+
+    partial = mock_engine.infer_partial(
+        input=[c.model_copy(deep=True) for c in conversations]
+    )
+    results = mock_engine.infer(input=[c.model_copy(deep=True) for c in conversations])
+
+    assert len(partial.successful) == 2
+    assert len(results) == 2

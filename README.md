@@ -23,6 +23,7 @@
 
 ## 🔥 News
 
+- [2026/06] Added support for the Gemma 4 model family
 - [2026/05] [Oumi v0.8 released](https://github.com/oumi-ai/oumi/releases/tag/v0.8) with `oumi deploy` CLI for dedicated inference endpoints, an `oumi-mcp` MCP server for Claude/Cursor integration, batch API support across Anthropic/Fireworks/Together, and Transformers v5 / TRL / vLLM dependency upgrades
 - [2026/03] Upgraded to Transformers v5, TRL v0.30, vLLM v0.19, and veRL v0.7 compatibility
 - [2026/03] [MCP Integration Phase 1](https://github.com/oumi-ai/oumi/pull/2234): package scaffold and dependencies for MCP server support

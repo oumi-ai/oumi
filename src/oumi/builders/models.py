@@ -365,11 +365,11 @@ def _get_transformers_model_class(config):
 
 
 def is_image_text_llm_using_model_name(
-    model_name: str, trust_remote_code: bool
+    model_name: str, trust_remote_code: bool, revision: str | None = None
 ) -> bool:
     """Determines whether the model is a basic image+text LLM."""
     model_config = find_internal_model_config_using_model_name(
-        model_name, trust_remote_code=trust_remote_code
+        model_name, trust_remote_code=trust_remote_code, revision=revision
     )
     return model_config is not None and model_config.visual_config is not None
 
@@ -377,7 +377,9 @@ def is_image_text_llm_using_model_name(
 def is_image_text_llm(model_params: ModelParams) -> bool:
     """Determines whether the model is a basic image+text LLM."""
     return is_image_text_llm_using_model_name(
-        model_params.model_name, model_params.trust_remote_code
+        model_params.model_name,
+        model_params.trust_remote_code,
+        revision=model_params.model_revision,
     )
 
 
@@ -411,10 +413,13 @@ def build_tokenizer(
         find_internal_model_config_using_model_name(
             model_name=tokenizer_name,
             trust_remote_code=model_params.trust_remote_code,
+            revision=model_params.model_revision,
         )
     )
 
     tokenizer_kwargs = {**model_params.tokenizer_kwargs}
+    # `revision` may already be pinned via tokenizer_kwargs; don't pass it twice.
+    tokenizer_kwargs.setdefault("revision", model_params.model_revision)
     if internal_config is not None:
         if (
             "padding_side" not in tokenizer_kwargs

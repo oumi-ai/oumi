@@ -13,6 +13,9 @@
 # limitations under the License.
 
 
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
+
 import aiohttp
 
 
@@ -71,6 +74,35 @@ def is_non_retriable_status_code(
         if any(pattern in lower_msg for pattern in _RETRIABLE_400_PATTERNS):
             return False
     return True
+
+
+def parse_retry_after(header_value: str | None, now: datetime) -> float | None:
+    """Parse an RFC 7231 Retry-After value into seconds from ``now``.
+
+    Handles both forms: delta-seconds ("120") and HTTP-date
+    ("Wed, 21 Oct 2015 07:28:00 GMT"). Returns None when the value is absent or
+    unparseable. Past dates and negative deltas clamp to 0.0.
+
+    Args:
+        header_value: The raw Retry-After header value, or None if absent.
+        now: The reference time used to convert an HTTP-date to a delta.
+    """
+    if header_value is None:
+        return None
+    stripped_header = header_value.strip()
+    if not stripped_header:
+        return None
+    try:
+        return max(0.0, float(stripped_header))
+    except (ValueError, TypeError):
+        pass
+    try:
+        parsed = parsedate_to_datetime(stripped_header)
+    except (ValueError, TypeError):
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return max(0.0, (parsed - now).total_seconds())
 
 
 async def get_failure_reason_from_response(

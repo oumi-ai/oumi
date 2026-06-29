@@ -32,6 +32,7 @@ def build_processor(
     *,
     processor_kwargs: dict[str, Any] | None = None,
     trust_remote_code: bool = False,
+    model_revision: str | None = None,
 ) -> BaseProcessor:
     """Builds a processor.
 
@@ -44,6 +45,7 @@ def build_processor(
         trust_remote_code: Whether to allow loading remote code for this processor
             Some processors come with downloadable executable Python files,
             which can be a potential security risk, unless it's from a trusted source.
+        model_revision: The HuggingFace model revision to load, if any.
 
     Returns:
         BaseProcessor: The newly created processor.
@@ -52,7 +54,7 @@ def build_processor(
         raise ValueError("Empty model name.")
 
     model_config = find_internal_model_config_using_model_name(
-        processor_name, trust_remote_code=trust_remote_code
+        processor_name, trust_remote_code=trust_remote_code, revision=model_revision
     )
 
     # Initialize model-specific params.
@@ -68,15 +70,14 @@ def build_processor(
         # Override model-specific params with user-defined ones.
         effective_processor_kwargs.update(processor_kwargs)
 
+    # `revision` may already be pinned via processor_kwargs; don't pass it twice.
+    effective_processor_kwargs.setdefault("revision", model_revision)
     create_processor_fn = functools.partial(
         transformers.AutoProcessor.from_pretrained,
         processor_name,
         trust_remote_code=trust_remote_code,
     )
-    if len(effective_processor_kwargs) > 0:
-        worker_processor = create_processor_fn(**effective_processor_kwargs)
-    else:
-        worker_processor = create_processor_fn()
+    worker_processor = create_processor_fn(**effective_processor_kwargs)
 
     return DefaultProcessor(
         processor_name,

@@ -51,6 +51,34 @@ def test_convert_conversation_to_api_input(anthropic_engine):
     assert result["cache_control"] == {"type": "ephemeral"}
 
 
+def test_convert_conversation_includes_user_id_metadata():
+    engine = AnthropicInferenceEngine(
+        model_params=ModelParams(model_name="claude-3"),
+        remote_params=RemoteParams(
+            api_key="test_api_key", api_url="<placeholder>", user_id="ORG-7"
+        ),
+    )
+    conversation = Conversation(messages=[Message(content="hi", role=Role.USER)])
+
+    result = engine._convert_conversation_to_api_input(
+        conversation, GenerationParams(max_new_tokens=100), engine._model_params
+    )
+
+    assert result["metadata"] == {"user_id": "ORG-7"}
+
+
+def test_convert_conversation_omits_metadata_without_user_id(anthropic_engine):
+    conversation = Conversation(messages=[Message(content="hi", role=Role.USER)])
+
+    result = anthropic_engine._convert_conversation_to_api_input(
+        conversation,
+        GenerationParams(max_new_tokens=100),
+        anthropic_engine._model_params,
+    )
+
+    assert "metadata" not in result
+
+
 def test_convert_api_output_to_conversation(anthropic_engine):
     original_conversation = Conversation(
         messages=[

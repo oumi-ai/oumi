@@ -33,14 +33,35 @@ class RemoteParams(BaseParams):
     api_key_env_varname: str | None = None
     """Name of the environment variable containing the API key for authentication."""
 
-    max_retries: int = 3
-    """Maximum number of retries to attempt when calling an API."""
+    user_id: str | None = None
+    """Opaque end-user identifier forwarded to the provider for abuse attribution.
+
+    Sent as OpenAI ``user`` / Anthropic ``metadata.user_id``; omitted when unset.
+    """
+
+    max_retries: int = 5
+    """Maximum number of retries when an API call fails with a retriable error.
+
+    Applies to every retriable failure (429, 5xx, connection/timeout errors),
+    not just rate limits. With the default backoff this allows roughly 100s of
+    total wait across attempts before giving up.
+    """
 
     retry_backoff_base: float = 1.0
-    """Base delay in seconds for exponential backoff between retries."""
+    """Base delay in seconds for exponential backoff between retries.
+
+    The delay is ``min(retry_backoff_base * 10 ** (attempt - 1),
+    retry_backoff_max)`` (a 10x step per attempt), so with the defaults the
+    waits are ~1s, 10s, then 30s (capped). A server-provided Retry-After takes
+    precedence over this schedule and is honored in full.
+    """
 
     retry_backoff_max: float = 30.0
-    """Maximum delay in seconds between retries."""
+    """Maximum delay in seconds for the exponential backoff schedule.
+
+    Caps the computed backoff only; a server-provided Retry-After is honored in
+    full and is not bounded by this value.
+    """
 
     connection_timeout: float = 300.0
     """Timeout in seconds for a request to an API."""
@@ -228,10 +249,12 @@ class AdaptiveConcurrencyParams(BaseParams):
     is 100, and the backoff factor is 0.8, the concurrency will be reduced to 80).
     """
 
-    recovery_threshold: float = 0.00
-    """Error rate threshold (0.00 = 0%) to allow recovery.
+    recovery_threshold: float = 0.005
+    """Error rate at or below which recovery from backoff is allowed.
 
-    If the error rate is less than this threshold, recovery will be triggered.
+    Sits just below ``error_threshold`` to form a hysteresis band: back off above
+    ``error_threshold``, recover at or below ``recovery_threshold``, hold between.
+    A value of ``0.0`` would require a perfectly error-free window to ever recover.
     """
 
     min_window_size: int = 10

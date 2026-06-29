@@ -284,6 +284,7 @@ def evaluate(
     is_multimodal = is_image_text_llm_using_model_name(
         model_name=config.model.model_name,
         trust_remote_code=config.model.trust_remote_code,
+        revision=config.model.model_revision,
     )
 
     # Identify the proper LM Harness model (`lm_harness_model`) to use.
@@ -496,6 +497,7 @@ def _add_multimodal_args(
             tokenizer,
             trust_remote_code=model_params.trust_remote_code,
             processor_kwargs=model_params.processor_kwargs,
+            model_revision=model_params.model_revision,
         )
         if image_token := processor.image_token:
             model_args["image_string"] = image_token
