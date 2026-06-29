@@ -96,9 +96,13 @@ class ExecutableEnvironment(BaseEnvironment):
         tool = self._lookup_tool(tool_id)
         tool.validate_arguments(arguments)
         with self._build_execution_context(tool, arguments) as ctx:
-            result = self._executors[tool_id](
-                **{"arguments": arguments, self._executor_context_kwarg: ctx}
-            )
+            result = self._invoke_executor(self._executors[tool_id], arguments, ctx)
         validated = self._validate_result(tool, result)
         self._absorb_result(tool, validated)
         return validated
+
+    def _invoke_executor(
+        self, executor: Callable[..., Any], arguments: dict[str, Any], ctx: Any
+    ) -> Any:
+        """Call the resolved executor and return its raw result."""
+        return executor(**{"arguments": arguments, self._executor_context_kwarg: ctx})

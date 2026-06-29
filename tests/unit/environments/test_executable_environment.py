@@ -50,11 +50,6 @@ def test_cannot_instantiate_abstract_base():
         ExecutableEnvironment()  # type: ignore[abstract]
 
 
-def test_default_executor_context_kwarg_is_context():
-    """Subclasses (e.g. database) override this; the default is ``"context"``."""
-    assert ExecutableEnvironment._executor_context_kwarg == "context"
-
-
 def test_default_tool_params_cls_is_executable_tool():
     """ExecutableEnvironment binds to ExecutableTool by default."""
     assert ExecutableEnvironment.tool_params_cls is ExecutableTool

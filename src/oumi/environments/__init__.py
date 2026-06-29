@@ -34,6 +34,8 @@ from oumi.core.types.tool_call import JSONSchema, ToolResult
 from oumi.environments.base_environment import BaseEnvironment
 from oumi.environments.database_executable_environment import (
     DatabaseExecutableEnvironment,
+    current_connection,
+    using_connection,
 )
 from oumi.environments.deterministic_environment import (
     DeterministicEnvironment,
@@ -69,4 +71,6 @@ __all__ = [
     "ToolLookupError",
     "ToolParams",
     "ToolResult",
+    "current_connection",
+    "using_connection",
 ]

@@ -16,9 +16,15 @@
 
 from __future__ import annotations
 
+import sqlite3
+
+import pytest
+
 from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.environments.database_executable_environment import (
     DatabaseExecutableEnvironment,
+    current_connection,
+    using_connection,
 )
 from oumi.environments.database_session import materialize_sqlite_snapshot
 
@@ -149,3 +155,24 @@ def test_shared_snapshot_is_never_mutated(tmp_path):
         assert seen.output == {"name": "Bob", "meds": "aspirin"}
     finally:
         fresh.close()
+
+
+def test_current_connection_outside_a_call_raises():
+    with pytest.raises(RuntimeError, match="no connection is bound"):
+        current_connection()
+
+
+def test_using_connection_nests_and_restores_outer_binding():
+    outer = sqlite3.connect(":memory:")
+    inner = sqlite3.connect(":memory:")
+    try:
+        with using_connection(outer):
+            assert current_connection() is outer
+            with using_connection(inner):
+                assert current_connection() is inner
+            assert current_connection() is outer  # token reset restores outer
+        with pytest.raises(RuntimeError):
+            current_connection()  # unbound again after the outer block exits
+    finally:
+        outer.close()
+        inner.close()

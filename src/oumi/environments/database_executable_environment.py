@@ -16,19 +16,59 @@
 
 from __future__ import annotations
 
+import contextvars
 import importlib
+import sqlite3
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
-from typing import Any, ClassVar
+from typing import Any
 
 from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.core.registry import register_environment
+from oumi.core.types.tool_call import ToolResult
 from oumi.environments.database_session import (
     DatabaseSession,
     materialize_sqlite_snapshot,
 )
 from oumi.environments.executable_environment import ExecutableEnvironment
 from oumi.environments.executable_tool import ExecutableTool
+
+_ACTIVE_CONNECTION: contextvars.ContextVar[sqlite3.Connection] = contextvars.ContextVar(
+    "oumi_active_db_connection"
+)
+
+
+def current_connection() -> sqlite3.Connection:
+    """Return the SQLite connection bound to the in-flight tool call.
+
+    Raises:
+        RuntimeError: if called outside a tool execution (nothing is bound).
+    """
+    try:
+        return _ACTIVE_CONNECTION.get()
+    except LookupError as e:
+        raise RuntimeError(
+            "current_connection() called outside a DatabaseExecutableEnvironment "
+            "tool execution; no connection is bound."
+        ) from e
+
+
+@contextmanager
+def using_connection(connection: sqlite3.Connection) -> Iterator[sqlite3.Connection]:
+    """Bind ``connection`` as the active connection for the duration of the block.
+
+    The environment uses this internally per call. It is also the supported way
+    to run an executor directly — in a unit test or a grading path — without
+    threading the connection through it::
+
+        with using_connection(conn):
+            run_my_tool(arg=1)
+    """
+    token = _ACTIVE_CONNECTION.set(connection)
+    try:
+        yield connection
+    finally:
+        _ACTIVE_CONNECTION.reset(token)
 
 
 def _import_executor(dotted: str, tool_id: str) -> Callable[..., Any]:
@@ -49,15 +89,7 @@ def _import_executor(dotted: str, tool_id: str) -> Callable[..., Any]:
 
 @register_environment("database")
 class DatabaseExecutableEnvironment(ExecutableEnvironment):
-    """Runs SQL-executing tools against a Database-isolated SQLite session.
-
-    One instance owns one session for the duration of an episode. Executors
-    must NOT commit; the env rolls back on ``close()`` so writes never persist.
-    ``requires_isolation()`` is ``True``, so the router builds a fresh instance
-    (hence a fresh session) per rollout. See ``database_session`` for the contract.
-    """
-
-    _executor_context_kwarg: ClassVar[str] = "db"
+    """Runs SQL-executing tools against an isolated database session."""
 
     def __init__(self, params: EnvironmentParams, session: DatabaseSession) -> None:
         """Bind the env to its params and an already-open Database session."""
@@ -101,9 +133,28 @@ class DatabaseExecutableEnvironment(ExecutableEnvironment):
     @contextmanager
     def _build_execution_context(
         self, tool: ExecutableTool, arguments: dict[str, Any]
-    ) -> Iterator[Any]:
-        """Yield the episode's connection (uncommitted writes persist within it)."""
-        yield self._session.connection
+    ) -> Iterator[None]:
+        """Bind the episode's connection as the active connection for this call.
+
+        The connection travels via the contextvar — executors read it through
+        ``current_connection()`` — so the yielded ctx is unused.
+        """
+        with using_connection(self._session.connection):
+            yield None
+
+    def _invoke_executor(
+        self, executor: Callable[..., Any], arguments: dict[str, Any], ctx: Any
+    ) -> Any:
+        """Call the executor with unpacked tool params and coerce the return.
+
+        The connection is ambient (``current_connection()``), so executors take
+        only their declared parameters. A plain return value is wrapped into a
+        ``ToolResult``; a ``ToolResult`` is passed through unchanged. Exceptions
+        raised by an executor propagate to the caller (matching the base
+        contract) — callers that grade untrusted SQL catch them themselves.
+        """
+        result = executor(**arguments)
+        return result if isinstance(result, ToolResult) else ToolResult(output=result)
 
     def close(self) -> None:
         """Roll back the episode's writes and tear down the session."""

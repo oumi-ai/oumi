@@ -14,17 +14,17 @@
 
 """EHR example: schema, seed data, and three SQL tool executors.
 
-Executors take (*, arguments, db) where ``db`` is a sqlite3.Connection handed
-in by DatabaseExecutableEnvironment, and return a ToolResult. They must NOT
+Each executor takes only its declared tool parameters and reaches the episode's
+SQLite connection via ``current_connection()`` — the environment binds it per
+call. They return a plain dict (the env wraps it in a ToolResult) and must NOT
 commit: the environment owns the transaction and rolls back on close.
 """
 
 from __future__ import annotations
 
-import sqlite3
 from typing import Any
 
-from oumi.core.types.tool_call import ToolResult
+from oumi.environments.database_executable_environment import current_connection
 
 EHR_SCHEMA = (
     "CREATE TABLE patients ( id INTEGER PRIMARY KEY, name TEXT NOT NULL, meds TEXT);"
@@ -35,28 +35,33 @@ EHR_SEED = (
 )
 
 
-def list_patients(*, arguments: dict[str, Any], db: sqlite3.Connection) -> ToolResult:
+def list_patients() -> dict[str, Any]:
     """List every patient's id and name."""
-    rows = db.execute("SELECT id, name FROM patients ORDER BY id").fetchall()
-    return ToolResult(output={"patients": [{"id": r[0], "name": r[1]} for r in rows]})
+    rows = (
+        current_connection()
+        .execute("SELECT id, name FROM patients ORDER BY id")
+        .fetchall()
+    )
+    return {"patients": [{"id": r[0], "name": r[1]} for r in rows]}
 
 
-def lookup_patient(*, arguments: dict[str, Any], db: sqlite3.Connection) -> ToolResult:
+def lookup_patient(pat_id: int) -> dict[str, Any]:
     """Return one patient's name and meds by id, or an error if absent."""
-    row = db.execute(
-        "SELECT name, meds FROM patients WHERE id = ?", (arguments["pat_id"],)
-    ).fetchone()
+    row = (
+        current_connection()
+        .execute("SELECT name, meds FROM patients WHERE id = ?", (pat_id,))
+        .fetchone()
+    )
     if row is None:
-        return ToolResult(output={"error": "not found"})
-    return ToolResult(output={"name": row[0], "meds": row[1]})
+        return {"error": "not found"}
+    return {"name": row[0], "meds": row[1]}
 
 
-def update_meds(*, arguments: dict[str, Any], db: sqlite3.Connection) -> ToolResult:
+def update_meds(pat_id: int, medication: str) -> dict[str, Any]:
     """Set a patient's medication (uncommitted; rolled back at episode end)."""
     # No commit: the environment rolls back at episode end. The write is
     # visible to later calls on this same connection within the episode.
-    cur = db.execute(
-        "UPDATE patients SET meds = ? WHERE id = ?",
-        (arguments["medication"], arguments["pat_id"]),
+    cur = current_connection().execute(
+        "UPDATE patients SET meds = ? WHERE id = ?", (medication, pat_id)
     )
-    return ToolResult(output={"updated_rows": cur.rowcount})
+    return {"updated_rows": cur.rowcount}
