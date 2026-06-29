@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Executable environment backed by a rollback-isolated SQLite session."""
+"""Executable environment backed by a Database-isolated SQLite session."""
 
 from __future__ import annotations
 
@@ -23,7 +23,10 @@ from typing import Any, ClassVar
 
 from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.core.registry import register_environment
-from oumi.environments.db_isolation import RollbackSession, materialize_sqlite_snapshot
+from oumi.environments.database_session import (
+    DatabaseSession,
+    materialize_sqlite_snapshot,
+)
 from oumi.environments.executable_environment import ExecutableEnvironment
 from oumi.environments.executable_tool import ExecutableTool
 
@@ -46,7 +49,7 @@ def _import_executor(dotted: str, tool_id: str) -> Callable[..., Any]:
 
 @register_environment("database")
 class DatabaseExecutableEnvironment(ExecutableEnvironment):
-    """Runs SQL-executing tools against a rollback-isolated SQLite session.
+    """Runs SQL-executing tools against a Database-isolated SQLite session.
 
     One instance owns one session for the duration of an episode. Executors
     must NOT commit; the env rolls back on ``close()`` so writes never persist.
@@ -56,8 +59,8 @@ class DatabaseExecutableEnvironment(ExecutableEnvironment):
 
     _executor_context_kwarg: ClassVar[str] = "db"
 
-    def __init__(self, params: EnvironmentParams, session: RollbackSession) -> None:
-        """Bind the env to its params and an already-open rollback session."""
+    def __init__(self, params: EnvironmentParams, session: DatabaseSession) -> None:
+        """Bind the env to its params and an already-open Database session."""
         self._params = params
         self._session = session
         self._executors = {
@@ -66,9 +69,9 @@ class DatabaseExecutableEnvironment(ExecutableEnvironment):
 
     @classmethod
     def from_params(cls, params: EnvironmentParams) -> DatabaseExecutableEnvironment:
-        """Build the env, opening a rollback session over its configured DB.
+        """Build the env, opening a Database session over its configured DB.
 
-        ``db_path`` shares one snapshot file across rollouts (rollback isolation,
+        ``db_path`` shares one snapshot file across rollouts (Database isolation,
         scales to large DBs). It is safe for concurrent *readers*, but SQLite
         serializes concurrent *writers* on one file, so concurrent rollouts that
         write will contend — those tasks should use ``schema_sql`` (a fresh
@@ -78,14 +81,12 @@ class DatabaseExecutableEnvironment(ExecutableEnvironment):
         db_path = kwargs.get("db_path")
         schema_sql = kwargs.get("schema_sql")
         if db_path:
-            # Shared snapshot: connect read-side, roll back on close.
-            session = RollbackSession(db_path)
+            session = DatabaseSession(db_path)
         elif schema_sql:
-            # Inline: build a fresh per-rollout DB this instance owns.
             snapshot = materialize_sqlite_snapshot(
                 schema_sql=schema_sql, seed_sql=kwargs.get("seed_sql")
             )
-            session = RollbackSession(snapshot, owns_file=True)
+            session = DatabaseSession(snapshot, owns_file=True)
         else:
             raise ValueError(
                 f"DatabaseExecutableEnvironment '{params.id}': env_kwargs must "

@@ -12,13 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Rollback-based SQLite isolation for per-rollout database environments.
-
-The SkyRL pattern: each rollout gets its own connection that opens a
-transaction and never commits, so uncommitted writes are visible within the
-rollout and discarded on close. The environment owns the transaction;
-executors must not call ``commit()``.
-"""
+"""Rollback-based SQLite isolation for per-rollout database environments."""
 
 from __future__ import annotations
 
@@ -56,7 +50,7 @@ def materialize_sqlite_snapshot(
     return path
 
 
-class RollbackSession:
+class DatabaseSession:
     """A per-rollout SQLite connection that never commits and rolls back on close.
 
     Set ``owns_file=True`` when the env built a throwaway per-rollout database
@@ -64,16 +58,7 @@ class RollbackSession:
     """
 
     def __init__(self, db_path: Path | str, *, owns_file: bool = False) -> None:
-        """Open a per-rollout connection; set owns_file to delete the DB on close.
-
-        Opens with ``isolation_level=None`` and an explicit ``BEGIN`` so the whole
-        session is one transaction. ``sqlite3``'s legacy mode only opens an
-        implicit transaction before DML, which would let a leading DDL statement
-        (e.g. ``CREATE TABLE`` as the first call) run in autocommit and escape the
-        rollback; the explicit ``BEGIN`` brings DDL under transaction control too.
-        Executors still must not call ``commit()`` — an explicit commit persists
-        regardless and there is no way to undo it.
-        """
+        """Open a per-rollout connection; set owns_file to delete the DB on close."""
         self._path = Path(db_path)
         self._owns_file = owns_file
         self.connection = sqlite3.connect(self._path, isolation_level=None)
