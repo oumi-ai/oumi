@@ -280,6 +280,9 @@ class ConversationSynthesizer:
             samples = self._plan_samples(samples, multiturn_attributes)
             conversations = self._synthesize_all_samples(samples, multiturn_attributes)
         finally:
+            for sample_router in self._sample_routers:
+                if sample_router is not None:
+                    sample_router.close()
             self._sample_routers = []
 
         records: list[dict[str, dict | str] | None] = []

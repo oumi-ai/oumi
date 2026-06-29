@@ -74,6 +74,11 @@ class ToolRouter:
             if on_env_built is not None:
                 on_env_built(env)
             env_by_id[env_params.id] = env
+            # Isolating envs are rebuilt per-sample in for_sample(); the parent
+            # only reads requires_isolation() off this instance, so free its
+            # resources now (e.g. a DB env's temp snapshot) instead of leaking.
+            if env.requires_isolation():
+                env.close()
 
         tools_by_id = {tool.id: tool for tool in env_config.all_tools}
         tool_to_env = {
@@ -123,6 +128,16 @@ class ToolRouter:
             tool_env_map=self.tool_env_map,
             on_env_built=self.on_env_built,
         )
+
+    def close(self) -> None:
+        """Release per-sample envs this router owns.
+
+        Only isolation-requiring envs are rebuilt (and thus owned) per router;
+        shared envs belong to the parent router and are left open.
+        """
+        for env in self.env_by_id.values():
+            if env.requires_isolation():
+                env.close()
 
     def parse_and_validate_arguments(
         self, tool_id: str, raw_arguments: str
