@@ -94,3 +94,14 @@ def test_owned_session_deletes_its_file_on_close(tmp_path):
     assert path.exists()
     session.close()
     assert not path.exists()
+
+
+def test_close_is_idempotent(tmp_path):
+    # A router may close the same session at build time and again explicitly;
+    # the second close must not raise on the already-closed connection.
+    path = materialize_sqlite_snapshot(
+        schema_sql=_SCHEMA, seed_sql=_SEED, dest=tmp_path / "seed.sqlite"
+    )
+    session = DatabaseSession(path)
+    session.close()
+    session.close()

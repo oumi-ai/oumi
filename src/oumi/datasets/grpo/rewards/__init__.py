@@ -21,7 +21,6 @@ from oumi.datasets.grpo.rewards.completion_length_rewards import (
 from oumi.datasets.grpo.rewards.count_letters_rewards import compute_letter_count_reward
 from oumi.datasets.grpo.rewards.countdown_rewards import countdown_reward
 from oumi.datasets.grpo.rewards.gsm8k_reward import gsm8k_reward
-from oumi.datasets.grpo.rewards.sql_execution_match import sql_execution_match
 
 __all__ = [
     "compute_letter_count_reward",
@@ -29,5 +28,4 @@ __all__ = [
     "compute_sharp_target_token_length_reward",
     "countdown_reward",
     "gsm8k_reward",
-    "sql_execution_match",
 ]

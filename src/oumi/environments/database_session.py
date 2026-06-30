@@ -61,6 +61,7 @@ class DatabaseSession:
         """Open a per-rollout connection; set owns_file to delete the DB on close."""
         self._path = Path(db_path)
         self._owns_file = owns_file
+        self._closed = False
         self.connection = sqlite3.connect(self._path, isolation_level=None)
         try:
             self.connection.execute("BEGIN")
@@ -71,7 +72,14 @@ class DatabaseSession:
             raise
 
     def close(self) -> None:
-        """Roll back any open transaction, close, and delete an owned file."""
+        """Roll back any open transaction, close, and delete an owned file.
+
+        Idempotent: a router may close the same session more than once (build-time
+        teardown plus an explicit ``close()``), so a second call is a no-op.
+        """
+        if self._closed:
+            return
+        self._closed = True
         try:
             self.connection.rollback()
         finally:

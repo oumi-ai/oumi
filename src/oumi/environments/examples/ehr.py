@@ -12,12 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""EHR example: schema, seed data, and three SQL tool executors.
+"""EHR example: three SQL tool executors for the database environment.
 
 Each executor takes only its declared tool parameters and reaches the episode's
 SQLite connection via ``current_connection()`` — the environment binds it per
 call. They return a plain dict (the env wraps it in a ToolResult) and must NOT
-commit: the environment owns the transaction and rolls back on close.
+commit: the environment owns the transaction and rolls back on close. The schema
+and seed data live in the example configs under ``configs/examples/``.
 """
 
 from __future__ import annotations
@@ -25,14 +26,6 @@ from __future__ import annotations
 from typing import Any
 
 from oumi.environments.database_executable_environment import current_connection
-
-EHR_SCHEMA = (
-    "CREATE TABLE patients ( id INTEGER PRIMARY KEY, name TEXT NOT NULL, meds TEXT);"
-)
-EHR_SEED = (
-    "INSERT INTO patients (id, name, meds) VALUES"
-    " (1, 'Bob', 'aspirin'), (2, 'Alice', 'ibuprofen'), (3, 'Carol', NULL);"
-)
 
 
 def list_patients() -> dict[str, Any]:
@@ -59,8 +52,6 @@ def lookup_patient(pat_id: int) -> dict[str, Any]:
 
 def update_meds(pat_id: int, medication: str) -> dict[str, Any]:
     """Set a patient's medication (uncommitted; rolled back at episode end)."""
-    # No commit: the environment rolls back at episode end. The write is
-    # visible to later calls on this same connection within the episode.
     cur = current_connection().execute(
         "UPDATE patients SET meds = ? WHERE id = ?", (medication, pat_id)
     )

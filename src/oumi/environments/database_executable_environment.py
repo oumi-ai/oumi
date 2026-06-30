@@ -58,8 +58,8 @@ def using_connection(connection: sqlite3.Connection) -> Iterator[sqlite3.Connect
     """Bind ``connection`` as the active connection for the duration of the block.
 
     The environment uses this internally per call. It is also the supported way
-    to run an executor directly — in a unit test or a grading path — without
-    threading the connection through it::
+    to run an executor directly — e.g. in a unit test — without threading the
+    connection through it::
 
         with using_connection(conn):
             run_my_tool(arg=1)
