@@ -124,8 +124,13 @@ class KernelBrowserSession:
                 cdp.close()
 
     def close(self) -> None:
-        """Delete the Kernel session. Idempotent — safe to call from ``finally``."""
+        """Delete the Kernel session. Idempotent — safe to call from ``finally``.
+
+        ``_closed`` is set only after a successful delete, so a transient Kernel
+        API failure raises (loud) and leaves the session retryable rather than
+        leaking the remote microVM behind the idempotency guard.
+        """
         if self._closed:
             return
-        self._closed = True
         self._kernel.browsers.delete_by_id(self.session_id)
+        self._closed = True

@@ -27,6 +27,7 @@ from oumi.core.types.tool_call import ToolResult
 from oumi.environments.browser_session import KernelBrowserSession, using_page
 from oumi.environments.executable_environment import ExecutableEnvironment
 from oumi.environments.executable_tool import ExecutableTool
+from oumi.utils.logging import logger
 
 #: ``env_kwargs`` keys forwarded to ``kernel.browsers.create``. The API key is
 #: deliberately excluded — credentials come from ``KERNEL_API_KEY``, never config.
@@ -88,6 +89,16 @@ class BrowserExecutableEnvironment(ExecutableEnvironment):
         """Open a fresh Kernel browser session from ``env_kwargs`` and bind the env."""
         kwargs = dict(params.env_kwargs or {})
         create_kwargs = {k: kwargs[k] for k in _BROWSER_CREATE_KEYS if k in kwargs}
+        unknown = sorted(set(kwargs) - set(_BROWSER_CREATE_KEYS))
+        if unknown:
+            logger.warning(
+                "BrowserExecutableEnvironment '%s': ignoring unrecognized env_kwargs "
+                "%s (recognized Kernel create params: %s). The API key comes from "
+                "KERNEL_API_KEY, never config.",
+                params.id,
+                unknown,
+                list(_BROWSER_CREATE_KEYS),
+            )
         session = KernelBrowserSession(create_kwargs)
         return cls(params, session)
 

@@ -14,24 +14,12 @@
 
 """Example browser tool executors for ``BrowserExecutableEnvironment``.
 
-Reference these by dotted path from a tool's ``executor`` field, e.g.::
-
-    tools:
-      - id: navigate
-        name: navigate
-        description: Load a URL.
-        executor: oumi.environments.playwright_executors.navigate
-        parameters:
-          type: object
-          properties: {url: {type: string}}
-          required: [url]
-
-The environment binds the live page for each tool call; executors read it via
-``current_page()``, take their declared tool parameters directly, and return a
-dict (auto-wrapped into a ``ToolResult``). Requires ``pip install 'oumi[browser]'``.
-
-Page/navigation state persists on the remote Kernel session across tool calls,
-so executors are stateless: each call reads the page, acts, and returns.
+Reference these by dotted path from a tool's ``executor`` field (see
+``configs/examples/synthesis/browser_oumi_synth.yaml`` for the full wiring). The
+environment binds the live page for each call; executors read it via
+``current_page()``, take their declared tool params directly, and return a dict
+(auto-wrapped into a ``ToolResult``). Page state persists on the remote Kernel
+session across calls, so executors stay stateless. Needs ``oumi[browser]``.
 """
 
 from __future__ import annotations
@@ -72,4 +60,4 @@ def read_text(selector: str = "body", max_chars: int = _DEFAULT_MAX_CHARS) -> di
     """
     page = current_page()
     text = page.inner_text(selector, timeout=_DEFAULT_TIMEOUT_MS)
-    return {"text": text[:max_chars], "url": page.url}
+    return {"text": text[: max(0, max_chars)], "url": page.url}
