@@ -134,25 +134,14 @@ class DatabaseExecutableEnvironment(ExecutableEnvironment):
     def _build_execution_context(
         self, tool: ExecutableTool, arguments: dict[str, Any]
     ) -> Iterator[None]:
-        """Bind the episode's connection as the active connection for this call.
-
-        The connection travels via the contextvar — executors read it through
-        ``current_connection()`` — so the yielded ctx is unused.
-        """
+        """Bind the episode's connection as the active connection for this call."""
         with using_connection(self._session.connection):
             yield None
 
     def _invoke_executor(
         self, executor: Callable[..., Any], arguments: dict[str, Any], ctx: Any
     ) -> Any:
-        """Call the executor with unpacked tool params and coerce the return.
-
-        The connection is ambient (``current_connection()``), so executors take
-        only their declared parameters. A plain return value is wrapped into a
-        ``ToolResult``; a ``ToolResult`` is passed through unchanged. Exceptions
-        raised by an executor propagate to the caller (matching the base
-        contract) — callers that grade untrusted SQL catch them themselves.
-        """
+        """Call the executor with unpacked tool params and coerce the return."""
         result = executor(**arguments)
         return result if isinstance(result, ToolResult) else ToolResult(output=result)
 
