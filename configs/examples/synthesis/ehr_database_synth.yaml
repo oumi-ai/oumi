@@ -1,0 +1,147 @@
+# Synthesize multi-turn EHR-assistant conversations that exercise the
+# DatabaseExecutableEnvironment's SQL tools. A clinician (one of three personas)
+# chats with ChartBot, which uses list_patients / lookup_patient / update_meds.
+# Each conversation runs against its OWN rollback-isolated SQLite snapshot:
+# env_type=database + requires_isolation=True -> the router rebuilds a fresh
+# session per sample, so writes in one conversation never leak into another.
+#
+# Requirements:
+#   - Set OPENAI_API_KEY (or swap inference_config to another native-tool-calling
+#     engine; see NATIVE_TOOL_CALLING_ENGINES in oumi/inference/native_tool_calling.py).
+#
+# Usage:
+#   PYTHONPATH=src oumi synth -c configs/examples/synthesis/ehr_database_synth.yaml
+
+strategy: GENERAL
+num_samples: 100
+output_path: ehr_database_dataset.jsonl
+
+environment_config:
+  environments:
+    - id: ehr
+      name: ehr
+      description: A small EHR patients table with lookup and update tools.
+      env_type: database
+      env_kwargs:
+        schema_sql: "CREATE TABLE patients (id INTEGER PRIMARY KEY, name TEXT NOT NULL, meds TEXT);"
+        seed_sql: >
+          INSERT INTO patients (id, name, meds) VALUES
+            (1, 'Bob Martin', 'aspirin'),
+            (2, 'Alice Chen', 'ibuprofen'),
+            (3, 'Carol Diaz', NULL),
+            (4, 'David Okoye', 'metformin'),
+            (5, 'Eve Larsson', 'lisinopril'),
+            (6, 'Frank Wu', 'atorvastatin'),
+            (7, 'Grace Park', NULL),
+            (8, 'Hassan Ali', 'amoxicillin'),
+            (9, 'Ivy Nguyen', 'omeprazole'),
+            (10, 'Jack Brown', 'warfarin'),
+            (11, 'Karen Smith', 'levothyroxine'),
+            (12, 'Liam Murphy', NULL);
+      tools:
+        - id: list_patients
+          name: list_patients
+          description: List all patients with their id and name.
+          parameters: {type: object, properties: {}}
+          executor: oumi.environments.examples.ehr.list_patients
+          read_only: true
+        - id: lookup_patient
+          name: lookup_patient
+          description: Look up one patient's name and current medication by id.
+          parameters:
+            type: object
+            properties:
+              pat_id: {type: integer, description: Patient id from list_patients.}
+            required: [pat_id]
+          executor: oumi.environments.examples.ehr.lookup_patient
+          read_only: true
+        - id: update_meds
+          name: update_meds
+          description: Set a patient's medication by id.
+          parameters:
+            type: object
+            properties:
+              pat_id: {type: integer}
+              medication: {type: string}
+            required: [pat_id, medication]
+          executor: oumi.environments.examples.ehr.update_meds
+          read_only: false
+
+strategy_params:
+  sampled_attributes:
+    - id: clinician_persona
+      name: Clinician persona
+      description: The kind of clinician talking to ChartBot.
+      possible_values:
+        - id: charge_nurse
+          name: A charge nurse doing a medication round
+          description: Practical, time-pressed, double-checks before changing anything.
+        - id: attending_physician
+          name: An attending physician reviewing a patient
+          description: Precise, asks targeted questions, decisive about med changes.
+        - id: pharmacist
+          name: A pharmacist reconciling medications
+          description: Detail-oriented, cross-checks current meds, cautious about interactions.
+
+  multiturn_attributes:
+    - id: ehr_dialog
+      min_turns: 4
+      max_turns: 6
+      max_consecutive_tool_turns: 6
+      available_environments:
+        - ehr
+
+      role_instruction_messages:
+        USER: |
+          You are {clinician_persona.name}: {clinician_persona.description}
+
+          You are talking to ChartBot, an EHR assistant, to look up patients and
+          (sometimes) update a patient's medication.
+
+          Guidelines:
+          - Stay in character — match the persona's tone.
+          - Don't call tools yourself; only ChartBot has tools.
+          - Refer to patients by name; let ChartBot find the id.
+          - Follow the plan's direction for this turn but respond naturally.
+          - Keep responses concise. Output only your message, nothing else.
+
+        ASSISTANT: |
+          You are ChartBot, a careful EHR assistant with three tools:
+          - list_patients(): list all patients with ids and names.
+          - lookup_patient(pat_id): get a patient's name and current medication.
+          - update_meds(pat_id, medication): change a patient's medication.
+
+          Guidelines:
+          - Use tools for facts; never guess a patient id or current medication.
+          - Resolve a name to an id via list_patients before lookup or update.
+          - Before calling update_meds, confirm the patient and the new medication
+            with the clinician.
+          - When you have what you need, give a clear final answer in plain text.
+
+      conversation_planner: |
+        Plan a {target_turns}-turn conversation between {clinician_persona.name}
+        ({clinician_persona.description}) and ChartBot. The dialog must require
+        ChartBot to call list_patients at least once and lookup_patient at least
+        once; some conversations should also update a medication.
+
+        Match the plan to the persona's communication style. Be specific about
+        what each turn should accomplish.
+
+      output_system_prompt: |
+        This is a conversation between a clinician and ChartBot, a tool-using
+        EHR assistant.
+
+  passthrough_attributes:
+    - clinician_persona
+    - ehr_dialog
+    - ehr_dialog_plan
+
+inference_config:
+  engine: OPENAI
+  model:
+    model_name: gpt-4o-mini
+  generation:
+    max_new_tokens: 1024
+    temperature: 0.4
+  remote_params:
+    num_workers: 10
