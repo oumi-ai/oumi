@@ -122,6 +122,12 @@ docs = [
     "sphinxcontrib-typer",   # Allows us to include typer CLI in the docs
 ]
 
+# Cloud browser backend + driver for BrowserExecutableEnvironment.
+browser = [
+    "kernel>=0.72,<0.80",     # Kernel cloud browser SDK (onkernel.com)
+    "playwright>=1.40,<2",    # CDP driver used by the example browser executors
+]
+
 # Useful dependencies when running on GPU
 gpu = [
     "liger-kernel>=0.6,<0.9",

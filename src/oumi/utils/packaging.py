@@ -176,6 +176,48 @@ def require_torchdata(feature_name: str = "This feature") -> None:
         )
 
 
+@lru_cache(maxsize=1)
+def is_kernel_available() -> bool:
+    """Checks if the Kernel browser SDK is installed."""
+    try:
+        importlib.import_module("kernel")
+        return True
+    except ImportError:
+        return False
+
+
+def require_kernel(feature_name: str = "This feature") -> None:
+    """Raises an ImportError if the Kernel browser SDK is not available."""
+    if not is_kernel_available():
+        raise ImportError(
+            f"{feature_name} requires the Kernel browser SDK. "
+            "Please install it with: pip install 'oumi[browser]'"
+        )
+
+
+@lru_cache(maxsize=1)
+def is_playwright_available() -> bool:
+    """Checks if Playwright is installed."""
+    try:
+        importlib.import_module("playwright")
+        return True
+    except ImportError:
+        return False
+
+
+def require_playwright(feature_name: str = "This feature") -> None:
+    """Raises an ImportError if Playwright is not available.
+
+    Driving a remote Kernel browser over CDP needs only the Playwright Python
+    package (no local browser binary), so no ``playwright install`` step.
+    """
+    if not is_playwright_available():
+        raise ImportError(
+            f"{feature_name} requires Playwright. "
+            "Please install it with: pip install 'oumi[browser]'"
+        )
+
+
 _MIN_TRL_VERSION_FOR_GOLD = "0.24.0"
 
 
