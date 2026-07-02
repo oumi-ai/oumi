@@ -57,6 +57,20 @@ _STRAGGLER_NUDGE = (
 )
 
 
+@dataclasses.dataclass
+class PlannerPrompt:
+    """A planner-prompt conversation and the augmented sample it was built from.
+
+    ``augmented_sample`` carries the original sample plus the runtime planning
+    fields (``target_turns`` and the empty ``conversation_plan`` /
+    ``parsed_turn_plans`` placeholders). ``conversation`` is the ready-to-infer
+    planner prompt for that sample.
+    """
+
+    augmented_sample: dict
+    conversation: Conversation
+
+
 class ConversationSynthesizer:
     """Synthesizes a conversation.
 
@@ -304,6 +318,53 @@ class ConversationSynthesizer:
 
         return records
 
+    def build_planner_prompts(
+        self,
+        samples: list[dict],
+        multiturn_attribute: MultiTurnAttribute,
+    ) -> list[PlannerPrompt]:
+        """Select target turns and build planner prompts, without inference.
+
+        The inference-free prefix of :meth:`_plan_samples`: picks a per-sample
+        turn count and renders each planner-prompt conversation, but does not
+        call the model. Callers that drive inference themselves (e.g. a workflow
+        that runs the planner as a separate stage) can run the returned
+        conversations under ``PLANNER_JSON_SCHEMA`` guided decoding and feed the
+        raw plan strings back through :meth:`_parse_plan`.
+
+        Args:
+            samples: The samples to plan conversations for.
+            multiturn_attribute: The multi-turn attribute defining conversation
+                rules.
+
+        Returns:
+            One :class:`PlannerPrompt` per input sample, in order. Persist each
+            ``augmented_sample["target_turns"]`` if the plan strings are inferred
+            out-of-process — the turn count is drawn randomly here and cannot be
+            reconstructed downstream.
+        """
+        self._validate_roles(multiturn_attribute)
+        turn_order = self._default_turn_order
+        prompts: list[PlannerPrompt] = []
+        for sample in samples:
+            target_turns = self._select_target_turns(multiturn_attribute, turn_order)
+            augmented_sample = {
+                **sample,
+                "target_turns": target_turns,
+                "conversation_plan": "",
+                "parsed_turn_plans": [""] * target_turns,
+            }
+            logger.debug(f"Planning conversation with {target_turns} turns")
+            prompts.append(
+                PlannerPrompt(
+                    augmented_sample=augmented_sample,
+                    conversation=self._create_planner_prompt(
+                        multiturn_attribute, augmented_sample
+                    ),
+                )
+            )
+        return prompts
+
     def _plan_samples(
         self,
         samples: list[dict],
@@ -321,19 +382,9 @@ class ConversationSynthesizer:
             A list of sample dicts augmented with runtime fields
             (target_turns, conversation_plan, parsed_turn_plans).
         """
-        turn_order = self._default_turn_order
-
-        augmented_samples: list[dict] = []
-        for sample in samples:
-            target_turns = self._select_target_turns(multiturn_attributes, turn_order)
-            augmented_sample = {
-                **sample,
-                "target_turns": target_turns,
-                "conversation_plan": "",
-                "parsed_turn_plans": [""] * target_turns,
-            }
-            augmented_samples.append(augmented_sample)
-            logger.debug(f"Planning conversation with {target_turns} turns")
+        planner_prompts = self.build_planner_prompts(samples, multiturn_attributes)
+        augmented_samples = [prompt.augmented_sample for prompt in planner_prompts]
+        planner_conversations = [prompt.conversation for prompt in planner_prompts]
 
         indices_to_process = list(range(len(augmented_samples)))
 
@@ -341,15 +392,9 @@ class ConversationSynthesizer:
             if not indices_to_process:
                 break
 
-            planner_conversations = [
-                self._create_planner_prompt(
-                    multiturn_attributes,
-                    augmented_samples[i],
-                )
-                for i in indices_to_process
-            ]
-
-            plans = self._generate_plan(planner_conversations)
+            plans = self._generate_plan(
+                [planner_conversations[i] for i in indices_to_process]
+            )
 
             failed_indices: list[int] = []
             for idx, plan in zip(indices_to_process, plans):

@@ -34,7 +34,10 @@ from oumi.core.configs.params.synthesis_params import (
     SampledAttributeValue,
 )
 from oumi.core.configs.params.tool_params import ToolParams
-from oumi.core.synthesis.conversation_synthesizer import ConversationSynthesizer
+from oumi.core.synthesis.conversation_synthesizer import (
+    ConversationSynthesizer,
+    PlannerPrompt,
+)
 from oumi.core.types.conversation import (
     PLANNER_JSON_SCHEMA,
     Conversation,
@@ -144,6 +147,45 @@ def test_synthesize_returns_list_of_dicts(
         assert isinstance(item, dict)
         assert mock_multiturn_attribute.id in item
         assert plan_key in item
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_build_planner_prompts_selects_turns_without_inference(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_multiturn_attribute,
+    mock_inference_config,
+):
+    """build_planner_prompts renders prompts and picks turns, but never infers."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+
+    synthesizer = ConversationSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+
+    samples = [
+        {"customer_type": "frustrated", "issue": "billing problem"},
+        {"customer_type": "friendly", "issue": "product question"},
+    ]
+    prompts = synthesizer.build_planner_prompts(samples, mock_multiturn_attribute)
+
+    assert len(prompts) == len(samples)
+    # The whole point of the split: prompt-building does not touch the model.
+    mock_inference_engine.infer.assert_not_called()
+    for prompt, sample in zip(prompts, samples):
+        assert isinstance(prompt, PlannerPrompt)
+        target_turns = prompt.augmented_sample["target_turns"]
+        assert mock_multiturn_attribute.min_turns <= target_turns
+        assert target_turns <= mock_multiturn_attribute.max_turns
+        assert prompt.augmented_sample["conversation_plan"] == ""
+        assert prompt.augmented_sample["parsed_turn_plans"] == [""] * target_turns
+        # Original attributes survive onto the augmented sample.
+        assert prompt.augmented_sample["issue"] == sample["issue"]
+        # The real planner ask is the final USER turn, with placeholders resolved.
+        assert prompt.conversation.messages[-1].role == Role.USER
+        assert sample["issue"] in prompt.conversation.messages[-1].content
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
