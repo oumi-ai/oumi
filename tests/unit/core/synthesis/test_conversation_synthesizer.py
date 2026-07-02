@@ -172,7 +172,6 @@ def test_build_planner_prompts_selects_turns_without_inference(
     prompts = synthesizer.build_planner_prompts(samples, mock_multiturn_attribute)
 
     assert len(prompts) == len(samples)
-    # The whole point of the split: prompt-building does not touch the model.
     mock_inference_engine.infer.assert_not_called()
     for prompt, sample in zip(prompts, samples):
         assert isinstance(prompt, PlannerPrompt)
@@ -181,9 +180,7 @@ def test_build_planner_prompts_selects_turns_without_inference(
         assert target_turns <= mock_multiturn_attribute.max_turns
         assert prompt.augmented_sample["conversation_plan"] == ""
         assert prompt.augmented_sample["parsed_turn_plans"] == [""] * target_turns
-        # Original attributes survive onto the augmented sample.
         assert prompt.augmented_sample["issue"] == sample["issue"]
-        # The real planner ask is the final USER turn, with placeholders resolved.
         assert prompt.conversation.messages[-1].role == Role.USER
         assert sample["issue"] in prompt.conversation.messages[-1].content
 

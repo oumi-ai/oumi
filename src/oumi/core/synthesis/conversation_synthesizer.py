@@ -59,13 +59,7 @@ _STRAGGLER_NUDGE = (
 
 @dataclasses.dataclass
 class PlannerPrompt:
-    """A planner-prompt conversation and the augmented sample it was built from.
-
-    ``augmented_sample`` carries the original sample plus the runtime planning
-    fields (``target_turns`` and the empty ``conversation_plan`` /
-    ``parsed_turn_plans`` placeholders). ``conversation`` is the ready-to-infer
-    planner prompt for that sample.
-    """
+    """A planner-prompt conversation and the augmented sample it was built from."""
 
     augmented_sample: dict
     conversation: Conversation
@@ -325,12 +319,9 @@ class ConversationSynthesizer:
     ) -> list[PlannerPrompt]:
         """Select target turns and build planner prompts, without inference.
 
-        The inference-free prefix of :meth:`_plan_samples`: picks a per-sample
-        turn count and renders each planner-prompt conversation, but does not
-        call the model. Callers that drive inference themselves (e.g. a workflow
-        that runs the planner as a separate stage) can run the returned
-        conversations under ``PLANNER_JSON_SCHEMA`` guided decoding and feed the
-        raw plan strings back through :meth:`_parse_plan`.
+        The inference-free prefix of :meth:`_plan_samples`, for callers that
+        drive the planner as a separate stage. ``target_turns`` is drawn
+        randomly here, so persist it if plans are inferred out-of-process.
 
         Args:
             samples: The samples to plan conversations for.
@@ -338,10 +329,7 @@ class ConversationSynthesizer:
                 rules.
 
         Returns:
-            One :class:`PlannerPrompt` per input sample, in order. Persist each
-            ``augmented_sample["target_turns"]`` if the plan strings are inferred
-            out-of-process — the turn count is drawn randomly here and cannot be
-            reconstructed downstream.
+            One :class:`PlannerPrompt` per input sample, in order.
         """
         self._validate_roles(multiturn_attribute)
         turn_order = self._default_turn_order
