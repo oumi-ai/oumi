@@ -23,7 +23,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           # Checkout using commit hash to make "no-commit-to-branch" test pass.
           ref: ${{ github.sha }}
@@ -51,7 +51,7 @@ jobs:
           uv pip install --system -e '.[ci_cpu]'
 
       - name: Cache pre-commit
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.cache/pre-commit
           key: ${{ runner.os }}-pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
