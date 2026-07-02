@@ -1467,6 +1467,8 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         endpoint_id: str,
         autoscaling: AutoscalingConfig | None = None,
         hardware: HardwareConfig | None = None,
+        scale_down_window_seconds: int | None = None,
+        scale_to_zero_window_seconds: int | None = None,
     ) -> Endpoint:
         """Updates a deployment's configuration (autoscaling and/or hardware).
 
@@ -1478,6 +1480,11 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             endpoint_id: Fireworks deployment ID
             autoscaling: New autoscaling configuration
             hardware: New hardware configuration
+            scale_down_window_seconds: Idle seconds before removing a replica.
+                ``None`` leaves the deployment's current policy unchanged.
+            scale_to_zero_window_seconds: Idle seconds before scaling to zero
+                replicas. Only meaningful when ``autoscaling.min_replicas == 0``.
+                ``None`` leaves the deployment's current policy unchanged.
 
         Returns:
             Updated Endpoint
@@ -1488,6 +1495,9 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             baseModel=current.model_id,
             minReplicaCount=autoscaling.min_replicas if autoscaling else None,
             maxReplicaCount=autoscaling.max_replicas if autoscaling else None,
+            autoscalingPolicy=_build_autoscaling_policy(
+                scale_down_window_seconds, scale_to_zero_window_seconds
+            ),
             acceleratorType=cast(
                 GatewayAcceleratorType | None,
                 self._to_fireworks_accelerator(hardware) if hardware else None,
