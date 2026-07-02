@@ -258,7 +258,7 @@ def test_build_opening_turn_prompts_parses_plan_and_builds_prompt(
     # Opening prompt: turn-1 generation, USER role, carrying turn_plans[0].
     assert prompt.conversation.messages[0].role == Role.SYSTEM
     assert prompt.conversation.messages[-1].role == Role.USER
-    assert "explain the billing issue" in prompt.conversation.messages[-1].content
+    assert "explain the billing issue" in str(prompt.conversation.messages[-1].content)
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
