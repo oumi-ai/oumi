@@ -67,11 +67,7 @@ class PlannerPrompt:
 
 @dataclasses.dataclass
 class OpeningTurnPrompt:
-    """An augmented sample plus its opening-turn generation prompt.
-
-    ``augmented_sample`` carries ``target_turns`` and the parsed per-turn
-    ``parsed_turn_plans``; ``conversation`` generates the opening user turn.
-    """
+    """An augmented sample plus its opening-turn generation prompt."""
 
     augmented_sample: dict
     conversation: Conversation
@@ -79,13 +75,7 @@ class OpeningTurnPrompt:
 
 @dataclasses.dataclass
 class SeedConversation:
-    """A seed conversation plus the state a turn-by-turn driver needs.
-
-    ``conversation`` is the assistant-persona SYSTEM message followed by the
-    opening USER turn. ``generation_state`` carries ``target_turns``,
-    ``turn_plans``, the ``user_persona`` for synthesizing later user turns, and
-    the ``output_system_prompt`` for the finished conversation.
-    """
+    """A seed conversation plus the ``generation_state`` a turn driver needs."""
 
     conversation: Conversation
     generation_state: dict
@@ -346,10 +336,9 @@ class ConversationSynthesizer:
         """Attach grounding and build planner prompts, without inference.
 
         Self-contained inference-free entrypoint for callers that drive the
-        planner as a separate stage: prepares per-sample routers and attaches
-        grounding facts (the setup :meth:`synthesize` does before planning),
-        then renders one planner prompt per sample. ``target_turns`` is drawn
-        randomly, so persist it if plans are inferred out-of-process.
+        planner as a separate stage: prepares routers, attaches grounding, and
+        renders one prompt per sample. ``target_turns`` is drawn randomly, so
+        persist it if plans are inferred out-of-process.
 
         Args:
             samples: The samples to plan conversations for.
@@ -400,23 +389,18 @@ class ConversationSynthesizer:
     ) -> list[OpeningTurnPrompt]:
         """Parse plans and build the opening (turn 1, USER) generation prompts.
 
-        Pairs with :meth:`build_planner_prompts`: given the samples it returned
-        and the raw plan strings inferred from them, parse each plan into
-        per-turn instructions and render the prompt that generates the opening
-        user turn. Inference-free — run the returned conversations on the user
-        model, then hand the utterances to :meth:`build_seed_conversations`.
+        Inference-free stage after :meth:`build_planner_prompts`: parses each
+        plan into per-turn instructions and renders the opening-turn prompt.
 
         Args:
-            samples: The augmented samples from ``build_planner_prompts`` (each
+            samples: Augmented samples from ``build_planner_prompts`` (each
                 carrying ``target_turns``).
             plans: Raw planner output strings, aligned 1:1 with ``samples``.
             multiturn_attribute: The multi-turn attribute defining conversation
                 rules.
 
         Returns:
-            One :class:`OpeningTurnPrompt` per sample, in order. Each carries the
-            sample augmented with parsed ``parsed_turn_plans`` and its
-            opening-turn generation conversation.
+            One :class:`OpeningTurnPrompt` per sample, in order.
         """
         self._validate_roles(multiturn_attribute)
         opening_role = self._default_turn_order[0]
@@ -451,16 +435,11 @@ class ConversationSynthesizer:
     ) -> list[SeedConversation]:
         """Build seed conversations for out-of-process multi-turn generation.
 
-        Given the augmented samples from :meth:`build_opening_turn_prompts` and
-        the opening user utterances inferred from them, produce for each sample a
-        seed — the assistant persona as a SYSTEM message followed by the opening
-        USER turn — plus the ``generation_state`` a turn-by-turn driver needs:
-        the target turn count, per-turn instructions, the user persona for
-        synthesizing later user turns, and the output system prompt for the
-        finished conversation. Inference-free.
+        Inference-free stage after :meth:`build_opening_turn_prompts`: pairs each
+        opening user utterance with its seed conversation and generation state.
 
         Args:
-            samples: The augmented samples (carrying ``target_turns`` and
+            samples: Augmented samples (carrying ``target_turns`` and
                 ``parsed_turn_plans``) from ``build_opening_turn_prompts``.
             opening_turns: The opening user utterances, aligned 1:1 with
                 ``samples``.

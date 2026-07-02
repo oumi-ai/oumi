@@ -255,7 +255,6 @@ def test_build_opening_turn_prompts_parses_plan_and_builds_prompt(
         "acknowledge and resolve",
     ]
     assert prompt.augmented_sample["conversation_plan"] == plans[0]
-    # Opening prompt: turn-1 generation, USER role, carrying turn_plans[0].
     assert prompt.conversation.messages[0].role == Role.SYSTEM
     assert prompt.conversation.messages[-1].role == Role.USER
     assert "explain the billing issue" in str(prompt.conversation.messages[-1].content)
@@ -292,16 +291,13 @@ def test_build_seed_conversations_assembles_seed_and_state(
     assert len(seeds) == 1
     seed = seeds[0]
     assert isinstance(seed, SeedConversation)
-    # Seed = assistant-persona SYSTEM message + the opening USER turn.
     assert seed.conversation.messages[0].role == Role.SYSTEM
     assert seed.conversation.messages[1].role == Role.USER
     assert seed.conversation.messages[1].content == "Hi, my latest bill looks wrong."
     state = seed.generation_state
     assert state["target_turns"] == 3
     assert state["turn_plans"] == ["open", "answer", "close"]
-    # User persona is formatted against the sample (references {issue}).
     assert "billing" in state["user_persona"]
-    # output_system_prompt is formatted (the fixture references {issue}).
     assert state["output_system_prompt"] is not None
     assert "billing" in state["output_system_prompt"]
 
