@@ -317,11 +317,13 @@ class ConversationSynthesizer:
         samples: list[dict],
         multiturn_attribute: MultiTurnAttribute,
     ) -> list[PlannerPrompt]:
-        """Select target turns and build planner prompts, without inference.
+        """Attach grounding and build planner prompts, without inference.
 
-        The inference-free prefix of :meth:`_plan_samples`, for callers that
-        drive the planner as a separate stage. ``target_turns`` is drawn
-        randomly here, so persist it if plans are inferred out-of-process.
+        Self-contained inference-free entrypoint for callers that drive the
+        planner as a separate stage: prepares per-sample routers and attaches
+        grounding facts (the setup :meth:`synthesize` does before planning),
+        then renders one planner prompt per sample. ``target_turns`` is drawn
+        randomly, so persist it if plans are inferred out-of-process.
 
         Args:
             samples: The samples to plan conversations for.
@@ -332,6 +334,16 @@ class ConversationSynthesizer:
             One :class:`PlannerPrompt` per input sample, in order.
         """
         self._validate_roles(multiturn_attribute)
+        self._prepare_sample_routers(len(samples))
+        self._attach_grounding_facts(samples, multiturn_attribute)
+        return self._render_planner_prompts(samples, multiturn_attribute)
+
+    def _render_planner_prompts(
+        self,
+        samples: list[dict],
+        multiturn_attribute: MultiTurnAttribute,
+    ) -> list[PlannerPrompt]:
+        """Render planner prompts from samples that already carry grounding."""
         turn_order = self._default_turn_order
         prompts: list[PlannerPrompt] = []
         for sample in samples:
@@ -370,7 +382,7 @@ class ConversationSynthesizer:
             A list of sample dicts augmented with runtime fields
             (target_turns, conversation_plan, parsed_turn_plans).
         """
-        planner_prompts = self.build_planner_prompts(samples, multiturn_attributes)
+        planner_prompts = self._render_planner_prompts(samples, multiturn_attributes)
         augmented_samples = [prompt.augmented_sample for prompt in planner_prompts]
         planner_conversations = [prompt.conversation for prompt in planner_prompts]
 

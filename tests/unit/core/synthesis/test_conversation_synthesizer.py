@@ -186,6 +186,31 @@ def test_build_planner_prompts_selects_turns_without_inference(
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_build_planner_prompts_attaches_grounding(
+    mock_build_inference_engine, mock_inference_config
+):
+    """build_planner_prompts grounds prompts for grounded envs, without inference."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+    env_config = _grounded_env_config(n_entries=10, sample_size=2, seed=5)
+    synthesizer = ConversationSynthesizer(
+        GeneralSynthesisParams(),
+        mock_inference_config,
+        environment_config=env_config,
+    )
+
+    prompts = synthesizer.build_planner_prompts(
+        [{}], _grounding_attr(available_envs=["env1"], available_tools=["lookup"])
+    )
+
+    mock_inference_engine.infer.assert_not_called()
+    assert len(prompts[0].augmented_sample["grounding_facts"]) == 2
+    assert "Ground this plan in these specific entities" in str(
+        prompts[0].conversation.messages[-1].content
+    )
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
 def test_synthesize_with_empty_samples(
     mock_build_inference_engine,
     mock_general_synthesis_params,
