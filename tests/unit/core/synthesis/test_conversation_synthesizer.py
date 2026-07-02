@@ -182,7 +182,7 @@ def test_build_planner_prompts_selects_turns_without_inference(
         assert prompt.augmented_sample["parsed_turn_plans"] == [""] * target_turns
         assert prompt.augmented_sample["issue"] == sample["issue"]
         assert prompt.conversation.messages[-1].role == Role.USER
-        assert sample["issue"] in prompt.conversation.messages[-1].content
+        assert sample["issue"] in str(prompt.conversation.messages[-1].content)
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
