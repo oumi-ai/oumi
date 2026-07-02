@@ -361,6 +361,7 @@ class ConversationSynthesizer:
         """
         self._validate_roles(multiturn_attribute)
         self._prepare_sample_routers(len(samples))
+        self._warn_on_grounding_placeholder(multiturn_attribute)
         self._attach_grounding_facts(samples, multiturn_attribute)
         return self._render_planner_prompts(samples, multiturn_attribute)
 
@@ -369,7 +370,7 @@ class ConversationSynthesizer:
         samples: list[dict],
         multiturn_attribute: MultiTurnAttribute,
     ) -> list[PlannerPrompt]:
-        """Render planner prompts from samples that already carry grounding."""
+        """Render planner prompts, assuming grounding attachment has already run."""
         turn_order = self._default_turn_order
         prompts: list[PlannerPrompt] = []
         for sample in samples:

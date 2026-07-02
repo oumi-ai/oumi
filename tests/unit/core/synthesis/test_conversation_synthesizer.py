@@ -212,6 +212,15 @@ def test_build_planner_prompts_attaches_grounding(
     )
 
 
+def test_build_planner_prompts_warns_on_grounding_placeholder(mock_inference_config):
+    """build_planner_prompts runs the placeholder-misuse check, like synthesize."""
+    synth = _make_synthesizer(mock_inference_config)
+    attr = _grounding_attr()
+    with patch.object(synth, "_warn_on_grounding_placeholder") as mock_warn:
+        synth.build_planner_prompts([{}], attr)
+    mock_warn.assert_called_once_with(attr)
+
+
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
 def test_build_opening_turn_prompts_parses_plan_and_builds_prompt(
     mock_build_inference_engine,
