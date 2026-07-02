@@ -15,9 +15,16 @@
 from __future__ import annotations
 
 import copy
+import dataclasses
+import functools
 import json
 import math
+import os
+import re
+import shutil
+import subprocess
 import warnings
+from pathlib import Path
 from types import SimpleNamespace
 from typing import cast, get_args
 
@@ -91,6 +98,99 @@ except ModuleNotFoundError:
     _VLLM_V0_12 = False
     ToolParserManager = None  # type: ignore[assignment]
     _VLLM_TOOL_PARSERS_AVAILABLE = False
+
+
+def _parse_nvcc_release_version(nvcc_version_output: str) -> tuple[int, int] | None:
+    """Parse the ``release X.Y`` field of ``nvcc --version`` output into (X, Y)."""
+    match = re.search(r"release (\d+)\.(\d+)", nvcc_version_output)
+    if match is None:
+        return None
+    return int(match.group(1)), int(match.group(2))
+
+
+def _vllm_accepts_additional_config() -> bool:
+    """Whether this vLLM build's ``EngineArgs`` accepts ``additional_config``.
+
+    Only newer vLLM accepts it — and that is also the only range with GDN
+    support, so on older builds there is nothing to fix.
+    """
+    try:
+        from vllm.engine.arg_utils import (  # pyright: ignore[reportMissingImports]
+            EngineArgs,
+        )
+
+        return "additional_config" in {f.name for f in dataclasses.fields(EngineArgs)}
+    except Exception:
+        return False
+
+
+@functools.lru_cache(maxsize=1)
+def _cuda_toolkit_below_12_6() -> bool:
+    """Whether the system CUDA toolkit is older than 12.6 (or absent).
+
+    flashinfer's ``gdn_prefill_sm90`` kernel JIT-builds against the system
+    toolkit and needs the ``cuda::ptx`` tensormap intrinsics added in 12.6.
+    """
+    nvcc = shutil.which("nvcc")
+    if nvcc is None:
+        for cuda_home in (os.environ.get("CUDA_HOME"), "/usr/local/cuda"):
+            candidate = Path(cuda_home) / "bin" / "nvcc" if cuda_home else None
+            if candidate and candidate.is_file():
+                nvcc = str(candidate)
+                break
+    if nvcc is None:
+        return True  # no toolkit at all → the flashinfer JIT can't build either
+
+    try:
+        output = subprocess.run(
+            [nvcc, "--version"], capture_output=True, text=True, timeout=10
+        ).stdout
+    except (OSError, subprocess.SubprocessError):
+        return True
+
+    version = _parse_nvcc_release_version(output)
+    if version is None:
+        return False
+    return version < (12, 6)
+
+
+# Model families using a Gated Delta Net attention architecture, whose
+# flashinfer gdn_prefill_sm90 kernel JIT-builds against the CUDA toolkit.
+_GDN_MODEL_TYPES = frozenset({"qwen3_5", "qwen3_6", "qwen3_next"})
+
+
+@functools.cache
+def _model_uses_gdn(model_name: str, trust_remote_code: bool) -> bool:
+    """Best-effort check whether the model uses a GDN attention architecture.
+
+    Reads the HF config (resolves both Hub ids and local fine-tuned dirs).
+    Returns False if the config can't be read.
+    """
+    try:
+        from transformers import AutoConfig
+
+        config = AutoConfig.from_pretrained(
+            model_name, trust_remote_code=trust_remote_code
+        )
+        return getattr(config, "model_type", None) in _GDN_MODEL_TYPES
+    except Exception:
+        return False
+
+
+def _should_force_triton_gdn_backend(model_name: str, trust_remote_code: bool) -> bool:
+    """Whether to force vLLM's Triton GDN-prefill backend for this model.
+
+    GDN models (e.g. Qwen3.5) JIT-compile a flashinfer ``gdn_prefill_sm90``
+    kernel that needs the system CUDA toolkit >= 12.6 (``cuda::ptx`` tensormap
+    intrinsics). On older toolkits the build fails and the engine hangs, so
+    fall back to the Triton/FLA GDN backend. No-op for non-GDN models and for
+    toolkits >= 12.6. Mirrors the intent of vllm-project/vllm#37507.
+    """
+    return (
+        _vllm_accepts_additional_config()
+        and _cuda_toolkit_below_12_6()
+        and _model_uses_gdn(model_name, trust_remote_code)
+    )
 
 
 class VLLMInferenceEngine(BaseInferenceEngine):
@@ -266,6 +366,20 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         # Only add quantization if not already in vllm_kwargs and not None
         if quantization is not None and "quantization" not in vllm_kwargs:
             final_vllm_kwargs["quantization"] = quantization
+
+        # GDN-architecture models (e.g. Qwen3.5) hang when flashinfer's sm90
+        # GDN-prefill kernel can't JIT-build against an old (<12.6) CUDA
+        # toolkit; fall back to the Triton GDN backend. No-op for other models.
+        if _should_force_triton_gdn_backend(
+            model_params.model_name, model_params.trust_remote_code
+        ):
+            final_vllm_kwargs["additional_config"] = {  # pyright: ignore[reportArgumentType]
+                "gdn_prefill_backend": "triton"
+            }
+            logger.warning(
+                "System CUDA toolkit < 12.6: forcing vLLM Triton GDN-prefill "
+                "backend (the flashinfer sm90 GDN kernel would fail to build)."
+            )
 
         self._llm = vllm.LLM(**final_vllm_kwargs)  # pyright: ignore[reportArgumentType, reportAttributeAccessIssue]
         # Ensure the tokenizer is set properly.

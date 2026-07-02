@@ -658,7 +658,7 @@ def is_custom_model(model_name: str) -> bool:
 
 
 def find_internal_model_config_using_model_name(
-    model_name: str, trust_remote_code: bool
+    model_name: str, trust_remote_code: bool, revision: str | None = None
 ) -> InternalModelConfig | None:
     """Finds an internal model config for supported models using model name.
 
@@ -669,6 +669,7 @@ def find_internal_model_config_using_model_name(
             - A custom model name registered in Oumi
         trust_remote_code: Whether to trust external code associated with the model.
             Required for some models like Qwen2-VL that use custom code.
+        revision: The HuggingFace model revision to load, if any.
 
     Returns:
         InternalModelConfig for the model if it's supported, or None if:
@@ -678,7 +679,9 @@ def find_internal_model_config_using_model_name(
     if is_custom_model(model_name):
         return None
 
-    hf_config = find_model_hf_config(model_name, trust_remote_code=trust_remote_code)
+    hf_config = find_model_hf_config(
+        model_name, trust_remote_code=trust_remote_code, revision=revision
+    )
     llm_info = get_all_models_map().get(hf_config.model_type, None)
     return llm_info.config if llm_info is not None else None
 
@@ -695,5 +698,7 @@ def find_internal_model_config(
         Model config, or `None` if model is not recognized.
     """
     return find_internal_model_config_using_model_name(
-        model_params.model_name, model_params.trust_remote_code
+        model_params.model_name,
+        model_params.trust_remote_code,
+        revision=model_params.model_revision,
     )

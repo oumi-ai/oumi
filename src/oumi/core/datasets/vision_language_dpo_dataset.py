@@ -75,6 +75,7 @@ class VisionLanguageDpoDataset(BaseDpoDataset):
         processor: Any | None = None,
         processor_name: str | None = None,
         trust_remote_code: bool = False,
+        model_revision: str | None = None,
         processor_kwargs: dict[str, Any] | None = None,
         max_size: int | None = None,
         prompt_key: str = _PROMPT_KEY,
@@ -98,6 +99,7 @@ class VisionLanguageDpoDataset(BaseDpoDataset):
             split: The split of the dataset.
             processor_name: The name of the processor to use.
             trust_remote_code: Whether to trust remote code.
+            model_revision: The HuggingFace model revision to load, if any.
             processor_kwargs: Additional keyword arguments to pass to the processor.
             max_size: The maximum size of the longest edge of the image in pixels.
             prompt_key: The key for the prompt.
@@ -124,13 +126,16 @@ class VisionLanguageDpoDataset(BaseDpoDataset):
                 self._tokenizer,
                 trust_remote_code=True,
                 processor_kwargs=processor_kwargs,
+                model_revision=model_revision,
             )
         else:
             raise ValueError("Processor is not set.")
 
         self._internal_model_config: InternalModelConfig = (
             find_internal_model_config_using_model_name(
-                self._processor.processor_name, trust_remote_code=True
+                self._processor.processor_name,
+                trust_remote_code=True,
+                revision=model_revision,
             )
             or get_default_vlm_model_config()
         )

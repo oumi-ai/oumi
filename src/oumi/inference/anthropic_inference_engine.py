@@ -180,6 +180,9 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         if generation_params.top_p is not None:
             body["top_p"] = generation_params.top_p
 
+        if self._remote_params.user_id:
+            body["metadata"] = {"user_id": self._remote_params.user_id}
+
         if system_message:
             body["system"] = system_message
 
