@@ -19,10 +19,70 @@ Installing natively on Windows outside of a WSL environment can lead to installa
 ERROR: Could not find a version that satisfies the requirement ... (from versions: none)
 ```
 
+or, when long path support is disabled, an error while installing the `lm_eval` dependency:
+
+```text
+ERROR: Could not install packages due to an OSError: [Errno 2] No such file or directory:
+'...\\lm_eval\\tasks\\arabic_leaderboard_complete\\...'
+HINT: This error might have occurred since this system does not have Windows Long Path support enabled.
+```
+
 or runtime errors like:
 
 ```shell
 ModuleNotFoundError: No module named 'resource'
+```
+
+or a `UnicodeDecodeError` during training, when a dependency reads a UTF-8 file under the
+Windows default code page (`cp1252`):
+
+```text
+UnicodeDecodeError: 'charmap' codec can't decode byte 0x81 in position 932: character maps to <undefined>
+```
+
+#### Running natively on Windows (not recommended)
+
+WSL is the recommended path and avoids all of the issues below. If you cannot use WSL (for
+example, on a restricted machine), the following steps address the most common native-Windows
+failures. We also recommend the [python.org](https://www.python.org/downloads/windows/) build of
+Python rather than the Microsoft Store build, which is sandboxed and does not add package scripts
+to your `PATH` by default.
+
+**Enable long path support.** `lm_eval` ships task files whose paths exceed the Windows
+260-character `MAX_PATH` limit, which can cause the `OSError` shown above during install. Enable
+long paths in an **Administrator** PowerShell, then restart your machine:
+
+```powershell
+New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
+```
+
+If you also clone the repository, enable long paths in Git so the clone doesn't hit the same limit:
+
+```shell
+git config --global core.longpaths true
+```
+
+**Enable UTF-8 mode.** Python on Windows defaults to the system code page rather than UTF-8, which
+can break both log output (emoji in Oumi's logs) and reads of bundled UTF-8 files (such as `trl`'s
+chat templates), producing the `UnicodeDecodeError` shown above. Set UTF-8 mode before running
+Oumi:
+
+```shell
+export PYTHONUTF8=1
+```
+
+In PowerShell, use `$env:PYTHONUTF8 = "1"` instead. To make this permanent in Git Bash, add the
+`export` line to `~/.bashrc`.
+
+**Run recipe commands from a cloned repository.** The CLI examples reference config files such as
+`configs/recipes/smollm/sft/135m/quickstart_train.yaml` by relative path. These live in the GitHub
+repository, not in the installed `oumi` package, so clone the repo and run the commands from inside
+it:
+
+```shell
+git clone https://github.com/oumi-ai/oumi.git
+cd oumi
+oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml
 ```
 
 ### Installing on macOS
