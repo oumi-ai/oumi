@@ -456,22 +456,28 @@ class ConversationSynthesizer:
         user_persona = multiturn_attribute.role_instruction_messages[Role.USER]
         seeds: list[SeedConversation] = []
         for sample, opening in zip(samples, opening_turns):
+            # Personas may reference {current_turn}; the seed is turn 1, matching
+            # build_opening_turn_prompts. Rendered once and reused for every turn.
+            sample_with_turn = {**sample, "current_turn": 1}
             seed = Conversation(
                 messages=[
-                    self._format_persona(sample, assistant_persona, Role.ASSISTANT),
+                    self._format_persona(
+                        sample_with_turn, assistant_persona, Role.ASSISTANT
+                    ),
                     Message(role=Role.USER, content=opening),
                 ]
             )
-            output_system_prompt = None
-            if multiturn_attribute.output_system_prompt is not None:
-                output_system_prompt = self._formatter.format(
-                    sample, multiturn_attribute.output_system_prompt
-                )
+            output_message = self._format_output_system_message(
+                sample, multiturn_attribute.output_system_prompt
+            )
+            output_system_prompt = (
+                output_message.content if output_message is not None else None
+            )
             generation_state = {
                 "target_turns": sample["target_turns"],
                 "turn_plans": sample.get("parsed_turn_plans", []),
                 "user_persona": self._formatter.format(
-                    sample, user_persona, missing_values_allowed=False
+                    sample_with_turn, user_persona, missing_values_allowed=False
                 ),
                 "output_system_prompt": output_system_prompt,
             }

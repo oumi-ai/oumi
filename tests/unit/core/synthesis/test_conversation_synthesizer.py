@@ -303,6 +303,44 @@ def test_build_seed_conversations_assembles_seed_and_state(
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_build_seed_conversations_renders_current_turn_personas(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_inference_config,
+):
+    """Personas referencing {current_turn} render (as turn 1), not crash.
+
+    current_turn is a reserved placeholder the in-process path injects per turn;
+    the seed builder renders once as turn 1 rather than raising on the missing key.
+    """
+    mock_build_inference_engine.return_value = Mock()
+    attr = MultiTurnAttribute(
+        id="conversation",
+        min_turns=2,
+        max_turns=4,
+        role_instruction_messages={
+            Role.USER: "You are the user on turn {current_turn}.",
+            Role.ASSISTANT: "You are the assistant on turn {current_turn}.",
+        },
+        conversation_planner="Plan a {target_turns}-turn conversation.",
+    )
+    synthesizer = ConversationSynthesizer(
+        mock_general_synthesis_params, mock_inference_config
+    )
+
+    seeds = synthesizer.build_seed_conversations(
+        [{"target_turns": 3, "parsed_turn_plans": ["a", "b", "c"]}],
+        ["Hi."],
+        attr,
+    )
+
+    assert seeds[0].conversation.messages[0].content == (
+        "You are the assistant on turn 1."
+    )
+    assert seeds[0].generation_state["user_persona"] == "You are the user on turn 1."
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
 def test_synthesize_with_empty_samples(
     mock_build_inference_engine,
     mock_general_synthesis_params,
