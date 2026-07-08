@@ -255,7 +255,6 @@ Oumi OSS is a community-first effort. Whether you are a developer, a researcher,
 - Check the {doc}`FAQ <faq/troubleshooting>` for common questions and troubleshooting
 - Open an issue on [GitHub](https://github.com/oumi-ai/oumi/issues) for bug reports or feature requests
 - Read [`CONTRIBUTING.md`](https://github.com/oumi-ai/oumi/blob/main/CONTRIBUTING.md) to send your first Pull Request
-- Explore our [open collaboration](https://oumi.ai/community) page to join community research efforts
 
 ```{raw} html
 <script>
