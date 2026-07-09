@@ -22,6 +22,7 @@ import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from oumi.core.launcher import JobState, JobStatus
@@ -700,9 +701,6 @@ class SlurmClient:
         response_format = "JobId%-30,JobName%30,User%30,State%30,Reason%30"
         # Get current date and subtract one month.
         # Otherwise completed jobs older than ~24 hours may not be listed.
-
-        from datetime import datetime, timedelta
-
         current_date = datetime.now()
         one_month_ago = current_date - timedelta(days=30)
         start_date = one_month_ago.strftime("%Y-%m-%d")

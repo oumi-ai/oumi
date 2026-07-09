@@ -1,7 +1,7 @@
 import signal
 import subprocess
 import tempfile
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import Mock, call, patch
 
@@ -11,15 +11,23 @@ from oumi.core.launcher import JobState
 from oumi.launcher.clients.slurm_client import SlurmClient
 
 _CTRL_PATH: str = "-S ~/.ssh/control-%h-%p-%r"
+# Frozen via the mock_datetime fixture: "now" is 2025-01-31, 30 days back.
 _SACCT_CMD = (
     "sacct --user=user --format='JobId%-30,JobName%30,User%30,State%30,Reason%30' "
-    f"-X --starttime {(datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')}"
+    "-X --starttime 2025-01-01"
 )
 
 
 #
 # Fixtures
 #
+@pytest.fixture
+def mock_datetime():
+    with patch("oumi.launcher.clients.slurm_client.datetime") as dt:
+        dt.now.return_value = datetime(2025, 1, 31)
+        yield dt
+
+
 @pytest.fixture
 def mock_subprocess_no_init():
     with patch("oumi.launcher.clients.slurm_client.subprocess") as sp:
@@ -300,7 +308,7 @@ def test_slurm_client_submit_job_retry_auth(mock_subprocess):
     assert result == "3141592653polaris-pbs-01"
 
 
-def test_slurm_client_list_jobs_success(mock_subprocess):
+def test_slurm_client_list_jobs_success(mock_subprocess, mock_datetime):
     mock_run = Mock()
     mock_subprocess.run.return_value = mock_run
     mock_run.stdout = _get_test_data("sacct.txt").encode("utf-8")
@@ -325,7 +333,7 @@ def test_slurm_client_list_jobs_success(mock_subprocess):
     assert job_ids == expected_ids
 
 
-def test_slurm_client_list_jobs_first_login_success(mock_subprocess):
+def test_slurm_client_list_jobs_first_login_success(mock_subprocess, mock_datetime):
     mock_run = Mock()
     mock_subprocess.run.return_value = mock_run
     mock_run.stdout = _get_test_data("sacct_full.txt").encode("utf-8")
@@ -374,7 +382,7 @@ def test_slurm_client_list_jobs_fails_missing_header(mock_subprocess):
         )
 
 
-def test_slurm_client_list_jobs_handles_empty_string(mock_subprocess):
+def test_slurm_client_list_jobs_handles_empty_string(mock_subprocess, mock_datetime):
     mock_run = Mock()
     mock_subprocess.run.return_value = mock_run
     mock_run.stdout = b""
@@ -394,7 +402,7 @@ def test_slurm_client_list_jobs_handles_empty_string(mock_subprocess):
     assert job_ids == expected_ids
 
 
-def test_slurm_client_list_jobs_failure(mock_subprocess):
+def test_slurm_client_list_jobs_failure(mock_subprocess, mock_datetime):
     mock_success_run = Mock()
     mock_success_run.stdout = b"out"
     mock_success_run.stderr = b"err"

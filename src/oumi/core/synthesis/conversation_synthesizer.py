@@ -57,6 +57,30 @@ _STRAGGLER_NUDGE = (
 )
 
 
+@dataclasses.dataclass
+class PlannerPrompt:
+    """A planner-prompt conversation and the augmented sample it was built from."""
+
+    augmented_sample: dict
+    conversation: Conversation
+
+
+@dataclasses.dataclass
+class OpeningTurnPrompt:
+    """An augmented sample plus its opening-turn generation prompt."""
+
+    augmented_sample: dict
+    conversation: Conversation
+
+
+@dataclasses.dataclass
+class SeedConversation:
+    """A seed conversation plus the ``generation_state`` a turn driver needs."""
+
+    conversation: Conversation
+    generation_state: dict
+
+
 class ConversationSynthesizer:
     """Synthesizes a conversation.
 
@@ -304,6 +328,164 @@ class ConversationSynthesizer:
 
         return records
 
+    def build_planner_prompts(
+        self,
+        samples: list[dict],
+        multiturn_attribute: MultiTurnAttribute,
+    ) -> list[PlannerPrompt]:
+        """Attach grounding and build planner prompts, without inference.
+
+        Self-contained inference-free entrypoint for callers that drive the
+        planner as a separate stage: prepares routers, attaches grounding, and
+        renders one prompt per sample. ``target_turns`` is drawn randomly, so
+        persist it if plans are inferred out-of-process.
+
+        Args:
+            samples: The samples to plan conversations for.
+            multiturn_attribute: The multi-turn attribute defining conversation
+                rules.
+
+        Returns:
+            One :class:`PlannerPrompt` per input sample, in order.
+        """
+        self._validate_roles(multiturn_attribute)
+        self._prepare_sample_routers(len(samples))
+        self._warn_on_grounding_placeholder(multiturn_attribute)
+        self._attach_grounding_facts(samples, multiturn_attribute)
+        return self._render_planner_prompts(samples, multiturn_attribute)
+
+    def _render_planner_prompts(
+        self,
+        samples: list[dict],
+        multiturn_attribute: MultiTurnAttribute,
+    ) -> list[PlannerPrompt]:
+        """Render planner prompts, assuming grounding attachment has already run."""
+        turn_order = self._default_turn_order
+        prompts: list[PlannerPrompt] = []
+        for sample in samples:
+            target_turns = self._select_target_turns(multiturn_attribute, turn_order)
+            augmented_sample = {
+                **sample,
+                "target_turns": target_turns,
+                "conversation_plan": "",
+                "parsed_turn_plans": [""] * target_turns,
+            }
+            logger.debug(f"Planning conversation with {target_turns} turns")
+            prompts.append(
+                PlannerPrompt(
+                    augmented_sample=augmented_sample,
+                    conversation=self._create_planner_prompt(
+                        multiturn_attribute, augmented_sample
+                    ),
+                )
+            )
+        return prompts
+
+    def build_opening_turn_prompts(
+        self,
+        samples: list[dict],
+        plans: list[str],
+        multiturn_attribute: MultiTurnAttribute,
+    ) -> list[OpeningTurnPrompt]:
+        """Parse plans and build the opening (turn 1, USER) generation prompts.
+
+        Inference-free stage after :meth:`build_planner_prompts`: parses each
+        plan into per-turn instructions and renders the opening-turn prompt.
+
+        Args:
+            samples: Augmented samples from ``build_planner_prompts`` (each
+                carrying ``target_turns``).
+            plans: Raw planner output strings, aligned 1:1 with ``samples``.
+            multiturn_attribute: The multi-turn attribute defining conversation
+                rules.
+
+        Returns:
+            One :class:`OpeningTurnPrompt` per sample, in order.
+        """
+        self._validate_roles(multiturn_attribute)
+        opening_role = self._default_turn_order[0]
+        prompts: list[OpeningTurnPrompt] = []
+        for sample, plan in zip(samples, plans):
+            target_turns = sample["target_turns"]
+            parsed = self._parse_plan(plan, target_turns) or [""] * target_turns
+            augmented = {
+                **sample,
+                "conversation_plan": plan,
+                "parsed_turn_plans": parsed,
+            }
+            prompts.append(
+                OpeningTurnPrompt(
+                    augmented_sample=augmented,
+                    conversation=self._build_turn_prompt(
+                        augmented,
+                        multiturn_attribute,
+                        opening_role,
+                        current_turn=1,
+                        history=[],
+                    ),
+                )
+            )
+        return prompts
+
+    def build_seed_conversations(
+        self,
+        samples: list[dict],
+        opening_turns: list[str],
+        multiturn_attribute: MultiTurnAttribute,
+    ) -> list[SeedConversation]:
+        """Build seed conversations for out-of-process multi-turn generation.
+
+        Inference-free stage after :meth:`build_opening_turn_prompts`: pairs each
+        opening user utterance with its seed conversation and generation state.
+
+        Args:
+            samples: Augmented samples (carrying ``target_turns`` and
+                ``parsed_turn_plans``) from ``build_opening_turn_prompts``.
+            opening_turns: The opening user utterances, aligned 1:1 with
+                ``samples``.
+            multiturn_attribute: The multi-turn attribute defining conversation
+                rules.
+
+        Returns:
+            One :class:`SeedConversation` per sample, in order.
+        """
+        self._validate_roles(multiturn_attribute)
+        assistant_persona = multiturn_attribute.role_instruction_messages[
+            Role.ASSISTANT
+        ]
+        user_persona = multiturn_attribute.role_instruction_messages[Role.USER]
+        seeds: list[SeedConversation] = []
+        for sample, opening in zip(samples, opening_turns):
+            # Personas may reference {current_turn}; the seed is turn 1, matching
+            # build_opening_turn_prompts. Rendered once and reused for every turn.
+            sample_with_turn = {**sample, "current_turn": 1}
+            seed = Conversation(
+                messages=[
+                    self._format_persona(
+                        sample_with_turn, assistant_persona, Role.ASSISTANT
+                    ),
+                    Message(role=Role.USER, content=opening),
+                ]
+            )
+            output_message = self._format_output_system_message(
+                sample, multiturn_attribute.output_system_prompt
+            )
+            output_system_prompt = (
+                output_message.content if output_message is not None else None
+            )
+            generation_state = {
+                "target_turns": sample["target_turns"],
+                "turn_plans": sample.get("parsed_turn_plans", []),
+                "user_persona": self._formatter.format(
+                    sample_with_turn, user_persona, missing_values_allowed=False
+                ),
+                "output_system_prompt": output_system_prompt,
+            }
+            seeds.append(
+                SeedConversation(conversation=seed, generation_state=generation_state)
+            )
+        return seeds
+
     def _plan_samples(
         self,
         samples: list[dict],
@@ -321,19 +503,9 @@ class ConversationSynthesizer:
             A list of sample dicts augmented with runtime fields
             (target_turns, conversation_plan, parsed_turn_plans).
         """
-        turn_order = self._default_turn_order
-
-        augmented_samples: list[dict] = []
-        for sample in samples:
-            target_turns = self._select_target_turns(multiturn_attributes, turn_order)
-            augmented_sample = {
-                **sample,
-                "target_turns": target_turns,
-                "conversation_plan": "",
-                "parsed_turn_plans": [""] * target_turns,
-            }
-            augmented_samples.append(augmented_sample)
-            logger.debug(f"Planning conversation with {target_turns} turns")
+        planner_prompts = self._render_planner_prompts(samples, multiturn_attributes)
+        augmented_samples = [prompt.augmented_sample for prompt in planner_prompts]
+        planner_conversations = [prompt.conversation for prompt in planner_prompts]
 
         indices_to_process = list(range(len(augmented_samples)))
 
@@ -341,15 +513,9 @@ class ConversationSynthesizer:
             if not indices_to_process:
                 break
 
-            planner_conversations = [
-                self._create_planner_prompt(
-                    multiturn_attributes,
-                    augmented_samples[i],
-                )
-                for i in indices_to_process
-            ]
-
-            plans = self._generate_plan(planner_conversations)
+            plans = self._generate_plan(
+                [planner_conversations[i] for i in indices_to_process]
+            )
 
             failed_indices: list[int] = []
             for idx, plan in zip(indices_to_process, plans):
@@ -682,6 +848,45 @@ class ConversationSynthesizer:
             ),
         )
 
+    def _build_turn_prompt(
+        self,
+        sample: dict,
+        multiturn_attribute: MultiTurnAttribute,
+        role: Role,
+        current_turn: int,
+        history: list[Message],
+    ) -> Conversation:
+        """Build one turn's generation prompt: persona + history + instruction.
+
+        Shared by the in-process turn loop and out-of-process opening-turn
+        generation so both render turns identically.
+        """
+        target_turns = sample["target_turns"]
+        parsed_turn_plans = sample.get("parsed_turn_plans", [])
+        turn_idx = current_turn - 1
+
+        turn_instruction = ""
+        if 0 <= turn_idx < len(parsed_turn_plans):
+            turn_instruction = parsed_turn_plans[turn_idx]
+
+        sample_with_turn = {**sample, "current_turn": current_turn}
+        persona = multiturn_attribute.role_instruction_messages[role]
+        messages: list[Message] = [
+            self._format_persona(sample_with_turn, persona, role)
+        ]
+        messages.extend(history)
+
+        turn_info = (
+            f"You are generating turn {current_turn} of {target_turns} "
+            f"as the {role.value.upper()}.\n\n"
+        )
+        if turn_instruction:
+            turn_info += f"For this turn: {turn_instruction}\n\n"
+        turn_info += "Generate ONLY your response for this turn. Stay in character."
+        messages.append(Message(role=Role.USER, content=turn_info))
+
+        return Conversation(messages=messages)
+
     def _synthesize_all_samples(
         self,
         samples: list[dict],
@@ -725,35 +930,11 @@ class ConversationSynthesizer:
                 role = turn_order[turn_idx % len(turn_order)]
                 roles_for_turn.append(role)
 
-                prompt_messages: list[Message] = []
-                sample_with_turn = {**sample, "current_turn": current_turn}
-
-                persona = multiturn_attribute.role_instruction_messages[role]
-                formatted_persona = self._format_persona(
-                    sample_with_turn, persona, role
+                prompts.append(
+                    self._build_turn_prompt(
+                        sample, multiturn_attribute, role, current_turn, histories[i]
+                    )
                 )
-                prompt_messages.append(formatted_persona)
-                prompt_messages.extend(histories[i])
-
-                target_turns = sample["target_turns"]
-                parsed_turn_plans = sample.get("parsed_turn_plans", [])
-
-                turn_instruction = ""
-                if turn_idx < len(parsed_turn_plans):
-                    turn_instruction = parsed_turn_plans[turn_idx]
-
-                turn_info = (
-                    f"You are generating turn {current_turn} of {target_turns} "
-                    f"as the {role.value.upper()}.\n\n"
-                )
-                if turn_instruction:
-                    turn_info += f"For this turn: {turn_instruction}\n\n"
-                turn_info += (
-                    "Generate ONLY your response for this turn. Stay in character."
-                )
-                prompt_messages.append(Message(role=Role.USER, content=turn_info))
-
-                prompts.append(Conversation(messages=prompt_messages))
                 sample_indices.append(i)
 
             if not prompts:
