@@ -20,26 +20,28 @@ The provider is specified via the model string in ``ModelParams.model_name``
 (e.g. ``anthropic/claude-sonnet-4-5``, ``bedrock/anthropic.claude-v2``).
 """
 
-try:
-    import litellm  # pyright: ignore[reportMissingImports]
-except ModuleNotFoundError:
-    litellm = None  # type: ignore[assignment]
-
+import asyncio
 from typing import Any
 
+from tqdm.asyncio import tqdm
 from typing_extensions import override
 
-from oumi.core.async_utils import safe_asyncio_run
-from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
-from oumi.core.inference import BaseInferenceEngine
+from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
 from oumi.core.types.conversation import (
     Conversation,
     FinishReason,
     Message,
     Role,
 )
+from oumi.inference.adaptive_semaphore import PoliteAdaptiveSemaphore
+from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 from oumi.utils.conversation_utils import create_list_of_message_json_dicts
 from oumi.utils.logging import logger
+
+try:
+    import litellm  # pyright: ignore[reportMissingImports]
+except ModuleNotFoundError:
+    litellm = None  # type: ignore[assignment]
 
 _FINISH_REASON_MAP = {
     "stop": FinishReason.STOP,
@@ -49,8 +51,14 @@ _FINISH_REASON_MAP = {
 }
 
 
-class LiteLLMInferenceEngine(BaseInferenceEngine):
+class LiteLLMInferenceEngine(RemoteInferenceEngine):
     """Engine for running inference via the LiteLLM SDK.
+
+    This class extends RemoteInferenceEngine to provide specific functionality
+    for interacting with LLM providers through LiteLLM's unified interface.
+    It handles the conversion of Oumi's Conversation objects to LiteLLM's
+    expected input format, as well as parsing the API responses back into
+    Conversation objects.
 
     LiteLLM routes requests to the correct provider based on the model string.
     For example, ``anthropic/claude-sonnet-4-5`` routes to Anthropic,
@@ -63,6 +71,10 @@ class LiteLLMInferenceEngine(BaseInferenceEngine):
 
     For a full list of supported providers, see:
     https://docs.litellm.ai/docs/providers
+
+    Note:
+        This engine requires the litellm package to be installed.
+        If not installed, it will raise a RuntimeError.
 
     Example:
         >>> from oumi.core.configs import ModelParams, GenerationParams
@@ -77,6 +89,7 @@ class LiteLLMInferenceEngine(BaseInferenceEngine):
         model_params: ModelParams,
         *,
         generation_params: GenerationParams | None = None,
+        remote_params: RemoteParams | None = None,
     ):
         """Initializes the LiteLLM inference engine.
 
@@ -84,6 +97,7 @@ class LiteLLMInferenceEngine(BaseInferenceEngine):
             model_params: The model parameters. ``model_name`` should use the
                 LiteLLM model string format (e.g. ``anthropic/claude-sonnet-4-5``).
             generation_params: The generation parameters.
+            remote_params: Parameters for remote inference.
 
         Raises:
             RuntimeError: If the ``litellm`` package is not installed.
@@ -93,28 +107,57 @@ class LiteLLMInferenceEngine(BaseInferenceEngine):
                 "litellm is not installed. "
                 "Install it with `pip install oumi[litellm]`."
             )
-        super().__init__(model_params=model_params, generation_params=generation_params)
+
+        super().__init__(
+            model_params=model_params,
+            generation_params=generation_params,
+            remote_params=remote_params,
+        )
+
+    @property
+    @override
+    def base_url(self) -> str | None:
+        """Return the default base URL for the LiteLLM engine."""
+        return None
+
+    @property
+    @override
+    def api_key_env_varname(self) -> str | None:
+        """Return the default environment variable name for the API key."""
+        return None
 
     @override
-    def get_supported_params(self) -> set[str]:
-        """Returns supported generation parameters."""
-        return {
-            "frequency_penalty",
-            "max_new_tokens",
-            "presence_penalty",
-            "seed",
-            "stop_strings",
-            "temperature",
-            "top_p",
-        }
+    def _default_remote_params(self) -> RemoteParams:
+        """Returns the default remote parameters."""
+        return RemoteParams()
 
-    def _build_api_input(
+    @override
+    def _set_required_fields_for_inference(self, remote_params: RemoteParams):
+        """Override to skip API key validation.
+
+        LiteLLM reads provider-specific environment variables automatically
+        based on the model prefix (e.g. ANTHROPIC_API_KEY, OPENAI_API_KEY).
+        """
+        pass
+
+    @override
+    def _convert_conversation_to_api_input(
         self,
         conversation: Conversation,
         generation_params: GenerationParams,
         model_params: ModelParams,
     ) -> dict[str, Any]:
-        """Converts a conversation to a litellm.completion() kwargs dict."""
+        """Converts a conversation to a litellm.completion() kwargs dict.
+
+        Args:
+            conversation: The conversation to convert.
+            generation_params: Parameters for text generation.
+            model_params: Model parameters to use during inference.
+
+        Returns:
+            Dict[str, Any]: A dictionary containing the formatted input for
+                the LiteLLM completion call.
+        """
         messages = create_list_of_message_json_dicts(
             conversation.messages,
             group_adjacent_same_role_turns=False,
@@ -140,18 +183,41 @@ class LiteLLMInferenceEngine(BaseInferenceEngine):
 
         return api_input
 
-    def _parse_response(
-        self, response_json: dict[str, Any], original: Conversation
+    def _call_litellm_completion(
+        self,
+        api_input: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Synchronously invokes litellm.completion.
+
+        Args:
+            api_input: The keyword arguments for litellm.completion().
+
+        Returns:
+            Dict[str, Any]: The response as a JSON-serializable dictionary.
+        """
+        response = litellm.completion(**api_input)
+        return response.model_dump(mode="json")
+
+    @override
+    def _convert_api_output_to_conversation(
+        self, response: dict[str, Any], original_conversation: Conversation
     ) -> Conversation:
-        """Converts a litellm response dict back into a Conversation."""
-        if "error" in response_json:
+        """Converts a LiteLLM response dict back into a Conversation.
+
+        Args:
+            response: The API response to convert.
+            original_conversation: The original conversation.
+
+        Returns:
+            Conversation: The conversation including the generated response.
+        """
+        if "error" in response:
             raise RuntimeError(
-                f"API error: "
-                f"{response_json['error'].get('message', response_json['error'])}"
+                f"API error: " f"{response['error'].get('message', response['error'])}"
             )
-        choices = response_json.get("choices")
+        choices = response.get("choices")
         if not choices:
-            raise RuntimeError(f"No choices in response: {response_json}")
+            raise RuntimeError(f"No choices in response: {response}")
 
         message = choices[0].get("message", {})
         content = message.get("content")
@@ -159,8 +225,8 @@ class LiteLLMInferenceEngine(BaseInferenceEngine):
         if content is None and not tool_calls:
             content = ""
 
-        metadata = dict(original.metadata)
-        usage = response_json.get("usage")
+        metadata = dict(original_conversation.metadata)
+        usage = response.get("usage")
         if usage:
             metadata["usage"] = {
                 "prompt_tokens": usage.get("prompt_tokens", 0),
@@ -174,56 +240,189 @@ class LiteLLMInferenceEngine(BaseInferenceEngine):
 
         return Conversation(
             messages=[
-                *original.messages,
+                *original_conversation.messages,
                 Message(
                     content=content,
                     role=Role(message.get("role", "assistant")),
+                    tool_calls=tool_calls,
                 ),
             ],
             metadata=metadata,
-            conversation_id=original.conversation_id,
-            tools=original.tools,
+            conversation_id=original_conversation.conversation_id,
+            tools=original_conversation.tools,
         )
 
     @override
-    def _infer_online(
+    async def _infer(
         self,
         input: list[Conversation],
-        inference_config: InferenceConfig | None = None,
+        inference_config: Any | None = None,
     ) -> list[Conversation]:
-        """Runs inference via litellm.acompletion().
+        """Async inference implementation that doesn't use HTTP sessions."""
+        semaphore = PoliteAdaptiveSemaphore(
+            capacity=self._remote_params.num_workers,
+            politeness_policy=self._remote_params.politeness_policy,
+        )
+
+        # Create tasks for all conversations
+        tasks = [
+            self._query_api(
+                conversation,
+                semaphore,
+                None,  # No HTTP session needed for LiteLLM SDK
+                inference_config=inference_config,
+            )
+            for conversation in input
+        ]
+
+        disable_tqdm = len(tasks) < 2
+        results = await tqdm.gather(*tasks, disable=disable_tqdm)
+        return results
+
+    @override
+    async def _query_api(
+        self,
+        conversation: Conversation,
+        semaphore: PoliteAdaptiveSemaphore,
+        session: Any,
+        inference_config: Any | None = None,
+    ) -> Conversation:
+        """Queries LiteLLM using the SDK instead of HTTP.
 
         Args:
-            input: A list of conversations to run inference on.
+            conversation: The conversation to run inference on.
+            semaphore: Semaphore to limit concurrent requests.
+            session: Unused (LiteLLM manages its own connections).
             inference_config: Parameters for inference.
 
         Returns:
-            List[Conversation]: Inference output.
+            Conversation: Inference output.
         """
-        if inference_config is not None:
-            generation_params = inference_config.generation or self._generation_params
-            model_params = inference_config.model or self._model_params
-        else:
+        if inference_config is None:
+            remote_params = self._remote_params
             generation_params = self._generation_params
             model_params = self._model_params
+            output_path = None
+        else:
+            remote_params = inference_config.remote_params or self._remote_params
+            generation_params = inference_config.generation or self._generation_params
+            model_params = inference_config.model or self._model_params
+            output_path = inference_config.output_path
 
-        async def _run_all() -> list[Conversation]:
-            results: list[Conversation] = []
-            for conversation in input:
-                api_input = self._build_api_input(
-                    conversation, generation_params, model_params
-                )
+        semaphore_or_controller = (
+            self._adaptive_concurrency_controller
+            if self._remote_params.use_adaptive_concurrency
+            else semaphore
+        )
+        async with semaphore_or_controller:
+            api_input = self._convert_conversation_to_api_input(
+                conversation, generation_params, model_params
+            )
+            failure_reason: str | None = None
+            for attempt in range(remote_params.max_retries + 1):
                 try:
-                    response = await litellm.acompletion(**api_input)
-                    response_json = response.model_dump(mode="json")
-                    results.append(
-                        self._parse_response(response_json, conversation)
-                    )
-                except Exception as e:
-                    logger.error(
-                        f"LiteLLMInferenceEngine - inference error: {e}"
-                    )
-                    raise
-            return results
+                    if attempt > 0:
+                        delay = min(
+                            remote_params.retry_backoff_base * (2 ** (attempt - 1)),
+                            remote_params.retry_backoff_max,
+                        )
+                        await asyncio.sleep(delay)
 
-        return safe_asyncio_run(_run_all())
+                    response = await asyncio.to_thread(
+                        self._call_litellm_completion,
+                        api_input,
+                    )
+                    result = self._convert_api_output_to_conversation(
+                        response, conversation
+                    )
+                    if output_path:
+                        self._save_conversation_to_scratch(result, output_path)
+                    await self._try_record_success()
+                    return result
+                except RuntimeError:
+                    raise
+                except Exception as e:
+                    failure_reason = f"LiteLLM error: {str(e)}"
+                    logger.warning(
+                        f"LiteLLMInferenceEngine attempt {attempt + 1}/"
+                        f"{remote_params.max_retries + 1} failed: {e}"
+                    )
+                    await self._try_record_error()
+                    if attempt >= remote_params.max_retries:
+                        raise RuntimeError(failure_reason) from e
+                    continue
+
+            raise RuntimeError(
+                f"Failed to query LiteLLM after {remote_params.max_retries} retries. "
+                + (f"Reason: {failure_reason}" if failure_reason else "")
+            )
+
+    @override
+    def get_supported_params(self) -> set[str]:
+        """Returns a set of supported generation parameters for this engine."""
+        return {
+            "frequency_penalty",
+            "max_new_tokens",
+            "presence_penalty",
+            "seed",
+            "stop_strings",
+            "temperature",
+            "top_p",
+        }
+
+    @override
+    def list_models(self, chat_only: bool = True) -> list[str]:
+        """Returns model IDs available through LiteLLM.
+
+        Args:
+            chat_only: If True (default), only return chat models.
+
+        Returns:
+            list[str]: A sorted list of model ID strings.
+        """
+        try:
+            models = litellm.model_list or []
+        except Exception:
+            models = []
+        return sorted(models)
+
+    # Override batch inference methods to indicate they're not supported
+    @override
+    def infer_batch(
+        self,
+        conversations: list[Conversation],
+        inference_config: Any | None = None,
+    ) -> str:
+        """LiteLLM does not support batch inference via OpenAI-style batch API."""
+        raise NotImplementedError(
+            "Batch inference is not supported for LiteLLM engine."
+        )
+
+    @override
+    def get_batch_status(self, batch_id: str) -> Any:
+        """LiteLLM does not support batch inference via OpenAI-style batch API."""
+        raise NotImplementedError(
+            "Batch inference is not supported for LiteLLM engine."
+        )
+
+    @override
+    def list_batches(
+        self,
+        after: str | None = None,
+        limit: int | None = None,
+    ) -> Any:
+        """LiteLLM does not support batch inference via OpenAI-style batch API."""
+        raise NotImplementedError(
+            "Batch inference is not supported for LiteLLM engine."
+        )
+
+    @override
+    def get_batch_results(
+        self,
+        batch_id: str,
+        conversations: list[Conversation],
+    ) -> list[Conversation]:
+        """LiteLLM does not support batch inference via OpenAI-style batch API."""
+        raise NotImplementedError(
+            "Batch inference is not supported for LiteLLM engine."
+        )
