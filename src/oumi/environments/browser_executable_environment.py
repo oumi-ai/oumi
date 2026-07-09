@@ -87,7 +87,7 @@ class BrowserExecutableEnvironment(ExecutableEnvironment):
     @classmethod
     def from_params(cls, params: EnvironmentParams) -> BrowserExecutableEnvironment:
         """Open a fresh Kernel browser session from ``env_kwargs`` and bind the env."""
-        kwargs = dict(params.env_kwargs or {})
+        kwargs = params.env_kwargs or {}
         create_kwargs = {k: kwargs[k] for k in _BROWSER_CREATE_KEYS if k in kwargs}
         unknown = sorted(set(kwargs) - set(_BROWSER_CREATE_KEYS))
         if unknown:
@@ -100,7 +100,13 @@ class BrowserExecutableEnvironment(ExecutableEnvironment):
                 list(_BROWSER_CREATE_KEYS),
             )
         session = KernelBrowserSession(create_kwargs)
-        return cls(params, session)
+        try:
+            return cls(params, session)
+        except Exception:
+            # Executors are resolved in __init__, after the live session is open;
+            # close it so a bad executor path can't leak the microVM.
+            session.close()
+            raise
 
     def requires_isolation(self) -> bool:
         """Each rollout needs its own microVM session; never share across samples."""

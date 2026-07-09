@@ -154,9 +154,28 @@ def test_executor_returning_toolresult_passes_through():
 
 
 def test_current_page_raises_outside_execution_context():
-    """current_page() with no active using_page binding raises LookupError."""
-    with pytest.raises(LookupError):
+    """current_page() with no active using_page binding raises a clear error."""
+    with pytest.raises(RuntimeError, match="outside a browser tool execution"):
         current_page()
+
+
+def test_from_params_closes_session_if_executor_wiring_fails(monkeypatch):
+    """A bad executor path must close (not leak) the freshly-opened session."""
+    created: list[_FakeSession] = []
+
+    def _factory(create_kwargs: dict[str, Any] | None = None) -> _FakeSession:
+        s = _FakeSession(create_kwargs)
+        created.append(s)
+        return s
+
+    monkeypatch.setattr(
+        "oumi.environments.browser_executable_environment.KernelBrowserSession",
+        _factory,
+    )
+    bad = ExecutableTool(id="t", name="t", description="d", executor="not_dotted")
+    with pytest.raises(ValueError):
+        BrowserExecutableEnvironment.from_params(_params(tools=[bad]))
+    assert created and created[0].closed is True
 
 
 def test_close_is_idempotent_and_retries_after_failed_delete(monkeypatch):
@@ -195,3 +214,48 @@ def test_close_is_idempotent_and_retries_after_failed_delete(monkeypatch):
     session.close()  # retry succeeds
     session.close()  # idempotent: no second successful delete
     assert browsers.deletes == 2
+
+
+def test_page_yields_default_cdp_page_and_swallows_close_error(monkeypatch):
+    """page() attaches over CDP, yields the default page, and swallows close errors."""
+    pytest.importorskip("kernel")
+    pytest.importorskip("playwright")
+    import kernel  # pyright: ignore[reportMissingImports]
+    import playwright.sync_api as pw  # pyright: ignore[reportMissingImports]
+
+    class _Page:
+        marker = "cdp-page"
+
+    class _Ctx:
+        pages = [_Page()]
+
+    class _CDP:
+        contexts = [_Ctx()]
+
+        def close(self) -> None:
+            raise RuntimeError("cdp teardown boom")  # must be swallowed
+
+    class _PW:
+        chromium = SimpleNamespace(connect_over_cdp=lambda url: _CDP())
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a) -> bool:
+            return False
+
+    class _Browsers:
+        def create(self, **kwargs: Any):
+            return SimpleNamespace(
+                session_id="s1", cdp_ws_url="ws://x", browser_live_view_url=None
+            )
+
+        def delete_by_id(self, session_id: str) -> None:
+            pass
+
+    monkeypatch.setattr(pw, "sync_playwright", lambda: _PW())
+    monkeypatch.setattr(kernel, "Kernel", lambda: SimpleNamespace(browsers=_Browsers()))
+
+    session = KernelBrowserSession()
+    with session.page() as page:  # exiting runs cdp.close(), which raises
+        assert page.marker == "cdp-page"

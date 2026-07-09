@@ -31,6 +31,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any
 
+from oumi.utils.logging import logger
 from oumi.utils.packaging import require_kernel, require_playwright
 
 if TYPE_CHECKING:
@@ -44,11 +45,11 @@ _page_var: ContextVar[Any] = ContextVar("oumi_browser_page")
 
 
 @contextmanager
-def using_page(page: Any) -> Iterator[None]:
+def using_page(page: Any) -> Iterator[Any]:
     """Bind ``page`` as the active page for the duration of one tool call."""
     token = _page_var.set(page)
     try:
-        yield
+        yield page
     finally:
         _page_var.reset(token)
 
@@ -56,10 +57,16 @@ def using_page(page: Any) -> Iterator[None]:
 def current_page() -> Any:
     """Return the page bound for the current tool call.
 
-    Raises ``LookupError`` if called outside a ``using_page`` block (i.e. an
+    Raises ``RuntimeError`` if called outside a ``using_page`` block (i.e. an
     executor invoked outside the environment's execution context).
     """
-    return _page_var.get()
+    try:
+        return _page_var.get()
+    except LookupError as e:
+        raise RuntimeError(
+            "current_page() called outside a browser tool execution context; "
+            "no page is bound."
+        ) from e
 
 
 class KernelBrowserSession:
@@ -121,7 +128,15 @@ class KernelBrowserSession:
                 page = context.pages[0] if context.pages else context.new_page()
                 yield page
             finally:
-                cdp.close()
+                # Swallow teardown errors so a CDP close failure neither masks an
+                # executor exception nor fails an otherwise-successful call; the
+                # remote Kernel session is torn down separately in close().
+                try:
+                    cdp.close()
+                except Exception:
+                    logger.warning(
+                        "Kernel browser: CDP client close failed during teardown."
+                    )
 
     def close(self) -> None:
         """Delete the Kernel session. Idempotent — safe to call from ``finally``.
