@@ -39,7 +39,9 @@ class ExecutableEnvironment(BaseEnvironment):
     argument and result validation, the ``_absorb_result`` post-hook, and the
     ``close`` lifecycle. Executors are invoked as
     ``executor(arguments=<dict>, context=<ctx>)`` and must return a
-    ``ToolResult``.
+    ``ToolResult``. Result validation runs inside the execution context so a
+    transactional context manager sees a validation failure and can roll back;
+    ``_absorb_result`` runs only after the context exits cleanly.
     """
 
     tool_params_cls: type[ToolParams] = ExecutableTool
@@ -81,6 +83,6 @@ class ExecutableEnvironment(BaseEnvironment):
         tool.validate_arguments(arguments)
         with self._build_execution_context(tool, arguments) as ctx:
             result = self._executors[tool_id](arguments=arguments, context=ctx)
-        validated = validate_executor_result(tool, result)
+            validated = validate_executor_result(tool, result)
         self._absorb_result(tool, validated)
         return validated

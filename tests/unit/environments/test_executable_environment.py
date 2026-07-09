@@ -45,6 +45,10 @@ def _bad_return_executor(arguments, context):
     return {"not": "a ToolResult"}
 
 
+def _raising_executor(arguments, context):
+    raise RuntimeError("boom")
+
+
 class _EchoExecEnv(ExecutableEnvironment):
     """Concrete env whose executor echoes the context it was handed."""
 
@@ -82,11 +86,13 @@ def test_default_tool_params_cls_is_executable_tool():
 
 
 def test_close_is_noop():
-    assert _env([]).close() is None
+    result = _env([]).close()
+    assert result is None
 
 
 def test_absorb_result_is_noop():
-    assert _env([])._absorb_result(_tool("t"), ToolResult(output={"ok": True})) is None
+    result = _env([])._absorb_result(_tool("t"), ToolResult(output={"ok": True}))
+    assert result is None
 
 
 def test_step_dispatches_to_executor_with_context():
@@ -180,9 +186,16 @@ def test_context_manager_teardown_runs_after_executor():
     assert env.events == ["enter", "exit"]
 
 
-def test_context_manager_teardown_runs_when_executor_fails():
+def test_context_manager_teardown_runs_when_result_invalid():
     env = _tracking_env([_tool("bad", executor=f"{__name__}._bad_return_executor")])
     with pytest.raises(ToolError):
+        env.step([("bad", {})])
+    assert env.events == ["enter", "exit"]
+
+
+def test_context_manager_teardown_runs_when_executor_raises():
+    env = _tracking_env([_tool("bad", executor=f"{__name__}._raising_executor")])
+    with pytest.raises(RuntimeError, match="boom"):
         env.step([("bad", {})])
     assert env.events == ["enter", "exit"]
 
