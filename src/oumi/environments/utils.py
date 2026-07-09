@@ -16,10 +16,59 @@
 
 from __future__ import annotations
 
+import importlib
 import json
+from collections.abc import Callable
 from typing import Any
 
+import jsonschema
+
 from oumi.core.configs.params.grounding_params import GroundingFact
+from oumi.core.configs.params.tool_params import ToolError, ToolParams
+from oumi.core.types.tool_call import ToolResult
+
+
+def import_executor(dotted: str, tool_id: str) -> Callable[..., Any]:
+    """Resolve a dotted import path to a callable. Raises ValueError on failure."""
+    module_path, _, attr = dotted.rpartition(".")
+    if not module_path or not attr:
+        raise ValueError(
+            f"Tool '{tool_id}': executor '{dotted}' must be a dotted import "
+            f"path (e.g. 'pkg.module.fn')."
+        )
+    try:
+        module = importlib.import_module(module_path)
+    except ImportError as e:
+        raise ValueError(
+            f"Tool '{tool_id}': cannot import executor module '{module_path}': {e}"
+        ) from e
+    executor = getattr(module, attr, None)
+    if executor is None:
+        raise ValueError(
+            f"Tool '{tool_id}': module '{module_path}' has no attribute '{attr}'."
+        )
+    if not callable(executor):
+        raise ValueError(
+            f"Tool '{tool_id}': executor '{dotted}' resolved to a non-callable."
+        )
+    return executor
+
+
+def validate_executor_result(tool: ToolParams, result: Any) -> ToolResult:
+    """Check an executor return is a ToolResult conforming to ``output_schema``."""
+    if not isinstance(result, ToolResult):
+        raise ToolError(
+            f"Tool '{tool.id}' executor must return ToolResult, got "
+            f"{type(result).__name__}."
+        )
+    if tool.output_schema is not None:
+        try:
+            jsonschema.validate(result.output, tool.output_schema)
+        except jsonschema.ValidationError as e:
+            raise ToolError(
+                f"Tool '{tool.id}' executor output failed schema validation: {e}"
+            ) from e
+    return result
 
 
 def _format_grounding_value(value: Any) -> str:

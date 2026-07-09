@@ -19,36 +19,37 @@ from __future__ import annotations
 from abc import abstractmethod
 from collections.abc import Callable
 from contextlib import AbstractContextManager
-from typing import Any, ClassVar
-
-import jsonschema
+from typing import Any
 
 from oumi.core.configs.params.environment_params import EnvironmentParams
-from oumi.core.configs.params.tool_params import ToolError, ToolLookupError, ToolParams
+from oumi.core.configs.params.tool_params import ToolLookupError, ToolParams
 from oumi.core.types.tool_call import ToolResult
 from oumi.environments.base_environment import BaseEnvironment
 from oumi.environments.executable_tool import ExecutableTool
+from oumi.environments.utils import import_executor, validate_executor_result
 
 
 class ExecutableEnvironment(BaseEnvironment):
-    """Abstract base for envs that run user-supplied dotted-path executors.
+    """Abstract base for envs that dispatch tool calls to Python executors.
 
-    Subclasses supply the per-call execution context (DB connection, HTTP
-    client, FS root, ...) by implementing ``_build_execution_context`` as a
-    context manager. The base owns executor resolution, result validation,
-    schema validation, the ``_absorb_result`` post-hook, and the ``close``
-    lifecycle.
+    Each tool declares its executor as a dotted import path; the base resolves
+    them into ``_executors`` at construction. Subclasses supply the per-call
+    execution context (DB connection, HTTP client, FS root, ...) by
+    implementing ``_build_execution_context``. The base owns tool lookup,
+    argument and result validation, the ``_absorb_result`` post-hook, and the
+    ``close`` lifecycle. Executors are invoked as
+    ``executor(arguments=<dict>, context=<ctx>)`` and must return a
+    ``ToolResult``.
     """
 
     tool_params_cls: type[ToolParams] = ExecutableTool
 
-    #: Keyword name under which subclasses pass the execution context to
-    #: user executors. Defaults to ``"context"``; concrete subclasses such
-    #: as ``DatabaseExecutableEnvironment`` override this (e.g. to ``"db"``).
-    _executor_context_kwarg: ClassVar[str] = "context"
-
-    _params: EnvironmentParams
-    _executors: dict[str, Callable[..., Any]]
+    def __init__(self, params: EnvironmentParams) -> None:
+        """Resolve each tool's dotted-path executor into ``_executors``."""
+        self._params = params
+        self._executors: dict[str, Callable[..., Any]] = {
+            tool.id: import_executor(tool.executor, tool.id) for tool in params.tools
+        }
 
     @abstractmethod
     def _build_execution_context(
@@ -58,11 +59,9 @@ class ExecutableEnvironment(BaseEnvironment):
 
     def _absorb_result(self, tool: ExecutableTool, result: ToolResult) -> None:
         """Post-hook called after a successful executor call. Default no-op."""
-        return None
 
     def close(self) -> None:
         """Release any resources owned by this env. Default no-op."""
-        return None
 
     def step(self, calls: list[tuple[str, dict[str, Any]]]) -> list[ToolResult]:
         """Execute a batch of tool calls; results are returned in input order."""
@@ -77,32 +76,11 @@ class ExecutableEnvironment(BaseEnvironment):
             f"Available tools: {[t.id for t in self._params.tools]}"
         )
 
-    def _validate_result(self, tool: ExecutableTool, result: Any) -> ToolResult:
-        if not isinstance(result, ToolResult):
-            raise ToolError(
-                f"Tool '{tool.id}' executor must return ToolResult, got "
-                f"{type(result).__name__}."
-            )
-        if tool.output_schema is not None:
-            try:
-                jsonschema.validate(result.output, tool.output_schema)
-            except jsonschema.ValidationError as e:
-                raise ToolError(
-                    f"Tool '{tool.id}' executor output failed schema validation: {e}"
-                ) from e
-        return result
-
     def _step_one(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:
         tool = self._lookup_tool(tool_id)
         tool.validate_arguments(arguments)
         with self._build_execution_context(tool, arguments) as ctx:
-            result = self._invoke_executor(self._executors[tool_id], arguments, ctx)
-        validated = self._validate_result(tool, result)
+            result = self._executors[tool_id](arguments=arguments, context=ctx)
+        validated = validate_executor_result(tool, result)
         self._absorb_result(tool, validated)
         return validated
-
-    def _invoke_executor(
-        self, executor: Callable[..., Any], arguments: dict[str, Any], ctx: Any
-    ) -> Any:
-        """Call the resolved executor and return its raw result."""
-        return executor(**{"arguments": arguments, self._executor_context_kwarg: ctx})

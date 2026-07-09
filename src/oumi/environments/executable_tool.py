@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Shared base class for tools that resolve a dotted-path Python executor."""
+"""Tool params base for tools that declare a dotted-path executor."""
 
 from __future__ import annotations
 
@@ -23,12 +23,7 @@ from oumi.core.configs.params.tool_params import ToolParams
 
 @dataclass
 class ExecutableTool(ToolParams):
-    """`ToolParams` variant for envs that take user-supplied dotted-path executors.
-
-    Subclasses inherit this and may add transport-specific per-tool overrides.
-    """
-
-    executor: str = ""
+    """`ToolParams` variant for envs that take user-supplied dotted-path executors."""
 
     def __post_init__(self) -> None:
         """Validate inherited fields and enforce non-empty executor."""

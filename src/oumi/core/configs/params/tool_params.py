@@ -71,8 +71,10 @@ class ToolParams(BaseParams):
     """Optional dotted import path to a callable that executes this tool.
 
     When set, the host env dispatches calls to it instead of LLM-simulating.
-    ``SyntheticEnvironment`` passes ``(arguments, state)`` when
-    ``state_params`` is set, else ``(arguments,)``.
+    The callable is invoked with keyword arguments — always ``arguments`` (the
+    tool-call args), plus a per-env context keyword: ``state`` for a stateful
+    ``SyntheticEnvironment``, ``context`` for an ``ExecutableEnvironment`` — and
+    must return a ``ToolResult``.
     """
 
     @classmethod
