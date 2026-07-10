@@ -200,7 +200,7 @@ def test_step_unknown_tool_raises():
 
 @pytest.mark.parametrize(
     "output",
-    [191.23, ["a", "b"], "text", True, None],
+    [191.23, 42, ["a", "b"], "text", True, None],
 )
 def test_step_returns_non_dict_output(output):
     """Scalars, lists, and None round-trip through step() unchanged."""

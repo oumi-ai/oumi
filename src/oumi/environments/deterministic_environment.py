@@ -125,10 +125,9 @@ class DeterministicEnvironment(BaseEnvironment):
 
         Walks every tool that has a per-tool entry in
         ``params.grounding.tools``. Each entry in that tool's lookup table
-        is projected via ``{**input, **output}`` (dict outputs only;
-        non-dict outputs ground on their input fields alone) filtered
-        through the configured ``fields`` whitelist. Tools without a
-        grounding entry contribute nothing.
+        is projected to its ``input`` fields (merged with ``output`` when
+        the output is a dict), filtered through the configured ``fields``
+        whitelist. Tools without a grounding entry contribute nothing.
         """
         grounding = self._params.grounding
         if grounding is None or not grounding.tools:

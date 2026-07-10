@@ -1975,6 +1975,55 @@ def test_dispatch_tool_calls_routes_through_env(
     fake_env.step.assert_called_once_with([("get_weather", {"city": "Paris"})])
 
 
+@pytest.mark.parametrize(
+    ("output", "expected_content"),
+    [
+        (None, "null"),
+        (191.23, "191.23"),
+        (["users", "orders"], '["users", "orders"]'),
+        (True, "true"),
+    ],
+)
+@patch("oumi.core.synthesis.tool_router.build_environment")
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_dispatch_tool_calls_json_encodes_non_dict_output(
+    mock_build_inference_engine,
+    mock_build_environment,
+    mock_general_synthesis_params,
+    output,
+    expected_content,
+):
+    """Non-dict tool outputs are json-encoded at the TOOL message boundary."""
+    mock_build_inference_engine.return_value = Mock()
+
+    fake_env = Mock(spec=BaseEnvironment)
+    fake_env.step.return_value = [ToolResult(output=output)]
+    mock_build_environment.return_value = fake_env
+
+    env_config = _make_env_config("weather", "get_weather")
+    inference_config = InferenceConfig(
+        engine=InferenceEngineType.OPENAI,
+        model=Mock(spec=ModelParams),
+        remote_params=Mock(spec=RemoteParams),
+        generation=GenerationParams(),
+    )
+    synth = ConversationSynthesizer(
+        mock_general_synthesis_params,
+        inference_config,
+        environment_config=env_config,
+    )
+
+    tc = ToolCall(
+        id="call_1",
+        function=FunctionCall(name="get_weather", arguments='{"city": "Paris"}'),
+    )
+    synth._prepare_sample_routers(1)
+    [msg] = synth._dispatch_tool_calls([tc], 0)
+
+    assert msg.role == Role.TOOL
+    assert msg.content == expected_content
+
+
 @patch("oumi.core.synthesis.tool_router.build_environment")
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
 def test_dispatch_tool_calls_folds_same_env_calls_into_one_step(
