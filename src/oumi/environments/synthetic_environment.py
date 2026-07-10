@@ -427,7 +427,7 @@ class SyntheticEnvironment(BaseEnvironment):
                 )
 
     def _build_simulator_system_prompt(self, tool: ToolParams) -> str:
-        """Compose the simulator system prompt: env persona + tool schema."""
+        """Compose the simulator system prompt: tool persona + tool schema."""
         return (
             f"{self._kwargs.tool_persona}\n\n"
             f"You are simulating the `{tool.id}` tool. Respond ONLY with a "

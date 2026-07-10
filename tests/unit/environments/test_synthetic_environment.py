@@ -342,6 +342,7 @@ def test_build_call_conv_has_system_and_user_messages():
     assert conv.messages[0].role == Role.SYSTEM
     assert conv.messages[1].role == Role.USER
     assert "answer" in str(conv.messages[0].content)
+    assert "Answer FAQs as a JSON tool" in str(conv.messages[0].content)
     user_payload = str(conv.messages[1].content)
     assert '"tool"' in user_payload and '"answer"' in user_payload
 
