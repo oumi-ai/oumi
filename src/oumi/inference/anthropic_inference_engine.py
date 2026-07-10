@@ -174,20 +174,22 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
             "max_tokens": generation_params.max_new_tokens,
         }
 
-        # Anthropic removed the sampling params (temperature/top_p/top_k) on its
-        # reasoning-first models (Claude Opus 4.7+, Fable/Mythos): sending them
-        # returns HTTP 400. Omit them there; every other Claude model keeps its
-        # configured values.
         if _model_supports_sampling_params(model_params.model_name):
             body["temperature"] = generation_params.temperature
-            # Only include top_p if it's explicitly set (Sonnet 4.5 requires only
-            # one of temperature or top_p to be set, not both).
+            # Only include top_p if explicitly set — Claude 4+ rejects a request
+            # that sets both temperature and top_p.
             if generation_params.top_p is not None:
                 body["top_p"] = generation_params.top_p
-        else:
-            logger.debug(
-                "%r does not accept sampling params; omitting temperature/top_p.",
+        elif (
+            generation_params.temperature != 0.0 or generation_params.top_p is not None
+        ):
+            # Warn only when discarding a non-default value the user actually set.
+            logger.warning(
+                "%r does not accept sampling params; "
+                "omitting temperature=%s / top_p=%s.",
                 model_params.model_name,
+                generation_params.temperature,
+                generation_params.top_p,
             )
 
         if self._remote_params.user_id:
@@ -1021,7 +1023,7 @@ def _model_supports_output_config(model_name: str) -> bool:
 
 
 def _model_supports_sampling_params(model_name: str) -> bool:
-    """Returns True if the model accepts sampling params (temperature/top_p)."""
+    """Returns True if the model accepts sampling params, False otherwise."""
     # Anthropic removed the sampling params (temperature/top_p/top_k) on its
     # reasoning-first models: Claude Opus 4.7+ and the Fable/Mythos families return
     # HTTP 400 ("`temperature` is deprecated for this model."). Opus 4.6 and earlier,
@@ -1029,7 +1031,6 @@ def _model_supports_sampling_params(model_name: str) -> bool:
     if model_name.startswith(("claude-fable", "claude-mythos")):
         return False
 
-    match = re.match(r"^claude-opus-(\d+)-(\d+)", model_name)
-    if match:
-        return (int(match[1]), int(match[2])) < (4, 7)
-    return True
+    version_re = re.compile(r"^claude-opus-(\d+)-(\d+)")
+    match = version_re.match(model_name)
+    return (int(match[1]), int(match[2])) < (4, 7) if match else True
