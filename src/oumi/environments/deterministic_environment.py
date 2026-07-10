@@ -27,17 +27,20 @@ from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.core.configs.params.grounding_params import GroundingFact
 from oumi.core.configs.params.tool_params import ToolLookupError, ToolParams
 from oumi.core.registry import register_environment
-from oumi.core.types.tool_call import ToolResult
+from oumi.core.types.tool_call import JsonValue, ToolResult
 from oumi.environments.base_environment import BaseEnvironment
 from oumi.utils.logging import logger
 
 
 @dataclass
 class ToolLookupEntry(BaseParams):
-    """One (input, output) pair in a deterministic env's lookup table."""
+    """One (input, output) pair in a deterministic env's lookup table.
+
+    ``output`` may be any JSON value (scalar, list, object, or null).
+    """
 
     input: dict[str, Any] = field(default_factory=dict)
-    output: dict[str, Any] = field(default_factory=dict)
+    output: JsonValue = None
 
     def input_key(self) -> str:
         """Canonical JSON form of ``input`` for matching and dedup."""
@@ -122,9 +125,10 @@ class DeterministicEnvironment(BaseEnvironment):
 
         Walks every tool that has a per-tool entry in
         ``params.grounding.tools``. Each entry in that tool's lookup table
-        is projected via ``{**input, **output}`` filtered through the
-        configured ``fields`` whitelist. Tools without a grounding entry
-        contribute nothing.
+        is projected via ``{**input, **output}`` (dict outputs only;
+        non-dict outputs ground on their input fields alone) filtered
+        through the configured ``fields`` whitelist. Tools without a
+        grounding entry contribute nothing.
         """
         grounding = self._params.grounding
         if grounding is None or not grounding.tools:
@@ -138,7 +142,12 @@ class DeterministicEnvironment(BaseEnvironment):
                 continue
             whitelist = set(tool_grounding.fields)
             for entry in self._kwargs.lookup_table.get(tool.id, []):
-                row = {**entry.input, **entry.output}
+                # Non-dict outputs (scalars/lists) have no named fields to
+                # project, so they ground on their input fields only; dict
+                # outputs merge both.
+                row = dict(entry.input)
+                if isinstance(entry.output, dict):
+                    row.update(entry.output)
                 projected = {
                     key: value for key, value in row.items() if key in whitelist
                 }

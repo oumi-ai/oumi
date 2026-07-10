@@ -36,6 +36,9 @@ JSONSchemaType = Literal[
     "object", "string", "number", "integer", "boolean", "array", "null"
 ]
 
+# Any JSON-serializable value.
+JsonValue = str | int | float | bool | list[Any] | dict[str, Any] | None
+
 
 class JSONSchema(pydantic.BaseModel):
     """A JSON Schema object describing the shape of a value.
@@ -183,9 +186,9 @@ class ToolResult:
 
     Runtime value (not an OpenAI wire-format type) — projected by the
     synthesizer into ``Message(role=TOOL, content=...)`` before output.
-    ``output`` may be a string or a JSON-serializable dict; the
-    synthesizer json-encodes dicts at the message boundary.
+    ``output`` may be any JSON value — a string is used as-is, everything
+    else is json-encoded at the message boundary.
     """
 
-    output: str | dict[str, Any]
+    output: JsonValue
     updated_state: dict[str, Any] | None = None
