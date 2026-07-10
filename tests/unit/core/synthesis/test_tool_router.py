@@ -72,7 +72,7 @@ def _stateful_synth_env_params(env_id: str) -> EnvironmentParams:
         env_type="synthetic",
         tools=[],
         env_kwargs={
-            "system_prompt": "p",
+            "tool_persona": "p",
             "state_params": {"initial_state": {"rows": [{"id": "1"}]}},
             "cache_by_input": False,
         },
@@ -147,7 +147,7 @@ def test_from_environment_config_includes_grounding_only_envs():
         env_type="synthetic",
         tools=[],
         env_kwargs={
-            "system_prompt": "p",
+            "tool_persona": "p",
             "state_params": {"initial_state": {"rows": [{"id": "1"}]}},
             "cache_by_input": False,
         },
