@@ -33,6 +33,7 @@ class TextCompletionsCollatorWithPadding:
         debug: bool = False,
         end_of_turn_template: str | None = None,
         ignore_index: int = -100,
+        pad_to_multiple_of: int | None = None,
     ):
         """Custom collator for text LLM training.
 
@@ -47,6 +48,12 @@ class TextCompletionsCollatorWithPadding:
             Required for ``all_assistant_turns``.
         ignore_index: Value used for masked labels. Must match the ignore_index
             of the loss function (default: -100).
+        pad_to_multiple_of: If set, pad each batch up to a multiple of this
+            value instead of exactly the longest sequence in the batch. Some
+            compiled attention kernels (e.g. ``flex_attention``, block size
+            128) cannot compile sequences shorter than one block; padding to
+            the block size keeps short samples trainable. Padding positions
+            are excluded from attention and loss as usual.
         """
         self._default_collator = DataCollatorForCompletionOnlyLM(
             tokenizer=tokenizer,
@@ -55,6 +62,7 @@ class TextCompletionsCollatorWithPadding:
             train_target=train_target,
             end_of_turn_template=end_of_turn_template,
             ignore_index=ignore_index,
+            pad_to_multiple_of=pad_to_multiple_of,
         )
 
         if not hasattr(tokenizer, "pad_token_id") or tokenizer.pad_token_id is None:

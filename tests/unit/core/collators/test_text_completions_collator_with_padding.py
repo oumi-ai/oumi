@@ -535,3 +535,66 @@ def test_span_masking_with_leading_newline_content():
     content_start = len(resp_ids)
     content_region = labels[content_start : content_start + len(nl_ids) + len(content)]
     assert all(v != IGNORE for v in content_region)
+
+
+def test_pad_to_multiple_of_rounds_batch_length_up():
+    tokenizer, pad_token_id = create_test_tokenizer()
+
+    instruction_prefix = "ignore this and after me"
+    response_prefix = "ignore this but not after me"
+    instruction_prefix_tokens = tokenizer.encode(
+        instruction_prefix, add_special_tokens=False
+    )
+    response_prefix_tokens = tokenizer.encode(response_prefix, add_special_tokens=False)
+
+    collator = TextCompletionsCollatorWithPadding(
+        tokenizer=tokenizer,
+        instruction_template=instruction_prefix,
+        response_template=response_prefix,
+        train_target="_legacy_instruction_response",
+        pad_to_multiple_of=128,
+    )
+
+    short_row = {
+        "input_ids": (
+            instruction_prefix_tokens + response_prefix_tokens + [201, 202, 203]
+        )
+    }
+    batch = collator([short_row])
+
+    seq_len = batch["input_ids"].shape[1]
+    assert seq_len == 128
+    num_real = len(short_row["input_ids"])
+    # Padding positions are invisible to attention and loss.
+    assert batch["attention_mask"][0, num_real:].sum() == 0
+    assert (batch["input_ids"][0, num_real:] == pad_token_id).all()
+    assert (batch["labels"][0, num_real:] == IGNORE).all()
+    # Real completion tokens keep their labels.
+    expected_tail = torch.tensor([201, 202, 203])
+    assert (batch["labels"][0, num_real - 3 : num_real] == expected_tail).all()
+
+
+def test_pad_to_multiple_of_none_keeps_longest_in_batch():
+    tokenizer, _ = create_test_tokenizer()
+
+    response_prefix = "ignore this but not after me"
+    response_prefix_tokens = tokenizer.encode(response_prefix, add_special_tokens=False)
+
+    instruction_prefix = "ignore this and after me"
+    instruction_prefix_tokens = tokenizer.encode(
+        instruction_prefix, add_special_tokens=False
+    )
+    collator = TextCompletionsCollatorWithPadding(
+        tokenizer=tokenizer,
+        instruction_template=instruction_prefix,
+        response_template=response_prefix,
+        train_target="_legacy_instruction_response",
+    )
+
+    row = {
+        "input_ids": (
+            instruction_prefix_tokens + response_prefix_tokens + [201, 202, 203]
+        )
+    }
+    batch = collator([row])
+    assert batch["input_ids"].shape[1] == len(row["input_ids"])
