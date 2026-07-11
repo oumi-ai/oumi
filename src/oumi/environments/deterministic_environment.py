@@ -206,11 +206,8 @@ class DeterministicEnvironment(BaseEnvironment):
     def _warn_grounding_key_collisions(self) -> None:
         """Warn once when a dict output shadows a whitelisted input field.
 
-        In ``sample_grounding`` a dict output is merged over the input, so a
-        grounding field present in both takes the output value and the input
-        value is silently dropped. Surface it at construction so config
-        authors notice; only whitelisted fields matter since the rest never
-        reach a grounding fact.
+        Only whitelisted fields matter — a collision on any other key is
+        dropped by the projection and never reaches a grounding fact.
         """
         grounding = self._params.grounding
         if grounding is None or not grounding.tools:
