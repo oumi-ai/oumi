@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import functools
+import os
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -286,6 +287,14 @@ def train(
 ) -> None | dict[str, Any]:
     """Trains a model using the provided configuration."""
     _START_TIME = time.time()
+
+    # torch exposes no env var for the dynamo recompile limit; compiled
+    # attention backends (flex_attention) on variable-shape data can need
+    # more than the default 8 before shapes go dynamic.
+    recompile_limit = os.environ.get("OUMI_DYNAMO_RECOMPILE_LIMIT")
+    if recompile_limit:
+        torch._dynamo.config.recompile_limit = int(recompile_limit)
+        torch._dynamo.config.cache_size_limit = int(recompile_limit)
 
     _create_training_dirs(config)
     _log_training_info(config)

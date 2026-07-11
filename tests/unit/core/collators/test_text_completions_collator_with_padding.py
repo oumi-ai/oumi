@@ -565,11 +565,12 @@ def test_pad_to_multiple_of_rounds_batch_length_up():
     seq_len = batch["input_ids"].shape[1]
     assert seq_len == 128
     num_real = len(short_row["input_ids"])
-    # Alignment padding is attended (attention_mask=1): causal attention keeps
-    # real tokens from seeing forward positions, ignored labels keep the loss
-    # unchanged, and an all-ones mask keeps compiled attention on the fused
-    # path instead of per-batch padding-mask closures.
-    assert (batch["attention_mask"][0, num_real:] == 1).all()
+    # Alignment padding is attended: causal attention keeps real tokens from
+    # seeing forward positions and ignored labels keep the loss unchanged. The
+    # resulting all-ones attention_mask is dropped so compiled attention
+    # backends keep the pure-causal fast path (a mask tensor forces per-batch
+    # mask closures that defeat torch.compile caching).
+    assert "attention_mask" not in batch
     assert (batch["input_ids"][0, num_real:] == pad_token_id).all()
     assert (batch["labels"][0, num_real:] == IGNORE).all()
     # Real completion tokens keep their labels.

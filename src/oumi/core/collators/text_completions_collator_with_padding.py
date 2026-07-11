@@ -105,6 +105,13 @@ class TextCompletionsCollatorWithPadding:
             result["attention_mask"] = _extend(result["attention_mask"], 1)
         if "labels" in result:
             result["labels"] = _extend(result["labels"], self._ignore_index)
+        # An all-ones mask carries no information, but its presence makes
+        # transformers wrap attention in per-batch mask closures that compiled
+        # attention backends cannot cache (torch.compile guards on closure
+        # identity). Dropping it keeps the pure-causal fast path.
+        mask = result.get("attention_mask")
+        if mask is not None and bool(mask.all()):
+            del result["attention_mask"]
         return result
 
     def __call__(self, batch: list[dict[str, Any]]) -> dict[str, Any]:
