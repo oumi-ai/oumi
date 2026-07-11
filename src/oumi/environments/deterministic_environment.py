@@ -94,6 +94,7 @@ class DeterministicEnvironment(BaseEnvironment):
         self._kwargs = kwargs
         self._tool_ids = {tool.id for tool in params.tools}
         self._validate_lookup_table()
+        self._warn_grounding_key_collisions()
 
     def step(self, calls: list[tuple[str, dict[str, Any]]]) -> list[ToolResult]:
         """Resolve a batch of deterministic tool calls to their outputs."""
@@ -201,3 +202,31 @@ class DeterministicEnvironment(BaseEnvironment):
                         f"Tool '{tool.id}' has duplicate input entry: {entry.input}"
                     )
                 seen.add(key)
+
+    def _warn_grounding_key_collisions(self) -> None:
+        """Warn once when a dict output shadows a whitelisted input field.
+
+        In ``sample_grounding`` a dict output is merged over the input, so a
+        grounding field present in both takes the output value and the input
+        value is silently dropped. Surface it at construction so config
+        authors notice; only whitelisted fields matter since the rest never
+        reach a grounding fact.
+        """
+        grounding = self._params.grounding
+        if grounding is None or not grounding.tools:
+            return
+        for tool_id, tool_grounding in grounding.tools.items():
+            whitelist = set(tool_grounding.fields)
+            shadowed: set[str] = set()
+            for entry in self._kwargs.lookup_table.get(tool_id, []):
+                if isinstance(entry.output, dict):
+                    shadowed |= entry.input.keys() & entry.output.keys() & whitelist
+            if shadowed:
+                logger.warning(
+                    "Environment '%s': tool '%s' grounding field(s) %s appear "
+                    "in both input and output; the output value shadows the "
+                    "input in grounding facts.",
+                    self._params.id,
+                    tool_id,
+                    sorted(shadowed),
+                )

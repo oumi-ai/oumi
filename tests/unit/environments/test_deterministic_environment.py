@@ -349,6 +349,57 @@ def test_sample_grounding_merges_input_and_output():
     assert facts[0].data == {"id": "1", "note": "output-note", "title": "Dune"}
 
 
+def test_grounding_key_collision_warns(caplog):
+    """Warn when a whitelisted grounding field is in both input and output."""
+    with caplog.at_level(logging.WARNING, logger="oumi"):
+        DeterministicEnvironment.from_params(
+            _make_params(
+                tools=[_make_tool("lookup")],
+                lookup_table={
+                    "lookup": [
+                        ToolLookupEntry(
+                            input={"id": "1", "note": "in"},
+                            output={"note": "out", "title": "Dune"},
+                        ),
+                    ]
+                },
+                grounding=GroundingConfig(
+                    sample_size=1,
+                    tools={
+                        "lookup": ToolGroundingConfig(fields=["id", "note", "title"]),
+                    },
+                ),
+            )
+        )
+    assert any(
+        "shadows the input" in rec.getMessage() and "note" in rec.getMessage()
+        for rec in caplog.records
+    )
+
+
+def test_grounding_key_collision_outside_whitelist_no_warn(caplog):
+    """A collision on a non-whitelisted key never reaches a fact, so no warning."""
+    with caplog.at_level(logging.WARNING, logger="oumi"):
+        DeterministicEnvironment.from_params(
+            _make_params(
+                tools=[_make_tool("lookup")],
+                lookup_table={
+                    "lookup": [
+                        ToolLookupEntry(
+                            input={"id": "1", "note": "in"},
+                            output={"note": "out"},
+                        ),
+                    ]
+                },
+                grounding=GroundingConfig(
+                    sample_size=1,
+                    tools={"lookup": ToolGroundingConfig(fields=["id"])},
+                ),
+            )
+        )
+    assert not any("shadows the input" in rec.getMessage() for rec in caplog.records)
+
+
 def test_sample_grounding_scalar_output_projects_input_only():
     """Non-dict outputs have no fields to project; ground on input alone."""
     env = DeterministicEnvironment.from_params(
