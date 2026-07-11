@@ -113,10 +113,19 @@ class TextCompletionsCollatorWithPadding:
         # An all-ones mask carries no information, but its presence makes
         # transformers wrap attention in per-batch mask closures that compiled
         # attention backends cannot cache (torch.compile guards on closure
-        # identity). Dropping it keeps the pure-causal fast path.
+        # identity). Replace it with explicit sequential position_ids: models
+        # derive identical positions themselves, attention falls back to the
+        # pure-causal fast path, and TRL's token accounting accepts
+        # position_ids in lieu of a mask (its padding-free convention).
         mask = result.get("attention_mask")
         if mask is not None and bool(mask.all()):
             del result["attention_mask"]
+            batch_size = result[_INPUT_IDS_KEY].shape[0]
+            result["position_ids"] = (
+                torch.arange(target, dtype=torch.long)
+                .unsqueeze(0)
+                .repeat(batch_size, 1)
+            )
         return result
 
     def __call__(self, batch: list[dict[str, Any]]) -> dict[str, Any]:
