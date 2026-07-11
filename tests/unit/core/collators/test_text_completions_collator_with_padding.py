@@ -565,8 +565,11 @@ def test_pad_to_multiple_of_rounds_batch_length_up():
     seq_len = batch["input_ids"].shape[1]
     assert seq_len == 128
     num_real = len(short_row["input_ids"])
-    # Padding positions are invisible to attention and loss.
-    assert batch["attention_mask"][0, num_real:].sum() == 0
+    # Alignment padding is attended (attention_mask=1): causal attention keeps
+    # real tokens from seeing forward positions, ignored labels keep the loss
+    # unchanged, and an all-ones mask keeps compiled attention on the fused
+    # path instead of per-batch padding-mask closures.
+    assert (batch["attention_mask"][0, num_real:] == 1).all()
     assert (batch["input_ids"][0, num_real:] == pad_token_id).all()
     assert (batch["labels"][0, num_real:] == IGNORE).all()
     # Real completion tokens keep their labels.
