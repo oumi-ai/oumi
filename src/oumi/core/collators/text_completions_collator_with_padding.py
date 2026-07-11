@@ -74,9 +74,14 @@ class TextCompletionsCollatorWithPadding:
 
         if not hasattr(tokenizer, "pad_token_id") or tokenizer.pad_token_id is None:
             raise RuntimeError("Tokenizer doesn't define `pad_token_id`.")
+        elif not isinstance(tokenizer.pad_token_id, int):
+            raise RuntimeError(
+                "Tokenizer's `pad_token_id` is not an integer. "
+                f"{tokenizer.pad_token_id}. Type: {type(tokenizer.pad_token_id)}"
+            )
 
         self._pad_to_multiple_of = pad_to_multiple_of
-        self._pad_token_id = int(tokenizer.pad_token_id)
+        self._pad_token_id = tokenizer.pad_token_id
         self._ignore_index = ignore_index
         self._debug = debug
         self._has_logged_example = False
