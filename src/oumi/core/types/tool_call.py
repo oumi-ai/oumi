@@ -36,9 +36,6 @@ JSONSchemaType = Literal[
     "object", "string", "number", "integer", "boolean", "array", "null"
 ]
 
-# Any JSON-serializable value.
-JsonValue = str | int | float | bool | list[Any] | dict[str, Any] | None
-
 
 class JSONSchema(pydantic.BaseModel):
     """A JSON Schema object describing the shape of a value.
@@ -190,5 +187,5 @@ class ToolResult:
     else is json-encoded at the message boundary.
     """
 
-    output: JsonValue
+    output: pydantic.JsonValue
     updated_state: dict[str, Any] | None = None

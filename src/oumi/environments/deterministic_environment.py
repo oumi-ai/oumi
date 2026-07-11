@@ -22,12 +22,14 @@ import random
 from dataclasses import dataclass, field
 from typing import Any
 
+from pydantic import JsonValue
+
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.core.configs.params.grounding_params import GroundingFact
 from oumi.core.configs.params.tool_params import ToolLookupError, ToolParams
 from oumi.core.registry import register_environment
-from oumi.core.types.tool_call import JsonValue, ToolResult
+from oumi.core.types.tool_call import ToolResult
 from oumi.environments.base_environment import BaseEnvironment
 from oumi.utils.logging import logger
 
