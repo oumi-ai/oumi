@@ -2504,7 +2504,7 @@ def test_synthesizer_attaches_inference_to_synthetic_env(
                 },
             )
         ],
-        env_kwargs={"system_prompt": "Simulate the lookup tool."},
+        env_kwargs={"tool_persona": "Simulate the lookup tool."},
     )
     env_config = EnvironmentConfig(environments=[env_params])
 

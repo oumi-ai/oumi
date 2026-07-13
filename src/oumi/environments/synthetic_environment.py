@@ -76,7 +76,7 @@ class SyntheticStateParams(BaseParams):
 class SyntheticEnvironmentKwargs(BaseParams):
     """Type-specific kwargs for SyntheticEnvironment."""
 
-    system_prompt: str = ""
+    tool_persona: str = ""
     state_params: SyntheticStateParams | None = None
     cache_by_input: bool = True
 
@@ -87,10 +87,8 @@ class SyntheticEnvironmentKwargs(BaseParams):
 
     def __finalize_and_validate__(self) -> None:
         """Finalize and validate the kwargs."""
-        if not self.system_prompt:
-            raise ValueError(
-                "SyntheticEnvironmentKwargs.system_prompt cannot be empty."
-            )
+        if not self.tool_persona:
+            raise ValueError("SyntheticEnvironmentKwargs.tool_persona cannot be empty.")
         if self.state_params is not None and self.cache_by_input:
             raise ValueError(
                 "SyntheticEnvironmentKwargs.cache_by_input must be False when "
@@ -429,9 +427,9 @@ class SyntheticEnvironment(BaseEnvironment):
                 )
 
     def _build_simulator_system_prompt(self, tool: ToolParams) -> str:
-        """Compose the simulator system prompt: env persona + tool schema."""
+        """Compose the simulator system prompt: tool persona + tool schema."""
         return (
-            f"{self._kwargs.system_prompt}\n\n"
+            f"{self._kwargs.tool_persona}\n\n"
             f"You are simulating the `{tool.id}` tool. Respond ONLY with a "
             f"JSON object matching the tool's output schema. Do NOT include "
             f"explanations, markdown, or surrounding prose.\n\n"
