@@ -90,6 +90,42 @@ def test_raises_when_fewer_than_two_messages():
         extract_prompt_images_completion_from_conversation(_example(convo))
 
 
+def test_raises_when_prompt_starts_with_assistant():
+    convo = Conversation(
+        messages=[
+            Message(role=Role.ASSISTANT, content="Unprompted response"),
+            Message(role=Role.ASSISTANT, content="Ground truth"),
+        ]
+    )
+
+    with pytest.raises(ValueError, match="cannot start with an assistant"):
+        extract_prompt_images_completion_from_conversation(_example(convo))
+
+
+def test_raises_when_prompt_is_empty():
+    convo = Conversation(
+        messages=[
+            Message(role=Role.USER, content="  "),
+            Message(role=Role.ASSISTANT, content="Ground truth"),
+        ]
+    )
+
+    with pytest.raises(ValueError, match="prompt must not be empty"):
+        extract_prompt_images_completion_from_conversation(_example(convo))
+
+
+def test_raises_when_completion_is_empty():
+    convo = Conversation(
+        messages=[
+            Message(role=Role.USER, content="Question"),
+            Message(role=Role.ASSISTANT, content="\n\t"),
+        ]
+    )
+
+    with pytest.raises(ValueError, match="completion must not be empty"):
+        extract_prompt_images_completion_from_conversation(_example(convo))
+
+
 def test_raises_when_conversation_json_missing():
     with pytest.raises(ValueError, match="conversation_json"):
         extract_prompt_images_completion_from_conversation({"foo": "bar"})

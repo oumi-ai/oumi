@@ -67,23 +67,22 @@ def extract_prompt_images_completion_from_conversation(
 
     The final message must be an assistant message; its text becomes the
     completion (ground truth). All preceding messages form the prompt, in
-    verl's chat format (a list of ``{"role": ..., "content": ...}`` dicts).
-    A single-turn conversation (one user + one assistant message) is just the
-    two-message special case.
+    verl's chat format. A single-turn conversation (one user + one assistant
+    message) is just the two-message special case.
 
     Args:
         example: A dictionary containing the conversation JSON.
 
     Returns:
-        A tuple ``(prompt_messages, images, completion)`` where ``prompt_messages``
-        is a list of chat-format message dicts, ``images`` is a list of image
-        dicts collected across the prompt messages (empty for text-only
-        conversations), and ``completion`` is the final assistant message's text.
+        A tuple ``(prompt_messages, images, completion)``: the prompt as a list of
+        chat-format message dicts, the images (empty for text-only conversations),
+        and the completion text.
 
     Raises:
         ValueError: If ``conversation_json`` is missing, the conversation has
-            fewer than 2 messages, or the final message is not an assistant
-            message.
+            fewer than 2 messages, the prompt starts with an assistant message,
+            the prompt or completion is empty, or the final message is not an
+            assistant message.
     """
     if "conversation_json" not in example:
         raise ValueError(
@@ -105,16 +104,28 @@ def extract_prompt_images_completion_from_conversation(
             f"(used as the ground truth), but got role '{messages[-1].role}'."
         )
 
+    prompt_source_messages = messages[:-1]
+    if prompt_source_messages[0].role == Role.ASSISTANT:
+        raise ValueError("Conversation prompt cannot start with an assistant message.")
+
+    prompt_has_content = any(
+        message.compute_flattened_text_content().strip()
+        or message.image_content_items
+        for message in prompt_source_messages
+    )
+    if not prompt_has_content:
+        raise ValueError("Conversation prompt must not be empty.")
+
+    completion = messages[-1].compute_flattened_text_content()
+    if not completion.strip():
+        raise ValueError("Conversation completion must not be empty.")
+
     prompt_messages: list[dict] = []
     images: list = []
-    for message in messages[:-1]:
-        text_items = message.text_content_items
-        content = text_items[-1].content or "" if text_items else ""
+    for message in prompt_source_messages:
+        content = message.compute_flattened_text_content()
         prompt_messages.append({"role": message.role.value, "content": content})
         images.extend({"bytes": item.binary} for item in message.image_content_items)
-
-    completion_items = messages[-1].text_content_items
-    completion: str = completion_items[-1].content or "" if completion_items else ""
 
     return (prompt_messages, images, completion)
 
