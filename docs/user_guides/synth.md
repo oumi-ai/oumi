@@ -236,7 +236,7 @@ environment_config:
       name: Support Backend
       description: Simulated support system with tickets and users
       type: synthetic
-      system_prompt: You manage a customer support system with tickets and users.
+      tool_persona: You manage a customer support system with tickets and users.
       state_params:
         state_schema:
           type: object
@@ -269,7 +269,7 @@ environment_config:
       name: FAQ Lookup
       description: Cached LLM-backed FAQ answers
       type: synthetic
-      system_prompt: Generate concise FAQ answers grounded in the tool contract.
+      tool_persona: Generate concise FAQ answers grounded in the tool contract.
       cache_by_input: true
       tools:
         - id: answer_faq

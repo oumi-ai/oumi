@@ -7,7 +7,7 @@ from unittest.mock import Mock, call, patch
 
 import pytest
 
-from oumi.core.launcher import JobState
+from oumi.core.launcher import ClusterUnreachableError, JobState
 from oumi.launcher.clients.slurm_client import SlurmClient
 
 _CTRL_PATH: str = "-S ~/.ssh/control-%h-%p-%r"
@@ -534,6 +534,73 @@ def test_slurm_client_get_job_squeue_failure_raises(mock_subprocess):
     client = SlurmClient("user", "host", "cluster_name")
     with pytest.raises(RuntimeError, match="Failed to list jobs via squeue"):
         _ = client.get_job("100")
+
+
+def test_slurm_client_get_job_unreachable_raises(mock_subprocess):
+    # ssh exits 255 when the transport fails; get_job must surface it as an
+    # unreachable controller, not a generic RuntimeError, so callers can retry
+    # or fall through instead of treating the job as gone.
+    squeue_unreachable = Mock()
+    squeue_unreachable.stdout = b""
+    squeue_unreachable.stderr = (
+        b"ssh: connect to host host port 22: Connection refused\n"
+    )
+    squeue_unreachable.returncode = 255
+
+    mock_subprocess.run.side_effect = [
+        _mock_refresh_creds_run(),
+        _mock_refresh_creds_run(),
+        squeue_unreachable,
+    ]
+
+    client = SlurmClient("user", "host", "cluster_name")
+    with pytest.raises(
+        ClusterUnreachableError, match="Could not reach the Slurm controller"
+    ):
+        _ = client.get_job("100")
+
+
+def test_slurm_client_list_jobs_unreachable_raises(mock_subprocess, mock_datetime):
+    sacct_unreachable = Mock()
+    sacct_unreachable.stdout = b""
+    sacct_unreachable.stderr = (
+        b"ssh: connect to host host port 22: Connection refused\n"
+    )
+    sacct_unreachable.returncode = 255
+
+    mock_subprocess.run.side_effect = [
+        _mock_refresh_creds_run(),
+        _mock_refresh_creds_run(),
+        sacct_unreachable,
+    ]
+
+    client = SlurmClient("user", "host", "cluster_name")
+    with pytest.raises(
+        ClusterUnreachableError, match="Could not reach the Slurm controller"
+    ):
+        _ = client.list_jobs()
+
+
+def test_slurm_client_init_unreachable_raises(mock_subprocess_no_init):
+    # -O check fails, then establishing the tunnel fails: the controller is
+    # unreachable at construction time.
+    mock_subprocess_no_init.TimeoutExpired = subprocess.TimeoutExpired
+    check_fail = Mock()
+    check_fail.stdout = b""
+    check_fail.stderr = b"channel closed"
+    check_fail.returncode = 255
+
+    tunnel_fail = Mock()
+    tunnel_fail.stdout = b""
+    tunnel_fail.stderr = b"ssh: connect to host host port 22: Connection refused"
+    tunnel_fail.returncode = 255
+
+    mock_subprocess_no_init.run.side_effect = [check_fail, tunnel_fail]
+
+    with pytest.raises(
+        ClusterUnreachableError, match="Failed to establish an SSH connection"
+    ):
+        _ = SlurmClient("user", "host", "cluster_name")
 
 
 def test_slurm_client_cancel_success(mock_subprocess):
