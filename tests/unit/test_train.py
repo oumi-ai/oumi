@@ -136,3 +136,77 @@ def test_train_function_passes_debug_flag_correctly(
 
     # Verify the debug flag came from the config
     assert debug_training_config.training.log_examples is True
+
+
+def _config_with_collator_kwargs(collator_kwargs):
+    return TrainingConfig(
+        data=DataParams(
+            train=DatasetSplitParams(
+                collator_name="text_completions_only_with_padding",
+                collator_kwargs=collator_kwargs,
+                datasets=[DatasetParams(dataset_name="dummy", split="train")],
+            )
+        ),
+        model=ModelParams(model_name="openai-community/gpt2"),
+        training=TrainingParams(),
+    )
+
+
+@pytest.fixture
+def restore_dynamo_limits():
+    """Save/restore global torch dynamo limits mutated by the helper under test."""
+    import torch
+
+    saved = (
+        torch._dynamo.config.recompile_limit,
+        torch._dynamo.config.cache_size_limit,
+    )
+    yield
+    torch._dynamo.config.recompile_limit, torch._dynamo.config.cache_size_limit = saved
+
+
+def test_recompile_limit_unset_without_pad_to_multiple_of(
+    monkeypatch, restore_dynamo_limits
+):
+    import torch
+
+    from oumi.train import _maybe_raise_dynamo_recompile_limit
+
+    monkeypatch.delenv("OUMI_DYNAMO_RECOMPILE_LIMIT", raising=False)
+    torch._dynamo.config.recompile_limit = 8
+    _maybe_raise_dynamo_recompile_limit(_config_with_collator_kwargs(None))
+    assert torch._dynamo.config.recompile_limit == 8
+    _maybe_raise_dynamo_recompile_limit(_config_with_collator_kwargs({}))
+    assert torch._dynamo.config.recompile_limit == 8
+
+
+def test_recompile_limit_self_set_with_pad_to_multiple_of(
+    monkeypatch, restore_dynamo_limits
+):
+    import torch
+
+    from oumi.train import (
+        _DEFAULT_DYNAMO_RECOMPILE_LIMIT,
+        _maybe_raise_dynamo_recompile_limit,
+    )
+
+    monkeypatch.delenv("OUMI_DYNAMO_RECOMPILE_LIMIT", raising=False)
+    torch._dynamo.config.recompile_limit = 8
+    _maybe_raise_dynamo_recompile_limit(
+        _config_with_collator_kwargs({"pad_to_multiple_of": 8192})
+    )
+    assert torch._dynamo.config.recompile_limit == _DEFAULT_DYNAMO_RECOMPILE_LIMIT
+    assert torch._dynamo.config.cache_size_limit == _DEFAULT_DYNAMO_RECOMPILE_LIMIT
+
+
+def test_recompile_limit_env_override_wins(monkeypatch, restore_dynamo_limits):
+    import torch
+
+    from oumi.train import _maybe_raise_dynamo_recompile_limit
+
+    monkeypatch.setenv("OUMI_DYNAMO_RECOMPILE_LIMIT", "128")
+    torch._dynamo.config.recompile_limit = 8
+    _maybe_raise_dynamo_recompile_limit(
+        _config_with_collator_kwargs({"pad_to_multiple_of": 8192})
+    )
+    assert torch._dynamo.config.recompile_limit == 128
