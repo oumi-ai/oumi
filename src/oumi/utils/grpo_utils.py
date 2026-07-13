@@ -109,8 +109,7 @@ def extract_prompt_images_completion_from_conversation(
         raise ValueError("Conversation prompt cannot start with an assistant message.")
 
     prompt_has_content = any(
-        message.compute_flattened_text_content().strip()
-        or message.image_content_items
+        message.compute_flattened_text_content().strip() or message.image_content_items
         for message in prompt_source_messages
     )
     if not prompt_has_content:
