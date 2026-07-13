@@ -44,10 +44,11 @@ class ToolArgumentError(ToolError):
 
 
 class ToolLookupError(ToolError):
-    """Raised when a tool cannot resolve an output for the given arguments.
+    """Raised when a tool call cannot be resolved.
 
-    Currently used by ``DeterministicEnvironment`` when no configured
-    ``LookupEntry`` matches the provided arguments.
+    Covers a tool id that isn't registered in the environment
+    (``ExecutableEnvironment``) and a ``DeterministicEnvironment``
+    ``LookupEntry`` that matches none of the provided arguments.
     """
 
 

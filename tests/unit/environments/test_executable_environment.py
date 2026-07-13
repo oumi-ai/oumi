@@ -223,3 +223,19 @@ def test_absorb_result_receives_the_validated_result():
     )
     [result] = env.step([("t", {"a": 1})])
     assert env.absorbed == [result]
+
+
+def test_absorb_result_skipped_when_result_invalid():
+    """The post-hook must not fire when the executor call fails validation."""
+    env = _AbsorbingExecEnv(
+        EnvironmentParams(
+            id="e",
+            name="e",
+            description="d",
+            env_type="executable",
+            tools=[_tool("bad", executor=f"{__name__}._bad_return_executor")],
+        )
+    )
+    with pytest.raises(ToolError):
+        env.step([("bad", {})])
+    assert env.absorbed == []
