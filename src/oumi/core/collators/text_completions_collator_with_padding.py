@@ -55,13 +55,9 @@ class TextCompletionsCollatorWithPadding:
             compiled attention kernels (e.g. ``flex_attention``, block size
             128) cannot compile sequences shorter than one block; padding to
             the block size keeps short samples trainable. The extra positions
-            carry ``attention_mask=1`` and ``labels=ignore_index``: with right
-            padding and causal attention no real token can attend a padding
-            position, and ignored labels contribute no loss or gradient, so
-            training is numerically unchanged — while the all-ones mask keeps
-            compiled attention backends on their fused fast path (a padding
-            mask forces per-batch mask closures that defeat ``torch.compile``
-            caching and silently degrade to the memory-unsafe eager kernel).
+            carry ``labels=ignore_index`` and, under causal attention, are
+            never attended by real tokens, so training is numerically
+            unchanged.
         """
         self._default_collator = DataCollatorForCompletionOnlyLM(
             tokenizer=tokenizer,
@@ -110,13 +106,11 @@ class TextCompletionsCollatorWithPadding:
             result["attention_mask"] = _extend(result["attention_mask"], 1)
         if "labels" in result:
             result["labels"] = _extend(result["labels"], self._ignore_index)
-        # An all-ones mask carries no information, but its presence makes
-        # transformers wrap attention in per-batch mask closures that compiled
-        # attention backends cannot cache (torch.compile guards on closure
-        # identity). Replace it with explicit sequential position_ids: models
-        # derive identical positions themselves, attention falls back to the
-        # pure-causal fast path, and TRL's token accounting accepts
-        # position_ids in lieu of a mask (its padding-free convention).
+        # An all-ones mask still forces transformers to build per-batch mask
+        # closures that break torch.compile caching and knock flex_attention
+        # off its fast path. Swap it for sequential position_ids — what the
+        # model derives anyway (identical numerics), which TRL accepts in lieu
+        # of a mask.
         mask = result.get("attention_mask")
         if mask is not None and bool(mask.all()):
             del result["attention_mask"]
