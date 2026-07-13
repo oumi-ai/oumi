@@ -579,6 +579,40 @@ def test_pad_to_multiple_of_rounds_batch_length_up():
     assert (batch["labels"][0, num_real - 3 : num_real] == expected_tail).all()
 
 
+def test_pad_to_multiple_of_drops_mask_for_mixed_length_batch():
+    tokenizer, _ = create_test_tokenizer()
+
+    instruction_prefix = "ignore this and after me"
+    response_prefix = "ignore this but not after me"
+    instruction_prefix_tokens = tokenizer.encode(
+        instruction_prefix, add_special_tokens=False
+    )
+    response_prefix_tokens = tokenizer.encode(response_prefix, add_special_tokens=False)
+    prefix = instruction_prefix_tokens + response_prefix_tokens
+
+    collator = TextCompletionsCollatorWithPadding(
+        tokenizer=tokenizer,
+        instruction_template=instruction_prefix,
+        response_template=response_prefix,
+        train_target="_legacy_instruction_response",
+        pad_to_multiple_of=128,
+    )
+
+    # Rows of different lengths: the default collator right-pads the short row,
+    # so the mask has real zeros and ``mask.all()`` is False. Under right
+    # padding the mask is still dropped for sequential position_ids, so mixed
+    # batches (not just batch_size=1) keep the compiled fast path.
+    batch = collator(
+        [
+            {"input_ids": prefix + list(range(201, 231))},
+            {"input_ids": prefix + [201, 202, 203]},
+        ]
+    )
+    assert batch["input_ids"].shape == (2, 128)
+    assert "attention_mask" not in batch
+    assert (batch["position_ids"] == torch.arange(128)).all()
+
+
 def test_pad_to_multiple_of_none_keeps_longest_in_batch():
     tokenizer, _ = create_test_tokenizer()
 

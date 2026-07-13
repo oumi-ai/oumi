@@ -79,6 +79,7 @@ class TextCompletionsCollatorWithPadding:
         self._pad_to_multiple_of = pad_to_multiple_of
         self._pad_token_id = tokenizer.pad_token_id
         self._ignore_index = ignore_index
+        self._padding_side = str(getattr(tokenizer, "padding_side", "right"))
         self._debug = debug
         self._has_logged_example = False
 
@@ -102,17 +103,20 @@ class TextCompletionsCollatorWithPadding:
             return torch.cat([tensor, tail], dim=1)
 
         result[_INPUT_IDS_KEY] = _extend(result[_INPUT_IDS_KEY], self._pad_token_id)
-        if "attention_mask" in result:
-            result["attention_mask"] = _extend(result["attention_mask"], 1)
         if "labels" in result:
             result["labels"] = _extend(result["labels"], self._ignore_index)
-        # An all-ones mask still forces transformers to build per-batch mask
-        # closures that break torch.compile caching and knock flex_attention
-        # off its fast path. Swap it for sequential position_ids — what the
-        # model derives anyway (identical numerics), which TRL accepts in lieu
-        # of a mask.
-        mask = result.get("attention_mask")
-        if mask is not None and bool(mask.all()):
+        if "attention_mask" not in result:
+            return result
+
+        # Any attention_mask — all-ones, or the [1..|0..|1..] of a mixed-length
+        # batch — forces transformers to build per-batch mask closures that
+        # break torch.compile caching and knock flex_attention off its fast
+        # path. With right padding we can drop it entirely for sequential
+        # position_ids: real tokens form a prefix, so they never attend padding
+        # and their positions equal ``arange`` (identical numerics), padding
+        # labels are ignore_index (no loss/grad), and TRL accepts position_ids
+        # in lieu of a mask. Left padding needs the mask, so keep it there.
+        if self._padding_side == "right":
             del result["attention_mask"]
             batch_size = result[_INPUT_IDS_KEY].shape[0]
             result["position_ids"] = (
@@ -120,6 +124,8 @@ class TextCompletionsCollatorWithPadding:
                 .unsqueeze(0)
                 .repeat(batch_size, 1)
             )
+        else:
+            result["attention_mask"] = _extend(result["attention_mask"], 1)
         return result
 
     def __call__(self, batch: list[dict[str, Any]]) -> dict[str, Any]:
