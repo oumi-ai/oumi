@@ -8,9 +8,11 @@
 #     multimodal projector use `Gemma4ClippableLinear` wrappers that PEFT cannot
 #     adapt, and share projection names with the text model — so they are excluded
 #     via `lora_exclude_modules` below.
-#     NOTE: on this MoE the standard gate_proj/up_proj/down_proj names do not
-#     match the (fused) expert MLP modules, so LoRA adapts only the attention
-#     projections (~9.3M params). Adapting the experts needs their module names.
+#     NOTE: q/k/v/o + gate/up/down_proj adapt the attention projections AND the
+#     per-layer dense FFN (`Gemma4TextMLP`, always-on). The sparse routed experts
+#     (`Gemma4TextExperts`) store fused 3D `nn.Parameter`s, not name-addressable
+#     `nn.Linear`, so name-based LoRA cannot reach them — they stay frozen.
+#     Trainable: 9,292,800 params (attention + dense FFN, ~0.035%).
 #
 # Requirements:
 #   - transformers >= 5.5.4
