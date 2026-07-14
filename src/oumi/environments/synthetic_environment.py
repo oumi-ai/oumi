@@ -26,7 +26,6 @@ from __future__ import annotations
 
 import copy
 import dataclasses
-import importlib
 import json
 import random
 from collections.abc import Callable
@@ -48,6 +47,7 @@ from oumi.core.registry import register_environment
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.core.types.tool_call import ToolResult
 from oumi.environments.base_environment import BaseEnvironment
+from oumi.environments.utils import import_executor, validate_executor_result
 from oumi.utils.str_utils import extract_json
 
 if TYPE_CHECKING:
@@ -96,32 +96,6 @@ class SyntheticEnvironmentKwargs(BaseParams):
             )
 
 
-def _import_executor(dotted: str, tool_id: str) -> Callable[..., Any]:
-    """Resolve a dotted import path to a callable. Raises ValueError on failure."""
-    module_path, _, attr = dotted.rpartition(".")
-    if not module_path or not attr:
-        raise ValueError(
-            f"Tool '{tool_id}': executor '{dotted}' must be a dotted import "
-            f"path (e.g. 'pkg.module.fn')."
-        )
-    try:
-        module = importlib.import_module(module_path)
-    except ImportError as e:
-        raise ValueError(
-            f"Tool '{tool_id}': cannot import executor module '{module_path}': {e}"
-        ) from e
-    executor = getattr(module, attr, None)
-    if executor is None:
-        raise ValueError(
-            f"Tool '{tool_id}': module '{module_path}' has no attribute '{attr}'."
-        )
-    if not callable(executor):
-        raise ValueError(
-            f"Tool '{tool_id}': executor '{dotted}' resolved to a non-callable."
-        )
-    return executor
-
-
 @register_environment("synthetic")
 class SyntheticEnvironment(BaseEnvironment):
     """LLM-simulated environment with optional mutable state.
@@ -159,7 +133,7 @@ class SyntheticEnvironment(BaseEnvironment):
                 f"initial_state is required)."
             )
         self._executors: dict[str, Callable[..., Any]] = {
-            tool.id: _import_executor(tool.executor, tool.id)
+            tool.id: import_executor(tool.executor, tool.id)
             for tool in params.tools
             if tool.executor
         }
@@ -323,7 +297,7 @@ class SyntheticEnvironment(BaseEnvironment):
         tool = self._lookup_tool(tool_id)
         tool.validate_arguments(arguments)
         result = self._executors[tool_id](arguments=arguments)
-        self._validate_executor_output(tool, result)
+        validate_executor_result(tool, result)
         if result.updated_state is not None:
             raise ToolError(
                 f"Tool '{tool.id}' executor returned updated_state but the "
@@ -345,7 +319,7 @@ class SyntheticEnvironment(BaseEnvironment):
         tool.validate_arguments(arguments)
         state_in = copy.deepcopy(self._state)
         result = self._executors[tool_id](arguments=arguments, state=state_in)
-        self._validate_executor_output(tool, result)
+        validate_executor_result(tool, result)
         if result.updated_state is not None:
             if tool.read_only:
                 raise ToolError(
@@ -362,21 +336,6 @@ class SyntheticEnvironment(BaseEnvironment):
                     ) from e
             self._state = copy.deepcopy(result.updated_state)
         return result
-
-    def _validate_executor_output(self, tool: ToolParams, result: Any) -> None:
-        """Validate executor return type + ``output_schema`` conformance."""
-        if not isinstance(result, ToolResult):
-            raise ToolError(
-                f"Tool '{tool.id}' executor must return ToolResult, got "
-                f"{type(result).__name__}."
-            )
-        if tool.output_schema is not None:
-            try:
-                jsonschema.validate(result.output, tool.output_schema)
-            except jsonschema.ValidationError as e:
-                raise ToolError(
-                    f"Tool '{tool.id}' executor output failed schema validation: {e}"
-                ) from e
 
     def sample_grounding(
         self,

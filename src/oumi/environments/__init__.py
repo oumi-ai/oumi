@@ -37,6 +37,8 @@ from oumi.environments.deterministic_environment import (
     DeterministicEnvironmentKwargs,
     ToolLookupEntry,
 )
+from oumi.environments.executable_environment import ExecutableEnvironment
+from oumi.environments.executable_tool import ExecutableTool
 from oumi.environments.synthetic_environment import (
     SyntheticEnvironment,
     SyntheticEnvironmentKwargs,
@@ -47,6 +49,8 @@ __all__ = [
     "BaseEnvironment",
     "DeterministicEnvironment",
     "DeterministicEnvironmentKwargs",
+    "ExecutableEnvironment",
+    "ExecutableTool",
     "GroundingConfig",
     "GroundingFact",
     "JSONSchema",

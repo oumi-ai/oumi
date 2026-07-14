@@ -44,10 +44,11 @@ class ToolArgumentError(ToolError):
 
 
 class ToolLookupError(ToolError):
-    """Raised when a tool cannot resolve an output for the given arguments.
+    """Raised when a tool call cannot be resolved.
 
-    Currently used by ``DeterministicEnvironment`` when no configured
-    ``LookupEntry`` matches the provided arguments.
+    Covers a tool id that isn't registered in the environment
+    (``ExecutableEnvironment``) and a ``DeterministicEnvironment``
+    ``LookupEntry`` that matches none of the provided arguments.
     """
 
 
@@ -71,8 +72,10 @@ class ToolParams(BaseParams):
     """Optional dotted import path to a callable that executes this tool.
 
     When set, the host env dispatches calls to it instead of LLM-simulating.
-    ``SyntheticEnvironment`` passes ``(arguments, state)`` when
-    ``state_params`` is set, else ``(arguments,)``.
+    The callable is invoked with keyword arguments — always ``arguments`` (the
+    tool-call args), plus a per-env context keyword: ``state`` for a stateful
+    ``SyntheticEnvironment``, ``context`` for an ``ExecutableEnvironment`` — and
+    must return a ``ToolResult``.
     """
 
     @classmethod
