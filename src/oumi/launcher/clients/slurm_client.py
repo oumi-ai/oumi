@@ -22,14 +22,19 @@ import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from pathlib import Path
 
-from oumi.core.launcher import JobState, JobStatus
+from oumi.core.launcher import ClusterUnreachableError, JobState, JobStatus
 from oumi.utils.logging import logger
 
 _CTRL_PATH = "-S ~/.ssh/control-%h-%p-%r"
 
 _LOG_DIR = "$HOME/oumi_slurm_logs/{job_id}.out"
+
+# ssh exits 255 when the transport itself fails (host down, connection refused,
+# auth rejected) — as distinct from a command that ran and returned non-zero.
+_SSH_TRANSPORT_FAILURE_EXIT_CODE = 255
 
 
 class _SlurmAuthException(Exception):
@@ -223,6 +228,14 @@ class SlurmResponse:
     stdout: str
     stderr: str
     exit_code: int
+
+
+def _raise_if_unreachable(response: SlurmResponse, cluster_name: str) -> None:
+    """Raise ClusterUnreachableError if the SSH transport to the host failed."""
+    if response.exit_code == _SSH_TRANSPORT_FAILURE_EXIT_CODE:
+        raise ClusterUnreachableError(
+            f"Could not reach the Slurm controller for cluster '{cluster_name}'."
+        )
 
 
 def retry_auth(user_function: Callable) -> Callable:
@@ -494,8 +507,8 @@ class SlurmClient:
         if child.returncode != 0:
             output = child.stderr.decode("utf-8")
             logger.error(f"Credential error: {output}")
-            raise RuntimeError(
-                "Failed to refresh Slurm credentials "
+            raise ClusterUnreachableError(
+                "Failed to establish an SSH connection to the Slurm controller "
                 f"for {self._user}@{self._slurm_host}."
             )
         return SlurmResponse(
@@ -700,9 +713,6 @@ class SlurmClient:
         response_format = "JobId%-30,JobName%30,User%30,State%30,Reason%30"
         # Get current date and subtract one month.
         # Otherwise completed jobs older than ~24 hours may not be listed.
-
-        from datetime import datetime, timedelta
-
         current_date = datetime.now()
         one_month_ago = current_date - timedelta(days=30)
         start_date = one_month_ago.strftime("%Y-%m-%d")
@@ -713,6 +723,7 @@ class SlurmClient:
         )
         result = self.run_commands([command])
         if result.exit_code != 0:
+            _raise_if_unreachable(result, self._cluster_name)
             raise RuntimeError(f"Failed to list jobs. stderr: {result.stderr}")
         # Parse STDOUT to retrieve job statuses.
         lines = result.stdout.strip().split("\n")
@@ -753,6 +764,7 @@ class SlurmClient:
         )
         result = self.run_commands([command])
         if result.exit_code != 0:
+            _raise_if_unreachable(result, self._cluster_name)
             raise RuntimeError(
                 f"Failed to list jobs via squeue. stderr: {result.stderr}"
             )

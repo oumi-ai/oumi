@@ -62,7 +62,7 @@ def _make_params(**overrides) -> EnvironmentParams:
         description="FAQ tools",
         env_type="synthetic",
         tools=[_make_tool()],
-        env_kwargs={"system_prompt": "Answer FAQs."},
+        env_kwargs={"tool_persona": "Answer FAQs."},
     )
     defaults.update(overrides)
     return EnvironmentParams(**defaults)
@@ -79,7 +79,7 @@ def test_from_params_constructs_stateful():
     params = _make_params(
         tools=[_make_tool(executor=f"{__name__}._state_increment")],
         env_kwargs={
-            "system_prompt": "You manage a filesystem.",
+            "tool_persona": "You manage a filesystem.",
             "state_params": SyntheticStateParams(
                 state_schema=_make_state_schema(),
                 initial_state={"files": {"count": 1}},
@@ -98,7 +98,7 @@ def test_stateful_mode_requires_executor_on_every_tool():
             _make_tool(id="without_exec"),
         ],
         env_kwargs={
-            "system_prompt": "p",
+            "tool_persona": "p",
             "state_params": SyntheticStateParams(initial_state={"counter": 0}),
             "cache_by_input": False,
         },
@@ -109,16 +109,16 @@ def test_stateful_mode_requires_executor_on_every_tool():
         SyntheticEnvironment.from_params(params)
 
 
-def test_empty_system_prompt_raises():
-    params = _make_params(env_kwargs={"system_prompt": ""})
-    with pytest.raises(ValueError, match="system_prompt cannot be empty"):
+def test_empty_tool_persona_raises():
+    params = _make_params(env_kwargs={"tool_persona": ""})
+    with pytest.raises(ValueError, match="tool_persona cannot be empty"):
         SyntheticEnvironment.from_params(params)
 
 
 def test_rejects_cache_when_stateful():
     params = _make_params(
         env_kwargs={
-            "system_prompt": "p",
+            "tool_persona": "p",
             "state_params": SyntheticStateParams(),
             "cache_by_input": True,
         }
@@ -178,7 +178,7 @@ def _typed_params() -> EnvironmentParams:
         description="FAQ env",
         env_type="synthetic",
         tools=[_typed_tool()],
-        env_kwargs={"system_prompt": "Answer FAQs as a JSON tool."},
+        env_kwargs={"tool_persona": "Answer FAQs as a JSON tool."},
     )
 
 
@@ -302,7 +302,7 @@ def test_step_no_output_schema_accepts_any_object():
         description="FAQ env",
         env_type="synthetic",
         tools=[tool],
-        env_kwargs={"system_prompt": "Answer FAQs."},
+        env_kwargs={"tool_persona": "Answer FAQs."},
     )
     env = SyntheticEnvironment.from_params(params)
     mock_engine = Mock()
@@ -342,6 +342,7 @@ def test_build_call_conv_has_system_and_user_messages():
     assert conv.messages[0].role == Role.SYSTEM
     assert conv.messages[1].role == Role.USER
     assert "answer" in str(conv.messages[0].content)
+    assert "Answer FAQs as a JSON tool" in str(conv.messages[0].content)
     user_payload = str(conv.messages[1].content)
     assert '"tool"' in user_payload and '"answer"' in user_payload
 
@@ -394,7 +395,7 @@ def test_stateful_executor_threads_state_and_mutates():
     params = _make_params(
         tools=[tool],
         env_kwargs={
-            "system_prompt": "p",
+            "tool_persona": "p",
             "state_params": SyntheticStateParams(
                 state_schema=_make_state_schema(),
                 initial_state={"files": {"count": 1}},
@@ -420,7 +421,7 @@ def test_read_only_tool_rejected_when_executor_returns_state():
     params = _make_params(
         tools=[tool],
         env_kwargs={
-            "system_prompt": "p",
+            "tool_persona": "p",
             "state_params": SyntheticStateParams(
                 state_schema=_make_state_schema(),
                 initial_state={"files": {"count": 1}},
@@ -444,7 +445,7 @@ def test_updated_state_validated_against_schema():
     params = _make_params(
         tools=[tool],
         env_kwargs={
-            "system_prompt": "p",
+            "tool_persona": "p",
             "state_params": SyntheticStateParams(
                 state_schema=_make_state_schema(),
                 initial_state={"files": {"count": 1}},
@@ -480,7 +481,7 @@ def test_executor_returning_non_toolresult_raises():
     params = _make_params(
         tools=[tool],
         env_kwargs={
-            "system_prompt": "p",
+            "tool_persona": "p",
             "state_params": SyntheticStateParams(
                 state_schema=_make_state_schema(),
                 initial_state={"files": {"count": 1}},
@@ -504,7 +505,7 @@ def test_state_grounding_projects_from_state_path():
     params = _make_params(
         tools=[tool],
         env_kwargs={
-            "system_prompt": "p",
+            "tool_persona": "p",
             "state_params": SyntheticStateParams(
                 state_schema={"type": "object"},
                 initial_state={
@@ -543,7 +544,7 @@ def test_state_grounding_state_path_missing_raises_at_init():
     params = _make_params(
         tools=[tool],
         env_kwargs={
-            "system_prompt": "p",
+            "tool_persona": "p",
             "state_params": SyntheticStateParams(
                 state_schema={"type": "object"},
                 initial_state={"files": {"count": 0}},

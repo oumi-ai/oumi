@@ -1,5 +1,6 @@
 import base64
 import json
+import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -14,7 +15,10 @@ from oumi.core.types.conversation import (
     Type,
 )
 from oumi.core.types.tool_call import ToolCall, ToolDefinition
-from oumi.inference.anthropic_inference_engine import AnthropicInferenceEngine
+from oumi.inference.anthropic_inference_engine import (
+    AnthropicInferenceEngine,
+    _model_supports_sampling_params,
+)
 from oumi.inference.remote_inference_engine import BatchInfo, BatchStatus
 
 
@@ -77,6 +81,114 @@ def test_convert_conversation_omits_metadata_without_user_id(anthropic_engine):
     )
 
     assert "metadata" not in result
+
+
+@pytest.mark.parametrize(
+    ("model_name", "supported"),
+    [
+        ("claude-opus-4-6", True),
+        ("claude-opus-4-5-20251101", True),
+        ("claude-opus-4-7", False),
+        ("claude-opus-4-8", False),
+        ("claude-opus-4-9", False),  # future Opus stays gated
+        ("claude-sonnet-4-6", True),
+        ("claude-haiku-4-5", True),
+        ("claude-3-5-sonnet-20241022", True),
+        ("claude-3", True),
+        ("claude-fable-5", False),
+        ("claude-mythos-5", False),
+        ("claude-mythos-preview", False),
+    ],
+)
+def test_model_supports_sampling_params(model_name, supported):
+    assert _model_supports_sampling_params(model_name) is supported
+
+
+def test_convert_conversation_omits_sampling_params_for_reasoning_models():
+    engine = AnthropicInferenceEngine(
+        model_params=ModelParams(model_name="claude-opus-4-8"),
+        remote_params=RemoteParams(api_key="test_api_key", api_url="<placeholder>"),
+    )
+    conversation = Conversation(messages=[Message(content="hi", role=Role.USER)])
+
+    result = engine._convert_conversation_to_api_input(
+        conversation,
+        GenerationParams(max_new_tokens=100, temperature=0.0, top_p=0.9),
+        engine._model_params,
+    )
+
+    assert "temperature" not in result
+    assert "top_p" not in result
+
+
+def test_convert_conversation_includes_sampling_params_for_supported_models():
+    engine = AnthropicInferenceEngine(
+        model_params=ModelParams(model_name="claude-opus-4-6"),
+        remote_params=RemoteParams(api_key="test_api_key", api_url="<placeholder>"),
+    )
+    conversation = Conversation(messages=[Message(content="hi", role=Role.USER)])
+
+    result = engine._convert_conversation_to_api_input(
+        conversation,
+        GenerationParams(max_new_tokens=100, temperature=0.3, top_p=0.9),
+        engine._model_params,
+    )
+
+    assert result["temperature"] == 0.3
+    assert result["top_p"] == 0.9
+
+
+def test_convert_conversation_includes_temperature_omits_unset_top_p():
+    engine = AnthropicInferenceEngine(
+        model_params=ModelParams(model_name="claude-opus-4-6"),
+        remote_params=RemoteParams(api_key="test_api_key", api_url="<placeholder>"),
+    )
+    conversation = Conversation(messages=[Message(content="hi", role=Role.USER)])
+
+    result = engine._convert_conversation_to_api_input(
+        conversation,
+        GenerationParams(max_new_tokens=100, temperature=0.3),
+        engine._model_params,
+    )
+
+    assert result["temperature"] == 0.3
+    assert "top_p" not in result
+
+
+def test_convert_conversation_warns_when_dropping_nondefault_sampling_params(caplog):
+    engine = AnthropicInferenceEngine(
+        model_params=ModelParams(model_name="claude-opus-4-8"),
+        remote_params=RemoteParams(api_key="test_api_key", api_url="<placeholder>"),
+    )
+    conversation = Conversation(messages=[Message(content="hi", role=Role.USER)])
+
+    with caplog.at_level(logging.WARNING):
+        engine._convert_conversation_to_api_input(
+            conversation,
+            GenerationParams(max_new_tokens=100, temperature=0.7),
+            engine._model_params,
+        )
+
+    assert any("does not accept sampling params" in r.message for r in caplog.records)
+
+
+def test_convert_conversation_silent_when_dropping_default_sampling_params(caplog):
+    engine = AnthropicInferenceEngine(
+        model_params=ModelParams(model_name="claude-opus-4-8"),
+        remote_params=RemoteParams(api_key="test_api_key", api_url="<placeholder>"),
+    )
+    conversation = Conversation(messages=[Message(content="hi", role=Role.USER)])
+
+    with caplog.at_level(logging.WARNING):
+        engine._convert_conversation_to_api_input(
+            conversation,
+            GenerationParams(max_new_tokens=100),
+            engine._model_params,
+        )
+
+    assert not any(
+        "does not accept sampling params" in r.message for r in caplog.records
+    )
 
 
 def test_convert_api_output_to_conversation(anthropic_engine):
