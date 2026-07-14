@@ -661,9 +661,7 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         # config.json — the inventory is deliberately filtered to adapter files.
         # Only full-model uploads require config.json.
         expected_config = (
-            "adapter_config.json"
-            if model_type == ModelType.ADAPTER
-            else "config.json"
+            "adapter_config.json" if model_type == ModelType.ADAPTER else "config.json"
         )
         if expected_config in file_sizes:
             logger.info(

@@ -1273,6 +1273,11 @@ class TestUploadModelFromInventory:
         absence of config.json must not be logged as an error (would page)."""
         client = self._make_client()
         file_inventory = {"adapter_config.json": 10, "adapter_model.safetensors": 200}
+
+        @asynccontextmanager
+        async def noop_resolver(filename: str):
+            yield tmp_path / filename
+
         with (
             patch.object(
                 client,
@@ -1285,7 +1290,7 @@ class TestUploadModelFromInventory:
             await client._upload_model_files_with_resolver(
                 model_id="my-adapter",
                 file_sizes=file_inventory,
-                file_resolver=None,
+                file_resolver=noop_resolver,
                 progress_callback=None,
                 model_type=ModelType.ADAPTER,
             )
@@ -1297,6 +1302,11 @@ class TestUploadModelFromInventory:
         """Full-model uploads still log an error when config.json is absent."""
         client = self._make_client()
         file_inventory = {"model.safetensors": 200}
+
+        @asynccontextmanager
+        async def noop_resolver(filename: str):
+            yield tmp_path / filename
+
         with (
             patch.object(
                 client,
@@ -1309,7 +1319,7 @@ class TestUploadModelFromInventory:
             await client._upload_model_files_with_resolver(
                 model_id="my-model",
                 file_sizes=file_inventory,
-                file_resolver=None,
+                file_resolver=noop_resolver,
                 progress_callback=None,
                 model_type=ModelType.FULL,
             )
