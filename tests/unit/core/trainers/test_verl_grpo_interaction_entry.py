@@ -5,8 +5,11 @@ import pytest
 from oumi.core.trainers.verl_grpo_trainer import VerlGrpoTrainer
 
 
-def _conv_json(messages):
-    return json.dumps({"messages": messages})
+def _conv_json(messages, metadata=None):
+    d = {"messages": messages}
+    if metadata is not None:
+        d["metadata"] = metadata
+    return json.dumps(d)
 
 
 def _interaction_example():
@@ -15,13 +18,16 @@ def _interaction_example():
             [
                 {"role": "system", "content": "You are a support agent."},
                 {"role": "user", "content": "My order #4421 is late."},
-            ]
+            ],
+            metadata={
+                "interaction_kwargs": {
+                    "user_persona": "You are Jane, a customer whose order #4421 "
+                    "is late.",
+                    "goal": "get a refund or delivery date",
+                    "max_turns": 6,
+                }
+            },
         ),
-        "interaction_metadata": {
-            "user_persona": "You are Jane, a customer whose order #4421 is late.",
-            "goal": "get a refund or delivery date",
-            "max_turns": 6,
-        },
     }
 
 
@@ -29,22 +35,27 @@ def test_interaction_branch_shape():
     entry = VerlGrpoTrainer._create_verl_data_entry_from_conversation(
         _interaction_example(), idx=3, data_source="support", split="train"
     )
+    assert len(entry["prompt"]) == 2
+    assert entry["prompt"][0]["role"] == "system"
     assert entry["prompt"][-1]["role"] == "user"
     assert entry["reward_model"]["ground_truth"] == "get a refund or delivery date"
     ik = entry["extra_info"]["interaction_kwargs"]
     assert ik["name"] == "oumi_conversation"
     assert ik["max_turns"] == 6
+    assert ik["goal"] == "get a refund or delivery date"
     assert ik["user_persona"].startswith("You are Jane")
 
 
 def test_interaction_row_must_end_on_user():
-    bad = _interaction_example()
-    bad["conversation_json"] = _conv_json(
-        [
-            {"role": "user", "content": "hi"},
-            {"role": "assistant", "content": "resolved"},
-        ]
-    )
+    bad = {
+        "conversation_json": _conv_json(
+            [
+                {"role": "user", "content": "hi"},
+                {"role": "assistant", "content": "resolved"},
+            ],
+            metadata={"interaction_kwargs": {"user_persona": "p", "goal": "g"}},
+        )
+    }
     with pytest.raises(ValueError):
         VerlGrpoTrainer._create_verl_data_entry_from_conversation(
             bad, idx=0, data_source="s", split="train"

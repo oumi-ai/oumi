@@ -1,5 +1,5 @@
 model:
-  model_name: "Qwen/Qwen2.5-0.5B-Instruct"   # small policy for the smoke
+  model_name: "meta-llama/Llama-3.2-1B-Instruct"   # small cached policy for the smoke
 data:
   train:
     datasets:
@@ -19,11 +19,14 @@ training:
     actor_rollout_ref:
       rollout:
         mode: async
+        agent:
+          default_agent_loop: tool_agent      # ToolAgentLoop drives interactions (verl 0.7.1)
         multi_turn:
           enable: true
           interaction_config_path: configs/examples/verl_conversational/verl_interaction_config.yaml
           max_user_turns: 6
           max_assistant_turns: 6
-    custom_reward_function:
-      # judge_config_path is read by the reward fn from extra_info or here:
-      overrides: { judge_config_path: configs/examples/verl_conversational/judge.yaml }
+    reward:
+      reward_kwargs:
+        # passed as **kwargs to conversation_llm_judge_reward (verl reward manager)
+        judge_config_path: configs/examples/verl_conversational/judge.yaml

@@ -249,9 +249,13 @@ class VerlGrpoTrainer(BaseTrainer):
     def _create_verl_data_entry_from_conversation(
         example: dict, idx: int, data_source: str, split: str
     ) -> dict:
-        if "interaction_metadata" in example:
+        # Interaction rows carry their config in conversation.metadata, the only
+        # sibling field that survives the SFT loader (it rides in conversation_json).
+        conversation = Conversation.from_json(example["conversation_json"])
+        interaction_kwargs = conversation.metadata.get("interaction_kwargs")
+        if interaction_kwargs:
             return VerlGrpoTrainer._create_verl_interaction_entry(
-                example, idx, data_source, split
+                conversation, interaction_kwargs, idx, data_source, split
             )
         prompt_messages, images, answer = (
             VerlGrpoTrainer._extract_prompt_images_answer_from_conversation(example)
@@ -272,10 +276,13 @@ class VerlGrpoTrainer(BaseTrainer):
 
     @staticmethod
     def _create_verl_interaction_entry(
-        example: dict, idx: int, data_source: str, split: str
+        conversation: Conversation,
+        interaction_kwargs: dict,
+        idx: int,
+        data_source: str,
+        split: str,
     ) -> dict:
         """Row for a persona-driven simulated-user rollout (ends on a user turn)."""
-        conversation = Conversation.from_json(example["conversation_json"])
         messages = conversation.messages
         if not messages or messages[-1].role != ConversationRole.USER:
             raise ValueError(
@@ -286,12 +293,11 @@ class VerlGrpoTrainer(BaseTrainer):
             {"role": m.role.value, "content": m.compute_flattened_text_content()}
             for m in messages
         ]
-        meta = example["interaction_metadata"]
-        goal = meta.get("goal", "")
-        interaction_kwargs = {
-            "name": meta.get("name", "oumi_conversation"),
-            "user_persona": meta["user_persona"],
-            "max_turns": meta.get("max_turns", 6),
+        goal = interaction_kwargs.get("goal", "")
+        resolved_kwargs = {
+            "name": interaction_kwargs.get("name", "oumi_conversation"),
+            "user_persona": interaction_kwargs["user_persona"],
+            "max_turns": interaction_kwargs.get("max_turns", 6),
             "goal": goal,
         }
         return {
@@ -304,7 +310,7 @@ class VerlGrpoTrainer(BaseTrainer):
                 "split": split,
                 "index": idx,
                 "goal": goal,
-                "interaction_kwargs": interaction_kwargs,
+                "interaction_kwargs": resolved_kwargs,
             },
         }
 
