@@ -170,3 +170,43 @@ def test_shared_snapshot_is_never_mutated(tmp_path):
         assert seen.output == {"name": "Bob", "meds": "aspirin"}
     finally:
         fresh.close()
+
+
+def run_raw_sql(arguments: dict, context: sqlite3.Connection) -> ToolResult:
+    try:
+        context.execute(arguments["sql"])
+    except Exception as e:
+        return ToolResult(output={"error": str(e)})
+    return ToolResult(output={"ok": True})
+
+
+def _raw_tool():
+    return {
+        "id": "raw",
+        "name": "raw",
+        "description": "run raw sql",
+        "parameters": {
+            "type": "object",
+            "properties": {"sql": {"type": "string"}},
+            "required": ["sql"],
+        },
+        "executor": f"{__name__}.run_raw_sql",
+        "read_only": True,
+    }
+
+
+def test_model_sql_cannot_break_framework_savepoints():
+    # Model SQL runs on the env's own connection. A query issuing
+    # `RELEASE SAVEPOINT oumi_tool_call` must not free the framework's own
+    # savepoint and crash step() at cleanup: savepoint names are randomized, so
+    # the attack just returns a graceful error and the env stays usable.
+    env = DatabaseExecutableEnvironment.from_params(
+        _params([_raw_tool(), _lookup_tool()])
+    )
+    try:
+        [attack] = env.step([("raw", {"sql": "RELEASE SAVEPOINT oumi_tool_call"})])
+        assert "error" in attack.output  # graceful, not a crash
+        [seen] = env.step([("lookup", {"pat_id": 1})])
+        assert seen.output == {"name": "Bob", "meds": "aspirin"}
+    finally:
+        env.close()

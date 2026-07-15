@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import dataclasses
 import sqlite3
+import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -54,15 +55,17 @@ class DatabaseExecutableEnvironmentKwargs(BaseParams):
 
 @contextmanager
 def _savepoint(connection: sqlite3.Connection, name: str) -> Iterator[None]:
-    connection.execute(f"SAVEPOINT {name}")
+    # Randomized so model SQL can't RELEASE/ROLLBACK TO our savepoint and break cleanup.
+    sp = f"{name}_{uuid.uuid4().hex}"
+    connection.execute(f"SAVEPOINT {sp}")
     try:
         yield
     except BaseException:
-        connection.execute(f"ROLLBACK TO SAVEPOINT {name}")
-        connection.execute(f"RELEASE SAVEPOINT {name}")
+        connection.execute(f"ROLLBACK TO SAVEPOINT {sp}")
+        connection.execute(f"RELEASE SAVEPOINT {sp}")
         raise
     else:
-        connection.execute(f"RELEASE SAVEPOINT {name}")
+        connection.execute(f"RELEASE SAVEPOINT {sp}")
 
 
 @register_environment("database")
