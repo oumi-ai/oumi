@@ -55,7 +55,8 @@ def build_user_turn_prompt(
 def messages_to_history(messages: list[dict]) -> list[Message]:
     """Map verl's [{'role','content'}, ...] into Oumi Messages."""
     return [
-        Message(role=Role(m["role"]), content=(m.get("content") or "")) for m in messages
+        Message(role=Role(m["role"]), content=(m.get("content") or ""))
+        for m in messages
     ]
 
 
@@ -65,12 +66,12 @@ def next_user_turn(
     infer_fn: Callable[[Conversation], str],
     done_sentinel: str = DEFAULT_DONE_SENTINEL,
 ) -> tuple[bool, str, float]:
-    """Produce the next user turn (or end): (should_terminate, user_text, turn_score)."""
+    """Produce the next user turn (or end)."""
     state.turn_idx += 1
     if state.turn_idx >= state.max_turns:  # hard cap → no more user turns
         return True, "", 0.0
     prompt = build_user_turn_prompt(
-        state.persona, messages_to_history(messages), state.turn_idx + 1, state.max_turns
+        state.persona, messages_to_history(messages), state.turn_idx, state.max_turns
     )
     text = infer_fn(prompt)
     if done_sentinel in text:  # user-decided end
