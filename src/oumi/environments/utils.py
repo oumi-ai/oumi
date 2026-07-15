@@ -16,16 +16,42 @@
 
 from __future__ import annotations
 
+import dataclasses
 import importlib
 import json
 from collections.abc import Callable
-from typing import Any
+from typing import Any, TypeVar
 
 import jsonschema
 
+from oumi.core.configs.params.base_params import BaseParams
+from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.core.configs.params.grounding_params import GroundingFact
 from oumi.core.configs.params.tool_params import ToolError, ToolParams
 from oumi.core.types.tool_call import ToolResult
+
+_KwargsT = TypeVar("_KwargsT", bound=BaseParams)
+
+
+def parse_env_kwargs(
+    kwargs_cls: type[_KwargsT], params: EnvironmentParams, *, env_label: str
+) -> _KwargsT:
+    """Build a validated env-kwargs dataclass from ``params.env_kwargs``.
+
+    Rejects unrecognized keys (naming them) before constructing and
+    finalize-validating the dataclass. Shared by concrete environments.
+    """
+    raw_kwargs = params.env_kwargs or {}
+    known = {field.name for field in dataclasses.fields(kwargs_cls)}
+    unknown = set(raw_kwargs) - known
+    if unknown:
+        raise ValueError(
+            f"{env_label} got unknown env_kwargs: {sorted(unknown)}. "
+            f"Known: {sorted(known)}"
+        )
+    kwargs = kwargs_cls(**raw_kwargs)
+    kwargs.finalize_and_validate()
+    return kwargs
 
 
 def import_executor(dotted: str, tool_id: str) -> Callable[..., Any]:

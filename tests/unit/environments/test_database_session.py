@@ -16,6 +16,8 @@ from __future__ import annotations
 
 import sqlite3
 
+import pytest
+
 from oumi.environments.database_session import (
     DatabaseSession,
     materialize_sqlite_snapshot,
@@ -25,19 +27,15 @@ _SCHEMA = "CREATE TABLE t (id INTEGER PRIMARY KEY, v TEXT);"
 _SEED = "INSERT INTO t VALUES (1, 'a');"
 
 
-def test_materialize_builds_a_seeded_snapshot(tmp_path):
-    path = materialize_sqlite_snapshot(
-        schema_sql=_SCHEMA, seed_sql=_SEED, dest=tmp_path / "seed.sqlite"
-    )
+def test_materialize_builds_a_seeded_snapshot():
+    path = materialize_sqlite_snapshot(schema_sql=_SCHEMA, seed_sql=_SEED)
     conn = sqlite3.connect(path)
     assert conn.execute("SELECT v FROM t WHERE id = 1").fetchone()[0] == "a"
     conn.close()
 
 
-def test_rollback_session_discards_uncommitted_writes(tmp_path):
-    path = materialize_sqlite_snapshot(
-        schema_sql=_SCHEMA, seed_sql=_SEED, dest=tmp_path / "seed.sqlite"
-    )
+def test_rollback_session_discards_uncommitted_writes():
+    path = materialize_sqlite_snapshot(schema_sql=_SCHEMA, seed_sql=_SEED)
     session = DatabaseSession(path)
     # Write without committing; visible on this connection...
     session.connection.execute("UPDATE t SET v = 'mutated' WHERE id = 1")
@@ -51,12 +49,8 @@ def test_rollback_session_discards_uncommitted_writes(tmp_path):
     conn.close()
 
 
-def test_two_sessions_on_one_snapshot_do_not_see_each_others_uncommitted_writes(
-    tmp_path,
-):
-    path = materialize_sqlite_snapshot(
-        schema_sql=_SCHEMA, seed_sql=_SEED, dest=tmp_path / "seed.sqlite"
-    )
+def test_two_sessions_on_one_snapshot_do_not_see_each_others_uncommitted_writes():
+    path = materialize_sqlite_snapshot(schema_sql=_SCHEMA, seed_sql=_SEED)
     a = DatabaseSession(path)
     b = DatabaseSession(path)
     try:
@@ -68,13 +62,10 @@ def test_two_sessions_on_one_snapshot_do_not_see_each_others_uncommitted_writes(
         b.close()
 
 
-def test_leading_ddl_is_rolled_back(tmp_path):
-    # DDL as the first statement must still roll back. Legacy sqlite3 only opens
-    # an implicit transaction before DML, so without the explicit BEGIN a leading
-    # CREATE TABLE would run in autocommit and persist past close().
-    path = materialize_sqlite_snapshot(
-        schema_sql=_SCHEMA, seed_sql=_SEED, dest=tmp_path / "seed.sqlite"
-    )
+def test_leading_ddl_is_rolled_back():
+    # Leading DDL must roll back too: without the explicit BEGIN a first CREATE
+    # TABLE runs in autocommit and persists past close().
+    path = materialize_sqlite_snapshot(schema_sql=_SCHEMA, seed_sql=_SEED)
     session = DatabaseSession(path)
     session.connection.execute("CREATE TABLE leaked (x INTEGER)")
     session.close()
@@ -86,22 +77,34 @@ def test_leading_ddl_is_rolled_back(tmp_path):
     assert leaked == 0
 
 
-def test_owned_session_deletes_its_file_on_close(tmp_path):
-    path = materialize_sqlite_snapshot(
-        schema_sql=_SCHEMA, dest=tmp_path / "owned.sqlite"
-    )
+def test_owned_session_deletes_its_file_on_close():
+    path = materialize_sqlite_snapshot(schema_sql=_SCHEMA)
     session = DatabaseSession(path, owns_file=True)
     assert path.exists()
     session.close()
     assert not path.exists()
 
 
-def test_close_is_idempotent(tmp_path):
+def test_close_is_idempotent():
     # A router may close the same session at build time and again explicitly;
     # the second close must not raise on the already-closed connection.
-    path = materialize_sqlite_snapshot(
-        schema_sql=_SCHEMA, seed_sql=_SEED, dest=tmp_path / "seed.sqlite"
-    )
+    path = materialize_sqlite_snapshot(schema_sql=_SCHEMA, seed_sql=_SEED)
     session = DatabaseSession(path)
     session.close()
     session.close()
+
+
+def test_transaction_control_is_denied():
+    # An executor must not COMMIT and defeat rollback isolation; the authorizer
+    # denies it, and the session still rolls back on close.
+    path = materialize_sqlite_snapshot(schema_sql=_SCHEMA, seed_sql=_SEED)
+    session = DatabaseSession(path)
+    try:
+        with pytest.raises(sqlite3.DatabaseError):
+            session.connection.execute("COMMIT")
+        session.connection.execute("UPDATE t SET v = 'mutated' WHERE id = 1")
+    finally:
+        session.close()
+    conn = sqlite3.connect(path)
+    assert conn.execute("SELECT v FROM t WHERE id = 1").fetchone()[0] == "a"
+    conn.close()

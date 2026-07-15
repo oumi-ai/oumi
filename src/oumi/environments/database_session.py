@@ -28,19 +28,9 @@ def materialize_sqlite_snapshot(
     *,
     schema_sql: str,
     seed_sql: str | None = None,
-    dest: Path | str | None = None,
 ) -> Path:
     """Build a snapshot SQLite file from DDL (+ optional seed INSERTs)."""
-    destination = (
-        Path(dest)
-        if dest is not None
-        else Path(tempfile.gettempdir()) / f"oumi_snapshot_{uuid.uuid4().hex}.sqlite"
-    )
-    path = (
-        destination.with_name(f".{destination.name}.{uuid.uuid4().hex}.tmp")
-        if dest is not None
-        else destination
-    )
+    path = Path(tempfile.gettempdir()) / f"oumi_snapshot_{uuid.uuid4().hex}.sqlite"
     try:
         with closing(sqlite3.connect(path)) as connection:
             _enable_foreign_keys(connection)
@@ -48,12 +38,10 @@ def materialize_sqlite_snapshot(
             if seed_sql:
                 connection.executescript(seed_sql)
             connection.commit()
-        if dest is not None:
-            path.replace(destination)
     except BaseException:
         path.unlink(missing_ok=True)
         raise
-    return destination
+    return path
 
 
 def _enable_foreign_keys(connection: sqlite3.Connection) -> None:
@@ -82,7 +70,7 @@ class DatabaseSession:
     """
 
     def __init__(self, db_path: Path | str, *, owns_file: bool = False) -> None:
-        """Open a per-rollout connection; set owns_file to delete the DB on close."""
+        """Open a per-rollout connection over ``db_path``."""
         self._path = Path(db_path)
         self._owns_file = owns_file
         self._closed = False

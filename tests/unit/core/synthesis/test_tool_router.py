@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sqlite3
 from typing import Any
 from unittest.mock import Mock
 
@@ -443,7 +444,7 @@ _DB_SEED = "INSERT INTO patients VALUES (1, 'Bob', 'aspirin');"
 
 
 # Local executor so this suite doesn't depend on the EHR example.
-def _db_lookup_patient(arguments: dict, context) -> ToolResult:
+def _db_lookup_patient(arguments: dict, context: sqlite3.Connection) -> ToolResult:
     row = context.execute(
         "SELECT name, meds FROM patients WHERE id = ?", (arguments["pat_id"],)
     ).fetchone()
@@ -477,8 +478,6 @@ def _db_env_params(env_id: str = "db") -> EnvironmentParams:
 
 def test_close_tears_down_isolated_envs():
     """Built isolating envs are closed (session released), never leaked."""
-    import sqlite3
-
     router = ToolRouter.from_environment_config(
         EnvironmentConfig(environments=[_db_env_params()])
     )

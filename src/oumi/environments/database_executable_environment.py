@@ -16,11 +16,10 @@
 
 from __future__ import annotations
 
-import dataclasses
 import sqlite3
 import uuid
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -35,6 +34,7 @@ from oumi.environments.database_session import (
 )
 from oumi.environments.executable_environment import ExecutableEnvironment
 from oumi.environments.executable_tool import ExecutableTool
+from oumi.environments.utils import parse_env_kwargs
 
 
 @dataclass
@@ -61,8 +61,10 @@ def _savepoint(connection: sqlite3.Connection, name: str) -> Iterator[None]:
     try:
         yield
     except BaseException:
-        connection.execute(f"ROLLBACK TO SAVEPOINT {sp}")
-        connection.execute(f"RELEASE SAVEPOINT {sp}")
+        # Best-effort rollback: a cleanup failure must not mask the real error.
+        with suppress(sqlite3.Error):
+            connection.execute(f"ROLLBACK TO SAVEPOINT {sp}")
+            connection.execute(f"RELEASE SAVEPOINT {sp}")
         raise
     else:
         connection.execute(f"RELEASE SAVEPOINT {sp}")
@@ -79,27 +81,18 @@ class DatabaseExecutableEnvironment(ExecutableEnvironment):
 
     @classmethod
     def from_params(cls, params: EnvironmentParams) -> DatabaseExecutableEnvironment:
-        """Build the env, opening a Database session over its configured DB.
+        """Build the env, opening a session over its configured DB.
 
-        ``db_path`` shares one snapshot file across rollouts (Database isolation,
-        scales to large DBs). It is safe for concurrent *readers*, but SQLite
-        serializes concurrent *writers* on one file, so concurrent rollouts that
-        write will contend — those tasks should use ``schema_sql`` (a fresh
-        per-rollout file) until copy-on-write isolation lands.
+        ``db_path`` shares one snapshot file across rollouts (scales to large DBs)
+        and is safe for concurrent *readers*, but SQLite serializes concurrent
+        *writers* on one file, so write-heavy concurrent rollouts should use
+        ``schema_sql`` (a fresh per-rollout file) instead.
         """
-        raw_kwargs = params.env_kwargs or {}
-        known = {
-            field.name
-            for field in dataclasses.fields(DatabaseExecutableEnvironmentKwargs)
-        }
-        unknown = set(raw_kwargs) - known
-        if unknown:
-            raise ValueError(
-                "DatabaseExecutableEnvironment got unknown env_kwargs: "
-                f"{sorted(unknown)}. Known: {sorted(known)}"
-            )
-        kwargs = DatabaseExecutableEnvironmentKwargs(**raw_kwargs)
-        kwargs.finalize_and_validate()
+        kwargs = parse_env_kwargs(
+            DatabaseExecutableEnvironmentKwargs,
+            params,
+            env_label="DatabaseExecutableEnvironment",
+        )
         if kwargs.db_path:
             path = Path(kwargs.db_path)
             if not path.is_file():
@@ -142,7 +135,9 @@ class DatabaseExecutableEnvironment(ExecutableEnvironment):
                 yield connection
         finally:
             if tool.read_only:
-                connection.execute("PRAGMA query_only = OFF")
+                # Best-effort reset: don't let it mask an in-flight executor error.
+                with suppress(sqlite3.Error):
+                    connection.execute("PRAGMA query_only = OFF")
 
     def close(self) -> None:
         """Roll back the episode's writes and tear down the session."""
