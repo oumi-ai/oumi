@@ -53,10 +53,11 @@ def build_user_turn_prompt(
 
 
 def messages_to_history(messages: list[dict]) -> list[Message]:
-    """Map verl's [{'role','content'}, ...] into Oumi Messages."""
+    """Map verl's [{'role','content'}, ...] into Messages, dropping system turns."""
     return [
         Message(role=Role(m["role"]), content=(m.get("content") or ""))
         for m in messages
+        if m.get("role") != "system"
     ]
 
 

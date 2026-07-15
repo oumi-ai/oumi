@@ -20,6 +20,7 @@ def test_build_user_turn_prompt_shape():
     assert conv.messages[0].content == "You are Jane, a customer."
     assert [m.content for m in conv.messages[1:3]] == ["hi", "hello"]
     assert conv.messages[-1].role == Role.USER
+    assert isinstance(conv.messages[-1].content, str)
     assert DEFAULT_DONE_SENTINEL in conv.messages[-1].content
 
 
@@ -68,3 +69,17 @@ def test_next_user_turn_threads_correct_turn_number():
     next_user_turn(state, [], stub)
     turn_info = captured["conv"].messages[-1].content
     assert "turn 1 of at most 5" in turn_info
+
+
+def test_messages_to_history_drops_system_turns():
+    out = messages_to_history(
+        [
+            {"role": "system", "content": "You are a support agent."},
+            {"role": "user", "content": "hi"},
+            {"role": "assistant", "content": "hello"},
+        ]
+    )
+    assert [(m.role, m.content) for m in out] == [
+        (Role.USER, "hi"),
+        (Role.ASSISTANT, "hello"),
+    ]
