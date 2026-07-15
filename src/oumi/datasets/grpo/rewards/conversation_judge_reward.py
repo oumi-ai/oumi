@@ -46,8 +46,5 @@ def conversation_llm_judge_reward(
         [{"conversation": solution_str, "goal": ground_truth or ""}]
     )[0]
     scores = result.field_scores or {}
-    for key in ("judgment", *scores.keys()):
-        value = scores.get(key)
-        if value is not None:
-            return float(value)
-    return 0.0
+    value = scores.get("judgment")
+    return float(value) if value is not None else 0.0
