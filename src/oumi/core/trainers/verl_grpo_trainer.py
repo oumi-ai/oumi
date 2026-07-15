@@ -26,6 +26,7 @@ from datasets import Dataset
 from omegaconf import DictConfig, OmegaConf
 
 from oumi.core.types.conversation import Conversation
+from oumi.core.types.conversation import Role as ConversationRole
 from oumi.utils.grpo_utils import (
     extract_prompt_images_completion_from_conversation,
 )
@@ -248,6 +249,10 @@ class VerlGrpoTrainer(BaseTrainer):
     def _create_verl_data_entry_from_conversation(
         example: dict, idx: int, data_source: str, split: str
     ) -> dict:
+        if "interaction_metadata" in example:
+            return VerlGrpoTrainer._create_verl_interaction_entry(
+                example, idx, data_source, split
+            )
         prompt_messages, images, answer = (
             VerlGrpoTrainer._extract_prompt_images_answer_from_conversation(example)
         )
@@ -264,6 +269,44 @@ class VerlGrpoTrainer(BaseTrainer):
             },
         }
         return data
+
+    @staticmethod
+    def _create_verl_interaction_entry(
+        example: dict, idx: int, data_source: str, split: str
+    ) -> dict:
+        """Row for a persona-driven simulated-user rollout (ends on a user turn)."""
+        conversation = Conversation.from_json(example["conversation_json"])
+        messages = conversation.messages
+        if not messages or messages[-1].role != ConversationRole.USER:
+            raise ValueError(
+                "interaction rows must end on a user turn (the opening "
+                "customer message)."
+            )
+        prompt_messages = [
+            {"role": m.role.value, "content": m.compute_flattened_text_content()}
+            for m in messages
+        ]
+        meta = example["interaction_metadata"]
+        goal = meta.get("goal", "")
+        interaction_kwargs = {
+            "name": meta.get("name", "oumi_conversation"),
+            "user_persona": meta["user_persona"],
+            "max_turns": meta.get("max_turns", 6),
+            "goal": goal,
+        }
+        return {
+            "data_source": data_source,
+            "prompt": prompt_messages,
+            "images": [],
+            "ability": "conversation",
+            "reward_model": {"style": "model", "ground_truth": goal},
+            "extra_info": {
+                "split": split,
+                "index": idx,
+                "goal": goal,
+                "interaction_kwargs": interaction_kwargs,
+            },
+        }
 
     def _create_dataset_files(
         self, process_fn: _DatasetProcessFn | None = None
