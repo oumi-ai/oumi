@@ -17,10 +17,13 @@
 import asyncio
 from uuid import uuid4
 
-from verl.interactions.base import BaseInteraction
+from verl.interactions.base import (  # pyright: ignore[reportMissingImports]
+    BaseInteraction,
+)
 
 from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.configs.inference_config import InferenceConfig
+from oumi.core.configs.inference_engine_type import InferenceEngineType
 from oumi.core.trainers.verl_conversational_turn import (
     DEFAULT_DONE_SENTINEL,
     RolloutState,
@@ -37,7 +40,7 @@ class OumiVerlInteraction(BaseInteraction):
         super().__init__(config)
         self._infer_config = InferenceConfig.from_yaml(config["user_sim_inference"])
         self._engine = build_inference_engine(
-            engine_type=self._infer_config.engine,
+            engine_type=self._infer_config.engine or InferenceEngineType.NATIVE,
             model_params=self._infer_config.model,
             remote_params=self._infer_config.remote_params,
         )
@@ -52,12 +55,14 @@ class OumiVerlInteraction(BaseInteraction):
         iid = instance_id or uuid4().hex
         self._state[iid] = RolloutState(
             persona=user_persona,
-            max_turns=max_turns or self._default_max_turns,
+            max_turns=(max_turns if max_turns is not None else self._default_max_turns),
             goal=goal,
         )
         return iid
 
-    async def generate_response(self, instance_id, messages, **kw):
+    async def generate_response(
+        self, instance_id, messages, **kw
+    ) -> tuple[bool, str, float, dict]:
         """Delegate the next simulated-user turn to `next_user_turn`."""
         state = self._state[instance_id]
         done, text, score = await asyncio.to_thread(

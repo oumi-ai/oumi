@@ -15,7 +15,7 @@ def interaction_cls(monkeypatch):
             self.config = config
             self.name = config.get("name", "interaction_agent")
 
-    base_mod.BaseInteraction = _BaseInteraction
+    setattr(base_mod, "BaseInteraction", _BaseInteraction)
     monkeypatch.setitem(sys.modules, "verl", types.ModuleType("verl"))
     monkeypatch.setitem(
         sys.modules, "verl.interactions", types.ModuleType("verl.interactions")
