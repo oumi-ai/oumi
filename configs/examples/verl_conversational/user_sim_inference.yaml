@@ -1,0 +1,6 @@
+model:
+  model_name: "gpt-4o-mini"          # user-sim model (any hosted/OpenAI-compatible)
+engine: OPENAI                        # swap to VLLM/NATIVE for local/offline (§2)
+generation:
+  max_new_tokens: 256
+  temperature: 1.0

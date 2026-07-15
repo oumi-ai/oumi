@@ -1,0 +1,29 @@
+model:
+  model_name: "Qwen/Qwen2.5-0.5B-Instruct"   # small policy for the smoke
+data:
+  train:
+    datasets:
+      - dataset_name: "text_sft_jsonl"
+        dataset_path: configs/examples/verl_conversational/seed_support.jsonl
+  validation:
+    datasets:
+      - dataset_name: "text_sft_jsonl"
+        dataset_path: configs/examples/verl_conversational/seed_support.jsonl
+training:
+  trainer_type: VERL_GRPO
+  reward_funcs: ["conversation_llm_judge"]
+  grpo:
+    use_vllm: true
+    max_completion_length: 512
+  verl_config_overrides:
+    actor_rollout_ref:
+      rollout:
+        mode: async
+        multi_turn:
+          enable: true
+          interaction_config_path: configs/examples/verl_conversational/verl_interaction_config.yaml
+          max_user_turns: 6
+          max_assistant_turns: 6
+    custom_reward_function:
+      # judge_config_path is read by the reward fn from extra_info or here:
+      overrides: { judge_config_path: configs/examples/verl_conversational/judge.yaml }
