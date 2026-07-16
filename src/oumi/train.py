@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import functools
+import os
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -253,15 +254,21 @@ def _verl_train(partial_trainer: Callable[[], BaseTrainer]):
         )
     if not ray.is_initialized():
         logger.info("Initializing Ray cluster...")
-        ray.init(
-            runtime_env={
+        ray_init_kwargs: dict = {
+            "runtime_env": {
                 "env_vars": {
                     "TOKENIZERS_PARALLELISM": "true",
                     "NCCL_DEBUG": "WARN",
                     "VLLM_LOGGING_LEVEL": "WARN",
                 }
             }
-        )
+        }
+        # Some container images misreport CPU count (e.g. ~190), making ray.init
+        # spawn too many workers and hang at registration. OUMI_RAY_NUM_CPUS caps it.
+        ray_num_cpus = os.environ.get("OUMI_RAY_NUM_CPUS")
+        if ray_num_cpus:
+            ray_init_kwargs["num_cpus"] = int(ray_num_cpus)
+        ray.init(**ray_init_kwargs)
 
     # We define the remote function as a sub function so that the `@ray.remote`
     # decorator is only run if this function is run. This function should only be run

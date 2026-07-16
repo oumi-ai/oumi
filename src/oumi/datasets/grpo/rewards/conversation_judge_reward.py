@@ -15,6 +15,7 @@
 """LLM-judge reward for conversational GRPO rollouts (wraps SimpleJudge)."""
 
 import functools
+import os
 
 from oumi.core.configs.judge_config import JudgeConfig
 from oumi.core.registry import RegistryType, register
@@ -36,10 +37,15 @@ def conversation_llm_judge_reward(
     Judge config supplies the prompt template (placeholders {conversation}, {goal}),
     judgment type, and its own inference engine. Returns the judgment field's score.
     """
-    path = judge_config_path or (extra_info or {}).get("judge_config_path")
+    path = (
+        judge_config_path
+        or (extra_info or {}).get("judge_config_path")
+        or os.environ.get("OUMI_JUDGE_CONFIG_PATH")
+    )
     if not path:
         raise ValueError(
-            "conversation_llm_judge needs 'judge_config_path' (arg or extra_info)."
+            "conversation_llm_judge needs 'judge_config_path' (arg, extra_info, "
+            "or the OUMI_JUDGE_CONFIG_PATH env var)."
         )
     judge = _get_judge(path)
     result = judge.judge(

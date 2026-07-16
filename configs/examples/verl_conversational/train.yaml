@@ -32,6 +32,13 @@ training:
       val_batch_size: 3
       max_prompt_length: 4096
     actor_rollout_ref:
+      model:
+        # This image's flash-attn/cutlass mismatch breaks flash_attention_2 at model
+        # load; use sdpa for the FSDP actor/ref (vLLM handles rollout attention itself),
+        # and skip flash-attn varlen packing.
+        use_remove_padding: false
+        override_config:
+          attn_implementation: sdpa
       actor:
         ppo_mini_batch_size: 3
         ppo_micro_batch_size_per_gpu: 1
@@ -44,6 +51,7 @@ training:
         log_prob_micro_batch_size_per_gpu: 1
         agent:
           default_agent_loop: tool_agent  # ToolAgentLoop drives interactions (verl 0.7.1)
+          num_workers: 4                  # must divide (train_batch_size * n)=12; default 8 does not
         multi_turn:
           enable: true
           interaction_config_path: configs/examples/verl_conversational/verl_interaction_config.yaml
