@@ -16,7 +16,6 @@
 
 from __future__ import annotations
 
-import dataclasses
 import json
 import random
 from dataclasses import dataclass, field
@@ -29,6 +28,7 @@ from oumi.core.configs.params.tool_params import ToolLookupError, ToolParams
 from oumi.core.registry import register_environment
 from oumi.core.types.tool_call import ToolResult
 from oumi.environments.base_environment import BaseEnvironment
+from oumi.environments.utils import parse_env_kwargs
 from oumi.utils.logging import logger
 
 
@@ -148,16 +148,11 @@ class DeterministicEnvironment(BaseEnvironment):
     @classmethod
     def from_params(cls, params: EnvironmentParams) -> DeterministicEnvironment:
         """Build a DeterministicEnvironment from its params object."""
-        raw_kwargs = params.env_kwargs or {}
-        known = {f.name for f in dataclasses.fields(DeterministicEnvironmentKwargs)}
-        unknown = set(raw_kwargs) - known
-        if unknown:
-            raise ValueError(
-                f"DeterministicEnvironment got unknown env_kwargs: "
-                f"{sorted(unknown)}. Known: {sorted(known)}"
-            )
-        kwargs = DeterministicEnvironmentKwargs(**raw_kwargs)
-        kwargs.finalize_and_validate()
+        kwargs = parse_env_kwargs(
+            DeterministicEnvironmentKwargs,
+            params,
+            env_label="DeterministicEnvironment",
+        )
         return cls(params, kwargs)
 
     def _validate_lookup_table(self) -> None:

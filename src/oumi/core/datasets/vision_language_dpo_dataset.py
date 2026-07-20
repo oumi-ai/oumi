@@ -169,8 +169,7 @@ class VisionLanguageDpoDataset(BaseDpoDataset):
         images = [images] if isinstance(images, dict) else images
 
         # Load and resize the images.
-        if images is not None:
-            images = [self._resize_image(self._load_image(image)) for image in images]
+        images = [self._resize_image(self._load_image(image)) for image in images]
 
         # Add the image turns to the prompt if not already present.
         if all(isinstance(turn["content"], str) for turn in prompt_chat):

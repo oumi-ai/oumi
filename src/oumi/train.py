@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import functools
+import os
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -277,6 +278,26 @@ def _verl_train(partial_trainer: Callable[[], BaseTrainer]):
     _log_feedback_request()
 
 
+# flex_attention buckets variable-length batches into one compiled shape per
+# `pad_to_multiple_of` multiple, and its GLOBAL_STATE guards can churn on top of
+# that; either can exhaust torch dynamo's default recompile limit (8) and
+# silently degrade to the eager kernel (quadratic memory -> OOM at long
+# context). Torch has no env var for this, so we set it in code whenever a batch
+# is padded to a multiple. Override with OUMI_DYNAMO_RECOMPILE_LIMIT.
+_DEFAULT_DYNAMO_RECOMPILE_LIMIT = 64
+
+
+def _maybe_raise_dynamo_recompile_limit(config: TrainingConfig) -> None:
+    collator_kwargs = config.data.get_split(DatasetSplit.TRAIN).collator_kwargs or {}
+    if not collator_kwargs.get("pad_to_multiple_of"):
+        return
+    override = os.environ.get("OUMI_DYNAMO_RECOMPILE_LIMIT")
+    limit = int(override) if override else _DEFAULT_DYNAMO_RECOMPILE_LIMIT
+    torch._dynamo.config.recompile_limit = limit
+    torch._dynamo.config.cache_size_limit = limit
+    logger.info(f"Set torch dynamo recompile limit to {limit} (pad_to_multiple_of).")
+
+
 def train(
     config: TrainingConfig,
     additional_model_kwargs: dict[str, Any] | None = None,
@@ -286,6 +307,8 @@ def train(
 ) -> None | dict[str, Any]:
     """Trains a model using the provided configuration."""
     _START_TIME = time.time()
+
+    _maybe_raise_dynamo_recompile_limit(config)
 
     _create_training_dirs(config)
     _log_training_info(config)
