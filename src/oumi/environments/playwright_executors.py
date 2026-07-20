@@ -15,49 +15,55 @@
 """Example browser tool executors for ``BrowserExecutableEnvironment``.
 
 Reference these by dotted path from a tool's ``executor`` field (see
-``configs/examples/synthesis/browser_oumi_synth.yaml`` for the full wiring). The
-environment binds the live page for each call; executors read it via
-``current_page()``, take their declared tool params directly, and return a dict
-(auto-wrapped into a ``ToolResult``). Page state persists on the remote Kernel
-session across calls, so executors stay stateless. Needs ``oumi[browser]``.
+``configs/examples/synthesis/browser_oumi_synth.yaml`` for the full wiring). Each
+executor takes ``(arguments, context)`` — where ``context`` is the live Playwright
+page the environment bound for this tool call — and returns a ``ToolResult``. Page
+state persists on the remote Kernel session across calls, so executors stay
+stateless. Needs ``oumi[browser]``.
 """
 
 from __future__ import annotations
 
-from oumi.environments.browser_session import current_page
+from typing import Any
+
+from oumi.core.types.tool_call import ToolResult
 
 #: Cap returned page text so a single observation can't blow the context window.
 _DEFAULT_MAX_CHARS = 8000
 _DEFAULT_TIMEOUT_MS = 5000
 
 
-def navigate(url: str, wait_until: str = "load") -> dict:
-    """Navigate to ``url``; returns the resolved url and page title."""
-    page = current_page()
-    page.goto(url, wait_until=wait_until)
-    return {"url": page.url, "title": page.title()}
+def navigate(arguments: dict[str, Any], context: Any) -> ToolResult:
+    """Navigate to ``arguments['url']``; returns the resolved url and page title."""
+    page = context
+    page.goto(arguments["url"], wait_until=arguments.get("wait_until", "load"))
+    return ToolResult(output={"url": page.url, "title": page.title()})
 
 
-def click(selector: str, timeout_ms: int = _DEFAULT_TIMEOUT_MS) -> dict:
-    """Click the element matching ``selector``."""
-    page = current_page()
-    page.click(selector, timeout=timeout_ms)
-    return {"clicked": selector, "url": page.url}
+def click(arguments: dict[str, Any], context: Any) -> ToolResult:
+    """Click the element matching ``arguments['selector']``."""
+    page = context
+    timeout_ms = arguments.get("timeout_ms", _DEFAULT_TIMEOUT_MS)
+    page.click(arguments["selector"], timeout=timeout_ms)
+    return ToolResult(output={"clicked": arguments["selector"], "url": page.url})
 
 
-def type_text(selector: str, text: str, timeout_ms: int = _DEFAULT_TIMEOUT_MS) -> dict:
-    """Fill ``selector`` with ``text``."""
-    page = current_page()
-    page.fill(selector, text, timeout=timeout_ms)
-    return {"typed_into": selector}
+def type_text(arguments: dict[str, Any], context: Any) -> ToolResult:
+    """Fill ``arguments['selector']`` with ``arguments['text']``."""
+    page = context
+    timeout_ms = arguments.get("timeout_ms", _DEFAULT_TIMEOUT_MS)
+    page.fill(arguments["selector"], arguments["text"], timeout=timeout_ms)
+    return ToolResult(output={"typed_into": arguments["selector"]})
 
 
-def read_text(selector: str = "body", max_chars: int = _DEFAULT_MAX_CHARS) -> dict:
-    """Read inner text of ``selector`` (defaults to ``body``), truncated.
+def read_text(arguments: dict[str, Any], context: Any) -> ToolResult:
+    """Read inner text of a selector (defaults to ``body``), truncated.
 
     The selector wait uses a short timeout so a missing selector fails fast and
     the agent can retry, rather than blocking on Playwright's 30s default.
     """
-    page = current_page()
+    page = context
+    selector = arguments.get("selector", "body")
+    max_chars = arguments.get("max_chars", _DEFAULT_MAX_CHARS)
     text = page.inner_text(selector, timeout=_DEFAULT_TIMEOUT_MS)
-    return {"text": text[: max(0, max_chars)], "url": page.url}
+    return ToolResult(output={"text": text[: max(0, max_chars)], "url": page.url})

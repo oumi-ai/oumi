@@ -16,12 +16,12 @@
 
 from __future__ import annotations
 
+from oumi.core.types.tool_call import ToolResult
 from oumi.environments import playwright_executors as pe
-from oumi.environments.browser_session import using_page
 
 
 class _FakePage:
-    """Records the Playwright calls each executor makes via current_page()."""
+    """Records the Playwright calls each executor makes on its context page."""
 
     def __init__(self) -> None:
         self.calls: list[tuple] = []
@@ -46,32 +46,30 @@ class _FakePage:
 
 def test_navigate_returns_url_and_title():
     page = _FakePage()
-    with using_page(page):
-        result = pe.navigate(url="https://example.com")
-    assert result == {"url": page.url, "title": "Example Domain"}
+    result = pe.navigate({"url": "https://example.com"}, page)
+    assert isinstance(result, ToolResult)
+    assert result.output == {"url": page.url, "title": "Example Domain"}
     assert page.calls == [("goto", "https://example.com", "load")]
 
 
 def test_click_passes_default_timeout():
     page = _FakePage()
-    with using_page(page):
-        result = pe.click(selector="#submit")
-    assert result == {"clicked": "#submit", "url": page.url}
+    result = pe.click({"selector": "#submit"}, page)
+    assert result.output == {"clicked": "#submit", "url": page.url}
     assert page.calls == [("click", "#submit", pe._DEFAULT_TIMEOUT_MS)]
 
 
 def test_type_text_fills_selector():
     page = _FakePage()
-    with using_page(page):
-        result = pe.type_text(selector="#q", text="hello")
-    assert result == {"typed_into": "#q"}
+    result = pe.type_text({"selector": "#q", "text": "hello"}, page)
+    assert result.output == {"typed_into": "#q"}
     assert page.calls == [("fill", "#q", "hello", pe._DEFAULT_TIMEOUT_MS)]
 
 
 def test_read_text_defaults_to_body_and_truncates():
     page = _FakePage()
-    with using_page(page):
-        result = pe.read_text(max_chars=50)
+    result = pe.read_text({"max_chars": 50}, page)
     assert page.calls == [("inner_text", "body", pe._DEFAULT_TIMEOUT_MS)]
-    assert len(result["text"]) == 50
-    assert result["url"] == page.url
+    assert isinstance(result.output, dict)
+    assert len(result.output["text"]) == 50
+    assert result.output["url"] == page.url

@@ -34,8 +34,14 @@ environment_config:
         headless: true
         # Idle-reap timeout; generous enough to cover think-time between turns.
         timeout_seconds: 600
-        # stealth / viewport / proxy_id are also forwarded (see
-        # _BROWSER_CREATE_KEYS). KERNEL_API_KEY is NOT a kwarg.
+        # stealth / viewport / proxy_id are also accepted. KERNEL_API_KEY is NOT
+        # a kwarg (the SDK reads it from the environment).
+        #
+        # At scale, acquire from a warm browser pool instead of creating one per
+        # rollout — create it once out of band, then set `pool` here:
+        #   kernel browser-pool create --name rl-browser --size 50
+        # pool: rl-browser
+        # acquire_timeout_seconds: 60
       tools:
         - id: navigate
           name: navigate

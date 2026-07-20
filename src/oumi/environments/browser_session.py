@@ -14,21 +14,25 @@
 
 """Per-rollout Kernel browser session — the browser-env isolation primitive.
 
-Each session is a single-tenant Kernel cloud browser (a microVM); one rollout
-owns one session and tears it down on close. ``page()`` yields a live Playwright
-page connected over CDP for the duration of one tool call.
+A session is either created on demand (``browsers.create``, deleted on close) or
+acquired from a warm **browser pool** (``browser_pools.acquire``, released back on
+close). Each session is a single-tenant Kernel cloud browser (a microVM); one
+rollout owns one. ``page()`` yields a live Playwright page connected over CDP for
+the duration of one tool call — executors receive that page as their ``context``.
 
-Executors read the bound page via the module-level ``current_page()`` rather than
-receiving it as an argument — the ambient-handle pattern mirrors the database
-env's ``current_connection()``. The environment binds it with ``using_page`` for
-each tool call.
+Pool mode (set ``pool``) is the throughput path for RL/synthesis: acquisition is
+served from pre-warmed browsers, and on release the browser goes *back* to the
+pool for reuse. Because pooled browsers are reused, ``_reset`` returns the browser
+to a clean slate on acquire (close stray tabs, land on ``start_url``); if that
+reset fails the browser is released with ``reuse=False`` so the pool refills a
+fresh one.
 """
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterator
 from contextlib import contextmanager
-from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any
 
 from oumi.utils.logging import logger
@@ -38,60 +42,48 @@ if TYPE_CHECKING:
     from kernel import Kernel  # pyright: ignore[reportMissingImports]
 
 
-#: The live Playwright page bound for the current tool call. Typed ``Any`` — the
-#: concrete type comes from the optional ``playwright`` dependency and is faked in
-#: tests; executor authors can annotate locally (``page: Page = current_page()``).
-_page_var: ContextVar[Any] = ContextVar("oumi_browser_page")
-
-
-@contextmanager
-def using_page(page: Any) -> Iterator[Any]:
-    """Bind ``page`` as the active page for the duration of one tool call."""
-    token = _page_var.set(page)
-    try:
-        yield page
-    finally:
-        _page_var.reset(token)
-
-
-def current_page() -> Any:
-    """Return the page bound for the current tool call.
-
-    Raises ``RuntimeError`` if called outside a ``using_page`` block (i.e. an
-    executor invoked outside the environment's execution context).
-    """
-    try:
-        return _page_var.get()
-    except LookupError as e:
-        raise RuntimeError(
-            "current_page() called outside a browser tool execution context; "
-            "no page is bound."
-        ) from e
-
-
 class KernelBrowserSession:
     """A single Kernel cloud browser session, owned by one rollout.
 
-    ``__init__`` allocates a fresh session via ``browsers.create``; ``close``
-    deletes it. ``page()`` yields a live Playwright page connected over CDP.
+    Create mode (``pool`` is None): ``browsers.create`` on open, ``delete_by_id``
+    on close. Pool mode (``pool`` set): ``browser_pools.acquire`` on open,
+    ``browser_pools.release`` back to the pool on close.
     """
 
-    def __init__(self, create_kwargs: dict[str, Any] | None = None) -> None:
-        """Open a fresh Kernel browser session.
+    def __init__(
+        self,
+        *,
+        create_kwargs: dict[str, Any] | None = None,
+        pool: str | None = None,
+        acquire_timeout_seconds: int = 60,
+        start_url: str | None = None,
+    ) -> None:
+        """Open a session by creating one or acquiring from a pool.
 
         Args:
-            create_kwargs: Keyword arguments forwarded verbatim to
-                ``kernel.browsers.create`` (e.g. ``start_url``, ``headless``,
-                ``stealth``, ``profile``, ``proxy_id``, ``viewport``,
-                ``timeout_seconds``). The API key is read from ``KERNEL_API_KEY``
-                by the SDK and must never be passed here.
+            create_kwargs: Forwarded to ``browsers.create`` in create mode (e.g.
+                ``start_url``, ``headless``, ``stealth``, ``profile``,
+                ``proxy_id``, ``viewport``, ``timeout_seconds``). Ignored in pool
+                mode. The API key is read from ``KERNEL_API_KEY`` by the SDK.
+            pool: Name of a warm browser pool to acquire from. When set, the
+                session acquires/releases instead of creating/deleting.
+            acquire_timeout_seconds: Pool-mode acquire timeout.
+            start_url: Pool-mode landing URL used by the post-acquire reset.
         """
         require_kernel("BrowserExecutableEnvironment")
         from kernel import Kernel  # pyright: ignore[reportMissingImports]
 
         self._kernel: Kernel = Kernel()
-        self._browser = self._kernel.browsers.create(**(create_kwargs or {}))
+        self._pool = pool
+        self._reuse = True
         self._closed = False
+        if pool is not None:
+            self._browser = self._kernel.browser_pools.acquire(
+                pool, acquire_timeout_seconds=acquire_timeout_seconds
+            )
+            self._reset(start_url)
+        else:
+            self._browser = self._kernel.browsers.create(**(create_kwargs or {}))
 
     @property
     def session_id(self) -> str:
@@ -108,13 +100,40 @@ class KernelBrowserSession:
         """Human Live View URL for watching/taking over the session (headful only)."""
         return self._browser.browser_live_view_url
 
+    def _reset(self, start_url: str | None) -> None:
+        """Return a reused pooled browser to a clean slate.
+
+        Closes stray tabs left by a prior rollout and lands the main page on
+        ``start_url`` (or ``about:blank``). On failure the browser is marked for
+        release with ``reuse=False`` so the pool refills a fresh one.
+        """
+        target = start_url or "about:blank"
+        code = (
+            "const pages = context.pages();\n"
+            "for (let i = 1; i < pages.length; i++) { await pages[i].close(); }\n"
+            "if (pages.length > 0) {\n"
+            f"  await pages[0].goto({json.dumps(target)}, {{ waitUntil: 'load' }});\n"
+            "}"
+        )
+        try:
+            self._kernel.browsers.playwright.execute(
+                id=self.session_id, code=code, timeout_sec=15
+            )
+        except Exception:
+            logger.warning(
+                "Kernel browser: reset on pool acquire failed for session %s; "
+                "releasing without reuse.",
+                self.session_id,
+            )
+            self._reuse = False
+
     @contextmanager
     def page(self) -> Iterator[Any]:
         """Yield a live Playwright page, connected over CDP for the call.
 
-        Uses the browser's existing default context/page (Kernel starts every
-        session with one). Closing only disconnects the CDP client — the remote
-        Kernel session and its page state persist for the next tool call.
+        Uses the browser's existing default context/page. Closing only
+        disconnects the CDP client — the remote session and its page state
+        persist for the next tool call.
         """
         require_playwright("Playwright browser executors")
         from playwright.sync_api import (  # pyright: ignore[reportMissingImports]
@@ -129,8 +148,7 @@ class KernelBrowserSession:
                 yield page
             finally:
                 # Swallow teardown errors so a CDP close failure neither masks an
-                # executor exception nor fails an otherwise-successful call; the
-                # remote Kernel session is torn down separately in close().
+                # executor exception nor fails an otherwise-successful call.
                 try:
                     cdp.close()
                 except Exception:
@@ -139,13 +157,18 @@ class KernelBrowserSession:
                     )
 
     def close(self) -> None:
-        """Delete the Kernel session. Idempotent — safe to call from ``finally``.
+        """Release the session back to its pool, or delete it. Idempotent.
 
-        ``_closed`` is set only after a successful delete, so a transient Kernel
+        ``_closed`` is set only after a successful teardown, so a transient Kernel
         API failure raises (loud) and leaves the session retryable rather than
-        leaking the remote microVM behind the idempotency guard.
+        leaking the remote microVM behind the guard.
         """
         if self._closed:
             return
-        self._kernel.browsers.delete_by_id(self.session_id)
+        if self._pool is not None:
+            self._kernel.browser_pools.release(
+                self._pool, session_id=self.session_id, reuse=self._reuse
+            )
+        else:
+            self._kernel.browsers.delete_by_id(self.session_id)
         self._closed = True

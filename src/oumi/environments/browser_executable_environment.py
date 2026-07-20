@@ -16,22 +16,22 @@
 
 from __future__ import annotations
 
-import importlib
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass
 from typing import Any
 
+from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.core.registry import register_environment
-from oumi.core.types.tool_call import ToolResult
-from oumi.environments.browser_session import KernelBrowserSession, using_page
+from oumi.environments.browser_session import KernelBrowserSession
 from oumi.environments.executable_environment import ExecutableEnvironment
 from oumi.environments.executable_tool import ExecutableTool
-from oumi.utils.logging import logger
+from oumi.environments.utils import parse_env_kwargs
 
-#: ``env_kwargs`` keys forwarded to ``kernel.browsers.create``. The API key is
-#: deliberately excluded — credentials come from ``KERNEL_API_KEY``, never config.
-_BROWSER_CREATE_KEYS = (
+#: Kwargs fields forwarded to ``browsers.create`` in create mode. ``pool`` and
+#: ``acquire_timeout_seconds`` are pool-only and excluded.
+_CREATE_FIELDS = (
     "start_url",
     "headless",
     "stealth",
@@ -39,97 +39,90 @@ _BROWSER_CREATE_KEYS = (
     "proxy_id",
     "viewport",
     "timeout_seconds",
-    "extensions",
-    "name",
-    "gpu",
-    "kiosk_mode",
-    "tags",
-    "chrome_policy",
 )
 
 
-def _import_executor(dotted: str, tool_id: str) -> Callable[..., Any]:
-    """Resolve a dotted import path to a callable."""
-    module_path, _, attr = dotted.rpartition(".")
-    if not module_path or not attr:
-        raise ValueError(
-            f"Tool '{tool_id}': executor '{dotted}' must be a dotted import path."
-        )
-    module = importlib.import_module(module_path)
-    executor = getattr(module, attr, None)
-    if not callable(executor):
-        raise ValueError(
-            f"Tool '{tool_id}': executor '{dotted}' did not resolve to a callable."
-        )
-    return executor
+@dataclass
+class BrowserExecutableEnvironmentKwargs(BaseParams):
+    """Type-specific ``env_kwargs`` for :class:`BrowserExecutableEnvironment`.
+
+    Set ``pool`` to acquire from a warm Kernel browser pool (created out of band,
+    e.g. ``kernel browser-pool create --name rl-browser --size 50``) and release
+    back to it; leave it ``None`` to create a one-off session per rollout. The
+    Kernel API key is read from ``KERNEL_API_KEY`` — never from config.
+    """
+
+    pool: str | None = None
+    acquire_timeout_seconds: int = 60
+    start_url: str | None = None
+    headless: bool | None = None
+    stealth: bool | None = None
+    profile: dict[str, Any] | None = None
+    proxy_id: str | None = None
+    viewport: dict[str, int] | None = None
+    timeout_seconds: int | None = None
 
 
 @register_environment("browser")
 class BrowserExecutableEnvironment(ExecutableEnvironment):
     """Runs browser-action tools against a per-rollout Kernel cloud browser.
 
-    Each rollout gets its own Kernel session (a single-tenant microVM); see
-    :meth:`requires_isolation`. For each tool call the env opens a live page on
-    the session and binds it via ``using_page``; executors take their declared
-    tool params directly and read the page through ``current_page()``.
+    Each rollout gets its own browser — acquired from a warm pool (``pool`` set)
+    or created on demand — so :meth:`requires_isolation` is ``True``. For each
+    tool call the env opens a live Playwright page on the session; executors
+    receive it as ``context`` and return a ``ToolResult``.
     """
 
     def __init__(
         self, params: EnvironmentParams, session: KernelBrowserSession
     ) -> None:
         """Bind the env to its params and an already-open Kernel browser session."""
-        self._params = params
+        super().__init__(params)
         self._session = session
-        self._executors = {
-            tool.id: _import_executor(tool.executor, tool.id) for tool in params.tools
-        }
 
     @classmethod
     def from_params(cls, params: EnvironmentParams) -> BrowserExecutableEnvironment:
-        """Open a fresh Kernel browser session from ``env_kwargs`` and bind the env."""
-        kwargs = params.env_kwargs or {}
-        create_kwargs = {k: kwargs[k] for k in _BROWSER_CREATE_KEYS if k in kwargs}
-        unknown = sorted(set(kwargs) - set(_BROWSER_CREATE_KEYS))
-        if unknown:
-            logger.warning(
-                "BrowserExecutableEnvironment '%s': ignoring unrecognized env_kwargs "
-                "%s (recognized Kernel create params: %s). The API key comes from "
-                "KERNEL_API_KEY, never config.",
-                params.id,
-                unknown,
-                list(_BROWSER_CREATE_KEYS),
+        """Open a Kernel browser session from ``env_kwargs`` and bind the env.
+
+        Acquires from ``pool`` when set, otherwise creates a session from the
+        recognized create fields. A failure wiring the env (e.g. a bad executor
+        path) closes the freshly-opened session so it can't leak.
+        """
+        kwargs = parse_env_kwargs(
+            BrowserExecutableEnvironmentKwargs,
+            params,
+            env_label="BrowserExecutableEnvironment",
+        )
+        if kwargs.pool is not None:
+            session = KernelBrowserSession(
+                pool=kwargs.pool,
+                acquire_timeout_seconds=kwargs.acquire_timeout_seconds,
+                start_url=kwargs.start_url,
             )
-        session = KernelBrowserSession(create_kwargs)
+        else:
+            create_kwargs = {
+                field: getattr(kwargs, field)
+                for field in _CREATE_FIELDS
+                if getattr(kwargs, field) is not None
+            }
+            session = KernelBrowserSession(create_kwargs=create_kwargs)
         try:
             return cls(params, session)
-        except Exception:
-            # Executors are resolved in __init__, after the live session is open;
-            # close it so a bad executor path can't leak the microVM.
+        except BaseException:
             session.close()
             raise
 
     def requires_isolation(self) -> bool:
-        """Each rollout needs its own microVM session; never share across samples."""
+        """Each rollout needs its own browser; never share across samples."""
         return True
 
     @contextmanager
     def _build_execution_context(
         self, tool: ExecutableTool, arguments: dict[str, Any]
-    ) -> Iterator[None]:
-        """Open a live page on the session and bind it for the executor."""
-        with self._session.page() as page, using_page(page):
-            yield None
-
-    def _invoke_executor(
-        self, executor: Callable[..., Any], arguments: dict[str, Any], ctx: Any
-    ) -> Any:
-        """Call the executor with unpacked tool params; the page is ambient.
-
-        Executors read the bound page via ``current_page()`` and return a dict
-        or ``ToolResult``; a plain return value is wrapped.
-        """
-        result = executor(**arguments)
-        return result if isinstance(result, ToolResult) else ToolResult(output=result)
+    ) -> Iterator[Any]:
+        """Yield the live Playwright page passed to the executor as ``context``."""
+        with self._session.page() as page:
+            yield page
 
     def close(self) -> None:
         """Tear down the rollout's Kernel browser session."""

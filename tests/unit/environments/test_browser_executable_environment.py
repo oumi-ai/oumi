@@ -23,12 +23,15 @@ from typing import Any
 import pytest
 
 from oumi.core.configs.params.environment_params import EnvironmentParams
+from oumi.core.configs.params.tool_params import ToolError
 from oumi.core.types.tool_call import ToolResult
 from oumi.environments.browser_executable_environment import (
     BrowserExecutableEnvironment,
 )
-from oumi.environments.browser_session import KernelBrowserSession, current_page
+from oumi.environments.browser_session import KernelBrowserSession
 from oumi.environments.executable_tool import ExecutableTool
+
+_SESSION = "oumi.environments.browser_executable_environment.KernelBrowserSession"
 
 
 class _FakePage:
@@ -38,8 +41,8 @@ class _FakePage:
 class _FakeSession:
     """Stand-in for KernelBrowserSession that needs no Kernel API call."""
 
-    def __init__(self, create_kwargs: dict[str, Any] | None = None) -> None:
-        self.create_kwargs = create_kwargs
+    def __init__(self, **kwargs: Any) -> None:
+        self.kwargs = kwargs
         self.session_id = "fake-123"
         self.closed = False
 
@@ -51,18 +54,14 @@ class _FakeSession:
         self.closed = True
 
 
-def echo(**kwargs: Any) -> dict:
-    """Executor that echoes its unpacked args and the ambient page marker."""
-    return {"args": kwargs, "page": current_page().marker}
+def echo(arguments: dict[str, Any], context: Any) -> ToolResult:
+    """Executor that echoes its arguments and the bound page marker."""
+    return ToolResult(output={"args": arguments, "page": context.marker})
 
 
-_PASSTHROUGH = ToolResult(output={"raw": True})
-_NOT_CALLABLE = 42
-
-
-def returns_toolresult(**kwargs: Any) -> ToolResult:
-    """Executor that returns a ToolResult directly (must not be re-wrapped)."""
-    return _PASSTHROUGH
+def returns_dict(arguments: dict[str, Any], context: Any) -> dict:
+    """Executor that (wrongly) returns a plain dict instead of a ToolResult."""
+    return {"not": "a ToolResult"}
 
 
 def _params(**kwargs: Any) -> EnvironmentParams:
@@ -71,115 +70,124 @@ def _params(**kwargs: Any) -> EnvironmentParams:
     )
 
 
+def _tool(executor: str) -> ExecutableTool:
+    return ExecutableTool(id="t", name="t", description="d", executor=executor)
+
+
 def _env(session: Any, **params_kwargs: Any) -> BrowserExecutableEnvironment:
     return BrowserExecutableEnvironment(_params(**params_kwargs), session)
 
 
-def test_from_params_forwards_only_create_keys(monkeypatch):
-    """env_kwargs is allow-listed to create params; api_key and junk are dropped."""
-    captured: dict[str, Any] = {}
-
-    def _factory(create_kwargs: dict[str, Any] | None = None) -> _FakeSession:
-        captured["create_kwargs"] = create_kwargs
-        return _FakeSession(create_kwargs)
-
-    monkeypatch.setattr(
-        "oumi.environments.browser_executable_environment.KernelBrowserSession",
-        _factory,
-    )
-    BrowserExecutableEnvironment.from_params(
-        _params(
-            env_kwargs={
-                "start_url": "https://example.com",
-                "stealth": True,
-                "profile": {"name": "auth"},
-                "api_key": "SECRET",  # must never reach the SDK
-                "bogus": 1,
-            }
-        )
-    )
-    assert captured["create_kwargs"] == {
-        "start_url": "https://example.com",
-        "stealth": True,
-        "profile": {"name": "auth"},
-    }
+# --- env dispatch (direct construction with a fake session) ------------------
 
 
 def test_requires_isolation_is_true():
-    """Each rollout must get its own session."""
+    """Each rollout must get its own browser."""
     assert _env(_FakeSession()).requires_isolation() is True
 
 
-def test_step_binds_page_and_unpacks_args():
-    """Executors get tool params unpacked and read the bound page via current_page()."""
-    tool = ExecutableTool(
-        id="t", name="t", description="d", executor=f"{__name__}.echo"
-    )
-    env = _env(_FakeSession(), tools=[tool])
+def test_step_passes_live_page_as_context():
+    """Executors receive the bound page as `context` and return a ToolResult."""
+    env = _env(_FakeSession(), tools=[_tool(f"{__name__}.echo")])
     [result] = env.step([("t", {"x": 1})])
     assert result.output == {"args": {"x": 1}, "page": "fake-page"}
 
 
-def test_close_tears_down_session():
-    """Env close() delegates to session teardown."""
+def test_executor_must_return_toolresult():
+    """A non-ToolResult executor return is rejected by the base contract."""
+    env = _env(_FakeSession(), tools=[_tool(f"{__name__}.returns_dict")])
+    with pytest.raises(ToolError):
+        env.step([("t", {})])
+
+
+def test_close_delegates_to_session():
+    """Env close() tears down the session."""
     session = _FakeSession()
     _env(session).close()
     assert session.closed is True
 
 
-def test_import_executor_rejects_non_dotted_path():
-    """A bare executor name with no module is rejected at construction."""
-    tool = ExecutableTool(id="t", name="t", description="d", executor="echo")
-    with pytest.raises(ValueError):
-        _env(_FakeSession(), tools=[tool])
+# --- from_params: create vs pool routing, kwargs validation ------------------
 
 
-def test_import_executor_rejects_non_callable():
-    """An executor path resolving to a non-callable is rejected at construction."""
-    tool = ExecutableTool(
-        id="t", name="t", description="d", executor=f"{__name__}._NOT_CALLABLE"
+def test_from_params_create_mode_forwards_create_fields(monkeypatch):
+    """No pool -> create mode; only recognized create fields are forwarded."""
+    captured: dict[str, Any] = {}
+
+    def _factory(**kwargs: Any) -> _FakeSession:
+        captured.update(kwargs)
+        return _FakeSession(**kwargs)
+
+    monkeypatch.setattr(_SESSION, _factory)
+    BrowserExecutableEnvironment.from_params(
+        _params(
+            env_kwargs={
+                "start_url": "https://example.com",
+                "headless": True,
+                "stealth": True,
+            }
+        )
     )
-    with pytest.raises(ValueError):
-        _env(_FakeSession(), tools=[tool])
+    assert "pool" not in captured
+    assert captured["create_kwargs"] == {
+        "start_url": "https://example.com",
+        "headless": True,
+        "stealth": True,
+    }
 
 
-def test_executor_returning_toolresult_passes_through():
-    """A ToolResult return flows through unchanged (not re-wrapped)."""
-    tool = ExecutableTool(
-        id="t", name="t", description="d", executor=f"{__name__}.returns_toolresult"
+def test_from_params_pool_mode_acquires(monkeypatch):
+    """A `pool` name routes to acquire/release with its acquire params."""
+    captured: dict[str, Any] = {}
+
+    def _factory(**kwargs: Any) -> _FakeSession:
+        captured.update(kwargs)
+        return _FakeSession(**kwargs)
+
+    monkeypatch.setattr(_SESSION, _factory)
+    BrowserExecutableEnvironment.from_params(
+        _params(
+            env_kwargs={
+                "pool": "rl-browser",
+                "acquire_timeout_seconds": 30,
+                "start_url": "https://example.com",
+            }
+        )
     )
-    env = _env(_FakeSession(), tools=[tool])
-    [result] = env.step([("t", {})])
-    assert result is _PASSTHROUGH
+    assert captured["pool"] == "rl-browser"
+    assert captured["acquire_timeout_seconds"] == 30
+    assert captured["start_url"] == "https://example.com"
+    assert "create_kwargs" not in captured
 
 
-def test_current_page_raises_outside_execution_context():
-    """current_page() with no active using_page binding raises a clear error."""
-    with pytest.raises(RuntimeError, match="outside a browser tool execution"):
-        current_page()
+def test_from_params_rejects_unknown_env_kwargs():
+    """Unknown env_kwargs (e.g. a misplaced api_key or a typo) are rejected."""
+    with pytest.raises(ValueError):
+        BrowserExecutableEnvironment.from_params(_params(env_kwargs={"api_key": "x"}))
+    with pytest.raises(ValueError):
+        BrowserExecutableEnvironment.from_params(_params(env_kwargs={"headles": True}))
 
 
 def test_from_params_closes_session_if_executor_wiring_fails(monkeypatch):
     """A bad executor path must close (not leak) the freshly-opened session."""
     created: list[_FakeSession] = []
 
-    def _factory(create_kwargs: dict[str, Any] | None = None) -> _FakeSession:
-        s = _FakeSession(create_kwargs)
-        created.append(s)
-        return s
+    def _factory(**kwargs: Any) -> _FakeSession:
+        session = _FakeSession(**kwargs)
+        created.append(session)
+        return session
 
-    monkeypatch.setattr(
-        "oumi.environments.browser_executable_environment.KernelBrowserSession",
-        _factory,
-    )
-    bad = ExecutableTool(id="t", name="t", description="d", executor="not_dotted")
+    monkeypatch.setattr(_SESSION, _factory)
     with pytest.raises(ValueError):
-        BrowserExecutableEnvironment.from_params(_params(tools=[bad]))
+        BrowserExecutableEnvironment.from_params(_params(tools=[_tool("not_dotted")]))
     assert created and created[0].closed is True
 
 
-def test_close_is_idempotent_and_retries_after_failed_delete(monkeypatch):
-    """close() deletes once on success and stays retryable after a failed delete."""
+# --- KernelBrowserSession lifecycle (fake Kernel client) ---------------------
+
+
+def test_create_mode_close_deletes_once_and_retries(monkeypatch):
+    """Create mode: close() deletes once, stays retryable after a failed delete."""
     pytest.importorskip("kernel")
     import kernel  # pyright: ignore[reportMissingImports]
 
@@ -197,23 +205,91 @@ def test_close_is_idempotent_and_retries_after_failed_delete(monkeypatch):
             self.deletes += 1
             if self.raise_once:
                 self.raise_once = False
-                raise RuntimeError("transient Kernel error")
+                raise RuntimeError("transient")
 
     browsers = _Browsers()
-
-    class _Kernel:
-        def __init__(self) -> None:
-            self.browsers = browsers
-
-    monkeypatch.setattr(kernel, "Kernel", _Kernel)
-    session = KernelBrowserSession()
+    monkeypatch.setattr(kernel, "Kernel", lambda: SimpleNamespace(browsers=browsers))
+    session = KernelBrowserSession(create_kwargs={})
 
     browsers.raise_once = True
     with pytest.raises(RuntimeError):
-        session.close()  # failed delete must not mark the session closed
-    session.close()  # retry succeeds
-    session.close()  # idempotent: no second successful delete
+        session.close()
+    session.close()
+    session.close()
     assert browsers.deletes == 2
+
+
+def test_pool_mode_acquires_resets_and_releases_with_reuse(monkeypatch):
+    """Pool mode: acquire -> reset -> release(reuse=True) back to the pool."""
+    pytest.importorskip("kernel")
+    import kernel  # pyright: ignore[reportMissingImports]
+
+    events: list[tuple] = []
+
+    class _Pools:
+        def acquire(self, name: str, *, acquire_timeout_seconds: int):
+            events.append(("acquire", name, acquire_timeout_seconds))
+            return SimpleNamespace(
+                session_id="s1", cdp_ws_url="ws://x", browser_live_view_url="lv"
+            )
+
+        def release(self, name: str, *, session_id: str, reuse: bool) -> None:
+            events.append(("release", name, session_id, reuse))
+
+    class _Playwright:
+        def execute(self, *, id: str, code: str, timeout_sec: int):
+            events.append(("reset", id))
+            return SimpleNamespace(success=True)
+
+    monkeypatch.setattr(
+        kernel,
+        "Kernel",
+        lambda: SimpleNamespace(
+            browser_pools=_Pools(),
+            browsers=SimpleNamespace(playwright=_Playwright()),
+        ),
+    )
+    session = KernelBrowserSession(
+        pool="rl", acquire_timeout_seconds=30, start_url="https://ex.com"
+    )
+    session.close()
+    assert events == [
+        ("acquire", "rl", 30),
+        ("reset", "s1"),
+        ("release", "rl", "s1", True),
+    ]
+
+
+def test_pool_mode_reset_failure_releases_without_reuse(monkeypatch):
+    """A failed reset on acquire releases the browser with reuse=False."""
+    pytest.importorskip("kernel")
+    import kernel  # pyright: ignore[reportMissingImports]
+
+    events: list[tuple] = []
+
+    class _Pools:
+        def acquire(self, name: str, *, acquire_timeout_seconds: int):
+            return SimpleNamespace(
+                session_id="s1", cdp_ws_url="ws://x", browser_live_view_url=None
+            )
+
+        def release(self, name: str, *, session_id: str, reuse: bool) -> None:
+            events.append(("release", reuse))
+
+    class _Playwright:
+        def execute(self, *, id: str, code: str, timeout_sec: int):
+            raise RuntimeError("reset boom")
+
+    monkeypatch.setattr(
+        kernel,
+        "Kernel",
+        lambda: SimpleNamespace(
+            browser_pools=_Pools(),
+            browsers=SimpleNamespace(playwright=_Playwright()),
+        ),
+    )
+    KernelBrowserSession(pool="rl").close()
+    assert events == [("release", False)]
 
 
 def test_page_yields_default_cdp_page_and_swallows_close_error(monkeypatch):
@@ -244,18 +320,18 @@ def test_page_yields_default_cdp_page_and_swallows_close_error(monkeypatch):
         def __exit__(self, *a) -> bool:
             return False
 
-    class _Browsers:
-        def create(self, **kwargs: Any):
-            return SimpleNamespace(
-                session_id="s1", cdp_ws_url="ws://x", browser_live_view_url=None
-            )
-
-        def delete_by_id(self, session_id: str) -> None:
-            pass
-
     monkeypatch.setattr(pw, "sync_playwright", lambda: _PW())
-    monkeypatch.setattr(kernel, "Kernel", lambda: SimpleNamespace(browsers=_Browsers()))
-
-    session = KernelBrowserSession()
+    monkeypatch.setattr(
+        kernel,
+        "Kernel",
+        lambda: SimpleNamespace(
+            browsers=SimpleNamespace(
+                create=lambda **k: SimpleNamespace(
+                    session_id="s1", cdp_ws_url="ws://x", browser_live_view_url=None
+                )
+            )
+        ),
+    )
+    session = KernelBrowserSession(create_kwargs={})
     with session.page() as page:  # exiting runs cdp.close(), which raises
         assert page.marker == "cdp-page"
