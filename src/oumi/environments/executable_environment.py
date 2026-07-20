@@ -62,9 +62,6 @@ class ExecutableEnvironment(BaseEnvironment):
     def _absorb_result(self, tool: ExecutableTool, result: ToolResult) -> None:
         """Post-hook called after a successful executor call. Default no-op."""
 
-    def close(self) -> None:
-        """Release any resources owned by this env. Default no-op."""
-
     def step(self, calls: list[tuple[str, dict[str, Any]]]) -> list[ToolResult]:
         """Execute a batch of tool calls; results are returned in input order."""
         return [self._step_one(tool_id, arguments) for tool_id, arguments in calls]

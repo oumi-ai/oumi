@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sqlite3
 from typing import Any
 from unittest.mock import Mock
 
@@ -433,3 +434,62 @@ def test_for_sample_mutation_does_not_bleed_back_to_parent():
     clone.env_by_id["env1"] = Mock(spec=BaseEnvironment)
 
     assert router.env_by_id["env1"] is parent_env
+
+
+# ---------- close ----------
+
+
+_DB_SCHEMA = "CREATE TABLE patients (id INTEGER PRIMARY KEY, name TEXT, meds TEXT);"
+_DB_SEED = "INSERT INTO patients VALUES (1, 'Bob', 'aspirin');"
+
+
+# Local executor so this suite doesn't depend on the EHR example.
+def _db_lookup_patient(arguments: dict, context: sqlite3.Connection) -> ToolResult:
+    row = context.execute(
+        "SELECT name, meds FROM patients WHERE id = ?", (arguments["pat_id"],)
+    ).fetchone()
+    return ToolResult(output={"name": row[0], "meds": row[1]})
+
+
+def _db_env_params(env_id: str = "db") -> EnvironmentParams:
+    """A database env; each build materializes an owned temp snapshot + session."""
+    return EnvironmentParams(
+        id=env_id,
+        name=env_id,
+        description=f"Env {env_id}",
+        env_type="database",
+        tools=[
+            {
+                "id": "lookup",
+                "name": "lookup",
+                "description": "look up a patient",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"pat_id": {"type": "integer"}},
+                    "required": ["pat_id"],
+                },
+                "executor": f"{__name__}._db_lookup_patient",
+                "read_only": True,
+            }
+        ],
+        env_kwargs={"schema_sql": _DB_SCHEMA, "seed_sql": _DB_SEED},
+    )
+
+
+def test_close_tears_down_isolated_envs():
+    """Built isolating envs are closed (session released), never leaked."""
+    router = ToolRouter.from_environment_config(
+        EnvironmentConfig(environments=[_db_env_params()])
+    )
+    # Parent keeps the env only as a requires_isolation() template; its session
+    # is released at build time, not left open for the router's lifetime.
+    with pytest.raises(sqlite3.ProgrammingError):
+        router.env_by_id["db"].step([("lookup", {"pat_id": 1})])
+
+    sample = router.for_sample()
+    [live] = sample.env_by_id["db"].step([("lookup", {"pat_id": 1})])
+    assert live.output == {"name": "Bob", "meds": "aspirin"}
+
+    sample.close()
+    with pytest.raises(sqlite3.ProgrammingError):
+        sample.env_by_id["db"].step([("lookup", {"pat_id": 1})])
