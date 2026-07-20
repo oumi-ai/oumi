@@ -335,3 +335,127 @@ def test_page_yields_default_cdp_page_and_swallows_close_error(monkeypatch):
     session = KernelBrowserSession(create_kwargs={})
     with session.page() as page:  # exiting runs cdp.close(), which raises
         assert page.marker == "cdp-page"
+
+
+def test_pool_mode_reset_reported_failure_releases_without_reuse(monkeypatch):
+    """A reset reporting success=False (no raise) still releases with reuse=False."""
+    pytest.importorskip("kernel")
+    import kernel  # pyright: ignore[reportMissingImports]
+
+    events: list[tuple] = []
+
+    class _Pools:
+        def acquire(self, name: str, *, acquire_timeout_seconds: int):
+            return SimpleNamespace(
+                session_id="s1", cdp_ws_url="ws://x", browser_live_view_url=None
+            )
+
+        def release(self, name: str, *, session_id: str, reuse: bool) -> None:
+            events.append(("release", reuse))
+
+    class _Playwright:
+        def execute(self, *, id: str, code: str, timeout_sec: int):
+            return SimpleNamespace(success=False, error="goto timeout")
+
+    monkeypatch.setattr(
+        kernel,
+        "Kernel",
+        lambda: SimpleNamespace(
+            browser_pools=_Pools(),
+            browsers=SimpleNamespace(playwright=_Playwright()),
+        ),
+    )
+    KernelBrowserSession(pool="rl").close()
+    assert events == [("release", False)]
+
+
+def test_page_creates_new_page_when_context_is_empty(monkeypatch):
+    """page() calls new_page() when the default context has no pages."""
+    pytest.importorskip("kernel")
+    pytest.importorskip("playwright")
+    import kernel  # pyright: ignore[reportMissingImports]
+    import playwright.sync_api as pw  # pyright: ignore[reportMissingImports]
+
+    made: list[bool] = []
+
+    class _Ctx:
+        pages: list = []
+
+        def new_page(self):
+            made.append(True)
+            return SimpleNamespace(marker="new-page")
+
+    class _CDP:
+        contexts = [_Ctx()]
+
+        def close(self) -> None:
+            pass
+
+    class _PW:
+        chromium = SimpleNamespace(connect_over_cdp=lambda url: _CDP())
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a) -> bool:
+            return False
+
+    monkeypatch.setattr(pw, "sync_playwright", lambda: _PW())
+    monkeypatch.setattr(
+        kernel,
+        "Kernel",
+        lambda: SimpleNamespace(
+            browsers=SimpleNamespace(
+                create=lambda **k: SimpleNamespace(
+                    session_id="s1", cdp_ws_url="ws://x", browser_live_view_url=None
+                )
+            )
+        ),
+    )
+    session = KernelBrowserSession(create_kwargs={})
+    with session.page() as page:
+        assert page.marker == "new-page"
+    assert made == [True]
+
+
+def test_page_close_error_does_not_mask_body_exception(monkeypatch):
+    """If the body raises and cdp.close also raises, the body error propagates."""
+    pytest.importorskip("kernel")
+    pytest.importorskip("playwright")
+    import kernel  # pyright: ignore[reportMissingImports]
+    import playwright.sync_api as pw  # pyright: ignore[reportMissingImports]
+
+    class _Ctx:
+        pages = [SimpleNamespace()]
+
+    class _CDP:
+        contexts = [_Ctx()]
+
+        def close(self) -> None:
+            raise RuntimeError("cdp teardown boom")
+
+    class _PW:
+        chromium = SimpleNamespace(connect_over_cdp=lambda url: _CDP())
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a) -> bool:
+            return False
+
+    monkeypatch.setattr(pw, "sync_playwright", lambda: _PW())
+    monkeypatch.setattr(
+        kernel,
+        "Kernel",
+        lambda: SimpleNamespace(
+            browsers=SimpleNamespace(
+                create=lambda **k: SimpleNamespace(
+                    session_id="s1", cdp_ws_url="ws://x", browser_live_view_url=None
+                )
+            )
+        ),
+    )
+    session = KernelBrowserSession(create_kwargs={})
+    with pytest.raises(ValueError, match="body boom"):
+        with session.page():
+            raise ValueError("body boom")

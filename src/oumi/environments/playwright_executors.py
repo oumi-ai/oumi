@@ -43,16 +43,14 @@ def navigate(arguments: dict[str, Any], context: Any) -> ToolResult:
 def click(arguments: dict[str, Any], context: Any) -> ToolResult:
     """Click the element matching ``arguments['selector']``."""
     page = context
-    timeout_ms = arguments.get("timeout_ms", _DEFAULT_TIMEOUT_MS)
-    page.click(arguments["selector"], timeout=timeout_ms)
+    page.click(arguments["selector"], timeout=_DEFAULT_TIMEOUT_MS)
     return ToolResult(output={"clicked": arguments["selector"], "url": page.url})
 
 
 def type_text(arguments: dict[str, Any], context: Any) -> ToolResult:
     """Fill ``arguments['selector']`` with ``arguments['text']``."""
     page = context
-    timeout_ms = arguments.get("timeout_ms", _DEFAULT_TIMEOUT_MS)
-    page.fill(arguments["selector"], arguments["text"], timeout=timeout_ms)
+    page.fill(arguments["selector"], arguments["text"], timeout=_DEFAULT_TIMEOUT_MS)
     return ToolResult(output={"typed_into": arguments["selector"]})
 
 

@@ -43,12 +43,7 @@ if TYPE_CHECKING:
 
 
 class KernelBrowserSession:
-    """A single Kernel cloud browser session, owned by one rollout.
-
-    Create mode (``pool`` is None): ``browsers.create`` on open, ``delete_by_id``
-    on close. Pool mode (``pool`` set): ``browser_pools.acquire`` on open,
-    ``browser_pools.release`` back to the pool on close.
-    """
+    """A single Kernel cloud browser session, owned by one rollout."""
 
     def __init__(
         self,
@@ -81,7 +76,14 @@ class KernelBrowserSession:
             self._browser = self._kernel.browser_pools.acquire(
                 pool, acquire_timeout_seconds=acquire_timeout_seconds
             )
-            self._reset(start_url)
+            try:
+                self._reset(start_url)
+            except BaseException:
+                # Don't leak the just-acquired browser if reset is interrupted.
+                self._kernel.browser_pools.release(
+                    pool, session_id=self._browser.session_id, reuse=False
+                )
+                raise
         else:
             self._browser = self._kernel.browsers.create(**(create_kwargs or {}))
 
@@ -116,13 +118,25 @@ class KernelBrowserSession:
             "}"
         )
         try:
-            self._kernel.browsers.playwright.execute(
+            response = self._kernel.browsers.playwright.execute(
                 id=self.session_id, code=code, timeout_sec=15
             )
         except Exception:
             logger.warning(
-                "Kernel browser: reset on pool acquire failed for session %s; "
+                "Kernel browser: reset on pool acquire raised for session %s; "
                 "releasing without reuse.",
+                self.session_id,
+            )
+            self._reuse = False
+            return
+        # Kernel reports in-sandbox JS failures (goto timeout, tab-close throw) as
+        # success=False on a 200 rather than raising, so check it — else a dirty
+        # browser is released reuse=True and contaminates the next rollout.
+        if not response.success:
+            logger.warning(
+                "Kernel browser: reset on pool acquire reported failure (%s) for "
+                "session %s; releasing without reuse.",
+                response.error,
                 self.session_id,
             )
             self._reuse = False

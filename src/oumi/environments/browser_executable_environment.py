@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from typing import Any
 
 from oumi.core.configs.params.base_params import BaseParams
@@ -29,17 +29,10 @@ from oumi.environments.executable_environment import ExecutableEnvironment
 from oumi.environments.executable_tool import ExecutableTool
 from oumi.environments.utils import parse_env_kwargs
 
-#: Kwargs fields forwarded to ``browsers.create`` in create mode. ``pool`` and
-#: ``acquire_timeout_seconds`` are pool-only and excluded.
-_CREATE_FIELDS = (
-    "start_url",
-    "headless",
-    "stealth",
-    "profile",
-    "proxy_id",
-    "viewport",
-    "timeout_seconds",
-)
+#: ``env_kwargs`` fields that select/parameterize the browser pool. Every other
+#: dataclass field is a ``browsers.create`` kwarg forwarded in create mode, so a
+#: new create field added to the kwargs class needs no change here.
+_POOL_FIELDS = ("pool", "acquire_timeout_seconds")
 
 
 @dataclass
@@ -101,9 +94,10 @@ class BrowserExecutableEnvironment(ExecutableEnvironment):
             )
         else:
             create_kwargs = {
-                field: getattr(kwargs, field)
-                for field in _CREATE_FIELDS
-                if getattr(kwargs, field) is not None
+                field.name: getattr(kwargs, field.name)
+                for field in fields(kwargs)
+                if field.name not in _POOL_FIELDS
+                and getattr(kwargs, field.name) is not None
             }
             session = KernelBrowserSession(create_kwargs=create_kwargs)
         try:
