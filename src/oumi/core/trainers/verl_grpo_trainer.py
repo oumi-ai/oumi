@@ -231,17 +231,18 @@ class VerlGrpoTrainer(BaseTrainer):
         )
 
         if len(images) > 0:
-            if len(prompt_messages) != 1:
+            user_messages = [m for m in prompt_messages if m["role"] == "user"]
+            if len(user_messages) != 1:
                 raise ValueError(
                     "Images are only supported for single-turn conversations, "
-                    f"but got a multi-turn prompt with {len(prompt_messages)} "
-                    "messages. Please use a text-only multi-turn conversation."
+                    f"but the prompt has {len(user_messages)} user messages "
+                    "(multi-turn). Please use a text-only multi-turn conversation."
                 )
             # TODO: Generalize. This only works for QwenVL 2.5, which is the only
             # VLM supported by verl as of 2025-05-15.
-            content = prompt_messages[0]["content"]
+            content = user_messages[0]["content"]
             if not content.startswith("<image>"):
-                prompt_messages[0]["content"] = "<image>" + content
+                user_messages[0]["content"] = "<image>" + content
         return (prompt_messages, images, answer)
 
     @staticmethod

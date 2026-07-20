@@ -97,6 +97,30 @@ def test_create_verl_data_entry_single_turn_image_prepends_marker():
     assert entry["images"] == [{"bytes": b"imgbytes"}]
 
 
+def test_create_verl_data_entry_single_turn_image_with_system():
+    convo = Conversation(
+        messages=[
+            Message(role=Role.SYSTEM, content="You are helpful."),
+            Message(
+                role=Role.USER,
+                content=[
+                    ContentItem(type=Type.IMAGE_BINARY, binary=b"imgbytes"),
+                    ContentItem(type=Type.TEXT, content="Describe this."),
+                ],
+            ),
+            Message(role=Role.ASSISTANT, content="A cat."),
+        ]
+    )
+    entry = VerlGrpoTrainer._create_verl_data_entry_from_conversation(
+        _example(convo), 0, "my_dataset", "train"
+    )
+    assert entry["prompt"] == [
+        {"role": "system", "content": "You are helpful."},
+        {"role": "user", "content": "<image>Describe this."},
+    ]
+    assert entry["images"] == [{"bytes": b"imgbytes"}]
+
+
 def test_create_verl_data_entry_multi_turn_with_images_raises():
     convo = Conversation(
         messages=[
