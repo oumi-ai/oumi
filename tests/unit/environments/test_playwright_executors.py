@@ -71,5 +71,7 @@ def test_read_text_defaults_to_body_and_truncates():
     result = pe.read_text({"max_chars": 50}, page)
     assert page.calls == [("inner_text", "body", pe._DEFAULT_TIMEOUT_MS)]
     assert isinstance(result.output, dict)
-    assert len(result.output["text"]) == 50
+    text = result.output["text"]
+    assert isinstance(text, str)
+    assert len(text) == 50
     assert result.output["url"] == page.url
