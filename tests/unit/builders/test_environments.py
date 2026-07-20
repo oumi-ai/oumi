@@ -61,7 +61,7 @@ def test_build_environment_dispatches_synthetic():
         description="FAQ tools",
         env_type="synthetic",
         tools=[ToolParams(id="answer", name="Answer", description="Answer.")],
-        env_kwargs={"system_prompt": "Answer FAQs."},
+        env_kwargs={"tool_persona": "Answer FAQs."},
     )
     env = build_environment(params)
     assert isinstance(env, SyntheticEnvironment)

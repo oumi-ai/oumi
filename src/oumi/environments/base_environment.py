@@ -44,6 +44,14 @@ class BaseEnvironment(ABC):
         """
         return False
 
+    def close(self) -> None:
+        """Release resources owned by this env. Default no-op.
+
+        Counterpart to ``requires_isolation``: envs rebuilt per sample (e.g. a
+        DB session) override this to release their resources at episode end.
+        """
+        return None
+
     def sample_grounding(
         self,
         n: int,
