@@ -25,7 +25,7 @@ from typing import Any, cast
 from datasets import Dataset
 from omegaconf import DictConfig, OmegaConf
 
-from oumi.core.types.conversation import Conversation
+from oumi.core.types.conversation import Conversation, Message
 from oumi.utils.grpo_utils import (
     extract_prompt_images_completion_from_conversation,
 )
@@ -66,6 +66,13 @@ from oumi.utils.verl_model_merger import FSDPModelMerger, ModelMergerConfig
 # 4. split name (train, validation, etc.)
 # Returns an example converted to verl format.
 _DatasetProcessFn = Callable[[dict, int, str, str], dict]
+
+
+def _last_text_content(message: Message) -> str:
+    """A message's last text content, or "" if it has none (e.g. tool-call-only)."""
+    if not message.text_content_items:
+        return ""
+    return message.text_content_items[-1].content or ""
 
 
 class VerlGrpoTrainer(BaseTrainer):
@@ -246,9 +253,43 @@ class VerlGrpoTrainer(BaseTrainer):
         return (prompt_messages, images, answer)
 
     @staticmethod
+    def _create_verl_data_entry_from_tool_agent_conversation(
+        conversation: Conversation,
+        metadata: dict,
+        idx: int,
+        data_source: str,
+        split: str,
+    ) -> dict:
+        """Build a verl row for a tool_agent conversation (whole convo = prompt)."""
+        prompt_messages = [
+            {"role": m.role.value, "content": _last_text_content(m)}
+            for m in conversation.messages
+        ]
+        return {
+            "data_source": data_source,
+            "prompt": prompt_messages,
+            "images": [],
+            "ability": metadata.get("ability", "tool_agent"),
+            "agent_name": metadata["agent_name"],
+            "reward_model": {"style": "rule", "ground_truth": metadata["ground_truth"]},
+            "extra_info": {
+                "split": split,
+                "index": idx,
+                "need_tools_kwargs": True,
+                "tools_kwargs": metadata["tools_kwargs"],
+            },
+        }
+
+    @staticmethod
     def _create_verl_data_entry_from_conversation(
         example: dict, idx: int, data_source: str, split: str
     ) -> dict:
+        conversation = Conversation.from_json(example["conversation_json"])
+        metadata = conversation.metadata or {}
+        if metadata.get("agent_name") == "tool_agent":
+            return VerlGrpoTrainer._create_verl_data_entry_from_tool_agent_conversation(
+                conversation, metadata, idx, data_source, split
+            )
         prompt_messages, images, answer = (
             VerlGrpoTrainer._extract_prompt_images_answer_from_conversation(example)
         )

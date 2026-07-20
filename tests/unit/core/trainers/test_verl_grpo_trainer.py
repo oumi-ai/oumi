@@ -152,3 +152,29 @@ def test_init_with_multiple_reward_funcs():
             train_dataset=MagicMock(),
             eval_dataset=MagicMock(),
         )
+
+
+def test_create_verl_data_entry_tool_agent_carries_metadata():
+    convo = Conversation(
+        messages=[
+            Message(role=Role.SYSTEM, content="You can call run_sql."),
+            Message(role=Role.USER, content="How many rows in t?"),
+        ],
+        metadata={
+            "agent_name": "tool_agent",
+            "ground_truth": "SELECT count(*) FROM t",
+            "tools_kwargs": {
+                "run_sql": {
+                    "create_kwargs": {"schema_sql": "CREATE TABLE t(x INTEGER);"}
+                }
+            },
+        },
+    )
+    row = VerlGrpoTrainer._create_verl_data_entry_from_conversation(
+        _example(convo), 0, "nl2sql", "train"
+    )
+    assert row["agent_name"] == "tool_agent"
+    assert row["reward_model"]["ground_truth"] == "SELECT count(*) FROM t"
+    assert row["extra_info"]["need_tools_kwargs"] is True
+    assert "run_sql" in row["extra_info"]["tools_kwargs"]
+    assert row["prompt"][-1]["role"] == "user"  # ends on user turn
