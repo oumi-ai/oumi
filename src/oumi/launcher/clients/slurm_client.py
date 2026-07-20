@@ -36,6 +36,10 @@ _LOG_DIR = "$HOME/oumi_slurm_logs/{job_id}.out"
 # auth rejected) — as distinct from a command that ran and returned non-zero.
 _SSH_TRANSPORT_FAILURE_EXIT_CODE = 255
 
+# Synthetic exit code for a command that hit its timeout: an unresponsive
+# controller is treated as unreachable, same as a transport failure.
+_COMMAND_TIMEOUT_EXIT_CODE = 124
+
 
 class _SlurmAuthException(Exception):
     pass
@@ -231,8 +235,11 @@ class SlurmResponse:
 
 
 def _raise_if_unreachable(response: SlurmResponse, cluster_name: str) -> None:
-    """Raise ClusterUnreachableError if the SSH transport to the host failed."""
-    if response.exit_code == _SSH_TRANSPORT_FAILURE_EXIT_CODE:
+    """Raise ClusterUnreachableError if the SSH transport failed or timed out."""
+    if response.exit_code in (
+        _SSH_TRANSPORT_FAILURE_EXIT_CODE,
+        _COMMAND_TIMEOUT_EXIT_CODE,
+    ):
         raise ClusterUnreachableError(
             f"Could not reach the Slurm controller for cluster '{cluster_name}'."
         )
@@ -600,7 +607,7 @@ class SlurmClient:
             return SlurmResponse(
                 stdout="",
                 stderr=f"Timeout while running command: {new_cmd}",
-                exit_code=1,
+                exit_code=_COMMAND_TIMEOUT_EXIT_CODE,
             )
         except Exception:
             duration_str = _compute_duration_debug_str(start_time)
