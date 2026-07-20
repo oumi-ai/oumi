@@ -60,6 +60,65 @@ def extract_prompt_images_completion_from_single_turn_conversation(
     return (prompt, images, answer)
 
 
+def extract_prompt_images_completion_from_conversation(
+    example: dict,
+) -> tuple[list[dict], list, str]:
+    """Splits a (possibly multi-turn) conversation into prompt, images, completion.
+
+    The final message must be an assistant message; its text becomes the
+    completion (ground truth). All preceding messages form the prompt, in
+    verl's chat format (a list of ``{"role": ..., "content": ...}`` dicts).
+    A single-turn conversation (one user + one assistant message) is just the
+    two-message special case.
+
+    Args:
+        example: A dictionary containing the conversation JSON.
+
+    Returns:
+        A tuple ``(prompt_messages, images, completion)`` where ``prompt_messages``
+        is a list of chat-format message dicts, ``images`` is a list of image
+        dicts collected across the prompt messages (empty for text-only
+        conversations), and ``completion`` is the final assistant message's text.
+
+    Raises:
+        ValueError: If ``conversation_json`` is missing, the conversation has
+            fewer than 2 messages, or the final message is not an assistant
+            message.
+    """
+    if "conversation_json" not in example:
+        raise ValueError(
+            f"Example doesn't contain 'conversation_json' key. "
+            f"Available keys: {example.keys()}"
+        )
+
+    conversation = Conversation.from_json(example["conversation_json"])
+    messages = conversation.messages
+
+    if len(messages) < 2:
+        raise ValueError(
+            f"Conversation must have at least 2 messages (a prompt and a "
+            f"final assistant message), but got {len(messages)}."
+        )
+    if messages[-1].role != Role.ASSISTANT:
+        raise ValueError(
+            f"The final message of a conversation must be an assistant message "
+            f"(used as the ground truth), but got role '{messages[-1].role}'."
+        )
+
+    prompt_messages: list[dict] = []
+    images: list = []
+    for message in messages[:-1]:
+        text_items = message.text_content_items
+        content = text_items[-1].content or "" if text_items else ""
+        prompt_messages.append({"role": message.role.value, "content": content})
+        images.extend({"bytes": item.binary} for item in message.image_content_items)
+
+    completion_items = messages[-1].text_content_items
+    completion: str = completion_items[-1].content or "" if completion_items else ""
+
+    return (prompt_messages, images, completion)
+
+
 def try_prepare_trl_grpo_example(
     example: dict,
 ) -> dict:
