@@ -139,3 +139,28 @@ def test_db_path_write_pred_scores_zero_without_mutating(tmp_path):
     conn = sqlite3.connect(db)
     assert conn.execute("SELECT count(*) FROM t").fetchone()[0] == 3
     conn.close()
+
+
+def test_top_level_order_by_ignores_subqueries():
+    from oumi.datasets.grpo.rewards.sql_execution_match import _has_top_level_order_by
+
+    assert _has_top_level_order_by("SELECT x FROM t ORDER BY x") is True
+    # ORDER BY only inside a subquery -> outer result is an unordered set.
+    assert (
+        _has_top_level_order_by(
+            "SELECT x FROM t WHERE x IN (SELECT x FROM t ORDER BY x LIMIT 2)"
+        )
+        is False
+    )
+
+
+def test_subquery_order_by_does_not_force_positional_match():
+    # Gold's ORDER BY is inside a subquery, so the outer result is a set; a correct
+    # pred returning the same rows in a different order must still score 1.0.
+    r = sql_execution_match(
+        data_source="nl2sql",
+        solution_str="```sql\nSELECT x FROM t WHERE x < 3 ORDER BY x DESC\n```",
+        ground_truth="SELECT x FROM t WHERE x IN (SELECT x FROM t ORDER BY x LIMIT 2)",
+        extra_info=EXTRA,
+    )
+    assert r == 1.0

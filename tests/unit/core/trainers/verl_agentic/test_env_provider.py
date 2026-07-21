@@ -97,3 +97,56 @@ def test_db_path_create_kwargs_overrides_placeholder_schema(tmp_path):
     router = get_or_build_router(ad, BASE)  # must not raise
     out = router.route_batch([("run_sql", {"query": "SELECT count(*) FROM t"})])[0]
     assert out.output == {"columns": ["count(*)"], "rows": [[1]]}
+
+
+def _db_env_spec(env_id: str, tool_id: str) -> dict:
+    # placeholder seeds exactly 1 row, so an un-overwritten env is distinguishable.
+    return {
+        "id": env_id,
+        "env_type": "database",
+        "env_kwargs": {
+            "schema_sql": "CREATE TABLE t(x INTEGER);",
+            "seed_sql": "INSERT INTO t VALUES (7);",
+        },
+        "tools": [
+            {
+                "id": tool_id,
+                "name": tool_id,
+                "description": "run sql",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"query": {"type": "string"}},
+                    "required": ["query"],
+                },
+                "executor": "oumi.environments.examples.nl2sql.run_sql",
+                "read_only": True,
+            }
+        ],
+    }
+
+
+def test_create_kwargs_scoped_to_owning_env_only():
+    # Two DB envs; only db_a's tool carries create_kwargs. db_b must keep its own
+    # placeholder (1 row), not receive db_a's spec (the multi-env overwrite guard).
+    cfg = EnvironmentConfig(
+        environments=[  # type: ignore[list-item]
+            _db_env_spec("db_a", "q_a"),
+            _db_env_spec("db_b", "q_b"),
+        ]
+    )
+    ad = _FakeAgentData(
+        request_id="scope-1",
+        tools_kwargs={
+            "q_a": {
+                "create_kwargs": {
+                    "schema_sql": "CREATE TABLE t(x INTEGER);",
+                    "seed_sql": "INSERT INTO t VALUES (1),(2),(3),(4),(5);",
+                }
+            }
+        },
+    )
+    router = get_or_build_router(ad, cfg)
+    a = router.route_batch([("q_a", {"query": "SELECT count(*) FROM t"})])[0].output
+    b = router.route_batch([("q_b", {"query": "SELECT count(*) FROM t"})])[0].output
+    assert a == {"columns": ["count(*)"], "rows": [[5]]}  # db_a used create_kwargs
+    assert b == {"columns": ["count(*)"], "rows": [[1]]}  # db_b kept its placeholder

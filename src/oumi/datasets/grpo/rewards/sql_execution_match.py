@@ -61,6 +61,25 @@ def _db_spec(extra_info: dict[str, Any]) -> dict[str, Any]:
     return run_sql.get("create_kwargs") or {}
 
 
+def _has_top_level_order_by(sql: str) -> bool:
+    """True if the outer query orders rows (ORDER BY inside a subquery doesn't).
+
+    Drops parenthesized subqueries first, so a TOP-N gold like
+    ``... IN (SELECT ... ORDER BY ... LIMIT k)`` isn't treated as order-sensitive.
+    Heuristic: assumes balanced parens and no ORDER BY inside a string literal.
+    """
+    depth = 0
+    top: list[str] = []
+    for ch in sql:
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth = max(0, depth - 1)
+        elif depth == 0:
+            top.append(ch)
+    return "order by" in "".join(top).lower()
+
+
 @register("sql_execution_match", RegistryType.REWARD_FUNCTION)
 def sql_execution_match(
     data_source: str,
@@ -87,7 +106,7 @@ def sql_execution_match(
         )
         owns_file = True
     try:
-        ordered = "order by" in str(ground_truth).lower()
+        ordered = _has_top_level_order_by(str(ground_truth))
         pred_rows = _run_or_none(db_path, pred_sql, ordered)
         gold_rows = _run_or_none(db_path, ground_truth, ordered)
         if pred_rows is None or gold_rows is None:

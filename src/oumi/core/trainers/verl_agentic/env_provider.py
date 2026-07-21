@@ -27,24 +27,34 @@ from oumi.core.synthesis.tool_router import ToolRouter
 _ROUTERS: dict[str, ToolRouter] = {}
 
 
-def _rollout_create_kwargs(agent_data: Any) -> dict[str, Any]:
-    """The per-rollout env spec: first tools_kwargs entry carrying create_kwargs."""
-    for entry in (agent_data.tools_kwargs or {}).values():
-        create_kwargs = (entry or {}).get("create_kwargs")
-        if create_kwargs:
-            return dict(create_kwargs)
-    return {}
+def _rollout_create_kwargs(agent_data: Any) -> dict[str, dict[str, Any]]:
+    """This rollout's create_kwargs, keyed by the tool id each belongs to."""
+    return {
+        tool_id: dict(entry["create_kwargs"])
+        for tool_id, entry in (agent_data.tools_kwargs or {}).items()
+        if entry and entry.get("create_kwargs")
+    }
 
 
 def _build_router(
-    base_env_config: EnvironmentConfig, create_kwargs: dict[str, Any]
+    base_env_config: EnvironmentConfig,
+    create_kwargs_by_tool: dict[str, dict[str, Any]],
 ) -> ToolRouter:
-    """Build this rollout's router with its own isolated env instance(s)."""
+    """Build this rollout's router with its own isolated env instance(s).
+
+    Each tool's create_kwargs replaces (not merges) the env_kwargs of the env
+    that backs it, so a second env in the config never receives another's spec.
+    """
     cfg = copy.deepcopy(base_env_config)
+    tool_env = cfg.tool_environment_map
+    env_kwargs_by_env = {
+        tool_env[tool_id]: ck
+        for tool_id, ck in create_kwargs_by_tool.items()
+        if tool_id in tool_env
+    }
     for env in cfg.environments:
-        # Replace not merge, so a stale placeholder can't collide with an incoming key.
-        if create_kwargs:
-            env.env_kwargs = dict(create_kwargs)
+        if env.id in env_kwargs_by_env:
+            env.env_kwargs = env_kwargs_by_env[env.id]
     return ToolRouter.from_environment_config(cfg).for_sample()
 
 

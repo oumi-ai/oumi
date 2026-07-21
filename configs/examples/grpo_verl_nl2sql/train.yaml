@@ -18,7 +18,7 @@ training:
     data: { train_batch_size: 32, max_prompt_length: 4096, filter_overlong_prompts: True }
     actor_rollout_ref:
       rollout:
-        name: sglang
+        name: vllm
         mode: async
         multi_turn: { enable: true, format: hermes, tool_config_path: configs/examples/grpo_verl_nl2sql/verl_tool_config.yaml }
         agent: { default_agent_loop: tool_agent }
