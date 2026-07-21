@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+import os
 import threading
 import time
 from datetime import datetime, timezone
@@ -96,7 +97,10 @@ class ProgressFileReporter:
             # Write to a temp file in the same directory so the replace is atomic.
             with open(self._tmp_path, "w") as f:
                 json.dump(snapshot, f)
-            self._tmp_path.replace(self._path)
+            # Use os.replace (not Path.replace) for the atomic swap: on Python 3.10
+            # Path.replace does not route through os.replace, so tests that simulate
+            # a failing replace by patching os.replace would otherwise be bypassed.
+            os.replace(self._tmp_path, self._path)
         except Exception as e:
             if not self._warned:
                 logger.warning(f"Failed to write inference progress file: {e}")
