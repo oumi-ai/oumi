@@ -157,12 +157,11 @@ def restore_dynamo_limits():
     """Save/restore global torch dynamo limits mutated by the helper under test."""
     import torch
 
-    saved = (
-        torch._dynamo.config.recompile_limit,
-        torch._dynamo.config.cache_size_limit,
-    )
+    # `cache_size_limit` exists in all supported torch versions; torch>=2.7 aliases
+    # it to `recompile_limit`. Assert on `cache_size_limit` so tests work on both.
+    saved = torch._dynamo.config.cache_size_limit
     yield
-    torch._dynamo.config.recompile_limit, torch._dynamo.config.cache_size_limit = saved
+    torch._dynamo.config.cache_size_limit = saved
 
 
 def test_recompile_limit_unset_without_pad_to_multiple_of(
@@ -173,11 +172,11 @@ def test_recompile_limit_unset_without_pad_to_multiple_of(
     from oumi.train import _maybe_raise_dynamo_recompile_limit
 
     monkeypatch.delenv("OUMI_DYNAMO_RECOMPILE_LIMIT", raising=False)
-    torch._dynamo.config.recompile_limit = 8
+    torch._dynamo.config.cache_size_limit = 8
     _maybe_raise_dynamo_recompile_limit(_config_with_collator_kwargs(None))
-    assert torch._dynamo.config.recompile_limit == 8
+    assert torch._dynamo.config.cache_size_limit == 8
     _maybe_raise_dynamo_recompile_limit(_config_with_collator_kwargs({}))
-    assert torch._dynamo.config.recompile_limit == 8
+    assert torch._dynamo.config.cache_size_limit == 8
 
 
 def test_recompile_limit_self_set_with_pad_to_multiple_of(
@@ -191,11 +190,10 @@ def test_recompile_limit_self_set_with_pad_to_multiple_of(
     )
 
     monkeypatch.delenv("OUMI_DYNAMO_RECOMPILE_LIMIT", raising=False)
-    torch._dynamo.config.recompile_limit = 8
+    torch._dynamo.config.cache_size_limit = 8
     _maybe_raise_dynamo_recompile_limit(
         _config_with_collator_kwargs({"pad_to_multiple_of": 8192})
     )
-    assert torch._dynamo.config.recompile_limit == _DEFAULT_DYNAMO_RECOMPILE_LIMIT
     assert torch._dynamo.config.cache_size_limit == _DEFAULT_DYNAMO_RECOMPILE_LIMIT
 
 
@@ -205,8 +203,8 @@ def test_recompile_limit_env_override_wins(monkeypatch, restore_dynamo_limits):
     from oumi.train import _maybe_raise_dynamo_recompile_limit
 
     monkeypatch.setenv("OUMI_DYNAMO_RECOMPILE_LIMIT", "128")
-    torch._dynamo.config.recompile_limit = 8
+    torch._dynamo.config.cache_size_limit = 8
     _maybe_raise_dynamo_recompile_limit(
         _config_with_collator_kwargs({"pad_to_multiple_of": 8192})
     )
-    assert torch._dynamo.config.recompile_limit == 128
+    assert torch._dynamo.config.cache_size_limit == 128
