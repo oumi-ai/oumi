@@ -69,19 +69,29 @@ def state():
 
 def test_list_patients_returns_summaries(state):
     result = list_patients({}, state)
-    assert isinstance(result.output, dict)
     assert result.updated_state is None
-    assert {p["patient_id"] for p in result.output["patients"]} == {"P001", "P002"}
-    assert "medications" not in result.output["patients"][0]
+    assert result.output == {
+        "patients": [
+            {
+                "patient_id": "P001",
+                "name": "Jane Smith",
+                "dob": "1985-03-15",
+                "status": "active",
+            },
+            {
+                "patient_id": "P002",
+                "name": "Marcus Lee",
+                "dob": "1972-11-04",
+                "status": "active",
+            },
+        ]
+    }
 
 
 def test_get_patient_returns_full_record(state):
     result = get_patient({"patient_id": "P001"}, state)
-    assert isinstance(result.output, dict)
     assert result.updated_state is None
-    assert result.output["status"] == "ok"
-    assert result.output["patient"]["name"] == "Jane Smith"
-    assert result.output["patient"]["medications"][0]["name"] == "lisinopril"
+    assert result.output == {"status": "ok", "patient": state["patients"][0]}
 
 
 def test_get_patient_unknown_returns_error_payload(state):

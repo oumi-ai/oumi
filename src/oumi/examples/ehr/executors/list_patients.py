@@ -16,12 +16,14 @@ from __future__ import annotations
 
 from typing import Any
 
+from pydantic import JsonValue
+
 from oumi.core.types.tool_call import ToolResult
 
 
 def list_patients(arguments: dict[str, Any], state: dict[str, Any]) -> ToolResult:
     """List patient summaries (read-only)."""
-    summaries = [
+    summaries: JsonValue = [
         {
             "patient_id": p["patient_id"],
             "name": p["name"],
