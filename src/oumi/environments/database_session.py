@@ -96,12 +96,17 @@ class DatabaseSession:
     def _cleanup(self, *, rollback: bool, suppress_errors: bool = False) -> None:
         operations: list[Callable[[], object]] = []
         if rollback:
-            operations.extend(
-                (
-                    lambda: self.connection.set_authorizer(None),
-                    self.connection.rollback,
-                )
-            )
+            # Discard uncommitted writes by closing with the transaction still
+            # open: SQLite rolls back on close. We deliberately do NOT issue an
+            # explicit ``connection.rollback()``. The authorizer denies every
+            # SQLITE_TRANSACTION action (BEGIN/COMMIT/END/ROLLBACK), and on the
+            # SQLite bundled with CPython 3.10 (3.50.x) a denied ROLLBACK during
+            # the transaction makes the denial sticky for the rest of that
+            # transaction -- so a follow-up framework ``rollback()`` would raise
+            # "not authorized" even after ``set_authorizer(None)``. Clearing the
+            # authorizer and letting ``close()`` do the implicit rollback avoids
+            # that trap while still discarding all writes (verified 3.10-3.14).
+            operations.append(lambda: self.connection.set_authorizer(None))
         operations.append(self.connection.close)
         if self._owns_file:
             operations.append(lambda: self._path.unlink(missing_ok=True))
