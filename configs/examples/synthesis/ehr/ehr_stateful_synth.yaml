@@ -2,44 +2,23 @@
 #
 # Generates grounded multi-turn conversations between a clinician (the user)
 # and an EHR agent (the assistant) operating against a stateful patient
-# database. The assistant has six tools that read or mutate live state:
+# database. Write tools persist changes within a conversation, and each sample
+# receives isolated state.
 #
-#   READ
-#     1. `list_patients`        — returns {patient_id, name, dob, status}
-#                                  summaries for the whole roster.
-#     2. `get_patient`          — returns the full record (allergies,
-#                                  medications, diagnoses, vitals_history)
-#                                  for one patient_id.
-#
-#   WRITE / UPDATE
-#     3. `record_vitals`        — appends a vitals reading to a patient's
-#                                  history.
-#     4. `add_diagnosis`        — appends an ICD-coded diagnosis. Refuses
-#                                  duplicates.
-#     5. `prescribe_medication` — adds an active prescription. Refuses
-#                                  duplicates and blocks on allergy conflicts.
-#     6. `update_allergies`     — replaces a patient's allergy list.
-#
-# All write tools persist to the env's mutable state, so within one
-# conversation the assistant can record vitals → add a diagnosis → prescribe,
-# and a follow-up `get_patient` will see all the new entries. Per-sample
-# isolation is guaranteed by the synthesizer's per-sample tool-dispatch
-# refactor.
-#
-# Grounding: `list_patients` and `get_patient` ground from
-# `state.patients`, projecting {patient_id, name, dob}. The planner sees a
-# small random sample of real patients each conversation so turn plans
-# reference real names.
+# The tools reference their executors by registry name (ehr.*). The executors
+# live in executors.py next to this config and register those names via
+# @register_tool_executor; OUMI_EXTRA_DEPS_FILE imports that module at startup.
 #
 # Requirements:
 #   - Set OPENAI_API_KEY in the environment, or change the inference_config.
 #
-# Usage:
-#   oumi synth -c configs/examples/synthesis/ehr_stateful_synth.yaml
+# Usage (run from the repo root):
+#   OUMI_EXTRA_DEPS_FILE=configs/examples/synthesis/ehr/extra_deps.txt \
+#     oumi synth -c configs/examples/synthesis/ehr/ehr_stateful_synth.yaml
 #
-# See also:
-#   - Spec: docs/superpowers/specs/2026-04-30-stateful-tool-executors-design.md
-#   - Executors: src/oumi/examples/ehr/executors.py
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/synth.html
+#   - Executors: configs/examples/synthesis/ehr/executors.py
 
 strategy: GENERAL
 num_samples: 150
@@ -54,15 +33,15 @@ environment_config:
       grounding:
         sample_size: 3
         seed: 7
+        state:
+          - state_path: patients
+            fields: [patient_id, name, dob]
       env_kwargs:
-        system_prompt: |
+        tool_persona: |
           You are simulating a clinical EHR system. Tools are executed by
           Python; you do not need to produce tool outputs.
         cache_by_input: false
         state_params:
-          grounding:
-            - state_path: patients
-              fields: [patient_id, name, dob]
           state_schema:
             type: object
             properties:
@@ -346,8 +325,22 @@ environment_config:
           parameters:
             type: object
             properties: {}
+          output_schema:
+            type: object
+            properties:
+              patients:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    patient_id: { type: string }
+                    name: { type: string }
+                    dob: { type: string }
+                    status: { type: string }
+                  required: [patient_id, name, dob, status]
+            required: [patients]
           read_only: true
-          executor: oumi.examples.ehr.executors.list_patients
+          executor: ehr.list_patients
 
         - id: get_patient
           name: get_patient
@@ -359,8 +352,66 @@ environment_config:
             properties:
               patient_id: { type: string }
             required: [patient_id]
+          output_schema:
+            oneOf:
+              - type: object
+                properties:
+                  status: { const: ok }
+                  patient:
+                    type: object
+                    properties:
+                      patient_id: { type: string }
+                      name: { type: string }
+                      dob: { type: string }
+                      status: { type: string }
+                      allergies:
+                        type: array
+                        items: { type: string }
+                      medications:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            name: { type: string }
+                            dose: { type: string }
+                          required: [name, dose]
+                      diagnoses:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            code: { type: string }
+                            description: { type: string }
+                            date: { type: string }
+                          required: [code, description, date]
+                      vitals_history:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            timestamp: { type: string }
+                            bp: { type: string }
+                            hr: { type: integer }
+                            temp_f: { type: number }
+                          required: [timestamp, bp, hr, temp_f]
+                    required:
+                      - patient_id
+                      - name
+                      - dob
+                      - status
+                      - allergies
+                      - medications
+                      - diagnoses
+                      - vitals_history
+                required: [status, patient]
+              - type: object
+                properties:
+                  status: { const: error }
+                  error: { const: not_found }
+                  patient_id: { type: string }
+                required: [status, error, patient_id]
           read_only: true
-          executor: oumi.examples.ehr.executors.get_patient
+          executor: ehr.get_patient
 
         - id: record_vitals
           name: record_vitals
@@ -376,8 +427,29 @@ environment_config:
               hr: { type: integer }
               temp_f: { type: number }
             required: [patient_id, timestamp, bp, hr, temp_f]
+          output_schema:
+            oneOf:
+              - type: object
+                properties:
+                  status: { const: ok }
+                  patient_id: { type: string }
+                  vitals_recorded:
+                    type: object
+                    properties:
+                      timestamp: { type: string }
+                      bp: { type: string }
+                      hr: { type: integer }
+                      temp_f: { type: number }
+                    required: [timestamp, bp, hr, temp_f]
+                required: [status, patient_id, vitals_recorded]
+              - type: object
+                properties:
+                  status: { const: error }
+                  error: { const: not_found }
+                  patient_id: { type: string }
+                required: [status, error, patient_id]
           read_only: false
-          executor: oumi.examples.ehr.executors.record_vitals
+          executor: ehr.record_vitals
 
         - id: add_diagnosis
           name: add_diagnosis
@@ -392,8 +464,35 @@ environment_config:
               description: { type: string }
               date: { type: string }
             required: [patient_id, code, description, date]
+          output_schema:
+            oneOf:
+              - type: object
+                properties:
+                  status: { const: ok }
+                  patient_id: { type: string }
+                  diagnosis_added:
+                    type: object
+                    properties:
+                      code: { type: string }
+                      description: { type: string }
+                      date: { type: string }
+                    required: [code, description, date]
+                required: [status, patient_id, diagnosis_added]
+              - type: object
+                properties:
+                  status: { const: error }
+                  error: { const: not_found }
+                  patient_id: { type: string }
+                required: [status, error, patient_id]
+              - type: object
+                properties:
+                  status: { const: error }
+                  error: { const: duplicate_diagnosis }
+                  patient_id: { type: string }
+                  code: { type: string }
+                required: [status, error, patient_id, code]
           read_only: false
-          executor: oumi.examples.ehr.executors.add_diagnosis
+          executor: ehr.add_diagnosis
 
         - id: prescribe_medication
           name: prescribe_medication
@@ -408,14 +507,48 @@ environment_config:
               name: { type: string }
               dose: { type: string }
             required: [patient_id, name, dose]
+          output_schema:
+            oneOf:
+              - type: object
+                properties:
+                  status: { const: ok }
+                  patient_id: { type: string }
+                  medication_added:
+                    type: object
+                    properties:
+                      name: { type: string }
+                      dose: { type: string }
+                    required: [name, dose]
+                required: [status, patient_id, medication_added]
+              - type: object
+                properties:
+                  status: { const: error }
+                  error: { const: not_found }
+                  patient_id: { type: string }
+                required: [status, error, patient_id]
+              - type: object
+                properties:
+                  status: { const: error }
+                  error: { const: already_prescribed }
+                  patient_id: { type: string }
+                  medication: { type: string }
+                required: [status, error, patient_id, medication]
+              - type: object
+                properties:
+                  status: { const: error }
+                  error: { const: allergy_conflict }
+                  patient_id: { type: string }
+                  medication: { type: string }
+                required: [status, error, patient_id, medication]
           read_only: false
-          executor: oumi.examples.ehr.executors.prescribe_medication
+          executor: ehr.prescribe_medication
 
         - id: update_allergies
           name: update_allergies
           description: >-
             Replace a patient's allergy list with the supplied list. Pass an
-            empty list to clear all allergies.
+            empty list to clear all allergies. When adding an allergy, first
+            call get_patient and merge its current allergies with the new one.
           parameters:
             type: object
             properties:
@@ -424,8 +557,24 @@ environment_config:
                 type: array
                 items: { type: string }
             required: [patient_id, allergies]
+          output_schema:
+            oneOf:
+              - type: object
+                properties:
+                  status: { const: ok }
+                  patient_id: { type: string }
+                  allergies:
+                    type: array
+                    items: { type: string }
+                required: [status, patient_id, allergies]
+              - type: object
+                properties:
+                  status: { const: error }
+                  error: { const: not_found }
+                  patient_id: { type: string }
+                required: [status, error, patient_id]
           read_only: false
-          executor: oumi.examples.ehr.executors.update_allergies
+          executor: ehr.update_allergies
 
 strategy_params:
   sampled_attributes:
@@ -543,15 +692,16 @@ strategy_params:
           the code is already present, surface the duplicate error.
         - Chart Review: read-only. Use `get_patient` to summarize. Do NOT
           mutate the chart.
-        - Update Allergy History: assistant must call `update_allergies`
-          with the new full list (not a delta).
+        - Update Allergy History: after resolving the patient's name, call
+          `get_patient`, merge the returned allergies with the newly reported
+          allergy, then call `update_allergies` with that full merged list.
         - Full Encounter: chain `record_vitals` → `add_diagnosis` →
           `prescribe_medication` across the conversation, in that clinical
           order.
 
       role_instruction_messages:
         USER: |
-          You are Dr. {clinician_name}, a {clinician_role.name}.
+          You are {clinician_name}, a {clinician_role.name}.
 
           Your background: {clinician_role.description}
           Your style today: {clinician_demeanor.name} —
@@ -608,6 +758,9 @@ strategy_params:
           - Chart review: `list_patients` (if name only) → `get_patient`.
             Summarize allergies, active meds, recent diagnoses, latest
             vitals. Do NOT mutate the chart.
+          - Allergy update: `list_patients` (if name only) → `get_patient` →
+            `update_allergies`. Merge the returned allergies with the newly
+            reported allergy and pass the full merged list.
 
           Rules:
           - ALWAYS use the tools for any read or write. Never fabricate
@@ -644,7 +797,9 @@ strategy_params:
         patient data. Resolve patient names to patient_ids via
         `list_patients` before any other action. Acknowledge structured
         tool errors and pivot when appropriate. Read back the patient's
-        name when confirming a write.
+        name when confirming a write. For allergy updates, call `get_patient`
+        after resolving the name, merge its returned allergies with the new
+        allergy, and pass the full merged list to `update_allergies`.
 
   passthrough_attributes:
     - ehr_conversation
