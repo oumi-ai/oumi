@@ -112,8 +112,9 @@ def test_creates_parent_directories(progress_path):
 
 def test_write_failure_never_raises(progress_path):
     reporter = ProgressFileReporter(progress_path, total=2, min_write_interval=0.0)
-    # Patch Path.replace (what _write_snapshot actually calls). Patching os.replace
-    # would miss the failure on Python 3.10, where Path.replace doesn't route through it.
+    # Patch Path.replace (what _write_snapshot actually calls). Patching
+    # os.replace would miss the failure on Python 3.10, where Path.replace
+    # does not route through os.replace.
     with patch.object(Path, "replace", side_effect=OSError("disk full")):
         reporter.start()
         reporter.record_completed()
