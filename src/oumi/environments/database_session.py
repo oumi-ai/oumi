@@ -50,6 +50,16 @@ def _enable_foreign_keys(connection: sqlite3.Connection) -> None:
         raise RuntimeError("Failed to enable SQLite foreign-key enforcement.")
 
 
+def _allow_all(
+    _action_code: int,
+    _arg1: str | None,
+    _arg2: str | None,
+    _database_name: str | None,
+    _trigger_name: str | None,
+) -> int:
+    return sqlite3.SQLITE_OK
+
+
 def _deny_transaction_control(
     action_code: int,
     _arg1: str | None,
@@ -98,7 +108,9 @@ class DatabaseSession:
         if rollback:
             operations.extend(
                 (
-                    lambda: self.connection.set_authorizer(None),
+                    # set_authorizer(None) only clears on Python 3.11+; on 3.10 it
+                    # installs None as the callback, which denies everything.
+                    lambda: self.connection.set_authorizer(_allow_all),
                     self.connection.rollback,
                 )
             )
