@@ -1,6 +1,6 @@
 import pytest
 
-verl = pytest.importorskip("verl")  # skips locally; runs on the cluster
+verl = pytest.importorskip("verl")
 
 
 def test_execute_routes_into_shared_env(tmp_path):
@@ -38,9 +38,10 @@ def test_execute_routes_into_shared_env(tmp_path):
     tool = OumiVerlTool(config={"oumi_env_config": str(cfg_path)}, tool_schema=schema)
 
     class _FakeAgentData(SimpleNamespace):
-        """Subclass so instances support weakref.finalize (SimpleNamespace can't)."""
+        """A weak-referenceable agent data stub."""
 
     ad = _FakeAgentData(
+        request_id="execute-routes-into-shared-env",
         extra_fields={},
         tools_kwargs={
             "run_sql": {

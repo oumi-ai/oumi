@@ -27,6 +27,6 @@ def run_sql(arguments: dict, context: sqlite3.Connection) -> ToolResult:
         cursor = context.execute(arguments["query"])
         columns = [d[0] for d in cursor.description] if cursor.description else []
         rows = [list(r) for r in cursor.fetchall()]
-    except Exception as e:  # surface the error text back to the model
+    except sqlite3.Error as e:
         return ToolResult(output={"error": str(e)})
     return ToolResult(output={"columns": columns, "rows": rows})

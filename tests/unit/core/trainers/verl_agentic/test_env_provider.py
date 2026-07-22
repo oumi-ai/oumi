@@ -1,18 +1,19 @@
+import gc
 import sqlite3
 from types import SimpleNamespace
+from typing import Any
 
 from oumi.core.configs.environment_config import EnvironmentConfig
+from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.core.trainers.verl_agentic.env_provider import get_or_build_router
 
 BASE = EnvironmentConfig(
-    environments=[  # type: ignore[list-item]
-        {
-            "id": "db",
-            "env_type": "database",
-            "env_kwargs": {
-                "schema_sql": "CREATE TABLE t(x);"
-            },  # overridden per rollout
-            "tools": [
+    environments=[
+        EnvironmentParams(
+            id="db",
+            env_type="database",
+            env_kwargs={"schema_sql": "CREATE TABLE t(x);"},
+            tools=[
                 {
                     "id": "run_sql",
                     "name": "run_sql",
@@ -26,7 +27,7 @@ BASE = EnvironmentConfig(
                     "read_only": True,
                 }
             ],
-        }
+        )
     ]
 )
 
@@ -34,9 +35,11 @@ BASE = EnvironmentConfig(
 class _FakeAgentData(SimpleNamespace):
     """Subclass so instances support weakref.finalize (bare SimpleNamespace doesn't)."""
 
+    request_id: str
+    tools_kwargs: dict[str, Any]
+
 
 def _agent_data(request_id: str):
-    # request_id is the per-rollout key the provider registers the router under.
     return _FakeAgentData(
         request_id=request_id,
         tools_kwargs={
@@ -54,7 +57,34 @@ def test_same_request_id_returns_same_router():
     ad = _agent_data("same-1")
     r1 = get_or_build_router(ad, BASE)
     r2 = get_or_build_router(ad, BASE)
-    assert r1 is r2  # one env per rollout, shared across tool calls
+    assert r1 is r2
+
+
+def test_router_closed_and_evicted_when_agent_data_is_collected(monkeypatch):
+    request_id = "collected-1"
+    ad = _agent_data(request_id)
+    router = get_or_build_router(ad, BASE)
+    original_close = router.close
+    close_calls = 0
+
+    def close_spy():
+        nonlocal close_calls
+        close_calls += 1
+        original_close()
+
+    monkeypatch.setattr(router, "close", close_spy)
+
+    del ad
+    gc.collect()
+
+    assert close_calls == 1
+
+    replacement_ad = _agent_data(request_id)
+    replacement_router = get_or_build_router(replacement_ad, BASE)
+    assert replacement_router is not router
+
+    del replacement_ad
+    gc.collect()
 
 
 def test_router_routes_run_sql():
@@ -67,8 +97,6 @@ def test_router_routes_run_sql():
 def test_different_request_id_gets_isolated_router():
     ad1 = _agent_data("iso-a")
     ad2 = _agent_data("iso-b")
-    # Each rollout builds its own env from its own create_kwargs; rollout 2 seeds
-    # an extra row so the two DBs are provably independent.
     ad2.tools_kwargs["run_sql"]["create_kwargs"]["seed_sql"] = (
         "INSERT INTO t VALUES (1),(2),(3);"
     )
@@ -78,13 +106,11 @@ def test_different_request_id_gets_isolated_router():
     c1 = r1.route_batch([("run_sql", {"query": "SELECT count(*) FROM t"})])[0].output
     c2 = r2.route_batch([("run_sql", {"query": "SELECT count(*) FROM t"})])[0].output
     assert c1 == {"columns": ["count(*)"], "rows": [[2]]}
-    assert c2 == {"columns": ["count(*)"], "rows": [[3]]}  # isolated: own seed_sql
+    assert c2 == {"columns": ["count(*)"], "rows": [[3]]}
 
 
 def test_db_path_create_kwargs_overrides_placeholder_schema(tmp_path):
-    # A db_path rollout against a schema_sql-placeholder config must not leave
-    # both keys set — that would fail "exactly one of db_path/schema_sql" on
-    # every tool call (create_kwargs replaces, rather than merges into, env_kwargs).
+    # create_kwargs must replace env_kwargs to avoid setting both database sources.
     db = tmp_path / "shared.sqlite"
     conn = sqlite3.connect(db)
     conn.executescript("CREATE TABLE t(x INTEGER); INSERT INTO t VALUES (9);")
@@ -94,21 +120,20 @@ def test_db_path_create_kwargs_overrides_placeholder_schema(tmp_path):
         request_id="dbpath-1",
         tools_kwargs={"run_sql": {"create_kwargs": {"db_path": str(db)}}},
     )
-    router = get_or_build_router(ad, BASE)  # must not raise
+    router = get_or_build_router(ad, BASE)
     out = router.route_batch([("run_sql", {"query": "SELECT count(*) FROM t"})])[0]
     assert out.output == {"columns": ["count(*)"], "rows": [[1]]}
 
 
-def _db_env_spec(env_id: str, tool_id: str) -> dict:
-    # placeholder seeds exactly 1 row, so an un-overwritten env is distinguishable.
-    return {
-        "id": env_id,
-        "env_type": "database",
-        "env_kwargs": {
+def _db_env_spec(env_id: str, tool_id: str) -> EnvironmentParams:
+    return EnvironmentParams(
+        id=env_id,
+        env_type="database",
+        env_kwargs={
             "schema_sql": "CREATE TABLE t(x INTEGER);",
             "seed_sql": "INSERT INTO t VALUES (7);",
         },
-        "tools": [
+        tools=[
             {
                 "id": tool_id,
                 "name": tool_id,
@@ -122,14 +147,13 @@ def _db_env_spec(env_id: str, tool_id: str) -> dict:
                 "read_only": True,
             }
         ],
-    }
+    )
 
 
 def test_create_kwargs_scoped_to_owning_env_only():
-    # Two DB envs; only db_a's tool carries create_kwargs. db_b must keep its own
-    # placeholder (1 row), not receive db_a's spec (the multi-env overwrite guard).
+    # Only db_a's tool carries create_kwargs; db_b must keep its own configuration.
     cfg = EnvironmentConfig(
-        environments=[  # type: ignore[list-item]
+        environments=[
             _db_env_spec("db_a", "q_a"),
             _db_env_spec("db_b", "q_b"),
         ]
@@ -148,5 +172,5 @@ def test_create_kwargs_scoped_to_owning_env_only():
     router = get_or_build_router(ad, cfg)
     a = router.route_batch([("q_a", {"query": "SELECT count(*) FROM t"})])[0].output
     b = router.route_batch([("q_b", {"query": "SELECT count(*) FROM t"})])[0].output
-    assert a == {"columns": ["count(*)"], "rows": [[5]]}  # db_a used create_kwargs
-    assert b == {"columns": ["count(*)"], "rows": [[1]]}  # db_b kept its placeholder
+    assert a == {"columns": ["count(*)"], "rows": [[5]]}
+    assert b == {"columns": ["count(*)"], "rows": [[1]]}

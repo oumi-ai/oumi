@@ -3,14 +3,18 @@ environments:
     name: NL2SQL database
     description: NL2SQL database environment exposing a read-only run_sql tool.
     env_type: database
-    env_kwargs: { schema_sql: "CREATE TABLE placeholder(x INTEGER);" }  # overridden per-rollout
+    env_kwargs:
+      schema_sql: "CREATE TABLE placeholder(x INTEGER);"  # overridden per-rollout
     tools:
       - id: run_sql
         name: run_sql
         description: Execute a read-only SQL query and return the result rows.
         parameters:
           type: object
-          properties: { query: { type: string, description: "A single SQL SELECT statement." } }
+          properties:
+            query:
+              type: string
+              description: "A single SQL SELECT statement."
           required: [query]
         executor: oumi.environments.examples.nl2sql.run_sql
         read_only: true

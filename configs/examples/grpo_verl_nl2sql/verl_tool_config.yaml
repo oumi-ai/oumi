@@ -10,5 +10,7 @@ tools:
         description: Execute a read-only SQL query and return the result rows.
         parameters:
           type: object
-          properties: { query: { type: string } }
+          properties:
+            query:
+              type: string
           required: [query]

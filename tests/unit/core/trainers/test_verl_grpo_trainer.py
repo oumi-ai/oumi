@@ -1,3 +1,4 @@
+import json
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -10,6 +11,7 @@ from oumi.core.types.conversation import (
     Role,
     Type,
 )
+from oumi.core.types.tool_call import FunctionCall, ToolCall
 
 try:
     verl_import_failed = False
@@ -177,4 +179,49 @@ def test_create_verl_data_entry_tool_agent_carries_metadata():
     assert row["reward_model"]["ground_truth"] == "SELECT count(*) FROM t"
     assert row["extra_info"]["need_tools_kwargs"] is True
     assert "run_sql" in row["extra_info"]["tools_kwargs"]
-    assert row["prompt"][-1]["role"] == "user"  # ends on user turn
+    assert row["prompt"][-1]["role"] == "user"
+
+
+def test_create_verl_data_entry_tool_agent_preserves_structured_history():
+    tool_call = ToolCall(
+        id="call_1",
+        function=FunctionCall(
+            name="run_sql", arguments='{"query":"SELECT count(*) FROM t"}'
+        ),
+    )
+    convo = Conversation(
+        messages=[
+            Message(role=Role.USER, content="How many rows in t?"),
+            Message(role=Role.ASSISTANT, content=None, tool_calls=[tool_call]),
+            Message(role=Role.TOOL, content='{"rows":[[2]]}', tool_call_id="call_1"),
+        ],
+        metadata={
+            "agent_name": "tool_agent",
+            "ground_truth": "SELECT count(*) FROM t",
+            "tools_kwargs": {"run_sql": {}},
+        },
+    )
+
+    row = VerlGrpoTrainer._create_verl_data_entry_from_conversation(
+        _example(convo), 0, "nl2sql", "train"
+    )
+
+    assert row["prompt"] == [
+        {"role": "user", "content": "How many rows in t?"},
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "call_1",
+                    "type": "function",
+                    "function": {
+                        "name": "run_sql",
+                        "arguments": '{"query":"SELECT count(*) FROM t"}',
+                    },
+                }
+            ],
+        },
+        {"role": "tool", "content": '{"rows":[[2]]}', "tool_call_id": "call_1"},
+    ]
+    assert json.loads(json.dumps(row["prompt"])) == row["prompt"]

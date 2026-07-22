@@ -18,40 +18,58 @@ from __future__ import annotations
 
 import copy
 import weakref
-from typing import Any
+from collections.abc import Mapping
+from typing import Any, Protocol, TypedDict
 
 from oumi.core.configs.environment_config import EnvironmentConfig
 from oumi.core.synthesis.tool_router import ToolRouter
 
-# Module-level so it's never pickled onto agent_data (its DB connection is unpicklable).
+# Routers stay module-local because their environment connections are not picklable.
 _ROUTERS: dict[str, ToolRouter] = {}
 
 
-def _rollout_create_kwargs(agent_data: Any) -> dict[str, dict[str, Any]]:
-    """This rollout's create_kwargs, keyed by the tool id each belongs to."""
-    return {
-        tool_id: dict(entry["create_kwargs"])
-        for tool_id, entry in (agent_data.tools_kwargs or {}).items()
-        if entry and entry.get("create_kwargs")
-    }
+class _ToolKwargs(TypedDict, total=False):
+    create_kwargs: Mapping[str, Any]
+
+
+class _RolloutData(Protocol):
+    @property
+    def request_id(self) -> str: ...
+
+    @property
+    def tools_kwargs(self) -> Mapping[str, _ToolKwargs | None] | None: ...
+
+
+def _rollout_create_kwargs(
+    agent_data: _RolloutData,
+) -> dict[str, dict[str, Any]]:
+    create_kwargs_by_tool = {}
+    for tool_id, entry in (agent_data.tools_kwargs or {}).items():
+        if entry and (create_kwargs := entry.get("create_kwargs")):
+            create_kwargs_by_tool[tool_id] = dict(create_kwargs)
+    return create_kwargs_by_tool
 
 
 def _build_router(
     base_env_config: EnvironmentConfig,
     create_kwargs_by_tool: dict[str, dict[str, Any]],
 ) -> ToolRouter:
-    """Build this rollout's router with its own isolated env instance(s).
-
-    Each tool's create_kwargs replaces (not merges) the env_kwargs of the env
-    that backs it, so a second env in the config never receives another's spec.
-    """
     cfg = copy.deepcopy(base_env_config)
     tool_env = cfg.tool_environment_map
-    env_kwargs_by_env = {
-        tool_env[tool_id]: ck
-        for tool_id, ck in create_kwargs_by_tool.items()
-        if tool_id in tool_env
-    }
+    unknown_tool_ids = create_kwargs_by_tool.keys() - tool_env.keys()
+    if unknown_tool_ids:
+        raise ValueError(
+            "Rollout create_kwargs contain unknown tool IDs: "
+            f"{sorted(unknown_tool_ids)}"
+        )
+    env_kwargs_by_env: dict[str, dict[str, Any]] = {}
+    for tool_id, create_kwargs in create_kwargs_by_tool.items():
+        env_id = tool_env[tool_id]
+        if env_id in env_kwargs_by_env and env_kwargs_by_env[env_id] != create_kwargs:
+            raise ValueError(
+                f"Tools provide conflicting create_kwargs for environment {env_id!r}."
+            )
+        env_kwargs_by_env[env_id] = create_kwargs
     for env in cfg.environments:
         if env.id in env_kwargs_by_env:
             env.env_kwargs = env_kwargs_by_env[env.id]
@@ -59,16 +77,15 @@ def _build_router(
 
 
 def _teardown(request_id: str) -> None:
-    """Pop and close the rollout's router (fired when its agent_data is GC'd)."""
     router = _ROUTERS.pop(request_id, None)
     if router is not None:
         router.close()
 
 
 def get_or_build_router(
-    agent_data: Any, base_env_config: EnvironmentConfig
+    agent_data: _RolloutData, base_env_config: EnvironmentConfig
 ) -> ToolRouter:
-    """Return this rollout's router, building it on the first tool call."""
+    """Return the rollout-scoped router."""
     request_id = agent_data.request_id
     router = _ROUTERS.get(request_id)
     if router is not None:

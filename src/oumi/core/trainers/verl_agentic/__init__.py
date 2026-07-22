@@ -12,4 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""verl-free core for the Oumi<->verl agentic tool bridge."""
+"""Agentic Oumi tool bridge for verl."""
