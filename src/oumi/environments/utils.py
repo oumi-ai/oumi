@@ -28,6 +28,7 @@ from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.core.configs.params.grounding_params import GroundingFact
 from oumi.core.configs.params.tool_params import ToolError, ToolParams
+from oumi.core.registry import REGISTRY, RegistryType
 from oumi.core.types.tool_call import ToolResult
 
 _KwargsT = TypeVar("_KwargsT", bound=BaseParams)
@@ -78,6 +79,19 @@ def import_executor(dotted: str, tool_id: str) -> Callable[..., Any]:
             f"Tool '{tool_id}': executor '{dotted}' resolved to a non-callable."
         )
     return executor
+
+
+def resolve_executor(name: str, tool_id: str) -> Callable[..., Any]:
+    """Resolve an executor by registry name, falling back to a dotted import path.
+
+    Names registered via ``register_tool_executor`` win; anything else is
+    treated as a dotted import path. Registered names (e.g. ``ehr.list_patients``)
+    and import paths (e.g. ``pkg.module.fn``) don't collide in practice.
+    """
+    executor = REGISTRY.get(name, RegistryType.TOOL_EXECUTOR)
+    if executor is not None:
+        return executor
+    return import_executor(name, tool_id)
 
 
 def validate_executor_result(tool: ToolParams, result: Any) -> ToolResult:
