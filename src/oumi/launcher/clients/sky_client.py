@@ -49,7 +49,9 @@ def _get_sky_cloud_from_job(job: JobConfig) -> "sky.clouds.Cloud":
     elif job.resources.cloud == SkyClient.SupportedClouds.NEBIUS.value:
         return sky.clouds.Nebius()
     elif job.resources.cloud == SkyClient.SupportedClouds.SLURM.value:
-        return sky.clouds.Slurm()
+        # Slurm cloud support was added in skypilot 0.12; older stubs pyright may
+        # resolve against don't expose it, but Oumi pins skypilot>=0.12.
+        return sky.clouds.Slurm()  # pyright: ignore[reportAttributeAccessIssue]
     raise ValueError(f"Unsupported cloud: {job.resources.cloud}")
 
 

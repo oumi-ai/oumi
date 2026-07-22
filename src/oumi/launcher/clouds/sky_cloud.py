@@ -95,7 +95,9 @@ class SkyCloud(BaseCloud):
         elif self._cloud_name == SkyClient.SupportedClouds.NEBIUS.value:
             return self._get_clusters_by_class(sky.clouds.Nebius)
         elif self._cloud_name == SkyClient.SupportedClouds.SLURM.value:
-            return self._get_clusters_by_class(sky.clouds.Slurm)
+            # Slurm cloud support was added in skypilot 0.12; older stubs pyright
+            # may resolve against don't expose it, but Oumi pins skypilot>=0.12.
+            return self._get_clusters_by_class(sky.clouds.Slurm)  # pyright: ignore[reportAttributeAccessIssue]
         raise ValueError(f"Unsupported cloud: {self._cloud_name}")
 
 
