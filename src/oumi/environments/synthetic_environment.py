@@ -47,7 +47,7 @@ from oumi.core.registry import register_environment
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.core.types.tool_call import ToolResult
 from oumi.environments.base_environment import BaseEnvironment
-from oumi.environments.utils import import_executor, validate_executor_result
+from oumi.environments.utils import resolve_executor, validate_executor_result
 from oumi.utils.str_utils import extract_json
 
 if TYPE_CHECKING:
@@ -133,7 +133,7 @@ class SyntheticEnvironment(BaseEnvironment):
                 f"initial_state is required)."
             )
         self._executors: dict[str, Callable[..., Any]] = {
-            tool.id: import_executor(tool.executor, tool.id)
+            tool.id: resolve_executor(tool.executor, tool.id)
             for tool in params.tools
             if tool.executor
         }

@@ -293,8 +293,12 @@ def _maybe_raise_dynamo_recompile_limit(config: TrainingConfig) -> None:
         return
     override = os.environ.get("OUMI_DYNAMO_RECOMPILE_LIMIT")
     limit = int(override) if override else _DEFAULT_DYNAMO_RECOMPILE_LIMIT
-    torch._dynamo.config.recompile_limit = limit
+    # `cache_size_limit` is the backward-compatible knob present in all supported
+    # torch versions. torch>=2.7 renamed it to `recompile_limit` (the two alias the
+    # same value); torch 2.6 has only `cache_size_limit`, so guard the newer name.
     torch._dynamo.config.cache_size_limit = limit
+    if hasattr(torch._dynamo.config, "recompile_limit"):
+        torch._dynamo.config.recompile_limit = limit
     logger.info(f"Set torch dynamo recompile limit to {limit} (pad_to_multiple_of).")
 
 
