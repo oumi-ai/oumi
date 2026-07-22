@@ -84,11 +84,11 @@ def _synthetic_env_params(
     env_id: str = "faq",
     name: str = "FAQ",
     description: str = "FAQ tools",
-    system_prompt: str = "Answer FAQs.",
+    tool_persona: str = "Answer FAQs.",
     tools: list[ToolParams] | None = None,
     extra_kwargs: dict | None = None,
 ) -> EnvironmentParams:
-    env_kwargs: dict = {"system_prompt": system_prompt}
+    env_kwargs: dict = {"tool_persona": tool_persona}
     if extra_kwargs:
         env_kwargs.update(extra_kwargs)
     return EnvironmentParams(
@@ -218,7 +218,7 @@ def test_synthesis_config_restricts_tools_to_selected_environments():
                 env_id="files",
                 name="Files",
                 description="File tools",
-                system_prompt="Manage files.",
+                tool_persona="Manage files.",
                 tools=[files_tool],
                 extra_kwargs={
                     "state_params": {},
@@ -260,7 +260,7 @@ def test_synthesis_config_resolves_all_tools_from_selected_environments():
                 env_id="files",
                 name="Files",
                 description="File tools",
-                system_prompt="Manage files.",
+                tool_persona="Manage files.",
                 tools=[files_tool],
                 extra_kwargs={
                     "state_params": {},

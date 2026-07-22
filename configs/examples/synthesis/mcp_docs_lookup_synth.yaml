@@ -48,7 +48,7 @@ environment_config:
       name: Docs Lookup
       description: MCP-style documentation lookup tools (LLM-simulated).
       env_kwargs:
-        system_prompt: |
+        tool_persona: |
           You are simulating an MCP-style documentation server that resolves
           library names to canonical IDs and returns documentation snippets
           and example code. Every response MUST be a JSON object that exactly

@@ -56,6 +56,7 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
         "RUNNING": BatchStatus.IN_PROGRESS,
         "COMPLETED": BatchStatus.COMPLETED,
         "FAILED": BatchStatus.FAILED,
+        "EXPIRED": BatchStatus.EXPIRED,
         "CANCELLING": BatchStatus.CANCELLED,
         "CANCELLED": BatchStatus.CANCELLED,
         "DELETING": BatchStatus.CANCELLED,

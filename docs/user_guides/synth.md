@@ -236,7 +236,7 @@ environment_config:
       name: Support Backend
       description: Simulated support system with tickets and users
       type: synthetic
-      system_prompt: You manage a customer support system with tickets and users.
+      tool_persona: You manage a customer support system with tickets and users.
       state_params:
         state_schema:
           type: object
@@ -269,7 +269,7 @@ environment_config:
       name: FAQ Lookup
       description: Cached LLM-backed FAQ answers
       type: synthetic
-      system_prompt: Generate concise FAQ answers grounded in the tool contract.
+      tool_persona: Generate concise FAQ answers grounded in the tool contract.
       cache_by_input: true
       tools:
         - id: answer_faq
@@ -707,6 +707,27 @@ partial = synth.get_batch_results_partial(batch_id, samples, generated_attribute
 ```
 
 Batches are typically 50% cheaper than online inference at the cost of a 24-hour completion window. Attributes are batched one at a time (not across attributes), so chained `generated_attributes` still run sequentially.
+
+## Partial Results for Online Synthesis
+
+For providers without a batch API (e.g. OpenRouter), online synthesis with `synthesize()` raises if any row fails. Use `synthesize_partial` to tolerate per-row failures instead:
+
+```python
+result = synth.synthesize_partial(samples, generated_attribute)
+
+for index, attribute_dict in result.successful:
+    print(f"Sample {index}: {attribute_dict}")
+
+for index in result.failed_indices:
+    detail = result.failures[index]
+    print(f"Sample {index} failed ({detail.error_type}): {detail.error_message}")
+
+retry_samples = [
+    samples[i] for i in result.failed_indices if result.failures[i].is_retryable
+]
+```
+
+This returns a `SynthPartialResult` pairing each successfully synthesized attribute dict with its original sample index. Inference failures carry through the engine's `FailureDetail` (status code, `error_type`, `is_retryable`); responses that complete but cannot be processed are reported with `error_type="parse_error"` and are retryable. It is built on {py:meth}`~oumi.core.inference.BaseInferenceEngine.infer_partial`, so per-row progress can be reported to an external poller via the `progress_path` argument (see {doc}`/user_guides/infer/inference_engines`).
 
 ## Token Usage Tracking
 

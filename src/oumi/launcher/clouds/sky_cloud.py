@@ -94,6 +94,8 @@ class SkyCloud(BaseCloud):
             return self._get_clusters_by_class(sky.clouds.Kubernetes)
         elif self._cloud_name == SkyClient.SupportedClouds.NEBIUS.value:
             return self._get_clusters_by_class(sky.clouds.Nebius)
+        elif self._cloud_name == SkyClient.SupportedClouds.SLURM.value:
+            return self._get_clusters_by_class(sky.clouds.Slurm)
         raise ValueError(f"Unsupported cloud: {self._cloud_name}")
 
 
@@ -137,3 +139,9 @@ def k8s_cloud_builder() -> SkyCloud:
 def nebius_cloud_builder() -> SkyCloud:
     """Builds a SkyCloud instance for Nebius."""
     return SkyCloud(SkyClient.SupportedClouds.NEBIUS.value)
+
+
+@register_cloud_builder("sky-slurm")
+def sky_slurm_cloud_builder() -> SkyCloud:
+    """Builds a SkyCloud instance for SkyPilot-managed Slurm."""
+    return SkyCloud(SkyClient.SupportedClouds.SLURM.value)

@@ -16,15 +16,16 @@ import asyncio
 import copy
 import json
 import os
+import random
 import tempfile
 import urllib.parse
 import warnings
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
-from typing import Any
+from typing import Any, TypeVar
 
 import aiofiles
 import aiofiles.os
@@ -45,7 +46,10 @@ from oumi.core.configs.params.remote_params import AdaptiveConcurrencyParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.inference.base_inference_engine import (
     BatchResult,
+    FailureDetail,
+    InferenceErrorType,
 )
+from oumi.core.inference.progress_reporter import ProgressFileReporter
 from oumi.core.types.conversation import (
     Conversation,
     FinishReason,
@@ -62,13 +66,20 @@ from oumi.utils.http import (
     APIStatusError,
     get_failure_reason_from_response,
     is_non_retriable_status_code,
+    parse_retry_after,
 )
 from oumi.utils.logging import logger
 
 _AUTHORIZATION_KEY: str = "Authorization"
+_RETRY_AFTER_HEADER: str = "Retry-After"
 _BATCH_PURPOSE = "batch"
 _BATCH_ENDPOINT = "/v1/chat/completions"
 _MAX_CONNECTION_LIMIT = 200
+_RETRY_BACKOFF_MULTIPLIER: float = 10.0
+_RETRY_JITTER_FRACTION: float = 0.25
+_MAX_RETRY_JITTER_FRACTION: float = 1.0
+
+_QueryResultT = TypeVar("_QueryResultT")
 
 
 class BatchStatus(Enum):
@@ -208,6 +219,48 @@ class FileListResponse:
 
     files: list[FileInfo]
     has_more: bool = False
+
+
+def _failure_detail_from_exception(e: Exception) -> FailureDetail:
+    """Maps an exception raised by _query_api to a FailureDetail.
+
+    Retryability reflects whether a fresh submission could plausibly succeed;
+    the engine's internal retries (RemoteParams.max_retries) have already been
+    exhausted by the time an exception reaches this mapper.
+    """
+    if isinstance(e, APIStatusError):
+        return FailureDetail(
+            error_message=str(e),
+            status_code=e.status_code,
+            is_retryable=not is_non_retriable_status_code(e.status_code, str(e)),
+            error_type=InferenceErrorType.API_STATUS,
+        )
+    if isinstance(e, (aiohttp.ClientError, asyncio.TimeoutError)):
+        # Defensive: _query_api wraps these in RuntimeError after retries.
+        return FailureDetail(
+            error_message=str(e),
+            is_retryable=True,
+            error_type=InferenceErrorType.CONNECTION,
+        )
+    if isinstance(e, ValueError):
+        # Deterministic config/input error (bad credentials/schema); retry is futile.
+        return FailureDetail(
+            error_message=str(e),
+            is_retryable=False,
+            error_type=InferenceErrorType.CONFIG,
+        )
+    if isinstance(e, RuntimeError):
+        # Retries-exhausted parse/conversion/connection/unexpected errors.
+        return FailureDetail(
+            error_message=str(e),
+            is_retryable=True,
+            error_type=InferenceErrorType.RUNTIME,
+        )
+    return FailureDetail(
+        error_message=str(e),
+        is_retryable=False,
+        error_type=InferenceErrorType.UNKNOWN,
+    )
 
 
 class RemoteInferenceEngine(BaseInferenceEngine):
@@ -681,33 +734,60 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                     "Please set the environment variable "
                     f"`{remote_params.api_key_env_varname}`."
                 )
-        if self._rate_limiter is not None:
-            await self._rate_limiter.wait_if_needed()
-
         semaphore_or_controller = (
             self._adaptive_concurrency_controller
             if self._remote_params.use_adaptive_concurrency
             else semaphore
         )
-        async with semaphore_or_controller:
-            api_input = self._convert_conversation_to_api_input(
-                conversation, generation_params, model_params
-            )
-            headers = self._get_request_headers(remote_params)
-            failure_reason = None
-            last_status_code = None
+        api_input = self._convert_conversation_to_api_input(
+            conversation, generation_params, model_params
+        )
+        headers = self._get_request_headers(remote_params)
+        failure_reason = None
+        last_status_code = None
+        next_retry_after: float | None = None
 
-            # Retry the request if it fails
-            for attempt in range(remote_params.max_retries + 1):
-                try:
-                    # Calculate exponential backoff delay
-                    if attempt > 0:
+        # Retry the request if it fails
+        for attempt in range(remote_params.max_retries + 1):
+            try:
+                # Honor a server Retry-After in full if present, else exponential
+                # backoff. Jitter widens with num_workers so a large batch hitting
+                # one rate window spreads its retries instead of waking together.
+                if attempt > 0:
+                    if next_retry_after is not None:
+                        delay = next_retry_after
+                        from_header = True
+                        next_retry_after = None
+                    else:
                         delay = min(
-                            remote_params.retry_backoff_base * (2 ** (attempt - 1)),
+                            remote_params.retry_backoff_base
+                            * (_RETRY_BACKOFF_MULTIPLIER ** (attempt - 1)),
                             remote_params.retry_backoff_max,
                         )
-                        await asyncio.sleep(delay)
+                        from_header = False
+                    jitter_fraction = min(
+                        _RETRY_JITTER_FRACTION * remote_params.num_workers,
+                        _MAX_RETRY_JITTER_FRACTION,
+                    )
+                    delay *= random.uniform(1.0, 1.0 + jitter_fraction)
+                    logger.warning(
+                        "Retrying request to %s after %.1fs (%s); "
+                        "attempt %d/%d. Reason: %s",
+                        remote_params.api_url,
+                        delay,
+                        "Retry-After" if from_header else "backoff",
+                        attempt + 1,
+                        remote_params.max_retries + 1,
+                        failure_reason,
+                    )
+                    await asyncio.sleep(delay)
 
+                # Re-pace every attempt through the rate limiter so a burst of
+                # retries waking together still respects the RPM/TPM window.
+                if self._rate_limiter is not None:
+                    await self._rate_limiter.wait_if_needed()
+
+                async with semaphore_or_controller:
                     async with session.post(
                         remote_params.api_url,
                         json=api_input,
@@ -715,13 +795,14 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                         timeout=remote_params.connection_timeout,
                     ) as response:
                         if response.status != 200:
-                            await self._try_record_error()
                             last_status_code = response.status
                             failure_reason = await get_failure_reason_from_response(
                                 response
                             )
 
-                            # Check for non-retriable status codes to fail fast.
+                            # Non-retriable statuses are terminal request errors,
+                            # not load signals: fail fast without recording them
+                            # against adaptive concurrency.
                             if is_non_retriable_status_code(
                                 response.status, failure_reason
                             ):
@@ -730,6 +811,13 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                                     status_code=response.status,
                                     api_input=api_input,
                                 )
+
+                            # Retriable: capture any Retry-After, record, retry.
+                            next_retry_after = parse_retry_after(
+                                response.headers.get(_RETRY_AFTER_HEADER),
+                                datetime.now(timezone.utc),
+                            )
+                            await self._try_record_error()
                             continue
 
                         # Try to parse the response as JSON
@@ -783,40 +871,67 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                                 raise RuntimeError(failure_reason) from e
                             continue
 
-                except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-                    # Connection or timeout errors are retriable.
-                    failure_reason = f"Connection error: {str(e)}"
-                    await self._try_record_error()
-                    if attempt >= remote_params.max_retries:
-                        raise RuntimeError(
-                            f"Failed to query API after {attempt + 1} attempts due to "
-                            f"connection error: {str(e)}"
-                        ) from e
-                    continue
-                except RuntimeError:
-                    # RuntimeError is raised by our code, so we don't need to retry.
-                    raise
-                except Exception as e:
-                    # If we get here, we've hit an unexpected error.
-                    failure_reason = f"Unexpected error: {str(e)}"
-                    await self._try_record_error()
-                    if attempt >= remote_params.max_retries:
-                        raise RuntimeError(
-                            f"Failed to query API after {attempt + 1} attempts due to "
-                            f"unexpected error: {str(e)}"
-                        ) from e
-                    continue
-            # This should only be reached if all retries failed
-            message = f"Failed to query API after {attempt + 1} attempts. " + (
-                f"Reason: {failure_reason}" if failure_reason else ""
+            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                # Connection or timeout errors are retriable.
+                failure_reason = f"Connection error: {str(e)}"
+                await self._try_record_error()
+                if attempt >= remote_params.max_retries:
+                    raise RuntimeError(
+                        f"Failed to query API after {attempt + 1} attempts due to "
+                        f"connection error: {str(e)}"
+                    ) from e
+                continue
+            except RuntimeError:
+                # RuntimeError is raised by our code, so we don't need to retry.
+                raise
+            except Exception as e:
+                # If we get here, we've hit an unexpected error.
+                failure_reason = f"Unexpected error: {str(e)}"
+                await self._try_record_error()
+                if attempt >= remote_params.max_retries:
+                    raise RuntimeError(
+                        f"Failed to query API after {attempt + 1} attempts due to "
+                        f"unexpected error: {str(e)}"
+                    ) from e
+                continue
+        # This should only be reached if all retries failed
+        message = f"Failed to query API after {attempt + 1} attempts. " + (
+            f"Reason: {failure_reason}" if failure_reason else ""
+        )
+        if last_status_code is not None:
+            raise APIStatusError(
+                message,
+                status_code=last_status_code,
+                api_input=api_input,
             )
-            if last_status_code is not None:
-                raise APIStatusError(
-                    message,
-                    status_code=last_status_code,
-                    api_input=api_input,
-                )
-            raise RuntimeError(message)
+        raise RuntimeError(message)
+
+    async def _gather_query_tasks(
+        self,
+        input: list[Conversation],
+        make_task: Callable[
+            [Conversation, PoliteAdaptiveSemaphore, aiohttp.ClientSession],
+            Awaitable[_QueryResultT],
+        ],
+    ) -> list[_QueryResultT]:
+        """Gathers one task per conversation under a shared session/semaphore.
+
+        ``make_task`` builds the coroutine for each conversation, letting callers
+        pick the raising (``_query_api``) or guarded (``_query_api_guarded``) path.
+        """
+        # Limit number of HTTP connections to prevent file descriptor exhaustion.
+        connector = aiohttp.TCPConnector(limit=self._get_connection_limit())
+        # Control the number of concurrent tasks via a semaphore.
+        semaphore = PoliteAdaptiveSemaphore(
+            capacity=self._remote_params.num_workers,
+            politeness_policy=self._remote_params.politeness_policy,
+        )
+        async with aiohttp.ClientSession(connector=connector) as session:
+            tasks = [
+                make_task(conversation, semaphore, session) for conversation in input
+            ]
+            disable_tqdm = len(tasks) < 2
+            return await tqdm.gather(*tasks, disable=disable_tqdm)
 
     async def _infer(
         self,
@@ -833,27 +948,15 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             List[Conversation]: Inference output.
         """
-        # Limit number of HTTP connections to prevent file descriptor exhaustion.
-        connector = aiohttp.TCPConnector(limit=self._get_connection_limit())
-        # Control the number of concurrent tasks via a semaphore.
-        semaphore = PoliteAdaptiveSemaphore(
-            capacity=self._remote_params.num_workers,
-            politeness_policy=self._remote_params.politeness_policy,
+        return await self._gather_query_tasks(
+            input,
+            lambda conversation, semaphore, session: self._query_api(
+                conversation,
+                semaphore,
+                session,
+                inference_config=inference_config,
+            ),
         )
-        async with aiohttp.ClientSession(connector=connector) as session:
-            tasks = [
-                self._query_api(
-                    conversation,
-                    semaphore,
-                    session,
-                    inference_config=inference_config,
-                )
-                for conversation in input
-            ]
-
-            disable_tqdm = len(tasks) < 2
-            results = await tqdm.gather(*tasks, disable=disable_tqdm)
-            return results
 
     @override
     def _infer_online(
@@ -872,6 +975,81 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         """
         conversations = safe_asyncio_run(self._infer(input, inference_config))
         return conversations
+
+    @override
+    def _infer_online_partial(
+        self,
+        input: list[Conversation],
+        inference_config: InferenceConfig | None = None,
+        progress: ProgressFileReporter | None = None,
+    ) -> list[Conversation | FailureDetail]:
+        """Runs online inference, capturing failures per conversation.
+
+        Unlike the base implementation, each conversation fails independently:
+        one row exhausting its retries does not affect the others.
+        """
+        if not input:
+            return []
+        return safe_asyncio_run(self._infer_partial(input, inference_config, progress))
+
+    async def _query_api_guarded(
+        self,
+        conversation: Conversation,
+        semaphore: PoliteAdaptiveSemaphore,
+        session: aiohttp.ClientSession,
+        inference_config: InferenceConfig | None = None,
+        progress: ProgressFileReporter | None = None,
+    ) -> Conversation | FailureDetail:
+        """Queries the API, converting per-row exceptions to FailureDetails.
+
+        CancelledError and other BaseExceptions propagate so cancellation
+        still works.
+        """
+        try:
+            result = await self._query_api(
+                conversation,
+                semaphore,
+                session,
+                inference_config=inference_config,
+            )
+        except Exception as e:
+            if progress:
+                progress.record_failed()
+            return _failure_detail_from_exception(e)
+        if progress:
+            progress.record_completed()
+        return result
+
+    async def _infer_partial(
+        self,
+        input: list[Conversation],
+        inference_config: InferenceConfig | None = None,
+        progress: ProgressFileReporter | None = None,
+    ) -> list[Conversation | FailureDetail]:
+        """Runs model inference on the provided input, tolerating failures.
+
+        Like _infer(), but wraps each per-conversation task in a guard so one
+        failed row cannot fail the whole call.
+
+        Args:
+            input: A list of conversations to run inference on.
+            inference_config: Parameters for inference.
+            progress: Optional progress reporter, ticked as rows complete.
+
+        Returns:
+            list[Conversation | FailureDetail]: Per-row outcomes, aligned
+                with input.
+        """
+        return await self._gather_query_tasks(
+            input,
+            lambda conversation, semaphore, session: self._query_api_guarded(
+                conversation,
+                semaphore,
+                session,
+                inference_config=inference_config,
+                progress=progress,
+            ),
+        )
 
     @override
     def get_supported_params(self) -> set[str]:

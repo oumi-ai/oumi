@@ -16,11 +16,12 @@
 
 from __future__ import annotations
 
-import dataclasses
 import json
 import random
 from dataclasses import dataclass, field
 from typing import Any
+
+from pydantic import JsonValue
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.environment_params import EnvironmentParams
@@ -29,15 +30,19 @@ from oumi.core.configs.params.tool_params import ToolLookupError, ToolParams
 from oumi.core.registry import register_environment
 from oumi.core.types.tool_call import ToolResult
 from oumi.environments.base_environment import BaseEnvironment
+from oumi.environments.utils import parse_env_kwargs
 from oumi.utils.logging import logger
 
 
 @dataclass
 class ToolLookupEntry(BaseParams):
-    """One (input, output) pair in a deterministic env's lookup table."""
+    """One (input, output) pair in a deterministic env's lookup table.
+
+    ``output`` may be any JSON value (scalar, list, object, or null).
+    """
 
     input: dict[str, Any] = field(default_factory=dict)
-    output: dict[str, Any] = field(default_factory=dict)
+    output: JsonValue = None
 
     def input_key(self) -> str:
         """Canonical JSON form of ``input`` for matching and dedup."""
@@ -89,6 +94,7 @@ class DeterministicEnvironment(BaseEnvironment):
         self._kwargs = kwargs
         self._tool_ids = {tool.id for tool in params.tools}
         self._validate_lookup_table()
+        self._warn_grounding_key_collisions()
 
     def step(self, calls: list[tuple[str, dict[str, Any]]]) -> list[ToolResult]:
         """Resolve a batch of deterministic tool calls to their outputs."""
@@ -122,9 +128,9 @@ class DeterministicEnvironment(BaseEnvironment):
 
         Walks every tool that has a per-tool entry in
         ``params.grounding.tools``. Each entry in that tool's lookup table
-        is projected via ``{**input, **output}`` filtered through the
-        configured ``fields`` whitelist. Tools without a grounding entry
-        contribute nothing.
+        is projected to its ``input`` fields (merged with ``output`` when
+        the output is a dict), filtered through the configured ``fields``
+        whitelist. Tools without a grounding entry contribute nothing.
         """
         grounding = self._params.grounding
         if grounding is None or not grounding.tools:
@@ -138,7 +144,12 @@ class DeterministicEnvironment(BaseEnvironment):
                 continue
             whitelist = set(tool_grounding.fields)
             for entry in self._kwargs.lookup_table.get(tool.id, []):
-                row = {**entry.input, **entry.output}
+                # Non-dict outputs (scalars/lists) have no named fields to
+                # project, so they ground on their input fields only; dict
+                # outputs merge both.
+                row = dict(entry.input)
+                if isinstance(entry.output, dict):
+                    row.update(entry.output)
                 projected = {
                     key: value for key, value in row.items() if key in whitelist
                 }
@@ -148,16 +159,11 @@ class DeterministicEnvironment(BaseEnvironment):
     @classmethod
     def from_params(cls, params: EnvironmentParams) -> DeterministicEnvironment:
         """Build a DeterministicEnvironment from its params object."""
-        raw_kwargs = params.env_kwargs or {}
-        known = {f.name for f in dataclasses.fields(DeterministicEnvironmentKwargs)}
-        unknown = set(raw_kwargs) - known
-        if unknown:
-            raise ValueError(
-                f"DeterministicEnvironment got unknown env_kwargs: "
-                f"{sorted(unknown)}. Known: {sorted(known)}"
-            )
-        kwargs = DeterministicEnvironmentKwargs(**raw_kwargs)
-        kwargs.finalize_and_validate()
+        kwargs = parse_env_kwargs(
+            DeterministicEnvironmentKwargs,
+            params,
+            env_label="DeterministicEnvironment",
+        )
         return cls(params, kwargs)
 
     def _validate_lookup_table(self) -> None:
@@ -191,3 +197,28 @@ class DeterministicEnvironment(BaseEnvironment):
                         f"Tool '{tool.id}' has duplicate input entry: {entry.input}"
                     )
                 seen.add(key)
+
+    def _warn_grounding_key_collisions(self) -> None:
+        """Warn once when a dict output shadows a whitelisted input field.
+
+        Only whitelisted fields matter — a collision on any other key is
+        dropped by the projection and never reaches a grounding fact.
+        """
+        grounding = self._params.grounding
+        if grounding is None or not grounding.tools:
+            return
+        for tool_id, tool_grounding in grounding.tools.items():
+            whitelist = set(tool_grounding.fields)
+            shadowed: set[str] = set()
+            for entry in self._kwargs.lookup_table.get(tool_id, []):
+                if isinstance(entry.output, dict):
+                    shadowed |= entry.input.keys() & entry.output.keys() & whitelist
+            if shadowed:
+                logger.warning(
+                    "Environment '%s': tool '%s' grounding field(s) %s appear "
+                    "in both input and output; the output value shadows the "
+                    "input in grounding facts.",
+                    self._params.id,
+                    tool_id,
+                    sorted(shadowed),
+                )

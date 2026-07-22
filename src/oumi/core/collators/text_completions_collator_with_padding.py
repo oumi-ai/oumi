@@ -14,6 +14,8 @@
 
 from typing import Any
 
+import torch
+
 from oumi.core.collators.trl_data_collator_for_completion_only_lm import (
     DataCollatorForCompletionOnlyLM,
 )
@@ -33,6 +35,7 @@ class TextCompletionsCollatorWithPadding:
         debug: bool = False,
         end_of_turn_template: str | None = None,
         ignore_index: int = -100,
+        pad_to_multiple_of: int | None = None,
     ):
         """Custom collator for text LLM training.
 
@@ -47,6 +50,14 @@ class TextCompletionsCollatorWithPadding:
             Required for ``all_assistant_turns``.
         ignore_index: Value used for masked labels. Must match the ignore_index
             of the loss function (default: -100).
+        pad_to_multiple_of: If set, pad each batch up to a multiple of this
+            value instead of exactly the longest sequence in the batch. Some
+            compiled attention kernels (e.g. ``flex_attention``, block size
+            128) cannot compile sequences shorter than one block; padding to
+            the block size keeps short samples trainable. The extra positions
+            carry ``labels=ignore_index`` and, under causal attention, are
+            never attended by real tokens, so training is numerically
+            unchanged.
         """
         self._default_collator = DataCollatorForCompletionOnlyLM(
             tokenizer=tokenizer,
@@ -59,12 +70,62 @@ class TextCompletionsCollatorWithPadding:
 
         if not hasattr(tokenizer, "pad_token_id") or tokenizer.pad_token_id is None:
             raise RuntimeError("Tokenizer doesn't define `pad_token_id`.")
+        elif not isinstance(tokenizer.pad_token_id, int):
+            raise RuntimeError(
+                "Tokenizer's `pad_token_id` is not an integer. "
+                f"{tokenizer.pad_token_id}. Type: {type(tokenizer.pad_token_id)}"
+            )
 
+        self._pad_to_multiple_of = pad_to_multiple_of
+        self._pad_token_id = tokenizer.pad_token_id
+        self._ignore_index = ignore_index
+        self._padding_side = str(getattr(tokenizer, "padding_side", "right"))
         self._debug = debug
         self._has_logged_example = False
 
     def _collate(self, inputs: list[Any]) -> dict[str, Any]:
         result = self._default_collator(inputs)
+        if self._pad_to_multiple_of:
+            result = self._pad_batch_to_multiple(result)
+        return result
+
+    def _pad_batch_to_multiple(self, result: dict[str, Any]) -> dict[str, Any]:
+        multiple = self._pad_to_multiple_of
+        assert multiple is not None
+        seq_len = result[_INPUT_IDS_KEY].shape[1]
+        target = ((seq_len + multiple - 1) // multiple) * multiple
+        extra = target - seq_len
+        if extra == 0:
+            return result
+
+        def _extend(tensor: torch.Tensor, value: int) -> torch.Tensor:
+            tail = tensor.new_full((tensor.shape[0], extra), value)
+            return torch.cat([tensor, tail], dim=1)
+
+        result[_INPUT_IDS_KEY] = _extend(result[_INPUT_IDS_KEY], self._pad_token_id)
+        if "labels" in result:
+            result["labels"] = _extend(result["labels"], self._ignore_index)
+        if "attention_mask" not in result:
+            return result
+
+        # Any attention_mask — all-ones, or the [1..|0..|1..] of a mixed-length
+        # batch — forces transformers to build per-batch mask closures that
+        # break torch.compile caching and knock flex_attention off its fast
+        # path. With right padding we can drop it entirely for sequential
+        # position_ids: real tokens form a prefix, so they never attend padding
+        # and their positions equal ``arange`` (identical numerics), padding
+        # labels are ignore_index (no loss/grad), and TRL accepts position_ids
+        # in lieu of a mask. Left padding needs the mask, so keep it there.
+        if self._padding_side == "right":
+            del result["attention_mask"]
+            batch_size = result[_INPUT_IDS_KEY].shape[0]
+            result["position_ids"] = (
+                torch.arange(target, dtype=torch.long)
+                .unsqueeze(0)
+                .repeat(batch_size, 1)
+            )
+        else:
+            result["attention_mask"] = _extend(result["attention_mask"], 1)
         return result
 
     def __call__(self, batch: list[dict[str, Any]]) -> dict[str, Any]:

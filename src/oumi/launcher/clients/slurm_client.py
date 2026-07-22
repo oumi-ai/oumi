@@ -22,14 +22,23 @@ import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from pathlib import Path
 
-from oumi.core.launcher import JobState, JobStatus
+from oumi.core.launcher import ClusterUnreachableError, JobState, JobStatus
 from oumi.utils.logging import logger
 
 _CTRL_PATH = "-S ~/.ssh/control-%h-%p-%r"
 
 _LOG_DIR = "$HOME/oumi_slurm_logs/{job_id}.out"
+
+# ssh exits 255 when the transport itself fails (host down, connection refused,
+# auth rejected) — as distinct from a command that ran and returned non-zero.
+_SSH_TRANSPORT_FAILURE_EXIT_CODE = 255
+
+# Synthetic exit code for a command that hit its timeout: an unresponsive
+# controller is treated as unreachable, same as a transport failure.
+_COMMAND_TIMEOUT_EXIT_CODE = 124
 
 
 class _SlurmAuthException(Exception):
@@ -108,6 +117,59 @@ def _is_job_done(job_state: JobState) -> bool:
     )
 
 
+def _parse_slurm_epoch(value: str | None) -> float | None:
+    """Parses a Slurm epoch-seconds time string, or None for sentinel values."""
+    if not value or value in ("Unknown", "N/A", "(null)"):
+        return None
+    try:
+        return float(value)
+    except ValueError:
+        return None
+
+
+def _parse_squeue_line(line: str, cluster_name: str) -> JobStatus | None:
+    """Parses one row of ``squeue --noheader --format='%i %j %u %T %V %R'``."""
+    parts = line.strip().split(None, 5)
+    if len(parts) < 5:
+        return None
+    job_id, name, _user, raw_state, submit = parts[:5]
+    state = _get_job_state(raw_state)
+    return JobStatus(
+        id=job_id,
+        name=name,
+        status=raw_state,
+        cluster=cluster_name,
+        metadata=line,
+        done=_is_job_done(state),
+        state=state,
+        submit_time=_parse_slurm_epoch(submit),
+    )
+
+
+def _parse_scontrol_show_job(output: str, cluster_name: str) -> JobStatus | None:
+    """Parses ``scontrol show job <id>`` output into a JobStatus."""
+    fields: dict[str, str] = {}
+    for line in output.split("\n"):
+        for kv in line.strip().split(" "):
+            if "=" in kv:
+                key, value = kv.split("=", 1)
+                fields.setdefault(key, value)
+    if "JobId" not in fields or "JobState" not in fields:
+        return None
+    raw_state = fields["JobState"]
+    state = _get_job_state(raw_state)
+    return JobStatus(
+        id=fields["JobId"],
+        name=fields.get("JobName", ""),
+        status=raw_state,
+        cluster=cluster_name,
+        metadata=output,
+        done=_is_job_done(state),
+        state=state,
+        submit_time=_parse_slurm_epoch(fields.get("SubmitTime")),
+    )
+
+
 def _split_status_line(
     line: str, column_lengths: list[int], cluster_name: str, metadata: str
 ) -> JobStatus:
@@ -170,6 +232,17 @@ class SlurmResponse:
     stdout: str
     stderr: str
     exit_code: int
+
+
+def _raise_if_unreachable(response: SlurmResponse, cluster_name: str) -> None:
+    """Raise ClusterUnreachableError if the SSH transport failed or timed out."""
+    if response.exit_code in (
+        _SSH_TRANSPORT_FAILURE_EXIT_CODE,
+        _COMMAND_TIMEOUT_EXIT_CODE,
+    ):
+        raise ClusterUnreachableError(
+            f"Could not reach the Slurm controller for cluster '{cluster_name}'."
+        )
 
 
 def retry_auth(user_function: Callable) -> Callable:
@@ -354,16 +427,51 @@ class SlurmLogStream(io.TextIOBase):
         """Start background thread to check job status."""
 
         def check_job_status():
-            while True:
-                try:
-                    job = self._client.get_job(self.job_id)
+            try:
+                while True:
+                    try:
+                        job = self._client.get_job(self.job_id)
+                    except Exception as e:
+                        # A transient ``get_job`` failure shouldn't strand
+                        # the tail subprocess waiting on a static file.
+                        logger.warning(
+                            f"Job-status check for {self.job_id} failed: {e}; "
+                            "terminating log tail."
+                        )
+                        return
                     if job is None or job.done:
-                        proc.terminate()
-                        proc.wait()
-                        break
+                        return
                     time.sleep(2)
+            finally:
+                # Always terminate the tail on thread exit so a long-blocking
+                # ``tail -F`` against a no-longer-growing log file doesn't
+                # outlive the stream consumer. The subprocess was started with
+                # ``shell=True`` + ``start_new_session=True``, so ``proc.pid``
+                # is the ``/bin/sh`` wrapper's pid and ``proc.terminate()``
+                # alone wouldn't reach the ``ssh`` child if the shell didn't
+                # ``exec`` into it. Signal the whole process group instead —
+                # same pattern as ``close()`` above.
+                try:
+                    os.killpg(proc.pid, signal.SIGTERM)
+                except ProcessLookupError:
+                    pass  # process already gone — race with self.close()
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to terminate log tail (pgid={proc.pid}): {e}"
+                    )
+                try:
+                    proc.wait(timeout=5)
                 except Exception:
-                    break
+                    # If SIGTERM didn't take, escalate. SIGKILL is unhandleable
+                    # so the process group is guaranteed to be reaped after.
+                    try:
+                        os.killpg(proc.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to SIGKILL log tail (pgid={proc.pid}): {e}"
+                        )
 
         self._job_check_thread = threading.Thread(target=check_job_status, daemon=True)
         self._job_check_thread.start()
@@ -406,8 +514,8 @@ class SlurmClient:
         if child.returncode != 0:
             output = child.stderr.decode("utf-8")
             logger.error(f"Credential error: {output}")
-            raise RuntimeError(
-                "Failed to refresh Slurm credentials "
+            raise ClusterUnreachableError(
+                "Failed to establish an SSH connection to the Slurm controller "
                 f"for {self._user}@{self._slurm_host}."
             )
         return SlurmResponse(
@@ -499,7 +607,7 @@ class SlurmClient:
             return SlurmResponse(
                 stdout="",
                 stderr=f"Timeout while running command: {new_cmd}",
-                exit_code=1,
+                exit_code=_COMMAND_TIMEOUT_EXIT_CODE,
             )
         except Exception:
             duration_str = _compute_duration_debug_str(start_time)
@@ -612,9 +720,6 @@ class SlurmClient:
         response_format = "JobId%-30,JobName%30,User%30,State%30,Reason%30"
         # Get current date and subtract one month.
         # Otherwise completed jobs older than ~24 hours may not be listed.
-
-        from datetime import datetime, timedelta
-
         current_date = datetime.now()
         one_month_ago = current_date - timedelta(days=30)
         start_date = one_month_ago.strftime("%Y-%m-%d")
@@ -625,6 +730,7 @@ class SlurmClient:
         )
         result = self.run_commands([command])
         if result.exit_code != 0:
+            _raise_if_unreachable(result, self._cluster_name)
             raise RuntimeError(f"Failed to list jobs. stderr: {result.stderr}")
         # Parse STDOUT to retrieve job statuses.
         lines = result.stdout.strip().split("\n")
@@ -656,8 +762,42 @@ class SlurmClient:
             jobs.append(status)
         return jobs
 
+    def _list_active_jobs_squeue(self) -> list[JobStatus]:
+        """Lists active jobs via ``squeue``."""
+        # SLURM_TIME_FORMAT=%s renders %V (submit time) as a tz-safe Unix epoch.
+        command = (
+            "SLURM_TIME_FORMAT=%s "
+            f"squeue --user={self._user} --noheader --format='%i %j %u %T %V %R'"
+        )
+        result = self.run_commands([command])
+        if result.exit_code != 0:
+            _raise_if_unreachable(result, self._cluster_name)
+            raise RuntimeError(
+                f"Failed to list jobs via squeue. stderr: {result.stderr}"
+            )
+        jobs: list[JobStatus] = []
+        for line in result.stdout.splitlines():
+            if not line.strip():
+                continue
+            status = _parse_squeue_line(line, self._cluster_name)
+            if status is not None:
+                jobs.append(status)
+        return jobs
+
+    def _scontrol_get_job(self, job_id: str) -> JobStatus | None:
+        """Looks up a single job via ``scontrol show job <id>``."""
+        command = f"SLURM_TIME_FORMAT=%s scontrol show job {job_id}"
+        result = self.run_commands([command])
+        if result.exit_code != 0:
+            return None
+        return _parse_scontrol_show_job(result.stdout, self._cluster_name)
+
     def get_job(self, job_id: str) -> JobStatus | None:
         """Gets the specified job's status.
+
+        Queries ``squeue`` for active jobs, then falls back to
+        ``scontrol show job`` for jobs that have left the queue but
+        are still retained by ``slurmctld`` (per ``MinJobAge``).
 
         Args:
             job_id: The ID of the job to get.
@@ -665,11 +805,10 @@ class SlurmClient:
         Returns:
             The job status if found, None otherwise.
         """
-        job_list = self.list_jobs()
-        for job in job_list:
+        for job in self._list_active_jobs_squeue():
             if job.id == job_id:
                 return job
-        return None
+        return self._scontrol_get_job(job_id)
 
     def get_latest_job(self) -> JobStatus | None:
         """Gets the most recent job on this cluster."""

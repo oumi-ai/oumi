@@ -48,6 +48,8 @@ def _get_sky_cloud_from_job(job: JobConfig) -> "sky.clouds.Cloud":
         return sky.clouds.Kubernetes()
     elif job.resources.cloud == SkyClient.SupportedClouds.NEBIUS.value:
         return sky.clouds.Nebius()
+    elif job.resources.cloud == SkyClient.SupportedClouds.SLURM.value:
+        return sky.clouds.Slurm()
     raise ValueError(f"Unsupported cloud: {job.resources.cloud}")
 
 
@@ -173,6 +175,7 @@ class SkyClient:
         LAMBDA = "lambda"
         K8S = "k8s"
         NEBIUS = "nebius"
+        SLURM = "sky-slurm"
 
     def __init__(self):
         """Initializes a new instance of the SkyClient class."""

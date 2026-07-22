@@ -59,10 +59,9 @@ class HardwareConfig:
 
 @dataclass
 class DeploymentShape:
-    """Provider-validated ``(base_model, accelerator_type, accelerator_count)``.
+    """A provider-validated hardware option for a base model.
 
-    ``base_model`` is the provider's resource path; ``accelerator_type`` is
-    the provider's native string.
+    ``base_model`` and ``accelerator_type`` are the provider's native strings.
     """
 
     base_model: str

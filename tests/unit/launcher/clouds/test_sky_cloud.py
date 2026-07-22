@@ -779,3 +779,7 @@ def test_k8s_cloud_builder_registered():
 
 def test_nebius_cloud_builder_registered():
     assert REGISTRY.contains("nebius", RegistryType.CLOUD)
+
+
+def test_sky_slurm_cloud_builder_registered():
+    assert REGISTRY.contains("sky-slurm", RegistryType.CLOUD)

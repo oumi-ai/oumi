@@ -62,13 +62,12 @@ def build_trainer(
         cls: type[transformers.Trainer],
     ) -> Callable[..., BaseTrainer]:
         def _init_hf_trainer(*args, **kwargs) -> BaseTrainer:
-            training_args = kwargs.pop("args", None)
+            training_args = cast(TrainingParams | None, kwargs.pop("args", None))
             training_config = kwargs.pop("training_config", None)
             callbacks = kwargs.pop("callbacks", [])
-            if training_args is not None:
-                # if set, convert to HuggingFace Trainer args format
-                training_args = cast(TrainingParams, training_args)
-                training_args.finalize_and_validate()
+            if training_args is None:
+                raise ValueError("Building a trainer requires `args` (TrainingParams).")
+            training_args.finalize_and_validate()
 
             hf_args = training_args.to_hf(training_config)
             if verbose and is_world_process_zero():

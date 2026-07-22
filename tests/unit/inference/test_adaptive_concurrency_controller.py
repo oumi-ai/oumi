@@ -375,6 +375,53 @@ async def test_warmup_on_low_error_rate(mock_time):
 
 
 @pytest.mark.asyncio
+async def test_recovers_from_backoff_with_low_residual_errors(mock_time):
+    """A low, non-zero error rate within the recovery band exits backoff."""
+    config = create_config(
+        min_concurrency=1,
+        max_concurrency=50,
+        concurrency_step=5,
+        error_threshold=0.5,
+        recovery_threshold=0.1,
+        min_window_size=10,
+        min_update_time=0.1,
+    )
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
+    await controller._update_concurrency(40)
+
+    # Drive a high error rate to force backoff.
+    for _ in range(10):
+        await controller.record_error()
+    mock_time.time.return_value = 1.0
+    controller._last_adjustment_time = 0
+    await controller._try_adjust_concurrency()
+    assert controller._in_backoff
+
+    # Residual error rate of 1/20 = 5% sits within the recovery band (<= 10%).
+    required = controller._consecutive_good_windows_required_for_recovery
+    elapsed = 1.0
+    for _ in range(required):
+        for _ in range(19):
+            await controller.record_success()
+        await controller.record_error()
+        elapsed += 1.0
+        mock_time.time.return_value = elapsed
+        controller._last_adjustment_time = elapsed - 1.0
+        await controller._try_adjust_concurrency()
+
+    assert not controller._in_backoff
+
+
+def test_default_recovery_threshold_allows_recovery():
+    """The default recovery threshold is positive and below ``error_threshold``."""
+    params = AdaptiveConcurrencyParams()
+    assert params.recovery_threshold > 0.0
+    assert params.recovery_threshold < params.error_threshold
+
+
+@pytest.mark.asyncio
 async def test_warmup_max_concurrency_limit(mock_time):
     """Test that warmup doesn't exceed max concurrency."""
     config = create_config(
