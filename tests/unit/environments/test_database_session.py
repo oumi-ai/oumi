@@ -108,3 +108,26 @@ def test_transaction_control_is_denied():
     conn = sqlite3.connect(path)
     assert conn.execute("SELECT v FROM t WHERE id = 1").fetchone()[0] == "a"
     conn.close()
+
+
+def test_model_rollback_cannot_escape_to_autocommit():
+    # Regression for the "allow ROLLBACK" escape: if the authorizer let the
+    # model issue ROLLBACK, the outer transaction would end and (with
+    # isolation_level=None) the connection would drop into SQLite autocommit,
+    # where subsequent DML commits straight to the shared file -- SQLite fires
+    # no SQLITE_TRANSACTION for the implicit auto-BEGIN/COMMIT wrapping a bare
+    # statement, so the authorizer can't catch it. ROLLBACK must stay denied so
+    # the outer transaction never ends and nothing model-issued persists.
+    path = materialize_sqlite_snapshot(schema_sql=_SCHEMA, seed_sql=_SEED)
+    session = DatabaseSession(path)
+    try:
+        with pytest.raises(sqlite3.DatabaseError):
+            session.connection.execute("ROLLBACK")
+        # Even after the (denied) ROLLBACK attempt, this write stays inside the
+        # never-committed outer transaction rather than auto-committing.
+        session.connection.execute("UPDATE t SET v = 'evil' WHERE id = 1")
+    finally:
+        session.close()
+    conn = sqlite3.connect(path)
+    assert conn.execute("SELECT v FROM t WHERE id = 1").fetchone()[0] == "a"
+    conn.close()

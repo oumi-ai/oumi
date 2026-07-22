@@ -25,11 +25,10 @@ keys at validation time would silently lose information that
 downstream code relies on.
 """
 
-from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Literal
 
-import pydantic
+from pydantic import BaseModel, ConfigDict, JsonValue
 
 # The seven primitive types defined by JSON Schema.
 JSONSchemaType = Literal[
@@ -37,7 +36,7 @@ JSONSchemaType = Literal[
 ]
 
 
-class JSONSchema(pydantic.BaseModel):
+class JSONSchema(BaseModel):
     """A JSON Schema object describing the shape of a value.
 
     Models the subset of JSON Schema commonly used in LLM tool
@@ -47,7 +46,7 @@ class JSONSchema(pydantic.BaseModel):
     module — see the module docstring for why round-tripping matters.
     """
 
-    model_config = pydantic.ConfigDict(frozen=True, extra="allow")
+    model_config = ConfigDict(frozen=True, extra="allow")
 
     type: JSONSchemaType | list[JSONSchemaType] | None = None
     """JSON type(s) of this value. A list expresses a union
@@ -90,10 +89,10 @@ class ToolType(str, Enum):
         return self.value
 
 
-class FunctionDefinition(pydantic.BaseModel):
+class FunctionDefinition(BaseModel):
     """Definition of a function that can be called by the model."""
 
-    model_config = pydantic.ConfigDict(frozen=True, extra="allow")
+    model_config = ConfigDict(frozen=True, extra="allow")
 
     name: str
     """The name of the function to be called.
@@ -125,10 +124,10 @@ class FunctionDefinition(pydantic.BaseModel):
     """
 
 
-class ToolDefinition(pydantic.BaseModel):
+class ToolDefinition(BaseModel):
     """Definition of a tool available to the model."""
 
-    model_config = pydantic.ConfigDict(frozen=True, extra="allow")
+    model_config = ConfigDict(frozen=True, extra="allow")
 
     type: ToolType = ToolType.FUNCTION
     """The type of the tool. Currently only ``function`` is supported.
@@ -141,10 +140,10 @@ class ToolDefinition(pydantic.BaseModel):
     """The function definition."""
 
 
-class FunctionCall(pydantic.BaseModel):
+class FunctionCall(BaseModel):
     """A function call made by the model."""
 
-    model_config = pydantic.ConfigDict(frozen=True, extra="allow")
+    model_config = ConfigDict(frozen=True, extra="allow")
 
     name: str
     """The name of the function being called."""
@@ -158,10 +157,10 @@ class FunctionCall(pydantic.BaseModel):
     """
 
 
-class ToolCall(pydantic.BaseModel):
+class ToolCall(BaseModel):
     """A tool call emitted by the model."""
 
-    model_config = pydantic.ConfigDict(frozen=True, extra="allow")
+    model_config = ConfigDict(frozen=True, extra="allow")
 
     id: str
     """The ID of the tool call.
@@ -177,15 +176,14 @@ class ToolCall(pydantic.BaseModel):
     """The function the model called."""
 
 
-@dataclass
-class ToolResult:
+class ToolResult(BaseModel):
     """Result returned by an environment ``step()``.
 
     Runtime value (not an OpenAI wire-format type) — projected by the
     synthesizer into ``Message(role=TOOL, content=...)`` before output.
-    ``output`` may be a string or a JSON-serializable dict; the
-    synthesizer json-encodes dicts at the message boundary.
+    ``output`` may be any JSON value — a string is used as-is, everything
+    else is json-encoded at the message boundary.
     """
 
-    output: str | dict[str, Any]
+    output: JsonValue
     updated_state: dict[str, Any] | None = None

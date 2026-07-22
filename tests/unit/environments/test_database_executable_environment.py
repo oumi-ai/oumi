@@ -322,7 +322,7 @@ def test_model_sql_cannot_break_framework_savepoints():
     )
     try:
         [attack] = env.step([("raw", {"sql": "RELEASE SAVEPOINT oumi_tool_call"})])
-        assert "error" in attack.output  # graceful, not a crash
+        assert isinstance(attack.output, dict) and "error" in attack.output
         [seen] = env.step([("lookup", {"pat_id": 1})])
         assert seen.output == {"name": "Bob", "meds": "aspirin"}
     finally:

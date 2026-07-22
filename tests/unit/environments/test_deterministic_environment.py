@@ -198,6 +198,20 @@ def test_step_unknown_tool_raises():
         env.step([("missing", {"id": "01"})])
 
 
+@pytest.mark.parametrize(
+    "output",
+    [191.23, 42, ["a", "b"], "text", True, None],
+)
+def test_step_returns_non_dict_output(output):
+    """Scalars, lists, and None round-trip through step() unchanged."""
+    env = DeterministicEnvironment.from_params(
+        _make_params(
+            lookup_table={"tool1": [ToolLookupEntry(input={"id": "01"}, output=output)]}
+        )
+    )
+    assert env.step([("tool1", {"id": "01"})]) == [ToolResult(output=output)]
+
+
 # --- sample_grounding ---
 
 
@@ -333,6 +347,81 @@ def test_sample_grounding_merges_input_and_output():
     )
     facts = env.sample_grounding(n=1, rng=random.Random(0))
     assert facts[0].data == {"id": "1", "note": "output-note", "title": "Dune"}
+
+
+def test_grounding_key_collision_warns(caplog):
+    """Warn when a whitelisted grounding field is in both input and output."""
+    with caplog.at_level(logging.WARNING, logger="oumi"):
+        DeterministicEnvironment.from_params(
+            _make_params(
+                tools=[_make_tool("lookup")],
+                lookup_table={
+                    "lookup": [
+                        ToolLookupEntry(
+                            input={"id": "1", "note": "in"},
+                            output={"note": "out", "title": "Dune"},
+                        ),
+                    ]
+                },
+                grounding=GroundingConfig(
+                    sample_size=1,
+                    tools={
+                        "lookup": ToolGroundingConfig(fields=["id", "note", "title"]),
+                    },
+                ),
+            )
+        )
+    assert any(
+        "shadows the input" in rec.getMessage() and "note" in rec.getMessage()
+        for rec in caplog.records
+    )
+
+
+def test_grounding_key_collision_outside_whitelist_no_warn(caplog):
+    """A collision on a non-whitelisted key never reaches a fact, so no warning."""
+    with caplog.at_level(logging.WARNING, logger="oumi"):
+        DeterministicEnvironment.from_params(
+            _make_params(
+                tools=[_make_tool("lookup")],
+                lookup_table={
+                    "lookup": [
+                        ToolLookupEntry(
+                            input={"id": "1", "note": "in"},
+                            output={"note": "out"},
+                        ),
+                    ]
+                },
+                grounding=GroundingConfig(
+                    sample_size=1,
+                    tools={"lookup": ToolGroundingConfig(fields=["id"])},
+                ),
+            )
+        )
+    assert not any("shadows the input" in rec.getMessage() for rec in caplog.records)
+
+
+def test_sample_grounding_scalar_output_projects_input_only():
+    """Non-dict outputs have no fields to project; ground on input alone."""
+    env = DeterministicEnvironment.from_params(
+        _make_params(
+            tools=[_make_tool("price")],
+            lookup_table={
+                "price": [
+                    ToolLookupEntry(input={"id": "AAPL"}, output=191.23),
+                    ToolLookupEntry(input={"id": "GOOG"}, output=2801.5),
+                ]
+            },
+            grounding=GroundingConfig(
+                sample_size=10,
+                tools={"price": ToolGroundingConfig(fields=["id"])},
+            ),
+        )
+    )
+    facts = env.sample_grounding(n=10, rng=random.Random(0))
+    assert len(facts) == 2
+    assert sorted(f.data["id"] for f in facts) == ["AAPL", "GOOG"]
+    for fact in facts:
+        assert set(fact.data.keys()) == {"id"}
 
 
 def test_sample_grounding_seeded_is_reproducible():

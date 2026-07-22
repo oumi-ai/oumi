@@ -27,7 +27,7 @@ from omegaconf import DictConfig, OmegaConf
 
 from oumi.core.types.conversation import Conversation
 from oumi.utils.grpo_utils import (
-    extract_prompt_images_completion_from_single_turn_conversation,
+    extract_prompt_images_completion_from_conversation,
 )
 
 try:
@@ -186,7 +186,7 @@ class VerlGrpoTrainer(BaseTrainer):
                 raise ValueError(
                     "Invalid conversation_json in training or validation dataset."
                 ) from e
-            return VerlGrpoTrainer._create_verl_data_entry_from_single_turn_conversation
+            return VerlGrpoTrainer._create_verl_data_entry_from_conversation
         return None
 
     @staticmethod
@@ -206,46 +206,55 @@ class VerlGrpoTrainer(BaseTrainer):
         return dataset_names[0]
 
     @staticmethod
-    def _extract_question_images_answer_from_single_turn_conversation(
+    def _extract_prompt_images_answer_from_conversation(
         example: dict,
-    ) -> tuple[str, list, str]:
-        """Finds question, answer, and optional images in a single-turn conversation.
+    ) -> tuple[list[dict], list, str]:
+        """Finds prompt, answer, and optional images in a conversation.
+
+        Supports both single-turn and multi-turn conversations. The prompt is
+        returned in verl's chat format (a list of ``{"role", "content"}`` dicts)
+        and the answer is the final assistant message's text (the ground truth).
 
         Args:
             example: A dictionary containing the conversation JSON.
 
         Returns:
-            A tuple containing the question, images, and answer.
+            A tuple containing the prompt messages, images, and answer.
             The list of images is empty for text-only conversations.
+
+        Raises:
+            ValueError: If the conversation contains images but is multi-turn.
+                Images are only supported for single-turn conversations.
         """
-        prompt, images, answer = (
-            extract_prompt_images_completion_from_single_turn_conversation(example)
+        prompt_messages, images, answer = (
+            extract_prompt_images_completion_from_conversation(example)
         )
 
         if len(images) > 0:
+            user_messages = [m for m in prompt_messages if m["role"] == "user"]
+            if len(user_messages) != 1:
+                raise ValueError(
+                    "Images are only supported for single-turn conversations, "
+                    f"but the prompt has {len(user_messages)} user messages "
+                    "(multi-turn). Please use a text-only multi-turn conversation."
+                )
             # TODO: Generalize. This only works for QwenVL 2.5, which is the only
             # VLM supported by verl as of 2025-05-15.
-            if not prompt.startswith("<image>"):
-                prompt = "<image>" + prompt
-        return (prompt, images, answer)
+            content = user_messages[0]["content"]
+            if not content.startswith("<image>"):
+                user_messages[0]["content"] = "<image>" + content
+        return (prompt_messages, images, answer)
 
     @staticmethod
-    def _create_verl_data_entry_from_single_turn_conversation(
+    def _create_verl_data_entry_from_conversation(
         example: dict, idx: int, data_source: str, split: str
     ) -> dict:
-        prompt, images, answer = (
-            VerlGrpoTrainer._extract_question_images_answer_from_single_turn_conversation(
-                example
-            )
+        prompt_messages, images, answer = (
+            VerlGrpoTrainer._extract_prompt_images_answer_from_conversation(example)
         )
         data = {
             "data_source": data_source,
-            "prompt": [
-                {
-                    "role": "user",
-                    "content": prompt,
-                }
-            ],
+            "prompt": prompt_messages,
             "images": images,
             "ability": "math",
             "reward_model": {"style": "rule", "ground_truth": answer},
@@ -253,7 +262,6 @@ class VerlGrpoTrainer(BaseTrainer):
                 "split": split,
                 "index": idx,
                 "answer": answer,
-                "question": prompt,  # TODO: extract problem
             },
         }
         return data
