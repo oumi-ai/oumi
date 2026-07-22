@@ -44,6 +44,14 @@ class BaseEnvironment(ABC):
         """
         return False
 
+    def is_replayable(self) -> bool:
+        """Whether a failed batch may be retried as individual calls.
+
+        Environments with externally visible side effects should return
+        ``False`` so a successful prefix is never executed a second time.
+        """
+        return True
+
     def close(self) -> None:
         """Release resources owned by this env. Default no-op.
 

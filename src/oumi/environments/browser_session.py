@@ -12,21 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Per-rollout Kernel browser session — the browser-env isolation primitive.
-
-A session is either created on demand (``browsers.create``, deleted on close) or
-acquired from a warm **browser pool** (``browser_pools.acquire``, released back on
-close). Each session is a single-tenant Kernel cloud browser (a microVM); one
-rollout owns one. ``page()`` yields a live Playwright page connected over CDP for
-the duration of one tool call — executors receive that page as their ``context``.
-
-Pool mode (set ``pool``) is the throughput path for RL/synthesis: acquisition is
-served from pre-warmed browsers, and on release the browser goes *back* to the
-pool for reuse. Because pooled browsers are reused, ``_reset`` returns the browser
-to a clean slate on acquire (close stray tabs, land on ``start_url``); if that
-reset fails the browser is released with ``reuse=False`` so the pool refills a
-fresh one.
-"""
+"""Lifecycle management for a per-rollout Kernel browser session."""
 
 from __future__ import annotations
 
@@ -53,102 +39,106 @@ class KernelBrowserSession:
         acquire_timeout_seconds: int = 60,
         start_url: str | None = None,
     ) -> None:
-        """Open a session by creating one or acquiring from a pool.
+        """Create a browser session or acquire one from a pool.
 
         Args:
-            create_kwargs: Forwarded to ``browsers.create`` in create mode (e.g.
-                ``start_url``, ``headless``, ``stealth``, ``profile``,
-                ``proxy_id``, ``viewport``, ``timeout_seconds``). Ignored in pool
-                mode. The API key is read from ``KERNEL_API_KEY`` by the SDK.
-            pool: Name of a warm browser pool to acquire from. When set, the
-                session acquires/releases instead of creating/deleting.
+            create_kwargs: Arguments forwarded to ``browsers.create``.
+            pool: Name of a browser pool to acquire from.
             acquire_timeout_seconds: Pool-mode acquire timeout.
-            start_url: Pool-mode landing URL used by the post-acquire reset.
+            start_url: Landing URL used when resetting a pooled browser.
         """
+        if pool is not None and create_kwargs is not None:
+            raise ValueError("create_kwargs cannot be used with a browser pool")
+
         require_kernel("BrowserExecutableEnvironment")
         from kernel import Kernel  # pyright: ignore[reportMissingImports]
 
         self._kernel: Kernel = Kernel()
         self._pool = pool
-        self._reuse = True
+        self._browser_closed = False
         self._closed = False
-        if pool is not None:
-            self._browser = self._kernel.browser_pools.acquire(
-                pool, acquire_timeout_seconds=acquire_timeout_seconds
-            )
-            try:
-                self._reset(start_url)
-            except BaseException:
-                # Don't leak the just-acquired browser if reset is interrupted.
-                self._kernel.browser_pools.release(
-                    pool, session_id=self._browser.session_id, reuse=False
+        try:
+            if pool is not None:
+                self._browser = self._kernel.browser_pools.acquire(
+                    pool, acquire_timeout_seconds=acquire_timeout_seconds
                 )
-                raise
-        else:
-            self._browser = self._kernel.browsers.create(**(create_kwargs or {}))
+                try:
+                    self._reset(start_url)
+                except BaseException:
+                    self._kernel.browser_pools.release(
+                        pool, session_id=self._browser.session_id, reuse=False
+                    )
+                    raise
+            else:
+                self._browser = self._kernel.browsers.create(**(create_kwargs or {}))
+        except BaseException:
+            self._kernel.close()
+            raise
 
     @property
     def session_id(self) -> str:
-        """Kernel session id, also used for teardown."""
+        """Return the Kernel session ID."""
         return self._browser.session_id
 
     @property
     def cdp_ws_url(self) -> str:
-        """CDP websocket URL; ``page()`` attaches a Playwright driver here."""
+        """Return the CDP websocket URL."""
         return self._browser.cdp_ws_url
 
     @property
     def live_view_url(self) -> str | None:
-        """Human Live View URL for watching/taking over the session (headful only)."""
+        """Return the live-view URL, if available."""
         return self._browser.browser_live_view_url
 
     def _reset(self, start_url: str | None) -> None:
-        """Return a reused pooled browser to a clean slate.
-
-        Closes stray tabs left by a prior rollout and lands the main page on
-        ``start_url`` (or ``about:blank``). On failure the browser is marked for
-        release with ``reuse=False`` so the pool refills a fresh one.
-        """
+        """Reset a pooled browser before use."""
         target = start_url or "about:blank"
         code = (
+            "await context.clearCookies();\n"
+            "await context.clearPermissions();\n"
             "const pages = context.pages();\n"
+            "const page = pages.length > 0 ? pages[0] : await context.newPage();\n"
+            "for (const existingPage of pages) {\n"
+            "  await existingPage.evaluate(async () => {\n"
+            "    try { localStorage.clear(); } catch {}\n"
+            "    try { sessionStorage.clear(); } catch {}\n"
+            "    try {\n"
+            "      const databases = await indexedDB.databases();\n"
+            "      await Promise.all(databases.map(({ name }) => "
+            "new Promise((resolve) => {\n"
+            "        if (!name) { resolve(); return; }\n"
+            "        const request = indexedDB.deleteDatabase(name);\n"
+            "        request.onsuccess = request.onerror = "
+            "request.onblocked = resolve;\n"
+            "      })));\n"
+            "    } catch {}\n"
+            "    try {\n"
+            "      const cacheNames = await caches.keys();\n"
+            "      await Promise.all(cacheNames.map((name) => caches.delete(name)));\n"
+            "    } catch {}\n"
+            "    try {\n"
+            "      const registrations = await "
+            "navigator.serviceWorker.getRegistrations();\n"
+            "      await Promise.all(registrations.map((registration) => "
+            "registration.unregister()));\n"
+            "    } catch {}\n"
+            "  });\n"
+            "}\n"
             "for (let i = 1; i < pages.length; i++) { await pages[i].close(); }\n"
-            "if (pages.length > 0) {\n"
-            f"  await pages[0].goto({json.dumps(target)}, {{ waitUntil: 'load' }});\n"
-            "}"
+            f"await page.goto({json.dumps(target)}, {{ waitUntil: 'load' }});"
         )
-        try:
-            response = self._kernel.browsers.playwright.execute(
-                id=self.session_id, code=code, timeout_sec=15
-            )
-        except Exception:
-            logger.warning(
-                "Kernel browser: reset on pool acquire raised for session %s; "
-                "releasing without reuse.",
-                self.session_id,
-            )
-            self._reuse = False
-            return
-        # Kernel reports in-sandbox JS failures (goto timeout, tab-close throw) as
-        # success=False on a 200 rather than raising, so check it — else a dirty
-        # browser is released reuse=True and contaminates the next rollout.
+        response = self._kernel.browsers.playwright.execute(
+            id=self.session_id, code=code, timeout_sec=15
+        )
         if not response.success:
-            logger.warning(
-                "Kernel browser: reset on pool acquire reported failure (%s) for "
-                "session %s; releasing without reuse.",
-                response.error,
-                self.session_id,
+            raise RuntimeError(
+                "Kernel browser reset failed for session "
+                f"{self.session_id}: {response.error}"
             )
-            self._reuse = False
 
     @contextmanager
     def page(self) -> Iterator[Any]:
-        """Yield a live Playwright page, connected over CDP for the call.
-
-        Uses the browser's existing default context/page. Closing only
-        disconnects the CDP client — the remote session and its page state
-        persist for the next tool call.
-        """
+        """Yield a Playwright page connected to the browser over CDP."""
         require_playwright("Playwright browser executors")
         from playwright.sync_api import (  # pyright: ignore[reportMissingImports]
             sync_playwright,
@@ -161,28 +151,25 @@ class KernelBrowserSession:
                 page = context.pages[0] if context.pages else context.new_page()
                 yield page
             finally:
-                # Swallow teardown errors so a CDP close failure neither masks an
-                # executor exception nor fails an otherwise-successful call.
                 try:
                     cdp.close()
                 except Exception:
                     logger.warning(
-                        "Kernel browser: CDP client close failed during teardown."
+                        "Kernel browser: CDP client close failed during teardown.",
+                        exc_info=True,
                     )
 
     def close(self) -> None:
-        """Release the session back to its pool, or delete it. Idempotent.
-
-        ``_closed`` is set only after a successful teardown, so a transient Kernel
-        API failure raises (loud) and leaves the session retryable rather than
-        leaking the remote microVM behind the guard.
-        """
+        """Release a pooled session or delete a one-off session."""
         if self._closed:
             return
-        if self._pool is not None:
-            self._kernel.browser_pools.release(
-                self._pool, session_id=self.session_id, reuse=self._reuse
-            )
-        else:
-            self._kernel.browsers.delete_by_id(self.session_id)
+        if not self._browser_closed:
+            if self._pool is not None:
+                self._kernel.browser_pools.release(
+                    self._pool, session_id=self.session_id, reuse=True
+                )
+            else:
+                self._kernel.browsers.delete_by_id(self.session_id)
+            self._browser_closed = True
+        self._kernel.close()
         self._closed = True

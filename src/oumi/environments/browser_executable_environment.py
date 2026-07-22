@@ -19,7 +19,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, fields
-from typing import Any
+from typing import TYPE_CHECKING, Any, TypedDict
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.environment_params import EnvironmentParams
@@ -29,21 +29,28 @@ from oumi.environments.executable_environment import ExecutableEnvironment
 from oumi.environments.executable_tool import ExecutableTool
 from oumi.environments.utils import parse_env_kwargs
 
-#: ``env_kwargs`` fields that select/parameterize the browser pool. Every other
-#: dataclass field is a ``browsers.create`` kwarg forwarded in create mode, so a
-#: new create field added to the kwargs class needs no change here.
+if TYPE_CHECKING:
+    from playwright.sync_api import Page  # pyright: ignore[reportMissingImports]
+
 _POOL_FIELDS = ("pool", "acquire_timeout_seconds")
+_CREATE_ONLY_FIELDS = (
+    "headless",
+    "stealth",
+    "profile",
+    "proxy_id",
+    "viewport",
+    "timeout_seconds",
+)
+
+
+class BrowserViewport(TypedDict):
+    width: int
+    height: int
 
 
 @dataclass
 class BrowserExecutableEnvironmentKwargs(BaseParams):
-    """Type-specific ``env_kwargs`` for :class:`BrowserExecutableEnvironment`.
-
-    Set ``pool`` to acquire from a warm Kernel browser pool (created out of band,
-    e.g. ``kernel browser-pool create --name rl-browser --size 50``) and release
-    back to it; leave it ``None`` to create a one-off session per rollout. The
-    Kernel API key is read from ``KERNEL_API_KEY`` — never from config.
-    """
+    """Type-specific ``env_kwargs`` for :class:`BrowserExecutableEnvironment`."""
 
     pool: str | None = None
     acquire_timeout_seconds: int = 60
@@ -52,19 +59,33 @@ class BrowserExecutableEnvironmentKwargs(BaseParams):
     stealth: bool | None = None
     profile: dict[str, Any] | None = None
     proxy_id: str | None = None
-    viewport: dict[str, int] | None = None
+    viewport: BrowserViewport | None = None
     timeout_seconds: int | None = None
+
+    def __finalize_and_validate__(self) -> None:
+        """Validate the viewport shape and pool/create-field compatibility."""
+        if self.viewport is not None and (
+            set(self.viewport) != {"width", "height"}
+            or any(type(value) is not int for value in self.viewport.values())
+        ):
+            raise ValueError(
+                "viewport must contain exactly integer width and height values."
+            )
+        if self.pool is None:
+            return
+        incompatible = [
+            field for field in _CREATE_ONLY_FIELDS if getattr(self, field) is not None
+        ]
+        if incompatible:
+            raise ValueError(
+                "Browser pool mode does not support create-only env_kwargs: "
+                f"{incompatible}"
+            )
 
 
 @register_environment("browser")
 class BrowserExecutableEnvironment(ExecutableEnvironment):
-    """Runs browser-action tools against a per-rollout Kernel cloud browser.
-
-    Each rollout gets its own browser — acquired from a warm pool (``pool`` set)
-    or created on demand — so :meth:`requires_isolation` is ``True``. For each
-    tool call the env opens a live Playwright page on the session; executors
-    receive it as ``context`` and return a ``ToolResult``.
-    """
+    """Runs browser-action tools against an isolated Kernel browser."""
 
     def __init__(
         self, params: EnvironmentParams, session: KernelBrowserSession
@@ -75,12 +96,7 @@ class BrowserExecutableEnvironment(ExecutableEnvironment):
 
     @classmethod
     def from_params(cls, params: EnvironmentParams) -> BrowserExecutableEnvironment:
-        """Open a Kernel browser session from ``env_kwargs`` and bind the env.
-
-        Acquires from ``pool`` when set, otherwise creates a session from the
-        recognized create fields. A failure wiring the env (e.g. a bad executor
-        path) closes the freshly-opened session so it can't leak.
-        """
+        """Open a Kernel browser session from ``env_kwargs``."""
         kwargs = parse_env_kwargs(
             BrowserExecutableEnvironmentKwargs,
             params,
@@ -107,17 +123,21 @@ class BrowserExecutableEnvironment(ExecutableEnvironment):
             raise
 
     def requires_isolation(self) -> bool:
-        """Each rollout needs its own browser; never share across samples."""
+        """Return whether each rollout needs its own browser."""
         return True
+
+    def is_replayable(self) -> bool:
+        """Return whether browser actions may be retried after a batch failure."""
+        return False
 
     @contextmanager
     def _build_execution_context(
         self, tool: ExecutableTool, arguments: dict[str, Any]
-    ) -> Iterator[Any]:
-        """Yield the live Playwright page passed to the executor as ``context``."""
+    ) -> Iterator[Page]:
+        """Yield the Playwright page used as the executor context."""
         with self._session.page() as page:
             yield page
 
     def close(self) -> None:
-        """Tear down the rollout's Kernel browser session."""
+        """Close the browser session."""
         self._session.close()

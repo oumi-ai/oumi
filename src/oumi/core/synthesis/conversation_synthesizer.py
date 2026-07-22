@@ -239,14 +239,23 @@ class ConversationSynthesizer:
 
         for group in groups.values():
             calls = [(tc.function.name, args) for _, tc, args in group]
+            env = router.tool_to_env[group[0][1].function.name]
+            if env.is_replayable() is False:
+                for idx, tc, args in group:
+                    try:
+                        [single] = router.route_batch([(tc.function.name, args)])
+                    except Exception as exc:
+                        results[idx] = self._tool_error(
+                            tc, f"Tool '{tc.function.name}' raised: {exc}"
+                        )
+                        continue
+                    results[idx] = self._tool_message(tc, single)
+                continue
             try:
                 outputs = router.route_batch(calls)
             except Exception:
-                # On batch failure, re-route each call individually so per-call
-                # errors stay attributed. SyntheticEnvironment's in-batch cache
-                # shields earlier successes from re-inference, but calls past
-                # the failing index re-infer. Acceptable for attribution today;
-                # Phase 2's corrective-retry should replace this fallback.
+                # Replayable environments can retry calls individually so the
+                # resulting tool errors stay attributed to the right call.
                 for idx, tc, args in group:
                     try:
                         [single] = router.route_batch([(tc.function.name, args)])

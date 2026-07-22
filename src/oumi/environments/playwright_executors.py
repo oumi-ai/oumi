@@ -12,56 +12,67 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Example browser tool executors for ``BrowserExecutableEnvironment``.
-
-Reference these by dotted path from a tool's ``executor`` field (see
-``configs/examples/synthesis/browser_oumi_synth.yaml`` for the full wiring). Each
-executor takes ``(arguments, context)`` — where ``context`` is the live Playwright
-page the environment bound for this tool call — and returns a ``ToolResult``. Page
-state persists on the remote Kernel session across calls, so executors stay
-stateless. Needs ``oumi[browser]``.
-"""
+"""Browser tool executors for ``BrowserExecutableEnvironment``."""
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Literal
+
+from typing_extensions import NotRequired, TypedDict
 
 from oumi.core.types.tool_call import ToolResult
 
-#: Cap returned page text so a single observation can't blow the context window.
+if TYPE_CHECKING:
+    from playwright.sync_api import Page  # pyright: ignore[reportMissingImports]
+
 _DEFAULT_MAX_CHARS = 8000
 _DEFAULT_TIMEOUT_MS = 5000
 
 
-def navigate(arguments: dict[str, Any], context: Any) -> ToolResult:
+class NavigateArguments(TypedDict):
+    url: str
+    wait_until: NotRequired[
+        Literal["load", "domcontentloaded", "networkidle", "commit"]
+    ]
+
+
+class ClickArguments(TypedDict):
+    selector: str
+
+
+class TypeTextArguments(TypedDict):
+    selector: str
+    text: str
+
+
+class ReadTextArguments(TypedDict):
+    selector: NotRequired[str]
+    max_chars: NotRequired[int]
+
+
+def navigate(arguments: NavigateArguments, context: Page) -> ToolResult:
     """Navigate to ``arguments['url']``; returns the resolved url and page title."""
-    page = context
-    page.goto(arguments["url"], wait_until=arguments.get("wait_until", "load"))
-    return ToolResult(output={"url": page.url, "title": page.title()})
+    context.goto(arguments["url"], wait_until=arguments.get("wait_until", "load"))
+    return ToolResult(output={"url": context.url, "title": context.title()})
 
 
-def click(arguments: dict[str, Any], context: Any) -> ToolResult:
+def click(arguments: ClickArguments, context: Page) -> ToolResult:
     """Click the element matching ``arguments['selector']``."""
-    page = context
-    page.click(arguments["selector"], timeout=_DEFAULT_TIMEOUT_MS)
-    return ToolResult(output={"clicked": arguments["selector"], "url": page.url})
+    context.click(arguments["selector"], timeout=_DEFAULT_TIMEOUT_MS)
+    return ToolResult(output={"clicked": arguments["selector"], "url": context.url})
 
 
-def type_text(arguments: dict[str, Any], context: Any) -> ToolResult:
+def type_text(arguments: TypeTextArguments, context: Page) -> ToolResult:
     """Fill ``arguments['selector']`` with ``arguments['text']``."""
-    page = context
-    page.fill(arguments["selector"], arguments["text"], timeout=_DEFAULT_TIMEOUT_MS)
+    context.fill(arguments["selector"], arguments["text"], timeout=_DEFAULT_TIMEOUT_MS)
     return ToolResult(output={"typed_into": arguments["selector"]})
 
 
-def read_text(arguments: dict[str, Any], context: Any) -> ToolResult:
-    """Read inner text of a selector (defaults to ``body``), truncated.
-
-    The selector wait uses a short timeout so a missing selector fails fast and
-    the agent can retry, rather than blocking on Playwright's 30s default.
-    """
-    page = context
+def read_text(arguments: ReadTextArguments, context: Page) -> ToolResult:
+    """Read truncated inner text of a selector, defaulting to ``body``."""
     selector = arguments.get("selector", "body")
     max_chars = arguments.get("max_chars", _DEFAULT_MAX_CHARS)
-    text = page.inner_text(selector, timeout=_DEFAULT_TIMEOUT_MS)
-    return ToolResult(output={"text": text[: max(0, max_chars)], "url": page.url})
+    if max_chars < 0:
+        raise ValueError("max_chars must be non-negative")
+    text = context.inner_text(selector, timeout=_DEFAULT_TIMEOUT_MS)
+    return ToolResult(output={"text": text[:max_chars], "url": context.url})

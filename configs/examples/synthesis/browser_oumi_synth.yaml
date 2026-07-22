@@ -1,26 +1,11 @@
-# Synthesize multi-turn web-assistant conversations that browse oumi.ai.
-#
-# A user asks about a varying oumi topic (mission, team, careers, blog); the
-# assistant uses a live Kernel cloud browser (navigate / read_text / click /
-# type_text) to look it up and answer. Each sample drives its own isolated
-# Kernel browser session (BrowserExecutableEnvironment.requires_isolation()).
-#
 # Requirements:
-#   - Set KERNEL_API_KEY  (read by the Kernel SDK; never put it in this config).
-#   - Set OPENAI_API_KEY  (or swap inference_config for another native-tool engine;
-#     see NATIVE_TOOL_CALLING_ENGINES in oumi/inference/native_tool_calling.py).
-#   - pip install 'oumi[browser]'   (kernel + playwright).
-#
-# COST NOTE: the synthesizer allocates one live Kernel microVM per sample up
-# front (eager for_sample()), and does not close them — they are reaped by
-# Kernel's timeout_seconds. Keep num_samples small for a first run.
-#
+#   - Set KERNEL_API_KEY and OPENAI_API_KEY.
+#   - pip install 'oumi[browser]'
 # Usage:
 #   oumi synth -c configs/examples/synthesis/browser_oumi_synth.yaml
 
 strategy: GENERAL
-num_samples: 3  # total live sessions = 1 parent env + num_samples; lower this if
-                # you hit a Kernel concurrency 429 (org_limit_exceeded).
+num_samples: 3
 output_path: oumi_browser_dataset.jsonl
 
 environment_config:
@@ -32,14 +17,10 @@ environment_config:
       env_kwargs:
         start_url: "https://oumi.ai"
         headless: true
-        # Idle-reap timeout; generous enough to cover think-time between turns.
         timeout_seconds: 600
-        # stealth / viewport / proxy_id are also accepted. KERNEL_API_KEY is NOT
-        # a kwarg (the SDK reads it from the environment).
-        #
-        # At scale, acquire from a warm browser pool instead of creating one per
-        # rollout — create it once out of band, then set `pool` here:
-        #   kernel browser-pool create --name rl-browser --size 50
+        # Use a warm browser pool for larger runs:
+        #   kernel browser-pools create --name rl-browser --size 50
+        # Remove headless and timeout_seconds above, then uncomment:
         # pool: rl-browser
         # acquire_timeout_seconds: 60
       tools:
@@ -55,7 +36,8 @@ environment_config:
                 description: Absolute URL to load.
               wait_until:
                 type: string
-                description: Playwright load state (load, domcontentloaded, networkidle).
+                enum: [load, domcontentloaded, networkidle, commit]
+                description: Playwright load state.
             required:
               - url
         - id: read_text
