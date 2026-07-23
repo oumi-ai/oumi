@@ -29,6 +29,14 @@ from oumi.exceptions import (
 from oumi.utils.logging import logger
 from oumi.utils.torch_utils import get_torch_dtype
 
+# `oumi.core.configs.internal.supported_models` imports `ModelParams` from
+# `oumi.core.configs`, so importing it at the top of this module would create a
+# circular import. `is_custom_model` and `is_dual_mode_model_using_model_name`
+# are instead imported into this module's namespace lazily, inside
+# `__finalize_and_validate__`, the first time they are needed.
+is_custom_model: Any = None
+is_dual_mode_model_using_model_name: Any = None
+
 
 @dataclass
 class ModelParams(BaseParams):
@@ -361,3 +369,28 @@ class ModelParams(BaseParams):
             raise OumiConfigError(
                 "model_max_length must be a positive integer or None."
             )
+
+        if self.text_only:
+            global is_custom_model, is_dual_mode_model_using_model_name
+            if is_custom_model is None or is_dual_mode_model_using_model_name is None:
+                from oumi.core.configs.internal import supported_models
+
+                is_custom_model = supported_models.is_custom_model
+                is_dual_mode_model_using_model_name = (
+                    supported_models.is_dual_mode_model_using_model_name
+                )
+
+        if self.text_only and not is_custom_model(self.model_name):
+            if not is_dual_mode_model_using_model_name(
+                self.model_name,
+                trust_remote_code=self.trust_remote_code,
+                revision=self.model_revision,
+            ):
+                raise OumiConfigError(
+                    f"text_only=True is not valid for model '{self.model_name}'. "
+                    "It is only supported for dual-mode checkpoints whose text-only "
+                    "class differs from their vision-language class (e.g. Qwen3.5). "
+                    "Vision-only models (e.g. Qwen3-VL) and models whose causal class "
+                    "equals their vision-language class (e.g. Gemma 3) have no "
+                    "text-only load path. Remove text_only or use a dual-mode model."
+                )
