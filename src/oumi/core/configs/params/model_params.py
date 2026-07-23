@@ -220,6 +220,32 @@ class ModelParams(BaseParams):
     other parts fixed.
     """
 
+    text_only: bool = False
+    """Load a dual-mode checkpoint as its text-only backbone.
+
+    Some checkpoints are dual-mode: transformers exposes both a text-only class
+    (e.g. ``Qwen3_5ForCausalLM``) and a multimodal class
+    (e.g. ``Qwen3_5ForConditionalGeneration``) for the same weights. By default
+    (``text_only=False``) such models are loaded as vision-language models. Set
+    ``text_only=True`` to load only the language backbone, skipping the vision
+    tower — the processor, vision chat template, and image features are not used.
+
+    Only valid for genuinely dual-mode models (those whose ``AutoModelForCausalLM``
+    class differs from their vision-language class). Setting it on a vision-only
+    model (e.g. ``qwen3_vl``) or a pseudo-dual model whose causal class is the same
+    as its vision-language class (e.g. ``gemma3``) raises a config error. It is a
+    no-op for plain text models.
+
+    Supported execution paths (keep this list in sync as coverage changes):
+        - Training: supported.
+        - Native inference (``InferenceEngineType.NATIVE``): supported.
+        - Evaluation via LM Harness (native/hf backend): supported.
+        - SGLang inference: supported.
+        - vLLM inference and vLLM-backed evaluation: NOT supported. vLLM manages
+          model loading itself and currently exposes only the multimodal class for
+          these checkpoints, so ``text_only`` has no effect there.
+    """
+
     model_revision: str | None = None
     """The revision of the model to use.
 

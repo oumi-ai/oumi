@@ -178,3 +178,13 @@ def test_adapter_config_invalid_json(tmp_path: Path):
 
     assert "line" in str(exc_info.value)
     assert "col" in str(exc_info.value)
+
+
+def test_text_only_defaults_to_false():
+    params = ModelParams(model_name="gpt2")
+    assert params.text_only is False
+
+
+def test_text_only_can_be_set_true():
+    params = ModelParams(model_name="Qwen/Qwen3.5-2B", text_only=True)
+    assert params.text_only is True
