@@ -34,11 +34,10 @@ class ExecutableEnvironment(BaseEnvironment):
 
     Each tool declares its executor as a registry name or dotted import path;
     the base resolves them into ``_executors`` at construction. Subclasses supply
-    the per-call
-    execution context (DB connection, HTTP client, FS root, ...) by
-    implementing ``_build_execution_context``. The base owns tool lookup,
-    argument and result validation, the ``_absorb_result`` post-hook, and the
-    ``close`` lifecycle. Executors are invoked as
+    the per-call execution context (DB connection, HTTP client, FS root, ...) by
+    implementing ``_build_execution_context``. The base owns tool lookup, argument
+    and result validation, the ``_absorb_result`` post-hook, and the ``close``
+    lifecycle. Executors are invoked as
     ``executor(arguments=<dict>, context=<ctx>)`` and must return a
     ``ToolResult``. Result validation runs inside the execution context so a
     transactional context manager sees a validation failure and can roll back;
