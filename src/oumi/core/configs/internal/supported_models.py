@@ -600,6 +600,20 @@ def get_all_models_map() -> Mapping[
             model_class=default_vlm_class,
             config=_create_qwen3_vl_vlm_config(),
         ),
+        # Qwen3.5 is dual-mode: it loads as a VLM by default here, and as its
+        # text-only backbone (Qwen3_5ForCausalLM) when ModelParams.text_only=True.
+        # The processor resolves to Qwen3VLProcessor, so the Qwen3-VL config
+        # (chat template, image features, pixel limits) applies unchanged.
+        _ModelTypeInfo(
+            model_type="qwen3_5",
+            model_class=default_vlm_class,
+            config=_create_qwen3_vl_vlm_config(),
+        ),
+        _ModelTypeInfo(
+            model_type="qwen3_5_moe",
+            model_class=default_vlm_class,
+            config=_create_qwen3_vl_vlm_config(),
+        ),
         _ModelTypeInfo(
             model_type="vipllava",
             model_class=default_vlm_class,

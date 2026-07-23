@@ -6,6 +6,7 @@ from oumi.core.configs.internal.supported_models import (
     find_internal_model_config,
     find_internal_model_config_using_model_name,
     find_model_hf_config,
+    get_all_models_map,
     is_dual_mode_model_type,
 )
 from oumi.core.configs.params.model_params import ModelParams
@@ -84,3 +85,12 @@ def test_dual_mode_false_when_no_vlm_mapping():
     # plain text model: no ImageTextToText entry
     with _patch_mappings(causal_cls=type("Causal", (), {}), vlm_cls=None):
         assert is_dual_mode_model_type(_FakeConfig()) is False  # pyright: ignore[reportArgumentType]
+
+
+def test_qwen3_5_registered_as_vlm():
+    models = get_all_models_map()
+    for mt in ("qwen3_5", "qwen3_5_moe"):
+        assert mt in models, f"{mt} missing from registry"
+        assert models[mt].config.visual_config is not None, (
+            f"{mt} should carry a visual_config (VLM by default)"
+        )
