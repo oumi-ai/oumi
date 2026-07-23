@@ -32,7 +32,6 @@ from oumi.environments.utils import resolve_executor
 
 @pytest.fixture(autouse=True)
 def restore_registry():
-    """Snapshot and restore the registry so registrations don't leak."""
     snapshot = Registry()
     for reg_type in RegistryType:
         for key, value in REGISTRY.get_all(reg_type).items():
@@ -49,7 +48,7 @@ def _registered_executor(arguments, context):
     return ToolResult(output={"via": "registry", "args": arguments})
 
 
-# Module-level dotted-path target for the fallback test.
+# Must stay module-level: the fallback test resolves it by dotted path.
 def _dotted_executor(arguments, context):
     return ToolResult(output={"via": "dotted"})
 
