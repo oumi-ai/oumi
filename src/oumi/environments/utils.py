@@ -86,7 +86,15 @@ def resolve_executor(name: str, tool_id: str) -> Callable[..., Any]:
     executor = REGISTRY.get(name, RegistryType.TOOL_EXECUTOR)
     if executor is not None:
         return executor
-    return import_executor(name, tool_id)
+    try:
+        return import_executor(name, tool_id)
+    except ValueError as e:
+        registered = sorted(REGISTRY.get_all(RegistryType.TOOL_EXECUTOR))
+        raise ValueError(
+            f"Tool '{tool_id}': executor '{name}' is not a registered tool "
+            "executor and could not be imported as a dotted path. "
+            f"Registered tool executors: {registered}. Import error: {e}"
+        ) from e
 
 
 def validate_executor_result(tool: ToolParams, result: Any) -> ToolResult:

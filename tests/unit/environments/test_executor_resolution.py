@@ -70,9 +70,16 @@ def test_resolve_executor_falls_back_to_dotted_path():
     assert resolved is _dotted_executor
 
 
-def test_resolve_executor_unknown_name_raises():
-    with pytest.raises(ValueError, match="executor"):
+def test_resolve_executor_unknown_name_reports_registered_executors():
+    register_tool_executor("res.registered")(_registered_executor)
+    with pytest.raises(
+        ValueError,
+        match=(
+            "not a registered tool executor and could not be imported as a dotted path"
+        ),
+    ) as exc_info:
         resolve_executor("res.never_registered", "t")
+    assert "res.registered" in str(exc_info.value)
 
 
 class _EchoExecEnv(ExecutableEnvironment):

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Abstract base for envs backed by user-supplied dotted-path executors."""
+"""Abstract base for environments backed by user-supplied tool executors."""
 
 from __future__ import annotations
 
