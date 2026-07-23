@@ -365,9 +365,19 @@ def _get_transformers_model_class(config):
 
 
 def is_image_text_llm_using_model_name(
-    model_name: str, trust_remote_code: bool, revision: str | None = None
+    model_name: str,
+    trust_remote_code: bool,
+    revision: str | None = None,
+    *,
+    text_only: bool = False,
 ) -> bool:
-    """Determines whether the model is a basic image+text LLM."""
+    """Determines whether the model is a basic image+text LLM.
+
+    When ``text_only`` is True the model is treated as a language model regardless
+    of its registry entry (used to load a dual-mode checkpoint's text backbone).
+    """
+    if text_only:
+        return False
     model_config = find_internal_model_config_using_model_name(
         model_name, trust_remote_code=trust_remote_code, revision=revision
     )
@@ -380,6 +390,7 @@ def is_image_text_llm(model_params: ModelParams) -> bool:
         model_params.model_name,
         model_params.trust_remote_code,
         revision=model_params.model_revision,
+        text_only=model_params.text_only,
     )
 
 

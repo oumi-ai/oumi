@@ -1,4 +1,5 @@
 import json
+from unittest import mock
 from unittest.mock import Mock, patch
 
 import pytest
@@ -388,3 +389,26 @@ def test_build_oumi_model_invalid_model_type_raises(tmp_path):
 
     with pytest.raises(ValueError, match="does not contain a valid 'model_type'"):
         build_oumi_model(params)
+
+
+def test_is_image_text_llm_false_when_text_only():
+    params = ModelParams(model_name="Qwen/Qwen3.5-2B", text_only=True)
+    # Even if the registry says the model has a visual_config, text_only wins.
+    fake_config = mock.MagicMock()
+    fake_config.visual_config = object()
+    with mock.patch(
+        "oumi.builders.models.find_internal_model_config_using_model_name",
+        return_value=fake_config,
+    ):
+        assert is_image_text_llm(params) is False
+
+
+def test_is_image_text_llm_true_when_vision_default():
+    params = ModelParams(model_name="Qwen/Qwen3.5-2B")  # text_only defaults False
+    fake_config = mock.MagicMock()
+    fake_config.visual_config = object()
+    with mock.patch(
+        "oumi.builders.models.find_internal_model_config_using_model_name",
+        return_value=fake_config,
+    ):
+        assert is_image_text_llm(params) is True
