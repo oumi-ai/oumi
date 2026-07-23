@@ -1,4 +1,4 @@
 # Modules Oumi imports at startup so their @register_tool_executor decorators
 # run. Point OUMI_EXTRA_DEPS_FILE at this file (paths are relative to the
 # directory you run `oumi` from — the repo root for this example).
-configs/examples/synthesis/ehr/executors.py
+configs/examples/synthesis/ehr_stateful_agent/executors.py

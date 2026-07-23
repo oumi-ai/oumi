@@ -13,12 +13,12 @@
 #   - Set OPENAI_API_KEY in the environment, or change the inference_config.
 #
 # Usage (run from the repo root):
-#   OUMI_EXTRA_DEPS_FILE=configs/examples/synthesis/ehr/extra_deps.txt \
-#     oumi synth -c configs/examples/synthesis/ehr/ehr_stateful_synth.yaml
+#   OUMI_EXTRA_DEPS_FILE=configs/examples/synthesis/ehr_stateful_agent/extra_deps.txt \
+#     oumi synth -c configs/examples/synthesis/ehr_stateful_agent/ehr_stateful_synth.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/synth.html
-#   - Executors: configs/examples/synthesis/ehr/executors.py
+#   - Executors: configs/examples/synthesis/ehr_stateful_agent/executors.py
 
 strategy: GENERAL
 num_samples: 150
