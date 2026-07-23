@@ -7,6 +7,7 @@ from torch import nn
 
 from oumi.builders.models import (
     _get_model_type,
+    _get_transformers_model_class,
     _patch_model_for_liger_kernel,
     build_chat_template,
     build_huggingface_model,
@@ -412,3 +413,28 @@ def test_is_image_text_llm_true_when_vision_default():
         return_value=fake_config,
     ):
         assert is_image_text_llm(params) is True
+
+
+def test_model_class_forces_causal_when_text_only():
+    import transformers
+
+    fake_config = mock.MagicMock()
+    fake_config.model_type = "qwen3_5"
+    cls = _get_transformers_model_class(fake_config, text_only=True)
+    assert cls is transformers.AutoModelForCausalLM
+
+
+def test_model_class_uses_registry_when_not_text_only():
+    import transformers
+
+    fake_info = mock.MagicMock()
+    fake_info.model_class = transformers.AutoModelForImageTextToText
+    fake_info.tested = True
+    fake_config = mock.MagicMock()
+    fake_config.model_type = "qwen3_5"
+    with mock.patch(
+        "oumi.builders.models.get_all_models_map",
+        return_value={"qwen3_5": fake_info},
+    ):
+        cls = _get_transformers_model_class(fake_config, text_only=False)
+    assert cls is transformers.AutoModelForImageTextToText

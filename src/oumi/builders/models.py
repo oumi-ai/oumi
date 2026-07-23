@@ -309,7 +309,9 @@ def build_huggingface_model(
     # Both functions instantiate a model from the config, but the main difference is
     # `load_pretrained_weights` also loads the weights, and `from_config` initializes
     # the weights from scratch based on the params in the config and the model class.
-    transformers_model_class = _get_transformers_model_class(hf_config)
+    transformers_model_class = _get_transformers_model_class(
+        hf_config, text_only=model_params.text_only
+    )
     # Pass in the parsed torch dtype, else pass in the stringified version (which
     # currently can only be "auto").
     torch_dtype = model_params.torch_dtype or model_params.torch_dtype_str
@@ -347,7 +349,15 @@ def build_huggingface_model(
     return model
 
 
-def _get_transformers_model_class(config):
+def _get_transformers_model_class(config, *, text_only: bool = False):
+    if text_only:
+        # Load a dual-mode checkpoint's text backbone; skip the vision tower.
+        logger.info(
+            "text_only=True: using transformers.AutoModelForCausalLM to load the "
+            "language backbone only."
+        )
+        return transformers.AutoModelForCausalLM
+
     llm_info = get_all_models_map().get(config.model_type, None)
 
     if llm_info is not None:
