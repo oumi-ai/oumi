@@ -7,7 +7,6 @@ import pytest
 
 @pytest.fixture
 def interaction_cls(monkeypatch):
-    # Inject a minimal verl.interactions.base.BaseInteraction so the module imports.
     base_mod = types.ModuleType("verl.interactions.base")
 
     class _BaseInteraction:
@@ -28,7 +27,6 @@ def interaction_cls(monkeypatch):
 
     importlib.reload(mod)
 
-    # Stop __init__ from building a real engine / reading a real config file.
     fake_config = types.SimpleNamespace(engine=None, model=None, remote_params=None)
     monkeypatch.setattr(
         mod.InferenceConfig, "from_yaml", staticmethod(lambda p: fake_config)
@@ -41,7 +39,6 @@ def test_lifecycle_delegates_and_pops(interaction_cls, monkeypatch):
     inter = interaction_cls(
         {"name": "oumi_conversation", "user_sim_inference": "x.yaml", "max_turns": 4}
     )
-    # Force the user-sim to a fixed reply.
     monkeypatch.setattr(inter, "_infer_one", lambda conv: "hello there")
 
     async def run():

@@ -24,7 +24,6 @@ from oumi.judges.simple_judge import SimpleJudge
 
 @functools.lru_cache(maxsize=8)
 def _get_judge(judge_config_path: str) -> SimpleJudge:
-    """Build (once per config path) the judge; reused across reward calls."""
     return SimpleJudge(JudgeConfig.from_path(judge_config_path))
 
 
@@ -32,11 +31,7 @@ def _get_judge(judge_config_path: str) -> SimpleJudge:
 def conversation_llm_judge_reward(
     data_source, solution_str, ground_truth, extra_info, judge_config_path=None
 ) -> float:
-    """Score the finished conversation against the goal via an LLM judge.
-
-    Judge config supplies the prompt template (placeholders {conversation}, {goal}),
-    judgment type, and its own inference engine. Returns the judgment field's score.
-    """
+    """Scores a conversation against its goal with an LLM judge."""
     path = (
         judge_config_path
         or (extra_info or {}).get("judge_config_path")
@@ -48,9 +43,9 @@ def conversation_llm_judge_reward(
             "or the OUMI_JUDGE_CONFIG_PATH env var)."
         )
     judge = _get_judge(path)
-    result = judge.judge(
-        [{"conversation": solution_str, "goal": ground_truth or ""}]
-    )[0]
+    result = judge.judge([{"conversation": solution_str, "goal": ground_truth or ""}])[
+        0
+    ]
     scores = result.field_scores or {}
     value = scores.get("judgment")
     return float(value) if value is not None else 0.0

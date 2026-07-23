@@ -210,23 +210,7 @@ class VerlGrpoTrainer(BaseTrainer):
     def _extract_prompt_images_answer_from_conversation(
         example: dict,
     ) -> tuple[list[dict], list, str]:
-        """Finds prompt, answer, and optional images in a conversation.
-
-        Supports both single-turn and multi-turn conversations. The prompt is
-        returned in verl's chat format (a list of ``{"role", "content"}`` dicts)
-        and the answer is the final assistant message's text (the ground truth).
-
-        Args:
-            example: A dictionary containing the conversation JSON.
-
-        Returns:
-            A tuple containing the prompt messages, images, and answer.
-            The list of images is empty for text-only conversations.
-
-        Raises:
-            ValueError: If the conversation contains images but is multi-turn.
-                Images are only supported for single-turn conversations.
-        """
+        """Extracts a verl chat prompt, images, and final assistant answer."""
         prompt_messages, images, answer = (
             extract_prompt_images_completion_from_conversation(example)
         )
@@ -249,8 +233,7 @@ class VerlGrpoTrainer(BaseTrainer):
     def _create_verl_data_entry_from_conversation(
         example: dict, idx: int, data_source: str, split: str
     ) -> dict:
-        # Interaction rows carry their config in conversation.metadata, the only
-        # sibling field that survives the SFT loader (it rides in conversation_json).
+        # SFT datasets preserve conversation metadata in conversation_json.
         conversation = Conversation.from_json(example["conversation_json"])
         interaction_kwargs = conversation.metadata.get("interaction_kwargs")
         if interaction_kwargs:
@@ -282,7 +265,7 @@ class VerlGrpoTrainer(BaseTrainer):
         data_source: str,
         split: str,
     ) -> dict:
-        """Row for a persona-driven simulated-user rollout (ends on a user turn)."""
+        """Creates a verl row for a simulated-user rollout."""
         messages = conversation.messages
         if not messages or messages[-1].role != ConversationRole.USER:
             raise ValueError(

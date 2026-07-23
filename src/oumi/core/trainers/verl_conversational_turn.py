@@ -24,18 +24,17 @@ DEFAULT_DONE_SENTINEL = "[[END]]"
 
 @dataclasses.dataclass
 class RolloutState:
-    """Per-rollout user-sim state, keyed by verl's instance_id."""
+    """State for a simulated-user rollout."""
 
     persona: str
     max_turns: int
-    goal: str | None = None
     turn_idx: int = 0
 
 
 def build_user_turn_prompt(
     persona: str, history: list[Message], current_turn: int, target_turns: int
 ) -> Conversation:
-    """Assemble the user-sim prompt: persona (system) + history + turn instruction."""
+    """Builds the prompt for the next simulated-user turn."""
     messages: list[Message] = [Message(role=Role.SYSTEM, content=persona)]
     messages.extend(history)
     messages.append(
@@ -53,7 +52,7 @@ def build_user_turn_prompt(
 
 
 def messages_to_history(messages: list[dict]) -> list[Message]:
-    """Map verl's [{'role','content'}, ...] into Messages, dropping system turns."""
+    """Converts verl messages to user and assistant history."""
     return [
         Message(role=Role(m["role"]), content=(m.get("content") or ""))
         for m in messages
@@ -67,14 +66,14 @@ def next_user_turn(
     infer_fn: Callable[[Conversation], str],
     done_sentinel: str = DEFAULT_DONE_SENTINEL,
 ) -> tuple[bool, str, float]:
-    """Produce the next user turn (or end)."""
+    """Produces the next simulated-user turn."""
     state.turn_idx += 1
-    if state.turn_idx >= state.max_turns:  # hard cap → no more user turns
+    if state.turn_idx >= state.max_turns:
         return True, "", 0.0
     prompt = build_user_turn_prompt(
         state.persona, messages_to_history(messages), state.turn_idx, state.max_turns
     )
     text = infer_fn(prompt)
-    if done_sentinel in text:  # user-decided end
+    if done_sentinel in text:
         return True, text.replace(done_sentinel, "").strip(), 0.0
     return False, text.strip(), 0.0

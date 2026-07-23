@@ -63,26 +63,9 @@ def extract_prompt_images_completion_from_single_turn_conversation(
 def extract_prompt_images_completion_from_conversation(
     example: dict,
 ) -> tuple[list[dict], list, str]:
-    """Splits a (possibly multi-turn) conversation into prompt, images, completion.
+    """Splits a conversation into a verl chat prompt, images, and completion.
 
-    The final message must be an assistant message; its text becomes the
-    completion (ground truth). All preceding messages form the prompt, in
-    verl's chat format. A single-turn conversation (one user + one assistant
-    message) is just the two-message special case.
-
-    Args:
-        example: A dictionary containing the conversation JSON.
-
-    Returns:
-        A tuple ``(prompt_messages, images, completion)``: the prompt as a list of
-        chat-format message dicts, the images (empty for text-only conversations),
-        and the completion text.
-
-    Raises:
-        ValueError: If ``conversation_json`` is missing, the conversation has
-            fewer than 2 messages, the prompt starts with an assistant message,
-            the prompt or completion is empty, or the final message is not an
-            assistant message.
+    The final assistant message is the completion; preceding messages are the prompt.
     """
     if "conversation_json" not in example:
         raise ValueError(
@@ -95,12 +78,12 @@ def extract_prompt_images_completion_from_conversation(
 
     if len(messages) < 2:
         raise ValueError(
-            f"Conversation must have at least 2 messages (a prompt and a "
+            "Conversation must have at least 2 messages (a prompt and a "
             f"final assistant message), but got {len(messages)}."
         )
     if messages[-1].role != Role.ASSISTANT:
         raise ValueError(
-            f"The final message of a conversation must be an assistant message "
+            "The final message of a conversation must be an assistant message "
             f"(used as the ground truth), but got role '{messages[-1].role}'."
         )
 

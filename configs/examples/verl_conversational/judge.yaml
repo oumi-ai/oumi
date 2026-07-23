@@ -12,7 +12,7 @@ judge_params:
   include_explanation: false
 inference_config:
   model:
-    model_name: "gpt-4o"             # judge — ideally stronger than the user-sim
+    model_name: "gpt-4o"
   engine: OPENAI
   generation:
     max_new_tokens: 64

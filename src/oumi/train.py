@@ -263,8 +263,7 @@ def _verl_train(partial_trainer: Callable[[], BaseTrainer]):
                 }
             }
         }
-        # Some container images misreport CPU count (e.g. ~190), making ray.init
-        # spawn too many workers and hang at registration. OUMI_RAY_NUM_CPUS caps it.
+        # Cap Ray when the container reports the host's CPU count.
         ray_num_cpus = os.environ.get("OUMI_RAY_NUM_CPUS")
         if ray_num_cpus:
             ray_init_kwargs["num_cpus"] = int(ray_num_cpus)

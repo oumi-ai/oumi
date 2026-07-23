@@ -33,10 +33,10 @@ from oumi.core.types.conversation import Conversation
 
 
 class OumiVerlInteraction(BaseInteraction):
-    """Drives the simulated user; verl owns the loop and the policy turns."""
+    """Simulates user turns for verl rollouts."""
 
     def __init__(self, config: dict):
-        """Build the user-sim inference engine from `config["user_sim_inference"]`."""
+        """Build the user-sim inference engine from config."""
         super().__init__(config)
         self._infer_config = InferenceConfig.from_yaml(config["user_sim_inference"])
         self._engine = build_inference_engine(
@@ -49,21 +49,20 @@ class OumiVerlInteraction(BaseInteraction):
         self._state: dict[str, RolloutState] = {}
 
     async def start_interaction(
-        self, instance_id=None, *, user_persona, max_turns=None, goal=None, **kw
+        self, instance_id=None, *, user_persona, max_turns=None, **kwargs
     ) -> str:
-        """Register per-rollout user-sim state, keyed by `instance_id`."""
+        """Register per-rollout user-sim state, keyed by instance_id."""
         iid = instance_id or uuid4().hex
         self._state[iid] = RolloutState(
             persona=user_persona,
             max_turns=(max_turns if max_turns is not None else self._default_max_turns),
-            goal=goal,
         )
         return iid
 
     async def generate_response(
-        self, instance_id, messages, **kw
+        self, instance_id, messages, **kwargs
     ) -> tuple[bool, str, float, dict]:
-        """Delegate the next simulated-user turn to `next_user_turn`."""
+        """Produce the next simulated-user turn."""
         state = self._state[instance_id]
         done, text, score = await asyncio.to_thread(
             next_user_turn, state, messages, self._infer_one, self._done_sentinel
@@ -79,10 +78,10 @@ class OumiVerlInteraction(BaseInteraction):
         content = results[0].messages[-1].content
         return content if isinstance(content, str) else ""
 
-    async def calculate_score(self, instance_id, **kw) -> float:
-        """No turn-level score; trajectory reward is custom_reward_function's job."""
-        return 0.0  # shaping deferred to Phase 2
+    async def calculate_score(self, instance_id, **kwargs) -> float:
+        """Turn-level score is unused; reward is trajectory-level."""
+        return 0.0
 
-    async def finalize_interaction(self, instance_id, **kw) -> None:
+    async def finalize_interaction(self, instance_id, **kwargs) -> None:
         """Drop the rollout's user-sim state."""
         self._state.pop(instance_id, None)

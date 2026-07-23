@@ -53,7 +53,7 @@ def test_next_user_turn_sentinel_ends():
 
 
 def test_next_user_turn_hits_cap():
-    state = RolloutState(persona="p", max_turns=1)  # first call already at/over cap
+    state = RolloutState(persona="p", max_turns=1)
     done, text, score = next_user_turn(state, [], lambda c: "should not be used")
     assert (done, text) == (True, "")
 

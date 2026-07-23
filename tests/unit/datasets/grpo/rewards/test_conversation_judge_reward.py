@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tests for conversation LLM-judge reward function."""
-
 import pytest
 
 import oumi.datasets.grpo.rewards.conversation_judge_reward as rew
@@ -51,9 +49,7 @@ def test_reward_reads_judgment_score(monkeypatch):
 
 
 def test_reward_defaults_to_zero_when_no_score(monkeypatch):
-    monkeypatch.setattr(
-        rew, "_get_judge", lambda path: _StubJudge({"judgment": None})
-    )
+    monkeypatch.setattr(rew, "_get_judge", lambda path: _StubJudge({"judgment": None}))
     score = rew.conversation_llm_judge_reward(
         "src", "x", "g", {"judge_config_path": "j.yaml"}
     )

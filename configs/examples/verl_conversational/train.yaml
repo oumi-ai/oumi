@@ -1,24 +1,24 @@
 model:
-  model_name: "meta-llama/Llama-3.2-1B-Instruct"   # small cached policy for the smoke
+  model_name: "meta-llama/Llama-3.2-1B-Instruct"
 data:
   train:
     datasets:
       - dataset_name: "text_sft_jsonl"
         dataset_path: configs/examples/verl_conversational/seed_support.jsonl
         dataset_kwargs:
-          return_conversations: true       # emit conversation_json (not tokenized) so the converter runs
+          return_conversations: true
   validation:
     datasets:
       - dataset_name: "text_sft_jsonl"
         dataset_path: configs/examples/verl_conversational/seed_support.jsonl
         dataset_kwargs:
-          return_conversations: true       # emit conversation_json (not tokenized) so the converter runs
+          return_conversations: true
 training:
   trainer_type: VERL_GRPO
   reward_functions: ["conversation_llm_judge"]
-  max_steps: 3                 # tiny smoke
+  max_steps: 3
   num_train_epochs: 1
-  save_steps: -1               # don't checkpoint
+  save_steps: -1
   learning_rate: 1.0e-6
   run_name: "verl-conv-smoke"
   grpo:
@@ -28,14 +28,12 @@ training:
     vllm_gpu_memory_utilization: 0.4
   verl_config_overrides:
     data:
-      train_batch_size: 3      # = seed row count
+      train_batch_size: 3
       val_batch_size: 3
       max_prompt_length: 4096
     actor_rollout_ref:
       model:
-        # This image's flash-attn/cutlass mismatch breaks flash_attention_2 at model
-        # load; use sdpa for the FSDP actor/ref (vLLM handles rollout attention itself),
-        # and skip flash-attn varlen packing.
+        # Avoid the image's incompatible flash-attn/cutlass build.
         use_remove_padding: false
         override_config:
           attn_implementation: sdpa
@@ -45,13 +43,14 @@ training:
       ref:
         log_prob_micro_batch_size_per_gpu: 1
       rollout:
-        mode: async                       # agent loop requires async rollout
-        n: 4                              # GRPO group size
+        mode: async
+        n: 4
         tensor_model_parallel_size: 1
         log_prob_micro_batch_size_per_gpu: 1
         agent:
-          default_agent_loop: tool_agent  # ToolAgentLoop drives interactions (verl 0.7.1)
-          num_workers: 4                  # must divide (train_batch_size * n)=12; default 8 does not
+          default_agent_loop: tool_agent
+          # Must divide train_batch_size * n.
+          num_workers: 4
         multi_turn:
           enable: true
           interaction_config_path: configs/examples/verl_conversational/verl_interaction_config.yaml
@@ -63,5 +62,4 @@ training:
       val_before_train: false
     reward:
       reward_kwargs:
-        # passed as **kwargs to conversation_llm_judge_reward
         judge_config_path: configs/examples/verl_conversational/judge.yaml
