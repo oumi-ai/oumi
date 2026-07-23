@@ -65,6 +65,10 @@ from collections.abc import Mapping
 from typing import Any, NamedTuple, cast
 
 import transformers
+from transformers.models.auto.modeling_auto import (
+    MODEL_FOR_CAUSAL_LM_MAPPING,
+    MODEL_FOR_IMAGE_TEXT_TO_TEXT_MAPPING,
+)
 
 from oumi.core.configs import ModelParams
 from oumi.core.configs.internal.internal_model_config import (
@@ -702,3 +706,39 @@ def find_internal_model_config(
         model_params.trust_remote_code,
         revision=model_params.model_revision,
     )
+
+
+def is_dual_mode_model_type(
+    hf_config: transformers.PretrainedConfig,
+) -> bool:
+    """Whether a checkpoint has a genuine text-only backbone alongside its VLM class.
+
+    A model is dual-mode iff ``AutoModelForCausalLM`` resolves its config class to a
+    class *distinct* from the one ``AutoModelForImageTextToText`` resolves it to. When
+    both mappings resolve to the same class (e.g. ``gemma3`` ->
+    ``Gemma3ForConditionalGeneration``), loading via ``AutoModelForCausalLM`` still
+    builds the full VLM, so it is NOT dual-mode. When there is no causal mapping
+    (e.g. ``qwen3_vl``), there is no text-only path at all.
+
+    Args:
+        hf_config: The HuggingFace ``PretrainedConfig`` for the model.
+
+    Returns:
+        True if a distinct text-only class exists, False otherwise.
+    """
+    cfg_cls = type(hf_config)
+    causal_cls = MODEL_FOR_CAUSAL_LM_MAPPING._model_mapping.get(cfg_cls)
+    vlm_cls = MODEL_FOR_IMAGE_TEXT_TO_TEXT_MAPPING._model_mapping.get(cfg_cls)
+    return causal_cls is not None and vlm_cls is not None and causal_cls != vlm_cls
+
+
+def is_dual_mode_model_using_model_name(
+    model_name: str, trust_remote_code: bool, revision: str | None = None
+) -> bool:
+    """Whether the named model is dual-mode. See ``is_dual_mode_model_type``."""
+    if is_custom_model(model_name):
+        return False
+    hf_config = find_model_hf_config(
+        model_name, trust_remote_code=trust_remote_code, revision=revision
+    )
+    return is_dual_mode_model_type(hf_config)
