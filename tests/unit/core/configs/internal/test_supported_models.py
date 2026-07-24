@@ -8,6 +8,7 @@ from oumi.core.configs.internal.supported_models import (
     find_model_hf_config,
     get_all_models_map,
     is_dual_mode_model_type,
+    is_vision_language_model_type,
 )
 from oumi.core.configs.params.model_params import ModelParams
 
@@ -85,6 +86,18 @@ def test_dual_mode_false_when_no_vlm_mapping():
     # plain text model: no ImageTextToText entry
     with _patch_mappings(causal_cls=type("Causal", (), {}), vlm_cls=None):
         assert is_dual_mode_model_type(_FakeConfig()) is False  # pyright: ignore[reportArgumentType]
+
+
+def test_vision_language_true_when_vlm_mapping_exists():
+    # Any model with an ImageTextToText class (vision-only or dual-mode).
+    with _patch_mappings(causal_cls=None, vlm_cls=type("VLM", (), {})):
+        assert is_vision_language_model_type(_FakeConfig()) is True  # pyright: ignore[reportArgumentType]
+
+
+def test_vision_language_false_when_no_vlm_mapping():
+    # Plain text model: no ImageTextToText class.
+    with _patch_mappings(causal_cls=type("Causal", (), {}), vlm_cls=None):
+        assert is_vision_language_model_type(_FakeConfig()) is False  # pyright: ignore[reportArgumentType]
 
 
 def test_qwen3_5_registered_as_vlm():

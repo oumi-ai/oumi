@@ -191,7 +191,8 @@ def test_text_only_can_be_set_true():
     assert params.text_only is True
 
 
-def test_text_only_true_on_non_dual_mode_raises():
+def test_text_only_true_on_vision_only_model_raises():
+    # A vision-only model (has a VLM class, not dual-mode) has no text-only path.
     params = ModelParams(model_name="Qwen/Qwen3-VL-2B", text_only=True)
     with (
         mock.patch(
@@ -202,8 +203,12 @@ def test_text_only_true_on_non_dual_mode_raises():
             "oumi.core.configs.params.model_params.is_dual_mode_model_using_model_name",
             return_value=False,
         ),
+        mock.patch(
+            "oumi.core.configs.params.model_params.is_vision_language_model_using_model_name",
+            return_value=True,
+        ),
     ):
-        with pytest.raises(OumiConfigError, match="text_only"):
+        with pytest.raises(OumiConfigError, match="vision-only"):
             params.__finalize_and_validate__()
 
 
@@ -220,6 +225,28 @@ def test_text_only_true_on_dual_mode_ok():
         ),
     ):
         params.__finalize_and_validate__()  # should not raise
+
+
+def test_text_only_true_on_plain_text_model_warns_but_ok(caplog):
+    # A plain text model (no VLM class) is already text-only: the flag is a no-op,
+    # accepted with a warning rather than an error.
+    params = ModelParams(model_name="meta-llama/Llama-3.1-8B", text_only=True)
+    with (
+        mock.patch(
+            "oumi.core.configs.params.model_params.is_custom_model",
+            return_value=False,
+        ),
+        mock.patch(
+            "oumi.core.configs.params.model_params.is_dual_mode_model_using_model_name",
+            return_value=False,
+        ),
+        mock.patch(
+            "oumi.core.configs.params.model_params.is_vision_language_model_using_model_name",
+            return_value=False,
+        ),
+    ):
+        params.__finalize_and_validate__()  # should not raise
+    assert "has no effect" in caplog.text
 
 
 def test_text_only_false_skips_capability_check():

@@ -31,11 +31,11 @@ from oumi.utils.torch_utils import get_torch_dtype
 
 # `oumi.core.configs.internal.supported_models` imports `ModelParams` from
 # `oumi.core.configs`, so importing it at the top of this module would create a
-# circular import. `is_custom_model` and `is_dual_mode_model_using_model_name`
-# are instead imported into this module's namespace lazily, inside
-# `__finalize_and_validate__`, the first time they are needed.
+# circular import. These helpers are instead imported into this module's namespace
+# lazily, inside `__finalize_and_validate__`, the first time they are needed.
 is_custom_model: Any = None
 is_dual_mode_model_using_model_name: Any = None
+is_vision_language_model_using_model_name: Any = None
 
 
 @dataclass
@@ -359,25 +359,42 @@ class ModelParams(BaseParams):
 
         if self.text_only:
             global is_custom_model, is_dual_mode_model_using_model_name
-            if is_custom_model is None or is_dual_mode_model_using_model_name is None:
+            global is_vision_language_model_using_model_name
+            if is_custom_model is None:
                 from oumi.core.configs.internal import supported_models
 
                 is_custom_model = supported_models.is_custom_model
                 is_dual_mode_model_using_model_name = (
                     supported_models.is_dual_mode_model_using_model_name
                 )
+                is_vision_language_model_using_model_name = (
+                    supported_models.is_vision_language_model_using_model_name
+                )
 
-        if self.text_only and not is_custom_model(self.model_name):
-            if not is_dual_mode_model_using_model_name(
-                self.model_name,
-                trust_remote_code=self.trust_remote_code,
-                revision=self.model_revision,
+            if not is_custom_model(self.model_name) and not (
+                is_dual_mode_model_using_model_name(
+                    self.model_name,
+                    trust_remote_code=self.trust_remote_code,
+                    revision=self.model_revision,
+                )
             ):
-                raise OumiConfigError(
-                    f"text_only=True is not valid for model '{self.model_name}'. "
-                    "It is only supported for dual-mode checkpoints whose text-only "
-                    "class differs from their vision-language class (e.g. Qwen3.5). "
-                    "Vision-only models (e.g. Qwen3-VL) and models whose causal class "
-                    "equals their vision-language class (e.g. Gemma 3) have no "
-                    "text-only load path. Remove text_only or use a dual-mode model."
+                if is_vision_language_model_using_model_name(
+                    self.model_name,
+                    trust_remote_code=self.trust_remote_code,
+                    revision=self.model_revision,
+                ):
+                    # Vision-only model (e.g. Qwen3-VL): no text-only load path.
+                    raise OumiConfigError(
+                        f"text_only=True is not valid for model "
+                        f"'{self.model_name}'. It is only supported for models that "
+                        "ship both a vision-language and a text-only variant of the "
+                        "same weights (e.g. Qwen3.5). This model is vision-only and "
+                        "has no text-only variant. Remove text_only or use a model "
+                        "that provides one."
+                    )
+                # Plain text model (e.g. Llama): already text-only, so the flag has
+                # nothing to skip. Accept it but warn that it has no effect.
+                logger.warning(
+                    f"text_only=True has no effect for model '{self.model_name}': "
+                    "it is already a text-only model."
                 )

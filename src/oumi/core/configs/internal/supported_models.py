@@ -756,3 +756,30 @@ def is_dual_mode_model_using_model_name(
         model_name, trust_remote_code=trust_remote_code, revision=revision
     )
     return is_dual_mode_model_type(hf_config)
+
+
+def is_vision_language_model_type(hf_config: transformers.PretrainedConfig) -> bool:
+    """Whether the checkpoint exposes any vision-language model class.
+
+    True when ``AutoModelForImageTextToText`` resolves the config to a model class,
+    i.e. the checkpoint has a vision tower. This is True for both vision-only models
+    (e.g. ``qwen3_vl``) and dual-mode models (e.g. ``qwen3_5``), and False for
+    plain text models (e.g. ``llama``).
+    """
+    cfg_cls = type(hf_config)
+    return MODEL_FOR_IMAGE_TEXT_TO_TEXT_MAPPING._model_mapping.get(cfg_cls) is not None
+
+
+def is_vision_language_model_using_model_name(
+    model_name: str, trust_remote_code: bool, revision: str | None = None
+) -> bool:
+    """Whether the named model has a vision tower.
+
+    See ``is_vision_language_model_type``.
+    """
+    if is_custom_model(model_name):
+        return False
+    hf_config = find_model_hf_config(
+        model_name, trust_remote_code=trust_remote_code, revision=revision
+    )
+    return is_vision_language_model_type(hf_config)
