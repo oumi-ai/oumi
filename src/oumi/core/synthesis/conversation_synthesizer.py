@@ -1170,24 +1170,12 @@ class ConversationSynthesizer:
     def _select_target_turns(
         self, multiturn_attribute: MultiTurnAttribute, turn_order: list[Role]
     ) -> int:
-        min_turns = multiturn_attribute.min_turns
-        max_turns = multiturn_attribute.max_turns
-        target_turns = random.randint(min_turns, max_turns)
-        if Role.ASSISTANT not in turn_order:
-            return target_turns
-
-        def role_at(turn_count: int) -> Role:
-            return turn_order[(turn_count - 1) % len(turn_order)]
-
-        if role_at(target_turns) == Role.ASSISTANT:
-            return target_turns
-        for turn_count in range(target_turns + 1, max_turns + 1):
-            if role_at(turn_count) == Role.ASSISTANT:
-                return turn_count
-        for turn_count in range(target_turns - 1, min_turns - 1, -1):
-            if role_at(turn_count) == Role.ASSISTANT:
-                return turn_count
-        return target_turns
+        # min_turns/max_turns count rounds; return a message count (one round
+        # == one pass through turn_order) so the loop and planner stay message-based.
+        target_rounds = random.randint(
+            multiturn_attribute.min_turns, multiturn_attribute.max_turns
+        )
+        return target_rounds * len(turn_order)
 
     def _format_output_system_message(
         self,

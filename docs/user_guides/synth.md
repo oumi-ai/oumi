@@ -192,8 +192,8 @@ For dynamic, variable-length conversations, use `multiturn_attributes`. Each tur
 ```yaml
 multiturn_attributes:
   - id: support_conversation
-    min_turns: 4
-    max_turns: 12
+    min_turns: 2
+    max_turns: 6
 
     role_instruction_messages:
       USER: |
@@ -403,13 +403,13 @@ generated_attributes:
 
 **Multi-Turn Attributes**: Dynamic, variable-length conversations generated turn-by-turn
 
-Unlike generated attributes which produce single values, multi-turn attributes generate full conversations where each turn is produced by the model with the complete conversation history as context. The system automatically plans the conversation, then generates each turn sequentially.
+Unlike generated attributes which produce single values, multi-turn attributes generate full conversations where each message is produced by the model with the complete conversation history as context. The system automatically plans the conversation, then generates each turn sequentially.
 
 ```yaml
 multiturn_attributes:
   - id: support_conversation
-    min_turns: 4
-    max_turns: 12
+    min_turns: 2
+    max_turns: 6
 
     role_instruction_messages:
       USER: |
@@ -430,7 +430,7 @@ multiturn_attributes:
 Key parameters:
 
 - **`id`**: Unique identifier for the attribute. The generated conversation is stored under this ID, and a conversation plan is automatically stored under `{id}_plan`.
-- **`min_turns`** / **`max_turns`**: Controls the conversation length range. Each turn is one message (user or assistant).
+- **`min_turns`** / **`max_turns`**: Controls the conversation length range. Each turn is one round -- a user message plus an assistant reply -- so `max_turns: 12` yields up to 12 exchanges (24 messages).
 - **`role_instruction_messages`**: Per-role instruction templates. Must define both `USER` and `ASSISTANT` roles. These templates can reference any previously defined attributes using `{placeholder}` syntax.
 - **`output_system_prompt`**: Optional system prompt prepended to the final output conversation.
 - **`conversation_planner`**: Optional custom instructions for the conversation planner that generates a turn-by-turn plan before the conversation begins.
@@ -780,7 +780,7 @@ Create multi-turn conversations by chaining generated responses.
 
 Generate dynamic, variable-length conversations using `multiturn_attributes`. The system plans the conversation, then generates each turn with full conversation context, producing natural back-and-forth dialogue.
 
-**Example**: See {gh}`configs/examples/synthesis/multiturn_conversation_synth.yaml` for a customer support conversation example using multi-turn attributes with conversation planning, role-based instructions, and variable-length conversations (4-12 turns).
+**Example**: See {gh}`configs/examples/synthesis/multiturn_conversation_synth.yaml` for a customer support conversation example using multi-turn attributes with conversation planning, role-based instructions, and variable-length conversations (2-6 rounds / 4-12 messages).
 
 ### Domain Adaptation
 
