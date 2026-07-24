@@ -19,14 +19,19 @@ from __future__ import annotations
 import json
 from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from oumi.utils.logging import logger
 from oumi.utils.packaging import require_kernel, require_playwright
 
-# Returns a pooled browser to a clean slate. Storage is origin-scoped so it has to
-# be cleared per page; `page`/`context` are pre-declared by Kernel's
-# playwright.execute and redeclaring either is a hard error.
+if TYPE_CHECKING:
+    from playwright.sync_api import Page  # pyright: ignore[reportMissingImports]
+
+_DEFAULT_ACQUIRE_TIMEOUT_SECONDS = 60
+
+# Clears cookies/permissions context-wide, but storage is origin-scoped, so only
+# origins with a page still open get purged. Kernel's playwright.execute
+# pre-declares `page`, `context` and `browser` — redeclaring one is a hard error.
 _RESET_JS = """
 await context.clearCookies();
 await context.clearPermissions();
@@ -66,7 +71,7 @@ class KernelBrowserSession:
         *,
         create_kwargs: dict[str, Any] | None = None,
         pool: str | None = None,
-        acquire_timeout_seconds: int = 60,
+        acquire_timeout_seconds: int | None = None,
         start_url: str | None = None,
     ) -> None:
         """Create a browser session or acquire one from a pool.
@@ -74,7 +79,8 @@ class KernelBrowserSession:
         Args:
             create_kwargs: Arguments forwarded to ``browsers.create``.
             pool: Name of a browser pool to acquire from.
-            acquire_timeout_seconds: Pool-mode acquire timeout.
+            acquire_timeout_seconds: Pool-mode acquire timeout; defaults to
+                ``_DEFAULT_ACQUIRE_TIMEOUT_SECONDS``.
             start_url: Landing URL used when resetting a pooled browser.
         """
         if pool is not None and create_kwargs is not None:
@@ -89,7 +95,12 @@ class KernelBrowserSession:
         try:
             if pool is not None:
                 self._browser = self._kernel.browser_pools.acquire(
-                    pool, acquire_timeout_seconds=acquire_timeout_seconds
+                    pool,
+                    acquire_timeout_seconds=(
+                        acquire_timeout_seconds
+                        if acquire_timeout_seconds is not None
+                        else _DEFAULT_ACQUIRE_TIMEOUT_SECONDS
+                    ),
                 )
                 try:
                     self._reset(start_url)
@@ -114,14 +125,11 @@ class KernelBrowserSession:
         """Return the CDP websocket URL."""
         return self._browser.cdp_ws_url
 
-    @property
-    def live_view_url(self) -> str | None:
-        """Return the live-view URL, if available."""
-        return self._browser.browser_live_view_url
-
     def _reset(self, start_url: str | None) -> None:
         """Reset a pooled browser before use."""
         target = json.dumps(start_url or "about:blank")
+        # Navigate after the clears, not via acquire(start_url=...), so the landing
+        # page isn't the one we wipe storage out from under.
         code = _RESET_JS + f"await page.goto({target}, {{ waitUntil: 'load' }});"
         response = self._kernel.browsers.playwright.execute(
             id=self.session_id, code=code, timeout_sec=15
@@ -133,8 +141,12 @@ class KernelBrowserSession:
             )
 
     @contextmanager
-    def page(self) -> Iterator[Any]:
-        """Yield a Playwright page connected to the browser over CDP."""
+    def page(self) -> Iterator[Page]:
+        """Yield a Playwright page connected to the browser over CDP.
+
+        Binds the context's first page, so a tab the model opens (a target=_blank
+        click) is never driven.
+        """
         require_playwright("Playwright browser executors")
         from playwright.sync_api import (  # pyright: ignore[reportMissingImports]
             sync_playwright,
@@ -167,5 +179,15 @@ class KernelBrowserSession:
                 )
             else:
                 self._kernel.browsers.delete_by_id(self.session_id)
+        except BaseException:
+            # Callers close in a finally and upstream may suppress, so log here or a
+            # leaked billable session is invisible. Not retried: the client is gone.
+            logger.warning(
+                "Kernel browser: failed to release session %s; it will leak until "
+                "Kernel's inactivity timeout reaps it.",
+                self.session_id,
+                exc_info=True,
+            )
+            raise
         finally:
             self._kernel.close()

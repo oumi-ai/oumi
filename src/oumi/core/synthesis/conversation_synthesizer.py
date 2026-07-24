@@ -216,7 +216,8 @@ class ConversationSynthesizer:
         Validates each call via the router, then groups surviving calls by env
         and routes each group in one batched ``env.step()``. If the batched
         route raises, falls back to per-call routing so individual errors stay
-        attributed.
+        attributed. Non-replayable envs skip batching entirely and always route
+        per call.
 
         ``sample_idx`` selects the per-sample router clone built at
         ``synthesize()`` entry; routing through it keeps state mutations
@@ -244,6 +245,14 @@ class ConversationSynthesizer:
                 try:
                     [single] = router.route_batch([(tc.function.name, args)])
                 except Exception as exc:
+                    # An operator-side fault (bad executor, missing extra) reaches
+                    # the transcript as tool output, so log it or the run looks
+                    # like a well-behaved dataset of tool failures.
+                    logger.warning(
+                        "Tool '%s' raised; recording it as a tool error.",
+                        tc.function.name,
+                        exc_info=True,
+                    )
                     results[idx] = self._tool_error(
                         tc, f"Tool '{tc.function.name}' raised: {exc}"
                     )
@@ -252,9 +261,8 @@ class ConversationSynthesizer:
 
         for group in groups.values():
             env = router.tool_to_env[group[0][1].function.name]
-            # A non-replayable env can't be batched: a batch failure would have
-            # to be retried per call, re-running the side effects of the prefix
-            # that already succeeded.
+            # Batching a non-replayable env is unsafe: the retry below would re-run
+            # the side effects of the prefix that already succeeded.
             if not env.is_replayable():
                 route_per_call(group)
                 continue
@@ -263,6 +271,13 @@ class ConversationSynthesizer:
                     [(tc.function.name, args) for _, tc, args in group]
                 )
             except Exception:
+                # Calls past the failing index are re-executed (re-inferred, for
+                # SyntheticEnvironment) — the retry is not free.
+                logger.warning(
+                    "Batched tool route failed; retrying %d calls individually.",
+                    len(group),
+                    exc_info=True,
+                )
                 route_per_call(group)
                 continue
             for (idx, tc, _), out in zip(group, outputs):

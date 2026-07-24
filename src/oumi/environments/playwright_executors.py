@@ -71,8 +71,15 @@ def type_text(arguments: TypeTextArguments, context: Page) -> ToolResult:
 def read_text(arguments: ReadTextArguments, context: Page) -> ToolResult:
     """Read truncated inner text of a selector, defaulting to ``body``."""
     selector = arguments.get("selector", "body")
-    max_chars = arguments.get("max_chars", _DEFAULT_MAX_CHARS)
+    # JSON Schema "integer" admits 1.0, which would fail as a slice index.
+    max_chars = int(arguments.get("max_chars", _DEFAULT_MAX_CHARS))
     if max_chars < 0:
         raise ValueError("max_chars must be non-negative")
     text = context.inner_text(selector, timeout=_DEFAULT_TIMEOUT_MS)
-    return ToolResult(output={"text": text[:max_chars], "url": context.url})
+    return ToolResult(
+        output={
+            "text": text[:max_chars],
+            "truncated": len(text) > max_chars,
+            "url": context.url,
+        }
+    )

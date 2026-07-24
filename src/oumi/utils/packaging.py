@@ -269,9 +269,14 @@ def is_trl_v0_29_or_later() -> bool:
         return False
 
 
+@lru_cache(maxsize=1)
 def is_vllm_available() -> bool:
     """Checks if vLLM is installed."""
-    return _is_module_available("vllm")
+    try:
+        importlib.import_module("vllm")
+        return True
+    except ImportError:
+        return False
 
 
 @lru_cache(maxsize=1)

@@ -1,8 +1,25 @@
+# Browser Tool-Use Synthesis — Live Cloud Browser
+#
+# Generates multi-turn conversations between a user asking about Oumi and an
+# assistant that answers by actually browsing oumi.ai. Each sample drives a
+# single-tenant Kernel cloud browser through four Playwright tools
+# (navigate / read_text / click / type_text), so tool results are real page
+# content rather than LLM-simulated.
+#
 # Requirements:
 #   - Set KERNEL_API_KEY and OPENAI_API_KEY.
 #   - pip install 'oumi[browser]'
+#
 # Usage:
-#   oumi synth -c configs/examples/synthesis/browser_oumi_synth.yaml
+#   oumi synth -c oumi://configs/examples/synthesis/browser_oumi_synth.yaml
+#
+# NOTE: one browser per sample is opened up front and held for the whole run,
+# so num_samples is also the number of concurrent (billable) Kernel sessions.
+#
+# See Also:
+#   - docs/user_guides/synth/synth.md
+#   - src/oumi/environments/browser_executable_environment.py
+#   - src/oumi/environments/playwright_executors.py
 
 strategy: GENERAL
 num_samples: 3
@@ -17,8 +34,11 @@ environment_config:
       env_kwargs:
         start_url: "https://oumi.ai"
         headless: true
+        # Kernel's *inactivity* timeout (SDK default 60s). LLM think-time between
+        # tool calls counts as idle, so lowering this kills sessions mid-rollout.
         timeout_seconds: 600
-        # Use a warm browser pool for larger runs:
+        # Use a warm browser pool for larger runs. Size it >= num_samples, or
+        # acquire blocks until acquire_timeout_seconds and then fails:
         #   kernel browser-pools create --name rl-browser --size 50
         # Remove headless and timeout_seconds above, then uncomment:
         # pool: rl-browser
@@ -28,6 +48,7 @@ environment_config:
           name: navigate
           description: Load a URL; returns the resolved url and page title.
           executor: oumi.environments.playwright_executors.navigate
+          read_only: false
           parameters:
             type: object
             properties:
@@ -55,11 +76,13 @@ environment_config:
                 description: CSS selector to read; omit for the whole page body.
               max_chars:
                 type: integer
+                minimum: 0
                 description: Truncate the returned text to this many characters.
         - id: click
           name: click
           description: Click the element matching a CSS selector (e.g. a link).
           executor: oumi.environments.playwright_executors.click
+          read_only: false
           parameters:
             type: object
             properties:
@@ -72,6 +95,7 @@ environment_config:
           name: type_text
           description: Fill the element matching a CSS selector with text.
           executor: oumi.environments.playwright_executors.type_text
+          read_only: false
           parameters:
             type: object
             properties:

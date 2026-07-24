@@ -19,7 +19,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, fields
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import TYPE_CHECKING, Any
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.environment_params import EnvironmentParams
@@ -33,19 +33,6 @@ if TYPE_CHECKING:
     from playwright.sync_api import Page  # pyright: ignore[reportMissingImports]
 
 _POOL_FIELDS = ("pool", "acquire_timeout_seconds")
-_CREATE_ONLY_FIELDS = (
-    "headless",
-    "stealth",
-    "profile",
-    "proxy_id",
-    "viewport",
-    "timeout_seconds",
-)
-
-
-class BrowserViewport(TypedDict):
-    width: int
-    height: int
 
 
 @dataclass
@@ -53,39 +40,44 @@ class BrowserExecutableEnvironmentKwargs(BaseParams):
     """Type-specific ``env_kwargs`` for :class:`BrowserExecutableEnvironment`."""
 
     pool: str | None = None
-    acquire_timeout_seconds: int = 60
+    acquire_timeout_seconds: int | None = None
     start_url: str | None = None
     headless: bool | None = None
     stealth: bool | None = None
     profile: dict[str, Any] | None = None
     proxy_id: str | None = None
-    viewport: BrowserViewport | None = None
+    viewport: dict[str, int] | None = None
     timeout_seconds: int | None = None
 
     def __finalize_and_validate__(self) -> None:
-        """Validate the viewport shape and pool/create-field compatibility."""
-        if self.viewport is not None and (
-            set(self.viewport) != {"width", "height"}
-            or any(type(value) is not int for value in self.viewport.values())
-        ):
-            raise ValueError(
-                "viewport must contain exactly integer width and height values."
-            )
+        """Reject kwargs that don't apply to the selected mode."""
+        # Each mode ignores the other's kwargs, so a misplaced one would silently
+        # do nothing. Buckets derive from the field list to stay exhaustive.
         if self.pool is None:
-            return
-        incompatible = [
-            field for field in _CREATE_ONLY_FIELDS if getattr(self, field) is not None
-        ]
-        if incompatible:
-            raise ValueError(
-                "Browser pool mode does not support create-only env_kwargs: "
-                f"{incompatible}"
-            )
+            misplaced = [
+                f for f in _POOL_FIELDS if f != "pool" and getattr(self, f) is not None
+            ]
+            mode, hint = "Create", "set pool to use them"
+        else:
+            misplaced = [
+                f.name
+                for f in fields(self)
+                if f.name not in (*_POOL_FIELDS, "start_url")
+                and getattr(self, f.name) is not None
+            ]
+            mode, hint = "Browser pool", "configure them on the pool instead"
+        if misplaced:
+            raise ValueError(f"{mode} mode does not support {misplaced}; {hint}.")
 
 
 @register_environment("browser")
 class BrowserExecutableEnvironment(ExecutableEnvironment):
-    """Runs browser-action tools against an isolated Kernel browser."""
+    """Runs browser-action tools against an isolated Kernel browser.
+
+    Unlike the database sibling, ``tool.read_only`` is not enforced here — a
+    browser has no read-only mode — so mark mutating tools ``read_only: false``
+    for the flag to describe them honestly.
+    """
 
     def __init__(
         self, params: EnvironmentParams, session: KernelBrowserSession
@@ -123,18 +115,26 @@ class BrowserExecutableEnvironment(ExecutableEnvironment):
             raise
 
     def requires_isolation(self) -> bool:
-        """Return whether each rollout needs its own browser."""
+        """A Kernel session is single-tenant, so never share one across samples.
+
+        Consumers build every per-sample env up front, so one live (billable)
+        Kernel browser per sample is open for the whole run.
+        """
         return True
 
     def is_replayable(self) -> bool:
-        """Return whether browser actions may be retried after a batch failure."""
+        """Browser actions mutate live remote page state, so never replay a batch."""
         return False
 
     @contextmanager
     def _build_execution_context(
         self, tool: ExecutableTool, arguments: dict[str, Any]
     ) -> Iterator[Page]:
-        """Yield the Playwright page used as the executor context."""
+        """Yield the Playwright page used as the executor context.
+
+        Entered once per tool call, so each call opens a fresh Playwright driver
+        and CDP connection; the state that matters lives on the remote browser.
+        """
         with self._session.page() as page:
             yield page
 

@@ -68,14 +68,42 @@ def test_type_text_fills_selector():
     assert page.calls == [("fill", "#q", "hello", pe._DEFAULT_TIMEOUT_MS)]
 
 
-def test_read_text_defaults_to_body_and_truncates():
+def test_read_text_defaults_to_body_and_flags_truncation():
     page: Any = _FakePage()
     result = pe.read_text({"max_chars": 50}, page)
     assert page.calls == [("inner_text", "body", pe._DEFAULT_TIMEOUT_MS)]
-    assert result.output == {"text": "x" * 50, "url": page.url}
+    assert result.output == {"text": "x" * 50, "truncated": True, "url": page.url}
+
+
+def test_read_text_reports_untruncated_text():
+    page: Any = _FakePage()
+    result = pe.read_text({"max_chars": 50_000}, page)
+    assert isinstance(result.output, dict)
+    assert result.output["truncated"] is False
+
+
+def test_read_text_coerces_integral_float_max_chars():
+    # JSON Schema "integer" admits 100.0, which would fail as a slice index. The
+    # TypedDict says int, so this shape only reaches the executor at runtime.
+    page: Any = _FakePage()
+    arguments: Any = {"max_chars": 50.0}
+    result = pe.read_text(arguments, page)
+    assert result.output == {"text": "x" * 50, "truncated": True, "url": page.url}
 
 
 def test_read_text_rejects_negative_max_chars():
     page: Any = _FakePage()
     with pytest.raises(ValueError, match="max_chars"):
         pe.read_text({"max_chars": -1}, page)
+
+
+def test_executor_errors_propagate_to_the_caller():
+    # The example config's assistant prompt relies on a failed selector coming
+    # back as a per-call tool error rather than killing the rollout.
+    class _FailingPage(_FakePage):
+        def click(self, selector: str, timeout: int | None = None) -> None:
+            raise TimeoutError(f"Timeout {timeout}ms exceeded waiting for {selector}")
+
+    page: Any = _FailingPage()
+    with pytest.raises(TimeoutError, match="Timeout"):
+        pe.click({"selector": "#nope"}, page)
