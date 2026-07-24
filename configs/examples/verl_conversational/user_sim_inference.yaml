@@ -1,0 +1,6 @@
+model:
+  model_name: "gpt-4o-mini"
+engine: OPENAI
+generation:
+  max_new_tokens: 256
+  temperature: 1.0
