@@ -16,6 +16,7 @@
 
 import copy
 import inspect
+import json
 import os
 from collections.abc import Callable
 from pathlib import Path
@@ -250,12 +251,16 @@ class VerlGrpoTrainer(BaseTrainer):
     def _create_verl_data_entry_from_conversation(
         example: dict, idx: int, data_source: str, split: str
     ) -> dict:
-        # SFT datasets preserve conversation metadata in conversation_json.
-        conversation = Conversation.from_json(example["conversation_json"])
-        interaction_kwargs = conversation.metadata.get("interaction_kwargs")
+        # Cheap metadata peek; a missing key falls through to the extractor's error.
+        raw = json.loads(example.get("conversation_json") or "{}")
+        interaction_kwargs = raw.get("metadata", {}).get("interaction_kwargs")
         if interaction_kwargs:
             return VerlGrpoTrainer._create_verl_interaction_entry(
-                conversation, interaction_kwargs, idx, data_source, split
+                Conversation.from_json(example["conversation_json"]),
+                interaction_kwargs,
+                idx,
+                data_source,
+                split,
             )
         prompt_messages, images, answer = (
             VerlGrpoTrainer._extract_prompt_images_answer_from_conversation(example)

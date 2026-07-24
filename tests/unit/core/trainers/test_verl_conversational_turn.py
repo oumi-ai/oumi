@@ -52,10 +52,28 @@ def test_next_user_turn_sentinel_ends():
     assert text == "thanks"
 
 
-def test_next_user_turn_hits_cap():
+def test_next_user_turn_produces_exactly_max_turns():
     state = RolloutState(persona="p", max_turns=1)
-    done, text, score = next_user_turn(state, [], lambda c: "should not be used")
+
+    done, text, _ = next_user_turn(state, [], lambda c: "only turn")
+    assert (done, text) == (False, "only turn")
+
+    done, text, _ = next_user_turn(state, [], lambda c: "should not be used")
     assert (done, text) == (True, "")
+    assert state.turn_idx == 1
+
+
+def test_next_user_turn_prompt_uses_custom_sentinel():
+    state = RolloutState(persona="p", max_turns=5)
+    captured = {}
+
+    def stub(conv):
+        captured["conv"] = conv
+        return "bye <<STOP>>"
+
+    done, text, _ = next_user_turn(state, [], stub, done_sentinel="<<STOP>>")
+    assert "<<STOP>>" in captured["conv"].messages[-1].content
+    assert (done, text) == (True, "bye")
 
 
 def test_next_user_turn_threads_correct_turn_number():

@@ -15,6 +15,8 @@
 """verl Interaction that produces persona-conditioned simulated-user turns."""
 
 import asyncio
+import contextlib
+import threading
 from uuid import uuid4
 
 from verl.interactions.base import (  # pyright: ignore[reportMissingImports]
@@ -30,6 +32,7 @@ from oumi.core.trainers.verl_conversational_turn import (
     next_user_turn,
 )
 from oumi.core.types.conversation import Conversation
+from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 
 
 class OumiVerlInteraction(BaseInteraction):
@@ -43,6 +46,13 @@ class OumiVerlInteraction(BaseInteraction):
             engine_type=self._infer_config.engine or InferenceEngineType.NATIVE,
             model_params=self._infer_config.model,
             remote_params=self._infer_config.remote_params,
+        )
+        # verl shares one interaction across concurrent rollouts, and local engines
+        # aren't safe for concurrent infer(); remote (HTTP) ones are.
+        self._infer_lock = (
+            contextlib.nullcontext()
+            if isinstance(self._engine, RemoteInferenceEngine)
+            else threading.Lock()
         )
         self._default_max_turns = config.get("max_turns", 6)
         self._done_sentinel = config.get("done_sentinel", DEFAULT_DONE_SENTINEL)
@@ -70,13 +80,16 @@ class OumiVerlInteraction(BaseInteraction):
         return done, text, score, {}
 
     def _infer_one(self, conversation: Conversation) -> str:
-        results = self._engine.infer(
-            [conversation], inference_config=self._infer_config
-        )
-        if not results or not results[0].messages:
-            return ""
+        with self._infer_lock:
+            results = self._engine.infer(
+                [conversation], inference_config=self._infer_config
+            )
         content = results[0].messages[-1].content
-        return content if isinstance(content, str) else ""
+        if not isinstance(content, str):
+            raise RuntimeError(
+                f"user-sim engine returned non-text content: {type(content)}"
+            )
+        return content
 
     async def calculate_score(self, instance_id, **kwargs) -> float:
         """Turn-level score is unused; reward is trajectory-level."""

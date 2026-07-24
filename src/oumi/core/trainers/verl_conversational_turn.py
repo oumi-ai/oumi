@@ -24,7 +24,7 @@ DEFAULT_DONE_SENTINEL = "[[END]]"
 
 @dataclasses.dataclass
 class RolloutState:
-    """State for a simulated-user rollout."""
+    """Rollout state; ``max_turns`` excludes the dataset's opening user message."""
 
     persona: str
     max_turns: int
@@ -32,7 +32,11 @@ class RolloutState:
 
 
 def build_user_turn_prompt(
-    persona: str, history: list[Message], current_turn: int, target_turns: int
+    persona: str,
+    history: list[Message],
+    current_turn: int,
+    target_turns: int,
+    done_sentinel: str = DEFAULT_DONE_SENTINEL,
 ) -> Conversation:
     """Builds the prompt for the next simulated-user turn."""
     messages: list[Message] = [Message(role=Role.SYSTEM, content=persona)]
@@ -44,7 +48,7 @@ def build_user_turn_prompt(
                 f"You are the USER (turn {current_turn} of at most {target_turns}). "
                 "Continue the conversation in character and reply with ONLY your next "
                 "message. If your goal is fully met and you have nothing more to ask, "
-                f"end your reply with {DEFAULT_DONE_SENTINEL}."
+                f"end your reply with {done_sentinel}."
             ),
         )
     )
@@ -66,12 +70,16 @@ def next_user_turn(
     infer_fn: Callable[[Conversation], str],
     done_sentinel: str = DEFAULT_DONE_SENTINEL,
 ) -> tuple[bool, str, float]:
-    """Produces the next simulated-user turn."""
-    state.turn_idx += 1
+    """Produces the next simulated-user turn, or ends the rollout at the cap."""
     if state.turn_idx >= state.max_turns:
         return True, "", 0.0
+    state.turn_idx += 1
     prompt = build_user_turn_prompt(
-        state.persona, messages_to_history(messages), state.turn_idx, state.max_turns
+        state.persona,
+        messages_to_history(messages),
+        state.turn_idx,
+        state.max_turns,
+        done_sentinel,
     )
     text = infer_fn(prompt)
     if done_sentinel in text:

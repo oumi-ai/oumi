@@ -62,6 +62,13 @@ def test_interaction_row_must_end_on_user():
         )
 
 
+def test_missing_conversation_json_raises_with_context():
+    with pytest.raises(ValueError, match="conversation_json"):
+        VerlGrpoTrainer._create_verl_data_entry_from_conversation(
+            {}, idx=0, data_source="s", split="train"
+        )
+
+
 def test_non_interaction_row_uses_final_turn_path():
     example = {
         "conversation_json": _conv_json(
