@@ -177,9 +177,13 @@ def test_build_planner_prompts_selects_turns_without_inference(
     mock_inference_engine.infer.assert_not_called()
     for prompt, sample in zip(prompts, samples):
         assert isinstance(prompt, PlannerPrompt)
+        # target_turns is a message count: rounds * len(turn_order), where
+        # rounds is drawn from [min_turns, max_turns].
+        turn_order_len = len(synthesizer._default_turn_order)
         target_turns = prompt.augmented_sample["target_turns"]
-        assert mock_multiturn_attribute.min_turns <= target_turns
-        assert target_turns <= mock_multiturn_attribute.max_turns
+        assert mock_multiturn_attribute.min_turns * turn_order_len <= target_turns
+        assert target_turns <= mock_multiturn_attribute.max_turns * turn_order_len
+        assert target_turns % turn_order_len == 0
         assert prompt.augmented_sample["conversation_plan"] == ""
         assert prompt.augmented_sample["parsed_turn_plans"] == [""] * target_turns
         assert prompt.augmented_sample["issue"] == sample["issue"]
@@ -714,8 +718,10 @@ def test_generate_plan_uses_planner_only_guided_decoding(
         [{"customer_type": "friendly", "issue": "product question"}],
         MultiTurnAttribute(
             id="test_conversation",
-            min_turns=2,
-            max_turns=2,
+            # 1 round == one USER+ASSISTANT exchange (2 messages); matches the
+            # 3 scripted infer results below (1 planner + 2 turn calls).
+            min_turns=1,
+            max_turns=1,
             role_instruction_messages={
                 Role.USER: "You are a {customer_type} customer with issue: {issue}.",
                 Role.ASSISTANT: "You are a helpful support agent.",
@@ -1185,6 +1191,50 @@ def _make_synthesizer(mock_inference_config, environment_config=None):
             mock_inference_config,
             environment_config=environment_config,
         )
+
+
+def _turn_attr(min_turns: int, max_turns: int) -> MultiTurnAttribute:
+    return MultiTurnAttribute(
+        id="c",
+        min_turns=min_turns,
+        max_turns=max_turns,
+        role_instruction_messages={Role.USER: "u", Role.ASSISTANT: "a"},
+    )
+
+
+@pytest.mark.parametrize(
+    ("min_turns", "max_turns", "turn_order", "drawn_rounds", "expected_messages"),
+    [
+        # rounds are drawn from [min_turns, max_turns] then multiplied by the
+        # turn-order length to get a message count.
+        (2, 5, [Role.USER, Role.ASSISTANT], 3, 6),
+        (4, 4, [Role.USER, Role.ASSISTANT], 4, 8),  # min == max
+        (1, 3, [Role.USER, Role.ASSISTANT], 1, 2),  # min == 1 -> single exchange
+        (2, 5, [Role.USER], 3, 3),  # ASSISTANT absent: still rounds * len
+        (2, 5, [Role.USER, Role.ASSISTANT, Role.USER], 3, 9),  # len(turn_order) == 3
+    ],
+)
+@patch("oumi.core.synthesis.conversation_synthesizer.random.randint")
+def test_select_target_turns_counts_rounds_as_messages(
+    mock_randint,
+    mock_inference_config,
+    min_turns,
+    max_turns,
+    turn_order,
+    drawn_rounds,
+    expected_messages,
+):
+    """min/max_turns are rounds; the method returns rounds * len(turn_order)."""
+    mock_randint.return_value = drawn_rounds
+    synthesizer = _make_synthesizer(mock_inference_config)
+
+    result = synthesizer._select_target_turns(
+        _turn_attr(min_turns, max_turns), turn_order
+    )
+
+    assert result == expected_messages
+    # The draw is over rounds, i.e. the raw [min_turns, max_turns] range.
+    mock_randint.assert_called_once_with(min_turns, max_turns)
 
 
 def _grounded_env_params(
@@ -1832,8 +1882,10 @@ def test_synthesize_attaches_tools_to_assistant_prompt(
 
     multiturn_attr = MultiTurnAttribute(
         id="dialog",
-        min_turns=2,
-        max_turns=2,
+        # One round == one USER+ASSISTANT exchange: exactly the two turn
+        # prompts this test inspects.
+        min_turns=1,
+        max_turns=1,
         role_instruction_messages={
             Role.USER: "user",
             Role.ASSISTANT: "assistant",
@@ -2277,8 +2329,9 @@ def test_assistant_turn_loops_on_tool_calls(
 
     multiturn_attr = MultiTurnAttribute(
         id="dialog",
-        min_turns=2,
-        max_turns=2,
+        # One round == the single assistant turn whose tool loop this exercises.
+        min_turns=1,
+        max_turns=1,
         role_instruction_messages={
             Role.USER: "user",
             Role.ASSISTANT: "assistant",
@@ -2385,8 +2438,10 @@ def test_assistant_turn_caps_at_max_consecutive_tool_turns_then_finalizes(
 
     multiturn_attr = MultiTurnAttribute(
         id="dialog",
-        min_turns=2,
-        max_turns=2,
+        # One round == one USER+ASSISTANT exchange (a single assistant turn), so
+        # the agentic tool loop runs exactly once.
+        min_turns=1,
+        max_turns=1,
         role_instruction_messages={
             Role.USER: "user",
             Role.ASSISTANT: "assistant",
@@ -2492,8 +2547,10 @@ def test_assistant_turn_dispatches_parallel_batch_unrestricted(
 
     multiturn_attr = MultiTurnAttribute(
         id="dialog",
-        min_turns=2,
-        max_turns=2,
+        # One round == one USER+ASSISTANT exchange (a single assistant turn), so
+        # the agentic tool loop runs exactly once.
+        min_turns=1,
+        max_turns=1,
         role_instruction_messages={
             Role.USER: "user",
             Role.ASSISTANT: "assistant",
@@ -2822,13 +2879,13 @@ def test_token_usage_accumulates_in_straggler_finalization(
 
     mock_engine.infer.side_effect = infer_side_effect
 
-    # min == max == 2 makes the turn order deterministic (USER then ASSISTANT);
+    # min == max == 1 is one round -- USER then ASSISTANT, deterministic;
     # max_consecutive_tool_turns=0 routes the ASSISTANT turn through
     # _finalize_stragglers instead of a tool round.
     multiturn_attr = MultiTurnAttribute(
         id="straggler_conversation",
-        min_turns=2,
-        max_turns=2,
+        min_turns=1,
+        max_turns=1,
         role_instruction_messages={
             Role.USER: "You are a user.",
             Role.ASSISTANT: "You are an assistant.",

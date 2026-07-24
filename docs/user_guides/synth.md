@@ -430,7 +430,7 @@ multiturn_attributes:
 Key parameters:
 
 - **`id`**: Unique identifier for the attribute. The generated conversation is stored under this ID, and a conversation plan is automatically stored under `{id}_plan`.
-- **`min_turns`** / **`max_turns`**: Controls the conversation length range. Each turn is one message (user or assistant).
+- **`min_turns`** / **`max_turns`**: Controls the conversation length range. Each turn is one round -- a user message plus an assistant reply -- so `max_turns: 12` yields up to 12 exchanges (24 messages).
 - **`role_instruction_messages`**: Per-role instruction templates. Must define both `USER` and `ASSISTANT` roles. These templates can reference any previously defined attributes using `{placeholder}` syntax.
 - **`output_system_prompt`**: Optional system prompt prepended to the final output conversation.
 - **`conversation_planner`**: Optional custom instructions for the conversation planner that generates a turn-by-turn plan before the conversation begins.
