@@ -18,7 +18,7 @@ oumi = ["LICENSE", "README.md", "*.jinja"]
 # ships beta versions on PyPI).
 [tool.uv]
 prerelease = "if-necessary-or-explicit"
-override-dependencies = ["transformers>=5.5,<5.8"]
+override-dependencies = ["transformers>=5.5"]
 
 [project]
 name = "oumi"
