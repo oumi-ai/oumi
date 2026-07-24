@@ -204,6 +204,11 @@ def test_top_level_order_by_ignores_subqueries():
         ("SELECT x FROM t ORDER \t BY x", True),
         ("SELECT x FROM t ORDERBY x", False),
         ("SELECT x FROM t ORDER x", False),
+        # Nested: only the outer query's ORDER BY counts.
+        ("SELECT x FROM (SELECT y FROM t ORDER BY y) z ORDER BY x", True),
+        ("SELECT x FROM t WHERE a IN (SELECT b FROM u WHERE c IN (ORDER BY d))", False),
+        ("SELECT rank() OVER (ORDER BY x) FROM t", False),
+        ("WITH c AS (SELECT x FROM t ORDER BY x) SELECT * FROM c", False),
     ],
 )
 def test_top_level_order_by_ignores_quoted_text_and_comments(sql, expected):

@@ -27,6 +27,10 @@ from oumi.environments.database_session import materialize_sqlite_snapshot
 
 _SQL_FENCE = re.compile(r"```sql\s*(.*?)```", re.DOTALL | re.IGNORECASE)
 _SQL_START = re.compile(r"(?im)^\s*select\b")
+_SQL_COMMENT = re.compile(r"--[^\n\r]*|/\*.*?\*/", re.DOTALL)
+_SQL_QUOTED = re.compile(r"'(?:''|[^'])*'|\"(?:\"\"|[^\"])*\"|`[^`]*`|\[[^\]]*\]")
+_SQL_INNER_PARENS = re.compile(r"\([^()]*\)")
+_ORDER_BY = re.compile(r"\border\s+by\b", re.IGNORECASE)
 _READ_ACTIONS = {
     sqlite3.SQLITE_FUNCTION,
     sqlite3.SQLITE_READ,
@@ -107,46 +111,16 @@ def _db_spec(extra_info: dict[str, Any]) -> _DatabaseSpec:
 
 
 def _has_top_level_order_by(sql: str) -> bool:
-    """Return whether the outer query contains an ORDER BY clause."""
-    depth = 0
-    tokens: list[str] = []
-    i = 0
-    while i < len(sql):
-        ch = sql[i]
-        if ch == "-" and i + 1 < len(sql) and sql[i + 1] == "-":
-            i += 2
-            while i < len(sql) and sql[i] not in "\r\n":
-                i += 1
-            continue
-        if ch == "/" and i + 1 < len(sql) and sql[i + 1] == "*":
-            end = sql.find("*/", i + 2)
-            i = len(sql) if end == -1 else end + 2
-            continue
-        if ch in "'\"`[":
-            closing = "]" if ch == "[" else ch
-            i += 1
-            while i < len(sql):
-                if sql[i] == closing:
-                    if i + 1 < len(sql) and sql[i + 1] == closing:
-                        i += 2
-                        continue
-                    i += 1
-                    break
-                i += 1
-            continue
-        if ch == "(":
-            depth += 1
-        elif ch == ")":
-            depth = max(0, depth - 1)
-        elif depth == 0 and (ch.isalpha() or ch == "_"):
-            start = i
-            i += 1
-            while i < len(sql) and (sql[i].isalnum() or sql[i] in "_$"):
-                i += 1
-            tokens.append(sql[start:i].lower())
-            continue
-        i += 1
-    return any(a == "order" and b == "by" for a, b in zip(tokens, tokens[1:]))
+    """Return whether the outer query contains an ORDER BY clause.
+
+    ponytail: strip-then-match, not a real parser. Blank out comments, quoted
+    text and every parenthesized group, so whatever ORDER BY survives is the
+    outer query's. Use sqlglot if this ever needs true clause awareness.
+    """
+    sql = _SQL_QUOTED.sub(" ", _SQL_COMMENT.sub(" ", sql))
+    while _SQL_INNER_PARENS.search(sql):
+        sql = _SQL_INNER_PARENS.sub(" ", sql)
+    return _ORDER_BY.search(sql) is not None
 
 
 @register("sql_execution_match", RegistryType.REWARD_FUNCTION)
