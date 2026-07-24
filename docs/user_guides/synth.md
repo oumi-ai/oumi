@@ -192,8 +192,8 @@ For dynamic, variable-length conversations, use `multiturn_attributes`. Each tur
 ```yaml
 multiturn_attributes:
   - id: support_conversation
-    min_turns: 4
-    max_turns: 12
+    min_turns: 2
+    max_turns: 6
 
     role_instruction_messages:
       USER: |
@@ -403,13 +403,13 @@ generated_attributes:
 
 **Multi-Turn Attributes**: Dynamic, variable-length conversations generated turn-by-turn
 
-Unlike generated attributes which produce single values, multi-turn attributes generate full conversations where each turn is produced by the model with the complete conversation history as context. The system automatically plans the conversation, then generates each turn sequentially.
+Unlike generated attributes which produce single values, multi-turn attributes generate full conversations where each message is produced by the model with the complete conversation history as context. The system automatically plans the conversation, then generates each turn sequentially.
 
 ```yaml
 multiturn_attributes:
   - id: support_conversation
-    min_turns: 4
-    max_turns: 12
+    min_turns: 2
+    max_turns: 6
 
     role_instruction_messages:
       USER: |
@@ -780,7 +780,7 @@ Create multi-turn conversations by chaining generated responses.
 
 Generate dynamic, variable-length conversations using `multiturn_attributes`. The system plans the conversation, then generates each turn with full conversation context, producing natural back-and-forth dialogue.
 
-**Example**: See {gh}`configs/examples/synthesis/multiturn_conversation_synth.yaml` for a customer support conversation example using multi-turn attributes with conversation planning, role-based instructions, and variable-length conversations (4-12 turns).
+**Example**: See {gh}`configs/examples/synthesis/multiturn_conversation_synth.yaml` for a customer support conversation example using multi-turn attributes with conversation planning, role-based instructions, and variable-length conversations (2-6 rounds / 4-12 messages).
 
 ### Domain Adaptation
 

@@ -334,10 +334,10 @@ oumi synth -c configs/examples/synthesis/dynamic_few_shot_synth.yaml
 
 **Purpose**: Generate dynamic, variable-length multi-turn conversations using `multiturn_attributes` with conversation planning and role-based turn generation.
 
-**What it does**: Creates realistic customer support conversations where the system first plans the conversation flow, then generates each turn sequentially with full conversation context. Unlike the chained approach in `conversation_synth.yaml`, this produces variable-length conversations (4-12 turns) with natural back-and-forth dialogue.
+**What it does**: Creates realistic customer support conversations where the system first plans the conversation flow, then generates each turn sequentially with full conversation context. Unlike the chained approach in `conversation_synth.yaml`, this produces variable-length conversations (2-6 rounds, i.e. 4-12 messages) with natural back-and-forth dialogue.
 
 **Key features**:
-- **Multi-turn conversation generation** with variable length (4-12 turns per conversation)
+- **Multi-turn conversation generation** with variable length (2-6 rounds / 4-12 messages per conversation)
 - **Conversation planning**: The system automatically generates a turn-by-turn plan before generating the conversation
 - **Role-based instructions**: Separate instruction templates for USER and ASSISTANT roles
 - **Generated context attributes**: Customer name, issue details, and opening message are generated before the conversation begins
@@ -351,7 +351,7 @@ oumi synth -c configs/examples/synthesis/dynamic_few_shot_synth.yaml
 | Feature | `conversation_synth.yaml` | `multiturn_conversation_synth.yaml` |
 |---|---|---|
 | Approach | Chained `generated_attributes` | `multiturn_attributes` |
-| Turn count | Fixed (4 messages) | Variable (4-12 turns) |
+| Turn count | Fixed (4 messages) | Variable (2-6 rounds / 4-12 messages) |
 | Context threading | Manual via attribute references | Automatic conversation history |
 | Conversation planning | None | Automatic turn-by-turn plan |
 | Output format | `transformed_attributes` (CHAT) | Native conversation object |
@@ -360,8 +360,8 @@ oumi synth -c configs/examples/synthesis/dynamic_few_shot_synth.yaml
 ```yaml
 multiturn_attributes:
   - id: "support_conversation"
-    min_turns: 4
-    max_turns: 12
+    min_turns: 2
+    max_turns: 6
 
     role_instruction_messages:
       USER: |
@@ -441,7 +441,7 @@ oumi synth -c configs/examples/synthesis/multiturn_conversation_synth.yaml
 - **Three patron personas**: `anxious_parent`, `enthusiastic_reader`, `busy_professional` — sampled per conversation.
 - **Persona-aware planner**: the conversation planner receives the persona description and matches plan length/style accordingly (terse personas get tighter plans).
 - **Catalog-grounded assistant prompt**: the assistant is explicitly forbidden from calling `lookup_book_status` with a `book_id` it hasn't seen in a recent `list_book_catalog` response — preventing fabricated lookups when patrons ask for off-catalog titles.
-- **Multi-turn dialog**: 4-6 turns per conversation with up to 6 tool-call rounds per turn.
+- **Multi-turn dialog**: 4-6 rounds (8-12 messages) per conversation, with up to 6 tool-call rounds within each assistant turn.
 
 **How it differs from `multiturn_conversation_synth.yaml`**:
 

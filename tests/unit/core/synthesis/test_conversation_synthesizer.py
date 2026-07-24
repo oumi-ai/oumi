@@ -1204,10 +1204,10 @@ def _turn_attr(min_turns: int, max_turns: int) -> MultiTurnAttribute:
     ("min_turns", "max_turns", "turn_order", "drawn_rounds", "expected_messages"),
     [
         (2, 5, [Role.USER, Role.ASSISTANT], 3, 6),
-        (4, 4, [Role.USER, Role.ASSISTANT], 4, 8),  # min == max
+        (4, 4, [Role.USER, Role.ASSISTANT], 4, 8),  # min == max (single value)
         (1, 3, [Role.USER, Role.ASSISTANT], 1, 2),  # min == 1 -> single exchange
         (2, 5, [Role.USER], 3, 3),  # ASSISTANT absent: still rounds * len
-        (2, 5, [Role.USER, Role.ASSISTANT, Role.USER], 3, 9),  # len(turn_order) == 3
+        (2, 5, [Role.USER, Role.ASSISTANT, Role.USER], 3, 9),  # 3-role turn_order
     ],
 )
 @patch("oumi.core.synthesis.conversation_synthesizer.random.randint")
@@ -1688,6 +1688,14 @@ def test_synthesize_invokes_attach_grounding_facts(
     assert "grounding_facts" in samples[0]
     assert len(samples[0]["grounding_facts"]) == 2
     assert len(result) == 1
+    # 2 rounds -> 4 messages ending on assistant, through the real turn loop.
+    record = result[0]
+    assert record is not None
+    conv = record["t"]
+    assert isinstance(conv, dict)
+    messages = conv["messages"]
+    assert len(messages) == 4
+    assert messages[-1]["role"] == "assistant"
 
 
 # --- {grounding_facts} placeholder misuse warning ---
