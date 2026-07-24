@@ -75,19 +75,19 @@ def test_router_closed_and_evicted_when_agent_data_is_collected(monkeypatch):
     ad = _agent_data(request_id)
     router = get_or_build_router(ad, BASE)
     original_close = router.close
-    close_calls = 0
+    close_kwargs = []
 
-    def close_spy():
-        nonlocal close_calls
-        close_calls += 1
-        original_close()
+    def close_spy(**kwargs):
+        close_kwargs.append(kwargs)
+        original_close(**kwargs)
 
     monkeypatch.setattr(router, "close", close_spy)
 
     del ad
     gc.collect()
 
-    assert close_calls == 1
+    # The rollout owns its whole router graph, so shared envs are closed too.
+    assert close_kwargs == [{"include_shared": True}]
 
     replacement_ad = _agent_data(request_id)
     replacement_router = get_or_build_router(replacement_ad, BASE)

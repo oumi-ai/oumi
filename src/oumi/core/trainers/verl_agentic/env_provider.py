@@ -79,7 +79,8 @@ def _build_router(
 def _teardown(request_id: str) -> None:
     router = _ROUTERS.pop(request_id, None)
     if router is not None:
-        router.close()
+        # This rollout built its own parent router, so it owns the shared envs too.
+        router.close(include_shared=True)
 
 
 def get_or_build_router(

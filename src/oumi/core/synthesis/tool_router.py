@@ -128,16 +128,20 @@ class ToolRouter:
             on_env_built=self.on_env_built,
         )
 
-    def close(self) -> None:
+    def close(self, *, include_shared: bool = False) -> None:
         """Release per-sample envs this router owns.
 
         Only isolation-requiring envs are rebuilt (and thus owned) per router;
         shared envs belong to the parent router and are left open. Each close is
         guarded so one env's failure can't leak the rest; the first error re-raises.
+
+        Pass ``include_shared=True`` when the caller owns the whole router graph
+        (one parent per clone, as in a verl rollout) so parent-shared envs are
+        released too rather than left to garbage collection.
         """
         first_error: BaseException | None = None
         for env in self.env_by_id.values():
-            if not env.requires_isolation():
+            if not include_shared and not env.requires_isolation():
                 continue
             try:
                 env.close()

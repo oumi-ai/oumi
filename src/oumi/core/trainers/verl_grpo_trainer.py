@@ -16,6 +16,7 @@
 
 import copy
 import inspect
+import json
 import os
 from collections.abc import Callable
 from pathlib import Path
@@ -294,9 +295,12 @@ class VerlGrpoTrainer(BaseTrainer):
     def _create_verl_data_entry_from_conversation(
         example: dict, idx: int, data_source: str, split: str
     ) -> dict:
-        conversation = Conversation.from_json(example["conversation_json"])
-        metadata = conversation.metadata
+        # Peek at metadata off the raw JSON so only the branch that needs a
+        # `Conversation` pays for building one.
+        raw_conversation = example["conversation_json"]
+        metadata = json.loads(raw_conversation).get("metadata") or {}
         if metadata.get("agent_name") == "tool_agent":
+            conversation = Conversation.from_json(raw_conversation)
             ground_truth = metadata.get("ground_truth")
             if not isinstance(ground_truth, str) or not ground_truth:
                 raise ValueError(
@@ -304,14 +308,20 @@ class VerlGrpoTrainer(BaseTrainer):
                     "string 'ground_truth'."
                 )
             tools_kwargs = metadata.get("tools_kwargs")
-            if not isinstance(tools_kwargs, dict) or any(
-                not isinstance(tool_name, str) or not isinstance(tool_kwargs, dict)
-                for tool_name, tool_kwargs in tools_kwargs.items()
-            ):
+            tools_kwargs_error = (
+                "Tool-agent conversation metadata 'tools_kwargs' must be a "
+                "mapping of tool names to dictionaries."
+            )
+            if not isinstance(tools_kwargs, dict):
                 raise ValueError(
-                    "Tool-agent conversation metadata 'tools_kwargs' must be a "
-                    "mapping of tool names to dictionaries."
+                    f"{tools_kwargs_error} Got {type(tools_kwargs).__name__}."
                 )
+            for tool_name, tool_kwargs in tools_kwargs.items():
+                if not isinstance(tool_name, str) or not isinstance(tool_kwargs, dict):
+                    raise ValueError(
+                        f"{tools_kwargs_error} Got {tool_name!r}: "
+                        f"{type(tool_kwargs).__name__}."
+                    )
             ability = metadata.get("ability", "tool_agent")
             if not isinstance(ability, str):
                 raise ValueError(

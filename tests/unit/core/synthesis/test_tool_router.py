@@ -493,3 +493,16 @@ def test_close_tears_down_isolated_envs():
     sample.close()
     with pytest.raises(sqlite3.ProgrammingError):
         sample.env_by_id["db"].step([("lookup", {"pat_id": 1})])
+
+
+def test_close_include_shared_releases_parent_shared_envs():
+    """`include_shared` closes non-isolating envs that plain close() leaves open."""
+    shared = Mock(spec=BaseEnvironment)
+    shared.requires_isolation.return_value = False
+    router = _mock_router({"t1": shared})
+
+    router.close()
+    shared.close.assert_not_called()
+
+    router.close(include_shared=True)
+    shared.close.assert_called_once()
