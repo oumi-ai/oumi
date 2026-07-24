@@ -177,8 +177,7 @@ def test_build_planner_prompts_selects_turns_without_inference(
     mock_inference_engine.infer.assert_not_called()
     for prompt, sample in zip(prompts, samples):
         assert isinstance(prompt, PlannerPrompt)
-        # target_turns is a message count: rounds * len(turn_order), where
-        # rounds is drawn from [min_turns, max_turns].
+        # target_turns is a message count: rounds * len(turn_order).
         turn_order_len = len(synthesizer._default_turn_order)
         target_turns = prompt.augmented_sample["target_turns"]
         assert mock_multiturn_attribute.min_turns * turn_order_len <= target_turns
@@ -718,8 +717,7 @@ def test_generate_plan_uses_planner_only_guided_decoding(
         [{"customer_type": "friendly", "issue": "product question"}],
         MultiTurnAttribute(
             id="test_conversation",
-            # 1 round == one USER+ASSISTANT exchange (2 messages); matches the
-            # 3 scripted infer results below (1 planner + 2 turn calls).
+            # 1 round (2 turns) matches the 3 scripted infer results below.
             min_turns=1,
             max_turns=1,
             role_instruction_messages={
@@ -1205,8 +1203,6 @@ def _turn_attr(min_turns: int, max_turns: int) -> MultiTurnAttribute:
 @pytest.mark.parametrize(
     ("min_turns", "max_turns", "turn_order", "drawn_rounds", "expected_messages"),
     [
-        # rounds are drawn from [min_turns, max_turns] then multiplied by the
-        # turn-order length to get a message count.
         (2, 5, [Role.USER, Role.ASSISTANT], 3, 6),
         (4, 4, [Role.USER, Role.ASSISTANT], 4, 8),  # min == max
         (1, 3, [Role.USER, Role.ASSISTANT], 1, 2),  # min == 1 -> single exchange
@@ -1233,7 +1229,6 @@ def test_select_target_turns_counts_rounds_as_messages(
     )
 
     assert result == expected_messages
-    # The draw is over rounds, i.e. the raw [min_turns, max_turns] range.
     mock_randint.assert_called_once_with(min_turns, max_turns)
 
 
@@ -1882,8 +1877,6 @@ def test_synthesize_attaches_tools_to_assistant_prompt(
 
     multiturn_attr = MultiTurnAttribute(
         id="dialog",
-        # One round == one USER+ASSISTANT exchange: exactly the two turn
-        # prompts this test inspects.
         min_turns=1,
         max_turns=1,
         role_instruction_messages={
@@ -2329,7 +2322,6 @@ def test_assistant_turn_loops_on_tool_calls(
 
     multiturn_attr = MultiTurnAttribute(
         id="dialog",
-        # One round == the single assistant turn whose tool loop this exercises.
         min_turns=1,
         max_turns=1,
         role_instruction_messages={
@@ -2438,8 +2430,6 @@ def test_assistant_turn_caps_at_max_consecutive_tool_turns_then_finalizes(
 
     multiturn_attr = MultiTurnAttribute(
         id="dialog",
-        # One round == one USER+ASSISTANT exchange (a single assistant turn), so
-        # the agentic tool loop runs exactly once.
         min_turns=1,
         max_turns=1,
         role_instruction_messages={
@@ -2547,8 +2537,6 @@ def test_assistant_turn_dispatches_parallel_batch_unrestricted(
 
     multiturn_attr = MultiTurnAttribute(
         id="dialog",
-        # One round == one USER+ASSISTANT exchange (a single assistant turn), so
-        # the agentic tool loop runs exactly once.
         min_turns=1,
         max_turns=1,
         role_instruction_messages={
