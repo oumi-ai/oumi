@@ -29,6 +29,7 @@ from verl.tools.schemas import (  # pyright: ignore[reportMissingImports]
 
 from oumi.core.configs.environment_config import EnvironmentConfig
 from oumi.core.trainers.verl_agentic.env_provider import get_or_build_router
+from oumi.utils.logging import logger
 from oumi.utils.packaging import is_verl_v0_7_or_later
 
 
@@ -67,8 +68,16 @@ class OumiVerlTool(BaseTool):
     ) -> tuple[ToolResponse, float, dict]:
         """Routes one tool call through this rollout's shared Oumi router."""
         router = get_or_build_router(agent_data, self._env_config)
+        # verl emits `None` for unset optional args; drop them so the executor
+        # sees an absent key rather than an explicit null.
         args = {k: v for k, v in (parameters or {}).items() if v is not None}
-        result = router.route_batch([(self._tool_id, args)])[0]
+        try:
+            result = router.route_batch([(self._tool_id, args)])[0]
+        except Exception as e:
+            # A bad tool call is an observation the policy can recover from, not a
+            # reason to kill the trajectory.
+            logger.warning(f"Tool '{self._tool_id}' call failed: {e}")
+            return ToolResponse(text=f"Tool error: {e}"), 0.0, {}
         out = result.output
         text = out if isinstance(out, str) else json.dumps(out)
         return ToolResponse(text=text), 0.0, {}

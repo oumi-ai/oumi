@@ -27,7 +27,7 @@ class _FakeAgentData(SimpleNamespace):
     """A weak-referenceable agent data stub."""
 
 
-def test_execute_routes_into_shared_env(tmp_path):
+def _make_tool(tmp_path) -> OumiVerlTool:
     cfg_path = tmp_path / "env.yaml"
     cfg_path.write_text(
         "environments:\n- id: db\n  env_type: database\n"
@@ -50,9 +50,12 @@ def test_execute_routes_into_shared_env(tmp_path):
             },
         }
     )
-    tool = OumiVerlTool(config={"oumi_env_config": str(cfg_path)}, tool_schema=schema)
-    ad = _FakeAgentData(
-        request_id="execute-routes-into-shared-env",
+    return OumiVerlTool(config={"oumi_env_config": str(cfg_path)}, tool_schema=schema)
+
+
+def _agent_data(request_id: str) -> _FakeAgentData:
+    return _FakeAgentData(
+        request_id=request_id,
         extra_fields={},
         tools_kwargs={
             "run_sql": {
@@ -64,9 +67,27 @@ def test_execute_routes_into_shared_env(tmp_path):
         },
     )
 
+
+def test_execute_routes_into_shared_env(tmp_path):
+    tool = _make_tool(tmp_path)
+    ad = _agent_data("execute-routes-into-shared-env")
+
     iid, _ = asyncio.run(tool.create())
     resp, reward, _metrics = asyncio.run(
         tool.execute(iid, {"query": "SELECT count(*) FROM t"}, agent_data=ad)
     )
     assert reward == 0.0
     assert "2" in resp.text
+
+
+def test_failed_tool_call_becomes_an_observation(tmp_path):
+    """A bad tool call must not propagate and kill the rollout."""
+    tool = _make_tool(tmp_path)
+    ad = _agent_data("failed-tool-call-becomes-an-observation")
+
+    iid, _ = asyncio.run(tool.create())
+    resp, reward, _metrics = asyncio.run(
+        tool.execute(iid, {"query": "NOT VALID SQL"}, agent_data=ad)
+    )
+    assert reward == 0.0
+    assert resp.text.startswith("Tool error:")

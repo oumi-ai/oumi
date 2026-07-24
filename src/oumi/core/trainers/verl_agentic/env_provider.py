@@ -85,7 +85,11 @@ def _teardown(request_id: str) -> None:
 def get_or_build_router(
     agent_data: _RolloutData, base_env_config: EnvironmentConfig
 ) -> ToolRouter:
-    """Return the rollout-scoped router."""
+    """Return the rollout-scoped router.
+
+    `request_id` must be unique per live rollout: teardown is tied to this
+    `agent_data`, so a reused id would close the router still held by the other owner.
+    """
     request_id = agent_data.request_id
     router = _ROUTERS.get(request_id)
     if router is not None:
