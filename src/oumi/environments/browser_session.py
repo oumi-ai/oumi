@@ -19,13 +19,43 @@ from __future__ import annotations
 import json
 from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from oumi.utils.logging import logger
 from oumi.utils.packaging import require_kernel, require_playwright
 
-if TYPE_CHECKING:
-    from kernel import Kernel  # pyright: ignore[reportMissingImports]
+# Returns a pooled browser to a clean slate. Storage is origin-scoped so it has to
+# be cleared per page; `page`/`context` are pre-declared by Kernel's
+# playwright.execute and redeclaring either is a hard error.
+_RESET_JS = """
+await context.clearCookies();
+await context.clearPermissions();
+for (const existingPage of context.pages()) {
+  await existingPage.evaluate(async () => {
+    try { localStorage.clear(); } catch {}
+    try { sessionStorage.clear(); } catch {}
+    try {
+      const dbs = await indexedDB.databases();
+      await Promise.all(dbs.map(({ name }) => new Promise((resolve) => {
+        if (!name) { resolve(); return; }
+        const request = indexedDB.deleteDatabase(name);
+        request.onsuccess = request.onerror = request.onblocked = resolve;
+      })));
+    } catch {}
+    try {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((key) => caches.delete(key)));
+    } catch {}
+    try {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((reg) => reg.unregister()));
+    } catch {}
+  });
+}
+for (const existingPage of context.pages()) {
+  if (existingPage !== page) { await existingPage.close(); }
+}
+"""
 
 
 class KernelBrowserSession:
@@ -53,9 +83,8 @@ class KernelBrowserSession:
         require_kernel("BrowserExecutableEnvironment")
         from kernel import Kernel  # pyright: ignore[reportMissingImports]
 
-        self._kernel: Kernel = Kernel()
+        self._kernel = Kernel()
         self._pool = pool
-        self._browser_closed = False
         self._closed = False
         try:
             if pool is not None:
@@ -92,41 +121,8 @@ class KernelBrowserSession:
 
     def _reset(self, start_url: str | None) -> None:
         """Reset a pooled browser before use."""
-        target = start_url or "about:blank"
-        code = (
-            "await context.clearCookies();\n"
-            "await context.clearPermissions();\n"
-            "const pages = context.pages();\n"
-            "const page = pages.length > 0 ? pages[0] : await context.newPage();\n"
-            "for (const existingPage of pages) {\n"
-            "  await existingPage.evaluate(async () => {\n"
-            "    try { localStorage.clear(); } catch {}\n"
-            "    try { sessionStorage.clear(); } catch {}\n"
-            "    try {\n"
-            "      const databases = await indexedDB.databases();\n"
-            "      await Promise.all(databases.map(({ name }) => "
-            "new Promise((resolve) => {\n"
-            "        if (!name) { resolve(); return; }\n"
-            "        const request = indexedDB.deleteDatabase(name);\n"
-            "        request.onsuccess = request.onerror = "
-            "request.onblocked = resolve;\n"
-            "      })));\n"
-            "    } catch {}\n"
-            "    try {\n"
-            "      const cacheNames = await caches.keys();\n"
-            "      await Promise.all(cacheNames.map((name) => caches.delete(name)));\n"
-            "    } catch {}\n"
-            "    try {\n"
-            "      const registrations = await "
-            "navigator.serviceWorker.getRegistrations();\n"
-            "      await Promise.all(registrations.map((registration) => "
-            "registration.unregister()));\n"
-            "    } catch {}\n"
-            "  });\n"
-            "}\n"
-            "for (let i = 1; i < pages.length; i++) { await pages[i].close(); }\n"
-            f"await page.goto({json.dumps(target)}, {{ waitUntil: 'load' }});"
-        )
+        target = json.dumps(start_url or "about:blank")
+        code = _RESET_JS + f"await page.goto({target}, {{ waitUntil: 'load' }});"
         response = self._kernel.browsers.playwright.execute(
             id=self.session_id, code=code, timeout_sec=15
         )
@@ -163,13 +159,13 @@ class KernelBrowserSession:
         """Release a pooled session or delete a one-off session."""
         if self._closed:
             return
-        if not self._browser_closed:
+        self._closed = True
+        try:
             if self._pool is not None:
                 self._kernel.browser_pools.release(
                     self._pool, session_id=self.session_id, reuse=True
                 )
             else:
                 self._kernel.browsers.delete_by_id(self.session_id)
-            self._browser_closed = True
-        self._kernel.close()
-        self._closed = True
+        finally:
+            self._kernel.close()

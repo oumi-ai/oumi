@@ -124,7 +124,6 @@ docs = [
 
 browser = [
     "kernel>=0.72,<0.80",
-    "openai>=1.40,<3",
     "playwright>=1.40,<2",
 ]
 

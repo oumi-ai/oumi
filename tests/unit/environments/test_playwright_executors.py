@@ -18,6 +18,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
 from oumi.core.types.tool_call import ToolResult
 from oumi.environments import playwright_executors as pe
 
@@ -70,8 +72,10 @@ def test_read_text_defaults_to_body_and_truncates():
     page: Any = _FakePage()
     result = pe.read_text({"max_chars": 50}, page)
     assert page.calls == [("inner_text", "body", pe._DEFAULT_TIMEOUT_MS)]
-    assert isinstance(result.output, dict)
-    text = result.output["text"]
-    assert isinstance(text, str)
-    assert len(text) == 50
-    assert result.output["url"] == page.url
+    assert result.output == {"text": "x" * 50, "url": page.url}
+
+
+def test_read_text_rejects_negative_max_chars():
+    page: Any = _FakePage()
+    with pytest.raises(ValueError, match="max_chars"):
+        pe.read_text({"max_chars": -1}, page)

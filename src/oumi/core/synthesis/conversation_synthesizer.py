@@ -237,34 +237,33 @@ class ConversationSynthesizer:
             env = router.tool_to_env[tc.function.name]
             groups.setdefault(id(env), []).append((idx, tc, arguments))
 
+        def route_per_call(
+            group: list[tuple[int, ToolCall, dict[str, Any]]],
+        ) -> None:
+            for idx, tc, args in group:
+                try:
+                    [single] = router.route_batch([(tc.function.name, args)])
+                except Exception as exc:
+                    results[idx] = self._tool_error(
+                        tc, f"Tool '{tc.function.name}' raised: {exc}"
+                    )
+                    continue
+                results[idx] = self._tool_message(tc, single)
+
         for group in groups.values():
-            calls = [(tc.function.name, args) for _, tc, args in group]
             env = router.tool_to_env[group[0][1].function.name]
-            if env.is_replayable() is False:
-                for idx, tc, args in group:
-                    try:
-                        [single] = router.route_batch([(tc.function.name, args)])
-                    except Exception as exc:
-                        results[idx] = self._tool_error(
-                            tc, f"Tool '{tc.function.name}' raised: {exc}"
-                        )
-                        continue
-                    results[idx] = self._tool_message(tc, single)
+            # A non-replayable env can't be batched: a batch failure would have
+            # to be retried per call, re-running the side effects of the prefix
+            # that already succeeded.
+            if not env.is_replayable():
+                route_per_call(group)
                 continue
             try:
-                outputs = router.route_batch(calls)
+                outputs = router.route_batch(
+                    [(tc.function.name, args) for _, tc, args in group]
+                )
             except Exception:
-                # Replayable environments can retry calls individually so the
-                # resulting tool errors stay attributed to the right call.
-                for idx, tc, args in group:
-                    try:
-                        [single] = router.route_batch([(tc.function.name, args)])
-                    except Exception as exc:
-                        results[idx] = self._tool_error(
-                            tc, f"Tool '{tc.function.name}' raised: {exc}"
-                        )
-                        continue
-                    results[idx] = self._tool_message(tc, single)
+                route_per_call(group)
                 continue
             for (idx, tc, _), out in zip(group, outputs):
                 results[idx] = self._tool_message(tc, out)

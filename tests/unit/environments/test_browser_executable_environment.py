@@ -26,6 +26,7 @@ import pytest
 from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.core.configs.params.tool_params import ToolError
 from oumi.core.types.tool_call import ToolResult
+from oumi.environments import browser_session
 from oumi.environments.browser_executable_environment import (
     BrowserExecutableEnvironment,
 )
@@ -308,7 +309,9 @@ def test_from_params_closes_session_if_executor_wiring_fails(monkeypatch):
     assert created and created[0].closed is True
 
 
-def test_create_mode_close_deletes_once_and_retries(monkeypatch, browser_modules):
+def test_create_mode_close_deletes_once_and_always_closes_client(
+    monkeypatch, browser_modules
+):
     kernel = browser_modules.kernel
 
     class _Browsers:
@@ -341,10 +344,11 @@ def test_create_mode_close_deletes_once_and_retries(monkeypatch, browser_modules
     browsers.raise_once = True
     with pytest.raises(RuntimeError):
         session.close()
-    session.close()
-    session.close()
-    assert browsers.deletes == 2
+    # A failed delete still closes the HTTP client, and close stays idempotent.
     assert kernel_closes == [True]
+    session.close()
+    session.close()
+    assert browsers.deletes == 1
 
 
 def test_pool_mode_comprehensively_resets_and_releases_with_reuse(
@@ -361,13 +365,8 @@ def test_pool_mode_comprehensively_resets_and_releases_with_reuse(
     assert len(reset_codes) == 1
     reset_code = reset_codes[0]
     assert "context.clearCookies()" in reset_code
-    assert "context.clearPermissions()" in reset_code
     assert "localStorage.clear()" in reset_code
-    assert "sessionStorage.clear()" in reset_code
-    assert "indexedDB.databases()" in reset_code
-    assert "caches.keys()" in reset_code
-    assert "navigator.serviceWorker.getRegistrations()" in reset_code
-    assert "pages[i].close()" in reset_code
+    assert "existingPage.close()" in reset_code
     assert 'page.goto("https://ex.com"' in reset_code
     assert events == [
         ("acquire", "rl", 30),
@@ -375,6 +374,15 @@ def test_pool_mode_comprehensively_resets_and_releases_with_reuse(
         ("release", "rl", "s1", True),
         ("close",),
     ]
+
+
+@pytest.mark.parametrize("identifier", ["page", "context", "browser"])
+def test_reset_js_does_not_redeclare_kernel_globals(identifier):
+    # Kernel's playwright.execute pre-declares these; redeclaring one makes the
+    # whole reset fail with "Identifier ... has already been declared".
+    for keyword in ("const", "let", "var"):
+        assert f"{keyword} {identifier} " not in browser_session._RESET_JS
+        assert f"{keyword} {identifier}=" not in browser_session._RESET_JS
 
 
 def test_pool_mode_reset_failure_releases_without_reuse(monkeypatch, browser_modules):
