@@ -1,18 +1,33 @@
+import asyncio
+import sqlite3
+from types import SimpleNamespace
+
 import pytest
 
-verl = pytest.importorskip("verl")
+from oumi.core.types.tool_call import ToolResult
+
+pytest.importorskip("verl")
+
+from verl.tools.schemas import (  # pyright: ignore[reportMissingImports]
+    OpenAIFunctionToolSchema,
+)
+
+from oumi.core.trainers.verl_agentic.oumi_verl_tool import OumiVerlTool
+
+
+def run_sql(arguments: dict, context: sqlite3.Connection) -> ToolResult:
+    """Local SQL executor; keeps this test independent of the nl2sql example."""
+    cursor = context.execute(arguments["query"])
+    columns = [d[0] for d in cursor.description] if cursor.description else []
+    rows = [list(r) for r in cursor.fetchall()]
+    return ToolResult(output={"columns": columns, "rows": rows})
+
+
+class _FakeAgentData(SimpleNamespace):
+    """A weak-referenceable agent data stub."""
 
 
 def test_execute_routes_into_shared_env(tmp_path):
-    import asyncio
-    from types import SimpleNamespace
-
-    from verl.tools.schemas import (  # pyright: ignore[reportMissingImports]
-        OpenAIFunctionToolSchema,
-    )
-
-    from oumi.core.trainers.verl_agentic.oumi_verl_tool import OumiVerlTool
-
     cfg_path = tmp_path / "env.yaml"
     cfg_path.write_text(
         "environments:\n- id: db\n  env_type: database\n"
@@ -20,7 +35,7 @@ def test_execute_routes_into_shared_env(tmp_path):
         "  tools:\n  - {id: run_sql, name: run_sql, description: run,\n"
         "     parameters: {type: object, properties: {query: {type: string}}, "
         "required: [query]},\n"
-        "     executor: oumi.environments.examples.nl2sql.run_sql, read_only: true}\n"
+        f"     executor: {__name__}.run_sql, read_only: true}}\n"
     )
     schema = OpenAIFunctionToolSchema.model_validate(
         {
@@ -36,10 +51,6 @@ def test_execute_routes_into_shared_env(tmp_path):
         }
     )
     tool = OumiVerlTool(config={"oumi_env_config": str(cfg_path)}, tool_schema=schema)
-
-    class _FakeAgentData(SimpleNamespace):
-        """A weak-referenceable agent data stub."""
-
     ad = _FakeAgentData(
         request_id="execute-routes-into-shared-env",
         extra_fields={},

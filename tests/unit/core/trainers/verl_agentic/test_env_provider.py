@@ -6,6 +6,16 @@ from typing import Any
 from oumi.core.configs.environment_config import EnvironmentConfig
 from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.core.trainers.verl_agentic.env_provider import get_or_build_router
+from oumi.core.types.tool_call import ToolResult
+
+
+def run_sql(arguments: dict, context: sqlite3.Connection) -> ToolResult:
+    """Local SQL executor; keeps this test independent of the nl2sql example."""
+    cursor = context.execute(arguments["query"])
+    columns = [d[0] for d in cursor.description] if cursor.description else []
+    rows = [list(r) for r in cursor.fetchall()]
+    return ToolResult(output={"columns": columns, "rows": rows})
+
 
 BASE = EnvironmentConfig(
     environments=[
@@ -23,7 +33,7 @@ BASE = EnvironmentConfig(
                         "properties": {"query": {"type": "string"}},
                         "required": ["query"],
                     },
-                    "executor": "oumi.environments.examples.nl2sql.run_sql",
+                    "executor": f"{__name__}.run_sql",
                     "read_only": True,
                 }
             ],
@@ -143,7 +153,7 @@ def _db_env_spec(env_id: str, tool_id: str) -> EnvironmentParams:
                     "properties": {"query": {"type": "string"}},
                     "required": ["query"],
                 },
-                "executor": "oumi.environments.examples.nl2sql.run_sql",
+                "executor": f"{__name__}.run_sql",
                 "read_only": True,
             }
         ],
