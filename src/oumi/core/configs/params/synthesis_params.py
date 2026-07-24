@@ -462,10 +462,12 @@ class MultiTurnAttribute:
     """Unique identifier for the attribute."""
 
     min_turns: int
-    """Minimum number of turns (messages) required for the attribute."""
+    """Minimum number of turns (rounds) -- one round is a user message plus an
+    assistant reply."""
 
     max_turns: int
-    """Maximum number of turns (messages) allowed for the attribute."""
+    """Maximum number of turns (rounds) -- one round is a user message plus an
+    assistant reply."""
 
     role_instruction_messages: dict[Role, str]
     """Per-role instruction template for generating a turn."""
@@ -805,8 +807,9 @@ class GeneralSynthesisParams(BaseParams):
             role: ASSISTANT
             system_prompt: "You are a helpful support agent."
 
-    The conversation length is controlled by min_turns and max_turns. The output
-    is a list of message dictionaries::
+    The conversation length is controlled by min_turns and max_turns, which count
+    rounds (user+assistant exchanges). The output is a list of message
+    dictionaries::
 
         [
             {"role": "user", "content": "I need help with my order."},
