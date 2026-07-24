@@ -2,7 +2,10 @@ import sqlite3
 
 import pytest
 
-from oumi.datasets.grpo.rewards.sql_execution_match import sql_execution_match
+from oumi.datasets.grpo.rewards.sql_execution_match import (
+    _has_top_level_order_by,
+    sql_execution_match,
+)
 
 SCHEMA = "CREATE TABLE t(x INTEGER);"
 SEED = "INSERT INTO t VALUES (1),(2),(3);"
@@ -177,8 +180,6 @@ def test_vacuum_into_scores_zero_without_creating_file(tmp_path):
 
 
 def test_top_level_order_by_ignores_subqueries():
-    from oumi.datasets.grpo.rewards.sql_execution_match import _has_top_level_order_by
-
     assert _has_top_level_order_by("SELECT x FROM t ORDER BY x") is True
     assert (
         _has_top_level_order_by(
@@ -196,11 +197,16 @@ def test_top_level_order_by_ignores_subqueries():
         ("SELECT x FROM t -- ORDER BY (x)\n", False),
         ("SELECT x FROM t /* ORDER BY (x) */", False),
         ("SELECT x FROM t ORDER /* gap */ BY x", True),
+        # Keyword matching is case- and whitespace-insensitive.
+        ("select x from t order by x", True),
+        ("SELECT x FROM t OrDeR By x", True),
+        ("SELECT x FROM t ORDER \n BY x", True),
+        ("SELECT x FROM t ORDER \t BY x", True),
+        ("SELECT x FROM t ORDERBY x", False),
+        ("SELECT x FROM t ORDER x", False),
     ],
 )
 def test_top_level_order_by_ignores_quoted_text_and_comments(sql, expected):
-    from oumi.datasets.grpo.rewards.sql_execution_match import _has_top_level_order_by
-
     assert _has_top_level_order_by(sql) is expected
 
 
