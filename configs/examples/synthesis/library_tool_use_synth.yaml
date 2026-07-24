@@ -145,7 +145,7 @@ strategy_params:
           - Stay polite and helpful.
 
       conversation_planner: |
-        Plan a {target_turns}-turn conversation between {user_persona.name}
+        Plan the conversation between {user_persona.name}
         ({user_persona.description}) and LibBot. The dialog must require LibBot
         to call list_book_catalog at least once and lookup_book_status at least
         once across the conversation.
