@@ -16,9 +16,12 @@ oumi = ["LICENSE", "README.md", "*.jinja"]
 # explicitly pinned to one (e.g. omegaconf==2.4.0.dev4) or when no stable release
 # satisfies the requirement (e.g. opentelemetry-semantic-conventions, which only
 # ships beta versions on PyPI).
+# A constraint (not an override) so it only raises the floor: the ceiling stays
+# defined by the `transformers` entry in [project.dependencies], and bumping it
+# there is enough. An override would replace that spec instead of narrowing it.
 [tool.uv]
 prerelease = "if-necessary-or-explicit"
-override-dependencies = ["transformers>=5.5"]
+constraint-dependencies = ["transformers>=5.5"]
 
 [project]
 name = "oumi"
