@@ -29,17 +29,19 @@ def test_builds_spider_tool_agent_rows(tmp_path):
     (spider_root / "dev.json").write_text(json.dumps([example]))
     output_dir = tmp_path / "prepared"
 
+    # Relative args + a different cwd: emitted db_path must still be absolute.
     result = subprocess.run(
         [
             sys.executable,
             str(script),
             "--spider-root",
-            str(spider_root),
+            "spider",
             "--db-root",
-            str(db_root),
+            "spider/database",
             "--out-dir",
-            str(output_dir),
+            "prepared",
         ],
+        cwd=tmp_path,
         capture_output=True,
         text=True,
     )

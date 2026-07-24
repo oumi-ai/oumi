@@ -74,7 +74,9 @@ def _build_rows(
                     "agent_name": "tool_agent",
                     "ground_truth": example["query"],
                     "tools_kwargs": {
-                        "run_sql": {"create_kwargs": {"db_path": str(db_path)}}
+                        "run_sql": {
+                            "create_kwargs": {"db_path": str(db_path.absolute())}
+                        }
                     },
                 },
             }
@@ -84,7 +86,7 @@ def _build_rows(
 
 def _write_jsonl(rows: list[dict[str, Any]], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w") as output:
+    with path.open("w", encoding="utf-8") as output:
         for row in rows:
             output.write(json.dumps(row) + "\n")
 
@@ -101,8 +103,12 @@ def main() -> None:
     args = parser.parse_args()
 
     db_root = args.db_root or args.spider_root / "database"
-    train_examples = json.loads((args.spider_root / "train_spider.json").read_text())
-    val_examples = json.loads((args.spider_root / "dev.json").read_text())
+    train_examples = json.loads(
+        (args.spider_root / "train_spider.json").read_text(encoding="utf-8")
+    )
+    val_examples = json.loads(
+        (args.spider_root / "dev.json").read_text(encoding="utf-8")
+    )
     _write_jsonl(
         _build_rows(train_examples, db_root, limit=args.train_limit, seed=args.seed),
         args.out_dir / "train.jsonl",
