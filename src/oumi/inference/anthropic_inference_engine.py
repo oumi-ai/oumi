@@ -1010,6 +1010,18 @@ def _convert_guided_decoding_config_to_api_input(
     }
 
 
+def _parse_model_version(model_name: str) -> tuple[str, tuple[int, int]] | None:
+    """Returns (family, (major, minor)) for a versioned Claude model, else None.
+
+    Anthropic drops the minor component on round versions (`claude-opus-5`, not
+    `claude-opus-5-0`); treat a missing minor as 0.
+    """
+    match = re.match(r"^claude-(opus|sonnet|haiku)-(\d+)(?:-(\d+))?", model_name)
+    if not match:
+        return None
+    return match[1], (int(match[2]), int(match[3] or 0))
+
+
 def _model_supports_output_config(model_name: str) -> bool:
     """Returns True if the model accepts the output_config field, False otherwise."""
     # Anthropic's `output_config` (structured outputs) is GA on Claude 4.5+ (Opus,
@@ -1017,20 +1029,26 @@ def _model_supports_output_config(model_name: str) -> bool:
     if model_name.startswith("claude-mythos"):
         return True
 
-    version_re = re.compile(r"^claude-(?:opus|sonnet|haiku)-(\d+)-(\d+)")
-    match = version_re.match(model_name)
-    return (int(match[1]), int(match[2])) >= (4, 5) if match else False
+    parsed = _parse_model_version(model_name)
+    return parsed[1] >= (4, 5) if parsed else False
 
 
 def _model_supports_sampling_params(model_name: str) -> bool:
     """Returns True if the model accepts sampling params, False otherwise."""
     # Anthropic removed the sampling params (temperature/top_p/top_k) on its
-    # reasoning-first models: Claude Opus 4.7+ and the Fable/Mythos families return
-    # HTTP 400 ("`temperature` is deprecated for this model."). Opus 4.6 and earlier,
-    # all Sonnet and Haiku, and Claude 3.x still accept them.
+    # reasoning-first models: Claude Opus 4.7+, Sonnet 5+, and the Fable/Mythos
+    # families return HTTP 400 ("`temperature` is deprecated for this model.").
+    # Opus 4.6 and earlier, Sonnet 4.6 and earlier, all Haiku, and Claude 3.x
+    # still accept them.
     if model_name.startswith(("claude-fable", "claude-mythos")):
         return False
 
-    version_re = re.compile(r"^claude-opus-(\d+)-(\d+)")
-    match = version_re.match(model_name)
-    return (int(match[1]), int(match[2])) < (4, 7) if match else True
+    parsed = _parse_model_version(model_name)
+    if not parsed:
+        return True
+    family, version = parsed
+    if family == "opus":
+        return version < (4, 7)
+    if family == "sonnet":
+        return version < (5, 0)
+    return True

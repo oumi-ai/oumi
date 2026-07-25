@@ -17,6 +17,7 @@ from oumi.core.types.conversation import (
 from oumi.core.types.tool_call import ToolCall, ToolDefinition
 from oumi.inference.anthropic_inference_engine import (
     AnthropicInferenceEngine,
+    _model_supports_output_config,
     _model_supports_sampling_params,
 )
 from oumi.inference.remote_inference_engine import BatchInfo, BatchStatus
@@ -91,7 +92,9 @@ def test_convert_conversation_omits_metadata_without_user_id(anthropic_engine):
         ("claude-opus-4-7", False),
         ("claude-opus-4-8", False),
         ("claude-opus-4-9", False),  # future Opus stays gated
+        ("claude-opus-5", False),  # round version, no minor component
         ("claude-sonnet-4-6", True),
+        ("claude-sonnet-5", False),
         ("claude-haiku-4-5", True),
         ("claude-3-5-sonnet-20241022", True),
         ("claude-3", True),
@@ -102,6 +105,21 @@ def test_convert_conversation_omits_metadata_without_user_id(anthropic_engine):
 )
 def test_model_supports_sampling_params(model_name, supported):
     assert _model_supports_sampling_params(model_name) is supported
+
+
+@pytest.mark.parametrize(
+    ("model_name", "supported"),
+    [
+        ("claude-opus-4-5-20251101", True),
+        ("claude-opus-5", True),  # round version, no minor component
+        ("claude-sonnet-5", True),
+        ("claude-haiku-4-5", True),
+        ("claude-3-5-sonnet-20241022", False),
+        ("claude-mythos-5", True),
+    ],
+)
+def test_model_supports_output_config(model_name, supported):
+    assert _model_supports_output_config(model_name) is supported
 
 
 def test_convert_conversation_omits_sampling_params_for_reasoning_models():
