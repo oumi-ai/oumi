@@ -5,6 +5,8 @@ from typing import Any
 
 from oumi.core.configs.environment_config import EnvironmentConfig
 from oumi.core.configs.params.environment_params import EnvironmentParams
+from oumi.core.synthesis import tool_router
+from oumi.core.synthesis.tool_router import ToolRouter
 from oumi.core.trainers.verl_agentic.env_provider import get_or_build_router
 from oumi.core.types.tool_call import ToolResult
 
@@ -42,6 +44,11 @@ BASE = EnvironmentConfig(
 )
 
 
+def _parent(cfg: EnvironmentConfig = BASE) -> ToolRouter:
+    """The process-wide template router that rollouts clone."""
+    return ToolRouter.from_environment_config(cfg)
+
+
 class _FakeAgentData(SimpleNamespace):
     """Subclass so instances support weakref.finalize (bare SimpleNamespace doesn't)."""
 
@@ -65,32 +72,33 @@ def _agent_data(request_id: str):
 
 def test_same_request_id_returns_same_router():
     ad = _agent_data("same-1")
-    r1 = get_or_build_router(ad, BASE)
-    r2 = get_or_build_router(ad, BASE)
+    parent = _parent()
+    r1 = get_or_build_router(ad, parent)
+    r2 = get_or_build_router(ad, parent)
     assert r1 is r2
 
 
 def test_router_closed_and_evicted_when_agent_data_is_collected(monkeypatch):
     request_id = "collected-1"
     ad = _agent_data(request_id)
-    router = get_or_build_router(ad, BASE)
+    parent = _parent()
+    router = get_or_build_router(ad, parent)
+    closed = []
     original_close = router.close
-    close_kwargs = []
 
-    def close_spy(**kwargs):
-        close_kwargs.append(kwargs)
-        original_close(**kwargs)
+    def close_spy():
+        closed.append(True)
+        original_close()
 
     monkeypatch.setattr(router, "close", close_spy)
 
     del ad
     gc.collect()
 
-    # The rollout owns its whole router graph, so shared envs are closed too.
-    assert close_kwargs == [{"include_shared": True}]
+    assert closed == [True]
 
     replacement_ad = _agent_data(request_id)
-    replacement_router = get_or_build_router(replacement_ad, BASE)
+    replacement_router = get_or_build_router(replacement_ad, parent)
     assert replacement_router is not router
 
     del replacement_ad
@@ -99,7 +107,7 @@ def test_router_closed_and_evicted_when_agent_data_is_collected(monkeypatch):
 
 def test_router_routes_run_sql():
     ad = _agent_data("routes-1")
-    router = get_or_build_router(ad, BASE)
+    router = get_or_build_router(ad, _parent())
     out = router.route_batch([("run_sql", {"query": "SELECT count(*) FROM t"})])[0]
     assert out.output == {"columns": ["count(*)"], "rows": [[2]]}
 
@@ -110,8 +118,9 @@ def test_different_request_id_gets_isolated_router():
     ad2.tools_kwargs["run_sql"]["create_kwargs"]["seed_sql"] = (
         "INSERT INTO t VALUES (1),(2),(3);"
     )
-    r1 = get_or_build_router(ad1, BASE)
-    r2 = get_or_build_router(ad2, BASE)
+    parent = _parent()
+    r1 = get_or_build_router(ad1, parent)
+    r2 = get_or_build_router(ad2, parent)
     assert r1 is not r2
     c1 = r1.route_batch([("run_sql", {"query": "SELECT count(*) FROM t"})])[0].output
     c2 = r2.route_batch([("run_sql", {"query": "SELECT count(*) FROM t"})])[0].output
@@ -130,7 +139,7 @@ def test_db_path_create_kwargs_overrides_placeholder_schema(tmp_path):
         request_id="dbpath-1",
         tools_kwargs={"run_sql": {"create_kwargs": {"db_path": str(db)}}},
     )
-    router = get_or_build_router(ad, BASE)
+    router = get_or_build_router(ad, _parent())
     out = router.route_batch([("run_sql", {"query": "SELECT count(*) FROM t"})])[0]
     assert out.output == {"columns": ["count(*)"], "rows": [[1]]}
 
@@ -179,8 +188,30 @@ def test_create_kwargs_scoped_to_owning_env_only():
             }
         },
     )
-    router = get_or_build_router(ad, cfg)
+    router = get_or_build_router(ad, _parent(cfg))
     a = router.route_batch([("q_a", {"query": "SELECT count(*) FROM t"})])[0].output
     b = router.route_batch([("q_b", {"query": "SELECT count(*) FROM t"})])[0].output
     assert a == {"columns": ["count(*)"], "rows": [[5]]}
     assert b == {"columns": ["count(*)"], "rows": [[1]]}
+
+
+def test_each_rollout_builds_its_envs_exactly_once(monkeypatch):
+    """Rollouts clone one parent, so no env is built and thrown away per rollout."""
+    parent = _parent()
+    builds: list[str] = []
+    original_build = tool_router.build_environment
+
+    def counting_build(env_params):
+        builds.append(env_params.id)
+        return original_build(env_params)
+
+    monkeypatch.setattr(tool_router, "build_environment", counting_build)
+
+    ad1, ad2 = _agent_data("count-a"), _agent_data("count-b")
+    get_or_build_router(ad1, parent)
+    get_or_build_router(ad2, parent)
+
+    assert builds == ["db", "db"]
+
+    del ad1, ad2
+    gc.collect()

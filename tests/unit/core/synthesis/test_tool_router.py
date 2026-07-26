@@ -436,6 +436,48 @@ def test_for_sample_mutation_does_not_bleed_back_to_parent():
     assert router.env_by_id["env1"] is parent_env
 
 
+def test_for_sample_env_kwargs_override_rebuilds_isolated_env_with_sample_data():
+    """Per-sample env_kwargs replace the config's, without touching the parent."""
+    router = ToolRouter.from_environment_config(
+        EnvironmentConfig(environments=[_db_env_params()])
+    )
+
+    clone = router.for_sample(
+        {
+            "db": {
+                "schema_sql": _DB_SCHEMA,
+                "seed_sql": "INSERT INTO patients VALUES (1, 'Alice', 'ibuprofen');",
+            }
+        }
+    )
+
+    [result] = clone.env_by_id["db"].step([("lookup", {"pat_id": 1})])
+    assert result.output == {"name": "Alice", "meds": "ibuprofen"}
+    assert router.env_params_by_id["db"].env_kwargs == {
+        "schema_sql": _DB_SCHEMA,
+        "seed_sql": _DB_SEED,
+    }
+
+
+def test_for_sample_env_kwargs_override_rejects_shared_env():
+    """A shared env can't take per-sample kwargs; they'd apply to every sample."""
+    router = ToolRouter.from_environment_config(
+        EnvironmentConfig(environments=[_det_env_params("det1", [_tool("t1")])])
+    )
+
+    with pytest.raises(ValueError, match="shared across samples"):
+        router.for_sample({"det1": {"anything": 1}})
+
+
+def test_for_sample_env_kwargs_override_rejects_unknown_env():
+    router = ToolRouter.from_environment_config(
+        EnvironmentConfig(environments=[_det_env_params("det1", [_tool("t1")])])
+    )
+
+    with pytest.raises(ValueError, match="unknown environments: \\['nope'\\]"):
+        router.for_sample({"nope": {"anything": 1}})
+
+
 # ---------- close ----------
 
 
@@ -493,16 +535,3 @@ def test_close_tears_down_isolated_envs():
     sample.close()
     with pytest.raises(sqlite3.ProgrammingError):
         sample.env_by_id["db"].step([("lookup", {"pat_id": 1})])
-
-
-def test_close_include_shared_releases_parent_shared_envs():
-    """`include_shared` closes non-isolating envs that plain close() leaves open."""
-    shared = Mock(spec=BaseEnvironment)
-    shared.requires_isolation.return_value = False
-    router = _mock_router({"t1": shared})
-
-    router.close()
-    shared.close.assert_not_called()
-
-    router.close(include_shared=True)
-    shared.close.assert_called_once()

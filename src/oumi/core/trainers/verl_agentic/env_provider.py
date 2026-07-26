@@ -16,12 +16,10 @@
 
 from __future__ import annotations
 
-import copy
 import weakref
 from collections.abc import Mapping
 from typing import Any, Protocol, TypedDict
 
-from oumi.core.configs.environment_config import EnvironmentConfig
 from oumi.core.synthesis.tool_router import ToolRouter
 
 # Routers stay module-local because their environment connections are not picklable.
@@ -40,23 +38,16 @@ class _RolloutData(Protocol):
     def tools_kwargs(self) -> Mapping[str, _ToolKwargs | None] | None: ...
 
 
-def _rollout_create_kwargs(
-    agent_data: _RolloutData,
+def _rollout_env_kwargs(
+    agent_data: _RolloutData, tool_env_map: Mapping[str, str]
 ) -> dict[str, dict[str, Any]]:
+    """Regroup this rollout's per-tool `create_kwargs` by owning environment."""
     create_kwargs_by_tool = {}
     for tool_id, entry in (agent_data.tools_kwargs or {}).items():
         if entry and (create_kwargs := entry.get("create_kwargs")):
             create_kwargs_by_tool[tool_id] = dict(create_kwargs)
-    return create_kwargs_by_tool
 
-
-def _build_router(
-    base_env_config: EnvironmentConfig,
-    create_kwargs_by_tool: dict[str, dict[str, Any]],
-) -> ToolRouter:
-    cfg = copy.deepcopy(base_env_config)
-    tool_env = cfg.tool_environment_map
-    unknown_tool_ids = create_kwargs_by_tool.keys() - tool_env.keys()
+    unknown_tool_ids = create_kwargs_by_tool.keys() - tool_env_map.keys()
     if unknown_tool_ids:
         raise ValueError(
             "Rollout create_kwargs contain unknown tool IDs: "
@@ -64,29 +55,25 @@ def _build_router(
         )
     env_kwargs_by_env: dict[str, dict[str, Any]] = {}
     for tool_id, create_kwargs in create_kwargs_by_tool.items():
-        env_id = tool_env[tool_id]
+        env_id = tool_env_map[tool_id]
         if env_id in env_kwargs_by_env and env_kwargs_by_env[env_id] != create_kwargs:
             raise ValueError(
                 f"Tools provide conflicting create_kwargs for environment {env_id!r}."
             )
         env_kwargs_by_env[env_id] = create_kwargs
-    for env in cfg.environments:
-        if env.id in env_kwargs_by_env:
-            env.env_kwargs = env_kwargs_by_env[env.id]
-    return ToolRouter.from_environment_config(cfg).for_sample()
+    return env_kwargs_by_env
 
 
 def _teardown(request_id: str) -> None:
     router = _ROUTERS.pop(request_id, None)
     if router is not None:
-        # This rollout built its own parent router, so it owns the shared envs too.
-        router.close(include_shared=True)
+        router.close()
 
 
 def get_or_build_router(
-    agent_data: _RolloutData, base_env_config: EnvironmentConfig
+    agent_data: _RolloutData, parent_router: ToolRouter
 ) -> ToolRouter:
-    """Return the rollout-scoped router.
+    """Return the rollout-scoped clone of the process-wide `parent_router`.
 
     `request_id` must be unique per live rollout: teardown is tied to this
     `agent_data`, so a reused id would close the router still held by the other owner.
@@ -95,7 +82,9 @@ def get_or_build_router(
     router = _ROUTERS.get(request_id)
     if router is not None:
         return router
-    router = _build_router(base_env_config, _rollout_create_kwargs(agent_data))
+    router = parent_router.for_sample(
+        _rollout_env_kwargs(agent_data, parent_router.tool_env_map)
+    )
     _ROUTERS[request_id] = router
     weakref.finalize(agent_data, _teardown, request_id)
     return router

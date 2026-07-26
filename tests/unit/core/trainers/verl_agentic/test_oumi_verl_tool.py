@@ -30,7 +30,8 @@ class _FakeAgentData(SimpleNamespace):
 def _make_tool(tmp_path) -> OumiVerlTool:
     cfg_path = tmp_path / "env.yaml"
     cfg_path.write_text(
-        "environments:\n- id: db\n  env_type: database\n"
+        "environments:\n- id: db\n  name: db\n  description: test db\n"
+        "  env_type: database\n"
         "  env_kwargs: {schema_sql: 'CREATE TABLE t(x);'}\n"
         "  tools:\n  - {id: run_sql, name: run_sql, description: run,\n"
         "     parameters: {type: object, properties: {query: {type: string}}, "
@@ -78,6 +79,20 @@ def test_execute_routes_into_shared_env(tmp_path):
     )
     assert reward == 0.0
     assert "2" in resp.text
+
+
+def test_invalid_env_config_is_rejected_at_construction(tmp_path):
+    """The config is validated when the tool is built, not mid-rollout."""
+    cfg_path = tmp_path / "env.yaml"
+    cfg_path.write_text(
+        "environments:\n- id: db\n  name: db\n  description: d\n  env_type: nope\n"
+    )
+    schema = OpenAIFunctionToolSchema.model_validate(
+        {"type": "function", "function": {"name": "run_sql"}}
+    )
+
+    with pytest.raises(ValueError, match="Unknown env_type 'nope'"):
+        OumiVerlTool(config={"oumi_env_config": str(cfg_path)}, tool_schema=schema)
 
 
 def test_failed_tool_call_becomes_an_observation(tmp_path):
