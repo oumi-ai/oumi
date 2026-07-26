@@ -111,6 +111,8 @@ class ToolRouter:
         per-sample data (e.g. the database a single rollout should query). Shared
         envs are rejected because the override would silently apply to every sample.
         """
+        # Both checks run before the first build, so a rejected override can't
+        # strand envs already rebuilt in the loop (their teardown needs a router).
         overrides = env_kwargs_by_env or {}
         unknown_env_ids = overrides.keys() - self.env_by_id.keys()
         if unknown_env_ids:
@@ -118,15 +120,20 @@ class ToolRouter:
                 f"Per-sample env_kwargs target unknown environments: "
                 f"{sorted(unknown_env_ids)}. Known: {sorted(self.env_by_id)}"
             )
+        shared_env_ids = [
+            env_id
+            for env_id in overrides
+            if not self.env_by_id[env_id].requires_isolation()
+        ]
+        if shared_env_ids:
+            raise ValueError(
+                f"Environments {sorted(shared_env_ids)} are shared across samples, "
+                "so per-sample env_kwargs cannot be applied to them."
+            )
 
         env_by_id_new: dict[str, BaseEnvironment] = {}
         for env_id, parent_env in self.env_by_id.items():
             if not parent_env.requires_isolation():
-                if env_id in overrides:
-                    raise ValueError(
-                        f"Environment {env_id!r} is shared across samples, so "
-                        "per-sample env_kwargs cannot be applied to it."
-                    )
                 env_by_id_new[env_id] = parent_env
                 continue
             env_params = self.env_params_by_id[env_id]

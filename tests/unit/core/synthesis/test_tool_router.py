@@ -478,6 +478,29 @@ def test_for_sample_env_kwargs_override_rejects_unknown_env():
         router.for_sample({"nope": {"anything": 1}})
 
 
+def test_for_sample_rejects_bad_override_before_building_anything(monkeypatch):
+    """A rejected override must not strand envs built earlier in the loop.
+
+    The isolating env is ordered first, so an in-loop rejection of the shared
+    env's override would leave its owned snapshot open with no router to close.
+    """
+    router = ToolRouter.from_environment_config(
+        EnvironmentConfig(
+            environments=[_db_env_params(), _det_env_params("det1", [_tool("t1")])]
+        )
+    )
+    builds = []
+    monkeypatch.setattr(
+        "oumi.core.synthesis.tool_router.build_environment",
+        lambda params: builds.append(params.id),
+    )
+
+    with pytest.raises(ValueError, match="shared across samples"):
+        router.for_sample({"det1": {"anything": 1}})
+
+    assert builds == []
+
+
 # ---------- close ----------
 
 
