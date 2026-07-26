@@ -1025,8 +1025,9 @@ def _parse_model_version(model_name: str) -> tuple[str, tuple[int, int]] | None:
 def _model_supports_output_config(model_name: str) -> bool:
     """Returns True if the model accepts the output_config field, False otherwise."""
     # Anthropic's `output_config` (structured outputs) is GA on Claude 4.5+ (Opus,
-    # Sonnet, Haiku) and Mythos. Older models (Claude 3.x, 3.5) reject the field.
-    if model_name.startswith("claude-mythos"):
+    # Sonnet, Haiku) and the Fable/Mythos families. Older models (Claude 3.x, 3.5)
+    # reject the field.
+    if model_name.startswith(("claude-fable", "claude-mythos")):
         return True
 
     parsed = _parse_model_version(model_name)

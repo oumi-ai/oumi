@@ -115,6 +115,7 @@ def test_model_supports_sampling_params(model_name, supported):
         ("claude-sonnet-5", True),
         ("claude-haiku-4-5", True),
         ("claude-3-5-sonnet-20241022", False),
+        ("claude-fable-5", True),
         ("claude-mythos-5", True),
     ],
 )
