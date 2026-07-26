@@ -71,6 +71,10 @@ _IMAGE_MAGIC_PREFIXES: tuple[tuple[bytes, str], ...] = (
     (b"GIF89a", "image/gif"),
 )
 
+# Model-name prefixes for Anthropic's reasoning-first families, which gate both
+# `output_config` support and sampling-param support below.
+_REASONING_FIRST_MODEL_PREFIXES: tuple[str, ...] = ("claude-fable", "claude-mythos")
+
 
 def _detect_image_media_type(data: bytes) -> str:
     """Sniffs an Anthropic-supported image media type from magic bytes.
@@ -1011,7 +1015,7 @@ def _convert_guided_decoding_config_to_api_input(
 
 
 def _parse_model_version(model_name: str) -> tuple[str, tuple[int, int]] | None:
-    """Returns (family, (major, minor)) for a versioned Claude model, else None.
+    """Returns (family, (major, minor)) for versioned Opus/Sonnet/Haiku, else None.
 
     Anthropic drops the minor component on round versions (`claude-opus-5`, not
     `claude-opus-5-0`); treat a missing minor as 0.
@@ -1027,21 +1031,22 @@ def _model_supports_output_config(model_name: str) -> bool:
     # Anthropic's `output_config` (structured outputs) is GA on Claude 4.5+ (Opus,
     # Sonnet, Haiku) and the Fable/Mythos families. Older models (Claude 3.x, 3.5)
     # reject the field.
-    if model_name.startswith(("claude-fable", "claude-mythos")):
+    if model_name.startswith(_REASONING_FIRST_MODEL_PREFIXES):
         return True
 
     parsed = _parse_model_version(model_name)
-    return parsed[1] >= (4, 5) if parsed else False
+    if parsed is None:
+        return False
+    _, version = parsed
+    return version >= (4, 5)
 
 
 def _model_supports_sampling_params(model_name: str) -> bool:
     """Returns True if the model accepts sampling params, False otherwise."""
     # Anthropic removed the sampling params (temperature/top_p/top_k) on its
-    # reasoning-first models: Claude Opus 4.7+, Sonnet 5+, and the Fable/Mythos
-    # families return HTTP 400 ("`temperature` is deprecated for this model.").
-    # Opus 4.6 and earlier, Sonnet 4.6 and earlier, all Haiku, and Claude 3.x
-    # still accept them.
-    if model_name.startswith(("claude-fable", "claude-mythos")):
+    # reasoning-first models, which return HTTP 400 ("`temperature` is deprecated
+    # for this model."). Everything else still accepts them.
+    if model_name.startswith(_REASONING_FIRST_MODEL_PREFIXES):
         return False
 
     parsed = _parse_model_version(model_name)
