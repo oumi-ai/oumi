@@ -16,7 +16,7 @@ import copy
 import itertools
 import json
 import re
-from typing import Any
+from typing import Any, Final, Literal, NamedTuple, cast
 
 import pydantic
 from typing_extensions import override
@@ -74,6 +74,33 @@ _IMAGE_MAGIC_PREFIXES: tuple[tuple[bytes, str], ...] = (
 # Model-name prefixes for Anthropic's reasoning-first families, which gate both
 # `output_config` support and sampling-param support below.
 _REASONING_FIRST_MODEL_PREFIXES: tuple[str, ...] = ("claude-fable", "claude-mythos")
+
+_OPUS_FAMILY: Final = "opus"
+_SONNET_FAMILY: Final = "sonnet"
+_HAIKU_FAMILY: Final = "haiku"
+_ClaudeFamily = Literal["opus", "sonnet", "haiku"]
+
+# A model name carries an optional minor component and an optional -YYYYMMDD
+# snapshot date. Bounding the minor to two digits keeps a date out of it, so
+# `claude-opus-4-20250514` reads as 4.0 rather than 4.20250514.
+_MODEL_VERSION_RE = re.compile(
+    rf"^claude-({_OPUS_FAMILY}|{_SONNET_FAMILY}|{_HAIKU_FAMILY})"
+    r"-(\d+)(?:-(\d{1,2})(?!\d))?"
+)
+
+# `output_config` (structured outputs) is GA from this version on.
+_OUTPUT_CONFIG_MIN_VERSION: tuple[int, int] = (4, 5)
+
+# First version in each family to reject temperature/top_p/top_k.
+_OPUS_SAMPLING_PARAMS_REMOVED_VERSION: tuple[int, int] = (4, 7)
+_SONNET_SAMPLING_PARAMS_REMOVED_VERSION: tuple[int, int] = (5, 0)
+
+
+class _ClaudeModelVersion(NamedTuple):
+    """A Claude model name parsed into its family and (major, minor) version."""
+
+    family: _ClaudeFamily
+    version: tuple[int, int]
 
 
 def _detect_image_media_type(data: bytes) -> str:
@@ -194,6 +221,16 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
                 model_params.model_name,
                 generation_params.temperature,
                 generation_params.top_p,
+            )
+        else:
+            # Dropping the default still diverges from the requested config:
+            # temperature 0.0 is greedy decoding, and omitting it hands sampling
+            # to Anthropic's own default.
+            logger.info(
+                "%r does not accept sampling params; omitting temperature=%s, "
+                "so generation uses Anthropic's default sampling.",
+                model_params.model_name,
+                generation_params.temperature,
             )
 
         if self._remote_params.user_id:
@@ -1014,16 +1051,18 @@ def _convert_guided_decoding_config_to_api_input(
     }
 
 
-def _parse_model_version(model_name: str) -> tuple[str, tuple[int, int]] | None:
-    """Returns (family, (major, minor)) for versioned Opus/Sonnet/Haiku, else None.
+def _parse_model_version(model_name: str) -> _ClaudeModelVersion | None:
+    """Returns the parsed family and version, or None for an unversioned name.
 
     Anthropic drops the minor component on round versions (`claude-opus-5`, not
-    `claude-opus-5-0`); treat a missing minor as 0.
+    `claude-opus-5-0`); treat a missing minor as 0. A trailing snapshot date
+    (`claude-opus-4-20250514`) is not a minor version.
     """
-    match = re.match(r"^claude-(opus|sonnet|haiku)-(\d+)(?:-(\d+))?", model_name)
+    match = _MODEL_VERSION_RE.match(model_name)
     if not match:
         return None
-    return match[1], (int(match[2]), int(match[3] or 0))
+    family = cast(_ClaudeFamily, match[1])
+    return _ClaudeModelVersion(family, (int(match[2]), int(match[3] or 0)))
 
 
 def _model_supports_output_config(model_name: str) -> bool:
@@ -1037,8 +1076,7 @@ def _model_supports_output_config(model_name: str) -> bool:
     parsed = _parse_model_version(model_name)
     if parsed is None:
         return False
-    _, version = parsed
-    return version >= (4, 5)
+    return parsed.version >= _OUTPUT_CONFIG_MIN_VERSION
 
 
 def _model_supports_sampling_params(model_name: str) -> bool:
@@ -1050,11 +1088,12 @@ def _model_supports_sampling_params(model_name: str) -> bool:
         return False
 
     parsed = _parse_model_version(model_name)
-    if not parsed:
+    if parsed is None:
         return True
-    family, version = parsed
-    if family == "opus":
-        return version < (4, 7)
-    if family == "sonnet":
-        return version < (5, 0)
-    return True
+    if parsed.family == _OPUS_FAMILY:
+        return parsed.version < _OPUS_SAMPLING_PARAMS_REMOVED_VERSION
+    if parsed.family == _SONNET_FAMILY:
+        return parsed.version < _SONNET_SAMPLING_PARAMS_REMOVED_VERSION
+    if parsed.family == _HAIKU_FAMILY:
+        return True
+    raise NotImplementedError(f"unhandled Claude family: {parsed.family}")
