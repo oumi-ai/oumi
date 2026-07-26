@@ -17,8 +17,8 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, replace
 from typing import Any
 
 from oumi.builders.environments import build_environment
@@ -95,7 +95,9 @@ class ToolRouter:
             on_env_built=on_env_built,
         )
 
-    def for_sample(self) -> ToolRouter:
+    def for_sample(
+        self, env_kwargs_by_env: Mapping[str, Mapping[str, Any]] | None = None
+    ) -> ToolRouter:
         """Return a router safe to use for one sample.
 
         Envs whose ``requires_isolation()`` returns ``True`` are rebuilt via
@@ -104,13 +106,33 @@ class ToolRouter:
         don't require isolation (e.g. ``DeterministicEnvironment`` and
         stateless ``SyntheticEnvironment``) are shared with the parent
         router to avoid the per-sample build + inference-engine attach cost.
+
+        ``env_kwargs_by_env`` replaces ``env_kwargs`` on the rebuilt envs with
+        per-sample data (e.g. the database a single rollout should query). Shared
+        envs are rejected because the override would silently apply to every sample.
         """
+        overrides = env_kwargs_by_env or {}
+        unknown_env_ids = overrides.keys() - self.env_by_id.keys()
+        if unknown_env_ids:
+            raise ValueError(
+                f"Per-sample env_kwargs target unknown environments: "
+                f"{sorted(unknown_env_ids)}. Known: {sorted(self.env_by_id)}"
+            )
+
         env_by_id_new: dict[str, BaseEnvironment] = {}
         for env_id, parent_env in self.env_by_id.items():
             if not parent_env.requires_isolation():
+                if env_id in overrides:
+                    raise ValueError(
+                        f"Environment {env_id!r} is shared across samples, so "
+                        "per-sample env_kwargs cannot be applied to it."
+                    )
                 env_by_id_new[env_id] = parent_env
                 continue
-            fresh = build_environment(self.env_params_by_id[env_id])
+            env_params = self.env_params_by_id[env_id]
+            if env_id in overrides:
+                env_params = replace(env_params, env_kwargs=dict(overrides[env_id]))
+            fresh = build_environment(env_params)
             if self.on_env_built is not None:
                 self.on_env_built(fresh)
             env_by_id_new[env_id] = fresh
