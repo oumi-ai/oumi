@@ -23,7 +23,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           # Checkout using commit hash to make "no-commit-to-branch" test pass.
           ref: ${{ github.sha }}
@@ -49,7 +49,7 @@ jobs:
           echo "LD_LIBRARY_PATH=/usr/local/cuda-12.6/lib64:$LD_LIBRARY_PATH" >> $GITHUB_ENV
 
       - name: "Set up Python"
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
@@ -66,7 +66,7 @@ jobs:
           uv pip install --system -e '.[ci_gpu]' hf_transfer
 
       - name: Cache HuggingFace Models
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cache/huggingface
