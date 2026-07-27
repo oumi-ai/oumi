@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
+from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.types.conversation import (
     ContentItem,
     Conversation,
@@ -17,6 +18,7 @@ from oumi.core.types.conversation import (
 from oumi.core.types.tool_call import ToolCall, ToolDefinition
 from oumi.inference.anthropic_inference_engine import (
     AnthropicInferenceEngine,
+    _model_supports_output_config,
     _model_supports_sampling_params,
 )
 from oumi.inference.remote_inference_engine import BatchInfo, BatchStatus
@@ -91,7 +93,10 @@ def test_convert_conversation_omits_metadata_without_user_id(anthropic_engine):
         ("claude-opus-4-7", False),
         ("claude-opus-4-8", False),
         ("claude-opus-4-9", False),  # future Opus stays gated
+        ("claude-opus-5", False),  # round version, no minor component
+        ("claude-opus-4-20250514", True),  # snapshot date is not a minor version
         ("claude-sonnet-4-6", True),
+        ("claude-sonnet-5", False),
         ("claude-haiku-4-5", True),
         ("claude-3-5-sonnet-20241022", True),
         ("claude-3", True),
@@ -102,6 +107,86 @@ def test_convert_conversation_omits_metadata_without_user_id(anthropic_engine):
 )
 def test_model_supports_sampling_params(model_name, supported):
     assert _model_supports_sampling_params(model_name) is supported
+
+
+@pytest.mark.parametrize(
+    ("model_name", "supported"),
+    [
+        ("claude-opus-4-5-20251101", True),
+        ("claude-opus-5", True),  # round version, no minor component
+        ("claude-sonnet-5", True),
+        ("claude-haiku-4-5", True),
+        ("claude-sonnet-4-0", False),  # parses, but below the 4.5 boundary
+        ("claude-opus-4-20250514", False),  # snapshot date is not a minor version
+        ("claude-sonnet-4-20250514", False),
+        ("claude-3-5-sonnet-20241022", False),
+        ("claude-fable-5", True),
+        ("claude-mythos-5", True),
+    ],
+)
+def test_model_supports_output_config(model_name, supported):
+    assert _model_supports_output_config(model_name) is supported
+
+
+def test_convert_conversation_includes_output_config_for_supported_model():
+    engine = AnthropicInferenceEngine(
+        model_params=ModelParams(model_name="claude-opus-5"),
+        remote_params=RemoteParams(api_key="test_api_key", api_url="<placeholder>"),
+    )
+    conversation = Conversation(messages=[Message(content="hi", role=Role.USER)])
+    schema = {
+        "type": "object",
+        "properties": {"answer": {"type": "string"}},
+        "required": ["answer"],
+    }
+
+    result = engine._convert_conversation_to_api_input(
+        conversation,
+        GenerationParams(
+            max_new_tokens=100,
+            guided_decoding=GuidedDecodingParams(json=schema),
+        ),
+        engine._model_params,
+    )
+
+    assert result["output_config"]["format"]["type"] == "json_schema"
+    assert result["output_config"]["format"]["schema"]["required"] == ["answer"]
+
+
+def test_convert_conversation_omits_output_config_for_unsupported_model():
+    engine = AnthropicInferenceEngine(
+        model_params=ModelParams(model_name="claude-3-5-sonnet-20241022"),
+        remote_params=RemoteParams(api_key="test_api_key", api_url="<placeholder>"),
+    )
+    conversation = Conversation(messages=[Message(content="hi", role=Role.USER)])
+
+    result = engine._convert_conversation_to_api_input(
+        conversation,
+        GenerationParams(
+            max_new_tokens=100,
+            guided_decoding=GuidedDecodingParams(json={"type": "object"}),
+        ),
+        engine._model_params,
+    )
+
+    assert "output_config" not in result
+
+
+def test_convert_conversation_logs_when_dropping_default_sampling_params(caplog):
+    engine = AnthropicInferenceEngine(
+        model_params=ModelParams(model_name="claude-opus-5"),
+        remote_params=RemoteParams(api_key="test_api_key", api_url="<placeholder>"),
+    )
+    conversation = Conversation(messages=[Message(content="hi", role=Role.USER)])
+
+    with caplog.at_level(logging.INFO):
+        engine._convert_conversation_to_api_input(
+            conversation,
+            GenerationParams(max_new_tokens=100),
+            engine._model_params,
+        )
+
+    assert any("Anthropic's default sampling" in r.message for r in caplog.records)
 
 
 def test_convert_conversation_omits_sampling_params_for_reasoning_models():
