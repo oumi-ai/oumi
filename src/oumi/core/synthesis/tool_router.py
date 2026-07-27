@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable, Mapping
+from contextlib import suppress
 from dataclasses import dataclass, replace
 from typing import Any
 
@@ -132,17 +133,27 @@ class ToolRouter:
             )
 
         env_by_id_new: dict[str, BaseEnvironment] = {}
-        for env_id, parent_env in self.env_by_id.items():
-            if not parent_env.requires_isolation():
-                env_by_id_new[env_id] = parent_env
-                continue
-            env_params = self.env_params_by_id[env_id]
-            if env_id in overrides:
-                env_params = replace(env_params, env_kwargs=dict(overrides[env_id]))
-            fresh = build_environment(env_params)
-            if self.on_env_built is not None:
-                self.on_env_built(fresh)
-            env_by_id_new[env_id] = fresh
+        built_here: list[BaseEnvironment] = []
+        try:
+            for env_id, parent_env in self.env_by_id.items():
+                if not parent_env.requires_isolation():
+                    env_by_id_new[env_id] = parent_env
+                    continue
+                env_params = self.env_params_by_id[env_id]
+                if env_id in overrides:
+                    env_params = replace(env_params, env_kwargs=dict(overrides[env_id]))
+                fresh = build_environment(env_params)
+                built_here.append(fresh)
+                if self.on_env_built is not None:
+                    self.on_env_built(fresh)
+                env_by_id_new[env_id] = fresh
+        except BaseException:
+            # No router escapes to close these, so release them here. Shared envs
+            # aren't in `built_here` — they belong to the parent.
+            for env in built_here:
+                with suppress(Exception):
+                    env.close()
+            raise
 
         return ToolRouter(
             tool_specs=self.tool_specs,
