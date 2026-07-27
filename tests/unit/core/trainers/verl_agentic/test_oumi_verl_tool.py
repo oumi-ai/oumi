@@ -95,6 +95,17 @@ def test_invalid_env_config_is_rejected_at_construction(tmp_path):
         OumiVerlTool(config={"oumi_env_config": str(cfg_path)}, tool_schema=schema)
 
 
+def test_tool_name_missing_from_env_config_is_rejected_at_construction(tmp_path):
+    """The name is spelled out twice; a mismatch must not wait for the first call."""
+    tool = _make_tool(tmp_path)
+    schema = OpenAIFunctionToolSchema.model_validate(
+        {"type": "function", "function": {"name": "run_sqll"}}
+    )
+
+    with pytest.raises(ValueError, match="Known tools: \\['run_sql'\\]"):
+        OumiVerlTool(config=tool.config, tool_schema=schema)
+
+
 def test_failed_tool_call_becomes_an_observation(tmp_path):
     """A bad tool call must not propagate and kill the rollout."""
     tool = _make_tool(tmp_path)

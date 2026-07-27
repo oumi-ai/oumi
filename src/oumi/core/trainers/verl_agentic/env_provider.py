@@ -23,7 +23,8 @@ from typing import Any, Protocol, TypedDict
 from oumi.core.synthesis.tool_router import ToolRouter
 
 # Routers stay module-local because their environment connections are not picklable.
-_ROUTERS: dict[str, ToolRouter] = {}
+# Value is (id of the parent router, rollout clone) — see `get_or_build_router`.
+_ROUTERS: dict[str, tuple[int, ToolRouter]] = {}
 
 
 class _ToolKwargs(TypedDict, total=False):
@@ -65,9 +66,9 @@ def _rollout_env_kwargs(
 
 
 def _teardown(request_id: str) -> None:
-    router = _ROUTERS.pop(request_id, None)
-    if router is not None:
-        router.close()
+    entry = _ROUTERS.pop(request_id, None)
+    if entry is not None:
+        entry[1].close()
 
 
 def get_or_build_router(
@@ -77,14 +78,25 @@ def get_or_build_router(
 
     `request_id` must be unique per live rollout: teardown is tied to this
     `agent_data`, so a reused id would close the router still held by the other owner.
+
+    Every Oumi tool in one rollout shares that rollout's router, so they must all
+    name the same environment config. One config already covers many environments
+    (`EnvironmentConfig.environments` is a list), so a second one is a mistake.
     """
     request_id = agent_data.request_id
-    router = _ROUTERS.get(request_id)
-    if router is not None:
-        return router
+    entry = _ROUTERS.get(request_id)
+    if entry is not None:
+        # `parent_router` is cached per config path, so identity == same config.
+        if entry[0] != id(parent_router):
+            raise ValueError(
+                "Oumi tools in one rollout must share a single environment config; "
+                "found tools built from two different `oumi_env_config` files. "
+                "List every environment in one config instead."
+            )
+        return entry[1]
     router = parent_router.for_sample(
         _rollout_env_kwargs(agent_data, parent_router.tool_env_map)
     )
-    _ROUTERS[request_id] = router
+    _ROUTERS[request_id] = (id(parent_router), router)
     weakref.finalize(agent_data, _teardown, request_id)
     return router

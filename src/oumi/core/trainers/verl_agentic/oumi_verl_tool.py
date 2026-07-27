@@ -61,8 +61,16 @@ class OumiVerlTool(BaseTool):
         super().__init__(config, tool_schema)
         self._tool_id = tool_schema.function.name
         self._env_config_path = config["oumi_env_config"]
-        # Validate at construction so a bad config fails before any rollout starts.
-        _load_env_config(self._env_config_path)
+        # Validate at construction: the tool name is spelled out in both the verl
+        # tool config and the env config, so a mismatch would otherwise surface as
+        # an unusable tool that fails every call of every rollout.
+        env_config = _load_env_config(self._env_config_path)
+        if self._tool_id not in env_config.tool_environment_map:
+            raise ValueError(
+                f"Tool '{self._tool_id}' is not defined in "
+                f"{self._env_config_path}. Known tools: "
+                f"{sorted(env_config.tool_environment_map)}"
+            )
 
     async def create(
         self, instance_id: str | None = None, **kwargs: Any

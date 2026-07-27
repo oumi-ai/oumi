@@ -3,6 +3,8 @@ import sqlite3
 from types import SimpleNamespace
 from typing import Any
 
+import pytest
+
 from oumi.core.configs.environment_config import EnvironmentConfig
 from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.core.synthesis import tool_router
@@ -193,6 +195,15 @@ def test_create_kwargs_scoped_to_owning_env_only():
     b = router.route_batch([("q_b", {"query": "SELECT count(*) FROM t"})])[0].output
     assert a == {"columns": ["count(*)"], "rows": [[5]]}
     assert b == {"columns": ["count(*)"], "rows": [[1]]}
+
+
+def test_two_env_configs_in_one_rollout_is_rejected():
+    """Tools sharing a rollout share its router, so they must share one config."""
+    ad = _agent_data("two-configs-1")
+    get_or_build_router(ad, _parent())
+
+    with pytest.raises(ValueError, match="must share a single environment config"):
+        get_or_build_router(ad, _parent())
 
 
 def test_each_rollout_builds_its_envs_exactly_once(monkeypatch):
