@@ -478,6 +478,34 @@ def test_for_sample_env_kwargs_override_rejects_unknown_env():
         router.for_sample({"nope": {"anything": 1}})
 
 
+def test_for_sample_closes_envs_it_built_when_a_later_build_fails(monkeypatch):
+    """A failed build must not strand the envs already rebuilt in that pass."""
+    router = ToolRouter.from_environment_config(
+        EnvironmentConfig(
+            environments=[_db_env_params(), _stateful_synth_env_params("stateful")]
+        )
+    )
+    built = []
+
+    def flaky_build(env_params):
+        if env_params.id == "stateful":
+            raise RuntimeError("boom")
+        env = Mock(spec=BaseEnvironment)
+        env.requires_isolation.return_value = True
+        built.append(env)
+        return env
+
+    monkeypatch.setattr(
+        "oumi.core.synthesis.tool_router.build_environment", flaky_build
+    )
+
+    with pytest.raises(RuntimeError, match="boom"):
+        router.for_sample()
+
+    assert len(built) == 1
+    built[0].close.assert_called_once()
+
+
 def test_for_sample_rejects_bad_override_before_building_anything(monkeypatch):
     """A rejected override must not strand envs built earlier in the loop.
 
