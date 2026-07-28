@@ -499,6 +499,34 @@ def test_for_sample_closes_envs_it_built_when_a_later_build_fails(monkeypatch):
     built[0].close.assert_called_once()
 
 
+def test_for_sample_closes_an_env_whose_on_env_built_fails(monkeypatch):
+    """An env is owned from the moment it's built, before on_env_built runs on it.
+
+    It never reaches `env_by_id_new` on this path, so only `built_here` can free it.
+    """
+    router = ToolRouter.from_environment_config(
+        EnvironmentConfig(environments=[_db_env_params()])
+    )
+    built = []
+
+    def build(_env_params):
+        env = Mock(spec=BaseEnvironment)
+        env.requires_isolation.return_value = True
+        built.append(env)
+        return env
+
+    monkeypatch.setattr("oumi.core.synthesis.tool_router.build_environment", build)
+    monkeypatch.setattr(
+        router, "on_env_built", Mock(side_effect=RuntimeError("attach failed"))
+    )
+
+    with pytest.raises(RuntimeError, match="attach failed"):
+        router.for_sample()
+
+    assert len(built) == 1
+    built[0].close.assert_called_once()
+
+
 def test_for_sample_env_kwargs_override_does_not_leak_into_later_samples():
     """One sample's override must not follow the parent into the next sample.
 
