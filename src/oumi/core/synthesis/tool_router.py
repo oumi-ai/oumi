@@ -148,9 +148,8 @@ class ToolRouter:
                     self.on_env_built(fresh)
                 env_by_id_new[env_id] = fresh
         except BaseException:
-            # Per-sample envs are normally closed through the returned router; on this
-            # path there is no return value, so nothing else can reach them. Shared
-            # envs aren't in `built_here` — they belong to the parent.
+            # Raising without returning means no router will ever close these.
+            # `built_here` omits the parent's shared envs, which must stay open.
             for env in built_here:
                 with suppress(Exception):
                     env.close()
