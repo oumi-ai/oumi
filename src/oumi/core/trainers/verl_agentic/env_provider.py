@@ -54,15 +54,18 @@ def _rollout_env_kwargs(
             "Rollout create_kwargs contain unknown tool IDs: "
             f"{sorted(unknown_tool_ids)}"
         )
-    env_kwargs_by_env: dict[str, dict[str, Any]] = {}
+    env_kwargs_by_env_id: dict[str, dict[str, Any]] = {}
     for tool_id, create_kwargs in create_kwargs_by_tool.items():
         env_id = tool_env_map[tool_id]
-        if env_id in env_kwargs_by_env and env_kwargs_by_env[env_id] != create_kwargs:
+        if (
+            env_id in env_kwargs_by_env_id
+            and env_kwargs_by_env_id[env_id] != create_kwargs
+        ):
             raise ValueError(
                 f"Tools provide conflicting create_kwargs for environment {env_id!r}."
             )
-        env_kwargs_by_env[env_id] = create_kwargs
-    return env_kwargs_by_env
+        env_kwargs_by_env_id[env_id] = create_kwargs
+    return env_kwargs_by_env_id
 
 
 def _teardown(request_id: str) -> None:

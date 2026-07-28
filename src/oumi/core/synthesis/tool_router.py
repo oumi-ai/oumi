@@ -97,7 +97,7 @@ class ToolRouter:
         )
 
     def for_sample(
-        self, env_kwargs_by_env: Mapping[str, Mapping[str, Any]] | None = None
+        self, env_kwargs_by_env_id: Mapping[str, Mapping[str, Any]] | None = None
     ) -> ToolRouter:
         """Return a router safe to use for one sample.
 
@@ -108,13 +108,13 @@ class ToolRouter:
         stateless ``SyntheticEnvironment``) are shared with the parent
         router to avoid the per-sample build + inference-engine attach cost.
 
-        ``env_kwargs_by_env`` replaces ``env_kwargs`` on the rebuilt envs with
+        ``env_kwargs_by_env_id`` replaces ``env_kwargs`` on the rebuilt envs with
         per-sample data (e.g. the database a single rollout should query). Shared
         envs are rejected because the override would silently apply to every sample.
         """
         # Both checks run before the first build, so a rejected override can't
         # strand envs already rebuilt in the loop (their teardown needs a router).
-        overrides = env_kwargs_by_env or {}
+        overrides = env_kwargs_by_env_id or {}
         unknown_env_ids = overrides.keys() - self.env_by_id.keys()
         if unknown_env_ids:
             raise ValueError(
@@ -148,8 +148,9 @@ class ToolRouter:
                     self.on_env_built(fresh)
                 env_by_id_new[env_id] = fresh
         except BaseException:
-            # No router escapes to close these, so release them here. Shared envs
-            # aren't in `built_here` — they belong to the parent.
+            # Per-sample envs are normally closed through the returned router; on this
+            # path there is no return value, so nothing else can reach them. Shared
+            # envs aren't in `built_here` — they belong to the parent.
             for env in built_here:
                 with suppress(Exception):
                     env.close()
