@@ -24,6 +24,7 @@ from oumi.core.registry.registry import (
     register_environment,
     register_evaluation_function,
     register_sample_analyzer,
+    register_tool_executor,
 )
 
 __all__ = [
@@ -36,4 +37,5 @@ __all__ = [
     "register_environment",
     "register_evaluation_function",
     "register_sample_analyzer",
+    "register_tool_executor",
 ]
