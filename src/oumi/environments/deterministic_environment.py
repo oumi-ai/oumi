@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+import copy
 import dataclasses
 import json
 import random
@@ -30,6 +31,26 @@ from oumi.core.registry import register_environment
 from oumi.core.types.tool_call import ToolResult
 from oumi.environments.base_environment import BaseEnvironment
 from oumi.utils.logging import logger
+
+
+def _fill_argument_defaults(
+    arguments: dict[str, Any],
+    schema: dict[str, Any],
+) -> dict[str, Any]:
+    """Return a copy of arguments with JSON Schema property defaults applied."""
+    result = dict(arguments)
+    properties = schema.get("properties", {})
+    if not isinstance(properties, dict):
+        return result
+
+    for name, property_schema in properties.items():
+        if not isinstance(property_schema, dict):
+            continue
+        if name not in result and "default" in property_schema:
+            result[name] = copy.deepcopy(property_schema["default"])
+        if isinstance(result.get(name), dict):
+            result[name] = _fill_argument_defaults(result[name], property_schema)
+    return result
 
 
 @dataclass
@@ -87,7 +108,8 @@ class DeterministicEnvironment(BaseEnvironment):
         """Initialize a DeterministicEnvironment."""
         self._params = params
         self._kwargs = kwargs
-        self._tool_ids = {tool.id for tool in params.tools}
+        self._tools_by_id = {tool.id: tool for tool in params.tools}
+        self._tool_ids = set(self._tools_by_id)
         self._validate_lookup_table()
 
     def step(self, calls: list[tuple[str, dict[str, Any]]]) -> list[ToolResult]:
@@ -100,6 +122,10 @@ class DeterministicEnvironment(BaseEnvironment):
                 f"Tool '{tool_id}' not found in environment '{self._params.id}'. "
                 f"Available tools: {sorted(self._tool_ids)}"
             )
+        arguments = _fill_argument_defaults(
+            arguments,
+            self._tools_by_id[tool_id].parameters,
+        )
         entries = self._kwargs.lookup_table.get(tool_id, [])
         for entry in entries:
             if entry.matches(arguments):
@@ -185,6 +211,7 @@ class DeterministicEnvironment(BaseEnvironment):
                 )
             seen: set[str] = set()
             for entry in entries:
+                entry.input = _fill_argument_defaults(entry.input, tool.parameters)
                 key = entry.input_key()
                 if key in seen:
                     raise ValueError(

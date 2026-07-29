@@ -32,8 +32,16 @@ from oumi.environments.deterministic_environment import (
 )
 
 
-def _make_tool(tool_id: str = "tool1") -> ToolParams:
-    return ToolParams(id=tool_id, name=tool_id, description="A tool")
+def _make_tool(
+    tool_id: str = "tool1",
+    parameters: dict | None = None,
+) -> ToolParams:
+    return ToolParams(
+        id=tool_id,
+        name=tool_id,
+        description="A tool",
+        parameters=parameters if parameters is not None else {"type": "object"},
+    )
 
 
 def _make_params(
@@ -145,6 +153,38 @@ def test_duplicate_inputs_raises():
         )
 
 
+def test_inputs_with_omitted_and_explicit_defaults_are_duplicates():
+    tool = _make_tool(
+        parameters={
+            "type": "object",
+            "properties": {
+                "location": {"type": "string"},
+                "unit": {"type": "string", "default": "fahrenheit"},
+            },
+            "required": ["location"],
+        }
+    )
+
+    with pytest.raises(ValueError, match="duplicate input"):
+        DeterministicEnvironment.from_params(
+            _make_params(
+                tools=[tool],
+                lookup_table={
+                    "tool1": [
+                        ToolLookupEntry(
+                            input={"location": "sf"},
+                            output={"temperature": 65},
+                        ),
+                        ToolLookupEntry(
+                            input={"location": "sf", "unit": "fahrenheit"},
+                            output={"temperature": 65},
+                        ),
+                    ]
+                },
+            )
+        )
+
+
 # --- step ---
 
 
@@ -196,6 +236,194 @@ def test_step_unknown_tool_raises():
     env = DeterministicEnvironment.from_params(_make_params())
     with pytest.raises(ValueError, match="Tool 'missing' not found"):
         env.step([("missing", {"id": "01"})])
+
+
+def test_step_matches_omitted_argument_to_explicit_default():
+    tool = _make_tool(
+        parameters={
+            "type": "object",
+            "properties": {
+                "location": {"type": "string"},
+                "unit": {"type": "string", "default": "fahrenheit"},
+            },
+            "required": ["location"],
+        }
+    )
+    env = DeterministicEnvironment.from_params(
+        _make_params(
+            tools=[tool],
+            lookup_table={
+                "tool1": [
+                    ToolLookupEntry(
+                        input={"location": "sf", "unit": "fahrenheit"},
+                        output={"temperature": 65},
+                    )
+                ]
+            },
+        )
+    )
+
+    assert env.step([("tool1", {"location": "sf"})]) == [
+        ToolResult(output={"temperature": 65})
+    ]
+
+
+def test_step_recursively_fills_defaults_in_existing_object():
+    tool = _make_tool(
+        parameters={
+            "type": "object",
+            "properties": {
+                "location": {"type": "string"},
+                "opts": {
+                    "type": "object",
+                    "properties": {
+                        "unit": {"type": "string", "default": "fahrenheit"},
+                        "verbose": {"type": "boolean", "default": False},
+                    },
+                },
+            },
+            "required": ["location"],
+        }
+    )
+    env = DeterministicEnvironment.from_params(
+        _make_params(
+            tools=[tool],
+            lookup_table={
+                "tool1": [
+                    ToolLookupEntry(
+                        input={
+                            "location": "sf",
+                            "opts": {"unit": "fahrenheit", "verbose": False},
+                        },
+                        output={"temperature": 65},
+                    )
+                ]
+            },
+        )
+    )
+
+    assert env.step([("tool1", {"location": "sf", "opts": {}})]) == [
+        ToolResult(output={"temperature": 65})
+    ]
+
+
+def test_step_does_not_create_missing_object_without_default():
+    tool = _make_tool(
+        parameters={
+            "type": "object",
+            "properties": {
+                "location": {"type": "string"},
+                "opts": {
+                    "type": "object",
+                    "properties": {
+                        "unit": {"type": "string", "default": "fahrenheit"},
+                    },
+                },
+            },
+            "required": ["location"],
+        }
+    )
+    env = DeterministicEnvironment.from_params(
+        _make_params(
+            tools=[tool],
+            lookup_table={
+                "tool1": [
+                    ToolLookupEntry(
+                        input={"location": "sf"},
+                        output={"source": "no-opts"},
+                    ),
+                    ToolLookupEntry(
+                        input={
+                            "location": "sf",
+                            "opts": {"unit": "fahrenheit"},
+                        },
+                        output={"source": "opts"},
+                    ),
+                ]
+            },
+        )
+    )
+
+    assert env.step([("tool1", {"location": "sf"})]) == [
+        ToolResult(output={"source": "no-opts"})
+    ]
+    assert env.step([("tool1", {"location": "sf", "opts": {}})]) == [
+        ToolResult(output={"source": "opts"})
+    ]
+
+
+def test_step_creates_and_fills_missing_object_with_default():
+    tool = _make_tool(
+        parameters={
+            "type": "object",
+            "properties": {
+                "location": {"type": "string"},
+                "opts": {
+                    "type": "object",
+                    "default": {},
+                    "properties": {
+                        "unit": {"type": "string", "default": "fahrenheit"},
+                        "verbose": {"type": "boolean", "default": False},
+                    },
+                },
+            },
+            "required": ["location"],
+        }
+    )
+    env = DeterministicEnvironment.from_params(
+        _make_params(
+            tools=[tool],
+            lookup_table={
+                "tool1": [
+                    ToolLookupEntry(
+                        input={
+                            "location": "sf",
+                            "opts": {"unit": "fahrenheit", "verbose": False},
+                        },
+                        output={"temperature": 65},
+                    )
+                ]
+            },
+        )
+    )
+
+    assert env.step([("tool1", {"location": "sf"})]) == [
+        ToolResult(output={"temperature": 65})
+    ]
+
+
+def test_step_default_filling_does_not_mutate_call_arguments():
+    tool = _make_tool(
+        parameters={
+            "type": "object",
+            "properties": {
+                "opts": {
+                    "type": "object",
+                    "properties": {
+                        "verbose": {"type": "boolean", "default": False},
+                    },
+                }
+            },
+        }
+    )
+    env = DeterministicEnvironment.from_params(
+        _make_params(
+            tools=[tool],
+            lookup_table={
+                "tool1": [
+                    ToolLookupEntry(
+                        input={"opts": {"verbose": False}},
+                        output={"ok": True},
+                    )
+                ]
+            },
+        )
+    )
+    arguments = {"opts": {}}
+
+    env.step([("tool1", arguments)])
+
+    assert arguments == {"opts": {}}
 
 
 # --- sample_grounding ---
