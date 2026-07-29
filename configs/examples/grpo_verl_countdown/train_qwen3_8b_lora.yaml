@@ -59,7 +59,6 @@ training:
         lora_rank: 32
         lora_alpha: 32
         target_modules: "all-linear"
-        use_shm: True
       actor:
         use_kl_loss: True
         kl_loss_coef: 0.001
@@ -87,6 +86,7 @@ training:
       val_before_train: True
       n_gpus_per_node: 8
       nnodes: 1
+      max_actor_ckpt_to_keep: 2  # Cap retained checkpoints; unbounded default fills disk.
 
   output_dir: "output/grpo_verl_countdown_qwen3_8b_lora"
   run_name: "grpo_verl_countdown_qwen3_8b_lora"
