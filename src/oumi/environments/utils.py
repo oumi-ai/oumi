@@ -30,6 +30,7 @@ from oumi.core.configs.params.grounding_params import GroundingFact
 from oumi.core.configs.params.tool_params import ToolError, ToolParams
 from oumi.core.registry import REGISTRY, RegistryType
 from oumi.core.types.tool_call import ToolResult
+from oumi.utils.logging import logger
 
 _KwargsT = TypeVar("_KwargsT", bound=BaseParams)
 
@@ -85,6 +86,15 @@ def resolve_executor(name: str, tool_id: str) -> Callable[..., Any]:
     """Resolve an executor: a registered name wins, else a dotted import path."""
     executor = REGISTRY.get(name, RegistryType.TOOL_EXECUTOR)
     if executor is not None:
+        try:
+            import_executor(name, tool_id)
+        except ValueError:
+            pass
+        else:
+            logger.warning(
+                f"Tool '{tool_id}': executor '{name}' is both a registered tool "
+                "executor and an importable dotted path; using the registered one."
+            )
         return executor
     try:
         return import_executor(name, tool_id)

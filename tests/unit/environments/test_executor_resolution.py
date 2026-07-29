@@ -70,6 +70,14 @@ def test_resolve_executor_falls_back_to_dotted_path():
     assert resolved is _dotted_executor
 
 
+def test_resolve_executor_warns_when_registry_name_shadows_dotted_path(caplog):
+    dotted = f"{__name__}._dotted_executor"
+    register_tool_executor(dotted)(_registered_executor)
+    with caplog.at_level("WARNING"):
+        assert resolve_executor(dotted, "t") is _registered_executor
+    assert "using the registered one" in caplog.text
+
+
 def test_resolve_executor_unknown_name_reports_registered_executors():
     register_tool_executor("res.registered")(_registered_executor)
     with pytest.raises(
