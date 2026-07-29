@@ -613,6 +613,36 @@ def test_sample_grounding_merges_input_and_output():
     assert facts[0].data == {"id": "1", "note": "output-note", "title": "Dune"}
 
 
+def test_sample_grounding_includes_filled_defaults():
+    """Entry inputs are normalized before projection, so defaults reach facts."""
+    tool = _make_tool(
+        "lookup",
+        parameters={
+            "type": "object",
+            "properties": {
+                "id": {"type": "string"},
+                "unit": {"type": "string", "default": "fahrenheit"},
+                "locale": {"type": "string", "default": "en"},
+            },
+        },
+    )
+    env = DeterministicEnvironment.from_params(
+        _make_params(
+            tools=[tool],
+            lookup_table={
+                "lookup": [ToolLookupEntry(input={"id": "1"}, output={"title": "Dune"})]
+            },
+            grounding=GroundingConfig(
+                sample_size=1,
+                tools={"lookup": ToolGroundingConfig(fields=["id", "unit", "title"])},
+            ),
+        )
+    )
+    facts = env.sample_grounding(n=1, rng=random.Random(0))
+
+    assert facts[0].data == {"id": "1", "unit": "fahrenheit", "title": "Dune"}
+
+
 def test_sample_grounding_seeded_is_reproducible():
     env = _grounded_env(n_entries=20)
     a = env.sample_grounding(n=4, rng=random.Random(42))
