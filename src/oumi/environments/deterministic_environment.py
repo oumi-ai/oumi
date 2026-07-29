@@ -37,7 +37,10 @@ def _fill_argument_defaults(
     arguments: dict[str, Any],
     schema: dict[str, Any],
 ) -> dict[str, Any]:
-    """Return a copy of arguments with JSON Schema property defaults applied."""
+    """Return a copy of arguments with JSON Schema property defaults applied.
+
+    An absent object property is only created if it declares its own ``default``.
+    """
     result = dict(arguments)
     properties = schema.get("properties", {})
     if not isinstance(properties, dict):
@@ -108,8 +111,9 @@ class DeterministicEnvironment(BaseEnvironment):
         """Initialize a DeterministicEnvironment."""
         self._params = params
         self._kwargs = kwargs
-        self._tools_by_id = {tool.id: tool for tool in params.tools}
-        self._tool_ids = set(self._tools_by_id)
+        self._tools_by_id: dict[str, ToolParams] = {
+            tool.id: tool for tool in params.tools
+        }
         self._validate_lookup_table()
 
     def step(self, calls: list[tuple[str, dict[str, Any]]]) -> list[ToolResult]:
@@ -117,15 +121,13 @@ class DeterministicEnvironment(BaseEnvironment):
         return [self._resolve_one(tool_id, args) for tool_id, args in calls]
 
     def _resolve_one(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:
-        if tool_id not in self._tool_ids:
+        tool = self._tools_by_id.get(tool_id)
+        if tool is None:
             raise ValueError(
                 f"Tool '{tool_id}' not found in environment '{self._params.id}'. "
-                f"Available tools: {sorted(self._tool_ids)}"
+                f"Available tools: {sorted(self._tools_by_id)}"
             )
-        arguments = _fill_argument_defaults(
-            arguments,
-            self._tools_by_id[tool_id].parameters,
-        )
+        arguments = _fill_argument_defaults(arguments, tool.parameters)
         entries = self._kwargs.lookup_table.get(tool_id, [])
         for entry in entries:
             if entry.matches(arguments):
@@ -192,10 +194,11 @@ class DeterministicEnvironment(BaseEnvironment):
         - Stale ``lookup_table`` keys (no matching tool): log a warning;
           entries are dormant.
         - Tools without entries: hard error.
+        - Entry inputs are normalized in place with schema defaults.
         - Duplicate inputs within a tool's entries: hard error.
         """
         for tool_id in self._kwargs.lookup_table:
-            if tool_id not in self._tool_ids:
+            if tool_id not in self._tools_by_id:
                 logger.warning(
                     "Environment '%s': lookup_table.'%s' references unknown "
                     "tool. Entries will be ignored.",

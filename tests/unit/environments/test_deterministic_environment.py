@@ -268,6 +268,56 @@ def test_step_matches_omitted_argument_to_explicit_default():
     ]
 
 
+def test_step_matches_explicit_argument_to_omitted_entry_default():
+    """The entry side is filled too, so terse lookup rows match verbose calls."""
+    tool = _make_tool(
+        parameters={
+            "type": "object",
+            "properties": {
+                "location": {"type": "string"},
+                "unit": {"type": "string", "default": "fahrenheit"},
+            },
+            "required": ["location"],
+        }
+    )
+    env = DeterministicEnvironment.from_params(
+        _make_params(
+            tools=[tool],
+            lookup_table={
+                "tool1": [
+                    ToolLookupEntry(
+                        input={"location": "sf"},
+                        output={"temperature": 65},
+                    )
+                ]
+            },
+        )
+    )
+
+    assert env.step([("tool1", {"location": "sf", "unit": "fahrenheit"})]) == [
+        ToolResult(output={"temperature": 65})
+    ]
+
+
+def test_filled_list_default_is_not_aliased_to_schema():
+    """Filled defaults are deep-copied, so a filled entry can't corrupt the schema."""
+    tool = _make_tool(
+        parameters={
+            "type": "object",
+            "properties": {"tags": {"type": "array", "default": ["a"]}},
+        }
+    )
+    entry = ToolLookupEntry(input={}, output={"ok": True})
+    DeterministicEnvironment.from_params(
+        _make_params(tools=[tool], lookup_table={"tool1": [entry]})
+    )
+    assert entry.input == {"tags": ["a"]}
+
+    entry.input["tags"].append("MUTATED")
+
+    assert tool.parameters["properties"]["tags"]["default"] == ["a"]
+
+
 def test_step_recursively_fills_defaults_in_existing_object():
     tool = _make_tool(
         parameters={
