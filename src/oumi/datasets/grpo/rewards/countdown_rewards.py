@@ -89,7 +89,7 @@ def countdown_reward(
     solution_str: str,
     ground_truth: dict[str, Any],
     extra_info: dict[str, Any],
-    format_score=0.0,
+    format_score=0.1,
     score=1.0,
 ) -> float:
     """Custom reward function for the Countdown task.
