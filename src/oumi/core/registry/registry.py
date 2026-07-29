@@ -147,6 +147,7 @@ class Registry:
             RegistryType.METRICS_FUNCTION,
             RegistryType.REWARD_FUNCTION,
             RegistryType.ROLLOUT_FUNCTION,
+            RegistryType.TOOL_EXECUTOR,
         ) and not callable(value):
             raise ValueError(f"Registry: `{name}` of `{type}` must be callable.")
 
