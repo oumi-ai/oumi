@@ -88,12 +88,14 @@ def resolve_executor(name: str, tool_id: str) -> Callable[..., Any]:
     if executor is not None:
         try:
             import_executor(name, tool_id)
-        except ValueError:
-            pass
+        except Exception:
+            pass  # Diagnostic only: never let a speculative import break resolution.
         else:
             logger.warning(
-                f"Tool '{tool_id}': executor '{name}' is both a registered tool "
-                "executor and an importable dotted path; using the registered one."
+                "Tool '%s': executor '%s' is both a registered tool executor and "
+                "an importable dotted path; using the registered one.",
+                tool_id,
+                name,
             )
         return executor
     try:

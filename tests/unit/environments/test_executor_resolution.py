@@ -78,6 +78,15 @@ def test_resolve_executor_warns_when_registry_name_shadows_dotted_path(caplog):
     assert "using the registered one" in caplog.text
 
 
+def test_resolve_executor_survives_raising_shadow_import(monkeypatch):
+    def _boom(name, tool_id):
+        raise RuntimeError("module blew up at import time")
+
+    register_tool_executor("res.registered")(_registered_executor)
+    monkeypatch.setattr("oumi.environments.utils.import_executor", _boom)
+    assert resolve_executor("res.registered", "t") is _registered_executor
+
+
 def test_resolve_executor_unknown_name_reports_registered_executors():
     register_tool_executor("res.registered")(_registered_executor)
     with pytest.raises(
