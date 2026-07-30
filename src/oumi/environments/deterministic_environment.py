@@ -22,12 +22,17 @@ import random
 from dataclasses import dataclass, field
 from typing import Any
 
+import jsonschema
 from pydantic import JsonValue
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.core.configs.params.grounding_params import GroundingFact
-from oumi.core.configs.params.tool_params import ToolLookupError, ToolParams
+from oumi.core.configs.params.tool_params import (
+    ToolArgumentError,
+    ToolLookupError,
+    ToolParams,
+)
 from oumi.core.registry import register_environment
 from oumi.core.types.tool_call import ToolResult
 from oumi.environments.base_environment import BaseEnvironment
@@ -201,6 +206,7 @@ class DeterministicEnvironment(BaseEnvironment):
           entries are dormant.
         - Tools without entries: hard error.
         - Entry inputs are normalized in place with schema defaults.
+        - Entry inputs and outputs must conform to the tool schemas.
         - Duplicate inputs within a tool's entries: hard error.
         """
         for tool_id in self._kwargs.lookup_table:
@@ -221,6 +227,21 @@ class DeterministicEnvironment(BaseEnvironment):
             seen: set[str] = set()
             for entry in entries:
                 entry.input = _fill_argument_defaults(entry.input, tool.parameters)
+                try:
+                    tool.validate_arguments(entry.input)
+                except ToolArgumentError as e:
+                    raise ValueError(
+                        f"Tool '{tool.id}' has lookup_table entry with invalid "
+                        f"input {entry.input}: {e}"
+                    ) from e
+                if tool.output_schema is not None:
+                    try:
+                        jsonschema.validate(entry.output, tool.output_schema)
+                    except jsonschema.ValidationError as e:
+                        raise ValueError(
+                            f"Tool '{tool.id}' has lookup_table entry with invalid "
+                            f"output {entry.output} for input {entry.input}: {e}"
+                        ) from e
                 key = entry.input_key()
                 if key in seen:
                     raise ValueError(
