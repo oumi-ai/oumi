@@ -47,6 +47,7 @@ def test_lifecycle_delegates_and_pops(interaction_cls, monkeypatch):
         )
         assert iid == "id1"
         assert inter._state["id1"].persona == "You are Jane."
+        assert inter._state["id1"].goal == "refund"
         done, text, score, extra = await inter.generate_response(
             "id1", [{"role": "assistant", "content": "hi"}]
         )

@@ -59,12 +59,13 @@ class OumiVerlInteraction(BaseInteraction):
         self._state: dict[str, RolloutState] = {}
 
     async def start_interaction(
-        self, instance_id=None, *, user_persona, max_turns=None, **kwargs
+        self, instance_id=None, *, user_persona, goal="", max_turns=None, **kwargs
     ) -> str:
         """Register per-rollout user-sim state, keyed by instance_id."""
         iid = instance_id or uuid4().hex
         self._state[iid] = RolloutState(
             persona=user_persona,
+            goal=goal,
             max_turns=(max_turns if max_turns is not None else self._default_max_turns),
         )
         return iid

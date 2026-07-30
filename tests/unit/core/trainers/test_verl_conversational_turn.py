@@ -14,14 +14,22 @@ def test_build_user_turn_prompt_shape():
         Message(role=Role.ASSISTANT, content="hello"),
     ]
     conv = build_user_turn_prompt(
-        "You are Jane, a customer.", history, current_turn=2, target_turns=6
+        "You are Jane, a customer.",
+        history,
+        current_turn=2,
+        max_turns=6,
+        goal="Get a refund.",
     )
     assert conv.messages[0].role == Role.SYSTEM
-    assert conv.messages[0].content == "You are Jane, a customer."
+    assert conv.messages[0].content == (
+        "You are Jane, a customer.\n\nYour goal for this conversation: Get a refund."
+    )
     assert [m.content for m in conv.messages[1:3]] == ["hi", "hello"]
     assert conv.messages[-1].role == Role.USER
     assert isinstance(conv.messages[-1].content, str)
-    assert DEFAULT_DONE_SENTINEL in conv.messages[-1].content
+    turn_info = conv.messages[-1].content
+    assert "safety cap, not a target" in turn_info
+    assert DEFAULT_DONE_SENTINEL in turn_info
 
 
 def test_messages_to_history_maps_roles():
@@ -50,6 +58,7 @@ def test_next_user_turn_sentinel_ends():
     )
     assert done is True
     assert text == "thanks"
+    assert state.turn_idx == 1
 
 
 def test_next_user_turn_produces_exactly_max_turns():
@@ -86,7 +95,8 @@ def test_next_user_turn_threads_correct_turn_number():
 
     next_user_turn(state, [], stub)
     turn_info = captured["conv"].messages[-1].content
-    assert "turn 1 of at most 5" in turn_info
+    assert "reply 1" in turn_info
+    assert "at most 5" in turn_info
 
 
 def test_messages_to_history_drops_system_turns():

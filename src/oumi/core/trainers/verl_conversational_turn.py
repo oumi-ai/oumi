@@ -24,10 +24,11 @@ DEFAULT_DONE_SENTINEL = "[[END]]"
 
 @dataclasses.dataclass
 class RolloutState:
-    """Rollout state; ``max_turns`` excludes the dataset's opening user message."""
+    """Rollout state; ``max_turns`` is a safety cap on simulated-user replies."""
 
     persona: str
     max_turns: int
+    goal: str = ""
     turn_idx: int = 0
 
 
@@ -35,20 +36,30 @@ def build_user_turn_prompt(
     persona: str,
     history: list[Message],
     current_turn: int,
-    target_turns: int,
+    max_turns: int,
     done_sentinel: str = DEFAULT_DONE_SENTINEL,
+    *,
+    goal: str = "",
 ) -> Conversation:
     """Builds the prompt for the next simulated-user turn."""
-    messages: list[Message] = [Message(role=Role.SYSTEM, content=persona)]
+    system_prompt = persona
+    if goal:
+        system_prompt += f"\n\nYour goal for this conversation: {goal}"
+
+    messages: list[Message] = [Message(role=Role.SYSTEM, content=system_prompt)]
     messages.extend(history)
     messages.append(
         Message(
             role=Role.USER,
             content=(
-                f"You are the USER (turn {current_turn} of at most {target_turns}). "
-                "Continue the conversation in character and reply with ONLY your next "
-                "message. If your goal is fully met and you have nothing more to ask, "
-                f"end your reply with {done_sentinel}."
+                f"You are the USER generating reply {current_turn}. You may generate "
+                f"at most {max_turns} replies; this limit is a safety cap, not a "
+                "target. Respond naturally to the assistant's latest message. Pursue "
+                "your goal without repeating yourself or inventing facts. Do not "
+                "prolong the conversation to reach the turn limit. If your goal has "
+                "been satisfied, respond naturally and append "
+                f"{done_sentinel}. Reply with ONLY your next message and stay in "
+                "character."
             ),
         )
     )
@@ -80,6 +91,7 @@ def next_user_turn(
         state.turn_idx,
         state.max_turns,
         done_sentinel,
+        goal=state.goal,
     )
     text = infer_fn(prompt)
     if done_sentinel in text:
