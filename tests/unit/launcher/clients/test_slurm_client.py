@@ -560,6 +560,23 @@ def test_slurm_client_get_job_unreachable_raises(mock_subprocess):
         _ = client.get_job("100")
 
 
+def test_slurm_client_get_job_timeout_unreachable_raises(mock_subprocess):
+    # A command that hits its timeout is an unresponsive controller; get_job
+    # surfaces it as unreachable, not a generic RuntimeError.
+    mock_subprocess.TimeoutExpired = subprocess.TimeoutExpired
+    mock_subprocess.run.side_effect = [
+        _mock_refresh_creds_run(),
+        _mock_refresh_creds_run(),
+        subprocess.TimeoutExpired(cmd="ssh ... squeue", timeout=180),
+    ]
+
+    client = SlurmClient("user", "host", "cluster_name")
+    with pytest.raises(
+        ClusterUnreachableError, match="Could not reach the Slurm controller"
+    ):
+        _ = client.get_job("100")
+
+
 def test_slurm_client_list_jobs_unreachable_raises(mock_subprocess, mock_datetime):
     sacct_unreachable = Mock()
     sacct_unreachable.stdout = b""

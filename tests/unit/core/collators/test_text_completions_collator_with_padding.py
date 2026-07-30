@@ -535,3 +535,105 @@ def test_span_masking_with_leading_newline_content():
     content_start = len(resp_ids)
     content_region = labels[content_start : content_start + len(nl_ids) + len(content)]
     assert all(v != IGNORE for v in content_region)
+
+
+def test_pad_to_multiple_of_rounds_batch_length_up():
+    tokenizer, pad_token_id = create_test_tokenizer()
+
+    instruction_prefix = "ignore this and after me"
+    response_prefix = "ignore this but not after me"
+    instruction_prefix_tokens = tokenizer.encode(
+        instruction_prefix, add_special_tokens=False
+    )
+    response_prefix_tokens = tokenizer.encode(response_prefix, add_special_tokens=False)
+
+    collator = TextCompletionsCollatorWithPadding(
+        tokenizer=tokenizer,
+        instruction_template=instruction_prefix,
+        response_template=response_prefix,
+        train_target="_legacy_instruction_response",
+        pad_to_multiple_of=128,
+    )
+
+    short_row = {
+        "input_ids": (
+            instruction_prefix_tokens + response_prefix_tokens + [201, 202, 203]
+        )
+    }
+    batch = collator([short_row])
+
+    seq_len = batch["input_ids"].shape[1]
+    assert seq_len == 128
+    num_real = len(short_row["input_ids"])
+    # The all-ones attention_mask is dropped for sequential position_ids so
+    # compiled attention backends keep the closure-free causal fast path (a
+    # mask tensor forces per-batch closures that defeat torch.compile caching;
+    # TRL's token accounting accepts position_ids in lieu of a mask). Padding
+    # adds no loss (ignore_index) and, under causal attention, is unattended.
+    assert "attention_mask" not in batch
+    assert (batch["position_ids"][0] == torch.arange(128)).all()
+    assert (batch["input_ids"][0, num_real:] == pad_token_id).all()
+    assert (batch["labels"][0, num_real:] == IGNORE).all()
+    # Real completion tokens keep their labels.
+    expected_tail = torch.tensor([201, 202, 203])
+    assert (batch["labels"][0, num_real - 3 : num_real] == expected_tail).all()
+
+
+def test_pad_to_multiple_of_drops_mask_for_mixed_length_batch():
+    tokenizer, _ = create_test_tokenizer()
+
+    instruction_prefix = "ignore this and after me"
+    response_prefix = "ignore this but not after me"
+    instruction_prefix_tokens = tokenizer.encode(
+        instruction_prefix, add_special_tokens=False
+    )
+    response_prefix_tokens = tokenizer.encode(response_prefix, add_special_tokens=False)
+    prefix = instruction_prefix_tokens + response_prefix_tokens
+
+    collator = TextCompletionsCollatorWithPadding(
+        tokenizer=tokenizer,
+        instruction_template=instruction_prefix,
+        response_template=response_prefix,
+        train_target="_legacy_instruction_response",
+        pad_to_multiple_of=128,
+    )
+
+    # Rows of different lengths: the default collator right-pads the short row,
+    # so the mask has real zeros and ``mask.all()`` is False. Under right
+    # padding the mask is still dropped for sequential position_ids, so mixed
+    # batches (not just batch_size=1) keep the compiled fast path.
+    batch = collator(
+        [
+            {"input_ids": prefix + list(range(201, 231))},
+            {"input_ids": prefix + [201, 202, 203]},
+        ]
+    )
+    assert batch["input_ids"].shape == (2, 128)
+    assert "attention_mask" not in batch
+    assert (batch["position_ids"] == torch.arange(128)).all()
+
+
+def test_pad_to_multiple_of_none_keeps_longest_in_batch():
+    tokenizer, _ = create_test_tokenizer()
+
+    response_prefix = "ignore this but not after me"
+    response_prefix_tokens = tokenizer.encode(response_prefix, add_special_tokens=False)
+
+    instruction_prefix = "ignore this and after me"
+    instruction_prefix_tokens = tokenizer.encode(
+        instruction_prefix, add_special_tokens=False
+    )
+    collator = TextCompletionsCollatorWithPadding(
+        tokenizer=tokenizer,
+        instruction_template=instruction_prefix,
+        response_template=response_prefix,
+        train_target="_legacy_instruction_response",
+    )
+
+    row = {
+        "input_ids": (
+            instruction_prefix_tokens + response_prefix_tokens + [201, 202, 203]
+        )
+    }
+    batch = collator([row])
+    assert batch["input_ids"].shape[1] == len(row["input_ids"])

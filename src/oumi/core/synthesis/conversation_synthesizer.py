@@ -136,14 +136,34 @@ class ConversationSynthesizer:
         """Replace ``self._sample_routers`` with one router clone per sample.
 
         Each sample's tool dispatch and grounding read hit an env with state
-        independent of every other sample's. ``synthesize()`` calls this at
-        batch entry and clears the list in ``finally``.
+        independent of every other sample's. Callers must pair this with
+        ``_close_sample_routers`` to release the per-sample envs.
         """
         self._sample_routers = (
             [self._router.for_sample() for _ in range(n_samples)]
             if self._router is not None
             else [None] * n_samples
         )
+
+    def _close_sample_routers(self, *, suppress_errors: bool) -> None:
+        """Close each per-sample router, guarding so one failure can't leak the rest.
+
+        Clears the list first, then closes each router; re-raises the first close
+        error unless ``suppress_errors`` (set when a body exception is already
+        propagating and must not be masked).
+        """
+        routers, self._sample_routers = self._sample_routers, []
+        first_error: BaseException | None = None
+        for router in routers:
+            if router is None:
+                continue
+            try:
+                router.close()
+            except BaseException as error:
+                if first_error is None:
+                    first_error = error
+        if first_error is not None and not suppress_errors:
+            raise first_error
 
     def _wire_inference(self, env: BaseEnvironment) -> None:
         """Inject the synthesizer's engine + base config into synthetic envs."""
@@ -303,8 +323,11 @@ class ConversationSynthesizer:
             self._attach_grounding_facts(samples, multiturn_attributes)
             samples = self._plan_samples(samples, multiturn_attributes)
             conversations = self._synthesize_all_samples(samples, multiturn_attributes)
-        finally:
-            self._sample_routers = []
+        except BaseException:
+            self._close_sample_routers(suppress_errors=True)
+            raise
+        else:
+            self._close_sample_routers(suppress_errors=False)
 
         records: list[dict[str, dict | str] | None] = []
         plan_key = f"{multiturn_attributes.id}_plan"
@@ -350,9 +373,16 @@ class ConversationSynthesizer:
         """
         self._validate_roles(multiturn_attribute)
         self._prepare_sample_routers(len(samples))
-        self._warn_on_grounding_placeholder(multiturn_attribute)
-        self._attach_grounding_facts(samples, multiturn_attribute)
-        return self._render_planner_prompts(samples, multiturn_attribute)
+        try:
+            self._warn_on_grounding_placeholder(multiturn_attribute)
+            self._attach_grounding_facts(samples, multiturn_attribute)
+            prompts = self._render_planner_prompts(samples, multiturn_attribute)
+        except BaseException:
+            self._close_sample_routers(suppress_errors=True)
+            raise
+        else:
+            self._close_sample_routers(suppress_errors=False)
+            return prompts
 
     def _render_planner_prompts(
         self,
@@ -1140,24 +1170,12 @@ class ConversationSynthesizer:
     def _select_target_turns(
         self, multiturn_attribute: MultiTurnAttribute, turn_order: list[Role]
     ) -> int:
-        min_turns = multiturn_attribute.min_turns
-        max_turns = multiturn_attribute.max_turns
-        target_turns = random.randint(min_turns, max_turns)
-        if Role.ASSISTANT not in turn_order:
-            return target_turns
-
-        def role_at(turn_count: int) -> Role:
-            return turn_order[(turn_count - 1) % len(turn_order)]
-
-        if role_at(target_turns) == Role.ASSISTANT:
-            return target_turns
-        for turn_count in range(target_turns + 1, max_turns + 1):
-            if role_at(turn_count) == Role.ASSISTANT:
-                return turn_count
-        for turn_count in range(target_turns - 1, min_turns - 1, -1):
-            if role_at(turn_count) == Role.ASSISTANT:
-                return turn_count
-        return target_turns
+        # min_turns/max_turns count rounds; return a message count (one round
+        # == one pass through turn_order) so the loop and planner stay message-based.
+        target_rounds = random.randint(
+            multiturn_attribute.min_turns, multiturn_attribute.max_turns
+        )
+        return target_rounds * len(turn_order)
 
     def _format_output_system_message(
         self,

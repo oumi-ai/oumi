@@ -177,9 +177,12 @@ def test_build_planner_prompts_selects_turns_without_inference(
     mock_inference_engine.infer.assert_not_called()
     for prompt, sample in zip(prompts, samples):
         assert isinstance(prompt, PlannerPrompt)
+        # target_turns is a message count: rounds * len(turn_order).
+        turn_order_len = len(synthesizer._default_turn_order)
         target_turns = prompt.augmented_sample["target_turns"]
-        assert mock_multiturn_attribute.min_turns <= target_turns
-        assert target_turns <= mock_multiturn_attribute.max_turns
+        assert mock_multiturn_attribute.min_turns * turn_order_len <= target_turns
+        assert target_turns <= mock_multiturn_attribute.max_turns * turn_order_len
+        assert target_turns % turn_order_len == 0
         assert prompt.augmented_sample["conversation_plan"] == ""
         assert prompt.augmented_sample["parsed_turn_plans"] == [""] * target_turns
         assert prompt.augmented_sample["issue"] == sample["issue"]
@@ -714,8 +717,9 @@ def test_generate_plan_uses_planner_only_guided_decoding(
         [{"customer_type": "friendly", "issue": "product question"}],
         MultiTurnAttribute(
             id="test_conversation",
-            min_turns=2,
-            max_turns=2,
+            # 1 round (2 turns) matches the 3 scripted infer results below.
+            min_turns=1,
+            max_turns=1,
             role_instruction_messages={
                 Role.USER: "You are a {customer_type} customer with issue: {issue}.",
                 Role.ASSISTANT: "You are a helpful support agent.",
@@ -1187,6 +1191,47 @@ def _make_synthesizer(mock_inference_config, environment_config=None):
         )
 
 
+def _turn_attr(min_turns: int, max_turns: int) -> MultiTurnAttribute:
+    return MultiTurnAttribute(
+        id="c",
+        min_turns=min_turns,
+        max_turns=max_turns,
+        role_instruction_messages={Role.USER: "u", Role.ASSISTANT: "a"},
+    )
+
+
+@pytest.mark.parametrize(
+    ("min_turns", "max_turns", "turn_order", "drawn_rounds", "expected_messages"),
+    [
+        (2, 5, [Role.USER, Role.ASSISTANT], 3, 6),
+        (4, 4, [Role.USER, Role.ASSISTANT], 4, 8),  # min == max (single value)
+        (1, 3, [Role.USER, Role.ASSISTANT], 1, 2),  # min == 1 -> single exchange
+        (2, 5, [Role.USER], 3, 3),  # ASSISTANT absent: still rounds * len
+        (2, 5, [Role.USER, Role.ASSISTANT, Role.USER], 3, 9),  # 3-role turn_order
+    ],
+)
+@patch("oumi.core.synthesis.conversation_synthesizer.random.randint")
+def test_select_target_turns_counts_rounds_as_messages(
+    mock_randint,
+    mock_inference_config,
+    min_turns,
+    max_turns,
+    turn_order,
+    drawn_rounds,
+    expected_messages,
+):
+    """min/max_turns are rounds; the method returns rounds * len(turn_order)."""
+    mock_randint.return_value = drawn_rounds
+    synthesizer = _make_synthesizer(mock_inference_config)
+
+    result = synthesizer._select_target_turns(
+        _turn_attr(min_turns, max_turns), turn_order
+    )
+
+    assert result == expected_messages
+    mock_randint.assert_called_once_with(min_turns, max_turns)
+
+
 def _grounded_env_params(
     env_id: str = "env1",
     tool_id: str = "lookup",
@@ -1643,6 +1688,14 @@ def test_synthesize_invokes_attach_grounding_facts(
     assert "grounding_facts" in samples[0]
     assert len(samples[0]["grounding_facts"]) == 2
     assert len(result) == 1
+    # 2 rounds -> 4 messages ending on assistant, through the real turn loop.
+    record = result[0]
+    assert record is not None
+    conv = record["t"]
+    assert isinstance(conv, dict)
+    messages = conv["messages"]
+    assert len(messages) == 4
+    assert messages[-1]["role"] == "assistant"
 
 
 # --- {grounding_facts} placeholder misuse warning ---
@@ -1832,8 +1885,8 @@ def test_synthesize_attaches_tools_to_assistant_prompt(
 
     multiturn_attr = MultiTurnAttribute(
         id="dialog",
-        min_turns=2,
-        max_turns=2,
+        min_turns=1,
+        max_turns=1,
         role_instruction_messages={
             Role.USER: "user",
             Role.ASSISTANT: "assistant",
@@ -1973,6 +2026,55 @@ def test_dispatch_tool_calls_routes_through_env(
     assert msg.tool_call_id == "call_1"
     assert msg.content == '{"city": "Paris"}'
     fake_env.step.assert_called_once_with([("get_weather", {"city": "Paris"})])
+
+
+@pytest.mark.parametrize(
+    ("output", "expected_content"),
+    [
+        (None, "null"),
+        (191.23, "191.23"),
+        (["users", "orders"], '["users", "orders"]'),
+        (True, "true"),
+    ],
+)
+@patch("oumi.core.synthesis.tool_router.build_environment")
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_dispatch_tool_calls_json_encodes_non_dict_output(
+    mock_build_inference_engine,
+    mock_build_environment,
+    mock_general_synthesis_params,
+    output,
+    expected_content,
+):
+    """Non-dict tool outputs are json-encoded at the TOOL message boundary."""
+    mock_build_inference_engine.return_value = Mock()
+
+    fake_env = Mock(spec=BaseEnvironment)
+    fake_env.step.return_value = [ToolResult(output=output)]
+    mock_build_environment.return_value = fake_env
+
+    env_config = _make_env_config("weather", "get_weather")
+    inference_config = InferenceConfig(
+        engine=InferenceEngineType.OPENAI,
+        model=Mock(spec=ModelParams),
+        remote_params=Mock(spec=RemoteParams),
+        generation=GenerationParams(),
+    )
+    synth = ConversationSynthesizer(
+        mock_general_synthesis_params,
+        inference_config,
+        environment_config=env_config,
+    )
+
+    tc = ToolCall(
+        id="call_1",
+        function=FunctionCall(name="get_weather", arguments='{"city": "Paris"}'),
+    )
+    synth._prepare_sample_routers(1)
+    [msg] = synth._dispatch_tool_calls([tc], 0)
+
+    assert msg.role == Role.TOOL
+    assert msg.content == expected_content
 
 
 @patch("oumi.core.synthesis.tool_router.build_environment")
@@ -2228,8 +2330,8 @@ def test_assistant_turn_loops_on_tool_calls(
 
     multiturn_attr = MultiTurnAttribute(
         id="dialog",
-        min_turns=2,
-        max_turns=2,
+        min_turns=1,
+        max_turns=1,
         role_instruction_messages={
             Role.USER: "user",
             Role.ASSISTANT: "assistant",
@@ -2336,8 +2438,8 @@ def test_assistant_turn_caps_at_max_consecutive_tool_turns_then_finalizes(
 
     multiturn_attr = MultiTurnAttribute(
         id="dialog",
-        min_turns=2,
-        max_turns=2,
+        min_turns=1,
+        max_turns=1,
         role_instruction_messages={
             Role.USER: "user",
             Role.ASSISTANT: "assistant",
@@ -2443,8 +2545,8 @@ def test_assistant_turn_dispatches_parallel_batch_unrestricted(
 
     multiturn_attr = MultiTurnAttribute(
         id="dialog",
-        min_turns=2,
-        max_turns=2,
+        min_turns=1,
+        max_turns=1,
         role_instruction_messages={
             Role.USER: "user",
             Role.ASSISTANT: "assistant",
@@ -2504,7 +2606,7 @@ def test_synthesizer_attaches_inference_to_synthetic_env(
                 },
             )
         ],
-        env_kwargs={"system_prompt": "Simulate the lookup tool."},
+        env_kwargs={"tool_persona": "Simulate the lookup tool."},
     )
     env_config = EnvironmentConfig(environments=[env_params])
 
@@ -2773,13 +2875,13 @@ def test_token_usage_accumulates_in_straggler_finalization(
 
     mock_engine.infer.side_effect = infer_side_effect
 
-    # min == max == 2 makes the turn order deterministic (USER then ASSISTANT);
+    # min == max == 1 is one round -- USER then ASSISTANT, deterministic;
     # max_consecutive_tool_turns=0 routes the ASSISTANT turn through
     # _finalize_stragglers instead of a tool round.
     multiturn_attr = MultiTurnAttribute(
         id="straggler_conversation",
-        min_turns=2,
-        max_turns=2,
+        min_turns=1,
+        max_turns=1,
         role_instruction_messages={
             Role.USER: "You are a user.",
             Role.ASSISTANT: "You are an assistant.",
