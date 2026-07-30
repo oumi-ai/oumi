@@ -28,7 +28,9 @@ from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.core.configs.params.grounding_params import GroundingFact
 from oumi.core.configs.params.tool_params import ToolError, ToolParams
+from oumi.core.registry import REGISTRY, RegistryType
 from oumi.core.types.tool_call import ToolResult
+from oumi.utils.logging import logger
 
 _KwargsT = TypeVar("_KwargsT", bound=BaseParams)
 
@@ -78,6 +80,33 @@ def import_executor(dotted: str, tool_id: str) -> Callable[..., Any]:
             f"Tool '{tool_id}': executor '{dotted}' resolved to a non-callable."
         )
     return executor
+
+
+def resolve_executor(name: str, tool_id: str) -> Callable[..., Any]:
+    """Resolve an executor: a registered name wins, else a dotted import path."""
+    executor = REGISTRY.get(name, RegistryType.TOOL_EXECUTOR)
+    if executor is not None:
+        try:
+            import_executor(name, tool_id)
+        except Exception:
+            pass  # Diagnostic only: never let a speculative import break resolution.
+        else:
+            logger.warning(
+                "Tool '%s': executor '%s' is both a registered tool executor and "
+                "an importable dotted path; using the registered one.",
+                tool_id,
+                name,
+            )
+        return executor
+    try:
+        return import_executor(name, tool_id)
+    except ValueError as e:
+        registered = sorted(REGISTRY.get_all(RegistryType.TOOL_EXECUTOR))
+        raise ValueError(
+            f"Tool '{tool_id}': executor '{name}' is not a registered tool "
+            "executor and could not be imported as a dotted path. "
+            f"Registered tool executors: {registered}. Import error: {e}"
+        ) from e
 
 
 def validate_executor_result(tool: ToolParams, result: Any) -> ToolResult:

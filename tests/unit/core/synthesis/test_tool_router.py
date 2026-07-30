@@ -436,11 +436,192 @@ def test_for_sample_mutation_does_not_bleed_back_to_parent():
     assert router.env_by_id["env1"] is parent_env
 
 
+def test_for_sample_env_kwargs_override_rebuilds_isolated_env_with_sample_data():
+    """Per-sample env_kwargs replace the config's, without touching the parent."""
+    router = ToolRouter.from_environment_config(
+        EnvironmentConfig(environments=[_db_env_params()])
+    )
+
+    clone = router.for_sample({"db": _ALICE_KWARGS})
+
+    [result] = clone.env_by_id["db"].step([("lookup", {"pat_id": 1})])
+    assert result.output == {"name": "Alice", "meds": "ibuprofen"}
+    assert router.env_params_by_id["db"].env_kwargs == {
+        "schema_sql": _DB_SCHEMA,
+        "seed_sql": _DB_SEED,
+    }
+
+
+def test_for_sample_env_kwargs_override_rejects_shared_env():
+    """A shared env can't take per-sample kwargs; they'd apply to every sample."""
+    router = ToolRouter.from_environment_config(
+        EnvironmentConfig(environments=[_det_env_params("det1", [_tool("t1")])])
+    )
+
+    with pytest.raises(ValueError, match="shared across samples"):
+        router.for_sample({"det1": {"anything": 1}})
+
+
+def test_for_sample_env_kwargs_override_rejects_unknown_env():
+    router = ToolRouter.from_environment_config(
+        EnvironmentConfig(environments=[_det_env_params("det1", [_tool("t1")])])
+    )
+
+    with pytest.raises(ValueError, match="unknown environments: \\['nope'\\]"):
+        router.for_sample({"nope": {"anything": 1}})
+
+
+def test_for_sample_closes_envs_it_built_when_a_later_build_fails(monkeypatch):
+    """A failed build must not strand the envs already rebuilt in that pass."""
+    router = ToolRouter.from_environment_config(
+        EnvironmentConfig(
+            environments=[_db_env_params(), _stateful_synth_env_params("stateful")]
+        )
+    )
+    built = []
+
+    def flaky_build(env_params):
+        if env_params.id == "stateful":
+            raise RuntimeError("boom")
+        env = Mock(spec=BaseEnvironment)
+        env.requires_isolation.return_value = True
+        built.append(env)
+        return env
+
+    monkeypatch.setattr(
+        "oumi.core.synthesis.tool_router.build_environment", flaky_build
+    )
+
+    with pytest.raises(RuntimeError, match="boom"):
+        router.for_sample()
+
+    assert len(built) == 1
+    built[0].close.assert_called_once()
+
+
+def test_for_sample_closes_an_env_whose_on_env_built_fails(monkeypatch):
+    """An env is owned from the moment it's built, before on_env_built runs on it.
+
+    It never reaches `env_by_id_new` on this path, so only `built_here` can free it.
+    """
+    router = ToolRouter.from_environment_config(
+        EnvironmentConfig(environments=[_db_env_params()])
+    )
+    built = []
+
+    def build(_env_params):
+        env = Mock(spec=BaseEnvironment)
+        env.requires_isolation.return_value = True
+        built.append(env)
+        return env
+
+    monkeypatch.setattr("oumi.core.synthesis.tool_router.build_environment", build)
+    monkeypatch.setattr(
+        router, "on_env_built", Mock(side_effect=RuntimeError("attach failed"))
+    )
+
+    with pytest.raises(RuntimeError, match="attach failed"):
+        router.for_sample()
+
+    assert len(built) == 1
+    built[0].close.assert_called_once()
+
+
+def test_for_sample_env_kwargs_override_does_not_leak_into_later_samples():
+    """One sample's override must not follow the parent into the next sample.
+
+    The batch loop calls for_sample() off the same parent per sample, so an
+    override recorded on the parent's params would silently retarget the rest.
+    """
+    router = ToolRouter.from_environment_config(
+        EnvironmentConfig(environments=[_db_env_params()])
+    )
+
+    overridden = router.for_sample({"db": _ALICE_KWARGS})
+    plain = router.for_sample()
+
+    [from_override] = overridden.env_by_id["db"].step([("lookup", {"pat_id": 1})])
+    [from_config] = plain.env_by_id["db"].step([("lookup", {"pat_id": 1})])
+    assert from_override.output == {"name": "Alice", "meds": "ibuprofen"}
+    assert from_config.output == {"name": "Bob", "meds": "aspirin"}
+
+
+def test_for_sample_env_kwargs_override_leaves_sibling_isolated_envs_on_config():
+    """Overriding one env must not retarget the other isolating envs in the config."""
+    router = ToolRouter.from_environment_config(
+        EnvironmentConfig(
+            environments=[
+                _db_env_params("db_a", tool_id="lookup_a"),
+                _db_env_params("db_b", tool_id="lookup_b"),
+            ]
+        )
+    )
+
+    clone = router.for_sample({"db_a": _ALICE_KWARGS})
+
+    [a] = clone.env_by_id["db_a"].step([("lookup_a", {"pat_id": 1})])
+    [b] = clone.env_by_id["db_b"].step([("lookup_b", {"pat_id": 1})])
+    assert a.output == {"name": "Alice", "meds": "ibuprofen"}
+    assert b.output == {"name": "Bob", "meds": "aspirin"}
+
+
+def test_for_sample_failed_build_leaves_the_parents_shared_envs_open(monkeypatch):
+    """Teardown closes only what the pass built; later samples need the shared envs."""
+    router = ToolRouter.from_environment_config(
+        EnvironmentConfig(
+            environments=[
+                _det_env_params("det1", [_tool("t1")]),
+                _stateful_synth_env_params("stateful"),
+            ]
+        )
+    )
+    shared = router.env_by_id["det1"]
+    shared_close = Mock()
+    monkeypatch.setattr(shared, "close", shared_close)
+    monkeypatch.setattr(
+        "oumi.core.synthesis.tool_router.build_environment",
+        Mock(side_effect=RuntimeError("boom")),
+    )
+
+    with pytest.raises(RuntimeError, match="boom"):
+        router.for_sample()
+
+    shared_close.assert_not_called()
+
+
+def test_for_sample_rejects_bad_override_before_building_anything(monkeypatch):
+    """A rejected override must not strand envs built earlier in the loop.
+
+    The isolating env is ordered first, so an in-loop rejection of the shared
+    env's override would leave its owned snapshot open with no router to close.
+    """
+    router = ToolRouter.from_environment_config(
+        EnvironmentConfig(
+            environments=[_db_env_params(), _det_env_params("det1", [_tool("t1")])]
+        )
+    )
+    builds = []
+    monkeypatch.setattr(
+        "oumi.core.synthesis.tool_router.build_environment",
+        lambda params: builds.append(params.id),
+    )
+
+    with pytest.raises(ValueError, match="shared across samples"):
+        router.for_sample({"det1": {"anything": 1}})
+
+    assert builds == []
+
+
 # ---------- close ----------
 
 
 _DB_SCHEMA = "CREATE TABLE patients (id INTEGER PRIMARY KEY, name TEXT, meds TEXT);"
 _DB_SEED = "INSERT INTO patients VALUES (1, 'Bob', 'aspirin');"
+# A per-sample override: same schema, a different row than the config seeds.
+_ALICE_KWARGS = {
+    "schema_sql": _DB_SCHEMA,
+    "seed_sql": "INSERT INTO patients VALUES (1, 'Alice', 'ibuprofen');",
+}
 
 
 # Local executor so this suite doesn't depend on the EHR example.
@@ -451,7 +632,7 @@ def _db_lookup_patient(arguments: dict, context: sqlite3.Connection) -> ToolResu
     return ToolResult(output={"name": row[0], "meds": row[1]})
 
 
-def _db_env_params(env_id: str = "db") -> EnvironmentParams:
+def _db_env_params(env_id: str = "db", tool_id: str = "lookup") -> EnvironmentParams:
     """A database env; each build materializes an owned temp snapshot + session."""
     return EnvironmentParams(
         id=env_id,
@@ -460,8 +641,8 @@ def _db_env_params(env_id: str = "db") -> EnvironmentParams:
         env_type="database",
         tools=[
             {
-                "id": "lookup",
-                "name": "lookup",
+                "id": tool_id,
+                "name": tool_id,
                 "description": "look up a patient",
                 "parameters": {
                     "type": "object",

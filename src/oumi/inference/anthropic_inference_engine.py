@@ -16,7 +16,7 @@ import copy
 import itertools
 import json
 import re
-from typing import Any
+from typing import Any, Final, Literal, NamedTuple, cast
 
 import pydantic
 from typing_extensions import override
@@ -70,6 +70,37 @@ _IMAGE_MAGIC_PREFIXES: tuple[tuple[bytes, str], ...] = (
     (b"GIF87a", "image/gif"),
     (b"GIF89a", "image/gif"),
 )
+
+# Model-name prefixes for Anthropic's reasoning-first families, which gate both
+# `output_config` support and sampling-param support below.
+_REASONING_FIRST_MODEL_PREFIXES: tuple[str, ...] = ("claude-fable", "claude-mythos")
+
+_OPUS_FAMILY: Final = "opus"
+_SONNET_FAMILY: Final = "sonnet"
+_HAIKU_FAMILY: Final = "haiku"
+_ClaudeFamily = Literal["opus", "sonnet", "haiku"]
+
+# A model name carries an optional minor component and an optional -YYYYMMDD
+# snapshot date. Bounding the minor to two digits keeps a date out of it, so
+# `claude-opus-4-20250514` reads as 4.0 rather than 4.20250514.
+_MODEL_VERSION_RE = re.compile(
+    rf"^claude-({_OPUS_FAMILY}|{_SONNET_FAMILY}|{_HAIKU_FAMILY})"
+    r"-(\d+)(?:-(\d{1,2})(?!\d))?"
+)
+
+# `output_config` (structured outputs) is GA from this version on.
+_OUTPUT_CONFIG_MIN_VERSION: tuple[int, int] = (4, 5)
+
+# First version in each family to reject temperature/top_p/top_k.
+_OPUS_SAMPLING_PARAMS_REMOVED_VERSION: tuple[int, int] = (4, 7)
+_SONNET_SAMPLING_PARAMS_REMOVED_VERSION: tuple[int, int] = (5, 0)
+
+
+class _ClaudeModelVersion(NamedTuple):
+    """A Claude model name parsed into its family and (major, minor) version."""
+
+    family: _ClaudeFamily
+    version: tuple[int, int]
 
 
 def _detect_image_media_type(data: bytes) -> str:
@@ -190,6 +221,16 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
                 model_params.model_name,
                 generation_params.temperature,
                 generation_params.top_p,
+            )
+        else:
+            # Dropping the default still diverges from the requested config:
+            # temperature 0.0 is greedy decoding, and omitting it hands sampling
+            # to Anthropic's own default.
+            logger.info(
+                "%r does not accept sampling params; omitting temperature=%s, "
+                "so generation uses Anthropic's default sampling.",
+                model_params.model_name,
+                generation_params.temperature,
             )
 
         if self._remote_params.user_id:
@@ -1010,27 +1051,49 @@ def _convert_guided_decoding_config_to_api_input(
     }
 
 
+def _parse_model_version(model_name: str) -> _ClaudeModelVersion | None:
+    """Returns the parsed family and version, or None for an unversioned name.
+
+    Anthropic drops the minor component on round versions (`claude-opus-5`, not
+    `claude-opus-5-0`); treat a missing minor as 0. A trailing snapshot date
+    (`claude-opus-4-20250514`) is not a minor version.
+    """
+    match = _MODEL_VERSION_RE.match(model_name)
+    if not match:
+        return None
+    family = cast(_ClaudeFamily, match[1])
+    return _ClaudeModelVersion(family, (int(match[2]), int(match[3] or 0)))
+
+
 def _model_supports_output_config(model_name: str) -> bool:
     """Returns True if the model accepts the output_config field, False otherwise."""
     # Anthropic's `output_config` (structured outputs) is GA on Claude 4.5+ (Opus,
-    # Sonnet, Haiku) and Mythos. Older models (Claude 3.x, 3.5) reject the field.
-    if model_name.startswith("claude-mythos"):
+    # Sonnet, Haiku) and the Fable/Mythos families. Older models (Claude 3.x, 3.5)
+    # reject the field.
+    if model_name.startswith(_REASONING_FIRST_MODEL_PREFIXES):
         return True
 
-    version_re = re.compile(r"^claude-(?:opus|sonnet|haiku)-(\d+)-(\d+)")
-    match = version_re.match(model_name)
-    return (int(match[1]), int(match[2])) >= (4, 5) if match else False
+    parsed = _parse_model_version(model_name)
+    if parsed is None:
+        return False
+    return parsed.version >= _OUTPUT_CONFIG_MIN_VERSION
 
 
 def _model_supports_sampling_params(model_name: str) -> bool:
     """Returns True if the model accepts sampling params, False otherwise."""
     # Anthropic removed the sampling params (temperature/top_p/top_k) on its
-    # reasoning-first models: Claude Opus 4.7+ and the Fable/Mythos families return
-    # HTTP 400 ("`temperature` is deprecated for this model."). Opus 4.6 and earlier,
-    # all Sonnet and Haiku, and Claude 3.x still accept them.
-    if model_name.startswith(("claude-fable", "claude-mythos")):
+    # reasoning-first models, which return HTTP 400 ("`temperature` is deprecated
+    # for this model."). Everything else still accepts them.
+    if model_name.startswith(_REASONING_FIRST_MODEL_PREFIXES):
         return False
 
-    version_re = re.compile(r"^claude-opus-(\d+)-(\d+)")
-    match = version_re.match(model_name)
-    return (int(match[1]), int(match[2])) < (4, 7) if match else True
+    parsed = _parse_model_version(model_name)
+    if parsed is None:
+        return True
+    if parsed.family == _OPUS_FAMILY:
+        return parsed.version < _OPUS_SAMPLING_PARAMS_REMOVED_VERSION
+    if parsed.family == _SONNET_FAMILY:
+        return parsed.version < _SONNET_SAMPLING_PARAMS_REMOVED_VERSION
+    if parsed.family == _HAIKU_FAMILY:
+        return True
+    raise NotImplementedError(f"unhandled Claude family: {parsed.family}")
