@@ -300,6 +300,56 @@ def test_valid_entry_output_constructs():
     ]
 
 
+def test_non_json_output_raises():
+    # jsonschema accepts an int-keyed dict as an "object"; ToolResult does not,
+    # and YAML/OmegaConf preserves numeric keys all the way here.
+    tool = _make_tool(output_schema={"type": "object"})
+
+    with pytest.raises(ValueError, match="non-JSON output"):
+        DeterministicEnvironment.from_params(
+            _make_params(
+                tools=[tool],
+                lookup_table={
+                    "tool1": [
+                        ToolLookupEntry(input={}, output={1: "x"})  # type: ignore[arg-type]
+                    ]
+                },
+            )
+        )
+
+
+@pytest.mark.parametrize(
+    "output_schema,output",
+    [
+        ({"type": "string"}, "sunny"),
+        ({"type": "array", "items": {"type": "number"}}, [1, 2]),
+        ({"type": "boolean"}, True),
+        ({"type": "null"}, None),
+    ],
+)
+def test_non_dict_outputs_validate_against_schema(output_schema, output):
+    tool = _make_tool(output_schema=output_schema)
+
+    env = DeterministicEnvironment.from_params(
+        _make_params(
+            tools=[tool],
+            lookup_table={"tool1": [ToolLookupEntry(input={}, output=output)]},
+        )
+    )
+
+    assert env.step([("tool1", {})]) == [ToolResult(output=output)]
+
+    with pytest.raises(ValueError, match="invalid output"):
+        DeterministicEnvironment.from_params(
+            _make_params(
+                tools=[tool],
+                lookup_table={
+                    "tool1": [ToolLookupEntry(input={}, output={"wrong": "type"})]
+                },
+            )
+        )
+
+
 # --- step ---
 
 

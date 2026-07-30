@@ -24,6 +24,7 @@ from typing import Any
 
 import jsonschema
 from pydantic import JsonValue
+from pydantic import ValidationError as PydanticValidationError
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.environment_params import EnvironmentParams
@@ -233,6 +234,15 @@ class DeterministicEnvironment(BaseEnvironment):
                     raise ValueError(
                         f"Tool '{tool.id}' has lookup_table entry with invalid "
                         f"input {entry.input}: {e}"
+                    ) from e
+                # jsonschema accepts non-JSON values a JsonValue output rejects
+                # (e.g. a dict with int keys), so check against the consumer first.
+                try:
+                    ToolResult(output=entry.output)
+                except PydanticValidationError as e:
+                    raise ValueError(
+                        f"Tool '{tool.id}' has lookup_table entry with non-JSON "
+                        f"output {entry.output} for input {entry.input}: {e}"
                     ) from e
                 if tool.output_schema is not None:
                     try:
