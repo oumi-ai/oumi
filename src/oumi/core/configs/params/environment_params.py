@@ -63,13 +63,15 @@ class EnvironmentParams(BaseParams):
         return getattr(env_cls, "tool_params_cls", None) if env_cls else None
 
     def __finalize_and_validate__(self) -> None:
-        """Validate common fields and registry membership."""
+        """Validate common fields and registry membership.
+
+        ``name`` and ``description`` are optional human-readable labels; only
+        ``id`` (the reference key) and ``env_type`` (the registry key) are
+        required, so environments can be built programmatically without
+        fabricating cosmetic strings.
+        """
         if not self.id:
             raise ValueError(f"{type(self).__name__}.id cannot be empty.")
-        if not self.name:
-            raise ValueError(f"{type(self).__name__}.name cannot be empty.")
-        if not self.description:
-            raise ValueError(f"{type(self).__name__}.description cannot be empty.")
         if not self.env_type:
             raise ValueError(f"{type(self).__name__}.env_type cannot be empty.")
         if self.env_kwargs is not None and not isinstance(self.env_kwargs, Mapping):
