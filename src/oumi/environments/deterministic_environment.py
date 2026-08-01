@@ -34,28 +34,133 @@ from oumi.environments.base_environment import BaseEnvironment
 from oumi.environments.utils import parse_env_kwargs
 from oumi.utils.logging import logger
 
+# Keywords whose value is a subschema, a list of them, or a map of them. Only
+# these are walked, so instance data never gets read as a declaration.
+# ``$defs``/``definitions`` are absent: inert until reached through a ``$ref``.
+_SUBSCHEMA = frozenset(
+    {
+        "additionalItems",
+        "additionalProperties",
+        "contains",
+        "else",
+        "if",
+        "items",
+        "not",
+        "propertyNames",
+        "then",
+        "unevaluatedItems",
+        "unevaluatedProperties",
+    }
+)
+_SUBSCHEMA_LIST = frozenset({"allOf", "anyOf", "oneOf", "prefixItems"})
+_SUBSCHEMA_MAP = frozenset({"dependentSchemas", "patternProperties", "properties"})
+
+
+def _resolve_ref(schema: dict[str, Any], root: dict[str, Any]) -> dict[str, Any]:
+    """Resolve a local ``$ref`` against ``root``, with sibling keys winning.
+
+    Pydantic emits ``{"$ref": ..., "default": ...}`` for a nested model, so the
+    sibling ``default`` must override the target's. Non-local or dangling refs
+    are returned untouched — ``jsonschema`` still validates them, they just
+    contribute no defaults.
+    """
+    ref = schema.get("$ref")
+    if not isinstance(ref, str) or not ref.startswith("#"):
+        return schema
+    target: Any = root
+    for part in ref[1:].split("/"):
+        if not part:  # Leading empty segment, or the whole-document ref "#".
+            continue
+        part = part.replace("~1", "/").replace("~0", "~")
+        if not isinstance(target, dict) or part not in target:
+            return schema
+        target = target[part]
+    if not isinstance(target, dict):
+        return schema
+    return {**target, **{k: v for k, v in schema.items() if k != "$ref"}}
+
 
 def _fill_argument_defaults(
     arguments: dict[str, Any],
     schema: dict[str, Any],
+    root: dict[str, Any] | None = None,
+    seen: frozenset[str] = frozenset(),
 ) -> dict[str, Any]:
     """Return a copy of arguments with JSON Schema property defaults applied.
 
     An absent object property is only created if it declares its own ``default``.
+    Local ``$ref``s are resolved so pydantic-generated schemas fill like inline
+    ones. Depth follows the arguments, except that a default is never inserted
+    through a ``$ref`` already on the path — a self-referential default would
+    otherwise expand forever.
     """
-    result = dict(arguments)
-    properties = schema.get("properties", {})
+    if root is None:
+        root = schema
+    result = copy.deepcopy(arguments)
+    properties = _resolve_ref(schema, root).get("properties", {})
     if not isinstance(properties, dict):
         return result
 
     for name, property_schema in properties.items():
         if not isinstance(property_schema, dict):
             continue
-        if name not in result and "default" in property_schema:
+        ref = property_schema.get("$ref")
+        property_schema = _resolve_ref(property_schema, root)
+        cyclic = isinstance(ref, str) and ref in seen
+        if name not in result and "default" in property_schema and not cyclic:
             result[name] = copy.deepcopy(property_schema["default"])
         if isinstance(result.get(name), dict):
-            result[name] = _fill_argument_defaults(result[name], property_schema)
+            result[name] = _fill_argument_defaults(
+                result[name],
+                property_schema,
+                root,
+                seen | {ref} if isinstance(ref, str) else seen,
+            )
     return result
+
+
+def _unfillable_default_paths(
+    node: Any,
+    path: str,
+    root: dict[str, Any],
+    reachable: bool = True,
+    seen: frozenset[tuple[str, bool]] = frozenset(),
+) -> list[str]:
+    """Find schema paths where a ``default`` would never be filled.
+
+    ``_fill_argument_defaults`` only descends ``properties`` chains (through
+    ``$ref``), so a ``default`` under ``items``/``anyOf``/``allOf`` is dead.
+    """
+    if not isinstance(node, dict):
+        return []
+
+    ref = node.get("$ref")
+    if isinstance(ref, str):
+        # Keyed on reachability too: one ``$ref`` can be reached both ways.
+        if (ref, reachable) in seen:
+            return []
+        node, seen = _resolve_ref(node, root), seen | {(ref, reachable)}
+
+    found: list[str] = []
+    if not reachable and "default" in node:
+        found.append(f"{path}.default")
+    for key, value in node.items():
+        if key in _SUBSCHEMA:
+            found += _unfillable_default_paths(
+                value, f"{path}.{key}", root, False, seen
+            )
+        elif key in _SUBSCHEMA_LIST and isinstance(value, list):
+            for index, item in enumerate(value):
+                found += _unfillable_default_paths(
+                    item, f"{path}.{key}[{index}]", root, False, seen
+                )
+        elif key in _SUBSCHEMA_MAP and isinstance(value, dict):
+            child_reachable = reachable and key == "properties"
+            for name, subschema in value.items():
+                found += _unfillable_default_paths(
+                    subschema, f"{path}.{key}.{name}", root, child_reachable, seen
+                )
+    return found
 
 
 @dataclass
@@ -198,8 +303,9 @@ class DeterministicEnvironment(BaseEnvironment):
         """Validate the env's lookup_table against its tool list.
 
         - Stale ``lookup_table`` keys (no matching tool): log a warning;
-          entries are dormant.
+          entries are dormant and are not normalized.
         - Tools without entries: hard error.
+        - Schema defaults that default-filling can never reach: hard error.
         - Entry inputs are normalized in place with schema defaults.
         - Duplicate inputs within a tool's entries: hard error.
         """
@@ -217,6 +323,16 @@ class DeterministicEnvironment(BaseEnvironment):
                 raise ValueError(
                     f"Tool '{tool.id}' has no entries in lookup_table for "
                     f"environment '{self._params.id}'."
+                )
+            unfillable = _unfillable_default_paths(
+                tool.parameters, "parameters", tool.parameters
+            )
+            if unfillable:
+                raise ValueError(
+                    f"Tool '{tool.id}' in environment '{self._params.id}' declares "
+                    f"schema defaults that are never applied, at "
+                    f"{sorted(unfillable)}. Defaults are only filled along "
+                    f"'properties' chains; move them onto a property."
                 )
             seen: set[str] = set()
             for entry in entries:
