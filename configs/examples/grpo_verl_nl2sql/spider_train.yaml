@@ -1,0 +1,90 @@
+# Real Spider NL2SQL tool-agent GRPO run (1xH100; multi-GPU placement unsolved).
+# Rows built by scripts/datasets/build_spider_tool_agent.py; the model calls run_sql
+# against the shared pre-staged Spider SQLite files and sql_execution_match scores
+# execution match against the gold SQL. vllm async agent-loop (no sglang in the venv).
+model:
+  model_name: "Qwen/Qwen2.5-3B-Instruct"
+
+data:
+  train:
+    datasets:
+      - dataset_name: "text_sft"
+        dataset_path: "/workspace/aniruddh/spider_data/train.jsonl"
+        dataset_kwargs: { return_conversations: True }
+  validation:
+    datasets:
+      - dataset_name: "text_sft"
+        dataset_path: "/workspace/aniruddh/spider_data/val.jsonl"
+        dataset_kwargs: { return_conversations: True }
+
+training:
+  trainer_type: "VERL_GRPO"
+  num_train_epochs: 1
+  max_steps: 30
+  save_steps: 30   # write a final checkpoint so the run can be evaluated later
+  eval_strategy: "steps"
+  eval_steps: 6
+  learning_rate: 1.0e-6
+  reward_functions: ["sql_execution_match"]
+
+  grpo:
+    max_completion_length: 512
+    use_vllm: True
+    temperature: 1.0
+    # Leave more of the 80GB card for the FSDP actor/ref; vllm OOM'd the update at
+    # 0.5 once optimizer states + long multi-turn activations were added.
+    vllm_gpu_memory_utilization: 0.4
+
+  verl_config_overrides:
+    data:
+      train_batch_size: 8
+      val_batch_size: 32
+      # Spider schemas are long; 4096 covers all 166 DBs. Drop (don't ragged-batch)
+      # any prompt that still overflows.
+      max_prompt_length: 4096
+      filter_overlong_prompts: True
+    actor_rollout_ref:
+      model:
+        # image flash-attn/cutlass mismatch breaks flash_attention_2 at load; use
+        # sdpa for the FSDP actor/ref (vllm handles rollout attention itself).
+        use_remove_padding: false
+        # cut activation memory for the long multi-turn sequences the actor
+        # update backprops through.
+        enable_gradient_checkpointing: true
+        override_config:
+          attn_implementation: sdpa
+      actor:
+        ppo_mini_batch_size: 8
+        ppo_micro_batch_size_per_gpu: 1
+        # Single-GPU: park the 3B params + Adam states on CPU RAM so the actor
+        # update fits alongside vllm. Fix for the step-1 OOM.
+        fsdp_config:
+          param_offload: true
+          optimizer_offload: true
+      rollout:
+        mode: async
+        multi_turn:
+          enable: true
+          format: hermes
+          tool_config_path: configs/examples/grpo_verl_nl2sql/verl_tool_config.yaml
+        agent:
+          default_agent_loop: tool_agent
+        tensor_model_parallel_size: 1
+        n: 8
+        log_prob_micro_batch_size_per_gpu: 1
+        # param_offload ships fp32 master weights to vllm; 3B embeddings overflow
+        # the 512MB default weight-transfer bucket.
+        checkpoint_engine:
+          update_weights_bucket_megabytes: 4096
+      ref:
+        log_prob_micro_batch_size_per_gpu: 1
+        fsdp_config:
+          param_offload: true
+    trainer:
+      n_gpus_per_node: 1
+      nnodes: 1
+      val_before_train: True
+
+  output_dir: "/workspace/aniruddh/nl2sql_spider_out"
+  run_name: "nl2sql_spider"
+  enable_wandb: True

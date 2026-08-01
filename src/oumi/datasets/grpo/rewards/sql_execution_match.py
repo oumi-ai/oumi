@@ -150,6 +150,10 @@ def sql_execution_match(
     try:
         conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
         try:
+            # Real benchmark DBs (e.g. Spider) carry non-UTF-8 text; the default
+            # factory raises mid-query, which would abort the whole training run.
+            # Prediction and gold share this connection, so the comparison is fair.
+            conn.text_factory = lambda b: b.decode("utf-8", "replace")
             conn.set_authorizer(_read_only_authorizer)
             ordered = _has_top_level_order_by(ground_truth)
             gold_rows = _run(conn, ground_truth, ordered)

@@ -224,3 +224,22 @@ def test_subquery_order_by_does_not_force_positional_match():
         extra_info=EXTRA,
     )
     assert r == 1.0
+
+
+def test_non_utf8_text_does_not_abort_scoring(tmp_path):
+    """Spider DBs carry latin-1 bytes; decoding must not raise mid-run."""
+    db = tmp_path / "latin1.sqlite"
+    conn = sqlite3.connect(db)
+    conn.execute("CREATE TABLE people(last_name TEXT)")
+    # 'Albarracín' in latin-1 (0xED) stored with TEXT affinity — invalid UTF-8.
+    conn.execute("INSERT INTO people VALUES (CAST(x'416c626172726163ed6e' AS TEXT))")
+    conn.commit()
+    conn.close()
+
+    r = sql_execution_match(
+        data_source="nl2sql",
+        solution_str="```sql\nSELECT last_name FROM people\n```",
+        ground_truth="SELECT last_name FROM people",
+        extra_info=_extra(db_path=str(db)),
+    )
+    assert r == 1.0
