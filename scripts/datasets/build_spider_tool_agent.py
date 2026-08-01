@@ -25,7 +25,8 @@ from typing import Any
 
 _SYSTEM_PROMPT = (
     "You are a SQL assistant for a SQLite database with this schema:\n{schema}\n"
-    "You may call run_sql(query) to inspect results. Return the final SQL query "
+    "You may call the tool run_sql(query) to execute a SQL query and inspect "
+    "results. When you are done, give your final answer as a single SQL query "
     "inside a ```sql code block."
 )
 
