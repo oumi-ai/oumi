@@ -207,7 +207,9 @@ class DeterministicEnvironment(BaseEnvironment):
           entries are dormant.
         - Tools without entries: hard error.
         - Entry inputs are normalized in place with schema defaults.
-        - Entry inputs and outputs must conform to the tool schemas.
+        - Entry inputs must conform to the tool's ``parameters``; outputs must
+          be JSON values, and conform to ``output_schema`` when the tool
+          declares one (it is optional).
         - Duplicate inputs within a tool's entries: hard error.
         """
         for tool_id in self._kwargs.lookup_table:
