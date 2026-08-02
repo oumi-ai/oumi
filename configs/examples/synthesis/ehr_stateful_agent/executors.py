@@ -12,7 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tool executors for the stateful EHR synthesis example."""
+"""Tool executors for the stateful EHR synthesis example.
+
+``SyntheticEnvironment`` passes each executor the complete JSON state snapshot.
+This is a functional state-transition contract: an executor reads the snapshot
+and, for a write, returns a complete candidate ``updated_state`` that the
+environment validates before committing. The snapshot is a deep copy, so an
+executor error or rejected candidate cannot mutate the committed state. Keeping
+state as a plain snapshot also lets the synthesizer use the same document for
+grounding and per-sample isolation. Each executor should limit its work to the
+relevant subtree, as the helpers below do, and must not mutate the input
+snapshot.
+
+For tools backed by live or large external state, use ``ExecutableEnvironment``
+instead; its executors receive a context handle such as a database connection
+rather than a copied state document.
+"""
 
 from __future__ import annotations
 
