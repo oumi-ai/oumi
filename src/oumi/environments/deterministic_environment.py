@@ -40,28 +40,113 @@ from oumi.environments.base_environment import BaseEnvironment
 from oumi.environments.utils import parse_env_kwargs
 from oumi.utils.logging import logger
 
+# JSON Schema keywords whose values contain subschemas.
+_SUBSCHEMA = frozenset(
+    {
+        "additionalItems",
+        "additionalProperties",
+        "contains",
+        "else",
+        "if",
+        "items",
+        "not",
+        "propertyNames",
+        "then",
+        "unevaluatedItems",
+        "unevaluatedProperties",
+    }
+)
+_SUBSCHEMA_LIST = frozenset({"allOf", "anyOf", "oneOf", "prefixItems"})
+_SUBSCHEMA_MAP = frozenset({"dependentSchemas", "patternProperties", "properties"})
+
+
+def _resolve_ref(schema: dict[str, Any], root: dict[str, Any]) -> dict[str, Any]:
+    """Resolve a local ``$ref``, preserving sibling overrides."""
+    ref = schema.get("$ref")
+    if not isinstance(ref, str) or not ref.startswith("#"):
+        return schema
+    target: Any = root
+    for part in ref[1:].split("/"):
+        if not part:
+            continue
+        part = part.replace("~1", "/").replace("~0", "~")
+        if not isinstance(target, dict) or part not in target:
+            return schema
+        target = target[part]
+    if not isinstance(target, dict):
+        return schema
+    return {**target, **{k: v for k, v in schema.items() if k != "$ref"}}
+
 
 def _fill_argument_defaults(
     arguments: dict[str, Any],
     schema: dict[str, Any],
+    root: dict[str, Any] | None = None,
+    seen: frozenset[str] = frozenset(),
 ) -> dict[str, Any]:
-    """Return a copy of arguments with JSON Schema property defaults applied.
-
-    An absent object property is only created if it declares its own ``default``.
-    """
-    result = dict(arguments)
-    properties = schema.get("properties", {})
+    """Return a copy of arguments with property defaults applied recursively."""
+    if root is None:
+        root = schema
+    result = copy.deepcopy(arguments)
+    properties = _resolve_ref(schema, root).get("properties", {})
     if not isinstance(properties, dict):
         return result
 
     for name, property_schema in properties.items():
         if not isinstance(property_schema, dict):
             continue
-        if name not in result and "default" in property_schema:
+        ref = property_schema.get("$ref")
+        property_schema = _resolve_ref(property_schema, root)
+        cyclic = isinstance(ref, str) and ref in seen
+        if name not in result and "default" in property_schema and not cyclic:
             result[name] = copy.deepcopy(property_schema["default"])
         if isinstance(result.get(name), dict):
-            result[name] = _fill_argument_defaults(result[name], property_schema)
+            result[name] = _fill_argument_defaults(
+                result[name],
+                property_schema,
+                root,
+                seen | {ref} if isinstance(ref, str) else seen,
+            )
     return result
+
+
+def _unfillable_default_paths(
+    node: Any,
+    path: str,
+    root: dict[str, Any],
+    reachable: bool = True,
+    seen: frozenset[tuple[str, bool]] = frozenset(),
+) -> list[str]:
+    """Find defaults outside ``properties`` chains."""
+    if not isinstance(node, dict):
+        return []
+
+    ref = node.get("$ref")
+    if isinstance(ref, str):
+        if (ref, reachable) in seen:
+            return []
+        node, seen = _resolve_ref(node, root), seen | {(ref, reachable)}
+
+    found: list[str] = []
+    if not reachable and "default" in node:
+        found.append(f"{path}.default")
+    for key, value in node.items():
+        if key in _SUBSCHEMA:
+            found += _unfillable_default_paths(
+                value, f"{path}.{key}", root, False, seen
+            )
+        elif key in _SUBSCHEMA_LIST and isinstance(value, list):
+            for index, item in enumerate(value):
+                found += _unfillable_default_paths(
+                    item, f"{path}.{key}[{index}]", root, False, seen
+                )
+        elif key in _SUBSCHEMA_MAP and isinstance(value, dict):
+            child_reachable = reachable and key == "properties"
+            for name, subschema in value.items():
+                found += _unfillable_default_paths(
+                    subschema, f"{path}.{key}.{name}", root, child_reachable, seen
+                )
+    return found
 
 
 @dataclass
@@ -201,16 +286,12 @@ class DeterministicEnvironment(BaseEnvironment):
         return cls(params, kwargs)
 
     def _validate_lookup_table(self) -> None:
-        """Validate the env's lookup_table against its tool list.
+        """Validate and normalize the lookup table.
 
-        - Stale ``lookup_table`` keys (no matching tool): log a warning;
-          entries are dormant.
-        - Tools without entries: hard error.
-        - Entry inputs are normalized in place with schema defaults.
-        - Entry inputs must conform to the tool's ``parameters``; outputs must
-          be JSON values, and conform to ``output_schema`` when the tool
-          declares one (it is optional).
-        - Duplicate inputs within a tool's entries: hard error.
+        Entries under stale keys (no matching tool) are neither normalized nor
+        validated. Inputs must conform to the tool's ``parameters``; outputs
+        must be JSON values, and conform to ``output_schema`` only when the
+        tool declares one.
         """
         for tool_id in self._kwargs.lookup_table:
             if tool_id not in self._tools_by_id:
@@ -226,6 +307,16 @@ class DeterministicEnvironment(BaseEnvironment):
                 raise ValueError(
                     f"Tool '{tool.id}' has no entries in lookup_table for "
                     f"environment '{self._params.id}'."
+                )
+            unfillable = _unfillable_default_paths(
+                tool.parameters, "parameters", tool.parameters
+            )
+            if unfillable:
+                raise ValueError(
+                    f"Tool '{tool.id}' in environment '{self._params.id}' declares "
+                    "schema defaults that are never applied, at "
+                    f"{sorted(unfillable)}. Defaults are only filled along "
+                    "'properties' chains; move them onto a property."
                 )
             seen: set[str] = set()
             for entry in entries:
