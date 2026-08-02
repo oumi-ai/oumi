@@ -22,12 +22,18 @@ import random
 from dataclasses import dataclass, field
 from typing import Any
 
+import jsonschema
 from pydantic import JsonValue
+from pydantic import ValidationError as PydanticValidationError
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.core.configs.params.grounding_params import GroundingFact
-from oumi.core.configs.params.tool_params import ToolLookupError, ToolParams
+from oumi.core.configs.params.tool_params import (
+    ToolArgumentError,
+    ToolLookupError,
+    ToolParams,
+)
 from oumi.core.registry import register_environment
 from oumi.core.types.tool_call import ToolResult
 from oumi.environments.base_environment import BaseEnvironment
@@ -280,7 +286,13 @@ class DeterministicEnvironment(BaseEnvironment):
         return cls(params, kwargs)
 
     def _validate_lookup_table(self) -> None:
-        """Validate and normalize the lookup table."""
+        """Validate and normalize the lookup table.
+
+        Entries under stale keys (no matching tool) are neither normalized nor
+        validated. Inputs must conform to the tool's ``parameters``; outputs
+        must be JSON values, and conform to ``output_schema`` only when the
+        tool declares one.
+        """
         for tool_id in self._kwargs.lookup_table:
             if tool_id not in self._tools_by_id:
                 logger.warning(
@@ -309,6 +321,30 @@ class DeterministicEnvironment(BaseEnvironment):
             seen: set[str] = set()
             for entry in entries:
                 entry.input = _fill_argument_defaults(entry.input, tool.parameters)
+                try:
+                    tool.validate_arguments(entry.input)
+                except ToolArgumentError as e:
+                    raise ValueError(
+                        f"Tool '{tool.id}' has lookup_table entry with invalid "
+                        f"input {entry.input}: {e}"
+                    ) from e
+                # jsonschema accepts non-JSON values a JsonValue output rejects
+                # (e.g. a dict with int keys), so check against the consumer first.
+                try:
+                    ToolResult(output=entry.output)
+                except PydanticValidationError as e:
+                    raise ValueError(
+                        f"Tool '{tool.id}' has lookup_table entry with non-JSON "
+                        f"output {entry.output} for input {entry.input}: {e}"
+                    ) from e
+                if tool.output_schema is not None:
+                    try:
+                        jsonschema.validate(entry.output, tool.output_schema)
+                    except jsonschema.ValidationError as e:
+                        raise ValueError(
+                            f"Tool '{tool.id}' has lookup_table entry with invalid "
+                            f"output {entry.output} for input {entry.input}: {e}"
+                        ) from e
                 key = entry.input_key()
                 if key in seen:
                     raise ValueError(

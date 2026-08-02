@@ -35,12 +35,14 @@ from oumi.environments.deterministic_environment import (
 def _make_tool(
     tool_id: str = "tool1",
     parameters: dict | None = None,
+    output_schema: dict | None = None,
 ) -> ToolParams:
     return ToolParams(
         id=tool_id,
         name=tool_id,
         description="A tool",
         parameters=parameters if parameters is not None else {"type": "object"},
+        output_schema=output_schema,
     )
 
 
@@ -236,6 +238,169 @@ def test_defaults_are_filled_through_local_ref():
     assert entry.input == {"opts": {"unit": "celsius"}}
     assert env.step([("tool1", {})]) == [ToolResult(output={"msg": "ok"})]
     assert env.step([("tool1", {"opts": {}})]) == [ToolResult(output={"msg": "ok"})]
+
+
+def test_invalid_entry_input_raises():
+    tool = _make_tool(
+        parameters={
+            "type": "object",
+            "properties": {"location": {"type": "string"}},
+            "required": ["location"],
+            "additionalProperties": False,
+        }
+    )
+
+    with pytest.raises(ValueError, match="invalid input.*locaton"):
+        DeterministicEnvironment.from_params(
+            _make_params(
+                tools=[tool],
+                lookup_table={
+                    "tool1": [
+                        ToolLookupEntry(
+                            input={"locaton": "sf"},
+                            output={"temperature": 65},
+                        )
+                    ]
+                },
+            )
+        )
+
+
+def test_entry_input_is_validated_after_defaults_are_filled():
+    tool = _make_tool(
+        parameters={
+            "type": "object",
+            "properties": {
+                "opts": {
+                    "type": "object",
+                    "properties": {
+                        "unit": {
+                            "type": "string",
+                            "enum": ["celsius"],
+                            "default": "fahrenheit",
+                        }
+                    },
+                    "required": ["unit"],
+                }
+            },
+            "required": ["opts"],
+        }
+    )
+
+    with pytest.raises(ValueError, match="invalid input.*fahrenheit.*not one of"):
+        DeterministicEnvironment.from_params(
+            _make_params(
+                tools=[tool],
+                lookup_table={
+                    "tool1": [ToolLookupEntry(input={"opts": {}}, output={"ok": True})]
+                },
+            )
+        )
+
+
+def test_invalid_entry_output_raises():
+    tool = _make_tool(
+        output_schema={
+            "type": "object",
+            "properties": {"temperature": {"type": "number"}},
+            "required": ["temperature"],
+            "additionalProperties": False,
+        }
+    )
+
+    with pytest.raises(ValueError, match="invalid output.*temprature"):
+        DeterministicEnvironment.from_params(
+            _make_params(
+                tools=[tool],
+                lookup_table={
+                    "tool1": [
+                        ToolLookupEntry(
+                            input={"location": "sf"},
+                            output={"temprature": 65},
+                        )
+                    ]
+                },
+            )
+        )
+
+
+def test_valid_entry_output_constructs():
+    tool = _make_tool(
+        output_schema={
+            "type": "object",
+            "properties": {"temperature": {"type": "number"}},
+            "required": ["temperature"],
+            "additionalProperties": False,
+        }
+    )
+
+    env = DeterministicEnvironment.from_params(
+        _make_params(
+            tools=[tool],
+            lookup_table={
+                "tool1": [
+                    ToolLookupEntry(
+                        input={"location": "sf"},
+                        output={"temperature": 65},
+                    )
+                ]
+            },
+        )
+    )
+
+    assert env.step([("tool1", {"location": "sf"})]) == [
+        ToolResult(output={"temperature": 65})
+    ]
+
+
+def test_non_json_output_raises():
+    # jsonschema accepts an int-keyed dict as an "object"; ToolResult does not,
+    # and YAML/OmegaConf preserves numeric keys all the way here.
+    tool = _make_tool(output_schema={"type": "object"})
+
+    with pytest.raises(ValueError, match="non-JSON output"):
+        DeterministicEnvironment.from_params(
+            _make_params(
+                tools=[tool],
+                lookup_table={
+                    "tool1": [
+                        ToolLookupEntry(input={}, output={1: "x"})  # type: ignore[arg-type]
+                    ]
+                },
+            )
+        )
+
+
+@pytest.mark.parametrize(
+    "output_schema,output",
+    [
+        ({"type": "string"}, "sunny"),
+        ({"type": "array", "items": {"type": "number"}}, [1, 2]),
+        ({"type": "boolean"}, True),
+        ({"type": "null"}, None),
+    ],
+)
+def test_non_dict_outputs_validate_against_schema(output_schema, output):
+    tool = _make_tool(output_schema=output_schema)
+
+    env = DeterministicEnvironment.from_params(
+        _make_params(
+            tools=[tool],
+            lookup_table={"tool1": [ToolLookupEntry(input={}, output=output)]},
+        )
+    )
+
+    assert env.step([("tool1", {})]) == [ToolResult(output=output)]
+
+    with pytest.raises(ValueError, match="invalid output"):
+        DeterministicEnvironment.from_params(
+            _make_params(
+                tools=[tool],
+                lookup_table={
+                    "tool1": [ToolLookupEntry(input={}, output={"wrong": "type"})]
+                },
+            )
+        )
 
 
 # --- step ---
