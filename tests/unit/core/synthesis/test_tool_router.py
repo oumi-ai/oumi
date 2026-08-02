@@ -180,7 +180,10 @@ def _typed_tool(tool_id: str) -> ToolParams:
 
 
 def _router_with(*tools: ToolParams) -> ToolRouter:
-    env_config = EnvironmentConfig(environments=[_det_env_params("env1", list(tools))])
+    lookup = {tool.id: [{"input": {"q": "configured"}, "output": {}}] for tool in tools}
+    env_config = EnvironmentConfig(
+        environments=[_det_env_params("env1", list(tools), lookup=lookup)]
+    )
     return ToolRouter.from_environment_config(env_config)
 
 
