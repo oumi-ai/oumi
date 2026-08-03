@@ -32,8 +32,18 @@ from oumi.environments.deterministic_environment import (
 )
 
 
-def _make_tool(tool_id: str = "tool1") -> ToolParams:
-    return ToolParams(id=tool_id, name=tool_id, description="A tool")
+def _make_tool(
+    tool_id: str = "tool1",
+    parameters: dict | None = None,
+    output_schema: dict | None = None,
+) -> ToolParams:
+    return ToolParams(
+        id=tool_id,
+        name=tool_id,
+        description="A tool",
+        parameters=parameters if parameters is not None else {"type": "object"},
+        output_schema=output_schema,
+    )
 
 
 def _make_params(
@@ -145,6 +155,254 @@ def test_duplicate_inputs_raises():
         )
 
 
+def test_inputs_with_omitted_and_explicit_defaults_are_duplicates():
+    tool = _make_tool(
+        parameters={
+            "type": "object",
+            "properties": {"unit": {"type": "string", "default": "celsius"}},
+        }
+    )
+
+    with pytest.raises(ValueError, match="duplicate input"):
+        DeterministicEnvironment.from_params(
+            _make_params(
+                tools=[tool],
+                lookup_table={
+                    "tool1": [
+                        ToolLookupEntry(input={}, output={"value": 1}),
+                        ToolLookupEntry(input={"unit": "celsius"}, output={"value": 2}),
+                    ]
+                },
+            )
+        )
+
+
+@pytest.mark.parametrize(
+    "keyword,subschema,path_suffix",
+    [
+        ("allOf", [{"type": "string", "default": "x"}], "allOf[0].default"),
+        ("anyOf", [{"type": "string", "default": "x"}], "anyOf[0].default"),
+        ("oneOf", [{"type": "string", "default": "x"}], "oneOf[0].default"),
+        ("items", {"type": "string", "default": "x"}, "items.default"),
+    ],
+)
+def test_unreachable_schema_default_raises(keyword, subschema, path_suffix):
+    parameters = {
+        "type": "object",
+        "properties": {"value": {keyword: subschema}},
+    }
+
+    with pytest.raises(ValueError, match="never applied") as excinfo:
+        DeterministicEnvironment.from_params(
+            _make_params(tools=[_make_tool(parameters=parameters)])
+        )
+    assert f"parameters.properties.value.{path_suffix}" in str(excinfo.value)
+    assert "tool1" in str(excinfo.value)
+
+
+def test_combinator_without_defaults_is_accepted():
+    tool = _make_tool(
+        parameters={
+            "type": "object",
+            "properties": {"id": {"anyOf": [{"type": "string"}, {"type": "integer"}]}},
+        }
+    )
+
+    env = DeterministicEnvironment.from_params(_make_params(tools=[tool]))
+
+    assert env.step([("tool1", {"id": "01"})]) == [ToolResult(output={"msg": "ok"})]
+
+
+def test_defaults_are_filled_through_local_ref():
+    tool = _make_tool(
+        parameters={
+            "type": "object",
+            "$defs": {
+                "Opts": {
+                    "type": "object",
+                    "properties": {"unit": {"type": "string", "default": "celsius"}},
+                }
+            },
+            "properties": {"opts": {"$ref": "#/$defs/Opts", "default": {}}},
+        }
+    )
+    entry = ToolLookupEntry(input={}, output={"msg": "ok"})
+
+    env = DeterministicEnvironment.from_params(
+        _make_params(
+            tools=[tool],
+            lookup_table={"tool1": [entry]},
+        )
+    )
+
+    assert entry.input == {"opts": {"unit": "celsius"}}
+    assert env.step([("tool1", {})]) == [ToolResult(output={"msg": "ok"})]
+    assert env.step([("tool1", {"opts": {}})]) == [ToolResult(output={"msg": "ok"})]
+
+
+def test_invalid_entry_input_raises():
+    tool = _make_tool(
+        parameters={
+            "type": "object",
+            "properties": {"location": {"type": "string"}},
+            "required": ["location"],
+            "additionalProperties": False,
+        }
+    )
+
+    with pytest.raises(ValueError, match="invalid input.*locaton"):
+        DeterministicEnvironment.from_params(
+            _make_params(
+                tools=[tool],
+                lookup_table={
+                    "tool1": [
+                        ToolLookupEntry(
+                            input={"locaton": "sf"},
+                            output={"temperature": 65},
+                        )
+                    ]
+                },
+            )
+        )
+
+
+def test_entry_input_is_validated_after_defaults_are_filled():
+    tool = _make_tool(
+        parameters={
+            "type": "object",
+            "properties": {
+                "opts": {
+                    "type": "object",
+                    "properties": {
+                        "unit": {
+                            "type": "string",
+                            "enum": ["celsius"],
+                            "default": "fahrenheit",
+                        }
+                    },
+                    "required": ["unit"],
+                }
+            },
+            "required": ["opts"],
+        }
+    )
+
+    with pytest.raises(ValueError, match="invalid input.*fahrenheit.*not one of"):
+        DeterministicEnvironment.from_params(
+            _make_params(
+                tools=[tool],
+                lookup_table={
+                    "tool1": [ToolLookupEntry(input={"opts": {}}, output={"ok": True})]
+                },
+            )
+        )
+
+
+def test_invalid_entry_output_raises():
+    tool = _make_tool(
+        output_schema={
+            "type": "object",
+            "properties": {"temperature": {"type": "number"}},
+            "required": ["temperature"],
+            "additionalProperties": False,
+        }
+    )
+
+    with pytest.raises(ValueError, match="invalid output.*temprature"):
+        DeterministicEnvironment.from_params(
+            _make_params(
+                tools=[tool],
+                lookup_table={
+                    "tool1": [
+                        ToolLookupEntry(
+                            input={"location": "sf"},
+                            output={"temprature": 65},
+                        )
+                    ]
+                },
+            )
+        )
+
+
+def test_valid_entry_output_constructs():
+    tool = _make_tool(
+        output_schema={
+            "type": "object",
+            "properties": {"temperature": {"type": "number"}},
+            "required": ["temperature"],
+            "additionalProperties": False,
+        }
+    )
+
+    env = DeterministicEnvironment.from_params(
+        _make_params(
+            tools=[tool],
+            lookup_table={
+                "tool1": [
+                    ToolLookupEntry(
+                        input={"location": "sf"},
+                        output={"temperature": 65},
+                    )
+                ]
+            },
+        )
+    )
+
+    assert env.step([("tool1", {"location": "sf"})]) == [
+        ToolResult(output={"temperature": 65})
+    ]
+
+
+def test_non_json_output_raises():
+    # jsonschema accepts an int-keyed dict as an "object"; ToolResult does not,
+    # and YAML/OmegaConf preserves numeric keys all the way here.
+    tool = _make_tool(output_schema={"type": "object"})
+
+    with pytest.raises(ValueError, match="non-JSON output"):
+        DeterministicEnvironment.from_params(
+            _make_params(
+                tools=[tool],
+                lookup_table={
+                    "tool1": [
+                        ToolLookupEntry(input={}, output={1: "x"})  # type: ignore[arg-type]
+                    ]
+                },
+            )
+        )
+
+
+@pytest.mark.parametrize(
+    "output_schema,output",
+    [
+        ({"type": "string"}, "sunny"),
+        ({"type": "array", "items": {"type": "number"}}, [1, 2]),
+        ({"type": "boolean"}, True),
+        ({"type": "null"}, None),
+    ],
+)
+def test_non_dict_outputs_validate_against_schema(output_schema, output):
+    tool = _make_tool(output_schema=output_schema)
+
+    env = DeterministicEnvironment.from_params(
+        _make_params(
+            tools=[tool],
+            lookup_table={"tool1": [ToolLookupEntry(input={}, output=output)]},
+        )
+    )
+
+    assert env.step([("tool1", {})]) == [ToolResult(output=output)]
+
+    with pytest.raises(ValueError, match="invalid output"):
+        DeterministicEnvironment.from_params(
+            _make_params(
+                tools=[tool],
+                lookup_table={
+                    "tool1": [ToolLookupEntry(input={}, output={"wrong": "type"})]
+                },
+            )
+        )
+
+
 # --- step ---
 
 
@@ -196,6 +454,85 @@ def test_step_unknown_tool_raises():
     env = DeterministicEnvironment.from_params(_make_params())
     with pytest.raises(ValueError, match="Tool 'missing' not found"):
         env.step([("missing", {"id": "01"})])
+
+
+def test_step_applies_defaults_to_calls_and_entries():
+    tool = _make_tool(
+        parameters={
+            "type": "object",
+            "properties": {
+                "location": {"type": "string"},
+                "unit": {"type": "string", "default": "celsius"},
+            },
+        }
+    )
+    entry = ToolLookupEntry(input={"location": "sf"}, output={"temperature": 18})
+    env = DeterministicEnvironment.from_params(
+        _make_params(
+            tools=[tool],
+            lookup_table={"tool1": [entry]},
+        )
+    )
+
+    assert entry.input == {"location": "sf", "unit": "celsius"}
+    assert env.step([("tool1", {"location": "sf"})]) == [
+        ToolResult(output={"temperature": 18})
+    ]
+    assert env.step([("tool1", {"location": "sf", "unit": "celsius"})]) == [
+        ToolResult(output={"temperature": 18})
+    ]
+
+
+def test_default_filling_deep_copies_values():
+    tool = _make_tool(
+        parameters={
+            "type": "object",
+            "properties": {"tags": {"type": "array", "default": ["a"]}},
+        }
+    )
+    entry = ToolLookupEntry(input={}, output={"ok": True})
+    env = DeterministicEnvironment.from_params(
+        _make_params(tools=[tool], lookup_table={"tool1": [entry]})
+    )
+    arguments = {}
+
+    assert env.step([("tool1", arguments)]) == [ToolResult(output={"ok": True})]
+    assert arguments == {}
+    entry.input["tags"].append("MUTATED")
+    assert tool.parameters["properties"]["tags"]["default"] == ["a"]
+
+
+def test_step_does_not_create_missing_object_without_default():
+    tool = _make_tool(
+        parameters={
+            "type": "object",
+            "properties": {
+                "opts": {
+                    "type": "object",
+                    "properties": {"unit": {"type": "string", "default": "celsius"}},
+                },
+            },
+        }
+    )
+    env = DeterministicEnvironment.from_params(
+        _make_params(
+            tools=[tool],
+            lookup_table={
+                "tool1": [
+                    ToolLookupEntry(input={}, output={"source": "no-opts"}),
+                    ToolLookupEntry(
+                        input={"opts": {}},
+                        output={"source": "opts"},
+                    ),
+                ]
+            },
+        )
+    )
+
+    assert env.step([("tool1", {})]) == [ToolResult(output={"source": "no-opts"})]
+    assert env.step([("tool1", {"opts": {}})]) == [
+        ToolResult(output={"source": "opts"})
+    ]
 
 
 @pytest.mark.parametrize(
@@ -347,6 +684,34 @@ def test_sample_grounding_merges_input_and_output():
     )
     facts = env.sample_grounding(n=1, rng=random.Random(0))
     assert facts[0].data == {"id": "1", "note": "output-note", "title": "Dune"}
+
+
+def test_sample_grounding_includes_filled_defaults():
+    tool = _make_tool(
+        "lookup",
+        parameters={
+            "type": "object",
+            "properties": {
+                "id": {"type": "string"},
+                "unit": {"type": "string", "default": "celsius"},
+            },
+        },
+    )
+    env = DeterministicEnvironment.from_params(
+        _make_params(
+            tools=[tool],
+            lookup_table={
+                "lookup": [ToolLookupEntry(input={"id": "1"}, output={"title": "Dune"})]
+            },
+            grounding=GroundingConfig(
+                sample_size=1,
+                tools={"lookup": ToolGroundingConfig(fields=["id", "unit", "title"])},
+            ),
+        )
+    )
+    facts = env.sample_grounding(n=1, rng=random.Random(0))
+
+    assert facts[0].data == {"id": "1", "unit": "celsius", "title": "Dune"}
 
 
 def test_grounding_key_collision_warns(caplog):
