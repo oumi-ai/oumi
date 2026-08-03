@@ -28,6 +28,9 @@ training:
     use_vllm: True
     temperature: 1.0
     vllm_gpu_memory_utilization: 0.5
+  # Rollout options are verl's; see
+  # https://github.com/verl-project/verl/blob/main/verl/trainer/config/rollout/rollout.yaml
+  # and https://github.com/verl-project/verl/blob/main/verl/workers/config/rollout.py
   verl_config_overrides:
     data:
       train_batch_size: 32
@@ -40,6 +43,9 @@ training:
         multi_turn:
           enable: true
           format: hermes
+          # Unset, tool_agent never caps turns: a rollout only ends when it stops
+          # calling run_sql or burns max_completion_length.
+          max_assistant_turns: 5
           tool_config_path: configs/examples/grpo_verl_nl2sql/verl_tool_config.yaml
         agent:
           default_agent_loop: tool_agent
