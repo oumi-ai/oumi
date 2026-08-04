@@ -26,6 +26,7 @@ from typing import Any, cast
 from datasets import Dataset
 from omegaconf import DictConfig, OmegaConf
 
+from oumi.core.trainers.verl_conversational_turn import DEFAULT_MAX_TURNS
 from oumi.core.types.conversation import Conversation
 from oumi.core.types.conversation import Role as ConversationRole
 from oumi.utils.grpo_utils import (
@@ -251,7 +252,7 @@ class VerlGrpoTrainer(BaseTrainer):
     def _create_verl_data_entry_from_conversation(
         example: dict, idx: int, data_source: str, split: str
     ) -> dict:
-        # Cheap metadata peek; a missing key falls through to the extractor's error.
+        # Avoid full Conversation validation unless this row configures an interaction.
         raw = json.loads(example.get("conversation_json") or "{}")
         interaction_kwargs = raw.get("metadata", {}).get("interaction_kwargs")
         if interaction_kwargs:
@@ -302,7 +303,7 @@ class VerlGrpoTrainer(BaseTrainer):
         resolved_kwargs = {
             "name": interaction_kwargs.get("name", "oumi_conversation"),
             "user_persona": interaction_kwargs["user_persona"],
-            "max_turns": interaction_kwargs.get("max_turns", 6),
+            "max_turns": interaction_kwargs.get("max_turns", DEFAULT_MAX_TURNS),
             "goal": goal,
         }
         return {

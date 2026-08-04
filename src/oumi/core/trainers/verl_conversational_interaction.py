@@ -28,6 +28,7 @@ from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.inference_engine_type import InferenceEngineType
 from oumi.core.trainers.verl_conversational_turn import (
     DEFAULT_DONE_SENTINEL,
+    DEFAULT_MAX_TURNS,
     RolloutState,
     next_user_turn,
 )
@@ -54,7 +55,7 @@ class OumiVerlInteraction(BaseInteraction):
             if isinstance(self._engine, RemoteInferenceEngine)
             else threading.Lock()
         )
-        self._default_max_turns = config.get("max_turns", 6)
+        self._default_max_turns = config.get("max_turns", DEFAULT_MAX_TURNS)
         self._done_sentinel = config.get("done_sentinel", DEFAULT_DONE_SENTINEL)
         self._state: dict[str, RolloutState] = {}
 
@@ -73,7 +74,12 @@ class OumiVerlInteraction(BaseInteraction):
     async def generate_response(
         self, instance_id, messages, **kwargs
     ) -> tuple[bool, str, float, dict]:
-        """Produce the next simulated-user turn."""
+        """Produce the next simulated-user turn.
+
+        Returns:
+            A tuple of whether to terminate, the simulated-user response, its score,
+            and metadata.
+        """
         state = self._state[instance_id]
         done, text, score = await asyncio.to_thread(
             next_user_turn, state, messages, self._infer_one, self._done_sentinel

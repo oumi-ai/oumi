@@ -20,6 +20,7 @@ from collections.abc import Callable
 from oumi.core.types.conversation import Conversation, Message, Role
 
 DEFAULT_DONE_SENTINEL = "[[END]]"
+DEFAULT_MAX_TURNS = 6
 
 
 @dataclasses.dataclass
@@ -81,7 +82,11 @@ def next_user_turn(
     infer_fn: Callable[[Conversation], str],
     done_sentinel: str = DEFAULT_DONE_SENTINEL,
 ) -> tuple[bool, str, float]:
-    """Produces the next simulated-user turn, or ends the rollout at the cap."""
+    """Produces the next simulated-user turn, or ends the rollout at the cap.
+
+    Returns:
+        A tuple of whether to terminate, the simulated-user response, and its score.
+    """
     if state.turn_idx >= state.max_turns:
         return True, "", 0.0
     state.turn_idx += 1
