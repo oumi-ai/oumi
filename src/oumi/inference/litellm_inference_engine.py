@@ -104,8 +104,7 @@ class LiteLLMInferenceEngine(RemoteInferenceEngine):
         """
         if litellm is None:
             raise RuntimeError(
-                "litellm is not installed. "
-                "Install it with `pip install oumi[litellm]`."
+                "litellm is not installed. Install it with `pip install oumi[litellm]`."
             )
 
         super().__init__(
@@ -213,7 +212,7 @@ class LiteLLMInferenceEngine(RemoteInferenceEngine):
         """
         if "error" in response:
             raise RuntimeError(
-                f"API error: " f"{response['error'].get('message', response['error'])}"
+                f"API error: {response['error'].get('message', response['error'])}"
             )
         choices = response.get("choices")
         if not choices:
@@ -309,6 +308,9 @@ class LiteLLMInferenceEngine(RemoteInferenceEngine):
             model_params = inference_config.model or self._model_params
             output_path = inference_config.output_path
 
+        if self._rate_limiter is not None:
+            await self._rate_limiter.wait_if_needed()
+
         semaphore_or_controller = (
             self._adaptive_concurrency_controller
             if self._remote_params.use_adaptive_concurrency
@@ -332,6 +334,13 @@ class LiteLLMInferenceEngine(RemoteInferenceEngine):
                         self._call_litellm_completion,
                         api_input,
                     )
+                    if self._rate_limiter is not None:
+                        usage = self._extract_usage_from_response(response)
+                        if usage:
+                            await self._rate_limiter.record_usage(
+                                input_tokens=usage.get("prompt_tokens", 0),
+                                output_tokens=usage.get("completion_tokens", 0),
+                            )
                     result = self._convert_api_output_to_conversation(
                         response, conversation
                     )
