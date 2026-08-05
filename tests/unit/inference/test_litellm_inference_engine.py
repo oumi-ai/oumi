@@ -75,68 +75,6 @@ def test_convert_conversation_to_api_input(litellm_engine):
 
 
 @pytest.mark.skipif(litellm_import_failed, reason="litellm not available")
-def test_convert_api_output_to_conversation(litellm_engine):
-    original_conversation = Conversation(
-        messages=[
-            Message(content="User message", role=Role.USER),
-        ],
-        metadata={"key": "value"},
-        conversation_id="test_id",
-    )
-    api_response = {
-        "choices": [
-            {
-                "message": {
-                    "role": "assistant",
-                    "content": "Assistant response",
-                },
-                "finish_reason": "stop",
-            }
-        ],
-        "usage": {
-            "prompt_tokens": 10,
-            "completion_tokens": 5,
-            "total_tokens": 15,
-        },
-    }
-
-    result = litellm_engine._convert_api_output_to_conversation(
-        api_response, original_conversation
-    )
-
-    assert len(result.messages) == 2
-    assert result.messages[0].content == "User message"
-    assert result.messages[1].content == "Assistant response"
-    assert result.messages[1].role == Role.ASSISTANT
-    assert result.metadata["key"] == "value"
-    assert result.metadata["usage"]["prompt_tokens"] == 10
-    assert result.metadata["finish_reason"] == "stop"
-    assert result.conversation_id == "test_id"
-
-
-@pytest.mark.skipif(litellm_import_failed, reason="litellm not available")
-def test_convert_api_output_error_response(litellm_engine):
-    original = Conversation(
-        messages=[Message(content="Hello", role=Role.USER)],
-    )
-    response = {"error": {"message": "Rate limit exceeded"}}
-
-    with pytest.raises(RuntimeError, match="API error"):
-        litellm_engine._convert_api_output_to_conversation(response, original)
-
-
-@pytest.mark.skipif(litellm_import_failed, reason="litellm not available")
-def test_convert_api_output_no_choices(litellm_engine):
-    original = Conversation(
-        messages=[Message(content="Hello", role=Role.USER)],
-    )
-    response = {"choices": []}
-
-    with pytest.raises(RuntimeError, match="No choices"):
-        litellm_engine._convert_api_output_to_conversation(response, original)
-
-
-@pytest.mark.skipif(litellm_import_failed, reason="litellm not available")
 def test_infer_online(litellm_engine):
     with patch.object(litellm_engine, "_infer") as mock_infer:
         mock_infer.return_value = [

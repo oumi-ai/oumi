@@ -27,12 +27,7 @@ from tqdm.asyncio import tqdm
 from typing_extensions import override
 
 from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
-from oumi.core.types.conversation import (
-    Conversation,
-    FinishReason,
-    Message,
-    Role,
-)
+from oumi.core.types.conversation import Conversation
 from oumi.inference.adaptive_semaphore import PoliteAdaptiveSemaphore
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 from oumi.utils.conversation_utils import create_list_of_message_json_dicts
@@ -42,13 +37,6 @@ try:
     import litellm  # pyright: ignore[reportMissingImports]
 except ModuleNotFoundError:
     litellm = None  # type: ignore[assignment]
-
-_FINISH_REASON_MAP = {
-    "stop": FinishReason.STOP,
-    "length": FinishReason.LENGTH,
-    "tool_calls": FinishReason.TOOL_CALLS,
-    "content_filter": FinishReason.CONTENT_FILTER,
-}
 
 
 class LiteLLMInferenceEngine(RemoteInferenceEngine):
@@ -196,60 +184,6 @@ class LiteLLMInferenceEngine(RemoteInferenceEngine):
         """
         response = litellm.completion(**api_input)
         return response.model_dump(mode="json")
-
-    @override
-    def _convert_api_output_to_conversation(
-        self, response: dict[str, Any], original_conversation: Conversation
-    ) -> Conversation:
-        """Converts a LiteLLM response dict back into a Conversation.
-
-        Args:
-            response: The API response to convert.
-            original_conversation: The original conversation.
-
-        Returns:
-            Conversation: The conversation including the generated response.
-        """
-        if "error" in response:
-            raise RuntimeError(
-                f"API error: {response['error'].get('message', response['error'])}"
-            )
-        choices = response.get("choices")
-        if not choices:
-            raise RuntimeError(f"No choices in response: {response}")
-
-        message = choices[0].get("message", {})
-        content = message.get("content")
-        tool_calls = message.get("tool_calls")
-        if content is None and not tool_calls:
-            content = ""
-
-        metadata = dict(original_conversation.metadata)
-        usage = response.get("usage")
-        if usage:
-            metadata["usage"] = {
-                "prompt_tokens": usage.get("prompt_tokens", 0),
-                "completion_tokens": usage.get("completion_tokens", 0),
-                "total_tokens": usage.get("total_tokens", 0),
-            }
-        raw_reason = choices[0].get("finish_reason")
-        if raw_reason:
-            finish = _FINISH_REASON_MAP.get(raw_reason.lower(), FinishReason.UNKNOWN)
-            metadata["finish_reason"] = finish.value
-
-        return Conversation(
-            messages=[
-                *original_conversation.messages,
-                Message(
-                    content=content,
-                    role=Role(message.get("role", "assistant")),
-                    tool_calls=tool_calls,
-                ),
-            ],
-            metadata=metadata,
-            conversation_id=original_conversation.conversation_id,
-            tools=original_conversation.tools,
-        )
 
     @override
     async def _infer(
