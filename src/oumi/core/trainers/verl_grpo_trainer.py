@@ -85,6 +85,11 @@ class VerlGrpoTrainer(BaseTrainer):
     # Must match the `name` in the agent-loop YAML and the @register decorator on
     # UserSimToolAgentLoop; verl looks the row's `agent_name` up in its registry.
     OUMI_AGENT_LOOP_NAME = "oumi_user_sim_tool_agent"
+    # verl's own fallback. Plain rows must still carry the key: `Dataset.map` fixes
+    # the output schema from the first row, so a mix of rows with and without
+    # `agent_name` either raises or silently drops the column, which would route
+    # agent-loop rows to single-turn generation with no error.
+    VERL_DEFAULT_AGENT_LOOP_NAME = "single_turn_agent"
 
     def __init__(
         self,
@@ -360,6 +365,10 @@ class VerlGrpoTrainer(BaseTrainer):
                     "customer message)."
                 )
             goal = interaction_kwargs.get("goal", "")
+            # `.get(k, default)` returns None when the key is present but null.
+            max_turns = interaction_kwargs.get("max_turns")
+            if max_turns is None:
+                max_turns = DEFAULT_MAX_TURNS
             return VerlGrpoTrainer._create_verl_agent_loop_entry(
                 conversation,
                 goal,
@@ -367,7 +376,7 @@ class VerlGrpoTrainer(BaseTrainer):
                 {
                     "user_persona": interaction_kwargs["user_persona"],
                     "goal": goal,
-                    "max_turns": interaction_kwargs.get("max_turns", DEFAULT_MAX_TURNS),
+                    "max_turns": max_turns,
                 },
                 "conversation",
                 idx,
@@ -382,6 +391,7 @@ class VerlGrpoTrainer(BaseTrainer):
             "prompt": prompt_messages,
             "images": images,
             "ability": "math",
+            "agent_name": VerlGrpoTrainer.VERL_DEFAULT_AGENT_LOOP_NAME,
             "reward_model": {"style": "rule", "ground_truth": answer},
             "extra_info": {
                 "split": split,

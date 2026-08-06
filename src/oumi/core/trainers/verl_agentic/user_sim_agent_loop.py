@@ -67,7 +67,7 @@ class UserSimToolAgentLoop(ToolAgentLoop):
             self._sim = RolloutState(
                 persona=sim_kwargs["user_persona"],
                 goal=sim_kwargs.get("goal", ""),
-                max_turns=sim_kwargs.get("max_turns", DEFAULT_MAX_TURNS),
+                max_turns=sim_kwargs.get("max_turns") or DEFAULT_MAX_TURNS,
             )
         output = await super().run(sampling_params, **kwargs)
         # Written once, after the rollout: incremental writes to extra_fields make the

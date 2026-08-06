@@ -118,7 +118,8 @@ def test_tool_agent_row_routes_to_same_loop():
     assert "interaction_kwargs" not in entry["extra_info"]
 
 
-def test_plain_row_has_no_agent_name():
+def test_plain_row_carries_verl_default_agent_name():
+    """Plain rows still need the key so a mixed dataset keeps a uniform schema."""
     example = {
         "conversation_json": _conv_json(
             [
@@ -130,4 +131,85 @@ def test_plain_row_has_no_agent_name():
     entry = VerlGrpoTrainer._create_verl_data_entry_from_conversation(
         example, idx=0, data_source="math", split="train"
     )
-    assert "agent_name" not in entry
+    assert entry["agent_name"] == VerlGrpoTrainer.VERL_DEFAULT_AGENT_LOOP_NAME
+
+
+def _mapped(rows):
+    from datasets import Dataset
+
+    return Dataset.from_list(rows).map(
+        lambda ex, i: VerlGrpoTrainer._create_verl_data_entry_from_conversation(
+            ex, i, "src", "train"
+        ),
+        with_indices=True,
+    )
+
+
+@pytest.mark.parametrize("plain_first", [True, False])
+def test_mixed_rows_keep_agent_name_in_both_orders(plain_first):
+    """`Dataset.map` fixes the schema from row 0, so every row must carry agent_name.
+
+    Without it, plain-first silently drops the column and agent-loop rows fall back to
+    single-turn generation with no error.
+    """
+    interaction = {
+        "conversation_json": _conv_json(
+            [{"role": "user", "content": "late order"}],
+            metadata={"interaction_kwargs": {"user_persona": "Jane", "goal": "refund"}},
+        )
+    }
+    plain = {
+        "conversation_json": _conv_json(
+            [
+                {"role": "user", "content": "2+2?"},
+                {"role": "assistant", "content": "4"},
+            ]
+        )
+    }
+    rows = [plain, interaction] if plain_first else [interaction, plain]
+
+    mapped = _mapped(rows)
+
+    assert "agent_name" in mapped.column_names
+    assert set(mapped["agent_name"]) == {
+        VerlGrpoTrainer.OUMI_AGENT_LOOP_NAME,
+        VerlGrpoTrainer.VERL_DEFAULT_AGENT_LOOP_NAME,
+    }
+
+
+def test_interaction_only_dataset_writes_parquet(tmp_path):
+    """Simulator-only rows carry `tools_kwargs={}`; the schema must still serialize."""
+    rows = [
+        {
+            "conversation_json": _conv_json(
+                [{"role": "user", "content": "late order"}],
+                metadata={"interaction_kwargs": {"user_persona": "Jane"}},
+            )
+        }
+    ]
+    out = tmp_path / "train.parquet"
+
+    _mapped(rows).to_parquet(str(out))
+
+    assert out.stat().st_size > 0
+
+
+def test_explicit_null_max_turns_falls_back_to_default():
+    """`.get(key, default)` returns None when the key is present but null."""
+    from oumi.core.trainers.user_sim import DEFAULT_MAX_TURNS
+
+    entry = VerlGrpoTrainer._create_verl_data_entry_from_conversation(
+        {
+            "conversation_json": _conv_json(
+                [{"role": "user", "content": "hi"}],
+                metadata={
+                    "interaction_kwargs": {"user_persona": "Jane", "max_turns": None}
+                },
+            )
+        },
+        idx=0,
+        data_source="src",
+        split="train",
+    )
+
+    assert entry["extra_info"]["interaction_kwargs"]["max_turns"] == DEFAULT_MAX_TURNS
