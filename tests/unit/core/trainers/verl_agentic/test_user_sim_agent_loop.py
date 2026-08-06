@@ -10,7 +10,7 @@ from verl.experimental.agent_loop.tool_agent_loop import (  # pyright: ignore[re
     AgentState,
 )
 
-from oumi.core.trainers.user_sim import RolloutState  # noqa: E402
+from oumi.core.rollout.user_sim import RolloutState  # noqa: E402
 from oumi.core.trainers.verl_agentic.user_sim_agent_loop import (  # noqa: E402
     UserSimToolAgentLoop,
 )

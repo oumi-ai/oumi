@@ -1,4 +1,4 @@
-from oumi.core.trainers.user_sim import (
+from oumi.core.rollout.user_sim import (
     DEFAULT_DONE_SENTINEL,
     RolloutState,
     build_user_turn_prompt,

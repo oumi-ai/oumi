@@ -26,7 +26,7 @@ from typing import Any, cast
 from datasets import Dataset
 from omegaconf import DictConfig, OmegaConf
 
-from oumi.core.trainers.user_sim import DEFAULT_MAX_TURNS
+from oumi.core.rollout.user_sim import DEFAULT_MAX_TURNS
 from oumi.core.types.conversation import Conversation
 from oumi.core.types.conversation import Role as ConversationRole
 from oumi.utils.conversation_utils import create_list_of_message_json_dicts
@@ -308,6 +308,55 @@ class VerlGrpoTrainer(BaseTrainer):
         }
 
     @staticmethod
+    def _parse_tools_kwargs(metadata: dict) -> dict[str, Any]:
+        """Validates and returns the row's per-tool kwargs.
+
+        Returns:
+            A mapping of tool name to that tool's kwargs.
+        """
+        tools_kwargs = metadata.get("tools_kwargs")
+        tools_kwargs_error = (
+            "Tool-agent conversation metadata 'tools_kwargs' must be a "
+            "mapping of tool names to dictionaries."
+        )
+        if not isinstance(tools_kwargs, dict):
+            raise ValueError(f"{tools_kwargs_error} Got {type(tools_kwargs).__name__}.")
+        for tool_name, tool_kwargs in tools_kwargs.items():
+            if not isinstance(tool_name, str) or not isinstance(tool_kwargs, dict):
+                raise ValueError(
+                    f"{tools_kwargs_error} Got {tool_name!r}: "
+                    f"{type(tool_kwargs).__name__}."
+                )
+        return tools_kwargs
+
+    @staticmethod
+    def _parse_interaction_kwargs(
+        conversation: Conversation, interaction_kwargs: dict
+    ) -> dict[str, Any]:
+        """Validates and normalizes the row's simulated-user settings.
+
+        Returns:
+            The persona, goal and turn cap the agent loop needs.
+        """
+        if (
+            not conversation.messages
+            or conversation.messages[-1].role != ConversationRole.USER
+        ):
+            raise ValueError(
+                "interaction rows must end on a user turn (the opening "
+                "customer message)."
+            )
+        # `.get(k, default)` returns None when the key is present but null.
+        max_turns = interaction_kwargs.get("max_turns")
+        if max_turns is None:
+            max_turns = DEFAULT_MAX_TURNS
+        return {
+            "user_persona": interaction_kwargs["user_persona"],
+            "goal": interaction_kwargs.get("goal", ""),
+            "max_turns": max_turns,
+        }
+
+    @staticmethod
     def _create_verl_data_entry_from_conversation(
         example: dict, idx: int, data_source: str, split: str
     ) -> dict:
@@ -315,70 +364,47 @@ class VerlGrpoTrainer(BaseTrainer):
         # `Conversation` pays for building one.
         raw_conversation = example.get("conversation_json") or "{}"
         metadata = json.loads(raw_conversation).get("metadata") or {}
-        if metadata.get("agent_name") == "tool_agent":
+        wants_tools = metadata.get("agent_name") == "tool_agent"
+        interaction_kwargs = metadata.get("interaction_kwargs")
+        # Both are optional and compose: the loop runs tools until the assistant stops
+        # calling them, then hands over to the simulated user. Either alone is valid.
+        if wants_tools or interaction_kwargs:
             conversation = Conversation.from_json(raw_conversation)
-            ground_truth = metadata.get("ground_truth")
-            if not isinstance(ground_truth, str) or not ground_truth:
-                raise ValueError(
-                    "Tool-agent conversation metadata must include a non-empty "
-                    "string 'ground_truth'."
-                )
-            tools_kwargs = metadata.get("tools_kwargs")
-            tools_kwargs_error = (
-                "Tool-agent conversation metadata 'tools_kwargs' must be a "
-                "mapping of tool names to dictionaries."
+            tools_kwargs = (
+                VerlGrpoTrainer._parse_tools_kwargs(metadata) if wants_tools else {}
             )
-            if not isinstance(tools_kwargs, dict):
-                raise ValueError(
-                    f"{tools_kwargs_error} Got {type(tools_kwargs).__name__}."
+            resolved_interaction = (
+                VerlGrpoTrainer._parse_interaction_kwargs(
+                    conversation, interaction_kwargs
                 )
-            for tool_name, tool_kwargs in tools_kwargs.items():
-                if not isinstance(tool_name, str) or not isinstance(tool_kwargs, dict):
+                if interaction_kwargs
+                else None
+            )
+            ground_truth: str = ""
+            if wants_tools:
+                declared = metadata.get("ground_truth")
+                if not isinstance(declared, str) or not declared:
                     raise ValueError(
-                        f"{tools_kwargs_error} Got {tool_name!r}: "
-                        f"{type(tool_kwargs).__name__}."
+                        "Tool-agent conversation metadata must include a non-empty "
+                        "string 'ground_truth'."
                     )
-            ability = metadata.get("ability", "tool_agent")
+                ground_truth = declared
+            elif resolved_interaction is not None:
+                # Simulator-only rows are graded against the customer's goal.
+                ground_truth = resolved_interaction["goal"]
+            ability = metadata.get(
+                "ability", "tool_agent" if wants_tools else "conversation"
+            )
             if not isinstance(ability, str):
                 raise ValueError(
-                    "Tool-agent conversation metadata 'ability' must be a string."
+                    "Agent-loop conversation metadata 'ability' must be a string."
                 )
             return VerlGrpoTrainer._create_verl_agent_loop_entry(
                 conversation,
                 ground_truth,
                 tools_kwargs,
-                None,
+                resolved_interaction,
                 ability,
-                idx,
-                data_source,
-                split,
-            )
-        interaction_kwargs = metadata.get("interaction_kwargs")
-        if interaction_kwargs:
-            conversation = Conversation.from_json(raw_conversation)
-            if (
-                not conversation.messages
-                or conversation.messages[-1].role != ConversationRole.USER
-            ):
-                raise ValueError(
-                    "interaction rows must end on a user turn (the opening "
-                    "customer message)."
-                )
-            goal = interaction_kwargs.get("goal", "")
-            # `.get(k, default)` returns None when the key is present but null.
-            max_turns = interaction_kwargs.get("max_turns")
-            if max_turns is None:
-                max_turns = DEFAULT_MAX_TURNS
-            return VerlGrpoTrainer._create_verl_agent_loop_entry(
-                conversation,
-                goal,
-                {},
-                {
-                    "user_persona": interaction_kwargs["user_persona"],
-                    "goal": goal,
-                    "max_turns": max_turns,
-                },
-                "conversation",
                 idx,
                 data_source,
                 split,

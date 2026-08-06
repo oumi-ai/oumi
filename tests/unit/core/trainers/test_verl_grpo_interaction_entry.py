@@ -196,7 +196,7 @@ def test_interaction_only_dataset_writes_parquet(tmp_path):
 
 def test_explicit_null_max_turns_falls_back_to_default():
     """`.get(key, default)` returns None when the key is present but null."""
-    from oumi.core.trainers.user_sim import DEFAULT_MAX_TURNS
+    from oumi.core.rollout.user_sim import DEFAULT_MAX_TURNS
 
     entry = VerlGrpoTrainer._create_verl_data_entry_from_conversation(
         {
@@ -213,3 +213,68 @@ def test_explicit_null_max_turns_falls_back_to_default():
     )
 
     assert entry["extra_info"]["interaction_kwargs"]["max_turns"] == DEFAULT_MAX_TURNS
+
+
+def _tools_and_sim_example():
+    return {
+        "conversation_json": _conv_json(
+            [{"role": "user", "content": "where is order #4421?"}],
+            metadata={
+                "agent_name": "tool_agent",
+                "ground_truth": "SELECT status FROM orders WHERE id=4421",
+                "tools_kwargs": {"run_sql": {"create_kwargs": {}}},
+                "interaction_kwargs": {
+                    "user_persona": "You are Jane, chasing order #4421.",
+                    "goal": "get a delivery date",
+                    "max_turns": 4,
+                },
+            },
+        )
+    }
+
+
+def test_row_can_carry_both_tools_and_simulated_user():
+    """The loop runs tools then hands over to the simulator; the row must say so."""
+    entry = VerlGrpoTrainer._create_verl_data_entry_from_conversation(
+        _tools_and_sim_example(), idx=0, data_source="support", split="train"
+    )
+
+    assert entry["agent_name"] == AGENT_NAME
+    assert entry["extra_info"]["tools_kwargs"] == {"run_sql": {"create_kwargs": {}}}
+    assert entry["extra_info"]["need_tools_kwargs"] is True
+    assert entry["extra_info"]["interaction_kwargs"]["user_persona"].startswith(
+        "You are Jane"
+    )
+    assert entry["extra_info"]["interaction_kwargs"]["max_turns"] == 4
+    assert entry["reward_model"]["ground_truth"] == (
+        "SELECT status FROM orders WHERE id=4421"
+    )
+
+
+def test_tools_only_row_has_no_simulator():
+    entry = VerlGrpoTrainer._create_verl_data_entry_from_conversation(
+        {
+            "conversation_json": _conv_json(
+                [{"role": "user", "content": "how many orders?"}],
+                metadata={
+                    "agent_name": "tool_agent",
+                    "ground_truth": "SELECT count(*) FROM orders",
+                    "tools_kwargs": {"run_sql": {}},
+                },
+            )
+        },
+        idx=0,
+        data_source="spider",
+        split="train",
+    )
+
+    assert "interaction_kwargs" not in entry["extra_info"]
+
+
+def test_simulator_only_row_has_no_tools():
+    entry = VerlGrpoTrainer._create_verl_data_entry_from_conversation(
+        _interaction_example(), idx=0, data_source="support", split="train"
+    )
+
+    assert entry["extra_info"]["tools_kwargs"] == {}
+    assert entry["extra_info"]["need_tools_kwargs"] is False

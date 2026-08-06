@@ -68,7 +68,7 @@ def build_user_turn_prompt(
 
 
 def messages_to_history(messages: list[dict]) -> list[Message]:
-    """Converts verl messages to user and assistant history."""
+    """Converts backend message dicts to user and assistant history."""
     return [
         Message(role=Role(m["role"]), content=(m.get("content") or ""))
         for m in messages

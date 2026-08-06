@@ -24,7 +24,7 @@ from verl.experimental.agent_loop.tool_agent_loop import (  # pyright: ignore[re
     ToolAgentLoop,
 )
 
-from oumi.core.trainers.user_sim import (
+from oumi.core.rollout.user_sim import (
     DEFAULT_DONE_SENTINEL,
     DEFAULT_MAX_TURNS,
     RolloutState,
