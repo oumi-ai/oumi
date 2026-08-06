@@ -141,3 +141,35 @@ def test_no_caps_hit_allows_simulated_user_turn():
     loop, data = _loop(), _agent_data()
 
     assert loop._hard_cap_hit(data) is False
+
+
+def test_importing_this_module_does_not_clobber_yaml_registry_entry():
+    """verl's @register overwrites the registry entry with {_target_} alone.
+
+    Importing this module is what resolves `_target_`, so decorating the loop would
+    drop the `user_sim_inference` key that agent_loop_config_path supplies.
+    """
+    import importlib
+
+    from verl.experimental.agent_loop.agent_loop import (  # pyright: ignore[reportMissingImports]
+        _agent_loop_registry,
+    )
+
+    name = "oumi_user_sim_tool_agent"
+    target = "oumi.core.trainers.verl_agentic.user_sim_agent_loop.UserSimToolAgentLoop"
+    saved = _agent_loop_registry.get(name)
+    try:
+        _agent_loop_registry[name] = {
+            "_target_": target,
+            "user_sim_inference": "configs/user_sim_engine.yaml",
+        }
+        importlib.reload(importlib.import_module(_MODULE))
+        assert (
+            _agent_loop_registry[name].get("user_sim_inference")
+            == "configs/user_sim_engine.yaml"
+        ), "module import stripped the YAML-supplied constructor kwargs"
+    finally:
+        if saved is None:
+            _agent_loop_registry.pop(name, None)
+        else:
+            _agent_loop_registry[name] = saved

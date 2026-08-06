@@ -19,9 +19,6 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from verl.experimental.agent_loop.agent_loop import (  # pyright: ignore[reportMissingImports]
-    register,
-)
 from verl.experimental.agent_loop.tool_agent_loop import (  # pyright: ignore[reportMissingImports]
     AgentState,
     ToolAgentLoop,
@@ -36,7 +33,11 @@ from oumi.core.trainers.user_sim import (
 from oumi.core.trainers.verl_agentic.user_sim_provider import infer_one, user_sim_engine
 
 
-@register("oumi_user_sim_tool_agent")
+# Deliberately NOT decorated with verl's @register. That decorator does
+# `_agent_loop_registry[name] = {"_target_": fqdn}` — an unconditional overwrite that
+# drops every other key. Since importing this module is what resolves `_target_`, the
+# decorator would wipe the `user_sim_inference` path the agent-loop YAML supplies.
+# Registration comes from `agent_loop_config_path`; see user_sim_agent_loop.yaml.
 class UserSimToolAgentLoop(ToolAgentLoop):
     """ToolAgentLoop plus a simulated user that speaks when the assistant stops."""
 
