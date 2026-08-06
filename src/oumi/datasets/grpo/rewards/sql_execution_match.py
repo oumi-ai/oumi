@@ -27,8 +27,14 @@ from oumi.environments.database_session import materialize_sqlite_snapshot
 
 _SQL_FENCE = re.compile(r"```sql\s*(.*?)```", re.DOTALL | re.IGNORECASE)
 _SQL_START = re.compile(r"(?im)^\s*select\b")
-_SQL_COMMENT = re.compile(r"--[^\n\r]*|/\*.*?\*/", re.DOTALL)
-_SQL_QUOTED = re.compile(r"'(?:''|[^'])*'|\"(?:\"\"|[^\"])*\"|`[^`]*`|\[[^\]]*\]")
+# One alternation, so the scan is left-to-right: a quote opening before a `--`
+# swallows the literal, and a real `--` is taken as a comment. Stripping comments
+# in a separate earlier pass would eat the rest of a line after `'a--b'`.
+_SQL_NOISE = re.compile(
+    r"--[^\n\r]*|/\*.*?\*/"
+    r"|'(?:''|[^'])*'|\"(?:\"\"|[^\"])*\"|`[^`]*`|\[[^\]]*\]",
+    re.DOTALL,
+)
 _SQL_INNER_PARENS = re.compile(r"\([^()]*\)")
 _ORDER_BY = re.compile(r"\border\s+by\b", re.IGNORECASE)
 _READ_ACTIONS = {
@@ -117,7 +123,7 @@ def _has_top_level_order_by(sql: str) -> bool:
     text and every parenthesized group, so whatever ORDER BY survives is the
     outer query's. Use sqlglot if this ever needs true clause awareness.
     """
-    sql = _SQL_QUOTED.sub(" ", _SQL_COMMENT.sub(" ", sql))
+    sql = _SQL_NOISE.sub(" ", sql)
     while _SQL_INNER_PARENS.search(sql):
         sql = _SQL_INNER_PARENS.sub(" ", sql)
     return _ORDER_BY.search(sql) is not None

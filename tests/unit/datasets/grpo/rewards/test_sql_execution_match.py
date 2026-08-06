@@ -209,6 +209,12 @@ def test_top_level_order_by_ignores_subqueries():
         ("SELECT x FROM t WHERE a IN (SELECT b FROM u WHERE c IN (ORDER BY d))", False),
         ("SELECT rank() OVER (ORDER BY x) FROM t", False),
         ("WITH c AS (SELECT x FROM t ORDER BY x) SELECT * FROM c", False),
+        # A comment marker inside a string literal must not swallow the rest of
+        # the line -- stripping comments before quotes hid a real ORDER BY.
+        ("SELECT x FROM t WHERE n = 'a--b' ORDER BY x", True),
+        ("SELECT x FROM t WHERE n = '--' ORDER BY x", True),
+        ("SELECT x FROM t WHERE n = 'a/*b' ORDER BY x", True),
+        ("SELECT x FROM t ORDER BY x -- trailing note", True),
     ],
 )
 def test_top_level_order_by_ignores_quoted_text_and_comments(sql, expected):
