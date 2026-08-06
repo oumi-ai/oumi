@@ -33,6 +33,9 @@ class TextCompletionsCollatorWithPadding:
         end_of_turn_template: str | list[int] | None = None,
         mask_tool_calls: bool = False,
         tool_call_start_template: str | list[int] | None = None,
+        tool_result_start_template: str | list[int] | None = None,
+        tool_result_end_template: str | list[int] | None = None,
+        supervise_end_of_turn: bool = False,
         ignore_index: int = -100,
     ):
         """Custom collator for text LLM training.
@@ -48,6 +51,15 @@ class TextCompletionsCollatorWithPadding:
         mask_tool_calls: When True, re-masks assistant spans containing tool calls.
         tool_call_start_template: String or token-ID list marking tool-call start.
             Required when mask_tool_calls=True.
+        tool_result_start_template: Marks the start of a tool RESULT nested inside
+            a model turn (Gemma 3/4 render results there). Those tokens are
+            environment output; supervising them teaches the model to invent
+            results. Templates that give results their own turn can omit this.
+        tool_result_end_template: Marks the end of such a nested tool result.
+        supervise_end_of_turn: When True the end-of-turn template is itself
+            supervised. Needed for causal-LM SFT where the model must emit the
+            terminator to stop; masked, it learns to produce content but never to
+            finish.
         ignore_index: Value used for masked labels. Must match the ignore_index
             of the loss function (default: -100).
         """
@@ -58,6 +70,9 @@ class TextCompletionsCollatorWithPadding:
             end_of_turn_template=end_of_turn_template,
             mask_tool_calls=mask_tool_calls,
             tool_call_start_template=tool_call_start_template,
+            tool_result_start_template=tool_result_start_template,
+            tool_result_end_template=tool_result_end_template,
+            supervise_end_of_turn=supervise_end_of_turn,
             ignore_index=ignore_index,
         )
 

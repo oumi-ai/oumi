@@ -34,6 +34,9 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
         end_of_turn_template: str | list[int] | None = None,
         mask_tool_calls: bool = False,
         tool_call_start_template: str | list[int] | None = None,
+        tool_result_start_template: str | list[int] | None = None,
+        tool_result_end_template: str | list[int] | None = None,
+        supervise_end_of_turn: bool = False,
         mlm: bool = False,
         ignore_index: int = -100,
         padding_free: bool = False,
@@ -104,6 +107,22 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
                 UserWarning,
             )
 
+        # Some chat templates (Gemma 3/4) nest tool RESULTS inside the model turn,
+        # between the model's own tool calls. Those tokens are environment output,
+        # not model output: supervising them teaches the model to invent tool
+        # results. Templates that give tool results their own turn can leave these
+        # unset and nothing changes.
+        # Opt-in: whether the end-of-turn template itself is supervised. Default
+        # False preserves existing behaviour. Set True for causal-LM SFT where the
+        # model must emit the terminator to stop — leaving it masked trains the
+        # model to produce content but never to finish, and generation then runs to
+        # the token cap. It is one token per turn, so the loss curve looks healthy
+        # either way and only generation reveals it.
+        self.supervise_end_of_turn = supervise_end_of_turn
+
+        self.tool_result_start_token_ids = self._encode_template(tool_result_start_template)
+        self.tool_result_end_token_ids = self._encode_template(tool_result_end_template)
+
         self.ignore_index = ignore_index
         self.padding_free = padding_free
 
@@ -133,6 +152,41 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
             if seq[i] == first and seq[i : i + plen] == pattern:
                 return True
         return False
+
+    def _model_authored_spans(
+        self, seq: list[int], start: int, end: int
+    ) -> list[tuple[int, int]]:
+        """Split [start, end) into the parts the MODEL authored.
+
+        Tool results nested inside a model turn are environment output. Without
+        this the whole turn is supervised and the model learns to emit
+        `<|tool_response>` blocks and their contents itself.
+        """
+        res_start = self.tool_result_start_token_ids
+        res_end = self.tool_result_end_token_ids
+        if not res_start or not res_end:
+            return [(start, end)]
+
+        spans: list[tuple[int, int]] = []
+        cursor = start
+        for rel in self._find_pattern(seq[start:end], res_start):
+            block_start = start + rel
+            if block_start < cursor:  # already consumed by a previous block
+                continue
+            if block_start > cursor:
+                spans.append((cursor, block_start))
+            closes = self._find_pattern(seq[block_start:end], res_end)
+            cursor = (block_start + closes[0] + len(res_end)) if closes else end
+        if cursor < end:
+            spans.append((cursor, end))
+        return spans
+
+    def _encode_template(self, template: str | list[int] | None) -> list[int] | None:
+        if template is None:
+            return None
+        if isinstance(template, str):
+            return self.tokenizer.encode(template, add_special_tokens=False)
+        return list(template)
 
     def _apply_span_masking(
         self, batch: dict[str, Any], examples: list[list[int] | Any | dict[str, Any]]
@@ -183,6 +237,8 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
                 eot_positions = self._find_pattern(seq[content_start:n], eot_ids)
                 if eot_positions:
                     content_end = content_start + eot_positions[0]
+                    if self.supervise_end_of_turn:
+                        content_end += len(eot_ids)
                 else:
                     content_end = n
 
@@ -199,10 +255,10 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
                     ):
                         continue
 
-                # Step 5: unmask this assistant response span.
-                batch["labels"][i, content_start:content_end] = batch["input_ids"][
-                    i, content_start:content_end
-                ]
+                # Step 5: unmask this assistant response span, skipping any tool
+                # RESULT blocks nested inside it.
+                for lo, hi in self._model_authored_spans(seq, content_start, content_end):
+                    batch["labels"][i, lo:hi] = batch["input_ids"][i, lo:hi]
 
     # ------------------------------------------------------------------
     # Main collation
