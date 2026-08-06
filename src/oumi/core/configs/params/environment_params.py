@@ -31,12 +31,25 @@ class EnvironmentParams(BaseParams):
     """Pure-data description of an environment."""
 
     id: str = ""
-    name: str = ""
-    description: str = ""
+    """Reference key for the environment, unique within an ``EnvironmentConfig``."""
+
+    name: str | None = None
+    """Optional human-readable display label. Not used at runtime."""
+
+    description: str | None = None
+    """Optional human-readable description. Not used at runtime."""
+
     env_type: str = ""
+    """Registry key selecting the environment implementation, e.g. ``deterministic``."""
+
     tools: list[Any] = field(default_factory=list)
+    """Tools this environment serves, coerced to ``ToolParams`` in ``__post_init__``."""
+
     env_kwargs: dict[str, Any] | None = None
+    """Type-specific construction kwargs passed to the environment's ``from_params``."""
+
     grounding: GroundingConfig | None = None
+    """Optional grounding configuration for the environment's planner prompts."""
 
     def __post_init__(self) -> None:
         """Coerce raw tool dicts and grounding config."""
@@ -63,13 +76,7 @@ class EnvironmentParams(BaseParams):
         return getattr(env_cls, "tool_params_cls", None) if env_cls else None
 
     def __finalize_and_validate__(self) -> None:
-        """Validate common fields and registry membership.
-
-        ``name`` and ``description`` are optional human-readable labels; only
-        ``id`` (the reference key) and ``env_type`` (the registry key) are
-        required, so environments can be built programmatically without
-        fabricating cosmetic strings.
-        """
+        """Validate common fields and registry membership."""
         if not self.id:
             raise ValueError(f"{type(self).__name__}.id cannot be empty.")
         if not self.env_type:

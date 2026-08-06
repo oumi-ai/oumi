@@ -65,7 +65,7 @@ def test_finalize_and_validate_rejects_empty_required_field(field):
         p.finalize_and_validate()
 
 
-def test_finalize_and_validate_allows_empty_name_and_description():
+def test_finalize_and_validate_allows_omitted_name_and_description():
     """name and description are optional labels, not required fields."""
     p = EnvironmentParams(
         id="e1",
@@ -73,8 +73,8 @@ def test_finalize_and_validate_allows_empty_name_and_description():
         tools=[_make_tool()],
     )
     p.finalize_and_validate()
-    assert p.name == ""
-    assert p.description == ""
+    assert p.name is None
+    assert p.description is None
 
 
 def test_finalize_and_validate_rejects_duplicate_tool_ids():
