@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""verl-free core for the conversational (simulated-user) rollout."""
+"""Backend-free core for simulated-user (conversational) rollouts."""
 
 import dataclasses
 from collections.abc import Callable

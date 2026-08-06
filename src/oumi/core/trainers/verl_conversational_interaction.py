@@ -26,7 +26,7 @@ from verl.interactions.base import (  # pyright: ignore[reportMissingImports]
 from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.inference_engine_type import InferenceEngineType
-from oumi.core.trainers.verl_conversational_turn import (
+from oumi.core.trainers.user_sim import (
     DEFAULT_DONE_SENTINEL,
     DEFAULT_MAX_TURNS,
     RolloutState,

@@ -1,4 +1,4 @@
-from oumi.core.trainers.verl_conversational_turn import (
+from oumi.core.trainers.user_sim import (
     DEFAULT_DONE_SENTINEL,
     RolloutState,
     build_user_turn_prompt,

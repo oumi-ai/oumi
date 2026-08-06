@@ -26,7 +26,7 @@ from typing import Any, cast
 from datasets import Dataset
 from omegaconf import DictConfig, OmegaConf
 
-from oumi.core.trainers.verl_conversational_turn import DEFAULT_MAX_TURNS
+from oumi.core.trainers.user_sim import DEFAULT_MAX_TURNS
 from oumi.core.types.conversation import Conversation
 from oumi.core.types.conversation import Role as ConversationRole
 from oumi.utils.conversation_utils import create_list_of_message_json_dicts
