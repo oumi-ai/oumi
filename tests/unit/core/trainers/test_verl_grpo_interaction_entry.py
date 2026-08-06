@@ -40,7 +40,6 @@ def test_interaction_branch_shape():
     assert entry["prompt"][-1]["role"] == "user"
     assert entry["reward_model"]["ground_truth"] == "get a refund or delivery date"
     ik = entry["extra_info"]["interaction_kwargs"]
-    assert ik["name"] == "oumi_conversation"
     assert ik["max_turns"] == 6
     assert ik["goal"] == "get a refund or delivery date"
     assert ik["user_persona"].startswith("You are Jane")
@@ -80,3 +79,55 @@ def test_non_interaction_row_uses_final_turn_path():
     )
     assert entry["reward_model"]["ground_truth"] == "4"
     assert "interaction_kwargs" not in entry["extra_info"]
+
+
+AGENT_NAME = "oumi_user_sim_tool_agent"
+
+
+def test_interaction_row_routes_to_agent_loop():
+    entry = VerlGrpoTrainer._create_verl_data_entry_from_conversation(
+        _interaction_example(), idx=3, data_source="support", split="train"
+    )
+    assert entry["agent_name"] == AGENT_NAME
+    assert entry["reward_model"]["style"] == "rule"
+    assert entry["reward_model"]["ground_truth"] == "get a refund or delivery date"
+    assert entry["extra_info"]["tools_kwargs"] == {}
+    assert entry["extra_info"]["need_tools_kwargs"] is False
+    kwargs = entry["extra_info"]["interaction_kwargs"]
+    assert kwargs["user_persona"].startswith("You are Jane")
+    assert kwargs["max_turns"] == 6
+    assert "name" not in kwargs
+
+
+def test_tool_agent_row_routes_to_same_loop():
+    example = {
+        "conversation_json": _conv_json(
+            [{"role": "user", "content": "How many orders?"}],
+            metadata={
+                "agent_name": "tool_agent",
+                "ground_truth": "SELECT count(*) FROM orders",
+                "tools_kwargs": {"run_sql": {"create_kwargs": {}}},
+            },
+        )
+    }
+    entry = VerlGrpoTrainer._create_verl_data_entry_from_conversation(
+        example, idx=0, data_source="spider", split="train"
+    )
+    assert entry["agent_name"] == AGENT_NAME
+    assert entry["extra_info"]["need_tools_kwargs"] is True
+    assert "interaction_kwargs" not in entry["extra_info"]
+
+
+def test_plain_row_has_no_agent_name():
+    example = {
+        "conversation_json": _conv_json(
+            [
+                {"role": "user", "content": "2+2?"},
+                {"role": "assistant", "content": "4"},
+            ]
+        )
+    }
+    entry = VerlGrpoTrainer._create_verl_data_entry_from_conversation(
+        example, idx=0, data_source="math", split="train"
+    )
+    assert "agent_name" not in entry
