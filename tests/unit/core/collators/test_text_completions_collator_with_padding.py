@@ -274,6 +274,9 @@ def get_template_token_ids() -> tuple[list[int], list[int], list[int]]:
 
 def make_span_collator(
     mask_tool_calls: bool = False,
+    tool_result_start_template: list[int] | None = None,
+    tool_result_end_template: list[int] | None = None,
+    supervise_end_of_turn: bool = False,
 ) -> TextCompletionsCollatorWithPadding:
     tokenizer, _ = create_test_tokenizer()
     resp_ids, eot_ids, tc_ids = get_template_token_ids()
@@ -283,6 +286,9 @@ def make_span_collator(
         end_of_turn_template=eot_ids,
         mask_tool_calls=mask_tool_calls,
         tool_call_start_template=tc_ids if mask_tool_calls else None,
+        tool_result_start_template=tool_result_start_template,
+        tool_result_end_template=tool_result_end_template,
+        supervise_end_of_turn=supervise_end_of_turn,
     )
 
 
@@ -594,3 +600,54 @@ def test_span_labels_numpy_values_match_expected():
     batch = make_span_collator()([{"input_ids": seq}])
     expected = [IGNORE] * len(resp) + content + [IGNORE] * len(eot)
     assert np.all(batch["labels"].numpy() == np.array([expected], dtype=np.int32))
+
+
+# --- opt-in behaviour for causal-LM SFT on tool-calling templates -------------
+
+
+def test_span_eot_supervised_when_opted_in():
+    """With supervise_end_of_turn, the terminator enters the loss.
+
+    Masked, the model learns to produce content but never to stop; generation
+    then runs to the token cap. Only generation reveals it — the terminator is a
+    single token per turn, so the loss curve is unchanged either way.
+    """
+    resp, eot, _ = get_template_token_ids()
+    content = [_SENTINELS[0]]
+    seq = flat(resp, content, eot)
+
+    labels = get_span_labels(make_span_collator(supervise_end_of_turn=True), seq)
+
+    eot_start = len(resp) + len(content)
+    assert labels[eot_start : eot_start + len(eot)] == eot
+
+
+def test_span_nested_tool_result_is_masked_when_templates_given():
+    """Templates like Gemma 3/4 nest tool RESULTS inside the model turn.
+
+    Those tokens are environment output. Supervising them teaches the model to
+    invent tool results, while the model's own call and the prose that follows
+    must stay supervised.
+    """
+    resp, eot, _ = get_template_token_ids()
+    res_start, res_end = [_SENTINELS[6]], [_SENTINELS[7]]
+    call = [_SENTINELS[0]]
+    result_body = [_SENTINELS[1], _SENTINELS[2]]
+    after = [_SENTINELS[3]]
+    seq = flat(resp, call, res_start, result_body, res_end, after, eot)
+
+    labels = get_span_labels(
+        make_span_collator(
+            tool_result_start_template=res_start,
+            tool_result_end_template=res_end,
+        ),
+        seq,
+    )
+
+    i = len(resp)
+    assert labels[i : i + len(call)] == call, "the model's own call must be supervised"
+    i += len(call)
+    n_result = len(res_start) + len(result_body) + len(res_end)
+    assert all(v == IGNORE for v in labels[i : i + n_result]), "tool result must be masked"
+    i += n_result
+    assert labels[i : i + len(after)] == after, "prose after the result must be supervised"
