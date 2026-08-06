@@ -50,11 +50,8 @@ def test_finalize_and_validate_rejects_unknown_env_type():
         p.finalize_and_validate()
 
 
-@pytest.mark.parametrize(
-    "field,value",
-    [("id", ""), ("name", ""), ("description", ""), ("env_type", "")],
-)
-def test_finalize_and_validate_rejects_empty_required_field(field, value):
+@pytest.mark.parametrize("field", ["id", "env_type"])
+def test_finalize_and_validate_rejects_empty_required_field(field):
     base: dict[str, Any] = dict(
         id="e1",
         name="E1",
@@ -62,10 +59,22 @@ def test_finalize_and_validate_rejects_empty_required_field(field, value):
         env_type="deterministic",
         tools=[_make_tool()],
     )
-    base[field] = value
+    base[field] = ""
     p = EnvironmentParams(**base)
     with pytest.raises(ValueError, match=f"{field} cannot be empty"):
         p.finalize_and_validate()
+
+
+def test_finalize_and_validate_allows_omitted_name_and_description():
+    """name and description are optional labels, not required fields."""
+    p = EnvironmentParams(
+        id="e1",
+        env_type="deterministic",
+        tools=[_make_tool()],
+    )
+    p.finalize_and_validate()
+    assert p.name is None
+    assert p.description is None
 
 
 def test_finalize_and_validate_rejects_duplicate_tool_ids():
