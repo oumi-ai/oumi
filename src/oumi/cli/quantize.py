@@ -126,7 +126,10 @@ def quantize(
             parsed_config.model.model_name = model
         if method != "awq_q4_0":  # Only override if not default
             parsed_config.method = method
-        if output != "quantized_model.gguf":  # Only override if not default
+        # Compare against the real --output default; "quantized_model.gguf" was a
+        # stale sentinel, so this always fired and silently ignored the config's
+        # output_path.
+        if output != "quantized_model":
             parsed_config.output_path = output
 
         # Only safetensors is supported for now
@@ -139,10 +142,10 @@ def quantize(
             )
 
         # Determine appropriate output format based on method
-        if method.startswith("awq_"):
-            output_format = "pytorch"
-        elif method.startswith("bnb_"):
-            output_format = "pytorch"  # or "safetensors" depending on preference
+        if method.startswith(("awq_", "bnb_")):
+            # Only safetensors is supported (SUPPORTED_OUTPUT_FORMATS); "pytorch"
+            # failed finalize_and_validate(), so this path never worked.
+            output_format = "safetensors"
         else:
             raise ValueError(
                 f"Unsupported quantization method: {method}. "
