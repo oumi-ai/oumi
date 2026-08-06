@@ -21,7 +21,7 @@ The provider is specified via the model string in ``ModelParams.model_name``
 """
 
 import asyncio
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 from tqdm.asyncio import tqdm
 from typing_extensions import override
@@ -30,8 +30,10 @@ from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
 from oumi.core.types.conversation import Conversation
 from oumi.inference.adaptive_semaphore import PoliteAdaptiveSemaphore
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
-from oumi.utils.conversation_utils import create_list_of_message_json_dicts
 from oumi.utils.logging import logger
+
+if TYPE_CHECKING:
+    from litellm import ModelResponse
 
 try:
     import litellm  # pyright: ignore[reportMissingImports]
@@ -136,6 +138,12 @@ class LiteLLMInferenceEngine(RemoteInferenceEngine):
     ) -> dict[str, Any]:
         """Converts a conversation to a litellm.completion() kwargs dict.
 
+        LiteLLM accepts the OpenAI wire format, so this reuses
+        ``RemoteInferenceEngine``'s converter to inherit its handling of
+        ``tools``, ``tool_choice`` and guided decoding (``response_format``),
+        then drops keys whose value is ``None`` so providers that reject null
+        fields do not receive them.
+
         Args:
             conversation: The conversation to convert.
             generation_params: Parameters for text generation.
@@ -145,30 +153,33 @@ class LiteLLMInferenceEngine(RemoteInferenceEngine):
             Dict[str, Any]: A dictionary containing the formatted input for
                 the LiteLLM completion call.
         """
-        messages = create_list_of_message_json_dicts(
-            conversation.messages,
-            group_adjacent_same_role_turns=False,
+        api_input = super()._convert_conversation_to_api_input(
+            conversation, generation_params, model_params
         )
+        return {key: value for key, value in api_input.items() if value is not None}
 
-        api_input: dict[str, Any] = {
-            "model": model_params.model_name,
-            "messages": messages,
-            "temperature": generation_params.temperature,
-            "max_completion_tokens": generation_params.max_new_tokens,
-        }
+    def _apply_remote_params_to_api_input(
+        self, api_input: dict[str, Any], remote_params: RemoteParams
+    ) -> None:
+        """Forwards RemoteParams credentials and timeout to litellm.completion().
 
-        if generation_params.seed is not None:
-            api_input["seed"] = generation_params.seed
-        if generation_params.top_p is not None:
-            api_input["top_p"] = generation_params.top_p
-        if generation_params.frequency_penalty:
-            api_input["frequency_penalty"] = generation_params.frequency_penalty
-        if generation_params.presence_penalty:
-            api_input["presence_penalty"] = generation_params.presence_penalty
-        if generation_params.stop_strings:
-            api_input["stop"] = generation_params.stop_strings
+        ``RemoteParams`` may carry an explicit key/endpoint (for example when
+        routing through a LiteLLM proxy). Map ``api_key``/``api_key_env_varname``,
+        ``api_url`` and ``connection_timeout`` onto LiteLLM's ``api_key``,
+        ``api_base`` and ``timeout`` arguments so YAML-configured credentials and
+        endpoint overrides are honored instead of silently ignored.
 
-        return api_input
+        Args:
+            api_input: The litellm.completion() kwargs to mutate in place.
+            remote_params: The remote parameters to read credentials from.
+        """
+        api_key = self._get_api_key(remote_params)
+        if api_key:
+            api_input["api_key"] = api_key
+        if remote_params.api_url:
+            api_input["api_base"] = remote_params.api_url
+        if remote_params.connection_timeout:
+            api_input["timeout"] = remote_params.connection_timeout
 
     def _call_litellm_completion(
         self,
@@ -182,7 +193,15 @@ class LiteLLMInferenceEngine(RemoteInferenceEngine):
         Returns:
             Dict[str, Any]: The response as a JSON-serializable dictionary.
         """
-        response = litellm.completion(**api_input)
+        assert litellm is not None  # guaranteed by __init__; narrows Optional
+        # drop_params lets LiteLLM discard arguments a given provider does not
+        # support (e.g. response_format or tools on a backend without them)
+        # instead of erroring, which is what makes one engine span 100+ providers.
+        # This engine never streams, so completion() returns a ModelResponse
+        # rather than a CustomStreamWrapper.
+        response = cast(
+            "ModelResponse", litellm.completion(**api_input, drop_params=True)
+        )
         return response.model_dump(mode="json")
 
     @override
@@ -242,32 +261,49 @@ class LiteLLMInferenceEngine(RemoteInferenceEngine):
             model_params = inference_config.model or self._model_params
             output_path = inference_config.output_path
 
-        if self._rate_limiter is not None:
-            await self._rate_limiter.wait_if_needed()
-
         semaphore_or_controller = (
             self._adaptive_concurrency_controller
             if self._remote_params.use_adaptive_concurrency
             else semaphore
         )
-        async with semaphore_or_controller:
-            api_input = self._convert_conversation_to_api_input(
-                conversation, generation_params, model_params
-            )
-            failure_reason: str | None = None
-            for attempt in range(remote_params.max_retries + 1):
-                try:
-                    if attempt > 0:
-                        delay = min(
-                            remote_params.retry_backoff_base * (2 ** (attempt - 1)),
-                            remote_params.retry_backoff_max,
-                        )
-                        await asyncio.sleep(delay)
+        api_input = self._convert_conversation_to_api_input(
+            conversation, generation_params, model_params
+        )
+        self._apply_remote_params_to_api_input(api_input, remote_params)
 
+        failure_reason: str | None = None
+        for attempt in range(remote_params.max_retries + 1):
+            try:
+                # Exponential backoff between attempts, done outside the
+                # concurrency guard so a retrying request does not hold a worker
+                # slot while it sleeps.
+                if attempt > 0:
+                    delay = min(
+                        remote_params.retry_backoff_base * (2 ** (attempt - 1)),
+                        remote_params.retry_backoff_max,
+                    )
+                    logger.warning(
+                        "Retrying LiteLLM request after %.1fs; attempt %d/%d. "
+                        "Reason: %s",
+                        delay,
+                        attempt + 1,
+                        remote_params.max_retries + 1,
+                        failure_reason,
+                    )
+                    await asyncio.sleep(delay)
+
+                # Re-pace every attempt through the rate limiter so a burst of
+                # retries waking together still respects the RPM/TPM window.
+                if self._rate_limiter is not None:
+                    await self._rate_limiter.wait_if_needed()
+
+                async with semaphore_or_controller:
                     response = await asyncio.to_thread(
                         self._call_litellm_completion,
                         api_input,
                     )
+                    # Record token usage before conversion so tokens are counted
+                    # even if conversion fails.
                     if self._rate_limiter is not None:
                         usage = self._extract_usage_from_response(response)
                         if usage:
@@ -278,38 +314,45 @@ class LiteLLMInferenceEngine(RemoteInferenceEngine):
                     result = self._convert_api_output_to_conversation(
                         response, conversation
                     )
-                    if output_path:
-                        self._save_conversation_to_scratch(result, output_path)
+                    # Persist progress unconditionally; the base helper selects a
+                    # temporary scratch path when output_path is None, preserving
+                    # resume/checkpoint so completed paid requests are not repeated.
+                    self._save_conversation_to_scratch(result, output_path)
                     await self._try_record_success()
                     return result
-                except RuntimeError:
-                    raise
-                except Exception as e:
-                    failure_reason = f"LiteLLM error: {str(e)}"
-                    logger.warning(
-                        f"LiteLLMInferenceEngine attempt {attempt + 1}/"
-                        f"{remote_params.max_retries + 1} failed: {e}"
-                    )
-                    await self._try_record_error()
-                    if attempt >= remote_params.max_retries:
-                        raise RuntimeError(failure_reason) from e
-                    continue
+            except RuntimeError:
+                raise
+            except Exception as e:
+                failure_reason = f"LiteLLM error: {str(e)}"
+                logger.warning(
+                    "LiteLLMInferenceEngine attempt %d/%d failed: %s",
+                    attempt + 1,
+                    remote_params.max_retries + 1,
+                    e,
+                )
+                await self._try_record_error()
+                if attempt >= remote_params.max_retries:
+                    raise RuntimeError(failure_reason) from e
+                continue
 
-            raise RuntimeError(
-                f"Failed to query LiteLLM after {remote_params.max_retries} retries. "
-                + (f"Reason: {failure_reason}" if failure_reason else "")
-            )
+        raise RuntimeError(
+            f"Failed to query LiteLLM after {remote_params.max_retries} retries. "
+            + (f"Reason: {failure_reason}" if failure_reason else "")
+        )
 
     @override
     def get_supported_params(self) -> set[str]:
         """Returns a set of supported generation parameters for this engine."""
         return {
             "frequency_penalty",
+            "guided_decoding",
             "max_new_tokens",
+            "parallel_tool_calls",
             "presence_penalty",
             "seed",
             "stop_strings",
             "temperature",
+            "tool_choice",
             "top_p",
         }
 
@@ -323,6 +366,8 @@ class LiteLLMInferenceEngine(RemoteInferenceEngine):
         Returns:
             list[str]: A sorted list of model ID strings.
         """
+        if litellm is None:
+            return []
         try:
             models = litellm.model_list or []
         except Exception:

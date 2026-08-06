@@ -135,7 +135,7 @@ gpu = [
 ]
 
 litellm = [
-    "litellm>=1.55.0,<1.85",
+    "litellm>=1.84.10,<1.96",
 ]
 
 deepspeed = [
