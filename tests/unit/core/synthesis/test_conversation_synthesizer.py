@@ -33,7 +33,7 @@ from oumi.core.configs.params.synthesis_params import (
     SampledAttribute,
     SampledAttributeValue,
 )
-from oumi.core.configs.params.tool_params import ToolParams
+from oumi.core.configs.params.tool_params import ToolError, ToolParams
 from oumi.core.synthesis.conversation_synthesizer import (
     ConversationSynthesizer,
     OpeningTurnPrompt,
@@ -2261,6 +2261,39 @@ def test_dispatch_tool_calls_handles_env_exception_with_per_call_fallback(
     [msg] = synth._dispatch_tool_calls([tc], 0)
     assert msg.role == Role.TOOL
     assert "Tool 't' raised: boom" in str(msg.content)
+
+
+@patch("oumi.core.synthesis.tool_router.build_environment")
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_dispatch_tool_calls_recovers_from_schema_validation_tool_error(
+    mock_build_inference_engine,
+    mock_build_environment,
+    mock_general_synthesis_params,
+):
+    """Unguided simulator drift must surface as a tool error, not kill the sample."""
+    mock_build_inference_engine.return_value = Mock()
+    fake_env = Mock(spec=BaseEnvironment)
+    fake_env.step.side_effect = ToolError(
+        "Simulator output for 't' failed schema validation: 1 is not of type 'string'"
+    )
+    mock_build_environment.return_value = fake_env
+
+    synth = ConversationSynthesizer(
+        mock_general_synthesis_params,
+        InferenceConfig(
+            engine=InferenceEngineType.OPENAI,
+            model=Mock(spec=ModelParams),
+            remote_params=Mock(spec=RemoteParams),
+            generation=GenerationParams(),
+        ),
+        environment_config=_make_env_config("e", "t"),
+    )
+
+    tc = ToolCall(id="c", function=FunctionCall(name="t", arguments="{}"))
+    synth._prepare_sample_routers(1)
+    [msg] = synth._dispatch_tool_calls([tc], 0)
+    assert msg.role == Role.TOOL
+    assert "failed schema validation" in str(msg.content)
 
 
 @patch("oumi.core.synthesis.tool_router.build_environment")
