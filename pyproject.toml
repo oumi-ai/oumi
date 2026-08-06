@@ -129,6 +129,9 @@ gpu = [
     "bitsandbytes>=0.47,<0.50",     # Used for QLora, and PagedAdam implementation
     # When updating verl version, make sure to also update the default config:
     # src/oumi/core/trainers/verl_trainer_config.yaml.
+    # The agent loop works on 0.7 and 0.8 alike, but VerlGrpoTrainer's worker imports
+    # are still 0.7-only: 0.8 removed verl.workers.fsdp_workers, and
+    # AsyncActorRolloutRefWorker / CriticWorker have no counterpart in engine_workers.
     "verl>=0.5,<0.8; python_version >= '3.10'", # Used for the VERL_GRPO trainer
     "vllm>=0.14,<0.22",                         # For VLLMInferenceEngine, and vLLM-powered GRPO training.
     "kernels>=0.11,<0.15",                      # For compute kernel implementations (e.g., attn_implementation in gold trainer)

@@ -562,7 +562,7 @@ class VerlGrpoTrainer(BaseTrainer):
 
     @staticmethod
     def _validate_agent_loop_config(rollout: DictConfig) -> None:
-        """Fails loudly when agent-loop rows would silently fall back to plain generation.
+        """Fails loudly when agent-loop rows would silently fall back to plain gen.
 
         verl only consults a row's `agent_name` on the async agent-loop path; without
         these settings it runs `single_turn_agent`, skipping tools and the simulated
