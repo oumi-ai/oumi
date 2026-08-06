@@ -44,6 +44,23 @@ def _schema_ddl(db_path: Path) -> str:
     return "\n\n".join(row[0].strip() for row in rows)
 
 
+def _gold_executes(db_path: Path, sql: str) -> bool:
+    """Whether the gold query runs against its own DB (some Spider rows don't)."""
+    try:
+        connection = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    except sqlite3.Error:
+        return False
+    try:
+        # Match the reward's decoding so we don't drop rows it could have scored.
+        connection.text_factory = lambda b: b.decode("utf-8", "replace")
+        connection.execute(sql).fetchall()
+        return True
+    except sqlite3.Error:
+        return False
+    finally:
+        connection.close()
+
+
 def _build_rows(
     examples: list[dict[str, Any]],
     db_root: Path,
@@ -56,12 +73,17 @@ def _build_rows(
 
     schemas: dict[str, str] = {}
     rows = []
+    dropped = 0
     for example in examples:
         db_id = example["db_id"]
         db_path = db_root / db_id / f"{db_id}.sqlite"
         if db_id not in schemas:
             schemas[db_id] = _schema_ddl(db_path)
         schema = schemas[db_id]
+        # An unscoreable gold makes the row untrainable and aborts the reward mid-run.
+        if not _gold_executes(db_path, example["query"]):
+            dropped += 1
+            continue
         rows.append(
             {
                 "messages": [
@@ -82,6 +104,8 @@ def _build_rows(
                 },
             }
         )
+    if dropped:
+        print(f"dropped {dropped} row(s) whose gold SQL does not execute")
     return rows
 
 
