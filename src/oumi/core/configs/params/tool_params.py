@@ -80,8 +80,9 @@ class ToolParams(BaseParams):
     guided_decoding: bool | None = None
     """Per-tool override of the synthetic env's ``guided_decoding`` default.
 
-    ``None`` inherits ``SyntheticEnvironmentKwargs.guided_decoding``. Ignored by
-    environments that don't LLM-simulate tool output.
+    ``None`` inherits ``SyntheticEnvironmentKwargs.guided_decoding``. Inert when the
+    tool has no ``output_schema`` (nothing to constrain), and in environments that
+    don't LLM-simulate tool output.
     """
 
     @classmethod
