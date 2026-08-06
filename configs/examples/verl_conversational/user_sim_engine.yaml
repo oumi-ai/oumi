@@ -4,6 +4,8 @@
 # every concurrent rollout in it, so an in-process engine (NATIVE / VLLM / LLAMACPP) would
 # need a lock that serializes them all. See user_sim_provider.user_sim_engine.
 #
+# Settings match the validated job-273 run so rollouts stay comparable.
+#
 # Requirements:
 #   - export OPENAI_API_KEY=your_key_here
 model:
@@ -13,4 +15,4 @@ engine: OPENAI
 
 generation:
   max_new_tokens: 256
-  temperature: 0.9
+  temperature: 1.0
