@@ -1,0 +1,16 @@
+# Inference config for the simulated user.
+#
+# Must be a REMOTE-backed engine. One engine is cached per worker process and shared by
+# every concurrent rollout in it, so an in-process engine (NATIVE / VLLM / LLAMACPP) would
+# need a lock that serializes them all. See user_sim_provider.user_sim_engine.
+#
+# Requirements:
+#   - export OPENAI_API_KEY=your_key_here
+model:
+  model_name: "gpt-4o-mini"
+
+engine: OPENAI
+
+generation:
+  max_new_tokens: 256
+  temperature: 0.9

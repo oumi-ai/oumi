@@ -50,9 +50,10 @@ def user_sim_engine(config_path: str) -> tuple[RemoteInferenceEngine, InferenceC
         raise ValueError(f"No inference engine set in {config_path}.")
     if cfg.engine in _IN_PROCESS_ENGINES:
         raise ValueError(
-            f"The user simulator requires a remote inference engine; got {cfg.engine} "
-            f"from {config_path}. One engine is shared by every concurrent rollout in a "
-            "worker, so an in-process engine would need a lock that serializes them all. "
+            f"The user simulator requires a remote inference engine; got "
+            f"{cfg.engine} from {config_path}. One engine is shared by every "
+            "concurrent rollout in a worker, so an in-process engine would need a "
+            "lock that serializes them all. "
             "Use REMOTE_VLLM, SGLANG, or a hosted provider."
         )
     engine = build_inference_engine(
@@ -81,5 +82,7 @@ def infer_one(
     results = engine.infer([conversation], inference_config=cfg)
     content = results[0].messages[-1].content
     if not isinstance(content, str):
-        raise RuntimeError(f"user-sim engine returned non-text content: {type(content)}")
+        raise RuntimeError(
+            f"user-sim engine returned non-text content: {type(content)}"
+        )
     return content
