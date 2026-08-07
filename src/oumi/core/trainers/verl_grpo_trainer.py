@@ -26,6 +26,7 @@ from typing import Any, cast
 from datasets import Dataset
 from omegaconf import DictConfig, OmegaConf
 
+from oumi.core.trainers.verl_conversational_turn import DEFAULT_MAX_TURNS
 from oumi.core.types.conversation import Conversation
 from oumi.core.types.conversation import Role as ConversationRole
 from oumi.utils.conversation_utils import create_list_of_message_json_dicts
@@ -297,7 +298,7 @@ class VerlGrpoTrainer(BaseTrainer):
     ) -> dict:
         # Peek at metadata off the raw JSON so only the branch that needs a
         # `Conversation` pays for building one.
-        raw_conversation = example["conversation_json"]
+        raw_conversation = example.get("conversation_json") or "{}"
         metadata = json.loads(raw_conversation).get("metadata") or {}
         if metadata.get("agent_name") == "tool_agent":
             conversation = Conversation.from_json(raw_conversation)
@@ -336,6 +337,15 @@ class VerlGrpoTrainer(BaseTrainer):
                 data_source,
                 split,
             )
+        interaction_kwargs = metadata.get("interaction_kwargs")
+        if interaction_kwargs:
+            return VerlGrpoTrainer._create_verl_interaction_entry(
+                Conversation.from_json(raw_conversation),
+                interaction_kwargs,
+                idx,
+                data_source,
+                split,
+            )
         prompt_messages, images, answer = (
             VerlGrpoTrainer._extract_prompt_images_answer_from_conversation(example)
         )
@@ -352,6 +362,46 @@ class VerlGrpoTrainer(BaseTrainer):
             },
         }
         return data
+
+    @staticmethod
+    def _create_verl_interaction_entry(
+        conversation: Conversation,
+        interaction_kwargs: dict,
+        idx: int,
+        data_source: str,
+        split: str,
+    ) -> dict:
+        """Creates a verl row for a simulated-user rollout."""
+        messages = conversation.messages
+        if not messages or messages[-1].role != ConversationRole.USER:
+            raise ValueError(
+                "interaction rows must end on a user turn (the opening "
+                "customer message)."
+            )
+        prompt_messages = [
+            {"role": m.role.value, "content": m.compute_flattened_text_content()}
+            for m in messages
+        ]
+        goal = interaction_kwargs.get("goal", "")
+        resolved_kwargs = {
+            "name": interaction_kwargs.get("name", "oumi_conversation"),
+            "user_persona": interaction_kwargs["user_persona"],
+            "max_turns": interaction_kwargs.get("max_turns", DEFAULT_MAX_TURNS),
+            "goal": goal,
+        }
+        return {
+            "data_source": data_source,
+            "prompt": prompt_messages,
+            "images": [],
+            "ability": "conversation",
+            "reward_model": {"style": "model", "ground_truth": goal},
+            "extra_info": {
+                "split": split,
+                "index": idx,
+                "goal": goal,
+                "interaction_kwargs": resolved_kwargs,
+            },
+        }
 
     def _create_dataset_files(
         self, process_fn: _DatasetProcessFn | None = None
