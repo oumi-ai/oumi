@@ -2443,7 +2443,7 @@ def test_dispatch_tool_calls_recovers_from_unguided_schema_drift(
         description="FAQ env",
         env_type="synthetic",
         tools=[tool],
-        env_kwargs={"tool_persona": "Answer FAQs.", "guided_decoding": False},
+        env_kwargs={"tool_persona": "Answer FAQs.", "use_guided_decoding": False},
     )
     mock_build_environment.return_value = SyntheticEnvironment.from_params(env_params)
 

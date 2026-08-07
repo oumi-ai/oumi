@@ -225,7 +225,7 @@ At the config level:
 - Tools do not declare an `environment` field. The parent environment owns the binding.
 - `deterministic_outputs` is only used for tools in `deterministic` environments.
 - `read_only` is only meaningful for tools in stateful `synthetic` environments.
-- `env_kwargs.guided_decoding` (default `true`) constrains simulated tool output to each tool's `output_schema`. Set it to `false` when a schema is too large for the provider's grammar compiler, or when constrained decoding is too slow — output is still validated against `output_schema` after generation, so an off-schema response raises a tool error instead of being silently accepted. Individual tools can override the env default with their own `guided_decoding` field.
+- `env_kwargs.use_guided_decoding` (default `true`) constrains simulated tool output to each tool's `output_schema`, and applies to every tool in the environment. Set it to `false` when a schema is too large for the provider's grammar compiler, or when constrained decoding is too slow — output is still validated against `output_schema` after generation, so an off-schema response raises a tool error instead of being silently accepted. To mix policies across tools, put them in separate `synthetic` environments.
 - Multiturn attributes reference environments (not individual tools) to select which tools are available.
 
 Example:
