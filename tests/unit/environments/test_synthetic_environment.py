@@ -343,28 +343,19 @@ def test_simulator_inference_config_overlays_guided_decoding():
 
 
 def test_simulator_inference_config_omits_guided_decoding_when_disabled():
-    env, _ = _attached_env(['{"a": "x"}'], guided_decoding=False)
+    env, _ = _attached_env(['{"a": "x"}'], use_guided_decoding=False)
     cfg = env._simulator_inference_config(env._lookup_tool("answer"))
     assert cfg.generation.guided_decoding is None
 
 
-@pytest.mark.parametrize(
-    "env_default,tool_override,expect_guided",
-    [
-        (True, None, True),
-        (True, False, False),
-        (False, None, False),
-        (False, True, True),
-    ],
-)
-def test_tool_guided_decoding_overrides_env_default(
-    env_default, tool_override, expect_guided
-):
+def test_use_guided_decoding_applies_to_every_tool_in_the_env():
+    """The env-level flag is the only granularity; it covers all its tools."""
     params = _typed_params()
-    params.tools = [_typed_tool(guided_decoding=tool_override)]
-    env, _ = _attached_env(['{"a": "x"}'], params=params, guided_decoding=env_default)
-    cfg = env._simulator_inference_config(env._lookup_tool("answer"))
-    assert (cfg.generation.guided_decoding is not None) == expect_guided
+    params.tools = [_typed_tool(id="a"), _typed_tool(id="b")]
+    env, _ = _attached_env(['{"a": "x"}'], params=params, use_guided_decoding=False)
+    for tool_id in ("a", "b"):
+        cfg = env._simulator_inference_config(env._lookup_tool(tool_id))
+        assert cfg.generation.guided_decoding is None
 
 
 def test_simulator_inference_config_omits_guided_decoding_without_output_schema():
@@ -378,7 +369,7 @@ def test_simulator_inference_config_omits_guided_decoding_without_output_schema(
 
 def test_system_prompt_carries_output_schema_when_guidance_disabled():
     """Free generation leans on the prompt, so the full schema must stay in it."""
-    env, _ = _attached_env(['{"a": "x"}'], guided_decoding=False)
+    env, _ = _attached_env(['{"a": "x"}'], use_guided_decoding=False)
     tool = env._lookup_tool("answer")
     prompt = str(env.build_call_conversation("answer", {"q": "hi"}).messages[0].content)
     assert json.dumps(tool.to_llm_schema(), indent=2) in prompt
@@ -386,7 +377,7 @@ def test_system_prompt_carries_output_schema_when_guidance_disabled():
 
 
 def test_step_without_guided_decoding_still_validates_output_schema():
-    env, _ = _attached_env(['{"a": 1}'], guided_decoding=False)
+    env, _ = _attached_env(['{"a": 1}'], use_guided_decoding=False)
     with pytest.raises(ToolError, match="failed schema validation"):
         env.step([("answer", {"q": "x"})])
 

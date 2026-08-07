@@ -77,13 +77,6 @@ class ToolParams(BaseParams):
     ``SyntheticEnvironment``, ``context`` for an ``ExecutableEnvironment`` — and
     must return a ``ToolResult``.
     """
-    guided_decoding: bool | None = None
-    """Per-tool override of the synthetic env's ``guided_decoding`` default.
-
-    ``None`` inherits ``SyntheticEnvironmentKwargs.guided_decoding``. Inert when the
-    tool has no ``output_schema`` (nothing to constrain), and in environments that
-    don't LLM-simulate tool output.
-    """
 
     @classmethod
     def create(cls, raw: Any) -> ToolParams:
@@ -105,7 +98,6 @@ class ToolParams(BaseParams):
                 else None
             ),
             read_only=raw.get("read_only", True),
-            guided_decoding=raw.get("guided_decoding"),
             executor=raw.get("executor", ""),
         )
 
