@@ -49,8 +49,6 @@ _TOOL_FIX_HINT = (
     "own turn."
 )
 _PROBE_RESULT = "PROBE_TOOL_RESULT_"
-# Mistral's template rejects any tool call id whose length isn't exactly 9 (its error
-# message claims alphanumeric too, but only the length is checked).
 _PROBE_CALL_ID = "probecall"
 _PROBE_TOOLS: list[Any] = [
     {
@@ -622,9 +620,7 @@ def build_collator_from_config(
             )
 
     # Templates that nest tool results inside the assistant turn put environment output
-    # inside the unmasked span. Resolved here, after both paths above have settled
-    # train_target, and before the user override below so a hand-supplied bracket
-    # short-circuits the resolver (which raises when it can't recover one).
+    # inside the unmasked span.
     _tool_keys = ("tool_response_template", "end_of_tool_response_template")
     supplied_tool_keys = [key for key in _tool_keys if config_collator_kwargs.get(key)]
     if len(supplied_tool_keys) == 1:
