@@ -168,6 +168,9 @@ flash_attn = [
     # Note: May require manual installation with: pip install flash-attn --no-build-isolation
     # This is kept separate to avoid breaking existing environments
     "flash-attn>=2.0.0",
+    # flash-attn >=2.8 ships flash_attn/cute (FA4) which uses cutlass without declaring
+    # it as a dependency, so pip can't pick a compatible version on its own.
+    "nvidia-cutlass-dsl==4.2.1",
 ]
 
 evaluation = [

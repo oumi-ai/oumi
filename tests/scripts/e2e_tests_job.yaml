@@ -35,7 +35,8 @@ run: |
   source "./configs/examples/misc/sky_init.sh"
 
   pip install uv && uv pip install --system -e ".[ci_gpu]" hf_transfer
-  pip install -U flash-attn --no-build-isolation
+  pip install flash-attn==2.8.3.post1 --no-build-isolation
+  pip install "nvidia-cutlass-dsl==4.2.1"
 
   echo "Node ${SKYPILOT_NODE_RANK} starting..."
   echo "Unit tests: ${ENABLE_OUMI_UNIT_TESTS}"
