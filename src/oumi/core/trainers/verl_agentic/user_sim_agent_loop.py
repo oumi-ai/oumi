@@ -92,7 +92,15 @@ class UserSimToolAgentLoop(ToolAgentLoop):
         )
         # `_sim` and `_sim_config_path` are set together in `run()`; both are absent
         # for tool-only rows, which take the stock ToolAgentLoop path.
-        if state is not AgentState.TERMINATED or self._sim is None:
+        if self._sim is None:
+            return state
+        # Record every generation, not just the one before a simulated-user turn.
+        # verl writes only tool results into `messages`, never the assistant turns that
+        # requested them, so without this the simulator reads a transcript where tool
+        # results appear with nothing having called for them.
+        await self._sync_assistant_message(agent_data)
+        if state is not AgentState.TERMINATED:
+            # Heading to tools; their results append after this assistant turn.
             return state
         if self._hard_cap_hit(agent_data, ignore_termination):
             return state
@@ -128,7 +136,6 @@ class UserSimToolAgentLoop(ToolAgentLoop):
         Returns:
             `GENERATING` if the conversation continues, else `TERMINATED`.
         """
-        await self._sync_assistant_message(agent_data)
         engine, cfg = user_sim_engine(config_path)
         done, text, score = await asyncio.to_thread(
             next_user_turn,

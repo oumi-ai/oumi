@@ -58,9 +58,14 @@ def _run_sim_turn(loop, data, turn_result):
     with (
         patch(f"{_MODULE}.next_user_turn", return_value=turn_result),
         patch(f"{_MODULE}.user_sim_engine", return_value=(object(), object())),
+        patch.object(
+            ToolAgentLoop,
+            "_handle_generating_state",
+            return_value=AgentState.TERMINATED,
+        ),
     ):
         return loop.loop.run_until_complete(
-            loop._run_simulated_user_turn(data, loop._sim, "unused.yaml")
+            loop._handle_generating_state(data, {}, False)
         )
 
 
@@ -221,6 +226,15 @@ def test_tool_turn_then_simulated_user_turn_interleave():
     """
     loop, data = _loop(), _agent_data(policy_tokens=3)
 
+    # The assistant calls a tool: the parent routes to PROCESSING_TOOLS, and we record
+    # that assistant turn before verl appends the tool result.
+    with patch(f"{_MODULE}.next_user_turn") as sim:
+        assert (
+            _generating_state(loop, data, AgentState.PROCESSING_TOOLS)
+            is AgentState.PROCESSING_TOOLS
+        )
+    sim.assert_not_called()
+
     # verl's tool path appends the tool result exactly as we append environment text.
     loop.loop.run_until_complete(
         loop._append_environment_turn(
@@ -240,6 +254,7 @@ def test_tool_turn_then_simulated_user_turn_interleave():
     assert state is AgentState.GENERATING
     assert [m["role"] for m in data.messages] == [
         "user",
+        "assistant",  # called the tool -- verl never records this, we must
         "tool",
         "assistant",
         "user",
