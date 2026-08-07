@@ -29,6 +29,14 @@ from oumi.exceptions import (
 from oumi.utils.logging import logger
 from oumi.utils.torch_utils import get_torch_dtype
 
+# `oumi.core.configs.internal.supported_models` imports `ModelParams` from
+# `oumi.core.configs`, so importing it at the top of this module would create a
+# circular import. These helpers are instead imported into this module's namespace
+# lazily, inside `__finalize_and_validate__`, the first time they are needed.
+is_custom_model: Any = None
+is_dual_mode_model_using_model_name: Any = None
+is_vision_language_model_using_model_name: Any = None
+
 
 @dataclass
 class ModelParams(BaseParams):
@@ -220,6 +228,19 @@ class ModelParams(BaseParams):
     other parts fixed.
     """
 
+    text_only: bool = False
+    """Whether to load a multimodal model as a text-only language model.
+
+    Some models (e.g. Qwen3.5) ship the same weights as both a vision-language
+    model and a text-only language model. If True, only the language backbone is
+    loaded and the vision tower is skipped, so image inputs are ignored.
+
+    Only applies to models that provide a text-only variant; setting it on a
+    vision-only model (e.g. Qwen3-VL) raises an error.
+
+    Defaults to False.
+    """
+
     model_revision: str | None = None
     """The revision of the model to use.
 
@@ -335,3 +356,45 @@ class ModelParams(BaseParams):
             raise OumiConfigError(
                 "model_max_length must be a positive integer or None."
             )
+
+        if self.text_only:
+            global is_custom_model, is_dual_mode_model_using_model_name
+            global is_vision_language_model_using_model_name
+            if is_custom_model is None:
+                from oumi.core.configs.internal import supported_models
+
+                is_custom_model = supported_models.is_custom_model
+                is_dual_mode_model_using_model_name = (
+                    supported_models.is_dual_mode_model_using_model_name
+                )
+                is_vision_language_model_using_model_name = (
+                    supported_models.is_vision_language_model_using_model_name
+                )
+
+            if not is_custom_model(self.model_name) and not (
+                is_dual_mode_model_using_model_name(
+                    self.model_name,
+                    trust_remote_code=self.trust_remote_code,
+                    revision=self.model_revision,
+                )
+            ):
+                if is_vision_language_model_using_model_name(
+                    self.model_name,
+                    trust_remote_code=self.trust_remote_code,
+                    revision=self.model_revision,
+                ):
+                    # Vision-only model (e.g. Qwen3-VL): no text-only load path.
+                    raise OumiConfigError(
+                        f"text_only=True is not valid for model "
+                        f"'{self.model_name}'. It is only supported for models that "
+                        "ship both a vision-language and a text-only variant of the "
+                        "same weights (e.g. Qwen3.5). This model is vision-only and "
+                        "has no text-only variant. Remove text_only or use a model "
+                        "that provides one."
+                    )
+                # Plain text model (e.g. Llama): already text-only, so the flag has
+                # nothing to skip. Accept it but warn that it has no effect.
+                logger.warning(
+                    f"text_only=True has no effect for model '{self.model_name}': "
+                    "it is already a text-only model."
+                )

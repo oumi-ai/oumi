@@ -1,9 +1,14 @@
+from unittest import mock
+
 import pytest
 
 from oumi.core.configs.internal.supported_models import (
     find_internal_model_config,
     find_internal_model_config_using_model_name,
     find_model_hf_config,
+    get_all_models_map,
+    is_dual_mode_model_type,
+    is_vision_language_model_type,
 )
 from oumi.core.configs.params.model_params import ModelParams
 
@@ -39,3 +44,66 @@ def test_common_vlm_models(model_name: str, trust_remote_code):
         )
         is not None
     ), debug_tag
+
+
+class _FakeConfig:
+    """Stand-in HF config whose class identity drives the mapping lookups."""
+
+
+def _patch_mappings(causal_cls, vlm_cls):
+    """Patch the two transformers auto-mappings to return the given classes."""
+    causal_map = mock.MagicMock()
+    causal_map._model_mapping.get.return_value = causal_cls
+    vlm_map = mock.MagicMock()
+    vlm_map._model_mapping.get.return_value = vlm_cls
+    return mock.patch.multiple(
+        "oumi.core.configs.internal.supported_models",
+        MODEL_FOR_CAUSAL_LM_MAPPING=causal_map,
+        MODEL_FOR_IMAGE_TEXT_TO_TEXT_MAPPING=vlm_map,
+    )
+
+
+def test_dual_mode_true_when_causal_class_distinct():
+    # qwen3_5: Qwen3_5ForCausalLM != Qwen3_5ForConditionalGeneration
+    with _patch_mappings(causal_cls=object, vlm_cls=type("VLM", (), {})):
+        assert is_dual_mode_model_type(_FakeConfig()) is True  # pyright: ignore[reportArgumentType]
+
+
+def test_dual_mode_false_when_same_class():
+    # gemma3: both mappings resolve to Gemma3ForConditionalGeneration
+    same = type("SameCls", (), {})
+    with _patch_mappings(causal_cls=same, vlm_cls=same):
+        assert is_dual_mode_model_type(_FakeConfig()) is False  # pyright: ignore[reportArgumentType]
+
+
+def test_dual_mode_false_when_no_causal_mapping():
+    # qwen3_vl: no AutoModelForCausalLM entry
+    with _patch_mappings(causal_cls=None, vlm_cls=type("VLM", (), {})):
+        assert is_dual_mode_model_type(_FakeConfig()) is False  # pyright: ignore[reportArgumentType]
+
+
+def test_dual_mode_false_when_no_vlm_mapping():
+    # plain text model: no ImageTextToText entry
+    with _patch_mappings(causal_cls=type("Causal", (), {}), vlm_cls=None):
+        assert is_dual_mode_model_type(_FakeConfig()) is False  # pyright: ignore[reportArgumentType]
+
+
+def test_vision_language_true_when_vlm_mapping_exists():
+    # Any model with an ImageTextToText class (vision-only or dual-mode).
+    with _patch_mappings(causal_cls=None, vlm_cls=type("VLM", (), {})):
+        assert is_vision_language_model_type(_FakeConfig()) is True  # pyright: ignore[reportArgumentType]
+
+
+def test_vision_language_false_when_no_vlm_mapping():
+    # Plain text model: no ImageTextToText class.
+    with _patch_mappings(causal_cls=type("Causal", (), {}), vlm_cls=None):
+        assert is_vision_language_model_type(_FakeConfig()) is False  # pyright: ignore[reportArgumentType]
+
+
+def test_qwen3_5_registered_as_vlm():
+    models = get_all_models_map()
+    for mt in ("qwen3_5", "qwen3_5_moe"):
+        assert mt in models, f"{mt} missing from registry"
+        assert models[mt].config.visual_config is not None, (
+            f"{mt} should carry a visual_config (VLM by default)"
+        )
