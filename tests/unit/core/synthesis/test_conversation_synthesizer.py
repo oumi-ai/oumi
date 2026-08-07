@@ -48,6 +48,7 @@ from oumi.core.types.conversation import (
 )
 from oumi.core.types.tool_call import FunctionCall, ToolCall, ToolResult
 from oumi.environments.base_environment import BaseEnvironment
+from oumi.environments.synthetic_environment import SyntheticEnvironment
 
 
 @pytest.fixture
@@ -2406,6 +2407,80 @@ def test_dispatch_tool_calls_handles_env_exception_with_per_call_fallback(
     [msg] = synth._dispatch_tool_calls([tc], 0)
     assert msg.role == Role.TOOL
     assert "Tool 't' raised: boom" in str(msg.content)
+
+
+@patch("oumi.core.synthesis.tool_router.build_environment")
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_dispatch_tool_calls_recovers_from_unguided_schema_drift(
+    mock_build_inference_engine,
+    mock_build_environment,
+    mock_general_synthesis_params,
+):
+    """End-to-end: guidance off → off-schema simulator output → recoverable tool error.
+
+    Drives a real ``SyntheticEnvironment`` so the assertions cover the whole path:
+    no constraint reaches the engine, and the resulting ``ToolError`` becomes a
+    ``TOOL`` message instead of killing the sample.
+    """
+    tool = ToolParams(
+        id="answer",
+        name="Answer",
+        description="Answer.",
+        parameters={
+            "type": "object",
+            "properties": {"q": {"type": "string"}},
+            "required": ["q"],
+        },
+        output_schema={
+            "type": "object",
+            "properties": {"a": {"type": "string"}},
+            "required": ["a"],
+        },
+    )
+    env_params = EnvironmentParams(
+        id="faq",
+        name="FAQ",
+        description="FAQ env",
+        env_type="synthetic",
+        tools=[tool],
+        env_kwargs={"tool_persona": "Answer FAQs.", "guided_decoding": False},
+    )
+    mock_build_environment.return_value = SyntheticEnvironment.from_params(env_params)
+
+    mock_engine = Mock()
+    mock_engine.infer = Mock(
+        side_effect=lambda convs, _cfg: [
+            Conversation(
+                messages=[*c.messages, Message(role=Role.ASSISTANT, content='{"a": 1}')]
+            )
+            for c in convs
+        ]
+    )
+    mock_build_inference_engine.return_value = mock_engine
+
+    env_config = MagicMock(spec=EnvironmentConfig)
+    env_config.environments = [env_params]
+    env_config.all_tools = [tool]
+    env_config.tool_environment_map = {"answer": "faq"}
+
+    synth = ConversationSynthesizer(
+        mock_general_synthesis_params,
+        InferenceConfig(
+            engine=InferenceEngineType.OPENAI,
+            model=Mock(spec=ModelParams),
+            remote_params=Mock(spec=RemoteParams),
+            generation=GenerationParams(),
+        ),
+        environment_config=env_config,
+    )
+
+    tc = ToolCall(id="c", function=FunctionCall(name="answer", arguments='{"q": "x"}'))
+    synth._prepare_sample_routers(1)
+    [msg] = synth._dispatch_tool_calls([tc], 0)
+
+    assert mock_engine.infer.call_args[0][1].generation.guided_decoding is None
+    assert msg.role == Role.TOOL
+    assert "failed schema validation" in str(msg.content)
 
 
 @patch("oumi.core.synthesis.tool_router.build_environment")
