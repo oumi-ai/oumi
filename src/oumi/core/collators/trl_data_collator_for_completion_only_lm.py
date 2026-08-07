@@ -77,6 +77,8 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
         *args,
         train_target: str,
         end_of_turn_template: str | list[int] | None = None,
+        tool_response_template: str | list[int] | None = None,
+        end_of_tool_response_template: str | list[int] | None = None,
         mlm: bool = False,
         ignore_index: int = -100,
         padding_free: bool = False,
@@ -92,6 +94,10 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
         self.response_token_ids: list[int] = self._tokenize_template(response_template)  # type: ignore[assignment]
         self.end_of_turn_template = end_of_turn_template
         self.end_of_turn_token_ids = self._tokenize_template(end_of_turn_template)
+        self.tool_response_token_ids = self._tokenize_template(tool_response_template)
+        self.end_of_tool_response_token_ids = self._tokenize_template(
+            end_of_tool_response_template
+        )
 
         if train_target not in self._VALID_TRAIN_TARGETS:
             valid = sorted(self._VALID_TRAIN_TARGETS - {"_legacy_instruction_response"})
@@ -143,6 +149,34 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
             if seq[i] == first and seq[i : i + plen] == pattern:
                 positions.append(i)
         return positions
+
+    def _mask_tool_response_spans(
+        self, batch: dict[str, Any], i: int, seq: list[int], start: int, end: int
+    ) -> None:
+        """Re-masks tool results that the chat template nested in an unmasked span.
+
+        Some templates (e.g. gemma-4) render tool results inside the assistant turn, so
+        the span between response_template and end_of_turn_template contains
+        environment output the model never generates.
+
+        An opener with no closer before `end` masks through `end`: truncation can cut a
+        block in half, and over-masking is the safe direction.
+        """
+        open_ids = self.tool_response_token_ids
+        close_ids = self.end_of_tool_response_token_ids
+        if not open_ids or not close_ids:
+            return
+
+        cursor = start
+        while cursor < end:
+            opens = self._find_pattern(seq[cursor:end], open_ids)
+            if not opens:
+                return
+            block_start = cursor + opens[0]
+            closes = self._find_pattern(seq[block_start:end], close_ids)
+            block_end = block_start + closes[0] + len(close_ids) if closes else end
+            batch["labels"][i, block_start:block_end] = self.ignore_index
+            cursor = block_end
 
     def _apply_span_masking(
         self, batch: dict[str, Any], examples: list[list[int] | Any | dict[str, Any]]
@@ -212,6 +246,7 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
                 batch["labels"][i, content_start:unmask_end] = batch["input_ids"][
                     i, content_start:unmask_end
                 ]
+                self._mask_tool_response_spans(batch, i, seq, content_start, unmask_end)
 
     # ------------------------------------------------------------------
     # Main collation
@@ -262,6 +297,16 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
                     # Make pytorch loss function ignore all tokens up through the end
                     # of the response key
                     batch["labels"][i, :response_token_ids_end_idx] = self.ignore_index
+
+                    # The unmasked tail is one assistant turn, so it carries the same
+                    # nested-tool-result exposure as span masking.
+                    self._mask_tool_response_spans(
+                        batch,
+                        i,
+                        batch["input_ids"][i].tolist(),
+                        response_token_ids_end_idx,
+                        batch["input_ids"].shape[1],
+                    )
 
         else:
             for i in range(len(examples)):

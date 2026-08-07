@@ -14,6 +14,9 @@
 
 import warnings
 from collections.abc import Callable
+from typing import Any, cast
+
+from transformers import PreTrainedTokenizerFast
 
 import oumi.core.constants as constants
 from oumi.core.collators.text_collator_with_padding import TextCollatorWithPadding
@@ -40,6 +43,29 @@ _FIX_HINT = (
     "Fix: provide response_template (and end_of_turn_template for "
     "all_assistant_turns) in collator_kwargs."
 )
+_TOOL_FIX_HINT = (
+    "Fix: provide tool_response_template and end_of_tool_response_template in "
+    "collator_kwargs, or use a chat template that renders tool results in their "
+    "own turn."
+)
+_SPAN_TRAIN_TARGETS = ("all_assistant_turns", "final_assistant_turn")
+_TOOL_TEMPLATE_KEYS = ("tool_response_template", "end_of_tool_response_template")
+_PROBE_RESULT = "PROBE_TOOL_RESULT_"
+_PROBE_CALL_ID = "probecall"
+_PROBE_TOOLS: list[Any] = [
+    {
+        "type": "function",
+        "function": {
+            "name": "probe_fn",
+            "description": "probe",
+            "parameters": {
+                "type": "object",
+                "properties": {"a": {"type": "string"}},
+                "required": ["a"],
+            },
+        },
+    }
+]
 
 
 def _detect_eot_template(
@@ -194,6 +220,227 @@ def resolve_collator_templates(
         raise ValueError(f"Extracted end_of_turn_template is empty.\n{_FIX_HINT}")
 
     return response_template, end_of_turn_template
+
+
+def _tool_probe_messages(num_results: int) -> list[dict]:
+    """Conversation with one tool call answered by `num_results` tool messages.
+
+    Only the result count varies, so diffing two renders isolates one rendered tool
+    result.
+    """
+    messages: list[dict] = [
+        {"role": "user", "content": "PROBE_USER"},
+        {
+            "role": "assistant",
+            # Explicit empty content: Phi, DeepSeek and Granite templates read
+            # message.content unconditionally and raise on a tool_calls-only message.
+            "content": "",
+            "tool_calls": [
+                {
+                    # Mistral requires 9-character alphanumeric tool call ids.
+                    "id": _PROBE_CALL_ID,
+                    "type": "function",
+                    # A mapping, not a JSON string: gemma-4 and Qwen3.5 reject strings.
+                    "function": {"name": "probe_fn", "arguments": {"a": "1"}},
+                }
+            ],
+        },
+    ]
+    messages += [
+        {
+            "role": "tool",
+            "tool_call_id": _PROBE_CALL_ID,
+            "name": "probe_fn",
+            "content": f"{_PROBE_RESULT}{i}",
+        }
+        for i in range(num_results)
+    ]
+    messages.append({"role": "assistant", "content": "PROBE_ANSWER"})
+    return messages
+
+
+def _diff_ids(shorter: list[int], longer: list[int]) -> list[int]:
+    """Token ids `longer` gained over `shorter`, stripping common prefix and suffix."""
+    prefix = 0
+    while (
+        prefix < len(shorter)
+        and prefix < len(longer)
+        and shorter[prefix] == longer[prefix]
+    ):
+        prefix += 1
+    suffix = 0
+    while (
+        suffix < len(shorter) - prefix
+        and suffix < len(longer) - prefix
+        and shorter[len(shorter) - suffix - 1] == longer[len(longer) - suffix - 1]
+    ):
+        suffix += 1
+    return longer[prefix : len(longer) - suffix]
+
+
+def resolve_tool_response_template(
+    tokenizer: "BaseTokenizer",
+    response_template: str,
+    end_of_turn_template: str,
+) -> tuple[list[int], list[int]] | None:
+    """Detects the bracket around tool results nested inside assistant spans.
+
+    Span masking unmasks everything between ``response_template`` and the next
+    ``end_of_turn_template``. Some chat templates (e.g. gemma-4) render tool results
+    inside the assistant turn resulting in environment output being unmasked.
+    The returned bracket lets the collator remask it.
+
+    Returns token ids rather than strings to avoid a decode/re-encode round trip
+    that isn't guaranteed to be lossless.
+
+    Returns:
+        (opener_ids, closer_ids) when tool results are nested and a specific bracket
+        was recovered. None when they aren't nested (nothing to mask), or when the
+        probe couldn't be rendered (nesting undetermined).
+
+    Raises:
+        ValueError: Tool results are nested inside assistant spans but no specific
+            bracket was recovered, so they can't be excluded from the loss.
+    """
+    try:
+        one = tokenizer.apply_chat_template(
+            _tool_probe_messages(1),
+            tools=_PROBE_TOOLS,
+            tokenize=False,
+            add_generation_prompt=False,
+        )
+        two = tokenizer.apply_chat_template(
+            _tool_probe_messages(2),
+            tools=_PROBE_TOOLS,
+            tokenize=False,
+            add_generation_prompt=False,
+        )
+    except Exception as e:
+        # A template that rejects the probe tells us nothing about nesting.
+        logger.debug(
+            "Tool-response probe failed to render: %s: %s", type(e).__name__, e
+        )
+        return None
+
+    if not isinstance(one, str) or not isinstance(two, str):
+        return None
+
+    first_result = f"{_PROBE_RESULT}0"
+    # Template drops tool messages entirely; nothing to mask.
+    if first_result not in one:
+        return None
+
+    # Nested when the closest preceding turn boundary is an assistant header.
+    head = one[: one.index(first_result)]
+    not_nested = head.rfind(response_template) <= head.rfind(end_of_turn_template)
+    if not_nested:
+        return None
+
+    one_ids = tokenizer.encode(one, add_special_tokens=False)
+    two_ids = tokenizer.encode(two, add_special_tokens=False)
+    tool_response_ids = _diff_ids(one_ids, two_ids)
+    if not tool_response_ids:
+        raise ValueError(
+            "Chat template renders tool results inside assistant turns, but adding a "
+            "second tool result did not change the rendered output, so the tool-result "
+            "block could not be isolated and cannot be excluded from the training "
+            f"loss.\n{_TOOL_FIX_HINT}"
+        )
+
+    # Filter for marker tokens
+    # get_added_vocab/convert_ids_to_tokens are declared on the concrete tokenizer
+    # classes, not on the PreTrainedTokenizerBase alias; the cast is types-only.
+    vocab_tokenizer = cast(PreTrainedTokenizerFast, tokenizer)
+    added_vocab = set(vocab_tokenizer.get_added_vocab())
+    tool_response_tokens = vocab_tokenizer.convert_ids_to_tokens(tool_response_ids)
+    markers = [
+        (token_id, token)
+        for token_id, token in zip(tool_response_ids, tool_response_tokens)
+        if token in added_vocab
+    ]
+    if len(markers) < 2:
+        raise ValueError(
+            "Chat template renders tool results inside assistant turns, but no marker "
+            "tokens bracket them, so they cannot be excluded from the training loss.\n"
+            f"{_TOOL_FIX_HINT}"
+        )
+
+    (open_id, opener), (close_id, closer) = markers[0], markers[-1]
+
+    # A candidate is only a delimiter if it appears once per tool result and nowhere
+    # else e.g. Falcon3 has a newline in its added vocab and plain-text tool tags, so
+    # its only candidate delimiters are newlines, which occur throughout the render.
+    if one_ids.count(open_id) != 1 or one_ids.count(close_id) != 1:
+        raise ValueError(
+            "Chat template renders tool results inside assistant turns, but the "
+            f"candidate bracket ({opener!r}, {closer!r}) also appears elsewhere, so it "
+            "cannot be used to exclude them from the training loss.\n"
+            f"{_TOOL_FIX_HINT}"
+        )
+
+    logger.info(
+        "Chat template nests tool results inside assistant turns; masking them via "
+        "bracket (%r, %r).",
+        opener,
+        closer,
+    )
+    return [open_id], [close_id]
+
+
+def _resolve_tool_bracket(
+    tokenizer: "BaseTokenizer",
+    collator_kwargs: dict,
+    config_collator_kwargs: dict,
+) -> tuple[list[int], list[int]] | None:
+    """The bracket around tool results this template nests in the assistant turn.
+
+    Some templates render tool results inside the assistant turn, which leaves them
+    unmasked. The returned bracket lets the collator mask them again.
+
+    Returns:
+        (opener_ids, closer_ids), or None when the bracket is already configured, the
+        train_target isn't span-based, or tool results aren't nested.
+
+    Raises:
+        ValueError: Only one of the two markers was supplied, or the template nests
+            tool results but no bracket could be recovered.
+    """
+    supplied = [key for key in _TOOL_TEMPLATE_KEYS if config_collator_kwargs.get(key)]
+    if len(supplied) == 1:
+        # One marker alone masks nothing, and it would also suppress the detection
+        # that reports a nesting template.
+        missing = next(key for key in _TOOL_TEMPLATE_KEYS if key not in supplied)
+        raise ValueError(
+            f"collator_kwargs sets '{supplied[0]}' without '{missing}'. Tool results "
+            "are only excluded from the training loss when both markers are set.\n"
+            f"Fix: also set '{missing}' in collator_kwargs."
+        )
+    if supplied:
+        return None  # Hand-supplied bracket wins; nothing to detect.
+
+    if collator_kwargs.get("train_target") not in _SPAN_TRAIN_TARGETS:
+        return None  # Only span-based masking can unmask a tool result.
+
+    response_template = config_collator_kwargs.get(
+        "response_template", collator_kwargs.get("response_template")
+    )
+    if not response_template:
+        return None
+
+    # Needed only to tell a nested tool result from one in its own turn.
+    turn_boundary = config_collator_kwargs.get(
+        "end_of_turn_template"
+    ) or collator_kwargs.get("end_of_turn_template")
+    if not turn_boundary:
+        # train_target='final_assistant_turn' carries no end_of_turn_template. Detection
+        # can fail, and a hand-supplied response_template is the usual reason it was
+        # bypassed, so give up on the bracket rather than failing the build.
+        try:
+            turn_boundary = resolve_collator_templates(tokenizer)[1]
+        except ValueError:
+            return None
+
+    return resolve_tool_response_template(tokenizer, response_template, turn_boundary)
 
 
 def build_data_collator(
@@ -429,6 +676,13 @@ def build_collator_from_config(
                 "Fix: set train_target in your data config, "
                 "or provide response_template in collator_kwargs."
             )
+
+    tool_bracket = _resolve_tool_bracket(
+        tokenizer, collator_kwargs, config_collator_kwargs
+    )
+    if tool_bracket is not None:
+        opener_key, closer_key = _TOOL_TEMPLATE_KEYS
+        collator_kwargs[opener_key], collator_kwargs[closer_key] = tool_bracket
 
     # User-provided collator_kwargs override auto-resolved values
     collator_kwargs.update(config_collator_kwargs)
