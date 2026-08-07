@@ -4,10 +4,12 @@ from unittest.mock import MagicMock
 import pytest
 
 import oumi.core.constants as constants
+from oumi.builders import build_tokenizer
 from oumi.builders.collators import (
     build_collator_from_config,
     build_data_collator,
     resolve_collator_templates,
+    resolve_tool_response_template,
 )
 from oumi.core.configs import (
     DataParams,
@@ -496,3 +498,149 @@ def test_old_recipe_eot_sets_all_assistant(mock_tokenizer):
     collator = build_collator_from_config(config, tokenizer=mock_tokenizer)
     assert collator is not None
     assert collator._default_collator.train_target == "all_assistant_turns"
+
+
+#
+# resolve_tool_response_template
+#
+
+# Chat templates rendering tool results either inside or outside the assistant turn.
+# `<|tres|>` / `<|etres|>` stand in for gemma-4's `<|tool_response>` pair.
+_NESTED_TOOL_TEMPLATE = (
+    "{%- for m in messages -%}"
+    "{%- if m['role'] == 'tool' -%}"
+    "<|tres|>{{ m['content'] }}<|etres|>"
+    "{%- else -%}"
+    "<|start|>{{ m['role'] }}\n"
+    "{{ m['content'] if m['content'] is defined and m['content'] else '' }}"
+    "{%- if not (loop.nextitem is defined and loop.nextitem['role'] == 'tool') -%}"
+    "<|eot|>"
+    "{%- endif -%}"
+    "{%- endif -%}"
+    "{%- endfor -%}"
+)
+_SEPARATE_TURN_TOOL_TEMPLATE = (
+    "{%- for m in messages -%}"
+    "{%- if m['role'] == 'tool' -%}"
+    "<|start|>tool\n<|tres|>{{ m['content'] }}<|etres|><|eot|>"
+    "{%- else -%}"
+    "<|start|>{{ m['role'] }}\n"
+    "{{ m['content'] if m['content'] is defined and m['content'] else '' }}<|eot|>"
+    "{%- endif -%}"
+    "{%- endfor -%}"
+)
+_NESTED_NO_MARKER_TEMPLATE = (
+    "{%- for m in messages -%}"
+    "{%- if m['role'] == 'tool' -%}"
+    "tool result: {{ m['content'] }} end"
+    "{%- else -%}"
+    "<|start|>{{ m['role'] }}\n"
+    "{{ m['content'] if m['content'] is defined and m['content'] else '' }}"
+    "{%- if not (loop.nextitem is defined and loop.nextitem['role'] == 'tool') -%}"
+    "<|eot|>"
+    "{%- endif -%}"
+    "{%- endif -%}"
+    "{%- endfor -%}"
+)
+_NESTED_AMBIGUOUS_TEMPLATE = (
+    "{%- for m in messages -%}"
+    "{%- if m['role'] == 'tool' -%}"
+    "<|start|>{{ m['content'] }}<|start|>"
+    "{%- else -%}"
+    "<|start|>{{ m['role'] }}\n"
+    "{{ m['content'] if m['content'] is defined and m['content'] else '' }}"
+    "{%- if not (loop.nextitem is defined and loop.nextitem['role'] == 'tool') -%}"
+    "<|eot|>"
+    "{%- endif -%}"
+    "{%- endif -%}"
+    "{%- endfor -%}"
+)
+_REJECTING_TEMPLATE = (
+    "{%- for m in messages -%}"
+    "{%- if m['role'] == 'tool' -%}"
+    "{{ raise_exception('tool messages unsupported') }}"
+    "{%- endif -%}"
+    "<|start|>{{ m['role'] }}\n<|eot|>"
+    "{%- endfor -%}"
+)
+
+_TOOL_RESPONSE_TEMPLATE_ARGS = ("<|start|>assistant", "<|eot|>")
+
+
+def _tokenizer_with_tool_markers(chat_template: str):
+    """Fresh tokenizer whose added vocab holds the marker tokens the templates emit."""
+    tokenizer = build_tokenizer(
+        ModelParams(
+            model_name="MlpEncoder",
+            torch_dtype_str="float16",
+            trust_remote_code=False,
+            tokenizer_name="openai-community/gpt2",
+            tokenizer_pad_token="<|endoftext|>",
+        )
+    )
+    tokenizer.add_special_tokens(
+        {
+            "additional_special_tokens": [
+                "<|start|>",
+                "<|eot|>",
+                "<|tres|>",
+                "<|etres|>",
+            ]
+        }
+    )
+    tokenizer.chat_template = chat_template
+    return tokenizer
+
+
+def test_resolve_tool_response_template_nested():
+    tokenizer = _tokenizer_with_tool_markers(_NESTED_TOOL_TEMPLATE)
+
+    result = resolve_tool_response_template(tokenizer, *_TOOL_RESPONSE_TEMPLATE_ARGS)
+
+    assert result is not None
+    open_ids, close_ids = result
+    assert open_ids == tokenizer.encode("<|tres|>", add_special_tokens=False)
+    assert close_ids == tokenizer.encode("<|etres|>", add_special_tokens=False)
+
+
+def test_resolve_tool_response_template_separate_turn_returns_none():
+    tokenizer = _tokenizer_with_tool_markers(_SEPARATE_TURN_TOOL_TEMPLATE)
+
+    assert (
+        resolve_tool_response_template(tokenizer, *_TOOL_RESPONSE_TEMPLATE_ARGS) is None
+    )
+
+
+def test_resolve_tool_response_template_no_marker_raises():
+    tokenizer = _tokenizer_with_tool_markers(_NESTED_NO_MARKER_TEMPLATE)
+
+    with pytest.raises(ValueError, match="no marker tokens bracket them"):
+        resolve_tool_response_template(tokenizer, *_TOOL_RESPONSE_TEMPLATE_ARGS)
+
+
+def test_resolve_tool_response_template_ambiguous_bracket_raises():
+    tokenizer = _tokenizer_with_tool_markers(_NESTED_AMBIGUOUS_TEMPLATE)
+
+    with pytest.raises(ValueError, match="appears elsewhere"):
+        resolve_tool_response_template(tokenizer, *_TOOL_RESPONSE_TEMPLATE_ARGS)
+
+
+def test_resolve_tool_response_template_rejected_probe_returns_none():
+    tokenizer = _tokenizer_with_tool_markers(_REJECTING_TEMPLATE)
+
+    assert (
+        resolve_tool_response_template(tokenizer, *_TOOL_RESPONSE_TEMPLATE_ARGS) is None
+    )
+
+
+def test_resolve_tool_response_template_ignores_whitespace_markers():
+    """Whitespace in the added vocab must not be mistaken for a delimiter.
+
+    Falcon3 adds a newline token, which would otherwise be picked as the bracket
+    around a tool result that has no real marker tokens.
+    """
+    tokenizer = _tokenizer_with_tool_markers(_NESTED_NO_MARKER_TEMPLATE)
+    tokenizer.add_special_tokens({"additional_special_tokens": ["\n"]})
+
+    with pytest.raises(ValueError, match="no marker tokens bracket them"):
+        resolve_tool_response_template(tokenizer, *_TOOL_RESPONSE_TEMPLATE_ARGS)
