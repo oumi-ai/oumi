@@ -15,64 +15,46 @@
 """Builder for creating quantization instances.
 
 This module provides a builder pattern for creating appropriate quantization
-instances based on the quantization method. It serves as a simplified alternative
+instances based on the quantization backend. It serves as a simplified alternative
 to the main quantize() function for when you need direct access to quantizer instances.
 """
 
+from oumi.core.configs.quantization_config import (
+    QuantizationBackend,
+    QuantizationScheme,
+)
 from oumi.quantize.base import BaseQuantization
 
 
-def build_quantizer(method: str) -> BaseQuantization:
-    """Create appropriate quantization instance based on method.
+def build_quantizer(backend: QuantizationBackend) -> BaseQuantization:
+    """Create appropriate quantization instance based on backend.
 
     Args:
-        method: Quantization method name (e.g., "awq_q4_0", "bnb_4bit")
+        backend: Quantization backend to use.
 
     Returns:
         Instance of appropriate quantization class
-
-    Raises:
-        ValueError: If method is not supported by any quantizer
     """
-    # Import here to avoid circular imports
-    from oumi.quantize.awq_quantizer import AwqQuantization
     from oumi.quantize.bnb_quantizer import BitsAndBytesQuantization
+    from oumi.quantize.llmcompressor_quantizer import LLMCompressorQuantization
 
-    # Determine quantizer based on method prefix
-    if method.startswith("awq_"):
-        return AwqQuantization()
-    elif method.startswith("bnb_"):
+    if backend == QuantizationBackend.BNB:
         return BitsAndBytesQuantization()
-    else:
-        # Try all quantizers to find one that supports this method
-        for quantizer_class in [
-            AwqQuantization,
-            BitsAndBytesQuantization,
-        ]:
-            instance = quantizer_class()
-            if instance.supports_method(method):
-                return instance
-
-        available_methods = get_available_methods()
-        raise ValueError(
-            f"Unsupported quantization method: {method}. "
-            f"Available methods: {available_methods}"
-        )
+    return LLMCompressorQuantization()
 
 
-def get_available_methods() -> dict[str, list[str]]:
-    """Returns all available methods grouped by quantization type.
+def get_available_schemes() -> dict[str, list[QuantizationScheme]]:
+    """Returns all available schemes grouped by quantization backend.
 
     Returns:
-        Dictionary mapping quantizer names to their supported methods
+        Dictionary mapping backend names to their supported schemes
     """
-    # Import here to avoid circular imports
-    from oumi.quantize.awq_quantizer import AwqQuantization
     from oumi.quantize.bnb_quantizer import BitsAndBytesQuantization
+    from oumi.quantize.llmcompressor_quantizer import LLMCompressorQuantization
 
     return {
-        "AWQ": AwqQuantization.supported_methods,
-        "BitsAndBytes": BitsAndBytesQuantization.supported_methods,
+        "LLMCompressor": LLMCompressorQuantization.supported_schemes,
+        "BitsAndBytes": BitsAndBytesQuantization.supported_schemes,
     }
 
 
@@ -82,24 +64,23 @@ def get_supported_formats() -> list[str]:
     Returns:
         List of all supported output formats
     """
-    # Import here to avoid circular imports
-    from oumi.quantize.awq_quantizer import AwqQuantization
     from oumi.quantize.bnb_quantizer import BitsAndBytesQuantization
+    from oumi.quantize.llmcompressor_quantizer import LLMCompressorQuantization
 
     formats = set()
-    formats.update(AwqQuantization.supported_formats)
+    formats.update(LLMCompressorQuantization.supported_formats)
     formats.update(BitsAndBytesQuantization.supported_formats)
 
     return sorted(list(formats))
 
 
-def list_all_methods() -> list[str]:
-    """List all available quantization methods.
+def list_all_schemes() -> list[QuantizationScheme]:
+    """List all available quantization schemes.
 
     Returns:
-        Sorted list of all available method names
+        Sorted list of all available scheme enum members
     """
-    methods = []
-    for method_list in get_available_methods().values():
-        methods.extend(method_list)
-    return sorted(methods)
+    schemes = []
+    for scheme_list in get_available_schemes().values():
+        schemes.extend(scheme_list)
+    return sorted(schemes)
