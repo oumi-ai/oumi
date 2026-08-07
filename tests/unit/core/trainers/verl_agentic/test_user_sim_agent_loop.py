@@ -8,6 +8,7 @@ pytest.importorskip("verl")
 
 from verl.experimental.agent_loop.tool_agent_loop import (  # pyright: ignore[reportMissingImports]  # noqa: E402
     AgentState,
+    ToolAgentLoop,
 )
 
 from oumi.core.rollout.user_sim import RolloutState  # noqa: E402
@@ -173,3 +174,106 @@ def test_importing_this_module_does_not_clobber_yaml_registry_entry():
             _agent_loop_registry.pop(name, None)
         else:
             _agent_loop_registry[name] = saved
+
+
+# --- Verification item 9: tools and the simulator compose ---------------------
+
+
+def _generating_state(loop, data, parent_returns):
+    """Runs our override with the parent's decision stubbed to `parent_returns`."""
+    with patch.object(
+        ToolAgentLoop, "_handle_generating_state", return_value=parent_returns
+    ):
+        return loop.loop.run_until_complete(
+            loop._handle_generating_state(data, {}, False)
+        )
+
+
+def test_tool_path_is_never_intercepted():
+    """A pending tool call belongs to the parent; the simulator must stay out of it."""
+    loop, data = _loop(), _agent_data()
+
+    with patch(f"{_MODULE}.next_user_turn") as sim:
+        state = _generating_state(loop, data, AgentState.PROCESSING_TOOLS)
+
+    assert state is AgentState.PROCESSING_TOOLS
+    sim.assert_not_called()
+    assert data.user_turns == 0
+
+
+def test_simulator_skipped_entirely_when_not_configured():
+    """Tool-only rows must behave exactly like stock ToolAgentLoop."""
+    loop, data = _loop(), _agent_data()
+    loop._sim = None
+
+    with patch(f"{_MODULE}.next_user_turn") as sim:
+        state = _generating_state(loop, data, AgentState.TERMINATED)
+
+    assert state is AgentState.TERMINATED
+    sim.assert_not_called()
+
+
+def test_tool_turn_then_simulated_user_turn_interleave():
+    """user -> assistant(tool_call) -> tool -> assistant(text) -> sim_user -> assistant.
+
+    The tool result and the simulated-user turn are both environment text, so the
+    mask must read 1,0,1,0 across the four spans.
+    """
+    loop, data = _loop(), _agent_data(policy_tokens=3)
+
+    # verl's tool path appends the tool result exactly as we append environment text.
+    loop.loop.run_until_complete(
+        loop._append_environment_turn(
+            data, [{"role": "tool", "content": "status=late"}]
+        )
+    )
+    tool_span = len(data.response_mask)
+
+    # The policy generates again, this time with no tool call.
+    data.response_ids = [950, 951]
+    data.prompt_ids += data.response_ids
+    data.response_mask += [1, 1]
+    data.assistant_turns += 1
+
+    state = _run_sim_turn(loop, data, (False, "when will it arrive?", 0.0))
+
+    assert state is AgentState.GENERATING
+    assert [m["role"] for m in data.messages] == [
+        "user",
+        "tool",
+        "assistant",
+        "user",
+    ]
+    assert data.response_mask[:3] == [1, 1, 1], "first assistant turn"
+    assert set(data.response_mask[3:tool_span]) == {0}, "tool result is environment"
+    assert data.response_mask[tool_span : tool_span + 2] == [1, 1], "second assistant"
+    assert set(data.response_mask[tool_span + 2 :]) == {0}, "simulated user"
+    assert len(data.prompt_ids) - len(data.response_mask) == PROMPT_LEN
+
+
+# --- Verification item 7: drift guards ----------------------------------------
+
+
+def test_parent_generating_state_signature_is_unchanged():
+    """Our override must keep matching ToolAgentLoop's, which we delegate to."""
+    import inspect
+
+    assert list(
+        inspect.signature(ToolAgentLoop._handle_generating_state).parameters
+    ) == ["self", "agent_data", "sampling_params", "ignore_termination"]
+
+
+def test_agent_state_members_are_known():
+    """An unrecognized state upstream may need handling in _handle_generating_state.
+
+    INTERACTING exists in 0.7 and was removed in 0.8; it is inert for us either way,
+    since we never set `interaction_config_path`.
+    """
+    required = {"PENDING", "GENERATING", "PROCESSING_TOOLS", "TERMINATED"}
+    tolerated = required | {"INTERACTING"}
+    members = set(AgentState.__members__)
+
+    assert required <= members, (
+        f"upstream dropped a state we rely on: {required - members}"
+    )
+    assert members <= tolerated, f"unhandled new AgentState: {members - tolerated}"
