@@ -718,3 +718,39 @@ def test_build_collator_half_supplied_tool_bracket_raises(
 
     with pytest.raises(ValueError, match=f"without '{missing}'"):
         build_collator_from_config(config, tokenizer=mock_tokenizer)
+
+
+@pytest.mark.parametrize(
+    "train_target", [TrainTarget.ALL_ASSISTANT_TURNS, TrainTarget.FINAL_ASSISTANT_TURN]
+)
+def test_build_collator_resolves_tool_bracket_for_both_span_targets(train_target):
+    """final_assistant_turn has no end_of_turn_template but still needs the bracket.
+
+    Its unmasked tail is an assistant turn, so a nested tool result leaks there too.
+    """
+    tokenizer = _tokenizer_with_tool_markers(_NESTED_TOOL_TEMPLATE)
+    config = TrainingConfig(
+        data=DataParams(
+            train=DatasetSplitParams(
+                collator_name="text_completions_only_with_padding",
+                train_target=train_target,
+                datasets=[DatasetParams(dataset_name="dummy", split="train")],
+            )
+        ),
+        model=ModelParams(
+            model_name="MlpEncoder",
+            tokenizer_name="openai-community/gpt2",
+            model_max_length=64,
+        ),
+    )
+
+    collator = build_collator_from_config(config, tokenizer=tokenizer)
+    assert collator is not None
+
+    inner = collator._default_collator
+    assert inner.tool_response_token_ids == tokenizer.encode(
+        "<|tres|>", add_special_tokens=False
+    )
+    assert inner.end_of_tool_response_token_ids == tokenizer.encode(
+        "<|etres|>", add_special_tokens=False
+    )

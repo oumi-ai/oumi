@@ -48,6 +48,8 @@ _TOOL_FIX_HINT = (
     "collator_kwargs, or use a chat template that renders tool results in their "
     "own turn."
 )
+_SPAN_TRAIN_TARGETS = ("all_assistant_turns", "final_assistant_turn")
+_TOOL_TEMPLATE_KEYS = ("tool_response_template", "end_of_tool_response_template")
 _PROBE_RESULT = "PROBE_TOOL_RESULT_"
 _PROBE_CALL_ID = "probecall"
 _PROBE_TOOLS: list[Any] = [
@@ -284,12 +286,12 @@ def resolve_tool_response_template(
     """Detects the bracket around tool results nested inside assistant spans.
 
     Span masking unmasks everything between ``response_template`` and the next
-    ``end_of_turn_template``. Some chat templates (gemma-4) render tool results
-    *inside* the assistant turn, which puts environment output inside that span.
-    This finds the marker pair bracketing those results so masking can exclude them.
+    ``end_of_turn_template``. Some chat templates (e.g. gemma-4) render tool results
+    inside the assistant turn resulting in environment output being unmasked.
+    The returned bracket lets the collator remask it.
 
-    Returns token ids rather than strings: ``_tokenize_template`` accepts either, and
-    ids avoid a decode/re-encode round trip that isn't guaranteed to be lossless.
+    Returns token ids rather than strings to avoid a decode/re-encode round trip
+    that isn't guaranteed to be lossless.
 
     Returns:
         (opener_ids, closer_ids) when tool results are nested and a specific bracket
@@ -383,6 +385,62 @@ def resolve_tool_response_template(
         closer,
     )
     return [open_id], [close_id]
+
+
+def _resolve_tool_bracket(
+    tokenizer: "BaseTokenizer",
+    collator_kwargs: dict,
+    config_collator_kwargs: dict,
+) -> tuple[list[int], list[int]] | None:
+    """The bracket around tool results this template nests in the assistant turn.
+
+    Some templates render tool results inside the assistant turn, which leaves them
+    unmasked. The returned bracket lets the collator mask them again.
+
+    Returns:
+        (opener_ids, closer_ids), or None when the bracket is already configured, the
+        train_target isn't span-based, or tool results aren't nested.
+
+    Raises:
+        ValueError: Only one of the two markers was supplied, or the template nests
+            tool results but no bracket could be recovered.
+    """
+    supplied = [key for key in _TOOL_TEMPLATE_KEYS if config_collator_kwargs.get(key)]
+    if len(supplied) == 1:
+        # One marker alone masks nothing, and it would also suppress the detection
+        # that reports a nesting template.
+        missing = next(key for key in _TOOL_TEMPLATE_KEYS if key not in supplied)
+        raise ValueError(
+            f"collator_kwargs sets '{supplied[0]}' without '{missing}'. Tool results "
+            "are only excluded from the training loss when both markers are set.\n"
+            f"Fix: also set '{missing}' in collator_kwargs."
+        )
+    if supplied:
+        return None  # Hand-supplied bracket wins; nothing to detect.
+
+    if collator_kwargs.get("train_target") not in _SPAN_TRAIN_TARGETS:
+        return None  # Only span-based masking can unmask a tool result.
+
+    response_template = config_collator_kwargs.get(
+        "response_template", collator_kwargs.get("response_template")
+    )
+    if not response_template:
+        return None
+
+    # Needed only to tell a nested tool result from one in its own turn.
+    turn_boundary = config_collator_kwargs.get(
+        "end_of_turn_template"
+    ) or collator_kwargs.get("end_of_turn_template")
+    if not turn_boundary:
+        # train_target='final_assistant_turn' carries no end_of_turn_template. Detection
+        # can fail, and a hand-supplied response_template is the usual reason it was
+        # bypassed, so give up on the bracket rather than failing the build.
+        try:
+            turn_boundary = resolve_collator_templates(tokenizer)[1]
+        except ValueError:
+            return None
+
+    return resolve_tool_response_template(tokenizer, response_template, turn_boundary)
 
 
 def build_data_collator(
@@ -619,39 +677,12 @@ def build_collator_from_config(
                 "or provide response_template in collator_kwargs."
             )
 
-    # Templates that nest tool results inside the assistant turn put environment output
-    # inside the unmasked span.
-    _tool_keys = ("tool_response_template", "end_of_tool_response_template")
-    supplied_tool_keys = [key for key in _tool_keys if config_collator_kwargs.get(key)]
-    if len(supplied_tool_keys) == 1:
-        # Masking needs both markers, so one alone would silently do nothing — and it
-        # would also suppress the auto-detection that reports a nesting template.
-        missing = next(key for key in _tool_keys if key not in supplied_tool_keys)
-        raise ValueError(
-            f"collator_kwargs sets '{supplied_tool_keys[0]}' without '{missing}'. "
-            "Tool results are only excluded from the training loss when both markers "
-            f"are set.\nFix: also set '{missing}' in collator_kwargs."
-        )
-
-    effective_response = config_collator_kwargs.get(
-        "response_template", collator_kwargs.get("response_template")
+    tool_bracket = _resolve_tool_bracket(
+        tokenizer, collator_kwargs, config_collator_kwargs
     )
-    effective_eot = config_collator_kwargs.get(
-        "end_of_turn_template", collator_kwargs.get("end_of_turn_template")
-    )
-    if (
-        collator_kwargs.get("train_target")
-        in ("all_assistant_turns", "final_assistant_turn")
-        and effective_response
-        and effective_eot
-        and not supplied_tool_keys
-    ):
-        tool_bracket = resolve_tool_response_template(
-            tokenizer, effective_response, effective_eot
-        )
-        if tool_bracket is not None:
-            collator_kwargs["tool_response_template"] = tool_bracket[0]
-            collator_kwargs["end_of_tool_response_template"] = tool_bracket[1]
+    if tool_bracket is not None:
+        opener_key, closer_key = _TOOL_TEMPLATE_KEYS
+        collator_kwargs[opener_key], collator_kwargs[closer_key] = tool_bracket
 
     # User-provided collator_kwargs override auto-resolved values
     collator_kwargs.update(config_collator_kwargs)
