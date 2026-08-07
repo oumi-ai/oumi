@@ -49,7 +49,9 @@ _TOOL_FIX_HINT = (
     "own turn."
 )
 _PROBE_RESULT = "PROBE_TOOL_RESULT_"
-_PROBE_CALL_ID = "probecall"  # 9 alphanumeric chars exactly: Mistral validates this
+# Mistral's template rejects any tool call id whose length isn't exactly 9 (its error
+# message claims alphanumeric too, but only the length is checked).
+_PROBE_CALL_ID = "probecall"
 _PROBE_TOOLS: list[Any] = [
     {
         "type": "function",
@@ -220,12 +222,11 @@ def resolve_collator_templates(
     return response_template, end_of_turn_template
 
 
-def _probe_messages(num_results: int) -> list[dict]:
+def _tool_probe_messages(num_results: int) -> list[dict]:
     """Conversation with one tool call answered by `num_results` tool messages.
 
     Only the result count varies, so diffing two renders isolates one rendered tool
-    result. Keeping a single tool call keeps the probe renderable on templates that
-    reject parallel calls, and keeps tool-call text out of the diff.
+    result.
     """
     messages: list[dict] = [
         {"role": "user", "content": "PROBE_USER"},
@@ -258,13 +259,8 @@ def _probe_messages(num_results: int) -> list[dict]:
     return messages
 
 
-def _inserted_ids(shorter: list[int], longer: list[int]) -> list[int]:
-    """Token ids `longer` gained over `shorter`, stripping common prefix and suffix.
-
-    Diffing ids rather than characters matters because adjacent renders often share
-    leading characters (a tool block opening with ``<|tres|>`` followed by
-    ``<|start|>``), and a character diff would split the marker and lose it.
-    """
+def _diff_ids(shorter: list[int], longer: list[int]) -> list[int]:
+    """Token ids `longer` gained over `shorter`, stripping common prefix and suffix."""
     prefix = 0
     while (
         prefix < len(shorter)
@@ -308,13 +304,13 @@ def resolve_tool_response_template(
     """
     try:
         one = tokenizer.apply_chat_template(
-            _probe_messages(1),
+            _tool_probe_messages(1),
             tools=_PROBE_TOOLS,
             tokenize=False,
             add_generation_prompt=False,
         )
         two = tokenizer.apply_chat_template(
-            _probe_messages(2),
+            _tool_probe_messages(2),
             tools=_PROBE_TOOLS,
             tokenize=False,
             add_generation_prompt=False,
@@ -330,36 +326,37 @@ def resolve_tool_response_template(
         return None
 
     first_result = f"{_PROBE_RESULT}0"
+    # Template drops tool messages entirely; nothing to mask.
     if first_result not in one:
-        # Template drops tool messages entirely (e.g. oumi's `default`); nothing to
-        # mask.
         return None
 
     # Nested when the closest preceding turn boundary is an assistant header.
     head = one[: one.index(first_result)]
-    if head.rfind(response_template) <= head.rfind(end_of_turn_template):
+    not_nested = head.rfind(response_template) <= head.rfind(end_of_turn_template)
+    if not_nested:
         return None
 
     one_ids = tokenizer.encode(one, add_special_tokens=False)
     two_ids = tokenizer.encode(two, add_special_tokens=False)
-    block_ids = _inserted_ids(one_ids, two_ids)
-    if not block_ids:
-        logger.debug("Could not isolate a rendered tool-result block.")
-        return None
+    tool_response_ids = _diff_ids(one_ids, two_ids)
+    if not tool_response_ids:
+        raise ValueError(
+            "Chat template renders tool results inside assistant turns, but adding a "
+            "second tool result did not change the rendered output, so the tool-result "
+            "block could not be isolated and cannot be excluded from the training "
+            f"loss.\n{_TOOL_FIX_HINT}"
+        )
 
-    # Whitespace can itself be in the added vocab (Falcon3 adds a newline token), and a
-    # newline is never a tool-result delimiter, so it can't stand in as a marker.
+    # Filter for marker tokens
     # get_added_vocab/convert_ids_to_tokens are declared on the concrete tokenizer
     # classes, not on the PreTrainedTokenizerBase alias; the cast is types-only.
     vocab_tokenizer = cast(PreTrainedTokenizerFast, tokenizer)
     added_vocab = set(vocab_tokenizer.get_added_vocab())
-    tokens = vocab_tokenizer.convert_ids_to_tokens(block_ids)
+    tool_response_tokens = vocab_tokenizer.convert_ids_to_tokens(tool_response_ids)
     markers = [
         (token_id, token)
-        for token_id, token in zip(block_ids, tokens)
-        # transformers 5 widened decode's return type to str | list[str]; a single
-        # sequence of ids always decodes to a str.
-        if token in added_vocab and cast(str, tokenizer.decode([token_id])).strip()
+        for token_id, token in zip(tool_response_ids, tool_response_tokens)
+        if token in added_vocab
     ]
     if len(markers) < 2:
         raise ValueError(
@@ -370,7 +367,9 @@ def resolve_tool_response_template(
 
     (open_id, opener), (close_id, closer) = markers[0], markers[-1]
 
-    # The bracket must identify tool results, not every turn (e.g. Llama's <|eot_id|>).
+    # A candidate is only a delimiter if it appears once per tool result and nowhere
+    # else e.g. Falcon3 has a newline in its added vocab and plain-text tool tags, so
+    # its only candidate delimiters are newlines, which occur throughout the render.
     if one_ids.count(open_id) != 1 or one_ids.count(close_id) != 1:
         raise ValueError(
             "Chat template renders tool results inside assistant turns, but the "
@@ -627,6 +626,17 @@ def build_collator_from_config(
     # train_target, and before the user override below so a hand-supplied bracket
     # short-circuits the resolver (which raises when it can't recover one).
     _tool_keys = ("tool_response_template", "end_of_tool_response_template")
+    supplied_tool_keys = [key for key in _tool_keys if config_collator_kwargs.get(key)]
+    if len(supplied_tool_keys) == 1:
+        # Masking needs both markers, so one alone would silently do nothing — and it
+        # would also suppress the auto-detection that reports a nesting template.
+        missing = next(key for key in _tool_keys if key not in supplied_tool_keys)
+        raise ValueError(
+            f"collator_kwargs sets '{supplied_tool_keys[0]}' without '{missing}'. "
+            "Tool results are only excluded from the training loss when both markers "
+            f"are set.\nFix: also set '{missing}' in collator_kwargs."
+        )
+
     effective_response = config_collator_kwargs.get(
         "response_template", collator_kwargs.get("response_template")
     )
@@ -638,7 +648,7 @@ def build_collator_from_config(
         in ("all_assistant_turns", "final_assistant_turn")
         and effective_response
         and effective_eot
-        and not any(config_collator_kwargs.get(key) for key in _tool_keys)
+        and not supplied_tool_keys
     ):
         tool_bracket = resolve_tool_response_template(
             tokenizer, effective_response, effective_eot

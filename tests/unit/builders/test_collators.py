@@ -633,14 +633,88 @@ def test_resolve_tool_response_template_rejected_probe_returns_none():
     )
 
 
-def test_resolve_tool_response_template_ignores_whitespace_markers():
-    """Whitespace in the added vocab must not be mistaken for a delimiter.
+def test_resolve_tool_response_template_whitespace_in_added_vocab_raises():
+    """A tokenizer with whitespace in its added vocab must not yield a bogus bracket.
 
-    Falcon3 adds a newline token, which would otherwise be picked as the bracket
-    around a tool result that has no real marker tokens.
+    Falcon3 adds a newline token, so a nesting template with plain-text tool tags
+    offers newlines as the only marker candidates. Whichever guard rejects them, the
+    contract is that nothing gets masked on a guess.
     """
     tokenizer = _tokenizer_with_tool_markers(_NESTED_NO_MARKER_TEMPLATE)
     tokenizer.add_special_tokens({"additional_special_tokens": ["\n"]})
 
-    with pytest.raises(ValueError, match="no marker tokens bracket them"):
+    with pytest.raises(ValueError):
         resolve_tool_response_template(tokenizer, *_TOOL_RESPONSE_TEMPLATE_ARGS)
+
+
+# Renders only the first tool result, so adding a second changes nothing — the block
+# cannot be isolated even though tool results are nested in the assistant turn.
+_NESTED_FIRST_RESULT_ONLY_TEMPLATE = (
+    "{%- set ns = namespace(seen=false) -%}"
+    "{%- for m in messages -%}"
+    "{%- if m['role'] == 'tool' -%}"
+    "{%- if not ns.seen -%}"
+    "<|tres|>{{ m['content'] }}<|etres|>"
+    "{%- set ns.seen = true -%}"
+    "{%- endif -%}"
+    "{%- else -%}"
+    "<|start|>{{ m['role'] }}\n"
+    "{{ m['content'] if m['content'] is defined and m['content'] else '' }}"
+    "{%- if not (loop.nextitem is defined and loop.nextitem['role'] == 'tool') -%}"
+    "<|eot|>"
+    "{%- endif -%}"
+    "{%- endif -%}"
+    "{%- endfor -%}"
+)
+
+
+def test_resolve_tool_response_template_unisolatable_block_raises():
+    """A nested tool result we can't isolate must fail, not silently pass.
+
+    Reaching that point means the template nests tool results, so returning None
+    would leave environment output in the loss with no way to exclude it.
+    """
+    tokenizer = _tokenizer_with_tool_markers(_NESTED_FIRST_RESULT_ONLY_TEMPLATE)
+
+    with pytest.raises(ValueError, match="did not change the rendered output"):
+        resolve_tool_response_template(tokenizer, *_TOOL_RESPONSE_TEMPLATE_ARGS)
+
+
+def _tool_kwargs_config(collator_kwargs: dict) -> TrainingConfig:
+    return TrainingConfig(
+        data=DataParams(
+            train=DatasetSplitParams(
+                collator_name="text_completions_only_with_padding",
+                collator_kwargs=collator_kwargs,
+                datasets=[DatasetParams(dataset_name="dummy", split="train")],
+            )
+        ),
+        model=ModelParams(
+            model_name="MlpEncoder",
+            tokenizer_name="openai-community/gpt2",
+            model_max_length=64,
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    "supplied,missing",
+    [
+        ("tool_response_template", "end_of_tool_response_template"),
+        ("end_of_tool_response_template", "tool_response_template"),
+    ],
+)
+def test_build_collator_half_supplied_tool_bracket_raises(
+    supplied, missing, mock_tokenizer
+):
+    """One marker alone masks nothing, so it must be reported rather than ignored."""
+    config = _tool_kwargs_config(
+        {
+            "response_template": "<|start|>assistant",
+            "end_of_turn_template": "<|eot|>",
+            supplied: "<|tres|>",
+        }
+    )
+
+    with pytest.raises(ValueError, match=f"without '{missing}'"):
+        build_collator_from_config(config, tokenizer=mock_tokenizer)
