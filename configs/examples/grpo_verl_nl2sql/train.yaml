@@ -1,0 +1,60 @@
+model:
+  model_name: "Qwen/Qwen2.5-3B-Instruct"
+
+data:
+  train:
+    datasets:
+      - dataset_name: "text_sft"
+        dataset_path: "data/grpo_verl_nl2sql/train.jsonl"
+        dataset_kwargs:
+          return_conversations: true
+  validation:
+    datasets:
+      - dataset_name: "text_sft"
+        dataset_path: "data/grpo_verl_nl2sql/val.jsonl"
+        dataset_kwargs:
+          return_conversations: true
+
+training:
+  trainer_type: "VERL_GRPO"
+  num_train_epochs: 1
+  save_steps: -1
+  eval_strategy: "steps"
+  eval_steps: 20
+  learning_rate: 1.0e-6
+  reward_functions: ["sql_execution_match"]
+  grpo:
+    max_completion_length: 1024
+    use_vllm: True
+    temperature: 1.0
+    vllm_gpu_memory_utilization: 0.5
+  # Rollout options are verl's; see
+  # https://github.com/verl-project/verl/blob/main/verl/trainer/config/rollout/rollout.yaml
+  # and https://github.com/verl-project/verl/blob/main/verl/workers/config/rollout.py
+  verl_config_overrides:
+    data:
+      train_batch_size: 32
+      max_prompt_length: 4096
+      filter_overlong_prompts: True
+    actor_rollout_ref:
+      rollout:
+        name: vllm
+        mode: async
+        multi_turn:
+          enable: true
+          format: hermes
+          # Unset, tool_agent never caps turns: a rollout only ends when it stops
+          # calling run_sql or burns max_completion_length.
+          max_assistant_turns: 5
+          tool_config_path: configs/examples/grpo_verl_nl2sql/verl_tool_config.yaml
+        agent:
+          default_agent_loop: tool_agent
+        tensor_model_parallel_size: 2
+        n: 8
+    trainer:
+      n_gpus_per_node: 8
+      nnodes: 1
+      val_before_train: True
+  output_dir: "output/grpo_verl_nl2sql"
+  run_name: "grpo_verl_nl2sql"
+  enable_wandb: True
