@@ -58,9 +58,7 @@ def test_non_remote_engine_rejected(tmp_path):
             user_sim_engine(config_path)
 
 
-@pytest.mark.parametrize(
-    "engine_type,engine_cls", sorted(ENGINE_MAP.items(), key=lambda kv: str(kv[0]))
-)
+@pytest.mark.parametrize("engine_type,engine_cls", sorted(ENGINE_MAP.items(), key=str))
 def test_every_engine_is_classified(engine_type, engine_cls):
     """A new engine type must be either in-process or remote-backed, never neither."""
     assert (engine_type in _IN_PROCESS_ENGINES) ^ issubclass(
