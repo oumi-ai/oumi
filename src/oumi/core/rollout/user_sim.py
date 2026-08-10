@@ -68,11 +68,20 @@ def build_user_turn_prompt(
 
 
 def messages_to_history(messages: list[dict]) -> list[Message]:
-    """Converts backend message dicts to user and assistant history."""
+    """Converts backend message dicts to user and assistant history.
+
+    Only user and assistant turns survive: the simulated user is a person talking to
+    the assistant, so it never sees system prompts or tool traffic. Passing a tool
+    turn through would also be rejected by chat APIs, which require it to follow an
+    assistant message carrying structured ``tool_calls``.
+
+    Returns:
+        The conversation as the simulated user experienced it.
+    """
     return [
         Message(role=Role(m["role"]), content=(m.get("content") or ""))
         for m in messages
-        if m.get("role") != "system"
+        if m.get("role") in (Role.USER.value, Role.ASSISTANT.value)
     ]
 
 

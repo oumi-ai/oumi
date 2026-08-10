@@ -48,6 +48,8 @@ class UserSimToolAgentLoop(ToolAgentLoop):
         super().__init__(*args, **kwargs)
         self._sim_config_path = user_sim_inference
         self._sim: RolloutState | None = None
+        # verl instantiates one loop per rollout, so this is per-conversation state.
+        self._sim_history: list[dict[str, Any]] = []
 
     async def run(self, sampling_params: dict[str, Any], **kwargs: Any):
         """Runs the rollout.
@@ -69,6 +71,10 @@ class UserSimToolAgentLoop(ToolAgentLoop):
                 goal=sim_kwargs.get("goal", ""),
                 max_turns=sim_kwargs.get("max_turns") or DEFAULT_MAX_TURNS,
             )
+            # Tracked separately from verl's `messages`, which holds tool results with
+            # no assistant turn requesting them -- a shape chat APIs reject outright.
+            # `messages_to_history` drops everything the customer would not have seen.
+            self._sim_history = [dict(message) for message in kwargs["raw_prompt"]]
         output = await super().run(sampling_params, **kwargs)
         # Written once, after the rollout: incremental writes to extra_fields make the
         # dict truthy, which stops verl copying engine telemetry into it.
@@ -94,14 +100,12 @@ class UserSimToolAgentLoop(ToolAgentLoop):
         # for tool-only rows, which take the stock ToolAgentLoop path.
         if self._sim is None:
             return state
-        # Record every generation, not just the one before a simulated-user turn.
-        # verl writes only tool results into `messages`, never the assistant turns that
-        # requested them, so without this the simulator reads a transcript where tool
-        # results appear with nothing having called for them.
-        await self._sync_assistant_message(agent_data)
         if state is not AgentState.TERMINATED:
-            # Heading to tools; their results append after this assistant turn.
+            # Heading to tools, so the assistant has not addressed the customer yet.
             return state
+        self._sim_history.append(
+            {"role": "assistant", "content": await self._decode_response(agent_data)}
+        )
         if self._hard_cap_hit(agent_data, ignore_termination):
             return state
         return await self._run_simulated_user_turn(
@@ -140,7 +144,7 @@ class UserSimToolAgentLoop(ToolAgentLoop):
         done, text, score = await asyncio.to_thread(
             next_user_turn,
             sim,
-            agent_data.messages,
+            self._sim_history,
             lambda conversation: infer_one(engine, cfg, conversation),
             DEFAULT_DONE_SENTINEL,
         )
@@ -148,6 +152,7 @@ class UserSimToolAgentLoop(ToolAgentLoop):
         agent_data.turn_scores.append(score)
         if done:
             return AgentState.TERMINATED
+        self._sim_history.append({"role": "user", "content": text})
         fits = await self._append_environment_turn(
             agent_data, [{"role": "user", "content": text}]
         )
@@ -176,16 +181,15 @@ class UserSimToolAgentLoop(ToolAgentLoop):
             agent_data.response_logprobs += [0.0] * len(response_ids)
         return True
 
-    async def _sync_assistant_message(self, agent_data: Any) -> None:
-        """Copies the assistant's turn into `messages`, which stock verl never does.
+    async def _decode_response(self, agent_data: Any) -> str:
+        """Decodes the assistant's latest turn.
 
-        Tokens-only bookkeeping: the assistant's ids are already in `prompt_ids` with
-        mask 1, so this must not touch them. The user simulator reads `messages`.
+        Returns:
+            The assistant's text, as the simulated user would read it.
         """
-        text = await self.loop.run_in_executor(
+        return await self.loop.run_in_executor(
             None,
             lambda: self.tokenizer.decode(
                 agent_data.response_ids, skip_special_tokens=True
             ),
         )
-        agent_data.messages.append({"role": "assistant", "content": text})

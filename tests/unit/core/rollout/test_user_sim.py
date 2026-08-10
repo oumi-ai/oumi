@@ -111,3 +111,19 @@ def test_messages_to_history_drops_system_turns():
         (Role.USER, "hi"),
         (Role.ASSISTANT, "hello"),
     ]
+
+
+def test_messages_to_history_drops_tool_turns():
+    # Chat APIs reject a tool turn that does not follow structured `tool_calls`, and
+    # the customer would not have seen it anyway.
+    out = messages_to_history(
+        [
+            {"role": "user", "content": "where is order 4421"},
+            {"role": "tool", "content": '{"status": "delayed"}'},
+            {"role": "assistant", "content": "It is delayed."},
+        ]
+    )
+    assert [(m.role, m.content) for m in out] == [
+        (Role.USER, "where is order 4421"),
+        (Role.ASSISTANT, "It is delayed."),
+    ]
