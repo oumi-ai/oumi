@@ -1,4 +1,5 @@
 import json
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -225,3 +226,17 @@ def test_create_verl_data_entry_tool_agent_preserves_structured_history():
         {"role": "tool", "content": '{"rows":[[2]]}', "tool_call_id": "call_1"},
     ]
     assert json.loads(json.dumps(row["prompt"])) == row["prompt"]
+
+
+@pytest.mark.parametrize("make_temp_dir", [True, False])
+def test_export_hf_model_without_checkpoints(make_temp_dir, tmp_path):
+    """No checkpoints must return False, not raise -- verl skips the dir entirely."""
+    temp_dir = tmp_path / "verl_output"
+    if make_temp_dir:
+        temp_dir.mkdir()
+    trainer = SimpleNamespace(
+        _final_output_dir=str(tmp_path / "final"),
+        _temp_output_dir=str(temp_dir),
+    )
+
+    assert VerlGrpoTrainer._export_hf_model(trainer) is False

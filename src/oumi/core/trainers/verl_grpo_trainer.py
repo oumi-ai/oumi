@@ -618,6 +618,10 @@ class VerlGrpoTrainer(BaseTrainer):
             return False
         final_dir = Path(self._final_output_dir)
         temp_dir = Path(self._temp_output_dir)
+        # verl never creates this directory if it wrote no checkpoints.
+        if not temp_dir.is_dir():
+            logger.warning(f"No checkpoints found under {temp_dir}")
+            return False
         all_checkpoint_dirs: list[Path] = [
             f.absolute()
             for f in temp_dir.iterdir()
