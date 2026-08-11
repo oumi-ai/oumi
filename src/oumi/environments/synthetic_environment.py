@@ -172,6 +172,10 @@ class SyntheticEnvironment(BaseEnvironment):
         """Stateful synth envs need per-sample isolation; stateless do not."""
         return self._state is not None
 
+    def is_replayable(self) -> bool:
+        """Only stateless, LLM-only synth envs can safely replay failed batches."""
+        return self._state is None and not self._executors
+
     @classmethod
     def from_params(cls, params: EnvironmentParams) -> SyntheticEnvironment:
         """Build a SyntheticEnvironment from its params object."""

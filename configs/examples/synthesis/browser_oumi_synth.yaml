@@ -1,0 +1,195 @@
+# Browser Tool-Use Synthesis — Live Cloud Browser
+#
+# Generates multi-turn conversations between a user asking about Oumi and an
+# assistant that answers by actually browsing oumi.ai. Each sample drives a
+# single-tenant Kernel cloud browser through four Playwright tools
+# (navigate / read_text / click / type_text), so tool results are real page
+# content rather than LLM-simulated.
+#
+# Requirements:
+#   - Set KERNEL_API_KEY and OPENAI_API_KEY.
+#   - pip install 'oumi[browser]'
+#
+# Usage:
+#   oumi synth -c oumi://configs/examples/synthesis/browser_oumi_synth.yaml
+#
+# NOTE: one browser per sample is leased up front and held for the whole run,
+# so num_samples browsers are leased concurrently. See Kernel's billing docs
+# for how standby behavior for idle browsers affects cost.
+#
+# See Also:
+#   - docs/user_guides/synth/synth.md
+#   - src/oumi/environments/browser_executable_environment.py
+#   - src/oumi/environments/playwright_executors.py
+
+strategy: GENERAL
+num_samples: 3
+output_path: oumi_browser_dataset.jsonl
+
+environment_config:
+  environments:
+    - id: web
+      name: web
+      description: A live cloud browser for navigating and reading web pages.
+      env_type: browser
+      env_kwargs:
+        start_url: "https://oumi.ai"
+        headless: true
+        # Kernel's *inactivity* timeout (SDK default 60s). LLM think-time between
+        # tool calls counts as idle, so lower values can terminate a session when
+        # model think-time exceeds the timeout.
+        timeout_seconds: 600
+        # Use a warm browser pool for larger runs. Size it >= num_samples, or
+        # acquire blocks until acquire_timeout_seconds and then fails:
+        #   kernel browser-pools create --name rl-browser --size 50
+        # Remove headless and timeout_seconds above, then uncomment:
+        # pool: rl-browser
+        # acquire_timeout_seconds: 60
+      tools:
+        - id: navigate
+          name: navigate
+          description: Load a URL; returns the resolved url and page title.
+          executor: oumi.environments.playwright_executors.navigate
+          read_only: false
+          parameters:
+            type: object
+            properties:
+              url:
+                type: string
+                description: Absolute URL to load.
+              wait_until:
+                type: string
+                enum: [load, domcontentloaded, networkidle, commit]
+                description: Playwright load state.
+            required:
+              - url
+        - id: read_text
+          name: read_text
+          description: |
+            Read the visible inner text of a CSS selector (defaults to the whole
+            page body), truncated. Use this to gather page content before
+            answering — do not guess.
+          executor: oumi.environments.playwright_executors.read_text
+          parameters:
+            type: object
+            properties:
+              selector:
+                type: string
+                description: CSS selector to read; omit for the whole page body.
+              max_chars:
+                type: integer
+                minimum: 0
+                description: Truncate the returned text to this many characters.
+        - id: click
+          name: click
+          description: Click the element matching a CSS selector (e.g. a link).
+          executor: oumi.environments.playwright_executors.click
+          read_only: false
+          parameters:
+            type: object
+            properties:
+              selector:
+                type: string
+                description: CSS selector of the element to click.
+            required:
+              - selector
+        - id: type_text
+          name: type_text
+          description: Fill the element matching a CSS selector with text.
+          executor: oumi.environments.playwright_executors.type_text
+          read_only: false
+          parameters:
+            type: object
+            properties:
+              selector:
+                type: string
+                description: CSS selector of the input to fill.
+              text:
+                type: string
+                description: Text to type into the element.
+            required:
+              - selector
+              - text
+
+strategy_params:
+  sampled_attributes:
+    - id: oumi_topic
+      name: Oumi topic
+      description: What the user wants to learn about Oumi from the website.
+      possible_values:
+        - id: mission
+          name: what Oumi does / its mission
+          description: The product and the problem it solves.
+        - id: team
+          name: the Oumi team
+          description: Who works at Oumi and their backgrounds.
+        - id: careers
+          name: working at Oumi
+          description: Open roles or what it's like to work there.
+        - id: blog
+          name: a recent Oumi blog post or announcement
+          description: The latest writing or news from Oumi.
+
+  multiturn_attributes:
+    - id: web_task
+      min_turns: 4
+      max_turns: 6
+      max_consecutive_tool_turns: 8
+      available_environments:
+        - web
+
+      role_instruction_messages:
+        USER: |
+          You are a user who wants to learn about {oumi_topic.name}
+          ({oumi_topic.description}) by asking a web assistant.
+
+          Guidelines:
+          - Stay in character as a curious user.
+          - Don't call tools yourself; only the assistant has browser tools.
+          - Follow the plan's direction for this turn but respond naturally.
+          - Keep responses concise.
+
+          Output only the user's message, nothing else.
+
+        ASSISTANT: |
+          You are a web-browsing assistant with these tools:
+          - navigate(url): load a page.
+          - read_text(selector?): read a page's visible text (omit selector for body).
+          - click(selector): click a link/element.
+          - type_text(selector, text): fill an input.
+
+          Guidelines:
+          - Start from https://oumi.ai. Use navigate then read_text to gather
+            information BEFORE answering — never guess facts about Oumi.
+          - The homepage rarely has the details. For team members, people, or
+            jobs, navigate to the Company page (https://oumi.ai/company); for
+            posts or news, try https://oumi.ai/blog. READ the relevant sub-page
+            before concluding information is unavailable.
+          - Prefer read_text on the whole page; only use a selector you have seen.
+          - If a selector fails, retry by reading the whole page instead.
+          - When you have the answer, give it in plain text without calling a tool.
+
+      conversation_planner: |
+        Plan a {target_turns}-turn conversation where a user learns about
+        {oumi_topic.name} from oumi.ai and the assistant must navigate and
+        read_text at least once to answer. Be specific about what each turn
+        accomplishes; keep it focused on the topic.
+
+      output_system_prompt: |
+        This is a conversation between a user and a web-browsing assistant that
+        looks up information about Oumi on oumi.ai using browser tools.
+
+  passthrough_attributes:
+    - oumi_topic
+    - web_task
+    - web_task_plan
+
+inference_config:
+  engine: OPENAI
+  model:
+    model_name: gpt-4o
+  generation:
+    max_new_tokens: 1024
+    temperature: 0.4
+  remote_params:
+    num_workers: 5

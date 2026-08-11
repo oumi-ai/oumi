@@ -1,13 +1,18 @@
+import importlib
 import importlib.metadata
+import sys
 
 import pytest
 from packaging import version
 
 from oumi.utils.packaging import (
     PackagePrerequisites,
+    _is_module_available,
     _package_error_message,
     _package_prerequisites_error_messages,
     check_package_prerequisites,
+    require_kernel,
+    require_playwright,
     verify_trl_vllm_compatibility,
 )
 
@@ -187,3 +192,21 @@ def test_verify_trl_vllm_compatibility_fails_new_trl_old_vllm(monkeypatch):
     monkeypatch.setattr("importlib.metadata.version", mock_version)
     with pytest.raises(RuntimeError, match="vLLM >= 0.11.0"):
         verify_trl_vllm_compatibility("test")
+
+
+@pytest.mark.parametrize(
+    ("module", "require"),
+    [("kernel", require_kernel), ("playwright", require_playwright)],
+)
+def test_require_browser_dependency_points_at_the_extra(monkeypatch, module, require):
+    def raise_import_error(name):
+        raise ImportError(name)
+
+    monkeypatch.delitem(sys.modules, module, raising=False)
+    monkeypatch.setattr(importlib, "import_module", raise_import_error)
+    _is_module_available.cache_clear()
+    try:
+        with pytest.raises(ImportError, match=r"oumi\[browser\]"):
+            require("Browser env")
+    finally:
+        _is_module_available.cache_clear()
