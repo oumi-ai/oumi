@@ -1,5 +1,4 @@
 import json
-from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -234,9 +233,9 @@ def test_export_hf_model_without_checkpoints(make_temp_dir, tmp_path):
     temp_dir = tmp_path / "verl_output"
     if make_temp_dir:
         temp_dir.mkdir()
-    trainer = SimpleNamespace(
-        _final_output_dir=str(tmp_path / "final"),
-        _temp_output_dir=str(temp_dir),
-    )
+    # __init__ needs a live verl/Ray stack; the export only reads these two attrs.
+    trainer = object.__new__(VerlGrpoTrainer)
+    trainer._final_output_dir = tmp_path / "final"
+    trainer._temp_output_dir = temp_dir
 
-    assert VerlGrpoTrainer._export_hf_model(trainer) is False
+    assert trainer._export_hf_model() is False
