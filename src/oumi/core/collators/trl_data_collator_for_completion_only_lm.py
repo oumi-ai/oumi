@@ -61,6 +61,10 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
         mlm: Whether to use masked language modeling. Default False.
         ignore_index: Label value for masked tokens. Default -100.
         padding_free: Remove padding and add position_ids. Default False.
+        *args: Forwarded unchanged to ``DataCollatorForLanguageModeling``.
+        **kwargs: Forwarded unchanged to ``DataCollatorForLanguageModeling`` — this is
+            how ``tokenizer``, ``pad_to_multiple_of`` and the rest of the base
+            collator's settings are passed. Nothing here is read by this subclass.
     """
 
     _VALID_TRAIN_TARGETS = {t.value for t in TrainTarget} | {
@@ -68,7 +72,16 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
     }
 
     def _tokenize_template(self, template: str | list[int] | None) -> list[int] | None:
-        """Encode a template string into token IDs, or pass through if already IDs."""
+        """Encode a template string into token IDs, or pass through if already IDs.
+
+        Args:
+            template: Boundary marker to tokenize. A string is encoded without special
+                tokens; a list of token IDs is copied through unchanged, which is how
+                the builder passes markers it resolved itself; None passes through.
+
+        Returns:
+            The token IDs, or None when `template` is None.
+        """
         if template is None:
             return None
         if isinstance(template, str):
@@ -144,7 +157,19 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
 
     @staticmethod
     def _find_pattern(seq: list[int], pattern: list[int]) -> list[int]:
-        """Return all start positions where *pattern* appears in *seq*."""
+        """Return all start positions where *pattern* appears in *seq*.
+
+        Args:
+            seq: Token IDs to search.
+            pattern: Token IDs to find. An empty pattern matches nothing.
+
+        Returns:
+            Every index in `seq` where `pattern` starts, ascending. Overlapping
+            occurrences are all reported -- searching ``[1, 1, 1]`` for ``[1, 1]``
+            returns ``[0, 1]``, not just ``[0]``, because the scan does not skip
+            past a match it has already found. Callers pass boundary markers that
+            cannot overlap a copy of themselves, so this never comes up in practice.
+        """
         plen = len(pattern)
         if plen == 0:
             return []
@@ -158,8 +183,8 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
     def _mask_tool_response_spans(
         self,
         batch: dict[str, Any],
-        i: int,
-        seq: list[int],
+        row_idx: int,
+        row_token_ids: list[int],
         start_idx: int,
         end_idx: int,
     ) -> None:
@@ -171,6 +196,44 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
 
         An opener with no closer before `end_idx` masks through `end_idx`: truncation
         can cut a block in half, and over-masking is the safe direction.
+
+        Args:
+            batch: Collated batch. Modified in place: the labels of every bracketed
+                tool result found in the span are set to ``ignore_index``.
+            row_idx: Which example in the batch to mask.
+            row_token_ids: That row's token IDs, as a Python list. Passed in rather
+                than read off `batch` because the caller already has it decoded.
+            start_idx: First position of the span to scan, inclusive. Callers pass the
+                start of a just-unmasked assistant span.
+            end_idx: Position to stop scanning at, exclusive.
+
+        Returns:
+            None. The masking is applied to `batch` in place.
+
+        Examples:
+            A gemma-4 style turn, where the model calls a tool, the environment
+            answers inside the same turn, and the model then answers the user.
+            Span masking has already unmasked the whole turn; this walks it and
+            takes the tool result back out, leaving the call and the answer::
+
+                <resp> call <open> result <close> answer <eot>
+                       ^^^^ ^^^^^^^^^^^^^^^^^^^^ ^^^^^^
+                       kept       masked          kept
+
+            Parallel tool calls give two blocks in one turn. The loop resumes at
+            `cursor = block_end`, so the second is found on the next pass::
+
+                <resp> <open> a <close> <open> b <close> answer <eot>
+                       ^^^^^^^^^^^^^^^^ ^^^^^^^^^^^^^^^^
+                          masked            masked
+
+            An opener whose closer was cut off by truncation masks everything to
+            `end_idx`. Over-masking costs a little signal; under-masking would
+            train on environment output, so the bias goes this way on purpose::
+
+                <resp> call <open> result-cut-off-here|
+                       ^^^^ ^^^^^^^^^^^^^^^^^^^^^^^^^^
+                       kept        masked to end_idx
         """
         open_ids = self.tool_response_token_ids
         close_ids = self.end_of_tool_response_token_ids
@@ -179,13 +242,13 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
 
         cursor = start_idx
         while cursor < end_idx:
-            opens = self._find_pattern(seq[cursor:end_idx], open_ids)
+            opens = self._find_pattern(row_token_ids[cursor:end_idx], open_ids)
             if not opens:
                 return
             block_start = cursor + opens[0]
-            closes = self._find_pattern(seq[block_start:end_idx], close_ids)
+            closes = self._find_pattern(row_token_ids[block_start:end_idx], close_ids)
             block_end = block_start + closes[0] + len(close_ids) if closes else end_idx
-            batch["labels"][i, block_start:block_end] = self.ignore_index
+            batch["labels"][row_idx, block_start:block_end] = self.ignore_index
             cursor = block_end
 
     def _apply_span_masking(
@@ -196,6 +259,15 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
         Masks all labels, then unmarks assistant response spans bounded by
         response_template and end_of_turn_template (inclusive — the EOT token
         is unmasked so the model learns to produce it).
+
+        Args:
+            batch: Collated batch. Its ``labels`` are rewritten in place.
+            examples: The pre-collation examples, used only for their count — the
+                token IDs are read back off `batch` so that padding and truncation
+                already applied by the base collator are accounted for.
+
+        Returns:
+            None. The masking is applied to `batch` in place.
         """
         resp_ids = self.response_token_ids
         eot_ids = self.end_of_turn_token_ids
@@ -265,7 +337,16 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
     def torch_call(
         self, examples: list[list[int] | Any | dict[str, Any]]
     ) -> dict[str, Any]:
-        """Collates a list of examples into a batch."""
+        """Collates a list of examples into a batch.
+
+        Args:
+            examples: Examples to collate, each a list of token IDs or a mapping
+                holding at least ``input_ids``. Passed through to the base collator,
+                which handles padding.
+
+        Returns:
+            The collated batch, with ``labels`` masked according to ``train_target``.
+        """
         batch = super().torch_call(examples)
 
         if self.train_target == "all_assistant_turns":
