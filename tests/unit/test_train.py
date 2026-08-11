@@ -1,5 +1,6 @@
 import functools
 import sys
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import pytest
@@ -212,29 +213,13 @@ def test_recompile_limit_env_override_wins(monkeypatch, restore_dynamo_limits):
     assert torch._dynamo.config.cache_size_limit == 128
 
 
-class _InlineRay:
-    """Ray stand-in that runs the remote function inline, so no cluster is needed."""
-
-    @staticmethod
-    def is_initialized():
-        return True
-
-    @staticmethod
-    def init(**kwargs):
-        pass
-
-    @staticmethod
-    def remote(fn):
-        class _Handle:
-            @staticmethod
-            def remote(*args, **kwargs):
-                return functools.partial(fn, *args, **kwargs)
-
-        return _Handle
-
-    @staticmethod
-    def get(ref):
-        return ref()
+# Runs the remote function inline so no Ray cluster is needed. A MagicMock won't do:
+# it would swallow the call and the body would never execute.
+_INLINE_RAY = SimpleNamespace(
+    is_initialized=lambda: True,
+    remote=lambda fn: SimpleNamespace(remote=lambda *a: functools.partial(fn, *a)),
+    get=lambda ref: ref(),
+)
 
 
 @pytest.mark.parametrize("save_final_model,expected_saves", [(True, 1), (False, 0)])
@@ -245,7 +230,7 @@ def test_verl_train_exports_final_model(
     base_training_config.training.save_final_model = save_final_model
     trainer = Mock()
 
-    with patch.dict(sys.modules, {"ray": _InlineRay}):
+    with patch.dict(sys.modules, {"ray": _INLINE_RAY}):
         _verl_train(lambda: trainer, base_training_config)
 
     assert trainer.train.call_count == 1
