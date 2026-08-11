@@ -48,6 +48,23 @@ def create_test_tokenizer() -> tuple[BaseTokenizer, int]:
     return tokenizer, int(tokenizer.pad_token_id)
 
 
+@functools.cache
+def encode_template(template: str) -> list[int]:
+    """Encode a template, asserting it shares no token ID with _SENTINELS.
+
+    A collision would make a "content survived" assertion pass on a template token,
+    so every template used as a boundary marker goes through here.
+    """
+    tokenizer, _ = create_test_tokenizer()
+    ids = tokenizer.encode(template, add_special_tokens=False)
+    collisions = sorted(set(ids) & set(_SENTINELS))
+    assert not collisions, (
+        f"Template {template!r} encodes to sentinel IDs {collisions}. "
+        "Adjust _SENTINELS."
+    )
+    return ids
+
+
 def test_success_basic():
     tokenizer, pad_token_id = create_test_tokenizer()
 
@@ -258,18 +275,9 @@ def test_debug_logging(caplog):
 # ===========================================================================
 
 
-@functools.cache
 def get_template_token_ids() -> tuple[list[int], list[int]]:
-    """Return (resp_ids, eot_ids) encoded once and cached."""
-    tokenizer, _ = create_test_tokenizer()
-    resp = tokenizer.encode(_RESP_STR, add_special_tokens=False)
-    eot = tokenizer.encode(_EOT_STR, add_special_tokens=False)
-    forbidden = set(resp) | set(eot)
-    for sentinel in _SENTINELS:
-        assert sentinel not in forbidden, (
-            f"Sentinel {sentinel} collides with a template token ID. Adjust _SENTINELS."
-        )
-    return resp, eot
+    """Return (resp_ids, eot_ids)."""
+    return encode_template(_RESP_STR), encode_template(_EOT_STR)
 
 
 def make_span_collator() -> TextCompletionsCollatorWithPadding:
@@ -517,8 +525,7 @@ def test_leading_newline_bpe_merge_regression():
 def test_span_masking_with_leading_newline_content():
     """Content starting with \\n is correctly unmasked when template is stripped."""
     tokenizer, _ = create_test_tokenizer()
-    resp_ids = tokenizer.encode(_RESP_STR, add_special_tokens=False)
-    eot_ids = tokenizer.encode(_EOT_STR, add_special_tokens=False)
+    resp_ids, eot_ids = get_template_token_ids()
     nl_ids = tokenizer.encode("\n\n", add_special_tokens=False)
     content = [_SENTINELS[0], _SENTINELS[1]]
 
@@ -650,25 +657,19 @@ _TOOL_CLOSE_STR = " TOOL_RESULT_ENDS"
 
 
 def get_tool_template_token_ids() -> tuple[list[int], list[int]]:
-    tokenizer, _ = create_test_tokenizer()
-    open_ids = tokenizer.encode(_TOOL_OPEN_STR, add_special_tokens=False)
-    close_ids = tokenizer.encode(_TOOL_CLOSE_STR, add_special_tokens=False)
-    forbidden = set(open_ids) | set(close_ids)
-    for sentinel in _SENTINELS:
-        assert sentinel not in forbidden, (
-            f"Sentinel {sentinel} collides with a tool marker ID. Adjust _SENTINELS."
-        )
-    return open_ids, close_ids
+    return encode_template(_TOOL_OPEN_STR), encode_template(_TOOL_CLOSE_STR)
 
 
 def make_tool_span_collator(
     train_target: str = "all_assistant_turns",
+    instruction_template: str | None = None,
 ) -> TextCompletionsCollatorWithPadding:
     tokenizer, _ = create_test_tokenizer()
     return TextCompletionsCollatorWithPadding(
         tokenizer=tokenizer,
         response_template=_RESP_STR,
         train_target=train_target,
+        instruction_template=instruction_template,
         end_of_turn_template=_EOT_STR,
         tool_response_template=_TOOL_OPEN_STR,
         end_of_tool_response_template=_TOOL_CLOSE_STR,
@@ -884,3 +885,48 @@ def test_bracket_inside_an_assistant_turn_is_not_inert():
     assert _SENTINELS[0] not in with_bracket, "bracket masks it"
     # Everything after the closer still trains, so the damage is bounded.
     assert _SENTINELS[1] in with_bracket
+
+
+# ---------------------------------------------------------------------------
+# Legacy instruction/response masking with a bracket configured
+# ---------------------------------------------------------------------------
+
+_INST_STR = " USER_TURN_STARTS"
+
+
+def test_legacy_instruction_response_accepts_the_bracket_but_never_applies_it():
+    """A bracket set on the legacy path is tokenized and then ignored.
+
+    ``torch_call`` only re-masks tool results on the two span targets, so a nested
+    tool result stays in the loss here. The pair is accepted without complaint,
+    which is what makes it easy to miss.
+    """
+    resp, _ = get_template_token_ids()
+    inst = encode_template(_INST_STR)
+    tool_open, tool_close = get_tool_template_token_ids()
+    question = [_SENTINELS[0]]
+    payload = [_SENTINELS[1]]
+    answer = [_SENTINELS[2]]
+    seq = flat(inst, question, resp, tool_open, payload, tool_close, answer)
+
+    with_bracket = make_tool_span_collator("_legacy_instruction_response", _INST_STR)
+    inner = with_bracket._default_collator
+    assert inner.tool_response_token_ids == tool_open, "bracket is stored, not dropped"
+    assert inner.end_of_tool_response_token_ids == tool_close
+
+    without_bracket = TextCompletionsCollatorWithPadding(
+        tokenizer=create_test_tokenizer()[0],
+        response_template=_RESP_STR,
+        instruction_template=_INST_STR,
+        train_target="_legacy_instruction_response",
+    )
+
+    labels = get_span_labels(with_bracket, seq)
+
+    assert labels == get_span_labels(without_bracket, seq), (
+        "the bracket changed nothing"
+    )
+    assert _SENTINELS[0] not in labels, "the user turn is masked, as legacy intends"
+    assert _SENTINELS[1] in labels, (
+        "the nested tool result is still trained on despite the configured bracket"
+    )

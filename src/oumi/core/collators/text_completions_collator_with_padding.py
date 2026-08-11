@@ -52,7 +52,7 @@ class TextCompletionsCollatorWithPadding:
             Required for ``all_assistant_turns``.
         tool_response_template: String or token IDs opening a tool result that the
             chat template renders inside the assistant turn (e.g. gemma-4's
-            ``<|tool_response>``). Auto-detected by ``resolve_tool_response_template``.
+            ``<|tool_response>``).
         end_of_tool_response_template: String or token IDs closing such a tool result.
             Both are needed to exclude tool results from the loss.
         ignore_index: Value used for masked labels. Must match the ignore_index

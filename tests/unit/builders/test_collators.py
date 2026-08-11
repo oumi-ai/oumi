@@ -22,6 +22,7 @@ from oumi.core.configs import (
     TrainingParams,
     TrainTarget,
 )
+from tests.markers import requires_hf_token
 
 
 def test_build_data_collator_empty_name(mock_tokenizer):
@@ -628,7 +629,8 @@ def test_known_architecture_resolves_bracket(model_name, bracket, real_tokenizer
     "model_name",
     [
         pytest.param("Qwen/Qwen3-0.6B", id="qwen3"),
-        pytest.param("google/gemma-3-4b-it", id="gemma-3"),
+        # Gated repo: resolving the architecture needs an authenticated config fetch.
+        pytest.param("google/gemma-3-4b-it", id="gemma-3", marks=requires_hf_token()),
         pytest.param("MlpEncoder", id="custom-oumi-model"),
     ],
 )
@@ -675,6 +677,38 @@ def test_non_span_train_target_resolves_no_bracket(real_tokenizer):
     assert collator is not None
     assert collator._default_collator.train_target == "_legacy_instruction_response"
     assert collator._default_collator.tool_response_token_ids is None
+
+
+def test_legacy_train_target_still_accepts_a_hand_supplied_bracket(real_tokenizer):
+    """A hand-supplied bracket reaches the legacy collator, which never applies it.
+
+    ``_resolve_tool_bracket`` returns early for a user-supplied pair, so the
+    "only span masking can unmask a tool result" guard below it never runs. The
+    markers are tokenized and stored; ``torch_call``'s legacy branch ignores them.
+    Supplying one marker raises, supplying both is silently inert.
+    """
+    config = _tool_config(
+        "google/gemma-4-E2B-it",
+        collator_kwargs={
+            "response_template": "<|assistant|>",
+            "instruction_template": "<|user|>",
+            "tool_response_template": "<custom_open>",
+            "end_of_tool_response_template": "<custom_close>",
+        },
+    )
+
+    with pytest.deprecated_call():
+        collator = build_collator_from_config(config, tokenizer=real_tokenizer)
+
+    assert collator is not None
+    inner = collator._default_collator
+    assert inner.train_target == "_legacy_instruction_response"
+    assert inner.tool_response_token_ids == real_tokenizer.encode(
+        "<custom_open>", add_special_tokens=False
+    )
+    assert inner.end_of_tool_response_token_ids == real_tokenizer.encode(
+        "<custom_close>", add_special_tokens=False
+    )
 
 
 @pytest.mark.parametrize(
