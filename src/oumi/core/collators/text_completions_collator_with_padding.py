@@ -34,6 +34,8 @@ class TextCompletionsCollatorWithPadding:
         instruction_template: str | None = None,
         debug: bool = False,
         end_of_turn_template: str | None = None,
+        tool_response_template: str | list[int] | None = None,
+        end_of_tool_response_template: str | list[int] | None = None,
         ignore_index: int = -100,
         pad_to_multiple_of: int | None = None,
     ):
@@ -48,6 +50,11 @@ class TextCompletionsCollatorWithPadding:
             or ``"final_assistant_turn"``.
         end_of_turn_template: String marking the end of a turn.
             Required for ``all_assistant_turns``.
+        tool_response_template: String or token IDs opening a tool result that the
+            chat template renders inside the assistant turn (e.g. gemma-4's
+            ``<|tool_response>``). Auto-detected by ``resolve_tool_response_template``.
+        end_of_tool_response_template: String or token IDs closing such a tool result.
+            Both are needed to exclude tool results from the loss.
         ignore_index: Value used for masked labels. Must match the ignore_index
             of the loss function (default: -100).
         pad_to_multiple_of: If set, pad each batch up to a multiple of this
@@ -65,6 +72,8 @@ class TextCompletionsCollatorWithPadding:
             response_template=response_template,
             train_target=train_target,
             end_of_turn_template=end_of_turn_template,
+            tool_response_template=tool_response_template,
+            end_of_tool_response_template=end_of_tool_response_template,
             ignore_index=ignore_index,
         )
 

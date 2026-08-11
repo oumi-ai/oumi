@@ -637,3 +637,152 @@ def test_pad_to_multiple_of_none_keeps_longest_in_batch():
     }
     batch = collator([row])
     assert batch["input_ids"].shape[1] == len(row["input_ids"])
+
+
+# ---------------------------------------------------------------------------
+# Tool results nested inside an assistant turn
+# ---------------------------------------------------------------------------
+
+# Markers standing in for a template that renders tool results inside the assistant
+# turn (gemma-4 renders <|tool_response|>...<tool_response|> there).
+_TOOL_OPEN_STR = " TOOL_RESULT_STARTS"
+_TOOL_CLOSE_STR = " TOOL_RESULT_ENDS"
+
+
+def get_tool_template_token_ids() -> tuple[list[int], list[int]]:
+    tokenizer, _ = create_test_tokenizer()
+    open_ids = tokenizer.encode(_TOOL_OPEN_STR, add_special_tokens=False)
+    close_ids = tokenizer.encode(_TOOL_CLOSE_STR, add_special_tokens=False)
+    forbidden = set(open_ids) | set(close_ids)
+    for sentinel in _SENTINELS:
+        assert sentinel not in forbidden, (
+            f"Sentinel {sentinel} collides with a tool marker ID. Adjust _SENTINELS."
+        )
+    return open_ids, close_ids
+
+
+def make_tool_span_collator(
+    train_target: str = "all_assistant_turns",
+) -> TextCompletionsCollatorWithPadding:
+    tokenizer, _ = create_test_tokenizer()
+    return TextCompletionsCollatorWithPadding(
+        tokenizer=tokenizer,
+        response_template=_RESP_STR,
+        train_target=train_target,
+        end_of_turn_template=_EOT_STR,
+        tool_response_template=_TOOL_OPEN_STR,
+        end_of_tool_response_template=_TOOL_CLOSE_STR,
+    )
+
+
+def test_span_tool_response_is_masked_inside_assistant_turn():
+    resp, eot = get_template_token_ids()
+    tool_open, tool_close = get_tool_template_token_ids()
+    call = [_SENTINELS[0]]
+    payload = [_SENTINELS[1], _SENTINELS[2]]
+    answer = [_SENTINELS[3]]
+    seq = flat(resp, call, tool_open, payload, tool_close, answer, eot)
+
+    labels = get_span_labels(make_tool_span_collator(), seq)
+
+    at = len(resp)
+    assert all(v == IGNORE for v in labels[:at]), "response header must stay masked"
+    assert labels[at : at + len(call)] == call, "tool call is the model's own output"
+    at += len(call)
+    masked = len(tool_open) + len(payload) + len(tool_close)
+    assert all(v == IGNORE for v in labels[at : at + masked]), (
+        "tool result and both markers must be masked"
+    )
+    at += masked
+    assert labels[at : at + len(answer)] == answer, (
+        "assistant text after the tool result must stay trained"
+    )
+    assert labels[at + len(answer) :] == eot
+
+
+def test_span_parallel_tool_responses_are_both_masked():
+    resp, eot = get_template_token_ids()
+    tool_open, tool_close = get_tool_template_token_ids()
+    first = [_SENTINELS[0]]
+    second = [_SENTINELS[1]]
+    answer = [_SENTINELS[2]]
+    seq = flat(
+        resp,
+        tool_open,
+        first,
+        tool_close,
+        tool_open,
+        second,
+        tool_close,
+        answer,
+        eot,
+    )
+
+    labels = get_span_labels(make_tool_span_collator(), seq)
+
+    assert _SENTINELS[0] not in labels
+    assert _SENTINELS[1] not in labels
+    assert _SENTINELS[2] in labels
+
+
+def test_span_unclosed_tool_response_masks_through_span_end():
+    resp, eot = get_template_token_ids()
+    tool_open, _ = get_tool_template_token_ids()
+    payload = [_SENTINELS[0], _SENTINELS[1]]
+    # Truncation can drop the closing marker; over-masking is the safe direction.
+    seq = flat(resp, tool_open, payload, eot)
+
+    labels = get_span_labels(make_tool_span_collator(), seq)
+
+    assert all(v == IGNORE for v in labels), (
+        "an unclosed tool result must mask through the end of the span"
+    )
+
+
+def test_span_tool_masking_leaves_other_turns_untouched():
+    resp, eot = get_template_token_ids()
+    tool_open, tool_close = get_tool_template_token_ids()
+    payload = [_SENTINELS[0]]
+    plain = [_SENTINELS[1], _SENTINELS[2]]
+    seq = flat(
+        resp,
+        tool_open,
+        payload,
+        tool_close,
+        eot,
+        [_SENTINELS[3]],
+        resp,
+        plain,
+        eot,
+    )
+
+    labels = get_span_labels(make_tool_span_collator(), seq)
+
+    assert _SENTINELS[0] not in labels
+    start = len(seq) - len(plain) - len(eot)
+    assert labels[start : start + len(plain)] == plain
+
+
+def test_span_without_tool_templates_trains_tool_response():
+    """Without the pair, behavior is unchanged — this is the bug being fixed."""
+    resp, eot = get_template_token_ids()
+    tool_open, tool_close = get_tool_template_token_ids()
+    payload = [_SENTINELS[0]]
+    seq = flat(resp, tool_open, payload, tool_close, eot)
+
+    labels = get_span_labels(make_span_collator(), seq)
+
+    assert _SENTINELS[0] in labels
+
+
+def test_final_assistant_turn_tool_response_is_masked():
+    resp, eot = get_template_token_ids()
+    tool_open, tool_close = get_tool_template_token_ids()
+    payload = [_SENTINELS[0]]
+    answer = [_SENTINELS[1]]
+    seq = flat([_SENTINELS[2]], resp, tool_open, payload, tool_close, answer, eot)
+
+    labels = get_span_labels(make_tool_span_collator("final_assistant_turn"), seq)
+
+    assert _SENTINELS[0] not in labels, "tool result must be masked"
+    assert _SENTINELS[1] in labels, "final answer must stay trained"
