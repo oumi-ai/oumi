@@ -25,10 +25,11 @@ keys at validation time would silently lose information that
 downstream code relies on.
 """
 
+import json
 from enum import Enum
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, JsonValue
+from pydantic import BaseModel, ConfigDict, JsonValue, field_validator
 
 # The seven primitive types defined by JSON Schema.
 JSONSchemaType = Literal[
@@ -154,7 +155,18 @@ class FunctionCall(BaseModel):
     OpenAI wire format keeps this as an unparsed JSON-encoded string
     (NOT a dict). Some providers return malformed JSON; downstream
     code is responsible for parsing and handling errors.
+
+    HF chat templates use the object form instead, so datasets in that
+    shape pass a dict here; it is encoded to the string form on input.
     """
+
+    @field_validator("arguments", mode="before")
+    @classmethod
+    def _encode_object_arguments(cls, raw_arguments: Any) -> Any:
+        """Accepts the object form used by HF chat templates and tool datasets."""
+        if isinstance(raw_arguments, (dict, list)):
+            return json.dumps(raw_arguments)
+        return raw_arguments
 
 
 class ToolCall(BaseModel):

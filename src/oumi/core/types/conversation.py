@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import base64
+import json
 from collections.abc import Callable, Generator
 from enum import Enum
 from typing import Any, NamedTuple
@@ -563,6 +564,17 @@ class Conversation(pydantic.BaseModel):
         self._restore_null_content_on_tool_call_messages(data)
         return data
 
+    def to_chat_template_dict(self) -> dict:
+        """Converts the conversation to a dictionary for ``apply_chat_template``.
+
+        Identical to ``to_dict()`` except that tool-call ``arguments`` are
+        emitted as an object. Kept separate because ``to_dict()`` is the OpenAI
+        wire format and must round-trip JSONL byte-identically.
+        """
+        data = self.to_dict()
+        self._decode_tool_call_arguments(data)
+        return data
+
     def _restore_null_content_on_tool_call_messages(self, data: dict) -> None:
         """Re-add ``content: null`` on assistant messages that only carry tool_calls.
 
@@ -580,6 +592,32 @@ class Conversation(pydantic.BaseModel):
         for msg_dict, msg in zip(msg_dicts, self.messages):
             if msg.tool_calls and "content" not in msg_dict:
                 msg_dict["content"] = None
+
+    def _decode_tool_call_arguments(self, data: dict) -> None:
+        """Emits tool-call ``arguments`` as an object rather than a JSON string.
+
+        HF chat templates index into ``arguments`` directly (``.items()``,
+        ``| tojson``) and the Jinja sandbox has no JSON-parsing filter, so a
+        string renders double-encoded or raises. Arguments that don't parse to
+        a JSON object are left alone, preserving ``FunctionCall.arguments``'s
+        tolerance for malformed provider output.
+
+        Mutates ``data`` in place.
+        """
+        for msg_dict in data.get("messages", []):
+            for tool_call in msg_dict.get("tool_calls") or []:
+                function = tool_call.get("function")
+                if not isinstance(function, dict):
+                    continue
+                raw_arguments = function.get("arguments")
+                if not isinstance(raw_arguments, str):
+                    continue
+                try:
+                    arguments = json.loads(raw_arguments)
+                except ValueError:
+                    continue
+                if isinstance(arguments, dict):
+                    function["arguments"] = arguments
 
     def append_id_to_string(self, s: str) -> str:
         """Appends conversation ID to a string.

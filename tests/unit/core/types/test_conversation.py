@@ -3,6 +3,7 @@ from typing import Final, cast
 
 import pydantic
 import pytest
+from jinja2 import Template
 from transformers.utils.chat_template_utils import (
     DocstringParsingException,
     get_json_schema,
@@ -1174,6 +1175,98 @@ def test_conversation_roundtrip_openai_tool_format():
     assert out["messages"][1]["content"] is None
     assert out["messages"][1]["tool_calls"] == [_TOOL_CALL_DICT]
     assert out["messages"][2]["tool_call_id"] == "call_abc"
+
+
+# -----------------------------------------------------------------------------
+# Tool-call arguments: OpenAI stores a JSON string, chat templates need an object
+# -----------------------------------------------------------------------------
+
+# Mirrors what real templates do with `arguments`: Qwen-style serialization and
+# Muse-Glimmer-style key iteration. Both are wrong or fatal given a JSON string.
+_TOJSON_TEMPLATE = "{{ messages[0].tool_calls[0].function.arguments | tojson }}"
+_ITEMS_TEMPLATE = (
+    "{% for k, v in messages[0].tool_calls[0].function.arguments.items() %}"
+    "{{ k }}={{ v }}{% endfor %}"
+)
+
+
+def _tool_call(arguments) -> ToolCall:
+    return ToolCall.model_validate(
+        {
+            "id": "call_abc",
+            "type": "function",
+            "function": {"name": "get_weather", "arguments": arguments},
+        }
+    )
+
+
+def _tool_call_conversation(arguments) -> Conversation:
+    return Conversation(
+        messages=[
+            Message(role=Role.ASSISTANT, content=None, tool_calls=[_tool_call(arguments)])
+        ]
+    )
+
+
+def test_function_call_accepts_object_arguments():
+    """Datasets in the HF chat-template shape pass a dict; storage stays a string."""
+    assert _tool_call({"city": "SF"}).function.arguments == '{"city": "SF"}'
+
+
+def test_function_call_preserves_string_arguments():
+    assert _tool_call('{"city": "SF"}').function.arguments == '{"city": "SF"}'
+
+
+@pytest.mark.parametrize("arguments", [{"city": "SF"}, '{"city": "SF"}'])
+def test_chat_template_dict_emits_arguments_as_object(arguments):
+    """Either input shape renders as an object, so templates can index into it."""
+    out = _tool_call_conversation(arguments).to_chat_template_dict()
+    assert out["messages"][0]["tool_calls"][0]["function"]["arguments"] == {"city": "SF"}
+
+
+def test_to_dict_keeps_arguments_as_openai_string():
+    """to_dict() stays the wire format; only the template variant converts."""
+    out = _tool_call_conversation({"city": "SF"}).to_dict()
+    assert out["messages"][0]["tool_calls"][0]["function"]["arguments"] == (
+        '{"city": "SF"}'
+    )
+
+
+def test_chat_template_dict_leaves_malformed_arguments_as_string():
+    """Providers return invalid JSON; it must survive rather than raise."""
+    out = _tool_call_conversation("not json{").to_chat_template_dict()
+    assert out["messages"][0]["tool_calls"][0]["function"]["arguments"] == "not json{"
+
+
+def test_object_arguments_roundtrip_through_jsonl_wire_format():
+    """A dict-shaped dataset still dumps and reloads in the OpenAI string form."""
+    conv = _tool_call_conversation({"city": "SF"})
+    restored_calls = Conversation.from_dict(conv.to_dict()).messages[0].tool_calls
+    assert restored_calls is not None
+    assert restored_calls[0].function.arguments == '{"city": "SF"}'
+
+
+def test_api_payload_keeps_openai_string_arguments():
+    """The API serializer is separate and must stay on the OpenAI wire format."""
+    from oumi.utils.conversation_utils import create_list_of_message_json_dicts
+
+    conv = _tool_call_conversation({"city": "SF"})
+    payload = create_list_of_message_json_dicts(
+        conv.messages, group_adjacent_same_role_turns=False
+    )
+    assert payload[0]["tool_calls"][0]["function"]["arguments"] == '{"city": "SF"}'
+
+
+@pytest.mark.parametrize(
+    "template,expected",
+    [(_TOJSON_TEMPLATE, '{"city": "SF"}'), (_ITEMS_TEMPLATE, "city=SF")],
+)
+def test_chat_template_renders_arguments_as_object(template, expected):
+    """A JSON string double-encodes under `tojson` and has no `.items()`."""
+    rendered = Template(template).render(
+        **_tool_call_conversation({"city": "SF"}).to_chat_template_dict()
+    )
+    assert rendered == expected
 
 
 # -----------------------------------------------------------------------------

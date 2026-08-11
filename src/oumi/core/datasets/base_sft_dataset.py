@@ -185,7 +185,7 @@ class BaseSftDataset(BaseMapDataset, ABC):
         assistant messages with `tool_calls`, tool messages with
         `tool_call_id`, plain messages with neither), and that's fine.
         """
-        data = conversation.to_dict()
+        data = conversation.to_chat_template_dict()
         data.setdefault("tools", None)
         return data
 
@@ -254,8 +254,16 @@ class BaseSftDataset(BaseMapDataset, ABC):
         if self._tokenizer is None:
             raise ValueError("Tokenizer is required for tokenization.")
 
+        tools = None
+        if isinstance(sample, Conversation):
+            # Templates need tool-call `arguments` as an object, and `tools` as a
+            # separate kwarg; passing the Conversation renders the string form.
+            data = sample.to_chat_template_dict()
+            sample, tools = data["messages"], data.get("tools")
+
         results = self._tokenizer.apply_chat_template(
             sample,  # type: ignore
+            tools=tools,
             tokenize=tokenize,
             return_dict=tokenize,
             return_tensors=self._return_tensors,
