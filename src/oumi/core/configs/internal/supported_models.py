@@ -622,6 +622,15 @@ def get_all_models_map() -> Mapping[
             model_class=transformers.AutoModelForImageTextToText,
             config=_create_internvl_config(),
         ),
+        _ModelTypeInfo(
+            model_type="muse_glimmer",
+            model_class=transformers.AutoModelForImageTextToText,
+            # muse_glimmer has no AutoModelForCausalLM registration in
+            # transformers, so the class mapping is required even for
+            # text-only SFT. chat_template is left empty so the tokenizer's
+            # built-in template is used.
+            config=InternalModelConfig(chat_template=""),
+        ),
     ]
 
     # Make it immutable.
