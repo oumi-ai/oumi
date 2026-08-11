@@ -4,7 +4,11 @@ from unittest.mock import MagicMock
 import pytest
 
 import oumi.core.constants as constants
+from oumi.builders import build_tokenizer
 from oumi.builders.collators import (
+    _NESTING_MODEL_TYPES,
+    _TOOL_RESPONSE_BRACKETS,
+    _known_tool_response_markers,
     build_collator_from_config,
     build_data_collator,
     resolve_collator_templates,
@@ -496,3 +500,198 @@ def test_old_recipe_eot_sets_all_assistant(mock_tokenizer):
     collator = build_collator_from_config(config, tokenizer=mock_tokenizer)
     assert collator is not None
     assert collator._default_collator.train_target == "all_assistant_turns"
+
+
+# ---------------------------------------------------------------------------
+# Tool-result bracket for architectures that nest tool results in assistant turns
+# ---------------------------------------------------------------------------
+
+# Verified against transformers 5.7.0. Keep in sync with _TOOL_RESPONSE_BRACKETS.
+_GEMMA4_BRACKET = ("<|tool_response>", "<tool_response|>")
+_GLM4_BRACKET = ("<tool_response>", "</tool_response>")
+
+_SPAN_KWARGS = {
+    "response_template": "<|assistant|>",
+    "end_of_turn_template": "<|end|>",
+}
+
+
+@pytest.fixture(scope="module")
+def real_tokenizer():
+    """A real tokenizer, so bracket strings encode to comparable token IDs."""
+    return build_tokenizer(
+        ModelParams(
+            model_name="MlpEncoder",
+            torch_dtype_str="float16",
+            trust_remote_code=False,
+            tokenizer_name="openai-community/gpt2",
+            tokenizer_pad_token="<|endoftext|>",
+        )
+    )
+
+
+def _tool_config(
+    model_name: str,
+    collator_kwargs: dict | None = None,
+    train_target: TrainTarget | None = None,
+) -> TrainingConfig:
+    """Config whose model_name drives the architecture lookup."""
+    return TrainingConfig(
+        data=DataParams(
+            train=DatasetSplitParams(
+                collator_name="text_completions_only_with_padding",
+                train_target=train_target,
+                collator_kwargs=(
+                    dict(_SPAN_KWARGS) if collator_kwargs is None else collator_kwargs
+                ),
+                datasets=[DatasetParams(dataset_name="dummy", split="train")],
+            )
+        ),
+        model=ModelParams(
+            model_name=model_name,
+            tokenizer_name="openai-community/gpt2",
+            trust_remote_code=True,
+            model_max_length=512,
+        ),
+    )
+
+
+#
+# _known_tool_response_markers: pure lookup on model_type
+#
+
+
+@pytest.mark.parametrize(
+    "model_type,bracket",
+    [
+        pytest.param("gemma4", _GEMMA4_BRACKET, id="gemma4"),
+        pytest.param("gemma4_unified", _GEMMA4_BRACKET, id="gemma4_unified-12b"),
+        pytest.param("glm4_moe", _GLM4_BRACKET, id="glm4_moe"),
+        pytest.param("glm4v_moe", _GLM4_BRACKET, id="glm4v_moe"),
+    ],
+)
+def test_nesting_architectures_map_to_their_bracket(model_type, bracket):
+    assert _known_tool_response_markers(model_type) == bracket
+
+
+@pytest.mark.parametrize(
+    "model_type",
+    [
+        pytest.param("qwen3", id="qwen3"),
+        pytest.param("llama", id="llama"),
+        pytest.param("gemma3", id="gemma3-different-generation"),
+        pytest.param("chatglm", id="chatglm-older-glm"),
+        # GLM-4.6V-Flash reports glm4v, but so does GLM-4.1V, which does not nest.
+        # Leaving out glm4v is deliberate.
+        pytest.param("glm4v", id="glm4v-ambiguous"),
+        pytest.param(None, id="model-type-unknown"),
+        pytest.param("", id="model-type-empty"),
+    ],
+)
+def test_non_nesting_architectures_map_to_no_bracket(model_type):
+    assert _known_tool_response_markers(model_type) is None
+
+
+def test_registry_families_all_have_brackets():
+    assert set(_NESTING_MODEL_TYPES.values()) <= set(_TOOL_RESPONSE_BRACKETS)
+
+
+#
+# End-to-end through build_collator_from_config
+#
+
+
+@pytest.mark.parametrize(
+    "model_name,bracket",
+    [
+        pytest.param("google/gemma-4-E2B-it", _GEMMA4_BRACKET, id="gemma-4"),
+        pytest.param("zai-org/GLM-4.5", _GLM4_BRACKET, id="glm-4.5"),
+    ],
+)
+def test_known_architecture_resolves_bracket(model_name, bracket, real_tokenizer):
+    collator = build_collator_from_config(
+        _tool_config(model_name), tokenizer=real_tokenizer
+    )
+    assert collator is not None
+    inner = collator._default_collator
+
+    opener, closer = bracket
+    assert inner.tool_response_token_ids == real_tokenizer.encode(
+        opener, add_special_tokens=False
+    )
+    assert inner.end_of_tool_response_token_ids == real_tokenizer.encode(
+        closer, add_special_tokens=False
+    )
+
+
+@pytest.mark.parametrize(
+    "model_name",
+    [
+        pytest.param("Qwen/Qwen3-0.6B", id="qwen3"),
+        pytest.param("google/gemma-3-4b-it", id="gemma-3"),
+        pytest.param("MlpEncoder", id="custom-oumi-model"),
+    ],
+)
+def test_unknown_architecture_resolves_no_bracket(model_name, real_tokenizer):
+    """Unlisted architectures are untouched — the fallback path must stay inert."""
+    collator = build_collator_from_config(
+        _tool_config(model_name), tokenizer=real_tokenizer
+    )
+    assert collator is not None
+    assert collator._default_collator.tool_response_token_ids is None
+
+
+def test_supplied_bracket_overrides_known_architecture(real_tokenizer):
+    """A hand-configured bracket wins over the built-in table."""
+    config = _tool_config(
+        "google/gemma-4-E2B-it",
+        collator_kwargs={
+            **_SPAN_KWARGS,
+            "tool_response_template": "<custom_open>",
+            "end_of_tool_response_template": "<custom_close>",
+        },
+    )
+
+    collator = build_collator_from_config(config, tokenizer=real_tokenizer)
+    assert collator is not None
+    assert collator._default_collator.tool_response_token_ids == real_tokenizer.encode(
+        "<custom_open>", add_special_tokens=False
+    )
+
+
+def test_non_span_train_target_resolves_no_bracket(real_tokenizer):
+    """Only span masking can unmask a tool result, so legacy mode needs no bracket."""
+    config = _tool_config(
+        "google/gemma-4-E2B-it",
+        collator_kwargs={
+            "response_template": "<|assistant|>",
+            "instruction_template": "<|user|>",
+        },
+    )
+
+    with pytest.deprecated_call():
+        collator = build_collator_from_config(config, tokenizer=real_tokenizer)
+
+    assert collator is not None
+    assert collator._default_collator.train_target == "_legacy_instruction_response"
+    assert collator._default_collator.tool_response_token_ids is None
+
+
+@pytest.mark.parametrize(
+    "supplied,missing",
+    [
+        ("tool_response_template", "end_of_tool_response_template"),
+        ("end_of_tool_response_template", "tool_response_template"),
+    ],
+)
+def test_build_collator_half_supplied_tool_bracket_raises(
+    supplied, missing, mock_tokenizer
+):
+    """One marker alone masks nothing, so it must be reported rather than ignored."""
+    config = _tool_config(
+        "Qwen/Qwen3-0.6B",
+        collator_kwargs={**_SPAN_KWARGS, supplied: "<|tres|>"},
+    )
+
+    with pytest.raises(ValueError, match=f"without '{missing}'"):
+        build_collator_from_config(config, tokenizer=mock_tokenizer)

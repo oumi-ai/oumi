@@ -27,6 +27,7 @@ from oumi.core.collators.vision_language_sft_collator import VisionLanguageSftCo
 from oumi.core.configs import DatasetSplit, TrainingConfig
 from oumi.core.configs.internal.supported_models import (
     find_internal_model_config,
+    find_model_type_using_model_name,
 )
 from oumi.core.configs.params.data_params import TrainTarget
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
@@ -40,6 +41,31 @@ _FIX_HINT = (
     "Fix: provide response_template (and end_of_turn_template for "
     "all_assistant_turns) in collator_kwargs."
 )
+_SPAN_TRAIN_TARGETS = ("all_assistant_turns", "final_assistant_turn")
+_TOOL_TEMPLATE_KEYS = ("tool_response_template", "end_of_tool_response_template")
+
+_GEMMA_4 = "gemma-4"
+_GLM_4_MOE = "glm-4.5/4.6"
+
+# The bracket each family's chat template wraps a tool result in.
+_TOOL_RESPONSE_BRACKETS: dict[str, tuple[str, str]] = {
+    _GEMMA_4: ("<|tool_response>", "<tool_response|>"),
+    _GLM_4_MOE: ("<tool_response>", "</tool_response>"),
+}
+
+# HF ``config.model_type`` -> family, for architectures whose chat template renders
+# tool results inside the assistant turn. Keying on model_type rather than repo name
+# to also cover finetunes, mirrors, quantizations and local checkpoints
+#
+# WARNING: "glm4v" is excluded even though GLM-4.6V-Flash nests, because GLM-4.1V
+# reports the same model_type without nesting. GLM-4.6V-Flash therefore needs the
+# bracket set in collator_kwargs.
+_NESTING_MODEL_TYPES: dict[str, str] = {
+    "gemma4": _GEMMA_4,  # E2B/E4B/26B-A4B/31B, plus their -it and QAT variants
+    "gemma4_unified": _GEMMA_4,  # 12B
+    "glm4_moe": _GLM_4_MOE,  # GLM-4.5, -Air, 4.6, and FP8 variants
+    "glm4v_moe": _GLM_4_MOE,  # GLM-4.5V, GLM-4.6V
+}
 
 
 def _detect_eot_template(
@@ -194,6 +220,95 @@ def resolve_collator_templates(
         raise ValueError(f"Extracted end_of_turn_template is empty.\n{_FIX_HINT}")
 
     return response_template, end_of_turn_template
+
+
+def _known_tool_response_markers(model_type: str | None) -> tuple[str, str] | None:
+    """The tool-result bracket for an architecture known to nest tool results.
+
+    Args:
+        model_type: HF ``config.model_type``, or None when it could not be read.
+
+    Returns:
+        (opener, closer) when the architecture is listed in ``_NESTING_MODEL_TYPES``,
+        else None.
+    """
+    family = _NESTING_MODEL_TYPES.get(model_type or "")
+    return _TOOL_RESPONSE_BRACKETS[family] if family else None
+
+
+def _resolve_tool_bracket(
+    collator_kwargs: dict,
+    config_collator_kwargs: dict,
+    model_type: str | None,
+) -> tuple[str, str] | None:
+    """The bracket around tool results this model nests inside the assistant turn.
+
+    Span masking unmasks everything between ``response_template`` and the next
+    ``end_of_turn_template``. Some chat templates render tool results inside that
+    span, which trains the model on environment output. The returned bracket lets the
+    collator mask it again.
+
+    Args:
+        collator_kwargs: Auto-resolved kwargs built so far; read for ``train_target``.
+        config_collator_kwargs: User-supplied ``collator_kwargs`` from the data config.
+            A bracket set here is an override and wins over the known-model lookup.
+        model_type: HF ``config.model_type`` for the model being trained, or None when
+            it could not be determined.
+
+    Returns:
+        (tool_response_opener, tool_response_closer) strings, or None when the bracket
+        is already configured, the train_target isn't span-based, or the architecture
+        isn't a known nester.
+
+    Raises:
+        ValueError: Only one of the two markers was supplied.
+    """
+    # 1. Check if the user has supplied a tool response prefix. User specification wins
+    user_defined_prefix = [
+        key for key in _TOOL_TEMPLATE_KEYS if config_collator_kwargs.get(key)
+    ]
+    if user_defined_prefix:
+        if len(user_defined_prefix) == 1:
+            # One marker alone masks nothing, so a half-configured pair is always a
+            # mistake rather than a partial opt-in.
+            missing = next(
+                key for key in _TOOL_TEMPLATE_KEYS if key not in user_defined_prefix
+            )
+            raise ValueError(
+                f"collator_kwargs sets '{user_defined_prefix[0]}' without "
+                f"'{missing}'. Tool results are only excluded from the training "
+                "loss when both markers are set.\n"
+                f"Fix: also set '{missing}' in collator_kwargs."
+            )
+        else:
+            return None  # Hand-supplied bracket wins; nothing to look up.
+
+    # 1b. Skip if on the legacy path
+    if collator_kwargs.get("train_target") not in _SPAN_TRAIN_TARGETS:
+        return None  # Only span-based masking can unmask a tool result.
+
+    # 2. Check if the model being trained is in the known list of models that nest tool
+    # response in assistant span
+    tool_response_markers = _known_tool_response_markers(model_type)
+    if tool_response_markers:
+        logger.info(
+            "Architecture %r renders tool results inside the assistant turn; masking "
+            "them via bracket %r.",
+            model_type,
+            tool_response_markers,
+        )
+        return tool_response_markers
+
+    # 3. Autodetection of tool response prefix from chat template fallback
+    # Not implemented yet, current active mechanisms are active override or
+    # using a known nested model
+    # TODO(OPE-2185): fall back to probing the chat template.
+    logger.warning(
+        "No tool-response bracket specified for architecture %r; if your model chat "
+        "template nests tool results in assistant span, it will not be remasked.",
+        model_type,
+    )
+    return None
 
 
 def build_data_collator(
@@ -429,6 +544,19 @@ def build_collator_from_config(
                 "Fix: set train_target in your data config, "
                 "or provide response_template in collator_kwargs."
             )
+
+        tool_bracket = _resolve_tool_bracket(
+            collator_kwargs,
+            config_collator_kwargs,
+            find_model_type_using_model_name(
+                config.model.model_name,
+                trust_remote_code=config.model.trust_remote_code,
+                revision=config.model.model_revision,
+            ),
+        )
+        if tool_bracket is not None:
+            opener_key, closer_key = _TOOL_TEMPLATE_KEYS
+            collator_kwargs[opener_key], collator_kwargs[closer_key] = tool_bracket
 
     # User-provided collator_kwargs override auto-resolved values
     collator_kwargs.update(config_collator_kwargs)
