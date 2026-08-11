@@ -182,8 +182,12 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
 
     def _apply_chat_template_impl(self, conversation: Conversation) -> str:
         if self._processor is None:
+            data = conversation.to_chat_template_dict()
             prompt = self._tokenizer.apply_chat_template(
-                conversation.to_chat_template_dict()["messages"],
+                data["messages"],
+                # Without this the model is prompted with no tool schema and
+                # invents function names.
+                tools=data.get("tools"),
                 tokenize=False,
                 add_generation_prompt=True,
             )

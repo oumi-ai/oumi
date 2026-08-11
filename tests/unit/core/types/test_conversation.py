@@ -1203,7 +1203,9 @@ def _tool_call(arguments) -> ToolCall:
 def _tool_call_conversation(arguments) -> Conversation:
     return Conversation(
         messages=[
-            Message(role=Role.ASSISTANT, content=None, tool_calls=[_tool_call(arguments)])
+            Message(
+                role=Role.ASSISTANT, content=None, tool_calls=[_tool_call(arguments)]
+            )
         ]
     )
 
@@ -1221,7 +1223,9 @@ def test_function_call_preserves_string_arguments():
 def test_chat_template_dict_emits_arguments_as_object(arguments):
     """Either input shape renders as an object, so templates can index into it."""
     out = _tool_call_conversation(arguments).to_chat_template_dict()
-    assert out["messages"][0]["tool_calls"][0]["function"]["arguments"] == {"city": "SF"}
+    assert out["messages"][0]["tool_calls"][0]["function"]["arguments"] == {
+        "city": "SF"
+    }
 
 
 def test_to_dict_keeps_arguments_as_openai_string():
@@ -1255,6 +1259,18 @@ def test_api_payload_keeps_openai_string_arguments():
         conv.messages, group_adjacent_same_role_turns=False
     )
     assert payload[0]["tool_calls"][0]["function"]["arguments"] == '{"city": "SF"}'
+
+
+def test_chat_template_dict_carries_tools_for_callers():
+    """Callers must forward `tools` to apply_chat_template as a separate kwarg.
+
+    Dropping it prompts the model with no tool schema, and it invents function
+    names instead of choosing from the ones offered.
+    """
+    conv = _tool_call_conversation({"city": "SF"})
+    conv = Conversation(messages=conv.messages, tools=[_TOOL_DEF_GET_WEATHER])
+    data = conv.to_chat_template_dict()
+    assert data["tools"][0]["function"]["name"] == "get_weather"
 
 
 @pytest.mark.parametrize(
