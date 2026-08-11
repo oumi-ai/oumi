@@ -428,6 +428,11 @@ def _create_internvl_config() -> InternalModelConfig:
     return config
 
 
+def _create_muse_glimmer_config() -> InternalModelConfig:
+    # Empty chat_template: use the tokenizer's built-in template.
+    return InternalModelConfig(chat_template="")
+
+
 def _create_idefics3_vlm_config() -> InternalModelConfig:
     config = _create_default_vlm_config(
         supports_multiple_images=True, pixel_values_variable_shape=True
@@ -621,6 +626,11 @@ def get_all_models_map() -> Mapping[
             model_type="internvl",
             model_class=transformers.AutoModelForImageTextToText,
             config=_create_internvl_config(),
+        ),
+        _ModelTypeInfo(
+            model_type="muse_glimmer",
+            model_class=transformers.AutoModelForImageTextToText,
+            config=_create_muse_glimmer_config(),
         ),
     ]
 
