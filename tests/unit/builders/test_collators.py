@@ -411,7 +411,9 @@ def test_resolve_templates_error(make_tok, match):
 def _completions_config(
     train_target: TrainTarget | None = None,
     collator_kwargs: dict | None = None,
+    model_name: str = "MlpEncoder",
 ) -> TrainingConfig:
+    """Config for the completions collator; model_name drives the bracket lookup."""
     return TrainingConfig(
         data=DataParams(
             train=DatasetSplitParams(
@@ -422,8 +424,9 @@ def _completions_config(
             )
         ),
         model=ModelParams(
-            model_name="MlpEncoder",
+            model_name=model_name,
             tokenizer_name="openai-community/gpt2",
+            trust_remote_code=True,
             model_max_length=512,
         ),
     )
@@ -531,32 +534,6 @@ def real_tokenizer():
     )
 
 
-def _tool_config(
-    model_name: str,
-    collator_kwargs: dict | None = None,
-    train_target: TrainTarget | None = None,
-) -> TrainingConfig:
-    """Config whose model_name drives the architecture lookup."""
-    return TrainingConfig(
-        data=DataParams(
-            train=DatasetSplitParams(
-                collator_name="text_completions_only_with_padding",
-                train_target=train_target,
-                collator_kwargs=(
-                    dict(_SPAN_KWARGS) if collator_kwargs is None else collator_kwargs
-                ),
-                datasets=[DatasetParams(dataset_name="dummy", split="train")],
-            )
-        ),
-        model=ModelParams(
-            model_name=model_name,
-            tokenizer_name="openai-community/gpt2",
-            trust_remote_code=True,
-            model_max_length=512,
-        ),
-    )
-
-
 #
 # _known_tool_response_markers: pure lookup on model_type
 #
@@ -611,7 +588,8 @@ def test_registry_families_all_have_brackets():
 )
 def test_known_architecture_resolves_bracket(model_name, bracket, real_tokenizer):
     collator = build_collator_from_config(
-        _tool_config(model_name), tokenizer=real_tokenizer
+        _completions_config(collator_kwargs=dict(_SPAN_KWARGS), model_name=model_name),
+        tokenizer=real_tokenizer,
     )
     assert collator is not None
     inner = collator._default_collator
@@ -637,7 +615,8 @@ def test_known_architecture_resolves_bracket(model_name, bracket, real_tokenizer
 def test_unknown_architecture_resolves_no_bracket(model_name, real_tokenizer):
     """Unlisted architectures are untouched — the fallback path must stay inert."""
     collator = build_collator_from_config(
-        _tool_config(model_name), tokenizer=real_tokenizer
+        _completions_config(collator_kwargs=dict(_SPAN_KWARGS), model_name=model_name),
+        tokenizer=real_tokenizer,
     )
     assert collator is not None
     assert collator._default_collator.tool_response_token_ids is None
@@ -645,8 +624,8 @@ def test_unknown_architecture_resolves_no_bracket(model_name, real_tokenizer):
 
 def test_supplied_bracket_overrides_known_architecture(real_tokenizer):
     """A hand-configured bracket wins over the built-in table."""
-    config = _tool_config(
-        "google/gemma-4-E2B-it",
+    config = _completions_config(
+        model_name="google/gemma-4-E2B-it",
         collator_kwargs={
             **_SPAN_KWARGS,
             "tool_response_template": "<custom_open>",
@@ -663,8 +642,8 @@ def test_supplied_bracket_overrides_known_architecture(real_tokenizer):
 
 def test_non_span_train_target_resolves_no_bracket(real_tokenizer):
     """Only span masking can unmask a tool result, so legacy mode needs no bracket."""
-    config = _tool_config(
-        "google/gemma-4-E2B-it",
+    config = _completions_config(
+        model_name="google/gemma-4-E2B-it",
         collator_kwargs={
             "response_template": "<|assistant|>",
             "instruction_template": "<|user|>",
@@ -687,8 +666,8 @@ def test_legacy_train_target_still_accepts_a_hand_supplied_bracket(real_tokenize
     markers are tokenized and stored; ``torch_call``'s legacy branch ignores them.
     Supplying one marker raises, supplying both is silently inert.
     """
-    config = _tool_config(
-        "google/gemma-4-E2B-it",
+    config = _completions_config(
+        model_name="google/gemma-4-E2B-it",
         collator_kwargs={
             "response_template": "<|assistant|>",
             "instruction_template": "<|user|>",
@@ -722,8 +701,8 @@ def test_build_collator_half_supplied_tool_bracket_raises(
     supplied, missing, mock_tokenizer
 ):
     """One marker alone masks nothing, so it must be reported rather than ignored."""
-    config = _tool_config(
-        "Qwen/Qwen3-0.6B",
+    config = _completions_config(
+        model_name="Qwen/Qwen3-0.6B",
         collator_kwargs={**_SPAN_KWARGS, supplied: "<|tres|>"},
     )
 

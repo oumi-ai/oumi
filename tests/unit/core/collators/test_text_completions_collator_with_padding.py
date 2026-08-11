@@ -20,6 +20,12 @@ IGNORE = constants.LABEL_IGNORE_INDEX
 # Template strings for span-masking tests — chosen to be unambiguous in GPT-2's vocab.
 _RESP_STR = " ASSISTANT_RESPONSE_START"
 _EOT_STR = " TURN_ENDS_HERE"
+_INST_STR = " USER_TURN_STARTS"
+
+# Markers standing in for a template that renders tool results inside the assistant
+# turn (gemma-4 renders <|tool_response>...<tool_response|> there).
+_TOOL_OPEN_STR = " TOOL_RESULT_STARTS"
+_TOOL_CLOSE_STR = " TOOL_RESULT_ENDS"
 
 # Arbitrary token IDs used as "content" that must not appear in any template.
 _SENTINELS = [601, 602, 603, 604, 605, 606, 607, 608]
@@ -280,13 +286,26 @@ def get_template_token_ids() -> tuple[list[int], list[int]]:
     return encode_template(_RESP_STR), encode_template(_EOT_STR)
 
 
-def make_span_collator() -> TextCompletionsCollatorWithPadding:
+def make_span_collator(
+    train_target: str = "all_assistant_turns",
+    *,
+    tool_bracket: bool = False,
+    instruction_template: str | None = None,
+) -> TextCompletionsCollatorWithPadding:
+    """Span collator, optionally configured with the tool-result bracket.
+
+    `tool_bracket` is the only difference between the two collators an inertness
+    test compares, so both come from here.
+    """
     tokenizer, _ = create_test_tokenizer()
     return TextCompletionsCollatorWithPadding(
         tokenizer=tokenizer,
         response_template=_RESP_STR,
-        train_target="all_assistant_turns",
+        train_target=train_target,
+        instruction_template=instruction_template,
         end_of_turn_template=_EOT_STR,
+        tool_response_template=_TOOL_OPEN_STR if tool_bracket else None,
+        end_of_tool_response_template=_TOOL_CLOSE_STR if tool_bracket else None,
     )
 
 
@@ -650,33 +669,17 @@ def test_pad_to_multiple_of_none_keeps_longest_in_batch():
 # Tool results nested inside an assistant turn
 # ---------------------------------------------------------------------------
 
-# Markers standing in for a template that renders tool results inside the assistant
-# turn (gemma-4 renders <|tool_response>...<tool_response|> there).
-_TOOL_OPEN_STR = " TOOL_RESULT_STARTS"
-_TOOL_CLOSE_STR = " TOOL_RESULT_ENDS"
-
 
 def get_tool_template_token_ids() -> tuple[list[int], list[int]]:
     return encode_template(_TOOL_OPEN_STR), encode_template(_TOOL_CLOSE_STR)
 
 
-def make_tool_span_collator(
-    train_target: str = "all_assistant_turns",
-    instruction_template: str | None = None,
-) -> TextCompletionsCollatorWithPadding:
-    tokenizer, _ = create_test_tokenizer()
-    return TextCompletionsCollatorWithPadding(
-        tokenizer=tokenizer,
-        response_template=_RESP_STR,
-        train_target=train_target,
-        instruction_template=instruction_template,
-        end_of_turn_template=_EOT_STR,
-        tool_response_template=_TOOL_OPEN_STR,
-        end_of_tool_response_template=_TOOL_CLOSE_STR,
-    )
-
-
 def test_span_tool_response_is_masked_inside_assistant_turn():
+    """Masking keys off the markers alone, not on the text between them.
+
+    A model that emits the markers itself loses that stretch from the loss. The
+    answer assertion below bounds the damage: it stops at the closer.
+    """
     resp, eot = get_template_token_ids()
     tool_open, tool_close = get_tool_template_token_ids()
     call = [_SENTINELS[0]]
@@ -684,7 +687,7 @@ def test_span_tool_response_is_masked_inside_assistant_turn():
     answer = [_SENTINELS[3]]
     seq = flat(resp, call, tool_open, payload, tool_close, answer, eot)
 
-    labels = get_span_labels(make_tool_span_collator(), seq)
+    labels = get_span_labels(make_span_collator(tool_bracket=True), seq)
 
     at = len(resp)
     assert all(v == IGNORE for v in labels[:at]), "response header must stay masked"
@@ -719,7 +722,7 @@ def test_span_parallel_tool_responses_are_both_masked():
         eot,
     )
 
-    labels = get_span_labels(make_tool_span_collator(), seq)
+    labels = get_span_labels(make_span_collator(tool_bracket=True), seq)
 
     assert _SENTINELS[0] not in labels
     assert _SENTINELS[1] not in labels
@@ -735,7 +738,7 @@ def test_span_unclosed_tool_response_masks_through_span_end():
     # result: the rest of that turn drops out of the loss.
     seq = flat(resp, tool_open, payload, eot)
 
-    labels = get_span_labels(make_tool_span_collator(), seq)
+    labels = get_span_labels(make_span_collator(tool_bracket=True), seq)
 
     assert all(v == IGNORE for v in labels), (
         "an unclosed tool result must mask through the end of the span"
@@ -759,7 +762,7 @@ def test_span_tool_masking_leaves_other_turns_untouched():
         eot,
     )
 
-    labels = get_span_labels(make_tool_span_collator(), seq)
+    labels = get_span_labels(make_span_collator(tool_bracket=True), seq)
 
     assert _SENTINELS[0] not in labels
     start = len(seq) - len(plain) - len(eot)
@@ -785,7 +788,9 @@ def test_final_assistant_turn_tool_response_is_masked():
     answer = [_SENTINELS[1]]
     seq = flat([_SENTINELS[2]], resp, tool_open, payload, tool_close, answer, eot)
 
-    labels = get_span_labels(make_tool_span_collator("final_assistant_turn"), seq)
+    labels = get_span_labels(
+        make_span_collator("final_assistant_turn", tool_bracket=True), seq
+    )
 
     assert _SENTINELS[0] not in labels, "tool result must be masked"
     assert _SENTINELS[1] in labels, "final answer must stay trained"
@@ -796,15 +801,20 @@ def test_final_assistant_turn_tool_response_is_masked():
 # ---------------------------------------------------------------------------
 
 
-def test_bracket_is_inert_when_markers_never_appear():
+@pytest.mark.parametrize(
+    "train_target", ["all_assistant_turns", "final_assistant_turn"]
+)
+def test_bracket_is_inert_when_markers_never_appear(train_target):
     """The common case: the template simply never emits the bracket."""
     resp, eot = get_template_token_ids()
     call = [_SENTINELS[0]]
     answer = [_SENTINELS[1]]
     seq = flat(resp, call, answer, eot)
 
-    with_bracket = get_span_labels(make_tool_span_collator(), seq)
-    without_bracket = get_span_labels(make_span_collator(), seq)
+    with_bracket = get_span_labels(
+        make_span_collator(train_target, tool_bracket=True), seq
+    )
+    without_bracket = get_span_labels(make_span_collator(train_target), seq)
 
     assert with_bracket == without_bracket
 
@@ -835,7 +845,7 @@ def test_bracket_is_inert_when_tool_result_sits_in_its_own_turn():
         eot,
     )
 
-    with_bracket = get_span_labels(make_tool_span_collator(), seq)
+    with_bracket = get_span_labels(make_span_collator(tool_bracket=True), seq)
     without_bracket = get_span_labels(make_span_collator(), seq)
 
     assert with_bracket == without_bracket
@@ -846,52 +856,9 @@ def test_bracket_is_inert_when_tool_result_sits_in_its_own_turn():
     assert _SENTINELS[2] in with_bracket
 
 
-def test_bracket_is_inert_for_final_assistant_turn_when_markers_are_absent():
-    resp, _ = get_template_token_ids()
-    prompt = [_SENTINELS[0]]
-    answer = [_SENTINELS[1]]
-    seq = flat(prompt, resp, answer)
-
-    with_bracket = get_span_labels(make_tool_span_collator("final_assistant_turn"), seq)
-    without_bracket = get_span_labels(
-        TextCompletionsCollatorWithPadding(
-            tokenizer=create_test_tokenizer()[0],
-            response_template=_RESP_STR,
-            train_target="final_assistant_turn",
-        ),
-        seq,
-    )
-
-    assert with_bracket == without_bracket
-
-
-def test_bracket_inside_an_assistant_turn_is_not_inert():
-    """
-    If the markers land inside an assistant span for a reason other than a nested tool
-    result — the model genuinely emitting that text, say — re-masking drops real model
-    output from the loss.
-    """
-    resp, eot = get_template_token_ids()
-    tool_open, tool_close = get_tool_template_token_ids()
-    quoted = [_SENTINELS[0]]
-    answer = [_SENTINELS[1]]
-    seq = flat(resp, tool_open, quoted, tool_close, answer, eot)
-
-    with_bracket = get_span_labels(make_tool_span_collator(), seq)
-    without_bracket = get_span_labels(make_span_collator(), seq)
-
-    assert with_bracket != without_bracket
-    assert _SENTINELS[0] in without_bracket, "baseline trains on the quoted text"
-    assert _SENTINELS[0] not in with_bracket, "bracket masks it"
-    # Everything after the closer still trains, so the damage is bounded.
-    assert _SENTINELS[1] in with_bracket
-
-
 # ---------------------------------------------------------------------------
 # Legacy instruction/response masking with a bracket configured
 # ---------------------------------------------------------------------------
-
-_INST_STR = " USER_TURN_STARTS"
 
 
 def test_legacy_instruction_response_accepts_the_bracket_but_never_applies_it():
@@ -909,7 +876,11 @@ def test_legacy_instruction_response_accepts_the_bracket_but_never_applies_it():
     answer = [_SENTINELS[2]]
     seq = flat(inst, question, resp, tool_open, payload, tool_close, answer)
 
-    with_bracket = make_tool_span_collator("_legacy_instruction_response", _INST_STR)
+    with_bracket = make_span_collator(
+        "_legacy_instruction_response",
+        tool_bracket=True,
+        instruction_template=_INST_STR,
+    )
     inner = with_bracket._default_collator
     assert inner.tool_response_token_ids == tool_open, "bracket is stored, not dropped"
     assert inner.end_of_tool_response_token_ids == tool_close
