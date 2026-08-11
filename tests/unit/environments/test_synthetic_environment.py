@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import random
 from unittest.mock import Mock
 
@@ -182,14 +183,21 @@ def _typed_params() -> EnvironmentParams:
     )
 
 
-def _attached_env(infer_returns: list[str]) -> tuple[SyntheticEnvironment, Mock]:
+def _attached_env(
+    infer_returns: list[str],
+    params: EnvironmentParams | None = None,
+    **kwargs_overrides,
+) -> tuple[SyntheticEnvironment, Mock]:
     """Build an env with a mock engine that drains ``infer_returns`` in order.
 
     Each call consumed by the simulator pops the next element from the queue,
     so a single ``infer_returns`` list spans multiple ``env.step`` invocations
-    and multiple within-batch calls.
+    and multiple within-batch calls. ``kwargs_overrides`` are merged into
+    ``env_kwargs``.
     """
-    env = SyntheticEnvironment.from_params(_typed_params())
+    params = params or _typed_params()
+    params.env_kwargs = {**(params.env_kwargs or {}), **kwargs_overrides}
+    env = SyntheticEnvironment.from_params(params)
     mock_engine = Mock()
     queue = list(infer_returns)
 
@@ -332,6 +340,46 @@ def test_simulator_inference_config_overlays_guided_decoding():
     assert cfg.generation is not None
     assert cfg.generation.guided_decoding is not None
     assert cfg.generation.guided_decoding.json == tool.output_schema
+
+
+def test_simulator_inference_config_omits_guided_decoding_when_disabled():
+    env, _ = _attached_env(['{"a": "x"}'], use_guided_decoding=False)
+    cfg = env._simulator_inference_config(env._lookup_tool("answer"))
+    assert cfg.generation.guided_decoding is None
+
+
+def test_use_guided_decoding_applies_to_every_tool_in_the_env():
+    """The env-level flag is the only granularity; it covers all its tools."""
+    params = _typed_params()
+    params.tools = [_typed_tool(id="a"), _typed_tool(id="b")]
+    env, _ = _attached_env(['{"a": "x"}'], params=params, use_guided_decoding=False)
+    for tool_id in ("a", "b"):
+        cfg = env._simulator_inference_config(env._lookup_tool(tool_id))
+        assert cfg.generation.guided_decoding is None
+
+
+def test_simulator_inference_config_omits_guided_decoding_without_output_schema():
+    """A bare ``{"type": "object"}`` constraint means ``{}``-only under strict mode."""
+    params = _typed_params()
+    params.tools = [_typed_tool(output_schema=None)]
+    env, _ = _attached_env(['{"a": "x"}'], params=params)
+    cfg = env._simulator_inference_config(env._lookup_tool("answer"))
+    assert cfg.generation.guided_decoding is None
+
+
+def test_system_prompt_carries_output_schema_when_guidance_disabled():
+    """Free generation leans on the prompt, so the full schema must stay in it."""
+    env, _ = _attached_env(['{"a": "x"}'], use_guided_decoding=False)
+    tool = env._lookup_tool("answer")
+    prompt = str(env.build_call_conversation("answer", {"q": "hi"}).messages[0].content)
+    assert json.dumps(tool.to_llm_schema(), indent=2) in prompt
+    assert "output_schema" in prompt
+
+
+def test_step_without_guided_decoding_still_validates_output_schema():
+    env, _ = _attached_env(['{"a": 1}'], use_guided_decoding=False)
+    with pytest.raises(ToolError, match="failed schema validation"):
+        env.step([("answer", {"q": "x"})])
 
 
 def test_build_call_conv_has_system_and_user_messages():

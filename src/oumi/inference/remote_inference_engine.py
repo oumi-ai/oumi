@@ -573,6 +573,13 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             Conversation: The conversation including the generated response.
         """
+        if not isinstance(response, dict):
+            # A 2xx response can still carry a body that parses to JSON `null`
+            # (or a non-object); surface it clearly instead of a TypeError below.
+            raise RuntimeError(
+                "Expected a JSON object in API response, got "
+                f"{type(response).__name__}: {str(response)[:200]}"
+            )
         if "error" in response:
             raise RuntimeError(
                 f"API error: {response['error'].get('message', response['error'])}"

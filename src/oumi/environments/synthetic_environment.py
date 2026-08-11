@@ -79,6 +79,14 @@ class SyntheticEnvironmentKwargs(BaseParams):
     tool_persona: str = ""
     state_params: SyntheticStateParams | None = None
     cache_by_input: bool = True
+    use_guided_decoding: bool = True
+    """Constrain simulator output to each tool's ``output_schema``.
+
+    Applies to every tool in this environment. Set to ``False`` to generate
+    freely and rely on the ``jsonschema`` post-validation instead: large
+    ``output_schema`` values can exceed a provider's grammar-compiler limits or
+    make constrained decoding several times slower.
+    """
 
     def __post_init__(self) -> None:
         """Coerce state_params dict into SyntheticStateParams if needed."""
@@ -415,14 +423,18 @@ class SyntheticEnvironment(BaseEnvironment):
     def _simulator_inference_config(self, tool: ToolParams) -> InferenceConfig:
         """Overlay guided decoding for the tool's output_schema onto base_config.
 
-        Tools without ``output_schema`` get the permissive ``{"type": "object"}``
-        constraint. Mirrors ``ConversationSynthesizer._planner_inference_config``.
+        No constraint is sent when the tool has no ``output_schema`` (nothing to
+        constrain) or when ``use_guided_decoding`` is off, leaving
+        ``_parse_and_validate`` as the only schema check.
         """
         assert self._base_inference_config is not None
-        schema = tool.output_schema or {"type": "object"}
+        guided = (
+            GuidedDecodingParams(json=tool.output_schema)
+            if self._kwargs.use_guided_decoding and tool.output_schema
+            else None
+        )
         sim_gen = dataclasses.replace(
-            self._base_inference_config.generation,
-            guided_decoding=GuidedDecodingParams(json=schema),
+            self._base_inference_config.generation, guided_decoding=guided
         )
         return dataclasses.replace(self._base_inference_config, generation=sim_gen)
 

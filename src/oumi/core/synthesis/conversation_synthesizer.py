@@ -1012,7 +1012,9 @@ class ConversationSynthesizer:
             if output_message:
                 output_messages.append(output_message)
             output_messages.extend(history)
-            conversations.append(Conversation(messages=output_messages))
+            conversations.append(
+                Conversation(messages=output_messages, tools=assistant_tools)
+            )
 
         return conversations
 

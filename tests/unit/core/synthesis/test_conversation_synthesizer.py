@@ -48,6 +48,7 @@ from oumi.core.types.conversation import (
 )
 from oumi.core.types.tool_call import FunctionCall, ToolCall, ToolResult
 from oumi.environments.base_environment import BaseEnvironment
+from oumi.environments.synthetic_environment import SyntheticEnvironment
 
 
 @pytest.fixture
@@ -1916,6 +1917,151 @@ def test_synthesize_attaches_tools_to_assistant_prompt(
     assert assistant_prompt.tools[0].function.name == "lookup"
 
 
+@patch("oumi.core.synthesis.tool_router.build_environment")
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_synthesize_attaches_tools_to_output_conversation(
+    mock_build_inference_engine,
+    mock_build_environment,
+    mock_general_synthesis_params,
+):
+    """The emitted conversation carries the tool definitions available to it."""
+
+    def capturing_infer(prompts, inference_config=None):
+        return [
+            Conversation(messages=[Message(role=Role.ASSISTANT, content="ok")])
+            for _ in prompts
+        ]
+
+    mock_engine = Mock()
+    mock_engine.infer.side_effect = capturing_infer
+    mock_build_inference_engine.return_value = mock_engine
+    mock_build_environment.return_value = Mock()
+
+    env_config = MagicMock(spec=EnvironmentConfig)
+    env_config.all_tools = [ToolParams(id="lookup", name="lookup", description="x")]
+    env_config.environments = []
+    env_config.tool_environment_map = {}
+
+    inference_config = InferenceConfig(
+        engine=InferenceEngineType.OPENAI,
+        model=Mock(spec=ModelParams),
+        remote_params=Mock(spec=RemoteParams),
+        generation=GenerationParams(),
+    )
+
+    multiturn_attr = MultiTurnAttribute(
+        id="dialog",
+        min_turns=1,
+        max_turns=1,
+        role_instruction_messages={
+            Role.USER: "user",
+            Role.ASSISTANT: "assistant",
+        },
+    )
+
+    synth = ConversationSynthesizer(
+        mock_general_synthesis_params,
+        inference_config,
+        environment_config=env_config,
+    )
+    with patch.object(
+        synth,
+        "_resolve_available_tools",
+        return_value=env_config.all_tools,
+    ):
+        result = synth.synthesize(
+            samples=[{"target_turns": 2, "parsed_turn_plans": []}],
+            multiturn_attributes=multiturn_attr,
+        )
+
+    record = result[0]
+    assert record is not None
+    conversation = record["dialog"]
+    assert isinstance(conversation, dict)
+    tools = conversation["tools"]
+    assert tools is not None
+    assert len(tools) == 1
+    assert tools[0]["function"]["name"] == "lookup"
+
+
+@patch("oumi.core.synthesis.tool_router.build_environment")
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_synthesize_emits_tools_for_unlabeled_environment(
+    mock_build_inference_engine,
+    mock_build_environment,
+    mock_general_synthesis_params,
+):
+    """An environment with no name/description still finalizes and emits tools.
+
+    Drives a real ``EnvironmentConfig`` (not a mock) whose environment omits the
+    optional ``name`` and ``description`` labels, proving the labels are truly
+    optional end-to-end and that its tools still reach the output conversation.
+    """
+
+    def capturing_infer(prompts, inference_config=None):
+        return [
+            Conversation(messages=[Message(role=Role.ASSISTANT, content="ok")])
+            for _ in prompts
+        ]
+
+    mock_engine = Mock()
+    mock_engine.infer.side_effect = capturing_infer
+    mock_build_inference_engine.return_value = mock_engine
+    mock_build_environment.return_value = Mock()
+
+    env_config = EnvironmentConfig(
+        environments=[
+            EnvironmentParams(
+                id="library",
+                env_type="deterministic",
+                tools=[ToolParams(id="lookup", name="lookup", description="x")],
+            )
+        ]
+    )
+    env_config.finalize_and_validate()
+
+    inference_config = InferenceConfig(
+        engine=InferenceEngineType.OPENAI,
+        model=Mock(spec=ModelParams),
+        remote_params=Mock(spec=RemoteParams),
+        generation=GenerationParams(),
+    )
+
+    multiturn_attr = MultiTurnAttribute(
+        id="dialog",
+        min_turns=1,
+        max_turns=1,
+        available_environments=["library"],
+        role_instruction_messages={
+            Role.USER: "user",
+            Role.ASSISTANT: "assistant",
+        },
+    )
+
+    synth = ConversationSynthesizer(
+        mock_general_synthesis_params,
+        inference_config,
+        environment_config=env_config,
+    )
+    with patch.object(
+        synth,
+        "_resolve_available_tools",
+        return_value=env_config.all_tools,
+    ):
+        result = synth.synthesize(
+            samples=[{"target_turns": 2, "parsed_turn_plans": []}],
+            multiturn_attributes=multiturn_attr,
+        )
+
+    record = result[0]
+    assert record is not None
+    conversation = record["dialog"]
+    assert isinstance(conversation, dict)
+    tools = conversation["tools"]
+    assert tools is not None
+    assert tools[0]["function"]["name"] == "lookup"
+
+
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
 def test_synthesize_no_tools_when_env_has_none(
     mock_build_inference_engine,
@@ -2261,6 +2407,80 @@ def test_dispatch_tool_calls_handles_env_exception_with_per_call_fallback(
     [msg] = synth._dispatch_tool_calls([tc], 0)
     assert msg.role == Role.TOOL
     assert "Tool 't' raised: boom" in str(msg.content)
+
+
+@patch("oumi.core.synthesis.tool_router.build_environment")
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_dispatch_tool_calls_recovers_from_unguided_schema_drift(
+    mock_build_inference_engine,
+    mock_build_environment,
+    mock_general_synthesis_params,
+):
+    """End-to-end: guidance off → off-schema simulator output → recoverable tool error.
+
+    Drives a real ``SyntheticEnvironment`` so the assertions cover the whole path:
+    no constraint reaches the engine, and the resulting ``ToolError`` becomes a
+    ``TOOL`` message instead of killing the sample.
+    """
+    tool = ToolParams(
+        id="answer",
+        name="Answer",
+        description="Answer.",
+        parameters={
+            "type": "object",
+            "properties": {"q": {"type": "string"}},
+            "required": ["q"],
+        },
+        output_schema={
+            "type": "object",
+            "properties": {"a": {"type": "string"}},
+            "required": ["a"],
+        },
+    )
+    env_params = EnvironmentParams(
+        id="faq",
+        name="FAQ",
+        description="FAQ env",
+        env_type="synthetic",
+        tools=[tool],
+        env_kwargs={"tool_persona": "Answer FAQs.", "use_guided_decoding": False},
+    )
+    mock_build_environment.return_value = SyntheticEnvironment.from_params(env_params)
+
+    mock_engine = Mock()
+    mock_engine.infer = Mock(
+        side_effect=lambda convs, _cfg: [
+            Conversation(
+                messages=[*c.messages, Message(role=Role.ASSISTANT, content='{"a": 1}')]
+            )
+            for c in convs
+        ]
+    )
+    mock_build_inference_engine.return_value = mock_engine
+
+    env_config = MagicMock(spec=EnvironmentConfig)
+    env_config.environments = [env_params]
+    env_config.all_tools = [tool]
+    env_config.tool_environment_map = {"answer": "faq"}
+
+    synth = ConversationSynthesizer(
+        mock_general_synthesis_params,
+        InferenceConfig(
+            engine=InferenceEngineType.OPENAI,
+            model=Mock(spec=ModelParams),
+            remote_params=Mock(spec=RemoteParams),
+            generation=GenerationParams(),
+        ),
+        environment_config=env_config,
+    )
+
+    tc = ToolCall(id="c", function=FunctionCall(name="answer", arguments='{"q": "x"}'))
+    synth._prepare_sample_routers(1)
+    [msg] = synth._dispatch_tool_calls([tc], 0)
+
+    assert mock_engine.infer.call_args[0][1].generation.guided_decoding is None
+    assert msg.role == Role.TOOL
+    assert "failed schema validation" in str(msg.content)
 
 
 @patch("oumi.core.synthesis.tool_router.build_environment")

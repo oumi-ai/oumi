@@ -5,7 +5,7 @@ import os
 import tempfile
 import time
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, Final, cast
 from unittest.mock import AsyncMock, patch
 
 import aiohttp
@@ -2284,6 +2284,20 @@ def test_convert_api_output_no_usage():
     result = engine._convert_api_output_to_conversation(response, original)
     assert "usage" not in result.metadata
     assert result.metadata["key"] == "value"
+
+
+def test_convert_api_output_null_response_raises_runtime_error():
+    """A 2xx response whose JSON body is `null` must raise a clear RuntimeError."""
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
+    )
+    original = Conversation(
+        messages=[Message(content="Hello", role=Role.USER)],
+    )
+    null_body = cast(dict, None)
+    with pytest.raises(RuntimeError, match="Expected a JSON object"):
+        engine._convert_api_output_to_conversation(null_body, original)
 
 
 def test_convert_api_output_content_null_returns_empty_string():
