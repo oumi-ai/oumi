@@ -29,7 +29,6 @@ from oumi.core.types.tool_call import (
     ToolDefinition,
 )
 
-
 # Schema keywords that break tool use across common backends. oneOf/allOf/not
 # and if/then/else are unsupported by guided decoding; anyOf at the schema root
 # is additionally rejected by hosted structured-output APIs (Anthropic, OpenAI),
