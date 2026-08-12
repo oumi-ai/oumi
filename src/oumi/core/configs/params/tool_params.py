@@ -30,6 +30,47 @@ from oumi.core.types.tool_call import (
 )
 
 
+# Schema keywords that break tool use across common backends. oneOf/allOf/not
+# and if/then/else are unsupported by guided decoding; anyOf at the schema root
+# is additionally rejected by hosted structured-output APIs (Anthropic, OpenAI),
+# which require the root to be a plain object. anyOf is allowed when nested.
+_UNSUPPORTED_KEYWORDS = frozenset({"oneOf", "allOf", "not", "if", "then", "else"})
+_UNSUPPORTED_ROOT_KEYWORDS = _UNSUPPORTED_KEYWORDS | {"anyOf"}
+# Keys whose values are name->subschema maps (a property literally named "not"
+# is data, not a keyword), so we recurse into their values, not the map itself.
+_NAME_MAP_KEYWORDS = frozenset(
+    {"properties", "patternProperties", "$defs", "definitions"}
+)
+
+
+def reject_unsupported_schema_keywords(schema: Any, *, _root: bool = True) -> None:
+    """Reject JSON-Schema keywords that break tool use across backends.
+
+    Walks ``schema`` structure-aware (a property *named* like a keyword is data,
+    not a keyword) and raises ``ValueError`` naming the first offending keyword.
+    """
+    if isinstance(schema, list):
+        for item in schema:
+            reject_unsupported_schema_keywords(item, _root=False)
+        return
+    if not isinstance(schema, Mapping):
+        return
+    banned = _UNSUPPORTED_ROOT_KEYWORDS if _root else _UNSUPPORTED_KEYWORDS
+    present = banned.intersection(schema)
+    if present:
+        raise ValueError(
+            f"Unsupported JSON Schema keyword {next(iter(present))!r}: "
+            "oneOf, allOf, not, and if/then/else break guided decoding, and "
+            "anyOf is not allowed at the schema root."
+        )
+    for key, value in schema.items():
+        if key in _NAME_MAP_KEYWORDS and isinstance(value, Mapping):
+            for sub in value.values():
+                reject_unsupported_schema_keywords(sub, _root=False)
+        else:
+            reject_unsupported_schema_keywords(value, _root=False)
+
+
 class ToolError(Exception):
     """Base class for tool errors surfaced back to the LLM.
 
@@ -120,6 +161,9 @@ class ToolParams(BaseParams):
             self.output_schema = self.output_schema.model_dump(
                 mode="json", exclude_none=True
             )
+        reject_unsupported_schema_keywords(self.parameters)
+        if self.output_schema is not None:
+            reject_unsupported_schema_keywords(self.output_schema)
 
     def to_llm_schema(self) -> dict[str, Any]:
         """Export a provider-agnostic schema for LLM tool registration."""
