@@ -34,6 +34,8 @@ class TextCompletionsCollatorWithPadding:
         instruction_template: str | None = None,
         debug: bool = False,
         end_of_turn_template: str | None = None,
+        tool_response_template: str | list[int] | None = None,
+        end_of_tool_response_template: str | list[int] | None = None,
         ignore_index: int = -100,
         pad_to_multiple_of: int | None = None,
     ):
@@ -48,6 +50,11 @@ class TextCompletionsCollatorWithPadding:
             or ``"final_assistant_turn"``.
         end_of_turn_template: String marking the end of a turn.
             Required for ``all_assistant_turns``.
+        tool_response_template: String or token IDs opening a tool result that the
+            chat template renders inside the assistant turn (e.g. gemma-4's
+            ``<|tool_response>``).
+        end_of_tool_response_template: String or token IDs closing such a tool result.
+            Both are needed to exclude tool results from the loss.
         ignore_index: Value used for masked labels. Must match the ignore_index
             of the loss function (default: -100).
         pad_to_multiple_of: If set, pad each batch up to a multiple of this
@@ -65,6 +72,8 @@ class TextCompletionsCollatorWithPadding:
             response_template=response_template,
             train_target=train_target,
             end_of_turn_template=end_of_turn_template,
+            tool_response_template=tool_response_template,
+            end_of_tool_response_template=end_of_tool_response_template,
             ignore_index=ignore_index,
         )
 
@@ -84,12 +93,28 @@ class TextCompletionsCollatorWithPadding:
         self._has_logged_example = False
 
     def _collate(self, inputs: list[Any]) -> dict[str, Any]:
+        """Collates and masks a batch, then applies any padding multiple.
+
+        Args:
+            inputs: Examples to collate, each holding at least ``input_ids``.
+
+        Returns:
+            The collated batch.
+        """
         result = self._default_collator(inputs)
         if self._pad_to_multiple_of:
             result = self._pad_batch_to_multiple(result)
         return result
 
     def _pad_batch_to_multiple(self, result: dict[str, Any]) -> dict[str, Any]:
+        """Right-pads a collated batch up to a multiple of ``pad_to_multiple_of``.
+
+        Args:
+            result: Collated batch. Modified in place and also returned.
+
+        Returns:
+            The batch, padded. Unchanged when its length is already a multiple.
+        """
         multiple = self._pad_to_multiple_of
         assert multiple is not None
         seq_len = result[_INPUT_IDS_KEY].shape[1]
@@ -99,6 +124,16 @@ class TextCompletionsCollatorWithPadding:
             return result
 
         def _extend(tensor: torch.Tensor, value: int) -> torch.Tensor:
+            """Appends `extra` columns of `value` to the right of `tensor`.
+
+            Args:
+                tensor: Batch-first 2-D tensor to extend.
+                value: Fill value for the new columns — the pad token for input_ids,
+                    the ignore index for labels, 1 for an attention mask.
+
+            Returns:
+                A new tensor; the input is left alone.
+            """
             tail = tensor.new_full((tensor.shape[0], extra), value)
             return torch.cat([tensor, tail], dim=1)
 
@@ -186,7 +221,15 @@ class TextCompletionsCollatorWithPadding:
 
         # Extract the first example from the batched tensors for cleaner debug output
         def _to_py(x):
-            """Convert tensor-like objects to Python native types."""
+            """Convert tensor-like objects to Python native types.
+
+            Args:
+                x: Value to convert. Anything exposing ``tolist`` or ``item`` is
+                    unwrapped; anything else is returned as-is.
+
+            Returns:
+                The plain-Python equivalent, for readable debug logging.
+            """
             if hasattr(x, "tolist"):
                 return x.tolist()
             elif hasattr(x, "item"):
