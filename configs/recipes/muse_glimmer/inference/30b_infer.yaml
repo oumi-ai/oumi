@@ -1,0 +1,36 @@
+# Inference config for meta-models/Muse-Glimmer-30B.
+#
+# Requirements:
+#   - transformers >= 5.15.0 (see configs/recipes/muse_glimmer/README.md)
+#
+# Usage:
+#   oumi infer -i -c oumi://configs/recipes/muse_glimmer/inference/30b_infer.yaml
+#
+# To serve a LoRA adapter, add `adapter_model: <path>` under `model`.
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+#   - Config class: oumi.core.configs.InferenceConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/inference_config.py
+#   - Other inference configs: configs/**/inference/
+
+model:
+  model_name: "meta-models/Muse-Glimmer-30B"
+  model_revision: "f84ecc3a0ea984a4c04542a84269e3d065350a6e"
+  model_max_length: 8192
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: false
+
+generation:
+  max_new_tokens: 2048
+  temperature: 0.1
+  top_p: 0.95
+  use_sampling: True
+  # REQUIRED. Assistant turns end on `<|eot|>` (200008), but the tokenizer's
+  # `eos_token` is `<|end_of_text|>` (200001) and Oumi defaults stop ids to that
+  # alone. Without 200008 the model never stops: it emits its answer and then
+  # keeps opening fresh `assistant to=user` turns until max_new_tokens.
+  stop_token_ids: [200001, 200008]
+
+engine: NATIVE # vLLM has no MuseGlimmer entry as of v0.26.0.

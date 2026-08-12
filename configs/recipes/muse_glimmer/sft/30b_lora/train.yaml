@@ -1,0 +1,93 @@
+# LoRA SFT config for Muse Glimmer 30B.
+#
+# Model highlights:
+#   - 29.6B parameter dense multimodal model from Meta Superintelligence Lab
+#   - 131K context length; image + text inputs, text output
+#   - Alternating sliding (2048) / full attention, GQA 32:2, gated attention
+#   - LoRA is scoped to the text transformer only. The ViT-G/14 perception encoder
+#     reuses the `q_proj`/`k_proj`/`v_proj` names of the text model, so it must be
+#     excluded explicitly via `lora_exclude_modules` below.
+#
+# Requirements:
+#   - transformers >= 5.15.0, which must be installed manually
+#     (`uv pip install -U "transformers>=5.15"`) because oumi pins `transformers<5.10`.
+#     Muse Glimmer is absent from 5.14.1 and earlier.
+#   - peft (installed automatically with oumi)
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   oumi distributed torchrun -m oumi train -c oumi://configs/recipes/muse_glimmer/sft/30b_lora/train.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/*train.yaml
+
+model:
+  model_name: "meta-models/Muse-Glimmer-30B"
+  model_revision: "f84ecc3a0ea984a4c04542a84269e3d065350a6e"
+  model_max_length: 8192
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: false
+  enable_liger_kernel: false  # Disabled (model applies final logit softcapping).
+
+data:
+  train:
+    datasets:
+      - dataset_name: "yahma/alpaca-cleaned"  # 51,760 examples
+
+training:
+  use_peft: true
+  trainer_type: "TRL_SFT"
+  save_final_model: true
+  num_train_epochs: 1
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 8
+  max_grad_norm: 1.0
+
+  enable_gradient_checkpointing: true
+  gradient_checkpointing_kwargs:
+    use_reentrant: false
+  compile: false
+
+  optimizer: "adamw_torch_fused"
+  learning_rate: 2.0e-04
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.05
+  weight_decay: 0.01
+
+  dataloader_num_workers: "auto"
+  dataloader_prefetch_factor: 8
+  logging_steps: 5
+  empty_device_cache_steps: 50
+  output_dir: "output/muse_glimmer_30b.lora"
+  include_performance_metrics: true
+  enable_wandb: true
+
+peft:
+  lora_r: 8
+  lora_alpha: 16
+  lora_dropout: 0.05
+  lora_target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+  # Keep LoRA on the text transformer only; exclude the perception encoder and the
+  # modules that bridge it into the text hidden space.
+  lora_exclude_modules:
+    - ".*vision_tower.*"
+    - ".*vision_adapter.*"
+    - ".*vision_projection.*"
+
+fsdp:
+  enable_fsdp: true
+  sharding_strategy: "FULL_SHARD"
+  forward_prefetch: true
+  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
+  transformer_layer_cls: "MuseGlimmerTextDecoderLayer"
