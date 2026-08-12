@@ -22,10 +22,12 @@ from typing_extensions import override
 from oumi.core.datasets.base_map_dataset import BaseMapDataset
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.tokenizers.utils import (
+    detect_chat_template_tool_format,
     tokenize_for_completions_only_training_with_prefix,
     tokenize_for_completions_only_training_with_template,
 )
 from oumi.core.types.conversation import Conversation
+from oumi.utils.conversation_utils import create_chat_template_inputs
 from oumi.utils.logging import logger
 
 
@@ -254,14 +256,26 @@ class BaseSftDataset(BaseMapDataset, ABC):
         if self._tokenizer is None:
             raise ValueError("Tokenizer is required for tokenization.")
 
+        conversation = sample
+        tools = None
+        if isinstance(sample, Conversation) and sample.tools:
+            fmt = detect_chat_template_tool_format(self._tokenizer)
+            messages, tools = create_chat_template_inputs(
+                sample,
+                tool_arguments=fmt.arguments,
+                tool_call_content=fmt.content,
+            )
+            conversation = messages
+
         results = self._tokenizer.apply_chat_template(
-            sample,  # type: ignore
+            conversation,  # type: ignore
             tokenize=tokenize,
             return_dict=tokenize,
             return_tensors=self._return_tensors,
             max_length=self._tokenizer.model_max_length,
             truncation=True,
             add_generation_prompt=(self.task == "generation"),
+            tools=tools,  # type: ignore[arg-type]
         )
 
         if tokenize:

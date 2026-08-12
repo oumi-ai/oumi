@@ -11,11 +11,12 @@ from oumi.builders import build_tokenizer
 from oumi.core.configs import ModelParams
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.types.conversation import ContentItem, Conversation, Message, Role, Type
-from oumi.core.types.tool_call import ToolCall
+from oumi.core.types.tool_call import FunctionCall, ToolCall, ToolDefinition
 from oumi.utils.conversation_utils import (
     base64encode_content_item_image_bytes,
     convert_message_to_json_content,
     convert_message_to_json_content_list,
+    create_chat_template_inputs,
     create_list_of_message_json_dicts,
     load_image_bytes_to_content_item,
     load_pil_image_from_content_item,
@@ -881,6 +882,129 @@ def test_create_list_of_message_json_dicts_no_tool_keys_when_unset():
     for d in result:
         assert "tool_calls" not in d
         assert "tool_call_id" not in d
+
+
+# -----------------------------------------------------------------------------
+# create_chat_template_inputs
+# -----------------------------------------------------------------------------
+
+_TOOL_DEF_DICT = {
+    "type": "function",
+    "function": {
+        "name": "get_weather",
+        "description": "Get weather.",
+        "parameters": {
+            "type": "object",
+            "properties": {"city": {"type": "string"}},
+            "required": ["city"],
+        },
+    },
+}
+
+_TOOL_CALL_DICT = {
+    "id": "call_1",
+    "type": "function",
+    "function": {"name": "get_weather", "arguments": '{"city": "SF"}'},
+}
+
+
+def _make_tool_conversation() -> Conversation:
+    return Conversation(
+        messages=[
+            Message(role=Role.USER, content="weather?"),
+            Message(
+                role=Role.ASSISTANT,
+                content=None,
+                tool_calls=[ToolCall.model_validate(_TOOL_CALL_DICT)],
+            ),
+            Message(role=Role.TOOL, content='{"temp": 65}', tool_call_id="call_1"),
+        ],
+        tools=[ToolDefinition.model_validate(_TOOL_DEF_DICT)],
+    )
+
+
+def test_create_chat_template_inputs_mapping_arguments():
+    """tool_arguments='mapping' decodes arguments to a dict."""
+    conv = _make_tool_conversation()
+    messages, tools = create_chat_template_inputs(
+        conv, tool_arguments="mapping", tool_call_content="null"
+    )
+    tc = messages[1]["tool_calls"][0]
+    assert tc["function"]["arguments"] == {"city": "SF"}
+    assert isinstance(tc["function"]["arguments"], dict)
+
+
+def test_create_chat_template_inputs_string_arguments():
+    """tool_arguments='string' keeps arguments as a JSON string."""
+    conv = _make_tool_conversation()
+    messages, tools = create_chat_template_inputs(
+        conv, tool_arguments="string", tool_call_content="null"
+    )
+    tc = messages[1]["tool_calls"][0]
+    assert tc["function"]["arguments"] == '{"city": "SF"}'
+    assert isinstance(tc["function"]["arguments"], str)
+
+
+def test_create_chat_template_inputs_null_content():
+    """tool_call_content='null' preserves None content on tool-call messages."""
+    conv = _make_tool_conversation()
+    messages, _ = create_chat_template_inputs(
+        conv, tool_arguments="mapping", tool_call_content="null"
+    )
+    assert messages[1]["content"] is None
+
+
+def test_create_chat_template_inputs_empty_content():
+    """tool_call_content='empty' coerces None content to empty string."""
+    conv = _make_tool_conversation()
+    messages, _ = create_chat_template_inputs(
+        conv, tool_arguments="mapping", tool_call_content="empty"
+    )
+    assert messages[1]["content"] == ""
+
+
+def test_create_chat_template_inputs_returns_tools():
+    """The tools list is forwarded from the conversation."""
+    conv = _make_tool_conversation()
+    _, tools = create_chat_template_inputs(
+        conv, tool_arguments="mapping", tool_call_content="null"
+    )
+    assert tools is not None
+    assert len(tools) == 1
+    assert tools[0]["function"]["name"] == "get_weather"
+
+
+def test_create_chat_template_inputs_no_tools_returns_none():
+    """Conversations without tools return tools=None."""
+    conv = Conversation(messages=[Message(role=Role.USER, content="hi")])
+    _, tools = create_chat_template_inputs(
+        conv, tool_arguments="mapping", tool_call_content="null"
+    )
+    assert tools is None
+
+
+def test_create_chat_template_inputs_bad_json_names_message_index():
+    """Malformed JSON arguments raise ValueError naming the message index."""
+    conv = Conversation(
+        messages=[
+            Message(role=Role.USER, content="hi"),
+            Message(
+                role=Role.ASSISTANT,
+                content=None,
+                tool_calls=[
+                    ToolCall(
+                        id="call_bad",
+                        function=FunctionCall(name="fn", arguments="{bad json"),
+                    )
+                ],
+            ),
+        ],
+        tools=[ToolDefinition.model_validate(_TOOL_DEF_DICT)],
+    )
+    with pytest.raises(ValueError, match="Message 1"):
+        create_chat_template_inputs(
+            conv, tool_arguments="mapping", tool_call_content="null"
+        )
 
 
 #

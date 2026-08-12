@@ -13,13 +13,149 @@
 # limitations under the License.
 
 
+import functools
+import json
+from typing import Literal, NamedTuple
+
 import numpy as np
 import transformers
 
 from oumi.core.constants import LABEL_IGNORE_INDEX
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types import Conversation
+from oumi.utils.conversation_utils import create_chat_template_inputs
 from oumi.utils.logging import logger
+
+
+class ChatTemplateToolFormat(NamedTuple):
+    """The form a chat template expects tool-call data in."""
+
+    arguments: Literal["mapping", "string"]
+    content: Literal["null", "empty"]
+
+
+_SENTINEL_VALUE = "OUMI_PROBE_7f3a"
+
+
+def _probe_renders_sentinel(
+    tokenizer: BaseTokenizer,
+    *,
+    arguments_form: Literal["mapping", "string"],
+    content_form: Literal["null", "empty"],
+) -> bool | None:
+    """Render a synthetic tool call and check whether the sentinel survives.
+
+    Returns True if the sentinel appears verbatim, False if absent or
+    double-encoded, None if the template raised.
+    """
+    args_value: dict | str
+    if arguments_form == "mapping":
+        args_value = {"city": _SENTINEL_VALUE}
+    else:
+        args_value = json.dumps({"city": _SENTINEL_VALUE})
+
+    content_value = "" if content_form == "empty" else None
+
+    messages = [
+        {"role": "user", "content": "test"},
+        {
+            "role": "assistant",
+            "content": content_value,
+            "tool_calls": [
+                {
+                    "id": "call_probe",
+                    "type": "function",
+                    "function": {
+                        "name": "probe_fn",
+                        "arguments": args_value,
+                    },
+                }
+            ],
+        },
+    ]
+
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "probe_fn",
+                "description": "probe",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"city": {"type": "string"}},
+                    "required": ["city"],
+                },
+            },
+        }
+    ]
+
+    try:
+        rendered: str = tokenizer.apply_chat_template(
+            messages,  # type: ignore
+            tokenize=False,
+            tools=tools,  # type: ignore[arg-type]
+        )
+    except Exception:
+        return None
+
+    if _SENTINEL_VALUE not in rendered:
+        return False
+    escaped = f"\\{_SENTINEL_VALUE}" in rendered or f'"{_SENTINEL_VALUE}"' not in (
+        rendered if arguments_form == "string" else rendered
+    )
+    if arguments_form == "string" and '\\"city\\"' in rendered:
+        return False
+    if escaped and arguments_form == "mapping":
+        pass
+    return True
+
+
+def detect_chat_template_tool_format(
+    tokenizer: BaseTokenizer,
+) -> ChatTemplateToolFormat:
+    """Probe the tokenizer's chat template to find the accepted tool-call form.
+
+    Renders a synthetic tool call with a sentinel value across the four
+    (arguments x content) combinations and picks the best. Deterministic
+    tie-break prefers ``("mapping", "null")``.
+
+    Cached per model name — cost is at most 4 string renders, once.
+    """
+    model_name = getattr(tokenizer, "name_or_path", None) or ""
+    return _detect_cached(model_name, tokenizer)
+
+
+@functools.cache
+def _detect_cached(model_name: str, tokenizer: BaseTokenizer) -> ChatTemplateToolFormat:
+    candidates = [
+        ("mapping", "null"),
+        ("mapping", "empty"),
+        ("string", "null"),
+        ("string", "empty"),
+    ]
+
+    best = None
+    for args_form, content_form in candidates:
+        result = _probe_renders_sentinel(
+            tokenizer,
+            arguments_form=args_form,  # type: ignore[arg-type]
+            content_form=content_form,  # type: ignore[arg-type]
+        )
+        if result is True and best is None:
+            best = ChatTemplateToolFormat(
+                arguments=args_form,  # type: ignore[arg-type]
+                content=content_form,  # type: ignore[arg-type]
+            )
+
+    if best is not None:
+        return best
+
+    logger.warning(
+        "No tool-call form rendered correctly for %r; falling back to "
+        "('mapping', 'null'). Tool calls may not render as expected.",
+        model_name,
+    )
+    return ChatTemplateToolFormat(arguments="mapping", content="null")
 
 
 #
@@ -29,11 +165,23 @@ def tokenize_for_completions_only_training_with_template(
     tokenizer: BaseTokenizer, conversation: Conversation
 ) -> dict:
     """Tokenize a conversation for completions-only training with a template."""
+    chat_input: Conversation | list[dict] = conversation
+    tools = None
+    if conversation.tools:
+        fmt = detect_chat_template_tool_format(tokenizer)
+        messages, tools = create_chat_template_inputs(
+            conversation,
+            tool_arguments=fmt.arguments,
+            tool_call_content=fmt.content,
+        )
+        chat_input = messages
+
     batch: transformers.BatchEncoding = tokenizer.apply_chat_template(
-        conversation=conversation,  # type: ignore
+        conversation=chat_input,  # type: ignore
         tokenize=True,
         return_dict=True,
         return_assistant_tokens_mask=True,
+        tools=tools,  # type: ignore[arg-type]
     )
 
     data = batch.data
@@ -57,11 +205,23 @@ def tokenize_for_completions_only_training_with_prefix(
     instruction_token_ids: list[int],
 ) -> dict:
     """Tokenize a conversation for completions-only training with a prefix."""
+    chat_input: Conversation | list[dict] = conversation
+    tools = None
+    if conversation.tools:
+        fmt = detect_chat_template_tool_format(tokenizer)
+        messages, tools = create_chat_template_inputs(
+            conversation,
+            tool_arguments=fmt.arguments,
+            tool_call_content=fmt.content,
+        )
+        chat_input = messages
+
     prompt: str = tokenizer.apply_chat_template(
-        conversation=conversation,  # type: ignore
+        conversation=chat_input,  # type: ignore
         tokenize=False,
         return_dict=False,
         return_assistant_tokens_mask=False,
+        tools=tools,  # type: ignore[arg-type]
     )
     tokenizer_batch: transformers.BatchEncoding = tokenizer(
         prompt, truncation=True, padding=False, return_tensors="pt"
@@ -241,8 +401,20 @@ def tokenizer_for_inference(
     tokenizer: BaseTokenizer, conversation: Conversation
 ) -> dict:
     """Tokenize a conversation for inference."""
+    chat_input: Conversation | list[dict] = conversation
+    tools = None
+    if conversation.tools:
+        fmt = detect_chat_template_tool_format(tokenizer)
+        messages, tools = create_chat_template_inputs(
+            conversation,
+            tool_arguments=fmt.arguments,
+            tool_call_content=fmt.content,
+        )
+        chat_input = messages
+
     return tokenizer.apply_chat_template(
-        conversation=conversation,  # type: ignore
+        conversation=chat_input,  # type: ignore
         tokenize=True,
         return_dict=True,
+        tools=tools,  # type: ignore[arg-type]
     )
