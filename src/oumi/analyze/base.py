@@ -21,6 +21,7 @@ from typing import Any, ClassVar, Generic, TypeVar
 from pydantic import BaseModel
 from transformers import PreTrainedTokenizerBase
 
+from oumi.core.tokenizers import utils as tokenizer_utils
 from oumi.core.types.conversation import ContentItem, Conversation, Message
 
 TResult = TypeVar("TResult", bound=BaseModel)
@@ -236,8 +237,9 @@ class ConversationAnalyzer(BaseAnalyzer[TResult]):
                 "A chat template is required to format conversation text."
             )
 
-        result = tokenizer.apply_chat_template(
-            conversation=conversation,  # type: ignore
+        result = tokenizer_utils.apply_chat_template(
+            tokenizer,
+            conversation,
             tokenize=False,
             return_dict=False,
         )

@@ -33,6 +33,7 @@ from oumi.core.configs import (
     ModelParams,
 )
 from oumi.core.inference.progress_reporter import ProgressFileReporter
+from oumi.core.tokenizers import utils as tokenizer_utils
 from oumi.core.types.conversation import Conversation
 from oumi.utils.logging import logger
 from oumi.utils.math_utils import is_power_of_two
@@ -814,4 +815,6 @@ class BaseInferenceEngine(ABC):
         if "tokenize" not in tokenizer_kwargs:
             tokenizer_kwargs["tokenize"] = False
 
-        return tokenizer.apply_chat_template(conversation, **tokenizer_kwargs)
+        return tokenizer_utils.apply_chat_template(
+            tokenizer, conversation, **tokenizer_kwargs
+        )

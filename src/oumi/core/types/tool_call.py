@@ -164,7 +164,7 @@ class FunctionCall(BaseModel):
     @classmethod
     def _encode_object_arguments(cls, raw_arguments: Any) -> Any:
         """Accepts the object form used by HF chat templates and tool datasets."""
-        if isinstance(raw_arguments, (dict, list)):
+        if isinstance(raw_arguments, dict):
             return json.dumps(raw_arguments)
         return raw_arguments
 

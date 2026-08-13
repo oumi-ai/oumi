@@ -13,6 +13,9 @@
 # limitations under the License.
 
 
+from typing import Any
+
+import jinja2
 import numpy as np
 import transformers
 
@@ -22,6 +25,42 @@ from oumi.core.types import Conversation
 from oumi.utils.logging import logger
 
 
+def apply_chat_template(
+    tokenizer: BaseTokenizer, conversation: Conversation, **kwargs
+) -> Any:
+    """Renders a conversation with the tokenizer's chat template.
+
+    Tool-call ``arguments`` are stored in the OpenAI wire format (a JSON string),
+    but most chat templates index into them as an object. This renders the object
+    form first and falls back to the stored string form, because a dict fails
+    loudly on templates that concatenate ``arguments`` (DeepSeek) while a string
+    fails silently on templates that pass it through ``tojson`` (Qwen2.5).
+
+    Args:
+        tokenizer: Tokenizer carrying the chat template.
+        conversation: The conversation to render.
+        **kwargs: Forwarded to ``tokenizer.apply_chat_template``.
+
+    Returns:
+        Whatever ``tokenizer.apply_chat_template`` returns for ``kwargs``.
+    """
+    data = conversation.to_chat_template_dict()
+    if not data["messages"]:
+        # `apply_chat_template` indexes `conversation[0]` to detect batching, so an
+        # empty list raises there; the object form is not indexed.
+        return tokenizer.apply_chat_template(conversation, **kwargs)  # type: ignore
+
+    try:
+        return tokenizer.apply_chat_template(
+            data["messages"], tools=data.get("tools"), **kwargs
+        )
+    except (TypeError, jinja2.TemplateError):
+        data = conversation.to_dict()
+        return tokenizer.apply_chat_template(
+            data["messages"], tools=data.get("tools"), **kwargs
+        )
+
+
 #
 # Base class functions
 #
@@ -29,8 +68,9 @@ def tokenize_for_completions_only_training_with_template(
     tokenizer: BaseTokenizer, conversation: Conversation
 ) -> dict:
     """Tokenize a conversation for completions-only training with a template."""
-    batch: transformers.BatchEncoding = tokenizer.apply_chat_template(
-        conversation=conversation,  # type: ignore
+    batch: transformers.BatchEncoding = apply_chat_template(
+        tokenizer,
+        conversation,
         tokenize=True,
         return_dict=True,
         return_assistant_tokens_mask=True,
@@ -57,8 +97,9 @@ def tokenize_for_completions_only_training_with_prefix(
     instruction_token_ids: list[int],
 ) -> dict:
     """Tokenize a conversation for completions-only training with a prefix."""
-    prompt: str = tokenizer.apply_chat_template(
-        conversation=conversation,  # type: ignore
+    prompt: str = apply_chat_template(
+        tokenizer,
+        conversation,
         tokenize=False,
         return_dict=False,
         return_assistant_tokens_mask=False,
@@ -241,8 +282,9 @@ def tokenizer_for_inference(
     tokenizer: BaseTokenizer, conversation: Conversation
 ) -> dict:
     """Tokenize a conversation for inference."""
-    return tokenizer.apply_chat_template(
-        conversation=conversation,  # type: ignore
+    return apply_chat_template(
+        tokenizer,
+        conversation,
         tokenize=True,
         return_dict=True,
     )

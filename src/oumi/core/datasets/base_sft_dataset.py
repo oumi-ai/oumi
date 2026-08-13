@@ -22,6 +22,7 @@ from typing_extensions import override
 from oumi.core.datasets.base_map_dataset import BaseMapDataset
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.tokenizers.utils import (
+    apply_chat_template,
     tokenize_for_completions_only_training_with_prefix,
     tokenize_for_completions_only_training_with_template,
 )
@@ -184,8 +185,12 @@ class BaseSftDataset(BaseMapDataset, ABC):
         column like `messages`, items can have heterogeneous keys (e.g.,
         assistant messages with `tool_calls`, tool messages with
         `tool_call_id`, plain messages with neither), and that's fine.
+
+        Tool-call `arguments` must stay in the JSON-string wire form here: as an
+        object, Arrow infers a struct and unions its keys across every row, so
+        each call renders with every other tool's keys set to null.
         """
-        data = conversation.to_chat_template_dict()
+        data = conversation.to_dict()
         data.setdefault("tools", None)
         return data
 
@@ -248,22 +253,13 @@ class BaseSftDataset(BaseMapDataset, ABC):
                 instruction_token_ids=self.instruction_token_ids,
             )
 
-    def _tokenize(
-        self, sample: dict | pd.Series | Conversation, tokenize: bool = True
-    ) -> dict:
+    def _tokenize(self, conversation: Conversation, tokenize: bool = True) -> dict:
         if self._tokenizer is None:
             raise ValueError("Tokenizer is required for tokenization.")
 
-        tools = None
-        if isinstance(sample, Conversation):
-            # Templates need tool-call `arguments` as an object, and `tools` as a
-            # separate kwarg; passing the Conversation renders the string form.
-            data = sample.to_chat_template_dict()
-            sample, tools = data["messages"], data.get("tools")
-
-        results = self._tokenizer.apply_chat_template(
-            sample,  # type: ignore
-            tools=tools,
+        results = apply_chat_template(
+            self._tokenizer,
+            conversation,
             tokenize=tokenize,
             return_dict=tokenize,
             return_tensors=self._return_tensors,

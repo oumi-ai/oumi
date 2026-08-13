@@ -36,6 +36,7 @@ from oumi.core.configs.internal.supported_models import (
     find_internal_model_config_using_model_name,
 )
 from oumi.core.processors.base_processor import BaseProcessor
+from oumi.core.tokenizers.utils import apply_chat_template
 from oumi.core.types.conversation import Conversation, FinishReason, Message, Role, Type
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 from oumi.utils.conversation_utils import (
@@ -182,12 +183,9 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
 
     def _apply_chat_template_impl(self, conversation: Conversation) -> str:
         if self._processor is None:
-            data = conversation.to_chat_template_dict()
-            prompt = self._tokenizer.apply_chat_template(
-                data["messages"],
-                # Without this the model is prompted with no tool schema and
-                # invents function names.
-                tools=data.get("tools"),
+            prompt = apply_chat_template(
+                self._tokenizer,
+                conversation,
                 tokenize=False,
                 add_generation_prompt=True,
             )

@@ -1,3 +1,4 @@
+import datasets
 import pandas as pd
 import pytest
 import torch
@@ -10,6 +11,7 @@ from oumi.core.configs import ModelParams
 from oumi.core.constants import LABEL_IGNORE_INDEX
 from oumi.core.datasets.base_sft_dataset import BaseSftDataset
 from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.core.types.tool_call import ToolCall
 
 _INSTRUCTION_PREFIX = "USER:"
 _RESPONSE_PREFIX = "ASSISTANT:"
@@ -399,3 +401,36 @@ def test_return_conversations_default_format(gpt2_tokenizer):
     # Default should be JSON format
     assert "conversation_json" in result
     assert isinstance(result["conversation_json"], str)
+
+
+def _tool_call_conversation(arguments: dict) -> Conversation:
+    tool_call = ToolCall.model_validate(
+        {
+            "id": "call_abc",
+            "type": "function",
+            "function": {"name": "get_weather", "arguments": arguments},
+        }
+    )
+    return Conversation(
+        messages=[Message(role=Role.ASSISTANT, content=None, tool_calls=[tool_call])]
+    )
+
+
+def test_hf_compatible_dict_keeps_tool_arguments_as_a_string(gpt2_tokenizer):
+    """Arrow infers a struct from object-shaped `arguments` and unions its keys.
+
+    Two rows calling different tools would then each render with the other's
+    argument names set to null, so this column has to stay a JSON string.
+    """
+    dataset = TestBaseSftDataset(tokenizer=gpt2_tokenizer)
+    rows = [
+        dataset._conversation_to_hf_compatible_dict(_tool_call_conversation(arguments))
+        for arguments in ({"city": "SF"}, {"count": 2})
+    ]
+
+    hf_dataset = datasets.Dataset.from_list(rows)
+
+    assert [
+        row["messages"][0]["tool_calls"][0]["function"]["arguments"]
+        for row in hf_dataset.to_list()
+    ] == ['{"city": "SF"}', '{"count": 2}']
