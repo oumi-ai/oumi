@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import functools
+from unittest.mock import patch
 
 import pytest
 import transformers
@@ -31,6 +32,10 @@ from oumi.core.configs import (
     TrainTarget,
 )
 from oumi.core.constants import LABEL_IGNORE_INDEX
+from oumi.core.tokenizers.utils import (
+    _probe_renders_sentinel,
+    detect_chat_template_tool_format,
+)
 from oumi.core.types import Conversation
 from oumi.utils.canonical_tool_conversations import (
     ARGUMENT_SENTINEL,
@@ -498,3 +503,204 @@ def test_deepseek_renders_a_conversation_whose_tool_calls_omit_type():
     )
 
     assert ARGUMENT_SENTINEL in rendered
+
+
+#
+# Tool-format detection against the shipped templates.
+#
+
+
+@pytest.mark.parametrize(
+    "model_name,trust_remote_code,expected_format",
+    [
+        pytest.param(
+            "google/gemma-4-E2B-it",
+            False,
+            ("mapping", "empty"),
+            id="gemma-4-raises-on-string-arguments",
+            marks=pytest.mark.skipif(
+                not is_transformers_v5(),
+                reason="gemma-4 tokenizers require transformers v5",
+            ),
+        ),
+        pytest.param(
+            "zai-org/GLM-4.5",
+            False,
+            ("mapping", "empty"),
+            id="glm-4.5-iterates-arguments-items",
+        ),
+        pytest.param(
+            "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+            False,
+            ("string", "null"),
+            id="deepseek-r1-concatenates-arguments",
+        ),
+        pytest.param(
+            "Qwen/Qwen3.5-0.8B",
+            True,
+            ("mapping", "empty"),
+            id="qwen3.5-rejects-string-arguments",
+        ),
+        pytest.param(
+            "Qwen/Qwen3.6-35B-A3B",
+            True,
+            ("mapping", "empty"),
+            id="qwen3.6-rejects-string-arguments",
+        ),
+        pytest.param(
+            "MiniMaxAI/MiniMax-M2.5",
+            True,
+            ("mapping", "empty"),
+            id="minimax-m2.5-rejects-string-arguments",
+        ),
+        pytest.param(
+            "openai/gpt-oss-20b",
+            True,
+            ("mapping", "empty"),
+            id="gpt-oss-requires-non-null-content",
+            marks=requires_hf_token(),
+        ),
+    ],
+)
+def test_detected_tool_format_matches_the_shipped_template(
+    model_name, trust_remote_code, expected_format
+):
+    tokenizer = _load_tokenizer(model_name, trust_remote_code)
+
+    assert tuple(detect_chat_template_tool_format(tokenizer)) == expected_format
+
+
+@pytest.mark.parametrize(
+    "model_name,arguments_form,content_form,expected_verdict",
+    [
+        pytest.param(
+            "google/gemma-4-E2B-it",
+            "string",
+            "empty",
+            None,
+            id="gemma-4-raises-rather-than-accepting-a-string",
+            marks=pytest.mark.skipif(
+                not is_transformers_v5(),
+                reason="gemma-4 tokenizers require transformers v5",
+            ),
+        ),
+        pytest.param(
+            "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+            "mapping",
+            "null",
+            None,
+            id="deepseek-r1-raises-rather-than-accepting-a-mapping",
+        ),
+        pytest.param(
+            # DeepSeek renders the call only when `content` is None, so "" silently
+            # drops it.
+            "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+            "string",
+            "empty",
+            False,
+            id="deepseek-r1-drops-the-tool-call-for-empty-content",
+        ),
+        pytest.param(
+            "HuggingFaceTB/SmolLM3-3B",
+            "mapping",
+            "empty",
+            False,
+            id="smollm3-drops-the-tool-call-without-raising",
+        ),
+        pytest.param(
+            "Qwen/Qwen2.5-0.5B-Instruct",
+            "string",
+            "empty",
+            False,
+            id="qwen2.5-double-encodes-without-raising",
+        ),
+        pytest.param(
+            "Qwen/Qwen3.5-0.8B",
+            "mapping",
+            "empty",
+            True,
+            id="qwen3.5-renders-the-sentinel-verbatim",
+        ),
+    ],
+)
+def test_probe_verdict_for_shipped_template(
+    model_name, arguments_form, content_form, expected_verdict
+):
+    tokenizer = _load_tokenizer(model_name)
+
+    verdict = _probe_renders_sentinel(
+        tokenizer, arguments_form=arguments_form, content_form=content_form
+    )
+
+    assert verdict is expected_verdict
+
+
+def test_double_encoding_is_why_qwen2_5_rejects_string_arguments():
+    """Qwen2.5 pipes `arguments` through `tojson` with no type check.
+
+    Given the JSON string Oumi stores, it encodes the value a second time and
+    the model would train on `"{\\"city\\": \\"...\\"}"` where an object belongs.
+    Nothing raises and the sentinel survives verbatim, so the escape check is
+    the only thing standing between this and silently corrupted data.
+    """
+    tokenizer = _load_tokenizer("Qwen/Qwen2.5-0.5B-Instruct")
+    messages, tools = create_chat_template_inputs(
+        canonical_tool_conversation(),
+        tool_arguments_format="string",  # type: ignore[arg-type]
+        content_format="empty",  # type: ignore[arg-type]
+    )
+
+    rendered = tokenizer.apply_chat_template(
+        messages,
+        tokenize=False,
+        tools=tools,  # type: ignore[arg-type]
+    )
+
+    # Not a vacuous rejection: the value is present, just escaped.
+    assert ARGUMENT_SENTINEL in rendered
+    assert f'\\"{ARGUMENT_SENTINEL}' in rendered
+    assert (
+        _probe_renders_sentinel(
+            tokenizer, arguments_form="string", content_form="empty"
+        )
+        is False
+    )
+
+
+def test_template_with_no_working_form_falls_back_and_warns():
+    """SmolLM3 has no branch that renders an assistant message's `tool_calls`.
+
+    Every form is rejected, so detection cannot do better than warn and return
+    the preferred default.
+    """
+    # A fresh instance, so the cached detection for this model does not hide the
+    # warning this test is asserting on.
+    tokenizer = transformers.AutoTokenizer.from_pretrained("HuggingFaceTB/SmolLM3-3B")
+
+    with patch("oumi.core.tokenizers.utils.logger") as mock_logger:
+        resolved = detect_chat_template_tool_format(tokenizer)
+
+    assert tuple(resolved) == ("mapping", "empty")
+    mock_logger.warning.assert_called_once()
+
+
+def test_glm_does_not_render_a_literal_none_for_null_content():
+    """GLM-4.5 stringifies `content: None` into the text it trains on.
+
+    Its template pipes content through `visible_text(m.content)` unconditionally,
+    so `None` becomes the literal word. Both content forms render and the
+    argument sentinel survives either way, which is why the candidate order --
+    not the probe's accept/reject -- is what keeps this out of the data.
+    """
+    tokenizer = _load_tokenizer("zai-org/GLM-4.5")
+    resolved = detect_chat_template_tool_format(tokenizer)
+
+    messages, tools = _template_inputs(canonical_tool_conversation())
+    rendered = tokenizer.apply_chat_template(
+        messages,
+        tokenize=False,
+        tools=tools,  # type: ignore[arg-type]
+    )
+
+    assert resolved.content == "empty"
+    assert "\nNone\n" not in rendered
