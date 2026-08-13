@@ -32,13 +32,17 @@ from oumi.core.configs import (
     TrainTarget,
 )
 from oumi.core.constants import LABEL_IGNORE_INDEX
-from oumi.core.types import Conversation, Message, Role
-from oumi.core.types.tool_call import (
-    FunctionCall,
-    FunctionDefinition,
-    JSONSchema,
-    ToolCall,
-    ToolDefinition,
+from oumi.core.types import Conversation
+from oumi.core.types.tool_conversations import (
+    ASSISTANT_TEXT_1,
+    ASSISTANT_TEXT_2,
+    SYSTEM_TEXT,
+    TOOL_RESULT_1,
+    TOOL_RESULT_2,
+    TOOL_RESULT_3,
+    USER_TEXT_1,
+    USER_TEXT_2,
+    canonical_tool_conversation,
 )
 from oumi.utils.packaging import is_transformers_v5
 from tests.markers import requires_hf_token
@@ -258,63 +262,6 @@ def test_template_detection_newer_transformers(
 # gemma-4 and GLM-4.5 render tool results inside the model turn, so span masking
 # trains on environment output unless the tool-result bracket is subtracted.
 
-_SYSTEM_TEXT = "SYSTEM_PROMPT_TEXT"
-_USER_TEXT_1 = "USER_ASKS_WEATHER_AND_FLIGHTS"
-_USER_TEXT_2 = "USER_ASKS_TOKYO"
-_ASSISTANT_TEXT_1 = "ASSISTANT_ANSWERS_PARIS"
-_ASSISTANT_TEXT_2 = "ASSISTANT_ANSWERS_TOKYO"
-_TOOL_RESULT_1 = "TOOL_RESULT_PARIS_WEATHER"
-_TOOL_RESULT_2 = "TOOL_RESULT_BOSTON_FLIGHTS"
-_TOOL_RESULT_3 = "TOOL_RESULT_TOKYO_WEATHER"
-
-
-def _tool_conversation() -> Conversation:
-    """Mock multi-turn conversation with parallel tool calls and interleaved results."""
-
-    def _call(call_id: str, name: str, **arguments) -> ToolCall:
-        return ToolCall(
-            id=call_id,
-            function=FunctionCall(name=name, arguments=json.dumps(arguments)),
-        )
-
-    def _tool(name: str, **properties) -> ToolDefinition:
-        return ToolDefinition(
-            function=FunctionDefinition(
-                name=name,
-                description=f"{name} description",
-                parameters=JSONSchema(
-                    type="object",
-                    properties={k: JSONSchema(type="string") for k in properties},
-                    required=list(properties),
-                ),
-            )
-        )
-
-    return Conversation(
-        tools=[_tool("get_weather", city=""), _tool("search_flights", origin="")],
-        messages=[
-            Message(role=Role.SYSTEM, content=_SYSTEM_TEXT),
-            Message(role=Role.USER, content=_USER_TEXT_1),
-            Message(
-                role=Role.ASSISTANT,
-                tool_calls=[
-                    _call("weathr001", "get_weather", city="Paris"),
-                    _call("flight001", "search_flights", origin="Boston"),
-                ],
-            ),
-            Message(role=Role.TOOL, tool_call_id="weathr001", content=_TOOL_RESULT_1),
-            Message(role=Role.TOOL, tool_call_id="flight001", content=_TOOL_RESULT_2),
-            Message(role=Role.ASSISTANT, content=_ASSISTANT_TEXT_1),
-            Message(role=Role.USER, content=_USER_TEXT_2),
-            Message(
-                role=Role.ASSISTANT,
-                tool_calls=[_call("weathr002", "get_weather", city="Tokyo")],
-            ),
-            Message(role=Role.TOOL, tool_call_id="weathr002", content=_TOOL_RESULT_3),
-            Message(role=Role.ASSISTANT, content=_ASSISTANT_TEXT_2),
-        ],
-    )
-
 
 def _template_inputs(conversation: Conversation):
     """Messages/tools shaped for templates that require mapping arguments."""
@@ -463,26 +410,26 @@ def _assert_included_in_loss(tokenizer, input_ids, labels, text: str, model: str
 def test_tool_results_are_excluded_from_the_loss(model_name, trust_remote_code):
     tokenizer = _load_tokenizer(model_name, trust_remote_code)
 
-    conversation = _tool_conversation()
+    conversation = canonical_tool_conversation()
     collator = _build_collator(tokenizer, model_name)
     input_ids = _encode_conversation(tokenizer, conversation)
     labels = _labels(collator, input_ids)
 
     # Environment output must never be trained on.
-    for tool_result in (_TOOL_RESULT_1, _TOOL_RESULT_2, _TOOL_RESULT_3):
+    for tool_result in (TOOL_RESULT_1, TOOL_RESULT_2, TOOL_RESULT_3):
         _assert_excluded_from_loss(
             tokenizer, input_ids, labels, tool_result, model_name
         )
 
     # Prompt text is context, not a target.
-    for prompt_text in (_SYSTEM_TEXT, _USER_TEXT_1, _USER_TEXT_2):
+    for prompt_text in (SYSTEM_TEXT, USER_TEXT_1, USER_TEXT_2):
         _assert_excluded_from_loss(
             tokenizer, input_ids, labels, prompt_text, model_name
         )
 
     # The model's own turns must survive, including the answer that gemma-4 renders
     # after the tool results inside the same turn.
-    for assistant_text in (_ASSISTANT_TEXT_1, _ASSISTANT_TEXT_2):
+    for assistant_text in (ASSISTANT_TEXT_1, ASSISTANT_TEXT_2):
         _assert_included_in_loss(
             tokenizer, input_ids, labels, assistant_text, model_name
         )
@@ -502,7 +449,7 @@ def test_bracket_forced_onto_a_separate_turn_model_changes_nothing():
     model_name = "Qwen/Qwen3-0.6B"
     tokenizer = _load_tokenizer(model_name)
 
-    conversation = _tool_conversation()
+    conversation = canonical_tool_conversation()
     input_ids = _encode_conversation(tokenizer, conversation)
 
     response_template, end_of_turn_template = resolve_collator_templates(tokenizer)
