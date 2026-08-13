@@ -35,6 +35,8 @@ run: |
   source "./configs/examples/misc/sky_init.sh"
 
   pip install uv && uv pip install --system -e ".[ci_gpu]" hf_transfer
+  # flash-attn >=2.8 ships flash_attn/cute (FA4) which uses cutlass without declaring
+  # it as a dependency, so pip can't pick a compatible version on its own.
   pip install flash-attn==2.8.3.post1 --no-build-isolation
   pip install "nvidia-cutlass-dsl==4.2.1"
 
