@@ -13,12 +13,13 @@
 # limitations under the License.
 
 import base64
-from typing import Any
+from typing import Any, Literal
 
 import PIL.Image
 
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types.conversation import ContentItem, Conversation, Message, Type
+from oumi.core.types.tool_call import FunctionCall
 from oumi.utils.image_utils import (
     DEFAULT_IMAGE_MODE,
     load_image_png_bytes_from_path,
@@ -294,6 +295,51 @@ def create_list_of_message_json_dicts(
         result.append(item)
 
     return result
+
+
+def create_chat_template_inputs(
+    conversation: Conversation,
+    *,
+    tool_arguments_format: Literal["mapping", "string"],
+    content_format: Literal["null", "empty"],
+) -> tuple[list[dict], list[dict] | None]:
+    """Returns ``(messages, tools)`` shaped for ``tokenizer.apply_chat_template``.
+
+    Adapts the Oumi ``Conversation`` wire format to the form HuggingFace chat
+    templates expect. This is one-directional — nothing parses rendered text
+    back into a ``Conversation``.
+
+    Args:
+        conversation: The source conversation.
+        tool_arguments_format: How ``function.arguments`` should appear in the output.
+            ``"mapping"`` decodes JSON strings to dicts (required by most
+            templates); ``"string"`` leaves them as JSON strings.
+        content_format: How ``content`` on assistant messages that carry
+            only tool_calls should appear. ``"null"`` keeps ``None``;
+            ``"empty"`` coerces to ``""``.
+    """
+    data = conversation.to_dict()
+    messages = data["messages"]
+
+    for msg_idx, msg_dict in enumerate(messages):
+        tool_calls = msg_dict.get("tool_calls")
+        if not tool_calls:
+            continue
+
+        if tool_arguments_format == "mapping":
+            for tool_call in tool_calls:
+                function = tool_call["function"]
+                try:
+                    function["arguments"] = FunctionCall.model_validate(
+                        function
+                    ).parsed_arguments()
+                except ValueError as e:
+                    raise ValueError(f"Message {msg_idx}: {e}") from e
+
+        if content_format == "empty" and msg_dict.get("content") is None:
+            msg_dict["content"] = ""
+
+    return messages, data.get("tools")
 
 
 def remove_excessive_images(
