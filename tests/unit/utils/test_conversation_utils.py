@@ -21,6 +21,7 @@ from oumi.utils.canonical_tool_conversations import (
     canonical_tool_conversation,
 )
 from oumi.utils.conversation_utils import (
+    _restore_default_type,
     base64encode_content_item_image_bytes,
     convert_message_to_json_content,
     convert_message_to_json_content_list,
@@ -978,6 +979,80 @@ def test_create_chat_template_inputs_bad_json_names_message_index():
         create_chat_template_inputs(
             conv, tool_arguments_format="mapping", content_format="null"
         )
+
+
+# -----------------------------------------------------------------------------
+# create_chat_template_inputs: restoring a defaulted `type`
+# -----------------------------------------------------------------------------
+
+
+def test_create_chat_template_inputs_restores_tool_call_type():
+    """`exclude_unset` drops a defaulted `type`; templates read it directly.
+
+    The canonical conversation builds its tool calls without an explicit
+    `type`, which is what a conversation built in code rather than parsed from
+    OpenAI-format JSON looks like.
+    """
+    conv = canonical_tool_conversation()
+    raw = conv.to_dict()["messages"][FIRST_TOOL_CALL_INDEX]["tool_calls"][0]
+    assert "type" not in raw
+
+    messages, _ = create_chat_template_inputs(
+        conv, tool_arguments_format="mapping", content_format="null"
+    )
+
+    restored = messages[FIRST_TOOL_CALL_INDEX]["tool_calls"]
+    assert [call["type"] for call in restored] == ["function", "function"]
+
+
+def test_create_chat_template_inputs_restores_tool_definition_type():
+    """Tool definitions lose a defaulted `type` by the same mechanism."""
+    conv = canonical_tool_conversation()
+    assert "type" not in conv.to_dict()["tools"][0]
+
+    _, tools = create_chat_template_inputs(
+        conv, tool_arguments_format="mapping", content_format="null"
+    )
+
+    assert tools is not None
+    assert [tool["type"] for tool in tools] == ["function", "function"]
+
+
+def test_restore_default_type_leaves_an_explicit_type_alone():
+    """Only a missing key is filled; an explicit value passes through."""
+    entry = {"type": "custom_tool", "function": {"name": "f"}}
+
+    _restore_default_type(entry)
+
+    assert entry["type"] == "custom_tool"
+
+
+def test_restore_default_type_ignores_entries_without_a_function():
+    """A future non-function tool type must not be mislabelled as one."""
+    entry: dict = {"custom": {"name": "f"}}
+
+    _restore_default_type(entry)
+
+    assert "type" not in entry
+
+
+def test_create_chat_template_inputs_does_not_mutate_the_conversation():
+    """The adapter works on `to_dict()` output, which is a fresh copy."""
+    conv = canonical_tool_conversation()
+    message = conv.messages[FIRST_TOOL_CALL_INDEX]
+
+    create_chat_template_inputs(
+        conv, tool_arguments_format="mapping", content_format="empty"
+    )
+
+    assert message.content is None
+    assert message.tool_calls is not None
+    assert message.tool_calls[0].function.arguments == (
+        f'{{"city": "{ARGUMENT_SENTINEL}"}}'
+    )
+    assert (
+        "type" not in conv.to_dict()["messages"][FIRST_TOOL_CALL_INDEX]["tool_calls"][0]
+    )
 
 
 #

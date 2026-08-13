@@ -33,8 +33,10 @@ from oumi.core.configs import (
 from oumi.core.constants import LABEL_IGNORE_INDEX
 from oumi.core.types import Conversation
 from oumi.utils.canonical_tool_conversations import (
+    ARGUMENT_SENTINEL,
     ASSISTANT_TEXT_1,
     ASSISTANT_TEXT_2,
+    FIRST_TOOL_CALL_INDEX,
     SYSTEM_TEXT,
     TOOL_RESULT_1,
     TOOL_RESULT_2,
@@ -464,3 +466,35 @@ def test_bracket_forced_onto_a_separate_turn_model_changes_nothing():
     ), "expected <tool_response> to appear in the rendered conversation"
 
     assert _labels(forced, input_ids) == _labels(baseline, input_ids)
+
+
+#
+# Restoring a `type` that `to_dict()` left out.
+#
+
+
+def test_deepseek_renders_a_conversation_whose_tool_calls_omit_type():
+    """DeepSeek reads `type` directly off each tool call and tool definition.
+
+    `Conversation.to_dict()` dumps with `exclude_unset=True`, so a conversation
+    built in code drops the key. Without the adapter restoring it, this model
+    raises `UndefinedError` and the conversation cannot be rendered at all.
+    """
+    tokenizer = _load_tokenizer("deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B")
+    conversation = canonical_tool_conversation()
+
+    # Not a vacuous test: the key really is absent on the wire format.
+    raw = conversation.to_dict()
+    assert "type" not in raw["messages"][FIRST_TOOL_CALL_INDEX]["tool_calls"][0]
+    assert "type" not in raw["tools"][0]
+
+    messages, tools = create_chat_template_inputs(
+        conversation, tool_arguments_format="string", content_format="null"
+    )
+    rendered = tokenizer.apply_chat_template(
+        messages,
+        tokenize=False,
+        tools=tools,  # type: ignore[arg-type]
+    )
+
+    assert ARGUMENT_SENTINEL in rendered
