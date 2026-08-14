@@ -25,9 +25,11 @@ keys at validation time would silently lose information that
 downstream code relies on.
 """
 
+import json
 from enum import Enum
 from typing import Any, Literal
 
+import pydantic
 from pydantic import BaseModel, ConfigDict, JsonValue
 
 # The seven primitive types defined by JSON Schema.
@@ -155,6 +157,45 @@ class FunctionCall(BaseModel):
     (NOT a dict). Some providers return malformed JSON; downstream
     code is responsible for parsing and handling errors.
     """
+
+    @pydantic.field_validator("arguments", mode="before")
+    @classmethod
+    def _coerce_arguments_to_str(cls, raw: Any) -> str:
+        """Normalize dict/list arguments to a JSON string.
+
+        Runs in ``mode="before"`` so we can intercept non-string inputs
+        (e.g., dicts from JSONL files) and serialize them before Pydantic's
+        core validator enforces the ``str`` type.
+        """
+        if isinstance(raw, str):
+            return raw
+        if isinstance(raw, (dict, list)):
+            return json.dumps(raw)
+        raise ValueError(
+            f"arguments must be a str, dict, or list; got {type(raw).__name__}."
+        )
+
+    def get_arguments_dict(self) -> dict[str, Any]:
+        """Returns ``arguments`` decoded from its JSON string form.
+
+        The string is the storage contract; every consumer that needs a dict
+        decodes it here rather than reimplementing the parse and its error
+        handling.
+        """
+        if not self.arguments:
+            return {}
+        try:
+            parsed = json.loads(self.arguments)
+        except json.JSONDecodeError as e:
+            raise ValueError(
+                f"Function '{self.name}' has invalid JSON arguments: {e}"
+            ) from e
+        if not isinstance(parsed, dict):
+            raise ValueError(
+                f"Function '{self.name}' arguments must be a JSON object, "
+                f"got {type(parsed).__name__}."
+            )
+        return parsed
 
 
 class ToolCall(BaseModel):
