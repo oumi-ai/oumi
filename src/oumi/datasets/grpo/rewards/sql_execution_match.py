@@ -14,22 +14,22 @@
 
 """Execution-match (EX) reward for NL2SQL: compare predicted vs gold result sets."""
 
-from __future__ import annotations
-
 import re
 import sqlite3
-from dataclasses import dataclass
+from collections import Counter
+from contextlib import closing
 from pathlib import Path
 from typing import Any
 
 from oumi.core.registry import RegistryType, register
+from oumi.environments.database_executable_environment import (
+    DatabaseExecutableEnvironmentKwargs,
+)
 from oumi.environments.database_session import materialize_sqlite_snapshot
 
 _SQL_FENCE = re.compile(r"```sql\s*(.*?)```", re.DOTALL | re.IGNORECASE)
 _SQL_START = re.compile(r"(?im)^\s*select\b")
-# One alternation, so the scan is left-to-right: a quote opening before a `--`
-# swallows the literal, and a real `--` is taken as a comment. Stripping comments
-# in a separate earlier pass would eat the rest of a line after `'a--b'`.
+# One alternation keeps the scan left-to-right, so a quoted `--` stays a literal.
 _SQL_NOISE = re.compile(
     r"--[^\n\r]*|/\*.*?\*/"
     r"|'(?:''|[^'])*'|\"(?:\"\"|[^\"])*\"|`[^`]*`|\[[^\]]*\]",
@@ -43,32 +43,18 @@ _READ_ACTIONS = {
     sqlite3.SQLITE_RECURSIVE,
     sqlite3.SQLITE_SELECT,
 }
-
-
-@dataclass(frozen=True)
-class _PathDatabaseSpec:
-    db_path: Path
-
-
-@dataclass(frozen=True)
-class _InlineDatabaseSpec:
-    schema_sql: str
-    seed_sql: str | None
-
-
-_DatabaseSpec = _PathDatabaseSpec | _InlineDatabaseSpec
-_RowResult = list[tuple[Any, ...]] | list[str]
+_RowResult = list[tuple[Any, ...]] | Counter[tuple[Any, ...]]
 
 
 def _extract_sql(text: str) -> str:
     """Extract the model's final fenced or unfenced SQL query."""
-    fences = _SQL_FENCE.findall(text or "")
+    fences = _SQL_FENCE.findall(text)
     if fences:
         return fences[-1].strip()
-    starts = list(_SQL_START.finditer(text or ""))
+    starts = list(_SQL_START.finditer(text))
     if starts:
         return text[starts[-1].start() :].strip()
-    lines = [line.strip() for line in (text or "").splitlines() if line.strip()]
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
     return lines[-1] if lines else ""
 
 
@@ -83,45 +69,33 @@ def _read_only_authorizer(
 
 
 def _run(conn: sqlite3.Connection, sql: str, ordered: bool) -> _RowResult:
-    """Return raw ordered rows or sorted row representations from a read query."""
+    """Return a read query's rows in order, or as an order-insensitive multiset."""
     rows = conn.execute(sql).fetchall()
-    return rows if ordered else sorted(str(row) for row in rows)
+    return rows if ordered else Counter(rows)
 
 
-def _db_spec(extra_info: dict[str, Any]) -> _DatabaseSpec:
-    """The run_sql tool's per-rollout DB spec (db_path, or schema_sql[/seed_sql])."""
+def _resolve_db(extra_info: dict[str, Any]) -> tuple[Path, bool]:
+    """Resolve run_sql's per-rollout DB spec to (db path, whether we own the file)."""
     tools_kwargs = extra_info.get("tools_kwargs") or {}
-    run_sql = tools_kwargs.get("run_sql") or {}
-    values = run_sql.get("create_kwargs") or {}
+    values = (tools_kwargs.get("run_sql") or {}).get("create_kwargs") or {}
     if not isinstance(values, dict):
         raise ValueError("run_sql create_kwargs must be a mapping.")
-
-    db_path = values.get("db_path")
-    schema_sql = values.get("schema_sql")
-    seed_sql = values.get("seed_sql")
-    if db_path is not None and not isinstance(db_path, (str, Path)):
-        raise ValueError("db_path must be a path string.")
-    if schema_sql is not None and not isinstance(schema_sql, str):
-        raise ValueError("schema_sql must be a string.")
-    if seed_sql is not None and not isinstance(seed_sql, str):
-        raise ValueError("seed_sql must be a string.")
-    if seed_sql is not None and not schema_sql:
-        raise ValueError("seed_sql requires schema_sql.")
-    if db_path and schema_sql:
-        raise ValueError("Provide exactly one of db_path or schema_sql.")
-    if db_path:
-        return _PathDatabaseSpec(Path(db_path))
-    if not schema_sql:
-        raise ValueError("Provide exactly one of db_path or schema_sql.")
-    return _InlineDatabaseSpec(schema_sql, seed_sql)
+    # Same spec the database environment takes, validated the same way.
+    kwargs = DatabaseExecutableEnvironmentKwargs(**values)
+    kwargs.finalize_and_validate()
+    if kwargs.db_path:
+        return Path(kwargs.db_path), False
+    assert kwargs.schema_sql is not None
+    snapshot = materialize_sqlite_snapshot(
+        schema_sql=kwargs.schema_sql, seed_sql=kwargs.seed_sql
+    )
+    return snapshot, True
 
 
 def _has_top_level_order_by(sql: str) -> bool:
-    """Return whether the outer query contains an ORDER BY clause.
+    """Return whether an ORDER BY survives blanking quotes and nested groups.
 
-    ponytail: strip-then-match, not a real parser. Blank out comments, quoted
-    text and every parenthesized group, so whatever ORDER BY survives is the
-    outer query's. Use sqlglot if this ever needs true clause awareness.
+    Strip-then-match, not a real parser; use sqlglot for true clause awareness.
     """
     sql = _SQL_NOISE.sub(" ", sql)
     while _SQL_INNER_PARENS.search(sql):
@@ -136,30 +110,37 @@ def sql_execution_match(
     ground_truth: str,
     extra_info: dict[str, Any],
 ) -> float:
-    """1.0 if the predicted SQL's result set matches the gold SQL's, else 0.0.
+    """Score the model's final SQL by running it against the gold query's database.
 
-    The DB comes from ``extra_info["tools_kwargs"]["run_sql"]["create_kwargs"]``:
-    a "db_path" to a pre-staged SQLite file, or "schema_sql" (+ optional "seed_sql").
+    Row order matters only when the gold query has a top-level ``ORDER BY``.
+
+    Args:
+        data_source: The data source. Unused.
+        solution_str: The response from the LLM; the final SQL is extracted from it.
+        ground_truth: The gold SQL.
+        extra_info: Extra information about the sample. The DB spec is read from
+            ``["tools_kwargs"]["run_sql"]["create_kwargs"]``: a "db_path" to a
+            pre-staged SQLite file, or "schema_sql" (+ optional "seed_sql").
+
+    Returns:
+        1.0 if the predicted SQL's result set matches the gold SQL's, else 0.0.
+
+    Raises:
+        ValueError: The DB spec is missing or malformed.
+        sqlite3.Error: The gold SQL does not execute. A row whose ground truth
+            cannot be scored aborts the run rather than scoring every rollout 0.
     """
     pred_sql = _extract_sql(solution_str)
     if not pred_sql:
         return 0.0
 
-    db_spec = _db_spec(extra_info)
-    if isinstance(db_spec, _PathDatabaseSpec):
-        db_path, owns_file = db_spec.db_path, False
-    else:
-        db_path = materialize_sqlite_snapshot(
-            schema_sql=db_spec.schema_sql, seed_sql=db_spec.seed_sql
-        )
-        owns_file = True
+    db_path, owns_file = _resolve_db(extra_info)
     try:
-        conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
-        try:
-            # Real benchmark DBs (e.g. Spider) carry non-UTF-8 text; the default
-            # factory raises mid-query, which would abort the whole training run.
-            # Prediction and gold share this connection, so the comparison is fair.
-            conn.text_factory = lambda b: b.decode("utf-8", "replace")
+        with closing(sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)) as conn:
+            # Benchmark DBs carry non-UTF-8 text; a decode error would kill the run.
+            # surrogateescape, not replace: replace maps distinct bytes to one U+FFFD,
+            # which scores a wrong row as a match.
+            conn.text_factory = lambda b: b.decode("utf-8", "surrogateescape")
             conn.set_authorizer(_read_only_authorizer)
             ordered = _has_top_level_order_by(ground_truth)
             gold_rows = _run(conn, ground_truth, ordered)
@@ -168,8 +149,6 @@ def sql_execution_match(
             except sqlite3.Error:
                 return 0.0
             return 1.0 if pred_rows == gold_rows else 0.0
-        finally:
-            conn.close()
     finally:
         if owns_file:
             db_path.unlink(missing_ok=True)

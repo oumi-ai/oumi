@@ -17,19 +17,25 @@
 from __future__ import annotations
 
 import sqlite3
+from typing import Any
 
 from oumi.core.types.tool_call import ToolResult
 
 
-def run_sql(arguments: dict, context: sqlite3.Connection) -> ToolResult:
-    """Execute the ``query`` argument against the rollout's bound SQLite connection."""
+def run_sql(arguments: dict[str, Any], context: sqlite3.Connection) -> ToolResult:
+    """Execute the ``query`` argument against the rollout's bound SQLite connection.
+
+    Returns:
+        ``{"columns", "rows"}`` on success, ``{"error": <sqlite message>}`` if the
+        query does not run.
+    """
     try:
         cursor = context.execute(arguments["query"])
         columns = [d[0] for d in cursor.description] if cursor.description else []
         # BLOBs come back as bytes, which ToolResult's JsonValue output rejects.
         rows = [
-            [v.hex() if isinstance(v, bytes) else v for v in r]
-            for r in cursor.fetchall()
+            [cell.hex() if isinstance(cell, bytes) else cell for cell in row]
+            for row in cursor.fetchall()
         ]
     except sqlite3.Error as e:
         return ToolResult(output={"error": str(e)})

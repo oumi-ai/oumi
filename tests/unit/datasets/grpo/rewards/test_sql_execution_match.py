@@ -1,4 +1,6 @@
 import sqlite3
+import tempfile
+from pathlib import Path
 
 import pytest
 
@@ -20,63 +22,63 @@ EXTRA = _extra(schema_sql=SCHEMA, seed_sql=SEED)
 
 
 def test_matching_sql_scores_one():
-    r = sql_execution_match(
+    reward = sql_execution_match(
         data_source="nl2sql",
         solution_str="Here you go:\n```sql\nSELECT count(*) FROM t\n```",
         ground_truth="SELECT count(*) FROM t",
         extra_info=EXTRA,
     )
-    assert r == 1.0
+    assert reward == 1.0
 
 
 def test_wrong_sql_scores_zero():
-    r = sql_execution_match(
+    reward = sql_execution_match(
         data_source="nl2sql",
         solution_str="```sql\nSELECT x FROM t WHERE x = 1\n```",
         ground_truth="SELECT count(*) FROM t",
         extra_info=EXTRA,
     )
-    assert r == 0.0
+    assert reward == 0.0
 
 
 def test_ordered_result_wrong_order_scores_zero():
-    r = sql_execution_match(
+    reward = sql_execution_match(
         data_source="nl2sql",
         solution_str="```sql\nSELECT x FROM t ORDER BY x DESC\n```",
         ground_truth="SELECT x FROM t ORDER BY x ASC",
         extra_info=EXTRA,
     )
-    assert r == 0.0
+    assert reward == 0.0
 
 
 def test_ordered_result_matches_in_row_order():
-    r = sql_execution_match(
+    reward = sql_execution_match(
         data_source="nl2sql",
         solution_str="```sql\nSELECT x FROM t ORDER BY x ASC\n```",
         ground_truth="SELECT x FROM t ORDER BY x ASC",
         extra_info=EXTRA,
     )
-    assert r == 1.0
+    assert reward == 1.0
 
 
 def test_no_predicted_sql_scores_zero():
-    r = sql_execution_match(
+    reward = sql_execution_match(
         data_source="nl2sql",
         solution_str="",
         ground_truth="SELECT count(*) FROM t",
         extra_info=EXTRA,
     )
-    assert r == 0.0
+    assert reward == 0.0
 
 
 def test_invalid_predicted_sql_scores_zero():
-    r = sql_execution_match(
+    reward = sql_execution_match(
         data_source="nl2sql",
         solution_str="```sql\nSELECT this is not valid sql\n```",
         ground_truth="SELECT count(*) FROM t",
         extra_info=EXTRA,
     )
-    assert r == 0.0
+    assert reward == 0.0
 
 
 def test_invalid_gold_sql_raises():
@@ -100,23 +102,23 @@ def test_invalid_gold_sql_raises_even_when_prediction_is_invalid():
 
 
 def test_extracts_last_non_empty_line_when_no_fence():
-    r = sql_execution_match(
+    reward = sql_execution_match(
         data_source="nl2sql",
         solution_str="I think the query is:\nSELECT count(*) FROM t",
         ground_truth="SELECT count(*) FROM t",
         extra_info=EXTRA,
     )
-    assert r == 1.0
+    assert reward == 1.0
 
 
 def test_extracts_multiline_sql_without_fence():
-    r = sql_execution_match(
+    reward = sql_execution_match(
         data_source="nl2sql",
         solution_str="I think the query is:\nSELECT count(*)\nFROM t\nWHERE x > 0",
         ground_truth="SELECT count(*) FROM t WHERE x > 0",
         extra_info=EXTRA,
     )
-    assert r == 1.0
+    assert reward == 1.0
 
 
 def _make_shared_db(tmp_path):
@@ -131,36 +133,36 @@ def _make_shared_db(tmp_path):
 
 def test_db_path_matching_scores_one_and_keeps_file(tmp_path):
     db = _make_shared_db(tmp_path)
-    r = sql_execution_match(
+    reward = sql_execution_match(
         data_source="nl2sql",
         solution_str="```sql\nSELECT count(*) FROM t\n```",
         ground_truth="SELECT count(*) FROM t",
         extra_info=_extra(db_path=str(db)),
     )
-    assert r == 1.0
+    assert reward == 1.0
     assert db.exists()
 
 
 def test_db_path_wrong_scores_zero(tmp_path):
     db = _make_shared_db(tmp_path)
-    r = sql_execution_match(
+    reward = sql_execution_match(
         data_source="nl2sql",
         solution_str="```sql\nSELECT x FROM t WHERE x = 1\n```",
         ground_truth="SELECT count(*) FROM t",
         extra_info=_extra(db_path=str(db)),
     )
-    assert r == 0.0
+    assert reward == 0.0
 
 
 def test_db_path_write_pred_scores_zero_without_mutating(tmp_path):
     db = _make_shared_db(tmp_path)
-    r = sql_execution_match(
+    reward = sql_execution_match(
         data_source="nl2sql",
         solution_str="```sql\nDELETE FROM t\n```",
         ground_truth="SELECT count(*) FROM t",
         extra_info=_extra(db_path=str(db)),
     )
-    assert r == 0.0
+    assert reward == 0.0
     conn = sqlite3.connect(db)
     assert conn.execute("SELECT count(*) FROM t").fetchone()[0] == 3
     conn.close()
@@ -169,13 +171,13 @@ def test_db_path_write_pred_scores_zero_without_mutating(tmp_path):
 def test_vacuum_into_scores_zero_without_creating_file(tmp_path):
     db = _make_shared_db(tmp_path)
     destination = tmp_path / "escaped.sqlite"
-    r = sql_execution_match(
+    reward = sql_execution_match(
         data_source="nl2sql",
         solution_str=f"```sql\nVACUUM INTO '{destination}'\n```",
         ground_truth="SELECT count(*) FROM t",
         extra_info=_extra(db_path=str(db)),
     )
-    assert r == 0.0
+    assert reward == 0.0
     assert not destination.exists()
 
 
@@ -223,13 +225,13 @@ def test_top_level_order_by_ignores_quoted_text_and_comments(sql, expected):
 
 def test_subquery_order_by_does_not_force_positional_match():
     # The outer results are equivalent despite their different row order.
-    r = sql_execution_match(
+    reward = sql_execution_match(
         data_source="nl2sql",
         solution_str="```sql\nSELECT x FROM t WHERE x < 3 ORDER BY x DESC\n```",
         ground_truth="SELECT x FROM t WHERE x IN (SELECT x FROM t ORDER BY x LIMIT 2)",
         extra_info=EXTRA,
     )
-    assert r == 1.0
+    assert reward == 1.0
 
 
 def test_non_utf8_text_does_not_abort_scoring(tmp_path):
@@ -242,10 +244,94 @@ def test_non_utf8_text_does_not_abort_scoring(tmp_path):
     conn.commit()
     conn.close()
 
-    r = sql_execution_match(
+    reward = sql_execution_match(
         data_source="nl2sql",
         solution_str="```sql\nSELECT last_name FROM people\n```",
         ground_truth="SELECT last_name FROM people",
         extra_info=_extra(db_path=str(db)),
     )
-    assert r == 1.0
+    assert reward == 1.0
+
+
+def test_non_utf8_bytes_that_differ_do_not_compare_equal(tmp_path):
+    """Lossy decoding would map both rows to U+FFFD and score the wrong row 1.0."""
+    db = tmp_path / "bytes.sqlite"
+    conn = sqlite3.connect(db)
+    conn.execute("CREATE TABLE p(n TEXT)")
+    conn.execute("INSERT INTO p VALUES (CAST(x'636166e9' AS TEXT))")
+    conn.execute("INSERT INTO p VALUES (CAST(x'636166ff' AS TEXT))")
+    conn.commit()
+    conn.close()
+
+    reward = sql_execution_match(
+        data_source="nl2sql",
+        solution_str="```sql\nSELECT n FROM p WHERE rowid = 1\n```",
+        ground_truth="SELECT n FROM p WHERE rowid = 2",
+        extra_info=_extra(db_path=str(db)),
+    )
+    assert reward == 0.0
+
+
+@pytest.mark.parametrize("gold_suffix", ["", " ORDER BY 1"])
+def test_value_equality_does_not_depend_on_gold_order_by(gold_suffix):
+    # avg() returns 2.0 and the gold returns 2; both branches must agree.
+    reward = sql_execution_match(
+        data_source="nl2sql",
+        solution_str="```sql\nSELECT avg(x) FROM t\n```",
+        ground_truth=f"SELECT 2{gold_suffix}",
+        extra_info=EXTRA,
+    )
+    assert reward == 1.0
+
+
+def test_duplicate_rows_must_match_in_multiplicity():
+    reward = sql_execution_match(
+        data_source="nl2sql",
+        solution_str="```sql\nSELECT x FROM t WHERE x = 1\n```",
+        ground_truth="SELECT 1 UNION ALL SELECT 1",
+        extra_info=EXTRA,
+    )
+    assert reward == 0.0
+
+
+def test_recursive_cte_ground_truth_is_authorized():
+    reward = sql_execution_match(
+        data_source="nl2sql",
+        solution_str="```sql\nSELECT x FROM t\n```",
+        ground_truth=(
+            "WITH RECURSIVE n(i) AS "
+            "(SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 3) SELECT i FROM n"
+        ),
+        extra_info=EXTRA,
+    )
+    assert reward == 1.0
+
+
+def test_inline_snapshot_is_deleted_after_scoring():
+    temp_dir = Path(tempfile.gettempdir())
+    before = set(temp_dir.glob("oumi_snapshot_*.sqlite"))
+    sql_execution_match(
+        data_source="nl2sql",
+        solution_str="```sql\nSELECT count(*) FROM t\n```",
+        ground_truth="SELECT count(*) FROM t",
+        extra_info=EXTRA,
+    )
+    assert set(temp_dir.glob("oumi_snapshot_*.sqlite")) == before
+
+
+@pytest.mark.parametrize(
+    "create_kwargs",
+    [
+        {},
+        {"db_path": "a.sqlite", "schema_sql": SCHEMA},
+        {"seed_sql": SEED},
+    ],
+)
+def test_invalid_db_spec_raises(create_kwargs):
+    with pytest.raises(ValueError):
+        sql_execution_match(
+            data_source="nl2sql",
+            solution_str="```sql\nSELECT count(*) FROM t\n```",
+            ground_truth="SELECT count(*) FROM t",
+            extra_info=_extra(**create_kwargs),
+        )
