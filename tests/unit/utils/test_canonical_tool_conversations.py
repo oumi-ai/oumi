@@ -1,5 +1,5 @@
 from oumi.core.types.conversation import Role
-from oumi.core.types.tool_conversations import (
+from oumi.utils.canonical_tool_conversations import (
     ARGUMENT_SENTINEL,
     ASSISTANT_TEXT_1,
     ASSISTANT_TEXT_2,

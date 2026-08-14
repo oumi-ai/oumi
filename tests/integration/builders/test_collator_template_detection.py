@@ -33,7 +33,7 @@ from oumi.core.configs import (
 )
 from oumi.core.constants import LABEL_IGNORE_INDEX
 from oumi.core.types import Conversation
-from oumi.core.types.tool_conversations import (
+from oumi.utils.canonical_tool_conversations import (
     ASSISTANT_TEXT_1,
     ASSISTANT_TEXT_2,
     SYSTEM_TEXT,
