@@ -20,12 +20,13 @@ _MODULE = "oumi.core.trainers.verl_agentic.user_sim_agent_loop"
 PROMPT_LEN = 10
 # 4 token ids per appended message, from the stub apply_chat_template below.
 TOKENS_PER_MESSAGE = 4
+SEED_TURN = {"role": "user", "content": "my order is late"}
 
 
 def _agent_data(policy_tokens: int = 3):
     """Rollout state after the policy has generated `policy_tokens` tokens."""
     return SimpleNamespace(
-        messages=[{"role": "user", "content": "my order is late"}],
+        messages=[dict(SEED_TURN)],
         prompt_ids=list(range(PROMPT_LEN)) + [900 + i for i in range(policy_tokens)],
         response_ids=[900 + i for i in range(policy_tokens)],
         response_mask=[1] * policy_tokens,
@@ -46,6 +47,8 @@ def _loop(response_length: int = 1000, max_turns: int = 4):
     loop.tokenizer = SimpleNamespace(decode=lambda ids, **kw: "let me check on that")
     loop._sim_config_path = "unused.yaml"
     loop._sim = RolloutState(persona="Jane", max_turns=max_turns)
+    # `run()` seeds this from `raw_prompt`; these tests enter below `run()`.
+    loop._sim_history = [dict(SEED_TURN)]
 
     async def _apply_chat_template(messages, **kwargs):
         return [100 + i for i in range(TOKENS_PER_MESSAGE * len(messages))]
@@ -86,13 +89,12 @@ def test_boundary_invariant_holds_after_append():
     assert len(data.prompt_ids) - len(data.response_mask) == PROMPT_LEN
 
 
-def test_assistant_message_synced_without_duplicating_tokens():
+def test_assistant_turn_reaches_simulator_without_duplicating_tokens():
     loop, data = _loop(), _agent_data()
     _run_sim_turn(loop, data, (False, "and my refund?", 0.0))
 
-    roles = [m["role"] for m in data.messages]
-    assert roles == ["user", "assistant", "user"]
-    assert data.messages[1]["content"] == "let me check on that"
+    assert [m["role"] for m in loop._sim_history] == ["user", "assistant", "user"]
+    assert loop._sim_history[1]["content"] == "let me check on that"
     # Only the simulated-user turn adds tokens; the assistant's are already there.
     assert len(data.prompt_ids) == PROMPT_LEN + 3 + TOKENS_PER_MESSAGE
 
@@ -226,8 +228,8 @@ def test_tool_turn_then_simulated_user_turn_interleave():
     """
     loop, data = _loop(), _agent_data(policy_tokens=3)
 
-    # The assistant calls a tool: the parent routes to PROCESSING_TOOLS, and we record
-    # that assistant turn before verl appends the tool result.
+    # The assistant calls a tool: the parent routes to PROCESSING_TOOLS, and the
+    # simulator stays out of it -- the customer was not addressed by a tool call.
     with patch(f"{_MODULE}.next_user_turn") as sim:
         assert (
             _generating_state(loop, data, AgentState.PROCESSING_TOOLS)
@@ -252,18 +254,96 @@ def test_tool_turn_then_simulated_user_turn_interleave():
     state = _run_sim_turn(loop, data, (False, "when will it arrive?", 0.0))
 
     assert state is AgentState.GENERATING
-    assert [m["role"] for m in data.messages] == [
-        "user",
-        "assistant",  # called the tool -- verl never records this, we must
-        "tool",
-        "assistant",
-        "user",
-    ]
+    # verl's own bookkeeping: environment turns only, never assistant turns.
+    assert [m["role"] for m in data.messages] == ["user", "tool", "user"]
+    # What the persona sees: no tool traffic, and no tool-calling assistant turn,
+    # which carried no text for the customer to read.
+    assert [m["role"] for m in loop._sim_history] == ["user", "assistant", "user"]
+    assert loop._sim_history[1]["content"] == "let me check on that"
     assert data.response_mask[:3] == [1, 1, 1], "first assistant turn"
     assert set(data.response_mask[3:tool_span]) == {0}, "tool result is environment"
     assert data.response_mask[tool_span : tool_span + 2] == [1, 1], "second assistant"
     assert set(data.response_mask[tool_span + 2 :]) == {0}, "simulated user"
     assert len(data.prompt_ids) - len(data.response_mask) == PROMPT_LEN
+
+
+# --- rollout output shape -----------------------------------------------------
+
+SIM_KWARGS = {"user_persona": "Jane", "goal": "get a refund", "max_turns": 3}
+
+
+def _fresh_loop(config_path: str | None = "unused.yaml"):
+    """A loop as `__init__` leaves it: configured, but with no rollout state yet."""
+    loop = _loop()
+    loop._sim = None
+    loop._sim_history = []
+    loop._sim_config_path = config_path
+    return loop
+
+
+def _run_rollout(loop, extra_info, sim_turns_taken=0, engine_telemetry=None):
+    """Runs `run()` with the parent stubbed to take `sim_turns_taken` user turns."""
+    output = SimpleNamespace(extra_fields=dict(engine_telemetry or {}))
+
+    async def _parent(_self, sampling_params, **kwargs):
+        if loop._sim is not None:
+            loop._sim.turn_idx = sim_turns_taken
+        return output
+
+    with patch.object(ToolAgentLoop, "run", _parent):
+        return loop.loop.run_until_complete(
+            loop.run({}, extra_info=extra_info, raw_prompt=[SEED_TURN])
+        )
+
+
+def test_rollout_output_reports_simulated_user_turns():
+    loop = _fresh_loop()
+
+    output = _run_rollout(loop, {"interaction_kwargs": SIM_KWARGS}, sim_turns_taken=2)
+
+    assert output.extra_fields["sim_user_turns"] == 2
+
+
+def test_tool_only_rollout_output_carries_no_simulator_field():
+    """Rows without a persona must produce stock ToolAgentLoop output."""
+    loop = _fresh_loop()
+
+    output = _run_rollout(loop, {"tools_kwargs": {"run_sql": {}}})
+
+    assert loop._sim is None
+    assert "sim_user_turns" not in output.extra_fields
+
+
+def test_rollout_output_keeps_engine_telemetry():
+    """`sim_user_turns` is written after the parent returns, so it must not clobber."""
+    loop = _fresh_loop()
+
+    output = _run_rollout(
+        loop,
+        {"interaction_kwargs": SIM_KWARGS},
+        sim_turns_taken=1,
+        engine_telemetry={"num_turns": 12},
+    )
+
+    assert output.extra_fields == {"num_turns": 12, "sim_user_turns": 1}
+
+
+def test_persona_row_without_engine_config_fails_loudly():
+    """Silently dropping the persona would train on single-turn rollouts instead."""
+    loop = _fresh_loop(config_path=None)
+
+    with pytest.raises(ValueError, match="user_sim_inference"):
+        _run_rollout(loop, {"interaction_kwargs": SIM_KWARGS})
+
+
+def test_simulator_history_starts_as_a_copy_of_the_prompt():
+    loop = _fresh_loop()
+
+    _run_rollout(loop, {"interaction_kwargs": SIM_KWARGS})
+
+    assert loop._sim_history == [SEED_TURN]
+    loop._sim_history[0]["content"] = "mutated"
+    assert SEED_TURN["content"] == "my order is late", "prompt rows must not alias"
 
 
 # --- Verification item 7: drift guards ----------------------------------------
