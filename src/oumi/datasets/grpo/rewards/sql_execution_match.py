@@ -25,10 +25,15 @@ from oumi.core.registry import RegistryType, register
 from oumi.environments.database_executable_environment import (
     DatabaseExecutableEnvironmentKwargs,
 )
-from oumi.environments.database_session import materialize_sqlite_snapshot
+from oumi.environments.database_session import (
+    materialize_sqlite_snapshot,
+    query_work_budget,
+)
 
 _SQL_FENCE = re.compile(r"```sql\s*(.*?)```", re.DOTALL | re.IGNORECASE)
-_SQL_START = re.compile(r"(?im)^\s*select\b")
+_SQL_START = re.compile(r"(?im)^\s*(?:select|with)\b")
+# A chat/tool tag, as opposed to a `<` comparison: `<tool_call>`, `<|im_start|>`.
+_CHAT_TAG = re.compile(r"<[/|a-zA-Z]")
 # One alternation keeps the scan left-to-right, so a quoted `--` stays a literal.
 _SQL_NOISE = re.compile(
     r"--[^\n\r]*|/\*.*?\*/"
@@ -47,15 +52,24 @@ _RowResult = list[tuple[Any, ...]] | Counter[tuple[Any, ...]]
 
 
 def _extract_sql(text: str) -> str:
-    """Extract the model's final fenced or unfenced SQL query."""
+    """Extract the model's final fenced or unfenced SQL statement."""
     fences = _SQL_FENCE.findall(text)
     if fences:
         return fences[-1].strip()
-    starts = list(_SQL_START.finditer(text))
-    if starts:
-        return text[starts[-1].start() :].strip()
-    lines = [line.strip() for line in text.splitlines() if line.strip()]
-    return lines[-1] if lines else ""
+    starts = [match.start() for match in _SQL_START.finditer(text)]
+    if not starts:
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        return lines[-1] if lines else ""
+    # The last line-initial SELECT can be a UNION arm, a subquery or a CTE body, so
+    # walk back over the starts that only continue it. A `;`, a blank line or a chat
+    # tag ends a statement; anything else between two starts joins them.
+    start = starts[-1]
+    for earlier in reversed(starts[:-1]):
+        between = text[earlier:start]
+        if ";" in between or "\n\n" in between or _CHAT_TAG.search(between):
+            break
+        start = earlier
+    return text[start:].strip()
 
 
 def _read_only_authorizer(
@@ -145,7 +159,10 @@ def sql_execution_match(
             ordered = _has_top_level_order_by(ground_truth)
             gold_rows = _run(conn, ground_truth, ordered)
             try:
-                pred_rows = _run(conn, pred_sql, ordered)
+                # The prediction is untrusted; a runaway query must not stall the
+                # trainer. Over-budget raises sqlite3.Error, so it scores 0.0.
+                with query_work_budget(conn):
+                    pred_rows = _run(conn, pred_sql, ordered)
             except sqlite3.Error:
                 return 0.0
             return 1.0 if pred_rows == gold_rows else 0.0

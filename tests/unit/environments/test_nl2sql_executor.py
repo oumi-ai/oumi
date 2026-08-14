@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import sqlite3
 
 from oumi.environments.examples.nl2sql import run_sql
@@ -49,3 +50,32 @@ def test_run_sql_returns_error_on_bad_sql():
         arguments={"query": "SELECT * FROM no_such_table"}, context=_conn()
     )
     assert "no_such_table" in str(result.output)
+
+
+def test_run_sql_returns_non_utf8_text_without_raising():
+    connection = _conn()
+    connection.execute("CREATE TABLE p(n TEXT)")
+    connection.execute("INSERT INTO p VALUES (CAST(x'636166e9' AS TEXT))")
+    result = run_sql(arguments={"query": "SELECT n FROM p"}, context=connection)
+    assert result.output == {"columns": ["n"], "rows": [["caf\\xe9"]]}
+
+
+def test_run_sql_returns_json_encodable_output_for_non_utf8_text():
+    connection = _conn()
+    connection.execute("CREATE TABLE p(n TEXT)")
+    connection.execute("INSERT INTO p VALUES (CAST(x'636166e9' AS TEXT))")
+    result = run_sql(arguments={"query": "SELECT n FROM p"}, context=connection)
+    assert json.dumps(result.output).encode("utf-8")
+
+
+def test_run_sql_aborts_a_query_over_its_work_budget():
+    result = run_sql(
+        arguments={
+            "query": (
+                "WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n) "
+                "SELECT count(*) FROM n"
+            )
+        },
+        context=_conn(),
+    )
+    assert "interrupted" in str(result.output)

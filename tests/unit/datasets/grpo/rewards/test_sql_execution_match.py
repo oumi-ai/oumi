@@ -121,6 +121,70 @@ def test_extracts_multiline_sql_without_fence():
     assert reward == 1.0
 
 
+TWO_TABLES = _extra(
+    schema_sql="CREATE TABLE t(x INTEGER); CREATE TABLE u(y INTEGER);",
+    seed_sql="INSERT INTO t VALUES (1); INSERT INTO u VALUES (9);",
+)
+
+
+@pytest.mark.parametrize(
+    "unfenced_sql",
+    [
+        "SELECT x FROM t\nUNION\nSELECT y FROM u",
+        "SELECT x FROM t\nUNION ALL\nSELECT y FROM u",
+        "WITH both AS (SELECT x FROM t UNION SELECT y FROM u)\nSELECT * FROM both",
+        "SELECT x FROM t\nUNION\nSELECT y FROM u WHERE y IN (\nSELECT y FROM u\n)",
+    ],
+)
+def test_unfenced_multi_statement_sql_is_extracted_whole(unfenced_sql):
+    reward = sql_execution_match(
+        data_source="nl2sql",
+        solution_str=f"The answer is:\n{unfenced_sql}",
+        ground_truth="SELECT x FROM t UNION SELECT y FROM u",
+        extra_info=TWO_TABLES,
+    )
+    assert reward == 1.0
+
+
+def test_a_trailing_union_arm_alone_does_not_score_a_match():
+    # Extracting only the last arm would score this against gold `SELECT y FROM u`.
+    reward = sql_execution_match(
+        data_source="nl2sql",
+        solution_str="SELECT x FROM t\nUNION\nSELECT y FROM u",
+        ground_truth="SELECT y FROM u",
+        extra_info=TWO_TABLES,
+    )
+    assert reward == 0.0
+
+
+def test_only_the_final_turn_of_a_tool_transcript_is_scored():
+    transcript = (
+        "SELECT y FROM u\n"
+        "<tool_response>{'rows': [[9]]}</tool_response>\n"
+        "SELECT x FROM t"
+    )
+    reward = sql_execution_match(
+        data_source="nl2sql",
+        solution_str=transcript,
+        ground_truth="SELECT x FROM t",
+        extra_info=TWO_TABLES,
+    )
+    assert reward == 1.0
+
+
+def test_a_runaway_prediction_scores_zero_instead_of_hanging():
+    reward = sql_execution_match(
+        data_source="nl2sql",
+        solution_str=(
+            "```sql\nWITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n) "
+            "SELECT count(*) FROM n\n```"
+        ),
+        ground_truth="SELECT count(*) FROM t",
+        extra_info=EXTRA,
+    )
+    assert reward == 0.0
+
+
 def _make_shared_db(tmp_path):
     """A pre-staged SQLite file (Spider-style) referenced by db_path, not inlined."""
     db = tmp_path / "shared.sqlite"

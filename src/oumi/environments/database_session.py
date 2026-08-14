@@ -19,9 +19,39 @@ from __future__ import annotations
 import sqlite3
 import tempfile
 import uuid
-from collections.abc import Callable
-from contextlib import closing
+from collections.abc import Callable, Iterator
+from contextlib import closing, contextmanager
 from pathlib import Path
+
+# SQLite VM steps between progress callbacks, and the number of callbacks a single
+# query may burn. 100M steps is a few seconds of work on a Spider-sized database.
+_PROGRESS_INTERVAL_STEPS = 1_000_000
+_MAX_PROGRESS_CALLBACKS = 100
+
+
+@contextmanager
+def query_work_budget(
+    connection: sqlite3.Connection,
+    max_callbacks: int = _MAX_PROGRESS_CALLBACKS,
+) -> Iterator[None]:
+    """Abort queries on this connection once they exceed a fixed work budget.
+
+    Model-written SQL is untrusted: an unbounded recursive CTE would otherwise
+    hold a rollout worker forever. An over-budget query raises
+    ``sqlite3.OperationalError("interrupted")``.
+    """
+    callbacks = 0
+
+    def _handler() -> int:
+        nonlocal callbacks
+        callbacks += 1
+        return 1 if callbacks > max_callbacks else 0
+
+    connection.set_progress_handler(_handler, _PROGRESS_INTERVAL_STEPS)
+    try:
+        yield
+    finally:
+        connection.set_progress_handler(None, 0)
 
 
 def materialize_sqlite_snapshot(

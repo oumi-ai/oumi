@@ -20,6 +20,7 @@ import sqlite3
 from typing import Any
 
 from oumi.core.types.tool_call import ToolResult
+from oumi.environments.database_session import query_work_budget
 
 
 def run_sql(arguments: dict[str, Any], context: sqlite3.Connection) -> ToolResult:
@@ -27,16 +28,21 @@ def run_sql(arguments: dict[str, Any], context: sqlite3.Connection) -> ToolResul
 
     Returns:
         ``{"columns", "rows"}`` on success, ``{"error": <sqlite message>}`` if the
-        query does not run.
+        query does not run, is unauthorized, or exceeds its work budget.
     """
+    # Benchmark DBs carry non-UTF-8 text and the default factory raises
+    # UnicodeDecodeError, which is not a sqlite3.Error and would kill the rollout.
+    # backslashreplace keeps every byte recoverable and stays JSON-encodable.
+    context.text_factory = lambda b: b.decode("utf-8", "backslashreplace")
     try:
-        cursor = context.execute(arguments["query"])
-        columns = [d[0] for d in cursor.description] if cursor.description else []
-        # BLOBs come back as bytes, which ToolResult's JsonValue output rejects.
-        rows = [
-            [cell.hex() if isinstance(cell, bytes) else cell for cell in row]
-            for row in cursor.fetchall()
-        ]
+        with query_work_budget(context):
+            cursor = context.execute(arguments["query"])
+            columns = [d[0] for d in cursor.description] if cursor.description else []
+            # BLOBs come back as bytes, which ToolResult's JsonValue output rejects.
+            rows = [
+                [cell.hex() if isinstance(cell, bytes) else cell for cell in row]
+                for row in cursor.fetchall()
+            ]
     except sqlite3.Error as e:
         return ToolResult(output={"error": str(e)})
     return ToolResult(output={"columns": columns, "rows": rows})
