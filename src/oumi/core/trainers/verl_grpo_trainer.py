@@ -589,8 +589,8 @@ class VerlGrpoTrainer(BaseTrainer):
         logger.info("Starting verl training...")
         self._verl_trainer.fit()
 
-    # TODO: OPE-1192 - Implement saving model/trainer state. verl training should
-    # already handle saving models, including the final checkpoint.
+    # TODO: OPE-1192 - Implement saving trainer state. verl saves its own sharded
+    # checkpoints; `save_model` below merges the latest one into HF format.
 
     def save_state(self) -> None:
         """Saves the training state."""

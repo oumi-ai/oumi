@@ -1,3 +1,5 @@
+import functools
+import sys
 from unittest.mock import Mock, patch
 
 import pytest
@@ -11,7 +13,7 @@ from oumi.core.configs import (
     TrainingParams,
 )
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
-from oumi.train import train
+from oumi.train import _verl_train, train
 
 
 @pytest.fixture
@@ -208,3 +210,45 @@ def test_recompile_limit_env_override_wins(monkeypatch, restore_dynamo_limits):
         _config_with_collator_kwargs({"pad_to_multiple_of": 8192})
     )
     assert torch._dynamo.config.cache_size_limit == 128
+
+
+class _InlineRay:
+    """Ray stand-in that runs the remote function inline, so no cluster is needed."""
+
+    @staticmethod
+    def is_initialized():
+        return True
+
+    @staticmethod
+    def init(**kwargs):
+        pass
+
+    @staticmethod
+    def remote(fn):
+        class _Handle:
+            @staticmethod
+            def remote(*args, **kwargs):
+                return functools.partial(fn, *args, **kwargs)
+
+        return _Handle
+
+    @staticmethod
+    def get(ref):
+        return ref()
+
+
+@pytest.mark.parametrize("save_final_model,expected_saves", [(True, 1), (False, 0)])
+def test_verl_train_exports_final_model(
+    save_final_model, expected_saves, base_training_config
+):
+    """verl training must export the final model; it used to return before saving."""
+    base_training_config.training.save_final_model = save_final_model
+    trainer = Mock()
+
+    with patch.dict(sys.modules, {"ray": _InlineRay}):
+        _verl_train(lambda: trainer, base_training_config)
+
+    assert trainer.train.call_count == 1
+    assert trainer.save_model.call_count == expected_saves
+    if expected_saves:
+        trainer.save_model.assert_called_once_with(config=base_training_config)

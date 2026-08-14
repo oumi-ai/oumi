@@ -240,7 +240,7 @@ def _log_feedback_request():
     )
 
 
-def _verl_train(partial_trainer: Callable[[], BaseTrainer]):
+def _verl_train(partial_trainer: Callable[[], BaseTrainer], config: TrainingConfig):
     """Runs verl training.
 
     This function initializes Ray, and then initializes and kicks off the trainer in a
@@ -268,13 +268,21 @@ def _verl_train(partial_trainer: Callable[[], BaseTrainer]):
     # decorator is only run if this function is run. This function should only be run
     # if ray is installed, preventing errors when it isn't.
     @ray.remote
-    def _run_verl_train(partial_trainer: Callable[[], BaseTrainer]):
+    def _run_verl_train(
+        partial_trainer: Callable[[], BaseTrainer], config: TrainingConfig
+    ):
         trainer = partial_trainer()
         trainer.train()
 
         logger.info("Training is Complete.")
 
-    ray.get(_run_verl_train.remote(partial_trainer))
+        # The trainer only exists inside this remote function, so the HF export has to
+        # happen here rather than on the generic `train()` path.
+        if config.training.save_final_model:
+            logger.info("Saving final model...")
+            trainer.save_model(config=config)
+
+    ray.get(_run_verl_train.remote(partial_trainer, config))
     _log_feedback_request()
 
 
@@ -454,7 +462,7 @@ def train(
             processor=processor,
             **training_kwargs,
         )
-        _verl_train(partial_trainer)
+        _verl_train(partial_trainer, config)
         return
 
     checkpoint_location = _find_checkpoint_to_resume_from(
