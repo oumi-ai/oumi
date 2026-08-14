@@ -24,7 +24,7 @@
 ## 🔥 News
 
 - [2026/08] Extended GRPO RL to support tool use
-- [2026/07] Added support for tools, environment (synthetic, deterministic, database), and agentic data synthesis
+- [2026/07] Added support for tools, environments (synthetic, deterministic, database), and agentic data synthesis
 - [2026/06] Added support for the Gemma 4 model family
 - [2026/06] Added partial-failure support across inference, judging, and data synthesis
 - [2026/05] [Oumi v0.8 released](https://github.com/oumi-ai/oumi/releases/tag/v0.8) with `oumi deploy` CLI for dedicated inference endpoints, an `oumi-mcp` MCP server for Claude/Cursor integration, batch API support across Anthropic/Fireworks/Together, and Transformers v5 / TRL / vLLM dependency upgrades
