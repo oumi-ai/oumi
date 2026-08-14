@@ -61,8 +61,7 @@ def _extract_sql(text: str) -> str:
         lines = [line.strip() for line in text.splitlines() if line.strip()]
         return lines[-1] if lines else ""
     # The last line-initial SELECT can be a UNION arm, a subquery or a CTE body, so
-    # walk back over the starts that only continue it. A `;`, a blank line or a chat
-    # tag ends a statement; anything else between two starts joins them.
+    # walk back over starts that only continue it. `;`, a blank line or a tag ends one.
     start = starts[-1]
     for earlier in reversed(starts[:-1]):
         between = text[earlier:start]
@@ -152,15 +151,13 @@ def sql_execution_match(
     try:
         with closing(sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)) as conn:
             # Benchmark DBs carry non-UTF-8 text; a decode error would kill the run.
-            # surrogateescape, not replace: replace maps distinct bytes to one U+FFFD,
-            # which scores a wrong row as a match.
+            # Lossless, not `replace`: one shared U+FFFD scores a wrong row as a match.
             conn.text_factory = lambda b: b.decode("utf-8", "surrogateescape")
             conn.set_authorizer(_read_only_authorizer)
             ordered = _has_top_level_order_by(ground_truth)
             gold_rows = _run(conn, ground_truth, ordered)
             try:
-                # The prediction is untrusted; a runaway query must not stall the
-                # trainer. Over-budget raises sqlite3.Error, so it scores 0.0.
+                # Untrusted: a runaway prediction must not stall the trainer.
                 with query_work_budget(conn):
                     pred_rows = _run(conn, pred_sql, ordered)
             except sqlite3.Error:

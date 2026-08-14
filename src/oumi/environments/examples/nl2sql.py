@@ -30,9 +30,8 @@ def run_sql(arguments: dict[str, Any], context: sqlite3.Connection) -> ToolResul
         ``{"columns", "rows"}`` on success, ``{"error": <sqlite message>}`` if the
         query does not run, is unauthorized, or exceeds its work budget.
     """
-    # Benchmark DBs carry non-UTF-8 text and the default factory raises
-    # UnicodeDecodeError, which is not a sqlite3.Error and would kill the rollout.
-    # backslashreplace keeps every byte recoverable and stays JSON-encodable.
+    # Non-UTF-8 text would raise UnicodeDecodeError, which the except below does not
+    # catch. backslashreplace loses no byte and stays JSON-encodable.
     context.text_factory = lambda b: b.decode("utf-8", "backslashreplace")
     try:
         with query_work_budget(context):
