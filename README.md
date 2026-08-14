@@ -23,7 +23,7 @@
 
 ## 🔥 News
 
-- [2026/08] Extended GRPO RL to support tool use
+- [2026/08] Extended GRPO reinforcement learning to support tool use
 - [2026/07] Added support for tools, environments (synthetic, deterministic, database), and agentic data synthesis
 - [2026/06] Added support for the Gemma 4 model family
 - [2026/06] Added partial-failure support across inference, judging, and data synthesis
