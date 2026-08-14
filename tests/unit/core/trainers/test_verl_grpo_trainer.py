@@ -175,7 +175,7 @@ def test_create_verl_data_entry_tool_agent_carries_metadata():
     row = VerlGrpoTrainer._create_verl_data_entry_from_conversation(
         _example(convo), 0, "nl2sql", "train"
     )
-    assert row["agent_name"] == "tool_agent"
+    assert row["agent_name"] == VerlGrpoTrainer.OUMI_AGENT_LOOP_NAME
     assert row["reward_model"]["ground_truth"] == "SELECT count(*) FROM t"
     assert row["extra_info"]["need_tools_kwargs"] is True
     assert "run_sql" in row["extra_info"]["tools_kwargs"]
