@@ -1377,30 +1377,30 @@ def test_function_call_rejects_unsupported_arguments_type():
         FunctionCall(name="fn", arguments=42)  # type: ignore[arg-type]
 
 
-def test_function_call_parsed_arguments_returns_mapping():
-    """parsed_arguments() decodes the JSON string to a dict."""
+def test_function_call_get_arguments_dict_returns_mapping():
+    """get_arguments_dict() decodes the JSON string to a dict."""
     fc = FunctionCall(name="fn", arguments='{"city": "SF"}')
-    assert fc.parsed_arguments() == {"city": "SF"}
+    assert fc.get_arguments_dict() == {"city": "SF"}
 
 
-def test_function_call_parsed_arguments_empty_returns_empty_dict():
-    """parsed_arguments() returns {} for empty string arguments."""
+def test_function_call_get_arguments_dict_empty_returns_empty_dict():
+    """get_arguments_dict() returns {} for empty string arguments."""
     fc = FunctionCall(name="fn", arguments="")
-    assert fc.parsed_arguments() == {}
+    assert fc.get_arguments_dict() == {}
 
 
-def test_function_call_parsed_arguments_invalid_json_raises():
-    """parsed_arguments() raises ValueError naming the function on bad JSON."""
+def test_function_call_get_arguments_dict_invalid_json_raises():
+    """get_arguments_dict() raises ValueError naming the function on bad JSON."""
     fc = FunctionCall(name="broken_fn", arguments="{bad json")
     with pytest.raises(ValueError, match="broken_fn"):
-        fc.parsed_arguments()
+        fc.get_arguments_dict()
 
 
-def test_function_call_parsed_arguments_non_object_raises():
-    """parsed_arguments() raises ValueError if JSON is valid but not an object."""
+def test_function_call_get_arguments_dict_non_object_raises():
+    """get_arguments_dict() raises ValueError if JSON is valid but not an object."""
     fc = FunctionCall(name="fn", arguments="[1, 2]")
     with pytest.raises(ValueError, match="JSON object"):
-        fc.parsed_arguments()
+        fc.get_arguments_dict()
 
 
 # -----------------------------------------------------------------------------

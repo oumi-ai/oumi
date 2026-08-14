@@ -160,7 +160,7 @@ class FunctionCall(BaseModel):
 
     @pydantic.field_validator("arguments", mode="before")
     @classmethod
-    def _coerce_arguments(cls, raw: Any) -> str:
+    def _coerce_arguments_to_str(cls, raw: Any) -> str:
         """Normalize dict/list arguments to a JSON string.
 
         Runs in ``mode="before"`` so we can intercept non-string inputs
@@ -175,7 +175,7 @@ class FunctionCall(BaseModel):
             f"arguments must be a str, dict, or list; got {type(raw).__name__}."
         )
 
-    def parsed_arguments(self) -> dict[str, Any]:
+    def get_arguments_dict(self) -> dict[str, Any]:
         """Returns ``arguments`` decoded from its JSON string form.
 
         The string is the storage contract; every consumer that needs a dict
