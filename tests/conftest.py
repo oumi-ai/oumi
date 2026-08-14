@@ -7,6 +7,49 @@ from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.logging import get_logger
 
 
+def pytest_addoption(parser):
+    parser.addoption(
+        "--max-gpu-memory-gb",
+        type=float,
+        default=None,
+        help="Skip tests whose requires_gpus(min_gb=...) exceeds this value.",
+    )
+    parser.addoption(
+        "--above-gpu-memory-gb",
+        type=float,
+        default=None,
+        help=(
+            "Skip tests whose requires_gpus(min_gb=...) is at or below this "
+            "value, i.e. tests a smaller machine already covers. Pair with "
+            "--max-gpu-memory-gb so each machine runs one slice of the tests."
+        ),
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    """Selects tests by the VRAM they need, per --*-gpu-memory-gb."""
+    max_gb = config.getoption("--max-gpu-memory-gb")
+    above_gb = config.getoption("--above-gpu-memory-gb")
+    if max_gb is None and above_gb is None:
+        return
+
+    eps = 1e-2  # Matches the tolerance requires_gpus uses.
+    selected, deselected = [], []
+    for item in items:
+        marker = item.get_closest_marker("gpu_memory_gb")
+        min_gb = marker.args[0] if marker and marker.args else 0.0
+        too_big = max_gb is not None and min_gb > max_gb * (1 + eps)
+        covered_by_smaller = above_gb is not None and min_gb <= above_gb * (1 + eps)
+        if too_big or covered_by_smaller:
+            deselected.append(item)
+        else:
+            selected.append(item)
+
+    if deselected:
+        config.hook.pytest_deselected(items=deselected)
+        items[:] = selected
+
+
 @pytest.fixture(autouse=True)
 def disable_telemetry(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("DO_NOT_TRACK", "1")

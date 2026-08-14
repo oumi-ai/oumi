@@ -54,6 +54,20 @@ run: |
     GPU_MULTIPLICITY_MARKER="multi_gpu"
   fi
 
+  # Each cluster runs only the tests sized for its GPUs. Without this the
+  # 80GB cluster would repeat everything the 40GB cluster already covered,
+  # since both match the same "multi_gpu" marker. The window comes from each
+  # test's requires_gpus(min_gb=...), so there is nothing to keep in sync here.
+  GPU_MEMORY_MIB=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits | head -n 1)
+  GPU_MEMORY_GB=$((GPU_MEMORY_MIB / 1024))
+  GPU_MEMORY_ARGS="--max-gpu-memory-gb=${GPU_MEMORY_GB}"
+
+  # Tests at or under 40GB are covered by the smaller cluster in the matrix.
+  SMALLER_CLUSTER_MEMORY_GB=40
+  if test "${GPU_MEMORY_GB}" -gt "${SMALLER_CLUSTER_MEMORY_GB}"; then
+    GPU_MEMORY_ARGS="${GPU_MEMORY_ARGS} --above-gpu-memory-gb=${SMALLER_CLUSTER_MEMORY_GB}"
+  fi
+
   ROOT_DIR="$(pwd)"
 
   if "${ENABLE_OUMI_UNIT_TESTS}"; then
@@ -70,8 +84,8 @@ run: |
 
   if "${ENABLE_OUMI_E2E_TESTS}"; then
     cd "${ROOT_DIR}/tests/"
-    echo "Running all tests: e2e and ${GPU_MULTIPLICITY_MARKER}..."
-    pytest -s -vv -m "e2e and ${GPU_MULTIPLICITY_MARKER}" --durations=50 --timeout=1200
+    echo "Running all tests: e2e and ${GPU_MULTIPLICITY_MARKER} (${GPU_MEMORY_ARGS})..."
+    pytest -s -vv -m "e2e and ${GPU_MULTIPLICITY_MARKER}" ${GPU_MEMORY_ARGS} --durations=50 --timeout=1200
   fi
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

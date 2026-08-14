@@ -5,18 +5,33 @@ from oumi.utils.hf_utils import find_hf_token
 from oumi.utils.packaging import is_torchdata_available
 
 
-def requires_gpus(count: int = 1, min_gb: float = 0.0) -> pytest.MarkDecorator:
+def requires_gpus(count: int = 1, min_gb: float = 0.0):
     """Decorator to skip a test if the required number of GPUs is not available.
+
+    Also tags the test with `gpu_memory_gb(min_gb)` so that a test runner can
+    select tests by VRAM requirement without starting a GPU machine. See
+    `tests/scripts/e2e_tests_job.yaml` for how the e2e clusters use it.
 
     Args:
         count (int): The number of GPUs required for the test. Defaults to 1.
         min_gb: Min required GPU VRAM in GB-s. Has no effect if zero or negative.
 
     Returns:
-        pytest.MarkDecorator: A decorator that skips the test if the required
-            number of GPUs is not available.
+        A decorator that skips the test if the required number of GPUs is not
+            available.
     """
+    # Applied to every test regardless of the local machine, so that collection
+    # on a CPU box still reports what the test would need.
+    memory_mark = pytest.mark.gpu_memory_gb(min_gb)
 
+    def decorator(func):
+        return memory_mark(_requires_gpus_skip_mark(count, min_gb)(func))
+
+    return decorator
+
+
+def _requires_gpus_skip_mark(count: int, min_gb: float) -> pytest.MarkDecorator:
+    """Builds the skip/skipif mark reflecting the current machine's GPUs."""
     if not torch.cuda.is_available():
         return pytest.mark.skip(reason="CUDA is not available")
 
