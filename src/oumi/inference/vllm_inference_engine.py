@@ -26,7 +26,7 @@ import subprocess
 import warnings
 from pathlib import Path
 from types import SimpleNamespace
-from typing import cast, get_args
+from typing import TYPE_CHECKING, cast, get_args
 
 import torch
 from typing_extensions import override
@@ -40,6 +40,9 @@ from oumi.utils.conversation_utils import create_list_of_message_json_dicts
 from oumi.utils.logging import logger
 from oumi.utils.model_caching import get_local_filepath_for_gguf
 from oumi.utils.peft_utils import get_lora_rank
+
+if TYPE_CHECKING:
+    from vllm.outputs import RequestOutput  # pyright: ignore[reportMissingImports]
 
 try:
     import vllm  # pyright: ignore[reportMissingImports]
@@ -418,17 +421,17 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         return mapping.get(raw_reason.lower(), FinishReason.UNKNOWN)
 
     @staticmethod
-    def _extract_usage_from_vllm_output(request_output) -> dict[str, int] | None:
+    def _extract_usage_from_vllm_output(
+        request_output: RequestOutput,
+    ) -> dict[str, int] | None:
         """Extracts normalized token usage from a vLLM chat response.
 
         Args:
             request_output: A vLLM ``RequestOutput`` for a single conversation.
-                Unannotated because vLLM is an optional dependency.
 
         Returns:
             A dict with prompt_tokens, completion_tokens, total_tokens, or None
-            if vLLM reported no token ids. None keeps "not reported"
-            distinguishable from a genuine zero.
+            if vLLM reported no token ids.
         """
         prompt_tokens = len(request_output.prompt_token_ids or [])
         completion_tokens = sum(
