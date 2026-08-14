@@ -4,8 +4,6 @@
 # See Also:
 #   - Example README: configs/examples/grpo_verl_nl2sql/README.md
 #   - Referenced by: configs/examples/grpo_verl_nl2sql/train.yaml
-#
-# Keep the schema below in sync with the run_sql tool in environment_config.yaml.
 
 tools:
   - class_name: oumi.core.trainers.verl_agentic.oumi_verl_tool.OumiVerlTool

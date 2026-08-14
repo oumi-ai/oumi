@@ -35,9 +35,8 @@ _SYSTEM_PROMPT = (
 
 def _read_only(db_path: Path) -> sqlite3.Connection:
     connection = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
-    # Benchmark DBs carry non-UTF-8 text. Decode without raising, as the reward
-    # does, so we don't drop rows it could have scored; backslashreplace keeps the
-    # DDL we splice into the prompt JSON-encodable.
+    # Decode without raising, as the reward does, so we keep rows it could score;
+    # backslashreplace also keeps the DDL we splice into the prompt JSON-encodable.
     connection.text_factory = lambda b: b.decode("utf-8", "backslashreplace")
     return connection
 

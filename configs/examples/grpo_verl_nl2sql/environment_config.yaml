@@ -12,9 +12,8 @@ environments:
     description: NL2SQL database environment exposing a read-only run_sql tool.
     env_type: database
     env_kwargs:
-      # Placeholder: every row supplies its own db_path via
-      # metadata.tools_kwargs.run_sql.create_kwargs, which replaces this. A row
-      # missing that key silently trains against this empty table instead.
+      # Replaced per-rollout by the row's metadata.tools_kwargs create_kwargs. A row
+      # missing those silently trains against this empty table instead.
       schema_sql: "CREATE TABLE placeholder(x INTEGER);"
     tools:
       - id: run_sql
