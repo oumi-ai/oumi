@@ -78,6 +78,7 @@ def test_execute_routes_into_shared_env(tmp_path):
         tool.execute(iid, {"query": "SELECT count(*) FROM t"}, agent_data=ad)
     )
     assert reward == 0.0
+    assert resp.text is not None
     assert "2" in resp.text
 
 
@@ -116,4 +117,5 @@ def test_failed_tool_call_becomes_an_observation(tmp_path):
         tool.execute(iid, {"query": "NOT VALID SQL"}, agent_data=ad)
     )
     assert reward == 0.0
+    assert resp.text is not None
     assert resp.text.startswith("Tool error:")
