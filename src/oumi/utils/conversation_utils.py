@@ -332,7 +332,7 @@ def create_chat_template_inputs(
                 try:
                     function["arguments"] = FunctionCall.model_validate(
                         function
-                    ).parsed_arguments()
+                    ).get_arguments_dict()
                 except ValueError as e:
                     raise ValueError(f"Message {msg_idx}: {e}") from e
 

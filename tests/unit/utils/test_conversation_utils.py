@@ -15,7 +15,7 @@ from oumi.core.types.tool_call import (
     FunctionCall,
     ToolCall,
 )
-from oumi.core.types.tool_conversations import (
+from oumi.utils.canonical_tool_conversations import (
     ARGUMENT_SENTINEL,
     FIRST_TOOL_CALL_INDEX,
     canonical_tool_conversation,
