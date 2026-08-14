@@ -36,6 +36,12 @@ class NavigateArguments(TypedDict):
     ]
 
 
+class GoBackArguments(TypedDict):
+    wait_until: NotRequired[
+        Literal["load", "domcontentloaded", "networkidle", "commit"]
+    ]
+
+
 class ClickArguments(TypedDict):
     selector: str
 
@@ -54,6 +60,26 @@ def navigate(arguments: NavigateArguments, context: Page) -> ToolResult:
     """Navigate to ``arguments['url']``; returns the resolved url and page title."""
     context.goto(arguments["url"], wait_until=arguments.get("wait_until", "load"))
     return ToolResult(output={"url": context.url, "title": context.title()})
+
+
+def go_back(arguments: GoBackArguments, context: Page) -> ToolResult:
+    """Return to the previous page in history.
+
+    ``navigated`` is False when there is nothing to go back to, so the model can
+    tell a no-op from a real navigation rather than re-reading the same page.
+    It compares URLs rather than trusting ``go_back``'s return value, which is
+    ``None`` for a same-document history navigation on a client-routed site even
+    though the page did change.
+    """
+    before = context.url
+    context.go_back(wait_until=arguments.get("wait_until", "load"))
+    return ToolResult(
+        output={
+            "url": context.url,
+            "title": context.title(),
+            "navigated": context.url != before,
+        }
+    )
 
 
 def click(arguments: ClickArguments, context: Page) -> ToolResult:

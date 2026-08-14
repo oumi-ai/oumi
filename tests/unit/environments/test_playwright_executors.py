@@ -28,6 +28,7 @@ class _FakePage:
     def __init__(self) -> None:
         self.calls: list[tuple] = []
         self.url = "https://example.com/landing"
+        self.history: list[str] = []
 
     def goto(self, url: str, wait_until: str = "load") -> None:
         self.calls.append(("goto", url, wait_until))
@@ -45,6 +46,13 @@ class _FakePage:
         self.calls.append(("inner_text", selector, timeout))
         return "x" * 20_000
 
+    def go_back(self, wait_until: str = "load") -> object | None:
+        self.calls.append(("go_back", wait_until))
+        if not self.history:
+            return None
+        self.url = self.history.pop()
+        return object()
+
 
 def test_navigate_returns_url_and_title():
     page: Any = _FakePage()
@@ -52,6 +60,44 @@ def test_navigate_returns_url_and_title():
     assert isinstance(result, ToolResult)
     assert result.output == {"url": page.url, "title": "Example Domain"}
     assert page.calls == [("goto", "https://example.com", "load")]
+
+
+def test_go_back_returns_the_previous_page():
+    page: Any = _FakePage()
+    page.history.append("https://example.com/blog")
+    result = pe.go_back({}, page)
+    assert result.output == {
+        "url": "https://example.com/blog",
+        "title": "Example Domain",
+        "navigated": True,
+    }
+    assert page.calls == [("go_back", "load")]
+
+
+def test_go_back_reports_no_navigation_at_the_start_of_history():
+    # Without `navigated` the model can't tell a no-op from a real back and
+    # re-reads the same page, which is what stranded it before this tool existed.
+    page: Any = _FakePage()
+    result = pe.go_back({}, page)
+    assert isinstance(result.output, dict)
+    assert result.output["navigated"] is False
+    assert result.output["url"] == "https://example.com/landing"
+
+
+def test_go_back_reports_navigation_when_playwright_returns_no_response():
+    # Observed live on oumi.ai: a same-document history navigation on a
+    # client-routed site changes the page but yields no main resource response,
+    # so trusting go_back's return value reports a successful back as a no-op.
+    class _SpaPage(_FakePage):
+        def go_back(self, wait_until: str = "load") -> object | None:
+            self.url = "https://example.com/blog"
+            return None
+
+    page: Any = _SpaPage()
+    result = pe.go_back({}, page)
+    assert isinstance(result.output, dict)
+    assert result.output["navigated"] is True
+    assert result.output["url"] == "https://example.com/blog"
 
 
 def test_click_passes_default_timeout():

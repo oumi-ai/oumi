@@ -80,6 +80,21 @@ environment_config:
                 type: integer
                 minimum: 0
                 description: Truncate the returned text to this many characters.
+        - id: go_back
+          name: go_back
+          description: |
+            Return to the previous page in history. Use this after following a
+            link when you want to reach a different link from the page you came
+            from; `navigated` is false when there is nothing to go back to.
+          executor: oumi.environments.playwright_executors.go_back
+          read_only: false
+          parameters:
+            type: object
+            properties:
+              wait_until:
+                type: string
+                enum: [load, domcontentloaded, networkidle, commit]
+                description: Playwright load state.
         - id: click
           name: click
           description: Click the element matching a CSS selector (e.g. a link).
@@ -156,6 +171,7 @@ strategy_params:
           - navigate(url): load a page.
           - read_text(selector?): read a page's visible text (omit selector for body).
           - click(selector): click a link/element.
+          - go_back(): return to the previous page.
           - type_text(selector, text): fill an input.
 
           Guidelines:
@@ -167,6 +183,9 @@ strategy_params:
             before concluding information is unavailable.
           - Prefer read_text on the whole page; only use a selector you have seen.
           - If a selector fails, retry by reading the whole page instead.
+          - A click that follows a link leaves you on a new page, where the other
+            links from the list you clicked no longer exist. Call go_back before
+            clicking a second entry from that list.
           - When you have the answer, give it in plain text without calling a tool.
 
       conversation_planner: |
