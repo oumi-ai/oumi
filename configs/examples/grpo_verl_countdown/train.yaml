@@ -13,7 +13,7 @@
 #   - Other training configs: configs/**/*train.yaml
 
 model:
-  model_name: "Qwen/Qwen3-4B"
+  model_name: "Qwen/Qwen3-4B-Instruct-2507"
 
 data:
   train:
