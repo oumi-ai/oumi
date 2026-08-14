@@ -1,3 +1,19 @@
+# verl GRPO training config for NL2SQL on Spider.
+#
+# Requirements:
+#   - Prepare rows first: python scripts/datasets/build_spider_tool_agent.py
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   oumi train -c configs/examples/grpo_verl_nl2sql/train.yaml
+#
+# See Also:
+#   - Example README: configs/examples/grpo_verl_nl2sql/README.md
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/*train.yaml
+
 model:
   model_name: "Qwen/Qwen2.5-3B-Instruct"
 
@@ -28,9 +44,8 @@ training:
     use_vllm: True
     temperature: 1.0
     vllm_gpu_memory_utilization: 0.5
-  # Rollout options are verl's; see
-  # https://github.com/verl-project/verl/blob/main/verl/trainer/config/rollout/rollout.yaml
-  # and https://github.com/verl-project/verl/blob/main/verl/workers/config/rollout.py
+  # Rollout options below are verl's, not Oumi's; see
+  # https://github.com/verl-project/verl/blob/main/verl/workers/config/rollout.py
   verl_config_overrides:
     data:
       train_batch_size: 32
@@ -43,8 +58,8 @@ training:
         multi_turn:
           enable: true
           format: hermes
-          # Unset, tool_agent never caps turns: a rollout only ends when it stops
-          # calling run_sql or burns max_completion_length.
+          # Left unset (verl's default), a rollout would only end when the model
+          # stops calling run_sql or burns max_completion_length.
           max_assistant_turns: 5
           tool_config_path: configs/examples/grpo_verl_nl2sql/verl_tool_config.yaml
         agent:

@@ -27,11 +27,18 @@ oumi train -c configs/examples/grpo_verl_nl2sql/train.yaml
 The Spider root must contain `train_spider.json` (7,000 examples) and `dev.json`
 (1,034). The database root must contain `<db_id>/<db_id>.sqlite`.
 
+A few Spider rows carry gold SQL that does not run against its own database. The
+builder drops them from both splits — an unscoreable gold aborts the reward
+mid-run — logging each one and a per-split kept/dropped count. Both splits
+therefore come out smaller than the counts above, so validation accuracy here is
+not directly comparable to a published Spider dev number without accounting for
+the dropped rows.
+
 ## Prepared rows
 
 The builder writes `data/grpo_verl_nl2sql/train.jsonl` and `val.jsonl` in Oumi
-`Conversation` format — one row per question, referencing the database by path
-instead of copying its contents into the row:
+`Conversation` format — one row per surviving question, referencing the database
+by path instead of copying its contents into the row:
 
 - `messages[0]` — system prompt carrying the DDL of every table in that row's DB.
 - `messages[1]` — the natural-language question.
