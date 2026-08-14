@@ -34,7 +34,7 @@ setup: |
   set -e
   pip install uv && uv pip install --system oumi[gpu] hf_transfer
   # Muse Glimmer landed in transformers 5.15.0; oumi pins `transformers<5.10`.
-  uv pip install --system -U "transformers>=5.15,<5.16"
+  uv pip install --system -U "transformers>=5.15"
 
 run: |
   set -e  # Exit if any command failed.

@@ -26,7 +26,6 @@
 
 model:
   model_name: "meta-models/Muse-Glimmer-30B"
-  model_revision: "f84ecc3a0ea984a4c04542a84269e3d065350a6e"
   model_max_length: 8192
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
