@@ -13,11 +13,34 @@
 # limitations under the License.
 
 import functools
+import json
 
 import pytest
 import transformers
 
-from oumi.builders.collators import resolve_collator_templates
+from oumi.builders.collators import (
+    build_collator_from_config,
+    build_data_collator,
+    resolve_collator_templates,
+)
+from oumi.core.configs import (
+    DataParams,
+    DatasetParams,
+    DatasetSplitParams,
+    ModelParams,
+    TrainingConfig,
+    TrainTarget,
+)
+from oumi.core.constants import LABEL_IGNORE_INDEX
+from oumi.core.types import Conversation, Message, Role
+from oumi.core.types.tool_call import (
+    FunctionCall,
+    FunctionDefinition,
+    JSONSchema,
+    ToolCall,
+    ToolDefinition,
+)
+from oumi.utils.packaging import is_transformers_v5
 from tests.markers import requires_hf_token
 
 
@@ -229,3 +252,283 @@ def test_template_detection_newer_transformers(
     assert response_template.strip()
     assert end_of_turn_template.strip()
     assert "<think>" not in response_template
+
+
+# -- Tool results nested inside assistant turns --------------------------------
+# gemma-4 and GLM-4.5 render tool results inside the model turn, so span masking
+# trains on environment output unless the tool-result bracket is subtracted.
+
+_SYSTEM_TEXT = "SYSTEM_PROMPT_TEXT"
+_USER_TEXT_1 = "USER_ASKS_WEATHER_AND_FLIGHTS"
+_USER_TEXT_2 = "USER_ASKS_TOKYO"
+_ASSISTANT_TEXT_1 = "ASSISTANT_ANSWERS_PARIS"
+_ASSISTANT_TEXT_2 = "ASSISTANT_ANSWERS_TOKYO"
+_TOOL_RESULT_1 = "TOOL_RESULT_PARIS_WEATHER"
+_TOOL_RESULT_2 = "TOOL_RESULT_BOSTON_FLIGHTS"
+_TOOL_RESULT_3 = "TOOL_RESULT_TOKYO_WEATHER"
+
+
+def _tool_conversation() -> Conversation:
+    """Mock multi-turn conversation with parallel tool calls and interleaved results."""
+
+    def _call(call_id: str, name: str, **arguments) -> ToolCall:
+        return ToolCall(
+            id=call_id,
+            function=FunctionCall(name=name, arguments=json.dumps(arguments)),
+        )
+
+    def _tool(name: str, **properties) -> ToolDefinition:
+        return ToolDefinition(
+            function=FunctionDefinition(
+                name=name,
+                description=f"{name} description",
+                parameters=JSONSchema(
+                    type="object",
+                    properties={k: JSONSchema(type="string") for k in properties},
+                    required=list(properties),
+                ),
+            )
+        )
+
+    return Conversation(
+        tools=[_tool("get_weather", city=""), _tool("search_flights", origin="")],
+        messages=[
+            Message(role=Role.SYSTEM, content=_SYSTEM_TEXT),
+            Message(role=Role.USER, content=_USER_TEXT_1),
+            Message(
+                role=Role.ASSISTANT,
+                tool_calls=[
+                    _call("weathr001", "get_weather", city="Paris"),
+                    _call("flight001", "search_flights", origin="Boston"),
+                ],
+            ),
+            Message(role=Role.TOOL, tool_call_id="weathr001", content=_TOOL_RESULT_1),
+            Message(role=Role.TOOL, tool_call_id="flight001", content=_TOOL_RESULT_2),
+            Message(role=Role.ASSISTANT, content=_ASSISTANT_TEXT_1),
+            Message(role=Role.USER, content=_USER_TEXT_2),
+            Message(
+                role=Role.ASSISTANT,
+                tool_calls=[_call("weathr002", "get_weather", city="Tokyo")],
+            ),
+            Message(role=Role.TOOL, tool_call_id="weathr002", content=_TOOL_RESULT_3),
+            Message(role=Role.ASSISTANT, content=_ASSISTANT_TEXT_2),
+        ],
+    )
+
+
+def _template_inputs(conversation: Conversation):
+    """Messages/tools shaped for templates that require mapping arguments."""
+    data = conversation.to_dict()
+    messages = []
+    for message in data["messages"]:
+        message = dict(message)
+        if message.get("tool_calls"):
+            message["content"] = message.get("content") or ""
+            message["tool_calls"] = [
+                {
+                    **call,
+                    "function": {
+                        **call["function"],
+                        "arguments": json.loads(call["function"]["arguments"]),
+                    },
+                }
+                for call in message["tool_calls"]
+            ]
+        messages.append(message)
+    return messages, data.get("tools")
+
+
+def _build_collator(tokenizer, model_name: str):
+    """The collator the trainer would build for this model, bracket and all."""
+    config = TrainingConfig(
+        data=DataParams(
+            train=DatasetSplitParams(
+                collator_name="text_completions_only_with_padding",
+                train_target=TrainTarget.ALL_ASSISTANT_TURNS,
+                datasets=[DatasetParams(dataset_name="dummy", split="train")],
+            )
+        ),
+        # The bracket is keyed on the model's config.model_type, so model_name has to
+        # be the real checkpoint rather than a stand-in.
+        model=ModelParams(
+            model_name=model_name,
+            trust_remote_code=True,
+            model_max_length=8192,
+        ),
+    )
+    collator = build_collator_from_config(config, tokenizer=tokenizer)
+    assert collator is not None
+    return collator
+
+
+def _encode_conversation(tokenizer, conversation: Conversation) -> list[int]:
+    messages, tools = _template_inputs(conversation)
+    encoded = tokenizer.apply_chat_template(
+        messages,
+        tools=tools,
+        tokenize=True,
+        return_dict=True,
+        add_generation_prompt=False,
+    )
+    return list(encoded["input_ids"])
+
+
+def _labels(collator, input_ids: list[int]) -> list[int]:
+    batch = collator([{"input_ids": input_ids, "attention_mask": [1] * len(input_ids)}])
+    return batch["labels"][0].tolist()
+
+
+def _masked_bracket_regions_are_complete(collator, input_ids, labels) -> bool:
+    """Every token from a tool-result opener through its closer must be masked.
+
+    The payload sentinels only cover the tool result's own text; this also covers the
+    bracket tokens and whatever the template renders between them. Returns True when
+    the model uses no bracket.
+    """
+    opener = collator._default_collator.tool_response_token_ids
+    closer = collator._default_collator.end_of_tool_response_token_ids
+    if not opener or not closer:
+        return True
+
+    # Slicing past the end yields a short list, which never equals the marker, so no
+    # bounds arithmetic is needed here.
+    opener_starts = [
+        i for i in range(len(input_ids)) if input_ids[i : i + len(opener)] == opener
+    ]
+    closer_ends = [
+        i + len(closer)
+        for i in range(len(input_ids))
+        if input_ids[i : i + len(closer)] == closer
+    ]
+    assert opener_starts, "bracket was resolved but never occurs in the conversation"
+
+    for start in opener_starts:
+        # The block ends at the first closer after this opener. An opener with no
+        # closer runs to the end of the sequence, which is what the collator masks.
+        end = next((e for e in closer_ends if e > start), len(input_ids))
+        if any(label != LABEL_IGNORE_INDEX for label in labels[start:end]):
+            return False
+    return True
+
+
+def _sentinel_labels(tokenizer, input_ids, labels, text: str) -> list[int]:
+    """The labels the collator gave the tokens spelling `text`.
+
+    Compares token ids rather than decoded text: a payload that is only partly masked
+    still decodes to something, so a substring check would pass on it.
+    """
+    tokens = tokenizer.encode(text, add_special_tokens=False)
+    for start in range(len(input_ids)):
+        if input_ids[start : start + len(tokens)] == tokens:
+            return labels[start : start + len(tokens)]
+    raise AssertionError(f"sentinel {text!r} is not in the tokenized conversation")
+
+
+def _assert_excluded_from_loss(tokenizer, input_ids, labels, text: str, model: str):
+    """Every token spelling `text` must be masked."""
+    sentinel = _sentinel_labels(tokenizer, input_ids, labels, text)
+    in_loss = sum(label != LABEL_IGNORE_INDEX for label in sentinel)
+    assert not in_loss, (
+        f"{model} trains on {text!r}: {in_loss} of its {len(sentinel)} tokens are "
+        "in the loss"
+    )
+
+
+def _assert_included_in_loss(tokenizer, input_ids, labels, text: str, model: str):
+    """Every token spelling `text` must contribute to the loss."""
+    sentinel = _sentinel_labels(tokenizer, input_ids, labels, text)
+    masked = sum(label == LABEL_IGNORE_INDEX for label in sentinel)
+    assert not masked, (
+        f"{model} drops {text!r} from the loss: {masked} of its {len(sentinel)} "
+        "tokens are masked"
+    )
+
+
+@pytest.mark.parametrize(
+    "model_name,trust_remote_code",
+    [
+        pytest.param(
+            "google/gemma-4-E2B-it",
+            False,
+            id="gemma-4-nested",
+            marks=pytest.mark.skipif(
+                not is_transformers_v5(),
+                reason="gemma-4 tokenizers require transformers v5",
+            ),
+        ),
+        pytest.param("zai-org/GLM-4.5", False, id="glm-4.5-nested"),
+        pytest.param("Qwen/Qwen3-0.6B", False, id="qwen3-separate-turn"),
+    ],
+)
+def test_tool_results_are_excluded_from_the_loss(model_name, trust_remote_code):
+    tokenizer = _load_tokenizer(model_name, trust_remote_code)
+
+    conversation = _tool_conversation()
+    collator = _build_collator(tokenizer, model_name)
+    input_ids = _encode_conversation(tokenizer, conversation)
+    labels = _labels(collator, input_ids)
+
+    # Environment output must never be trained on.
+    for tool_result in (_TOOL_RESULT_1, _TOOL_RESULT_2, _TOOL_RESULT_3):
+        _assert_excluded_from_loss(
+            tokenizer, input_ids, labels, tool_result, model_name
+        )
+
+    # Prompt text is context, not a target.
+    for prompt_text in (_SYSTEM_TEXT, _USER_TEXT_1, _USER_TEXT_2):
+        _assert_excluded_from_loss(
+            tokenizer, input_ids, labels, prompt_text, model_name
+        )
+
+    # The model's own turns must survive, including the answer that gemma-4 renders
+    # after the tool results inside the same turn.
+    for assistant_text in (_ASSISTANT_TEXT_1, _ASSISTANT_TEXT_2):
+        _assert_included_in_loss(
+            tokenizer, input_ids, labels, assistant_text, model_name
+        )
+
+    # The sentinels above only cover the payload. This covers the bracket tokens and
+    # anything the template puts between them.
+    assert _masked_bracket_regions_are_complete(collator, input_ids, labels), (
+        f"{model_name} leaves part of a bracketed tool result in the loss"
+    )
+
+
+def test_bracket_forced_onto_a_separate_turn_model_changes_nothing():
+    """Qwen3 emits <tool_response> markers, but in a turn of their own.
+
+    Assert that providing a bracket for template that does not nest change results.
+    """
+    model_name = "Qwen/Qwen3-0.6B"
+    tokenizer = _load_tokenizer(model_name)
+
+    conversation = _tool_conversation()
+    input_ids = _encode_conversation(tokenizer, conversation)
+
+    response_template, end_of_turn_template = resolve_collator_templates(tokenizer)
+    baseline = build_data_collator(
+        "text_completions_only_with_padding",
+        tokenizer=tokenizer,
+        max_length=None,
+        response_template=response_template,
+        end_of_turn_template=end_of_turn_template,
+        train_target="all_assistant_turns",
+    )
+    forced = build_data_collator(
+        "text_completions_only_with_padding",
+        tokenizer=tokenizer,
+        max_length=None,
+        response_template=response_template,
+        end_of_turn_template=end_of_turn_template,
+        train_target="all_assistant_turns",
+        tool_response_template="<tool_response>",
+        end_of_tool_response_template="</tool_response>",
+    )
+
+    # The markers really are present, so this is not a vacuous comparison.
+    opener = forced._default_collator.tool_response_token_ids
+    assert any(
+        input_ids[i : i + len(opener)] == opener for i in range(len(input_ids))
+    ), "expected <tool_response> to appear in the rendered conversation"
+
+    assert _labels(forced, input_ids) == _labels(baseline, input_ids)
