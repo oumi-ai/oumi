@@ -70,6 +70,10 @@ from oumi.utils.verl_model_merger import FSDPModelMerger, ModelMergerConfig
 # Returns an example converted to verl format.
 _DatasetProcessFn = Callable[[dict, int, str, str], dict]
 
+# Passes verl's `save_freq > 0` check (which enables its last-step save) while
+# being too large for `step % save_freq` to ever match: final checkpoint only.
+_SAVE_FINAL_STEP_ONLY_FREQ = 10**9
+
 
 class VerlGrpoTrainer(BaseTrainer):
     """verl GRPO Trainer.
@@ -460,6 +464,16 @@ class VerlGrpoTrainer(BaseTrainer):
             config.trainer.test_freq = training_params.eval_steps
         if not training_params.save_epoch:
             config.trainer.save_freq = training_params.save_steps
+
+        # The HF export merges a verl checkpoint, and verl only writes one when
+        # save_freq > 0. Without this, `save_steps: -1` + save_final_model trains
+        # fine and exports nothing.
+        if training_params.save_final_model and config.trainer.save_freq <= 0:
+            config.trainer.save_freq = _SAVE_FINAL_STEP_ONLY_FREQ
+            logger.info(
+                f"save_steps={training_params.save_steps} would write no checkpoint "
+                "to export from; checkpointing the final step instead."
+            )
 
         # Specific checkpoint to resume from takes precedence over starting
         # from last checkpoint.
