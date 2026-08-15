@@ -4,6 +4,15 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
+from oumi.core.configs import (
+    DataParams,
+    DatasetParams,
+    DatasetSplitParams,
+    ModelParams,
+    TrainerType,
+    TrainingConfig,
+    TrainingParams,
+)
 from oumi.core.trainers.verl_grpo_trainer import VerlGrpoTrainer
 from oumi.core.types.conversation import (
     ContentItem,
@@ -228,23 +237,19 @@ def test_create_verl_data_entry_tool_agent_preserves_structured_history():
     assert json.loads(json.dumps(row["prompt"])) == row["prompt"]
 
 
-def _make_trainer_for_config(save_steps: int, save_final_model: bool):
+def _make_trainer_for_config(
+    save_steps: int,
+    save_final_model: bool,
+    save_epoch: bool = False,
+    output_dir: str = "/tmp/oumi-verl-unit-test",
+):
     """Builds a trainer with just enough state for `_create_config`.
 
     `_create_config` only reads `_oumi_config`, `_train_filepath`, `_val_filepath`,
     `_reward_funcs` and `_temp_output_dir`, so we bypass `__init__` entirely. That
-    keeps this a unit test: no tokenizer download, no Ray, no GPU.
+    keeps this a unit test: no tokenizer download, no Ray, no GPU. `_export_hf_model`
+    additionally reads `_final_output_dir`.
     """
-    from oumi.core.configs import (
-        DataParams,
-        DatasetParams,
-        DatasetSplitParams,
-        ModelParams,
-        TrainerType,
-        TrainingConfig,
-        TrainingParams,
-    )
-
     trainer = object.__new__(VerlGrpoTrainer)
     trainer._oumi_config = TrainingConfig(
         model=ModelParams(model_name="Qwen/Qwen2.5-0.5B-Instruct"),
@@ -261,16 +266,17 @@ def _make_trainer_for_config(save_steps: int, save_final_model: bool):
             trainer_type=TrainerType.VERL_GRPO,
             max_steps=2,
             save_steps=save_steps,
-            save_epoch=False,
+            save_epoch=save_epoch,
             save_final_model=save_final_model,
             enable_wandb=False,
-            output_dir="/tmp/oumi-verl-unit-test",
+            output_dir=output_dir,
         ),
     )
     trainer._train_filepath = "/tmp/train.parquet"
     trainer._val_filepath = "/tmp/val.parquet"
     trainer._reward_funcs = []
-    trainer._temp_output_dir = Path("/tmp/oumi-verl-unit-test/verl_output")
+    trainer._final_output_dir = Path(output_dir)
+    trainer._temp_output_dir = Path(output_dir) / "verl_output"
     return trainer
 
 
@@ -363,3 +369,83 @@ def test_verl_train_respects_save_final_model_false():
 
     trainer.train.assert_called_once()
     trainer.save_model.assert_not_called()
+
+
+@pytest.mark.skipif(verl_import_failed, reason="verl not available")
+@pytest.mark.parametrize("save_steps", [-1, 0, 100, 500])
+@pytest.mark.parametrize("save_final_model", [True, False])
+def test_save_epoch_is_effectively_dead_on_verl(save_steps, save_final_model):
+    """BUG: `save_epoch=True` collapses every cadence to final-checkpoint-only.
+
+    `_create_config` only copies `save_steps` into verl's `save_freq` when
+    `save_epoch` is False, so turning `save_epoch` on leaves `save_freq` at
+    verl's `-1` default. The `save_final_model` guard then rewrites that to
+    `_SAVE_FINAL_STEP_ONLY_FREQ`, which is deliberately too large for
+    `step % save_freq` to ever match. Two things go wrong:
+
+    1. No per-epoch checkpoint is written -- exactly what `save_epoch` asked for.
+    2. An explicit `save_steps` is silently dropped, inverting the precedence
+       documented on `TrainingParams.save_epoch` ("If both `save_steps` and
+       `save_epoch` are set, then `save_steps` takes precedence").
+    """
+    verl_config = _make_trainer_for_config(
+        save_steps, save_final_model=save_final_model, save_epoch=True
+    )._create_config()
+
+    # An explicitly requested cadence never reaches verl. (`save_steps <= 0` is
+    # not asserted here: it coincides with the `-1` default verl already has.)
+    if save_steps > 0:
+        assert verl_config.trainer.save_freq != save_steps
+
+    if save_final_model:
+        # Too large for `global_step % save_freq` to ever match: final step only.
+        assert verl_config.trainer.save_freq > verl_config.trainer.total_training_steps
+    else:
+        # Fails verl's `save_freq > 0` check: no checkpoint at all.
+        assert verl_config.trainer.save_freq <= 0
+
+
+@pytest.mark.skipif(verl_import_failed, reason="verl not available")
+def test_verl_checkpoint_and_export_paths(tmp_path):
+    """Documents the on-disk layout verl checkpoints into.
+
+        <output_dir>/                          <- `_final_output_dir`, HF export target
+        └── verl_output/                   <- `_temp_output_dir` == verl's
+            │                                 `trainer.default_local_dir`
+            ├── global_step_5/
+            │   └── actor/                 <- FSDP shards; merge source
+            │       └── huggingface/       <- config/tokenizer, i.e.
+            │                                 `hf_model_config_path`
+            └── global_step_10/
+                └── actor/
+                    └── huggingface/
+
+    `_export_hf_model` picks the `global_step_N` with the largest N and merges
+    it up into `<output_dir>` itself, so the exported HF model sits alongside
+    the raw verl checkpoints rather than inside them.
+    """
+    trainer = _make_trainer_for_config(
+        save_steps=5, save_final_model=True, output_dir=str(tmp_path)
+    )
+
+    # verl is pointed at the nested directory, never at the export directory.
+    verl_config = trainer._create_config()
+    assert verl_config.trainer.default_local_dir == str(tmp_path / "verl_output")
+
+    for step in (5, 10):
+        (tmp_path / "verl_output" / f"global_step_{step}" / "actor").mkdir(parents=True)
+    # A bare checkpoint with no `actor/` payload must be ignored, not crash the
+    # export by looking like the newest step.
+    (tmp_path / "verl_output" / "global_step_20").mkdir()
+
+    with patch(
+        "oumi.core.trainers.verl_grpo_trainer.FSDPModelMerger"
+    ) as mock_merger_cls:
+        assert trainer._export_hf_model() is True
+
+    merger_config = mock_merger_cls.call_args.args[0]
+    latest = tmp_path / "verl_output" / "global_step_10"
+    assert merger_config.local_dir == str(latest / "actor")
+    assert merger_config.hf_model_config_path == str(latest / "actor" / "huggingface")
+    assert merger_config.target_dir == str(tmp_path)
+    mock_merger_cls.return_value.merge_and_save.assert_called_once()
