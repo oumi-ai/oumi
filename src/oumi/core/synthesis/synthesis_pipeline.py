@@ -22,6 +22,7 @@ from oumi.core.synthesis.attribute_transformation import AttributeTransformer
 from oumi.core.synthesis.conversation_synthesizer import ConversationSynthesizer
 from oumi.core.synthesis.data_synthesizer import DataSynthesizer
 from oumi.core.synthesis.dataset_planner import DatasetPlanner
+from oumi.exceptions import OumiConfigError
 from oumi.utils.io_utils import save_jsonlines
 from oumi.utils.logging import logger
 
@@ -31,6 +32,18 @@ class SynthesisPipeline:
 
     def __init__(self, config: SynthesisConfig):
         """Initialize the synthesis pipeline."""
+        # SynthesisConfig validates this too, but environment_config is often
+        # assigned directly onto an already-constructed config, which runs no
+        # validation.
+        if (
+            config.environment_config
+            and config.environment_config.environments
+            and not config.strategy_params.multiturn_attributes
+        ):
+            raise OumiConfigError(
+                "Environments require a multi-turn attribute; tools are only "
+                "called during a multi-turn rollout."
+            )
         self._config = config
         attribute_synthesizer = AttributeSynthesizer(
             config.strategy_params, config.inference_config

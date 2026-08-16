@@ -101,6 +101,19 @@ def _synthetic_env_params(
     )
 
 
+def _chat_multiturn_attribute(**kwargs) -> MultiTurnAttribute:
+    return MultiTurnAttribute(
+        id="chat",
+        min_turns=1,
+        max_turns=2,
+        role_instruction_messages={
+            Role.USER: "You are a user.",
+            Role.ASSISTANT: "You are an assistant.",
+        },
+        **kwargs,
+    )
+
+
 def test_invalid_output_path():
     """Test that setting output_path raises OumiConfigError."""
     inference_config = InferenceConfig(output_path="some/path")
@@ -111,8 +124,7 @@ def test_invalid_output_path():
 
 def test_synthesis_config_with_top_level_environment_config():
     env_config = EnvironmentConfig(environments=[_synthetic_env_params()])
-    params = GeneralSynthesisParams()
-    params.multiturn_attributes = []
+    params = GeneralSynthesisParams(multiturn_attributes=[_chat_multiturn_attribute()])
 
     config = SynthesisConfig(
         strategy_params=params,
@@ -129,10 +141,38 @@ def test_synthesis_config_loads_environment_config_from_path(tmp_path):
     env_config = EnvironmentConfig(environments=[_synthetic_env_params()])
     env_config.to_yaml(env_config_path)
 
-    config = SynthesisConfig(environment_config_path=str(env_config_path))
+    params = GeneralSynthesisParams(multiturn_attributes=[_chat_multiturn_attribute()])
+
+    config = SynthesisConfig(
+        strategy_params=params,
+        environment_config_path=str(env_config_path),
+    )
 
     assert config.environment_config is not None
     assert config.environment_config.all_tools[0].id == "answer_faq"
+
+
+def test_synthesis_config_rejects_environments_without_multiturn_attribute():
+    env_config = EnvironmentConfig(environments=[_synthetic_env_params()])
+
+    with pytest.raises(OumiConfigError, match="require a multi-turn attribute"):
+        SynthesisConfig(environment_config=env_config)
+
+
+def test_synthesis_config_rejects_environment_path_without_multiturn_attribute(
+    tmp_path,
+):
+    env_config_path = tmp_path / "environments.yaml"
+    EnvironmentConfig(environments=[_synthetic_env_params()]).to_yaml(env_config_path)
+
+    with pytest.raises(OumiConfigError, match="require a multi-turn attribute"):
+        SynthesisConfig(environment_config_path=str(env_config_path))
+
+
+def test_synthesis_config_allows_no_environments_without_multiturn_attribute():
+    config = SynthesisConfig()
+
+    assert config.environment_config is None
 
 
 def test_synthesis_config_validates_available_tools():

@@ -92,6 +92,15 @@ class SynthesisConfig(BaseConfig):
                 raise OumiConfigError("Output path must end with .jsonl.")
 
         self.environment_config = self._resolve_environment_config()
+        if (
+            self.environment_config
+            and self.environment_config.environments
+            and not self.strategy_params.multiturn_attributes
+        ):
+            raise OumiConfigError(
+                "Environments require a multi-turn attribute; tools are only "
+                "called during a multi-turn rollout."
+            )
         self._validate_available_tooling()
 
     def _resolve_environment_config(self) -> EnvironmentConfig | None:

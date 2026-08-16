@@ -233,3 +233,64 @@ def test_synthetic_state_params_accepts_partial_inputs():
     assert SyntheticStateParams(
         initial_state={"files": {"count": 1}}
     ).initial_state == {"files": {"count": 1}}
+
+
+def _tool_with_parameters(parameters: dict[str, Any]) -> ToolParams:
+    return ToolParams(id="t", name="T", description="d", parameters=parameters)
+
+
+@pytest.mark.parametrize("keyword", ["oneOf", "allOf", "not", "if", "then", "else"])
+def test_tool_params_rejects_unsupported_keyword_in_parameters(keyword):
+    with pytest.raises(ValueError, match=keyword):
+        _tool_with_parameters(
+            {"type": "object", "properties": {"x": {keyword: [{"type": "string"}]}}}
+        )
+
+
+@pytest.mark.parametrize("keyword", ["oneOf", "allOf", "not"])
+def test_tool_params_rejects_unsupported_keyword_in_output_schema(keyword):
+    with pytest.raises(ValueError, match=keyword):
+        ToolParams(
+            id="t",
+            name="T",
+            description="d",
+            output_schema={keyword: [{"type": "object"}]},
+        )
+
+
+def test_tool_params_rejects_anyof_at_root():
+    with pytest.raises(ValueError, match="anyOf"):
+        _tool_with_parameters({"anyOf": [{"type": "object"}, {"type": "object"}]})
+
+
+def test_tool_params_allows_nested_anyof():
+    tool = _tool_with_parameters(
+        {
+            "type": "object",
+            "properties": {"x": {"anyOf": [{"type": "string"}, {"type": "integer"}]}},
+        }
+    )
+    assert tool.parameters["properties"]["x"]["anyOf"]
+
+
+def test_tool_params_allows_property_named_like_keyword():
+    # A property literally named "not" is data, not the "not" keyword.
+    tool = _tool_with_parameters(
+        {"type": "object", "properties": {"not": {"type": "string"}}}
+    )
+    assert "not" in tool.parameters["properties"]
+
+
+def test_tool_params_rejects_keyword_buried_in_list_form_items():
+    with pytest.raises(ValueError, match="oneOf"):
+        _tool_with_parameters(
+            {
+                "type": "object",
+                "properties": {
+                    "x": {
+                        "type": "array",
+                        "prefixItems": [{"oneOf": [{"type": "string"}]}],
+                    }
+                },
+            }
+        )
