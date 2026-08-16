@@ -1,0 +1,12 @@
+# verl agent-loop registry entry. Must be a LIST -- verl iterates it
+# (verl/experimental/agent_loop/agent_loop.py:444-449). Keys beyond `name` and `_target_`
+# are passed to the loop's constructor by hydra.
+#
+# Wire it up in training.verl_config_overrides alongside:
+#   actor_rollout_ref.rollout.mode: async
+#   actor_rollout_ref.rollout.multi_turn.enable: true
+#   actor_rollout_ref.rollout.agent.agent_loop_config_path: <this file>
+# VerlGrpoTrainer._validate_agent_loop_config fails loudly if any is missing.
+- name: oumi_user_sim_tool_agent
+  _target_: oumi.core.trainers.verl_agentic.user_sim_agent_loop.UserSimToolAgentLoop
+  user_sim_inference: configs/examples/verl_conversational/user_sim_engine.yaml
