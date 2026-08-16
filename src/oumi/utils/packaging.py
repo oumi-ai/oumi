@@ -176,6 +176,43 @@ def require_torchdata(feature_name: str = "This feature") -> None:
         )
 
 
+@lru_cache
+def _is_module_available(module_name: str) -> bool:
+    try:
+        importlib.import_module(module_name)
+        return True
+    except ImportError:
+        return False
+
+
+def is_kernel_available() -> bool:
+    """Checks if the Kernel browser SDK is installed."""
+    return _is_module_available("kernel")
+
+
+def require_kernel(feature_name: str = "This feature") -> None:
+    """Raises an ImportError if the Kernel browser SDK is not available."""
+    if not is_kernel_available():
+        raise ImportError(
+            f"{feature_name} requires the Kernel browser SDK. "
+            "Please install it with: pip install 'oumi[browser]'"
+        )
+
+
+def is_playwright_available() -> bool:
+    """Checks if Playwright is installed."""
+    return _is_module_available("playwright")
+
+
+def require_playwright(feature_name: str = "This feature") -> None:
+    """Raises an ImportError if Playwright is not available."""
+    if not is_playwright_available():
+        raise ImportError(
+            f"{feature_name} requires Playwright. "
+            "Please install it with: pip install 'oumi[browser]'"
+        )
+
+
 _MIN_TRL_VERSION_FOR_GOLD = "0.24.0"
 
 

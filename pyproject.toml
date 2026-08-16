@@ -122,6 +122,11 @@ docs = [
     "sphinxcontrib-typer",   # Allows us to include typer CLI in the docs
 ]
 
+browser = [
+    "kernel>=0.72,<0.80",
+    "playwright>=1.40,<2",
+]
+
 # Useful dependencies when running on GPU
 gpu = [
     "liger-kernel>=0.6,<0.9",
@@ -203,7 +208,7 @@ torchdata = ["torchdata>=0.9,<0.10.0"]
 
 # CI targets
 ci_cpu = [
-    "oumi[dev,docs,gcp,mcp,synthesis,tune,torchdata,file_formats]",
+    "oumi[dev,docs,gcp,mcp,synthesis,tune,torchdata,file_formats,browser]",
     "vllm>=0.14,<0.22",                            # For VLLMInferenceEngine
     "boto3",  # For bedrock inference engine tests
     # This may fail to install. As a temporary workaround, run:
