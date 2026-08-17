@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import functools
-import json
 
 import pytest
 import transformers
@@ -44,6 +43,7 @@ from oumi.utils.canonical_tool_conversations import (
     USER_TEXT_2,
     canonical_tool_conversation,
 )
+from oumi.utils.conversation_utils import create_chat_template_inputs
 from oumi.utils.packaging import is_transformers_v5
 from tests.markers import requires_hf_token
 
@@ -265,24 +265,9 @@ def test_template_detection_newer_transformers(
 
 def _template_inputs(conversation: Conversation):
     """Messages/tools shaped for templates that require mapping arguments."""
-    data = conversation.to_dict()
-    messages = []
-    for message in data["messages"]:
-        message = dict(message)
-        if message.get("tool_calls"):
-            message["content"] = message.get("content") or ""
-            message["tool_calls"] = [
-                {
-                    **call,
-                    "function": {
-                        **call["function"],
-                        "arguments": json.loads(call["function"]["arguments"]),
-                    },
-                }
-                for call in message["tool_calls"]
-            ]
-        messages.append(message)
-    return messages, data.get("tools")
+    return create_chat_template_inputs(
+        conversation, tool_arguments_format="mapping", content_format="empty"
+    )
 
 
 def _build_collator(tokenizer, model_name: str):
