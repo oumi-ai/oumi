@@ -227,6 +227,90 @@ def _detect_response_template(
     return response_template
 
 
+def _clamp_to_generation_prompt(
+    tokenizer: "BaseTokenizer",
+    response_template: str,
+    msgs: list[dict[str, str]],
+) -> str:
+    r"""Clamp the response template to the generation-prompt boundary.
+
+    Some chat templates render assistant headers that extend past the
+    generation prompt: e.g. harmony-style templates render assistant turns
+    as ``<|start|>assistant to=user<|message|>…`` while the generation
+    prompt is the bare ``<|start|>assistant``. Masking through the full
+    header leaves the trailing span (`` to=user<|message|>``) untrained,
+    even though inference expects the model to generate it — heavy
+    fine-tuning then corrupts that span. When the generation-prompt suffix
+    is a strict prefix of the detected header, prefer it so the rest of the
+    header is trained.
+
+    Args:
+        tokenizer: The tokenizer whose chat template is being probed.
+        response_template: The auto-detected assistant header.
+        msgs: A sentinel conversation ending with a user turn.
+
+    Returns:
+        The clamped response template, or the original when the
+        generation prompt is unavailable or is not a strict prefix.
+
+    Examples:
+        Muse Glimmer renders assistant headers past the generation prompt, so
+        the suffix is a proper prefix of the header and the clamp fires — the
+        span between the two boundaries (`` to=user<|message|>``) moves into
+        the trained region::
+
+            detected    '<|start|>assistant to=user<|message|>'
+            gen_suffix  '<|start|>assistant'
+            -> '<|start|>assistant'
+
+        Qwen2.5's generation prompt IS its assistant header (modulo the
+        trailing newline both sides strip), so the suffix is not strictly
+        shorter and nothing changes — the no-op case covering standard
+        templates::
+
+            detected    '<|im_start|>assistant'
+            gen_suffix  '<|im_start|>assistant\n'  ->  '<|im_start|>assistant'
+            -> unchanged
+
+        gemma-4-12B-it's generation prompt is *longer* than its header (the
+        template appends a thought-channel opener when prompting), so it is
+        not a prefix at all and nothing changes — the clamp only ever
+        shortens::
+
+            detected    '<|turn>model'
+            gen_suffix  '<|turn>model\n<|channel>thought\n<channel|>'
+            -> unchanged
+    """
+    try:
+        base = tokenizer.apply_chat_template(
+            msgs, tokenize=False, add_generation_prompt=False
+        )
+        gen = tokenizer.apply_chat_template(
+            msgs, tokenize=False, add_generation_prompt=True
+        )
+    except Exception:
+        return response_template
+    if not (isinstance(base, str) and isinstance(gen, str)):
+        return response_template
+    if not gen.startswith(base):
+        return response_template
+
+    gen_suffix = gen[len(base) :].rstrip("\n")
+    if (
+        gen_suffix
+        and len(gen_suffix) < len(response_template)
+        and response_template.startswith(gen_suffix)
+    ):
+        logger.info(
+            "Clamped auto-detected response_template to the generation-prompt "
+            "boundary: %r -> %r",
+            response_template,
+            gen_suffix,
+        )
+        return gen_suffix
+    return response_template
+
+
 def resolve_collator_templates(
     tokenizer: "BaseTokenizer",
 ) -> tuple[str, str]:
@@ -258,15 +342,17 @@ def resolve_collator_templates(
     msgs_no_sys = msgs_with_sys[1:]
 
     rendered = None
+    chosen_msgs = None
     for msgs in (msgs_with_sys, msgs_no_sys):
         try:
             rendered = tokenizer.apply_chat_template(
                 msgs, tokenize=False, add_generation_prompt=False
             )
+            chosen_msgs = msgs
             break
         except Exception:
             continue
-    if rendered is None:
+    if rendered is None or chosen_msgs is None:
         raise ValueError(
             f"Tokenizer has no chat template or it failed to render.\n{_FIX_HINT}"
         )
@@ -301,6 +387,10 @@ def resolve_collator_templates(
         tokenizer,
         header_text=rendered[second_user_end:second_asst],
         eot_ids=eot_ids,
+    )
+    # Shorten only when generation begins inside the detected header.
+    response_template = _clamp_to_generation_prompt(
+        tokenizer, response_template, chosen_msgs[:-1]
     )
 
     if not response_template.strip():
