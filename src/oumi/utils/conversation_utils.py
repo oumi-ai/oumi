@@ -326,20 +326,48 @@ def create_chat_template_inputs(
         if not tool_calls:
             continue
 
-        if tool_arguments_format == "mapping":
-            for tool_call in tool_calls:
-                function = tool_call["function"]
-                try:
-                    function["arguments"] = FunctionCall.model_validate(
-                        function
-                    ).get_arguments_dict()
-                except ValueError as e:
-                    raise ValueError(f"Message {msg_idx}: {e}") from e
+        for tool_call in tool_calls:
+            _restore_default_type(tool_call)
+            if tool_arguments_format != "mapping":
+                continue
+            function = tool_call["function"]
+            try:
+                function["arguments"] = FunctionCall.model_validate(
+                    function
+                ).get_arguments_dict()
+            except ValueError as e:
+                raise ValueError(f"Message {msg_idx}: {e}") from e
 
         if content_format == "empty" and msg_dict.get("content") is None:
             msg_dict["content"] = ""
 
-    return messages, data.get("tools")
+    tools = data.get("tools")
+    for tool in tools or []:
+        _restore_default_type(tool)
+
+    return messages, tools
+
+
+def _restore_default_type(entry: dict) -> None:
+    """Re-adds ``type: "function"`` when it was left at its default.
+
+    ``Conversation.to_dict()`` dumps with ``exclude_unset=True``, so a
+    ``ToolCall`` or ``ToolDefinition`` built in code -- rather than parsed from
+    OpenAI-format JSON, which always spells ``type`` out -- loses the key
+    entirely. Templates read it directly: DeepSeek-V3 renders ``tool['type']``
+    and raises ``UndefinedError`` without it, so a programmatically built tool
+    conversation cannot be rendered for that model at all.
+
+    Only entries that actually carry a ``function`` get the key, and only when
+    it is missing, so an explicit value passes through and an entry of some
+    future non-function tool type is not mislabelled as one.
+
+    Scoped to this adapter rather than fixed in ``to_dict()``: that output also
+    feeds the inference engines, JSONL serialization, synthesis and analysis,
+    and rendering is the only place the missing key breaks anything.
+    """
+    if "function" in entry:
+        entry.setdefault("type", "function")
 
 
 def remove_excessive_images(
