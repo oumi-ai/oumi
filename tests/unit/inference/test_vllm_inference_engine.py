@@ -27,14 +27,19 @@ try:
         RequestOutput,
     )
 
-    def _create_vllm_output(responses: list[str], output_id: str) -> RequestOutput:
+    def _create_vllm_output(
+        responses: list[str],
+        output_id: str,
+        prompt_token_ids: list[int] | None = None,
+        output_token_ids: list[list[int]] | None = None,
+    ) -> RequestOutput:
         outputs = []
         for ind, response in enumerate(responses):
             outputs.append(
                 CompletionOutput(
                     text=response,
                     index=ind,
-                    token_ids=[],
+                    token_ids=output_token_ids[ind] if output_token_ids else [],
                     cumulative_logprob=None,
                     logprobs=None,
                 )
@@ -43,7 +48,7 @@ try:
             request_id=output_id,
             outputs=outputs,
             prompt=None,
-            prompt_token_ids=[],
+            prompt_token_ids=prompt_token_ids or [],
             prompt_logprobs=None,
             finished=True,
         )
@@ -1012,3 +1017,101 @@ def test_tool_call_parser_from_model_params(mock_vllm):
         VLLMInferenceEngine(params)
 
     manager.get_tool_parser.assert_called_once_with("hermes")
+
+
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_extract_usage_counts_prompt_and_completion_tokens():
+    usage = VLLMInferenceEngine._extract_usage_from_vllm_output(
+        _create_vllm_output(
+            ["a response"],
+            "123",
+            prompt_token_ids=[1, 2, 3, 4, 5],
+            output_token_ids=[[10, 11, 12]],
+        )
+    )
+
+    assert usage == {
+        "prompt_tokens": 5,
+        "completion_tokens": 3,
+        "total_tokens": 8,
+    }
+
+
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_extract_usage_sums_across_multiple_outputs():
+    """Every sampled sequence is generated, so n>1 counts them all."""
+    usage = VLLMInferenceEngine._extract_usage_from_vllm_output(
+        _create_vllm_output(
+            ["first", "second"],
+            "123",
+            prompt_token_ids=[1, 2],
+            output_token_ids=[[10, 11], [20, 21, 22]],
+        )
+    )
+
+    assert usage == {
+        "prompt_tokens": 2,
+        "completion_tokens": 5,
+        "total_tokens": 7,
+    }
+
+
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_extract_usage_returns_none_when_no_tokens_reported():
+    """None keeps "not reported" distinguishable from a genuine zero."""
+    assert (
+        VLLMInferenceEngine._extract_usage_from_vllm_output(
+            _create_vllm_output(["a response"], "123")
+        )
+        is None
+    )
+
+
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_infer_online_records_usage_metadata(mock_vllm):
+    mock_vllm_instance = Mock()
+    mock_vllm.LLM.return_value = mock_vllm_instance
+    mock_vllm_instance.chat.return_value = [
+        _create_vllm_output(
+            ["The first time I saw"],
+            "123",
+            prompt_token_ids=[1, 2, 3, 4, 5],
+            output_token_ids=[[10, 11, 12]],
+        )
+    ]
+
+    engine = VLLMInferenceEngine(_get_default_model_params())
+    conversation = Conversation(
+        messages=[Message(content="Hi there", role=Role.USER)],
+        metadata={"foo": "bar"},
+        conversation_id="123",
+    )
+
+    result = engine.infer([conversation], _get_default_inference_config())
+
+    assert result[0].metadata["usage"] == {
+        "prompt_tokens": 5,
+        "completion_tokens": 3,
+        "total_tokens": 8,
+    }
+    assert result[0].metadata["foo"] == "bar"
+
+
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_infer_online_omits_usage_when_no_tokens_reported(mock_vllm):
+    mock_vllm_instance = Mock()
+    mock_vllm.LLM.return_value = mock_vllm_instance
+    mock_vllm_instance.chat.return_value = [
+        _create_vllm_output(["The first time I saw"], "123")
+    ]
+
+    engine = VLLMInferenceEngine(_get_default_model_params())
+    conversation = Conversation(
+        messages=[Message(content="Hi there", role=Role.USER)],
+        metadata={"foo": "bar"},
+        conversation_id="123",
+    )
+
+    result = engine.infer([conversation], _get_default_inference_config())
+
+    assert "usage" not in result[0].metadata

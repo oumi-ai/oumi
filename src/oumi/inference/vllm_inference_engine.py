@@ -26,7 +26,7 @@ import subprocess
 import warnings
 from pathlib import Path
 from types import SimpleNamespace
-from typing import cast, get_args
+from typing import TYPE_CHECKING, cast, get_args
 
 import torch
 from typing_extensions import override
@@ -40,6 +40,9 @@ from oumi.utils.conversation_utils import create_list_of_message_json_dicts
 from oumi.utils.logging import logger
 from oumi.utils.model_caching import get_local_filepath_for_gguf
 from oumi.utils.peft_utils import get_lora_rank
+
+if TYPE_CHECKING:
+    from vllm.outputs import RequestOutput  # pyright: ignore[reportMissingImports]
 
 try:
     import vllm  # pyright: ignore[reportMissingImports]
@@ -417,6 +420,31 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         }
         return mapping.get(raw_reason.lower(), FinishReason.UNKNOWN)
 
+    @staticmethod
+    def _extract_usage_from_vllm_output(
+        request_output: RequestOutput,
+    ) -> dict[str, int] | None:
+        """Extracts normalized token usage from a vLLM chat response.
+
+        Args:
+            request_output: A vLLM ``RequestOutput`` for a single conversation.
+
+        Returns:
+            A dict with prompt_tokens, completion_tokens, total_tokens, or None
+            if vLLM reported no token ids.
+        """
+        prompt_tokens = len(request_output.prompt_token_ids or [])
+        completion_tokens = sum(
+            len(output.token_ids or []) for output in request_output.outputs
+        )
+        if not prompt_tokens and not completion_tokens:
+            return None
+        return {
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "total_tokens": prompt_tokens + completion_tokens,
+        }
+
     def _convert_conversation_to_vllm_input(
         self, conversation: Conversation
     ) -> list[ChatCompletionMessageParam]:
@@ -583,6 +611,9 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                     finish_reason = self._normalize_vllm_finish_reason(raw_reason)
                     if finish_reason is not None:
                         metadata["finish_reason"] = finish_reason.value
+            usage = self._extract_usage_from_vllm_output(chat_response)
+            if usage is not None:
+                metadata["usage"] = usage
             new_conversation = Conversation(
                 messages=messages,
                 metadata=metadata,
