@@ -30,6 +30,15 @@ jobs:
           # Need full history for setuptools-scm to detect version
           fetch-depth: 0
 
+      - name: Configure Ubuntu package mirror
+        run: |
+          sudo find /etc/apt -type f \
+            \( -name '*.list' -o -name '*.sources' \) \
+            -exec sed -i \
+              's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' \
+              {} +
+          echo 'Acquire::Retries "5";' | sudo tee /etc/apt/apt.conf.d/80-retries >/dev/null
+
       - name: Install system dependencies
         run: |
           sudo apt-get update
