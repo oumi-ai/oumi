@@ -885,6 +885,35 @@ def test_infer_input_preserves_tool_calls_and_tool_call_id(mock_vllm):
     assert sent[2]["tool_call_id"] == "call_abc"
 
 
+@pytest.mark.parametrize(
+    ("parsed_content", "expected_content"),
+    [("clean answer", "clean answer"), (None, "")],
+)
+def test_tool_call_parser_uses_content_without_tool_calls(
+    parsed_content, expected_content
+):
+    parser_instance = Mock()
+    parser_instance.extract_tool_calls.return_value = SimpleNamespace(
+        tools_called=False,
+        tool_calls=[],
+        content=parsed_content,
+    )
+    engine = object.__new__(VLLMInferenceEngine)
+    engine._tool_parser = parser_instance
+    conv = Conversation(
+        messages=[Message(role=Role.USER, content="hi")], conversation_id="1"
+    )
+    chat_response = SimpleNamespace(outputs=[SimpleNamespace(text="raw protocol text")])
+    messages, finish_reason_override = engine._build_response_messages(
+        conv, chat_response
+    )
+
+    assistant = messages[-1]
+    assert assistant.tool_calls is None
+    assert assistant.content == expected_content
+    assert finish_reason_override is None
+
+
 @pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
 def test_tool_call_parser_populates_message_tool_calls(mock_vllm):
     """When tool_call_parser is set, parsed tool calls land on Message.tool_calls."""
