@@ -402,12 +402,11 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         Anthropic expects a parsed ``input`` dict; OpenAI keeps ``arguments`` as
         a JSON string, so it is decoded here.
         """
-        args = tool_call.function.arguments
         return {
             "type": "tool_use",
             "id": tool_call.id,
             "name": tool_call.function.name,
-            "input": json.loads(args) if args else {},
+            "input": tool_call.function.get_arguments_dict(),
         }
 
     @staticmethod
