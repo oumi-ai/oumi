@@ -403,6 +403,51 @@ def test_resolve_templates_error(make_tok, match):
         resolve_collator_templates(make_tok())
 
 
+def _harmony_style_tokenizer():
+    """Mock whose assistant header extends past the generation prompt.
+
+    Assistant turns render as ``<|start|>assistant to=user<|message|>…`` while
+    the generation prompt is the bare ``<|start|>assistant``.
+    """
+    tok = MagicMock()
+    tok.pad_token_id = 0
+    tok.model_max_length = 2048
+
+    def _apply(messages, add_generation_prompt=False, **kw):
+        parts = []
+        for m in messages:
+            header = " to=user" if m["role"] == "assistant" else ""
+            parts.append(
+                f"<|start|>{m['role']}{header}<|message|>{m['content']}<|eot|>"
+            )
+        if add_generation_prompt:
+            parts.append("<|start|>assistant")
+        return "".join(parts)
+
+    tok.apply_chat_template = MagicMock(side_effect=_apply)
+
+    _encode_map = {
+        "<|eot|>": [8],
+        "<|eot|><|start|>user<|message|>": [8, 1, 2, 3],
+        "<|eot|><|start|>assistant to=user<|message|>": [8, 1, 4, 5, 6, 7],
+    }
+    _decode_map = {
+        (8,): "<|eot|>",
+        (1, 4, 5, 6, 7): "<|start|>assistant to=user<|message|>",
+    }
+    tok.encode = MagicMock(side_effect=lambda text, **kw: _encode_map[text])
+    tok.decode = MagicMock(side_effect=lambda ids, **kw: _decode_map[tuple(ids)])
+    return tok
+
+
+def test_resolve_templates_clamps_header_to_generation_prompt():
+    response_template, end_of_turn_template = resolve_collator_templates(
+        _harmony_style_tokenizer()
+    )
+    assert response_template == "<|start|>assistant"
+    assert end_of_turn_template == "<|eot|>"
+
+
 # ---------------------------------------------------------------------------
 # build_collator_from_config with train_target
 # ---------------------------------------------------------------------------

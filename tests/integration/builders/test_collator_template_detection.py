@@ -140,6 +140,13 @@ def _load_tokenizer(
             "[e~[\n",
             id="minimax-m2.5",
         ),
+        pytest.param(
+            "meta-models/Muse-Glimmer-30B",
+            False,
+            "<|start|>assistant",
+            "<|eot|>",
+            id="muse-glimmer",
+        ),
     ],
 )
 def test_template_detection_public(
