@@ -383,14 +383,34 @@ class FSDPModelMerger(BaseModelMerger):
         shards: list[torch.Tensor],
         expected_shapes: dict[str, torch.Size] | None,
     ) -> torch.Tensor:
-        """Merges per-rank copies of a tensor saved without placement metadata.
+        """Merges the per-rank copies of a tensor saved without placement metadata.
 
-        FSDP saves the tensors it does not shard (e.g. 0-dim learned scalars
-        and buffers) as plain tensors, so every rank's checkpoint holds a full
-        replicated copy. Genuinely dim-0-sharded plain tensors also exist in
-        older checkpoint formats. The target model's expected shape decides
-        between the two; when it is unavailable, identical rank copies are
-        treated as replicated.
+        Tensors FSDP leaves unsharded (e.g. 0-dim scalars and buffers) arrive
+        as one full copy per rank, while older checkpoint formats may store
+        genuine dim-0 slices. The two look identical in the checkpoint, so the
+        target architecture's expected shape decides: 4 copies of shape [1]
+        with expected shape [1] are replicas (keep one); 4 slices of [2, 6]
+        with expected shape [8, 6] are shards (concatenate). Without an
+        expected shape, a value-based heuristic decides instead.
+
+        Args:
+            key: Tensor name in the model state dict, e.g.
+                ``"model.language_model.layers.0.layer_scalar"``.
+            shards: The tensor's per-rank entries, in rank order — one per
+                checkpoint shard file (``model_world_size_4_rank_0.pt``, ...).
+            expected_shapes: Tensor name -> final shape in the target
+                architecture, from ``_get_expected_shapes()``. ``None`` if the
+                model could not be built; ``key`` may also be absent (e.g. a
+                custom head). Both cases fall back to
+                ``_merge_shards_heuristically()``.
+
+        Returns:
+            The merged tensor: ``shards[0]`` if replicated (warns if the
+            copies differ across ranks), otherwise the dim-0 concatenation.
+
+        Raises:
+            ValueError: Neither one per-rank copy nor the dim-0 concatenation
+                matches the expected shape.
         """
         # Ground truth is unavailable in two distinct cases; both fall back to
         # the value-based heuristic.

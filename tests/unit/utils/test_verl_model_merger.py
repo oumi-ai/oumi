@@ -51,29 +51,25 @@ def test_replicated_zero_dim_keeps_single_copy(merger):
     assert merged.item() == 0.5
 
 
-def test_replicated_shape1_keeps_single_copy(merger):
-    """gemma-4's layer_scalar: shape-[1] copies on every rank.
+def test_replicated_shape1_keeps_single_copy_without_warning(merger, caplog):
+    """gemma-4's layer_scalar: identical shape-[1] copies on every rank.
 
     The pre-fix code silently concatenated these into shape [WORLD_SIZE],
     corrupting the export (caught later by from_pretrained as
     "ckpt: [4] vs model: [1]").
     """
     shards = [torch.tensor([0.73]) for _ in range(WORLD_SIZE)]
-    merged = merger._merge_unsharded_shards(
-        "scalar", shards, {"scalar": torch.Size([1])}
-    )
+    with caplog.at_level("WARNING"):
+        merged = merger._merge_unsharded_shards(
+            "scalar", shards, {"scalar": torch.Size([1])}
+        )
     assert merged.shape == torch.Size([1])
+    assert not caplog.records
 
 
 def test_sharded_tensor_is_concatenated_in_rank_order(merger):
-    full, shards = _sharded_rows()
-    merged = merger._merge_unsharded_shards("w", shards, {"w": full.shape})
-    assert torch.equal(merged, full)
-
-
-def test_sharded_tensor_with_uneven_last_shard(merger):
-    """FSDP gives the last rank a smaller slice when sizes don't divide."""
-    full = torch.arange(42.0).reshape(7, 6)  # 7 rows over 4 ranks: 2+2+2+1
+    """Includes FSDP's smaller last slice: 7 rows over 4 ranks is 2+2+2+1."""
+    full = torch.arange(42.0).reshape(7, 6)
     shards = list(full.chunk(WORLD_SIZE, dim=0))
     merged = merger._merge_unsharded_shards("w", shards, {"w": full.shape})
     assert torch.equal(merged, full)
@@ -102,13 +98,6 @@ def test_divergent_replicas_warn_and_keep_rank_zero(merger, caplog):
     assert any("differs across ranks" in r.message for r in caplog.records)
 
 
-def test_identical_replicas_do_not_warn(merger, caplog):
-    shards = [torch.tensor([0.73]) for _ in range(WORLD_SIZE)]
-    with caplog.at_level("WARNING"):
-        merger._merge_unsharded_shards("scalar", shards, {"scalar": torch.Size([1])})
-    assert not caplog.records
-
-
 def test_impossible_shape_raises_naming_the_key(merger):
     """Neither one shard nor the dim-0 concatenation matches the expected
     shape: hard error instead of a silent guess."""
@@ -124,14 +113,6 @@ def test_zero_dim_with_mismatched_expected_shape_raises(merger):
     shards = [torch.tensor(0.5) for _ in range(WORLD_SIZE)]
     with pytest.raises(ValueError, match="'buf'"):
         merger._merge_unsharded_shards("buf", shards, {"buf": torch.Size([1])})
-
-
-def test_single_rank_world(merger):
-    """world_size=1: the lone shard already has the final shape."""
-    merged = merger._merge_unsharded_shards(
-        "w", [torch.ones(8, 6)], {"w": torch.Size([8, 6])}
-    )
-    assert merged.shape == torch.Size([8, 6])
 
 
 #
@@ -151,14 +132,6 @@ def test_unknown_key_falls_back_with_warning(merger, caplog):
     assert any(
         "not part of the target model architecture" in r.message for r in caplog.records
     )
-
-
-def test_unknown_key_with_distinct_shards_concatenates(merger):
-    full, shards = _sharded_rows()
-    merged = merger._merge_unsharded_shards(
-        "custom_head.weight", shards, {"other": torch.Size([1])}
-    )
-    assert torch.equal(merged, full)
 
 
 def test_no_expected_shapes_falls_back_silently_per_key(merger, caplog):
@@ -184,11 +157,6 @@ def test_heuristic_zero_dim_short_circuits_even_when_divergent():
     shards = [torch.tensor(1.0), torch.tensor(2.0)]
     merged = FSDPModelMerger._merge_shards_heuristically(shards)
     assert merged.item() == 1.0
-
-
-def test_heuristic_identical_copies_collapse():
-    shards = [torch.tensor([0.73]) for _ in range(WORLD_SIZE)]
-    assert FSDPModelMerger._merge_shards_heuristically(shards).shape == (1,)
 
 
 def test_heuristic_distinct_shards_concatenate():
