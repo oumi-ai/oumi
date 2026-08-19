@@ -668,8 +668,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
     ) -> tuple[list[Message], FinishReason | None]:
         """Builds assistant messages from a vLLM chat response.
 
-        When ``self._tool_parser`` is set, runs it over each completion's
-        text and populates ``Message.tool_calls`` with the extracted payload.
+        When ``self._tool_parser`` is set, uses its parsed content and tool calls.
         On parser failure, falls back to raw text.
         """
         new_messages: list[Message] = []
@@ -708,15 +707,15 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                     )
                     extracted = None
 
-                if extracted is not None and getattr(extracted, "tools_called", False):
-                    tool_calls_payload = [
-                        ToolCall.model_validate(tc.model_dump())
-                        for tc in extracted.tool_calls
-                    ]
-                    # Empty leading content is rendered as `None` to match
-                    # the OpenAI wire format for tool-only assistant turns.
-                    content = extracted.content or None
-                    finish_reason_override = FinishReason.TOOL_CALLS
+                if extracted is not None:
+                    tools_called = bool(getattr(extracted, "tools_called", False))
+                    content = extracted.content or (None if tools_called else "")
+                    if tools_called:
+                        tool_calls_payload = [
+                            ToolCall.model_validate(tc.model_dump())
+                            for tc in extracted.tool_calls
+                        ]
+                        finish_reason_override = FinishReason.TOOL_CALLS
 
             new_messages.append(
                 Message(
