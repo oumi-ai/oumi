@@ -346,9 +346,103 @@ class FSDPModelMerger(BaseModelMerger):
                     # 2-D list, FSDP + TP
                     raise NotImplementedError("FSDP + TP is not supported yet")
             else:
-                state_dict[key] = torch.cat(state_dict[key], dim=0)
+                # Expected shapes are only needed for plain (non-DTensor) entries,
+                # which carry no placement metadata.
+                if any(key not in param_placements for key in state_dict):
+                    expected_shapes = self._get_expected_shapes()
+
+                state_dict[key] = self._merge_unsharded_shards(
+                    key, state_dict[key], expected_shapes
+                )
 
         return state_dict
+
+    def _get_expected_shapes(self) -> dict[str, torch.Size] | None:
+        """Returns the target architecture's tensor shapes, keyed by name.
+
+        The model is instantiated on the meta device (shape/dtype metadata
+        only, no weight storage), so this is cheap even for large models.
+        Returns None if the architecture cannot be instantiated.
+        """
+        try:
+            auto_model_class = self.get_transformers_auto_model_class()
+            with init_empty_weights():
+                model = auto_model_class.from_config(self.model_config)
+            return {key: value.shape for key, value in model.state_dict().items()}
+        except Exception as e:
+            logger.warning(
+                "Could not build the target model on the meta device to look up "
+                f"expected tensor shapes ({e}); falling back to heuristics for "
+                "non-DTensor checkpoint entries."
+            )
+            return None
+
+    def _merge_unsharded_shards(
+        self,
+        key: str,
+        shards: list[torch.Tensor],
+        expected_shapes: dict[str, torch.Size] | None,
+    ) -> torch.Tensor:
+        """Merges per-rank copies of a tensor saved without placement metadata.
+
+        FSDP saves the tensors it does not shard (e.g. 0-dim learned scalars
+        and buffers) as plain tensors, so every rank's checkpoint holds a full
+        replicated copy. Genuinely dim-0-sharded plain tensors also exist in
+        older checkpoint formats. The target model's expected shape decides
+        between the two; when it is unavailable, identical rank copies are
+        treated as replicated.
+        """
+        # Ground truth is unavailable in two distinct cases; both fall back to
+        # the value-based heuristic.
+        if expected_shapes is None:
+            # Case 1: the target model could not be instantiated at all.
+            # (_get_expected_shapes already warned once for the whole merge.)
+            return self._merge_shards_heuristically(shards)
+        if key not in expected_shapes:
+            # Case 2: the model was instantiated, but its architecture does
+            # not declare this tensor (e.g. a custom head).
+            logger.warning(
+                f"Tensor '{key}' is not part of the target model architecture; "
+                "merging heuristically."
+            )
+            return self._merge_shards_heuristically(shards)
+
+        expected = expected_shapes[key]
+        if shards[0].shape == expected:
+            # Replicated: every rank saved a full copy; keep one.
+            if any(not torch.equal(s, shards[0]) for s in shards[1:]):
+                logger.warning(
+                    f"Replicated tensor '{key}' differs across ranks; "
+                    "keeping the rank-0 copy."
+                )
+            return shards[0]
+        dim0_concat_shape = None
+        if shards[0].ndim > 0:
+            dim0_concat_shape = torch.Size(
+                (sum(s.shape[0] for s in shards), *shards[0].shape[1:])
+            )
+        if dim0_concat_shape == expected:
+            return torch.cat(shards, dim=0)
+        raise ValueError(
+            f"Cannot merge tensor '{key}': the per-rank shape "
+            f"{tuple(shards[0].shape)} matches neither the expected shape "
+            f"{tuple(expected)} nor its dim-0 concatenation."
+        )
+
+    @staticmethod
+    def _merge_shards_heuristically(shards: list[torch.Tensor]) -> torch.Tensor:
+        """Merges per-rank shards without knowing the expected final shape.
+
+        0-dim tensors cannot be sharded along dim 0, and identical rank copies
+        indicate replication: either way, every rank holds a full copy, so
+        keep one instead of concatenating world_size copies. Otherwise assume
+        dim-0 shards and concatenate.
+        """
+        if shards[0].ndim == 0 or all(
+            s.shape == shards[0].shape and torch.equal(s, shards[0]) for s in shards[1:]
+        ):
+            return shards[0]
+        return torch.cat(shards, dim=0)
 
     def merge_and_save(self):
         world_size = self._get_world_size()
