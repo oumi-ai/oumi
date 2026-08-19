@@ -1,7 +1,11 @@
 import importlib.metadata
+import sys
+from pathlib import Path
 
 import pytest
 from packaging import version
+from packaging.requirements import Requirement
+from packaging.version import Version
 
 from oumi.utils.packaging import (
     PackagePrerequisites,
@@ -187,3 +191,77 @@ def test_verify_trl_vllm_compatibility_fails_new_trl_old_vllm(monkeypatch):
     monkeypatch.setattr("importlib.metadata.version", mock_version)
     with pytest.raises(RuntimeError, match="vLLM >= 0.11.0"):
         verify_trl_vllm_compatibility("test")
+
+
+def _vllm_specifiers_by_extra() -> dict[str, str]:
+    """Return the vLLM version specifier for each optional-dependencies extra.
+
+    Parses the repo's pyproject.toml and walks `[project.optional-dependencies]`,
+    returning for each extra that pins vLLM the normalized specifier string
+    (`str(Requirement(dep).specifier)`) of the dep whose name is "vllm".
+
+    Scope is `[project.optional-dependencies]` ONLY. A vllm pin added to the base
+    `[project.dependencies]` list or a `[tool.uv]` override is intentionally out of
+    this helper's scope.
+    """
+    # tomllib is stdlib only on py3.11+; import lazily so this module still imports
+    # under py3.10 (the tests that call this are skipped there).
+    import tomllib
+
+    pyproject_path = Path(__file__).parents[3] / "pyproject.toml"
+    with open(pyproject_path, "rb") as f:
+        pyproject = tomllib.load(f)
+
+    specifiers_by_extra: dict[str, str] = {}
+    optional_deps = pyproject["project"]["optional-dependencies"]
+    for extra, deps in optional_deps.items():
+        for dep in deps:
+            requirement = Requirement(dep)
+            if requirement.name == "vllm":
+                specifiers_by_extra[extra] = str(requirement.specifier)
+                break
+    return specifiers_by_extra
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 11),
+    reason="tomllib is py3.11+; oumi supports 3.10, CI runs 3.11",
+)
+def test_vllm_pin_gpu_matches_ci_cpu():
+    """The `gpu` and `ci_cpu` extras resolve to an identical specifier set.
+
+    Compared as normalized specifier strings (not byte-identity), so semantically
+    equal pins written differently still pass while a real divergence fails.
+    """
+    specifiers = _vllm_specifiers_by_extra()
+    assert specifiers["gpu"] == specifiers["ci_cpu"]
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 11),
+    reason="tomllib is py3.11+; oumi supports 3.10, CI runs 3.11",
+)
+def test_vllm_floor_at_least_0_19():
+    """Every pinned extra floors vLLM at >= 0.19 (0.19 first serves nemotron_h)."""
+    for extra, specifier_str in _vllm_specifiers_by_extra().items():
+        specifier = Requirement(f"vllm{specifier_str}").specifier
+        lower_bounds = [
+            Version(clause.version)
+            for clause in specifier
+            if clause.operator in (">=", ">")
+        ]
+        assert lower_bounds, f"extra `{extra}` has no vLLM lower bound"
+        assert min(lower_bounds) >= Version("0.19")
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 11),
+    reason="tomllib is py3.11+; oumi supports 3.10, CI runs 3.11",
+)
+def test_exactly_two_explicit_vllm_pins():
+    """Exactly two extras carry an explicit vLLM pin: `gpu` and `ci_cpu`.
+
+    `ci_gpu` pulls vLLM transitively via `oumi[...gpu...]` with no explicit pin;
+    a silent third explicit pin would fail this test.
+    """
+    assert set(_vllm_specifiers_by_extra()) == {"gpu", "ci_cpu"}
