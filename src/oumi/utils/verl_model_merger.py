@@ -364,10 +364,10 @@ class FSDPModelMerger(BaseModelMerger):
     def _get_expected_shapes(self) -> dict[str, torch.Size] | None:
         """Returns the target architecture's tensor shapes, keyed by name.
 
-        The model is instantiated on the meta device — parameters and buffers
-        alike carry shape/dtype metadata but no storage — so this is cheap
-        even for large models. Returns None if the architecture cannot be
-        instantiated.
+        The model is instantiated on the meta device, where parameters and
+        buffers carry shape and dtype metadata but occupy no storage, so this
+        is cheap even for large models. Returns None if the architecture
+        cannot be instantiated.
         """
         try:
             auto_model_class = self.get_transformers_auto_model_class()
@@ -377,8 +377,8 @@ class FSDPModelMerger(BaseModelMerger):
         except Exception as e:
             logger.warning(
                 "Could not build the target model on the meta device to look up "
-                f"expected tensor shapes ({e}); falling back to heuristics for "
-                "non-DTensor checkpoint entries."
+                f"expected tensor shapes ({e}). Plain checkpoint entries will be "
+                "merged based on the checkpoint format instead."
             )
             return None
 
@@ -391,29 +391,35 @@ class FSDPModelMerger(BaseModelMerger):
     ) -> torch.Tensor:
         """Merges the per-rank copies of a tensor saved without placement metadata.
 
-        Each rank's copy is either a full replica (tensors FSDP leaves
-        unsharded, e.g. gemma-4's 0-dim min/max buffers and shape-[1]
-        ``layer_scalar``s) or a dim-0 shard (legacy checkpoint formats).
-        ``_is_replicated()`` decides which; this method applies the verdict.
+        Each rank's copy is either a full replica of the tensor (FSDP leaves
+        buffers unsharded, such as gemma-4's 0-dim min/max trackers and its
+        shape-[1] ``layer_scalar`` buffers) or a dim-0 slice of it (as in
+        legacy checkpoint formats). ``_is_replicated()`` decides which one it
+        is, and this method then either keeps a single copy or concatenates
+        the slices.
 
         Args:
             key: Tensor name in the model state dict, e.g.
                 ``"model.language_model.layers.0.layer_scalar"``.
-            shards: The tensor's per-rank entries, in rank order — one per
-                checkpoint shard file (``model_world_size_4_rank_0.pt``, ...).
-            expected_shapes: Tensor name -> final shape in the target
-                architecture, from ``_get_expected_shapes()``; ``None`` if the
-                model could not be built.
+            shards: The tensor's per-rank entries in rank order, one per
+                checkpoint shard file (``model_world_size_4_rank_0.pt`` and
+                so on).
+            expected_shapes: Mapping from tensor name to its final shape in
+                the target architecture, produced by
+                ``_get_expected_shapes()``. ``None`` if the model could not
+                be built.
             checkpoint_has_dtensors: Whether the checkpoint stores its sharded
-                tensors as DTensors (see ``_is_replicated()``).
+                tensors as DTensors. See ``_is_replicated()`` for how this is
+                used.
 
         Returns:
-            The merged tensor: ``shards[0]`` if replicated (warns if the
-            copies differ across ranks), otherwise the dim-0 concatenation.
+            The merged tensor: ``shards[0]`` if the copies are replicas (with
+            a warning if they differ across ranks), otherwise their dim-0
+            concatenation.
 
         Raises:
-            ValueError: Neither one per-rank copy nor the dim-0 concatenation
-                matches the tensor's expected shape.
+            ValueError: Neither a single per-rank copy nor the dim-0
+                concatenation matches the tensor's expected shape.
         """
         if self._is_replicated(key, shards, expected_shapes, checkpoint_has_dtensors):
             if any(
@@ -436,16 +442,18 @@ class FSDPModelMerger(BaseModelMerger):
     ) -> bool:
         """Decides whether the per-rank copies are replicas or dim-0 shards.
 
-        Evidence is consulted strongest first:
+        The strongest available evidence wins:
 
-        1. The tensor's expected shape in the target architecture — decisive:
-           one rank's copy already having the final shape means replicas; the
-           dim-0 concatenation having the final shape means shards; neither
-           raises ValueError rather than guessing.
-        2. Structure: a 0-dim tensor has no dim 0 and cannot be a shard.
-        3. Checkpoint format: a checkpoint that stores its sharded tensors as
+        1. The tensor's expected shape in the target architecture. If one
+           rank's copy already has the final shape, the copies are replicas.
+           If concatenating them along dim 0 would produce the final shape,
+           they are shards. If neither is true, the checkpoint contradicts
+           the architecture and a ValueError is raised instead of guessing.
+        2. Tensor structure. A 0-dim tensor has no dim 0, so it cannot be a
+           shard and must be a replica.
+        3. Checkpoint format. A checkpoint that stores its sharded tensors as
            DTensors saves plain tensors only for replicated buffers, while a
-           legacy DTensor-free checkpoint saves plain dim-0 shards.
+           legacy checkpoint with no DTensors saves plain dim-0 shards.
         """
         expected = expected_shapes.get(key) if expected_shapes is not None else None
         if expected is not None:
@@ -460,8 +468,8 @@ class FSDPModelMerger(BaseModelMerger):
             )
         if expected_shapes is not None:
             # The architecture was built but does not declare this tensor
-            # (e.g. a custom head). A failed build was already warned about
-            # once, in _get_expected_shapes.
+            # (e.g. a custom head). If the build itself had failed,
+            # _get_expected_shapes would already have warned once.
             logger.warning(
                 f"Tensor '{key}' is not part of the target model architecture; "
                 "inferring from the checkpoint format."
@@ -470,9 +478,10 @@ class FSDPModelMerger(BaseModelMerger):
 
     @staticmethod
     def _dim0_concat_shape(shards: list[torch.Tensor]) -> torch.Size | None:
-        """The shape a dim-0 concatenation of ``shards`` would produce.
+        """Returns the shape that concatenating ``shards`` on dim 0 would produce.
 
-        ``None`` for 0-dim tensors, which have no dim 0 to concatenate along.
+        Returns None for 0-dim tensors, which have no dim 0 to concatenate
+        along.
         """
         if shards[0].ndim == 0:
             return None
