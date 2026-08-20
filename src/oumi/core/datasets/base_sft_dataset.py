@@ -249,16 +249,11 @@ class BaseSftDataset(BaseMapDataset, ABC):
                 instruction_token_ids=self.instruction_token_ids,
             )
 
-    def _tokenize(
-        self, sample: dict | pd.Series | Conversation, tokenize: bool = True
-    ) -> dict:
+    def _tokenize(self, sample: Conversation, tokenize: bool = True) -> dict:
         if self._tokenizer is None:
             raise ValueError("Tokenizer is required for tokenization.")
 
-        chat_input: dict | pd.Series | Conversation | list[dict] = sample
-        tools = None
-        if isinstance(sample, Conversation):
-            chat_input, tools = apply_chat_template_inputs(self._tokenizer, sample)
+        chat_input, tools = apply_chat_template_inputs(self._tokenizer, sample)
 
         results = self._tokenizer.apply_chat_template(
             chat_input,  # type: ignore

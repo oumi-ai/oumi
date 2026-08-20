@@ -34,6 +34,7 @@ from oumi.core.configs import (
 from oumi.core.constants import LABEL_IGNORE_INDEX
 from oumi.core.tokenizers.utils import (
     _probe_renders_sentinel,
+    apply_chat_template_inputs,
     detect_chat_template_tool_format,
 )
 from oumi.core.types import Conversation
@@ -682,6 +683,32 @@ def test_template_with_no_working_form_falls_back_and_warns():
 
     assert tuple(resolved) == ("mapping", "empty")
     mock_logger.warning.assert_called_once()
+
+
+def test_tool_calls_without_tool_definitions_still_get_shaped():
+    """Messages can carry `tool_calls` while the top-level `tools` list is unset.
+
+    Such a conversation must still go through format detection and the
+    chat-template adapter — gating on `conversation.tools` alone would hand the
+    raw wire form to the template, hitting the exact double-encode and
+    missing-`type` failures the probe exists to catch.
+    """
+    tokenizer = _load_tokenizer("Qwen/Qwen2.5-0.5B-Instruct")
+    conversation = canonical_tool_conversation().model_copy(update={"tools": None})
+
+    chat_input, tools = apply_chat_template_inputs(tokenizer, conversation)
+
+    assert tools is None
+    assert isinstance(chat_input, list)
+    tool_call = chat_input[FIRST_TOOL_CALL_INDEX]["tool_calls"][0]
+    assert tool_call["type"] == "function"
+    fmt = detect_chat_template_tool_format(tokenizer)
+    if fmt.arguments == "mapping":
+        assert isinstance(tool_call["function"]["arguments"], dict)
+
+    rendered = tokenizer.apply_chat_template(chat_input, tokenize=False, tools=tools)
+    assert ARGUMENT_SENTINEL in rendered
+    assert f'\\"{ARGUMENT_SENTINEL}' not in rendered
 
 
 def test_glm_does_not_render_a_literal_none_for_null_content():

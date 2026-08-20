@@ -21,7 +21,7 @@ import transformers
 
 from oumi.core.constants import LABEL_IGNORE_INDEX
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
-from oumi.core.types import Conversation
+from oumi.core.types import Conversation, Role
 from oumi.utils.canonical_tool_conversations import (
     ARGUMENT_SENTINEL,
     canonical_tool_conversation,
@@ -34,7 +34,19 @@ class ChatTemplateToolFormat(NamedTuple):
     """The form a chat template expects tool-call data in."""
 
     arguments: Literal["mapping", "string"]
+    """Shape of ``function.arguments`` on rendered tool calls.
+
+    ``"mapping"`` decodes the stored JSON string into a dict before rendering,
+    which most templates require; ``"string"`` passes the JSON string through
+    unchanged, for templates that double-encode dicts (e.g. Qwen2.5).
+    """
+
     content: Literal["null", "empty"]
+    """Value of ``content`` on assistant messages that only carry tool calls.
+
+    ``"null"`` keeps ``None``; ``"empty"`` coerces it to ``""``, for templates
+    that stringify ``None`` into a literal ``"None"`` (e.g. GLM-4.5).
+    """
 
 
 # Candidate payload shapes, in preference order. The first that renders cleanly wins.
@@ -127,7 +139,9 @@ def detect_chat_template_tool_format(
     (arguments x content) combinations and returns the first that renders
     cleanly. Deterministic tie-break prefers ``("mapping", "empty")``.
 
-    Cached per tokenizer — cost is at most 4 string renders, once.
+    Cached per tokenizer — cost is at most 4 string renders, once. The cache
+    also means the fallback warning fires once, at the moment the first
+    tool-carrying record is rendered.
 
     Args:
         tokenizer: The tokenizer whose chat template is probed.
@@ -145,12 +159,40 @@ def detect_chat_template_tool_format(
             return candidate
 
     logger.warning(
-        "No tool-call form rendered correctly for %r; falling back to %r. "
-        "Tool calls may not render as expected.",
+        "No tool-call form rendered correctly for %r: its chat template "
+        "rejected or corrupted every candidate in %r. Tool calls in this data "
+        "will be rendered with the fallback form %r and may not match how the "
+        "model is expected to emit them (dropped, double-encoded, or "
+        "reformatted). Under the fallback form, %s\nChat template:\n%s",
         getattr(tokenizer, "name_or_path", None) or "<unknown>",
+        [tuple(c) for c in _CANDIDATE_FORMATS],
         tuple(_FALLBACK_FORMAT),
+        _describe_fallback_rendering(tokenizer),
+        getattr(tokenizer, "chat_template", None) or "<none>",
     )
     return _FALLBACK_FORMAT
+
+
+def _describe_fallback_rendering(tokenizer: BaseTokenizer) -> str:
+    """Shows what the canonical record becomes under the fallback form.
+
+    The rendered text — or the exception the template raises — is the evidence
+    a reader needs to judge whether the fallback output is usable for training.
+    """
+    messages, tools = create_chat_template_inputs(
+        canonical_tool_conversation(),
+        tool_arguments_format=_FALLBACK_FORMAT.arguments,
+        content_format=_FALLBACK_FORMAT.content,
+    )
+    try:
+        rendered = tokenizer.apply_chat_template(
+            messages,  # type: ignore
+            tokenize=False,
+            tools=tools,  # type: ignore[arg-type]
+        )
+    except Exception as e:
+        return f"rendering the canonical example record raises {type(e).__name__}: {e}"
+    return f"the canonical example record renders as:\n{rendered}"
 
 
 def apply_chat_template_inputs(
@@ -158,10 +200,13 @@ def apply_chat_template_inputs(
 ) -> tuple[Conversation | list[dict], list[dict] | None]:
     """Returns the ``(conversation, tools)`` pair to hand ``apply_chat_template``.
 
-    A conversation without tools is returned untouched, so that path is
-    unchanged and never pays for a probe.
+    A conversation with neither tool definitions nor tool calls is returned
+    untouched, so that path is unchanged and never pays for a probe.
     """
-    if not conversation.tools:
+    has_tool_calls = any(
+        m.tool_calls for m in conversation.messages if m.role == Role.ASSISTANT
+    )
+    if not conversation.tools and not has_tool_calls:
         return conversation, None
 
     fmt = detect_chat_template_tool_format(tokenizer)
