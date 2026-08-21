@@ -50,6 +50,8 @@ class RemoteVLLMInferenceEngine(RemoteInferenceEngine):
             "top_p",
             "guided_decoding",
             "max_new_tokens",
+            "parallel_tool_calls",
+            "tool_choice",
         }
 
     @override
@@ -109,6 +111,8 @@ class RemoteVLLMInferenceEngine(RemoteInferenceEngine):
             api_input["stop"] = generation_params.stop_strings
         if generation_params.stop_token_ids:
             api_input["stop_token_ids"] = generation_params.stop_token_ids
+
+        self._add_tool_params_to_api_input(api_input, conversation, generation_params)
 
         return api_input
 
