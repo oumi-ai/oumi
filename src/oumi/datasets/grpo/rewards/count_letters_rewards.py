@@ -55,6 +55,34 @@ def compute_letter_count_reward(completion: str, target_count: int) -> float:
     return (1 / (delta + 0.5)) - 2
 
 
+@register("count_letters_verl", RegistryType.REWARD_FUNCTION)
+def count_letters_verl(
+    data_source: str,
+    solution_str: str,
+    ground_truth: str,
+    extra_info: dict[str, Any],
+) -> float:
+    r"""verl-style reward function for counting letters in a string.
+
+    Unlike `count_letters`, which follows TRL's batched reward interface, this
+    function follows verl's per-sample interface so it can be used with the
+    VERL_GRPO trainer. The target letter count is read from the dataset's
+    `reward_model.ground_truth` field (see `LetterCountGrpoDataset.transform`).
+
+    Args:
+        data_source: The dataset name for the sample (unused).
+        solution_str: The model's decoded response.
+        ground_truth: The target letter count, as a string.
+        extra_info: Extra information about the sample (unused).
+
+    Returns:
+        The reward value: 0.0 for an exact count, decaying towards -2.0 as the
+        predicted count gets further from the target, and -3.0 when the
+        response contains no parseable ``\boxed{N}`` answer.
+    """
+    return compute_letter_count_reward(solution_str, int(ground_truth))
+
+
 @register("count_letters", RegistryType.REWARD_FUNCTION)
 def _count_letters(
     completions: list[list[dict[str, Any]]],

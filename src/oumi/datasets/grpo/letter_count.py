@@ -56,13 +56,24 @@ class LetterCountGrpoDataset(BaseExperimentalGrpoDataset):
 
     @override
     def transform(self, sample: pd.Series) -> dict:
-        """Validate and transform the sample into Python `dict`."""
+        """Validate and transform the sample into Python `dict`.
+
+        The output contains both the fields consumed by the TRL_GRPO trainer
+        (`prompt`, `letter_count`) and the fields required by the VERL_GRPO
+        trainer (`data_source`, `reward_model`, `extra_info`). Each trainer
+        ignores the other's extra fields.
+        """
         # Add system prompt before user prompt.
         system_message = {"content": _SYSTEM_PROMPT, "role": "system"}
         messages = [system_message, sample["messages"][0]]
+        letter_count = sample["metadata"]["letter_count_integer"]
         return {
             "prompt": messages,
-            "letter_count": sample["metadata"]["letter_count_integer"],
+            "letter_count": letter_count,
+            "data_source": "oumi-ai/oumi-letter-count",
+            "ability": "letter_counting",
+            "reward_model": {"style": "rule", "ground_truth": str(letter_count)},
+            "extra_info": {"split": self.split if self.split else ""},
         }
 
     @override
