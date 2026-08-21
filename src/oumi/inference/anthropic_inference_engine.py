@@ -457,9 +457,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
             return None
         cached_tokens = usage.get("cache_read_input_tokens", 0)
         cache_creation_tokens = usage.get("cache_creation_input_tokens", 0)
-        # Anthropic excludes cache read/write from input_tokens; every other
-        # provider counts them inside prompt_tokens. Fold them in so prompt_tokens
-        # means total prompt tokens uniformly across engines.
+        # Anthropic excludes cache read/write from input, unlike other providers.
         prompt_tokens = (
             usage.get("input_tokens", 0) + cached_tokens + cache_creation_tokens
         )
