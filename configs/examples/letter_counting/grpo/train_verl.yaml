@@ -24,6 +24,7 @@ data:
     datasets:
       - dataset_name: "oumi-ai/oumi-letter-count"
         split: "train"
+        sample_count: 10000
   validation:
     datasets:
       - dataset_name: "oumi-ai/oumi-letter-count"
@@ -33,11 +34,9 @@ data:
 
 training:
   trainer_type: "VERL_GRPO"
-  num_train_epochs: 1
   # The train split has 100k examples (~1562 steps/epoch at batch size 64);
-  # match the 500 steps used by the TRL letter counting config.
-  # max_steps: 500
-  save_steps: -1
+  num_train_epochs: 1
+  save_steps: 100
   eval_strategy: "steps"
   eval_steps: 50
 
@@ -72,37 +71,38 @@ training:
         kl_loss_coef: 0.001
         kl_loss_type: "low_var_kl"
         ppo_mini_batch_size: 16
-        ppo_micro_batch_size_per_gpu: 2
+        ppo_micro_batch_size_per_gpu: 4
         # With only 4 GPUs visible (running alongside another 4-GPU job), the
         # FSDP actor's weight-sync peak (~61GB) plus the colocated vLLM engine
         # does not reliably fit an 80GB H100; park actor params/optimizer on
         # CPU between uses like the ref worker already does.
-        fsdp_config:
-          param_offload: True
-          optimizer_offload: True
+
+        # Disabling FSDP for speed
+        # fsdp_config:
+        #   param_offload: True
+        #   optimizer_offload: True
       rollout:
-        log_prob_micro_batch_size_per_gpu: 2
+        log_prob_micro_batch_size_per_gpu: 4
         tensor_model_parallel_size: 2
         n: 16
-        # vLLM must sleep at level 1 (weights offloaded to CPU between
-        # rollouts, restored on wake). Level 2 DISCARDS the whole weight pool
-        # including non-parameter state; the per-step weight sync restores
-        # only named parameters, so gemma-4 serves gibberish forever (rewards
-        # pinned at the unparseable floor, zero advantage, no learning).
-        # In HYBRID/colocate mode verl HARDCODES level 2 for non-LoRA runs in
-        # vllm_async_server.py (site-packages sleep-level patch flips it
-        # to 1 -- GEMMA4_VERL_GRPO_FIXES.md Patch 2b);
-        # layered_summon only covers the ServerAdapter sleep path — kept as
-        # defense in depth, not sufficient on its own.
-        layered_summon: True
-        # gemma-4 has no native vLLM impl; the TransformersMultiModal fallback
-        # calls self.__class__.mro() inside forward(), which torch.compile
-        # cannot trace. Run the rollout engine eagerly.
-        enforce_eager: True
+
+        # # vLLM must sleep at level 1 (weights offloaded to CPU between
+        # # rollouts, restored on wake). Level 2 DISCARDS the whole weight pool
+        # # including non-parameter state; the per-step weight sync restores
+        # # only named parameters, so gemma-4 serves gibberish forever (rewards
+        # # pinned at the unparseable floor, zero advantage, no learning).
+        # # In HYBRID/colocate mode verl HARDCODES level 2 for non-LoRA runs in
+        # # vllm_async_server.py (site-packages sleep-level patch flips it
+        # # to 1 -- GEMMA4_VERL_GRPO_FIXES.md Patch 2b);
+        # # layered_summon only covers the ServerAdapter sleep path — kept as
+        # # defense in depth, not sufficient on its own.
+        # layered_summon: True
+
         # gemma-4's embed_tokens_per_layer is a single 9.4GB fp32 tensor
         # (262144 x 8960); the default 2048MB weight-sync bucket cannot hold it.
         checkpoint_engine:
           update_weights_bucket_megabytes: 10240
+
         # Letter counting is text-only: disable multimodal inputs so vLLM skips
         # profiling gemma-4's vision/audio towers (broken in the generic
         # TransformersMultiModal fallback used for this architecture).
@@ -112,8 +112,9 @@ training:
               image: 0
               video: 0
               audio: 0
+
       ref:
-        log_prob_micro_batch_size_per_gpu: 1
+        log_prob_micro_batch_size_per_gpu: 2
         fsdp_config:
           param_offload: True
     algorithm:
@@ -122,9 +123,9 @@ training:
     trainer:
       critic_warmup: 0
       val_before_train: False
-      n_gpus_per_node: 4
+      n_gpus_per_node: 8
       nnodes: 1
 
-  output_dir: "output/letter_counting.grpo_verl"
+  output_dir: "output/letter_counting.grpo_verl_v2"
   run_name: "letter_counting_grpo_verl"
   enable_wandb: True
