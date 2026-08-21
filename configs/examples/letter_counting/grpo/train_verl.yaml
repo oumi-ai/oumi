@@ -1,10 +1,14 @@
-# verl GRPO training config for Countdown.
+# verl GRPO config to train gemma-4-E2B-it on letter counting.
+#
+# Adapted from configs/examples/grpo_verl_countdown/train.yaml (which carries the
+# gemma-4 rollout workarounds) for the letter counting task from
+# configs/examples/letter_counting/grpo/train.yaml (TRL version).
 #
 # Requirements:
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
-#   oumi train -c configs/examples/grpo_verl_countdown/train.yaml
+#   oumi train -c configs/examples/letter_counting/grpo/train_verl.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
@@ -18,16 +22,21 @@ model:
 data:
   train:
     datasets:
-      - dataset_name: "d1shs0ap/countdown"
+      - dataset_name: "oumi-ai/oumi-letter-count"
         split: "train"
   validation:
     datasets:
-      - dataset_name: "d1shs0ap/countdown"
-        split: "test"
+      - dataset_name: "oumi-ai/oumi-letter-count"
+        split: "validation"
+        # The full validation split is 10k examples; keep periodic eval cheap.
+        sample_count: 640
 
 training:
   trainer_type: "VERL_GRPO"
   num_train_epochs: 1
+  # The train split has 100k examples (~1562 steps/epoch at batch size 64);
+  # match the 500 steps used by the TRL letter counting config.
+  # max_steps: 500
   save_steps: -1
   eval_strategy: "steps"
   eval_steps: 50
@@ -35,7 +44,10 @@ training:
   learning_rate: 1.0e-6
   enable_gradient_checkpointing: True
 
-  reward_functions: ["countdown"]
+  # verl-style reward registered in oumi (see
+  # src/oumi/datasets/grpo/rewards/count_letters_rewards.py); the trainer wires
+  # it into verl as an importable module, so no file paths are needed.
+  reward_functions: ["count_letters_verl"]
 
   grpo:
     max_completion_length: 1024
@@ -63,8 +75,8 @@ training:
         ppo_micro_batch_size_per_gpu: 2
         # With only 4 GPUs visible (running alongside another 4-GPU job), the
         # FSDP actor's weight-sync peak (~61GB) plus the colocated vLLM engine
-        # no longer fits an 80GB H100; park actor params/optimizer on CPU
-        # between uses like the ref worker already does.
+        # does not reliably fit an 80GB H100; park actor params/optimizer on
+        # CPU between uses like the ref worker already does.
         fsdp_config:
           param_offload: True
           optimizer_offload: True
@@ -91,7 +103,7 @@ training:
         # (262144 x 8960); the default 2048MB weight-sync bucket cannot hold it.
         checkpoint_engine:
           update_weights_bucket_megabytes: 10240
-        # Countdown is text-only: disable multimodal inputs so vLLM skips
+        # Letter counting is text-only: disable multimodal inputs so vLLM skips
         # profiling gemma-4's vision/audio towers (broken in the generic
         # TransformersMultiModal fallback used for this architecture).
         engine_kwargs:
@@ -113,6 +125,6 @@ training:
       n_gpus_per_node: 4
       nnodes: 1
 
-  output_dir: "output/grpo_verl_countdown"
-  run_name: "grpo_verl_countdown"
+  output_dir: "output/letter_counting.grpo_verl"
+  run_name: "letter_counting_grpo_verl"
   enable_wandb: True
