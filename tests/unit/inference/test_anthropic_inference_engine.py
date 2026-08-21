@@ -339,17 +339,17 @@ def test_convert_api_output_missing_content_key(anthropic_engine):
             {"input_tokens": 12, "output_tokens": 8},
             {"prompt_tokens": 12, "completion_tokens": 8, "total_tokens": 20},
         ),
-        # With cache read tokens
+        # Cache read tokens fold into prompt_tokens (12 + 5).
         (
             {"input_tokens": 12, "output_tokens": 8, "cache_read_input_tokens": 5},
             {
-                "prompt_tokens": 12,
+                "prompt_tokens": 17,
                 "completion_tokens": 8,
-                "total_tokens": 20,
+                "total_tokens": 25,
                 "cached_tokens": 5,
             },
         ),
-        # With cache read + creation tokens
+        # Cache read + creation both fold into prompt_tokens (12 + 5 + 3).
         (
             {
                 "input_tokens": 12,
@@ -358,9 +358,9 @@ def test_convert_api_output_missing_content_key(anthropic_engine):
                 "cache_creation_input_tokens": 3,
             },
             {
-                "prompt_tokens": 12,
+                "prompt_tokens": 20,
                 "completion_tokens": 8,
-                "total_tokens": 20,
+                "total_tokens": 28,
                 "cached_tokens": 5,
                 "cache_creation_tokens": 3,
             },
