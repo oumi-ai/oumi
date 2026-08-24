@@ -156,10 +156,8 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
         return credentials.token  # type: ignore
 
     @override
-    def _get_request_headers(
-        self, remote_params: RemoteParams | None
-    ) -> dict[str, str]:
-        """Gets the request headers for GCP."""
+    def _get_auth_headers(self, remote_params: RemoteParams | None) -> dict[str, str]:
+        """Gets the auth headers for GCP."""
         if not remote_params:
             raise ValueError("Remote params are required for GCP inference.")
 

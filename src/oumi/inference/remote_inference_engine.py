@@ -25,7 +25,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, TypeVar
+from typing import Any, TypeVar, final
 
 import aiofiles
 import aiofiles.os
@@ -71,7 +71,14 @@ from oumi.utils.http import (
 from oumi.utils.logging import logger
 
 _AUTHORIZATION_KEY: str = "Authorization"
+_ACCEPT_ENCODING_KEY: str = "Accept-Encoding"
 _RETRY_AFTER_HEADER: str = "Retry-After"
+
+# Advertise only the codecs the standard library can always decode. aiohttp
+# otherwise adds `br`/`zstd` whenever their decoders happen to be importable,
+# which makes every response depend on a package we don't declare and can't
+# version-check at runtime.
+_ACCEPT_ENCODING: str = "gzip, deflate"
 _BATCH_PURPOSE = "batch"
 _BATCH_ENDPOINT = "/v1/chat/completions"
 _MAX_CONNECTION_LIMIT = 200
@@ -633,21 +640,25 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
         return None
 
+    @final
     def _get_request_headers(
         self, remote_params: RemoteParams | None
     ) -> dict[str, str]:
-        # Exclude brotli (br) from Accept-Encoding since this will fail on systems
-        # without brotli installed
-        headers = {"Accept-Encoding": "gzip, deflate"}
+        """Returns the full header set. Override `_get_auth_headers` instead."""
+        headers = {_ACCEPT_ENCODING_KEY: _ACCEPT_ENCODING}
+        headers.update(self._get_auth_headers(remote_params))
+        return headers
 
+    def _get_auth_headers(self, remote_params: RemoteParams | None) -> dict[str, str]:
+        """Returns the engine's auth and content headers."""
         if not remote_params:
-            return headers
+            return {}
 
         api_key = self._get_api_key(remote_params)
         if api_key:
-            headers[_AUTHORIZATION_KEY] = f"Bearer {api_key}"
+            return {_AUTHORIZATION_KEY: f"Bearer {api_key}"}
 
-        return headers
+        return {}
 
     @staticmethod
     def _parse_iso_timestamp(timestamp: str | None) -> datetime | None:
