@@ -548,7 +548,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         )
 
     @override
-    def _get_request_headers(self, remote_params: RemoteParams) -> dict[str, str]:
+    def _get_auth_headers(self, remote_params: RemoteParams) -> dict[str, str]:
         return {
             "Content-Type": "application/json",
             "anthropic-version": self.anthropic_version,

@@ -4759,3 +4759,57 @@ def test_infer_partial_retriable_400_pattern_retried_and_retryable(mock_asyncio_
     detail = result.failures[0]
     assert detail.status_code == 400
     assert detail.is_retryable
+
+
+def _all_remote_engine_subclasses() -> list[type]:
+    """Every RemoteInferenceEngine subclass, at any depth."""
+    import oumi.inference  # noqa: F401  (registers every engine subclass)
+
+    found: list[type] = []
+    pending = [RemoteInferenceEngine]
+    while pending:
+        for subclass in pending.pop().__subclasses__():
+            found.append(subclass)
+            pending.append(subclass)
+    return found
+
+
+def test_no_engine_overrides_get_request_headers():
+    """`_get_request_headers` is @final; engines override `_get_auth_headers`.
+
+    A subclass that overrides `_get_request_headers` returns a fresh dict and
+    silently drops `Accept-Encoding`, which makes aiohttp advertise whatever
+    codecs happen to be importable in the runtime environment. @final is only a
+    type-checker hint, so this test is the enforcement.
+    """
+    offenders = [
+        subclass.__name__
+        for subclass in _all_remote_engine_subclasses()
+        if "_get_request_headers" in subclass.__dict__
+    ]
+    assert offenders == [], (
+        f"{offenders} override _get_request_headers. Override "
+        "_get_auth_headers instead so the transport headers survive."
+    )
+
+
+def test_get_request_headers_excludes_optional_codecs():
+    engine = RemoteInferenceEngine(_get_default_model_params())
+
+    headers = engine._get_request_headers(RemoteParams(api_key="key"))
+
+    assert headers["Accept-Encoding"] == "gzip, deflate"
+    assert headers["Authorization"] == "Bearer key"
+
+
+def test_get_request_headers_merges_subclass_auth_headers():
+    """A subclass's own headers and the transport headers both survive."""
+    from oumi.inference import AnthropicInferenceEngine
+
+    engine = AnthropicInferenceEngine(ModelParams(model_name="some_model"))
+
+    headers = engine._get_request_headers(RemoteParams(api_key="key"))
+
+    assert headers["Accept-Encoding"] == "gzip, deflate"
+    assert headers["X-API-Key"] == "key"
+    assert headers["Content-Type"] == "application/json"

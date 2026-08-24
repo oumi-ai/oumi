@@ -114,6 +114,7 @@ def test_get_request_headers(gcp_engine, remote_params):
     with patch.object(gcp_engine, "_get_api_key", return_value="fake_token"):
         headers = gcp_engine._get_request_headers(remote_params)
         assert headers == {
+            "Accept-Encoding": "gzip, deflate",
             "Authorization": "Bearer fake_token",
             "Content-Type": "application/json",
         }
