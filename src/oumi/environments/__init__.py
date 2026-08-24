@@ -32,6 +32,9 @@ from oumi.core.configs.params.tool_params import (
 )
 from oumi.core.types.tool_call import JSONSchema, ToolResult
 from oumi.environments.base_environment import BaseEnvironment
+from oumi.environments.browser_executable_environment import (
+    BrowserExecutableEnvironment,
+)
 from oumi.environments.database_executable_environment import (
     DatabaseExecutableEnvironment,
 )
@@ -50,6 +53,7 @@ from oumi.environments.synthetic_environment import (
 
 __all__ = [
     "BaseEnvironment",
+    "BrowserExecutableEnvironment",
     "DatabaseExecutableEnvironment",
     "DeterministicEnvironment",
     "DeterministicEnvironmentKwargs",
