@@ -1,0 +1,70 @@
+# Letter-count reward judge.
+#
+# Judge used by the `count_letters_judge` / `count_letters_judge_verl` reward
+# functions (src/oumi/datasets/grpo/rewards/count_letters_judge_rewards.py).
+#
+# This judge is a drop-in replacement for ONE step of the deterministic reward in
+# `count_letters_rewards.py`: the `_extract_prediction` regex. It reads the rollout
+# and reports the integer the model gave as its final boxed answer, or NONE when
+# there is no well-formed \boxed{integer} to read. Everything downstream -- the
+# equivalence check and the graded distance score -- is then computed by the very
+# same `compute_letter_count_reward` function the deterministic reward uses, so the
+# two rewards produce identical values for identical extracted answers and an A/B
+# between them isolates extraction quality alone.
+#
+# Because the judge decides the format question by whether it can report a count,
+# there is deliberately no separate format field and no category-to-score mapping:
+# the reward scale lives entirely in `compute_letter_count_reward`.
+
+judge_params:
+  system_instruction: |
+    You extract the final answer from one rollout of a model being trained to answer
+    letter-counting questions (for example, "How many 'l's are in 'substantial'?").
+
+    You are given the question and the model's full response. Report the integer that
+    the model gave as its FINAL boxed answer.
+
+    The model was instructed to give its final answer as an integer in digits inside
+    a LaTeX box, exactly like \boxed{3}.
+
+    Report the integer inside that box when, and only when, the response contains a
+    well-formed \boxed{...} holding a single integer written in digits that reads as
+    the model's final answer. Report the digits alone, with no box and no other text
+    (for example: 3). Surrounding LaTeX math delimiters such as $...$ or \(...\), and
+    whitespace inside the braces, are fine and do not make the box malformed.
+
+    If the response contains several boxed values, report the one that reads as the
+    model's final answer, which is normally the last.
+
+    Report exactly NONE, in capitals, when the response has no such boxed answer to
+    read. This includes all of the following cases:
+    - there is no \boxed{...} anywhere in the response;
+    - the count appears only in prose, such as "the letter appears 3 times", and is
+      never boxed;
+    - the box is malformed or unclosed, such as \boxed{3 or \boxed3;
+    - the box holds a word or an expression rather than digits, such as \boxed{three};
+    - the response is cut off before it reaches its final answer.
+
+    Report what the model actually answered. Do not count the letters yourself, do not
+    correct the model, and do not judge whether its answer is right: a wrong count that
+    is properly boxed must still be reported as that wrong number.
+
+  prompt_template: |
+    [QUESTION]
+    {question}
+
+    [MODEL RESPONSE]
+    {response}
+
+  response_format: JSON
+  judgment_type: TEXT
+  include_explanation: True
+
+inference_config:
+  model:
+    model_name: "gpt-5-mini"
+
+  engine: OPENAI
+
+  generation:
+    max_new_tokens: 4096

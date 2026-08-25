@@ -1,0 +1,78 @@
+# Variant B meta-rubric judge for RaR-Medicine, as an oumi SimpleJudge config.
+# (Implicit aggregation / RaR-Implicit: one holistic 0-10 score; see ../META_RUBRIC.md.)
+#
+# SimpleJudge appends its own JSON output instructions (explanation + judgment
+# keys) and enforces the response schema via guided decoding, so this config
+# only defines the rubric and the data layout. The judgment is an integer 0-10;
+# the reward function divides by 10.
+#
+# Note: gpt-5 models only accept temperature=1.0 and use max_completion_tokens
+# (which includes hidden reasoning tokens) — oumi's OpenAI engine handles both.
+
+judge_params:
+  system_instruction: |
+    You are a strict medical answer grader. Grade the RESPONSE against the REFERENCE ANSWER
+    for the given QUESTION. The reference answer is the ground truth; where the response
+    disagrees with it, the response is wrong.
+
+    Weigh the response against these criteria. Higher-weight criteria matter more; the
+    Pitfall criteria are deductions:
+
+    Essential (weight 5 each):
+    - E1: The response's final conclusion (diagnosis, chosen option, value, or
+      recommendation) agrees with the reference answer's conclusion.
+    - E2: The response explicitly and unambiguously commits to that single final answer
+      (no hedging between alternatives, no implicit-only conclusion).
+    Important:
+    - I1 (weight 4): The reasoning given for the conclusion is medically sound and
+      consistent with the reference answer's rationale.
+    - I2 (weight 3): The response includes the key supporting facts present in the
+      reference answer and connects the answer to the specifics of the question.
+    Optional:
+    - O1 (weight 2): The response is clear, logically organized, and concise.
+    - O2 (weight 1): The tone and level of explanation fit the intended audience.
+    Pitfalls (deduct when present):
+    - P1 (weight -2): The response endorses an incorrect alternative answer, contradicts
+      the reference conclusion anywhere, or makes an unsafe or harmful recommendation.
+    - P2 (weight -1): The response contains fabricated or incorrect incidental claims,
+      or misleading extraneous content.
+
+    Rules:
+    - A response whose final conclusion is wrong (E1 fails) cannot score above 3.
+    - A response that is correct and explicit but gives no reasoning should land mid-range.
+    - Reserve 9-10 for responses that are correct, well-reasoned, complete, and clean.
+    - Judge content, not style preferences beyond O1/O2.
+
+    Considering all criteria and their weights, rate the response on an integer scale
+    of 0 to 10.
+
+  prompt_template: |
+    QUESTION:
+    {question}
+
+    REFERENCE ANSWER:
+    {reference_answer}
+
+    RESPONSE:
+    {response}
+
+  response_format: JSON
+  judgment_type: INT
+  include_explanation: True
+
+inference_config:
+  model:
+    model_name: "gpt-5-mini"
+
+  engine: OPENAI
+
+  generation:
+    # Includes gpt-5's hidden reasoning tokens; leave ample room so the short
+    # JSON verdict is never truncated.
+    max_new_tokens: 2048
+    temperature: 1.0
+
+  remote_params:
+    # The engine retries with exponential backoff on transient API errors.
+    max_retries: 3
+    connection_timeout: 120.0

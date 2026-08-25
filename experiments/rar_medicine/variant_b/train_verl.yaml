@@ -1,0 +1,124 @@
+# verl GRPO config to train gemma-4-E2B-it on RaR-Medicine with the Variant B
+# meta-rubric judge (gpt-5-mini) as the reward.
+#
+# Adapted from configs/examples/letter_counting/grpo/train_verl.yaml (which
+# carries the gemma-4 rollout workarounds). The dataset class and the
+# registered reward live in rar_medicine_grpo.py next to this file; they are
+# loaded via OUMI_EXTRA_DEPS_FILE + PYTHONPATH (see run.sh).
+#
+# Requirements:
+#   - OPENAI_API_KEY exported (judge = gpt-5-mini via OpenAI API)
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   bash tmp/rar_medicine/variant_b/run.sh
+#
+# Judge cost note: each step scores train_batch_size * rollout.n = 64 * 8 = 512
+# responses; each eval scores the val subset once. gpt-5-mini is ~$0.25/M input
+# + $2/M output tokens; with ~1k-token judge prompts this is roughly
+# $0.15-0.30 per training step.
+
+model:
+  model_name: "google/gemma-4-E2B-it"
+
+data:
+  train:
+    datasets:
+      - dataset_name: "anisha2102/RaR-Medicine"
+        split: "train"
+        # Full train split is 17,926 examples (~280 steps/epoch at batch 64,
+        # ~143k judge calls). Subsampled for a first run; raise or remove for
+        # full training.
+        sample_count: 4096
+  validation:
+    datasets:
+      - dataset_name: "anisha2102/RaR-Medicine"
+        # The hub split is named "val" (2,240 examples); keep periodic eval
+        # cheap — every eval costs one judge call per sample.
+        split: "val"
+        sample_count: 256
+
+training:
+  trainer_type: "VERL_GRPO"
+  num_train_epochs: 1
+  save_steps: 100
+  eval_strategy: "steps"
+  eval_steps: 50
+
+  learning_rate: 1.0e-6
+  enable_gradient_checkpointing: True
+
+  # Registered in rar_medicine_grpo.py (async verl-style reward; the trainer
+  # wires it into verl as an importable module, so no file paths are needed).
+  reward_functions: ["rar_medicine_verl"]
+
+  grpo:
+    max_completion_length: 1024
+    use_vllm: True
+    temperature: 1.0
+    vllm_gpu_memory_utilization: 0.4
+
+  verl_config_overrides:
+    data:
+      train_batch_size: 64
+      val_batch_size: 256
+      # Question p99 is ~1.2k chars (~300 tokens); the longest vignette is
+      # ~3k chars. 1024 tokens covers everything incl. the system prompt.
+      max_prompt_length: 1024
+    reward:
+      # Ray actors that run the reward; each dispatches its chunk of samples
+      # to a thread pool, so SimpleJudge calls overlap. In-flight OpenAI
+      # requests are capped at num_workers * RAR_JUDGE_MAX_CONCURRENCY
+      # (8 * 16 = 128).
+      num_workers: 8
+    actor_rollout_ref:
+      model:
+        override_config:
+          attn_implementation: "sdpa"
+        # Remove-padding requires the flash-attn package (flash_attn.bert_padding),
+        # which is not installed; run padded forwards with sdpa instead.
+        use_remove_padding: False
+      actor:
+        use_kl_loss: True
+        kl_loss_coef: 0.001
+        kl_loss_type: "low_var_kl"
+        ppo_mini_batch_size: 16
+        ppo_micro_batch_size_per_gpu: 4
+      rollout:
+        log_prob_micro_batch_size_per_gpu: 4
+        tensor_model_parallel_size: 2
+        # 8 rollouts/prompt (letter counting used 16): halves judge cost while
+        # keeping enough spread for group-relative advantages.
+        n: 8
+
+        # gemma-4's embed_tokens_per_layer is a single 9.4GB fp32 tensor
+        # (262144 x 8960); the default 2048MB weight-sync bucket cannot hold it.
+        checkpoint_engine:
+          update_weights_bucket_megabytes: 10240
+
+        # Text-only task: disable multimodal inputs so vLLM skips profiling
+        # gemma-4's vision/audio towers (broken in the generic
+        # TransformersMultiModal fallback used for this architecture).
+        engine_kwargs:
+          vllm:
+            limit_mm_per_prompt:
+              image: 0
+              video: 0
+              audio: 0
+
+      ref:
+        log_prob_micro_batch_size_per_gpu: 2
+        fsdp_config:
+          param_offload: True
+    algorithm:
+      kl_ctrl:
+        kl_coef: 0.001
+    trainer:
+      critic_warmup: 0
+      val_before_train: False
+      n_gpus_per_node: 8
+      nnodes: 1
+
+  output_dir: "/workspace/persist/shanghong/oumi/tmp/rar_medicine/variant_b/output"
+  run_name: "rar_medicine_grpo_verl_variant_b"
+  enable_wandb: True
