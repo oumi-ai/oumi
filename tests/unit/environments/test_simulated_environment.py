@@ -29,10 +29,10 @@ from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.configs.params.tool_params import ToolError, ToolParams
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.core.types.tool_call import ToolResult
-from oumi.environments.synthetic_environment import (
-    SyntheticEnvironment,
-    SyntheticEnvironmentKwargs,
-    SyntheticStateParams,
+from oumi.environments.simulated_environment import (
+    SimulatedEnvironment,
+    SimulatedEnvironmentKwargs,
+    SimulatedStateParams,
 )
 
 
@@ -61,7 +61,7 @@ def _make_params(**overrides) -> EnvironmentParams:
         id="faq",
         name="FAQ",
         description="FAQ tools",
-        env_type="synthetic",
+        env_type="simulated",
         tools=[_make_tool()],
         env_kwargs={"tool_persona": "Answer FAQs."},
     )
@@ -70,10 +70,10 @@ def _make_params(**overrides) -> EnvironmentParams:
 
 
 def test_from_params_constructs_stateless():
-    env = SyntheticEnvironment.from_params(_make_params())
-    assert isinstance(env, SyntheticEnvironment)
+    env = SimulatedEnvironment.from_params(_make_params())
+    assert isinstance(env, SimulatedEnvironment)
     assert env.current_state is None
-    assert isinstance(env._kwargs, SyntheticEnvironmentKwargs)
+    assert isinstance(env._kwargs, SimulatedEnvironmentKwargs)
 
 
 def test_from_params_constructs_stateful():
@@ -81,14 +81,14 @@ def test_from_params_constructs_stateful():
         tools=[_make_tool(executor=f"{__name__}._state_increment")],
         env_kwargs={
             "tool_persona": "You manage a filesystem.",
-            "state_params": SyntheticStateParams(
+            "state_params": SimulatedStateParams(
                 state_schema=_make_state_schema(),
                 initial_state={"files": {"count": 1}},
             ),
             "cache_by_input": False,
         },
     )
-    env = SyntheticEnvironment.from_params(params)
+    env = SimulatedEnvironment.from_params(params)
     assert env.current_state == {"files": {"count": 1}}
 
 
@@ -100,36 +100,36 @@ def test_stateful_mode_requires_executor_on_every_tool():
         ],
         env_kwargs={
             "tool_persona": "p",
-            "state_params": SyntheticStateParams(initial_state={"counter": 0}),
+            "state_params": SimulatedStateParams(initial_state={"counter": 0}),
             "cache_by_input": False,
         },
     )
     with pytest.raises(
         ValueError, match=r"requires every tool to define an executor.*without_exec"
     ):
-        SyntheticEnvironment.from_params(params)
+        SimulatedEnvironment.from_params(params)
 
 
 def test_empty_tool_persona_raises():
     params = _make_params(env_kwargs={"tool_persona": ""})
     with pytest.raises(ValueError, match="tool_persona cannot be empty"):
-        SyntheticEnvironment.from_params(params)
+        SimulatedEnvironment.from_params(params)
 
 
 def test_rejects_cache_when_stateful():
     params = _make_params(
         env_kwargs={
             "tool_persona": "p",
-            "state_params": SyntheticStateParams(),
+            "state_params": SimulatedStateParams(),
             "cache_by_input": True,
         }
     )
     with pytest.raises(ValueError, match="cache_by_input must be False"):
-        SyntheticEnvironment.from_params(params)
+        SimulatedEnvironment.from_params(params)
 
 
 def test_cache_round_trip_stateless_caching():
-    env = SyntheticEnvironment.from_params(_make_params())
+    env = SimulatedEnvironment.from_params(_make_params())
     result = ToolResult(output={"temp": 72})
     env._cache_result("answer", {"city": "SF"}, result)
     cached = env._resolve_cached("answer", {"city": "SF"})
@@ -138,13 +138,13 @@ def test_cache_round_trip_stateless_caching():
 
 
 def test_step_unknown_tool_raises():
-    env = SyntheticEnvironment.from_params(_make_params())
+    env = SimulatedEnvironment.from_params(_make_params())
     with pytest.raises(ValueError, match="Tool 'missing' not found"):
         env.step([("missing", {})])
 
 
 def test_step_without_attach_inference_raises():
-    env = SyntheticEnvironment.from_params(_make_params())
+    env = SimulatedEnvironment.from_params(_make_params())
     with pytest.raises(RuntimeError, match="attach_inference"):
         env.step([("answer", {})])
 
@@ -177,7 +177,7 @@ def _typed_params() -> EnvironmentParams:
         id="faq",
         name="FAQ",
         description="FAQ env",
-        env_type="synthetic",
+        env_type="simulated",
         tools=[_typed_tool()],
         env_kwargs={"tool_persona": "Answer FAQs as a JSON tool."},
     )
@@ -187,7 +187,7 @@ def _attached_env(
     infer_returns: list[str],
     params: EnvironmentParams | None = None,
     **kwargs_overrides,
-) -> tuple[SyntheticEnvironment, Mock]:
+) -> tuple[SimulatedEnvironment, Mock]:
     """Build an env with a mock engine that drains ``infer_returns`` in order.
 
     Each call consumed by the simulator pops the next element from the queue,
@@ -197,7 +197,7 @@ def _attached_env(
     """
     params = params or _typed_params()
     params.env_kwargs = {**(params.env_kwargs or {}), **kwargs_overrides}
-    env = SyntheticEnvironment.from_params(params)
+    env = SimulatedEnvironment.from_params(params)
     mock_engine = Mock()
     queue = list(infer_returns)
 
@@ -230,7 +230,7 @@ def test_step_zero_calls_returns_empty():
 
 def test_step_unknown_tool_raises_before_engine_check():
     """Unknown tool id raises ValueError even when no engine is attached."""
-    env = SyntheticEnvironment.from_params(_typed_params())
+    env = SimulatedEnvironment.from_params(_typed_params())
     with pytest.raises(ValueError, match="Tool 'missing' not found"):
         env.step([("missing", {})])
 
@@ -308,11 +308,11 @@ def test_step_no_output_schema_accepts_any_object():
         id="faq",
         name="FAQ",
         description="FAQ env",
-        env_type="synthetic",
+        env_type="simulated",
         tools=[tool],
         env_kwargs={"tool_persona": "Answer FAQs."},
     )
-    env = SyntheticEnvironment.from_params(params)
+    env = SimulatedEnvironment.from_params(params)
     mock_engine = Mock()
     mock_engine.infer = Mock(
         return_value=[
@@ -427,7 +427,7 @@ def test_stateless_executor_dispatches_callable_no_state():
         executor=f"{__name__}._ok_stateless_exec",
     )
     params = _make_params(tools=[tool])
-    env = SyntheticEnvironment.from_params(params)
+    env = SimulatedEnvironment.from_params(params)
     results = env.step([("echo", {"x": 1})])
     assert results == [ToolResult(output={"echo": {"x": 1}})]
 
@@ -444,14 +444,14 @@ def test_stateful_executor_threads_state_and_mutates():
         tools=[tool],
         env_kwargs={
             "tool_persona": "p",
-            "state_params": SyntheticStateParams(
+            "state_params": SimulatedStateParams(
                 state_schema=_make_state_schema(),
                 initial_state={"files": {"count": 1}},
             ),
             "cache_by_input": False,
         },
     )
-    env = SyntheticEnvironment.from_params(params)
+    env = SimulatedEnvironment.from_params(params)
     out = env.step([("bump", {}), ("bump", {})])
     assert out[0].output == {"new_count": 2}
     assert out[1].output == {"new_count": 3}
@@ -470,14 +470,14 @@ def test_read_only_tool_rejected_when_executor_returns_state():
         tools=[tool],
         env_kwargs={
             "tool_persona": "p",
-            "state_params": SyntheticStateParams(
+            "state_params": SimulatedStateParams(
                 state_schema=_make_state_schema(),
                 initial_state={"files": {"count": 1}},
             ),
             "cache_by_input": False,
         },
     )
-    env = SyntheticEnvironment.from_params(params)
+    env = SimulatedEnvironment.from_params(params)
     with pytest.raises(ToolError, match="read_only"):
         env.step([("bump", {})])
 
@@ -494,14 +494,14 @@ def test_updated_state_validated_against_schema():
         tools=[tool],
         env_kwargs={
             "tool_persona": "p",
-            "state_params": SyntheticStateParams(
+            "state_params": SimulatedStateParams(
                 state_schema=_make_state_schema(),
                 initial_state={"files": {"count": 1}},
             ),
             "cache_by_input": False,
         },
     )
-    env = SyntheticEnvironment.from_params(params)
+    env = SimulatedEnvironment.from_params(params)
     with pytest.raises(ToolError, match="state_schema"):
         env.step([("bad", {})])
 
@@ -514,7 +514,7 @@ def test_stateless_executor_rejecting_state_return():
         executor=f"{__name__}._stateless_returns_state",
     )
     params = _make_params(tools=[tool])
-    env = SyntheticEnvironment.from_params(params)
+    env = SimulatedEnvironment.from_params(params)
     with pytest.raises(ToolError, match="stateless"):
         env.step([("oops", {})])
 
@@ -530,14 +530,14 @@ def test_executor_returning_non_toolresult_raises():
         tools=[tool],
         env_kwargs={
             "tool_persona": "p",
-            "state_params": SyntheticStateParams(
+            "state_params": SimulatedStateParams(
                 state_schema=_make_state_schema(),
                 initial_state={"files": {"count": 1}},
             ),
             "cache_by_input": False,
         },
     )
-    env = SyntheticEnvironment.from_params(params)
+    env = SimulatedEnvironment.from_params(params)
     with pytest.raises(ToolError, match="must return ToolResult"):
         env.step([("x", {})])
 
@@ -554,7 +554,7 @@ def test_state_grounding_projects_from_state_path():
         tools=[tool],
         env_kwargs={
             "tool_persona": "p",
-            "state_params": SyntheticStateParams(
+            "state_params": SimulatedStateParams(
                 state_schema={"type": "object"},
                 initial_state={
                     "books": [
@@ -575,7 +575,7 @@ def test_state_grounding_projects_from_state_path():
             ],
         ),
     )
-    env = SyntheticEnvironment.from_params(params)
+    env = SimulatedEnvironment.from_params(params)
     facts = env.sample_grounding(n=10, rng=random.Random(0))
     assert len(facts) == 3
     assert {f.data["book_id"] for f in facts} == {"B1", "B2", "B3"}
@@ -593,7 +593,7 @@ def test_state_grounding_state_path_missing_raises_at_init():
         tools=[tool],
         env_kwargs={
             "tool_persona": "p",
-            "state_params": SyntheticStateParams(
+            "state_params": SimulatedStateParams(
                 state_schema={"type": "object"},
                 initial_state={"files": {"count": 0}},
             ),
@@ -609,15 +609,15 @@ def test_state_grounding_state_path_missing_raises_at_init():
         ),
     )
     with pytest.raises(ValueError, match="state_path"):
-        SyntheticEnvironment.from_params(params)
+        SimulatedEnvironment.from_params(params)
 
 
 def test_state_grounding_without_state_raises():
-    """grounding.state on a stateless synthetic env is a config error."""
+    """grounding.state on a stateless simulated env is a config error."""
     params = _make_params(
         grounding=GroundingConfig(
             state=[StateGroundingConfig(state_path="books", fields=["book_id"])],
         ),
     )
     with pytest.raises(ValueError, match="grounding.state is configured"):
-        SyntheticEnvironment.from_params(params)
+        SimulatedEnvironment.from_params(params)

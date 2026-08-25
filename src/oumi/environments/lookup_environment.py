@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Deterministic environment with fixed lookup responses."""
+"""Lookup environment with fixed lookup responses."""
 
 from __future__ import annotations
 
@@ -151,7 +151,7 @@ def _unfillable_default_paths(
 
 @dataclass
 class ToolLookupEntry(BaseParams):
-    """One (input, output) pair in a deterministic env's lookup table.
+    """One (input, output) pair in a lookup env's lookup table.
 
     ``output`` may be any JSON value (scalar, list, object, or null).
     """
@@ -169,8 +169,8 @@ class ToolLookupEntry(BaseParams):
 
 
 @dataclass
-class DeterministicEnvironmentKwargs(BaseParams):
-    """Type-specific kwargs for DeterministicEnvironment."""
+class LookupEnvironmentKwargs(BaseParams):
+    """Type-specific kwargs for LookupEnvironment."""
 
     lookup_table: dict[str, list[ToolLookupEntry]] = field(default_factory=dict)
     """Per-tool list of (input, output) entries, keyed by tool id."""
@@ -188,8 +188,9 @@ class DeterministicEnvironmentKwargs(BaseParams):
         }
 
 
-@register_environment("deterministic")
-class DeterministicEnvironment(BaseEnvironment):
+@register_environment("lookup")
+@register_environment("deterministic")  # deprecated alias, kept for back-compat
+class LookupEnvironment(BaseEnvironment):
     """Environment that resolves tools from a per-tool lookup table.
 
     The env's ``env_kwargs.lookup_table`` is the source of truth for tool
@@ -202,9 +203,9 @@ class DeterministicEnvironment(BaseEnvironment):
     def __init__(
         self,
         params: EnvironmentParams,
-        kwargs: DeterministicEnvironmentKwargs,
+        kwargs: LookupEnvironmentKwargs,
     ) -> None:
-        """Initialize a DeterministicEnvironment."""
+        """Initialize a LookupEnvironment."""
         self._params = params
         self._kwargs = kwargs
         self._tools_by_id: dict[str, ToolParams] = {
@@ -214,7 +215,7 @@ class DeterministicEnvironment(BaseEnvironment):
         self._warn_grounding_key_collisions()
 
     def step(self, calls: list[tuple[str, dict[str, Any]]]) -> list[ToolResult]:
-        """Resolve a batch of deterministic tool calls to their outputs."""
+        """Resolve a batch of lookup tool calls to their outputs."""
         return [self._resolve_one(tool_id, args) for tool_id, args in calls]
 
     def _resolve_one(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:
@@ -231,7 +232,7 @@ class DeterministicEnvironment(BaseEnvironment):
                 return ToolResult(output=entry.output)
         available = [entry.input for entry in entries]
         raise ToolLookupError(
-            f"No deterministic output matches arguments "
+            f"No lookup output matches arguments "
             f"{json.dumps(arguments, sort_keys=True)} for tool '{tool_id}'. "
             f"Configured inputs: {json.dumps(available, sort_keys=True)}"
         )
@@ -276,12 +277,12 @@ class DeterministicEnvironment(BaseEnvironment):
         return rng.sample(pool, min(n, len(pool)))
 
     @classmethod
-    def from_params(cls, params: EnvironmentParams) -> DeterministicEnvironment:
-        """Build a DeterministicEnvironment from its params object."""
+    def from_params(cls, params: EnvironmentParams) -> LookupEnvironment:
+        """Build a LookupEnvironment from its params object."""
         kwargs = parse_env_kwargs(
-            DeterministicEnvironmentKwargs,
+            LookupEnvironmentKwargs,
             params,
-            env_label="DeterministicEnvironment",
+            env_label="LookupEnvironment",
         )
         return cls(params, kwargs)
 
@@ -376,3 +377,8 @@ class DeterministicEnvironment(BaseEnvironment):
                     tool_id,
                     sorted(shadowed),
                 )
+
+
+# Deprecated aliases, kept so existing imports keep resolving.
+DeterministicEnvironment = LookupEnvironment
+DeterministicEnvironmentKwargs = LookupEnvironmentKwargs

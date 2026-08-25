@@ -40,7 +40,7 @@ class EnvironmentParams(BaseParams):
     """Optional human-readable description. Not used at runtime."""
 
     env_type: str = ""
-    """Registry key selecting the environment implementation, e.g. ``deterministic``."""
+    """Registry key selecting the environment implementation, e.g. ``lookup``."""
 
     tools: list[Any] = field(default_factory=list)
     """Tools this environment serves, coerced to ``ToolParams`` in ``__post_init__``."""

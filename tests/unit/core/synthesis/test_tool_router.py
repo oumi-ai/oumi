@@ -28,7 +28,7 @@ from oumi.core.configs.params.tool_params import (
 from oumi.core.synthesis.tool_router import ToolRouter
 from oumi.core.types.tool_call import ToolResult
 from oumi.environments.base_environment import BaseEnvironment
-from oumi.environments.deterministic_environment import DeterministicEnvironment
+from oumi.environments.lookup_environment import LookupEnvironment
 
 
 def _tool(tool_id: str, schema: dict[str, Any] | None = None) -> ToolParams:
@@ -45,12 +45,12 @@ def _det_env_params(
     tools: list[ToolParams],
     lookup: dict[str, list[dict]] | None = None,
 ) -> EnvironmentParams:
-    """Build a DeterministicEnvironment params block with a default identity lookup."""
+    """Build a LookupEnvironment params block with a default identity lookup."""
     return EnvironmentParams(
         id=env_id,
         name=env_id,
         description=f"Env {env_id}",
-        env_type="deterministic",
+        env_type="lookup",
         tools=tools,
         env_kwargs={
             "lookup_table": lookup
@@ -70,7 +70,7 @@ def _stateful_synth_env_params(env_id: str) -> EnvironmentParams:
         id=env_id,
         name=env_id,
         description=f"Env {env_id}",
-        env_type="synthetic",
+        env_type="simulated",
         tools=[],
         env_kwargs={
             "tool_persona": "p",
@@ -94,7 +94,7 @@ def test_from_environment_config_builds_all_fields():
     router = ToolRouter.from_environment_config(env_config)
 
     assert set(router.env_by_id) == {"env1"}
-    assert isinstance(router.env_by_id["env1"], DeterministicEnvironment)
+    assert isinstance(router.env_by_id["env1"], LookupEnvironment)
     assert router.tool_to_env["t1"] is router.env_by_id["env1"]
     assert router.tools_by_id["t1"] is tool
     assert len(router.tool_specs) == 1
@@ -113,7 +113,7 @@ def test_from_environment_config_invokes_on_env_built_for_each_env():
     ToolRouter.from_environment_config(env_config, on_env_built=seen.append)
 
     assert len(seen) == 2
-    assert all(isinstance(env, DeterministicEnvironment) for env in seen)
+    assert all(isinstance(env, LookupEnvironment) for env in seen)
 
 
 def test_from_environment_config_routes_tools_across_envs():
@@ -145,7 +145,7 @@ def test_from_environment_config_includes_grounding_only_envs():
         id="state_only",
         name="state_only",
         description="grounding-only env",
-        env_type="synthetic",
+        env_type="simulated",
         tools=[],
         env_kwargs={
             "tool_persona": "p",
@@ -249,7 +249,7 @@ def test_route_batch_empty_returns_empty():
 
 
 def test_route_batch_dispatches_through_real_env():
-    """End-to-end: real DeterministicEnvironment lookup via the router."""
+    """End-to-end: real LookupEnvironment lookup via the router."""
     env_params = _det_env_params(
         "env1",
         [_tool("t1")],
@@ -345,7 +345,7 @@ def test_for_sample_clones_envs_that_require_isolation():
 
 
 def test_for_sample_shares_envs_that_do_not_require_isolation():
-    """Deterministic envs carry no mutable state, so they are shared with parent."""
+    """Lookup envs carry no mutable state, so they are shared with parent."""
     env_config = EnvironmentConfig(
         environments=[
             _det_env_params("det1", [_tool("t1")]),

@@ -36,11 +36,11 @@ def test_constructs_with_required_fields():
         id="e1",
         name="E1",
         description="d",
-        env_type="deterministic",
+        env_type="lookup",
         tools=[_make_tool()],
     )
     assert p.id == "e1"
-    assert p.env_type == "deterministic"
+    assert p.env_type == "lookup"
     assert len(p.tools) == 1
 
 
@@ -56,7 +56,7 @@ def test_finalize_and_validate_rejects_empty_required_field(field):
         id="e1",
         name="E1",
         description="d",
-        env_type="deterministic",
+        env_type="lookup",
         tools=[_make_tool()],
     )
     base[field] = ""
@@ -69,7 +69,7 @@ def test_finalize_and_validate_allows_omitted_name_and_description():
     """name and description are optional labels, not required fields."""
     p = EnvironmentParams(
         id="e1",
-        env_type="deterministic",
+        env_type="lookup",
         tools=[_make_tool()],
     )
     p.finalize_and_validate()
@@ -82,7 +82,7 @@ def test_finalize_and_validate_rejects_duplicate_tool_ids():
         id="e1",
         name="E1",
         description="d",
-        env_type="deterministic",
+        env_type="lookup",
         tools=[_make_tool("dup"), _make_tool("dup")],
     )
     with pytest.raises(ValueError, match="duplicate tool id 'dup'"):
@@ -97,8 +97,8 @@ def test_environment_config_finalize_and_validate_descends_into_list():
 
 
 def test_environment_config_duplicate_env_ids_raises():
-    a = EnvironmentParams(id="dup", name="A", description="d", env_type="deterministic")
-    b = EnvironmentParams(id="dup", name="B", description="d", env_type="deterministic")
+    a = EnvironmentParams(id="dup", name="A", description="d", env_type="lookup")
+    b = EnvironmentParams(id="dup", name="B", description="d", env_type="lookup")
     with pytest.raises(ValueError, match="duplicate environment id 'dup'"):
         EnvironmentConfig(environments=[a, b])
 
@@ -108,7 +108,7 @@ def test_post_init_coerces_dict_tools_to_tool_params():
         id="e1",
         name="E1",
         description="d",
-        env_type="deterministic",
+        env_type="lookup",
         tools=[{"id": "t", "name": "t", "description": "t"}],  # type: ignore[list-item]
     )
     assert type(p.tools[0]) is ToolParams
@@ -120,14 +120,14 @@ def test_environment_config_duplicate_tool_ids_across_envs_raises():
         id="env1",
         name="E1",
         description="d",
-        env_type="deterministic",
+        env_type="lookup",
         tools=[_make_tool()],
     )
     b = EnvironmentParams(
         id="env2",
         name="E2",
         description="d",
-        env_type="deterministic",
+        env_type="lookup",
         tools=[_make_tool()],
     )
     with pytest.raises(ValueError, match="duplicate tool id 't'"):
@@ -142,7 +142,7 @@ def test_grounding_post_init_coerces_dict_to_grounding_config():
         id="e1",
         name="E1",
         description="d",
-        env_type="deterministic",
+        env_type="lookup",
         tools=[_make_tool()],
         grounding={"sample_size": 5, "tools": {"t": {"fields": ["a"]}}},  # type: ignore[arg-type]
     )
@@ -156,7 +156,7 @@ def test_grounding_validate_passes_with_at_least_one_tool():
         id="e1",
         name="E1",
         description="d",
-        env_type="deterministic",
+        env_type="lookup",
         tools=[_make_tool()],
         grounding=GroundingConfig(
             sample_size=3,
@@ -173,7 +173,7 @@ def test_grounding_warns_on_stale_tool_ids(caplog):
         id="e1",
         name="E1",
         description="d",
-        env_type="deterministic",
+        env_type="lookup",
         tools=[_make_tool("real_tool")],
         grounding=GroundingConfig(
             sample_size=3,
@@ -197,7 +197,7 @@ def test_no_grounding_does_not_validate_tools():
         id="e1",
         name="E1",
         description="d",
-        env_type="deterministic",
+        env_type="lookup",
         tools=[_make_tool()],
         grounding=None,
     )

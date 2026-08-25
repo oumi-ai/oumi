@@ -27,7 +27,7 @@ output_path: ehr_stateful_dataset.jsonl
 environment_config:
   environments:
     - id: ehr
-      env_type: synthetic
+      env_type: simulated
       name: EHR
       description: A clinical record system with mutable patient state.
       grounding:
