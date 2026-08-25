@@ -1,0 +1,121 @@
+# verl GRPO config to train gemma-4-E2B-it on letter counting, rewarded by an LLM
+# judge instead of the deterministic regex reward.
+#
+# This is the judge arm of an A/B against
+# `configs/examples/letter_counting/grpo/train_verl.yaml`. The two configs are
+# identical apart from `reward_functions`, `output_dir`, and `run_name`, so a
+# difference between the runs is attributable to the reward alone.
+#
+# Both rewards share one scoring function (`compute_letter_count_reward`): they
+# differ only in how the model's answer is read out of a rollout -- an LLM judge
+# here, the `_extract_prediction` regex there. See
+# src/oumi/datasets/grpo/rewards/count_letters_judge_rewards.py.
+#
+# COST/THROUGHPUT WARNING: verl scores rollouts one at a time, so this run issues
+# one gpt-5-mini call per rollout. At the settings below that is
+# train_batch_size(64) x rollout.n(16) = 1024 judge calls per training step. Scale
+# the run down (fewer steps, smaller `n`, smaller batch) before launching a full
+# sweep, and see the note on `max_steps` below.
+#
+# Requirements:
+#   - export OPENAI_API_KEY=...   (used by the judge)
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   oumi train -c configs/examples/letter_counting/grpo/train_verl_judge.yaml
+
+model:
+  model_name: "google/gemma-4-E2B-it"
+
+data:
+  train:
+    datasets:
+      - dataset_name: "oumi-ai/oumi-letter-count"
+        split: "train"
+        sample_count: 10000
+  validation:
+    datasets:
+      - dataset_name: "oumi-ai/oumi-letter-count"
+        split: "validation"
+        # The full validation split is 10k examples; keep periodic eval cheap.
+        sample_count: 640
+
+training:
+  trainer_type: "VERL_GRPO"
+  # The train split has 100k examples (~1562 steps/epoch at batch size 64);
+  num_train_epochs: 1
+  save_steps: 100
+  eval_strategy: "steps"
+  eval_steps: 50
+
+  learning_rate: 1.0e-6
+  enable_gradient_checkpointing: True
+
+  # The judge-based counterpart of `count_letters_verl`, on the same reward scale
+  # (see src/oumi/datasets/grpo/rewards/count_letters_judge_rewards.py). This is
+  # the ONLY line that differs from the deterministic arm of the experiment.
+  reward_functions: ["count_letters_judge_verl"]
+
+  grpo:
+    max_completion_length: 1024
+    use_vllm: True
+    temperature: 1.0
+    vllm_gpu_memory_utilization: 0.4
+
+  verl_config_overrides:
+    data:
+      train_batch_size: 64
+      val_batch_size: 640
+      max_prompt_length: 256
+    actor_rollout_ref:
+      model:
+        override_config:
+          attn_implementation: "sdpa"
+        # Remove-padding requires the flash-attn package (flash_attn.bert_padding),
+        # which is not installed; run padded forwards with sdpa instead.
+        use_remove_padding: False
+      actor:
+        use_kl_loss: True
+        kl_loss_coef: 0.001
+        kl_loss_type: "low_var_kl"
+        ppo_mini_batch_size: 16
+        ppo_micro_batch_size_per_gpu: 4
+      rollout:
+        log_prob_micro_batch_size_per_gpu: 4
+        tensor_model_parallel_size: 2
+        n: 16
+
+        # gemma-4's embed_tokens_per_layer is a single 9.4GB fp32 tensor
+        # (262144 x 8960); the default 2048MB weight-sync bucket cannot hold it.
+        checkpoint_engine:
+          update_weights_bucket_megabytes: 10240
+
+        # Letter counting is text-only: disable multimodal inputs so vLLM skips
+        # profiling gemma-4's vision/audio towers (broken in the generic
+        # TransformersMultiModal fallback used for this architecture).
+        engine_kwargs:
+          vllm:
+            limit_mm_per_prompt:
+              image: 0
+              video: 0
+              audio: 0
+
+      ref:
+        log_prob_micro_batch_size_per_gpu: 2
+        fsdp_config:
+          param_offload: True
+    algorithm:
+      kl_ctrl:
+        kl_coef: 0.001
+    trainer:
+      critic_warmup: 0
+      val_before_train: False
+      n_gpus_per_node: 8
+      nnodes: 1
+      # Cap the judge arm's spend while comparing. Set the same cap on the
+      # deterministic arm so both runs cover identical data.
+      # total_training_steps: 100
+
+  output_dir: "output/letter_counting.grpo_verl_judge"
+  run_name: "letter_counting_grpo_verl_judge"
+  enable_wandb: True
