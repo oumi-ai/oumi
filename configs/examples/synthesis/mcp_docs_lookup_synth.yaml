@@ -1,4 +1,4 @@
-# MCP-style Documentation Lookup — Stateless Synthetic Tool-Use Synthesis
+# MCP-style Documentation Lookup — Stateless Simulated Tool-Use Synthesis
 #
 # Generates multi-turn conversations between a developer asking how to use a
 # library and an assistant that answers via three MCP-style stateless tools.
@@ -16,7 +16,7 @@
 #   3. `search_examples`    — returns runnable example code for a topic
 #      under a resolved `library_id`.
 #
-# This config exercises the new SyntheticEnvironment: tool outputs are
+# This config exercises the new SimulatedEnvironment: tool outputs are
 # *simulated* by the same LLM that drives planner/assistant — there are no
 # pre-declared deterministic outputs. Each tool defines an `output_schema`
 # that we use as guided-decoding JSON schema, so the simulator must produce
@@ -34,7 +34,7 @@
 #   - Config class: oumi.core.configs.SynthesisConfig
 #   - Params class: oumi.core.configs.params.synthesis_params.GeneralSynthesisParams
 #   - Env config class: oumi.core.configs.environment_config.EnvironmentConfig
-#   - SyntheticEnvironment: oumi.environments.synthetic_environment.SyntheticEnvironment
+#   - SimulatedEnvironment: oumi.environments.simulated_environment.SimulatedEnvironment
 #   - Other synthesis configs: configs/**/*synth.yaml
 
 strategy: GENERAL
@@ -44,7 +44,7 @@ output_path: mcp_docs_lookup_dataset.jsonl
 environment_config:
   environments:
     - id: docs_lookup
-      env_type: synthetic
+      env_type: simulated
       name: Docs Lookup
       description: MCP-style documentation lookup tools (LLM-simulated).
       env_kwargs:

@@ -48,7 +48,7 @@ from oumi.core.types.conversation import (
 )
 from oumi.core.types.tool_call import FunctionCall, ToolCall, ToolResult
 from oumi.environments.base_environment import BaseEnvironment
-from oumi.environments.synthetic_environment import SyntheticEnvironment
+from oumi.environments.simulated_environment import SimulatedEnvironment
 
 
 @pytest.fixture
@@ -1251,7 +1251,7 @@ def _grounded_env_params(
         id=env_id,
         name=env_id,
         description=f"env {env_id}",
-        env_type="deterministic",
+        env_type="lookup",
         tools=[ToolParams(id=tool_id, name=tool_id, description="Look up an id.")],
         env_kwargs={
             "lookup_table": {
@@ -1286,7 +1286,7 @@ def _ungrounded_env_config():
                 id="env1",
                 name="env1",
                 description="ungrounded env",
-                env_type="deterministic",
+                env_type="lookup",
                 tools=[ToolParams(id="lookup", name="lookup", description="Look up.")],
                 env_kwargs={
                     "lookup_table": {
@@ -1450,7 +1450,7 @@ def test_attach_grounding_facts_filters_by_available_tools(mock_inference_config
         id="env",
         name="Env",
         description="d",
-        env_type="deterministic",
+        env_type="lookup",
         tools=[
             ToolParams(id="lookup_a", name="A", description="d"),
             ToolParams(id="lookup_b", name="B", description="d"),
@@ -2013,7 +2013,7 @@ def test_synthesize_emits_tools_for_unlabeled_environment(
         environments=[
             EnvironmentParams(
                 id="library",
-                env_type="deterministic",
+                env_type="lookup",
                 tools=[ToolParams(id="lookup", name="lookup", description="x")],
             )
         ]
@@ -2122,7 +2122,7 @@ def _make_env_config(env_id: str, tool_id: str) -> MagicMock:
         id=env_id,
         name="x",
         description="x",
-        env_type="deterministic",
+        env_type="lookup",
         tools=[],
     )
     env_config = MagicMock(spec=EnvironmentConfig)
@@ -2418,7 +2418,7 @@ def test_dispatch_tool_calls_recovers_from_unguided_schema_drift(
 ):
     """End-to-end: guidance off → off-schema simulator output → recoverable tool error.
 
-    Drives a real ``SyntheticEnvironment`` so the assertions cover the whole path:
+    Drives a real ``SimulatedEnvironment`` so the assertions cover the whole path:
     no constraint reaches the engine, and the resulting ``ToolError`` becomes a
     ``TOOL`` message instead of killing the sample.
     """
@@ -2441,11 +2441,11 @@ def test_dispatch_tool_calls_recovers_from_unguided_schema_drift(
         id="faq",
         name="FAQ",
         description="FAQ env",
-        env_type="synthetic",
+        env_type="simulated",
         tools=[tool],
         env_kwargs={"tool_persona": "Answer FAQs.", "use_guided_decoding": False},
     )
-    mock_build_environment.return_value = SyntheticEnvironment.from_params(env_params)
+    mock_build_environment.return_value = SimulatedEnvironment.from_params(env_params)
 
     mock_engine = Mock()
     mock_engine.infer = Mock(
@@ -2799,12 +2799,12 @@ def test_assistant_turn_dispatches_parallel_batch_unrestricted(
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
-def test_synthesizer_attaches_inference_to_synthetic_env(
+def test_synthesizer_attaches_inference_to_simulated_env(
     mock_build_inference_engine,
     mock_general_synthesis_params,
 ):
-    """SyntheticEnvironments built via _tool_dispatch get attach_inference()."""
-    from oumi.environments.synthetic_environment import SyntheticEnvironment
+    """Simulated environments built via _tool_dispatch get attach_inference()."""
+    from oumi.environments.simulated_environment import SimulatedEnvironment
 
     mock_engine = Mock()
     mock_build_inference_engine.return_value = mock_engine
@@ -2812,8 +2812,8 @@ def test_synthesizer_attaches_inference_to_synthetic_env(
     env_params = EnvironmentParams(
         id="docs",
         name="Docs",
-        description="Synthetic docs env",
-        env_type="synthetic",
+        description="Simulated docs env",
+        env_type="simulated",
         tools=[
             ToolParams(
                 id="lookup",
@@ -2844,7 +2844,7 @@ def test_synthesizer_attaches_inference_to_synthetic_env(
 
     assert synth._router is not None
     env = synth._router.tool_to_env["lookup"]
-    assert isinstance(env, SyntheticEnvironment)
+    assert isinstance(env, SimulatedEnvironment)
     assert env._engine is mock_engine
     assert env._base_inference_config is inference_config
 
@@ -2857,7 +2857,7 @@ def test_prepare_sample_routers_builds_one_router_per_sample(
 ):
     """_prepare_sample_routers materializes a router clone per sample.
 
-    The deterministic env carries no mutable state so it is shared across
+    The lookup env carries no mutable state so it is shared across
     routers; only the router wrappers themselves are per-sample.
     """
     env_config = _grounded_env_config(n_entries=5, sample_size=2, seed=1)
