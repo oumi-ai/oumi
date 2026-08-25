@@ -368,6 +368,12 @@ class Evaluator:
 
         provided_keys: set[str] = custom_kwargs.keys() - set(RESERVED_KEYS)
         expected_keys: set[str] = set(fn_input_params) - set(RESERVED_KEYS)
+        # Parameters with a default value are optional; they do not have to be provided.
+        required_keys: set[str] = {
+            param.name
+            for param in fn_signature.parameters.values()
+            if param.default is inspect.Parameter.empty
+        } - set(RESERVED_KEYS)
 
         if unrecognized_keys := provided_keys - expected_keys:
             raise RuntimeError(
@@ -378,7 +384,7 @@ class Evaluator:
                 f"function `{evaluation_fn_name}`. The expected input parameters "
                 f"of the function are: {fn_input_params}."
             )
-        elif missing_keys := expected_keys - provided_keys:
+        elif missing_keys := required_keys - provided_keys:
             raise RuntimeError(
                 "Missing keyword arguments have been identified when calling "
                 "`Evaluator.evaluate()`. You have not passed the following expected "
