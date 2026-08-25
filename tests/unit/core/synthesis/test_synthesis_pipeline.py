@@ -18,7 +18,9 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from oumi.core.configs.environment_config import EnvironmentConfig
 from oumi.core.configs.inference_config import InferenceConfig
+from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.core.configs.params.synthesis_params import (
     GeneralSynthesisParams,
     GeneratedAttribute,
@@ -28,6 +30,7 @@ from oumi.core.configs.params.synthesis_params import (
     TransformationType,
     TransformedAttribute,
 )
+from oumi.core.configs.params.tool_params import ToolParams
 from oumi.core.configs.synthesis_config import SynthesisConfig
 from oumi.core.synthesis.attribute_synthesizer import AttributeSynthesizer
 from oumi.core.synthesis.attribute_transformation import AttributeTransformer
@@ -36,6 +39,7 @@ from oumi.core.synthesis.data_synthesizer import DataSynthesizer
 from oumi.core.synthesis.dataset_planner import DatasetPlanner
 from oumi.core.synthesis.synthesis_pipeline import SynthesisPipeline
 from oumi.core.types.conversation import Role
+from oumi.exceptions import OumiConfigError
 
 
 @pytest.fixture
@@ -844,3 +848,33 @@ def test_passthrough_with_missing_bracket_paths():
             "items[0].field": "present",
         }
     ]
+
+
+def test_pipeline_rejects_environments_assigned_without_multiturn_attribute():
+    """Environments assigned after __post_init__ still require a multiturn attr."""
+    config = SynthesisConfig(
+        num_samples=5,
+        strategy_params=GeneralSynthesisParams(),
+        inference_config=InferenceConfig(),
+    )
+    config.environment_config = EnvironmentConfig(
+        environments=[
+            EnvironmentParams(
+                id="faq",
+                name="FAQ",
+                description="FAQ tools",
+                env_type="synthetic",
+                tools=[
+                    ToolParams(
+                        id="answer_faq",
+                        name="AnswerFAQ",
+                        description="Answer a FAQ question.",
+                    )
+                ],
+                env_kwargs={"tool_persona": "Answer FAQs."},
+            )
+        ]
+    )
+
+    with pytest.raises(OumiConfigError, match="require a multi-turn attribute"):
+        SynthesisPipeline(config)
