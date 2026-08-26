@@ -65,7 +65,6 @@ class EndpointTransport(Protocol):
         self, *, url: str, payload: dict[str, JsonValue], timeout_seconds: float
     ) -> JsonValue:
         """Send ``payload`` to ``url`` and return the decoded response body."""
-        ...
 
 
 def _post_json(
