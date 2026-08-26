@@ -1264,3 +1264,64 @@ class TestUploadModelFromInventory:
         assert sorted(resolved) == ["config.json", "model.safetensors"]
         # Upload must be called for each resolved file
         assert len(uploaded) == 2
+
+    @pytest.mark.asyncio
+    async def test_adapter_upload_does_not_error_on_missing_config_json(
+        self, tmp_path, caplog
+    ):
+        """Adapter uploads ship adapter_config.json, never config.json; the
+        absence of config.json must not be logged as an error (would page)."""
+        client = self._make_client()
+        file_inventory = {"adapter_config.json": 10, "adapter_model.safetensors": 200}
+
+        @asynccontextmanager
+        async def noop_resolver(filename: str):
+            yield tmp_path / filename
+
+        with (
+            patch.object(
+                client,
+                "_get_signed_urls_ordered",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
+            caplog.at_level("INFO", logger="oumi.deploy.fireworks_client"),
+        ):
+            await client._upload_model_files_with_resolver(
+                model_id="my-adapter",
+                file_sizes=file_inventory,
+                file_resolver=noop_resolver,
+                progress_callback=None,
+                model_type=ModelType.ADAPTER,
+            )
+        assert not [r for r in caplog.records if r.levelname == "ERROR"]
+        assert any("adapter_config.json found" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_full_upload_errors_on_missing_config_json(self, tmp_path, caplog):
+        """Full-model uploads still log an error when config.json is absent."""
+        client = self._make_client()
+        file_inventory = {"model.safetensors": 200}
+
+        @asynccontextmanager
+        async def noop_resolver(filename: str):
+            yield tmp_path / filename
+
+        with (
+            patch.object(
+                client,
+                "_get_signed_urls_ordered",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
+            caplog.at_level("INFO", logger="oumi.deploy.fireworks_client"),
+        ):
+            await client._upload_model_files_with_resolver(
+                model_id="my-model",
+                file_sizes=file_inventory,
+                file_resolver=noop_resolver,
+                progress_callback=None,
+                model_type=ModelType.FULL,
+            )
+        errors = [r for r in caplog.records if r.levelname == "ERROR"]
+        assert any("config.json NOT found" in r.message for r in errors)

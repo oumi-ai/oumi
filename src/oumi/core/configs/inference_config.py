@@ -39,6 +39,9 @@ class InferenceConfig(BaseConfig):
     output_path: str | None = None
     """Path to the output file where the generated text will be saved."""
 
+    progress_path: str | None = None
+    """Path to a JSON file where inference progress counters are written."""
+
     engine: InferenceEngineType | None = None
     """The inference engine to use for generation.
 

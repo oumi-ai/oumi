@@ -253,6 +253,74 @@ def test_find_model_hf_config_logs_unused_kwargs():
         )
 
 
+def test_build_tokenizer_passes_model_revision_to_hf_loads():
+    tokenizer = Mock()
+    tokenizer.pad_token = "<pad>"
+    tokenizer.pad_token_id = 0
+    tokenizer.chat_template = "test template"
+
+    with (
+        patch(
+            "oumi.builders.models.find_internal_model_config_using_model_name"
+        ) as mock_find_internal_config,
+        patch(
+            "oumi.builders.models.transformers.AutoTokenizer.from_pretrained"
+        ) as mock_from_pretrained,
+    ):
+        mock_find_internal_config.return_value = None
+        mock_from_pretrained.return_value = tokenizer
+
+        result = build_tokenizer(
+            ModelParams(model_name="test-model", model_revision="abc123")
+        )
+
+    assert result == tokenizer
+    mock_find_internal_config.assert_called_once_with(
+        model_name="test-model",
+        trust_remote_code=False,
+        revision="abc123",
+    )
+    mock_from_pretrained.assert_called_once_with(
+        "test-model",
+        trust_remote_code=False,
+        revision="abc123",
+    )
+
+
+def test_build_tokenizer_does_not_duplicate_revision_from_tokenizer_kwargs():
+    """A revision pinned in tokenizer_kwargs must not collide with model_revision."""
+    tokenizer = Mock()
+    tokenizer.pad_token = "<pad>"
+    tokenizer.pad_token_id = 0
+    tokenizer.chat_template = "test template"
+
+    with (
+        patch(
+            "oumi.builders.models.find_internal_model_config_using_model_name"
+        ) as mock_find_internal_config,
+        patch(
+            "oumi.builders.models.transformers.AutoTokenizer.from_pretrained"
+        ) as mock_from_pretrained,
+    ):
+        mock_find_internal_config.return_value = None
+        mock_from_pretrained.return_value = tokenizer
+
+        build_tokenizer(
+            ModelParams(
+                model_name="test-model",
+                model_revision="from-model-revision",
+                tokenizer_kwargs={"revision": "from-kwargs"},
+            )
+        )
+
+    # An explicit revision in tokenizer_kwargs wins over model_revision.
+    mock_from_pretrained.assert_called_once_with(
+        "test-model",
+        trust_remote_code=False,
+        revision="from-kwargs",
+    )
+
+
 def test_build_huggingface_model_passes_model_kwargs_to_find_model_hf_config():
     """Test that build_huggingface_model passes model_kwargs to find_model_hf_config."""
     model_kwargs = {
