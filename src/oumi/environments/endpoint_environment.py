@@ -153,12 +153,7 @@ class EndpointEnvironment(BaseEnvironment):
             )
         tool.validate_arguments(arguments)
 
-        payload: dict[str, JsonValue] = {
-            "name": tool_id,
-            "arguments": arguments,
-            "call_id": call_id,
-            "session_id": session_id or self._session_id,
-        }
+        payload = self._build_payload(tool_id, arguments, call_id, session_id)
         try:
             output = self._transport(
                 url=self._kwargs.endpoint_url,
@@ -172,6 +167,26 @@ class EndpointEnvironment(BaseEnvironment):
 
         self._validate_output(tool, output)
         return ToolResult(output=output)
+
+    def _build_payload(
+        self,
+        tool_id: str,
+        arguments: dict[str, Any],
+        call_id: str,
+        session_id: str | None,
+    ) -> dict[str, JsonValue]:
+        """Shape one call into the request body the endpoint is sent.
+
+        This and :meth:`_validate_output` are the two ends of the wire contract:
+        a different contract replaces both and leaves the rest of ``call``
+        untouched.
+        """
+        return {
+            "name": tool_id,
+            "arguments": arguments,
+            "call_id": call_id,
+            "session_id": session_id or self._session_id,
+        }
 
     @staticmethod
     def _validate_output(tool: ToolParams, output: JsonValue) -> None:
