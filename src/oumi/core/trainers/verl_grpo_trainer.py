@@ -353,6 +353,13 @@ class VerlGrpoTrainer(BaseTrainer):
                 "split": split,
                 "index": idx,
                 "answer": answer,
+                # Carry the source conversation's metadata so a platform-judge
+                # reward can join per-prompt data fields onto the completion it
+                # scores. In extra_info (passed straight to the reward), not a
+                # top-level column, so it needs no parquet re-read or index join.
+                # JSON-encoded so an empty dict stays a valid string rather than an
+                # unwritable empty parquet struct.
+                "metadata": json.dumps(metadata),
             },
         }
         return data
