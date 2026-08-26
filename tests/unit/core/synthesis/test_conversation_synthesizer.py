@@ -34,7 +34,12 @@ from oumi.core.configs.params.synthesis_params import (
     SampledAttributeValue,
 )
 from oumi.core.configs.params.tool_params import ToolParams
-from oumi.core.synthesis.conversation_synthesizer import ConversationSynthesizer
+from oumi.core.synthesis.conversation_synthesizer import (
+    ConversationSynthesizer,
+    OpeningTurnPrompt,
+    PlannerPrompt,
+    SeedConversation,
+)
 from oumi.core.types.conversation import (
     PLANNER_JSON_SCHEMA,
     Conversation,
@@ -43,6 +48,7 @@ from oumi.core.types.conversation import (
 )
 from oumi.core.types.tool_call import FunctionCall, ToolCall, ToolResult
 from oumi.environments.base_environment import BaseEnvironment
+from oumi.environments.simulated_environment import SimulatedEnvironment
 
 
 @pytest.fixture
@@ -144,6 +150,198 @@ def test_synthesize_returns_list_of_dicts(
         assert isinstance(item, dict)
         assert mock_multiturn_attribute.id in item
         assert plan_key in item
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_build_planner_prompts_selects_turns_without_inference(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_multiturn_attribute,
+    mock_inference_config,
+):
+    """build_planner_prompts renders prompts and picks turns, but never infers."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+
+    synthesizer = ConversationSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+
+    samples = [
+        {"customer_type": "frustrated", "issue": "billing problem"},
+        {"customer_type": "friendly", "issue": "product question"},
+    ]
+    prompts = synthesizer.build_planner_prompts(samples, mock_multiturn_attribute)
+
+    assert len(prompts) == len(samples)
+    mock_inference_engine.infer.assert_not_called()
+    for prompt, sample in zip(prompts, samples):
+        assert isinstance(prompt, PlannerPrompt)
+        # target_turns is a message count: rounds * len(turn_order).
+        turn_order_len = len(synthesizer._default_turn_order)
+        target_turns = prompt.augmented_sample["target_turns"]
+        assert mock_multiturn_attribute.min_turns * turn_order_len <= target_turns
+        assert target_turns <= mock_multiturn_attribute.max_turns * turn_order_len
+        assert target_turns % turn_order_len == 0
+        assert prompt.augmented_sample["conversation_plan"] == ""
+        assert prompt.augmented_sample["parsed_turn_plans"] == [""] * target_turns
+        assert prompt.augmented_sample["issue"] == sample["issue"]
+        assert prompt.conversation.messages[-1].role == Role.USER
+        assert sample["issue"] in str(prompt.conversation.messages[-1].content)
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_build_planner_prompts_attaches_grounding(
+    mock_build_inference_engine, mock_inference_config
+):
+    """build_planner_prompts grounds prompts for grounded envs, without inference."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+    env_config = _grounded_env_config(n_entries=10, sample_size=2, seed=5)
+    synthesizer = ConversationSynthesizer(
+        GeneralSynthesisParams(),
+        mock_inference_config,
+        environment_config=env_config,
+    )
+
+    prompts = synthesizer.build_planner_prompts(
+        [{}], _grounding_attr(available_envs=["env1"], available_tools=["lookup"])
+    )
+
+    mock_inference_engine.infer.assert_not_called()
+    assert len(prompts[0].augmented_sample["grounding_facts"]) == 2
+    assert "Ground this plan in these specific entities" in str(
+        prompts[0].conversation.messages[-1].content
+    )
+
+
+def test_build_planner_prompts_warns_on_grounding_placeholder(mock_inference_config):
+    """build_planner_prompts runs the placeholder-misuse check, like synthesize."""
+    synth = _make_synthesizer(mock_inference_config)
+    attr = _grounding_attr()
+    with patch.object(synth, "_warn_on_grounding_placeholder") as mock_warn:
+        synth.build_planner_prompts([{}], attr)
+    mock_warn.assert_called_once_with(attr)
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_build_opening_turn_prompts_parses_plan_and_builds_prompt(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_multiturn_attribute,
+    mock_inference_config,
+):
+    """build_opening_turn_prompts parses the plan and renders the turn-1 prompt."""
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+
+    synthesizer = ConversationSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+
+    samples = [{"customer_type": "frustrated", "issue": "billing", "target_turns": 2}]
+    plans = [
+        '{"turns": [{"turn": 1, "instruction": "explain the billing issue"}, '
+        '{"turn": 2, "instruction": "acknowledge and resolve"}]}'
+    ]
+    result = synthesizer.build_opening_turn_prompts(
+        samples, plans, mock_multiturn_attribute
+    )
+
+    assert len(result) == 1
+    mock_inference_engine.infer.assert_not_called()
+    prompt = result[0]
+    assert isinstance(prompt, OpeningTurnPrompt)
+    assert prompt.augmented_sample["parsed_turn_plans"] == [
+        "explain the billing issue",
+        "acknowledge and resolve",
+    ]
+    assert prompt.augmented_sample["conversation_plan"] == plans[0]
+    assert prompt.conversation.messages[0].role == Role.SYSTEM
+    assert prompt.conversation.messages[-1].role == Role.USER
+    assert "explain the billing issue" in str(prompt.conversation.messages[-1].content)
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_build_seed_conversations_assembles_seed_and_state(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_multiturn_attribute,
+    mock_inference_config,
+):
+    """build_seed_conversations builds the [assistant persona, opening user] seed."""
+    mock_build_inference_engine.return_value = Mock()
+
+    synthesizer = ConversationSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+
+    samples = [
+        {
+            "customer_type": "frustrated",
+            "issue": "billing",
+            "target_turns": 3,
+            "parsed_turn_plans": ["open", "answer", "close"],
+        }
+    ]
+    openings = ["Hi, my latest bill looks wrong."]
+    seeds = synthesizer.build_seed_conversations(
+        samples, openings, mock_multiturn_attribute
+    )
+
+    assert len(seeds) == 1
+    seed = seeds[0]
+    assert isinstance(seed, SeedConversation)
+    assert seed.conversation.messages[0].role == Role.SYSTEM
+    assert seed.conversation.messages[1].role == Role.USER
+    assert seed.conversation.messages[1].content == "Hi, my latest bill looks wrong."
+    state = seed.generation_state
+    assert state["target_turns"] == 3
+    assert state["turn_plans"] == ["open", "answer", "close"]
+    assert "billing" in state["user_persona"]
+    assert state["output_system_prompt"] is not None
+    assert "billing" in state["output_system_prompt"]
+
+
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_build_seed_conversations_renders_current_turn_personas(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_inference_config,
+):
+    """Personas referencing {current_turn} render (as turn 1), not crash.
+
+    current_turn is a reserved placeholder the in-process path injects per turn;
+    the seed builder renders once as turn 1 rather than raising on the missing key.
+    """
+    mock_build_inference_engine.return_value = Mock()
+    attr = MultiTurnAttribute(
+        id="conversation",
+        min_turns=2,
+        max_turns=4,
+        role_instruction_messages={
+            Role.USER: "You are the user on turn {current_turn}.",
+            Role.ASSISTANT: "You are the assistant on turn {current_turn}.",
+        },
+        conversation_planner="Plan a {target_turns}-turn conversation.",
+    )
+    synthesizer = ConversationSynthesizer(
+        mock_general_synthesis_params, mock_inference_config
+    )
+
+    seeds = synthesizer.build_seed_conversations(
+        [{"target_turns": 3, "parsed_turn_plans": ["a", "b", "c"]}],
+        ["Hi."],
+        attr,
+    )
+
+    assert seeds[0].conversation.messages[0].content == (
+        "You are the assistant on turn 1."
+    )
+    assert seeds[0].generation_state["user_persona"] == "You are the user on turn 1."
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
@@ -520,8 +718,9 @@ def test_generate_plan_uses_planner_only_guided_decoding(
         [{"customer_type": "friendly", "issue": "product question"}],
         MultiTurnAttribute(
             id="test_conversation",
-            min_turns=2,
-            max_turns=2,
+            # 1 round (2 turns) matches the 3 scripted infer results below.
+            min_turns=1,
+            max_turns=1,
             role_instruction_messages={
                 Role.USER: "You are a {customer_type} customer with issue: {issue}.",
                 Role.ASSISTANT: "You are a helpful support agent.",
@@ -993,6 +1192,47 @@ def _make_synthesizer(mock_inference_config, environment_config=None):
         )
 
 
+def _turn_attr(min_turns: int, max_turns: int) -> MultiTurnAttribute:
+    return MultiTurnAttribute(
+        id="c",
+        min_turns=min_turns,
+        max_turns=max_turns,
+        role_instruction_messages={Role.USER: "u", Role.ASSISTANT: "a"},
+    )
+
+
+@pytest.mark.parametrize(
+    ("min_turns", "max_turns", "turn_order", "drawn_rounds", "expected_messages"),
+    [
+        (2, 5, [Role.USER, Role.ASSISTANT], 3, 6),
+        (4, 4, [Role.USER, Role.ASSISTANT], 4, 8),  # min == max (single value)
+        (1, 3, [Role.USER, Role.ASSISTANT], 1, 2),  # min == 1 -> single exchange
+        (2, 5, [Role.USER], 3, 3),  # ASSISTANT absent: still rounds * len
+        (2, 5, [Role.USER, Role.ASSISTANT, Role.USER], 3, 9),  # 3-role turn_order
+    ],
+)
+@patch("oumi.core.synthesis.conversation_synthesizer.random.randint")
+def test_select_target_turns_counts_rounds_as_messages(
+    mock_randint,
+    mock_inference_config,
+    min_turns,
+    max_turns,
+    turn_order,
+    drawn_rounds,
+    expected_messages,
+):
+    """min/max_turns are rounds; the method returns rounds * len(turn_order)."""
+    mock_randint.return_value = drawn_rounds
+    synthesizer = _make_synthesizer(mock_inference_config)
+
+    result = synthesizer._select_target_turns(
+        _turn_attr(min_turns, max_turns), turn_order
+    )
+
+    assert result == expected_messages
+    mock_randint.assert_called_once_with(min_turns, max_turns)
+
+
 def _grounded_env_params(
     env_id: str = "env1",
     tool_id: str = "lookup",
@@ -1011,7 +1251,7 @@ def _grounded_env_params(
         id=env_id,
         name=env_id,
         description=f"env {env_id}",
-        env_type="deterministic",
+        env_type="lookup",
         tools=[ToolParams(id=tool_id, name=tool_id, description="Look up an id.")],
         env_kwargs={
             "lookup_table": {
@@ -1046,7 +1286,7 @@ def _ungrounded_env_config():
                 id="env1",
                 name="env1",
                 description="ungrounded env",
-                env_type="deterministic",
+                env_type="lookup",
                 tools=[ToolParams(id="lookup", name="lookup", description="Look up.")],
                 env_kwargs={
                     "lookup_table": {
@@ -1210,7 +1450,7 @@ def test_attach_grounding_facts_filters_by_available_tools(mock_inference_config
         id="env",
         name="Env",
         description="d",
-        env_type="deterministic",
+        env_type="lookup",
         tools=[
             ToolParams(id="lookup_a", name="A", description="d"),
             ToolParams(id="lookup_b", name="B", description="d"),
@@ -1449,6 +1689,14 @@ def test_synthesize_invokes_attach_grounding_facts(
     assert "grounding_facts" in samples[0]
     assert len(samples[0]["grounding_facts"]) == 2
     assert len(result) == 1
+    # 2 rounds -> 4 messages ending on assistant, through the real turn loop.
+    record = result[0]
+    assert record is not None
+    conv = record["t"]
+    assert isinstance(conv, dict)
+    messages = conv["messages"]
+    assert len(messages) == 4
+    assert messages[-1]["role"] == "assistant"
 
 
 # --- {grounding_facts} placeholder misuse warning ---
@@ -1638,8 +1886,8 @@ def test_synthesize_attaches_tools_to_assistant_prompt(
 
     multiturn_attr = MultiTurnAttribute(
         id="dialog",
-        min_turns=2,
-        max_turns=2,
+        min_turns=1,
+        max_turns=1,
         role_instruction_messages={
             Role.USER: "user",
             Role.ASSISTANT: "assistant",
@@ -1667,6 +1915,151 @@ def test_synthesize_attaches_tools_to_assistant_prompt(
     assert assistant_prompt.tools is not None
     assert len(assistant_prompt.tools) == 1
     assert assistant_prompt.tools[0].function.name == "lookup"
+
+
+@patch("oumi.core.synthesis.tool_router.build_environment")
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_synthesize_attaches_tools_to_output_conversation(
+    mock_build_inference_engine,
+    mock_build_environment,
+    mock_general_synthesis_params,
+):
+    """The emitted conversation carries the tool definitions available to it."""
+
+    def capturing_infer(prompts, inference_config=None):
+        return [
+            Conversation(messages=[Message(role=Role.ASSISTANT, content="ok")])
+            for _ in prompts
+        ]
+
+    mock_engine = Mock()
+    mock_engine.infer.side_effect = capturing_infer
+    mock_build_inference_engine.return_value = mock_engine
+    mock_build_environment.return_value = Mock()
+
+    env_config = MagicMock(spec=EnvironmentConfig)
+    env_config.all_tools = [ToolParams(id="lookup", name="lookup", description="x")]
+    env_config.environments = []
+    env_config.tool_environment_map = {}
+
+    inference_config = InferenceConfig(
+        engine=InferenceEngineType.OPENAI,
+        model=Mock(spec=ModelParams),
+        remote_params=Mock(spec=RemoteParams),
+        generation=GenerationParams(),
+    )
+
+    multiturn_attr = MultiTurnAttribute(
+        id="dialog",
+        min_turns=1,
+        max_turns=1,
+        role_instruction_messages={
+            Role.USER: "user",
+            Role.ASSISTANT: "assistant",
+        },
+    )
+
+    synth = ConversationSynthesizer(
+        mock_general_synthesis_params,
+        inference_config,
+        environment_config=env_config,
+    )
+    with patch.object(
+        synth,
+        "_resolve_available_tools",
+        return_value=env_config.all_tools,
+    ):
+        result = synth.synthesize(
+            samples=[{"target_turns": 2, "parsed_turn_plans": []}],
+            multiturn_attributes=multiturn_attr,
+        )
+
+    record = result[0]
+    assert record is not None
+    conversation = record["dialog"]
+    assert isinstance(conversation, dict)
+    tools = conversation["tools"]
+    assert tools is not None
+    assert len(tools) == 1
+    assert tools[0]["function"]["name"] == "lookup"
+
+
+@patch("oumi.core.synthesis.tool_router.build_environment")
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_synthesize_emits_tools_for_unlabeled_environment(
+    mock_build_inference_engine,
+    mock_build_environment,
+    mock_general_synthesis_params,
+):
+    """An environment with no name/description still finalizes and emits tools.
+
+    Drives a real ``EnvironmentConfig`` (not a mock) whose environment omits the
+    optional ``name`` and ``description`` labels, proving the labels are truly
+    optional end-to-end and that its tools still reach the output conversation.
+    """
+
+    def capturing_infer(prompts, inference_config=None):
+        return [
+            Conversation(messages=[Message(role=Role.ASSISTANT, content="ok")])
+            for _ in prompts
+        ]
+
+    mock_engine = Mock()
+    mock_engine.infer.side_effect = capturing_infer
+    mock_build_inference_engine.return_value = mock_engine
+    mock_build_environment.return_value = Mock()
+
+    env_config = EnvironmentConfig(
+        environments=[
+            EnvironmentParams(
+                id="library",
+                env_type="lookup",
+                tools=[ToolParams(id="lookup", name="lookup", description="x")],
+            )
+        ]
+    )
+    env_config.finalize_and_validate()
+
+    inference_config = InferenceConfig(
+        engine=InferenceEngineType.OPENAI,
+        model=Mock(spec=ModelParams),
+        remote_params=Mock(spec=RemoteParams),
+        generation=GenerationParams(),
+    )
+
+    multiturn_attr = MultiTurnAttribute(
+        id="dialog",
+        min_turns=1,
+        max_turns=1,
+        available_environments=["library"],
+        role_instruction_messages={
+            Role.USER: "user",
+            Role.ASSISTANT: "assistant",
+        },
+    )
+
+    synth = ConversationSynthesizer(
+        mock_general_synthesis_params,
+        inference_config,
+        environment_config=env_config,
+    )
+    with patch.object(
+        synth,
+        "_resolve_available_tools",
+        return_value=env_config.all_tools,
+    ):
+        result = synth.synthesize(
+            samples=[{"target_turns": 2, "parsed_turn_plans": []}],
+            multiturn_attributes=multiturn_attr,
+        )
+
+    record = result[0]
+    assert record is not None
+    conversation = record["dialog"]
+    assert isinstance(conversation, dict)
+    tools = conversation["tools"]
+    assert tools is not None
+    assert tools[0]["function"]["name"] == "lookup"
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
@@ -1729,7 +2122,7 @@ def _make_env_config(env_id: str, tool_id: str) -> MagicMock:
         id=env_id,
         name="x",
         description="x",
-        env_type="deterministic",
+        env_type="lookup",
         tools=[],
     )
     env_config = MagicMock(spec=EnvironmentConfig)
@@ -1779,6 +2172,55 @@ def test_dispatch_tool_calls_routes_through_env(
     assert msg.tool_call_id == "call_1"
     assert msg.content == '{"city": "Paris"}'
     fake_env.step.assert_called_once_with([("get_weather", {"city": "Paris"})])
+
+
+@pytest.mark.parametrize(
+    ("output", "expected_content"),
+    [
+        (None, "null"),
+        (191.23, "191.23"),
+        (["users", "orders"], '["users", "orders"]'),
+        (True, "true"),
+    ],
+)
+@patch("oumi.core.synthesis.tool_router.build_environment")
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_dispatch_tool_calls_json_encodes_non_dict_output(
+    mock_build_inference_engine,
+    mock_build_environment,
+    mock_general_synthesis_params,
+    output,
+    expected_content,
+):
+    """Non-dict tool outputs are json-encoded at the TOOL message boundary."""
+    mock_build_inference_engine.return_value = Mock()
+
+    fake_env = Mock(spec=BaseEnvironment)
+    fake_env.step.return_value = [ToolResult(output=output)]
+    mock_build_environment.return_value = fake_env
+
+    env_config = _make_env_config("weather", "get_weather")
+    inference_config = InferenceConfig(
+        engine=InferenceEngineType.OPENAI,
+        model=Mock(spec=ModelParams),
+        remote_params=Mock(spec=RemoteParams),
+        generation=GenerationParams(),
+    )
+    synth = ConversationSynthesizer(
+        mock_general_synthesis_params,
+        inference_config,
+        environment_config=env_config,
+    )
+
+    tc = ToolCall(
+        id="call_1",
+        function=FunctionCall(name="get_weather", arguments='{"city": "Paris"}'),
+    )
+    synth._prepare_sample_routers(1)
+    [msg] = synth._dispatch_tool_calls([tc], 0)
+
+    assert msg.role == Role.TOOL
+    assert msg.content == expected_content
 
 
 @patch("oumi.core.synthesis.tool_router.build_environment")
@@ -1969,6 +2411,80 @@ def test_dispatch_tool_calls_handles_env_exception_with_per_call_fallback(
 
 @patch("oumi.core.synthesis.tool_router.build_environment")
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_dispatch_tool_calls_recovers_from_unguided_schema_drift(
+    mock_build_inference_engine,
+    mock_build_environment,
+    mock_general_synthesis_params,
+):
+    """End-to-end: guidance off → off-schema simulator output → recoverable tool error.
+
+    Drives a real ``SimulatedEnvironment`` so the assertions cover the whole path:
+    no constraint reaches the engine, and the resulting ``ToolError`` becomes a
+    ``TOOL`` message instead of killing the sample.
+    """
+    tool = ToolParams(
+        id="answer",
+        name="Answer",
+        description="Answer.",
+        parameters={
+            "type": "object",
+            "properties": {"q": {"type": "string"}},
+            "required": ["q"],
+        },
+        output_schema={
+            "type": "object",
+            "properties": {"a": {"type": "string"}},
+            "required": ["a"],
+        },
+    )
+    env_params = EnvironmentParams(
+        id="faq",
+        name="FAQ",
+        description="FAQ env",
+        env_type="simulated",
+        tools=[tool],
+        env_kwargs={"tool_persona": "Answer FAQs.", "use_guided_decoding": False},
+    )
+    mock_build_environment.return_value = SimulatedEnvironment.from_params(env_params)
+
+    mock_engine = Mock()
+    mock_engine.infer = Mock(
+        side_effect=lambda convs, _cfg: [
+            Conversation(
+                messages=[*c.messages, Message(role=Role.ASSISTANT, content='{"a": 1}')]
+            )
+            for c in convs
+        ]
+    )
+    mock_build_inference_engine.return_value = mock_engine
+
+    env_config = MagicMock(spec=EnvironmentConfig)
+    env_config.environments = [env_params]
+    env_config.all_tools = [tool]
+    env_config.tool_environment_map = {"answer": "faq"}
+
+    synth = ConversationSynthesizer(
+        mock_general_synthesis_params,
+        InferenceConfig(
+            engine=InferenceEngineType.OPENAI,
+            model=Mock(spec=ModelParams),
+            remote_params=Mock(spec=RemoteParams),
+            generation=GenerationParams(),
+        ),
+        environment_config=env_config,
+    )
+
+    tc = ToolCall(id="c", function=FunctionCall(name="answer", arguments='{"q": "x"}'))
+    synth._prepare_sample_routers(1)
+    [msg] = synth._dispatch_tool_calls([tc], 0)
+
+    assert mock_engine.infer.call_args[0][1].generation.guided_decoding is None
+    assert msg.role == Role.TOOL
+    assert "failed schema validation" in str(msg.content)
+
+
+@patch("oumi.core.synthesis.tool_router.build_environment")
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
 def test_assistant_turn_loops_on_tool_calls(
     mock_build_inference_engine,
     mock_build_environment,
@@ -2034,8 +2550,8 @@ def test_assistant_turn_loops_on_tool_calls(
 
     multiturn_attr = MultiTurnAttribute(
         id="dialog",
-        min_turns=2,
-        max_turns=2,
+        min_turns=1,
+        max_turns=1,
         role_instruction_messages={
             Role.USER: "user",
             Role.ASSISTANT: "assistant",
@@ -2142,8 +2658,8 @@ def test_assistant_turn_caps_at_max_consecutive_tool_turns_then_finalizes(
 
     multiturn_attr = MultiTurnAttribute(
         id="dialog",
-        min_turns=2,
-        max_turns=2,
+        min_turns=1,
+        max_turns=1,
         role_instruction_messages={
             Role.USER: "user",
             Role.ASSISTANT: "assistant",
@@ -2249,8 +2765,8 @@ def test_assistant_turn_dispatches_parallel_batch_unrestricted(
 
     multiturn_attr = MultiTurnAttribute(
         id="dialog",
-        min_turns=2,
-        max_turns=2,
+        min_turns=1,
+        max_turns=1,
         role_instruction_messages={
             Role.USER: "user",
             Role.ASSISTANT: "assistant",
@@ -2283,12 +2799,12 @@ def test_assistant_turn_dispatches_parallel_batch_unrestricted(
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
-def test_synthesizer_attaches_inference_to_synthetic_env(
+def test_synthesizer_attaches_inference_to_simulated_env(
     mock_build_inference_engine,
     mock_general_synthesis_params,
 ):
-    """SyntheticEnvironments built via _tool_dispatch get attach_inference()."""
-    from oumi.environments.synthetic_environment import SyntheticEnvironment
+    """Simulated environments built via _tool_dispatch get attach_inference()."""
+    from oumi.environments.simulated_environment import SimulatedEnvironment
 
     mock_engine = Mock()
     mock_build_inference_engine.return_value = mock_engine
@@ -2296,8 +2812,8 @@ def test_synthesizer_attaches_inference_to_synthetic_env(
     env_params = EnvironmentParams(
         id="docs",
         name="Docs",
-        description="Synthetic docs env",
-        env_type="synthetic",
+        description="Simulated docs env",
+        env_type="simulated",
         tools=[
             ToolParams(
                 id="lookup",
@@ -2310,7 +2826,7 @@ def test_synthesizer_attaches_inference_to_synthetic_env(
                 },
             )
         ],
-        env_kwargs={"system_prompt": "Simulate the lookup tool."},
+        env_kwargs={"tool_persona": "Simulate the lookup tool."},
     )
     env_config = EnvironmentConfig(environments=[env_params])
 
@@ -2328,7 +2844,7 @@ def test_synthesizer_attaches_inference_to_synthetic_env(
 
     assert synth._router is not None
     env = synth._router.tool_to_env["lookup"]
-    assert isinstance(env, SyntheticEnvironment)
+    assert isinstance(env, SimulatedEnvironment)
     assert env._engine is mock_engine
     assert env._base_inference_config is inference_config
 
@@ -2341,7 +2857,7 @@ def test_prepare_sample_routers_builds_one_router_per_sample(
 ):
     """_prepare_sample_routers materializes a router clone per sample.
 
-    The deterministic env carries no mutable state so it is shared across
+    The lookup env carries no mutable state so it is shared across
     routers; only the router wrappers themselves are per-sample.
     """
     env_config = _grounded_env_config(n_entries=5, sample_size=2, seed=1)
@@ -2579,13 +3095,13 @@ def test_token_usage_accumulates_in_straggler_finalization(
 
     mock_engine.infer.side_effect = infer_side_effect
 
-    # min == max == 2 makes the turn order deterministic (USER then ASSISTANT);
+    # min == max == 1 is one round -- USER then ASSISTANT, deterministic;
     # max_consecutive_tool_turns=0 routes the ASSISTANT turn through
     # _finalize_stragglers instead of a tool round.
     multiturn_attr = MultiTurnAttribute(
         id="straggler_conversation",
-        min_turns=2,
-        max_turns=2,
+        min_turns=1,
+        max_turns=1,
         role_instruction_messages={
             Role.USER: "You are a user.",
             Role.ASSISTANT: "You are an assistant.",

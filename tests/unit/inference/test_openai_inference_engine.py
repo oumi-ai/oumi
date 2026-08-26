@@ -32,6 +32,32 @@ def openai_engine():
     )
 
 
+def test_convert_conversation_includes_user_id():
+    engine = OpenAIInferenceEngine(
+        model_params=ModelParams(model_name="gpt-4"),
+        remote_params=RemoteParams(
+            api_key="test_api_key", api_url="<placeholder>", user_id="ORG-7"
+        ),
+    )
+    conversation = Conversation(messages=[Message(content="hi", role=Role.USER)])
+
+    api_input = engine._convert_conversation_to_api_input(
+        conversation, engine._generation_params, engine._model_params
+    )
+
+    assert api_input["user"] == "ORG-7"
+
+
+def test_convert_conversation_omits_user_without_user_id(openai_engine):
+    conversation = Conversation(messages=[Message(content="hi", role=Role.USER)])
+
+    api_input = openai_engine._convert_conversation_to_api_input(
+        conversation, openai_engine._generation_params, openai_engine._model_params
+    )
+
+    assert "user" not in api_input
+
+
 def test_openai_init_with_custom_params():
     """Test initialization with custom parameters."""
     model_params = ModelParams(model_name="gpt-4")

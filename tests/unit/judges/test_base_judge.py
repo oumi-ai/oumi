@@ -17,7 +17,12 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 
 from oumi.core.configs.params.judge_params import JudgeOutputType, JudgeResponseFormat
-from oumi.core.inference.base_inference_engine import BatchResult
+from oumi.core.inference.base_inference_engine import (
+    BatchResult,
+    FailureDetail,
+    InferenceErrorType,
+    InferenceResult,
+)
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.judges.base_judge import BaseJudge, JudgeOutput, JudgeOutputField
 
@@ -1182,3 +1187,283 @@ class TestBaseJudge:
         assert base_judge.total_input_tokens == 22
         assert base_judge.total_output_tokens == 11
         assert base_judge.total_cached_tokens == 11
+
+
+class TestJudgePartial:
+    """Test cases for BaseJudge.judge_partial."""
+
+    @pytest.fixture
+    def sample_output_fields(self):
+        return [
+            JudgeOutputField(
+                field_key="judgment",
+                field_type=JudgeOutputType.BOOL,
+                field_scores=None,
+            )
+        ]
+
+    def _create_judge(self, mock_engine, sample_output_fields):
+        return BaseJudge(
+            prompt_template="Is this helpful? Question: {question}, Answer: {answer}",
+            prompt_template_placeholders={"question", "answer"},
+            system_instruction=None,
+            example_field_values=[],
+            response_format=JudgeResponseFormat.XML,
+            output_fields=sample_output_fields,
+            inference_engine=mock_engine,
+        )
+
+    def _judged_conversation(
+        self, judgment: str = "True", metadata: dict | None = None
+    ) -> Conversation:
+        return Conversation(
+            messages=[
+                Message(content="Test prompt", role=Role.USER),
+                Message(
+                    content=f"<judgment>{judgment}</judgment>", role=Role.ASSISTANT
+                ),
+            ],
+            metadata=metadata or {},
+        )
+
+    def test_judge_partial_all_success(self, sample_output_fields):
+        mock_engine = MagicMock()
+        mock_engine.infer_partial.return_value = InferenceResult(
+            successful=[
+                (0, self._judged_conversation("True")),
+                (1, self._judged_conversation("False")),
+            ],
+            failures={},
+        )
+        judge = self._create_judge(mock_engine, sample_output_fields)
+
+        inputs = [
+            {"question": "What is 1+1?", "answer": "2"},
+            {"question": "What is 2+2?", "answer": "5"},
+        ]
+        result = judge.judge_partial(inputs)
+
+        assert not result.has_failures
+        assert [idx for idx, _ in result.successful] == [0, 1]
+        assert result.successful[0][1].field_values == {"judgment": True}
+        assert result.successful[1][1].field_values == {"judgment": False}
+        mock_engine.infer_partial.assert_called_once()
+        call_kwargs = mock_engine.infer_partial.call_args.kwargs
+        assert len(call_kwargs["input"]) == 2
+        assert call_kwargs["progress_path"] is None
+
+    def test_judge_partial_inference_failures_pass_through(self, sample_output_fields):
+        detail = FailureDetail(
+            error_message="HTTP 429: Too many requests",
+            status_code=429,
+            is_retryable=True,
+            error_type=InferenceErrorType.API_STATUS,
+        )
+        mock_engine = MagicMock()
+        mock_engine.infer_partial.return_value = InferenceResult(
+            successful=[(0, self._judged_conversation("True"))],
+            failures={1: detail},
+        )
+        judge = self._create_judge(mock_engine, sample_output_fields)
+
+        result = judge.judge_partial(
+            [
+                {"question": "q1", "answer": "a1"},
+                {"question": "q2", "answer": "a2"},
+            ]
+        )
+
+        assert result.has_failures
+        assert result.failed_indices == [1]
+        assert result.failures[1] is detail
+        assert result.error_messages[1] == "HTTP 429: Too many requests"
+        assert [idx for idx, _ in result.successful] == [0]
+
+    def test_judge_partial_parse_failure(self, sample_output_fields):
+        malformed = Conversation(
+            messages=[Message(content="Test prompt", role=Role.USER)]
+        )
+        mock_engine = MagicMock()
+        mock_engine.infer_partial.return_value = InferenceResult(
+            successful=[
+                (0, self._judged_conversation("True")),
+                (1, malformed),
+            ],
+            failures={},
+        )
+        judge = self._create_judge(mock_engine, sample_output_fields)
+
+        result = judge.judge_partial(
+            [
+                {"question": "q1", "answer": "a1"},
+                {"question": "q2", "answer": "a2"},
+            ]
+        )
+
+        assert result.failed_indices == [1]
+        detail = result.failures[1]
+        assert detail.error_type == InferenceErrorType.PARSE_ERROR
+        assert detail.is_retryable
+        assert detail.error_message.startswith("Failed to parse judge output")
+        assert [idx for idx, _ in result.successful] == [0]
+
+    def test_judge_partial_all_fail(self, sample_output_fields):
+        mock_engine = MagicMock()
+        mock_engine.infer_partial.return_value = InferenceResult(
+            successful=[],
+            failures={
+                0: FailureDetail(
+                    error_message="boom", error_type=InferenceErrorType.RUNTIME
+                ),
+                1: FailureDetail(
+                    error_message="boom", error_type=InferenceErrorType.RUNTIME
+                ),
+            },
+        )
+        judge = self._create_judge(mock_engine, sample_output_fields)
+
+        result = judge.judge_partial(
+            [
+                {"question": "q1", "answer": "a1"},
+                {"question": "q2", "answer": "a2"},
+            ]
+        )
+
+        assert result.successful == []
+        assert result.failed_indices == [0, 1]
+
+    def test_judge_partial_empty_input(self, sample_output_fields):
+        mock_engine = MagicMock()
+        judge = self._create_judge(mock_engine, sample_output_fields)
+
+        result = judge.judge_partial([])
+
+        assert result.successful == []
+        assert not result.has_failures
+        mock_engine.infer_partial.assert_not_called()
+
+    def test_judge_partial_no_engine_raises(self, sample_output_fields):
+        judge = self._create_judge(None, sample_output_fields)
+
+        with pytest.raises(ValueError, match="inference_engine is None"):
+            judge.judge_partial([{"question": "q", "answer": "a"}])
+
+    def test_judge_partial_metadata_reattached_by_index(self, sample_output_fields):
+        """Out-of-order/gapped successful indices must get their own metadata.
+
+        This is the regression test for the positional-zip bug class: _infer()
+        zips metadata positionally, which would misalign under partial results.
+        """
+        conv_for_2 = self._judged_conversation("True")
+        conv_for_0 = self._judged_conversation("False")
+        mock_engine = MagicMock()
+        mock_engine.infer_partial.return_value = InferenceResult(
+            successful=[(2, conv_for_2), (0, conv_for_0)],
+            failures={
+                1: FailureDetail(
+                    error_message="boom", error_type=InferenceErrorType.RUNTIME
+                )
+            },
+        )
+        judge = self._create_judge(mock_engine, sample_output_fields)
+
+        inputs = [
+            Conversation(
+                messages=[Message(content=f"prompt {idx}", role=Role.USER)],
+                metadata={"original_index": idx},
+            )
+            for idx in range(3)
+        ]
+        result = judge.judge_partial(inputs)
+
+        assert conv_for_2.metadata["original_index"] == 2
+        assert conv_for_0.metadata["original_index"] == 0
+        assert sorted(idx for idx, _ in result.successful) == [0, 2]
+
+    def test_judge_partial_token_usage_accumulated_including_parse_failures(
+        self, sample_output_fields
+    ):
+        malformed = Conversation(
+            messages=[Message(content="Test prompt", role=Role.USER)],
+            metadata={
+                "usage": {
+                    "prompt_tokens": 150,
+                    "completion_tokens": 30,
+                    "cached_tokens": 10,
+                }
+            },
+        )
+        mock_engine = MagicMock()
+        mock_engine.infer_partial.return_value = InferenceResult(
+            successful=[
+                (
+                    0,
+                    self._judged_conversation(
+                        "True",
+                        metadata={
+                            "usage": {
+                                "prompt_tokens": 100,
+                                "completion_tokens": 20,
+                                "cached_tokens": 5,
+                            }
+                        },
+                    ),
+                ),
+                (1, malformed),
+            ],
+            failures={},
+        )
+        judge = self._create_judge(mock_engine, sample_output_fields)
+
+        result = judge.judge_partial(
+            [
+                {"question": "q1", "answer": "a1"},
+                {"question": "q2", "answer": "a2"},
+            ]
+        )
+
+        # Tokens were spent on the parse-failed row too.
+        assert result.failed_indices == [1]
+        assert judge.total_input_tokens == 250
+        assert judge.total_output_tokens == 50
+        assert judge.total_cached_tokens == 15
+
+    def test_judge_partial_matches_judge_outputs(self, sample_output_fields):
+        completed = [
+            self._judged_conversation("True"),
+            self._judged_conversation("False"),
+        ]
+        mock_engine = MagicMock()
+        mock_engine.infer.return_value = [c.model_copy(deep=True) for c in completed]
+        mock_engine.infer_partial.return_value = InferenceResult(
+            successful=[
+                (idx, c.model_copy(deep=True)) for idx, c in enumerate(completed)
+            ],
+            failures={},
+        )
+        judge = self._create_judge(mock_engine, sample_output_fields)
+        inputs = [
+            {"question": "q1", "answer": "a1"},
+            {"question": "q2", "answer": "a2"},
+        ]
+
+        judge_outputs = judge.judge(inputs)
+        partial_result = judge.judge_partial(inputs)
+
+        assert [o.field_values for o in judge_outputs] == [
+            o.field_values for _, o in partial_result.successful
+        ]
+
+    def test_judge_partial_passes_progress_path(self, sample_output_fields):
+        mock_engine = MagicMock()
+        mock_engine.infer_partial.return_value = InferenceResult(
+            successful=[], failures={}
+        )
+        judge = self._create_judge(mock_engine, sample_output_fields)
+
+        judge.judge_partial(
+            [{"question": "q", "answer": "a"}], progress_path="/tmp/progress.json"
+        )
+
+        call_kwargs = mock_engine.infer_partial.call_args.kwargs
+        assert call_kwargs["progress_path"] == "/tmp/progress.json"
