@@ -35,6 +35,12 @@ from oumi.environments.base_environment import BaseEnvironment
 from oumi.environments.database_executable_environment import (
     DatabaseExecutableEnvironment,
 )
+from oumi.environments.endpoint_environment import (
+    EndpointCallError,
+    EndpointEnvironment,
+    EndpointEnvironmentKwargs,
+    EndpointTransport,
+)
 from oumi.environments.executable_environment import ExecutableEnvironment
 from oumi.environments.executable_tool import ExecutableTool
 from oumi.environments.lookup_environment import (
@@ -59,6 +65,10 @@ __all__ = [
     # Deprecated aliases, kept so existing imports keep resolving.
     "DeterministicEnvironment",
     "DeterministicEnvironmentKwargs",
+    "EndpointCallError",
+    "EndpointEnvironment",
+    "EndpointEnvironmentKwargs",
+    "EndpointTransport",
     "ExecutableEnvironment",
     "ExecutableTool",
     "GroundingConfig",
