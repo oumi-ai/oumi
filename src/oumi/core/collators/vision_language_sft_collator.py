@@ -82,6 +82,7 @@ class VisionLanguageSftCollator:
         label_ignore_index: int | None = None,
         allow_multi_image_inputs: bool = True,
         trust_remote_code: bool = False,
+        model_revision: str | None = None,
         train_on_completions_only: bool = False,
         response_template: str | None = None,
         instruction_template: str | None = None,
@@ -122,6 +123,8 @@ class VisionLanguageSftCollator:
             trust_remote_code: Whether to trust and execute remote code when loading
                 the processor. Required for some models (e.g., Qwen2-VL) that use
                 custom processing code.
+
+            model_revision: The HuggingFace model revision to load, if any.
 
             process_individually: Whether to process each conversation individually
                 and then collate features by padding to max dimensions. When True:
@@ -190,6 +193,7 @@ class VisionLanguageSftCollator:
                 processor_name=processor_name,
                 processor_kwargs=processor_kwargs,
                 trust_remote_code=trust_remote_code,
+                model_revision=model_revision,
                 return_tensors="pt",
                 truncation=truncation,
                 truncation_side=truncation_side,

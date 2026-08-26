@@ -74,6 +74,7 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
         processor_name: str | None = None,
         processor_kwargs: dict[str, Any] | None = None,
         trust_remote_code: bool = False,
+        model_revision: str | None = None,
         return_tensors: str | None = None,
         max_length: int | None = None,
         truncation: bool = False,
@@ -141,6 +142,7 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
                 tokenizer,
                 trust_remote_code=trust_remote_code,
                 processor_kwargs=processor_kwargs,
+                model_revision=model_revision,
             )
         else:
             raise ValueError(
@@ -156,7 +158,9 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
 
         self._internal_model_config: InternalModelConfig = (
             find_internal_model_config_using_model_name(
-                self._processor.processor_name, trust_remote_code=trust_remote_code
+                self._processor.processor_name,
+                trust_remote_code=trust_remote_code,
+                revision=model_revision,
             )
             or get_default_vlm_model_config()
         )
