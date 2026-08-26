@@ -335,3 +335,88 @@ def test_oumi_and_alpaca_format_prompt_equality(sample_oumi_data, sample_alpaca_
     assert (
         oumi_conversation.messages[1].content == alpaca_conversation.messages[1].content
     )
+
+
+@pytest.fixture
+def sample_tool_calling_data():
+    """OpenAI-style chat with tool calls.
+
+    The assistant tool-call turn has no ``content`` key, and there is a ``tool``
+    role response. Mirrors agentic SFT datasets. Includes a top-level ``id`` to
+    confirm extra keys are ignored.
+    """
+    return [
+        {
+            "id": "rec-1",
+            "messages": [
+                {"role": "system", "content": "You are a helpful airline agent."},
+                {"role": "user", "content": "Cancel reservation IFOYYZ."},
+                {
+                    "role": "assistant",
+                    "tool_calls": [
+                        {
+                            "id": "call_0",
+                            "type": "function",
+                            "function": {
+                                "name": "get_reservation_details",
+                                "arguments": '{"reservation_id": "IFOYYZ"}',
+                            },
+                        }
+                    ],
+                },
+                {
+                    "role": "tool",
+                    "tool_call_id": "call_0",
+                    "content": '{"reservation_id": "IFOYYZ", "status": "active"}',
+                },
+                {
+                    "role": "assistant",
+                    "content": "Your reservation has been cancelled.",
+                },
+                # Explicit null content (vs an omitted key) on a tool-call turn.
+                {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "id": "call_1",
+                            "type": "function",
+                            "function": {
+                                "name": "cancel_reservation",
+                                "arguments": "{}",
+                            },
+                        }
+                    ],
+                },
+            ],
+        }
+    ]
+
+
+def test_tool_calling_messages_format(sample_tool_calling_data):
+    """Tool-calling records auto-detect as the oumi messages format and load.
+
+    Regression test: ``_detect_format`` previously required every message to
+    have a ``content`` key, so assistant ``tool_calls`` turns (content absent)
+    failed detection even though the ``Conversation`` model supports them.
+    """
+    dataset = TextSftJsonLinesDataset(data=sample_tool_calling_data)
+    assert dataset._format == "oumi"
+    assert len(dataset) == 1
+
+    conversation = dataset.conversation(0)
+    assert isinstance(conversation, Conversation)
+    assert len(conversation.messages) == 6
+
+    tool_call_msg = conversation.messages[2]
+    assert tool_call_msg.role == "assistant"
+    assert tool_call_msg.content is None
+    assert tool_call_msg.tool_calls is not None
+    assert tool_call_msg.tool_calls[0].function.name == "get_reservation_details"
+
+    tool_response = conversation.messages[3]
+    assert tool_response.role == "tool"
+    assert tool_response.tool_call_id == "call_0"
+
+    # Explicit null content (vs an omitted key) on a tool-call turn loads too.
+    assert conversation.messages[5].content is None

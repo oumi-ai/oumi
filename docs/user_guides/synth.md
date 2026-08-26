@@ -192,8 +192,8 @@ For dynamic, variable-length conversations, use `multiturn_attributes`. Each tur
 ```yaml
 multiturn_attributes:
   - id: support_conversation
-    min_turns: 4
-    max_turns: 12
+    min_turns: 2
+    max_turns: 6
 
     role_instruction_messages:
       USER: |
@@ -215,16 +215,17 @@ Ready to dive deeper? The sections below cover all available options in detail.
 
 Agentic synthesis now follows an environment-first model. Tools do not declare an output strategy directly. Instead, each tool is bound to an environment, and the environment type defines how tool calls are executed via its `step()` method.
 
-- **`synthetic` environments** are backed by an LLM that simulates tool execution. They can be stateless (no persistent state) or stateful (mutable JSON state across turns). Statefulness is controlled by the optional `state_params` field — when provided, the environment tracks and mutates state across calls; when absent, each call is independent.
-- **`deterministic` environments** behave like lookup tables. Each tool defines a set of input-to-output mappings, and `step()` resolves tool calls by matching arguments against those mappings. No LLM is involved.
+- **`simulated` environments** are backed by an LLM that simulates tool execution. They can be stateless (no persistent state) or stateful (mutable JSON state across turns). Statefulness is controlled by the optional `state_params` field — when provided, the environment tracks and mutates state across calls; when absent, each call is independent.
+- **`lookup` environments** behave like lookup tables. Each tool defines a set of input-to-output mappings, and `step()` resolves tool calls by matching arguments against those mappings. No LLM is involved.
 
 At the config level:
 
 - Environments own their tool definitions.
 - Reusable environment catalogs live in top-level `environment_config` or `environment_config_path`.
 - Tools do not declare an `environment` field. The parent environment owns the binding.
-- `deterministic_outputs` is only used for tools in `deterministic` environments.
-- `read_only` is only meaningful for tools in stateful `synthetic` environments.
+- `env_kwargs.lookup_table` (keyed by tool id) supplies the input-to-output rows a `lookup` environment resolves against.
+- `read_only` is only meaningful for tools in stateful `simulated` environments.
+- `env_kwargs.use_guided_decoding` (default `true`) constrains simulated tool output to each tool's `output_schema`, and applies to every tool in the environment. Set it to `false` when a schema is too large for the provider's grammar compiler, or when constrained decoding is too slow — output is still validated against `output_schema` after generation, so an off-schema response raises a tool error instead of being silently accepted. To mix policies across tools, put them in separate `simulated` environments.
 - Multiturn attributes reference environments (not individual tools) to select which tools are available.
 
 Example:
@@ -235,8 +236,8 @@ environment_config:
     - id: support_backend
       name: Support Backend
       description: Simulated support system with tickets and users
-      type: synthetic
-      system_prompt: You manage a customer support system with tickets and users.
+      type: simulated
+      tool_persona: You manage a customer support system with tickets and users.
       state_params:
         state_schema:
           type: object
@@ -268,8 +269,8 @@ environment_config:
     - id: faq_lookup
       name: FAQ Lookup
       description: Cached LLM-backed FAQ answers
-      type: synthetic
-      system_prompt: Generate concise FAQ answers grounded in the tool contract.
+      type: simulated
+      tool_persona: Generate concise FAQ answers grounded in the tool contract.
       cache_by_input: true
       tools:
         - id: answer_faq
@@ -283,7 +284,7 @@ environment_config:
     - id: policy_table
       name: Policy Table
       description: Predefined policy responses
-      type: deterministic
+      type: lookup
       tools:
         - id: get_refund_policy
           name: GetRefundPolicy
@@ -292,7 +293,9 @@ environment_config:
             type: object
             properties:
               policy_type: { type: string }
-          deterministic_outputs:
+      env_kwargs:
+        lookup_table:
+          get_refund_policy:
             - input:
                 policy_type: standard
               output:
@@ -403,13 +406,13 @@ generated_attributes:
 
 **Multi-Turn Attributes**: Dynamic, variable-length conversations generated turn-by-turn
 
-Unlike generated attributes which produce single values, multi-turn attributes generate full conversations where each turn is produced by the model with the complete conversation history as context. The system automatically plans the conversation, then generates each turn sequentially.
+Unlike generated attributes which produce single values, multi-turn attributes generate full conversations where each message is produced by the model with the complete conversation history as context. The system automatically plans the conversation, then generates each turn sequentially.
 
 ```yaml
 multiturn_attributes:
   - id: support_conversation
-    min_turns: 4
-    max_turns: 12
+    min_turns: 2
+    max_turns: 6
 
     role_instruction_messages:
       USER: |
@@ -430,7 +433,7 @@ multiturn_attributes:
 Key parameters:
 
 - **`id`**: Unique identifier for the attribute. The generated conversation is stored under this ID, and a conversation plan is automatically stored under `{id}_plan`.
-- **`min_turns`** / **`max_turns`**: Controls the conversation length range. Each turn is one message (user or assistant).
+- **`min_turns`** / **`max_turns`**: Controls the conversation length range. Each turn is one round -- a user message plus an assistant reply -- so `max_turns: 12` yields up to 12 exchanges (24 messages).
 - **`role_instruction_messages`**: Per-role instruction templates. Must define both `USER` and `ASSISTANT` roles. These templates can reference any previously defined attributes using `{placeholder}` syntax.
 - **`output_system_prompt`**: Optional system prompt prepended to the final output conversation.
 - **`conversation_planner`**: Optional custom instructions for the conversation planner that generates a turn-by-turn plan before the conversation begins.
@@ -708,6 +711,27 @@ partial = synth.get_batch_results_partial(batch_id, samples, generated_attribute
 
 Batches are typically 50% cheaper than online inference at the cost of a 24-hour completion window. Attributes are batched one at a time (not across attributes), so chained `generated_attributes` still run sequentially.
 
+## Partial Results for Online Synthesis
+
+For providers without a batch API (e.g. OpenRouter), online synthesis with `synthesize()` raises if any row fails. Use `synthesize_partial` to tolerate per-row failures instead:
+
+```python
+result = synth.synthesize_partial(samples, generated_attribute)
+
+for index, attribute_dict in result.successful:
+    print(f"Sample {index}: {attribute_dict}")
+
+for index in result.failed_indices:
+    detail = result.failures[index]
+    print(f"Sample {index} failed ({detail.error_type}): {detail.error_message}")
+
+retry_samples = [
+    samples[i] for i in result.failed_indices if result.failures[i].is_retryable
+]
+```
+
+This returns a `SynthPartialResult` pairing each successfully synthesized attribute dict with its original sample index. Inference failures carry through the engine's `FailureDetail` (status code, `error_type`, `is_retryable`); responses that complete but cannot be processed are reported with `error_type="parse_error"` and are retryable. It is built on {py:meth}`~oumi.core.inference.BaseInferenceEngine.infer_partial`, so per-row progress can be reported to an external poller via the `progress_path` argument (see {doc}`/user_guides/infer/inference_engines`).
+
 ## Token Usage Tracking
 
 `AttributeSynthesizer` accumulates token usage across every online and batch call:
@@ -759,7 +783,7 @@ Create multi-turn conversations by chaining generated responses.
 
 Generate dynamic, variable-length conversations using `multiturn_attributes`. The system plans the conversation, then generates each turn with full conversation context, producing natural back-and-forth dialogue.
 
-**Example**: See {gh}`configs/examples/synthesis/multiturn_conversation_synth.yaml` for a customer support conversation example using multi-turn attributes with conversation planning, role-based instructions, and variable-length conversations (4-12 turns).
+**Example**: See {gh}`configs/examples/synthesis/multiturn_conversation_synth.yaml` for a customer support conversation example using multi-turn attributes with conversation planning, role-based instructions, and variable-length conversations (2-6 rounds / 4-12 messages).
 
 ### Domain Adaptation
 
