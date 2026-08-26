@@ -21,7 +21,11 @@ from oumi.core.configs.params.tool_params import (
     ToolParams,
 )
 from oumi.core.registry import REGISTRY, RegistryType
+from oumi.environments.utils import parse_env_kwargs
 from oumi.environments.endpoint_environment import (
+    EndpointAuthParams,
+    EndpointAuthType,
+    EndpointProtocol,
     EndpointCallError,
     EndpointEnvironment,
     EndpointEnvironmentKwargs,
@@ -56,18 +60,25 @@ class _RecordingTransport:
         self.error = error
         self.requests: list[dict] = []
 
-    def __call__(self, *, url, payload, timeout_seconds):
+    def __call__(self, *, url, payload, headers, timeout_seconds):
         self.requests.append(
-            {"url": url, "payload": payload, "timeout_seconds": timeout_seconds}
+            {
+                "url": url,
+                "payload": payload,
+                "headers": dict(headers),
+                "timeout_seconds": timeout_seconds,
+            }
         )
         if self.error is not None:
             raise self.error
         return self.response
 
 
-def _environment(transport, timeout_seconds: float = 5.0) -> EndpointEnvironment:
+def _environment(
+    transport, timeout_seconds: float = 5.0, auth: EndpointAuthParams | None = None
+) -> EndpointEnvironment:
     kwargs = EndpointEnvironmentKwargs(
-        endpoint_url=_URL, timeout_seconds=timeout_seconds
+        endpoint_url=_URL, timeout_seconds=timeout_seconds, auth=auth
     )
     kwargs.finalize_and_validate()
     return EndpointEnvironment(
@@ -95,6 +106,7 @@ def test_call_sends_the_tool_call_and_returns_the_response():
                 "call_id": "row42:3:0:place_order",
                 "session_id": "row42",
             },
+            "headers": {},
             "timeout_seconds": 5.0,
         }
     ]
@@ -171,3 +183,82 @@ def test_kwargs_reject_an_unusable_endpoint_configuration(kwargs):
 
 def test_environment_is_registered_under_endpoint():
     assert REGISTRY.get("endpoint", RegistryType.ENVIRONMENT) is EndpointEnvironment
+
+
+def test_bearer_auth_sends_an_authorization_header():
+    transport = _RecordingTransport()
+    auth = EndpointAuthParams(token="s3cr3t")
+    auth.finalize_and_validate()
+
+    _environment(transport, auth=auth).call("place_order", {"item": "X"}, call_id="c1")
+
+    assert transport.requests[0]["headers"] == {"Authorization": "Bearer s3cr3t"}
+
+
+def test_bearer_auth_honors_a_non_default_scheme():
+    transport = _RecordingTransport()
+    auth = EndpointAuthParams(token="s3cr3t", scheme="SSWS")
+    auth.finalize_and_validate()
+
+    _environment(transport, auth=auth).call("place_order", {"item": "X"}, call_id="c1")
+
+    assert transport.requests[0]["headers"] == {"Authorization": "SSWS s3cr3t"}
+
+
+def test_api_key_auth_sends_the_token_with_no_scheme():
+    transport = _RecordingTransport()
+    auth = EndpointAuthParams(
+        auth_type=EndpointAuthType.API_KEY, token="s3cr3t", header_name="x-api-key"
+    )
+    auth.finalize_and_validate()
+
+    _environment(transport, auth=auth).call("place_order", {"item": "X"}, call_id="c1")
+
+    assert transport.requests[0]["headers"] == {"x-api-key": "s3cr3t"}
+
+
+@pytest.mark.parametrize(
+    "auth",
+    [
+        EndpointAuthParams(token=""),
+        EndpointAuthParams(auth_type=EndpointAuthType.API_KEY, token="s3cr3t"),
+    ],
+)
+def test_auth_rejects_a_credential_missing_what_its_type_needs(auth):
+    with pytest.raises(ValueError):
+        auth.finalize_and_validate()
+
+
+@pytest.mark.parametrize(
+    "protocol", [EndpointProtocol.MCP, EndpointProtocol.OPENAPI]
+)
+def test_kwargs_reject_a_protocol_that_is_not_implemented(protocol):
+    kwargs = EndpointEnvironmentKwargs(endpoint_url=_URL, protocol=protocol)
+
+    with pytest.raises(NotImplementedError):
+        kwargs.finalize_and_validate()
+
+
+def test_kwargs_parse_raw_config_values_into_their_declared_types():
+    """Config reaches the environment as plain JSON, so a bare string and a
+    nested dict must become the enum and dataclass the environment reads."""
+    params = EnvironmentParams(
+        id="env",
+        env_type="endpoint",
+        tools=[],
+        env_kwargs={
+            "endpoint_url": _URL,
+            "protocol": "http",
+            "auth": {
+                "auth_type": "api_key",
+                "token": "s3cr3t",
+                "header_name": "x-api-key",
+            },
+        },
+    )
+
+    kwargs = parse_env_kwargs(EndpointEnvironmentKwargs, params, env_label="E")
+
+    assert kwargs.protocol is EndpointProtocol.HTTP
+    assert isinstance(kwargs.auth, EndpointAuthParams)
+    assert kwargs.auth.as_headers() == {"x-api-key": "s3cr3t"}

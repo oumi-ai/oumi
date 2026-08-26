@@ -36,9 +36,12 @@ from oumi.environments.database_executable_environment import (
     DatabaseExecutableEnvironment,
 )
 from oumi.environments.endpoint_environment import (
+    EndpointAuthParams,
+    EndpointAuthType,
     EndpointCallError,
     EndpointEnvironment,
     EndpointEnvironmentKwargs,
+    EndpointProtocol,
     EndpointTransport,
 )
 from oumi.environments.executable_environment import ExecutableEnvironment
@@ -65,9 +68,12 @@ __all__ = [
     # Deprecated aliases, kept so existing imports keep resolving.
     "DeterministicEnvironment",
     "DeterministicEnvironmentKwargs",
+    "EndpointAuthParams",
+    "EndpointAuthType",
     "EndpointCallError",
     "EndpointEnvironment",
     "EndpointEnvironmentKwargs",
+    "EndpointProtocol",
     "EndpointTransport",
     "ExecutableEnvironment",
     "ExecutableTool",
