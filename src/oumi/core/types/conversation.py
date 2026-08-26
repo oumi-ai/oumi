@@ -299,6 +299,18 @@ class Message(pydantic.BaseModel):
                 f"Must be a Python string, a list, or None."
             )
 
+    def get(self, key: str, default: Any = None) -> Any:
+        """Returns a field by name, dict-style, or ``default`` if absent.
+
+        Some chat templates (e.g. Gemma 4's) read message fields via ``.get()``, so
+        ``Message`` must support it when passed to ``apply_chat_template``. Only
+        declared fields are exposed, so a key that collides with a method name
+        (e.g. ``"get"``) returns ``default`` rather than the bound method.
+        """
+        if key in type(self).model_fields:
+            return getattr(self, key)
+        return default
+
     def _iter_content_items(
         self, *, return_text: bool = False, return_images: bool = False
     ) -> Generator[ContentItem, None, None]:

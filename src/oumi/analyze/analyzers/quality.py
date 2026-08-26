@@ -53,8 +53,9 @@ class DataQualityMetrics(BaseModel):
 
     has_non_alternating_turns: bool = Field(
         description=(
-            "True if non-system messages do NOT strictly alternate between "
-            "user and assistant roles (i.e. consecutive same-role messages exist)"
+            "True if non-system messages contain a consecutive same-role pair "
+            "other than tool->tool (consecutive tool results from parallel tool "
+            "calls are valid)"
         )
     )
     has_no_user_message: bool = Field(
@@ -128,12 +129,16 @@ class DataQualityAnalyzer(ConversationAnalyzer[DataQualityMetrics]):
         """
         messages = conversation.messages
 
-        # 1. Non-alternating turns check (ignoring system messages)
+        # 1. Non-alternating turns check (ignoring system messages).
+        # Consecutive tool results are valid — an assistant step may issue
+        # parallel tool calls, each producing its own tool message — so
+        # tool->tool is exempt. Any other repeated role (user->user,
+        # assistant->assistant) is flagged.
         roles = [m.role.value for m in messages]
-        non_system = [r for r in roles if r != "system"]
+        non_system = [r for r in roles if r != Role.SYSTEM.value]
         has_non_alternating = False
         for i in range(1, len(non_system)):
-            if non_system[i] == non_system[i - 1]:
+            if non_system[i] == non_system[i - 1] != Role.TOOL.value:
                 has_non_alternating = True
                 break
 

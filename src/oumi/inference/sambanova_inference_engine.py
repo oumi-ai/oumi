@@ -121,8 +121,8 @@ class SambanovaInferenceEngine(RemoteInferenceEngine):
         )
 
     @override
-    def _get_request_headers(self, remote_params: RemoteParams) -> dict[str, str]:
-        """Get headers for the API request.
+    def _get_auth_headers(self, remote_params: RemoteParams) -> dict[str, str]:
+        """Get auth headers for the API request.
 
         Args:
             remote_params: Remote server parameters.

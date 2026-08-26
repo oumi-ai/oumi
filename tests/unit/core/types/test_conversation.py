@@ -17,7 +17,7 @@ from oumi.core.types.conversation import (
     Role,
     Type,
 )
-from oumi.core.types.tool_call import ToolCall, ToolDefinition
+from oumi.core.types.tool_call import FunctionCall, ToolCall, ToolDefinition
 from oumi.utils.image_utils import load_image_png_bytes_from_path
 
 _SMALL_B64_IMAGE: Final[str] = (
@@ -1352,6 +1352,57 @@ def test_typed_field_access_on_message_tool_calls():
     assert msg.tool_calls[0].function.arguments == '{"city": "SF"}'
 
 
+def test_function_call_dict_arguments_coerced_to_json_string():
+    """Dict arguments are serialized to a JSON string on input."""
+    fc = FunctionCall(name="fn", arguments={"key": "value"})  # type: ignore[arg-type]
+    assert fc.arguments == '{"key": "value"}'
+    assert isinstance(fc.arguments, str)
+
+
+def test_function_call_list_arguments_coerced_to_json_string():
+    """List arguments are serialized to a JSON string on input."""
+    fc = FunctionCall(name="fn", arguments=[1, 2, 3])  # type: ignore[arg-type]
+    assert fc.arguments == "[1, 2, 3]"
+
+
+def test_function_call_string_arguments_pass_through():
+    """String arguments pass through the validator unchanged."""
+    fc = FunctionCall(name="fn", arguments='{"key": "value"}')
+    assert fc.arguments == '{"key": "value"}'
+
+
+def test_function_call_rejects_unsupported_arguments_type():
+    """Non-str/dict/list arguments raise ValueError."""
+    with pytest.raises(ValueError, match="must be a str, dict, or list"):
+        FunctionCall(name="fn", arguments=42)  # type: ignore[arg-type]
+
+
+def test_function_call_get_arguments_dict_returns_mapping():
+    """get_arguments_dict() decodes the JSON string to a dict."""
+    fc = FunctionCall(name="fn", arguments='{"city": "SF"}')
+    assert fc.get_arguments_dict() == {"city": "SF"}
+
+
+def test_function_call_get_arguments_dict_empty_returns_empty_dict():
+    """get_arguments_dict() returns {} for empty string arguments."""
+    fc = FunctionCall(name="fn", arguments="")
+    assert fc.get_arguments_dict() == {}
+
+
+def test_function_call_get_arguments_dict_invalid_json_raises():
+    """get_arguments_dict() raises ValueError naming the function on bad JSON."""
+    fc = FunctionCall(name="broken_fn", arguments="{bad json")
+    with pytest.raises(ValueError, match="broken_fn"):
+        fc.get_arguments_dict()
+
+
+def test_function_call_get_arguments_dict_non_object_raises():
+    """get_arguments_dict() raises ValueError if JSON is valid but not an object."""
+    fc = FunctionCall(name="fn", arguments="[1, 2]")
+    with pytest.raises(ValueError, match="JSON object"):
+        fc.get_arguments_dict()
+
+
 # -----------------------------------------------------------------------------
 # reasoning_content (Fireworks/Together separate-field format)
 # -----------------------------------------------------------------------------
@@ -1403,3 +1454,33 @@ def test_conversation_to_dict_includes_set_reasoning_content():
     )
     d = conv.to_dict()
     assert d["messages"][0]["reasoning_content"] == "thought"
+
+
+def test_message_get_dict_accessor():
+    """Message.get() emulates the dict accessor used by chat templates."""
+    message = Message(role=Role.USER, content="hello")
+    assert message.get("content") == "hello"
+    assert message.get("role") == Role.USER
+    assert message.get("tool_calls") is None
+    assert message.get("reasoning_content") is None
+    assert message.get("nonexistent_key") is None
+    assert message.get("nonexistent_key", "default") == "default"
+    # Keys that collide with method/attribute names return the default, not the
+    # bound method — get exposes declared fields only.
+    assert message.get("get") is None
+    assert message.get("model_dump", "x") == "x"
+
+
+def test_message_get_supports_gemma4_chat_template_pattern():
+    """Regression for OPE-1861: Gemma 4's chat template reads message fields via
+    ``.get()``, so Message must support that access pattern."""
+    message = Message(
+        role=Role.ASSISTANT,
+        content="answer",
+        reasoning_content="because",
+    )
+    # `reasoning` is not a field; the template falls through to `reasoning_content`.
+    assert (message.get("reasoning") or message.get("reasoning_content")) == "because"
+    # The template guards optional sections on these keys.
+    assert message.get("tool_calls") is None
+    assert message.get("tool_responses") is None

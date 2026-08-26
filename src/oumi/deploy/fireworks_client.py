@@ -20,6 +20,7 @@ import logging
 import os
 import shutil
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
@@ -175,6 +176,31 @@ def _validate_fireworks_model_id(model_id: str) -> None:
 
 
 _raise_api_error = raise_api_error
+
+
+@dataclass
+class FireworksDeploymentShape(DeploymentShape):
+    """A ``DeploymentShape`` plus the Fireworks shape resource path.
+
+    ``resource_path`` (e.g. ``accounts/fireworks/deploymentShapes/rft-gpt-oss-20b``)
+    is what CreateDeployment uses to deploy *by shape* instead of by raw
+    hardware. Fireworks-specific; not part of the provider-agnostic shape.
+    """
+
+    resource_path: str | None = None
+
+
+def _strip_version_suffix(resource_name: str | None) -> str | None:
+    """Return the unversioned deployment-shape family path.
+
+    Shape versions are listed as
+    ``accounts/.../deploymentShapes/<family>/versions/<id>``. CreateDeployment
+    takes the family path and binds the latest validated version, so the
+    ``/versions/<id>`` suffix is dropped here. ``None`` passes through.
+    """
+    if resource_name and "/versions/" in resource_name:
+        return resource_name.split("/versions/", 1)[0]
+    return resource_name
 
 
 class FireworksDeploymentClient(BaseDeploymentClient):
@@ -597,6 +623,7 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             file_inventory,
             file_resolver,
             progress_callback,
+            model_type,
         )
         await self._wait_and_validate(model_name, progress_callback)
         return UploadedModel(
@@ -611,6 +638,7 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         file_sizes: dict[str, int],
         file_resolver: FileResolver,
         progress_callback: ProgressCallback | None,
+        model_type: ModelType = ModelType.FULL,
     ) -> None:
         """Upload files using a resolver that provides each file on demand.
 
@@ -624,14 +652,25 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             file_sizes: Mapping of relative filename to file size in bytes.
             file_resolver: Async context manager factory yielding a local Path.
             progress_callback: Optional async progress callback.
+            model_type: FULL or ADAPTER. Determines which config file is
+                expected in the inventory.
         """
         total_bytes = sum(file_sizes.values())
         _MB = 1024 * 1024
-        if "config.json" in file_sizes:
-            logger.info("config.json found (%d bytes)", file_sizes["config.json"])
+        # Adapter (PEFT addon) uploads ship adapter_config.json, never
+        # config.json — the inventory is deliberately filtered to adapter files.
+        # Only full-model uploads require config.json.
+        expected_config = (
+            "adapter_config.json" if model_type == ModelType.ADAPTER else "config.json"
+        )
+        if expected_config in file_sizes:
+            logger.info(
+                "%s found (%d bytes)", expected_config, file_sizes[expected_config]
+            )
         else:
             logger.error(
-                "config.json NOT found in model files: %s",
+                "%s NOT found in model files: %s",
+                expected_config,
                 list(file_sizes.keys()),
             )
         logger.info(
@@ -1338,18 +1377,26 @@ class FireworksDeploymentClient(BaseDeploymentClient):
     async def create_endpoint(
         self,
         model_id: str,
-        hardware: HardwareConfig,
+        hardware: HardwareConfig | None,
         autoscaling: AutoscalingConfig,
         display_name: str | None = None,
         endpoint_id: str | None = None,
         scale_down_window_seconds: int | None = None,
         scale_to_zero_window_seconds: int | None = None,
+        deployment_shape: str | None = None,
     ) -> Endpoint:
         """Creates an inference endpoint (deployment) for a model.
 
+        Deploys either by raw ``hardware`` or by a validated
+        ``deployment_shape``. Exactly one must be provided — Fireworks rejects
+        a request carrying both, and passing neither (or a ``None``
+        ``resource_path`` that the caller forgot to handle) raises rather than
+        silently picking a path.
+
         Args:
             model_id: Fireworks model ID
-            hardware: Hardware configuration
+            hardware: Hardware to request. Mutually exclusive with
+                ``deployment_shape``; pass ``None`` when deploying by shape.
             autoscaling: Autoscaling configuration
             display_name: Optional display name
             endpoint_id: Optional caller-supplied deployment ID. When provided,
@@ -1363,23 +1410,41 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             scale_to_zero_window_seconds: Idle seconds before scaling to zero
                 replicas. ``None`` → Fireworks default (1h, 5min minimum).
                 Only meaningful when ``autoscaling.min_replicas == 0``.
+            deployment_shape: Validated deployment-shape resource path
+                (``accounts/fireworks/deploymentShapes/<family>``) to deploy by.
+                Mutually exclusive with ``hardware``; the shape carries its own
+                hardware.
 
         Returns:
             Created Endpoint
+
+        Raises:
+            ValueError: unless exactly one of ``hardware`` / ``deployment_shape``
+                is provided.
         """
-        deployment = GatewayDeployment(
-            baseModel=model_id,
-            acceleratorType=cast(
-                GatewayAcceleratorType, self._to_fireworks_accelerator(hardware)
-            ),
-            acceleratorCount=hardware.count,
-            minReplicaCount=autoscaling.min_replicas,
-            maxReplicaCount=autoscaling.max_replicas,
-            autoscalingPolicy=_build_autoscaling_policy(
+        if (hardware is None) == (deployment_shape is None):
+            raise ValueError(
+                "create_endpoint requires exactly one of 'hardware' or "
+                "'deployment_shape'."
+            )
+
+        deployment_kwargs: dict[str, Any] = {
+            "baseModel": model_id,
+            "minReplicaCount": autoscaling.min_replicas,
+            "maxReplicaCount": autoscaling.max_replicas,
+            "autoscalingPolicy": _build_autoscaling_policy(
                 scale_down_window_seconds, scale_to_zero_window_seconds
             ),
-            displayName=display_name,
-        )
+            "displayName": display_name,
+        }
+        if deployment_shape is not None:
+            deployment_kwargs["deploymentShape"] = deployment_shape
+        elif hardware is not None:
+            deployment_kwargs["acceleratorType"] = cast(
+                GatewayAcceleratorType, self._to_fireworks_accelerator(hardware)
+            )
+            deployment_kwargs["acceleratorCount"] = hardware.count
+        deployment = GatewayDeployment(**deployment_kwargs)
 
         params: dict[str, Any] = {}
         if endpoint_id is not None:
@@ -1415,6 +1480,8 @@ class FireworksDeploymentClient(BaseDeploymentClient):
         endpoint_id: str,
         autoscaling: AutoscalingConfig | None = None,
         hardware: HardwareConfig | None = None,
+        scale_down_window_seconds: int | None = None,
+        scale_to_zero_window_seconds: int | None = None,
     ) -> Endpoint:
         """Updates a deployment's configuration (autoscaling and/or hardware).
 
@@ -1426,6 +1493,11 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             endpoint_id: Fireworks deployment ID
             autoscaling: New autoscaling configuration
             hardware: New hardware configuration
+            scale_down_window_seconds: Idle seconds before removing a replica.
+                ``None`` leaves the deployment's current policy unchanged.
+            scale_to_zero_window_seconds: Idle seconds before scaling to zero
+                replicas. Only meaningful when ``autoscaling.min_replicas == 0``.
+                ``None`` leaves the deployment's current policy unchanged.
 
         Returns:
             Updated Endpoint
@@ -1436,6 +1508,9 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             baseModel=current.model_id,
             minReplicaCount=autoscaling.min_replicas if autoscaling else None,
             maxReplicaCount=autoscaling.max_replicas if autoscaling else None,
+            autoscalingPolicy=_build_autoscaling_policy(
+                scale_down_window_seconds, scale_to_zero_window_seconds
+            ),
             acceleratorType=cast(
                 GatewayAcceleratorType | None,
                 self._to_fireworks_accelerator(hardware) if hardware else None,
@@ -1517,7 +1592,7 @@ class FireworksDeploymentClient(BaseDeploymentClient):
 
     async def list_deployment_shapes(
         self, base_model: str | None = None
-    ) -> list[DeploymentShape]:
+    ) -> list[FireworksDeploymentShape]:
         """Lists ``latest_validated`` deployment shapes published by Fireworks.
 
         Paginates ``/v1/accounts/-/deploymentShapes/-/versions``, optionally
@@ -1532,7 +1607,7 @@ class FireworksDeploymentClient(BaseDeploymentClient):
             "order_by": "create_time desc",
         }
 
-        shapes: list[DeploymentShape] = []
+        shapes: list[FireworksDeploymentShape] = []
         page_token: str | None = None
         while True:
             params = dict(params_base)
@@ -1559,10 +1634,11 @@ class FireworksDeploymentClient(BaseDeploymentClient):
                 ):
                     continue
                 shapes.append(
-                    DeploymentShape(
+                    FireworksDeploymentShape(
                         base_model=snapshot.base_model,
                         accelerator_type=snapshot.accelerator_type,
                         accelerator_count=snapshot.accelerator_count,
+                        resource_path=_strip_version_suffix(version.name),
                     )
                 )
 

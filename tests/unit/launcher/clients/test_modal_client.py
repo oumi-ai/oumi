@@ -45,7 +45,8 @@ def fake_modal():
     """Constructs a fake ``modal`` SDK with the surface area we touch."""
     fake = MagicMock(name="modal")
 
-    # Image chain: Image.debian_slim().apt_install(...).uv_pip_install(...).
+    # Image chain: Image.from_registry(...).apt_install(...).uv_pip_install(...)
+    # for the default base, or Image.from_registry(<ref>) for docker: image_ids.
     image_obj = MagicMock(name="Image")
     image_obj.apt_install.return_value = image_obj
     image_obj.pip_install.return_value = image_obj
@@ -106,15 +107,20 @@ def test_launch_mounts_hf_cache_volume(fake_modal):
     assert "/root/.cache/huggingface" in kwargs["volumes"]
 
 
-def test_launch_default_image_uses_uv_pip_install(fake_modal):
-    """Default image installs awscli via uv_pip_install (Modal-recommended)."""
+def test_launch_default_image_is_cuda_devel_with_nvcc(fake_modal):
+    """Default base is a CUDA-devel image so flashinfer can JIT-compile GDN
+    kernels (needs nvcc); awscli still installed via uv_pip_install."""
     with patch(
         "oumi.launcher.clients.modal_client._import_modal", return_value=fake_modal
     ):
         ModalClient().launch(_job())
-    image_obj = fake_modal.Image.debian_slim.return_value
-    image_obj.uv_pip_install.assert_called_once_with("awscli")
+    fake_modal.Image.from_registry.assert_called_once_with(
+        "nvidia/cuda:12.6.2-devel-ubuntu22.04", add_python="3.11"
+    )
+    fake_modal.Image.debian_slim.assert_not_called()
+    image_obj = fake_modal.Image.from_registry.return_value
     image_obj.apt_install.assert_called_once_with("zip", "curl", "git")
+    image_obj.uv_pip_install.assert_called_once_with("awscli")
 
 
 def test_launch_uses_sandbox_id_as_cluster_when_name_omitted(fake_modal):
@@ -181,7 +187,10 @@ def test_launch_uses_image_from_registry_when_image_id_set(fake_modal):
         "oumi.launcher.clients.modal_client._import_modal", return_value=fake_modal
     ):
         ModalClient().launch(_job(image_id="docker:my/repo:tag"))
-    fake_modal.Image.from_registry.assert_called()
+    # A caller-supplied docker: image is used verbatim (no add_python, no
+    # apt/awscli layer) — distinct from the default CUDA-devel base.
+    fake_modal.Image.from_registry.assert_called_once_with("my/repo:tag")
+    fake_modal.Image.debian_slim.assert_not_called()
 
 
 def test_launch_omits_secrets_when_envs_empty(fake_modal):
