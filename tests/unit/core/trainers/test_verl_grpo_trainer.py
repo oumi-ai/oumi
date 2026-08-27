@@ -87,6 +87,7 @@ def test_create_verl_data_entry_multi_turn():
     ]
     assert entry["images"] == []
     assert entry["reward_model"]["ground_truth"] == "4"
+    assert json.loads(entry["extra_info"]["prompt_json"]) == entry["prompt"]
 
 
 def test_create_verl_data_entry_single_turn_image_prepends_marker():
@@ -234,6 +235,7 @@ def test_create_verl_data_entry_tool_agent_preserves_structured_history():
         },
         {"role": "tool", "content": '{"rows":[[2]]}', "tool_call_id": "call_1"},
     ]
+    assert json.loads(row["extra_info"]["prompt_json"]) == row["prompt"]
     assert json.loads(json.dumps(row["prompt"])) == row["prompt"]
 
 
