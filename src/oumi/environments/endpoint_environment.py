@@ -64,11 +64,13 @@ class RemoteToolCall:
     session_id: str
 
 
-class EndpointHttpClient(Protocol):
+class JsonHttpClient(Protocol):
     """POSTs a JSON body to one fixed endpoint and decodes the JSON answer.
 
-    The client owns the URL, the credential, and the egress policy, so a
-    protocol never chooses where a call goes or what it is allowed to reach.
+    What :class:`JsonHttpProtocol` sends over. The client owns the URL, the
+    credential, and the egress policy, so a protocol never chooses where a call
+    goes or what it is allowed to reach. A protocol needing more than a JSON
+    POST declares its own client rather than widening this one.
     """
 
     def post_json(self, payload: JsonValue) -> JsonValue:
@@ -85,30 +87,27 @@ class EndpointProtocol(Protocol):
     call — an in-band answer that reaches the model verbatim. Raise anything
     else when the endpoint could not answer at all.
 
+    A protocol also brings the client that suits it. MCP over Streamable HTTP
+    answers a call with either JSON or an event stream, so it declares its own
+    client rather than reusing :class:`JsonHttpClient`.
+
     Example:
-        A protocol owns the wire format, so MCP is a different ``call`` over the
-        same client::
+        ::
 
             class McpProtocol:
-                def __init__(self, http_client):
-                    self._http_client = http_client
+                def __init__(self, mcp_client):
+                    self._mcp_client = mcp_client
 
                 def call(self, request):
-                    result = self._http_client.post_json({
-                        "jsonrpc": "2.0",
-                        "id": request.call_id,
-                        "method": "tools/call",
-                        "params": {
-                            "name": request.name,
-                            "arguments": request.arguments,
-                        },
-                    })["result"]
+                    result = self._mcp_client.call_tool(
+                        name=request.name, arguments=request.arguments
+                    )
                     if result.get("isError"):
                         raise ToolError(result["content"][0]["text"])
                     return result["structuredContent"]
 
                 def close(self):
-                    pass
+                    self._mcp_client.close()
     """
 
     def call(self, request: RemoteToolCall) -> JsonValue:
@@ -142,7 +141,7 @@ class JsonHttpProtocol:
     matter how often it is re-sent.
     """
 
-    def __init__(self, http_client: EndpointHttpClient) -> None:
+    def __init__(self, http_client: JsonHttpClient) -> None:
         """Send over ``http_client``, which owns the URL and the credential."""
         self._http_client = http_client
 
@@ -163,7 +162,7 @@ class JsonHttpProtocol:
 
 @register_environment("endpoint")
 class EndpointEnvironment(BaseEnvironment):
-    """Environment that executes each tool call as one POST to an endpoint.
+    """Environment that executes each tool call against a remote endpoint.
 
     The endpoint owns the tool's behavior; this environment owns the contract:
     it validates arguments against the tool's schema, hands the call to a
