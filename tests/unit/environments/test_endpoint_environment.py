@@ -55,8 +55,10 @@ def _tool() -> ToolParams:
 class _RecordingTransport:
     """Captures each request and returns a canned response."""
 
-    def __init__(self, response=None, error: Exception | None = None) -> None:
-        self.response = {"status": "ok"} if response is None else response
+    def __init__(
+        self, response: JsonValue = None, error: Exception | None = None
+    ) -> None:
+        self.response: JsonValue = {"status": "ok"} if response is None else response
         self.error = error
         self.requests: list[dict] = []
 
