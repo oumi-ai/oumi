@@ -25,7 +25,6 @@ from oumi.environments.utils import parse_env_kwargs
 from oumi.environments.endpoint_environment import (
     EndpointAuthParams,
     EndpointAuthType,
-    EndpointProtocol,
     EndpointCallError,
     EndpointEnvironment,
     EndpointEnvironmentKwargs,
@@ -229,26 +228,15 @@ def test_auth_rejects_a_credential_missing_what_its_type_needs(auth):
         auth.finalize_and_validate()
 
 
-@pytest.mark.parametrize(
-    "protocol", [EndpointProtocol.MCP, EndpointProtocol.OPENAPI]
-)
-def test_kwargs_reject_a_protocol_that_is_not_implemented(protocol):
-    kwargs = EndpointEnvironmentKwargs(endpoint_url=_URL, protocol=protocol)
-
-    with pytest.raises(NotImplementedError):
-        kwargs.finalize_and_validate()
-
-
 def test_kwargs_parse_raw_config_values_into_their_declared_types():
-    """Config reaches the environment as plain JSON, so a bare string and a
-    nested dict must become the enum and dataclass the environment reads."""
+    """Config reaches the environment as plain JSON, so a nested dict must
+    become the dataclass the environment reads."""
     params = EnvironmentParams(
         id="env",
         env_type="endpoint",
         tools=[],
         env_kwargs={
             "endpoint_url": _URL,
-            "protocol": "http",
             "auth": {
                 "auth_type": "api_key",
                 "token": "s3cr3t",
@@ -259,6 +247,5 @@ def test_kwargs_parse_raw_config_values_into_their_declared_types():
 
     kwargs = parse_env_kwargs(EndpointEnvironmentKwargs, params, env_label="E")
 
-    assert kwargs.protocol is EndpointProtocol.HTTP
     assert isinstance(kwargs.auth, EndpointAuthParams)
     assert kwargs.auth.as_headers() == {"x-api-key": "s3cr3t"}

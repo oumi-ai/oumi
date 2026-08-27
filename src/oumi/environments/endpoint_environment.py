@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Environment that forwards tool calls to a remote endpoint over HTTP."""
+"""Environment that forwards tool calls to a remote HTTP endpoint."""
 
 from __future__ import annotations
 
@@ -38,19 +38,6 @@ _DEFAULT_TIMEOUT_SECONDS = 30.0
 
 class EndpointCallError(ToolError):
     """Raised when the endpoint cannot be reached or answers unusably."""
-
-
-class EndpointProtocol(Enum):
-    """How a tool call is encoded as a request, and its response decoded."""
-
-    HTTP = "http"
-    """One JSON POST per call; the response body is the tool's output."""
-
-    MCP = "mcp"
-    """Model Context Protocol. Not implemented yet."""
-
-    OPENAPI = "openapi"
-    """The operation an OpenAPI document names for the tool. Not implemented yet."""
 
 
 class EndpointAuthType(Enum):
@@ -106,13 +93,10 @@ class EndpointEnvironmentKwargs(BaseParams):
 
     endpoint_url: str = ""
     timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS
-    protocol: EndpointProtocol = EndpointProtocol.HTTP
     auth: EndpointAuthParams | None = None
 
     def __post_init__(self) -> None:
-        """Coerce raw protocol and auth values into their declared types."""
-        if isinstance(self.protocol, str):
-            self.protocol = EndpointProtocol(self.protocol)
+        """Coerce a raw auth mapping into ``EndpointAuthParams``."""
         if isinstance(self.auth, dict):
             self.auth = EndpointAuthParams(**self.auth)
 
@@ -122,10 +106,6 @@ class EndpointEnvironmentKwargs(BaseParams):
             raise ValueError("endpoint_url is required.")
         if self.timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be positive.")
-        if self.protocol != EndpointProtocol.HTTP:
-            raise NotImplementedError(
-                f"Endpoint protocol '{self.protocol.value}' is not implemented yet."
-            )
 
 
 class EndpointTransport(Protocol):
@@ -168,14 +148,12 @@ def _post_json(
 
 @register_environment("endpoint")
 class EndpointEnvironment(BaseEnvironment):
-    """Environment that executes each tool call against a remote endpoint.
+    """Environment that executes each tool call as one POST to an endpoint.
 
     The endpoint owns the tool's behavior; this environment owns the contract:
     it validates arguments against the tool's schema, sends one request per
     call, and validates the response against the tool's ``output_schema``.
 
-    Only :attr:`EndpointProtocol.HTTP` is implemented — one JSON POST per call,
-    the response body being the output.
 
     Each request carries a ``session_id`` identifying the conversation and a
     ``call_id`` identifying the call within it. A retry resends the identical

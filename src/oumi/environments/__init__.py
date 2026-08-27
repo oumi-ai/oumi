@@ -41,7 +41,6 @@ from oumi.environments.endpoint_environment import (
     EndpointCallError,
     EndpointEnvironment,
     EndpointEnvironmentKwargs,
-    EndpointProtocol,
     EndpointTransport,
 )
 from oumi.environments.executable_environment import ExecutableEnvironment
@@ -73,7 +72,6 @@ __all__ = [
     "EndpointCallError",
     "EndpointEnvironment",
     "EndpointEnvironmentKwargs",
-    "EndpointProtocol",
     "EndpointTransport",
     "ExecutableEnvironment",
     "ExecutableTool",
