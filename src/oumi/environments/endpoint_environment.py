@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 
 import jsonschema
 import requests
@@ -58,9 +58,13 @@ class EndpointTransport(Protocol):
     """Sends one tool call and returns the endpoint's decoded JSON response.
 
     Implementations own the wire concerns the environment deliberately does not:
-    authentication, egress policy, TLS, and connection reuse. A transport that
-    needs credentials closes over them. Raise any exception to report a failed
-    call; the environment reports it as a tool error.
+    protocol adaptation, authentication, egress policy, TLS, and connection
+    reuse. A transport that needs credentials closes over them.
+
+    Failures come in two kinds. Raise :class:`ToolError` (or a subclass) when
+    the tool itself refused the call — an in-band error the endpoint answered
+    with — and it reaches the model verbatim. Raise anything else when the
+    endpoint could not answer at all, and it is reported as an endpoint failure.
     """
 
     def __call__(
@@ -71,6 +75,14 @@ class EndpointTransport(Protocol):
         timeout_seconds: float,
     ) -> JsonValue:
         """Send ``payload`` to ``url`` and return the decoded response body."""
+
+
+@runtime_checkable
+class _SupportsClose(Protocol):
+    """A transport owning resources it must release at episode end."""
+
+    def close(self) -> None:
+        """Release the transport's resources."""
 
 
 def _post_json(
@@ -130,9 +142,8 @@ class EndpointEnvironment(BaseEnvironment):
         A transport holding a connection pool or an authenticated client exposes
         ``close()``; the default stateless one does not.
         """
-        close = getattr(self._transport, "close", None)
-        if close is not None:
-            close()
+        if isinstance(self._transport, _SupportsClose):
+            self._transport.close()
 
     def step(self, calls: list[tuple[str, dict[str, Any]]]) -> list[ToolResult]:
         """Execute a batch of tool calls; results are returned in input order.
@@ -159,6 +170,8 @@ class EndpointEnvironment(BaseEnvironment):
         Raises:
             ToolLookupError: If the environment does not serve ``tool_id``.
             ToolArgumentError: If ``arguments`` do not match the tool's schema.
+            ToolError: As raised by the transport, when the tool itself refused
+                the call.
             EndpointCallError: If the endpoint is unreachable or its response
                 does not match the tool's output schema.
         """
@@ -177,6 +190,10 @@ class EndpointEnvironment(BaseEnvironment):
                 payload=payload,
                 timeout_seconds=self._kwargs.timeout_seconds,
             )
+        except ToolError:
+            # The transport speaks the protocol; its tool-level verdict is
+            # already precise, so wrapping it would only blur the message.
+            raise
         except Exception as error:
             raise EndpointCallError(
                 f"Tool '{tool_id}' endpoint call failed: {error}"

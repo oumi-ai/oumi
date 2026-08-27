@@ -18,6 +18,7 @@ from pydantic import JsonValue
 from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.core.configs.params.tool_params import (
     ToolArgumentError,
+    ToolError,
     ToolLookupError,
     ToolParams,
 )
@@ -220,15 +221,32 @@ def test_close_is_a_no_op_for_a_transport_that_owns_nothing():
     _environment(_RecordingTransport()).close()
 
 
+def test_a_tool_error_from_the_transport_passes_through_unchanged():
+    def refusing_transport(
+        *, url: str, payload: dict[str, JsonValue], timeout_seconds: float
+    ) -> JsonValue:
+        raise ToolError("out of stock")
+
+    with pytest.raises(ToolError, match="^out of stock$") as excinfo:
+        _environment(refusing_transport).call(
+            "place_order", {"item": "X"}, call_id="c1"
+        )
+
+    # A refusal is the tool's answer, not an endpoint failure.
+    assert not isinstance(excinfo.value, EndpointCallError)
+
+
 # The environment fixes what a call means, never how it travels. These two
-# transports carry the same call over other wire formats, unchanged.
+# transports carry the same call over other wire formats, unchanged, and map
+# their protocol's in-band tool failure to ToolError.
 
 
 class _JsonRpcTransport:
     """Sends a call as a self-contained JSON-RPC ``tools/call`` request."""
 
-    def __init__(self) -> None:
+    def __init__(self, result: dict | None = None) -> None:
         self.sent: list[dict] = []
+        self.result = result or {"structuredContent": {"status": "ok"}}
 
     def __call__(
         self, *, url: str, payload: dict[str, JsonValue], timeout_seconds: float
@@ -245,12 +263,9 @@ class _JsonRpcTransport:
             }
         )
         # The envelope is the transport's business; the environment sees the result.
-        response = {
-            "jsonrpc": "2.0",
-            "id": payload["call_id"],
-            "result": {"status": "ok"},
-        }
-        return response["result"]
+        if self.result.get("isError"):
+            raise ToolError(self.result["content"][0]["text"])
+        return self.result["structuredContent"]
 
 
 def test_a_json_rpc_transport_carries_the_call_unchanged():
@@ -271,13 +286,24 @@ def test_a_json_rpc_transport_carries_the_call_unchanged():
     assert result.output == {"status": "ok"}
 
 
+def test_a_json_rpc_transport_reports_is_error_as_the_tools_refusal():
+    transport = _JsonRpcTransport(
+        result={"isError": True, "content": [{"type": "text", "text": "out of stock"}]}
+    )
+
+    with pytest.raises(ToolError, match="^out of stock$"):
+        _environment(transport).call("place_order", {"item": "X"}, call_id="c1")
+
+
 class _OperationTransport:
     """Routes a call by looking its tool name up as an operation."""
 
     _OPERATIONS = {"place_order": {"method": "POST", "path": "/orders"}}
 
-    def __init__(self) -> None:
+    def __init__(self, status_code: int = 200, body: dict | None = None) -> None:
         self.sent: list[dict] = []
+        self.status_code = status_code
+        self.body = body or {"status": "ok"}
 
     def __call__(
         self, *, url: str, payload: dict[str, JsonValue], timeout_seconds: float
@@ -290,7 +316,9 @@ class _OperationTransport:
                 "body": payload["arguments"],
             }
         )
-        return {"status": "ok"}
+        if self.status_code >= 400:
+            raise ToolError(f"HTTP {self.status_code}: {self.body['error']}")
+        return self.body
 
 
 def test_an_operation_routing_transport_picks_the_route_from_the_tool_name():
@@ -302,3 +330,12 @@ def test_an_operation_routing_transport_picks_the_route_from_the_tool_name():
         {"method": "POST", "url": _URL + "/orders", "body": {"item": "X"}}
     ]
     assert result.output == {"status": "ok"}
+
+
+def test_an_operation_routing_transport_reports_a_4xx_as_the_tools_refusal():
+    transport = _OperationTransport(status_code=422, body={"error": "item unavailable"})
+
+    with pytest.raises(ToolError, match="^HTTP 422: item unavailable$") as excinfo:
+        _environment(transport).call("place_order", {"item": "X"}, call_id="c1")
+
+    assert not isinstance(excinfo.value, EndpointCallError)
