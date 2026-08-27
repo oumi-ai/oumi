@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol
 
 import jsonschema
 import requests
@@ -54,68 +54,111 @@ class EndpointEnvironmentKwargs(BaseParams):
             raise ValueError("timeout_seconds must be positive.")
 
 
-class EndpointTransport(Protocol):
-    """Sends one tool call and returns the endpoint's decoded JSON response.
+@dataclass(frozen=True)
+class RemoteToolCall:
+    """One tool call to send, identified within its conversation."""
 
-    Implementations own the wire concerns the environment deliberately does not:
-    protocol adaptation, authentication, egress policy, TLS, and connection
-    reuse. A transport that needs credentials closes over them.
+    name: str
+    arguments: dict[str, Any]
+    call_id: str
+    session_id: str
 
-    Failures come in two kinds. Raise :class:`ToolError` (or a subclass) when
-    the tool itself refused the call — an in-band error the endpoint answered
-    with — and it reaches the model verbatim. Raise anything else when the
-    endpoint could not answer at all, and it is reported as an endpoint failure.
 
-    Example:
-        The payload is protocol-neutral, so a transport may reshape it and the
-        environment is unchanged — here as a JSON-RPC ``tools/call``::
+class EndpointHttpClient(Protocol):
+    """POSTs a JSON body to one fixed endpoint and decodes the JSON answer.
 
-            def json_rpc_transport(*, url, payload, timeout_seconds):
-                result = post_json_rpc(
-                    url,
-                    method="tools/call",
-                    id=payload["call_id"],
-                    params={
-                        "name": payload["name"],
-                        "arguments": payload["arguments"],
-                    },
-                    timeout=timeout_seconds,
-                )
-                if result.get("isError"):
-                    raise ToolError(result["content"][0]["text"])
-                return result["structuredContent"]
-
-            env = EndpointEnvironment(params, kwargs, json_rpc_transport)
+    The client owns the URL, the credential, and the egress policy, so a
+    protocol never chooses where a call goes or what it is allowed to reach.
     """
 
-    def __call__(
-        self,
-        *,
-        url: str,
-        payload: dict[str, JsonValue],
-        timeout_seconds: float,
-    ) -> JsonValue:
-        """Send ``payload`` to ``url`` and return the decoded response body."""
+    def post_json(self, payload: JsonValue) -> JsonValue:
+        """POST ``payload`` and return the decoded response body."""
 
 
-@runtime_checkable
-class _SupportsClose(Protocol):
-    """A transport owning resources it must release at episode end."""
+class EndpointProtocol(Protocol):
+    """Turns one tool call into a request, and its answer into the tool's output.
+
+    Implementations own the wire format: the shape of the request, and which
+    answers count as the tool refusing rather than the endpoint failing.
+
+    Raise :class:`ToolError` (or a subclass) when the tool itself refused the
+    call — an in-band answer that reaches the model verbatim. Raise anything
+    else when the endpoint could not answer at all.
+
+    Example:
+        A protocol owns the wire format, so MCP is a different ``call`` over the
+        same client::
+
+            class McpProtocol:
+                def __init__(self, http_client):
+                    self._http_client = http_client
+
+                def call(self, request):
+                    result = self._http_client.post_json({
+                        "jsonrpc": "2.0",
+                        "id": request.call_id,
+                        "method": "tools/call",
+                        "params": {
+                            "name": request.name,
+                            "arguments": request.arguments,
+                        },
+                    })["result"]
+                    if result.get("isError"):
+                        raise ToolError(result["content"][0]["text"])
+                    return result["structuredContent"]
+
+                def close(self):
+                    pass
+    """
+
+    def call(self, request: RemoteToolCall) -> JsonValue:
+        """Execute one tool call and return the tool's output."""
 
     def close(self) -> None:
-        """Release the transport's resources."""
+        """Release any protocol-level resources, such as a negotiated session."""
 
 
-def _post_json(
-    *,
-    url: str,
-    payload: dict[str, JsonValue],
-    timeout_seconds: float,
-) -> JsonValue:
-    """Default transport: a plain JSON POST with no egress policy of its own."""
-    response = requests.post(url, json=payload, timeout=timeout_seconds)
-    response.raise_for_status()
-    return response.json()
+class RequestsJsonClient:
+    """Default client: a plain JSON POST with no egress policy of its own."""
+
+    def __init__(self, url: str, timeout_seconds: float) -> None:
+        """Send every call to ``url``, waiting at most ``timeout_seconds``."""
+        self._url = url
+        self._timeout_seconds = timeout_seconds
+
+    def post_json(self, payload: JsonValue) -> JsonValue:
+        """POST ``payload`` and return the decoded response body."""
+        response = requests.post(self._url, json=payload, timeout=self._timeout_seconds)
+        response.raise_for_status()
+        return response.json()
+
+
+class JsonHttpProtocol:
+    """Sends each tool call as one JSON POST whose response body is the output.
+
+    The request carries the call's name and arguments alongside the ids
+    identifying it. A retry resends the identical body, so an endpoint that
+    deduplicates on ``{session_id}:{call_id}`` performs a side effect once no
+    matter how often it is re-sent.
+    """
+
+    def __init__(self, http_client: EndpointHttpClient) -> None:
+        """Send over ``http_client``, which owns the URL and the credential."""
+        self._http_client = http_client
+
+    def call(self, request: RemoteToolCall) -> JsonValue:
+        """POST one call and return the response body as the tool's output."""
+        return self._http_client.post_json(
+            {
+                "name": request.name,
+                "arguments": request.arguments,
+                "call_id": request.call_id,
+                "session_id": request.session_id,
+            }
+        )
+
+    def close(self) -> None:
+        """Hold nothing: the client's lifetime belongs to whoever built it."""
 
 
 @register_environment("endpoint")
@@ -123,27 +166,22 @@ class EndpointEnvironment(BaseEnvironment):
     """Environment that executes each tool call as one POST to an endpoint.
 
     The endpoint owns the tool's behavior; this environment owns the contract:
-    it validates arguments against the tool's schema, sends one request per
-    call, and validates the response against the tool's ``output_schema``.
+    it validates arguments against the tool's schema, hands the call to a
+    protocol, and validates the answer against the tool's ``output_schema``.
+    The protocol owns the wire format, so a different one leaves this class
+    untouched.
 
-    Each request carries a ``session_id`` identifying the conversation and a
-    ``call_id`` identifying the call within it. A retry resends the identical
-    request, so an endpoint that deduplicates on ``{session_id}:{call_id}``
-    performs a side effect once no matter how often it is re-sent.
+    Each call is identified by a ``session_id`` naming the conversation and a
+    ``call_id`` naming the call within it, so a protocol can make retries
+    deduplicable end to end.
     """
 
     tool_params_cls = ToolParams
 
-    def __init__(
-        self,
-        params: EnvironmentParams,
-        kwargs: EndpointEnvironmentKwargs,
-        transport: EndpointTransport = _post_json,
-    ) -> None:
-        """Bind the env to its endpoint and the transport that reaches it."""
+    def __init__(self, params: EnvironmentParams, protocol: EndpointProtocol) -> None:
+        """Bind the env to the protocol that reaches its endpoint."""
         self._params = params
-        self._kwargs = kwargs
-        self._transport = transport
+        self._protocol = protocol
         self._tools_by_id: dict[str, ToolParams] = {
             tool.id: tool for tool in params.tools
         }
@@ -151,20 +189,16 @@ class EndpointEnvironment(BaseEnvironment):
 
     @classmethod
     def from_params(cls, params: EnvironmentParams) -> EndpointEnvironment:
-        """Build the env from its configured kwargs, over the default transport."""
+        """Build the env from its configured kwargs, over a plain JSON POST."""
         kwargs = parse_env_kwargs(
             EndpointEnvironmentKwargs, params, env_label="EndpointEnvironment"
         )
-        return cls(params, kwargs)
+        client = RequestsJsonClient(kwargs.endpoint_url, kwargs.timeout_seconds)
+        return cls(params, JsonHttpProtocol(client))
 
     def close(self) -> None:
-        """Release the transport's resources, if it owns any.
-
-        A transport holding a connection pool or an authenticated client exposes
-        ``close()``; the default stateless one does not.
-        """
-        if isinstance(self._transport, _SupportsClose):
-            self._transport.close()
+        """Release the protocol's resources, if it holds any."""
+        self._protocol.close()
 
     def step(self, calls: list[tuple[str, dict[str, Any]]]) -> list[ToolResult]:
         """Execute a batch of tool calls; results are returned in input order.
@@ -191,7 +225,7 @@ class EndpointEnvironment(BaseEnvironment):
         Raises:
             ToolLookupError: If the environment does not serve ``tool_id``.
             ToolArgumentError: If ``arguments`` do not match the tool's schema.
-            ToolError: As raised by the transport, when the tool itself refused
+            ToolError: As raised by the protocol, when the tool itself refused
                 the call.
             EndpointCallError: If the endpoint is unreachable or its response
                 does not match the tool's output schema.
@@ -204,15 +238,16 @@ class EndpointEnvironment(BaseEnvironment):
             )
         tool.validate_arguments(arguments)
 
-        payload = self._build_payload(tool_id, arguments, call_id, session_id)
+        request = RemoteToolCall(
+            name=tool_id,
+            arguments=arguments,
+            call_id=call_id,
+            session_id=session_id or self._session_id,
+        )
         try:
-            output = self._transport(
-                url=self._kwargs.endpoint_url,
-                payload=payload,
-                timeout_seconds=self._kwargs.timeout_seconds,
-            )
+            output = self._protocol.call(request)
         except ToolError:
-            # The transport speaks the protocol; its tool-level verdict is
+            # The protocol speaks the wire format; its tool-level verdict is
             # already precise, so wrapping it would only blur the message.
             raise
         except Exception as error:
@@ -222,26 +257,6 @@ class EndpointEnvironment(BaseEnvironment):
 
         self._validate_output(tool, output)
         return ToolResult(output=output)
-
-    def _build_payload(
-        self,
-        tool_id: str,
-        arguments: dict[str, Any],
-        call_id: str,
-        session_id: str | None,
-    ) -> dict[str, JsonValue]:
-        """Shape one call into the request body the endpoint is sent.
-
-        This and :meth:`_validate_output` are the two ends of the wire contract:
-        a different contract replaces both and leaves the rest of ``call``
-        untouched.
-        """
-        return {
-            "name": tool_id,
-            "arguments": arguments,
-            "call_id": call_id,
-            "session_id": session_id or self._session_id,
-        }
 
     @staticmethod
     def _validate_output(tool: ToolParams, output: JsonValue) -> None:

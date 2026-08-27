@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import pytest
+import requests
 from pydantic import JsonValue
 
 from oumi.core.configs.params.environment_params import EnvironmentParams
@@ -27,7 +28,9 @@ from oumi.environments.endpoint_environment import (
     EndpointCallError,
     EndpointEnvironment,
     EndpointEnvironmentKwargs,
-    EndpointTransport,
+    EndpointProtocol,
+    JsonHttpProtocol,
+    RemoteToolCall,
 )
 from oumi.environments.utils import parse_env_kwargs
 
@@ -52,44 +55,48 @@ def _tool() -> ToolParams:
     )
 
 
-class _RecordingTransport:
-    """Captures each request and returns a canned response."""
+class _RecordingProtocol:
+    """Captures each call and returns a canned response."""
 
     def __init__(
         self, response: JsonValue = None, error: Exception | None = None
     ) -> None:
         self.response: JsonValue = {"status": "ok"} if response is None else response
         self.error = error
-        self.requests: list[dict] = []
+        self.calls: list[RemoteToolCall] = []
+        self.closed = False
 
-    def __call__(
-        self, *, url: str, payload: dict[str, JsonValue], timeout_seconds: float
-    ) -> JsonValue:
-        self.requests.append(
-            {"url": url, "payload": payload, "timeout_seconds": timeout_seconds}
-        )
+    def call(self, request: RemoteToolCall) -> JsonValue:
+        self.calls.append(request)
         if self.error is not None:
             raise self.error
         return self.response
 
+    def close(self) -> None:
+        self.closed = True
 
-def _environment(
-    transport: EndpointTransport, timeout_seconds: float = 5.0
-) -> EndpointEnvironment:
-    kwargs = EndpointEnvironmentKwargs(
-        endpoint_url=_URL, timeout_seconds=timeout_seconds
-    )
-    kwargs.finalize_and_validate()
+
+class _RecordingHttpClient:
+    """Captures each posted body and returns a canned response."""
+
+    def __init__(self, response: JsonValue = None) -> None:
+        self.response: JsonValue = {"status": "ok"} if response is None else response
+        self.posted: list[JsonValue] = []
+
+    def post_json(self, payload: JsonValue) -> JsonValue:
+        self.posted.append(payload)
+        return self.response
+
+
+def _environment(protocol: EndpointProtocol) -> EndpointEnvironment:
     return EndpointEnvironment(
-        EnvironmentParams(id="env", env_type="endpoint", tools=[_tool()]),
-        kwargs,
-        transport,
+        EnvironmentParams(id="env", env_type="endpoint", tools=[_tool()]), protocol
     )
 
 
-def test_call_sends_the_tool_call_and_returns_the_response():
-    transport = _RecordingTransport()
-    env = _environment(transport)
+def test_call_hands_the_identified_call_to_the_protocol():
+    protocol = _RecordingProtocol()
+    env = _environment(protocol)
 
     result = env.call(
         "place_order",
@@ -99,74 +106,84 @@ def test_call_sends_the_tool_call_and_returns_the_response():
     )
 
     assert result.output == {"status": "ok"}
-    assert transport.requests == [
-        {
-            "url": _URL,
-            "payload": {
-                "name": "place_order",
-                "arguments": {"item": "X"},
-                "call_id": "row42:3:0:place_order",
-                "session_id": "row42",
-            },
-            "timeout_seconds": 5.0,
-        }
+    assert protocol.calls == [
+        RemoteToolCall(
+            name="place_order",
+            arguments={"item": "X"},
+            call_id="row42:3:0:place_order",
+            session_id="row42",
+        )
     ]
 
 
 def test_step_identifies_calls_when_the_caller_does_not():
-    transport = _RecordingTransport()
-    env = _environment(transport)
+    protocol = _RecordingProtocol()
+    env = _environment(protocol)
 
     env.step([("place_order", {"item": "X"}), ("place_order", {"item": "Y"})])
 
-    payloads = [request["payload"] for request in transport.requests]
     # Distinct calls in one conversation: same session, different call ids.
-    assert payloads[0]["call_id"] != payloads[1]["call_id"]
-    assert payloads[0]["session_id"] == payloads[1]["session_id"]
+    assert protocol.calls[0].call_id != protocol.calls[1].call_id
+    assert protocol.calls[0].session_id == protocol.calls[1].session_id
 
 
 def test_call_rejects_arguments_that_do_not_match_the_tool_schema():
-    transport = _RecordingTransport()
-    env = _environment(transport)
+    protocol = _RecordingProtocol()
+    env = _environment(protocol)
 
     with pytest.raises(ToolArgumentError):
         env.call("place_order", {"item": 7}, call_id="c1")
-    assert transport.requests == []
+    assert protocol.calls == []
 
 
 def test_call_rejects_an_unknown_tool():
-    env = _environment(_RecordingTransport())
+    env = _environment(_RecordingProtocol())
 
     with pytest.raises(ToolLookupError):
         env.call("cancel_order", {"item": "X"}, call_id="c1")
 
 
 def test_call_reports_a_response_that_breaks_the_output_schema():
-    env = _environment(_RecordingTransport(response={"state": "ok"}))
+    env = _environment(_RecordingProtocol(response={"state": "ok"}))
 
     with pytest.raises(EndpointCallError, match="output schema"):
         env.call("place_order", {"item": "X"}, call_id="c1")
 
 
-def test_call_reports_a_transport_failure_as_a_tool_error():
-    env = _environment(_RecordingTransport(error=TimeoutError("timed out")))
+def test_call_reports_a_protocol_failure_as_a_tool_error():
+    env = _environment(_RecordingProtocol(error=TimeoutError("timed out")))
 
     with pytest.raises(EndpointCallError, match="timed out"):
         env.call("place_order", {"item": "X"}, call_id="c1")
 
 
+def test_a_tool_error_from_the_protocol_passes_through_unchanged():
+    env = _environment(_RecordingProtocol(error=ToolError("out of stock")))
+
+    with pytest.raises(ToolError, match="^out of stock$") as excinfo:
+        env.call("place_order", {"item": "X"}, call_id="c1")
+
+    # A refusal is the tool's answer, not an endpoint failure.
+    assert not isinstance(excinfo.value, EndpointCallError)
+
+
 def test_call_accepts_any_response_when_the_tool_declares_no_output_schema():
-    kwargs = EndpointEnvironmentKwargs(endpoint_url=_URL)
-    kwargs.finalize_and_validate()
     tool = _tool()
     tool.output_schema = None
     env = EndpointEnvironment(
         EnvironmentParams(id="env", env_type="endpoint", tools=[tool]),
-        kwargs,
-        _RecordingTransport(response=["anything"]),
+        _RecordingProtocol(response=["anything"]),
     )
 
     assert env.call("place_order", {"item": "X"}, call_id="c1").output == ["anything"]
+
+
+def test_close_releases_the_protocol():
+    protocol = _RecordingProtocol()
+
+    _environment(protocol).close()
+
+    assert protocol.closed
 
 
 @pytest.mark.parametrize(
@@ -200,84 +217,104 @@ def test_kwargs_parse_from_a_plain_json_config():
     assert kwargs.timeout_seconds == 5
 
 
-class _ClosingTransport(_RecordingTransport):
-    """A transport owning resources it must release."""
+def test_json_http_protocol_sends_the_call_and_its_ids_as_one_body():
+    client = _RecordingHttpClient()
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.closed = False
+    result = _environment(JsonHttpProtocol(client)).call(
+        "place_order", {"item": "X"}, call_id="c1", session_id="s1"
+    )
 
-    def close(self) -> None:
-        self.closed = True
-
-
-def test_close_releases_a_transport_that_owns_resources():
-    transport = _ClosingTransport()
-
-    _environment(transport).close()
-
-    assert transport.closed
-
-
-def test_close_is_a_no_op_for_a_transport_that_owns_nothing():
-    _environment(_RecordingTransport()).close()
+    assert client.posted == [
+        {
+            "name": "place_order",
+            "arguments": {"item": "X"},
+            "call_id": "c1",
+            "session_id": "s1",
+        }
+    ]
+    assert result.output == {"status": "ok"}
 
 
-def test_a_tool_error_from_the_transport_passes_through_unchanged():
-    def refusing_transport(
-        *, url: str, payload: dict[str, JsonValue], timeout_seconds: float
-    ) -> JsonValue:
-        raise ToolError("out of stock")
+def test_json_http_protocol_leaves_its_client_open():
+    """The client's lifetime belongs to whoever built it, not to the protocol."""
+    _environment(JsonHttpProtocol(_RecordingHttpClient())).close()
 
-    with pytest.raises(ToolError, match="^out of stock$") as excinfo:
-        _environment(refusing_transport).call(
-            "place_order", {"item": "X"}, call_id="c1"
+
+def test_from_params_posts_to_the_configured_endpoint(monkeypatch):
+    sent: dict[str, object] = {}
+
+    class _Response:
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self) -> JsonValue:
+            return {"status": "ok"}
+
+    def fake_post(url, *, json, timeout):
+        sent.update({"url": url, "json": json, "timeout": timeout})
+        return _Response()
+
+    monkeypatch.setattr(requests, "post", fake_post)
+    env = EndpointEnvironment.from_params(
+        EnvironmentParams(
+            id="env",
+            env_type="endpoint",
+            tools=[_tool()],
+            env_kwargs={"endpoint_url": _URL, "timeout_seconds": 7},
         )
+    )
 
-    # A refusal is the tool's answer, not an endpoint failure.
-    assert not isinstance(excinfo.value, EndpointCallError)
+    result = env.call("place_order", {"item": "X"}, call_id="c1", session_id="s1")
+
+    assert sent["url"] == _URL
+    assert sent["timeout"] == 7
+    assert sent["json"] == {
+        "name": "place_order",
+        "arguments": {"item": "X"},
+        "call_id": "c1",
+        "session_id": "s1",
+    }
+    assert result.output == {"status": "ok"}
 
 
 # The environment fixes what a call means, never how it travels. These two
-# transports carry the same call over other wire formats, unchanged, and map
-# their protocol's in-band tool failure to ToolError.
+# protocols carry the same call over other wire formats, unchanged, and map
+# their format's in-band tool failure to ToolError.
 
 
-class _JsonRpcTransport:
+class _JsonRpcProtocol:
     """Sends a call as a self-contained JSON-RPC ``tools/call`` request."""
 
-    def __init__(self, result: dict | None = None) -> None:
-        self.sent: list[dict] = []
+    def __init__(self, http_client: _RecordingHttpClient, result: dict | None = None):
+        self._http_client = http_client
         self.result = result or {"structuredContent": {"status": "ok"}}
 
-    def __call__(
-        self, *, url: str, payload: dict[str, JsonValue], timeout_seconds: float
-    ) -> JsonValue:
-        self.sent.append(
+    def call(self, request: RemoteToolCall) -> JsonValue:
+        self._http_client.post_json(
             {
                 "jsonrpc": "2.0",
-                "id": payload["call_id"],
+                "id": request.call_id,
                 "method": "tools/call",
-                "params": {
-                    "name": payload["name"],
-                    "arguments": payload["arguments"],
-                },
+                "params": {"name": request.name, "arguments": request.arguments},
             }
         )
-        # The envelope is the transport's business; the environment sees the result.
+        # The envelope is the protocol's business; the environment sees the result.
         if self.result.get("isError"):
             raise ToolError(self.result["content"][0]["text"])
         return self.result["structuredContent"]
 
+    def close(self) -> None:
+        pass
 
-def test_a_json_rpc_transport_carries_the_call_unchanged():
-    transport = _JsonRpcTransport()
 
-    result = _environment(transport).call(
+def test_a_json_rpc_protocol_carries_the_call_unchanged():
+    client = _RecordingHttpClient()
+
+    result = _environment(_JsonRpcProtocol(client)).call(
         "place_order", {"item": "X"}, call_id="c1", session_id="s1"
     )
 
-    assert transport.sent == [
+    assert client.posted == [
         {
             "jsonrpc": "2.0",
             "id": "c1",
@@ -288,16 +325,17 @@ def test_a_json_rpc_transport_carries_the_call_unchanged():
     assert result.output == {"status": "ok"}
 
 
-def test_a_json_rpc_transport_reports_is_error_as_the_tools_refusal():
-    transport = _JsonRpcTransport(
-        result={"isError": True, "content": [{"type": "text", "text": "out of stock"}]}
+def test_a_json_rpc_protocol_reports_is_error_as_the_tools_refusal():
+    protocol = _JsonRpcProtocol(
+        _RecordingHttpClient(),
+        result={"isError": True, "content": [{"type": "text", "text": "out of stock"}]},
     )
 
     with pytest.raises(ToolError, match="^out of stock$"):
-        _environment(transport).call("place_order", {"item": "X"}, call_id="c1")
+        _environment(protocol).call("place_order", {"item": "X"}, call_id="c1")
 
 
-class _OperationTransport:
+class _OperationProtocol:
     """Routes a call by looking its tool name up as an operation."""
 
     _OPERATIONS = {"place_order": {"method": "POST", "path": "/orders"}}
@@ -307,37 +345,39 @@ class _OperationTransport:
         self.status_code = status_code
         self.body = body or {"status": "ok"}
 
-    def __call__(
-        self, *, url: str, payload: dict[str, JsonValue], timeout_seconds: float
-    ) -> JsonValue:
-        operation = self._OPERATIONS[str(payload["name"])]
+    def call(self, request: RemoteToolCall) -> JsonValue:
+        # The protocol picks the method and path; the client owns the origin.
+        operation = self._OPERATIONS[request.name]
         self.sent.append(
             {
                 "method": operation["method"],
-                "url": url + operation["path"],
-                "body": payload["arguments"],
+                "path": operation["path"],
+                "body": request.arguments,
             }
         )
         if self.status_code >= 400:
             raise ToolError(f"HTTP {self.status_code}: {self.body['error']}")
         return self.body
 
+    def close(self) -> None:
+        pass
 
-def test_an_operation_routing_transport_picks_the_route_from_the_tool_name():
-    transport = _OperationTransport()
 
-    result = _environment(transport).call("place_order", {"item": "X"}, call_id="c1")
+def test_an_operation_routing_protocol_picks_the_route_from_the_tool_name():
+    protocol = _OperationProtocol()
 
-    assert transport.sent == [
-        {"method": "POST", "url": _URL + "/orders", "body": {"item": "X"}}
+    result = _environment(protocol).call("place_order", {"item": "X"}, call_id="c1")
+
+    assert protocol.sent == [
+        {"method": "POST", "path": "/orders", "body": {"item": "X"}}
     ]
     assert result.output == {"status": "ok"}
 
 
-def test_an_operation_routing_transport_reports_a_4xx_as_the_tools_refusal():
-    transport = _OperationTransport(status_code=422, body={"error": "item unavailable"})
+def test_an_operation_routing_protocol_reports_a_4xx_as_the_tools_refusal():
+    protocol = _OperationProtocol(status_code=422, body={"error": "item unavailable"})
 
     with pytest.raises(ToolError, match="^HTTP 422: item unavailable$") as excinfo:
-        _environment(transport).call("place_order", {"item": "X"}, call_id="c1")
+        _environment(protocol).call("place_order", {"item": "X"}, call_id="c1")
 
     assert not isinstance(excinfo.value, EndpointCallError)
