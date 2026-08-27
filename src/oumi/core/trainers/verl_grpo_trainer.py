@@ -366,7 +366,7 @@ class VerlGrpoTrainer(BaseTrainer):
     ) -> None:
         """Creates dataset files for verl in Parquet format.
 
-        The Parquet files are saved to the Oumi cache directory.
+        The Parquet files are saved to the output directory.
 
         Args:
             process_fn: Optional function to convert the dataset samples to verl format.
