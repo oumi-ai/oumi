@@ -124,6 +124,16 @@ class EndpointEnvironment(BaseEnvironment):
         )
         return cls(params, kwargs)
 
+    def close(self) -> None:
+        """Release the transport's resources, if it owns any.
+
+        A transport holding a connection pool or an authenticated client exposes
+        ``close()``; the default stateless one does not.
+        """
+        close = getattr(self._transport, "close", None)
+        if close is not None:
+            close()
+
     def step(self, calls: list[tuple[str, dict[str, Any]]]) -> list[ToolResult]:
         """Execute a batch of tool calls; results are returned in input order.
 

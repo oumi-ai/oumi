@@ -195,3 +195,110 @@ def test_kwargs_parse_from_a_plain_json_config():
 
     assert kwargs.endpoint_url == _URL
     assert kwargs.timeout_seconds == 5
+
+
+class _ClosingTransport(_RecordingTransport):
+    """A transport owning resources it must release."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.closed = False
+
+    def close(self) -> None:
+        self.closed = True
+
+
+def test_close_releases_a_transport_that_owns_resources():
+    transport = _ClosingTransport()
+
+    _environment(transport).close()
+
+    assert transport.closed
+
+
+def test_close_is_a_no_op_for_a_transport_that_owns_nothing():
+    _environment(_RecordingTransport()).close()
+
+
+# The environment fixes what a call means, never how it travels. These two
+# transports carry the same call over other wire formats, unchanged.
+
+
+class _JsonRpcTransport:
+    """Sends a call as a self-contained JSON-RPC ``tools/call`` request."""
+
+    def __init__(self) -> None:
+        self.sent: list[dict] = []
+
+    def __call__(
+        self, *, url: str, payload: dict[str, JsonValue], timeout_seconds: float
+    ) -> JsonValue:
+        self.sent.append(
+            {
+                "jsonrpc": "2.0",
+                "id": payload["call_id"],
+                "method": "tools/call",
+                "params": {
+                    "name": payload["name"],
+                    "arguments": payload["arguments"],
+                },
+            }
+        )
+        # The envelope is the transport's business; the environment sees the result.
+        response = {
+            "jsonrpc": "2.0",
+            "id": payload["call_id"],
+            "result": {"status": "ok"},
+        }
+        return response["result"]
+
+
+def test_a_json_rpc_transport_carries_the_call_unchanged():
+    transport = _JsonRpcTransport()
+
+    result = _environment(transport).call(
+        "place_order", {"item": "X"}, call_id="c1", session_id="s1"
+    )
+
+    assert transport.sent == [
+        {
+            "jsonrpc": "2.0",
+            "id": "c1",
+            "method": "tools/call",
+            "params": {"name": "place_order", "arguments": {"item": "X"}},
+        }
+    ]
+    assert result.output == {"status": "ok"}
+
+
+class _OperationTransport:
+    """Routes a call by looking its tool name up as an operation."""
+
+    _OPERATIONS = {"place_order": {"method": "POST", "path": "/orders"}}
+
+    def __init__(self) -> None:
+        self.sent: list[dict] = []
+
+    def __call__(
+        self, *, url: str, payload: dict[str, JsonValue], timeout_seconds: float
+    ) -> JsonValue:
+        operation = self._OPERATIONS[str(payload["name"])]
+        self.sent.append(
+            {
+                "method": operation["method"],
+                "url": url + operation["path"],
+                "body": payload["arguments"],
+            }
+        )
+        return {"status": "ok"}
+
+
+def test_an_operation_routing_transport_picks_the_route_from_the_tool_name():
+    transport = _OperationTransport()
+
+    result = _environment(transport).call("place_order", {"item": "X"}, call_id="c1")
+
+    assert transport.sent == [
+        {"method": "POST", "url": _URL + "/orders", "body": {"item": "X"}}
+    ]
+    assert result.output == {"status": "ok"}
