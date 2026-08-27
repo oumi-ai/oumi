@@ -1,0 +1,108 @@
+model:
+  model_name: "google/gemma-4-E2B-it"
+
+data:
+  train:
+    datasets:
+      - dataset_name: "oumi-ai/oumi-letter-count"
+        split: "train"
+        sample_count: 20000 #default_size = 100000
+  validation:
+    datasets:
+      - dataset_name: "oumi-ai/oumi-letter-count"
+        split: "validation"
+        sample_count: 256 #640 #default_size = 10000
+
+training:
+  trainer_type: "VERL_GRPO"
+  # The train split has 100k examples (~1562 steps/epoch at batch size 64);
+  num_train_epochs: 1
+#   max_steps: 5 #uncomment for smoke test
+
+  # Batch size settings
+#   per_device_train_batch_size: 2
+#   gradient_accumulation_steps: 1
+
+  # Optimization
+  learning_rate: 5e-7
+  optimizer: "adafactor"
+
+  # Learning rate schedule
+  lr_scheduler_type: "cosine"
+  warmup_steps: 20
+
+  # Checkpointing
+#   save_steps: 5 #uncomment for smoke test
+  save_steps: 100
+
+  # Evaluation
+  eval_strategy: "steps"
+#   eval_steps: 5 # uncomment for smoke test
+  eval_steps: 10 #25 #50
+
+  reward_functions: ["count_letters_verl"]
+
+  # Distributed training
+  ddp_find_unused_parameters: False       # Find unused parameters in DDP
+
+  # Mixed precision and performance
+  compile: False
+
+  # DataLoader settings
+  dataloader_num_workers: "auto"
+  dataloader_prefetch_factor: 32
+
+  # Logging
+  logging_steps: 10
+
+
+  grpo:
+    # num_generations: 4 #Ignored on the verl path — Oumi never maps it; rollout.n is what applies.
+    max_completion_length: 512 #1024?
+    temperature: 1.0
+    use_vllm: True
+    vllm_gpu_memory_utilization: 0.3 #0.4?
+
+  verl_config_overrides:
+    data:
+      train_batch_size: 64
+      val_batch_size: 640
+      max_prompt_length: 256
+    
+    actor_rollout_ref:
+      model:
+        use_remove_padding: False # change if from True to avoid ModuleNotFoundError: No module named 'flash_attn'
+        override_config: # use sdpa instead of flashattention, cause flashattention cant work for gemma4 due to head sizes
+          attn_implementation: sdpa
+      actor:
+        use_kl_loss: True
+        kl_loss_coef: 0.001
+        kl_loss_type: "low_var_kl"
+        ppo_mini_batch_size: 16
+        ppo_micro_batch_size_per_gpu: 4
+        fsdp_config: #Disable for speed?
+          param_offload: True
+          optimizer_offload: True
+
+      rollout:
+        log_prob_micro_batch_size_per_gpu: 8 #4?
+        tensor_model_parallel_size: 2 # each rollout replica will use 2 GPUs (model split across 2 GPUs)
+        n: 4 #16?
+        checkpoint_engine:
+          update_weights_bucket_megabytes: 11264  #10240? #12288 #4096    # add — default 2048 is too small
+      ref:
+        log_prob_micro_batch_size_per_gpu: 16 
+        fsdp_config:
+          param_offload: True
+    algorithm:
+      kl_ctrl:
+        kl_coef: 0.001
+    trainer:
+      critic_warmup: 0
+      val_before_train: True 
+      n_gpus_per_node: 4 #8?
+      nnodes: 1
+
+  output_dir: "output/letter_counting.grpo_verl_gemma4_e2b"
+  run_name: "grpo_verl_countletters_gemma4_e2b"
+  enable_wandb: True
