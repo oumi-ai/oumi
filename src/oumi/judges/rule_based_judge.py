@@ -61,11 +61,19 @@ class RuleBasedJudge(BaseJudge):
 
     def _create_output_fields(self) -> list[JudgeOutputField]:
         """Create output fields based on rule parameters."""
+        # dict is invariant, so dict[str, float] is not assignable to
+        # dict[str, float | None]. A rule never scores a label None, so copying
+        # into the wider dict is sound.
+        field_scores: dict[str, float | None] | None = (
+            dict(self._rule_params.judgment_scores)
+            if self._rule_params.judgment_scores
+            else None
+        )
         return [
             JudgeOutputField(
                 field_key=JUDGMENT_KEY,
                 field_type=self._rule_params.judgment_type,
-                field_scores=self._rule_params.judgment_scores,
+                field_scores=field_scores,
             )
         ]
 
