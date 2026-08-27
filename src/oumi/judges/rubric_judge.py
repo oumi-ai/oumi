@@ -367,18 +367,24 @@ class RubricJudge(BaseJudge):
         if self._rubric_params.aggregation == JudgeAggregation.NONE:
             return
 
-        # Only BOOL criteria (scored 1.0/0.0) and criteria with an explicit
-        # `judgment_scores` mapping produce a numeric score; the rest are skipped
-        # when aggregating.
-        unscored = [
-            criterion.id
-            for criterion in self.criteria
-            if not criterion.judgment_scores
-            and criterion.judgment_type != JudgeOutputType.BOOL
-        ]
+        unscored = [c.id for c in self.criteria if not self._is_scoreable(c)]
         if unscored:
             logger.warning(
                 f"Criteria {sorted(unscored)} produce no numeric score and will be "
                 f"excluded from the '{self._rubric_params.aggregation.value}' "
                 "aggregate score. Add `judgment_scores` to include them."
             )
+
+    @staticmethod
+    def _is_scoreable(criterion: JudgeCriterion) -> bool:
+        """Return True if a criterion can ever contribute a numeric score.
+
+        BOOL criteria are scored 1.0/0.0 automatically. Anything else needs a
+        `judgment_scores` mapping with at least one label that carries a score --
+        a mapping whose labels all map to None only constrains the allowed values.
+        """
+        if criterion.judgment_scores:
+            return any(
+                score is not None for score in criterion.judgment_scores.values()
+            )
+        return criterion.judgment_type == JudgeOutputType.BOOL

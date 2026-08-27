@@ -47,12 +47,13 @@ class JudgeOutputField(pydantic.BaseModel):
     Attributes:
         field_key: The key/name for this field in the judge's output
         field_type: The data type expected for this field's value
-        field_scores: Optional mapping from categorical values to numeric scores
+        field_scores: Optional mapping from categorical values to numeric scores.
+            A value may map to None to mean "carries no score" (e.g. N/A)
     """
 
     field_key: str
     field_type: JudgeOutputType
-    field_scores: dict[str, float] | None
+    field_scores: dict[str, float | None] | None
 
     def get_typed_value(self, raw_value: str) -> float | int | str | bool | None:
         """Convert the field's raw string value to the appropriate type.

@@ -14,6 +14,8 @@
 
 """Helpers shared by the LLM-based judges (SimpleJudge, RubricJudge)."""
 
+from collections.abc import Mapping
+
 from oumi.core.configs.params.judge_params import JudgeOutputType
 
 # Judgment options: describing to the judge how to format its judgment.
@@ -26,7 +28,7 @@ JUDGMENT_OPTIONS_TEXT = "Your judgment should be provided in the form of free te
 
 def describe_judgment_options(
     judgment_type: JudgeOutputType,
-    judgment_scores: dict[str, float] | None,
+    judgment_scores: Mapping[str, float | None] | None,
 ) -> str:
     """Describe to the judge the values its judgment is allowed to take.
 
@@ -56,7 +58,7 @@ def describe_judgment_options(
 
 def build_judgment_field_schema(
     judgment_type: JudgeOutputType,
-    judgment_scores: dict[str, float] | None,
+    judgment_scores: Mapping[str, float | None] | None,
 ) -> dict:
     """Build the JSON schema fragment for a single judgment field.
 

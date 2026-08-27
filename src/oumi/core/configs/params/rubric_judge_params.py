@@ -71,11 +71,11 @@ class JudgeCriterion(BaseParams):
     judgment_type: JudgeOutputType = field(default=JudgeOutputType.BOOL)
     """The type of output that this criterion's judgment should be provided with."""
 
-    judgment_scores: dict[str, float] | None = field(default=None)
+    judgment_scores: dict[str, float | None] | None = field(default=None)
     """For ENUM judgment_type, the mapping from category names to numeric scores.
 
     Example:
-        {"excellent": 1.0, "good": 0.7, "poor": 0.3}
+        {"excellent": 1.0, "good": 0.7, "poor": 0.3, "not_applicable": None}
     """
 
     include_explanation: bool = field(default=False)
@@ -131,12 +131,32 @@ class JudgeCriterion(BaseParams):
                     f"Criterion '{self.id}': judgment_scores cannot be empty when "
                     "provided"
                 )
+            # None means "this label carries no score"; anything else must be numeric.
             if not all(
-                isinstance(score, int | float)
+                score is None or isinstance(score, int | float)
                 for score in self.judgment_scores.values()
             ):
                 raise OumiConfigError(
-                    f"Criterion '{self.id}': all judgment_scores values must be numeric"
+                    f"Criterion '{self.id}': judgment_scores values must be numeric, "
+                    "or None for a label that carries no score"
+                )
+            # Only ENUM keeps the chosen label as its value. For the other types the
+            # label is parsed into a bool/int/float, so an unscored label would come
+            # back as None -- indistinguishable from a failed parse.
+            if self.judgment_type != JudgeOutputType.ENUM and any(
+                score is None for score in self.judgment_scores.values()
+            ):
+                unscored = sorted(
+                    label
+                    for label, score in self.judgment_scores.items()
+                    if score is None
+                )
+                raise OumiConfigError(
+                    f"Criterion '{self.id}': judgment_scores labels {unscored} map to "
+                    f"None, which is only supported for ENUM judgment_type (this "
+                    f"criterion is {self.judgment_type.value.upper()}). The value "
+                    "is parsed from the label, so an unscored label could not be "
+                    "told apart from a failed parse. Use judgment_type: ENUM."
                 )
 
         if self.weight < 0:

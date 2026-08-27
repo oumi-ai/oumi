@@ -37,7 +37,9 @@ from oumi.judges.rubric_judge import RubricJudge
 
 TEST_PROMPT_TEMPLATE = "Question: {question}\nAnswer: {answer}"
 TEST_INPUT = {"question": "What is 2+2?", "answer": "4"}
-ENUM_SCORES = {"excellent": 1.0, "good": 0.5, "poor": 0.0}
+# Annotated because dict is invariant: a bare dict[str, float] is not assignable
+# to a dict[str, float | None] parameter.
+ENUM_SCORES: dict[str, float | None] = {"excellent": 1.0, "good": 0.5, "poor": 0.0}
 
 
 def _criteria(include_explanation: bool = False) -> list[JudgeCriterion]:
@@ -529,6 +531,199 @@ class TestRubricJudgeAggregation:
         )
         output = judge._transform_judge_output(json.dumps({"notes": "some notes"}))
         assert output.aggregate_score is None
+
+
+class TestRubricJudgeUnscoredLabels:
+    """An ENUM label may map to None, meaning "carries no score" (e.g. N/A)."""
+
+    NA_SCORES: dict[str, float | None] = {
+        "good": 1.0,
+        "poor": 0.0,
+        "not_applicable": None,
+    }
+
+    def _judge(self, aggregation=JudgeAggregation.WEIGHTED_MEAN, na_weight=3.0):
+        return _build_judge(
+            criteria=[
+                JudgeCriterion(id="correctness", description="C.", weight=1.0),
+                JudgeCriterion(
+                    id="citations",
+                    description="How well the answer cites sources.",
+                    judgment_type=JudgeOutputType.ENUM,
+                    judgment_scores=self.NA_SCORES,
+                    weight=na_weight,
+                ),
+            ],
+            aggregation=aggregation,
+        )
+
+    def test_config_accepts_a_none_score(self):
+        criterion = JudgeCriterion(
+            id="c",
+            description="D.",
+            judgment_type=JudgeOutputType.ENUM,
+            judgment_scores=self.NA_SCORES,
+        )
+        assert criterion.judgment_scores is not None
+        assert criterion.judgment_scores["not_applicable"] is None
+
+    def test_non_numeric_non_none_scores_still_rejected(self):
+        with pytest.raises(OumiConfigError, match="must be numeric, or None"):
+            JudgeCriterion(
+                id="c",
+                description="D.",
+                judgment_type=JudgeOutputType.ENUM,
+                judgment_scores={"good": "high"},  # type: ignore[dict-item]
+            )
+
+    @pytest.mark.parametrize(
+        "judgment_type",
+        [
+            JudgeOutputType.BOOL,
+            JudgeOutputType.INT,
+            JudgeOutputType.FLOAT,
+            JudgeOutputType.TEXT,
+        ],
+    )
+    def test_none_scores_rejected_for_non_enum_types(self, judgment_type):
+        """Only ENUM keeps the chosen label as its value.
+
+        For the other types the value is parsed out of the label, so an unscored
+        label would come back as None -- indistinguishable from a failed parse.
+        Rejecting at config time beats silently losing the label at runtime.
+        """
+        with pytest.raises(OumiConfigError, match="only supported for ENUM"):
+            JudgeCriterion(
+                id="c",
+                description="D.",
+                judgment_type=judgment_type,
+                judgment_scores={"a": 1.0, "na": None},
+            )
+
+    @pytest.mark.parametrize(
+        "judgment_type",
+        [
+            JudgeOutputType.ENUM,
+            JudgeOutputType.BOOL,
+            JudgeOutputType.INT,
+            JudgeOutputType.FLOAT,
+            JudgeOutputType.TEXT,
+        ],
+    )
+    def test_all_float_scores_still_allowed_on_every_type(self, judgment_type):
+        """The restriction is on None values only, not on judgment_scores itself."""
+        criterion = JudgeCriterion(
+            id="c",
+            description="D.",
+            judgment_type=judgment_type,
+            judgment_scores={"a": 1.0},
+        )
+        assert criterion.judgment_scores == {"a": 1.0}
+
+    def test_unscored_label_is_distinguishable_from_an_invalid_one(self):
+        """N/A keeps its label; a label the judge invented parses to None."""
+        judge = self._judge()
+
+        na = judge._transform_judge_output(
+            json.dumps({"correctness": "Yes", "citations": "not_applicable"})
+        )
+        invalid = judge._transform_judge_output(
+            json.dumps({"correctness": "Yes", "citations": "hallucinated"})
+        )
+
+        assert na.field_values["citations"] == "not_applicable"
+        assert invalid.field_values["citations"] is None
+        # Both carry no score, so both are excluded from the aggregate.
+        assert na.field_scores["citations"] is None
+        assert invalid.field_scores["citations"] is None
+
+    def test_unscored_label_is_offered_to_the_model(self):
+        """The judge can only pick N/A if the prompt and schema allow it."""
+        judge = self._judge()
+        prompt = judge._build_judgment_prompt(TEST_INPUT)
+        assert "'good', 'poor', 'not_applicable'" in prompt
+        assert judge._build_response_schema()["properties"]["citations"]["enum"] == [
+            "good",
+            "poor",
+            "not_applicable",
+        ]
+
+    def test_unscored_label_parses_to_the_label_with_no_score(self):
+        judge = self._judge()
+        output = judge._transform_judge_output(
+            json.dumps({"correctness": "Yes", "citations": "not_applicable"})
+        )
+        # The label is preserved for the reader...
+        assert output.field_values["citations"] == "not_applicable"
+        # ...but it carries no numeric score.
+        assert output.field_scores["citations"] is None
+
+    def test_unscored_label_drops_out_of_the_weighted_mean_entirely(self):
+        """Its weight must leave the denominator too, not just the numerator."""
+        judge = self._judge(na_weight=3.0)
+
+        scored = judge._transform_judge_output(
+            json.dumps({"correctness": "Yes", "citations": "poor"})
+        )
+        # (1*1.0 + 3*0.0) / 4
+        assert scored.aggregate_score == pytest.approx(0.25)
+
+        na = judge._transform_judge_output(
+            json.dumps({"correctness": "Yes", "citations": "not_applicable"})
+        )
+        # Only correctness counts: 1.0 / 1. If the weight had stayed in the
+        # denominator this would be 0.25 instead.
+        assert na.aggregate_score == pytest.approx(1.0)
+
+    @pytest.mark.parametrize(
+        "aggregation,expected",
+        [(JudgeAggregation.MIN, 1.0), (JudgeAggregation.ALL, 1.0)],
+    )
+    def test_unscored_label_excluded_from_min_and_all(self, aggregation, expected):
+        judge = self._judge(aggregation=aggregation)
+        output = judge._transform_judge_output(
+            json.dumps({"correctness": "Yes", "citations": "not_applicable"})
+        )
+        assert output.aggregate_score == expected
+
+    def test_every_criterion_unscored_yields_no_aggregate(self):
+        judge = _build_judge(
+            criteria=[
+                JudgeCriterion(
+                    id="citations",
+                    description="D.",
+                    judgment_type=JudgeOutputType.ENUM,
+                    judgment_scores=self.NA_SCORES,
+                )
+            ]
+        )
+        output = judge._transform_judge_output(
+            json.dumps({"citations": "not_applicable"})
+        )
+        assert output.field_values["citations"] == "not_applicable"
+        assert output.aggregate_score is None
+
+    def test_all_labels_unscored_is_warned_about(self, caplog):
+        """Such a criterion constrains the options but can never be scored."""
+        with caplog.at_level("WARNING"):
+            _build_judge(
+                criteria=[
+                    JudgeCriterion(id="ok", description="A."),
+                    JudgeCriterion(
+                        id="category",
+                        description="Categorical only.",
+                        judgment_type=JudgeOutputType.ENUM,
+                        judgment_scores={"alpha": None, "beta": None},
+                    ),
+                ]
+            )
+        assert "['category']" in caplog.text
+        assert "produce no numeric score" in caplog.text
+
+    def test_partially_scored_enum_is_not_warned_about(self, caplog):
+        with caplog.at_level("WARNING"):
+            self._judge()
+        assert "produce no numeric score" not in caplog.text
 
 
 class TestRubricJudgeExamples:

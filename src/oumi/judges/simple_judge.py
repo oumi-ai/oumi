@@ -172,10 +172,16 @@ class SimpleJudge(BaseJudge):
 
     def _create_judgment_output_field(self, params: JudgeParams) -> JudgeOutputField:
         """Create the main judgment output field."""
+        # dict is invariant, so dict[str, float] is not assignable to
+        # dict[str, float | None]. A simple judge never scores a label None, so
+        # copying into the wider dict is sound.
+        field_scores: dict[str, float | None] | None = (
+            dict(params.judgment_scores) if params.judgment_scores else None
+        )
         return JudgeOutputField(
             field_key=JUDGMENT_KEY,
             field_type=params.judgment_type,
-            field_scores=params.judgment_scores,
+            field_scores=field_scores,
         )
 
     def _create_explanation_output_field(self) -> JudgeOutputField:
