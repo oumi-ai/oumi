@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import pytest
+from pydantic import JsonValue
 
 from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.core.configs.params.tool_params import (
@@ -21,14 +22,13 @@ from oumi.core.configs.params.tool_params import (
     ToolParams,
 )
 from oumi.core.registry import REGISTRY, RegistryType
-from oumi.environments.utils import parse_env_kwargs
 from oumi.environments.endpoint_environment import (
-    EndpointAuthParams,
-    EndpointAuthType,
     EndpointCallError,
     EndpointEnvironment,
     EndpointEnvironmentKwargs,
+    EndpointTransport,
 )
+from oumi.environments.utils import parse_env_kwargs
 
 _URL = "https://tools.example.com/call"
 
@@ -59,14 +59,11 @@ class _RecordingTransport:
         self.error = error
         self.requests: list[dict] = []
 
-    def __call__(self, *, url, payload, headers, timeout_seconds):
+    def __call__(
+        self, *, url: str, payload: dict[str, JsonValue], timeout_seconds: float
+    ) -> JsonValue:
         self.requests.append(
-            {
-                "url": url,
-                "payload": payload,
-                "headers": dict(headers),
-                "timeout_seconds": timeout_seconds,
-            }
+            {"url": url, "payload": payload, "timeout_seconds": timeout_seconds}
         )
         if self.error is not None:
             raise self.error
@@ -74,10 +71,10 @@ class _RecordingTransport:
 
 
 def _environment(
-    transport, timeout_seconds: float = 5.0, auth: EndpointAuthParams | None = None
+    transport: EndpointTransport, timeout_seconds: float = 5.0
 ) -> EndpointEnvironment:
     kwargs = EndpointEnvironmentKwargs(
-        endpoint_url=_URL, timeout_seconds=timeout_seconds, auth=auth
+        endpoint_url=_URL, timeout_seconds=timeout_seconds
     )
     kwargs.finalize_and_validate()
     return EndpointEnvironment(
@@ -92,7 +89,10 @@ def test_call_sends_the_tool_call_and_returns_the_response():
     env = _environment(transport)
 
     result = env.call(
-        "place_order", {"item": "X"}, call_id="row42:3:0:place_order", session_id="row42"
+        "place_order",
+        {"item": "X"},
+        call_id="row42:3:0:place_order",
+        session_id="row42",
     )
 
     assert result.output == {"status": "ok"}
@@ -105,7 +105,6 @@ def test_call_sends_the_tool_call_and_returns_the_response():
                 "call_id": "row42:3:0:place_order",
                 "session_id": "row42",
             },
-            "headers": {},
             "timeout_seconds": 5.0,
         }
     ]
@@ -184,68 +183,15 @@ def test_environment_is_registered_under_endpoint():
     assert REGISTRY.get("endpoint", RegistryType.ENVIRONMENT) is EndpointEnvironment
 
 
-def test_bearer_auth_sends_an_authorization_header():
-    transport = _RecordingTransport()
-    auth = EndpointAuthParams(token="s3cr3t")
-    auth.finalize_and_validate()
-
-    _environment(transport, auth=auth).call("place_order", {"item": "X"}, call_id="c1")
-
-    assert transport.requests[0]["headers"] == {"Authorization": "Bearer s3cr3t"}
-
-
-def test_bearer_auth_honors_a_non_default_scheme():
-    transport = _RecordingTransport()
-    auth = EndpointAuthParams(token="s3cr3t", scheme="SSWS")
-    auth.finalize_and_validate()
-
-    _environment(transport, auth=auth).call("place_order", {"item": "X"}, call_id="c1")
-
-    assert transport.requests[0]["headers"] == {"Authorization": "SSWS s3cr3t"}
-
-
-def test_api_key_auth_sends_the_token_with_no_scheme():
-    transport = _RecordingTransport()
-    auth = EndpointAuthParams(
-        auth_type=EndpointAuthType.API_KEY, token="s3cr3t", header_name="x-api-key"
-    )
-    auth.finalize_and_validate()
-
-    _environment(transport, auth=auth).call("place_order", {"item": "X"}, call_id="c1")
-
-    assert transport.requests[0]["headers"] == {"x-api-key": "s3cr3t"}
-
-
-@pytest.mark.parametrize(
-    "auth",
-    [
-        EndpointAuthParams(token=""),
-        EndpointAuthParams(auth_type=EndpointAuthType.API_KEY, token="s3cr3t"),
-    ],
-)
-def test_auth_rejects_a_credential_missing_what_its_type_needs(auth):
-    with pytest.raises(ValueError):
-        auth.finalize_and_validate()
-
-
-def test_kwargs_parse_raw_config_values_into_their_declared_types():
-    """Config reaches the environment as plain JSON, so a nested dict must
-    become the dataclass the environment reads."""
+def test_kwargs_parse_from_a_plain_json_config():
     params = EnvironmentParams(
         id="env",
         env_type="endpoint",
         tools=[],
-        env_kwargs={
-            "endpoint_url": _URL,
-            "auth": {
-                "auth_type": "api_key",
-                "token": "s3cr3t",
-                "header_name": "x-api-key",
-            },
-        },
+        env_kwargs={"endpoint_url": _URL, "timeout_seconds": 5},
     )
 
     kwargs = parse_env_kwargs(EndpointEnvironmentKwargs, params, env_label="E")
 
-    assert isinstance(kwargs.auth, EndpointAuthParams)
-    assert kwargs.auth.as_headers() == {"x-api-key": "s3cr3t"}
+    assert kwargs.endpoint_url == _URL
+    assert kwargs.timeout_seconds == 5

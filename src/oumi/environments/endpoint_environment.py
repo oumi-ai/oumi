@@ -17,12 +17,11 @@
 from __future__ import annotations
 
 import uuid
-from collections.abc import Mapping
 from dataclasses import dataclass
-from enum import Enum
 from typing import Any, Protocol
 
 import jsonschema
+import requests
 from pydantic import JsonValue
 
 from oumi.core.configs.params.base_params import BaseParams
@@ -40,65 +39,12 @@ class EndpointCallError(ToolError):
     """Raised when the endpoint cannot be reached or answers unusably."""
 
 
-class EndpointAuthType(Enum):
-    """How the credential is placed on a request."""
-
-    BEARER = "bearer"
-    """Sent as ``Authorization: <scheme> <token>``."""
-
-    API_KEY = "api_key"
-    """Sent verbatim in a header of the endpoint's choosing."""
-
-
-@dataclass
-class EndpointAuthParams(BaseParams):
-    """The credential sent with every call, and where it goes.
-
-    Optional: a caller whose transport already authenticates leaves this unset
-    rather than routing a secret through the environment's serialized kwargs.
-    """
-
-    auth_type: EndpointAuthType = EndpointAuthType.BEARER
-    token: str = ""
-    scheme: str = "Bearer"
-    """Prefix for ``BEARER``, sent as ``<scheme> <token>``. Ignored otherwise."""
-
-    header_name: str = ""
-    """Header for ``API_KEY``. Required for it, ignored otherwise."""
-
-    def __post_init__(self) -> None:
-        """Coerce a raw auth type string into ``EndpointAuthType``."""
-        if isinstance(self.auth_type, str):
-            self.auth_type = EndpointAuthType(self.auth_type)
-
-    def __finalize_and_validate__(self) -> None:
-        """Validate that the credential has what its type needs."""
-        if not self.token:
-            raise ValueError("token is required when auth is configured.")
-        if self.auth_type == EndpointAuthType.BEARER and not self.scheme:
-            raise ValueError("scheme is required for bearer auth.")
-        if self.auth_type == EndpointAuthType.API_KEY and not self.header_name:
-            raise ValueError("header_name is required for api_key auth.")
-
-    def as_headers(self) -> dict[str, str]:
-        """Render the credential as the header carrying it."""
-        if self.auth_type == EndpointAuthType.API_KEY:
-            return {self.header_name: self.token}
-        return {"Authorization": f"{self.scheme} {self.token}"}
-
-
 @dataclass
 class EndpointEnvironmentKwargs(BaseParams):
     """Type-specific kwargs for :class:`EndpointEnvironment`."""
 
     endpoint_url: str = ""
     timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS
-    auth: EndpointAuthParams | None = None
-
-    def __post_init__(self) -> None:
-        """Coerce a raw auth mapping into ``EndpointAuthParams``."""
-        if isinstance(self.auth, dict):
-            self.auth = EndpointAuthParams(**self.auth)
 
     def __finalize_and_validate__(self) -> None:
         """Validate the endpoint configuration."""
@@ -112,10 +58,9 @@ class EndpointTransport(Protocol):
     """Sends one tool call and returns the endpoint's decoded JSON response.
 
     Implementations own the wire concerns the environment deliberately does not:
-    egress policy, TLS, and connection reuse. ``headers`` carries whatever the
-    configured auth renders, and is empty when none is configured — a transport
-    that authenticates by itself merges its own headers over these. Raise any
-    exception to report a failed call; the environment reports it as a tool error.
+    authentication, egress policy, TLS, and connection reuse. A transport that
+    needs credentials closes over them. Raise any exception to report a failed
+    call; the environment reports it as a tool error.
     """
 
     def __call__(
@@ -123,7 +68,6 @@ class EndpointTransport(Protocol):
         *,
         url: str,
         payload: dict[str, JsonValue],
-        headers: Mapping[str, str],
         timeout_seconds: float,
     ) -> JsonValue:
         """Send ``payload`` to ``url`` and return the decoded response body."""
@@ -133,15 +77,10 @@ def _post_json(
     *,
     url: str,
     payload: dict[str, JsonValue],
-    headers: Mapping[str, str],
     timeout_seconds: float,
 ) -> JsonValue:
     """Default transport: a plain JSON POST with no egress policy of its own."""
-    import requests
-
-    response = requests.post(
-        url, json=payload, headers=dict(headers), timeout=timeout_seconds
-    )
+    response = requests.post(url, json=payload, timeout=timeout_seconds)
     response.raise_for_status()
     return response.json()
 
@@ -153,7 +92,6 @@ class EndpointEnvironment(BaseEnvironment):
     The endpoint owns the tool's behavior; this environment owns the contract:
     it validates arguments against the tool's schema, sends one request per
     call, and validates the response against the tool's ``output_schema``.
-
 
     Each request carries a ``session_id`` identifying the conversation and a
     ``call_id`` identifying the call within it. A retry resends the identical
@@ -177,7 +115,6 @@ class EndpointEnvironment(BaseEnvironment):
             tool.id: tool for tool in params.tools
         }
         self._session_id = uuid.uuid4().hex
-        self._headers = kwargs.auth.as_headers() if kwargs.auth else {}
 
     @classmethod
     def from_params(cls, params: EnvironmentParams) -> EndpointEnvironment:
@@ -228,7 +165,6 @@ class EndpointEnvironment(BaseEnvironment):
             output = self._transport(
                 url=self._kwargs.endpoint_url,
                 payload=payload,
-                headers=self._headers,
                 timeout_seconds=self._kwargs.timeout_seconds,
             )
         except Exception as error:
