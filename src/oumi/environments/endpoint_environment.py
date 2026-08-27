@@ -65,6 +65,27 @@ class EndpointTransport(Protocol):
     the tool itself refused the call — an in-band error the endpoint answered
     with — and it reaches the model verbatim. Raise anything else when the
     endpoint could not answer at all, and it is reported as an endpoint failure.
+
+    Example:
+        The payload is protocol-neutral, so a transport may reshape it and the
+        environment is unchanged — here as a JSON-RPC ``tools/call``::
+
+            def json_rpc_transport(*, url, payload, timeout_seconds):
+                result = post_json_rpc(
+                    url,
+                    method="tools/call",
+                    id=payload["call_id"],
+                    params={
+                        "name": payload["name"],
+                        "arguments": payload["arguments"],
+                    },
+                    timeout=timeout_seconds,
+                )
+                if result.get("isError"):
+                    raise ToolError(result["content"][0]["text"])
+                return result["structuredContent"]
+
+            env = EndpointEnvironment(params, kwargs, json_rpc_transport)
     """
 
     def __call__(
