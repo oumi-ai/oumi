@@ -4463,6 +4463,55 @@ def test_response_combines_reasoning_with_tool_calls():
     assert assistant.tool_calls[0].function.name == "get_weather"
 
 
+def _openai_shape_engines() -> list[RemoteInferenceEngine]:
+    """OpenAI-compatible engines whose request builder must forward tools.
+
+    SGLang is intentionally excluded: its native ``/generate`` API takes a
+    rendered prompt plus ``sampling_params`` rather than an OpenAI ``tools``
+    array, so ``conversation.tools`` has no place in its request body.
+    """
+    from oumi.inference.gcp_inference_engine import GoogleVertexInferenceEngine
+    from oumi.inference.gemini_inference_engine import GoogleGeminiInferenceEngine
+    from oumi.inference.remote_vllm_inference_engine import (
+        RemoteVLLMInferenceEngine,
+    )
+
+    remote_params = RemoteParams(api_url=_TARGET_SERVER, api_key="dummy")
+    return [
+        RemoteInferenceEngine(_get_default_model_params(), remote_params=remote_params),
+        RemoteVLLMInferenceEngine(
+            _get_default_model_params(), remote_params=remote_params
+        ),
+        GoogleGeminiInferenceEngine(
+            _get_default_model_params(), remote_params=remote_params
+        ),
+        GoogleVertexInferenceEngine(
+            _get_default_model_params(), remote_params=remote_params
+        ),
+    ]
+
+
+@pytest.mark.parametrize(
+    "engine",
+    _openai_shape_engines(),
+    ids=lambda e: type(e).__name__,
+)
+def test_openai_shape_engines_forward_tools(engine):
+    """Every OpenAI-format engine forwards conversation.tools in its request body.
+
+    Guards against future ``_convert_conversation_to_api_input`` overrides that
+    silently drop tools by omitting the base class's tool-forwarding block.
+    """
+    conversation = Conversation(
+        tools=[_WEATHER_TOOL],
+        messages=[Message(role=Role.USER, content="weather in Tokyo?")],
+    )
+    api_input = engine._convert_conversation_to_api_input(
+        conversation, GenerationParams(max_new_tokens=5), engine._model_params
+    )
+    assert api_input["tools"] == [_WEATHER_TOOL_DICT]
+
+
 #
 # infer_partial
 #
