@@ -215,6 +215,14 @@ class JudgeOutput(pydantic.BaseModel):
         Returns:
             Dictionary of field names to values, empty dict if parsing fails
         """
+
+        def _loads_json_object(text: str) -> dict | None:
+            try:
+                parsed = json.loads(text)
+            except json.JSONDecodeError:
+                return None
+            return parsed if isinstance(parsed, dict) else None
+
         if not json_output:
             return {}
 
@@ -224,12 +232,19 @@ class JudgeOutput(pydantic.BaseModel):
         if json_output.endswith("```"):
             json_output = json_output[:-3].rstrip()
 
-        try:
-            parsed = json.loads(json_output)
-            # Ensure all values are strings for consistent processing
-            return {k: str(v) for k, v in parsed.items()}
-        except json.JSONDecodeError:
-            return {}
+        parsed = _loads_json_object(json_output)
+        if parsed is None:
+            # Models that are not schema-constrained often wrap the object in
+            # prose; retry on the outermost {...} span before giving up.
+            start, end = json_output.find("{"), json_output.rfind("}")
+            if start == -1 or end <= start:
+                return {}
+            parsed = _loads_json_object(json_output[start : end + 1])
+            if parsed is None:
+                return {}
+
+        # Ensure all values are strings for consistent processing
+        return {k: str(v) for k, v in parsed.items()}
 
     def generate_raw_output(self, field_values: dict[str, str]) -> str:
         """Generate raw output string from field values in the specified format.

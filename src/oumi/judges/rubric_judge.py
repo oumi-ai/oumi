@@ -106,15 +106,18 @@ class RubricJudge(BaseJudge):
                 "inference_config must be provided in JudgeConfig for RubricJudge. "
                 "Please ensure your JudgeConfig includes a valid inference_config."
             )
-        json_format = self._judge_params.response_format == JudgeResponseFormat.JSON
+
+        use_schema = (
+            self._judge_params.response_format == JudgeResponseFormat.JSON
+            and self._judge_params.use_guided_decoding
+        )
         inference_engine = self._create_inference_engine(
             inference_config=self._inference_config,
-            response_schema=self._build_response_schema() if json_format else None,
+            response_schema=self._build_response_schema() if use_schema else None,
         )
 
         output_fields = self._create_output_fields()
         self._rubric_suffix = self._build_rubric_suffix(output_fields)
-        self._warn_about_aggregation_gaps()
 
         # Append the rubric and format suffix to the system instruction if it exists
         system_instruction = self._judge_params.system_instruction
@@ -338,53 +341,3 @@ class RubricJudge(BaseJudge):
                 "`rubric_judge_params.criteria`. Please move them there and remove "
                 "them from `judge_params`."
             )
-
-    def _warn_about_aggregation_gaps(self) -> None:
-        """Warn about config that silently has no effect on the aggregate score."""
-        self._warn_about_ignored_weights()
-        self._warn_about_unscored_criteria()
-
-    def _warn_about_ignored_weights(self) -> None:
-        """Warn when weights are set under an aggregation that does not read them.
-
-        Only WEIGHTED_MEAN consults `weight`; MIN and ALL are order statistics and
-        NONE aggregates nothing, so a weight set under those is a silent no-op.
-        """
-        aggregation = self._rubric_params.aggregation
-        if aggregation == JudgeAggregation.WEIGHTED_MEAN:
-            return
-
-        weighted = [c.id for c in self.criteria if c.weight != 1.0]
-        if weighted:
-            logger.warning(
-                f"Criteria {sorted(weighted)} set a non-default `weight`, but "
-                f"'{aggregation.value}' aggregation ignores weights. The weights "
-                "have no effect. Use 'weighted_mean' aggregation, or remove them."
-            )
-
-    def _warn_about_unscored_criteria(self) -> None:
-        """Warn about criteria that cannot contribute to the aggregate score."""
-        if self._rubric_params.aggregation == JudgeAggregation.NONE:
-            return
-
-        unscored = [c.id for c in self.criteria if not self._is_scoreable(c)]
-        if unscored:
-            logger.warning(
-                f"Criteria {sorted(unscored)} produce no numeric score and will be "
-                f"excluded from the '{self._rubric_params.aggregation.value}' "
-                "aggregate score. Add `judgment_scores` to include them."
-            )
-
-    @staticmethod
-    def _is_scoreable(criterion: JudgeCriterion) -> bool:
-        """Return True if a criterion can ever contribute a numeric score.
-
-        BOOL criteria are scored 1.0/0.0 automatically. Anything else needs a
-        `judgment_scores` mapping with at least one label that carries a score --
-        a mapping whose labels all map to None only constrains the allowed values.
-        """
-        if criterion.judgment_scores:
-            return any(
-                score is not None for score in criterion.judgment_scores.values()
-            )
-        return criterion.judgment_type == JudgeOutputType.BOOL
