@@ -77,7 +77,7 @@ dependencies = [
     "skypilot>=0.12,<0.13", # 0.12 adds Slurm cloud support
     "tensorboard>=2.20,<2.21", # Optional, for monitoring training
     "tiktoken>=0.7,<1.0",
-    "torch>=2.6,<2.13.0",      # vllm only supports up to torch==2.7
+    "torch>=2.6,<2.13.0",      # vLLM 0.19 pins torch 2.10; upper bound gives headroom. torch 2.11+ (vLLM 0.21+) is the deferred CUDA-13 migration (OPE-2164).
     "torchao>=0.16,<0.17",     # Used by transformers; >=0.16 required by peft>=0.19
     "torchvision>=0.21,<0.26", # Used by some VLM-s (multimodal)
     "tqdm",
@@ -130,7 +130,10 @@ gpu = [
     # When updating verl version, make sure to also update the default config:
     # src/oumi/core/trainers/verl_trainer_config.yaml.
     "verl>=0.5,<0.8; python_version >= '3.10'", # Used for the VERL_GRPO trainer
-    "vllm>=0.14,<0.22",                         # For VLLMInferenceEngine, and vLLM-powered GRPO training.
+    # For VLLMInferenceEngine, and vLLM-powered GRPO training.
+    # Pinned to the 0.19.x line: 0.19 first serves Gemma-4/nemotron_h; <0.20 holds
+    # torch 2.10/CUDA-12. Raising past 0.19 needs the CUDA-13 migration (OPE-2164).
+    "vllm>=0.19,<0.20",
     "kernels>=0.11,<0.15",                      # For compute kernel implementations (e.g., attn_implementation in gold trainer)
 ]
 
@@ -204,7 +207,7 @@ torchdata = ["torchdata>=0.9,<0.10.0"]
 # CI targets
 ci_cpu = [
     "oumi[dev,docs,gcp,mcp,synthesis,tune,torchdata,file_formats]",
-    "vllm>=0.14,<0.22",                            # For VLLMInferenceEngine
+    "vllm>=0.19,<0.20",                            # For VLLMInferenceEngine (must match [gpu] pin)
     "boto3",  # For bedrock inference engine tests
     # This may fail to install. As a temporary workaround, run:
     # CMAKE_ARGS="-DLLAVA_BUILD=OFF" pip install -U llama-cpp-python
