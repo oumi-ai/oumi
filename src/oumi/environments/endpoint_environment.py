@@ -44,7 +44,10 @@ class EndpointEnvironmentKwargs(BaseParams):
     """Type-specific kwargs for :class:`EndpointEnvironment`."""
 
     endpoint_url: str = ""
+    """The endpoint every tool call is sent to."""
+
     timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS
+    """How long to wait for the endpoint to answer one call."""
 
     def __finalize_and_validate__(self) -> None:
         """Validate the endpoint configuration."""
@@ -59,9 +62,16 @@ class RemoteToolCall:
     """One tool call to send, identified within its conversation."""
 
     name: str
+    """Id of the tool being called."""
+
     arguments: dict[str, Any]
+    """Arguments, already validated against the tool's schema."""
+
     call_id: str
+    """Identifies this call. Stable across retries of the same call."""
+
     session_id: str
+    """Identifies the conversation the call belongs to."""
 
 
 class JsonHttpClient(Protocol):
@@ -173,6 +183,9 @@ class EndpointEnvironment(BaseEnvironment):
     Each call is identified by a ``session_id`` naming the conversation and a
     ``call_id`` naming the call within it, so a protocol can make retries
     deduplicable end to end.
+
+    Shareable across samples, so the harness never closes it. Whoever builds
+    the protocol owns releasing it.
     """
 
     tool_params_cls = ToolParams
@@ -194,10 +207,6 @@ class EndpointEnvironment(BaseEnvironment):
         )
         client = RequestsJsonClient(kwargs.endpoint_url, kwargs.timeout_seconds)
         return cls(params, JsonHttpProtocol(client))
-
-    def close(self) -> None:
-        """Release the protocol's resources, if it holds any."""
-        self._protocol.close()
 
     def step(self, calls: list[tuple[str, dict[str, Any]]]) -> list[ToolResult]:
         """Execute a batch of tool calls; results are returned in input order.

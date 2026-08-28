@@ -82,10 +82,14 @@ class _RecordingHttpClient:
     def __init__(self, response: JsonValue = None) -> None:
         self.response: JsonValue = {"status": "ok"} if response is None else response
         self.posted: list[JsonValue] = []
+        self.closed = False
 
     def post_json(self, payload: JsonValue) -> JsonValue:
         self.posted.append(payload)
         return self.response
+
+    def close(self) -> None:
+        self.closed = True
 
 
 def _environment(protocol: EndpointProtocol) -> EndpointEnvironment:
@@ -178,14 +182,6 @@ def test_call_accepts_any_response_when_the_tool_declares_no_output_schema():
     assert env.call("place_order", {"item": "X"}, call_id="c1").output == ["anything"]
 
 
-def test_close_releases_the_protocol():
-    protocol = _RecordingProtocol()
-
-    _environment(protocol).close()
-
-    assert protocol.closed
-
-
 @pytest.mark.parametrize(
     "kwargs",
     [
@@ -237,7 +233,11 @@ def test_json_http_protocol_sends_the_call_and_its_ids_as_one_body():
 
 def test_json_http_protocol_leaves_its_client_open():
     """The client's lifetime belongs to whoever built it, not to the protocol."""
-    _environment(JsonHttpProtocol(_RecordingHttpClient())).close()
+    client = _RecordingHttpClient()
+
+    JsonHttpProtocol(client).close()
+
+    assert not client.closed
 
 
 def test_from_params_posts_to_the_configured_endpoint(monkeypatch):
