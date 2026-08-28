@@ -259,6 +259,8 @@ ban-relative-imports = "all" # Disallow all relative imports.
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["D", "PTH"] # Ignore docstring checks in tests
+# Throwaway experiment scripts: style-only rules off, real checks (F, UP, ...) stay on.
+"experiments/*" = ["D", "E501", "PTH"]
 "src/oumi/mcp/*" = ["ASYNC210", "ASYNC220", "ASYNC230", "ASYNC240"]  # fastmcp uses sync-over-async patterns
 "src/oumi/utils/verl_model_merger.*" = [
     "E501", # Line too long

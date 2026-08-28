@@ -1,4 +1,4 @@
 # Loaded via OUMI_EXTRA_DEPS_FILE: oumi appends each file's parent directory to
 # sys.path and imports the module, so the @register decorators run before the
 # training config is resolved.
-/workspace/persist/shanghong/oumi/tmp/rar_medicine/variant_b/rar_medicine_grpo.py
+/workspace/persist/shanghong/oumi/experiments/rar_medicine/variant_b/rar_medicine_grpo.py

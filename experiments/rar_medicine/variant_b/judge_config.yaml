@@ -6,8 +6,13 @@
 # only defines the rubric and the data layout. The judgment is an integer 0-10;
 # the reward function divides by 10.
 #
-# Note: gpt-5 models only accept temperature=1.0 and use max_completion_tokens
-# (which includes hidden reasoning tokens) — oumi's OpenAI engine handles both.
+# Judge model: gpt-4.1-mini, a non-reasoning model, chosen deliberately over
+# gpt-5-mini. The grade is a single 0-10 integer and the rubric already spells
+# out the weights, so hidden reasoning bought little and made every call slower
+# and non-deterministic (gpt-5 models pin temperature to 1.0; oumi's OpenAI
+# engine enforces that for the o1/o3/o4/gpt-5 prefixes). The explanation field
+# below is the judge's only "thinking"; keep include_explanation on.
+# Stronger non-reasoning alternative if grades look noisy: gpt-4.1 (~5x cost).
 
 judge_params:
   system_instruction: |
@@ -62,17 +67,29 @@ judge_params:
 
 inference_config:
   model:
-    model_name: "gpt-5-mini"
+    model_name: "gpt-4.1-mini"
 
   engine: OPENAI
 
   generation:
-    # Includes gpt-5's hidden reasoning tokens; leave ample room so the short
-    # JSON verdict is never truncated.
-    max_new_tokens: 2048
-    temperature: 1.0
+    # Explanation + integer verdict as JSON is ~100-300 tokens; no hidden
+    # reasoning tokens to budget for with a non-reasoning model.
+    max_new_tokens: 512
+    # Deterministic grading. Same response -> same score across the 8 rollouts
+    # of a prompt, so the group-relative advantage reflects the responses, not
+    # judge sampling noise.
+    temperature: 0.0
 
   remote_params:
+    # Must be False here. The reward function shares ONE SimpleJudge across the
+    # reward worker's threads and every judge() call runs in its own event loop
+    # (safe_asyncio_run). With adaptive concurrency on, all those loops go
+    # through the engine-level AdaptiveConcurrencyController (capacity
+    # num_workers=1, asyncio.Lock + waiter futures bound to one loop): the first
+    # call completes, every later one parks forever in select() with no request
+    # sent and no timeout ticking. Hung the 2026-08-26 run for 2h21m at step 1
+    # (GPUs 0%, vLLM awake, each reward worker logged only "Building SimpleJudge").
+    use_adaptive_concurrency: False
     # The engine retries with exponential backoff on transient API errors.
     max_retries: 3
     connection_timeout: 120.0

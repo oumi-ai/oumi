@@ -26,7 +26,7 @@ session — and a module-level semaphore caps in-flight judge requests per
 worker (there are ``reward.num_workers`` workers, 8 by default).
 
 Environment knobs (all optional except OPENAI_API_KEY):
-  OPENAI_API_KEY               required for the gpt-5-mini judge.
+  OPENAI_API_KEY               required for the gpt-4.1-mini judge.
   RAR_JUDGE_CONFIG             path to a SimpleJudge YAML; default:
                                judge_config.yaml next to this file. Model,
                                generation, and API-retry settings live there.
@@ -135,7 +135,7 @@ def get_judge() -> "SimpleJudge":
             if not os.environ.get("OPENAI_API_KEY"):
                 raise RuntimeError(
                     "OPENAI_API_KEY is not set; the rar_medicine_verl reward "
-                    "needs it to call the gpt-5-mini judge."
+                    "needs it to call the gpt-4.1-mini judge."
                 )
             from oumi.judges.simple_judge import SimpleJudge
 

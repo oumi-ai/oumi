@@ -1,0 +1,32 @@
+# Eval the untrained base google/gemma-4-E2B-it on letter counting.
+#
+# Usage (spawn is required: oumi touches CUDA before vLLM forks its engine core):
+#   VLLM_WORKER_MULTIPROC_METHOD=spawn oumi evaluate -c output/letter_counting.grpo_verl_v2/eval_base_gemma4_e2b_it.yaml
+#
+# See Also:
+#   - Task: src/oumi/evaluation/registry/count_letters_task.py
+#   - Template: configs/examples/letter_counting/evaluation/eval.yaml
+
+model:
+  model_name: "google/gemma-4-E2B-it"
+  model_max_length: 4096
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: True
+
+generation:
+  max_new_tokens: 2048
+  # This isn't used by vLLM, but is used for the NATIVE inference engine.
+  batch_size: 4
+
+tasks:
+  - evaluation_backend: custom
+    task_name: count_letters
+    num_samples: 1000
+    eval_kwargs:
+      dataset_name: oumi-ai/oumi-letter-count-clean
+      split: test
+
+inference_engine: VLLM
+
+output_dir: "output/letter_counting.grpo_verl_v2/evaluation/base_gemma4_e2b_it"

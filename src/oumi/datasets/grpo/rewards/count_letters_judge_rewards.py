@@ -91,9 +91,9 @@ def _parse_judged_count(judgment: Any) -> int | None:
 
 
 def _reward_for_count(count: int | None, target_count: int) -> float:
-    """Scores an extracted count using the deterministic reward's own function.
+    r"""Scores an extracted count using the deterministic reward's own function.
 
-    The count is re-serialized into the canonical ``\\boxed{N}`` form that
+    The count is re-serialized into the canonical ``\boxed{N}`` form that
     `compute_letter_count_reward` parses (and an empty response when the judge read
     no answer, which that function scores as unparseable). Routing through it rather
     than reimplementing its formula is what guarantees that the judge-based and

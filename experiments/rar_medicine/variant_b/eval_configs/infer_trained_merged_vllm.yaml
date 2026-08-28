@@ -1,0 +1,35 @@
+# OPTIONAL / LOSSY variant of infer_trained.yaml: the Variant B policy with the
+# LoRA adapter merged into bf16 weights (merge_lora.py), served by vLLM.
+#
+# Not used by run_infer.sh. The adapter delta is ~5e-4 of the weight norm, below
+# bf16 resolution for most elements: after the bf16 cast only ~82% of the delta
+# norm survives and 85% of merged elements equal the base weights, so this is an
+# approximation of the trained policy. infer_trained.yaml (NATIVE engine, adapter
+# applied at runtime in fp32) is the faithful version. vLLM + adapter_model is not
+# an option: vLLM 0.19.1's LoRA path is a no-op for gemma-4 (see infer_trained.yaml).
+#
+# Usage:
+#   python merge_lora.py   # once; writes tmp/rar_medicine/variant_b/merged_model
+#   CUDA_VISIBLE_DEVICES=1 VLLM_WORKER_MULTIPROC_METHOD=spawn \
+#     oumi infer -c experiments/rar_medicine/variant_b/eval/infer_trained_merged_vllm.yaml
+#
+# See Also:
+#   - infer_base.yaml (documents the env vars and the input/output format)
+#   - merge_lora.py
+
+model:
+  model_name: "/workspace/persist/shanghong/oumi/tmp/rar_medicine/variant_b/merged_model"
+  model_max_length: 4096
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: True
+
+generation:
+  max_new_tokens: 1024
+  temperature: 0.0
+  seed: 42
+
+engine: VLLM
+
+input_path: "/workspace/persist/shanghong/oumi/output/rar_medicine_grpo_verl_variant_b/eval/test_1000.jsonl"
+output_path: "/workspace/persist/shanghong/oumi/output/rar_medicine_grpo_verl_variant_b/eval/outputs/grpo_variant_b_step64_merged_bf16_vllm.jsonl"

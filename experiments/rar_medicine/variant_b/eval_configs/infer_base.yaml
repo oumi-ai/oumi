@@ -1,0 +1,50 @@
+# oumi infer config: UNTRAINED google/gemma-4-E2B-it on the RaR-Medicine 1000-sample
+# test subset (the baseline for the Variant B GRPO run).
+#
+# Input: output/rar_medicine_grpo_verl_variant_b/eval/test_1000.jsonl (build it with
+# prepare_eval_set.py) — one oumi Conversation per line: the training system
+# prompt + the question, with idx / question_source / reference_answer in
+# metadata. Output: the same conversations with the assistant turn appended and
+# metadata.finish_reason set ("stop" or "length").
+#
+# Usage (one GPU; run_infer.sh does this for both models at once):
+#   CUDA_VISIBLE_DEVICES=0 VLLM_WORKER_MULTIPROC_METHOD=spawn \
+#     oumi infer -c experiments/rar_medicine/variant_b/eval/infer_base.yaml
+#
+# - CUDA_VISIBLE_DEVICES matters: oumi's VLLM engine sets tensor_parallel_size to
+#   every visible GPU, which is pointless for a 5B model and shares nothing with
+#   the other run.
+# - VLLM_WORKER_MULTIPROC_METHOD=spawn: oumi touches CUDA before vLLM forks its
+#   engine core; without it the engine core dies with "Cannot re-initialize CUDA
+#   in forked subprocess".
+# - Resumable: the engine writes a scratch file next to output_path and skips
+#   already-completed conversations on relaunch.
+#
+# See Also:
+#   - infer_trained.yaml (identical except for model_name)
+#   - Config class: oumi.core.configs.InferenceConfig
+
+model:
+  model_name: "google/gemma-4-E2B-it"
+  # vLLM max_model_len. Prompts are <= ~700 tokens (system prompt + longest
+  # question), completions capped at 1024 below.
+  model_max_length: 4096
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: True
+
+generation:
+  # Same cap as training (grpo.max_completion_length: 1024), so a response the
+  # policy could have produced in training is never truncated differently here.
+  max_new_tokens: 1024
+  # Greedy: one deterministic response per question, so trained vs. base
+  # differences are not sampling noise. Also what verl used for its periodic
+  # validation during training (rollout.val_kwargs.do_sample defaults to False).
+  # Override for sampled runs: --generation.temperature 1.0 --generation.top_p 0.95
+  temperature: 0.0
+  seed: 42
+
+engine: VLLM
+
+input_path: "/workspace/persist/shanghong/oumi/output/rar_medicine_grpo_verl_variant_b/eval/test_1000.jsonl"
+output_path: "/workspace/persist/shanghong/oumi/output/rar_medicine_grpo_verl_variant_b/eval/outputs/base_gemma4_e2b_it.jsonl"

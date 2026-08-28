@@ -1,0 +1,60 @@
+# oumi infer config: the Variant B GRPO policy — google/gemma-4-E2B-it + the step-64
+# LoRA adapter (r=16, alpha=32) — on the RaR-Medicine 1000-sample test subset.
+#
+# Engine: NATIVE (transformers + PEFT), NOT vLLM, on purpose:
+#   * vLLM 0.19.1's LoRA path is a silent no-op for Gemma4ForConditionalGeneration:
+#     the adapter loads into the right fused modules (qkv_proj/o_proj/gate_up_proj/
+#     down_proj x 35 layers, verified via the LoRA manager) but the forward pass is
+#     bit-identical to the base model — even with lora_alpha scaled 100x
+#     (checks/vllm_lora_adapter_check.py; GEMMA4_VERL_GRPO_FIXES.md issue 15).
+#   * Merging into bf16 weights (merge_lora.py -> infer_trained_merged_vllm.yaml)
+#     is lossy: the adapter delta is ~5e-4 of the weight norm, below bf16
+#     resolution for most elements, so only ~82% of the delta norm survives the
+#     cast and 85% of merged elements equal the base.
+#   NATIVE keeps bf16 base weights + the fp32 adapter applied separately, which is
+#   the actor's own parameterization during training.
+#
+# Same prompts, greedy decoding, and 1024-token cap as infer_base.yaml, so the
+# two output files differ only by model.
+#
+# Usage (one GPU, ~15-25 min; run_infer.sh does this alongside the base run):
+#   CUDA_VISIBLE_DEVICES=1 oumi infer -c experiments/rar_medicine/variant_b/eval/infer_trained.yaml
+#
+# See Also:
+#   - infer_base.yaml (documents the input/output format)
+#   - Config class: oumi.core.configs.InferenceConfig
+
+model:
+  model_name: "google/gemma-4-E2B-it"
+  # verl's PEFT-format adapter from the final step. NOT the trainer's HF export
+  # (tmp/rar_medicine/variant_b/output/model.safetensors), which oumi's verl
+  # merger wrote as the raw PEFT-wrapped state dict.
+  adapter_model: "/workspace/persist/shanghong/oumi/tmp/rar_medicine/variant_b/output/verl_output/global_step_64/actor/lora_adapter"
+  model_max_length: 4096
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: True
+  device_map: "cuda"
+
+generation:
+  max_new_tokens: 1024
+  # NATIVE is greedy unless use_sampling is True; temperature is then ignored.
+  # For sampled runs: --generation.use_sampling true --generation.temperature 1.0
+  temperature: 0.0
+  use_sampling: False
+  seed: 42
+  # REQUIRED for gemma-4. oumi's default is False, and gemma-4's KV-shared layers
+  # take their K/V from the cache of an earlier layer
+  # (modeling_gemma4.py: `past_key_values.shared_layers[...]`); without a cache
+  # every response is multilingual gibberish (reproduced on this eval set).
+  use_cache: True
+  # Sequences generated in parallel by HF generate (left-padded). Each batch runs
+  # until its longest response finishes (<= 1024 steps). bf16 greedy decoding is
+  # batch-composition sensitive at near-tie tokens, so keep this fixed for
+  # reproducibility.
+  batch_size: 64
+
+engine: NATIVE
+
+input_path: "/workspace/persist/shanghong/oumi/output/rar_medicine_grpo_verl_variant_b/eval/test_1000.jsonl"
+output_path: "/workspace/persist/shanghong/oumi/output/rar_medicine_grpo_verl_variant_b/eval/outputs/grpo_variant_b_step64.jsonl"

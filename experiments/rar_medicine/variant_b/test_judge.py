@@ -8,7 +8,7 @@ score high) and a deliberately wrong answer (should score low) for a couple of
 samples, through the registered reward function exactly as verl would call it.
 
 Usage:
-    cd /workspace/persist/shanghong/oumi/tmp/rar_medicine/variant_b
+    cd /workspace/persist/shanghong/oumi/experiments/rar_medicine/variant_b
     OUMI_EXTRA_DEPS_FILE=$PWD/oumi_extra_deps.txt python test_judge.py
 """
 
@@ -24,6 +24,7 @@ import rar_medicine_grpo as mod
 _TRAIN_PARQUET = os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
     "..",
+    "data",
     "train-00000-of-00001.parquet",
 )
 
@@ -49,7 +50,7 @@ def test_offline() -> list[dict]:
     assert placeholders == {"question", "reference_answer", "response"}, placeholders
     assert judge_config.judge_params.judgment_type == JudgeOutputType.INT
     assert judge_config.inference_config is not None
-    assert judge_config.inference_config.model.model_name == "gpt-5-mini"
+    assert judge_config.inference_config.model.model_name == "gpt-4.1-mini"
     print("[ok] judge_config.yaml: loads, placeholders and judgment type match")
 
     df = pd.read_parquet(_TRAIN_PARQUET).head(2)
@@ -93,8 +94,20 @@ def test_live(samples: list[dict]) -> None:
 
 
 if __name__ == "__main__":
-    samples = test_offline()
-    if os.environ.get("OPENAI_API_KEY"):
-        test_live(samples)
-    else:
-        print("[skip] OPENAI_API_KEY not set; skipping live judge calls")
+    import traceback
+
+    try:
+        samples = test_offline()
+        if os.environ.get("OPENAI_API_KEY"):
+            test_live(samples)
+        else:
+            print("[skip] OPENAI_API_KEY not set; skipping live judge calls")
+    except Exception:
+        traceback.print_exc()
+        sys.stdout.flush()
+        os._exit(1)
+    # Importing oumi pulls in wandb, whose atexit shutdown has been seen to hang
+    # this process indefinitely after every check has printed. All results are
+    # out by now, so skip the interpreter teardown.
+    sys.stdout.flush()
+    os._exit(0)
