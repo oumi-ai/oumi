@@ -301,9 +301,11 @@ def test_build_seed_conversations_assembles_seed_and_state(
     state = seed.generation_state
     assert state["target_turns"] == 3
     assert state["turn_plans"] == ["open", "answer", "close"]
-    assert "billing" in state["user_persona"]
     assert state["output_system_prompt"] is not None
     assert "billing" in state["output_system_prompt"]
+    # The user persona rides the conversation's metadata, not the generation state.
+    assert "user_persona" not in state
+    assert "billing" in seed.conversation.metadata["user_persona"]
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
@@ -341,7 +343,9 @@ def test_build_seed_conversations_renders_current_turn_personas(
     assert seeds[0].conversation.messages[0].content == (
         "You are the assistant on turn 1."
     )
-    assert seeds[0].generation_state["user_persona"] == "You are the user on turn 1."
+    assert (
+        seeds[0].conversation.metadata["user_persona"] == "You are the user on turn 1."
+    )
 
 
 @patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
