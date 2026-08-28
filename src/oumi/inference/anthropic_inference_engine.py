@@ -455,18 +455,20 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         usage = response.get("usage")
         if not usage:
             return None
-        prompt_tokens = usage.get("input_tokens", 0)
+        cached_tokens = usage.get("cache_read_input_tokens", 0)
+        cache_creation_tokens = usage.get("cache_creation_input_tokens", 0)
+        # Anthropic excludes cache read/write from input, unlike other providers.
+        prompt_tokens = (
+            usage.get("input_tokens", 0) + cached_tokens + cache_creation_tokens
+        )
         completion_tokens = usage.get("output_tokens", 0)
         result = {
             "prompt_tokens": prompt_tokens,
             "completion_tokens": completion_tokens,
             "total_tokens": prompt_tokens + completion_tokens,
         }
-        # Extract cached tokens from Anthropic's flat format
-        cached_tokens = usage.get("cache_read_input_tokens", 0)
         if cached_tokens:
             result["cached_tokens"] = cached_tokens
-        cache_creation_tokens = usage.get("cache_creation_input_tokens", 0)
         if cache_creation_tokens:
             result["cache_creation_tokens"] = cache_creation_tokens
         return result
@@ -546,7 +548,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         )
 
     @override
-    def _get_request_headers(self, remote_params: RemoteParams) -> dict[str, str]:
+    def _get_auth_headers(self, remote_params: RemoteParams) -> dict[str, str]:
         return {
             "Content-Type": "application/json",
             "anthropic-version": self.anthropic_version,

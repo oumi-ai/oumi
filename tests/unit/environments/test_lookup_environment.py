@@ -25,9 +25,9 @@ from oumi.core.configs.params.grounding_params import (
 )
 from oumi.core.configs.params.tool_params import ToolLookupError, ToolParams
 from oumi.core.types.tool_call import ToolResult
-from oumi.environments.deterministic_environment import (
-    DeterministicEnvironment,
-    DeterministicEnvironmentKwargs,
+from oumi.environments.lookup_environment import (
+    LookupEnvironment,
+    LookupEnvironmentKwargs,
     ToolLookupEntry,
 )
 
@@ -62,8 +62,8 @@ def _make_params(
     defaults: dict = dict(
         id="lookup",
         name="Lookup",
-        description="A deterministic lookup environment",
-        env_type="deterministic",
+        description="A lookup environment",
+        env_type="lookup",
         tools=tools,
         env_kwargs={"lookup_table": lookup_table},
         grounding=grounding,
@@ -76,14 +76,14 @@ def _make_params(
 
 
 def test_from_params_constructs_runtime_instance():
-    env = DeterministicEnvironment.from_params(_make_params())
-    assert isinstance(env, DeterministicEnvironment)
-    assert isinstance(env._kwargs, DeterministicEnvironmentKwargs)
+    env = LookupEnvironment.from_params(_make_params())
+    assert isinstance(env, LookupEnvironment)
+    assert isinstance(env._kwargs, LookupEnvironmentKwargs)
 
 
 def test_from_params_coerces_raw_lookup_entries():
     """Raw dict entries in lookup_table are coerced to ToolLookupEntry."""
-    env = DeterministicEnvironment.from_params(
+    env = LookupEnvironment.from_params(
         _make_params(
             lookup_table={  # type: ignore[arg-type]
                 "tool1": [{"input": {"id": "1"}, "output": {"msg": "ok"}}],
@@ -98,7 +98,7 @@ def test_from_params_coerces_raw_lookup_entries():
 def test_tool_without_entries_raises():
     """Hard error: tool declared but lookup_table has no entries for it."""
     with pytest.raises(ValueError, match="has no entries in lookup_table"):
-        DeterministicEnvironment.from_params(
+        LookupEnvironment.from_params(
             _make_params(
                 tools=[_make_tool("tool1"), _make_tool("tool2")],
                 lookup_table={
@@ -112,7 +112,7 @@ def test_tool_without_entries_raises():
 def test_stale_lookup_table_keys_warn(caplog):
     """Warning (not error) when lookup_table has entries for unknown tool."""
     with caplog.at_level(logging.WARNING, logger="oumi"):
-        DeterministicEnvironment.from_params(
+        LookupEnvironment.from_params(
             _make_params(
                 lookup_table={
                     "tool1": [
@@ -138,12 +138,12 @@ def test_unknown_env_kwargs_raises_with_known_keys():
         "lookup_tabel": {},
     }
     with pytest.raises(ValueError, match="unknown env_kwargs.*lookup_tabel"):
-        DeterministicEnvironment.from_params(params)
+        LookupEnvironment.from_params(params)
 
 
 def test_duplicate_inputs_raises():
     with pytest.raises(ValueError, match="duplicate input"):
-        DeterministicEnvironment.from_params(
+        LookupEnvironment.from_params(
             _make_params(
                 lookup_table={
                     "tool1": [
@@ -164,7 +164,7 @@ def test_inputs_with_omitted_and_explicit_defaults_are_duplicates():
     )
 
     with pytest.raises(ValueError, match="duplicate input"):
-        DeterministicEnvironment.from_params(
+        LookupEnvironment.from_params(
             _make_params(
                 tools=[tool],
                 lookup_table={
@@ -193,7 +193,7 @@ def test_unreachable_schema_default_raises(keyword, subschema, path_suffix):
     }
 
     with pytest.raises(ValueError, match="never applied") as excinfo:
-        DeterministicEnvironment.from_params(
+        LookupEnvironment.from_params(
             _make_params(tools=[_make_tool(parameters=parameters)])
         )
     assert f"parameters.properties.value.{path_suffix}" in str(excinfo.value)
@@ -208,7 +208,7 @@ def test_combinator_without_defaults_is_accepted():
         }
     )
 
-    env = DeterministicEnvironment.from_params(_make_params(tools=[tool]))
+    env = LookupEnvironment.from_params(_make_params(tools=[tool]))
 
     assert env.step([("tool1", {"id": "01"})]) == [ToolResult(output={"msg": "ok"})]
 
@@ -228,7 +228,7 @@ def test_defaults_are_filled_through_local_ref():
     )
     entry = ToolLookupEntry(input={}, output={"msg": "ok"})
 
-    env = DeterministicEnvironment.from_params(
+    env = LookupEnvironment.from_params(
         _make_params(
             tools=[tool],
             lookup_table={"tool1": [entry]},
@@ -251,7 +251,7 @@ def test_invalid_entry_input_raises():
     )
 
     with pytest.raises(ValueError, match="invalid input.*locaton"):
-        DeterministicEnvironment.from_params(
+        LookupEnvironment.from_params(
             _make_params(
                 tools=[tool],
                 lookup_table={
@@ -288,7 +288,7 @@ def test_entry_input_is_validated_after_defaults_are_filled():
     )
 
     with pytest.raises(ValueError, match="invalid input.*fahrenheit.*not one of"):
-        DeterministicEnvironment.from_params(
+        LookupEnvironment.from_params(
             _make_params(
                 tools=[tool],
                 lookup_table={
@@ -309,7 +309,7 @@ def test_invalid_entry_output_raises():
     )
 
     with pytest.raises(ValueError, match="invalid output.*temprature"):
-        DeterministicEnvironment.from_params(
+        LookupEnvironment.from_params(
             _make_params(
                 tools=[tool],
                 lookup_table={
@@ -334,7 +334,7 @@ def test_valid_entry_output_constructs():
         }
     )
 
-    env = DeterministicEnvironment.from_params(
+    env = LookupEnvironment.from_params(
         _make_params(
             tools=[tool],
             lookup_table={
@@ -359,7 +359,7 @@ def test_non_json_output_raises():
     tool = _make_tool(output_schema={"type": "object"})
 
     with pytest.raises(ValueError, match="non-JSON output"):
-        DeterministicEnvironment.from_params(
+        LookupEnvironment.from_params(
             _make_params(
                 tools=[tool],
                 lookup_table={
@@ -383,7 +383,7 @@ def test_non_json_output_raises():
 def test_non_dict_outputs_validate_against_schema(output_schema, output):
     tool = _make_tool(output_schema=output_schema)
 
-    env = DeterministicEnvironment.from_params(
+    env = LookupEnvironment.from_params(
         _make_params(
             tools=[tool],
             lookup_table={"tool1": [ToolLookupEntry(input={}, output=output)]},
@@ -393,7 +393,7 @@ def test_non_dict_outputs_validate_against_schema(output_schema, output):
     assert env.step([("tool1", {})]) == [ToolResult(output=output)]
 
     with pytest.raises(ValueError, match="invalid output"):
-        DeterministicEnvironment.from_params(
+        LookupEnvironment.from_params(
             _make_params(
                 tools=[tool],
                 lookup_table={
@@ -407,7 +407,7 @@ def test_non_dict_outputs_validate_against_schema(output_schema, output):
 
 
 def test_step_returns_matching_output():
-    env = DeterministicEnvironment.from_params(
+    env = LookupEnvironment.from_params(
         _make_params(
             lookup_table={
                 "tool1": [
@@ -431,17 +431,17 @@ def test_step_returns_matching_output():
 
 
 def test_step_no_match_raises_with_hint():
-    env = DeterministicEnvironment.from_params(_make_params())
+    env = LookupEnvironment.from_params(_make_params())
     with pytest.raises(ToolLookupError) as excinfo:
         env.step([("tool1", {"id": "99"})])
     msg = str(excinfo.value)
-    assert "No deterministic output matches" in msg
+    assert "No lookup output matches" in msg
     assert "tool1" in msg
     assert '"id": "01"' in msg  # configured inputs surfaced for self-correction
 
 
 def test_step_supports_zero_arg_tool():
-    env = DeterministicEnvironment.from_params(
+    env = LookupEnvironment.from_params(
         _make_params(
             tools=[_make_tool("ping")],
             lookup_table={"ping": [ToolLookupEntry(input={}, output={})]},
@@ -451,7 +451,7 @@ def test_step_supports_zero_arg_tool():
 
 
 def test_step_unknown_tool_raises():
-    env = DeterministicEnvironment.from_params(_make_params())
+    env = LookupEnvironment.from_params(_make_params())
     with pytest.raises(ValueError, match="Tool 'missing' not found"):
         env.step([("missing", {"id": "01"})])
 
@@ -467,7 +467,7 @@ def test_step_applies_defaults_to_calls_and_entries():
         }
     )
     entry = ToolLookupEntry(input={"location": "sf"}, output={"temperature": 18})
-    env = DeterministicEnvironment.from_params(
+    env = LookupEnvironment.from_params(
         _make_params(
             tools=[tool],
             lookup_table={"tool1": [entry]},
@@ -491,7 +491,7 @@ def test_default_filling_deep_copies_values():
         }
     )
     entry = ToolLookupEntry(input={}, output={"ok": True})
-    env = DeterministicEnvironment.from_params(
+    env = LookupEnvironment.from_params(
         _make_params(tools=[tool], lookup_table={"tool1": [entry]})
     )
     arguments = {}
@@ -514,7 +514,7 @@ def test_step_does_not_create_missing_object_without_default():
             },
         }
     )
-    env = DeterministicEnvironment.from_params(
+    env = LookupEnvironment.from_params(
         _make_params(
             tools=[tool],
             lookup_table={
@@ -541,7 +541,7 @@ def test_step_does_not_create_missing_object_without_default():
 )
 def test_step_returns_non_dict_output(output):
     """Scalars, lists, and None round-trip through step() unchanged."""
-    env = DeterministicEnvironment.from_params(
+    env = LookupEnvironment.from_params(
         _make_params(
             lookup_table={"tool1": [ToolLookupEntry(input={"id": "01"}, output=output)]}
         )
@@ -556,9 +556,9 @@ def _grounded_env(
     n_entries: int = 10,
     sample_size: int = 3,
     seed: int | None = None,
-) -> DeterministicEnvironment:
-    """Build a DeterministicEnvironment with one grounded tool."""
-    return DeterministicEnvironment.from_params(
+) -> LookupEnvironment:
+    """Build a LookupEnvironment with one grounded tool."""
+    return LookupEnvironment.from_params(
         _make_params(
             tools=[_make_tool("lookup")],
             lookup_table={
@@ -588,13 +588,13 @@ def test_sample_grounding_returns_facts():
 
 
 def test_sample_grounding_no_grounding_returns_empty():
-    env = DeterministicEnvironment.from_params(_make_params())
+    env = LookupEnvironment.from_params(_make_params())
     assert env.sample_grounding(n=5, rng=random.Random(0)) == []
 
 
 def test_sample_grounding_only_grounded_tools_contribute():
     """Tools without an entry in grounding.tools contribute nothing."""
-    env = DeterministicEnvironment.from_params(
+    env = LookupEnvironment.from_params(
         _make_params(
             tools=[_make_tool("grounded"), _make_tool("plain")],
             lookup_table={
@@ -620,7 +620,7 @@ def test_sample_grounding_only_grounded_tools_contribute():
 
 
 def test_sample_grounding_respects_tool_ids_filter():
-    env = DeterministicEnvironment.from_params(
+    env = LookupEnvironment.from_params(
         _make_params(
             tools=[_make_tool("a"), _make_tool("b")],
             lookup_table={
@@ -642,7 +642,7 @@ def test_sample_grounding_respects_tool_ids_filter():
 
 
 def test_sample_grounding_field_missing_in_row_is_dropped():
-    env = DeterministicEnvironment.from_params(
+    env = LookupEnvironment.from_params(
         _make_params(
             tools=[_make_tool("t")],
             lookup_table={
@@ -663,7 +663,7 @@ def test_sample_grounding_field_missing_in_row_is_dropped():
 
 def test_sample_grounding_merges_input_and_output():
     """Output values win over input values on key collision."""
-    env = DeterministicEnvironment.from_params(
+    env = LookupEnvironment.from_params(
         _make_params(
             tools=[_make_tool("lookup")],
             lookup_table={
@@ -697,7 +697,7 @@ def test_sample_grounding_includes_filled_defaults():
             },
         },
     )
-    env = DeterministicEnvironment.from_params(
+    env = LookupEnvironment.from_params(
         _make_params(
             tools=[tool],
             lookup_table={
@@ -717,7 +717,7 @@ def test_sample_grounding_includes_filled_defaults():
 def test_grounding_key_collision_warns(caplog):
     """Warn when a whitelisted grounding field is in both input and output."""
     with caplog.at_level(logging.WARNING, logger="oumi"):
-        DeterministicEnvironment.from_params(
+        LookupEnvironment.from_params(
             _make_params(
                 tools=[_make_tool("lookup")],
                 lookup_table={
@@ -745,7 +745,7 @@ def test_grounding_key_collision_warns(caplog):
 def test_grounding_key_collision_outside_whitelist_no_warn(caplog):
     """A collision on a non-whitelisted key never reaches a fact, so no warning."""
     with caplog.at_level(logging.WARNING, logger="oumi"):
-        DeterministicEnvironment.from_params(
+        LookupEnvironment.from_params(
             _make_params(
                 tools=[_make_tool("lookup")],
                 lookup_table={
@@ -767,7 +767,7 @@ def test_grounding_key_collision_outside_whitelist_no_warn(caplog):
 
 def test_sample_grounding_scalar_output_projects_input_only():
     """Non-dict outputs have no fields to project; ground on input alone."""
-    env = DeterministicEnvironment.from_params(
+    env = LookupEnvironment.from_params(
         _make_params(
             tools=[_make_tool("price")],
             lookup_table={
@@ -810,7 +810,7 @@ def test_sample_grounding_no_replacement_within_call():
 
 
 def test_sample_grounding_pools_across_tools():
-    env = DeterministicEnvironment.from_params(
+    env = LookupEnvironment.from_params(
         _make_params(
             tools=[_make_tool("a"), _make_tool("b")],
             lookup_table={

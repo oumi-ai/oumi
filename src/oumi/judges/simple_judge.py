@@ -13,35 +13,26 @@
 # limitations under the License.
 
 
-import copy
-
 from typing_extensions import override
 
-from oumi.core.configs.inference_config import InferenceConfig
-from oumi.core.configs.inference_engine_type import InferenceEngineType
 from oumi.core.configs.judge_config import JudgeConfig
-from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.configs.params.judge_params import (
     JudgeOutputType,
     JudgeParams,
     JudgeResponseFormat,
 )
-from oumi.core.inference import BaseInferenceEngine
 from oumi.judges.base_judge import (
     BaseJudge,
     JudgeOutputField,
+)
+from oumi.judges.judge_utils import (
+    build_judgment_field_schema,
+    describe_judgment_options,
 )
 
 # Expected field/key names in the judge's output.
 EXPLANATION_KEY = "explanation"
 JUDGMENT_KEY = "judgment"
-
-# Judgment options: describing to the judge how to format its judgment.
-JUDGMENT_OPTIONS_BOOL = "Your judgment should be a single word: 'Yes' or 'No'"
-JUDGMENT_OPTIONS_INT = "Your judgment should be an integer value"
-JUDGMENT_OPTIONS_FLOAT = "Your judgment should be a float value"
-JUDGMENT_OPTIONS_ENUM_PREFIX = "Your judgment should be one of the following options: "
-JUDGMENT_OPTIONS_TEXT = "Your judgment should be provided in the form of free text"
 
 # Prompt suffix: describing to the judge how to format its response (XML, JSON, or RAW).
 XML_SUFFIX = (
@@ -106,7 +97,11 @@ class SimpleJudge(BaseJudge):
                 "inference_config must be provided in JudgeConfig for SimpleJudge. "
                 "Please ensure your JudgeConfig includes a valid inference_config."
             )
-        inference_engine = self._create_inference_engine(self._inference_config)
+        json_format = self._judge_params.response_format == JudgeResponseFormat.JSON
+        inference_engine = self._create_inference_engine(
+            inference_config=self._inference_config,
+            response_schema=self._build_response_schema() if json_format else None,
+        )
 
         # Append format suffix to system instruction if it exists
         system_instruction = self._judge_params.system_instruction
@@ -152,23 +147,10 @@ class SimpleJudge(BaseJudge):
         include_explanation = self._judge_params.include_explanation
 
         # Describe the expected judgment options to the judge
-        if (
-            self._judge_params.judgment_scores
-            and len(self._judge_params.judgment_scores) > 1
-        ):
-            choices = [f"'{c}'" for c in self._judge_params.judgment_scores.keys()]
-            choices_str = ", ".join(choices)
-            judgment_options = f"{JUDGMENT_OPTIONS_ENUM_PREFIX}{choices_str}. "
-        elif self._judge_params.judgment_type == JudgeOutputType.BOOL:
-            judgment_options = f"{JUDGMENT_OPTIONS_BOOL}. "
-        elif self._judge_params.judgment_type == JudgeOutputType.FLOAT:
-            judgment_options = f"{JUDGMENT_OPTIONS_FLOAT}. "
-        elif self._judge_params.judgment_type == JudgeOutputType.INT:
-            judgment_options = f"{JUDGMENT_OPTIONS_INT}. "
-        elif self._judge_params.judgment_type == JudgeOutputType.TEXT:
-            judgment_options = f"{JUDGMENT_OPTIONS_TEXT}. "
-        else:
-            judgment_options = ""
+        judgment_options = describe_judgment_options(
+            judgment_type=self._judge_params.judgment_type,
+            judgment_scores=self._judge_params.judgment_scores,
+        )
 
         # Describe the expected response format to the judge
         if response_format == JudgeResponseFormat.XML:
@@ -190,10 +172,16 @@ class SimpleJudge(BaseJudge):
 
     def _create_judgment_output_field(self, params: JudgeParams) -> JudgeOutputField:
         """Create the main judgment output field."""
+        # dict is invariant, so dict[str, float] is not assignable to
+        # dict[str, float | None]. A simple judge never scores a label None, so
+        # copying into the wider dict is sound.
+        field_scores: dict[str, float | None] | None = (
+            dict(params.judgment_scores) if params.judgment_scores else None
+        )
         return JudgeOutputField(
             field_key=JUDGMENT_KEY,
             field_type=params.judgment_type,
-            field_scores=params.judgment_scores,
+            field_scores=field_scores,
         )
 
     def _create_explanation_output_field(self) -> JudgeOutputField:
@@ -213,23 +201,10 @@ class SimpleJudge(BaseJudge):
             properties[EXPLANATION_KEY] = {"type": "string"}
 
         # Add judgment field
-        if judgment_scores := self._judge_params.judgment_scores:
-            # Use the user-provided categorical values as the enum, if provided.
-            # Note that these are always set for ENUM, optional for other types.
-            judgment_field_schema = {
-                "type": "string",
-                "enum": list(judgment_scores.keys()),
-            }
-        elif self._judge_params.judgment_type == JudgeOutputType.BOOL:
-            # SimpleJudge is hardcoding boolean to Yes/No (see JUDGMENT_OPTIONS_BOOL)
-            judgment_field_schema = {"type": "string", "enum": ["Yes", "No"]}
-        elif self._judge_params.judgment_type == JudgeOutputType.INT:
-            judgment_field_schema = {"type": "integer"}
-        elif self._judge_params.judgment_type == JudgeOutputType.FLOAT:
-            judgment_field_schema = {"type": "number"}
-        else:
-            judgment_field_schema = {"type": "string"}
-        properties[JUDGMENT_KEY] = judgment_field_schema
+        properties[JUDGMENT_KEY] = build_judgment_field_schema(
+            judgment_type=self._judge_params.judgment_type,
+            judgment_scores=self._judge_params.judgment_scores,
+        )
 
         return {
             "type": "object",
@@ -237,37 +212,3 @@ class SimpleJudge(BaseJudge):
             "required": list(properties.keys()),
             "additionalProperties": False,
         }
-
-    def _create_inference_engine(
-        self, inference_config: InferenceConfig
-    ) -> BaseInferenceEngine:
-        """Create the inference engine based on the provided configuration."""
-        from oumi.builders.inference_engines import build_inference_engine
-
-        # For JSON responses, enable guided_decoding so that the judge model's output is
-        # structurally guaranteed to match the expected schema.
-        if self._judge_params.response_format == JudgeResponseFormat.JSON:
-            inference_config = copy.deepcopy(inference_config)
-
-            # Bedrock uses a different request shape and doesn't accept `strict`.
-            strict_supported = inference_config.engine != InferenceEngineType.BEDROCK
-
-            inference_config.generation.guided_decoding = GuidedDecodingParams(
-                json=self._build_response_schema(),
-                strict=strict_supported,
-            )
-
-        if inference_config.engine is None:
-            raise ValueError("Inference engine not specified in the configuration.")
-        elif inference_config.input_path or inference_config.output_path:
-            raise ValueError(
-                "Input and output paths are not supported in inference_config, when "
-                "instantiating the SimpleJudge. Please set both to None."
-            )
-
-        return build_inference_engine(
-            engine_type=inference_config.engine,
-            model_params=inference_config.model,
-            remote_params=inference_config.remote_params,
-            generation_params=inference_config.generation,
-        )

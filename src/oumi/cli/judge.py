@@ -14,7 +14,7 @@
 
 from collections.abc import Callable
 from pathlib import Path
-from typing import Annotated, Any
+from typing import TYPE_CHECKING, Annotated, Any
 
 import typer
 from rich.table import Table
@@ -22,6 +22,9 @@ from rich.table import Table
 from oumi.cli import cli_utils
 from oumi.cli.alias import AliasType
 from oumi.cli.completions import complete_judge_config
+
+if TYPE_CHECKING:
+    from oumi.judges.base_judge import JudgeOutput
 
 _list_configs_callback = cli_utils.create_list_configs_callback(
     AliasType.JUDGE, "Available Judge Configs", "judge dataset"
@@ -226,52 +229,83 @@ def judge_file(
         output_file=output_file,
     )
 
-    # Calculate the overall score
-    overall_score = 0.0
-    for judge_output in judge_outputs:
-        judgment_score = judge_output.field_scores.get("judgment", None)
-        if judgment_score is not None:
-            overall_score += judgment_score
-        else:
-            overall_score = None
-            break
+    if not judge_outputs:
+        cli_utils.CONSOLE.print("[yellow]No judge outputs were produced.[/yellow]")
+        if output_file:
+            cli_utils.CONSOLE.print(f"[green]Results saved to {output_file}[/green]")
+        return
 
-    # Display the overall score
-    if overall_score is not None:
-        overall_score = overall_score / len(judge_outputs)
+    # Display the overall score, if every row produced one
+    row_scores = [_get_row_score(judge_output) for judge_output in judge_outputs]
+    if all(score is not None for score in row_scores):
+        overall_score = sum(row_scores) / len(row_scores)  # type: ignore[arg-type]
         cli_utils.CONSOLE.print(
             f"\n[bold blue]Overall Score: {overall_score:.2%}[/bold blue]"
         )
 
     # Display the judge outputs if no output file was specified
     if not output_file:
+        # One column per output field, so that multi-criteria (rubric) judges show
+        # every criterion rather than just a "judgment" field they don't have.
+        field_keys = [
+            output_field.field_key
+            for output_field in (judge_outputs[0].output_fields or [])
+        ]
+
+        # Explanations are long, and a rubric judge has one per criterion; several of
+        # them side by side make the table unreadable. Keep a lone explanation (the
+        # single-judgment case), and point elsewhere for the rest.
+        explanation_keys = [key for key in field_keys if _is_explanation_key(key)]
+        if len(explanation_keys) > 1:
+            field_keys = [key for key in field_keys if key not in explanation_keys]
+            cli_utils.CONSOLE.print(
+                f"[dim]Omitting {len(explanation_keys)} explanation columns from the "
+                "table. Use --output to write them to a file, or --raw to print the "
+                "judge's full response.[/dim]"
+            )
+
         table = Table(
             title="Judge Results",
             title_style="bold magenta",
             show_edge=False,
             show_lines=True,
         )
-        table.add_column("Judgment", style="cyan")
-        table.add_column("Judgment Score", style="green")
-        table.add_column("Explanation", style="yellow")
+        for field_key in field_keys:
+            table.add_column(field_key, style="cyan")
+        table.add_column("Score", style="green")
         if display_raw_output:
             table.add_column("Raw Output", style="white")
 
-        for judge_output in judge_outputs:
-            judgment_value = str(judge_output.field_values.get("judgment", "N/A"))
-            judgment_score = str(judge_output.field_scores.get("judgment", "N/A"))
-            explanation_value = str(judge_output.field_values.get("explanation", "N/A"))
-
+        for judge_output, row_score in zip(judge_outputs, row_scores):
+            row = [
+                str(judge_output.field_values.get(field_key, "N/A"))
+                for field_key in field_keys
+            ]
+            row.append("N/A" if row_score is None else f"{row_score:.2f}")
             if display_raw_output:
-                table.add_row(
-                    judgment_value,
-                    judgment_score,
-                    explanation_value,
-                    judge_output.raw_output,
-                )
-            else:
-                table.add_row(judgment_value, judgment_score, explanation_value)
+                row.append(judge_output.raw_output)
+            table.add_row(*row)
 
         cli_utils.CONSOLE.print(table)
     else:
         cli_utils.CONSOLE.print(f"[green]Results saved to {output_file}[/green]")
+
+
+def _is_explanation_key(field_key: str) -> bool:
+    """Return True if an output field holds an explanation rather than a judgment."""
+    # Delayed imports
+    from oumi.core.configs.params.rubric_judge_params import EXPLANATION_SUFFIX
+    from oumi.judges.simple_judge import EXPLANATION_KEY
+
+    return field_key == EXPLANATION_KEY or field_key.endswith(EXPLANATION_SUFFIX)
+
+
+def _get_row_score(judge_output: "JudgeOutput") -> float | None:
+    """Return a single score for one judged row.
+
+    Multi-criteria judges set `aggregate_score` across their criteria; the other
+    judges leave it None and expose a single "judgment" field score.
+    """
+    if judge_output.aggregate_score is not None:
+        return judge_output.aggregate_score
+    return judge_output.field_scores.get("judgment", None)

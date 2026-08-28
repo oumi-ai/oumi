@@ -47,7 +47,7 @@ class ToolLookupError(ToolError):
     """Raised when a tool call cannot be resolved.
 
     Covers a tool id that isn't registered in the environment
-    (``ExecutableEnvironment``) and a ``DeterministicEnvironment``
+    (``ExecutableEnvironment``) and a ``LookupEnvironment``
     ``LookupEntry`` that matches none of the provided arguments.
     """
 
@@ -74,7 +74,7 @@ class ToolParams(BaseParams):
     When set, the host env dispatches calls to it instead of LLM-simulating.
     The callable is invoked with keyword arguments — always ``arguments`` (the
     tool-call args), plus a per-env context keyword: ``state`` for a stateful
-    ``SyntheticEnvironment``, ``context`` for an ``ExecutableEnvironment`` — and
+    ``SimulatedEnvironment``, ``context`` for an ``ExecutableEnvironment`` — and
     must return a ``ToolResult``.
     """
 

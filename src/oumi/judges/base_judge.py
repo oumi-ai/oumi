@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 import json
 import logging
 import re
@@ -20,6 +21,9 @@ from dataclasses import dataclass, field
 import pydantic
 from typing_extensions import Self
 
+from oumi.core.configs.inference_config import InferenceConfig
+from oumi.core.configs.inference_engine_type import InferenceEngineType
+from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.configs.params.judge_params import (
     JudgeOutputType,
     JudgeResponseFormat,
@@ -43,12 +47,13 @@ class JudgeOutputField(pydantic.BaseModel):
     Attributes:
         field_key: The key/name for this field in the judge's output
         field_type: The data type expected for this field's value
-        field_scores: Optional mapping from categorical values to numeric scores
+        field_scores: Optional mapping from categorical values to numeric scores.
+            A value may map to None to mean "carries no score" (e.g. N/A)
     """
 
     field_key: str
     field_type: JudgeOutputType
-    field_scores: dict[str, float] | None
+    field_scores: dict[str, float | None] | None
 
     def get_typed_value(self, raw_value: str) -> float | int | str | bool | None:
         """Convert the field's raw string value to the appropriate type.
@@ -107,6 +112,7 @@ class JudgeOutput(pydantic.BaseModel):
         field_values: Typed values for each expected output field
         field_scores: Numeric scores for each expected output field (if applicable)
         response_format: Format used for generating output (XML, JSON, or RAW)
+        aggregate_score: Single overall score for rubric judges.
     """
 
     raw_output: str
@@ -115,6 +121,7 @@ class JudgeOutput(pydantic.BaseModel):
     field_values: dict[str, float | int | str | bool | None] = {}
     field_scores: dict[str, float | None] = {}
     response_format: JudgeResponseFormat | None = None
+    aggregate_score: float | None = None
 
     @classmethod
     def from_raw_output(
@@ -915,6 +922,56 @@ class BaseJudge:
     def total_cached_tokens(self) -> int:
         """Total cached tokens accumulated across all judge() calls."""
         return self._total_cached_tokens
+
+    @staticmethod
+    def _create_inference_engine(
+        inference_config: InferenceConfig,
+        response_schema: dict | None = None,
+    ) -> BaseInferenceEngine:
+        """Build the inference engine backing a judge.
+
+        Subclasses call this from their own `__init__`, before `super().__init__()`,
+        and decide for themselves whether their response format warrants a schema.
+
+        Args:
+            inference_config: The judge's inference configuration.
+            response_schema: JSON schema the judge's response must conform to, which
+                enables guided decoding so the output is structurally guaranteed to
+                match. None leaves guided decoding untouched.
+
+        Returns:
+            An inference engine built from the configuration.
+
+        Raises:
+            ValueError: If the engine is unspecified, or input/output paths are set.
+        """
+        from oumi.builders.inference_engines import build_inference_engine
+
+        if response_schema is not None:
+            inference_config = copy.deepcopy(inference_config)
+
+            # Bedrock uses a different request shape and doesn't accept `strict`.
+            strict_supported = inference_config.engine != InferenceEngineType.BEDROCK
+
+            inference_config.generation.guided_decoding = GuidedDecodingParams(
+                json=response_schema,
+                strict=strict_supported,
+            )
+
+        if inference_config.engine is None:
+            raise ValueError("Inference engine not specified in the configuration.")
+        elif inference_config.input_path or inference_config.output_path:
+            raise ValueError(
+                "Input and output paths are not supported in inference_config, when "
+                "instantiating an LLM judge. Please set both to None."
+            )
+
+        return build_inference_engine(
+            engine_type=inference_config.engine,
+            model_params=inference_config.model,
+            remote_params=inference_config.remote_params,
+            generation_params=inference_config.generation,
+        )
 
     def _transform_judge_output(self, raw_output: str) -> JudgeOutput:
         """Parse raw model output into structured judge output.

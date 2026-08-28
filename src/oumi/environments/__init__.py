@@ -35,14 +35,19 @@ from oumi.environments.base_environment import BaseEnvironment
 from oumi.environments.database_executable_environment import (
     DatabaseExecutableEnvironment,
 )
-from oumi.environments.deterministic_environment import (
-    DeterministicEnvironment,
-    DeterministicEnvironmentKwargs,
-    ToolLookupEntry,
-)
 from oumi.environments.executable_environment import ExecutableEnvironment
 from oumi.environments.executable_tool import ExecutableTool
-from oumi.environments.synthetic_environment import (
+from oumi.environments.lookup_environment import (
+    DeterministicEnvironment,
+    DeterministicEnvironmentKwargs,
+    LookupEnvironment,
+    LookupEnvironmentKwargs,
+    ToolLookupEntry,
+)
+from oumi.environments.simulated_environment import (
+    SimulatedEnvironment,
+    SimulatedEnvironmentKwargs,
+    SimulatedStateParams,
     SyntheticEnvironment,
     SyntheticEnvironmentKwargs,
     SyntheticStateParams,
@@ -51,6 +56,7 @@ from oumi.environments.synthetic_environment import (
 __all__ = [
     "BaseEnvironment",
     "DatabaseExecutableEnvironment",
+    # Deprecated aliases, kept so existing imports keep resolving.
     "DeterministicEnvironment",
     "DeterministicEnvironmentKwargs",
     "ExecutableEnvironment",
@@ -58,6 +64,11 @@ __all__ = [
     "GroundingConfig",
     "GroundingFact",
     "JSONSchema",
+    "LookupEnvironment",
+    "LookupEnvironmentKwargs",
+    "SimulatedEnvironment",
+    "SimulatedEnvironmentKwargs",
+    "SimulatedStateParams",
     "StateGroundingConfig",
     "SyntheticEnvironment",
     "SyntheticEnvironmentKwargs",

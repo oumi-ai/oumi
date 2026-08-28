@@ -42,7 +42,7 @@ from oumi.core.types.conversation import (
 from oumi.core.types.tool_call import ToolCall, ToolDefinition, ToolResult
 from oumi.environments import GroundingFact
 from oumi.environments.base_environment import BaseEnvironment
-from oumi.environments.synthetic_environment import SyntheticEnvironment
+from oumi.environments.simulated_environment import SimulatedEnvironment
 from oumi.environments.utils import describe_grounding_default
 from oumi.inference.native_tool_calling import (
     NATIVE_TOOL_CALLING_ENGINES,
@@ -166,8 +166,8 @@ class ConversationSynthesizer:
             raise first_error
 
     def _wire_inference(self, env: BaseEnvironment) -> None:
-        """Inject the synthesizer's engine + base config into synthetic envs."""
-        if isinstance(env, SyntheticEnvironment):
+        """Inject the synthesizer's engine + base config into simulated envs."""
+        if isinstance(env, SimulatedEnvironment):
             env.attach_inference(self._inference_engine, self._inference_config)
 
     def _resolve_available_tools(
@@ -243,7 +243,7 @@ class ConversationSynthesizer:
                 outputs = router.route_batch(calls)
             except Exception:
                 # On batch failure, re-route each call individually so per-call
-                # errors stay attributed. SyntheticEnvironment's in-batch cache
+                # errors stay attributed. SimulatedEnvironment's in-batch cache
                 # shields earlier successes from re-inference, but calls past
                 # the failing index re-infer. Acceptable for attribution today;
                 # Phase 2's corrective-retry should replace this fallback.
