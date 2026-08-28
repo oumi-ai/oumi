@@ -23,6 +23,7 @@ from typing import Any, Protocol
 import jsonschema
 import requests
 from pydantic import JsonValue
+from requests.adapters import HTTPAdapter, Retry
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.environment_params import EnvironmentParams
@@ -33,6 +34,25 @@ from oumi.environments.base_environment import BaseEnvironment
 from oumi.environments.utils import parse_env_kwargs
 
 _DEFAULT_TIMEOUT_SECONDS = 30.0
+_DEFAULT_MAX_RETRIES = 3
+_RETRY_BACKOFF_FACTOR = 0.5
+_RETRY_STATUSES = (429, 500, 502, 503, 504)
+# 408 and 429 are the endpoint asking to be tried again, not the tool refusing.
+_TRANSIENT_CLIENT_STATUSES = (408, 429)
+
+
+class EndpointStatusError(Exception):
+    """Raised by a client when the endpoint answered with a non-2xx status.
+
+    Carries the status so a protocol can tell the tool refusing the call apart
+    from the endpoint failing to serve it. Clients raise this instead of their
+    own HTTP error type, which is what keeps that decision in the protocol.
+    """
+
+    def __init__(self, status_code: int, message: str) -> None:
+        """Name the status the endpoint answered with."""
+        super().__init__(message)
+        self.status_code = status_code
 
 
 class EndpointCallError(Exception):
@@ -54,12 +74,22 @@ class EndpointEnvironmentKwargs(BaseParams):
     timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS
     """How long to wait for the endpoint to answer one call."""
 
+    max_retries: int = _DEFAULT_MAX_RETRIES
+    """Retries for a connection failure or a retryable status.
+
+    A retry re-sends the identical body, so an endpoint deduplicating on
+    ``{session_id}:{call_id}`` performs the side effect once. Set to 0 for an
+    endpoint that does not deduplicate.
+    """
+
     def __finalize_and_validate__(self) -> None:
         """Validate the endpoint configuration."""
         if not self.endpoint_url:
             raise ValueError("endpoint_url is required.")
         if self.timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be positive.")
+        if self.max_retries < 0:
+            raise ValueError("max_retries cannot be negative.")
 
 
 @dataclass(frozen=True)
@@ -130,16 +160,46 @@ class EndpointProtocol(Protocol):
 class RequestsJsonClient:
     """Default client: a plain JSON POST with no egress policy of its own."""
 
-    def __init__(self, url: str, timeout_seconds: float) -> None:
+    def __init__(
+        self,
+        url: str,
+        timeout_seconds: float,
+        max_retries: int = _DEFAULT_MAX_RETRIES,
+    ) -> None:
         """Send every call to ``url``, waiting at most ``timeout_seconds``."""
         self._url = url
         self._timeout_seconds = timeout_seconds
+        self._session = requests.Session()
+        # urllib3 leaves POST out of allowed_methods because a resend can repeat
+        # a side effect; the call's ids are what make resending safe here.
+        adapter = HTTPAdapter(
+            max_retries=Retry(
+                total=max_retries,
+                backoff_factor=_RETRY_BACKOFF_FACTOR,
+                status_forcelist=_RETRY_STATUSES,
+                allowed_methods=frozenset({"POST"}),
+                # Hand back the exhausted response so the status reaches the
+                # protocol, rather than urllib3 raising its own pool error.
+                raise_on_status=False,
+            )
+        )
+        self._session.mount("https://", adapter)
+        self._session.mount("http://", adapter)
 
     def post_json(self, payload: JsonValue) -> JsonValue:
         """POST ``payload`` and return the decoded response body."""
-        response = requests.post(self._url, json=payload, timeout=self._timeout_seconds)
-        response.raise_for_status()
+        response = self._session.post(
+            self._url, json=payload, timeout=self._timeout_seconds
+        )
+        if not response.ok:
+            raise EndpointStatusError(
+                response.status_code, f"Endpoint returned HTTP {response.status_code}."
+            )
         return response.json()
+
+    def close(self) -> None:
+        """Release the pooled connections. Not part of :class:`JsonHttpClient`."""
+        self._session.close()
 
 
 class JsonHttpProtocol:
@@ -156,14 +216,32 @@ class JsonHttpProtocol:
         self._http_client = http_client
 
     def call(self, request: RemoteToolCall) -> JsonValue:
-        """POST one call and return the response body as the tool's output."""
-        return self._http_client.post_json(
-            {
-                "name": request.name,
-                "arguments": request.arguments,
-                "call_id": request.call_id,
-                "session_id": request.session_id,
-            }
+        """POST one call and return the response body as the tool's output.
+
+        Raises:
+            ToolError: If the endpoint answered 4xx, which is the tool rejecting
+                the call rather than the endpoint failing to serve it.
+            EndpointStatusError: For any other non-2xx status.
+        """
+        try:
+            return self._http_client.post_json(
+                {
+                    "name": request.name,
+                    "arguments": request.arguments,
+                    "call_id": request.call_id,
+                    "session_id": request.session_id,
+                }
+            )
+        except EndpointStatusError as error:
+            if self._is_tool_refusal(error.status_code):
+                raise ToolError(str(error)) from error
+            raise
+
+    @staticmethod
+    def _is_tool_refusal(status_code: int) -> bool:
+        """Whether this status is the tool rejecting the call."""
+        return (
+            400 <= status_code < 500 and status_code not in _TRANSIENT_CLIENT_STATUSES
         )
 
 
@@ -177,9 +255,9 @@ class EndpointEnvironment(BaseEnvironment):
     The protocol owns the wire format, so a different one leaves this class
     untouched.
 
-    Each call is identified by a ``session_id`` naming the conversation and a
-    ``call_id`` naming the call within it, so a protocol can make retries
-    deduplicable end to end.
+    Each call is identified by a caller-supplied ``session_id`` naming the
+    conversation and a ``call_id`` naming the call within it, so a protocol can
+    make retries deduplicable end to end.
 
     Shareable across samples, so the harness never closes it. Whoever builds
     the protocol's client owns releasing it.
@@ -194,7 +272,6 @@ class EndpointEnvironment(BaseEnvironment):
         self._tools_by_id: dict[str, ToolParams] = {
             tool.id: tool for tool in params.tools
         }
-        self._session_id = uuid.uuid4().hex
 
     @classmethod
     def from_params(cls, params: EnvironmentParams) -> EndpointEnvironment:
@@ -202,18 +279,23 @@ class EndpointEnvironment(BaseEnvironment):
         kwargs = parse_env_kwargs(
             EndpointEnvironmentKwargs, params, env_label="EndpointEnvironment"
         )
-        client = RequestsJsonClient(kwargs.endpoint_url, kwargs.timeout_seconds)
+        client = RequestsJsonClient(
+            kwargs.endpoint_url, kwargs.timeout_seconds, kwargs.max_retries
+        )
         return cls(params, JsonHttpProtocol(client))
 
     def step(self, calls: list[tuple[str, dict[str, Any]]]) -> list[ToolResult]:
         """Execute a batch of tool calls; results are returned in input order.
 
-        Identifies the calls itself. Callers that already have stable ids for a
-        conversation and its calls should use :meth:`call` so retries stay
-        deduplicable end to end.
+        Identifies the calls itself, treating the batch as one conversation.
+        Callers holding stable ids for a conversation and its calls should use
+        :meth:`call` so retries stay deduplicable end to end.
         """
+        session_id = uuid.uuid4().hex
         return [
-            self.call(tool_id, arguments, call_id=uuid.uuid4().hex)
+            self.call(
+                tool_id, arguments, call_id=uuid.uuid4().hex, session_id=session_id
+            )
             for tool_id, arguments in calls
         ]
 
@@ -223,9 +305,13 @@ class EndpointEnvironment(BaseEnvironment):
         arguments: dict[str, Any],
         *,
         call_id: str,
-        session_id: str | None = None,
+        session_id: str,
     ) -> ToolResult:
         """Execute one tool call against the endpoint.
+
+        ``session_id`` names the conversation and ``call_id`` the call within it.
+        Both come from the caller: this env is shared across samples, so it
+        cannot know which conversation a call belongs to.
 
         Raises:
             ToolLookupError: If the environment does not serve ``tool_id``.
@@ -247,7 +333,7 @@ class EndpointEnvironment(BaseEnvironment):
             name=tool_id,
             arguments=arguments,
             call_id=call_id,
-            session_id=session_id or self._session_id,
+            session_id=session_id,
         )
         try:
             output = self._protocol.call(request)

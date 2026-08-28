@@ -12,6 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
+import threading
+from collections.abc import Iterator
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
 import pytest
 import requests
 from pydantic import JsonValue
@@ -29,8 +34,10 @@ from oumi.environments.endpoint_environment import (
     EndpointEnvironment,
     EndpointEnvironmentKwargs,
     EndpointProtocol,
+    EndpointStatusError,
     JsonHttpProtocol,
     RemoteToolCall,
+    RequestsJsonClient,
 )
 from oumi.environments.utils import parse_env_kwargs
 
@@ -128,7 +135,7 @@ def test_call_rejects_arguments_that_do_not_match_the_tool_schema():
     env = _environment(protocol)
 
     with pytest.raises(ToolArgumentError):
-        env.call("place_order", {"item": 7}, call_id="c1")
+        env.call("place_order", {"item": 7}, call_id="c1", session_id="s1")
     assert protocol.calls == []
 
 
@@ -136,21 +143,21 @@ def test_call_rejects_an_unknown_tool():
     env = _environment(_RecordingProtocol())
 
     with pytest.raises(ToolLookupError):
-        env.call("cancel_order", {"item": "X"}, call_id="c1")
+        env.call("cancel_order", {"item": "X"}, call_id="c1", session_id="s1")
 
 
 def test_call_reports_a_response_that_breaks_the_output_schema():
     env = _environment(_RecordingProtocol(response={"state": "ok"}))
 
     with pytest.raises(EndpointCallError, match="output schema"):
-        env.call("place_order", {"item": "X"}, call_id="c1")
+        env.call("place_order", {"item": "X"}, call_id="c1", session_id="s1")
 
 
 def test_call_reports_a_protocol_failure_as_an_endpoint_error():
     env = _environment(_RecordingProtocol(error=TimeoutError("timed out")))
 
     with pytest.raises(EndpointCallError, match="timed out"):
-        env.call("place_order", {"item": "X"}, call_id="c1")
+        env.call("place_order", {"item": "X"}, call_id="c1", session_id="s1")
 
 
 def test_an_endpoint_failure_is_not_a_tool_error():
@@ -162,7 +169,7 @@ def test_a_tool_error_from_the_protocol_passes_through_unchanged():
     env = _environment(_RecordingProtocol(error=ToolError("out of stock")))
 
     with pytest.raises(ToolError, match="^out of stock$") as excinfo:
-        env.call("place_order", {"item": "X"}, call_id="c1")
+        env.call("place_order", {"item": "X"}, call_id="c1", session_id="s1")
 
     # A refusal is the tool's answer, not an endpoint failure.
     assert not isinstance(excinfo.value, EndpointCallError)
@@ -176,7 +183,9 @@ def test_call_accepts_any_response_when_the_tool_declares_no_output_schema():
         _RecordingProtocol(response=["anything"]),
     )
 
-    assert env.call("place_order", {"item": "X"}, call_id="c1").output == ["anything"]
+    assert env.call(
+        "place_order", {"item": "X"}, call_id="c1", session_id="s1"
+    ).output == ["anything"]
 
 
 @pytest.mark.parametrize(
@@ -185,6 +194,7 @@ def test_call_accepts_any_response_when_the_tool_declares_no_output_schema():
         EndpointEnvironmentKwargs(endpoint_url=""),
         EndpointEnvironmentKwargs(endpoint_url=_URL, timeout_seconds=0),
         EndpointEnvironmentKwargs(endpoint_url=_URL, timeout_seconds=-1),
+        EndpointEnvironmentKwargs(endpoint_url=_URL, max_retries=-1),
     ],
 )
 def test_kwargs_reject_an_unusable_endpoint_configuration(kwargs):
@@ -208,6 +218,7 @@ def test_kwargs_parse_from_a_plain_json_config():
 
     assert kwargs.endpoint_url == _URL
     assert kwargs.timeout_seconds == 5
+    assert kwargs.max_retries == EndpointEnvironmentKwargs().max_retries
 
 
 def test_json_http_protocol_sends_the_call_and_its_ids_as_one_body():
@@ -232,17 +243,16 @@ def test_from_params_posts_to_the_configured_endpoint(monkeypatch):
     sent: dict[str, object] = {}
 
     class _Response:
-        def raise_for_status(self) -> None:
-            pass
+        ok = True
 
         def json(self) -> JsonValue:
             return {"status": "ok"}
 
-    def fake_post(url, *, json, timeout):
+    def fake_post(self, url, *, json, timeout):
         sent.update({"url": url, "json": json, "timeout": timeout})
         return _Response()
 
-    monkeypatch.setattr(requests, "post", fake_post)
+    monkeypatch.setattr(requests.Session, "post", fake_post)
     env = EndpointEnvironment.from_params(
         EnvironmentParams(
             id="env",
@@ -317,7 +327,9 @@ def test_a_json_rpc_protocol_reports_is_error_as_the_tools_refusal():
     )
 
     with pytest.raises(ToolError, match="^out of stock$"):
-        _environment(protocol).call("place_order", {"item": "X"}, call_id="c1")
+        _environment(protocol).call(
+            "place_order", {"item": "X"}, call_id="c1", session_id="s1"
+        )
 
 
 class _OperationProtocol:
@@ -348,7 +360,9 @@ class _OperationProtocol:
 def test_an_operation_routing_protocol_picks_the_route_from_the_tool_name():
     protocol = _OperationProtocol()
 
-    result = _environment(protocol).call("place_order", {"item": "X"}, call_id="c1")
+    result = _environment(protocol).call(
+        "place_order", {"item": "X"}, call_id="c1", session_id="s1"
+    )
 
     assert protocol.sent == [
         {"method": "POST", "path": "/orders", "body": {"item": "X"}}
@@ -360,6 +374,119 @@ def test_an_operation_routing_protocol_reports_a_4xx_as_the_tools_refusal():
     protocol = _OperationProtocol(status_code=422, body={"error": "item unavailable"})
 
     with pytest.raises(ToolError, match="^HTTP 422: item unavailable$") as excinfo:
-        _environment(protocol).call("place_order", {"item": "X"}, call_id="c1")
+        _environment(protocol).call(
+            "place_order", {"item": "X"}, call_id="c1", session_id="s1"
+        )
 
     assert not isinstance(excinfo.value, EndpointCallError)
+
+
+class _FlakyHandler(BaseHTTPRequestHandler):
+    """Fails with a retryable status until ``failures`` is exhausted."""
+
+    failures = 2
+    received: list[dict] = []
+
+    def do_POST(self) -> None:  # noqa: N802 - name fixed by BaseHTTPRequestHandler
+        body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+        type(self).received.append(json.loads(body))
+        if len(type(self).received) <= type(self).failures:
+            self.send_response(503)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        answer = b'{"status": "ok"}'
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(answer)))
+        self.end_headers()
+        self.wfile.write(answer)
+
+    def log_message(self, *args: object) -> None:
+        """Silence the default stderr request log."""
+
+
+@pytest.fixture
+def flaky_endpoint() -> Iterator[str]:
+    """Run a server that answers 503 twice before succeeding."""
+    _FlakyHandler.received = []
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _FlakyHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}/tools"
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_a_retried_call_resends_the_identical_body(flaky_endpoint):
+    """What makes call_id useful: the endpoint can recognize the resend."""
+    client = RequestsJsonClient(flaky_endpoint, timeout_seconds=5.0)
+
+    result = _environment(JsonHttpProtocol(client)).call(
+        "place_order", {"item": "X"}, call_id="c1", session_id="s1"
+    )
+    client.close()
+
+    assert result.output == {"status": "ok"}
+    assert len(_FlakyHandler.received) == 3
+    # Every attempt carries the same ids, so a deduplicating endpoint acts once.
+    assert all(body == _FlakyHandler.received[0] for body in _FlakyHandler.received)
+    assert _FlakyHandler.received[0]["call_id"] == "c1"
+
+
+def test_retries_can_be_turned_off(flaky_endpoint):
+    client = RequestsJsonClient(flaky_endpoint, timeout_seconds=5.0, max_retries=0)
+
+    with pytest.raises(EndpointCallError):
+        _environment(JsonHttpProtocol(client)).call(
+            "place_order", {"item": "X"}, call_id="c1", session_id="s1"
+        )
+    client.close()
+
+    assert len(_FlakyHandler.received) == 1
+
+
+class _StatusClient:
+    """Answers every call with one non-2xx status."""
+
+    def __init__(self, status_code: int) -> None:
+        self._status_code = status_code
+
+    def post_json(self, payload: JsonValue) -> JsonValue:
+        raise EndpointStatusError(
+            self._status_code, f"Endpoint returned HTTP {self._status_code}."
+        )
+
+
+@pytest.mark.parametrize("status_code", [400, 403, 404, 422])
+def test_a_4xx_is_the_tool_rejecting_the_call(status_code):
+    """The model can act on this, so it must not look like a broken endpoint."""
+    env = _environment(JsonHttpProtocol(_StatusClient(status_code)))
+
+    with pytest.raises(ToolError) as excinfo:
+        env.call("place_order", {"item": "X"}, call_id="c1", session_id="s1")
+
+    assert not isinstance(excinfo.value, EndpointCallError)
+
+
+@pytest.mark.parametrize("status_code", [408, 429, 500, 503])
+def test_a_transient_or_server_status_is_an_endpoint_failure(status_code):
+    env = _environment(JsonHttpProtocol(_StatusClient(status_code)))
+
+    with pytest.raises(EndpointCallError):
+        env.call("place_order", {"item": "X"}, call_id="c1", session_id="s1")
+
+
+def test_the_default_client_names_the_status_it_got(flaky_endpoint):
+    """Without the status, the protocol cannot tell a refusal from a failure."""
+    _FlakyHandler.failures = 99
+    client = RequestsJsonClient(flaky_endpoint, timeout_seconds=5.0, max_retries=0)
+
+    with pytest.raises(EndpointStatusError) as excinfo:
+        client.post_json({"name": "place_order"})
+    client.close()
+    _FlakyHandler.failures = 2
+
+    assert excinfo.value.status_code == 503
