@@ -64,16 +64,12 @@ class _RecordingProtocol:
         self.response: JsonValue = {"status": "ok"} if response is None else response
         self.error = error
         self.calls: list[RemoteToolCall] = []
-        self.closed = False
 
     def call(self, request: RemoteToolCall) -> JsonValue:
         self.calls.append(request)
         if self.error is not None:
             raise self.error
         return self.response
-
-    def close(self) -> None:
-        self.closed = True
 
 
 class _RecordingHttpClient:
@@ -82,14 +78,10 @@ class _RecordingHttpClient:
     def __init__(self, response: JsonValue = None) -> None:
         self.response: JsonValue = {"status": "ok"} if response is None else response
         self.posted: list[JsonValue] = []
-        self.closed = False
 
     def post_json(self, payload: JsonValue) -> JsonValue:
         self.posted.append(payload)
         return self.response
-
-    def close(self) -> None:
-        self.closed = True
 
 
 def _environment(protocol: EndpointProtocol) -> EndpointEnvironment:
@@ -231,15 +223,6 @@ def test_json_http_protocol_sends_the_call_and_its_ids_as_one_body():
     assert result.output == {"status": "ok"}
 
 
-def test_json_http_protocol_leaves_its_client_open():
-    """The client's lifetime belongs to whoever built it, not to the protocol."""
-    client = _RecordingHttpClient()
-
-    JsonHttpProtocol(client).close()
-
-    assert not client.closed
-
-
 def test_from_params_posts_to_the_configured_endpoint(monkeypatch):
     sent: dict[str, object] = {}
 
@@ -303,9 +286,6 @@ class _JsonRpcProtocol:
             raise ToolError(self.result["content"][0]["text"])
         return self.result["structuredContent"]
 
-    def close(self) -> None:
-        pass
-
 
 def test_a_json_rpc_protocol_carries_the_call_unchanged():
     client = _RecordingHttpClient()
@@ -358,9 +338,6 @@ class _OperationProtocol:
         if self.status_code >= 400:
             raise ToolError(f"HTTP {self.status_code}: {self.body['error']}")
         return self.body
-
-    def close(self) -> None:
-        pass
 
 
 def test_an_operation_routing_protocol_picks_the_route_from_the_tool_name():

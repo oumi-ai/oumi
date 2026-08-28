@@ -99,7 +99,8 @@ class EndpointProtocol(Protocol):
 
     A protocol also brings the client that suits it. MCP over Streamable HTTP
     answers a call with either JSON or an event stream, so it declares its own
-    client rather than reusing :class:`JsonHttpClient`.
+    client rather than reusing :class:`JsonHttpClient`. The client holds the
+    connection, so releasing it is the job of whoever built it.
 
     Example:
         ::
@@ -115,16 +116,10 @@ class EndpointProtocol(Protocol):
                     if result.get("isError"):
                         raise ToolError(result["content"][0]["text"])
                     return result["structuredContent"]
-
-                def close(self):
-                    self._mcp_client.close()
     """
 
     def call(self, request: RemoteToolCall) -> JsonValue:
         """Execute one tool call and return the tool's output."""
-
-    def close(self) -> None:
-        """Release any protocol-level resources, such as a negotiated session."""
 
 
 class RequestsJsonClient:
@@ -166,9 +161,6 @@ class JsonHttpProtocol:
             }
         )
 
-    def close(self) -> None:
-        """Hold nothing: the client's lifetime belongs to whoever built it."""
-
 
 @register_environment("endpoint")
 class EndpointEnvironment(BaseEnvironment):
@@ -185,7 +177,7 @@ class EndpointEnvironment(BaseEnvironment):
     deduplicable end to end.
 
     Shareable across samples, so the harness never closes it. Whoever builds
-    the protocol owns releasing it.
+    the protocol's client owns releasing it.
     """
 
     tool_params_cls = ToolParams
