@@ -5,7 +5,7 @@ set -u
 cd "$(dirname "$0")/../../../.."
 mkdir -p logs
 
-CUDA_VISIBLE_DEVICES=0,1,2,3 oumi train -c configs/examples/letter_counting/grpo/grpo_train_verl_gemma4_e2b_smoke.yaml \
+CUDA_VISIBLE_DEVICES=0,1,2,3 oumi train -c configs/examples/letter_counting/grpo/grpo_train_verl_gemma4_e2b.yaml \
   > logs/letter_counting_grpo_verl.log 2>&1 &
 LETTER_PID=$!
 

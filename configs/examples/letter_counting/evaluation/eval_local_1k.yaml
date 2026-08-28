@@ -1,0 +1,38 @@
+# Config to eval a letter-counting model against the local 1k test split.
+#
+# Unlike `eval.yaml`, which downloads the test split from HuggingFace, this
+# config pins the eval set to the JSONL snapshot checked in at
+# `src/oumi/datasets/grpo/evaluation/test_count_letters/letter_count_test_1k.jsonl`,
+# so base and trained checkpoints are always scored on identical examples.
+#
+# Usage:
+#   oumi evaluate -c configs/examples/letter_counting/evaluation/eval_local_1k.yaml
+#
+# To score the base model instead, set `model_name` to "google/gemma-4-E2B-it".
+#
+# See Also:
+#   - Config class: oumi.core.configs.EvaluationConfig
+#   - Eval function: src/oumi/evaluation/registry/count_letters_task.py
+
+model:
+  model_name: "outputs/gemma4_e2b_grpo"
+  torch_dtype_str: "bfloat16"
+  trust_remote_code: True
+
+generation:
+  max_new_tokens: 2048
+  # This isn't used by vLLM, but is used for the NATIVE inference engine.
+  batch_size: 4
+
+tasks:
+  - evaluation_backend: custom
+    task_name: count_letters
+    num_samples: 1000
+    eval_kwargs:
+      # Local snapshot of the test split; must already be the eval set, since
+      # `split` is ignored when loading from a file.
+      dataset_path: "src/oumi/datasets/grpo/evaluation/test_count_letters/letter_count_test_1k.jsonl"
+
+inference_engine: VLLM # Can also use NATIVE if not running on GPUs
+
+output_dir: "output/letter_counting/evaluation_local_1k"

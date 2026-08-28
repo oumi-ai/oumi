@@ -39,10 +39,34 @@ def _extract_prediction(response: str) -> int | None:
 def count_letters(
     task_params: EvaluationTaskParams,
     inference_engine: BaseInferenceEngine,
+    dataset_path: str | None = None,
+    dataset_name: str = "oumi-ai/oumi-letter-count-clean",
 ) -> dict[str, Any]:
-    """Custom evaluation function registered as `count_letters`."""
+    """Evaluate a model's accuracy on the letter-counting test dataset.
+
+    Runs inference on the requested number of examples, extracts integer answers
+    from ``\\boxed{...}``, and reports overall and properly extracted accuracy
+    along with counts of correct, incorrect, and invalid answers.
+
+    By default the test split is downloaded from HuggingFace. Set `dataset_path` in
+    the task's `eval_kwargs` to evaluate a local snapshot instead.
+
+    Args:
+        task_params: Evaluation settings, including the optional sample count.
+        inference_engine: Inference engine used to generate model responses.
+        dataset_path: Optional path to a local JSONL/Parquet copy of the test split.
+            The file must already be the eval set, since `split` is ignored for
+            local files. Populated from the task's `eval_kwargs`.
+        dataset_name: HuggingFace dataset to evaluate when `dataset_path` is unset.
+            Populated from the task's `eval_kwargs`.
+
+    Returns:
+        A dictionary containing accuracy metrics and answer counts.
+    """
+    # `split` is only applied when loading from HuggingFace; a local `dataset_path`
+    # is used as-is.
     dataset = LetterCountGrpoDataset(
-        dataset="oumi-ai/oumi-letter-count-clean", split="test"
+        dataset_name=dataset_name, dataset_path=dataset_path, split="test"
     )
     # TODO: OPE-1155: Add support for using Oumi dataset code to create the dataset.
     # dataset = build_dataset("oumi-ai/oumi-letter-count", tokenizer=None, sample_count=10)  # noqa: E501

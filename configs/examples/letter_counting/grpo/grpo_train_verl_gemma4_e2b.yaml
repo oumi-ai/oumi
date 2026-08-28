@@ -11,7 +11,7 @@ data:
     datasets:
       - dataset_name: "oumi-ai/oumi-letter-count"
         split: "validation"
-        sample_count: 256 #640 #default_size = 10000
+        sample_count: 640 #256 #640 #default_size = 10000
 
 training:
   trainer_type: "VERL_GRPO"
@@ -103,6 +103,6 @@ training:
       n_gpus_per_node: 4 #8?
       nnodes: 1
 
-  output_dir: "output/letter_counting.grpo_verl_gemma4_e2b"
+  output_dir: "output/letter_counting/grpo_verl_gemma4_e2b"
   run_name: "grpo_verl_countletters_gemma4_e2b"
   enable_wandb: True
