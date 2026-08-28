@@ -113,6 +113,26 @@ class TestJudgeOutputFields:
             "clarity",
         ]
 
+    def test_explanations_are_on_by_default(self):
+        """Explanations default to on: the judge reasons before it commits.
+
+        This matters most under guided decoding, where a schema-constrained
+        response leaves no other room to think.
+        """
+        criterion = JudgeCriterion(id="a", description="A.")
+        assert criterion.include_explanation is True
+
+        judge = _build_judge(criteria=[JudgeCriterion(id="a", description="A.")])
+        assert [f.field_key for f in judge.output_fields] == ["a_explanation", "a"]
+
+    def test_explanations_can_be_turned_off(self):
+        judge = _build_judge(
+            criteria=[
+                JudgeCriterion(id="a", description="A.", include_explanation=False)
+            ]
+        )
+        assert [f.field_key for f in judge.output_fields] == ["a"]
+
     def test_explanation_is_opt_in_per_criterion(self):
         judge = _build_judge(
             criteria=[
@@ -243,6 +263,49 @@ class TestRubricJudgeResponseSchema:
             assert (schema is not None) == expects_schema
 
 
+class TestGuidedDecoding:
+    """`use_guided_decoding` controls whether the response is schema-constrained."""
+
+    def _schema_sent(
+        self, response_format=JudgeResponseFormat.JSON, **overrides
+    ) -> bool:
+        with patch(
+            "oumi.judges.base_judge.BaseJudge._create_inference_engine"
+        ) as mock_create:
+            RubricJudge(
+                judge_config=_build_config(
+                    response_format=response_format, judge_params_overrides=overrides
+                )
+            )
+        return mock_create.call_args.kwargs["response_schema"] is not None
+
+    def test_on_by_default_for_json(self):
+        assert self._schema_sent() is True
+
+    def test_can_be_turned_off(self):
+        assert self._schema_sent(use_guided_decoding=False) is False
+
+    def test_never_applies_to_xml(self):
+        """XML has no JSON schema to constrain against, so the flag is a no-op."""
+        assert self._schema_sent(response_format=JudgeResponseFormat.XML) is False
+        assert (
+            self._schema_sent(
+                response_format=JudgeResponseFormat.XML, use_guided_decoding=True
+            )
+            is False
+        )
+
+    def test_unconstrained_output_still_parses(self):
+        """Without a schema the model may wrap the object in prose."""
+        judge = _build_judge(judge_params_overrides={"use_guided_decoding": False})
+        output = judge._transform_judge_output(
+            "Here is my assessment:\n"
+            '{"correctness": "Yes", "clarity": "good"}\n'
+            "Hope that helps!"
+        )
+        assert output.field_values == {"correctness": True, "clarity": "good"}
+
+
 class TestRubricJudgeParsing:
     """Parsing model responses into per-criterion judgments."""
 
@@ -276,18 +339,26 @@ class TestRubricJudgeParsing:
         assert output.field_scores == {"correctness": 0.0, "clarity": 0.0}
 
     def test_parse_mixed_types(self):
+        # Explanations off, so the assertions below stay focused on type parsing.
         judge = _build_judge(
             criteria=[
                 JudgeCriterion(
-                    id="rating", description="R.", judgment_type=JudgeOutputType.INT
+                    id="rating",
+                    description="R.",
+                    judgment_type=JudgeOutputType.INT,
+                    include_explanation=False,
                 ),
                 JudgeCriterion(
                     id="confidence",
                     description="C.",
                     judgment_type=JudgeOutputType.FLOAT,
+                    include_explanation=False,
                 ),
                 JudgeCriterion(
-                    id="notes", description="N.", judgment_type=JudgeOutputType.TEXT
+                    id="notes",
+                    description="N.",
+                    judgment_type=JudgeOutputType.TEXT,
+                    include_explanation=False,
                 ),
             ],
             aggregation=JudgeAggregation.NONE,
