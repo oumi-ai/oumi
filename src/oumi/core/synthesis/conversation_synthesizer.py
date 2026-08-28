@@ -77,9 +77,8 @@ class OpeningTurnPrompt:
 class SeedConversation:
     """A seed conversation plus the ``generation_state`` a turn driver needs.
 
-    The user persona rides the conversation itself, on
-    ``conversation.metadata["user_persona"]``; ``generation_state`` holds the
-    remaining turn-driving fields (target turns, turn plans, output system prompt).
+    The user persona, which drives user message synthesis, is at 
+    ``conversation.metadata["user_persona"]``.
     """
 
     conversation: Conversation
