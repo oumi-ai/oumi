@@ -97,10 +97,14 @@ class SimpleJudge(BaseJudge):
                 "inference_config must be provided in JudgeConfig for SimpleJudge. "
                 "Please ensure your JudgeConfig includes a valid inference_config."
             )
-        json_format = self._judge_params.response_format == JudgeResponseFormat.JSON
+
+        use_schema = (
+            self._judge_params.response_format == JudgeResponseFormat.JSON
+            and self._judge_params.use_guided_decoding
+        )
         inference_engine = self._create_inference_engine(
             inference_config=self._inference_config,
-            response_schema=self._build_response_schema() if json_format else None,
+            response_schema=self._build_response_schema() if use_schema else None,
         )
 
         # Append format suffix to system instruction if it exists

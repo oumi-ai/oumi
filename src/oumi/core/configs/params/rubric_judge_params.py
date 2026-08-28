@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import re
 from dataclasses import dataclass, field
 from enum import Enum
@@ -19,6 +20,8 @@ from enum import Enum
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.judge_params import JudgeOutputType
 from oumi.exceptions import OumiConfigError
+
+logger = logging.getLogger(__name__)
 
 # Suffix appended to a criterion id to name its per-criterion explanation field.
 EXPLANATION_SUFFIX = "_explanation"
@@ -57,7 +60,6 @@ class JudgeCriterion(BaseParams):
         ...     id="groundedness",
         ...     description="Every claim is supported by the provided context.",
         ...     judgment_type=JudgeOutputType.BOOL,
-        ...     include_explanation=True,
         ...     weight=2.0,
         ... )
     """
@@ -78,11 +80,23 @@ class JudgeCriterion(BaseParams):
         {"excellent": 1.0, "good": 0.7, "poor": 0.3, "not_applicable": None}
     """
 
-    include_explanation: bool = field(default=False)
+    include_explanation: bool = field(default=True)
     """Whether the judge should explain this criterion before judging it."""
 
     weight: float = field(default=1.0)
     """Relative weight of this criterion under WEIGHTED_MEAN aggregation."""
+
+    @property
+    def is_scoreable(self) -> bool:
+        """Whether this criterion can ever contribute a numeric score.
+
+        BOOL criteria are scored 1.0/0.0 automatically. Anything else needs a
+        `judgment_scores` mapping with at least one label that carries a score --
+        a mapping whose labels all map to None only constrains the allowed values.
+        """
+        if self.judgment_scores:
+            return any(score is not None for score in self.judgment_scores.values())
+        return self.judgment_type == JudgeOutputType.BOOL
 
     @property
     def explanation_id(self) -> str:
@@ -182,8 +196,11 @@ class RubricJudgeParams(BaseParams):
         ...             include_explanation=True,
         ...         ),
         ...         JudgeCriterion(
-        ...             id="tone",
-        ...             description="The register of the response.",
+        ...             id="formality",
+        ...             description=(
+        ...                 "How formal the response's register is. 'formal' for "
+        ...                 "professional prose, 'casual' for slang or contractions."
+        ...             ),
         ...             judgment_type=JudgeOutputType.ENUM,
         ...             judgment_scores={"formal": 1.0, "neutral": 0.5, "casual": 0.0},
         ...         ),
@@ -201,6 +218,42 @@ class RubricJudgeParams(BaseParams):
     def __post_init__(self):
         """Validate the parameters after initialization."""
         self._validate_params()
+        self._warn_about_aggregation_gaps()
+
+    def _warn_about_aggregation_gaps(self) -> None:
+        """Warn about config that silently has no effect on the aggregate score."""
+        self._warn_about_ignored_weights()
+        self._warn_about_unscored_criteria()
+
+    def _warn_about_ignored_weights(self) -> None:
+        """Warn when weights are set under an aggregation that does not read them.
+
+        Only WEIGHTED_MEAN consults `weight`; MIN and ALL are order statistics and
+        NONE aggregates nothing, so a weight set under those is a silent no-op.
+        """
+        if self.aggregation == JudgeAggregation.WEIGHTED_MEAN:
+            return
+
+        weighted = [c.id for c in self.criteria if c.weight != 1.0]
+        if weighted:
+            logger.warning(
+                f"Criteria {sorted(weighted)} set a non-default `weight`, but "
+                f"'{self.aggregation.value}' aggregation ignores weights. The weights "
+                "have no effect. Use 'weighted_mean' aggregation, or remove them."
+            )
+
+    def _warn_about_unscored_criteria(self) -> None:
+        """Warn about criteria that cannot contribute to the aggregate score."""
+        if self.aggregation == JudgeAggregation.NONE:
+            return
+
+        unscored = [c.id for c in self.criteria if not c.is_scoreable]
+        if unscored:
+            logger.warning(
+                f"Criteria {sorted(unscored)} produce no numeric score and will be "
+                f"excluded from the '{self.aggregation.value}' aggregate score. "
+                "Add `judgment_scores` to include them."
+            )
 
     def _validate_params(self):
         """Validate the parameters for consistency and completeness.
