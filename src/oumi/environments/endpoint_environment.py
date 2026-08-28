@@ -35,8 +35,13 @@ from oumi.environments.utils import parse_env_kwargs
 _DEFAULT_TIMEOUT_SECONDS = 30.0
 
 
-class EndpointCallError(ToolError):
-    """Raised when the endpoint cannot be reached or answers unusably."""
+class EndpointCallError(Exception):
+    """Raised when the endpoint cannot be reached or answers unusably.
+
+    Deliberately not a :class:`ToolError`: the tool never answered, so a caller
+    can tell an endpoint failure apart from a tool refusing the call and choose
+    whether to retry it, fail the row, or tell the model something generic.
+    """
 
 
 @dataclass

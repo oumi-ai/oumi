@@ -146,11 +146,16 @@ def test_call_reports_a_response_that_breaks_the_output_schema():
         env.call("place_order", {"item": "X"}, call_id="c1")
 
 
-def test_call_reports_a_protocol_failure_as_a_tool_error():
+def test_call_reports_a_protocol_failure_as_an_endpoint_error():
     env = _environment(_RecordingProtocol(error=TimeoutError("timed out")))
 
     with pytest.raises(EndpointCallError, match="timed out"):
         env.call("place_order", {"item": "X"}, call_id="c1")
+
+
+def test_an_endpoint_failure_is_not_a_tool_error():
+    """The two lanes must stay distinguishable by type, not just by message."""
+    assert not issubclass(EndpointCallError, ToolError)
 
 
 def test_a_tool_error_from_the_protocol_passes_through_unchanged():
