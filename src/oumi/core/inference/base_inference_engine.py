@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import contextvars
 import copy
 import dataclasses
 import hashlib
@@ -36,6 +37,11 @@ from oumi.core.inference.progress_reporter import ProgressFileReporter
 from oumi.core.types.conversation import Conversation
 from oumi.utils.logging import logger
 from oumi.utils.math_utils import is_power_of_two
+
+# Per-call, not per-engine: concurrent infer() calls must not share a scratch file.
+_dataset_hash_var: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "oumi_inference_dataset_hash", default=None
+)
 
 
 @dataclass
@@ -172,7 +178,15 @@ class BaseInferenceEngine(ABC):
 
         self._latency_histogram_online = HdrHistogram(1, 60 * 1000, 1)
         self._latency_histogram_from_file = HdrHistogram(20, 180 * 1000, 1)
-        self._dataset_hash = None
+
+    @property
+    def _dataset_hash(self) -> str | None:
+        """Dataset hash of the ``infer()`` call running in this execution context."""
+        return _dataset_hash_var.get()
+
+    @_dataset_hash.setter
+    def _dataset_hash(self, value: str | None) -> None:
+        _dataset_hash_var.set(value)
 
     def _prepare_inference_run(
         self,
@@ -680,9 +694,9 @@ class BaseInferenceEngine(ABC):
             output_filepath: The path to the output file. This is used to determine the
                 location of the scratch file.
         """
-        scratch_filepath = self._get_scratch_filepath(output_filepath)
-        if Path(scratch_filepath).exists():
-            Path(scratch_filepath).unlink()
+        # missing_ok: a concurrent run with an identical dataset shares the path
+        # and may have removed it already.
+        Path(self._get_scratch_filepath(output_filepath)).unlink(missing_ok=True)
 
     def _save_conversations(
         self, conversations: list[Conversation], output_filepath: str
