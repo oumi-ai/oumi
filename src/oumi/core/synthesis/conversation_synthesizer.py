@@ -77,7 +77,7 @@ class OpeningTurnPrompt:
 class SeedConversation:
     """A seed conversation plus the ``generation_state`` a turn driver needs.
 
-    The user persona, which drives user message synthesis, is at 
+    The user persona, which drives user message synthesis, is at
     ``conversation.metadata["user_persona"]``.
     """
 
