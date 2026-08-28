@@ -75,7 +75,12 @@ class OpeningTurnPrompt:
 
 @dataclasses.dataclass
 class SeedConversation:
-    """A seed conversation plus the ``generation_state`` a turn driver needs."""
+    """A seed conversation plus the ``generation_state`` a turn driver needs.
+
+    The user persona rides the conversation itself, on
+    ``conversation.metadata["user_persona"]``; ``generation_state`` holds the
+    remaining turn-driving fields (target turns, turn plans, output system prompt).
+    """
 
     conversation: Conversation
     generation_state: dict
@@ -495,7 +500,12 @@ class ConversationSynthesizer:
                         sample_with_turn, assistant_persona, Role.ASSISTANT
                     ),
                     Message(role=Role.USER, content=opening),
-                ]
+                ],
+                metadata={
+                    "user_persona": self._formatter.format(
+                        sample_with_turn, user_persona, missing_values_allowed=False
+                    )
+                },
             )
             output_message = self._format_output_system_message(
                 sample, multiturn_attribute.output_system_prompt
@@ -506,9 +516,6 @@ class ConversationSynthesizer:
             generation_state = {
                 "target_turns": sample["target_turns"],
                 "turn_plans": sample.get("parsed_turn_plans", []),
-                "user_persona": self._formatter.format(
-                    sample_with_turn, user_persona, missing_values_allowed=False
-                ),
                 "output_system_prompt": output_system_prompt,
             }
             seeds.append(
