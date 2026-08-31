@@ -777,6 +777,47 @@ def test_concurrent_infer_calls_keep_separate_scratch_files(mock_engine):
     assert len(set(scratch_paths.values())) == 2
 
 
+def test_identical_content_calls_use_distinct_scratch_files(mock_engine):
+    """Identical conversations must not share (and delete) one temp scratch file."""
+    barrier = threading.Barrier(2)
+    scratch_paths: dict[int, str] = {}
+    original_save = mock_engine._save_conversation_to_scratch
+
+    def overlapping_save(conversation, output_filepath):
+        scratch_paths[threading.get_ident()] = mock_engine._get_scratch_filepath(
+            output_filepath
+        )
+        barrier.wait(timeout=5)  # hold both runs in flight at the same time
+        original_save(conversation, output_filepath)
+
+    mock_engine._save_conversation_to_scratch = overlapping_save
+    results: dict[int, list[Conversation]] = {}
+    errors: list[Exception] = []
+
+    def run(slot: int) -> None:
+        try:
+            # Same content in both threads: the id-less conversation gets the
+            # same deterministic conversation_id and content hash in each call.
+            results[slot] = mock_engine.infer(
+                input=[create_test_conversation(1)],
+                inference_config=InferenceConfig(
+                    generation=GenerationParams(max_new_tokens=10)
+                ),
+            )
+        except Exception as e:  # noqa: BLE001 - surface any thread failure
+            errors.append(e)
+
+    threads = [threading.Thread(target=run, args=(slot,)) for slot in (1, 2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=10)
+
+    assert errors == []
+    assert sorted(results) == [1, 2]
+    assert len(set(scratch_paths.values())) == 2
+
+
 def test_cleanup_scratch_file_tolerates_missing_file(mock_engine):
     mock_engine._dataset_hash = "abc"
     with tempfile.TemporaryDirectory() as temp_dir:
