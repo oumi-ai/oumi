@@ -1,0 +1,66 @@
+# Rubric judge: scores a document-grounded answer across several criteria at once.
+
+judge_params:
+  system_instruction: |
+    You are a specialized evaluator assessing the quality of an answer to a question, based on a provided context.
+
+    Judge each criterion strictly on its own terms. A weakness under one criterion must not influence your judgment of another: an answer can be relevant but incomplete, or complete but ungrounded.
+
+  prompt_template: |
+    Here is the data:
+    [BEGIN DATA]
+    ***
+    [Context]:
+    {context}
+    ***
+    [Question]:
+    {question}
+    ***
+    [Answer]:
+    {answer}
+    ***
+    [END DATA]
+
+  response_format: JSON
+
+rubric_judge_params:
+  aggregation: WEIGHTED_MEAN
+
+  criteria:
+    - id: relevance
+      description: >
+        The answer directly addresses the question as interpreted in light of the
+        context, and stays on topic. An incomplete or incorrect answer can still be
+        relevant, as long as it engages with the core intent of the question.
+      judgment_type: BOOL
+      include_explanation: true
+      weight: 1.0
+
+    - id: groundedness
+      description: >
+        Every factual claim in the answer is supported by the context. The answer
+        does not introduce facts, entities, or figures absent from the context.
+      judgment_type: BOOL
+      include_explanation: true
+      weight: 2.0
+
+    - id: completeness
+      description: >
+        The answer covers the parts of the question that the context can support.
+      judgment_type: ENUM
+      judgment_scores:
+        complete: 1.0
+        partial: 0.5
+        incomplete: 0.0
+      include_explanation: true
+      weight: 1.0
+
+inference_config:
+  model:
+    model_name: "gpt-4o"
+
+  engine: OPENAI
+
+  generation:
+    max_new_tokens: 8192
+    temperature: 0.0

@@ -64,6 +64,7 @@ class SambanovaInferenceEngine(RemoteInferenceEngine):
             Dict[str, Any]: A dictionary containing the formatted input for the
             SambaNova API, including the model, messages, and generation parameters.
         """
+        # TODO: OPE-2188 - Add tool call support
         # Build request body according to SambaNova API spec
         body = {
             "model": model_params.model_name,

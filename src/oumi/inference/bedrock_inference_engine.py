@@ -114,6 +114,7 @@ class BedrockInferenceEngine(RemoteInferenceEngine):
             Dict[str, Any]: A dictionary containing the formatted input for the
                 Bedrock API, including the model, messages, and generation parameters.
         """
+        # TODO: OPE-2188 - Add tool call support
         system_messages = [
             message for message in conversation.messages if message.role == Role.SYSTEM
         ]
