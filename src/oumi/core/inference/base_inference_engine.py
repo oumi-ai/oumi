@@ -278,6 +278,11 @@ class BaseInferenceEngine(ABC):
                 for c in conversations_to_process
             ]
             dataset_hash = hashlib.sha256(",".join(row_hashes).encode()).hexdigest()
+        if output_path is None:
+            # The temp scratch path is derived from content alone, so concurrent
+            # calls with identical conversations would share (and delete) one
+            # file; resume across runs only applies when output_path is set.
+            dataset_hash = f"{dataset_hash}_{uuid.uuid4().hex}"
         self._dataset_hash = dataset_hash
 
         completed_conversations = self._load_from_scratch(output_path)
