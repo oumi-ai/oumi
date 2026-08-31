@@ -28,6 +28,14 @@ The diagram below illustrates these two steps:
 
 Oumi OSS offers flexible APIs for both {doc}`Inference </user_guides/infer/infer>` and Judgement ("LLM Judge" API).
 
+Oumi provides three judges. They share the same {py:class}`~oumi.core.configs.judge_config.JudgeConfig`, the same `judge()` API, and the same output type — pick whichever matches the shape of your question:
+
+| Judge | Use it when |
+|-------|-------------|
+| {py:class}`~oumi.judges.simple_judge.SimpleJudge` | You want a single judgment per input. The common case — start here. |
+| {py:class}`~oumi.judges.rubric_judge.RubricJudge` | You want several criteria judged at once, each scored separately, plus one aggregate score. |
+| {py:class}`~oumi.judges.rule_based_judge.RuleBasedJudge` | The check is deterministic and needs no LLM at all (experimental). |
+
 ## When to Use?
 
 Our LLM Judge API is fully customizable and can be applied across a wide range of evaluation scenarios, including:
@@ -125,6 +133,30 @@ for output in outputs:
     judgment = output.field_values["judgment"]  # False
     explanation = output.field_values["explanation"]  # The correct answer is Paris.
 ```
+
+## Rubric Judges
+
+A `SimpleJudge` answers one question per call. When you want a *breakdown* — is this answer relevant, and grounded, and complete? — {py:class}`~oumi.judges.rubric_judge.RubricJudge` evaluates several criteria in a single inference call and returns one judgment per criterion, plus a weighted aggregate score.
+
+Judging every criterion together is cheaper and faster than running one judge per criterion, and lets the judge weigh the criteria against each other. The trade-off is that the judgments are no longer independent: a criterion the judge just failed can colour the ones that follow. If you need genuinely independent judgments, run a separate `SimpleJudge` per criterion instead.
+
+```python
+from oumi.judges.rubric_judge import RubricJudge
+
+judge = RubricJudge(judge_config="oumi://configs/projects/judges/rubric/response_quality.yaml")
+
+outputs = judge.judge([
+    {"request": "What is the capital of France?", "response": "Rome."},
+])
+
+for output in outputs:
+    output.field_values["truthfulness"]              # False
+    output.field_values["truthfulness_explanation"]  # "The capital of France is Paris…"
+    output.field_values["helpfulness"]               # "unhelpful"
+    output.aggregate_score                           # 0.33 — only `safety` passed
+```
+
+See {doc}`Rubric Judges </user_guides/judge/judge_config>` for the config schema, the criterion parameters, and the aggregation modes.
 
 ## Rule-Based Judges
 
@@ -248,11 +280,11 @@ retry_rows = [
 ]
 ```
 
-This returns a `JudgePartialResult` pairing each successful `JudgeOutput` with its original input index. Inference failures carry through the engine's `FailureDetail` (status code, `error_type`, `is_retryable`); judge responses that complete but cannot be parsed are reported with `error_type="parse_error"` and are retryable, since re-sampling can plausibly produce a parseable output. It is built on {py:meth}`~oumi.core.inference.BaseInferenceEngine.infer_partial`, so per-row progress can be reported to an external poller via the `progress_path` argument (see {doc}`inference_engines <../infer/inference_engines>`).
+This returns a `JudgePartialResult` pairing each successful `JudgeOutput` with its original input index. Inference failures carry through the engine's `FailureDetail` (status code, `error_type`, `is_retryable`), and anything that goes wrong while turning a completed response into a `JudgeOutput` is reported with `error_type="parse_error"` and is retryable, since re-sampling can plausibly succeed. Note that a response the judge simply could not extract values from is *not* a failure: it comes back as a successful row whose fields are all `None`, so check the field values rather than relying on `failed_indices` alone. It is built on {py:meth}`~oumi.core.inference.BaseInferenceEngine.infer_partial`, so per-row progress can be reported to an external poller via the `progress_path` argument (see {doc}`inference_engines <../infer/inference_engines>`).
 
 ## Token Usage Tracking
 
-Both `SimpleJudge` and `RuleBasedJudge` inherit from `BaseJudge`, which accumulates per-request token usage across every call to `judge()` / `judge_batch_result()`. After a run you can read:
+`SimpleJudge`, `RubricJudge`, and `RuleBasedJudge` all inherit from `BaseJudge`, which accumulates per-request token usage across every call to `judge()` / `judge_batch_result()`. After a run you can read:
 
 ```python
 print(judge.total_input_tokens)    # sum of prompt_tokens across requests
