@@ -34,6 +34,22 @@ Options:
 - `JSON`: JSON object with named fields (e.g., `{"judgment": "Yes"}`)
 - `RAW`: Plain text response
 
+#### Guided Decoding
+
+`use_guided_decoding` *(default: true)*: With `response_format: JSON`, Oumi derives a
+JSON schema from the judge's output fields and enables guided decoding, so the response
+is structurally guaranteed to be valid and to contain every expected field. This applies
+to every LLM-based judge, and only to `JSON` — the other formats have no schema to
+constrain against.
+
+Set it to `false` to let the model generate freely:
+
+```yaml
+judge_params:
+  response_format: JSON
+  use_guided_decoding: false
+```
+
 #### Judgment Types
 `judgment_type`: The expected type of the judge's primary output.
 
@@ -135,6 +151,164 @@ inference_config:
     max_new_tokens: 8192
     temperature: 1.0
 ```
+
+## Rubric Judges
+
+A {py:class}`~oumi.judges.simple_judge.SimpleJudge` answers one question per call. A
+{py:class}`~oumi.judges.rubric_judge.RubricJudge` answers several — one judgment per
+criterion, from a single inference call — plus one `aggregate_score` combining them.
+
+Add a `rubric_judge_params` section to select it:
+
+```yaml
+judge_params:
+  system_instruction: |
+    You are evaluating an answer to a question.
+    Judge each criterion strictly on its own terms.
+
+  prompt_template: |
+    [Question]: {question}
+    [Answer]: {answer}
+
+  response_format: JSON
+
+rubric_judge_params:
+  aggregation: WEIGHTED_MEAN
+
+  criteria:
+    - id: correctness
+      description: The answer is factually correct.
+      judgment_type: BOOL
+      weight: 2.0
+
+    - id: clarity
+      description: How clearly the answer is written.
+      judgment_type: ENUM
+      judgment_scores:
+        excellent: 1.0
+        good: 0.5
+        poor: 0.0
+      include_explanation: false   # on by default; opt out to save tokens
+
+inference_config:
+  model:
+    model_name: "gpt-4o"
+  engine: OPENAI
+  generation:
+    max_new_tokens: 8192
+    temperature: 0.0
+```
+
+Each criterion becomes one field in the judge's response, preceded by its explanation
+unless you turn that off. The rubric above asks the model for exactly this:
+
+```json
+{
+  "correctness_explanation": "The answer correctly states that 2+2 equals 4.",
+  "correctness": "Yes",
+  "clarity": "poor"
+}
+```
+
+### Reading the Results
+
+`judge()` returns one {py:class}`~oumi.judges.base_judge.JudgeOutput` per input row:
+
+```python
+from oumi.judges.rubric_judge import RubricJudge
+
+output = RubricJudge("./my_rubric.yaml").judge(
+    [{"question": "What is 2+2?", "answer": "its 4 i guess"}]
+)[0]
+
+output.field_values["correctness"]              # True — the judgment, typed
+output.field_values["correctness_explanation"]  # "The answer correctly states that…"
+output.field_values["clarity"]                  # "poor" — the label the judge chose
+output.field_scores["clarity"]                  # 0.0 — that label's score
+output.aggregate_score                          # 0.667 — (2 × 1.0 + 1 × 0.0) / 3
+```
+
+- `field_values` — what the judge said, converted to the criterion's `judgment_type`.
+- `field_scores` — one entry per output field: the criterion's numeric score, or
+  `None` for explanation fields and for criteria that carry no score.
+- `aggregate_score` — the single score for the row; `None` for non-rubric judges.
+
+### Criterion Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `id` | The criterion's output field name. Identifier-like: letters, digits and underscores, not starting with a digit. |
+| `description` | What to assess. Written into the prompt, so phrase it as an instruction to the judge. |
+| `judgment_type` | `BOOL` (default), `ENUM`, `INT`, `FLOAT`, or `TEXT`. See [Judgment Types](#judgment-types). |
+| `judgment_scores` | For `ENUM`, maps each label to a score. See [Scoring](#scoring). |
+| `include_explanation` | Emit a `{id}_explanation` field just before the judgment. Default `true`. |
+| `weight` | Relative weight under `WEIGHTED_MEAN` aggregation. Default `1.0`. |
+
+Criteria appear in the prompt, and in the judge's response, in the order you list
+them. The names `explanation` and anything ending in `_explanation` are reserved for
+the generated explanation fields.
+
+Explanations are on by default because the judge writes them *before* the judgment, so
+it reasons before committing. That matters most under guided decoding, where a
+schema-constrained response leaves no other room to think.
+
+### Scoring
+
+A criterion feeds the aggregate only if it produces a number:
+
+| `judgment_type` | Score |
+|-----------------|-------|
+| `BOOL` | `1.0` / `0.0`, automatically |
+| `ENUM` | whatever `judgment_scores` maps the chosen label to |
+| `INT`, `FLOAT`, `TEXT` | none, unless you supply `judgment_scores` |
+
+Criteria without a score are still judged and reported — they just sit outside the
+aggregate, and the judge names them in a warning when the config loads.
+
+An `ENUM` label may map to `null`, meaning **this label carries no score**:
+
+```yaml
+judgment_scores:
+  good: 1.0
+  poor: 0.0
+  not_applicable: null
+```
+
+The judge can still choose `not_applicable` and you will see it in `field_values`, but
+the criterion then drops out of that row's aggregate — weight and all, from both the
+numerator and the denominator. An N/A never drags the score down the way `0.0` would.
+`null` is allowed only for `ENUM`; the other types parse their value out of the label,
+so an unscored label could not be told apart from a failed parse.
+
+### Aggregation
+
+`aggregation` combines the per-criterion scores into `aggregate_score`:
+
+| Value | Behavior |
+|-------|----------|
+| `WEIGHTED_MEAN` (default) | Weighted average. With the default weight of `1.0` everywhere this is a plain mean, so weights only matter when you want some criteria to count for more. |
+| `MIN` | The lowest score — one failing criterion drags the row down. |
+| `ALL` | `1.0` only if every criterion scores `1.0`, else `0.0`. The checklist case. |
+| `NONE` | No aggregate is computed. |
+
+Every mode ranges over the criteria that actually scored on that row, so an N/A or an
+unscoreable criterion is skipped rather than counted as zero. If none scored,
+`aggregate_score` is `None`. Only `WEIGHTED_MEAN` reads `weight`; setting weights under
+the other modes has no effect, and the judge warns if you do.
+
+### Constraints
+
+- **`response_format` must be `JSON` or `XML`.** `RAW` cannot delimit one judgment per
+  criterion. With `JSON`, [guided decoding](#guided-decoding) — on by default —
+  guarantees that every criterion comes back and is well-formed.
+- **Set `judgment_type`, `judgment_scores`, and `include_explanation` per criterion**,
+  never on `judge_params` — a rubric judge rejects them there rather than ignoring them.
+- **Few-shot `examples` must supply a value for every criterion**, explanation fields
+  included.
+- **A response the judge cannot parse yields `None` for every criterion** and no
+  `aggregate_score`, with a warning naming the likely cause. The row is still returned,
+  so one bad response never fails the batch. Usually the response was truncated — raise
+  `max_new_tokens`. Detect these rows by checking for `None`.
 
 ## Configuration Loading
 

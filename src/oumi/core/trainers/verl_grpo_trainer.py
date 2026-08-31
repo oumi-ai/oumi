@@ -70,6 +70,9 @@ from oumi.utils.verl_model_merger import FSDPModelMerger, ModelMergerConfig
 # Returns an example converted to verl format.
 _DatasetProcessFn = Callable[[dict, int, str, str], dict]
 
+# verl's reward callback receives extra_info but not the structured prompt column.
+_PROMPT_JSON_EXTRA_INFO_KEY = "prompt_json"
+
 # Passes verl's `save_freq > 0` check (which enables its last-step save) while
 # being too large for `step % save_freq` to ever match: final checkpoint only.
 _SAVE_FINAL_STEP_ONLY_FREQ = 10**9
@@ -137,11 +140,15 @@ class VerlGrpoTrainer(BaseTrainer):
             raise ValueError("We only support up to one reward function.")
         self._reward_funcs = reward_funcs
 
-        self._cache_dir: Path = (
-            Path(cache_dir)
-            if cache_dir
-            else Path.home() / ".cache" / "oumi" / "verl_datasets"
-        )
+        if cache_dir:
+            self._cache_dir = Path(cache_dir)
+        elif self._final_output_dir:
+            # Keep dataset files private to this run: a shared default location
+            # lets concurrent verl runs overwrite each other's Parquet files.
+            self._cache_dir = self._final_output_dir / "verl_datasets"
+        else:
+            self._cache_dir = Path.home() / ".cache" / "oumi" / "verl_datasets"
+        self._cache_dir.mkdir(parents=True, exist_ok=True)
         self._train_dataset = train_dataset
         self._eval_dataset = eval_dataset
         # verl trainer uses private methods and properties of `transformers`
@@ -290,6 +297,7 @@ class VerlGrpoTrainer(BaseTrainer):
             "extra_info": {
                 "split": split,
                 "index": idx,
+                _PROMPT_JSON_EXTRA_INFO_KEY: json.dumps(prompt_messages),
                 "need_tools_kwargs": True,
                 "tools_kwargs": tools_kwargs,
             },
@@ -353,6 +361,8 @@ class VerlGrpoTrainer(BaseTrainer):
                 "split": split,
                 "index": idx,
                 "answer": answer,
+                _PROMPT_JSON_EXTRA_INFO_KEY: json.dumps(prompt_messages),
+                "metadata": json.dumps(metadata),
             },
         }
         return data
@@ -362,7 +372,7 @@ class VerlGrpoTrainer(BaseTrainer):
     ) -> None:
         """Creates dataset files for verl in Parquet format.
 
-        The Parquet files are saved to the Oumi cache directory.
+        The Parquet files are saved to the output directory.
 
         Args:
             process_fn: Optional function to convert the dataset samples to verl format.

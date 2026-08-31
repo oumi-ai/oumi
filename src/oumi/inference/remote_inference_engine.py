@@ -386,6 +386,30 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             messages, group_adjacent_same_role_turns=group_adjacent_same_role_turns
         )
 
+    @staticmethod
+    def _add_tool_params_to_api_input(
+        api_input: dict[str, Any],
+        conversation: Conversation,
+        generation_params: GenerationParams,
+    ) -> None:
+        """Adds OpenAI-format tool fields to an API request, in place.
+
+        Shared by every OpenAI-compatible engine so a request builder that
+        overrides ``_convert_conversation_to_api_input`` can forward tools
+        without duplicating (and drifting from) the base logic.
+        """
+        if conversation.tools:
+            api_input["tools"] = [
+                tool.model_dump(mode="json", exclude_none=True)
+                for tool in conversation.tools
+            ]
+        if generation_params.tool_choice is not None:
+            api_input["tool_choice"] = generation_params.tool_choice
+        # Default parallel_tool_calls=True matches the OpenAI API default; only
+        # send the field when explicitly disabled.
+        if generation_params.parallel_tool_calls is False:
+            api_input["parallel_tool_calls"] = False
+
     def _convert_conversation_to_api_input(
         self,
         conversation: Conversation,
@@ -435,17 +459,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             **generation_params_dict,
         }
 
-        if conversation.tools:
-            api_input["tools"] = [
-                tool.model_dump(mode="json", exclude_none=True)
-                for tool in conversation.tools
-            ]
-        if generation_params.tool_choice is not None:
-            api_input["tool_choice"] = generation_params.tool_choice
-        # Default parallel_tool_calls=True matches the OpenAI API default; only
-        # send the field when explicitly disabled.
-        if generation_params.parallel_tool_calls is False:
-            api_input["parallel_tool_calls"] = False
+        self._add_tool_params_to_api_input(api_input, conversation, generation_params)
 
         if generation_params.guided_decoding:
             json_schema = generation_params.guided_decoding.json
