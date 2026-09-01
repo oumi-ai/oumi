@@ -18,7 +18,7 @@ oumi = ["LICENSE", "README.md", "*.jinja"]
 # ships beta versions on PyPI).
 [tool.uv]
 prerelease = "if-necessary-or-explicit"
-override-dependencies = ["transformers>=5.5,<5.8"]
+override-dependencies = ["transformers>=5.5,<5.17"]
 
 [project]
 name = "oumi"
@@ -73,7 +73,7 @@ dependencies = [
     "pydantic>=2.11,<2.14",
     "requests>=2.31,<3.0",        # Used by deploy module (GCS upload)
     "responses>=0.25,<0.27",
-    "safetensors>=0.6,<0.8",
+    "safetensors>=0.6,<0.9",
     "skypilot>=0.12,<0.13", # 0.12 adds Slurm cloud support
     "tensorboard>=2.20,<2.21", # Optional, for monitoring training
     "tiktoken>=0.7,<1.0",
@@ -81,7 +81,7 @@ dependencies = [
     "torchao>=0.16,<0.17",     # Used by transformers; >=0.16 required by peft>=0.19
     "torchvision>=0.21,<0.26", # Used by some VLM-s (multimodal)
     "tqdm",
-    "transformers>=4.57,<5.10",
+    "transformers>=4.57,<5.17",
     "trl>=0.24,<1.7",
     "typer<0.25.2",             # Used by CLI. Pinned due to sphinxcontrib-typer compatibility. OPE-1806
     "typing_extensions",        # Backports of typing updates
