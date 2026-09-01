@@ -5,15 +5,19 @@ set -u
 cd "$(dirname "$0")/../../../.."
 mkdir -p logs
 
-CUDA_VISIBLE_DEVICES=0,1,2,3 oumi train -c configs/examples/letter_counting/grpo/grpo_train_verl_gemma4_e2b.yaml \
-  > logs/letter_counting_grpo_verl.log 2>&1 &
+# CUDA_VISIBLE_DEVICES=4,5,6,7 oumi train -c configs/examples/letter_counting/grpo/grpo_train_verl_gemma4_e2b_batch256_pergpu64.yaml \
+#   > logs/letter_counting_grpo_verl_batch256_pergpu64.log 2>&1 &
+CUDA_VISIBLE_DEVICES=0,1,2,3 oumi train -c configs/examples/letter_counting/grpo/grpo_train_verl_gemma4_e2b_batch64_pergpu16.yaml \
+  > logs/letter_counting_grpo_verl_batch64_pergpu16.log 2>&1 &
 LETTER_PID=$!
 
 # CUDA_VISIBLE_DEVICES=4,5,6,7 oumi train -c configs/examples/grpo_verl_countdown/train.yaml \
 #   > logs/grpo_verl_countdown.log 2>&1 &
 # COUNTDOWN_PID=$!
 
-echo "letter_counting: PID ${LETTER_PID} -> logs/letter_counting_grpo_verl.log"
+# echo "letter_counting: PID ${LETTER_PID} -> logs/letter_counting_grpo_verl_batch256_pergpu64.log"
+echo "letter_counting: PID ${LETTER_PID} -> logs/letter_counting_grpo_verl_batch64_pergpu16.log"
+
 # echo "countdown:       PID ${COUNTDOWN_PID} -> logs/grpo_verl_countdown.log"
 
 wait "${LETTER_PID}"

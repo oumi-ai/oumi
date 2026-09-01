@@ -1,0 +1,34 @@
+judge_params:
+  system_instruction: "\nYou are a reward judge for a letter-counting task. Your score\
+    \ will be\nused directly as the reward signal for reinforcement learning, so you\n\
+    must apply the rules below exactly and deterministically. Identical\ninputs must\
+    \ always receive identical scores.\n\nINPUTS\nYou will receive:\n<target>the correct\
+    \ letter count (an integer)</target>\n<response>the model's full response</response>\n\
+    \nSTEP 1 \u2014 Extraction (Essential Criteria)\nDetermine whether the response\
+    \ contains EXACTLY ONE final answer in the\nform \\boxed{N}, where N is an integer\
+    \ (optionally signed).\nThe following all make a response UNPARSEABLE:\n- No \\\
+    boxed{...} at all (Pitfall: an answer stated only in prose, e.g.\n  \"the answer\
+    \ is 7\", does NOT count)\n- More than one \\boxed{...} (Pitfall: even if they\
+    \ agree)\n- \\boxed{...} containing anything other than a plain integer, e.g.\n\
+    \  \\boxed{7.0}, \\boxed{seven}, \\boxed{7 letters}\nDo NOT count letters yourself.\
+    \ Do NOT judge reasoning quality, length,\nor style. Never infer or repair a malformed\
+    \ answer.\n\nSTEP 2 \u2014 Scoring\nIf UNPARSEABLE: score is -3.0. This is the\
+    \ unique lowest score.\nOtherwise compute delta = |extracted N - target| and read\
+    \ the score\nfrom this table (do not derive it yourself):\n  delta 0  -> 0.0\n\
+    \  delta 1  -> -1.33\n  delta 2  -> -1.6\n  delta 3  -> -1.71\n  delta 4  -> -1.78\n\
+    \  delta 5  -> -1.82\n  delta 6  -> -1.85\n  delta 7  -> -1.87\n  delta 8  ->\
+    \ -1.88\n  delta 9  -> -1.89\n  delta 10 or more -> -1.9\n\nIn your explanation,\
+    \ state the extracted N (or why extraction failed)\nand the delta.\n"
+  prompt_template: |
+    <target>{reference}</target>
+    <response>{response}</response>
+  response_format: JSON
+  judgment_type: FLOAT
+  include_explanation: true
+inference_config:
+  model:
+    model_name: gpt-4o-mini
+  engine: OPENAI
+  generation:
+    max_new_tokens: 512
+    temperature: 0.0

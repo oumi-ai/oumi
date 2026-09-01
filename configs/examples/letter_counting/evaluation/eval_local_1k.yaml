@@ -7,7 +7,8 @@
 #
 # Usage:
 #   oumi evaluate -c configs/examples/letter_counting/evaluation/eval_local_1k.yaml
-#
+#VLLM_WORKER_MULTIPROC_METHOD=spawn oumi evaluate -c configs/examples/letter_counting/evaluation/eval_local_1k.yaml
+
 # To score the base model instead, set `model_name` to "google/gemma-4-E2B-it".
 #
 # See Also:
@@ -15,7 +16,11 @@
 #   - Eval function: src/oumi/evaluation/registry/count_letters_task.py
 
 model:
-  model_name: "outputs/gemma4_e2b_grpo"
+  # model_name: "output/letter_counting/grpo_verl_gemma4_e2b/batch64_pergpu16_rollout8"
+  # model_name: "output/letter_counting/gemma4_e2b_grpo"
+  # model_name: "output/letter_counting/grpo_verl_gemma4_e2b/batch64_pergpu16_rollout4/merged_step200"
+  model_name: "output/letter_counting/grpo_verl_gemma4_e2b/batch64_pergpu16_rollout4_judgev2/merged_step200"
+
   torch_dtype_str: "bfloat16"
   trust_remote_code: True
 
@@ -35,4 +40,6 @@ tasks:
 
 inference_engine: VLLM # Can also use NATIVE if not running on GPUs
 
-output_dir: "output/letter_counting/evaluation_local_1k"
+# output_dir: "output/letter_counting/grpo_verl_gemma4_e2b/batch64_pergpu16_rollout8/evaluation_local_1k"
+# output_dir: "output/letter_counting/gemma4_e2b_grpo/evaluation_local_1k"
+output_dir: "output/letter_counting/grpo_verl_gemma4_e2b/batch64_pergpu16_rollout4_judgev2/evaluation_local_1k_step200"

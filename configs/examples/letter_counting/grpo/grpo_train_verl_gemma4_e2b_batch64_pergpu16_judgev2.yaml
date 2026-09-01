@@ -17,7 +17,7 @@ training:
   trainer_type: "VERL_GRPO"
   # The train split has 100k examples (~1562 steps/epoch at batch size 64);
   num_train_epochs: 1
-#   max_steps: 5 #uncomment for smoke test
+  # max_steps: 10 #uncomment for smoke test
 
   # Batch size settings
 #   per_device_train_batch_size: 2
@@ -25,7 +25,7 @@ training:
 
   # Optimization
   learning_rate: 5e-7
-  optimizer: "adafactor"
+  # optimizer: "adafactor" #ignored in verl
 
   # Learning rate schedule
   lr_scheduler_type: "cosine"
@@ -37,16 +37,24 @@ training:
 
   # Evaluation
   eval_strategy: "steps"
-#   eval_steps: 5 # uncomment for smoke test
-  eval_steps: 10 #25 #50
+  # eval_steps: 5 # uncomment for smoke test
+  eval_steps: 25 #10 #25 #50
 
-  reward_functions: ["count_letters_verl"]
+  # LLM-judge reward (gpt-4o via OpenAI API). Requires OPENAI_API_KEY in the
+  # environment. Judge YAML defaults to
+  # configs/examples/letter_counting/grpo/letter_count_judge_v2.yaml;
+  # override with OUMI_LETTER_COUNT_JUDGE_CONFIG.
+  # add set -a; source .env; set +a (or export OPENAI_API_KEY) before oumi train
+  reward_functions: ["judge_count_letters_verl"]
 
   # Distributed training
   ddp_find_unused_parameters: False       # Find unused parameters in DDP
 
   # Mixed precision and performance
   compile: False
+  # Recompute activations in the backward pass instead of storing all 35 layers'
+  # worth. Without this the actor update OOMs on an 80GB H100.
+  enable_gradient_checkpointing: True
 
   # DataLoader settings
   dataloader_num_workers: "auto"
@@ -61,14 +69,14 @@ training:
     max_completion_length: 512 #1024?
     temperature: 1.0
     use_vllm: True
-    vllm_gpu_memory_utilization: 0.3 #0.4?
+    vllm_gpu_memory_utilization: 0.3 #0.4?, 0,5 how much VRAM vLLM reserves for KV cache
 
   verl_config_overrides:
     data:
       train_batch_size: 64
       val_batch_size: 640
       max_prompt_length: 256
-    
+
     actor_rollout_ref:
       model:
         use_remove_padding: False # change if from True to avoid ModuleNotFoundError: No module named 'flash_attn'
@@ -79,30 +87,36 @@ training:
         kl_loss_coef: 0.001
         kl_loss_type: "low_var_kl"
         ppo_mini_batch_size: 16
-        ppo_micro_batch_size_per_gpu: 4
-        fsdp_config: #Disable for speed?
-          param_offload: True
-          optimizer_offload: True
+        ppo_micro_batch_size_per_gpu: 16
+        # optim:
+          # optimizer_impl: "transformers.optimization"
+          # optimizer: "Adafactor" # default AdamW, use AdamFactor to save memory
+        fsdp_config: # CPU offloading, Disable for speed?
+          param_offload: True #free during rollout/sync
+          # optimizer_offload: True #this one does cost real time
 
       rollout:
         log_prob_micro_batch_size_per_gpu: 8 #4?
-        tensor_model_parallel_size: 2 # each rollout replica will use 2 GPUs (model split across 2 GPUs)
-        n: 4 #16?
+        tensor_model_parallel_size: 2 # up to match gpu count  2 # each rollout replica will use 2 GPUs (model split across 2 GPUs)
+        n:  4 # 8 # 4 #16?
         checkpoint_engine:
           update_weights_bucket_megabytes: 11264  #10240? #12288 #4096    # add — default 2048 is too small
       ref:
-        log_prob_micro_batch_size_per_gpu: 16 
+        log_prob_micro_batch_size_per_gpu: 16
         fsdp_config:
-          param_offload: True
+          param_offload: True # cpu offloading, Disable for speed, ref is forward-only, nearly free
     algorithm:
       kl_ctrl:
         kl_coef: 0.001
     trainer:
       critic_warmup: 0
-      val_before_train: True 
-      n_gpus_per_node: 4 #8?
+      val_before_train: True
+      n_gpus_per_node: 4
       nnodes: 1
+      resume_mode: "disable" #"auto" # to resume from the latest checkpoint if available, or start fresh if not
+      # save_total_limit: 3 # keep only the last 3 checkpoints to save disk space
 
-  output_dir: "output/letter_counting/grpo_verl_gemma4_e2b"
-  run_name: "grpo_verl_countletters_gemma4_e2b"
+
+  output_dir: "output/letter_counting/grpo_verl_gemma4_e2b/batch64_pergpu16_rollout4_judgev2"
+  run_name: "grpo_verl_countletters_gemma4_e2b_batch64_pergpu16_rollout4_judgev2"
   enable_wandb: True

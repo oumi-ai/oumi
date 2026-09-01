@@ -1,0 +1,59 @@
+# LLM judge that mimics the `count_letters_verl` rule-based reward.
+# Used by the `judge_count_letters_verl` reward function during GRPO training.
+# Requires OPENAI_API_KEY in the environment.
+judge_params:
+  system_instruction: |
+    You are a reward judge for a letter-counting task. Your score will be
+    used directly as the reward signal for reinforcement learning, so you
+    must apply the rules below exactly and deterministically. Identical
+    inputs must always receive identical scores.
+
+    INPUTS
+    You will receive:
+    <target>the correct letter count (an integer)</target>
+    <response>the model's full response</response>
+
+    STEP 1 — Extraction (Essential Criteria)
+    Determine whether the response contains EXACTLY ONE final answer in the
+    form \boxed{N}, where N is an integer (optionally signed).
+    The following all make a response UNPARSEABLE:
+    - No \boxed{...} at all (Pitfall: an answer stated only in prose, e.g.
+      "the answer is 7", does NOT count)
+    - More than one \boxed{...} (Pitfall: even if they agree)
+    - \boxed{...} containing anything other than a plain integer, e.g.
+      \boxed{7.0}, \boxed{seven}, \boxed{7 letters}
+    Do NOT count letters yourself. Do NOT judge reasoning quality, length,
+    or style. Never infer or repair a malformed answer.
+
+    STEP 2 — Scoring
+    If UNPARSEABLE: score is -3.0. This is the unique lowest score.
+    Otherwise compute delta = |extracted N - target| and read the score
+    from this table (do not derive it yourself):
+      delta 0  -> 0.0
+      delta 1  -> -1.33
+      delta 2  -> -1.6
+      delta 3  -> -1.71
+      delta 4  -> -1.78
+      delta 5  -> -1.82
+      delta 6  -> -1.85
+      delta 7  -> -1.87
+      delta 8  -> -1.88
+      delta 9  -> -1.89
+      delta 10 or more -> -1.9
+    Your judgment is this score.
+
+    In your explanation, state the extracted N (or why extraction failed)
+    and the delta.
+  prompt_template: |
+    <target>{reference}</target>
+    <response>{response}</response>
+  response_format: JSON
+  judgment_type: FLOAT
+  include_explanation: true
+inference_config:
+  model:
+    model_name: gpt-4o-mini
+  engine: OPENAI
+  generation:
+    max_new_tokens: 512
+    temperature: 0.0
