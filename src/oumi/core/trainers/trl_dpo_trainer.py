@@ -14,9 +14,16 @@
 
 from trl import DPOTrainer
 
+_TOKENIZED_DPO_COLUMN_SETS = (
+    frozenset(("prompt_ids", "chosen_ids", "rejected_ids")),
+    frozenset(("prompt_input_ids", "chosen_input_ids", "rejected_input_ids")),
+)
+_OUMI_PROMPT_COLUMN = "messages"
+_TRL_PROMPT_COLUMN = "prompt"
+
 
 class TrlDpoTrainer(DPOTrainer):
-    """Light wrapper around the DPOTrainer to handle vision models."""
+    """Light wrapper supporting raw and Oumi-tokenized DPO datasets."""
 
     def __init__(
         self,
@@ -27,6 +34,18 @@ class TrlDpoTrainer(DPOTrainer):
         super().__init__(*args, **kwargs)
 
     def _prepare_dataset(self, dataset, processing_class, args, dataset_name):
-        """Prepare the dataset for training."""
-        # Skip the dataset preparation since the dataset is already prepared.
-        return dataset
+        """Prepare raw datasets while preserving Oumi-tokenized datasets."""
+        column_names = frozenset(dataset.column_names or ())
+        if any(
+            tokenized_columns <= column_names
+            for tokenized_columns in _TOKENIZED_DPO_COLUMN_SETS
+        ):
+            return dataset
+
+        if (
+            _OUMI_PROMPT_COLUMN in column_names
+            and _TRL_PROMPT_COLUMN not in column_names
+        ):
+            dataset = dataset.rename_column(_OUMI_PROMPT_COLUMN, _TRL_PROMPT_COLUMN)
+
+        return super()._prepare_dataset(dataset, processing_class, args, dataset_name)
