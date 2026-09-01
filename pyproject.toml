@@ -16,9 +16,15 @@ oumi = ["LICENSE", "README.md", "*.jinja"]
 # explicitly pinned to one (e.g. omegaconf==2.4.0.dev4) or when no stable release
 # satisfies the requirement (e.g. opentelemetry-semantic-conventions, which only
 # ships beta versions on PyPI).
+# This must stay an override rather than a constraint. A constraint applies to
+# every requirement in the graph, including vllm's `transformers<5`, which makes
+# the [gpu] extra unsatisfiable. An override only replaces oumi's own spec, so
+# vllm keeps its cap and the GPU extra still resolves. The ceiling is duplicated
+# from [project.dependencies] because an override replaces that spec outright;
+# bump both together.
 [tool.uv]
 prerelease = "if-necessary-or-explicit"
-override-dependencies = ["transformers>=5.5,<5.8"]
+override-dependencies = ["transformers>=5.5,<5.10"]
 
 [project]
 name = "oumi"
