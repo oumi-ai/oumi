@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import copy
+import importlib.metadata
 import json
 from typing import Any
 
@@ -78,7 +79,9 @@ class TrlDpoTrainer(DPOTrainer):
             getattr(DPOTrainer, "_tokenize", None)
         ):
             raise RuntimeError(
-                "Structured DPO datasets with tools require TRL 1.0 or newer."
+                "Structured DPO datasets with tools require TRL 1.0 or newer "
+                f"(installed: {importlib.metadata.version('trl')}). "
+                "Upgrade with: pip install --upgrade 'trl>=1.0'"
             )
 
         if (
