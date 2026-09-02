@@ -90,7 +90,7 @@ Don't forget to decorate your class with `@register_cloud_builder(...)`!
 
 For quick reference, you can register custom judge configs
 
-You can find [examples of custom judge configs here](https://github.com/oumi-ai/oumi/blob/main/src/oumi/judges/judge_court.py).
+You can find [examples of custom judge configs here](https://github.com/oumi-ai/oumi/tree/main/configs/projects/judges).
 
 ```{note}
 Don't forget to decorate your function with `@register_judge(...)`!
