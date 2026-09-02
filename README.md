@@ -2,7 +2,7 @@
 
 [![Documentation](https://img.shields.io/badge/Documentation-oumi-blue.svg)](https://oumi.ai/docs/en/latest/index.html)
 [![Blog](https://img.shields.io/badge/Blog-oumi-blue.svg)](https://oumi.ai/blog)
-[![Twitter](https://img.shields.io/twitter/follow/Oumi_PBC)](https://x.com/Oumi_PBC)
+[![Twitter](https://img.shields.io/twitter/follow/Oumi_ai)](https://x.com/Oumi_ai)
 [![Discord](https://img.shields.io/discord/1286348126797430814?label=Discord)](https://discord.gg/oumi)
 [![PyPI version](https://badge.fury.io/py/oumi.svg)](https://badge.fury.io/py/oumi)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
@@ -23,7 +23,10 @@
 
 ## 🔥 News
 
+- [2026/08] Extended GRPO reinforcement learning to support tool use
+- [2026/07] Added support for tools, environments (simulated, lookup, database), and agentic data synthesis
 - [2026/06] Added support for the Gemma 4 model family
+- [2026/06] Added partial-failure support across inference, judging, and data synthesis
 - [2026/05] [Oumi v0.8 released](https://github.com/oumi-ai/oumi/releases/tag/v0.8) with `oumi deploy` CLI for dedicated inference endpoints, an `oumi-mcp` MCP server for Claude/Cursor integration, batch API support across Anthropic/Fireworks/Together, and Transformers v5 / TRL / vLLM dependency upgrades
 - [2026/03] Upgraded to Transformers v5, TRL v0.30, vLLM v0.19, and veRL v0.7 compatibility
 - [2026/03] [MCP Integration Phase 1](https://github.com/oumi-ai/oumi/pull/2234): package scaffold and dependencies for MCP server support

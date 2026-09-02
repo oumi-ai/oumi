@@ -428,6 +428,11 @@ def _create_internvl_config() -> InternalModelConfig:
     return config
 
 
+def _create_muse_glimmer_config() -> InternalModelConfig:
+    # Empty chat_template: use the tokenizer's built-in template.
+    return InternalModelConfig(chat_template="")
+
+
 def _create_idefics3_vlm_config() -> InternalModelConfig:
     config = _create_default_vlm_config(
         supports_multiple_images=True, pixel_values_variable_shape=True
@@ -622,6 +627,11 @@ def get_all_models_map() -> Mapping[
             model_class=transformers.AutoModelForImageTextToText,
             config=_create_internvl_config(),
         ),
+        _ModelTypeInfo(
+            model_type="muse_glimmer",
+            model_class=transformers.AutoModelForImageTextToText,
+            config=_create_muse_glimmer_config(),
+        ),
     ]
 
     # Make it immutable.
@@ -684,6 +694,37 @@ def find_internal_model_config_using_model_name(
     )
     llm_info = get_all_models_map().get(hf_config.model_type, None)
     return llm_info.config if llm_info is not None else None
+
+
+def find_model_type_using_model_name(
+    model_name: str, trust_remote_code: bool, revision: str | None = None
+) -> str | None:
+    """Finds the HuggingFace ``config.model_type`` for a model.
+
+    Unlike `find_internal_model_config_using_model_name`, this reports the architecture
+    whether or not it appears in the supported models registry. That registry is scoped
+    to VLMs, so text LLMs resolve to None there by design; use this to branch on
+    architecture for them.
+
+    Args:
+        model_name: The model name, either:
+            - A HuggingFace model ID (e.g., "meta-llama/Llama-2-7b-hf")
+            - A local path to a model directory
+            - A custom model name registered in Oumi
+        trust_remote_code: Whether to trust external code associated with the model.
+        revision: The HuggingFace model revision to load, if any.
+
+    Returns:
+        The model_type string, or None if the model is a custom Oumi model, which has
+        no HuggingFace config.
+    """
+    if is_custom_model(model_name):
+        return None
+
+    hf_config = find_model_hf_config(
+        model_name, trust_remote_code=trust_remote_code, revision=revision
+    )
+    return hf_config.model_type
 
 
 def find_internal_model_config(

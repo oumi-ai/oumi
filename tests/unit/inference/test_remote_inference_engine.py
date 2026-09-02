@@ -5,7 +5,7 @@ import os
 import tempfile
 import time
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, Final, cast
 from unittest.mock import AsyncMock, patch
 
 import aiohttp
@@ -2286,6 +2286,20 @@ def test_convert_api_output_no_usage():
     assert result.metadata["key"] == "value"
 
 
+def test_convert_api_output_null_response_raises_runtime_error():
+    """A 2xx response whose JSON body is `null` must raise a clear RuntimeError."""
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
+    )
+    original = Conversation(
+        messages=[Message(content="Hello", role=Role.USER)],
+    )
+    null_body = cast(dict, None)
+    with pytest.raises(RuntimeError, match="Expected a JSON object"):
+        engine._convert_api_output_to_conversation(null_body, original)
+
+
 def test_convert_api_output_content_null_returns_empty_string():
     engine = RemoteInferenceEngine(
         _get_default_model_params(),
@@ -4449,6 +4463,55 @@ def test_response_combines_reasoning_with_tool_calls():
     assert assistant.tool_calls[0].function.name == "get_weather"
 
 
+def _openai_shape_engines() -> list[RemoteInferenceEngine]:
+    """OpenAI-compatible engines whose request builder must forward tools.
+
+    SGLang is intentionally excluded: its native ``/generate`` API takes a
+    rendered prompt plus ``sampling_params`` rather than an OpenAI ``tools``
+    array, so ``conversation.tools`` has no place in its request body.
+    """
+    from oumi.inference.gcp_inference_engine import GoogleVertexInferenceEngine
+    from oumi.inference.gemini_inference_engine import GoogleGeminiInferenceEngine
+    from oumi.inference.remote_vllm_inference_engine import (
+        RemoteVLLMInferenceEngine,
+    )
+
+    remote_params = RemoteParams(api_url=_TARGET_SERVER, api_key="dummy")
+    return [
+        RemoteInferenceEngine(_get_default_model_params(), remote_params=remote_params),
+        RemoteVLLMInferenceEngine(
+            _get_default_model_params(), remote_params=remote_params
+        ),
+        GoogleGeminiInferenceEngine(
+            _get_default_model_params(), remote_params=remote_params
+        ),
+        GoogleVertexInferenceEngine(
+            _get_default_model_params(), remote_params=remote_params
+        ),
+    ]
+
+
+@pytest.mark.parametrize(
+    "engine",
+    _openai_shape_engines(),
+    ids=lambda e: type(e).__name__,
+)
+def test_openai_shape_engines_forward_tools(engine):
+    """Every OpenAI-format engine forwards conversation.tools in its request body.
+
+    Guards against future ``_convert_conversation_to_api_input`` overrides that
+    silently drop tools by omitting the base class's tool-forwarding block.
+    """
+    conversation = Conversation(
+        tools=[_WEATHER_TOOL],
+        messages=[Message(role=Role.USER, content="weather in Tokyo?")],
+    )
+    api_input = engine._convert_conversation_to_api_input(
+        conversation, GenerationParams(max_new_tokens=5), engine._model_params
+    )
+    assert api_input["tools"] == [_WEATHER_TOOL_DICT]
+
+
 #
 # infer_partial
 #
@@ -4745,3 +4808,57 @@ def test_infer_partial_retriable_400_pattern_retried_and_retryable(mock_asyncio_
     detail = result.failures[0]
     assert detail.status_code == 400
     assert detail.is_retryable
+
+
+def _all_remote_engine_subclasses() -> list[type]:
+    """Every RemoteInferenceEngine subclass, at any depth."""
+    import oumi.inference  # noqa: F401  (registers every engine subclass)
+
+    found: list[type] = []
+    pending = [RemoteInferenceEngine]
+    while pending:
+        for subclass in pending.pop().__subclasses__():
+            found.append(subclass)
+            pending.append(subclass)
+    return found
+
+
+def test_no_engine_overrides_get_request_headers():
+    """`_get_request_headers` is @final; engines override `_get_auth_headers`.
+
+    A subclass that overrides `_get_request_headers` returns a fresh dict and
+    silently drops `Accept-Encoding`, which makes aiohttp advertise whatever
+    codecs happen to be importable in the runtime environment. @final is only a
+    type-checker hint, so this test is the enforcement.
+    """
+    offenders = [
+        subclass.__name__
+        for subclass in _all_remote_engine_subclasses()
+        if "_get_request_headers" in subclass.__dict__
+    ]
+    assert offenders == [], (
+        f"{offenders} override _get_request_headers. Override "
+        "_get_auth_headers instead so the transport headers survive."
+    )
+
+
+def test_get_request_headers_excludes_optional_codecs():
+    engine = RemoteInferenceEngine(_get_default_model_params())
+
+    headers = engine._get_request_headers(RemoteParams(api_key="key"))
+
+    assert headers["Accept-Encoding"] == "gzip, deflate"
+    assert headers["Authorization"] == "Bearer key"
+
+
+def test_get_request_headers_merges_subclass_auth_headers():
+    """A subclass's own headers and the transport headers both survive."""
+    from oumi.inference import AnthropicInferenceEngine
+
+    engine = AnthropicInferenceEngine(ModelParams(model_name="some_model"))
+
+    headers = engine._get_request_headers(RemoteParams(api_key="key"))
+
+    assert headers["Accept-Encoding"] == "gzip, deflate"
+    assert headers["X-API-Key"] == "key"
+    assert headers["Content-Type"] == "application/json"

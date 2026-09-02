@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import functools
+import os
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -239,11 +240,28 @@ def _log_feedback_request():
     )
 
 
-def _verl_train(partial_trainer: Callable[[], BaseTrainer]):
+def _save_final_model(trainer: BaseTrainer, config: TrainingConfig) -> None:
+    """Saves the final training state and model, if enabled."""
+    if not config.training.save_final_model:
+        return
+
+    logger.info("Saving final state...")
+    trainer.save_state()
+
+    barrier()
+
+    logger.info("Saving final model...")
+    trainer.save_model(config=config)
+
+
+def _verl_train(partial_trainer: Callable[[], BaseTrainer], config: TrainingConfig):
     """Runs verl training.
 
     This function initializes Ray, and then initializes and kicks off the trainer in a
     remote Ray function.
+
+    The final model is saved inside the remote function: the trainer is constructed
+    there, so it isn't reachable from the common save path in `train()`.
     """
     try:
         import ray  # pyright: ignore[reportMissingImports]
@@ -273,8 +291,34 @@ def _verl_train(partial_trainer: Callable[[], BaseTrainer]):
 
         logger.info("Training is Complete.")
 
+        _save_final_model(trainer, config)
+
     ray.get(_run_verl_train.remote(partial_trainer))
     _log_feedback_request()
+
+
+# flex_attention buckets variable-length batches into one compiled shape per
+# `pad_to_multiple_of` multiple, and its GLOBAL_STATE guards can churn on top of
+# that; either can exhaust torch dynamo's default recompile limit (8) and
+# silently degrade to the eager kernel (quadratic memory -> OOM at long
+# context). Torch has no env var for this, so we set it in code whenever a batch
+# is padded to a multiple. Override with OUMI_DYNAMO_RECOMPILE_LIMIT.
+_DEFAULT_DYNAMO_RECOMPILE_LIMIT = 64
+
+
+def _maybe_raise_dynamo_recompile_limit(config: TrainingConfig) -> None:
+    collator_kwargs = config.data.get_split(DatasetSplit.TRAIN).collator_kwargs or {}
+    if not collator_kwargs.get("pad_to_multiple_of"):
+        return
+    override = os.environ.get("OUMI_DYNAMO_RECOMPILE_LIMIT")
+    limit = int(override) if override else _DEFAULT_DYNAMO_RECOMPILE_LIMIT
+    # `cache_size_limit` is the backward-compatible knob present in all supported
+    # torch versions. torch>=2.7 renamed it to `recompile_limit` (the two alias the
+    # same value); torch 2.6 has only `cache_size_limit`, so guard the newer name.
+    torch._dynamo.config.cache_size_limit = limit
+    if hasattr(torch._dynamo.config, "recompile_limit"):
+        torch._dynamo.config.recompile_limit = limit
+    logger.info(f"Set torch dynamo recompile limit to {limit} (pad_to_multiple_of).")
 
 
 def train(
@@ -286,6 +330,8 @@ def train(
 ) -> None | dict[str, Any]:
     """Trains a model using the provided configuration."""
     _START_TIME = time.time()
+
+    _maybe_raise_dynamo_recompile_limit(config)
 
     _create_training_dirs(config)
     _log_training_info(config)
@@ -427,7 +473,7 @@ def train(
             processor=processor,
             **training_kwargs,
         )
-        _verl_train(partial_trainer)
+        _verl_train(partial_trainer, config)
         return
 
     checkpoint_location = _find_checkpoint_to_resume_from(
@@ -576,15 +622,7 @@ def train(
     log_peak_gpu_memory()
 
     # Save final checkpoint & training state.
-    if config.training.save_final_model:
-        logger.info("Saving final state...")
-        trainer.save_state()
-
-        barrier()
-
-        logger.info("Saving final model...")
-
-        trainer.save_model(config=config)
+    _save_final_model(trainer, config)
 
     barrier()
 

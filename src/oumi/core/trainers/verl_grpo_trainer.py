@@ -16,6 +16,7 @@
 
 import copy
 import inspect
+import json
 import os
 from collections.abc import Callable
 from pathlib import Path
@@ -26,8 +27,10 @@ from datasets import Dataset
 from omegaconf import DictConfig, OmegaConf
 
 from oumi.core.types.conversation import Conversation
+from oumi.core.types.conversation import Role as ConversationRole
+from oumi.utils.conversation_utils import create_list_of_message_json_dicts
 from oumi.utils.grpo_utils import (
-    extract_prompt_images_completion_from_single_turn_conversation,
+    extract_prompt_images_completion_from_conversation,
 )
 
 try:
@@ -66,6 +69,13 @@ from oumi.utils.verl_model_merger import FSDPModelMerger, ModelMergerConfig
 # 4. split name (train, validation, etc.)
 # Returns an example converted to verl format.
 _DatasetProcessFn = Callable[[dict, int, str, str], dict]
+
+# verl's reward callback receives extra_info but not the structured prompt column.
+_PROMPT_JSON_EXTRA_INFO_KEY = "prompt_json"
+
+# Passes verl's `save_freq > 0` check (which enables its last-step save) while
+# being too large for `step % save_freq` to ever match: final checkpoint only.
+_SAVE_FINAL_STEP_ONLY_FREQ = 10**9
 
 
 class VerlGrpoTrainer(BaseTrainer):
@@ -130,11 +140,15 @@ class VerlGrpoTrainer(BaseTrainer):
             raise ValueError("We only support up to one reward function.")
         self._reward_funcs = reward_funcs
 
-        self._cache_dir: Path = (
-            Path(cache_dir)
-            if cache_dir
-            else Path.home() / ".cache" / "oumi" / "verl_datasets"
-        )
+        if cache_dir:
+            self._cache_dir = Path(cache_dir)
+        elif self._final_output_dir:
+            # Keep dataset files private to this run: a shared default location
+            # lets concurrent verl runs overwrite each other's Parquet files.
+            self._cache_dir = self._final_output_dir / "verl_datasets"
+        else:
+            self._cache_dir = Path.home() / ".cache" / "oumi" / "verl_datasets"
+        self._cache_dir.mkdir(parents=True, exist_ok=True)
         self._train_dataset = train_dataset
         self._eval_dataset = eval_dataset
         # verl trainer uses private methods and properties of `transformers`
@@ -186,7 +200,7 @@ class VerlGrpoTrainer(BaseTrainer):
                 raise ValueError(
                     "Invalid conversation_json in training or validation dataset."
                 ) from e
-            return VerlGrpoTrainer._create_verl_data_entry_from_single_turn_conversation
+            return VerlGrpoTrainer._create_verl_data_entry_from_conversation
         return None
 
     @staticmethod
@@ -206,46 +220,140 @@ class VerlGrpoTrainer(BaseTrainer):
         return dataset_names[0]
 
     @staticmethod
-    def _extract_question_images_answer_from_single_turn_conversation(
+    def _extract_prompt_images_answer_from_conversation(
         example: dict,
-    ) -> tuple[str, list, str]:
-        """Finds question, answer, and optional images in a single-turn conversation.
+    ) -> tuple[list[dict], list, str]:
+        """Finds prompt, answer, and optional images in a conversation.
+
+        Supports both single-turn and multi-turn conversations. The prompt is
+        returned in verl's chat format (a list of ``{"role", "content"}`` dicts)
+        and the answer is the final assistant message's text (the ground truth).
 
         Args:
             example: A dictionary containing the conversation JSON.
 
         Returns:
-            A tuple containing the question, images, and answer.
+            A tuple containing the prompt messages, images, and answer.
             The list of images is empty for text-only conversations.
+
+        Raises:
+            ValueError: If the conversation contains images but is multi-turn.
+                Images are only supported for single-turn conversations.
         """
-        prompt, images, answer = (
-            extract_prompt_images_completion_from_single_turn_conversation(example)
+        prompt_messages, images, answer = (
+            extract_prompt_images_completion_from_conversation(example)
         )
 
         if len(images) > 0:
+            user_messages = [m for m in prompt_messages if m["role"] == "user"]
+            if len(user_messages) != 1:
+                raise ValueError(
+                    "Images are only supported for single-turn conversations, "
+                    f"but the prompt has {len(user_messages)} user messages "
+                    "(multi-turn). Please use a text-only multi-turn conversation."
+                )
             # TODO: Generalize. This only works for QwenVL 2.5, which is the only
             # VLM supported by verl as of 2025-05-15.
-            if not prompt.startswith("<image>"):
-                prompt = "<image>" + prompt
-        return (prompt, images, answer)
+            content = user_messages[0]["content"]
+            if not content.startswith("<image>"):
+                user_messages[0]["content"] = "<image>" + content
+        return (prompt_messages, images, answer)
 
     @staticmethod
-    def _create_verl_data_entry_from_single_turn_conversation(
+    def _create_verl_data_entry_from_tool_agent_conversation(
+        conversation: Conversation,
+        ground_truth: str,
+        tools_kwargs: dict[str, Any],
+        ability: str,
+        idx: int,
+        data_source: str,
+        split: str,
+    ) -> dict:
+        """Build a verl row from a structured tool-agent prompt."""
+        if any(
+            message.count_content_items().image_items
+            for message in conversation.messages
+        ):
+            raise ValueError("Tool-agent conversations do not support images.")
+        if not conversation.messages or conversation.messages[-1].role not in (
+            ConversationRole.USER,
+            ConversationRole.TOOL,
+        ):
+            raise ValueError(
+                "Tool-agent conversation prompts must end with a user or tool message."
+            )
+
+        prompt_messages = create_list_of_message_json_dicts(
+            conversation.messages,
+            group_adjacent_same_role_turns=False,
+        )
+        return {
+            "data_source": data_source,
+            "prompt": prompt_messages,
+            "images": [],
+            "ability": ability,
+            "agent_name": "tool_agent",
+            "reward_model": {"style": "rule", "ground_truth": ground_truth},
+            "extra_info": {
+                "split": split,
+                "index": idx,
+                _PROMPT_JSON_EXTRA_INFO_KEY: json.dumps(prompt_messages),
+                "need_tools_kwargs": True,
+                "tools_kwargs": tools_kwargs,
+            },
+        }
+
+    @staticmethod
+    def _create_verl_data_entry_from_conversation(
         example: dict, idx: int, data_source: str, split: str
     ) -> dict:
-        prompt, images, answer = (
-            VerlGrpoTrainer._extract_question_images_answer_from_single_turn_conversation(
-                example
+        # Peek at metadata off the raw JSON so only the branch that needs a
+        # `Conversation` pays for building one.
+        raw_conversation = example["conversation_json"]
+        metadata = json.loads(raw_conversation).get("metadata") or {}
+        if metadata.get("agent_name") == "tool_agent":
+            conversation = Conversation.from_json(raw_conversation)
+            ground_truth = metadata.get("ground_truth")
+            if not isinstance(ground_truth, str) or not ground_truth:
+                raise ValueError(
+                    "Tool-agent conversation metadata must include a non-empty "
+                    "string 'ground_truth'."
+                )
+            tools_kwargs = metadata.get("tools_kwargs")
+            tools_kwargs_error = (
+                "Tool-agent conversation metadata 'tools_kwargs' must be a "
+                "mapping of tool names to dictionaries."
             )
+            if not isinstance(tools_kwargs, dict):
+                raise ValueError(
+                    f"{tools_kwargs_error} Got {type(tools_kwargs).__name__}."
+                )
+            for tool_name, tool_kwargs in tools_kwargs.items():
+                if not isinstance(tool_name, str) or not isinstance(tool_kwargs, dict):
+                    raise ValueError(
+                        f"{tools_kwargs_error} Got {tool_name!r}: "
+                        f"{type(tool_kwargs).__name__}."
+                    )
+            ability = metadata.get("ability", "tool_agent")
+            if not isinstance(ability, str):
+                raise ValueError(
+                    "Tool-agent conversation metadata 'ability' must be a string."
+                )
+            return VerlGrpoTrainer._create_verl_data_entry_from_tool_agent_conversation(
+                conversation,
+                ground_truth,
+                tools_kwargs,
+                ability,
+                idx,
+                data_source,
+                split,
+            )
+        prompt_messages, images, answer = (
+            VerlGrpoTrainer._extract_prompt_images_answer_from_conversation(example)
         )
         data = {
             "data_source": data_source,
-            "prompt": [
-                {
-                    "role": "user",
-                    "content": prompt,
-                }
-            ],
+            "prompt": prompt_messages,
             "images": images,
             "ability": "math",
             "reward_model": {"style": "rule", "ground_truth": answer},
@@ -253,7 +361,8 @@ class VerlGrpoTrainer(BaseTrainer):
                 "split": split,
                 "index": idx,
                 "answer": answer,
-                "question": prompt,  # TODO: extract problem
+                _PROMPT_JSON_EXTRA_INFO_KEY: json.dumps(prompt_messages),
+                "metadata": json.dumps(metadata),
             },
         }
         return data
@@ -263,7 +372,7 @@ class VerlGrpoTrainer(BaseTrainer):
     ) -> None:
         """Creates dataset files for verl in Parquet format.
 
-        The Parquet files are saved to the Oumi cache directory.
+        The Parquet files are saved to the output directory.
 
         Args:
             process_fn: Optional function to convert the dataset samples to verl format.
@@ -365,6 +474,16 @@ class VerlGrpoTrainer(BaseTrainer):
             config.trainer.test_freq = training_params.eval_steps
         if not training_params.save_epoch:
             config.trainer.save_freq = training_params.save_steps
+
+        # The HF export merges a verl checkpoint, and verl only writes one when
+        # save_freq > 0. Without this, `save_steps: -1` + save_final_model trains
+        # fine and exports nothing.
+        if training_params.save_final_model and config.trainer.save_freq <= 0:
+            config.trainer.save_freq = _SAVE_FINAL_STEP_ONLY_FREQ
+            logger.info(
+                f"save_steps={training_params.save_steps} would write no checkpoint "
+                "to export from; checkpointing the final step instead."
+            )
 
         # Specific checkpoint to resume from takes precedence over starting
         # from last checkpoint.
