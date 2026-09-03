@@ -80,11 +80,6 @@ class LetterCountGrpoDataset(BaseExperimentalGrpoDataset):
         sample_dict = sample.to_dict()
         # Add system prompt before user prompt.
         system_message = {"content": _SYSTEM_PROMPT, "role": "system"}
-        expected_answer = sample["metadata"]["letter_count_integer"]
-        assistant_message = {
-            "content": rf"\boxed{{{expected_answer}}}",
-            "role": "assistant",
-        }
-        messages = [system_message, sample["messages"][0], assistant_message]
+        messages = [system_message, sample["messages"][0]]
         sample_dict["messages"] = messages
         return Conversation.from_dict(sample_dict)

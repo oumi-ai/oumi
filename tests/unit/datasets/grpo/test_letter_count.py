@@ -59,15 +59,18 @@ def test_return_conversations_preserves_metadata_for_verl():
             return_conversations=True,
         )
 
-    hf_dataset = dataset.to_hf()
-    assert hf_dataset.column_names == ["conversation_json"]
-    row = hf_dataset[0]
+    hf_dataset = dataset.to_hf(return_iterable=True)
+    row = next(iter(hf_dataset))
+    assert set(row) == {"conversation_json"}
     conversation = Conversation.from_json(row["conversation_json"])
     assert conversation.metadata["letter_count_integer"] == 3
-    assert conversation.messages[-1].role == Role.ASSISTANT
-    assert conversation.messages[-1].content == "\\boxed{3}"
+    assert [message.role for message in conversation.messages] == [
+        Role.SYSTEM,
+        Role.USER,
+    ]
 
     verl_row = VerlGrpoTrainer._create_verl_data_entry_from_conversation(
         row, 0, dataset.dataset_name, "train"
     )
+    assert verl_row["reward_model"]["ground_truth"] == ""
     assert json.loads(verl_row["extra_info"]["metadata"])["letter_count_integer"] == 3
