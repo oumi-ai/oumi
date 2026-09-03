@@ -247,6 +247,8 @@ class VerlGrpoTrainer(BaseTrainer):
         Supports both single-turn and multi-turn conversations. The prompt is
         returned in verl's chat format (a list of ``{"role", "content"}`` dicts)
         and the answer is the final assistant message's text (the ground truth).
+        Prompt-only conversations use an empty ground truth for reward functions
+        that score without a reference answer.
 
         Args:
             example: A dictionary containing the conversation JSON.
@@ -260,7 +262,9 @@ class VerlGrpoTrainer(BaseTrainer):
                 Images are only supported for single-turn conversations.
         """
         prompt_messages, images, answer = (
-            extract_prompt_images_completion_from_conversation(example)
+            extract_prompt_images_completion_from_conversation(
+                example, allow_prompt_only=True
+            )
         )
 
         if len(images) > 0:
