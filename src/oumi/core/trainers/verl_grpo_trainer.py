@@ -518,7 +518,6 @@ class VerlGrpoTrainer(BaseTrainer):
         if training_params.enable_wandb:
             config.trainer.logger.append("wandb")
         if self._final_output_dir is not None and _verl_supports_file_logger():
-            # verl's FileLogger reads its destination from this env var.
             os.environ.setdefault(
                 _VERL_FILE_LOGGER_PATH_ENV,
                 str(self._final_output_dir / VERL_METRICS_FILENAME),
