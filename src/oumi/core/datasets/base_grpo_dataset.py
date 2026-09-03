@@ -13,6 +13,8 @@
 # limitations under the License.
 
 
+from typing import Literal
+
 import pandas as pd
 from typing_extensions import override
 
@@ -36,6 +38,8 @@ class BaseExperimentalGrpoDataset(BaseMapDataset):
         dataset_name: str | None = None,
         dataset_path: str | None = None,
         split: str | None = None,
+        return_conversations: bool = False,
+        return_conversations_format: Literal["dict", "json"] = "json",
         **kwargs,
     ) -> None:
         """Initializes a new instance of the BaseExperimentalGrpoDataset class."""
@@ -46,7 +50,21 @@ class BaseExperimentalGrpoDataset(BaseMapDataset):
             **kwargs,
         )
 
+        self._return_conversations = return_conversations
+        self._return_conversations_format = return_conversations_format
         self._data = self._load_data()
+
+    @override
+    def __getitem__(self, idx: int) -> dict:
+        """Gets a GRPO row, optionally preserving its Conversation structure."""
+        sample = self.raw(idx)
+        if not self._return_conversations:
+            return self.transform(sample)
+
+        conversation = self.transform_conversation(sample)
+        return self._format_conversation(
+            conversation, self._return_conversations_format
+        )
 
     @staticmethod
     def _process_text_value(s: str) -> str:
