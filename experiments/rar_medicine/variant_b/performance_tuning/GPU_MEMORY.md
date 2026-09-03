@@ -1,5 +1,14 @@
 # GPU memory budget: gemma-4-E2B-it LoRA GRPO on 4× H100 80GB
 
+> **Superseded 2026-09-02 for the current recipe.** `train_verl.yaml` is now a
+> full fine-tune with remove-padding, actor offload and the gemma-4 KV-share
+> patch; the measured budget, the OOM post-mortem and the tuning log are in
+> `MEMORY_TUNING.md`. The LoRA-path numbers below remain valid for a LoRA
+> configuration (its step-1 gather peak was measured at 43.9 GiB, see
+> `MEMORY_TUNING.md` §2), but note that vLLM LoRA is a no-op on gemma-4
+> (issue 15) and that the "full-finetune baseline" section here predates the
+> measurements in `MEMORY_TUNING.md` §4.
+
 Working for `train_verl.yaml` as launched by `run.sh` (GPUs 0-3, verl 0.7.1
 FSDP1 hybrid engine, vLLM 0.19.1 TP=2, LoRA r=16, no actor offload). Every
 number below is derived from the model config or the verl source; the two

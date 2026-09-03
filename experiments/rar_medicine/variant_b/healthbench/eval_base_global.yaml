@@ -1,0 +1,38 @@
+# HealthBench scored against the consolidated dataset-level rubric.
+#
+# Responses are shared with the per-sample-rubric run: artifacts/global_base/
+# holds a symlink to the generations already produced by eval_base.yaml, so
+# this config regrades without touching a GPU. If that cache is absent the
+# model is generated from scratch, which is what `inference_engine: VLLM`
+# below is for; when regrading an existing cache, override it with
+# `--inference_engine OPENAI` so no weights are loaded.
+
+model:
+  model_name: "google/gemma-4-E2B-it"
+  model_max_length: 8192
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: True
+
+generation:
+  # Must match the settings that produced the cached responses.
+  max_new_tokens: 1024
+  temperature: 0.0
+
+tasks:
+  - evaluation_backend: custom
+    task_name: healthbench_global
+    num_samples: 1000
+    eval_kwargs:
+      dataset_path: "experiments/rar_medicine/variant_b/healthbench/artifacts/data/healthbench_test.jsonl"
+      global_rubric_path: "experiments/rar_medicine/variant_b/healthbench/global_rubric_v2.json"
+      judge_config: "experiments/rar_medicine/variant_b/healthbench/judge_gpt4o_mini_global.yaml"
+      artifact_dir: "experiments/rar_medicine/variant_b/healthbench/artifacts/global_base"
+      judge_batch_size: 250
+      judge_max_attempts: 3
+      sample_seed: 0
+      num_bootstrap_samples: 1000
+
+inference_engine: VLLM
+
+output_dir: "experiments/rar_medicine/variant_b/healthbench/artifacts/oumi_eval/global_base"

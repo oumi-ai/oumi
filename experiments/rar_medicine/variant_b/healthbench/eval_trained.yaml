@@ -1,0 +1,33 @@
+# Evaluate the merged Variant B checkpoint on all 5,000 HealthBench rows.
+#
+# Usage (pin one GPU; spawn is required because Oumi touches CUDA before vLLM forks):
+#   CUDA_VISIBLE_DEVICES=1 VLLM_WORKER_MULTIPROC_METHOD=spawn \
+#     oumi evaluate -c experiments/rar_medicine/variant_b/healthbench/eval_trained.yaml
+
+model:
+  model_name: "/workspace/persist/shanghong/oumi/experiments/rar_medicine/variant_b/output/merged_model"
+  model_max_length: 8192
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: True
+
+generation:
+  max_new_tokens: 1024
+  temperature: 0.0
+
+tasks:
+  - evaluation_backend: custom
+    task_name: healthbench
+    num_samples: 5000
+    eval_kwargs:
+      dataset_path: "/tmp/oumi_healthbench/data/healthbench_test.jsonl"
+      judge_config: "experiments/rar_medicine/variant_b/healthbench/judge_gpt4o.yaml"
+      artifact_dir: "/tmp/oumi_healthbench/trained_merged_model"
+      judge_batch_size: 500
+      judge_max_attempts: 3
+      sample_seed: 0
+      num_bootstrap_samples: 1000
+
+inference_engine: VLLM
+
+output_dir: "/tmp/oumi_healthbench/oumi_eval/trained_merged_model"

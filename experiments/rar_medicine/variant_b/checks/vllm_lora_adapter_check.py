@@ -34,25 +34,55 @@ from typing import Any, cast
 
 import torch
 
+# torch 2.11 + cuDNN SDPA rejects gemma-4's 512-wide global-attention heads ("No valid execution
+# plans built"); use the math/mem-efficient SDPA kernels for the HF reference forwards.
+if hasattr(torch.backends.cuda, "enable_cudnn_sdp"):
+    torch.backends.cuda.enable_cudnn_sdp(False)
+
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 BASE = "google/gemma-4-E2B-it"
-ADAPTER = str(
-    _REPO_ROOT
-    / "tmp/rar_medicine/variant_b/output/verl_output/global_step_64/actor/lora_adapter"
+ADAPTER = os.environ.get(
+    "ADAPTER",
+    str(
+        _REPO_ROOT
+        / "experiments/rar_medicine/variant_b/output/unmerged_model/verl_output/global_step_64/actor/lora_adapter"
+    ),
 )
-EVAL_JSONL = _REPO_ROOT / "output/rar_medicine_grpo_verl_variant_b/eval/test_1000.jsonl"
+EVAL_JSONL = Path(
+    os.environ.get(
+        "EVAL_JSONL",
+        str(
+            _REPO_ROOT / "output/rar_medicine_grpo_verl_variant_b/eval/test_1000.jsonl"
+        ),
+    )
+)
+# Fallback prompt source when the eval jsonl is absent: a verl val parquet written by a training run.
+VAL_PARQUET = os.environ.get(
+    "VAL_PARQUET",
+    str(
+        _REPO_ROOT
+        / "tmp/rar_medicine/variant_b/output/medqa_gemma4-e2b-it_fullft/verl_datasets/val.parquet"
+    ),
+)
 N_PROMPTS = int(os.environ.get("N_PROMPTS", "8"))
 MAX_TOKENS = int(os.environ.get("MAX_TOKENS", "96"))
 
 
 def load_prompts() -> list[list[dict]]:
     convs = []
-    with EVAL_JSONL.open() as f:
-        for line in f:
-            c = json.loads(line)
-            convs.append(c["messages"])
-            if len(convs) == N_PROMPTS:
-                break
+    if EVAL_JSONL.exists():
+        with EVAL_JSONL.open() as f:
+            for line in f:
+                c = json.loads(line)
+                convs.append(c["messages"])
+                if len(convs) == N_PROMPTS:
+                    break
+        return convs
+    import pandas as pd
+
+    df = pd.read_parquet(VAL_PARQUET)
+    for i in range(min(N_PROMPTS, len(df))):
+        convs.append([dict(m) for m in df.iloc[i]["prompt"]])
     return convs
 
 

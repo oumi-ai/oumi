@@ -61,7 +61,10 @@ export PYTHONPATH="${VARIANT_B_DIR}${PYTHONPATH:+:${PYTHONPATH}}"
 # Logging. Ray forwards worker stdout/stderr to the driver, so one redirect
 # captures the trainer, the FSDP workers and the vLLM servers.
 LOG_DIR="${REPO_ROOT}/logs"
-LOG="${LOG_DIR}/rar_medicine_grpo_verl_variant_b.log"
+# RUN_NAME only names the log file; the yaml's training.run_name (or a
+# --training.run_name override passed through "$@") names the wandb run.
+RUN_NAME="${RUN_NAME:-medqa_gemma4-e2b-it_fullft}"
+LOG="${LOG_DIR}/${RUN_NAME}.log"
 mkdir -p "${LOG_DIR}"
 # Keep the previous attempt's log as <name>.<timestamp>.log.
 [[ -s "${LOG}" ]] && mv "${LOG}" "${LOG%.log}.$(date +%Y%m%d-%H%M%S).log"

@@ -1,0 +1,151 @@
+# LoRA variant of ../train_verl.yaml for testing the Gemma 4 alias-safe vLLM
+# activation patch in this directory. This preserves the current full-FT
+# experiment's batching, Gemma 4 actor fixes, and memory tuning, while restoring
+# the previously used LoRA parameters and LoRA-specific vLLM target restriction.
+#
+# Run with ./run.sh. The launcher applies vllm_gemma4_lora_alias.patch to the
+# active Python environment before starting Oumi.
+
+model:
+  model_name: "google/gemma-4-E2B-it"
+
+data:
+  train:
+    datasets:
+      - dataset_name: "anisha2102/RaR-Medicine"
+        split: "train"
+  validation:
+    datasets:
+      - dataset_name: "anisha2102/RaR-Medicine"
+        split: "val"
+        sample_count: 1000
+
+training:
+  trainer_type: "VERL_GRPO"
+  num_train_epochs: 1
+  max_steps: 280
+
+  # Restore the LoRA run's LR. The full-FT config uses 1e-6.
+  learning_rate: 1.0e-5
+  reward_functions: ["rar_medicine_verl"]
+  enable_gradient_checkpointing: True
+
+  eval_strategy: "steps"
+  eval_steps: 50
+  save_steps: 50
+  logging_steps: 1
+  output_dir: "/workspace/persist/shanghong/oumi/tmp/rar_medicine/variant_b/output/medqa_gemma4-e2b-it_lora_alias_patch"
+  run_name: "medqa_gemma4-e2b-it_lora_alias_patch"
+  enable_wandb: True
+
+  grpo:
+    max_completion_length: 1024
+    use_vllm: True
+    temperature: 1.0
+    vllm_gpu_memory_utilization: 0.55
+
+  verl_config_overrides:
+    data:
+      train_batch_size: 64
+      val_batch_size: 256
+      max_prompt_length: 512
+      filter_overlong_prompts: True
+      filter_overlong_prompts_workers: 8
+
+    reward:
+      num_workers: 8
+
+    actor_rollout_ref:
+      model:
+        use_remove_padding: True
+        override_config:
+          attn_implementation: "sdpa"
+
+        # Oumi's top-level peft block is not wired into VERL_GRPO. These are
+        # verl's actor model keys: r=16, alpha=32, attention + MLP projections.
+        lora_rank: 16
+        lora_alpha: 32
+        target_modules:
+          - "q_proj"
+          - "k_proj"
+          - "v_proj"
+          - "o_proj"
+          - "gate_proj"
+          - "up_proj"
+          - "down_proj"
+
+        # This must be one regex string. PEFT treats a list as suffix matches,
+        # which would not exclude Gemma 4's unsupported vision/audio linears.
+        exclude_modules: "(.*vision_tower.*)|(.*audio_tower.*)"
+
+        # Existing actor-side Gemma 4 fixes: cache-less KV sharing and the
+        # post-FSDP buffer broadcast. The vLLM alias fix is applied directly to
+        # vLLM by this directory's launcher, before Ray starts its workers.
+        external_lib: "gemma4_verl_fixes"
+
+      actor:
+        use_kl_loss: True
+        kl_loss_coef: 0.001
+        kl_loss_type: "low_var_kl"
+        ppo_mini_batch_size: 16
+        use_dynamic_bsz: False
+        ppo_micro_batch_size_per_gpu: 8
+        entropy_from_logits_with_chunking: True
+        optim:
+          lr_warmup_steps: 20
+          lr_scheduler_type: "cosine"
+          min_lr_ratio: 0.1
+        fsdp_config:
+          param_offload: True
+          optimizer_offload: True
+
+      rollout:
+        log_prob_use_dynamic_bsz: False
+        log_prob_micro_batch_size_per_gpu: 16
+        tensor_model_parallel_size: 1
+        n: 8
+
+        # Required diagnostic for this experiment: compares vLLM rollout
+        # probabilities to the actor's recomputed old-policy probabilities.
+        calculate_log_probs: True
+
+        # The initial dummy_dtensor base-weight sync must fit Gemma 4's 8.75-GiB
+        # embed_tokens_per_layer tensor. Later LoRA syncs are much smaller.
+        checkpoint_engine:
+          update_weights_bucket_megabytes: 9216
+
+        engine_kwargs:
+          vllm:
+            limit_mm_per_prompt:
+              image: 0
+              video: 0
+              audio: 0
+
+            # Restrict vLLM wrappers to the fused decoder modules corresponding
+            # to the PEFT targets above. This also keeps the first full base
+            # sync's parameter renaming aligned with vLLM.
+            lora_target_modules:
+              - "qkv_proj"
+              - "o_proj"
+              - "gate_up_proj"
+              - "down_proj"
+
+      # With lora_rank > 0, verl computes reference log-probs by temporarily
+      # disabling the actor adapter. It does not instantiate a separate worker;
+      # the fsdp_config below is therefore inert in this LoRA run.
+      ref:
+        log_prob_use_dynamic_bsz: False
+        log_prob_micro_batch_size_per_gpu: 16
+        fsdp_config:
+          param_offload: True
+
+    algorithm:
+      kl_ctrl:
+        kl_coef: 0.001
+
+    trainer:
+      critic_warmup: 0
+      val_before_train: True
+      n_gpus_per_node: 4
+      nnodes: 1
+      max_actor_ckpt_to_keep: 2

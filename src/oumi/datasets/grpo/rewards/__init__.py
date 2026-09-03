@@ -18,6 +18,10 @@ from oumi.datasets.grpo.rewards.completion_length_rewards import (
     compute_sharp_target_token_length_reward,
     compute_soft_target_token_length_reward,
 )
+from oumi.datasets.grpo.rewards.count_letters_judge_rewards import (
+    compute_letter_count_judge_rewards,
+    count_letters_judge_verl,
+)
 from oumi.datasets.grpo.rewards.count_letters_rewards import (
     compute_letter_count_reward,
     count_letters_verl,
@@ -27,7 +31,9 @@ from oumi.datasets.grpo.rewards.gsm8k_reward import gsm8k_reward
 
 __all__ = [
     "compute_letter_count_reward",
+    "compute_letter_count_judge_rewards",
     "count_letters_verl",
+    "count_letters_judge_verl",
     "compute_soft_target_token_length_reward",
     "compute_sharp_target_token_length_reward",
     "countdown_reward",

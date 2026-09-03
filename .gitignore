@@ -184,3 +184,10 @@ cython_debug/
 
 # VS Code Workspace
 oumi.code-workspace
+
+data
+**outputs
+# HealthBench eval caches (model responses, judge outputs, dataset) - large, regenerable-but-costly
+experiments/rar_medicine/variant_b/healthbench/artifacts/
+experiments/rar_medicine/variant_b/rar_eval/artifacts/
+experiments/rar_medicine/variant_b/artifacts/

@@ -1,0 +1,32 @@
+# RaR-Medicine meta-rubric score for the Variant B GRPO policy (gemma-4-E2B-it +
+# step-64 LoRA adapter, r=16) responses in ../eval_outputs/grpo_variant_b_step64.jsonl
+# (same 1,000 test prompts as the base arm, greedy, NATIVE engine with the runtime
+# adapter; produced by ../eval_configs/infer_trained.yaml -- vLLM's LoRA path is a
+# no-op for gemma-4, so the two arms were decoded by different engines).
+#
+# Identical to eval_base.yaml apart from the responses file and artifact dir; see
+# that file for the regrade-only / OPENAI-engine explanation, judge provenance
+# and cost. `model.model_name` is recorded in summary.json only.
+#
+# Usage (from the repo root):
+#   oumi evaluate -c experiments/rar_medicine/variant_b/rar_eval/eval_trained.yaml
+
+model:
+  model_name: "google/gemma-4-E2B-it + verl_output/global_step_64/actor/lora_adapter"
+
+tasks:
+  - evaluation_backend: custom
+    task_name: rar_medicine
+    eval_kwargs:
+      responses_path: "experiments/rar_medicine/variant_b/eval_outputs/grpo_variant_b_step64.jsonl"
+      judge_config: "experiments/rar_medicine/variant_b/judge_config.yaml"
+      artifact_dir: "experiments/rar_medicine/variant_b/rar_eval/artifacts/trained"
+      judge_num_workers: 64
+      judge_batch_size: 500
+      judge_max_attempts: 3
+      sample_seed: 0
+      num_bootstrap_samples: 1000
+
+inference_engine: OPENAI
+
+output_dir: "experiments/rar_medicine/variant_b/rar_eval/artifacts/oumi_eval/trained"

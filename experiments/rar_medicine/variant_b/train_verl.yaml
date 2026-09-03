@@ -1,7 +1,26 @@
 # verl GRPO config to train gemma-4-E2B-it on RaR-Medicine with the Variant B
 # meta-rubric judge (gpt-4.1-mini, non-reasoning; see judge_config.yaml) as the
-# reward. The policy is a LoRA adapter (r=16) over the frozen base model — see
-# actor_rollout_ref.model below.
+# reward.
+#
+# 2026-09-02 retune (see MEMORY_TUNING.md next to this file for the numbers):
+#   * FULL fine-tune, not LoRA. vLLM 0.19.1 applies a gemma-4 LoRA adapter as a
+#     silent no-op (GEMMA4_VERL_GRPO_FIXES.md issue 15, still open), so with
+#     lora_rank > 0 every rollout is a base-model sample and GRPO trains on
+#     off-policy data. Full FT syncs the real weights to vLLM each step.
+#   * gemma4_verl_fixes (model.external_lib) = gemma4_kv_share_patch (without
+#     it every verl forward on gemma-4 is garbage: KV-shared layers need a
+#     cache object) + verl_rank_buffer_sync (FSDP left ranks 1-3 with wrong
+#     RoPE buffers, so 3 of 4 ranks computed wrong log-probs).
+#   * Remove-padding with sdpa and fixed-size micro-batches (dynamic batching
+#     desyncs FSDP ranks in verl 0.7.1, see actor block) instead of padded ones: the OOM was 32 padded sequences x
+#     four full-vocab tensors (~138 GiB per GPU); the padded path also ignores
+#     verl's chunked-entropy option. flash-attn 2.8.3.post1 (source build)
+#     provides the unpad/pad utilities; FA2 kernels themselves cannot run
+#     gemma-4 (global head_dim 512 > 256).
+#   * max_prompt_length 512 (tokenised prompt p99 is 383, max 1000; the ~0.2 %
+#     longer rows are filtered). Padded forwards shrink 2048 -> 1536 tokens.
+#   * lr schedule set through verl's optim block: oumi's top-level
+#     lr_scheduler_type / warmup_steps are not wired into the VERL_GRPO trainer.
 #
 # Adapted from configs/examples/letter_counting/grpo/train_verl.yaml (which
 # carries the gemma-4 rollout workarounds). The dataset class and the
@@ -22,7 +41,7 @@
 # Judge cost note: each step scores train_batch_size * rollout.n = 64 * 8 = 512
 # responses; each eval scores the val subset once. gpt-4.1-mini is ~$0.40/M
 # input + $1.60/M output tokens; with ~1k-token judge prompts and ~150-token
-# verdicts this is roughly $0.30 per training step, ~$20 for the 64-step run.
+# verdicts this is roughly $0.30 per training step.
 
 model:
   model_name: "google/gemma-4-E2B-it"
@@ -32,48 +51,70 @@ data:
     datasets:
       - dataset_name: "anisha2102/RaR-Medicine"
         split: "train"
-        # Full train split is 17,926 examples (~280 steps/epoch at batch 64,
-        # ~143k judge calls). Subsampled for a first run; raise or remove for
-        # full training.
-        sample_count: 4096
+        # Full train split is 17,926 examples (~280 steps/epoch at batch 64).
+        # No sample_count: a value above the split size makes oumi oversample
+        # (20000 gave 17,926 + 2,074 duplicated rows).
   validation:
     datasets:
       - dataset_name: "anisha2102/RaR-Medicine"
         # The hub split is named "val" (2,240 examples); keep periodic eval
         # cheap — every eval costs one judge call per sample.
         split: "val"
-        sample_count: 256
+        sample_count: 1000
 
 training:
   trainer_type: "VERL_GRPO"
-  num_train_epochs: 1
-  save_steps: 100
-  eval_strategy: "steps"
-  eval_steps: 50
 
-  # LoRA trains ~0.5% of the parameters, so the full-finetune 1e-6 barely moves
-  # the adapter. 1e-5 is the usual order for LoRA GRPO; the full-finetune value
-  # was 1.0e-6, restore it if lora_rank goes back to 0 below.
-  learning_rate: 1.0e-5
+  num_train_epochs: 1
+  # One epoch = 17,926 / 64 = 280 steps; measured 66-72 s/step in attempt 3
+  # (steps 3-4) -> ~5.6 h + 7 evals of 995 samples. oumi maps this to
+  # trainer.total_training_steps. Raise it and re-run to continue: verl
+  # auto-resumes from the newest checkpoint under output_dir/verl_output.
+  max_steps: 280
+
+  # Full fine-tune LR (the LoRA runs used 1e-5). Schedule is set below under
+  # actor_rollout_ref.actor.optim; these two top-level keys are NOT read by the
+  # VERL_GRPO trainer and are left out on purpose.
+  learning_rate: 1.0e-6
+
+  # Reward
+  reward_functions: ["rar_medicine_verl"]
+
   enable_gradient_checkpointing: True
 
-  # Registered in rar_medicine_grpo.py (async verl-style reward; the trainer
-  # wires it into verl as an importable module, so no file paths are needed).
-  reward_functions: ["rar_medicine_verl"]
+  # Eval and checkpointing. A full-FT verl checkpoint (fp32 params + AdamW,
+  # sharded) is ~60 GB; trainer.max_actor_ckpt_to_keep below caps the count.
+  eval_strategy: "steps"
+  eval_steps: 50
+  save_steps: 50
+
+  # Logging
+  logging_steps: 1
+  output_dir: "/workspace/persist/shanghong/oumi/tmp/rar_medicine/variant_b/output/medqa_gemma4-e2b-it_fullft"
+  run_name: "medqa_gemma4-e2b-it_fullft"
+  enable_wandb: True
 
   grpo:
     max_completion_length: 1024
     use_vllm: True
     temperature: 1.0
-    vllm_gpu_memory_utilization: 0.4
+    # vLLM budget per GPU (fraction of 79.18 GiB). Rollouts share the GPU with
+    # the resident actor (fp32 shard + AdamW ~14 GiB, no offload); see
+    # MEMORY_TUNING.md for the per-phase budget behind this value.
+    vllm_gpu_memory_utilization: 0.55
 
   verl_config_overrides:
     data:
       train_batch_size: 64
       val_batch_size: 256
-      # Question p99 is ~1.2k chars (~300 tokens); the longest vignette is
-      # ~3k chars. 1024 tokens covers everything incl. the system prompt.
-      max_prompt_length: 1024
+      # Tokenised prompts (system prompt included): mean 147, p99 383, max
+      # 1000 over the train split. 512 keeps >99.8 % of rows; the rest are
+      # dropped by filter_overlong_prompts. Every actor/ref forward runs on
+      # max_prompt_length + max_completion_length padded tokens, so this is a
+      # 25 % cut in log-prob / update compute versus 1024.
+      max_prompt_length: 512
+      filter_overlong_prompts: True
+      filter_overlong_prompts_workers: 8
     reward:
       # Ray actors that run the reward; each dispatches its chunk of samples
       # to a thread pool, so SimpleJudge calls overlap. In-flight OpenAI
@@ -82,133 +123,115 @@ training:
       num_workers: 8
     actor_rollout_ref:
       model:
+        # Remove-padding ON: verl unpads each micro-batch (flash_attn.bert_padding;
+        # flash-attn 2.8.3.post1 built from source 2026-09-02) and runs one
+        # packed forward over the real tokens only (~30 % of the padded 1536).
+        # The attention kernel stays sdpa: FlashAttention-2 rejects gemma-4's
+        # 512-wide global-attention heads ("head dimension at most 256"), and
+        # transformers builds the packed-sequence block masks from position_ids
+        # for sdpa. checks/rmpad_fa2_numerics_check.py: packed-sdpa log-probs
+        # match padded-sdpa within the eager-vs-sdpa bf16 noise floor (mean
+        # |d| 0.014 vs 0.015). Logits/entropy memory now scales with real
+        # tokens, so micro-batches are token-budgeted (use_dynamic_bsz) below.
+        use_remove_padding: True
         override_config:
           attn_implementation: "sdpa"
-        # Remove-padding requires the flash-attn package (flash_attn.bert_padding),
-        # which is not installed; run padded forwards with sdpa instead.
-        use_remove_padding: False
+        # lora_rank stays at verl's default 0 (full fine-tune), see header.
+        #
+        # REQUIRED for gemma-4 (verl imports this module in every FSDP worker
+        # before building the model; it lives next to this file, the directory
+        # is on PYTHONPATH via run.sh). It applies two fixes:
+        #  1. gemma4_kv_share_patch: verl runs every training forward with
+        #     use_cache=False, and transformers only reuses the K/V of gemma-4's
+        #     20 KV-shared layers through the cache object, so cache-less
+        #     forwards are garbage (mean logp -12 vs -2.3).
+        #  2. verl_rank_buffer_sync: after FSDP construction ranks 1-3 held wrong
+        #     RoPE inv_freq buffers (FSDP's sync_module_states misaligned the
+        #     buffer broadcast), so 3 of 4 ranks computed wrong log-probs
+        #     (seq-avg -logp 2.46 vs 0.46 on rank 0 / vLLM). The module
+        #     re-broadcasts every buffer from rank 0.
+        # See MEMORY_TUNING.md §0 and §8, checks/kv_share_patch_check.py.
+        external_lib: "gemma4_verl_fixes"
 
-        # --- LoRA -----------------------------------------------------------
-        # Oumi's top-level `peft:` block is not wired into the VERL_GRPO
-        # trainer, so the adapter is declared with verl's own keys here. Any
-        # lora_rank > 0 flips three switches at once: the actor is wrapped in a
-        # PEFT model, the reference policy becomes that same actor with the
-        # adapter disabled (verl drops the standalone ref worker), and vLLM is
-        # launched with --enable-lora --max-lora-rank 16 so that after the
-        # first step only adapter tensors cross the weight-sync bus.
-        #
-        # r=16 on every attention and MLP projection. The task changes how the
-        # model reasons through and phrases a clinical answer, which is
-        # behaviour spread across the stack rather than knowledge in a few
-        # layers, so the MLP projections are included.
-        lora_rank: 16
-        lora_alpha: 32
-        target_modules:
-          - "q_proj"
-          - "k_proj"
-          - "v_proj"
-          - "o_proj"
-          - "gate_proj"
-          - "up_proj"
-          - "down_proj"
-        # The config instantiates gemma-4's vision and audio towers even where
-        # the checkpoint carries no weights for them, and their projections
-        # share these leaf names. They are Gemma4ClippableLinear, which PEFT
-        # cannot adapt, so targeting by bare name alone fails at adapter
-        # injection. verl forwards this value to peft.LoraConfig verbatim, and
-        # PEFT only regex-matches exclude_modules when it is a single string —
-        # a *list* of patterns is matched by suffix instead and would silently
-        # exclude nothing. Hence one alternation rather than the two-element
-        # list an oumi `peft:` block would use.
-        exclude_modules: "(.*vision_tower.*)|(.*audio_tower.*)"
-        # No lora_dropout knob: verl builds LoraConfig with r, lora_alpha,
-        # target/exclude_modules, task_type and bias only, so dropout stays at
-        # PEFT's 0.0 regardless of what is set here.
-        #
-        # rollout.load_format is left at the default dummy_dtensor: verl then
-        # pushes the full base weights on the first weight sync and adapter
-        # tensors only from step 2 on. The alternative (load_format=safetensors
-        # + use_shm, which is also what rollout.layered_summon requires) has
-        # vLLM load the base from disk instead; not worth deviating from the
-        # sync path this model is known to survive to save one transfer.
       actor:
         use_kl_loss: True
         kl_loss_coef: 0.001
         kl_loss_type: "low_var_kl"
         # 16 prompts x 8 rollouts = 128 sequences per mini-batch = 32 per GPU on
-        # 4 GPUs -> 8 accumulation steps of 4; 4 optimizer steps per training step.
+        # 4 GPUs; 4 optimizer steps per training step.
         ppo_mini_batch_size: 16
-        ppo_micro_batch_size_per_gpu: 4
-        # No actor param/optimizer offload, deliberately (it slows every phase
-        # switch). GEMMA4_VERL_GRPO_FIXES.md #11 needed it at 4 GPUs for the
-        # full-finetune run, whose weight-sync peak was ~61 GiB: 5.1 GiB fp32
-        # shard + 10.3 GiB AdamW + 5.1 GiB grads resident, plus the 20.6 GiB
-        # summon_full_params gather / 9.4 GiB embed tensor + 10 GiB bucket in
-        # flight. LoRA (25.3M trainable params) shrinks AdamW + grads to
-        # 0.3 GiB, so the same moment is ~26 GiB here next to ~17 GiB of vLLM.
-        # Full per-phase budget: GPU_MEMORY.md next to this file.
+        # FIXED micro-batches, dynamic batching OFF (2026-09-02 11:47 crash):
+        # verl's compute_log_prob calls prepare_dynamic_batch without a
+        # dp_group, so use_dynamic_bsz never equalises the number of
+        # micro-batches across DP ranks; when responses grew, ranks 0-1 ran one
+        # more FSDP forward (all-gather) than ranks 2-3 (already in the next
+        # all-reduce) and NCCL's 10-min watchdog killed the run at step 20.
+        # Remove-padding still packs only real tokens inside each micro-batch;
+        # 8 sequences x 1536 max = 12288 tokens worst case, the cap measured at
+        # ~50 GiB peak in attempt 3 (update forward+backward ~28 GiB on top of
+        # 19-23 GiB live). 32 sequences per GPU per mini-batch -> 4 micro-batches
+        # on every rank.
+        use_dynamic_bsz: False
+        ppo_micro_batch_size_per_gpu: 8
+        # Honoured by the rmpad branch (the padded branch ignored it): entropy
+        # softmax in 2048-row chunks instead of one full-vocab fp32 tensor.
+        entropy_from_logits_with_chunking: True
+        optim:
+          lr_warmup_steps: 20
+          lr_scheduler_type: "cosine"
+          min_lr_ratio: 0.1
+        fsdp_config:
+          # Both offloads ON (GEMMA4_VERL_GRPO_FIXES.md #11, re-measured
+          # 2026-09-02 attempt 2): without them the actor process sat at
+          # 60.7 GiB during the step-1 weight sync (fp32 shard + root FSDP
+          # unit + 8.75 GiB full_tensor of embed_tokens_per_layer + 9 GiB
+          # sender bucket + allocator fragmentation with expandable segments
+          # off) while vLLM needed weights 9.5 + bucket 9 + clones 9 GiB, and
+          # the receiver OOMed. From step 2 the 9.5 GiB AdamW states would sit
+          # there too. Cost: one H2D copy of the 4.8 GiB shard per phase switch
+          # and a 9.5 GiB round trip of the optimizer per step (~2-3 s/step).
+          param_offload: True
+          optimizer_offload: True
+
       rollout:
-        log_prob_micro_batch_size_per_gpu: 4
-        tensor_model_parallel_size: 2
-        # 8 rollouts/prompt (letter counting used 16): halves judge cost while
-        # keeping enough spread for group-relative advantages.
+        # Old-log-prob pass (entropy computed, chunked): ~1 MiB per real token
+        # of bf16 logits (x2 transient for gemma-4's logit softcapping) plus a
+        # fixed 2 GiB entropy chunk. Fixed 16 sequences per micro-batch = 24576
+        # tokens worst case (~7.5k typical), identical count (8) on every rank;
+        # dynamic batching is off for the reason given under actor above.
+        log_prob_use_dynamic_bsz: False
+        log_prob_micro_batch_size_per_gpu: 16
+        tensor_model_parallel_size: 1
         n: 8
 
         # Have vLLM return per-token log-probs so verl logs
         # training/rollout_probs_diff_{max,mean,std} and
         # training/rollout_actor_probs_pearson_corr each step (actor vs rollout
-        # engine on the same tokens). This is the guard for the LoRA sync path:
-        # verl ships adapter tensors to vLLM without validating module names
-        # (from_lora_tensors skips check_unexpected_modules), so a mapping
-        # mistake would leave vLLM silently serving the base model. Then the
-        # diff grows step over step; with the adapter applied it stays at
-        # bf16 noise (mean ~1e-3, corr ~1.0). vLLM computes these anyway;
-        # the cost is one float per token over the bus.
+        # engine on the same tokens). With full FT the diff must sit at bf16
+        # noise; a growing diff means the weight sync is broken.
         calculate_log_probs: True
 
-        # gemma-4's embed_tokens_per_layer is a single 9.4GB fp32 tensor
-        # (262144 x 8960); the default 2048MB weight-sync bucket cannot hold it.
+        # gemma-4's embed_tokens_per_layer is a single 8.75 GiB fp32 tensor
+        # (262144 x 8960); the weight-sync bucket must hold it. 9216 MiB gives
+        # a 0.25 GiB margin and is 1 GiB smaller than the previous 10240 on
+        # both the sender and the receiver clone.
         checkpoint_engine:
-          update_weights_bucket_megabytes: 10240
+          update_weights_bucket_megabytes: 9216
 
         # Text-only task: disable multimodal inputs so vLLM skips profiling
-        # gemma-4's vision/audio towers (broken in the generic
-        # TransformersMultiModal fallback used for this architecture).
+        # gemma-4's vision/audio towers.
         engine_kwargs:
           vllm:
             limit_mm_per_prompt:
               image: 0
               video: 0
               audio: 0
-            # Restrict which modules vLLM wraps for LoRA. With --enable-lora
-            # vLLM wraps EVERY LoRA-capable linear, renaming its parameter to
-            # <module>.base_layer.weight. verl's first weight sync (load_format
-            # dummy_dtensor streams the whole base model) renames outgoing keys
-            # to that form only for q/k/v/o/gate/up/down_proj
-            # (verl/utils/fsdp_utils.py replace_lora_wrapper). gemma-4 has more
-            # linears that vLLM would otherwise wrap — per_layer_input_gate,
-            # per_layer_projection, per_layer_model_projection, embed_tokens,
-            # lm_head — so their un-renamed keys miss and vLLM raises
-            # KeyError: 'layers.0.per_layer_input_gate.weight' mid-sync (the
-            # trainer then hangs on the dead engine, GEMMA4_VERL_GRPO_FIXES.md
-            # issue 14). These are vLLM's fused module names, matched on the
-            # last path segment: qkv_proj packs q/k/v, gate_up_proj packs
-            # gate/up. The adapter (train_verl.yaml target_modules above) only
-            # touches these modules, so nothing is lost by not wrapping the rest.
-            # Verified by checks/vllm_base_sync_check.py.
-            lora_target_modules:
-              - "qkv_proj"
-              - "o_proj"
-              - "gate_up_proj"
-              - "down_proj"
 
-      # With lora_rank > 0 verl creates no separate ref worker: the reference
-      # log probs come from the actor with the adapter disabled, and that pass
-      # reads ref.log_prob_micro_batch_size_per_gpu (fsdp_workers.py, the
-      # is_lora branch of compute_log_prob). fsdp_config is inert in that mode;
-      # kept for the non-LoRA configuration.
       ref:
-        log_prob_micro_batch_size_per_gpu: 2
+        # Separate ref worker (full FT), no entropy: ~1 MiB per real token.
+        # Fixed 16 sequences per micro-batch (see actor/rollout for why).
+        log_prob_use_dynamic_bsz: False
+        log_prob_micro_batch_size_per_gpu: 16
         fsdp_config:
           param_offload: True
     algorithm:
@@ -216,13 +239,7 @@ training:
         kl_coef: 0.001
     trainer:
       critic_warmup: 0
-      val_before_train: False
-      # Must equal the number of GPUs Ray can see; run.sh exports
-      # CUDA_VISIBLE_DEVICES=0,1,2,3. tensor_model_parallel_size 2 -> two vLLM
-      # replicas. 512 sequences/step and 128/mini-batch both divide by 4.
+      val_before_train: True
       n_gpus_per_node: 4
       nnodes: 1
-
-  output_dir: "/workspace/persist/shanghong/oumi/tmp/rar_medicine/variant_b/output"
-  run_name: "rar_medicine_grpo_verl_variant_b"
-  enable_wandb: True
+      max_actor_ckpt_to_keep: 2

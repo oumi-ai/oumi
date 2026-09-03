@@ -4,10 +4,14 @@ Trains gemma-4-E2B-it on `anisha2102/RaR-Medicine` with verl GRPO, using ONE
 LLM judge that applies the fixed meta rubric (Variant B / implicit aggregation,
 see `../META_RUBRIC.md`) instead of the dataset's per-sample rubrics.
 Reward = judge's holistic 0-10 score / 10, conditioned on the sample's
-`reference_answer`. The policy is a LoRA adapter (r=16, alpha=32, all
-attention + MLP projections of the 35 language-model layers; vision/audio
-towers excluded) over the frozen base — see the `LoRA` block in
-`train_verl.yaml`. Sized for 4 GPUs.
+`reference_answer`. Sized for 4 GPUs.
+
+**2026-09-02:** the recipe is now a **full fine-tune** with remove-padding,
+actor offload and `gemma4_kv_share_patch.py` (vLLM applies gemma-4 LoRA as a
+no-op, and without the patch every verl forward on gemma-4 is garbage). Read
+`MEMORY_TUNING.md` first: it has the OOM post-mortem, the KV-sharing bug, the
+measured per-phase memory budget and the tuning log. The LoRA (r=16) history is
+in `RUN_REPORT.md` and `GPU_MEMORY.md`.
 
 ## Files
 
@@ -26,7 +30,10 @@ towers excluded) over the frozen base — see the `LoRA` block in
   `configs/examples/letter_counting/grpo/train_verl.yaml`, incl. the gemma-4
   workarounds), LoRA declared with verl's own `actor_rollout_ref.model.lora_*`
   keys (oumi's `peft:` block is not wired into the VERL_GRPO trainer)
-- `GPU_MEMORY.md` — per-phase GPU memory budget for this config on 4x H100
+- `MEMORY_TUNING.md` — 2026-09-02 OOM post-mortem, gemma-4 KV-sharing bug, measured full-FT budget, tuning log and results
+- `gemma4_kv_share_patch.py` — REQUIRED for gemma-4 training forwards (loaded via `actor_rollout_ref.model.external_lib`)
+- `checks/kv_share_patch_check.py`, `checks/rmpad_fa2_numerics_check.py`, `checks/actor_mem_replay.py`, `checks/fullft_phase_replay.py` — the measurements behind `MEMORY_TUNING.md`
+- `GPU_MEMORY.md` — per-phase GPU memory budget for the earlier LoRA config on 4x H100 (superseded, see banner)
   (why no actor offload is needed with LoRA, and what to change if it OOMs)
 - `checks/` — standalone vLLM check that a PEFT adapter with this exact
   `LoraConfig` loads into the (patched) vLLM gemma-4 class and is a no-op when

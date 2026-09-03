@@ -1,0 +1,47 @@
+diff --git a/vllm/lora/model_manager.py b/vllm/lora/model_manager.py
+--- a/vllm/lora/model_manager.py
++++ b/vllm/lora/model_manager.py
+@@ -286,21 +286,34 @@ class LoRAModelManager:
+             "Activating LoRA. int id: %d, slot index: %d", lora_model.id, index
+         )
+         self.lora_index_to_id[index] = lora_model.id
++
++        # A model can expose the same physical module under multiple names.
++        # Gemma 4 does this for decoder layers used by its KV-sharing path.
++        # Decide once per physical module before mutating its LoRA slot: a
++        # later alias without an adapter weight must not erase a weight loaded
++        # through another alias.
++        choice_by_object = {}
+         for module_name, module in self.modules.items():
+             module_lora = self._get_lora_layer_weights(lora_model, module_name)
+-            if not module_lora:
++            key = id(module)
++            if key not in choice_by_object or module_lora is not None:
++                choice_by_object[key] = (module_name, module, module_lora)
++
++        for module_name, module, module_lora in choice_by_object.values():
++            if module_lora is None:
+                 module.reset_lora(index)
+                 logger.debug(
+                     "No LoRA weights found for module %s, skipping.", module_name
+                 )
+-                continue
+-
+-            module.set_lora(
+-                index,
+-                module_lora.lora_a,
+-                module_lora.lora_b,
+-            )
+-            logger.debug("Successfully loaded LoRA weights for module %s.", module_name)
++            else:
++                module.set_lora(
++                    index,
++                    module_lora.lora_a,
++                    module_lora.lora_b,
++                )
++                logger.debug(
++                    "Successfully loaded LoRA weights for module %s.", module_name
++                )
+         return True
+
+     def _deactivate_adapter(self, lora_id: int):

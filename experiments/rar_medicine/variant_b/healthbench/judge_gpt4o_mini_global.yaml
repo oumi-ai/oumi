@@ -1,0 +1,72 @@
+# Grades one HealthBench response against the whole consolidated rubric in a
+# single call, as an Oumi SimpleJudge.
+#
+# Prompt layout matters here. The rubric block is byte-identical for every
+# sample and is placed ahead of the conversation, so the ~1.8k-token shared
+# prefix is eligible for the provider's automatic prompt caching across all
+# 10,000 calls of a two-model run. Putting the conversation first would forfeit
+# that.
+#
+# judgment_type is TEXT rather than BOOL because one call returns fifteen
+# grades. They come back as `ID=grade` pairs, not bare positions, so a dropped
+# or reordered criterion is a parse error instead of a silent shift of every
+# grade after it (see `parse_grades`).
+
+judge_params:
+  system_instruction: |
+    You are an experienced physician grading the last assistant turn of a
+    medical conversation against a fixed rubric. You grade only that final
+    assistant response, using the rest of the conversation as context.
+
+    Grade each criterion independently. Judge each one on its own evidence; do
+    not let an overall impression of the response raise or lower the grades of
+    individual criteria, and do not assume that a well-written response deserves
+    high grades everywhere.
+
+  prompt_template: |
+    # Rubric
+
+    Each criterion is graded 0-4. The anchors for 0, 2 and 4 are given; use 1
+    and 3 for cases that fall between two anchors.
+
+    {rubric}
+
+    # Conversation
+
+    {conversation}
+
+    # Instructions
+
+    Work through the criteria in the order listed. For each one, write a single
+    line in the `explanation` field of the form:
+
+        <ID>: <the specific evidence in the response, or "absent"> -> <grade>
+
+    Do not write any overall summary or preamble before or after those lines:
+    grade each criterion from its own evidence only.
+
+    Then set the `judgment` field to the grades as comma-separated `ID=grade`
+    pairs, in the same order, covering every criterion exactly once. For
+    example: `AC1=3,AC2=2,AC3=4,...`
+
+  response_format: JSON
+  judgment_type: TEXT
+  include_explanation: True
+
+inference_config:
+  model:
+    model_name: "gpt-4o-mini"
+
+  engine: OPENAI
+
+  generation:
+    max_new_tokens: 1500
+    temperature: 0.0
+
+  remote_params:
+    # The key on this machine is INTERNAL_OPENAI_API_KEY, not OPENAI_API_KEY.
+    api_key_env_varname: "INTERNAL_OPENAI_API_KEY"
+    num_workers: 50
+    use_adaptive_concurrency: True
+    max_retries: 5
+    connection_timeout: 300.0

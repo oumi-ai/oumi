@@ -1,0 +1,49 @@
+# RaR-Medicine meta-rubric score for the UNTRAINED google/gemma-4-E2B-it responses
+# in ../eval_outputs/base_gemma4_e2b_it.jsonl (1,000 test prompts, greedy, vLLM;
+# produced by ../eval_configs/infer_base.yaml).
+#
+# Regrade-only: the responses already exist, so no policy model is loaded. The
+# task function takes an `inference_engine` argument and oumi builds one eagerly
+# from the `inference_engine:` field below; OPENAI is the cheapest engine to
+# construct (a client object, no weights) and is never called because
+# `responses_path` is set. `model.model_name` is only recorded in summary.json.
+#
+# Judge: ../judge_config.yaml, byte-identical to the Variant B training judge
+# (gpt-4.1-mini, temperature 0, one holistic 0-10 integer conditioned on the
+# reference answer). The harness overrides only its request concurrency
+# (`judge_num_workers`); rubric, model and sampling are untouched, so this
+# number is the training reward measured on held-out prompts. Needs
+# OPENAI_API_KEY; run_eval.sh copies it from the repo .env.
+#
+# Cost: 1,000 calls x ~1k input / ~200 output tokens on gpt-4.1-mini, ~$0.75.
+#
+# Usage (from the repo root):
+#   bash experiments/rar_medicine/variant_b/rar_eval/run_eval.sh      # both arms + compare
+#   oumi evaluate -c experiments/rar_medicine/variant_b/rar_eval/eval_base.yaml
+# Pilot: append `--tasks.0.num_samples 20`. Judgments are cached per
+# conversation in artifacts/base/judgments.jsonl, so a pilot's calls are reused
+# by the full run and an interrupted run resumes where it stopped.
+#
+# See Also:
+#   - eval_trained.yaml (identical except for the responses file)
+#   - src/oumi/evaluation/registry/rar_medicine_task.py
+
+model:
+  model_name: "google/gemma-4-E2B-it"
+
+tasks:
+  - evaluation_backend: custom
+    task_name: rar_medicine
+    eval_kwargs:
+      responses_path: "experiments/rar_medicine/variant_b/eval_outputs/base_gemma4_e2b_it.jsonl"
+      judge_config: "experiments/rar_medicine/variant_b/judge_config.yaml"
+      artifact_dir: "experiments/rar_medicine/variant_b/rar_eval/artifacts/base"
+      judge_num_workers: 64
+      judge_batch_size: 500
+      judge_max_attempts: 3
+      sample_seed: 0
+      num_bootstrap_samples: 1000
+
+inference_engine: OPENAI
+
+output_dir: "experiments/rar_medicine/variant_b/rar_eval/artifacts/oumi_eval/base"
