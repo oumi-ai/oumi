@@ -70,7 +70,7 @@ from oumi.utils.packaging import is_verl_v0_7_or_later
 from oumi.utils.verl_model_merger import FSDPModelMerger, ModelMergerConfig
 
 # Every step's metrics are mirrored to this file under the output dir so callers
-# can read reward curves without a wandb account.
+# can read reward curves.
 _VERL_FILE_LOGGER_BACKEND = "file"
 _VERL_FILE_LOGGER_PATH_ENV = "VERL_FILE_LOGGER_PATH"
 
