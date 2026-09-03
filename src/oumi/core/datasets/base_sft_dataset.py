@@ -69,7 +69,9 @@ class BaseSftDataset(BaseMapDataset, ABC):
         self._response_template = response_template
         self._instruction_template = instruction_template
         self._return_conversations = return_conversations
-        self._return_conversations_format = return_conversations_format
+        self._return_conversations_format: Literal["dict", "json"] = (
+            return_conversations_format
+        )
 
         if self._assistant_only:
             self._verify_assistant_only_compatibility()

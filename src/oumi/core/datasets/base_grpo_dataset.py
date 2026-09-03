@@ -51,7 +51,9 @@ class BaseExperimentalGrpoDataset(BaseMapDataset):
         )
 
         self._return_conversations = return_conversations
-        self._return_conversations_format = return_conversations_format
+        self._return_conversations_format: Literal["dict", "json"] = (
+            return_conversations_format
+        )
         self._data = self._load_data()
 
     @override
