@@ -15,7 +15,7 @@
 import importlib
 import sys
 from datetime import timedelta
-from types import ModuleType, SimpleNamespace
+from types import ModuleType
 from unittest.mock import patch
 
 import pytest
@@ -87,14 +87,13 @@ def test_installs_patch_on_legacy_verl():
             self.initialized = True
 
     original_init = FakeDataParallelPPOActor.__init__
-    actor_module = ModuleType("verl.workers.actor")
-    actor_module.dp_actor = SimpleNamespace(  # pyright: ignore[reportAttributeAccessIssue]
-        DataParallelPPOActor=FakeDataParallelPPOActor
+    dp_actor_module = ModuleType("verl.workers.actor.dp_actor")
+    dp_actor_module.DataParallelPPOActor = (  # pyright: ignore[reportAttributeAccessIssue]
+        FakeDataParallelPPOActor
     )
-
     with (
         patch.object(packaging, "is_verl_v0_8_or_later", return_value=False),
-        patch.dict(sys.modules, {"verl.workers.actor": actor_module}),
+        patch.dict(sys.modules, {"verl.workers.actor.dp_actor": dp_actor_module}),
     ):
         module = _import_fresh_module()
 

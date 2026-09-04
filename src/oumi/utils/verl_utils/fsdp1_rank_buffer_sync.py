@@ -20,6 +20,7 @@ log-probs. The patch wraps ``DataParallelPPOActor.__init__`` and broadcasts
 rank 0's buffers by name, shape, and dtype, including aliased buffers.
 """
 
+from importlib import import_module
 from typing import Any, cast
 
 import torch
@@ -85,7 +86,7 @@ def _sync_buffers_from_rank0(module: torch.nn.Module) -> tuple[int, int]:
 
 def _install_patch() -> None:
     # This legacy actor module was removed in verl 0.8's worker-to-engine migration.
-    from verl.workers.actor import dp_actor
+    dp_actor = cast(Any, import_module("verl.workers.actor.dp_actor"))
 
     orig_init = dp_actor.DataParallelPPOActor.__init__
 
