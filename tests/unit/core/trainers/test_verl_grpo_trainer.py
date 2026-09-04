@@ -13,6 +13,7 @@ from oumi.core.configs import (
     TrainingConfig,
     TrainingParams,
 )
+from oumi.core.trainers.verl_grpo_metrics import REWARD_GROUP_LOW_STD_CONFIG_KEY
 from oumi.core.trainers.verl_grpo_trainer import VerlGrpoTrainer
 from oumi.core.types.conversation import (
     ContentItem,
@@ -278,6 +279,97 @@ def _make_trainer_for_config(
     trainer._final_output_dir = Path(output_dir)
     trainer._temp_output_dir = Path(output_dir) / "verl_output"
     return trainer
+
+
+def _make_trainer_for_setup(adv_estimator: str, low_std_threshold: float):
+    trainer = object.__new__(VerlGrpoTrainer)
+    verl_config = MagicMock()
+    verl_config.algorithm.adv_estimator = adv_estimator
+    verl_config.algorithm.get.side_effect = lambda key, default: (
+        low_std_threshold if key == REWARD_GROUP_LOW_STD_CONFIG_KEY else default
+    )
+    verl_config.trainer.n_gpus_per_node = 1
+    verl_config.trainer.nnodes = 1
+    trainer._create_config = MagicMock(return_value=verl_config)
+    trainer._processing_class = MagicMock()
+    trainer._processor = None
+    trainer._reward_funcs = []
+    return trainer
+
+
+@pytest.mark.skipif(verl_import_failed, reason="verl not available")
+def test_create_config_preserves_reward_group_low_std_threshold_override():
+    trainer = _make_trainer_for_config(save_steps=-1, save_final_model=False)
+    trainer._oumi_config.training.verl_config_overrides = {
+        "algorithm": {REWARD_GROUP_LOW_STD_CONFIG_KEY: 0.25}
+    }
+
+    verl_config = trainer._create_config()
+
+    assert verl_config.algorithm.get(REWARD_GROUP_LOW_STD_CONFIG_KEY) == 0.25
+
+
+@pytest.mark.skipif(verl_import_failed, reason="verl not available")
+def test_setup_installs_grpo_reward_group_metrics_before_trainer_construction():
+    trainer = _make_trainer_for_setup("grpo", 0.25)
+    events = []
+
+    with (
+        patch(
+            "oumi.core.trainers.verl_grpo_trainer."
+            "install_verl_grpo_reward_group_metrics_patch",
+            side_effect=lambda **_: events.append("install"),
+        ) as install_patch,
+        patch(
+            "oumi.core.trainers.verl_grpo_trainer.RayPPOTrainer",
+            side_effect=lambda **_: events.append("construct") or MagicMock(),
+        ),
+        patch(
+            "oumi.core.trainers.verl_grpo_trainer.ResourcePoolManager",
+            return_value=MagicMock(),
+        ),
+        patch(
+            "oumi.core.trainers.verl_grpo_trainer.ray.remote", side_effect=lambda x: x
+        ),
+        patch(
+            "oumi.core.trainers.verl_grpo_trainer.is_verl_v0_7_or_later",
+            return_value=True,
+        ),
+    ):
+        trainer._setup_verl_trainer()
+
+    install_patch.assert_called_once_with(low_std_threshold=0.25)
+    assert events == ["install", "construct"]
+
+
+@pytest.mark.skipif(verl_import_failed, reason="verl not available")
+def test_setup_does_not_install_reward_group_metrics_for_other_estimators():
+    trainer = _make_trainer_for_setup("gae", 0.25)
+
+    with (
+        patch(
+            "oumi.core.trainers.verl_grpo_trainer."
+            "install_verl_grpo_reward_group_metrics_patch"
+        ) as install_patch,
+        patch(
+            "oumi.core.trainers.verl_grpo_trainer.RayPPOTrainer",
+            return_value=MagicMock(),
+        ),
+        patch(
+            "oumi.core.trainers.verl_grpo_trainer.ResourcePoolManager",
+            return_value=MagicMock(),
+        ),
+        patch(
+            "oumi.core.trainers.verl_grpo_trainer.ray.remote", side_effect=lambda x: x
+        ),
+        patch(
+            "oumi.core.trainers.verl_grpo_trainer.is_verl_v0_7_or_later",
+            return_value=True,
+        ),
+    ):
+        trainer._setup_verl_trainer()
+
+    install_patch.assert_not_called()
 
 
 @pytest.mark.skipif(verl_import_failed, reason="verl not available")

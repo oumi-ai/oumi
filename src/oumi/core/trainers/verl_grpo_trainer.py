@@ -58,6 +58,11 @@ from oumi.core.configs import DatasetSplitParams, TrainingConfig
 from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.trainers.base_trainer import BaseTrainer
+from oumi.core.trainers.verl_grpo_metrics import (
+    DEFAULT_REWARD_GROUP_LOW_STD_THRESHOLD,
+    REWARD_GROUP_LOW_STD_CONFIG_KEY,
+    install_verl_grpo_reward_group_metrics_patch,
+)
 from oumi.utils.logging import logger
 from oumi.utils.packaging import is_verl_v0_7_or_later
 from oumi.utils.verl_model_merger import FSDPModelMerger, ModelMergerConfig
@@ -540,6 +545,15 @@ class VerlGrpoTrainer(BaseTrainer):
             )
         self._verl_config = self._create_config()
         logger.info(f"verl config: {pformat(self._verl_config)}")
+
+        if self._verl_config.algorithm.adv_estimator == "grpo":
+            low_std_threshold = self._verl_config.algorithm.get(
+                REWARD_GROUP_LOW_STD_CONFIG_KEY,
+                DEFAULT_REWARD_GROUP_LOW_STD_THRESHOLD,
+            )
+            install_verl_grpo_reward_group_metrics_patch(
+                low_std_threshold=low_std_threshold
+            )
 
         tokenizer = self._processing_class
 
