@@ -184,7 +184,9 @@ def test_prepare_dataset_preserves_disjoint_tool_argument_schemas():
     dataset = Dataset.from_list(rows)
     trainer = object.__new__(TrlDpoTrainer)
     trainer._is_vlm = False
-    trainer._tokenizer = SimpleNamespace(eos_token="</s>")
+    trainer._tokenizer = SimpleNamespace(  # pyright: ignore[reportAttributeAccessIssue]
+        eos_token="</s>"
+    )
     processing_class = _CapturingProcessingClass()
     args = SimpleNamespace(dataset_num_proc=None)
 

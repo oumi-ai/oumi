@@ -65,14 +65,14 @@ from oumi.core.configs import DatasetSplitParams, TrainingConfig
 from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.trainers.base_trainer import BaseTrainer
-from oumi.core.trainers.verl_grpo_metrics import (
+from oumi.utils.logging import logger
+from oumi.utils.packaging import is_verl_v0_7_or_later
+from oumi.utils.verl_utils.grpo_metrics import (
     DEFAULT_REWARD_GROUP_LOW_STD_THRESHOLD,
     REWARD_GROUP_LOW_STD_CONFIG_KEY,
     install_verl_grpo_reward_group_metrics_patch,
 )
-from oumi.utils.logging import logger
-from oumi.utils.packaging import is_verl_v0_7_or_later
-from oumi.utils.verl_model_merger import FSDPModelMerger, ModelMergerConfig
+from oumi.utils.verl_utils.model_merger import FSDPModelMerger, ModelMergerConfig
 
 # Every step's metrics are mirrored to this file under the output dir so callers
 # can read reward curves.

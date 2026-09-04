@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Oumi-provided reward-group metrics for the verl GRPO trainer."""
+"""Oumi-provided reward-group metrics for the VERL GRPO trainer."""
 
 import inspect
 import math

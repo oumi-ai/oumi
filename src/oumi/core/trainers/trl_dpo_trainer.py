@@ -64,7 +64,9 @@ class TrlDpoTrainer(DPOTrainer):
         """Decode serialized tool arguments immediately before rendering."""
         if isinstance(input, list):
             input = _deserialize_tool_call_arguments(input)
-        return super()._tokenize(processing_class, input, **kwargs)
+        return super()._tokenize(  # pyright: ignore[reportAttributeAccessIssue]
+            processing_class, input, **kwargs
+        )
 
     def _prepare_dataset(self, dataset, processing_class, args, dataset_name):
         """Prepare raw datasets while preserving Oumi-tokenized datasets."""

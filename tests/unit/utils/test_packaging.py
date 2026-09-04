@@ -9,6 +9,7 @@ from oumi.utils.packaging import (
     _package_prerequisites_error_messages,
     check_package_prerequisites,
     is_trl_v1_5_or_later,
+    is_verl_v0_8_or_later,
     verify_trl_vllm_compatibility,
 )
 
@@ -215,3 +216,29 @@ def test_is_trl_v1_5_or_later_missing_package(monkeypatch):
     monkeypatch.setattr("importlib.metadata.version", mock_version)
     assert is_trl_v1_5_or_later() is False
     is_trl_v1_5_or_later.cache_clear()
+
+
+@pytest.mark.parametrize(
+    "verl_version, expected",
+    [
+        ("0.7.1", False),
+        ("0.8.0", True),
+        ("0.9.0", True),
+    ],
+)
+def test_is_verl_v0_8_or_later(monkeypatch, verl_version, expected):
+    is_verl_v0_8_or_later.cache_clear()
+    monkeypatch.setattr("importlib.metadata.version", lambda pkg: verl_version)
+    assert is_verl_v0_8_or_later() is expected
+    is_verl_v0_8_or_later.cache_clear()
+
+
+def test_is_verl_v0_8_or_later_missing_package(monkeypatch):
+    is_verl_v0_8_or_later.cache_clear()
+
+    def mock_version(pkg):
+        raise importlib.metadata.PackageNotFoundError
+
+    monkeypatch.setattr("importlib.metadata.version", mock_version)
+    assert is_verl_v0_8_or_later() is False
+    is_verl_v0_8_or_later.cache_clear()
