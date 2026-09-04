@@ -69,7 +69,9 @@ class BaseSftDataset(BaseMapDataset, ABC):
         self._response_template = response_template
         self._instruction_template = instruction_template
         self._return_conversations = return_conversations
-        self._return_conversations_format = return_conversations_format
+        self._return_conversations_format: Literal["dict", "json"] = (
+            return_conversations_format
+        )
 
         if self._assistant_only:
             self._verify_assistant_only_compatibility()
@@ -158,37 +160,10 @@ class BaseSftDataset(BaseMapDataset, ABC):
         if self._return_conversations:
             # This may require `use_torchdata=True` for TRL_SFT trainer,
             # but compatible with TRL_GRPO trainer.
-            if self._return_conversations_format == "json":
-                conversation_json = conversation.to_json()
-                return {"conversation_json": conversation_json}
-            elif self._return_conversations_format == "dict":
-                return self._conversation_to_hf_compatible_dict(conversation)
-            else:
-                raise ValueError(
-                    f"Invalid return_conversations_format: "
-                    f"'{self._return_conversations_format}'."
-                    "Supported formats are 'json' and 'dict'."
-                )
+            return self._format_conversation(
+                conversation, self._return_conversations_format
+            )
         return self.tokenize(conversation)
-
-    def _conversation_to_hf_compatible_dict(self, conversation: Conversation) -> dict:
-        """Convert a Conversation to a dict with an HF-Datasets-stable schema.
-
-        HF Datasets infers a single arrow struct schema across rows and
-        requires every top-level key to exist on every row with the same
-        type. Without forcing `tools` to be present, rows whose Conversation
-        has no tools end up missing the key (`exclude_none=True` strips it),
-        and `datasets.Dataset.from_generator` fails with KeyError when mixing
-        tool and non-tool rows.
-
-        This rule applies at the column level only — inside a list-of-dicts
-        column like `messages`, items can have heterogeneous keys (e.g.,
-        assistant messages with `tool_calls`, tool messages with
-        `tool_call_id`, plain messages with neither), and that's fine.
-        """
-        data = conversation.to_dict()
-        data.setdefault("tools", None)
-        return data
 
     def tokenize(
         self,

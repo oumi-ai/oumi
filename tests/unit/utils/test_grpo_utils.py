@@ -80,6 +80,26 @@ def test_raises_when_last_message_not_assistant():
         extract_prompt_images_completion_from_conversation(_example(convo))
 
 
+def test_prompt_only_conversation_when_allowed():
+    convo = Conversation(
+        messages=[
+            Message(role=Role.SYSTEM, content="You are helpful."),
+            Message(role=Role.USER, content="What is 2+2?"),
+        ]
+    )
+
+    prompt, images, completion = extract_prompt_images_completion_from_conversation(
+        _example(convo), allow_prompt_only=True
+    )
+
+    assert prompt == [
+        {"role": "system", "content": "You are helpful."},
+        {"role": "user", "content": "What is 2+2?"},
+    ]
+    assert images == []
+    assert completion == ""
+
+
 def test_raises_when_fewer_than_two_messages():
     convo = Conversation(
         messages=[

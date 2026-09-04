@@ -17,8 +17,8 @@ Models prefixed with a checkmark (✅) have been thoroughly tested and validated
 | ✅ Llama 3.3 Instruct | 70B | [Paper](https://arxiv.org/abs/2407.21783) | [Hub](https://huggingface.co/meta-llama/Llama-3.3-70b-instruct) | [License](https://llama.meta.com/llama3/license/) | ❌  | |
 | ✅ Phi-3.5-Instruct | 4B/14B | [Paper](https://arxiv.org/abs/2404.14219) | [Hub](https://huggingface.co/microsoft/Phi-3.5-mini-instruct) | [License](https://huggingface.co/microsoft/Phi-3-mini-4k-instruct/blob/main/LICENSE) | ❌  | |
 | ✅ Falcon-H1-Instruct | 0.5B/1.5B/3B/7B/34B | Paper coming soon | [Hub](https://huggingface.co/tiiuae/Falcon-H1-34B-Instruct) | [License](https://falconllm.tii.ae/falcon-terms-and-conditions.html ) | ❌ | |
-| Qwen2.5-Instruct | 0.5B-70B | [Paper](https://arxiv.org/abs/2309.16609) | [Hub](https://huggingface.co/Qwen/Qwen2.5-7B-Instruct) | [License](https://github.com/QwenLM/Qwen/blob/main/LICENSE) | ❌  | |
-| OLMo 2 Instruct | 7B | [Paper](https://arxiv.org/abs/2402.00838) | [Hub](https://huggingface.co/allenai/OLMo-2-1124-7B) | Apache 2.0 | ✅ | |
+| Qwen2.5-Instruct | 0.5B-70B | [Paper](https://arxiv.org/abs/2412.15115) | [Hub](https://huggingface.co/Qwen/Qwen2.5-7B-Instruct) | [License](https://github.com/QwenLM/Qwen/blob/main/LICENSE) | ❌  | |
+| OLMo 2 Instruct | 7B | [Paper](https://arxiv.org/abs/2501.00656) | [Hub](https://huggingface.co/allenai/OLMo-2-1124-7B) | Apache 2.0 | ✅ | |
 | ✅ OLMo 3 Instruct | 7B/32B | [Paper](https://arxiv.org/abs/2402.00838) | [Hub](https://huggingface.co/allenai/OLMo-3-7B-Instruct) | Apache 2.0 | ✅ | |
 | MPT-Instruct | 7B | [Blog](https://www.mosaicml.com/blog/mpt-7b) | [Hub](https://huggingface.co/mosaicml/mpt-7b-instruct) | Apache 2.0 | ✅ | |
 | Command R | 35B/104B | [Blog](https://cohere.com/blog/command-r7b) | [Hub](https://huggingface.co/CohereForAI/c4ai-command-r-plus) | [License](https://cohere.com/c4ai-cc-by-nc-license) | ❌ | |
@@ -39,7 +39,7 @@ Models prefixed with a checkmark (✅) have been thoroughly tested and validated
 | ✅ Phi-3 Vision | 4.2B | [Paper](https://arxiv.org/abs/2404.14219) | [Hub](https://huggingface.co/microsoft/Phi-3-vision-128k-instruct) | [License](https://huggingface.co/microsoft/Phi-3-mini-4k-instruct/blob/main/LICENSE) | ❌ | |
 | ✅ BLIP-2 | 3.6B | [Paper](https://arxiv.org/abs/2301.12597) | [Hub](https://huggingface.co/Salesforce/blip2-opt-2.7b) | MIT | ❌ | |
 | ✅ Qwen2-VL | 2B | [Blog](https://qwenlm.github.io/blog/qwen2-vl/) | [Hub](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct) | [License](https://github.com/QwenLM/Qwen/blob/main/LICENSE) | ❌  | |
-| ✅ Qwen3-VL | 2B/4B/8B | [Blog](https://qwenlm.github.io/blog/qwen3-vl/) | [Hub](https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct) | [License](https://github.com/QwenLM/Qwen/blob/main/LICENSE) | ❌  | |
+| ✅ Qwen3-VL | 2B/4B/8B | [Blog](https://qwen.ai/blog?id=99f0335c4ad9ff6153e517418d48535ab6d8afef) | [Hub](https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct) | [License](https://github.com/QwenLM/Qwen/blob/main/LICENSE) | ❌  | |
 | ✅ SmolVLM-Instruct | 2B | [Blog](https://huggingface.co/blog/smolvlm) | [Hub](https://huggingface.co/HuggingFaceTB/SmolVLM-Instruct) | Apache 2.0 | ✅  | |
 
 ### Base Models
@@ -50,7 +50,7 @@ Models prefixed with a checkmark (✅) have been thoroughly tested and validated
 | ✅ Llama 3.2 | 1B/3B | [Paper](https://arxiv.org/abs/2407.21783) | [Hub](https://huggingface.co/meta-llama/Llama-3.2-3b) | [License](https://llama.meta.com/llama3/license/) | ❌  | |
 | ✅ Llama 3.1 | 8B/70B/405B | [Paper](https://arxiv.org/abs/2407.21783) | [Hub](https://huggingface.co/meta-llama/Llama-3.1-70b) | [License](https://llama.meta.com/llama3/license/) | ❌  | |
 | ✅ GPT-2 | 124M-1.5B | [Paper](https://arxiv.org/abs/2005.14165) | [Hub](https://huggingface.co/gpt2) | MIT | ❌ | |
-| DeepSeek V2 | 7B/13B | [Blog](https://www.deepseek.com/blogs/deepseek-v2) | [Hub](https://huggingface.co/deepseek-ai/deepseek-llm-7b-v2) | [License](https://github.com/deepseek-ai/DeepSeek-LLM/blob/main/LICENSE-MODEL) | ❌ | |
+| DeepSeek V2 | 7B/13B | [Paper](https://arxiv.org/abs/2405.04434) | [Hub](https://huggingface.co/deepseek-ai/deepseek-llm-7b-v2) | [License](https://github.com/deepseek-ai/DeepSeek-LLM/blob/main/LICENSE-MODEL) | ❌ | |
 | Gemma2 | 2B/9B | [Blog](https://ai.google.dev/gemma) | [Hub](https://huggingface.co/google/gemma2-7b) | [License](https://ai.google.dev/gemma/terms) | ❌ | |
 | GPT-J | 6B | [Blog](https://www.eleuther.ai/artifacts/gpt-j) | [Hub](https://huggingface.co/EleutherAI/gpt-j-6b) | Apache 2.0 | ✅ | |
 | GPT-NeoX | 20B | [Paper](https://arxiv.org/abs/2204.06745) | [Hub](https://huggingface.co/EleutherAI/gpt-neox-20b) | Apache 2.0 | ✅ | |

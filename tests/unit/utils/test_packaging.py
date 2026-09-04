@@ -8,6 +8,7 @@ from oumi.utils.packaging import (
     _package_error_message,
     _package_prerequisites_error_messages,
     check_package_prerequisites,
+    is_trl_v1_5_or_later,
     verify_trl_vllm_compatibility,
 )
 
@@ -187,3 +188,30 @@ def test_verify_trl_vllm_compatibility_fails_new_trl_old_vllm(monkeypatch):
     monkeypatch.setattr("importlib.metadata.version", mock_version)
     with pytest.raises(RuntimeError, match="vLLM >= 0.11.0"):
         verify_trl_vllm_compatibility("test")
+
+
+@pytest.mark.parametrize(
+    "trl_version, expected",
+    [
+        ("1.4.0", False),
+        ("1.5.0", True),
+        ("1.5.1", True),
+        ("1.6.0", True),
+    ],
+)
+def test_is_trl_v1_5_or_later(monkeypatch, trl_version, expected):
+    is_trl_v1_5_or_later.cache_clear()
+    monkeypatch.setattr("importlib.metadata.version", lambda pkg: trl_version)
+    assert is_trl_v1_5_or_later() is expected
+    is_trl_v1_5_or_later.cache_clear()
+
+
+def test_is_trl_v1_5_or_later_missing_package(monkeypatch):
+    is_trl_v1_5_or_later.cache_clear()
+
+    def mock_version(pkg):
+        raise importlib.metadata.PackageNotFoundError
+
+    monkeypatch.setattr("importlib.metadata.version", mock_version)
+    assert is_trl_v1_5_or_later() is False
+    is_trl_v1_5_or_later.cache_clear()

@@ -35,6 +35,17 @@ from oumi.environments.base_environment import BaseEnvironment
 from oumi.environments.database_executable_environment import (
     DatabaseExecutableEnvironment,
 )
+from oumi.environments.endpoint_environment import (
+    EndpointCallError,
+    EndpointEnvironment,
+    EndpointEnvironmentKwargs,
+    EndpointProtocol,
+    EndpointStatusError,
+    JsonHttpClient,
+    JsonHttpProtocol,
+    RemoteToolCall,
+    RequestsJsonClient,
+)
 from oumi.environments.executable_environment import ExecutableEnvironment
 from oumi.environments.executable_tool import ExecutableTool
 from oumi.environments.lookup_environment import (
@@ -59,13 +70,22 @@ __all__ = [
     # Deprecated aliases, kept so existing imports keep resolving.
     "DeterministicEnvironment",
     "DeterministicEnvironmentKwargs",
+    "EndpointCallError",
+    "EndpointEnvironment",
+    "EndpointEnvironmentKwargs",
+    "EndpointProtocol",
+    "EndpointStatusError",
     "ExecutableEnvironment",
     "ExecutableTool",
     "GroundingConfig",
     "GroundingFact",
     "JSONSchema",
+    "JsonHttpClient",
+    "JsonHttpProtocol",
     "LookupEnvironment",
     "LookupEnvironmentKwargs",
+    "RemoteToolCall",
+    "RequestsJsonClient",
     "SimulatedEnvironment",
     "SimulatedEnvironmentKwargs",
     "SimulatedStateParams",

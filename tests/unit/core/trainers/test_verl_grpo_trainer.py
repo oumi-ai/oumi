@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
@@ -13,6 +14,8 @@ from oumi.core.configs import (
     TrainingConfig,
     TrainingParams,
 )
+from oumi.core.constants import VERL_METRICS_FILENAME
+from oumi.core.trainers import verl_grpo_trainer
 from oumi.core.trainers.verl_grpo_metrics import REWARD_GROUP_LOW_STD_CONFIG_KEY
 from oumi.core.trainers.verl_grpo_trainer import VerlGrpoTrainer
 from oumi.core.types.conversation import (
@@ -88,6 +91,7 @@ def test_create_verl_data_entry_multi_turn():
     ]
     assert entry["images"] == []
     assert entry["reward_model"]["ground_truth"] == "4"
+    assert json.loads(entry["extra_info"]["prompt_json"]) == entry["prompt"]
 
 
 def test_create_verl_data_entry_single_turn_image_prepends_marker():
@@ -235,6 +239,7 @@ def test_create_verl_data_entry_tool_agent_preserves_structured_history():
         },
         {"role": "tool", "content": '{"rows":[[2]]}', "tool_call_id": "call_1"},
     ]
+    assert json.loads(row["extra_info"]["prompt_json"]) == row["prompt"]
     assert json.loads(json.dumps(row["prompt"])) == row["prompt"]
 
 
@@ -370,6 +375,59 @@ def test_setup_does_not_install_reward_group_metrics_for_other_estimators():
         trainer._setup_verl_trainer()
 
     install_patch.assert_not_called()
+
+
+class _TrackingWithFileBackend:
+    supported_backend = ["console", "wandb", "file"]
+
+
+class _TrackingWithoutFileBackend:
+    supported_backend = ["console", "wandb"]
+
+
+@pytest.mark.skipif(verl_import_failed, reason="verl not available")
+def test_file_logger_mirrors_metrics_under_output_dir(monkeypatch, tmp_path):
+    """Metrics are written to verl_metrics.jsonl in the output dir by default."""
+    monkeypatch.delenv("VERL_FILE_LOGGER_PATH", raising=False)
+    trainer = _make_trainer_for_config(
+        save_steps=5, save_final_model=True, output_dir=str(tmp_path)
+    )
+
+    with patch.object(verl_grpo_trainer, "VerlTracking", _TrackingWithFileBackend):
+        config = trainer._create_config()
+
+    assert "file" in config.trainer.logger
+    assert os.environ["VERL_FILE_LOGGER_PATH"] == str(tmp_path / VERL_METRICS_FILENAME)
+
+
+@pytest.mark.skipif(verl_import_failed, reason="verl not available")
+def test_file_logger_respects_preset_path(monkeypatch, tmp_path):
+    """A caller-provided VERL_FILE_LOGGER_PATH wins over the default."""
+    monkeypatch.setenv("VERL_FILE_LOGGER_PATH", "/elsewhere/metrics.jsonl")
+    trainer = _make_trainer_for_config(
+        save_steps=5, save_final_model=True, output_dir=str(tmp_path)
+    )
+
+    with patch.object(verl_grpo_trainer, "VerlTracking", _TrackingWithFileBackend):
+        config = trainer._create_config()
+
+    assert "file" in config.trainer.logger
+    assert os.environ["VERL_FILE_LOGGER_PATH"] == "/elsewhere/metrics.jsonl"
+
+
+@pytest.mark.skipif(verl_import_failed, reason="verl not available")
+def test_file_logger_skipped_when_verl_lacks_backend(monkeypatch, tmp_path):
+    """Older verl without the ``file`` backend keeps the plain logger list."""
+    monkeypatch.delenv("VERL_FILE_LOGGER_PATH", raising=False)
+    trainer = _make_trainer_for_config(
+        save_steps=5, save_final_model=True, output_dir=str(tmp_path)
+    )
+
+    with patch.object(verl_grpo_trainer, "VerlTracking", _TrackingWithoutFileBackend):
+        config = trainer._create_config()
+
+    assert "file" not in config.trainer.logger
+    assert "VERL_FILE_LOGGER_PATH" not in os.environ
 
 
 @pytest.mark.skipif(verl_import_failed, reason="verl not available")
