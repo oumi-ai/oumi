@@ -16,7 +16,6 @@ from oumi.core.configs import (
 )
 from oumi.core.constants import VERL_METRICS_FILENAME
 from oumi.core.trainers import verl_grpo_trainer
-from oumi.core.trainers.verl_grpo_metrics import REWARD_GROUP_LOW_STD_CONFIG_KEY
 from oumi.core.trainers.verl_grpo_trainer import VerlGrpoTrainer
 from oumi.core.types.conversation import (
     ContentItem,
@@ -26,6 +25,7 @@ from oumi.core.types.conversation import (
     Type,
 )
 from oumi.core.types.tool_call import FunctionCall, ToolCall
+from oumi.utils.verl_utils.grpo_metrics import REWARD_GROUP_LOW_STD_CONFIG_KEY
 
 try:
     verl_import_failed = False

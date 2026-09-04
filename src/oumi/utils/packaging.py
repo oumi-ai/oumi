@@ -296,6 +296,20 @@ def is_verl_v0_7_or_later() -> bool:
 
 
 @lru_cache(maxsize=1)
+def is_verl_v0_8_or_later() -> bool:
+    """Checks if verl version is 0.8.0 or later.
+
+    Verl v0.8 includes the FSDP2 named-buffer broadcast fix and removes the
+    legacy worker implementation.
+    """
+    try:
+        verl_version = importlib.metadata.version("verl")
+        return version.parse(verl_version) >= version.parse("0.8.0")
+    except importlib.metadata.PackageNotFoundError:
+        return False
+
+
+@lru_cache(maxsize=1)
 def is_trl_v0_28_or_later() -> bool:
     """Check if the installed TRL version is v0.28 or later."""
     try:

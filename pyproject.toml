@@ -264,7 +264,7 @@ ban-relative-imports = "all" # Disallow all relative imports.
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["D", "PTH"] # Ignore docstring checks in tests
 "src/oumi/mcp/*" = ["ASYNC210", "ASYNC220", "ASYNC230", "ASYNC240"]  # fastmcp uses sync-over-async patterns
-"src/oumi/utils/verl_model_merger.*" = [
+"src/oumi/utils/verl_utils/model_merger.*" = [
     "E501", # Line too long
     "D",    # Ignore docstring checks
     "PTH",  # Ignore pathlib checks
@@ -281,7 +281,7 @@ known-third-party = ["wandb"]
 include = ["src/oumi/**", "tests/**"]
 exclude = [
     "src/oumi/core/types/proto/**",
-    "src/oumi/utils/verl_model_merger.py",
+    "src/oumi/utils/verl_utils/model_merger.py",
 ]
 typeCheckingMode = "basic"
 pythonVersion = "3.10"
@@ -293,7 +293,7 @@ reportPrivateImportUsage = "none"
 include = ["src/oumi/**"]
 exclude = [
     "src/oumi/core/types/proto/**",
-    "src/oumi/utils/verl_model_merger.py",
+    "src/oumi/utils/verl_utils/model_merger.py",
 ]
 
 [tool.ty.environment]

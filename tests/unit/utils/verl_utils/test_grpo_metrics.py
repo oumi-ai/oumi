@@ -6,8 +6,8 @@ from unittest.mock import MagicMock
 import pytest
 import torch
 
-from oumi.core.trainers import verl_grpo_metrics
-from oumi.core.trainers.verl_grpo_metrics import (
+from oumi.utils.verl_utils import grpo_metrics
+from oumi.utils.verl_utils.grpo_metrics import (
     compute_grpo_reward_group_metrics,
     install_verl_grpo_reward_group_metrics_patch,
 )
@@ -145,7 +145,7 @@ def test_install_patch_preserves_original_metrics_and_upstream_values(monkeypatc
 
     fake_module = SimpleNamespace(compute_data_metrics=original_collector)
     monkeypatch.setattr(
-        verl_grpo_metrics,
+        grpo_metrics,
         "import_module",
         lambda _: fake_module,
     )
@@ -168,7 +168,7 @@ def test_install_patch_is_idempotent_and_updates_threshold(monkeypatch):
 
     fake_module = SimpleNamespace(compute_data_metrics=original_collector)
     monkeypatch.setattr(
-        verl_grpo_metrics,
+        grpo_metrics,
         "import_module",
         lambda _: fake_module,
     )
@@ -192,7 +192,7 @@ def test_install_patch_warns_once_and_preserves_training_metrics(
 
     fake_module = SimpleNamespace(compute_data_metrics=original_collector)
     monkeypatch.setattr(
-        verl_grpo_metrics,
+        grpo_metrics,
         "import_module",
         lambda _: fake_module,
     )
@@ -211,7 +211,7 @@ def test_install_patch_warns_once_and_preserves_training_metrics(
 def test_install_patch_rejects_incompatible_collector(monkeypatch):
     fake_module = SimpleNamespace(compute_data_metrics=lambda data: {})
     monkeypatch.setattr(
-        verl_grpo_metrics,
+        grpo_metrics,
         "import_module",
         lambda _: fake_module,
     )
@@ -222,7 +222,7 @@ def test_install_patch_rejects_incompatible_collector(monkeypatch):
 
 def test_install_patch_rejects_missing_collector(monkeypatch):
     monkeypatch.setattr(
-        verl_grpo_metrics,
+        grpo_metrics,
         "import_module",
         lambda _: SimpleNamespace(),
     )
@@ -233,7 +233,7 @@ def test_install_patch_rejects_missing_collector(monkeypatch):
 
 def test_install_patch_rejects_invalid_threshold_before_import(monkeypatch):
     import_mock = MagicMock()
-    monkeypatch.setattr(verl_grpo_metrics, "import_module", import_mock)
+    monkeypatch.setattr(grpo_metrics, "import_module", import_mock)
 
     with pytest.raises(ValueError, match="low_std_threshold"):
         install_verl_grpo_reward_group_metrics_patch(low_std_threshold=-1.0)
