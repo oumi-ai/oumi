@@ -14,8 +14,14 @@
 
 import importlib
 import sys
+from datetime import timedelta
 from types import ModuleType, SimpleNamespace
 from unittest.mock import patch
+
+import pytest
+import torch
+import torch.distributed as dist
+import torch.multiprocessing as mp
 
 from oumi.utils import packaging
 
@@ -25,6 +31,46 @@ _MODULE_NAME = "oumi.utils.verl_utils.fsdp1_rank_buffer_sync"
 def _import_fresh_module():
     sys.modules.pop(_MODULE_NAME, None)
     return importlib.import_module(_MODULE_NAME)
+
+
+def _run_distributed_buffer_sync(rank: int, world_size: int, init_method: str):
+    dist.init_process_group(
+        "gloo",
+        init_method=init_method,
+        rank=rank,
+        world_size=world_size,
+        timeout=timedelta(seconds=20),
+    )
+    try:
+        with patch.object(packaging, "is_verl_v0_8_or_later", return_value=True):
+            module = _import_fresh_module()
+
+        actor_module = torch.nn.Module()
+        actor_module.register_buffer(
+            "shared",
+            torch.tensor([1.0, 2.0]) if rank == 0 else torch.tensor([-1.0, -2.0]),
+        )
+        alias = torch.tensor([3.0, 4.0]) if rank == 0 else torch.tensor([-3.0, -4.0])
+        actor_module.register_buffer("alias_a", alias)
+        actor_module.register_buffer("alias_b", alias)
+        actor_module.register_buffer("already_equal", torch.tensor([5.0]))
+        if rank == 0:
+            actor_module.register_buffer("rank0_only", torch.tensor([6.0]))
+        else:
+            actor_module.register_buffer("rank1_only", torch.tensor([7.0]))
+
+        n_total, n_changed = module._sync_buffers_from_rank0(actor_module)
+
+        assert n_total == 5
+        assert n_changed == (0 if rank == 0 else 2)
+        torch.testing.assert_close(actor_module.shared, torch.tensor([1.0, 2.0]))
+        torch.testing.assert_close(actor_module.alias_a, torch.tensor([3.0, 4.0]))
+        torch.testing.assert_close(actor_module.alias_b, torch.tensor([3.0, 4.0]))
+        assert actor_module.get_buffer("alias_a") is actor_module.get_buffer("alias_b")
+        if rank == 1:
+            torch.testing.assert_close(actor_module.rank1_only, torch.tensor([7.0]))
+    finally:
+        dist.destroy_process_group()
 
 
 def test_skips_legacy_actor_import_on_verl_v0_8_or_later():
@@ -59,3 +105,15 @@ def test_installs_patch_on_legacy_verl():
         actor = FakeDataParallelPPOActor(None, object())
     assert actor.initialized is True
     sys.modules.pop(_MODULE_NAME, None)
+
+
+@pytest.mark.skipif(not dist.is_gloo_available(), reason="Gloo is unavailable")
+def test_syncs_buffers_with_unequal_lists_across_processes(tmp_path):
+    init_method = f"file://{tmp_path / 'distributed_init'}"
+
+    mp.spawn(
+        _run_distributed_buffer_sync,
+        args=(2, init_method),
+        nprocs=2,
+        join=True,
+    )

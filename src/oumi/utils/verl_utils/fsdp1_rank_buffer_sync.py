@@ -32,8 +32,15 @@ _BufferSpec = tuple[str, tuple[int, ...], str]
 
 def _sync_buffers_from_rank0(module: torch.nn.Module) -> tuple[int, int]:
     rank = dist.get_rank()
-    device = torch.device("cuda", torch.cuda.current_device())
-    torch.cuda.synchronize()
+    # NCCL collectives require CUDA tensors. Gloo uses CPU tensors, which also
+    # lets the synchronization contract be covered by distributed CPU tests.
+    device = (
+        torch.device("cuda", torch.cuda.current_device())
+        if dist.get_backend() == "nccl"
+        else torch.device("cpu")
+    )
+    if device.type == "cuda":
+        torch.cuda.synchronize(device)
     local = dict(module.named_buffers(remove_duplicate=False))
     if rank == 0:
         spec: list[_BufferSpec] | None = [
@@ -57,21 +64,22 @@ def _sync_buffers_from_rank0(module: torch.nn.Module) -> tuple[int, int]:
                 and tuple(buf.shape) == tuple(shape)
                 and buf.dtype == dtype
             )
-            if usable and buf is not None and buf.is_cuda:
-                target = buf.data
-                before = target.clone() if rank != 0 else None
+            if usable and buf is not None:
+                before = buf.detach().clone() if rank != 0 else None
+                target = buf.data if buf.device == device else buf.detach().to(device)
             else:
                 target = torch.empty(
                     shape, dtype=dtype, device=device
                 )  # scratch: keep collectives aligned
                 before = None
             dist.broadcast(target, src=0)
-            if usable and buf is not None and not buf.is_cuda:
+            if usable and buf is not None and buf.device != device:
                 buf.data.copy_(target.to(buf.device))
             n_total += 1
-            if before is not None and not torch.equal(before, target):
+            if before is not None and buf is not None and not torch.equal(before, buf):
                 n_changed += 1
-    torch.cuda.synchronize()
+    if device.type == "cuda":
+        torch.cuda.synchronize(device)
     return n_total, n_changed
 
 
