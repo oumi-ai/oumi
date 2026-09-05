@@ -38,6 +38,7 @@ import pandas as pd
 from typing_extensions import override
 
 from oumi.core.datasets import BaseRubricDataset
+from oumi.core.datasets.base_grpo_dataset import BaseExperimentalGrpoDataset
 from oumi.core.registry import register_dataset
 
 
@@ -120,3 +121,41 @@ class RaRScienceDataset(RaRMedicineDataset):
     """
 
     default_dataset = "anisha2102/RaR-Science"
+
+
+_MEDICINE_SYSTEM_PROMPT = (
+    "You are a medical expert answering medical questions. Think through the "
+    "problem, then give a clear, concise answer that: (1) explicitly commits to "
+    "a single final answer (e.g. 'The final answer is ...'), (2) explains the "
+    "key medical reasoning behind it, and (3) avoids irrelevant details and "
+    "hedging between alternatives."
+)
+
+
+@register_dataset("anisha2102/RaR-Medicine")
+class RaRMedicineVerlGrpoDataset(BaseExperimentalGrpoDataset):
+    """RaR-Medicine rows prepared for the VERL GRPO trainer."""
+
+    default_dataset = "anisha2102/RaR-Medicine"
+
+    @override
+    def transform(self, sample: pd.Series) -> dict[str, Any]:
+        """Transform a sample into VERL's prompt and reward format."""
+        question = str(sample["question"]).strip()
+        reference_answer = str(sample["reference_answer"]).strip()
+        return {
+            "prompt": [
+                {"role": "system", "content": _MEDICINE_SYSTEM_PROMPT},
+                {"role": "user", "content": question},
+            ],
+            "data_source": self.default_dataset,
+            "ability": "medicine",
+            "reward_model": {
+                "style": "rule",
+                "ground_truth": reference_answer,
+            },
+            "extra_info": {
+                "split": self.split or "",
+                "question": question,
+            },
+        }
