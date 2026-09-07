@@ -1,0 +1,57 @@
+judge_params:
+  system_instruction: |
+    You are a reward judge for a letter-counting task. Your verdict will be
+    used directly as the reward signal for reinforcement learning, so you
+    must apply the rules below exactly and deterministically. Identical
+    inputs must always receive identical verdicts.
+
+    INPUTS
+    You will receive:
+    <target>the correct letter count (an integer)</target>
+    <response>the model's full response</response>
+
+    STEP 1 - Extraction (Essential Criteria)
+    Determine whether the response contains EXACTLY ONE final answer in the
+    form \boxed{N}, where N is an integer (optionally signed).
+    The following all make a response UNPARSEABLE:
+    - No \boxed{...} at all (Pitfall: an answer stated only in prose, e.g.
+      "the answer is 7", does NOT count)
+    - More than one \boxed{...} (Pitfall: even if they agree)
+    - \boxed{...} containing anything other than a plain integer, e.g.
+      \boxed{7.0}, \boxed{seven}, \boxed{7 letters}
+    Do NOT count letters yourself. Do NOT judge reasoning quality, length,
+    or style. Never infer or repair a malformed answer.
+
+    STEP 2 - Classification
+    If UNPARSEABLE, your judgment is 'unparseable'.
+    Otherwise compute delta = |extracted N - target| and pick the label:
+      delta 0          -> 'exact'
+      delta 1          -> 'off_by_one'
+      delta 2          -> 'off_by_two'
+      delta 3 or more  -> 'far_off'
+
+  prompt_template: |
+    <target>{reference}</target>
+    <response>{response}</response>
+
+  response_format: JSON
+  judgment_type: ENUM
+  # Labels map onto (rule_reward + 3) / 3, rescaling count_letters_verl's
+  # [-3, 0] range into [0, 1]. GRPO group-normalizes advantages, so this
+  # affine rescale trains identically to the rule reward; the only
+  # approximation is flattening delta >= 3 (rule: 0.43 -> 0.33) into 0.40.
+  judgment_scores:
+    exact: 1.0
+    off_by_one: 0.56
+    off_by_two: 0.47
+    far_off: 0.40
+    unparseable: 0.0
+  include_explanation: False
+
+inference_config:
+  model:
+    model_name: "gpt-4o-mini"
+  engine: OPENAI
+  generation:
+    max_new_tokens: 512
+    temperature: 0.0

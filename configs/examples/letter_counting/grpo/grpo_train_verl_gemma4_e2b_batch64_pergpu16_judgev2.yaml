@@ -28,8 +28,8 @@ training:
   # optimizer: "adafactor" #ignored in verl
 
   # Learning rate schedule
-  lr_scheduler_type: "cosine"
-  warmup_steps: 20
+  # lr_scheduler_type: "cosine" #ignored in verl
+  # warmup_steps: 20 #ignored in verl
 
   # Checkpointing
 #   save_steps: 5 #uncomment for smoke test
@@ -50,18 +50,18 @@ training:
   # Distributed training
   ddp_find_unused_parameters: False       # Find unused parameters in DDP
 
-  # Mixed precision and performance
-  compile: False
-  # Recompute activations in the backward pass instead of storing all 35 layers'
-  # worth. Without this the actor update OOMs on an 80GB H100.
-  enable_gradient_checkpointing: True
+  # # Mixed precision and performance
+  # compile: False #ignored in evrl
+  # # Recompute activations in the backward pass instead of storing all 35 layers'
+  # # worth. Without this the actor update OOMs on an 80GB H100.
+  enable_gradient_checkpointing: True   # forwarded to verl — do NOT remove
 
-  # DataLoader settings
-  dataloader_num_workers: "auto"
-  dataloader_prefetch_factor: 32
+  # # DataLoader settings
+  # dataloader_num_workers: "auto" #ignored in verl
+  # dataloader_prefetch_factor: 32 #ignored in verl
 
-  # Logging
-  logging_steps: 10
+  # # Logging
+  # logging_steps: 10 #ignored in verl
 
 
   grpo:
@@ -74,7 +74,7 @@ training:
   verl_config_overrides:
     data:
       train_batch_size: 64
-      val_batch_size: 640
+      # val_batch_size: 640 #no need if its the same as the whole val sample
       max_prompt_length: 256
 
     actor_rollout_ref:
@@ -109,7 +109,7 @@ training:
       kl_ctrl:
         kl_coef: 0.001
     trainer:
-      critic_warmup: 0
+      # critic_warmup: 0 #no need in grpo
       val_before_train: True
       n_gpus_per_node: 4
       nnodes: 1
