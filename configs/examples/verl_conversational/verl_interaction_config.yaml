@@ -1,0 +1,7 @@
+interaction:
+  - name: oumi_conversation
+    class_name: oumi.core.trainers.verl_conversational_interaction.OumiVerlInteraction
+    config:
+      user_sim_inference: configs/examples/verl_conversational/user_sim_inference.yaml
+      max_turns: 6
+      done_sentinel: "[[END]]"

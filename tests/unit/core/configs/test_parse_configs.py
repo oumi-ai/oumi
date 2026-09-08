@@ -52,6 +52,7 @@ def _get_all_config_paths(exclude_yaml_suffixes: set[str] | None) -> list[str]:
             "accelerate.yaml",
             "_deploy.yaml",  # Deploy configs use a different schema
             "analyze/analyze.yaml",  # Uses TypedAnalyzeConfig (v2) format
+            "verl_conversational/verl_interaction_config.yaml",  # verl-format config
         }
     ),
 )
@@ -88,6 +89,7 @@ def test_parse_configs(config_path: str):
             "accelerate.yaml",
             "_deploy.yaml",  # Deploy configs use a different schema
             "analyze/analyze.yaml",  # Uses TypedAnalyzeConfig (v2) format
+            "verl_conversational/verl_interaction_config.yaml",  # verl-format config
         }
     ),
 )
