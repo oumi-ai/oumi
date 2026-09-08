@@ -1,9 +1,13 @@
 # VERL GRPO config to full-fine-tune Gemma 4 on RaR-Medicine using an
 # OpenAI-hosted medical-answer judge as the reward.
 #
-# Requirements:
-#   - transformers==5.5.2 is required for correct Gemma 4 cache-less training
-#     forwards. With this version, no model patches are needed.
+ # Requirements:
+#   - transformers>=5.5.2: fixes Gemma 4 cache-less KV sharing.
+#   - verl==0.7.1: version validated by this recipe.
+#   - flash-attn==2.8.3.post1: required by use_remove_padding on CUDA for
+#     flash_attn.bert_padding utilities; attention itself remains SDPA.
+#   - vllm==0.19.1: rollout engine version validated by this recipe.
+#   - torch==2.10.0+cu128: exact PyTorch/CUDA build validated by this recipe.
 #   - Accept the Gemma model license and authenticate with Hugging Face.
 #   - Set OPENAI_API_KEY for the gpt-4.1-mini judge.
 #   - Install flash-attn for the remove-padding utilities.
@@ -60,8 +64,11 @@ training:
       num_workers: 8
     actor_rollout_ref:
       model:
+        # Requires flash attention
         use_remove_padding: True
         override_config:
+          # Gemma 4’s global attention has head_dim=512, which FlashAttention-2 kernels
+          # reject because they support at most 256.
           attn_implementation: "sdpa"
       actor:
         use_kl_loss: True
