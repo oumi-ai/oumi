@@ -120,6 +120,9 @@ class JudgeParams(BaseParams):
     include_explanation: bool = field(default=False)
     """Whether the judge should provide an explanation before the judgment."""
 
+    use_guided_decoding: bool = field(default=True)
+    """Whether to constrain the judge's response (JSON only) to the expected schema."""
+
     examples: list[dict[str, str]] = field(default_factory=list)
     """Few-shot examples for the judge as a list of field value dictionaries.
 

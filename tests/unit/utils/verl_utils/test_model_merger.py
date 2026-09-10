@@ -15,7 +15,7 @@
 import pytest
 import torch
 
-from oumi.utils.verl_model_merger import FSDPModelMerger
+from oumi.utils.verl_utils.model_merger import FSDPModelMerger
 
 WORLD_SIZE = 4
 

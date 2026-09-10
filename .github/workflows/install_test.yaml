@@ -79,7 +79,11 @@ jobs:
 
       - name: Override PyTorch ${{ matrix.torch-version }}
         run: |
-          uv pip install --system torch==${{ matrix.torch-version }} torchvision torchaudio
+          # torchaudio declares no dependency on torch, so leaving it unpinned lets it
+          # float to a build compiled against a different CUDA major version. transformers
+          # >=5.12 imports torchaudio on every `import transformers`, which turns that
+          # mismatch into an OSError on a missing libcudart. Versions track torch 1:1.
+          uv pip install --system torch==${{ matrix.torch-version }} torchvision torchaudio==${{ matrix.torch-version }}
 
       - name: Verify installation
         run: |

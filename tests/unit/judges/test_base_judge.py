@@ -1467,3 +1467,29 @@ class TestJudgePartial:
 
         call_kwargs = mock_engine.infer_partial.call_args.kwargs
         assert call_kwargs["progress_path"] == "/tmp/progress.json"
+
+
+class TestJsonOutputParsing:
+    """`_parse_json_output` must be tolerant, and must never raise."""
+
+    @pytest.mark.parametrize(
+        "raw,expected",
+        [
+            ('{"a": 1}', {"a": "1"}),
+            ('```json\n{"a": 1}\n```', {"a": "1"}),
+            # Unconstrained models often wrap the object in prose.
+            ('Sure! Here you go: {"a": 1}', {"a": "1"}),
+            ('prose {"a": 1} more prose', {"a": "1"}),
+            # Valid JSON that is not an object yields no fields rather than raising.
+            ("[1, 2]", {}),
+            ('"just a string"', {}),
+            ("42", {}),
+            ("null", {}),
+            ("not json at all", {}),
+            ("", {}),
+        ],
+    )
+    def test_parse_json_output(self, raw, expected):
+        from oumi.judges.base_judge import JudgeOutput
+
+        assert JudgeOutput._parse_json_output(raw) == expected

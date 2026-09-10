@@ -19,6 +19,7 @@ from typing import Any
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.exceptions import OumiConfigError
+from oumi.utils.packaging import is_trl_v1_5_or_later
 
 
 @dataclass
@@ -477,11 +478,18 @@ class GoldParams(BaseParams):
             result["vllm_guided_decoding_regex"] = self.vllm_guided_decoding_regex
 
         if len(self.teacher_model_init_kwargs) > 0:
-            result["teacher_model_init_kwargs"] = self.teacher_model_init_kwargs
+            result["teacher_model_init_kwargs"] = dict(self.teacher_model_init_kwargs)
         else:
             result["teacher_model_init_kwargs"] = {}
 
-        if "torch_dtype" not in result["teacher_model_init_kwargs"]:
-            result["teacher_model_init_kwargs"]["torch_dtype"] = "auto"
+        # trl 1.5 renamed the teacher dtype key from `torch_dtype` to `dtype` and
+        # dropped the alias, so emit whichever key the installed version reads.
+        init_kwargs = result["teacher_model_init_kwargs"]
+        dtype_key = "dtype" if is_trl_v1_5_or_later() else "torch_dtype"
+        stale_key = "torch_dtype" if dtype_key == "dtype" else "dtype"
+        if stale_key in init_kwargs and dtype_key not in init_kwargs:
+            init_kwargs[dtype_key] = init_kwargs.pop(stale_key)
+        if dtype_key not in init_kwargs:
+            init_kwargs[dtype_key] = "auto"
 
         return result

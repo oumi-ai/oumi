@@ -283,7 +283,7 @@ run: |
 ```
 ````
 
-Nebius support is provided through SkyPilot. Enable it the same way as other providers: run `sky check` and follow the instructions for the "Nebius" row (see the [SkyPilot Nebius docs](https://docs.skypilot.co/en/latest/reference/cloud-setup/cloud-permissions/nebius.html)).
+Nebius support is provided through SkyPilot. Enable it the same way as other providers: run `sky check` and follow the instructions for the "Nebius" row (see the [SkyPilot Nebius docs](https://docs.skypilot.co/en/latest/cloud-setup/cloud-permissions/nebius.html)).
 :::
 
 :::{tab-item} Slurm (via SkyPilot)

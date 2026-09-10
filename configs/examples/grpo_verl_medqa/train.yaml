@@ -1,0 +1,112 @@
+# VERL GRPO config to full-fine-tune Gemma 4 on RaR-Medicine using an
+# OpenAI-hosted medical-answer judge as the reward.
+#
+# Requirements:
+#   - transformers==5.5.2 is required for correct Gemma 4 cache-less training
+#     forwards. With this version, no model patches are needed.
+#   - Accept the Gemma model license and authenticate with Hugging Face.
+#   - Set OPENAI_API_KEY for the gpt-4.1-mini judge.
+#   - Install flash-attn for the remove-padding utilities.
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`.
+#
+# Usage:
+#   oumi train -c configs/examples/grpo_verl_medqa/train.yaml
+
+model:
+  model_name: "google/gemma-4-E2B-it"
+
+data:
+  train:
+    datasets:
+      - dataset_name: "anisha2102/RaR-Medicine"
+        split: "train"
+  validation:
+    datasets:
+      - dataset_name: "anisha2102/RaR-Medicine"
+        split: "val"
+        # Judge calls have a monetary cost, so use a small validation subset.
+        sample_count: 64
+
+training:
+  trainer_type: "VERL_GRPO"
+  num_train_epochs: 1
+  learning_rate: 1.0e-6
+  enable_gradient_checkpointing: True
+
+  reward_functions: ["rar_medicine_verl"]
+  reward_function_kwargs:
+    rar_medicine_verl:
+      judge_config_path: "configs/examples/grpo_verl_medqa/judge.yaml"
+
+  eval_strategy: "steps"
+  eval_steps: 50
+  save_steps: 50
+  save_final_model: True
+
+  grpo:
+    max_completion_length: 1024
+    use_vllm: True
+    temperature: 1.0
+    vllm_gpu_memory_utilization: 0.55
+
+  verl_config_overrides:
+    data:
+      train_batch_size: 64
+      val_batch_size: 256
+      max_prompt_length: 512
+      filter_overlong_prompts: True
+      filter_overlong_prompts_workers: 8
+    reward:
+      num_workers: 8
+    actor_rollout_ref:
+      model:
+        use_remove_padding: True
+        override_config:
+          attn_implementation: "sdpa"
+      actor:
+        use_kl_loss: True
+        kl_loss_coef: 0.001
+        kl_loss_type: "low_var_kl"
+        ppo_mini_batch_size: 16
+        use_dynamic_bsz: False
+        ppo_micro_batch_size_per_gpu: 8
+        entropy_from_logits_with_chunking: True
+        optim:
+          lr_warmup_steps: 20
+          lr_scheduler_type: "cosine"
+          min_lr_ratio: 0.1
+        fsdp_config:
+          param_offload: True
+          optimizer_offload: True
+      rollout:
+        log_prob_use_dynamic_bsz: False
+        log_prob_micro_batch_size_per_gpu: 16
+        tensor_model_parallel_size: 1
+        n: 8
+        checkpoint_engine:
+          update_weights_bucket_megabytes: 9216
+        engine_kwargs:
+          vllm:
+            limit_mm_per_prompt:
+              image: 0
+              video: 0
+              audio: 0
+      ref:
+        log_prob_use_dynamic_bsz: False
+        log_prob_micro_batch_size_per_gpu: 16
+        fsdp_config:
+          param_offload: True
+    algorithm:
+      oumi_reward_group_low_std_threshold: 0.01
+      kl_ctrl:
+        kl_coef: 0.001
+    trainer:
+      critic_warmup: 0
+      val_before_train: False
+      n_gpus_per_node: 4
+      nnodes: 1
+      max_actor_ckpt_to_keep: 2
+
+  output_dir: "output/grpo_verl_medqa"
+  run_name: "grpo_verl_medqa"
+  enable_wandb: True

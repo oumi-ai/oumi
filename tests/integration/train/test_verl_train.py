@@ -1,4 +1,5 @@
 import importlib.util
+import json
 import pathlib
 import tempfile
 from unittest.mock import patch
@@ -16,6 +17,7 @@ from oumi.core.configs import (
     TrainingParams,
 )
 from oumi.core.configs.params.grpo_params import GrpoParams
+from oumi.core.constants import VERL_METRICS_FILENAME
 from oumi.core.trainers.verl_grpo_trainer import VerlGrpoTrainer
 from oumi.utils.packaging import is_verl_v0_7_or_later
 from tests.markers import requires_gpus
@@ -338,3 +340,20 @@ def test_verl_grpo_train_1_step():
         verl_output = pathlib.Path(output_dir) / "verl_output"
         assert verl_output.exists(), f"verl_output dir not created: {verl_output}"
         assert any(verl_output.iterdir()), f"verl_output dir is empty: {verl_output}"
+
+        # verl's file tracker mirrors every step's metrics next to the output.
+        metrics_file = pathlib.Path(output_dir) / VERL_METRICS_FILENAME
+        assert metrics_file.exists(), f"verl metrics not written: {metrics_file}"
+        steps = [json.loads(line) for line in metrics_file.read_text().splitlines()]
+        assert len(steps) >= 1
+        first_step = steps[0]
+        assert first_step["step"] == 1
+        logged_keys = set(first_step["data"])
+        for expected_key in (
+            "critic/score/mean",
+            "actor/pg_loss",
+            "actor/entropy",
+            "response_length/mean",
+            "training/global_step",
+        ):
+            assert expected_key in logged_keys, f"{expected_key} missing: {logged_keys}"

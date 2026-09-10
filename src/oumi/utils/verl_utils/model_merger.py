@@ -18,7 +18,7 @@
 # with minor modifications e.g., `import verl` is wrapped into try-except block
 # and some verl-related imports are moved down to the function that uses them.
 
-"""This script is used to merge huggingface model and test verl checkpoints from FSDP and Megatron backends.
+"""Merge Hugging Face models and test VERL FSDP and Megatron checkpoints.
 
 To merge FSDP checkpoints:
 ```sh

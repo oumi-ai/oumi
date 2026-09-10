@@ -26,6 +26,7 @@ from typing import Any, cast
 from datasets import Dataset
 from omegaconf import DictConfig, OmegaConf
 
+from oumi.core.constants import VERL_METRICS_FILENAME
 from oumi.core.types.conversation import Conversation
 from oumi.core.types.conversation import Role as ConversationRole
 from oumi.utils.conversation_utils import create_list_of_message_json_dicts
@@ -53,6 +54,12 @@ except ModuleNotFoundError:
     verl = None
     ray = None
 
+try:
+    from verl.utils.tracking import (  # pyright: ignore[reportMissingImports]
+        Tracking as VerlTracking,
+    )
+except ModuleNotFoundError:
+    VerlTracking = None
 
 from oumi.core.configs import DatasetSplitParams, TrainingConfig
 from oumi.core.processors.base_processor import BaseProcessor
@@ -60,7 +67,17 @@ from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.trainers.base_trainer import BaseTrainer
 from oumi.utils.logging import logger
 from oumi.utils.packaging import is_verl_v0_7_or_later
-from oumi.utils.verl_model_merger import FSDPModelMerger, ModelMergerConfig
+from oumi.utils.verl_utils.grpo_metrics import (
+    DEFAULT_REWARD_GROUP_LOW_STD_THRESHOLD,
+    REWARD_GROUP_LOW_STD_CONFIG_KEY,
+    install_verl_grpo_reward_group_metrics_patch,
+)
+from oumi.utils.verl_utils.model_merger import FSDPModelMerger, ModelMergerConfig
+
+# Every step's metrics are mirrored to this file under the output dir so callers
+# can read reward curves.
+_VERL_FILE_LOGGER_BACKEND = "file"
+_VERL_FILE_LOGGER_PATH_ENV = "VERL_FILE_LOGGER_PATH"
 
 # Dataset processing function type. This function takes the following arguments:
 # 1. a dataset sample.
@@ -70,9 +87,19 @@ from oumi.utils.verl_model_merger import FSDPModelMerger, ModelMergerConfig
 # Returns an example converted to verl format.
 _DatasetProcessFn = Callable[[dict, int, str, str], dict]
 
+# verl's reward callback receives extra_info but not the structured prompt column.
+_PROMPT_JSON_EXTRA_INFO_KEY = "prompt_json"
+
 # Passes verl's `save_freq > 0` check (which enables its last-step save) while
 # being too large for `step % save_freq` to ever match: final checkpoint only.
 _SAVE_FINAL_STEP_ONLY_FREQ = 10**9
+
+
+def _verl_supports_file_logger() -> bool:
+    """Whether the installed verl has the ``file`` tracking backend (>=0.6)."""
+    if VerlTracking is None:
+        return False
+    return _VERL_FILE_LOGGER_BACKEND in getattr(VerlTracking, "supported_backend", ())
 
 
 class VerlGrpoTrainer(BaseTrainer):
@@ -225,6 +252,8 @@ class VerlGrpoTrainer(BaseTrainer):
         Supports both single-turn and multi-turn conversations. The prompt is
         returned in verl's chat format (a list of ``{"role", "content"}`` dicts)
         and the answer is the final assistant message's text (the ground truth).
+        Prompt-only conversations use an empty ground truth for reward functions
+        that score without a reference answer.
 
         Args:
             example: A dictionary containing the conversation JSON.
@@ -238,7 +267,9 @@ class VerlGrpoTrainer(BaseTrainer):
                 Images are only supported for single-turn conversations.
         """
         prompt_messages, images, answer = (
-            extract_prompt_images_completion_from_conversation(example)
+            extract_prompt_images_completion_from_conversation(
+                example, allow_prompt_only=True
+            )
         )
 
         if len(images) > 0:
@@ -294,6 +325,7 @@ class VerlGrpoTrainer(BaseTrainer):
             "extra_info": {
                 "split": split,
                 "index": idx,
+                _PROMPT_JSON_EXTRA_INFO_KEY: json.dumps(prompt_messages),
                 "need_tools_kwargs": True,
                 "tools_kwargs": tools_kwargs,
             },
@@ -357,6 +389,8 @@ class VerlGrpoTrainer(BaseTrainer):
                 "split": split,
                 "index": idx,
                 "answer": answer,
+                _PROMPT_JSON_EXTRA_INFO_KEY: json.dumps(prompt_messages),
+                "metadata": json.dumps(metadata),
             },
         }
         return data
@@ -366,7 +400,7 @@ class VerlGrpoTrainer(BaseTrainer):
     ) -> None:
         """Creates dataset files for verl in Parquet format.
 
-        The Parquet files are saved to the Oumi cache directory.
+        The Parquet files are saved to the output directory.
 
         Args:
             process_fn: Optional function to convert the dataset samples to verl format.
@@ -492,6 +526,12 @@ class VerlGrpoTrainer(BaseTrainer):
             config.trainer.logger.append("console")
         if training_params.enable_wandb:
             config.trainer.logger.append("wandb")
+        if self._final_output_dir is not None and _verl_supports_file_logger():
+            os.environ.setdefault(
+                _VERL_FILE_LOGGER_PATH_ENV,
+                str(self._final_output_dir / VERL_METRICS_FILENAME),
+            )
+            config.trainer.logger.append(_VERL_FILE_LOGGER_BACKEND)
         config.trainer.project_name = os.environ.get("WANDB_PROJECT", "oumi_verl")
         config.trainer.experiment_name = training_params.run_name
         config.trainer.default_local_dir = str(self._temp_output_dir or "")
@@ -544,6 +584,15 @@ class VerlGrpoTrainer(BaseTrainer):
             )
         self._verl_config = self._create_config()
         logger.info(f"verl config: {pformat(self._verl_config)}")
+
+        if self._verl_config.algorithm.adv_estimator == "grpo":
+            low_std_threshold = self._verl_config.algorithm.get(
+                REWARD_GROUP_LOW_STD_CONFIG_KEY,
+                DEFAULT_REWARD_GROUP_LOW_STD_THRESHOLD,
+            )
+            install_verl_grpo_reward_group_metrics_patch(
+                low_std_threshold=low_std_threshold
+            )
 
         tokenizer = self._processing_class
 

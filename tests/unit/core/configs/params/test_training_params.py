@@ -14,7 +14,44 @@
 
 from unittest.mock import patch
 
-from oumi.core.configs.params.training_params import TrainingParams
+import pytest
+
+from oumi.core.configs.params.training_params import TrainerType, TrainingParams
+from oumi.exceptions import OumiConfigError
+
+
+def test_fractional_eval_steps_passed_to_trl_config():
+    params = TrainingParams(
+        trainer_type=TrainerType.TRL_SFT,
+        eval_strategy="steps",
+        eval_steps=0.1,
+    )
+
+    assert params.to_hf().eval_steps == 0.1
+
+
+@pytest.mark.parametrize("trainer_type", [TrainerType.OUMI, TrainerType.VERL_GRPO])
+def test_fractional_eval_steps_rejected_for_non_hf_trainers(trainer_type):
+    with pytest.raises(
+        OumiConfigError,
+        match="Fractional eval_steps are only supported by Hugging Face and TRL",
+    ):
+        TrainingParams(trainer_type=trainer_type, eval_steps=0.1)
+
+
+@pytest.mark.parametrize("eval_steps", [-0.1, 0.0, 1.0, 1.5, float("inf")])
+def test_fractional_eval_steps_must_be_ratio(eval_steps):
+    with pytest.raises(
+        OumiConfigError,
+        match="Fractional eval_steps must be greater than 0 and less than 1",
+    ):
+        TrainingParams(eval_steps=eval_steps)
+
+
+def test_integer_eval_steps_supported_for_oumi_trainer():
+    params = TrainingParams(trainer_type=TrainerType.OUMI, eval_steps=20)
+
+    assert params.eval_steps == 20
 
 
 @patch("oumi.utils.packaging.is_transformers_v5", return_value=True)

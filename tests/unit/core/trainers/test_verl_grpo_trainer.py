@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
@@ -13,6 +14,8 @@ from oumi.core.configs import (
     TrainingConfig,
     TrainingParams,
 )
+from oumi.core.constants import VERL_METRICS_FILENAME
+from oumi.core.trainers import verl_grpo_trainer
 from oumi.core.trainers.verl_grpo_trainer import VerlGrpoTrainer
 from oumi.core.types.conversation import (
     ContentItem,
@@ -22,6 +25,7 @@ from oumi.core.types.conversation import (
     Type,
 )
 from oumi.core.types.tool_call import FunctionCall, ToolCall
+from oumi.utils.verl_utils.grpo_metrics import REWARD_GROUP_LOW_STD_CONFIG_KEY
 
 try:
     verl_import_failed = False
@@ -87,6 +91,7 @@ def test_create_verl_data_entry_multi_turn():
     ]
     assert entry["images"] == []
     assert entry["reward_model"]["ground_truth"] == "4"
+    assert json.loads(entry["extra_info"]["prompt_json"]) == entry["prompt"]
 
 
 def test_create_verl_data_entry_single_turn_image_prepends_marker():
@@ -234,6 +239,7 @@ def test_create_verl_data_entry_tool_agent_preserves_structured_history():
         },
         {"role": "tool", "content": '{"rows":[[2]]}', "tool_call_id": "call_1"},
     ]
+    assert json.loads(row["extra_info"]["prompt_json"]) == row["prompt"]
     assert json.loads(json.dumps(row["prompt"])) == row["prompt"]
 
 
@@ -278,6 +284,150 @@ def _make_trainer_for_config(
     trainer._final_output_dir = Path(output_dir)
     trainer._temp_output_dir = Path(output_dir) / "verl_output"
     return trainer
+
+
+def _make_trainer_for_setup(adv_estimator: str, low_std_threshold: float):
+    trainer = object.__new__(VerlGrpoTrainer)
+    verl_config = MagicMock()
+    verl_config.algorithm.adv_estimator = adv_estimator
+    verl_config.algorithm.get.side_effect = lambda key, default: (
+        low_std_threshold if key == REWARD_GROUP_LOW_STD_CONFIG_KEY else default
+    )
+    verl_config.trainer.n_gpus_per_node = 1
+    verl_config.trainer.nnodes = 1
+    trainer._create_config = MagicMock(return_value=verl_config)
+    trainer._processing_class = MagicMock()
+    trainer._processor = None
+    trainer._reward_funcs = []
+    return trainer
+
+
+@pytest.mark.skipif(verl_import_failed, reason="verl not available")
+def test_create_config_preserves_reward_group_low_std_threshold_override():
+    trainer = _make_trainer_for_config(save_steps=-1, save_final_model=False)
+    trainer._oumi_config.training.verl_config_overrides = {
+        "algorithm": {REWARD_GROUP_LOW_STD_CONFIG_KEY: 0.25}
+    }
+
+    verl_config = trainer._create_config()
+
+    assert verl_config.algorithm.get(REWARD_GROUP_LOW_STD_CONFIG_KEY) == 0.25
+
+
+@pytest.mark.skipif(verl_import_failed, reason="verl not available")
+def test_setup_installs_grpo_reward_group_metrics_before_trainer_construction():
+    trainer = _make_trainer_for_setup("grpo", 0.25)
+    events = []
+
+    with (
+        patch(
+            "oumi.core.trainers.verl_grpo_trainer."
+            "install_verl_grpo_reward_group_metrics_patch",
+            side_effect=lambda **_: events.append("install"),
+        ) as install_patch,
+        patch(
+            "oumi.core.trainers.verl_grpo_trainer.RayPPOTrainer",
+            side_effect=lambda **_: events.append("construct") or MagicMock(),
+        ),
+        patch(
+            "oumi.core.trainers.verl_grpo_trainer.ResourcePoolManager",
+            return_value=MagicMock(),
+        ),
+        patch(
+            "oumi.core.trainers.verl_grpo_trainer.ray.remote", side_effect=lambda x: x
+        ),
+        patch(
+            "oumi.core.trainers.verl_grpo_trainer.is_verl_v0_7_or_later",
+            return_value=True,
+        ),
+    ):
+        trainer._setup_verl_trainer()
+
+    install_patch.assert_called_once_with(low_std_threshold=0.25)
+    assert events == ["install", "construct"]
+
+
+@pytest.mark.skipif(verl_import_failed, reason="verl not available")
+def test_setup_does_not_install_reward_group_metrics_for_other_estimators():
+    trainer = _make_trainer_for_setup("gae", 0.25)
+
+    with (
+        patch(
+            "oumi.core.trainers.verl_grpo_trainer."
+            "install_verl_grpo_reward_group_metrics_patch"
+        ) as install_patch,
+        patch(
+            "oumi.core.trainers.verl_grpo_trainer.RayPPOTrainer",
+            return_value=MagicMock(),
+        ),
+        patch(
+            "oumi.core.trainers.verl_grpo_trainer.ResourcePoolManager",
+            return_value=MagicMock(),
+        ),
+        patch(
+            "oumi.core.trainers.verl_grpo_trainer.ray.remote", side_effect=lambda x: x
+        ),
+        patch(
+            "oumi.core.trainers.verl_grpo_trainer.is_verl_v0_7_or_later",
+            return_value=True,
+        ),
+    ):
+        trainer._setup_verl_trainer()
+
+    install_patch.assert_not_called()
+
+
+class _TrackingWithFileBackend:
+    supported_backend = ["console", "wandb", "file"]
+
+
+class _TrackingWithoutFileBackend:
+    supported_backend = ["console", "wandb"]
+
+
+@pytest.mark.skipif(verl_import_failed, reason="verl not available")
+def test_file_logger_mirrors_metrics_under_output_dir(monkeypatch, tmp_path):
+    """Metrics are written to verl_metrics.jsonl in the output dir by default."""
+    monkeypatch.delenv("VERL_FILE_LOGGER_PATH", raising=False)
+    trainer = _make_trainer_for_config(
+        save_steps=5, save_final_model=True, output_dir=str(tmp_path)
+    )
+
+    with patch.object(verl_grpo_trainer, "VerlTracking", _TrackingWithFileBackend):
+        config = trainer._create_config()
+
+    assert "file" in config.trainer.logger
+    assert os.environ["VERL_FILE_LOGGER_PATH"] == str(tmp_path / VERL_METRICS_FILENAME)
+
+
+@pytest.mark.skipif(verl_import_failed, reason="verl not available")
+def test_file_logger_respects_preset_path(monkeypatch, tmp_path):
+    """A caller-provided VERL_FILE_LOGGER_PATH wins over the default."""
+    monkeypatch.setenv("VERL_FILE_LOGGER_PATH", "/elsewhere/metrics.jsonl")
+    trainer = _make_trainer_for_config(
+        save_steps=5, save_final_model=True, output_dir=str(tmp_path)
+    )
+
+    with patch.object(verl_grpo_trainer, "VerlTracking", _TrackingWithFileBackend):
+        config = trainer._create_config()
+
+    assert "file" in config.trainer.logger
+    assert os.environ["VERL_FILE_LOGGER_PATH"] == "/elsewhere/metrics.jsonl"
+
+
+@pytest.mark.skipif(verl_import_failed, reason="verl not available")
+def test_file_logger_skipped_when_verl_lacks_backend(monkeypatch, tmp_path):
+    """Older verl without the ``file`` backend keeps the plain logger list."""
+    monkeypatch.delenv("VERL_FILE_LOGGER_PATH", raising=False)
+    trainer = _make_trainer_for_config(
+        save_steps=5, save_final_model=True, output_dir=str(tmp_path)
+    )
+
+    with patch.object(verl_grpo_trainer, "VerlTracking", _TrackingWithoutFileBackend):
+        config = trainer._create_config()
+
+    assert "file" not in config.trainer.logger
+    assert "VERL_FILE_LOGGER_PATH" not in os.environ
 
 
 @pytest.mark.skipif(verl_import_failed, reason="verl not available")
