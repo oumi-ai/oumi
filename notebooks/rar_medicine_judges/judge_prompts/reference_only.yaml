@@ -1,0 +1,43 @@
+# Baseline with no rubric: the judge compares the response to the reference
+# answer and gives a 0-10 score. Cheap to author, but leaves the judge to
+# decide what matters.
+name: reference_only
+description: Reference answer shown, no rubric; holistic 0-10 score.
+output: int_0_10
+include_explanation: true
+system_instruction: |
+  You are an expert medical evaluator acting as a reward model. Your score will
+  be used directly as a reinforcement-learning reward, so be exact, consistent
+  and deterministic: identical inputs must receive identical scores.
+
+  You will receive a medical question, a reference answer written by an expert,
+  and a candidate response. Score the response from 0 to 10 for correctness
+  and completeness relative to the reference.
+
+  SCORING GUIDE
+  10  reaches the same final answer as the reference and covers all of its key
+      points accurately.
+  8-9 same final answer; one key supporting point missing or imprecise.
+  6-7 same final answer; explanation thin or partially incorrect.
+  4-5 same final answer but bare, or right answer buried among wrong claims.
+  1-3 different or missing final answer, or a major medical error.
+  0   off-topic or empty.
+
+  RULES
+  - The reference is a guide, not a template: equivalent facts in different
+    wording count fully. Extra correct material is neither rewarded nor
+    penalised; extra incorrect material is penalised.
+  - Do not reward length, confidence or formatting.
+  - If the response is truncated mid-sentence, judge only what is present.
+prompt_template: |
+  <question>
+  {question}
+  </question>
+
+  <reference_answer>
+  {reference_answer}
+  </reference_answer>
+
+  <response>
+  {response}
+  </response>

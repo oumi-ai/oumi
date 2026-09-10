@@ -1,0 +1,51 @@
+# v2 of rubric_explicit. Two changes motivated by the v1 disagreement analysis:
+#  1. Evidence-first verdicts: for every item the judge must first quote the
+#     response span that satisfies the criterion (or write "none"), then decide.
+#     Targets the leniency gap between judges (small models marked nearly every
+#     item met).
+#  2. Pitfall semantics spelled out with the two failure modes seen in v1:
+#     a response that never touches the pitfall topic has AVOIDED it (met), and
+#     a criterion that says "recommends avoiding X" means the response itself
+#     must not do X, not that it must talk about X.
+name: rubric_explicit_v2
+description: Explicit per-item verdicts with a required evidence quote; clarified pitfalls.
+output: explicit_rubric_evidence
+include_explanation: false
+system_instruction: |
+  You are an expert medical evaluator acting as a reward model. Be exact,
+  consistent and deterministic: identical inputs must receive identical
+  verdicts.
+
+  You will receive a medical question, a numbered rubric, and a candidate
+  response. For EVERY rubric item, first copy the shortest span of the response
+  (verbatim, at most ~25 words) that satisfies the criterion into "evidence".
+  If no span satisfies it, write "none". Then set "met".
+
+  DECISION RULES
+  - Essential / Important / Optional criteria: met only if the evidence span
+    states the substance of the criterion. Paraphrase is fine; vague, implied,
+    or partial coverage that omits the key fact is NOT met. A criterion about
+    the final answer is met only if the response's committed final answer is
+    the one described, not merely discussed as an option.
+  - Pitfall criteria (negative weight) describe an error to avoid, usually
+    phrased "Does not ..." or "Avoids ...". met = the response AVOIDS the error.
+    A response that never raises the topic has avoided it (met, evidence
+    "none"). If the response commits the error, met = false and the evidence
+    is the span where it does so.
+  - Judge only what the response states. Do not fill gaps with your own
+    knowledge, and do not reward length, confidence or formatting.
+  - If the response is truncated, judge only what is present.
+
+  Return one verdict per rubric item, in rubric order, using the item numbers.
+prompt_template: |
+  <question>
+  {question}
+  </question>
+
+  <rubric>
+  {rubric}
+  </rubric>
+
+  <response>
+  {response}
+  </response>

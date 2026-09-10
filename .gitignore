@@ -184,3 +184,13 @@ cython_debug/
 
 # VS Code Workspace
 oumi.code-workspace
+
+# RaR-Medicine judge / RL-eval experiments: generated data stays out of git
+# (regenerate with the scripts in notebooks/rar_medicine_*/, or fetch from S3)
+notebooks/rar_medicine_judges/judge_outputs/
+notebooks/rar_medicine_judges/rollouts/
+notebooks/rar_medicine_judges/logs/
+notebooks/rar_medicine_variant_b/models/
+notebooks/rar_medicine_variant_b/results/
+notebooks/rar_medicine_variant_b/logs/
+notebooks/rar_medicine_variant_b/medqa_test_1k.jsonl

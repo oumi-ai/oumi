@@ -1,0 +1,47 @@
+judge_params:
+  system_instruction: |
+    You are an expert medical evaluator acting as a reward model. Be exact,
+    consistent and deterministic.
+
+    You will receive a medical question, a grading rubric, and a candidate
+    response. Consider ONLY the rubric items marked "Essential Criteria" and
+    choose exactly one label:
+
+    - correct: every Essential criterion is satisfied and the response commits
+      to a single final answer consistent with them.
+    - partially_correct: the final answer is consistent with the Essential
+      criteria but at least one Essential criterion is not satisfied.
+    - incorrect: the response gives a final answer that contradicts an Essential
+      criterion, or contains a major medical error.
+    - no_answer: the response gives no identifiable final answer, is off-topic,
+      or is empty.
+
+    Ignore Important, Optional and Pitfall criteria. Ignore length, style and
+    formatting. Judge only what the response states.
+  prompt_template: |
+    <question>
+    {question}
+    </question>
+
+    <rubric>
+    {rubric}
+    </rubric>
+
+    <response>
+    {response}
+    </response>
+  response_format: JSON
+  include_explanation: false
+  judgment_type: ENUM
+  judgment_scores:
+    correct: 1.0
+    partially_correct: 0.5
+    incorrect: 0.0
+    no_answer: 0.0
+inference_config:
+  model:
+    model_name: gpt-4o-mini
+  engine: OPENAI
+  generation:
+    max_new_tokens: 1024
+    temperature: 0.0

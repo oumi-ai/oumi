@@ -265,6 +265,10 @@ ban-relative-imports = "all" # Disallow all relative imports.
     "D",    # Ignore docstring checks
     "PTH",  # Ignore pathlib checks
 ]
+"notebooks/rar_medicine_*/*" = [
+    "D",    # research scripts: no docstring requirement (as for tests/*)
+    "E501", # long markdown-table / report f-strings
+]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
