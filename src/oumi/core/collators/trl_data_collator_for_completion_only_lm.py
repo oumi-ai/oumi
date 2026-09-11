@@ -194,6 +194,16 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
         the span between response_template and end_of_turn_template contains
         environment output the model never generates.
 
+        The opening marker is the exception, and only where the model emits it. In
+        gemma-4 it is a stop token — the model writes ``<|tool_response>`` to end its
+        turn and hand control to the environment, the same way it writes the
+        end-of-turn token to hand control back to the user. Masking it there removes
+        the only signal for stopping after a tool call. Where the marker instead
+        follows another result, it is the template framing a second parallel block,
+        which the model cannot predict (nothing in its context says whether more
+        results are coming) and must not learn to emit, or it will stop where it
+        should be replying.
+
         An opener with no closer before `end_idx` masks through `end_idx`: truncation
         can cut a block in half, and over-masking is the safe direction.
 
@@ -217,15 +227,17 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
             takes the tool result back out, leaving the call and the answer::
 
                 <resp> call <open> result <close> answer <eot>
-                       ^^^^ ^^^^^^^^^^^^^^^^^^^^ ^^^^^^
-                       kept       masked          kept
+                       ^^^^^^^^^^^ ^^^^^^^^^^^^^ ^^^^^^
+                        kept          masked      kept
 
             Parallel tool calls give two blocks in one turn. The loop resumes at
-            `cursor = block_end`, so the second is found on the next pass::
+            `cursor = block_end`, so the second is found on the next pass. Its opener
+            directly follows the first block's closer, which is what marks it as the
+            template's framing rather than the model's hand-off::
 
-                <resp> <open> a <close> <open> b <close> answer <eot>
-                       ^^^^^^^^^^^^^^^^ ^^^^^^^^^^^^^^^^
-                          masked            masked
+                <resp> call <open> a <close> <open> b <close> answer <eot>
+                       ^^^^^^^^^^^ ^^^^^^^^^^^^^^^^^^^^^^^^^ ^^^^^^
+                          kept               masked            kept
 
             An opener whose closer was cut off by truncation masks everything to
             `end_idx`. Over-masking costs a little signal; under-masking would
@@ -248,7 +260,15 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
             block_start = cursor + opens[0]
             closes = self._find_pattern(row_token_ids[block_start:end_idx], close_ids)
             block_end = block_start + closes[0] + len(close_ids) if closes else end_idx
-            batch["labels"][row_idx, block_start:block_end] = self.ignore_index
+            # The opener is the model's own hand-off when it follows the calls, and
+            # the environment's framing when it follows another result. Only the
+            # first kind is the model's to produce, so only that one stays in the loss.
+            preceding = row_token_ids[
+                max(0, block_start - len(close_ids)) : block_start
+            ]
+            continues_a_run = preceding == close_ids
+            mask_from = block_start if continues_a_run else block_start + len(open_ids)
+            batch["labels"][row_idx, mask_from:block_end] = self.ignore_index
             cursor = block_end
 
     def _apply_span_masking(
