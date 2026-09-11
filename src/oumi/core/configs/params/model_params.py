@@ -51,6 +51,13 @@ class ModelParams(BaseParams):
     adapter path could alternatively be specified in `model_name`.
     """
 
+    adapter_trainable: bool = False
+    """Whether the adapter loaded from `adapter_model` keeps trainable weights.
+
+    PEFT loads adapters frozen by default, which suits inference. Set True to continue
+    training an existing adapter, e.g. DPO on top of an SFT LoRA.
+    """
+
     tokenizer_name: str | None = None
     """The name or path of the tokenizer to use.
 

@@ -341,10 +341,20 @@ def build_huggingface_model(
 
     # Load pretrained PEFT adapters
     if model_params.adapter_model:
-        logger.info(f"Loading PEFT adapter from: {model_params.adapter_model} ...")
-        model = PeftModel.from_pretrained(model, model_params.adapter_model)
+        model = _apply_pretrained_adapter(model, model_params)
 
     return model
+
+
+def _apply_pretrained_adapter(model, model_params: ModelParams):
+    # The caller guards adapter_model; assert narrows it to `str`.
+    assert model_params.adapter_model is not None
+    logger.info(f"Loading PEFT adapter from: {model_params.adapter_model} ...")
+    return PeftModel.from_pretrained(
+        model,
+        model_params.adapter_model,
+        is_trainable=model_params.adapter_trainable,
+    )
 
 
 def _get_transformers_model_class(config):
