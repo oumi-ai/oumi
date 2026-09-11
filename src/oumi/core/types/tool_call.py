@@ -142,7 +142,32 @@ class ToolDefinition(BaseModel):
     """The function definition."""
 
 
-class FunctionCall(BaseModel):
+class _TemplateFieldAccess:
+    """Dict-style field access, for chat templates that subscript and call ``.get()``.
+
+    Gemma 4's template reads its inputs as mappings (``tool_call.get('function')``,
+    ``function['arguments']``) rather than as objects, so a Pydantic model reaches
+    it as something with no ``get`` and no ``__getitem__`` and rendering fails
+    outright. ``Message`` already carries its own ``get`` for this reason; these are
+    the same accommodation for the tool-call types. Only declared fields are exposed,
+    so a key that collides with a method name returns the field or the default rather
+    than the bound method.
+    """
+
+    def __getitem__(self, key: str) -> Any:
+        if key in type(self).model_fields:  # type: ignore[attr-defined]
+            return getattr(self, key)
+        raise KeyError(key)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Returns a field by name, dict-style, or ``default`` if absent."""
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+
+class FunctionCall(_TemplateFieldAccess, BaseModel):
     """A function call made by the model."""
 
     model_config = ConfigDict(frozen=True, extra="allow")
@@ -175,6 +200,23 @@ class FunctionCall(BaseModel):
             f"arguments must be a str, dict, or list; got {type(raw).__name__}."
         )
 
+    def __getitem__(self, key: str) -> Any:
+        """As `_TemplateFieldAccess`, except that ``arguments`` decodes to its mapping.
+
+        Gemma 4's template reads ``function['arguments']`` and raises unless it gets
+        a mapping, so the JSON string stored here fails to render at all. Decoding on
+        subscript hands the template the object it asks for while ``.arguments`` keeps
+        the OpenAI wire string as the storage contract, and a dataset written with
+        mappings still normalizes to that string on the way in.
+
+        A template that subscripts ``arguments`` expecting the raw JSON string sees a
+        dict instead. Piping it through ``tojson`` produces the same text, and printing
+        it bare would produce a Python repr. Attribute access is unchanged either way.
+        """
+        if key == "arguments":
+            return self.get_arguments_dict()
+        return super().__getitem__(key)
+
     def get_arguments_dict(self) -> dict[str, Any]:
         """Returns ``arguments`` decoded from its JSON string form.
 
@@ -198,7 +240,7 @@ class FunctionCall(BaseModel):
         return parsed
 
 
-class ToolCall(BaseModel):
+class ToolCall(_TemplateFieldAccess, BaseModel):
     """A tool call emitted by the model."""
 
     model_config = ConfigDict(frozen=True, extra="allow")
