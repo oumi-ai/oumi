@@ -72,6 +72,9 @@ class InferenceEngineType(str, Enum):
     CEREBRAS = "CEREBRAS"
     """The inference engine for Cerebras API."""
 
+    LITELLM = "LITELLM"
+    """The inference engine for the LiteLLM SDK (100+ providers)."""
+
     HUGGING_FACE_ROUTER = "HUGGING_FACE_ROUTER"
     """The inference engine for the HuggingFace Inference Providers router.
 
