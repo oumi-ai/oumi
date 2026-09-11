@@ -212,4 +212,4 @@ training:
       val_before_train: True
       n_gpus_per_node: 4
       nnodes: 1
-      max_actor_ckpt_to_keep: 2
+      # max_actor_ckpt_to_keep: 2
