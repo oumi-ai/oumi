@@ -64,6 +64,7 @@ training:
       num_workers: 8
     actor_rollout_ref:
       model:
+        external_lib: "oumi.utils.verl_utils.fsdp1_rank_buffer_sync"
         # Requires flash attention
         use_remove_padding: True
         override_config:
