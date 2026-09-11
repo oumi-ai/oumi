@@ -1,0 +1,215 @@
+# verl GRPO config to full-fine-tune Qwen3.5-4B on RaR-Medicine with the
+# Variant B meta-rubric judge (gpt-4.1-mini, non-reasoning; see
+# judge_config.yaml) as the reward.
+#
+# Derived from ../gemma4_e2b/train_verl.yaml (same data, judge, batch sizes,
+# LR schedule, 4-GPU layout). Differences that come from the model:
+  # * Qwen3.5 is a HYBRID model: 24 of 32 layers are Gated DeltaNet (linear
+  #   attention), 8 are full attention (head_dim 256, 16 q / 4 kv heads).
+  #   - use_remove_padding is OFF. verl's remove-padding packs a micro-batch
+  #     into one long row and relies on the attention kernel honouring
+  #     position_ids / cu_seqlens to keep sequences apart. The Gated DeltaNet
+  #     layer in transformers has no such boundary handling, so packed
+  #     sequences would leak state into each other. Padded forwards are
+  #     correct; the cost is paid back with smaller micro-batches below.
+  # verl 0.8.0 sreplaces Qwen3.5’s DeltaNet forward function with an implementation 
+  # that accepts cu_seqlens—the locations where examples start and end. It passes 
+  # boundaries to supported kernels or processes the segments separately as a fallback.
+
+  #   - attention kernel: sdpa (FA2 would work for head_dim 256, but the
+  #     linear-attention layers do not use it anyway, and sdpa needs no extra
+  #     install).
+  #   - fast path: transformers uses flash-linear-attention + causal-conv1d
+  #     kernels when importable, else a pure-torch fallback (correct, slower).
+  #     `pip install flash-linear-attention causal-conv1d` before long runs.
+  # * Vocab is 248,320 (gemma-4: 262,144): a full-vocab fp32 logits tensor is
+  #   ~1 MiB per padded token, and every padded position (1536/seq) produces
+  #   logits on this path. Micro-batch sizes were tuned on 5-step smoke runs
+  #   (2026-09-11, FA2 + fla/causal-conv1d/tilelang, steps 2-5 averaged):
+  #     actor 4 seqs: update_actor 21.1 s, step 71.1 s, peak alloc 34.0 GiB
+  #     actor 8 seqs: update_actor 18.8 s, step 61.0 s, peak alloc 34.0 GiB
+  #   Peak allocated memory did not move, so the update's logits are NOT what
+  #   sets the peak (weight-sync bucket + fp32 shard reload are). Log-prob
+  #   passes at 16 (as gemma-4) were tried and rejected: +28 GiB peak and 20 %
+  #   slower old_log_prob (see rollout block). Same number of micro-batches on
+  #   every rank (dynamic batching stays off, see actor block).
+  # * Chat template turns THINKING ON by default. It is disabled through
+  #   apply_chat_template_kwargs so the 1024-token completion budget goes to
+  #   the answer, and the judge sees an answer rather than a truncated <think>.
+  # * 4B dense params: fp32 master + AdamW = ~48 GiB total, ~12 GiB per GPU
+  #   sharded over 4; both offloads kept ON (as for gemma-4) so the resident
+  #   footprint during rollouts is small and vLLM keeps its 0.55 budget.
+  # * Weight-sync bucket raised to 3072 MiB: the tied embedding is one fp32
+  #   tensor of 248320 x 2560 = 2543 MB and verl's default bucket is 2048 MB
+  #   (first smoke run failed at step 1 with "too large to fit in the bucket").
+  # * Text-only task: multimodal inputs disabled in vLLM exactly as for gemma-4
+  #   (Qwen3.5 is also a vision-language checkpoint).
+
+# Requirements:
+#   - OPENAI_API_KEY (run.sh copies it from the repo-root .env); judge = gpt-4.1-mini
+#   - `wandb login`, or set enable_wandb: False
+#   - conda env `oumi` (verl 0.7.1, vllm 0.19.1, transformers 5.5.2)
+#
+# Usage (pins GPUs 0-3, key from .env, log in logs/medqa_qwen3.5-4b_fullft.log):
+#   bash experiments/rar_medicine/variant_b/qwen3.5-4B/run.sh
+#
+# Smoke test (3 steps, no eval, no checkpoint):
+#   RUN_NAME=smoke_qwen bash experiments/rar_medicine/variant_b/qwen3.5-4B/run.sh \
+#     --training.max_steps 3 --training.save_steps 1000 --training.eval_strategy no \
+#     --training.verl_config_overrides.trainer.val_before_train false \
+#     --training.run_name medqa_qwen3.5-4b_smoke \
+#     --training.output_dir output/rar_medicine/variant_b/smoke_qwen
+#
+# Per step: 64 prompts x 8 rollouts = 512 sequences, 128 per GPU; judge cost
+# ~$0.30 per step (see gemma4_e2b/train_verl.yaml for the arithmetic).
+
+model:
+  model_name: "Qwen/Qwen3.5-4B"
+
+data:
+  train:
+    datasets:
+      - dataset_name: "anisha2102/RaR-Medicine"
+        split: "train"
+        # Full train split is 17,926 examples (~280 steps/epoch at batch 64).
+  validation:
+    datasets:
+      - dataset_name: "anisha2102/RaR-Medicine"
+        split: "val"
+        sample_count: 1000
+
+training:
+  trainer_type: "VERL_GRPO"
+
+  num_train_epochs: 1
+  # 17,926 / 64 = 280 steps per epoch. oumi maps this to
+  # trainer.total_training_steps; verl auto-resumes from the newest checkpoint
+  # under output_dir/verl_output.
+  # max_steps: 5 #280 # 5 for smoke
+  # Full fine-tune LR. Schedule lives under actor_rollout_ref.actor.optim; the
+  # top-level lr_scheduler_type / warmup_steps are not read by VERL_GRPO.
+  learning_rate: 1.0e-6
+
+  reward_functions: ["rar_medicine_verl"]
+
+  enable_gradient_checkpointing: True
+
+  eval_strategy: "steps"
+  eval_steps: 50
+  save_steps: 50
+
+  logging_steps: 1
+  output_dir: "output/rar_medicine/variant_b/medqa_qwen3.5-4b_fullft"
+  run_name: "medqa_qwen3.5-4b_fullft"
+  enable_wandb: True
+
+  grpo:
+    max_completion_length: 1024
+    use_vllm: True
+    temperature: 1.0
+    # vLLM budget per GPU. The resident actor is offloaded during rollouts.
+    # 0.65 was tried 2026-09-11 (5-step smoke, steps 2-5 avg) and rejected:
+    #   0.55: gen 21.3 s, update_weights 4.1 s, step 61.0 s
+    #   0.65: gen 23.9 s, update_weights 7.1 s, step 68.6 s
+    # Generation did not speed up (batch of 512 x <=1024 tokens already fits
+    # the KV cache at 0.55) and the weight sync got slower, consistent with
+    # the bigger KV cache making vLLM's sleep/wake around each sync costlier.
+    vllm_gpu_memory_utilization: 0.55
+
+  verl_config_overrides:
+    data:
+      train_batch_size: 64
+      val_batch_size: 256
+      # Prompt token counts are tokenizer-dependent; Qwen3.5's tokenizer is
+      # comparable to gemma-4's on English text (p99 ~380 there). Rows longer
+      # than this are dropped by filter_overlong_prompts.
+      max_prompt_length: 512
+      filter_overlong_prompts: True
+      filter_overlong_prompts_workers: 8
+      # Qwen3.5's chat template inserts <think> unless enable_thinking=False.
+      # Passed to tokenizer.apply_chat_template when building the prompt ids
+      # that both vLLM (rollout) and the actor/ref (log-probs) consume.
+      apply_chat_template_kwargs:
+        enable_thinking: False
+    reward:
+      num_workers: 8
+    actor_rollout_ref:
+      model:
+        # OFF for the hybrid linear-attention layers, see header.
+        use_remove_padding: False #True 
+        override_config:
+          attn_implementation: "flash_attention_2" #"sdpa"
+        # lora_rank stays at verl's default 0 (full fine-tune).
+
+      actor:
+        use_kl_loss: True
+        kl_loss_coef: 0.001
+        kl_loss_type: "low_var_kl"
+        # 16 prompts x 8 rollouts = 128 sequences per mini-batch = 32 per GPU;
+        # 4 optimizer steps per training step.
+        ppo_mini_batch_size: 16
+        # Fixed micro-batches, dynamic batching OFF: verl 0.7.1's dynamic
+        # batching does not equalise micro-batch counts across DP ranks and
+        # desynchronised FSDP collectives on the gemma-4 run (NCCL watchdog
+        # kill at step 20). 32 sequences per GPU / 8 = 4 padded micro-batches
+        # of 8 x 1536 tokens on every rank. 8 vs 4 measured -11 % update_actor
+        # at identical peak allocated memory (see header); 16 not yet tested.
+        use_dynamic_bsz: False
+        ppo_micro_batch_size_per_gpu: 8
+        # Only honoured on the remove-padding branch, and irrelevant here anyway:
+        # entropy_coeff is 0 so the update never computes entropy. Kept for the
+        # old-log-prob pass, which logs actor/entropy once per step.
+        entropy_from_logits_with_chunking: True
+        optim:
+          lr_warmup_steps: 20
+          lr_scheduler_type: "cosine"
+          min_lr_ratio: 0.1
+        fsdp_config:
+          param_offload: True
+          optimizer_offload: True
+
+      rollout:
+        log_prob_use_dynamic_bsz: False
+        # 8, not 16 as gemma-4: measured 2026-09-11 (5-step smoke, steps 2-5):
+        #   8:  old_log_prob 7.8 s, peak allocated 34.0 GiB
+        #   16: old_log_prob 9.3 s, peak allocated 62.4 GiB (the two 16 x 1536
+        #       x 248k fp32 logits/log-softmax tensors, ~24 GiB each, land on
+        #       top of the resident actor). Slower AND +28 GiB, so 8 stays.
+        log_prob_micro_batch_size_per_gpu: 8
+        tensor_model_parallel_size: 1
+        n: 8
+
+        # Per-token rollout log-probs -> verl logs rollout_probs_diff_* and
+        # rollout_actor_probs_pearson_corr each step. Must sit at bf16 noise;
+        # a growing diff means the weight sync (or the sdpa-vs-vLLM
+        # linear-attention numerics) is off.
+        calculate_log_probs: True
+
+        # Must hold the largest single tensor: embed_tokens is 2543 MB in fp32
+        # (verl default 2048 MB asserts). 3072 leaves ~0.5 GiB margin; the
+        # bucket is allocated once on the sender and once on each receiver.
+        checkpoint_engine:
+          update_weights_bucket_megabytes: 3072
+
+        # Text-only task: skip vLLM's vision profiling for this VL checkpoint.
+        engine_kwargs:
+          vllm:
+            limit_mm_per_prompt:
+              image: 0
+              video: 0
+
+      ref:
+        log_prob_use_dynamic_bsz: False
+        # Same measurement as rollout.log_prob_micro_batch_size_per_gpu above.
+        log_prob_micro_batch_size_per_gpu: 8
+        fsdp_config:
+          param_offload: True
+    algorithm:
+      kl_ctrl:
+        kl_coef: 0.001
+    trainer:
+      critic_warmup: 0
+      val_before_train: True
+      n_gpus_per_node: 4
+      nnodes: 1
+      max_actor_ckpt_to_keep: 2
