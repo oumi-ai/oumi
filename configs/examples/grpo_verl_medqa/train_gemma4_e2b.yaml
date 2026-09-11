@@ -3,14 +3,16 @@
 #
 # Requirements:
 #   - transformers==5.5.2 is required for correct Gemma 4 cache-less training
-#     forwards. With this version, no model patches are needed.
+#     forwards (the KV-shared layers). No transformers-side patch is needed.
+#   - verl < 0.8 (FSDP1) additionally needs oumi's rank-buffer sync, wired in
+#     below through actor_rollout_ref.model.external_lib; see that comment.
 #   - Accept the Gemma model license and authenticate with Hugging Face.
 #   - Set OPENAI_API_KEY for the gpt-4.1-mini judge.
 #   - Install flash-attn for the remove-padding utilities.
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`.
 #
 # Usage:
-#   oumi train -c configs/examples/grpo_verl_medqa/train.yaml
+#   oumi train -c configs/examples/grpo_verl_medqa/train_gemma4_e2b.yaml
 
 model:
   model_name: "google/gemma-4-E2B-it"
@@ -63,6 +65,18 @@ training:
         use_remove_padding: True
         override_config:
           attn_implementation: "sdpa"
+        # REQUIRED for Gemma 4 on verl < 0.8 (FSDP1). verl imports this module
+        # in every FSDP worker before building the model; importing it installs
+        # oumi.utils.verl_utils.fsdp1_rank_buffer_sync, which re-broadcasts
+        # rank 0's non-parameter buffers after FSDP construction. Without it,
+        # FSDP's sync_module_states leaves Gemma 4's aliased rotary inv_freq
+        # buffers different on ranks 1..N, so those ranks compute wrong
+        # log-probs: measured rollout_probs_diff_mean 0.18 and
+        # rollout_actor_probs_pearson_corr 0.62 on 4x H100, versus 0.007 and
+        # 0.999 with the sync. The worker log should show
+        # "[fsdp1_rank_buffer_sync] installed" and
+        # "[rank-buffer-sync] rank N: ... 3 had different content locally".
+        external_lib: "oumi.utils.verl_utils.fsdp1_rank_buffer_sync"
       actor:
         use_kl_loss: True
         kl_loss_coef: 0.001

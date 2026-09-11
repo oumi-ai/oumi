@@ -1,0 +1,168 @@
+# VERL GRPO config to full-fine-tune Qwen3.5-4B on RaR-Medicine using an
+# OpenAI-hosted medical-answer judge as the reward.
+#
+# Companion to train_gemma4_e2b.yaml: same data, judge, batch sizes and LR
+# schedule. The settings that differ come from Qwen3.5's architecture and are
+# explained inline. Tuned on 4x H100 80GB with verl 0.7.1 and vLLM 0.19.1.
+#
+# Requirements:
+#   - Set OPENAI_API_KEY for the gpt-4.1-mini judge.
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`.
+#   - Install flash-attn (FlashAttention-2 for the full-attention layers).
+#   - Install the Gated DeltaNet kernels, otherwise transformers falls back to
+#     a pure-torch path that is correct but ~4x slower on the actor update:
+#       pip install flash-linear-attention causal-conv1d tilelang
+#     (causal-conv1d compiles against the installed torch; pass
+#     --no-build-isolation so pip does not pull a mismatched torch. tilelang
+#     is required on Hopper GPUs: flash-linear-attention refuses its gated
+#     delta-rule backward on Triton 3.4-3.7.0 without it.)
+#   - Install qwen-vl-utils. Qwen3.5 ships an image processor, and verl's
+#     agent loop imports qwen_vl_utils whenever a processor exists, even for
+#     text-only prompts.
+#   - vLLM JIT-compiles a FlashInfer kernel (gdn_prefill) for the linear
+#     attention layers on first use; nvcc must be on PATH. If the run dies
+#     with "No such file or directory" inside ~/.cache/flashinfer, the cache
+#     was built by a different Python environment: delete that entry.
+#
+# Usage:
+#   oumi train -c configs/examples/grpo_verl_medqa/train_qwen3_5_4b.yaml
+
+model:
+  model_name: "Qwen/Qwen3.5-4B"
+
+data:
+  train:
+    datasets:
+      - dataset_name: "anisha2102/RaR-Medicine"
+        split: "train"
+  validation:
+    datasets:
+      - dataset_name: "anisha2102/RaR-Medicine"
+        split: "val"
+        # Judge calls have a monetary cost, so use a small validation subset.
+        sample_count: 64
+
+training:
+  trainer_type: "VERL_GRPO"
+
+  num_train_epochs: 1
+  # Full fine-tune LR. The schedule is set under actor_rollout_ref.actor.optim;
+  # oumi's top-level lr_scheduler_type / warmup_steps are not read by VERL_GRPO.
+  learning_rate: 1.0e-6
+
+  reward_functions: ["rar_medicine_verl"]
+
+  enable_gradient_checkpointing: True
+
+  eval_strategy: "steps"
+  eval_steps: 50
+  save_steps: 50
+
+  logging_steps: 1
+  output_dir: "output/grpo_verl_medqa_qwen3_5_4b"
+  run_name: "grpo_verl_medqa_qwen3_5_4b"
+  enable_wandb: True
+
+  grpo:
+    max_completion_length: 1024
+    use_vllm: True
+    temperature: 1.0
+    # Raising this to 0.65 did not speed up generation (a 512-sequence rollout
+    # batch already fits the KV cache) and made the per-step weight sync
+    # slower, so it stays at 0.55.
+    vllm_gpu_memory_utilization: 0.55
+
+  verl_config_overrides:
+    data:
+      train_batch_size: 64
+      val_batch_size: 256
+      max_prompt_length: 512
+      filter_overlong_prompts: True
+      filter_overlong_prompts_workers: 8
+      # Qwen3.5's chat template enables thinking by default. Disable it so the
+      # completion budget goes to the answer and the judge does not score a
+      # truncated <think> block.
+      apply_chat_template_kwargs:
+        enable_thinking: False
+    reward:
+      num_workers: 8
+    actor_rollout_ref:
+      model:
+        # Qwen3.5 is a hybrid: 24 of 32 layers are Gated DeltaNet (linear
+        # attention). verl 0.7.x's remove-padding path packs a micro-batch into
+        # one row and relies on the attention kernel to separate sequences by
+        # position; the Gated DeltaNet layers have no such boundary handling
+        # in transformers, so packed sequences would leak state into each
+        # other. Padded forwards are correct. (verl >= 0.8 adds a Qwen3.5
+        # patch that passes cu_seqlens to those layers.)
+        use_remove_padding: False
+        override_config:
+          # FlashAttention-2 applies only to the 8 full-attention layers (head
+          # dim 256 is supported). Versus sdpa it saved ~11 GB of peak memory
+          # by not materializing padded attention scores.
+          attn_implementation: "flash_attention_2"
+
+      actor:
+        use_kl_loss: True
+        kl_loss_coef: 0.001
+        kl_loss_type: "low_var_kl"
+        # 16 prompts x 8 rollouts = 128 sequences per mini-batch, 32 per GPU on
+        # 4 GPUs, 4 optimizer steps per training step.
+        ppo_mini_batch_size: 16
+        # Fixed micro-batches: verl 0.7.x's dynamic batching does not equalize
+        # micro-batch counts across DP ranks and desynchronizes FSDP
+        # collectives. 32 sequences per GPU / 8 = 4 micro-batches of
+        # 8 x 1536 padded tokens on every rank. Measured peak allocated memory
+        # is ~34 GB per GPU and did not change between 4 and 8 sequences.
+        use_dynamic_bsz: False
+        ppo_micro_batch_size_per_gpu: 8
+        entropy_from_logits_with_chunking: True
+        optim:
+          lr_warmup_steps: 20
+          lr_scheduler_type: "cosine"
+          min_lr_ratio: 0.1
+        fsdp_config:
+          param_offload: True
+          optimizer_offload: True
+
+      rollout:
+        log_prob_use_dynamic_bsz: False
+        # 8, not 16: on the padded path the forward-only log-prob pass holds
+        # two full-vocab (248k) fp32 tensors per token. 16 sequences measured
+        # +28 GB peak memory and a slower pass, with no other gain.
+        log_prob_micro_batch_size_per_gpu: 8
+        tensor_model_parallel_size: 1
+        n: 8
+
+        # Per-token rollout log-probs so verl logs rollout_probs_diff_* and
+        # rollout_actor_probs_pearson_corr each step. Expect ~0.005 / 0.999;
+        # a larger diff means the weight sync or the training forward is off.
+        calculate_log_probs: True
+
+        # The weight-sync bucket must hold the largest single tensor. Qwen3.5's
+        # tied embedding is 248320 x 2560 fp32 = 2543 MB; verl's 2048 MB
+        # default asserts at the first sync.
+        checkpoint_engine:
+          update_weights_bucket_megabytes: 3072
+
+        # Text-only task: skip vLLM's vision profiling for this VL checkpoint.
+        engine_kwargs:
+          vllm:
+            limit_mm_per_prompt:
+              image: 0
+              video: 0
+
+      ref:
+        log_prob_use_dynamic_bsz: False
+        log_prob_micro_batch_size_per_gpu: 8
+        fsdp_config:
+          param_offload: True
+    algorithm:
+      kl_ctrl:
+        kl_coef: 0.001
+    trainer:
+      critic_warmup: 0
+      val_before_train: True
+      n_gpus_per_node: 4
+      nnodes: 1
+      max_actor_ckpt_to_keep: 2
