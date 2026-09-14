@@ -20,11 +20,11 @@ beyond the calling Python process. ``ModalClient`` translates a
 ``JobConfig`` into a sandbox launch and exposes status/cancel/log
 primitives via the sandbox's opaque ``object_id``.
 
-Image, GPU, secrets, and a workspace-scoped HuggingFace cache volume
-are derived from the ``JobConfig`` at launch time. ``setup`` and
-``run`` are concatenated into a single shell script and executed
-together inside the sandbox so secrets injected via ``modal.Secret``
-are visible (image-build time has no secrets attached). Sandboxes are
+Image, GPU, CPU/memory reservations, secrets, and a workspace-scoped
+HuggingFace cache volume are derived from the ``JobConfig`` at launch
+time. ``setup`` and ``run`` are concatenated into a single shell script
+and executed together inside the sandbox so secrets injected via
+``modal.Secret`` are visible (image-build time has no secrets attached). Sandboxes are
 tagged with the caller's logical cluster name so ``ModalCluster.down()``
 can find and terminate them across worker restarts.
 """
@@ -140,6 +140,21 @@ def _build_secret(modal_lib: Any, envs: dict[str, str]) -> Any | None:
     return modal_lib.Secret.from_dict({k: str(v) for k, v in envs.items()})
 
 
+def _parse_resource_count(value: str | None) -> float | None:
+    """Parses a SkyPilot-style resource count ("16", "16+") to a float.
+
+    Returns None for absent or unparseable values so the caller falls
+    back to Modal's defaults rather than failing the launch.
+    """
+    if value is None or str(value).strip() == "":
+        return None
+    try:
+        return float(str(value).strip().rstrip("+"))
+    except ValueError:
+        logger.warning(f"Ignoring unparseable Modal resource request: {value!r}")
+        return None
+
+
 _LAUNCHER_APP_NAME = "oumi-launcher"
 
 #: Tag key applied to every sandbox at launch time. Used by
@@ -210,6 +225,13 @@ class ModalClient:
         gpu = job.resources.accelerators
         timeout = int(kwargs.get("timeout", _DEFAULT_TIMEOUT_S))
 
+        # Without an explicit reservation Modal grants only a burstable CPU
+        # sliver (nproc=1 observed), so dependency install and S3 transfer
+        # speed depend on host contention — minutes on an idle host, hours
+        # on a busy one.
+        cpu = _parse_resource_count(job.resources.cpus)
+        memory_gib = _parse_resource_count(job.resources.memory)
+
         # ``setup`` runs inside the sandbox (not at image-build time) so
         # secrets injected via ``modal.Secret`` are visible.
         cleaned_setup = _strip_sudo(job.setup) if job.setup else ""
@@ -235,6 +257,8 @@ class ModalClient:
             app=app,
             image=image,
             gpu=gpu,
+            cpu=cpu,
+            memory=int(memory_gib * 1024) if memory_gib else None,
             secrets=[secret] if secret else [],
             timeout=timeout,
             volumes={_HF_CACHE_MOUNT_PATH: hf_cache_volume},
