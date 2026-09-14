@@ -126,7 +126,7 @@ def test_qwen3_5_registered_as_vlm():
         # Dual-mode: distinct causal + VLM classes.
         pytest.param("Qwen/Qwen3.5-2B", False, True, True, id="qwen3_5-dual-mode"),
         # Plain text: causal class only, no vision tower.
-        pytest.param("meta-llama/Llama-3.2-1B", False, False, False, id="llama-text"),
+        pytest.param("Qwen/Qwen3-0.6B", False, False, False, id="qwen3-text"),
         # Vision-only: VLM class, no text-only causal path.
         pytest.param(
             "Qwen/Qwen3-VL-2B-Instruct", False, False, True, id="qwen3_vl-vision"
