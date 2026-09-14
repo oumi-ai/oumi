@@ -618,6 +618,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 messages=messages,
                 metadata=metadata,
                 conversation_id=conversation.conversation_id,
+                tools=conversation.tools,
             )
             self._save_conversation_to_scratch(
                 new_conversation,

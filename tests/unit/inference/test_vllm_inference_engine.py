@@ -10,6 +10,7 @@ import pytest
 
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
+from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import ContentItem, Conversation, Message, Role, Type
 from oumi.core.types.tool_call import ToolCall, ToolDefinition
 from oumi.inference import VLLMInferenceEngine
@@ -766,6 +767,37 @@ def test_infer_forwards_tools_kwarg(mock_vllm):
     call_kwargs = mock_vllm_instance.chat.call_args.kwargs
     # Tools are dumped to OpenAI-format dicts before being handed to vLLM.
     assert call_kwargs["tools"] == [_WEATHER_TOOL_DICT]
+
+
+def test_infer_preserves_tools_in_output_without_vllm():
+    """Tool definitions survive in the conversation returned for the next turn."""
+    engine = object.__new__(VLLMInferenceEngine)
+    BaseInferenceEngine.__init__(
+        engine,
+        _get_default_model_params(),
+        generation_params=GenerationParams(max_new_tokens=5),
+    )
+    engine._llm = Mock()
+    engine._llm.chat.return_value = [
+        SimpleNamespace(
+            outputs=[SimpleNamespace(text="ok", token_ids=[1], finish_reason="stop")],
+            prompt_token_ids=[2],
+        )
+    ]
+    engine._lora_request = None
+    engine._tool_parser = None
+    engine._save_conversation_to_scratch = Mock()
+    engine._cleanup_scratch_file = Mock()
+    conv = Conversation(
+        tools=[_WEATHER_TOOL],
+        messages=[Message(role=Role.USER, content="weather in Tokyo?")],
+        conversation_id="1",
+    )
+
+    with patch("oumi.inference.vllm_inference_engine.SamplingParams", create=True):
+        result = engine.infer([conv], _get_default_inference_config())
+
+    assert result[0].tools == conv.tools
 
 
 @pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
