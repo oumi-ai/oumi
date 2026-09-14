@@ -52,16 +52,13 @@ class _FakeConfig:
 
 
 def _fake_mapping(model_cls):
-    """A stand-in auto-mapping whose ``__getitem__`` yields ``model_cls``.
+    """A stand-in auto-mapping whose ``.get`` yields ``model_cls`` (or None).
 
-    Mirrors the transformers-5 access: ``mapping[config_class]`` returns the model
-    class or raises ``KeyError`` when there is no entry (``model_cls`` is None).
+    Mirrors the transformers-5 access: ``mapping.get(config_class, None)`` returns
+    the model class, or the default when there is no entry (``model_cls`` is None).
     """
     mapping = mock.MagicMock()
-    if model_cls is None:
-        mapping.__getitem__.side_effect = KeyError
-    else:
-        mapping.__getitem__.return_value = model_cls
+    mapping.get.return_value = model_cls
     return mapping
 
 
