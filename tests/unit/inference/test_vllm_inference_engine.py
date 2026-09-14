@@ -838,6 +838,79 @@ def test_infer_preserves_tools_in_output_without_vllm():
     assert result[0].tools == conv.tools
 
 
+def test_gemma4_replay_splits_narration_from_tool_call():
+    """Gemma 4 receives narration before the call it introduced."""
+    engine = object.__new__(VLLMInferenceEngine)
+    engine._tool_parser_name = "gemma4"
+    tool_call = ToolCall.model_validate(
+        {
+            "id": "call_abc",
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "arguments": '{"city":"Tokyo"}',
+            },
+        }
+    )
+    conv = Conversation(
+        tools=[_WEATHER_TOOL],
+        messages=[
+            Message(role=Role.USER, content="What's the weather in Tokyo?"),
+            Message(
+                role=Role.ASSISTANT,
+                content="Let me check.",
+                tool_calls=[tool_call],
+            ),
+            Message(role=Role.TOOL, content="22C, sunny", tool_call_id="call_abc"),
+        ],
+    )
+
+    sent = engine._convert_conversation_to_vllm_input(conv)
+
+    assert [message["role"] for message in sent] == [
+        "user",
+        "assistant",
+        "assistant",
+        "tool",
+    ]
+    assert sent[1] == {"role": "assistant", "content": "Let me check."}
+    assert sent[2]["content"] is None
+    assert sent[2]["tool_calls"] == [tool_call.model_dump(mode="json")]
+    assert sent[3]["tool_call_id"] == "call_abc"
+
+
+def test_other_models_keep_narration_and_tool_call_fused():
+    """Do not introduce adjacent assistant roles for unrelated templates."""
+    engine = object.__new__(VLLMInferenceEngine)
+    engine._tool_parser_name = "hermes"
+    tool_call = ToolCall.model_validate(
+        {
+            "id": "call_abc",
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "arguments": '{"city":"Tokyo"}',
+            },
+        }
+    )
+    conv = Conversation(
+        messages=[
+            Message(role=Role.USER, content="What's the weather in Tokyo?"),
+            Message(
+                role=Role.ASSISTANT,
+                content="Let me check.",
+                tool_calls=[tool_call],
+            ),
+        ]
+    )
+
+    sent = engine._convert_conversation_to_vllm_input(conv)
+
+    assert len(sent) == 2
+    assert sent[1]["content"] == "Let me check."
+    assert sent[1]["tool_calls"] == [tool_call.model_dump(mode="json")]
+
+
 @pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
 def test_infer_fast_path_when_no_tools(mock_vllm):
     """When no conversation has tools, chat() is called once without `tools`."""
