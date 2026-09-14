@@ -21,6 +21,11 @@ from huggingface_hub.errors import HFValidationError
 from omegaconf import MISSING
 from transformers.utils import find_adapter_config_file, is_flash_attn_2_available
 
+from oumi.core.configs.internal.supported_models import (
+    is_custom_model,
+    is_dual_mode_model_using_model_name,
+    is_vision_language_model_using_model_name,
+)
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.exceptions import (
     HardwareException,
@@ -227,6 +232,19 @@ class ModelParams(BaseParams):
     other parts fixed.
     """
 
+    text_only: bool = False
+    """Whether to load a multimodal model as a text-only language model.
+
+    Some models (e.g. Qwen3.5) ship the same weights as both a vision-language
+    model and a text-only language model. If True, only the language backbone is
+    loaded and the vision tower is skipped, so image inputs are ignored.
+
+    Only applies to models that provide a text-only variant; setting it on a
+    vision-only model (e.g. Qwen3-VL) raises an error.
+
+    Defaults to False.
+    """
+
     model_revision: str | None = None
     """The revision of the model to use.
 
@@ -342,3 +360,32 @@ class ModelParams(BaseParams):
             raise OumiConfigError(
                 "model_max_length must be a positive integer or None."
             )
+
+        if self.text_only:
+            if not is_custom_model(self.model_name) and not (
+                is_dual_mode_model_using_model_name(
+                    self.model_name,
+                    trust_remote_code=self.trust_remote_code,
+                    revision=self.model_revision,
+                )
+            ):
+                if is_vision_language_model_using_model_name(
+                    self.model_name,
+                    trust_remote_code=self.trust_remote_code,
+                    revision=self.model_revision,
+                ):
+                    # Vision-only model (e.g. Qwen3-VL): no text-only load path.
+                    raise OumiConfigError(
+                        f"text_only=True is not valid for model "
+                        f"'{self.model_name}'. It is only supported for models that "
+                        "ship both a vision-language and a text-only variant of the "
+                        "same weights (e.g. Qwen3.5). This model is vision-only and "
+                        "has no text-only variant. Remove text_only or use a model "
+                        "that provides one."
+                    )
+                # Plain text model (e.g. Llama): already text-only, so the flag has
+                # nothing to skip. Accept it but warn that it has no effect.
+                logger.warning(
+                    f"text_only=True has no effect for model '{self.model_name}': "
+                    "it is already a text-only model."
+                )
