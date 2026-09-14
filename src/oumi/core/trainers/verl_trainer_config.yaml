@@ -88,6 +88,23 @@ actor_rollout_ref:
     entropy_checkpointing: false
   rollout:
     name: vllm
+    # `sync` runs plain single-turn generation. Tools and the simulated user both
+    # need verl's async agent-loop path, which reads each row's `agent_name`.
+    # Enable it per-recipe via `training.verl_config_overrides` -- these defaults are
+    # shared with the single-turn recipes:
+    #
+    #   actor_rollout_ref:
+    #     rollout:
+    #       mode: async
+    #       multi_turn:
+    #         enable: true
+    #         max_assistant_turns: 6        # generation safety rail; null = unbounded
+    #         tool_config_path: <verl tool config>   # only when tools are used
+    #       agent:
+    #         agent_loop_config_path: <yaml registering oumi_user_sim_tool_agent>
+    #
+    # VerlGrpoTrainer._validate_agent_loop_config raises at config time if rows route
+    # to the agent loop without these, so a missing override fails before any GPU work.
     mode: sync
     temperature: 1.0
     top_k: -1
