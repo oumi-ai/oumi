@@ -19,10 +19,9 @@
 #   - Install qwen-vl-utils. Qwen3.5 ships an image processor, and verl's
 #     agent loop imports qwen_vl_utils whenever a processor exists, even for
 #     text-only prompts.
-#   - vLLM JIT-compiles a FlashInfer kernel (gdn_prefill) for the linear
-#     attention layers on first use; nvcc must be on PATH. If the run dies
-#     with "No such file or directory" inside ~/.cache/flashinfer, the cache
-#     was built by a different Python environment: delete that entry.
+#   - The config selects vLLM's Triton Gated DeltaNet prefill kernel (see the
+#     rollout.engine_kwargs comment); the FlashInfer alternative hung
+#     intermittently on H100 with vLLM 0.19.1.
 #
 # Usage:
 #   oumi train -c configs/examples/grpo_verl_medqa/train_qwen3_5_4b.yaml
@@ -145,12 +144,19 @@ training:
         checkpoint_engine:
           update_weights_bucket_megabytes: 3072
 
-        # Text-only task: skip vLLM's vision profiling for this VL checkpoint.
         engine_kwargs:
           vllm:
+            # Text-only task: skip vLLM's vision profiling for this VL checkpoint.
             limit_mm_per_prompt:
               image: 0
               video: 0
+            # Triton instead of the default FlashInfer JIT kernel for Gated
+            # DeltaNet prefill. With FlashInfer (vLLM 0.19.1, FlashInfer 0.6.6,
+            # H100) the engine intermittently hung in a prefill step and died
+            # with "RPC call to sample_tokens timed out", roughly once per
+            # ~80 generation calls, in both training rollouts and evals. See
+            # vllm-project/vllm#38916; this flag is the documented workaround.
+            gdn_prefill_backend: "triton"
 
       ref:
         log_prob_use_dynamic_bsz: False
