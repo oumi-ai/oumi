@@ -393,6 +393,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
 
         # Optional tool-call parser. Direct kwarg wins over model_params.
         parser_name = tool_call_parser or model_params.tool_call_parser
+        self._tool_parser_name = parser_name
         self._tool_parser = None
         if parser_name is not None:
             if not _VLLM_TOOL_PARSERS_AVAILABLE:
@@ -675,11 +676,12 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         new_messages: list[Message] = []
         finish_reason_override: FinishReason | None = None
         for completion in chat_response.outputs:
-            text = completion.text
-            content: str | None = text
+            display_text = completion.text
+            content: str | None = display_text
             tool_calls_payload: list[ToolCall] | None = None
 
             if self._tool_parser is not None:
+                parser_text = self._decode_tool_parser_text(completion)
                 # Some parsers read `request.tool_choice` from the
                 # non-streaming entry point; pass a stub so they don't crash.
                 # vLLM offline `LLM.chat()` has no `tool_choice` knob, so
@@ -698,7 +700,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 )
                 try:
                     extracted = self._tool_parser.extract_tool_calls(
-                        text,
+                        parser_text,
                         request=stub,  # type: ignore[arg-type]
                     )
                 except Exception:
@@ -710,13 +712,17 @@ class VLLMInferenceEngine(BaseInferenceEngine):
 
                 if extracted is not None:
                     tools_called = bool(getattr(extracted, "tools_called", False))
-                    content = extracted.content or (None if tools_called else "")
                     if tools_called:
+                        content = extracted.content or None
                         tool_calls_payload = [
                             ToolCall.model_validate(tc.model_dump())
                             for tc in extracted.tool_calls
                         ]
                         finish_reason_override = FinishReason.TOOL_CALLS
+                    elif getattr(self, "_tool_parser_name", None) == "gemma4":
+                        content = display_text
+                    else:
+                        content = extracted.content or ""
 
             new_messages.append(
                 Message(
@@ -726,6 +732,33 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 )
             )
         return new_messages, finish_reason_override
+
+    def _decode_tool_parser_text(self, completion) -> str:
+        """Decode Gemma 4 output without stripping tool-protocol tokens.
+
+        ``completion.text`` follows the user-facing ``skip_special_tokens``
+        setting. The Gemma 4 parser requires those special tokens to recognize
+        the model's native tool-call protocol.
+        Keep parser input independent from display text so callers can still
+        request clean assistant content.
+        """
+        if getattr(self, "_tool_parser_name", None) != "gemma4":
+            return completion.text
+        token_ids = getattr(completion, "token_ids", None)
+        if token_ids is None or len(token_ids) == 0:
+            return completion.text
+        try:
+            return self._tokenizer.decode(
+                token_ids,
+                skip_special_tokens=False,
+                clean_up_tokenization_spaces=False,
+            )
+        except Exception:
+            logger.exception(
+                "Failed to decode raw tokens for tool-call parsing; "
+                "falling back to display text."
+            )
+            return completion.text
 
     def infer_online(
         self,
