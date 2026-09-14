@@ -103,6 +103,33 @@ except ModuleNotFoundError:
     _VLLM_TOOL_PARSERS_AVAILABLE = False
 
 
+@dataclasses.dataclass(frozen=True)
+class _ToolParserCapabilities:
+    """Oumi-side behavior that is not declared by vLLM's parser interface."""
+
+    requires_raw_output: bool = False
+
+
+_DEFAULT_TOOL_PARSER_CAPABILITIES = _ToolParserCapabilities()
+_TOOL_PARSER_CAPABILITIES = {
+    # Gemma 4 marks native tool calls with special tokens. Its parser must see
+    # those tokens, even though they should remain hidden from displayed text.
+    "gemma4": _ToolParserCapabilities(requires_raw_output=True),
+}
+
+
+def _get_tool_parser_capabilities(
+    parser_name: str | None,
+) -> _ToolParserCapabilities:
+    """Return parser input requirements while preserving existing defaults."""
+    if parser_name is None:
+        return _DEFAULT_TOOL_PARSER_CAPABILITIES
+    return _TOOL_PARSER_CAPABILITIES.get(
+        parser_name,
+        _DEFAULT_TOOL_PARSER_CAPABILITIES,
+    )
+
+
 def _parse_nvcc_release_version(nvcc_version_output: str) -> tuple[int, int] | None:
     """Parse the ``release X.Y`` field of ``nvcc --version`` output into (X, Y)."""
     match = re.search(r"release (\d+)\.(\d+)", nvcc_version_output)
@@ -393,6 +420,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
 
         # Optional tool-call parser. Direct kwarg wins over model_params.
         parser_name = tool_call_parser or model_params.tool_call_parser
+        self._tool_parser_name = parser_name
         self._tool_parser = None
         if parser_name is not None:
             if not _VLLM_TOOL_PARSERS_AVAILABLE:
@@ -670,16 +698,20 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         """Builds assistant messages from a vLLM chat response.
 
         When ``self._tool_parser`` is set, uses its parsed content and tool calls.
-        On parser failure, falls back to raw text.
+        On parser failure, falls back to clean display text.
         """
         new_messages: list[Message] = []
         finish_reason_override: FinishReason | None = None
+        parser_capabilities = _get_tool_parser_capabilities(
+            getattr(self, "_tool_parser_name", None)
+        )
         for completion in chat_response.outputs:
-            text = completion.text
-            content: str | None = text
+            display_text = completion.text
+            content: str | None = display_text
             tool_calls_payload: list[ToolCall] | None = None
 
             if self._tool_parser is not None:
+                parser_text = self._decode_tool_parser_text(completion)
                 # Some parsers read `request.tool_choice` from the
                 # non-streaming entry point; pass a stub so they don't crash.
                 # vLLM offline `LLM.chat()` has no `tool_choice` knob, so
@@ -698,25 +730,33 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 )
                 try:
                     extracted = self._tool_parser.extract_tool_calls(
-                        text,
+                        parser_text,
                         request=stub,  # type: ignore[arg-type]
                     )
                 except Exception:
                     logger.exception(
-                        "Tool-call parser %s failed; falling back to raw text.",
+                        "Tool-call parser %s failed; falling back to display text.",
                         type(self._tool_parser).__name__,
                     )
                     extracted = None
 
                 if extracted is not None:
                     tools_called = bool(getattr(extracted, "tools_called", False))
-                    content = extracted.content or (None if tools_called else "")
                     if tools_called:
+                        content = extracted.content or None
                         tool_calls_payload = [
                             ToolCall.model_validate(tc.model_dump())
                             for tc in extracted.tool_calls
                         ]
                         finish_reason_override = FinishReason.TOOL_CALLS
+                    elif parser_capabilities.requires_raw_output:
+                        # Lossless parser input may contain protocol tokens or
+                        # otherwise differ from the user-facing representation.
+                        content = display_text
+                    else:
+                        # Preserve the parser's normal clean-text behavior, but
+                        # never let a parser miss erase a nonempty completion.
+                        content = extracted.content or display_text
 
             new_messages.append(
                 Message(
@@ -726,6 +766,36 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 )
             )
         return new_messages, finish_reason_override
+
+    def _decode_tool_parser_text(self, completion) -> str:
+        """Build the text representation required by the active tool parser.
+
+        ``completion.text`` follows the user-facing ``skip_special_tokens``
+        setting. Parsers use that clean text by default. Parsers that explicitly
+        require lossless output instead receive a second decode of the same
+        generated token IDs with special tokens preserved. The clean text remains
+        the source of truth for display and parser fallbacks.
+        """
+        capabilities = _get_tool_parser_capabilities(
+            getattr(self, "_tool_parser_name", None)
+        )
+        if not capabilities.requires_raw_output:
+            return completion.text
+        token_ids = getattr(completion, "token_ids", None)
+        if token_ids is None or len(token_ids) == 0:
+            return completion.text
+        try:
+            return self._tokenizer.decode(
+                token_ids,
+                skip_special_tokens=False,
+                clean_up_tokenization_spaces=False,
+            )
+        except Exception:
+            logger.exception(
+                "Failed to decode raw tokens for tool-call parsing; "
+                "falling back to display text."
+            )
+            return completion.text
 
     def infer_online(
         self,
