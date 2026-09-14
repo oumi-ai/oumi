@@ -767,6 +767,20 @@ def find_internal_model_config(
     )
 
 
+def _resolve_auto_model_class(mapping, cfg_cls: type) -> type | None:
+    """Resolves a config class to its model class via a transformers auto-mapping.
+
+    ``mapping[cfg_cls]`` triggers the mapping's lazy class import; the underlying
+    ``_model_mapping`` dict is keyed by ``model_type`` strings, not config classes,
+    so it cannot be indexed by ``cfg_cls`` directly. Returns None when the mapping
+    has no entry for the config.
+    """
+    try:
+        return mapping[cfg_cls]
+    except KeyError:
+        return None
+
+
 def is_dual_mode_model_type(
     hf_config: transformers.PretrainedConfig,
 ) -> bool:
@@ -786,8 +800,8 @@ def is_dual_mode_model_type(
         True if a distinct text-only class exists, False otherwise.
     """
     cfg_cls = type(hf_config)
-    causal_cls = MODEL_FOR_CAUSAL_LM_MAPPING._model_mapping.get(cfg_cls)
-    vlm_cls = MODEL_FOR_IMAGE_TEXT_TO_TEXT_MAPPING._model_mapping.get(cfg_cls)
+    causal_cls = _resolve_auto_model_class(MODEL_FOR_CAUSAL_LM_MAPPING, cfg_cls)
+    vlm_cls = _resolve_auto_model_class(MODEL_FOR_IMAGE_TEXT_TO_TEXT_MAPPING, cfg_cls)
     return causal_cls is not None and vlm_cls is not None and causal_cls != vlm_cls
 
 
@@ -812,7 +826,10 @@ def is_vision_language_model_type(hf_config: transformers.PretrainedConfig) -> b
     plain text models (e.g. ``llama``).
     """
     cfg_cls = type(hf_config)
-    return MODEL_FOR_IMAGE_TEXT_TO_TEXT_MAPPING._model_mapping.get(cfg_cls) is not None
+    return (
+        _resolve_auto_model_class(MODEL_FOR_IMAGE_TEXT_TO_TEXT_MAPPING, cfg_cls)
+        is not None
+    )
 
 
 def is_vision_language_model_using_model_name(
