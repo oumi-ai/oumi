@@ -21,6 +21,11 @@ from huggingface_hub.errors import HFValidationError
 from omegaconf import MISSING
 from transformers.utils import find_adapter_config_file, is_flash_attn_2_available
 
+from oumi.core.configs.internal.supported_models import (
+    is_custom_model,
+    is_dual_mode_model_using_model_name,
+    is_vision_language_model_using_model_name,
+)
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.exceptions import (
     HardwareException,
@@ -28,14 +33,6 @@ from oumi.exceptions import (
 )
 from oumi.utils.logging import logger
 from oumi.utils.torch_utils import get_torch_dtype
-
-# `oumi.core.configs.internal.supported_models` imports `ModelParams` from
-# `oumi.core.configs`, so importing it at the top of this module would create a
-# circular import. These helpers are instead imported into this module's namespace
-# lazily, inside `__finalize_and_validate__`, the first time they are needed.
-is_custom_model: Any = None
-is_dual_mode_model_using_model_name: Any = None
-is_vision_language_model_using_model_name: Any = None
 
 
 @dataclass
@@ -365,19 +362,6 @@ class ModelParams(BaseParams):
             )
 
         if self.text_only:
-            global is_custom_model, is_dual_mode_model_using_model_name
-            global is_vision_language_model_using_model_name
-            if is_custom_model is None:
-                from oumi.core.configs.internal import supported_models
-
-                is_custom_model = supported_models.is_custom_model
-                is_dual_mode_model_using_model_name = (
-                    supported_models.is_dual_mode_model_using_model_name
-                )
-                is_vision_language_model_using_model_name = (
-                    supported_models.is_vision_language_model_using_model_name
-                )
-
             if not is_custom_model(self.model_name) and not (
                 is_dual_mode_model_using_model_name(
                     self.model_name,

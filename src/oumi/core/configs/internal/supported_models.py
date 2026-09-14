@@ -58,11 +58,13 @@ How to Add a New Model:
         vlm_config.model_input_features.update({...})
 """
 
+from __future__ import annotations
+
 import copy
 import functools
 import types
 from collections.abc import Mapping
-from typing import Any, NamedTuple, cast
+from typing import TYPE_CHECKING, Any, NamedTuple, cast
 
 import transformers
 from transformers.models.auto.modeling_auto import (
@@ -70,7 +72,6 @@ from transformers.models.auto.modeling_auto import (
     MODEL_FOR_IMAGE_TEXT_TO_TEXT_MAPPING,
 )
 
-from oumi.core.configs import ModelParams
 from oumi.core.configs.internal.internal_model_config import (
     InternalFeatureFirstDimAction,
     InternalFeatureSpec,
@@ -82,6 +83,9 @@ from oumi.core.registry import REGISTRY, RegistryType
 from oumi.utils.cache_utils import dict_cache
 from oumi.utils.logging import logger
 from oumi.utils.packaging import is_transformers_v5
+
+if TYPE_CHECKING:
+    from oumi.core.configs import ModelParams
 
 
 @dict_cache
