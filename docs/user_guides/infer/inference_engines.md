@@ -178,7 +178,7 @@ vLLM will automatically:
 **Resources**
 
 - [vLLM Documentation](https://vllm.readthedocs.io/en/latest/)
-- [vLLM LoRA Support](https://docs.vllm.ai/en/latest/models/lora.html)
+- [vLLM LoRA Support](https://docs.vllm.ai/en/latest/features/lora.html)
 
 ### LlamaCPP Engine
 
@@ -340,7 +340,7 @@ When using `adapter_model` in the client, the adapter path/name will be used as 
 
 - The vLLM server must be started with `--enable-lora` flag to support LoRA adapters
 - Multiple LoRA adapters can be served simultaneously from a single server using `--lora-modules`
-- Check [vLLM LoRA documentation](https://docs.vllm.ai/en/latest/models/lora.html) for advanced configurations
+- Check [vLLM LoRA documentation](https://docs.vllm.ai/en/latest/features/lora.html) for advanced configurations
 
 ### Remote SGLang
 

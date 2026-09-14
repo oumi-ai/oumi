@@ -11,11 +11,21 @@ from oumi.builders import build_tokenizer
 from oumi.core.configs import ModelParams
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.types.conversation import ContentItem, Conversation, Message, Role, Type
-from oumi.core.types.tool_call import ToolCall
+from oumi.core.types.tool_call import (
+    FunctionCall,
+    ToolCall,
+)
+from oumi.utils.canonical_tool_conversations import (
+    ARGUMENT_SENTINEL,
+    FIRST_TOOL_CALL_INDEX,
+    canonical_tool_conversation,
+)
 from oumi.utils.conversation_utils import (
+    _restore_default_type,
     base64encode_content_item_image_bytes,
     convert_message_to_json_content,
     convert_message_to_json_content_list,
+    create_chat_template_inputs,
     create_list_of_message_json_dicts,
     load_image_bytes_to_content_item,
     load_pil_image_from_content_item,
@@ -881,6 +891,168 @@ def test_create_list_of_message_json_dicts_no_tool_keys_when_unset():
     for d in result:
         assert "tool_calls" not in d
         assert "tool_call_id" not in d
+
+
+# -----------------------------------------------------------------------------
+# create_chat_template_inputs
+# -----------------------------------------------------------------------------
+
+
+def test_create_chat_template_inputs_mapping_arguments():
+    """tool_arguments_format='mapping' decodes arguments to a dict."""
+    conv = canonical_tool_conversation()
+    messages, tools = create_chat_template_inputs(
+        conv, tool_arguments_format="mapping", content_format="null"
+    )
+    tc = messages[FIRST_TOOL_CALL_INDEX]["tool_calls"][0]
+    assert tc["function"]["arguments"] == {"city": ARGUMENT_SENTINEL}
+    assert isinstance(tc["function"]["arguments"], dict)
+
+
+def test_create_chat_template_inputs_string_arguments():
+    """tool_arguments_format='string' keeps arguments as a JSON string."""
+    conv = canonical_tool_conversation()
+    messages, tools = create_chat_template_inputs(
+        conv, tool_arguments_format="string", content_format="null"
+    )
+    tc = messages[FIRST_TOOL_CALL_INDEX]["tool_calls"][0]
+    assert tc["function"]["arguments"] == f'{{"city": "{ARGUMENT_SENTINEL}"}}'
+    assert isinstance(tc["function"]["arguments"], str)
+
+
+def test_create_chat_template_inputs_null_content():
+    """content_format='null' preserves None content on tool-call messages."""
+    conv = canonical_tool_conversation()
+    messages, _ = create_chat_template_inputs(
+        conv, tool_arguments_format="mapping", content_format="null"
+    )
+    assert messages[FIRST_TOOL_CALL_INDEX]["content"] is None
+
+
+def test_create_chat_template_inputs_empty_content():
+    """content_format='empty' coerces None content to empty string."""
+    conv = canonical_tool_conversation()
+    messages, _ = create_chat_template_inputs(
+        conv, tool_arguments_format="mapping", content_format="empty"
+    )
+    assert messages[FIRST_TOOL_CALL_INDEX]["content"] == ""
+
+
+def test_create_chat_template_inputs_returns_tools():
+    """The tools list is forwarded from the conversation."""
+    conv = canonical_tool_conversation()
+    _, tools = create_chat_template_inputs(
+        conv, tool_arguments_format="mapping", content_format="null"
+    )
+    assert tools is not None
+    assert len(tools) == 2
+    assert tools[0]["function"]["name"] == "get_weather"
+
+
+def test_create_chat_template_inputs_no_tools_returns_none():
+    """Conversations without tools return tools=None."""
+    conv = Conversation(messages=[Message(role=Role.USER, content="hi")])
+    _, tools = create_chat_template_inputs(
+        conv, tool_arguments_format="mapping", content_format="null"
+    )
+    assert tools is None
+
+
+def test_create_chat_template_inputs_bad_json_names_message_index():
+    """Malformed JSON arguments raise ValueError naming the message index."""
+    conv = Conversation(
+        messages=[
+            Message(role=Role.USER, content="hi"),
+            Message(
+                role=Role.ASSISTANT,
+                content=None,
+                tool_calls=[
+                    ToolCall(
+                        id="call_bad",
+                        function=FunctionCall(name="fn", arguments="{bad json"),
+                    )
+                ],
+            ),
+        ],
+    )
+    with pytest.raises(ValueError, match="Message 1"):
+        create_chat_template_inputs(
+            conv, tool_arguments_format="mapping", content_format="null"
+        )
+
+
+# -----------------------------------------------------------------------------
+# create_chat_template_inputs: restoring a defaulted `type`
+# -----------------------------------------------------------------------------
+
+
+def test_create_chat_template_inputs_restores_tool_call_type():
+    """`exclude_unset` drops a defaulted `type`; templates read it directly.
+
+    The canonical conversation builds its tool calls without an explicit
+    `type`, which is what a conversation built in code rather than parsed from
+    OpenAI-format JSON looks like.
+    """
+    conv = canonical_tool_conversation()
+    raw = conv.to_dict()["messages"][FIRST_TOOL_CALL_INDEX]["tool_calls"][0]
+    assert "type" not in raw
+
+    messages, _ = create_chat_template_inputs(
+        conv, tool_arguments_format="mapping", content_format="null"
+    )
+
+    restored = messages[FIRST_TOOL_CALL_INDEX]["tool_calls"]
+    assert [call["type"] for call in restored] == ["function", "function"]
+
+
+def test_create_chat_template_inputs_restores_tool_definition_type():
+    """Tool definitions lose a defaulted `type` by the same mechanism."""
+    conv = canonical_tool_conversation()
+    assert "type" not in conv.to_dict()["tools"][0]
+
+    _, tools = create_chat_template_inputs(
+        conv, tool_arguments_format="mapping", content_format="null"
+    )
+
+    assert tools is not None
+    assert [tool["type"] for tool in tools] == ["function", "function"]
+
+
+def test_restore_default_type_leaves_an_explicit_type_alone():
+    """Only a missing key is filled; an explicit value passes through."""
+    entry = {"type": "custom_tool", "function": {"name": "f"}}
+
+    _restore_default_type(entry)
+
+    assert entry["type"] == "custom_tool"
+
+
+def test_restore_default_type_ignores_entries_without_a_function():
+    """A future non-function tool type must not be mislabelled as one."""
+    entry: dict = {"custom": {"name": "f"}}
+
+    _restore_default_type(entry)
+
+    assert "type" not in entry
+
+
+def test_create_chat_template_inputs_does_not_mutate_the_conversation():
+    """The adapter works on `to_dict()` output, which is a fresh copy."""
+    conv = canonical_tool_conversation()
+    message = conv.messages[FIRST_TOOL_CALL_INDEX]
+
+    create_chat_template_inputs(
+        conv, tool_arguments_format="mapping", content_format="empty"
+    )
+
+    assert message.content is None
+    assert message.tool_calls is not None
+    assert message.tool_calls[0].function.arguments == (
+        f'{{"city": "{ARGUMENT_SENTINEL}"}}'
+    )
+    assert (
+        "type" not in conv.to_dict()["messages"][FIRST_TOOL_CALL_INDEX]["tool_calls"][0]
+    )
 
 
 #

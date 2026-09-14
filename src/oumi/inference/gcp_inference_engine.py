@@ -156,10 +156,8 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
         return credentials.token  # type: ignore
 
     @override
-    def _get_request_headers(
-        self, remote_params: RemoteParams | None
-    ) -> dict[str, str]:
-        """Gets the request headers for GCP."""
+    def _get_auth_headers(self, remote_params: RemoteParams | None) -> dict[str, str]:
+        """Gets the auth headers for GCP."""
         if not remote_params:
             raise ValueError("Remote params are required for GCP inference.")
 
@@ -225,6 +223,8 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
         if generation_params.stop_strings:
             api_input["stop"] = generation_params.stop_strings
 
+        self._add_tool_params_to_api_input(api_input, conversation, generation_params)
+
         if generation_params.guided_decoding:
             api_input["response_format"] = _convert_guided_decoding_config_to_api_input(
                 generation_params.guided_decoding
@@ -239,9 +239,11 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
             "guided_decoding",
             "logit_bias",
             "max_new_tokens",
+            "parallel_tool_calls",
             "seed",
             "stop_strings",
             "temperature",
+            "tool_choice",
             "top_p",
         }
 

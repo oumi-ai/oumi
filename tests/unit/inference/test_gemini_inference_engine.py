@@ -12,7 +12,22 @@ from oumi.core.configs import (
 )
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.core.types.tool_call import ToolDefinition
 from oumi.inference.gemini_inference_engine import GoogleGeminiInferenceEngine
+
+_WEATHER_TOOL_DICT = {
+    "type": "function",
+    "function": {
+        "name": "get_weather",
+        "description": "Get current weather for a city.",
+        "parameters": {
+            "type": "object",
+            "properties": {"city": {"type": "string"}},
+            "required": ["city"],
+        },
+    },
+}
+_WEATHER_TOOL = ToolDefinition.model_validate(_WEATHER_TOOL_DICT)
 
 
 @pytest.fixture
@@ -145,6 +160,63 @@ def test_gemini_convert_conversation_invalid_schema(gemini_engine, generation_pa
         )
 
     assert "unsupported JSON schema type" in str(exc_info.value)
+
+
+def test_gemini_convert_conversation_includes_tools(gemini_engine, generation_params):
+    """Conversation.tools is forwarded in the OpenAI wire shape."""
+    conversation = Conversation(
+        tools=[_WEATHER_TOOL],
+        messages=[Message(content="weather in Tokyo?", role=Role.USER)],
+    )
+
+    api_input = gemini_engine._convert_conversation_to_api_input(
+        conversation, generation_params, gemini_engine._model_params
+    )
+
+    assert api_input["tools"] == [_WEATHER_TOOL_DICT]
+
+
+def test_gemini_convert_conversation_omits_tools_when_absent(
+    gemini_engine, generation_params
+):
+    """No tools key when the conversation carries no tools."""
+    conversation = Conversation(
+        messages=[Message(content="hi", role=Role.USER)],
+    )
+
+    api_input = gemini_engine._convert_conversation_to_api_input(
+        conversation, generation_params, gemini_engine._model_params
+    )
+
+    assert "tools" not in api_input
+
+
+def test_gemini_convert_conversation_forwards_tool_choice_and_parallel(gemini_engine):
+    """tool_choice and parallel_tool_calls=False reach the request body."""
+    generation_params = GenerationParams(
+        max_new_tokens=100,
+        tool_choice="auto",
+        parallel_tool_calls=False,
+    )
+    conversation = Conversation(
+        tools=[_WEATHER_TOOL],
+        messages=[Message(content="hi", role=Role.USER)],
+    )
+
+    api_input = gemini_engine._convert_conversation_to_api_input(
+        conversation, generation_params, gemini_engine._model_params
+    )
+
+    assert api_input["tool_choice"] == "auto"
+    assert api_input["parallel_tool_calls"] is False
+
+
+def test_gemini_supports_tool_params():
+    """tool_choice / parallel_tool_calls are advertised as supported."""
+    engine = GoogleGeminiInferenceEngine(ModelParams(model_name="gemini-model"))
+    supported = engine.get_supported_params()
+    assert "tool_choice" in supported
+    assert "parallel_tool_calls" in supported
 
 
 @pytest.mark.asyncio

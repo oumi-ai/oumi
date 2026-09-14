@@ -220,8 +220,10 @@ class TestSimpleJudge:
         judge = SimpleJudge(judge_config=xml_config_no_explanation)
 
         assert judge.inference_engine == mock_engine
+        # XML responses get no schema; guided decoding is JSON-only.
         mock_create_engine.assert_called_once_with(
-            xml_config_no_explanation.inference_config
+            inference_config=xml_config_no_explanation.inference_config,
+            response_schema=None,
         )
 
     @patch("oumi.judges.simple_judge.SimpleJudge._create_inference_engine")

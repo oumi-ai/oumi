@@ -1,4 +1,5 @@
 import asyncio
+import contextvars
 import re
 from unittest.mock import Mock
 
@@ -69,3 +70,13 @@ def test_safe_asyncio_run_nested_fails():
         match=re.escape("asyncio.run() cannot be called from a running event loop"),
     ):
         _ = safe_asyncio_run(main())
+
+
+def test_safe_asyncio_run_propagates_context_variables():
+    var: contextvars.ContextVar[str] = contextvars.ContextVar("probe", default="unset")
+    var.set("from-caller")
+
+    async def read_var():
+        return var.get()
+
+    assert safe_asyncio_run(read_var()) == "from-caller"

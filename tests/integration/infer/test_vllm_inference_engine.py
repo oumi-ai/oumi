@@ -53,6 +53,30 @@ def test_qwen_no_think_block_with_enable_thinking_false():
     assert "<think>" not in output
 
 
+@requires_cuda_initialized()
+@requires_gpus()
+def test_qwen_records_token_usage_metadata():
+    """Real vLLM output carries the token ids the usage extraction reads.
+
+    The unit suite stubs RequestOutput, so only a real run proves the
+    attributes are populated and the usage metadata is non-empty.
+    """
+    convo = Conversation(
+        messages=[Message(content="why is the sky blue?", role=Role.USER)]
+    )
+    engine = VLLMInferenceEngine(_get_default_model_params(), tensor_parallel_size=1)
+
+    outputs = engine.infer([convo], inference_config=_get_default_inference_config())
+
+    usage = outputs[-1].metadata["usage"]
+    print(usage)
+    # Exact counts shift with tokenizer and vLLM version; the regression this
+    # guards is usage going missing or zero, so only the bounds are asserted.
+    assert usage["prompt_tokens"] > 0
+    assert usage["completion_tokens"] > 0
+    assert usage["total_tokens"] == usage["prompt_tokens"] + usage["completion_tokens"]
+
+
 _WEATHER_TOOL = ToolDefinition.model_validate(
     {
         "type": "function",

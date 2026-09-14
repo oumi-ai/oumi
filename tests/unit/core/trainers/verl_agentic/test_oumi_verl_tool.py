@@ -27,6 +27,28 @@ class _FakeAgentData(SimpleNamespace):
     """A weak-referenceable agent data stub."""
 
 
+def _tool_schema(name: str = "run_sql") -> OpenAIFunctionToolSchema:
+    """Mirrors the run_sql tool entry written by _make_tool.
+
+    `description` is required by verl's schema, so it cannot be omitted even
+    where a test only cares about the tool name.
+    """
+    return OpenAIFunctionToolSchema.model_validate(
+        {
+            "type": "function",
+            "function": {
+                "name": name,
+                "description": "run",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"query": {"type": "string"}},
+                    "required": ["query"],
+                },
+            },
+        }
+    )
+
+
 def _make_tool(tmp_path) -> OumiVerlTool:
     cfg_path = tmp_path / "env.yaml"
     cfg_path.write_text(
@@ -38,20 +60,9 @@ def _make_tool(tmp_path) -> OumiVerlTool:
         "required: [query]},\n"
         f"     executor: {__name__}.run_sql, read_only: true}}\n"
     )
-    schema = OpenAIFunctionToolSchema.model_validate(
-        {
-            "type": "function",
-            "function": {
-                "name": "run_sql",
-                "parameters": {
-                    "type": "object",
-                    "properties": {"query": {"type": "string"}},
-                    "required": ["query"],
-                },
-            },
-        }
+    return OumiVerlTool(
+        config={"oumi_env_config": str(cfg_path)}, tool_schema=_tool_schema()
     )
-    return OumiVerlTool(config={"oumi_env_config": str(cfg_path)}, tool_schema=schema)
 
 
 def _agent_data(request_id: str) -> _FakeAgentData:
@@ -78,7 +89,7 @@ def test_execute_routes_into_shared_env(tmp_path):
         tool.execute(iid, {"query": "SELECT count(*) FROM t"}, agent_data=ad)
     )
     assert reward == 0.0
-    assert "2" in resp.text
+    assert resp.text is not None and "2" in resp.text
 
 
 def test_invalid_env_config_is_rejected_at_construction(tmp_path):
@@ -87,23 +98,18 @@ def test_invalid_env_config_is_rejected_at_construction(tmp_path):
     cfg_path.write_text(
         "environments:\n- id: db\n  name: db\n  description: d\n  env_type: nope\n"
     )
-    schema = OpenAIFunctionToolSchema.model_validate(
-        {"type": "function", "function": {"name": "run_sql"}}
-    )
-
     with pytest.raises(ValueError, match="Unknown env_type 'nope'"):
-        OumiVerlTool(config={"oumi_env_config": str(cfg_path)}, tool_schema=schema)
+        OumiVerlTool(
+            config={"oumi_env_config": str(cfg_path)}, tool_schema=_tool_schema()
+        )
 
 
 def test_tool_name_missing_from_env_config_is_rejected_at_construction(tmp_path):
     """The name is spelled out twice; a mismatch must not wait for the first call."""
     tool = _make_tool(tmp_path)
-    schema = OpenAIFunctionToolSchema.model_validate(
-        {"type": "function", "function": {"name": "run_sqll"}}
-    )
 
     with pytest.raises(ValueError, match="Known tools: \\['run_sql'\\]"):
-        OumiVerlTool(config=tool.config, tool_schema=schema)
+        OumiVerlTool(config=tool.config, tool_schema=_tool_schema("run_sqll"))
 
 
 def test_failed_tool_call_becomes_an_observation(tmp_path):
@@ -116,4 +122,4 @@ def test_failed_tool_call_becomes_an_observation(tmp_path):
         tool.execute(iid, {"query": "NOT VALID SQL"}, agent_data=ad)
     )
     assert reward == 0.0
-    assert resp.text.startswith("Tool error:")
+    assert resp.text is not None and resp.text.startswith("Tool error:")

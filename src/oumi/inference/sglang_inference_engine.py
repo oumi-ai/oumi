@@ -269,6 +269,7 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
             Dict[str, Any]: A dictionary containing the formatted input for the
             SGLang server native API, including the model, messages, generation params.
         """
+        # TODO: OPE-2188 - Add tool call support
         # Chat templates loaded by SGLang server are generally different from Oumi's
         # chat templates, hence, let's apply Oumi chat template here ourselves.
         prompt = self._apply_chat_template_impl(conversation)
@@ -333,7 +334,7 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
         )
 
     @override
-    def _get_request_headers(self, remote_params: RemoteParams) -> dict[str, str]:
+    def _get_auth_headers(self, remote_params: RemoteParams) -> dict[str, str]:
         return {
             "Content-Type": "application/json",
         }

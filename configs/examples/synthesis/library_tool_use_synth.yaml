@@ -2,7 +2,7 @@
 #
 # A library patron (one of three personas) chats with LibBot, an assistant that
 # uses two tools to help: list_book_catalog and lookup_book_status. The
-# deterministic environment serves the tool calls from a small lookup table.
+# lookup environment serves the tool calls from a small lookup table.
 #
 # Requirements:
 #   - Set OPENAI_API_KEY in the environment.
@@ -31,7 +31,7 @@ environment_config:
     - id: library
       name: library
       description: A small library catalog with book lookup tools.
-      env_type: deterministic
+      env_type: lookup
       grounding:
         sample_size: 2
         seed: 13

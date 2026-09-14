@@ -11,7 +11,7 @@ This directory contains example configurations for different data synthesis use 
 5. [Domain-specific QA](#5-domain-specific-qa-domain_qa_synthyaml) - Generate domain-focused training data
 6. [Dynamic Few-Shot Sampling](#6-dynamic-few-shot-sampling-dynamic_few_shot_synthyaml) - Randomly sample examples for diversity
 7. [Multi-turn Conversation Synthesis](#7-multi-turn-conversation-synthesis-multiturn_conversation_synthyaml) - Generate dynamic, variable-length conversations
-8. [Library Tool-Use Synthesis](#8-library-tool-use-synthesis-library_tool_use_synthyaml) - Generate tool-using assistant conversations against a deterministic environment
+8. [Library Tool-Use Synthesis](#8-library-tool-use-synthesis-library_tool_use_synthyaml) - Generate tool-using assistant conversations against a lookup environment
 
 ### 1. Question-Answer Generation (`question_answer_synth.yaml`)
 
@@ -431,13 +431,13 @@ oumi synth -c configs/examples/synthesis/multiturn_conversation_synth.yaml
 
 ### 8. Library Tool-Use Synthesis (`library_tool_use_synth.yaml`)
 
-**Purpose**: Generate multi-turn conversations where an assistant uses real tool calls against a deterministic environment, exercising the full `EnvironmentConfig` + native tool-calling stack.
+**Purpose**: Generate multi-turn conversations where an assistant uses real tool calls against a lookup environment, exercising the full `EnvironmentConfig` + native tool-calling stack.
 
-**What it does**: A library patron (one of three personas) chats with LibBot, an assistant that uses two tools — `list_book_catalog` and `lookup_book_status` — to answer questions and check borrow status. Tool calls are dispatched against a `deterministic` environment that serves them from a small lookup table, so the same call returns the same result every time.
+**What it does**: A library patron (one of three personas) chats with LibBot, an assistant that uses two tools — `list_book_catalog` and `lookup_book_status` — to answer questions and check borrow status. Tool calls are dispatched against a `lookup` environment that serves them from a small lookup table, so the same call returns the same result every time.
 
 **Key features**:
 - **Native tool calling**: assistant turns produce real `tool_calls` and the environment returns `Role.TOOL` messages — no text-format `<tool_call>` parsing.
-- **Deterministic environment**: tool outputs come from `env_kwargs.lookup_table`, not a model call. Same inputs → same outputs across runs.
+- **Lookup environment**: tool outputs come from `env_kwargs.lookup_table`, not a model call. Same inputs → same outputs across runs.
 - **Three patron personas**: `anxious_parent`, `enthusiastic_reader`, `busy_professional` — sampled per conversation.
 - **Persona-aware planner**: the conversation planner receives the persona description and matches plan length/style accordingly (terse personas get tighter plans).
 - **Catalog-grounded assistant prompt**: the assistant is explicitly forbidden from calling `lookup_book_status` with a `book_id` it hasn't seen in a recent `list_book_catalog` response — preventing fabricated lookups when patrons ask for off-catalog titles.
@@ -448,7 +448,7 @@ oumi synth -c configs/examples/synthesis/multiturn_conversation_synth.yaml
 | Feature | `multiturn_conversation_synth.yaml` | `library_tool_use_synth.yaml` |
 |---|---|---|
 | Action format | Text-format `<ACTION>` blocks | Native `tool_calls` + `Role.TOOL` |
-| State | Stateless prompt-only | Deterministic env with lookup table |
+| State | Stateless prompt-only | Lookup env with lookup table |
 | Reproducibility | Model-dependent | Lookup outputs are reproducible |
 
 **Run with**:

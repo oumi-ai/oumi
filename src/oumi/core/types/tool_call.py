@@ -25,9 +25,11 @@ keys at validation time would silently lose information that
 downstream code relies on.
 """
 
+import json
 from enum import Enum
 from typing import Any, Literal
 
+import pydantic
 from pydantic import BaseModel, ConfigDict, JsonValue
 
 # The seven primitive types defined by JSON Schema.
@@ -140,7 +142,32 @@ class ToolDefinition(BaseModel):
     """The function definition."""
 
 
-class FunctionCall(BaseModel):
+class _TemplateFieldAccess:
+    """Dict-style field access, for chat templates that subscript and call ``.get()``.
+
+    Gemma 4's template reads its inputs as mappings (``tool_call.get('function')``,
+    ``function['arguments']``) rather than as objects, so a Pydantic model reaches
+    it as something with no ``get`` and no ``__getitem__`` and rendering fails
+    outright. ``Message`` already carries its own ``get`` for this reason; these are
+    the same accommodation for the tool-call types. Only declared fields are exposed,
+    so a key that collides with a method name returns the field or the default rather
+    than the bound method.
+    """
+
+    def __getitem__(self, key: str) -> Any:
+        if key in type(self).model_fields:  # type: ignore[attr-defined]
+            return getattr(self, key)
+        raise KeyError(key)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Returns a field by name, dict-style, or ``default`` if absent."""
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+
+class FunctionCall(_TemplateFieldAccess, BaseModel):
     """A function call made by the model."""
 
     model_config = ConfigDict(frozen=True, extra="allow")
@@ -156,8 +183,64 @@ class FunctionCall(BaseModel):
     code is responsible for parsing and handling errors.
     """
 
+    @pydantic.field_validator("arguments", mode="before")
+    @classmethod
+    def _coerce_arguments_to_str(cls, raw: Any) -> str:
+        """Normalize dict/list arguments to a JSON string.
 
-class ToolCall(BaseModel):
+        Runs in ``mode="before"`` so we can intercept non-string inputs
+        (e.g., dicts from JSONL files) and serialize them before Pydantic's
+        core validator enforces the ``str`` type.
+        """
+        if isinstance(raw, str):
+            return raw
+        if isinstance(raw, (dict, list)):
+            return json.dumps(raw)
+        raise ValueError(
+            f"arguments must be a str, dict, or list; got {type(raw).__name__}."
+        )
+
+    def __getitem__(self, key: str) -> Any:
+        """As `_TemplateFieldAccess`, except that ``arguments`` decodes to its mapping.
+
+        Gemma 4's template reads ``function['arguments']`` and raises unless it gets
+        a mapping, so the JSON string stored here fails to render at all. Decoding on
+        subscript hands the template the object it asks for while ``.arguments`` keeps
+        the OpenAI wire string as the storage contract, and a dataset written with
+        mappings still normalizes to that string on the way in.
+
+        A template that subscripts ``arguments`` expecting the raw JSON string sees a
+        dict instead. Piping it through ``tojson`` produces the same text, and printing
+        it bare would produce a Python repr. Attribute access is unchanged either way.
+        """
+        if key == "arguments":
+            return self.get_arguments_dict()
+        return super().__getitem__(key)
+
+    def get_arguments_dict(self) -> dict[str, Any]:
+        """Returns ``arguments`` decoded from its JSON string form.
+
+        The string is the storage contract; every consumer that needs a dict
+        decodes it here rather than reimplementing the parse and its error
+        handling.
+        """
+        if not self.arguments:
+            return {}
+        try:
+            parsed = json.loads(self.arguments)
+        except json.JSONDecodeError as e:
+            raise ValueError(
+                f"Function '{self.name}' has invalid JSON arguments: {e}"
+            ) from e
+        if not isinstance(parsed, dict):
+            raise ValueError(
+                f"Function '{self.name}' arguments must be a JSON object, "
+                f"got {type(parsed).__name__}."
+            )
+        return parsed
+
+
+class ToolCall(_TemplateFieldAccess, BaseModel):
     """A tool call emitted by the model."""
 
     model_config = ConfigDict(frozen=True, extra="allow")

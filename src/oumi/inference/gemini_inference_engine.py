@@ -70,6 +70,8 @@ class GoogleGeminiInferenceEngine(RemoteInferenceEngine):
         if generation_params.stop_strings:
             api_input["stop"] = generation_params.stop_strings
 
+        self._add_tool_params_to_api_input(api_input, conversation, generation_params)
+
         if generation_params.guided_decoding:
             api_input["response_format"] = _convert_guided_decoding_config_to_api_input(
                 generation_params.guided_decoding
@@ -88,8 +90,10 @@ class GoogleGeminiInferenceEngine(RemoteInferenceEngine):
         return {
             "guided_decoding",
             "max_new_tokens",
+            "parallel_tool_calls",
             "stop_strings",
             "temperature",
+            "tool_choice",
             "top_p",
         }
 

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Synthetic environment backed by LLM-simulated or Python-executed tools.
+"""Simulated environment backed by LLM-simulated or Python-executed tools.
 
 Stateless mode (``state_params=None``) batches LLM-simulated tool outputs
 per tool id, cached by ``(tool_id, args)``. Individual tools may still
@@ -55,8 +55,8 @@ if TYPE_CHECKING:
 
 
 @dataclass
-class SyntheticStateParams(BaseParams):
-    """Optional state configuration for a synthetic environment.
+class SimulatedStateParams(BaseParams):
+    """Optional state configuration for a simulated environment.
 
     State grounding for these pools is declared at the env level
     via ``EnvironmentParams.grounding.state`` — each entry's
@@ -73,31 +73,40 @@ class SyntheticStateParams(BaseParams):
 
 
 @dataclass
-class SyntheticEnvironmentKwargs(BaseParams):
-    """Type-specific kwargs for SyntheticEnvironment."""
+class SimulatedEnvironmentKwargs(BaseParams):
+    """Type-specific kwargs for SimulatedEnvironment."""
 
     tool_persona: str = ""
-    state_params: SyntheticStateParams | None = None
+    state_params: SimulatedStateParams | None = None
     cache_by_input: bool = True
+    use_guided_decoding: bool = True
+    """Constrain simulator output to each tool's ``output_schema``.
+
+    Applies to every tool in this environment. Set to ``False`` to generate
+    freely and rely on the ``jsonschema`` post-validation instead: large
+    ``output_schema`` values can exceed a provider's grammar-compiler limits or
+    make constrained decoding several times slower.
+    """
 
     def __post_init__(self) -> None:
-        """Coerce state_params dict into SyntheticStateParams if needed."""
+        """Coerce state_params dict into SimulatedStateParams if needed."""
         if isinstance(self.state_params, dict):
-            self.state_params = SyntheticStateParams(**self.state_params)
+            self.state_params = SimulatedStateParams(**self.state_params)
 
     def __finalize_and_validate__(self) -> None:
         """Finalize and validate the kwargs."""
         if not self.tool_persona:
-            raise ValueError("SyntheticEnvironmentKwargs.tool_persona cannot be empty.")
+            raise ValueError("SimulatedEnvironmentKwargs.tool_persona cannot be empty.")
         if self.state_params is not None and self.cache_by_input:
             raise ValueError(
-                "SyntheticEnvironmentKwargs.cache_by_input must be False when "
+                "SimulatedEnvironmentKwargs.cache_by_input must be False when "
                 "state_params is provided."
             )
 
 
-@register_environment("synthetic")
-class SyntheticEnvironment(BaseEnvironment):
+@register_environment("simulated")
+@register_environment("synthetic")  # deprecated alias, kept for back-compat
+class SimulatedEnvironment(BaseEnvironment):
     """LLM-simulated environment with optional mutable state.
 
     See the module docstring for the stateless vs stateful contract.
@@ -106,9 +115,9 @@ class SyntheticEnvironment(BaseEnvironment):
     def __init__(
         self,
         params: EnvironmentParams,
-        kwargs: SyntheticEnvironmentKwargs,
+        kwargs: SimulatedEnvironmentKwargs,
     ) -> None:
-        """Initialize a SyntheticEnvironment with the given params and kwargs."""
+        """Initialize a SimulatedEnvironment with the given params and kwargs."""
         self._params = params
         self._kwargs = kwargs
         self._cache: dict[str, ToolResult] = {}
@@ -128,7 +137,7 @@ class SyntheticEnvironment(BaseEnvironment):
         )
         if self._state is None and self._state_grounding:
             raise ValueError(
-                f"SyntheticEnvironment '{params.id}': grounding.state is "
+                f"SimulatedEnvironment '{params.id}': grounding.state is "
                 f"configured but the env has no state (state_params with "
                 f"initial_state is required)."
             )
@@ -141,7 +150,7 @@ class SyntheticEnvironment(BaseEnvironment):
             missing = [t.id for t in params.tools if not t.executor]
             if missing:
                 raise ValueError(
-                    "SyntheticEnvironment in stateful mode (state_params with "
+                    "SimulatedEnvironment in stateful mode (state_params with "
                     "initial_state set) requires every tool to define an executor; "
                     "LLM-simulated tools cannot mutate state. Missing executor: "
                     f"{missing}"
@@ -165,9 +174,9 @@ class SyntheticEnvironment(BaseEnvironment):
         return self._state is not None
 
     @classmethod
-    def from_params(cls, params: EnvironmentParams) -> SyntheticEnvironment:
-        """Build a SyntheticEnvironment from its params object."""
-        kwargs = SyntheticEnvironmentKwargs(**(params.env_kwargs or {}))
+    def from_params(cls, params: EnvironmentParams) -> SimulatedEnvironment:
+        """Build a SimulatedEnvironment from its params object."""
+        kwargs = SimulatedEnvironmentKwargs(**(params.env_kwargs or {}))
         kwargs.finalize_and_validate()
         return cls(params, kwargs)
 
@@ -250,7 +259,7 @@ class SyntheticEnvironment(BaseEnvironment):
         if sim_misses:
             if self._engine is None or self._base_inference_config is None:
                 raise RuntimeError(
-                    "SyntheticEnvironment.step called before "
+                    "SimulatedEnvironment.step called before "
                     "attach_inference(). Wire the synthesizer's engine via "
                     "attach_inference(engine, base_config) before invoking "
                     "step()."
@@ -372,7 +381,7 @@ class SyntheticEnvironment(BaseEnvironment):
         for cfg in self._state_grounding:
             if cfg.state_path not in self._state:
                 raise ValueError(
-                    f"SyntheticEnvironment '{self._params.id}': grounding "
+                    f"SimulatedEnvironment '{self._params.id}': grounding "
                     f"state_path '{cfg.state_path}' is not present in "
                     f"initial_state. Top-level keys: "
                     f"{sorted(self._state.keys())}."
@@ -380,7 +389,7 @@ class SyntheticEnvironment(BaseEnvironment):
             rows = self._state[cfg.state_path]
             if not isinstance(rows, list):
                 raise ValueError(
-                    f"SyntheticEnvironment '{self._params.id}': grounding "
+                    f"SimulatedEnvironment '{self._params.id}': grounding "
                     f"state_path '{cfg.state_path}' must resolve to a list, "
                     f"got {type(rows).__name__}."
                 )
@@ -415,14 +424,18 @@ class SyntheticEnvironment(BaseEnvironment):
     def _simulator_inference_config(self, tool: ToolParams) -> InferenceConfig:
         """Overlay guided decoding for the tool's output_schema onto base_config.
 
-        Tools without ``output_schema`` get the permissive ``{"type": "object"}``
-        constraint. Mirrors ``ConversationSynthesizer._planner_inference_config``.
+        No constraint is sent when the tool has no ``output_schema`` (nothing to
+        constrain) or when ``use_guided_decoding`` is off, leaving
+        ``_parse_and_validate`` as the only schema check.
         """
         assert self._base_inference_config is not None
-        schema = tool.output_schema or {"type": "object"}
+        guided = (
+            GuidedDecodingParams(json=tool.output_schema)
+            if self._kwargs.use_guided_decoding and tool.output_schema
+            else None
+        )
         sim_gen = dataclasses.replace(
-            self._base_inference_config.generation,
-            guided_decoding=GuidedDecodingParams(json=schema),
+            self._base_inference_config.generation, guided_decoding=guided
         )
         return dataclasses.replace(self._base_inference_config, generation=sim_gen)
 
@@ -469,3 +482,9 @@ class SyntheticEnvironment(BaseEnvironment):
                     f"Simulator output for '{tool.id}' failed schema validation: {e}"
                 ) from e
         return ToolResult(output=parsed)
+
+
+# Deprecated aliases, kept so existing imports keep resolving.
+SyntheticEnvironment = SimulatedEnvironment
+SyntheticEnvironmentKwargs = SimulatedEnvironmentKwargs
+SyntheticStateParams = SimulatedStateParams

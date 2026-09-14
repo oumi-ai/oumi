@@ -25,8 +25,8 @@ def test_build_environment_imports_without_explicit_env_package():
     params = EnvironmentParams(
         id="lookup",
         name="Lookup",
-        description="A deterministic lookup environment",
-        env_type="deterministic",
+        description="A lookup environment",
+        env_type="lookup",
         tools=[ToolParams(id="get", name="Get", description="Lookup something.")],
         env_kwargs={
             "lookup_table": {
@@ -51,9 +51,9 @@ def test_build_environment_unknown_env_type_raises():
         build_environment(params)
 
 
-def test_build_environment_dispatches_synthetic():
+def test_build_environment_dispatches_synthetic_alias():
     from oumi.builders.environments import build_environment
-    from oumi.environments.synthetic_environment import SyntheticEnvironment
+    from oumi.environments.simulated_environment import SimulatedEnvironment
 
     params = EnvironmentParams(
         id="faq",
@@ -64,12 +64,12 @@ def test_build_environment_dispatches_synthetic():
         env_kwargs={"tool_persona": "Answer FAQs."},
     )
     env = build_environment(params)
-    assert isinstance(env, SyntheticEnvironment)
+    assert isinstance(env, SimulatedEnvironment)
 
 
-def test_build_environment_dispatches_deterministic():
+def test_build_environment_dispatches_deterministic_alias():
     from oumi.builders.environments import build_environment
-    from oumi.environments.deterministic_environment import DeterministicEnvironment
+    from oumi.environments.lookup_environment import LookupEnvironment
 
     params = EnvironmentParams(
         id="lookup",
@@ -80,4 +80,36 @@ def test_build_environment_dispatches_deterministic():
         env_kwargs={"lookup_table": {"t": [{"input": {}, "output": {}}]}},
     )
     env = build_environment(params)
-    assert isinstance(env, DeterministicEnvironment)
+    assert isinstance(env, LookupEnvironment)
+
+
+def test_build_environment_dispatches_simulated():
+    from oumi.builders.environments import build_environment
+    from oumi.environments.simulated_environment import SimulatedEnvironment
+
+    params = EnvironmentParams(
+        id="faq",
+        name="FAQ",
+        description="FAQ tools",
+        env_type="simulated",
+        tools=[ToolParams(id="answer", name="Answer", description="Answer.")],
+        env_kwargs={"tool_persona": "Answer FAQs."},
+    )
+    env = build_environment(params)
+    assert isinstance(env, SimulatedEnvironment)
+
+
+def test_build_environment_dispatches_lookup():
+    from oumi.builders.environments import build_environment
+    from oumi.environments.lookup_environment import LookupEnvironment
+
+    params = EnvironmentParams(
+        id="lookup",
+        name="Lookup",
+        description="d",
+        env_type="lookup",
+        tools=[ToolParams(id="t", name="t", description="t")],
+        env_kwargs={"lookup_table": {"t": [{"input": {}, "output": {}}]}},
+    )
+    env = build_environment(params)
+    assert isinstance(env, LookupEnvironment)
