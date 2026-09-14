@@ -31,6 +31,7 @@ from oumi.utils.conversation_utils import (
     load_pil_image_from_content_item,
     remove_excessive_images,
     remove_excessive_images_from_conversation,
+    split_assistant_content_and_tool_calls,
     truncate_text_in_content_items,
 )
 from oumi.utils.image_utils import (
@@ -819,6 +820,62 @@ def test_truncate_text_in_content_items(
 #
 # Tool-calling helper tests
 #
+def test_split_assistant_content_and_tool_calls():
+    tool_call = ToolCall.model_validate(
+        {
+            "id": "call_abc",
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "arguments": '{"city":"Tokyo"}',
+            },
+        }
+    )
+    messages = [
+        Message(role=Role.USER, content="weather?"),
+        Message(
+            role=Role.ASSISTANT,
+            content="Let me check.",
+            tool_calls=[tool_call],
+        ),
+        Message(role=Role.TOOL, content="22C", tool_call_id="call_abc"),
+    ]
+
+    result = split_assistant_content_and_tool_calls(messages)
+
+    assert [message.role for message in result] == [
+        Role.USER,
+        Role.ASSISTANT,
+        Role.ASSISTANT,
+        Role.TOOL,
+    ]
+    assert result[1].content == "Let me check."
+    assert result[1].tool_calls is None
+    assert result[2].content is None
+    assert result[2].tool_calls == [tool_call]
+    assert result[3].tool_call_id == "call_abc"
+
+
+def test_split_assistant_content_and_tool_calls_is_idempotent():
+    tool_call = ToolCall.model_validate(
+        {
+            "id": "call_abc",
+            "type": "function",
+            "function": {"name": "get_weather", "arguments": "{}"},
+        }
+    )
+    messages = [
+        Message(role=Role.ASSISTANT, content="Let me check."),
+        Message(role=Role.ASSISTANT, content=None, tool_calls=[tool_call]),
+    ]
+
+    once = split_assistant_content_and_tool_calls(messages)
+    twice = split_assistant_content_and_tool_calls(once)
+
+    assert once == messages
+    assert twice == once
+
+
 def test_create_list_of_message_json_dicts_forwards_tool_calls():
     """Assistant tool_calls survive into the dict; content=None preserved."""
     tool_call_dict = {
