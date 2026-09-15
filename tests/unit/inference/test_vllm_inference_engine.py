@@ -7,6 +7,10 @@ from unittest.mock import ANY, MagicMock, Mock, patch
 import jsonlines
 import PIL.Image
 import pytest
+from tokenizers import Tokenizer
+from tokenizers.models import WordLevel
+from tokenizers.pre_tokenizers import Whitespace
+from transformers import PreTrainedTokenizerFast
 
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
@@ -1038,7 +1042,8 @@ def test_tool_call_parser_decodes_raw_tokens_with_special_tokens():
     assert finish_reason_override == FinishReason.TOOL_CALLS
 
 
-def test_tool_call_parser_falls_back_when_raw_token_decode_fails():
+@pytest.mark.parametrize("decode_result", [ValueError("bad token sequence"), ["text"]])
+def test_tool_call_parser_falls_back_when_raw_token_decode_fails(decode_result):
     parser_instance = Mock()
     parser_instance.extract_tool_calls.return_value = SimpleNamespace(
         tools_called=False,
@@ -1046,7 +1051,7 @@ def test_tool_call_parser_falls_back_when_raw_token_decode_fails():
         content=None,
     )
     tokenizer = Mock()
-    tokenizer.decode.side_effect = ValueError("bad token sequence")
+    tokenizer.decode.side_effect = [decode_result]
 
     engine = object.__new__(VLLMInferenceEngine)
     engine._tool_parser = parser_instance
@@ -1300,3 +1305,69 @@ def test_infer_online_omits_usage_when_no_tokens_reported(mock_vllm):
     result = engine.infer([conversation], _get_default_inference_config())
 
     assert "usage" not in result[0].metadata
+
+
+@pytest.mark.parametrize(
+    ("parsed_content", "cleaned_content", "expected_content"),
+    [
+        ("<|channel>Checking.<channel|>", "Checking.", "Checking."),
+        ("<|channel><channel|>", "", None),
+        ("<|channel> <channel|>", " ", None),
+        ("<|channel>Checking.", ["Checking."], None),
+        ("<|channel>Checking.", ValueError("decode failed"), None),
+    ],
+)
+def test_gemma4_tool_call_cleans_displayed_prefix(
+    parsed_content, cleaned_content, expected_content
+):
+    engine = object.__new__(VLLMInferenceEngine)
+    engine._tool_parser_name = "gemma4"
+    engine._tool_parser = Mock()
+    tool_call = ToolCall.model_validate(
+        {
+            "id": "call_1",
+            "type": "function",
+            "function": {"name": "get_weather", "arguments": '{"city":"Tokyo"}'},
+        }
+    )
+    engine._tool_parser.extract_tool_calls.return_value = SimpleNamespace(
+        tools_called=True, tool_calls=[tool_call], content=parsed_content
+    )
+    raw_text = parsed_content + "<|tool_call>call:get_weather{}<tool_call|>"
+    engine._tokenizer = Mock()
+    engine._tokenizer.decode.side_effect = [raw_text, cleaned_content]
+    engine._tokenizer.encode.return_value = [201, 202]
+    conversation = Conversation(messages=[Message(role=Role.USER, content="weather?")])
+    completion = SimpleNamespace(text="Checking.call:get_weather{}", token_ids=[101])
+
+    messages, finish_reason = engine._build_response_messages(
+        conversation, SimpleNamespace(outputs=[completion])
+    )
+
+    engine._tokenizer.encode.assert_called_once_with(
+        parsed_content, add_special_tokens=False
+    )
+    engine._tokenizer.decode.assert_called_with(
+        [201, 202], skip_special_tokens=True, clean_up_tokenization_spaces=False
+    )
+    assert messages[-1].content == expected_content
+    assert messages[-1].tool_calls == [tool_call]
+    assert finish_reason == FinishReason.TOOL_CALLS
+
+
+@pytest.mark.parametrize(
+    ("prefix", "expected"),
+    [("<|channel>Checking<channel|>", "Checking"), ("<|channel><channel|>", None)],
+)
+def test_clean_tool_parser_content_with_real_tokenizer(prefix, expected):
+    backend = Tokenizer(WordLevel({"[UNK]": 0, "Checking": 1}, unk_token="[UNK]"))
+    backend.pre_tokenizer = Whitespace()
+    tokenizer = PreTrainedTokenizerFast(
+        tokenizer_object=backend,
+        unk_token="[UNK]",
+        additional_special_tokens=["<|channel>", "<channel|>"],
+    )
+    engine = object.__new__(VLLMInferenceEngine)
+    engine._tokenizer = tokenizer
+
+    assert engine._clean_tool_parser_content(prefix) == expected

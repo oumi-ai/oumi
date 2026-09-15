@@ -744,6 +744,8 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                     tools_called = bool(getattr(extracted, "tools_called", False))
                     if tools_called:
                         content = extracted.content or None
+                        if parser_capabilities.requires_raw_output:
+                            content = self._clean_tool_parser_content(content)
                         tool_calls_payload = [
                             ToolCall.model_validate(tc.model_dump())
                             for tc in extracted.tool_calls
@@ -785,17 +787,39 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         if token_ids is None or len(token_ids) == 0:
             return completion.text
         try:
-            return self._tokenizer.decode(
+            decoded = self._tokenizer.decode(
                 token_ids,
                 skip_special_tokens=False,
                 clean_up_tokenization_spaces=False,
             )
+            if isinstance(decoded, str):
+                return decoded
         except Exception:
             logger.exception(
                 "Failed to decode raw tokens for tool-call parsing; "
                 "falling back to display text."
             )
-            return completion.text
+        return completion.text
+
+    def _clean_tool_parser_content(self, content: str | None) -> str | None:
+        """Removes special tokens from content extracted from lossless parser input."""
+        if not content:
+            return None
+        try:
+            token_ids = self._tokenizer.encode(content, add_special_tokens=False)
+            decoded = self._tokenizer.decode(
+                token_ids,
+                skip_special_tokens=True,
+                clean_up_tokenization_spaces=False,
+            )
+            if isinstance(decoded, str):
+                return decoded if decoded.strip() else None
+        except Exception:
+            logger.exception(
+                "Failed to clean tool-call parser content; omitting content."
+            )
+        # Keep valid tool calls even when their accompanying text cannot be cleaned.
+        return None
 
     def infer_online(
         self,
