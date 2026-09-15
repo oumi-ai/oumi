@@ -24,6 +24,7 @@ import re
 import shutil
 import subprocess
 import warnings
+from collections.abc import Sequence
 from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, cast, get_args
@@ -787,20 +788,8 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         token_ids = getattr(completion, "token_ids", None)
         if token_ids is None or len(token_ids) == 0:
             return completion.text
-        try:
-            decoded = self._tokenizer.decode(
-                token_ids,
-                skip_special_tokens=False,
-                clean_up_tokenization_spaces=False,
-            )
-            if isinstance(decoded, str):
-                return decoded
-        except Exception:
-            logger.exception(
-                "Failed to decode raw tokens for tool-call parsing; "
-                "falling back to display text."
-            )
-        return completion.text
+        decoded = self._decode_tool_tokens(token_ids, skip_special_tokens=False)
+        return decoded if decoded is not None else completion.text
 
     def _clean_tool_parser_content(self, content: str | None) -> str | None:
         """Removes special tokens from content extracted from lossless parser input."""
@@ -808,19 +797,28 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             return None
         try:
             token_ids = self._tokenizer.encode(content, add_special_tokens=False)
-            decoded = self._tokenizer.decode(
-                token_ids,
-                skip_special_tokens=True,
-                clean_up_tokenization_spaces=False,
-            )
-            if isinstance(decoded, str):
-                return decoded if decoded.strip() else None
         except Exception:
             logger.exception(
-                "Failed to clean tool-call parser content; omitting content."
+                "Failed to encode tool-call parser content; omitting content."
             )
-        # Keep valid tool calls even when their accompanying text cannot be cleaned.
-        return None
+            return None
+        decoded = self._decode_tool_tokens(token_ids, skip_special_tokens=True)
+        return decoded if decoded is not None and decoded.strip() else None
+
+    def _decode_tool_tokens(
+        self, token_ids: Sequence[int], *, skip_special_tokens: bool
+    ) -> str | None:
+        """Decodes tool-related tokens, returning None when decoding fails."""
+        try:
+            decoded = self._tokenizer.decode(
+                list(token_ids),
+                skip_special_tokens=skip_special_tokens,
+                clean_up_tokenization_spaces=False,
+            )
+            return decoded if isinstance(decoded, str) else None
+        except Exception:
+            logger.exception("Failed to decode tool-related tokens.")
+            return None
 
     def infer_online(
         self,
