@@ -155,6 +155,14 @@ def test_generation_params_validation():
     with pytest.raises(OumiConfigError, match="min_p must be between 0 and 1."):
         GenerationParams(min_p=1.1)
 
+    with pytest.raises(OumiConfigError, match="prompt_cache_ttl"):
+        GenerationParams(prompt_cache_ttl="10m")
+
+
+@pytest.mark.parametrize("ttl", [None, "5m", "1h"])
+def test_generation_params_accepts_valid_prompt_cache_ttl(ttl):
+    assert GenerationParams(prompt_cache_ttl=ttl).prompt_cache_ttl == ttl
+
 
 @pytest.mark.parametrize(
     "engine_class",
