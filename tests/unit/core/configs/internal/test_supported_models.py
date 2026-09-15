@@ -51,16 +51,23 @@ class _FakeConfig:
     """Stand-in HF config whose class identity drives the mapping lookups."""
 
 
+def _fake_mapping(model_cls):
+    """A stand-in auto-mapping whose ``.get`` yields ``model_cls`` (or None).
+
+    Mirrors the transformers-5 access: ``mapping.get(config_class, None)`` returns
+    the model class, or the default when there is no entry (``model_cls`` is None).
+    """
+    mapping = mock.MagicMock()
+    mapping.get.return_value = model_cls
+    return mapping
+
+
 def _patch_mappings(causal_cls, vlm_cls):
-    """Patch the two transformers auto-mappings to return the given classes."""
-    causal_map = mock.MagicMock()
-    causal_map._model_mapping.get.return_value = causal_cls
-    vlm_map = mock.MagicMock()
-    vlm_map._model_mapping.get.return_value = vlm_cls
+    """Patch the two transformers auto-mappings to resolve to the given classes."""
     return mock.patch.multiple(
         "oumi.core.configs.internal.supported_models",
-        MODEL_FOR_CAUSAL_LM_MAPPING=causal_map,
-        MODEL_FOR_IMAGE_TEXT_TO_TEXT_MAPPING=vlm_map,
+        MODEL_FOR_CAUSAL_LM_MAPPING=_fake_mapping(causal_cls),
+        MODEL_FOR_IMAGE_TEXT_TO_TEXT_MAPPING=_fake_mapping(vlm_cls),
     )
 
 
@@ -108,6 +115,32 @@ def test_qwen3_5_registered_as_vlm():
         assert models[mt].config.visual_config is not None, (
             f"{mt} should carry a visual_config (VLM by default)"
         )
+
+
+@pytest.mark.parametrize(
+    "model_name,trust_remote_code,expected_dual_mode,expected_vlm",
+    [
+        # Dual-mode: distinct causal + VLM classes.
+        pytest.param("Qwen/Qwen3.5-2B", False, True, True, id="qwen3_5-dual-mode"),
+        # Plain text: causal class only, no vision tower.
+        pytest.param("Qwen/Qwen3-0.6B", False, False, False, id="qwen3-text"),
+        # Vision-only: VLM class, no text-only causal path.
+        pytest.param(
+            "Qwen/Qwen3-VL-2B-Instruct", False, False, True, id="qwen3_vl-vision"
+        ),
+    ],
+)
+def test_dual_mode_and_vlm_on_real_configs(
+    model_name, trust_remote_code, expected_dual_mode, expected_vlm
+):
+    """Exercises the real transformers auto-mapping lookup, not a mock.
+
+    The mapping must be indexed by config class (``mapping[cfg_cls]``), which the
+    mocked tests above cannot verify; this guards against regressing that access.
+    """
+    hf_config = find_model_hf_config(model_name, trust_remote_code=trust_remote_code)
+    assert is_dual_mode_model_type(hf_config) is expected_dual_mode
+    assert is_vision_language_model_type(hf_config) is expected_vlm
 
 
 #

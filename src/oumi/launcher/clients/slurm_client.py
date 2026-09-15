@@ -98,6 +98,9 @@ def _get_job_state(job_state: str) -> JobState:
         return JobState.CANCELLED
     elif job_state == "RUNNING":
         return JobState.RUNNING
+    # Not terminal: ending the poll here risks reading outputs before they flush.
+    elif job_state == "COMPLETING":
+        return JobState.RUNNING
     return JobState.PENDING
 
 

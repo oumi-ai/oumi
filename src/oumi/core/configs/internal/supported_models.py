@@ -786,8 +786,10 @@ def is_dual_mode_model_type(
         True if a distinct text-only class exists, False otherwise.
     """
     cfg_cls = type(hf_config)
-    causal_cls = MODEL_FOR_CAUSAL_LM_MAPPING._model_mapping.get(cfg_cls)
-    vlm_cls = MODEL_FOR_IMAGE_TEXT_TO_TEXT_MAPPING._model_mapping.get(cfg_cls)
+    # Index the mapping itself, not its ``._model_mapping`` (which is keyed by
+    # model_type strings); the mapping's ``.get`` does the lazy class load.
+    causal_cls = MODEL_FOR_CAUSAL_LM_MAPPING.get(cfg_cls, None)
+    vlm_cls = MODEL_FOR_IMAGE_TEXT_TO_TEXT_MAPPING.get(cfg_cls, None)
     return causal_cls is not None and vlm_cls is not None and causal_cls != vlm_cls
 
 
@@ -812,7 +814,7 @@ def is_vision_language_model_type(hf_config: transformers.PretrainedConfig) -> b
     plain text models (e.g. ``llama``).
     """
     cfg_cls = type(hf_config)
-    return MODEL_FOR_IMAGE_TEXT_TO_TEXT_MAPPING._model_mapping.get(cfg_cls) is not None
+    return MODEL_FOR_IMAGE_TEXT_TO_TEXT_MAPPING.get(cfg_cls, None) is not None
 
 
 def is_vision_language_model_using_model_name(

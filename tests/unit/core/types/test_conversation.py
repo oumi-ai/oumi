@@ -334,6 +334,42 @@ def test_conversation_to_json_legacy():
     assert '"test":"metadata"' in json_str
 
 
+def test_conversation_to_json_keeps_null_content_on_tool_calls():
+    conv = Conversation(
+        messages=[
+            Message(role=Role.USER, content="What is the weather?"),
+            Message(
+                role=Role.ASSISTANT,
+                content=None,
+                tool_calls=[
+                    ToolCall(
+                        id="call_1",
+                        function=FunctionCall(name="get_weather", arguments="{}"),
+                    )
+                ],
+            ),
+        ],
+    )
+
+    json_str = conv.to_json()
+
+    assert '"content":null' in json_str
+    assert Conversation.from_json(json_str) == conv
+
+
+def test_conversation_to_json_keeps_non_ascii_unescaped():
+    """Escaping non-ASCII would change the bytes every cached hash was built on."""
+    conv = Conversation(
+        messages=[Message(role=Role.USER, content="cafe\u0301 \u2615 \U0001f600")]
+    )
+
+    json_str = conv.to_json()
+
+    assert "cafe\u0301 \u2615 \U0001f600" in json_str
+    assert "\\u" not in json_str
+    assert Conversation.from_json(json_str) == conv
+
+
 def test_conversation_to_json_mixed_content():
     png_bytes = _create_test_image_bytes()
     conv = Conversation(
