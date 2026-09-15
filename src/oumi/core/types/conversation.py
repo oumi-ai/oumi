@@ -600,9 +600,10 @@ class Conversation(pydantic.BaseModel):
 
     def to_json(self) -> str:
         """Converts the conversation to a JSON string."""
-        # to_dict() keeps the null `content` HF chat templates need; compact
-        # separators keep other conversations byte-identical for the dataset hash.
-        return json.dumps(self.to_dict(), separators=(",", ":"))
+        # to_dict() keeps the null `content` HF chat templates need. The
+        # separator and escaping options reproduce pydantic's bytes exactly, so
+        # every other conversation hashes and caches as it did before.
+        return json.dumps(self.to_dict(), separators=(",", ":"), ensure_ascii=False)
 
     @classmethod
     def from_json(cls, data: str) -> "Conversation":

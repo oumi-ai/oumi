@@ -540,6 +540,33 @@ def test_infer_from_file_to_file(mock_vllm):
 
 
 @pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_seed_is_forwarded_to_sampling_params(
+    mock_vllm, single_turn_conversation, mock_sampling_params
+):
+    """Without this, a seeded config still samples differently on every run."""
+    config = InferenceConfig(
+        model=ModelParams(
+            model_name="MlpEncoder",
+            tokenizer_name="openai-community/gpt2",
+            tokenizer_pad_token="<eos>",
+        ),
+        generation=GenerationParams(seed=1234),
+    )
+
+    mock_vllm.LLM.return_value = Mock()
+    engine = VLLMInferenceEngine(config.model)
+    engine._llm.chat = MagicMock()
+    engine._llm.chat.return_value = [
+        _create_vllm_output(["The first time I saw"], "123")
+    ]
+    engine._infer([single_turn_conversation], config)
+
+    mock_sampling_params.assert_called_once()
+    assert mock_sampling_params.call_args[1]["seed"] == 1234
+    assert "seed" in engine.get_supported_params()
+
+
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
 def test_guided_decoding_json(
     mock_vllm, single_turn_conversation, mock_sampling_params
 ):
