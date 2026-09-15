@@ -150,6 +150,15 @@ class GenerationParams(BaseParams):
     request body only carries the field when explicitly set to ``False``.
     """
 
+    prompt_cache_ttl: str | None = None
+    """Anthropic prompt-caching TTL for the request prefix.
+
+    Anthropic-specific. ``None`` (default) sends no cache breakpoint, so the
+    prefix is not cached. ``"5m"`` or ``"1h"`` enable ephemeral caching at that
+    TTL; ``"1h"`` suits turn-based workloads whose gap between reuses of the
+    same prefix exceeds the 5-minute default.
+    """
+
     def __post_init__(self):
         """Validates generation-specific parameters."""
         if self.batch_size is not None and self.batch_size < 1:
@@ -177,3 +186,9 @@ class GenerationParams(BaseParams):
 
         if not 0 <= self.min_p <= 1:
             raise OumiConfigError("min_p must be between 0 and 1.")
+
+        if self.prompt_cache_ttl is not None and self.prompt_cache_ttl not in (
+            "5m",
+            "1h",
+        ):
+            raise OumiConfigError('prompt_cache_ttl must be "5m", "1h", or None.')

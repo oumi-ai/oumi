@@ -54,7 +54,20 @@ def test_convert_conversation_to_api_input(anthropic_engine):
     assert result["messages"][1]["content"] == "Assistant message"
     assert result["messages"][1]["role"] == "assistant"
     assert result["max_tokens"] == 100
-    assert result["cache_control"] == {"type": "ephemeral"}
+    # No prompt_cache_ttl set: the request carries no cache breakpoint.
+    assert "cache_control" not in result
+
+
+@pytest.mark.parametrize("ttl", ["5m", "1h"])
+def test_convert_conversation_sets_prompt_cache_ttl(anthropic_engine, ttl):
+    conversation = Conversation(messages=[Message(content="hi", role=Role.USER)])
+    generation_params = GenerationParams(max_new_tokens=100, prompt_cache_ttl=ttl)
+
+    result = anthropic_engine._convert_conversation_to_api_input(
+        conversation, generation_params, anthropic_engine._model_params
+    )
+
+    assert result["cache_control"] == {"type": "ephemeral", "ttl": ttl}
 
 
 def test_convert_conversation_includes_user_id_metadata():
