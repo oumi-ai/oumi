@@ -254,11 +254,16 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
                     f"{model_params.model_name!r} does not support structured outputs"
                 )
 
-        # Enable prompt caching. Anthropic automatically caches content up to
-        # the last cacheable block. This reduces latency and cost for repeated
-        # prefixes (system prompts, long context, multi-turn conversations).
+        # Enable prompt caching when a TTL is set. Anthropic caches content up to
+        # the last cacheable block, cutting latency and cost for repeated prefixes
+        # (system prompts, long context, multi-turn conversations). A None TTL
+        # sends no breakpoint, so the prefix is not cached.
         # See: https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching
-        body["cache_control"] = {"type": "ephemeral"}
+        if generation_params.prompt_cache_ttl is not None:
+            body["cache_control"] = {
+                "type": "ephemeral",
+                "ttl": generation_params.prompt_cache_ttl,
+            }
 
         tool_choice = generation_params.tool_choice
         if conversation.tools:
@@ -561,6 +566,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         return {
             "guided_decoding",
             "max_new_tokens",
+            "prompt_cache_ttl",
             "stop_strings",
             "temperature",
             "tool_choice",
