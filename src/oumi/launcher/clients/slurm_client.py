@@ -98,6 +98,10 @@ def _get_job_state(job_state: str) -> JobState:
         return JobState.CANCELLED
     elif job_state == "RUNNING":
         return JobState.RUNNING
+    # COMPLETING means the job stopped running and is releasing its resources; it is
+    # not terminal, so it stays RUNNING until Slurm reports the final state.
+    elif job_state == "COMPLETING":
+        return JobState.RUNNING
     return JobState.PENDING
 
 
