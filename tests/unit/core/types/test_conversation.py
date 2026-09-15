@@ -353,8 +353,6 @@ def test_conversation_to_json_keeps_null_content_on_tool_calls():
 
     json_str = conv.to_json()
 
-    # Chat templates index `content` on every message, so the key has to
-    # survive serialization even when it is null.
     assert '"content":null' in json_str
     assert Conversation.from_json(json_str) == conv
 

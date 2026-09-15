@@ -600,11 +600,8 @@ class Conversation(pydantic.BaseModel):
 
     def to_json(self) -> str:
         """Converts the conversation to a JSON string."""
-        # Mirrors to_dict(): dumping directly would strip the `content` key
-        # from assistant messages that only carry tool_calls, which HF chat
-        # templates require to be present. Compact separators keep the output
-        # byte-identical to the previous encoding for every other
-        # conversation, so cached dataset hashes stay valid.
+        # to_dict() keeps the null `content` HF chat templates need; compact
+        # separators keep other conversations byte-identical for the dataset hash.
         return json.dumps(self.to_dict(), separators=(",", ":"))
 
     @classmethod
