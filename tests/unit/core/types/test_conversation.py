@@ -334,6 +334,31 @@ def test_conversation_to_json_legacy():
     assert '"test":"metadata"' in json_str
 
 
+def test_conversation_to_json_keeps_null_content_on_tool_calls():
+    conv = Conversation(
+        messages=[
+            Message(role=Role.USER, content="What is the weather?"),
+            Message(
+                role=Role.ASSISTANT,
+                content=None,
+                tool_calls=[
+                    ToolCall(
+                        id="call_1",
+                        function=FunctionCall(name="get_weather", arguments="{}"),
+                    )
+                ],
+            ),
+        ],
+    )
+
+    json_str = conv.to_json()
+
+    # Chat templates index `content` on every message, so the key has to
+    # survive serialization even when it is null.
+    assert '"content":null' in json_str
+    assert Conversation.from_json(json_str) == conv
+
+
 def test_conversation_to_json_mixed_content():
     png_bytes = _create_test_image_bytes()
     conv = Conversation(

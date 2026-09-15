@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import base64
+import json
 from collections.abc import Callable, Generator
 from enum import Enum
 from typing import Any, NamedTuple
@@ -599,9 +600,12 @@ class Conversation(pydantic.BaseModel):
 
     def to_json(self) -> str:
         """Converts the conversation to a JSON string."""
-        return self.model_dump_json(
-            exclude_unset=True, exclude_defaults=False, exclude_none=True
-        )
+        # Mirrors to_dict(): dumping directly would strip the `content` key
+        # from assistant messages that only carry tool_calls, which HF chat
+        # templates require to be present. Compact separators keep the output
+        # byte-identical to the previous encoding for every other
+        # conversation, so cached dataset hashes stay valid.
+        return json.dumps(self.to_dict(), separators=(",", ":"))
 
     @classmethod
     def from_json(cls, data: str) -> "Conversation":
