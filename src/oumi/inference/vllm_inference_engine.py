@@ -533,6 +533,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             n=1,
             max_tokens=generation_params.max_new_tokens,
             temperature=generation_params.temperature,
+            seed=generation_params.seed,
             top_p=generation_params.top_p
             if generation_params.top_p is not None
             else 1.0,
@@ -806,6 +807,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             "max_new_tokens",
             "min_p",
             "presence_penalty",
+            "seed",
             "skip_special_tokens",
             "stop_strings",
             "stop_token_ids",
