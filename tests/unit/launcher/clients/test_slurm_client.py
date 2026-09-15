@@ -460,6 +460,26 @@ def test_slurm_client_get_job_returns_active_job_from_squeue(mock_subprocess):
     assert job_status.submit_time == 1700000000.0
 
 
+def test_slurm_client_get_job_maps_completing_to_running(mock_subprocess):
+    squeue_ok = Mock()
+    squeue_ok.stdout = b"100 myjob user COMPLETING 1700000000 node-1\n"
+    squeue_ok.stderr = b""
+    squeue_ok.returncode = 0
+
+    mock_subprocess.run.side_effect = [
+        _mock_refresh_creds_run(),
+        _mock_refresh_creds_run(),
+        squeue_ok,
+    ]
+
+    client = SlurmClient("user", "host", "cluster_name")
+    job_status = client.get_job("100")
+
+    assert job_status is not None
+    assert job_status.state == JobState.RUNNING
+    assert job_status.done is False
+
+
 def test_slurm_client_get_job_falls_back_to_scontrol_for_terminal_state(
     mock_subprocess,
 ):

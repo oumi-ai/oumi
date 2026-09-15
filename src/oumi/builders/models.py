@@ -309,7 +309,9 @@ def build_huggingface_model(
     # Both functions instantiate a model from the config, but the main difference is
     # `load_pretrained_weights` also loads the weights, and `from_config` initializes
     # the weights from scratch based on the params in the config and the model class.
-    transformers_model_class = _get_transformers_model_class(hf_config)
+    transformers_model_class = _get_transformers_model_class(
+        hf_config, text_only=model_params.text_only
+    )
     # Pass in the parsed torch dtype, else pass in the stringified version (which
     # currently can only be "auto").
     torch_dtype = model_params.torch_dtype or model_params.torch_dtype_str
@@ -341,13 +343,31 @@ def build_huggingface_model(
 
     # Load pretrained PEFT adapters
     if model_params.adapter_model:
-        logger.info(f"Loading PEFT adapter from: {model_params.adapter_model} ...")
-        model = PeftModel.from_pretrained(model, model_params.adapter_model)
+        model = _apply_pretrained_adapter(model, model_params)
 
     return model
 
 
-def _get_transformers_model_class(config):
+def _apply_pretrained_adapter(model, model_params: ModelParams):
+    # The caller guards adapter_model; assert narrows it to `str`.
+    assert model_params.adapter_model is not None
+    logger.info(f"Loading PEFT adapter from: {model_params.adapter_model} ...")
+    return PeftModel.from_pretrained(
+        model,
+        model_params.adapter_model,
+        is_trainable=model_params.adapter_trainable,
+    )
+
+
+def _get_transformers_model_class(config, *, text_only: bool = False):
+    if text_only:
+        # Load a dual-mode checkpoint's text backbone; skip the vision tower.
+        logger.info(
+            "text_only=True: using transformers.AutoModelForCausalLM to load the "
+            "language backbone only."
+        )
+        return transformers.AutoModelForCausalLM
+
     llm_info = get_all_models_map().get(config.model_type, None)
 
     if llm_info is not None:
@@ -365,9 +385,19 @@ def _get_transformers_model_class(config):
 
 
 def is_image_text_llm_using_model_name(
-    model_name: str, trust_remote_code: bool, revision: str | None = None
+    model_name: str,
+    trust_remote_code: bool,
+    revision: str | None = None,
+    *,
+    text_only: bool = False,
 ) -> bool:
-    """Determines whether the model is a basic image+text LLM."""
+    """Determines whether the model is a basic image+text LLM.
+
+    When ``text_only`` is True the model is treated as a language model regardless
+    of its registry entry (used to load a dual-mode checkpoint's text backbone).
+    """
+    if text_only:
+        return False
     model_config = find_internal_model_config_using_model_name(
         model_name, trust_remote_code=trust_remote_code, revision=revision
     )
@@ -380,6 +410,7 @@ def is_image_text_llm(model_params: ModelParams) -> bool:
         model_params.model_name,
         model_params.trust_remote_code,
         revision=model_params.model_revision,
+        text_only=model_params.text_only,
     )
 
 

@@ -1,7 +1,7 @@
 # VERL GRPO config to full-fine-tune Qwen3.5-4B on RaR-Medicine using an
 # OpenAI-hosted medical-answer judge as the reward.
 #
-# Companion to train_gemma4_e2b.yaml: same data, judge, batch sizes and LR
+# Companion to train.yaml (Gemma 4 E2B): same data, judge, batch sizes and LR
 # schedule. The settings that differ come from Qwen3.5's architecture and are
 # explained inline. Tuned on 4x H100 80GB with verl 0.7.1 and vLLM 0.19.1.
 #

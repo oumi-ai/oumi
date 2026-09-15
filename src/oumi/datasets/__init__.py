@@ -50,6 +50,7 @@ from oumi.datasets.grpo.rar_dataset import (
 )
 from oumi.datasets.grpo.rlvr_rubric import RlvrRubricDataset
 from oumi.datasets.grpo.tldr import TldrGrpoDataset
+from oumi.datasets.preference_tuning.dpo_jsonlines import TextDpoJsonlinesDataset
 from oumi.datasets.preference_tuning.orpo_dpo_mix import OrpoDpoMix40kDataset
 from oumi.datasets.pretraining.c4 import C4Dataset
 from oumi.datasets.pretraining.dolma import DolmaDataset
@@ -150,6 +151,7 @@ __all__ = [
     "RlvrRubricDataset",
     "SlimPajamaDataset",
     "StarCoderDataset",
+    "TextDpoJsonlinesDataset",
     "TextSftJsonLinesDataset",
     "TheCauldronDataset",
     "TheStackDataset",

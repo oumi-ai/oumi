@@ -316,6 +316,7 @@ def test_evaluate(mock_patches_for_evaluate):
         model_name=evaluation_config.model.model_name,
         trust_remote_code=evaluation_config.model.trust_remote_code,
         revision=evaluation_config.model.model_revision,
+        text_only=evaluation_config.model.text_only,
     )
     mock_get_task_dict.assert_called_once_with(task_params)
     mock_generate_lm_harness_model_args.assert_called_once_with(
@@ -335,6 +336,80 @@ def test_evaluate(mock_patches_for_evaluate):
     assert args[1] == mock_task_dict  # task_dict
     assert kwargs["limit"] == 222
     assert not kwargs["apply_chat_template"]
+
+
+def test_evaluate_text_only_selects_hf_not_hf_multimodal(mock_patches_for_evaluate):
+    # A dual-mode model with text_only=True must route to the text harness model
+    # ("hf"), not the multimodal one ("hf-multimodal"), and must forward
+    # `text_only` to `is_image_text_llm_using_model_name`.
+    mock_cuda_is_available = mock_patches_for_evaluate["mock_cuda_is_available"]
+    mock_is_image_text_llm = mock_patches_for_evaluate["mock_is_image_text_llm"]
+    mock_get_task_dict = mock_patches_for_evaluate["mock_get_task_dict"]
+    mock_generate_lm_harness_model_args = mock_patches_for_evaluate[
+        "mock_generate_lm_harness_model_args"
+    ]
+    mock_lm_harness_get_model_class = mock_patches_for_evaluate[
+        "mock_lm_harness_get_model_class"
+    ]
+    mock_lm_harness_evaluate = mock_patches_for_evaluate["mock_lm_harness_evaluate"]
+    mock_is_world_process_zero = mock_patches_for_evaluate["mock_is_world_process_zero"]
+
+    task_params = LMHarnessTaskParams(
+        evaluation_backend="lm_harness",
+        task_name="mmlu",
+    )
+    evaluation_config = EvaluationConfig(
+        tasks=[task_params],
+        model=ModelParams(model_name="Qwen/Qwen3.5-2B", text_only=True),
+        generation=GenerationParams(),
+        inference_engine=InferenceEngineType.NATIVE,
+        inference_remote_params=None,
+        run_name="run_name",
+        enable_wandb=False,
+        output_dir="test_output",
+    )
+
+    # The real `is_image_text_llm_using_model_name` would return False when
+    # `text_only=True`, regardless of the model's own multimodal registry entry.
+    # We mock it here (it's the registry/HF-config resolution dependency), but
+    # assert below that the call site actually forwards `text_only` and that the
+    # resulting `is_multimodal` value drives `lm_harness_model` selection to "hf".
+    mock_cuda_is_available.return_value = True
+    mock_is_image_text_llm.return_value = False
+    mock_get_task_dict.return_value = {"mmlu": MagicMock()}
+    mock_generate_lm_harness_model_args.return_value = {"pretrained": "some_model"}
+    mock_lm_harness_get_model_class.return_value = MagicMock()
+    mock_lm_harness_evaluate.return_value = {
+        "results": {"mmlu": {"acc": 0.5}},
+        "configs": {},
+    }
+    mock_is_world_process_zero.return_value = True
+
+    _ = evaluate_lm_harness(
+        task_params=task_params,
+        config=evaluation_config,
+    )
+
+    # `text_only` must be forwarded with the real config value (not hardcoded).
+    mock_is_image_text_llm.assert_called_once_with(
+        model_name=evaluation_config.model.model_name,
+        trust_remote_code=evaluation_config.model.trust_remote_code,
+        revision=evaluation_config.model.model_revision,
+        text_only=evaluation_config.model.text_only,
+    )
+    assert evaluation_config.model.text_only is True
+
+    # Since `is_image_text_llm_using_model_name` returned False (as it would for
+    # text_only=True), the NATIVE engine must select "hf", not "hf-multimodal".
+    mock_generate_lm_harness_model_args.assert_called_once_with(
+        lm_harness_model="hf",
+        is_multimodal=False,
+        model_params=evaluation_config.model,
+        generation_params=evaluation_config.generation,
+        inference_engine_type=evaluation_config.inference_engine,
+        inference_remote_params=evaluation_config.inference_remote_params,
+    )
+    mock_lm_harness_get_model_class.assert_called_once_with("hf")
 
 
 def test_evaluate_failure_vLLM_without_CUDA(mock_patches_for_evaluate):

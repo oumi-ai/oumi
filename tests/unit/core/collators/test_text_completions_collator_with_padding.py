@@ -677,8 +677,9 @@ def get_tool_template_token_ids() -> tuple[list[int], list[int]]:
 def test_span_tool_response_is_masked_inside_assistant_turn():
     """Masking keys off the markers alone, not on the text between them.
 
-    A model that emits the markers itself loses that stretch from the loss. The
-    answer assertion below bounds the damage: it stops at the closer.
+    The opener stays trained. It is the token the model emits to end its turn and hand
+    control to the environment, so masking it would remove the only signal for stopping
+    after a tool call. Everything after it is the environment's answer.
     """
     resp, eot = get_template_token_ids()
     tool_open, tool_close = get_tool_template_token_ids()
@@ -693,9 +694,13 @@ def test_span_tool_response_is_masked_inside_assistant_turn():
     assert all(v == IGNORE for v in labels[:at]), "response header must stay masked"
     assert labels[at : at + len(call)] == call, "tool call is the model's own output"
     at += len(call)
-    masked = len(tool_open) + len(payload) + len(tool_close)
+    assert labels[at : at + len(tool_open)] == tool_open, (
+        "the opener is the model's hand-off to the environment and stays trained"
+    )
+    at += len(tool_open)
+    masked = len(payload) + len(tool_close)
     assert all(v == IGNORE for v in labels[at : at + masked]), (
-        "tool result and both markers must be masked"
+        "the tool result and its closer are the environment's, and must be masked"
     )
     at += masked
     assert labels[at : at + len(answer)] == answer, (
@@ -704,14 +709,23 @@ def test_span_tool_response_is_masked_inside_assistant_turn():
     assert labels[at + len(answer) :] == eot
 
 
-def test_span_parallel_tool_responses_are_both_masked():
+def test_span_parallel_tool_responses_mask_every_opener_but_the_first():
+    """Only the first opener is the model's; the rest frame more results it cannot
+    predict.
+
+    Nothing in the model's context says whether another result is coming, so
+    training it to emit an opener after a closer would teach it to stop where it
+    should be replying.
+    """
     resp, eot = get_template_token_ids()
     tool_open, tool_close = get_tool_template_token_ids()
-    first = [_SENTINELS[0]]
-    second = [_SENTINELS[1]]
-    answer = [_SENTINELS[2]]
+    call = [_SENTINELS[0]]
+    first = [_SENTINELS[1]]
+    second = [_SENTINELS[2]]
+    answer = [_SENTINELS[3]]
     seq = flat(
         resp,
+        call,
         tool_open,
         first,
         tool_close,
@@ -724,9 +738,14 @@ def test_span_parallel_tool_responses_are_both_masked():
 
     labels = get_span_labels(make_span_collator(tool_bracket=True), seq)
 
-    assert _SENTINELS[0] not in labels
-    assert _SENTINELS[1] not in labels
-    assert _SENTINELS[2] in labels
+    at = len(resp) + len(call)
+    assert labels[at : at + len(tool_open)] == tool_open, "first opener stays trained"
+    rest = len(first) + len(tool_close) + len(tool_open) + len(second) + len(tool_close)
+    assert all(
+        v == IGNORE for v in labels[at + len(tool_open) : at + len(tool_open) + rest]
+    ), "both payloads, both closers, and the second opener must be masked"
+    assert _SENTINELS[1] not in labels and _SENTINELS[2] not in labels
+    assert _SENTINELS[3] in labels
 
 
 def test_span_unclosed_tool_response_masks_through_span_end():
@@ -740,7 +759,11 @@ def test_span_unclosed_tool_response_masks_through_span_end():
 
     labels = get_span_labels(make_span_collator(tool_bracket=True), seq)
 
-    assert all(v == IGNORE for v in labels), (
+    at = len(resp)
+    assert labels[at : at + len(tool_open)] == tool_open, (
+        "the opener is still the model's own, even when its closer was truncated away"
+    )
+    assert all(v == IGNORE for v in labels[at + len(tool_open) :]), (
         "an unclosed tool result must mask through the end of the span"
     )
 

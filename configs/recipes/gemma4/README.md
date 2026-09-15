@@ -127,7 +127,7 @@ oumi launch up -c oumi://configs/recipes/gemma4/sft/12b_lora/gcp_job.yaml --clus
 To full-fine-tune Gemma 4 E2B on RaR-Medicine with verl GRPO and a gpt-4.1-mini judge reward (4 GPUs, needs `OPENAI_API_KEY`):
 
 ```shell
-oumi train -c oumi://configs/examples/grpo_verl_medqa/train_gemma4_e2b.yaml
+oumi train -c oumi://configs/examples/grpo_verl_medqa/train.yaml
 ```
 
 See the header of that config for requirements. On verl < 0.8 it enables oumi's FSDP rank-buffer sync, which Gemma 4 needs for correct multi-GPU log-probs.
