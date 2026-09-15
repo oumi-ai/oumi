@@ -18,7 +18,13 @@ from typing import Any, Literal
 import PIL.Image
 
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
-from oumi.core.types.conversation import ContentItem, Conversation, Message, Type
+from oumi.core.types.conversation import (
+    ContentItem,
+    Conversation,
+    Message,
+    Role,
+    Type,
+)
 from oumi.core.types.tool_call import FunctionCall
 from oumi.utils.image_utils import (
     DEFAULT_IMAGE_MODE,
@@ -220,6 +226,55 @@ def convert_message_to_json_content(
 def _has_tool_metadata(message: Message) -> bool:
     """Whether a message carries tool-calling fields that need 1:1 dict mapping."""
     return message.tool_calls is not None or message.tool_call_id is not None
+
+
+def split_assistant_content_and_tool_calls(messages: list[Message]) -> list[Message]:
+    """Splits assistant narration from tool calls while preserving their order.
+
+    Some chat templates render tool calls before the text when both are stored on
+    one assistant message. Splitting the message preserves the original chronology:
+    assistant narration, assistant tool call, then tool response.
+
+    The transformation is idempotent: messages that contain only narration or only
+    tool calls are returned unchanged. Callers must opt in only for chat templates
+    that support adjacent assistant messages.
+
+    Args:
+        messages: The messages to normalize.
+
+    Returns:
+        A message list with fused assistant narration and tool calls split apart.
+    """
+    result: list[Message] = []
+    for message in messages:
+        if (
+            message.role == Role.ASSISTANT
+            and message.tool_calls
+            and isinstance(message.content, str)
+            # Do not create a narration turn for empty or whitespace-only content.
+            and message.content.strip()
+        ):
+            # Append the narration first and retain its message-level metadata.
+            result.append(
+                message.model_copy(
+                    update={
+                        "tool_calls": None,
+                        "tool_call_id": None,
+                    }
+                )
+            )
+            # Append only the tool calls next. Constructing a fresh message avoids
+            # duplicating narration-only fields such as id and reasoning_content.
+            result.append(
+                Message(
+                    role=Role.ASSISTANT,
+                    content=None,
+                    tool_calls=message.tool_calls,
+                )
+            )
+        else:
+            result.append(message)
+    return result
 
 
 def create_list_of_message_json_dicts(

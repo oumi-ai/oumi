@@ -36,7 +36,10 @@ from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Conversation, FinishReason, Message, Role
 from oumi.core.types.tool_call import ToolCall
-from oumi.utils.conversation_utils import create_list_of_message_json_dicts
+from oumi.utils.conversation_utils import (
+    create_list_of_message_json_dicts,
+    split_assistant_content_and_tool_calls,
+)
 from oumi.utils.logging import logger
 from oumi.utils.model_caching import get_local_filepath_for_gguf
 from oumi.utils.peft_utils import get_lora_rank
@@ -458,8 +461,11 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             List[ChatCompletionMessageParam]: A list of vllm input messages.
         """
         result: list[ChatCompletionMessageParam] = []
+        messages = conversation.messages
+        if getattr(self, "_tool_parser_name", None) == "gemma4":
+            messages = split_assistant_content_and_tool_calls(messages)
         for json_dict in create_list_of_message_json_dicts(
-            conversation.messages, group_adjacent_same_role_turns=True
+            messages, group_adjacent_same_role_turns=True
         ):
             if "role" not in json_dict:
                 raise RuntimeError("The required field 'role' is missing!")
