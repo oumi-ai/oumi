@@ -117,6 +117,30 @@ def test_qwen3_5_registered_as_vlm():
         )
 
 
+def test_qwen3_5_keeps_the_checkpoint_chat_template():
+    models = get_all_models_map()
+    for mt in ("qwen3_5", "qwen3_5_moe"):
+        assert models[mt].config.chat_template == "", (
+            f"{mt} must not pin a template over the one the checkpoint ships"
+        )
+
+
+def test_qwen3_5_shares_the_qwen3_vl_vision_config():
+    models = get_all_models_map()
+    qwen3_vl = models["qwen3_vl"].config
+    for mt in ("qwen3_5", "qwen3_5_moe"):
+        config = models[mt].config
+        assert config.visual_config == qwen3_vl.visual_config
+        assert config.model_input_features == qwen3_vl.model_input_features
+        assert config.processor_kwargs == qwen3_vl.processor_kwargs
+
+
+def test_qwen3_vl_still_pins_its_own_chat_template():
+    models = get_all_models_map()
+    for mt in ("qwen3_vl", "qwen3_vl_moe"):
+        assert models[mt].config.chat_template == "qwen3-vl-instruct"
+
+
 @pytest.mark.parametrize(
     "model_name,trust_remote_code,expected_dual_mode,expected_vlm",
     [
