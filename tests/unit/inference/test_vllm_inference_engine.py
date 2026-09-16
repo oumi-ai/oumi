@@ -1,3 +1,4 @@
+import os
 import tempfile
 from pathlib import Path
 from types import SimpleNamespace
@@ -30,6 +31,7 @@ from oumi.utils.image_utils import (
     create_png_bytes_from_image,
 )
 from oumi.utils.packaging import is_vllm_v0_12_or_later
+from oumi.utils.vllm_utils.gemma4_compat import ACTIVATION_ENV_VAR
 
 try:
     vllm_import_failed = False
@@ -199,6 +201,23 @@ def test_infer_online(mock_vllm):
             },
         ]
     ]
+
+
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_gemma4_compat_is_activated_during_llm_construction(monkeypatch, mock_vllm):
+    monkeypatch.delenv(ACTIVATION_ENV_VAR, raising=False)
+    mock_vllm_instance = Mock()
+
+    def create_llm(**kwargs):
+        del kwargs
+        assert os.environ[ACTIVATION_ENV_VAR] == "1"
+        return mock_vllm_instance
+
+    mock_vllm.LLM.side_effect = create_llm
+
+    VLLMInferenceEngine(_get_default_model_params())
+
+    assert ACTIVATION_ENV_VAR not in os.environ
 
 
 @pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")

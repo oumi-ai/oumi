@@ -40,6 +40,7 @@ from oumi.utils.conversation_utils import create_list_of_message_json_dicts
 from oumi.utils.logging import logger
 from oumi.utils.model_caching import get_local_filepath_for_gguf
 from oumi.utils.peft_utils import get_lora_rank
+from oumi.utils.vllm_utils.gemma4_compat import ACTIVATION_ENV_VAR
 
 if TYPE_CHECKING:
     from vllm.outputs import RequestOutput  # pyright: ignore[reportMissingImports]
@@ -411,7 +412,15 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 "backend (the flashinfer sm90 GDN kernel would fail to build)."
             )
 
-        self._llm = vllm.LLM(**final_vllm_kwargs)  # pyright: ignore[reportArgumentType, reportAttributeAccessIssue]
+        previous_compat_activation = os.environ.get(ACTIVATION_ENV_VAR)
+        os.environ[ACTIVATION_ENV_VAR] = "1"
+        try:
+            self._llm = vllm.LLM(**final_vllm_kwargs)  # pyright: ignore[reportArgumentType, reportAttributeAccessIssue]
+        finally:
+            if previous_compat_activation is None:
+                os.environ.pop(ACTIVATION_ENV_VAR, None)
+            else:
+                os.environ[ACTIVATION_ENV_VAR] = previous_compat_activation
         # Ensure the tokenizer is set properly.
         # set_tokenizer() was deprecated in vLLM v0.12 and removed in v0.13; the
         # tokenizer is already configured via the constructor's `tokenizer` parameter.
