@@ -64,6 +64,10 @@ _TOOL_RESPONSE_BRACKETS: dict[str, tuple[str, str]] = {
     _GLM_4_MOE: ("<tool_response>", "</tool_response>"),
 }
 
+# Families where the first tool-result opener is model output rather than environment
+# framing. Other families keep the conservative default and mask the whole bracket.
+_TRAINABLE_TOOL_RESPONSE_OPENER_FAMILIES = frozenset({_GEMMA_4})
+
 # HF ``config.model_type`` -> family, for architectures whose chat template renders
 # tool results inside the assistant turn. Keying on model_type rather than repo name
 # to also cover finetunes, mirrors, quantizations and local checkpoints
@@ -746,18 +750,23 @@ def build_collator_from_config(
                 "or provide response_template in collator_kwargs."
             )
 
+        model_type = find_model_type_using_model_name(
+            config.model.model_name,
+            trust_remote_code=config.model.trust_remote_code,
+            revision=config.model.model_revision,
+        )
         tool_bracket = _resolve_tool_bracket(
             collator_kwargs,
             config_collator_kwargs,
-            find_model_type_using_model_name(
-                config.model.model_name,
-                trust_remote_code=config.model.trust_remote_code,
-                revision=config.model.model_revision,
-            ),
+            model_type,
         )
         if tool_bracket is not None:
             opener_key, closer_key = _TOOL_TEMPLATE_KEYS
             collator_kwargs[opener_key], collator_kwargs[closer_key] = tool_bracket
+            family = _NESTING_MODEL_TYPES.get(model_type or "")
+            collator_kwargs["train_on_tool_response_opener"] = (
+                family in _TRAINABLE_TOOL_RESPONSE_OPENER_FAMILIES
+            )
 
     # User-provided collator_kwargs override auto-resolved values
     collator_kwargs.update(config_collator_kwargs)

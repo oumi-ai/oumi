@@ -58,6 +58,8 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
             ``<|tool_response>``). Resolved by the builder.
         end_of_tool_response_template: String or token IDs closing such a tool
             result. Both are needed to exclude tool results from the loss.
+        train_on_tool_response_opener: Whether the first opener in a tool-result run
+            is model-generated and should remain in the loss. Defaults to False.
         mlm: Whether to use masked language modeling. Default False.
         ignore_index: Label value for masked tokens. Default -100.
         padding_free: Remove padding and add position_ids. Default False.
@@ -97,6 +99,7 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
         end_of_turn_template: str | list[int] | None = None,
         tool_response_template: str | list[int] | None = None,
         end_of_tool_response_template: str | list[int] | None = None,
+        train_on_tool_response_opener: bool = False,
         mlm: bool = False,
         ignore_index: int = -100,
         padding_free: bool = False,
@@ -116,6 +119,7 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
         self.end_of_tool_response_token_ids = self._tokenize_template(
             end_of_tool_response_template
         )
+        self.train_on_tool_response_opener = train_on_tool_response_opener
 
         if train_target not in self._VALID_TRAIN_TARGETS:
             valid = sorted(self._VALID_TRAIN_TARGETS - {"_legacy_instruction_response"})
@@ -194,15 +198,13 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
         the span between response_template and end_of_turn_template contains
         environment output the model never generates.
 
-        The opening marker is the exception, and only where the model emits it. In
-        gemma-4 it is a stop token — the model writes ``<|tool_response>`` to end its
-        turn and hand control to the environment, the same way it writes the
-        end-of-turn token to hand control back to the user. Masking it there removes
-        the only signal for stopping after a tool call. Where the marker instead
-        follows another result, it is the template framing a second parallel block,
-        which the model cannot predict (nothing in its context says whether more
-        results are coming) and must not learn to emit, or it will stop where it
-        should be replying.
+        The opening marker stays in the loss only when
+        ``train_on_tool_response_opener`` says the model emits it. In gemma-4 it is a
+        stop token — the model writes ``<|tool_response>`` to end its turn and hand
+        control to the environment. In GLM-4.5, by contrast, ``<tool_response>`` is
+        environment framing and the model emits ``<|observation|>`` instead, so the
+        whole bracket stays masked. A later opener in a parallel result run is also
+        environment framing and stays masked.
 
         An opener with no closer before `end_idx` masks through `end_idx`: truncation
         can cut a block in half, and over-masking is the safe direction.
@@ -267,7 +269,8 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
                 max(0, block_start - len(close_ids)) : block_start
             ]
             continues_a_run = preceding == close_ids
-            mask_from = block_start if continues_a_run else block_start + len(open_ids)
+            train_opener = self.train_on_tool_response_opener and not continues_a_run
+            mask_from = block_start + len(open_ids) if train_opener else block_start
             batch["labels"][row_idx, mask_from:block_end] = self.ignore_index
             cursor = block_end
 

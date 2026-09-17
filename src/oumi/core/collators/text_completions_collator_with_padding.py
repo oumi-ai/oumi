@@ -38,6 +38,7 @@ class TextCompletionsCollatorWithPadding:
         end_of_tool_response_template: str | list[int] | None = None,
         ignore_index: int = -100,
         pad_to_multiple_of: int | None = None,
+        train_on_tool_response_opener: bool = False,
     ):
         """Custom collator for text LLM training.
 
@@ -65,6 +66,8 @@ class TextCompletionsCollatorWithPadding:
             carry ``labels=ignore_index`` and, under causal attention, are
             never attended by real tokens, so training is numerically
             unchanged.
+        train_on_tool_response_opener: Whether the first opener in a tool-result run
+            is model-generated and should remain in the loss. Defaults to False.
         """
         self._default_collator = DataCollatorForCompletionOnlyLM(
             tokenizer=tokenizer,
@@ -74,6 +77,7 @@ class TextCompletionsCollatorWithPadding:
             end_of_turn_template=end_of_turn_template,
             tool_response_template=tool_response_template,
             end_of_tool_response_template=end_of_tool_response_template,
+            train_on_tool_response_opener=train_on_tool_response_opener,
             ignore_index=ignore_index,
         )
 
