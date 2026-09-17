@@ -477,7 +477,12 @@ class VerlGrpoTrainer(BaseTrainer):
         grpo_params = self._oumi_config.training.grpo
         training_params = self._oumi_config.training
 
-        config.data.max_response_length = grpo_params.max_completion_length
+        if grpo_params.num_generations is not None:
+            config.actor_rollout_ref.rollout.n = grpo_params.num_generations
+        if grpo_params.max_prompt_length is not None:
+            config.data.max_prompt_length = grpo_params.max_prompt_length
+        if grpo_params.max_completion_length is not None:
+            config.data.max_response_length = grpo_params.max_completion_length
         config.actor_rollout_ref.model.path = model_name
         config.actor_rollout_ref.actor.optim.lr = training_params.learning_rate
         config.actor_rollout_ref.model.enable_gradient_checkpointing = (

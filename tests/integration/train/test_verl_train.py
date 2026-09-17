@@ -89,6 +89,7 @@ def _make_verl_training_config(output_dir: str, n_gpus: int = 1) -> TrainingConf
             grpo=GrpoParams(
                 max_completion_length=32,
                 max_prompt_length=128,
+                num_generations=2,
                 temperature=0.7,
                 use_vllm=False,
             ),
@@ -116,8 +117,6 @@ def _make_verl_training_config(output_dir: str, n_gpus: int = 1) -> TrainingConf
                 "data": {
                     "train_batch_size": 2,
                     "val_batch_size": 2,
-                    "max_prompt_length": 128,
-                    "max_response_length": 32,
                 },
             },
         ),
@@ -172,6 +171,8 @@ class TestVerlConfigAndDatasetPipeline:
             assert verl_config.algorithm.adv_estimator == "grpo"
             assert verl_config.actor_rollout_ref.model.path == _MODEL_NAME
             assert verl_config.actor_rollout_ref.rollout.name == "hf"
+            assert verl_config.actor_rollout_ref.rollout.n == 2
+            assert verl_config.data.max_prompt_length == 128
             assert verl_config.data.max_response_length == 32
             assert verl_config.trainer.n_gpus_per_node == 1
             assert verl_config.trainer.nnodes == 1
@@ -181,6 +182,49 @@ class TestVerlConfigAndDatasetPipeline:
                 assert (
                     verl_config.reward.custom_reward_function.name == "countdown_reward"
                 )
+
+    def test_create_config_preserves_verl_grpo_defaults(self):
+        """Verifies unspecified Oumi GRPO params preserve VERL defaults."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = _make_verl_training_config(tmpdir)
+            config.training.grpo.max_completion_length = None
+            config.training.grpo.max_prompt_length = None
+            config.training.grpo.num_generations = None
+            trainer = _create_trainer_no_ray(
+                config,
+                _make_countdown_dataset(4),
+                _make_countdown_dataset(2),
+                cache_dir=pathlib.Path(tmpdir) / "cache",
+            )
+
+            verl_config = trainer._create_config()
+
+            assert verl_config.actor_rollout_ref.rollout.n == 1
+            assert verl_config.data.max_prompt_length == 512
+            assert verl_config.data.max_response_length == 512
+
+    def test_create_config_verl_overrides_take_precedence_over_grpo_params(self):
+        """Verifies raw VERL overrides take precedence over Oumi GRPO params."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = _make_verl_training_config(tmpdir)
+            config.training.verl_config_overrides["data"].update(
+                {"max_prompt_length": 64, "max_response_length": 16}
+            )
+            config.training.verl_config_overrides["actor_rollout_ref"]["rollout"][
+                "n"
+            ] = 1
+            trainer = _create_trainer_no_ray(
+                config,
+                _make_countdown_dataset(4),
+                _make_countdown_dataset(2),
+                cache_dir=pathlib.Path(tmpdir) / "cache",
+            )
+
+            verl_config = trainer._create_config()
+
+            assert verl_config.actor_rollout_ref.rollout.n == 1
+            assert verl_config.data.max_prompt_length == 64
+            assert verl_config.data.max_response_length == 16
 
     def test_create_dataset_files(self):
         """Verifies datasets are properly converted to parquet files."""

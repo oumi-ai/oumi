@@ -351,6 +351,14 @@ def _create_qwen3_vl_vlm_config() -> InternalModelConfig:
     return config
 
 
+def _create_qwen3_5_vlm_config() -> InternalModelConfig:
+    config = _create_qwen3_vl_vlm_config()
+    # Empty chat_template: use the tokenizer's built-in template. Qwen3.5 ships
+    # one that renders tools, which qwen3-vl-instruct does not.
+    config.chat_template = ""
+    return config
+
+
 def _create_phi3_vlm_config() -> InternalModelConfig:
     config = _create_default_vlm_config(
         pixel_values_variable_shape=True,
@@ -611,17 +619,18 @@ def get_all_models_map() -> Mapping[
         ),
         # Qwen3.5 is dual-mode: it loads as a VLM by default here, and as its
         # text-only backbone (Qwen3_5ForCausalLM) when ModelParams.text_only=True.
-        # The processor resolves to Qwen3VLProcessor, so the Qwen3-VL config
-        # (chat template, image features, pixel limits) applies unchanged.
+        # The processor resolves to Qwen3VLProcessor, so the Qwen3-VL image
+        # features and pixel limits apply. The chat template does not, because
+        # the checkpoint ships its own.
         _ModelTypeInfo(
             model_type="qwen3_5",
             model_class=default_vlm_class,
-            config=_create_qwen3_vl_vlm_config(),
+            config=_create_qwen3_5_vlm_config(),
         ),
         _ModelTypeInfo(
             model_type="qwen3_5_moe",
             model_class=default_vlm_class,
-            config=_create_qwen3_vl_vlm_config(),
+            config=_create_qwen3_5_vlm_config(),
         ),
         _ModelTypeInfo(
             model_type="vipllava",
