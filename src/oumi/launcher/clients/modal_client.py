@@ -209,6 +209,8 @@ class ModalClient:
 
         gpu = job.resources.accelerators
         timeout = int(kwargs.get("timeout", _DEFAULT_TIMEOUT_S))
+        # Ports can only be exposed at create time; see ``tunnel_url``.
+        encrypted_ports = list(kwargs.get("encrypted_ports", []))
 
         # ``setup`` runs inside the sandbox (not at image-build time) so
         # secrets injected via ``modal.Secret`` are visible.
@@ -238,6 +240,7 @@ class ModalClient:
             secrets=[secret] if secret else [],
             timeout=timeout,
             volumes={_HF_CACHE_MOUNT_PATH: hf_cache_volume},
+            encrypted_ports=encrypted_ports,
         )
         sandbox_id = sandbox.object_id
         effective_cluster = cluster_name or sandbox_id
@@ -319,6 +322,19 @@ class ModalClient:
             done=state in (JobState.SUCCEEDED, JobState.FAILED, JobState.CANCELLED),
             state=state,
         )
+
+    def tunnel_url(self, call_id: str, port: int) -> str:
+        """Returns the public HTTPS URL Modal forwards to ``port`` on the sandbox.
+
+        The port must have been passed as ``encrypted_ports`` to :meth:`launch`.
+        """
+        tunnels = self.get_call(call_id).tunnels()
+        if port not in tunnels:
+            raise ValueError(
+                f"Modal sandbox '{call_id}' exposes no tunnel on port {port}; "
+                "pass encrypted_ports=[port] at launch."
+            )
+        return tunnels[port].url
 
     def cancel(self, call_id: str) -> None:
         """Terminates the sandbox if it is still running."""
