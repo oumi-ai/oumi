@@ -625,13 +625,15 @@ def test_registry_families_all_have_brackets():
 
 
 @pytest.mark.parametrize(
-    "model_name,bracket",
+    "model_name,bracket,train_on_opener",
     [
-        pytest.param("google/gemma-4-E2B-it", _GEMMA4_BRACKET, id="gemma-4"),
-        pytest.param("zai-org/GLM-4.5", _GLM4_BRACKET, id="glm-4.5"),
+        pytest.param("google/gemma-4-E2B-it", _GEMMA4_BRACKET, True, id="gemma-4"),
+        pytest.param("zai-org/GLM-4.5", _GLM4_BRACKET, False, id="glm-4.5"),
     ],
 )
-def test_known_architecture_resolves_bracket(model_name, bracket, real_tokenizer):
+def test_known_architecture_resolves_bracket(
+    model_name, bracket, train_on_opener, real_tokenizer
+):
     collator = build_collator_from_config(
         _completions_config(collator_kwargs=dict(_SPAN_KWARGS), model_name=model_name),
         tokenizer=real_tokenizer,
@@ -646,6 +648,7 @@ def test_known_architecture_resolves_bracket(model_name, bracket, real_tokenizer
     assert inner.end_of_tool_response_token_ids == real_tokenizer.encode(
         closer, add_special_tokens=False
     )
+    assert inner.train_on_tool_response_opener is train_on_opener
 
 
 @pytest.mark.parametrize(
@@ -683,6 +686,24 @@ def test_supplied_bracket_overrides_known_architecture(real_tokenizer):
     assert collator._default_collator.tool_response_token_ids == real_tokenizer.encode(
         "<custom_open>", add_special_tokens=False
     )
+    assert collator._default_collator.train_on_tool_response_opener is False
+
+
+def test_supplied_bracket_can_keep_a_model_generated_opener(real_tokenizer):
+    config = _completions_config(
+        model_name="Qwen/Qwen3-0.6B",
+        collator_kwargs={
+            **_SPAN_KWARGS,
+            "tool_response_template": "<custom_open>",
+            "end_of_tool_response_template": "<custom_close>",
+            "train_on_tool_response_opener": True,
+        },
+    )
+
+    collator = build_collator_from_config(config, tokenizer=real_tokenizer)
+
+    assert collator is not None
+    assert collator._default_collator.train_on_tool_response_opener is True
 
 
 def test_non_span_train_target_resolves_no_bracket(real_tokenizer):

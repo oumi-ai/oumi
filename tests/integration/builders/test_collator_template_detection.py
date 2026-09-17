@@ -325,17 +325,23 @@ def _labels(collator, input_ids: list[int]) -> list[int]:
     return batch["labels"][0].tolist()
 
 
-def _masked_bracket_regions_are_complete(collator, input_ids, labels) -> bool:
-    """Every token from a tool-result opener through its closer must be masked.
+def _assert_tool_response_brackets_are_masked(
+    collator,
+    input_ids,
+    labels,
+    model: str,
+    expected_trainable_openers: tuple[bool, ...],
+):
+    """Every environment-owned bracket token must be masked.
 
-    The payload sentinels only cover the tool result's own text; this also covers the
-    bracket tokens and whatever the template renders between them. Returns True when
-    the model uses no bracket.
+    A model may emit the first opener as its hand-off token. Those openers stay in the
+    loss; every other opener and everything through each closer is environment output.
     """
     opener = collator._default_collator.tool_response_token_ids
     closer = collator._default_collator.end_of_tool_response_token_ids
     if not opener or not closer:
-        return True
+        assert not expected_trainable_openers
+        return
 
     # Slicing past the end yields a short list, which never equals the marker, so no
     # bounds arithmetic is needed here.
@@ -349,13 +355,26 @@ def _masked_bracket_regions_are_complete(collator, input_ids, labels) -> bool:
     ]
     assert opener_starts, "bracket was resolved but never occurs in the conversation"
 
+    trainable_openers = []
     for start in opener_starts:
         # The block ends at the first closer after this opener. An opener with no
         # closer runs to the end of the sequence, which is what the collator masks.
         end = next((e for e in closer_ends if e > start), len(input_ids))
-        if any(label != LABEL_IGNORE_INDEX for label in labels[start:end]):
-            return False
-    return True
+        opener_end = start + len(opener)
+        opener_labels = labels[start:opener_end]
+        if any(label != LABEL_IGNORE_INDEX for label in opener_labels):
+            assert opener_labels == opener
+            trainable_openers.append(True)
+        else:
+            trainable_openers.append(False)
+        assert all(label == LABEL_IGNORE_INDEX for label in labels[opener_end:end]), (
+            f"{model} leaves tool-result content or its closer in the loss"
+        )
+
+    assert tuple(trainable_openers) == expected_trainable_openers, (
+        f"{model} tool-result opener labels are {tuple(trainable_openers)}; "
+        f"expected {expected_trainable_openers} (True means included in loss)"
+    )
 
 
 def _sentinel_labels(tokenizer, input_ids, labels, text: str) -> list[int]:
@@ -392,22 +411,27 @@ def _assert_included_in_loss(tokenizer, input_ids, labels, text: str, model: str
 
 
 @pytest.mark.parametrize(
-    "model_name,trust_remote_code",
+    "model_name,trust_remote_code,expected_trainable_openers",
     [
         pytest.param(
             "google/gemma-4-E2B-it",
             False,
+            (True, False, True),
             id="gemma-4-nested",
             marks=pytest.mark.skipif(
                 not is_transformers_v5(),
                 reason="gemma-4 tokenizers require transformers v5",
             ),
         ),
-        pytest.param("zai-org/GLM-4.5", False, id="glm-4.5-nested"),
-        pytest.param("Qwen/Qwen3-0.6B", False, id="qwen3-separate-turn"),
+        pytest.param(
+            "zai-org/GLM-4.5", False, (False, False, False), id="glm-4.5-nested"
+        ),
+        pytest.param("Qwen/Qwen3-0.6B", False, (), id="qwen3-separate-turn"),
     ],
 )
-def test_tool_results_are_excluded_from_the_loss(model_name, trust_remote_code):
+def test_tool_results_are_excluded_from_the_loss(
+    model_name, trust_remote_code, expected_trainable_openers
+):
     tokenizer = _load_tokenizer(model_name, trust_remote_code)
 
     conversation = canonical_tool_conversation()
@@ -435,10 +459,19 @@ def test_tool_results_are_excluded_from_the_loss(model_name, trust_remote_code):
         )
 
     # The sentinels above only cover the payload. This covers the bracket tokens and
-    # anything the template puts between them.
-    assert _masked_bracket_regions_are_complete(collator, input_ids, labels), (
-        f"{model_name} leaves part of a bracketed tool result in the loss"
+    # anything the template puts between them, while preserving a model-owned opener.
+    _assert_tool_response_brackets_are_masked(
+        collator,
+        input_ids,
+        labels,
+        model_name,
+        expected_trainable_openers,
     )
+
+    if model_name == "zai-org/GLM-4.5":
+        _assert_included_in_loss(
+            tokenizer, input_ids, labels, "<|observation|>", model_name
+        )
 
 
 def test_bracket_forced_onto_a_separate_turn_model_changes_nothing():

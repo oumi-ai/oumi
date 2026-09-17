@@ -290,6 +290,7 @@ def make_span_collator(
     train_target: str = "all_assistant_turns",
     *,
     tool_bracket: bool = False,
+    train_on_tool_response_opener: bool = False,
     instruction_template: str | None = None,
 ) -> TextCompletionsCollatorWithPadding:
     """Span collator, optionally configured with the tool-result bracket.
@@ -306,6 +307,7 @@ def make_span_collator(
         end_of_turn_template=_EOT_STR,
         tool_response_template=_TOOL_OPEN_STR if tool_bracket else None,
         end_of_tool_response_template=_TOOL_CLOSE_STR if tool_bracket else None,
+        train_on_tool_response_opener=train_on_tool_response_opener,
     )
 
 
@@ -674,7 +676,7 @@ def get_tool_template_token_ids() -> tuple[list[int], list[int]]:
     return encode_template(_TOOL_OPEN_STR), encode_template(_TOOL_CLOSE_STR)
 
 
-def test_span_tool_response_is_masked_inside_assistant_turn():
+def test_span_tool_response_keeps_model_generated_opener():
     """Masking keys off the markers alone, not on the text between them.
 
     The opener stays trained. It is the token the model emits to end its turn and hand
@@ -688,7 +690,13 @@ def test_span_tool_response_is_masked_inside_assistant_turn():
     answer = [_SENTINELS[3]]
     seq = flat(resp, call, tool_open, payload, tool_close, answer, eot)
 
-    labels = get_span_labels(make_span_collator(tool_bracket=True), seq)
+    labels = get_span_labels(
+        make_span_collator(
+            tool_bracket=True,
+            train_on_tool_response_opener=True,
+        ),
+        seq,
+    )
 
     at = len(resp)
     assert all(v == IGNORE for v in labels[:at]), "response header must stay masked"
@@ -707,6 +715,23 @@ def test_span_tool_response_is_masked_inside_assistant_turn():
         "assistant text after the tool result must stay trained"
     )
     assert labels[at + len(answer) :] == eot
+
+
+def test_span_tool_response_masks_environment_owned_opener_by_default():
+    resp, eot = get_template_token_ids()
+    tool_open, tool_close = get_tool_template_token_ids()
+    call = [_SENTINELS[0]]
+    payload = [_SENTINELS[1]]
+    answer = [_SENTINELS[2]]
+    seq = flat(resp, call, tool_open, payload, tool_close, answer, eot)
+
+    labels = get_span_labels(make_span_collator(tool_bracket=True), seq)
+
+    bracket_start = len(resp) + len(call)
+    bracket_end = bracket_start + len(tool_open) + len(payload) + len(tool_close)
+    assert labels[len(resp) : bracket_start] == call
+    assert all(v == IGNORE for v in labels[bracket_start:bracket_end])
+    assert labels[bracket_end : bracket_end + len(answer)] == answer
 
 
 def test_span_parallel_tool_responses_mask_every_opener_but_the_first():
@@ -736,7 +761,13 @@ def test_span_parallel_tool_responses_mask_every_opener_but_the_first():
         eot,
     )
 
-    labels = get_span_labels(make_span_collator(tool_bracket=True), seq)
+    labels = get_span_labels(
+        make_span_collator(
+            tool_bracket=True,
+            train_on_tool_response_opener=True,
+        ),
+        seq,
+    )
 
     at = len(resp) + len(call)
     assert labels[at : at + len(tool_open)] == tool_open, "first opener stays trained"
@@ -757,7 +788,13 @@ def test_span_unclosed_tool_response_masks_through_span_end():
     # result: the rest of that turn drops out of the loss.
     seq = flat(resp, tool_open, payload, eot)
 
-    labels = get_span_labels(make_span_collator(tool_bracket=True), seq)
+    labels = get_span_labels(
+        make_span_collator(
+            tool_bracket=True,
+            train_on_tool_response_opener=True,
+        ),
+        seq,
+    )
 
     at = len(resp)
     assert labels[at : at + len(tool_open)] == tool_open, (
