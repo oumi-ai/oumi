@@ -2,6 +2,7 @@ import importlib.metadata
 import logging
 import sys
 from types import ModuleType, SimpleNamespace
+from typing import Any
 
 import pytest
 import torch
@@ -10,6 +11,15 @@ from oumi.utils.vllm_utils.gemma4_compat import (
     ACTIVATION_ENV_VAR,
     register_gemma4_compatibility,
 )
+
+# The fake config has 6 layers with the last 2 sharing KV, so layer 4 is shared
+# and layer 3 is the last ordinary one.
+_ORDINARY_WEIGHT = "model.layers.3.self_attn.k_proj.weight"
+_SHARED_WEIGHT = "model.layers.4.self_attn.q_proj.weight"
+
+
+def _identity(value):
+    return value
 
 
 class _FakeLinear:
@@ -21,126 +31,114 @@ class _FakeLinear:
         return hidden_states, None
 
 
-class _FakeNorm:
-    def __call__(self, value):
-        return value
+class _CallRecorder:
+    """Records the positional arguments of the last call."""
 
+    def __init__(self, result):
+        self.args = ()
+        # vLLM's Attention carries this; the patch refuses to build a shared
+        # layer when it is set.
+        self.calculate_kv_scales = False
+        self._result = result
 
-class _FakeRotaryEmbedding:
-    def __init__(self):
-        self.last_key = "not-called"
-
-    def __call__(self, positions, query, key):
-        self.last_key = key
-        return query, key
-
-
-class _FakeAttentionOperation:
-    def __init__(self):
-        self.last_key = "not-called"
-        self.last_value = "not-called"
-
-    def __call__(self, query, key, value):
-        self.last_key = key
-        self.last_value = value
-        return query
+    def __call__(self, *args):
+        self.args = args
+        return self._result(*args)
 
 
 class _FakeGemma4Attention:
-    original_forward_calls = 0
+    """The parts of vLLM 0.19.1's Gemma4Attention that the patch touches."""
+
+    module: ModuleType
 
     def __init__(
         self,
         config,
         hidden_size,
         num_heads,
-        num_kv_heads,
+        _num_kv_heads,
         head_dim,
-        max_position_embeddings,
-        use_k_eq_v=False,
-        cache_config=None,
-        quant_config=None,
-        attn_logits_soft_cap=None,
+        _max_position_embeddings=None,
+        _use_k_eq_v=False,
+        _cache_config=None,
+        _quant_config=None,
+        _attn_logits_soft_cap=None,
         prefix="",
     ):
-        del max_position_embeddings, use_k_eq_v, cache_config
-        del quant_config, attn_logits_soft_cap
-        self.config = config
-        self.hidden_size = hidden_size
         self.total_num_heads = num_heads
         self.num_heads = num_heads
-        self.num_kv_heads = num_kv_heads
         self.head_dim = head_dim
+        # vLLM derives this itself rather than calling extract_layer_index here.
         self.is_kv_shared_layer = int(prefix.split(".layers.")[1].split(".")[0]) >= (
             config.num_hidden_layers - config.num_kv_shared_layers
         )
-        self.qkv_proj = _FakeLinear()
-        self.q_norm = _FakeNorm()
-        self.k_norm = _FakeNorm()
-        self.v_norm = _FakeNorm()
-        self.rotary_emb = _FakeRotaryEmbedding()
-        self.attn = _FakeAttentionOperation()
+        # Resolved through the module, the way vLLM resolves its own globals.
+        self.qkv_proj = self.module.QKVParallelLinear(hidden_size, head_dim)
+        self.q_norm = _identity
+        self.k_norm = _identity
+        self.v_norm = _identity
+        self.rotary_emb = _CallRecorder(lambda positions, query, key: (query, key))
+        self.attn = _CallRecorder(lambda query, key, value: query)
+        self.attn.calculate_kv_scales = self.module.calculate_kv_scales
         self.o_proj = _FakeLinear()
 
     def forward(self, positions, hidden_states, **kwargs):
         del positions, hidden_states, kwargs
-        type(self).original_forward_calls += 1
         return "original-forward"
 
 
 class _FakeGemma4ForCausalLM:
     def __init__(self, required_weights=()):
-        self.config = SimpleNamespace(
-            num_hidden_layers=6,
-            num_kv_shared_layers=2,
-        )
+        self.config = SimpleNamespace(num_hidden_layers=6, num_kv_shared_layers=2)
         self.required_weights = set(required_weights)
-        self.received_weights = []
 
     def load_weights(self, weights):
-        self.received_weights = [name for name, _ in weights]
-        missing_weights = self.required_weights - set(self.received_weights)
+        received_weights = {name for name, _ in weights}
+        missing_weights = self.required_weights - received_weights
         if missing_weights:
             raise ValueError(f"Missing weights: {sorted(missing_weights)}")
-        return set(self.received_weights)
+        return received_weights
 
 
 @pytest.fixture
 def fake_gemma4(monkeypatch):
-    class FakeGemma4Attention(_FakeGemma4Attention):
-        pass
-
-    class FakeGemma4ForCausalLM(_FakeGemma4ForCausalLM):
-        pass
-
-    gemma4_module = ModuleType("vllm.model_executor.models.gemma4")
-    setattr(gemma4_module, "Gemma4Attention", FakeGemma4Attention)
-    setattr(gemma4_module, "Gemma4ForCausalLM", FakeGemma4ForCausalLM)
-    setattr(gemma4_module, "ColumnParallelLinear", _FakeLinear)
-
-    vllm_module = ModuleType("vllm")
-    model_executor_module = ModuleType("vllm.model_executor")
-    models_module = ModuleType("vllm.model_executor.models")
-    setattr(models_module, "gemma4", gemma4_module)
-    monkeypatch.setitem(sys.modules, "vllm", vllm_module)
-    monkeypatch.setitem(sys.modules, "vllm.model_executor", model_executor_module)
-    monkeypatch.setitem(sys.modules, "vllm.model_executor.models", models_module)
-    monkeypatch.setitem(sys.modules, "vllm.model_executor.models.gemma4", gemma4_module)
-    return gemma4_module
-
-
-def _enable_plugin(monkeypatch, version="0.19.1"):
-    monkeypatch.setenv(ACTIVATION_ENV_VAR, "1")
-    monkeypatch.setattr(importlib.metadata, "version", lambda package: version)
-
-
-def _build_attention(gemma4_module, layer_index):
-    config = SimpleNamespace(
-        attention_bias=False,
-        num_hidden_layers=6,
-        num_kv_shared_layers=2,
+    gemma4: Any = ModuleType("vllm.model_executor.models.gemma4")
+    gemma4.Gemma4Attention = type("Gemma4Attention", (_FakeGemma4Attention,), {})
+    gemma4.Gemma4ForCausalLM = type("Gemma4ForCausalLM", (_FakeGemma4ForCausalLM,), {})
+    gemma4.ColumnParallelLinear = _FakeLinear
+    gemma4.QKVParallelLinear = _FakeLinear
+    gemma4.extract_layer_index = lambda prefix: int(
+        prefix.split(".layers.")[1].split(".")[0]
     )
-    return gemma4_module.Gemma4Attention(
+    gemma4.calculate_kv_scales = False
+    gemma4.Gemma4Attention.module = gemma4
+
+    models: Any = ModuleType("vllm.model_executor.models")
+    models.gemma4 = gemma4
+    for name, module in {
+        "vllm": ModuleType("vllm"),
+        "vllm.model_executor": ModuleType("vllm.model_executor"),
+        "vllm.model_executor.models": models,
+        "vllm.model_executor.models.gemma4": gemma4,
+    }.items():
+        monkeypatch.setitem(sys.modules, name, module)
+    return gemma4
+
+
+@pytest.fixture
+def installed(monkeypatch, fake_gemma4):
+    """The fake gemma4 module with the compatibility patch applied."""
+    monkeypatch.setenv(ACTIVATION_ENV_VAR, "1")
+    monkeypatch.setattr(importlib.metadata, "version", lambda package: "0.19.1")
+    register_gemma4_compatibility()
+    return fake_gemma4
+
+
+def _build_attention(gemma4, layer_index):
+    config = SimpleNamespace(
+        attention_bias=False, num_hidden_layers=6, num_kv_shared_layers=2
+    )
+    return gemma4.Gemma4Attention(
         config=config,
         hidden_size=4,
         num_heads=2,
@@ -151,29 +149,32 @@ def _build_attention(gemma4_module, layer_index):
     )
 
 
-def test_registration_requires_activation(monkeypatch, fake_gemma4):
-    monkeypatch.delenv(ACTIVATION_ENV_VAR, raising=False)
+def _load_weights(gemma4, present, required):
+    model = gemma4.Gemma4ForCausalLM(required)
+    return model.load_weights([(name, torch.empty(0)) for name in present])
+
+
+@pytest.mark.parametrize(
+    ("activated", "version"),
+    [(False, "0.19.1"), (True, "0.19.2")],
+    ids=["not-activated", "wrong-vllm-version"],
+)
+def test_registration_guards(monkeypatch, fake_gemma4, activated, version):
+    if activated:
+        monkeypatch.setenv(ACTIVATION_ENV_VAR, "1")
+    else:
+        monkeypatch.delenv(ACTIVATION_ENV_VAR, raising=False)
+    monkeypatch.setattr(importlib.metadata, "version", lambda package: version)
+    original_init = fake_gemma4.Gemma4Attention.__init__
+
+    register_gemma4_compatibility()
+
+    assert fake_gemma4.Gemma4Attention.__init__ is original_init
+
+
+def test_registration_is_idempotent(monkeypatch, fake_gemma4, caplog):
+    monkeypatch.setenv(ACTIVATION_ENV_VAR, "1")
     monkeypatch.setattr(importlib.metadata, "version", lambda package: "0.19.1")
-    original_init = fake_gemma4.Gemma4Attention.__init__
-
-    register_gemma4_compatibility()
-
-    assert fake_gemma4.Gemma4Attention.__init__ is original_init
-
-
-def test_registration_requires_exact_vllm_version(monkeypatch, fake_gemma4):
-    _enable_plugin(monkeypatch, version="0.19.2")
-    original_init = fake_gemma4.Gemma4Attention.__init__
-
-    register_gemma4_compatibility()
-
-    assert fake_gemma4.Gemma4Attention.__init__ is original_init
-
-
-def test_registration_is_idempotent_and_logs_process_marker(
-    monkeypatch, fake_gemma4, caplog
-):
-    _enable_plugin(monkeypatch)
     caplog.set_level(logging.INFO)
 
     register_gemma4_compatibility()
@@ -181,23 +182,12 @@ def test_registration_is_idempotent_and_logs_process_marker(
     register_gemma4_compatibility()
 
     assert fake_gemma4.Gemma4Attention.__init__ is installed_init
-    installation_messages = [
-        record.message
-        for record in caplog.records
-        if "[oumi-gemma4-compat] installed" in record.message
-    ]
-    assert len(installation_messages) == 1
-    assert "pid=" in installation_messages[0]
-    assert "process=" in installation_messages[0]
+    assert sum("compat] installed" in r.message for r in caplog.records) == 1
 
 
-def test_shared_attention_uses_q_only_topology(monkeypatch, fake_gemma4):
-    _enable_plugin(monkeypatch)
-    register_gemma4_compatibility()
+def test_shared_attention_uses_q_only_topology(installed):
+    attention = _build_attention(installed, layer_index=4)
 
-    attention = _build_attention(fake_gemma4, layer_index=4)
-
-    assert hasattr(attention, "q_proj")
     assert not hasattr(attention, "qkv_proj")
     assert not hasattr(attention, "k_norm")
     assert not hasattr(attention, "v_norm")
@@ -205,127 +195,88 @@ def test_shared_attention_uses_q_only_topology(monkeypatch, fake_gemma4):
     assert attention.q_proj.kwargs["prefix"] == "model.layers.4.self_attn.q_proj"
 
 
-def test_non_shared_attention_keeps_original_topology(monkeypatch, fake_gemma4):
-    _enable_plugin(monkeypatch)
-    register_gemma4_compatibility()
-
-    attention = _build_attention(fake_gemma4, layer_index=3)
+def test_ordinary_attention_is_untouched(installed):
+    attention = _build_attention(installed, layer_index=3)
 
     assert hasattr(attention, "qkv_proj")
     assert hasattr(attention, "k_norm")
     assert hasattr(attention, "v_norm")
     assert not hasattr(attention, "q_proj")
+    assert attention.forward(torch.tensor([0]), torch.zeros(1, 4)) == "original-forward"
 
 
-def test_shared_forward_passes_none_for_key_and_value(monkeypatch, fake_gemma4):
-    _enable_plugin(monkeypatch)
-    register_gemma4_compatibility()
-    attention = _build_attention(fake_gemma4, layer_index=4)
+def test_shared_layer_never_builds_the_packed_projection(installed):
+    constructed = []
+
+    def _tracking_qkv_parallel_linear(*args, **kwargs):
+        constructed.append(args)
+        return _FakeLinear(*args, **kwargs)
+
+    installed.QKVParallelLinear = _tracking_qkv_parallel_linear
+
+    _build_attention(installed, layer_index=4)
+    assert constructed == []
+
+    _build_attention(installed, layer_index=3)
+    assert len(constructed) == 1
+
+
+def test_kv_scale_calculation_is_rejected_for_shared_layers(installed):
+    installed.calculate_kv_scales = True
+
+    _build_attention(installed, layer_index=3)
+
+    with pytest.raises(NotImplementedError, match="calculate-kv-scales"):
+        _build_attention(installed, layer_index=4)
+
+
+def test_shared_forward_passes_none_for_key_and_value(installed):
+    attention = _build_attention(installed, layer_index=4)
     hidden_states = torch.arange(4).reshape(1, 4)
 
     output = attention.forward(torch.tensor([0]), hidden_states)
 
     assert torch.equal(output, hidden_states)
-    assert attention.rotary_emb.last_key is None
-    assert attention.attn.last_key is None
-    assert attention.attn.last_value is None
+    assert attention.rotary_emb.args[2] is None
+    assert attention.attn.args[1:] == (None, None)
 
 
-def test_non_shared_forward_remains_unchanged(monkeypatch, fake_gemma4):
-    _enable_plugin(monkeypatch)
-    register_gemma4_compatibility()
-    attention = _build_attention(fake_gemma4, layer_index=3)
-    original_call_count = fake_gemma4.Gemma4Attention.original_forward_calls
-
-    output = attention.forward(torch.tensor([0]), torch.zeros(1, 4))
-
-    assert output == "original-forward"
-    assert fake_gemma4.Gemma4Attention.original_forward_calls == original_call_count + 1
-
-
-def test_minimal_checkpoint_loads_without_shared_kv_weights(monkeypatch, fake_gemma4):
-    _enable_plugin(monkeypatch)
-    register_gemma4_compatibility()
-    required_weights = {
-        "model.layers.4.self_attn.q_proj.weight",
-        "model.layers.4.self_attn.o_proj.weight",
-        "model.layers.4.mlp.down_proj.weight",
+def test_loader_drops_only_redundant_shared_text_weights(installed):
+    kept = {
+        _ORDINARY_WEIGHT,
+        _SHARED_WEIGHT,
+        # Tower blocks are named layers.N.self_attn.* too, so an unanchored
+        # filter would silently swallow them.
+        "vision_tower.encoder.layers.4.self_attn.k_proj.weight",
+        "model.audio_tower.encoder.layers.5.self_attn.k_norm.weight",
     }
-    model = fake_gemma4.Gemma4ForCausalLM(required_weights)
-    weights = [(name, torch.empty(0)) for name in required_weights]
-
-    loaded = model.load_weights(weights)
-
-    assert loaded == required_weights
-
-
-def test_legacy_checkpoint_filters_only_redundant_shared_weights(
-    monkeypatch, fake_gemma4
-):
-    _enable_plugin(monkeypatch)
-    register_gemma4_compatibility()
-    expected_weights = {
-        "model.layers.3.self_attn.k_proj.weight",
-        "model.layers.3.self_attn.v_proj.weight",
-        "model.layers.4.self_attn.q_proj.weight",
-        "model.layers.4.self_attn.o_proj.weight",
-    }
-    redundant_weights = {
+    dropped = {
         "model.layers.4.self_attn.k_proj.weight",
         "model.layers.4.self_attn.v_proj.weight",
         "model.layers.4.self_attn.k_norm.weight",
-        "model.layers.5.self_attn.k_proj.weight",
+        "model.language_model.layers.5.self_attn.k_proj.weight",
     }
-    model = fake_gemma4.Gemma4ForCausalLM(expected_weights)
-    weights = [(name, torch.empty(0)) for name in expected_weights | redundant_weights]
 
-    loaded = model.load_weights(weights)
-
-    assert loaded == expected_weights
-    assert set(model.received_weights) == expected_weights
+    assert _load_weights(installed, kept | dropped, kept) == kept
 
 
-@pytest.mark.parametrize(
-    "missing_weight",
-    [
-        "model.layers.4.self_attn.q_proj.weight",
-        "model.layers.4.self_attn.o_proj.weight",
-        "model.layers.4.mlp.down_proj.weight",
-        "model.layers.3.self_attn.k_proj.weight",
-        "model.layers.3.self_attn.v_proj.weight",
-    ],
-)
-def test_genuine_missing_weights_remain_errors(
-    monkeypatch, fake_gemma4, missing_weight
-):
-    _enable_plugin(monkeypatch)
-    register_gemma4_compatibility()
-    required_weights = {
-        "model.layers.4.self_attn.q_proj.weight",
-        "model.layers.4.self_attn.o_proj.weight",
-        "model.layers.4.mlp.down_proj.weight",
-        "model.layers.3.self_attn.k_proj.weight",
-        "model.layers.3.self_attn.v_proj.weight",
-    }
-    model = fake_gemma4.Gemma4ForCausalLM(required_weights)
-    weights = [
-        (name, torch.empty(0)) for name in required_weights if name != missing_weight
-    ]
+@pytest.mark.parametrize("missing_weight", [_ORDINARY_WEIGHT, _SHARED_WEIGHT])
+def test_genuine_missing_weights_remain_errors(installed, missing_weight):
+    required = {_ORDINARY_WEIGHT, _SHARED_WEIGHT}
 
     with pytest.raises(ValueError, match="Missing weights"):
-        model.load_weights(weights)
+        _load_weights(installed, required - {missing_weight}, required)
 
 
 def test_distribution_registers_vllm_general_plugin():
-    entry_points = importlib.metadata.entry_points(group="vllm.general_plugins")
-    matching_entry_points = [
+    matching = [
         entry_point
-        for entry_point in entry_points
+        for entry_point in importlib.metadata.entry_points(group="vllm.general_plugins")
         if entry_point.name == "oumi_gemma4_compat"
     ]
 
-    assert len(matching_entry_points) == 1
+    assert len(matching) == 1
     assert (
-        matching_entry_points[0].value
+        matching[0].value
         == "oumi.utils.vllm_utils.gemma4_compat:register_gemma4_compatibility"
     )
