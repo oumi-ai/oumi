@@ -123,7 +123,8 @@ def _patch_attention(gemma4_module: ModuleType) -> None:
         if not self.is_kv_shared_layer:
             return original_forward(self, positions, hidden_states, **kwargs)
 
-        query, _ = self.q_proj(hidden_states)
+        # q_proj is installed dynamically for shared layers in patched_init.
+        query, _ = self.q_proj(hidden_states)  # pyright: ignore[reportCallIssue]
         query = query.unflatten(-1, (self.num_heads, self.head_dim))
         query = self.q_norm(query)
         query = query.flatten(-2, -1)
