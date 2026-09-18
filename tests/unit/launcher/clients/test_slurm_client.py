@@ -17,6 +17,10 @@ _SACCT_CMD = (
     "-X --starttime 2025-01-01"
 )
 
+_SQUEUE_CMD = (
+    "SLURM_TIME_FORMAT=%s squeue --user=user --noheader --format='%i %j %u %T %V %R'"
+)
+
 
 #
 # Fixtures
@@ -403,31 +407,56 @@ def test_slurm_client_list_jobs_handles_empty_string(mock_subprocess, mock_datet
 
 
 def test_slurm_client_list_jobs_failure(mock_subprocess, mock_datetime):
-    mock_success_run = Mock()
-    mock_success_run.stdout = b"out"
-    mock_success_run.stderr = b"err"
-    mock_success_run.returncode = 0
+    """Neither listing works, so the caller hears about it."""
     mock_run = Mock()
-    mock_subprocess.run.side_effect = [
-        mock_success_run,
-        mock_success_run,
-        mock_success_run,
-        mock_run,
-    ]
     mock_run.stdout = b""
     mock_run.stderr = b"foo"
     mock_run.returncode = 1
+    mock_subprocess.run.side_effect = [
+        _mock_refresh_creds_run(),
+        _mock_refresh_creds_run(),
+        mock_run,
+        _mock_refresh_creds_run(),
+        mock_run,
+    ]
 
     client = SlurmClient("user", "host", "cluster_name")
-    with pytest.raises(RuntimeError, match="Failed to list jobs. stderr: foo"):
-        client = SlurmClient("user", "host", "cluster_name")
+    with pytest.raises(RuntimeError, match="Failed to list jobs via squeue"):
         _ = client.list_jobs()
     mock_subprocess.run.assert_called_with(
-        _run_commands_template([_SACCT_CMD]),
+        _run_commands_template([_SQUEUE_CMD]),
         shell=True,
         capture_output=True,
         timeout=180,
     )
+
+
+def test_slurm_client_list_jobs_without_accounting_lists_active_jobs(
+    mock_subprocess, mock_datetime
+):
+    """A controller with accounting disabled still has to give up its live jobs."""
+    no_accounting = Mock()
+    no_accounting.stdout = b""
+    no_accounting.stderr = b"Slurm accounting storage is disabled"
+    no_accounting.returncode = 1
+    squeue = Mock()
+    squeue.stdout = b"1234 job-1-100 user RUNNING 1749000000 node-0\n"
+    squeue.stderr = b""
+    squeue.returncode = 0
+
+    mock_subprocess.run.side_effect = [
+        _mock_refresh_creds_run(),
+        _mock_refresh_creds_run(),
+        no_accounting,
+        _mock_refresh_creds_run(),
+        squeue,
+    ]
+
+    client = SlurmClient("user", "host", "cluster_name")
+    job_list = client.list_jobs()
+
+    assert [job.id for job in job_list] == ["1234"]
+    assert [job.name for job in job_list] == ["job-1-100"]
 
 
 def _mock_refresh_creds_run() -> Mock:
