@@ -192,7 +192,7 @@ bitnet = ["onebitllms>=0.0.3"]
 mcp = [
     "fastmcp>=3.0.0,<4",
     "httpx>=0.28.1,<1",
-    "mcp>=1.25.0,<2",
+    "mcp>=1.25.0,<3",
 ]
 
 file_formats = ["pdf2image>=1.17,<1.18"]
