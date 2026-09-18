@@ -225,6 +225,9 @@ ci_gpu = [
 oumi = "oumi.cli.main:run"
 oumi-mcp = "oumi.mcp.server:main"
 
+[project.entry-points."vllm.general_plugins"]
+oumi_gemma4_compat = "oumi.utils.vllm_utils.gemma4_compat:register_gemma4_compatibility"
+
 [tool.ruff]
 extend-include = [
     "*.ipynb", # Include ipython notebooks
