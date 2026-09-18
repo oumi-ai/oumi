@@ -867,16 +867,16 @@ def test_gemma4_replay_splits_narration_from_tool_call():
 
     sent = engine._convert_conversation_to_vllm_input(conv)
 
-    assert [message["role"] for message in sent] == [
-        "user",
-        "assistant",
-        "assistant",
-        "tool",
+    assert sent == [
+        {"role": "user", "content": "What's the weather in Tokyo?"},
+        {"role": "assistant", "content": "Let me check."},
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [tool_call.model_dump(mode="json")],
+        },
+        {"role": "tool", "content": "22C, sunny", "tool_call_id": "call_abc"},
     ]
-    assert sent[1] == {"role": "assistant", "content": "Let me check."}
-    assert sent[2]["content"] is None
-    assert sent[2]["tool_calls"] == [tool_call.model_dump(mode="json")]
-    assert sent[3]["tool_call_id"] == "call_abc"
 
 
 def test_other_models_keep_narration_and_tool_call_fused():
@@ -906,9 +906,14 @@ def test_other_models_keep_narration_and_tool_call_fused():
 
     sent = engine._convert_conversation_to_vllm_input(conv)
 
-    assert len(sent) == 2
-    assert sent[1]["content"] == "Let me check."
-    assert sent[1]["tool_calls"] == [tool_call.model_dump(mode="json")]
+    assert sent == [
+        {"role": "user", "content": "What's the weather in Tokyo?"},
+        {
+            "role": "assistant",
+            "content": "Let me check.",
+            "tool_calls": [tool_call.model_dump(mode="json")],
+        },
+    ]
 
 
 @pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
