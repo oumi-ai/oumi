@@ -36,7 +36,10 @@ from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Conversation, FinishReason, Message, Role
 from oumi.core.types.tool_call import ToolCall
-from oumi.utils.conversation_utils import create_list_of_message_json_dicts
+from oumi.utils.conversation_utils import (
+    create_list_of_message_json_dicts,
+    split_assistant_content_and_tool_calls,
+)
 from oumi.utils.logging import logger
 from oumi.utils.model_caching import get_local_filepath_for_gguf
 from oumi.utils.peft_utils import get_lora_rank
@@ -108,13 +111,19 @@ class _ToolParserCapabilities:
     """Oumi-side behavior that is not declared by vLLM's parser interface."""
 
     requires_raw_output: bool = False
+    requires_split_tool_narration: bool = False
 
 
 _DEFAULT_TOOL_PARSER_CAPABILITIES = _ToolParserCapabilities()
 _TOOL_PARSER_CAPABILITIES = {
     # Gemma 4 marks native tool calls with special tokens. Its parser must see
     # those tokens, even though they should remain hidden from displayed text.
-    "gemma4": _ToolParserCapabilities(requires_raw_output=True),
+    # Its chat template also reorders narration and tool calls when they share
+    # one assistant message, so replay must split them while preserving order.
+    "gemma4": _ToolParserCapabilities(
+        requires_raw_output=True,
+        requires_split_tool_narration=True,
+    ),
 }
 
 
@@ -485,8 +494,14 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             List[ChatCompletionMessageParam]: A list of vllm input messages.
         """
         result: list[ChatCompletionMessageParam] = []
+        messages = conversation.messages
+        parser_capabilities = _get_tool_parser_capabilities(
+            getattr(self, "_tool_parser_name", None)
+        )
+        if parser_capabilities.requires_split_tool_narration:
+            messages = split_assistant_content_and_tool_calls(messages)
         for json_dict in create_list_of_message_json_dicts(
-            conversation.messages, group_adjacent_same_role_turns=True
+            messages, group_adjacent_same_role_turns=True
         ):
             if "role" not in json_dict:
                 raise RuntimeError("The required field 'role' is missing!")
