@@ -228,10 +228,14 @@ class SkyClient:
                 f"{sky_cloud._REPR} does not support stopping clusters. "
                 "Will not set autostop."
             )
+        # Autostop only halts the cluster; its disks keep billing until something
+        # tears it down. `down` makes the idle timer terminate instead.
+        down = bool(kwargs.get("down", False))
         job_id = self._sky_lib.launch(
             sky_task,
             cluster_name=cluster_name,
             idle_minutes_to_autostop=idle_minutes_to_autostop,
+            down=down,
         )
 
         # Stream logs and get the output.
