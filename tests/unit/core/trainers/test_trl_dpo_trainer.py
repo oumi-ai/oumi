@@ -225,9 +225,12 @@ def test_precompute_ref_logps_reuses_explicit_cache(tmp_path):
     trainer.ref_model = None
     trainer.model = MagicMock()
     trainer.data_collator = lambda rows: rows
-    trainer.args = SimpleNamespace(
-        dataloader_num_workers=0,
-        dataloader_pin_memory=False,
+    trainer.args = cast(
+        Any,
+        SimpleNamespace(
+            dataloader_num_workers=0,
+            dataloader_pin_memory=False,
+        ),
     )
     trainer.accelerator = MagicMock(is_main_process=True)
     trainer.accelerator.prepare.side_effect = lambda dataloader: dataloader

@@ -15,6 +15,7 @@
 from unittest.mock import patch
 
 import pytest
+from trl import DPOConfig
 
 from oumi.core.configs.params.dpo_params import DpoParams
 from oumi.core.configs.params.training_params import TrainerType, TrainingParams
@@ -63,6 +64,7 @@ def test_dpo_precompute_params_are_passed_to_trl_config():
 
     hf_config = params.to_hf()
 
+    assert isinstance(hf_config, DPOConfig)
     assert hf_config.precompute_ref_log_probs is True
     assert hf_config.precompute_ref_batch_size == 2
 
