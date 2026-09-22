@@ -51,6 +51,7 @@ The configurations are organized into different categories:
     - :class:`~oumi.core.configs.params.peft_params.LoraWeightInitialization`
     - :class:`~oumi.core.configs.params.peft_params.PeftSaveMode`
     - :class:`~oumi.core.configs.params.grpo_params.GrpoParams`
+    - :class:`~oumi.core.configs.params.dpo_params.DpoParams`
 - Profiling:
     - :class:`~oumi.core.configs.params.profiler_params.ProfilerParams`
 - Telemetry:
@@ -100,6 +101,7 @@ from oumi.core.configs.params.data_params import (
     MixtureStrategy,
     TrainTarget,
 )
+from oumi.core.configs.params.dpo_params import DpoParams
 from oumi.core.configs.params.evaluation_params import (
     EvaluationBackend,
     EvaluationTaskParams,
@@ -178,6 +180,7 @@ __all__ = [
     "DatasetParams",
     "DatasetSplit",
     "DatasetSplitParams",
+    "DpoParams",
     "AnalyzeConfig",
     "DatasetSource",
     "SampleAnalyzerParams",

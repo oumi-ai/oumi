@@ -26,6 +26,7 @@ import transformers
 import trl
 
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.core.configs.params.dpo_params import DpoParams
 from oumi.core.configs.params.gkd_params import GkdParams
 from oumi.core.configs.params.gold_params import GoldParams
 from oumi.core.configs.params.grpo_params import GrpoParams
@@ -382,6 +383,9 @@ class TrainingParams(BaseParams):
 
     This is only supported for the TRL_GRPO and VERL_GRPO trainers.
     """
+
+    dpo: DpoParams = field(default_factory=DpoParams)
+    """Parameters for DPO training."""
 
     grpo: GrpoParams = field(default_factory=GrpoParams)
     """Parameters for GRPO training."""
@@ -905,6 +909,19 @@ class TrainingParams(BaseParams):
                     "Use properties of GrpoParams instead."
                 )
             trainer_kwargs.update(grpo_kwargs)
+
+        if self.trainer_type == TrainerType.TRL_DPO:
+            dpo_kwargs = self.dpo.to_hf_trainer_kwargs()
+            conflicting_keys = set(trainer_kwargs.keys()).intersection(
+                dpo_kwargs.keys()
+            )
+            if len(conflicting_keys) > 0:
+                raise OumiConfigError(
+                    "trainer_kwargs attempt to override the following "
+                    f"DPO kwargs: {conflicting_keys}. "
+                    "Use properties of DpoParams instead."
+                )
+            trainer_kwargs.update(dpo_kwargs)
 
         if self.trainer_type == TrainerType.TRL_GKD:
             gkd_kwargs = self.gkd.to_hf_trainer_kwargs()

@@ -19,6 +19,7 @@ from typing import Any, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
+import torch
 from datasets import Dataset
 from transformers import PreTrainedTokenizerBase
 from trl import DPOConfig, DPOTrainer
@@ -210,3 +211,57 @@ def test_prepare_dataset_preserves_disjoint_tool_argument_schemas():
     assert dataset[0]["chosen"][0]["tool_calls"][0]["function"]["arguments"] == (
         '{"case_id": "X"}'
     )
+
+
+def test_precompute_ref_logps_reuses_explicit_cache(tmp_path):
+    dataset = Dataset.from_dict(
+        {
+            "input_ids": [[1], [2]],
+            "completion_mask": [[1], [1]],
+        }
+    )
+    trainer = object.__new__(TrlDpoTrainer)
+    trainer._ref_log_probs_cache_dir = tmp_path
+    trainer.ref_model = None
+    trainer.model = MagicMock()
+    trainer.data_collator = lambda rows: rows
+    trainer.args = SimpleNamespace(
+        dataloader_num_workers=0,
+        dataloader_pin_memory=False,
+    )
+    trainer.accelerator = MagicMock(is_main_process=True)
+    trainer.accelerator.prepare.side_effect = lambda dataloader: dataloader
+    trainer.accelerator.gather_for_metrics.side_effect = lambda values: values
+    trainer.compute_ref_log_probs = MagicMock(
+        return_value=(torch.tensor([1.0, 2.0]), torch.tensor([3.0, 4.0]))
+    )
+
+    with patch(
+        "oumi.core.trainers.trl_dpo_trainer.hash_module",
+        return_value="model-hash",
+    ):
+        result = trainer._precompute_ref_logps(dataset, "train", batch_size=2)
+
+    assert result["ref_chosen_logps"] == [1.0, 2.0]
+    assert result["ref_rejected_logps"] == [3.0, 4.0]
+    trainer.compute_ref_log_probs.assert_called_once()
+
+    equivalent_dataset = Dataset.from_dict(
+        {
+            "input_ids": [[1], [2]],
+            "completion_mask": [[1], [1]],
+        }
+    )
+    equivalent_dataset._fingerprint = "different-source-path"
+    trainer.compute_ref_log_probs.reset_mock()
+    with patch(
+        "oumi.core.trainers.trl_dpo_trainer.hash_module",
+        return_value="model-hash",
+    ):
+        cached_result = trainer._precompute_ref_logps(
+            equivalent_dataset, "train", batch_size=2
+        )
+
+    assert cached_result["ref_chosen_logps"] == [1.0, 2.0]
+    assert cached_result["ref_rejected_logps"] == [3.0, 4.0]
+    trainer.compute_ref_log_probs.assert_not_called()

@@ -16,6 +16,7 @@ from unittest.mock import patch
 
 import pytest
 
+from oumi.core.configs.params.dpo_params import DpoParams
 from oumi.core.configs.params.training_params import TrainerType, TrainingParams
 from oumi.exceptions import OumiConfigError
 
@@ -52,6 +53,29 @@ def test_integer_eval_steps_supported_for_oumi_trainer():
     params = TrainingParams(trainer_type=TrainerType.OUMI, eval_steps=20)
 
     assert params.eval_steps == 20
+
+
+def test_dpo_precompute_params_are_passed_to_trl_config():
+    params = TrainingParams(
+        trainer_type=TrainerType.TRL_DPO,
+        dpo=DpoParams(precompute_ref_log_probs=True, precompute_ref_batch_size=2),
+    )
+
+    hf_config = params.to_hf()
+
+    assert hf_config.precompute_ref_log_probs is True
+    assert hf_config.precompute_ref_batch_size == 2
+
+
+def test_dpo_params_reject_conflicting_trainer_kwargs():
+    params = TrainingParams(
+        trainer_type=TrainerType.TRL_DPO,
+        dpo=DpoParams(precompute_ref_log_probs=True),
+        trainer_kwargs={"precompute_ref_log_probs": True},
+    )
+
+    with pytest.raises(OumiConfigError, match="DPO kwargs"):
+        params.to_hf()
 
 
 @patch("oumi.utils.packaging.is_transformers_v5", return_value=True)
