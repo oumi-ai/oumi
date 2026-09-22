@@ -17,7 +17,6 @@ import importlib.metadata
 import json
 from typing import Any
 
-from accelerate.utils import DistributedType
 from trl import DPOTrainer
 
 _TOKENIZED_DPO_COLUMN_SETS = (
@@ -31,8 +30,7 @@ _TOOLS_COLUMN = "tools"
 
 def _configure_fsdp_reference_model(model: Any, args: Any) -> None:
     """Load TRL's DPO reference model compatibly with FSDP."""
-    distributed_state = getattr(args, "distributed_state", None)
-    if getattr(distributed_state, "distributed_type", None) != DistributedType.FSDP:
+    if not getattr(args, "fsdp", None):
         return
 
     model_init_kwargs = dict(args.model_init_kwargs or {})

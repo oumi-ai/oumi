@@ -20,9 +20,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import torch
-from accelerate.utils import DistributedType
 from datasets import Dataset
 from transformers import PreTrainedTokenizerBase
+from transformers.trainer_utils import FSDPOption
 from trl import DPOConfig, DPOTrainer
 
 from oumi.core.trainers.trl_dpo_trainer import TrlDpoTrainer
@@ -46,7 +46,7 @@ def _tool_call(arguments: dict) -> dict:
 def test_init_configures_reference_model_for_fsdp(use_keyword_args):
     model = MagicMock(dtype=torch.bfloat16)
     args = SimpleNamespace(
-        distributed_state=SimpleNamespace(distributed_type=DistributedType.FSDP),
+        fsdp=[FSDPOption.FULL_SHARD],
         model_init_kwargs={"revision": "test-revision"},
     )
 
@@ -67,7 +67,7 @@ def test_init_configures_reference_model_for_fsdp(use_keyword_args):
 def test_init_preserves_reference_model_kwargs_without_fsdp():
     model_init_kwargs = {"device_map": "auto"}
     args = SimpleNamespace(
-        distributed_state=SimpleNamespace(distributed_type=DistributedType.MULTI_GPU),
+        fsdp=[],
         model_init_kwargs=model_init_kwargs,
     )
 
