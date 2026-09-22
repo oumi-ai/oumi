@@ -15,6 +15,7 @@
 import copy
 import importlib.metadata
 import json
+import os
 from typing import Any
 
 from trl import DPOTrainer
@@ -34,7 +35,8 @@ def _configure_fsdp_reference_model(model: Any, args: Any) -> None:
         return
 
     model_init_kwargs = dict(args.model_init_kwargs or {})
-    model_init_kwargs["device_map"] = None
+    local_rank = int(os.environ.get("LOCAL_RANK", "0"))
+    model_init_kwargs["device_map"] = {"": local_rank}
     if not isinstance(model, str) and "dtype" not in model_init_kwargs:
         model_init_kwargs["dtype"] = model.dtype
     args.model_init_kwargs = model_init_kwargs

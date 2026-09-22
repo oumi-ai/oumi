@@ -50,7 +50,10 @@ def test_init_configures_reference_model_for_fsdp(use_keyword_args):
         model_init_kwargs={"revision": "test-revision"},
     )
 
-    with patch.object(DPOTrainer, "__init__", autospec=True) as init:
+    with (
+        patch.dict("os.environ", {"LOCAL_RANK": "2"}),
+        patch.object(DPOTrainer, "__init__", autospec=True) as init,
+    ):
         if use_keyword_args:
             TrlDpoTrainer(model=model, args=args)
         else:
@@ -58,7 +61,7 @@ def test_init_configures_reference_model_for_fsdp(use_keyword_args):
 
     assert args.model_init_kwargs == {
         "revision": "test-revision",
-        "device_map": None,
+        "device_map": {"": 2},
         "dtype": torch.bfloat16,
     }
     init.assert_called_once()
