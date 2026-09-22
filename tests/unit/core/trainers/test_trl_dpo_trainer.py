@@ -19,6 +19,8 @@ from typing import Any, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
+import torch
+from accelerate.utils import DistributedType
 from datasets import Dataset
 from transformers import PreTrainedTokenizerBase
 from trl import DPOConfig, DPOTrainer
@@ -38,6 +40,41 @@ def _tool_call(arguments: dict) -> dict:
             "arguments": json.dumps(arguments),
         },
     }
+
+
+@pytest.mark.parametrize("use_keyword_args", [True, False])
+def test_init_configures_reference_model_for_fsdp(use_keyword_args):
+    model = MagicMock(dtype=torch.bfloat16)
+    args = SimpleNamespace(
+        distributed_state=SimpleNamespace(distributed_type=DistributedType.FSDP),
+        model_init_kwargs={"revision": "test-revision"},
+    )
+
+    with patch.object(DPOTrainer, "__init__", autospec=True) as init:
+        if use_keyword_args:
+            TrlDpoTrainer(model=model, args=args)
+        else:
+            TrlDpoTrainer(model, None, args)
+
+    assert args.model_init_kwargs == {
+        "revision": "test-revision",
+        "device_map": None,
+        "dtype": torch.bfloat16,
+    }
+    init.assert_called_once()
+
+
+def test_init_preserves_reference_model_kwargs_without_fsdp():
+    model_init_kwargs = {"device_map": "auto"}
+    args = SimpleNamespace(
+        distributed_state=SimpleNamespace(distributed_type=DistributedType.MULTI_GPU),
+        model_init_kwargs=model_init_kwargs,
+    )
+
+    with patch.object(DPOTrainer, "__init__", autospec=True):
+        TrlDpoTrainer(model=MagicMock(dtype=torch.bfloat16), args=args)
+
+    assert args.model_init_kwargs is model_init_kwargs
 
 
 class _CapturingProcessingClass:

@@ -17,6 +17,7 @@ import importlib.metadata
 import json
 from typing import Any
 
+from accelerate.utils import DistributedType
 from trl import DPOTrainer
 
 _TOKENIZED_DPO_COLUMN_SETS = (
@@ -26,6 +27,19 @@ _TOKENIZED_DPO_COLUMN_SETS = (
 _OUMI_PROMPT_COLUMN = "messages"
 _TRL_PROMPT_COLUMN = "prompt"
 _TOOLS_COLUMN = "tools"
+
+
+def _configure_fsdp_reference_model(model: Any, args: Any) -> None:
+    """Load TRL's DPO reference model compatibly with FSDP."""
+    distributed_state = getattr(args, "distributed_state", None)
+    if getattr(distributed_state, "distributed_type", None) != DistributedType.FSDP:
+        return
+
+    model_init_kwargs = dict(args.model_init_kwargs or {})
+    model_init_kwargs["device_map"] = None
+    if not isinstance(model, str) and "dtype" not in model_init_kwargs:
+        model_init_kwargs["dtype"] = model.dtype
+    args.model_init_kwargs = model_init_kwargs
 
 
 def _deserialize_tool_call_arguments(
@@ -58,6 +72,10 @@ class TrlDpoTrainer(DPOTrainer):
         **kwargs,
     ):
         """Initializes the TrlDpoTrainer."""
+        model = kwargs.get("model", args[0] if args else None)
+        trainer_args = kwargs.get("args", args[2] if len(args) > 2 else None)
+        if trainer_args is not None:
+            _configure_fsdp_reference_model(model, trainer_args)
         super().__init__(*args, **kwargs)
 
     def _tokenize(self, processing_class, input, **kwargs):
