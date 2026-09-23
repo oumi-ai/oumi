@@ -15,8 +15,13 @@
 import copy
 import importlib.metadata
 import json
+from pathlib import Path
 from typing import Any
 
+import numpy as np
+from accelerate.utils import is_peft_model
+from torch.utils.data import DataLoader
+from transformers.integrations.fsdp import update_fsdp_plugin_peft
 from trl import DPOTrainer
 
 _TOKENIZED_DPO_COLUMN_SETS = (
@@ -59,27 +64,110 @@ class TrlDpoTrainer(DPOTrainer):
     ):
         """Initializes the TrlDpoTrainer."""
         self._precompute_engine = None
+        self._precompute_model_hash = None
         super().__init__(*args, **kwargs)
 
     def _precompute_ref_logps(self, dataset, name, batch_size):
-        """Prepare the policy once for FSDP precompute and training."""
-        if (
-            self.is_fsdp_enabled
-            and self.ref_model is None
-            and self._precompute_engine is None
-        ):
-            fsdp_plugin = self.accelerator.state.fsdp_plugin
-            if getattr(fsdp_plugin, "fsdp_version", 1) == 2:
-                self.create_optimizer()
-                self.model, self.optimizer = self.accelerator.prepare(
-                    self.model, self.optimizer
-                )
-            else:
-                self.model = self.accelerator.prepare(self.model)
-            self.model_wrapped = self.model
-            self._precompute_engine = self.model.eval()
+        """Precompute FSDP reference scores using the unwrapped model hash."""
+        if not self.is_fsdp_enabled or self.ref_model is not None:
+            return super()._precompute_ref_logps(dataset, name, batch_size)
 
-        return super()._precompute_ref_logps(dataset, name, batch_size)
+        import torch
+        from datasets.fingerprint import Hasher
+        from tqdm import tqdm
+        from trl.trainer.utils import hash_module
+
+        if self._precompute_model_hash is None:
+            self._precompute_model_hash = hash_module(self.model)
+        fingerprint = Hasher.hash((dataset._fingerprint, self._precompute_model_hash))
+        cache_file = Path(
+            dataset._get_cache_file_path(fingerprint).removesuffix(".arrow") + ".npz"
+        )
+        if cache_file.exists():
+            loaded = np.load(cache_file)
+            ref_chosen_logps = loaded["ref_chosen_logps"]
+            ref_rejected_logps = loaded["ref_rejected_logps"]
+        else:
+            dataloader = DataLoader(
+                dataset,  # pyright: ignore[reportArgumentType]
+                batch_size=batch_size,
+                collate_fn=self.data_collator,
+                num_workers=self.args.dataloader_num_workers,
+                pin_memory=self.args.dataloader_pin_memory,
+                shuffle=False,
+            )
+            data_loader = self.accelerator.prepare(dataloader)
+            ref_chosen_logps = []
+            ref_rejected_logps = []
+            for padded_batch in tqdm(
+                iterable=data_loader,
+                desc=f"Computing reference log probs for {name} dataset",
+            ):
+                ref_chosen_logp, ref_rejected_logp = self.compute_ref_log_probs(
+                    padded_batch
+                )
+                ref_chosen_logp, ref_rejected_logp = (
+                    self.accelerator.gather_for_metrics(
+                        (ref_chosen_logp, ref_rejected_logp)
+                    )
+                )
+                ref_chosen_logps.append(ref_chosen_logp.cpu())
+                ref_rejected_logps.append(ref_rejected_logp.cpu())
+
+            ref_chosen_logps = torch.cat(ref_chosen_logps).float().numpy()
+            ref_rejected_logps = torch.cat(ref_rejected_logps).float().numpy()
+            if self.accelerator.is_main_process:
+                np.savez_compressed(
+                    cache_file,
+                    ref_chosen_logps=ref_chosen_logps,
+                    ref_rejected_logps=ref_rejected_logps,
+                )
+            self.accelerator.wait_for_everyone()
+
+        dataset = dataset.add_column("ref_chosen_logps", ref_chosen_logps)
+        return dataset.add_column(
+            "ref_rejected_logps",
+            ref_rejected_logps,
+            new_fingerprint=fingerprint,
+        )
+
+    def _prepare_policy_for_ref_logps(self) -> None:
+        """Prepare the FSDP1 policy immediately before reference scoring."""
+        if (
+            not self.is_fsdp_enabled
+            or self.ref_model is not None
+            or self._precompute_engine is not None
+        ):
+            return
+
+        if not callable(getattr(DPOTrainer, "_prepare_for_training", None)):
+            raise RuntimeError(
+                "FSDP with precomputed DPO reference log probabilities requires "
+                "transformers 5.5 or newer "
+                f"(installed: {importlib.metadata.version('transformers')})."
+            )
+
+        fsdp_plugin = self.accelerator.state.fsdp_plugin
+        if getattr(fsdp_plugin, "fsdp_version", 1) != 1:
+            raise RuntimeError(
+                "Precomputed DPO reference log probabilities currently support "
+                "FSDP1 only."
+            )
+
+        if is_peft_model(self.model):
+            update_fsdp_plugin_peft(self.model, self.accelerator)
+
+        self.model = self.accelerator.prepare(self.model)
+        self.model_wrapped = self.model
+        self._precompute_engine = self.model.eval()
+
+    def compute_ref_log_probs(self, inputs):
+        """Prepare FSDP after TRL hashes the unwrapped policy, then score it."""
+        # TODO: Remove this lifecycle workaround when TRL includes the fix from
+        # https://github.com/huggingface/trl/pull/6527.
+        self._prepare_policy_for_ref_logps()
+
+        return super().compute_ref_log_probs(inputs)
 
     def _prepare_for_training(
         self, max_steps, train_dataloader, resume_from_checkpoint
