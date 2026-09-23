@@ -58,28 +58,70 @@ class TrlDpoTrainer(DPOTrainer):
         **kwargs,
     ):
         """Initializes the TrlDpoTrainer."""
+        self._precompute_engine = None
         super().__init__(*args, **kwargs)
 
     def _precompute_ref_logps(self, dataset, name, batch_size):
-        """Place the policy locally while TRL precomputes under FSDP."""
-        model = self.model
-        if model is None:
-            return super()._precompute_ref_logps(dataset, name, batch_size)
-
-        model_device = next(model.parameters()).device
-        move_policy = (
+        """Prepare the policy once for FSDP precompute and training."""
+        if (
             self.is_fsdp_enabled
             and self.ref_model is None
-            and model_device.type == "cpu"
-        )
-        if move_policy:
-            self._move_model_to_device(model, self.accelerator.device)
+            and self._precompute_engine is None
+        ):
+            fsdp_plugin = self.accelerator.state.fsdp_plugin
+            if getattr(fsdp_plugin, "fsdp_version", 1) == 2:
+                self.create_optimizer()
+                self.model, self.optimizer = self.accelerator.prepare(
+                    self.model, self.optimizer
+                )
+            else:
+                self.model = self.accelerator.prepare(self.model)
+            self.model_wrapped = self.model
+            self._precompute_engine = self.model.eval()
 
-        try:
-            return super()._precompute_ref_logps(dataset, name, batch_size)
-        finally:
-            if move_policy:
-                self._move_model_to_device(model, model_device)
+        return super()._precompute_ref_logps(dataset, name, batch_size)
+
+    def _prepare_for_training(
+        self, max_steps, train_dataloader, resume_from_checkpoint
+    ):
+        """Reuse the FSDP policy prepared for reference scoring."""
+        if self._precompute_engine is None or not self.is_fsdp_enabled:
+            return super()._prepare_for_training(
+                max_steps, train_dataloader, resume_from_checkpoint
+            )
+
+        if self._created_lr_scheduler:
+            self.lr_scheduler = None
+            self._created_lr_scheduler = False
+
+        model = self.accelerator.prepare_model(self._precompute_engine)
+        if self.optimizer is None:
+            self.create_optimizer()
+        self.optimizer = self.accelerator.prepare_optimizer(self.optimizer)
+        self.create_scheduler(num_training_steps=max_steps)
+
+        self.model = self.model_wrapped = self._precompute_engine = model
+        parallelism_config = getattr(self.accelerator, "parallelism_config", None)
+        if (
+            parallelism_config is not None
+            and parallelism_config.sp_backend == "deepspeed"
+            and parallelism_config.sp_enabled
+        ):
+            train_dataloader = self.accelerator.deepspeed_ulysses_dl_adapter(
+                train_dataloader, model
+            )
+
+        if resume_from_checkpoint is not None:
+            self._load_from_checkpoint(resume_from_checkpoint, self.model_wrapped)
+            self._load_optimizer_and_scheduler(resume_from_checkpoint)
+            self._load_scaler(resume_from_checkpoint)
+
+        self.callback_handler.model = self.model
+        self.callback_handler.optimizer = self.optimizer
+        self.callback_handler.lr_scheduler = self.lr_scheduler
+        self.callback_handler.train_dataloader = train_dataloader
+        model.train()
+        return model, train_dataloader
 
     def _tokenize(self, processing_class, input, **kwargs):
         """Decode serialized tool arguments immediately before rendering."""

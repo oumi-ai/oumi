@@ -19,7 +19,6 @@ from typing import Any, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
-import torch
 from datasets import Dataset
 from transformers import PreTrainedTokenizerBase
 from trl import DPOConfig, DPOTrainer
@@ -42,16 +41,22 @@ def _tool_call(arguments: dict) -> dict:
 
 
 @pytest.mark.parametrize("is_fsdp_enabled", [True, False])
-def test_precompute_ref_logps_places_cpu_policy_for_fsdp(is_fsdp_enabled):
+def test_precompute_ref_logps_prepares_policy_once_for_fsdp(is_fsdp_enabled):
     trainer = object.__new__(TrlDpoTrainer)
     trainer.is_fsdp_enabled = is_fsdp_enabled
     trainer.ref_model = None
     trainer.model = MagicMock()
-    trainer.model.parameters.return_value = iter(
-        [SimpleNamespace(device=torch.device("cpu"))]
+    trainer.model.eval.return_value = trainer.model
+    trainer.model_wrapped = trainer.model
+    trainer._precompute_engine = None
+    trainer.optimizer = None
+    trainer.accelerator = cast(
+        Any,
+        SimpleNamespace(
+            state=SimpleNamespace(fsdp_plugin=SimpleNamespace(fsdp_version=1)),
+            prepare=MagicMock(return_value=trainer.model),
+        ),
     )
-    trainer.accelerator = cast(Any, SimpleNamespace(device=torch.device("cuda", 2)))
-    trainer._move_model_to_device = MagicMock()
     dataset = MagicMock()
     prepared_dataset = MagicMock()
 
@@ -65,13 +70,47 @@ def test_precompute_ref_logps_places_cpu_policy_for_fsdp(is_fsdp_enabled):
 
     assert result is prepared_dataset
     precompute.assert_called_once_with(trainer, dataset, "train", 1)
-    expected_calls = []
     if is_fsdp_enabled:
-        expected_calls = [
-            ((trainer.model, torch.device("cuda", 2)),),
-            ((trainer.model, torch.device("cpu")),),
-        ]
-    assert trainer._move_model_to_device.call_args_list == expected_calls
+        trainer.accelerator.prepare.assert_called_once_with(trainer.model)
+        assert trainer._precompute_engine is trainer.model
+    else:
+        trainer.accelerator.prepare.assert_not_called()
+        assert trainer._precompute_engine is None
+
+
+def test_prepare_for_training_reuses_precompute_engine():
+    trainer = object.__new__(TrlDpoTrainer)
+    model = MagicMock()
+    optimizer = MagicMock()
+    scheduler = MagicMock()
+    train_dataloader = MagicMock()
+    trainer.is_fsdp_enabled = True
+    trainer._precompute_engine = model
+    trainer.model = trainer.model_wrapped = model
+    trainer.optimizer = optimizer
+    trainer.lr_scheduler = cast(Any, scheduler)
+    trainer._created_lr_scheduler = False
+    trainer.accelerator = cast(
+        Any,
+        SimpleNamespace(
+            prepare_model=MagicMock(return_value=model),
+            prepare_optimizer=MagicMock(return_value=optimizer),
+            parallelism_config=None,
+        ),
+    )
+    trainer.create_optimizer = MagicMock()
+    trainer.create_scheduler = MagicMock()
+    trainer.callback_handler = cast(Any, SimpleNamespace())
+
+    result = trainer._prepare_for_training(4, train_dataloader, None)
+
+    trainer.accelerator.prepare_model.assert_called_once_with(model)
+    trainer.accelerator.prepare_optimizer.assert_called_once_with(optimizer)
+    trainer.create_optimizer.assert_not_called()
+    trainer.create_scheduler.assert_called_once_with(num_training_steps=4)
+    model.train.assert_called_once_with()
+    assert result == (model, train_dataloader)
+    assert trainer.callback_handler.model is model
 
 
 class _CapturingProcessingClass:
