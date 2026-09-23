@@ -50,7 +50,7 @@ def test_precompute_ref_logps_places_cpu_policy_for_fsdp(is_fsdp_enabled):
     trainer.model.parameters.return_value = iter(
         [SimpleNamespace(device=torch.device("cpu"))]
     )
-    trainer.accelerator = SimpleNamespace(device=torch.device("cuda", 2))
+    trainer.accelerator = cast(Any, SimpleNamespace(device=torch.device("cuda", 2)))
     trainer._move_model_to_device = MagicMock()
     dataset = MagicMock()
     prepared_dataset = MagicMock()
