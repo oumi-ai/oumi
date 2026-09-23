@@ -60,6 +60,23 @@ class TrlDpoTrainer(DPOTrainer):
         """Initializes the TrlDpoTrainer."""
         super().__init__(*args, **kwargs)
 
+    def _precompute_ref_logps(self, dataset, name, batch_size):
+        """Place the policy locally while TRL precomputes under FSDP."""
+        model_device = next(self.model.parameters()).device
+        move_policy = (
+            self.is_fsdp_enabled
+            and self.ref_model is None
+            and model_device.type == "cpu"
+        )
+        if move_policy:
+            self._move_model_to_device(self.model, self.accelerator.device)
+
+        try:
+            return super()._precompute_ref_logps(dataset, name, batch_size)
+        finally:
+            if move_policy:
+                self._move_model_to_device(self.model, model_device)
+
     def _tokenize(self, processing_class, input, **kwargs):
         """Decode serialized tool arguments immediately before rendering."""
         if isinstance(input, list):

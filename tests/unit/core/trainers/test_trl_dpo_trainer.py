@@ -19,6 +19,7 @@ from typing import Any, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
+import torch
 from datasets import Dataset
 from transformers import PreTrainedTokenizerBase
 from trl import DPOConfig, DPOTrainer
@@ -38,6 +39,39 @@ def _tool_call(arguments: dict) -> dict:
             "arguments": json.dumps(arguments),
         },
     }
+
+
+@pytest.mark.parametrize("is_fsdp_enabled", [True, False])
+def test_precompute_ref_logps_places_cpu_policy_for_fsdp(is_fsdp_enabled):
+    trainer = object.__new__(TrlDpoTrainer)
+    trainer.is_fsdp_enabled = is_fsdp_enabled
+    trainer.ref_model = None
+    trainer.model = MagicMock()
+    trainer.model.parameters.return_value = iter(
+        [SimpleNamespace(device=torch.device("cpu"))]
+    )
+    trainer.accelerator = SimpleNamespace(device=torch.device("cuda", 2))
+    trainer._move_model_to_device = MagicMock()
+    dataset = MagicMock()
+    prepared_dataset = MagicMock()
+
+    with patch.object(
+        DPOTrainer,
+        "_precompute_ref_logps",
+        autospec=True,
+        return_value=prepared_dataset,
+    ) as precompute:
+        result = trainer._precompute_ref_logps(dataset, "train", 1)
+
+    assert result is prepared_dataset
+    precompute.assert_called_once_with(trainer, dataset, "train", 1)
+    expected_calls = []
+    if is_fsdp_enabled:
+        expected_calls = [
+            ((trainer.model, torch.device("cuda", 2)),),
+            ((trainer.model, torch.device("cpu")),),
+        ]
+    assert trainer._move_model_to_device.call_args_list == expected_calls
 
 
 class _CapturingProcessingClass:
