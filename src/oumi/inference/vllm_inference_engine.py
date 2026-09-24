@@ -26,7 +26,7 @@ import subprocess
 import warnings
 from pathlib import Path
 from types import SimpleNamespace
-from typing import TYPE_CHECKING, Any, cast, get_args
+from typing import TYPE_CHECKING, cast, get_args
 
 import torch
 from typing_extensions import override
@@ -296,7 +296,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         if final_vllm_kwargs["model"] != model_params.model_name:
             # GGUF: build the tokenizer from the locally cached model file.
             model_params = copy.deepcopy(model_params)
-            model_params.model_name = final_vllm_kwargs["model"]
+            model_params.model_name = str(final_vllm_kwargs["model"])
 
         self._lora_request = None
         if model_params.adapter_model:
@@ -354,11 +354,23 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         gpu_memory_utilization: float = 0.9,
         enforce_eager: bool = True,
         max_num_seqs: int | None = None,
-    ) -> dict[str, Any]:
-        """Returns the ``vllm.LLM`` kwargs the engine uses for ``model_params``.
+    ) -> dict[str, object]:
+        """Builds the ``vllm.LLM`` kwargs the engine uses for ``model_params``.
 
-        Arguments match ``__init__``. Reads local state (GPU count, CUDA toolkit,
-        LoRA adapter files), so call it on the machine that runs vLLM.
+        Reads local state (GPU count, CUDA toolkit, LoRA adapter files), so call it
+        on the machine that runs vLLM.
+
+        Args:
+            model_params: The model parameters to use for inference.
+            tensor_parallel_size: See ``__init__``.
+            quantization: See ``__init__``.
+            enable_prefix_caching: See ``__init__``.
+            gpu_memory_utilization: See ``__init__``.
+            enforce_eager: See ``__init__``.
+            max_num_seqs: See ``__init__``.
+
+        Returns:
+            dict[str, object]: Keyword arguments for ``vllm.LLM``.
         """
         if not (
             math.isfinite(gpu_memory_utilization)
@@ -456,7 +468,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 if key in model_params.model_kwargs:
                     vllm_kwargs[key] = model_params.model_kwargs[key]
 
-        final_vllm_kwargs = dict(
+        final_vllm_kwargs: dict[str, object] = dict(
             model=model_params.model_name,
             tokenizer=model_params.tokenizer_name,
             trust_remote_code=model_params.trust_remote_code,
@@ -492,15 +504,23 @@ class VLLMInferenceEngine(BaseInferenceEngine):
 
         return final_vllm_kwargs
 
-    @staticmethod
+    @classmethod
     def build_serve_args(
-        model_params: ModelParams, *, tool_call_parser: str | None = None
+        cls, model_params: ModelParams, *, tool_call_parser: str | None = None
     ) -> list[str]:
-        """Returns ``vllm serve`` arguments that load the model as the engine does.
+        """Builds ``vllm serve`` arguments that load the model as the engine does.
 
-        A LoRA adapter is served under the model name ``LORA_ADAPTER_NAME``.
+        Reads local state like ``build_engine_kwargs``. A LoRA adapter is served
+        under the model name ``LORA_ADAPTER_NAME``.
+
+        Args:
+            model_params: The model parameters to use for inference.
+            tool_call_parser: See ``__init__``.
+
+        Returns:
+            list[str]: Arguments for ``vllm serve``, starting with the model.
         """
-        engine_kwargs = VLLMInferenceEngine.build_engine_kwargs(model_params)
+        engine_kwargs = cls.build_engine_kwargs(model_params)
         args = [str(engine_kwargs.pop("model"))]
         for key, value in engine_kwargs.items():
             flag = key.replace("_", "-")

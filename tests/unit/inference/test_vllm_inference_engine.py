@@ -1515,7 +1515,9 @@ def test_build_serve_args_matches_engine_kwargs(mock_vllm):
         args = VLLMInferenceEngine.build_serve_args(model_params)
 
     engine_kwargs = mock_vllm.LLM.call_args.kwargs
-    assert args[0] == engine_kwargs["model"] == "MlpEncoder"
+    assert args[0] == engine_kwargs.pop("model") == "MlpEncoder"
+    for key in engine_kwargs:
+        assert f"--{key.replace('_', '-')}" in args
     assert args[1:] == [
         "--tokenizer",
         "openai-community/gpt2",
@@ -1543,19 +1545,6 @@ def test_build_serve_args_matches_engine_kwargs(mock_vllm):
         "--generation-config",
         "vllm",
     ]
-    assert set(engine_kwargs) - {"model"} == {
-        "tokenizer",
-        "trust_remote_code",
-        "dtype",
-        "tensor_parallel_size",
-        "enable_prefix_caching",
-        "enable_lora",
-        "max_model_len",
-        "gpu_memory_utilization",
-        "enforce_eager",
-        "max_lora_rank",
-        "additional_config",
-    }
 
 
 @pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
