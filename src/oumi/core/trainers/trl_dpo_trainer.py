@@ -19,9 +19,12 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import torch
 from accelerate.utils import broadcast_object_list, is_peft_model
+from datasets.fingerprint import Hasher
 from packaging.specifiers import SpecifierSet
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 from transformers.integrations.fsdp import update_fsdp_plugin_peft
 from trl import DPOTrainer
 
@@ -82,9 +85,7 @@ class TrlDpoTrainer(DPOTrainer):
         # and FSDP2 in https://github.com/huggingface/trl/pull/6527).
         self._check_fsdp_precompute_support()
 
-        import torch
-        from datasets.fingerprint import Hasher
-        from tqdm import tqdm
+        # Local: hash_module first ships in TRL 0.29, below Oumi's TRL floor.
         from trl.trainer.utils import hash_module
 
         if self._precompute_model_hash is None:
