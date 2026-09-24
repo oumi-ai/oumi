@@ -233,6 +233,9 @@ def _should_force_triton_gdn_backend(model_name: str, trust_remote_code: bool) -
     )
 
 
+LORA_ADAPTER_NAME = "oumi_lora_adapter"
+
+
 class VLLMInferenceEngine(BaseInferenceEngine):
     """Engine for running vLLM inference locally."""
 
@@ -281,6 +284,94 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 "Please install the GPU dependencies for this package."
             )
 
+        final_vllm_kwargs = self.build_engine_kwargs(
+            model_params,
+            tensor_parallel_size=tensor_parallel_size,
+            quantization=quantization,
+            enable_prefix_caching=enable_prefix_caching,
+            gpu_memory_utilization=gpu_memory_utilization,
+            enforce_eager=enforce_eager,
+            max_num_seqs=max_num_seqs,
+        )
+        if final_vllm_kwargs["model"] != model_params.model_name:
+            # GGUF: build the tokenizer from the locally cached model file.
+            model_params = copy.deepcopy(model_params)
+            model_params.model_name = str(final_vllm_kwargs["model"])
+
+        self._lora_request = None
+        if model_params.adapter_model:
+            # ID should be unique for this adapter, but isn't enforced by vLLM.
+            self._lora_request = LoRARequest(
+                lora_name=LORA_ADAPTER_NAME,
+                lora_int_id=1,
+                lora_path=model_params.adapter_model,
+            )
+            logger.info(f"Loaded LoRA adapter: {model_params.adapter_model}")
+
+        self._tokenizer = build_tokenizer(model_params)
+
+        previous_compat_activation = os.environ.get(ACTIVATION_ENV_VAR)
+        os.environ[ACTIVATION_ENV_VAR] = "1"
+        try:
+            self._llm = vllm.LLM(**final_vllm_kwargs)  # pyright: ignore[reportArgumentType, reportAttributeAccessIssue]
+        finally:
+            if previous_compat_activation is None:
+                os.environ.pop(ACTIVATION_ENV_VAR, None)
+            else:
+                os.environ[ACTIVATION_ENV_VAR] = previous_compat_activation
+        # Ensure the tokenizer is set properly.
+        # set_tokenizer() was deprecated in vLLM v0.12 and removed in v0.13; the
+        # tokenizer is already configured via the constructor's `tokenizer` parameter.
+        if not _VLLM_V0_12:
+            self._llm.set_tokenizer(self._tokenizer)  # pyright: ignore[reportAttributeAccessIssue]
+
+        # Optional tool-call parser. Direct kwarg wins over model_params.
+        parser_name = tool_call_parser or model_params.tool_call_parser
+        self._tool_parser_name = parser_name
+        self._tool_parser = None
+        if parser_name is not None:
+            if not _VLLM_TOOL_PARSERS_AVAILABLE:
+                raise RuntimeError(
+                    "vLLM tool parsers are not available in this vLLM version. "
+                    "Upgrade vLLM or unset `tool_call_parser`."
+                )
+            try:
+                parser_cls = ToolParserManager.get_tool_parser(parser_name)  # pyright: ignore[reportOptionalMemberAccess]
+            except KeyError as e:
+                raise ValueError(
+                    f"Unknown vLLM tool_call_parser '{parser_name}'."
+                ) from e
+            self._tool_parser = parser_cls(self._tokenizer)  # pyright: ignore[reportArgumentType]
+            logger.info(f"VLLM engine will parse tool calls with '{parser_name}'.")
+
+    @staticmethod
+    def build_engine_kwargs(
+        model_params: ModelParams,
+        *,
+        tensor_parallel_size: int = -1,
+        quantization: str | None = None,
+        enable_prefix_caching: bool = True,
+        gpu_memory_utilization: float = 0.9,
+        enforce_eager: bool = True,
+        max_num_seqs: int | None = None,
+    ) -> dict[str, object]:
+        """Builds the ``vllm.LLM`` kwargs the engine uses for ``model_params``.
+
+        Reads local state (GPU count, CUDA toolkit, LoRA adapter files), so call it
+        on the machine that runs vLLM.
+
+        Args:
+            model_params: The model parameters to use for inference.
+            tensor_parallel_size: See ``__init__``.
+            quantization: See ``__init__``.
+            enable_prefix_caching: See ``__init__``.
+            gpu_memory_utilization: See ``__init__``.
+            enforce_eager: See ``__init__``.
+            max_num_seqs: See ``__init__``.
+
+        Returns:
+            dict[str, object]: Keyword arguments for ``vllm.LLM``.
+        """
         if not (
             math.isfinite(gpu_memory_utilization)
             and gpu_memory_utilization > 0
@@ -355,23 +446,13 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             else:
                 tensor_parallel_size = 1
 
-        self._lora_request = None
         if model_params.adapter_model:
-            # ID should be unique for this adapter, but isn't enforced by vLLM.
-            self._lora_request = LoRARequest(
-                lora_name="oumi_lora_adapter",
-                lora_int_id=1,
-                lora_path=model_params.adapter_model,
-            )
-            logger.info(f"Loaded LoRA adapter: {model_params.adapter_model}")
             lora_rank = get_lora_rank(model_params.adapter_model)
             vllm_kwargs["max_lora_rank"] = lora_rank
             logger.info(f"Setting vLLM max LoRA rank to {lora_rank}")
 
         if max_num_seqs is not None:
             vllm_kwargs["max_num_seqs"] = max_num_seqs
-
-        self._tokenizer = build_tokenizer(model_params)
 
         supported_quantization_methods = list(get_args(QuantizationMethods))
         if quantization and quantization not in supported_quantization_methods:
@@ -387,7 +468,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 if key in model_params.model_kwargs:
                     vllm_kwargs[key] = model_params.model_kwargs[key]
 
-        final_vllm_kwargs = dict(
+        final_vllm_kwargs: dict[str, object] = dict(
             model=model_params.model_name,
             tokenizer=model_params.tokenizer_name,
             trust_remote_code=model_params.trust_remote_code,
@@ -396,7 +477,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             # but they don't belong to model_params
             tensor_parallel_size=tensor_parallel_size,
             enable_prefix_caching=enable_prefix_caching,
-            enable_lora=self._lora_request is not None,
+            enable_lora=bool(model_params.adapter_model),
             max_model_len=model_params.model_max_length,
             gpu_memory_utilization=gpu_memory_utilization,
             enforce_eager=enforce_eager,
@@ -421,39 +502,48 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 "backend (the flashinfer sm90 GDN kernel would fail to build)."
             )
 
-        previous_compat_activation = os.environ.get(ACTIVATION_ENV_VAR)
-        os.environ[ACTIVATION_ENV_VAR] = "1"
-        try:
-            self._llm = vllm.LLM(**final_vllm_kwargs)  # pyright: ignore[reportArgumentType, reportAttributeAccessIssue]
-        finally:
-            if previous_compat_activation is None:
-                os.environ.pop(ACTIVATION_ENV_VAR, None)
-            else:
-                os.environ[ACTIVATION_ENV_VAR] = previous_compat_activation
-        # Ensure the tokenizer is set properly.
-        # set_tokenizer() was deprecated in vLLM v0.12 and removed in v0.13; the
-        # tokenizer is already configured via the constructor's `tokenizer` parameter.
-        if not _VLLM_V0_12:
-            self._llm.set_tokenizer(self._tokenizer)  # pyright: ignore[reportAttributeAccessIssue]
+        return final_vllm_kwargs
 
-        # Optional tool-call parser. Direct kwarg wins over model_params.
+    @classmethod
+    def build_serve_args(
+        cls, model_params: ModelParams, *, tool_call_parser: str | None = None
+    ) -> list[str]:
+        """Builds ``vllm serve`` arguments that load the model as the engine does.
+
+        Reads local state like ``build_engine_kwargs``. A LoRA adapter is served
+        under the model name ``LORA_ADAPTER_NAME``.
+
+        Args:
+            model_params: The model parameters to use for inference.
+            tool_call_parser: See ``__init__``.
+
+        Returns:
+            list[str]: Arguments for ``vllm serve``, starting with the model.
+        """
+        engine_kwargs = cls.build_engine_kwargs(model_params)
+        args = [str(engine_kwargs.pop("model"))]
+        for key, value in engine_kwargs.items():
+            flag = key.replace("_", "-")
+            if value is None:
+                continue
+            if isinstance(value, bool):
+                args.append(f"--{flag}" if value else f"--no-{flag}")
+            elif isinstance(value, dict):
+                args += [f"--{flag}", json.dumps(value)]
+            else:
+                args += [f"--{flag}", str(value)]
+        if model_params.adapter_model:
+            args += [
+                "--lora-modules",
+                f"{LORA_ADAPTER_NAME}={model_params.adapter_model}",
+            ]
         parser_name = tool_call_parser or model_params.tool_call_parser
-        self._tool_parser_name = parser_name
-        self._tool_parser = None
-        if parser_name is not None:
-            if not _VLLM_TOOL_PARSERS_AVAILABLE:
-                raise RuntimeError(
-                    "vLLM tool parsers are not available in this vLLM version. "
-                    "Upgrade vLLM or unset `tool_call_parser`."
-                )
-            try:
-                parser_cls = ToolParserManager.get_tool_parser(parser_name)  # pyright: ignore[reportOptionalMemberAccess]
-            except KeyError as e:
-                raise ValueError(
-                    f"Unknown vLLM tool_call_parser '{parser_name}'."
-                ) from e
-            self._tool_parser = parser_cls(self._tokenizer)  # pyright: ignore[reportArgumentType]
-            logger.info(f"VLLM engine will parse tool calls with '{parser_name}'.")
+        if parser_name:
+            args += ["--enable-auto-tool-choice", "--tool-call-parser", parser_name]
+        # The engine sets sampling per request; don't let the model's
+        # generation_config.json fill in what a request leaves out.
+        args += ["--generation-config", "vllm"]
+        return args
 
     @staticmethod
     def _normalize_vllm_finish_reason(raw_reason: str | None) -> FinishReason | None:

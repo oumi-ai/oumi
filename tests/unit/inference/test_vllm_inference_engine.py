@@ -1495,3 +1495,68 @@ def test_clean_tool_parser_content_with_real_tokenizer(prefix, expected):
     engine._tokenizer = tokenizer
 
     assert engine._clean_tool_parser_content(prefix) == expected
+
+
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_build_serve_args_matches_engine_kwargs(mock_vllm):
+    model_params = _get_default_model_params(use_lora=True)
+    model_params.model_max_length = 4096
+    model_params.tool_call_parser = "hermes"
+
+    with (
+        patch("oumi.inference.vllm_inference_engine.get_lora_rank", return_value=32),
+        patch("torch.cuda.device_count", return_value=1),
+        patch(
+            "oumi.inference.vllm_inference_engine._should_force_triton_gdn_backend",
+            return_value=True,
+        ),
+    ):
+        VLLMInferenceEngine(model_params)
+        args = VLLMInferenceEngine.build_serve_args(model_params)
+
+    engine_kwargs = mock_vllm.LLM.call_args.kwargs
+    assert args[0] == engine_kwargs.pop("model") == "MlpEncoder"
+    for key in engine_kwargs:
+        assert f"--{key.replace('_', '-')}" in args
+    assert args[1:] == [
+        "--tokenizer",
+        "openai-community/gpt2",
+        "--trust-remote-code",
+        "--dtype",
+        "auto",
+        "--tensor-parallel-size",
+        "1",
+        "--enable-prefix-caching",
+        "--enable-lora",
+        "--max-model-len",
+        "4096",
+        "--gpu-memory-utilization",
+        "0.9",
+        "--enforce-eager",
+        "--max-lora-rank",
+        "32",
+        "--additional-config",
+        '{"gdn_prefill_backend": "triton"}',
+        "--lora-modules",
+        "oumi_lora_adapter=/path/to/adapter",
+        "--enable-auto-tool-choice",
+        "--tool-call-parser",
+        "hermes",
+        "--generation-config",
+        "vllm",
+    ]
+
+
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_build_serve_args_negates_false_flags():
+    model_params = ModelParams(model_name="MlpEncoder", trust_remote_code=False)
+
+    with patch("torch.cuda.device_count", return_value=1):
+        args = VLLMInferenceEngine.build_serve_args(model_params)
+
+    assert "--no-trust-remote-code" in args
+    assert "--no-enable-lora" in args
+    assert "--tokenizer" not in args
+    assert "--max-model-len" not in args
+    assert "--lora-modules" not in args
+    assert "--tool-call-parser" not in args
