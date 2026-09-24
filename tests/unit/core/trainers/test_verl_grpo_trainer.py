@@ -252,9 +252,9 @@ def _make_trainer_for_config(
     """Builds a trainer with just enough state for `_create_config`.
 
     `_create_config` only reads `_oumi_config`, `_train_filepath`, `_val_filepath`,
-    `_reward_funcs` and `_temp_output_dir`, so we bypass `__init__` entirely. That
-    keeps this a unit test: no tokenizer download, no Ray, no GPU. `_export_hf_model`
-    additionally reads `_final_output_dir`.
+    `_reward_funcs`, `_agent_names` and `_temp_output_dir`, so we bypass `__init__`
+    entirely. That keeps this a unit test: no tokenizer download, no Ray, no GPU.
+    `_export_hf_model` additionally reads `_final_output_dir`.
     """
     trainer = object.__new__(VerlGrpoTrainer)
     trainer._oumi_config = TrainingConfig(
@@ -281,6 +281,7 @@ def _make_trainer_for_config(
     trainer._train_filepath = "/tmp/train.parquet"
     trainer._val_filepath = "/tmp/val.parquet"
     trainer._reward_funcs = []
+    trainer._agent_names = {VerlGrpoTrainer.SINGLE_TURN_AGENT_LOOP_NAME}
     trainer._final_output_dir = Path(output_dir)
     trainer._temp_output_dir = Path(output_dir) / "verl_output"
     return trainer

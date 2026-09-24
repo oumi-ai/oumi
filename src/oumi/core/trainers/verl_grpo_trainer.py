@@ -27,6 +27,7 @@ from datasets import Dataset
 from omegaconf import DictConfig, OmegaConf
 
 from oumi.core.constants import VERL_METRICS_FILENAME
+from oumi.core.rollout.user_sim import DEFAULT_MAX_TURNS
 from oumi.core.types.conversation import Conversation
 from oumi.core.types.conversation import Role as ConversationRole
 from oumi.utils.conversation_utils import create_list_of_message_json_dicts
@@ -112,6 +113,13 @@ class VerlGrpoTrainer(BaseTrainer):
     https://verl.readthedocs.io/en/latest/examples/config.html.
     """
 
+    # verl looks up each row's `agent_name` in its agent-loop registry.
+    # Must match the `name` in user_sim_agent_loop.yaml.
+    USER_SIM_AGENT_LOOP_NAME = "oumi_user_sim_tool_agent"
+    # Registered by verl itself.
+    TOOL_AGENT_LOOP_NAME = "tool_agent"
+    SINGLE_TURN_AGENT_LOOP_NAME = "single_turn_agent"
+
     def __init__(
         self,
         processing_class: BaseTokenizer | None,
@@ -180,7 +188,8 @@ class VerlGrpoTrainer(BaseTrainer):
         self._processor = processor.raw_processor if processor is not None else None
         # Detect what dataset post-processing function to use (if any).
         process_fn = self._detect_dataset_process_fn()
-        # Generate files and set self._train_filepath and self._val_filepath.
+        # Generate files and set self._train_filepath, self._val_filepath and
+        # self._agent_names.
         self._create_dataset_files(process_fn)
         self._setup_verl_trainer()
 
@@ -288,47 +297,108 @@ class VerlGrpoTrainer(BaseTrainer):
         return (prompt_messages, images, answer)
 
     @staticmethod
-    def _create_verl_data_entry_from_tool_agent_conversation(
+    def _create_verl_agent_loop_entry(
         conversation: Conversation,
         ground_truth: str,
         tools_kwargs: dict[str, Any],
+        interaction_kwargs: dict[str, Any] | None,
         ability: str,
         idx: int,
         data_source: str,
         split: str,
     ) -> dict:
-        """Build a verl row from a structured tool-agent prompt."""
+        """Build a verl row for a multi-turn agent loop (tools, user sim, or both)."""
         if any(
             message.count_content_items().image_items
             for message in conversation.messages
         ):
-            raise ValueError("Tool-agent conversations do not support images.")
+            raise ValueError("Agent-loop conversations do not support images.")
         if not conversation.messages or conversation.messages[-1].role not in (
             ConversationRole.USER,
             ConversationRole.TOOL,
         ):
             raise ValueError(
-                "Tool-agent conversation prompts must end with a user or tool message."
+                "Agent-loop conversation prompts must end with a user or tool message."
             )
 
         prompt_messages = create_list_of_message_json_dicts(
             conversation.messages,
             group_adjacent_same_role_turns=False,
         )
+        extra_info: dict[str, Any] = {
+            "split": split,
+            "index": idx,
+            _PROMPT_JSON_EXTRA_INFO_KEY: json.dumps(prompt_messages),
+            "need_tools_kwargs": bool(tools_kwargs),
+            "tools_kwargs": tools_kwargs,
+        }
+        if interaction_kwargs:
+            extra_info["interaction_kwargs"] = interaction_kwargs
         return {
             "data_source": data_source,
             "prompt": prompt_messages,
             "images": [],
             "ability": ability,
-            "agent_name": "tool_agent",
+            "agent_name": VerlGrpoTrainer.USER_SIM_AGENT_LOOP_NAME
+            if interaction_kwargs
+            else VerlGrpoTrainer.TOOL_AGENT_LOOP_NAME,
             "reward_model": {"style": "rule", "ground_truth": ground_truth},
-            "extra_info": {
-                "split": split,
-                "index": idx,
-                _PROMPT_JSON_EXTRA_INFO_KEY: json.dumps(prompt_messages),
-                "need_tools_kwargs": True,
-                "tools_kwargs": tools_kwargs,
-            },
+            "extra_info": extra_info,
+        }
+
+    @staticmethod
+    def _parse_tools_kwargs(metadata: dict) -> dict[str, Any]:
+        """Validates and returns a tool-agent row's per-tool kwargs."""
+        tools_kwargs = metadata.get("tools_kwargs")
+        tools_kwargs_error = (
+            "Tool-agent conversation metadata 'tools_kwargs' must be a "
+            "mapping of tool names to dictionaries."
+        )
+        if not isinstance(tools_kwargs, dict):
+            raise ValueError(f"{tools_kwargs_error} Got {type(tools_kwargs).__name__}.")
+        for tool_name, tool_kwargs in tools_kwargs.items():
+            if not isinstance(tool_name, str) or not isinstance(tool_kwargs, dict):
+                raise ValueError(
+                    f"{tools_kwargs_error} Got {tool_name!r}: "
+                    f"{type(tool_kwargs).__name__}."
+                )
+        return tools_kwargs
+
+    @staticmethod
+    def _parse_interaction_kwargs(
+        conversation: Conversation, interaction_kwargs: Any
+    ) -> dict[str, Any]:
+        """Validates a simulated-user row's settings and fills in defaults."""
+        if not isinstance(interaction_kwargs, dict) or not interaction_kwargs.get(
+            "user_persona"
+        ):
+            raise ValueError(
+                "Conversation metadata 'interaction_kwargs' must be a mapping with "
+                "a non-empty 'user_persona'."
+            )
+        if (
+            not conversation.messages
+            or conversation.messages[-1].role != ConversationRole.USER
+        ):
+            raise ValueError(
+                "Simulated-user conversations must end on the user's opening message."
+            )
+        max_turns = interaction_kwargs.get("max_turns")
+        if max_turns is None:
+            max_turns = DEFAULT_MAX_TURNS
+        if (
+            isinstance(max_turns, bool)
+            or not isinstance(max_turns, int)
+            or max_turns < 1
+        ):
+            raise ValueError(
+                "'interaction_kwargs.max_turns' must be a positive int; "
+                f"got {max_turns!r}."
+            )
+        return {
+            "user_persona": interaction_kwargs["user_persona"],
+            "goal": interaction_kwargs.get("goal") or "",
+            "max_turns": max_turns,
         }
 
     @staticmethod
@@ -339,38 +409,40 @@ class VerlGrpoTrainer(BaseTrainer):
         # `Conversation` pays for building one.
         raw_conversation = example["conversation_json"]
         metadata = json.loads(raw_conversation).get("metadata") or {}
-        if metadata.get("agent_name") == "tool_agent":
+        wants_tools = metadata.get("agent_name") == VerlGrpoTrainer.TOOL_AGENT_LOOP_NAME
+        interaction_kwargs = metadata.get("interaction_kwargs")
+        # Tools and the simulated user compose: the loop runs tools until the
+        # assistant stops calling them, then the simulated user replies.
+        if wants_tools or interaction_kwargs:
             conversation = Conversation.from_json(raw_conversation)
-            ground_truth = metadata.get("ground_truth")
-            if not isinstance(ground_truth, str) or not ground_truth:
-                raise ValueError(
-                    "Tool-agent conversation metadata must include a non-empty "
-                    "string 'ground_truth'."
+            tools_kwargs: dict[str, Any] = {}
+            ground_truth = ""
+            if interaction_kwargs:
+                interaction_kwargs = VerlGrpoTrainer._parse_interaction_kwargs(
+                    conversation, interaction_kwargs
                 )
-            tools_kwargs = metadata.get("tools_kwargs")
-            tools_kwargs_error = (
-                "Tool-agent conversation metadata 'tools_kwargs' must be a "
-                "mapping of tool names to dictionaries."
-            )
-            if not isinstance(tools_kwargs, dict):
-                raise ValueError(
-                    f"{tools_kwargs_error} Got {type(tools_kwargs).__name__}."
-                )
-            for tool_name, tool_kwargs in tools_kwargs.items():
-                if not isinstance(tool_name, str) or not isinstance(tool_kwargs, dict):
+                # Simulator-only rows are graded against the simulated user's goal.
+                ground_truth = interaction_kwargs["goal"]
+            if wants_tools:
+                tools_kwargs = VerlGrpoTrainer._parse_tools_kwargs(metadata)
+                ground_truth = metadata.get("ground_truth")
+                if not isinstance(ground_truth, str) or not ground_truth:
                     raise ValueError(
-                        f"{tools_kwargs_error} Got {tool_name!r}: "
-                        f"{type(tool_kwargs).__name__}."
+                        "Tool-agent conversation metadata must include a non-empty "
+                        "string 'ground_truth'."
                     )
-            ability = metadata.get("ability", "tool_agent")
+            ability = metadata.get(
+                "ability", "tool_agent" if wants_tools else "conversation"
+            )
             if not isinstance(ability, str):
                 raise ValueError(
-                    "Tool-agent conversation metadata 'ability' must be a string."
+                    "Agent-loop conversation metadata 'ability' must be a string."
                 )
-            return VerlGrpoTrainer._create_verl_data_entry_from_tool_agent_conversation(
+            return VerlGrpoTrainer._create_verl_agent_loop_entry(
                 conversation,
                 ground_truth,
                 tools_kwargs,
+                interaction_kwargs,
                 ability,
                 idx,
                 data_source,
@@ -384,6 +456,9 @@ class VerlGrpoTrainer(BaseTrainer):
             "prompt": prompt_messages,
             "images": images,
             "ability": "math",
+            # Every row carries `agent_name`: rows missing a column that other rows
+            # have break `Dataset.map`'s schema.
+            "agent_name": VerlGrpoTrainer.SINGLE_TURN_AGENT_LOOP_NAME,
             "reward_model": {"style": "rule", "ground_truth": answer},
             "extra_info": {
                 "split": split,
@@ -447,6 +522,13 @@ class VerlGrpoTrainer(BaseTrainer):
             )
         eval_dataset.to_parquet(val_file)
         self._val_filepath = str(val_file)
+
+        self._agent_names: set[str] = {
+            name
+            for dataset in (train_dataset, eval_dataset)
+            if "agent_name" in dataset.column_names
+            for name in dataset["agent_name"]
+        }
 
     def _create_config(self) -> DictConfig:
         """Creates a verl config."""
@@ -578,7 +660,40 @@ class VerlGrpoTrainer(BaseTrainer):
             raise ValueError(
                 "Actor and critic must use the same strategy when using FSDP."
             )
+        self._validate_agent_loop_config(
+            config.actor_rollout_ref.rollout, self._agent_names
+        )
         return config
+
+    @staticmethod
+    def _validate_agent_loop_config(rollout: DictConfig, agent_names: set[str]) -> None:
+        """Fails if multi-turn rows would silently run as single-turn generation.
+
+        verl only reads a row's `agent_name` on its async multi-turn path. Otherwise
+        every row runs `single_turn_agent`, skipping tools and the simulated user.
+        """
+        if agent_names <= {VerlGrpoTrainer.SINGLE_TURN_AGENT_LOOP_NAME}:
+            return
+        if rollout.mode != "async" or not rollout.multi_turn.enable:
+            raise ValueError(
+                f"Dataset rows use agent loops {sorted(agent_names)}, but "
+                f"rollout.mode={rollout.mode!r} and "
+                f"rollout.multi_turn.enable={rollout.multi_turn.enable}. Set "
+                "actor_rollout_ref.rollout.mode=async and "
+                "actor_rollout_ref.rollout.multi_turn.enable=true in "
+                "training.verl_config_overrides."
+            )
+        if (
+            VerlGrpoTrainer.USER_SIM_AGENT_LOOP_NAME in agent_names
+            and not rollout.agent.agent_loop_config_path
+        ):
+            raise ValueError(
+                "Dataset rows use a simulated user, but "
+                "actor_rollout_ref.rollout.agent.agent_loop_config_path is unset. "
+                "Point it at a YAML registering "
+                f"{VerlGrpoTrainer.USER_SIM_AGENT_LOOP_NAME!r}, e.g. "
+                "configs/examples/verl_conversational/user_sim_agent_loop.yaml."
+            )
 
     def _setup_verl_trainer(self):
         """Sets up verl's RayPPOTrainer."""
