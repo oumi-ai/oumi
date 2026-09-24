@@ -4952,7 +4952,8 @@ async def test_generate_cancellation_reaches_the_request():
         task = asyncio.create_task(engine.generate([conversation]))
         await asyncio.wait_for(request_started.wait(), timeout=5)
         task.cancel()
+        await asyncio.wait([task])
 
         # The retry loop catches Exception, which must not swallow CancelledError.
-        with pytest.raises(asyncio.CancelledError):
-            await task
+        # A swallowed one would leave the task finished with a result instead.
+        assert task.cancelled()
