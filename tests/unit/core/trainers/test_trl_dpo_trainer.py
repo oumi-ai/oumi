@@ -14,12 +14,16 @@
 
 import copy
 import json
+import re
 from types import SimpleNamespace
 from typing import Any, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
+import torch
 from datasets import Dataset
+from datasets.fingerprint import Hasher
+from torch.utils.data import DataLoader
 from transformers import PreTrainedTokenizerBase
 from trl import DPOConfig, DPOTrainer
 
@@ -41,52 +45,143 @@ def _tool_call(arguments: dict) -> dict:
 
 
 def _fsdp_trainer(fsdp_version: int = 1) -> Any:
-    trainer = object.__new__(TrlDpoTrainer)
+    trainer: Any = object.__new__(TrlDpoTrainer)
     trainer.is_fsdp_enabled = True
     trainer.ref_model = None
-    trainer.model = MagicMock()
-    trainer.model.eval.return_value = trainer.model
-    trainer.model_wrapped = trainer.model
+    trainer.model = trainer.model_wrapped = torch.nn.Linear(1, 1)
     trainer._precompute_engine = None
-    trainer.accelerator = cast(
-        Any,
-        SimpleNamespace(
-            state=SimpleNamespace(
-                fsdp_plugin=SimpleNamespace(fsdp_version=fsdp_version)
-            ),
-            prepare=MagicMock(return_value=trainer.model),
-        ),
+    trainer._precompute_model_hash = None
+    trainer.args = SimpleNamespace(
+        dataloader_num_workers=0, dataloader_pin_memory=False
+    )
+    trainer.data_collator = lambda rows: {"x": torch.tensor([r["x"] for r in rows])}
+    trainer.accelerator = SimpleNamespace(
+        state=SimpleNamespace(fsdp_plugin=SimpleNamespace(fsdp_version=fsdp_version)),
+        prepare=MagicMock(side_effect=lambda obj: obj),
+        gather_for_metrics=lambda value: value,
+        is_main_process=True,
+        wait_for_everyone=lambda: None,
     )
     return trainer
 
 
-def test_precompute_ref_logps_reuses_unwrapped_model_hash():
-    trainer = object.__new__(TrlDpoTrainer)
-    trainer.is_fsdp_enabled = True
-    trainer.ref_model = None
-    raw_model = MagicMock()
-    trainer.model = raw_model
-    trainer._precompute_model_hash = None
-    train_dataset = MagicMock(_fingerprint="train")
-    eval_dataset = MagicMock(_fingerprint="eval")
-    train_dataset._get_cache_file_path.return_value = "train.arrow"
-    eval_dataset._get_cache_file_path.return_value = "eval.arrow"
-    cached_logps = {
-        "ref_chosen_logps": [1.0],
-        "ref_rejected_logps": [0.0],
-    }
+def _reference_forward(trainer, batch):
+    assert not trainer.model.training
+    scores = batch["x"].float()
+    return scores, -scores
+
+
+def _saved_dataset(path, values):
+    Dataset.from_dict({"x": values}).save_to_disk(path)
+    return Dataset.load_from_disk(path)
+
+
+def test_precompute_ref_logps_prepares_fsdp_policy_once(tmp_path):
+    trainer = _fsdp_trainer()
+    raw_model = trainer.model
+    fsdp_model = torch.nn.Sequential(raw_model)
+    events = []
+
+    def prepare(obj):
+        if isinstance(obj, DataLoader):
+            return obj
+        assert obj is raw_model
+        events.append("prepare")
+        return fsdp_model
+
+    def reference_forward(trainer, batch):
+        assert trainer.model is fsdp_model
+        events.append("forward")
+        return _reference_forward(trainer, batch)
+
+    trainer.accelerator.prepare.side_effect = prepare
+    with (
+        patch("trl.trainer.utils.hash_module", return_value="hash") as hash_module,
+        patch(
+            "oumi.core.trainers.trl_dpo_trainer.broadcast_object_list",
+            side_effect=lambda objects, from_process: objects,
+        ),
+        patch.object(
+            DPOTrainer,
+            "compute_ref_log_probs",
+            autospec=True,
+            side_effect=reference_forward,
+        ),
+    ):
+        results = [
+            trainer._precompute_ref_logps(
+                _saved_dataset(tmp_path / name, [1, 2, 3]), name, 2
+            )
+            for name in ("train", "eval")
+        ]
+
+    hash_module.assert_called_once_with(raw_model)
+    assert events == ["prepare"] + ["forward"] * 4
+    assert trainer.model is trainer.model_wrapped is trainer._precompute_engine
+    for result in results:
+        assert result["ref_chosen_logps"] == [1.0, 2.0, 3.0]
+        assert result["ref_rejected_logps"] == [-1.0, -2.0, -3.0]
+
+
+def test_precompute_ref_logps_reuses_cached_scores_without_preparing(tmp_path):
+    first_trainer = _fsdp_trainer()
+    second_trainer = _fsdp_trainer()
+    second_trainer.model.load_state_dict(first_trainer.model.state_dict())
+    _saved_dataset(tmp_path, [1, 2])
 
     with (
-        patch("trl.trainer.utils.hash_module", return_value="model-hash") as hash_model,
-        patch("oumi.core.trainers.trl_dpo_trainer.Path.exists", return_value=True),
-        patch("oumi.core.trainers.trl_dpo_trainer.np.load", return_value=cached_logps),
+        patch(
+            "oumi.core.trainers.trl_dpo_trainer.broadcast_object_list",
+            side_effect=lambda objects, from_process: objects,
+        ),
+        patch.object(
+            DPOTrainer,
+            "compute_ref_log_probs",
+            autospec=True,
+            side_effect=_reference_forward,
+        ) as reference_forward,
     ):
-        trainer._precompute_ref_logps(train_dataset, "train", 1)
-        trainer.model = MagicMock()
-        trainer._precompute_ref_logps(eval_dataset, "eval", 1)
+        first_trainer._precompute_ref_logps(
+            Dataset.load_from_disk(tmp_path), "train", 2
+        )
+        result = second_trainer._precompute_ref_logps(
+            Dataset.load_from_disk(tmp_path), "train", 2
+        )
 
-    hash_model.assert_called_once_with(raw_model)
-    assert trainer._precompute_model_hash == "model-hash"
+    assert reference_forward.call_count == 1
+    assert second_trainer.accelerator.prepare.call_count == 0
+    assert second_trainer._precompute_engine is None
+    assert result["ref_chosen_logps"] == [1.0, 2.0]
+    assert result["ref_rejected_logps"] == [-1.0, -2.0]
+
+
+def test_precompute_ref_logps_uses_rank_zero_model_hash(tmp_path):
+    trainer = _fsdp_trainer()
+    trainer.accelerator.is_main_process = False
+    dataset = _saved_dataset(tmp_path, [1])
+
+    def broadcast(objects, from_process):
+        assert objects == [None] and from_process == 0
+        objects[0] = "rank-0-hash"
+        return objects
+
+    with (
+        patch("trl.trainer.utils.hash_module") as hash_module,
+        patch(
+            "oumi.core.trainers.trl_dpo_trainer.broadcast_object_list",
+            side_effect=broadcast,
+        ),
+        patch.object(
+            DPOTrainer,
+            "compute_ref_log_probs",
+            autospec=True,
+            side_effect=_reference_forward,
+        ),
+    ):
+        result = trainer._precompute_ref_logps(dataset, "train", 1)
+
+    hash_module.assert_not_called()
+    assert result._fingerprint == Hasher.hash((dataset._fingerprint, "rank-0-hash"))
 
 
 def test_precompute_ref_logps_delegates_without_fsdp():
@@ -108,49 +203,54 @@ def test_precompute_ref_logps_delegates_without_fsdp():
     precompute.assert_called_once_with(trainer, dataset, "train", 1)
 
 
-@pytest.mark.parametrize("is_fsdp_enabled", [True, False])
-def test_compute_ref_log_probs_prepares_policy_once_for_fsdp(is_fsdp_enabled):
-    trainer = _fsdp_trainer()
-    trainer.is_fsdp_enabled = is_fsdp_enabled
-    inputs = MagicMock()
-    ref_logps = (MagicMock(), MagicMock())
+@pytest.mark.parametrize(
+    ("fsdp_version", "versions", "error"),
+    [
+        (2, {}, "support FSDP1 only"),
+        (1, {"transformers": "5.2.0"}, "requires transformers>=5.3,<5.17"),
+        (1, {"transformers": "5.17.0"}, "requires transformers>=5.3,<5.17"),
+        (1, {"trl": "1.7.0"}, "requires trl>=1.0,<1.7"),
+    ],
+)
+def test_precompute_ref_logps_rejects_unverified_fsdp_setups(
+    fsdp_version, versions, error
+):
+    trainer = _fsdp_trainer(fsdp_version)
+    installed = {"transformers": "5.10.1", "trl": "1.6.0", **versions}
 
     with (
         patch(
-            "oumi.core.trainers.trl_dpo_trainer.is_peft_model",
-            return_value=False,
+            "oumi.core.trainers.trl_dpo_trainer.importlib.metadata.version",
+            side_effect=installed.__getitem__,
         ),
-        patch.object(
-            DPOTrainer,
-            "compute_ref_log_probs",
-            autospec=True,
-            return_value=ref_logps,
-        ) as compute_ref_log_probs,
+        patch("trl.trainer.utils.hash_module") as hash_module,
+        pytest.raises(RuntimeError, match=re.escape(error)),
     ):
-        first_result = trainer.compute_ref_log_probs(inputs)
-        second_result = trainer.compute_ref_log_probs(inputs)
+        trainer._precompute_ref_logps(MagicMock(), "train", 1)
 
-    assert first_result is second_result is ref_logps
-    assert compute_ref_log_probs.call_count == 2
-    if is_fsdp_enabled:
-        trainer.accelerator.prepare.assert_called_once_with(trainer.model)
-        assert trainer._precompute_engine is trainer.model
-    else:
-        trainer.accelerator.prepare.assert_not_called()
-        assert trainer._precompute_engine is None
-
-
-def test_compute_ref_log_probs_rejects_fsdp2():
-    trainer = _fsdp_trainer(fsdp_version=2)
-
-    with pytest.raises(RuntimeError, match="support FSDP1 only"):
-        trainer.compute_ref_log_probs(MagicMock())
-
+    hash_module.assert_not_called()
     trainer.accelerator.prepare.assert_not_called()
 
 
-def test_compute_ref_log_probs_configures_peft_before_fsdp():
+@pytest.mark.parametrize(
+    ("transformers_version", "trl_version"),
+    [("5.3.0", "1.4.0"), ("5.6.0", "1.6.0"), ("5.10.1", "1.6.0")],
+)
+def test_check_fsdp_precompute_support_accepts_deployed_versions(
+    transformers_version, trl_version
+):
+    installed = {"transformers": transformers_version, "trl": trl_version}
+
+    with patch(
+        "oumi.core.trainers.trl_dpo_trainer.importlib.metadata.version",
+        side_effect=installed.__getitem__,
+    ):
+        _fsdp_trainer()._check_fsdp_precompute_support()
+
+
+def test_prepare_policy_configures_peft_before_fsdp():
     trainer = _fsdp_trainer()
+    raw_model = trainer.model
     update_peft = MagicMock()
 
     def prepare(model):
@@ -168,23 +268,10 @@ def test_compute_ref_log_probs_configures_peft_before_fsdp():
             "oumi.core.trainers.trl_dpo_trainer.update_fsdp_plugin_peft",
             update_peft,
         ),
-        patch.object(DPOTrainer, "compute_ref_log_probs", autospec=True),
     ):
-        trainer.compute_ref_log_probs(MagicMock())
+        trainer._prepare_policy_for_ref_logps()
 
-    trainer.accelerator.prepare.assert_called_once_with(trainer.model)
-
-
-def test_compute_ref_log_probs_requires_training_reuse_hook():
-    trainer = _fsdp_trainer()
-
-    with (
-        patch.object(DPOTrainer, "_prepare_for_training", None),
-        pytest.raises(RuntimeError, match="transformers 5.5 or newer"),
-    ):
-        trainer.compute_ref_log_probs(MagicMock())
-
-    trainer.accelerator.prepare.assert_not_called()
+    trainer.accelerator.prepare.assert_called_once_with(raw_model)
 
 
 @pytest.mark.parametrize("has_optimizer", [True, False])

@@ -19,10 +19,15 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from accelerate.utils import is_peft_model
+from accelerate.utils import broadcast_object_list, is_peft_model
+from packaging.specifiers import SpecifierSet
 from torch.utils.data import DataLoader
 from transformers.integrations.fsdp import update_fsdp_plugin_peft
 from trl import DPOTrainer
+
+# The FSDP precompute overrides below copy private TRL and Transformers methods that
+# are unchanged across these ranges. Re-check them before widening a range.
+_FSDP_PRECOMPUTE_VERSIONS = {"transformers": ">=5.3,<5.17", "trl": ">=1.0,<1.7"}
 
 _TOKENIZED_DPO_COLUMN_SETS = (
     frozenset(("prompt_ids", "chosen_ids", "rejected_ids")),
@@ -68,9 +73,14 @@ class TrlDpoTrainer(DPOTrainer):
         super().__init__(*args, **kwargs)
 
     def _precompute_ref_logps(self, dataset, name, batch_size):
-        """Precompute FSDP reference scores using the unwrapped model hash."""
+        """Precompute FSDP reference scores with a rank-consistent cache key."""
         if not self.is_fsdp_enabled or self.ref_model is not None:
             return super()._precompute_ref_logps(dataset, name, batch_size)
+
+        # TODO: Remove the FSDP precompute overrides once Oumi's minimum TRL version
+        # prepares FSDP policies for reference precompute itself (proposed for FSDP1
+        # and FSDP2 in https://github.com/huggingface/trl/pull/6527).
+        self._check_fsdp_precompute_support()
 
         import torch
         from datasets.fingerprint import Hasher
@@ -78,7 +88,13 @@ class TrlDpoTrainer(DPOTrainer):
         from trl.trainer.utils import hash_module
 
         if self._precompute_model_hash is None:
-            self._precompute_model_hash = hash_module(self.model)
+            # With FSDP CPU-RAM-efficient loading, only rank 0 holds the real weights
+            # until FSDP wraps the model, so hash there and share the result.
+            model_hash = [
+                hash_module(self.model) if self.accelerator.is_main_process else None
+            ]
+            broadcast_object_list(model_hash, from_process=0)
+            self._precompute_model_hash = model_hash[0]
         fingerprint = Hasher.hash((dataset._fingerprint, self._precompute_model_hash))
         cache_file = Path(
             dataset._get_cache_file_path(fingerprint).removesuffix(".arrow") + ".npz"
@@ -97,6 +113,7 @@ class TrlDpoTrainer(DPOTrainer):
                 shuffle=False,
             )
             data_loader = self.accelerator.prepare(dataloader)
+            self._prepare_policy_for_ref_logps()
             ref_chosen_logps = []
             ref_rejected_logps = []
             for padded_batch in tqdm(
@@ -131,22 +148,8 @@ class TrlDpoTrainer(DPOTrainer):
             new_fingerprint=fingerprint,
         )
 
-    def _prepare_policy_for_ref_logps(self) -> None:
-        """Prepare the FSDP1 policy immediately before reference scoring."""
-        if (
-            not self.is_fsdp_enabled
-            or self.ref_model is not None
-            or self._precompute_engine is not None
-        ):
-            return
-
-        if not callable(getattr(DPOTrainer, "_prepare_for_training", None)):
-            raise RuntimeError(
-                "FSDP with precomputed DPO reference log probabilities requires "
-                "transformers 5.5 or newer "
-                f"(installed: {importlib.metadata.version('transformers')})."
-            )
-
+    def _check_fsdp_precompute_support(self) -> None:
+        """Reject FSDP setups the precompute overrides were not verified against."""
         fsdp_plugin = self.accelerator.state.fsdp_plugin
         if getattr(fsdp_plugin, "fsdp_version", 1) != 1:
             raise RuntimeError(
@@ -154,20 +157,25 @@ class TrlDpoTrainer(DPOTrainer):
                 "FSDP1 only."
             )
 
+        for package, supported in _FSDP_PRECOMPUTE_VERSIONS.items():
+            installed = importlib.metadata.version(package)
+            if not SpecifierSet(supported).contains(installed, prereleases=True):
+                raise RuntimeError(
+                    "FSDP with precomputed DPO reference log probabilities requires "
+                    f"{package}{supported} (installed: {installed})."
+                )
+
+    def _prepare_policy_for_ref_logps(self) -> None:
+        """Prepare the FSDP1 policy once, immediately before reference scoring."""
+        if self._precompute_engine is not None:
+            return
+
         if is_peft_model(self.model):
             update_fsdp_plugin_peft(self.model, self.accelerator)
 
         self.model = self.accelerator.prepare(self.model)
         self.model_wrapped = self.model
         self._precompute_engine = self.model.eval()
-
-    def compute_ref_log_probs(self, inputs):
-        """Prepare FSDP after TRL hashes the unwrapped policy, then score it."""
-        # TODO: Remove this lifecycle workaround when TRL includes the fix from
-        # https://github.com/huggingface/trl/pull/6527.
-        self._prepare_policy_for_ref_logps()
-
-        return super().compute_ref_log_probs(inputs)
 
     def _prepare_for_training(
         self, max_steps, train_dataloader, resume_from_checkpoint
@@ -182,6 +190,9 @@ class TrlDpoTrainer(DPOTrainer):
             self.lr_scheduler = None
             self._created_lr_scheduler = False
 
+        # Trainer.train() calls accelerator.free_memory() first. Preparing the
+        # wrapped policy again only re-registers it, which clip_grad_norm_ and
+        # save_state need; it does not wrap the policy a second time.
         model = self.accelerator.prepare_model(self._precompute_engine)
         if self.optimizer is None:
             self.optimizer = self.create_optimizer()
