@@ -450,7 +450,7 @@ class BaseJudge:
         completed_conversations = self._infer(conversations)
         return self.parse_judge_outputs(completed_conversations)
 
-    async def ajudge(
+    async def judge_async(
         self,
         inputs: list[Conversation] | list[dict[str, str]],
     ) -> list[JudgeOutput]:
@@ -476,7 +476,7 @@ class BaseJudge:
         completed_conversations = await self._infer_async(conversations)
         return self.parse_judge_outputs(completed_conversations)
 
-    async def ajudge_one(
+    async def judge_one_async(
         self,
         judge_input: Conversation | dict[str, str],
     ) -> JudgeOutput:
@@ -489,7 +489,7 @@ class BaseJudge:
         Returns:
             The structured judge output with parsed results
         """
-        outputs = await self.ajudge([judge_input])  # type: ignore[list-item]
+        outputs = await self.judge_async([judge_input])  # type: ignore[list-item]
         return outputs[0]
 
     def _prepare_judge_inputs(
@@ -971,9 +971,9 @@ class BaseJudge:
         # Run batch inference
         if not isinstance(self.inference_engine, RemoteInferenceEngine):
             raise ValueError(
-                "Cannot run async inference: ajudge() requires a "
+                "Cannot run async inference: judge_async() requires a "
                 "RemoteInferenceEngine. Subclasses that don't run remote inference "
-                "should override the ajudge() method."
+                "should override the judge_async() method."
             )
         response_conversations = await self.inference_engine.generate(conversations)
 

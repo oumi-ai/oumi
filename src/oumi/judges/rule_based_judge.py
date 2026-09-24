@@ -78,7 +78,7 @@ class RuleBasedJudge(BaseJudge):
         ]
 
     @override
-    async def ajudge(self, inputs: list[dict[str, str]]) -> list[JudgeOutput]:
+    async def judge_async(self, inputs: list[dict[str, str]]) -> list[JudgeOutput]:
         # Rule evaluation is local and synchronous, so there is nothing to await.
         return self.judge(inputs)
 

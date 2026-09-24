@@ -1496,7 +1496,7 @@ class TestJsonOutputParsing:
 
 
 class TestBaseJudgeAsync:
-    """Test cases for the async judge API (ajudge / ajudge_one)."""
+    """Test cases for the async judge API (judge_async / judge_one_async)."""
 
     @pytest.fixture
     def output_fields(self):
@@ -1540,7 +1540,7 @@ class TestBaseJudgeAsync:
         return engine
 
     @pytest.mark.asyncio
-    async def test_ajudge_matches_judge(self, output_fields):
+    async def test_judge_async_matches_judge(self, output_fields):
         inputs = [{"question": "What is 1+1?", "answer": "2"}]
 
         sync_judge = self._make_judge(
@@ -1551,7 +1551,7 @@ class TestBaseJudgeAsync:
         )
 
         sync_outputs = sync_judge.judge(inputs)
-        async_outputs = await async_judge.ajudge(inputs)
+        async_outputs = await async_judge.judge_async(inputs)
 
         assert len(async_outputs) == 1
         assert async_outputs[0].field_values == sync_outputs[0].field_values
@@ -1559,25 +1559,27 @@ class TestBaseJudgeAsync:
         assert async_judge.total_input_tokens == sync_judge.total_input_tokens
 
     @pytest.mark.asyncio
-    async def test_ajudge_one_returns_single_output(self, output_fields):
+    async def test_judge_one_async_returns_single_output(self, output_fields):
         judge = self._make_judge(
             output_fields, self._mock_remote_engine("<judgment>Yes</judgment>")
         )
 
-        output = await judge.ajudge_one({"question": "What is 1+1?", "answer": "2"})
+        output = await judge.judge_one_async(
+            {"question": "What is 1+1?", "answer": "2"}
+        )
 
         assert isinstance(output, JudgeOutput)
         assert output.field_values == {"judgment": True}
 
     @pytest.mark.asyncio
-    async def test_ajudge_requires_remote_engine(self, output_fields):
+    async def test_judge_async_requires_remote_engine(self, output_fields):
         judge = self._make_judge(output_fields, Mock())
 
         with pytest.raises(ValueError, match="RemoteInferenceEngine"):
-            await judge.ajudge([{"question": "What is 1+1?", "answer": "2"}])
+            await judge.judge_async([{"question": "What is 1+1?", "answer": "2"}])
 
     @pytest.mark.asyncio
-    async def test_rule_based_judge_ajudge_needs_no_engine(self):
+    async def test_rule_based_judge_async_needs_no_engine(self):
         from oumi.core.configs.judge_config import JudgeConfig
         from oumi.core.configs.params.judge_params import JudgeParams
         from oumi.core.configs.params.rule_judge_params import RuleJudgeParams
@@ -1595,6 +1597,6 @@ class TestBaseJudgeAsync:
         )
         inputs = [{"text": "The answer is 42"}]
 
-        outputs = await judge.ajudge(inputs)
+        outputs = await judge.judge_async(inputs)
 
         assert outputs == judge.judge(inputs)
