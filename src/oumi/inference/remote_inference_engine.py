@@ -731,6 +731,8 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         semaphore: PoliteAdaptiveSemaphore,
         session: aiohttp.ClientSession,
         inference_config: InferenceConfig | None = None,
+        *,
+        persist_scratch: bool = True,
     ) -> Conversation:
         """Queries the API with the provided input.
 
@@ -740,6 +742,8 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             used if adaptive concurrency is disabled.
             session: The aiohttp session to use for the request.
             inference_config: Parameters for inference.
+            persist_scratch: Whether to append the result to the scratch file. Only
+            resumable jobs need this. Request-time generation does not.
 
         Returns:
             Conversation: Inference output.
@@ -889,8 +893,9 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                             result = self._convert_api_output_to_conversation(
                                 response_json, conversation
                             )
-                            # Write what we have so far to our scratch directory
-                            self._save_conversation_to_scratch(result, output_path)
+                            if persist_scratch:
+                                # Write what we have so far to our scratch directory
+                                self._save_conversation_to_scratch(result, output_path)
                             await self._try_record_success()
                             return result
                         except Exception as e:
@@ -989,6 +994,41 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 inference_config=inference_config,
             ),
         )
+
+    async def generate(self, conversations: list[Conversation]) -> list[Conversation]:
+        """Generates responses for in-memory conversations on the caller's loop.
+
+        Unlike `infer()`, this is not a resumable job: it reads no input file, writes
+        no output or scratch file, and assigns no conversation identifiers. Cancelling
+        the awaiting task cancels the in-flight HTTP requests.
+
+        Args:
+            conversations: A list of conversations to generate responses for.
+
+        Returns:
+            List[Conversation]: Responses, in the order of `conversations`.
+        """
+        return await self._gather_query_tasks(
+            conversations,
+            lambda conversation, semaphore, session: self._query_api(
+                conversation,
+                semaphore,
+                session,
+                persist_scratch=False,
+            ),
+        )
+
+    async def generate_one(self, conversation: Conversation) -> Conversation:
+        """Generates a response for one in-memory conversation.
+
+        Args:
+            conversation: The conversation to generate a response for.
+
+        Returns:
+            Conversation: The response.
+        """
+        responses = await self.generate([conversation])
+        return responses[0]
 
     @override
     def _infer_online(

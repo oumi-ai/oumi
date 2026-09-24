@@ -4862,3 +4862,97 @@ def test_get_request_headers_merges_subclass_auth_headers():
     assert headers["Accept-Encoding"] == "gzip, deflate"
     assert headers["X-API-Key"] == "key"
     assert headers["Content-Type"] == "application/json"
+
+
+def _generate_test_engine() -> RemoteInferenceEngine:
+    return RemoteInferenceEngine(
+        model_params=_get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
+    )
+
+
+def _assistant_payload(content: str) -> dict:
+    return dict(choices=[{"message": {"role": "assistant", "content": content}}])
+
+
+@pytest.mark.asyncio
+async def test_generate_preserves_input_order():
+    with aioresponses() as m:
+        m.post(_TARGET_SERVER, status=200, payload=_assistant_payload("first"))
+        m.post(_TARGET_SERVER, status=200, payload=_assistant_payload("second"))
+
+        conversations = [
+            Conversation(
+                messages=[Message(role=Role.USER, content="a")], conversation_id="1"
+            ),
+            Conversation(
+                messages=[Message(role=Role.USER, content="b")], conversation_id="2"
+            ),
+        ]
+        results = await _generate_test_engine().generate(conversations)
+
+        assert [c.conversation_id for c in results] == ["1", "2"]
+        assert all(c.messages[-1].role == Role.ASSISTANT for c in results)
+
+
+@pytest.mark.asyncio
+async def test_generate_one_returns_single_conversation():
+    with aioresponses() as m:
+        m.post(_TARGET_SERVER, status=200, payload=_assistant_payload("a response"))
+
+        conversation = Conversation(
+            messages=[Message(role=Role.USER, content="Hello world!")],
+            conversation_id="123",
+        )
+        result = await _generate_test_engine().generate_one(conversation)
+
+        assert isinstance(result, Conversation)
+        assert result.conversation_id == "123"
+        assert result.messages[-1].content == "a response"
+
+
+@pytest.mark.asyncio
+async def test_generate_does_not_write_scratch():
+    with aioresponses() as m:
+        m.post(_TARGET_SERVER, status=200, payload=_assistant_payload("a response"))
+
+        engine = _generate_test_engine()
+        conversation = Conversation(messages=[Message(role=Role.USER, content="hi")])
+        with patch.object(engine, "_save_conversation_to_scratch") as mock_scratch:
+            await engine.generate([conversation])
+
+        mock_scratch.assert_not_called()
+
+
+def test_infer_still_writes_scratch():
+    with aioresponses() as m:
+        m.post(_TARGET_SERVER, status=200, payload=_assistant_payload("a response"))
+
+        engine = _generate_test_engine()
+        conversation = Conversation(messages=[Message(role=Role.USER, content="hi")])
+        with patch.object(engine, "_save_conversation_to_scratch") as mock_scratch:
+            engine.infer([conversation], _get_default_inference_config())
+
+        mock_scratch.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_generate_cancellation_reaches_the_request():
+    request_started = asyncio.Event()
+
+    async def _never_responds(url, **kwargs):
+        request_started.set()
+        await asyncio.sleep(60)
+
+    with aioresponses() as m:
+        m.post(_TARGET_SERVER, callback=_never_responds)
+
+        engine = _generate_test_engine()
+        conversation = Conversation(messages=[Message(role=Role.USER, content="hi")])
+        task = asyncio.create_task(engine.generate([conversation]))
+        await asyncio.wait_for(request_started.wait(), timeout=5)
+        task.cancel()
+
+        # The retry loop catches Exception, which must not swallow CancelledError.
+        with pytest.raises(asyncio.CancelledError):
+            await task

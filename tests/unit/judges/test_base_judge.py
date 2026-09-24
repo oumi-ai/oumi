@@ -1493,3 +1493,108 @@ class TestJsonOutputParsing:
         from oumi.judges.base_judge import JudgeOutput
 
         assert JudgeOutput._parse_json_output(raw) == expected
+
+
+class TestBaseJudgeAsync:
+    """Test cases for the async judge API (ajudge / ajudge_one)."""
+
+    @pytest.fixture
+    def output_fields(self):
+        return [
+            JudgeOutputField(
+                field_key="judgment",
+                field_type=JudgeOutputType.BOOL,
+                field_scores=None,
+            )
+        ]
+
+    def _make_judge(self, output_fields, inference_engine):
+        return BaseJudge(
+            prompt_template="Is this helpful? Question: {question}, Answer: {answer}",
+            prompt_template_placeholders={"question", "answer"},
+            system_instruction=None,
+            example_field_values=[],
+            response_format=JudgeResponseFormat.XML,
+            output_fields=output_fields,
+            inference_engine=inference_engine,
+        )
+
+    def _mock_remote_engine(self, response_text):
+        from oumi.inference.remote_inference_engine import RemoteInferenceEngine
+
+        def _respond(input):
+            return [
+                Conversation(
+                    messages=[
+                        *conversation.messages,
+                        Message(role=Role.ASSISTANT, content=response_text),
+                    ],
+                    metadata=conversation.metadata,
+                )
+                for conversation in input
+            ]
+
+        engine = MagicMock(spec=RemoteInferenceEngine)
+        engine.generate.side_effect = lambda conversations: _respond(conversations)
+        engine.infer.side_effect = lambda input: _respond(input)
+        return engine
+
+    @pytest.mark.asyncio
+    async def test_ajudge_matches_judge(self, output_fields):
+        inputs = [{"question": "What is 1+1?", "answer": "2"}]
+
+        sync_judge = self._make_judge(
+            output_fields, self._mock_remote_engine("<judgment>Yes</judgment>")
+        )
+        async_judge = self._make_judge(
+            output_fields, self._mock_remote_engine("<judgment>Yes</judgment>")
+        )
+
+        sync_outputs = sync_judge.judge(inputs)
+        async_outputs = await async_judge.ajudge(inputs)
+
+        assert len(async_outputs) == 1
+        assert async_outputs[0].field_values == sync_outputs[0].field_values
+        assert async_outputs[0].field_scores == sync_outputs[0].field_scores
+        assert async_judge.total_input_tokens == sync_judge.total_input_tokens
+
+    @pytest.mark.asyncio
+    async def test_ajudge_one_returns_single_output(self, output_fields):
+        judge = self._make_judge(
+            output_fields, self._mock_remote_engine("<judgment>Yes</judgment>")
+        )
+
+        output = await judge.ajudge_one({"question": "What is 1+1?", "answer": "2"})
+
+        assert isinstance(output, JudgeOutput)
+        assert output.field_values == {"judgment": True}
+
+    @pytest.mark.asyncio
+    async def test_ajudge_requires_remote_engine(self, output_fields):
+        judge = self._make_judge(output_fields, Mock())
+
+        with pytest.raises(ValueError, match="RemoteInferenceEngine"):
+            await judge.ajudge([{"question": "What is 1+1?", "answer": "2"}])
+
+    @pytest.mark.asyncio
+    async def test_rule_based_judge_ajudge_needs_no_engine(self):
+        from oumi.core.configs.judge_config import JudgeConfig
+        from oumi.core.configs.params.judge_params import JudgeParams
+        from oumi.core.configs.params.rule_judge_params import RuleJudgeParams
+        from oumi.judges.rule_based_judge import RuleBasedJudge
+
+        judge = RuleBasedJudge(
+            JudgeConfig(
+                judge_params=JudgeParams(prompt_template="{text}"),
+                rule_judge_params=RuleJudgeParams(
+                    rule_type="regex",
+                    input_fields=["text"],
+                    rule_config={"pattern": r"\d+", "input_field": "text"},
+                ),
+            )
+        )
+        inputs = [{"text": "The answer is 42"}]
+
+        outputs = await judge.ajudge(inputs)
+
+        assert outputs == judge.judge(inputs)

@@ -269,6 +269,8 @@ class BedrockInferenceEngine(RemoteInferenceEngine):
         semaphore: PoliteAdaptiveSemaphore,
         session: Any,
         inference_config: Any | None = None,
+        *,
+        persist_scratch: bool = True,
     ) -> Conversation:
         """Queries Bedrock Converse using boto3 instead of HTTP."""
         if inference_config is None:
@@ -310,7 +312,7 @@ class BedrockInferenceEngine(RemoteInferenceEngine):
                     result = self._convert_api_output_to_conversation(
                         response, conversation
                     )
-                    if output_path:
+                    if persist_scratch and output_path:
                         self._save_conversation_to_scratch(result, output_path)
                     await self._try_record_success()
                     return result

@@ -446,13 +446,60 @@ class BaseJudge:
         Raises:
             ValueError: If inference returns unexpected number of conversations
         """
-        conversations: list[Conversation] = (
-            self.build_conversations(inputs)  # type: ignore[arg-type]
-            if inputs and isinstance(inputs[0], dict)
-            else inputs
-        )
+        conversations = self._prepare_judge_inputs(inputs)
         completed_conversations = self._infer(conversations)
         return self.parse_judge_outputs(completed_conversations)
+
+    async def ajudge(
+        self,
+        inputs: list[Conversation] | list[dict[str, str]],
+    ) -> list[JudgeOutput]:
+        """Evaluate a batch of inputs asynchronously and return structured judgments.
+
+        Async counterpart to `judge()` with identical semantics. Runs on the caller's
+        event loop, so cancelling the awaiting task cancels the in-flight requests.
+
+        Args:
+            inputs: Either a list of pre-built Conversation objects, or a list of
+                    dictionaries containing input data for evaluation. When dicts are
+                    provided, each must contain values for all prompt_template
+                    placeholders.
+
+        Returns:
+            List of structured judge outputs with parsed results
+
+        Raises:
+            ValueError: If the inference engine is not a RemoteInferenceEngine, or if
+                inference returns an unexpected number of conversations.
+        """
+        conversations = self._prepare_judge_inputs(inputs)
+        completed_conversations = await self._infer_async(conversations)
+        return self.parse_judge_outputs(completed_conversations)
+
+    async def ajudge_one(
+        self,
+        judge_input: Conversation | dict[str, str],
+    ) -> JudgeOutput:
+        """Evaluate one input asynchronously and return its structured judgment.
+
+        Args:
+            judge_input: Either a pre-built Conversation, or a dictionary containing
+                         input data for evaluation.
+
+        Returns:
+            The structured judge output with parsed results
+        """
+        outputs = await self.ajudge([judge_input])  # type: ignore[list-item]
+        return outputs[0]
+
+    def _prepare_judge_inputs(
+        self,
+        inputs: list[Conversation] | list[dict[str, str]],
+    ) -> list[Conversation]:
+        """Builds judge conversations from dicts, passing Conversations through."""
+        if inputs and isinstance(inputs[0], dict):
+            return self.build_conversations(inputs)  # type: ignore[arg-type]
+        return inputs  # type: ignore[return-value]
 
     def judge_partial(
         self,
@@ -895,15 +942,59 @@ class BaseJudge:
         original_metadata = [conv.metadata for conv in conversations]
 
         # Run batch inference
-        if self.inference_engine:
-            response_conversations = self.inference_engine.infer(input=conversations)
-        else:
+        if self.inference_engine is None:
             raise ValueError(
                 "Cannot run inference: inference_engine is None. "
                 "Subclasses that don't use inference should override the "
                 "judge() method."
             )
+        response_conversations = self.inference_engine.infer(input=conversations)
 
+        return self._process_inference_results(
+            response_conversations, original_metadata
+        )
+
+    async def _infer_async(
+        self, conversations: list[Conversation]
+    ) -> list[Conversation]:
+        """Run async inference on judge conversations and preserve metadata.
+
+        Args:
+            conversations: List of conversations to run inference on
+
+        Returns:
+            List of conversations with model responses added
+        """
+        # Preserve original metadata from input conversations
+        original_metadata = [conv.metadata for conv in conversations]
+
+        # Run batch inference
+        if not isinstance(self.inference_engine, RemoteInferenceEngine):
+            raise ValueError(
+                "Cannot run async inference: ajudge() requires a "
+                "RemoteInferenceEngine. Subclasses that don't run remote inference "
+                "should override the ajudge() method."
+            )
+        response_conversations = await self.inference_engine.generate(conversations)
+
+        return self._process_inference_results(
+            response_conversations, original_metadata
+        )
+
+    def _process_inference_results(
+        self,
+        response_conversations: list[Conversation],
+        original_metadata: list[dict],
+    ) -> list[Conversation]:
+        """Restore input metadata onto responses and accumulate token usage.
+
+        Args:
+            response_conversations: Conversations returned by the inference engine
+            original_metadata: Metadata of the corresponding input conversations
+
+        Returns:
+            The response conversations, with metadata restored
+        """
         if len(response_conversations) != len(original_metadata):
             raise ValueError(
                 f"Inference engine returned {len(response_conversations)} responses "
