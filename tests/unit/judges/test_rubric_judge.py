@@ -515,6 +515,59 @@ class TestRubricJudgeBatchResilience:
         assert result.successful[1][1].aggregate_score is None
 
 
+class TestRubricJudgeAsync:
+    """judge_async mirrors judge() through the remote async path."""
+
+    def _judge_replaying_async(self, raw: str) -> RubricJudge:
+        from unittest.mock import MagicMock
+
+        from oumi.core.types.conversation import Conversation, Message, Role
+        from oumi.inference.remote_inference_engine import RemoteInferenceEngine
+
+        def _completed():
+            return Conversation(
+                messages=[
+                    Message(content="p", role=Role.USER),
+                    Message(content=raw, role=Role.ASSISTANT),
+                ]
+            )
+
+        engine = MagicMock(spec=RemoteInferenceEngine)
+        engine.infer.side_effect = lambda *args, **kwargs: [_completed()]
+        engine.generate.side_effect = lambda *args, **kwargs: [_completed()]
+        with patch(
+            "oumi.judges.rubric_judge.RubricJudge._create_inference_engine",
+            return_value=engine,
+        ):
+            return RubricJudge(judge_config=_build_config())
+
+    @pytest.mark.asyncio
+    async def test_judge_async_matches_judge(self):
+        judge = self._judge_replaying_async(
+            json.dumps({"correctness": "Yes", "clarity": "good"})
+        )
+
+        sync_outputs = judge.judge([TEST_INPUT])
+        async_outputs = await judge.judge_async([TEST_INPUT])
+
+        assert len(async_outputs) == 1
+        assert async_outputs[0].field_values == sync_outputs[0].field_values
+        assert async_outputs[0].field_scores == sync_outputs[0].field_scores
+        assert async_outputs[0].aggregate_score == pytest.approx(0.75)
+
+    @pytest.mark.asyncio
+    async def test_judge_one_async_returns_single_output(self):
+        judge = self._judge_replaying_async(
+            json.dumps({"correctness": "Yes", "clarity": "good"})
+        )
+
+        output = await judge.judge_one_async(TEST_INPUT)
+
+        assert isinstance(output, JudgeOutput)
+        assert output.field_values == {"correctness": True, "clarity": "good"}
+        assert output.aggregate_score == pytest.approx(0.75)
+
+
 class TestRubricJudgeAggregation:
     """Combining per-criterion scores into an overall score."""
 
