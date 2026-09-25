@@ -2588,8 +2588,8 @@ async def test_batch_results_partial_failure_retries():
             ]
         )
         with patch.object(
-            engine, "_infer", new_callable=AsyncMock, return_value=[retry_result]
-        ) as mock_infer:
+            engine, "generate", new_callable=AsyncMock, return_value=[retry_result]
+        ) as mock_generate:
             results = await engine._get_batch_results_with_mapping(
                 "batch-123", conversations
             )
@@ -2598,8 +2598,8 @@ async def test_batch_results_partial_failure_retries():
         assert results[0].messages[-1].content == "Response 0"
         assert results[1].messages[-1].content == "Retry Response 1"
         assert results[2].messages[-1].content == "Response 2"
-        mock_infer.assert_called_once()
-        failed_convs = mock_infer.call_args[0][0]
+        mock_generate.assert_called_once()
+        failed_convs = mock_generate.call_args[0][0]
         assert len(failed_convs) == 1
         assert failed_convs[0].messages[0].content == "Q1"
 
@@ -2652,7 +2652,7 @@ async def test_batch_results_error_in_response_body():
             ]
         )
         with patch.object(
-            engine, "_infer", new_callable=AsyncMock, return_value=[retry_result]
+            engine, "generate", new_callable=AsyncMock, return_value=[retry_result]
         ):
             results = await engine._get_batch_results_with_mapping(
                 "batch-123", conversations
@@ -2702,7 +2702,7 @@ async def test_batch_results_error_null_no_body_error():
             ]
         )
         with patch.object(
-            engine, "_infer", new_callable=AsyncMock, return_value=[retry_result]
+            engine, "generate", new_callable=AsyncMock, return_value=[retry_result]
         ):
             results = await engine._get_batch_results_with_mapping(
                 "batch-123", conversations
@@ -2753,7 +2753,7 @@ async def test_batch_results_error_null_response_null():
             ]
         )
         with patch.object(
-            engine, "_infer", new_callable=AsyncMock, return_value=[retry_result]
+            engine, "generate", new_callable=AsyncMock, return_value=[retry_result]
         ):
             results = await engine._get_batch_results_with_mapping(
                 "batch-123", conversations
@@ -2766,7 +2766,7 @@ async def test_batch_results_error_null_response_null():
 
 @pytest.mark.asyncio
 async def test_batch_results_retry_failure_propagates():
-    """Test that exceptions from _infer during retry propagate up."""
+    """Test that exceptions from generate during retry propagate up."""
     with aioresponses() as m:
         m.get(
             f"{_TARGET_SERVER_BASE}/v1/batches/batch-123",
@@ -2784,7 +2784,7 @@ async def test_batch_results_retry_failure_propagates():
 
         with patch.object(
             engine,
-            "_infer",
+            "generate",
             new_callable=AsyncMock,
             side_effect=RuntimeError("API error during retry"),
         ):
