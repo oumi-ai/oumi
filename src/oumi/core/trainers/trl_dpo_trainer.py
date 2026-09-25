@@ -25,7 +25,6 @@ from datasets.fingerprint import Hasher
 from packaging.specifiers import SpecifierSet
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from transformers.integrations.fsdp import update_fsdp_plugin_peft
 from trl import DPOTrainer
 
 # The FSDP precompute overrides below copy private TRL and Transformers methods that
@@ -172,6 +171,9 @@ class TrlDpoTrainer(DPOTrainer):
             return
 
         if is_peft_model(self.model):
+            # Lazy: the symbol only exists in transformers>=5.2; oumi supports >=4.57.
+            from transformers.integrations.fsdp import update_fsdp_plugin_peft
+
             update_fsdp_plugin_peft(self.model, self.accelerator)
 
         self.model = self.accelerator.prepare(self.model)
