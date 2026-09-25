@@ -409,8 +409,7 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
             lines.append(json.dumps(request))
         content = "\n".join(lines).encode("utf-8")
 
-        connector = aiohttp.TCPConnector(limit=self._get_connection_limit())
-        async with aiohttp.ClientSession(connector=connector) as session:
+        async with self._session() as session:
             # Create input dataset (output dataset is created by the batch job)
             await self._create_fireworks_dataset(
                 input_dataset_id, len(conversations), session
@@ -638,8 +637,7 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
         error_messages: dict[int, str] = {}
         seen_indices: set[int] = set()
 
-        connector = aiohttp.TCPConnector(limit=self._get_connection_limit())
-        async with aiohttp.ClientSession(connector=connector) as session:
+        async with self._session() as session:
             signed_urls = await self._get_fireworks_dataset_urls(
                 output_dataset_id, session
             )
