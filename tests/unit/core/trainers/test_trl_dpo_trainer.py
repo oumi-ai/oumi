@@ -13,8 +13,10 @@
 # limitations under the License.
 
 import copy
+import importlib
 import json
 import re
+import sys
 from types import SimpleNamespace
 from typing import Any, cast
 from unittest.mock import MagicMock, patch
@@ -265,13 +267,22 @@ def test_prepare_policy_configures_peft_before_fsdp():
             return_value=True,
         ),
         patch(
-            "oumi.core.trainers.trl_dpo_trainer.update_fsdp_plugin_peft",
+            "transformers.integrations.fsdp.update_fsdp_plugin_peft",
             update_peft,
         ),
     ):
         trainer._prepare_policy_for_ref_logps()
 
     trainer.accelerator.prepare.assert_called_once_with(raw_model)
+
+
+def test_module_imports_without_update_fsdp_plugin_peft(monkeypatch):
+    import transformers.integrations.fsdp as hf_fsdp
+
+    monkeypatch.delattr(hf_fsdp, "update_fsdp_plugin_peft", raising=False)
+    monkeypatch.delitem(sys.modules, "oumi.core.trainers.trl_dpo_trainer")
+
+    importlib.import_module("oumi.core.trainers.trl_dpo_trainer")
 
 
 @pytest.mark.parametrize("has_optimizer", [True, False])
