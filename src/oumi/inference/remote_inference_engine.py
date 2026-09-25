@@ -1609,7 +1609,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             f"{len(failed_conversations)}/{len(conversations)} "
             f"requests failed. Retrying via online inference."
         )
-        retry_results = await self._infer(failed_conversations)
+        retry_results = await self.generate(failed_conversations)
 
         # Merge retry results back into the correct positions
         for idx, retry_result in zip(batch_result.failed_indices, retry_results):
