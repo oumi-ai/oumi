@@ -21,7 +21,6 @@ from typing import Any, Final, Literal, NamedTuple, cast
 import pydantic
 from typing_extensions import override
 
-from oumi.core.async_utils import safe_asyncio_run
 from oumi.core.configs import (
     GenerationParams,
     InferenceConfig,
@@ -675,7 +674,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
             generation_params = self._generation_params
             model_params = self._model_params
 
-        return safe_asyncio_run(
+        return self._run_coroutine(
             self._create_anthropic_batch(conversations, generation_params, model_params)
         )
 
@@ -731,7 +730,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         Returns:
             BatchInfo: Current status of the batch job
         """
-        return safe_asyncio_run(self._get_anthropic_batch_status(batch_id))
+        return self._run_coroutine(self._get_anthropic_batch_status(batch_id))
 
     async def _get_anthropic_batch_status(self, batch_id: str) -> BatchInfo:
         """Gets the status of a batch job from the Anthropic API.
@@ -768,7 +767,9 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         Returns:
             BatchListResponse: List of batch jobs
         """
-        return safe_asyncio_run(self._list_anthropic_batches(after=after, limit=limit))
+        return self._run_coroutine(
+            self._list_anthropic_batches(after=after, limit=limit)
+        )
 
     async def _list_anthropic_batches(
         self,
@@ -849,7 +850,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         conversations: list[Conversation],
     ) -> BatchResult:
         """Gets partial results of a completed Anthropic batch job."""
-        return safe_asyncio_run(
+        return self._run_coroutine(
             self._get_anthropic_batch_results_partial(batch_id, conversations)
         )
 
@@ -995,7 +996,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         Returns:
             BatchInfo: Updated status of the batch job
         """
-        return safe_asyncio_run(self._cancel_anthropic_batch(batch_id))
+        return self._run_coroutine(self._cancel_anthropic_batch(batch_id))
 
     async def _cancel_anthropic_batch(self, batch_id: str) -> BatchInfo:
         """Cancels a batch job via the Anthropic API.
