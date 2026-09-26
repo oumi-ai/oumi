@@ -13,6 +13,7 @@
 # limitations under the License.
 
 
+import aiohttp
 from typing_extensions import override
 
 from oumi.core.configs.judge_config import JudgeConfig
@@ -71,12 +72,16 @@ class SimpleJudge(BaseJudge):
     def __init__(
         self,
         judge_config: JudgeConfig | str,
+        http_session: aiohttp.ClientSession | None = None,
     ):
         """Initialize the Judge.
 
         Args:
             judge_config: JudgeConfig object or a path to a judge configuration file.
                 Contains both judge parameters and inference configuration.
+            http_session: A caller-owned aiohttp session for the judge's remote
+                engine to share across requests. Only the async judge methods work
+                with it. See `RemoteInferenceEngine`.
         """
         if isinstance(judge_config, str):
             judge_config = JudgeConfig.from_path(judge_config)
@@ -105,6 +110,7 @@ class SimpleJudge(BaseJudge):
         inference_engine = self._create_inference_engine(
             inference_config=self._inference_config,
             response_schema=self._build_response_schema() if use_schema else None,
+            http_session=http_session,
         )
 
         # Append format suffix to system instruction if it exists

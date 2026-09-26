@@ -14,6 +14,7 @@
 
 import logging
 
+import aiohttp
 from typing_extensions import override
 
 from oumi.core.configs.judge_config import JudgeConfig
@@ -64,6 +65,7 @@ class RubricJudge(BaseJudge):
     def __init__(
         self,
         judge_config: JudgeConfig | str,
+        http_session: aiohttp.ClientSession | None = None,
     ):
         """Initialize the RubricJudge.
 
@@ -71,6 +73,9 @@ class RubricJudge(BaseJudge):
             judge_config: JudgeConfig object or a path to a judge configuration file.
                 Must contain rubric_judge_params, together with judge_params (for the
                 shared prompt scaffolding) and inference_config.
+            http_session: A caller-owned aiohttp session for the judge's remote
+                engine to share across requests. Only the async judge methods work
+                with it. See `RemoteInferenceEngine`.
 
         Raises:
             ValueError: If rubric_judge_params or inference_config are missing, if the
@@ -114,6 +119,7 @@ class RubricJudge(BaseJudge):
         inference_engine = self._create_inference_engine(
             inference_config=self._inference_config,
             response_schema=self._build_response_schema() if use_schema else None,
+            http_session=http_session,
         )
 
         output_fields = self._create_output_fields()

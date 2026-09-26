@@ -16,6 +16,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+import aiohttp
 import pytest
 
 from oumi.core.configs.inference_config import InferenceConfig
@@ -224,7 +225,18 @@ class TestSimpleJudge:
         mock_create_engine.assert_called_once_with(
             inference_config=xml_config_no_explanation.inference_config,
             response_schema=None,
+            http_session=None,
         )
+
+    @patch("oumi.judges.simple_judge.SimpleJudge._create_inference_engine")
+    def test_init_forwards_http_session(
+        self, mock_create_engine, xml_config_no_explanation
+    ):
+        session = Mock(spec=aiohttp.ClientSession)
+
+        SimpleJudge(judge_config=xml_config_no_explanation, http_session=session)
+
+        assert mock_create_engine.call_args.kwargs["http_session"] is session
 
     @patch("oumi.judges.simple_judge.SimpleJudge._create_inference_engine")
     def test_build_prompt_xml_no_explanation(
@@ -521,6 +533,7 @@ class TestSimpleJudge:
             model_params=xml_config_no_explanation.inference_config.model,
             remote_params=xml_config_no_explanation.inference_config.remote_params,
             generation_params=xml_config_no_explanation.inference_config.generation,
+            http_session=None,
         )
 
     def test_enum_judgment_type_requires_scores(self):

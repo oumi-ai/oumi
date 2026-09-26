@@ -13,8 +13,9 @@
 # limitations under the License.
 
 import json
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
+import aiohttp
 import pytest
 
 from oumi.core.configs.inference_config import InferenceConfig
@@ -261,6 +262,14 @@ class TestRubricJudgeResponseSchema:
                 RubricJudge(judge_config=_build_config(response_format=response_format))
             schema = mock_create.call_args.kwargs["response_schema"]
             assert (schema is not None) == expects_schema
+
+    def test_init_forwards_http_session(self):
+        session = Mock(spec=aiohttp.ClientSession)
+        with patch(
+            "oumi.judges.rubric_judge.RubricJudge._create_inference_engine"
+        ) as mock_create:
+            RubricJudge(judge_config=_build_config(), http_session=session)
+        assert mock_create.call_args.kwargs["http_session"] is session
 
 
 class TestGuidedDecoding:
