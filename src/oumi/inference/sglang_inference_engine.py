@@ -18,6 +18,7 @@ import functools
 import json
 from typing import Any, NamedTuple
 
+import aiohttp
 import pydantic
 from typing_extensions import override
 
@@ -82,6 +83,7 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
         *,
         remote_params: RemoteParams | None = None,
         generation_params: GenerationParams | None = None,
+        http_session: aiohttp.ClientSession | None = None,
     ):
         """Initializes the SGL inference Engine.
 
@@ -89,6 +91,8 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
             model_params: The model parameters to use for inference.
             remote_params: Remote server params.
             generation_params: The generation parameters to use for inference.
+            http_session: A caller-owned aiohttp session shared by every operation.
+                See `RemoteInferenceEngine`.
         """
         if remote_params is None:
             raise ValueError("remote_params is required")
@@ -97,6 +101,7 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
             model_params=model_params,
             generation_params=generation_params,
             remote_params=remote_params,
+            http_session=http_session,
         )
 
         self._tokenizer = build_tokenizer(self._model_params)

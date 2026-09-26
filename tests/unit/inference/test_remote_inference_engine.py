@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 import json
 import math
 import os
@@ -4957,3 +4958,46 @@ async def test_generate_cancellation_reaches_the_request():
         # The retry loop catches Exception, which must not swallow CancelledError.
         # A swallowed one would leave the task finished with a result instead.
         assert task.cancelled()
+
+
+@pytest.mark.asyncio
+async def test_generate_runs_on_injected_session_and_leaves_it_open():
+    async with aiohttp.ClientSession() as session:
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+            http_session=session,
+        )
+        conversation = Conversation(messages=[Message(role=Role.USER, content="hi")])
+        with (
+            aioresponses() as m,
+            patch(
+                "aiohttp.ClientSession",
+                side_effect=AssertionError("engine created its own session"),
+            ),
+        ):
+            m.post(_TARGET_SERVER, status=200, payload=_assistant_payload("first"))
+            m.post(_TARGET_SERVER, status=200, payload=_assistant_payload("second"))
+            first = await engine.generate_one(conversation)
+            second = await engine.generate_one(conversation)
+
+        assert first.messages[-1].content == "first"
+        assert second.messages[-1].content == "second"
+        assert not session.closed
+
+
+@pytest.mark.asyncio
+async def test_sync_methods_refuse_injected_session():
+    async with aiohttp.ClientSession() as session:
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+            http_session=session,
+        )
+        with pytest.raises(RuntimeError, match="built with an http_session"):
+            engine.list_batches()
+
+        coro = engine._get_batch_status("batch-id")
+        with pytest.raises(RuntimeError, match="built with an http_session"):
+            engine._run_coroutine(coro)
+        assert inspect.getcoroutinestate(coro) == inspect.CORO_CLOSED

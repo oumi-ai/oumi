@@ -20,7 +20,7 @@ import random
 import tempfile
 import urllib.parse
 import warnings
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable, Coroutine
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -87,6 +87,7 @@ _RETRY_JITTER_FRACTION: float = 0.25
 _MAX_RETRY_JITTER_FRACTION: float = 1.0
 
 _QueryResultT = TypeVar("_QueryResultT")
+_T = TypeVar("_T")
 
 
 class BatchStatus(Enum):
@@ -285,12 +286,16 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     _rate_limiter: RateLimiter | None
     """Sliding window rate limiter for RPM and TPM limits."""
 
+    _http_session: aiohttp.ClientSession | None
+    """Caller-owned HTTP session shared by every operation, if one was injected."""
+
     def __init__(
         self,
         model_params: ModelParams,
         *,
         generation_params: GenerationParams | None = None,
         remote_params: RemoteParams | None = None,
+        http_session: aiohttp.ClientSession | None = None,
     ):
         """Initializes the inference Engine.
 
@@ -298,9 +303,15 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             model_params: The model parameters to use for inference.
             generation_params: Generation parameters to use for inference.
             remote_params: Remote server params.
+            http_session: A caller-owned aiohttp session that every operation runs
+                on instead of creating its own. The engine never closes it. It is
+                bound to the caller's event loop, so an engine built with one
+                supports only the async methods.
             **kwargs: Additional keyword arguments.
         """
         super().__init__(model_params=model_params, generation_params=generation_params)
+
+        self._http_session = http_session
 
         if remote_params:
             remote_params = copy.deepcopy(remote_params)
@@ -718,12 +729,37 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         """Yields the HTTP session that every remote operation runs on.
 
         Yields:
-            An aiohttp session scoped to the calling operation.
+            The injected session, or else an aiohttp session scoped to the calling
+            operation.
         """
+        if self._http_session is not None:
+            # Caller-owned, so it is never closed here.
+            yield self._http_session
+            return
         # Limit number of HTTP connections to prevent file descriptor exhaustion.
         connector = aiohttp.TCPConnector(limit=self._get_connection_limit())
         async with aiohttp.ClientSession(connector=connector) as session:
             yield session
+
+    def _run_coroutine(self, coro: Coroutine[Any, Any, _T]) -> _T:
+        """Runs a coroutine to completion and returns its result.
+
+        Blocks the calling thread until the coroutine finishes. The coroutine runs on
+        a new event loop in a helper thread, so calling this from inside a coroutine
+        blocks that coroutine's event loop for the whole call.
+
+        Raises:
+            RuntimeError: If the engine was built with an ``http_session``. That
+                session is bound to the caller's event loop and cannot be used from
+                the new one. The coroutine is closed without running.
+        """
+        if self._http_session is not None:
+            coro.close()
+            raise RuntimeError(
+                f"{type(self).__name__} was built with an http_session, which is "
+                "bound to the caller's event loop. Use the async methods instead."
+            )
+        return safe_asyncio_run(coro)
 
     def _set_required_fields_for_inference(self, remote_params: RemoteParams):
         """Set required fields for inference."""
@@ -1054,7 +1090,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             List[Conversation]: Inference output.
         """
-        conversations = safe_asyncio_run(self._infer(input, inference_config))
+        conversations = self._run_coroutine(self._infer(input, inference_config))
         return conversations
 
     @override
@@ -1071,7 +1107,9 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         """
         if not input:
             return []
-        return safe_asyncio_run(self._infer_partial(input, inference_config, progress))
+        return self._run_coroutine(
+            self._infer_partial(input, inference_config, progress)
+        )
 
     async def _query_api_guarded(
         self,
@@ -1198,7 +1236,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             stacklevel=2,
         )
         input = self._read_conversations(input_filepath)
-        conversations = safe_asyncio_run(self._infer(input, inference_config))
+        conversations = self._run_coroutine(self._infer(input, inference_config))
         if inference_config and inference_config.output_path:
             self._save_conversations(conversations, inference_config.output_path)
         return conversations
@@ -1228,7 +1266,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             list[str]: A list of model ID strings.
         """
-        models = safe_asyncio_run(self._fetch_models())
+        models = self._run_coroutine(self._fetch_models())
         if chat_only:
             models = self._filter_chat_models(models)
         return sorted(m["id"] for m in models if "id" in m)
@@ -1302,7 +1340,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             generation_params = self._generation_params
             model_params = self._model_params
 
-        return safe_asyncio_run(
+        return self._run_coroutine(
             self._create_batch(conversations, generation_params, model_params)
         )
 
@@ -1318,7 +1356,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             BatchInfo: Current status of the batch job
         """
-        return safe_asyncio_run(self._get_batch_status(batch_id))
+        return self._run_coroutine(self._get_batch_status(batch_id))
 
     def cancel_batch(self, batch_id: str) -> BatchInfo:
         """Cancels a batch inference job.
@@ -1329,7 +1367,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             BatchInfo: Updated status of the batch job
         """
-        return safe_asyncio_run(self._cancel_batch(batch_id))
+        return self._run_coroutine(self._cancel_batch(batch_id))
 
     def list_batches(
         self,
@@ -1345,7 +1383,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             BatchListResponse: List of batch jobs
         """
-        return safe_asyncio_run(
+        return self._run_coroutine(
             self._list_batches(
                 after=after,
                 limit=limit,
@@ -1374,7 +1412,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             RuntimeError: If the batch failed, has not completed, or if retry
                 of failed requests also fails.
         """
-        return safe_asyncio_run(
+        return self._run_coroutine(
             self._get_batch_results_with_mapping(batch_id, conversations)
         )
 
@@ -1632,7 +1670,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             RuntimeError: If the batch is not in a terminal state, or if the
                 batch status is FAILED/EXPIRED/CANCELLED (unrecoverable)
         """
-        return safe_asyncio_run(
+        return self._run_coroutine(
             self._get_batch_results_partial(batch_id, conversations)
         )
 
@@ -1762,7 +1800,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         after: str | None = None,
     ) -> FileListResponse:
         """Lists files."""
-        return safe_asyncio_run(
+        return self._run_coroutine(
             self._list_files(
                 purpose=purpose,
                 limit=limit,
@@ -1776,21 +1814,21 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         file_id: str,
     ) -> FileInfo:
         """Gets information about a file."""
-        return safe_asyncio_run(self._get_file(file_id))
+        return self._run_coroutine(self._get_file(file_id))
 
     def delete_file(
         self,
         file_id: str,
     ) -> bool:
         """Deletes a file."""
-        return safe_asyncio_run(self._delete_file(file_id))
+        return self._run_coroutine(self._delete_file(file_id))
 
     def get_file_content(
         self,
         file_id: str,
     ) -> str:
         """Gets a file's content."""
-        return safe_asyncio_run(self._download_file(file_id))
+        return self._run_coroutine(self._download_file(file_id))
 
     async def _list_files(
         self,

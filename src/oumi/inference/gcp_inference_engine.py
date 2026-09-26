@@ -16,6 +16,7 @@ import json
 import os
 from typing import Any
 
+import aiohttp
 import pydantic
 from typing_extensions import override
 
@@ -61,6 +62,7 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
         region_env_key: str | None = None,
         project_id: str | None = None,
         region: str | None = None,
+        http_session: aiohttp.ClientSession | None = None,
     ):
         """Initializes the inference Engine.
 
@@ -72,11 +74,14 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
             region_env_key: The environment variable key name for the region.
             project_id: The project ID to use for inference.
             region: The region to use for inference.
+            http_session: A caller-owned aiohttp session shared by every operation.
+                See `RemoteInferenceEngine`.
         """
         super().__init__(
             model_params=model_params,
             generation_params=generation_params,
             remote_params=remote_params,
+            http_session=http_session,
         )
         if project_id and project_id_env_key:
             raise ValueError(

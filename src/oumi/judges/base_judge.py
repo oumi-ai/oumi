@@ -18,6 +18,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 
+import aiohttp
 import pydantic
 from typing_extensions import Self
 
@@ -1033,6 +1034,7 @@ class BaseJudge:
     def _create_inference_engine(
         inference_config: InferenceConfig,
         response_schema: dict | None = None,
+        http_session: aiohttp.ClientSession | None = None,
     ) -> BaseInferenceEngine:
         """Build the inference engine backing a judge.
 
@@ -1044,6 +1046,8 @@ class BaseJudge:
             response_schema: JSON schema the judge's response must conform to, which
                 enables guided decoding so the output is structurally guaranteed to
                 match. None leaves guided decoding untouched.
+            http_session: A caller-owned aiohttp session for a remote engine to share
+                across requests. See `RemoteInferenceEngine`.
 
         Returns:
             An inference engine built from the configuration.
@@ -1077,6 +1081,7 @@ class BaseJudge:
             model_params=inference_config.model,
             remote_params=inference_config.remote_params,
             generation_params=inference_config.generation,
+            http_session=http_session,
         )
 
     def _transform_judge_output(self, raw_output: str) -> JudgeOutput:

@@ -14,6 +14,8 @@
 
 from types import MappingProxyType
 
+import aiohttp
+
 from oumi.core.configs import (
     GenerationParams,
     InferenceEngineType,
@@ -75,6 +77,7 @@ def build_inference_engine(
     model_params: ModelParams,
     remote_params: RemoteParams | None = None,
     generation_params: GenerationParams | None = None,
+    http_session: aiohttp.ClientSession | None = None,
 ) -> BaseInferenceEngine:
     """Returns the inference engine based on the provided config.
 
@@ -83,13 +86,15 @@ def build_inference_engine(
         model_params: Model parameters
         remote_params: Remote configuration parameters (required for some engines)
         generation_params: Generation parameters
+        http_session: A caller-owned aiohttp session for remote engines to share
+            across operations. Not supported by local engines.
 
     Returns:
         An instance of the specified inference engine
 
     Raises:
-        ValueError: If engine_type is not supported or if remote_params is
-         required but not provided
+        ValueError: If engine_type is not supported, if remote_params is
+         required but not provided, or if http_session is given for a local engine
     """
     if engine_type in ENGINE_MAP:
         engine = ENGINE_MAP[engine_type]
@@ -99,6 +104,11 @@ def build_inference_engine(
                 model_params=model_params,
                 generation_params=generation_params,
                 remote_params=remote_params,
+                http_session=http_session,
+            )
+        elif http_session is not None:
+            raise ValueError(
+                f"http_session is only supported by remote engines, not {engine_type}."
             )
         else:
             return engine(

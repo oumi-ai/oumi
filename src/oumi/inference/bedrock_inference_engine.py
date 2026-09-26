@@ -16,6 +16,7 @@ import asyncio
 import os
 from typing import Any
 
+import aiohttp
 from tqdm.asyncio import tqdm
 from typing_extensions import override
 
@@ -56,6 +57,7 @@ class BedrockInferenceEngine(RemoteInferenceEngine):
         *,
         generation_params: GenerationParams | None = None,
         remote_params: RemoteParams | None = None,
+        http_session: aiohttp.ClientSession | None = None,
     ):
         """Initializes the BedrockInferenceEngine.
 
@@ -63,6 +65,8 @@ class BedrockInferenceEngine(RemoteInferenceEngine):
             model_params: Parameters for the model.
             generation_params: Parameters for generation.
             remote_params: Parameters for remote inference.
+            http_session: A caller-owned aiohttp session shared by every operation.
+                See `RemoteInferenceEngine`.
 
         Raises:
             RuntimeError: If the boto3 package is not installed.
@@ -76,6 +80,7 @@ class BedrockInferenceEngine(RemoteInferenceEngine):
             model_params=model_params,
             generation_params=generation_params,
             remote_params=remote_params,
+            http_session=http_session,
         )
 
     @property
