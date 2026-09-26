@@ -1,6 +1,7 @@
 import json
 import os
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, call, patch
 
 import pytest
@@ -16,7 +17,10 @@ from oumi.core.configs import (
 )
 from oumi.core.constants import VERL_METRICS_FILENAME
 from oumi.core.trainers import verl_grpo_trainer
-from oumi.core.trainers.verl_grpo_trainer import VerlGrpoTrainer
+from oumi.core.trainers.verl_grpo_trainer import (
+    VerlGrpoTrainer,
+    _preserve_verl_lora_base_weights,
+)
 from oumi.core.types.conversation import (
     ContentItem,
     Conversation,
@@ -36,6 +40,26 @@ except ModuleNotFoundError:
 
 def _example(conversation: Conversation) -> dict:
     return {"conversation_json": conversation.to_json()}
+
+
+@pytest.mark.parametrize(
+    ("lora_rank", "lora", "expected_sleep_level"),
+    [
+        (64, {}, 1),
+        (0, {"rank": 64}, 1),
+        (64, {"merge": True}, 2),
+        (0, {}, 2),
+    ],
+)
+def test_verl_lora_sleep_level_matches_adapter_mode(
+    lora_rank: int, lora: dict, expected_sleep_level: int
+):
+    rollout = SimpleNamespace(sleep_level=2)
+    model_config = SimpleNamespace(lora_rank=lora_rank, lora=lora)
+
+    _preserve_verl_lora_base_weights(rollout, model_config)
+
+    assert rollout.sleep_level == expected_sleep_level
 
 
 @pytest.mark.skipif(verl_import_failed, reason="verl not available")
