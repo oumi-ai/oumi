@@ -15,6 +15,7 @@
 """Volcano Engine Reinforcement Learning (verl) GRPO Trainer."""
 
 import copy
+import importlib.metadata
 import inspect
 import json
 import os
@@ -100,6 +101,31 @@ def _verl_supports_file_logger() -> bool:
     if VerlTracking is None:
         return False
     return _VERL_FILE_LOGGER_BACKEND in getattr(VerlTracking, "supported_backend", ())
+
+
+def _preserve_verl_lora_base_weights(rollout: Any, model_config: Any) -> None:
+    """Match VERL's vLLM server sleep level for a separately loaded LoRA.
+
+    VERL 0.7.1's server sleeps at level 1 for unmerged LoRA, but its client
+    advertises level 2 with recent vLLM. That makes FSDP resend the unchanged
+    base model before every adapter update.
+    """
+    lora_as_adapter = (
+        model_config.lora_rank > 0 or model_config.lora.get("rank", 0) > 0
+    ) and not model_config.lora.get("merge", False)
+    if lora_as_adapter:
+        rollout.sleep_level = 1
+
+
+if verl is not None:
+
+    class _OumiAsyncActorRolloutRefWorker(AsyncActorRolloutRefWorker):
+        """Correct the actor-side sleep level after VERL builds its rollout."""
+
+        def _build_rollout(self, trust_remote_code=False):
+            super()._build_rollout(trust_remote_code=trust_remote_code)
+            if self.config.rollout.name == "vllm":
+                _preserve_verl_lora_base_weights(self.rollout, self.model_config)
 
 
 class VerlGrpoTrainer(BaseTrainer):
@@ -604,9 +630,13 @@ class VerlGrpoTrainer(BaseTrainer):
         # verl >=0.7 requires AsyncActorRolloutRefWorker for the checkpoint
         # engine's weight sync.
         _verl_v07 = is_verl_v0_7_or_later()
-        _actor_worker_cls = (
-            AsyncActorRolloutRefWorker if _verl_v07 else ActorRolloutRefWorker
-        )
+        if _verl_v07:
+            _actor_worker_cls = AsyncActorRolloutRefWorker
+            # Keep this downstream fix scoped to the VERL release it was verified on.
+            if importlib.metadata.version("verl") == "0.7.1":
+                _actor_worker_cls = _OumiAsyncActorRolloutRefWorker
+        else:
+            _actor_worker_cls = ActorRolloutRefWorker
         role_worker_mapping = {
             Role.ActorRollout: ray.remote(_actor_worker_cls),
             Role.Critic: ray.remote(CriticWorker),
