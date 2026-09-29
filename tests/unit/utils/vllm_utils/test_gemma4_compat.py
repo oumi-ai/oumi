@@ -156,8 +156,13 @@ def _load_weights(gemma4, present, required):
 
 @pytest.mark.parametrize(
     ("activated", "version"),
-    [(False, "0.19.1"), (True, "0.19.2"), (True, "0.21.0")],
-    ids=["not-activated", "unsupported-patch-release", "unsupported-newer-release"],
+    [(False, "0.19.1"), (True, "0.19.2"), (True, "0.21.0"), (True, "0.21.0+cu129")],
+    ids=[
+        "not-activated",
+        "unsupported-patch-release",
+        "unsupported-newer-release",
+        "unsupported-local-build",
+    ],
 )
 def test_registration_guards(monkeypatch, fake_gemma4, activated, version):
     if activated:
@@ -172,7 +177,7 @@ def test_registration_guards(monkeypatch, fake_gemma4, activated, version):
     assert fake_gemma4.Gemma4Attention.__init__ is original_init
 
 
-@pytest.mark.parametrize("version", ["0.19.1", "0.20.0"])
+@pytest.mark.parametrize("version", ["0.19.1", "0.20.0", "0.20.0+cu129"])
 def test_installs_on_supported_vllm_versions(monkeypatch, fake_gemma4, version):
     monkeypatch.setenv(ACTIVATION_ENV_VAR, "1")
     monkeypatch.setattr(importlib.metadata, "version", lambda package: version)

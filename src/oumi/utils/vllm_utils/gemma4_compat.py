@@ -233,7 +233,8 @@ def register_gemma4_compatibility() -> None:
         vllm_version = importlib.metadata.version("vllm")
     except importlib.metadata.PackageNotFoundError:
         return
-    if vllm_version not in SUPPORTED_VLLM_VERSIONS:
+    # CUDA-specific wheels carry a local label, e.g. 0.20.0+cu129.
+    if vllm_version.split("+", 1)[0] not in SUPPORTED_VLLM_VERSIONS:
         logger.debug(
             "[oumi-gemma4-compat] skipped: vLLM %s is installed, patch targets %s",
             vllm_version,
