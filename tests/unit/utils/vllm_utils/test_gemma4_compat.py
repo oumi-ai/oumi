@@ -47,7 +47,7 @@ class _CallRecorder:
 
 
 class _FakeGemma4Attention:
-    """The parts of vLLM 0.19.1's Gemma4Attention that the patch touches."""
+    """The parts of vLLM's Gemma4Attention (0.19.1, 0.20.0) that the patch touches."""
 
     module: ModuleType
 
@@ -156,8 +156,8 @@ def _load_weights(gemma4, present, required):
 
 @pytest.mark.parametrize(
     ("activated", "version"),
-    [(False, "0.19.1"), (True, "0.19.2")],
-    ids=["not-activated", "wrong-vllm-version"],
+    [(False, "0.19.1"), (True, "0.19.2"), (True, "0.21.0")],
+    ids=["not-activated", "unsupported-patch-release", "unsupported-newer-release"],
 )
 def test_registration_guards(monkeypatch, fake_gemma4, activated, version):
     if activated:
@@ -170,6 +170,18 @@ def test_registration_guards(monkeypatch, fake_gemma4, activated, version):
     register_gemma4_compatibility()
 
     assert fake_gemma4.Gemma4Attention.__init__ is original_init
+
+
+@pytest.mark.parametrize("version", ["0.19.1", "0.20.0"])
+def test_installs_on_supported_vllm_versions(monkeypatch, fake_gemma4, version):
+    monkeypatch.setenv(ACTIVATION_ENV_VAR, "1")
+    monkeypatch.setattr(importlib.metadata, "version", lambda package: version)
+
+    register_gemma4_compatibility()
+    attention = _build_attention(fake_gemma4, layer_index=4)
+
+    assert not hasattr(attention, "qkv_proj")
+    assert attention.q_proj.args == (4, 4)
 
 
 def test_registration_is_idempotent(monkeypatch, fake_gemma4, caplog):
