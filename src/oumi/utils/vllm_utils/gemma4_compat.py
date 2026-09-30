@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Gemma 4 KV-sharing compatibility for vLLM 0.19.1 and 0.20.0.
+"""Gemma 4 KV-sharing compatibility for vLLM 0.19.1, 0.20.0 and 0.21.0.
 
-Both releases ship the same ``Gemma4Attention`` and ``load_weights`` code this
-patch replaces. vLLM fixed this upstream in commit
+All three ship the same ``Gemma4Attention`` this patch replaces, and
+``load_weights`` differs only in MoE expert naming, which the wrapper doesn't
+touch. vLLM fixed this upstream in commit
 ``f2d45f26bd6a2c841ffbd0030ebaefe87c274e58`` (first released in v0.30.0), so the
 patch can go once Oumi only supports vLLM releases that contain it.
 """
@@ -47,7 +48,7 @@ logger = logging.getLogger(__name__)
 
 ACTIVATION_ENV_VAR = "OUMI_VLLM_GEMMA4_COMPAT"
 # vLLM releases whose Gemma 4 code matches what this patch replaces.
-SUPPORTED_VLLM_VERSIONS = frozenset({"0.19.1", "0.20.0"})
+SUPPORTED_VLLM_VERSIONS = frozenset({"0.19.1", "0.20.0", "0.21.0"})
 
 _INSTALL_MARKER = "_oumi_gemma4_kv_sharing_compat_installed"
 
