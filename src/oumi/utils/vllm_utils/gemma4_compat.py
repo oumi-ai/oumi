@@ -12,7 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Gemma 4 KV-sharing compatibility for vLLM 0.19.1."""
+"""Gemma 4 KV-sharing compatibility for vLLM 0.19.1 and 0.20.0.
+
+Both releases ship the same ``Gemma4Attention`` and ``load_weights`` code this
+patch replaces. vLLM fixed this upstream in commit
+``f2d45f26bd6a2c841ffbd0030ebaefe87c274e58`` (first released in v0.30.0), so the
+patch can go once Oumi only supports vLLM releases that contain it.
+"""
 
 from __future__ import annotations
 
@@ -40,9 +46,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 ACTIVATION_ENV_VAR = "OUMI_VLLM_GEMMA4_COMPAT"
-SUPPORTED_VLLM_VERSION = "0.19.1"
+# vLLM releases whose Gemma 4 code matches what this patch replaces.
+SUPPORTED_VLLM_VERSIONS = frozenset({"0.19.1", "0.20.0"})
 
-_INSTALL_MARKER = "_oumi_gemma4_vllm_0_19_1_compat_installed"
+_INSTALL_MARKER = "_oumi_gemma4_kv_sharing_compat_installed"
 
 # Anchored to the text stack. The vision tower names its blocks
 # `layers.N.self_attn.k_proj` too, so an unanchored pattern would silently drop
@@ -103,7 +110,7 @@ def _packed_qkv_disabled(gemma4_module: ModuleType) -> Iterator[None]:
         setattr(gemma4_module, "QKVParallelLinear", original_class)
 
 
-def _patch_attention(gemma4_module: ModuleType) -> None:
+def _patch_attention(gemma4_module: ModuleType, vllm_version: str) -> None:
     attention_class = gemma4_module.Gemma4Attention
     original_init = attention_class.__init__
     original_forward = attention_class.forward
@@ -146,7 +153,7 @@ def _patch_attention(gemma4_module: ModuleType) -> None:
         if is_shared_layer != self.is_kv_shared_layer:
             raise RuntimeError(
                 f"Oumi's Gemma 4 compatibility patch and vLLM "
-                f"{SUPPORTED_VLLM_VERSION} disagree on whether layer {layer_index} "
+                f"{vllm_version} disagree on whether layer {layer_index} "
                 "shares its KV cache. Refusing to build an inconsistent layer."
             )
         if not is_shared_layer:
@@ -218,7 +225,7 @@ def _patch_weight_loader(gemma4_module: ModuleType) -> None:
 
 
 def register_gemma4_compatibility() -> None:
-    """Installs the vLLM 0.19.1 Gemma 4 KV-sharing compatibility patch."""
+    """Installs the Gemma 4 KV-sharing compatibility patch on a supported vLLM."""
     if os.environ.get(ACTIVATION_ENV_VAR) != "1":
         return
 
@@ -226,11 +233,12 @@ def register_gemma4_compatibility() -> None:
         vllm_version = importlib.metadata.version("vllm")
     except importlib.metadata.PackageNotFoundError:
         return
-    if vllm_version != SUPPORTED_VLLM_VERSION:
+    # CUDA-specific wheels carry a local label, e.g. 0.20.0+cu129.
+    if vllm_version.split("+", 1)[0] not in SUPPORTED_VLLM_VERSIONS:
         logger.debug(
             "[oumi-gemma4-compat] skipped: vLLM %s is installed, patch targets %s",
             vllm_version,
-            SUPPORTED_VLLM_VERSION,
+            ", ".join(sorted(SUPPORTED_VLLM_VERSIONS)),
         )
         return
 
@@ -241,7 +249,7 @@ def register_gemma4_compatibility() -> None:
     if getattr(gemma4, _INSTALL_MARKER, False):
         return
 
-    _patch_attention(gemma4)
+    _patch_attention(gemma4, vllm_version)
     _patch_weight_loader(gemma4)
     setattr(gemma4, _INSTALL_MARKER, True)
     logger.info(
