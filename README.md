@@ -236,8 +236,6 @@ Explore the growing collection of ready-to-use configurations for state-of-the-a
 | Gemma 3 12B Instruct | [LoRA](/configs/recipes/gemma3/sft/12b_lora/train.yaml) • [Inference](/configs/recipes/gemma3/inference/12b_instruct_infer.yaml) • [Evaluation](/configs/recipes/gemma3/evaluation/12b/eval.yaml) |
 | Gemma 3 27B Instruct | [LoRA](/configs/recipes/gemma3/sft/27b_lora/train.yaml) • [Inference](/configs/recipes/gemma3/inference/27b_instruct_infer.yaml) • [Evaluation](/configs/recipes/gemma3/evaluation/27b/eval.yaml) |
 
-Each Gemma 4 recipe also includes a `gcp_job.yaml` for running it remotely with `oumi launch`.
-
 ### 🐋 DeepSeek R1 Family
 
 | Model | Example Configurations |
