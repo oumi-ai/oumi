@@ -9,7 +9,7 @@
 [![Tests](https://github.com/oumi-ai/oumi/actions/workflows/pretest.yaml/badge.svg?branch=main)](https://github.com/oumi-ai/oumi/actions/workflows/pretest.yaml)
 [![GPU Tests](https://github.com/oumi-ai/oumi/actions/workflows/gpu_tests.yaml/badge.svg?branch=main)](https://github.com/oumi-ai/oumi/actions/workflows/gpu_tests.yaml)
 [![GitHub Repo stars](https://img.shields.io/github/stars/oumi-ai/oumi)](https://github.com/oumi-ai/oumi/stargazers)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 [![About](https://img.shields.io/badge/About-oumi-blue.svg)](https://oumi.ai)
 
@@ -23,18 +23,19 @@
 
 ## 🔥 News
 
+- [2026/09] Gemma 4 inference on vLLM 0.19.1–0.21 for checkpoints saved with Transformers 5.5.2+, plus async `judge_async()` / `generate()` APIs for remote inference engines
+- [2026/09] [Oumi v0.9 released](https://github.com/oumi-ai/oumi/releases/tag/v0.9): an end-to-end stack for agentic, tool-using models, with tool-calling SFT and DPO, executable tool environments (database, HTTP endpoint, lookup, simulated), GRPO over any Oumi environment with verl, a multi-criteria `RubricJudge`, partial-failure-tolerant pipelines, a Modal launcher, SkyPilot-routed Slurm, and [Gemma 4 recipes](/configs/recipes/gemma4)
 - [2026/08] Extended GRPO reinforcement learning to support tool use
 - [2026/07] Added support for tools, environments (simulated, lookup, database), and agentic data synthesis
 - [2026/06] Added support for the Gemma 4 model family
 - [2026/06] Added partial-failure support across inference, judging, and data synthesis
 - [2026/05] [Oumi v0.8 released](https://github.com/oumi-ai/oumi/releases/tag/v0.8) with `oumi deploy` CLI for dedicated inference endpoints, an `oumi-mcp` MCP server for Claude/Cursor integration, batch API support across Anthropic/Fireworks/Together, and Transformers v5 / TRL / vLLM dependency upgrades
 - [2026/03] Upgraded to Transformers v5, TRL v0.30, vLLM v0.19, and veRL v0.7 compatibility
-- [2026/03] [MCP Integration Phase 1](https://github.com/oumi-ai/oumi/pull/2234): package scaffold and dependencies for MCP server support
-- [2026/03] New: `oumi deploy` command for deploying oumi models dedicated inference endpoints on fireworks.ai and parasail
-- [2026/03] Added support for Qwen3.5 model family
-- [2026/03] Inference engines received multiple improvements: list_models api, improved error reporting
+- [2026/03] New `oumi deploy` command for deploying Oumi models to dedicated inference endpoints on Fireworks and Parasail
+- [2026/03] Added support for the [Qwen3.5 model family](/configs/recipes/qwen3_5)
 - [2026/02] [Preview of using the Oumi Platform and Lambda to fine-tune and deploy a 4B model for user intent classification](https://youtu.be/0XpfYRpd_FA)
 - [2026/02] [Lambda and Oumi partner for end-to-end custom model development](https://blog.oumi.ai/p/lambda-and-oumi-partner-for-end-to)
+- [2026/01] [Oumi v0.7 released](https://github.com/oumi-ai/oumi/releases/tag/v0.7) with Python 3.14 and PyTorch 2.9 support, Fireworks and OpenRouter inference engines, and rule-based evaluation judges
 - [2025/12] [Oumi v0.6.0 released](https://github.com/oumi-ai/oumi/releases/tag/v0.6.0) with Python 3.13 support, `oumi analyze` CLI command, TRL 0.26+ support, and more
 - [2025/12] [WeMakeDevs AI Agents Assemble Hackathon: Oumi webinar on Finetuning for Text-to-SQL](https://www.youtube.com/watch?v=6wPikqRZ7bQ&t=3203s)
 - [2025/12] [Oumi co-sponsors WeMakeDevs AI Agents Assemble Hackathon with over 2000 project submissions](https://www.wemakedevs.org/hackathons/assemblehack25)
@@ -68,13 +69,14 @@ Oumi is a fully open-source platform that streamlines the entire lifecycle of fo
 
 With Oumi, you can:
 
-- 🚀 Train and fine-tune models from 10M to 405B parameters using state-of-the-art techniques (SFT, LoRA, QLoRA, GRPO, and more)
-- 🤖 Work with both text and multimodal models (Llama, DeepSeek, Qwen, Phi, and others)
-- 🔄 Synthesize and curate training data with LLM judges
-- ⚡️ Deploy models efficiently with popular inference engines (vLLM, SGLang)
-- 📊 Evaluate models comprehensively across standard benchmarks
-- 🌎 Run anywhere - from laptops to clusters to clouds (AWS, Azure, GCP, Lambda, and more)
-- 🔌 Integrate with both open models and commercial APIs (OpenAI, Anthropic, Vertex AI, Together, Parasail, ...)
+- 🚀 Train and fine-tune models from 10M to 400B+ parameters using state-of-the-art techniques (SFT, LoRA, QLoRA, DPO, GRPO, and more)
+- 🛠️ Train agentic, tool-using models: tool-calling SFT, executable tool environments (database, HTTP endpoint, lookup, simulated), and reinforcement learning over those environments with verl GRPO
+- 🤖 Work with both text and multimodal models (Llama, Gemma, Qwen, DeepSeek, GLM, Phi, and others)
+- 🔄 Synthesize and curate training data, including multi-turn tool-use conversations, with LLM judges
+- ⚡️ Serve models efficiently with popular inference engines (vLLM, SGLang), or deploy to dedicated endpoints with `oumi deploy`
+- 📊 Evaluate models across standard benchmarks and with multi-criteria rubric judges
+- 🌎 Run anywhere - from laptops to clusters to clouds (AWS, Azure, GCP, Lambda, Modal, Slurm, and more)
+- 🔌 Integrate with both open models and commercial APIs (OpenAI, Anthropic, Vertex AI, Together, Fireworks, Parasail, ...), and drive Oumi from Claude or Cursor with the `oumi-mcp` MCP server
 
 All with one consistent API, production-grade reliability, and all the flexibility you need for research.
 
@@ -90,6 +92,9 @@ Learn more at [oumi.ai](https://oumi.ai/docs), or jump right in with the [quicks
 | **📋 Model Evaluation** | <a target="_blank" href="https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi - Evaluation with Oumi.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> | Comprehensive model evaluation using Oumi's evaluation framework |
 | **☁️ Remote Training** | <a target="_blank" href="https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi - Running Jobs Remotely.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> | Launch and monitor training jobs on cloud (AWS, Azure, GCP, Lambda, etc.) platforms |
 | **📈 LLM-as-a-Judge** | <a target="_blank" href="https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi - Simple Judge.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> | Filter and curate training data with built-in judges |
+| **🎯 GRPO Reinforcement Learning** | <a target="_blank" href="https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi - Train a Letter Counting Model using GRPO.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> | Train a model with GRPO and a custom reward function |
+| **🖼️ Vision Language Models** | <a target="_blank" href="https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi - Vision Language Models.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> | Fine-tune and run inference with vision-language models |
+| **⚡️ vLLM Inference** | <a target="_blank" href="https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi - Using vLLM Engine for Inference.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> | Run fast local inference with the vLLM engine |
 
 ## 🔧 Usage
 
@@ -180,6 +185,8 @@ oumi launch up -c configs/recipes/smollm/sft/135m/quickstart_gcp_job.yaml --reso
 oumi launch up -c configs/recipes/smollm/sft/135m/quickstart_gcp_job.yaml --resources.cloud lambda
 ```
 
+Oumi also runs jobs on Modal and on Slurm clusters; see the [launcher guide](https://oumi.ai/docs/en/latest/user_guides/launch/launch.html).
+
 **Note:** Oumi is in <ins>beta</ins> and under active development. The core features are stable, but some advanced features might change as the platform improves.
 
 ## 💻 Why use Oumi?
@@ -199,6 +206,8 @@ Here are some of the key features that make Oumi stand out:
 
 Explore the growing collection of ready-to-use configurations for state-of-the-art models and training workflows:
 
+For end-to-end workflows beyond single-model recipes (GRPO with verl, data synthesis, deployment, bulk inference, quantization, and more), see [configs/examples](/configs/examples).
+
 **Note:** These configurations are not an exhaustive list of what's supported, simply examples to get you started. You can find a more exhaustive list of supported [models](https://oumi.ai/docs/en/latest/resources/models/supported_models.html), and datasets ([supervised fine-tuning](https://oumi.ai/docs/en/latest/resources/datasets/sft_datasets.html), [pre-training](https://oumi.ai/docs/en/latest/resources/datasets/pretraining_datasets.html), [preference tuning](https://oumi.ai/docs/en/latest/resources/datasets/preference_datasets.html), and [vision-language finetuning](https://oumi.ai/docs/en/latest/resources/datasets/vl_sft_datasets.html)) in the oumi documentation.
 
 ### Qwen Family
@@ -206,6 +215,7 @@ Explore the growing collection of ready-to-use configurations for state-of-the-a
 | Model | Example Configurations |
 |-------|------------------------|
 | Qwen3-Next 80B A3B | [LoRA](/configs/recipes/qwen3_next/sft/80b_a3b_lora/train.yaml) • [Inference](/configs/recipes/qwen3_next/inference/80b_a3b_infer.yaml) • [Inference (Instruct)](/configs/recipes/qwen3_next/inference/80b_a3b_instruct_infer.yaml) • [Evaluation](/configs/recipes/qwen3_next/evaluation/80b_a3b_eval.yaml) |
+| Qwen3.5 0.8B | [FFT](/configs/recipes/qwen3_5/sft/0.8b_full/train.yaml) • [LoRA](/configs/recipes/qwen3_5/sft/0.8b_lora/train.yaml) • [Inference (vLLM)](/configs/recipes/qwen3_5/inference/0.8b_vllm_infer.yaml) • [Inference](/configs/recipes/qwen3_5/inference/0.8b_infer.yaml) |
 | Qwen3 30B A3B | [LoRA](/configs/recipes/qwen3/sft/30b_a3b_lora/train.yaml) • [Inference](/configs/recipes/qwen3/inference/30b_a3b_infer.yaml) • [Evaluation](/configs/recipes/qwen3/evaluation/30b_a3b_eval.yaml) |
 | Qwen3 32B | [LoRA](/configs/recipes/qwen3/sft/32b_lora/train.yaml) • [Inference](/configs/recipes/qwen3/inference/32b_infer.yaml) • [Evaluation](/configs/recipes/qwen3/evaluation/32b_eval.yaml) |
 | Qwen3 14B | [LoRA](/configs/recipes/qwen3/sft/14b_lora/train.yaml) • [Inference](/configs/recipes/qwen3/inference/14b_infer.yaml) • [Evaluation](/configs/recipes/qwen3/evaluation/14b_eval.yaml) |
@@ -213,8 +223,9 @@ Explore the growing collection of ready-to-use configurations for state-of-the-a
 | Qwen3 4B | [FFT](/configs/recipes/qwen3/sft/4b_full/train.yaml) • [Inference](/configs/recipes/qwen3/inference/4b_infer.yaml) • [Evaluation](/configs/recipes/qwen3/evaluation/4b_eval.yaml) |
 | Qwen3 1.7B | [FFT](/configs/recipes/qwen3/sft/1.7b_full/train.yaml) • [Inference](/configs/recipes/qwen3/inference/1.7b_infer.yaml) • [Evaluation](/configs/recipes/qwen3/evaluation/1.7b_eval.yaml) |
 | Qwen3 0.6B | [FFT](/configs/recipes/qwen3/sft/0.6b_full/train.yaml) • [Inference](/configs/recipes/qwen3/inference/0.6b_infer.yaml) • [Evaluation](/configs/recipes/qwen3/evaluation/0.6b_eval.yaml) |
+| Qwen3-Coder 30B A3B Instruct | [Inference (vLLM)](/configs/recipes/qwen3_coder/inference/30b_a3b_instruct_vllm_infer.yaml) • [Inference (vLLM, tool calling)](/configs/recipes/qwen3_coder/inference/30b_a3b_instruct_vllm_tool_calling_infer.yaml) • [Inference (GGUF)](/configs/recipes/qwen3_coder/inference/30b_a3b_instruct_gguf_infer.yaml) • [Inference (GGUF, macOS)](/configs/recipes/qwen3_coder/inference/30b_a3b_instruct_gguf_macos_infer.yaml) |
 | QwQ 32B | [FFT](/configs/recipes/qwq/sft/full_train.yaml) • [LoRA](/configs/recipes/qwq/sft/lora_train.yaml) • [QLoRA](/configs/recipes/qwq/sft/qlora_train.yaml) • [Inference](/configs/recipes/qwq/inference/infer.yaml) • [Evaluation](/configs/recipes/qwq/evaluation/eval.yaml) |
-| Qwen2.5-VL 3B | [SFT](/configs/recipes/vision/qwen2_5_vl_3b/sft/full/train.yaml) • [LoRA](/configs/recipes/vision/qwen2_5_vl_3b/sft/lora/train.yaml)• [Inference (vLLM)](configs/recipes/vision/qwen2_5_vl_3b/inference/vllm_infer.yaml) • [Inference](configs/recipes/vision/qwen2_5_vl_3b/inference/infer.yaml) |
+| Qwen2.5-VL 3B | [SFT](/configs/recipes/vision/qwen2_5_vl_3b/sft/full/train.yaml) • [LoRA](/configs/recipes/vision/qwen2_5_vl_3b/sft/lora/train.yaml) • [Inference (vLLM)](configs/recipes/vision/qwen2_5_vl_3b/inference/vllm_infer.yaml) • [Inference](configs/recipes/vision/qwen2_5_vl_3b/inference/infer.yaml) |
 | Qwen2-VL 2B | [SFT](/configs/recipes/vision/qwen2_vl_2b/sft/full/train.yaml) • [LoRA](/configs/recipes/vision/qwen2_vl_2b/sft/lora/train.yaml) • [Inference (vLLM)](configs/recipes/vision/qwen2_vl_2b/inference/vllm_infer.yaml) • [Inference (SGLang)](configs/recipes/vision/qwen2_vl_2b/inference/sglang_infer.yaml) • [Inference](configs/recipes/vision/qwen2_vl_2b/inference/infer.yaml) • [Evaluation](configs/recipes/vision/qwen2_vl_2b/evaluation/eval.yaml) |
 
 ### 🐋 DeepSeek R1 Family
@@ -248,6 +259,18 @@ Explore the growing collection of ready-to-use configurations for state-of-the-a
 | [Falcon-H1](https://huggingface.co/collections/tiiuae/falcon-h1-6819f2795bc406da60fab8df) | [FFT](/configs/recipes/falcon_h1/sft/) • [Inference](/configs/recipes/falcon_h1/inference/) • [Evaluation](/configs/recipes/falcon_h1/evaluation/) |
 | [Falcon-E (BitNet)](https://huggingface.co/collections/tiiuae/falcon-edge-series-6804fd13344d6d8a8fa71130) | [FFT](/configs/recipes/falcon_e/sft/) • [DPO](/configs/recipes/falcon_e/dpo/) • [Evaluation](/configs/recipes/falcon_e/evaluation/) |
 
+### 💎 Gemma 4 Family
+
+| Model | Example Configurations |
+|-------|------------------------|
+| Gemma 4 E2B Instruct | [FFT](/configs/recipes/gemma4/sft/e2b_full/train.yaml) • [LoRA](/configs/recipes/gemma4/sft/e2b_lora/train.yaml) |
+| Gemma 4 E4B Instruct | [FFT](/configs/recipes/gemma4/sft/e4b_full/train.yaml) • [LoRA](/configs/recipes/gemma4/sft/e4b_lora/train.yaml) |
+| Gemma 4 12B Instruct | [FFT](/configs/recipes/gemma4/sft/12b_full/train.yaml) • [LoRA](/configs/recipes/gemma4/sft/12b_lora/train.yaml) |
+| Gemma 4 26B A4B Instruct | [LoRA](/configs/recipes/gemma4/sft/26b_lora/train.yaml) |
+| Gemma 4 31B Instruct | [LoRA](/configs/recipes/gemma4/sft/31b_lora/train.yaml) |
+
+Each Gemma 4 recipe also includes a `gcp_job.yaml` for running it remotely with `oumi launch`.
+
 ### 💎 Gemma 3 Family
 
 | Model | Example Configurations |
@@ -255,6 +278,21 @@ Explore the growing collection of ready-to-use configurations for state-of-the-a
 | Gemma 3 4B Instruct | [FFT](/configs/recipes/gemma3/sft/4b_full/train.yaml) • [Inference](/configs/recipes/gemma3/inference/4b_instruct_infer.yaml) • [Evaluation](/configs/recipes/gemma3/evaluation/4b/eval.yaml) |
 | Gemma 3 12B Instruct | [LoRA](/configs/recipes/gemma3/sft/12b_lora/train.yaml) • [Inference](/configs/recipes/gemma3/inference/12b_instruct_infer.yaml) • [Evaluation](/configs/recipes/gemma3/evaluation/12b/eval.yaml) |
 | Gemma 3 27B Instruct | [LoRA](/configs/recipes/gemma3/sft/27b_lora/train.yaml) • [Inference](/configs/recipes/gemma3/inference/27b_instruct_infer.yaml) • [Evaluation](/configs/recipes/gemma3/evaluation/27b/eval.yaml) |
+
+### 🧠 gpt-oss Family
+
+| Model | Example Configurations |
+|-------|------------------------|
+| gpt-oss 20B | [LoRA (single GPU)](/configs/recipes/gpt_oss/sft/20b_lora_single_gpu_train.yaml) • [LoRA (multi-GPU)](/configs/recipes/gpt_oss/sft/20b_lora_multi_gpu_train.yaml) • [Inference (vLLM)](/configs/recipes/gpt_oss/inference/20b_vllm_infer.yaml) • [Inference](/configs/recipes/gpt_oss/inference/20b_infer.yaml) |
+| gpt-oss 120B | [LoRA (multi-GPU)](/configs/recipes/gpt_oss/sft/120b_lora_multi_gpu_train.yaml) • [Inference (vLLM)](/configs/recipes/gpt_oss/inference/120b_vllm_infer.yaml) • [Inference (Together AI)](/configs/recipes/gpt_oss/inference/120b_together_infer.yaml) • [Inference](/configs/recipes/gpt_oss/inference/120b_infer.yaml) |
+
+### 🧩 GLM Family
+
+| Model | Example Configurations |
+|-------|------------------------|
+| GLM-4.7 | [Inference (Fireworks)](/configs/recipes/glm4/inference/4p7_fireworks_infer.yaml) |
+| GLM-4.5-Air | [Inference (GGUF)](/configs/recipes/glm4/inference/air_gguf_infer.yaml) • [Inference (GGUF, macOS)](/configs/recipes/glm4/inference/air_gguf_macos_infer.yaml) |
+| GLM-4 9B Chat | [Inference (vLLM)](/configs/recipes/glm4/inference/air_vllm_infer.yaml) |
 
 ### 🦉 OLMo 3 Family
 
@@ -272,10 +310,14 @@ Explore the growing collection of ready-to-use configurations for state-of-the-a
 | Phi3 Vision 4.2B | [SFT](/configs/recipes/vision/phi3/sft/full/train.yaml) • [LoRA](/configs/recipes/vision/phi3/sft/lora/train.yaml) • [Inference (vLLM)](configs/recipes/vision/phi3/inference/vllm_infer.yaml) |
 | Phi4 Vision 5.6B | [SFT](/configs/recipes/vision/phi4/sft/full/train.yaml) • [LoRA](/configs/recipes/vision/phi4/sft/lora/train.yaml) • [Inference (vLLM)](configs/recipes/vision/phi4/inference/vllm_infer.yaml) • [Inference](/configs/recipes/vision/phi4/inference/infer.yaml) |
 | Qwen2-VL 2B | [SFT](/configs/recipes/vision/qwen2_vl_2b/sft/full/train.yaml) • [LoRA](/configs/recipes/vision/qwen2_vl_2b/sft/lora/train.yaml) • [Inference (vLLM)](configs/recipes/vision/qwen2_vl_2b/inference/vllm_infer.yaml) • [Inference (SGLang)](configs/recipes/vision/qwen2_vl_2b/inference/sglang_infer.yaml) • [Inference](configs/recipes/vision/qwen2_vl_2b/inference/infer.yaml) • [Evaluation](configs/recipes/vision/qwen2_vl_2b/evaluation/eval.yaml) |
+| InternVL3 1B | [SFT](/configs/recipes/vision/internvl3/sft/full/train.yaml) |
+| Molmo 7B-D | [SFT](/configs/recipes/vision/molmo/sft/molmo_d_full/train.yaml) |
+| Molmo 7B-O | [SFT](/configs/recipes/vision/molmo/sft/molmo_o_full/train.yaml) • [GRPO](/configs/recipes/vision/molmo/grpo/train.yaml) |
 | Qwen3-VL 2B | [Inference](/configs/recipes/vision/qwen3_vl_2b/inference/infer.yaml) |
 | Qwen3-VL 4B | [Inference](/configs/recipes/vision/qwen3_vl_4b/inference/infer.yaml) |
 | Qwen3-VL 8B | [Inference](/configs/recipes/vision/qwen3_vl_8b/inference/infer.yaml) |
-| Qwen2.5-VL 3B | [SFT](/configs/recipes/vision/qwen2_5_vl_3b/sft/full/train.yaml) • [LoRA](/configs/recipes/vision/qwen2_5_vl_3b/sft/lora/train.yaml)• [Inference (vLLM)](configs/recipes/vision/qwen2_5_vl_3b/inference/vllm_infer.yaml) • [Inference](configs/recipes/vision/qwen2_5_vl_3b/inference/infer.yaml) |
+| Qwen3-VL 30B A3B Instruct | [FFT](/configs/recipes/vision/qwen3_vl_30b_a3b/sft/30b_a3b_instruct_fft_train.yaml) • [LoRA](/configs/recipes/vision/qwen3_vl_30b_a3b/sft/30b_a3b_instruct_lora_train.yaml) |
+| Qwen2.5-VL 3B | [SFT](/configs/recipes/vision/qwen2_5_vl_3b/sft/full/train.yaml) • [LoRA](/configs/recipes/vision/qwen2_5_vl_3b/sft/lora/train.yaml) • [Inference (vLLM)](configs/recipes/vision/qwen2_5_vl_3b/inference/vllm_infer.yaml) • [Inference](configs/recipes/vision/qwen2_5_vl_3b/inference/infer.yaml) |
 | SmolVLM-Instruct 2B | [SFT](/configs/recipes/vision/smolvlm/sft/full/train.yaml) • [LoRA](/configs/recipes/vision/smolvlm/sft/lora/train.yaml) |
 
 ### 🔍 Even more options
@@ -305,6 +347,9 @@ Models prefixed with a checkmark (✅) have been thoroughly tested and validated
 | Command R | 35B/104B | [Blog](https://cohere.com/blog/command-r7b) | [Hub](https://huggingface.co/CohereForAI/c4ai-command-r-plus) | [License](https://cohere.com/c4ai-cc-by-nc-license) | ❌ |
 | Granite-3.1-Instruct | 2B/8B | [Paper](https://github.com/ibm-granite/granite-3.0-language-models/blob/main/paper.pdf) | [Hub](https://huggingface.co/ibm-granite/granite-3.1-8b-instruct) | Apache 2.0 | ❌ |
 | Gemma 2 Instruct | 2B/9B | [Blog](https://ai.google.dev/gemma) | [Hub](https://huggingface.co/google/gemma-2-2b-it) | [License](https://ai.google.dev/gemma/terms) | ❌ |
+| ✅ Gemma 4 Instruct | E2B/E4B/12B/26B A4B/31B | [Blog](https://ai.google.dev/gemma) | [Hub](https://huggingface.co/google/gemma-4-31B-it) | [License](https://ai.google.dev/gemma/terms) | ❌ |
+| ✅ Qwen3.5 | 0.8B | [Blog](https://qwen.ai/research) | [Hub](https://huggingface.co/Qwen/Qwen3.5-0.8B) | [License](https://github.com/QwenLM/Qwen/blob/main/LICENSE) | ❌ |
+| GLM-4.5-Air | 106B (Total) | [Blog](https://z.ai/blog/glm-4.5) | [Hub](https://huggingface.co/zai-org/GLM-4.5-Air) | MIT | ❌ |
 | ✅ Gemma 3 Instruct | 4B/12B/27B | [Blog](https://ai.google.dev/gemma) | [Hub](https://huggingface.co/google/gemma-3-27b-it) | [License](https://ai.google.dev/gemma/terms) | ❌ |
 | DBRX-Instruct | 130B MoE | [Blog](https://www.databricks.com/blog/introducing-dbrx-new-state-art-open-llm) | [Hub](https://huggingface.co/databricks/dbrx-instruct) | Apache 2.0 | ❌ |
 | Falcon-Instruct | 7B/40B | [Paper](https://arxiv.org/abs/2306.01116) | [Hub](https://huggingface.co/tiiuae/falcon-7b-instruct) | Apache 2.0 | ❌  |
