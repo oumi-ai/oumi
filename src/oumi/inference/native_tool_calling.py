@@ -31,6 +31,7 @@ NATIVE_TOOL_CALLING_ENGINES: frozenset[InferenceEngineType] = frozenset(
         InferenceEngineType.DEEPSEEK,
         InferenceEngineType.FIREWORKS,
         InferenceEngineType.OPENROUTER,
+        InferenceEngineType.ORCAROUTER,
         InferenceEngineType.CEREBRAS,
         InferenceEngineType.PARASAIL,
         InferenceEngineType.SAMBANOVA,

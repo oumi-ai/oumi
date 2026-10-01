@@ -53,6 +53,7 @@ from oumi.cli.infer import infer
 from oumi.cli.judge import judge_conversations_file, judge_dataset_file
 from oumi.cli.launch import cancel, down, logs, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
+from oumi.cli.orcarouter import orcarouter_app
 from oumi.cli.quantize import quantize
 from oumi.cli.synth import synth
 from oumi.cli.train import train
@@ -264,6 +265,15 @@ def get_app() -> typer.Typer:
         name="launch",
         help="Deploy and manage jobs on cloud infrastructure.",
         rich_help_panel="Compute",
+    )
+    app.add_typer(
+        orcarouter_app,
+        name="orcarouter",
+        help=(
+            "Connect Oumi to OrcaRouter: sign in with an API key or an OAuth 2.0 "
+            "+ PKCE browser login, and inspect the live model catalog."
+        ),
+        rich_help_panel="Model",
     )
     deploy_app = typer.Typer(
         pretty_exceptions_enable=False, context_settings=_HELP_OPTION_NAMES

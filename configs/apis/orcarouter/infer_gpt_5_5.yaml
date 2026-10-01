@@ -1,0 +1,36 @@
+# Inference config for OrcaRouter.
+#
+# OrcaRouter is an OpenAI-compatible AI gateway that routes many providers
+# behind one endpoint. Model names keep their `vendor/model` namespace.
+#
+# Authentication (pick one):
+#   1. Existing API key: set the `ORCAROUTER_API_KEY` environment variable, or
+#      run `oumi orcarouter login --api-key sk-orca-...`
+#   2. Browser login (OAuth 2.0 + PKCE): run `oumi orcarouter login`
+#
+# Both paths store the same kind of OrcaRouter API key in `~/.oumi`. The key
+# belongs to your account and can be revoked at
+# https://www.orcarouter.ai/console/authorized-apps
+#
+# Usage:
+#   oumi infer -i -c configs/apis/orcarouter/infer_gpt_5_5.yaml
+#   oumi orcarouter models --capability chat
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+#   - OrcaRouter: https://www.orcarouter.ai
+#   - Config class: oumi.core.configs.InferenceConfig
+
+model:
+  model_name: "openai/gpt-5.5"
+
+engine: ORCAROUTER
+
+remote_params:
+  # Inference origin. Override with ORCA_API_BASE_URL, or the shared
+  # ORCA_BASE_URL for a single-origin self-hosted deployment.
+  api_url: "https://api.orcarouter.ai/v1/chat/completions"
+  api_key_env_varname: "ORCAROUTER_API_KEY"
+
+generation:
+  max_new_tokens: 2048

@@ -63,6 +63,9 @@ class InferenceEngineType(str, Enum):
     OPENROUTER = "OPENROUTER"
     """The inference engine for OpenRouter API."""
 
+    ORCAROUTER = "ORCAROUTER"
+    """The inference engine for the OrcaRouter gateway API."""
+
     SAMBANOVA = "SAMBANOVA"
     """The inference engine for SambaNova API."""
 

@@ -1,0 +1,21 @@
+# Inference config for OrcaRouter's automatic router.
+#
+# `orcarouter/auto` lets the gateway pick a suitable backing model per request,
+# which is a convenient default when you do not care which vendor serves the
+# call.
+#
+# Usage:
+#   oumi orcarouter login                       # or: export ORCAROUTER_API_KEY=...
+#   oumi infer -i -c configs/apis/orcarouter/infer_auto.yaml
+#
+# See Also:
+#   - OrcaRouter: https://www.orcarouter.ai
+#   - Config class: oumi.core.configs.InferenceConfig
+
+model:
+  model_name: "orcarouter/auto"
+
+engine: ORCAROUTER
+
+generation:
+  max_new_tokens: 2048

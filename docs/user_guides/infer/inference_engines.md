@@ -685,6 +685,91 @@ For a full list of available models, visit [openrouter.ai/models](https://openro
 - [OpenRouter Documentation](https://openrouter.ai/docs)
 - [Available Models](https://openrouter.ai/models)
 
+### OrcaRouter
+
+[OrcaRouter](https://www.orcarouter.ai) is an OpenAI-compatible AI gateway
+that routes many providers behind one endpoint. Model names keep their
+`vendor/model` namespace.
+
+Inference and model discovery use the API origin
+(`https://api.orcarouter.ai/v1`); sign-in uses a different origin
+(`https://www.orcarouter.ai`). Both are configurable for self-hosted
+deployments through `ORCA_API_BASE_URL` and `ORCA_AUTH_BASE_URL`, with
+`ORCA_BASE_URL` as a shared fallback for single-origin setups.
+
+There are two independent ways to sign in. Both end up as the same kind of
+OrcaRouter API key, which belongs to your OrcaRouter account, is billed to it,
+and can be revoked at
+<https://www.orcarouter.ai/console/authorized-apps>.
+
+**1. Existing API key.** Set the `ORCAROUTER_API_KEY` environment variable, or
+store a key on this machine:
+
+```shell
+oumi orcarouter login --api-key sk-orca-...
+```
+
+**2. Browser login (OAuth 2.0 + PKCE).** No client secret and no pre-registered
+redirect URI are involved; PKCE binds the authorization code to this process.
+
+```shell
+oumi orcarouter login          # loopback redirect (default)
+oumi orcarouter login --oob    # out-of-band code, for hosts that cannot listen
+```
+
+The issued key is durable: Oumi reuses it until you revoke it. OrcaRouter does
+not issue refresh tokens, so there is nothing to refresh; if a request comes
+back `401`, the exact credential is marked as needing reauthentication and you
+run `oumi orcarouter login` again.
+
+**Basic Usage**
+
+```{testcode}
+from oumi.inference import OrcaRouterInferenceEngine
+from oumi.core.configs import ModelParams
+
+engine = OrcaRouterInferenceEngine(
+    model_params=ModelParams(
+        model_name="openai/gpt-5.5"
+    )
+)
+```
+
+**Model selection**
+
+The model list is read live from
+`https://api.orcarouter.ai/v1/models` through the same credential, so it
+reflects exactly what your workspace can call. `oumi orcarouter models` prints
+the catalog, and `--capability` filters it the way each entry point does:
+
+| Capability | Filter |
+|------------|--------|
+| `chat` | `supported_endpoint_types` includes `openai`, `openai-response`, `anthropic`, or `gemini`; image/video/rerank-only models are excluded |
+| `multimodal:image`, `multimodal:audio`, `multimodal:video` | chat-capable **and** `architecture.input_modalities` explicitly declares that modality |
+| `embedding` | an `embeddings` endpoint type |
+| `image` | an `image-generation` endpoint type |
+| `video` | an `openai-video` endpoint type |
+| `rerank` | a `jina-rerank` endpoint type |
+
+Capabilities are taken from catalog metadata only; a model that does not declare
+a modality is excluded rather than guessed at. When the catalog is unreachable,
+a small verified fallback catalog is used and clearly marked as degraded.
+
+```{testcode}
+from oumi.inference import OrcaRouterInferenceEngine
+from oumi.core.configs import ModelParams
+
+engine = OrcaRouterInferenceEngine(
+    model_params=ModelParams(model_name="orcarouter/auto")
+)
+```
+
+**Resources**
+
+- [OrcaRouter Documentation](https://www.orcarouter.ai)
+- [Available Models](https://www.orcarouter.ai) (live list: `oumi orcarouter models`)
+- [Authorized Apps / Revocation](https://www.orcarouter.ai/console/authorized-apps)
+
 ### HuggingFace Inference Providers
 
 [HuggingFace Inference Providers](https://huggingface.co/docs/inference-providers/index) offers serverless, OpenAI-compatible access to hundreds of open models hosted by HuggingFace and partner providers (Together AI, Fireworks, SambaNova, Cerebras, and more) through a single endpoint.
@@ -983,6 +1068,7 @@ The following table shows which engines support batch inference:
 | Bedrock    | ❌ Not supported  |                                    |
 | SambaNova  | ❌ Not supported  |                                    |
 | OpenRouter | ❌ Not supported  |                                    |
+| OrcaRouter | ❌ Not supported  |                                    |
 | Remote vLLM| ❌ Not supported  |                                    |
 | SGLang     | ❌ Not supported  |                                    |
 

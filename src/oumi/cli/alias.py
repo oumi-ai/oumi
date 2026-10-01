@@ -482,6 +482,13 @@ _ALIASES: dict[str, dict[AliasType, str]] = {
     "gpt-5-2-openrouter": {
         AliasType.INFER: "oumi://configs/apis/openrouter/infer_gpt_5_2.yaml",
     },
+    # Hosted models - OrcaRouter.
+    "gpt-5-5-orcarouter": {
+        AliasType.INFER: "oumi://configs/apis/orcarouter/infer_gpt_5_5.yaml",
+    },
+    "auto-orcarouter": {
+        AliasType.INFER: "oumi://configs/apis/orcarouter/infer_auto.yaml",
+    },
     # Hosted models - Vertex AI.
     "llama-3-3-70b": {
         AliasType.INFER: "oumi://configs/apis/vertex/infer_llama_3_3_70b.yaml",
