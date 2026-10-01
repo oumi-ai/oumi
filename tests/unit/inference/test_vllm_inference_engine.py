@@ -1120,10 +1120,15 @@ class _FakeEngineParser:
     """Stands in for vLLM's `ParserEngineToolAdapter`."""
 
 
-class _FakeToolsParam(SimpleNamespace):
+class _FakeToolsParam:
     """Stands in for vLLM's typed `ChatCompletionToolsParam`."""
 
-    model_validate = classmethod(lambda cls, data: cls(data=data))
+    def __init__(self, data: dict):
+        self.data = data
+
+    @classmethod
+    def model_validate(cls, data: dict) -> "_FakeToolsParam":
+        return cls(data)
 
 
 _FAILING_TOOLS_PARAM = Mock(model_validate=Mock(side_effect=ValueError("bad")))
