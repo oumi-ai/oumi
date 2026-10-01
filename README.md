@@ -184,8 +184,6 @@ oumi launch up -c configs/recipes/smollm/sft/135m/quickstart_gcp_job.yaml --reso
 oumi launch up -c configs/recipes/smollm/sft/135m/quickstart_gcp_job.yaml --resources.cloud lambda
 ```
 
-Oumi also runs jobs on Modal and on Slurm clusters; see the [launcher guide](https://oumi.ai/docs/en/latest/user_guides/launch/launch.html).
-
 **Note:** Oumi is in <ins>beta</ins> and under active development. The core features are stable, but some advanced features might change as the platform improves.
 
 ## 💻 Why use Oumi?
@@ -204,8 +202,6 @@ Here are some of the key features that make Oumi stand out:
 ## 📚 Examples &  Recipes
 
 Explore the growing collection of ready-to-use configurations for state-of-the-art models and training workflows:
-
-For end-to-end workflows beyond single-model recipes (GRPO with verl, data synthesis, deployment, bulk inference, quantization, and more), see [configs/examples](/configs/examples).
 
 **Note:** These configurations are not an exhaustive list of what's supported, simply examples to get you started. You can find a more exhaustive list of supported [models](https://oumi.ai/docs/en/latest/resources/models/supported_models.html), and datasets ([supervised fine-tuning](https://oumi.ai/docs/en/latest/resources/datasets/sft_datasets.html), [pre-training](https://oumi.ai/docs/en/latest/resources/datasets/pretraining_datasets.html), [preference tuning](https://oumi.ai/docs/en/latest/resources/datasets/preference_datasets.html), and [vision-language finetuning](https://oumi.ai/docs/en/latest/resources/datasets/vl_sft_datasets.html)) in the oumi documentation.
 
@@ -226,6 +222,21 @@ For end-to-end workflows beyond single-model recipes (GRPO with verl, data synth
 | QwQ 32B | [FFT](/configs/recipes/qwq/sft/full_train.yaml) • [LoRA](/configs/recipes/qwq/sft/lora_train.yaml) • [QLoRA](/configs/recipes/qwq/sft/qlora_train.yaml) • [Inference](/configs/recipes/qwq/inference/infer.yaml) • [Evaluation](/configs/recipes/qwq/evaluation/eval.yaml) |
 | Qwen2.5-VL 3B | [SFT](/configs/recipes/vision/qwen2_5_vl_3b/sft/full/train.yaml) • [LoRA](/configs/recipes/vision/qwen2_5_vl_3b/sft/lora/train.yaml) • [Inference (vLLM)](configs/recipes/vision/qwen2_5_vl_3b/inference/vllm_infer.yaml) • [Inference](configs/recipes/vision/qwen2_5_vl_3b/inference/infer.yaml) |
 | Qwen2-VL 2B | [SFT](/configs/recipes/vision/qwen2_vl_2b/sft/full/train.yaml) • [LoRA](/configs/recipes/vision/qwen2_vl_2b/sft/lora/train.yaml) • [Inference (vLLM)](configs/recipes/vision/qwen2_vl_2b/inference/vllm_infer.yaml) • [Inference (SGLang)](configs/recipes/vision/qwen2_vl_2b/inference/sglang_infer.yaml) • [Inference](configs/recipes/vision/qwen2_vl_2b/inference/infer.yaml) • [Evaluation](configs/recipes/vision/qwen2_vl_2b/evaluation/eval.yaml) |
+
+### 💎 Gemma Family
+
+| Model | Example Configurations |
+|-------|------------------------|
+| Gemma 4 E2B Instruct | [FFT](/configs/recipes/gemma4/sft/e2b_full/train.yaml) • [LoRA](/configs/recipes/gemma4/sft/e2b_lora/train.yaml) |
+| Gemma 4 E4B Instruct | [FFT](/configs/recipes/gemma4/sft/e4b_full/train.yaml) • [LoRA](/configs/recipes/gemma4/sft/e4b_lora/train.yaml) |
+| Gemma 4 12B Instruct | [FFT](/configs/recipes/gemma4/sft/12b_full/train.yaml) • [LoRA](/configs/recipes/gemma4/sft/12b_lora/train.yaml) |
+| Gemma 4 26B A4B Instruct | [LoRA](/configs/recipes/gemma4/sft/26b_lora/train.yaml) |
+| Gemma 4 31B Instruct | [LoRA](/configs/recipes/gemma4/sft/31b_lora/train.yaml) |
+| Gemma 3 4B Instruct | [FFT](/configs/recipes/gemma3/sft/4b_full/train.yaml) • [Inference](/configs/recipes/gemma3/inference/4b_instruct_infer.yaml) • [Evaluation](/configs/recipes/gemma3/evaluation/4b/eval.yaml) |
+| Gemma 3 12B Instruct | [LoRA](/configs/recipes/gemma3/sft/12b_lora/train.yaml) • [Inference](/configs/recipes/gemma3/inference/12b_instruct_infer.yaml) • [Evaluation](/configs/recipes/gemma3/evaluation/12b/eval.yaml) |
+| Gemma 3 27B Instruct | [LoRA](/configs/recipes/gemma3/sft/27b_lora/train.yaml) • [Inference](/configs/recipes/gemma3/inference/27b_instruct_infer.yaml) • [Evaluation](/configs/recipes/gemma3/evaluation/27b/eval.yaml) |
+
+Each Gemma 4 recipe also includes a `gcp_job.yaml` for running it remotely with `oumi launch`.
 
 ### 🐋 DeepSeek R1 Family
 
@@ -258,26 +269,6 @@ For end-to-end workflows beyond single-model recipes (GRPO with verl, data synth
 | [Falcon-H1](https://huggingface.co/collections/tiiuae/falcon-h1-6819f2795bc406da60fab8df) | [FFT](/configs/recipes/falcon_h1/sft/) • [Inference](/configs/recipes/falcon_h1/inference/) • [Evaluation](/configs/recipes/falcon_h1/evaluation/) |
 | [Falcon-E (BitNet)](https://huggingface.co/collections/tiiuae/falcon-edge-series-6804fd13344d6d8a8fa71130) | [FFT](/configs/recipes/falcon_e/sft/) • [DPO](/configs/recipes/falcon_e/dpo/) • [Evaluation](/configs/recipes/falcon_e/evaluation/) |
 
-### 💎 Gemma 4 Family
-
-| Model | Example Configurations |
-|-------|------------------------|
-| Gemma 4 E2B Instruct | [FFT](/configs/recipes/gemma4/sft/e2b_full/train.yaml) • [LoRA](/configs/recipes/gemma4/sft/e2b_lora/train.yaml) |
-| Gemma 4 E4B Instruct | [FFT](/configs/recipes/gemma4/sft/e4b_full/train.yaml) • [LoRA](/configs/recipes/gemma4/sft/e4b_lora/train.yaml) |
-| Gemma 4 12B Instruct | [FFT](/configs/recipes/gemma4/sft/12b_full/train.yaml) • [LoRA](/configs/recipes/gemma4/sft/12b_lora/train.yaml) |
-| Gemma 4 26B A4B Instruct | [LoRA](/configs/recipes/gemma4/sft/26b_lora/train.yaml) |
-| Gemma 4 31B Instruct | [LoRA](/configs/recipes/gemma4/sft/31b_lora/train.yaml) |
-
-Each Gemma 4 recipe also includes a `gcp_job.yaml` for running it remotely with `oumi launch`.
-
-### 💎 Gemma 3 Family
-
-| Model | Example Configurations |
-|-------|------------------------|
-| Gemma 3 4B Instruct | [FFT](/configs/recipes/gemma3/sft/4b_full/train.yaml) • [Inference](/configs/recipes/gemma3/inference/4b_instruct_infer.yaml) • [Evaluation](/configs/recipes/gemma3/evaluation/4b/eval.yaml) |
-| Gemma 3 12B Instruct | [LoRA](/configs/recipes/gemma3/sft/12b_lora/train.yaml) • [Inference](/configs/recipes/gemma3/inference/12b_instruct_infer.yaml) • [Evaluation](/configs/recipes/gemma3/evaluation/12b/eval.yaml) |
-| Gemma 3 27B Instruct | [LoRA](/configs/recipes/gemma3/sft/27b_lora/train.yaml) • [Inference](/configs/recipes/gemma3/inference/27b_instruct_infer.yaml) • [Evaluation](/configs/recipes/gemma3/evaluation/27b/eval.yaml) |
-
 ### 🧠 gpt-oss Family
 
 | Model | Example Configurations |
@@ -291,7 +282,7 @@ Each Gemma 4 recipe also includes a `gcp_job.yaml` for running it remotely with 
 |-------|------------------------|
 | GLM-4.7 | [Inference (Fireworks)](/configs/recipes/glm4/inference/4p7_fireworks_infer.yaml) |
 | GLM-4.5-Air | [Inference (GGUF)](/configs/recipes/glm4/inference/air_gguf_infer.yaml) • [Inference (GGUF, macOS)](/configs/recipes/glm4/inference/air_gguf_macos_infer.yaml) |
-| GLM-4 9B Chat | [Inference (vLLM)](/configs/recipes/glm4/inference/air_vllm_infer.yaml) |
+| GLM-4 9B Chat | [Inference (vLLM)](/configs/recipes/glm4/inference/9b_chat_vllm_infer.yaml) |
 
 ### 🦉 OLMo 3 Family
 
