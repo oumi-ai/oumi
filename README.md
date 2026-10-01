@@ -23,7 +23,7 @@
 
 ## 🔥 News
 
-- [2026/09] Gemma 4 inference on vLLM 0.19.1–0.21 for checkpoints saved with Transformers 5.5.2+, plus async `judge_async()` / `generate()` APIs for remote inference engines
+- [2026/09] Broader Gemma 4 inference support with vLLM, and async APIs for LLM judges and remote inference
 - [2026/09] [Oumi v0.9 released](https://github.com/oumi-ai/oumi/releases/tag/v0.9): an end-to-end stack for agentic, tool-using models, with tool-calling SFT and DPO, executable tool environments (database, HTTP endpoint, lookup, simulated), GRPO over any Oumi environment with verl, a multi-criteria `RubricJudge`, partial-failure-tolerant pipelines, a Modal launcher, SkyPilot-routed Slurm, and [Gemma 4 recipes](/configs/recipes/gemma4)
 - [2026/08] Extended GRPO reinforcement learning to support tool use
 - [2026/07] Added support for tools, environments (simulated, lookup, database), and agentic data synthesis
