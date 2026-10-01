@@ -26,6 +26,7 @@ from oumi.core.types.conversation import (
 )
 from oumi.core.types.tool_call import ToolCall, ToolDefinition
 from oumi.inference import VLLMInferenceEngine
+from oumi.inference.vllm_inference_engine import _build_parser_request_tools
 from oumi.utils.conversation_utils import base64encode_content_item_image_bytes
 from oumi.utils.image_utils import (
     create_png_bytes_from_image,
@@ -1115,115 +1116,43 @@ def test_other_parser_uses_extracted_content_without_tool_calls(
     assert finish_reason_override is None
 
 
-class _FakeParserEngineToolAdapter:
-    """Stands in for vLLM's `ParserEngineToolAdapter` base class."""
+class _FakeEngineParser:
+    """Stands in for vLLM's `ParserEngineToolAdapter`."""
 
 
-class _FakeChatCompletionToolsParam:
-    """Stands in for vLLM's typed `ChatCompletionToolsParam` request tool."""
+class _FakeToolsParam(SimpleNamespace):
+    """Stands in for vLLM's typed `ChatCompletionToolsParam`."""
 
-    def __init__(self, data: dict):
-        self.data = data
-
-    @classmethod
-    def model_validate(cls, data: dict) -> "_FakeChatCompletionToolsParam":
-        return cls(data)
+    model_validate = classmethod(lambda cls, data: cls(data=data))
 
 
-def _parser_request_tools(parser_instance, conv: Conversation) -> list:
-    """Run `_build_response_messages` and return the tools the parser was given."""
-    parser_instance.extract_tool_calls = Mock(
-        return_value=SimpleNamespace(tools_called=False, tool_calls=[], content="x")
-    )
-    engine = object.__new__(VLLMInferenceEngine)
-    engine._tool_parser = parser_instance
-    engine._tool_parser_name = "hermes"
-    engine._tokenizer = Mock()
-    engine._build_response_messages(
-        conv, SimpleNamespace(outputs=[SimpleNamespace(text="x")])
-    )
-    return parser_instance.extract_tool_calls.call_args.kwargs["request"].tools
+_FAILING_TOOLS_PARAM = Mock(model_validate=Mock(side_effect=ValueError("bad")))
 
 
-def _conversation_with_tools() -> Conversation:
-    return Conversation(
-        messages=[Message(role=Role.USER, content="hi")],
-        conversation_id="1",
-        tools=[_WEATHER_TOOL, _CALENDAR_TOOL],
-    )
-
-
-def test_parser_engine_tool_parser_receives_typed_tools():
-    """Parser-engine parsers get typed tools so they can coerce argument types."""
-
-    class _EngineParser(_FakeParserEngineToolAdapter):
-        pass
-
+@pytest.mark.parametrize(
+    ("parser", "adapter_cls", "param_cls", "expect_typed"),
+    [
+        (_FakeEngineParser(), _FakeEngineParser, _FakeToolsParam, True),
+        (Mock(), _FakeEngineParser, _FakeToolsParam, False),  # non-engine parser
+        (Mock(), None, None, False),  # vLLM without the parser engine
+        (_FakeEngineParser(), _FakeEngineParser, _FAILING_TOOLS_PARAM, False),
+    ],
+)
+def test_build_parser_request_tools(parser, adapter_cls, param_cls, expect_typed):
+    """Only parser-engine parsers get typed tools; everything else gets dicts."""
+    module = "oumi.inference.vllm_inference_engine"
     with (
-        patch(
-            "oumi.inference.vllm_inference_engine.ParserEngineToolAdapter",
-            _FakeParserEngineToolAdapter,
-        ),
-        patch(
-            "oumi.inference.vllm_inference_engine.ChatCompletionToolsParam",
-            _FakeChatCompletionToolsParam,
-        ),
+        patch(f"{module}.ParserEngineToolAdapter", adapter_cls),
+        patch(f"{module}.ChatCompletionToolsParam", param_cls),
     ):
-        tools = _parser_request_tools(_EngineParser(), _conversation_with_tools())
+        tools = _build_parser_request_tools(parser, [_WEATHER_TOOL, _CALENDAR_TOOL])
 
-    assert [type(t) for t in tools] == [_FakeChatCompletionToolsParam] * 2
-    assert [t.data for t in tools] == [_WEATHER_TOOL_DICT, _CALENDAR_TOOL_DICT]
-
-
-def test_non_engine_tool_parser_receives_tool_dicts():
-    """Parsers outside the parser engine keep receiving plain tool dicts."""
-    with (
-        patch(
-            "oumi.inference.vllm_inference_engine.ParserEngineToolAdapter",
-            _FakeParserEngineToolAdapter,
-        ),
-        patch(
-            "oumi.inference.vllm_inference_engine.ChatCompletionToolsParam",
-            _FakeChatCompletionToolsParam,
-        ),
-    ):
-        tools = _parser_request_tools(Mock(), _conversation_with_tools())
-
-    assert tools == [_WEATHER_TOOL_DICT, _CALENDAR_TOOL_DICT]
-
-
-def test_tool_dicts_used_when_vllm_has_no_parser_engine():
-    """vLLM versions without the parser engine keep receiving plain tool dicts."""
-    with (
-        patch("oumi.inference.vllm_inference_engine.ParserEngineToolAdapter", None),
-        patch("oumi.inference.vllm_inference_engine.ChatCompletionToolsParam", None),
-    ):
-        tools = _parser_request_tools(Mock(), _conversation_with_tools())
-
-    assert tools == [_WEATHER_TOOL_DICT, _CALENDAR_TOOL_DICT]
-
-
-def test_parser_engine_tool_conversion_failure_falls_back_to_dicts():
-    """A tool that fails typed validation falls back to dicts instead of failing."""
-
-    class _EngineParser(_FakeParserEngineToolAdapter):
-        pass
-
-    failing_param = Mock()
-    failing_param.model_validate.side_effect = ValueError("bad tool")
-    with (
-        patch(
-            "oumi.inference.vllm_inference_engine.ParserEngineToolAdapter",
-            _FakeParserEngineToolAdapter,
-        ),
-        patch(
-            "oumi.inference.vllm_inference_engine.ChatCompletionToolsParam",
-            failing_param,
-        ),
-    ):
-        tools = _parser_request_tools(_EngineParser(), _conversation_with_tools())
-
-    assert tools == [_WEATHER_TOOL_DICT, _CALENDAR_TOOL_DICT]
+    expected = [_WEATHER_TOOL_DICT, _CALENDAR_TOOL_DICT]
+    if expect_typed:
+        assert [type(t) for t in tools] == [_FakeToolsParam] * 2
+        assert [t.data for t in tools] == expected
+    else:
+        assert tools == expected
 
 
 def test_tool_call_parser_decodes_raw_tokens_with_special_tokens():
