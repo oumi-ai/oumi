@@ -35,7 +35,7 @@ from oumi.builders import build_tokenizer
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Conversation, FinishReason, Message, Role
-from oumi.core.types.tool_call import ToolCall
+from oumi.core.types.tool_call import ToolCall, ToolDefinition
 from oumi.utils.conversation_utils import (
     create_list_of_message_json_dicts,
     split_assistant_content_and_tool_calls,
@@ -100,11 +100,27 @@ try:
         except ImportError:
             ToolParserManager = None  # type: ignore[assignment]
             _VLLM_TOOL_PARSERS_AVAILABLE = False
+
+    # Parser-engine tool parsers (vLLM 0.24+, e.g. Gemma 4) recover argument
+    # types from the request's tool schemas, which they only recognize as
+    # `ChatCompletionToolsParam` objects; plain dicts are skipped.
+    try:
+        from vllm.entrypoints.openai.chat_completion.protocol import (  # pyright: ignore[reportMissingImports]
+            ChatCompletionToolsParam,
+        )
+        from vllm.parser.engine.adapters import (  # pyright: ignore[reportMissingImports]
+            ParserEngineToolAdapter,
+        )
+    except ImportError:
+        ChatCompletionToolsParam = None  # type: ignore[assignment]
+        ParserEngineToolAdapter = None  # type: ignore[assignment]
 except ModuleNotFoundError:
     vllm = None
     _VLLM_V0_12 = False
     ToolParserManager = None  # type: ignore[assignment]
     _VLLM_TOOL_PARSERS_AVAILABLE = False
+    ChatCompletionToolsParam = None  # type: ignore[assignment]
+    ParserEngineToolAdapter = None  # type: ignore[assignment]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -138,6 +154,34 @@ def _get_tool_parser_capabilities(
         parser_name,
         _DEFAULT_TOOL_PARSER_CAPABILITIES,
     )
+
+
+def _build_parser_request_tools(
+    tool_parser: object, tools: list[ToolDefinition] | None
+) -> list:
+    """Return the conversation's tools in the form the tool parser expects.
+
+    Parser-engine adapters coerce each parsed argument to its schema type and
+    only find that schema on typed tool objects, so they get
+    `ChatCompletionToolsParam`s. Other parsers keep receiving plain dicts.
+    """
+    tool_dicts = [t.model_dump(mode="json", exclude_none=True) for t in tools or []]
+    if (
+        ParserEngineToolAdapter is None
+        or ChatCompletionToolsParam is None
+        or not isinstance(tool_parser, ParserEngineToolAdapter)
+    ):
+        return tool_dicts
+    try:
+        return [ChatCompletionToolsParam.model_validate(t) for t in tool_dicts]
+    except Exception:
+        logger.warning(
+            "Could not convert tools for %s; tool-call arguments may not be "
+            "coerced to their schema types.",
+            type(tool_parser).__name__,
+            exc_info=True,
+        )
+        return tool_dicts
 
 
 def _parse_nvcc_release_version(nvcc_version_output: str) -> tuple[int, int] | None:
@@ -838,10 +882,9 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 # interpretations the model didn't actually make).
                 stub = SimpleNamespace(
                     tool_choice="auto",
-                    tools=[
-                        t.model_dump(mode="json", exclude_none=True)
-                        for t in (conversation.tools or [])
-                    ],
+                    tools=_build_parser_request_tools(
+                        self._tool_parser, conversation.tools
+                    ),
                 )
                 try:
                     extracted = self._tool_parser.extract_tool_calls(
