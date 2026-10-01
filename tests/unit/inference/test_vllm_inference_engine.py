@@ -1115,6 +1115,117 @@ def test_other_parser_uses_extracted_content_without_tool_calls(
     assert finish_reason_override is None
 
 
+class _FakeParserEngineToolAdapter:
+    """Stands in for vLLM's `ParserEngineToolAdapter` base class."""
+
+
+class _FakeChatCompletionToolsParam:
+    """Stands in for vLLM's typed `ChatCompletionToolsParam` request tool."""
+
+    def __init__(self, data: dict):
+        self.data = data
+
+    @classmethod
+    def model_validate(cls, data: dict) -> "_FakeChatCompletionToolsParam":
+        return cls(data)
+
+
+def _parser_request_tools(parser_instance, conv: Conversation) -> list:
+    """Run `_build_response_messages` and return the tools the parser was given."""
+    parser_instance.extract_tool_calls = Mock(
+        return_value=SimpleNamespace(tools_called=False, tool_calls=[], content="x")
+    )
+    engine = object.__new__(VLLMInferenceEngine)
+    engine._tool_parser = parser_instance
+    engine._tool_parser_name = "hermes"
+    engine._tokenizer = Mock()
+    engine._build_response_messages(
+        conv, SimpleNamespace(outputs=[SimpleNamespace(text="x")])
+    )
+    return parser_instance.extract_tool_calls.call_args.kwargs["request"].tools
+
+
+def _conversation_with_tools() -> Conversation:
+    return Conversation(
+        messages=[Message(role=Role.USER, content="hi")],
+        conversation_id="1",
+        tools=[_WEATHER_TOOL, _CALENDAR_TOOL],
+    )
+
+
+def test_parser_engine_tool_parser_receives_typed_tools():
+    """Parser-engine parsers get typed tools so they can coerce argument types."""
+
+    class _EngineParser(_FakeParserEngineToolAdapter):
+        pass
+
+    with (
+        patch(
+            "oumi.inference.vllm_inference_engine.ParserEngineToolAdapter",
+            _FakeParserEngineToolAdapter,
+        ),
+        patch(
+            "oumi.inference.vllm_inference_engine.ChatCompletionToolsParam",
+            _FakeChatCompletionToolsParam,
+        ),
+    ):
+        tools = _parser_request_tools(_EngineParser(), _conversation_with_tools())
+
+    assert [type(t) for t in tools] == [_FakeChatCompletionToolsParam] * 2
+    assert [t.data for t in tools] == [_WEATHER_TOOL_DICT, _CALENDAR_TOOL_DICT]
+
+
+def test_non_engine_tool_parser_receives_tool_dicts():
+    """Parsers outside the parser engine keep receiving plain tool dicts."""
+    with (
+        patch(
+            "oumi.inference.vllm_inference_engine.ParserEngineToolAdapter",
+            _FakeParserEngineToolAdapter,
+        ),
+        patch(
+            "oumi.inference.vllm_inference_engine.ChatCompletionToolsParam",
+            _FakeChatCompletionToolsParam,
+        ),
+    ):
+        tools = _parser_request_tools(Mock(), _conversation_with_tools())
+
+    assert tools == [_WEATHER_TOOL_DICT, _CALENDAR_TOOL_DICT]
+
+
+def test_tool_dicts_used_when_vllm_has_no_parser_engine():
+    """vLLM versions without the parser engine keep receiving plain tool dicts."""
+    with (
+        patch("oumi.inference.vllm_inference_engine.ParserEngineToolAdapter", None),
+        patch("oumi.inference.vllm_inference_engine.ChatCompletionToolsParam", None),
+    ):
+        tools = _parser_request_tools(Mock(), _conversation_with_tools())
+
+    assert tools == [_WEATHER_TOOL_DICT, _CALENDAR_TOOL_DICT]
+
+
+def test_parser_engine_tool_conversion_failure_falls_back_to_dicts():
+    """A tool that fails typed validation falls back to dicts instead of failing."""
+
+    class _EngineParser(_FakeParserEngineToolAdapter):
+        pass
+
+    failing_param = Mock()
+    failing_param.model_validate.side_effect = ValueError("bad tool")
+    with (
+        patch(
+            "oumi.inference.vllm_inference_engine.ParserEngineToolAdapter",
+            _FakeParserEngineToolAdapter,
+        ),
+        patch(
+            "oumi.inference.vllm_inference_engine.ChatCompletionToolsParam",
+            failing_param,
+        ),
+    ):
+        tools = _parser_request_tools(_EngineParser(), _conversation_with_tools())
+
+    assert tools == [_WEATHER_TOOL_DICT, _CALENDAR_TOOL_DICT]
+
+
 def test_tool_call_parser_decodes_raw_tokens_with_special_tokens():
     """Parser input retains native control tokens while display text stays clean."""
     fake_call = Mock()
