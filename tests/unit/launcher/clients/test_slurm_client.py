@@ -669,6 +669,31 @@ def test_slurm_client_init_unreachable_raises(mock_subprocess_no_init):
         _ = SlurmClient("user", "host", "cluster_name")
 
 
+def test_slurm_client_init_missing_control_socket_not_logged_as_error(
+    mock_subprocess_no_init,
+):
+    mock_subprocess_no_init.TimeoutExpired = subprocess.TimeoutExpired
+    check_fail = Mock()
+    check_fail.stdout = b""
+    check_fail.stderr = (
+        b"Control socket connect(/root/.ssh/control-host-22-user): "
+        b"No such file or directory\r\n"
+    )
+    check_fail.returncode = 255
+
+    tunnel_ok = Mock()
+    tunnel_ok.stdout = b""
+    tunnel_ok.stderr = b""
+    tunnel_ok.returncode = 0
+
+    mock_subprocess_no_init.run.side_effect = [check_fail, tunnel_ok]
+
+    with patch("oumi.launcher.clients.slurm_client.logger") as mock_logger:
+        _ = SlurmClient("user", "host", "cluster_name")
+
+    mock_logger.error.assert_not_called()
+
+
 def test_slurm_client_cancel_success(mock_subprocess):
     scancel_ok = Mock()
     scancel_ok.stdout = b""
