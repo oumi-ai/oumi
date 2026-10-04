@@ -17,7 +17,7 @@ from typing import TypeVar
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import BaseCloud, BaseCluster, JobStatus
 from oumi.core.registry import register_cloud_builder
-from oumi.launcher.clients.sky_client import SkyClient
+from oumi.launcher.clients.sky_client import LaunchRequestStatus, SkyClient
 from oumi.launcher.clusters.sky_cluster import SkyCluster
 
 T = TypeVar("T")
@@ -56,7 +56,38 @@ class SkyCloud(BaseCloud):
 
     def up_cluster(self, job: JobConfig, name: str | None, **kwargs) -> JobStatus:
         """Creates a cluster and starts the provided Job."""
-        launch_status = self._client.launch(job, name, **kwargs)
+        return self._started_job(self._client.launch(job, name, **kwargs))
+
+    def submit_job(self, job: JobConfig, name: str | None, **kwargs) -> str:
+        """Submit a cluster launch without waiting for the job to start.
+
+        The returned request ID can be passed to :meth:`wait_for_job`,
+        :meth:`cancel_request`, or :meth:`request_status`.
+
+        Args:
+            job: Job to run on the cluster.
+            name: Name of the cluster to create.
+            kwargs: Launch options passed to the Sky Pilot client.
+
+        Returns:
+            ID of the launch request on the Sky Pilot server.
+        """
+        return self._client.submit(job, name, **kwargs)
+
+    def wait_for_job(self, request_id: str) -> JobStatus:
+        """Wait for a submitted launch and read its job from the cluster."""
+        return self._started_job(self._client.wait(request_id))
+
+    def cancel_request(self, request_id: str) -> None:
+        """Cancel a launch request submitted with :meth:`submit_job`."""
+        self._client.cancel_request(request_id)
+
+    def request_status(self, request_id: str) -> LaunchRequestStatus:
+        """Get the status of a request submitted with :meth:`submit_job`."""
+        return self._client.request_status(request_id)
+
+    def _started_job(self, launch_status: JobStatus) -> JobStatus:
+        """Read the started job's current status from its cluster."""
         cluster = self.get_cluster(launch_status.cluster)
         if not cluster:
             raise RuntimeError(f"Cluster {launch_status.cluster} not found.")
