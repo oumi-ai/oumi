@@ -6,7 +6,7 @@ import sky
 from oumi.core.configs import JobConfig, JobResources, StorageMount
 from oumi.core.launcher import JobState, JobStatus
 from oumi.core.registry import REGISTRY, RegistryType
-from oumi.launcher.clients.sky_client import LaunchRequestStatus, SkyClient
+from oumi.launcher.clients.sky_client import SkyClient, SkyRequestStatus
 from oumi.launcher.clouds.sky_cloud import SkyCloud
 from oumi.launcher.clusters.sky_cluster import SkyCluster
 
@@ -217,15 +217,16 @@ def test_sky_cloud_wait_for_job_raises_when_cluster_missing(
 
 
 def test_sky_cloud_cancel_request(mock_sky_client):
+    mock_sky_client.cancel_request.return_value = True
     cloud = SkyCloud("gcp")
-    cloud.cancel_request("req-123")
+    assert cloud.cancel_request("req-123") is True
     mock_sky_client.cancel_request.assert_called_once_with("req-123")
 
 
 def test_sky_cloud_request_status(mock_sky_client):
-    mock_sky_client.request_status.return_value = LaunchRequestStatus.CANCELLED
+    mock_sky_client.request_status.return_value = SkyRequestStatus.CANCELLED
     cloud = SkyCloud("gcp")
-    assert cloud.request_status("req-123") is LaunchRequestStatus.CANCELLED
+    assert cloud.request_status("req-123") is SkyRequestStatus.CANCELLED
     mock_sky_client.request_status.assert_called_once_with("req-123")
 
 

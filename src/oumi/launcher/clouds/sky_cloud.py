@@ -17,7 +17,7 @@ from typing import TypeVar
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import BaseCloud, BaseCluster, JobStatus
 from oumi.core.registry import register_cloud_builder
-from oumi.launcher.clients.sky_client import LaunchRequestStatus, SkyClient
+from oumi.launcher.clients.sky_client import SkyClient, SkyRequestStatus
 from oumi.launcher.clusters.sky_cluster import SkyCluster
 
 T = TypeVar("T")
@@ -78,11 +78,15 @@ class SkyCloud(BaseCloud):
         """Wait for a submitted launch and read its job from the cluster."""
         return self._started_job(self._client.wait(request_id))
 
-    def cancel_request(self, request_id: str) -> None:
-        """Cancel a launch request submitted with :meth:`submit_job`."""
-        self._client.cancel_request(request_id)
+    def cancel_request(self, request_id: str) -> bool:
+        """Cancel a launch request submitted with :meth:`submit_job`.
 
-    def request_status(self, request_id: str) -> LaunchRequestStatus:
+        Stopping the request does not remove a cluster it had started to
+        build; tear that down by name. Returns whether anything was cancelled.
+        """
+        return self._client.cancel_request(request_id)
+
+    def request_status(self, request_id: str) -> SkyRequestStatus:
         """Get the status of a request submitted with :meth:`submit_job`."""
         return self._client.request_status(request_id)
 

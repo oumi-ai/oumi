@@ -6,8 +6,8 @@ import pytest
 from oumi.core.configs import JobConfig, JobResources, StorageMount
 from oumi.core.launcher import JobState, JobStatus
 from oumi.launcher.clients.sky_client import (
-    LaunchRequestStatus,
     SkyClient,
+    SkyRequestStatus,
     _convert_job_to_task,
     _get_use_spot_vm_override,
 )
@@ -715,31 +715,43 @@ def test_sky_client_launch_is_submit_then_wait(mock_sky_data_storage):
             assert job_status.cluster == "mycluster"
 
 
-def test_sky_client_cancel_request():
+def test_sky_client_cancel_request_reports_a_live_request_cancelled():
     with patch("sky.api_cancel") as mock_api_cancel:
         with patch("sky.stream_and_get") as mock_stream_and_get:
             mock_api_cancel.return_value = "cancel-req"
+            mock_stream_and_get.return_value = ["req-123"]
             client = SkyClient()
-            client.cancel_request("req-123")
+            assert client.cancel_request("req-123") is True
             mock_api_cancel.assert_called_once_with(request_ids=["req-123"])
             mock_stream_and_get.assert_called_once_with("cancel-req")
+
+
+def test_sky_client_cancel_request_reports_a_finished_request_untouched():
+    with patch("sky.api_cancel") as mock_api_cancel:
+        with patch("sky.stream_and_get") as mock_stream_and_get:
+            mock_api_cancel.return_value = "cancel-req"
+            mock_stream_and_get.return_value = []
+            client = SkyClient()
+            assert client.cancel_request("req-123") is False
 
 
 @pytest.mark.parametrize(
     "status,expected,terminal",
     [
-        ("PENDING", LaunchRequestStatus.PENDING, False),
-        ("RUNNING", LaunchRequestStatus.RUNNING, False),
-        ("SUCCEEDED", LaunchRequestStatus.SUCCEEDED, True),
-        ("FAILED", LaunchRequestStatus.FAILED, True),
-        ("CANCELLED", LaunchRequestStatus.CANCELLED, True),
+        ("PENDING", SkyRequestStatus.PENDING, False),
+        ("RUNNING", SkyRequestStatus.RUNNING, False),
+        ("SUCCEEDED", SkyRequestStatus.SUCCEEDED, True),
+        ("FAILED", SkyRequestStatus.FAILED, True),
+        ("CANCELLED", SkyRequestStatus.CANCELLED, True),
     ],
 )
 def test_sky_client_request_status(status, expected, terminal):
     with patch("sky.api_status") as mock_api_status:
-        other = Mock(request_id="req-999", status="RUNNING")
+        # Sky Pilot matches IDs by prefix, so a longer ID sharing ours comes
+        # back too; listed first so the exact match has to skip it.
+        prefix_match = Mock(request_id="req-1234", status="RUNNING")
         ours = Mock(request_id="req-123", status=status)
-        mock_api_status.return_value = [other, ours]
+        mock_api_status.return_value = [prefix_match, ours]
         client = SkyClient()
         result = client.request_status("req-123")
         mock_api_status.assert_called_once_with(
@@ -753,5 +765,13 @@ def test_sky_client_request_status_unknown_request_raises():
     with patch("sky.api_status") as mock_api_status:
         mock_api_status.return_value = []
         client = SkyClient()
-        with pytest.raises(RuntimeError, match="Request req-123 not found."):
+        with pytest.raises(RuntimeError, match="Request req-123 not found"):
+            client.request_status("req-123")
+
+
+def test_sky_client_request_status_unknown_status_raises():
+    with patch("sky.api_status") as mock_api_status:
+        mock_api_status.return_value = [Mock(request_id="req-123", status="PAUSED")]
+        client = SkyClient()
+        with pytest.raises(RuntimeError, match="unknown status 'PAUSED'"):
             client.request_status("req-123")

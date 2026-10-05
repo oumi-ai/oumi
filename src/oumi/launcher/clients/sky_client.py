@@ -162,8 +162,8 @@ def _convert_job_to_task(job: JobConfig) -> "sky.Task":
     return sky_task
 
 
-class LaunchRequestStatus(str, Enum):
-    """Status of a launch request on the Sky Pilot server."""
+class SkyRequestStatus(str, Enum):
+    """Status of a request on the Sky Pilot server."""
 
     PENDING = "PENDING"
     RUNNING = "RUNNING"
@@ -175,9 +175,9 @@ class LaunchRequestStatus(str, Enum):
     def is_terminal(self) -> bool:
         """Whether the request has finished."""
         return self in (
-            LaunchRequestStatus.SUCCEEDED,
-            LaunchRequestStatus.FAILED,
-            LaunchRequestStatus.CANCELLED,
+            SkyRequestStatus.SUCCEEDED,
+            SkyRequestStatus.FAILED,
+            SkyRequestStatus.CANCELLED,
         )
 
 
@@ -272,7 +272,10 @@ class SkyClient:
             A JobStatus with the job ID, cluster name, and hourly cost when available.
 
         Raises:
+            sky.exceptions.RequestCancelled: The request was cancelled, by
+                :meth:`cancel_request` or otherwise, before a job started.
             RuntimeError: The launch finishes without starting a job.
+            Exception: A failed launch re-raises the provider's own error.
         """
         # Stream logs and get the output.
         job_id, resource_handle = self._sky_lib.stream_and_get(
@@ -316,18 +319,26 @@ class SkyClient:
         """
         return self.wait(self.submit(job, cluster_name, **kwargs))
 
-    def cancel_request(self, request_id: str) -> None:
+    def cancel_request(self, request_id: str) -> bool:
         """Cancel a launch request submitted with :meth:`submit`.
 
-        A finished request cannot be cancelled. Check :meth:`request_status`
-        to distinguish a cancelled request from one that already finished.
+        Cancelling stops the request; it does not remove a cluster the request
+        had already started to build, so a caller that must not leak resources
+        tears the cluster down by name afterwards. A finished request cannot be
+        cancelled; :meth:`request_status` then reports how it ended.
 
         Args:
             request_id: ID returned by :meth:`submit`.
-        """
-        self._sky_lib.stream_and_get(self._sky_lib.api_cancel(request_ids=[request_id]))
 
-    def request_status(self, request_id: str) -> LaunchRequestStatus:
+        Returns:
+            Whether the request was still running and is now cancelled.
+        """
+        cancelled = self._sky_lib.stream_and_get(
+            self._sky_lib.api_cancel(request_ids=[request_id])
+        )
+        return request_id in cancelled
+
+    def request_status(self, request_id: str) -> SkyRequestStatus:
         """Get the current status of a launch request.
 
         Args:
@@ -337,13 +348,25 @@ class SkyClient:
             Current request status on the Sky Pilot server.
 
         Raises:
-            RuntimeError: No request with this ID is found.
+            RuntimeError: No request with this ID is found, no Sky Pilot API
+                server answered, or the server reported a status this client
+                does not know. A caller deciding what happened to a launch
+                should read this as unresolved, not as absent.
         """
+        # Sky Pilot matches request IDs by prefix, so keep only the exact ID.
         payloads = self._sky_lib.api_status(request_ids=[request_id], all_status=True)
         for payload in payloads:
-            if payload.request_id == request_id:
-                return LaunchRequestStatus(payload.status)
-        raise RuntimeError(f"Request {request_id} not found.")
+            if payload.request_id != request_id:
+                continue
+            try:
+                return SkyRequestStatus(payload.status)
+            except ValueError as e:
+                raise RuntimeError(
+                    f"Request {request_id} has unknown status {payload.status!r}."
+                ) from e
+        raise RuntimeError(
+            f"Request {request_id} not found (or no Sky Pilot API server answered)."
+        )
 
     def get_cluster_hourly_price(self, cluster_name: str) -> float | None:
         """Gets the hourly price for a cluster from its resource handle.
