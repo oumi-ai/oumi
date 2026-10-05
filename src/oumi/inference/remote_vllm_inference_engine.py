@@ -50,6 +50,8 @@ class RemoteVLLMInferenceEngine(RemoteInferenceEngine):
             "top_p",
             "guided_decoding",
             "max_new_tokens",
+            "min_p",
+            "skip_special_tokens",
             "parallel_tool_calls",
             "tool_choice",
         }
@@ -96,16 +98,29 @@ class RemoteVLLMInferenceEngine(RemoteInferenceEngine):
 
         if generation_params.top_p is not None:
             api_input["top_p"] = generation_params.top_p
+        if generation_params.min_p:
+            api_input["min_p"] = generation_params.min_p
+        api_input["skip_special_tokens"] = generation_params.skip_special_tokens
+        if model_params.chat_template_kwargs:
+            api_input["chat_template_kwargs"] = model_params.chat_template_kwargs
 
         if generation_params.guided_decoding:
+            structured_outputs: dict[str, Any] = {}
             if generation_params.guided_decoding.json:
-                api_input["guided_json"] = generation_params.guided_decoding.json
+                structured_outputs["json"] = generation_params.guided_decoding.json
 
             elif generation_params.guided_decoding.regex is not None:
-                api_input["guided_regex"] = generation_params.guided_decoding.regex
+                structured_outputs["regex"] = generation_params.guided_decoding.regex
 
             elif generation_params.guided_decoding.choice is not None:
-                api_input["guided_choice"] = generation_params.guided_decoding.choice
+                structured_outputs["choice"] = generation_params.guided_decoding.choice
+
+            if structured_outputs:
+                api_input["structured_outputs"] = structured_outputs
+                # vLLM servers older than structured_outputs read guided_<kind>;
+                # each version ignores the other's keys.
+                for kind, value in structured_outputs.items():
+                    api_input[f"guided_{kind}"] = value
 
         if generation_params.stop_strings:
             api_input["stop"] = generation_params.stop_strings
