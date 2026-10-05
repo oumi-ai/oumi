@@ -200,8 +200,11 @@ class SkyClient:
         """Initializes a new instance of the SkyClient class."""
         # Delay sky import: https://github.com/oumi-ai/oumi/issues/1605
         import sky
+        from sky.server import common as sky_server_common
 
         self._sky_lib = sky
+        # Sky Pilot types request ids as its own str subclass.
+        self._sky_request_id = sky_server_common.RequestId
 
     def submit(self, job: JobConfig, cluster_name: str | None = None, **kwargs) -> str:
         """Submit a cluster launch without waiting for the job to start.
@@ -272,7 +275,9 @@ class SkyClient:
             RuntimeError: The launch finishes without starting a job.
         """
         # Stream logs and get the output.
-        job_id, resource_handle = self._sky_lib.stream_and_get(request_id)
+        job_id, resource_handle = self._sky_lib.stream_and_get(
+            self._sky_request_id(request_id)
+        )
         if job_id is None or resource_handle is None:
             raise RuntimeError("Failed to launch job.")
         # Extract hourly cost from launched resources (includes all nodes).
