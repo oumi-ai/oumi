@@ -26,6 +26,7 @@ from oumi.core.types.conversation import (
 )
 from oumi.core.types.tool_call import ToolCall, ToolDefinition
 from oumi.inference import VLLMInferenceEngine
+from oumi.inference.vllm_inference_engine import _build_parser_request_tools
 from oumi.utils.conversation_utils import base64encode_content_item_image_bytes
 from oumi.utils.image_utils import (
     create_png_bytes_from_image,
@@ -1113,6 +1114,50 @@ def test_other_parser_uses_extracted_content_without_tool_calls(
     assert assistant.tool_calls is None
     assert assistant.content == expected_content
     assert finish_reason_override is None
+
+
+class _FakeEngineParser:
+    """Stands in for vLLM's `ParserEngineToolAdapter`."""
+
+
+class _FakeToolsParam:
+    """Stands in for vLLM's typed `ChatCompletionToolsParam`."""
+
+    def __init__(self, data: dict):
+        self.data = data
+
+    @classmethod
+    def model_validate(cls, data: dict) -> "_FakeToolsParam":
+        return cls(data)
+
+
+_FAILING_TOOLS_PARAM = Mock(model_validate=Mock(side_effect=ValueError("bad")))
+
+
+@pytest.mark.parametrize(
+    ("parser", "adapter_cls", "param_cls", "expect_typed"),
+    [
+        (_FakeEngineParser(), _FakeEngineParser, _FakeToolsParam, True),
+        (Mock(), _FakeEngineParser, _FakeToolsParam, False),  # non-engine parser
+        (Mock(), None, None, False),  # vLLM without the parser engine
+        (_FakeEngineParser(), _FakeEngineParser, _FAILING_TOOLS_PARAM, False),
+    ],
+)
+def test_build_parser_request_tools(parser, adapter_cls, param_cls, expect_typed):
+    """Only parser-engine parsers get typed tools; everything else gets dicts."""
+    module = "oumi.inference.vllm_inference_engine"
+    with (
+        patch(f"{module}.ParserEngineToolAdapter", adapter_cls),
+        patch(f"{module}.ChatCompletionToolsParam", param_cls),
+    ):
+        tools = _build_parser_request_tools(parser, [_WEATHER_TOOL, _CALENDAR_TOOL])
+
+    expected = [_WEATHER_TOOL_DICT, _CALENDAR_TOOL_DICT]
+    if expect_typed:
+        assert [type(t) for t in tools] == [_FakeToolsParam] * 2
+        assert [t.data for t in tools] == expected
+    else:
+        assert tools == expected
 
 
 def test_tool_call_parser_decodes_raw_tokens_with_special_tokens():
