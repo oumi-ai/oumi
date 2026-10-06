@@ -1,4 +1,6 @@
 import pytest
+from aioresponses import aioresponses
+from yarl import URL
 
 from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
@@ -6,6 +8,17 @@ from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.inference.remote_vllm_inference_engine import RemoteVLLMInferenceEngine
 
 _CONVERSATION = Conversation(messages=[Message(role=Role.USER, content="hi")])
+_CHAT_URL = "http://localhost:8000/v1/chat/completions"
+_TOKENIZE_URL = "http://localhost:8000/tokenize"
+_ANSWER = {
+    "choices": [
+        {
+            "index": 0,
+            "message": {"role": "assistant", "content": "ok"},
+            "finish_reason": "length",
+        }
+    ]
+}
 
 
 def _engine(**model_kwargs) -> RemoteVLLMInferenceEngine:
@@ -72,3 +85,41 @@ def test_an_unconstrained_request_sends_no_structured_outputs():
 
 def test_min_p_and_skip_special_tokens_are_supported():
     assert {"min_p", "skip_special_tokens"} <= _engine().get_supported_params()
+
+
+def _chat_engine() -> RemoteVLLMInferenceEngine:
+    return RemoteVLLMInferenceEngine(
+        ModelParams(model_name="served-model"),
+        generation_params=GenerationParams(max_new_tokens=512),
+        remote_params=RemoteParams(api_url=_CHAT_URL, api_key="k", max_retries=0),
+    )
+
+
+def _sent_max_tokens(mocked: aioresponses) -> list[int]:
+    return [
+        call.kwargs["json"]["max_tokens"]
+        for call in mocked.requests[("POST", URL(_CHAT_URL))]
+    ]
+
+
+def test_a_request_past_the_context_is_resent_capped_to_the_context_left():
+    with aioresponses() as mocked:
+        mocked.post(_CHAT_URL, status=400, body="maximum context length exceeded")
+        mocked.post(_TOKENIZE_URL, payload={"count": 8000, "max_model_len": 8192})
+        mocked.post(_CHAT_URL, payload=_ANSWER)
+
+        answered = _chat_engine().infer([_CONVERSATION])
+
+        assert _sent_max_tokens(mocked) == [512, 192]
+    assert answered[0].messages[-1].content == "ok"
+
+
+def test_a_rejected_request_within_the_context_keeps_its_error():
+    with aioresponses() as mocked:
+        mocked.post(_CHAT_URL, status=400, body="bad request")
+        mocked.post(_TOKENIZE_URL, payload={"count": 10, "max_model_len": 8192})
+
+        with pytest.raises(RuntimeError, match="HTTP 400"):
+            _chat_engine().infer([_CONVERSATION])
+
+        assert _sent_max_tokens(mocked) == [512]
