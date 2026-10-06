@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import dataclasses
+import urllib.parse
 from typing import Any
 
 import aiohttp
@@ -23,9 +24,6 @@ from oumi.core.types.conversation import Conversation
 from oumi.inference.adaptive_semaphore import PoliteAdaptiveSemaphore
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 from oumi.utils.http import APIStatusError
-
-_CHAT_COMPLETIONS_PATH = "/v1/chat/completions"
-_TOKENIZE_PATH = "/tokenize"
 
 
 class RemoteVLLMInferenceEngine(RemoteInferenceEngine):
@@ -178,6 +176,14 @@ class RemoteVLLMInferenceEngine(RemoteInferenceEngine):
             persist_scratch=persist_scratch,
         )
 
+    def get_tokenize_api_url(self) -> str:
+        """Returns the URL for vLLM's tokenize API."""
+        return str(
+            urllib.parse.urlparse(self._remote_params.api_url)
+            ._replace(path="/tokenize")
+            .geturl()
+        )
+
     async def _capped_to_context(
         self,
         conversation: Conversation,
@@ -191,9 +197,6 @@ class RemoteVLLMInferenceEngine(RemoteInferenceEngine):
             remote_params=self._remote_params,
         )
         remote_params = config.remote_params or self._remote_params
-        api_url = remote_params.api_url or ""
-        if not api_url.endswith(_CHAT_COMPLETIONS_PATH):
-            return None
         api_input = self._convert_conversation_to_api_input(
             conversation, config.generation, config.model
         )
@@ -203,7 +206,7 @@ class RemoteVLLMInferenceEngine(RemoteInferenceEngine):
             if key in api_input
         }
         async with session.post(
-            api_url.removesuffix(_CHAT_COMPLETIONS_PATH) + _TOKENIZE_PATH,
+            self.get_tokenize_api_url(),
             json=tokenize_input,
             headers=self._get_request_headers(remote_params),
             timeout=remote_params.connection_timeout,
