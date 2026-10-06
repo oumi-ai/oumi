@@ -872,6 +872,14 @@ class TrainingParams(BaseParams):
             config_class = transformers.TrainingArguments
 
         trainer_kwargs = copy.deepcopy(self.trainer_kwargs)
+        # Merged over oumi's accelerator_config below instead of colliding with it,
+        # e.g. {"gradient_accumulation_kwargs": {"sync_each_batch": True}}.
+        accelerator_config_overrides = trainer_kwargs.pop("accelerator_config", {})
+        if not isinstance(accelerator_config_overrides, dict):
+            raise OumiConfigError(
+                "trainer_kwargs['accelerator_config'] must be a dict, got "
+                f"{type(accelerator_config_overrides).__name__}."
+            )
 
         # Add DeepSpeed configuration if enabled
         # NOTE: DeepSpeed config is passed directly to trainer_kwargs instead of through
@@ -988,6 +996,7 @@ class TrainingParams(BaseParams):
                 "split_batches": False,
                 "even_batches": True,
                 "use_seedable_sampler": True,
+                **accelerator_config_overrides,
             },
             seed=self.seed,
             data_seed=self.data_seed,
