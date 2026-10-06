@@ -75,6 +75,27 @@ jobs:
             type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
             type=raw,value=latest,enable=${{ github.event_name == 'release' }}
 
+      # The PyPI release workflow runs concurrently with this one, and the new
+      # version can take a few minutes to become installable after upload.
+      # Without this wait, the image build fails to resolve oumi==<tag>.
+      - name: Wait for release to be installable from PyPI
+        if: github.event_name == 'release'
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version="${RELEASE_TAG#v}"
+          for attempt in $(seq 1 30); do
+            if pip download --quiet --no-deps --no-cache-dir --pre \
+                --dest "$RUNNER_TEMP/pypi-check" "oumi==${version}"; then
+              echo "oumi==${version} is available on PyPI."
+              exit 0
+            fi
+            echo "oumi==${version} not available yet (attempt ${attempt}/30); retrying in 30s."
+            sleep 30
+          done
+          echo "::error::oumi==${version} did not appear on PyPI within 15 minutes."
+          exit 1
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v7
         with:
