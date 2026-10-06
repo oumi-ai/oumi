@@ -12,13 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import dataclasses
 from typing import Any
 
+import aiohttp
 from typing_extensions import override
 
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.types.conversation import Conversation
+from oumi.inference.adaptive_semaphore import PoliteAdaptiveSemaphore
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
+from oumi.utils.http import APIStatusError
+
+_CHAT_COMPLETIONS_PATH = "/v1/chat/completions"
+_TOKENIZE_PATH = "/tokenize"
 
 
 class RemoteVLLMInferenceEngine(RemoteInferenceEngine):
@@ -130,6 +137,89 @@ class RemoteVLLMInferenceEngine(RemoteInferenceEngine):
         self._add_tool_params_to_api_input(api_input, conversation, generation_params)
 
         return api_input
+
+    @override
+    async def _query_api(
+        self,
+        conversation: Conversation,
+        semaphore: PoliteAdaptiveSemaphore,
+        session: aiohttp.ClientSession,
+        inference_config: InferenceConfig | None = None,
+        *,
+        persist_scratch: bool = True,
+    ) -> Conversation:
+        """Queries vLLM, stopping at the context limit as VLLMInferenceEngine does.
+
+        vLLM rejects a request whose prompt plus ``max_tokens`` exceeds the model's
+        context. Such a request is sent once more with ``max_tokens`` capped to the
+        context the prompt leaves.
+        """
+        try:
+            return await super()._query_api(
+                conversation,
+                semaphore,
+                session,
+                inference_config,
+                persist_scratch=persist_scratch,
+            )
+        except APIStatusError as error:
+            if error.status_code != 400:
+                raise
+            capped_config = await self._capped_to_context(
+                conversation, session, inference_config
+            )
+            if capped_config is None:
+                raise
+        return await super()._query_api(
+            conversation,
+            semaphore,
+            session,
+            capped_config,
+            persist_scratch=persist_scratch,
+        )
+
+    async def _capped_to_context(
+        self,
+        conversation: Conversation,
+        session: aiohttp.ClientSession,
+        inference_config: InferenceConfig | None,
+    ) -> InferenceConfig | None:
+        """Returns the config with max_new_tokens cut to the context left, if over."""
+        config = inference_config or InferenceConfig(
+            model=self._model_params,
+            generation=self._generation_params,
+            remote_params=self._remote_params,
+        )
+        remote_params = config.remote_params or self._remote_params
+        api_url = remote_params.api_url or ""
+        if not api_url.endswith(_CHAT_COMPLETIONS_PATH):
+            return None
+        api_input = self._convert_conversation_to_api_input(
+            conversation, config.generation, config.model
+        )
+        tokenize_input = {
+            key: api_input[key]
+            for key in ("model", "messages", "tools", "chat_template_kwargs")
+            if key in api_input
+        }
+        async with session.post(
+            api_url.removesuffix(_CHAT_COMPLETIONS_PATH) + _TOKENIZE_PATH,
+            json=tokenize_input,
+            headers=self._get_request_headers(remote_params),
+            timeout=remote_params.connection_timeout,
+        ) as response:
+            if response.status != 200:
+                return None
+            tokenized = await response.json()
+        context_left = tokenized["max_model_len"] - tokenized["count"]
+        if not 0 < context_left < config.generation.max_new_tokens:
+            return None
+        return dataclasses.replace(
+            config,
+            generation=dataclasses.replace(
+                config.generation, max_new_tokens=context_left
+            ),
+        )
 
     @override
     def infer_batch(
