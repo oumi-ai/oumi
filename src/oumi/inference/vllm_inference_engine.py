@@ -584,6 +584,12 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         parser_name = tool_call_parser or model_params.tool_call_parser
         if parser_name:
             args += ["--enable-auto-tool-choice", "--tool-call-parser", parser_name]
+        # Applied to every chat as the engine does; a request's own kwargs win.
+        if model_params.chat_template_kwargs:
+            args += [
+                "--default-chat-template-kwargs",
+                json.dumps(model_params.chat_template_kwargs),
+            ]
         # The engine sets sampling per request; don't let the model's
         # generation_config.json fill in what a request leaves out.
         args += ["--generation-config", "vllm"]
