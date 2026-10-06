@@ -1547,6 +1547,7 @@ def test_build_serve_args_matches_engine_kwargs(mock_vllm):
     model_params = _get_default_model_params(use_lora=True)
     model_params.model_max_length = 4096
     model_params.tool_call_parser = "hermes"
+    model_params.chat_template_kwargs = {"enable_thinking": False}
 
     with (
         patch("oumi.inference.vllm_inference_engine.get_lora_rank", return_value=32),
@@ -1587,6 +1588,8 @@ def test_build_serve_args_matches_engine_kwargs(mock_vllm):
         "--enable-auto-tool-choice",
         "--tool-call-parser",
         "hermes",
+        "--default-chat-template-kwargs",
+        '{"enable_thinking": false}',
         "--generation-config",
         "vllm",
     ]
@@ -1605,3 +1608,4 @@ def test_build_serve_args_negates_false_flags():
     assert "--max-model-len" not in args
     assert "--lora-modules" not in args
     assert "--tool-call-parser" not in args
+    assert "--default-chat-template-kwargs" not in args
