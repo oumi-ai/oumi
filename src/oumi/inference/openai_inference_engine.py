@@ -20,6 +20,7 @@ from typing_extensions import override
 from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
 from oumi.core.types.conversation import Conversation
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
+from oumi.utils.logging import logger
 
 # OpenAI reasoning models, which don't support logit_bias.
 # Reference: https://platform.openai.com/docs/guides/reasoning
@@ -120,14 +121,20 @@ class OpenAIInferenceEngine(RemoteInferenceEngine):
             # Reasoning models do NOT support logit_bias.
             generation_params.logit_bias = {}
 
-            if _requires_default_temperature(model_params.model_name):
-                generation_params.temperature = 1.0
-
         api_input = super()._convert_conversation_to_api_input(
             conversation=conversation,
             generation_params=generation_params,
             model_params=model_params,
         )
+        if _requires_default_temperature(model_params.model_name):
+            # Omitted rather than pinned, so the API applies its own default.
+            temperature = api_input.pop("temperature", None)
+            if temperature is not None and temperature != 1.0:
+                logger.warning(
+                    "%r does not accept a custom temperature; omitting temperature=%s.",
+                    model_params.model_name,
+                    temperature,
+                )
         if self._remote_params.user_id:
             api_input["user"] = self._remote_params.user_id
         return api_input

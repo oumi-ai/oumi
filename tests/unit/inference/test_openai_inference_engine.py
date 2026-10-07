@@ -87,23 +87,23 @@ def test_openai_init_default_params():
     [
         ("some_model", {"token": 0.0}, 0.0, {"token": 0.0}, 0.0),
         ("gpt-4", {"token": 0.5}, 0.7, {"token": 0.5}, 0.7),
-        # Reasoning models should have temperature forced to 1.0 and logit_bias cleared
-        ("o1-preview", {"token": 0.0}, 0.0, {}, 1.0),
-        ("o1", {"token": 0.5}, 0.8, {}, 1.0),
-        ("o1-2024-12-17", {"token": 0.5}, 0.5, {}, 1.0),
-        ("o1-mini", {"token": 0.5}, 0.5, {}, 1.0),
-        ("o3-mini", {"token": 0.5}, 0.5, {}, 1.0),
-        ("o4-mini", {"token": 0.5}, 0.5, {}, 1.0),
-        ("gpt-5", {"token": 0.5}, 0.8, {}, 1.0),
-        ("gpt-5-2025-08-07", {"token": 0.5}, 0.8, {}, 1.0),
-        ("gpt-5-mini", {"token": 0.5}, 0.8, {}, 1.0),
-        ("gpt-5-mini-2025-08-07", {"token": 0.5}, 0.8, {}, 1.0),
-        ("gpt-5-nano", {"token": 0.5}, 0.8, {}, 1.0),
-        ("gpt-5-nano-2025-08-07", {"token": 0.5}, 0.8, {}, 1.0),
-        ("gpt-5.5", {"token": 0.5}, 0.8, {}, 1.0),
-        ("gpt-5.6-sol", {"token": 0.5}, 0.8, {}, 1.0),
-        ("gpt-6-astra", {"token": 0.5}, 0.7, {}, 1.0),
-        ("gpt-6.1-sol", {"token": 0.5}, 0.7, {}, 1.0),
+        # Reasoning models should have temperature omitted and logit_bias cleared
+        ("o1-preview", {"token": 0.0}, 0.0, {}, None),
+        ("o1", {"token": 0.5}, 0.8, {}, None),
+        ("o1-2024-12-17", {"token": 0.5}, 0.5, {}, None),
+        ("o1-mini", {"token": 0.5}, 0.5, {}, None),
+        ("o3-mini", {"token": 0.5}, 0.5, {}, None),
+        ("o4-mini", {"token": 0.5}, 0.5, {}, None),
+        ("gpt-5", {"token": 0.5}, 0.8, {}, None),
+        ("gpt-5-2025-08-07", {"token": 0.5}, 0.8, {}, None),
+        ("gpt-5-mini", {"token": 0.5}, 0.8, {}, None),
+        ("gpt-5-mini-2025-08-07", {"token": 0.5}, 0.8, {}, None),
+        ("gpt-5-nano", {"token": 0.5}, 0.8, {}, None),
+        ("gpt-5-nano-2025-08-07", {"token": 0.5}, 0.8, {}, None),
+        ("gpt-5.5", {"token": 0.5}, 0.8, {}, None),
+        ("gpt-5.6-sol", {"token": 0.5}, 0.8, {}, None),
+        ("gpt-6-astra", {"token": 0.5}, 0.7, {}, None),
+        ("gpt-6.1-sol", {"token": 0.5}, 0.7, {}, None),
         # Reasoning models that don't reason by default keep their temperature
         ("gpt-5.1", {"token": 0.5}, 0.7, {}, 0.7),
         ("gpt-5.2-2025-12-11", {"token": 0.5}, 0.7, {}, 0.7),
@@ -159,7 +159,10 @@ def test_default_params(
     )
 
     assert api_input["model"] == model_name
-    assert api_input["temperature"] == expected_temperature
+    if expected_temperature is None:
+        assert "temperature" not in api_input
+    else:
+        assert api_input["temperature"] == expected_temperature
     if expected_logit_bias:
         assert api_input["logit_bias"] == expected_logit_bias
     else:
@@ -220,7 +223,7 @@ def test_reasoning_model_does_not_drop_tool_fields():
         conversation, engine._generation_params, engine._model_params
     )
     # Reasoning-model overrides apply.
-    assert api_input["temperature"] == 1.0
+    assert "temperature" not in api_input
     assert "logit_bias" not in api_input
     # Tool fields are not dropped.
     assert api_input["tools"] == [
