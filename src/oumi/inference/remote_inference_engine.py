@@ -833,21 +833,22 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         # Retry the request if it fails
         for attempt in range(remote_params.max_retries + 1):
             try:
-                # Honor a server Retry-After in full if present, else exponential
-                # backoff. Jitter widens with num_workers so a large batch hitting
-                # one rate window spreads its retries instead of waking together.
+                # Wait for the longer of a server Retry-After and exponential
+                # backoff: a short header alone lets a batch burn every retry
+                # within seconds. Jitter widens with num_workers so a large batch
+                # hitting one rate window spreads its retries instead of waking
+                # together.
                 if attempt > 0:
-                    if next_retry_after is not None:
+                    delay = min(
+                        remote_params.retry_backoff_base
+                        * (_RETRY_BACKOFF_MULTIPLIER ** (attempt - 1)),
+                        remote_params.retry_backoff_max,
+                    )
+                    from_header = False
+                    if next_retry_after is not None and next_retry_after > delay:
                         delay = next_retry_after
                         from_header = True
-                        next_retry_after = None
-                    else:
-                        delay = min(
-                            remote_params.retry_backoff_base
-                            * (_RETRY_BACKOFF_MULTIPLIER ** (attempt - 1)),
-                            remote_params.retry_backoff_max,
-                        )
-                        from_header = False
+                    next_retry_after = None
                     jitter_fraction = min(
                         _RETRY_JITTER_FRACTION * remote_params.num_workers,
                         _MAX_RETRY_JITTER_FRACTION,
