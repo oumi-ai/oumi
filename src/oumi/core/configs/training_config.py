@@ -256,3 +256,21 @@ class TrainingConfig(BaseConfig):
             raise OumiConfigError(
                 "At least one validation dataset is required for VERL_GRPO training."
             )
+
+        # verl loads the model itself from model.model_name, so model-loading options
+        # applied by Oumi's model builder never reach it.
+        if self.training.trainer_type == TrainerType.VERL_GRPO:
+            if self.model.text_only:
+                logger.warning(
+                    "model.text_only has no effect for VERL_GRPO: verl selects the "
+                    "model class itself and loads the full vision-language model. "
+                    "To keep vLLM rollouts text-only, set "
+                    "actor_rollout_ref.rollout.engine_kwargs.vllm.limit_mm_per_prompt "
+                    "to 0 for each modality in training.verl_config_overrides."
+                )
+            if self.model.freeze_layers:
+                logger.warning(
+                    f"model.freeze_layers={self.model.freeze_layers} has no effect "
+                    "for VERL_GRPO: verl builds its own model, so these layers are "
+                    "not frozen."
+                )
