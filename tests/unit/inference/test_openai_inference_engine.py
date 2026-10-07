@@ -100,6 +100,15 @@ def test_openai_init_default_params():
         ("gpt-5-mini-2025-08-07", {"token": 0.5}, 0.8, {}, 1.0),
         ("gpt-5-nano", {"token": 0.5}, 0.8, {}, 1.0),
         ("gpt-5-nano-2025-08-07", {"token": 0.5}, 0.8, {}, 1.0),
+        ("gpt-5.5", {"token": 0.5}, 0.8, {}, 1.0),
+        ("gpt-5.6-sol", {"token": 0.5}, 0.8, {}, 1.0),
+        ("gpt-6-astra", {"token": 0.5}, 0.7, {}, 1.0),
+        ("gpt-6.1-sol", {"token": 0.5}, 0.7, {}, 1.0),
+        # Reasoning models that don't reason by default keep their temperature
+        ("gpt-5.1", {"token": 0.5}, 0.7, {}, 0.7),
+        ("gpt-5.2-2025-12-11", {"token": 0.5}, 0.7, {}, 0.7),
+        ("gpt-5.4", {"token": 0.5}, 0.7, {}, 0.7),
+        ("gpt-5.4-mini-2026-03-17", {"token": 0.5}, 0.7, {}, 0.7),
     ],
     ids=[
         "standard_model",
@@ -116,6 +125,14 @@ def test_openai_init_default_params():
         "gpt5_mini_dated",
         "gpt5_nano",
         "gpt5_nano_dated",
+        "gpt5_5",
+        "gpt5_6",
+        "gpt6",
+        "gpt6_1",
+        "gpt5_1_no_reasoning_default",
+        "gpt5_2_no_reasoning_default",
+        "gpt5_4_no_reasoning_default",
+        "gpt5_4_mini_no_reasoning_default",
     ],
 )
 def test_default_params(
@@ -165,6 +182,8 @@ def test_default_params(
         ("gpt-5-2025-08-07", True),
         ("gpt-5-mini-2025-08-07", True),
         ("gpt-5-nano-2025-08-07", True),
+        ("gpt-5.4", True),
+        ("gpt-6-astra", True),
         # Non-reasoning models (should return False)
         ("gpt-4", False),
         ("gpt-4-turbo", False),

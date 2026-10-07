@@ -21,17 +21,19 @@ from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
 from oumi.core.types.conversation import Conversation
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 
-# OpenAI reasoning models that only support temperature=1.0 and don't support
-# logit_bias.
-# This includes o-series models and GPT-5 family.
+# OpenAI reasoning models, which don't support logit_bias.
 # Reference: https://platform.openai.com/docs/guides/reasoning
-_REASONING_MODEL_PREFIXES = ("o1", "o3", "o4", "gpt-5")
+_REASONING_MODEL_PREFIXES = ("o1", "o3", "o4", "gpt-5", "gpt-6")
+
+# Reasoning models whose default reasoning_effort is "none". They accept any
+# temperature while not reasoning; every other reasoning model only accepts 1.0.
+_NO_REASONING_BY_DEFAULT_PREFIXES = ("gpt-5.1", "gpt-5.2", "gpt-5.4")
 
 
 def _is_reasoning_model(model_name: str) -> bool:
     """Check if a model is an OpenAI reasoning model.
 
-    Reasoning models only support temperature=1.0 and don't support logit_bias.
+    Reasoning models don't support logit_bias.
 
     Args:
         model_name: The name of the model to check.
@@ -40,6 +42,20 @@ def _is_reasoning_model(model_name: str) -> bool:
         True if the model is a reasoning model, False otherwise.
     """
     return model_name.startswith(_REASONING_MODEL_PREFIXES)
+
+
+def _requires_default_temperature(model_name: str) -> bool:
+    """Check if a model only accepts temperature=1.0 at its default reasoning effort.
+
+    Args:
+        model_name: The name of the model to check.
+
+    Returns:
+        True if any other temperature is rejected, False otherwise.
+    """
+    return _is_reasoning_model(model_name) and not model_name.startswith(
+        _NO_REASONING_BY_DEFAULT_PREFIXES
+    )
 
 
 # Blocklist of OpenAI model prefixes that are not chat models.
@@ -104,8 +120,8 @@ class OpenAIInferenceEngine(RemoteInferenceEngine):
             # Reasoning models do NOT support logit_bias.
             generation_params.logit_bias = {}
 
-            # Reasoning models only support temperature = 1.0.
-            generation_params.temperature = 1.0
+            if _requires_default_temperature(model_params.model_name):
+                generation_params.temperature = 1.0
 
         api_input = super()._convert_conversation_to_api_input(
             conversation=conversation,
