@@ -1,0 +1,24 @@
+# verl tool manifest for the NL2SQL example: the schema verl renders into the
+# policy's tool list, and the dispatch to Oumi's run_sql environment.
+#
+# See Also:
+#   - Example README: configs/examples/grpo_verl_nl2sql/README.md
+#   - Referenced by: configs/examples/grpo_verl_nl2sql/train.yaml
+
+tools:
+  - class_name: oumi.core.trainers.verl_agentic.oumi_verl_tool.OumiVerlTool
+    config:
+      type: native   # required by verl's tool loader
+      oumi_env_config: configs/examples/grpo_verl_nl2sql/environment_config.yaml
+    tool_schema:
+      type: function
+      function:
+        name: run_sql
+        description: Execute a read-only SQL query and return the result rows.
+        parameters:
+          type: object
+          properties:
+            query:
+              type: string
+              description: A single SQL SELECT statement.
+          required: [query]
