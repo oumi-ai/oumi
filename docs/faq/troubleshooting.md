@@ -19,10 +19,26 @@ Installing natively on Windows outside of a WSL environment can lead to installa
 ERROR: Could not find a version that satisfies the requirement ... (from versions: none)
 ```
 
+or, when long path support is disabled, an error while installing the `lm_eval` dependency, whose
+task files exceed the Windows 260-character `MAX_PATH` limit:
+
+```text
+ERROR: Could not install packages due to an OSError: [Errno 2] No such file or directory:
+'...\\lm_eval\\tasks\\arabic_leaderboard_complete\\...'
+HINT: This error might have occurred since this system does not have Windows Long Path support enabled.
+```
+
 or runtime errors like:
 
 ```shell
 ModuleNotFoundError: No module named 'resource'
+```
+
+or a `UnicodeDecodeError` during training, when a dependency reads a UTF-8 file under the
+Windows default code page (`cp1252`):
+
+```text
+UnicodeDecodeError: 'charmap' codec can't decode byte 0x81 in position 932: character maps to <undefined>
 ```
 
 ### Installing on macOS
