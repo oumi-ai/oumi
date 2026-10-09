@@ -25,6 +25,8 @@ def _job(cloud: str = "modal", **overrides) -> JobConfig:
         cloud=cloud,
         accelerators=overrides.pop("accelerators", "H100:8"),
         image_id=overrides.pop("image_id", None),
+        cpus=overrides.pop("cpus", None),
+        memory=overrides.pop("memory", None),
     )
     return JobConfig(
         name=overrides.pop("name", "myjob"),
@@ -105,6 +107,29 @@ def test_launch_mounts_hf_cache_volume(fake_modal):
     )
     _, kwargs = fake_modal.Sandbox.create.call_args
     assert "/root/.cache/huggingface" in kwargs["volumes"]
+
+
+def test_launch_reserves_cpu_and_memory_from_resources(fake_modal):
+    """CPU/memory requests flow through so the sandbox isn't left on Modal's
+    burstable-sliver default (SkyPilot-style "+" modifiers are accepted)."""
+    with patch(
+        "oumi.launcher.clients.modal_client._import_modal", return_value=fake_modal
+    ):
+        ModalClient().launch(_job(cpus="16+", memory="64"))
+    _, kwargs = fake_modal.Sandbox.create.call_args
+    assert kwargs["cpu"] == 16.0
+    assert kwargs["memory"] == 64 * 1024
+
+
+def test_launch_leaves_cpu_and_memory_unset_when_absent(fake_modal):
+    """Absent or unparseable requests fall back to Modal's defaults."""
+    with patch(
+        "oumi.launcher.clients.modal_client._import_modal", return_value=fake_modal
+    ):
+        ModalClient().launch(_job(cpus="not-a-number"))
+    _, kwargs = fake_modal.Sandbox.create.call_args
+    assert kwargs["cpu"] is None
+    assert kwargs["memory"] is None
 
 
 def test_launch_default_image_is_cuda_devel_with_nvcc(fake_modal):
