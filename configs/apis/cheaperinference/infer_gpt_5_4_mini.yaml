@@ -1,0 +1,25 @@
+# Inference config for GPT-5.4 mini via Cheaper Inference.
+#
+# Requirements:
+#   - Set the `CHEAPER_INFERENCE_API_KEY` env var to your Cheaper Inference API key.
+#   - Cheaper Inference's OpenAI-compatible base URL must include the `/v1` suffix.
+#
+# Usage:
+#   oumi infer -i -c configs/apis/cheaperinference/infer_gpt_5_4_mini.yaml
+#
+# See Also:
+#   - Cheaper Inference docs: https://cheaperinference.com/docs
+#   - Oumi infer docs: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+
+model:
+  model_name: "gpt-5.4-mini"
+
+remote_params:
+  api_url: "https://api.cheaperinference.com/v1/chat/completions"
+  api_key_env_varname: "CHEAPER_INFERENCE_API_KEY"
+
+engine: OPENAI
+
+generation:
+  max_new_tokens: 4096
+  temperature: 0.7
