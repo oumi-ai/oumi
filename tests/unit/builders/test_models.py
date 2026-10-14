@@ -3,6 +3,8 @@ from unittest import mock
 from unittest.mock import Mock, patch
 
 import pytest
+import transformers
+from peft.tuners.lora import LoraLayer
 from torch import nn
 
 from oumi.builders.models import (
@@ -12,10 +14,11 @@ from oumi.builders.models import (
     build_chat_template,
     build_huggingface_model,
     build_oumi_model,
+    build_peft_model,
     build_tokenizer,
     is_image_text_llm,
 )
-from oumi.core.configs import ModelParams
+from oumi.core.configs import ModelParams, PeftParams
 from oumi.core.configs.internal.supported_models import find_model_hf_config
 from oumi.utils.logging import logger
 
@@ -438,3 +441,26 @@ def test_model_class_uses_registry_when_not_text_only():
     ):
         cls = _get_transformers_model_class(fake_config, text_only=False)
     assert cls is transformers.AutoModelForImageTextToText
+
+
+@pytest.mark.parametrize("mixed_precision", [False, True])
+def test_build_peft_model_lora_input_dtype_casting(mixed_precision):
+    config = transformers.LlamaConfig(
+        vocab_size=32,
+        hidden_size=16,
+        intermediate_size=32,
+        num_hidden_layers=1,
+        num_attention_heads=2,
+    )
+    base_model = transformers.LlamaForCausalLM(config)
+
+    model = build_peft_model(
+        base_model,
+        use_gradient_checkpointing=False,
+        peft_params=PeftParams(lora_target_modules=["q_proj", "v_proj"]),
+        mixed_precision=mixed_precision,
+    )
+
+    lora_layers = [m for m in model.modules() if isinstance(m, LoraLayer)]
+    assert len(lora_layers) == 2
+    assert all(m.cast_input_dtype_enabled != mixed_precision for m in lora_layers)

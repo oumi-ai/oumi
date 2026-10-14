@@ -1,14 +1,18 @@
 from unittest.mock import patch
 
+import pytest
+
 from oumi.core.configs import (
     DataParams,
     DatasetParams,
     DatasetSplitParams,
+    MixedPrecisionDtype,
     ModelParams,
     TrainerType,
     TrainingConfig,
     TrainingParams,
 )
+from oumi.exceptions import OumiConfigError
 
 
 def test_training_config_processor_kwargs():
@@ -183,3 +187,11 @@ def test_text_only_does_not_warn_for_hf_trainers(mock_logger):
 
     messages = [c.args[0] for c in mock_logger.warning.call_args_list]
     assert not any("text_only" in m for m in messages)
+
+
+def test_mixed_precision_requires_fp32_model():
+    with pytest.raises(OumiConfigError, match="model.torch_dtype_str: float32"):
+        TrainingConfig(
+            model=ModelParams(model_name="Qwen/Qwen3.5-4B", torch_dtype_str="bfloat16"),
+            training=TrainingParams(mixed_precision_dtype=MixedPrecisionDtype.BF16),
+        )

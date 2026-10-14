@@ -41,6 +41,7 @@ from oumi.builders import (
 )
 from oumi.core.configs import (
     DatasetSplit,
+    MixedPrecisionDtype,
     TrainerType,
     TrainingConfig,
 )
@@ -522,7 +523,11 @@ def train(
     if use_peft:
         logger.info("Building PEFT model...")
         model = build_peft_model(
-            model, config.training.enable_gradient_checkpointing, config.peft
+            model,
+            config.training.enable_gradient_checkpointing,
+            config.peft,
+            mixed_precision=config.training.mixed_precision_dtype
+            in (MixedPrecisionDtype.FP16, MixedPrecisionDtype.BF16),
         )
 
     if is_local_process_zero():

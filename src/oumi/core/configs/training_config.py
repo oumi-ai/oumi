@@ -137,7 +137,11 @@ class TrainingConfig(BaseConfig):
         ]:
             if self.model.torch_dtype != torch.float32:
                 raise OumiConfigError(
-                    "Model must be loaded in fp32 to enable mixed precision training."
+                    "Mixed precision training (bf16/fp16) requires loading the model "
+                    "in fp32 (`model.torch_dtype_str: float32`). To train in bfloat16 "
+                    "instead (recommended for LoRA), set "
+                    "`model.torch_dtype_str: bfloat16` and "
+                    "`training.mixed_precision_dtype: none`."
                 )
 
         # Check values for model sequence length.
