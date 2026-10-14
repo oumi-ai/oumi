@@ -152,6 +152,13 @@ def _config_with_collator_kwargs(collator_kwargs):
     )
 
 
+def _dynamo_config_entries():
+    """torch's private per-setting config entries (not in its type stubs)."""
+    import torch
+
+    return getattr(torch._dynamo.config, "_config")
+
+
 @pytest.fixture
 def restore_dynamo_limits():
     """Save/restore global torch dynamo limits mutated by the helper under test."""
@@ -160,13 +167,12 @@ def restore_dynamo_limits():
     # `cache_size_limit` exists in all supported torch versions; torch>=2.7 aliases
     # it to `recompile_limit`. Assert on `cache_size_limit` so tests work on both.
     saved = torch._dynamo.config.cache_size_limit
-    saved_defaults = {
-        name: entry.default for name, entry in torch._dynamo.config._config.items()
-    }
+    entries = _dynamo_config_entries()
+    saved_defaults = {name: entry.default for name, entry in entries.items()}
     yield
     torch._dynamo.config.cache_size_limit = saved
     for name, default in saved_defaults.items():
-        torch._dynamo.config._config[name].default = default
+        entries[name].default = default
 
 
 def test_recompile_limit_unset_without_pad_to_multiple_of(
@@ -229,7 +235,7 @@ def test_recompile_limit_reaches_threads_without_the_override(
     thread.start()
     thread.join()
     assert seen == [_DEFAULT_DYNAMO_RECOMPILE_LIMIT]
-    entries = torch._dynamo.config._config
+    entries = _dynamo_config_entries()
     name = "recompile_limit" if "recompile_limit" in entries else "cache_size_limit"
     assert entries[name].default == _DEFAULT_DYNAMO_RECOMPILE_LIMIT
 
