@@ -129,6 +129,7 @@ class _ToolParserCapabilities:
 
     requires_raw_output: bool = False
     requires_split_tool_narration: bool = False
+    requires_token_ids: bool = False
 
 
 _DEFAULT_TOOL_PARSER_CAPABILITIES = _ToolParserCapabilities()
@@ -141,6 +142,9 @@ _TOOL_PARSER_CAPABILITIES = {
         requires_raw_output=True,
         requires_split_tool_narration=True,
     ),
+    # gpt-oss's harmony parser reads channels from token IDs and refuses text;
+    # without them, the analysis channel leaks into the content.
+    "openai": _ToolParserCapabilities(requires_token_ids=True),
 }
 
 
@@ -892,10 +896,16 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                         self._tool_parser, conversation.tools
                     ),
                 )
+                parser_kwargs = (
+                    {"token_ids": completion.token_ids}
+                    if parser_capabilities.requires_token_ids
+                    else {}
+                )
                 try:
                     extracted = self._tool_parser.extract_tool_calls(
                         parser_text,
                         request=stub,  # type: ignore[arg-type]
+                        **parser_kwargs,
                     )
                 except Exception:
                     logger.exception(

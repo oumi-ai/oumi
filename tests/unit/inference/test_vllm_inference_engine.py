@@ -1116,6 +1116,37 @@ def test_other_parser_uses_extracted_content_without_tool_calls(
     assert finish_reason_override is None
 
 
+def test_openai_parser_reads_gpt_oss_channels_from_token_ids():
+    parser_instance = Mock()
+    parser_instance.extract_tool_calls.return_value = SimpleNamespace(
+        tools_called=False,
+        tool_calls=[],
+        content="no",
+    )
+    engine = object.__new__(VLLMInferenceEngine)
+    engine._tool_parser = parser_instance
+    engine._tool_parser_name = "openai"
+    conv = Conversation(
+        messages=[Message(role=Role.USER, content="hi")], conversation_id="1"
+    )
+    completion = SimpleNamespace(
+        text="analysisThe user greets me.assistantfinalno",
+        token_ids=[200005, 35644, 200008],
+    )
+
+    messages, finish_reason_override = engine._build_response_messages(
+        conv, SimpleNamespace(outputs=[completion])
+    )
+
+    parser_instance.extract_tool_calls.assert_called_once_with(
+        completion.text,
+        request=ANY,
+        token_ids=[200005, 35644, 200008],
+    )
+    assert messages[-1].content == "no"
+    assert finish_reason_override is None
+
+
 class _FakeEngineParser:
     """Stands in for vLLM's `ParserEngineToolAdapter`."""
 
