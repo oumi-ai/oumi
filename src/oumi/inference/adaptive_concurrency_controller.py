@@ -110,8 +110,8 @@ class AdaptiveConcurrencyController:
 
     async def __aexit__(self, exc_type, exc, tb):
         """Exit the context manager."""
-        # Awaits the semaphore's exit instead of calling release(), which is synchronous
-        # and so runs the release on a new thread and event loop that block this one.
+        # self.release() would block the event loop; the semaphore's async exit
+        # releases on this loop instead.
         await self._semaphore.__aexit__(exc_type, exc, tb)
 
     def _get_initial_concurrency(self) -> int:
