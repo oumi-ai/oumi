@@ -110,7 +110,9 @@ class AdaptiveConcurrencyController:
 
     async def __aexit__(self, exc_type, exc, tb):
         """Exit the context manager."""
-        self.release()
+        # Not self.release(): that releases in a new thread and event loop, blocking
+        # this loop until it finishes.
+        await self._semaphore.__aexit__(exc_type, exc, tb)
 
     def _get_initial_concurrency(self) -> int:
         """Get the initial concurrency."""
