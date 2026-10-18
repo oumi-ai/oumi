@@ -40,6 +40,19 @@ def test_post_init_adapter_model_not_present_exception(
     mock_find_adapter_config_file.assert_called_with(str(tmp_path))
 
 
+@patch("oumi.core.configs.params.model_params.find_adapter_config_file")
+def test_post_init_hub_unreachable(mock_find_adapter_config_file, tmp_path: Path):
+    """An unreachable Hub must not abort validation (RuntimeError, not OSError)."""
+    mock_find_adapter_config_file.side_effect = RuntimeError(
+        "Cannot send a request, as the client has been closed."
+    )
+    params = ModelParams(model_name=str(tmp_path))
+    params.finalize_and_validate()
+
+    assert Path(params.model_name) == tmp_path
+    assert params.adapter_model is None
+
+
 @patch("oumi.core.configs.params.model_params.logger")
 def test_post_init_config_file_present(mock_logger, tmp_path: Path):
     with open(f"{tmp_path}/config.json", "w"):

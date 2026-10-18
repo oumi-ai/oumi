@@ -299,10 +299,8 @@ class ModelParams(BaseParams):
             # will be downloaded from HF Hub if it's not already cached.
             try:
                 adapter_config_file = find_adapter_config_file(self.model_name)
-            except (OSError, HFValidationError) as e:
-                # OSError: model folder doesn't exist or doesn't contain adapter
-                # HFValidationError: model_name is not a valid HuggingFace repo ID
-                # (e.g., remote API model names like "accounts/fireworks/models/...")
+            except (OSError, HFValidationError, RuntimeError) as e:
+                # RuntimeError: the Hub is unreachable, e.g. `gpt-4o` with no network
                 logger.debug(
                     f"Model folder does not contain an adapter: {self.model_name} "
                     f"({type(e).__name__})"
