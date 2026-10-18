@@ -549,6 +549,39 @@ def test_step_returns_non_dict_output(output):
     assert env.step([("tool1", {"id": "01"})]) == [ToolResult(output=output)]
 
 
+def test_step_does_not_re_encode_the_lookup_table(monkeypatch):
+    """A call matches against the prebuilt index, not a scan of the table.
+
+    Matching used to canonicalize every configured entry (plus the incoming
+    arguments) on each call, so a table with N entries cost N + 1
+    ``json.dumps`` per call. The table is now encoded once, at construction.
+    """
+    entry_encodings = 0
+    original_input_key = ToolLookupEntry.input_key
+
+    def counting_input_key(self) -> str:
+        nonlocal entry_encodings
+        entry_encodings += 1
+        return original_input_key(self)
+
+    monkeypatch.setattr(ToolLookupEntry, "input_key", counting_input_key)
+    env = LookupEnvironment.from_params(
+        _make_params(
+            lookup_table={
+                "tool1": [
+                    ToolLookupEntry(input={"id": str(i)}, output={"msg": f"m-{i}"})
+                    for i in range(500)
+                ]
+            }
+        )
+    )
+    assert entry_encodings == 500
+
+    entry_encodings = 0
+    assert env.step([("tool1", {"id": "250"})]) == [ToolResult(output={"msg": "m-250"})]
+    assert entry_encodings == 0
+
+
 # --- sample_grounding ---
 
 
