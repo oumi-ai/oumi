@@ -19,7 +19,6 @@ import torch
 import torch.nn as nn
 import transformers
 from peft import PeftModel, get_peft_model, prepare_model_for_kbit_training
-from peft.tuners.lora import LoraLayer
 from transformers import Mxfp4Config  # pyright: ignore[reportAttributeAccessIssue]
 
 from oumi.core.configs import ModelParams, PeftParams
@@ -544,10 +543,7 @@ def build_tokenizer(
 
 
 def build_peft_model(
-    base_model,
-    use_gradient_checkpointing: bool,
-    peft_params: PeftParams,
-    mixed_precision: bool = False,
+    base_model, use_gradient_checkpointing: bool, peft_params: PeftParams
 ):
     """Builds a PEFT model based on the given base model and params.
 
@@ -555,7 +551,6 @@ def build_peft_model(
         base_model: The base model to build the PEFT model on.
         use_gradient_checkpointing: Enable/disable gradient checkpointing.
         peft_params: The desired params for LORA.
-        mixed_precision: Whether training uses fp16/bf16 mixed precision.
 
     Returns:
         The built PEFT model.
@@ -571,14 +566,6 @@ def build_peft_model(
         model = base_model
 
     model = get_peft_model(model, lora_config)
-
-    if mixed_precision:
-        # Autocast already picks the matmul dtype. PEFT's cast to the LoRA weight
-        # dtype breaks FSDP + activation checkpointing: the weight is fp32 when
-        # sharded (forward) but bf16/fp16 when unsharded (recompute).
-        for module in model.modules():
-            if isinstance(module, LoraLayer):
-                module.cast_input_dtype_enabled = False
 
     return model
 

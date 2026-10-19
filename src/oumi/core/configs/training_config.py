@@ -143,6 +143,20 @@ class TrainingConfig(BaseConfig):
                     "`model.torch_dtype_str: bfloat16` and "
                     "`training.mixed_precision_dtype: none`."
                 )
+            # PEFT casts LoRA inputs to the adapter weight dtype, which FSDP changes
+            # between the forward pass and the checkpointed recompute.
+            if (
+                self.training.use_peft
+                and self.fsdp.enable_fsdp
+                and self.training.enable_gradient_checkpointing
+            ):
+                raise OumiConfigError(
+                    "LoRA with FSDP and gradient checkpointing doesn't support fp32 "
+                    "weights with bf16/fp16 mixed precision. Load the model in "
+                    "bfloat16 (`model.torch_dtype_str: bfloat16`) and set "
+                    "`training.mixed_precision_dtype: none`. LoRA adapters still "
+                    "train in fp32."
+                )
 
         # Check values for model sequence length.
         if self.model.model_max_length and self.model.model_max_length > 0:
