@@ -1,0 +1,101 @@
+# LoRA SFT config for Gemma 4 26B Instruct (Mixture-of-Experts).
+#
+# Model highlights:
+#   - ~25.8B total parameters (~4B active per token, "A4B"), MoE multimodal model
+#     from Google (Gemma 4 Larger series)
+#   - 256K context length; image + text inputs
+#   - LoRA is scoped to the text transformer only. The vision tower and the
+#     multimodal projector use `Gemma4ClippableLinear` wrappers that PEFT cannot
+#     adapt, and share projection names with the text model — so they are excluded
+#     via `lora_exclude_modules` below.
+#     NOTE: q/k/v/o + gate/up/down_proj adapt the attention projections AND the
+#     per-layer dense FFN (`Gemma4TextMLP`, always-on). The sparse routed experts
+#     (`Gemma4TextExperts`) store fused 3D `nn.Parameter`s, not name-addressable
+#     `nn.Linear`, so name-based LoRA cannot reach them — they stay frozen.
+#     Trainable: 9,292,800 params (attention + dense FFN, ~0.035%).
+#
+# Requirements:
+#   - transformers >= 5.5.4
+#   - peft (installed automatically with oumi)
+#   - Gemma license acceptance required: https://huggingface.co/google/gemma-4-26B-A4B-it
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   oumi distributed torchrun -m oumi train -c oumi://configs/recipes/gemma4/sft/26b_lora/train.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/*train.yaml
+
+model:
+  model_name: "google/gemma-4-26B-A4B-it"
+  model_max_length: 8192
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: false
+  enable_liger_kernel: false  # Disabled (may conflict with Gemma output format).
+
+data:
+  train:
+    datasets:
+      - dataset_name: "yahma/alpaca-cleaned"  # 51,760 examples
+
+training:
+  use_peft: true
+  trainer_type: "TRL_SFT"
+  save_final_model: true
+  num_train_epochs: 1
+  per_device_train_batch_size: 1
+  # NOTE: gradient accumulation inflates the reported (logged) loss for Gemma 4 —
+  # the displayed curve reads higher than the true loss but still descends as
+  # expected. Caused by a missing `accepts_loss_kwargs = False` on
+  # Gemma4ForConditionalGeneration; fixed on transformers main but not yet
+  # released as of 5.5.4. See huggingface/transformers#40564 (same bug in Gemma 3).
+  gradient_accumulation_steps: 8
+  max_grad_norm: 1.0
+
+  enable_gradient_checkpointing: true
+  gradient_checkpointing_kwargs:
+    use_reentrant: false
+  compile: false
+
+  optimizer: "adamw_torch_fused"
+  learning_rate: 2.0e-04
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.05
+  weight_decay: 0.01
+
+  dataloader_num_workers: "auto"
+  dataloader_prefetch_factor: 8
+  logging_steps: 5
+  empty_device_cache_steps: 50
+  output_dir: "output/gemma4_26b.lora"
+  include_performance_metrics: true
+  enable_wandb: true
+
+peft:
+  lora_r: 8
+  lora_alpha: 16
+  lora_dropout: 0.05
+  lora_target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+  # Keep LoRA on the text transformer only; exclude the vision tower and the
+  # multimodal projector (image+text model, no audio tower).
+  lora_exclude_modules:
+    - ".*vision_tower.*"
+    - ".*multi_modal_projector.*"
+
+fsdp:
+  enable_fsdp: true
+  sharding_strategy: "FULL_SHARD"
+  forward_prefetch: true
+  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
+  transformer_layer_cls: "Gemma4TextDecoderLayer"

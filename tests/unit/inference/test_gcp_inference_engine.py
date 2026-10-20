@@ -17,10 +17,25 @@ from oumi.core.types.conversation import (
     Role,
     Type,
 )
+from oumi.core.types.tool_call import ToolDefinition
 from oumi.inference.gcp_inference_engine import GoogleVertexInferenceEngine
 from oumi.utils.image_utils import (
     create_png_bytes_from_image,
 )
+
+_WEATHER_TOOL_DICT = {
+    "type": "function",
+    "function": {
+        "name": "get_weather",
+        "description": "Get current weather for a city.",
+        "parameters": {
+            "type": "object",
+            "properties": {"city": {"type": "string"}},
+            "required": ["city"],
+        },
+    },
+}
+_WEATHER_TOOL = ToolDefinition.model_validate(_WEATHER_TOOL_DICT)
 
 
 def create_test_remote_params():
@@ -114,6 +129,7 @@ def test_get_request_headers(gcp_engine, remote_params):
     with patch.object(gcp_engine, "_get_api_key", return_value="fake_token"):
         headers = gcp_engine._get_request_headers(remote_params)
         assert headers == {
+            "Accept-Encoding": "gzip, deflate",
             "Authorization": "Bearer fake_token",
             "Content-Type": "application/json",
         }
@@ -150,6 +166,59 @@ def test_convert_conversation_to_api_input_multimodal(gcp_engine, inference_conf
     assert api_input["max_completion_tokens"] == 100
     assert api_input["temperature"] == 0.7
     assert api_input["top_p"] == 0.9
+
+
+def test_convert_conversation_to_api_input_includes_tools(gcp_engine, inference_config):
+    """Conversation.tools is forwarded in the OpenAI wire shape."""
+    conversation = Conversation(
+        tools=[_WEATHER_TOOL],
+        messages=[Message(content="weather in Tokyo?", role=Role.USER)],
+    )
+    api_input = gcp_engine._convert_conversation_to_api_input(
+        conversation, inference_config.generation, gcp_engine._model_params
+    )
+    assert api_input["tools"] == [_WEATHER_TOOL_DICT]
+
+
+def test_convert_conversation_to_api_input_omits_tools_when_absent(
+    gcp_engine, inference_config
+):
+    """No tools key when the conversation carries no tools."""
+    conversation = create_test_text_only_conversation()
+    api_input = gcp_engine._convert_conversation_to_api_input(
+        conversation, inference_config.generation, gcp_engine._model_params
+    )
+    assert "tools" not in api_input
+
+
+def test_convert_conversation_to_api_input_forwards_tool_choice_and_parallel(
+    gcp_engine,
+):
+    """tool_choice and parallel_tool_calls=False reach the request body."""
+    generation_params = GenerationParams(
+        max_new_tokens=100,
+        tool_choice="auto",
+        parallel_tool_calls=False,
+    )
+    conversation = Conversation(
+        tools=[_WEATHER_TOOL],
+        messages=[Message(content="hi", role=Role.USER)],
+    )
+    api_input = gcp_engine._convert_conversation_to_api_input(
+        conversation, generation_params, gcp_engine._model_params
+    )
+    assert api_input["tool_choice"] == "auto"
+    assert api_input["parallel_tool_calls"] is False
+
+
+def test_vertex_supports_tool_params():
+    """tool_choice / parallel_tool_calls are advertised as supported."""
+    engine = GoogleVertexInferenceEngine(
+        ModelParams(model_name="gcp-model"), remote_params=create_test_remote_params()
+    )
+    supported = engine.get_supported_params()
+    assert "tool_choice" in supported
+    assert "parallel_tool_calls" in supported
 
 
 @pytest.mark.parametrize(

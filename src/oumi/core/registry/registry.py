@@ -38,6 +38,7 @@ class RegistryType(Enum):
     SAMPLE_ANALYZER = auto()
     RULE = auto()
     ENVIRONMENT = auto()
+    TOOL_EXECUTOR = auto()
 
 
 class RegistryKey(namedtuple("RegistryKey", ["name", "registry_type"])):
@@ -146,6 +147,7 @@ class Registry:
             RegistryType.METRICS_FUNCTION,
             RegistryType.REWARD_FUNCTION,
             RegistryType.ROLLOUT_FUNCTION,
+            RegistryType.TOOL_EXECUTOR,
         ) and not callable(value):
             raise ValueError(f"Registry: `{name}` of `{type}` must be callable.")
 
@@ -375,6 +377,26 @@ def register_environment(registry_name: str) -> Callable:
     def decorator_register(obj):
         """Decorator to register its target `obj`."""
         REGISTRY.register(name=registry_name, type=RegistryType.ENVIRONMENT, value=obj)
+        return obj
+
+    return decorator_register
+
+
+def register_tool_executor(registry_name: str) -> Callable:
+    """Returns function to register a tool executor in the Oumi global registry.
+
+    Args:
+        registry_name: The name to register the executor under.
+
+    Returns:
+        Decorator function to register the target executor callable.
+    """
+
+    def decorator_register(obj):
+        """Decorator to register its target `obj`."""
+        REGISTRY.register(
+            name=registry_name, type=RegistryType.TOOL_EXECUTOR, value=obj
+        )
         return obj
 
     return decorator_register

@@ -2,6 +2,7 @@ import contextlib
 from unittest import mock
 from unittest.mock import patch
 
+import aiohttp
 import pytest
 
 from oumi.builders.inference_engines import ENGINE_MAP, build_inference_engine
@@ -402,3 +403,40 @@ def test_build_all_inference_engines():
 
             # Verify the engine is of the correct type
             assert isinstance(engine, engine_class)
+
+
+@pytest.mark.parametrize("engine_class", REMOTE_ENGINES + REMOTE_API_ENGINES)
+def test_remote_engine_init_forwards_http_session(engine_class):
+    if _should_skip_engine(engine_class):
+        pytest.skip(
+            f"Skipping {engine_class} because it is not supported on this platform"
+        )
+    session = mock.Mock(spec=aiohttp.ClientSession)
+    with _mock_engine(engine_class):
+        engine = engine_class(
+            model_params=ModelParams(model_name="test-model"),
+            remote_params=RemoteParams(api_url="http://test.com", api_key="test-key"),
+            http_session=session,
+        )
+    assert engine._http_session is session
+
+
+def test_build_inference_engine_forwards_http_session_to_remote_engines():
+    session = mock.Mock(spec=aiohttp.ClientSession)
+    engine = build_inference_engine(
+        engine_type=InferenceEngineType.OPENAI,
+        model_params=ModelParams(model_name="test-model"),
+        remote_params=RemoteParams(api_key="test-key"),
+        http_session=session,
+    )
+    assert isinstance(engine, RemoteInferenceEngine)
+    assert engine._http_session is session
+
+
+def test_build_inference_engine_rejects_http_session_for_local_engines():
+    with pytest.raises(ValueError, match="only supported by remote engines"):
+        build_inference_engine(
+            engine_type=InferenceEngineType.NATIVE,
+            model_params=ModelParams(model_name="test-model"),
+            http_session=mock.Mock(spec=aiohttp.ClientSession),
+        )

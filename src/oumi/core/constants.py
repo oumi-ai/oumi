@@ -21,3 +21,6 @@ from typing import Final
 # Refer to the `ignore_index` parameter of `torch.nn.CrossEntropyLoss()`
 # for more details.
 LABEL_IGNORE_INDEX: Final[int] = -100
+
+# FileLogger output produced by verl-backed trainers.
+VERL_METRICS_FILENAME: Final[str] = "verl_metrics.jsonl"

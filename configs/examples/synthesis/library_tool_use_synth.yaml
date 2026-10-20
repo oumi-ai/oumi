@@ -2,7 +2,7 @@
 #
 # A library patron (one of three personas) chats with LibBot, an assistant that
 # uses two tools to help: list_book_catalog and lookup_book_status. The
-# deterministic environment serves the tool calls from a small lookup table.
+# lookup environment serves the tool calls from a small lookup table.
 #
 # Requirements:
 #   - Set OPENAI_API_KEY in the environment.
@@ -31,7 +31,7 @@ environment_config:
     - id: library
       name: library
       description: A small library catalog with book lookup tools.
-      env_type: deterministic
+      env_type: lookup
       grounding:
         sample_size: 2
         seed: 13
@@ -145,7 +145,7 @@ strategy_params:
           - Stay polite and helpful.
 
       conversation_planner: |
-        Plan a {target_turns}-turn conversation between {user_persona.name}
+        Plan the conversation between {user_persona.name}
         ({user_persona.description}) and LibBot. The dialog must require LibBot
         to call list_book_catalog at least once and lookup_book_status at least
         once across the conversation.

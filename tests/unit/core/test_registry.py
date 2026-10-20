@@ -192,7 +192,12 @@ def test_registry_function(registry_type: RegistryType):
 
 
 @pytest.mark.parametrize(
-    "registry_type", [RegistryType.METRICS_FUNCTION, RegistryType.REWARD_FUNCTION]
+    "registry_type",
+    [
+        RegistryType.METRICS_FUNCTION,
+        RegistryType.REWARD_FUNCTION,
+        RegistryType.TOOL_EXECUTOR,
+    ],
 )
 def test_registry_metrics_function_non_callable(registry_type: RegistryType):
     class FooNonCallable:

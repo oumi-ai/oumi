@@ -29,20 +29,20 @@ class GrpoParams(BaseParams):
     """Maximum length of the prompt.
 
     If the prompt is longer than this value, it will be truncated left.
-    If unspecified (`None`), defaults to 512.
+    If unspecified (`None`), both TRL and VERL default to 512.
     """
 
     max_completion_length: int | None = None
     """Maximum length of the generated completion.
 
-    If unspecified (`None`), defaults to 256.
+    If unspecified (`None`), TRL defaults to 256 and VERL defaults to 512.
     """
 
     num_generations: int | None = None
     """Number of generations per prompt to sample.
 
     The global batch size (num_processes * per_device_batch_size) must be divisible
-    by this value. If unspecified (`None`), defaults to 8.
+    by this value. If unspecified (`None`), TRL defaults to 8 and VERL defaults to 1.
     """
 
     temperature: float = 0.9

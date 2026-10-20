@@ -24,7 +24,7 @@ from oumi.core.configs.params.base_params import BaseParams
 
 @dataclass
 class ToolGroundingConfig(BaseParams):
-    """Per-tool field whitelist for deterministic-env grounding projection."""
+    """Per-tool field whitelist for lookup-env grounding projection."""
 
     fields: list[str]
 
@@ -41,7 +41,7 @@ class ToolGroundingConfig(BaseParams):
 
 @dataclass
 class StateGroundingConfig(BaseParams):
-    """Per-state-pool grounding for stateful synthetic environments.
+    """Per-state-pool grounding for stateful simulated environments.
 
     Projects rows from ``initial_state[state_path]`` through ``fields``.
     """
@@ -66,9 +66,9 @@ class StateGroundingConfig(BaseParams):
 class GroundingConfig(BaseParams):
     """Per-environment grounding configuration.
 
-    Both sub-blocks are optional; envs read whichever applies. Deterministic
+    Both sub-blocks are optional; envs read whichever applies. Lookup
     envs project from ``tools`` (per-tool lookup-table entries); stateful
-    synthetic envs project from ``state`` (per-pool ``initial_state`` rows).
+    simulated envs project from ``state`` (per-pool ``initial_state`` rows).
     """
 
     sample_size: int = 3
@@ -81,7 +81,7 @@ class GroundingConfig(BaseParams):
     """Per-tool field whitelists, keyed by tool id."""
 
     state: list[StateGroundingConfig] = field(default_factory=list)
-    """Per-state-pool projections for stateful synthetic envs."""
+    """Per-state-pool projections for stateful simulated envs."""
 
     def __post_init__(self) -> None:
         """Validate ``sample_size`` and coerce ``tools``/``state`` entries."""

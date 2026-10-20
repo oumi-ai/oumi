@@ -147,6 +147,21 @@ def test_tool_turn_breaks_alternation(analyzer):
     assert result.has_non_alternating_turns is False
 
 
+def test_parallel_tool_calls_not_flagged(analyzer):
+    """Consecutive tool results (parallel tool calls) are valid, not flagged."""
+    conversation = Conversation(
+        messages=[
+            Message(role=Role.USER, content="Find order ORD-1 and its shipment."),
+            Message(role=Role.ASSISTANT, content="Looking both up."),
+            Message(role=Role.TOOL, content='{"order": "ORD-1"}'),
+            Message(role=Role.TOOL, content='{"shipment": "SHP-1"}'),
+            Message(role=Role.ASSISTANT, content="Found both."),
+        ]
+    )
+    result = analyzer.analyze(conversation)
+    assert result.has_non_alternating_turns is False
+
+
 def test_empty_conversation_not_flagged(analyzer, empty_conversation):
     """Empty conversation is not flagged as non-alternating."""
     result = analyzer.analyze(empty_conversation)

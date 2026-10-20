@@ -1,3 +1,4 @@
+import os
 import tempfile
 from pathlib import Path
 from types import SimpleNamespace
@@ -7,17 +8,31 @@ from unittest.mock import ANY, MagicMock, Mock, patch
 import jsonlines
 import PIL.Image
 import pytest
+from tokenizers import Tokenizer
+from tokenizers.models import WordLevel
+from tokenizers.pre_tokenizers import Whitespace
+from transformers import PreTrainedTokenizerFast
 
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
-from oumi.core.types.conversation import ContentItem, Conversation, Message, Role, Type
+from oumi.core.inference import BaseInferenceEngine
+from oumi.core.types.conversation import (
+    ContentItem,
+    Conversation,
+    FinishReason,
+    Message,
+    Role,
+    Type,
+)
 from oumi.core.types.tool_call import ToolCall, ToolDefinition
 from oumi.inference import VLLMInferenceEngine
+from oumi.inference.vllm_inference_engine import _build_parser_request_tools
 from oumi.utils.conversation_utils import base64encode_content_item_image_bytes
 from oumi.utils.image_utils import (
     create_png_bytes_from_image,
 )
 from oumi.utils.packaging import is_vllm_v0_12_or_later
+from oumi.utils.vllm_utils.gemma4_compat import ACTIVATION_ENV_VAR
 
 try:
     vllm_import_failed = False
@@ -27,14 +42,19 @@ try:
         RequestOutput,
     )
 
-    def _create_vllm_output(responses: list[str], output_id: str) -> RequestOutput:
+    def _create_vllm_output(
+        responses: list[str],
+        output_id: str,
+        prompt_token_ids: list[int] | None = None,
+        output_token_ids: list[list[int]] | None = None,
+    ) -> RequestOutput:
         outputs = []
         for ind, response in enumerate(responses):
             outputs.append(
                 CompletionOutput(
                     text=response,
                     index=ind,
-                    token_ids=[],
+                    token_ids=output_token_ids[ind] if output_token_ids else [],
                     cumulative_logprob=None,
                     logprobs=None,
                 )
@@ -43,7 +63,7 @@ try:
             request_id=output_id,
             outputs=outputs,
             prompt=None,
-            prompt_token_ids=[],
+            prompt_token_ids=prompt_token_ids or [],
             prompt_logprobs=None,
             finished=True,
         )
@@ -182,6 +202,23 @@ def test_infer_online(mock_vllm):
             },
         ]
     ]
+
+
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_gemma4_compat_is_activated_during_llm_construction(monkeypatch, mock_vllm):
+    monkeypatch.delenv(ACTIVATION_ENV_VAR, raising=False)
+    mock_vllm_instance = Mock()
+
+    def create_llm(**kwargs):
+        del kwargs
+        assert os.environ[ACTIVATION_ENV_VAR] == "1"
+        return mock_vllm_instance
+
+    mock_vllm.LLM.side_effect = create_llm
+
+    VLLMInferenceEngine(_get_default_model_params())
+
+    assert ACTIVATION_ENV_VAR not in os.environ
 
 
 @pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
@@ -534,6 +571,33 @@ def test_infer_from_file_to_file(mock_vllm):
 
 
 @pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_seed_is_forwarded_to_sampling_params(
+    mock_vllm, single_turn_conversation, mock_sampling_params
+):
+    """Without this, a seeded config still samples differently on every run."""
+    config = InferenceConfig(
+        model=ModelParams(
+            model_name="MlpEncoder",
+            tokenizer_name="openai-community/gpt2",
+            tokenizer_pad_token="<eos>",
+        ),
+        generation=GenerationParams(seed=1234),
+    )
+
+    mock_vllm.LLM.return_value = Mock()
+    engine = VLLMInferenceEngine(config.model)
+    engine._llm.chat = MagicMock()
+    engine._llm.chat.return_value = [
+        _create_vllm_output(["The first time I saw"], "123")
+    ]
+    engine._infer([single_turn_conversation], config)
+
+    mock_sampling_params.assert_called_once()
+    assert mock_sampling_params.call_args[1]["seed"] == 1234
+    assert "seed" in engine.get_supported_params()
+
+
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
 def test_guided_decoding_json(
     mock_vllm, single_turn_conversation, mock_sampling_params
 ):
@@ -763,6 +827,115 @@ def test_infer_forwards_tools_kwarg(mock_vllm):
     assert call_kwargs["tools"] == [_WEATHER_TOOL_DICT]
 
 
+def test_infer_preserves_tools_in_output_without_vllm():
+    """Tool definitions survive in the conversation returned for the next turn."""
+    engine = object.__new__(VLLMInferenceEngine)
+    BaseInferenceEngine.__init__(
+        engine,
+        _get_default_model_params(),
+        generation_params=GenerationParams(max_new_tokens=5),
+    )
+    engine._llm = Mock()
+    engine._llm.chat.return_value = [
+        SimpleNamespace(
+            outputs=[SimpleNamespace(text="ok", token_ids=[1], finish_reason="stop")],
+            prompt_token_ids=[2],
+        )
+    ]
+    engine._lora_request = None
+    engine._tool_parser = None
+    engine._save_conversation_to_scratch = Mock()
+    engine._cleanup_scratch_file = Mock()
+    conv = Conversation(
+        tools=[_WEATHER_TOOL],
+        messages=[Message(role=Role.USER, content="weather in Tokyo?")],
+        conversation_id="1",
+    )
+
+    with patch("oumi.inference.vllm_inference_engine.SamplingParams", create=True):
+        result = engine.infer([conv], _get_default_inference_config())
+
+    assert result[0].tools == conv.tools
+
+
+def test_gemma4_replay_splits_narration_from_tool_call():
+    """Gemma 4 receives narration before the call it introduced."""
+    engine = object.__new__(VLLMInferenceEngine)
+    engine._tool_parser_name = "gemma4"
+    tool_call = ToolCall.model_validate(
+        {
+            "id": "call_abc",
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "arguments": '{"city":"Tokyo"}',
+            },
+        }
+    )
+    conv = Conversation(
+        tools=[_WEATHER_TOOL],
+        messages=[
+            Message(role=Role.USER, content="What's the weather in Tokyo?"),
+            Message(
+                role=Role.ASSISTANT,
+                content="Let me check.",
+                tool_calls=[tool_call],
+            ),
+            Message(role=Role.TOOL, content="22C, sunny", tool_call_id="call_abc"),
+        ],
+    )
+
+    sent = engine._convert_conversation_to_vllm_input(conv)
+
+    assert sent == [
+        {"role": "user", "content": "What's the weather in Tokyo?"},
+        {"role": "assistant", "content": "Let me check."},
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [tool_call.model_dump(mode="json")],
+        },
+        {"role": "tool", "content": "22C, sunny", "tool_call_id": "call_abc"},
+    ]
+
+
+def test_other_models_keep_narration_and_tool_call_fused():
+    """Do not introduce adjacent assistant roles for unrelated templates."""
+    engine = object.__new__(VLLMInferenceEngine)
+    engine._tool_parser_name = "hermes"
+    tool_call = ToolCall.model_validate(
+        {
+            "id": "call_abc",
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "arguments": '{"city":"Tokyo"}',
+            },
+        }
+    )
+    conv = Conversation(
+        messages=[
+            Message(role=Role.USER, content="What's the weather in Tokyo?"),
+            Message(
+                role=Role.ASSISTANT,
+                content="Let me check.",
+                tool_calls=[tool_call],
+            ),
+        ]
+    )
+
+    sent = engine._convert_conversation_to_vllm_input(conv)
+
+    assert sent == [
+        {"role": "user", "content": "What's the weather in Tokyo?"},
+        {
+            "role": "assistant",
+            "content": "Let me check.",
+            "tool_calls": [tool_call.model_dump(mode="json")],
+        },
+    ]
+
+
 @pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
 def test_infer_fast_path_when_no_tools(mock_vllm):
     """When no conversation has tools, chat() is called once without `tools`."""
@@ -878,6 +1051,228 @@ def test_infer_input_preserves_tool_calls_and_tool_call_id(mock_vllm):
     assert sent[2]["role"] == "tool"
     assert sent[2]["content"] == "22C, sunny"
     assert sent[2]["tool_call_id"] == "call_abc"
+
+
+@pytest.mark.parametrize("parsed_content", ["raw parser content", None])
+def test_gemma4_parser_preserves_display_text_without_tool_calls(parsed_content):
+    parser_instance = Mock()
+    parser_instance.extract_tool_calls.return_value = SimpleNamespace(
+        tools_called=False,
+        tool_calls=[],
+        content=parsed_content,
+    )
+    engine = object.__new__(VLLMInferenceEngine)
+    engine._tool_parser = parser_instance
+    engine._tool_parser_name = "gemma4"
+    conv = Conversation(
+        messages=[Message(role=Role.USER, content="hi")], conversation_id="1"
+    )
+    chat_response = SimpleNamespace(outputs=[SimpleNamespace(text="raw protocol text")])
+    messages, finish_reason_override = engine._build_response_messages(
+        conv, chat_response
+    )
+
+    assistant = messages[-1]
+    assert assistant.tool_calls is None
+    assert assistant.content == "raw protocol text"
+    assert finish_reason_override is None
+
+
+@pytest.mark.parametrize(
+    ("parsed_content", "expected_content"),
+    [("clean answer", "clean answer"), (None, "clean display text")],
+)
+def test_other_parser_uses_extracted_content_without_tool_calls(
+    parsed_content, expected_content
+):
+    parser_instance = Mock()
+    parser_instance.extract_tool_calls.return_value = SimpleNamespace(
+        tools_called=False,
+        tool_calls=[],
+        content=parsed_content,
+    )
+    engine = object.__new__(VLLMInferenceEngine)
+    engine._tool_parser = parser_instance
+    engine._tool_parser_name = "hermes"
+    engine._tokenizer = Mock()
+    conv = Conversation(
+        messages=[Message(role=Role.USER, content="hi")], conversation_id="1"
+    )
+    chat_response = SimpleNamespace(
+        outputs=[SimpleNamespace(text="clean display text")]
+    )
+    messages, finish_reason_override = engine._build_response_messages(
+        conv, chat_response
+    )
+
+    engine._tokenizer.decode.assert_not_called()
+    parser_instance.extract_tool_calls.assert_called_once_with(
+        "clean display text",
+        request=ANY,
+    )
+    assistant = messages[-1]
+    assert assistant.tool_calls is None
+    assert assistant.content == expected_content
+    assert finish_reason_override is None
+
+
+def test_openai_parser_reads_gpt_oss_channels_from_token_ids():
+    parser_instance = Mock()
+    parser_instance.extract_tool_calls.return_value = SimpleNamespace(
+        tools_called=False,
+        tool_calls=[],
+        content="no",
+    )
+    engine = object.__new__(VLLMInferenceEngine)
+    engine._tool_parser = parser_instance
+    engine._tool_parser_name = "openai"
+    conv = Conversation(
+        messages=[Message(role=Role.USER, content="hi")], conversation_id="1"
+    )
+    completion = SimpleNamespace(
+        text="analysisThe user greets me.assistantfinalno",
+        token_ids=[200005, 35644, 200008],
+    )
+
+    messages, finish_reason_override = engine._build_response_messages(
+        conv, SimpleNamespace(outputs=[completion])
+    )
+
+    parser_instance.extract_tool_calls.assert_called_once_with(
+        completion.text,
+        request=ANY,
+        token_ids=[200005, 35644, 200008],
+    )
+    assert messages[-1].content == "no"
+    assert finish_reason_override is None
+
+
+class _FakeEngineParser:
+    """Stands in for vLLM's `ParserEngineToolAdapter`."""
+
+
+class _FakeToolsParam:
+    """Stands in for vLLM's typed `ChatCompletionToolsParam`."""
+
+    def __init__(self, data: dict):
+        self.data = data
+
+    @classmethod
+    def model_validate(cls, data: dict) -> "_FakeToolsParam":
+        return cls(data)
+
+
+_FAILING_TOOLS_PARAM = Mock(model_validate=Mock(side_effect=ValueError("bad")))
+
+
+@pytest.mark.parametrize(
+    ("parser", "adapter_cls", "param_cls", "expect_typed"),
+    [
+        (_FakeEngineParser(), _FakeEngineParser, _FakeToolsParam, True),
+        (Mock(), _FakeEngineParser, _FakeToolsParam, False),  # non-engine parser
+        (Mock(), None, None, False),  # vLLM without the parser engine
+        (_FakeEngineParser(), _FakeEngineParser, _FAILING_TOOLS_PARAM, False),
+    ],
+)
+def test_build_parser_request_tools(parser, adapter_cls, param_cls, expect_typed):
+    """Only parser-engine parsers get typed tools; everything else gets dicts."""
+    module = "oumi.inference.vllm_inference_engine"
+    with (
+        patch(f"{module}.ParserEngineToolAdapter", adapter_cls),
+        patch(f"{module}.ChatCompletionToolsParam", param_cls),
+    ):
+        tools = _build_parser_request_tools(parser, [_WEATHER_TOOL, _CALENDAR_TOOL])
+
+    expected = [_WEATHER_TOOL_DICT, _CALENDAR_TOOL_DICT]
+    if expect_typed:
+        assert [type(t) for t in tools] == [_FakeToolsParam] * 2
+        assert [t.data for t in tools] == expected
+    else:
+        assert tools == expected
+
+
+def test_tool_call_parser_decodes_raw_tokens_with_special_tokens():
+    """Parser input retains native control tokens while display text stays clean."""
+    fake_call = Mock()
+    fake_call.model_dump.return_value = {
+        "id": "call_1",
+        "type": "function",
+        "function": {"name": "get_weather", "arguments": '{"city":"Tokyo"}'},
+    }
+    parser_instance = Mock()
+    parser_instance.extract_tool_calls.return_value = SimpleNamespace(
+        tools_called=True,
+        tool_calls=[fake_call],
+        content=None,
+    )
+    tokenizer = Mock()
+    raw_parser_text = '<|tool_call>call:get_weather{city:<|"|>Tokyo<|"|>}<tool_call|>'
+    tokenizer.decode.return_value = raw_parser_text
+
+    engine = object.__new__(VLLMInferenceEngine)
+    engine._tool_parser = parser_instance
+    engine._tool_parser_name = "gemma4"
+    engine._tokenizer = tokenizer
+    conv = Conversation(
+        tools=[_WEATHER_TOOL],
+        messages=[Message(role=Role.USER, content="weather?")],
+        conversation_id="1",
+    )
+    completion = SimpleNamespace(
+        text='call:get_weather{city:<|"|>Tokyo<|"|>}',
+        token_ids=[101, 102, 103],
+    )
+
+    messages, finish_reason_override = engine._build_response_messages(
+        conv, SimpleNamespace(outputs=[completion])
+    )
+
+    tokenizer.decode.assert_called_once_with(
+        [101, 102, 103],
+        skip_special_tokens=False,
+        clean_up_tokenization_spaces=False,
+    )
+    parser_instance.extract_tool_calls.assert_called_once_with(
+        raw_parser_text,
+        request=ANY,
+    )
+    assert messages[-1].content is None
+    assert messages[-1].tool_calls is not None
+    assert messages[-1].tool_calls[0].function.name == "get_weather"
+    assert finish_reason_override == FinishReason.TOOL_CALLS
+
+
+@pytest.mark.parametrize("decode_result", [ValueError("bad token sequence"), ["text"]])
+def test_tool_call_parser_falls_back_when_raw_token_decode_fails(decode_result):
+    parser_instance = Mock()
+    parser_instance.extract_tool_calls.return_value = SimpleNamespace(
+        tools_called=False,
+        tool_calls=[],
+        content=None,
+    )
+    tokenizer = Mock()
+    tokenizer.decode.side_effect = [decode_result]
+
+    engine = object.__new__(VLLMInferenceEngine)
+    engine._tool_parser = parser_instance
+    engine._tool_parser_name = "gemma4"
+    engine._tokenizer = tokenizer
+    conv = Conversation(
+        messages=[Message(role=Role.USER, content="hi")], conversation_id="1"
+    )
+    completion = SimpleNamespace(text="clean display text", token_ids=[101])
+
+    messages, finish_reason_override = engine._build_response_messages(
+        conv, SimpleNamespace(outputs=[completion])
+    )
+
+    parser_instance.extract_tool_calls.assert_called_once_with(
+        "clean display text",
+        request=ANY,
+    )
+    assert messages[-1].content == "clean display text"
+    assert messages[-1].tool_calls is None
+    assert finish_reason_override is None
 
 
 @pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
@@ -1012,3 +1407,236 @@ def test_tool_call_parser_from_model_params(mock_vllm):
         VLLMInferenceEngine(params)
 
     manager.get_tool_parser.assert_called_once_with("hermes")
+
+
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_extract_usage_counts_prompt_and_completion_tokens():
+    usage = VLLMInferenceEngine._extract_usage_from_vllm_output(
+        _create_vllm_output(
+            ["a response"],
+            "123",
+            prompt_token_ids=[1, 2, 3, 4, 5],
+            output_token_ids=[[10, 11, 12]],
+        )
+    )
+
+    assert usage == {
+        "prompt_tokens": 5,
+        "completion_tokens": 3,
+        "total_tokens": 8,
+    }
+
+
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_extract_usage_sums_across_multiple_outputs():
+    """Every sampled sequence is generated, so n>1 counts them all."""
+    usage = VLLMInferenceEngine._extract_usage_from_vllm_output(
+        _create_vllm_output(
+            ["first", "second"],
+            "123",
+            prompt_token_ids=[1, 2],
+            output_token_ids=[[10, 11], [20, 21, 22]],
+        )
+    )
+
+    assert usage == {
+        "prompt_tokens": 2,
+        "completion_tokens": 5,
+        "total_tokens": 7,
+    }
+
+
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_extract_usage_returns_none_when_no_tokens_reported():
+    """None keeps "not reported" distinguishable from a genuine zero."""
+    assert (
+        VLLMInferenceEngine._extract_usage_from_vllm_output(
+            _create_vllm_output(["a response"], "123")
+        )
+        is None
+    )
+
+
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_infer_online_records_usage_metadata(mock_vllm):
+    mock_vllm_instance = Mock()
+    mock_vllm.LLM.return_value = mock_vllm_instance
+    mock_vllm_instance.chat.return_value = [
+        _create_vllm_output(
+            ["The first time I saw"],
+            "123",
+            prompt_token_ids=[1, 2, 3, 4, 5],
+            output_token_ids=[[10, 11, 12]],
+        )
+    ]
+
+    engine = VLLMInferenceEngine(_get_default_model_params())
+    conversation = Conversation(
+        messages=[Message(content="Hi there", role=Role.USER)],
+        metadata={"foo": "bar"},
+        conversation_id="123",
+    )
+
+    result = engine.infer([conversation], _get_default_inference_config())
+
+    assert result[0].metadata["usage"] == {
+        "prompt_tokens": 5,
+        "completion_tokens": 3,
+        "total_tokens": 8,
+    }
+    assert result[0].metadata["foo"] == "bar"
+
+
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_infer_online_omits_usage_when_no_tokens_reported(mock_vllm):
+    mock_vllm_instance = Mock()
+    mock_vllm.LLM.return_value = mock_vllm_instance
+    mock_vllm_instance.chat.return_value = [
+        _create_vllm_output(["The first time I saw"], "123")
+    ]
+
+    engine = VLLMInferenceEngine(_get_default_model_params())
+    conversation = Conversation(
+        messages=[Message(content="Hi there", role=Role.USER)],
+        metadata={"foo": "bar"},
+        conversation_id="123",
+    )
+
+    result = engine.infer([conversation], _get_default_inference_config())
+
+    assert "usage" not in result[0].metadata
+
+
+@pytest.mark.parametrize(
+    ("parsed_content", "cleaned_content", "expected_content"),
+    [
+        ("<|channel>Checking.<channel|>", "Checking.", "Checking."),
+        ("<|channel><channel|>", "", None),
+        ("<|channel> <channel|>", " ", None),
+        ("<|channel>Checking.", ["Checking."], None),
+        ("<|channel>Checking.", ValueError("decode failed"), None),
+    ],
+)
+def test_gemma4_tool_call_cleans_displayed_prefix(
+    parsed_content, cleaned_content, expected_content
+):
+    engine = object.__new__(VLLMInferenceEngine)
+    engine._tool_parser_name = "gemma4"
+    engine._tool_parser = Mock()
+    tool_call = ToolCall.model_validate(
+        {
+            "id": "call_1",
+            "type": "function",
+            "function": {"name": "get_weather", "arguments": '{"city":"Tokyo"}'},
+        }
+    )
+    engine._tool_parser.extract_tool_calls.return_value = SimpleNamespace(
+        tools_called=True, tool_calls=[tool_call], content=parsed_content
+    )
+    raw_text = parsed_content + "<|tool_call>call:get_weather{}<tool_call|>"
+    engine._tokenizer = Mock()
+    engine._tokenizer.decode.side_effect = [raw_text, cleaned_content]
+    engine._tokenizer.encode.return_value = [201, 202]
+    conversation = Conversation(messages=[Message(role=Role.USER, content="weather?")])
+    completion = SimpleNamespace(text="Checking.call:get_weather{}", token_ids=[101])
+
+    messages, finish_reason = engine._build_response_messages(
+        conversation, SimpleNamespace(outputs=[completion])
+    )
+
+    engine._tokenizer.encode.assert_called_once_with(
+        parsed_content, add_special_tokens=False
+    )
+    engine._tokenizer.decode.assert_called_with(
+        [201, 202], skip_special_tokens=True, clean_up_tokenization_spaces=False
+    )
+    assert messages[-1].content == expected_content
+    assert messages[-1].tool_calls == [tool_call]
+    assert finish_reason == FinishReason.TOOL_CALLS
+
+
+@pytest.mark.parametrize(
+    ("prefix", "expected"),
+    [("<|channel>Checking<channel|>", "Checking"), ("<|channel><channel|>", None)],
+)
+def test_clean_tool_parser_content_with_real_tokenizer(prefix, expected):
+    backend = Tokenizer(WordLevel({"[UNK]": 0, "Checking": 1}, unk_token="[UNK]"))
+    backend.pre_tokenizer = Whitespace()
+    tokenizer = PreTrainedTokenizerFast(
+        tokenizer_object=backend,
+        unk_token="[UNK]",
+        additional_special_tokens=["<|channel>", "<channel|>"],
+    )
+    engine = object.__new__(VLLMInferenceEngine)
+    engine._tokenizer = tokenizer
+
+    assert engine._clean_tool_parser_content(prefix) == expected
+
+
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_build_serve_args_matches_engine_kwargs(mock_vllm):
+    model_params = _get_default_model_params(use_lora=True)
+    model_params.model_max_length = 4096
+    model_params.tool_call_parser = "hermes"
+    model_params.chat_template_kwargs = {"enable_thinking": False}
+
+    with (
+        patch("oumi.inference.vllm_inference_engine.get_lora_rank", return_value=32),
+        patch("torch.cuda.device_count", return_value=1),
+        patch(
+            "oumi.inference.vllm_inference_engine._should_force_triton_gdn_backend",
+            return_value=True,
+        ),
+    ):
+        VLLMInferenceEngine(model_params)
+        args = VLLMInferenceEngine.build_serve_args(model_params)
+
+    engine_kwargs = mock_vllm.LLM.call_args.kwargs
+    assert args[0] == engine_kwargs.pop("model") == "MlpEncoder"
+    for key in engine_kwargs:
+        assert f"--{key.replace('_', '-')}" in args
+    assert args[1:] == [
+        "--tokenizer",
+        "openai-community/gpt2",
+        "--trust-remote-code",
+        "--dtype",
+        "auto",
+        "--tensor-parallel-size",
+        "1",
+        "--enable-prefix-caching",
+        "--enable-lora",
+        "--max-model-len",
+        "4096",
+        "--gpu-memory-utilization",
+        "0.9",
+        "--enforce-eager",
+        "--max-lora-rank",
+        "32",
+        "--additional-config",
+        '{"gdn_prefill_backend": "triton"}',
+        "--lora-modules",
+        "oumi_lora_adapter=/path/to/adapter",
+        "--enable-auto-tool-choice",
+        "--tool-call-parser",
+        "hermes",
+        "--default-chat-template-kwargs",
+        '{"enable_thinking": false}',
+        "--generation-config",
+        "vllm",
+    ]
+
+
+@pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
+def test_build_serve_args_negates_false_flags():
+    model_params = ModelParams(model_name="MlpEncoder", trust_remote_code=False)
+
+    with patch("torch.cuda.device_count", return_value=1):
+        args = VLLMInferenceEngine.build_serve_args(model_params)
+
+    assert "--no-trust-remote-code" in args
+    assert "--no-enable-lora" in args
+    assert "--tokenizer" not in args
+    assert "--max-model-len" not in args
+    assert "--lora-modules" not in args
+    assert "--tool-call-parser" not in args
+    assert "--default-chat-template-kwargs" not in args

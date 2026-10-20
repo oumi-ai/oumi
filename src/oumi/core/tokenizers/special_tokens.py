@@ -36,6 +36,10 @@ class SpecialTokensConfig:
 # Llama 3.1/3.2 models already have `<|finetune_right_pad_id|>` token in their vocab.
 LLAMA_SPECIAL_TOKENS = SpecialTokensConfig(pad_token="<|finetune_right_pad_id|>")
 
+# Nemotron 3 defines no pad token, but its config.json sets pad_token_id=0, which
+# is `<unk>` — distinct from eos (`<|im_end|>`), so padding can't mask a real stop.
+NEMOTRON_3_SPECIAL_TOKENS = SpecialTokensConfig(pad_token="<unk>")
+
 special_tokens = {
     "meta-llama/Llama-3.1-8B": LLAMA_SPECIAL_TOKENS,
     "meta-llama/Llama-3.1-8B-Instruct": LLAMA_SPECIAL_TOKENS,
@@ -57,6 +61,7 @@ special_tokens = {
     "meta-llama/Llama-3.2-1B-Instruct": LLAMA_SPECIAL_TOKENS,
     "meta-llama/Llama-3.2-3B": LLAMA_SPECIAL_TOKENS,
     "meta-llama/Llama-3.2-3B-Instruct": LLAMA_SPECIAL_TOKENS,
+    "nvidia/NVIDIA-Nemotron-3-Nano-4B-BF16": NEMOTRON_3_SPECIAL_TOKENS,
 }
 
 # Lowercase all keys for case-insensitive lookup.

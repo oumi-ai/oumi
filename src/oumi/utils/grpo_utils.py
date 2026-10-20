@@ -60,6 +60,78 @@ def extract_prompt_images_completion_from_single_turn_conversation(
     return (prompt, images, answer)
 
 
+def extract_prompt_images_completion_from_conversation(
+    example: dict,
+    *,
+    allow_prompt_only: bool = False,
+) -> tuple[list[dict], list, str]:
+    """Splits a (possibly multi-turn) conversation into prompt, images, completion.
+
+    By default, the final message must be an assistant message; its text becomes
+    the completion (ground truth), and all preceding messages form the prompt.
+    When ``allow_prompt_only`` is true, a conversation without a final assistant
+    message is returned entirely as the prompt with an empty completion.
+
+    Args:
+        example: A dictionary containing the conversation JSON.
+        allow_prompt_only: Whether to accept a conversation with no reference
+            assistant response.
+
+    Returns:
+        A tuple ``(prompt_messages, images, completion)``: the prompt as a list of
+        chat-format message dicts, the images (empty for text-only conversations),
+        and the completion text.
+
+    Raises:
+        ValueError: If ``conversation_json`` is missing, the conversation has an
+            invalid message sequence, or the prompt or required completion is empty.
+    """
+    if "conversation_json" not in example:
+        raise ValueError(
+            f"Example doesn't contain 'conversation_json' key. "
+            f"Available keys: {example.keys()}"
+        )
+
+    conversation = Conversation.from_json(example["conversation_json"])
+    messages = conversation.messages
+
+    has_completion = bool(messages and messages[-1].role == Role.ASSISTANT)
+    if not messages or (has_completion and len(messages) < 2):
+        raise ValueError(
+            f"Conversation must have at least 2 messages (a prompt and a "
+            f"final assistant message), but got {len(messages)}."
+        )
+    if not has_completion and not allow_prompt_only:
+        raise ValueError(
+            f"The final message of a conversation must be an assistant message "
+            f"(used as the ground truth), but got role '{messages[-1].role}'."
+        )
+
+    prompt_source_messages = messages[:-1] if has_completion else messages
+    if prompt_source_messages[0].role == Role.ASSISTANT:
+        raise ValueError("Conversation prompt cannot start with an assistant message.")
+
+    prompt_has_content = any(
+        message.compute_flattened_text_content().strip() or message.image_content_items
+        for message in prompt_source_messages
+    )
+    if not prompt_has_content:
+        raise ValueError("Conversation prompt must not be empty.")
+
+    completion = messages[-1].compute_flattened_text_content() if has_completion else ""
+    if has_completion and not completion.strip():
+        raise ValueError("Conversation completion must not be empty.")
+
+    prompt_messages: list[dict] = []
+    images: list = []
+    for message in prompt_source_messages:
+        content = message.compute_flattened_text_content()
+        prompt_messages.append({"role": message.role.value, "content": content})
+        images.extend({"bytes": item.binary} for item in message.image_content_items)
+
+    return (prompt_messages, images, completion)
+
+
 def try_prepare_trl_grpo_example(
     example: dict,
 ) -> dict:

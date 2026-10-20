@@ -19,12 +19,13 @@ import time
 from abc import ABC, abstractmethod
 from collections.abc import Generator, Iterable, Sized
 from pathlib import Path
-from typing import Any, NamedTuple, cast
+from typing import Any, Literal, NamedTuple, cast
 
 import datasets
 import pandas as pd
 from torch.utils.data import MapDataPipe
 
+from oumi.core.types.conversation import Conversation
 from oumi.utils.hf_utils import is_cached_to_disk_hf_dataset
 from oumi.utils.io_utils import load_xlsx_all_sheets
 from oumi.utils.logging import logger
@@ -131,6 +132,30 @@ class BaseMapDataset(MapDataPipe, Sized, ABC):
             int: The number of items in the dataset.
         """
         return len(self._data)
+
+    @staticmethod
+    def _format_conversation(
+        conversation: Conversation,
+        output_format: Literal["dict", "json"],
+    ) -> dict:
+        """Formats a Conversation for a stable Hugging Face dataset schema.
+
+        HF Datasets infers one Arrow struct schema across rows. Dict output
+        therefore keeps optional top-level fields present even when unset.
+        JSON output avoids schema inference by storing the whole Conversation
+        in a single string column.
+        """
+        if output_format == "json":
+            return {"conversation_json": conversation.to_json()}
+        if output_format == "dict":
+            data = conversation.to_dict()
+            # HF Datasets requires every row to have the same top-level keys.
+            data.setdefault("tools", None)
+            return data
+        raise ValueError(
+            f"Invalid return_conversations_format: '{output_format}'. "
+            "Supported formats are 'json' and 'dict'."
+        )
 
     @property
     def data(self) -> pd.DataFrame:

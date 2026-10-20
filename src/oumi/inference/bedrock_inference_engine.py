@@ -16,6 +16,7 @@ import asyncio
 import os
 from typing import Any
 
+import aiohttp
 from tqdm.asyncio import tqdm
 from typing_extensions import override
 
@@ -56,6 +57,7 @@ class BedrockInferenceEngine(RemoteInferenceEngine):
         *,
         generation_params: GenerationParams | None = None,
         remote_params: RemoteParams | None = None,
+        http_session: aiohttp.ClientSession | None = None,
     ):
         """Initializes the BedrockInferenceEngine.
 
@@ -63,6 +65,8 @@ class BedrockInferenceEngine(RemoteInferenceEngine):
             model_params: Parameters for the model.
             generation_params: Parameters for generation.
             remote_params: Parameters for remote inference.
+            http_session: A caller-owned aiohttp session shared by every operation.
+                See `RemoteInferenceEngine`.
 
         Raises:
             RuntimeError: If the boto3 package is not installed.
@@ -76,6 +80,7 @@ class BedrockInferenceEngine(RemoteInferenceEngine):
             model_params=model_params,
             generation_params=generation_params,
             remote_params=remote_params,
+            http_session=http_session,
         )
 
     @property
@@ -114,6 +119,7 @@ class BedrockInferenceEngine(RemoteInferenceEngine):
             Dict[str, Any]: A dictionary containing the formatted input for the
                 Bedrock API, including the model, messages, and generation parameters.
         """
+        # TODO: OPE-2188 - Add tool call support
         system_messages = [
             message for message in conversation.messages if message.role == Role.SYSTEM
         ]
@@ -268,6 +274,8 @@ class BedrockInferenceEngine(RemoteInferenceEngine):
         semaphore: PoliteAdaptiveSemaphore,
         session: Any,
         inference_config: Any | None = None,
+        *,
+        persist_scratch: bool = True,
     ) -> Conversation:
         """Queries Bedrock Converse using boto3 instead of HTTP."""
         if inference_config is None:
@@ -309,7 +317,7 @@ class BedrockInferenceEngine(RemoteInferenceEngine):
                     result = self._convert_api_output_to_conversation(
                         response, conversation
                     )
-                    if output_path:
+                    if persist_scratch and output_path:
                         self._save_conversation_to_scratch(result, output_path)
                     await self._try_record_success()
                     return result

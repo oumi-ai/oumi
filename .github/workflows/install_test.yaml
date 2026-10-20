@@ -50,12 +50,12 @@ jobs:
           df -h
 
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -65,7 +65,7 @@ jobs:
           enable-cache: true
 
       - name: Cache HuggingFace Models
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cache/huggingface
@@ -79,7 +79,11 @@ jobs:
 
       - name: Override PyTorch ${{ matrix.torch-version }}
         run: |
-          uv pip install --system torch==${{ matrix.torch-version }} torchvision torchaudio
+          # torchaudio declares no dependency on torch, so leaving it unpinned lets it
+          # float to a build compiled against a different CUDA major version. transformers
+          # >=5.12 imports torchaudio on every `import transformers`, which turns that
+          # mismatch into an OSError on a missing libcudart. Versions track torch 1:1.
+          uv pip install --system torch==${{ matrix.torch-version }} torchvision torchaudio==${{ matrix.torch-version }}
 
       - name: Verify installation
         run: |

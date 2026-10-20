@@ -22,14 +22,23 @@ import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from pathlib import Path
 
-from oumi.core.launcher import JobState, JobStatus
+from oumi.core.launcher import ClusterUnreachableError, JobState, JobStatus
 from oumi.utils.logging import logger
 
 _CTRL_PATH = "-S ~/.ssh/control-%h-%p-%r"
 
 _LOG_DIR = "$HOME/oumi_slurm_logs/{job_id}.out"
+
+# ssh exits 255 when the transport itself fails (host down, connection refused,
+# auth rejected) — as distinct from a command that ran and returned non-zero.
+_SSH_TRANSPORT_FAILURE_EXIT_CODE = 255
+
+# Synthetic exit code for a command that hit its timeout: an unresponsive
+# controller is treated as unreachable, same as a transport failure.
+_COMMAND_TIMEOUT_EXIT_CODE = 124
 
 
 class _SlurmAuthException(Exception):
@@ -53,7 +62,7 @@ def _check_connection(user: str, slurm_host: str) -> None:
     if child.returncode == 0:
         return
     if error_msg:
-        logger.error(f"Error checking connection: {error_msg}")
+        logger.debug(f"Error checking connection: {error_msg}")
         error_msg = f" Error: {error_msg}"
     raise _SlurmAuthException("Connection to Slurm host is closed." + error_msg)
 
@@ -88,6 +97,9 @@ def _get_job_state(job_state: str) -> JobState:
     elif job_state == "CANCELLED":
         return JobState.CANCELLED
     elif job_state == "RUNNING":
+        return JobState.RUNNING
+    # Not terminal: ending the poll here risks reading outputs before they flush.
+    elif job_state == "COMPLETING":
         return JobState.RUNNING
     return JobState.PENDING
 
@@ -223,6 +235,17 @@ class SlurmResponse:
     stdout: str
     stderr: str
     exit_code: int
+
+
+def _raise_if_unreachable(response: SlurmResponse, cluster_name: str) -> None:
+    """Raise ClusterUnreachableError if the SSH transport failed or timed out."""
+    if response.exit_code in (
+        _SSH_TRANSPORT_FAILURE_EXIT_CODE,
+        _COMMAND_TIMEOUT_EXIT_CODE,
+    ):
+        raise ClusterUnreachableError(
+            f"Could not reach the Slurm controller for cluster '{cluster_name}'."
+        )
 
 
 def retry_auth(user_function: Callable) -> Callable:
@@ -494,8 +517,8 @@ class SlurmClient:
         if child.returncode != 0:
             output = child.stderr.decode("utf-8")
             logger.error(f"Credential error: {output}")
-            raise RuntimeError(
-                "Failed to refresh Slurm credentials "
+            raise ClusterUnreachableError(
+                "Failed to establish an SSH connection to the Slurm controller "
                 f"for {self._user}@{self._slurm_host}."
             )
         return SlurmResponse(
@@ -587,7 +610,7 @@ class SlurmClient:
             return SlurmResponse(
                 stdout="",
                 stderr=f"Timeout while running command: {new_cmd}",
-                exit_code=1,
+                exit_code=_COMMAND_TIMEOUT_EXIT_CODE,
             )
         except Exception:
             duration_str = _compute_duration_debug_str(start_time)
@@ -694,15 +717,16 @@ class SlurmClient:
     def list_jobs(self) -> list[JobStatus]:
         """Lists all jobs for the current user.
 
+        Falls back to the active queue on a controller that keeps no job
+        history, so callers get the jobs still holding resources instead of
+        an error.
+
         Returns:
             A list of JobStatus.
         """
         response_format = "JobId%-30,JobName%30,User%30,State%30,Reason%30"
         # Get current date and subtract one month.
         # Otherwise completed jobs older than ~24 hours may not be listed.
-
-        from datetime import datetime, timedelta
-
         current_date = datetime.now()
         one_month_ago = current_date - timedelta(days=30)
         start_date = one_month_ago.strftime("%Y-%m-%d")
@@ -713,7 +737,15 @@ class SlurmClient:
         )
         result = self.run_commands([command])
         if result.exit_code != 0:
-            raise RuntimeError(f"Failed to list jobs. stderr: {result.stderr}")
+            _raise_if_unreachable(result, self._cluster_name)
+            # A controller running without accounting storage fails sacct
+            # outright. squeue still knows every job that is holding
+            # resources, which is what a caller hunting a live job needs.
+            logger.warning(
+                f"Could not read job history on '{self._cluster_name}', listing "
+                f"active jobs instead. stderr: {result.stderr}"
+            )
+            return self._list_active_jobs_squeue()
         # Parse STDOUT to retrieve job statuses.
         lines = result.stdout.strip().split("\n")
         jobs = []
@@ -753,6 +785,7 @@ class SlurmClient:
         )
         result = self.run_commands([command])
         if result.exit_code != 0:
+            _raise_if_unreachable(result, self._cluster_name)
             raise RuntimeError(
                 f"Failed to list jobs via squeue. stderr: {result.stderr}"
             )
