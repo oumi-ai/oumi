@@ -281,8 +281,8 @@ strategy_params:
 
   multiturn_attributes:
     - id: "support_conversation"
-      min_turns: 4
-      max_turns: 12
+      min_turns: 2
+      max_turns: 6
 
       role_instruction_messages:
         USER: |

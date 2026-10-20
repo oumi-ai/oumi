@@ -32,8 +32,25 @@ class BaseEnvironment(ABC):
     tool_params_cls: type[ToolParams] = ToolParams
 
     @abstractmethod
-    def step(self, tool_id: str, arguments: dict[str, Any]) -> ToolResult:
-        """Execute a tool call within this environment."""
+    def step(self, calls: list[tuple[str, dict[str, Any]]]) -> list[ToolResult]:
+        """Execute a batch of tool calls; returns results in the same order."""
+
+    def requires_isolation(self) -> bool:
+        """Whether this env must be rebuilt per sample to avoid cross-sample leakage.
+
+        Default ``False`` — the env is safe to share across samples.
+        Override and return ``True`` for envs carrying mutable per-sample
+        state (e.g. stateful simulated tool execution).
+        """
+        return False
+
+    def close(self) -> None:
+        """Release resources owned by this env. Default no-op.
+
+        Counterpart to ``requires_isolation``: envs rebuilt per sample (e.g. a
+        DB session) override this to release their resources at episode end.
+        """
+        return None
 
     def sample_grounding(
         self,

@@ -16,6 +16,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+import aiohttp
 import pytest
 
 from oumi.core.configs.inference_config import InferenceConfig
@@ -220,9 +221,22 @@ class TestSimpleJudge:
         judge = SimpleJudge(judge_config=xml_config_no_explanation)
 
         assert judge.inference_engine == mock_engine
+        # XML responses get no schema; guided decoding is JSON-only.
         mock_create_engine.assert_called_once_with(
-            xml_config_no_explanation.inference_config
+            inference_config=xml_config_no_explanation.inference_config,
+            response_schema=None,
+            http_session=None,
         )
+
+    @patch("oumi.judges.simple_judge.SimpleJudge._create_inference_engine")
+    def test_init_forwards_http_session(
+        self, mock_create_engine, xml_config_no_explanation
+    ):
+        session = Mock(spec=aiohttp.ClientSession)
+
+        SimpleJudge(judge_config=xml_config_no_explanation, http_session=session)
+
+        assert mock_create_engine.call_args.kwargs["http_session"] is session
 
     @patch("oumi.judges.simple_judge.SimpleJudge._create_inference_engine")
     def test_build_prompt_xml_no_explanation(
@@ -519,6 +533,7 @@ class TestSimpleJudge:
             model_params=xml_config_no_explanation.inference_config.model,
             remote_params=xml_config_no_explanation.inference_config.remote_params,
             generation_params=xml_config_no_explanation.inference_config.generation,
+            http_session=None,
         )
 
     def test_enum_judgment_type_requires_scores(self):
@@ -646,3 +661,65 @@ inference_config:
             match="Could not resolve JudgeConfig from path: unknown_judge",
         ):
             SimpleJudge(judge_config="unknown_judge")
+
+
+class TestSimpleJudgePartial:
+    """Smoke test for the judge_partial method inherited from BaseJudge."""
+
+    @pytest.fixture
+    def xml_config(self):
+        return JudgeConfig(
+            judge_params=JudgeParams(
+                prompt_template="Is this helpful? {question}",
+                response_format=JudgeResponseFormat.XML,
+                judgment_type=JudgeOutputType.BOOL,
+                include_explanation=False,
+            ),
+            inference_config=InferenceConfig(
+                model=ModelParams(model_name="gpt-4.1"),
+                engine=InferenceEngineType.OPENAI,
+            ),
+        )
+
+    @patch("oumi.judges.simple_judge.SimpleJudge._create_inference_engine")
+    def test_judge_partial_inherited(self, mock_create_engine, xml_config):
+        from oumi.core.inference.base_inference_engine import (
+            FailureDetail,
+            InferenceErrorType,
+            InferenceResult,
+        )
+        from oumi.core.types.conversation import Conversation, Message, Role
+
+        mock_engine = Mock()
+        mock_create_engine.return_value = mock_engine
+        mock_engine.infer_partial.return_value = InferenceResult(
+            successful=[
+                (
+                    0,
+                    Conversation(
+                        messages=[
+                            Message(content="prompt", role=Role.USER),
+                            Message(
+                                content="<judgment>True</judgment>",
+                                role=Role.ASSISTANT,
+                            ),
+                        ]
+                    ),
+                )
+            ],
+            failures={
+                1: FailureDetail(
+                    error_message="HTTP 500",
+                    status_code=500,
+                    error_type=InferenceErrorType.API_STATUS,
+                )
+            },
+        )
+
+        judge = SimpleJudge(judge_config=xml_config)
+        result = judge.judge_partial([{"question": "q1"}, {"question": "q2"}])
+
+        assert [idx for idx, _ in result.successful] == [0]
+        assert result.successful[0][1].field_values == {JUDGMENT_KEY: True}
+        assert result.failed_indices == [1]
+        assert result.failures[1].status_code == 500

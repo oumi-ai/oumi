@@ -46,3 +46,9 @@ def test_remote_params_accepts_valid_backoff():
     params = RemoteParams(retry_backoff_base=0.5, retry_backoff_max=0.5)
     params.finalize_and_validate()
     # No exception should be raised - equal values are allowed
+
+
+def test_remote_params_default_max_retries_is_five():
+    from oumi.core.configs.params.remote_params import RemoteParams
+
+    assert RemoteParams().max_retries == 5

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import base64
+import json
 from collections.abc import Callable, Generator
 from enum import Enum
 from typing import Any, NamedTuple
@@ -265,6 +266,17 @@ class Message(pydantic.BaseModel):
     prior assistant ``tool_calls`` entry.
     """
 
+    reasoning_content: str | None = None
+    """Model-emitted reasoning / chain-of-thought content.
+
+    Populated by inference engines that surface a separate reasoning field
+    in the API response (e.g., Fireworks ``reasoning_content``, Together
+    ``reasoning``). Distinct from ``content``: this is the model's
+    internal deliberation, not the final answer.
+
+    Only set on assistant messages.
+    """
+
     def model_post_init(self, __context) -> None:
         """Post-initialization method for the Message model.
 
@@ -287,6 +299,18 @@ class Message(pydantic.BaseModel):
                 f"Unexpected content type: {type(self.content)}. "
                 f"Must be a Python string, a list, or None."
             )
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Returns a field by name, dict-style, or ``default`` if absent.
+
+        Some chat templates (e.g. Gemma 4's) read message fields via ``.get()``, so
+        ``Message`` must support it when passed to ``apply_chat_template``. Only
+        declared fields are exposed, so a key that collides with a method name
+        (e.g. ``"get"``) returns ``default`` rather than the bound method.
+        """
+        if key in type(self).model_fields:
+            return getattr(self, key)
+        return default
 
     def _iter_content_items(
         self, *, return_text: bool = False, return_images: bool = False
@@ -576,9 +600,10 @@ class Conversation(pydantic.BaseModel):
 
     def to_json(self) -> str:
         """Converts the conversation to a JSON string."""
-        return self.model_dump_json(
-            exclude_unset=True, exclude_defaults=False, exclude_none=True
-        )
+        # to_dict() keeps the null `content` HF chat templates need. The
+        # separator and escaping options reproduce pydantic's bytes exactly, so
+        # every other conversation hashes and caches as it did before.
+        return json.dumps(self.to_dict(), separators=(",", ":"), ensure_ascii=False)
 
     @classmethod
     def from_json(cls, data: str) -> "Conversation":

@@ -26,3 +26,13 @@ class LauncherError(Exception):
 
 class ClusterNotFoundError(LauncherError):
     """Raised when the requested cluster does not exist on the cloud."""
+
+
+class ClusterUnreachableError(LauncherError):
+    """Raised when the cluster exists but its controller cannot be reached.
+
+    Distinct from :class:`ClusterNotFoundError`: the cluster is expected to
+    exist, but the launcher could not communicate with it (e.g. the SSH
+    transport to a Slurm controller failed). Callers can retry or fall through
+    to another provider rather than treating the job as gone.
+    """

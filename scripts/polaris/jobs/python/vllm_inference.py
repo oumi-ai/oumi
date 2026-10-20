@@ -75,6 +75,8 @@ def main() -> None:
             model=MODEL,
         )
 
+        if not chat_completion.choices or chat_completion.choices[0].message is None:
+            raise ValueError("LLM returned empty or filtered response")
         messages.append(
             {"role": "assistant", "content": chat_completion.choices[0].message.content}
         )

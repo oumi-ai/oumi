@@ -177,6 +177,7 @@ class OptunaTuner(BaseTuner):
             return metric_values[0] if len(metric_values) == 1 else metric_values
 
         # Run optimization
+        assert self._study  # populated by create_study() above
         self._study.optimize(_objective, n_trials=n_trials)
 
     def get_best_trials(self) -> list[dict[str, Any]]:

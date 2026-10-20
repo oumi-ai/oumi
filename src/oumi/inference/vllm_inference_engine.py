@@ -15,11 +15,18 @@
 from __future__ import annotations
 
 import copy
+import dataclasses
+import functools
 import json
 import math
+import os
+import re
+import shutil
+import subprocess
 import warnings
+from pathlib import Path
 from types import SimpleNamespace
-from typing import cast, get_args
+from typing import TYPE_CHECKING, cast, get_args
 
 import torch
 from typing_extensions import override
@@ -28,11 +35,18 @@ from oumi.builders import build_tokenizer
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Conversation, FinishReason, Message, Role
-from oumi.core.types.tool_call import ToolCall
-from oumi.utils.conversation_utils import create_list_of_message_json_dicts
+from oumi.core.types.tool_call import ToolCall, ToolDefinition
+from oumi.utils.conversation_utils import (
+    create_list_of_message_json_dicts,
+    split_assistant_content_and_tool_calls,
+)
 from oumi.utils.logging import logger
 from oumi.utils.model_caching import get_local_filepath_for_gguf
 from oumi.utils.peft_utils import get_lora_rank
+from oumi.utils.vllm_utils.gemma4_compat import ACTIVATION_ENV_VAR
+
+if TYPE_CHECKING:
+    from vllm.outputs import RequestOutput  # pyright: ignore[reportMissingImports]
 
 try:
     import vllm  # pyright: ignore[reportMissingImports]
@@ -86,11 +100,188 @@ try:
         except ImportError:
             ToolParserManager = None  # type: ignore[assignment]
             _VLLM_TOOL_PARSERS_AVAILABLE = False
+
+    # Parser-engine tool parsers (vLLM 0.24+, e.g. Gemma 4) recover argument
+    # types from the request's tool schemas, which they only recognize as
+    # `ChatCompletionToolsParam` objects; plain dicts are skipped.
+    try:
+        from vllm.entrypoints.openai.chat_completion.protocol import (  # pyright: ignore[reportMissingImports]
+            ChatCompletionToolsParam,
+        )
+        from vllm.parser.engine.adapters import (  # pyright: ignore[reportMissingImports]
+            ParserEngineToolAdapter,
+        )
+    except ImportError:
+        ChatCompletionToolsParam = None  # type: ignore[assignment]
+        ParserEngineToolAdapter = None  # type: ignore[assignment]
 except ModuleNotFoundError:
     vllm = None
     _VLLM_V0_12 = False
     ToolParserManager = None  # type: ignore[assignment]
     _VLLM_TOOL_PARSERS_AVAILABLE = False
+    ChatCompletionToolsParam = None  # type: ignore[assignment]
+    ParserEngineToolAdapter = None  # type: ignore[assignment]
+
+
+@dataclasses.dataclass(frozen=True)
+class _ToolParserCapabilities:
+    """Oumi-side behavior that is not declared by vLLM's parser interface."""
+
+    requires_raw_output: bool = False
+    requires_split_tool_narration: bool = False
+    requires_token_ids: bool = False
+
+
+_DEFAULT_TOOL_PARSER_CAPABILITIES = _ToolParserCapabilities()
+_TOOL_PARSER_CAPABILITIES = {
+    # Gemma 4 marks native tool calls with special tokens. Its parser must see
+    # those tokens, even though they should remain hidden from displayed text.
+    # Its chat template also reorders narration and tool calls when they share
+    # one assistant message, so replay must split them while preserving order.
+    "gemma4": _ToolParserCapabilities(
+        requires_raw_output=True,
+        requires_split_tool_narration=True,
+    ),
+    # gpt-oss's harmony parser reads channels from token IDs and refuses text;
+    # without them, the analysis channel leaks into the content.
+    "openai": _ToolParserCapabilities(requires_token_ids=True),
+}
+
+
+def _get_tool_parser_capabilities(
+    parser_name: str | None,
+) -> _ToolParserCapabilities:
+    """Return parser input requirements while preserving existing defaults."""
+    if parser_name is None:
+        return _DEFAULT_TOOL_PARSER_CAPABILITIES
+    return _TOOL_PARSER_CAPABILITIES.get(
+        parser_name,
+        _DEFAULT_TOOL_PARSER_CAPABILITIES,
+    )
+
+
+def _build_parser_request_tools(
+    tool_parser: object, tools: list[ToolDefinition] | None
+) -> list:
+    """Return the conversation's tools in the form the tool parser expects.
+
+    Parser-engine adapters coerce each parsed argument to its schema type and
+    only find that schema on typed tool objects, so they get
+    `ChatCompletionToolsParam`s. Other parsers keep receiving plain dicts.
+    """
+    tool_dicts = [t.model_dump(mode="json", exclude_none=True) for t in tools or []]
+    if (
+        ParserEngineToolAdapter is None
+        or ChatCompletionToolsParam is None
+        or not isinstance(tool_parser, ParserEngineToolAdapter)
+    ):
+        return tool_dicts
+    try:
+        return [ChatCompletionToolsParam.model_validate(t) for t in tool_dicts]
+    except Exception:
+        logger.warning(
+            "Could not convert tools for %s; tool-call arguments may not be "
+            "coerced to their schema types.",
+            type(tool_parser).__name__,
+            exc_info=True,
+        )
+        return tool_dicts
+
+
+def _parse_nvcc_release_version(nvcc_version_output: str) -> tuple[int, int] | None:
+    """Parse the ``release X.Y`` field of ``nvcc --version`` output into (X, Y)."""
+    match = re.search(r"release (\d+)\.(\d+)", nvcc_version_output)
+    if match is None:
+        return None
+    return int(match.group(1)), int(match.group(2))
+
+
+def _vllm_accepts_additional_config() -> bool:
+    """Whether this vLLM build's ``EngineArgs`` accepts ``additional_config``.
+
+    Only newer vLLM accepts it — and that is also the only range with GDN
+    support, so on older builds there is nothing to fix.
+    """
+    try:
+        from vllm.engine.arg_utils import (  # pyright: ignore[reportMissingImports]
+            EngineArgs,
+        )
+
+        return "additional_config" in {f.name for f in dataclasses.fields(EngineArgs)}
+    except Exception:
+        return False
+
+
+@functools.lru_cache(maxsize=1)
+def _cuda_toolkit_below_12_6() -> bool:
+    """Whether the system CUDA toolkit is older than 12.6 (or absent).
+
+    flashinfer's ``gdn_prefill_sm90`` kernel JIT-builds against the system
+    toolkit and needs the ``cuda::ptx`` tensormap intrinsics added in 12.6.
+    """
+    nvcc = shutil.which("nvcc")
+    if nvcc is None:
+        for cuda_home in (os.environ.get("CUDA_HOME"), "/usr/local/cuda"):
+            candidate = Path(cuda_home) / "bin" / "nvcc" if cuda_home else None
+            if candidate and candidate.is_file():
+                nvcc = str(candidate)
+                break
+    if nvcc is None:
+        return True  # no toolkit at all → the flashinfer JIT can't build either
+
+    try:
+        output = subprocess.run(
+            [nvcc, "--version"], capture_output=True, text=True, timeout=10
+        ).stdout
+    except (OSError, subprocess.SubprocessError):
+        return True
+
+    version = _parse_nvcc_release_version(output)
+    if version is None:
+        return False
+    return version < (12, 6)
+
+
+# Model families using a Gated Delta Net attention architecture, whose
+# flashinfer gdn_prefill_sm90 kernel JIT-builds against the CUDA toolkit.
+_GDN_MODEL_TYPES = frozenset({"qwen3_5", "qwen3_6", "qwen3_next"})
+
+
+@functools.cache
+def _model_uses_gdn(model_name: str, trust_remote_code: bool) -> bool:
+    """Best-effort check whether the model uses a GDN attention architecture.
+
+    Reads the HF config (resolves both Hub ids and local fine-tuned dirs).
+    Returns False if the config can't be read.
+    """
+    try:
+        from transformers import AutoConfig
+
+        config = AutoConfig.from_pretrained(
+            model_name, trust_remote_code=trust_remote_code
+        )
+        return getattr(config, "model_type", None) in _GDN_MODEL_TYPES
+    except Exception:
+        return False
+
+
+def _should_force_triton_gdn_backend(model_name: str, trust_remote_code: bool) -> bool:
+    """Whether to force vLLM's Triton GDN-prefill backend for this model.
+
+    GDN models (e.g. Qwen3.5) JIT-compile a flashinfer ``gdn_prefill_sm90``
+    kernel that needs the system CUDA toolkit >= 12.6 (``cuda::ptx`` tensormap
+    intrinsics). On older toolkits the build fails and the engine hangs, so
+    fall back to the Triton/FLA GDN backend. No-op for non-GDN models and for
+    toolkits >= 12.6. Mirrors the intent of vllm-project/vllm#37507.
+    """
+    return (
+        _vllm_accepts_additional_config()
+        and _cuda_toolkit_below_12_6()
+        and _model_uses_gdn(model_name, trust_remote_code)
+    )
+
+
+LORA_ADAPTER_NAME = "oumi_lora_adapter"
 
 
 class VLLMInferenceEngine(BaseInferenceEngine):
@@ -141,6 +332,94 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 "Please install the GPU dependencies for this package."
             )
 
+        final_vllm_kwargs = self.build_engine_kwargs(
+            model_params,
+            tensor_parallel_size=tensor_parallel_size,
+            quantization=quantization,
+            enable_prefix_caching=enable_prefix_caching,
+            gpu_memory_utilization=gpu_memory_utilization,
+            enforce_eager=enforce_eager,
+            max_num_seqs=max_num_seqs,
+        )
+        if final_vllm_kwargs["model"] != model_params.model_name:
+            # GGUF: build the tokenizer from the locally cached model file.
+            model_params = copy.deepcopy(model_params)
+            model_params.model_name = str(final_vllm_kwargs["model"])
+
+        self._lora_request = None
+        if model_params.adapter_model:
+            # ID should be unique for this adapter, but isn't enforced by vLLM.
+            self._lora_request = LoRARequest(
+                lora_name=LORA_ADAPTER_NAME,
+                lora_int_id=1,
+                lora_path=model_params.adapter_model,
+            )
+            logger.info(f"Loaded LoRA adapter: {model_params.adapter_model}")
+
+        self._tokenizer = build_tokenizer(model_params)
+
+        previous_compat_activation = os.environ.get(ACTIVATION_ENV_VAR)
+        os.environ[ACTIVATION_ENV_VAR] = "1"
+        try:
+            self._llm = vllm.LLM(**final_vllm_kwargs)  # pyright: ignore[reportArgumentType, reportAttributeAccessIssue]
+        finally:
+            if previous_compat_activation is None:
+                os.environ.pop(ACTIVATION_ENV_VAR, None)
+            else:
+                os.environ[ACTIVATION_ENV_VAR] = previous_compat_activation
+        # Ensure the tokenizer is set properly.
+        # set_tokenizer() was deprecated in vLLM v0.12 and removed in v0.13; the
+        # tokenizer is already configured via the constructor's `tokenizer` parameter.
+        if not _VLLM_V0_12:
+            self._llm.set_tokenizer(self._tokenizer)  # pyright: ignore[reportAttributeAccessIssue]
+
+        # Optional tool-call parser. Direct kwarg wins over model_params.
+        parser_name = tool_call_parser or model_params.tool_call_parser
+        self._tool_parser_name = parser_name
+        self._tool_parser = None
+        if parser_name is not None:
+            if not _VLLM_TOOL_PARSERS_AVAILABLE:
+                raise RuntimeError(
+                    "vLLM tool parsers are not available in this vLLM version. "
+                    "Upgrade vLLM or unset `tool_call_parser`."
+                )
+            try:
+                parser_cls = ToolParserManager.get_tool_parser(parser_name)  # pyright: ignore[reportOptionalMemberAccess]
+            except KeyError as e:
+                raise ValueError(
+                    f"Unknown vLLM tool_call_parser '{parser_name}'."
+                ) from e
+            self._tool_parser = parser_cls(self._tokenizer)  # pyright: ignore[reportArgumentType]
+            logger.info(f"VLLM engine will parse tool calls with '{parser_name}'.")
+
+    @staticmethod
+    def build_engine_kwargs(
+        model_params: ModelParams,
+        *,
+        tensor_parallel_size: int = -1,
+        quantization: str | None = None,
+        enable_prefix_caching: bool = True,
+        gpu_memory_utilization: float = 0.9,
+        enforce_eager: bool = True,
+        max_num_seqs: int | None = None,
+    ) -> dict[str, object]:
+        """Builds the ``vllm.LLM`` kwargs the engine uses for ``model_params``.
+
+        Reads local state (GPU count, CUDA toolkit, LoRA adapter files), so call it
+        on the machine that runs vLLM.
+
+        Args:
+            model_params: The model parameters to use for inference.
+            tensor_parallel_size: See ``__init__``.
+            quantization: See ``__init__``.
+            enable_prefix_caching: See ``__init__``.
+            gpu_memory_utilization: See ``__init__``.
+            enforce_eager: See ``__init__``.
+            max_num_seqs: See ``__init__``.
+
+        Returns:
+            dict[str, object]: Keyword arguments for ``vllm.LLM``.
+        """
         if not (
             math.isfinite(gpu_memory_utilization)
             and gpu_memory_utilization > 0
@@ -215,23 +494,13 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             else:
                 tensor_parallel_size = 1
 
-        self._lora_request = None
         if model_params.adapter_model:
-            # ID should be unique for this adapter, but isn't enforced by vLLM.
-            self._lora_request = LoRARequest(
-                lora_name="oumi_lora_adapter",
-                lora_int_id=1,
-                lora_path=model_params.adapter_model,
-            )
-            logger.info(f"Loaded LoRA adapter: {model_params.adapter_model}")
             lora_rank = get_lora_rank(model_params.adapter_model)
             vllm_kwargs["max_lora_rank"] = lora_rank
             logger.info(f"Setting vLLM max LoRA rank to {lora_rank}")
 
         if max_num_seqs is not None:
             vllm_kwargs["max_num_seqs"] = max_num_seqs
-
-        self._tokenizer = build_tokenizer(model_params)
 
         supported_quantization_methods = list(get_args(QuantizationMethods))
         if quantization and quantization not in supported_quantization_methods:
@@ -247,7 +516,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 if key in model_params.model_kwargs:
                     vllm_kwargs[key] = model_params.model_kwargs[key]
 
-        final_vllm_kwargs = dict(
+        final_vllm_kwargs: dict[str, object] = dict(
             model=model_params.model_name,
             tokenizer=model_params.tokenizer_name,
             trust_remote_code=model_params.trust_remote_code,
@@ -256,7 +525,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             # but they don't belong to model_params
             tensor_parallel_size=tensor_parallel_size,
             enable_prefix_caching=enable_prefix_caching,
-            enable_lora=self._lora_request is not None,
+            enable_lora=bool(model_params.adapter_model),
             max_model_len=model_params.model_max_length,
             gpu_memory_utilization=gpu_memory_utilization,
             enforce_eager=enforce_eager,
@@ -267,30 +536,68 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         if quantization is not None and "quantization" not in vllm_kwargs:
             final_vllm_kwargs["quantization"] = quantization
 
-        self._llm = vllm.LLM(**final_vllm_kwargs)  # pyright: ignore[reportArgumentType, reportAttributeAccessIssue]
-        # Ensure the tokenizer is set properly.
-        # set_tokenizer() was deprecated in vLLM v0.12 and removed in v0.13; the
-        # tokenizer is already configured via the constructor's `tokenizer` parameter.
-        if not _VLLM_V0_12:
-            self._llm.set_tokenizer(self._tokenizer)  # pyright: ignore[reportAttributeAccessIssue]
+        # GDN-architecture models (e.g. Qwen3.5) hang when flashinfer's sm90
+        # GDN-prefill kernel can't JIT-build against an old (<12.6) CUDA
+        # toolkit; fall back to the Triton GDN backend. No-op for other models.
+        if _should_force_triton_gdn_backend(
+            model_params.model_name, model_params.trust_remote_code
+        ):
+            final_vllm_kwargs["additional_config"] = {  # pyright: ignore[reportArgumentType]
+                "gdn_prefill_backend": "triton"
+            }
+            logger.warning(
+                "System CUDA toolkit < 12.6: forcing vLLM Triton GDN-prefill "
+                "backend (the flashinfer sm90 GDN kernel would fail to build)."
+            )
 
-        # Optional tool-call parser. Direct kwarg wins over model_params.
+        return final_vllm_kwargs
+
+    @classmethod
+    def build_serve_args(
+        cls, model_params: ModelParams, *, tool_call_parser: str | None = None
+    ) -> list[str]:
+        """Builds ``vllm serve`` arguments that load the model as the engine does.
+
+        Reads local state like ``build_engine_kwargs``. A LoRA adapter is served
+        under the model name ``LORA_ADAPTER_NAME``.
+
+        Args:
+            model_params: The model parameters to use for inference.
+            tool_call_parser: See ``__init__``.
+
+        Returns:
+            list[str]: Arguments for ``vllm serve``, starting with the model.
+        """
+        engine_kwargs = cls.build_engine_kwargs(model_params)
+        args = [str(engine_kwargs.pop("model"))]
+        for key, value in engine_kwargs.items():
+            flag = key.replace("_", "-")
+            if value is None:
+                continue
+            if isinstance(value, bool):
+                args.append(f"--{flag}" if value else f"--no-{flag}")
+            elif isinstance(value, dict):
+                args += [f"--{flag}", json.dumps(value)]
+            else:
+                args += [f"--{flag}", str(value)]
+        if model_params.adapter_model:
+            args += [
+                "--lora-modules",
+                f"{LORA_ADAPTER_NAME}={model_params.adapter_model}",
+            ]
         parser_name = tool_call_parser or model_params.tool_call_parser
-        self._tool_parser = None
-        if parser_name is not None:
-            if not _VLLM_TOOL_PARSERS_AVAILABLE:
-                raise RuntimeError(
-                    "vLLM tool parsers are not available in this vLLM version. "
-                    "Upgrade vLLM or unset `tool_call_parser`."
-                )
-            try:
-                parser_cls = ToolParserManager.get_tool_parser(parser_name)  # pyright: ignore[reportOptionalMemberAccess]
-            except KeyError as e:
-                raise ValueError(
-                    f"Unknown vLLM tool_call_parser '{parser_name}'."
-                ) from e
-            self._tool_parser = parser_cls(self._tokenizer)  # pyright: ignore[reportArgumentType]
-            logger.info(f"VLLM engine will parse tool calls with '{parser_name}'.")
+        if parser_name:
+            args += ["--enable-auto-tool-choice", "--tool-call-parser", parser_name]
+        # Applied to every chat as the engine does; a request's own kwargs win.
+        if model_params.chat_template_kwargs:
+            args += [
+                "--default-chat-template-kwargs",
+                json.dumps(model_params.chat_template_kwargs),
+            ]
+        # The engine sets sampling per request; don't let the model's
+        # generation_config.json fill in what a request leaves out.
+        args += ["--generation-config", "vllm"]
+        return args
 
     @staticmethod
     def _normalize_vllm_finish_reason(raw_reason: str | None) -> FinishReason | None:
@@ -302,6 +609,31 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             "length": FinishReason.LENGTH,
         }
         return mapping.get(raw_reason.lower(), FinishReason.UNKNOWN)
+
+    @staticmethod
+    def _extract_usage_from_vllm_output(
+        request_output: RequestOutput,
+    ) -> dict[str, int] | None:
+        """Extracts normalized token usage from a vLLM chat response.
+
+        Args:
+            request_output: A vLLM ``RequestOutput`` for a single conversation.
+
+        Returns:
+            A dict with prompt_tokens, completion_tokens, total_tokens, or None
+            if vLLM reported no token ids.
+        """
+        prompt_tokens = len(request_output.prompt_token_ids or [])
+        completion_tokens = sum(
+            len(output.token_ids or []) for output in request_output.outputs
+        )
+        if not prompt_tokens and not completion_tokens:
+            return None
+        return {
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "total_tokens": prompt_tokens + completion_tokens,
+        }
 
     def _convert_conversation_to_vllm_input(
         self, conversation: Conversation
@@ -315,8 +647,14 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             List[ChatCompletionMessageParam]: A list of vllm input messages.
         """
         result: list[ChatCompletionMessageParam] = []
+        messages = conversation.messages
+        parser_capabilities = _get_tool_parser_capabilities(
+            getattr(self, "_tool_parser_name", None)
+        )
+        if parser_capabilities.requires_split_tool_narration:
+            messages = split_assistant_content_and_tool_calls(messages)
         for json_dict in create_list_of_message_json_dicts(
-            conversation.messages, group_adjacent_same_role_turns=True
+            messages, group_adjacent_same_role_turns=True
         ):
             if "role" not in json_dict:
                 raise RuntimeError("The required field 'role' is missing!")
@@ -391,6 +729,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             n=1,
             max_tokens=generation_params.max_new_tokens,
             temperature=generation_params.temperature,
+            seed=generation_params.seed,
             top_p=generation_params.top_p
             if generation_params.top_p is not None
             else 1.0,
@@ -469,10 +808,14 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                     finish_reason = self._normalize_vllm_finish_reason(raw_reason)
                     if finish_reason is not None:
                         metadata["finish_reason"] = finish_reason.value
+            usage = self._extract_usage_from_vllm_output(chat_response)
+            if usage is not None:
+                metadata["usage"] = usage
             new_conversation = Conversation(
                 messages=messages,
                 metadata=metadata,
                 conversation_id=conversation.conversation_id,
+                tools=conversation.tools,
             )
             self._save_conversation_to_scratch(
                 new_conversation,
@@ -523,18 +866,21 @@ class VLLMInferenceEngine(BaseInferenceEngine):
     ) -> tuple[list[Message], FinishReason | None]:
         """Builds assistant messages from a vLLM chat response.
 
-        When ``self._tool_parser`` is set, runs it over each completion's
-        text and populates ``Message.tool_calls`` with the extracted payload.
-        On parser failure, falls back to raw text.
+        When ``self._tool_parser`` is set, uses its parsed content and tool calls.
+        On parser failure, falls back to clean display text.
         """
         new_messages: list[Message] = []
         finish_reason_override: FinishReason | None = None
+        parser_capabilities = _get_tool_parser_capabilities(
+            getattr(self, "_tool_parser_name", None)
+        )
         for completion in chat_response.outputs:
-            text = completion.text
-            content: str | None = text
+            display_text = completion.text
+            content: str | None = display_text
             tool_calls_payload: list[ToolCall] | None = None
 
             if self._tool_parser is not None:
+                parser_text = self._decode_tool_parser_text(completion)
                 # Some parsers read `request.tool_choice` from the
                 # non-streaming entry point; pass a stub so they don't crash.
                 # vLLM offline `LLM.chat()` has no `tool_choice` knob, so
@@ -546,32 +892,47 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 # interpretations the model didn't actually make).
                 stub = SimpleNamespace(
                     tool_choice="auto",
-                    tools=[
-                        t.model_dump(mode="json", exclude_none=True)
-                        for t in (conversation.tools or [])
-                    ],
+                    tools=_build_parser_request_tools(
+                        self._tool_parser, conversation.tools
+                    ),
+                )
+                parser_kwargs = (
+                    {"token_ids": completion.token_ids}
+                    if parser_capabilities.requires_token_ids
+                    else {}
                 )
                 try:
                     extracted = self._tool_parser.extract_tool_calls(
-                        text,
+                        parser_text,
                         request=stub,  # type: ignore[arg-type]
+                        **parser_kwargs,
                     )
                 except Exception:
                     logger.exception(
-                        "Tool-call parser %s failed; falling back to raw text.",
+                        "Tool-call parser %s failed; falling back to display text.",
                         type(self._tool_parser).__name__,
                     )
                     extracted = None
 
-                if extracted is not None and getattr(extracted, "tools_called", False):
-                    tool_calls_payload = [
-                        ToolCall.model_validate(tc.model_dump())
-                        for tc in extracted.tool_calls
-                    ]
-                    # Empty leading content is rendered as `None` to match
-                    # the OpenAI wire format for tool-only assistant turns.
-                    content = extracted.content or None
-                    finish_reason_override = FinishReason.TOOL_CALLS
+                if extracted is not None:
+                    tools_called = bool(getattr(extracted, "tools_called", False))
+                    if tools_called:
+                        content = extracted.content or None
+                        if parser_capabilities.requires_raw_output:
+                            content = self._clean_tool_parser_content(content)
+                        tool_calls_payload = [
+                            ToolCall.model_validate(tc.model_dump())
+                            for tc in extracted.tool_calls
+                        ]
+                        finish_reason_override = FinishReason.TOOL_CALLS
+                    elif parser_capabilities.requires_raw_output:
+                        # Lossless parser input may contain protocol tokens or
+                        # otherwise differ from the user-facing representation.
+                        content = display_text
+                    else:
+                        # Preserve the parser's normal clean-text behavior, but
+                        # never let a parser miss erase a nonempty completion.
+                        content = extracted.content or display_text
 
             new_messages.append(
                 Message(
@@ -581,6 +942,58 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 )
             )
         return new_messages, finish_reason_override
+
+    def _decode_tool_parser_text(self, completion) -> str:
+        """Build the text representation required by the active tool parser.
+
+        ``completion.text`` follows the user-facing ``skip_special_tokens``
+        setting. Parsers use that clean text by default. Parsers that explicitly
+        require lossless output instead receive a second decode of the same
+        generated token IDs with special tokens preserved. The clean text remains
+        the source of truth for display and parser fallbacks.
+        """
+        capabilities = _get_tool_parser_capabilities(
+            getattr(self, "_tool_parser_name", None)
+        )
+        if not capabilities.requires_raw_output:
+            return completion.text
+        token_ids = getattr(completion, "token_ids", None)
+        if token_ids is None or len(token_ids) == 0:
+            return completion.text
+        try:
+            decoded = self._tokenizer.decode(
+                token_ids,
+                skip_special_tokens=False,
+                clean_up_tokenization_spaces=False,
+            )
+            if isinstance(decoded, str):
+                return decoded
+        except Exception:
+            logger.exception(
+                "Failed to decode raw tokens for tool-call parsing; "
+                "falling back to display text."
+            )
+        return completion.text
+
+    def _clean_tool_parser_content(self, content: str | None) -> str | None:
+        """Removes special tokens from content extracted from lossless parser input."""
+        if not content:
+            return None
+        try:
+            token_ids = self._tokenizer.encode(content, add_special_tokens=False)
+            decoded = self._tokenizer.decode(
+                token_ids,
+                skip_special_tokens=True,
+                clean_up_tokenization_spaces=False,
+            )
+            if isinstance(decoded, str):
+                return decoded if decoded.strip() else None
+        except Exception:
+            logger.exception(
+                "Failed to clean tool-call parser content; omitting content."
+            )
+        # Keep valid tool calls even when their accompanying text cannot be cleaned.
+        return None
 
     def infer_online(
         self,
@@ -661,6 +1074,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             "max_new_tokens",
             "min_p",
             "presence_penalty",
+            "seed",
             "skip_special_tokens",
             "stop_strings",
             "stop_token_ids",

@@ -1,11 +1,12 @@
 import asyncio
+import inspect
 import json
 import math
 import os
 import tempfile
 import time
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, Final, cast
 from unittest.mock import AsyncMock, patch
 
 import aiohttp
@@ -795,6 +796,9 @@ def test_infer_online_fails_with_message_and_retries(mock_asyncio_sleep):
         )
 
         config = _get_default_inference_config()
+        # _query_api uses config.remote_params over the engine's, so pin it here.
+        if config.remote_params is not None:
+            config.remote_params.max_retries = 3
         engine = RemoteInferenceEngine(
             _get_default_model_params(),
             remote_params=RemoteParams(api_url=_TARGET_SERVER),
@@ -824,6 +828,219 @@ def test_infer_online_fails_with_message_and_retries(mock_asyncio_sleep):
         assert exc_info.value.api_input is not None
         # 3 retries
         assert mock_asyncio_sleep.call_count == 3
+
+
+def test_infer_online_fallback_backoff_curve(mock_asyncio_sleep):
+    with patch("random.uniform", return_value=1.0):
+        with aioresponses() as m:
+            for _ in range(6):  # max_retries=5 -> 6 attempts
+                m.post(
+                    _TARGET_SERVER,
+                    status=500,
+                    payload={"error": {"message": "Internal server error"}},
+                )
+            engine = RemoteInferenceEngine(
+                _get_default_model_params(),
+                remote_params=RemoteParams(api_url=_TARGET_SERVER),
+            )
+            config = _get_default_inference_config()
+            conversation = Conversation(
+                messages=[Message(content="Hello world!", role=Role.USER)],
+                conversation_id="123",
+            )
+            with pytest.raises(APIStatusError):
+                _ = engine.infer([conversation], config)
+            delays = [call.args[0] for call in mock_asyncio_sleep.call_args_list]
+            assert delays == [1.0, 10.0, 30.0, 30.0, 30.0]
+
+
+def test_infer_online_honors_retry_after_delta(mock_asyncio_sleep):
+    with patch("random.uniform", return_value=1.0):
+        with aioresponses() as m:
+            m.post(
+                _TARGET_SERVER,
+                status=429,
+                headers={"Retry-After": "45"},
+                payload={"error": {"message": "Rate limited"}},
+            )
+            m.post(
+                _TARGET_SERVER,
+                payload={
+                    "choices": [{"message": {"role": "assistant", "content": "ok"}}]
+                },
+            )
+            engine = RemoteInferenceEngine(
+                _get_default_model_params(),
+                remote_params=RemoteParams(api_url=_TARGET_SERVER),
+            )
+            config = _get_default_inference_config()
+            conversation = Conversation(
+                messages=[Message(content="Hello world!", role=Role.USER)],
+                conversation_id="123",
+            )
+            result = engine.infer([conversation], config)
+            assert result[0].messages[-1].content == "ok"
+            delays = [call.args[0] for call in mock_asyncio_sleep.call_args_list]
+            assert delays == [45.0]  # honored header, not the 1s backoff
+
+
+def test_infer_online_retry_after_honored_in_full(mock_asyncio_sleep):
+    # Retry-After takes precedence over our backoff and is NOT capped; only the
+    # exponential fallback is bounded by retry_backoff_max.
+    with patch("random.uniform", return_value=1.0):
+        with aioresponses() as m:
+            m.post(
+                _TARGET_SERVER,
+                status=429,
+                headers={"Retry-After": "600"},
+                payload={"error": {"message": "Rate limited"}},
+            )
+            m.post(
+                _TARGET_SERVER,
+                payload={
+                    "choices": [{"message": {"role": "assistant", "content": "ok"}}]
+                },
+            )
+            engine = RemoteInferenceEngine(
+                _get_default_model_params(),
+                remote_params=RemoteParams(api_url=_TARGET_SERVER),
+            )
+            config = _get_default_inference_config()
+            conversation = Conversation(
+                messages=[Message(content="Hello world!", role=Role.USER)],
+                conversation_id="123",
+            )
+            engine.infer([conversation], config)
+            delays = [call.args[0] for call in mock_asyncio_sleep.call_args_list]
+            assert delays == [600.0]  # honored in full, not truncated
+
+
+def test_infer_online_short_retry_after_does_not_shorten_backoff(
+    mock_asyncio_sleep,
+):
+    with patch("random.uniform", return_value=1.0):
+        with aioresponses() as m:
+            for _ in range(3):
+                m.post(
+                    _TARGET_SERVER,
+                    status=429,
+                    headers={"Retry-After": "1"},
+                    payload={"error": {"message": "Rate limited"}},
+                )
+            m.post(
+                _TARGET_SERVER,
+                payload={
+                    "choices": [{"message": {"role": "assistant", "content": "ok"}}]
+                },
+            )
+            engine = RemoteInferenceEngine(
+                _get_default_model_params(),
+                remote_params=RemoteParams(api_url=_TARGET_SERVER),
+            )
+            config = _get_default_inference_config()
+            conversation = Conversation(
+                messages=[Message(content="Hello world!", role=Role.USER)],
+                conversation_id="123",
+            )
+            engine.infer([conversation], config)
+            delays = [call.args[0] for call in mock_asyncio_sleep.call_args_list]
+            assert delays == [1.0, 10.0, 30.0]
+
+
+def test_infer_online_retry_after_jitter_applied(mock_asyncio_sleep):
+    with patch("random.uniform", return_value=1.2):
+        with aioresponses() as m:
+            m.post(
+                _TARGET_SERVER,
+                status=429,
+                headers={"Retry-After": "10"},
+                payload={"error": {"message": "Rate limited"}},
+            )
+            m.post(
+                _TARGET_SERVER,
+                payload={
+                    "choices": [{"message": {"role": "assistant", "content": "ok"}}]
+                },
+            )
+            engine = RemoteInferenceEngine(
+                _get_default_model_params(),
+                remote_params=RemoteParams(api_url=_TARGET_SERVER),
+            )
+            config = _get_default_inference_config()
+            conversation = Conversation(
+                messages=[Message(content="Hello world!", role=Role.USER)],
+                conversation_id="123",
+            )
+            engine.infer([conversation], config)
+            delays = [call.args[0] for call in mock_asyncio_sleep.call_args_list]
+            assert delays == [12.0]  # 10 * 1.2 jitter factor
+
+
+def test_infer_online_retry_jitter_widens_with_num_workers(mock_asyncio_sleep):
+    # The jitter window scales with num_workers (capped) so a large batch spreads
+    # its retries instead of waking in a tight cluster.
+    with patch("random.uniform", return_value=1.0) as mock_uniform:
+        with aioresponses() as m:
+            m.post(
+                _TARGET_SERVER,
+                status=429,
+                headers={"Retry-After": "10"},
+                payload={"error": {"message": "Rate limited"}},
+            )
+            m.post(
+                _TARGET_SERVER,
+                payload={
+                    "choices": [{"message": {"role": "assistant", "content": "ok"}}]
+                },
+            )
+            engine = RemoteInferenceEngine(
+                _get_default_model_params(),
+                remote_params=RemoteParams(api_url=_TARGET_SERVER),
+            )
+            config = _get_default_inference_config()
+            assert config.remote_params is not None
+            config.remote_params.num_workers = 10  # 0.25 * 10 = 2.5 -> capped at 1.0
+            conversation = Conversation(
+                messages=[Message(content="Hello world!", role=Role.USER)],
+                conversation_id="123",
+            )
+            engine.infer([conversation], config)
+            # jitter_fraction capped at _MAX_RETRY_JITTER_FRACTION -> uniform(1.0, 2.0)
+            mock_uniform.assert_called_with(1.0, 2.0)
+
+
+def test_infer_online_rate_limiter_repaces_each_retry(mock_asyncio_sleep):
+    # Every attempt (not just the first) re-paces through the rate limiter, so a
+    # burst of retries still respects the configured RPM/TPM window.
+    with patch("random.uniform", return_value=1.0):
+        engine = RemoteInferenceEngine(
+            _get_default_model_params(),
+            remote_params=RemoteParams(
+                api_url=_TARGET_SERVER,
+                requests_per_minute=1000,
+                use_adaptive_concurrency=False,
+            ),
+        )
+        assert engine._rate_limiter is not None
+        mock_wait = AsyncMock()
+        with patch.object(engine._rate_limiter, "wait_if_needed", mock_wait):
+            with aioresponses() as m:
+                m.post(
+                    _TARGET_SERVER,
+                    status=500,
+                    payload={"error": {"message": "server error"}},
+                )
+                m.post(
+                    _TARGET_SERVER,
+                    payload={
+                        "choices": [{"message": {"role": "assistant", "content": "ok"}}]
+                    },
+                )
+                result = engine.infer(
+                    [Conversation(messages=[Message(content="hi", role=Role.USER)])]
+                )
+        assert result[0].messages[-1].content == "ok"
+        assert mock_wait.call_count == 2  # one per attempt (500 then 200)
 
 
 def test_infer_online_recovers_from_retries():
@@ -2102,6 +2319,20 @@ def test_convert_api_output_no_usage():
     assert result.metadata["key"] == "value"
 
 
+def test_convert_api_output_null_response_raises_runtime_error():
+    """A 2xx response whose JSON body is `null` must raise a clear RuntimeError."""
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
+    )
+    original = Conversation(
+        messages=[Message(content="Hello", role=Role.USER)],
+    )
+    null_body = cast(dict, None)
+    with pytest.raises(RuntimeError, match="Expected a JSON object"):
+        engine._convert_api_output_to_conversation(null_body, original)
+
+
 def test_convert_api_output_content_null_returns_empty_string():
     engine = RemoteInferenceEngine(
         _get_default_model_params(),
@@ -2390,8 +2621,8 @@ async def test_batch_results_partial_failure_retries():
             ]
         )
         with patch.object(
-            engine, "_infer", new_callable=AsyncMock, return_value=[retry_result]
-        ) as mock_infer:
+            engine, "generate", new_callable=AsyncMock, return_value=[retry_result]
+        ) as mock_generate:
             results = await engine._get_batch_results_with_mapping(
                 "batch-123", conversations
             )
@@ -2400,8 +2631,8 @@ async def test_batch_results_partial_failure_retries():
         assert results[0].messages[-1].content == "Response 0"
         assert results[1].messages[-1].content == "Retry Response 1"
         assert results[2].messages[-1].content == "Response 2"
-        mock_infer.assert_called_once()
-        failed_convs = mock_infer.call_args[0][0]
+        mock_generate.assert_called_once()
+        failed_convs = mock_generate.call_args[0][0]
         assert len(failed_convs) == 1
         assert failed_convs[0].messages[0].content == "Q1"
 
@@ -2454,7 +2685,7 @@ async def test_batch_results_error_in_response_body():
             ]
         )
         with patch.object(
-            engine, "_infer", new_callable=AsyncMock, return_value=[retry_result]
+            engine, "generate", new_callable=AsyncMock, return_value=[retry_result]
         ):
             results = await engine._get_batch_results_with_mapping(
                 "batch-123", conversations
@@ -2504,7 +2735,7 @@ async def test_batch_results_error_null_no_body_error():
             ]
         )
         with patch.object(
-            engine, "_infer", new_callable=AsyncMock, return_value=[retry_result]
+            engine, "generate", new_callable=AsyncMock, return_value=[retry_result]
         ):
             results = await engine._get_batch_results_with_mapping(
                 "batch-123", conversations
@@ -2555,7 +2786,7 @@ async def test_batch_results_error_null_response_null():
             ]
         )
         with patch.object(
-            engine, "_infer", new_callable=AsyncMock, return_value=[retry_result]
+            engine, "generate", new_callable=AsyncMock, return_value=[retry_result]
         ):
             results = await engine._get_batch_results_with_mapping(
                 "batch-123", conversations
@@ -2568,7 +2799,7 @@ async def test_batch_results_error_null_response_null():
 
 @pytest.mark.asyncio
 async def test_batch_results_retry_failure_propagates():
-    """Test that exceptions from _infer during retry propagate up."""
+    """Test that exceptions from generate during retry propagate up."""
     with aioresponses() as m:
         m.get(
             f"{_TARGET_SERVER_BASE}/v1/batches/batch-123",
@@ -2586,7 +2817,7 @@ async def test_batch_results_retry_failure_propagates():
 
         with patch.object(
             engine,
-            "_infer",
+            "generate",
             new_callable=AsyncMock,
             side_effect=RuntimeError("API error during retry"),
         ):
@@ -2831,40 +3062,38 @@ async def test_infer_online_exponential_backoff(mock_polite_adaptive_semaphore):
         m.post(_TARGET_SERVER, callback=callback, repeat=True)
 
         with patch("asyncio.sleep", side_effect=mock_sleep):
-            engine = RemoteInferenceEngine(
-                model_params=_get_default_model_params(),
-                remote_params=RemoteParams(
+            with patch("random.uniform", return_value=1.0):
+                engine = RemoteInferenceEngine(
+                    model_params=_get_default_model_params(),
+                    remote_params=RemoteParams(
+                        api_url=_TARGET_SERVER,
+                        max_retries=3,
+                        retry_backoff_base=0.2,  # Small values for testing
+                        retry_backoff_max=1.0,
+                    ),
+                )
+                conversation = Conversation(
+                    messages=[Message(role=Role.USER, content="Hello")],
+                )
+
+                remote_params = RemoteParams(
                     api_url=_TARGET_SERVER,
                     max_retries=3,
-                    retry_backoff_base=0.2,  # Small values for testing
+                    retry_backoff_base=0.2,
                     retry_backoff_max=1.0,
-                ),
-            )
-            conversation = Conversation(
-                messages=[Message(role=Role.USER, content="Hello")],
-            )
+                )
+                inference_config = _get_default_inference_config()
+                inference_config.remote_params = remote_params
 
-            remote_params = RemoteParams(
-                api_url=_TARGET_SERVER,
-                max_retries=3,
-                retry_backoff_base=0.2,
-                retry_backoff_max=1.0,
-            )
-            inference_config = _get_default_inference_config()
-            inference_config.remote_params = remote_params
+                result = engine.infer([conversation], inference_config)
 
-            result = engine.infer([conversation], inference_config)
+                assert len(result) == 1
+                assert result[0].messages[-1].content == "Success after retries"
 
-            # Verify the result
-            assert len(result) == 1
-            assert result[0].messages[-1].content == "Success after retries"
-
-            # Verify sleep calls
-            backoff_sleeps = [s for s in sleep_calls if s > 0]
-            assert backoff_sleeps[0] == pytest.approx(0.2)  # First retry: base delay
-            assert backoff_sleeps[1] == pytest.approx(
-                0.4
-            )  # Second retry: base delay * 2
+                # base=0.2, multiplier=10, max=1.0: 0.2, then 1.0 (capped).
+                backoff_sleeps = [s for s in sleep_calls if s > 0]
+                assert backoff_sleeps[0] == pytest.approx(0.2)
+                assert backoff_sleeps[1] == pytest.approx(1.0)
 
 
 def test_non_retriable_errors(mock_asyncio_sleep):
@@ -2906,6 +3135,66 @@ def test_non_retriable_errors(mock_asyncio_sleep):
             # Verify no retries were attempted
             assert mock_asyncio_sleep.call_count == 0
             mock_asyncio_sleep.reset_mock()
+
+
+def test_non_retriable_error_not_recorded_in_adaptive_concurrency():
+    """A non-retriable 4xx fails fast without notifying the adaptive controller."""
+    with aioresponses() as m:
+        m.post(
+            _TARGET_SERVER,
+            status=403,
+            payload={"error": {"message": "forbidden"}},
+        )
+
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=RemoteParams(
+                api_url=_TARGET_SERVER,
+                use_adaptive_concurrency=True,
+                num_workers=10,
+                max_retries=3,
+            ),
+        )
+        conversation = create_test_text_only_conversation()
+
+        mock_controller = AsyncContextManagerMock()
+        with patch.object(engine, "_adaptive_concurrency_controller", mock_controller):
+            with pytest.raises(APIStatusError) as exc_info:
+                engine._infer_online([conversation])
+
+        assert exc_info.value.status_code == 403
+        mock_controller.record_error.assert_not_called()
+        mock_controller.record_success.assert_not_called()
+
+
+def test_retriable_error_recorded_in_adaptive_concurrency(mock_asyncio_sleep):
+    """A retriable status (429) still drives the controller so backoff engages."""
+    with aioresponses() as m:
+        m.post(
+            _TARGET_SERVER,
+            status=429,
+            payload={"error": {"message": "rate limit"}},
+            repeat=True,
+        )
+
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=RemoteParams(
+                api_url=_TARGET_SERVER,
+                use_adaptive_concurrency=True,
+                num_workers=10,
+                max_retries=2,
+            ),
+        )
+        conversation = create_test_text_only_conversation()
+
+        mock_controller = AsyncContextManagerMock()
+        with patch.object(engine, "_adaptive_concurrency_controller", mock_controller):
+            with pytest.raises((APIStatusError, RuntimeError)):
+                engine._infer_online([conversation])
+
+        mock_controller.record_error.assert_called()
+        mock_controller.record_success.assert_not_called()
 
 
 def test_response_processing_error(mock_polite_adaptive_semaphore, mock_asyncio_sleep):
@@ -3461,7 +3750,8 @@ async def test_adaptive_concurrency_full_adjustment_cycle():
                     )
                 elif attempt_count >= recovery_step:
                     # Two good windows have passed, so we should warmup again
-                    assert current_concurrency == backoff_concurrency + step_size
+                    assert not controller._in_backoff
+                    assert current_concurrency >= backoff_concurrency + step_size
                     return CallbackResult(
                         status=200,
                         payload={
@@ -3519,6 +3809,60 @@ async def test_adaptive_concurrency_full_adjustment_cycle():
             assert len(result) == 50
 
         assert asserts_passed
+
+
+@pytest.mark.asyncio
+async def test_retriable_failure_reacquires_controller_each_attempt():
+    """A retriable failure re-acquires the controller slot on each attempt.
+
+    Each retry is re-paced at the controller's current concurrency instead of
+    retrying inside one held slot, and the request still succeeds.
+    """
+    statuses = [500, 200]
+
+    def get_response(*args, **kwargs):
+        status = statuses.pop(0)
+        if status != 200:
+            return CallbackResult(
+                status=status, payload={"error": {"message": "rate limited"}}
+            )
+        return CallbackResult(
+            status=200,
+            payload={"choices": [{"message": {"role": "assistant", "content": "ok"}}]},
+        )
+
+    with aioresponses() as m:
+        m.post(_TARGET_SERVER, callback=get_response, repeat=True)
+        remote_params = RemoteParams(
+            api_url=_TARGET_SERVER,
+            use_adaptive_concurrency=True,
+            num_workers=20,
+            max_retries=1,
+            retry_backoff_base=0.001,
+        )
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=remote_params,
+        )
+        controller = engine._adaptive_concurrency_controller
+        acquisitions = 0
+        original_acquire = controller.acquire
+
+        async def counting_acquire():
+            nonlocal acquisitions
+            acquisitions += 1
+            await original_acquire()
+
+        controller.acquire = counting_acquire
+
+        result = engine.infer(
+            [Conversation(messages=[Message(content="hi", role=Role.USER)])]
+        )
+
+    assert len(result) == 1
+    # Two attempts (500 then 200) -> two acquisitions. Holding the slot around
+    # the whole retry loop would acquire once.
+    assert acquisitions == 2
 
 
 # FinishReason extraction tests
@@ -4022,3 +4366,670 @@ def test_response_populates_tool_calls():
     assert results[0].metadata["finish_reason"] == "tool_calls"
     # Tools propagate through to the result so downstream callers can inspect.
     assert results[0].tools == [_WEATHER_TOOL]
+
+
+# -----------------------------------------------------------------------------
+# reasoning_content parsing (Fireworks / Together)
+# -----------------------------------------------------------------------------
+
+
+def _reasoning_engine_and_original() -> tuple[RemoteInferenceEngine, Conversation]:
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
+    )
+    original = Conversation(messages=[Message(role=Role.USER, content="Hi")])
+    return engine, original
+
+
+def test_response_populates_reasoning_content_fireworks_style():
+    """Fireworks exposes reasoning as `reasoning_content`."""
+    engine, original = _reasoning_engine_and_original()
+    response = {
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": "final answer",
+                    "reasoning_content": "let me think...",
+                }
+            }
+        ]
+    }
+    result = engine._convert_api_output_to_conversation(response, original)
+    assert result.messages[-1].content == "final answer"
+    assert result.messages[-1].reasoning_content == "let me think..."
+
+
+def test_response_populates_reasoning_content_together_style():
+    """Together exposes reasoning as `reasoning`."""
+    engine, original = _reasoning_engine_and_original()
+    response = {
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": "final answer",
+                    "reasoning": "let me think...",
+                }
+            }
+        ]
+    }
+    result = engine._convert_api_output_to_conversation(response, original)
+    assert result.messages[-1].content == "final answer"
+    assert result.messages[-1].reasoning_content == "let me think..."
+
+
+def test_response_reasoning_field_takes_precedence_over_reasoning_content():
+    """When both keys are present, `reasoning` wins (Together-style first)."""
+    engine, original = _reasoning_engine_and_original()
+    response = {
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": "final answer",
+                    "reasoning": "from reasoning",
+                    "reasoning_content": "from reasoning_content",
+                }
+            }
+        ]
+    }
+    result = engine._convert_api_output_to_conversation(response, original)
+    assert result.messages[-1].reasoning_content == "from reasoning"
+
+
+def test_response_leaves_think_tags_in_content_untouched():
+    """`<think>` tags are not auto-extracted; content is preserved verbatim."""
+    engine, original = _reasoning_engine_and_original()
+    response = {
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": "<think>let me think...</think>final answer",
+                }
+            }
+        ]
+    }
+    result = engine._convert_api_output_to_conversation(response, original)
+    assert result.messages[-1].content == "<think>let me think...</think>final answer"
+    assert result.messages[-1].reasoning_content is None
+
+
+def test_response_no_reasoning_leaves_field_none():
+    """Plain responses (no reasoning anywhere) have reasoning_content=None."""
+    engine, original = _reasoning_engine_and_original()
+    response = {
+        "choices": [{"message": {"role": "assistant", "content": "final answer"}}]
+    }
+    result = engine._convert_api_output_to_conversation(response, original)
+    assert result.messages[-1].content == "final answer"
+    assert result.messages[-1].reasoning_content is None
+
+
+def test_response_combines_reasoning_with_tool_calls():
+    """Reasoning + tool_calls coexist on the same assistant message."""
+    engine, original = _reasoning_engine_and_original()
+    tool_call_payload = {
+        "id": "call_xyz",
+        "type": "function",
+        "function": {"name": "get_weather", "arguments": '{"city":"Paris"}'},
+    }
+    response = {
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "reasoning_content": "i should call the tool",
+                    "tool_calls": [tool_call_payload],
+                }
+            }
+        ]
+    }
+    result = engine._convert_api_output_to_conversation(response, original)
+    assistant = result.messages[-1]
+    assert assistant.content is None
+    assert assistant.reasoning_content == "i should call the tool"
+    assert assistant.tool_calls is not None
+    assert assistant.tool_calls[0].function.name == "get_weather"
+
+
+def _openai_shape_engines() -> list[RemoteInferenceEngine]:
+    """OpenAI-compatible engines whose request builder must forward tools.
+
+    SGLang is intentionally excluded: its native ``/generate`` API takes a
+    rendered prompt plus ``sampling_params`` rather than an OpenAI ``tools``
+    array, so ``conversation.tools`` has no place in its request body.
+    """
+    from oumi.inference.gcp_inference_engine import GoogleVertexInferenceEngine
+    from oumi.inference.gemini_inference_engine import GoogleGeminiInferenceEngine
+    from oumi.inference.remote_vllm_inference_engine import (
+        RemoteVLLMInferenceEngine,
+    )
+
+    remote_params = RemoteParams(api_url=_TARGET_SERVER, api_key="dummy")
+    return [
+        RemoteInferenceEngine(_get_default_model_params(), remote_params=remote_params),
+        RemoteVLLMInferenceEngine(
+            _get_default_model_params(), remote_params=remote_params
+        ),
+        GoogleGeminiInferenceEngine(
+            _get_default_model_params(), remote_params=remote_params
+        ),
+        GoogleVertexInferenceEngine(
+            _get_default_model_params(), remote_params=remote_params
+        ),
+    ]
+
+
+@pytest.mark.parametrize(
+    "engine",
+    _openai_shape_engines(),
+    ids=lambda e: type(e).__name__,
+)
+def test_openai_shape_engines_forward_tools(engine):
+    """Every OpenAI-format engine forwards conversation.tools in its request body.
+
+    Guards against future ``_convert_conversation_to_api_input`` overrides that
+    silently drop tools by omitting the base class's tool-forwarding block.
+    """
+    conversation = Conversation(
+        tools=[_WEATHER_TOOL],
+        messages=[Message(role=Role.USER, content="weather in Tokyo?")],
+    )
+    api_input = engine._convert_conversation_to_api_input(
+        conversation, GenerationParams(max_new_tokens=5), engine._model_params
+    )
+    assert api_input["tools"] == [_WEATHER_TOOL_DICT]
+
+
+#
+# infer_partial
+#
+def _simple_conversation(content: str, conversation_id: str) -> Conversation:
+    return Conversation(
+        messages=[Message(content=content, role=Role.USER)],
+        conversation_id=conversation_id,
+    )
+
+
+def _content_keyed_callback(responses_by_content: dict):
+    """Returns an aioresponses callback that routes by first-message content."""
+
+    def callback(url: str, **kwargs: Any) -> CallbackResult:
+        request = kwargs.get("json", {})
+        content = request.get("messages", [{}])[0].get("content", "")
+        key = content if isinstance(content, str) else content[0].get("text")
+        response = responses_by_content[key]
+        return CallbackResult(status=response["status"], payload=response["payload"])
+
+    return callback
+
+
+def _success_payload(text: str) -> dict:
+    return {"choices": [{"message": {"role": "assistant", "content": text}}]}
+
+
+def test_infer_partial_mixed_success_and_failure(mock_asyncio_sleep):
+    responses = {
+        "ok": {"status": 200, "payload": _success_payload("fine")},
+        "boom": {
+            "status": 500,
+            "payload": {"error": {"message": "Internal server error"}},
+        },
+        "ok2": {"status": 200, "payload": _success_payload("also fine")},
+    }
+    with tempfile.TemporaryDirectory() as temp_dir:
+        output_path = str(Path(temp_dir) / "output.jsonl")
+        with aioresponses() as m:
+            m.post(
+                _TARGET_SERVER, callback=_content_keyed_callback(responses), repeat=True
+            )
+
+            engine = RemoteInferenceEngine(
+                _get_default_model_params(),
+                remote_params=RemoteParams(api_url=_TARGET_SERVER, max_retries=0),
+            )
+            conversations = [
+                _simple_conversation("ok", "c0"),
+                _simple_conversation("boom", "c1"),
+                _simple_conversation("ok2", "c2"),
+            ]
+            inference_config = InferenceConfig(
+                generation=GenerationParams(max_new_tokens=5),
+                output_path=output_path,
+                remote_params=RemoteParams(api_url=_TARGET_SERVER, max_retries=0),
+            )
+
+            result = engine.infer_partial(conversations, inference_config)
+
+        assert [idx for idx, _ in result.successful] == [0, 2]
+        assert result.failed_indices == [1]
+        assert result.has_failures
+        detail = result.failures[1]
+        assert detail.status_code == 500
+        assert detail.is_retryable
+        assert detail.error_type == "api_status"
+        assert "Internal server error" in detail.error_message
+        assert result.error_messages[1] == detail.error_message
+
+        successful_by_index = dict(result.successful)
+        assert str(successful_by_index[0].messages[-1].content) == "fine"
+        assert str(successful_by_index[2].messages[-1].content) == "also fine"
+
+        # Scratch retained on failure; output contains only successes.
+        scratch_path = Path(engine._get_scratch_filepath(output_path))
+        assert scratch_path.exists()
+        with jsonlines.open(output_path) as reader:
+            saved = [Conversation.from_dict(line) for line in reader]
+        assert [c.conversation_id for c in saved] == ["c0", "c2"]
+
+
+def test_infer_partial_all_success_matches_infer():
+    responses = {
+        "one": {"status": 200, "payload": _success_payload("first")},
+        "two": {"status": 200, "payload": _success_payload("second")},
+    }
+    conversations = [
+        _simple_conversation("one", "c0"),
+        _simple_conversation("two", "c1"),
+    ]
+    with aioresponses() as m:
+        m.post(_TARGET_SERVER, callback=_content_keyed_callback(responses), repeat=True)
+        engine = RemoteInferenceEngine(
+            _get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+        )
+        infer_results = engine.infer(
+            [c.model_copy(deep=True) for c in conversations],
+            _get_default_inference_config(),
+        )
+        partial_result = engine.infer_partial(
+            [c.model_copy(deep=True) for c in conversations],
+            _get_default_inference_config(),
+        )
+
+    assert not partial_result.has_failures
+    assert [idx for idx, _ in partial_result.successful] == [0, 1]
+    assert [c for c in infer_results] == [conv for _, conv in partial_result.successful]
+
+
+def test_infer_partial_non_retriable_fails_fast(mock_asyncio_sleep):
+    request_count = 0
+
+    def callback(url: str, **kwargs: Any) -> CallbackResult:
+        nonlocal request_count
+        request_count += 1
+        return CallbackResult(
+            status=401, payload={"error": {"message": "Unauthorized"}}
+        )
+
+    with aioresponses() as m:
+        m.post(_TARGET_SERVER, callback=callback, repeat=True)
+        engine = RemoteInferenceEngine(
+            _get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER, max_retries=3),
+        )
+        result = engine.infer_partial(
+            [_simple_conversation("hello", "c0")],
+            _get_default_inference_config(),
+        )
+
+    assert result.failed_indices == [0]
+    detail = result.failures[0]
+    assert detail.status_code == 401
+    assert not detail.is_retryable
+    assert detail.error_type == "api_status"
+    # 401 fails fast: no retries despite max_retries=3.
+    assert request_count == 1
+    assert mock_asyncio_sleep.call_count == 0
+
+
+def test_infer_partial_all_fail_does_not_raise(mock_asyncio_sleep):
+    with aioresponses() as m:
+        m.post(
+            _TARGET_SERVER,
+            status=503,
+            payload={"error": {"message": "Service unavailable"}},
+            repeat=True,
+        )
+        engine = RemoteInferenceEngine(
+            _get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER, max_retries=0),
+        )
+        conversations = [
+            _simple_conversation("a", "c0"),
+            _simple_conversation("b", "c1"),
+        ]
+        inference_config = InferenceConfig(
+            generation=GenerationParams(max_new_tokens=5),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER, max_retries=0),
+        )
+
+        result = engine.infer_partial(conversations, inference_config)
+
+    assert result.successful == []
+    assert result.failed_indices == [0, 1]
+    for detail in result.failures.values():
+        assert detail.status_code == 503
+        assert detail.is_retryable
+
+
+def test_infer_partial_connection_error(mock_asyncio_sleep):
+    with aioresponses() as m:
+        m.post(
+            _TARGET_SERVER,
+            exception=aiohttp.ClientConnectionError("Connection refused"),
+            repeat=True,
+        )
+        engine = RemoteInferenceEngine(
+            _get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER, max_retries=0),
+        )
+        inference_config = InferenceConfig(
+            generation=GenerationParams(max_new_tokens=5),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER, max_retries=0),
+        )
+
+        result = engine.infer_partial(
+            [_simple_conversation("hello", "c0")], inference_config
+        )
+
+    assert result.failed_indices == [0]
+    detail = result.failures[0]
+    assert detail.status_code is None
+    assert detail.is_retryable
+    assert detail.error_type == "runtime"
+    assert "Connection refused" in detail.error_message
+
+
+def test_infer_partial_missing_api_key_is_config_failure(monkeypatch):
+    monkeypatch.delenv("OUMI_TEST_NONEXISTENT_API_KEY", raising=False)
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(),
+        remote_params=RemoteParams(
+            api_url=_TARGET_SERVER,
+            api_key_env_varname="OUMI_TEST_NONEXISTENT_API_KEY",
+        ),
+    )
+    conversations = [
+        _simple_conversation("a", "c0"),
+        _simple_conversation("b", "c1"),
+    ]
+
+    result = engine.infer_partial(conversations)
+
+    assert result.successful == []
+    assert result.failed_indices == [0, 1]
+    for detail in result.failures.values():
+        assert not detail.is_retryable
+        assert detail.error_type == "config"
+        assert "API key" in detail.error_message
+
+
+def test_infer_partial_writes_progress_file(mock_asyncio_sleep):
+    responses = {
+        "ok": {"status": 200, "payload": _success_payload("fine")},
+        "boom": {
+            "status": 500,
+            "payload": {"error": {"message": "Internal server error"}},
+        },
+    }
+    with tempfile.TemporaryDirectory() as temp_dir:
+        progress_path = str(Path(temp_dir) / "progress.json")
+        with aioresponses() as m:
+            m.post(
+                _TARGET_SERVER, callback=_content_keyed_callback(responses), repeat=True
+            )
+            engine = RemoteInferenceEngine(
+                _get_default_model_params(),
+                remote_params=RemoteParams(api_url=_TARGET_SERVER, max_retries=0),
+            )
+            inference_config = InferenceConfig(
+                generation=GenerationParams(max_new_tokens=5),
+                remote_params=RemoteParams(api_url=_TARGET_SERVER, max_retries=0),
+            )
+            conversations = [
+                _simple_conversation("ok", "c0"),
+                _simple_conversation("boom", "c1"),
+            ]
+
+            result = engine.infer_partial(
+                conversations, inference_config, progress_path=progress_path
+            )
+
+        assert result.failed_indices == [1]
+        with open(progress_path) as f:
+            snapshot = json.load(f)
+        assert snapshot["total"] == 2
+        assert snapshot["completed"] == 1
+        assert snapshot["failed"] == 1
+
+
+def test_infer_partial_retriable_400_pattern_retried_and_retryable(mock_asyncio_sleep):
+    request_count = 0
+
+    def callback(url: str, **kwargs: Any) -> CallbackResult:
+        nonlocal request_count
+        request_count += 1
+        return CallbackResult(
+            status=400,
+            payload={"error": {"message": "Could not parse the JSON body"}},
+        )
+
+    with aioresponses() as m:
+        m.post(_TARGET_SERVER, callback=callback, repeat=True)
+        engine = RemoteInferenceEngine(
+            _get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER, max_retries=1),
+        )
+        inference_config = InferenceConfig(
+            generation=GenerationParams(max_new_tokens=5),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER, max_retries=1),
+        )
+
+        result = engine.infer_partial(
+            [_simple_conversation("hello", "c0")], inference_config
+        )
+
+    # The known-transient 400 pattern is retried, and reported retryable
+    # after retries are exhausted.
+    assert request_count == 2
+    assert result.failed_indices == [0]
+    detail = result.failures[0]
+    assert detail.status_code == 400
+    assert detail.is_retryable
+
+
+def _all_remote_engine_subclasses() -> list[type]:
+    """Every RemoteInferenceEngine subclass, at any depth."""
+    import oumi.inference  # noqa: F401  (registers every engine subclass)
+
+    found: list[type] = []
+    pending = [RemoteInferenceEngine]
+    while pending:
+        for subclass in pending.pop().__subclasses__():
+            found.append(subclass)
+            pending.append(subclass)
+    return found
+
+
+def test_no_engine_overrides_get_request_headers():
+    """`_get_request_headers` is @final; engines override `_get_auth_headers`.
+
+    A subclass that overrides `_get_request_headers` returns a fresh dict and
+    silently drops `Accept-Encoding`, which makes aiohttp advertise whatever
+    codecs happen to be importable in the runtime environment. @final is only a
+    type-checker hint, so this test is the enforcement.
+    """
+    offenders = [
+        subclass.__name__
+        for subclass in _all_remote_engine_subclasses()
+        if "_get_request_headers" in subclass.__dict__
+    ]
+    assert offenders == [], (
+        f"{offenders} override _get_request_headers. Override "
+        "_get_auth_headers instead so the transport headers survive."
+    )
+
+
+def test_get_request_headers_excludes_optional_codecs():
+    engine = RemoteInferenceEngine(_get_default_model_params())
+
+    headers = engine._get_request_headers(RemoteParams(api_key="key"))
+
+    assert headers["Accept-Encoding"] == "gzip, deflate"
+    assert headers["Authorization"] == "Bearer key"
+
+
+def test_get_request_headers_merges_subclass_auth_headers():
+    """A subclass's own headers and the transport headers both survive."""
+    from oumi.inference import AnthropicInferenceEngine
+
+    engine = AnthropicInferenceEngine(ModelParams(model_name="some_model"))
+
+    headers = engine._get_request_headers(RemoteParams(api_key="key"))
+
+    assert headers["Accept-Encoding"] == "gzip, deflate"
+    assert headers["X-API-Key"] == "key"
+    assert headers["Content-Type"] == "application/json"
+
+
+def _generate_test_engine() -> RemoteInferenceEngine:
+    return RemoteInferenceEngine(
+        model_params=_get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
+    )
+
+
+def _assistant_payload(content: str) -> dict:
+    return dict(choices=[{"message": {"role": "assistant", "content": content}}])
+
+
+@pytest.mark.asyncio
+async def test_generate_preserves_input_order():
+    with aioresponses() as m:
+        m.post(_TARGET_SERVER, status=200, payload=_assistant_payload("first"))
+        m.post(_TARGET_SERVER, status=200, payload=_assistant_payload("second"))
+
+        conversations = [
+            Conversation(
+                messages=[Message(role=Role.USER, content="a")], conversation_id="1"
+            ),
+            Conversation(
+                messages=[Message(role=Role.USER, content="b")], conversation_id="2"
+            ),
+        ]
+        results = await _generate_test_engine().generate(conversations)
+
+        assert [c.conversation_id for c in results] == ["1", "2"]
+        assert all(c.messages[-1].role == Role.ASSISTANT for c in results)
+
+
+@pytest.mark.asyncio
+async def test_generate_one_returns_single_conversation():
+    with aioresponses() as m:
+        m.post(_TARGET_SERVER, status=200, payload=_assistant_payload("a response"))
+
+        conversation = Conversation(
+            messages=[Message(role=Role.USER, content="Hello world!")],
+            conversation_id="123",
+        )
+        result = await _generate_test_engine().generate_one(conversation)
+
+        assert isinstance(result, Conversation)
+        assert result.conversation_id == "123"
+        assert result.messages[-1].content == "a response"
+
+
+@pytest.mark.asyncio
+async def test_generate_does_not_write_scratch():
+    with aioresponses() as m:
+        m.post(_TARGET_SERVER, status=200, payload=_assistant_payload("a response"))
+
+        engine = _generate_test_engine()
+        conversation = Conversation(messages=[Message(role=Role.USER, content="hi")])
+        with patch.object(engine, "_save_conversation_to_scratch") as mock_scratch:
+            await engine.generate([conversation])
+
+        mock_scratch.assert_not_called()
+
+
+def test_infer_still_writes_scratch():
+    with aioresponses() as m:
+        m.post(_TARGET_SERVER, status=200, payload=_assistant_payload("a response"))
+
+        engine = _generate_test_engine()
+        conversation = Conversation(messages=[Message(role=Role.USER, content="hi")])
+        with patch.object(engine, "_save_conversation_to_scratch") as mock_scratch:
+            engine.infer([conversation], _get_default_inference_config())
+
+        mock_scratch.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_generate_cancellation_reaches_the_request():
+    request_started = asyncio.Event()
+
+    async def _never_responds(url, **kwargs):
+        request_started.set()
+        await asyncio.sleep(60)
+
+    with aioresponses() as m:
+        m.post(_TARGET_SERVER, callback=_never_responds)
+
+        engine = _generate_test_engine()
+        conversation = Conversation(messages=[Message(role=Role.USER, content="hi")])
+        task = asyncio.create_task(engine.generate([conversation]))
+        await asyncio.wait_for(request_started.wait(), timeout=5)
+        task.cancel()
+        await asyncio.wait([task])
+
+        # The retry loop catches Exception, which must not swallow CancelledError.
+        # A swallowed one would leave the task finished with a result instead.
+        assert task.cancelled()
+
+
+@pytest.mark.asyncio
+async def test_generate_runs_on_injected_session_and_leaves_it_open():
+    async with aiohttp.ClientSession() as session:
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+            http_session=session,
+        )
+        conversation = Conversation(messages=[Message(role=Role.USER, content="hi")])
+        with (
+            aioresponses() as m,
+            patch(
+                "aiohttp.ClientSession",
+                side_effect=AssertionError("engine created its own session"),
+            ),
+        ):
+            m.post(_TARGET_SERVER, status=200, payload=_assistant_payload("first"))
+            m.post(_TARGET_SERVER, status=200, payload=_assistant_payload("second"))
+            first = await engine.generate_one(conversation)
+            second = await engine.generate_one(conversation)
+
+        assert first.messages[-1].content == "first"
+        assert second.messages[-1].content == "second"
+        assert not session.closed
+
+
+@pytest.mark.asyncio
+async def test_sync_methods_refuse_injected_session():
+    async with aiohttp.ClientSession() as session:
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+            http_session=session,
+        )
+        with pytest.raises(RuntimeError, match="built with an http_session"):
+            engine.list_batches()
+
+        coro = engine._get_batch_status("batch-id")
+        with pytest.raises(RuntimeError, match="built with an http_session"):
+            engine._run_coroutine(coro)
+        assert inspect.getcoroutinestate(coro) == inspect.CORO_CLOSED

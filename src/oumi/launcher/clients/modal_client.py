@@ -83,8 +83,15 @@ def _build_image(modal_lib: Any, job: JobConfig) -> Any:
     """Builds a ``modal.Image`` from the JobConfig.
 
     ``resources.image_id`` (``docker:<ref>``) → ``Image.from_registry(<ref>)``.
-    Otherwise we start from a generic Python base image with ``apt`` tooling
-    baked in for the common setup paths.
+    Otherwise we start from a CUDA-devel base with ``apt`` tooling baked in
+    for the common setup paths.
+
+    The default base ships the CUDA toolkit (``nvcc`` at ``/usr/local/cuda``)
+    rather than a runtime-only image. Models whose vLLM path JIT-compiles
+    flashinfer kernels at runtime — e.g. Qwen3.5 / Qwen3-Next GDN linear
+    attention — need ``nvcc`` on the first forward pass; a runtime-only base
+    fails with "Could not find nvcc". A ``debian_slim`` base does not provide
+    it, whereas most managed GPU images do.
 
     Note: ``job.setup`` is intentionally NOT baked into the image. Modal's
     image build runs without secrets attached, so any setup step that
@@ -103,7 +110,9 @@ def _build_image(modal_lib: Any, job: JobConfig) -> Any:
     # ``pip_install`` — uv is faster and Modal handles its bootstrap
     # internally so we don't need to install uv as a separate step.
     return (
-        modal_lib.Image.debian_slim()
+        modal_lib.Image.from_registry(
+            "nvidia/cuda:12.6.2-devel-ubuntu22.04", add_python="3.11"
+        )
         .apt_install("zip", "curl", "git")
         .uv_pip_install("awscli")
     )
@@ -200,6 +209,8 @@ class ModalClient:
 
         gpu = job.resources.accelerators
         timeout = int(kwargs.get("timeout", _DEFAULT_TIMEOUT_S))
+        # Ports can only be exposed at create time; see ``tunnel_url``.
+        encrypted_ports = list(kwargs.get("encrypted_ports", []))
 
         # ``setup`` runs inside the sandbox (not at image-build time) so
         # secrets injected via ``modal.Secret`` are visible.
@@ -229,6 +240,7 @@ class ModalClient:
             secrets=[secret] if secret else [],
             timeout=timeout,
             volumes={_HF_CACHE_MOUNT_PATH: hf_cache_volume},
+            encrypted_ports=encrypted_ports,
         )
         sandbox_id = sandbox.object_id
         effective_cluster = cluster_name or sandbox_id
@@ -311,6 +323,19 @@ class ModalClient:
             state=state,
         )
 
+    def tunnel_url(self, call_id: str, port: int) -> str:
+        """Returns the public HTTPS URL Modal forwards to ``port`` on the sandbox.
+
+        The port must have been passed as ``encrypted_ports`` to :meth:`launch`.
+        """
+        tunnels = self.get_call(call_id).tunnels()
+        if port not in tunnels:
+            raise ValueError(
+                f"Modal sandbox '{call_id}' exposes no tunnel on port {port}; "
+                "pass encrypted_ports=[port] at launch."
+            )
+        return tunnels[port].url
+
     def cancel(self, call_id: str) -> None:
         """Terminates the sandbox if it is still running."""
         sandbox = self.get_call(call_id)
@@ -320,18 +345,22 @@ class ModalClient:
             logger.warning(f"Modal terminate({call_id}) failed: {e!r}")
 
     def get_logs_stream(self, call_id: str) -> ModalLogStream:
-        """Returns a streaming readline()-style log stream for ``call_id``."""
+        """Returns a readline()-capable stream of stdout+stderr.
+
+        Uses ``StreamReader.read()`` rather than iterating the stream
+        directly — iteration only works while the sandbox is still live;
+        after termination it returns nothing. Workers call this after a
+        FAILED transition, so the batch-read path is the right default.
+        """
         sandbox = self.get_call(call_id)
-        # ``Sandbox.stdout`` is an async iterator of log chunks. Materialize
-        # to a list synchronously for the worker's blocking log-tail path.
-        chunks: list[str] = []
+        lines: list[str] = []
         for stream_attr in ("stdout", "stderr"):
             stream = getattr(sandbox, stream_attr, None)
-            if stream is None:
+            if stream is None or not hasattr(stream, "read"):
                 continue
             try:
-                for line in stream:
-                    chunks.append(str(line))
+                content = stream.read() or ""
+                lines.extend(content.splitlines(keepends=True))
             except Exception as e:  # noqa: BLE001
-                logger.warning(f"Modal {stream_attr} read failed: {e!r}")
-        return ModalLogStream(cast("Iterator[str]", iter(chunks)))
+                logger.warning(f"Modal {stream_attr}.read() failed: {e!r}")
+        return ModalLogStream(cast("Iterator[str]", iter(lines)))

@@ -94,6 +94,10 @@ class ModalCluster(BaseCluster):
         self._client.cancel(job_id)
         return self._client.get_status(job_id)
 
+    def tunnel_url(self, job_id: str, port: int) -> str:
+        """Returns the public HTTPS URL for ``port`` on the sandbox ``job_id``."""
+        return self._client.tunnel_url(job_id, port)
+
     def run_job(self, job: JobConfig) -> JobStatus:
         """Re-running on a Modal cluster is unsupported.
 

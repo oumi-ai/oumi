@@ -12,20 +12,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 import json
 import logging
 import re
 from dataclasses import dataclass, field
 
+import aiohttp
 import pydantic
 from typing_extensions import Self
 
+from oumi.core.configs.inference_config import InferenceConfig
+from oumi.core.configs.inference_engine_type import InferenceEngineType
+from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.configs.params.judge_params import (
     JudgeOutputType,
     JudgeResponseFormat,
 )
 from oumi.core.inference import BaseInferenceEngine
-from oumi.core.inference.base_inference_engine import BatchResult
+from oumi.core.inference.base_inference_engine import (
+    BatchResult,
+    FailureDetail,
+    InferenceErrorType,
+)
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 from oumi.utils.placeholders import resolve_placeholders
@@ -39,12 +48,13 @@ class JudgeOutputField(pydantic.BaseModel):
     Attributes:
         field_key: The key/name for this field in the judge's output
         field_type: The data type expected for this field's value
-        field_scores: Optional mapping from categorical values to numeric scores
+        field_scores: Optional mapping from categorical values to numeric scores.
+            A value may map to None to mean "carries no score" (e.g. N/A)
     """
 
     field_key: str
     field_type: JudgeOutputType
-    field_scores: dict[str, float] | None
+    field_scores: dict[str, float | None] | None
 
     def get_typed_value(self, raw_value: str) -> float | int | str | bool | None:
         """Convert the field's raw string value to the appropriate type.
@@ -103,6 +113,7 @@ class JudgeOutput(pydantic.BaseModel):
         field_values: Typed values for each expected output field
         field_scores: Numeric scores for each expected output field (if applicable)
         response_format: Format used for generating output (XML, JSON, or RAW)
+        aggregate_score: Single overall score for rubric judges.
     """
 
     raw_output: str
@@ -111,6 +122,7 @@ class JudgeOutput(pydantic.BaseModel):
     field_values: dict[str, float | int | str | bool | None] = {}
     field_scores: dict[str, float | None] = {}
     response_format: JudgeResponseFormat | None = None
+    aggregate_score: float | None = None
 
     @classmethod
     def from_raw_output(
@@ -204,6 +216,14 @@ class JudgeOutput(pydantic.BaseModel):
         Returns:
             Dictionary of field names to values, empty dict if parsing fails
         """
+
+        def _loads_json_object(text: str) -> dict | None:
+            try:
+                parsed = json.loads(text)
+            except json.JSONDecodeError:
+                return None
+            return parsed if isinstance(parsed, dict) else None
+
         if not json_output:
             return {}
 
@@ -213,12 +233,19 @@ class JudgeOutput(pydantic.BaseModel):
         if json_output.endswith("```"):
             json_output = json_output[:-3].rstrip()
 
-        try:
-            parsed = json.loads(json_output)
-            # Ensure all values are strings for consistent processing
-            return {k: str(v) for k, v in parsed.items()}
-        except json.JSONDecodeError:
-            return {}
+        parsed = _loads_json_object(json_output)
+        if parsed is None:
+            # Models that are not schema-constrained often wrap the object in
+            # prose; retry on the outermost {...} span before giving up.
+            start, end = json_output.find("{"), json_output.rfind("}")
+            if start == -1 or end <= start:
+                return {}
+            parsed = _loads_json_object(json_output[start : end + 1])
+            if parsed is None:
+                return {}
+
+        # Ensure all values are strings for consistent processing
+        return {k: str(v) for k, v in parsed.items()}
 
     def generate_raw_output(self, field_values: dict[str, str]) -> str:
         """Generate raw output string from field values in the specified format.
@@ -325,6 +352,37 @@ class JudgeBatchResult:
         return len(self.failed_indices) > 0
 
 
+@dataclass
+class JudgePartialResult:
+    """Result from partial online judging, separating successes from failures.
+
+    Returned by :meth:`BaseJudge.judge_partial`. Unlike judge(), which raises
+    if inference fails, this pairs each successful JudgeOutput with its
+    original input index and reports inference and parse failures separately.
+    """
+
+    successful: list[tuple[int, JudgeOutput]]
+    """List of (original_index, JudgeOutput) for successfully judged items."""
+
+    failures: dict[int, FailureDetail]
+    """Mapping of failed index to structured failure info."""
+
+    @property
+    def failed_indices(self) -> list[int]:
+        """Sorted indices of items that failed judging."""
+        return sorted(self.failures)
+
+    @property
+    def error_messages(self) -> dict[int, str]:
+        """Mapping of failed index to error message."""
+        return {idx: detail.error_message for idx, detail in self.failures.items()}
+
+    @property
+    def has_failures(self) -> bool:
+        """Return True if any items failed judgment."""
+        return len(self.failures) > 0
+
+
 class BaseJudge:
     """Base class for implementing judges that evaluate model outputs.
 
@@ -389,13 +447,150 @@ class BaseJudge:
         Raises:
             ValueError: If inference returns unexpected number of conversations
         """
+        conversations = self._prepare_judge_inputs(inputs)
+        completed_conversations = self._infer(conversations)
+        return self.parse_judge_outputs(completed_conversations)
+
+    async def judge_async(
+        self,
+        inputs: list[Conversation] | list[dict[str, str]],
+    ) -> list[JudgeOutput]:
+        """Evaluate a batch of inputs asynchronously and return structured judgments.
+
+        Async counterpart to `judge()` with identical semantics. Runs on the caller's
+        event loop, so cancelling the awaiting task cancels the in-flight requests.
+
+        Args:
+            inputs: Either a list of pre-built Conversation objects, or a list of
+                    dictionaries containing input data for evaluation. When dicts are
+                    provided, each must contain values for all prompt_template
+                    placeholders.
+
+        Returns:
+            List of structured judge outputs with parsed results
+
+        Raises:
+            ValueError: If the inference engine is not a RemoteInferenceEngine, or if
+                inference returns an unexpected number of conversations.
+        """
+        conversations = self._prepare_judge_inputs(inputs)
+        completed_conversations = await self._infer_async(conversations)
+        return self.parse_judge_outputs(completed_conversations)
+
+    async def judge_one_async(
+        self,
+        judge_input: Conversation | dict[str, str],
+    ) -> JudgeOutput:
+        """Evaluate one input asynchronously and return its structured judgment.
+
+        Args:
+            judge_input: Either a pre-built Conversation, or a dictionary containing
+                         input data for evaluation.
+
+        Returns:
+            The structured judge output with parsed results
+        """
+        outputs = await self.judge_async([judge_input])  # type: ignore[list-item]
+        return outputs[0]
+
+    def _prepare_judge_inputs(
+        self,
+        inputs: list[Conversation] | list[dict[str, str]],
+    ) -> list[Conversation]:
+        """Builds judge conversations from dicts, passing Conversations through."""
+        if inputs and isinstance(inputs[0], dict):
+            return self.build_conversations(inputs)  # type: ignore[arg-type]
+        return inputs  # type: ignore[return-value]
+
+    def judge_partial(
+        self,
+        inputs: list[Conversation] | list[dict[str, str]],
+        *,
+        progress_path: str | None = None,
+    ) -> JudgePartialResult:
+        """Evaluate a batch of inputs online, tolerating per-row failures.
+
+        Unlike judge(), which raises if any row's inference fails, this
+        returns a JudgePartialResult pairing each successful JudgeOutput with
+        its original input index and reporting inference failures and parse
+        failures separately, so callers can keep successes and decide which
+        rows to resubmit.
+
+        Args:
+            inputs: Either a list of pre-built Conversation objects, or a list
+                    of dictionaries containing input data for evaluation. When
+                    dicts are provided, each must contain values for all
+                    prompt_template placeholders.
+            progress_path: Path to a JSON file where inference progress
+                counters are periodically written for external pollers.
+
+        Returns:
+            JudgePartialResult with successful outputs and failure info.
+
+        Raises:
+            ValueError: If inference_engine is None.
+        """
         conversations: list[Conversation] = (
             self.build_conversations(inputs)  # type: ignore[arg-type]
             if inputs and isinstance(inputs[0], dict)
             else inputs
         )
-        completed_conversations = self._infer(conversations)
-        return self.parse_judge_outputs(completed_conversations)
+        if not conversations:
+            return JudgePartialResult(successful=[], failures={})
+
+        if self.inference_engine is None:
+            raise ValueError(
+                "Cannot run inference: inference_engine is None. "
+                "Subclasses that don't use inference should override the "
+                "judge() method."
+            )
+
+        # Preserve original metadata from input conversations
+        original_metadata = [conv.metadata for conv in conversations]
+
+        result = self.inference_engine.infer_partial(
+            input=conversations, progress_path=progress_path
+        )
+
+        successful_outputs: list[tuple[int, JudgeOutput]] = []
+        failures = dict(result.failures)
+        parse_failures = 0
+
+        for idx, conv in result.successful:
+            # Restore original metadata by original index: partial results may
+            # be out of order or have gaps, so a positional zip would misalign.
+            conv.metadata.update(original_metadata[idx])
+
+            usage = conv.metadata.get("usage", {})
+            self._total_input_tokens += usage.get("prompt_tokens", 0)
+            self._total_output_tokens += usage.get("completion_tokens", 0)
+            self._total_cached_tokens += usage.get("cached_tokens", 0)
+
+            try:
+                self._validate_completed_conversation(conv)
+                raw_output = str(conv.messages[-1].content)
+                judge_output = self._transform_judge_output(raw_output)
+                successful_outputs.append((idx, judge_output))
+            except Exception as e:
+                parse_failures += 1
+                failures[idx] = FailureDetail(
+                    error_message=f"Failed to parse judge output: {e}",
+                    is_retryable=True,
+                    error_type=InferenceErrorType.PARSE_ERROR,
+                )
+                logger.warning(f"Request {idx}: failed to parse judge output: {e}")
+
+        logger.info(
+            f"Online judge results: "
+            f"{len(successful_outputs)} parsed successfully, "
+            f"{len(result.failed_indices)} inference failures, "
+            f"{parse_failures} parse failures"
+        )
+
+        return JudgePartialResult(
+            successful=successful_outputs,
+            failures=failures,
+        )
 
     def judge_batch_submit(
         self, inputs: list[Conversation] | list[dict[str, str]]
@@ -748,15 +943,59 @@ class BaseJudge:
         original_metadata = [conv.metadata for conv in conversations]
 
         # Run batch inference
-        if self.inference_engine:
-            response_conversations = self.inference_engine.infer(input=conversations)
-        else:
+        if self.inference_engine is None:
             raise ValueError(
                 "Cannot run inference: inference_engine is None. "
                 "Subclasses that don't use inference should override the "
                 "judge() method."
             )
+        response_conversations = self.inference_engine.infer(input=conversations)
 
+        return self._process_inference_results(
+            response_conversations, original_metadata
+        )
+
+    async def _infer_async(
+        self, conversations: list[Conversation]
+    ) -> list[Conversation]:
+        """Run async inference on judge conversations and preserve metadata.
+
+        Args:
+            conversations: List of conversations to run inference on
+
+        Returns:
+            List of conversations with model responses added
+        """
+        # Preserve original metadata from input conversations
+        original_metadata = [conv.metadata for conv in conversations]
+
+        # Run batch inference
+        if not isinstance(self.inference_engine, RemoteInferenceEngine):
+            raise ValueError(
+                "Cannot run async inference: judge_async() requires a "
+                "RemoteInferenceEngine. Subclasses that don't run remote inference "
+                "should override the judge_async() method."
+            )
+        response_conversations = await self.inference_engine.generate(conversations)
+
+        return self._process_inference_results(
+            response_conversations, original_metadata
+        )
+
+    def _process_inference_results(
+        self,
+        response_conversations: list[Conversation],
+        original_metadata: list[dict],
+    ) -> list[Conversation]:
+        """Restore input metadata onto responses and accumulate token usage.
+
+        Args:
+            response_conversations: Conversations returned by the inference engine
+            original_metadata: Metadata of the corresponding input conversations
+
+        Returns:
+            The response conversations, with metadata restored
+        """
         if len(response_conversations) != len(original_metadata):
             raise ValueError(
                 f"Inference engine returned {len(response_conversations)} responses "
@@ -790,6 +1029,60 @@ class BaseJudge:
     def total_cached_tokens(self) -> int:
         """Total cached tokens accumulated across all judge() calls."""
         return self._total_cached_tokens
+
+    @staticmethod
+    def _create_inference_engine(
+        inference_config: InferenceConfig,
+        response_schema: dict | None = None,
+        http_session: aiohttp.ClientSession | None = None,
+    ) -> BaseInferenceEngine:
+        """Build the inference engine backing a judge.
+
+        Subclasses call this from their own `__init__`, before `super().__init__()`,
+        and decide for themselves whether their response format warrants a schema.
+
+        Args:
+            inference_config: The judge's inference configuration.
+            response_schema: JSON schema the judge's response must conform to, which
+                enables guided decoding so the output is structurally guaranteed to
+                match. None leaves guided decoding untouched.
+            http_session: A caller-owned aiohttp session for a remote engine to share
+                across requests. See `RemoteInferenceEngine`.
+
+        Returns:
+            An inference engine built from the configuration.
+
+        Raises:
+            ValueError: If the engine is unspecified, or input/output paths are set.
+        """
+        from oumi.builders.inference_engines import build_inference_engine
+
+        if response_schema is not None:
+            inference_config = copy.deepcopy(inference_config)
+
+            # Bedrock uses a different request shape and doesn't accept `strict`.
+            strict_supported = inference_config.engine != InferenceEngineType.BEDROCK
+
+            inference_config.generation.guided_decoding = GuidedDecodingParams(
+                json=response_schema,
+                strict=strict_supported,
+            )
+
+        if inference_config.engine is None:
+            raise ValueError("Inference engine not specified in the configuration.")
+        elif inference_config.input_path or inference_config.output_path:
+            raise ValueError(
+                "Input and output paths are not supported in inference_config, when "
+                "instantiating an LLM judge. Please set both to None."
+            )
+
+        return build_inference_engine(
+            engine_type=inference_config.engine,
+            model_params=inference_config.model,
+            remote_params=inference_config.remote_params,
+            generation_params=inference_config.generation,
+            http_session=http_session,
+        )
 
     def _transform_judge_output(self, raw_output: str) -> JudgeOutput:
         """Parse raw model output into structured judge output.

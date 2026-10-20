@@ -15,30 +15,34 @@
 import dataclasses
 import json
 import random
+from typing import Any
 
-from oumi.builders.environments import build_environment
 from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.configs.environment_config import EnvironmentConfig
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.inference_engine_type import InferenceEngineType
-from oumi.core.configs.params.environment_params import EnvironmentParams
-from oumi.core.configs.params.grounding_params import GroundingConfig
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.configs.params.synthesis_params import (
     GeneralSynthesisParams,
     MultiTurnAttribute,
 )
-from oumi.core.configs.params.tool_params import ToolParams
+from oumi.core.configs.params.tool_params import (
+    ToolArgumentError,
+    ToolLookupError,
+    ToolParams,
+)
 from oumi.core.synthesis.attribute_formatter import AttributeFormatter
+from oumi.core.synthesis.tool_router import ToolRouter
 from oumi.core.types.conversation import (
     PLANNER_JSON_SCHEMA,
     Conversation,
     Message,
     Role,
 )
-from oumi.core.types.tool_call import ToolCall, ToolDefinition
+from oumi.core.types.tool_call import ToolCall, ToolDefinition, ToolResult
 from oumi.environments import GroundingFact
 from oumi.environments.base_environment import BaseEnvironment
+from oumi.environments.simulated_environment import SimulatedEnvironment
 from oumi.environments.utils import describe_grounding_default
 from oumi.inference.native_tool_calling import (
     NATIVE_TOOL_CALLING_ENGINES,
@@ -51,6 +55,34 @@ _STRAGGLER_NUDGE = (
     "Stop calling tools. Based on the information gathered so far, "
     "provide a final natural-language answer to the user."
 )
+
+
+@dataclasses.dataclass
+class PlannerPrompt:
+    """A planner-prompt conversation and the augmented sample it was built from."""
+
+    augmented_sample: dict
+    conversation: Conversation
+
+
+@dataclasses.dataclass
+class OpeningTurnPrompt:
+    """An augmented sample plus its opening-turn generation prompt."""
+
+    augmented_sample: dict
+    conversation: Conversation
+
+
+@dataclasses.dataclass
+class SeedConversation:
+    """A seed conversation plus the ``generation_state`` a turn driver needs.
+
+    The user persona, which drives user message synthesis, is at
+    ``conversation.metadata["user_persona"]``.
+    """
+
+    conversation: Conversation
+    generation_state: dict
 
 
 class ConversationSynthesizer:
@@ -79,6 +111,9 @@ class ConversationSynthesizer:
         )
         self._inference_config = inference_config
         self._default_turn_order = [Role.USER, Role.ASSISTANT]
+        self._total_input_tokens: int = 0
+        self._total_output_tokens: int = 0
+        self._total_cached_tokens: int = 0
 
         if (
             self._environment_config is not None
@@ -92,17 +127,52 @@ class ConversationSynthesizer:
                 f"not support it. Use one of: {supported}."
             )
 
-        self._tool_dispatch: dict[str, BaseEnvironment] = {}
+        self._router: ToolRouter | None = None
         if self._environment_config is not None:
-            tool_env_map = self._environment_config.tool_environment_map
-            reachable_env_ids = set(tool_env_map.values())
-            envs_by_id: dict[str, BaseEnvironment] = {
-                env_params.id: build_environment(env_params)
-                for env_params in self._environment_config.environments
-                if env_params.id in reachable_env_ids
-            }
-            for tool_id, env_id in tool_env_map.items():
-                self._tool_dispatch[tool_id] = envs_by_id[env_id]
+            self._router = ToolRouter.from_environment_config(
+                self._environment_config,
+                on_env_built=self._wire_inference,
+            )
+
+        self._sample_routers: list[ToolRouter | None] = []
+
+    def _prepare_sample_routers(self, n_samples: int) -> None:
+        """Replace ``self._sample_routers`` with one router clone per sample.
+
+        Each sample's tool dispatch and grounding read hit an env with state
+        independent of every other sample's. Callers must pair this with
+        ``_close_sample_routers`` to release the per-sample envs.
+        """
+        self._sample_routers = (
+            [self._router.for_sample() for _ in range(n_samples)]
+            if self._router is not None
+            else [None] * n_samples
+        )
+
+    def _close_sample_routers(self, *, suppress_errors: bool) -> None:
+        """Close each per-sample router, guarding so one failure can't leak the rest.
+
+        Clears the list first, then closes each router; re-raises the first close
+        error unless ``suppress_errors`` (set when a body exception is already
+        propagating and must not be masked).
+        """
+        routers, self._sample_routers = self._sample_routers, []
+        first_error: BaseException | None = None
+        for router in routers:
+            if router is None:
+                continue
+            try:
+                router.close()
+            except BaseException as error:
+                if first_error is None:
+                    first_error = error
+        if first_error is not None and not suppress_errors:
+            raise first_error
+
+    def _wire_inference(self, env: BaseEnvironment) -> None:
+        """Inject the synthesizer's engine + base config into simulated envs."""
+        if isinstance(env, SimulatedEnvironment):
+            env.attach_inference(self._inference_engine, self._inference_config)
 
     def _resolve_available_tools(
         self, multiturn_attribute: MultiTurnAttribute
@@ -129,24 +199,8 @@ class ConversationSynthesizer:
             return ""
         return msg.content
 
-    def _run_tool_call(self, tool_call: ToolCall) -> Message:
-        """Dispatch a tool call; failures become a TOOL message with an error."""
-        name = tool_call.function.name
-        try:
-            arguments = json.loads(tool_call.function.arguments)
-        except json.JSONDecodeError as exc:
-            return self._tool_error(tool_call, f"Malformed tool_call arguments: {exc}")
-        if not isinstance(arguments, dict):
-            return self._tool_error(
-                tool_call, "tool_call arguments must be a JSON object"
-            )
-        environment = self._tool_dispatch.get(name)
-        if environment is None:
-            return self._tool_error(tool_call, f"Unknown tool '{name}'")
-        try:
-            result = environment.step(name, arguments)
-        except Exception as exc:
-            return self._tool_error(tool_call, f"Tool '{name}' raised: {exc}")
+    @staticmethod
+    def _tool_message(tool_call: ToolCall, result: ToolResult) -> Message:
         content = (
             result.output
             if isinstance(result.output, str)
@@ -157,6 +211,61 @@ class ConversationSynthesizer:
             tool_call_id=tool_call.id,
             content=content,
         )
+
+    def _dispatch_tool_calls(
+        self, tool_calls: list[ToolCall], sample_idx: int
+    ) -> list[Message]:
+        """Dispatch a batch of tool calls; returns one TOOL message per call.
+
+        Validates each call via the router, then groups surviving calls by env
+        and routes each group in one batched ``env.step()``. If the batched
+        route raises, falls back to per-call routing so individual errors stay
+        attributed.
+
+        ``sample_idx`` selects the per-sample router clone built at
+        ``synthesize()`` entry; routing through it keeps state mutations
+        scoped to one sample's env instances.
+        """
+        router = self._sample_routers[sample_idx]
+        assert router is not None, "tool calls require an environment_config"
+        results: list[Message | None] = [None] * len(tool_calls)
+        groups: dict[int, list[tuple[int, ToolCall, dict[str, Any]]]] = {}
+        for idx, tc in enumerate(tool_calls):
+            try:
+                arguments = router.parse_and_validate_arguments(
+                    tc.function.name, tc.function.arguments
+                )
+            except (ToolArgumentError, ToolLookupError) as exc:
+                results[idx] = self._tool_error(tc, str(exc))
+                continue
+            env = router.tool_to_env[tc.function.name]
+            groups.setdefault(id(env), []).append((idx, tc, arguments))
+
+        for group in groups.values():
+            calls = [(tc.function.name, args) for _, tc, args in group]
+            try:
+                outputs = router.route_batch(calls)
+            except Exception:
+                # On batch failure, re-route each call individually so per-call
+                # errors stay attributed. SimulatedEnvironment's in-batch cache
+                # shields earlier successes from re-inference, but calls past
+                # the failing index re-infer. Acceptable for attribution today;
+                # Phase 2's corrective-retry should replace this fallback.
+                for idx, tc, args in group:
+                    try:
+                        [single] = router.route_batch([(tc.function.name, args)])
+                    except Exception as exc:
+                        results[idx] = self._tool_error(
+                            tc, f"Tool '{tc.function.name}' raised: {exc}"
+                        )
+                        continue
+                    results[idx] = self._tool_message(tc, single)
+                continue
+            for (idx, tc, _), out in zip(group, outputs):
+                results[idx] = self._tool_message(tc, out)
+
+        assert all(r is not None for r in results), "every call must produce a message"
+        return results  # type: ignore[return-value]
 
     def _validate_roles(self, multiturn_attribute: MultiTurnAttribute) -> None:
         """Validate that required roles have corresponding personas.
@@ -212,10 +321,17 @@ class ConversationSynthesizer:
                 [tool.id for tool in available_tools],
             )
 
-        self._warn_on_grounding_placeholder(multiturn_attributes)
-        self._attach_grounding_facts(samples, multiturn_attributes)
-        samples = self._plan_samples(samples, multiturn_attributes)
-        conversations = self._synthesize_all_samples(samples, multiturn_attributes)
+        self._prepare_sample_routers(len(samples))
+        try:
+            self._warn_on_grounding_placeholder(multiturn_attributes)
+            self._attach_grounding_facts(samples, multiturn_attributes)
+            samples = self._plan_samples(samples, multiturn_attributes)
+            conversations = self._synthesize_all_samples(samples, multiturn_attributes)
+        except BaseException:
+            self._close_sample_routers(suppress_errors=True)
+            raise
+        else:
+            self._close_sample_routers(suppress_errors=False)
 
         records: list[dict[str, dict | str] | None] = []
         plan_key = f"{multiturn_attributes.id}_plan"
@@ -239,6 +355,173 @@ class ConversationSynthesizer:
 
         return records
 
+    def build_planner_prompts(
+        self,
+        samples: list[dict],
+        multiturn_attribute: MultiTurnAttribute,
+    ) -> list[PlannerPrompt]:
+        """Attach grounding and build planner prompts, without inference.
+
+        Self-contained inference-free entrypoint for callers that drive the
+        planner as a separate stage: prepares routers, attaches grounding, and
+        renders one prompt per sample. ``target_turns`` is drawn randomly, so
+        persist it if plans are inferred out-of-process.
+
+        Args:
+            samples: The samples to plan conversations for.
+            multiturn_attribute: The multi-turn attribute defining conversation
+                rules.
+
+        Returns:
+            One :class:`PlannerPrompt` per input sample, in order.
+        """
+        self._validate_roles(multiturn_attribute)
+        self._prepare_sample_routers(len(samples))
+        try:
+            self._warn_on_grounding_placeholder(multiturn_attribute)
+            self._attach_grounding_facts(samples, multiturn_attribute)
+            prompts = self._render_planner_prompts(samples, multiturn_attribute)
+        except BaseException:
+            self._close_sample_routers(suppress_errors=True)
+            raise
+        else:
+            self._close_sample_routers(suppress_errors=False)
+            return prompts
+
+    def _render_planner_prompts(
+        self,
+        samples: list[dict],
+        multiturn_attribute: MultiTurnAttribute,
+    ) -> list[PlannerPrompt]:
+        """Render planner prompts, assuming grounding attachment has already run."""
+        turn_order = self._default_turn_order
+        prompts: list[PlannerPrompt] = []
+        for sample in samples:
+            target_turns = self._select_target_turns(multiturn_attribute, turn_order)
+            augmented_sample = {
+                **sample,
+                "target_turns": target_turns,
+                "conversation_plan": "",
+                "parsed_turn_plans": [""] * target_turns,
+            }
+            logger.debug(f"Planning conversation with {target_turns} turns")
+            prompts.append(
+                PlannerPrompt(
+                    augmented_sample=augmented_sample,
+                    conversation=self._create_planner_prompt(
+                        multiturn_attribute, augmented_sample
+                    ),
+                )
+            )
+        return prompts
+
+    def build_opening_turn_prompts(
+        self,
+        samples: list[dict],
+        plans: list[str],
+        multiturn_attribute: MultiTurnAttribute,
+    ) -> list[OpeningTurnPrompt]:
+        """Parse plans and build the opening (turn 1, USER) generation prompts.
+
+        Inference-free stage after :meth:`build_planner_prompts`: parses each
+        plan into per-turn instructions and renders the opening-turn prompt.
+
+        Args:
+            samples: Augmented samples from ``build_planner_prompts`` (each
+                carrying ``target_turns``).
+            plans: Raw planner output strings, aligned 1:1 with ``samples``.
+            multiturn_attribute: The multi-turn attribute defining conversation
+                rules.
+
+        Returns:
+            One :class:`OpeningTurnPrompt` per sample, in order.
+        """
+        self._validate_roles(multiturn_attribute)
+        opening_role = self._default_turn_order[0]
+        prompts: list[OpeningTurnPrompt] = []
+        for sample, plan in zip(samples, plans):
+            target_turns = sample["target_turns"]
+            parsed = self._parse_plan(plan, target_turns) or [""] * target_turns
+            augmented = {
+                **sample,
+                "conversation_plan": plan,
+                "parsed_turn_plans": parsed,
+            }
+            prompts.append(
+                OpeningTurnPrompt(
+                    augmented_sample=augmented,
+                    conversation=self._build_turn_prompt(
+                        augmented,
+                        multiturn_attribute,
+                        opening_role,
+                        current_turn=1,
+                        history=[],
+                    ),
+                )
+            )
+        return prompts
+
+    def build_seed_conversations(
+        self,
+        samples: list[dict],
+        opening_turns: list[str],
+        multiturn_attribute: MultiTurnAttribute,
+    ) -> list[SeedConversation]:
+        """Build seed conversations for out-of-process multi-turn generation.
+
+        Inference-free stage after :meth:`build_opening_turn_prompts`: pairs each
+        opening user utterance with its seed conversation and generation state.
+
+        Args:
+            samples: Augmented samples (carrying ``target_turns`` and
+                ``parsed_turn_plans``) from ``build_opening_turn_prompts``.
+            opening_turns: The opening user utterances, aligned 1:1 with
+                ``samples``.
+            multiturn_attribute: The multi-turn attribute defining conversation
+                rules.
+
+        Returns:
+            One :class:`SeedConversation` per sample, in order.
+        """
+        self._validate_roles(multiturn_attribute)
+        assistant_persona = multiturn_attribute.role_instruction_messages[
+            Role.ASSISTANT
+        ]
+        user_persona = multiturn_attribute.role_instruction_messages[Role.USER]
+        seeds: list[SeedConversation] = []
+        for sample, opening in zip(samples, opening_turns):
+            # Personas may reference {current_turn}; the seed is turn 1, matching
+            # build_opening_turn_prompts. Rendered once and reused for every turn.
+            sample_with_turn = {**sample, "current_turn": 1}
+            seed = Conversation(
+                messages=[
+                    self._format_persona(
+                        sample_with_turn, assistant_persona, Role.ASSISTANT
+                    ),
+                    Message(role=Role.USER, content=opening),
+                ],
+                metadata={
+                    "user_persona": self._formatter.format(
+                        sample_with_turn, user_persona, missing_values_allowed=False
+                    )
+                },
+            )
+            output_message = self._format_output_system_message(
+                sample, multiturn_attribute.output_system_prompt
+            )
+            output_system_prompt = (
+                output_message.content if output_message is not None else None
+            )
+            generation_state = {
+                "target_turns": sample["target_turns"],
+                "turn_plans": sample.get("parsed_turn_plans", []),
+                "output_system_prompt": output_system_prompt,
+            }
+            seeds.append(
+                SeedConversation(conversation=seed, generation_state=generation_state)
+            )
+        return seeds
+
     def _plan_samples(
         self,
         samples: list[dict],
@@ -256,19 +539,9 @@ class ConversationSynthesizer:
             A list of sample dicts augmented with runtime fields
             (target_turns, conversation_plan, parsed_turn_plans).
         """
-        turn_order = self._default_turn_order
-
-        augmented_samples: list[dict] = []
-        for sample in samples:
-            target_turns = self._select_target_turns(multiturn_attributes, turn_order)
-            augmented_sample = {
-                **sample,
-                "target_turns": target_turns,
-                "conversation_plan": "",
-                "parsed_turn_plans": [""] * target_turns,
-            }
-            augmented_samples.append(augmented_sample)
-            logger.debug(f"Planning conversation with {target_turns} turns")
+        planner_prompts = self._render_planner_prompts(samples, multiturn_attributes)
+        augmented_samples = [prompt.augmented_sample for prompt in planner_prompts]
+        planner_conversations = [prompt.conversation for prompt in planner_prompts]
 
         indices_to_process = list(range(len(augmented_samples)))
 
@@ -276,15 +549,9 @@ class ConversationSynthesizer:
             if not indices_to_process:
                 break
 
-            planner_conversations = [
-                self._create_planner_prompt(
-                    multiturn_attributes,
-                    augmented_samples[i],
-                )
-                for i in indices_to_process
-            ]
-
-            plans = self._generate_plan(planner_conversations)
+            plans = self._generate_plan(
+                [planner_conversations[i] for i in indices_to_process]
+            )
 
             failed_indices: list[int] = []
             for idx, plan in zip(indices_to_process, plans):
@@ -351,6 +618,29 @@ class ConversationSynthesizer:
                 result[turn_num - 1] = str(instruction).strip()
 
         return result
+
+    @property
+    def total_input_tokens(self) -> int:
+        """Total input/prompt tokens accumulated across all synthesize() calls."""
+        return self._total_input_tokens
+
+    @property
+    def total_output_tokens(self) -> int:
+        """Total output/completion tokens accumulated across all synthesize() calls."""
+        return self._total_output_tokens
+
+    @property
+    def total_cached_tokens(self) -> int:
+        """Total cached tokens accumulated across all synthesize() calls."""
+        return self._total_cached_tokens
+
+    def _accumulate_token_usage(self, inference_results: list[Conversation]) -> None:
+        """Accumulate token usage from inference response metadata."""
+        for result in inference_results:
+            usage = result.metadata.get("usage", {})
+            self._total_input_tokens += usage.get("prompt_tokens", 0)
+            self._total_output_tokens += usage.get("completion_tokens", 0)
+            self._total_cached_tokens += usage.get("cached_tokens", 0)
 
     def _extract_response(
         self,
@@ -574,6 +864,7 @@ class ConversationSynthesizer:
             planners,
             inference_config=self._planner_inference_config(),
         )
+        self._accumulate_token_usage(inference_results)
 
         return self._extract_response(inference_results)
 
@@ -592,6 +883,45 @@ class ConversationSynthesizer:
                 guided_decoding=GuidedDecodingParams(json=PLANNER_JSON_SCHEMA),
             ),
         )
+
+    def _build_turn_prompt(
+        self,
+        sample: dict,
+        multiturn_attribute: MultiTurnAttribute,
+        role: Role,
+        current_turn: int,
+        history: list[Message],
+    ) -> Conversation:
+        """Build one turn's generation prompt: persona + history + instruction.
+
+        Shared by the in-process turn loop and out-of-process opening-turn
+        generation so both render turns identically.
+        """
+        target_turns = sample["target_turns"]
+        parsed_turn_plans = sample.get("parsed_turn_plans", [])
+        turn_idx = current_turn - 1
+
+        turn_instruction = ""
+        if 0 <= turn_idx < len(parsed_turn_plans):
+            turn_instruction = parsed_turn_plans[turn_idx]
+
+        sample_with_turn = {**sample, "current_turn": current_turn}
+        persona = multiturn_attribute.role_instruction_messages[role]
+        messages: list[Message] = [
+            self._format_persona(sample_with_turn, persona, role)
+        ]
+        messages.extend(history)
+
+        turn_info = (
+            f"You are generating turn {current_turn} of {target_turns} "
+            f"as the {role.value.upper()}.\n\n"
+        )
+        if turn_instruction:
+            turn_info += f"For this turn: {turn_instruction}\n\n"
+        turn_info += "Generate ONLY your response for this turn. Stay in character."
+        messages.append(Message(role=Role.USER, content=turn_info))
+
+        return Conversation(messages=messages)
 
     def _synthesize_all_samples(
         self,
@@ -636,35 +966,11 @@ class ConversationSynthesizer:
                 role = turn_order[turn_idx % len(turn_order)]
                 roles_for_turn.append(role)
 
-                prompt_messages: list[Message] = []
-                sample_with_turn = {**sample, "current_turn": current_turn}
-
-                persona = multiturn_attribute.role_instruction_messages[role]
-                formatted_persona = self._format_persona(
-                    sample_with_turn, persona, role
+                prompts.append(
+                    self._build_turn_prompt(
+                        sample, multiturn_attribute, role, current_turn, histories[i]
+                    )
                 )
-                prompt_messages.append(formatted_persona)
-                prompt_messages.extend(histories[i])
-
-                target_turns = sample["target_turns"]
-                parsed_turn_plans = sample.get("parsed_turn_plans", [])
-
-                turn_instruction = ""
-                if turn_idx < len(parsed_turn_plans):
-                    turn_instruction = parsed_turn_plans[turn_idx]
-
-                turn_info = (
-                    f"You are generating turn {current_turn} of {target_turns} "
-                    f"as the {role.value.upper()}.\n\n"
-                )
-                if turn_instruction:
-                    turn_info += f"For this turn: {turn_instruction}\n\n"
-                turn_info += (
-                    "Generate ONLY your response for this turn. Stay in character."
-                )
-                prompt_messages.append(Message(role=Role.USER, content=turn_info))
-
-                prompts.append(Conversation(messages=prompt_messages))
                 sample_indices.append(i)
 
             if not prompts:
@@ -687,6 +993,7 @@ class ConversationSynthesizer:
                 prompts,
                 inference_config=self._inference_config,
             )
+            self._accumulate_token_usage(inference_results)
 
             generated_texts = self._extract_response(inference_results)
 
@@ -711,7 +1018,9 @@ class ConversationSynthesizer:
             if output_message:
                 output_messages.append(output_message)
             output_messages.extend(history)
-            conversations.append(Conversation(messages=output_messages))
+            conversations.append(
+                Conversation(messages=output_messages, tools=assistant_tools)
+            )
 
         return conversations
 
@@ -741,6 +1050,7 @@ class ConversationSynthesizer:
             active_prompts,
             inference_config=self._inference_config,
         )
+        self._accumulate_token_usage(results)
         if len(results) != len(active):
             raise RuntimeError(
                 f"Inference engine returned {len(results)} results for "
@@ -756,8 +1066,9 @@ class ConversationSynthesizer:
                         tool_calls=assistant_msg.tool_calls,
                     )
                 )
-                for tc in assistant_msg.tool_calls:
-                    staging[idx].append(self._run_tool_call(tc))
+                staging[idx].extend(
+                    self._dispatch_tool_calls(assistant_msg.tool_calls, idx)
+                )
                 round_count[idx] += 1
             else:
                 staging[idx].append(
@@ -785,6 +1096,7 @@ class ConversationSynthesizer:
             nudged_prompts,
             inference_config=self._inference_config,
         )
+        self._accumulate_token_usage(results)
         if len(results) != len(stragglers):
             raise RuntimeError(
                 f"Inference engine returned {len(results)} results for "
@@ -866,24 +1178,12 @@ class ConversationSynthesizer:
     def _select_target_turns(
         self, multiturn_attribute: MultiTurnAttribute, turn_order: list[Role]
     ) -> int:
-        min_turns = multiturn_attribute.min_turns
-        max_turns = multiturn_attribute.max_turns
-        target_turns = random.randint(min_turns, max_turns)
-        if Role.ASSISTANT not in turn_order:
-            return target_turns
-
-        def role_at(turn_count: int) -> Role:
-            return turn_order[(turn_count - 1) % len(turn_order)]
-
-        if role_at(target_turns) == Role.ASSISTANT:
-            return target_turns
-        for turn_count in range(target_turns + 1, max_turns + 1):
-            if role_at(turn_count) == Role.ASSISTANT:
-                return turn_count
-        for turn_count in range(target_turns - 1, min_turns - 1, -1):
-            if role_at(turn_count) == Role.ASSISTANT:
-                return turn_count
-        return target_turns
+        # min_turns/max_turns count rounds; return a message count (one round
+        # == one pass through turn_order) so the loop and planner stay message-based.
+        target_rounds = random.randint(
+            multiturn_attribute.min_turns, multiturn_attribute.max_turns
+        )
+        return target_rounds * len(turn_order)
 
     def _format_output_system_message(
         self,
@@ -945,7 +1245,9 @@ class ConversationSynthesizer:
         across all envs in scope that declare a ``GroundingConfig``. No-op
         when ``environment_config`` is absent or no env in scope declares
         grounding. Emits one ``logger.warning`` per env when truncation
-        occurs (sample_size > pool_size).
+        occurs (sample_size > pool_size). Each sample reads its grounding
+        pool from the same per-sample router that will later receive its
+        tool calls.
         """
         if self._environment_config is None:
             return
@@ -955,14 +1257,12 @@ class ConversationSynthesizer:
             if multiturn_attribute.available_environments
             else {env.id for env in self._environment_config.environments}
         )
-        grounding_envs: list[
-            tuple[EnvironmentParams, GroundingConfig, BaseEnvironment]
-        ] = [
-            (env_params, env_params.grounding, build_environment(env_params))
+        grounding_env_params = [
+            env_params
             for env_params in self._environment_config.environments
             if env_params.id in scoped_env_ids and env_params.grounding is not None
         ]
-        if not grounding_envs:
+        if not grounding_env_params:
             return
 
         warned_envs: set[str] = set()
@@ -972,8 +1272,13 @@ class ConversationSynthesizer:
             else None
         )
         for sample_index, sample in enumerate(samples):
+            router = self._sample_routers[sample_index]
+            assert router is not None, "grounding requires an environment_config"
             facts: list[GroundingFact] = []
-            for env_params, grounding, env_runtime in grounding_envs:
+            for env_params in grounding_env_params:
+                grounding = env_params.grounding
+                assert grounding is not None
+                env_runtime = router.env_by_id[env_params.id]
                 rng = self._make_grounding_rng(grounding.seed, sample_index)
                 sampled = env_runtime.sample_grounding(
                     n=grounding.sample_size,

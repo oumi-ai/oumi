@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock
 
 import aiohttp
@@ -20,6 +21,7 @@ import pytest
 from oumi.utils.http import (
     get_failure_reason_from_response,
     is_non_retriable_status_code,
+    parse_retry_after,
 )
 
 
@@ -125,3 +127,23 @@ async def test_get_failure_reason_from_response_with_json_error():
 
     result = await get_failure_reason_from_response(mock_response)
     assert result == "HTTP 400"
+
+
+_NOW = datetime(2026, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
+
+
+@pytest.mark.parametrize(
+    "header_value,expected",
+    [
+        ("120", 120.0),  # delta-seconds
+        ("0", 0.0),
+        ("-5", 0.0),  # negative delta clamps to 0
+        ("Sun, 15 Jun 2026 12:00:30 GMT", 30.0),  # HTTP-date, 30s ahead of _NOW
+        ("Sun, 15 Jun 2026 11:59:00 GMT", 0.0),  # past HTTP-date clamps to 0
+        (None, None),  # absent header
+        ("", None),  # empty / whitespace-only
+        ("not-a-date", None),  # unparseable
+    ],
+)
+def test_parse_retry_after(header_value: str | None, expected: float | None):
+    assert parse_retry_after(header_value, _NOW) == expected

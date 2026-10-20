@@ -18,6 +18,7 @@ import functools
 import json
 from typing import Any, NamedTuple
 
+import aiohttp
 import pydantic
 from typing_extensions import override
 
@@ -82,6 +83,7 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
         *,
         remote_params: RemoteParams | None = None,
         generation_params: GenerationParams | None = None,
+        http_session: aiohttp.ClientSession | None = None,
     ):
         """Initializes the SGL inference Engine.
 
@@ -89,6 +91,8 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
             model_params: The model parameters to use for inference.
             remote_params: Remote server params.
             generation_params: The generation parameters to use for inference.
+            http_session: A caller-owned aiohttp session shared by every operation.
+                See `RemoteInferenceEngine`.
         """
         if remote_params is None:
             raise ValueError("remote_params is required")
@@ -97,6 +101,7 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
             model_params=model_params,
             generation_params=generation_params,
             remote_params=remote_params,
+            http_session=http_session,
         )
 
         self._tokenizer = build_tokenizer(self._model_params)
@@ -110,10 +115,12 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
                 self._tokenizer,
                 trust_remote_code=self._model_params.trust_remote_code,
                 processor_kwargs=self._model_params.processor_kwargs,
+                model_revision=self._model_params.model_revision,
             )
             internal_model_config = find_internal_model_config_using_model_name(
                 self._model_params.model_name,
                 trust_remote_code=self._model_params.trust_remote_code,
+                revision=self._model_params.model_revision,
             )
             self._supports_multiple_images = (
                 (internal_model_config is not None)
@@ -267,6 +274,7 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
             Dict[str, Any]: A dictionary containing the formatted input for the
             SGLang server native API, including the model, messages, generation params.
         """
+        # TODO: OPE-2188 - Add tool call support
         # Chat templates loaded by SGLang server are generally different from Oumi's
         # chat templates, hence, let's apply Oumi chat template here ourselves.
         prompt = self._apply_chat_template_impl(conversation)
@@ -331,7 +339,7 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
         )
 
     @override
-    def _get_request_headers(self, remote_params: RemoteParams) -> dict[str, str]:
+    def _get_auth_headers(self, remote_params: RemoteParams) -> dict[str, str]:
         return {
             "Content-Type": "application/json",
         }

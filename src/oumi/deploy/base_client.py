@@ -58,6 +58,18 @@ class HardwareConfig:
 
 
 @dataclass
+class DeploymentShape:
+    """A provider-validated hardware option for a base model.
+
+    ``base_model`` and ``accelerator_type`` are the provider's native strings.
+    """
+
+    base_model: str
+    accelerator_type: str
+    accelerator_count: int
+
+
+@dataclass
 class AutoscalingConfig:
     """Autoscaling configuration for deployment."""
 

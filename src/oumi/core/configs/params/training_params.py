@@ -481,8 +481,13 @@ class TrainingParams(BaseParams):
     - "epoch": Evaluation is done at the end of each epoch.
     """
 
-    eval_steps: int = 500
-    """Number of update steps between two evaluations if eval_strategy="steps".
+    eval_steps: int | float = 500
+    """Interval between evaluations if eval_strategy="steps".
+
+    If int, run validation every `eval_steps` update steps. If float in (0, 1),
+    HF and TRL trainers run validation every `ceil(eval_steps * max_steps)` update
+    steps. For example, with `eval_steps=0.2` and `max_steps=100`, validation
+    runs every 20 steps, five times in total.
 
     Ignored if eval_strategy is not "steps".
     """
@@ -867,6 +872,14 @@ class TrainingParams(BaseParams):
             config_class = transformers.TrainingArguments
 
         trainer_kwargs = copy.deepcopy(self.trainer_kwargs)
+        # Merged over oumi's accelerator_config below instead of colliding with it,
+        # e.g. {"gradient_accumulation_kwargs": {"sync_each_batch": True}}.
+        accelerator_config_overrides = trainer_kwargs.pop("accelerator_config", {})
+        if not isinstance(accelerator_config_overrides, dict):
+            raise OumiConfigError(
+                "trainer_kwargs['accelerator_config'] must be a dict, got "
+                f"{type(accelerator_config_overrides).__name__}."
+            )
 
         # Add DeepSpeed configuration if enabled
         # NOTE: DeepSpeed config is passed directly to trainer_kwargs instead of through
@@ -983,6 +996,7 @@ class TrainingParams(BaseParams):
                 "split_batches": False,
                 "even_batches": True,
                 "use_seedable_sampler": True,
+                **accelerator_config_overrides,
             },
             seed=self.seed,
             data_seed=self.data_seed,
@@ -1033,6 +1047,18 @@ class TrainingParams(BaseParams):
                 f"Actual: max_steps: {self.max_steps}, "
                 f"num_train_epochs: {self.num_train_epochs}."
             )
+
+        if isinstance(self.eval_steps, float):
+            if not 0 < self.eval_steps < 1:
+                raise OumiConfigError(
+                    "Fractional eval_steps must be greater than 0 and less than 1. "
+                    "Use an integer for a fixed number of steps."
+                )
+            if self.trainer_type in (TrainerType.OUMI, TrainerType.VERL_GRPO):
+                raise OumiConfigError(
+                    "Fractional eval_steps are only supported by Hugging Face and "
+                    f"TRL trainers. Actual trainer_type: {self.trainer_type}."
+                )
 
         if self.reward_functions is not None:
             function_names = [name for name in self.reward_functions if name]

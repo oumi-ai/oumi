@@ -45,7 +45,8 @@ def fake_modal():
     """Constructs a fake ``modal`` SDK with the surface area we touch."""
     fake = MagicMock(name="modal")
 
-    # Image chain: Image.debian_slim().apt_install(...).uv_pip_install(...).
+    # Image chain: Image.from_registry(...).apt_install(...).uv_pip_install(...)
+    # for the default base, or Image.from_registry(<ref>) for docker: image_ids.
     image_obj = MagicMock(name="Image")
     image_obj.apt_install.return_value = image_obj
     image_obj.pip_install.return_value = image_obj
@@ -106,15 +107,20 @@ def test_launch_mounts_hf_cache_volume(fake_modal):
     assert "/root/.cache/huggingface" in kwargs["volumes"]
 
 
-def test_launch_default_image_uses_uv_pip_install(fake_modal):
-    """Default image installs awscli via uv_pip_install (Modal-recommended)."""
+def test_launch_default_image_is_cuda_devel_with_nvcc(fake_modal):
+    """Default base is a CUDA-devel image so flashinfer can JIT-compile GDN
+    kernels (needs nvcc); awscli still installed via uv_pip_install."""
     with patch(
         "oumi.launcher.clients.modal_client._import_modal", return_value=fake_modal
     ):
         ModalClient().launch(_job())
-    image_obj = fake_modal.Image.debian_slim.return_value
-    image_obj.uv_pip_install.assert_called_once_with("awscli")
+    fake_modal.Image.from_registry.assert_called_once_with(
+        "nvidia/cuda:12.6.2-devel-ubuntu22.04", add_python="3.11"
+    )
+    fake_modal.Image.debian_slim.assert_not_called()
+    image_obj = fake_modal.Image.from_registry.return_value
     image_obj.apt_install.assert_called_once_with("zip", "curl", "git")
+    image_obj.uv_pip_install.assert_called_once_with("awscli")
 
 
 def test_launch_uses_sandbox_id_as_cluster_when_name_omitted(fake_modal):
@@ -181,7 +187,10 @@ def test_launch_uses_image_from_registry_when_image_id_set(fake_modal):
         "oumi.launcher.clients.modal_client._import_modal", return_value=fake_modal
     ):
         ModalClient().launch(_job(image_id="docker:my/repo:tag"))
-    fake_modal.Image.from_registry.assert_called()
+    # A caller-supplied docker: image is used verbatim (no add_python, no
+    # apt/awscli layer) — distinct from the default CUDA-devel base.
+    fake_modal.Image.from_registry.assert_called_once_with("my/repo:tag")
+    fake_modal.Image.debian_slim.assert_not_called()
 
 
 def test_launch_omits_secrets_when_envs_empty(fake_modal):
@@ -270,8 +279,10 @@ def test_get_status_failed_when_sandbox_exits_nonzero(fake_modal):
 
 def test_get_logs_stream_returns_concatenated_stdout_and_stderr(fake_modal):
     sandbox = MagicMock()
-    sandbox.stdout = iter(["hello\n", "world\n"])
-    sandbox.stderr = iter([])
+    sandbox.stdout = MagicMock()
+    sandbox.stdout.read.return_value = "hello\nworld\n"
+    sandbox.stderr = MagicMock()
+    sandbox.stderr.read.return_value = ""
     fake_modal.Sandbox.from_id.return_value = sandbox
     with patch(
         "oumi.launcher.clients.modal_client._import_modal", return_value=fake_modal
@@ -289,3 +300,47 @@ def test_strip_sudo_removes_inline_and_chained_invocations():
     assert _strip_sudo(src) == (
         "apt-get update && apt-get install -y zip\ndpkg -i bar.deb"
     )
+
+
+def test_launch_exposes_no_ports_by_default(fake_modal):
+    with patch(
+        "oumi.launcher.clients.modal_client._import_modal", return_value=fake_modal
+    ):
+        ModalClient().launch(_job(), cluster_name="my-cluster")
+    _, kwargs = fake_modal.Sandbox.create.call_args
+    assert kwargs["encrypted_ports"] == []
+
+
+def test_launch_forwards_encrypted_ports_to_sandbox_create(fake_modal):
+    """Ports must be declared at create time; Modal cannot add them later."""
+    with patch(
+        "oumi.launcher.clients.modal_client._import_modal", return_value=fake_modal
+    ):
+        ModalClient().launch(_job(), cluster_name="my-cluster", encrypted_ports=[8000])
+    _, kwargs = fake_modal.Sandbox.create.call_args
+    assert kwargs["encrypted_ports"] == [8000]
+
+
+def test_tunnel_url_returns_the_public_url_of_an_exposed_port(fake_modal):
+    tunnel = MagicMock(name="Tunnel")
+    tunnel.url = "https://sb-deadbeef-8000.modal.host"
+    sandbox = MagicMock(name="Sandbox")
+    sandbox.tunnels.return_value = {8000: tunnel}
+    fake_modal.Sandbox.from_id.return_value = sandbox
+    with patch(
+        "oumi.launcher.clients.modal_client._import_modal", return_value=fake_modal
+    ):
+        url = ModalClient().tunnel_url("sb-deadbeef", 8000)
+    assert url == "https://sb-deadbeef-8000.modal.host"
+    fake_modal.Sandbox.from_id.assert_called_once_with("sb-deadbeef")
+
+
+def test_tunnel_url_raises_when_the_port_was_not_exposed(fake_modal):
+    sandbox = MagicMock(name="Sandbox")
+    sandbox.tunnels.return_value = {}
+    fake_modal.Sandbox.from_id.return_value = sandbox
+    with patch(
+        "oumi.launcher.clients.modal_client._import_modal", return_value=fake_modal
+    ):
+        with pytest.raises(ValueError, match="8000"):
+            ModalClient().tunnel_url("sb-deadbeef", 8000)

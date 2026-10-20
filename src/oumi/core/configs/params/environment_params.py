@@ -31,12 +31,25 @@ class EnvironmentParams(BaseParams):
     """Pure-data description of an environment."""
 
     id: str = ""
-    name: str = ""
-    description: str = ""
+    """Reference key for the environment, unique within an ``EnvironmentConfig``."""
+
+    name: str | None = None
+    """Optional human-readable display label. Not used at runtime."""
+
+    description: str | None = None
+    """Optional human-readable description. Not used at runtime."""
+
     env_type: str = ""
+    """Registry key selecting the environment implementation, e.g. ``lookup``."""
+
     tools: list[Any] = field(default_factory=list)
+    """Tools this environment serves, coerced to ``ToolParams`` in ``__post_init__``."""
+
     env_kwargs: dict[str, Any] | None = None
+    """Type-specific construction kwargs passed to the environment's ``from_params``."""
+
     grounding: GroundingConfig | None = None
+    """Optional grounding configuration for the environment's planner prompts."""
 
     def __post_init__(self) -> None:
         """Coerce raw tool dicts and grounding config."""
@@ -66,10 +79,6 @@ class EnvironmentParams(BaseParams):
         """Validate common fields and registry membership."""
         if not self.id:
             raise ValueError(f"{type(self).__name__}.id cannot be empty.")
-        if not self.name:
-            raise ValueError(f"{type(self).__name__}.name cannot be empty.")
-        if not self.description:
-            raise ValueError(f"{type(self).__name__}.description cannot be empty.")
         if not self.env_type:
             raise ValueError(f"{type(self).__name__}.env_type cannot be empty.")
         if self.env_kwargs is not None and not isinstance(self.env_kwargs, Mapping):
@@ -80,7 +89,7 @@ class EnvironmentParams(BaseParams):
 
         self._validate_unique_tool_ids()
         self._validate_env_type_registered()
-        self._validate_grounding_has_tools()
+        self._validate_grounding_has_source()
         self._warn_on_stale_grounding_tool_ids()
 
     def _validate_unique_tool_ids(self) -> None:
@@ -102,15 +111,20 @@ class EnvironmentParams(BaseParams):
                 f"Unknown env_type '{self.env_type}'. Known types: {known}"
             )
 
-    def _validate_grounding_has_tools(self) -> None:
-        """If env-level grounding is set, ``grounding.tools`` must be non-empty."""
+    def _validate_grounding_has_source(self) -> None:
+        """Reject a grounding config that declares no projection sources.
+
+        Without at least one entry in ``tools`` or ``state``, ``sample_grounding``
+        produces an empty pool and every planner prompt silently loses the
+        grounding placeholder.
+        """
         if self.grounding is None:
             return
-        if not self.grounding.tools:
+        if not self.grounding.tools and not self.grounding.state:
             raise ValueError(
-                f"{type(self).__name__} '{self.id}' declares grounding but "
-                f"grounding.tools is empty. Add at least one tool entry, or "
-                f"remove env-level grounding."
+                f"Environment '{self.id}': grounding is configured but neither "
+                f"grounding.tools nor grounding.state has any entries; one must "
+                f"be populated for grounding to produce any facts."
             )
 
     def _warn_on_stale_grounding_tool_ids(self) -> None:

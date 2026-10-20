@@ -28,10 +28,16 @@ from oumi.core.configs.params.synthesis_params import (
     SampledAttributeValue,
     TextMessage,
 )
-from oumi.core.inference.base_inference_engine import BatchResult
+from oumi.core.inference.base_inference_engine import (
+    BatchResult,
+    FailureDetail,
+    InferenceErrorType,
+    InferenceResult,
+)
 from oumi.core.synthesis.attribute_synthesizer import (
     AttributeSynthesizer,
     SynthBatchResult,
+    SynthPartialResult,
 )
 from oumi.core.types.conversation import Conversation, Message, Role
 
@@ -1288,3 +1294,242 @@ def test_process_inference_results_with_empty_results(
     results = synthesizer.process_inference_results([], mock_generated_attribute)
 
     assert results == []
+
+
+def _completed_conversation(response: str, usage: dict | None = None) -> Conversation:
+    return Conversation(
+        messages=[
+            Message(role=Role.USER, content="Test query"),
+            Message(role=Role.ASSISTANT, content=response),
+        ],
+        metadata={"usage": usage} if usage else {},
+    )
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_synthesize_partial_all_successful(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_generated_attribute,
+    mock_inference_config,
+):
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+    mock_inference_engine.infer_partial.return_value = InferenceResult(
+        successful=[
+            (0, _completed_conversation("Test response 1")),
+            (1, _completed_conversation("Test response 2")),
+        ],
+        failures={},
+    )
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params, mock_inference_config
+    )
+    samples = [
+        {"style": "formal", "topic": "tech"},
+        {"style": "casual", "topic": "science"},
+    ]
+
+    result = synthesizer.synthesize_partial(samples, mock_generated_attribute)
+
+    assert isinstance(result, SynthPartialResult)
+    assert not result.has_failures
+    assert [idx for idx, _ in result.successful] == [0, 1]
+    assert result.successful[0][1] == {"generated_content": "Test response 1"}
+    assert result.successful[1][1] == {"generated_content": "Test response 2"}
+    call_kwargs = mock_inference_engine.infer_partial.call_args.kwargs
+    assert call_kwargs["inference_config"] is mock_inference_config
+    assert call_kwargs["progress_path"] is None
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_synthesize_partial_with_inference_failures(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_generated_attribute,
+    mock_inference_config,
+):
+    detail = FailureDetail(
+        error_message="HTTP 500: Internal server error",
+        status_code=500,
+        is_retryable=True,
+        error_type=InferenceErrorType.API_STATUS,
+    )
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+    mock_inference_engine.infer_partial.return_value = InferenceResult(
+        successful=[(1, _completed_conversation("Test response 2"))],
+        failures={0: detail},
+    )
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params, mock_inference_config
+    )
+    samples = [
+        {"style": "formal", "topic": "tech"},
+        {"style": "casual", "topic": "science"},
+    ]
+
+    result = synthesizer.synthesize_partial(samples, mock_generated_attribute)
+
+    assert result.has_failures
+    assert result.failed_indices == [0]
+    assert result.failures[0] is detail
+    assert result.error_messages[0] == "HTTP 500: Internal server error"
+    assert [idx for idx, _ in result.successful] == [1]
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_synthesize_partial_with_processing_failure(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_generated_attribute,
+    mock_inference_config,
+):
+    # An empty conversation makes messages[-1] raise during processing.
+    malformed = Conversation(messages=[])
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+    mock_inference_engine.infer_partial.return_value = InferenceResult(
+        successful=[
+            (0, _completed_conversation("Test response 1")),
+            (1, malformed),
+        ],
+        failures={},
+    )
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params, mock_inference_config
+    )
+    samples = [
+        {"style": "formal", "topic": "tech"},
+        {"style": "casual", "topic": "science"},
+    ]
+
+    result = synthesizer.synthesize_partial(samples, mock_generated_attribute)
+
+    assert result.failed_indices == [1]
+    detail = result.failures[1]
+    assert detail.error_type == InferenceErrorType.PARSE_ERROR
+    assert detail.is_retryable
+    assert detail.error_message.startswith("Failed to process synthesis output")
+    assert [idx for idx, _ in result.successful] == [0]
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_synthesize_partial_empty_samples(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_generated_attribute,
+    mock_inference_config,
+):
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params, mock_inference_config
+    )
+
+    result = synthesizer.synthesize_partial([], mock_generated_attribute)
+
+    assert result.successful == []
+    assert not result.has_failures
+    mock_inference_engine.infer_partial.assert_not_called()
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_synthesize_partial_token_usage_including_processing_failures(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_generated_attribute,
+    mock_inference_config,
+):
+    usage_ok = {"prompt_tokens": 100, "completion_tokens": 20, "cached_tokens": 5}
+    usage_failed = {"prompt_tokens": 150, "completion_tokens": 30, "cached_tokens": 10}
+    malformed = Conversation(messages=[], metadata={"usage": usage_failed})
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+    mock_inference_engine.infer_partial.return_value = InferenceResult(
+        successful=[
+            (0, _completed_conversation("Test response 1", usage=usage_ok)),
+            (1, malformed),
+        ],
+        failures={},
+    )
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params, mock_inference_config
+    )
+    samples = [
+        {"style": "formal", "topic": "tech"},
+        {"style": "casual", "topic": "science"},
+    ]
+
+    result = synthesizer.synthesize_partial(samples, mock_generated_attribute)
+
+    # Tokens were spent on the processing-failed row too.
+    assert result.failed_indices == [1]
+    assert synthesizer.total_input_tokens == 250
+    assert synthesizer.total_output_tokens == 50
+    assert synthesizer.total_cached_tokens == 15
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_synthesize_partial_with_postprocessing(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_inference_config,
+):
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+    mock_inference_engine.infer_partial.return_value = InferenceResult(
+        successful=[(0, _completed_conversation("  Test response  "))],
+        failures={},
+    )
+    generated_attribute = GeneratedAttribute(
+        id="generated_content",
+        instruction_messages=[
+            TextMessage(role=Role.USER, content="Write about {topic}."),
+        ],
+        postprocessing_params=GeneratedAttributePostprocessingParams(
+            id="processed_content",
+            strip_whitespace=True,
+        ),
+    )
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params, mock_inference_config
+    )
+
+    result = synthesizer.synthesize_partial([{"topic": "tech"}], generated_attribute)
+
+    assert [idx for idx, _ in result.successful] == [0]
+    assert result.successful[0][1]["processed_content"] == "Test response"
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
+def test_synthesize_partial_passes_progress_path(
+    mock_build_inference_engine,
+    mock_general_synthesis_params,
+    mock_generated_attribute,
+    mock_inference_config,
+):
+    mock_inference_engine = Mock()
+    mock_build_inference_engine.return_value = mock_inference_engine
+    mock_inference_engine.infer_partial.return_value = InferenceResult(
+        successful=[], failures={}
+    )
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params, mock_inference_config
+    )
+
+    synthesizer.synthesize_partial(
+        [{"style": "formal", "topic": "tech"}],
+        mock_generated_attribute,
+        progress_path="/tmp/progress.json",
+    )
+
+    call_kwargs = mock_inference_engine.infer_partial.call_args.kwargs
+    assert call_kwargs["progress_path"] == "/tmp/progress.json"

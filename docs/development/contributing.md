@@ -11,7 +11,7 @@ Possible contributions include:
 * Documentation and code readability improvements
 * Code review of pull requests
 * Tutorials, blog posts, talks, and social media posts that promote Oumi OSS
-* Community participation in [GitHub issues](https://github.com/oumi-ai/oumi/issues), [Discord](https://discord.gg/oumi), and [X](https://x.com/Oumi_PBC), to share knowledge and help each other.
+* Community participation in [GitHub issues](https://github.com/oumi-ai/oumi/issues), [Discord](https://discord.gg/oumi), and [X](https://x.com/Oumi_ai), to share knowledge and help each other.
 
 If you want to contribute but you are short of ideas or have any questions, reach out (<contact@oumi.ai>) and we can help.
 

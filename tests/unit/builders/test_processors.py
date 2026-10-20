@@ -1,5 +1,6 @@
 import base64
 from typing import Any, Final
+from unittest.mock import Mock, patch
 
 import numpy as np
 import PIL.Image
@@ -37,6 +38,73 @@ _SMALL_B64_IMAGE: Final[str] = (
 def test_build_processor_empty_name(trust_remote_code, mock_tokenizer):
     with pytest.raises(ValueError, match="Empty model name"):
         build_processor("", mock_tokenizer, trust_remote_code=trust_remote_code)
+
+
+def test_build_processor_passes_model_revision_to_hf_loads(mock_tokenizer):
+    processor = Mock()
+    wrapped_processor = Mock(spec=BaseProcessor)
+
+    with (
+        patch(
+            "oumi.builders.processors.find_internal_model_config_using_model_name"
+        ) as mock_find_internal_config,
+        patch(
+            "oumi.builders.processors.transformers.AutoProcessor.from_pretrained"
+        ) as mock_from_pretrained,
+        patch("oumi.builders.processors.DefaultProcessor") as mock_default_processor,
+    ):
+        mock_find_internal_config.return_value = None
+        mock_from_pretrained.return_value = processor
+        mock_default_processor.return_value = wrapped_processor
+
+        result = build_processor(
+            "test-model",
+            mock_tokenizer,
+            trust_remote_code=True,
+            model_revision="abc123",
+        )
+
+    assert result == wrapped_processor
+    mock_find_internal_config.assert_called_once_with(
+        "test-model", trust_remote_code=True, revision="abc123"
+    )
+    mock_from_pretrained.assert_called_once_with(
+        "test-model", trust_remote_code=True, revision="abc123"
+    )
+
+
+def test_build_processor_does_not_duplicate_revision_from_processor_kwargs(
+    mock_tokenizer,
+):
+    """A revision pinned in processor_kwargs must not collide with model_revision."""
+    processor = Mock()
+    wrapped_processor = Mock(spec=BaseProcessor)
+
+    with (
+        patch(
+            "oumi.builders.processors.find_internal_model_config_using_model_name"
+        ) as mock_find_internal_config,
+        patch(
+            "oumi.builders.processors.transformers.AutoProcessor.from_pretrained"
+        ) as mock_from_pretrained,
+        patch("oumi.builders.processors.DefaultProcessor") as mock_default_processor,
+    ):
+        mock_find_internal_config.return_value = None
+        mock_from_pretrained.return_value = processor
+        mock_default_processor.return_value = wrapped_processor
+
+        build_processor(
+            "test-model",
+            mock_tokenizer,
+            trust_remote_code=True,
+            model_revision="from-model-revision",
+            processor_kwargs={"revision": "from-kwargs"},
+        )
+
+    # An explicit revision in processor_kwargs wins over model_revision.
+    mock_from_pretrained.assert_called_once_with(
+        "test-model", trust_remote_code=True, revision="from-kwargs"
+    )
 
 
 @pytest.mark.parametrize(

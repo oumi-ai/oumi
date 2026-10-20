@@ -58,15 +58,20 @@ How to Add a New Model:
         vlm_config.model_input_features.update({...})
 """
 
+from __future__ import annotations
+
 import copy
 import functools
 import types
 from collections.abc import Mapping
-from typing import Any, NamedTuple, cast
+from typing import TYPE_CHECKING, Any, NamedTuple, cast
 
 import transformers
+from transformers.models.auto.modeling_auto import (
+    MODEL_FOR_CAUSAL_LM_MAPPING,
+    MODEL_FOR_IMAGE_TEXT_TO_TEXT_MAPPING,
+)
 
-from oumi.core.configs import ModelParams
 from oumi.core.configs.internal.internal_model_config import (
     InternalFeatureFirstDimAction,
     InternalFeatureSpec,
@@ -78,6 +83,9 @@ from oumi.core.registry import REGISTRY, RegistryType
 from oumi.utils.cache_utils import dict_cache
 from oumi.utils.logging import logger
 from oumi.utils.packaging import is_transformers_v5
+
+if TYPE_CHECKING:
+    from oumi.core.configs import ModelParams
 
 
 @dict_cache
@@ -343,6 +351,14 @@ def _create_qwen3_vl_vlm_config() -> InternalModelConfig:
     return config
 
 
+def _create_qwen3_5_vlm_config() -> InternalModelConfig:
+    config = _create_qwen3_vl_vlm_config()
+    # Empty chat_template: use the tokenizer's built-in template. Qwen3.5 ships
+    # one that renders tools, which qwen3-vl-instruct does not.
+    config.chat_template = ""
+    return config
+
+
 def _create_phi3_vlm_config() -> InternalModelConfig:
     config = _create_default_vlm_config(
         pixel_values_variable_shape=True,
@@ -426,6 +442,11 @@ def _create_internvl_config() -> InternalModelConfig:
         == InternalFeatureFirstDimAction.DROP_IF_DUMMY
     )
     return config
+
+
+def _create_muse_glimmer_config() -> InternalModelConfig:
+    # Empty chat_template: use the tokenizer's built-in template.
+    return InternalModelConfig(chat_template="")
 
 
 def _create_idefics3_vlm_config() -> InternalModelConfig:
@@ -596,6 +617,21 @@ def get_all_models_map() -> Mapping[
             model_class=default_vlm_class,
             config=_create_qwen3_vl_vlm_config(),
         ),
+        # Qwen3.5 is dual-mode: it loads as a VLM by default here, and as its
+        # text-only backbone (Qwen3_5ForCausalLM) when ModelParams.text_only=True.
+        # The processor resolves to Qwen3VLProcessor, so the Qwen3-VL image
+        # features and pixel limits apply. The chat template does not, because
+        # the checkpoint ships its own.
+        _ModelTypeInfo(
+            model_type="qwen3_5",
+            model_class=default_vlm_class,
+            config=_create_qwen3_5_vlm_config(),
+        ),
+        _ModelTypeInfo(
+            model_type="qwen3_5_moe",
+            model_class=default_vlm_class,
+            config=_create_qwen3_5_vlm_config(),
+        ),
         _ModelTypeInfo(
             model_type="vipllava",
             model_class=default_vlm_class,
@@ -621,6 +657,11 @@ def get_all_models_map() -> Mapping[
             model_type="internvl",
             model_class=transformers.AutoModelForImageTextToText,
             config=_create_internvl_config(),
+        ),
+        _ModelTypeInfo(
+            model_type="muse_glimmer",
+            model_class=transformers.AutoModelForImageTextToText,
+            config=_create_muse_glimmer_config(),
         ),
     ]
 
@@ -658,7 +699,7 @@ def is_custom_model(model_name: str) -> bool:
 
 
 def find_internal_model_config_using_model_name(
-    model_name: str, trust_remote_code: bool
+    model_name: str, trust_remote_code: bool, revision: str | None = None
 ) -> InternalModelConfig | None:
     """Finds an internal model config for supported models using model name.
 
@@ -669,6 +710,7 @@ def find_internal_model_config_using_model_name(
             - A custom model name registered in Oumi
         trust_remote_code: Whether to trust external code associated with the model.
             Required for some models like Qwen2-VL that use custom code.
+        revision: The HuggingFace model revision to load, if any.
 
     Returns:
         InternalModelConfig for the model if it's supported, or None if:
@@ -678,9 +720,42 @@ def find_internal_model_config_using_model_name(
     if is_custom_model(model_name):
         return None
 
-    hf_config = find_model_hf_config(model_name, trust_remote_code=trust_remote_code)
+    hf_config = find_model_hf_config(
+        model_name, trust_remote_code=trust_remote_code, revision=revision
+    )
     llm_info = get_all_models_map().get(hf_config.model_type, None)
     return llm_info.config if llm_info is not None else None
+
+
+def find_model_type_using_model_name(
+    model_name: str, trust_remote_code: bool, revision: str | None = None
+) -> str | None:
+    """Finds the HuggingFace ``config.model_type`` for a model.
+
+    Unlike `find_internal_model_config_using_model_name`, this reports the architecture
+    whether or not it appears in the supported models registry. That registry is scoped
+    to VLMs, so text LLMs resolve to None there by design; use this to branch on
+    architecture for them.
+
+    Args:
+        model_name: The model name, either:
+            - A HuggingFace model ID (e.g., "meta-llama/Llama-2-7b-hf")
+            - A local path to a model directory
+            - A custom model name registered in Oumi
+        trust_remote_code: Whether to trust external code associated with the model.
+        revision: The HuggingFace model revision to load, if any.
+
+    Returns:
+        The model_type string, or None if the model is a custom Oumi model, which has
+        no HuggingFace config.
+    """
+    if is_custom_model(model_name):
+        return None
+
+    hf_config = find_model_hf_config(
+        model_name, trust_remote_code=trust_remote_code, revision=revision
+    )
+    return hf_config.model_type
 
 
 def find_internal_model_config(
@@ -695,5 +770,72 @@ def find_internal_model_config(
         Model config, or `None` if model is not recognized.
     """
     return find_internal_model_config_using_model_name(
-        model_params.model_name, model_params.trust_remote_code
+        model_params.model_name,
+        model_params.trust_remote_code,
+        revision=model_params.model_revision,
     )
+
+
+def is_dual_mode_model_type(
+    hf_config: transformers.PretrainedConfig,
+) -> bool:
+    """Whether a checkpoint has a genuine text-only backbone alongside its VLM class.
+
+    A model is dual-mode iff ``AutoModelForCausalLM`` resolves its config class to a
+    class *distinct* from the one ``AutoModelForImageTextToText`` resolves it to. When
+    both mappings resolve to the same class (e.g. ``gemma3`` ->
+    ``Gemma3ForConditionalGeneration``), loading via ``AutoModelForCausalLM`` still
+    builds the full VLM, so it is NOT dual-mode. When there is no causal mapping
+    (e.g. ``qwen3_vl``), there is no text-only path at all.
+
+    Args:
+        hf_config: The HuggingFace ``PretrainedConfig`` for the model.
+
+    Returns:
+        True if a distinct text-only class exists, False otherwise.
+    """
+    cfg_cls = type(hf_config)
+    # Index the mapping itself, not its ``._model_mapping`` (which is keyed by
+    # model_type strings); the mapping's ``.get`` does the lazy class load.
+    causal_cls = MODEL_FOR_CAUSAL_LM_MAPPING.get(cfg_cls, None)
+    vlm_cls = MODEL_FOR_IMAGE_TEXT_TO_TEXT_MAPPING.get(cfg_cls, None)
+    return causal_cls is not None and vlm_cls is not None and causal_cls != vlm_cls
+
+
+def is_dual_mode_model_using_model_name(
+    model_name: str, trust_remote_code: bool, revision: str | None = None
+) -> bool:
+    """Whether the named model is dual-mode. See ``is_dual_mode_model_type``."""
+    if is_custom_model(model_name):
+        return False
+    hf_config = find_model_hf_config(
+        model_name, trust_remote_code=trust_remote_code, revision=revision
+    )
+    return is_dual_mode_model_type(hf_config)
+
+
+def is_vision_language_model_type(hf_config: transformers.PretrainedConfig) -> bool:
+    """Whether the checkpoint exposes any vision-language model class.
+
+    True when ``AutoModelForImageTextToText`` resolves the config to a model class,
+    i.e. the checkpoint has a vision tower. This is True for both vision-only models
+    (e.g. ``qwen3_vl``) and dual-mode models (e.g. ``qwen3_5``), and False for
+    plain text models (e.g. ``llama``).
+    """
+    cfg_cls = type(hf_config)
+    return MODEL_FOR_IMAGE_TEXT_TO_TEXT_MAPPING.get(cfg_cls, None) is not None
+
+
+def is_vision_language_model_using_model_name(
+    model_name: str, trust_remote_code: bool, revision: str | None = None
+) -> bool:
+    """Whether the named model has a vision tower.
+
+    See ``is_vision_language_model_type``.
+    """
+    if is_custom_model(model_name):
+        return False
+    hf_config = find_model_hf_config(
+        model_name, trust_remote_code=trust_remote_code, revision=revision
+    )
+    return is_vision_language_model_type(hf_config)

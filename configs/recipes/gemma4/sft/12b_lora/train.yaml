@@ -1,0 +1,92 @@
+# LoRA SFT config for Gemma 4 12B Unified.
+#
+# Model highlights:
+#   - 11.95B parameter unified multimodal model from Google
+#   - 48 text transformer layers
+#   - Multimodal: text + image + audio inputs
+#   - LoRA is scoped to the text transformer (`model.language_model.layers.*`) only.
+#     The unified arch is encoder-free: image/audio enter through `embed_vision`/
+#     `embed_audio` modules that reuse text projection names, so LoRA excludes them
+#     (see the `peft` block below).
+#
+# Requirements:
+#   - Run `uv pip install -U "transformers>=5.10"` (the gemma4_unified arch needs
+#     transformers >= 5.10, newer than oumi's pin).
+#   - peft (installed automatically with oumi)
+#   - Gemma license acceptance required: https://huggingface.co/google/gemma-4-12B-it
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   oumi distributed torchrun -m oumi train -c oumi://configs/recipes/gemma4/sft/12b_lora/train.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/*train.yaml
+
+model:
+  model_name: "google/gemma-4-12B-it"
+  model_max_length: 8192
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: false
+  enable_liger_kernel: false  # Disabled (may conflict with Gemma output format).
+
+data:
+  train:
+    datasets:
+      - dataset_name: "yahma/alpaca-cleaned"  # 51,760 examples
+
+training:
+  use_peft: true
+  trainer_type: "TRL_SFT"
+  save_final_model: true
+  num_train_epochs: 1
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 8
+  max_grad_norm: 1.0
+
+  enable_gradient_checkpointing: true
+  gradient_checkpointing_kwargs:
+    use_reentrant: false
+  compile: false
+
+  optimizer: "adamw_torch_fused"
+  learning_rate: 2.0e-04
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.05
+  weight_decay: 0.01
+
+  dataloader_num_workers: "auto"
+  dataloader_prefetch_factor: 8
+  logging_steps: 5
+  empty_device_cache_steps: 50
+  output_dir: "output/gemma4_12b.lora"
+  include_performance_metrics: true
+  enable_wandb: true
+
+peft:
+  lora_r: 8
+  lora_alpha: 16
+  lora_dropout: 0.05
+  lora_target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+  # Keep LoRA on the text model only. The unified arch routes image/audio through
+  # `embed_vision`/`embed_audio` modules that reuse text projection names (q_proj, ...).
+  lora_exclude_modules:
+    - ".*vision.*"
+    - ".*audio.*"
+
+fsdp:
+  enable_fsdp: true
+  sharding_strategy: "FULL_SHARD"
+  forward_prefetch: true
+  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
+  transformer_layer_cls: "Gemma4UnifiedTextDecoderLayer"
