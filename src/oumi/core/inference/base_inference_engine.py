@@ -84,8 +84,15 @@ class InferenceErrorType(str, Enum):
     ENGINE_FAILURE = "engine_failure"
     """The inference engine itself failed."""
 
+    REFUSAL = "refusal"
+    """The model declined to answer the request."""
+
     UNKNOWN = "unknown"
     """Default and catch-all: the failure fits no other category."""
+
+
+class ModelRefusalError(RuntimeError):
+    """The model declined to answer; resending the request is unlikely to help."""
 
 
 @dataclass(frozen=True)

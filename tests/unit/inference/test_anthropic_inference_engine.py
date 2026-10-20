@@ -4,9 +4,11 @@ import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from aioresponses import aioresponses
 
 from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
+from oumi.core.inference import InferenceErrorType, ModelRefusalError
 from oumi.core.types.conversation import (
     ContentItem,
     Conversation,
@@ -330,6 +332,63 @@ def test_convert_api_output_empty_content(anthropic_engine):
         )
 
 
+@pytest.mark.parametrize(
+    "content",
+    [[], [{"type": "text", "text": "Partial answer before the"}]],
+    ids=["no content", "partial content"],
+)
+def test_convert_api_output_refusal(anthropic_engine, content):
+    original_conversation = Conversation(
+        messages=[Message(content="User message", role=Role.USER)],
+    )
+    api_response = {
+        "content": content,
+        "stop_reason": "refusal",
+        "stop_details": {"type": "refusal", "category": "reasoning_extraction"},
+        "type": "message",
+        "model": "claude-opus-5-5",
+        "usage": {"input_tokens": 100, "output_tokens": 0},
+    }
+
+    with pytest.raises(ModelRefusalError, match="category=reasoning_extraction"):
+        anthropic_engine._convert_api_output_to_conversation(
+            api_response, original_conversation
+        )
+
+
+def test_infer_partial_fails_refusal_without_retrying():
+    api_url = "http://localhost/v1/messages"
+    engine = AnthropicInferenceEngine(
+        model_params=ModelParams(model_name="claude-opus-5-5"),
+        remote_params=RemoteParams(
+            api_key="test_api_key", api_url=api_url, max_retries=3
+        ),
+    )
+    conversation = Conversation(
+        messages=[Message(content="User message", role=Role.USER)],
+    )
+    refusal_response = {
+        "content": [],
+        "stop_reason": "refusal",
+        "stop_details": {"type": "refusal", "category": "reasoning_extraction"},
+        "type": "message",
+        "model": "claude-opus-5-5",
+        "usage": {"input_tokens": 100, "output_tokens": 0},
+    }
+
+    with aioresponses() as mocked_api, patch("asyncio.sleep") as mock_sleep:
+        mocked_api.post(api_url, status=200, payload=refusal_response, repeat=True)
+        result = engine.infer_partial([conversation])
+
+    assert result.successful == []
+    failure = result.failures[0]
+    assert failure.error_type == InferenceErrorType.REFUSAL
+    assert not failure.is_retryable
+    assert "category=reasoning_extraction" in failure.error_message
+    assert sum(len(calls) for calls in mocked_api.requests.values()) == 1
+    mock_sleep.assert_not_called()
+
+
 def test_convert_api_output_missing_content_key(anthropic_engine):
     original_conversation = Conversation(
         messages=[Message(content="User message", role=Role.USER)],
@@ -623,6 +682,11 @@ class TestAnthropicExtractFinishReason:
         response = {"stop_reason": "tool_use", "content": [{"text": "Function call"}]}
         result = AnthropicInferenceEngine._extract_finish_reason_from_response(response)
         assert result == FinishReason.TOOL_CALLS
+
+    def test_extract_finish_reason_refusal(self, anthropic_engine):
+        response = {"stop_reason": "refusal", "content": []}
+        result = AnthropicInferenceEngine._extract_finish_reason_from_response(response)
+        assert result == FinishReason.CONTENT_FILTER
 
     def test_extract_finish_reason_unknown(self, anthropic_engine):
         response = {"stop_reason": "some_new_reason", "content": [{"text": "Response"}]}

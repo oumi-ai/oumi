@@ -28,6 +28,7 @@ from oumi.core.configs import (
     RemoteParams,
 )
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
+from oumi.core.inference import ModelRefusalError
 from oumi.core.types.conversation import (
     ContentItem,
     Conversation,
@@ -488,6 +489,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
             "max_tokens": FinishReason.LENGTH,
             "stop_sequence": FinishReason.STOP,
             "tool_use": FinishReason.TOOL_CALLS,
+            "refusal": FinishReason.CONTENT_FILTER,
         }
         return mapping.get(raw_reason, FinishReason.UNKNOWN)
 
@@ -496,6 +498,13 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         self, response: dict[str, Any], original_conversation: Conversation
     ) -> Conversation:
         """Converts an Anthropic API response to a conversation."""
+        if response.get("stop_reason") == "refusal":
+            stop_details = response.get("stop_details") or {}
+            raise ModelRefusalError(
+                "Anthropic API declined the request. "
+                f"category={stop_details.get('category')}, "
+                f"model={response.get('model')}"
+            )
         content_blocks = response.get(_CONTENT_KEY, [])
         if not content_blocks:
             raise RuntimeError(

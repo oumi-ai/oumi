@@ -48,6 +48,7 @@ from oumi.core.inference.base_inference_engine import (
     BatchResult,
     FailureDetail,
     InferenceErrorType,
+    ModelRefusalError,
 )
 from oumi.core.inference.progress_reporter import ProgressFileReporter
 from oumi.core.types.conversation import (
@@ -256,6 +257,12 @@ def _failure_detail_from_exception(e: Exception) -> FailureDetail:
             error_message=str(e),
             is_retryable=False,
             error_type=InferenceErrorType.CONFIG,
+        )
+    if isinstance(e, ModelRefusalError):
+        return FailureDetail(
+            error_message=str(e),
+            is_retryable=False,
+            error_type=InferenceErrorType.REFUSAL,
         )
     if isinstance(e, RuntimeError):
         # Retries-exhausted parse/conversion/connection/unexpected errors.
@@ -946,6 +953,8 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                                 self._save_conversation_to_scratch(result, output_path)
                             await self._try_record_success()
                             return result
+                        except ModelRefusalError:
+                            raise
                         except Exception as e:
                             # Response was successful, but we couldn't process it.
                             failure_reason = (
