@@ -101,26 +101,26 @@ try:
             ToolParserManager = None  # type: ignore[assignment]
             _VLLM_TOOL_PARSERS_AVAILABLE = False
 
-    # Parser-engine tool parsers (vLLM 0.24+, e.g. Gemma 4) recover argument
-    # types from the request's tool schemas, which they only recognize as
-    # `ChatCompletionToolsParam` objects; plain dicts are skipped.
+    # `vllm serve` gives tool parsers the request's tools as
+    # `ChatCompletionToolsParam` objects. Parsers that recover argument types
+    # from the schema (e.g. qwen3_xml, Gemma 4) skip plain dicts.
     try:
         from vllm.entrypoints.openai.chat_completion.protocol import (  # pyright: ignore[reportMissingImports]
             ChatCompletionToolsParam,
         )
-        from vllm.parser.engine.adapters import (  # pyright: ignore[reportMissingImports]
-            ParserEngineToolAdapter,
-        )
     except ImportError:
-        ChatCompletionToolsParam = None  # type: ignore[assignment]
-        ParserEngineToolAdapter = None  # type: ignore[assignment]
+        try:
+            from vllm.entrypoints.openai.protocol import (  # pyright: ignore[reportMissingImports]
+                ChatCompletionToolsParam,
+            )
+        except ImportError:
+            ChatCompletionToolsParam = None  # type: ignore[assignment]
 except ModuleNotFoundError:
     vllm = None
     _VLLM_V0_12 = False
     ToolParserManager = None  # type: ignore[assignment]
     _VLLM_TOOL_PARSERS_AVAILABLE = False
     ChatCompletionToolsParam = None  # type: ignore[assignment]
-    ParserEngineToolAdapter = None  # type: ignore[assignment]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -163,18 +163,13 @@ def _get_tool_parser_capabilities(
 def _build_parser_request_tools(
     tool_parser: object, tools: list[ToolDefinition] | None
 ) -> list:
-    """Return the conversation's tools in the form the tool parser expects.
+    """Return the conversation's tools in the form `vllm serve` gives the parser.
 
-    Parser-engine adapters coerce each parsed argument to its schema type and
-    only find that schema on typed tool objects, so they get
-    `ChatCompletionToolsParam`s. Other parsers keep receiving plain dicts.
+    Parsers that coerce each parsed argument to its schema type only find that
+    schema on typed tool objects, so they get `ChatCompletionToolsParam`s.
     """
     tool_dicts = [t.model_dump(mode="json", exclude_none=True) for t in tools or []]
-    if (
-        ParserEngineToolAdapter is None
-        or ChatCompletionToolsParam is None
-        or not isinstance(tool_parser, ParserEngineToolAdapter)
-    ):
+    if ChatCompletionToolsParam is None:
         return tool_dicts
     try:
         return [ChatCompletionToolsParam.model_validate(t) for t in tool_dicts]
