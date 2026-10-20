@@ -23,6 +23,8 @@ from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.types.conversation import Conversation
 from oumi.inference.adaptive_semaphore import PoliteAdaptiveSemaphore
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
+from oumi.inference.vllm_inference_engine import _get_tool_parser_capabilities
+from oumi.utils.conversation_utils import split_assistant_content_and_tool_calls
 from oumi.utils.http import APIStatusError
 
 
@@ -85,10 +87,17 @@ class RemoteVLLMInferenceEngine(RemoteInferenceEngine):
         else:
             model = model_params.model_name
 
+        messages = conversation.messages
+        # The server renders the chat template VLLMInferenceEngine does, so
+        # history needs the same reshaping for the server's tool-call parser.
+        if _get_tool_parser_capabilities(
+            model_params.tool_call_parser
+        ).requires_split_tool_narration:
+            messages = split_assistant_content_and_tool_calls(messages)
         api_input = {
             "model": model,
             "messages": self._get_list_of_message_json_dicts(
-                conversation.messages, group_adjacent_same_role_turns=True
+                messages, group_adjacent_same_role_turns=True
             ),
             "max_tokens": generation_params.max_new_tokens,
             # "max_completion_tokens": generation_params.max_new_tokens,

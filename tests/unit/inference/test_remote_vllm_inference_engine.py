@@ -5,7 +5,12 @@ from yarl import URL
 from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.core.types.tool_call import ToolCall, ToolDefinition
 from oumi.inference.remote_vllm_inference_engine import RemoteVLLMInferenceEngine
+from oumi.inference.vllm_inference_engine import (
+    _TOOL_PARSER_CAPABILITIES,
+    VLLMInferenceEngine,
+)
 
 _CONVERSATION = Conversation(messages=[Message(role=Role.USER, content="hi")])
 _CHAT_URL = "http://localhost:8000/v1/chat/completions"
@@ -85,6 +90,77 @@ def test_an_unconstrained_request_sends_no_structured_outputs():
 
 def test_min_p_and_skip_special_tokens_are_supported():
     assert {"min_p", "skip_special_tokens"} <= _engine().get_supported_params()
+
+
+def _tool_call(call_id: str, name: str) -> ToolCall:
+    return ToolCall.model_validate(
+        {
+            "id": call_id,
+            "type": "function",
+            "function": {"name": name, "arguments": '{"city": "Tokyo", "days": 3}'},
+        }
+    )
+
+
+_TOOL_CONVERSATION = Conversation(
+    tools=[
+        ToolDefinition.model_validate(
+            {
+                "type": "function",
+                "function": {
+                    "name": name,
+                    "description": f"{name} for a city.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "city": {"type": "string"},
+                            "days": {"type": "integer"},
+                        },
+                        "required": ["city"],
+                    },
+                },
+            }
+        )
+        for name in ("get_weather", "get_time")
+    ],
+    messages=[
+        Message(role=Role.SYSTEM, content="Use the tools."),
+        Message(role=Role.USER, content="Weather and time in Tokyo?"),
+        Message(
+            role=Role.ASSISTANT,
+            content="Let me check both.",
+            tool_calls=[_tool_call("a", "get_weather"), _tool_call("b", "get_time")],
+        ),
+        Message(role=Role.TOOL, content="22C", tool_call_id="a"),
+        Message(role=Role.TOOL, content="9:30", tool_call_id="b"),
+        Message(
+            role=Role.ASSISTANT,
+            content=None,
+            tool_calls=[_tool_call("c", "get_weather")],
+        ),
+        Message(role=Role.TOOL, content="23C", tool_call_id="c"),
+        Message(role=Role.ASSISTANT, content="22C and 9:30."),
+        Message(role=Role.USER, content="And tomorrow?"),
+    ],
+)
+
+
+@pytest.mark.parametrize("parser", [None, "hermes", *_TOOL_PARSER_CAPABILITIES])
+def test_sends_the_history_and_tools_the_vllm_engine_renders(parser):
+    """`vllm serve` renders the chat template VLLMInferenceEngine does."""
+    offline = object.__new__(VLLMInferenceEngine)
+    offline._tool_parser_name = parser
+    engine = _engine(tool_call_parser=parser)
+
+    api_input = engine._convert_conversation_to_api_input(
+        _TOOL_CONVERSATION, GenerationParams(), engine._model_params
+    )
+
+    assert api_input["messages"] == offline._convert_conversation_to_vllm_input(
+        _TOOL_CONVERSATION
+    )
+    [(_, offline_tools)] = VLLMInferenceEngine._group_by_tools([_TOOL_CONVERSATION])
+    assert api_input["tools"] == offline_tools
 
 
 def _chat_engine() -> RemoteVLLMInferenceEngine:
