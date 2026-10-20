@@ -23,6 +23,7 @@ from oumi.core.inference.base_inference_engine import (
     FailureDetail,
     InferenceErrorType,
     InferenceResult,
+    ModelRefusalError,
 )
 from oumi.core.inference.progress_reporter import ProgressFileReporter
 
@@ -32,5 +33,6 @@ __all__ = [
     "FailureDetail",
     "InferenceErrorType",
     "InferenceResult",
+    "ModelRefusalError",
     "ProgressFileReporter",
 ]
