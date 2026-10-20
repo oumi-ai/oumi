@@ -1147,10 +1147,6 @@ def test_openai_parser_reads_gpt_oss_channels_from_token_ids():
     assert finish_reason_override is None
 
 
-class _FakeEngineParser:
-    """Stands in for vLLM's `ParserEngineToolAdapter`."""
-
-
 class _FakeToolsParam:
     """Stands in for vLLM's typed `ChatCompletionToolsParam`."""
 
@@ -1166,22 +1162,19 @@ _FAILING_TOOLS_PARAM = Mock(model_validate=Mock(side_effect=ValueError("bad")))
 
 
 @pytest.mark.parametrize(
-    ("parser", "adapter_cls", "param_cls", "expect_typed"),
+    ("param_cls", "expect_typed"),
     [
-        (_FakeEngineParser(), _FakeEngineParser, _FakeToolsParam, True),
-        (Mock(), _FakeEngineParser, _FakeToolsParam, False),  # non-engine parser
-        (Mock(), None, None, False),  # vLLM without the parser engine
-        (_FakeEngineParser(), _FakeEngineParser, _FAILING_TOOLS_PARAM, False),
+        (_FakeToolsParam, True),
+        (None, False),  # vLLM without `ChatCompletionToolsParam`
+        (_FAILING_TOOLS_PARAM, False),
     ],
 )
-def test_build_parser_request_tools(parser, adapter_cls, param_cls, expect_typed):
-    """Only parser-engine parsers get typed tools; everything else gets dicts."""
-    module = "oumi.inference.vllm_inference_engine"
-    with (
-        patch(f"{module}.ParserEngineToolAdapter", adapter_cls),
-        patch(f"{module}.ChatCompletionToolsParam", param_cls),
+def test_build_parser_request_tools(param_cls, expect_typed):
+    """Every parser gets the typed tools `vllm serve` gives it, when vLLM has them."""
+    with patch(
+        "oumi.inference.vllm_inference_engine.ChatCompletionToolsParam", param_cls
     ):
-        tools = _build_parser_request_tools(parser, [_WEATHER_TOOL, _CALENDAR_TOOL])
+        tools = _build_parser_request_tools(Mock(), [_WEATHER_TOOL, _CALENDAR_TOOL])
 
     expected = [_WEATHER_TOOL_DICT, _CALENDAR_TOOL_DICT]
     if expect_typed:
