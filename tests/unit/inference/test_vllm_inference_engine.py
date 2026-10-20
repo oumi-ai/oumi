@@ -1147,6 +1147,109 @@ def test_openai_parser_reads_gpt_oss_channels_from_token_ids():
     assert finish_reason_override is None
 
 
+def test_openai_parser_keeps_reasoning_out_of_an_unfinished_answer():
+    """Without a final channel, `vllm serve` returns no content, not the reasoning."""
+    parser_instance = Mock()
+    parser_instance.extract_tool_calls.return_value = SimpleNamespace(
+        tools_called=False, tool_calls=[], content=None
+    )
+    engine = object.__new__(VLLMInferenceEngine)
+    engine._tool_parser = parser_instance
+    engine._tool_parser_name = "openai"
+    conv = Conversation(messages=[Message(role=Role.USER, content="hi")])
+    completion = SimpleNamespace(
+        text="analysisThe user greets me and", token_ids=[200005, 35644]
+    )
+
+    messages, _ = engine._build_response_messages(
+        conv, SimpleNamespace(outputs=[completion])
+    )
+
+    assert messages[-1].content == ""
+
+
+def _gpt_oss_engine(model_type: str = "gpt_oss") -> VLLMInferenceEngine:
+    engine = object.__new__(VLLMInferenceEngine)
+    BaseInferenceEngine.__init__(
+        engine,
+        _get_default_model_params(),
+        generation_params=GenerationParams(max_new_tokens=5),
+    )
+    engine._llm = Mock()
+    engine._llm.model_config.hf_config.model_type = model_type
+    engine._llm.generate.side_effect = lambda prompts, **_: [
+        SimpleNamespace(
+            outputs=[SimpleNamespace(text="ok", token_ids=[1], finish_reason="stop")],
+            prompt_token_ids=prompt["prompt_token_ids"],
+        )
+        for prompt in prompts
+    ]
+    engine._lora_request = None
+    engine._tool_parser = None
+    engine._save_conversation_to_scratch = Mock()
+    engine._cleanup_scratch_file = Mock()
+    return engine
+
+
+class _FakeChatCompletionRequest(SimpleNamespace):
+    """Stands in for vLLM's `ChatCompletionRequest`."""
+
+    @classmethod
+    def model_validate(cls, data: dict) -> "_FakeChatCompletionRequest":
+        return cls(**{"tools": None, **data})
+
+
+def test_gpt_oss_prompts_come_from_the_servers_harmony_builder():
+    """Batch renders gpt-oss with the builder `vllm serve` uses, not LLM.chat."""
+    calls = []
+
+    def harmony_builder(server, request, should_include_tools):
+        calls.append((server, request, should_include_tools))
+        return [], [{"prompt_token_ids": [len(calls)]}]
+
+    engine = _gpt_oss_engine()
+    with_tools = Conversation(
+        tools=[_WEATHER_TOOL],
+        messages=[Message(role=Role.USER, content="weather in Tokyo?")],
+    )
+    without_tools = Conversation(messages=[Message(role=Role.USER, content="hi")])
+    module = "oumi.inference.vllm_inference_engine"
+    with (
+        patch(f"{module}.SamplingParams", create=True),
+        patch(f"{module}.ChatCompletionRequest", _FakeChatCompletionRequest),
+        patch(f"{module}._harmony_request_builder", return_value=harmony_builder),
+    ):
+        engine.infer([with_tools, without_tools], _get_default_inference_config())
+
+    engine._llm.chat.assert_not_called()
+    sent_prompts = engine._llm.generate.call_args.args[0]
+    assert sent_prompts == [{"prompt_token_ids": [1]}, {"prompt_token_ids": [2]}]
+    [(server, tool_request, tool_flag), (_, plain_request, plain_flag)] = calls
+    assert not server.supports_browsing and not server.supports_code_interpreter
+    assert tool_request.messages == [{"role": "user", "content": "weather in Tokyo?"}]
+    assert tool_request.tools == [_WEATHER_TOOL_DICT]
+    assert tool_flag is True
+    assert plain_request.tools is None
+    assert plain_flag is False
+
+
+def test_other_models_keep_the_chat_template():
+    engine = _gpt_oss_engine(model_type="qwen3")
+    engine._llm.chat.return_value = [
+        SimpleNamespace(
+            outputs=[SimpleNamespace(text="ok", token_ids=[1], finish_reason="stop")],
+            prompt_token_ids=[2],
+        )
+    ]
+    conv = Conversation(messages=[Message(role=Role.USER, content="hi")])
+
+    with patch("oumi.inference.vllm_inference_engine.SamplingParams", create=True):
+        engine.infer([conv], _get_default_inference_config())
+
+    engine._llm.generate.assert_not_called()
+    engine._llm.chat.assert_called_once()
+
+
 class _FakeToolsParam:
     """Stands in for vLLM's typed `ChatCompletionToolsParam`."""
 
