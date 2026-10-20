@@ -915,6 +915,38 @@ def test_infer_online_retry_after_honored_in_full(mock_asyncio_sleep):
             assert delays == [600.0]  # honored in full, not truncated
 
 
+def test_infer_online_short_retry_after_does_not_shorten_backoff(
+    mock_asyncio_sleep,
+):
+    with patch("random.uniform", return_value=1.0):
+        with aioresponses() as m:
+            for _ in range(3):
+                m.post(
+                    _TARGET_SERVER,
+                    status=429,
+                    headers={"Retry-After": "1"},
+                    payload={"error": {"message": "Rate limited"}},
+                )
+            m.post(
+                _TARGET_SERVER,
+                payload={
+                    "choices": [{"message": {"role": "assistant", "content": "ok"}}]
+                },
+            )
+            engine = RemoteInferenceEngine(
+                _get_default_model_params(),
+                remote_params=RemoteParams(api_url=_TARGET_SERVER),
+            )
+            config = _get_default_inference_config()
+            conversation = Conversation(
+                messages=[Message(content="Hello world!", role=Role.USER)],
+                conversation_id="123",
+            )
+            engine.infer([conversation], config)
+            delays = [call.args[0] for call in mock_asyncio_sleep.call_args_list]
+            assert delays == [1.0, 10.0, 30.0]
+
+
 def test_infer_online_retry_after_jitter_applied(mock_asyncio_sleep):
     with patch("random.uniform", return_value=1.2):
         with aioresponses() as m:

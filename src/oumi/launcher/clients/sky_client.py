@@ -162,6 +162,25 @@ def _convert_job_to_task(job: JobConfig) -> "sky.Task":
     return sky_task
 
 
+class SkyRequestStatus(str, Enum):
+    """Status of a request on the Sky Pilot server."""
+
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    SUCCEEDED = "SUCCEEDED"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+
+    @property
+    def is_terminal(self) -> bool:
+        """Whether the request has finished."""
+        return self in (
+            SkyRequestStatus.SUCCEEDED,
+            SkyRequestStatus.FAILED,
+            SkyRequestStatus.CANCELLED,
+        )
+
+
 class SkyClient:
     """A wrapped client for communicating with Sky Pilot."""
 
@@ -181,21 +200,25 @@ class SkyClient:
         """Initializes a new instance of the SkyClient class."""
         # Delay sky import: https://github.com/oumi-ai/oumi/issues/1605
         import sky
+        from sky.server import common as sky_server_common
 
         self._sky_lib = sky
+        # Sky Pilot types request ids as its own str subclass.
+        self._sky_request_id = sky_server_common.RequestId
 
-    def launch(
-        self, job: JobConfig, cluster_name: str | None = None, **kwargs
-    ) -> JobStatus:
-        """Creates a cluster and starts the provided Job.
+    def submit(self, job: JobConfig, cluster_name: str | None = None, **kwargs) -> str:
+        """Submit a cluster launch without waiting for the job to start.
+
+        Pass the returned request ID to :meth:`wait` to get the job or to
+        :meth:`cancel_request` to cancel the launch.
 
         Args:
-            job: The job to execute on the cluster.
-            cluster_name: The name of the cluster to create.
-            kwargs: Additional arguments to pass to the Sky Pilot client.
+            job: Job to run on the cluster.
+            cluster_name: Name of the cluster to create.
+            kwargs: Launch options, including `idle_minutes_to_autostop` and `down`.
 
         Returns:
-            A JobStatus with only `id` and `cluster` populated.
+            ID of the launch request on the Sky Pilot server.
         """
         sky_cloud = _get_sky_cloud_from_job(job)
         sky_task = _convert_job_to_task(job)
@@ -231,15 +254,33 @@ class SkyClient:
         # Autostop only halts the cluster; its disks keep billing until something
         # tears it down. `down` makes the idle timer terminate instead.
         down = bool(kwargs.get("down", False))
-        job_id = self._sky_lib.launch(
+        request_id = self._sky_lib.launch(
             sky_task,
             cluster_name=cluster_name,
             idle_minutes_to_autostop=idle_minutes_to_autostop,
             down=down,
         )
+        return str(request_id)
 
+    def wait(self, request_id: str) -> JobStatus:
+        """Wait for a submitted launch and return its job information.
+
+        Args:
+            request_id: ID returned by :meth:`submit`.
+
+        Returns:
+            A JobStatus with the job ID, cluster name, and hourly cost when available.
+
+        Raises:
+            sky.exceptions.RequestCancelled: The request was cancelled, by
+                :meth:`cancel_request` or otherwise, before a job started.
+            RuntimeError: The launch finishes without starting a job.
+            Exception: A failed launch re-raises the provider's own error.
+        """
         # Stream logs and get the output.
-        job_id, resource_handle = self._sky_lib.stream_and_get(job_id)
+        job_id, resource_handle = self._sky_lib.stream_and_get(
+            self._sky_request_id(request_id)
+        )
         if job_id is None or resource_handle is None:
             raise RuntimeError("Failed to launch job.")
         # Extract hourly cost from launched resources (includes all nodes).
@@ -257,6 +298,74 @@ class SkyClient:
             done=False,
             state=JobState.PENDING,
             cost_per_hour=cost_per_hour,
+        )
+
+    def launch(
+        self, job: JobConfig, cluster_name: str | None = None, **kwargs
+    ) -> JobStatus:
+        """Create a cluster and wait for its job to start.
+
+        This is equivalent to calling :meth:`submit` and then :meth:`wait`.
+        Use those methods separately to retain the request ID for cancellation
+        or status checks.
+
+        Args:
+            job: Job to run on the cluster.
+            cluster_name: Name of the cluster to create.
+            kwargs: Launch options, including `idle_minutes_to_autostop` and `down`.
+
+        Returns:
+            A JobStatus with the job ID, cluster name, and hourly cost when available.
+        """
+        return self.wait(self.submit(job, cluster_name, **kwargs))
+
+    def cancel_request(self, request_id: str) -> bool:
+        """Cancel a launch request submitted with :meth:`submit`.
+
+        Cancelling stops the request; it does not remove a cluster the request
+        had already started to build, so a caller that must not leak resources
+        tears the cluster down by name afterwards. A finished request cannot be
+        cancelled; :meth:`request_status` then reports how it ended.
+
+        Args:
+            request_id: ID returned by :meth:`submit`.
+
+        Returns:
+            Whether the request was still running and is now cancelled.
+        """
+        cancelled = self._sky_lib.stream_and_get(
+            self._sky_lib.api_cancel(request_ids=[request_id])
+        )
+        return request_id in cancelled
+
+    def request_status(self, request_id: str) -> SkyRequestStatus:
+        """Get the current status of a launch request.
+
+        Args:
+            request_id: ID returned by :meth:`submit`.
+
+        Returns:
+            Current request status on the Sky Pilot server.
+
+        Raises:
+            RuntimeError: No request with this ID is found, no Sky Pilot API
+                server answered, or the server reported a status this client
+                does not know. A caller deciding what happened to a launch
+                should read this as unresolved, not as absent.
+        """
+        # Sky Pilot matches request IDs by prefix, so keep only the exact ID.
+        payloads = self._sky_lib.api_status(request_ids=[request_id], all_status=True)
+        for payload in payloads:
+            if payload.request_id != request_id:
+                continue
+            try:
+                return SkyRequestStatus(payload.status)
+            except ValueError as e:
+                raise RuntimeError(
+                    f"Request {request_id} has unknown status {payload.status!r}."
+                ) from e
+        raise RuntimeError(
+            f"Request {request_id} not found (or no Sky Pilot API server answered)."
         )
 
     def get_cluster_hourly_price(self, cluster_name: str) -> float | None:

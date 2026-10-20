@@ -56,7 +56,7 @@ repos:
       - id: pyright
         name: pyright
         entry: env PYRIGHT_PYTHON_PYLANCE_VERSION=latest-release pyright
-        language: node
+        language: system
         types: [python]
         pass_filenames: false
   - repo: https://github.com/asottile/pyupgrade

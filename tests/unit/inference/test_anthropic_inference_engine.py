@@ -110,6 +110,8 @@ def test_convert_conversation_omits_metadata_without_user_id(anthropic_engine):
         ("claude-sonnet-4-6", True),
         ("claude-sonnet-5", False),
         ("claude-haiku-4-5", True),
+        ("claude-haiku-5-5", False),
+        ("claude-haiku-5", False),  # round version, no minor component
         ("claude-3-5-sonnet-20241022", True),
         ("claude-3", True),
         ("claude-fable-5", False),

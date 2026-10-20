@@ -1116,6 +1116,37 @@ def test_other_parser_uses_extracted_content_without_tool_calls(
     assert finish_reason_override is None
 
 
+def test_openai_parser_reads_gpt_oss_channels_from_token_ids():
+    parser_instance = Mock()
+    parser_instance.extract_tool_calls.return_value = SimpleNamespace(
+        tools_called=False,
+        tool_calls=[],
+        content="no",
+    )
+    engine = object.__new__(VLLMInferenceEngine)
+    engine._tool_parser = parser_instance
+    engine._tool_parser_name = "openai"
+    conv = Conversation(
+        messages=[Message(role=Role.USER, content="hi")], conversation_id="1"
+    )
+    completion = SimpleNamespace(
+        text="analysisThe user greets me.assistantfinalno",
+        token_ids=[200005, 35644, 200008],
+    )
+
+    messages, finish_reason_override = engine._build_response_messages(
+        conv, SimpleNamespace(outputs=[completion])
+    )
+
+    parser_instance.extract_tool_calls.assert_called_once_with(
+        completion.text,
+        request=ANY,
+        token_ids=[200005, 35644, 200008],
+    )
+    assert messages[-1].content == "no"
+    assert finish_reason_override is None
+
+
 class _FakeEngineParser:
     """Stands in for vLLM's `ParserEngineToolAdapter`."""
 
@@ -1547,6 +1578,7 @@ def test_build_serve_args_matches_engine_kwargs(mock_vllm):
     model_params = _get_default_model_params(use_lora=True)
     model_params.model_max_length = 4096
     model_params.tool_call_parser = "hermes"
+    model_params.chat_template_kwargs = {"enable_thinking": False}
 
     with (
         patch("oumi.inference.vllm_inference_engine.get_lora_rank", return_value=32),
@@ -1587,6 +1619,8 @@ def test_build_serve_args_matches_engine_kwargs(mock_vllm):
         "--enable-auto-tool-choice",
         "--tool-call-parser",
         "hermes",
+        "--default-chat-template-kwargs",
+        '{"enable_thinking": false}',
         "--generation-config",
         "vllm",
     ]
@@ -1605,3 +1639,4 @@ def test_build_serve_args_negates_false_flags():
     assert "--max-model-len" not in args
     assert "--lora-modules" not in args
     assert "--tool-call-parser" not in args
+    assert "--default-chat-template-kwargs" not in args

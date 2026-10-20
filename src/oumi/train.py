@@ -318,6 +318,13 @@ def _maybe_raise_dynamo_recompile_limit(config: TrainingConfig) -> None:
     torch._dynamo.config.cache_size_limit = limit
     if hasattr(torch._dynamo.config, "recompile_limit"):
         torch._dynamo.config.recompile_limit = limit
+    # torch>=2.12 keeps config overrides per thread, so the assignments above miss
+    # the threads autograd runs the backward pass on; those read the config
+    # default, so raise it too.
+    for name in ("recompile_limit", "cache_size_limit"):
+        entry = getattr(torch._dynamo.config, "_config", {}).get(name)
+        if entry is not None and getattr(entry, "alias", None) is None:
+            entry.default = limit
     logger.info(f"Set torch dynamo recompile limit to {limit} (pad_to_multiple_of).")
 
 

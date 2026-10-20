@@ -93,6 +93,7 @@ _OUTPUT_CONFIG_MIN_VERSION: tuple[int, int] = (4, 5)
 # First version in each family to reject temperature/top_p/top_k.
 _OPUS_SAMPLING_PARAMS_REMOVED_VERSION: tuple[int, int] = (4, 7)
 _SONNET_SAMPLING_PARAMS_REMOVED_VERSION: tuple[int, int] = (5, 0)
+_HAIKU_SAMPLING_PARAMS_REMOVED_VERSION: tuple[int, int] = (5, 0)
 
 
 class _ClaudeModelVersion(NamedTuple):
@@ -1099,5 +1100,5 @@ def _model_supports_sampling_params(model_name: str) -> bool:
     if parsed.family == _SONNET_FAMILY:
         return parsed.version < _SONNET_SAMPLING_PARAMS_REMOVED_VERSION
     if parsed.family == _HAIKU_FAMILY:
-        return True
+        return parsed.version < _HAIKU_SAMPLING_PARAMS_REMOVED_VERSION
     raise NotImplementedError(f"unhandled Claude family: {parsed.family}")
