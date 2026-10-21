@@ -17,6 +17,7 @@ from __future__ import annotations
 import copy
 import dataclasses
 import functools
+import importlib
 import json
 import math
 import os
@@ -46,6 +47,7 @@ from oumi.utils.peft_utils import get_lora_rank
 from oumi.utils.vllm_utils.gemma4_compat import ACTIVATION_ENV_VAR
 
 if TYPE_CHECKING:
+    from vllm.inputs import TokensPrompt  # pyright: ignore[reportMissingImports]
     from vllm.outputs import RequestOutput  # pyright: ignore[reportMissingImports]
 
 try:
@@ -106,20 +108,24 @@ try:
     # from the schema (e.g. qwen3_xml, Gemma 4) skip plain dicts.
     try:
         from vllm.entrypoints.openai.chat_completion.protocol import (  # pyright: ignore[reportMissingImports]
+            ChatCompletionRequest,
             ChatCompletionToolsParam,
         )
     except ImportError:
         try:
             from vllm.entrypoints.openai.protocol import (  # pyright: ignore[reportMissingImports]
+                ChatCompletionRequest,
                 ChatCompletionToolsParam,
             )
         except ImportError:
+            ChatCompletionRequest = None  # type: ignore[assignment]
             ChatCompletionToolsParam = None  # type: ignore[assignment]
 except ModuleNotFoundError:
     vllm = None
     _VLLM_V0_12 = False
     ToolParserManager = None  # type: ignore[assignment]
     _VLLM_TOOL_PARSERS_AVAILABLE = False
+    ChatCompletionRequest = None  # type: ignore[assignment]
     ChatCompletionToolsParam = None  # type: ignore[assignment]
 
 
@@ -181,6 +187,35 @@ def _build_parser_request_tools(
             exc_info=True,
         )
         return tool_dicts
+
+
+# Where each vLLM release keeps the server's gpt-oss prompt builder.
+_HARMONY_REQUEST_BUILDERS = (
+    ("vllm.renderers.online_renderer", "OnlineRenderer"),  # e.g. 0.30
+    ("vllm.entrypoints.serve.render.serving", "OpenAIServingRender"),  # e.g. 0.19
+    ("vllm.entrypoints.openai.serving_chat", "OpenAIServingChat"),  # e.g. 0.14
+)
+
+
+@functools.cache
+def _harmony_request_builder():
+    """The `_make_request_with_harmony` method `vllm serve` builds gpt-oss prompts with.
+
+    vLLM renders gpt-oss chats with openai_harmony only on its server; offline
+    `LLM.chat` applies the HF chat template, which lays out tool results and
+    system prompts differently. Returns None when this vLLM has no such builder.
+    """
+    for module_name, class_name in _HARMONY_REQUEST_BUILDERS:
+        try:
+            module = importlib.import_module(module_name)
+        except ImportError:
+            continue
+        builder = getattr(
+            getattr(module, class_name, None), "_make_request_with_harmony", None
+        )
+        if builder is not None:
+            return builder
+    return None
 
 
 def _parse_nvcc_release_version(nvcc_version_output: str) -> tuple[int, int] | None:
@@ -751,8 +786,19 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         if len(vllm_conversations) == 0:
             return []
 
+        harmony_prompts = self._render_harmony_prompts(
+            non_skipped_conversations, vllm_conversations, model_params
+        )
         any_tools = any(c.tools for c in non_skipped_conversations)
-        if not any_tools:
+        if harmony_prompts is not None:
+            # Each prompt already carries its conversation's tools.
+            chat_responses = self._llm.generate(
+                harmony_prompts,
+                sampling_params=sampling_params,
+                lora_request=self._lora_request,
+                use_tqdm=(len(harmony_prompts) >= 2),
+            )
+        elif not any_tools:
             # Fast path: single batched call, unchanged from prior behavior.
             chat_responses = self._llm.chat(
                 vllm_conversations,
@@ -819,6 +865,50 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             output_conversations.append(new_conversation)
 
         return output_conversations
+
+    def _render_harmony_prompts(
+        self,
+        conversations: list[Conversation],
+        vllm_conversations: list[list[ChatCompletionMessageParam]],
+        model_params: ModelParams,
+    ) -> list[TokensPrompt] | None:
+        """Renders gpt-oss prompts as `vllm serve` does, or None for other models.
+
+        Each conversation goes through the server's own request validation and
+        harmony builder, so batch and served prompts match token for token.
+        """
+        if self._llm.model_config.hf_config.model_type != "gpt_oss":
+            return None
+        builder = _harmony_request_builder()
+        if builder is None or ChatCompletionRequest is None:
+            logger.warning(
+                "This vLLM has no harmony prompt builder; rendering gpt-oss with "
+                "the chat template, which differs from `vllm serve`."
+            )
+            return None
+        # The builder reads only these server settings.
+        server = SimpleNamespace(
+            supports_browsing=False, supports_code_interpreter=False
+        )
+        reasoning_effort = (model_params.chat_template_kwargs or {}).get(
+            "reasoning_effort"
+        )
+        prompts: list[TokensPrompt] = []
+        for conversation, messages in zip(conversations, vllm_conversations):
+            request_fields: dict[str, object] = {"messages": messages}
+            if conversation.tools:
+                request_fields["tools"] = [
+                    t.model_dump(mode="json", exclude_none=True)
+                    for t in conversation.tools
+                ]
+            if reasoning_effort is not None:
+                request_fields["reasoning_effort"] = reasoning_effort
+            request = ChatCompletionRequest.model_validate(request_fields)
+            _, [engine_prompt] = builder(
+                server, request, should_include_tools=request.tools is not None
+            )
+            prompts.append({"prompt_token_ids": engine_prompt["prompt_token_ids"]})
+        return prompts
 
     @staticmethod
     def _group_by_tools(
@@ -924,6 +1014,10 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                         # Lossless parser input may contain protocol tokens or
                         # otherwise differ from the user-facing representation.
                         content = display_text
+                    elif parser_capabilities.requires_token_ids:
+                        # Without a final channel the display text is reasoning;
+                        # `vllm serve` returns no content there either.
+                        content = extracted.content or ""
                     else:
                         # Preserve the parser's normal clean-text behavior, but
                         # never let a parser miss erase a nonempty completion.
