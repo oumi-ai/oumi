@@ -67,6 +67,10 @@ class TestFireworksStateMap:
             FW_STATE_TO_ENDPOINT[GatewayDeploymentState.READY] == EndpointState.RUNNING
         )
         assert (
+            FW_STATE_TO_ENDPOINT[GatewayDeploymentState.PARTIAL_READY]
+            == EndpointState.STARTING
+        )
+        assert (
             FW_STATE_TO_ENDPOINT[GatewayDeploymentState.DELETING]
             == EndpointState.STOPPING
         )
@@ -459,6 +463,33 @@ class TestFireworksDeploymentClient:
             assert "/deployments/deploy-123" in mock_get.call_args[0][0]
             assert result.endpoint_id == "deploy-123"
             assert result.state == EndpointState.RUNNING
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("fireworks_state", "expected_state"),
+        [
+            ("PARTIAL_READY", EndpointState.STARTING),
+            ("SOME_FUTURE_STATE", EndpointState.PENDING),
+        ],
+    )
+    async def test_get_endpoint_non_ready_states(self, fireworks_state, expected_state):
+        """PARTIAL_READY keeps polling; a state the enum lacks parses as PENDING."""
+        client = FireworksDeploymentClient(api_key="test", account_id="test-account")
+
+        mock_response = MagicMock()
+        mock_response.is_success = True
+        mock_response.json.return_value = {
+            "name": "accounts/test-account/deployments/deploy-123",
+            "baseModel": "model-456",
+            "state": fireworks_state,
+        }
+
+        with patch.object(
+            client._client, "get", new_callable=AsyncMock, return_value=mock_response
+        ):
+            result = await client.get_endpoint("deploy-123")
+
+        assert result.state == expected_state
 
     @pytest.mark.asyncio
     async def test_delete_endpoint(self):

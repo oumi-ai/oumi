@@ -21,12 +21,16 @@ These models provide typed request/response schemas used by
 :class:`~oumi.deploy.fireworks_client.FireworksDeploymentClient`.
 """
 
+import logging
 from datetime import datetime
 from enum import Enum
+from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from oumi.deploy.base_client import EndpointState
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Enums — generated from fireworks.openapi.yaml §components/schemas
@@ -64,6 +68,7 @@ class GatewayDeploymentState(str, Enum):
     STATE_UNSPECIFIED = "STATE_UNSPECIFIED"
     CREATING = "CREATING"
     READY = "READY"
+    PARTIAL_READY = "PARTIAL_READY"
     DELETING = "DELETING"
     FAILED = "FAILED"
     UPDATING = "UPDATING"
@@ -396,6 +401,26 @@ class GatewayDeployment(_FWBaseModel):
         default=None, alias="replicaStats"
     )
 
+    @field_validator("state", mode="before")
+    @classmethod
+    def _coerce_unknown_state(cls, v: Any) -> Any:
+        """Maps a state missing from the enum to ``STATE_UNSPECIFIED``.
+
+        Fireworks adds deployment states without notice. Rejecting the whole
+        deployment on an unknown state breaks every caller that polls it.
+        """
+        if not isinstance(v, str):
+            return v
+        try:
+            return GatewayDeploymentState(v)
+        except ValueError:
+            logger.warning(
+                "Unknown Fireworks deployment state %r; treating as %s",
+                v,
+                GatewayDeploymentState.STATE_UNSPECIFIED.value,
+            )
+            return GatewayDeploymentState.STATE_UNSPECIFIED
+
 
 class GatewayGetModelUploadEndpointBody(_FWBaseModel):
     """GatewayGetModelUploadEndpointBody — request for signed upload URLs.
@@ -491,6 +516,7 @@ FW_STATE_TO_ENDPOINT: dict[GatewayDeploymentState, EndpointState] = {
     GatewayDeploymentState.STATE_UNSPECIFIED: EndpointState.PENDING,
     GatewayDeploymentState.CREATING: EndpointState.STARTING,
     GatewayDeploymentState.READY: EndpointState.RUNNING,
+    GatewayDeploymentState.PARTIAL_READY: EndpointState.STARTING,
     GatewayDeploymentState.DELETING: EndpointState.STOPPING,
     GatewayDeploymentState.DELETED: EndpointState.STOPPED,
     GatewayDeploymentState.FAILED: EndpointState.ERROR,
