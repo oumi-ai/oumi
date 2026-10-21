@@ -7,6 +7,7 @@ from oumi.core.configs import (
     DatasetParams,
     DatasetSplitParams,
     ModelParams,
+    PeftParams,
     TrainingConfig,
     TrainingParams,
 )
@@ -173,6 +174,34 @@ def restore_dynamo_limits():
     torch._dynamo.config.cache_size_limit = saved
     for name, default in saved_defaults.items():
         entries[name].default = default
+
+
+@pytest.mark.parametrize("adapter_trainable", [False, True])
+def test_train_keeps_a_trainable_adapter_instead_of_wrapping_it(
+    mock_build_trainer,
+    mock_build_dataset_mixture,
+    mock_build_model,
+    mock_build_collator,
+    mock_log_params,
+    mock_configure_logger,
+    base_training_config,
+    adapter_trainable,
+):
+    """A PEFT run continuing a loaded adapter must not stack a new one on it."""
+    config = base_training_config
+    config.model.adapter_model = "/adapters/sft"
+    config.model.adapter_trainable = adapter_trainable
+    config.training.use_peft = True
+    config.peft = PeftParams()
+    mock_model = Mock()
+    mock_model.named_modules.return_value = []
+    mock_build_model.return_value = (mock_model, Mock())
+    mock_build_trainer.return_value.train.return_value = Mock()
+
+    with patch("oumi.train.build_peft_model") as mock_build_peft_model:
+        train(config)
+
+    assert mock_build_peft_model.called is (not adapter_trainable)
 
 
 def test_recompile_limit_unset_without_pad_to_multiple_of(
