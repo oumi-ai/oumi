@@ -1168,7 +1168,9 @@ def test_openai_parser_keeps_reasoning_out_of_an_unfinished_answer():
     assert messages[-1].content == ""
 
 
-def _gpt_oss_engine(model_type: str = "gpt_oss") -> VLLMInferenceEngine:
+def _gpt_oss_engine(
+    model_type: str = "gpt_oss",
+) -> tuple[VLLMInferenceEngine, Mock]:
     engine = object.__new__(VLLMInferenceEngine)
     BaseInferenceEngine.__init__(
         engine,
@@ -1188,7 +1190,7 @@ def _gpt_oss_engine(model_type: str = "gpt_oss") -> VLLMInferenceEngine:
     engine._tool_parser = None
     engine._save_conversation_to_scratch = Mock()
     engine._cleanup_scratch_file = Mock()
-    return engine
+    return engine, engine._llm
 
 
 class _FakeChatCompletionRequest(SimpleNamespace):
@@ -1207,7 +1209,7 @@ def test_gpt_oss_prompts_come_from_the_servers_harmony_builder():
         calls.append((server, request, should_include_tools))
         return [], [{"prompt_token_ids": [len(calls)]}]
 
-    engine = _gpt_oss_engine()
+    engine, llm = _gpt_oss_engine()
     with_tools = Conversation(
         tools=[_WEATHER_TOOL],
         messages=[Message(role=Role.USER, content="weather in Tokyo?")],
@@ -1221,8 +1223,8 @@ def test_gpt_oss_prompts_come_from_the_servers_harmony_builder():
     ):
         engine.infer([with_tools, without_tools], _get_default_inference_config())
 
-    engine._llm.chat.assert_not_called()
-    sent_prompts = engine._llm.generate.call_args.args[0]
+    llm.chat.assert_not_called()
+    sent_prompts = llm.generate.call_args.args[0]
     assert sent_prompts == [{"prompt_token_ids": [1]}, {"prompt_token_ids": [2]}]
     [(server, tool_request, tool_flag), (_, plain_request, plain_flag)] = calls
     assert not server.supports_browsing and not server.supports_code_interpreter
@@ -1234,8 +1236,8 @@ def test_gpt_oss_prompts_come_from_the_servers_harmony_builder():
 
 
 def test_other_models_keep_the_chat_template():
-    engine = _gpt_oss_engine(model_type="qwen3")
-    engine._llm.chat.return_value = [
+    engine, llm = _gpt_oss_engine(model_type="qwen3")
+    llm.chat.return_value = [
         SimpleNamespace(
             outputs=[SimpleNamespace(text="ok", token_ids=[1], finish_reason="stop")],
             prompt_token_ids=[2],
@@ -1246,8 +1248,8 @@ def test_other_models_keep_the_chat_template():
     with patch("oumi.inference.vllm_inference_engine.SamplingParams", create=True):
         engine.infer([conv], _get_default_inference_config())
 
-    engine._llm.generate.assert_not_called()
-    engine._llm.chat.assert_called_once()
+    llm.generate.assert_not_called()
+    llm.chat.assert_called_once()
 
 
 class _FakeToolsParam:

@@ -47,6 +47,7 @@ from oumi.utils.peft_utils import get_lora_rank
 from oumi.utils.vllm_utils.gemma4_compat import ACTIVATION_ENV_VAR
 
 if TYPE_CHECKING:
+    from vllm.inputs import TokensPrompt  # pyright: ignore[reportMissingImports]
     from vllm.outputs import RequestOutput  # pyright: ignore[reportMissingImports]
 
 try:
@@ -870,7 +871,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         conversations: list[Conversation],
         vllm_conversations: list[list[ChatCompletionMessageParam]],
         model_params: ModelParams,
-    ) -> list[dict] | None:
+    ) -> list[TokensPrompt] | None:
         """Renders gpt-oss prompts as `vllm serve` does, or None for other models.
 
         Each conversation goes through the server's own request validation and
@@ -892,7 +893,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         reasoning_effort = (model_params.chat_template_kwargs or {}).get(
             "reasoning_effort"
         )
-        prompts = []
+        prompts: list[TokensPrompt] = []
         for conversation, messages in zip(conversations, vllm_conversations):
             request_fields: dict[str, object] = {"messages": messages}
             if conversation.tools:
