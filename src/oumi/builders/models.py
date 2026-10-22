@@ -358,8 +358,8 @@ def _apply_pretrained_adapter(model, model_params: ModelParams):
         is_trainable=model_params.adapter_trainable,
     )
     if model_params.adapter_trainable:
-        # PEFT only warns when saved adapter keys don't match the model, which
-        # would continue training from a freshly initialized adapter.
+        # from_pretrained only warns on missing adapter keys, which would silently
+        # train a fresh adapter. load_adapter returns them, so check explicitly.
         load_result = peft_model.load_adapter(
             model_params.adapter_model,
             adapter_name="default",

@@ -591,10 +591,8 @@ class VerlGrpoTrainer(BaseTrainer):
         overrides_config = OmegaConf.create(training_params.verl_config_overrides)
         config = cast(DictConfig, OmegaConf.merge(config, overrides_config))
 
-        # A trainable adapter is the policy to keep training. verl loads it over
-        # the base weights with its saved rank and targets; mirroring the rank
-        # here makes the vLLM rollout serve the adapter at that size, whatever
-        # a preset set for a fresh adapter.
+        # Pass the saved adapter to verl. lora_rank needs to be explicitly set for
+        # vLLM rollout.
         if model_params.adapter_model:
             if not model_params.adapter_trainable:
                 raise ValueError(
