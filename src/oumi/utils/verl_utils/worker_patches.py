@@ -20,3 +20,4 @@ each worker, so this module imports every patch module.
 
 import oumi.utils.verl_utils.dynamic_bsz_dp_sync  # noqa: F401
 import oumi.utils.verl_utils.fsdp1_rank_buffer_sync  # noqa: F401
+import oumi.utils.verl_utils.qwen3_5_packed_linear_attention  # noqa: F401
