@@ -20,6 +20,7 @@ from oumi.inference import (
     DeepSeekInferenceEngine,
     GoogleGeminiInferenceEngine,
     GoogleVertexInferenceEngine,
+    LiteLLMInferenceEngine,
     LlamaCppInferenceEngine,
     NativeTextInferenceEngine,
     OpenAIInferenceEngine,
@@ -54,6 +55,13 @@ try:
 except ImportError:
     boto3_import_failed = True
 
+try:
+    import litellm  # noqa: F401 # pyright: ignore[reportMissingImports]
+
+    litellm_import_failed = False
+except ImportError:
+    litellm_import_failed = True
+
 # Group engines by whether they require remote params
 LOCAL_ENGINES = [
     NativeTextInferenceEngine,
@@ -74,6 +82,7 @@ REMOTE_API_ENGINES = [
     DeepSeekInferenceEngine,
     GoogleGeminiInferenceEngine,
     GoogleVertexInferenceEngine,
+    LiteLLMInferenceEngine,
     OpenAIInferenceEngine,
     ParasailInferenceEngine,
     SambanovaInferenceEngine,
@@ -86,6 +95,7 @@ def _should_skip_engine(engine_class) -> bool:
         (engine_class == VLLMInferenceEngine and vllm_import_failed)
         or (engine_class == LlamaCppInferenceEngine and llama_cpp_import_failed)
         or (engine_class == BedrockInferenceEngine and boto3_import_failed)
+        or (engine_class == LiteLLMInferenceEngine and litellm_import_failed)
     )
 
 
@@ -110,6 +120,8 @@ def _mock_engine(engine_class):
         mock_ctx = patch("llama_cpp.Llama.from_pretrained")
     elif engine_class == BedrockInferenceEngine:
         mock_ctx = patch("boto3.client")
+    elif engine_class == LiteLLMInferenceEngine:
+        mock_ctx = patch("oumi.inference.litellm_inference_engine.litellm")
     elif engine_class == SGLangInferenceEngine:
         mock_ctx = patch.multiple(
             "oumi.inference.sglang_inference_engine",
