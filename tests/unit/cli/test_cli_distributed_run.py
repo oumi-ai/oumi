@@ -549,7 +549,7 @@ def test_torchrun_localmachine_no_accelerator(
     mock_os.environ.copy.return_value = copy.deepcopy(test_env_vars)
     mock_torch.cuda.is_available.return_value = False
     mock_torch.cuda.device_count.return_value = 0
-    mock_torch.accelerator.current_accelerator.return_value = None
+    mock_torch.accelerator.device_count.return_value = 0
 
     monkeypatch.setattr("oumi.cli.distributed_run.sys.stdout", sys.stdout)
     monkeypatch.setattr("oumi.cli.distributed_run.sys.stderr", sys.stderr)

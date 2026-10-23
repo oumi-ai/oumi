@@ -446,9 +446,6 @@ def _get_accelerator_device_count() -> int:
     """
     import torch  # Importing torch takes time so only load it in this scenario.
 
-    if torch.accelerator.current_accelerator() is None:
-        # CPU-only machine: no accelerator to run distributed jobs on.
-        return 0
     return torch.accelerator.device_count()
 
 
