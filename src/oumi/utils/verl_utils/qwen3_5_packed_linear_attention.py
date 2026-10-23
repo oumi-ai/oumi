@@ -37,7 +37,9 @@ import torch
 _MODELING_MODULE = "transformers.models.qwen3_5.modeling_qwen3_5"
 _DECODER_LAYER_CLASS = "Qwen3_5DecoderLayer"
 _LINEAR_ATTENTION_CLASS = "Qwen3_5GatedDeltaNet"
-_LINEAR_ATTENTION_LAYER_TYPE = "linear_attention"
+# Every linear-attention decoder layer has this submodule, whereas its layer-type
+# attribute is `layer_type` or `block_type` depending on the transformers version.
+_LINEAR_ATTENTION_MODULE = "linear_attn"
 
 _SEQUENCE_STARTS: ContextVar[list[int] | None] = ContextVar(
     "qwen3_5_packed_sequence_starts", default=None
@@ -66,7 +68,7 @@ def _packed_sequence_starts(
 
 def _with_sequence_starts(decoder_forward: Callable[..., Any]) -> Callable[..., Any]:
     def forward(self, hidden_states, *args, **kwargs):
-        if self.layer_type != _LINEAR_ATTENTION_LAYER_TYPE:
+        if not hasattr(self, _LINEAR_ATTENTION_MODULE):
             return decoder_forward(self, hidden_states, *args, **kwargs)
         starts = _packed_sequence_starts(
             kwargs.get("position_ids"),
@@ -83,17 +85,15 @@ def _with_sequence_starts(decoder_forward: Callable[..., Any]) -> Callable[..., 
 
 
 def _per_sequence(linear_attention_forward: Callable[..., Any]) -> Callable[..., Any]:
-    def forward(self, hidden_states, cache_params=None, attention_mask=None):
+    def forward(self, hidden_states, *args, **kwargs):
         starts = _SEQUENCE_STARTS.get()
         if starts is None:
-            return linear_attention_forward(
-                self, hidden_states, cache_params, attention_mask
-            )
+            return linear_attention_forward(self, hidden_states, *args, **kwargs)
         ends = starts[1:] + [hidden_states.shape[1]]
         return torch.cat(
             [
                 linear_attention_forward(
-                    self, hidden_states[:, start:end], cache_params, attention_mask
+                    self, hidden_states[:, start:end], *args, **kwargs
                 )
                 for start, end in zip(starts, ends)
             ],
