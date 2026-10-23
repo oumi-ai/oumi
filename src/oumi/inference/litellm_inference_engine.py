@@ -23,6 +23,7 @@ The provider is specified via the model string in ``ModelParams.model_name``
 import asyncio
 from typing import TYPE_CHECKING, Any, cast
 
+import aiohttp
 from tqdm.asyncio import tqdm
 from typing_extensions import override
 
@@ -80,6 +81,7 @@ class LiteLLMInferenceEngine(RemoteInferenceEngine):
         *,
         generation_params: GenerationParams | None = None,
         remote_params: RemoteParams | None = None,
+        http_session: aiohttp.ClientSession | None = None,
     ):
         """Initializes the LiteLLM inference engine.
 
@@ -88,6 +90,9 @@ class LiteLLMInferenceEngine(RemoteInferenceEngine):
                 LiteLLM model string format (e.g. ``anthropic/claude-sonnet-4-5``).
             generation_params: The generation parameters.
             remote_params: Parameters for remote inference.
+            http_session: A caller-owned aiohttp session, accepted like on every
+                remote engine. Completions go through the LiteLLM SDK's own HTTP
+                client, so it only applies to inherited helpers that use it.
 
         Raises:
             RuntimeError: If the ``litellm`` package is not installed.
@@ -101,6 +106,7 @@ class LiteLLMInferenceEngine(RemoteInferenceEngine):
             model_params=model_params,
             generation_params=generation_params,
             remote_params=remote_params,
+            http_session=http_session,
         )
 
     @property
@@ -238,6 +244,8 @@ class LiteLLMInferenceEngine(RemoteInferenceEngine):
         semaphore: PoliteAdaptiveSemaphore,
         session: Any,
         inference_config: Any | None = None,
+        *,
+        persist_scratch: bool = True,
     ) -> Conversation:
         """Queries LiteLLM using the SDK instead of HTTP.
 
@@ -246,6 +254,8 @@ class LiteLLMInferenceEngine(RemoteInferenceEngine):
             semaphore: Semaphore to limit concurrent requests.
             session: Unused (LiteLLM manages its own connections).
             inference_config: Parameters for inference.
+            persist_scratch: Whether to append the result to the scratch file. Only
+                resumable jobs need this; request-time generation does not.
 
         Returns:
             Conversation: Inference output.
@@ -314,10 +324,11 @@ class LiteLLMInferenceEngine(RemoteInferenceEngine):
                     result = self._convert_api_output_to_conversation(
                         response, conversation
                     )
-                    # Persist progress unconditionally; the base helper selects a
-                    # temporary scratch path when output_path is None, preserving
-                    # resume/checkpoint so completed paid requests are not repeated.
-                    self._save_conversation_to_scratch(result, output_path)
+                    # The base helper picks a temporary scratch path when
+                    # output_path is None, so resumable jobs never repeat completed
+                    # paid requests. Request-time generation skips the scratch file.
+                    if persist_scratch:
+                        self._save_conversation_to_scratch(result, output_path)
                     await self._try_record_success()
                     return result
             except RuntimeError:

@@ -1,6 +1,7 @@
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import aiohttp
 import pytest
 
 from oumi.core.configs import (
@@ -157,8 +158,44 @@ def test_query_api_calls_completion_and_converts_response(litellm_engine, mock_l
     assert mock_litellm.completion.call_args.kwargs.get("drop_params") is True
     assert result.messages[-1].role == Role.ASSISTANT
     assert result.messages[-1].content == "4"
-    # Progress is persisted unconditionally to preserve resume/checkpoint.
+    # Resumable jobs persist progress to the scratch file by default.
     assert mock_save.call_count == 1
+
+
+def test_query_api_skips_scratch_when_not_persisting(litellm_engine, mock_litellm):
+    mock_litellm.completion.return_value.model_dump.return_value = _openai_response("4")
+    conversation = Conversation(messages=[Message(content="2+2?", role=Role.USER)])
+
+    with patch.object(litellm_engine, "_save_conversation_to_scratch") as mock_save:
+        asyncio.run(
+            litellm_engine._query_api(
+                conversation,
+                _semaphore(litellm_engine),
+                None,
+                None,
+                persist_scratch=False,
+            )
+        )
+
+    assert mock_save.call_count == 0
+
+
+def test_generate_with_shared_http_session(mock_litellm):
+    mock_litellm.completion.return_value.model_dump.return_value = _openai_response("4")
+    session = MagicMock(spec=aiohttp.ClientSession)
+    engine = LiteLLMInferenceEngine(
+        model_params=ModelParams(model_name="anthropic/claude-sonnet-4-5"),
+        remote_params=RemoteParams(api_key="test_api_key"),
+        http_session=session,
+    )
+    conversation = Conversation(messages=[Message(content="2+2?", role=Role.USER)])
+
+    with patch.object(engine, "_save_conversation_to_scratch") as mock_save:
+        result = asyncio.run(engine.generate([conversation]))
+
+    assert engine._http_session is session
+    assert result[0].messages[-1].content == "4"
+    assert mock_save.call_count == 0
 
 
 def test_query_api_retries_then_succeeds(litellm_engine, mock_litellm):
