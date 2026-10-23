@@ -33,7 +33,7 @@ from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 from oumi.utils.logging import logger
 
 if TYPE_CHECKING:
-    from litellm import ModelResponse
+    from litellm import ModelResponse  # pyright: ignore[reportMissingImports]
 
 try:
     import litellm  # pyright: ignore[reportMissingImports]
