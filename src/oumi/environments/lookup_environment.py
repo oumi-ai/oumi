@@ -163,10 +163,6 @@ class ToolLookupEntry(BaseParams):
         """Canonical JSON form of ``input`` for matching and dedup."""
         return json.dumps(self.input, sort_keys=True)
 
-    def matches(self, arguments: dict[str, Any]) -> bool:
-        """Check if the input matches the given arguments."""
-        return self.input_key() == json.dumps(arguments, sort_keys=True)
-
 
 @dataclass
 class LookupEnvironmentKwargs(BaseParams):
@@ -226,14 +222,16 @@ class LookupEnvironment(BaseEnvironment):
                 f"Available tools: {sorted(self._tools_by_id)}"
             )
         arguments = _fill_argument_defaults(arguments, tool.parameters)
-        entries = self._kwargs.lookup_table.get(tool_id, [])
-        for entry in entries:
-            if entry.matches(arguments):
-                return ToolResult(output=entry.output)
-        available = [entry.input for entry in entries]
+        key = json.dumps(arguments, sort_keys=True)
+        outputs = self._outputs_by_key.get(tool_id, {})
+        if key in outputs:
+            return ToolResult(output=outputs[key])
+        available = [
+            entry.input for entry in self._kwargs.lookup_table.get(tool_id, [])
+        ]
         raise ToolLookupError(
             f"No lookup output matches arguments "
-            f"{json.dumps(arguments, sort_keys=True)} for tool '{tool_id}'. "
+            f"{key} for tool '{tool_id}'. "
             f"Configured inputs: {json.dumps(available, sort_keys=True)}"
         )
 
@@ -287,13 +285,18 @@ class LookupEnvironment(BaseEnvironment):
         return cls(params, kwargs)
 
     def _validate_lookup_table(self) -> None:
-        """Validate and normalize the lookup table.
+        """Validate and normalize the lookup table, and index it by input key.
 
         Entries under stale keys (no matching tool) are neither normalized nor
         validated. Inputs must conform to the tool's ``parameters``; outputs
         must be JSON values, and conform to ``output_schema`` only when the
         tool declares one.
+
+        The index maps each normalized input to its output so that resolving a
+        call is a dict lookup rather than a scan that re-encodes the table.
         """
+        outputs_by_key: dict[str, dict[str, JsonValue]] = {}
+        self._outputs_by_key = outputs_by_key
         for tool_id in self._kwargs.lookup_table:
             if tool_id not in self._tools_by_id:
                 logger.warning(
@@ -320,6 +323,7 @@ class LookupEnvironment(BaseEnvironment):
                     "'properties' chains; move them onto a property."
                 )
             seen: set[str] = set()
+            outputs: dict[str, JsonValue] = {}
             for entry in entries:
                 entry.input = _fill_argument_defaults(entry.input, tool.parameters)
                 try:
@@ -352,6 +356,8 @@ class LookupEnvironment(BaseEnvironment):
                         f"Tool '{tool.id}' has duplicate input entry: {entry.input}"
                     )
                 seen.add(key)
+                outputs[key] = entry.output
+            outputs_by_key[tool.id] = outputs
 
     def _warn_grounding_key_collisions(self) -> None:
         """Warn once when a dict output shadows a whitelisted input field.
