@@ -252,7 +252,7 @@ def test_torchrun_slurm_multi_gpu(
         "OUMI_MASTER_ADDR": "frontier04316",
     }
     mock_os.environ.copy.return_value = copy.deepcopy(test_env_vars)
-    mock_torch.cuda.device_count.return_value = 8
+    mock_torch.accelerator.device_count.return_value = 8
 
     mock_process = Mock()
     mock_popen.return_value = mock_process
@@ -373,7 +373,7 @@ def test_torchrun_localmachine_multi_gpu(
         # No environment vars set
     }
     mock_os.environ.copy.return_value = copy.deepcopy(test_env_vars)
-    mock_torch.cuda.device_count.return_value = 8
+    mock_torch.accelerator.device_count.return_value = 8
 
     mock_process = Mock()
     mock_popen.return_value = mock_process
@@ -428,7 +428,7 @@ def test_torchrun_localmachine_multi_gpu_masteraddress(
 ):
     test_env_vars = {"MASTER_ADDRESS": "111.0.0.0", "MASTER_PORT": 1337}
     mock_os.environ.copy.return_value = copy.deepcopy(test_env_vars)
-    mock_torch.cuda.device_count.return_value = 8
+    mock_torch.accelerator.device_count.return_value = 8
 
     mock_process = Mock()
     mock_popen.return_value = mock_process
@@ -472,6 +472,104 @@ def test_torchrun_localmachine_multi_gpu_masteraddress(
         universal_newlines=True,
     )
     assert logger.level == logging.ERROR
+
+
+def test_torchrun_localmachine_non_cuda_accelerator(
+    app,
+    mock_os,
+    mock_popen,
+    mock_torch,
+    monkeypatch,
+):
+    """A local machine without CUDA, but with another accelerator (e.g. NPU)."""
+    test_env_vars = {
+        # No environment vars set
+    }
+    mock_os.environ.copy.return_value = copy.deepcopy(test_env_vars)
+    mock_torch.cuda.is_available.return_value = False
+    mock_torch.cuda.device_count.return_value = 0
+    mock_torch.accelerator.current_accelerator.return_value = Mock()
+    mock_torch.accelerator.device_count.return_value = 4
+
+    mock_process = Mock()
+    mock_popen.return_value = mock_process
+    mock_process.wait.return_value = 0
+
+    monkeypatch.setattr("oumi.cli.distributed_run.sys.stdout", sys.stdout)
+    monkeypatch.setattr("oumi.cli.distributed_run.sys.stderr", sys.stderr)
+
+    _ = runner.invoke(
+        app,
+        [
+            "torchrun",
+            "-m",
+            "oumi",
+            "train",
+            "--training.max_steps",
+            "20",
+            "--log-level",
+            "ERROR",
+        ],
+    )
+
+    mock_popen.assert_called_once_with(
+        [
+            "torchrun",
+            "--nnodes=1",
+            "--node-rank=0",
+            "--nproc-per-node=4",
+            "--master-addr=127.0.0.1",
+            "--master-port=8007",
+            "-m",
+            "oumi",
+            "train",
+            "--training.max_steps",
+            "20",
+        ],
+        env=copy.deepcopy(test_env_vars),
+        stdout=sys.stdout,
+        stderr=sys.stderr,
+        bufsize=1,
+        universal_newlines=True,
+    )
+    assert logger.level == logging.ERROR
+
+
+def test_torchrun_localmachine_no_accelerator(
+    app,
+    mock_os,
+    mock_popen,
+    mock_torch,
+    monkeypatch,
+):
+    """A CPU-only local machine cannot launch a distributed run."""
+    test_env_vars = {
+        # No environment vars set
+    }
+    mock_os.environ.copy.return_value = copy.deepcopy(test_env_vars)
+    mock_torch.cuda.is_available.return_value = False
+    mock_torch.cuda.device_count.return_value = 0
+    mock_torch.accelerator.current_accelerator.return_value = None
+
+    monkeypatch.setattr("oumi.cli.distributed_run.sys.stdout", sys.stdout)
+    monkeypatch.setattr("oumi.cli.distributed_run.sys.stderr", sys.stderr)
+
+    result = runner.invoke(
+        app,
+        [
+            "torchrun",
+            "-m",
+            "oumi",
+            "train",
+            "--training.max_steps",
+            "20",
+            "--log-level",
+            "ERROR",
+        ],
+    )
+
+    assert result.exit_code != 0
+    mock_popen.assert_not_called()
 
 
 #
