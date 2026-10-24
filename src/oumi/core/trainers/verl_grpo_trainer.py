@@ -68,6 +68,7 @@ from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.trainers.base_trainer import BaseTrainer
 from oumi.utils.logging import logger
 from oumi.utils.packaging import is_verl_v0_7_or_later
+from oumi.utils.peft_utils import get_lora_rank
 from oumi.utils.verl_utils.grpo_metrics import (
     DEFAULT_REWARD_GROUP_LOW_STD_THRESHOLD,
     REWARD_GROUP_LOW_STD_CONFIG_KEY,
@@ -589,6 +590,21 @@ class VerlGrpoTrainer(BaseTrainer):
         # 4. Apply user overrides
         overrides_config = OmegaConf.create(training_params.verl_config_overrides)
         config = cast(DictConfig, OmegaConf.merge(config, overrides_config))
+
+        # Pass the saved adapter to verl. lora_rank needs to be explicitly set for
+        # vLLM rollout.
+        if model_params.adapter_model:
+            if not model_params.adapter_trainable:
+                raise ValueError(
+                    "VERL_GRPO trains the adapter at model.adapter_model; set "
+                    "model.adapter_trainable: true to continue it."
+                )
+            config.actor_rollout_ref.model.lora_adapter_path = (
+                model_params.adapter_model
+            )
+            config.actor_rollout_ref.model.lora_rank = get_lora_rank(
+                model_params.adapter_model
+            )
 
         # 4. Finalize and validate config.
 
