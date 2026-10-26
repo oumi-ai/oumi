@@ -511,6 +511,11 @@ def train(
         )
 
     use_peft = config.training.use_peft and config.peft
+    # A trainable adapter loaded from adapter_model is the PEFT model to keep
+    # training; wrapping it again would stack a fresh adapter on top of it.
+    has_trainable_adapter = bool(
+        config.model.adapter_model and config.model.adapter_trainable
+    )
 
     # Build model.
     model = build_model(
@@ -519,7 +524,7 @@ def train(
         **(additional_model_kwargs or {}),
     )
 
-    if use_peft:
+    if use_peft and not has_trainable_adapter:
         logger.info("Building PEFT model...")
         model = build_peft_model(
             model, config.training.enable_gradient_checkpointing, config.peft

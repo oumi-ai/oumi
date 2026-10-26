@@ -352,11 +352,26 @@ def _apply_pretrained_adapter(model, model_params: ModelParams):
     # The caller guards adapter_model; assert narrows it to `str`.
     assert model_params.adapter_model is not None
     logger.info(f"Loading PEFT adapter from: {model_params.adapter_model} ...")
-    return PeftModel.from_pretrained(
+    peft_model = PeftModel.from_pretrained(
         model,
         model_params.adapter_model,
         is_trainable=model_params.adapter_trainable,
     )
+    if model_params.adapter_trainable:
+        # from_pretrained only warns on missing adapter keys, which would silently
+        # train a fresh adapter. load_adapter returns them, so check explicitly.
+        load_result = peft_model.load_adapter(
+            model_params.adapter_model,
+            adapter_name="default",
+            is_trainable=True,
+        )
+        missing = [k for k in load_result.missing_keys if "lora_" in k]
+        if missing:
+            raise ValueError(
+                f"Adapter at {model_params.adapter_model} does not match the "
+                f"model: {len(missing)} LoRA weights missing, e.g. {missing[0]}"
+            )
+    return peft_model
 
 
 def _get_transformers_model_class(config, *, text_only: bool = False):

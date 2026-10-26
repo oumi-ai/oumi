@@ -339,6 +339,35 @@ def test_create_config_preserves_reward_group_low_std_threshold_override():
 
 
 @pytest.mark.skipif(verl_import_failed, reason="verl not available")
+def test_create_config_continues_a_trainable_adapter(tmp_path):
+    adapter_dir = tmp_path / "adapter"
+    adapter_dir.mkdir()
+    (adapter_dir / "adapter_config.json").write_text(json.dumps({"r": 16}))
+    trainer = _make_trainer_for_config(save_steps=-1, save_final_model=False)
+    trainer._oumi_config.model.adapter_model = str(adapter_dir)
+    trainer._oumi_config.model.adapter_trainable = True
+    # A preset's fresh-adapter rank must not cap vLLM's LoRA rank below the
+    # saved adapter's.
+    trainer._oumi_config.training.verl_config_overrides = {
+        "actor_rollout_ref": {"model": {"lora_rank": 8}}
+    }
+
+    verl_config = trainer._create_config()
+
+    assert verl_config.actor_rollout_ref.model.lora_adapter_path == str(adapter_dir)
+    assert verl_config.actor_rollout_ref.model.lora_rank == 16
+
+
+@pytest.mark.skipif(verl_import_failed, reason="verl not available")
+def test_create_config_rejects_a_frozen_adapter(tmp_path):
+    trainer = _make_trainer_for_config(save_steps=-1, save_final_model=False)
+    trainer._oumi_config.model.adapter_model = str(tmp_path)
+
+    with pytest.raises(ValueError, match="adapter_trainable"):
+        trainer._create_config()
+
+
+@pytest.mark.skipif(verl_import_failed, reason="verl not available")
 def test_setup_installs_grpo_reward_group_metrics_before_trainer_construction():
     trainer = _make_trainer_for_setup("grpo", 0.25)
     events = []

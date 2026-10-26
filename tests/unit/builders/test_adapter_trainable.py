@@ -14,6 +14,8 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from oumi.builders.models import _apply_pretrained_adapter
 from oumi.core.configs import ModelParams
 
@@ -34,7 +36,20 @@ def test_adapter_trainable_forwards():
     )
     base = MagicMock()
     with patch("oumi.builders.models.PeftModel") as peft:
+        peft.from_pretrained.return_value.load_adapter.return_value.missing_keys = []
         _apply_pretrained_adapter(base, params)
     peft.from_pretrained.assert_called_once_with(
         base, "/adapters/sft", is_trainable=True
     )
+
+
+def test_trainable_adapter_with_missing_lora_keys_fails():
+    params = ModelParams(
+        model_name="base", adapter_model="/adapters/sft", adapter_trainable=True
+    )
+    with patch("oumi.builders.models.PeftModel") as peft:
+        peft.from_pretrained.return_value.load_adapter.return_value.missing_keys = [
+            "base_model.model.model.layers.0.self_attn.q_proj.lora_A.default.weight"
+        ]
+        with pytest.raises(ValueError, match="does not match the model"):
+            _apply_pretrained_adapter(MagicMock(), params)
