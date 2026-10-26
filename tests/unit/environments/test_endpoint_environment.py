@@ -14,6 +14,7 @@
 
 import json
 import threading
+import time
 from collections.abc import Iterator
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -130,6 +131,83 @@ def test_step_identifies_calls_when_the_caller_does_not():
     assert protocol.calls[0].session_id == protocol.calls[1].session_id
 
 
+class _ConcurrencyProbe:
+    """Sleeps inside each call and records how many overlapped."""
+
+    def __init__(self, delay: float = 0.05) -> None:
+        self.delay = delay
+        self._lock = threading.Lock()
+        self.in_flight = 0
+        self.peak = 0
+        self.seen: list[str] = []
+
+    def call(self, request: RemoteToolCall) -> JsonValue:
+        with self._lock:
+            self.in_flight += 1
+            self.peak = max(self.peak, self.in_flight)
+            self.seen.append(request.arguments["item"])
+        time.sleep(self.delay)
+        with self._lock:
+            self.in_flight -= 1
+        return {"status": request.arguments["item"]}
+
+
+def test_step_sends_one_call_at_a_time_by_default():
+    protocol = _ConcurrencyProbe()
+    env = _environment(protocol)
+
+    env.step([("place_order", {"item": str(i)}) for i in range(6)])
+
+    assert protocol.peak == 1
+
+
+def test_step_overlaps_calls_up_to_max_concurrency():
+    protocol = _ConcurrencyProbe()
+    env = EndpointEnvironment(
+        EnvironmentParams(id="env", env_type="endpoint", tools=[_tool()]),
+        protocol,
+        max_concurrency=4,
+    )
+
+    env.step([("place_order", {"item": str(i)}) for i in range(8)])
+
+    assert protocol.peak == 4
+
+
+def test_concurrent_step_keeps_results_in_input_order():
+    protocol = _ConcurrencyProbe()
+    env = EndpointEnvironment(
+        EnvironmentParams(id="env", env_type="endpoint", tools=[_tool()]),
+        protocol,
+        max_concurrency=4,
+    )
+
+    results = env.step([("place_order", {"item": str(i)}) for i in range(8)])
+
+    assert [result.output for result in results] == [
+        {"status": str(i)} for i in range(8)
+    ]
+
+
+def test_concurrent_step_raises_the_first_failure():
+    protocol = _RecordingProtocol(error=ToolError("out of stock"))
+    env = EndpointEnvironment(
+        EnvironmentParams(id="env", env_type="endpoint", tools=[_tool()]),
+        protocol,
+        max_concurrency=4,
+    )
+
+    with pytest.raises(ToolError, match="^out of stock$"):
+        env.step([("place_order", {"item": str(i)}) for i in range(4)])
+
+
+def test_step_of_an_empty_batch_touches_no_call():
+    protocol = _RecordingProtocol()
+
+    assert _environment(protocol).step([]) == []
+    assert protocol.calls == []
+
+
 def test_call_rejects_arguments_that_do_not_match_the_tool_schema():
     protocol = _RecordingProtocol()
     env = _environment(protocol)
@@ -195,6 +273,8 @@ def test_call_accepts_any_response_when_the_tool_declares_no_output_schema():
         EndpointEnvironmentKwargs(endpoint_url=_URL, timeout_seconds=0),
         EndpointEnvironmentKwargs(endpoint_url=_URL, timeout_seconds=-1),
         EndpointEnvironmentKwargs(endpoint_url=_URL, max_retries=-1),
+        EndpointEnvironmentKwargs(endpoint_url=_URL, max_concurrency=0),
+        EndpointEnvironmentKwargs(endpoint_url=_URL, max_concurrency=-1),
     ],
 )
 def test_kwargs_reject_an_unusable_endpoint_configuration(kwargs):
