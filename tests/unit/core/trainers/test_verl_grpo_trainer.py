@@ -2,6 +2,7 @@ import json
 import os
 from pathlib import Path
 from types import SimpleNamespace
+from typing import cast
 from unittest.mock import MagicMock, call, patch
 
 import pytest
@@ -665,9 +666,11 @@ _WEATHER_TOOL = _tool("get_weather", {"city": {"type": "string"}})
 
 
 def test_create_verl_data_entry_carries_tool_definitions():
-    convo = Conversation(
-        messages=[Message(role=Role.USER, content="Weather in Athens?")],
-        tools=[_WEATHER_TOOL],
+    convo = Conversation.from_dict(
+        {
+            "messages": [{"role": "user", "content": "Weather in Athens?"}],
+            "tools": [_WEATHER_TOOL],
+        }
     )
 
     entry = VerlGrpoTrainer._create_verl_data_entry_from_conversation(
@@ -681,9 +684,11 @@ def test_create_verl_data_entry_carries_tool_definitions():
 
 
 def test_create_verl_data_entry_tool_definitions_default_the_tool_type():
-    convo = Conversation(
-        messages=[Message(role=Role.USER, content="ping")],
-        tools=[{"function": {"name": "ping"}}],
+    convo = Conversation.from_dict(
+        {
+            "messages": [{"role": "user", "content": "ping"}],
+            "tools": [{"function": {"name": "ping"}}],
+        }
     )
 
     entry = VerlGrpoTrainer._create_verl_data_entry_from_conversation(
@@ -742,8 +747,8 @@ def test_tool_definitions_survive_the_parquet_schema_unchanged():
     entries = [
         VerlGrpoTrainer._create_verl_data_entry_from_conversation(
             _example(
-                Conversation(
-                    messages=[Message(role=Role.USER, content="hi")], tools=[tool]
+                Conversation.from_dict(
+                    {"messages": [{"role": "user", "content": "hi"}], "tools": [tool]}
                 )
             ),
             idx,
@@ -788,14 +793,18 @@ class _CharCountTokenizer:
         return {"input_ids": list(range(len(text))), "attention_mask": []}
 
 
-def _filter_caller(max_prompt_length: int | None):
-    return SimpleNamespace(
-        _oumi_config=SimpleNamespace(
-            training=SimpleNamespace(
-                grpo=SimpleNamespace(max_prompt_length=max_prompt_length)
-            )
+def _filter_caller(max_prompt_length: int | None) -> VerlGrpoTrainer:
+    """A stand-in carrying the only two attributes the filter reads."""
+    return cast(
+        VerlGrpoTrainer,
+        SimpleNamespace(
+            _oumi_config=SimpleNamespace(
+                training=SimpleNamespace(
+                    grpo=SimpleNamespace(max_prompt_length=max_prompt_length)
+                )
+            ),
+            _processing_class=_CharCountTokenizer(),
         ),
-        _processing_class=_CharCountTokenizer(),
     )
 
 
@@ -813,9 +822,10 @@ def _verl_rows(*conversations: Conversation):
 
 
 def _convo(content: str, tools: list[dict] | None = None) -> Conversation:
-    return Conversation(
-        messages=[Message(role=Role.USER, content=content)], tools=tools
-    )
+    payload: dict = {"messages": [{"role": "user", "content": content}]}
+    if tools is not None:
+        payload["tools"] = tools
+    return Conversation.from_dict(payload)
 
 
 def test_filter_drops_a_prompt_that_only_fits_without_its_tools():
@@ -905,3 +915,31 @@ def test_both_row_builders_emit_the_same_keys_but_agent_name():
     assert "tools_json" in agentic_row
     assert set(agentic_row) - set(plain_row) == {"agent_name"}
     assert set(plain_row) - set(agentic_row) == set()
+
+
+def test_tool_definitions_keep_explicit_nulls_in_their_schema():
+    """An explicit `"default": null` is part of the caller's JSON Schema.
+
+    The row is built from the raw ``conversation_json``, so a null the caller
+    wrote survives; serializing it away would advertise a different schema than
+    the dataset declares.
+    """
+    tool = {
+        "type": "function",
+        "function": {
+            "name": "search",
+            "parameters": {
+                "type": "object",
+                "properties": {"topic": {"type": "string", "default": None}},
+            },
+        },
+    }
+    conversation_json = json.dumps(
+        {"messages": [{"role": "user", "content": "find it"}], "tools": [tool]}
+    )
+
+    entry = VerlGrpoTrainer._create_verl_data_entry_from_conversation(
+        {"conversation_json": conversation_json}, 0, "tool_dataset", "train"
+    )
+
+    assert json.loads(entry["tools_json"]) == [tool]

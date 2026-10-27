@@ -4,6 +4,7 @@ import json
 import sys
 import types
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -41,9 +42,9 @@ class _RecordingSingleTurnAgentLoop:
 @pytest.fixture
 def agent_loops():
     """Loads the agent loop module against a stub verl, under a throwaway name."""
-    agent_loop_mod = types.ModuleType("verl.experimental.agent_loop.agent_loop")
+    agent_loop_mod: Any = types.ModuleType("verl.experimental.agent_loop.agent_loop")
     agent_loop_mod.AgentLoopOutput = object
-    single_turn_mod = types.ModuleType(
+    single_turn_mod: Any = types.ModuleType(
         "verl.experimental.agent_loop.single_turn_agent_loop"
     )
     single_turn_mod.SingleTurnAgentLoop = _RecordingSingleTurnAgentLoop
@@ -63,6 +64,7 @@ def agent_loops():
         spec = importlib.util.spec_from_file_location(
             "_oumi_verl_agent_loops_under_test", _MODULE_PATH
         )
+        assert spec is not None and spec.loader is not None
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         yield module

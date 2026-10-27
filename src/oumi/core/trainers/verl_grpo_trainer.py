@@ -395,10 +395,16 @@ class VerlGrpoTrainer(BaseTrainer):
         raw_tools = conversation_dict.get("tools")
         if not raw_tools:
             return None
-        tools = [ToolDefinition.model_validate(tool) for tool in raw_tools]
-        return json.dumps(
-            [tool.model_dump(mode="json", exclude_none=True) for tool in tools]
-        )
+        serialized = []
+        for raw_tool in raw_tools:
+            tool = ToolDefinition.model_validate(raw_tool)
+            # `exclude_unset` keeps the caller's JSON Schema byte-for-byte;
+            # `exclude_none` would strip its explicit nulls, such as a
+            # parameter declaring `"default": null`.
+            dumped = tool.model_dump(mode="json", exclude_unset=True)
+            dumped.setdefault("type", tool.type.value)
+            serialized.append(dumped)
+        return json.dumps(serialized)
 
     @staticmethod
     def _create_verl_data_entry_from_conversation(
@@ -501,18 +507,27 @@ class VerlGrpoTrainer(BaseTrainer):
             return dataset
 
         tokenizer = self._processing_class
+        if tokenizer is None:
+            logger.warning(
+                f"Not length-checking the '{split}' split against its rendered "
+                "tool schemas because the trainer has no tokenizer."
+            )
+            return dataset
 
         def prompt_fits(example: dict) -> bool:
             tools_json = example.get(_TOOLS_JSON_KEY)
             if not tools_json:
                 # verl's own filter already measures a tool-less prompt correctly.
                 return True
-            tokenized = tokenizer.apply_chat_template(
-                example["prompt"],
-                tools=json.loads(tools_json),
-                add_generation_prompt=True,
-                tokenize=True,
-                return_dict=True,
+            tokenized = cast(
+                dict[str, list[int]],
+                tokenizer.apply_chat_template(
+                    example["prompt"],
+                    tools=json.loads(tools_json),
+                    add_generation_prompt=True,
+                    tokenize=True,
+                    return_dict=True,
+                ),
             )
             return len(tokenized["input_ids"]) <= max_prompt_length
 
