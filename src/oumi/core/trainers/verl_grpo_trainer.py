@@ -30,6 +30,7 @@ from omegaconf import DictConfig, OmegaConf
 from oumi.core.constants import VERL_METRICS_FILENAME
 from oumi.core.types.conversation import Conversation
 from oumi.core.types.conversation import Role as ConversationRole
+from oumi.core.types.tool_call import ToolDefinition
 from oumi.utils.conversation_utils import create_list_of_message_json_dicts
 from oumi.utils.grpo_utils import (
     extract_prompt_images_completion_from_conversation,
@@ -91,6 +92,16 @@ _DatasetProcessFn = Callable[[dict, int, str, str], dict]
 
 # verl's reward callback receives extra_info but not the structured prompt column.
 _PROMPT_JSON_EXTRA_INFO_KEY = "prompt_json"
+
+# A row's tool schemas, JSON-encoded. verl forwards every non-tensor column to the
+# agent loop's `run()`, while `extra_info` is the only payload that reaches the
+# reward function, so the schemas ride in both under this key.
+_TOOLS_JSON_KEY = "tools_json"
+
+# The agent loop that renders those schemas, and the file registering it with
+# verl. The name must match the `name:` in that file; a unit test asserts it.
+_AGENT_LOOP_CONFIG_FILENAME = "verl_agent_loop_config.yaml"
+_OUMI_SINGLE_TURN_AGENT_NAME = "oumi_single_turn_agent"
 
 # Passes verl's `save_freq > 0` check (which enables its last-step save) while
 # being too large for `step % save_freq` to ever match: final checkpoint only.
@@ -348,6 +359,10 @@ class VerlGrpoTrainer(BaseTrainer):
             "images": [],
             "ability": ability,
             "agent_name": "tool_agent",
+            # `datasets.map` derives one schema from every row it returns, so a
+            # dataset mixing tool-agent and plain rows needs this key from both
+            # builders. This path's tools come from verl's run-level config.
+            _TOOLS_JSON_KEY: None,
             "reward_model": {"style": "rule", "ground_truth": ground_truth},
             "extra_info": {
                 "split": split,
@@ -359,13 +374,41 @@ class VerlGrpoTrainer(BaseTrainer):
         }
 
     @staticmethod
+    def _tools_json_from_conversation_dict(conversation_dict: dict) -> str | None:
+        """Serializes a conversation's tool schemas for the verl row.
+
+        JSON rather than a nested column: ``datasets.map`` infers one Arrow
+        struct type per column, and tool ``parameters`` are arbitrary JSON
+        Schema, so a nested column would either graft one row's parameters onto
+        another or fail on a type conflict. ``prompt_json`` is encoded this way
+        for the same reason.
+
+        Args:
+            conversation_dict: The row's deserialized ``conversation_json``.
+
+        Returns:
+            The tool schemas as a JSON array string, or ``None`` if there are none.
+
+        Raises:
+            pydantic.ValidationError: If a tool is not a valid tool definition.
+        """
+        raw_tools = conversation_dict.get("tools")
+        if not raw_tools:
+            return None
+        tools = [ToolDefinition.model_validate(tool) for tool in raw_tools]
+        return json.dumps(
+            [tool.model_dump(mode="json", exclude_none=True) for tool in tools]
+        )
+
+    @staticmethod
     def _create_verl_data_entry_from_conversation(
         example: dict, idx: int, data_source: str, split: str
     ) -> dict:
         # Peek at metadata off the raw JSON so only the branch that needs a
         # `Conversation` pays for building one.
         raw_conversation = example["conversation_json"]
-        metadata = json.loads(raw_conversation).get("metadata") or {}
+        conversation_dict = json.loads(raw_conversation)
+        metadata = conversation_dict.get("metadata") or {}
         if metadata.get("agent_name") == "tool_agent":
             conversation = Conversation.from_json(raw_conversation)
             ground_truth = metadata.get("ground_truth")
@@ -406,21 +449,88 @@ class VerlGrpoTrainer(BaseTrainer):
         prompt_messages, images, answer = (
             VerlGrpoTrainer._extract_prompt_images_answer_from_conversation(example)
         )
+        tools_json = VerlGrpoTrainer._tools_json_from_conversation_dict(
+            conversation_dict
+        )
         data = {
             "data_source": data_source,
             "prompt": prompt_messages,
             "images": images,
             "ability": "math",
+            _TOOLS_JSON_KEY: tools_json,
             "reward_model": {"style": "rule", "ground_truth": answer},
             "extra_info": {
                 "split": split,
                 "index": idx,
                 "answer": answer,
                 _PROMPT_JSON_EXTRA_INFO_KEY: json.dumps(prompt_messages),
+                _TOOLS_JSON_KEY: tools_json,
                 "metadata": json.dumps(metadata),
             },
         }
         return data
+
+    def _filter_prompts_overlong_with_tools(
+        self, dataset: Dataset, split: str
+    ) -> Dataset:
+        """Drops rows whose prompt only fits before its tool schemas are rendered.
+
+        verl's own overlong-prompt filter measures with the run-level schemas
+        from ``tool_config_path``, never a row's own, so a row carrying tools can
+        pass it and still exceed ``prompt_length`` once the template renders its
+        tool block. Rollouts are padded to ``prompt_length`` without truncation,
+        making that overflow a shape error mid-training rather than a dropped row.
+
+        Args:
+            dataset: The verl-format dataset, after conversion.
+            split: Split name, for logging.
+
+        Returns:
+            The dataset without the rows that overflow once tools are rendered.
+
+        Raises:
+            ValueError: If every row overflows, which leaves nothing to train on.
+        """
+        max_prompt_length = self._oumi_config.training.grpo.max_prompt_length
+        if max_prompt_length is None:
+            logger.warning(
+                f"Not length-checking the '{split}' split against its rendered "
+                "tool schemas because grpo.max_prompt_length is unset; a row whose "
+                "tool block pushes it past verl's prompt_length will fail the run."
+            )
+            return dataset
+
+        tokenizer = self._processing_class
+
+        def prompt_fits(example: dict) -> bool:
+            tools_json = example.get(_TOOLS_JSON_KEY)
+            if not tools_json:
+                # verl's own filter already measures a tool-less prompt correctly.
+                return True
+            tokenized = tokenizer.apply_chat_template(
+                example["prompt"],
+                tools=json.loads(tools_json),
+                add_generation_prompt=True,
+                tokenize=True,
+                return_dict=True,
+            )
+            return len(tokenized["input_ids"]) <= max_prompt_length
+
+        filtered = dataset.filter(prompt_fits)
+        num_dropped = len(dataset) - len(filtered)
+        if num_dropped > 0:
+            logger.warning(
+                f"Dropped {num_dropped} of {len(dataset)} '{split}' rows whose "
+                f"prompt exceeds max_prompt_length={max_prompt_length} once their "
+                "tool definitions are rendered."
+            )
+        if len(filtered) == 0:
+            raise ValueError(
+                f"Every '{split}' row exceeds max_prompt_length="
+                f"{max_prompt_length} once its tool definitions are rendered. "
+                "Raise grpo.max_prompt_length or shorten the tool schemas."
+            )
+        return filtered
 
     def _create_dataset_files(
         self, process_fn: _DatasetProcessFn | None = None
@@ -452,6 +562,9 @@ class VerlGrpoTrainer(BaseTrainer):
                 with_indices=True,
                 num_proc=num_proc,
             )
+            train_dataset = self._filter_prompts_overlong_with_tools(
+                train_dataset, "train"
+            )
 
         train_dataset.to_parquet(train_file)
         self._train_filepath = str(train_file)
@@ -471,6 +584,9 @@ class VerlGrpoTrainer(BaseTrainer):
                 ),
                 with_indices=True,
                 num_proc=num_proc,
+            )
+            eval_dataset = self._filter_prompts_overlong_with_tools(
+                eval_dataset, "validation"
             )
         eval_dataset.to_parquet(val_file)
         self._val_filepath = str(val_file)
@@ -523,6 +639,24 @@ class VerlGrpoTrainer(BaseTrainer):
         config.actor_rollout_ref.rollout.gpu_memory_utilization = (
             grpo_params.vllm_gpu_memory_utilization
         )
+
+        # Route rollouts through the agent loop that renders each row's tool
+        # schemas (see `verl_agent_loops`). Set before user overrides so a run
+        # can still name an agent loop of its own. Gated on 0.7 because earlier
+        # verl defaults `rollout.mode` to "sync" and only builds the agent loop
+        # when it is "async", so a loop registered there would never run.
+        if is_verl_v0_7_or_later():
+            agent_config = config.actor_rollout_ref.rollout.agent
+            if agent_config.get("agent_loop_config_path"):
+                logger.info(
+                    "Keeping the configured agent_loop_config_path; a row's tool "
+                    "definitions will only be rendered if that agent loop does so."
+                )
+            else:
+                agent_config.agent_loop_config_path = str(
+                    Path(__file__).parent / _AGENT_LOOP_CONFIG_FILENAME
+                )
+                agent_config.default_agent_loop = _OUMI_SINGLE_TURN_AGENT_NAME
 
         # Normally, training steps is determined by the number of epochs.
         # If max_steps is set, it will override this.
