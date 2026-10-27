@@ -110,6 +110,18 @@ class GrpoParams(BaseParams):
     trl's GRPO trainer. This field is ignored if not using trl' GRPO trainer. If not
     specified, the default rollout function will be used."""
 
+    environment_config_path: str | None = None
+    """Path to the `EnvironmentConfig` YAML that backs the `tool_agent` rollout.
+
+    Required when `rollout_function` is `tool_agent`, ignored otherwise.
+    """
+
+    max_tool_turns: int = 4
+    """Maximum number of tool-calling turns in a `tool_agent` rollout.
+
+    The final answer is generated after the last executed tool call.
+    """
+
     def __post_init__(self):
         """Verifies params."""
         if self.max_prompt_length is not None and self.max_prompt_length <= 0:
@@ -136,6 +148,27 @@ class GrpoParams(BaseParams):
                 "GrpoParams.temperature must be within [0.0, 1.0] range. "
                 f"Actual: {self.temperature}"
             )
+        if self.max_tool_turns <= 0:
+            raise OumiConfigError(
+                "GrpoParams.max_tool_turns must be positive. "
+                f"Actual: {self.max_tool_turns}"
+            )
+        if self.environment_config_path is not None:
+            if not self.environment_config_path:
+                raise OumiConfigError(
+                    "GrpoParams.environment_config_path cannot be empty."
+                )
+            if self.rollout_function != "tool_agent":
+                raise OumiConfigError(
+                    "GrpoParams.environment_config_path is only used by the "
+                    "'tool_agent' rollout function. "
+                    f"Actual rollout_function: {self.rollout_function!r}."
+                )
+        elif self.rollout_function == "tool_agent":
+            raise OumiConfigError(
+                "GrpoParams.environment_config_path is required by the "
+                "'tool_agent' rollout function."
+            )
 
     def to_hf_trainer_kwargs(self) -> dict[str, Any]:
         """Converts GrpoParams to TRL's GRPOConfig kwargs."""
@@ -156,6 +189,8 @@ class GrpoParams(BaseParams):
                 "max_completion_length",
                 "num_generations",
                 "rollout_function",  # Will be passed into GRPO trainer.
+                "environment_config_path",  # Oumi-side rollout config.
+                "max_tool_turns",  # Oumi-side rollout config.
             }
         )
 

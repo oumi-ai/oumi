@@ -21,6 +21,7 @@ from oumi.datasets.grpo.rewards.completion_length_rewards import (
 from oumi.datasets.grpo.rewards.count_letters_rewards import compute_letter_count_reward
 from oumi.datasets.grpo.rewards.countdown_rewards import countdown_reward
 from oumi.datasets.grpo.rewards.gsm8k_reward import gsm8k_reward
+from oumi.datasets.grpo.rewards.numeric_rewards import numeric_match_reward
 from oumi.datasets.grpo.rewards.rar_medicine_reward import rar_medicine_verl
 
 __all__ = [
@@ -29,5 +30,6 @@ __all__ = [
     "compute_sharp_target_token_length_reward",
     "countdown_reward",
     "gsm8k_reward",
+    "numeric_match_reward",
     "rar_medicine_verl",
 ]
