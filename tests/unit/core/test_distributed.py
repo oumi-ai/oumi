@@ -21,6 +21,7 @@ from oumi.core.distributed import (
     get_accelerate_env_vars,
     global_leader_first,
     global_leader_only,
+    init_distributed,
     is_local_process_zero,
     is_world_process_zero,
     local_leader_first,
@@ -515,3 +516,113 @@ def test_parse_rank_invalid_negative():
 
     with pytest.raises(ValueError, match=r"Rank must be a number\. Actual: -10\."):
         _parse_rank("-10")
+
+
+#
+# init_distributed: device resolution must not touch accelerator-only APIs when
+# there is no accelerator (e.g. a CPU-only machine).
+#
+def _mock_accelerator(monkeypatch, *, device, is_available):
+    """Patch ``torch.accelerator`` so that the accelerator-only entry points raise.
+
+    ``current_accelerator()`` and ``set_device_index()`` both go through
+    ``at::getAccelerator(true)`` in C++, i.e. they raise when no accelerator exists.
+    Raising in the mocks makes an ungated call fail loudly, which is exactly the
+    regression these tests guard against.
+    """
+    import torch
+
+    calls = {"current_accelerator": 0, "set_device_index": 0}
+
+    def _current_accelerator():
+        calls["current_accelerator"] += 1
+        if device is None:
+            raise RuntimeError("Cannot access accelerator device when none")
+        return device
+
+    def _set_device_index(index):
+        calls["set_device_index"] += 1
+        if device is None:
+            raise RuntimeError("Cannot access accelerator device when none")
+        calls["index"] = index
+
+    monkeypatch.setattr(torch.accelerator, "is_available", lambda: is_available)
+    monkeypatch.setattr(torch.accelerator, "current_accelerator", _current_accelerator)
+    monkeypatch.setattr(torch.accelerator, "set_device_index", _set_device_index)
+    return calls
+
+
+def test_init_distributed_cpu_only_uses_gloo(monkeypatch):
+    """A CPU-only machine must not call the accelerator-only APIs at all."""
+    import torch
+
+    calls = _mock_accelerator(monkeypatch, device=None, is_available=False)
+    captured = {}
+
+    def _init_process_group(**kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(torch.distributed, "init_process_group", _init_process_group)
+    monkeypatch.setattr(torch.distributed, "is_initialized", lambda: True)
+    monkeypatch.setattr(
+        "oumi.core.distributed.get_device_rank_info",
+        lambda: DeviceRankInfo(rank=0, local_rank=0, world_size=1, local_world_size=1),
+    )
+
+    init_distributed()
+
+    assert captured["backend"] == "gloo"
+    assert captured["device_id"] is None
+    assert calls["current_accelerator"] == 0
+    assert calls["set_device_index"] == 0
+
+
+def test_init_distributed_non_cuda_accelerator(monkeypatch):
+    """A non-CUDA accelerator (e.g. NPU) resolves its own collective backend."""
+    import torch
+
+    device = torch.device("npu", 0)
+    calls = _mock_accelerator(monkeypatch, device=device, is_available=True)
+    captured = {}
+
+    def _init_process_group(**kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(torch.distributed, "init_process_group", _init_process_group)
+    monkeypatch.setattr(torch.distributed, "is_initialized", lambda: True)
+    monkeypatch.setattr(
+        "oumi.core.distributed.get_device_rank_info",
+        lambda: DeviceRankInfo(rank=0, local_rank=2, world_size=4, local_world_size=4),
+    )
+    monkeypatch.setitem(
+        torch.distributed.Backend.default_device_backend_map, "npu", "hccl"
+    )
+
+    init_distributed()
+
+    assert captured["backend"] == "hccl"
+    assert captured["device_id"] == torch.device("npu", 2)
+    assert calls["set_device_index"] == 1
+    assert calls["index"] == 2
+
+
+def test_init_distributed_explicit_backend_skips_resolution(monkeypatch):
+    """An explicit backend is passed through untouched."""
+    import torch
+
+    _mock_accelerator(monkeypatch, device=torch.device("npu", 0), is_available=True)
+    captured = {}
+
+    def _init_process_group(**kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(torch.distributed, "init_process_group", _init_process_group)
+    monkeypatch.setattr(torch.distributed, "is_initialized", lambda: True)
+    monkeypatch.setattr(
+        "oumi.core.distributed.get_device_rank_info",
+        lambda: DeviceRankInfo(rank=1, local_rank=1, world_size=2, local_world_size=2),
+    )
+
+    init_distributed(backend="nccl")
+
+    assert captured["backend"] == "nccl"

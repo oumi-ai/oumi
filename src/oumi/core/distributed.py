@@ -283,21 +283,6 @@ def global_leader_first(*args, **kwargs):
 #
 # Distributed Initialization
 #
-def _resolve_distributed_backend() -> str:
-    """Resolve the collective backend for the active accelerator.
-
-    PyTorch maps each device type to its own collective backend (e.g. ``nccl`` for
-    CUDA, ``hccl`` for NPU, ``xccl`` for XPU). Defaulting to a CUDA-specific name
-    would break every non-CUDA accelerator, so ask PyTorch for the mapping and fall
-    back to ``gloo`` when the active device type is unknown (e.g. CPU-only).
-    """
-    device = torch.accelerator.current_accelerator()
-    if device is None:
-        return "gloo"
-    backend = torch.distributed.Backend.default_device_backend_map.get(device.type)
-    return backend if backend is not None else "gloo"
-
-
 def init_distributed(
     backend: str | None = None, timeout_minutes: float | None = None
 ) -> None:
@@ -305,20 +290,36 @@ def init_distributed(
 
     Args:
         backend: Collective backend to use. When ``None`` (the default), the backend
-            is resolved from the active accelerator via
-            :func:`_resolve_distributed_backend`.
+            is resolved from the active accelerator: PyTorch maps each device type to
+            its own collective backend (e.g. ``nccl`` for CUDA, ``hccl`` for NPU,
+            ``xccl`` for XPU), so defaulting to a CUDA-specific name would break every
+            non-CUDA accelerator. ``gloo`` is used when there is none (e.g. CPU-only).
         timeout_minutes: Optional process group timeout, in minutes.
     """
     device_rank_info: DeviceRankInfo = get_device_rank_info()
     timeout = (
         timedelta(minutes=timeout_minutes) if timeout_minutes is not None else None
     )
-    device = torch.accelerator.current_accelerator()
+    # Both ``current_accelerator()`` and ``set_device_index()`` raise when no
+    # accelerator is present (they go through ``at::getAccelerator(true)``), so gate
+    # them on ``is_available()`` to keep CPU-only machines working.
+    device = (
+        torch.accelerator.current_accelerator()
+        if torch.accelerator.is_available()
+        else None
+    )
     if backend is None:
-        backend = _resolve_distributed_backend()
+        backend = (
+            torch.distributed.Backend.default_device_backend_map.get(
+                device.type, "gloo"
+            )
+            if device is not None
+            else "gloo"
+        )
     # Route through the accelerator interface so the call works on CUDA, NPU, XPU, ...
     # ``torch.cuda.set_device`` is CUDA-only and raises on other backends.
-    torch.accelerator.set_device_index(int(device_rank_info.local_rank))
+    if device is not None:
+        torch.accelerator.set_device_index(int(device_rank_info.local_rank))
     # ``torch.device(index)`` only resolves against an available accelerator, so carry
     # the device type explicitly. On a CPU-only machine there is none: let PyTorch
     # infer the device from the backend instead.
