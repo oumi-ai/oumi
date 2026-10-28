@@ -572,6 +572,25 @@ def test_torchrun_localmachine_no_accelerator(
     mock_popen.assert_not_called()
 
 
+def test_get_collective_capable_device_count_excludes_mps(mock_torch):
+    """MPS counts as an accelerator but no collective backend runs on its tensors, so
+    it must not make a local distributed launch look viable."""
+    from oumi.cli.distributed_run import _get_collective_capable_device_count
+
+    mock_torch.accelerator.is_available.return_value = True
+    mock_torch.accelerator.device_count.return_value = 1
+    mock_torch.accelerator.current_accelerator.return_value = Mock(type="mps", index=0)
+    assert _get_collective_capable_device_count() == 0
+
+    # A collective-capable accelerator is still counted normally.
+    mock_torch.accelerator.device_count.return_value = 4
+    mock_torch.accelerator.current_accelerator.return_value = Mock(type="npu", index=0)
+    assert _get_collective_capable_device_count() == 4
+
+    mock_torch.accelerator.device_count.return_value = 0
+    assert _get_collective_capable_device_count() == 0
+
+
 #
 # Tests for _detect_backend
 #

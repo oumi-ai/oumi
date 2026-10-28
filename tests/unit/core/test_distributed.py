@@ -578,10 +578,14 @@ def test_init_distributed_cpu_only_uses_gloo(monkeypatch):
 
 
 def test_init_distributed_non_cuda_accelerator(monkeypatch):
-    """A non-CUDA accelerator (e.g. NPU) resolves its own collective backend."""
+    """A non-CUDA accelerator (e.g. XPU) resolves its own collective backend.
+
+    ``xpu`` is used because it is a built-in device type: ``torch.device("npu")``
+    raises on a stock torch build without ``torch_npu`` installed.
+    """
     import torch
 
-    device = torch.device("npu", 0)
+    device = torch.device("xpu", 0)
     calls = _mock_accelerator(monkeypatch, device=device, is_available=True)
     captured = {}
 
@@ -594,14 +598,15 @@ def test_init_distributed_non_cuda_accelerator(monkeypatch):
         "oumi.core.distributed.get_device_rank_info",
         lambda: DeviceRankInfo(rank=0, local_rank=2, world_size=4, local_world_size=4),
     )
-    monkeypatch.setitem(
-        torch.distributed.Backend.default_device_backend_map, "npu", "hccl"
+    monkeypatch.setattr(
+        "oumi.core.distributed._accepts_non_cuda_device_id", lambda: True
     )
 
     init_distributed()
 
-    assert captured["backend"] == "hccl"
-    assert captured["device_id"] == torch.device("npu", 2)
+    # torch already maps xpu -> xccl, so no monkeypatching of the map is needed.
+    assert captured["backend"] == "xccl"
+    assert captured["device_id"] == torch.device("xpu", 2)
     assert calls["set_device_index"] == 1
     assert calls["index"] == 2
 
@@ -610,7 +615,7 @@ def test_init_distributed_explicit_backend_skips_resolution(monkeypatch):
     """An explicit backend is passed through untouched."""
     import torch
 
-    _mock_accelerator(monkeypatch, device=torch.device("npu", 0), is_available=True)
+    _mock_accelerator(monkeypatch, device=torch.device("xpu", 0), is_available=True)
     captured = {}
 
     def _init_process_group(**kwargs):
@@ -626,3 +631,55 @@ def test_init_distributed_explicit_backend_skips_resolution(monkeypatch):
     init_distributed(backend="nccl")
 
     assert captured["backend"] == "nccl"
+
+
+def test_init_distributed_omits_device_id_for_non_cuda_before_torch_27(monkeypatch):
+    """torch 2.6 rejects a non-CUDA ``device_id`` outright.
+
+    ``init_process_group`` raises "device_id parameter must be a cuda device with an
+    id" there, while torch 2.7+ only rejects CPU. The project allows ``torch>=2.6``,
+    so on 2.6 a non-CUDA accelerator must omit ``device_id`` and let the backend
+    infer it.
+    """
+    import torch
+
+    _mock_accelerator(monkeypatch, device=torch.device("xpu", 0), is_available=True)
+    captured = {}
+
+    def _init_process_group(**kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(torch.distributed, "init_process_group", _init_process_group)
+    monkeypatch.setattr(torch.distributed, "is_initialized", lambda: True)
+    monkeypatch.setattr(
+        "oumi.core.distributed.get_device_rank_info",
+        lambda: DeviceRankInfo(rank=0, local_rank=1, world_size=2, local_world_size=2),
+    )
+    monkeypatch.setattr(
+        "oumi.core.distributed._accepts_non_cuda_device_id", lambda: False
+    )
+
+    init_distributed()
+
+    assert captured["backend"] == "xccl"
+    assert captured["device_id"] is None
+
+
+def test_accepts_non_cuda_device_id_tracks_the_torch_version(monkeypatch):
+    """The probe mirrors the ``init_process_group`` validation of the running torch."""
+    import torch
+
+    from oumi.core.distributed import _accepts_non_cuda_device_id
+
+    for version, expected in (
+        ("2.6.0", False),
+        ("2.6.1+cpu", False),
+        ("2.7.0", True),
+        ("2.7.1+cu128", True),
+        ("2.16.0a0+gitff4f371", True),
+    ):
+        monkeypatch.setattr(torch, "__version__", version)
+        assert _accepts_non_cuda_device_id() is expected, version
+
+    monkeypatch.setattr(torch, "__version__", "not-a-version")
+    assert _accepts_non_cuda_device_id() is True

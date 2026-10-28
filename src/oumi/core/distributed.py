@@ -283,6 +283,22 @@ def global_leader_first(*args, **kwargs):
 #
 # Distributed Initialization
 #
+def _accepts_non_cuda_device_id() -> bool:
+    """Whether ``init_process_group`` accepts a non-CUDA ``device_id``.
+
+    torch 2.6 rejects any ``device_id`` that is not CUDA
+    (``init_process_group device_id parameter must be a cuda device with an id``),
+    while torch 2.7 only rejects CPU. The project allows ``torch>=2.6``, so probe
+    the version rather than relying on the newer behaviour.
+    """
+    try:
+        version = torch.__version__.split("+")[0].split(".")
+        major, minor = int(version[0]), int(version[1])
+    except (AttributeError, IndexError, ValueError):
+        return True  # Unknown version string: assume a current torch.
+    return (major, minor) >= (2, 7)
+
+
 def init_distributed(
     backend: str | None = None, timeout_minutes: float | None = None
 ) -> None:
@@ -326,6 +342,7 @@ def init_distributed(
     device_id = (
         torch.device(device.type, int(device_rank_info.local_rank))
         if device is not None
+        and (device.type == "cuda" or _accepts_non_cuda_device_id())
         else None
     )
     torch.distributed.init_process_group(

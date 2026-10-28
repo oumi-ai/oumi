@@ -449,6 +449,28 @@ def _get_accelerator_device_count() -> int:
     return torch.accelerator.device_count()
 
 
+def _get_collective_capable_device_count() -> int:
+    """Count the accelerators a collective backend can actually work with.
+
+    Same as :func:`_get_accelerator_device_count`, except that MPS is not counted.
+    ``torch.accelerator`` reports MPS as the active accelerator on Apple hardware,
+    but no collective backend supports MPS tensors, so launching a local distributed
+    run there now reaches the worker and dies with ``No backend type associated with
+    device type mps`` instead of failing fast with the "no accelerators" error.
+    Excluding MPS keeps the early, actionable error.
+    """
+    import torch
+
+    accelerator = torch.accelerator
+    device_count = accelerator.device_count()
+    if device_count == 0:
+        return 0
+    device = accelerator.current_accelerator() if accelerator.is_available() else None
+    if device is not None and device.type == "mps":
+        return 0
+    return device_count
+
+
 def _detect_slurm_process_run_info(env: dict[str, str]) -> _ProcessRunInfo | None:
     slurm_nodes_str = env.get("SLURM_NODELIST", None)
     if slurm_nodes_str is None:
@@ -520,8 +542,10 @@ def _detect_skypilot_process_run_info(env: dict[str, str]) -> _ProcessRunInfo | 
 
 
 def _detect_local_machine_process_run_info(env: dict[str, str]) -> _ProcessRunInfo:
-    # Attempt to produce a local configuration
-    num_devices_available = _get_accelerator_device_count()
+    # Attempt to produce a local configuration. Only accelerators that a collective
+    # backend can use count as launchable devices (see
+    # ``_get_collective_capable_device_count``).
+    num_devices_available = _get_collective_capable_device_count()
     if num_devices_available == 0:
         raise RuntimeError(
             "No supported distributed backends found and no accelerators "
