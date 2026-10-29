@@ -24,6 +24,7 @@ import sys
 import time
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 from uuid import uuid4
 
 from oumi.core.configs.environment_config import EnvironmentConfig
@@ -46,6 +47,9 @@ def query(arguments, context):
 
 class Owner(SimpleNamespace):
     """Keep rollout ownership weak-referenceable, like VERL's AgentData."""
+
+    request_id: str
+    tools_kwargs: dict[str, Any]
 
 
 async def trial(mode, n, workload, parent):
@@ -96,10 +100,7 @@ async def trial(mode, n, workload, parent):
     await beat
     if mode == "thread":
         await asyncio.gather(
-            *(
-                asyncio.wrap_future(get_or_build_worker(o, parent).close())
-                for o in owners
-            )
+            *(get_or_build_worker(o, parent).wait_closed() for o in owners)
         )
     owners.clear()
     gc.collect()

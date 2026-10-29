@@ -138,7 +138,7 @@ class RouterWorker:
             self._lane.routers.pop(id(router), None)
             router.close()
 
-    def close(self) -> Future[None]:
+    def close(self) -> None:
         """Queue teardown on the owner thread and stop accepting new work.
 
         Running calls cannot be preempted by asyncio cancellation. Closing is
@@ -150,7 +150,12 @@ class RouterWorker:
             self._closing.add_done_callback(self._report_close_error)
             if self._owns_lane:
                 self._lane.shutdown(wait=False)
-        return self._closing
+
+    async def wait_closed(self) -> None:
+        """Wait for teardown without letting a cancelled waiter cancel cleanup."""
+        self.close()
+        assert self._closing is not None
+        await asyncio.shield(asyncio.wrap_future(self._closing))
 
     @staticmethod
     def _report_close_error(future: Future[None]) -> None:

@@ -263,8 +263,6 @@ def test_thread_worker_preserves_database_state_and_rollout_isolation():
             assert results[1].output == {"columns": ["sum(x)"], "rows": [[7]]}
             assert results[2].output == {"columns": ["sum(x)"], "rows": [[3]]}
         finally:
-            await asyncio.gather(
-                *(asyncio.wrap_future(w.close()) for w in (first, second))
-            )
+            await asyncio.gather(*(w.wait_closed() for w in (first, second)))
 
     asyncio.run(run())

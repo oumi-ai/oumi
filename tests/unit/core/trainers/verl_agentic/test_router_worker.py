@@ -11,7 +11,7 @@ from unittest.mock import Mock
 import pytest
 
 from oumi.core.trainers.verl_agentic import env_provider
-from oumi.core.trainers.verl_agentic.router_worker import RouterWorker
+from oumi.core.trainers.verl_agentic.router_worker import RouterWorker, next_lane
 from oumi.core.types.tool_call import ToolResult
 
 
@@ -40,7 +40,7 @@ def test_build_execute_and_close_keep_sqlite_thread_affinity():
             )
             assert [r.output for r in results] == [42] * 4
         finally:
-            await asyncio.wrap_future(worker.close())
+            await worker.wait_closed()
 
     asyncio.run(run())
     assert len(threads) == 6
@@ -70,7 +70,7 @@ def test_slow_rollout_does_not_block_other_rollouts_or_event_loop():
         finally:
             finish.set()
             await task
-            await asyncio.gather(*(asyncio.wrap_future(w.close()) for w in (a, b)))
+            await asyncio.gather(*(w.wait_closed() for w in (a, b)))
 
     asyncio.run(run())
 
@@ -95,11 +95,14 @@ def test_cancelled_call_finishes_before_close_and_next_call():
         task.cancel()
         with pytest.raises(asyncio.CancelledError):
             await task
-        closing = worker.close()
-        assert closing is worker.close()
+        worker.close()
+        closing = worker._closing
+        worker.close()
+        assert closing is worker._closing
+        assert closing is not None
         assert not closing.done()
         finish.set()
-        await asyncio.wrap_future(closing)
+        await worker.wait_closed()
         with pytest.raises(RuntimeError, match="closed"):
             await worker.execute("slow", {})
 
@@ -117,7 +120,110 @@ def test_builder_failure_is_returned_and_worker_can_close():
             with pytest.raises(ValueError, match="bad database"):
                 await worker.execute("sql", {})
         finally:
-            await asyncio.wrap_future(worker.close())
+            await worker.wait_closed()
+
+    asyncio.run(run())
+
+
+def test_cancelled_queued_call_does_not_execute_side_effects():
+    started, finish = threading.Event(), threading.Event()
+    executed = []
+
+    def route(calls):
+        name = calls[0][0]
+        executed.append(name)
+        if name == "running":
+            started.set()
+            assert finish.wait(timeout=5)
+        return [ToolResult(output=name)]
+
+    async def run():
+        worker = RouterWorker(lambda: Mock(route_batch=route))
+        running = asyncio.create_task(worker.execute("running", {}))
+        try:
+            assert await asyncio.to_thread(started.wait, 2)
+            queued = asyncio.create_task(worker.execute("cancelled", {}))
+            await asyncio.sleep(0)
+            queued.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await queued
+        finally:
+            finish.set()
+            await running
+            await worker.wait_closed()
+        assert executed == ["running"]
+
+    asyncio.run(run())
+
+
+def test_shared_pool_keeps_other_lanes_responsive():
+    started, finish = threading.Event(), threading.Event()
+    lanes = [next_lane() for _ in range(9)]
+    assert lanes[0] is lanes[8]
+    assert lanes[0] is not lanes[1]
+
+    def slow(calls):
+        started.set()
+        assert finish.wait(timeout=5)
+        return [ToolResult(output="slow")]
+
+    async def run():
+        blocked = RouterWorker(lambda: Mock(route_batch=slow), lanes[0])
+        independent = RouterWorker(
+            lambda: Mock(route_batch=lambda calls: [ToolResult(output="fast")]),
+            lanes[1],
+        )
+        running = asyncio.create_task(blocked.execute("slow", {}))
+        queued = None
+        same_lane = None
+        try:
+            assert await asyncio.to_thread(started.wait, 2)
+            same_lane = RouterWorker(lambda: Mock(), lanes[8])
+            queued = asyncio.create_task(same_lane.execute("queued", {}))
+            result = await asyncio.wait_for(independent.execute("fast", {}), 2)
+            assert result.output == "fast"
+            assert not running.done()
+            assert not queued.done()
+        finally:
+            if queued is not None:
+                queued.cancel()
+                with pytest.raises(asyncio.CancelledError):
+                    await queued
+            finish.set()
+            await running
+            workers = [blocked, independent]
+            if same_lane is not None:
+                workers.append(same_lane)
+            await asyncio.gather(*(w.wait_closed() for w in workers))
+
+    asyncio.run(run())
+
+
+def test_cancelled_teardown_waiter_does_not_cancel_shared_lane_cleanup():
+    started, finish, closed = threading.Event(), threading.Event(), threading.Event()
+    lane = next_lane()
+
+    def route(calls):
+        started.set()
+        assert finish.wait(timeout=5)
+        return [ToolResult(output="done")]
+
+    async def run():
+        worker = RouterWorker(lambda: Mock(route_batch=route, close=closed.set), lane)
+        call = asyncio.create_task(worker.execute("sql", {}))
+        try:
+            assert await asyncio.to_thread(started.wait, 2)
+            worker.close()
+            waiting = asyncio.create_task(worker.wait_closed())
+            await asyncio.sleep(0)
+            waiting.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await waiting
+        finally:
+            finish.set()
+            await call
+            await worker.wait_closed()
+        assert closed.is_set()
 
     asyncio.run(run())
 
@@ -174,7 +280,7 @@ def test_many_rollouts_share_bounded_lanes_without_losing_affinity():
             results = await asyncio.gather(*(w.execute("sql", {}) for w in workers))
             assert [r.output for r in results] == [42] * 40
         finally:
-            await asyncio.gather(*(asyncio.wrap_future(w.close()) for w in workers))
+            await asyncio.gather(*(w.wait_closed() for w in workers))
 
     asyncio.run(run())
     assert len(thread_ids) <= 8
