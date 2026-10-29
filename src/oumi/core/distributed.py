@@ -283,20 +283,73 @@ def global_leader_first(*args, **kwargs):
 #
 # Distributed Initialization
 #
+def _accepts_non_cuda_device_id() -> bool:
+    """Whether ``init_process_group`` accepts a non-CUDA ``device_id``.
+
+    torch 2.6 rejects any ``device_id`` that is not CUDA
+    (``init_process_group device_id parameter must be a cuda device with an id``),
+    while torch 2.7 only rejects CPU. The project allows ``torch>=2.6``, so probe
+    the version rather than relying on the newer behaviour.
+    """
+    try:
+        version = torch.__version__.split("+")[0].split(".")
+        major, minor = int(version[0]), int(version[1])
+    except (AttributeError, IndexError, ValueError):
+        return True  # Unknown version string: assume a current torch.
+    return (major, minor) >= (2, 7)
+
+
 def init_distributed(
-    backend: str = "nccl", timeout_minutes: float | None = None
+    backend: str | None = None, timeout_minutes: float | None = None
 ) -> None:
-    """Initialize the distributed environment."""
+    """Initialize the distributed environment.
+
+    Args:
+        backend: Collective backend to use. When ``None`` (the default), the backend
+            is resolved from the active accelerator: PyTorch maps each device type to
+            its own collective backend (e.g. ``nccl`` for CUDA, ``hccl`` for NPU,
+            ``xccl`` for XPU), so defaulting to a CUDA-specific name would break every
+            non-CUDA accelerator. ``gloo`` is used when there is none (e.g. CPU-only).
+        timeout_minutes: Optional process group timeout, in minutes.
+    """
     device_rank_info: DeviceRankInfo = get_device_rank_info()
     timeout = (
         timedelta(minutes=timeout_minutes) if timeout_minutes is not None else None
     )
-    torch.cuda.set_device(int(device_rank_info.local_rank))
+    # Both ``current_accelerator()`` and ``set_device_index()`` raise when no
+    # accelerator is present (they go through ``at::getAccelerator(true)``), so gate
+    # them on ``is_available()`` to keep CPU-only machines working.
+    device = (
+        torch.accelerator.current_accelerator()
+        if torch.accelerator.is_available()
+        else None
+    )
+    if backend is None:
+        backend = (
+            torch.distributed.Backend.default_device_backend_map.get(
+                device.type, "gloo"
+            )
+            if device is not None
+            else "gloo"
+        )
+    # Route through the accelerator interface so the call works on CUDA, NPU, XPU, ...
+    # ``torch.cuda.set_device`` is CUDA-only and raises on other backends.
+    if device is not None:
+        torch.accelerator.set_device_index(int(device_rank_info.local_rank))
+    # ``torch.device(index)`` only resolves against an available accelerator, so carry
+    # the device type explicitly. On a CPU-only machine there is none: let PyTorch
+    # infer the device from the backend instead.
+    device_id = (
+        torch.device(device.type, int(device_rank_info.local_rank))
+        if device is not None
+        and (device.type == "cuda" or _accepts_non_cuda_device_id())
+        else None
+    )
     torch.distributed.init_process_group(
         backend=backend,
         rank=device_rank_info.rank,
         world_size=device_rank_info.world_size,
-        device_id=torch.device(int(device_rank_info.local_rank)),
+        device_id=device_id,
         timeout=timeout,
     )
     initialized = torch.distributed.is_initialized()

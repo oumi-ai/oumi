@@ -438,9 +438,40 @@ def _detect_polaris_process_run_info(env: dict[str, str]) -> _ProcessRunInfo | N
     )
 
 
-def _detect_slurm_process_run_info(env: dict[str, str]) -> _ProcessRunInfo | None:
+def _get_accelerator_device_count() -> int:
+    """Returns the number of devices of the active accelerator (CUDA, NPU, ...).
+
+    A value of 0 means that no accelerator (CUDA, NPU, XPU, MPS, ...) is available
+    on the local machine.
+    """
     import torch  # Importing torch takes time so only load it in this scenario.
 
+    return torch.accelerator.device_count()
+
+
+def _get_collective_capable_device_count() -> int:
+    """Count the accelerators a collective backend can actually work with.
+
+    Same as :func:`_get_accelerator_device_count`, except that MPS is not counted.
+    ``torch.accelerator`` reports MPS as the active accelerator on Apple hardware,
+    but no collective backend supports MPS tensors, so launching a local distributed
+    run there now reaches the worker and dies with ``No backend type associated with
+    device type mps`` instead of failing fast with the "no accelerators" error.
+    Excluding MPS keeps the early, actionable error.
+    """
+    import torch
+
+    accelerator = torch.accelerator
+    device_count = accelerator.device_count()
+    if device_count == 0:
+        return 0
+    device = accelerator.current_accelerator() if accelerator.is_available() else None
+    if device is not None and device.type == "mps":
+        return 0
+    return device_count
+
+
+def _detect_slurm_process_run_info(env: dict[str, str]) -> _ProcessRunInfo | None:
     slurm_nodes_str = env.get("SLURM_NODELIST", None)
     if slurm_nodes_str is None:
         return None
@@ -464,7 +495,7 @@ def _detect_slurm_process_run_info(env: dict[str, str]) -> _ProcessRunInfo | Non
     node_ips = _parse_nodes_str(nodes_str)
     if len(node_ips) == 0:
         raise RuntimeError("Empty list of nodes in 'SLURM_NODELIST'!")
-    gpus_per_node = torch.cuda.device_count()
+    gpus_per_node = _get_accelerator_device_count()
 
     node_rank = _get_optional_int_env_var("SLURM_NODEID", env)
     # If running on a single node, default to 0.
@@ -511,25 +542,23 @@ def _detect_skypilot_process_run_info(env: dict[str, str]) -> _ProcessRunInfo | 
 
 
 def _detect_local_machine_process_run_info(env: dict[str, str]) -> _ProcessRunInfo:
-    import torch  # Importing torch takes time so only load it in this scenario.
-
-    # Attempt to produce a local configuration
-    if not torch.cuda.is_available():
+    # Attempt to produce a local configuration. Only accelerators that a collective
+    # backend can use count as launchable devices (see
+    # ``_get_collective_capable_device_count``).
+    num_devices_available = _get_collective_capable_device_count()
+    if num_devices_available == 0:
         raise RuntimeError(
-            "No supported distributed backends found and no GPUs on local machine!"
+            "No supported distributed backends found and no accelerators "
+            "on local machine!"
         )
 
-    num_gpus_available = torch.cuda.device_count()
-    if num_gpus_available > 0:
-        oumi_num_nodes = 1
-        oumi_master_address = env.get(_MASTER_ADDR_ENV, _DEFAULT_MASTER_ADDR)
-        oumi_master_port = int(env.get(_MASTER_PORT_ENV, _DEFAULT_MASTER_PORT))
-        node_rank = 0
-        gpus_per_node = num_gpus_available
-        node_ips = [oumi_master_address]
-        cli_utils.configure_common_env_vars()
-    else:
-        raise RuntimeError("CUDA available but no GPUs found on local machine!")
+    oumi_num_nodes = 1
+    oumi_master_address = env.get(_MASTER_ADDR_ENV, _DEFAULT_MASTER_ADDR)
+    oumi_master_port = int(env.get(_MASTER_PORT_ENV, _DEFAULT_MASTER_PORT))
+    node_rank = 0
+    gpus_per_node = num_devices_available
+    node_ips = [oumi_master_address]
+    cli_utils.configure_common_env_vars()
 
     return _ProcessRunInfo(
         node_rank=node_rank,
