@@ -1,3 +1,5 @@
+import asyncio
+import copy
 import gc
 import sqlite3
 from types import SimpleNamespace
@@ -226,3 +228,43 @@ def test_each_rollout_builds_its_envs_exactly_once(monkeypatch):
 
     del ad1, ad2
     gc.collect()
+
+
+def test_thread_worker_preserves_database_state_and_rollout_isolation():
+    from oumi.core.trainers.verl_agentic.env_provider import get_or_build_worker
+
+    async def run():
+        cfg = copy.deepcopy(BASE)
+        cfg.environments[0].tools[0].read_only = False
+        parent = _parent(cfg)
+        ad1, ad2 = _agent_data("thread-iso-a"), _agent_data("thread-iso-b")
+        first = get_or_build_worker(ad1, parent)
+        second = get_or_build_worker(ad2, parent)
+        try:
+            results = await asyncio.gather(
+                first.execute("run_sql", {"query": "SELECT count(*) FROM t"}),
+                second.execute("run_sql", {"query": "SELECT count(*) FROM t"}),
+            )
+            assert [r.output for r in results] == [
+                {"columns": ["count(*)"], "rows": [[2]]}
+            ] * 2
+            with pytest.raises(sqlite3.OperationalError):
+                await first.execute("run_sql", {"query": "SELECT * FROM missing"})
+            assert (
+                await first.execute("run_sql", {"query": "SELECT sum(x) FROM t"})
+            ).output == {"columns": ["sum(x)"], "rows": [[3]]}
+            # FIFO dispatch preserves mutations within a rollout, while the
+            # second rollout still observes its own unmodified database.
+            results = await asyncio.gather(
+                first.execute("run_sql", {"query": "INSERT INTO t VALUES (4)"}),
+                first.execute("run_sql", {"query": "SELECT sum(x) FROM t"}),
+                second.execute("run_sql", {"query": "SELECT sum(x) FROM t"}),
+            )
+            assert results[1].output == {"columns": ["sum(x)"], "rows": [[7]]}
+            assert results[2].output == {"columns": ["sum(x)"], "rows": [[3]]}
+        finally:
+            await asyncio.gather(
+                *(asyncio.wrap_future(w.close()) for w in (first, second))
+            )
+
+    asyncio.run(run())
