@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -82,6 +83,13 @@ class EndpointEnvironmentKwargs(BaseParams):
     endpoint that does not deduplicate.
     """
 
+    max_concurrency: int = 1
+    """How many calls of one :meth:`EndpointEnvironment.step` batch run at once.
+
+    Defaults to 1, which sends them one at a time. Raise it when the endpoint
+    serves calls independently and the batch should not wait for their sum.
+    """
+
     def __finalize_and_validate__(self) -> None:
         """Validate the endpoint configuration."""
         if not self.endpoint_url:
@@ -90,6 +98,8 @@ class EndpointEnvironmentKwargs(BaseParams):
             raise ValueError("timeout_seconds must be positive.")
         if self.max_retries < 0:
             raise ValueError("max_retries cannot be negative.")
+        if self.max_concurrency <= 0:
+            raise ValueError("max_concurrency must be positive.")
 
 
 @dataclass(frozen=True)
@@ -165,6 +175,7 @@ class RequestsJsonClient:
         url: str,
         timeout_seconds: float,
         max_retries: int = _DEFAULT_MAX_RETRIES,
+        max_concurrency: int = 1,
     ) -> None:
         """Send every call to ``url``, waiting at most ``timeout_seconds``."""
         self._url = url
@@ -181,7 +192,11 @@ class RequestsJsonClient:
                 # Hand back the exhausted response so the status reaches the
                 # protocol, rather than urllib3 raising its own pool error.
                 raise_on_status=False,
-            )
+            ),
+            # The default pool of 10 would cap concurrent calls below the
+            # configured concurrency and serialize the rest.
+            pool_connections=max_concurrency,
+            pool_maxsize=max_concurrency,
         )
         self._session.mount("https://", adapter)
         self._session.mount("http://", adapter)
@@ -265,10 +280,16 @@ class EndpointEnvironment(BaseEnvironment):
 
     tool_params_cls = ToolParams
 
-    def __init__(self, params: EnvironmentParams, protocol: EndpointProtocol) -> None:
+    def __init__(
+        self,
+        params: EnvironmentParams,
+        protocol: EndpointProtocol,
+        max_concurrency: int = 1,
+    ) -> None:
         """Bind the env to the protocol that reaches its endpoint."""
         self._params = params
         self._protocol = protocol
+        self._max_concurrency = max_concurrency
         self._tools_by_id: dict[str, ToolParams] = {
             tool.id: tool for tool in params.tools
         }
@@ -280,9 +301,12 @@ class EndpointEnvironment(BaseEnvironment):
             EndpointEnvironmentKwargs, params, env_label="EndpointEnvironment"
         )
         client = RequestsJsonClient(
-            kwargs.endpoint_url, kwargs.timeout_seconds, kwargs.max_retries
+            kwargs.endpoint_url,
+            kwargs.timeout_seconds,
+            kwargs.max_retries,
+            kwargs.max_concurrency,
         )
-        return cls(params, JsonHttpProtocol(client))
+        return cls(params, JsonHttpProtocol(client), kwargs.max_concurrency)
 
     def step(self, calls: list[tuple[str, dict[str, Any]]]) -> list[ToolResult]:
         """Execute a batch of tool calls; results are returned in input order.
@@ -291,13 +315,26 @@ class EndpointEnvironment(BaseEnvironment):
         Callers holding stable ids for a conversation and its calls should use
         :meth:`call` so retries stay deduplicable end to end.
         """
+        if not calls:
+            return []
+
         session_id = uuid.uuid4().hex
-        return [
-            self.call(
-                tool_id, arguments, call_id=uuid.uuid4().hex, session_id=session_id
+        call_ids = [uuid.uuid4().hex for _ in calls]
+
+        def run_one(index: int) -> ToolResult:
+            tool_id, arguments = calls[index]
+            return self.call(
+                tool_id, arguments, call_id=call_ids[index], session_id=session_id
             )
-            for tool_id, arguments in calls
-        ]
+
+        workers = min(self._max_concurrency, len(calls))
+        if workers == 1:
+            return [run_one(index) for index in range(len(calls))]
+
+        # map() yields in input order and re-raises the first failure, so the
+        # result is the same as the sequential path.
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            return list(pool.map(run_one, range(len(calls))))
 
     def call(
         self,
