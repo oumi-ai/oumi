@@ -1,0 +1,30 @@
+# Oumi environment manifest for the NL2SQL example: the database environment and
+# the read-only run_sql tool the policy calls during a rollout.
+#
+# See Also:
+#   - Example README: configs/examples/grpo_verl_nl2sql/README.md
+#   - Config class: oumi.core.configs.EnvironmentConfig
+#   - Loaded by: configs/examples/grpo_verl_nl2sql/verl_tool_config.yaml
+
+environments:
+  - id: nl2sql_db
+    name: NL2SQL database
+    description: NL2SQL database environment exposing a read-only run_sql tool.
+    env_type: database
+    env_kwargs:
+      # Replaced per-rollout by the row's metadata.tools_kwargs create_kwargs. A row
+      # missing those silently trains against this empty table instead.
+      schema_sql: "CREATE TABLE placeholder(x INTEGER);"
+    tools:
+      - id: run_sql
+        name: run_sql
+        description: Execute a read-only SQL query and return the result rows.
+        parameters:
+          type: object
+          properties:
+            query:
+              type: string
+              description: "A single SQL SELECT statement."
+          required: [query]
+        executor: oumi.environments.examples.nl2sql.run_sql
+        read_only: true
