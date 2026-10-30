@@ -1,0 +1,15 @@
+# Inference config for the simulated user.
+#
+# Must be a remote engine (OPENAI, REMOTE_VLLM, SGLANG, ...). Each rollout worker
+# builds one engine and shares it across its concurrent rollouts.
+#
+# Requirements:
+#   - export OPENAI_API_KEY=your_key_here
+model:
+  model_name: "gpt-4o-mini"
+
+engine: OPENAI
+
+generation:
+  max_new_tokens: 256
+  temperature: 1.0
