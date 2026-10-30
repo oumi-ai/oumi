@@ -1,6 +1,8 @@
 import asyncio
+import json
 import sqlite3
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
@@ -49,7 +51,7 @@ def _tool_schema(name: str = "run_sql") -> OpenAIFunctionToolSchema:
     )
 
 
-def _make_tool(tmp_path) -> OumiVerlTool:
+def _make_tool(tmp_path, execution_mode="sync") -> OumiVerlTool:
     cfg_path = tmp_path / "env.yaml"
     cfg_path.write_text(
         "environments:\n- id: db\n  name: db\n  description: test db\n"
@@ -61,7 +63,8 @@ def _make_tool(tmp_path) -> OumiVerlTool:
         f"     executor: {__name__}.run_sql, read_only: true}}\n"
     )
     return OumiVerlTool(
-        config={"oumi_env_config": str(cfg_path)}, tool_schema=_tool_schema()
+        config={"oumi_env_config": str(cfg_path), "execution_mode": execution_mode},
+        tool_schema=_tool_schema(),
     )
 
 
@@ -80,9 +83,10 @@ def _agent_data(request_id: str) -> _FakeAgentData:
     )
 
 
-def test_execute_routes_into_shared_env(tmp_path):
-    tool = _make_tool(tmp_path)
-    ad = _agent_data("execute-routes-into-shared-env")
+@pytest.mark.parametrize("execution_mode", ["sync", "thread"])
+def test_execute_routes_into_shared_env(tmp_path, execution_mode):
+    tool = _make_tool(tmp_path, execution_mode)
+    ad = _agent_data(f"execute-routes-into-shared-env-{execution_mode}")
 
     iid, _ = asyncio.run(tool.create())
     resp, reward, _metrics = asyncio.run(
@@ -112,10 +116,11 @@ def test_tool_name_missing_from_env_config_is_rejected_at_construction(tmp_path)
         OumiVerlTool(config=tool.config, tool_schema=_tool_schema("run_sqll"))
 
 
-def test_failed_tool_call_becomes_an_observation(tmp_path):
+@pytest.mark.parametrize("execution_mode", ["sync", "thread"])
+def test_failed_tool_call_becomes_an_observation(tmp_path, execution_mode):
     """A bad tool call must not propagate and kill the rollout."""
-    tool = _make_tool(tmp_path)
-    ad = _agent_data("failed-tool-call-becomes-an-observation")
+    tool = _make_tool(tmp_path, execution_mode)
+    ad = _agent_data(f"failed-tool-call-becomes-an-observation-{execution_mode}")
 
     iid, _ = asyncio.run(tool.create())
     resp, reward, _metrics = asyncio.run(
@@ -123,3 +128,45 @@ def test_failed_tool_call_becomes_an_observation(tmp_path):
     )
     assert reward == 0.0
     assert resp.text is not None and resp.text.startswith("Tool error:")
+
+
+def test_invalid_execution_mode_is_rejected(tmp_path):
+    with pytest.raises(ValueError, match="execution_mode"):
+        _make_tool(tmp_path, "invalid")
+
+
+def test_native_verl_agent_loop_drives_isolated_threaded_tools(tmp_path):
+    from verl.experimental.agent_loop.tool_agent_loop import AgentData, ToolAgentLoop
+    from verl.experimental.agent_loop.tool_parser import FunctionCall
+
+    tool = _make_tool(tmp_path, "thread")
+    # Only exercise VERL's real create/execute/release dispatch, without a model.
+    loop: Any = object.__new__(ToolAgentLoop)
+    loop.tools = {"run_sql": tool}
+    loop.max_tool_response_length = 10000
+    loop.tool_response_truncate_side = "left"
+
+    async def run():
+        owners = [
+            AgentData(
+                messages=[],
+                image_data=[],
+                video_data=[],
+                metrics={},
+                request_id=f"native-verl-{i}",
+                tools_kwargs=_agent_data("unused").tools_kwargs,
+            )
+            for i in range(12)
+        ]
+        call = FunctionCall(
+            name="run_sql", arguments=json.dumps({"query": "SELECT sum(x) FROM t"})
+        )
+        results = await asyncio.gather(
+            *(loop._call_tool(call, o.tools_kwargs, o) for o in owners)
+        )
+        for response, reward, _ in results:
+            assert response.text is not None
+            assert json.loads(response.text)["rows"] == [[3]]
+            assert reward == 0
+
+    asyncio.run(run())
