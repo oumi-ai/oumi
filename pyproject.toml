@@ -73,6 +73,7 @@ dependencies = [
     "posthog>=7.0,<8.0",
     "pillow>=11.3,<12.4",      # Used by image datasets
     "protobuf>=6.32",
+    "pyarrow<26",
     "pycares<6.0.0",
     "pydantic>=2.11,<2.14",
     "requests>=2.31,<3.0",        # Used by deploy module (GCS upload)
