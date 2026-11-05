@@ -131,7 +131,9 @@ def test_combined_reward_treats_nan_as_zero_like_trl():
     )
 
     assert output[VERL_REWARD_SCORE_KEY] == 1.0
-    assert math.isnan(output["test_combined_nan"])
+    nan_score = output["test_combined_nan"]
+    assert isinstance(nan_score, float)
+    assert math.isnan(nan_score)
 
 
 def test_combined_reward_accepts_omegaconf_containers():

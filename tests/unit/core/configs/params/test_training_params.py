@@ -12,13 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import cast
 from unittest.mock import patch
 
 import pytest
+import trl
 from transformers.trainer_pt_utils import AcceleratorConfig
 
 from oumi.core.configs.params.training_params import TrainerType, TrainingParams
 from oumi.exceptions import OumiConfigError
+
+
+def _grpo_config(params: TrainingParams) -> "trl.GRPOConfig":
+    """``to_hf`` is typed as the union of TRL configs; narrow it to the GRPO one."""
+    return cast("trl.GRPOConfig", params.to_hf())
 
 
 def test_fractional_eval_steps_passed_to_trl_config():
@@ -249,7 +256,7 @@ def test_reward_weights_reach_the_trl_grpo_config():
         reward_weights=[1.0, 0.2],
     )
 
-    assert params.to_hf().reward_weights == [1.0, 0.2]
+    assert _grpo_config(params).reward_weights == [1.0, 0.2]
 
 
 def test_reward_weights_set_twice_is_rejected():
@@ -273,7 +280,7 @@ def test_reward_weights_in_trainer_kwargs_alone_still_works():
         trainer_kwargs={"reward_weights": [1.0, 0.2]},
     )
 
-    assert params.to_hf().reward_weights == [1.0, 0.2]
+    assert _grpo_config(params).reward_weights == [1.0, 0.2]
 
 
 def test_unset_reward_weights_leave_the_trl_default():
@@ -281,4 +288,4 @@ def test_unset_reward_weights_leave_the_trl_default():
         trainer_type=TrainerType.TRL_GRPO, reward_functions=["gsm8k"]
     )
 
-    assert params.to_hf().reward_weights is None
+    assert _grpo_config(params).reward_weights is None
