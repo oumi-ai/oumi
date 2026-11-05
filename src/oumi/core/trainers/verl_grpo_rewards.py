@@ -31,6 +31,11 @@ from oumi.core.registry import REGISTRY
 # other keys are recorded per sample as ``reward_extra_info``.
 VERL_REWARD_SCORE_KEY = "score"
 
+# Extra keys a reward function returns are qualified with its name,
+# ``<function name>/<key>``, so two functions reporting the same
+# key stay distinguishable.
+EXTRA_KEY_SEPARATOR = "/"
+
 
 def _to_plain(value: Any) -> Any:
     """Convert OmegaConf containers to plain Python so they can be unpacked."""
@@ -89,7 +94,7 @@ def combined_reward(
     reward_weights: Sequence[float] | None = None,
     reward_function_kwargs: Mapping[str, Mapping[str, Any]] | None = None,
     **kwargs: Any,
-) -> dict[str, float]:
+) -> dict[str, object]:
     """Call every named reward function and return their weighted sum.
 
     Matches TRL's combination rule: ``sum(weight_i * score_i)`` with missing
@@ -98,7 +103,8 @@ def combined_reward(
 
     Returns:
         ``{"score": weighted_sum, <function name>: score, ...}`` so verl trains
-        on the sum and records every function's own score.
+        on the sum and records every function's own score. Any other key a
+        function returned is carried through as ``<function name>/<key>``.
     """
     names = [str(name) for name in _to_plain(reward_function_names)]
     weights = _to_plain(reward_weights)
@@ -112,7 +118,7 @@ def combined_reward(
     functions = resolve_reward_functions(names)
 
     total = 0.0
-    scores: dict[str, float] = {}
+    scores: dict[str, object] = {}
     for name, function, weight in zip(names, functions, weights):
         function_kwargs = dict(_to_plain(kwargs_map.get(name)) or {})
         output = function(
@@ -125,6 +131,12 @@ def combined_reward(
         )
         score = _score_from_output(name, output)
         scores[name] = score
+        if isinstance(output, Mapping):
+            scores.update(
+                (f"{name}{EXTRA_KEY_SEPARATOR}{key}", value)
+                for key, value in output.items()
+                if key != VERL_REWARD_SCORE_KEY
+            )
         if not math.isnan(score):
             total += weight * score
     return {VERL_REWARD_SCORE_KEY: total, **scores}

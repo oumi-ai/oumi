@@ -26,6 +26,11 @@ def _dict_reward(data_source, solution_str, ground_truth, extra_info):
     return {VERL_REWARD_SCORE_KEY: 0.5, "detail": 7.0}
 
 
+@register("test_combined_other_dict", RegistryType.REWARD_FUNCTION)
+def _other_dict_reward(data_source, solution_str, ground_truth, extra_info):
+    return {VERL_REWARD_SCORE_KEY: 0.25, "detail": 9.0}
+
+
 @register("test_combined_nan", RegistryType.REWARD_FUNCTION)
 def _nan_reward(data_source, solution_str, ground_truth, extra_info):
     return math.nan
@@ -106,8 +111,18 @@ def test_combined_reward_reads_score_from_a_dict_result():
     assert output == {
         VERL_REWARD_SCORE_KEY: 1.5,
         "test_combined_dict": 0.5,
+        "test_combined_dict/detail": 7.0,
         "test_combined_constant": 1.0,
     }
+
+
+def test_combined_reward_keeps_same_named_extras_apart():
+    output = _call(
+        reward_function_names=["test_combined_dict", "test_combined_other_dict"]
+    )
+
+    assert output["test_combined_dict/detail"] == 7.0
+    assert output["test_combined_other_dict/detail"] == 9.0
 
 
 def test_combined_reward_treats_nan_as_zero_like_trl():
