@@ -195,3 +195,90 @@ def test_trainer_kwargs_accelerator_config_must_be_dict():
 
     with pytest.raises(OumiConfigError, match="must be a dict, got str"):
         params.to_hf()
+
+
+@pytest.mark.parametrize("trainer_type", [TrainerType.TRL_GRPO, TrainerType.VERL_GRPO])
+def test_several_reward_functions_are_accepted(trainer_type):
+    params = TrainingParams(
+        trainer_type=trainer_type,
+        reward_functions=["gsm8k", "soft_target_token_length"],
+        reward_weights=[1.0, 0.2],
+    )
+
+    assert params.reward_weights == [1.0, 0.2]
+
+
+def test_reward_weights_length_must_match_reward_functions():
+    with pytest.raises(OumiConfigError, match="reward_weights has 1 entries but"):
+        TrainingParams(
+            trainer_type=TrainerType.VERL_GRPO,
+            reward_functions=["gsm8k", "soft_target_token_length"],
+            reward_weights=[1.0],
+        )
+
+
+def test_reward_weights_ignore_blank_reward_function_names():
+    params = TrainingParams(
+        trainer_type=TrainerType.VERL_GRPO,
+        reward_functions=["", "gsm8k", ""],
+        reward_weights=[2.0],
+    )
+
+    assert params.reward_weights == [2.0]
+
+
+def test_reward_weights_require_reward_functions():
+    with pytest.raises(OumiConfigError, match="requires reward_functions"):
+        TrainingParams(trainer_type=TrainerType.VERL_GRPO, reward_weights=[1.0])
+
+
+@pytest.mark.parametrize("weights", [["1.0"], [True], [None]])
+def test_reward_weights_must_be_numbers(weights):
+    with pytest.raises(OumiConfigError, match="must be numbers"):
+        TrainingParams(
+            trainer_type=TrainerType.VERL_GRPO,
+            reward_functions=["gsm8k"],
+            reward_weights=weights,
+        )
+
+
+def test_reward_weights_reach_the_trl_grpo_config():
+    params = TrainingParams(
+        trainer_type=TrainerType.TRL_GRPO,
+        reward_functions=["gsm8k", "soft_target_token_length"],
+        reward_weights=[1.0, 0.2],
+    )
+
+    assert params.to_hf().reward_weights == [1.0, 0.2]
+
+
+def test_reward_weights_set_twice_is_rejected():
+    # The typed field and the trainer_kwargs escape hatch would silently
+    # disagree, so setting both is a config error.
+    params = TrainingParams(
+        trainer_type=TrainerType.TRL_GRPO,
+        reward_functions=["gsm8k", "countdown"],
+        reward_weights=[3.0, 3.0],
+        trainer_kwargs={"reward_weights": [1.0, 0.2]},
+    )
+
+    with pytest.raises(OumiConfigError, match="set both in trainer_kwargs"):
+        params.to_hf()
+
+
+def test_reward_weights_in_trainer_kwargs_alone_still_works():
+    params = TrainingParams(
+        trainer_type=TrainerType.TRL_GRPO,
+        reward_functions=["gsm8k", "countdown"],
+        trainer_kwargs={"reward_weights": [1.0, 0.2]},
+    )
+
+    assert params.to_hf().reward_weights == [1.0, 0.2]
+
+
+def test_unset_reward_weights_leave_the_trl_default():
+    params = TrainingParams(
+        trainer_type=TrainerType.TRL_GRPO, reward_functions=["gsm8k"]
+    )
+
+    assert params.to_hf().reward_weights is None
