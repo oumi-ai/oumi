@@ -378,6 +378,35 @@ Rules:
 
 This is particularly useful with rubric-based reward functions (see {gh}`RaR datasets <src/oumi/datasets/grpo/rar_dataset.py>`) where a single function is reused across configs with different judge panels or scoring rules.
 
+### Tool-calling rollouts
+
+`TRL_GRPO` can train a model to call tools, without Ray, vLLM or verl. Set `grpo.rollout_function: "tool_agent"` and point `grpo.environment_config_path` at an {gh}`EnvironmentConfig <src/oumi/core/configs/environment_config.py>`:
+
+```yaml
+training:
+  trainer_type: "TRL_GRPO"
+  reward_functions: ["numeric_match"]
+
+  grpo:
+    num_generations: 8
+    rollout_function: "tool_agent"
+    environment_config_path: "configs/examples/grpo_tool_agent/environment.yaml"
+    max_tool_turns: 2
+```
+
+Each rollout generates a turn, parses `<tool_call>` blocks, runs them through a per-sample `ToolRouter`, appends the tool results, and generates again until the model stops calling tools or `max_tool_turns` is reached. The rollout works with every environment type (lookup, simulated, database, endpoint), so the environment config decides what the tools do.
+
+Two details worth knowing:
+
+- Tool result tokens are excluded from the policy loss, so the model is only trained on tokens it generated.
+- A failing tool becomes an observation (`{"error": ...}`) rather than an exception, which is what lets the model learn to recover from a bad call.
+
+A complete example is in {gh}`configs/examples/grpo_tool_agent <configs/examples/grpo_tool_agent>`.
+
+```{note}
+`tool_agent` uses TRL's experimental `rollout_func` API. Text prompts only.
+```
+
 ### Configuration
 
 #### TRL_GRPO

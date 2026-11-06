@@ -1,0 +1,43 @@
+# TRL GRPO config that trains a model to call an Oumi tool.
+#
+# The reward only looks at the final answer, and the prices live in the tool
+# environment, not in the model. Qwen3-0.6B answers these questions from memory
+# without calling `get_price` and gets them wrong, so the only way to score is to
+# call the tool and read the result.
+#
+# Runs on one GPU: no Ray, no vLLM, no verl.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`.
+#
+# Usage:
+#   oumi train -c configs/examples/grpo_tool_agent/train.yaml
+
+model:
+  model_name: "Qwen/Qwen3-0.6B"
+
+data:
+  train:
+    datasets:
+      - dataset_name: "json"
+        dataset_kwargs:
+          data_files: "configs/examples/grpo_tool_agent/data/price_math.jsonl"
+
+training:
+  trainer_type: "TRL_GRPO"
+  max_steps: 80
+  learning_rate: 5.0e-8
+  per_device_train_batch_size: 8
+  lr_scheduler_type: "constant"
+
+  reward_functions: ["numeric_match"]
+
+  grpo:
+    num_generations: 8
+    max_completion_length: 128
+    temperature: 1.0
+    rollout_function: "tool_agent"
+    environment_config_path: "configs/examples/grpo_tool_agent/environment.yaml"
+    max_tool_turns: 2
+  trainer_kwargs:
+    beta: 0.04

@@ -1,0 +1,52 @@
+environments:
+  - id: store
+    name: store
+    description: A small store price catalog.
+    env_type: lookup
+    tools:
+      - id: get_price
+        name: get_price
+        description: Return the price, in USD, of an item sold by the store.
+        parameters:
+          type: object
+          properties:
+            item:
+              type: string
+              description: The item name, e.g. "apple" or "apples".
+          required:
+            - item
+    env_kwargs:
+      lookup_table:
+        get_price:
+          - input: { item: apple }
+            output: { item: apple, price_usd: 3 }
+          - input: { item: apples }
+            output: { item: apple, price_usd: 3 }
+          - input: { item: laptop }
+            output: { item: laptop, price_usd: 999 }
+          - input: { item: laptops }
+            output: { item: laptop, price_usd: 999 }
+          - input: { item: pen }
+            output: { item: pen, price_usd: 7 }
+          - input: { item: pens }
+            output: { item: pen, price_usd: 7 }
+          - input: { item: book }
+            output: { item: book, price_usd: 12 }
+          - input: { item: books }
+            output: { item: book, price_usd: 12 }
+          - input: { item: cup }
+            output: { item: cup, price_usd: 5 }
+          - input: { item: cups }
+            output: { item: cup, price_usd: 5 }
+          - input: { item: mug }
+            output: { item: mug, price_usd: 9 }
+          - input: { item: mugs }
+            output: { item: mug, price_usd: 9 }
+          - input: { item: plate }
+            output: { item: plate, price_usd: 15 }
+          - input: { item: plates }
+            output: { item: plate, price_usd: 15 }
+          - input: { item: fork }
+            output: { item: fork, price_usd: 4 }
+          - input: { item: forks }
+            output: { item: fork, price_usd: 4 }
