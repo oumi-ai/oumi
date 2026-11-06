@@ -2,6 +2,7 @@ import json
 import os
 from pathlib import Path
 from types import SimpleNamespace
+from typing import cast
 from unittest.mock import MagicMock, call, patch
 
 import pytest
@@ -652,3 +653,293 @@ def test_verl_checkpoint_and_export_paths(tmp_path):
     assert merger_config.hf_model_config_path == str(latest / "actor" / "huggingface")
     assert merger_config.target_dir == str(tmp_path)
     mock_merger_cls.return_value.merge_and_save.assert_called_once()
+
+
+def _tool(name: str, properties: dict | None = None) -> dict:
+    function: dict = {"name": name, "description": f"Call {name}."}
+    if properties is not None:
+        function["parameters"] = {"type": "object", "properties": properties}
+    return {"type": "function", "function": function}
+
+
+_WEATHER_TOOL = _tool("get_weather", {"city": {"type": "string"}})
+
+
+def test_create_verl_data_entry_carries_tool_definitions():
+    convo = Conversation.from_dict(
+        {
+            "messages": [{"role": "user", "content": "Weather in Athens?"}],
+            "tools": [_WEATHER_TOOL],
+        }
+    )
+
+    entry = VerlGrpoTrainer._create_verl_data_entry_from_conversation(
+        _example(convo), 0, "tool_dataset", "train"
+    )
+
+    # The column feeds the rollout; extra_info is the only payload verl hands
+    # to the reward function, so the judge can see the same schemas.
+    assert entry["tools_json"] == entry["extra_info"]["tools_json"]
+    assert json.loads(entry["tools_json"]) == [_WEATHER_TOOL]
+
+
+def test_create_verl_data_entry_tool_definitions_default_the_tool_type():
+    convo = Conversation.from_dict(
+        {
+            "messages": [{"role": "user", "content": "ping"}],
+            "tools": [{"function": {"name": "ping"}}],
+        }
+    )
+
+    entry = VerlGrpoTrainer._create_verl_data_entry_from_conversation(
+        _example(convo), 0, "tool_dataset", "train"
+    )
+
+    assert json.loads(entry["tools_json"]) == [
+        {"type": "function", "function": {"name": "ping"}}
+    ]
+
+
+def test_create_verl_data_entry_without_tools_carries_no_tool_payload():
+    convo = Conversation(
+        messages=[
+            Message(role=Role.USER, content="What is 2+2?"),
+            Message(role=Role.ASSISTANT, content="4"),
+        ]
+    )
+
+    entry = VerlGrpoTrainer._create_verl_data_entry_from_conversation(
+        _example(convo), 0, "my_dataset", "train"
+    )
+
+    assert entry["tools_json"] is None
+    assert entry["extra_info"]["tools_json"] is None
+
+
+def test_create_verl_data_entry_rejects_a_malformed_tool():
+    convo_json = json.dumps(
+        {
+            "messages": [{"role": "user", "content": "hi"}],
+            "tools": [{"type": "function", "function": {"description": "no name"}}],
+        }
+    )
+
+    with pytest.raises(Exception, match="name"):
+        VerlGrpoTrainer._create_verl_data_entry_from_conversation(
+            {"conversation_json": convo_json}, 0, "tool_dataset", "train"
+        )
+
+
+def test_tool_definitions_survive_the_parquet_schema_unchanged():
+    """Differently shaped tools must round-trip exactly.
+
+    Arrow infers one struct type per column across every row, so tool schemas
+    stored as nested structures either gain the union of other rows' parameters
+    or fail on a type conflict. JSON-encoding them is what prevents that.
+    """
+    from datasets import Dataset
+
+    rows = [
+        _tool("a", {"city": {"type": "string", "default": "Athens"}}),
+        _tool("b", {"query": {"type": "string"}, "limit": {"type": "integer"}}),
+        _tool("c", None),
+    ]
+    entries = [
+        VerlGrpoTrainer._create_verl_data_entry_from_conversation(
+            _example(
+                Conversation.from_dict(
+                    {"messages": [{"role": "user", "content": "hi"}], "tools": [tool]}
+                )
+            ),
+            idx,
+            "tool_dataset",
+            "train",
+        )
+        for idx, tool in enumerate(rows)
+    ]
+
+    dataset = Dataset.from_list(entries)
+
+    for idx, tool in enumerate(rows):
+        assert json.loads(dataset[idx]["tools_json"]) == [tool]
+
+
+def test_agent_loop_config_registers_the_name_the_trainer_selects():
+    """The config file and the trainer's chosen loop name must not drift."""
+    import yaml
+
+    config_path = (
+        Path(verl_grpo_trainer.__file__).parent
+        / verl_grpo_trainer._AGENT_LOOP_CONFIG_FILENAME
+    )
+    registered = yaml.safe_load(config_path.read_text())
+
+    names = [entry["name"] for entry in registered]
+    assert verl_grpo_trainer._OUMI_SINGLE_TURN_AGENT_NAME in names
+    assert all(entry["_target_"] for entry in registered)
+
+
+class _CharCountTokenizer:
+    """Renders a prompt as one token per character, tool block included.
+
+    Returns a mapping, as ``transformers`` does for ``tokenize=True``, so a
+    caller that measured the result directly would count keys, not tokens.
+    """
+
+    def apply_chat_template(self, messages, tools=None, **kwargs):
+        text = json.dumps(messages)
+        if tools:
+            text += json.dumps(tools)
+        return {"input_ids": list(range(len(text))), "attention_mask": []}
+
+
+def _filter_caller(max_prompt_length: int | None) -> VerlGrpoTrainer:
+    """A stand-in carrying the only two attributes the filter reads."""
+    return cast(
+        VerlGrpoTrainer,
+        SimpleNamespace(
+            _oumi_config=SimpleNamespace(
+                training=SimpleNamespace(
+                    grpo=SimpleNamespace(max_prompt_length=max_prompt_length)
+                )
+            ),
+            _processing_class=_CharCountTokenizer(),
+        ),
+    )
+
+
+def _verl_rows(*conversations: Conversation):
+    from datasets import Dataset
+
+    return Dataset.from_list(
+        [
+            VerlGrpoTrainer._create_verl_data_entry_from_conversation(
+                _example(convo), idx, "tool_dataset", "train"
+            )
+            for idx, convo in enumerate(conversations)
+        ]
+    )
+
+
+def _convo(content: str, tools: list[dict] | None = None) -> Conversation:
+    payload: dict = {"messages": [{"role": "user", "content": content}]}
+    if tools is not None:
+        payload["tools"] = tools
+    return Conversation.from_dict(payload)
+
+
+def test_filter_drops_a_prompt_that_only_fits_without_its_tools():
+    """verl measures the prompt without the row's tools, then cannot truncate it."""
+    dataset = _verl_rows(
+        _convo("short", [_WEATHER_TOOL]),
+        _convo("short"),
+    )
+    bare_length = len(json.dumps([{"role": "user", "content": "short"}]))
+
+    filtered = VerlGrpoTrainer._filter_prompts_overlong_with_tools(
+        _filter_caller(bare_length + 1), dataset, "train"
+    )
+
+    assert filtered["prompt"] == [[{"role": "user", "content": "short"}]]
+
+
+def test_filter_keeps_a_prompt_that_still_fits_with_its_tools():
+    dataset = _verl_rows(_convo("short", [_WEATHER_TOOL]))
+
+    filtered = VerlGrpoTrainer._filter_prompts_overlong_with_tools(
+        _filter_caller(10_000), dataset, "train"
+    )
+
+    assert len(filtered) == 1
+
+
+def test_filter_leaves_tool_less_rows_to_verl():
+    """verl's own filter already measures those correctly."""
+    dataset = _verl_rows(_convo("a very long prompt indeed"))
+
+    filtered = VerlGrpoTrainer._filter_prompts_overlong_with_tools(
+        _filter_caller(1), dataset, "train"
+    )
+
+    assert len(filtered) == 1
+
+
+def test_filter_is_skipped_when_no_prompt_budget_is_configured():
+    dataset = _verl_rows(_convo("short", [_WEATHER_TOOL]))
+
+    filtered = VerlGrpoTrainer._filter_prompts_overlong_with_tools(
+        _filter_caller(None), dataset, "train"
+    )
+
+    assert filtered is dataset
+
+
+def test_filter_fails_when_every_row_overflows():
+    dataset = _verl_rows(_convo("short", [_WEATHER_TOOL]))
+
+    with pytest.raises(ValueError, match="max_prompt_length"):
+        VerlGrpoTrainer._filter_prompts_overlong_with_tools(
+            _filter_caller(1), dataset, "train"
+        )
+
+
+def test_both_row_builders_emit_the_same_keys_but_agent_name():
+    """`datasets.map` needs one key set across rows.
+
+    A dataset mixing tool-agent and plain rows already differed by
+    ``agent_name``; carrying tool schemas must not add a second difference.
+    """
+    plain = Conversation(
+        messages=[
+            Message(role=Role.USER, content="2+2?"),
+            Message(role=Role.ASSISTANT, content="4"),
+        ]
+    )
+    agentic = Conversation(
+        messages=[Message(role=Role.USER, content="rows in t?")],
+        metadata={
+            "agent_name": "tool_agent",
+            "ground_truth": "SELECT 1",
+            "tools_kwargs": {"run_sql": {}},
+        },
+    )
+
+    plain_row, agentic_row = (
+        VerlGrpoTrainer._create_verl_data_entry_from_conversation(
+            _example(convo), 0, "d", "train"
+        )
+        for convo in (plain, agentic)
+    )
+
+    assert "tools_json" in plain_row
+    assert "tools_json" in agentic_row
+    assert set(agentic_row) - set(plain_row) == {"agent_name"}
+    assert set(plain_row) - set(agentic_row) == set()
+
+
+def test_tool_definitions_keep_explicit_nulls_in_their_schema():
+    """An explicit `"default": null` is part of the caller's JSON Schema.
+
+    The row is built from the raw ``conversation_json``, so a null the caller
+    wrote survives; serializing it away would advertise a different schema than
+    the dataset declares.
+    """
+    tool = {
+        "type": "function",
+        "function": {
+            "name": "search",
+            "parameters": {
+                "type": "object",
+                "properties": {"topic": {"type": "string", "default": None}},
+            },
+        },
+    }
+    conversation_json = json.dumps(
+        {"messages": [{"role": "user", "content": "find it"}], "tools": [tool]}
+    )
+
+    entry = VerlGrpoTrainer._create_verl_data_entry_from_conversation(
+        {"conversation_json": conversation_json}, 0, "tool_dataset", "train"
+    )
+
+    assert json.loads(entry["tools_json"]) == [tool]
