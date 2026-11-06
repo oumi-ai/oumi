@@ -378,6 +378,26 @@ Rules:
 
 This is particularly useful with rubric-based reward functions (see {gh}`RaR datasets <src/oumi/datasets/grpo/rar_dataset.py>`) where a single function is reused across configs with different judge panels or scoring rules.
 
+#### Judge rewards
+
+A reward that calls an LLM judge per completion is latency-bound: each call pays a full round trip, and the engine's concurrency never helps because the calls arrive one at a time. Under `TRL_GRPO` the trainer already hands the reward function the whole batch, so the judge can score all of them in one call.
+
+| Function | Trainer | Judge calls per batch |
+|---|---|---|
+| `rar_medicine_trl` | `TRL_GRPO` | one |
+| `rar_medicine_verl` | `VERL_GRPO` | one per completion |
+
+Both return the same scores for the same inputs. `rar_medicine_trl` is faster because `BaseJudge.judge()` fans a batch out with `remote_params.num_workers`, so raising that value (rather than calling `judge()` in a loop) is what converts judge latency into throughput.
+
+```yaml
+training:
+  trainer_type: "TRL_GRPO"
+  reward_functions: ["rar_medicine_trl"]
+  reward_function_kwargs:
+    rar_medicine_trl:
+      judge_config_path: "configs/examples/grpo_verl_medqa/judge.yaml"
+```
+
 ### Configuration
 
 #### TRL_GRPO
