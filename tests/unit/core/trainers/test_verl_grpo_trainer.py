@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, call, patch
 
 import pytest
+from omegaconf import OmegaConf
 
 from oumi.core.configs import (
     DataParams,
@@ -16,6 +17,7 @@ from oumi.core.configs import (
     TrainingParams,
 )
 from oumi.core.constants import VERL_METRICS_FILENAME
+from oumi.core.registry import RegistryType, register
 from oumi.core.trainers import verl_grpo_trainer
 from oumi.core.trainers.verl_grpo_trainer import (
     VerlGrpoTrainer,
@@ -29,6 +31,7 @@ from oumi.core.types.conversation import (
     Type,
 )
 from oumi.core.types.tool_call import FunctionCall, ToolCall
+from oumi.datasets.grpo.rewards.gsm8k_reward import gsm8k_reward
 from oumi.utils.verl_utils.grpo_metrics import REWARD_GROUP_LOW_STD_CONFIG_KEY
 
 try:
@@ -183,16 +186,150 @@ def test_create_verl_data_entry_multi_turn_with_images_raises():
         )
 
 
+@register("test_trainer_constant", RegistryType.REWARD_FUNCTION)
+def _constant_reward(data_source, solution_str, ground_truth, extra_info, value=1.0):
+    return value
+
+
+def _two_reward_params(**overrides) -> TrainingParams:
+    params = {
+        "trainer_type": TrainerType.VERL_GRPO,
+        "reward_functions": ["gsm8k", "test_trainer_constant"],
+        "reward_function_kwargs": {
+            "test_trainer_constant": {"value": 0.5},
+            # Kwargs for a function the run does not use are not shipped.
+            "countdown": {"unused": True},
+        },
+    }
+    return TrainingParams(**{**params, **overrides})
+
+
+def test_custom_reward_function_config_points_at_a_single_function():
+    reward_config = verl_grpo_trainer._custom_reward_function_config(
+        [gsm8k_reward], _two_reward_params(reward_functions=["gsm8k"])
+    )
+
+    assert reward_config is not None
+    assert reward_config.path == "pkg://oumi.datasets.grpo.rewards.gsm8k_reward"
+    assert reward_config.name == "gsm8k_reward"
+    assert reward_config.reward_kwargs is None
+
+
+def test_custom_reward_function_config_is_none_without_rewards():
+    assert (
+        verl_grpo_trainer._custom_reward_function_config(
+            [], TrainingParams(trainer_type=TrainerType.VERL_GRPO)
+        )
+        is None
+    )
+
+
+def test_custom_reward_function_config_combines_several_functions():
+    reward_config = verl_grpo_trainer._custom_reward_function_config(
+        [gsm8k_reward, MagicMock()], _two_reward_params(reward_weights=[1, 0.2])
+    )
+
+    assert reward_config is not None
+    assert reward_config.path == "pkg://oumi.core.trainers.verl_grpo_rewards"
+    assert reward_config.name == "combined_reward"
+    assert reward_config.reward_kwargs == {
+        "reward_function_names": ["gsm8k", "test_trainer_constant"],
+        "reward_weights": [1.0, 0.2],
+        "reward_function_kwargs": {"test_trainer_constant": {"value": 0.5}},
+    }
+
+
+def test_custom_reward_function_config_omits_unset_weights():
+    reward_config = verl_grpo_trainer._custom_reward_function_config(
+        [gsm8k_reward, MagicMock()], _two_reward_params()
+    )
+
+    assert reward_config is not None
+    assert reward_config.reward_kwargs == {
+        "reward_function_names": ["gsm8k", "test_trainer_constant"],
+        "reward_function_kwargs": {"test_trainer_constant": {"value": 0.5}},
+    }
+
+
+def test_combined_reward_kwargs_drops_blank_names():
+    # A blank entry must not reach a worker, where resolving "" in the registry
+    # would fail only once the cluster is already running.
+    reward_kwargs = verl_grpo_trainer._combined_reward_kwargs(
+        _two_reward_params(reward_functions=["", "gsm8k", "", "test_trainer_constant"])
+    )
+
+    assert reward_kwargs["reward_function_names"] == [
+        "gsm8k",
+        "test_trainer_constant",
+    ]
+
+
+def test_compute_score_function_combines_several_functions():
+    compute_score = verl_grpo_trainer._compute_score_function(
+        [gsm8k_reward, MagicMock()], _two_reward_params(reward_weights=[1, 0.5])
+    )
+
+    assert compute_score is not None
+    output = compute_score(
+        data_source="gsm8k",
+        solution_str="#### 42",
+        ground_truth="42",
+        extra_info={},
+    )
+    assert output == {
+        "score": pytest.approx(1.0 + 0.5 * 0.5),
+        "gsm8k": 1.0,
+        "test_trainer_constant": 0.5,
+    }
+
+
+def test_compute_score_function_passes_a_single_function_through():
+    assert (
+        verl_grpo_trainer._compute_score_function(
+            [gsm8k_reward], _two_reward_params(reward_functions=["gsm8k"])
+        )
+        is gsm8k_reward
+    )
+    assert (
+        verl_grpo_trainer._compute_score_function(
+            [], TrainingParams(trainer_type=TrainerType.VERL_GRPO)
+        )
+        is None
+    )
+
+
 @pytest.mark.skipif(verl_import_failed, reason="verl not available")
 def test_init_with_multiple_reward_funcs():
-    with pytest.raises(ValueError, match="We only support up to one reward function"):
-        VerlGrpoTrainer(
+    with (
+        patch.object(VerlGrpoTrainer, "_create_config"),
+        patch.object(VerlGrpoTrainer, "_setup_verl_trainer"),
+    ):
+        trainer = VerlGrpoTrainer(
             processing_class=MagicMock(),
             config=MagicMock(),
             reward_funcs=[MagicMock(), MagicMock()],
             train_dataset=MagicMock(),
             eval_dataset=MagicMock(),
         )
+    assert len(trainer._reward_funcs) == 2
+
+
+@pytest.mark.skipif(verl_import_failed, reason="verl not available")
+def test_create_config_wires_combined_reward_for_several_functions():
+    trainer = _make_trainer_for_config(save_steps=1, save_final_model=False)
+    trainer._oumi_config.training.reward_functions = ["gsm8k", "countdown"]
+    trainer._oumi_config.training.reward_weights = [1.0, 0.2]
+    trainer._reward_funcs = [gsm8k_reward, MagicMock()]
+
+    config = trainer._create_config()
+
+    reward_config = config.reward.custom_reward_function
+    assert reward_config.path == "pkg://oumi.core.trainers.verl_grpo_rewards"
+    assert reward_config.name == "combined_reward"
+    assert OmegaConf.to_container(reward_config.reward_kwargs) == {
+        "reward_function_names": ["gsm8k", "countdown"],
+        "reward_weights": [1.0, 0.2],
+    }
 
 
 def test_create_verl_data_entry_tool_agent_carries_metadata():
