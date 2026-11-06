@@ -527,8 +527,8 @@ inference_config:
 After generating synthetic data:
 
 1. **Review the output**: Check the generated samples for quality and relevance
-2. **Use for training**: Include the dataset in your training configuration (see our [training guide](../../docs/user_guides/train/train.md) for more details)
+2. **Use for training**: Include the dataset in your training configuration (see our [training guide](../../../docs/user_guides/train/train.md) for more details)
 3. **Iterate and improve**: Modify the synthesis config based on results
 4. **Combine datasets**: Use multiple synthesis runs to create larger, more diverse datasets
 
-For more information, see the [Data Synthesis Guide](../../docs/user_guides/synth.md).
+For more information, see the [Data Synthesis Guide](../../../docs/user_guides/synth.md).
