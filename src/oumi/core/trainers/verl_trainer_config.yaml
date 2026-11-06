@@ -88,6 +88,10 @@ actor_rollout_ref:
     entropy_checkpointing: false
   rollout:
     name: vllm
+    # Tool and simulated-user rows need `mode: async` and `multi_turn.enable: true`
+    # (plus `agent.agent_loop_config_path` for the simulated user). Set them per
+    # recipe in training.verl_config_overrides; see
+    # configs/examples/verl_conversational/user_sim_agent_loop.yaml.
     mode: sync
     temperature: 1.0
     top_k: -1
