@@ -346,6 +346,10 @@ The `VERL_GRPO` trainer has a specific format required for its input dataset. Re
 verl requires paths to Parquet files for the training and validation data. Oumi OSS allows you to use HuggingFace Datasets instead by automatically creating the necessary Parquet files before training.
 ```
 
+For slow synchronous tools in agentic rollouts, see
+{doc}`nonblocking VERL tool execution <verl_tool_execution>` for the opt-in
+thread-affine execution mode and its compatibility limits.
+
 ### Reward function
 
 Instead of training a separate reward model which estimates the reward value of a completion, it is common to use reward functions instead. Both the trl and verl frameworks have specific interfaces required for the reward functions used. These are documented in the [trl documentation](https://huggingface.co/docs/trl/main/en/grpo_trainer#using-a-custom-reward-function) and [verl documentation](https://verl.readthedocs.io/en/latest/preparation/reward_function.html) respectively.

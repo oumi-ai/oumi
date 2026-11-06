@@ -18,13 +18,16 @@ from __future__ import annotations
 
 import weakref
 from collections.abc import Mapping
+from functools import partial
 from typing import Any, Protocol, TypedDict
 
 from oumi.core.synthesis.tool_router import ToolRouter
+from oumi.core.trainers.verl_agentic.router_worker import RouterWorker, next_lane
 
 # Routers stay module-local because their environment connections are not picklable.
 # Value is (id of the parent router, rollout clone) — see `get_or_build_router`.
 _ROUTERS: dict[str, tuple[int, ToolRouter]] = {}
+_WORKERS: dict[str, tuple[int, RouterWorker]] = {}
 
 
 class _ToolKwargs(TypedDict, total=False):
@@ -74,6 +77,37 @@ def _teardown(request_id: str) -> None:
         entry[1].close()
 
 
+def _teardown_worker(request_id: str) -> None:
+    """Queue thread-affine teardown without blocking a GC callback."""
+    entry = _WORKERS.pop(request_id, None)
+    if entry is not None:
+        entry[1].close()
+
+
+def get_or_build_worker(
+    agent_data: _RolloutData, parent_router: ToolRouter
+) -> RouterWorker:
+    """Return one thread-affine worker per rollout, shared by all its tools."""
+    request_id = agent_data.request_id
+    if request_id in _ROUTERS:
+        raise ValueError("Tools in one rollout must use the same execution_mode.")
+    entry = _WORKERS.get(request_id)
+    if entry is not None:
+        if entry[0] != id(parent_router):
+            raise ValueError(
+                "Oumi tools in one rollout must share a single environment config."
+            )
+        return entry[1]
+    overrides = _rollout_env_kwargs(agent_data, parent_router.tool_env_map)
+    worker = RouterWorker(partial(parent_router.for_sample, overrides), next_lane())
+    _WORKERS[request_id] = (id(parent_router), worker)
+    # Never capture agent_data in the worker: that would keep its owner alive.
+    finalizer = weakref.finalize(agent_data, _teardown_worker, request_id)
+    # Lanes drain and close live routers themselves during process shutdown.
+    finalizer.atexit = False
+    return worker
+
+
 def get_or_build_router(
     agent_data: _RolloutData, parent_router: ToolRouter
 ) -> ToolRouter:
@@ -87,6 +121,8 @@ def get_or_build_router(
     (`EnvironmentConfig.environments` is a list), so a second one is a mistake.
     """
     request_id = agent_data.request_id
+    if request_id in _WORKERS:
+        raise ValueError("Tools in one rollout must use the same execution_mode.")
     entry = _ROUTERS.get(request_id)
     if entry is not None:
         # `parent_router` is cached per config path, so identity == same config.
