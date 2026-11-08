@@ -54,6 +54,9 @@ class InferenceEngineType(str, Enum):
     PARASAIL = "PARASAIL"
     """The inference engine for Parasail API."""
 
+    RUNCRATE = "RUNCRATE"
+    """The inference engine for Runcrate API."""
+
     TOGETHER = "TOGETHER"
     """The inference engine for Together API."""
 

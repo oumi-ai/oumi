@@ -817,6 +817,31 @@ The models available via this API can be found at [docs.parasail.io](https://doc
 
 - [Parasail.io Documentation](https://docs.parasail.io)
 
+### Runcrate
+
+[Runcrate](https://www.runcrate.ai) is an AI cloud with an OpenAI-compatible inference API for open-weight models.
+
+**Basic Usage**
+
+Set `RUNCRATE_API_KEY`, then configure Oumi for Runcrate:
+
+```{testcode}
+from oumi.inference import RuncrateInferenceEngine
+from oumi.core.configs import ModelParams, RemoteParams
+
+engine = RuncrateInferenceEngine(
+    model_params=ModelParams(
+        model_name="Qwen/Qwen3-235B-A22B-Instruct-2507"
+    )
+)
+```
+
+The models available via this API can be listed with `engine.list_models()` or at [api.runcrate.ai/v1/models](https://api.runcrate.ai/v1/models).
+
+**Resources**
+
+- [Runcrate](https://www.runcrate.ai)
+
 ## Batch Inference
 
 Several cloud API engines support batch inference, which allows you to process large numbers of requests asynchronously at reduced cost. Batch jobs are queued and processed within a completion window (typically 24 hours).

@@ -178,6 +178,7 @@ The `engine` parameter specifies which inference engine to use. Available option
 - `PARASAIL`: Use Parasail API via {py:obj}`~oumi.inference.ParasailInferenceEngine`
 - `REMOTE_VLLM`: Use external vLLM server via {py:obj}`~oumi.inference.RemoteVLLMInferenceEngine`
 - `REMOTE`: Use any OpenAI-compatible API via {py:obj}`~oumi.inference.RemoteInferenceEngine`
+- `RUNCRATE`: Use Runcrate API via {py:obj}`~oumi.inference.RuncrateInferenceEngine`
 - `SAMBANOVA`: Use SambaNova API via {py:obj}`~oumi.inference.SambanovaInferenceEngine`
 - `SGLANG`: Use SGLang inference engine via {py:obj}`~oumi.inference.SGLangInferenceEngine`
 - `TOGETHER`: Use Together API via {py:obj}`~oumi.inference.TogetherInferenceEngine`

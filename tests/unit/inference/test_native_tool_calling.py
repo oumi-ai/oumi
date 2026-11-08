@@ -29,6 +29,7 @@ _UNSUPPORTED = [
     InferenceEngineType.LLAMACPP,
     InferenceEngineType.BEDROCK,
     InferenceEngineType.GOOGLE_GEMINI,
+    InferenceEngineType.RUNCRATE,
 ]
 
 

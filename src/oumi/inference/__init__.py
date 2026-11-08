@@ -35,6 +35,7 @@ from oumi.inference.openrouter_inference_engine import OpenRouterInferenceEngine
 from oumi.inference.parasail_inference_engine import ParasailInferenceEngine
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 from oumi.inference.remote_vllm_inference_engine import RemoteVLLMInferenceEngine
+from oumi.inference.runcrate_inference_engine import RuncrateInferenceEngine
 from oumi.inference.sambanova_inference_engine import SambanovaInferenceEngine
 from oumi.inference.sglang_inference_engine import SGLangInferenceEngine
 from oumi.inference.together_inference_engine import TogetherInferenceEngine
@@ -57,6 +58,7 @@ __all__ = [
     "ParasailInferenceEngine",
     "RemoteInferenceEngine",
     "RemoteVLLMInferenceEngine",
+    "RuncrateInferenceEngine",
     "SambanovaInferenceEngine",
     "SGLangInferenceEngine",
     "TogetherInferenceEngine",
