@@ -23,6 +23,7 @@ from typing import Any, Protocol, TypedDict
 
 from oumi.core.synthesis.tool_router import ToolRouter
 from oumi.core.trainers.verl_agentic.router_worker import RouterWorker, next_lane
+from oumi.environments.simulated_environment import SimulatedEnvironment
 
 # Routers stay module-local because their environment connections are not picklable.
 # Value is (id of the parent router, rollout clone) — see `get_or_build_router`.
@@ -78,10 +79,41 @@ def _teardown(request_id: str) -> None:
 
 
 def _teardown_worker(request_id: str) -> None:
-    """Queue thread-affine teardown without blocking a GC callback."""
+    """Queue thread-affine teardown without blocking a GC callback.
+
+    Runs from a `weakref.finalize` callback, possibly from inside an allocation
+    on a lane thread, so it must not lock or submit on that lane. `RouterWorker`
+    keeps the lock-free entry point for exactly this path.
+    """
     entry = _WORKERS.pop(request_id, None)
     if entry is not None:
-        entry[1].close()
+        entry[1].close_from_finalizer()
+
+
+def _reject_unsupported_envs(parent_router: ToolRouter) -> None:
+    """Fail early for environments that cannot run on a worker thread.
+
+    Thread mode has no event loop, so anything that would drive an inference
+    engine would block on, or be corrupted by, a foreign loop. Rejecting here
+    turns that into a config error at build time instead of a hang mid-rollout.
+    """
+    unsupported: list[str] = []
+    env_by_id = getattr(parent_router, "env_by_id", None)
+    if not isinstance(env_by_id, Mapping):
+        # Test doubles and third-party routers need not expose env internals.
+        return
+    for env_id, env in env_by_id.items():
+        if isinstance(env, SimulatedEnvironment):
+            # Even stateless simulated envs fall back to the simulator engine for
+            # any tool without a local executor, and that engine owns a loop.
+            unsupported.append(f"{env_id!r} (SimulatedEnvironment)")
+    if unsupported:
+        joined = ", ".join(sorted(unsupported))
+        raise ValueError(
+            "execution_mode: 'thread' cannot run these environments because they "
+            f"need an asyncio-bound inference engine: {joined}. "
+            "Use execution_mode: 'sync' (the default) for this config."
+        )
 
 
 def get_or_build_worker(
@@ -98,6 +130,7 @@ def get_or_build_worker(
                 "Oumi tools in one rollout must share a single environment config."
             )
         return entry[1]
+    _reject_unsupported_envs(parent_router)
     overrides = _rollout_env_kwargs(agent_data, parent_router.tool_env_map)
     worker = RouterWorker(partial(parent_router.for_sample, overrides), next_lane())
     _WORKERS[request_id] = (id(parent_router), worker)

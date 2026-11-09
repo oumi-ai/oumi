@@ -29,14 +29,19 @@ call. Cancelling an asyncio task cannot preempt a synchronous executor that has
 already started; side effects may finish before teardown. Configure timeouts in
 I/O executors so a hung request cannot hold a lane indefinitely.
 On normal process exit, lanes drain queued calls and close any remaining owned
-environments on their owning threads.
+environments on their owning threads. Shutdown waits at most 30 seconds for a
+lane; a tool that never returns is abandoned with a logged warning rather than
+blocking interpreter exit.
 
 Only enable this mode when shared environments, callbacks, and custom executors
-are safe to invoke from worker threads. In particular, do not use it to run
-`SimulatedEnvironment` or an executor relying on an asyncio-bound inference
-engine: such engines need native async execution on their owning event loop.
-Python CPU-bound executors may remain limited by the GIL. Thread mode does not
-change sampling, rewards, model computation, or batch-internal endpoint scheduling.
+are safe to invoke from worker threads. A config containing
+`SimulatedEnvironment` is rejected at build time, because such environments fall
+back to an inference engine that needs native async execution on its owning event
+loop. An executor relying on an asyncio-bound engine is rejected nowhere: Oumi
+cannot distinguish it from an ordinary blocking function, so it is your
+responsibility not to combine the two. Python CPU-bound executors may remain
+limited by the GIL. Thread mode does not change sampling, rewards, model
+computation, or batch-internal endpoint scheduling.
 
 Measure the complete rollout workload before enabling it. A single cheap query
 can be slower because of dispatch overhead, while many cold environments or

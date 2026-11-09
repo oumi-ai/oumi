@@ -10,8 +10,11 @@ from unittest.mock import Mock
 
 import pytest
 
+from oumi.core.configs.environment_config import EnvironmentConfig
+from oumi.core.configs.params.environment_params import EnvironmentParams
+from oumi.core.synthesis.tool_router import ToolRouter
 from oumi.core.trainers.verl_agentic import env_provider
-from oumi.core.trainers.verl_agentic.router_worker import RouterWorker, next_lane
+from oumi.core.trainers.verl_agentic.router_worker import RouterWorker, _Lane, next_lane
 from oumi.core.types.tool_call import ToolResult
 
 
@@ -315,3 +318,158 @@ worker._router.result(timeout=10)
     assert result.returncode == 0, result.stderr
     assert "cannot schedule new futures" not in result.stderr
     assert marker.read_text(encoding="utf-8") == "closed"
+
+
+class _QueueFiringCallbackInsidePut:
+    """Delegates to a real queue but runs a callback from inside `put`.
+
+    Models the reviewer's deadlock precisely: `Queue.put` allocates, the
+    allocation can trigger a GC pass, and that pass runs a `weakref.finalize`
+    callback for another rollout on the same lane. Making the callback run
+    inside `put` reproduces the reentrancy without depending on allocation
+    accounting.
+    """
+
+    def __init__(self, inner, on_put):
+        self._inner = inner
+        self._on_put = on_put
+        self.fired = False
+
+    def put(self, item):
+        self._inner.put(item)
+        if not self.fired:
+            self.fired = True
+            self._on_put()
+
+    def get(self):
+        return self._inner.get()
+
+
+def test_finalizer_during_put_does_not_deadlock_the_lane():
+    """GC teardown of a same-lane rollout must not re-enter a held lane lock."""
+    closed = threading.Event()
+
+    def build():
+        return Mock(route_batch=lambda calls: ["ok"], close=closed.set)
+
+    lane = _Lane("oumi-tool-reentrancy")
+    sibling = RouterWorker(build, lane=lane)
+    victim = RouterWorker(build, lane=lane)
+    env_provider._WORKERS["victim"] = (0, victim)
+
+    original_queue = lane._queue
+    lane._queue = _QueueFiringCallbackInsidePut(  # type: ignore[assignment]
+        original_queue, lambda: env_provider._teardown_worker("victim")
+    )
+    try:
+        # If the lane re-enters a lock it already holds this never returns.
+        lane.submit(lambda: "outer").result(timeout=10)
+    finally:
+        lane._queue = original_queue
+        env_provider._WORKERS.pop("victim", None)
+        lane.shutdown()
+
+    assert sibling is not None
+    assert closed.wait(timeout=5)
+
+
+def test_shutdown_does_not_block_on_a_stuck_tool(monkeypatch):
+    """A tool that never returns must not hold interpreter exit forever."""
+    started, release = threading.Event(), threading.Event()
+
+    def stuck():
+        started.set()
+        assert release.wait(timeout=30)
+        return "late"
+
+    lane = _Lane("oumi-tool-stuck")
+    lane.submit(stuck).exception()  # noqa: B018 - dispatched to the lane
+    assert started.wait(timeout=5)
+
+    monkeypatch.setattr(
+        "oumi.core.trainers.verl_agentic.router_worker._SHUTDOWN_JOIN_TIMEOUT_SECONDS",
+        0.05,
+    )
+    began = threading.Event()
+
+    def timed_shutdown():
+        began.set()
+        lane.shutdown()
+
+    t = threading.Thread(target=timed_shutdown, daemon=True)
+    t.start()
+    assert began.wait(timeout=5)
+    t.join(timeout=10)
+    # The bounded join returns even though the tool still holds the lane.
+    assert not t.is_alive()
+    release.set()
+
+
+def test_lane_pool_is_built_once_under_concurrent_first_use():
+    """Concurrent first use must not build competing pools (16 lanes, not 8)."""
+    import oumi.core.trainers.verl_agentic.router_worker as rw
+
+    saved = rw._pool
+    rw._pool = None
+    try:
+        barrier = threading.Barrier(8)
+        seen: list[int] = []
+        lock = threading.Lock()
+
+        def grab():
+            barrier.wait(timeout=10)
+            lane = rw.next_lane()
+            with lock:
+                seen.append(id(lane))
+
+        threads = [threading.Thread(target=grab) for _ in range(8)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=15)
+
+        # Every caller must draw from the same eight-lane rotation.
+        assert len(set(seen)) == 8
+        pool = rw._lanes()
+        assert len(pool._lanes) == 8
+    finally:
+        built = rw._pool
+        for lane in [] if built is None else built._lanes:
+            lane.shutdown(wait=False)
+        rw._pool = saved
+
+
+def test_finalizer_after_lane_shutdown_is_a_no_op():
+    """Teardown must not raise when the lane already stopped and swept routers."""
+    lane = _Lane("oumi-tool-stopped")
+    worker = RouterWorker(lambda: Mock(close=lambda: None), lane=lane)
+    lane.shutdown()
+    # Pending build never ran, so the lane cancelled the future; teardown must
+    # be silent rather than surfacing a CancelledError to the interpreter.
+    worker.close_from_finalizer()
+    assert worker._closing is None
+
+
+def test_thread_mode_rejects_simulated_environment():
+    """Thread mode cannot drive an asyncio-bound simulator engine."""
+    cfg = EnvironmentConfig(
+        environments=[
+            EnvironmentParams(
+                id="sim",
+                env_type="simulated",
+                env_kwargs={"tool_persona": "you are a helpful tool"},
+                tools=[
+                    {
+                        "id": "lookup",
+                        "name": "lookup",
+                        "description": "simulated",
+                        "parameters": {"type": "object", "properties": {}},
+                    }
+                ],
+            )
+        ]
+    )
+    parent = ToolRouter.from_environment_config(cfg)
+    ad = SimpleNamespace(request_id="sim-1", tools_kwargs={})
+    with pytest.raises(ValueError, match="asyncio-bound inference engine"):
+        env_provider.get_or_build_worker(ad, parent)  # type: ignore[arg-type]
