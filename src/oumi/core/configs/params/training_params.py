@@ -362,8 +362,8 @@ class TrainingParams(BaseParams):
     """The names of the reward function in the Oumi registry to use for reinforcement
     learning.
 
-    Only supported with the TRL_GRPO and VERL_GRPO trainers. Currently,
-    VERL_GRPO only supports specifying a single reward function.
+    Only supported with the TRL_GRPO and VERL_GRPO trainers. Several functions
+    are combined as the weighted sum of their scores (see ``reward_weights``).
 
     For TRL_GRPO, refer to https://huggingface.co/docs/trl/main/en/grpo_trainer
     for documentation about the function signature.
@@ -371,6 +371,13 @@ class TrainingParams(BaseParams):
     For VERL_GRPO, refer to
     https://verl.readthedocs.io/en/latest/preparation/reward_function.html
     for documentation about the function signature.
+    """
+
+    reward_weights: list[float] | None = None
+    """One weight per entry of ``reward_functions``; the reward is their weighted sum.
+
+    Defaults to a weight of 1 for every function. Only supported with the
+    TRL_GRPO and VERL_GRPO trainers.
     """
 
     reward_function_kwargs: dict[str, Any] = field(default_factory=dict)
@@ -902,6 +909,14 @@ class TrainingParams(BaseParams):
             trainer_kwargs["deepspeed"] = deepspeed_config
 
         if self.trainer_type == TrainerType.TRL_GRPO:
+            if self.reward_weights is not None:
+                if "reward_weights" in trainer_kwargs:
+                    raise OumiConfigError(
+                        "reward_weights is set both in trainer_kwargs and as a "
+                        "TrainingParams field. Remove it from trainer_kwargs "
+                        "and keep training.reward_weights."
+                    )
+                trainer_kwargs["reward_weights"] = list(self.reward_weights)
             grpo_kwargs = self.grpo.to_hf_trainer_kwargs()
             conflicting_keys = set(trainer_kwargs.keys()).intersection(
                 grpo_kwargs.keys()
@@ -1070,11 +1085,22 @@ class TrainingParams(BaseParams):
                     "reward_functions may only be defined for the TRL_GRPO or VERL_GRPO"
                     f"trainers. Actual: {self.trainer_type}"
                 )
-            if self.trainer_type == TrainerType.VERL_GRPO and len(function_names) > 1:
+            if self.reward_weights is not None and len(self.reward_weights) != len(
+                function_names
+            ):
                 raise OumiConfigError(
-                    "VERL_GRPO only supports a single reward function. "
-                    f"Actual: {function_names}"
+                    f"reward_weights has {len(self.reward_weights)} entries but "
+                    f"reward_functions has {len(function_names)}: {function_names}"
                 )
+        elif self.reward_weights is not None:
+            raise OumiConfigError("reward_weights requires reward_functions to be set.")
+        if self.reward_weights is not None and any(
+            isinstance(weight, bool) or not isinstance(weight, (int, float))
+            for weight in self.reward_weights
+        ):
+            raise OumiConfigError(
+                f"reward_weights must be numbers. Actual: {self.reward_weights}"
+            )
         if self.reward_function_kwargs and self.trainer_type not in (
             TrainerType.TRL_GRPO,
             TrainerType.VERL_GRPO,
