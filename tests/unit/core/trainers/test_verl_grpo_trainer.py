@@ -300,8 +300,12 @@ def test_compute_score_function_passes_a_single_function_through():
 
 @pytest.mark.skipif(verl_import_failed, reason="verl not available")
 def test_init_with_multiple_reward_funcs():
+    # `__init__` reads the first sample of each split to pick a post-processing
+    # function, then writes both splits to Parquet. A MagicMock dataset iterates
+    # as empty, so those steps are replaced rather than exercised here.
     with (
-        patch.object(VerlGrpoTrainer, "_create_config"),
+        patch.object(VerlGrpoTrainer, "_detect_dataset_process_fn", return_value=None),
+        patch.object(VerlGrpoTrainer, "_create_dataset_files"),
         patch.object(VerlGrpoTrainer, "_setup_verl_trainer"),
     ):
         trainer = VerlGrpoTrainer(
