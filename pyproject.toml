@@ -126,6 +126,8 @@ docs = [
     "sphinxcontrib-bibtex",  # Allows us to cite bibtex references in the docs
     "sphinxcontrib-mermaid", # Enable mermaid diagrams in the docs
     "sphinxcontrib-typer",   # Allows us to include typer CLI in the docs
+    "sphinxext-opengraph",   # Open Graph tags and meta descriptions for the docs
+    "sphinx-sitemap",        # sitemap.xml for the docs
 ]
 
 # Useful dependencies when running on GPU
