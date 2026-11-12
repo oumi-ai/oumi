@@ -105,3 +105,118 @@ def rar_medicine_verl(
     return score_rar_medicine_response(
         question, ground_truth, solution_str, judge_config_path
     )
+
+
+def _completion_text(completion: Any) -> str:
+    """Return a TRL completion's text, which arrives as a str or a message list."""
+    if isinstance(completion, str):
+        return completion
+    if isinstance(completion, list) and completion:
+        last = completion[-1]
+        if isinstance(last, str):
+            return last
+        if isinstance(last, dict):
+            return str(last.get("content", ""))
+    return str(completion)
+
+
+def _normalize_judgment(output: Any) -> float | None:
+    """Return a judge output's score in ``[0, 1]``, or None if it is unusable."""
+    judgment = output.field_values.get("judgment")
+    if judgment is None:
+        return None
+    return min(max(float(judgment), 0.0), 10.0) / 10.0
+
+
+def score_rar_medicine_batch(
+    questions: list[str],
+    reference_answers: list[str],
+    responses: list[str],
+    judge_config_path: str = _DEFAULT_JUDGE_CONFIG,
+) -> list[float]:
+    """Score a whole batch with one judge call, retrying only the rows that fail."""
+    judge_config_path = os.environ.get("RAR_JUDGE_CONFIG", judge_config_path)
+    if not (len(questions) == len(reference_answers) == len(responses)):
+        raise ValueError(
+            "questions, reference_answers and responses must have the same length. "
+            f"Got {len(questions)}, {len(reference_answers)}, {len(responses)}."
+        )
+
+    scores: list[float | None] = [None] * len(responses)
+    pending = [
+        index
+        for index, response in enumerate(responses)
+        if response and response.strip()
+    ]
+
+    for attempt in range(_MAX_ATTEMPTS):
+        if not pending:
+            break
+        inputs = [
+            {
+                "question": questions[index],
+                "reference_answer": reference_answers[index],
+                "response": responses[index],
+            }
+            for index in pending
+        ]
+        try:
+            with _judge_semaphore:
+                outputs = _get_judge(judge_config_path).judge(inputs)
+            if len(outputs) != len(pending):
+                raise ValueError(
+                    f"The judge returned {len(outputs)} outputs for "
+                    f"{len(pending)} inputs."
+                )
+        except Exception as error:
+            if attempt + 1 < _MAX_ATTEMPTS:
+                time.sleep(2**attempt + random.random())
+                continue
+            logger.warning(
+                "RaR-Medicine judge failed after %d attempts (%s); assigning "
+                "reward 0 to %d of %d completions.",
+                _MAX_ATTEMPTS,
+                error,
+                len(pending),
+                len(responses),
+            )
+            break
+
+        still_pending = []
+        for index, output in zip(pending, outputs):
+            score = _normalize_judgment(output)
+            if score is None:
+                still_pending.append(index)
+            else:
+                scores[index] = score
+        pending = still_pending
+
+    return [0.0 if score is None else score for score in scores]
+
+
+@register("rar_medicine_trl", RegistryType.REWARD_FUNCTION)
+def rar_medicine_trl(
+    completions: list[Any],
+    reference_answer: list[str],
+    question: list[str] | None = None,
+    judge_config_path: str = _DEFAULT_JUDGE_CONFIG,
+    **kwargs: Any,
+) -> list[float]:
+    """Score a TRL_GRPO batch of completions against RaR-Medicine references.
+
+    TRL hands a reward function the whole batch, so this version sends every
+    completion to the judge at once instead of one call per completion.
+    """
+    del kwargs
+    responses = [_completion_text(completion) for completion in completions]
+    answers = list(reference_answer)
+    if question is None:
+        questions = [""] * len(responses)
+    else:
+        questions = list(question)
+    return score_rar_medicine_batch(
+        questions=questions,
+        reference_answers=answers,
+        responses=responses,
+        judge_config_path=judge_config_path,
+    )
