@@ -22,6 +22,7 @@ from oumi.datasets.grpo.rewards.count_letters_rewards import compute_letter_coun
 from oumi.datasets.grpo.rewards.countdown_rewards import countdown_reward
 from oumi.datasets.grpo.rewards.gsm8k_reward import gsm8k_reward
 from oumi.datasets.grpo.rewards.rar_medicine_reward import rar_medicine_verl
+from oumi.datasets.grpo.rewards.sql_execution_match import sql_execution_match
 
 __all__ = [
     "compute_letter_count_reward",
@@ -30,4 +31,5 @@ __all__ = [
     "countdown_reward",
     "gsm8k_reward",
     "rar_medicine_verl",
+    "sql_execution_match",
 ]
