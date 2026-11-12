@@ -42,3 +42,21 @@ oumi judge dataset \
 | `relevance` | Evaluates whether an answer is relevant to a question, based on provided context. |
 | `groundedness` | Determines whether an answer is properly grounded in the provided context without introducing external information. |
 | `completeness` | Assesses whether an answer comprehensively addresses all aspects of the question. |
+
+
+## Rubric Judges
+
+These judges score several criteria at once, in a single inference call, and return one judgment per criterion plus a weighted `aggregate_score`. Use them when you want a breakdown of *why* a response is good or bad, rather than a single pass/fail. See [Rubric Judges](/user_guides/judge/judge_config.md#rubric-judges) for how to write your own.
+
+They can be invoked as follows:
+```bash
+oumi judge dataset \
+  --config rubric/<judge name> \
+  --input dataset.jsonl \
+  --output output.jsonl
+```
+
+| Judge Name | Input Fields | Criteria |
+|------------|--------------|----------|
+| `response_quality` | `request`, `response` | `instruction_following`, `truthfulness`, `safety`, `helpfulness` |
+| `doc_qa` | `context`, `question`, `answer` | `relevance`, `groundedness`, `completeness` |

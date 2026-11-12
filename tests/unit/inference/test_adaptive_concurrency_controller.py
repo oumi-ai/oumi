@@ -960,6 +960,25 @@ async def test_context_manager_with_exception():
 
 
 @pytest.mark.asyncio
+async def test_context_manager_releases_on_the_running_loop():
+    """Test context manager exit releases without a helper thread and event loop."""
+    config = create_config()
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
+    initial_capacity = controller._semaphore._current_capacity
+
+    with patch(
+        "oumi.inference.adaptive_semaphore.safe_asyncio_run",
+        side_effect=AssertionError("released through safe_asyncio_run"),
+    ):
+        async with controller:
+            assert controller._semaphore._current_capacity == initial_capacity - 1
+
+    assert controller._semaphore._current_capacity == initial_capacity
+
+
+@pytest.mark.asyncio
 async def test_outcomes_deque_max_size():
     """Test that outcomes deque respects maximum size limit."""
     config = create_config()

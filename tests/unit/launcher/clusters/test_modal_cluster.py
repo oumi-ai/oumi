@@ -140,3 +140,13 @@ def test_get_logs_stream_raises_when_no_tracked_sandbox_and_no_job_id():
     cluster = ModalCluster("cluster-foo", client)
     with pytest.raises(ClusterNotFoundError):
         cluster.get_logs_stream("cluster-foo", job_id=None)
+
+
+def test_tunnel_url_resolves_through_the_client_by_sandbox_id():
+    client = MagicMock(spec=ModalClient)
+    client.tunnel_url.return_value = "https://sb-deadbeef-8000.modal.host"
+    cluster = ModalCluster("cluster-foo", client)
+    assert (
+        cluster.tunnel_url("sb-deadbeef", 8000) == "https://sb-deadbeef-8000.modal.host"
+    )
+    client.tunnel_url.assert_called_once_with("sb-deadbeef", 8000)

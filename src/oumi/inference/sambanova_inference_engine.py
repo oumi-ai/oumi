@@ -64,6 +64,7 @@ class SambanovaInferenceEngine(RemoteInferenceEngine):
             Dict[str, Any]: A dictionary containing the formatted input for the
             SambaNova API, including the model, messages, and generation parameters.
         """
+        # TODO: OPE-2188 - Add tool call support
         # Build request body according to SambaNova API spec
         body = {
             "model": model_params.model_name,
@@ -121,8 +122,8 @@ class SambanovaInferenceEngine(RemoteInferenceEngine):
         )
 
     @override
-    def _get_request_headers(self, remote_params: RemoteParams) -> dict[str, str]:
-        """Get headers for the API request.
+    def _get_auth_headers(self, remote_params: RemoteParams) -> dict[str, str]:
+        """Get auth headers for the API request.
 
         Args:
             remote_params: Remote server parameters.

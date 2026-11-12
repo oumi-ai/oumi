@@ -13,12 +13,19 @@
 # limitations under the License.
 
 import base64
-from typing import Any
+from typing import Any, Literal
 
 import PIL.Image
 
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
-from oumi.core.types.conversation import ContentItem, Conversation, Message, Type
+from oumi.core.types.conversation import (
+    ContentItem,
+    Conversation,
+    Message,
+    Role,
+    Type,
+)
+from oumi.core.types.tool_call import FunctionCall
 from oumi.utils.image_utils import (
     DEFAULT_IMAGE_MODE,
     load_image_png_bytes_from_path,
@@ -221,6 +228,55 @@ def _has_tool_metadata(message: Message) -> bool:
     return message.tool_calls is not None or message.tool_call_id is not None
 
 
+def split_assistant_content_and_tool_calls(messages: list[Message]) -> list[Message]:
+    """Splits assistant narration from tool calls while preserving their order.
+
+    Some chat templates render tool calls before the text when both are stored on
+    one assistant message. Splitting the message preserves the original chronology:
+    assistant narration, assistant tool call, then tool response.
+
+    The transformation is idempotent: messages that contain only narration or only
+    tool calls are returned unchanged. Callers must opt in only for chat templates
+    that support adjacent assistant messages.
+
+    Args:
+        messages: The messages to normalize.
+
+    Returns:
+        A message list with fused assistant narration and tool calls split apart.
+    """
+    result: list[Message] = []
+    for message in messages:
+        if (
+            message.role == Role.ASSISTANT
+            and message.tool_calls
+            and isinstance(message.content, str)
+            # Do not create a narration turn for empty or whitespace-only content.
+            and message.content.strip()
+        ):
+            # Append the narration first and retain its message-level metadata.
+            result.append(
+                message.model_copy(
+                    update={
+                        "tool_calls": None,
+                        "tool_call_id": None,
+                    }
+                )
+            )
+            # Append only the tool calls next. Constructing a fresh message avoids
+            # duplicating narration-only fields such as id and reasoning_content.
+            result.append(
+                Message(
+                    role=Role.ASSISTANT,
+                    content=None,
+                    tool_calls=message.tool_calls,
+                )
+            )
+        else:
+            result.append(message)
+    return result
+
+
 def create_list_of_message_json_dicts(
     messages: list[Message],
     *,
@@ -294,6 +350,79 @@ def create_list_of_message_json_dicts(
         result.append(item)
 
     return result
+
+
+def create_chat_template_inputs(
+    conversation: Conversation,
+    *,
+    tool_arguments_format: Literal["mapping", "string"],
+    content_format: Literal["null", "empty"],
+) -> tuple[list[dict], list[dict] | None]:
+    """Returns ``(messages, tools)`` shaped for ``tokenizer.apply_chat_template``.
+
+    Adapts the Oumi ``Conversation`` wire format to the form HuggingFace chat
+    templates expect. This is one-directional — nothing parses rendered text
+    back into a ``Conversation``.
+
+    Args:
+        conversation: The source conversation.
+        tool_arguments_format: How ``function.arguments`` should appear in the output.
+            ``"mapping"`` decodes JSON strings to dicts (required by most
+            templates); ``"string"`` leaves them as JSON strings.
+        content_format: How ``content`` on assistant messages that carry
+            only tool_calls should appear. ``"null"`` keeps ``None``;
+            ``"empty"`` coerces to ``""``.
+    """
+    data = conversation.to_dict()
+    messages = data["messages"]
+
+    for msg_idx, msg_dict in enumerate(messages):
+        tool_calls = msg_dict.get("tool_calls")
+        if not tool_calls:
+            continue
+
+        for tool_call in tool_calls:
+            _restore_default_type(tool_call)
+            if tool_arguments_format != "mapping":
+                continue
+            function = tool_call["function"]
+            try:
+                function["arguments"] = FunctionCall.model_validate(
+                    function
+                ).get_arguments_dict()
+            except ValueError as e:
+                raise ValueError(f"Message {msg_idx}: {e}") from e
+
+        if content_format == "empty" and msg_dict.get("content") is None:
+            msg_dict["content"] = ""
+
+    tools = data.get("tools")
+    for tool in tools or []:
+        _restore_default_type(tool)
+
+    return messages, tools
+
+
+def _restore_default_type(entry: dict) -> None:
+    """Re-adds ``type: "function"`` when it was left at its default.
+
+    ``Conversation.to_dict()`` dumps with ``exclude_unset=True``, so a
+    ``ToolCall`` or ``ToolDefinition`` built in code -- rather than parsed from
+    OpenAI-format JSON, which always spells ``type`` out -- loses the key
+    entirely. Templates read it directly: DeepSeek-V3 renders ``tool['type']``
+    and raises ``UndefinedError`` without it, so a programmatically built tool
+    conversation cannot be rendered for that model at all.
+
+    Only entries that actually carry a ``function`` get the key, and only when
+    it is missing, so an explicit value passes through and an entry of some
+    future non-function tool type is not mislabelled as one.
+
+    Scoped to this adapter rather than fixed in ``to_dict()``: that output also
+    feeds the inference engines, JSONL serialization, synthesis and analysis,
+    and rendering is the only place the missing key breaks anything.
+    """
+    if "function" in entry:
+        entry.setdefault("type", "function")
 
 
 def remove_excessive_images(

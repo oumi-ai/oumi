@@ -18,6 +18,7 @@ from pathlib import Path
 from oumi.core.configs.judge_config import JudgeConfig
 from oumi.core.types.conversation import Conversation, Role
 from oumi.judges.base_judge import BaseJudge, JudgeOutput
+from oumi.judges.rubric_judge import RubricJudge
 from oumi.judges.rule_based_judge import RuleBasedJudge
 from oumi.judges.simple_judge import SimpleJudge
 from oumi.utils.io_utils import load_jsonlines
@@ -35,13 +36,28 @@ def _create_judge(judge_config: JudgeConfig | str) -> BaseJudge:
         judge_config: JudgeConfig object or path to a judge config file.
 
     Returns:
-        BaseJudge: Either a RuleBasedJudge or SimpleJudge instance.
+        BaseJudge: A RuleBasedJudge, RubricJudge, or SimpleJudge instance, depending
+            on which judge-specific params the config carries.
+
+    Raises:
+        ValueError: If the config carries params for more than one judge type.
     """
     if isinstance(judge_config, str):
         judge_config = JudgeConfig.from_path(judge_config)
 
+    if (
+        judge_config.rule_judge_params is not None
+        and judge_config.rubric_judge_params is not None
+    ):
+        raise ValueError(
+            "JudgeConfig sets both `rule_judge_params` and `rubric_judge_params`, "
+            "which select different judges. Please provide exactly one of them."
+        )
+
     if judge_config.rule_judge_params is not None:
         return RuleBasedJudge(judge_config=judge_config)
+    if judge_config.rubric_judge_params is not None:
+        return RubricJudge(judge_config=judge_config)
     return SimpleJudge(judge_config=judge_config)
 
 

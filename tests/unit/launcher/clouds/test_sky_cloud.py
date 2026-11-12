@@ -6,7 +6,7 @@ import sky
 from oumi.core.configs import JobConfig, JobResources, StorageMount
 from oumi.core.launcher import JobState, JobStatus
 from oumi.core.registry import REGISTRY, RegistryType
-from oumi.launcher.clients.sky_client import SkyClient
+from oumi.launcher.clients.sky_client import SkyClient, SkyRequestStatus
 from oumi.launcher.clouds.sky_cloud import SkyCloud
 from oumi.launcher.clusters.sky_cluster import SkyCluster
 
@@ -138,6 +138,96 @@ def test_sky_cloud_up_cluster(mock_sky_client, mock_sky_cluster):
         _get_default_job("gcp"), "new_cluster_name"
     )
     assert job_status == expected_job_status
+
+
+def _single_gcp_cluster(mock_sky_client, mock_sky_cluster, name: str) -> Mock:
+    """Makes ``get_cluster(name)`` resolve to one GCP cluster mock."""
+    mock_gcp_cloud = Mock(spec=sky.clouds.GCP)
+    handler = Mock()
+    handler.launched_resources = Mock()
+    handler.launched_resources.cloud = mock_gcp_cloud
+    cluster = Mock(spec=SkyCluster)
+    cluster.name.return_value = name
+    mock_sky_client.status.return_value = [
+        {"name": name, "handle": handler, "status": sky.ClusterStatus.UP}
+    ]
+    mock_sky_cluster.side_effect = [cluster]
+    return cluster
+
+
+def test_sky_cloud_submit_job_returns_the_request_id(mock_sky_client):
+    mock_sky_client.submit.return_value = "req-123"
+    cloud = SkyCloud("gcp")
+    request_id = cloud.submit_job(
+        _get_default_job("gcp"), "new_cluster_name", down=True
+    )
+    mock_sky_client.submit.assert_called_once_with(
+        _get_default_job("gcp"), "new_cluster_name", down=True
+    )
+    mock_sky_client.wait.assert_not_called()
+    assert request_id == "req-123"
+
+
+def test_sky_cloud_wait_for_job_reads_the_job_back_from_its_cluster(
+    mock_sky_client, mock_sky_cluster
+):
+    launch_status = JobStatus(
+        name="",
+        id="1",
+        cluster="new_cluster_name",
+        status="",
+        metadata="",
+        done=False,
+        state=JobState.PENDING,
+    )
+    final_status = JobStatus(
+        name="myjob",
+        id="1",
+        cluster="new_cluster_name",
+        status="RUNNING",
+        metadata="",
+        done=False,
+        state=JobState.RUNNING,
+    )
+    cluster = _single_gcp_cluster(mock_sky_client, mock_sky_cluster, "new_cluster_name")
+    cluster.get_job.return_value = final_status
+    mock_sky_client.wait.return_value = launch_status
+    cloud = SkyCloud("gcp")
+    assert cloud.wait_for_job("req-123") == final_status
+    mock_sky_client.wait.assert_called_once_with("req-123")
+    cluster.get_job.assert_called_once_with("1")
+
+
+def test_sky_cloud_wait_for_job_raises_when_cluster_missing(
+    mock_sky_client, mock_sky_cluster
+):
+    mock_sky_client.wait.return_value = JobStatus(
+        name="",
+        id="1",
+        cluster="gone",
+        status="",
+        metadata="",
+        done=False,
+        state=JobState.PENDING,
+    )
+    mock_sky_client.status.return_value = []
+    cloud = SkyCloud("gcp")
+    with pytest.raises(RuntimeError, match="Cluster gone not found."):
+        cloud.wait_for_job("req-123")
+
+
+def test_sky_cloud_cancel_request(mock_sky_client):
+    mock_sky_client.cancel_request.return_value = True
+    cloud = SkyCloud("gcp")
+    assert cloud.cancel_request("req-123") is True
+    mock_sky_client.cancel_request.assert_called_once_with("req-123")
+
+
+def test_sky_cloud_request_status(mock_sky_client):
+    mock_sky_client.request_status.return_value = SkyRequestStatus.CANCELLED
+    cloud = SkyCloud("gcp")
+    assert cloud.request_status("req-123") is SkyRequestStatus.CANCELLED
+    mock_sky_client.request_status.assert_called_once_with("req-123")
 
 
 def test_sky_cloud_up_cluster_kwargs(mock_sky_client, mock_sky_cluster):

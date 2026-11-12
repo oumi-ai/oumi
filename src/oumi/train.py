@@ -240,11 +240,28 @@ def _log_feedback_request():
     )
 
 
-def _verl_train(partial_trainer: Callable[[], BaseTrainer]):
+def _save_final_model(trainer: BaseTrainer, config: TrainingConfig) -> None:
+    """Saves the final training state and model, if enabled."""
+    if not config.training.save_final_model:
+        return
+
+    logger.info("Saving final state...")
+    trainer.save_state()
+
+    barrier()
+
+    logger.info("Saving final model...")
+    trainer.save_model(config=config)
+
+
+def _verl_train(partial_trainer: Callable[[], BaseTrainer], config: TrainingConfig):
     """Runs verl training.
 
     This function initializes Ray, and then initializes and kicks off the trainer in a
     remote Ray function.
+
+    The final model is saved inside the remote function: the trainer is constructed
+    there, so it isn't reachable from the common save path in `train()`.
     """
     try:
         import ray  # pyright: ignore[reportMissingImports]
@@ -274,6 +291,8 @@ def _verl_train(partial_trainer: Callable[[], BaseTrainer]):
 
         logger.info("Training is Complete.")
 
+        _save_final_model(trainer, config)
+
     ray.get(_run_verl_train.remote(partial_trainer))
     _log_feedback_request()
 
@@ -299,6 +318,13 @@ def _maybe_raise_dynamo_recompile_limit(config: TrainingConfig) -> None:
     torch._dynamo.config.cache_size_limit = limit
     if hasattr(torch._dynamo.config, "recompile_limit"):
         torch._dynamo.config.recompile_limit = limit
+    # torch>=2.12 keeps config overrides per thread, so the assignments above miss
+    # the threads autograd runs the backward pass on; those read the config
+    # default, so raise it too.
+    for name in ("recompile_limit", "cache_size_limit"):
+        entry = getattr(torch._dynamo.config, "_config", {}).get(name)
+        if entry is not None and getattr(entry, "alias", None) is None:
+            entry.default = limit
     logger.info(f"Set torch dynamo recompile limit to {limit} (pad_to_multiple_of).")
 
 
@@ -454,7 +480,7 @@ def train(
             processor=processor,
             **training_kwargs,
         )
-        _verl_train(partial_trainer)
+        _verl_train(partial_trainer, config)
         return
 
     checkpoint_location = _find_checkpoint_to_resume_from(
@@ -485,6 +511,11 @@ def train(
         )
 
     use_peft = config.training.use_peft and config.peft
+    # A trainable adapter loaded from adapter_model is the PEFT model to keep
+    # training; wrapping it again would stack a fresh adapter on top of it.
+    has_trainable_adapter = bool(
+        config.model.adapter_model and config.model.adapter_trainable
+    )
 
     # Build model.
     model = build_model(
@@ -493,7 +524,7 @@ def train(
         **(additional_model_kwargs or {}),
     )
 
-    if use_peft:
+    if use_peft and not has_trainable_adapter:
         logger.info("Building PEFT model...")
         model = build_peft_model(
             model, config.training.enable_gradient_checkpointing, config.peft
@@ -603,15 +634,7 @@ def train(
     log_peak_gpu_memory()
 
     # Save final checkpoint & training state.
-    if config.training.save_final_model:
-        logger.info("Saving final state...")
-        trainer.save_state()
-
-        barrier()
-
-        logger.info("Saving final model...")
-
-        trainer.save_model(config=config)
+    _save_final_model(trainer, config)
 
     barrier()
 

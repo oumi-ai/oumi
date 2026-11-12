@@ -16,12 +16,11 @@ import copy
 import itertools
 import json
 import re
-from typing import Any
+from typing import Any, Final, Literal, NamedTuple, cast
 
 import pydantic
 from typing_extensions import override
 
-from oumi.core.async_utils import safe_asyncio_run
 from oumi.core.configs import (
     GenerationParams,
     InferenceConfig,
@@ -29,6 +28,7 @@ from oumi.core.configs import (
     RemoteParams,
 )
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
+from oumi.core.inference import ModelRefusalError
 from oumi.core.types.conversation import (
     ContentItem,
     Conversation,
@@ -70,6 +70,38 @@ _IMAGE_MAGIC_PREFIXES: tuple[tuple[bytes, str], ...] = (
     (b"GIF87a", "image/gif"),
     (b"GIF89a", "image/gif"),
 )
+
+# Model-name prefixes for Anthropic's reasoning-first families, which gate both
+# `output_config` support and sampling-param support below.
+_REASONING_FIRST_MODEL_PREFIXES: tuple[str, ...] = ("claude-fable", "claude-mythos")
+
+_OPUS_FAMILY: Final = "opus"
+_SONNET_FAMILY: Final = "sonnet"
+_HAIKU_FAMILY: Final = "haiku"
+_ClaudeFamily = Literal["opus", "sonnet", "haiku"]
+
+# A model name carries an optional minor component and an optional -YYYYMMDD
+# snapshot date. Bounding the minor to two digits keeps a date out of it, so
+# `claude-opus-4-20250514` reads as 4.0 rather than 4.20250514.
+_MODEL_VERSION_RE = re.compile(
+    rf"^claude-({_OPUS_FAMILY}|{_SONNET_FAMILY}|{_HAIKU_FAMILY})"
+    r"-(\d+)(?:-(\d{1,2})(?!\d))?"
+)
+
+# `output_config` (structured outputs) is GA from this version on.
+_OUTPUT_CONFIG_MIN_VERSION: tuple[int, int] = (4, 5)
+
+# First version in each family to reject temperature/top_p/top_k.
+_OPUS_SAMPLING_PARAMS_REMOVED_VERSION: tuple[int, int] = (4, 7)
+_SONNET_SAMPLING_PARAMS_REMOVED_VERSION: tuple[int, int] = (5, 0)
+_HAIKU_SAMPLING_PARAMS_REMOVED_VERSION: tuple[int, int] = (5, 0)
+
+
+class _ClaudeModelVersion(NamedTuple):
+    """A Claude model name parsed into its family and (major, minor) version."""
+
+    family: _ClaudeFamily
+    version: tuple[int, int]
 
 
 def _detect_image_media_type(data: bytes) -> str:
@@ -191,6 +223,16 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
                 generation_params.temperature,
                 generation_params.top_p,
             )
+        else:
+            # Dropping the default still diverges from the requested config:
+            # temperature 0.0 is greedy decoding, and omitting it hands sampling
+            # to Anthropic's own default.
+            logger.info(
+                "%r does not accept sampling params; omitting temperature=%s, "
+                "so generation uses Anthropic's default sampling.",
+                model_params.model_name,
+                generation_params.temperature,
+            )
 
         if self._remote_params.user_id:
             body["metadata"] = {"user_id": self._remote_params.user_id}
@@ -213,11 +255,12 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
                     f"{model_params.model_name!r} does not support structured outputs"
                 )
 
-        # Enable prompt caching. Anthropic automatically caches content up to
-        # the last cacheable block. This reduces latency and cost for repeated
-        # prefixes (system prompts, long context, multi-turn conversations).
-        # See: https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching
-        body["cache_control"] = {"type": "ephemeral"}
+        # Cache the prefix at the configured TTL; None omits cache_control.
+        if generation_params.prompt_cache_ttl is not None:
+            body["cache_control"] = {
+                "type": "ephemeral",
+                "ttl": generation_params.prompt_cache_ttl,
+            }
 
         tool_choice = generation_params.tool_choice
         if conversation.tools:
@@ -361,12 +404,11 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         Anthropic expects a parsed ``input`` dict; OpenAI keeps ``arguments`` as
         a JSON string, so it is decoded here.
         """
-        args = tool_call.function.arguments
         return {
             "type": "tool_use",
             "id": tool_call.id,
             "name": tool_call.function.name,
-            "input": json.loads(args) if args else {},
+            "input": tool_call.function.get_arguments_dict(),
         }
 
     @staticmethod
@@ -415,18 +457,20 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         usage = response.get("usage")
         if not usage:
             return None
-        prompt_tokens = usage.get("input_tokens", 0)
+        cached_tokens = usage.get("cache_read_input_tokens", 0)
+        cache_creation_tokens = usage.get("cache_creation_input_tokens", 0)
+        # Anthropic excludes cache read/write from input, unlike other providers.
+        prompt_tokens = (
+            usage.get("input_tokens", 0) + cached_tokens + cache_creation_tokens
+        )
         completion_tokens = usage.get("output_tokens", 0)
         result = {
             "prompt_tokens": prompt_tokens,
             "completion_tokens": completion_tokens,
             "total_tokens": prompt_tokens + completion_tokens,
         }
-        # Extract cached tokens from Anthropic's flat format
-        cached_tokens = usage.get("cache_read_input_tokens", 0)
         if cached_tokens:
             result["cached_tokens"] = cached_tokens
-        cache_creation_tokens = usage.get("cache_creation_input_tokens", 0)
         if cache_creation_tokens:
             result["cache_creation_tokens"] = cache_creation_tokens
         return result
@@ -445,6 +489,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
             "max_tokens": FinishReason.LENGTH,
             "stop_sequence": FinishReason.STOP,
             "tool_use": FinishReason.TOOL_CALLS,
+            "refusal": FinishReason.CONTENT_FILTER,
         }
         return mapping.get(raw_reason, FinishReason.UNKNOWN)
 
@@ -453,6 +498,13 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         self, response: dict[str, Any], original_conversation: Conversation
     ) -> Conversation:
         """Converts an Anthropic API response to a conversation."""
+        if response.get("stop_reason") == "refusal":
+            stop_details = response.get("stop_details") or {}
+            raise ModelRefusalError(
+                "Anthropic API declined the request. "
+                f"category={stop_details.get('category')}, "
+                f"model={response.get('model')}"
+            )
         content_blocks = response.get(_CONTENT_KEY, [])
         if not content_blocks:
             raise RuntimeError(
@@ -506,7 +558,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         )
 
     @override
-    def _get_request_headers(self, remote_params: RemoteParams) -> dict[str, str]:
+    def _get_auth_headers(self, remote_params: RemoteParams) -> dict[str, str]:
         return {
             "Content-Type": "application/json",
             "anthropic-version": self.anthropic_version,
@@ -519,6 +571,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         return {
             "guided_decoding",
             "max_new_tokens",
+            "prompt_cache_ttl",
             "stop_strings",
             "temperature",
             "tool_choice",
@@ -631,7 +684,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
             generation_params = self._generation_params
             model_params = self._model_params
 
-        return safe_asyncio_run(
+        return self._run_coroutine(
             self._create_anthropic_batch(conversations, generation_params, model_params)
         )
 
@@ -687,7 +740,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         Returns:
             BatchInfo: Current status of the batch job
         """
-        return safe_asyncio_run(self._get_anthropic_batch_status(batch_id))
+        return self._run_coroutine(self._get_anthropic_batch_status(batch_id))
 
     async def _get_anthropic_batch_status(self, batch_id: str) -> BatchInfo:
         """Gets the status of a batch job from the Anthropic API.
@@ -724,7 +777,9 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         Returns:
             BatchListResponse: List of batch jobs
         """
-        return safe_asyncio_run(self._list_anthropic_batches(after=after, limit=limit))
+        return self._run_coroutine(
+            self._list_anthropic_batches(after=after, limit=limit)
+        )
 
     async def _list_anthropic_batches(
         self,
@@ -805,7 +860,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         conversations: list[Conversation],
     ) -> BatchResult:
         """Gets partial results of a completed Anthropic batch job."""
-        return safe_asyncio_run(
+        return self._run_coroutine(
             self._get_anthropic_batch_results_partial(batch_id, conversations)
         )
 
@@ -951,7 +1006,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         Returns:
             BatchInfo: Updated status of the batch job
         """
-        return safe_asyncio_run(self._cancel_anthropic_batch(batch_id))
+        return self._run_coroutine(self._cancel_anthropic_batch(batch_id))
 
     async def _cancel_anthropic_batch(self, batch_id: str) -> BatchInfo:
         """Cancels a batch job via the Anthropic API.
@@ -1010,27 +1065,49 @@ def _convert_guided_decoding_config_to_api_input(
     }
 
 
+def _parse_model_version(model_name: str) -> _ClaudeModelVersion | None:
+    """Returns the parsed family and version, or None for an unversioned name.
+
+    Anthropic drops the minor component on round versions (`claude-opus-5`, not
+    `claude-opus-5-0`); treat a missing minor as 0. A trailing snapshot date
+    (`claude-opus-4-20250514`) is not a minor version.
+    """
+    match = _MODEL_VERSION_RE.match(model_name)
+    if not match:
+        return None
+    family = cast(_ClaudeFamily, match[1])
+    return _ClaudeModelVersion(family, (int(match[2]), int(match[3] or 0)))
+
+
 def _model_supports_output_config(model_name: str) -> bool:
     """Returns True if the model accepts the output_config field, False otherwise."""
     # Anthropic's `output_config` (structured outputs) is GA on Claude 4.5+ (Opus,
-    # Sonnet, Haiku) and Mythos. Older models (Claude 3.x, 3.5) reject the field.
-    if model_name.startswith("claude-mythos"):
+    # Sonnet, Haiku) and the Fable/Mythos families. Older models (Claude 3.x, 3.5)
+    # reject the field.
+    if model_name.startswith(_REASONING_FIRST_MODEL_PREFIXES):
         return True
 
-    version_re = re.compile(r"^claude-(?:opus|sonnet|haiku)-(\d+)-(\d+)")
-    match = version_re.match(model_name)
-    return (int(match[1]), int(match[2])) >= (4, 5) if match else False
+    parsed = _parse_model_version(model_name)
+    if parsed is None:
+        return False
+    return parsed.version >= _OUTPUT_CONFIG_MIN_VERSION
 
 
 def _model_supports_sampling_params(model_name: str) -> bool:
     """Returns True if the model accepts sampling params, False otherwise."""
     # Anthropic removed the sampling params (temperature/top_p/top_k) on its
-    # reasoning-first models: Claude Opus 4.7+ and the Fable/Mythos families return
-    # HTTP 400 ("`temperature` is deprecated for this model."). Opus 4.6 and earlier,
-    # all Sonnet and Haiku, and Claude 3.x still accept them.
-    if model_name.startswith(("claude-fable", "claude-mythos")):
+    # reasoning-first models, which return HTTP 400 ("`temperature` is deprecated
+    # for this model."). Everything else still accepts them.
+    if model_name.startswith(_REASONING_FIRST_MODEL_PREFIXES):
         return False
 
-    version_re = re.compile(r"^claude-opus-(\d+)-(\d+)")
-    match = version_re.match(model_name)
-    return (int(match[1]), int(match[2])) < (4, 7) if match else True
+    parsed = _parse_model_version(model_name)
+    if parsed is None:
+        return True
+    if parsed.family == _OPUS_FAMILY:
+        return parsed.version < _OPUS_SAMPLING_PARAMS_REMOVED_VERSION
+    if parsed.family == _SONNET_FAMILY:
+        return parsed.version < _SONNET_SAMPLING_PARAMS_REMOVED_VERSION
+    if parsed.family == _HAIKU_FAMILY:
+        return parsed.version < _HAIKU_SAMPLING_PARAMS_REMOVED_VERSION
+    raise NotImplementedError(f"unhandled Claude family: {parsed.family}")

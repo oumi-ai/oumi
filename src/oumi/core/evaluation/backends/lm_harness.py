@@ -285,6 +285,7 @@ def evaluate(
         model_name=config.model.model_name,
         trust_remote_code=config.model.trust_remote_code,
         revision=config.model.model_revision,
+        text_only=config.model.text_only,
     )
 
     # Identify the proper LM Harness model (`lm_harness_model`) to use.

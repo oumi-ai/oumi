@@ -1,3 +1,4 @@
+import json
 import pathlib
 import tempfile
 
@@ -250,6 +251,60 @@ def test_train_dpo(temp_hf_datasets_cache):
                 output_dir=output_training_dir,
                 try_resume_from_last_checkpoint=False,
                 save_final_model=True,
+            ),
+        )
+
+        train(config)
+
+
+def test_train_dpo_from_raw_json(temp_hf_datasets_cache):
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        output_training_dir = str(pathlib.Path(output_temp_dir) / "train")
+        dataset_path = pathlib.Path(output_temp_dir) / "preferences.jsonl"
+        rows = [
+            {
+                "messages": [{"role": "user", "content": "What is 2 + 2?"}],
+                "chosen": [{"role": "assistant", "content": "4"}],
+                "rejected": [{"role": "assistant", "content": "5"}],
+            },
+            {
+                "messages": [{"role": "user", "content": "What is 3 + 3?"}],
+                "chosen": [{"role": "assistant", "content": "6"}],
+                "rejected": [{"role": "assistant", "content": "7"}],
+            },
+        ]
+        dataset_path.write_text(
+            "".join(f"{json.dumps(row)}\n" for row in rows), encoding="utf-8"
+        )
+
+        config = TrainingConfig(
+            data=DataParams(
+                train=DatasetSplitParams(
+                    datasets=[
+                        DatasetParams(
+                            dataset_name="json",
+                            dataset_kwargs={"data_files": str(dataset_path)},
+                        )
+                    ],
+                ),
+            ),
+            model=ModelParams(
+                model_name="openai-community/gpt2",
+                model_max_length=128,
+                trust_remote_code=True,
+                tokenizer_pad_token="<|endoftext|>",
+            ),
+            training=TrainingParams(
+                per_device_train_batch_size=1,
+                trainer_type=TrainerType.TRL_DPO,
+                max_steps=1,
+                logging_steps=1,
+                enable_wandb=False,
+                enable_tensorboard=False,
+                enable_mlflow=False,
+                output_dir=output_training_dir,
+                try_resume_from_last_checkpoint=False,
+                save_final_model=False,
             ),
         )
 

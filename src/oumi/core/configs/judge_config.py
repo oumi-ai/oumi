@@ -24,6 +24,7 @@ from oumi.cli.alias import AliasType, try_get_config_name_for_alias
 from oumi.core.configs import BaseConfig
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.params.judge_params import JudgeParams
+from oumi.core.configs.params.rubric_judge_params import RubricJudgeParams
 from oumi.core.configs.params.rule_judge_params import RuleJudgeParams
 from oumi.exceptions import OumiConfigError
 
@@ -58,6 +59,9 @@ class JudgeConfig(BaseConfig):
 
     rule_judge_params: RuleJudgeParams | None = None
     """Parameters for the rule-based deterministic judge."""
+
+    rubric_judge_params: RubricJudgeParams | None = None
+    """Parameters for the rubric judge, which scores several criteria at once."""
 
     inference_config: InferenceConfig | None = None
     """Configuration for the inference engine and generation parameters."""

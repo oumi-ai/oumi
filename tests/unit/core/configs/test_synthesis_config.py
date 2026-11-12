@@ -79,7 +79,7 @@ def _make_faq_tool() -> ToolParams:
     )
 
 
-def _synthetic_env_params(
+def _simulated_env_params(
     *,
     env_id: str = "faq",
     name: str = "FAQ",
@@ -95,7 +95,7 @@ def _synthetic_env_params(
         id=env_id,
         name=name,
         description=description,
-        env_type="synthetic",
+        env_type="simulated",
         tools=tools or [_make_faq_tool()],
         env_kwargs=env_kwargs,
     )
@@ -110,7 +110,7 @@ def test_invalid_output_path():
 
 
 def test_synthesis_config_with_top_level_environment_config():
-    env_config = EnvironmentConfig(environments=[_synthetic_env_params()])
+    env_config = EnvironmentConfig(environments=[_simulated_env_params()])
     params = GeneralSynthesisParams()
     params.multiturn_attributes = []
 
@@ -126,7 +126,7 @@ def test_synthesis_config_with_top_level_environment_config():
 
 def test_synthesis_config_loads_environment_config_from_path(tmp_path):
     env_config_path = tmp_path / "environments.yaml"
-    env_config = EnvironmentConfig(environments=[_synthetic_env_params()])
+    env_config = EnvironmentConfig(environments=[_simulated_env_params()])
     env_config.to_yaml(env_config_path)
 
     config = SynthesisConfig(environment_config_path=str(env_config_path))
@@ -136,7 +136,7 @@ def test_synthesis_config_loads_environment_config_from_path(tmp_path):
 
 
 def test_synthesis_config_validates_available_tools():
-    env_config = EnvironmentConfig(environments=[_synthetic_env_params()])
+    env_config = EnvironmentConfig(environments=[_simulated_env_params()])
     params = GeneralSynthesisParams(
         multiturn_attributes=[
             MultiTurnAttribute(
@@ -185,7 +185,7 @@ def test_synthesis_config_requires_environment_config_for_available_tools():
 
 
 def test_synthesis_config_validates_available_environments():
-    env_config = EnvironmentConfig(environments=[_synthetic_env_params()])
+    env_config = EnvironmentConfig(environments=[_simulated_env_params()])
     params = GeneralSynthesisParams(
         multiturn_attributes=[
             MultiTurnAttribute(
@@ -213,8 +213,8 @@ def test_synthesis_config_restricts_tools_to_selected_environments():
     )
     env_config = EnvironmentConfig(
         environments=[
-            _synthetic_env_params(),
-            _synthetic_env_params(
+            _simulated_env_params(),
+            _simulated_env_params(
                 env_id="files",
                 name="Files",
                 description="File tools",
@@ -255,8 +255,8 @@ def test_synthesis_config_resolves_all_tools_from_selected_environments():
     )
     env_config = EnvironmentConfig(
         environments=[
-            _synthetic_env_params(),
-            _synthetic_env_params(
+            _simulated_env_params(),
+            _simulated_env_params(
                 env_id="files",
                 name="Files",
                 description="File tools",

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Abstract base for envs backed by user-supplied dotted-path executors."""
+"""Abstract base for environments backed by user-supplied tool executors."""
 
 from __future__ import annotations
 
@@ -26,18 +26,18 @@ from oumi.core.configs.params.tool_params import ToolLookupError, ToolParams
 from oumi.core.types.tool_call import ToolResult
 from oumi.environments.base_environment import BaseEnvironment
 from oumi.environments.executable_tool import ExecutableTool
-from oumi.environments.utils import import_executor, validate_executor_result
+from oumi.environments.utils import resolve_executor, validate_executor_result
 
 
 class ExecutableEnvironment(BaseEnvironment):
     """Abstract base for envs that dispatch tool calls to Python executors.
 
-    Each tool declares its executor as a dotted import path; the base resolves
-    them into ``_executors`` at construction. Subclasses supply the per-call
-    execution context (DB connection, HTTP client, FS root, ...) by
-    implementing ``_build_execution_context``. The base owns tool lookup,
-    argument and result validation, the ``_absorb_result`` post-hook, and the
-    ``close`` lifecycle. Executors are invoked as
+    Each tool declares its executor as a registry name or dotted import path;
+    the base resolves them into ``_executors`` at construction. Subclasses supply
+    the per-call execution context (DB connection, HTTP client, FS root, ...) by
+    implementing ``_build_execution_context``. The base owns tool lookup, argument
+    and result validation, the ``_absorb_result`` post-hook, and the ``close``
+    lifecycle. Executors are invoked as
     ``executor(arguments=<dict>, context=<ctx>)`` and must return a
     ``ToolResult``. Result validation runs inside the execution context so a
     transactional context manager sees a validation failure and can roll back;
@@ -47,10 +47,10 @@ class ExecutableEnvironment(BaseEnvironment):
     tool_params_cls: type[ToolParams] = ExecutableTool
 
     def __init__(self, params: EnvironmentParams) -> None:
-        """Resolve each tool's dotted-path executor into ``_executors``."""
+        """Resolve each tool's executor (registry name or dotted path)."""
         self._params = params
         self._executors: dict[str, Callable[..., Any]] = {
-            tool.id: import_executor(tool.executor, tool.id) for tool in params.tools
+            tool.id: resolve_executor(tool.executor, tool.id) for tool in params.tools
         }
 
     @abstractmethod

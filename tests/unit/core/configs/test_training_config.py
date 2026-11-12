@@ -1,10 +1,19 @@
+from unittest.mock import patch
+
+import pytest
+
 from oumi.core.configs import (
     DataParams,
     DatasetParams,
     DatasetSplitParams,
+    FSDPParams,
+    MixedPrecisionDtype,
     ModelParams,
+    TrainerType,
     TrainingConfig,
+    TrainingParams,
 )
+from oumi.exceptions import OumiConfigError
 
 
 def test_training_config_processor_kwargs():
@@ -130,3 +139,105 @@ def test_training_config_processor_kwargs():
             },
         },
     )
+
+
+def _verl_grpo_config(model: ModelParams) -> TrainingConfig:
+    return TrainingConfig(
+        model=model,
+        data=DataParams(
+            validation=DatasetSplitParams(
+                datasets=[DatasetParams(dataset_name="text_sft_jsonl")]
+            )
+        ),
+        training=TrainingParams(trainer_type=TrainerType.VERL_GRPO),
+    )
+
+
+@patch("oumi.core.configs.training_config.logger")
+def test_verl_grpo_warns_text_only_is_ignored(mock_logger):
+    _verl_grpo_config(ModelParams(model_name="Qwen/Qwen3.5-4B", text_only=True))
+
+    messages = [c.args[0] for c in mock_logger.warning.call_args_list]
+    assert any("model.text_only has no effect for VERL_GRPO" in m for m in messages)
+
+
+@patch("oumi.core.configs.training_config.logger")
+def test_verl_grpo_warns_freeze_layers_is_ignored(mock_logger):
+    _verl_grpo_config(
+        ModelParams(model_name="Qwen/Qwen3.5-4B", freeze_layers=["model.visual"])
+    )
+
+    messages = [c.args[0] for c in mock_logger.warning.call_args_list]
+    assert any("model.freeze_layers" in m and "VERL_GRPO" in m for m in messages)
+
+
+@patch("oumi.core.configs.training_config.logger")
+def test_verl_grpo_no_warning_without_ignored_model_options(mock_logger):
+    _verl_grpo_config(ModelParams(model_name="Qwen/Qwen3.5-4B"))
+
+    messages = [c.args[0] for c in mock_logger.warning.call_args_list]
+    assert not any("VERL_GRPO" in m for m in messages)
+
+
+@patch("oumi.core.configs.training_config.logger")
+def test_text_only_does_not_warn_for_hf_trainers(mock_logger):
+    TrainingConfig(
+        model=ModelParams(model_name="Qwen/Qwen3.5-4B", text_only=True),
+        training=TrainingParams(trainer_type=TrainerType.TRL_SFT),
+    )
+
+    messages = [c.args[0] for c in mock_logger.warning.call_args_list]
+    assert not any("text_only" in m for m in messages)
+
+
+def test_mixed_precision_requires_fp32_model():
+    with pytest.raises(OumiConfigError, match="model.torch_dtype_str: float32"):
+        TrainingConfig(
+            model=ModelParams(model_name="Qwen/Qwen3.5-4B", torch_dtype_str="bfloat16"),
+            training=TrainingParams(mixed_precision_dtype=MixedPrecisionDtype.BF16),
+        )
+
+
+def _lora_mixed_precision_config(
+    *,
+    torch_dtype_str: str = "float32",
+    mixed_precision_dtype: MixedPrecisionDtype = MixedPrecisionDtype.BF16,
+    use_peft: bool = True,
+    enable_fsdp: bool = True,
+    enable_gradient_checkpointing: bool = True,
+) -> TrainingConfig:
+    return TrainingConfig(
+        model=ModelParams(
+            model_name="Qwen/Qwen3.5-4B", torch_dtype_str=torch_dtype_str
+        ),
+        training=TrainingParams(
+            mixed_precision_dtype=mixed_precision_dtype,
+            use_peft=use_peft,
+            enable_gradient_checkpointing=enable_gradient_checkpointing,
+        ),
+        fsdp=FSDPParams(enable_fsdp=enable_fsdp),
+    )
+
+
+@pytest.mark.parametrize(
+    "mixed_precision_dtype", [MixedPrecisionDtype.BF16, MixedPrecisionDtype.FP16]
+)
+def test_lora_fsdp_checkpointing_rejects_fp32_mixed_precision(mixed_precision_dtype):
+    with pytest.raises(OumiConfigError, match="LoRA with FSDP"):
+        _lora_mixed_precision_config(mixed_precision_dtype=mixed_precision_dtype)
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"use_peft": False},
+        {"enable_fsdp": False},
+        {"enable_gradient_checkpointing": False},
+        {
+            "torch_dtype_str": "bfloat16",
+            "mixed_precision_dtype": MixedPrecisionDtype.NONE,
+        },
+    ],
+)
+def test_lora_fsdp_checkpointing_allows_other_precision_setups(overrides):
+    _lora_mixed_precision_config(**overrides)

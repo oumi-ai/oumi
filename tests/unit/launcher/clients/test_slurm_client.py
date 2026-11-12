@@ -17,6 +17,10 @@ _SACCT_CMD = (
     "-X --starttime 2025-01-01"
 )
 
+_SQUEUE_CMD = (
+    "SLURM_TIME_FORMAT=%s squeue --user=user --noheader --format='%i %j %u %T %V %R'"
+)
+
 
 #
 # Fixtures
@@ -403,31 +407,56 @@ def test_slurm_client_list_jobs_handles_empty_string(mock_subprocess, mock_datet
 
 
 def test_slurm_client_list_jobs_failure(mock_subprocess, mock_datetime):
-    mock_success_run = Mock()
-    mock_success_run.stdout = b"out"
-    mock_success_run.stderr = b"err"
-    mock_success_run.returncode = 0
+    """Neither listing works, so the caller hears about it."""
     mock_run = Mock()
-    mock_subprocess.run.side_effect = [
-        mock_success_run,
-        mock_success_run,
-        mock_success_run,
-        mock_run,
-    ]
     mock_run.stdout = b""
     mock_run.stderr = b"foo"
     mock_run.returncode = 1
+    mock_subprocess.run.side_effect = [
+        _mock_refresh_creds_run(),
+        _mock_refresh_creds_run(),
+        mock_run,
+        _mock_refresh_creds_run(),
+        mock_run,
+    ]
 
     client = SlurmClient("user", "host", "cluster_name")
-    with pytest.raises(RuntimeError, match="Failed to list jobs. stderr: foo"):
-        client = SlurmClient("user", "host", "cluster_name")
+    with pytest.raises(RuntimeError, match="Failed to list jobs via squeue"):
         _ = client.list_jobs()
     mock_subprocess.run.assert_called_with(
-        _run_commands_template([_SACCT_CMD]),
+        _run_commands_template([_SQUEUE_CMD]),
         shell=True,
         capture_output=True,
         timeout=180,
     )
+
+
+def test_slurm_client_list_jobs_without_accounting_lists_active_jobs(
+    mock_subprocess, mock_datetime
+):
+    """A controller with accounting disabled still has to give up its live jobs."""
+    no_accounting = Mock()
+    no_accounting.stdout = b""
+    no_accounting.stderr = b"Slurm accounting storage is disabled"
+    no_accounting.returncode = 1
+    squeue = Mock()
+    squeue.stdout = b"1234 job-1-100 user RUNNING 1749000000 node-0\n"
+    squeue.stderr = b""
+    squeue.returncode = 0
+
+    mock_subprocess.run.side_effect = [
+        _mock_refresh_creds_run(),
+        _mock_refresh_creds_run(),
+        no_accounting,
+        _mock_refresh_creds_run(),
+        squeue,
+    ]
+
+    client = SlurmClient("user", "host", "cluster_name")
+    job_list = client.list_jobs()
+
+    assert [job.id for job in job_list] == ["1234"]
+    assert [job.name for job in job_list] == ["job-1-100"]
 
 
 def _mock_refresh_creds_run() -> Mock:
@@ -458,6 +487,26 @@ def test_slurm_client_get_job_returns_active_job_from_squeue(mock_subprocess):
     assert job_status.id == "100"
     assert job_status.state == JobState.RUNNING
     assert job_status.submit_time == 1700000000.0
+
+
+def test_slurm_client_get_job_maps_completing_to_running(mock_subprocess):
+    squeue_ok = Mock()
+    squeue_ok.stdout = b"100 myjob user COMPLETING 1700000000 node-1\n"
+    squeue_ok.stderr = b""
+    squeue_ok.returncode = 0
+
+    mock_subprocess.run.side_effect = [
+        _mock_refresh_creds_run(),
+        _mock_refresh_creds_run(),
+        squeue_ok,
+    ]
+
+    client = SlurmClient("user", "host", "cluster_name")
+    job_status = client.get_job("100")
+
+    assert job_status is not None
+    assert job_status.state == JobState.RUNNING
+    assert job_status.done is False
 
 
 def test_slurm_client_get_job_falls_back_to_scontrol_for_terminal_state(
@@ -618,6 +667,31 @@ def test_slurm_client_init_unreachable_raises(mock_subprocess_no_init):
         ClusterUnreachableError, match="Failed to establish an SSH connection"
     ):
         _ = SlurmClient("user", "host", "cluster_name")
+
+
+def test_slurm_client_init_missing_control_socket_not_logged_as_error(
+    mock_subprocess_no_init,
+):
+    mock_subprocess_no_init.TimeoutExpired = subprocess.TimeoutExpired
+    check_fail = Mock()
+    check_fail.stdout = b""
+    check_fail.stderr = (
+        b"Control socket connect(/root/.ssh/control-host-22-user): "
+        b"No such file or directory\r\n"
+    )
+    check_fail.returncode = 255
+
+    tunnel_ok = Mock()
+    tunnel_ok.stdout = b""
+    tunnel_ok.stderr = b""
+    tunnel_ok.returncode = 0
+
+    mock_subprocess_no_init.run.side_effect = [check_fail, tunnel_ok]
+
+    with patch("oumi.launcher.clients.slurm_client.logger") as mock_logger:
+        _ = SlurmClient("user", "host", "cluster_name")
+
+    mock_logger.error.assert_not_called()
 
 
 def test_slurm_client_cancel_success(mock_subprocess):
