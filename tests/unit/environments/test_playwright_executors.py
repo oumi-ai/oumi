@@ -110,3 +110,35 @@ def test_read_text_rejects_negative_max_chars():
     page: Any = _FakePage()
     with pytest.raises(ValueError, match="max_chars"):
         pe.read_text({"max_chars": -1}, page)
+
+
+def test_read_form_evaluates_under_the_selector_and_returns_fields():
+    fields = [{"selector": "#q", "type": "text", "label": "Query", "value": ""}]
+    calls: list[tuple] = []
+
+    class _Locator:
+        def __init__(self, selector: str) -> None:
+            self.selector = selector
+
+        @property
+        def first(self) -> _Locator:
+            return self
+
+        def evaluate(self, expression: str, timeout: int | None = None):
+            calls.append((self.selector, timeout))
+            return fields
+
+    page: Any = _FakePage()
+    page.locator = _Locator
+    result = pe.read_form({}, page)
+    assert result.output == {"fields": fields, "url": page.url}
+    assert calls == [("body", pe._DEFAULT_TIMEOUT_MS)]
+    pe.read_form({"selector": "form#checkout"}, page)
+    assert calls[-1][0] == "form#checkout"
+
+
+def test_select_option_reports_the_chosen_option():
+    page: Any = _FakePage()
+    page.select_option = lambda selector, value, timeout=None: [value]
+    result = pe.select_option({"selector": "#size", "value": "medium"}, page)
+    assert result.output == {"selected": "medium"}
