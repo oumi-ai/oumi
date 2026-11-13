@@ -13,12 +13,13 @@
 # Usage:
 #   oumi synth -c oumi://configs/examples/synthesis/browser_oumi_synth.yaml
 #
-# NOTE: one browser per sample is leased up front and held for the whole run,
-# so num_samples browsers are leased concurrently. See Kernel's billing docs
-# for how standby behavior for idle browsers affects cost.
+# NOTE: each sample opens its browser at its first tool call and holds it until
+# the run ends, so up to num_samples browsers exist at once. Between tool calls
+# no CDP client is connected, so Kernel puts the browser in standby, which is
+# not billed. See Kernel's standby and termination docs.
 #
 # See Also:
-#   - docs/user_guides/synth/synth.md
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/synth.html
 #   - src/oumi/environments/browser_executable_environment.py
 #   - src/oumi/environments/playwright_executors.py
 
@@ -35,12 +36,12 @@ environment_config:
       env_kwargs:
         start_url: "https://oumi.ai"
         headless: true
-        # Kernel's *inactivity* timeout (SDK default 60s). LLM think-time between
-        # tool calls counts as idle, so lower values can terminate a session when
-        # model think-time exceeds the timeout.
+        # Seconds a browser may sit in standby before Kernel deletes it (SDK
+        # default 60s). A browser enters standby about 10s after a tool call, so
+        # LLM time between one sample's tool calls counts against this.
         timeout_seconds: 600
         # Use a warm browser pool for larger runs. Size it >= num_samples, or
-        # acquire blocks until acquire_timeout_seconds and then fails:
+        # a sample's first tool call fails after acquire_timeout_seconds:
         #   kernel browser-pools create --name rl-browser --size 50
         # Remove headless and timeout_seconds above, then uncomment:
         # pool: rl-browser
@@ -90,11 +91,7 @@ environment_config:
           read_only: false
           parameters:
             type: object
-            properties:
-              wait_until:
-                type: string
-                enum: [load, domcontentloaded, networkidle, commit]
-                description: Playwright load state.
+            properties: {}
         - id: click
           name: click
           description: Click the element matching a CSS selector (e.g. a link).

@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+import functools
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -23,11 +24,14 @@ from typing import TYPE_CHECKING, Any
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.core.registry import register_environment
-from oumi.environments.browser_session import KernelBrowserSession
+from oumi.core.types.tool_call import ToolResult
+from oumi.environments.browser_session import (
+    KernelBrowserSession,
+    run_on_playwright_thread,
+)
 from oumi.environments.executable_environment import ExecutableEnvironment
 from oumi.environments.executable_tool import ExecutableTool
 from oumi.environments.utils import parse_env_kwargs
-from oumi.utils.logging import logger
 
 if TYPE_CHECKING:
     from playwright.sync_api import Page  # pyright: ignore[reportMissingImports]
@@ -119,31 +123,38 @@ class BrowserExecutableEnvironment(ExecutableEnvironment):
         try:
             return cls(params, session)
         except BaseException:
-            try:
-                session.close()
-            except BaseException:
-                logger.warning(
-                    "Kernel browser: failed to close session after environment "
-                    "initialization failed.",
-                    exc_info=True,
-                )
+            session.close()
             raise
 
     def requires_isolation(self) -> bool:
-        """Require a distinct Kernel browser session for each sample."""
+        """Require a distinct Kernel browser session for each sample.
+
+        Each sample opens its browser at its first tool call and holds it until
+        the run ends, so up to ``num_samples`` billable browsers exist at once, and
+        a warm pool must be sized to at least ``num_samples``.
+        """
         return True
 
     def is_replayable(self) -> bool:
         """Browser actions mutate live remote page state, so never replay a batch."""
         return False
 
+    def step(self, calls: list[tuple[str, dict[str, Any]]]) -> list[ToolResult]:
+        """Execute the batch on the Playwright thread, in input order.
+
+        Playwright's sync API can't run on a thread with a running asyncio loop,
+        which is where verl's agent loop calls tools, so the batch is handed to the
+        process-wide Playwright thread instead of running on the caller's.
+        """
+        return run_on_playwright_thread(functools.partial(super().step, calls))
+
     def _build_execution_context(
         self, tool: ExecutableTool, arguments: dict[str, Any]
     ) -> AbstractContextManager[Page]:
         """Return the Playwright page used as the executor context.
 
-        Entered once per tool call, so each call opens a fresh Playwright driver
-        and CDP connection; the state that matters lives on the remote browser.
+        Entered once per tool call on the Playwright thread. Each call opens its
+        own CDP connection, so the browser is in unbilled standby between calls.
         """
         return self._session.page()
 

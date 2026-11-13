@@ -30,8 +30,10 @@ class _FakePage:
         self.url = "https://example.com/landing"
         self.history: list[str] = []
 
-    def goto(self, url: str, wait_until: str = "load") -> None:
-        self.calls.append(("goto", url, wait_until))
+    def goto(
+        self, url: str, wait_until: str = "load", timeout: int | None = None
+    ) -> None:
+        self.calls.append(("goto", url, wait_until, timeout))
 
     def title(self) -> str:
         return "Example Domain"
@@ -46,8 +48,10 @@ class _FakePage:
         self.calls.append(("inner_text", selector, timeout))
         return "x" * 20_000
 
-    def go_back(self, wait_until: str = "load") -> object | None:
-        self.calls.append(("go_back", wait_until))
+    def go_back(
+        self, wait_until: str = "load", timeout: int | None = None
+    ) -> object | None:
+        self.calls.append(("go_back", wait_until, timeout))
         if not self.history:
             return None
         self.url = self.history.pop()
@@ -59,19 +63,18 @@ def test_navigate_returns_url_and_title():
     result = pe.navigate({"url": "https://example.com"}, page)
     assert isinstance(result, ToolResult)
     assert result.output == {"url": page.url, "title": "Example Domain"}
-    assert page.calls == [("goto", "https://example.com", "load")]
+    assert page.calls == [
+        ("goto", "https://example.com", "load", pe._NAVIGATION_TIMEOUT_MS)
+    ]
 
 
 def test_go_back_returns_the_previous_page():
     page: Any = _FakePage()
     page.history.append("https://example.com/blog")
     result = pe.go_back({}, page)
-    assert result.output == {
-        "url": "https://example.com/blog",
-        "title": "Example Domain",
-        "navigated": True,
-    }
-    assert page.calls == [("go_back", "load")]
+    assert result.output == {"url": "https://example.com/blog", "navigated": True}
+    # Commit only: a cache-restored page never fires load, so waiting for it hung.
+    assert page.calls == [("go_back", "commit", pe._NAVIGATION_TIMEOUT_MS)]
 
 
 def test_go_back_reports_no_navigation_at_the_start_of_history():
@@ -89,7 +92,9 @@ def test_go_back_reports_navigation_when_playwright_returns_no_response():
     # client-routed site changes the page but yields no main resource response,
     # so trusting go_back's return value reports a successful back as a no-op.
     class _SpaPage(_FakePage):
-        def go_back(self, wait_until: str = "load") -> object | None:
+        def go_back(
+            self, wait_until: str = "load", timeout: int | None = None
+        ) -> object | None:
             self.url = "https://example.com/blog"
             return None
 

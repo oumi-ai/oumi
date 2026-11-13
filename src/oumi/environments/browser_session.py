@@ -17,17 +17,28 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator
+import threading
+from collections.abc import Callable, Iterator
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from oumi.utils.logging import logger
 from oumi.utils.packaging import require_kernel, require_playwright
 
 if TYPE_CHECKING:
-    from playwright.sync_api import Page  # pyright: ignore[reportMissingImports]
+    from playwright.sync_api import (  # pyright: ignore[reportMissingImports]
+        Page,
+        Playwright,
+    )
+
+_T = TypeVar("_T")
 
 _DEFAULT_ACQUIRE_TIMEOUT_SECONDS = 60
+# Extra HTTP read time on top of the acquire long-poll, so the client doesn't give
+# up (and retry the POST) while the server is still waiting for a free browser.
+_ACQUIRE_HTTP_MARGIN_SECONDS = 15
+_RESET_TIMEOUT_SECONDS = 15
 
 # Clears cookies/permissions context-wide, but storage is origin-scoped, so only
 # origins with a page still open get purged. Kernel's playwright.execute
@@ -63,8 +74,76 @@ for (const existingPage of context.pages()) {
 """
 
 
+class _PlaywrightThread:
+    """The one thread in this process that drives Playwright.
+
+    Playwright's sync API is bound to the thread that started it, and it refuses to
+    run on a thread with a running asyncio loop, which is where verl's agent loop
+    calls tools. Sending every browser call to this thread makes the env usable
+    from any caller and keeps one Playwright driver alive for the process instead
+    of starting a new one for every tool call.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._executor: ThreadPoolExecutor | None = None
+        self._thread_id: int | None = None
+        self._playwright: Playwright | None = None
+
+    def run(self, fn: Callable[[], _T]) -> _T:
+        """Run ``fn`` on the Playwright thread and return its result."""
+        if threading.get_ident() == self._thread_id:
+            # Already on the thread (e.g. a GC finalizer closing a session); waiting
+            # on our own queue would deadlock.
+            return fn()
+        with self._lock:
+            if self._executor is None:
+                self._executor = ThreadPoolExecutor(
+                    max_workers=1, thread_name_prefix="oumi-playwright"
+                )
+            executor = self._executor
+        return executor.submit(self._call, fn).result()
+
+    def _call(self, fn: Callable[[], _T]) -> _T:
+        self._thread_id = threading.get_ident()
+        return fn()
+
+    def playwright(self) -> Playwright:
+        """Return the process-wide Playwright instance, starting it on first use."""
+        if threading.get_ident() != self._thread_id:
+            raise RuntimeError(
+                "Playwright can only be used on the Playwright thread; wrap the call "
+                "in run_on_playwright_thread()."
+            )
+        if self._playwright is None:
+            from playwright.sync_api import (  # pyright: ignore[reportMissingImports]
+                sync_playwright,
+            )
+
+            self._playwright = sync_playwright().start()
+        return self._playwright
+
+
+_PLAYWRIGHT_THREAD = _PlaywrightThread()
+
+
+def run_on_playwright_thread(fn: Callable[[], _T]) -> _T:
+    """Run ``fn`` on the process-wide Playwright thread and return its result.
+
+    ``KernelBrowserSession.page()`` only works inside such a call.
+    """
+    return _PLAYWRIGHT_THREAD.run(fn)
+
+
 class KernelBrowserSession:
-    """A single Kernel cloud browser session, owned by one rollout."""
+    """A Kernel cloud browser owned by one rollout, created on first use.
+
+    The browser is created, or acquired from a pool, by the first ``page()`` call
+    rather than at construction. ``ToolRouter`` builds a throwaway env just to read
+    ``requires_isolation()``, and the synthesizer builds every sample's env before
+    planning, so opening the browser eagerly would bill one browser for nothing
+    and leave the rest idle long enough for Kernel to delete them.
+    """
 
     def __init__(
         self,
@@ -74,7 +153,7 @@ class KernelBrowserSession:
         acquire_timeout_seconds: int | None = None,
         start_url: str | None = None,
     ) -> None:
-        """Create a browser session or acquire one from a pool.
+        """Configure the session. No browser exists until the first ``page()``.
 
         Args:
             create_kwargs: Arguments forwarded to ``browsers.create``.
@@ -82,120 +161,154 @@ class KernelBrowserSession:
             acquire_timeout_seconds: Pool-mode acquire timeout; defaults to
                 ``_DEFAULT_ACQUIRE_TIMEOUT_SECONDS``.
             start_url: Landing URL used when resetting a pooled browser.
+
+        Raises:
+            ValueError: If both ``create_kwargs`` and ``pool`` are given.
+            ImportError: If the ``oumi[browser]`` extra is not installed.
         """
         if pool is not None and create_kwargs is not None:
             raise ValueError("create_kwargs cannot be used with a browser pool")
 
         require_kernel("BrowserExecutableEnvironment")
-        from kernel import Kernel  # pyright: ignore[reportMissingImports]
+        require_playwright("BrowserExecutableEnvironment")
+        import kernel  # pyright: ignore[reportMissingImports]
 
-        self._kernel = Kernel()
+        # Constructing the client checks KERNEL_API_KEY, so a missing key fails
+        # when the env is built rather than at the first tool call.
+        self._kernel = kernel.Kernel()
+        self._api_error: type[Exception] = kernel.APIError
+        self._create_kwargs = dict(create_kwargs or {})
         self._pool = pool
+        self._acquire_timeout_seconds = (
+            acquire_timeout_seconds
+            if acquire_timeout_seconds is not None
+            else _DEFAULT_ACQUIRE_TIMEOUT_SECONDS
+        )
+        self._start_url = start_url
+        self._browser: Any = None
         self._closed = False
+
+    def _open(self) -> Any:
+        """Create a browser, or acquire and reset one from the pool."""
+        if self._pool is None:
+            return self._kernel.browsers.create(**self._create_kwargs)
+
+        browser = self._kernel.browser_pools.acquire(
+            self._pool,
+            acquire_timeout_seconds=self._acquire_timeout_seconds,
+            timeout=self._acquire_timeout_seconds + _ACQUIRE_HTTP_MARGIN_SECONDS,
+        )
+        # The API answers 204 No Content when no browser frees up in time, which
+        # the SDK hands back as an empty string.
+        if not browser:
+            raise TimeoutError(
+                f"No browser in Kernel pool {self._pool!r} became available within "
+                f"{self._acquire_timeout_seconds}s. Each sample holds its browser "
+                "until the run ends, so size the pool to at least num_samples or "
+                "raise acquire_timeout_seconds."
+            )
         try:
-            if pool is not None:
-                self._browser = self._kernel.browser_pools.acquire(
-                    pool,
-                    acquire_timeout_seconds=(
-                        acquire_timeout_seconds
-                        if acquire_timeout_seconds is not None
-                        else _DEFAULT_ACQUIRE_TIMEOUT_SECONDS
-                    ),
-                )
-                try:
-                    self._reset(start_url)
-                except BaseException:
-                    try:
-                        self._kernel.browser_pools.release(
-                            pool, session_id=self._browser.session_id, reuse=False
-                        )
-                    except BaseException:
-                        logger.warning(
-                            "Kernel browser: failed to quarantine session %s after "
-                            "reset failure; the session may leak.",
-                            self._browser.session_id,
-                            exc_info=True,
-                        )
-                    raise
-            else:
-                self._browser = self._kernel.browsers.create(**(create_kwargs or {}))
+            self._reset(browser.session_id)
         except BaseException:
-            self._kernel.close()
+            # Don't hand a half-reset browser to the next rollout.
+            self._free(browser.session_id, reuse=False)
             raise
+        return browser
 
-    @property
-    def session_id(self) -> str:
-        """Return the Kernel session ID."""
-        return self._browser.session_id
-
-    @property
-    def cdp_ws_url(self) -> str:
-        """Return the CDP websocket URL."""
-        return self._browser.cdp_ws_url
-
-    def _reset(self, start_url: str | None) -> None:
-        """Reset a pooled browser before use."""
-        target = json.dumps(start_url or "about:blank")
+    def _reset(self, session_id: str) -> None:
+        """Return a pooled browser to a clean slate on ``start_url``."""
+        target = json.dumps(self._start_url or "about:blank")
         # Navigate after the clears, not via acquire(start_url=...), so the landing
         # page isn't the one we wipe storage out from under.
         code = _RESET_JS + f"await page.goto({target}, {{ waitUntil: 'load' }});"
         response = self._kernel.browsers.playwright.execute(
-            id=self.session_id, code=code, timeout_sec=15
+            id=session_id, code=code, timeout_sec=_RESET_TIMEOUT_SECONDS
         )
         if not response.success:
             raise RuntimeError(
-                "Kernel browser reset failed for session "
-                f"{self.session_id}: {response.error}"
+                f"Kernel browser reset failed for session {session_id}: "
+                f"{response.error}"
+            )
+
+    def _free(self, session_id: str, *, reuse: bool) -> None:
+        """Release or delete a browser, logging rather than raising API errors.
+
+        Freeing is best effort: Kernel deletes a leaked browser once its timeout
+        runs out, while raising here would make the synthesizer drop a finished
+        run, since it raises cleanup errors before writing any records.
+        """
+        try:
+            if self._pool is not None:
+                self._kernel.browser_pools.release(
+                    self._pool, session_id=session_id, reuse=reuse
+                )
+            else:
+                self._kernel.browsers.delete_by_id(session_id)
+        except self._api_error:
+            logger.warning(
+                "Kernel browser: failed to free session %s; it will leak until "
+                "Kernel's timeout deletes it.",
+                session_id,
+                exc_info=True,
             )
 
     @contextmanager
     def page(self) -> Iterator[Page]:
-        """Yield a Playwright page connected to the browser over CDP.
+        """Yield the browser's first page over a new CDP connection.
 
-        Binds the context's first page, so a tab the model opens (a target=_blank
-        click) is never driven.
+        Must run inside ``run_on_playwright_thread``. The CDP connection is closed
+        after each use on purpose: Kernel puts a browser with no CDP client into
+        standby, which is not billed, so the browser costs nothing while the model
+        works between tool calls. Binds the context's first page and closes any
+        tab the model opens (a target=_blank click), so popups are never driven.
+
+        Raises:
+            RuntimeError: If the session is closed, or the browser can no longer
+                be reached.
         """
-        require_playwright("Playwright browser executors")
+        if self._closed:
+            raise RuntimeError("Kernel browser session is already closed.")
         from playwright.sync_api import (  # pyright: ignore[reportMissingImports]
-            sync_playwright,
+            Error as PlaywrightError,
         )
 
-        with sync_playwright() as p:
-            cdp = p.chromium.connect_over_cdp(self.cdp_ws_url)
+        playwright = _PLAYWRIGHT_THREAD.playwright()
+        if self._browser is None:
+            self._browser = self._open()
+        try:
+            cdp = playwright.chromium.connect_over_cdp(self._browser.cdp_ws_url)
+        except PlaywrightError as e:
+            raise RuntimeError(
+                f"Could not connect to Kernel browser {self._browser.session_id}. "
+                "Kernel deletes a browser once timeout_seconds pass in standby, so "
+                "it may have been deleted between tool calls; raise timeout_seconds "
+                "(or the pool's timeout) if this repeats."
+            ) from e
+        try:
+            context = cdp.contexts[0]
+            page = context.pages[0] if context.pages else context.new_page()
+            yield page
+            # Tab order isn't stable across connections, so a tab the model opened
+            # (target=_blank) could be pages[0] next call; close it now.
+            for extra in context.pages:
+                if extra != page:
+                    extra.close()
+        finally:
             try:
-                context = cdp.contexts[0]
-                page = context.pages[0] if context.pages else context.new_page()
-                yield page
-            finally:
-                try:
-                    cdp.close()
-                except Exception:
-                    logger.warning(
-                        "Kernel browser: CDP client close failed during teardown.",
-                        exc_info=True,
-                    )
+                cdp.close()
+            except PlaywrightError:
+                logger.warning(
+                    "Kernel browser: CDP client close failed during teardown.",
+                    exc_info=True,
+                )
 
     def close(self) -> None:
-        """Release a pooled session or delete a one-off session."""
+        """Release a pooled browser or delete a created one, if one was opened."""
         if self._closed:
             return
         self._closed = True
         try:
-            if self._pool is not None:
-                self._kernel.browser_pools.release(
-                    self._pool, session_id=self.session_id, reuse=True
-                )
-            else:
-                self._kernel.browsers.delete_by_id(self.session_id)
-        except BaseException:
-            # Cleanup errors may be suppressed by callers, so log the potentially
-            # unreleased session. Not retried: the client is gone.
-            logger.warning(
-                "Kernel browser: failed to release session %s; it will leak until "
-                "Kernel's inactivity timeout reaps it.",
-                self.session_id,
-                exc_info=True,
-            )
-            raise
+            if self._browser is not None:
+                self._free(self._browser.session_id, reuse=True)
         finally:
             self._kernel.close()

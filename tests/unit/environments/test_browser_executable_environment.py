@@ -16,7 +16,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
+import threading
 from typing import Any
 
 import pytest
@@ -95,6 +97,33 @@ def test_step_passes_live_page_as_context():
     assert session.page_entries == 1
     env.step([("t", {"x": 2})])
     assert session.page_entries == 2
+
+
+def test_step_runs_off_a_running_event_loop():
+    """verl's agent loop calls tools on its event-loop thread, where Playwright's
+    sync API refuses to run, so the env must move the call to another thread."""
+    seen: dict[str, Any] = {}
+
+    class _ThreadRecordingSession(_FakeSession):
+        @contextlib.contextmanager
+        def page(self):
+            seen["thread"] = threading.get_ident()
+            try:
+                asyncio.get_running_loop()
+                seen["loop_running"] = True
+            except RuntimeError:
+                seen["loop_running"] = False
+            yield _FakePage()
+
+    env = _env(_ThreadRecordingSession(), tools=[_tool(f"{__name__}.echo")])
+
+    async def from_the_loop():
+        return env.step([("t", {"x": 1})])
+
+    [result] = asyncio.run(from_the_loop())
+    assert result.output == {"args": {"x": 1}, "page": "fake-page"}
+    assert seen["loop_running"] is False
+    assert seen["thread"] != threading.get_ident()
 
 
 def test_close_delegates_to_session():

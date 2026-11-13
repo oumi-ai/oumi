@@ -27,19 +27,19 @@ if TYPE_CHECKING:
 
 _DEFAULT_MAX_CHARS = 8000
 _DEFAULT_TIMEOUT_MS = 5000
+# Playwright's own default, made explicit so every navigation names its timeout.
+_NAVIGATION_TIMEOUT_MS = 30_000
+
+_LoadState = Literal["load", "domcontentloaded", "networkidle", "commit"]
 
 
 class NavigateArguments(TypedDict):
     url: str
-    wait_until: NotRequired[
-        Literal["load", "domcontentloaded", "networkidle", "commit"]
-    ]
+    wait_until: NotRequired[_LoadState]
 
 
 class GoBackArguments(TypedDict):
-    wait_until: NotRequired[
-        Literal["load", "domcontentloaded", "networkidle", "commit"]
-    ]
+    pass
 
 
 class ClickArguments(TypedDict):
@@ -58,7 +58,11 @@ class ReadTextArguments(TypedDict):
 
 def navigate(arguments: NavigateArguments, context: Page) -> ToolResult:
     """Navigate to ``arguments['url']``; returns the resolved url and page title."""
-    context.goto(arguments["url"], wait_until=arguments.get("wait_until", "load"))
+    context.goto(
+        arguments["url"],
+        wait_until=arguments.get("wait_until", "load"),
+        timeout=_NAVIGATION_TIMEOUT_MS,
+    )
     return ToolResult(output={"url": context.url, "title": context.title()})
 
 
@@ -66,20 +70,19 @@ def go_back(arguments: GoBackArguments, context: Page) -> ToolResult:
     """Return to the previous page in history.
 
     ``navigated`` is False when there is nothing to go back to, so the model can
-    tell a no-op from a real navigation rather than re-reading the same page.
-    It compares URLs rather than trusting ``go_back``'s return value, which is
-    ``None`` for a same-document history navigation on a client-routed site even
-    though the page did change.
+    tell a no-op from a real navigation. It compares URLs because ``go_back``
+    returns ``None`` for client-routed and cache-restored pages that did change.
+
+    Waits only for the commit and returns no title: on a page restored from
+    Chromium's back/forward cache, this CDP connection never gets a JS context, so
+    ``title()`` hangs and load events never fire. The next tool call's fresh
+    connection reads the page normally.
     """
+    # shortcut: the next call may see a still-loading page on slow sites; add a
+    # bounded wait there if that shows up in rollouts.
     before = context.url
-    context.go_back(wait_until=arguments.get("wait_until", "load"))
-    return ToolResult(
-        output={
-            "url": context.url,
-            "title": context.title(),
-            "navigated": context.url != before,
-        }
-    )
+    context.go_back(wait_until="commit", timeout=_NAVIGATION_TIMEOUT_MS)
+    return ToolResult(output={"url": context.url, "navigated": context.url != before})
 
 
 def click(arguments: ClickArguments, context: Page) -> ToolResult:
