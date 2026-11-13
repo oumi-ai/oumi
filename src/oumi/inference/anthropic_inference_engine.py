@@ -538,8 +538,11 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
                 # fixtures that omit type when only `text` is present.
                 text_parts.append(block.get("text", ""))
         text_content = "".join(text_parts)
+        # Message needs content or tool_calls. Claude can end a turn with no text
+        # (an empty text block, or only thinking), so like the base engine, fall
+        # back to "" when there are no tool calls either.
         new_message = Message(
-            content=text_content if text_content else None,
+            content=text_content if text_content or not tool_calls else None,
             role=Role.ASSISTANT,
             tool_calls=tool_calls or None,
         )
