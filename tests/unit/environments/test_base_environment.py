@@ -47,6 +47,13 @@ class _MinimalEnv(BaseEnvironment):
         return [ToolResult(output={}) for _ in calls]
 
 
+def test_default_dispatch_hooks():
+    # Batching tests mock BaseEnvironment, whose truthy Mock hides these defaults.
+    env = _MinimalEnv()
+    assert env.is_replayable() is True
+    assert env.requires_isolation() is False
+
+
 def test_default_sample_grounding_returns_empty():
     env = _MinimalEnv()
     assert env.sample_grounding(n=5, rng=random.Random(0)) == []
