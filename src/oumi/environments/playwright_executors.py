@@ -85,3 +85,65 @@ def read_text(arguments: dict[str, Any], context: Page) -> ToolResult:
             "url": context.url,
         }
     )
+
+
+# Runs in the page. Gives each field a selector the other tools accept: #id,
+# else tag[name] (plus [value] for radios and checkboxes, which share a name),
+# else Playwright's :has-text() for buttons.
+_READ_FORM_JS = """
+(root) => Array.from(root.querySelectorAll("input, select, textarea, button"))
+  .filter((el) => el.type !== "hidden")
+  .map((el) => {
+    const tag = el.tagName.toLowerCase();
+    const type = tag === "input" ? el.type : tag;
+    const checkable = type === "radio" || type === "checkbox";
+    const text = (el.innerText || "").trim();
+    let selector = null;
+    if (el.id) {
+      selector = "#" + CSS.escape(el.id);
+    } else if (el.name) {
+      selector = `${tag}[name=${JSON.stringify(el.name)}]`;
+      if (checkable) selector += `[value=${JSON.stringify(el.value)}]`;
+    } else if (tag === "button" && text) {
+      selector = `button:has-text(${JSON.stringify(text)})`;
+    }
+    // A label that wraps its control also contains the control's own text.
+    const labelEl = el.labels && el.labels[0];
+    const labelText = labelEl ? labelEl.innerText.replace(text, "") : "";
+    const field = {
+      selector,
+      type,
+      label: (labelText || el.getAttribute("aria-label") || el.placeholder || text)
+        .trim(),
+      value: checkable ? el.checked : el.value,
+      required: Boolean(el.required),
+    };
+    if (tag === "select") {
+      field.options = Array.from(el.options)
+        .map((o) => ({ value: o.value, label: o.text.trim() }));
+    }
+    return field;
+  })
+"""
+
+
+def read_form(arguments: dict[str, Any], context: Page) -> ToolResult:
+    """List the fields under ``arguments['selector']`` (default ``body``).
+
+    Each field has a ``selector`` to pass to ``type_text``, ``click`` or
+    ``select_option``, its label, type and current value (``checked`` for radios
+    and checkboxes), and a select's options as ``{value, label}``.
+    """
+    selector = arguments.get("selector", "body")
+    fields = context.locator(selector).first.evaluate(
+        _READ_FORM_JS, timeout=_DEFAULT_TIMEOUT_MS
+    )
+    return ToolResult(output={"fields": fields, "url": context.url})
+
+
+def select_option(arguments: dict[str, Any], context: Page) -> ToolResult:
+    """Choose ``arguments['value']`` in a select, matching an option value or label."""
+    selected = context.select_option(
+        arguments["selector"], arguments["value"], timeout=_DEFAULT_TIMEOUT_MS
+    )
+    return ToolResult(output={"selected": ", ".join(selected)})
