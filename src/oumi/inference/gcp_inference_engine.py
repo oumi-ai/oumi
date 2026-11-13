@@ -16,6 +16,7 @@ import json
 import os
 from typing import Any
 
+import aiohttp
 import pydantic
 from typing_extensions import override
 
@@ -61,6 +62,7 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
         region_env_key: str | None = None,
         project_id: str | None = None,
         region: str | None = None,
+        http_session: aiohttp.ClientSession | None = None,
     ):
         """Initializes the inference Engine.
 
@@ -72,11 +74,14 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
             region_env_key: The environment variable key name for the region.
             project_id: The project ID to use for inference.
             region: The region to use for inference.
+            http_session: A caller-owned aiohttp session shared by every operation.
+                See `RemoteInferenceEngine`.
         """
         super().__init__(
             model_params=model_params,
             generation_params=generation_params,
             remote_params=remote_params,
+            http_session=http_session,
         )
         if project_id and project_id_env_key:
             raise ValueError(
@@ -156,10 +161,8 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
         return credentials.token  # type: ignore
 
     @override
-    def _get_request_headers(
-        self, remote_params: RemoteParams | None
-    ) -> dict[str, str]:
-        """Gets the request headers for GCP."""
+    def _get_auth_headers(self, remote_params: RemoteParams | None) -> dict[str, str]:
+        """Gets the auth headers for GCP."""
         if not remote_params:
             raise ValueError("Remote params are required for GCP inference.")
 
@@ -225,6 +228,8 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
         if generation_params.stop_strings:
             api_input["stop"] = generation_params.stop_strings
 
+        self._add_tool_params_to_api_input(api_input, conversation, generation_params)
+
         if generation_params.guided_decoding:
             api_input["response_format"] = _convert_guided_decoding_config_to_api_input(
                 generation_params.guided_decoding
@@ -239,9 +244,11 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
             "guided_decoding",
             "logit_bias",
             "max_new_tokens",
+            "parallel_tool_calls",
             "seed",
             "stop_strings",
             "temperature",
+            "tool_choice",
             "top_p",
         }
 

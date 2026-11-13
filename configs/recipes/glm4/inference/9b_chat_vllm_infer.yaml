@@ -1,10 +1,10 @@
-# vLLM Inference config for GLM-4.5-Air.
+# vLLM Inference config for GLM-4 9B Chat.
 #
 # Requirements:
 #   - Run `pip install oumi[gpu]`
 #
 # Usage:
-#   oumi infer -i -c configs/recipes/glm4/inference/air_vllm_infer.yaml
+#   oumi infer -i -c configs/recipes/glm4/inference/9b_chat_vllm_infer.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html

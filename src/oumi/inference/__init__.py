@@ -27,6 +27,7 @@ from oumi.inference.gemini_inference_engine import GoogleGeminiInferenceEngine
 from oumi.inference.huggingface_inference_engine import (
     HuggingFaceRouterInferenceEngine,
 )
+from oumi.inference.litellm_inference_engine import LiteLLMInferenceEngine
 from oumi.inference.llama_cpp_inference_engine import LlamaCppInferenceEngine
 from oumi.inference.native_text_inference_engine import NativeTextInferenceEngine
 from oumi.inference.openai_inference_engine import OpenAIInferenceEngine
@@ -48,6 +49,7 @@ __all__ = [
     "GoogleGeminiInferenceEngine",
     "GoogleVertexInferenceEngine",
     "HuggingFaceRouterInferenceEngine",
+    "LiteLLMInferenceEngine",
     "LlamaCppInferenceEngine",
     "NativeTextInferenceEngine",
     "OpenAIInferenceEngine",

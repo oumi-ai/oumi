@@ -20,7 +20,7 @@ SQL. The environment owns the transaction: executors must never commit, and
 every write is rolled back when the episode ends.
 
 For tools over small state that fits in a JSON snapshot, use
-``SyntheticEnvironment`` instead; see ``../ehr_stateful_agent/executors.py``.
+``SimulatedEnvironment`` instead; see ``../ehr_stateful_agent/executors.py``.
 """
 
 from __future__ import annotations

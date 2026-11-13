@@ -52,6 +52,23 @@ def test_config_loading_from_str():
     assert loaded_config.data.train.datasets[0].dataset_name == "my_test_dataset"
 
 
+@pytest.mark.parametrize("eval_steps", [20, 0.1])
+def test_config_loading_eval_steps_from_str(eval_steps):
+    loaded_config = TrainingConfig.from_str(
+        f"""
+        model:
+            model_name: test-model
+        training:
+            trainer_type: TRL_SFT
+            eval_strategy: steps
+            eval_steps: {eval_steps}
+        """
+    )
+
+    assert loaded_config.training.eval_steps == eval_steps
+    assert type(loaded_config.training.eval_steps) is type(eval_steps)
+
+
 def test_config_equality():
     config_a = TrainingConfig()
     config_b = TrainingConfig()

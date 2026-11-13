@@ -20,7 +20,6 @@ from typing import Any
 import aiohttp
 from typing_extensions import override
 
-from oumi.core.async_utils import safe_asyncio_run
 from oumi.core.configs import (
     GenerationParams,
     InferenceConfig,
@@ -108,10 +107,8 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
         return f"https://api.fireworks.ai/v1/accounts/{account_id}"
 
     @override
-    def _get_request_headers(
-        self, remote_params: RemoteParams | None
-    ) -> dict[str, str]:
-        """Get request headers for Fireworks API calls."""
+    def _get_auth_headers(self, remote_params: RemoteParams | None) -> dict[str, str]:
+        """Get auth headers for Fireworks API calls."""
         api_key = self._get_api_key(remote_params or self._remote_params)
         return {
             "Authorization": f"Bearer {api_key}",
@@ -371,7 +368,7 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
             generation_params = self._generation_params
             model_params = self._model_params
 
-        return safe_asyncio_run(
+        return self._run_coroutine(
             self._create_fireworks_batch(conversations, generation_params, model_params)
         )
 
@@ -411,8 +408,7 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
             lines.append(json.dumps(request))
         content = "\n".join(lines).encode("utf-8")
 
-        connector = aiohttp.TCPConnector(limit=self._get_connection_limit())
-        async with aiohttp.ClientSession(connector=connector) as session:
+        async with self._session() as session:
             # Create input dataset (output dataset is created by the batch job)
             await self._create_fireworks_dataset(
                 input_dataset_id, len(conversations), session
@@ -469,7 +465,7 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
         Returns:
             BatchInfo: Current status of the batch job
         """
-        return safe_asyncio_run(self._get_fireworks_batch_status(batch_id))
+        return self._run_coroutine(self._get_fireworks_batch_status(batch_id))
 
     async def _get_fireworks_batch_status(self, batch_id: str) -> BatchInfo:
         """Gets the status of a batch job from the Fireworks API.
@@ -507,7 +503,9 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
         Returns:
             BatchListResponse: List of batch jobs
         """
-        return safe_asyncio_run(self._list_fireworks_batches(after=after, limit=limit))
+        return self._run_coroutine(
+            self._list_fireworks_batches(after=after, limit=limit)
+        )
 
     async def _list_fireworks_batches(
         self,
@@ -589,7 +587,7 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
         conversations: list[Conversation],
     ) -> BatchResult:
         """Gets partial results of a completed Fireworks batch job."""
-        return safe_asyncio_run(
+        return self._run_coroutine(
             self._get_fireworks_batch_results_partial(batch_id, conversations)
         )
 
@@ -640,8 +638,7 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
         error_messages: dict[int, str] = {}
         seen_indices: set[int] = set()
 
-        connector = aiohttp.TCPConnector(limit=self._get_connection_limit())
-        async with aiohttp.ClientSession(connector=connector) as session:
+        async with self._session() as session:
             signed_urls = await self._get_fireworks_dataset_urls(
                 output_dataset_id, session
             )
@@ -735,7 +732,7 @@ class FireworksInferenceEngine(RemoteInferenceEngine):
         Returns:
             BatchInfo: Updated status of the batch job
         """
-        return safe_asyncio_run(self._cancel_fireworks_batch(batch_id))
+        return self._run_coroutine(self._cancel_fireworks_batch(batch_id))
 
     async def _cancel_fireworks_batch(self, batch_id: str) -> BatchInfo:
         """Cancels a batch job via the Fireworks API.

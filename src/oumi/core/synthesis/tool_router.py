@@ -104,8 +104,8 @@ class ToolRouter:
         Envs whose ``requires_isolation()`` returns ``True`` are rebuilt via
         ``build_environment`` so their mutable state stays independent across
         samples; ``on_env_built`` re-runs on those fresh instances. Envs that
-        don't require isolation (e.g. ``DeterministicEnvironment`` and
-        stateless ``SyntheticEnvironment``) are shared with the parent
+        don't require isolation (e.g. ``LookupEnvironment`` and
+        stateless ``SimulatedEnvironment``) are shared with the parent
         router to avoid the per-sample build + inference-engine attach cost.
 
         ``env_kwargs_by_env_id`` replaces ``env_kwargs`` on the rebuilt envs with

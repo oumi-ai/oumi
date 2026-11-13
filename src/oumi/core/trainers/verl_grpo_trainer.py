@@ -15,10 +15,13 @@
 """Volcano Engine Reinforcement Learning (verl) GRPO Trainer."""
 
 import copy
+import functools
+import importlib.metadata
 import inspect
 import json
 import os
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from pprint import pformat
 from typing import Any, cast
@@ -26,6 +29,7 @@ from typing import Any, cast
 from datasets import Dataset
 from omegaconf import DictConfig, OmegaConf
 
+from oumi.core.constants import VERL_METRICS_FILENAME
 from oumi.core.types.conversation import Conversation
 from oumi.core.types.conversation import Role as ConversationRole
 from oumi.utils.conversation_utils import create_list_of_message_json_dicts
@@ -53,14 +57,32 @@ except ModuleNotFoundError:
     verl = None
     ray = None
 
+try:
+    from verl.utils.tracking import (  # pyright: ignore[reportMissingImports]
+        Tracking as VerlTracking,
+    )
+except ModuleNotFoundError:
+    VerlTracking = None
 
-from oumi.core.configs import DatasetSplitParams, TrainingConfig
+from oumi.core.configs import DatasetSplitParams, TrainingConfig, TrainingParams
 from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.trainers.base_trainer import BaseTrainer
+from oumi.core.trainers.verl_grpo_rewards import combined_reward
 from oumi.utils.logging import logger
 from oumi.utils.packaging import is_verl_v0_7_or_later
-from oumi.utils.verl_model_merger import FSDPModelMerger, ModelMergerConfig
+from oumi.utils.peft_utils import get_lora_rank
+from oumi.utils.verl_utils.grpo_metrics import (
+    DEFAULT_REWARD_GROUP_LOW_STD_THRESHOLD,
+    REWARD_GROUP_LOW_STD_CONFIG_KEY,
+    install_verl_grpo_reward_group_metrics_patch,
+)
+from oumi.utils.verl_utils.model_merger import FSDPModelMerger, ModelMergerConfig
+
+# Every step's metrics are mirrored to this file under the output dir so callers
+# can read reward curves.
+_VERL_FILE_LOGGER_BACKEND = "file"
+_VERL_FILE_LOGGER_PATH_ENV = "VERL_FILE_LOGGER_PATH"
 
 # Dataset processing function type. This function takes the following arguments:
 # 1. a dataset sample.
@@ -69,6 +91,116 @@ from oumi.utils.verl_model_merger import FSDPModelMerger, ModelMergerConfig
 # 4. split name (train, validation, etc.)
 # Returns an example converted to verl format.
 _DatasetProcessFn = Callable[[dict, int, str, str], dict]
+
+# verl's reward callback receives extra_info but not the structured prompt column.
+_PROMPT_JSON_EXTRA_INFO_KEY = "prompt_json"
+
+# Passes verl's `save_freq > 0` check (which enables its last-step save) while
+# being too large for `step % save_freq` to ever match: final checkpoint only.
+_SAVE_FINAL_STEP_ONLY_FREQ = 10**9
+
+
+def _verl_supports_file_logger() -> bool:
+    """Whether the installed verl has the ``file`` tracking backend (>=0.6)."""
+    if VerlTracking is None:
+        return False
+    return _VERL_FILE_LOGGER_BACKEND in getattr(VerlTracking, "supported_backend", ())
+
+
+@dataclass(frozen=True)
+class _CustomRewardFunctionConfig:
+    """What verl's ``reward.custom_reward_function`` block points at."""
+
+    path: str
+    name: str
+    reward_kwargs: dict[str, Any] | None = None
+
+
+def _importable_location(reward_fn: Callable) -> tuple[str, str]:
+    """The ``pkg://`` module path and attribute name verl imports a function by."""
+    fn_module = inspect.getmodule(reward_fn)
+    if fn_module is None or fn_module.__name__ is None:
+        raise ValueError(
+            "Could not determine module for reward function "
+            f"{reward_fn!r}. verl >=0.7 requires reward functions "
+            "to be defined in importable modules."
+        )
+    return f"pkg://{fn_module.__name__}", reward_fn.__name__
+
+
+def _combined_reward_kwargs(training_params: TrainingParams) -> dict[str, Any]:
+    """The kwargs ``combined_reward`` needs to rebuild the reward list on a worker."""
+    names = [name for name in (training_params.reward_functions or []) if name]
+    reward_kwargs: dict[str, Any] = {"reward_function_names": names}
+    if training_params.reward_weights is not None:
+        reward_kwargs["reward_weights"] = [
+            float(weight) for weight in training_params.reward_weights
+        ]
+    if training_params.reward_function_kwargs:
+        reward_kwargs["reward_function_kwargs"] = {
+            name: dict(kwargs)
+            for name, kwargs in training_params.reward_function_kwargs.items()
+            if name in names
+        }
+    return reward_kwargs
+
+
+def _custom_reward_function_config(
+    reward_funcs: list[Callable], training_params: TrainingParams
+) -> _CustomRewardFunctionConfig | None:
+    """Where verl >=0.7 should load the run's reward function from.
+
+    One reward function is referenced directly. Several are combined by
+    ``combined_reward``, the way TRL sums its ``reward_funcs``; their names,
+    weights and kwargs travel through ``reward_kwargs``.
+    """
+    if len(reward_funcs) == 0:
+        return None
+    if len(reward_funcs) == 1:
+        path, name = _importable_location(reward_funcs[0])
+        return _CustomRewardFunctionConfig(path=path, name=name)
+    path, name = _importable_location(combined_reward)
+    return _CustomRewardFunctionConfig(
+        path=path, name=name, reward_kwargs=_combined_reward_kwargs(training_params)
+    )
+
+
+def _compute_score_function(
+    reward_funcs: list[Callable], training_params: TrainingParams
+) -> Callable | None:
+    """The scorer handed to verl <0.7's reward manager: one function or the sum."""
+    if len(reward_funcs) == 0:
+        return None
+    if len(reward_funcs) == 1:
+        return reward_funcs[0]
+    return functools.partial(
+        combined_reward, **_combined_reward_kwargs(training_params)
+    )
+
+
+def _preserve_verl_lora_base_weights(rollout: Any, model_config: Any) -> None:
+    """Match VERL's vLLM server sleep level for a separately loaded LoRA.
+
+    VERL 0.7.1's server sleeps at level 1 for unmerged LoRA, but its client
+    advertises level 2 with recent vLLM. That makes FSDP resend the unchanged
+    base model before every adapter update.
+    """
+    lora_as_adapter = (
+        model_config.lora_rank > 0 or model_config.lora.get("rank", 0) > 0
+    ) and not model_config.lora.get("merge", False)
+    if lora_as_adapter:
+        rollout.sleep_level = 1
+
+
+if verl is not None:
+
+    class _OumiAsyncActorRolloutRefWorker(AsyncActorRolloutRefWorker):
+        """Correct the actor-side sleep level after VERL builds its rollout."""
+
+        def _build_rollout(self, trust_remote_code=False):
+            super()._build_rollout(trust_remote_code=trust_remote_code)
+            if self.config.rollout.name == "vllm":
+                _preserve_verl_lora_base_weights(self.rollout, self.model_config)
 
 
 class VerlGrpoTrainer(BaseTrainer):
@@ -128,16 +260,17 @@ class VerlGrpoTrainer(BaseTrainer):
                 "Output directory must be specified when saving final model is enabled."
             )
 
-        # TODO: OPE-1192 - Support multiple reward functions.
-        if len(reward_funcs) > 1:
-            raise ValueError("We only support up to one reward function.")
         self._reward_funcs = reward_funcs
 
-        self._cache_dir: Path = (
-            Path(cache_dir)
-            if cache_dir
-            else Path.home() / ".cache" / "oumi" / "verl_datasets"
-        )
+        if cache_dir:
+            self._cache_dir = Path(cache_dir)
+        elif self._final_output_dir:
+            # Keep dataset files private to this run: a shared default location
+            # lets concurrent verl runs overwrite each other's Parquet files.
+            self._cache_dir = self._final_output_dir / "verl_datasets"
+        else:
+            self._cache_dir = Path.home() / ".cache" / "oumi" / "verl_datasets"
+        self._cache_dir.mkdir(parents=True, exist_ok=True)
         self._train_dataset = train_dataset
         self._eval_dataset = eval_dataset
         # verl trainer uses private methods and properties of `transformers`
@@ -217,6 +350,8 @@ class VerlGrpoTrainer(BaseTrainer):
         Supports both single-turn and multi-turn conversations. The prompt is
         returned in verl's chat format (a list of ``{"role", "content"}`` dicts)
         and the answer is the final assistant message's text (the ground truth).
+        Prompt-only conversations use an empty ground truth for reward functions
+        that score without a reference answer.
 
         Args:
             example: A dictionary containing the conversation JSON.
@@ -230,7 +365,9 @@ class VerlGrpoTrainer(BaseTrainer):
                 Images are only supported for single-turn conversations.
         """
         prompt_messages, images, answer = (
-            extract_prompt_images_completion_from_conversation(example)
+            extract_prompt_images_completion_from_conversation(
+                example, allow_prompt_only=True
+            )
         )
 
         if len(images) > 0:
@@ -286,6 +423,7 @@ class VerlGrpoTrainer(BaseTrainer):
             "extra_info": {
                 "split": split,
                 "index": idx,
+                _PROMPT_JSON_EXTRA_INFO_KEY: json.dumps(prompt_messages),
                 "need_tools_kwargs": True,
                 "tools_kwargs": tools_kwargs,
             },
@@ -349,6 +487,8 @@ class VerlGrpoTrainer(BaseTrainer):
                 "split": split,
                 "index": idx,
                 "answer": answer,
+                _PROMPT_JSON_EXTRA_INFO_KEY: json.dumps(prompt_messages),
+                "metadata": json.dumps(metadata),
             },
         }
         return data
@@ -358,7 +498,7 @@ class VerlGrpoTrainer(BaseTrainer):
     ) -> None:
         """Creates dataset files for verl in Parquet format.
 
-        The Parquet files are saved to the Oumi cache directory.
+        The Parquet files are saved to the output directory.
 
         Args:
             process_fn: Optional function to convert the dataset samples to verl format.
@@ -435,7 +575,12 @@ class VerlGrpoTrainer(BaseTrainer):
         grpo_params = self._oumi_config.training.grpo
         training_params = self._oumi_config.training
 
-        config.data.max_response_length = grpo_params.max_completion_length
+        if grpo_params.num_generations is not None:
+            config.actor_rollout_ref.rollout.n = grpo_params.num_generations
+        if grpo_params.max_prompt_length is not None:
+            config.data.max_prompt_length = grpo_params.max_prompt_length
+        if grpo_params.max_completion_length is not None:
+            config.data.max_response_length = grpo_params.max_completion_length
         config.actor_rollout_ref.model.path = model_name
         config.actor_rollout_ref.actor.optim.lr = training_params.learning_rate
         config.actor_rollout_ref.model.enable_gradient_checkpointing = (
@@ -461,6 +606,16 @@ class VerlGrpoTrainer(BaseTrainer):
         if not training_params.save_epoch:
             config.trainer.save_freq = training_params.save_steps
 
+        # The HF export merges a verl checkpoint, and verl only writes one when
+        # save_freq > 0. Without this, `save_steps: -1` + save_final_model trains
+        # fine and exports nothing.
+        if training_params.save_final_model and config.trainer.save_freq <= 0:
+            config.trainer.save_freq = _SAVE_FINAL_STEP_ONLY_FREQ
+            logger.info(
+                f"save_steps={training_params.save_steps} would write no checkpoint "
+                "to export from; checkpointing the final step instead."
+            )
+
         # Specific checkpoint to resume from takes precedence over starting
         # from last checkpoint.
         if training_params.resume_from_checkpoint:
@@ -474,32 +629,50 @@ class VerlGrpoTrainer(BaseTrainer):
             config.trainer.logger.append("console")
         if training_params.enable_wandb:
             config.trainer.logger.append("wandb")
+        if self._final_output_dir is not None and _verl_supports_file_logger():
+            os.environ.setdefault(
+                _VERL_FILE_LOGGER_PATH_ENV,
+                str(self._final_output_dir / VERL_METRICS_FILENAME),
+            )
+            config.trainer.logger.append(_VERL_FILE_LOGGER_BACKEND)
         config.trainer.project_name = os.environ.get("WANDB_PROJECT", "oumi_verl")
         config.trainer.experiment_name = training_params.run_name
         config.trainer.default_local_dir = str(self._temp_output_dir or "")
 
         # 3. Wire reward functions into verl config.
-        if is_verl_v0_7_or_later() and len(self._reward_funcs) > 0:
+        if is_verl_v0_7_or_later():
             # verl >=0.7 discovers reward functions via config rather than
-            # accepting them as constructor args. Point the config at the
-            # oumi reward function's source module and function name so that
-            # verl's `load_extern_object` can import it.
-            reward_fn = self._reward_funcs[0]
-            fn_module = inspect.getmodule(reward_fn)
-            if fn_module is None or fn_module.__name__ is None:
-                raise ValueError(
-                    "Could not determine module for reward function "
-                    f"{reward_fn!r}. verl >=0.7 requires reward functions "
-                    "to be defined in importable modules."
-                )
-            module_path = f"pkg://{fn_module.__name__}"
-            fn_name = reward_fn.__name__
-            config.reward.custom_reward_function.path = module_path
-            config.reward.custom_reward_function.name = fn_name
+            # accepting them as constructor args. Point the config at a module
+            # function that verl's `load_extern_object` can import.
+            reward_config = _custom_reward_function_config(
+                self._reward_funcs, training_params
+            )
+            if reward_config is not None:
+                config.reward.custom_reward_function.path = reward_config.path
+                config.reward.custom_reward_function.name = reward_config.name
+                if reward_config.reward_kwargs is not None:
+                    config.reward.custom_reward_function.reward_kwargs = (
+                        OmegaConf.create(reward_config.reward_kwargs)
+                    )
 
         # 4. Apply user overrides
         overrides_config = OmegaConf.create(training_params.verl_config_overrides)
         config = cast(DictConfig, OmegaConf.merge(config, overrides_config))
+
+        # Pass the saved adapter to verl. lora_rank needs to be explicitly set for
+        # vLLM rollout.
+        if model_params.adapter_model:
+            if not model_params.adapter_trainable:
+                raise ValueError(
+                    "VERL_GRPO trains the adapter at model.adapter_model; set "
+                    "model.adapter_trainable: true to continue it."
+                )
+            config.actor_rollout_ref.model.lora_adapter_path = (
+                model_params.adapter_model
+            )
+            config.actor_rollout_ref.model.lora_rank = get_lora_rank(
+                model_params.adapter_model
+            )
 
         # 4. Finalize and validate config.
 
@@ -527,14 +700,27 @@ class VerlGrpoTrainer(BaseTrainer):
         self._verl_config = self._create_config()
         logger.info(f"verl config: {pformat(self._verl_config)}")
 
+        if self._verl_config.algorithm.adv_estimator == "grpo":
+            low_std_threshold = self._verl_config.algorithm.get(
+                REWARD_GROUP_LOW_STD_CONFIG_KEY,
+                DEFAULT_REWARD_GROUP_LOW_STD_THRESHOLD,
+            )
+            install_verl_grpo_reward_group_metrics_patch(
+                low_std_threshold=low_std_threshold
+            )
+
         tokenizer = self._processing_class
 
         # verl >=0.7 requires AsyncActorRolloutRefWorker for the checkpoint
         # engine's weight sync.
         _verl_v07 = is_verl_v0_7_or_later()
-        _actor_worker_cls = (
-            AsyncActorRolloutRefWorker if _verl_v07 else ActorRolloutRefWorker
-        )
+        if _verl_v07:
+            _actor_worker_cls = AsyncActorRolloutRefWorker
+            # Keep this downstream fix scoped to the VERL release it was verified on.
+            if importlib.metadata.version("verl") == "0.7.1":
+                _actor_worker_cls = _OumiAsyncActorRolloutRefWorker
+        else:
+            _actor_worker_cls = ActorRolloutRefWorker
         role_worker_mapping = {
             Role.ActorRollout: ray.remote(_actor_worker_cls),
             Role.Critic: ray.remote(CriticWorker),
@@ -570,8 +756,8 @@ class VerlGrpoTrainer(BaseTrainer):
             resource_pool_manager=resource_pool_manager,
         )
         if not _verl_v07:
-            compute_score = (
-                self._reward_funcs[0] if len(self._reward_funcs) > 0 else None
+            compute_score = _compute_score_function(
+                self._reward_funcs, self._oumi_config.training
             )
             trainer_kwargs["reward_fn"] = NaiveRewardManager(
                 tokenizer=tokenizer, num_examine=0, compute_score=compute_score

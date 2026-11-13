@@ -52,15 +52,15 @@ class RemoteParams(BaseParams):
 
     The delay is ``min(retry_backoff_base * 10 ** (attempt - 1),
     retry_backoff_max)`` (a 10x step per attempt), so with the defaults the
-    waits are ~1s, 10s, then 30s (capped). A server-provided Retry-After takes
-    precedence over this schedule and is honored in full.
+    waits are ~1s, 10s, then 30s (capped). A longer server-provided Retry-After
+    replaces the step; a shorter one never shortens it.
     """
 
     retry_backoff_max: float = 30.0
     """Maximum delay in seconds for the exponential backoff schedule.
 
-    Caps the computed backoff only; a server-provided Retry-After is honored in
-    full and is not bounded by this value.
+    Caps the computed backoff only; a longer server-provided Retry-After is
+    honored in full and is not bounded by this value.
     """
 
     connection_timeout: float = 300.0

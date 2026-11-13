@@ -38,14 +38,30 @@ from oumi.environments.browser_executable_environment import (
 from oumi.environments.database_executable_environment import (
     DatabaseExecutableEnvironment,
 )
-from oumi.environments.deterministic_environment import (
-    DeterministicEnvironment,
-    DeterministicEnvironmentKwargs,
-    ToolLookupEntry,
+from oumi.environments.endpoint_environment import (
+    EndpointCallError,
+    EndpointEnvironment,
+    EndpointEnvironmentKwargs,
+    EndpointProtocol,
+    EndpointStatusError,
+    JsonHttpClient,
+    JsonHttpProtocol,
+    RemoteToolCall,
+    RequestsJsonClient,
 )
 from oumi.environments.executable_environment import ExecutableEnvironment
 from oumi.environments.executable_tool import ExecutableTool
-from oumi.environments.synthetic_environment import (
+from oumi.environments.lookup_environment import (
+    DeterministicEnvironment,
+    DeterministicEnvironmentKwargs,
+    LookupEnvironment,
+    LookupEnvironmentKwargs,
+    ToolLookupEntry,
+)
+from oumi.environments.simulated_environment import (
+    SimulatedEnvironment,
+    SimulatedEnvironmentKwargs,
+    SimulatedStateParams,
     SyntheticEnvironment,
     SyntheticEnvironmentKwargs,
     SyntheticStateParams,
@@ -55,13 +71,28 @@ __all__ = [
     "BaseEnvironment",
     "BrowserExecutableEnvironment",
     "DatabaseExecutableEnvironment",
+    # Deprecated aliases, kept so existing imports keep resolving.
     "DeterministicEnvironment",
     "DeterministicEnvironmentKwargs",
+    "EndpointCallError",
+    "EndpointEnvironment",
+    "EndpointEnvironmentKwargs",
+    "EndpointProtocol",
+    "EndpointStatusError",
     "ExecutableEnvironment",
     "ExecutableTool",
     "GroundingConfig",
     "GroundingFact",
     "JSONSchema",
+    "JsonHttpClient",
+    "JsonHttpProtocol",
+    "LookupEnvironment",
+    "LookupEnvironmentKwargs",
+    "RemoteToolCall",
+    "RequestsJsonClient",
+    "SimulatedEnvironment",
+    "SimulatedEnvironmentKwargs",
+    "SimulatedStateParams",
     "StateGroundingConfig",
     "SyntheticEnvironment",
     "SyntheticEnvironmentKwargs",

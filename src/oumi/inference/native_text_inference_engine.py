@@ -97,6 +97,14 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                 and internal_model_config.visual_config.supports_multiple_images
             )
 
+        if (
+            self._processor is None
+            and "padding_side" not in self._model_params.tokenizer_kwargs
+        ):
+            # Right-padded batches make generation continue from pad tokens and
+            # diverge from `batch_size=1`, so left-pad decoder-only models.
+            self._tokenizer.padding_side = "left"
+
         # https://stackoverflow.com/questions/69609401/suppress-huggingface-logging-warning-setting-pad-token-id-to-eos-token-id
         self._model.generation_config.pad_token_id = self._tokenizer.pad_token_id
 

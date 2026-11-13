@@ -17,7 +17,7 @@ from oumi.core.types.conversation import (
     Role,
     Type,
 )
-from oumi.core.types.tool_call import ToolCall, ToolDefinition
+from oumi.core.types.tool_call import FunctionCall, ToolCall, ToolDefinition
 from oumi.utils.image_utils import load_image_png_bytes_from_path
 
 _SMALL_B64_IMAGE: Final[str] = (
@@ -332,6 +332,42 @@ def test_conversation_to_json_legacy():
     assert '"role":"assistant"' in json_str
     assert '"content":"Hi there!"' in json_str
     assert '"test":"metadata"' in json_str
+
+
+def test_conversation_to_json_keeps_null_content_on_tool_calls():
+    conv = Conversation(
+        messages=[
+            Message(role=Role.USER, content="What is the weather?"),
+            Message(
+                role=Role.ASSISTANT,
+                content=None,
+                tool_calls=[
+                    ToolCall(
+                        id="call_1",
+                        function=FunctionCall(name="get_weather", arguments="{}"),
+                    )
+                ],
+            ),
+        ],
+    )
+
+    json_str = conv.to_json()
+
+    assert '"content":null' in json_str
+    assert Conversation.from_json(json_str) == conv
+
+
+def test_conversation_to_json_keeps_non_ascii_unescaped():
+    """Escaping non-ASCII would change the bytes every cached hash was built on."""
+    conv = Conversation(
+        messages=[Message(role=Role.USER, content="cafe\u0301 \u2615 \U0001f600")]
+    )
+
+    json_str = conv.to_json()
+
+    assert "cafe\u0301 \u2615 \U0001f600" in json_str
+    assert "\\u" not in json_str
+    assert Conversation.from_json(json_str) == conv
 
 
 def test_conversation_to_json_mixed_content():
@@ -1350,6 +1386,57 @@ def test_typed_field_access_on_message_tool_calls():
     assert msg.tool_calls[0].id == "call_abc"
     assert msg.tool_calls[0].function.name == "get_weather"
     assert msg.tool_calls[0].function.arguments == '{"city": "SF"}'
+
+
+def test_function_call_dict_arguments_coerced_to_json_string():
+    """Dict arguments are serialized to a JSON string on input."""
+    fc = FunctionCall(name="fn", arguments={"key": "value"})  # type: ignore[arg-type]
+    assert fc.arguments == '{"key": "value"}'
+    assert isinstance(fc.arguments, str)
+
+
+def test_function_call_list_arguments_coerced_to_json_string():
+    """List arguments are serialized to a JSON string on input."""
+    fc = FunctionCall(name="fn", arguments=[1, 2, 3])  # type: ignore[arg-type]
+    assert fc.arguments == "[1, 2, 3]"
+
+
+def test_function_call_string_arguments_pass_through():
+    """String arguments pass through the validator unchanged."""
+    fc = FunctionCall(name="fn", arguments='{"key": "value"}')
+    assert fc.arguments == '{"key": "value"}'
+
+
+def test_function_call_rejects_unsupported_arguments_type():
+    """Non-str/dict/list arguments raise ValueError."""
+    with pytest.raises(ValueError, match="must be a str, dict, or list"):
+        FunctionCall(name="fn", arguments=42)  # type: ignore[arg-type]
+
+
+def test_function_call_get_arguments_dict_returns_mapping():
+    """get_arguments_dict() decodes the JSON string to a dict."""
+    fc = FunctionCall(name="fn", arguments='{"city": "SF"}')
+    assert fc.get_arguments_dict() == {"city": "SF"}
+
+
+def test_function_call_get_arguments_dict_empty_returns_empty_dict():
+    """get_arguments_dict() returns {} for empty string arguments."""
+    fc = FunctionCall(name="fn", arguments="")
+    assert fc.get_arguments_dict() == {}
+
+
+def test_function_call_get_arguments_dict_invalid_json_raises():
+    """get_arguments_dict() raises ValueError naming the function on bad JSON."""
+    fc = FunctionCall(name="broken_fn", arguments="{bad json")
+    with pytest.raises(ValueError, match="broken_fn"):
+        fc.get_arguments_dict()
+
+
+def test_function_call_get_arguments_dict_non_object_raises():
+    """get_arguments_dict() raises ValueError if JSON is valid but not an object."""
+    fc = FunctionCall(name="fn", arguments="[1, 2]")
+    with pytest.raises(ValueError, match="JSON object"):
+        fc.get_arguments_dict()
 
 
 # -----------------------------------------------------------------------------

@@ -42,7 +42,7 @@ from oumi.core.types.conversation import (
 from oumi.core.types.tool_call import ToolCall, ToolDefinition, ToolResult
 from oumi.environments import GroundingFact
 from oumi.environments.base_environment import BaseEnvironment
-from oumi.environments.synthetic_environment import SyntheticEnvironment
+from oumi.environments.simulated_environment import SimulatedEnvironment
 from oumi.environments.utils import describe_grounding_default
 from oumi.inference.native_tool_calling import (
     NATIVE_TOOL_CALLING_ENGINES,
@@ -75,7 +75,11 @@ class OpeningTurnPrompt:
 
 @dataclasses.dataclass
 class SeedConversation:
-    """A seed conversation plus the ``generation_state`` a turn driver needs."""
+    """A seed conversation plus the ``generation_state`` a turn driver needs.
+
+    The user persona, which drives user message synthesis, is at
+    ``conversation.metadata["user_persona"]``.
+    """
 
     conversation: Conversation
     generation_state: dict
@@ -172,8 +176,8 @@ class ConversationSynthesizer:
             raise first_error
 
     def _wire_inference(self, env: BaseEnvironment) -> None:
-        """Inject the synthesizer's engine + base config into synthetic envs."""
-        if isinstance(env, SyntheticEnvironment):
+        """Inject the synthesizer's engine + base config into simulated envs."""
+        if isinstance(env, SimulatedEnvironment):
             env.attach_inference(self._inference_engine, self._inference_config)
 
     def _resolve_available_tools(
@@ -521,7 +525,12 @@ class ConversationSynthesizer:
                         sample_with_turn, assistant_persona, Role.ASSISTANT
                     ),
                     Message(role=Role.USER, content=opening),
-                ]
+                ],
+                metadata={
+                    "user_persona": self._formatter.format(
+                        sample_with_turn, user_persona, missing_values_allowed=False
+                    )
+                },
             )
             output_message = self._format_output_system_message(
                 sample, multiturn_attribute.output_system_prompt
@@ -532,9 +541,6 @@ class ConversationSynthesizer:
             generation_state = {
                 "target_turns": sample["target_turns"],
                 "turn_plans": sample.get("parsed_turn_plans", []),
-                "user_persona": self._formatter.format(
-                    sample_with_turn, user_persona, missing_values_allowed=False
-                ),
                 "output_system_prompt": output_system_prompt,
             }
             seeds.append(

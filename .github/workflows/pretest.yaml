@@ -5,10 +5,10 @@ on:
     - cron: "0 */8 * * *" # Every 8 hours
   workflow_dispatch:
   pull_request:
+    # docs/** and README.md are covered by the `static-checks` job in doctests.yaml.
+    # Every other PR must run this job: `static-checks` is a required status check.
     paths-ignore:
       - "docs/**"
-      - "notebooks/**"
-      - "scripts/**"
       - "README.md"
   merge_group:
 
@@ -23,7 +23,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           # Checkout using commit hash to make "no-commit-to-branch" test pass.
           ref: ${{ github.sha }}
@@ -35,7 +35,7 @@ jobs:
           cache-dependency-glob: "pyproject.toml"
 
       - name: "Set up Python"
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
@@ -51,7 +51,7 @@ jobs:
           uv pip install --system -e '.[ci_cpu]'
 
       - name: Cache pre-commit
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.cache/pre-commit
           key: ${{ runner.os }}-pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}

@@ -14,7 +14,7 @@
 
 """Tool executors for the stateful EHR synthesis example.
 
-``SyntheticEnvironment`` passes each executor the complete JSON state snapshot.
+``SimulatedEnvironment`` passes each executor the complete JSON state snapshot.
 This is a functional state-transition contract: an executor reads the snapshot
 and, for a write, returns a complete candidate ``updated_state`` that the
 environment validates before committing. The snapshot is a deep copy, so an

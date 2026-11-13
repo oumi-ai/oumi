@@ -1,10 +1,46 @@
+import asyncio
+import inspect
 from pathlib import Path
+from unittest.mock import Mock
 
+import aioresponses.core as aioresponses_core
 import pytest
+from aiohttp import ClientResponse, StreamReader
+from aiohttp.client_proto import ResponseHandler
 from datasets import config as datasets_config
 
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.logging import get_logger
+
+
+def _patch_aioresponses_for_aiohttp_3_14() -> None:
+    """Let aioresponses (<=0.7.9) build mocked responses on aiohttp 3.14+.
+
+    aiohttp 3.14 added a required ``stream_writer`` argument to
+    ``ClientResponse`` and made flow control call into the protocol's parser,
+    which aioresponses never sets. Remove once aioresponses releases
+    pnuckowski/aioresponses#288 and #292.
+    """
+    if "stream_writer" not in inspect.signature(ClientResponse).parameters:
+        return
+
+    class _ClientResponse(ClientResponse):
+        def __init__(self, *args, **kwargs):
+            # aiohttp only reads ``stream_writer.output_size``.
+            kwargs.setdefault("stream_writer", Mock(output_size=0))
+            super().__init__(*args, **kwargs)
+
+    def _stream_reader_factory(loop: asyncio.AbstractEventLoop) -> StreamReader:
+        protocol = ResponseHandler(loop=loop)
+        protocol._parser = Mock()  # type: ignore[attr-defined]
+        protocol._parser.feed_data.return_value = ([], False, b"")  # type: ignore[attr-defined]
+        return StreamReader(protocol, limit=2**16, loop=loop)
+
+    aioresponses_core.ClientResponse = _ClientResponse  # type: ignore[misc]
+    aioresponses_core.stream_reader_factory = _stream_reader_factory
+
+
+_patch_aioresponses_for_aiohttp_3_14()
 
 
 @pytest.fixture(autouse=True)

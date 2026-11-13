@@ -19,7 +19,7 @@ import pytest
 
 from oumi.core.configs.params.tool_params import ToolArgumentError, ToolParams
 from oumi.core.types.tool_call import JSONSchema, ToolDefinition, ToolResult
-from oumi.environments.synthetic_environment import SyntheticStateParams
+from oumi.environments.simulated_environment import SimulatedStateParams
 
 
 def _make_state_schema() -> dict[str, Any]:
@@ -218,18 +218,18 @@ def test_validate_arguments_empty_schema_accepts_any_object():
     tool.validate_arguments({"extra": "ignored"})
 
 
-def test_synthetic_state_params_validates_initial_state_against_schema():
+def test_simulated_state_params_validates_initial_state_against_schema():
     with pytest.raises(jsonschema.ValidationError):
-        SyntheticStateParams(
+        SimulatedStateParams(
             state_schema=_make_state_schema(),
             initial_state={"files": {"count": "bad"}},
         )
 
 
-def test_synthetic_state_params_accepts_partial_inputs():
+def test_simulated_state_params_accepts_partial_inputs():
     assert (
-        SyntheticStateParams(state_schema=_make_state_schema()).state_schema is not None
+        SimulatedStateParams(state_schema=_make_state_schema()).state_schema is not None
     )
-    assert SyntheticStateParams(
+    assert SimulatedStateParams(
         initial_state={"files": {"count": 1}}
     ).initial_state == {"files": {"count": 1}}

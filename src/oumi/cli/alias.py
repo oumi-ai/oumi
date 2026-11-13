@@ -522,6 +522,13 @@ _ALIASES: dict[str, dict[AliasType, str]] = {
     "regex-no-error-keywords": {
         AliasType.JUDGE: "oumi://configs/projects/judges/rule_based/regex_no_error_keywords.yaml",
     },
+    # Rubric judge aliases (multi-criteria judges)
+    "doc-qa-rubric": {
+        AliasType.JUDGE: "oumi://configs/projects/judges/rubric/doc_qa.yaml",
+    },
+    "response-quality-rubric": {
+        AliasType.JUDGE: "oumi://configs/projects/judges/rubric/response_quality.yaml",
+    },
 }
 
 

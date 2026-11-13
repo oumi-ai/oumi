@@ -215,17 +215,17 @@ Ready to dive deeper? The sections below cover all available options in detail.
 
 Agentic synthesis now follows an environment-first model. Tools do not declare an output strategy directly. Instead, each tool is bound to an environment, and the environment type defines how tool calls are executed via its `step()` method.
 
-- **`synthetic` environments** are backed by an LLM that simulates tool execution. They can be stateless (no persistent state) or stateful (mutable JSON state across turns). Statefulness is controlled by the optional `state_params` field — when provided, the environment tracks and mutates state across calls; when absent, each call is independent.
-- **`deterministic` environments** behave like lookup tables. Each tool defines a set of input-to-output mappings, and `step()` resolves tool calls by matching arguments against those mappings. No LLM is involved.
+- **`simulated` environments** are backed by an LLM that simulates tool execution. They can be stateless (no persistent state) or stateful (mutable JSON state across turns). Statefulness is controlled by the optional `state_params` field — when provided, the environment tracks and mutates state across calls; when absent, each call is independent.
+- **`lookup` environments** behave like lookup tables. Each tool defines a set of input-to-output mappings, and `step()` resolves tool calls by matching arguments against those mappings. No LLM is involved.
 
 At the config level:
 
 - Environments own their tool definitions.
 - Reusable environment catalogs live in top-level `environment_config` or `environment_config_path`.
 - Tools do not declare an `environment` field. The parent environment owns the binding.
-- `deterministic_outputs` is only used for tools in `deterministic` environments.
-- `read_only` is only meaningful for tools in stateful `synthetic` environments.
-- `env_kwargs.use_guided_decoding` (default `true`) constrains simulated tool output to each tool's `output_schema`, and applies to every tool in the environment. Set it to `false` when a schema is too large for the provider's grammar compiler, or when constrained decoding is too slow — output is still validated against `output_schema` after generation, so an off-schema response raises a tool error instead of being silently accepted. To mix policies across tools, put them in separate `synthetic` environments.
+- `env_kwargs.lookup_table` (keyed by tool id) supplies the input-to-output rows a `lookup` environment resolves against.
+- `read_only` is only meaningful for tools in stateful `simulated` environments.
+- `env_kwargs.use_guided_decoding` (default `true`) constrains simulated tool output to each tool's `output_schema`, and applies to every tool in the environment. Set it to `false` when a schema is too large for the provider's grammar compiler, or when constrained decoding is too slow — output is still validated against `output_schema` after generation, so an off-schema response raises a tool error instead of being silently accepted. To mix policies across tools, put them in separate `simulated` environments.
 - Multiturn attributes reference environments (not individual tools) to select which tools are available.
 
 Example:
@@ -236,7 +236,7 @@ environment_config:
     - id: support_backend
       name: Support Backend
       description: Simulated support system with tickets and users
-      type: synthetic
+      type: simulated
       tool_persona: You manage a customer support system with tickets and users.
       state_params:
         state_schema:
@@ -269,7 +269,7 @@ environment_config:
     - id: faq_lookup
       name: FAQ Lookup
       description: Cached LLM-backed FAQ answers
-      type: synthetic
+      type: simulated
       tool_persona: Generate concise FAQ answers grounded in the tool contract.
       cache_by_input: true
       tools:
@@ -284,7 +284,7 @@ environment_config:
     - id: policy_table
       name: Policy Table
       description: Predefined policy responses
-      type: deterministic
+      type: lookup
       tools:
         - id: get_refund_policy
           name: GetRefundPolicy
@@ -293,7 +293,9 @@ environment_config:
             type: object
             properties:
               policy_type: { type: string }
-          deterministic_outputs:
+      env_kwargs:
+        lookup_table:
+          get_refund_policy:
             - input:
                 policy_type: standard
               output:

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import contextvars
 from collections.abc import Coroutine
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, TypeVar
@@ -35,6 +36,9 @@ def safe_asyncio_run(main: Coroutine[Any, Any, T]) -> T:
     Returns:
         The result of the Coroutine.
     """
+    # Carry the caller's context variables into the helper thread so per-call
+    # state (e.g. the inference scratch-file hash) survives the thread hop.
+    context = contextvars.copy_context()
     with ThreadPoolExecutor(max_workers=1) as executor:
-        task = executor.submit(asyncio.run, main)
+        task = executor.submit(context.run, asyncio.run, main)
         return task.result()

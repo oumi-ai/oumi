@@ -40,7 +40,7 @@ class BaseEnvironment(ABC):
 
         Default ``False`` — the env is safe to share across samples.
         Override and return ``True`` for envs carrying mutable per-sample
-        state (e.g. stateful synthetic tool execution).
+        state (e.g. stateful simulated tool execution).
         """
         return False
 

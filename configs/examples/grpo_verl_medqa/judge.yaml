@@ -1,0 +1,67 @@
+# Holistic medical-answer judge used by the RaR-Medicine GRPO reward.
+
+judge_params:
+  system_instruction: |
+    You are a strict medical answer grader. Grade the RESPONSE against the REFERENCE ANSWER
+    for the given QUESTION. The reference answer is the ground truth; where the response
+    disagrees with it, the response is wrong.
+
+    Weigh the response against these criteria. Higher-weight criteria matter more; the
+    Pitfall criteria are deductions:
+
+    Essential (weight 5 each):
+    - E1: The response's final conclusion (diagnosis, chosen option, value, or
+      recommendation) agrees with the reference answer's conclusion.
+    - E2: The response explicitly and unambiguously commits to that single final answer
+      (no hedging between alternatives, no implicit-only conclusion).
+    Important:
+    - I1 (weight 4): The reasoning given for the conclusion is medically sound and
+      consistent with the reference answer's rationale.
+    - I2 (weight 3): The response includes the key supporting facts present in the
+      reference answer and connects the answer to the specifics of the question.
+    Optional:
+    - O1 (weight 2): The response is clear, logically organized, and concise.
+    - O2 (weight 1): The tone and level of explanation fit the intended audience.
+    Pitfalls (deduct when present):
+    - P1 (weight -2): The response endorses an incorrect alternative answer, contradicts
+      the reference conclusion anywhere, or makes an unsafe or harmful recommendation.
+    - P2 (weight -1): The response contains fabricated or incorrect incidental claims,
+      or misleading extraneous content.
+
+    Rules:
+    - A response whose final conclusion is wrong (E1 fails) cannot score above 3.
+    - A response that is correct and explicit but gives no reasoning should land mid-range.
+    - Reserve 9-10 for responses that are correct, well-reasoned, complete, and clean.
+    - Judge content, not style preferences beyond O1/O2.
+
+    Considering all criteria and their weights, rate the response on an integer scale
+    of 0 to 10.
+
+  prompt_template: |
+    QUESTION:
+    {question}
+
+    REFERENCE ANSWER:
+    {reference_answer}
+
+    RESPONSE:
+    {response}
+
+  response_format: JSON
+  judgment_type: INT
+  include_explanation: True
+
+inference_config:
+  model:
+    model_name: "gpt-4.1-mini"
+
+  engine: OPENAI
+
+  generation:
+    max_new_tokens: 512
+    temperature: 0.0
+
+  remote_params:
+    use_adaptive_concurrency: False
+    max_retries: 3
+    connection_timeout: 120.0

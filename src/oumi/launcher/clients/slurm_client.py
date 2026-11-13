@@ -62,7 +62,7 @@ def _check_connection(user: str, slurm_host: str) -> None:
     if child.returncode == 0:
         return
     if error_msg:
-        logger.error(f"Error checking connection: {error_msg}")
+        logger.debug(f"Error checking connection: {error_msg}")
         error_msg = f" Error: {error_msg}"
     raise _SlurmAuthException("Connection to Slurm host is closed." + error_msg)
 
@@ -97,6 +97,9 @@ def _get_job_state(job_state: str) -> JobState:
     elif job_state == "CANCELLED":
         return JobState.CANCELLED
     elif job_state == "RUNNING":
+        return JobState.RUNNING
+    # Not terminal: ending the poll here risks reading outputs before they flush.
+    elif job_state == "COMPLETING":
         return JobState.RUNNING
     return JobState.PENDING
 
@@ -714,6 +717,10 @@ class SlurmClient:
     def list_jobs(self) -> list[JobStatus]:
         """Lists all jobs for the current user.
 
+        Falls back to the active queue on a controller that keeps no job
+        history, so callers get the jobs still holding resources instead of
+        an error.
+
         Returns:
             A list of JobStatus.
         """
@@ -731,7 +738,14 @@ class SlurmClient:
         result = self.run_commands([command])
         if result.exit_code != 0:
             _raise_if_unreachable(result, self._cluster_name)
-            raise RuntimeError(f"Failed to list jobs. stderr: {result.stderr}")
+            # A controller running without accounting storage fails sacct
+            # outright. squeue still knows every job that is holding
+            # resources, which is what a caller hunting a live job needs.
+            logger.warning(
+                f"Could not read job history on '{self._cluster_name}', listing "
+                f"active jobs instead. stderr: {result.stderr}"
+            )
+            return self._list_active_jobs_squeue()
         # Parse STDOUT to retrieve job statuses.
         lines = result.stdout.strip().split("\n")
         jobs = []

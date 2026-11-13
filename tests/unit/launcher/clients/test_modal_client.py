@@ -300,3 +300,47 @@ def test_strip_sudo_removes_inline_and_chained_invocations():
     assert _strip_sudo(src) == (
         "apt-get update && apt-get install -y zip\ndpkg -i bar.deb"
     )
+
+
+def test_launch_exposes_no_ports_by_default(fake_modal):
+    with patch(
+        "oumi.launcher.clients.modal_client._import_modal", return_value=fake_modal
+    ):
+        ModalClient().launch(_job(), cluster_name="my-cluster")
+    _, kwargs = fake_modal.Sandbox.create.call_args
+    assert kwargs["encrypted_ports"] == []
+
+
+def test_launch_forwards_encrypted_ports_to_sandbox_create(fake_modal):
+    """Ports must be declared at create time; Modal cannot add them later."""
+    with patch(
+        "oumi.launcher.clients.modal_client._import_modal", return_value=fake_modal
+    ):
+        ModalClient().launch(_job(), cluster_name="my-cluster", encrypted_ports=[8000])
+    _, kwargs = fake_modal.Sandbox.create.call_args
+    assert kwargs["encrypted_ports"] == [8000]
+
+
+def test_tunnel_url_returns_the_public_url_of_an_exposed_port(fake_modal):
+    tunnel = MagicMock(name="Tunnel")
+    tunnel.url = "https://sb-deadbeef-8000.modal.host"
+    sandbox = MagicMock(name="Sandbox")
+    sandbox.tunnels.return_value = {8000: tunnel}
+    fake_modal.Sandbox.from_id.return_value = sandbox
+    with patch(
+        "oumi.launcher.clients.modal_client._import_modal", return_value=fake_modal
+    ):
+        url = ModalClient().tunnel_url("sb-deadbeef", 8000)
+    assert url == "https://sb-deadbeef-8000.modal.host"
+    fake_modal.Sandbox.from_id.assert_called_once_with("sb-deadbeef")
+
+
+def test_tunnel_url_raises_when_the_port_was_not_exposed(fake_modal):
+    sandbox = MagicMock(name="Sandbox")
+    sandbox.tunnels.return_value = {}
+    fake_modal.Sandbox.from_id.return_value = sandbox
+    with patch(
+        "oumi.launcher.clients.modal_client._import_modal", return_value=fake_modal
+    ):
+        with pytest.raises(ValueError, match="8000"):
+            ModalClient().tunnel_url("sb-deadbeef", 8000)

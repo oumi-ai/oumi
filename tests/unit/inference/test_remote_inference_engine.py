@@ -1,11 +1,12 @@
 import asyncio
+import inspect
 import json
 import math
 import os
 import tempfile
 import time
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, Final, cast
 from unittest.mock import AsyncMock, patch
 
 import aiohttp
@@ -912,6 +913,38 @@ def test_infer_online_retry_after_honored_in_full(mock_asyncio_sleep):
             engine.infer([conversation], config)
             delays = [call.args[0] for call in mock_asyncio_sleep.call_args_list]
             assert delays == [600.0]  # honored in full, not truncated
+
+
+def test_infer_online_short_retry_after_does_not_shorten_backoff(
+    mock_asyncio_sleep,
+):
+    with patch("random.uniform", return_value=1.0):
+        with aioresponses() as m:
+            for _ in range(3):
+                m.post(
+                    _TARGET_SERVER,
+                    status=429,
+                    headers={"Retry-After": "1"},
+                    payload={"error": {"message": "Rate limited"}},
+                )
+            m.post(
+                _TARGET_SERVER,
+                payload={
+                    "choices": [{"message": {"role": "assistant", "content": "ok"}}]
+                },
+            )
+            engine = RemoteInferenceEngine(
+                _get_default_model_params(),
+                remote_params=RemoteParams(api_url=_TARGET_SERVER),
+            )
+            config = _get_default_inference_config()
+            conversation = Conversation(
+                messages=[Message(content="Hello world!", role=Role.USER)],
+                conversation_id="123",
+            )
+            engine.infer([conversation], config)
+            delays = [call.args[0] for call in mock_asyncio_sleep.call_args_list]
+            assert delays == [1.0, 10.0, 30.0]
 
 
 def test_infer_online_retry_after_jitter_applied(mock_asyncio_sleep):
@@ -2286,6 +2319,20 @@ def test_convert_api_output_no_usage():
     assert result.metadata["key"] == "value"
 
 
+def test_convert_api_output_null_response_raises_runtime_error():
+    """A 2xx response whose JSON body is `null` must raise a clear RuntimeError."""
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
+    )
+    original = Conversation(
+        messages=[Message(content="Hello", role=Role.USER)],
+    )
+    null_body = cast(dict, None)
+    with pytest.raises(RuntimeError, match="Expected a JSON object"):
+        engine._convert_api_output_to_conversation(null_body, original)
+
+
 def test_convert_api_output_content_null_returns_empty_string():
     engine = RemoteInferenceEngine(
         _get_default_model_params(),
@@ -2574,8 +2621,8 @@ async def test_batch_results_partial_failure_retries():
             ]
         )
         with patch.object(
-            engine, "_infer", new_callable=AsyncMock, return_value=[retry_result]
-        ) as mock_infer:
+            engine, "generate", new_callable=AsyncMock, return_value=[retry_result]
+        ) as mock_generate:
             results = await engine._get_batch_results_with_mapping(
                 "batch-123", conversations
             )
@@ -2584,8 +2631,8 @@ async def test_batch_results_partial_failure_retries():
         assert results[0].messages[-1].content == "Response 0"
         assert results[1].messages[-1].content == "Retry Response 1"
         assert results[2].messages[-1].content == "Response 2"
-        mock_infer.assert_called_once()
-        failed_convs = mock_infer.call_args[0][0]
+        mock_generate.assert_called_once()
+        failed_convs = mock_generate.call_args[0][0]
         assert len(failed_convs) == 1
         assert failed_convs[0].messages[0].content == "Q1"
 
@@ -2638,7 +2685,7 @@ async def test_batch_results_error_in_response_body():
             ]
         )
         with patch.object(
-            engine, "_infer", new_callable=AsyncMock, return_value=[retry_result]
+            engine, "generate", new_callable=AsyncMock, return_value=[retry_result]
         ):
             results = await engine._get_batch_results_with_mapping(
                 "batch-123", conversations
@@ -2688,7 +2735,7 @@ async def test_batch_results_error_null_no_body_error():
             ]
         )
         with patch.object(
-            engine, "_infer", new_callable=AsyncMock, return_value=[retry_result]
+            engine, "generate", new_callable=AsyncMock, return_value=[retry_result]
         ):
             results = await engine._get_batch_results_with_mapping(
                 "batch-123", conversations
@@ -2739,7 +2786,7 @@ async def test_batch_results_error_null_response_null():
             ]
         )
         with patch.object(
-            engine, "_infer", new_callable=AsyncMock, return_value=[retry_result]
+            engine, "generate", new_callable=AsyncMock, return_value=[retry_result]
         ):
             results = await engine._get_batch_results_with_mapping(
                 "batch-123", conversations
@@ -2752,7 +2799,7 @@ async def test_batch_results_error_null_response_null():
 
 @pytest.mark.asyncio
 async def test_batch_results_retry_failure_propagates():
-    """Test that exceptions from _infer during retry propagate up."""
+    """Test that exceptions from generate during retry propagate up."""
     with aioresponses() as m:
         m.get(
             f"{_TARGET_SERVER_BASE}/v1/batches/batch-123",
@@ -2770,7 +2817,7 @@ async def test_batch_results_retry_failure_propagates():
 
         with patch.object(
             engine,
-            "_infer",
+            "generate",
             new_callable=AsyncMock,
             side_effect=RuntimeError("API error during retry"),
         ):
@@ -4449,6 +4496,55 @@ def test_response_combines_reasoning_with_tool_calls():
     assert assistant.tool_calls[0].function.name == "get_weather"
 
 
+def _openai_shape_engines() -> list[RemoteInferenceEngine]:
+    """OpenAI-compatible engines whose request builder must forward tools.
+
+    SGLang is intentionally excluded: its native ``/generate`` API takes a
+    rendered prompt plus ``sampling_params`` rather than an OpenAI ``tools``
+    array, so ``conversation.tools`` has no place in its request body.
+    """
+    from oumi.inference.gcp_inference_engine import GoogleVertexInferenceEngine
+    from oumi.inference.gemini_inference_engine import GoogleGeminiInferenceEngine
+    from oumi.inference.remote_vllm_inference_engine import (
+        RemoteVLLMInferenceEngine,
+    )
+
+    remote_params = RemoteParams(api_url=_TARGET_SERVER, api_key="dummy")
+    return [
+        RemoteInferenceEngine(_get_default_model_params(), remote_params=remote_params),
+        RemoteVLLMInferenceEngine(
+            _get_default_model_params(), remote_params=remote_params
+        ),
+        GoogleGeminiInferenceEngine(
+            _get_default_model_params(), remote_params=remote_params
+        ),
+        GoogleVertexInferenceEngine(
+            _get_default_model_params(), remote_params=remote_params
+        ),
+    ]
+
+
+@pytest.mark.parametrize(
+    "engine",
+    _openai_shape_engines(),
+    ids=lambda e: type(e).__name__,
+)
+def test_openai_shape_engines_forward_tools(engine):
+    """Every OpenAI-format engine forwards conversation.tools in its request body.
+
+    Guards against future ``_convert_conversation_to_api_input`` overrides that
+    silently drop tools by omitting the base class's tool-forwarding block.
+    """
+    conversation = Conversation(
+        tools=[_WEATHER_TOOL],
+        messages=[Message(role=Role.USER, content="weather in Tokyo?")],
+    )
+    api_input = engine._convert_conversation_to_api_input(
+        conversation, GenerationParams(max_new_tokens=5), engine._model_params
+    )
+    assert api_input["tools"] == [_WEATHER_TOOL_DICT]
+
+
 #
 # infer_partial
 #
@@ -4745,3 +4841,195 @@ def test_infer_partial_retriable_400_pattern_retried_and_retryable(mock_asyncio_
     detail = result.failures[0]
     assert detail.status_code == 400
     assert detail.is_retryable
+
+
+def _all_remote_engine_subclasses() -> list[type]:
+    """Every RemoteInferenceEngine subclass, at any depth."""
+    import oumi.inference  # noqa: F401  (registers every engine subclass)
+
+    found: list[type] = []
+    pending = [RemoteInferenceEngine]
+    while pending:
+        for subclass in pending.pop().__subclasses__():
+            found.append(subclass)
+            pending.append(subclass)
+    return found
+
+
+def test_no_engine_overrides_get_request_headers():
+    """`_get_request_headers` is @final; engines override `_get_auth_headers`.
+
+    A subclass that overrides `_get_request_headers` returns a fresh dict and
+    silently drops `Accept-Encoding`, which makes aiohttp advertise whatever
+    codecs happen to be importable in the runtime environment. @final is only a
+    type-checker hint, so this test is the enforcement.
+    """
+    offenders = [
+        subclass.__name__
+        for subclass in _all_remote_engine_subclasses()
+        if "_get_request_headers" in subclass.__dict__
+    ]
+    assert offenders == [], (
+        f"{offenders} override _get_request_headers. Override "
+        "_get_auth_headers instead so the transport headers survive."
+    )
+
+
+def test_get_request_headers_excludes_optional_codecs():
+    engine = RemoteInferenceEngine(_get_default_model_params())
+
+    headers = engine._get_request_headers(RemoteParams(api_key="key"))
+
+    assert headers["Accept-Encoding"] == "gzip, deflate"
+    assert headers["Authorization"] == "Bearer key"
+
+
+def test_get_request_headers_merges_subclass_auth_headers():
+    """A subclass's own headers and the transport headers both survive."""
+    from oumi.inference import AnthropicInferenceEngine
+
+    engine = AnthropicInferenceEngine(ModelParams(model_name="some_model"))
+
+    headers = engine._get_request_headers(RemoteParams(api_key="key"))
+
+    assert headers["Accept-Encoding"] == "gzip, deflate"
+    assert headers["X-API-Key"] == "key"
+    assert headers["Content-Type"] == "application/json"
+
+
+def _generate_test_engine() -> RemoteInferenceEngine:
+    return RemoteInferenceEngine(
+        model_params=_get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
+    )
+
+
+def _assistant_payload(content: str) -> dict:
+    return dict(choices=[{"message": {"role": "assistant", "content": content}}])
+
+
+@pytest.mark.asyncio
+async def test_generate_preserves_input_order():
+    with aioresponses() as m:
+        m.post(_TARGET_SERVER, status=200, payload=_assistant_payload("first"))
+        m.post(_TARGET_SERVER, status=200, payload=_assistant_payload("second"))
+
+        conversations = [
+            Conversation(
+                messages=[Message(role=Role.USER, content="a")], conversation_id="1"
+            ),
+            Conversation(
+                messages=[Message(role=Role.USER, content="b")], conversation_id="2"
+            ),
+        ]
+        results = await _generate_test_engine().generate(conversations)
+
+        assert [c.conversation_id for c in results] == ["1", "2"]
+        assert all(c.messages[-1].role == Role.ASSISTANT for c in results)
+
+
+@pytest.mark.asyncio
+async def test_generate_one_returns_single_conversation():
+    with aioresponses() as m:
+        m.post(_TARGET_SERVER, status=200, payload=_assistant_payload("a response"))
+
+        conversation = Conversation(
+            messages=[Message(role=Role.USER, content="Hello world!")],
+            conversation_id="123",
+        )
+        result = await _generate_test_engine().generate_one(conversation)
+
+        assert isinstance(result, Conversation)
+        assert result.conversation_id == "123"
+        assert result.messages[-1].content == "a response"
+
+
+@pytest.mark.asyncio
+async def test_generate_does_not_write_scratch():
+    with aioresponses() as m:
+        m.post(_TARGET_SERVER, status=200, payload=_assistant_payload("a response"))
+
+        engine = _generate_test_engine()
+        conversation = Conversation(messages=[Message(role=Role.USER, content="hi")])
+        with patch.object(engine, "_save_conversation_to_scratch") as mock_scratch:
+            await engine.generate([conversation])
+
+        mock_scratch.assert_not_called()
+
+
+def test_infer_still_writes_scratch():
+    with aioresponses() as m:
+        m.post(_TARGET_SERVER, status=200, payload=_assistant_payload("a response"))
+
+        engine = _generate_test_engine()
+        conversation = Conversation(messages=[Message(role=Role.USER, content="hi")])
+        with patch.object(engine, "_save_conversation_to_scratch") as mock_scratch:
+            engine.infer([conversation], _get_default_inference_config())
+
+        mock_scratch.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_generate_cancellation_reaches_the_request():
+    request_started = asyncio.Event()
+
+    async def _never_responds(url, **kwargs):
+        request_started.set()
+        await asyncio.sleep(60)
+
+    with aioresponses() as m:
+        m.post(_TARGET_SERVER, callback=_never_responds)
+
+        engine = _generate_test_engine()
+        conversation = Conversation(messages=[Message(role=Role.USER, content="hi")])
+        task = asyncio.create_task(engine.generate([conversation]))
+        await asyncio.wait_for(request_started.wait(), timeout=5)
+        task.cancel()
+        await asyncio.wait([task])
+
+        # The retry loop catches Exception, which must not swallow CancelledError.
+        # A swallowed one would leave the task finished with a result instead.
+        assert task.cancelled()
+
+
+@pytest.mark.asyncio
+async def test_generate_runs_on_injected_session_and_leaves_it_open():
+    async with aiohttp.ClientSession() as session:
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+            http_session=session,
+        )
+        conversation = Conversation(messages=[Message(role=Role.USER, content="hi")])
+        with (
+            aioresponses() as m,
+            patch(
+                "aiohttp.ClientSession",
+                side_effect=AssertionError("engine created its own session"),
+            ),
+        ):
+            m.post(_TARGET_SERVER, status=200, payload=_assistant_payload("first"))
+            m.post(_TARGET_SERVER, status=200, payload=_assistant_payload("second"))
+            first = await engine.generate_one(conversation)
+            second = await engine.generate_one(conversation)
+
+        assert first.messages[-1].content == "first"
+        assert second.messages[-1].content == "second"
+        assert not session.closed
+
+
+@pytest.mark.asyncio
+async def test_sync_methods_refuse_injected_session():
+    async with aiohttp.ClientSession() as session:
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+            http_session=session,
+        )
+        with pytest.raises(RuntimeError, match="built with an http_session"):
+            engine.list_batches()
+
+        coro = engine._get_batch_status("batch-id")
+        with pytest.raises(RuntimeError, match="built with an http_session"):
+            engine._run_coroutine(coro)
+        assert inspect.getcoroutinestate(coro) == inspect.CORO_CLOSED

@@ -59,6 +59,9 @@ The configurations are organized into different categories:
     - :class:`~oumi.core.configs.judge_config.JudgeConfig`
     - :class:`~oumi.core.configs.params.judge_params.JudgeOutputType`
     - :class:`~oumi.core.configs.params.judge_params.JudgeResponseFormat`
+    - :class:`~oumi.core.configs.params.rubric_judge_params.JudgeAggregation`
+    - :class:`~oumi.core.configs.params.rubric_judge_params.JudgeCriterion`
+    - :class:`~oumi.core.configs.params.rubric_judge_params.RubricJudgeParams`
 
 Example:
     >>> from oumi.core.configs import ModelParams, TrainingConfig, TrainingParams
@@ -124,6 +127,11 @@ from oumi.core.configs.params.peft_params import (
 )
 from oumi.core.configs.params.profiler_params import ProfilerParams
 from oumi.core.configs.params.remote_params import RemoteParams
+from oumi.core.configs.params.rubric_judge_params import (
+    JudgeAggregation,
+    JudgeCriterion,
+    RubricJudgeParams,
+)
 from oumi.core.configs.params.synthesis_params import (
     DatasetSource as DatasetSourceParam,
 )
@@ -187,7 +195,9 @@ __all__ = [
     "InferenceEngineType",
     "JobConfig",
     "JobResources",
+    "JudgeAggregation",
     "JudgeConfig",
+    "JudgeCriterion",
     "JudgeOutputType",
     "JudgeResponseFormat",
     "LMHarnessTaskParams",
@@ -200,6 +210,7 @@ __all__ = [
     "PeftParams",
     "PeftSaveMode",
     "ProfilerParams",
+    "RubricJudgeParams",
     "QuantizationConfig",
     "RemoteParams",
     "SchedulerType",
