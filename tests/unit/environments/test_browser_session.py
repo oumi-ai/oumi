@@ -28,6 +28,7 @@ from typing import Any
 
 import pytest
 
+from oumi.core.configs.params.tool_params import ToolEnvironmentError
 from oumi.environments import browser_session
 from oumi.environments.browser_session import (
     KernelBrowserSession,
@@ -267,10 +268,9 @@ def test_pool_acquire_gives_the_http_request_more_time_than_the_poll(fakes):
 
 
 def test_pool_acquire_timeout_raises_a_clear_error(fakes):
-    # The API's 204 No Content comes back from the SDK as an empty string.
     fakes.use_kernel(acquire_result="")
     session = KernelBrowserSession(pool="rl")
-    with pytest.raises(TimeoutError, match="num_samples"):
+    with pytest.raises(ToolEnvironmentError, match="num_samples"):
         _use_page(session)
     session.close()
     assert _kernel_calls(fakes.events) == ["acquire", "client_close"]
@@ -289,7 +289,7 @@ def test_failed_reset_quarantines_the_browser_and_retries_next_use(
     with pytest.raises(RuntimeError):
         _use_page(session)
     assert ("release", "rl", "s1", False) in fakes.events
-    # The failed acquire left no browser behind, so the next use acquires again.
+    # The quarantined browser is dropped, so the next use acquires a fresh one.
     with pytest.raises(RuntimeError):
         _use_page(session)
     assert [e[0] for e in fakes.events].count("acquire") == 2
@@ -361,7 +361,7 @@ def test_page_close_error_does_not_mask_body_exception(fakes):
 def test_page_connect_failure_explains_the_standby_timeout(fakes):
     fakes.cdp["connect_error"] = "ws closed"
     session = KernelBrowserSession(create_kwargs={})
-    with pytest.raises(RuntimeError, match="timeout_seconds"):
+    with pytest.raises(ToolEnvironmentError, match="timeout_seconds"):
         _use_page(session)
 
 
@@ -392,7 +392,7 @@ def test_playwright_thread_runs_calls_made_inside_a_running_event_loop(fakes):
 
 
 def test_playwright_thread_runs_nested_calls_inline():
-    """A close() reached on the Playwright thread itself must not deadlock."""
+    """A run() issued from the Playwright thread itself runs inline, not deadlocked."""
     thread = browser_session._PlaywrightThread()
     outer = thread.run(lambda: thread.run(threading.get_ident))
     assert outer != threading.get_ident()

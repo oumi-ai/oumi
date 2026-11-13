@@ -33,7 +33,7 @@ from oumi.core.configs.params.synthesis_params import (
     SampledAttribute,
     SampledAttributeValue,
 )
-from oumi.core.configs.params.tool_params import ToolParams
+from oumi.core.configs.params.tool_params import ToolEnvironmentError, ToolParams
 from oumi.core.synthesis.conversation_synthesizer import (
     ConversationSynthesizer,
     OpeningTurnPrompt,
@@ -2543,6 +2543,36 @@ def test_dispatch_tool_calls_does_not_replay_non_replayable_environment(
     assert fake_env.first_side_effect_count == 1
     assert messages[0].content == '{"ok": true}'
     assert "Tool 't' raised: second call failed" in str(messages[1].content)
+
+
+@patch("oumi.core.synthesis.tool_router.build_environment")
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_dispatch_tool_calls_raises_environment_failures(
+    mock_build_inference_engine,
+    mock_build_environment,
+    mock_general_synthesis_params,
+):
+    """An env outage stops the run instead of becoming a tool error for the model."""
+    fake_env = Mock(spec=BaseEnvironment)
+    fake_env.is_replayable.return_value = False
+    fake_env.step.side_effect = ToolEnvironmentError("Kernel is down")
+    mock_build_inference_engine.return_value = Mock()
+    mock_build_environment.return_value = fake_env
+    inference_config = InferenceConfig(
+        engine=InferenceEngineType.OPENAI,
+        model=Mock(spec=ModelParams),
+        remote_params=Mock(spec=RemoteParams),
+        generation=GenerationParams(),
+    )
+    synth = ConversationSynthesizer(
+        mock_general_synthesis_params,
+        inference_config,
+        environment_config=_make_env_config("e", "t"),
+    )
+    tc = ToolCall(id="c", function=FunctionCall(name="t", arguments="{}"))
+    synth._prepare_sample_routers(1)
+    with pytest.raises(ToolEnvironmentError, match="Kernel is down"):
+        synth._dispatch_tool_calls([tc], 0)
 
 
 @patch("oumi.core.synthesis.tool_router.build_environment")

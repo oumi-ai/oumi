@@ -23,14 +23,21 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, TypeVar
 
+from oumi.core.configs.params.tool_params import ToolEnvironmentError
 from oumi.utils.logging import logger
 from oumi.utils.packaging import require_kernel, require_playwright
 
 if TYPE_CHECKING:
+    from kernel.types import (  # pyright: ignore[reportMissingImports]
+        BrowserCreateResponse,
+        BrowserPoolAcquireResponse,
+    )
     from playwright.sync_api import (  # pyright: ignore[reportMissingImports]
         Page,
         Playwright,
     )
+
+    _Browser = BrowserCreateResponse | BrowserPoolAcquireResponse
 
 _T = TypeVar("_T")
 
@@ -93,8 +100,7 @@ class _PlaywrightThread:
     def run(self, fn: Callable[[], _T]) -> _T:
         """Run ``fn`` on the Playwright thread and return its result."""
         if threading.get_ident() == self._thread_id:
-            # Already on the thread (e.g. a GC finalizer closing a session); waiting
-            # on our own queue would deadlock.
+            # Waiting on our own single-worker queue would deadlock.
             return fn()
         with self._lock:
             if self._executor is None:
@@ -185,23 +191,25 @@ class KernelBrowserSession:
             else _DEFAULT_ACQUIRE_TIMEOUT_SECONDS
         )
         self._start_url = start_url
-        self._browser: Any = None
+        self._browser: _Browser | None = None
         self._closed = False
 
-    def _open(self) -> Any:
+    def _open(self) -> _Browser:
         """Create a browser, or acquire and reset one from the pool."""
-        if self._pool is None:
-            return self._kernel.browsers.create(**self._create_kwargs)
-
-        browser = self._kernel.browser_pools.acquire(
-            self._pool,
-            acquire_timeout_seconds=self._acquire_timeout_seconds,
-            timeout=self._acquire_timeout_seconds + _ACQUIRE_HTTP_MARGIN_SECONDS,
-        )
+        try:
+            if self._pool is None:
+                return self._kernel.browsers.create(**self._create_kwargs)
+            browser = self._kernel.browser_pools.acquire(
+                self._pool,
+                acquire_timeout_seconds=self._acquire_timeout_seconds,
+                timeout=self._acquire_timeout_seconds + _ACQUIRE_HTTP_MARGIN_SECONDS,
+            )
+        except self._api_error as e:
+            raise ToolEnvironmentError(f"Kernel could not open a browser: {e}") from e
         # The API answers 204 No Content when no browser frees up in time, which
         # the SDK hands back as an empty string.
         if not browser:
-            raise TimeoutError(
+            raise ToolEnvironmentError(
                 f"No browser in Kernel pool {self._pool!r} became available within "
                 f"{self._acquire_timeout_seconds}s. Each sample holds its browser "
                 "until the run ends, so size the pool to at least num_samples or "
@@ -221,11 +229,16 @@ class KernelBrowserSession:
         # Navigate after the clears, not via acquire(start_url=...), so the landing
         # page isn't the one we wipe storage out from under.
         code = _RESET_JS + f"await page.goto({target}, {{ waitUntil: 'load' }});"
-        response = self._kernel.browsers.playwright.execute(
-            id=session_id, code=code, timeout_sec=_RESET_TIMEOUT_SECONDS
-        )
+        try:
+            response = self._kernel.browsers.playwright.execute(
+                id=session_id, code=code, timeout_sec=_RESET_TIMEOUT_SECONDS
+            )
+        except self._api_error as e:
+            raise ToolEnvironmentError(
+                f"Kernel browser reset failed for session {session_id}: {e}"
+            ) from e
         if not response.success:
-            raise RuntimeError(
+            raise ToolEnvironmentError(
                 f"Kernel browser reset failed for session {session_id}: "
                 f"{response.error}"
             )
@@ -259,12 +272,12 @@ class KernelBrowserSession:
         Must run inside ``run_on_playwright_thread``. The CDP connection is closed
         after each use on purpose: Kernel puts a browser with no CDP client into
         standby, which is not billed, so the browser costs nothing while the model
-        works between tool calls. Binds the context's first page and closes any
-        tab the model opens (a target=_blank click), so popups are never driven.
+        works between tool calls. Binds the context's first page and, after a call
+        that returns normally, closes any other tab.
 
         Raises:
-            RuntimeError: If the session is closed, or the browser can no longer
-                be reached.
+            RuntimeError: If the session is closed.
+            ToolEnvironmentError: If the browser can't be opened or reached.
         """
         if self._closed:
             raise RuntimeError("Kernel browser session is already closed.")
@@ -278,7 +291,7 @@ class KernelBrowserSession:
         try:
             cdp = playwright.chromium.connect_over_cdp(self._browser.cdp_ws_url)
         except PlaywrightError as e:
-            raise RuntimeError(
+            raise ToolEnvironmentError(
                 f"Could not connect to Kernel browser {self._browser.session_id}. "
                 "Kernel deletes a browser once timeout_seconds pass in standby, so "
                 "it may have been deleted between tool calls; raise timeout_seconds "
@@ -290,9 +303,13 @@ class KernelBrowserSession:
             yield page
             # Tab order isn't stable across connections, so a tab the model opened
             # (target=_blank) could be pages[0] next call; close it now.
-            for extra in context.pages:
-                if extra != page:
-                    extra.close()
+            try:
+                for extra in context.pages:
+                    if extra != page:
+                        extra.close()
+            except PlaywrightError:
+                # The executor's action already happened; don't report it failed.
+                logger.warning("Kernel browser: closing a tab failed.", exc_info=True)
         finally:
             try:
                 cdp.close()

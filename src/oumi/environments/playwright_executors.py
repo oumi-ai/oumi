@@ -16,7 +16,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from typing_extensions import NotRequired, TypedDict
 
@@ -30,16 +30,12 @@ _DEFAULT_TIMEOUT_MS = 5000
 # Playwright's own default, made explicit so every navigation names its timeout.
 _NAVIGATION_TIMEOUT_MS = 30_000
 
-_LoadState = Literal["load", "domcontentloaded", "networkidle", "commit"]
-
 
 class NavigateArguments(TypedDict):
     url: str
-    wait_until: NotRequired[_LoadState]
-
-
-class GoBackArguments(TypedDict):
-    pass
+    wait_until: NotRequired[
+        Literal["load", "domcontentloaded", "networkidle", "commit"]
+    ]
 
 
 class ClickArguments(TypedDict):
@@ -53,7 +49,7 @@ class TypeTextArguments(TypedDict):
 
 class ReadTextArguments(TypedDict):
     selector: NotRequired[str]
-    max_chars: NotRequired[int]
+    max_chars: NotRequired[int | float]
 
 
 def navigate(arguments: NavigateArguments, context: Page) -> ToolResult:
@@ -66,7 +62,7 @@ def navigate(arguments: NavigateArguments, context: Page) -> ToolResult:
     return ToolResult(output={"url": context.url, "title": context.title()})
 
 
-def go_back(arguments: GoBackArguments, context: Page) -> ToolResult:
+def go_back(arguments: dict[str, Any], context: Page) -> ToolResult:
     """Return to the previous page in history.
 
     ``navigated`` is False when there is nothing to go back to, so the model can

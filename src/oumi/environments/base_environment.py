@@ -45,12 +45,11 @@ class BaseEnvironment(ABC):
         return False
 
     def is_replayable(self) -> bool:
-        """Whether a failed batch may be retried as individual calls. Default True.
+        """Whether this env's calls are safe to run more than once. Default True.
 
-        When dispatched by ``ConversationSynthesizer``, returning ``False`` means
-        the env is never batched at all — every call is routed individually — so a
-        successful prefix is never executed twice. Environments with externally
-        visible side effects should return ``False``.
+        Return False when calls have side effects outside the process (a live
+        browser, a remote API). ``ConversationSynthesizer`` then routes such envs
+        one call at a time, so a failed batch never re-runs calls that succeeded.
         """
         return True
 

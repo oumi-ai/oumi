@@ -2,9 +2,9 @@
 #
 # Generates multi-turn conversations between a user asking about Oumi and an
 # assistant that answers by actually browsing oumi.ai. Each sample drives a
-# single-tenant Kernel cloud browser through four Playwright tools
-# (navigate / read_text / click / type_text), so tool results are real page
-# content rather than LLM-simulated.
+# single-tenant Kernel cloud browser through five Playwright tools
+# (navigate / read_text / click / go_back / type_text), so tool results are
+# real page content rather than LLM-simulated.
 #
 # Requirements:
 #   - Set KERNEL_API_KEY and OPENAI_API_KEY.

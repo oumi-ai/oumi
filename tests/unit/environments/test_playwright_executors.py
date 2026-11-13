@@ -73,13 +73,11 @@ def test_go_back_returns_the_previous_page():
     page.history.append("https://example.com/blog")
     result = pe.go_back({}, page)
     assert result.output == {"url": "https://example.com/blog", "navigated": True}
-    # Commit only: a cache-restored page never fires load, so waiting for it hung.
+    # Waits for commit only: a back/forward-cache restore never fires load.
     assert page.calls == [("go_back", "commit", pe._NAVIGATION_TIMEOUT_MS)]
 
 
 def test_go_back_reports_no_navigation_at_the_start_of_history():
-    # Without `navigated` the model can't tell a no-op from a real back and
-    # re-reads the same page, which is what stranded it before this tool existed.
     page: Any = _FakePage()
     result = pe.go_back({}, page)
     assert isinstance(result.output, dict)
@@ -88,9 +86,8 @@ def test_go_back_reports_no_navigation_at_the_start_of_history():
 
 
 def test_go_back_reports_navigation_when_playwright_returns_no_response():
-    # Observed live on oumi.ai: a same-document history navigation on a
-    # client-routed site changes the page but yields no main resource response,
-    # so trusting go_back's return value reports a successful back as a no-op.
+    # A same-document back on a client-routed site changes the URL but go_back
+    # returns None, so navigated must come from the URL comparison.
     class _SpaPage(_FakePage):
         def go_back(
             self, wait_until: str = "load", timeout: int | None = None
@@ -134,8 +131,6 @@ def test_read_text_reports_untruncated_text():
 
 
 def test_read_text_coerces_integral_float_max_chars():
-    # JSON Schema "integer" admits 100.0, which would fail as a slice index. The
-    # TypedDict says int, so this shape only reaches the executor at runtime.
     page: Any = _FakePage()
     arguments: Any = {"max_chars": 50.0}
     result = pe.read_text(arguments, page)

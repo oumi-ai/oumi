@@ -28,6 +28,7 @@ from oumi.core.configs.params.synthesis_params import (
 )
 from oumi.core.configs.params.tool_params import (
     ToolArgumentError,
+    ToolEnvironmentError,
     ToolLookupError,
     ToolParams,
 )
@@ -254,6 +255,8 @@ class ConversationSynthesizer:
             for idx, tc, args in group:
                 try:
                     [single] = router.route_batch([(tc.function.name, args)])
+                except ToolEnvironmentError:
+                    raise
                 except Exception as exc:
                     logger.warning(
                         "Tool '%s' raised; recording it as a tool error.",

@@ -93,7 +93,6 @@ def test_step_passes_live_page_as_context():
     env = _env(session, tools=[_tool(f"{__name__}.echo")])
     [result] = env.step([("t", {"x": 1})])
     assert result.output == {"args": {"x": 1}, "page": "fake-page"}
-    # The fake verifies one session.page() context entry per tool call.
     assert session.page_entries == 1
     env.step([("t", {"x": 2})])
     assert session.page_entries == 2
@@ -211,7 +210,7 @@ def test_from_params_rejects_create_only_options_with_pool(option, value):
 
 
 def test_from_params_rejects_pool_only_options_without_pool():
-    with pytest.raises(ValueError, match="Create mode does not support"):
+    with pytest.raises(ValueError, match="acquire_timeout_seconds requires pool"):
         BrowserExecutableEnvironment.from_params(
             _params(env_kwargs={"acquire_timeout_seconds": 30})
         )

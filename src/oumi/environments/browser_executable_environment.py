@@ -61,47 +61,43 @@ class BrowserExecutableEnvironmentKwargs(BaseParams):
                 "isolated rollout environment."
             )
 
-        # Each mode ignores the other's kwargs, so a misplaced one would silently
-        # do nothing. Create-only kwargs are inferred by excluding _POOL_FIELDS;
-        # add new pool-only options there for validation and create-mode forwarding,
-        # then explicitly forward them when constructing KernelBrowserSession.
+        # Each mode ignores the other's kwargs, so reject misplaced ones rather
+        # than silently dropping them.
         if self.pool is None:
-            misplaced = [
-                name
-                for name, value in self
-                if name in _POOL_FIELDS and name != "pool" and value is not None
-            ]
-            mode, hint = "Create", "set pool to use them"
-        else:
-            misplaced = [
-                name
-                for name, value in self
-                if name not in (*_POOL_FIELDS, "start_url") and value is not None
-            ]
-            mode, hint = "Browser pool", "configure them on the pool instead"
+            if self.acquire_timeout_seconds is not None:
+                raise ValueError("acquire_timeout_seconds requires pool.")
+            return
+        misplaced = [
+            name
+            for name, value in self
+            if value is not None and name not in (*_POOL_FIELDS, "start_url")
+        ]
         if misplaced:
-            raise ValueError(f"{mode} mode does not support {misplaced}; {hint}.")
+            raise ValueError(
+                f"Browser pool mode does not support {misplaced}; configure them "
+                "on the pool instead."
+            )
 
 
 @register_environment("browser")
 class BrowserExecutableEnvironment(ExecutableEnvironment):
     """Runs browser-action tools against an isolated Kernel browser.
 
-    Unlike the database sibling, ``tool.read_only`` is not enforced here — a
-    browser has no read-only mode — so mark mutating tools ``read_only: false``
-    for the flag to describe them honestly.
+    ``tool.read_only`` is not enforced (a browser has no read-only mode, unlike
+    DatabaseExecutableEnvironment), so set ``read_only: false`` on tools that
+    change page state.
     """
 
     def __init__(
         self, params: EnvironmentParams, session: KernelBrowserSession
     ) -> None:
-        """Bind the env to its params and an already-open Kernel browser session."""
+        """Wrap ``session``; its browser opens on the first tool call."""
         super().__init__(params)
         self._session = session
 
     @classmethod
     def from_params(cls, params: EnvironmentParams) -> BrowserExecutableEnvironment:
-        """Open a Kernel browser session from ``env_kwargs``."""
+        """Build a KernelBrowserSession from ``env_kwargs``."""
         kwargs = parse_env_kwargs(
             BrowserExecutableEnvironmentKwargs,
             params,
@@ -127,12 +123,7 @@ class BrowserExecutableEnvironment(ExecutableEnvironment):
             raise
 
     def requires_isolation(self) -> bool:
-        """Require a distinct Kernel browser session for each sample.
-
-        Each sample opens its browser at its first tool call and holds it until
-        the run ends, so up to ``num_samples`` billable browsers exist at once, and
-        a warm pool must be sized to at least ``num_samples``.
-        """
+        """Each sample needs its own browser, held until the run ends."""
         return True
 
     def is_replayable(self) -> bool:
@@ -140,22 +131,13 @@ class BrowserExecutableEnvironment(ExecutableEnvironment):
         return False
 
     def step(self, calls: list[tuple[str, dict[str, Any]]]) -> list[ToolResult]:
-        """Execute the batch on the Playwright thread, in input order.
-
-        Playwright's sync API can't run on a thread with a running asyncio loop,
-        which is where verl's agent loop calls tools, so the batch is handed to the
-        process-wide Playwright thread instead of running on the caller's.
-        """
+        """Execute the batch on the Playwright thread (see ``_PlaywrightThread``)."""
         return run_on_playwright_thread(functools.partial(super().step, calls))
 
     def _build_execution_context(
         self, tool: ExecutableTool, arguments: dict[str, Any]
     ) -> AbstractContextManager[Page]:
-        """Return the Playwright page used as the executor context.
-
-        Entered once per tool call on the Playwright thread. Each call opens its
-        own CDP connection, so the browser is in unbilled standby between calls.
-        """
+        """Return ``session.page()``, entered once per tool call."""
         return self._session.page()
 
     def close(self) -> None:
