@@ -28,6 +28,7 @@ from oumi.core.configs.params.synthesis_params import (
 )
 from oumi.core.configs.params.tool_params import (
     ToolArgumentError,
+    ToolEnvironmentError,
     ToolLookupError,
     ToolParams,
 )
@@ -143,11 +144,17 @@ class ConversationSynthesizer:
         independent of every other sample's. Callers must pair this with
         ``_close_sample_routers`` to release the per-sample envs.
         """
-        self._sample_routers = (
-            [self._router.for_sample() for _ in range(n_samples)]
-            if self._router is not None
-            else [None] * n_samples
-        )
+        self._sample_routers = []
+        if self._router is None:
+            self._sample_routers = [None] * n_samples
+            return
+
+        try:
+            for _ in range(n_samples):
+                self._sample_routers.append(self._router.for_sample())
+        except BaseException:
+            self._close_sample_routers(suppress_errors=True)
+            raise
 
     def _close_sample_routers(self, *, suppress_errors: bool) -> None:
         """Close each per-sample router, guarding so one failure can't leak the rest.
@@ -220,7 +227,8 @@ class ConversationSynthesizer:
         Validates each call via the router, then groups surviving calls by env
         and routes each group in one batched ``env.step()``. If the batched
         route raises, falls back to per-call routing so individual errors stay
-        attributed.
+        attributed. Non-replayable envs skip batching entirely and always route
+        per call.
 
         ``sample_idx`` selects the per-sample router clone built at
         ``synthesize()`` entry; routing through it keeps state mutations
@@ -229,7 +237,7 @@ class ConversationSynthesizer:
         router = self._sample_routers[sample_idx]
         assert router is not None, "tool calls require an environment_config"
         results: list[Message | None] = [None] * len(tool_calls)
-        groups: dict[int, list[tuple[int, ToolCall, dict[str, Any]]]] = {}
+        groups: dict[int, tuple[Any, list[tuple[int, ToolCall, dict[str, Any]]]]] = {}
         for idx, tc in enumerate(tool_calls):
             try:
                 arguments = router.parse_and_validate_arguments(
@@ -239,27 +247,47 @@ class ConversationSynthesizer:
                 results[idx] = self._tool_error(tc, str(exc))
                 continue
             env = router.tool_to_env[tc.function.name]
-            groups.setdefault(id(env), []).append((idx, tc, arguments))
+            groups.setdefault(id(env), (env, []))[1].append((idx, tc, arguments))
 
-        for group in groups.values():
-            calls = [(tc.function.name, args) for _, tc, args in group]
+        def route_per_call(
+            group: list[tuple[int, ToolCall, dict[str, Any]]],
+        ) -> None:
+            for idx, tc, args in group:
+                try:
+                    [single] = router.route_batch([(tc.function.name, args)])
+                except ToolEnvironmentError:
+                    raise
+                except Exception as exc:
+                    logger.warning(
+                        "Tool '%s' raised; recording it as a tool error.",
+                        tc.function.name,
+                        exc_info=True,
+                    )
+                    results[idx] = self._tool_error(
+                        tc, f"Tool '{tc.function.name}' raised: {exc}"
+                    )
+                    continue
+                results[idx] = self._tool_message(tc, single)
+
+        for env, group in groups.values():
+            # Batching a non-replayable env is unsafe: the retry below would re-run
+            # the side effects of the prefix that already succeeded.
+            if not env.is_replayable():
+                route_per_call(group)
+                continue
             try:
-                outputs = router.route_batch(calls)
+                outputs = router.route_batch(
+                    [(tc.function.name, args) for _, tc, args in group]
+                )
             except Exception:
-                # On batch failure, re-route each call individually so per-call
-                # errors stay attributed. SimulatedEnvironment's in-batch cache
-                # shields earlier successes from re-inference, but calls past
-                # the failing index re-infer. Acceptable for attribution today;
-                # Phase 2's corrective-retry should replace this fallback.
-                for idx, tc, args in group:
-                    try:
-                        [single] = router.route_batch([(tc.function.name, args)])
-                    except Exception as exc:
-                        results[idx] = self._tool_error(
-                            tc, f"Tool '{tc.function.name}' raised: {exc}"
-                        )
-                        continue
-                    results[idx] = self._tool_message(tc, single)
+                # The whole group is retried, so calls completed before the failure
+                # may execute again unless the environment caches them.
+                logger.warning(
+                    "Batched tool route failed; retrying %d calls individually.",
+                    len(group),
+                    exc_info=True,
+                )
+                route_per_call(group)
                 continue
             for (idx, tc, _), out in zip(group, outputs):
                 results[idx] = self._tool_message(tc, out)
