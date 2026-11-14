@@ -176,6 +176,18 @@ def require_torchdata(feature_name: str = "This feature") -> None:
         )
 
 
+def require_browser(feature_name: str = "This feature") -> None:
+    """Raises an ImportError if the ``oumi[browser]`` extra is not installed."""
+    for module in ("kernel", "playwright"):
+        try:
+            importlib.import_module(module)
+        except ImportError as e:
+            raise ImportError(
+                f"{feature_name} requires {module}. "
+                "Please install it with: pip install 'oumi[browser]'"
+            ) from e
+
+
 _MIN_TRL_VERSION_FOR_GOLD = "0.24.0"
 
 
