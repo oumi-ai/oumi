@@ -505,8 +505,8 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
                 f"category={stop_details.get('category')}, "
                 f"model={response.get('model')}"
             )
-        content_blocks = response.get(_CONTENT_KEY, [])
-        if not content_blocks:
+        content_blocks = response.get(_CONTENT_KEY)
+        if content_blocks is None:
             raise RuntimeError(
                 f"Anthropic API returned empty content. "
                 f"stop_reason={response.get('stop_reason')}, "
@@ -538,9 +538,16 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
                 # fixtures that omit type when only `text` is present.
                 text_parts.append(block.get("text", ""))
         text_content = "".join(text_parts)
-        # Message needs content or tool_calls. Claude can end a turn with no text
-        # (an empty text block, or only thinking), so like the base engine, fall
-        # back to "" when there are no tool calls either.
+        if not text_content and not tool_calls:
+            # Claude can end a turn with nothing to say (no blocks, an empty text
+            # block, or only thinking). Like the base engine, record that as an
+            # empty reply. Raising would only retry into the same reply.
+            logger.warning(
+                "Anthropic API returned an empty reply. "
+                f"stop_reason={response.get('stop_reason')}, "
+                f"model={response.get('model')}, "
+                f"usage={response.get('usage')}"
+            )
         new_message = Message(
             content=text_content if text_content or not tool_calls else None,
             role=Role.ASSISTANT,
