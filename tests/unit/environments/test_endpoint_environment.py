@@ -133,10 +133,15 @@ def test_step_identifies_calls_when_the_caller_does_not():
 
 
 class _ConcurrencyProbe:
-    """Sleeps inside each call and records how many overlapped."""
+    """Waits on a barrier inside each call and records how many overlapped.
 
-    def __init__(self, delay: float = 0.05) -> None:
-        self.delay = delay
+    A barrier makes the overlap deterministic: a call cannot get past it until
+    ``parties`` calls have arrived, so the test cannot pass unless they really
+    run at the same time, however slow the machine is.
+    """
+
+    def __init__(self, parties: int) -> None:
+        self.barrier = threading.Barrier(parties, timeout=10)
         self._lock = threading.Lock()
         self.in_flight = 0
         self.peak = 0
@@ -147,6 +152,25 @@ class _ConcurrencyProbe:
             self.in_flight += 1
             self.peak = max(self.peak, self.in_flight)
             self.seen.append(request.arguments["item"])
+        self.barrier.wait()
+        with self._lock:
+            self.in_flight -= 1
+        return {"status": request.arguments["item"]}
+
+
+class _SleepingProbe:
+    """Sleeps inside each call, for the path that is expected to serialize."""
+
+    def __init__(self, delay: float = 0.01) -> None:
+        self.delay = delay
+        self._lock = threading.Lock()
+        self.in_flight = 0
+        self.peak = 0
+
+    def call(self, request: RemoteToolCall) -> JsonValue:
+        with self._lock:
+            self.in_flight += 1
+            self.peak = max(self.peak, self.in_flight)
         time.sleep(self.delay)
         with self._lock:
             self.in_flight -= 1
@@ -154,7 +178,7 @@ class _ConcurrencyProbe:
 
 
 def test_step_sends_one_call_at_a_time_by_default():
-    protocol = _ConcurrencyProbe()
+    protocol = _SleepingProbe()
     env = _environment(protocol)
 
     env.step([("place_order", {"item": str(i)}) for i in range(6)])
@@ -163,7 +187,8 @@ def test_step_sends_one_call_at_a_time_by_default():
 
 
 def test_step_overlaps_calls_up_to_max_concurrency():
-    protocol = _ConcurrencyProbe()
+    """Eight calls, four workers: the batch runs four at a time, then four more."""
+    protocol = _ConcurrencyProbe(parties=4)
     env = EndpointEnvironment(
         EnvironmentParams(id="env", env_type="endpoint", tools=[_tool()]),
         protocol,
@@ -173,10 +198,12 @@ def test_step_overlaps_calls_up_to_max_concurrency():
     env.step([("place_order", {"item": str(i)}) for i in range(8)])
 
     assert protocol.peak == 4
+    # Every call was made, and none of them twice.
+    assert sorted(protocol.seen) == [str(i) for i in range(8)]
 
 
 def test_concurrent_step_keeps_results_in_input_order():
-    protocol = _ConcurrencyProbe()
+    protocol = _SleepingProbe()
     env = EndpointEnvironment(
         EnvironmentParams(id="env", env_type="endpoint", tools=[_tool()]),
         protocol,
@@ -214,26 +241,23 @@ def test_concurrent_step_reports_the_results_it_already_has():
         max_concurrency=4,
     )
     original = protocol.call
-    lock = threading.Lock()
-    calls = {"n": 0}
 
-    def fail_one_call(request):
-        with lock:
-            calls["n"] += 1
-            should_fail = calls["n"] == 3
-        if should_fail:
+    def fail_item_2(request):
+        if request.arguments["item"] == "2":
             raise ToolError("out of stock")
         return original(request)
 
-    protocol.call = fail_one_call
+    protocol.call = fail_item_2
 
     with pytest.raises(PartialStepError, match="^out of stock$") as excinfo:
         env.step([("place_order", {"item": str(i)}) for i in range(4)])
 
     assert isinstance(excinfo.value.cause, ToolError)
     # Three of the four calls succeeded; the failed one is the missing index.
-    assert len(excinfo.value.results) == 3
-    assert len(set(excinfo.value.results) - set(range(4))) == 0
+    assert sorted(excinfo.value.results) == [0, 1, 3]
+    assert all(
+        result.output == {"status": "ok"} for result in excinfo.value.results.values()
+    )
 
 
 def test_a_failed_concurrent_batch_sends_every_call_once():
@@ -656,3 +680,75 @@ def test_the_default_client_names_the_status_it_got(flaky_endpoint):
     _FlakyHandler.failures = 2
 
     assert excinfo.value.status_code == 503
+
+
+class _ConcurrentHandler(BaseHTTPRequestHandler):
+    """Holds each request until four have arrived, then answers all of them."""
+
+    parties = 4
+    barrier: threading.Barrier
+    received: list[dict] = []
+    _lock = threading.Lock()
+    in_flight = 0
+    peak = 0
+
+    def do_POST(self) -> None:  # noqa: N802 - name fixed by BaseHTTPRequestHandler
+        body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))))
+        cls = type(self)
+        with cls._lock:
+            cls.received.append(body)
+            cls.in_flight += 1
+            cls.peak = max(cls.peak, cls.in_flight)
+        # Only releases once four requests are being served at the same time.
+        cls.barrier.wait()
+        answer = json.dumps({"status": body["arguments"]["item"]}).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(answer)))
+        self.end_headers()
+        self.wfile.write(answer)
+        with cls._lock:
+            cls.in_flight -= 1
+
+    def log_message(self, *args: object) -> None:
+        """Silence the default stderr request log."""
+
+
+@pytest.fixture
+def concurrent_endpoint() -> Iterator[str]:
+    """Run a server that proves four calls are being served at the same time."""
+    _ConcurrentHandler.received = []
+    _ConcurrentHandler.in_flight = 0
+    _ConcurrentHandler.peak = 0
+    _ConcurrentHandler.barrier = threading.Barrier(
+        _ConcurrentHandler.parties, timeout=10
+    )
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _ConcurrentHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}/tools"
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_the_real_client_sends_concurrent_calls_at_the_same_time(concurrent_endpoint):
+    """The pool change is only exercised by a client that really opens sockets."""
+    client = RequestsJsonClient(
+        concurrent_endpoint, timeout_seconds=5.0, max_retries=0, max_concurrency=4
+    )
+    env = EndpointEnvironment(
+        EnvironmentParams(id="env", env_type="endpoint", tools=[_tool()]),
+        JsonHttpProtocol(client),
+        max_concurrency=4,
+    )
+
+    results = env.step([("place_order", {"item": str(i)}) for i in range(4)])
+    client.close()
+
+    # The server could not answer until all four requests were in flight.
+    assert _ConcurrentHandler.peak == 4
+    assert [result.output for result in results] == [
+        {"status": str(i)} for i in range(4)
+    ]

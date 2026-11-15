@@ -24,7 +24,7 @@ from typing import Any, Protocol
 import jsonschema
 import requests
 from pydantic import JsonValue
-from requests.adapters import HTTPAdapter, Retry
+from requests.adapters import DEFAULT_POOLSIZE, HTTPAdapter, Retry
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.environment_params import EnvironmentParams
@@ -196,10 +196,11 @@ class RequestsJsonClient:
                 # protocol, rather than urllib3 raising its own pool error.
                 raise_on_status=False,
             ),
-            # The default pool of 10 would cap concurrent calls below the
-            # configured concurrency and serialize the rest.
-            pool_connections=max_concurrency,
-            pool_maxsize=max_concurrency,
+            # Keep at least requests' default pool so the default config still
+            # reuses connections across threads; grow it so concurrent calls of
+            # one batch can each hold a connection instead of opening one and
+            # having urllib3 discard it once the pool is full.
+            pool_maxsize=max(max_concurrency, DEFAULT_POOLSIZE),
         )
         self._session.mount("https://", adapter)
         self._session.mount("http://", adapter)
