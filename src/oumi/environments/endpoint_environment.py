@@ -86,8 +86,11 @@ class EndpointEnvironmentKwargs(BaseParams):
     max_concurrency: int = 1
     """How many calls of one :meth:`EndpointEnvironment.step` batch run at once.
 
-    Defaults to 1, which sends them one at a time. Raise it when the endpoint
-    serves calls independently and the batch should not wait for their sum.
+    Defaults to 1, which sends them one at a time and stops at the first
+    failure. Raise it when the endpoint serves calls independently and the
+    batch should not wait for their sum. Calls then reach the endpoint in no
+    fixed order, and every call in the batch is sent even when an earlier one
+    fails.
     """
 
     def __finalize_and_validate__(self) -> None:
