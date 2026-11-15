@@ -1,0 +1,8 @@
+{"prompt": [{"role": "user", "content": "How much does a apple cost?"}], "answer": 3}
+{"prompt": [{"role": "user", "content": "How much does a laptop cost?"}], "answer": 999}
+{"prompt": [{"role": "user", "content": "How much does a pen cost?"}], "answer": 7}
+{"prompt": [{"role": "user", "content": "How much does a book cost?"}], "answer": 12}
+{"prompt": [{"role": "user", "content": "How much does a cup cost?"}], "answer": 5}
+{"prompt": [{"role": "user", "content": "How much does a mug cost?"}], "answer": 9}
+{"prompt": [{"role": "user", "content": "How much does a plate cost?"}], "answer": 15}
+{"prompt": [{"role": "user", "content": "How much does a fork cost?"}], "answer": 4}

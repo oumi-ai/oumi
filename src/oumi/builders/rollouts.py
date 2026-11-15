@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from collections.abc import Callable
+from functools import partial
 
 from oumi.core.configs import TrainingParams
 from oumi.core.registry import REGISTRY
@@ -30,5 +31,11 @@ def build_rollout_function(config: TrainingParams) -> Callable | None:
         raise KeyError(
             f"rollout_function `{config.grpo.rollout_function}` "
             "was not found in the registry."
+        )
+    if config.grpo.rollout_function == grpo_rollouts.TOOL_AGENT_ROLLOUT:
+        return partial(
+            rollout_function,
+            environment_config_path=config.grpo.environment_config_path,
+            max_tool_turns=config.grpo.max_tool_turns,
         )
     return rollout_function
