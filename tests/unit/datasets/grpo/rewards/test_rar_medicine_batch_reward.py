@@ -3,7 +3,9 @@ from unittest.mock import Mock, patch
 import pandas as pd
 import pytest
 
-from oumi.core.configs import JudgeConfig
+from oumi.builders.data import build_dataset_mixture
+from oumi.core.configs import DataParams, DatasetParams, DatasetSplitParams, JudgeConfig
+from oumi.core.configs.params.data_params import DatasetSplit
 from oumi.core.inference import FailureDetail, InferenceErrorType
 from oumi.datasets.grpo.rar_dataset import RaRMedicineDataset
 from oumi.datasets.grpo.rewards.rar_medicine_reward import (
@@ -274,3 +276,28 @@ def test_judge_config_enables_batch_concurrency():
     remote_params = config.inference_config.remote_params
     assert remote_params is not None
     assert remote_params.num_workers > 1
+
+
+def test_documented_data_block_loads_the_hub_dataset():
+    """The docs' `data:` block must resolve to the Hub repo, not to `rar-medicine`.
+
+    `_load_dataset` passes `dataset_name` straight to the dataset class, so a
+    registry name like `rar-medicine` becomes the Hub repo id unless
+    `dataset_name_override` supplies the real one. This pins the documented
+    block against that mistake.
+    """
+    params = DatasetParams(
+        dataset_name="rar-medicine",
+        dataset_kwargs={"dataset_name_override": "anisha2102/RaR-Medicine"},
+        split="train",
+    )
+    data_params = DataParams(train=DatasetSplitParams(datasets=[params]))
+
+    with patch("datasets.load_dataset") as load_dataset:
+        load_dataset.side_effect = RuntimeError("stop after resolving the repo id")
+        with pytest.raises(RuntimeError, match="stop after resolving"):
+            build_dataset_mixture(
+                data_params, tokenizer=None, dataset_split=DatasetSplit.TRAIN
+            )
+
+    assert load_dataset.call_args.kwargs["path"] == "anisha2102/RaR-Medicine"

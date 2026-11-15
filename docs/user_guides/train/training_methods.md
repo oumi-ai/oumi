@@ -425,7 +425,11 @@ data:
   train:
     datasets:
       # The dataset supplies `prompt` and `metadata["reference_answer"]`.
+      # `rar-medicine` is the registry name; the Hub repo it loads defaults to
+      # `anisha2102/RaR-Medicine`, which `dataset_name_override` makes explicit.
       - dataset_name: "rar-medicine"
+        dataset_kwargs:
+          dataset_name_override: "anisha2102/RaR-Medicine"
         split: "train"
 ```
 
