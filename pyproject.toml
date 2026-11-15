@@ -73,6 +73,7 @@ dependencies = [
     "posthog>=7.0,<8.0",
     "pillow>=11.3,<12.4",      # Used by image datasets
     "protobuf>=6.32",
+    "pyarrow<26",
     "pycares<6.0.0",
     "pydantic>=2.11,<2.14",
     "requests>=2.31,<3.0",        # Used by deploy module (GCS upload)
@@ -125,6 +126,8 @@ docs = [
     "sphinxcontrib-bibtex",  # Allows us to cite bibtex references in the docs
     "sphinxcontrib-mermaid", # Enable mermaid diagrams in the docs
     "sphinxcontrib-typer",   # Allows us to include typer CLI in the docs
+    "sphinxext-opengraph",   # Open Graph tags and meta descriptions for the docs
+    "sphinx-sitemap",        # sitemap.xml for the docs
 ]
 
 # Useful dependencies when running on GPU

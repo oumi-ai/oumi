@@ -30,6 +30,10 @@ _REASONING_MODEL_PREFIXES = ("o1", "o3", "o4", "gpt-5", "gpt-6")
 # temperature while not reasoning; every other reasoning model only accepts 1.0.
 _NO_REASONING_BY_DEFAULT_PREFIXES = ("gpt-5.1", "gpt-5.2", "gpt-5.4")
 
+# Reasoning models that reject function tools on chat completions unless
+# reasoning_effort is "none".
+_TOOLS_WITHOUT_REASONING_PREFIXES = ("gpt-5.6", "gpt-6")
+
 
 def _is_reasoning_model(model_name: str) -> bool:
     """Check if a model is an OpenAI reasoning model.
@@ -135,6 +139,14 @@ class OpenAIInferenceEngine(RemoteInferenceEngine):
                     model_params.model_name,
                     temperature,
                 )
+        if api_input.get("tools") and model_params.model_name.startswith(
+            _TOOLS_WITHOUT_REASONING_PREFIXES
+        ):
+            logger.debug(
+                "Turning reasoning off for %r, which rejects tools otherwise.",
+                model_params.model_name,
+            )
+            api_input["reasoning_effort"] = "none"
         if self._remote_params.user_id:
             api_input["user"] = self._remote_params.user_id
         return api_input

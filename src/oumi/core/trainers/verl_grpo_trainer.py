@@ -15,11 +15,13 @@
 """Volcano Engine Reinforcement Learning (verl) GRPO Trainer."""
 
 import copy
+import functools
 import importlib.metadata
 import inspect
 import json
 import os
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from pprint import pformat
 from typing import Any, cast
@@ -62,10 +64,11 @@ try:
 except ModuleNotFoundError:
     VerlTracking = None
 
-from oumi.core.configs import DatasetSplitParams, TrainingConfig
+from oumi.core.configs import DatasetSplitParams, TrainingConfig, TrainingParams
 from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.trainers.base_trainer import BaseTrainer
+from oumi.core.trainers.verl_grpo_rewards import combined_reward
 from oumi.utils.logging import logger
 from oumi.utils.packaging import is_verl_v0_7_or_later
 from oumi.utils.peft_utils import get_lora_rank
@@ -102,6 +105,77 @@ def _verl_supports_file_logger() -> bool:
     if VerlTracking is None:
         return False
     return _VERL_FILE_LOGGER_BACKEND in getattr(VerlTracking, "supported_backend", ())
+
+
+@dataclass(frozen=True)
+class _CustomRewardFunctionConfig:
+    """What verl's ``reward.custom_reward_function`` block points at."""
+
+    path: str
+    name: str
+    reward_kwargs: dict[str, Any] | None = None
+
+
+def _importable_location(reward_fn: Callable) -> tuple[str, str]:
+    """The ``pkg://`` module path and attribute name verl imports a function by."""
+    fn_module = inspect.getmodule(reward_fn)
+    if fn_module is None or fn_module.__name__ is None:
+        raise ValueError(
+            "Could not determine module for reward function "
+            f"{reward_fn!r}. verl >=0.7 requires reward functions "
+            "to be defined in importable modules."
+        )
+    return f"pkg://{fn_module.__name__}", reward_fn.__name__
+
+
+def _combined_reward_kwargs(training_params: TrainingParams) -> dict[str, Any]:
+    """The kwargs ``combined_reward`` needs to rebuild the reward list on a worker."""
+    names = [name for name in (training_params.reward_functions or []) if name]
+    reward_kwargs: dict[str, Any] = {"reward_function_names": names}
+    if training_params.reward_weights is not None:
+        reward_kwargs["reward_weights"] = [
+            float(weight) for weight in training_params.reward_weights
+        ]
+    if training_params.reward_function_kwargs:
+        reward_kwargs["reward_function_kwargs"] = {
+            name: dict(kwargs)
+            for name, kwargs in training_params.reward_function_kwargs.items()
+            if name in names
+        }
+    return reward_kwargs
+
+
+def _custom_reward_function_config(
+    reward_funcs: list[Callable], training_params: TrainingParams
+) -> _CustomRewardFunctionConfig | None:
+    """Where verl >=0.7 should load the run's reward function from.
+
+    One reward function is referenced directly. Several are combined by
+    ``combined_reward``, the way TRL sums its ``reward_funcs``; their names,
+    weights and kwargs travel through ``reward_kwargs``.
+    """
+    if len(reward_funcs) == 0:
+        return None
+    if len(reward_funcs) == 1:
+        path, name = _importable_location(reward_funcs[0])
+        return _CustomRewardFunctionConfig(path=path, name=name)
+    path, name = _importable_location(combined_reward)
+    return _CustomRewardFunctionConfig(
+        path=path, name=name, reward_kwargs=_combined_reward_kwargs(training_params)
+    )
+
+
+def _compute_score_function(
+    reward_funcs: list[Callable], training_params: TrainingParams
+) -> Callable | None:
+    """The scorer handed to verl <0.7's reward manager: one function or the sum."""
+    if len(reward_funcs) == 0:
+        return None
+    if len(reward_funcs) == 1:
+        return reward_funcs[0]
+    return functools.partial(
+        combined_reward, **_combined_reward_kwargs(training_params)
+    )
 
 
 def _preserve_verl_lora_base_weights(rollout: Any, model_config: Any) -> None:
@@ -186,9 +260,6 @@ class VerlGrpoTrainer(BaseTrainer):
                 "Output directory must be specified when saving final model is enabled."
             )
 
-        # TODO: OPE-1192 - Support multiple reward functions.
-        if len(reward_funcs) > 1:
-            raise ValueError("We only support up to one reward function.")
         self._reward_funcs = reward_funcs
 
         if cache_dir:
@@ -569,23 +640,20 @@ class VerlGrpoTrainer(BaseTrainer):
         config.trainer.default_local_dir = str(self._temp_output_dir or "")
 
         # 3. Wire reward functions into verl config.
-        if is_verl_v0_7_or_later() and len(self._reward_funcs) > 0:
+        if is_verl_v0_7_or_later():
             # verl >=0.7 discovers reward functions via config rather than
-            # accepting them as constructor args. Point the config at the
-            # oumi reward function's source module and function name so that
-            # verl's `load_extern_object` can import it.
-            reward_fn = self._reward_funcs[0]
-            fn_module = inspect.getmodule(reward_fn)
-            if fn_module is None or fn_module.__name__ is None:
-                raise ValueError(
-                    "Could not determine module for reward function "
-                    f"{reward_fn!r}. verl >=0.7 requires reward functions "
-                    "to be defined in importable modules."
-                )
-            module_path = f"pkg://{fn_module.__name__}"
-            fn_name = reward_fn.__name__
-            config.reward.custom_reward_function.path = module_path
-            config.reward.custom_reward_function.name = fn_name
+            # accepting them as constructor args. Point the config at a module
+            # function that verl's `load_extern_object` can import.
+            reward_config = _custom_reward_function_config(
+                self._reward_funcs, training_params
+            )
+            if reward_config is not None:
+                config.reward.custom_reward_function.path = reward_config.path
+                config.reward.custom_reward_function.name = reward_config.name
+                if reward_config.reward_kwargs is not None:
+                    config.reward.custom_reward_function.reward_kwargs = (
+                        OmegaConf.create(reward_config.reward_kwargs)
+                    )
 
         # 4. Apply user overrides
         overrides_config = OmegaConf.create(training_params.verl_config_overrides)
@@ -688,8 +756,8 @@ class VerlGrpoTrainer(BaseTrainer):
             resource_pool_manager=resource_pool_manager,
         )
         if not _verl_v07:
-            compute_score = (
-                self._reward_funcs[0] if len(self._reward_funcs) > 0 else None
+            compute_score = _compute_score_function(
+                self._reward_funcs, self._oumi_config.training
             )
             trainer_kwargs["reward_fn"] = NaiveRewardManager(
                 tokenizer=tokenizer, num_examine=0, compute_score=compute_score

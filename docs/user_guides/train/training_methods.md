@@ -350,6 +350,26 @@ verl requires paths to Parquet files for the training and validation data. Oumi 
 
 Instead of training a separate reward model which estimates the reward value of a completion, it is common to use reward functions instead. Both the trl and verl frameworks have specific interfaces required for the reward functions used. These are documented in the [trl documentation](https://huggingface.co/docs/trl/main/en/grpo_trainer#using-a-custom-reward-function) and [verl documentation](https://verl.readthedocs.io/en/latest/preparation/reward_function.html) respectively.
 
+#### Combining several reward functions
+
+Both trainers accept more than one reward function. The reward used for training is the weighted sum of their scores, with `training.reward_weights` giving one weight per function (default: 1 for each):
+
+```yaml
+training:
+  trainer_type: "VERL_GRPO"
+
+  reward_functions:
+    - gsm8k              # correctness, built in
+    - my_format_check    # your own, registered in the Oumi registry
+  reward_weights: [1.0, 0.2]
+```
+
+`TRL_GRPO` passes the list and weights straight to trl, which also logs each function's mean reward. `VERL_GRPO` points verl at a single combining function, {py:func}`oumi.core.trainers.verl_grpo_rewards.combined_reward`, which calls every listed function with its `reward_function_kwargs`, sums the scores with the weights, and reports each function's own score alongside the total so verl records them per sample. `reward_weights` must have exactly as many entries as `reward_functions`.
+
+```{warning}
+Every function in the list must use the signature of the trainer you selected, because the two interfaces differ: trl passes `completions` and expects a list of scores, while verl passes `data_source`, `solution_str`, `ground_truth` and `extra_info` and expects a single score. Of the built-in reward functions, `soft_*tokens_completions` and `sharp_*tokens_completions` are trl-style, while `gsm8k`, `countdown` and `rar_medicine_verl` are verl-style. To add your own, register it as described in {doc}`/user_guides/customization`.
+```
+
 #### Per-Function kwargs
 
 Reward functions that take configuration (e.g. a rubric judge panel path, a strictness flag) can be wired via `training.reward_function_kwargs`. The kwargs are a dict keyed by **reward function name**, with each value being that function's kwargs dict:

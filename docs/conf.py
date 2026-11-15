@@ -65,6 +65,8 @@ extensions = [
     "sphinxcontrib.bibtex",
     "sphinxcontrib.mermaid",
     "sphinxcontrib.typer",
+    "sphinxext.opengraph",  # Open Graph tags and <meta name="description">
+    "sphinx_sitemap",  # sitemap.xml for search engines
 ]
 
 source_suffix = {
@@ -200,3 +202,39 @@ suppress_warnings = [
 extlinks = {
     "gh": ("https://github.com/oumi-ai/oumi/blob/main/%s", None),
 }
+
+# -- SEO ---------------------------------------------------------------------
+# The docs are served at oumi.ai/docs/en/<version>/ (oumi-ai/web copies the
+# build into public/docs). Each build points at its own URL: the nightly build
+# is "latest", a release build sets OUMI_VERSION (the same variable the version
+# switcher reads above).
+
+# Emits <link rel="canonical"> on every page and is the base URL for the sitemap.
+html_baseurl = f"https://oumi.ai/docs/en/{os.environ.get('OUMI_VERSION', 'latest')}/"
+
+# sphinxext-opengraph: og:* tags, plus a <meta name="description"> built from
+# each page's first paragraph (ogp_enable_meta_description, on by default).
+ogp_site_url = html_baseurl
+ogp_site_name = "Oumi OSS"
+# Lives in the docs build, so previews never depend on another repo's files.
+# Relative paths resolve against ogp_site_url.
+ogp_image = "_static/og-card.png"  # 1200x630, the size link previews expect
+ogp_image_alt = "Oumi"
+ogp_description_length = 155  # search engines cut descriptions at ~160
+ogp_custom_meta_tags = [
+    '<meta name="twitter:card" content="summary_large_image" />',
+    '<meta name="twitter:site" content="@Oumi_ai" />',
+]
+
+# sphinx-sitemap: writes sitemap.xml at the root of the build. Only the page
+# path goes after html_baseurl (the default scheme would add the language and
+# version a second time). Source listings and utility pages stay out.
+sitemap_url_scheme = "{link}"
+sitemap_excludes = [
+    "search.html",
+    "genindex.html",
+    "py-modindex.html",
+    "_modules/*",
+    # Table fragments included in other pages; built standalone as "<no title>".
+    "api/summary/*",
+]

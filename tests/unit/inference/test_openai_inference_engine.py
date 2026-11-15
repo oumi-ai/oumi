@@ -231,3 +231,33 @@ def test_reasoning_model_does_not_drop_tool_fields():
     ]
     assert api_input["tool_choice"] == "auto"
     assert api_input["parallel_tool_calls"] is False
+
+
+@pytest.mark.parametrize(
+    ("model_name", "with_tools", "expected_effort"),
+    [
+        ("gpt-6.1-terra", True, "none"),
+        ("gpt-5.6-sol", True, "none"),
+        ("gpt-6.1-terra", False, None),
+        ("gpt-5.5", True, None),
+        ("gpt-4.1", True, None),
+    ],
+)
+def test_reasoning_is_turned_off_only_for_models_that_reject_tools(
+    model_name: str, with_tools: bool, expected_effort: str | None
+):
+    """gpt-5.6 and gpt-6 models only accept tools with reasoning_effort "none"."""
+    engine = OpenAIInferenceEngine(
+        model_params=ModelParams(model_name=model_name),
+        remote_params=RemoteParams(api_key="x", api_url="<placeholder>"),
+    )
+    conversation = Conversation(
+        tools=[_WEATHER_TOOL] if with_tools else None,
+        messages=[Message(role=Role.USER, content="weather?")],
+    )
+
+    api_input = engine._convert_conversation_to_api_input(
+        conversation, engine._generation_params, engine._model_params
+    )
+
+    assert api_input.get("reasoning_effort") == expected_effort

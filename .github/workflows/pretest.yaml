@@ -5,10 +5,10 @@ on:
     - cron: "0 */8 * * *" # Every 8 hours
   workflow_dispatch:
   pull_request:
+    # docs/** and README.md are covered by the `static-checks` job in doctests.yaml.
+    # Every other PR must run this job: `static-checks` is a required status check.
     paths-ignore:
       - "docs/**"
-      - "notebooks/**"
-      - "scripts/**"
       - "README.md"
   merge_group:
 

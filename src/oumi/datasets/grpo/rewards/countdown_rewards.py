@@ -22,6 +22,18 @@ from typing import Any
 
 from oumi.core.registry import RegistryType, register
 
+# Models write multiplication and division as Unicode or LaTeX as often as ASCII.
+_OPERATOR_ALIASES = {
+    "×": "*",
+    "·": "*",
+    "÷": "/",
+    "−": "-",
+    "–": "-",
+    r"\times": "*",
+    r"\cdot": "*",
+    r"\div": "/",
+}
+
 
 def _extract_solution(solution_str: str) -> str | None:
     """Extracts the equation from the solution string.
@@ -32,10 +44,9 @@ def _extract_solution(solution_str: str) -> str | None:
     Returns:
         The equation from the solution string, or None if not found.
     """
-    solution_str = solution_str.split("\n")[-1]
-
+    # Search the whole completion: models often add prose after </answer>.
     answer_pattern = r"<answer>(.*?)</answer>"
-    match = re.finditer(answer_pattern, solution_str)
+    match = re.finditer(answer_pattern, solution_str, re.DOTALL)
     matches = list(match)
     if matches:
         final_answer = matches[-1].group(1).strip()
@@ -71,6 +82,9 @@ def _validate_equation(equation_str: str, available_numbers: list[int]) -> bool:
 def _evaluate_equation(equation_str: str) -> float | None:
     """Safely evaluates the arithmetic equation using eval() with precautions."""
     try:
+        for alias, operator in _OPERATOR_ALIASES.items():
+            equation_str = equation_str.replace(alias, operator)
+
         # Regex that only allows numbers, operators, parentheses and whitespace
         allowed_pattern = r"^[\d+\-*/().\s]+$"
         if not re.match(allowed_pattern, equation_str):

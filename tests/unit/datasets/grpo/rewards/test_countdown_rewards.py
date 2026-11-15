@@ -21,6 +21,21 @@ from oumi.datasets.grpo.rewards import countdown_reward
         # Correct answer
         ("<answer> ( 3 - 2 ) * 1 </answer>", [1, 2, 3], 1, 1),
         ("<answer>(3-2)*1</answer>", [1, 2, 3], 1, 1),
+        # Models write operators as Unicode or LaTeX, not just ASCII
+        ("<answer> ( 3 − 2 ) × 1 </answer>", [1, 2, 3], 1, 1),
+        ("<answer> ( 3 - 2 ) ÷ 1 </answer>", [1, 2, 3], 1, 1),
+        ("<answer> ( 3 - 2 ) \\times 1 </answer>", [1, 2, 3], 1, 1),
+        # The answer tag is not always the last line of the completion
+        ("<answer> ( 3 - 2 ) * 1 </answer>\n", [1, 2, 3], 1, 1),
+        ("<answer> ( 3 - 2 ) * 1 </answer>\n\nLet me double check.", [1, 2, 3], 1, 1),
+        ("<answer>\n( 3 - 2 ) * 1\n</answer>", [1, 2, 3], 1, 1),
+        # The last answer tag wins
+        (
+            "<answer>1 + 1 + 1</answer> then <answer>( 3 - 2 ) * 1</answer>",
+            [1, 2, 3],
+            1,
+            1,
+        ),
     ],
 )
 def test_compute_soft_target_token_length_reward(s, nums, target, reward):
