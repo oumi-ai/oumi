@@ -30,6 +30,7 @@ from oumi.core.configs.params.tool_params import (
     ToolParams,
 )
 from oumi.core.registry import REGISTRY, RegistryType
+from oumi.environments.base_environment import PartialStepError
 from oumi.environments.endpoint_environment import (
     EndpointCallError,
     EndpointEnvironment,
@@ -189,7 +190,7 @@ def test_concurrent_step_keeps_results_in_input_order():
     ]
 
 
-def test_concurrent_step_raises_the_first_failure():
+def test_concurrent_step_reports_a_failure_as_a_partial_step_error():
     protocol = _RecordingProtocol(error=ToolError("out of stock"))
     env = EndpointEnvironment(
         EnvironmentParams(id="env", env_type="endpoint", tools=[_tool()]),
@@ -197,8 +198,93 @@ def test_concurrent_step_raises_the_first_failure():
         max_concurrency=4,
     )
 
-    with pytest.raises(ToolError, match="^out of stock$"):
+    with pytest.raises(PartialStepError, match="^out of stock$") as excinfo:
         env.step([("place_order", {"item": str(i)}) for i in range(4)])
+
+    assert isinstance(excinfo.value.cause, ToolError)
+    assert excinfo.value.results == {}
+
+
+def test_concurrent_step_reports_the_results_it_already_has():
+    """A failed batch must not throw away the calls that did succeed."""
+    protocol = _RecordingProtocol()
+    env = EndpointEnvironment(
+        EnvironmentParams(id="env", env_type="endpoint", tools=[_tool()]),
+        protocol,
+        max_concurrency=4,
+    )
+    original = protocol.call
+    lock = threading.Lock()
+    calls = {"n": 0}
+
+    def fail_one_call(request):
+        with lock:
+            calls["n"] += 1
+            should_fail = calls["n"] == 3
+        if should_fail:
+            raise ToolError("out of stock")
+        return original(request)
+
+    protocol.call = fail_one_call
+
+    with pytest.raises(PartialStepError, match="^out of stock$") as excinfo:
+        env.step([("place_order", {"item": str(i)}) for i in range(4)])
+
+    assert isinstance(excinfo.value.cause, ToolError)
+    # Three of the four calls succeeded; the failed one is the missing index.
+    assert len(excinfo.value.results) == 3
+    assert len(set(excinfo.value.results) - set(range(4))) == 0
+
+
+def test_a_failed_concurrent_batch_sends_every_call_once():
+    """The failure must not make the batch re-run the calls that succeeded.
+
+    The synthesizer keeps ``PartialStepError.results`` and re-sends only the
+    calls without one, so a tool with side effects still acts once per call.
+    """
+    protocol = _RecordingProtocol()
+    env = EndpointEnvironment(
+        EnvironmentParams(id="env", env_type="endpoint", tools=[_tool()]),
+        protocol,
+        max_concurrency=4,
+    )
+    original = protocol.call
+    lock = threading.Lock()
+    attempts: dict[str, int] = {}
+
+    def fail_the_first_attempt_at_item_0(request):
+        item = request.arguments["item"]
+        with lock:
+            attempts[item] = attempts.get(item, 0) + 1
+            should_fail = item == "0" and attempts[item] == 1
+        if should_fail:
+            raise ToolError("out of stock")
+        return original(request)
+
+    protocol.call = fail_the_first_attempt_at_item_0
+
+    with pytest.raises(PartialStepError, match="^out of stock$") as excinfo:
+        env.step([("place_order", {"item": str(i)}) for i in range(6)])
+
+    # Only the call that never produced a result is sent again.
+    assert [index for index in range(6) if index not in excinfo.value.results] == [0]
+    env.step([("place_order", {"item": "0"})])
+
+    # The failed call is retried once; every other call reaches the tool once.
+    assert attempts == {"0": 2, "1": 1, "2": 1, "3": 1, "4": 1, "5": 1}
+
+
+def test_a_failed_sequential_batch_raises_the_tools_own_error():
+    """The default path keeps its old behavior: no wrapping, no partial results."""
+    protocol = _RecordingProtocol(error=ToolError("out of stock"))
+    env = _environment(protocol)
+
+    with pytest.raises(ToolError, match="^out of stock$") as excinfo:
+        env.step([("place_order", {"item": str(i)}) for i in range(4)])
+
+    assert not isinstance(excinfo.value, PartialStepError)
+    # Sequential stops at the failure, so nothing past it reaches the endpoint.
+    assert len(protocol.calls) == 1
 
 
 def test_step_of_an_empty_batch_touches_no_call():

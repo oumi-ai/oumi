@@ -41,7 +41,7 @@ from oumi.core.types.conversation import (
 )
 from oumi.core.types.tool_call import ToolCall, ToolDefinition, ToolResult
 from oumi.environments import GroundingFact
-from oumi.environments.base_environment import BaseEnvironment
+from oumi.environments.base_environment import BaseEnvironment, PartialStepError
 from oumi.environments.simulated_environment import SimulatedEnvironment
 from oumi.environments.utils import describe_grounding_default
 from oumi.inference.native_tool_calling import (
@@ -220,7 +220,8 @@ class ConversationSynthesizer:
         Validates each call via the router, then groups surviving calls by env
         and routes each group in one batched ``env.step()``. If the batched
         route raises, falls back to per-call routing so individual errors stay
-        attributed.
+        attributed; calls the batch already answered are kept rather than
+        re-sent, so a tool with side effects still executes each call once.
 
         ``sample_idx`` selects the per-sample router clone built at
         ``synthesize()`` entry; routing through it keeps state mutations
@@ -245,24 +246,42 @@ class ConversationSynthesizer:
             calls = [(tc.function.name, args) for _, tc, args in group]
             try:
                 outputs = router.route_batch(calls)
+            except PartialStepError as error:
+                # A concurrent batch sends every call before the first failure,
+                # so some of them already ran. Keep those results and re-send
+                # only the calls without one: re-sending all of them would run
+                # the tool's side effect twice. The sequential path raises the
+                # original error, never this one, so it is unaffected.
+                done_local = set(error.results)
+                for local_index, result in error.results.items():
+                    idx, tc, _ = group[local_index]
+                    results[idx] = self._tool_message(tc, result)
+                pending = [
+                    (idx, tc, args)
+                    for local_index, (idx, tc, args) in enumerate(group)
+                    if local_index not in done_local
+                ]
             except Exception:
                 # On batch failure, re-route each call individually so per-call
                 # errors stay attributed. SimulatedEnvironment's in-batch cache
                 # shields earlier successes from re-inference, but calls past
                 # the failing index re-infer. Acceptable for attribution today;
                 # Phase 2's corrective-retry should replace this fallback.
-                for idx, tc, args in group:
-                    try:
-                        [single] = router.route_batch([(tc.function.name, args)])
-                    except Exception as exc:
-                        results[idx] = self._tool_error(
-                            tc, f"Tool '{tc.function.name}' raised: {exc}"
-                        )
-                        continue
-                    results[idx] = self._tool_message(tc, single)
+                pending = [(idx, tc, args) for idx, tc, args in group]
+            else:
+                for (idx, tc, _), out in zip(group, outputs):
+                    results[idx] = self._tool_message(tc, out)
                 continue
-            for (idx, tc, _), out in zip(group, outputs):
-                results[idx] = self._tool_message(tc, out)
+
+            for idx, tc, args in pending:
+                try:
+                    [single] = router.route_batch([(tc.function.name, args)])
+                except Exception as exc:
+                    results[idx] = self._tool_error(
+                        tc, f"Tool '{tc.function.name}' raised: {exc}"
+                    )
+                    continue
+                results[idx] = self._tool_message(tc, single)
 
         assert all(r is not None for r in results), "every call must produce a message"
         return results  # type: ignore[return-value]

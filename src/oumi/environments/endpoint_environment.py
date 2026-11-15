@@ -31,7 +31,7 @@ from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.core.configs.params.tool_params import ToolError, ToolLookupError, ToolParams
 from oumi.core.registry import register_environment
 from oumi.core.types.tool_call import ToolResult
-from oumi.environments.base_environment import BaseEnvironment
+from oumi.environments.base_environment import BaseEnvironment, PartialStepError
 from oumi.environments.utils import parse_env_kwargs
 
 _DEFAULT_TIMEOUT_SECONDS = 30.0
@@ -314,6 +314,16 @@ class EndpointEnvironment(BaseEnvironment):
         Identifies the calls itself, treating the batch as one conversation.
         Callers holding stable ids for a conversation and its calls should use
         :meth:`call` so retries stay deduplicable end to end.
+
+        With ``max_concurrency=1`` the batch stops at the first failure and
+        that call's error is raised unwrapped. Above 1 every call has already
+        been sent by the time one of them fails, so the failure is raised as a
+        :class:`PartialStepError` carrying the calls that succeeded.
+
+        Raises:
+            PartialStepError: If a call fails while others already succeeded.
+                It carries those results so the caller only re-sends the calls
+                that never reached the endpoint.
         """
         if not calls:
             return []
@@ -329,12 +339,30 @@ class EndpointEnvironment(BaseEnvironment):
 
         workers = min(self._max_concurrency, len(calls))
         if workers == 1:
+            # Sequential: nothing has been sent past the failure, so the caller
+            # can see the original error and the default path is unchanged.
             return [run_one(index) for index in range(len(calls))]
 
-        # map() yields in input order and re-raises the first failure, so the
-        # result is the same as the sequential path.
+        # Submit the whole batch up front: unlike the sequential path, every
+        # call has reached the endpoint by the time the first failure surfaces.
+        # Wait for the rest anyway, so the caller can keep the results it
+        # already paid for instead of repeating those side effects.
+        done: dict[int, ToolResult] = {}
+        failure: BaseException | None = None
         with ThreadPoolExecutor(max_workers=workers) as pool:
-            return list(pool.map(run_one, range(len(calls))))
+            futures = [pool.submit(run_one, index) for index in range(len(calls))]
+            for index, future in enumerate(futures):
+                error = future.exception()
+                if error is None:
+                    done[index] = future.result()
+                elif failure is None:
+                    # Futures are enumerated in submission order, so this keeps
+                    # the earliest failing call rather than the first thread to
+                    # finish, which would vary between runs.
+                    failure = error
+        if failure is not None:
+            raise PartialStepError(done, failure) from failure
+        return [done[index] for index in range(len(calls))]
 
     def call(
         self,
