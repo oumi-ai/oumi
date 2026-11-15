@@ -62,6 +62,9 @@ inference_config:
     temperature: 0.0
 
   remote_params:
+    # Concurrency inside a single judge() call. The default is 1, which makes a
+    # batched reward call send its rows one at a time.
+    num_workers: 16
     use_adaptive_concurrency: False
     max_retries: 3
     connection_timeout: 120.0
