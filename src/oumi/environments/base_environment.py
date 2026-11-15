@@ -26,6 +26,23 @@ from oumi.core.types.tool_call import ToolResult
 from oumi.environments.utils import describe_grounding_default
 
 
+class PartialStepError(Exception):
+    """Raised by `step()` when some calls succeeded before another one failed.
+
+    ``results`` holds the calls that already produced a :class:`ToolResult`,
+    keyed by their index in the batch that raised. A caller that would otherwise
+    re-send the whole batch can keep those results and re-send only the calls
+    that are missing, so a tool with side effects still executes each call once.
+    Callers that do not handle it still see ``cause`` in the message.
+    """
+
+    def __init__(self, results: dict[int, ToolResult], cause: BaseException) -> None:
+        """Record the per-call results produced before the failure."""
+        super().__init__(str(cause))
+        self.results = results
+        self.cause = cause
+
+
 class BaseEnvironment(ABC):
     """Abstract base class for tool environments."""
 
@@ -33,7 +50,12 @@ class BaseEnvironment(ABC):
 
     @abstractmethod
     def step(self, calls: list[tuple[str, dict[str, Any]]]) -> list[ToolResult]:
-        """Execute a batch of tool calls; returns results in the same order."""
+        """Execute a batch of tool calls; returns results in the same order.
+
+        An env that can fail after some calls of the batch already succeeded
+        may raise :class:`PartialStepError` instead of the underlying error, so
+        the caller can keep those results and re-send only the missing calls.
+        """
 
     def requires_isolation(self) -> bool:
         """Whether this env must be rebuilt per sample to avoid cross-sample leakage.

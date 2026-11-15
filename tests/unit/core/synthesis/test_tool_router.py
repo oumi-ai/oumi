@@ -22,12 +22,13 @@ from oumi.core.configs.environment_config import EnvironmentConfig
 from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.core.configs.params.tool_params import (
     ToolArgumentError,
+    ToolError,
     ToolLookupError,
     ToolParams,
 )
 from oumi.core.synthesis.tool_router import ToolRouter
 from oumi.core.types.tool_call import ToolResult
-from oumi.environments.base_environment import BaseEnvironment
+from oumi.environments.base_environment import BaseEnvironment, PartialStepError
 from oumi.environments.lookup_environment import LookupEnvironment
 
 
@@ -327,6 +328,42 @@ def test_route_batch_env_exception_propagates():
     router = _mock_router({"t1": fake_env})
     with pytest.raises(RuntimeError, match="boom"):
         router.route_batch([("t1", {})])
+
+
+def test_route_batch_maps_partial_results_to_its_own_indices():
+    """An env reports its batch's indices; the caller needs the batch's own."""
+    env_a = Mock(spec=BaseEnvironment)
+    env_a.step.return_value = [ToolResult(output="a")]
+    env_b = Mock(spec=BaseEnvironment)
+    failure = ToolError("boom")
+    # env_b sees calls 1 and 2 as its local 0 and 1, so local 1 is batch index 2.
+    env_b.step.side_effect = PartialStepError({1: ToolResult(output="b")}, failure)
+    router = _mock_router({"ta": env_a, "tb": env_b})
+
+    with pytest.raises(PartialStepError) as excinfo:
+        router.route_batch([("ta", {}), ("tb", {}), ("tb", {})])
+
+    assert excinfo.value.results == {
+        0: ToolResult(output="a"),
+        2: ToolResult(output="b"),
+    }
+    assert excinfo.value.cause is failure
+
+
+def test_route_batch_keeps_results_of_groups_that_finished_before_a_failure():
+    """Re-sending an earlier group's calls would repeat their side effects."""
+    env_a = Mock(spec=BaseEnvironment)
+    env_a.step.return_value = [ToolResult(output="a")]
+    env_b = Mock(spec=BaseEnvironment)
+    failure = ToolError("boom")
+    env_b.step.side_effect = PartialStepError({}, failure)
+    router = _mock_router({"ta": env_a, "tb": env_b})
+
+    with pytest.raises(PartialStepError) as excinfo:
+        router.route_batch([("ta", {}), ("tb", {})])
+
+    assert excinfo.value.results == {0: ToolResult(output="a")}
+    assert excinfo.value.cause is failure
 
 
 # ---------- for_sample ----------

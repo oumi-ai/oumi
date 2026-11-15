@@ -16,7 +16,7 @@
 
 import logging
 import random
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, Mock, call, patch
 
 import pytest
 
@@ -33,7 +33,7 @@ from oumi.core.configs.params.synthesis_params import (
     SampledAttribute,
     SampledAttributeValue,
 )
-from oumi.core.configs.params.tool_params import ToolParams
+from oumi.core.configs.params.tool_params import ToolError, ToolParams
 from oumi.core.synthesis.conversation_synthesizer import (
     ConversationSynthesizer,
     OpeningTurnPrompt,
@@ -47,7 +47,7 @@ from oumi.core.types.conversation import (
     Role,
 )
 from oumi.core.types.tool_call import FunctionCall, ToolCall, ToolResult
-from oumi.environments.base_environment import BaseEnvironment
+from oumi.environments.base_environment import BaseEnvironment, PartialStepError
 from oumi.environments.simulated_environment import SimulatedEnvironment
 
 
@@ -2411,6 +2411,55 @@ def test_dispatch_tool_calls_handles_env_exception_with_per_call_fallback(
     [msg] = synth._dispatch_tool_calls([tc], 0)
     assert msg.role == Role.TOOL
     assert "Tool 't' raised: boom" in str(msg.content)
+
+
+@patch("oumi.core.synthesis.tool_router.build_environment")
+@patch("oumi.core.synthesis.conversation_synthesizer.build_inference_engine")
+def test_dispatch_tool_calls_does_not_re_send_calls_that_already_succeeded(
+    mock_build_inference_engine,
+    mock_build_environment,
+    mock_general_synthesis_params,
+):
+    """A failed concurrent batch keeps its results; only the failed call is retried.
+
+    Re-sending the whole group would run the side effect of every call that
+    already reached the tool a second time.
+    """
+    mock_build_inference_engine.return_value = Mock()
+    fake_env = Mock(spec=BaseEnvironment)
+    fake_env.step.side_effect = [
+        PartialStepError({0: ToolResult(output={"i": 0})}, ToolError("boom")),
+        [ToolResult(output={"i": 1})],
+    ]
+    mock_build_environment.return_value = fake_env
+
+    env_config = _make_env_config("e", "t")
+    inference_config = InferenceConfig(
+        engine=InferenceEngineType.OPENAI,
+        model=Mock(spec=ModelParams),
+        remote_params=Mock(spec=RemoteParams),
+        generation=GenerationParams(),
+    )
+    synth = ConversationSynthesizer(
+        mock_general_synthesis_params,
+        inference_config,
+        environment_config=env_config,
+    )
+
+    tcs = [
+        ToolCall(id=f"c{i}", function=FunctionCall(name="t", arguments=f'{{"i": {i}}}'))
+        for i in range(2)
+    ]
+    synth._prepare_sample_routers(1)
+    msgs = synth._dispatch_tool_calls(tcs, 0)
+
+    assert [m.tool_call_id for m in msgs] == ["c0", "c1"]
+    # c0's result came from the failed batch, c1 was the only call re-sent.
+    assert [m.content for m in msgs] == ['{"i": 0}', '{"i": 1}']
+    assert fake_env.step.call_args_list == [
+        call([("t", {"i": 0}), ("t", {"i": 1})]),
+        call([("t", {"i": 1})]),
+    ]
 
 
 @patch("oumi.core.synthesis.tool_router.build_environment")
