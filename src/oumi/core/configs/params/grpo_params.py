@@ -111,15 +111,21 @@ class GrpoParams(BaseParams):
     specified, the default rollout function will be used."""
 
     environment_config_path: str | None = None
-    """Path to the `EnvironmentConfig` YAML that backs the `tool_agent` rollout.
+    """Path to an Oumi environment config, enabling multi-turn tool use.
 
-    Required when `rollout_function` is `tool_agent`, ignored otherwise.
+    When set, the TRL GRPO trainer is given an ``environment_factory`` built from
+    this config: TRL runs the tool-calling loop itself, giving each generation
+    slot its own environment instance. The tools come from the environment
+    config, so the model learns to call them. Requires the
+    ``environment_factory`` support in TRL, and a chat template that supports
+    tool calls (e.g. Qwen3).
     """
 
-    max_tool_turns: int = 4
-    """Maximum number of tool-calling turns in a `tool_agent` rollout.
+    max_tool_calling_iterations: int | None = None
+    """Maximum number of tool-calling turns per rollout when tools are enabled.
 
-    The final answer is generated after the last executed tool call.
+    ``None`` means no limit: TRL stops when the model answers without a tool
+    call, or when the response reaches ``max_completion_length``.
     """
 
     def __post_init__(self):
@@ -148,26 +154,12 @@ class GrpoParams(BaseParams):
                 "GrpoParams.temperature must be within [0.0, 1.0] range. "
                 f"Actual: {self.temperature}"
             )
-        if self.max_tool_turns <= 0:
+        if self.max_tool_calling_iterations is not None and (
+            self.max_tool_calling_iterations <= 0
+        ):
             raise OumiConfigError(
-                "GrpoParams.max_tool_turns must be positive. "
-                f"Actual: {self.max_tool_turns}"
-            )
-        if self.environment_config_path is not None:
-            if not self.environment_config_path:
-                raise OumiConfigError(
-                    "GrpoParams.environment_config_path cannot be empty."
-                )
-            if self.rollout_function != "tool_agent":
-                raise OumiConfigError(
-                    "GrpoParams.environment_config_path is only used by the "
-                    "'tool_agent' rollout function. "
-                    f"Actual rollout_function: {self.rollout_function!r}."
-                )
-        elif self.rollout_function == "tool_agent":
-            raise OumiConfigError(
-                "GrpoParams.environment_config_path is required by the "
-                "'tool_agent' rollout function."
+                "GrpoParams.max_tool_calling_iterations must be positive. "
+                f"Actual: {self.max_tool_calling_iterations}"
             )
 
     def to_hf_trainer_kwargs(self) -> dict[str, Any]:
@@ -189,8 +181,7 @@ class GrpoParams(BaseParams):
                 "max_completion_length",
                 "num_generations",
                 "rollout_function",  # Will be passed into GRPO trainer.
-                "environment_config_path",  # Oumi-side rollout config.
-                "max_tool_turns",  # Oumi-side rollout config.
+                "environment_config_path",  # Consumed to build environment_factory.
             }
         )
 

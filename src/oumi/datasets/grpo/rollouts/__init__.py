@@ -14,12 +14,4 @@
 
 """GRPO rollout functions module."""
 
-from oumi.datasets.grpo.rollouts.tool_agent import (
-    TOOL_AGENT_ROLLOUT,
-    tool_agent_rollout,
-)
-
-__all__ = [
-    "TOOL_AGENT_ROLLOUT",
-    "tool_agent_rollout",
-]
+__all__ = []

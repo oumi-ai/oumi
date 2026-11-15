@@ -28,6 +28,7 @@ from transformers.trainer_utils import get_last_checkpoint
 from oumi.builders import (
     build_collator_from_config,
     build_dataset_mixture,
+    build_environment_factory,
     build_metrics_function,
     build_model,
     build_peft_model,
@@ -195,6 +196,7 @@ def _create_optional_training_kwargs(
     rollout_function: Callable | None,
     collator: Callable | None,
     additional_trainer_kwargs: dict[str, Any] | None = None,
+    environment_factory: Callable | None = None,
 ) -> dict[str, Any]:
     kwargs: dict[str, Any] = {}
     if trainer_type == TrainerType.OUMI:
@@ -210,6 +212,12 @@ def _create_optional_training_kwargs(
             raise ValueError(f"collator isn't supported for {trainer_type}")
         kwargs["reward_funcs"] = reward_functions
         kwargs["rollout_func"] = rollout_function
+        if environment_factory is not None:
+            if trainer_type == TrainerType.VERL_GRPO:
+                raise ValueError(
+                    "environment_config_path is only supported for TRL_GRPO."
+                )
+            kwargs["environment_factory"] = environment_factory
     else:
         kwargs["compute_metrics"] = metrics_function
         kwargs["data_collator"] = collator
@@ -431,6 +439,11 @@ def train(
     metrics_function: Callable | None = build_metrics_function(config.training)
     reward_functions: list[Callable] = build_reward_functions(config.training)
     rollout_function: Callable | None = build_rollout_function(config.training)
+    environment_factory: Callable | None = None
+    if config.training.grpo.environment_config_path is not None:
+        environment_factory = build_environment_factory(
+            config.training.grpo.environment_config_path
+        )
     if trainer_type == TrainerType.TRL_GRPO:
         if len(reward_functions) == 0:
             logger.warning(f"No reward_function specified for {trainer_type}!")
@@ -459,6 +472,7 @@ def train(
         rollout_function,
         collator,
         additional_trainer_kwargs=additional_trainer_kwargs,
+        environment_factory=environment_factory,
     )
 
     # verl training is handled separately because:

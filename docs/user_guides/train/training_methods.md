@@ -380,7 +380,7 @@ This is particularly useful with rubric-based reward functions (see {gh}`RaR dat
 
 ### Tool-calling rollouts
 
-`TRL_GRPO` can train a model to call tools, without Ray, vLLM or verl. Set `grpo.rollout_function: "tool_agent"` and point `grpo.environment_config_path` at an {gh}`EnvironmentConfig <src/oumi/core/configs/environment_config.py>`:
+`TRL_GRPO` can train a model to call tools, without Ray, vLLM or verl. Point `grpo.environment_config_path` at an {gh}`EnvironmentConfig <src/oumi/core/configs/environment_config.py>`:
 
 ```yaml
 training:
@@ -389,22 +389,23 @@ training:
 
   grpo:
     num_generations: 8
-    rollout_function: "tool_agent"
     environment_config_path: "configs/examples/grpo_tool_agent/environment.yaml"
-    max_tool_turns: 2
+    max_tool_calling_iterations: 2
 ```
 
-Each rollout generates a turn, parses `<tool_call>` blocks, runs them through a per-sample `ToolRouter`, appends the tool results, and generates again until the model stops calling tools or `max_tool_turns` is reached. The rollout works with every environment type (lookup, simulated, database, endpoint), so the environment config decides what the tools do.
+Oumi builds an `environment_factory` from that config and hands it to TRL's `GRPOTrainer`, which runs the tool-calling loop itself: it generates a turn, parses `<tool_call>` blocks, invokes the matching tool, appends the result, and generates again until the model answers without a tool call or `max_tool_calling_iterations` is reached. The tools come from the environment config, so every environment type (lookup, simulated, database, endpoint) works.
+
+TRL creates one environment per generation slot and calls `reset()` before each rollout. The adapter in {gh}`src/oumi/builders/grpo_environments.py <src/oumi/builders/grpo_environments.py>` rebuilds the underlying `ToolRouter` on `reset()`, so stateful environments start each rollout from their config, and isolation-requiring environments (databases, stateful simulators) get a live instance.
 
 Two details worth knowing:
 
 - Tool result tokens are excluded from the policy loss, so the model is only trained on tokens it generated.
-- A failing tool becomes an observation (`{"error": ...}`) rather than an exception, which is what lets the model learn to recover from a bad call.
+- A failing tool becomes an observation rather than an exception, which is what lets the model learn to recover from a bad call.
 
 A complete example is in {gh}`configs/examples/grpo_tool_agent <configs/examples/grpo_tool_agent>`.
 
 ```{note}
-`tool_agent` uses TRL's experimental `rollout_func` API. Text prompts only.
+This path uses TRL's experimental `environment_factory` API, which requires a chat template that supports tool calls (e.g. Qwen3). Text prompts only.
 ```
 
 ### Configuration

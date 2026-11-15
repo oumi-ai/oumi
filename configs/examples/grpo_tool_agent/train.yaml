@@ -1,9 +1,11 @@
-# TRL GRPO config that trains a model to call an Oumi tool.
+# TRL GRPO config that trains a model to use an Oumi tool through TRL's own
+# tool-calling loop.
 #
 # The reward only looks at the final answer, and the prices live in the tool
-# environment, not in the model. Qwen3-0.6B answers these questions from memory
-# without calling `get_price` and gets them wrong, so the only way to score is to
-# call the tool and read the result.
+# environment, not in the model, so the model scores by calling `get_price` and
+# reading the result. The base model already emits `<tool_call>` when the tool
+# schema is in the prompt; what training improves here is the reward, not the
+# willingness to call the tool.
 #
 # Runs on one GPU: no Ray, no vLLM, no verl.
 #
@@ -26,7 +28,8 @@ data:
 training:
   trainer_type: "TRL_GRPO"
   max_steps: 80
-  learning_rate: 5.0e-8
+  # 5e-8 leaves the reward flat within noise on this task; 1e-6 climbs to ~0.87.
+  learning_rate: 1.0e-6
   per_device_train_batch_size: 8
   lr_scheduler_type: "constant"
 
@@ -34,10 +37,11 @@ training:
 
   grpo:
     num_generations: 8
-    max_completion_length: 128
+    # 128 is too short: Qwen3 spends the budget in its reasoning block, gets cut
+    # off before answering, and the reward is 0 even though the tool is called.
+    max_completion_length: 256
     temperature: 1.0
-    rollout_function: "tool_agent"
     environment_config_path: "configs/examples/grpo_tool_agent/environment.yaml"
-    max_tool_turns: 2
+    max_tool_calling_iterations: 2
   trainer_kwargs:
     beta: 0.04
