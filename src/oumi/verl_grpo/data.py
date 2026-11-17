@@ -15,8 +15,16 @@
 """Turns oumi conversation datasets into the parquet rows verl reads."""
 
 import json
+import os
+from pathlib import Path
 from typing import Any, Final
 
+from datasets import Dataset
+
+from oumi.builders.data import build_dataset_mixture
+from oumi.core.configs import DataParams
+from oumi.core.configs.params.data_params import DatasetSplit
+from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.types.conversation import Conversation
 from oumi.core.types.conversation import Role as ConversationRole
 from oumi.utils.conversation_utils import create_list_of_message_json_dicts
@@ -27,6 +35,8 @@ TOOL_AGENT: Final = "tool_agent"
 
 _PROMPT_JSON_EXTRA_INFO_KEY: Final = "prompt_json"
 _IMAGE_MARKER: Final = "<image>"
+_CONVERSATION_COLUMN: Final = "conversation_json"
+_MAX_CONVERT_PROCESSES: Final = 8
 
 
 def _extract_prompt_images_answer(
@@ -178,3 +188,62 @@ def conversation_to_verl_row(
             "metadata": json.dumps(metadata),
         },
     }
+
+
+def write_verl_parquet(
+    data_params: DataParams,
+    *,
+    split: DatasetSplit,
+    tokenizer: BaseTokenizer | None,
+    output_path: Path,
+) -> int:
+    """Builds one split of `data_params` and writes it as a verl parquet file.
+
+    Conversation rows are converted with `conversation_to_verl_row`. Rows that are
+    already in verl's format are written unchanged.
+
+    Args:
+        data_params: The dataset configuration.
+        split: The split to write.
+        tokenizer: The tokenizer used to build the datasets, if any.
+        output_path: Where to write the parquet file.
+
+    Returns:
+        The number of rows written.
+
+    Raises:
+        ValueError: If the split mixes dataset names, is streamed, or has no rows.
+    """
+    dataset_names = {ds.dataset_name for ds in data_params.get_split(split).datasets}
+    if len(dataset_names) != 1:
+        raise ValueError(
+            f"Expected a single dataset name for the {split.value} split, "
+            f"got {sorted(dataset_names)}."
+        )
+    (data_source,) = dataset_names
+
+    dataset = build_dataset_mixture(data_params, tokenizer, split)
+    if not isinstance(dataset, Dataset):
+        raise ValueError(
+            f"The {split.value} split must be a map-style dataset; streaming "
+            "datasets cannot be written to parquet."
+        )
+    if len(dataset) == 0:
+        raise ValueError(f"The {split.value} split has no rows.")
+
+    if _CONVERSATION_COLUMN in dataset.column_names:
+        dataset = dataset.map(
+            lambda example, index: conversation_to_verl_row(
+                example[_CONVERSATION_COLUMN],
+                index=index,
+                data_source=data_source,
+                split=split.value,
+            ),
+            with_indices=True,
+            remove_columns=dataset.column_names,
+            num_proc=min(_MAX_CONVERT_PROCESSES, os.cpu_count() or 1),
+        )
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    dataset.to_parquet(output_path)
+    return len(dataset)
