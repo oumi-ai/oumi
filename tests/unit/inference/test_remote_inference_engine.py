@@ -5033,3 +5033,109 @@ async def test_sync_methods_refuse_injected_session():
         with pytest.raises(RuntimeError, match="built with an http_session"):
             engine._run_coroutine(coro)
         assert inspect.getcoroutinestate(coro) == inspect.CORO_CLOSED
+
+
+def _infer_and_capture_request_body(
+    engine: RemoteInferenceEngine, inference_config: InferenceConfig
+) -> dict[str, Any]:
+    captured: list[dict[str, Any]] = []
+
+    def callback(url, **kwargs):
+        captured.append(kwargs["json"])
+        return CallbackResult(
+            status=200,
+            payload={"choices": [{"message": {"role": "assistant", "content": "ok"}}]},
+        )
+
+    with aioresponses() as m:
+        m.post(_TARGET_SERVER, callback=callback)
+        engine.infer([create_test_text_only_conversation()], inference_config)
+    assert len(captured) == 1
+    return captured[0]
+
+
+def test_infer_online_merges_extra_body_into_request():
+    remote_params = RemoteParams(
+        api_url=_TARGET_SERVER,
+        extra_body={"provider": {"zdr": True}, "top_k": 3},
+    )
+    engine = RemoteInferenceEngine(
+        model_params=_get_default_model_params(), remote_params=remote_params
+    )
+    config = InferenceConfig(
+        generation=GenerationParams(max_new_tokens=5), remote_params=remote_params
+    )
+
+    body = _infer_and_capture_request_body(engine, config)
+
+    assert body["provider"] == {"zdr": True}
+    assert body["top_k"] == 3
+    assert body["messages"]
+
+
+def test_infer_online_without_extra_body_sends_no_extra_fields():
+    engine = RemoteInferenceEngine(
+        model_params=_get_default_model_params(),
+        remote_params=RemoteParams(api_url=_TARGET_SERVER),
+    )
+
+    body = _infer_and_capture_request_body(engine, _get_default_inference_config())
+
+    assert "provider" not in body
+
+
+class _EngineSettingProvider(RemoteInferenceEngine):
+    """An engine whose request builder already sets a nested ``provider`` object."""
+
+    def _convert_conversation_to_api_input(
+        self, conversation, generation_params, model_params
+    ):
+        api_input = super()._convert_conversation_to_api_input(
+            conversation, generation_params, model_params
+        )
+        api_input["provider"] = {"require_parameters": True, "sort": "price"}
+        return api_input
+
+
+def test_infer_online_extra_body_deep_merges_with_engine_fields():
+    remote_params = RemoteParams(
+        api_url=_TARGET_SERVER,
+        extra_body={"provider": {"zdr": True, "sort": "latency", "ignore": ["a"]}},
+    )
+    engine = _EngineSettingProvider(
+        model_params=_get_default_model_params(), remote_params=remote_params
+    )
+    config = InferenceConfig(
+        generation=GenerationParams(max_new_tokens=5), remote_params=remote_params
+    )
+
+    body = _infer_and_capture_request_body(engine, config)
+
+    assert body["provider"] == {
+        "require_parameters": True,
+        "sort": "latency",
+        "zdr": True,
+        "ignore": ["a"],
+    }
+
+
+def test_apply_extra_body_does_not_alias_config_values():
+    remote_params = RemoteParams(extra_body={"provider": {"ignore": ["a"]}})
+    api_input: dict[str, Any] = {}
+
+    RemoteInferenceEngine._apply_extra_body(api_input, remote_params)
+    api_input["provider"]["ignore"].append("b")
+
+    assert remote_params.extra_body == {"provider": {"ignore": ["a"]}}
+
+
+@pytest.mark.parametrize("reserved_key", ["model", "messages"])
+def test_apply_extra_body_rejects_reserved_keys_set_after_validation(reserved_key):
+    remote_params = RemoteParams()
+    remote_params.extra_body = {reserved_key: "x"}
+    api_input: dict[str, Any] = {"model": "m", "messages": []}
+
+    with pytest.raises(ValueError, match="reserved request fields"):
+        RemoteInferenceEngine._apply_extra_body(api_input, remote_params)
+
+    assert api_input == {"model": "m", "messages": []}

@@ -42,7 +42,10 @@ from oumi.core.configs import (
     ModelParams,
     RemoteParams,
 )
-from oumi.core.configs.params.remote_params import AdaptiveConcurrencyParams
+from oumi.core.configs.params.remote_params import (
+    RESERVED_EXTRA_BODY_KEYS,
+    AdaptiveConcurrencyParams,
+)
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.inference.base_inference_engine import (
     BatchResult,
@@ -102,6 +105,16 @@ class BatchStatus(Enum):
     EXPIRED = "expired"
     CANCELLING = "cancelling"
     CANCELLED = "cancelled"
+
+
+def _deep_merge_into(target: dict[str, Any], updates: dict[str, Any]) -> None:
+    """Recursively merges ``updates`` into ``target``; ``updates`` wins on leaves."""
+    for key, value in updates.items():
+        existing = target.get(key)
+        if isinstance(existing, dict) and isinstance(value, dict):
+            _deep_merge_into(existing, value)
+        else:
+            target[key] = copy.deepcopy(value)
 
 
 @dataclass
@@ -403,6 +416,29 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         return create_list_of_message_json_dicts(
             messages, group_adjacent_same_role_turns=group_adjacent_same_role_turns
         )
+
+    @staticmethod
+    def _apply_extra_body(
+        api_input: dict[str, Any], remote_params: RemoteParams
+    ) -> None:
+        """Deep-merges ``remote_params.extra_body`` into a request body, in place.
+
+        Applied to online requests after ``_convert_conversation_to_api_input``,
+        so it also reaches fields an engine override already set: a nested
+        object such as ``provider`` keeps its other keys, and on a conflicting
+        key ``extra_body`` wins.
+
+        Raises:
+            ValueError: ``extra_body`` sets a request field the engine owns.
+        """
+        if not remote_params.extra_body:
+            return
+        reserved = sorted(RESERVED_EXTRA_BODY_KEYS & set(remote_params.extra_body))
+        if reserved:
+            raise ValueError(
+                f"extra_body cannot set reserved request fields: {reserved}."
+            )
+        _deep_merge_into(api_input, remote_params.extra_body)
 
     @staticmethod
     def _add_tool_params_to_api_input(
@@ -832,6 +868,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         api_input = self._convert_conversation_to_api_input(
             conversation, generation_params, model_params
         )
+        self._apply_extra_body(api_input, remote_params)
         headers = self._get_request_headers(remote_params)
         failure_reason = None
         last_status_code = None
