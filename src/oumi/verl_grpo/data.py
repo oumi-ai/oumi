@@ -22,8 +22,7 @@ from typing import Any, Final
 from datasets import Dataset
 
 from oumi.builders.data import build_dataset_mixture
-from oumi.core.configs import DataParams
-from oumi.core.configs.params.data_params import DatasetSplit
+from oumi.core.configs import DataParams, DatasetSplit
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.types.conversation import Conversation
 from oumi.core.types.conversation import Role as ConversationRole
@@ -36,7 +35,6 @@ TOOL_AGENT: Final = "tool_agent"
 _PROMPT_JSON_EXTRA_INFO_KEY: Final = "prompt_json"
 _IMAGE_MARKER: Final = "<image>"
 _CONVERSATION_COLUMN: Final = "conversation_json"
-_MAX_CONVERT_PROCESSES: Final = 8
 
 
 def _extract_prompt_images_answer(
@@ -199,8 +197,11 @@ def write_verl_parquet(
 ) -> int:
     """Builds one split of `data_params` and writes it as a verl parquet file.
 
-    Conversation rows are converted with `conversation_to_verl_row`. Rows that are
-    already in verl's format are written unchanged.
+    Conversation rows are converted with `conversation_to_verl_row`, which requires
+    the split to name a single dataset. The source `conversation_json` column is
+    dropped after conversion, so the file holds only verl's columns. Rows that are
+    already in verl's format are written unchanged and may mix datasets, since they
+    carry their own `data_source`.
 
     Args:
         data_params: The dataset configuration.
@@ -212,16 +213,9 @@ def write_verl_parquet(
         The number of rows written.
 
     Raises:
-        ValueError: If the split mixes dataset names, is streamed, or has no rows.
+        ValueError: If the split is streamed or has no rows, if conversations come
+            from zero or several dataset names, or if a conversation is invalid.
     """
-    dataset_names = {ds.dataset_name for ds in data_params.get_split(split).datasets}
-    if len(dataset_names) != 1:
-        raise ValueError(
-            f"Expected a single dataset name for the {split.value} split, "
-            f"got {sorted(dataset_names)}."
-        )
-    (data_source,) = dataset_names
-
     dataset = build_dataset_mixture(data_params, tokenizer, split)
     if not isinstance(dataset, Dataset):
         raise ValueError(
@@ -232,6 +226,15 @@ def write_verl_parquet(
         raise ValueError(f"The {split.value} split has no rows.")
 
     if _CONVERSATION_COLUMN in dataset.column_names:
+        dataset_names = {
+            ds.dataset_name for ds in data_params.get_split(split).datasets
+        }
+        if len(dataset_names) != 1:
+            raise ValueError(
+                f"Expected a single dataset name for the {split.value} split, "
+                f"got {sorted(dataset_names)}."
+            )
+        (data_source,) = dataset_names
         dataset = dataset.map(
             lambda example, index: conversation_to_verl_row(
                 example[_CONVERSATION_COLUMN],
@@ -241,7 +244,9 @@ def write_verl_parquet(
             ),
             with_indices=True,
             remove_columns=dataset.column_names,
-            num_proc=min(_MAX_CONVERT_PROCESSES, os.cpu_count() or 1),
+            # Limit the max number of sub-processes to 8 to avoid overloading the
+            # system with too many processes.
+            num_proc=min(8, os.cpu_count() or 1),
         )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)

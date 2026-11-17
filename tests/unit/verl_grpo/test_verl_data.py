@@ -21,8 +21,12 @@ import pandas as pd
 import pytest
 from datasets import Dataset, IterableDataset
 
-from oumi.core.configs import DataParams, DatasetParams, DatasetSplitParams
-from oumi.core.configs.params.data_params import DatasetSplit
+from oumi.core.configs import (
+    DataParams,
+    DatasetParams,
+    DatasetSplit,
+    DatasetSplitParams,
+)
 from oumi.core.types.conversation import (
     ContentItem,
     Conversation,
@@ -328,6 +332,7 @@ def test_conversation_rows_are_converted_and_counted(tmp_path: Path):
     assert [e["index"] for e in table["extra_info"]] == [0, 1, 2]
     assert [e["split"] for e in table["extra_info"]] == ["train"] * 3
     assert set(table["data_source"]) == {"text_sft"}
+    assert "conversation_json" not in table.columns
 
 
 def test_rows_already_in_verl_format_are_written_unchanged(tmp_path: Path):
@@ -352,16 +357,49 @@ def test_rows_already_in_verl_format_are_written_unchanged(tmp_path: Path):
     assert table["reward_model"][0]["ground_truth"] == "yo"
 
 
-def test_a_split_with_two_dataset_names_is_refused(tmp_path: Path):
-    params = _text_sft_params(tmp_path / "x.jsonl", names=("text_sft", "other"))
+def _two_dataset_params() -> DataParams:
+    return DataParams(
+        train=DatasetSplitParams(
+            datasets=[
+                DatasetParams(dataset_name="first"),
+                DatasetParams(dataset_name="second"),
+            ]
+        )
+    )
 
-    with pytest.raises(ValueError, match="single dataset name"):
+
+def test_conversations_from_two_dataset_names_are_refused(tmp_path: Path):
+    convo = Conversation(messages=[Message(role=Role.USER, content="Hi")])
+    dataset = Dataset.from_list([{"conversation_json": convo.to_json()}])
+
+    with _returning(dataset), pytest.raises(ValueError, match="single dataset name"):
         write_verl_parquet(
-            params,
+            _two_dataset_params(),
             split=DatasetSplit.TRAIN,
             tokenizer=None,
             output_path=tmp_path / "train.parquet",
         )
+
+
+def test_a_mixed_split_already_in_verl_format_is_accepted(tmp_path: Path):
+    rows = [
+        {"data_source": "first", "prompt": [{"role": "user", "content": "a"}]},
+        {"data_source": "second", "prompt": [{"role": "user", "content": "b"}]},
+    ]
+
+    with _returning(Dataset.from_list(rows)):
+        count = write_verl_parquet(
+            _two_dataset_params(),
+            split=DatasetSplit.TRAIN,
+            tokenizer=None,
+            output_path=tmp_path / "train.parquet",
+        )
+
+    assert count == 2
+    assert list(pd.read_parquet(tmp_path / "train.parquet")["data_source"]) == [
+        "first",
+        "second",
+    ]
 
 
 def test_an_empty_split_is_refused(tmp_path: Path):
