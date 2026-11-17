@@ -116,7 +116,8 @@ def conversation_to_verl_row(
 
     Returns:
         A verl row. Conversations whose metadata has `agent_name: tool_agent` become
-        tool-agent rows; all others are single-turn rows.
+        tool-agent rows; all others are single-turn rows. Every row names its agent
+        explicitly, so verl's `default_agent_loop` setting does not apply to them.
 
     Raises:
         ValueError: If the conversation or its tool-agent metadata is invalid.
