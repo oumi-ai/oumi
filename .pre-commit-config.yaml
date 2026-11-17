@@ -21,15 +21,18 @@ repos:
       - id: debug-statements
       - id: detect-private-key
       - id: end-of-file-fixer
+        exclude: ^src/oumi/verl_grpo/ppo_trainer_defaults_.*\.yaml$
       - id: fix-byte-order-marker
       - id: mixed-line-ending
         args: [--fix=lf]
+        exclude: ^src/oumi/verl_grpo/ppo_trainer_defaults_.*\.yaml$
       - id: name-tests-test
         args: [--pytest-test-first]
         exclude: ^tests/markers\.py$
       - id: no-commit-to-branch
         args: [--branch, deploy, --branch, main]
       - id: trailing-whitespace
+        exclude: ^src/oumi/verl_grpo/ppo_trainer_defaults_.*\.yaml$
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.15.0
     hooks:
