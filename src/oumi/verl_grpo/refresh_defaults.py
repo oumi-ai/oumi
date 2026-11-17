@@ -1,3 +1,17 @@
+# Copyright 2026 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """Refreshes the pinned copy of verl's default trainer config.
 
 Run with `python -m oumi.verl_grpo.refresh_defaults --verl-python PATH`, where PATH
@@ -23,6 +37,7 @@ _DEFAULTS_GLOB = "ppo_trainer_defaults_*.yaml"
 _GENERATED_CONFIG = Path("trainer") / "config" / "_generated_ppo_trainer.yaml"
 
 # verl takes about a minute to import, so its install is located without importing it.
+_VERL_NOT_FOUND_EXIT_CODE = 1
 _LOCATE_VERL = """
 import importlib.metadata, importlib.util, json, sys
 try:
@@ -80,12 +95,20 @@ def refresh_defaults(verl_python: str, *, defaults_dir: Path) -> DefaultsChange:
     Raises:
         RuntimeError: If verl or its generated config can't be found.
     """
-    located = subprocess.run(
-        [verl_python, "-c", _LOCATE_VERL], capture_output=True, text=True
-    )
-    if located.returncode != 0:
+    try:
+        located = subprocess.run(
+            [verl_python, "-c", _LOCATE_VERL], capture_output=True, text=True
+        )
+    except OSError as exc:
+        raise RuntimeError(f"can't run '{verl_python}': {exc}") from exc
+    if located.returncode == _VERL_NOT_FOUND_EXIT_CODE:
         raise RuntimeError(f"no verl is installed for '{verl_python}'")
-    info = json.loads(located.stdout)
+    if located.returncode != 0:
+        raise RuntimeError(
+            f"'{verl_python}' failed to locate verl: {located.stderr.strip()}"
+        )
+    # Interpreters can print before the snippet runs, such as from sitecustomize.
+    info = json.loads(located.stdout.strip().splitlines()[-1])
     source = Path(info["root"]) / _GENERATED_CONFIG
     if not source.is_file():
         raise RuntimeError(f"verl {info['version']} has no '{_GENERATED_CONFIG}'")
@@ -94,10 +117,11 @@ def refresh_defaults(verl_python: str, *, defaults_dir: Path) -> DefaultsChange:
     old_keys = _load_flat(old_copies[-1]) if old_copies else {}
     new_keys = _load_flat(source)
 
-    for old_copy in old_copies:
-        old_copy.unlink()
     destination = defaults_dir / f"ppo_trainer_defaults_{info['version']}.yaml"
     shutil.copyfile(source, destination)
+    for old_copy in old_copies:
+        if old_copy != destination:
+            old_copy.unlink()
 
     shared = old_keys.keys() & new_keys.keys()
     return DefaultsChange(
@@ -122,7 +146,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        change = refresh_defaults(args.verl_python, defaults_dir=VERL_DEFAULTS_FILE.parent)
+        change = refresh_defaults(
+            args.verl_python, defaults_dir=VERL_DEFAULTS_FILE.parent
+        )
     except RuntimeError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
