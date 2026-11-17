@@ -12,9 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Any
+
 from typing_extensions import override
 
-from oumi.core.configs import InferenceConfig
+from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.types.conversation import Conversation
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 
@@ -43,6 +45,33 @@ class OpenRouterInferenceEngine(RemoteInferenceEngine):
     def api_key_env_varname(self) -> str | None:
         """Return the default environment variable name for the OpenRouter API key."""
         return "OPENROUTER_API_KEY"
+
+    @override
+    def _convert_conversation_to_api_input(
+        self,
+        conversation: Conversation,
+        generation_params: GenerationParams,
+        model_params: ModelParams,
+    ) -> dict[str, Any]:
+        """Converts a conversation to an OpenRouter input.
+
+        Omits sampling parameters left at their defaults: an unset ``seed`` and
+        zero ``frequency_penalty`` / ``presence_penalty``. OpenRouter's
+        ``provider.require_parameters`` counts every parameter present in the
+        body, whatever its value, so sending them would rule out providers that
+        do not support them even though the request does not use them.
+
+        Documentation: https://openrouter.ai/docs/guides/routing/provider-selection
+        """
+        api_input = super()._convert_conversation_to_api_input(
+            conversation, generation_params, model_params
+        )
+        if api_input.get("seed") is None:
+            api_input.pop("seed", None)
+        for penalty in ("frequency_penalty", "presence_penalty"):
+            if api_input.get(penalty) == 0:
+                api_input.pop(penalty, None)
+        return api_input
 
     @override
     def get_models_api_url(self) -> str:

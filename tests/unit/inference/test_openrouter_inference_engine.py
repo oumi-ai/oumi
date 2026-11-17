@@ -121,3 +121,36 @@ def test_openrouter_supported_params(openrouter_engine):
     assert "stop_strings" in supported
     assert "frequency_penalty" in supported
     assert "presence_penalty" in supported
+
+
+def _api_input(engine, generation_params):
+    return engine._convert_conversation_to_api_input(
+        Conversation(messages=[Message(role=Role.USER, content="Hello!")]),
+        generation_params,
+        ModelParams(model_name="openai/gpt-4"),
+    )
+
+
+def test_openrouter_omits_sampling_params_left_at_defaults(openrouter_engine):
+    """Unset seed and zero penalties are not sent.
+
+    OpenRouter's require_parameters routing counts any parameter in the body.
+    """
+    api_input = _api_input(openrouter_engine, GenerationParams(max_new_tokens=10))
+
+    assert "seed" not in api_input
+    assert "frequency_penalty" not in api_input
+    assert "presence_penalty" not in api_input
+
+
+def test_openrouter_sends_sampling_params_that_are_set(openrouter_engine):
+    api_input = _api_input(
+        openrouter_engine,
+        GenerationParams(
+            max_new_tokens=10, seed=0, frequency_penalty=0.5, presence_penalty=-0.5
+        ),
+    )
+
+    assert api_input["seed"] == 0
+    assert api_input["frequency_penalty"] == 0.5
+    assert api_input["presence_penalty"] == -0.5
