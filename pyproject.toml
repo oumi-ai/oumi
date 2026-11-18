@@ -285,11 +285,11 @@ ban-relative-imports = "all" # Disallow all relative imports.
 convention = "google"
 
 [tool.ruff.lint.isort]
-known-first-party = ["oumi"]
+known-first-party = ["oumi", "oumi_verl_ext"]
 known-third-party = ["wandb"]
 
 [tool.pyright]
-include = ["src/oumi/**", "tests/**"]
+include = ["src/oumi/**", "src/oumi_verl_ext/**", "tests/**"]
 exclude = [
     "src/oumi/core/types/proto/**",
     "src/oumi/utils/verl_utils/model_merger.py",
@@ -301,7 +301,7 @@ pythonPlatform = "All" # Include linux, mac, windows
 reportPrivateImportUsage = "none"
 
 [tool.ty.src]
-include = ["src/oumi/**"]
+include = ["src/oumi/**", "src/oumi_verl_ext/**"]
 exclude = [
     "src/oumi/core/types/proto/**",
     "src/oumi/utils/verl_utils/model_merger.py",
@@ -361,7 +361,7 @@ markers = [
 ]
 
 [tool.coverage.run]
-source = ["src/oumi"]
+source = ["src/oumi", "src/oumi_verl_ext"]
 branch = true
 omit = [
     "src/oumi/__main__.py",
