@@ -173,6 +173,15 @@ class SimulatedEnvironment(BaseEnvironment):
         """Stateful synth envs need per-sample isolation; stateless do not."""
         return self._state is not None
 
+    def is_replayable(self) -> bool:
+        """Stateless envs can replay a failed batch; stateful ones cannot.
+
+        Replaying a stateful env would apply the state updates of the calls that
+        already succeeded a second time. A stateless env only recomputes outputs
+        (or serves them from its cache), since its executors can't change state.
+        """
+        return self._state is None
+
     @classmethod
     def from_params(cls, params: EnvironmentParams) -> SimulatedEnvironment:
         """Build a SimulatedEnvironment from its params object."""
