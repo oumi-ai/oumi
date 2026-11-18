@@ -49,7 +49,7 @@ def compute_grpo_reward_group_metrics(
 
     Raises:
         ValueError: If the threshold is negative or not finite, or the inputs are
-            empty or differ in length.
+            empty, not 1-D, or differ in length.
     """
     if not math.isfinite(low_std_threshold):
         raise ValueError("low_std_threshold must be finite.")
@@ -57,6 +57,8 @@ def compute_grpo_reward_group_metrics(
         raise ValueError("low_std_threshold must be non-negative.")
     if sequence_rewards.size == 0:
         raise ValueError("Cannot compute reward-group metrics for empty inputs.")
+    if sequence_rewards.ndim != 1 or group_ids.ndim != 1:
+        raise ValueError("Rewards and group ids must be 1-D arrays.")
     if group_ids.shape != sequence_rewards.shape:
         raise ValueError("The number of group ids must match the number of rewards.")
 
@@ -84,8 +86,11 @@ def compute_response_truncation_ratio(
     """Returns the fraction of responses that reached `max_response_length`.
 
     Raises:
-        ValueError: If `response_lengths` is empty.
+        ValueError: If `response_lengths` is empty or `max_response_length` is not
+            positive.
     """
+    if max_response_length <= 0:
+        raise ValueError("max_response_length must be positive.")
     if response_lengths.size == 0:
         raise ValueError("Cannot compute a truncation ratio for empty lengths.")
     return float((response_lengths >= max_response_length).mean())
@@ -103,7 +108,11 @@ def last_output_per_session(keys: Sequence[str]) -> list[str]:
     last_position: dict[str, int] = {}
     last_index: dict[str, int] = {}
     for position, key in enumerate(keys):
-        session, _, index = key.rpartition("_")
+        parts = key.rsplit("_", 2)
+        if len(parts) != 3 or not parts[2].isdecimal():
+            raise ValueError(f"Expected a '{{uid}}_{{session}}_{{index}}' key: {key!r}")
+        uid, session_id, index = parts
+        session = f"{uid}_{session_id}"
         if session not in last_index or int(index) > last_index[session]:
             last_index[session] = int(index)
             last_position[session] = position

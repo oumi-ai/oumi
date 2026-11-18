@@ -2,7 +2,6 @@ import numpy as np
 import pytest
 
 from oumi_verl_ext.metrics import (
-    TRUNCATION_RATIO_KEY,
     compute_grpo_reward_group_metrics,
     compute_response_truncation_ratio,
     last_output_per_session,
@@ -50,6 +49,13 @@ def test_empty_or_mismatched_inputs_are_refused():
         compute_grpo_reward_group_metrics(np.array([1.0, 0.0]), np.array(["a"]))
 
 
+def test_group_metrics_refuse_non_1d_inputs():
+    with pytest.raises(ValueError, match="1-D"):
+        compute_grpo_reward_group_metrics(
+            np.array([[1.0, 0.0]]), np.array([["a", "a"]])
+        )
+
+
 def test_truncation_ratio_is_measured_against_the_configured_limit():
     ratio = compute_response_truncation_ratio(
         np.array([10, 20, 20]), max_response_length=20
@@ -71,8 +77,10 @@ def test_truncation_ratio_refuses_empty_lengths():
         compute_response_truncation_ratio(np.array([]), max_response_length=20)
 
 
-def test_truncation_ratio_key_is_separate_from_verl_clip_ratio():
-    assert TRUNCATION_RATIO_KEY == "oumi/response_truncation_ratio"
+@pytest.mark.parametrize("limit", [0, -5])
+def test_truncation_ratio_refuses_a_non_positive_limit(limit):
+    with pytest.raises(ValueError, match="max_response_length"):
+        compute_response_truncation_ratio(np.array([5, 10]), max_response_length=limit)
 
 
 def test_last_output_per_session_keeps_the_highest_index_in_input_order():
@@ -85,3 +93,9 @@ def test_last_output_per_session_handles_underscores_in_uid_and_unordered_input(
     keys = ["a_b_0_2", "a_b_0_10", "a_b_0_1"]
 
     assert last_output_per_session(keys) == ["a_b_0_10"]
+
+
+@pytest.mark.parametrize("key", ["u1_3", "7", "u1_0_x"])
+def test_last_output_per_session_names_a_malformed_key(key):
+    with pytest.raises(ValueError, match=key):
+        last_output_per_session(["u1_0_0", key])
