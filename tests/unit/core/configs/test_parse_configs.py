@@ -54,6 +54,8 @@ def _get_all_config_paths(exclude_yaml_suffixes: set[str] | None) -> list[str]:
             "analyze/analyze.yaml",  # Uses TypedAnalyzeConfig (v2) format
             "grpo_verl_nl2sql/environment_config.yaml",  # EnvironmentConfig
             "grpo_verl_nl2sql/verl_tool_config.yaml",  # verl-format tool config
+            # verl's agent-loop registry format: a bare list, not an Oumi config.
+            "user_sim_agent_loop.yaml",
         }
     ),
 )
@@ -92,6 +94,8 @@ def test_parse_configs(config_path: str):
             "analyze/analyze.yaml",  # Uses TypedAnalyzeConfig (v2) format
             "grpo_verl_nl2sql/environment_config.yaml",  # EnvironmentConfig
             "grpo_verl_nl2sql/verl_tool_config.yaml",  # verl-format tool config
+            # verl's agent-loop registry format: a bare list, not an Oumi config.
+            "user_sim_agent_loop.yaml",
         }
     ),
 )
