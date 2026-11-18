@@ -33,6 +33,7 @@ from pathlib import Path
 from typing import Final
 
 from huggingface_hub import snapshot_download
+from huggingface_hub.errors import HfHubHTTPError
 from safetensors import safe_open
 from safetensors.torch import save_file
 
@@ -182,73 +183,100 @@ def _tensor_names(path: Path) -> list[str]:
         return list(handle.keys())
 
 
-def _exported_weight_map(output_dir: Path) -> dict[str, str]:
-    index_path = output_dir / _WEIGHT_INDEX_FILENAME
+def _tensor_bytes(path: Path) -> int:
+    """Total bytes of the tensors in a safetensors file, from its header."""
+    with path.open("rb") as handle:
+        header = json.loads(handle.read(int.from_bytes(handle.read(8), "little")))
+    return sum(
+        entry["data_offsets"][1] - entry["data_offsets"][0]
+        for name, entry in header.items()
+        if name != "__metadata__"
+    )
+
+
+def _base_weight_files(base_dir: Path) -> list[Path]:
+    """The HF weight shards of a base model, ignoring other safetensors files."""
+    index_path = base_dir / _WEIGHT_INDEX_FILENAME
     if index_path.is_file():
-        return json.loads(index_path.read_text())["weight_map"]
-    return {
-        name: path.name
-        for path in output_dir.glob("*.safetensors")
-        if _is_weights_file(path)
-        for name in _tensor_names(path)
-    }
+        shards = set(_read_json(index_path)["weight_map"].values())
+        return sorted(base_dir / shard for shard in shards)
+    return sorted(
+        path
+        for path in base_dir.glob("*.safetensors")
+        if _is_weights_file(path) and path.name != _BASE_FILL_FILENAME
+    )
 
 
-def _fill_missing_base_tensors(output_dir: Path, base_model: str) -> None:
-    """Adds the base tensors that the export lacks, as a shard of its own.
+def _fill_missing_base_tensors(merged_dir: Path, base_model: str) -> None:
+    """Adds the base tensors that the merged model lacks, as a shard of its own.
 
     Some architectures share tensors between layers, so the merger can omit tensors
     that serving engines still require. Only tensor names are compared.
     """
     base_dir = Path(base_model)
     if not base_dir.is_dir():
-        base_dir = Path(
-            snapshot_download(
-                base_model,
-                allow_patterns=["*.safetensors", "*.safetensors.index.json"],
+        try:
+            base_dir = Path(
+                snapshot_download(
+                    base_model,
+                    allow_patterns=["model*.safetensors", _WEIGHT_INDEX_FILENAME],
+                )
             )
-        )
-    exported = _exported_weight_map(output_dir)
+        except (HfHubHTTPError, OSError) as exc:
+            raise VerlExportError(
+                f"can't download base weights for '{base_model}': {exc}"
+            ) from exc
+    index_path = merged_dir / _WEIGHT_INDEX_FILENAME
+    if index_path.is_file():
+        weight_map = _read_json(index_path)["weight_map"]
+    else:
+        weight_map = {
+            name: path.name
+            for path in merged_dir.glob("*.safetensors")
+            if _is_weights_file(path)
+            for name in _tensor_names(path)
+        }
+    base_tensor_count = 0
     missing_by_file: dict[Path, list[str]] = {}
-    for path in sorted(base_dir.glob("*.safetensors")):
-        missing = [name for name in _tensor_names(path) if name not in exported]
+    for path in _base_weight_files(base_dir):
+        names = _tensor_names(path)
+        base_tensor_count += len(names)
+        missing = [name for name in names if name not in weight_map]
         if missing:
             missing_by_file[path] = missing
-    if not missing_by_file:
+    missing_count = sum(len(names) for names in missing_by_file.values())
+    if not missing_count:
         return
+    if missing_count * 2 > base_tensor_count:
+        raise VerlExportError(
+            f"{missing_count} of the base model's {base_tensor_count} tensors are "
+            "missing from the export; its tensor names don't match the base's"
+        )
 
     filled = {}
     for path, names in missing_by_file.items():
         with safe_open(path, framework="pt") as handle:
             for name in names:
                 filled[name] = handle.get_tensor(name).contiguous()
-    save_file(filled, str(output_dir / _BASE_FILL_FILENAME), metadata={"format": "pt"})
+    save_file(filled, str(merged_dir / _BASE_FILL_FILENAME), metadata={"format": "pt"})
 
-    index_path = output_dir / _WEIGHT_INDEX_FILENAME
-    index = (
-        json.loads(index_path.read_text())
-        if index_path.is_file()
-        else {"metadata": {}, "weight_map": exported}
+    weight_map.update(dict.fromkeys(filled, _BASE_FILL_FILENAME))
+    total_size = sum(
+        _tensor_bytes(merged_dir / shard) for shard in set(weight_map.values())
     )
-    index["weight_map"].update(dict.fromkeys(filled, _BASE_FILL_FILENAME))
-    fill_bytes = sum(
-        tensor.numel() * tensor.element_size() for tensor in filled.values()
-    )
-    metadata = index.setdefault("metadata", {})
-    if "total_size" in metadata:
-        metadata["total_size"] += fill_bytes
-    else:
-        metadata["total_size"] = sum(
-            path.stat().st_size for path in output_dir.glob("*.safetensors")
+    index_path.write_text(
+        json.dumps(
+            {"metadata": {"total_size": total_size}, "weight_map": weight_map},
+            indent=2,
         )
-    index_path.write_text(json.dumps(index, indent=2))
+    )
     logger.info(
         f"Filled {len(filled)} tensors missing from the export from '{base_model}': "
         f"{sorted(filled)[:5]}"
     )
 
 
-def _place_full_model(merged_dir: Path, output_dir: Path) -> None:
+def _place_full_model(merged_dir: Path, output_dir: Path, base_model: str) -> None:
     has_weights = any(
         _is_weights_file(path) for path in merged_dir.glob("*.safetensors")
     )
@@ -256,6 +284,7 @@ def _place_full_model(merged_dir: Path, output_dir: Path) -> None:
         raise VerlExportError(
             "verl's model merger wrote no config.json and model*.safetensors"
         )
+    _fill_missing_base_tensors(merged_dir, base_model)
     for path in merged_dir.iterdir():
         if path.is_file():
             shutil.move(path, output_dir / path.name)
@@ -326,8 +355,7 @@ def export_verl_checkpoint(
                 exclude_modules=exclude_modules,
             )
         else:
-            _place_full_model(scratch, output_dir)
-            _fill_missing_base_tensors(output_dir, base_model)
+            _place_full_model(scratch, output_dir, base_model)
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
     return output_dir

@@ -36,9 +36,17 @@ if mode == "fail":
 (target / "tokenizer.json").write_text("{}")
 if mode == "full":
     (target / "config.json").write_text("{}")
-    names = os.environ.get("FAKE_TENSORS", "a").split(",")
-    save_file(
-        {name: torch.zeros(2) for name in names}, str(target / "model.safetensors")
+    save_file({"a": torch.zeros(2)}, str(target / "model.safetensors"))
+elif mode == "full_sharded":
+    (target / "config.json").write_text("{}")
+    save_file({"a": torch.zeros(2)}, str(target / "model-00001-of-00001.safetensors"))
+    (target / "model.safetensors.index.json").write_text(
+        json.dumps(
+            {
+                "metadata": {"total_size": 8},
+                "weight_map": {"a": "model-00001-of-00001.safetensors"},
+            }
+        )
     )
 else:
     (target / "tokenizer_config.json").write_text("{}")
@@ -267,7 +275,7 @@ def test_unreadable_merger_or_checkpoint_files_raise_export_errors(
 
 
 def test_full_export_fills_tensors_missing_from_the_base(
-    tmp_path, actor, fake_merger, base_dir, monkeypatch
+    tmp_path, actor, fake_merger, base_dir
 ):
     save_file(
         {
@@ -286,6 +294,7 @@ def test_full_export_fills_tensors_missing_from_the_base(
         "a": "model.safetensors",
         "b": "model-base-fill.safetensors",
     }
+    assert index["metadata"]["total_size"] == 8 + 6
     filled = load_file(out / "model-base-fill.safetensors")
     assert filled.keys() == {"b"}
     assert filled["b"].dtype == torch.bfloat16
@@ -293,28 +302,11 @@ def test_full_export_fills_tensors_missing_from_the_base(
 
 
 def test_full_export_fill_extends_a_sharded_export_index(
-    tmp_path, actor, fake_merger, base_dir
+    tmp_path, actor, fake_merger, base_dir, monkeypatch
 ):
+    monkeypatch.setenv("FAKE_MERGE", "full_sharded")
     save_file(
         {"a": torch.zeros(2), "c": torch.ones(2)}, str(base_dir / "model.safetensors")
-    )
-    monkeypatch_fake = tmp_path / "bin" / "fake_python"
-    text = monkeypatch_fake.read_text()
-    monkeypatch_fake.write_text(
-        text
-        + """
-if mode == "full":
-    (target / "model.safetensors").unlink()
-    save_file({"a": torch.zeros(2)}, str(target / "model-00001-of-00001.safetensors"))
-    (target / "model.safetensors.index.json").write_text(
-        json.dumps(
-            {
-                "metadata": {"total_size": 8},
-                "weight_map": {"a": "model-00001-of-00001.safetensors"},
-            }
-        )
-    )
-"""
     )
 
     out = export_verl_checkpoint(
@@ -327,6 +319,101 @@ if mode == "full":
         "c": "model-base-fill.safetensors",
     }
     assert index["metadata"]["total_size"] == 8 + 8
+
+
+def test_full_export_fill_ignores_non_hf_safetensors_in_the_base(
+    tmp_path, actor, fake_merger, base_dir
+):
+    save_file(
+        {"a": torch.zeros(2), "b": torch.ones(2)}, str(base_dir / "model.safetensors")
+    )
+    save_file({"native.x": torch.ones(2)}, str(base_dir / "consolidated.safetensors"))
+
+    out = export_verl_checkpoint(
+        actor, tmp_path / "out", base_model=str(base_dir), verl_python=str(fake_merger)
+    )
+
+    assert load_file(out / "model-base-fill.safetensors").keys() == {"b"}
+
+
+def test_full_export_fill_reads_only_the_shards_the_base_index_names(
+    tmp_path, actor, fake_merger, base_dir
+):
+    save_file(
+        {"a": torch.zeros(2), "b": torch.ones(2)}, str(base_dir / "model-1.safetensors")
+    )
+    save_file({"stray": torch.ones(2)}, str(base_dir / "model-stray.safetensors"))
+    (base_dir / "model.safetensors").unlink()
+    (base_dir / "model.safetensors.index.json").write_text(
+        json.dumps(
+            {"weight_map": {"a": "model-1.safetensors", "b": "model-1.safetensors"}}
+        )
+    )
+
+    out = export_verl_checkpoint(
+        actor, tmp_path / "out", base_model=str(base_dir), verl_python=str(fake_merger)
+    )
+
+    assert load_file(out / "model-base-fill.safetensors").keys() == {"b"}
+
+
+def test_a_hub_base_is_downloaded_with_hf_weight_patterns_only(
+    tmp_path, actor, fake_merger, base_dir, monkeypatch
+):
+    calls = []
+
+    def fake_download(repo_id, **kwargs):
+        calls.append((repo_id, kwargs))
+        return str(base_dir)
+
+    monkeypatch.setattr("oumi.verl_grpo.export.snapshot_download", fake_download)
+
+    export_verl_checkpoint(
+        actor, tmp_path / "out", base_model="org/base", verl_python=str(fake_merger)
+    )
+
+    assert calls == [
+        (
+            "org/base",
+            {"allow_patterns": ["model*.safetensors", "model.safetensors.index.json"]},
+        )
+    ]
+
+
+def test_a_failed_base_download_raises_and_leaves_output_dir_empty(
+    tmp_path, actor, fake_merger, monkeypatch
+):
+    def failing_download(repo_id, **kwargs):
+        raise OSError("offline")
+
+    monkeypatch.setattr("oumi.verl_grpo.export.snapshot_download", failing_download)
+    out = tmp_path / "out"
+
+    with pytest.raises(
+        VerlExportError, match="can't download base weights for 'org/b'"
+    ):
+        export_verl_checkpoint(
+            actor, out, base_model="org/b", verl_python=str(fake_merger)
+        )
+
+    assert list(out.iterdir()) == []
+
+
+def test_full_export_whose_names_mostly_miss_the_base_is_refused(
+    tmp_path, actor, fake_merger, base_dir
+):
+    save_file(
+        {name: torch.zeros(2) for name in ("x", "y", "z")},
+        str(base_dir / "model.safetensors"),
+    )
+    out = tmp_path / "out"
+
+    with pytest.raises(VerlExportError, match="3 of the base model's 3 tensors"):
+        export_verl_checkpoint(
+            actor, out, base_model=str(base_dir), verl_python=str(fake_merger)
+        )
+
+    assert list(out.iterdir()) == []
 
 
 def test_full_export_with_nothing_missing_adds_no_shard(
