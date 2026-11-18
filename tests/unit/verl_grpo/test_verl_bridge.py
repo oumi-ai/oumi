@@ -13,6 +13,8 @@ from oumi.exceptions import OumiConfigError
 from oumi.verl_grpo.bridge import BridgeServer, check_bridge_config, uses_bridge
 from oumi_verl_ext.bridge_client import BRIDGE_REWARD_PATH
 
+_SLOW_REWARD_S = 0.2
+
 
 @register("t_bridge_one", RegistryType.REWARD_FUNCTION)
 def _one(data_source, solution_str, ground_truth, extra_info):
@@ -31,7 +33,7 @@ def _raises(data_source, solution_str, ground_truth, extra_info):
 
 @register("t_bridge_slow", RegistryType.REWARD_FUNCTION)
 def _slow(data_source, solution_str, ground_truth, extra_info):
-    time.sleep(0.2)
+    time.sleep(_SLOW_REWARD_S)
     return 1.0
 
 
@@ -112,6 +114,10 @@ def test_a_raising_reward_function_is_a_500_naming_the_exception():
         {"payload": _payload(reward_functions="t_bridge_one")},
         {"payload": _payload(reward_functions=[])},
         {"payload": _payload(solution_str=3)},
+        {"payload": _payload(reward_weights=[1.0, 2.0])},
+        {"payload": _payload(reward_weights=["1"])},
+        {"payload": _payload(reward_weights=[True])},
+        {"payload": _payload(reward_function_kwargs={"t_bridge_one": 3})},
     ],
 )
 def test_a_malformed_reward_payload_is_a_400(kwargs):
@@ -121,6 +127,20 @@ def test_a_malformed_reward_payload_is_a_400(kwargs):
         )
     assert status == 400
     assert body["error"]
+
+
+def test_exit_returns_while_a_reward_is_still_running():
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        with BridgeServer() as bridge:
+            future = pool.submit(
+                _post,
+                bridge.url + "/reward",
+                _payload(reward_functions=["t_bridge_slow"]),
+            )
+            time.sleep(0.05)
+            start = time.monotonic()
+        assert time.monotonic() - start < _SLOW_REWARD_S
+        future.result(timeout=10)
 
 
 def test_unknown_paths_are_a_404():
@@ -148,17 +168,17 @@ def _verl_config(
     names=("t_bridge_one",),
     weights=None,
     nnodes=1,
+    reward_kwargs=None,
 ):
+    if reward_kwargs is None:
+        reward_kwargs = {"reward_functions": list(names), "reward_weights": weights}
     return OmegaConf.create(
         {
             "trainer": {"nnodes": nnodes},
             "reward": {
                 "custom_reward_function": {
                     "path": path,
-                    "reward_kwargs": {
-                        "reward_functions": list(names),
-                        "reward_weights": weights,
-                    },
+                    "reward_kwargs": reward_kwargs,
                 }
             },
         }
@@ -187,6 +207,11 @@ def test_check_bridge_config_skips_non_bridge_rewards():
         ({"weights": [1.0, 2.0]}, "reward_weights"),
         ({"names": ()}, "reward_functions"),
         ({"nnodes": 2}, "single node"),
+        ({"weights": 2.0}, "list of numbers"),
+        ({"weights": ["a"]}, "list of numbers"),
+        ({"weights": [True]}, "list of numbers"),
+        ({"reward_kwargs": ["t_bridge_one"]}, "mapping"),
+        ({"reward_kwargs": 3}, "mapping"),
     ],
 )
 def test_check_bridge_config_refuses(overrides, match):
