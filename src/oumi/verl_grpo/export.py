@@ -34,15 +34,11 @@ from typing import Final
 
 CHECKPOINT_TRACKER_FILENAME: Final = "latest_checkpointed_iteration.txt"
 
-_SCRATCH_PREFIX: Final = ".verl_merge_"
-_SHADOW_DIRNAME: Final = "actor_shadow"
 _HF_DIRNAME: Final = "huggingface"
 _HF_CONFIG_FILENAME: Final = "config.json"
 _ADAPTER_DIRNAME: Final = "lora_adapter"
 _ADAPTER_CONFIG_FILENAME: Final = "adapter_config.json"
 _ADAPTER_WEIGHTS_FILENAME: Final = "adapter_model.safetensors"
-_NON_ADAPTER_FILENAMES: Final = frozenset({"config.json", "generation_config.json"})
-_STDERR_TAIL_CHARS: Final = 2000
 
 
 class VerlExportError(RuntimeError):
@@ -67,34 +63,39 @@ def _is_weights_file(path: Path) -> bool:
     return path.name.startswith("model") and path.suffix == ".safetensors"
 
 
-def _build_shadow_dir(actor_dir: Path, shadow: Path) -> Path:
-    """Mirrors `actor_dir` with symlinks, minus `attn_implementation` in the HF config.
+def _read_json(path: Path) -> dict:
+    try:
+        return json.loads(path.read_text())
+    except (OSError, ValueError) as exc:
+        raise VerlExportError(f"can't read '{path}': {exc}") from exc
+
+
+def _merger_input_dir(actor_dir: Path, shadow: Path) -> Path:
+    """Returns the directory the merger reads: `actor_dir`, or a shadow of it.
 
     verl's merger needs CUDA when the HF config requests a kernel such as
-    flash_attention_2. A shadow keeps the checkpoint itself untouched.
+    flash_attention_2. When it does, the shadow mirrors `actor_dir` with symlinks,
+    except for an HF config without `attn_implementation`. The checkpoint itself
+    is never written.
     """
+    hf_dir = actor_dir.resolve() / _HF_DIRNAME
+    if not (hf_dir / _HF_CONFIG_FILENAME).is_file():
+        return actor_dir
+    config = _read_json(hf_dir / _HF_CONFIG_FILENAME)
+    if "attn_implementation" not in config:
+        return actor_dir
     shadow.mkdir()
-    source = actor_dir.resolve()
-    for entry in source.iterdir():
-        if entry.name != _HF_DIRNAME or not entry.is_dir():
+    for entry in hf_dir.parent.iterdir():
+        if entry != hf_dir:
             (shadow / entry.name).symlink_to(entry)
-            continue
-        hf_shadow = shadow / _HF_DIRNAME
-        hf_shadow.mkdir()
-        for hf_entry in entry.iterdir():
-            if hf_entry.name != _HF_CONFIG_FILENAME:
-                (hf_shadow / hf_entry.name).symlink_to(hf_entry)
-        config = json.loads((entry / _HF_CONFIG_FILENAME).read_text())
-        config.pop("attn_implementation", None)
-        (hf_shadow / _HF_CONFIG_FILENAME).write_text(json.dumps(config, indent=2))
+    hf_shadow = shadow / _HF_DIRNAME
+    hf_shadow.mkdir()
+    for hf_entry in hf_dir.iterdir():
+        if hf_entry.name != _HF_CONFIG_FILENAME:
+            (hf_shadow / hf_entry.name).symlink_to(hf_entry)
+    del config["attn_implementation"]
+    (hf_shadow / _HF_CONFIG_FILENAME).write_text(json.dumps(config, indent=2))
     return shadow
-
-
-def _needs_shadow(actor_dir: Path) -> bool:
-    config_path = actor_dir / _HF_DIRNAME / _HF_CONFIG_FILENAME
-    if not config_path.is_file():
-        return False
-    return "attn_implementation" in json.loads(config_path.read_text())
 
 
 def _run_merger(local_dir: Path, target_dir: Path, verl_python: str) -> None:
@@ -115,13 +116,13 @@ def _run_merger(local_dir: Path, target_dir: Path, verl_python: str) -> None:
         str(target_dir),
     ]
     try:
-        result = subprocess.run(command, env=env, capture_output=True, text=True)
+        result = subprocess.run(command, env=env)
     except OSError as exc:
         raise VerlExportError(f"can't run '{verl_python}': {exc}") from exc
     if result.returncode != 0:
         raise VerlExportError(
-            f"verl's model merger exited with code {result.returncode}: "
-            f"{result.stderr[-_STDERR_TAIL_CHARS:].strip()}"
+            f"verl's model merger exited with code {result.returncode}; "
+            "see its output above"
         )
 
 
@@ -134,13 +135,15 @@ def _place_lora(
     exclude_modules: str | None,
 ) -> None:
     """Copies the adapter from `adapter_dir` and non-weight files from `extras_dir`."""
-    if (output_dir / "config.json").exists() or any(
+    if (output_dir / _HF_CONFIG_FILENAME).exists() or any(
         _is_weights_file(path) for path in output_dir.glob("*.safetensors")
     ):
         raise VerlExportError(
             f"'{output_dir}' already holds a full model; export the adapter elsewhere"
         )
-    config = json.loads((adapter_dir / _ADAPTER_CONFIG_FILENAME).read_text())
+    config = _read_json(adapter_dir / _ADAPTER_CONFIG_FILENAME)
+    if not (adapter_dir / _ADAPTER_WEIGHTS_FILENAME).is_file():
+        raise VerlExportError(f"no '{_ADAPTER_WEIGHTS_FILENAME}' in {adapter_dir}")
     alpha = config.get("lora_alpha")
     if not isinstance(alpha, int | float) or alpha <= 0:
         raise VerlExportError(f"the adapter has an invalid lora_alpha: {alpha!r}")
@@ -156,7 +159,12 @@ def _place_lora(
         if (
             path.is_file()
             and not _is_weights_file(path)
-            and path.name not in _NON_ADAPTER_FILENAMES
+            and path.name
+            not in {
+                _HF_CONFIG_FILENAME,
+                "generation_config.json",
+                "model.safetensors.index.json",
+            }
         ):
             shutil.copyfile(path, output_dir / path.name)
 
@@ -165,7 +173,7 @@ def _place_full_model(merged_dir: Path, output_dir: Path) -> None:
     has_weights = any(
         _is_weights_file(path) for path in merged_dir.glob("*.safetensors")
     )
-    if not (merged_dir / "config.json").is_file() or not has_weights:
+    if not (merged_dir / _HF_CONFIG_FILENAME).is_file() or not has_weights:
         raise VerlExportError(
             "verl's model merger wrote no config.json and model*.safetensors"
         )
@@ -202,11 +210,9 @@ def export_verl_checkpoint(
         VerlExportError: If the merger fails or its output is unusable.
     """
     output_dir.mkdir(parents=True, exist_ok=True)
-    scratch = Path(tempfile.mkdtemp(prefix=_SCRATCH_PREFIX, dir=output_dir))
+    scratch = Path(tempfile.mkdtemp(prefix=".verl_merge_", dir=output_dir))
     try:
-        local_dir = actor_dir
-        if _needs_shadow(actor_dir):
-            local_dir = _build_shadow_dir(actor_dir, scratch / _SHADOW_DIRNAME)
+        local_dir = _merger_input_dir(actor_dir, scratch / "actor_shadow")
         _run_merger(local_dir, scratch, verl_python)
         adapter_dir = scratch / _ADAPTER_DIRNAME
         if (adapter_dir / _ADAPTER_CONFIG_FILENAME).is_file():

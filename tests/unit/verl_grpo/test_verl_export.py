@@ -37,6 +37,9 @@ if mode == "full":
     save_file({"a": torch.zeros(2)}, str(target / "model.safetensors"))
 else:
     (target / "tokenizer_config.json").write_text("{}")
+    for name in ("config.json", "generation_config.json", "model.safetensors"):
+        (target / name).write_text("{}")
+    (target / "model.safetensors.index.json").write_text("{}")
     adapter = target / "lora_adapter"
     adapter.mkdir()
     alpha = 0 if mode == "lora_alpha0" else 16
@@ -117,6 +120,7 @@ def test_lora_export_places_the_adapter_and_tokenizer_only(
     }
     config = json.loads((out / "adapter_config.json").read_text())
     assert config["base_model_name_or_path"] == "org/base"
+    assert config["exclude_modules"] is None
 
 
 def test_an_adapter_with_zero_alpha_is_refused(
@@ -145,7 +149,7 @@ def test_lora_export_refuses_an_output_dir_holding_a_full_model(
 
 
 def test_merger_failure_raises_with_its_exit_code_and_leaves_no_scratch(
-    tmp_path, actor, fake_merger, monkeypatch
+    tmp_path, actor, fake_merger, monkeypatch, capfd
 ):
     monkeypatch.setenv("FAKE_MERGE", "fail")
     out = tmp_path / "out"
@@ -155,7 +159,8 @@ def test_merger_failure_raises_with_its_exit_code_and_leaves_no_scratch(
             actor, out, base_model="org/base", verl_python=str(fake_merger)
         )
 
-    assert "merger exploded" in str(exc_info.value)
+    assert "see its output above" in str(exc_info.value)
+    assert "merger exploded" in capfd.readouterr().err
     assert list(out.iterdir()) == []
 
 
@@ -199,10 +204,13 @@ def test_cli_returns_zero_on_success_and_one_on_error(
 def test_merge_runs_from_a_shadow_dir_without_attn_implementation(
     tmp_path, actor, fake_merger
 ):
+    before = sorted(p.relative_to(actor) for p in actor.rglob("*"))
+
     export_verl_checkpoint(
         actor, tmp_path / "out", base_model="org/base", verl_python=str(fake_merger)
     )
 
+    assert sorted(p.relative_to(actor) for p in actor.rglob("*")) == before
     argv = _recorded_argv(tmp_path)
     local_dir = Path(argv[argv.index("--local_dir") + 1])
     recorded = json.loads((tmp_path / "record" / "shadow_config.json").read_text())
@@ -230,24 +238,11 @@ def test_lora_export_writes_back_exclude_modules(
     assert config["exclude_modules"] == "(.*vision_tower.*)"
 
 
-def test_exclude_modules_none_keeps_the_adapter_value(
+def test_unreadable_merger_or_checkpoint_files_raise_export_errors(
     tmp_path, actor, fake_merger, monkeypatch
 ):
-    monkeypatch.setenv("FAKE_MERGE", "lora")
-
-    out = export_verl_checkpoint(
-        actor, tmp_path / "out", base_model="org/base", verl_python=str(fake_merger)
-    )
-
-    config = json.loads((out / "adapter_config.json").read_text())
-    assert config["exclude_modules"] is None
-
-
-def test_the_checkpoint_is_not_written_to(tmp_path, actor, fake_merger):
-    before = sorted(p.relative_to(actor) for p in actor.rglob("*"))
-
-    export_verl_checkpoint(
-        actor, tmp_path / "out", base_model="org/base", verl_python=str(fake_merger)
-    )
-
-    assert sorted(p.relative_to(actor) for p in actor.rglob("*")) == before
+    (actor / "huggingface" / "config.json").write_text("{not json")
+    with pytest.raises(VerlExportError, match="can't read"):
+        export_verl_checkpoint(
+            actor, tmp_path / "out", base_model="org/base", verl_python=str(fake_merger)
+        )
