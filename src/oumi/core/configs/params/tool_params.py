@@ -39,6 +39,14 @@ class ToolError(Exception):
     """
 
 
+class ToolEnvironmentError(RuntimeError):
+    """The environment behind a tool failed, rather than the call itself.
+
+    ``ConversationSynthesizer`` re-raises it instead of handing it to the model as
+    a tool error, so an outage stops the run rather than filling it with errors.
+    """
+
+
 class ToolArgumentError(ToolError):
     """Raised when tool-call arguments fail schema validation."""
 
