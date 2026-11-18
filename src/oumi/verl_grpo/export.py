@@ -32,6 +32,12 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Final
 
+from huggingface_hub import snapshot_download
+from safetensors import safe_open
+from safetensors.torch import save_file
+
+from oumi.utils.logging import logger
+
 CHECKPOINT_TRACKER_FILENAME: Final = "latest_checkpointed_iteration.txt"
 
 _HF_DIRNAME: Final = "huggingface"
@@ -39,6 +45,8 @@ _HF_CONFIG_FILENAME: Final = "config.json"
 _ADAPTER_DIRNAME: Final = "lora_adapter"
 _ADAPTER_CONFIG_FILENAME: Final = "adapter_config.json"
 _ADAPTER_WEIGHTS_FILENAME: Final = "adapter_model.safetensors"
+_BASE_FILL_FILENAME: Final = "model-base-fill.safetensors"
+_WEIGHT_INDEX_FILENAME: Final = "model.safetensors.index.json"
 
 
 class VerlExportError(RuntimeError):
@@ -169,6 +177,77 @@ def _place_lora(
             shutil.copyfile(path, output_dir / path.name)
 
 
+def _tensor_names(path: Path) -> list[str]:
+    with safe_open(path, framework="pt") as handle:
+        return list(handle.keys())
+
+
+def _exported_weight_map(output_dir: Path) -> dict[str, str]:
+    index_path = output_dir / _WEIGHT_INDEX_FILENAME
+    if index_path.is_file():
+        return json.loads(index_path.read_text())["weight_map"]
+    return {
+        name: path.name
+        for path in output_dir.glob("*.safetensors")
+        if _is_weights_file(path)
+        for name in _tensor_names(path)
+    }
+
+
+def _fill_missing_base_tensors(output_dir: Path, base_model: str) -> None:
+    """Adds the base tensors that the export lacks, as a shard of its own.
+
+    Some architectures share tensors between layers, so the merger can omit tensors
+    that serving engines still require. Only tensor names are compared.
+    """
+    base_dir = Path(base_model)
+    if not base_dir.is_dir():
+        base_dir = Path(
+            snapshot_download(
+                base_model,
+                allow_patterns=["*.safetensors", "*.safetensors.index.json"],
+            )
+        )
+    exported = _exported_weight_map(output_dir)
+    missing_by_file: dict[Path, list[str]] = {}
+    for path in sorted(base_dir.glob("*.safetensors")):
+        missing = [name for name in _tensor_names(path) if name not in exported]
+        if missing:
+            missing_by_file[path] = missing
+    if not missing_by_file:
+        return
+
+    filled = {}
+    for path, names in missing_by_file.items():
+        with safe_open(path, framework="pt") as handle:
+            for name in names:
+                filled[name] = handle.get_tensor(name).contiguous()
+    save_file(filled, str(output_dir / _BASE_FILL_FILENAME), metadata={"format": "pt"})
+
+    index_path = output_dir / _WEIGHT_INDEX_FILENAME
+    index = (
+        json.loads(index_path.read_text())
+        if index_path.is_file()
+        else {"metadata": {}, "weight_map": exported}
+    )
+    index["weight_map"].update(dict.fromkeys(filled, _BASE_FILL_FILENAME))
+    fill_bytes = sum(
+        tensor.numel() * tensor.element_size() for tensor in filled.values()
+    )
+    metadata = index.setdefault("metadata", {})
+    if "total_size" in metadata:
+        metadata["total_size"] += fill_bytes
+    else:
+        metadata["total_size"] = sum(
+            path.stat().st_size for path in output_dir.glob("*.safetensors")
+        )
+    index_path.write_text(json.dumps(index, indent=2))
+    logger.info(
+        f"Filled {len(filled)} tensors missing from the export from '{base_model}': "
+        f"{sorted(filled)[:5]}"
+    )
+
+
 def _place_full_model(merged_dir: Path, output_dir: Path) -> None:
     has_weights = any(
         _is_weights_file(path) for path in merged_dir.glob("*.safetensors")
@@ -182,6 +261,16 @@ def _place_full_model(merged_dir: Path, output_dir: Path) -> None:
             shutil.move(path, output_dir / path.name)
 
 
+def _is_0_7_1_lora_checkpoint(actor_dir: Path) -> bool:
+    """Whether the adapter is already in `lora_adapter/`, as verl 0.7.1 saved it.
+
+    The merger would write `lora_alpha: 0` for these, so they are placed directly.
+    """
+    return (actor_dir / _ADAPTER_DIRNAME / _ADAPTER_CONFIG_FILENAME).is_file() and (
+        not (actor_dir / "lora_train_meta.json").exists()
+    )
+
+
 def export_verl_checkpoint(
     actor_dir: Path,
     output_dir: Path,
@@ -192,13 +281,15 @@ def export_verl_checkpoint(
 ) -> Path:
     """Exports the FSDP checkpoint in `actor_dir` to `output_dir`.
 
-    A full-parameter checkpoint becomes an HF model directory. A LoRA checkpoint
-    becomes a PEFT adapter, with the tokenizer files beside it.
+    A full-parameter checkpoint becomes an HF model directory, with any tensors the
+    merger omitted copied in from the base model. A LoRA checkpoint becomes a PEFT
+    adapter, with the tokenizer files beside it.
 
     Args:
         actor_dir: The checkpoint's `global_step_<N>/actor` directory. Never written.
         output_dir: Where the export goes.
-        base_model: Base model id or path, recorded in an adapter's config.
+        base_model: Base model id or local directory. Recorded in an adapter's config;
+            supplies the missing tensors of a full export.
         verl_python: Python interpreter of the environment that has verl installed.
         exclude_modules: Regex for modules the adapter excludes. The merger drops
             this field, so it is written back when given.
@@ -210,6 +301,17 @@ def export_verl_checkpoint(
         VerlExportError: If the merger fails or its output is unusable.
     """
     output_dir.mkdir(parents=True, exist_ok=True)
+    if _is_0_7_1_lora_checkpoint(actor_dir):
+        if not (actor_dir / _HF_DIRNAME).is_dir():
+            raise VerlExportError(f"no '{_HF_DIRNAME}' tokenizer files in {actor_dir}")
+        _place_lora(
+            actor_dir / _ADAPTER_DIRNAME,
+            actor_dir / _HF_DIRNAME,
+            output_dir,
+            base_model=base_model,
+            exclude_modules=exclude_modules,
+        )
+        return output_dir
     scratch = Path(tempfile.mkdtemp(prefix=".verl_merge_", dir=output_dir))
     try:
         local_dir = _merger_input_dir(actor_dir, scratch / "actor_shadow")
@@ -225,6 +327,7 @@ def export_verl_checkpoint(
             )
         else:
             _place_full_model(scratch, output_dir)
+            _fill_missing_base_tensors(output_dir, base_model)
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
     return output_dir

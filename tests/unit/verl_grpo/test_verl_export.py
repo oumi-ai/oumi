@@ -4,6 +4,8 @@ import sys
 from pathlib import Path
 
 import pytest
+import torch
+from safetensors.torch import load_file, save_file
 
 from oumi.verl_grpo.export import (
     VerlExportError,
@@ -34,7 +36,10 @@ if mode == "fail":
 (target / "tokenizer.json").write_text("{}")
 if mode == "full":
     (target / "config.json").write_text("{}")
-    save_file({"a": torch.zeros(2)}, str(target / "model.safetensors"))
+    names = os.environ.get("FAKE_TENSORS", "a").split(",")
+    save_file(
+        {name: torch.zeros(2) for name in names}, str(target / "model.safetensors")
+    )
 else:
     (target / "tokenizer_config.json").write_text("{}")
     for name in ("config.json", "generation_config.json", "model.safetensors"):
@@ -69,6 +74,16 @@ def fake_merger(tmp_path, monkeypatch) -> Path:
 
 
 @pytest.fixture
+def base_dir(tmp_path) -> Path:
+    path = tmp_path / "base"
+    path.mkdir()
+    save_file(
+        {"a": torch.zeros(2, dtype=torch.bfloat16)}, str(path / "model.safetensors")
+    )
+    return path
+
+
+@pytest.fixture
 def actor(tmp_path) -> Path:
     actor_dir = tmp_path / "ckpt" / "global_step_6" / "actor"
     (actor_dir / "huggingface").mkdir(parents=True)
@@ -84,13 +99,16 @@ def _recorded_argv(tmp_path: Path) -> list[str]:
 
 
 def test_full_model_export_runs_verl_s_merger_and_places_the_model(
-    tmp_path, fake_merger
+    tmp_path, fake_merger, base_dir
 ):
     actor_dir = tmp_path / "plain_actor"
     actor_dir.mkdir()
 
     out = export_verl_checkpoint(
-        actor_dir, tmp_path / "out", base_model="org/base", verl_python=str(fake_merger)
+        actor_dir,
+        tmp_path / "out",
+        base_model=str(base_dir),
+        verl_python=str(fake_merger),
     )
 
     argv = _recorded_argv(tmp_path)
@@ -182,7 +200,7 @@ def test_latest_checkpoint_without_tracker_or_step_dir_raises(tmp_path):
 
 
 def test_cli_returns_zero_on_success_and_one_on_error(
-    tmp_path, actor, fake_merger, monkeypatch, capsys
+    tmp_path, actor, fake_merger, base_dir, monkeypatch, capsys
 ):
     args = [
         "--actor-dir",
@@ -190,7 +208,7 @@ def test_cli_returns_zero_on_success_and_one_on_error(
         "--output-dir",
         str(tmp_path / "out"),
         "--base-model",
-        "org/base",
+        str(base_dir),
         "--verl-python",
         str(fake_merger),
     ]
@@ -202,12 +220,12 @@ def test_cli_returns_zero_on_success_and_one_on_error(
 
 
 def test_merge_runs_from_a_shadow_dir_without_attn_implementation(
-    tmp_path, actor, fake_merger
+    tmp_path, actor, fake_merger, base_dir
 ):
     before = sorted(p.relative_to(actor) for p in actor.rglob("*"))
 
     export_verl_checkpoint(
-        actor, tmp_path / "out", base_model="org/base", verl_python=str(fake_merger)
+        actor, tmp_path / "out", base_model=str(base_dir), verl_python=str(fake_merger)
     )
 
     assert sorted(p.relative_to(actor) for p in actor.rglob("*")) == before
@@ -245,4 +263,141 @@ def test_unreadable_merger_or_checkpoint_files_raise_export_errors(
     with pytest.raises(VerlExportError, match="can't read"):
         export_verl_checkpoint(
             actor, tmp_path / "out", base_model="org/base", verl_python=str(fake_merger)
+        )
+
+
+def test_full_export_fills_tensors_missing_from_the_base(
+    tmp_path, actor, fake_merger, base_dir, monkeypatch
+):
+    save_file(
+        {
+            "a": torch.zeros(2, dtype=torch.bfloat16),
+            "b": torch.arange(3, dtype=torch.bfloat16),
+        },
+        str(base_dir / "model.safetensors"),
+    )
+
+    out = export_verl_checkpoint(
+        actor, tmp_path / "out", base_model=str(base_dir), verl_python=str(fake_merger)
+    )
+
+    index = json.loads((out / "model.safetensors.index.json").read_text())
+    assert index["weight_map"] == {
+        "a": "model.safetensors",
+        "b": "model-base-fill.safetensors",
+    }
+    filled = load_file(out / "model-base-fill.safetensors")
+    assert filled.keys() == {"b"}
+    assert filled["b"].dtype == torch.bfloat16
+    assert torch.equal(filled["b"], load_file(base_dir / "model.safetensors")["b"])
+
+
+def test_full_export_fill_extends_a_sharded_export_index(
+    tmp_path, actor, fake_merger, base_dir
+):
+    save_file(
+        {"a": torch.zeros(2), "c": torch.ones(2)}, str(base_dir / "model.safetensors")
+    )
+    monkeypatch_fake = tmp_path / "bin" / "fake_python"
+    text = monkeypatch_fake.read_text()
+    monkeypatch_fake.write_text(
+        text
+        + """
+if mode == "full":
+    (target / "model.safetensors").unlink()
+    save_file({"a": torch.zeros(2)}, str(target / "model-00001-of-00001.safetensors"))
+    (target / "model.safetensors.index.json").write_text(
+        json.dumps(
+            {
+                "metadata": {"total_size": 8},
+                "weight_map": {"a": "model-00001-of-00001.safetensors"},
+            }
+        )
+    )
+"""
+    )
+
+    out = export_verl_checkpoint(
+        actor, tmp_path / "out", base_model=str(base_dir), verl_python=str(fake_merger)
+    )
+
+    index = json.loads((out / "model.safetensors.index.json").read_text())
+    assert index["weight_map"] == {
+        "a": "model-00001-of-00001.safetensors",
+        "c": "model-base-fill.safetensors",
+    }
+    assert index["metadata"]["total_size"] == 8 + 8
+
+
+def test_full_export_with_nothing_missing_adds_no_shard(
+    tmp_path, actor, fake_merger, base_dir
+):
+    out = export_verl_checkpoint(
+        actor, tmp_path / "out", base_model=str(base_dir), verl_python=str(fake_merger)
+    )
+
+    assert not (out / "model-base-fill.safetensors").exists()
+    assert not (out / "model.safetensors.index.json").exists()
+
+
+def test_lora_export_never_fills_from_the_base(
+    tmp_path, actor, fake_merger, base_dir, monkeypatch
+):
+    monkeypatch.setenv("FAKE_MERGE", "lora")
+    save_file({"zzz": torch.zeros(2)}, str(base_dir / "model.safetensors"))
+
+    out = export_verl_checkpoint(
+        actor, tmp_path / "out", base_model=str(base_dir), verl_python=str(fake_merger)
+    )
+
+    assert not (out / "model-base-fill.safetensors").exists()
+
+
+def _write_0_7_1_actor(actor_dir: Path, lora_alpha: int) -> None:
+    (actor_dir / "lora_adapter").mkdir(parents=True)
+    (actor_dir / "lora_adapter" / "adapter_config.json").write_text(
+        json.dumps({"base_model_name_or_path": "old", "lora_alpha": lora_alpha})
+    )
+    save_file(
+        {"w": torch.zeros(2)}, str(actor_dir / "lora_adapter/adapter_model.safetensors")
+    )
+    (actor_dir / "huggingface").mkdir()
+    for name in ("config.json", "tokenizer.json"):
+        (actor_dir / "huggingface" / name).write_text("{}")
+
+
+def test_0_7_1_lora_layout_is_placed_without_the_merger(tmp_path, fake_merger):
+    actor_dir = tmp_path / "legacy_actor"
+    _write_0_7_1_actor(actor_dir, lora_alpha=128)
+
+    out = export_verl_checkpoint(
+        actor_dir,
+        tmp_path / "out",
+        base_model="org/base",
+        verl_python=str(fake_merger),
+        exclude_modules="(.*vision_tower.*)",
+    )
+
+    assert not (tmp_path / "record" / "argv.json").exists()
+    assert {p.name for p in out.iterdir()} == {
+        "adapter_config.json",
+        "adapter_model.safetensors",
+        "tokenizer.json",
+    }
+    config = json.loads((out / "adapter_config.json").read_text())
+    assert config["lora_alpha"] == 128
+    assert config["base_model_name_or_path"] == "org/base"
+    assert config["exclude_modules"] == "(.*vision_tower.*)"
+
+
+def test_0_7_1_lora_layout_with_zero_alpha_is_refused(tmp_path, fake_merger):
+    actor_dir = tmp_path / "legacy_actor"
+    _write_0_7_1_actor(actor_dir, lora_alpha=0)
+
+    with pytest.raises(VerlExportError, match="lora_alpha"):
+        export_verl_checkpoint(
+            actor_dir,
+            tmp_path / "out",
+            base_model="org/base",
+            verl_python=str(fake_merger),
         )
