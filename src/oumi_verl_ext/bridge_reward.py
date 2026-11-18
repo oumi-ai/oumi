@@ -30,7 +30,6 @@ from oumi_verl_ext.bridge_client import (
 )
 
 REWARD_TIMEOUT_S: Final = 600.0
-_SCORE_KEY: Final = "score"
 
 
 def oumi_registry_reward(
@@ -70,7 +69,7 @@ def oumi_registry_reward(
     scores = response.get("scores")
     if not isinstance(scores, dict):
         raise BridgeError(f"Bridge response has no 'scores' object: {response}")
-    score = scores.get(_SCORE_KEY)
+    score = scores.get("score")
     if (
         isinstance(score, bool)
         or not isinstance(score, (int, float))

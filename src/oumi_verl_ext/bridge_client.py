@@ -14,11 +14,13 @@
 
 """Constants and HTTP client shared by the verl-side shims of the oumi bridge."""
 
+import http.client
 import json
 import os
 import urllib.error
 import urllib.request
 from collections.abc import Mapping, Sequence
+from http import HTTPStatus
 from typing import Final
 
 import numpy as np
@@ -29,8 +31,6 @@ REWARD_PATH: Final = "/reward"
 TOOL_PATH_PREFIX: Final = "/tool/"
 BRIDGE_REWARD_PATH: Final = "pkg://oumi_verl_ext.bridge_reward"
 BRIDGE_REWARD_NAME: Final = "oumi_registry_reward"
-
-HTTP_OK: Final = 200
 
 
 class BridgeError(RuntimeError):
@@ -46,7 +46,7 @@ def to_json_value(value: object) -> object:
     if isinstance(value, Sequence):
         return [to_json_value(item) for item in value]
     if isinstance(value, np.ndarray):
-        return value.tolist()
+        return to_json_value(value.tolist())
     if isinstance(value, np.generic):
         return value.item()
     return value
@@ -67,9 +67,13 @@ def post_json(
     base_url = os.environ.get(BRIDGE_URL_ENV)
     if not base_url:
         raise BridgeError(f"{BRIDGE_URL_ENV} is not set; the bridge is not running.")
+    try:
+        data = json.dumps(payload).encode()
+    except (TypeError, ValueError) as error:
+        raise BridgeError(f"payload is not JSON-encodable: {error}") from error
     request = urllib.request.Request(
         base_url + path,
-        data=json.dumps(payload).encode(),
+        data=data,
         headers={"Content-Type": "application/json"},
         method="POST",
     )
@@ -82,9 +86,9 @@ def post_json(
         raise BridgeError(
             f"Bridge returned HTTP {error.code} for {path}: {_error_message(error)}"
         ) from error
-    except (urllib.error.URLError, OSError) as error:
+    except (urllib.error.URLError, http.client.HTTPException, OSError) as error:
         raise BridgeError(f"Bridge request to {path} failed: {error}") from error
-    if status != HTTP_OK:
+    if status != HTTPStatus.OK:
         raise BridgeError(f"Bridge returned HTTP {status} for {path}.")
     try:
         decoded = json.loads(body)

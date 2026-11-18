@@ -42,7 +42,8 @@ def stub_bridge(monkeypatch):
             if data is None:
                 data = json.dumps(state["body"]).encode()
             self.send_response(state["status"])
-            self.send_header("Content-Length", str(len(data)))
+            length = state.get("content_length", len(data))
+            self.send_header("Content-Length", str(length))
             self.end_headers()
             self.wfile.write(data)
 
@@ -93,6 +94,25 @@ def test_to_json_value_leaves_strings_and_scalars_alone():
         0.5,
         {"a": True},
     ]
+
+
+def test_to_json_value_encodes_values_nested_in_object_arrays():
+    array = np.empty(2, dtype=object)
+    array[0] = np.array([1, 2])
+    array[1] = {"n": np.int64(3)}
+    assert json.dumps(to_json_value(array)) == '[[1, 2], {"n": 3}]'
+
+
+def test_registry_reward_wraps_an_unencodable_payload(stub_bridge):
+    with pytest.raises(BridgeError, match="JSON-encodable"):
+        oumi_registry_reward("ds", "s", {1, 2}, reward_functions=["t_shim_one"])
+
+
+def test_registry_reward_wraps_a_truncated_response(stub_bridge):
+    stub_bridge["raw"] = b'{"scores": {"score": 1.0}}'
+    stub_bridge["content_length"] = 100
+    with pytest.raises(BridgeError):
+        oumi_registry_reward("ds", "s", "gt", reward_functions=["t_shim_one"])
 
 
 def test_registry_reward_without_a_bridge_url_raises(monkeypatch):
