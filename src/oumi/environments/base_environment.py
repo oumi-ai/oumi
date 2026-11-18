@@ -44,6 +44,15 @@ class BaseEnvironment(ABC):
         """
         return False
 
+    def is_replayable(self) -> bool:
+        """Whether this env's calls are safe to run more than once. Default True.
+
+        Return False when calls have side effects outside the process (a live
+        browser, a remote API). ``ConversationSynthesizer`` then routes such envs
+        one call at a time, so a failed batch never re-runs calls that succeeded.
+        """
+        return True
+
     def close(self) -> None:
         """Release resources owned by this env. Default no-op.
 
