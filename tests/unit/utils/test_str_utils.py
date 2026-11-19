@@ -317,3 +317,13 @@ def test_extract_json_no_json():
 def test_extract_json_any_type():
     assert extract_json("[1, 2]", expected_type=None) == [1, 2]
     assert extract_json('Result: {"a": 1}', expected_type=None) == {"a": 1}
+
+
+def test_extract_json_any_type_prefers_outermost_structure():
+    # A dict that contains a list must be returned whole, not as its inner list.
+    assert extract_json('Result: {"a": [1, 2]}', expected_type=None) == {"a": [1, 2]}
+    # A list that contains dicts must be returned whole, not as its first dict.
+    assert extract_json('Result: [{"a": 1}, {"b": 2}]', expected_type=None) == [
+        {"a": 1},
+        {"b": 2},
+    ]

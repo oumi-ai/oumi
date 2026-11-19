@@ -170,6 +170,10 @@ def extract_json(text: str, expected_type: type | None = list) -> dict | list | 
     if expected_type in (dict, None):
         delimiters.append(("{", "}"))
 
+    # When either type is accepted, try the structure that opens first so a dict
+    # containing a list (e.g. `{"a": [1]}`) is not mistaken for the inner list.
+    delimiters.sort(key=lambda pair: (text.find(pair[0]) == -1, text.find(pair[0])))
+
     for open_char, close_char in delimiters:
         start = text.find(open_char)
         end = text.rfind(close_char)
