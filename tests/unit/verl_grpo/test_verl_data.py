@@ -35,7 +35,7 @@ from oumi.core.types.conversation import (
     Type,
 )
 from oumi.core.types.tool_call import FunctionCall, ToolCall
-from oumi.verl_grpo.data import conversation_to_verl_row, write_verl_parquet
+from oumi.verl_grpo.data import conversation_to_verl_row, main, write_verl_parquet
 
 
 def _row(
@@ -423,3 +423,61 @@ def test_an_iterable_dataset_is_refused(tmp_path: Path):
             tokenizer=None,
             output_path=tmp_path / "train.parquet",
         )
+
+
+def _write_training_config(path: Path, *, train: Path, validation: Path) -> Path:
+    def split(data_path: Path) -> dict[str, Any]:
+        dataset = {
+            "dataset_name": "text_sft",
+            "dataset_path": str(data_path),
+            "dataset_kwargs": {"return_conversations": True},
+        }
+        return {"datasets": [dataset]}
+
+    config = {
+        "model": {"model_name": "openai-community/gpt2"},
+        "data": {"train": split(train), "validation": split(validation)},
+        "training": {"trainer_type": "VERL_GRPO"},
+    }
+    path.write_text(json.dumps(config))
+    return path
+
+
+def test_main_writes_the_named_split_of_a_training_config(tmp_path: Path, capsys):
+    _write_jsonl(tmp_path / "train.jsonl", 3)
+    _write_jsonl(tmp_path / "validation.jsonl", 2)
+    config = _write_training_config(
+        tmp_path / "train.yaml",
+        train=tmp_path / "train.jsonl",
+        validation=tmp_path / "validation.jsonl",
+    )
+    output = tmp_path / "job" / "validation.parquet"
+
+    exit_code = main(
+        ["--config", str(config), "--split", "validation", "--output", str(output)]
+    )
+
+    assert exit_code == 0
+    table = pd.read_parquet(output)
+    assert [e["split"] for e in table["extra_info"]] == ["validation"] * 2
+    assert capsys.readouterr().out == f"wrote 2 rows to {output}\n"
+
+
+def test_main_fails_for_a_split_without_rows(tmp_path: Path, capsys):
+    _write_jsonl(tmp_path / "data.jsonl", 3)
+    config = _write_training_config(
+        tmp_path / "train.yaml",
+        train=tmp_path / "data.jsonl",
+        validation=tmp_path / "data.jsonl",
+    )
+    output = tmp_path / "validation.parquet"
+    empty = Dataset.from_list([{"prompt": []}]).select([])
+
+    with _returning(empty):
+        exit_code = main(
+            ["--config", str(config), "--split", "validation", "--output", str(output)]
+        )
+
+    assert exit_code == 1
+    assert capsys.readouterr().err == "error: The validation split has no rows.\n"
+    assert not output.exists()

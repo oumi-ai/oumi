@@ -1,10 +1,11 @@
+from pathlib import Path
 from types import MappingProxyType
 
 import pytest
 from omegaconf import OmegaConf
 from omegaconf.errors import ConfigAttributeError
 
-from oumi.verl_grpo.config import UnknownVerlKeyError, merge_verl_config
+from oumi.verl_grpo.config import UnknownVerlKeyError, main, merge_verl_config
 
 
 def test_merge_with_no_layers_is_the_defaults_plus_empty_reward_kwargs():
@@ -132,3 +133,53 @@ def test_an_interpolation_may_alias_a_whole_section():
         {"critic": {"optim": "${actor_rollout_ref.actor.optim}"}}
     )
     assert OmegaConf.is_interpolation(merged.critic, "optim")
+
+
+def _write_training_config(path: Path, training: dict) -> Path:
+    OmegaConf.save({"training": training}, path)
+    return path
+
+
+def test_main_merges_the_training_configs_overrides_under_command_line_values(
+    tmp_path: Path,
+):
+    config = _write_training_config(
+        tmp_path / "train.yaml",
+        {
+            "verl_config_overrides": {
+                "trainer": {"total_epochs": 3},
+                "data": {"train_files": "recipe.parquet"},
+            }
+        },
+    )
+    output = tmp_path / "job" / "verl.yaml"
+
+    exit_code = main(
+        ["--config", str(config), "--output", str(output), "data.train_files=/job/t.pq"]
+    )
+
+    assert exit_code == 0
+    written = OmegaConf.load(output)
+    assert written.trainer.total_epochs == 3
+    assert written.data.train_files == "/job/t.pq"
+    # Settings the layers leave alone keep verl's defaults.
+    assert written.data.val_files == merge_verl_config().data.val_files
+
+
+def test_main_writes_the_defaults_for_a_training_config_without_overrides(
+    tmp_path: Path,
+):
+    config = _write_training_config(tmp_path / "train.yaml", {"max_steps": 1})
+    output = tmp_path / "verl.yaml"
+
+    assert main(["--config", str(config), "--output", str(output)]) == 0
+    assert OmegaConf.load(output) == merge_verl_config()
+
+
+def test_main_fails_for_an_unknown_command_line_key(tmp_path: Path, capsys):
+    config = _write_training_config(tmp_path / "train.yaml", {})
+    output = tmp_path / "verl.yaml"
+
+    assert main(["--config", str(config), "--output", str(output), "data.typo=1"]) == 1
+    assert capsys.readouterr().err == "error: verl 0.9.1 has no setting 'data.typo'\n"
+    assert not output.exists()

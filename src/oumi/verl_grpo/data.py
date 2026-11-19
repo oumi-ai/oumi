@@ -12,17 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Turns oumi conversation datasets into the parquet rows verl reads."""
+"""Turns oumi conversation datasets into the parquet rows verl reads.
 
+Run with `python -m oumi.verl_grpo.data --config PATH --split SPLIT --output PATH`
+to write one split of an oumi training config.
+"""
+
+import argparse
 import json
 import os
+import sys
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, Final
 
 from datasets import Dataset
 
 from oumi.builders.data import build_dataset_mixture
-from oumi.core.configs import DataParams, DatasetSplit
+from oumi.core.configs import DataParams, DatasetSplit, TrainingConfig
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.types.conversation import Conversation
 from oumi.core.types.conversation import Role as ConversationRole
@@ -252,3 +259,37 @@ def write_verl_parquet(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     dataset.to_parquet(output_path)
     return len(dataset)
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    """Command-line entry point. Returns the process exit code."""
+    parser = argparse.ArgumentParser(
+        description="Write one split of an oumi training config as a verl parquet file."
+    )
+    parser.add_argument("--config", required=True, help="oumi training config.")
+    parser.add_argument(
+        "--split",
+        required=True,
+        choices=[DatasetSplit.TRAIN.value, DatasetSplit.VALIDATION.value],
+    )
+    parser.add_argument(
+        "--output", required=True, type=Path, help="Where to write the parquet file."
+    )
+    args = parser.parse_args(argv)
+
+    try:
+        count = write_verl_parquet(
+            TrainingConfig.from_yaml(args.config).data,
+            split=DatasetSplit(args.split),
+            tokenizer=None,
+            output_path=args.output,
+        )
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    print(f"wrote {count} rows to {args.output}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

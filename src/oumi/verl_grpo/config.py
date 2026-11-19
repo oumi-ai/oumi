@@ -16,10 +16,15 @@
 
 This module imports only omegaconf and the standard library, so it can be used
 from environments that have neither verl nor Oumi's trainer stack installed.
+
+Run with `python -m oumi.verl_grpo.config --config PATH --output PATH [KEY=VALUE ...]`
+to write the verl config of an oumi training config.
 """
 
+import argparse
 import functools
-from collections.abc import Mapping
+import sys
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Final
 
@@ -151,3 +156,44 @@ def merge_verl_config(*layers: Mapping[str, Any] | DictConfig) -> DictConfig:
     assert isinstance(merged, DictConfig)
     _check_shapes_survive(defaults, merged, "")
     return merged
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    """Command-line entry point. Returns the process exit code."""
+    parser = argparse.ArgumentParser(
+        description=f"Write the verl {VERL_VERSION} config of an oumi training config."
+    )
+    parser.add_argument(
+        "--config",
+        required=True,
+        help="oumi training config; its training.verl_config_overrides are merged "
+        "onto verl's defaults.",
+    )
+    parser.add_argument(
+        "--output", required=True, type=Path, help="Where to write the verl config."
+    )
+    parser.add_argument(
+        "overrides",
+        nargs="*",
+        metavar="KEY=VALUE",
+        help="verl settings that win over the config's, such as data.train_files=PATH.",
+    )
+    args = parser.parse_args(argv)
+
+    config_layer = OmegaConf.select(
+        OmegaConf.load(args.config), "training.verl_config_overrides"
+    )
+    try:
+        merged = merge_verl_config(
+            config_layer or {}, OmegaConf.from_dotlist(args.overrides)
+        )
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    OmegaConf.save(merged, args.output)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
