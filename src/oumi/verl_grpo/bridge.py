@@ -28,9 +28,10 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Final, cast
-from uuid import uuid4
 
-from omegaconf import DictConfig, OmegaConf
+import yaml
+from omegaconf import DictConfig, ListConfig, OmegaConf
+from omegaconf.errors import OmegaConfBaseException
 
 from oumi.core.trainers.verl_grpo_rewards import (
     combined_reward,
@@ -47,6 +48,7 @@ from oumi_verl_ext.bridge_client import (
 )
 
 _LOOPBACK_HOST: Final = "127.0.0.1"
+_TOOL_CONFIG_PATH_KEY: Final = "actor_rollout_ref.rollout.multi_turn.tool_config_path"
 
 
 class _PayloadError(ValueError):
@@ -180,17 +182,6 @@ def _check_tool(
     return {}
 
 
-def _create_tool(
-    routers: RolloutRouters, payload: dict[str, object]
-) -> dict[str, object]:
-    # Only the id is minted here: a rollout's create_kwargs reach the bridge with
-    # each execute's tools_kwargs, so its router is built on first use.
-    instance_id = payload.get("instance_id")
-    if instance_id is not None and not isinstance(instance_id, str):
-        raise _PayloadError("'instance_id' must be null or a string")
-    return {"instance_id": instance_id or uuid4().hex}
-
-
 def _execute_tool(
     routers: RolloutRouters, payload: dict[str, object]
 ) -> dict[str, object]:
@@ -215,20 +206,6 @@ def _execute_tool(
     return {"text": text, "reward": 0.0, "metrics": {}}
 
 
-def _calc_tool_reward(
-    routers: RolloutRouters, payload: dict[str, object]
-) -> dict[str, object]:
-    _str_field(payload, "instance_id")
-    return {"reward": 0.0}
-
-
-def _release_tool(
-    routers: RolloutRouters, payload: dict[str, object]
-) -> dict[str, object]:
-    _str_field(payload, "instance_id")
-    return {}
-
-
 def _close_rollout(
     routers: RolloutRouters, payload: dict[str, object]
 ) -> dict[str, object]:
@@ -237,10 +214,7 @@ def _close_rollout(
 
 _TOOL_OPS: Final = {
     "check": _check_tool,
-    "create": _create_tool,
     "execute": _execute_tool,
-    "calc_reward": _calc_tool_reward,
-    "release": _release_tool,
     "close": _close_rollout,
 }
 
@@ -396,8 +370,17 @@ class BridgeServer:
 
 
 def uses_bridge(verl_config: DictConfig) -> bool:
-    """Whether verl's reward or one of its tools goes through the bridge."""
-    return _uses_bridge_reward(verl_config) or _uses_bridge_tool(verl_config)
+    """Whether verl's reward or one of its tools goes through the bridge.
+
+    A tool config that cannot be parsed counts as no bridge tool;
+    ``check_bridge_config`` reports it.
+    """
+    if _uses_bridge_reward(verl_config):
+        return True
+    try:
+        return bool(_bridge_tools(verl_config))
+    except OumiConfigError:
+        return False
 
 
 def _uses_bridge_reward(verl_config: DictConfig) -> bool:
@@ -405,21 +388,36 @@ def _uses_bridge_reward(verl_config: DictConfig) -> bool:
     return path == BRIDGE_REWARD_PATH
 
 
-def _uses_bridge_tool(verl_config: DictConfig) -> bool:
-    path = OmegaConf.select(
-        verl_config, "actor_rollout_ref.rollout.multi_turn.tool_config_path"
-    )
+def _bridge_tools(verl_config: DictConfig) -> list[DictConfig]:
+    """Returns the ``oumi_verl_ext`` entries of verl's tool config.
+
+    Raises:
+        OumiConfigError: If the tool config is not YAML holding a ``tools`` list
+            of mappings.
+    """
+    path = OmegaConf.select(verl_config, _TOOL_CONFIG_PATH_KEY)
     # verl also resolves paths inside its own package, whose bundled tool
     # configs never name an oumi tool.
     if not path or not Path(path).is_file():
-        return False
-    tool_config = OmegaConf.load(path)
+        return []
+    try:
+        tool_config = OmegaConf.load(path)
+    except (OSError, yaml.YAMLError, OmegaConfBaseException) as error:
+        raise OumiConfigError(
+            f"{_TOOL_CONFIG_PATH_KEY} ({path}) is not readable YAML: {error}"
+        ) from error
     tools = tool_config.get("tools") if isinstance(tool_config, DictConfig) else None
-    return any(
-        isinstance(tool, DictConfig)
-        and str(tool.get("class_name", "")).startswith("oumi_verl_ext.")
-        for tool in tools or []
-    )
+    if not isinstance(tools, ListConfig) or not all(
+        isinstance(tool, DictConfig) for tool in tools
+    ):
+        raise OumiConfigError(
+            f"{_TOOL_CONFIG_PATH_KEY} ({path}) must hold a 'tools' list of mappings."
+        )
+    return [
+        tool
+        for tool in tools
+        if str(tool.get("class_name", "")).startswith("oumi_verl_ext.")
+    ]
 
 
 def check_bridge_config(verl_config: DictConfig) -> None:
@@ -427,19 +425,20 @@ def check_bridge_config(verl_config: DictConfig) -> None:
 
     Raises:
         OumiConfigError: If a reward function is unregistered, the weights do
-            not match the functions, a bridge tool runs with full determinism,
+            not match the functions, the tool config is malformed, a bridge tool
+            lacks an absolute ``oumi_env_config`` or runs with full determinism,
             or the run spans several nodes.
     """
     uses_reward = _uses_bridge_reward(verl_config)
-    uses_tool = _uses_bridge_tool(verl_config)
-    if not (uses_reward or uses_tool):
+    bridge_tools = _bridge_tools(verl_config)
+    if not (uses_reward or bridge_tools):
         return
     if (OmegaConf.select(verl_config, "trainer.nnodes") or 1) > 1:
         raise OumiConfigError(
             "The bridge serves oumi on localhost, so it supports a single node "
             "only (trainer.nnodes must be 1)."
         )
-    if uses_tool and OmegaConf.select(
+    if bridge_tools and OmegaConf.select(
         verl_config, "actor_rollout_ref.rollout.full_determinism"
     ):
         raise OumiConfigError(
@@ -447,6 +446,15 @@ def check_bridge_config(verl_config: DictConfig) -> None:
             "actor_rollout_ref.rollout.full_determinism makes verl reuse "
             "'det-<priority>' request ids across concurrent rollouts. Disable it."
         )
+    for tool in bridge_tools:
+        # The bridge, not verl, opens the file, so a relative path would resolve
+        # against the bridge's working directory.
+        env_config = OmegaConf.select(tool, "config.oumi_env_config")
+        if not isinstance(env_config, str) or not Path(env_config).is_absolute():
+            raise OumiConfigError(
+                f"{tool.get('class_name')} in {_TOOL_CONFIG_PATH_KEY} needs an "
+                f"absolute config.oumi_env_config, not {env_config!r}."
+            )
     if not uses_reward:
         return
     raw_kwargs = OmegaConf.select(

@@ -1,7 +1,6 @@
 import http.client
 import json
 import re
-import sqlite3
 import threading
 import time
 import urllib.error
@@ -11,10 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 import pytest
 from omegaconf import OmegaConf
 
-from oumi.core.configs.environment_config import EnvironmentConfig
-from oumi.core.configs.params.environment_params import EnvironmentParams
 from oumi.core.registry import RegistryType, register
-from oumi.core.types.tool_call import ToolResult
 from oumi.exceptions import OumiConfigError
 from oumi.verl_grpo.bridge import BridgeServer, check_bridge_config, uses_bridge
 from oumi_verl_ext.bridge_client import BRIDGE_REWARD_PATH
@@ -152,7 +148,9 @@ def test_exit_returns_while_a_reward_is_still_running():
         future.result(timeout=10)
 
 
-@pytest.mark.parametrize("path", ["/nope", "/tool/nope"])
+@pytest.mark.parametrize(
+    "path", ["/nope", "/tool/nope", "/tool/create", "/tool/release"]
+)
 def test_unknown_paths_are_a_404(path):
     with BridgeServer() as bridge:
         status, body = _post(bridge.url + path, {})
@@ -245,37 +243,6 @@ def test_check_bridge_config_refuses(overrides, match):
         check_bridge_config(_verl_config(**overrides))
 
 
-def run_sql(arguments: dict, context: sqlite3.Connection) -> ToolResult:
-    cursor = context.execute(arguments["query"])
-    return ToolResult(
-        output={
-            "rows": [list(row) for row in cursor.fetchall()],
-            "args": sorted(arguments),
-        }
-    )
-
-
-def _env_config(tmp_path) -> str:
-    tool = {
-        "description": "run sql",
-        "parameters": {"type": "object", "properties": {"query": {"type": "string"}}},
-        "executor": f"{__name__}.run_sql",
-        "read_only": True,
-    }
-    environment = EnvironmentParams(
-        id="db",
-        env_type="database",
-        env_kwargs={
-            "schema_sql": "CREATE TABLE t(x INTEGER);",
-            "seed_sql": "INSERT INTO t VALUES (1),(2);",
-        },
-        tools=[{"id": name, "name": name, **tool} for name in ("run_sql", "sql_2")],
-    )
-    path = tmp_path / "env.yaml"
-    EnvironmentConfig(environments=[environment]).to_yaml(path)
-    return str(path)
-
-
 def _execute(url, env_config, request_id, query="SELECT x FROM t", **overrides):
     payload = {
         "env_config": env_config,
@@ -292,54 +259,53 @@ def _live_routers(bridge) -> int:
     return _get(bridge.url + "/health")["live_routers"]
 
 
-def test_execute_routes_run_sql_through_http(tmp_path):
+def test_execute_routes_run_sql_through_http(env_config):
     with BridgeServer() as bridge:
-        status, body = _execute(bridge.url, _env_config(tmp_path), "r")
+        status, body = _execute(bridge.url, env_config(), "r")
         assert _live_routers(bridge) == 1
     assert status == 200
-    rows = json.dumps({"rows": [[1], [2]], "args": ["query"]})
+    rows = json.dumps({"rows": [[7]], "args": ["query"]})
     assert body == {"text": rows, "reward": 0.0, "metrics": {}}
 
 
-def test_a_failing_tool_call_becomes_tool_error_text(tmp_path):
+def test_a_failing_tool_call_becomes_tool_error_text(env_config):
     with BridgeServer() as bridge:
-        status, body = _execute(bridge.url, _env_config(tmp_path), "r", "NOT SQL")
+        status, body = _execute(bridge.url, env_config(), "r", "NOT SQL")
     assert status == 200
     assert body["text"].startswith("Tool error:")
 
 
-def test_conflicting_create_kwargs_are_a_400(tmp_path):
+def test_conflicting_create_kwargs_are_a_400(env_config, sql_env):
+    config = env_config(sql_env("db", "run_sql", "sql_2"))
     tools_kwargs = {
         name: {"create_kwargs": {"schema_sql": f"CREATE TABLE {name}(x);"}}
         for name in ("run_sql", "sql_2")
     }
     with BridgeServer() as bridge:
-        status, body = _execute(
-            bridge.url, _env_config(tmp_path), "r", tools_kwargs=tools_kwargs
-        )
+        status, body = _execute(bridge.url, config, "r", tools_kwargs=tools_kwargs)
     assert status == 400
     assert "conflicting create_kwargs" in body["error"]
 
 
-def test_close_drops_live_routers_to_zero(tmp_path):
+def test_close_drops_live_routers_to_zero(env_config):
     with BridgeServer() as bridge:
-        _execute(bridge.url, _env_config(tmp_path), "r")
+        _execute(bridge.url, env_config(), "r")
         close = bridge.url + "/tool/close"
         assert _post(close, {"request_id": "r"}) == (200, {"closed": True})
         assert _live_routers(bridge) == 0
         assert _post(close, {"request_id": "r"}) == (200, {"closed": False})
 
 
-def test_bridge_exit_closes_every_router(tmp_path, caplog):
-    config = _env_config(tmp_path)
+def test_bridge_exit_closes_every_router(env_config, caplog):
+    config = env_config()
     with BridgeServer() as bridge:
         for request_id in ("a", "b"):
             _execute(bridge.url, config, request_id)
     assert "closed 2 live tool routers" in caplog.text
 
 
-def test_concurrent_executes_on_eight_rollouts(tmp_path):
-    config = _env_config(tmp_path)
+def test_concurrent_executes_on_eight_rollouts(env_config):
+    config = env_config()
     with BridgeServer() as bridge:
         with ThreadPoolExecutor(max_workers=8) as pool:
             results = list(
@@ -347,25 +313,13 @@ def test_concurrent_executes_on_eight_rollouts(tmp_path):
             )
         assert _live_routers(bridge) == 8
     assert [status for status, _ in results] == [200] * 8
-    assert all('"rows": [[1], [2]]' in body["text"] for _, body in results)
+    assert all('"rows": [[7]]' in body["text"] for _, body in results)
 
 
-def test_tool_lifecycle_ops_follow_the_contract(tmp_path):
+def test_check_accepts_a_tool_of_the_env_config(env_config):
+    check = {"env_config": env_config(), "tool_name": "run_sql"}
     with BridgeServer() as bridge:
-
-        def post(op, payload):
-            return _post(f"{bridge.url}/tool/{op}", payload)
-
-        check = {"env_config": _env_config(tmp_path), "tool_name": "run_sql"}
-        assert post("check", check) == (200, {})
-        create = {"tool_name": "run_sql", "instance_id": None, "create_kwargs": {}}
-        status, body = post("create", create)
-        assert status == 200
-        assert re.fullmatch(r"[0-9a-f]{32}", body["instance_id"])
-        given = create | {"instance_id": "given"}
-        assert post("create", given) == (200, {"instance_id": "given"})
-        assert post("calc_reward", {"instance_id": "given"}) == (200, {"reward": 0.0})
-        assert post("release", {"instance_id": "given"}) == (200, {})
+        assert _post(bridge.url + "/tool/check", check) == (200, {})
 
 
 @pytest.mark.parametrize(
@@ -378,14 +332,12 @@ def test_tool_lifecycle_ops_follow_the_contract(tmp_path):
         ("execute", {"parameters": [1]}, "parameters"),
         ("execute", {"tools_kwargs": {"run_sql": 3}}, "tools_kwargs"),
         ("execute", {"tools_kwargs": {"nope": {"create_kwargs": {"a": 1}}}}, "nope"),
-        ("create", {"instance_id": 3}, "instance_id"),
-        ("release", {}, "instance_id"),
         ("close", {"request_id": None}, "request_id"),
     ],
 )
-def test_a_malformed_tool_request_is_a_400(tmp_path, op, payload, match):
+def test_a_malformed_tool_request_is_a_400(env_config, op, payload, match):
     base = {
-        "env_config": _env_config(tmp_path),
+        "env_config": env_config(),
         "tool_name": "run_sql",
         "request_id": "r",
         "parameters": {"query": "SELECT 1"},
@@ -396,11 +348,13 @@ def test_a_malformed_tool_request_is_a_400(tmp_path, op, payload, match):
     assert match in body["error"]
 
 
-def _tool_verl_config(tmp_path, class_name, full_determinism=False):
+_BRIDGE_TOOL = "oumi_verl_ext.bridge_tool.OumiBridgeTool"
+_BRIDGE_TOOL_CONFIG = "{type: native, oumi_env_config: /configs/env.yaml}"
+
+
+def _tool_verl_config(tmp_path, tools_yaml, full_determinism=False):
     tool_config = tmp_path / "tools.yaml"
-    tool_config.write_text(
-        f"tools:\n- class_name: {class_name}\n  config: {{type: native}}\n"
-    )
+    tool_config.write_text(tools_yaml)
     rollout = {
         "full_determinism": full_determinism,
         "multi_turn": {"tool_config_path": str(tool_config)},
@@ -410,16 +364,46 @@ def _tool_verl_config(tmp_path, class_name, full_determinism=False):
     )
 
 
+def _tools_yaml(class_name=_BRIDGE_TOOL, config=_BRIDGE_TOOL_CONFIG) -> str:
+    return f"tools:\n- class_name: {class_name}\n  config: {config}\n"
+
+
 def test_uses_bridge_for_a_tool_config_naming_the_bridge_tool(tmp_path):
-    bridge_tool = "oumi_verl_ext.bridge_tool.OumiBridgeTool"
-    assert uses_bridge(_tool_verl_config(tmp_path, bridge_tool))
-    check_bridge_config(_tool_verl_config(tmp_path, bridge_tool))
-    assert not uses_bridge(_tool_verl_config(tmp_path, "verl.tools.my_tool.MyTool"))
+    bridge_tool = _tool_verl_config(tmp_path, _tools_yaml())
+    assert uses_bridge(bridge_tool)
+    check_bridge_config(bridge_tool)
+    verl_tool = _tool_verl_config(
+        tmp_path, _tools_yaml("verl.tools.my_tool.MyTool", "{type: native}")
+    )
+    assert not uses_bridge(verl_tool)
+    check_bridge_config(verl_tool)
 
 
 def test_full_determinism_with_the_bridge_tool_is_refused(tmp_path):
-    verl_config = _tool_verl_config(
-        tmp_path, "oumi_verl_ext.bridge_tool.OumiBridgeTool", full_determinism=True
-    )
+    verl_config = _tool_verl_config(tmp_path, _tools_yaml(), full_determinism=True)
     with pytest.raises(OumiConfigError, match="full_determinism"):
+        check_bridge_config(verl_config)
+
+
+@pytest.mark.parametrize(
+    "tools_yaml", ["tools: [\n", "- a\n", "tools: 3\n", "tools:\n- just a name\n"]
+)
+def test_a_malformed_tool_config_is_a_config_error(tmp_path, tools_yaml):
+    verl_config = _tool_verl_config(tmp_path, tools_yaml)
+    assert not uses_bridge(verl_config)
+    with pytest.raises(OumiConfigError, match="tool_config_path"):
+        check_bridge_config(verl_config)
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        "{type: native}",
+        "{type: native, oumi_env_config: configs/env.yaml}",
+        "{type: native, oumi_env_config: 3}",
+    ],
+)
+def test_a_bridge_tool_needs_an_absolute_oumi_env_config(tmp_path, config):
+    verl_config = _tool_verl_config(tmp_path, _tools_yaml(config=config))
+    with pytest.raises(OumiConfigError, match="absolute config.oumi_env_config"):
         check_bridge_config(verl_config)
