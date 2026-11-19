@@ -474,20 +474,73 @@ class TestAdaptiveSemaphore:
         # Decrease capacity below current usage
         await semaphore.adjust_capacity(2)
         assert semaphore._max_capacity == 2
-        # Current count should never go below 0
-        assert semaphore._current_capacity == 0
+        # 4 permits are held against a capacity of 2, so 2 are owed
+        assert semaphore._current_capacity == -2
 
         # No new acquires should succeed until enough permits are released
         task = asyncio.create_task(semaphore.acquire())
         await asyncio.sleep(0.01)
         assert not task.done()
 
-        # Release 3 permits to get back to positive count
-        for _ in range(3):
+        # The first 2 releases pay back the owed permits
+        for _ in range(2):
             semaphore.release()
+            await asyncio.sleep(0.01)
+            assert not task.done()
+
+        # The third release frees a permit under the new capacity
+        semaphore.release()
 
         # Now the waiting task should complete
         await task
+        assert semaphore._current_capacity == 0
+
+    @pytest.mark.asyncio
+    async def test_adjust_capacity_decrease_limits_holders_while_queued(self):
+        """After a decrease, holders converge to the new capacity under load."""
+        semaphore = AdaptiveSemaphore(10)
+        in_flight = 0
+        peak_after_adjust = 0
+        adjusted = False
+
+        async def work():
+            nonlocal in_flight, peak_after_adjust
+            async with semaphore:
+                in_flight += 1
+                if adjusted:
+                    peak_after_adjust = max(peak_after_adjust, in_flight)
+                await asyncio.sleep(0.02)
+                in_flight -= 1
+
+        tasks = [asyncio.create_task(work()) for _ in range(100)]
+        await asyncio.sleep(0.005)
+        await semaphore.adjust_capacity(5)
+        # Wait until the holders admitted before the decrease have finished
+        await asyncio.sleep(0.05)
+        adjusted = True
+        await asyncio.gather(*tasks)
+
+        assert 0 < peak_after_adjust <= 5
+
+    @pytest.mark.asyncio
+    async def test_cancelled_waiter_returns_handed_over_permit(self):
+        """A waiter cancelled after a release handed it a permit gives it back."""
+        semaphore = AdaptiveSemaphore(1)
+        await semaphore.acquire()
+
+        waiter = asyncio.create_task(semaphore.acquire())
+        await asyncio.sleep(0)
+        assert len(semaphore._waiters) == 1
+
+        # The release hands the permit to the waiter, then the waiter is
+        # cancelled before it can run.
+        await semaphore._release_async()
+        waiter.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await waiter
+
+        assert semaphore._current_capacity == 1
+        await asyncio.wait_for(semaphore.acquire(), timeout=1)
 
     @pytest.mark.asyncio
     async def test_concurrent_operations(self):

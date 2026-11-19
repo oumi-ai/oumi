@@ -73,6 +73,10 @@ class AdaptiveSemaphore:
         except asyncio.CancelledError:
             # Remove cancelled waiter
             await self._remove_waiter_from_queue(waiter_future)
+            if waiter_future.done() and not waiter_future.cancelled():
+                # A release already handed this waiter a permit before the
+                # cancellation arrived. Give it back so it is not lost.
+                await self._release_async()
             raise
         finally:
             await self._remove_waiter_from_queue(waiter_future)
@@ -112,8 +116,11 @@ class AdaptiveSemaphore:
         async with self._lock:
             capacity_change = new_capacity - self._max_capacity
             self._max_capacity = new_capacity
+            # The count may go negative when the new capacity is below the
+            # number of permits in use. Those permits are then owed: each
+            # release pays one back before any waiter is admitted, so the number
+            # of holders converges to the new capacity.
             self._current_capacity += capacity_change
-            self._current_capacity = max(self._current_capacity, 0)
 
             # If we increased capacity, wake up waiters
             if capacity_change > 0:
@@ -130,7 +137,8 @@ class AdaptiveSemaphore:
                         woken += 1
 
             # If we decreased capacity below current usage, we don't forcibly
-            # revoke permits, but future acquires will be limited by the new capacity
+            # revoke permits, but no waiter is admitted until enough of them
+            # are released.
 
 
 class PoliteAdaptiveSemaphore(AdaptiveSemaphore):
