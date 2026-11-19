@@ -19,6 +19,10 @@ Each verl rollout gets its own clone of a ``ToolRouter``, keyed by verl's
 SQLite connection, while the bridge answers every request on a new thread. So each
 rollout owns one worker thread, and its router is built, called and closed only
 there. This also serializes a rollout's parallel tool calls.
+
+Environments that don't require isolation are shared through the parent router and
+called concurrently from every rollout's thread, so they and their executors must
+be thread-safe.
 """
 
 import threading
@@ -87,10 +91,16 @@ class RolloutToolSession:
         router = self._router.result()
         return self._worker.submit(router.route_batch, calls).result()
 
-    def _wait_until_built(self) -> None:
+    def wait_until_built(self) -> None:
+        """Waits for the router build and re-raises the error if it failed."""
         self._router.result()
 
-    def _close(self) -> None:
+    def close(self) -> None:
+        """Closes the router on the rollout's thread, then stops the thread.
+
+        Queued calls run first. ``RolloutRouters`` calls this once it has
+        removed the session from its map.
+        """
         try:
             self._worker.submit(self._close_router).result()
         finally:
@@ -113,6 +123,7 @@ class RolloutRouters:
         """Creates an empty map."""
         self._lock = threading.Lock()
         self._sessions: dict[str, RolloutToolSession] = {}
+        self._closed = False
         self._parent_lock = threading.Lock()
         self._configs: dict[str, EnvironmentConfig] = {}
         self._parents: dict[str, ToolRouter] = {}
@@ -146,9 +157,14 @@ class RolloutRouters:
             ValueError: If ``tools_kwargs`` names an unknown tool or gives one
                 environment conflicting ``create_kwargs``, or if the rollout
                 already uses a different environment config.
+            RuntimeError: If ``close_all`` has already run.
         """
         parent = self._parent(env_config)
         with self._lock:
+            # A request accepted just before shutdown must not build a router
+            # that nothing will close.
+            if self._closed:
+                raise RuntimeError("The tool routers are closed.")
             session = self._sessions.get(request_id)
             if session is None:
                 session = RolloutToolSession(parent, tools_kwargs)
@@ -161,7 +177,7 @@ class RolloutRouters:
                 "List every environment in one config instead."
             )
         try:
-            session._wait_until_built()
+            session.wait_until_built()
         except BaseException:
             self._evict(request_id, session)
             raise
@@ -173,17 +189,18 @@ class RolloutRouters:
             session = self._sessions.pop(request_id, None)
         if session is None:
             return False
-        session._close()
+        session.close()
         return True
 
     def close_all(self) -> int:
-        """Closes every live router and returns how many there were."""
+        """Closes every live router, refuses new ones and returns the count."""
         with self._lock:
+            self._closed = True
             sessions = list(self._sessions.values())
             self._sessions.clear()
         for session in sessions:
             try:
-                session._close()
+                session.close()
             except Exception:
                 logger.exception("Failed to close a rollout's tool router.")
         return len(sessions)
@@ -200,7 +217,7 @@ class RolloutRouters:
             if self._sessions.get(request_id) is not session:
                 return
             del self._sessions[request_id]
-        session._close()
+        session.close()
 
     def _config(self, env_config: str) -> EnvironmentConfig:
         with self._parent_lock:

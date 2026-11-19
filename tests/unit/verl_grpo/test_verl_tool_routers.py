@@ -192,6 +192,14 @@ def test_close_all_returns_the_count_and_empties(routers, tmp_path):
     assert routers.close_all() == 0
 
 
+def test_no_router_is_built_after_close_all(routers, tmp_path):
+    config = _env_config(tmp_path)
+    routers.close_all()
+    with pytest.raises(RuntimeError, match="closed"):
+        routers.get_or_build("late", env_config=config, tools_kwargs={})
+    assert routers.live_count == 0
+
+
 def test_check_tool_names_the_known_tools(routers, tmp_path):
     config = _env_config(tmp_path)
     routers.check_tool(config, "run_sql")
