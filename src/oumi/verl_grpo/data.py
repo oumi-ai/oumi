@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Turns oumi conversation datasets into the parquet rows verl reads."""
+"""Turns oumi conversations into the rows verl reads from parquet."""
 
 import json
 import os
@@ -25,90 +25,10 @@ from oumi.builders.data import build_dataset_mixture
 from oumi.core.configs import DataParams, DatasetSplit
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.types.conversation import Conversation
-from oumi.core.types.conversation import Role as ConversationRole
 from oumi.utils.conversation_utils import create_list_of_message_json_dicts
 from oumi.utils.grpo_utils import extract_prompt_images_completion_from_conversation
 
-SINGLE_TURN_AGENT: Final = "single_turn_agent"
-TOOL_AGENT: Final = "tool_agent"
-
-_PROMPT_JSON_EXTRA_INFO_KEY: Final = "prompt_json"
-_IMAGE_MARKER: Final = "<image>"
 _CONVERSATION_COLUMN: Final = "conversation_json"
-
-
-def _extract_prompt_images_answer(
-    example: dict,
-) -> tuple[list[dict], list, str]:
-    """Finds the prompt, images and answer of a conversation.
-
-    The prompt is in verl's chat format and the answer is the final assistant
-    message's text. Prompt-only conversations have an empty answer.
-
-    Raises:
-        ValueError: If the conversation has images but is multi-turn.
-    """
-    prompt_messages, images, answer = (
-        extract_prompt_images_completion_from_conversation(
-            example, allow_prompt_only=True
-        )
-    )
-
-    if len(images) > 0:
-        user_messages = [m for m in prompt_messages if m["role"] == "user"]
-        if len(user_messages) != 1:
-            raise ValueError(
-                "Images are only supported for single-turn conversations, "
-                f"but the prompt has {len(user_messages)} user messages "
-                "(multi-turn). Please use a text-only multi-turn conversation."
-            )
-        content = user_messages[0]["content"]
-        if not content.startswith(_IMAGE_MARKER):
-            user_messages[0]["content"] = _IMAGE_MARKER + content
-    return (prompt_messages, images, answer)
-
-
-def _tool_agent_row(
-    conversation: Conversation,
-    ground_truth: str,
-    tools_kwargs: dict[str, Any],
-    ability: str,
-    index: int,
-    data_source: str,
-    split: str,
-) -> dict[str, Any]:
-    """Builds a verl row from a structured tool-agent prompt."""
-    if any(
-        message.count_content_items().image_items for message in conversation.messages
-    ):
-        raise ValueError("Tool-agent conversations do not support images.")
-    if not conversation.messages or conversation.messages[-1].role not in (
-        ConversationRole.USER,
-        ConversationRole.TOOL,
-    ):
-        raise ValueError(
-            "Tool-agent conversation prompts must end with a user or tool message."
-        )
-
-    prompt_messages = create_list_of_message_json_dicts(
-        conversation.messages,
-        group_adjacent_same_role_turns=False,
-    )
-    return {
-        "data_source": data_source,
-        "prompt": prompt_messages,
-        "images": [],
-        "ability": ability,
-        "agent_name": TOOL_AGENT,
-        "reward_model": {"style": "rule", "ground_truth": ground_truth},
-        "extra_info": {
-            "split": split,
-            "index": index,
-            _PROMPT_JSON_EXTRA_INFO_KEY: json.dumps(prompt_messages),
-            "need_tools_kwargs": True,
-            "tools_kwargs": tools_kwargs,
-        },
-    }
 
 
 def conversation_to_verl_row(
@@ -116,75 +36,51 @@ def conversation_to_verl_row(
 ) -> dict[str, Any]:
     """Converts a serialized oumi conversation to a verl dataset row.
 
-    Args:
-        conversation_json: The conversation, as produced by `Conversation.to_json()`.
-        index: The row's position in its split.
-        data_source: The name verl's reward manager sees as the row's data source.
-        split: The split name stored in the row's `extra_info`.
-
-    Returns:
-        A verl row. Conversations whose metadata has `agent_name: tool_agent` become
-        tool-agent rows; all others are single-turn rows. Every row names its agent
-        explicitly, so verl's `default_agent_loop` setting does not apply to them.
-
-    Raises:
-        ValueError: If the conversation or its tool-agent metadata is invalid.
+    A conversation whose metadata has `agent_name: tool_agent` becomes a tool-agent
+    row. Any other becomes a single-turn row, with the final assistant message as
+    the ground truth.
     """
-    # Peek at metadata off the raw JSON so only the branch that needs a
-    # `Conversation` pays for building one.
     metadata = json.loads(conversation_json).get("metadata") or {}
-    if metadata.get("agent_name") == TOOL_AGENT:
-        conversation = Conversation.from_json(conversation_json)
-        ground_truth = metadata.get("ground_truth")
-        if not isinstance(ground_truth, str) or not ground_truth:
-            raise ValueError(
-                "Tool-agent conversation metadata must include a non-empty "
-                "string 'ground_truth'."
-            )
-        tools_kwargs = metadata.get("tools_kwargs")
-        tools_kwargs_error = (
-            "Tool-agent conversation metadata 'tools_kwargs' must be a "
-            "mapping of tool names to dictionaries."
+    extra_info: dict[str, Any] = {"split": split, "index": index}
+    if metadata.get("agent_name") == "tool_agent":
+        messages = Conversation.from_json(conversation_json).messages
+        prompt = create_list_of_message_json_dicts(
+            messages, group_adjacent_same_role_turns=False
         )
-        if not isinstance(tools_kwargs, dict):
-            raise ValueError(f"{tools_kwargs_error} Got {type(tools_kwargs).__name__}.")
-        for tool_name, tool_kwargs in tools_kwargs.items():
-            if not isinstance(tool_name, str) or not isinstance(tool_kwargs, dict):
-                raise ValueError(
-                    f"{tools_kwargs_error} Got {tool_name!r}: "
-                    f"{type(tool_kwargs).__name__}."
-                )
-        ability = metadata.get("ability", TOOL_AGENT)
-        if not isinstance(ability, str):
-            raise ValueError(
-                "Tool-agent conversation metadata 'ability' must be a string."
+        images = []
+        agent_name = "tool_agent"
+        ability = metadata.get("ability", "tool_agent")
+        ground_truth = metadata["ground_truth"]
+        extra_info |= {
+            "need_tools_kwargs": True,
+            "tools_kwargs": metadata["tools_kwargs"],
+        }
+    else:
+        prompt, images, ground_truth = (
+            extract_prompt_images_completion_from_conversation(
+                {"conversation_json": conversation_json}, allow_prompt_only=True
             )
-        return _tool_agent_row(
-            conversation,
-            ground_truth,
-            tools_kwargs,
-            ability,
-            index,
-            data_source,
-            split,
         )
-    prompt_messages, images, answer = _extract_prompt_images_answer(
-        {"conversation_json": conversation_json}
-    )
+        if images:
+            # verl places the images at an <image> marker in the user message.
+            user_messages = [m for m in prompt if m["role"] == "user"]
+            if len(user_messages) != 1:
+                raise ValueError("Images need a single-turn conversation.")
+            if not user_messages[0]["content"].startswith("<image>"):
+                user_messages[0]["content"] = "<image>" + user_messages[0]["content"]
+        agent_name = "single_turn_agent"
+        ability = "math"
+        extra_info |= {"answer": ground_truth, "metadata": json.dumps(metadata)}
+    # The platform's reward reads the prompt from here.
+    extra_info["prompt_json"] = json.dumps(prompt)
     return {
         "data_source": data_source,
-        "prompt": prompt_messages,
+        "prompt": prompt,
         "images": images,
-        "ability": "math",
-        "agent_name": SINGLE_TURN_AGENT,
-        "reward_model": {"style": "rule", "ground_truth": answer},
-        "extra_info": {
-            "split": split,
-            "index": index,
-            "answer": answer,
-            _PROMPT_JSON_EXTRA_INFO_KEY: json.dumps(prompt_messages),
-            "metadata": json.dumps(metadata),
-        },
+        "ability": ability,
+        "agent_name": agent_name,
+        "reward_model": {"style": "rule", "ground_truth": ground_truth},
+        "extra_info": extra_info,
     }
 
 
