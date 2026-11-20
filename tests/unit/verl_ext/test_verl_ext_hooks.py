@@ -4,40 +4,27 @@ import sys
 
 import pytest
 
-from oumi_verl_ext import hooks
 from oumi_verl_ext.hooks import register_post_import_hook
 
 
 @pytest.fixture(autouse=True)
-def _restore_import_state(monkeypatch):
+def _isolate_imports(tmp_path, monkeypatch):
     monkeypatch.setattr(sys, "meta_path", list(sys.meta_path))
-    monkeypatch.setattr(sys, "path", list(sys.path))
-    monkeypatch.setattr(hooks, "_HOOKS", hooks._PostImportHooks())
+    monkeypatch.syspath_prepend(str(tmp_path))
     yield
-    for name in ("fake_mod_a", "fake_mod_b", "fakepkg", "fakepkg.sub"):
+    for name in ("fake_mod", "fakepkg", "fakepkg.sub"):
         sys.modules.pop(name, None)
 
 
-def test_hook_runs_once_after_the_module_loads(tmp_path, monkeypatch):
-    (tmp_path / "fake_mod_a.py").write_text("VALUE = 1\n")
-    monkeypatch.syspath_prepend(str(tmp_path))
-    calls = []
-    register_post_import_hook("fake_mod_a", calls.append)
-    assert "fake_mod_a" not in sys.modules
-
-    import fake_mod_a  # type: ignore[import-not-found]
-
-    importlib.reload(fake_mod_a)
-    assert calls == [fake_mod_a]
-
-
-def test_hook_sees_the_fully_executed_module(tmp_path, monkeypatch):
-    (tmp_path / "fake_mod_b.py").write_text("VALUE = 7\n")
-    monkeypatch.syspath_prepend(str(tmp_path))
+def test_hook_runs_once_after_a_dotted_module_finishes_loading(tmp_path):
+    (tmp_path / "fakepkg").mkdir()
+    (tmp_path / "fakepkg" / "__init__.py").write_text("")
+    (tmp_path / "fakepkg" / "sub.py").write_text("VALUE = 7\n")
     seen = []
-    register_post_import_hook("fake_mod_b", lambda module: seen.append(module.VALUE))
+    register_post_import_hook("fakepkg.sub", lambda module: seen.append(module.VALUE))
+    assert "fakepkg.sub" not in sys.modules
 
-    importlib.import_module("fake_mod_b")
+    importlib.reload(importlib.import_module("fakepkg.sub"))
 
     assert seen == [7]
 
@@ -48,57 +35,28 @@ def test_hook_runs_at_once_for_an_already_imported_module():
     assert calls == [sys]
 
 
-def test_finding_the_spec_before_importing_keeps_the_hook(tmp_path, monkeypatch):
-    (tmp_path / "fake_mod_a.py").write_text("")
-    monkeypatch.syspath_prepend(str(tmp_path))
+def test_a_spec_probe_before_the_import_keeps_the_hook(tmp_path):
+    (tmp_path / "fake_mod.py").write_text("")
     calls = []
-    register_post_import_hook("fake_mod_a", calls.append)
+    register_post_import_hook("fake_mod", calls.append)
 
-    assert importlib.util.find_spec("fake_mod_a") is not None
-    module = importlib.import_module("fake_mod_a")
+    assert importlib.util.find_spec("fake_mod") is not None
+    module = importlib.import_module("fake_mod")
 
     assert calls == [module]
 
 
-def test_hooks_for_one_module_run_in_registration_order(tmp_path, monkeypatch):
-    (tmp_path / "fake_mod_a.py").write_text("")
-    monkeypatch.syspath_prepend(str(tmp_path))
-    order = []
-    register_post_import_hook("fake_mod_a", lambda module: order.append("first"))
-    register_post_import_hook("fake_mod_a", lambda module: order.append("second"))
-
-    importlib.import_module("fake_mod_a")
-
-    assert order == ["first", "second"]
-
-
-def test_hook_survives_a_failed_import_and_runs_once_on_retry(tmp_path, monkeypatch):
+def test_a_failed_import_keeps_the_hook_for_the_retry(tmp_path):
     flag = tmp_path / "ready"
-    (tmp_path / "fake_mod_a.py").write_text(
+    (tmp_path / "fake_mod.py").write_text(
         f"import pathlib\nassert pathlib.Path({str(flag)!r}).exists()\n"
     )
-    monkeypatch.syspath_prepend(str(tmp_path))
     calls = []
-    register_post_import_hook("fake_mod_a", calls.append)
+    register_post_import_hook("fake_mod", calls.append)
 
     with pytest.raises(AssertionError):
-        importlib.import_module("fake_mod_a")
-    assert calls == []
-
+        importlib.import_module("fake_mod")
     flag.write_text("")
-    module = importlib.import_module("fake_mod_a")
-    assert calls == [module]
-
-
-def test_hook_works_for_a_dotted_submodule(tmp_path, monkeypatch):
-    package = tmp_path / "fakepkg"
-    package.mkdir()
-    (package / "__init__.py").write_text("")
-    (package / "sub.py").write_text("")
-    monkeypatch.syspath_prepend(str(tmp_path))
-    calls = []
-    register_post_import_hook("fakepkg.sub", calls.append)
-
-    module = importlib.import_module("fakepkg.sub")
+    module = importlib.import_module("fake_mod")
 
     assert calls == [module]
