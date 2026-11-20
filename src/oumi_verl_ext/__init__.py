@@ -12,4 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Extension loaded by verl through ``VERL_USE_EXTERNAL_MODULES`` in the verl env."""
+"""Extension verl loads through ``actor_rollout_ref.model.external_lib``."""
