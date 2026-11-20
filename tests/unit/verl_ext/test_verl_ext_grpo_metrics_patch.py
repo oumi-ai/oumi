@@ -1,8 +1,6 @@
 """Tests the GRPO metrics patch against stand-ins for verl's trainer modules."""
 
 import asyncio
-import importlib
-import importlib.abc
 import importlib.util
 import logging
 import sys
@@ -226,29 +224,8 @@ def test_a_metric_failure_warns_once_and_keeps_verl_s_metrics(trainer_base, capl
     assert warnings[0].exc_info is not None
 
 
-# These tests import the stand-in trainer_base through the import system, where a
-# real verl could serve its own trainer_base instead.
-_without_verl = pytest.mark.skipif(
-    importlib.util.find_spec("verl") is not None,
-    reason="A real verl is installed, so the stand-in trainer_base cannot be imported.",
-)
-
-
-class _TrainerBaseFinder(importlib.abc.MetaPathFinder, importlib.abc.Loader):
-    """Imports the stand-in trainer_base through the normal import system."""
-
-    def find_spec(self, fullname, path, target=None):
-        if fullname != TRAINER_BASE:
-            return None
-        return importlib.util.spec_from_loader(fullname, self)
-
-    def exec_module(self, module):
-        _fill_trainer_base(module)
-
-
 @pytest.fixture
-def import_state(verl_packages, monkeypatch):
-    monkeypatch.setattr(sys, "meta_path", [*sys.meta_path, _TrainerBaseFinder()])
+def install_state(monkeypatch):
     monkeypatch.setattr(
         version.importlib.metadata, "version", lambda name: EXPECTED_VERL_VERSION
     )
@@ -258,7 +235,6 @@ def import_state(verl_packages, monkeypatch):
     logger.setLevel(logging.NOTSET)
     yield
     logger.setLevel(level)
-    sys.modules.pop(TRAINER_BASE, None)
 
 
 @pytest.fixture
@@ -279,24 +255,20 @@ def _load_install() -> None:
     spec.loader.exec_module(importlib.util.module_from_spec(spec))
 
 
-@_without_verl
-@pytest.mark.usefixtures("import_state")
-def test_loading_the_extension_patches_trainer_base_once_verl_imports_it():
+@pytest.mark.usefixtures("install_state", "warning_root_logger")
+def test_loading_the_extension_after_trainer_base_patches_it(trainer_base, caplog):
     _load_install()
-    assert TRAINER_BASE not in sys.modules
-
-    trainer_base = importlib.import_module(TRAINER_BASE)
 
     metrics = _step_metrics(trainer_base.PPOTrainer())
+
     assert metrics[TRUNCATION_RATIO_KEY] == pytest.approx(1 / 2)
-
-
-@_without_verl
-@pytest.mark.usefixtures("import_state", "warning_root_logger")
-def test_the_install_line_shows_under_verl_s_warning_root_logger(caplog):
-    _load_install()
-    importlib.import_module(TRAINER_BASE)
-
     assert [(record.levelno, record.getMessage()) for record in _logged(caplog)] == [
         (logging.INFO, "oumi GRPO metrics installed")
     ]
+
+
+@pytest.mark.usefixtures("install_state")
+def test_loading_the_extension_without_trainer_base_imports_nothing():
+    _load_install()
+
+    assert TRAINER_BASE not in sys.modules
