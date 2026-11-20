@@ -22,3 +22,7 @@ class UnknownVerlKeyError(ValueError):
         """Initializes the error with the dotted path of the unknown key."""
         super().__init__(f"verl {verl_version} has no setting '{key}'")
         self.key = key
+
+
+class VerlExportError(RuntimeError):
+    """Raised when a verl checkpoint can't be exported."""

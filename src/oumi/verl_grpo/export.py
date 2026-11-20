@@ -32,6 +32,8 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Final
 
+from oumi.verl_grpo.errors import VerlExportError
+
 CHECKPOINT_TRACKER_FILENAME: Final = "latest_checkpointed_iteration.txt"
 
 _HF_DIRNAME: Final = "huggingface"
@@ -39,10 +41,6 @@ _HF_CONFIG_FILENAME: Final = "config.json"
 _ADAPTER_DIRNAME: Final = "lora_adapter"
 _ADAPTER_CONFIG_FILENAME: Final = "adapter_config.json"
 _ADAPTER_WEIGHTS_FILENAME: Final = "adapter_model.safetensors"
-
-
-class VerlExportError(RuntimeError):
-    """Raised when a verl checkpoint can't be exported."""
 
 
 def latest_checkpoint_actor_dir(checkpoint_root: Path) -> Path:
