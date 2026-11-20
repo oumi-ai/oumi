@@ -36,7 +36,6 @@ from oumi.verl_grpo.errors import VerlExportError
 
 CHECKPOINT_TRACKER_FILENAME: Final = "latest_checkpointed_iteration.txt"
 
-_HF_DIRNAME: Final = "huggingface"
 _HF_CONFIG_FILENAME: Final = "config.json"
 _ADAPTER_DIRNAME: Final = "lora_adapter"
 _ADAPTER_CONFIG_FILENAME: Final = "adapter_config.json"
@@ -66,34 +65,6 @@ def _read_json(path: Path) -> dict:
         return json.loads(path.read_text())
     except (OSError, ValueError) as exc:
         raise VerlExportError(f"can't read '{path}': {exc}") from exc
-
-
-def _merger_input_dir(actor_dir: Path, shadow: Path) -> Path:
-    """Returns the directory the merger reads: `actor_dir`, or a shadow of it.
-
-    verl's merger needs CUDA when the HF config requests a kernel such as
-    flash_attention_2. When it does, the shadow mirrors `actor_dir` with symlinks,
-    except for an HF config without `attn_implementation`. The checkpoint itself
-    is never written.
-    """
-    hf_dir = actor_dir.resolve() / _HF_DIRNAME
-    if not (hf_dir / _HF_CONFIG_FILENAME).is_file():
-        return actor_dir
-    config = _read_json(hf_dir / _HF_CONFIG_FILENAME)
-    if "attn_implementation" not in config:
-        return actor_dir
-    shadow.mkdir()
-    for entry in hf_dir.parent.iterdir():
-        if entry != hf_dir:
-            (shadow / entry.name).symlink_to(entry)
-    hf_shadow = shadow / _HF_DIRNAME
-    hf_shadow.mkdir()
-    for hf_entry in hf_dir.iterdir():
-        if hf_entry.name != _HF_CONFIG_FILENAME:
-            (hf_shadow / hf_entry.name).symlink_to(hf_entry)
-    del config["attn_implementation"]
-    (hf_shadow / _HF_CONFIG_FILENAME).write_text(json.dumps(config, indent=2))
-    return shadow
 
 
 def _run_merger(local_dir: Path, target_dir: Path, verl_python: str) -> None:
@@ -210,8 +181,7 @@ def export_verl_checkpoint(
     output_dir.mkdir(parents=True, exist_ok=True)
     scratch = Path(tempfile.mkdtemp(prefix=".verl_merge_", dir=output_dir))
     try:
-        local_dir = _merger_input_dir(actor_dir, scratch / "actor_shadow")
-        _run_merger(local_dir, scratch, verl_python)
+        _run_merger(actor_dir, scratch, verl_python)
         adapter_dir = scratch / _ADAPTER_DIRNAME
         if (adapter_dir / _ADAPTER_CONFIG_FILENAME).is_file():
             _place_lora(
