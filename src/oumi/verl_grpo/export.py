@@ -23,7 +23,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from oumi.verl_grpo.gemma4_fill import fill_gemma4_kv_tensors
+from oumi.verl_grpo.patches.gemma4_fill import fill_gemma4_kv_tensors
 
 
 def latest_checkpoint_actor_dir(checkpoint_root: Path) -> Path:
