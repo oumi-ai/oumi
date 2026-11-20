@@ -12,23 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Entry point verl imports through ``actor_rollout_ref.model.external_lib``.
+"""Module verl imports through ``actor_rollout_ref.model.external_lib``.
 
-verl imports it wherever it builds the model config. In the trainer process that is
-``PPOTrainer._init_tokenizer``, after verl's trainer base has loaded, so oumi's GRPO
-metrics are installed right away. Processes without the trainer base only check the
-verl version.
+verl imports it in every process that builds the model config. In the trainer
+process, verl's trainer base is already loaded by then, so this patches it.
 """
 
-import logging
+import importlib.metadata
 import sys
 
-from oumi_verl_ext.grpo_metrics_patch import install_grpo_metrics
-from oumi_verl_ext.version import check_verl_version
+from oumi_verl_ext.grpo_metrics import patch_compute_metrics
 
-# verl sets the root logger to WARNING before it imports this module.
-logging.getLogger("oumi_verl_ext").setLevel(logging.INFO)
-check_verl_version()
+# The patch relies on verl internals, so any other version may silently skip it.
+_verl_version = importlib.metadata.version("verl")
+if _verl_version != "0.9.1":
+    raise RuntimeError(f"oumi_verl_ext needs verl 0.9.1, found {_verl_version}.")
+
 _trainer_base = sys.modules.get("verl.trainer.ppo.v1.trainer_base")
 if _trainer_base is not None:
-    install_grpo_metrics(_trainer_base)
+    patch_compute_metrics(_trainer_base)
