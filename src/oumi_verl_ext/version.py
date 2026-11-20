@@ -29,10 +29,7 @@ def check_verl_version() -> None:
 
     Reads the package metadata, so verl itself is never imported.
     """
-    fix = (
-        f"Install verl=={EXPECTED_VERL_VERSION} in the env that "
-        "OUMI_VERL_PYTHON points to."
-    )
+    fix = f"Install verl=={EXPECTED_VERL_VERSION} in the Python env that runs verl."
     try:
         installed = importlib.metadata.version("verl")
     except importlib.metadata.PackageNotFoundError:
