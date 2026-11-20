@@ -285,7 +285,7 @@ ban-relative-imports = "all" # Disallow all relative imports.
 convention = "google"
 
 [tool.ruff.lint.isort]
-known-first-party = ["oumi", "oumi_verl_ext"]
+known-first-party = ["oumi"]
 known-third-party = ["wandb"]
 
 [tool.pyright]
