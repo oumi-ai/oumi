@@ -94,6 +94,48 @@ def test_tool_agent_row():
     assert row["extra_info"]["tools_kwargs"] == tools_kwargs
 
 
+_IMAGE = ContentItem(type=Type.IMAGE_BINARY, binary=b"img")
+
+
+def _tool_conversation(*more: Message, **metadata) -> Conversation:
+    return Conversation(
+        messages=[Message(role=Role.USER, content="How many rows in t?"), *more],
+        metadata={
+            "agent_name": "tool_agent",
+            "ground_truth": "SELECT count(*) FROM t",
+            "tools_kwargs": {"run_sql": {}},
+            **metadata,
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    ("conversation", "error"),
+    [
+        (_tool_conversation(ground_truth=""), "ground_truth"),
+        (_tool_conversation(tools_kwargs={"run_sql": "x"}), "tools_kwargs"),
+        (
+            _tool_conversation(Message(role=Role.ASSISTANT, content="3")),
+            "must end with",
+        ),
+        (_tool_conversation(Message(role=Role.USER, content=[_IMAGE])), "images"),
+        (
+            Conversation(
+                messages=[
+                    Message(role=Role.USER, content=[_IMAGE]),
+                    Message(role=Role.ASSISTANT, content="A cat."),
+                    Message(role=Role.USER, content="And now?"),
+                ]
+            ),
+            "single-turn",
+        ),
+    ],
+)
+def test_bad_conversations_are_refused(conversation, error):
+    with pytest.raises(ValueError, match=error):
+        _row(conversation)
+
+
 def _text_sft_params(path: Path, *, names: tuple[str, ...] = ("text_sft",)):
     return DataParams(
         train=DatasetSplitParams(
