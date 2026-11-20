@@ -3,7 +3,7 @@ import json
 import torch
 from safetensors.torch import load_file, save_file
 
-from oumi.verl_grpo.gemma4_fill import fill_gemma4_kv_tensors
+from oumi.verl_grpo.patches.gemma4_fill import fill_gemma4_kv_tensors
 
 KV = "model.language_model.layers.20.self_attn.k_proj.weight"
 
