@@ -17,7 +17,7 @@
 import json
 from typing import Any
 
-from oumi.core.types.conversation import Conversation
+from oumi.core.types.conversation import Conversation, Role
 from oumi.utils.conversation_utils import create_list_of_message_json_dicts
 from oumi.utils.grpo_utils import extract_prompt_images_completion_from_conversation
 
@@ -35,17 +35,28 @@ def conversation_to_verl_row(
     extra_info: dict[str, Any] = {"split": split, "index": index}
     if metadata.get("agent_name") == "tool_agent":
         messages = Conversation.from_json(conversation_json).messages
+        ground_truth = metadata.get("ground_truth")
+        tools_kwargs = metadata.get("tools_kwargs")
+        # Uncaught, each of these trains on bad data silently or fails mid-run.
+        if not isinstance(ground_truth, str) or not ground_truth:
+            raise ValueError("A tool-agent conversation needs a 'ground_truth'.")
+        if not isinstance(tools_kwargs, dict) or not all(
+            isinstance(kwargs, dict) for kwargs in tools_kwargs.values()
+        ):
+            raise ValueError("'tools_kwargs' must map tool names to dicts.")
+        if not messages or messages[-1].role not in (Role.USER, Role.TOOL):
+            raise ValueError(
+                "A tool-agent prompt must end with a user or tool message."
+            )
+        if any(message.count_content_items().image_items for message in messages):
+            raise ValueError("Tool-agent conversations can't have images.")
         prompt = create_list_of_message_json_dicts(
             messages, group_adjacent_same_role_turns=False
         )
         images = []
         agent_name = "tool_agent"
         ability = metadata.get("ability", "tool_agent")
-        ground_truth = metadata["ground_truth"]
-        extra_info |= {
-            "need_tools_kwargs": True,
-            "tools_kwargs": metadata["tools_kwargs"],
-        }
+        extra_info |= {"need_tools_kwargs": True, "tools_kwargs": tools_kwargs}
     else:
         prompt, images, ground_truth = (
             extract_prompt_images_completion_from_conversation(

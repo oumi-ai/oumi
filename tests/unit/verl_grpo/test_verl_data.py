@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from oumi.core.types.conversation import ContentItem, Conversation, Message, Role, Type
 from oumi.verl_grpo.data import conversation_to_verl_row
 
@@ -79,3 +81,32 @@ def test_tool_agent_row():
     assert row["reward_model"]["ground_truth"] == "SELECT count(*) FROM t"
     assert row["extra_info"]["need_tools_kwargs"] is True
     assert row["extra_info"]["tools_kwargs"] == tools_kwargs
+
+
+_IMAGE = ContentItem(type=Type.IMAGE_BINARY, binary=b"img")
+
+
+@pytest.mark.parametrize(
+    ("metadata", "last_message", "error"),
+    [
+        ({"ground_truth": ""}, None, "ground_truth"),
+        ({"tools_kwargs": {"run_sql": "x"}}, None, "tools_kwargs"),
+        ({}, Message(role=Role.ASSISTANT, content="3"), "must end with"),
+        ({}, Message(role=Role.USER, content=[_IMAGE]), "images"),
+    ],
+)
+def test_bad_tool_agent_conversations_are_refused(metadata, last_message, error):
+    conversation = Conversation(
+        messages=[Message(role=Role.USER, content="How many rows in t?")],
+        metadata={
+            "agent_name": "tool_agent",
+            "ground_truth": "SELECT count(*) FROM t",
+            "tools_kwargs": {"run_sql": {}},
+            **metadata,
+        },
+    )
+    if last_message:
+        conversation.messages.append(last_message)
+
+    with pytest.raises(ValueError, match=error):
+        _row(conversation)
