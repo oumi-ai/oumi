@@ -12,143 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Exports a verl GRPO checkpoint as an HF model directory or a PEFT LoRA adapter.
+"""Exports a verl GRPO checkpoint with verl's own model merger.
 
-verl's own model merger does the conversion, in verl's environment, as a subprocess.
-This module never imports verl.
-
-Run with `python -m oumi.verl_grpo.export --actor-dir DIR --output-dir DIR
---base-model MODEL --verl-python PATH`.
+A full fine-tune becomes an HF model directory, and a LoRA run a PEFT adapter.
 """
 
-import argparse
 import json
-import os
 import shutil
 import subprocess
-import sys
 import tempfile
-from collections.abc import Sequence
 from pathlib import Path
-from typing import Final
-
-from oumi.verl_grpo.errors import VerlExportError
-
-CHECKPOINT_TRACKER_FILENAME: Final = "latest_checkpointed_iteration.txt"
-
-_HF_CONFIG_FILENAME: Final = "config.json"
-_ADAPTER_DIRNAME: Final = "lora_adapter"
-_ADAPTER_CONFIG_FILENAME: Final = "adapter_config.json"
-_ADAPTER_WEIGHTS_FILENAME: Final = "adapter_model.safetensors"
 
 
 def latest_checkpoint_actor_dir(checkpoint_root: Path) -> Path:
     """Returns `<root>/global_step_<N>/actor` for the step verl last checkpointed."""
-    tracker = checkpoint_root / CHECKPOINT_TRACKER_FILENAME
-    if not tracker.is_file():
-        raise VerlExportError(
-            f"no '{CHECKPOINT_TRACKER_FILENAME}' in {checkpoint_root}"
-        )
-    step = tracker.read_text().strip()
-    actor_dir = checkpoint_root / f"global_step_{step}" / "actor"
-    if not actor_dir.is_dir():
-        raise VerlExportError(f"no 'global_step_{step}/actor' in {checkpoint_root}")
-    return actor_dir
-
-
-def _is_weights_file(path: Path) -> bool:
-    return path.name.startswith("model") and path.suffix == ".safetensors"
-
-
-def _read_json(path: Path) -> dict:
-    try:
-        return json.loads(path.read_text())
-    except (OSError, ValueError) as exc:
-        raise VerlExportError(f"can't read '{path}': {exc}") from exc
-
-
-def _run_merger(local_dir: Path, target_dir: Path, verl_python: str) -> None:
-    env = dict(os.environ)
-    interpreter_dir = Path(verl_python).parent
-    if interpreter_dir != Path():
-        env["PATH"] = f"{interpreter_dir}{os.pathsep}{env.get('PATH', '')}"
-    command = [
-        verl_python,
-        "-m",
-        "verl.model_merger",
-        "merge",
-        "--backend",
-        "fsdp",
-        "--local_dir",
-        str(local_dir),
-        "--target_dir",
-        str(target_dir),
-    ]
-    try:
-        result = subprocess.run(command, env=env)
-    except OSError as exc:
-        raise VerlExportError(f"can't run '{verl_python}': {exc}") from exc
-    if result.returncode != 0:
-        raise VerlExportError(
-            f"verl's model merger exited with code {result.returncode}; "
-            "see its output above"
-        )
-
-
-def _place_lora(
-    adapter_dir: Path,
-    extras_dir: Path,
-    output_dir: Path,
-    *,
-    base_model: str,
-    exclude_modules: str | None,
-) -> None:
-    """Copies the adapter from `adapter_dir` and non-weight files from `extras_dir`."""
-    if (output_dir / _HF_CONFIG_FILENAME).exists() or any(
-        _is_weights_file(path) for path in output_dir.glob("*.safetensors")
-    ):
-        raise VerlExportError(
-            f"'{output_dir}' already holds a full model; export the adapter elsewhere"
-        )
-    config = _read_json(adapter_dir / _ADAPTER_CONFIG_FILENAME)
-    if not (adapter_dir / _ADAPTER_WEIGHTS_FILENAME).is_file():
-        raise VerlExportError(f"no '{_ADAPTER_WEIGHTS_FILENAME}' in {adapter_dir}")
-    alpha = config.get("lora_alpha")
-    if not isinstance(alpha, int | float) or alpha <= 0:
-        raise VerlExportError(f"the adapter has an invalid lora_alpha: {alpha!r}")
-    config["base_model_name_or_path"] = base_model
-    if exclude_modules is not None:
-        config["exclude_modules"] = exclude_modules
-
-    (output_dir / _ADAPTER_CONFIG_FILENAME).write_text(json.dumps(config, indent=2))
-    shutil.copyfile(
-        adapter_dir / _ADAPTER_WEIGHTS_FILENAME, output_dir / _ADAPTER_WEIGHTS_FILENAME
-    )
-    for path in extras_dir.iterdir():
-        if (
-            path.is_file()
-            and not _is_weights_file(path)
-            and path.name
-            not in {
-                _HF_CONFIG_FILENAME,
-                "generation_config.json",
-                "model.safetensors.index.json",
-            }
-        ):
-            shutil.copyfile(path, output_dir / path.name)
-
-
-def _place_full_model(merged_dir: Path, output_dir: Path) -> None:
-    has_weights = any(
-        _is_weights_file(path) for path in merged_dir.glob("*.safetensors")
-    )
-    if not (merged_dir / _HF_CONFIG_FILENAME).is_file() or not has_weights:
-        raise VerlExportError(
-            "verl's model merger wrote no config.json and model*.safetensors"
-        )
-    for path in merged_dir.iterdir():
-        if path.is_file():
-            shutil.move(path, output_dir / path.name)
+    step = (checkpoint_root / "latest_checkpointed_iteration.txt").read_text().strip()
+    return checkpoint_root / f"global_step_{step}" / "actor"
 
 
 def export_verl_checkpoint(
@@ -159,74 +38,54 @@ def export_verl_checkpoint(
     verl_python: str,
     exclude_modules: str | None = None,
 ) -> Path:
-    """Exports the FSDP checkpoint in `actor_dir` to `output_dir`.
-
-    A full-parameter checkpoint becomes an HF model directory. A LoRA checkpoint
-    becomes a PEFT adapter, with the tokenizer files beside it.
+    """Exports the checkpoint in `actor_dir` to `output_dir`.
 
     Args:
-        actor_dir: The checkpoint's `global_step_<N>/actor` directory. Never written.
+        actor_dir: The checkpoint's `global_step_<N>/actor` directory.
         output_dir: Where the export goes.
-        base_model: Base model id or path, recorded in an adapter's config.
-        verl_python: Python interpreter of the environment that has verl installed.
-        exclude_modules: Regex for modules the adapter excludes. The merger drops
-            this field, so it is written back when given.
+        base_model: Base model id or path, recorded in a LoRA adapter's config.
+        verl_python: Python interpreter of the env that has verl installed.
+        exclude_modules: Regex for modules a LoRA adapter excludes.
 
     Returns:
         `output_dir`.
-
-    Raises:
-        VerlExportError: If the merger fails or its output is unusable.
     """
     output_dir.mkdir(parents=True, exist_ok=True)
-    scratch = Path(tempfile.mkdtemp(prefix=".verl_merge_", dir=output_dir))
-    try:
-        _run_merger(actor_dir, scratch, verl_python)
-        adapter_dir = scratch / _ADAPTER_DIRNAME
-        if (adapter_dir / _ADAPTER_CONFIG_FILENAME).is_file():
-            _place_lora(
-                adapter_dir,
-                scratch,
-                output_dir,
-                base_model=base_model,
-                exclude_modules=exclude_modules,
-            )
-        else:
-            _place_full_model(scratch, output_dir)
-    finally:
-        shutil.rmtree(scratch, ignore_errors=True)
-    return output_dir
-
-
-def main(argv: Sequence[str] | None = None) -> int:
-    """Command-line entry point. Returns the process exit code."""
-    parser = argparse.ArgumentParser(
-        description="Export a verl GRPO checkpoint as an HF model or a LoRA adapter."
-    )
-    parser.add_argument("--actor-dir", type=Path, required=True)
-    parser.add_argument("--output-dir", type=Path, required=True)
-    parser.add_argument("--base-model", required=True)
-    parser.add_argument(
-        "--verl-python",
-        required=True,
-        help="Python interpreter of the environment that has verl installed.",
-    )
-    parser.add_argument("--exclude-modules", default=None)
-    args = parser.parse_args(argv)
-
-    try:
-        export_verl_checkpoint(
-            args.actor_dir,
-            args.output_dir,
-            base_model=args.base_model,
-            verl_python=args.verl_python,
-            exclude_modules=args.exclude_modules,
+    with tempfile.TemporaryDirectory(dir=output_dir) as tmp:
+        merged = Path(tmp)
+        subprocess.run(
+            [
+                verl_python,
+                "-m",
+                "verl.model_merger",
+                "merge",
+                "--backend",
+                "fsdp",
+                "--local_dir",
+                str(actor_dir),
+                "--target_dir",
+                str(merged),
+            ],
+            check=True,
         )
-    except VerlExportError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 1
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
+        # For LoRA, the merger writes the adapter and a merged full model. Keep the
+        # adapter, plus the tokenizer files.
+        adapter = merged / "lora_adapter"
+        if adapter.is_dir():
+            config_path = adapter / "adapter_config.json"
+            config = json.loads(config_path.read_text())
+            config["base_model_name_or_path"] = base_model
+            if exclude_modules is not None:
+                # The merger drops it, and PEFT then wraps Gemma 4's vision and
+                # audio layers.
+                config["exclude_modules"] = exclude_modules
+            config_path.write_text(json.dumps(config, indent=2))
+            for path in merged.iterdir():
+                if path.is_file() and not path.name.startswith(
+                    ("model", "config.json", "generation_config.json")
+                ):
+                    shutil.copy(path, adapter / path.name)
+            merged = adapter
+        for path in merged.iterdir():
+            shutil.move(path, output_dir / path.name)
+    return output_dir
