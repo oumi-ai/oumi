@@ -28,6 +28,7 @@ from omegaconf.errors import ConfigKeyError, ConfigTypeError
 
 from oumi.verl_grpo.errors import UnknownVerlKeyError
 
+# Bump with scripts/verl/refresh_defaults.py.
 VERL_VERSION: Final = "0.9.1"
 VERL_DEFAULTS_SHA256: Final = (
     "f19ebe24c2995052ca5a00de9c4ac302f6ba8c379effcc3ff83f058b0f9dcc90"
