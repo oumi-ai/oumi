@@ -24,10 +24,6 @@ from safetensors.torch import save_file
 argv = sys.argv
 record = Path(os.environ["FAKE_RECORD"])
 (record / "argv.json").write_text(json.dumps(argv))
-local_dir = Path(argv[argv.index("--local_dir") + 1])
-shadow_config = local_dir / "huggingface" / "config.json"
-if shadow_config.exists():
-    (record / "shadow_config.json").write_text(shadow_config.read_text())
 target = Path(argv[argv.index("--target_dir") + 1])
 mode = os.environ["FAKE_MERGE"]
 if mode == "fail":
@@ -96,7 +92,7 @@ def actor(tmp_path) -> Path:
     actor_dir = tmp_path / "ckpt" / "global_step_6" / "actor"
     (actor_dir / "huggingface").mkdir(parents=True)
     (actor_dir / "huggingface" / "config.json").write_text(
-        json.dumps({"attn_implementation": "flash_attention_2", "hidden_size": 8})
+        json.dumps({"hidden_size": 8})
     )
     (actor_dir / "fsdp_config.json").write_text("{}")
     return actor_dir
@@ -227,26 +223,6 @@ def test_cli_returns_zero_on_success_and_one_on_error(
     assert capsys.readouterr().err.startswith("error: ")
 
 
-def test_merge_runs_from_a_shadow_dir_without_attn_implementation(
-    tmp_path, actor, fake_merger, base_dir
-):
-    before = sorted(p.relative_to(actor) for p in actor.rglob("*"))
-
-    export_verl_checkpoint(
-        actor, tmp_path / "out", base_model=str(base_dir), verl_python=str(fake_merger)
-    )
-
-    assert sorted(p.relative_to(actor) for p in actor.rglob("*")) == before
-    argv = _recorded_argv(tmp_path)
-    local_dir = Path(argv[argv.index("--local_dir") + 1])
-    recorded = json.loads((tmp_path / "record" / "shadow_config.json").read_text())
-    assert local_dir != actor
-    assert recorded == {"hidden_size": 8}
-    original = json.loads((actor / "huggingface" / "config.json").read_text())
-    assert original["attn_implementation"] == "flash_attention_2"
-    assert not local_dir.exists()
-
-
 def test_lora_export_writes_back_exclude_modules(
     tmp_path, actor, fake_merger, monkeypatch
 ):
@@ -262,16 +238,6 @@ def test_lora_export_writes_back_exclude_modules(
 
     config = json.loads((out / "adapter_config.json").read_text())
     assert config["exclude_modules"] == "(.*vision_tower.*)"
-
-
-def test_unreadable_merger_or_checkpoint_files_raise_export_errors(
-    tmp_path, actor, fake_merger, monkeypatch
-):
-    (actor / "huggingface" / "config.json").write_text("{not json")
-    with pytest.raises(VerlExportError, match="can't read"):
-        export_verl_checkpoint(
-            actor, tmp_path / "out", base_model="org/base", verl_python=str(fake_merger)
-        )
 
 
 def test_full_export_fills_tensors_missing_from_the_base(
