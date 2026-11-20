@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Post-import hooks: run a callback right after a module finishes importing."""
+"""Runs a callback right after a module finishes importing."""
 
 import importlib.abc
 import importlib.machinery
@@ -24,44 +24,33 @@ _Hook = Callable[[ModuleType], None]
 
 
 class _HookedLoader(importlib.abc.Loader):
-    """Wraps a loader so the module's registered hooks run after it executes."""
+    """Wraps a loader to call `on_exec(module)` after the module executes."""
 
-    def __init__(
-        self, loader: importlib.abc.Loader, registry: dict[str, list[_Hook]], name: str
-    ):
+    def __init__(self, loader: importlib.abc.Loader, on_exec: _Hook):
         self._loader = loader
-        self._registry = registry
-        self._name = name
+        self._on_exec = on_exec
 
     def create_module(self, spec: importlib.machinery.ModuleSpec):
         return self._loader.create_module(spec)
 
     def exec_module(self, module: ModuleType) -> None:
         self._loader.exec_module(module)
-        for hook in self._registry.pop(self._name, []):
-            hook(module)
+        self._on_exec(module)
 
     def __getattr__(self, name: str):
         return getattr(self._loader, name)
 
 
-class _PostImportHooks(importlib.abc.MetaPathFinder):
-    """Meta path finder that runs registered hooks once a module has loaded.
+class _WaitForModule(importlib.abc.MetaPathFinder):
+    """Meta path finder that runs one hook once one module has executed.
 
-    Hooks stay registered until the module executes successfully, so a spec lookup
-    that never imports the module, or an import that fails, does not lose them.
+    The hook stays armed until the module executes successfully, so a spec lookup
+    that never imports the module, or an import that fails, does not lose it.
     """
 
-    def __init__(self):
-        self._hooks: dict[str, list[_Hook]] = {}
-
-    def register(self, name: str, hook: _Hook) -> None:
-        if name in sys.modules:
-            hook(sys.modules[name])
-            return
-        self._hooks.setdefault(name, []).append(hook)
-        if self not in sys.meta_path:
-            sys.meta_path.insert(0, self)
+    def __init__(self, module_name: str, hook: _Hook):
+        self._module_name = module_name
+        self._hook: _Hook | None = hook
 
     def find_spec(
         self,
@@ -69,27 +58,30 @@ class _PostImportHooks(importlib.abc.MetaPathFinder):
         path: Sequence[str] | None,
         target: ModuleType | None = None,
     ) -> importlib.machinery.ModuleSpec | None:
-        if fullname not in self._hooks:
+        if fullname != self._module_name or self._hook is None:
             return None
         for finder in sys.meta_path:
             if finder is self or not hasattr(finder, "find_spec"):
                 continue
             spec = finder.find_spec(fullname, path, target)
             if spec is not None and spec.loader is not None:
-                spec.loader = _HookedLoader(spec.loader, self._hooks, fullname)
+                spec.loader = _HookedLoader(spec.loader, self._run_hook)
                 return spec
         return None
 
+    def _run_hook(self, module: ModuleType) -> None:
+        hook, self._hook = self._hook, None
+        if hook is not None:
+            hook(module)
 
-_HOOKS = _PostImportHooks()
 
-
-def register_post_import_hook(
-    module_name: str, hook: Callable[[ModuleType], None]
-) -> None:
+def register_post_import_hook(module_name: str, hook: _Hook) -> None:
     """Runs `hook(module)` once, right after `module_name` finishes importing.
 
-    Runs immediately if the module is already imported. Hooks for one module run in
-    registration order. Registering never imports the module.
+    Runs immediately if the module is already imported. Registering never imports
+    the module.
     """
-    _HOOKS.register(module_name, hook)
+    if module_name in sys.modules:
+        hook(sys.modules[module_name])
+    else:
+        sys.meta_path.insert(0, _WaitForModule(module_name, hook))
