@@ -7,8 +7,8 @@ import pytest
 import torch
 from safetensors.torch import load_file, save_file
 
+from oumi.verl_grpo.errors import VerlExportError
 from oumi.verl_grpo.export import (
-    VerlExportError,
     export_verl_checkpoint,
     latest_checkpoint_actor_dir,
     main,
