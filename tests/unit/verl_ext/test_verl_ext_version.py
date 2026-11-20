@@ -11,27 +11,27 @@ from oumi_verl_ext.version import (
 )
 
 
-def test_expected_verl_version_is_oumi_s_pin():
+def _install_verl(monkeypatch, installed: str | None) -> None:
+    def fake_version(name):
+        if installed is None:
+            raise importlib.metadata.PackageNotFoundError(name)
+        return installed
+
+    monkeypatch.setattr(version.importlib.metadata, "version", fake_version)
+
+
+def test_expected_verl_version_is_oumi_s_pin(monkeypatch):
     assert EXPECTED_VERL_VERSION == oumi.verl_grpo.config.VERL_VERSION
-
-
-def test_check_verl_version_names_both_versions(monkeypatch):
-    monkeypatch.setattr(version.importlib.metadata, "version", lambda name: "0.7.1")
-    with pytest.raises(VerlVersionError, match=r"0\.7\.1.*0\.9\.1"):
-        check_verl_version()
-
-
-def test_check_verl_version_passes_for_the_pin(monkeypatch):
-    monkeypatch.setattr(
-        version.importlib.metadata, "version", lambda name: EXPECTED_VERL_VERSION
-    )
+    _install_verl(monkeypatch, EXPECTED_VERL_VERSION)
     check_verl_version()
 
 
-def test_check_verl_version_without_verl_says_not_installed(monkeypatch):
-    def _missing(name):
-        raise importlib.metadata.PackageNotFoundError(name)
-
-    monkeypatch.setattr(version.importlib.metadata, "version", _missing)
-    with pytest.raises(VerlVersionError, match="not installed"):
+@pytest.mark.parametrize(
+    ("installed", "match"), [("0.7.1", r"0\.7\.1.*0\.9\.1"), (None, "not installed")]
+)
+def test_check_verl_version_refuses_a_wrong_or_missing_verl(
+    monkeypatch, installed, match
+):
+    _install_verl(monkeypatch, installed)
+    with pytest.raises(VerlVersionError, match=match):
         check_verl_version()
