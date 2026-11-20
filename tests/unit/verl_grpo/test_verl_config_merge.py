@@ -4,7 +4,8 @@ import pytest
 from omegaconf import OmegaConf
 from omegaconf.errors import ConfigAttributeError
 
-from oumi.verl_grpo.config import UnknownVerlKeyError, merge_verl_config
+from oumi.verl_grpo.config import merge_verl_config
+from oumi.verl_grpo.errors import UnknownVerlKeyError
 
 
 def test_merge_with_no_layers_is_the_defaults_plus_empty_reward_kwargs():
