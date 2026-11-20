@@ -52,7 +52,7 @@ print(json.dumps({"version": version, "root": spec.submodule_search_locations[0]
 
 _UPDATE_REMINDER = (
     "update VERL_VERSION and VERL_DEFAULTS_SHA256 in oumi/verl_grpo/config.py "
-    "and EXPECTED_VERL_VERSION in oumi_verl_ext/version.py"
+    "and the verl version in oumi_verl_ext/install.py"
 )
 
 
