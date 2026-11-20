@@ -17,7 +17,7 @@
 import json
 from typing import Any
 
-from oumi.core.types.conversation import Conversation, Role
+from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.conversation_utils import create_list_of_message_json_dicts
 from oumi.utils.grpo_utils import extract_prompt_images_completion_from_conversation
 
@@ -31,32 +31,22 @@ def conversation_to_verl_row(
     row. Any other becomes a single-turn row, with the final assistant message as
     the ground truth.
     """
-    metadata = json.loads(conversation_json).get("metadata") or {}
+    conversation = Conversation.from_json(conversation_json)
+    metadata = conversation.metadata or {}
+    _validate(conversation.messages, metadata)
     extra_info: dict[str, Any] = {"split": split, "index": index}
     if metadata.get("agent_name") == "tool_agent":
-        messages = Conversation.from_json(conversation_json).messages
-        ground_truth = metadata.get("ground_truth")
-        tools_kwargs = metadata.get("tools_kwargs")
-        # Uncaught, each of these trains on bad data silently or fails mid-run.
-        if not isinstance(ground_truth, str) or not ground_truth:
-            raise ValueError("A tool-agent conversation needs a 'ground_truth'.")
-        if not isinstance(tools_kwargs, dict) or not all(
-            isinstance(kwargs, dict) for kwargs in tools_kwargs.values()
-        ):
-            raise ValueError("'tools_kwargs' must map tool names to dicts.")
-        if not messages or messages[-1].role not in (Role.USER, Role.TOOL):
-            raise ValueError(
-                "A tool-agent prompt must end with a user or tool message."
-            )
-        if any(message.count_content_items().image_items for message in messages):
-            raise ValueError("Tool-agent conversations can't have images.")
         prompt = create_list_of_message_json_dicts(
-            messages, group_adjacent_same_role_turns=False
+            conversation.messages, group_adjacent_same_role_turns=False
         )
         images = []
         agent_name = "tool_agent"
         ability = metadata.get("ability", "tool_agent")
-        extra_info |= {"need_tools_kwargs": True, "tools_kwargs": tools_kwargs}
+        ground_truth = metadata["ground_truth"]
+        extra_info |= {
+            "need_tools_kwargs": True,
+            "tools_kwargs": metadata["tools_kwargs"],
+        }
     else:
         prompt, images, ground_truth = (
             extract_prompt_images_completion_from_conversation(
@@ -65,11 +55,9 @@ def conversation_to_verl_row(
         )
         if images:
             # verl places the images at an <image> marker in the user message.
-            user_messages = [m for m in prompt if m["role"] == "user"]
-            if len(user_messages) != 1:
-                raise ValueError("Images need a single-turn conversation.")
-            if not user_messages[0]["content"].startswith("<image>"):
-                user_messages[0]["content"] = "<image>" + user_messages[0]["content"]
+            user = next(message for message in prompt if message["role"] == "user")
+            if not user["content"].startswith("<image>"):
+                user["content"] = "<image>" + user["content"]
         agent_name = "single_turn_agent"
         ability = "math"
         extra_info |= {"answer": ground_truth, "metadata": json.dumps(metadata)}
@@ -84,3 +72,24 @@ def conversation_to_verl_row(
         "reward_model": {"style": "rule", "ground_truth": ground_truth},
         "extra_info": extra_info,
     }
+
+
+def _validate(messages: list[Message], metadata: dict[str, Any]) -> None:
+    """Refuses conversations that would silently train on bad data or fail mid-run."""
+    has_images = any(message.count_content_items().image_items for message in messages)
+    if metadata.get("agent_name") != "tool_agent":
+        if has_images and sum(message.role == Role.USER for message in messages) != 1:
+            raise ValueError("Images need a single-turn conversation.")
+        return
+    ground_truth = metadata.get("ground_truth")
+    if not isinstance(ground_truth, str) or not ground_truth:
+        raise ValueError("A tool-agent conversation needs a 'ground_truth'.")
+    tools_kwargs = metadata.get("tools_kwargs")
+    if not isinstance(tools_kwargs, dict) or not all(
+        isinstance(kwargs, dict) for kwargs in tools_kwargs.values()
+    ):
+        raise ValueError("'tools_kwargs' must map tool names to dicts.")
+    if not messages or messages[-1].role not in (Role.USER, Role.TOOL):
+        raise ValueError("A tool-agent prompt must end with a user or tool message.")
+    if has_images:
+        raise ValueError("Tool-agent conversations can't have images.")

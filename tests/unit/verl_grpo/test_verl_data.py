@@ -86,18 +86,9 @@ def test_tool_agent_row():
 _IMAGE = ContentItem(type=Type.IMAGE_BINARY, binary=b"img")
 
 
-@pytest.mark.parametrize(
-    ("metadata", "last_message", "error"),
-    [
-        ({"ground_truth": ""}, None, "ground_truth"),
-        ({"tools_kwargs": {"run_sql": "x"}}, None, "tools_kwargs"),
-        ({}, Message(role=Role.ASSISTANT, content="3"), "must end with"),
-        ({}, Message(role=Role.USER, content=[_IMAGE]), "images"),
-    ],
-)
-def test_bad_tool_agent_conversations_are_refused(metadata, last_message, error):
-    conversation = Conversation(
-        messages=[Message(role=Role.USER, content="How many rows in t?")],
+def _tool_conversation(*more: Message, **metadata) -> Conversation:
+    return Conversation(
+        messages=[Message(role=Role.USER, content="How many rows in t?"), *more],
         metadata={
             "agent_name": "tool_agent",
             "ground_truth": "SELECT count(*) FROM t",
@@ -105,8 +96,30 @@ def test_bad_tool_agent_conversations_are_refused(metadata, last_message, error)
             **metadata,
         },
     )
-    if last_message:
-        conversation.messages.append(last_message)
 
+
+@pytest.mark.parametrize(
+    ("conversation", "error"),
+    [
+        (_tool_conversation(ground_truth=""), "ground_truth"),
+        (_tool_conversation(tools_kwargs={"run_sql": "x"}), "tools_kwargs"),
+        (
+            _tool_conversation(Message(role=Role.ASSISTANT, content="3")),
+            "must end with",
+        ),
+        (_tool_conversation(Message(role=Role.USER, content=[_IMAGE])), "images"),
+        (
+            Conversation(
+                messages=[
+                    Message(role=Role.USER, content=[_IMAGE]),
+                    Message(role=Role.ASSISTANT, content="A cat."),
+                    Message(role=Role.USER, content="And now?"),
+                ]
+            ),
+            "single-turn",
+        ),
+    ],
+)
+def test_bad_conversations_are_refused(conversation, error):
     with pytest.raises(ValueError, match=error):
         _row(conversation)
