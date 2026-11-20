@@ -15,11 +15,20 @@
 """Turns oumi conversations into the rows verl reads from parquet."""
 
 import json
-from typing import Any
+import os
+from pathlib import Path
+from typing import Any, Final
 
+from datasets import Dataset
+
+from oumi.builders.data import build_dataset_mixture
+from oumi.core.configs import DataParams, DatasetSplit
+from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.conversation_utils import create_list_of_message_json_dicts
 from oumi.utils.grpo_utils import extract_prompt_images_completion_from_conversation
+
+_CONVERSATION_COLUMN: Final = "conversation_json"
 
 
 def conversation_to_verl_row(
@@ -93,3 +102,69 @@ def _validate(messages: list[Message], metadata: dict[str, Any]) -> None:
         raise ValueError("A tool-agent prompt must end with a user or tool message.")
     if has_images:
         raise ValueError("Tool-agent conversations can't have images.")
+
+
+def write_verl_parquet(
+    data_params: DataParams,
+    *,
+    split: DatasetSplit,
+    tokenizer: BaseTokenizer | None,
+    output_path: Path,
+) -> int:
+    """Builds one split of `data_params` and writes it as a verl parquet file.
+
+    Conversation rows are converted with `conversation_to_verl_row`, which requires
+    the split to name a single dataset. The source `conversation_json` column is
+    dropped after conversion, so the file holds only verl's columns. Rows that are
+    already in verl's format are written unchanged and may mix datasets, since they
+    carry their own `data_source`.
+
+    Args:
+        data_params: The dataset configuration.
+        split: The split to write.
+        tokenizer: The tokenizer used to build the datasets, if any.
+        output_path: Where to write the parquet file.
+
+    Returns:
+        The number of rows written.
+
+    Raises:
+        ValueError: If the split is streamed or has no rows, if conversations come
+            from zero or several dataset names, or if a conversation is invalid.
+    """
+    dataset = build_dataset_mixture(data_params, tokenizer, split)
+    if not isinstance(dataset, Dataset):
+        raise ValueError(
+            f"The {split.value} split must be a map-style dataset; streaming "
+            "datasets cannot be written to parquet."
+        )
+    if len(dataset) == 0:
+        raise ValueError(f"The {split.value} split has no rows.")
+
+    if _CONVERSATION_COLUMN in dataset.column_names:
+        dataset_names = {
+            ds.dataset_name for ds in data_params.get_split(split).datasets
+        }
+        if len(dataset_names) != 1:
+            raise ValueError(
+                f"Expected a single dataset name for the {split.value} split, "
+                f"got {sorted(dataset_names)}."
+            )
+        (data_source,) = dataset_names
+        dataset = dataset.map(
+            lambda example, index: conversation_to_verl_row(
+                example[_CONVERSATION_COLUMN],
+                index=index,
+                data_source=data_source,
+                split=split.value,
+            ),
+            with_indices=True,
+            remove_columns=dataset.column_names,
+            # Limit the max number of sub-processes to 8 to avoid overloading the
+            # system with too many processes.
+            num_proc=min(8, os.cpu_count() or 1),
+        )
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    dataset.to_parquet(output_path)
+    return len(dataset)
