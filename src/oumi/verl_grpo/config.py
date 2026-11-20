@@ -26,6 +26,8 @@ from typing import Any, Final
 from omegaconf import DictConfig, OmegaConf, ValueNode
 from omegaconf.errors import ConfigKeyError, ConfigTypeError
 
+from oumi.verl_grpo.errors import UnknownVerlKeyError
+
 VERL_VERSION: Final = "0.9.1"
 VERL_DEFAULTS_SHA256: Final = (
     "f19ebe24c2995052ca5a00de9c4ac302f6ba8c379effcc3ff83f058b0f9dcc90"
@@ -35,15 +37,6 @@ VERL_DEFAULTS_SHA256: Final = (
 VERL_DEFAULTS_FILE: Final[Path] = (
     Path(__file__).parent / f"ppo_trainer_defaults_{VERL_VERSION}.yaml"
 )
-
-
-class UnknownVerlKeyError(ValueError):
-    """A setting that verl's defaults don't define."""
-
-    def __init__(self, key: str):
-        """Initializes the error with the dotted path of the unknown key."""
-        super().__init__(f"verl {VERL_VERSION} has no setting '{key}'")
-        self.key = key
 
 
 def _open_free_form_maps(node: DictConfig) -> None:
@@ -144,7 +137,7 @@ def merge_verl_config(*layers: Mapping[str, Any] | DictConfig) -> DictConfig:
     try:
         merged = OmegaConf.merge(defaults, combined)
     except ConfigKeyError as exc:
-        raise UnknownVerlKeyError(str(exc.full_key)) from exc
+        raise UnknownVerlKeyError(str(exc.full_key), VERL_VERSION) from exc
     except ConfigTypeError as exc:
         key = _find_list_over_map(defaults, combined, "") or str(exc.full_key)
         raise ValueError(f"verl setting '{key}' has the wrong type.") from exc
