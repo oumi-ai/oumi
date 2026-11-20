@@ -6,7 +6,8 @@ Run it when bumping verl, with the Python of an env that has the new verl:
 
 It replaces src/oumi/verl_grpo/ppo_trainer_defaults_<version>.yaml, then prints the new
 sha256 and the config keys verl added, removed or changed. Afterwards, update
-VERL_VERSION and VERL_DEFAULTS_SHA256 in src/oumi/verl_grpo/config.py.
+VERL_VERSION and VERL_DEFAULTS_SHA256 in src/oumi/verl_grpo/config.py, and the verl
+version in src/oumi_verl_ext/install.py.
 """
 
 import argparse
