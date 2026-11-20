@@ -15,7 +15,7 @@ import pytest
 import torch
 
 import oumi_verl_ext
-from oumi_verl_ext import hooks, version
+from oumi_verl_ext import version
 from oumi_verl_ext.grpo_metrics_patch import VerlPatchError, install_grpo_metrics
 from oumi_verl_ext.metrics import TRUNCATION_RATIO_KEY
 from oumi_verl_ext.version import EXPECTED_VERL_VERSION
@@ -249,7 +249,6 @@ class _TrainerBaseFinder(importlib.abc.MetaPathFinder, importlib.abc.Loader):
 @pytest.fixture
 def import_state(verl_packages, monkeypatch):
     monkeypatch.setattr(sys, "meta_path", [*sys.meta_path, _TrainerBaseFinder()])
-    monkeypatch.setattr(hooks, "_HOOKS", hooks._PostImportHooks())
     monkeypatch.setattr(
         version.importlib.metadata, "version", lambda name: EXPECTED_VERL_VERSION
     )
