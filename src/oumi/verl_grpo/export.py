@@ -38,6 +38,7 @@ from safetensors import safe_open
 from safetensors.torch import save_file
 
 from oumi.utils.logging import logger
+from oumi.verl_grpo.errors import VerlExportError
 
 CHECKPOINT_TRACKER_FILENAME: Final = "latest_checkpointed_iteration.txt"
 
@@ -48,10 +49,6 @@ _ADAPTER_CONFIG_FILENAME: Final = "adapter_config.json"
 _ADAPTER_WEIGHTS_FILENAME: Final = "adapter_model.safetensors"
 _BASE_FILL_FILENAME: Final = "model-base-fill.safetensors"
 _WEIGHT_INDEX_FILENAME: Final = "model.safetensors.index.json"
-
-
-class VerlExportError(RuntimeError):
-    """Raised when a verl checkpoint can't be exported."""
 
 
 def latest_checkpoint_actor_dir(checkpoint_root: Path) -> Path:
