@@ -327,3 +327,18 @@ def test_extract_json_any_type_prefers_outermost_structure():
         {"a": 1},
         {"b": 2},
     ]
+
+
+def test_extract_json_any_type_ignores_stray_brackets_in_trailing_prose():
+    assert extract_json('Result: [{"a": 1}] (see [1])', expected_type=None) == [
+        {"a": 1}
+    ]
+    assert extract_json('Result: {"a": [1]} thanks :}', expected_type=None) == {
+        "a": [1]
+    }
+
+
+def test_extract_json_typed_ignores_stray_brackets_in_trailing_prose():
+    assert extract_json('Result: [{"a": 1}] (see [1])', expected_type=list) == [
+        {"a": 1}
+    ]
