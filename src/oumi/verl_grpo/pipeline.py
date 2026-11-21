@@ -77,6 +77,7 @@ def preprocess(config: TrainingConfig) -> Path:
 
     path = output_dir / "verl_config.yaml"
     body = OmegaConf.to_container(verl_config, resolve=False)
+    assert isinstance(body, dict)
     OmegaConf.save({"defaults": ["ppo_trainer", "_self_"], **body}, path)
     return path
 
