@@ -28,6 +28,7 @@ from oumi.utils.canonical_tool_conversations import (
 )
 from oumi.utils.conversation_utils import create_chat_template_inputs
 from oumi.utils.logging import logger
+from oumi.utils.packaging import is_transformers_v5_23_or_later
 
 
 class ChatTemplateToolFormat(NamedTuple):
@@ -201,12 +202,16 @@ def apply_chat_template_inputs(
     """Returns the ``(conversation, tools)`` pair to hand ``apply_chat_template``.
 
     A conversation with neither tool definitions nor tool calls is returned
-    untouched, so that path is unchanged and never pays for a probe.
+    untouched, so that path is unchanged and never pays for a probe. On
+    transformers>=5.23, which fails on a ``Conversation`` object, it is returned
+    as the message dicts that earlier versions derived from the object.
     """
     has_tool_calls = any(
         m.tool_calls for m in conversation.messages if m.role == Role.ASSISTANT
     )
     if not conversation.tools and not has_tool_calls:
+        if is_transformers_v5_23_or_later():
+            return [message.model_dump() for message in conversation.messages], None
         return conversation, None
 
     fmt = detect_chat_template_tool_format(tokenizer)

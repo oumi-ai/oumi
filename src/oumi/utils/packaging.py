@@ -223,6 +223,20 @@ def is_transformers_v5() -> bool:
 
 
 @lru_cache(maxsize=1)
+def is_transformers_v5_23_or_later() -> bool:
+    """Checks if transformers version is 5.23.0 or later.
+
+    5.23 iterates apply_chat_template input as message mappings, so a
+    pydantic Conversation must be converted to message dicts first.
+    """
+    try:
+        transformers_version = importlib.metadata.version("transformers")
+        return version.parse(transformers_version) >= version.parse("5.23.0")
+    except importlib.metadata.PackageNotFoundError:
+        return False
+
+
+@lru_cache(maxsize=1)
 def is_trl_v0_29_or_later() -> bool:
     """Checks if TRL version is 0.29.0 or later."""
     try:
