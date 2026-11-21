@@ -13,11 +13,15 @@
 # limitations under the License.
 
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.exceptions import OumiConfigError
+
+# Request fields the engine owns; extra_body may not replace them.
+RESERVED_EXTRA_BODY_KEYS = frozenset({"model", "messages"})
 
 
 @dataclass
@@ -37,6 +41,21 @@ class RemoteParams(BaseParams):
     """Opaque end-user identifier forwarded to the provider for abuse attribution.
 
     Sent as OpenAI ``user`` / Anthropic ``metadata.user_id``; omitted when unset.
+    """
+
+    extra_body: dict[str, Any] | None = None
+    """Extra fields merged into each online request body sent to the API.
+
+    Use it for provider-specific options the engine does not model, such as
+    OpenRouter's ``provider`` routing preferences. The merge is deep: nested
+    objects are merged key by key, so an object the engine already sets (for
+    example ``provider``) keeps its other keys. On a conflicting key the value
+    here wins; lists are replaced, not concatenated. ``model`` and ``messages``
+    cannot be set this way.
+
+    Only online requests sent through ``RemoteInferenceEngine``'s request path
+    carry these fields. Batch requests do not, nor do engines that send their
+    own requests, such as the Bedrock and LiteLLM engines.
     """
 
     max_retries: int = 5
@@ -187,6 +206,12 @@ class RemoteParams(BaseParams):
             raise OumiConfigError(
                 "Retry backoff max must be greater than or equal to retry backoff base."
             )
+        if self.extra_body is not None:
+            reserved = sorted(RESERVED_EXTRA_BODY_KEYS & set(self.extra_body))
+            if reserved:
+                raise OumiConfigError(
+                    f"extra_body cannot set reserved request fields: {reserved}."
+                )
 
 
 @dataclass
