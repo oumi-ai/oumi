@@ -1,9 +1,20 @@
 import json
+from pathlib import Path
+from typing import Any
+from unittest.mock import patch
 
+import pandas as pd
 import pytest
+from datasets import Dataset, IterableDataset
 
+from oumi.core.configs import (
+    DataParams,
+    DatasetParams,
+    DatasetSplit,
+    DatasetSplitParams,
+)
 from oumi.core.types.conversation import ContentItem, Conversation, Message, Role, Type
-from oumi.verl_grpo.data import conversation_to_verl_row
+from oumi.verl_grpo.data import conversation_to_verl_row, write_verl_parquet
 
 
 def _row(conversation: Conversation) -> dict:
@@ -123,3 +134,151 @@ def _tool_conversation(*more: Message, **metadata) -> Conversation:
 def test_bad_conversations_are_refused(conversation, error):
     with pytest.raises(ValueError, match=error):
         _row(conversation)
+
+
+def _text_sft_params(path: Path, *, names: tuple[str, ...] = ("text_sft",)):
+    return DataParams(
+        train=DatasetSplitParams(
+            datasets=[
+                DatasetParams(
+                    dataset_name=name,
+                    dataset_path=str(path),
+                    dataset_kwargs={"return_conversations": True},
+                )
+                for name in names
+            ]
+        )
+    )
+
+
+def _write_jsonl(path: Path, num_rows: int) -> None:
+    rows = [
+        {
+            "messages": [
+                {"role": "user", "content": f"Question {i}?"},
+                {"role": "assistant", "content": f"Answer {i}"},
+            ]
+        }
+        for i in range(num_rows)
+    ]
+    path.write_text("".join(json.dumps(row) + "\n" for row in rows))
+
+
+def _prebuilt_params() -> DataParams:
+    return DataParams(
+        train=DatasetSplitParams(datasets=[DatasetParams(dataset_name="prebuilt")])
+    )
+
+
+def _returning(dataset: Any):
+    return patch("oumi.verl_grpo.data.build_dataset_mixture", return_value=dataset)
+
+
+def test_conversation_rows_are_converted_and_counted(tmp_path: Path):
+    _write_jsonl(tmp_path / "data.jsonl", 3)
+    output_path = tmp_path / "train.parquet"
+
+    count = write_verl_parquet(
+        _text_sft_params(tmp_path / "data.jsonl"),
+        split=DatasetSplit.TRAIN,
+        tokenizer=None,
+        output_path=output_path,
+    )
+
+    table = pd.read_parquet(output_path)
+    assert count == 3
+    assert list(table["agent_name"]) == ["single_turn_agent"] * 3
+    assert [e["index"] for e in table["extra_info"]] == [0, 1, 2]
+    assert [e["split"] for e in table["extra_info"]] == ["train"] * 3
+    assert set(table["data_source"]) == {"text_sft"}
+    assert "conversation_json" not in table.columns
+
+
+def test_rows_already_in_verl_format_are_written_unchanged(tmp_path: Path):
+    rows = [
+        {
+            "data_source": "prebuilt",
+            "prompt": [{"role": "user", "content": "Hi"}],
+            "reward_model": {"style": "rule", "ground_truth": "yo"},
+        }
+    ]
+    params = _prebuilt_params()
+    output_path = tmp_path / "train.parquet"
+
+    with _returning(Dataset.from_list(rows)):
+        count = write_verl_parquet(
+            params, split=DatasetSplit.TRAIN, tokenizer=None, output_path=output_path
+        )
+
+    table = pd.read_parquet(output_path)
+    assert count == 1
+    assert list(table.columns) == ["data_source", "prompt", "reward_model"]
+    assert table["reward_model"][0]["ground_truth"] == "yo"
+
+
+def _two_dataset_params() -> DataParams:
+    return DataParams(
+        train=DatasetSplitParams(
+            datasets=[
+                DatasetParams(dataset_name="first"),
+                DatasetParams(dataset_name="second"),
+            ]
+        )
+    )
+
+
+def test_conversations_from_two_dataset_names_are_refused(tmp_path: Path):
+    convo = Conversation(messages=[Message(role=Role.USER, content="Hi")])
+    dataset = Dataset.from_list([{"conversation_json": convo.to_json()}])
+
+    with _returning(dataset), pytest.raises(ValueError, match="single dataset name"):
+        write_verl_parquet(
+            _two_dataset_params(),
+            split=DatasetSplit.TRAIN,
+            tokenizer=None,
+            output_path=tmp_path / "train.parquet",
+        )
+
+
+def test_a_mixed_split_already_in_verl_format_is_accepted(tmp_path: Path):
+    rows = [
+        {"data_source": "first", "prompt": [{"role": "user", "content": "a"}]},
+        {"data_source": "second", "prompt": [{"role": "user", "content": "b"}]},
+    ]
+
+    with _returning(Dataset.from_list(rows)):
+        count = write_verl_parquet(
+            _two_dataset_params(),
+            split=DatasetSplit.TRAIN,
+            tokenizer=None,
+            output_path=tmp_path / "train.parquet",
+        )
+
+    assert count == 2
+    assert list(pd.read_parquet(tmp_path / "train.parquet")["data_source"]) == [
+        "first",
+        "second",
+    ]
+
+
+def test_an_empty_split_is_refused(tmp_path: Path):
+    empty = Dataset.from_list([{"prompt": []}]).select([])
+
+    with _returning(empty), pytest.raises(ValueError, match="no rows"):
+        write_verl_parquet(
+            _prebuilt_params(),
+            split=DatasetSplit.TRAIN,
+            tokenizer=None,
+            output_path=tmp_path / "train.parquet",
+        )
+
+
+def test_an_iterable_dataset_is_refused(tmp_path: Path):
+    iterable = IterableDataset.from_generator(lambda: iter([{"prompt": []}]))
+    with _returning(iterable), pytest.raises(ValueError, match="streaming"):
+        write_verl_parquet(
+            _prebuilt_params(),
+            split=DatasetSplit.TRAIN,
+            tokenizer=None,
+            output_path=tmp_path / "train.parquet",
+        )
