@@ -172,18 +172,27 @@ def extract_json(text: str, expected_type: type | None = list) -> dict | list | 
     # containing a list (e.g. `{"a": [1]}`) is not mistaken for the inner list.
     delimiters.sort(key=lambda pair: (text.find(pair[0]) == -1, text.find(pair[0])))
 
+    # Position of the leftmost JSON opener of *any* kind. ``raw_decode`` is only
+    # attempted from this position so that a value nested inside a wrapping
+    # structure of a different type (e.g. a ``{...}`` record inside a truncated
+    # ``[...]`` list while ``expected_type=dict``) is never returned on its own.
+    opener_positions = [i for i in (text.find("["), text.find("{")) if i != -1]
+    leading_start = min(opener_positions, default=-1)
+
     for open_char, close_char in delimiters:
         start = text.find(open_char)
         if start == -1:
             continue
-        # Decode the first complete value starting at the opener; unlike the
-        # first-to-last span below, this tolerates stray brackets in trailing prose.
-        try:
-            result, _ = json.JSONDecoder().raw_decode(text, start)
-            if _matches_expected(result):
-                return result
-        except json.JSONDecodeError:
-            pass
+        # Decode the first complete value starting at the leading opener; unlike
+        # the first-to-last span below, this tolerates stray brackets in trailing
+        # prose.
+        if start == leading_start:
+            try:
+                result, _ = json.JSONDecoder().raw_decode(text, start)
+                if _matches_expected(result):
+                    return result
+            except json.JSONDecodeError:
+                pass
         end = text.rfind(close_char)
         if end > start:
             try:
