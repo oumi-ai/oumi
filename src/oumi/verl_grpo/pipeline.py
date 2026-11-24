@@ -24,8 +24,10 @@ import argparse
 import shutil
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 
 import pyarrow.parquet as pq
+import yaml
 from omegaconf import OmegaConf
 
 import oumi_verl_ext
@@ -46,17 +48,14 @@ def preprocess(config: TrainingConfig) -> Path:
 
     Raises:
         ValueError: If the settings name an agent-loop file and a written row uses
-            oumi's tool agent loop, which only oumi's agent-loop file registers.
+            oumi's tool agent loop, which only oumi's agent-loop file registers, or
+            if the train split keeps fewer rows than `data.train_batch_size`.
     """
     output_dir = Path(config.training.output_dir).resolve()
-    tokenizer = build_tokenizer(config.model)
-    parquet = {}
-    for split in (DatasetSplit.TRAIN, DatasetSplit.VALIDATION):
-        parquet[split] = output_dir / f"{split.value}.parquet"
-        write_verl_parquet(
-            config.data, split=split, tokenizer=tokenizer, output_path=parquet[split]
-        )
-
+    parquet = {
+        split: output_dir / f"{split.value}.parquet"
+        for split in (DatasetSplit.TRAIN, DatasetSplit.VALIDATION)
+    }
     verl_config = merge_verl_config(
         config.training.verl_config_overrides,
         {
@@ -68,6 +67,26 @@ def preprocess(config: TrainingConfig) -> Path:
             "trainer": {"default_local_dir": str(output_dir / "checkpoints")},
         },
     )
+    data = verl_config.data
+    multi_turn = verl_config.actor_rollout_ref.rollout.multi_turn
+    tool_schemas = (
+        _run_tool_schemas(multi_turn.tool_config_path) if multi_turn.enable else None
+    )
+    tokenizer = build_tokenizer(config.model)
+    for split, path in parquet.items():
+        write_verl_parquet(
+            config.data,
+            split=split,
+            tokenizer=tokenizer,
+            output_path=path,
+            multi_turn=multi_turn.enable,
+            max_prompt_length=data.max_prompt_length,
+            chat_template_kwargs=data.apply_chat_template_kwargs,
+            tool_schemas=tool_schemas,
+            # Fewer train rows than one batch give verl no steps.
+            min_rows=data.train_batch_size if split == DatasetSplit.TRAIN else 1,
+        )
+
     # verl imports these in its processes; oumi's adds the GRPO metrics.
     model = verl_config.actor_rollout_ref.model
     libs = model.external_lib
@@ -104,6 +123,26 @@ def preprocess(config: TrainingConfig) -> Path:
     assert isinstance(body, dict)
     OmegaConf.save({"defaults": ["ppo_trainer", "_self_"], **body}, path)
     return path
+
+
+def _run_tool_schemas(tool_config_path: str | None) -> list[dict[str, Any]] | None:
+    """The tool schemas in a verl tool config, read as verl's tool registry does."""
+    if not tool_config_path:
+        return None
+    try:
+        tools = OmegaConf.load(tool_config_path).tools
+    except (OSError, yaml.YAMLError) as error:
+        logger.warning(
+            "Measuring prompts without tools: can't read "
+            f"actor_rollout_ref.rollout.multi_turn.tool_config_path ({error})."
+        )
+        return None
+    # A tool without a tool_schema brings its own, which preprocess can't see.
+    return [  # type: ignore[return-value]
+        OmegaConf.to_container(tool.tool_schema, resolve=True)
+        for tool in tools
+        if tool.get("tool_schema") is not None
+    ]
 
 
 def _uses_tool_agent_loop(parquet_path: Path) -> bool:

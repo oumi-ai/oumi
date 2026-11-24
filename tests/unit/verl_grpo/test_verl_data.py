@@ -15,11 +15,16 @@ from oumi.core.configs import (
 )
 from oumi.core.types.conversation import ContentItem, Conversation, Message, Role, Type
 from oumi.verl_grpo.data import conversation_to_verl_row, write_verl_parquet
+from oumi_verl_ext.tool_episode import TOOL_AGENT_LOOP_NAME
 
 
-def _row(conversation: Conversation) -> dict:
+def _row(conversation: Conversation, multi_turn: bool = False) -> dict:
     return conversation_to_verl_row(
-        conversation.to_json(), index=3, data_source="ds", split="train"
+        conversation.to_json(),
+        index=3,
+        data_source="ds",
+        split="train",
+        multi_turn=multi_turn,
     )
 
 
@@ -94,6 +99,21 @@ def test_tool_agent_row():
     assert row["extra_info"]["tools_kwargs"] == tools_kwargs
 
 
+def test_multi_turn_runs_conversation_rows_in_oumi_s_tool_loop():
+    conversation = Conversation(
+        messages=[
+            Message(role=Role.USER, content="Pick one."),
+            Message(role=Role.ASSISTANT, content="A"),
+        ],
+        metadata={"k": "v"},
+    )
+
+    assert _row(conversation, multi_turn=True) == {
+        **_row(conversation),
+        "agent_name": TOOL_AGENT_LOOP_NAME,
+    }
+
+
 _IMAGE = ContentItem(type=Type.IMAGE_BINARY, binary=b"img")
 
 
@@ -107,6 +127,12 @@ def _tool_conversation(*more: Message, **metadata) -> Conversation:
             **metadata,
         },
     )
+
+
+def test_multi_turn_keeps_the_agent_a_row_names():
+    conversation = _tool_conversation()
+
+    assert _row(conversation, multi_turn=True) == _row(conversation)
 
 
 @pytest.mark.parametrize(

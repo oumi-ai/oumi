@@ -1,4 +1,5 @@
 import json
+from collections.abc import Sequence
 from pathlib import Path
 from unittest.mock import patch
 
@@ -8,20 +9,45 @@ import yaml
 from omegaconf import OmegaConf
 
 from oumi.verl_grpo.pipeline import main
+from oumi_verl_ext.tool_episode import TOOL_AGENT_LOOP_NAME
 
 
-def _config(tmp_path: Path, agent_loop_config_path: str | None = None) -> Path:
+class _WordTokenizer:
+    """Gives each word of the prompt, and of the tools it renders, one token."""
+
+    def apply_chat_template(self, messages, *, tools=None, **kwargs):
+        text = " ".join(message["content"] for message in messages)
+        return (f"{text} {json.dumps(tools)}" if tools else text).split()
+
+
+def _tokenizer():
+    return patch(
+        "oumi.verl_grpo.pipeline.build_tokenizer", return_value=_WordTokenizer()
+    )
+
+
+def _config(
+    tmp_path: Path,
+    agent_loop_config_path: str | None = None,
+    *,
+    questions: Sequence[str] = ("2+2?",),
+    verl_data: dict | None = None,
+    multi_turn: dict | None = None,
+) -> Path:
     data = tmp_path / "data.jsonl"
     data.write_text(
-        json.dumps(
-            {
-                "messages": [
-                    {"role": "user", "content": "2+2?"},
-                    {"role": "assistant", "content": "4"},
-                ]
-            }
+        "".join(
+            json.dumps(
+                {
+                    "messages": [
+                        {"role": "user", "content": question},
+                        {"role": "assistant", "content": "4"},
+                    ]
+                }
+            )
+            + "\n"
+            for question in questions
         )
-        + "\n"
     )
     split = {
         "datasets": [
@@ -37,6 +63,8 @@ def _config(tmp_path: Path, agent_loop_config_path: str | None = None) -> Path:
         overrides["rollout"] = {
             "agent": {"agent_loop_config_path": agent_loop_config_path}
         }
+    if multi_turn:
+        overrides["rollout"] = {"multi_turn": multi_turn}
     path = tmp_path / "train.yaml"
     path.write_text(
         yaml.safe_dump(
@@ -46,7 +74,10 @@ def _config(tmp_path: Path, agent_loop_config_path: str | None = None) -> Path:
                 "training": {
                     "trainer_type": "VERL_GRPO",
                     "output_dir": str(tmp_path / "out"),
-                    "verl_config_overrides": {"actor_rollout_ref": overrides},
+                    "verl_config_overrides": {
+                        "data": {"train_batch_size": 1, **(verl_data or {})},
+                        "actor_rollout_ref": overrides,
+                    },
                 },
             }
         )
@@ -55,7 +86,7 @@ def _config(tmp_path: Path, agent_loop_config_path: str | None = None) -> Path:
 
 
 def test_preprocess_writes_the_files_verl_needs(tmp_path):
-    with patch("oumi.verl_grpo.pipeline.build_tokenizer", return_value=None):
+    with _tokenizer():
         main(["preprocess", "-c", str(_config(tmp_path))])
 
     out = tmp_path / "out"
@@ -73,7 +104,7 @@ def test_preprocess_writes_the_files_verl_needs(tmp_path):
 
 
 def _preprocess(config_path: Path):
-    with patch("oumi.verl_grpo.pipeline.build_tokenizer", return_value=None):
+    with _tokenizer():
         main(["preprocess", "-c", str(config_path)])
     return OmegaConf.load(config_path.parent / "out" / "verl_config.yaml")
 
@@ -91,7 +122,7 @@ def test_preprocess_registers_the_tool_loop(tmp_path):
 def _writes(columns: dict):
     """Stands in for write_verl_parquet, writing one row of `columns`."""
 
-    def write_verl_parquet(data_params, *, split, tokenizer, output_path):
+    def write_verl_parquet(data_params, *, split, tokenizer, output_path, **kwargs):
         output_path.parent.mkdir(parents=True, exist_ok=True)
         pd.DataFrame(columns).to_parquet(output_path)
 
@@ -123,9 +154,70 @@ def test_preprocess_keeps_a_user_agent_loop_config_path_without_tool_rows(
     assert "Keeping the configured agent_loop_config_path" in caplog.text
 
 
+_LOOKUP = {
+    "type": "function",
+    "function": {
+        "name": "lookup",
+        "description": "Looks up an item.",
+        "parameters": {"type": "object", "properties": {"item": {"type": "string"}}},
+    },
+}
+
+
+@pytest.mark.parametrize(
+    ("tool_config", "kept"), [("tools.yaml", 1), (None, 2), ("missing.yaml", 2)]
+)
+def test_preprocess_measures_prompts_with_the_run_s_tools(
+    tmp_path, caplog, tool_config, kept
+):
+    (tmp_path / "tools.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "tools": [
+                    {
+                        "class_name": "my.Lookup",
+                        "config": {"type": "native"},
+                        "tool_schema": _LOOKUP,
+                    }
+                ]
+            }
+        )
+    )
+    multi_turn: dict = {"enable": True}
+    if tool_config:
+        multi_turn["tool_config_path"] = str(tmp_path / tool_config)
+    # With the tool rendered, only the one-word question fits.
+    config_path = _config(
+        tmp_path,
+        questions=["2+2?", "What is two plus two?"],
+        verl_data={"max_prompt_length": len(json.dumps([_LOOKUP]).split()) + 1},
+        multi_turn=multi_turn,
+    )
+
+    _preprocess(config_path)
+
+    table = pd.read_parquet(tmp_path / "out/train.parquet")
+    assert len(table) == kept
+    assert set(table["agent_name"]) == {TOOL_AGENT_LOOP_NAME}
+    unreadable = tool_config == "missing.yaml"
+    assert ("multi_turn.tool_config_path" in caplog.text) == unreadable
+
+
+def test_preprocess_needs_a_full_train_batch(tmp_path):
+    questions = ["2+2?", "3+3?"]
+    _preprocess(
+        _config(tmp_path, questions=questions, verl_data={"train_batch_size": 2})
+    )
+
+    with pytest.raises(ValueError, match="train split keeps 2 rows, fewer than the 3"):
+        _preprocess(
+            _config(tmp_path, questions=questions, verl_data={"train_batch_size": 3})
+        )
+
+
 def test_postprocess_exports_the_latest_checkpoint(tmp_path):
     config_path = _config(tmp_path)
-    with patch("oumi.verl_grpo.pipeline.build_tokenizer", return_value=None):
+    with _tokenizer():
         main(["preprocess", "-c", str(config_path)])
     checkpoints = tmp_path / "out" / "checkpoints"
     checkpoints.mkdir()
