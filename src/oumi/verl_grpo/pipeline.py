@@ -25,14 +25,17 @@ import shutil
 from collections.abc import Sequence
 from pathlib import Path
 
+import pyarrow.parquet as pq
 from omegaconf import OmegaConf
 
 import oumi_verl_ext
 from oumi.builders.models import build_tokenizer
 from oumi.core.configs import DatasetSplit, TrainingConfig
+from oumi.utils.logging import logger
 from oumi.verl_grpo.config import merge_verl_config
 from oumi.verl_grpo.data import write_verl_parquet
 from oumi.verl_grpo.export import export_verl_checkpoint, latest_checkpoint_actor_dir
+from oumi_verl_ext.tool_episode import TOOL_AGENT_LOOP_NAME
 
 
 def preprocess(config: TrainingConfig) -> Path:
@@ -40,6 +43,10 @@ def preprocess(config: TrainingConfig) -> Path:
 
     Returns:
         The verl config's path, `<training.output_dir>/verl_config.yaml`.
+
+    Raises:
+        ValueError: If the settings name an agent-loop file and a written row uses
+            oumi's tool agent loop, which only oumi's agent-loop file registers.
     """
     output_dir = Path(config.training.output_dir).resolve()
     tokenizer = build_tokenizer(config.model)
@@ -74,12 +81,36 @@ def preprocess(config: TrainingConfig) -> Path:
         dirs_exist_ok=True,
         ignore=shutil.ignore_patterns("__pycache__"),
     )
+    # verl loads a single agent-loop file.
+    agent = verl_config.actor_rollout_ref.rollout.agent
+    if not agent.agent_loop_config_path:
+        agent.agent_loop_config_path = str(
+            output_dir / "ext" / "oumi_verl_ext" / "agent_loops.yaml"
+        )
+    elif any(map(_uses_tool_agent_loop, parquet.values())):
+        raise ValueError(
+            "actor_rollout_ref.rollout.agent.agent_loop_config_path is set, but rows "
+            f"use the '{TOOL_AGENT_LOOP_NAME}' agent loop, which only oumi's "
+            "agent-loop file registers. Leave the setting unset."
+        )
+    else:
+        logger.info(
+            "Keeping the configured agent_loop_config_path; oumi's agent loops are "
+            "not registered."
+        )
 
     path = output_dir / "verl_config.yaml"
     body = OmegaConf.to_container(verl_config, resolve=False)
     assert isinstance(body, dict)
     OmegaConf.save({"defaults": ["ppo_trainer", "_self_"], **body}, path)
     return path
+
+
+def _uses_tool_agent_loop(parquet_path: Path) -> bool:
+    if "agent_name" not in pq.read_schema(parquet_path).names:
+        return False
+    agent_names = pq.read_table(parquet_path, columns=["agent_name"])["agent_name"]
+    return TOOL_AGENT_LOOP_NAME in agent_names.to_pylist()
 
 
 def postprocess(config: TrainingConfig, *, verl_python: str) -> Path:
