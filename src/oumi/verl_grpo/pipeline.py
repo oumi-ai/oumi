@@ -43,13 +43,10 @@ def preprocess(config: TrainingConfig) -> Path:
     """
     output_dir = Path(config.training.output_dir).resolve()
     tokenizer = build_tokenizer(config.model)
-    parquet = {}
-    for split in (DatasetSplit.TRAIN, DatasetSplit.VALIDATION):
-        parquet[split] = output_dir / f"{split.value}.parquet"
-        write_verl_parquet(
-            config.data, split=split, tokenizer=tokenizer, output_path=parquet[split]
-        )
-
+    parquet = {
+        split: output_dir / f"{split.value}.parquet"
+        for split in (DatasetSplit.TRAIN, DatasetSplit.VALIDATION)
+    }
     verl_config = merge_verl_config(
         config.training.verl_config_overrides,
         {
@@ -61,6 +58,15 @@ def preprocess(config: TrainingConfig) -> Path:
             "trainer": {"default_local_dir": str(output_dir / "checkpoints")},
         },
     )
+    rollout = verl_config.actor_rollout_ref.rollout
+    for split, path in parquet.items():
+        write_verl_parquet(
+            config.data,
+            split=split,
+            tokenizer=tokenizer,
+            output_path=path,
+            multi_turn=rollout.multi_turn.enable,
+        )
     # verl imports these in its processes; oumi's adds the GRPO metrics.
     model = verl_config.actor_rollout_ref.model
     libs = model.external_lib
@@ -75,7 +81,6 @@ def preprocess(config: TrainingConfig) -> Path:
         ignore=shutil.ignore_patterns("__pycache__"),
     )
     # Multi-turn runs use oumi's tool loop.
-    rollout = verl_config.actor_rollout_ref.rollout
     if rollout.multi_turn.enable:
         rollout.agent.agent_loop_config_path = str(
             output_dir / "ext" / "oumi_verl_ext" / "agent_loops.yaml"

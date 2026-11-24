@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
+import pandas as pd
 import yaml
 from omegaconf import OmegaConf
 
@@ -76,13 +77,15 @@ def _preprocess(config_path: Path):
     return OmegaConf.load(config_path.parent / "out" / "verl_config.yaml")
 
 
-def test_preprocess_registers_the_tool_loop_on_multi_turn_runs(tmp_path):
+def test_preprocess_runs_multi_turn_rows_in_the_tool_loop(tmp_path):
     config = _preprocess(_config(tmp_path, multi_turn=True))
 
     path = Path(config.actor_rollout_ref.rollout.agent.agent_loop_config_path)
     assert path == tmp_path / "out/ext/oumi_verl_ext/agent_loops.yaml"
     registered = {loop["name"] for loop in yaml.safe_load(path.read_text())}
     assert TOOL_AGENT_LOOP_NAME in registered
+    rows = pd.read_parquet(tmp_path / "out/train.parquet")
+    assert set(rows["agent_name"]) == {TOOL_AGENT_LOOP_NAME}
 
 
 def test_preprocess_leaves_single_turn_runs_unregistered(tmp_path):

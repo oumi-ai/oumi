@@ -27,18 +27,25 @@ from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.conversation_utils import create_list_of_message_json_dicts
 from oumi.utils.grpo_utils import extract_prompt_images_completion_from_conversation
+from oumi_verl_ext.tool_episode import TOOL_AGENT_LOOP_NAME
 
 _CONVERSATION_COLUMN: Final = "conversation_json"
 
 
 def conversation_to_verl_row(
-    conversation_json: str, *, index: int, data_source: str, split: str
+    conversation_json: str,
+    *,
+    index: int,
+    data_source: str,
+    split: str,
+    multi_turn: bool = False,
 ) -> dict[str, Any]:
     """Converts a serialized oumi conversation to a verl dataset row.
 
     A conversation whose metadata has `agent_name: tool_agent` becomes a tool-agent
-    row. Any other becomes a single-turn row, with the final assistant message as
-    the ground truth.
+    row. Any other becomes a row with the final assistant message as the ground
+    truth, run in oumi's tool agent loop when `multi_turn` is set and in verl's
+    single-turn loop otherwise.
     """
     conversation = Conversation.from_json(conversation_json)
     metadata = conversation.metadata or {}
@@ -67,7 +74,7 @@ def conversation_to_verl_row(
             user = next(message for message in prompt if message["role"] == "user")
             if not user["content"].startswith("<image>"):
                 user["content"] = "<image>" + user["content"]
-        agent_name = "single_turn_agent"
+        agent_name = TOOL_AGENT_LOOP_NAME if multi_turn else "single_turn_agent"
         ability = "math"
         extra_info |= {"answer": ground_truth, "metadata": json.dumps(metadata)}
     # The platform's reward reads the prompt from here.
@@ -110,6 +117,7 @@ def write_verl_parquet(
     split: DatasetSplit,
     tokenizer: BaseTokenizer | None,
     output_path: Path,
+    multi_turn: bool = False,
 ) -> int:
     """Builds one split of `data_params` and writes it as a verl parquet file.
 
@@ -124,6 +132,7 @@ def write_verl_parquet(
         split: The split to write.
         tokenizer: The tokenizer used to build the datasets, if any.
         output_path: Where to write the parquet file.
+        multi_turn: Whether conversation rows run in oumi's tool agent loop.
 
     Returns:
         The number of rows written.
@@ -157,6 +166,7 @@ def write_verl_parquet(
                 index=index,
                 data_source=data_source,
                 split=split.value,
+                multi_turn=multi_turn,
             ),
             with_indices=True,
             remove_columns=dataset.column_names,
