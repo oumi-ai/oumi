@@ -18,6 +18,22 @@ from collections.abc import Collection
 from typing import Any, Final
 
 TOOL_AGENT_LOOP_NAME: Final = "oumi_tool_agent"
+MALFORMED_CALLS_KEY: Final = "oumi_tool_calls_malformed"
+DROPPED_CALLS_KEY: Final = "oumi_tool_calls_dropped"
+
+
+def call_problems(
+    turn_text: str, call_start: str | None, parsed_calls: int, max_parallel_calls: int
+) -> tuple[int, int]:
+    """Counts a parsed turn's malformed and dropped tool calls.
+
+    Malformed calls are call-start markers the parser couldn't read; a parser with
+    no such marker (gpt-oss, kimi) shows none. Dropped calls are the ones past
+    ``max_parallel_calls``, which verl discards without running.
+    """
+    attempted = turn_text.count(call_start) if call_start else parsed_calls
+    # qwen3_coder can parse several calls from one marker.
+    return max(attempted - parsed_calls, 0), max(parsed_calls - max_parallel_calls, 0)
 
 
 def judge_transcript(
