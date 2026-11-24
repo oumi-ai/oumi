@@ -216,6 +216,9 @@ class SkyClient:
             job: Job to run on the cluster.
             cluster_name: Name of the cluster to create.
             kwargs: Launch options, including `idle_minutes_to_autostop` and `down`.
+                A provided `idle_minutes_to_autostop` is used on every cloud;
+                if omitted, it defaults to 60 on clouds that support stopping
+                and to no autostop on the others.
 
         Returns:
             ID of the launch request on the Sky Pilot server.
@@ -223,34 +226,35 @@ class SkyClient:
         sky_cloud = _get_sky_cloud_from_job(job)
         sky_task = _convert_job_to_task(job)
 
-        # Set autostop if supported by the cloud, defaulting to 60 minutes if not
-        # specified by the user. Currently, Lambda and RunPod do not support autostop.
+        # A caller-provided `idle_minutes_to_autostop` (including None, meaning no
+        # autostop) is forwarded to SkyPilot on every cloud. Otherwise, default to
+        # 60 minutes on clouds that support stopping (not Lambda or RunPod).
+        autostop_kw = "idle_minutes_to_autostop"
         idle_minutes_to_autostop = None
-        try:
-            sky_resources = next(iter(sky_task.resources))
-            # This will raise an exception if the cloud does not support stopping.
-            sky_cloud.check_features_are_supported(
-                sky_resources,
-                requested_features={
-                    self._sky_lib.clouds.CloudImplementationFeatures.STOP
-                },
-            )
-            autostop_kw = "idle_minutes_to_autostop"
-            # Default to 60 minutes.
-            idle_minutes_to_autostop = 60
-            if autostop_kw in kwargs:
-                idle_minutes_to_autostop = kwargs.get(autostop_kw)
-                logger.info(f"Setting autostop to {idle_minutes_to_autostop} minutes.")
-            else:
+        if autostop_kw in kwargs:
+            idle_minutes_to_autostop = kwargs[autostop_kw]
+            logger.info(f"Setting autostop to {idle_minutes_to_autostop} minutes.")
+        else:
+            try:
+                sky_resources = next(iter(sky_task.resources))
+                # This will raise an exception if the cloud does not support stopping.
+                sky_cloud.check_features_are_supported(
+                    sky_resources,
+                    requested_features={
+                        self._sky_lib.clouds.CloudImplementationFeatures.STOP
+                    },
+                )
+                # Default to 60 minutes.
+                idle_minutes_to_autostop = 60
                 logger.info(
                     "No idle_minutes_to_autostop provided. "
                     f"Defaulting to {idle_minutes_to_autostop} minutes."
                 )
-        except Exception:
-            logger.info(
-                f"{sky_cloud._REPR} does not support stopping clusters. "
-                "Will not set autostop."
-            )
+            except Exception:
+                logger.info(
+                    f"{sky_cloud._REPR} does not support stopping clusters. "
+                    "Will not set autostop."
+                )
         # Autostop only halts the cluster; its disks keep billing until something
         # tears it down. `down` makes the idle timer terminate instead.
         down = bool(kwargs.get("down", False))
@@ -313,6 +317,9 @@ class SkyClient:
             job: Job to run on the cluster.
             cluster_name: Name of the cluster to create.
             kwargs: Launch options, including `idle_minutes_to_autostop` and `down`.
+                A provided `idle_minutes_to_autostop` is used on every cloud;
+                if omitted, it defaults to 60 on clouds that support stopping
+                and to no autostop on the others.
 
         Returns:
             A JobStatus with the job ID, cluster name, and hourly cost when available.
