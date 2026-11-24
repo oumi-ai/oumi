@@ -35,6 +35,7 @@ from oumi_verl_ext.tool_episode import (
     MALFORMED_CALLS_KEY,
     call_problems,
     judge_transcript,
+    stopped_by_turn_limit,
 )
 from oumi_verl_ext.tool_schemas import with_full_schemas
 
@@ -42,7 +43,8 @@ from oumi_verl_ext.tool_schemas import with_full_schemas
 class OumiToolAgentLoop(ToolAgentLoop):
     """verl's tool loop, adding the judge's transcript and tools to extra_fields.
 
-    It also counts the calls verl skips without a metric: malformed and dropped.
+    It also counts the calls verl skips without a metric: malformed and dropped,
+    and flags an episode that ends at max_assistant_turns with calls left unrun.
     verl builds one loop per trajectory, so the instance state is per trajectory.
     """
 
@@ -58,6 +60,7 @@ class OumiToolAgentLoop(ToolAgentLoop):
         self._messages: list[dict[str, Any]] = []
         self._unparsed_turn_text: str | None = None
         self._malformed_calls = self._dropped_calls = 0
+        self._turn_limit_exceeded = False
         # In a split where other rows carry tools_kwargs, parquet reads a row
         # without it back as None, and verl's _call_tool would call .get on it.
         if kwargs.get("tools_kwargs") is None:
@@ -72,6 +75,7 @@ class OumiToolAgentLoop(ToolAgentLoop):
         output.extra_fields["oumi_tool_schemas_json"] = json.dumps(self.tool_schemas)
         output.extra_fields[MALFORMED_CALLS_KEY] = self._malformed_calls
         output.extra_fields[DROPPED_CALLS_KEY] = self._dropped_calls
+        output.extra_fields["oumi_tool_turn_limit_exceeded"] = self._turn_limit_exceeded
         return output
 
     async def _handle_generating_state(
@@ -91,6 +95,19 @@ class OumiToolAgentLoop(ToolAgentLoop):
             self._unparsed_turn_text = self.tokenizer.decode(
                 agent_data.response_ids[: self.response_length - prior_length]
             )
+            if stopped_by_turn_limit(
+                len(agent_data.response_mask),
+                self.response_length,
+                agent_data.assistant_turns,
+                self.max_assistant_turns,
+            ):
+                # The calls verl would have parsed, had the limit not stopped it.
+                active_tools = getattr(agent_data, "_active_tools", self.tools)
+                _, calls = await self.tool_parser.extract_tool_calls(
+                    agent_data.response_ids,
+                    [tool.tool_schema for tool in active_tools.values()],
+                )
+                self._turn_limit_exceeded = bool(calls)
         else:
             malformed, dropped = call_problems(
                 self.tokenizer.decode(agent_data.response_ids),

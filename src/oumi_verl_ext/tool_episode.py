@@ -36,6 +36,21 @@ def call_problems(
     return max(attempted - parsed_calls, 0), max(parsed_calls - max_parallel_calls, 0)
 
 
+def stopped_by_turn_limit(
+    response_tokens: int,
+    response_length: int,
+    assistant_turns: int,
+    max_assistant_turns: int | None,
+) -> bool:
+    """Whether ``max_assistant_turns`` stopped verl before it parsed a turn.
+
+    verl checks the response budget first, so a turn that hits both is a budget cut.
+    """
+    return response_tokens < response_length and bool(
+        max_assistant_turns and assistant_turns >= max_assistant_turns
+    )
+
+
 def judge_transcript(
     messages: list[dict[str, Any]],
     unparsed_turn_text: str | None,
