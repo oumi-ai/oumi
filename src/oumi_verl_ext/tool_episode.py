@@ -73,3 +73,16 @@ def judge_transcript(
                 content = content.replace(token, "")
             transcript[index] = {**message, "content": content}
     return transcript
+
+
+def full_tool_schemas(
+    config_schemas: list[dict[str, Any]], schemas: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """``schemas`` with each tool's ``tool_schema`` from the tool config file.
+
+    verl parses that tool_schema into models that keep only the keys they declare,
+    so nested properties, array items, defaults and the like are lost. A tool the
+    file gives no tool_schema, such as a function tool, keeps verl's schema.
+    """
+    by_name = {schema["function"]["name"]: schema for schema in config_schemas}
+    return [by_name.get(schema["function"]["name"], schema) for schema in schemas]
