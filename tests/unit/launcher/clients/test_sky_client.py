@@ -485,6 +485,27 @@ def test_sky_client_launch_kwarg_value(mock_sky_data_storage):
             )
 
 
+def test_sky_client_launch_no_stop_kwarg_value(mock_sky_data_storage):
+    with patch("sky.launch") as mock_launch:
+        with patch("sky.stream_and_get") as mock_stream_and_get:
+            job = _get_default_job("runpod")
+            job.resources.region = "ca"
+            job.resources.disk_tier = "best"
+            mock_resource_handle = Mock()
+            mock_resource_handle.cluster_name = "mycluster"
+            mock_resource_handle.get_hourly_price.return_value = 2.5
+            mock_launch.return_value = (1, mock_resource_handle)
+            mock_stream_and_get.return_value = (1, mock_resource_handle)
+            client = SkyClient()
+            client.launch(job, idle_minutes_to_autostop=5, down=True)
+            mock_launch.assert_called_once_with(
+                ANY,
+                cluster_name=None,
+                idle_minutes_to_autostop=5,
+                down=True,
+            )
+
+
 def test_sky_client_launch_autodown(mock_sky_data_storage):
     with patch("sky.launch") as mock_launch:
         with patch("sky.stream_and_get") as mock_stream_and_get:
