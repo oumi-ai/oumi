@@ -37,7 +37,7 @@ from oumi.core.tokenizers.utils import (
     apply_chat_template_inputs,
     detect_chat_template_tool_format,
 )
-from oumi.core.types import Conversation
+from oumi.core.types import Conversation, Message, Role
 from oumi.utils.canonical_tool_conversations import (
     ARGUMENT_SENTINEL,
     ASSISTANT_TEXT_1,
@@ -723,6 +723,31 @@ def test_template_with_no_working_form_falls_back_and_warns():
 
     assert tuple(resolved) == ("mapping", "empty")
     mock_logger.warning.assert_called_once()
+
+
+def test_plain_conversation_goes_over_as_message_dicts_on_transformers_5_23():
+    """transformers>=5.23 fails on a `Conversation` object, so it gets message dicts.
+
+    They must render exactly like hand-written message dicts.
+    """
+    tokenizer = _load_tokenizer("Qwen/Qwen2.5-0.5B-Instruct")
+    turns = [("system", "Be brief."), ("user", "Hi"), ("assistant", "Hello.")]
+    conversation = Conversation(
+        messages=[Message(role=Role(role), content=text) for role, text in turns]
+    )
+
+    with patch(
+        "oumi.core.tokenizers.utils.is_transformers_v5_23_or_later",
+        return_value=True,
+    ):
+        chat_input, tools = apply_chat_template_inputs(tokenizer, conversation)
+
+    assert tools is None
+    assert isinstance(chat_input, list)
+    expected = [{"role": role, "content": text} for role, text in turns]
+    assert tokenizer.apply_chat_template(
+        chat_input, tokenize=False
+    ) == tokenizer.apply_chat_template(expected, tokenize=False)
 
 
 def test_tool_calls_without_tool_definitions_still_get_shaped():
