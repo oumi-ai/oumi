@@ -43,6 +43,10 @@ class OumiToolAgentLoop(ToolAgentLoop):
         """Runs verl's episode, then adds the judge's transcript and tools."""
         self._messages: list[dict[str, Any]] = []
         self._unparsed_turn_text: str | None = None
+        # In a split where other rows carry tools_kwargs, parquet reads a row
+        # without it back as None, and verl's _call_tool would call .get on it.
+        if kwargs.get("tools_kwargs") is None:
+            kwargs["tools_kwargs"] = {}
         output = await super().run(sampling_params, **kwargs)
         transcript = judge_transcript(
             self._messages,
