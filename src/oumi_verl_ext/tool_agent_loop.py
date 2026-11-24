@@ -61,6 +61,10 @@ class OumiToolAgentLoop(ToolAgentLoop):
         self._unparsed_turn_text: str | None = None
         self._malformed_calls = self._dropped_calls = 0
         self._turn_limit_exceeded = False
+        # In a split where other rows carry tools_kwargs, parquet reads a row
+        # without it back as None, and verl's _call_tool would call .get on it.
+        if kwargs.get("tools_kwargs") is None:
+            kwargs["tools_kwargs"] = {}
         output = await super().run(sampling_params, **kwargs)
         transcript = judge_transcript(
             self._messages,
