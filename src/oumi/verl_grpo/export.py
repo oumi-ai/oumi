@@ -23,6 +23,8 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+from oumi.verl_grpo.patches.gemma4_fill import fill_gemma4_kv_tensors
+
 
 def latest_checkpoint_actor_dir(checkpoint_root: Path) -> Path:
     """Returns `<root>/global_step_<N>/actor` for the step verl last checkpointed."""
@@ -43,7 +45,8 @@ def export_verl_checkpoint(
     Args:
         actor_dir: The checkpoint's `global_step_<N>/actor` directory.
         output_dir: Where the export goes.
-        base_model: Base model id or path, recorded in a LoRA adapter's config.
+        base_model: Base model id or path. Recorded in a LoRA adapter's config, and
+            the source of the weights a Gemma 4 export lacks.
         verl_python: Python interpreter of the env that has verl installed.
         exclude_modules: Regex for modules a LoRA adapter excludes.
 
@@ -86,6 +89,8 @@ def export_verl_checkpoint(
                 ):
                     shutil.copy(path, adapter / path.name)
             merged = adapter
+        else:
+            fill_gemma4_kv_tensors(merged, base_model)
         for path in merged.iterdir():
             shutil.move(path, output_dir / path.name)
     return output_dir
