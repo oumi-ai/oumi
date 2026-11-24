@@ -42,7 +42,7 @@ repos:
     rev: v1.5.6
     hooks:
       - id: insert-license
-        files: ^src/oumi/.*\.py$
+        files: ^src/(oumi|oumi_verl_ext)/.*\.py$
         args:
           - --license-filepath
           - .license_header.txt
