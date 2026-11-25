@@ -30,19 +30,26 @@ from verl.experimental.agent_loop.tool_agent_loop import (  # pyright: ignore[re
     ToolAgentLoop,
 )
 
-from oumi_verl_ext.tool_episode import judge_transcript
+from oumi_verl_ext.tool_episode import (
+    DROPPED_CALLS_KEY,
+    MALFORMED_CALLS_KEY,
+    call_problems,
+    judge_transcript,
+)
 
 
 class OumiToolAgentLoop(ToolAgentLoop):
     """verl's tool loop, adding the judge's transcript and tools to extra_fields.
 
+    It also counts the calls verl skips without a metric: malformed and dropped.
     verl builds one loop per trajectory, so the instance state is per trajectory.
     """
 
     async def run(self, sampling_params: dict[str, Any], **kwargs) -> AgentLoopOutput:
-        """Runs verl's episode, then adds the judge's transcript and tools."""
+        """Runs verl's episode, then adds the judge's transcript, tools and counts."""
         self._messages: list[dict[str, Any]] = []
         self._unparsed_turn_text: str | None = None
+        self._malformed_calls = self._dropped_calls = 0
         # In a split where other rows carry tools_kwargs, parquet reads a row
         # without it back as None, and verl's _call_tool would call .get on it.
         if kwargs.get("tools_kwargs") is None:
@@ -55,6 +62,8 @@ class OumiToolAgentLoop(ToolAgentLoop):
         )
         output.extra_fields["oumi_tool_transcript_json"] = json.dumps(transcript)
         output.extra_fields["oumi_tool_schemas_json"] = json.dumps(self.tool_schemas)
+        output.extra_fields[MALFORMED_CALLS_KEY] = self._malformed_calls
+        output.extra_fields[DROPPED_CALLS_KEY] = self._dropped_calls
         return output
 
     async def _handle_generating_state(
@@ -74,4 +83,13 @@ class OumiToolAgentLoop(ToolAgentLoop):
             self._unparsed_turn_text = self.tokenizer.decode(
                 agent_data.response_ids[: self.response_length - prior_length]
             )
+        else:
+            malformed, dropped = call_problems(
+                self.tokenizer.decode(agent_data.response_ids),
+                getattr(self.tool_parser, "tool_call_start_token", None),
+                len(agent_data.tool_calls),
+                self.max_parallel_calls,
+            )
+            self._malformed_calls += malformed
+            self._dropped_calls += dropped
         return state
