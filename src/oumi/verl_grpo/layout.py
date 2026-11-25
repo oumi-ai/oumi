@@ -16,11 +16,12 @@
 
 A dual-mode model such as Qwen3.5 trained with ``model.text_only`` saves only its
 language model. verl 0.9.1 and vLLM build such a model from its multimodal config,
-so a text-only parent is filled out from its base before training, and an export
-of a ``text_only`` run is cut back to the same text-only layout.
+so a text-only parent is filled out from its base into a new checkpoint before
+training, and an export of a ``text_only`` run is cut back to the text-only layout.
 """
 
 import json
+import os
 import shutil
 from pathlib import Path
 from typing import Final
@@ -34,6 +35,8 @@ from oumi.utils.logging import logger
 
 INDEX_FILENAME: Final = "model.safetensors.index.json"
 _FILL_FILENAME: Final = "model-base-layout.safetensors"
+_SINGLE_FILENAME: Final = "model.safetensors"
+_PARENT_FILENAME: Final = "model-parent.safetensors"
 # Where a multimodal HF model keeps its language model.
 _LANGUAGE_MODEL_PREFIXES: Final = ("model.language_model.", "lm_head.")
 
@@ -50,19 +53,40 @@ def weight_map(model_dir: Path) -> dict[str, str]:
     return result
 
 
-def fill_from_base(model_dir: Path, base_dir: Path) -> bool:
-    """Gives a model the base tensors it lacks and, if its layout differs, the base's.
+def prepare_for_verl(parent_dir: Path, base_dir: Path, output_dir: Path) -> Path:
+    """Returns a checkpoint of the parent that verl can train from.
 
-    A model whose architectures differ from the base's, such as a text-only save of a
-    multimodal base, also gets the base's config and the tokenizer and processor
-    files it lacks.
+    A parent with every base tensor and the base's architectures is returned as is.
+    Otherwise `output_dir` gets the parent's files, the base tensors it lacks in a
+    shard of their own, and, when its architectures differ, such as a text-only save
+    of a multimodal base, the base's config and the tokenizer and processor files it
+    lacks. Weight files are hard-linked where possible; `parent_dir` is not changed.
 
     Returns:
-        Whether the model changed.
+        `parent_dir` or `output_dir`.
     """
     base_map = weight_map(base_dir)
-    model_map = weight_map(model_dir)
-    missing = [name for name in base_map if name not in model_map]
+    parent_map = weight_map(parent_dir)
+    missing = [name for name in base_map if name not in parent_map]
+    config = json.loads((parent_dir / "config.json").read_text())
+    base_config = json.loads((base_dir / "config.json").read_text())
+    relayout = config.get("architectures") != base_config.get("architectures")
+    if not missing and not relayout:
+        return parent_dir
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    # Loaders read a lone model.safetensors and skip the index beside it.
+    renames = {_SINGLE_FILENAME: _PARENT_FILENAME}
+    for path in parent_dir.iterdir():
+        if not path.is_file() or path.name == INDEX_FILENAME:
+            continue
+        target = output_dir / renames.get(path.name, path.name)
+        # Only weights are linked: the base's config may overwrite the rest.
+        if path.suffix == ".safetensors":
+            _link_or_copy(path, target)
+        else:
+            shutil.copy(path, target)
+    output_map = {n: renames.get(s, s) for n, s in parent_map.items()}
     if missing:
         filled = {}
         for shard in sorted({base_map[name] for name in missing}):
@@ -70,24 +94,19 @@ def fill_from_base(model_dir: Path, base_dir: Path) -> bool:
                 filled.update(
                     {n: handle.get_tensor(n) for n in missing if base_map[n] == shard}
                 )
-        save_file(filled, str(model_dir / _FILL_FILENAME), metadata={"format": "pt"})
-        model_map.update(dict.fromkeys(filled, _FILL_FILENAME))
-        _write_index(model_dir, model_map)
-    config = json.loads((model_dir / "config.json").read_text())
-    base_config = json.loads((base_dir / "config.json").read_text())
-    relayout = config.get("architectures") != base_config.get("architectures")
+        save_file(filled, str(output_dir / _FILL_FILENAME), metadata={"format": "pt"})
+        output_map.update(dict.fromkeys(filled, _FILL_FILENAME))
+    _write_index(output_dir, output_map)
     if relayout:
         for path in base_dir.glob("*"):
             if path.suffix in (".json", ".jinja") and not path.name.startswith("model"):
-                if path.name == "config.json" or not (model_dir / path.name).exists():
-                    shutil.copy(path, model_dir / path.name)
-    if not missing and not relayout:
-        return False
+                if path.name == "config.json" or not (output_dir / path.name).exists():
+                    shutil.copy(path, output_dir / path.name)
     logger.info(
         f"Filled {len(missing)} tensors{' and the layout' if relayout else ''} "
-        f"from '{base_dir}'."
+        f"from '{base_dir}' into '{output_dir}'."
     )
-    return True
+    return output_dir
 
 
 def to_text_only(model_dir: Path) -> bool:
@@ -125,6 +144,13 @@ def to_text_only(model_dir: Path) -> bool:
         f"'{model_dir}'."
     )
     return True
+
+
+def _link_or_copy(source: Path, target: Path) -> None:
+    try:
+        os.link(source, target)
+    except OSError:
+        shutil.copy2(source, target)
 
 
 def _write_index(model_dir: Path, model_map: dict[str, str]) -> None:

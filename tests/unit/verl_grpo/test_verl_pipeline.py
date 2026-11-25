@@ -90,7 +90,7 @@ def test_postprocess_exports_the_latest_checkpoint(tmp_path):
     )
 
 
-def test_preprocess_trains_from_an_init_model_filled_from_the_base(tmp_path):
+def test_preprocess_trains_from_the_init_model_prepared_for_verl(tmp_path):
     base, init_model = tmp_path / "base", tmp_path / "parent"
     base.mkdir()
     init_model.mkdir()
@@ -101,10 +101,12 @@ def test_preprocess_trains_from_an_init_model_filled_from_the_base(tmp_path):
 
     with (
         patch("oumi.verl_grpo.pipeline.build_tokenizer", return_value=None),
-        patch("oumi.verl_grpo.pipeline.fill_from_base") as fill,
+        patch(
+            "oumi.verl_grpo.pipeline.prepare_for_verl", return_value=tmp_path / "ready"
+        ) as prepare,
     ):
         main(["preprocess", "-c", str(config_path), "--init-model", str(init_model)])
 
-    fill.assert_called_once_with(init_model, base)
+    prepare.assert_called_once_with(init_model, base, tmp_path / "out" / "init_model")
     verl_config = OmegaConf.load(tmp_path / "out" / "verl_config.yaml")
-    assert verl_config.actor_rollout_ref.model.path == str(init_model)
+    assert verl_config.actor_rollout_ref.model.path == str(tmp_path / "ready")

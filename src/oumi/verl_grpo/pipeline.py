@@ -34,7 +34,7 @@ from oumi.core.configs import DatasetSplit, TrainingConfig
 from oumi.verl_grpo.config import merge_verl_config
 from oumi.verl_grpo.data import write_verl_parquet
 from oumi.verl_grpo.export import export_verl_checkpoint, latest_checkpoint_actor_dir
-from oumi.verl_grpo.layout import INDEX_FILENAME, fill_from_base
+from oumi.verl_grpo.layout import INDEX_FILENAME, prepare_for_verl
 
 
 def preprocess(config: TrainingConfig, *, init_model: Path | None = None) -> Path:
@@ -43,16 +43,22 @@ def preprocess(config: TrainingConfig, *, init_model: Path | None = None) -> Pat
     Args:
         config: The run's training config.
         init_model: A full fine-tuned model to train from in place of
-            `model.model_name`. A text-only one is first filled out from that base.
+            `model.model_name`. One lacking that base's tensors or layout trains from
+            a filled-out copy under `<training.output_dir>/init_model`.
 
     Returns:
         The verl config's path, `<training.output_dir>/verl_config.yaml`.
     """
+    output_dir = Path(config.training.output_dir).resolve()
     model_path = config.model.model_name
     if init_model is not None:
-        fill_from_base(init_model, _local_model_dir(config))
-        model_path = str(init_model.resolve())
-    output_dir = Path(config.training.output_dir).resolve()
+        model_path = str(
+            prepare_for_verl(
+                init_model.resolve(),
+                _local_model_dir(config),
+                output_dir / "init_model",
+            )
+        )
     tokenizer = build_tokenizer(config.model)
     parquet = {}
     for split in (DatasetSplit.TRAIN, DatasetSplit.VALIDATION):
