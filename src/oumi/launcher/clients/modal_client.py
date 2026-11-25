@@ -35,6 +35,7 @@ import io
 import re
 import shlex
 from collections.abc import Iterator
+from dataclasses import replace
 from typing import Any, cast
 
 from oumi.core.configs import JobConfig
@@ -133,6 +134,12 @@ def _strip_sudo(script: str) -> str:
     return _SUDO_RE.sub("", script)
 
 
+def _build_script(job: JobConfig) -> str:
+    """Builds the shell script that runs the job's setup and run commands."""
+    cleaned_setup = _strip_sudo(job.setup) if job.setup else ""
+    return f"set -e\n{cleaned_setup}\n{job.run}" if cleaned_setup else job.run
+
+
 def _build_secret(modal_lib: Any, envs: dict[str, str]) -> Any | None:
     """Bundles the JobConfig env dict into a single ``modal.Secret``."""
     if not envs:
@@ -156,6 +163,21 @@ _HF_CACHE_VOLUME_NAME = "oumi-hf-cache"
 #: the default ``HF_HOME``/``HUGGINGFACE_HUB_CACHE`` location for root,
 #: so no setup-script changes are needed to take advantage of the cache.
 _HF_CACHE_MOUNT_PATH = "/root/.cache/huggingface"
+
+#: Path inside an idle sandbox where :meth:`ModalClient.start_job` writes the
+#: job's script.
+_JOB_SCRIPT_PATH = "/tmp/oumi_job.sh"
+
+#: The run commands of an idle sandbox: wait until
+#: :meth:`ModalClient.start_job` has written a job script, then run it in place
+#: of this script, so the sandbox's exit code and logs become the job's.
+_IDLE_RUN = (
+    f"while [ ! -f {_JOB_SCRIPT_PATH} ]; do sleep 1; done\n"
+    f'exec /bin/bash -lc "$(cat {_JOB_SCRIPT_PATH})"'
+)
+
+#: Seconds allowed for writing the job script into a sandbox.
+_START_JOB_TIMEOUT_S = 60
 
 
 def _sandbox_state(sandbox: Any) -> JobState:
@@ -214,10 +236,7 @@ class ModalClient:
 
         # ``setup`` runs inside the sandbox (not at image-build time) so
         # secrets injected via ``modal.Secret`` are visible.
-        cleaned_setup = _strip_sudo(job.setup) if job.setup else ""
-        full_script = (
-            f"set -e\n{cleaned_setup}\n{job.run}" if cleaned_setup else job.run
-        )
+        full_script = _build_script(job)
 
         # ``App.lookup`` returns a persistent app reference; sandboxes
         # don't require an active ``with app.run()`` context.
@@ -274,6 +293,49 @@ class ModalClient:
             # That table belongs in the caller (e.g. an enterprise
             # billing layer) rather than in the OSS launcher.
         )
+
+    def launch_idle(
+        self, job: JobConfig, cluster_name: str | None = None, **kwargs: Any
+    ) -> JobStatus:
+        """Creates a sandbox like :meth:`launch` that waits for :meth:`start_job`.
+
+        The sandbox gets the job's image, GPU, envs and setup commands, but in
+        place of the job's run commands it waits for a job to be started. Its
+        status, logs and cancellation are those of a launched job.
+        """
+        return self.launch(replace(job, run=_IDLE_RUN), cluster_name, **kwargs)
+
+    def start_job(self, call_id: str, job: JobConfig) -> JobStatus:
+        """Starts a job in a sandbox created by :meth:`launch_idle`.
+
+        The job's envs, setup and run commands are run in the sandbox as
+        :meth:`launch` would run them in a new sandbox; its resources are those
+        of the sandbox. Only one job can be started in a sandbox, and the
+        sandbox ends when the job ends, with the job's exit code.
+        """
+        sandbox = self.get_call(call_id)
+        if sandbox.poll() is not None:
+            raise RuntimeError(f"Modal sandbox '{call_id}' has ended.")
+        exports = "".join(
+            f"export {key}={shlex.quote(str(value))}\n"
+            for key, value in job.envs.items()
+        )
+        # The script is passed as an argument, never spliced into shell code,
+        # and renamed into place so the sandbox never runs a partial script.
+        process = sandbox.exec(
+            "/bin/bash",
+            "-c",
+            'printf "%s" "$1" > "$0.tmp" && mv "$0.tmp" "$0"',
+            _JOB_SCRIPT_PATH,
+            exports + _build_script(job),
+            timeout=_START_JOB_TIMEOUT_S,
+        )
+        if process.wait() != 0:
+            raise RuntimeError(
+                f"Failed to start a job in Modal sandbox '{call_id}': "
+                f"{process.stderr.read()}"
+            )
+        return self.get_status(call_id)
 
     def sandboxes_for_cluster(self, cluster_name: str) -> list[str]:
         """Returns the sandbox IDs spawned under ``cluster_name`` in this process."""

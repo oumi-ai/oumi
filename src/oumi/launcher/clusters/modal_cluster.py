@@ -98,6 +98,21 @@ class ModalCluster(BaseCluster):
         """Returns the public HTTPS URL for ``port`` on the sandbox ``job_id``."""
         return self._client.tunnel_url(job_id, port)
 
+    def allocate(self, job: JobConfig, **kwargs: Any) -> JobStatus:
+        """Creates a sandbox under this cluster name that waits for a job.
+
+        See :meth:`ModalClient.launch_idle`. ``kwargs`` are the launch options
+        of :meth:`ModalClient.launch`.
+        """
+        return self._client.launch_idle(job, cluster_name=self._name, **kwargs)
+
+    def start_job(self, job_id: str, job: JobConfig) -> JobStatus:
+        """Starts a job in the sandbox ``job_id`` created by :meth:`allocate`.
+
+        See :meth:`ModalClient.start_job`.
+        """
+        return self._client.start_job(job_id, job)
+
     def run_job(self, job: JobConfig) -> JobStatus:
         """Re-running on a Modal cluster is unsupported.
 
