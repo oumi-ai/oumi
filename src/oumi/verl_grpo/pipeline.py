@@ -74,6 +74,12 @@ def preprocess(config: TrainingConfig) -> Path:
         dirs_exist_ok=True,
         ignore=shutil.ignore_patterns("__pycache__"),
     )
+    # Multi-turn runs use oumi's tool loop.
+    rollout = verl_config.actor_rollout_ref.rollout
+    if rollout.multi_turn.enable:
+        rollout.agent.agent_loop_config_path = str(
+            output_dir / "ext" / "oumi_verl_ext" / "agent_loops.yaml"
+        )
 
     path = output_dir / "verl_config.yaml"
     body = OmegaConf.to_container(verl_config, resolve=False)

@@ -1,0 +1,4 @@
+# Agent loops oumi registers with verl, through
+# `actor_rollout_ref.rollout.agent.agent_loop_config_path`.
+- name: oumi_tool_agent
+  _target_: oumi_verl_ext.tool_agent_loop.OumiToolAgentLoop
